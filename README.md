@@ -1,22 +1,23 @@
-# Red Hat Ansible Lightspeed with IBM watsonx Code Assistant.
+# Getting started with Ansible plugins (The setup steps are temporary and will eventually change as we integrate with RDH)
 
 > **Note:** This repository is under active development and is not yet ready for production use.
 
-#### Getting started with Ansible plugins (The setup steps are temporary and will eventually change as we integrate with RHDH)
-
 1. Setup backstage
+
 ```bash
 git clone git@github.com:backstage/backstage.git
 cd backstage
 yarn install
 ```
+
 Note: Tested with node v16.20.2 version
 
-2. Configure Backstage with Github authentication
+2.Configure Backstage with the Github authentication
 
 Refer <https://backstage.io/docs/auth/github/provider>
 
 In `app-config.yaml` file add below lines at the end of `locations` sections:
+
 ```yaml
     - type: file
       target: ../../plugins/scaffolder-backend-module-ansible/templates/all.yaml
@@ -28,6 +29,7 @@ In `app-config.yaml` file add below lines at the end of `locations` sections:
 
 Clone the plugins from the repo in the `backstage/plugins` folder
 Install dependencies
+
 ```bash
 cd ansible
 yarn install
@@ -40,12 +42,14 @@ cd ..
 
 4. Configure Backstage to load plugins manually
 
-Add below line in file `packages/app/package.json` within `dependencies` section
+Add the below line in the file `packages/app/package.json` within the `dependencies` section
+
 ```json
    "@backstage/plugin-ansible": "^0.0.0",
 ```
 
 Add Ansible plugin route in file `packages/app/src/App.tsx` as shown in diff below
+
 ```diff
 % git diff packages/app/src/App.tsx
 diff --git a/packages/app/src/App.tsx b/packages/app/src/App.tsx
@@ -70,6 +74,7 @@ index 3d8bd45e5aab..752e5e2e9190 100644
 ```
 
 Register the plugin in the sidebar navigation by applying below diff in file `packages/app/src/components/Root/Root.tsx`
+
 ```diff
 % git diff  packages/app/src/components/Root/Root.tsx
 diff --git a/packages/app/src/components/Root/Root.tsx b/packages/app/src/components/Root/Root.tsx
@@ -95,6 +100,7 @@ index 6294aa785671..f23085e4e0cb 100644
 ```
 
 Register `ansible-backend` and `scaffolder-backend-module-ansible` plugins by applying below diff in file `packages/backend/package.json`
+
 ```diff
 % git diff packages/backend/package.json
 diff --git a/packages/backend/package.json b/packages/backend/package.json
@@ -119,7 +125,8 @@ index 48d7d7255217..65e7ecbea28f 100644
      "@backstage/plugin-scaffolder-backend-module-rails": "workspace:^"
 ```
 
-Register custom action provided by `scaffolder-backend-module-ansible` in scaffolder backend by appying below diff in file `packages/backend/src/plugins/scaffolder.ts`
+Register custom action provided by `scaffolder-backend-module-ansible` in scaffolder backend by applying below diff in file `packages/backend/src/plugins/scaffolder.ts`
+
 ```diff
 % git diff packages/backend/src/plugins/scaffolder.ts
 diff --git a/packages/backend/src/plugins/scaffolder.ts b/packages/backend/src/plugins/scaffolder.ts
@@ -147,16 +154,19 @@ index a2aa1044066c..ffa238ed1196 100644
 5. Start frontend and backend by running below commands at the root folder of backstage in seperate terminals
 
 Frontend
+
 ```bash
 yarn start
 ```
 
 Backend
+
 ```bash
 yarn start-backend
 ```
 
 The Backstage plugin can be reached is running at the endpoint
+
 ```
 http://localhost:3000/ansible
 ```
