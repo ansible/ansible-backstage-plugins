@@ -156,7 +156,7 @@ Backend
 yarn start-backend
 ```
 
-The Backastage plugin can be reached is running at endpoint
+The Backstage plugin can be reached is running at the endpoint
 ```
 http://localhost:3000/ansible
 ```
