@@ -143,3 +143,20 @@ index a2aa1044066c..ffa238ed1196 100644
 
    return await createRouter({
 ```
+
+5. Start frontend and backend by running below commands at the root folder of backstage in seperate terminals
+
+Frontend
+```bash
+yarn start
+```
+
+Backend
+```bash
+yarn start-backend
+```
+
+The Backastage plugin can be reached is running at endpoint
+```
+http://localhost:3000/ansible
+```
