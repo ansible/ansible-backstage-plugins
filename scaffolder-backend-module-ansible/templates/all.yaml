@@ -1,0 +1,8 @@
+apiVersion: backstage.io/v1alpha1
+kind: Location
+metadata:
+  name: ansible-content-templates
+  description: A collection of all Ansible templates
+spec:
+  targets:
+    - ./collections.yaml
