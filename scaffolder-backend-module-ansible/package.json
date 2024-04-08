@@ -1,5 +1,5 @@
 {
-  "name": "@backstage/plugin-scaffolder-backend-module-ansible",
+  "name": "@janus-idp/backstage-plugin-scaffolder-backend-module-ansible",
   "description": "The ansible backend module for the scaffolder plugin.",
   "version": "0.0.0",
   "main": "src/index.ts",
@@ -24,18 +24,18 @@
     "export-dynamic": "janus-cli package export-dynamic-plugin"
   },
   "dependencies": {
-    "@backstage/backend-common": "workspace:^",
-    "@backstage/backend-plugin-api": "workspace:^",
-    "@backstage/plugin-catalog-import": "workspace:^",
-    "@backstage/plugin-catalog-react": "workspace:^",
-    "@backstage/plugin-scaffolder": "workspace:^",
-    "@backstage/plugin-scaffolder-backend": "workspace:^",
-    "@backstage/plugin-scaffolder-node": "workspace:^",
-    "@backstage/types": "workspace:^",
+    "@backstage/backend-common": "^0.21.6",
+    "@backstage/backend-plugin-api": "^0.6.16",
+    "@backstage/plugin-catalog-import": "^0.10.9",
+    "@backstage/plugin-catalog-react": "^1.11.2",
+    "@backstage/plugin-scaffolder": "^1.19.2",
+    "@backstage/plugin-scaffolder-backend": "^1.22.3",
+    "@backstage/plugin-scaffolder-node": "^0.4.2",
+    "@backstage/types": "^1.1.1",
     "winston": "^3.13.0"
   },
   "devDependencies": {
-    "@backstage/backend-test-utils": "workspace:^",
+    "@backstage/backend-test-utils": "^0.3.6",
     "@backstage/cli": "^0.26.2",
     "@janus-idp/cli": "^1.4.7"
   },

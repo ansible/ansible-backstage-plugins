@@ -1,2 +1,0 @@
-(self.webpackChunkjanus_idp_backstage_plugin_ansible=self.webpackChunkjanus_idp_backstage_plugin_ansible||[]).push([[5253],{5892:a=>{a.exports=function(a){return{name:"Clojure REPL",contains:[{className:"meta",begin:/^([\w.-]+|\s*#_)?=>/,starts:{end:/$/,subLanguage:"clojure"}}]}}}}]);
-//# sourceMappingURL=react-syntax-highlighter_languages_highlight_clojureRepl.42031702.chunk.js.map

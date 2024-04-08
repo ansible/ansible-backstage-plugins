@@ -1894,7 +1894,7 @@
     winston "^3.2.1"
     winston-transport "^4.5.0"
 
-"@backstage/backend-common@^0.21.6", "@backstage/backend-common@workspace:^":
+"@backstage/backend-common@^0.21.6":
   version "0.21.6"
   resolved "https://registry.yarnpkg.com/@backstage/backend-common/-/backend-common-0.21.6.tgz#e33c744d130839c2e4c596ffb881995dd0fdc489"
   integrity sha512-JRLBBz3S9h7yCqOs06/rV4qR/lwOmHvIVRP5fEqhhHXQA8jw9kqetIo7SxVDIQwopCjFTLUydpXtPpDcFYdLOA==
@@ -1956,7 +1956,7 @@
     yauzl "^3.0.0"
     yn "^4.0.0"
 
-"@backstage/backend-defaults@workspace:^":
+"@backstage/backend-defaults@^0.2.16":
   version "0.2.16"
   resolved "https://registry.yarnpkg.com/@backstage/backend-defaults/-/backend-defaults-0.2.16.tgz#753f2ee21ee0cbc8040e511c5c66a6587e85e928"
   integrity sha512-q+EYCvWw8+6r5CxTW+8Ss3LBS8Z6k2MOTs9c558f6vXgyde1IajA/kYYmL9feduiqOg3oBpAGXKY1DU1wOl0ew==
@@ -1969,7 +1969,7 @@
   resolved "https://registry.yarnpkg.com/@backstage/backend-dev-utils/-/backend-dev-utils-0.1.4.tgz#65d204939c49b5df6a2148e8ad4dc718ccd1df07"
   integrity sha512-5YgAPz4CRtnqdaUlYCHwGmXvpkGQ1jaUMoDtiQ81WDxQrf+0iYZCwS4ftVyQmB0Ga6BaGOUf6GG/OuFA56Y5mA==
 
-"@backstage/backend-plugin-api@^0.6.16", "@backstage/backend-plugin-api@workspace:^":
+"@backstage/backend-plugin-api@^0.6.16":
   version "0.6.16"
   resolved "https://registry.yarnpkg.com/@backstage/backend-plugin-api/-/backend-plugin-api-0.6.16.tgz#4597ead4bea7aa70bca1633d9f5fefedb818832a"
   integrity sha512-CUYH9MOkOKtFByA33aw5IeeaCswd9W6EfWFTrGWDbJ1LCA5L0pyUaIySp/q9ziwxkRkBMDU3nGlnz7sjN7L4sg==
@@ -2041,7 +2041,7 @@
     semver "^7.5.3"
     zod "^3.22.4"
 
-"@backstage/cli@workspace:^":
+"@backstage/cli@^0.26.2":
   version "0.26.2"
   resolved "https://registry.yarnpkg.com/@backstage/cli/-/cli-0.26.2.tgz#2f7a2c98f3eabaec7afa97bc6d415b7984489111"
   integrity sha512-deggMWGKZX7Sm1ZG5ykTBSaVmKyCAFbcZp4gNj5AP29JsPkwBaEpNIG38CXNXW5qqhABjaeVKMk1k4lo4y/8Yw==
@@ -2179,7 +2179,7 @@
     typescript-json-schema "^0.63.0"
     yaml "^2.0.0"
 
-"@backstage/config@^1.2.0", "@backstage/config@workspace:^":
+"@backstage/config@^1.2.0":
   version "1.2.0"
   resolved "https://registry.yarnpkg.com/@backstage/config/-/config-1.2.0.tgz#6a4d93197d0586ee3a40f9e4877c5cfd76c128f3"
   integrity sha512-tW8hNzDTClotYmpOrUrutymzZ0Zimx/WeU2+5tLv+ZI8ssRV64KGRe8hi7PuQz2lARVF1DxjwV//Bq2VjR5veA==
@@ -2297,7 +2297,7 @@
     google-auth-library "^9.0.0"
     passport-google-oauth20 "^2.0.0"
 
-"@backstage/plugin-auth-backend-module-guest-provider@workspace:^":
+"@backstage/plugin-auth-backend-module-guest-provider@^0.1.2":
   version "0.1.2"
   resolved "https://registry.yarnpkg.com/@backstage/plugin-auth-backend-module-guest-provider/-/plugin-auth-backend-module-guest-provider-0.1.2.tgz#05ceb2301cadb663800f2b5f8728cbbe05980987"
   integrity sha512-VYMstGvFwq0IKEnlY/KBJJtD6ybq4XNpC6aMdibBRQ8Dwfo2+noR16GkT4ClS1CBZgGuarqTfStY8+m+mJm9GA==
@@ -2367,7 +2367,7 @@
     express "^4.18.2"
     passport "^0.7.0"
 
-"@backstage/plugin-auth-backend@^0.22.3", "@backstage/plugin-auth-backend@workspace:^":
+"@backstage/plugin-auth-backend@^0.22.3":
   version "0.22.3"
   resolved "https://registry.yarnpkg.com/@backstage/plugin-auth-backend/-/plugin-auth-backend-0.22.3.tgz#e7f85731e5987899598bf69fc462e9468288a9e2"
   integrity sha512-MnT5P7X5gI5mpTjifYQMrDuruktrqzDNaCkSlHY8XOmCxXrzXTCSF33x8bI3KY9HkVotUJipzTbFgRcs9RiapQ==

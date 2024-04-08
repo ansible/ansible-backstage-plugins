@@ -1,2 +1,0 @@
-(self.webpackChunkjanus_idp_backstage_plugin_ansible=self.webpackChunkjanus_idp_backstage_plugin_ansible||[]).push([[8705],{26122:a=>{a.exports=function(a){return{name:"Node REPL",contains:[{className:"meta",starts:{end:/ |$/,starts:{end:"$",subLanguage:"javascript"}},variants:[{begin:/^>(?=[ ]|$)/},{begin:/^\.\.\.(?=[ ]|$)/}]}]}}}}]);
-//# sourceMappingURL=react-syntax-highlighter_languages_highlight_nodeRepl.e2f4c2df.chunk.js.map

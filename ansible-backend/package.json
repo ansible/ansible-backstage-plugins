@@ -22,10 +22,10 @@
     "postpack": "backstage-cli package postpack"
   },
   "dependencies": {
-    "@backstage/backend-common": "workspace:^",
-    "@backstage/backend-defaults": "workspace:^",
-    "@backstage/backend-plugin-api": "workspace:^",
-    "@backstage/config": "workspace:^",
+    "@backstage/backend-common": "^0.21.6",
+    "@backstage/backend-defaults": "^0.2.16",
+    "@backstage/backend-plugin-api": "^0.6.16",
+    "@backstage/config": "^1.2.0",
     "@types/express": "*",
     "express": "^4.17.1",
     "express-promise-router": "^4.1.0",
@@ -34,9 +34,9 @@
     "yn": "^4.0.0"
   },
   "devDependencies": {
-    "@backstage/cli": "workspace:^",
-    "@backstage/plugin-auth-backend": "workspace:^",
-    "@backstage/plugin-auth-backend-module-guest-provider": "workspace:^",
+    "@backstage/cli": "^0.26.2",
+    "@backstage/plugin-auth-backend": "^0.22.3",
+    "@backstage/plugin-auth-backend-module-guest-provider": "^0.1.2",
     "@types/supertest": "^2.0.8",
     "msw": "^1.0.0",
     "supertest": "^6.2.4"
