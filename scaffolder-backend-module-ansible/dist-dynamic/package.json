@@ -1,5 +1,5 @@
 {
-  "name": "@backstage/plugin-scaffolder-backend-module-ansible-dynamic",
+  "name": "@janus-idp/backstage-plugin-scaffolder-backend-module-ansible-dynamic",
   "description": "The ansible backend module for the scaffolder plugin.",
   "version": "0.0.0",
   "main": "dist/index.cjs.js",

@@ -1,6 +1,6 @@
 dynamicPlugins:
   backend:
-    backstage.plugin-scaffolder-backend-module-ansible:
+    janus-idp.backstage-plugin-scaffolder-backend-module-ansible:
       mountPoints:
         - importName: createAnsibleContentAction
           mountPoint: entity.page.overview/cards

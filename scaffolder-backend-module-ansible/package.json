@@ -1,5 +1,5 @@
 {
-  "name": "@backstage/plugin-scaffolder-backend-module-ansible",
+  "name": "@janus-idp/backstage-plugin-scaffolder-backend-module-ansible",
   "description": "The ansible backend module for the scaffolder plugin.",
   "version": "0.0.0",
   "main": "src/index.ts",

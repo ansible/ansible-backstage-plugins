@@ -337,3 +337,95 @@ it by default does not pack the extra actions. Do run yarn-install from  root fo
 ```bash
 LOG_LEVEL=debug yarn start-backend
 ```
+
+## Installing Ansible plugins with RHDH instance running on Openshift using helm chart
+
+### Pre-requisite
+
+- Openshift cluster installed on a supported provider Refer docs here <https://docs.openshift.com/container-platform/4.15/installing/installing_aws/installing-aws-account.html>
+- RHDH instance installed on openshift cluster using helm charts. Refer docs here <https://access.redhat.com/documentation/en-us/red_hat_developer_hub/1.0/html/getting_started_with_red_hat_developer_hub/proc-install-rhdh-helm_rhdh-getting-started>
+
+### Create plugin tar file to upload in the plugin registry
+
+- Setting up environment
+
+```bash
+export DYNAMIC_PLUGIN_ROOT_DIR=<clone-path-changem>/ansible-backstage-plugins/.tmp/dynamic-plugin-root
+mkdir -p $DYNAMIC_PLUGIN_ROOT_DIR
+
+export KUBECONFIG=<path-to-oc-config-file-changeme>/kubeconfig
+```
+
+- Create frontend plugin tar
+
+```bash
+cd ansible-backstage-plugins/ansible
+yarn install
+yarn export-dynamic
+INTEGRITY_HASH=$(npm pack --pack-destination $DYNAMIC_PLUGIN_ROOT_DIR --json | jq -r '.[0].integrity')
+ls -l $DYNAMIC_PLUGIN_ROOT_DIR
+echo "Integrity Hash: $INTEGRITY_HASH"
+```
+
+- Create scaffolder plugin tar
+```bash
+cd ansible-backstage-plugins/scaffolder-backend-module-ansible
+yarn install
+yarn export-dynamic
+INTEGRITY_HASH=$(npm pack --pack-destination $DYNAMIC_PLUGIN_ROOT_DIR --json | jq -r '.[0].integrity')
+ls -l $DYNAMIC_PLUGIN_ROOT_DIR
+echo "Integrity Hash: $INTEGRITY_HASH"
+```
+
+
+#### Note: Integrity check is currently not working, hence to disable it set an environment for plugin-registry to disable integrity check
+
+```bash
+kubectl set env deployment/rhdh-backstage -c install-dynamic-plugins -e SKIP_INTEGRITY_CHECK="true"
+```
+
+- Upload to the tar to plugin registry
+```bash
+oc project <YOUR_PROJECT_OR_NAMESPACE_CHANGEME>
+oc new-build httpd --name=plugin-registry --binary
+oc start-build plugin-registry --from-dir=$DYNAMIC_PLUGIN_ROOT_DIR --wait
+oc new-app --image-stream=plugin-registry
+```
+
+Ensure the tar files are uploaded to plugin registry by connecting to the plugin-registry
+pod terminal. Sample output:
+```bash
+sh-4.4$ ls
+janus-idp-backstage-plugin-ansible-0.0.0.tgz  janus-idp-backstage-plugin-scaffolder-backend-module-ansible-0.0.0.tgz
+```
+
+In the helm chart releases for the project, click on `Actions->Upgrade` and in the YAML view
+append the below config under `dynamic.plugins` section
+```yaml
+      - disabled: false
+        package: >-
+          http://plugin-registry:8080/janus-idp-backstage-plugin-ansible-0.0.0.tgz
+        pluginConfig:
+          dynamicPlugins:
+            frontend:
+              janus-idp.backstage-plugin-ansible:
+                appIcons:
+                  - importName: AnsibleLogo
+                    name: AnsibleLogo
+                dynamicRoutes:
+                  - importName: AnsiblePage
+                    menuItem:
+                      icon: AnsibleLogo
+                      text: Ansible
+                    path: /ansible
+      - disabled: false
+        package: >-
+          http://plugin-registry:8080/janus-idp-backstage-plugin-scaffolder-backend-module-ansible-0.0.0.tgz
+        pluginConfig:
+          dynamicPlugins:
+            backend:
+              janus-idp.backstage-plugin-scaffolder-backend-module-ansible:
+                mountPoints:
+                  - importName: createAnsibleContentAction
+                    mountPoint: entity.page.overview/cards
+```
