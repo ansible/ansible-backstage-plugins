@@ -1,2 +1,0 @@
-(self.webpackChunkjanus_idp_backstage_plugin_ansible=self.webpackChunkjanus_idp_backstage_plugin_ansible||[]).push([[464],{77918:s=>{s.exports=function(s){return{name:"Shell Session",aliases:["console"],contains:[{className:"meta",begin:/^\s{0,3}[/~\w\d[\]()@-]*[>%$#]/,starts:{end:/[^\\](?=\s*$)/,subLanguage:"bash"}}]}}}}]);
-//# sourceMappingURL=react-syntax-highlighter_languages_highlight_shell.eeb5f61d.chunk.js.map

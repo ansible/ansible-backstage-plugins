@@ -1,2 +1,0 @@
-(self.webpackChunkjanus_idp_backstage_plugin_ansible=self.webpackChunkjanus_idp_backstage_plugin_ansible||[]).push([[1895],{90736:a=>{a.exports=function(a){return{aliases:["pycon"],contains:[{className:"meta",starts:{end:/ |$/,starts:{end:"$",subLanguage:"python"}},variants:[{begin:/^>>>(?=[ ]|$)/},{begin:/^\.\.\.(?=[ ]|$)/}]}]}}}}]);
-//# sourceMappingURL=react-syntax-highlighter_languages_highlight_pythonRepl.ee77a17c.chunk.js.map

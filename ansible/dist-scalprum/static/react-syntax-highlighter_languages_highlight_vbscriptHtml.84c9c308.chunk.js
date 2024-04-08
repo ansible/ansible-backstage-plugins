@@ -1,2 +1,0 @@
-(self.webpackChunkjanus_idp_backstage_plugin_ansible=self.webpackChunkjanus_idp_backstage_plugin_ansible||[]).push([[6152],{88103:n=>{n.exports=function(n){return{name:"VBScript in HTML",subLanguage:"xml",contains:[{begin:"<%",end:"%>",subLanguage:"vbscript"}]}}}}]);
-//# sourceMappingURL=react-syntax-highlighter_languages_highlight_vbscriptHtml.84c9c308.chunk.js.map
