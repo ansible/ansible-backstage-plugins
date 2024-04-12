@@ -13,13 +13,13 @@ spec:
   system: ansible
   type: service
   parameters:
-    - title: Provide information about the new Ansible Project component
+    - title: Provide information about the new component
       required:
         - repoUrl
         - system
         - owner
-        - projectGroup
-        - projectName
+        - collectionGroup
+        - collectionName
       properties:
         repoUrl:
           title: Repository Location
@@ -31,14 +31,14 @@ spec:
         description:
           title: Description
           type: string
-          description: Describe this Project and its purpose to help other users know what to use it for
-        projectGroup:
-          title: Project group name
-          description: The "ProjectOrg" part of "ProjectOrg.ProjectName"
+          description: Describe this Collection and its purpose to help other users know what to use it for
+        collectionGroup:
+          title: Collection group name
+          description: The "collectionOrg" part of "collectionOrg.collectionName"
           type: string
-        projectName:
-          title: Project name
-          description: The "ProjectName" part of "ProjectOrg.ProjectName"
+        collectionName:
+          title: Collection name
+          description: The "collectionName" part of "collectionOrg.collectionName"
           type: string
         owner:
           title: Owner
@@ -64,24 +64,24 @@ spec:
       input:
         repoUrl: "${{ parameters.repoUrl }}"
         description: "${{ parameters.description }}"
-        projectGroup: "${{ parameters.projectGroup }}"
-        projectName: "${{ parameters.projectName }}"
-        applicationType: Collection
+        collectionGroup: "${{ parameters.collectionGroup }}"
+        collectionName: "${{ parameters.collectionName }}"
+        applicationType: PlaybookProject
         sourceControl: github.com
 
     - id: catalogTemplate
       name: Generating the Catalog Info Component
       action: fetch:template
       input:
-        url: ./catalog-info-playbook/
+        url: ./catalog-info/
         values:
           repoUrl: "${{ parameters.repoUrl }}"
           owner: ${{ parameters.owner }}
           system: ${{ parameters.system }}
-          applicationType: Collection
+          applicationType: PlaybookProject
           description: ${{ parameters.description }}
-          projectGroup: ${{ parameters.projectGroup }}
-          projectName: ${{ parameters.projectName }}
+          collectionGroup: ${{ parameters.collectionGroup }}
+          collectionName: ${{ parameters.collectionName }}
           sourceControl: github.com
 
     - id: publish

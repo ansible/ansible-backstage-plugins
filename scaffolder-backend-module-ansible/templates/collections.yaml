@@ -72,7 +72,7 @@ spec:
       name: Generating the Catalog Info Component
       action: fetch:template
       input:
-        url: ./catalog-info-collection/
+        url: ./catalog-info/
         values:
           repoUrl: "${{ parameters.repoUrl }}"
           owner: ${{ parameters.owner }}

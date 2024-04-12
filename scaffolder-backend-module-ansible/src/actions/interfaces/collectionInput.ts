@@ -17,6 +17,4 @@ export interface ICollectionInput {
   collectionGroup: string;
   collectionName: string;
   description: string;
-  projectGroup: string;
-  projectName: string;
 }

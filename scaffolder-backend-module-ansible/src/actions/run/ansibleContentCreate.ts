@@ -57,27 +57,16 @@ async function downloadFromCreatorService(
 
 export async function ansibleCreatorRun(
   workspacePath: string,
+  applicationType: string,
   logger: Logger,
   _repoUrl: string,
   _description: string,
   collectionGroup: string,
   collectionName: string,
-  projectGroup: string,
-  projectName: string,
 ) {
 
-  let _isAnsibleProject = false;
-  let creatorServiceUrl = "http://localhost:3004/init?"
-  let collection_name = ""
-  if (projectGroup && projectName)
-    {
-      _isAnsibleProject = true;
-      creatorServiceUrl = creatorServiceUrl + `project=ansible-project&scm_org=${projectGroup}&scm_project=${projectName}`;
-    }
-  else
-    {
-      creatorServiceUrl = creatorServiceUrl + `collection=${collectionGroup}.${collectionName}`;
-    }
+  let creatorServiceUrl = "http://localhost:5000/init?"
+  creatorServiceUrl += (applicationType === "PlaybookProject") ? `project=ansible-project&scm_org=${collectionGroup}&scm_project=${collectionName}` : `collection=${collectionGroup}.${collectionName}`;
 
   logger.info(`Running ansible collection create for ${collectionGroup}.${collectionName}`);
 
@@ -85,10 +74,7 @@ export async function ansibleCreatorRun(
   ? workspacePath
   : `${os.homedir()}/.ansible/collections/ansible_collections`;
 
-  if (_isAnsibleProject == true)
-    {collection_name = `${projectGroup}-${projectName}.tar`;}
-  else
-    {collection_name = `${collectionGroup}-${collectionName}.tar`;}
+  const collection_name = `${collectionGroup}-${collectionName}.tar`;
 
 
   logger.debug(`[ansible-creator] Invoking ansible-creator service with collection args: ${collection_name}`);
