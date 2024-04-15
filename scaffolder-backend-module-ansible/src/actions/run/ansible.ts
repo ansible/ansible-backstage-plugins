@@ -60,6 +60,15 @@ export function createAnsibleContentAction() {
           },
         },
       },
+      output: {
+        type: "object",
+        required: ["repoUrl", "collectionGroup", "collectionName"],
+        properties: {
+          devSpacesBaseUrl: {
+            type: "string",
+          },
+        },
+      },
     },
     async handler(ctx) {
       const { repoUrl, description, collectionGroup, collectionName } =
@@ -89,6 +98,10 @@ export function createAnsibleContentAction() {
         description,
         collectionGroup,
         collectionName
+      );
+      ctx.output(
+        "devSpacesBaseUrl",
+        "https://workspaces.openshift.com/#https://github.com/$" // this to be a variable
       );
     },
   });
