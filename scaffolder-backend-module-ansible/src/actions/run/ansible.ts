@@ -88,9 +88,9 @@ export function createAnsibleContentAction(config: Config) {
             },
           },
         },
-      });
-      const test = config.getOptionalString("catalog.providers.ansible.port");
-      const ansibleDetails = readAnsibleConfigs(configuration);
+      }); // dummy
+      const test = config.getOptionalString("catalog.providers.ansible.port"); // doesn't work
+      const ansibleDetails = readAnsibleConfigs(configuration); // doesn't work
 
       await ansibleCreatorRun(
         ctx.workspacePath,
@@ -103,7 +103,7 @@ export function createAnsibleContentAction(config: Config) {
       );
       ctx.output(
         "devSpacesBaseUrl",
-        "https://workspaces.openshift.com/#https://github.com/$" // this to be a variable
+        "https://devspaces.apps.ansible-rhdh.testing.ansible.com/#https://github.com/" // this to be a variable from app-config.yaml
       );
     },
   });
