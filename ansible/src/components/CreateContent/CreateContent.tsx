@@ -19,6 +19,7 @@ import { ContentHeader } from '@backstage/core-components';
 import { makeStyles } from '@material-ui/core';
 import {
   CatalogFilterLayout,
+  EntityKindFilter,
   EntityKindPicker,
   EntityListProvider,
   EntitySearchBar,
