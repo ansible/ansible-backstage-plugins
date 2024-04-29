@@ -14,49 +14,9 @@
  * limitations under the License.
  */
 import * as os from 'os';
-
 import { Logger } from 'winston';
 import { executeShellCommand } from '@backstage/plugin-scaffolder-node';
-import fetch from 'node-fetch';
-import fs from 'fs';
-
-async function downloadFromCreatorService(
-  workspacePath: string,
-  logger: Logger,
-  creatorServiceUrl: string,
-  collectionOrgName: string,
-) {
-  const requestOptions = {
-    method: 'GET',
-  };
-
-  try {
-    logger.debug(
-      `[ansible-creator] Running ansible-creator-service args: ${collectionOrgName}`,
-    );
-    const response = await fetch(creatorServiceUrl, requestOptions);
-
-    if (!response.ok) {
-      throw new Error('Failed to fetch data');
-    }
-
-    const fileStream = fs.createWriteStream(
-      workspacePath + '/' + collectionOrgName,
-    );
-    await new Promise((resolve, reject) => {
-      response.body.pipe(fileStream);
-      response.body.on('error', err => {
-        reject(err);
-      });
-      fileStream.on('finish', function () {
-        resolve(true);
-      });
-    });
-    console.log('File downloaded successfully');
-  } catch (error) {
-    console.error('Error:', error);
-  }
-}
+import { BackendServiceAPI } from '../utils/api';
 
 export async function ansibleCreatorRun(
   workspacePath: string,
@@ -67,11 +27,7 @@ export async function ansibleCreatorRun(
   collectionName: string,
   creatorServiceUrl: string,
 ) {
-  creatorServiceUrl +=
-    applicationType === 'playbook-project'
-      ? `project=ansible-project&scm_org=${collectionGroup}&scm_project=${collectionName}`
-      : `collection=${collectionGroup}.${collectionName}`;
-
+  const fileDownloader = new BackendServiceAPI();
   logger.info(
     `Running ansible collection create for ${collectionGroup}.${collectionName}`,
   );
@@ -80,17 +36,28 @@ export async function ansibleCreatorRun(
     ? workspacePath
     : `${os.homedir()}/.ansible/collections/ansible_collections`;
 
-  const collection_name = `${collectionGroup}-${collectionName}.tar`;
+  const collection_name = `${collectionGroup}-${collectionName}.tar.gz`;
 
   logger.debug(
     `[ansible-creator] Invoking ansible-creator service with collection args: ${collection_name}`,
   );
-  await downloadFromCreatorService(
-    scaffoldPath,
-    logger,
-    creatorServiceUrl,
-    collection_name,
-  );
+  if (applicationType === 'playbook-project') {
+    await fileDownloader.downloadPlaybookProject(
+      workspacePath,
+      logger,
+      creatorServiceUrl,
+      collectionGroup,
+      collectionName,
+    );
+  } else if (applicationType === 'collection-project') {
+    await fileDownloader.downloadCollectionProject(
+      workspacePath,
+      logger,
+      creatorServiceUrl,
+      collectionGroup,
+      collectionName,
+    );
+  }
   logger.info(`Out of file download operation`);
 
   // untar the scaffolded collection
