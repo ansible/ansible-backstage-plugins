@@ -100,7 +100,6 @@ export function createAnsibleContentAction(config: Config) {
         description,
         collectionGroup,
         collectionName,
-        config,
       } = ctx.input;
       ctx.logger.info(
         `Creating Ansible content within ${collectionGroup}.${collectionName} collection with description: ${description}`,
