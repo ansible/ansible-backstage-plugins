@@ -2,9 +2,6 @@
 name: Build all packages
 description: Build all packages
 inputs:
-  args:
-    description: Backstage CLI repo build arguments
-    default: '@janus-idp/*'
   node-version:
     description: Node.js version
     required: true
@@ -34,4 +31,6 @@ runs:
 
     - name: Build all packages
       shell: bash
-      run: yarn build --filter=${{ inputs.args }} --concurrency=1
+      run: |
+        cd scaffolder-backend-module-ansible
+        yarn build --concurrency=1

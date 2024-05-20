@@ -32,14 +32,20 @@ runs:
           exit 42
         fi
 
-    - name: Run prettier
+    - name: Run prettier for scaffolder-backend-module-ansible
       shell: bash
-      run: yarn prettier:check
+      run: |
+        cd scaffolder-backend-module-ansible
+        yarn prettier:check
 
-    - name: Run lint
+    - name: Run lint for scaffolder-backend-module-ansible
       shell: bash
-      run: yarn lint --filter=${{ inputs.args }}
+      run: |
+        cd scaffolder-backend-module-ansible
+        yarn lint --filter=${{ inputs.args }}
 
-    - name: Run tests
+    - name: Run tests for scaffolder-backend-module-ansible
       shell: bash
-      run: yarn test --filter=${{ inputs.args }}
+      run: |
+        cd scaffolder-backend-module-ansible
+        yarn test --filter=${{ inputs.args }}
