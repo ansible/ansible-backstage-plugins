@@ -98,7 +98,7 @@ export const AnsibleComponents = () => {
       setAnsibleComponents(allEntities.filter(e => isStarredEntity(e)))
     else if (filters.user?.value === 'all')
       setAnsibleComponents(allEntities);
-  }, [filters.user])
+  }, [filters.user, allEntities, isStarredEntity])
 
   if (loading) {
     return (

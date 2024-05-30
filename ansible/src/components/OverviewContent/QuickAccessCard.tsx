@@ -149,8 +149,8 @@ const QuickAccessAccordion = ({ data, index, expanded, config }: QuickAccessProp
           )}
           <div>
             {data.items && <ul className={classes.link}>
-              {(data.items || []).map((item, index) => (
-                <li key={index} className={classes.t_align_c}>
+              {(data.items || []).map((item, idx) => (
+                <li key={idx} className={classes.t_align_c}>
                   <a
                     href={item.url}
                     target="_blank"
