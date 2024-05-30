@@ -31,10 +31,10 @@ import {
   IQuickAccessLinks,
   allData
 } from './quickAccessData';
-import { useNavigate } from 'react-router';
 import OpenInNew from '@material-ui/icons/OpenInNew';
 import { configApiRef, useApi } from '@backstage/core-plugin-api';
 import { Config } from '@backstage/config';
+import { useNavigate } from 'react-router';
 
 export type QuickAccessProps = {
   config: Config;
