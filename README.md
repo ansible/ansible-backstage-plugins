@@ -130,42 +130,68 @@ index 48d7d7255217..65e7ecbea28f 100644
      "@backstage/plugin-scaffolder-backend-module-rails": "workspace:^"
 ```
 
-Register custom action provided by `scaffolder-backend-module-ansible` in scaffolder backend by applying below diff in file `packages/backend/src/plugins/scaffolder.ts`
+Register custom action provided by `scaffolder-backend-module-ansible` in scaffolder backend by applying the below diff in file `packages/backend-legacy/src/plugins`
 
 ```diff
-% git diff packages/backend/src/plugins/scaffolder.ts
-diff --git a/packages/backend/src/plugins/scaffolder.ts b/packages/backend/src/plugins/scaffolder.ts
-index a2aa1044066c..ffa238ed1196 100644
---- a/packages/backend/src/plugins/scaffolder.ts
-+++ b/packages/backend/src/plugins/scaffolder.ts
-@@ -23,6 +23,7 @@ import { Router } from 'express';
+% git diff packages/backend-legacy/src/plugins/scaffolder.ts
+diff --git a/packages/backend-legacy/src/plugins/scaffolder.ts b/packages/backend-legacy/src/plugins/scaffolder.ts
+index a2aa1044066c..191ab4fcfa4f 100644
+--- a/packages/backend-legacy/src/plugins/scaffolder.ts
++++ b/packages/backend-legacy/src/plugins/scaffolder.ts
+@@ -23,7 +23,7 @@ import { Router } from 'express';
  import type { PluginEnvironment } from '../types';
  import { ScmIntegrations } from '@backstage/integration';
  import { createConfluenceToMarkdownAction } from '@backstage/plugin-scaffolder-backend-module-confluence-to-markdown';
+-
 +import { createAnsibleContentAction } from '@janus-idp/backstage-plugin-scaffolder-backend-module-ansible';
-
  export default async function createPlugin(
    env: PluginEnvironment,
-@@ -47,6 +48,7 @@ export default async function createPlugin(
+ ): Promise<Router> {
+@@ -47,6 +47,7 @@ export default async function createPlugin(
        config: env.config,
        reader: env.reader,
      }),
-+    createAnsibleContentAction(),
++    createAnsibleContentAction(env.config),
    ];
 
    return await createRouter({
 ```
+Register custom action in packages/backend-legacy/src/plugins/backend/src/index.ts by applying the below diff in file `packages/backend/src/index.ts`
 
-### 5. Install ansible-creator tool required for scaffolding Anisble content
+```diff
+
+diff --git a/packages/backend/src/index.ts b/packages/backend/src/index.ts
+index a4acd19cf207..39ec727dbc18 100644
+--- a/packages/backend/src/index.ts
++++ b/packages/backend/src/index.ts
+@@ -15,7 +15,8 @@
+  */
+
+ import { createBackend } from '@backstage/backend-defaults';
+ const backend = createBackend();
+
+ backend.add(import('@backstage/plugin-auth-backend'));
+@@ -47,5 +48,8 @@ backend.add(import('@backstage/plugin-search-backend/alpha'));
+ backend.add(import('@backstage/plugin-techdocs-backend/alpha'));
+ backend.add(import('@backstage/plugin-signals-backend'));
+ backend.add(import('@backstage/plugin-notifications-backend'));
++backend.add(
++  import('@janus-idp/backstage-plugin-scaffolder-backend-module-ansible'),
++);
+
+ backend.start();
+```
+
+### 5. Install ansible-creator tool required for scaffolding Ansible content
 
 ```bash
 pip install ansible-creator
 ```
 
-### 6. Setup Github integration to publish repository
+### 6. Setup Github integration to publish the repository
 
 Under the `integrations` section within backstage `app-config.yaml` file
-add the Github personal access token as shown below
+add your GitHub personal access token as shown below
 
 ````yaml
   github:
