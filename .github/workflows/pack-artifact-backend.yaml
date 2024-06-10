@@ -1,5 +1,5 @@
 ---
-name: Pack artifact
+name: Pack / backend
 concurrency:
   group: ${{ github.head_ref || github.run_id }}
   cancel-in-progress: true
@@ -11,14 +11,14 @@ on:  # yamllint disable-line rule:truthy
 
 jobs:
   test:
-    name: 🧪 / test / Node-${{ matrix.node-version }}
+    name: 📦 / backend / Node-${{ matrix.node-version }}
     runs-on: ubuntu-latest
     defaults:
       run:
-        working-directory: ./scaffolder-backend-module-ansible
+        working-directory: ./ansible
     strategy:
       matrix:
-        node-version: [18, 20]
+        node-version: [18]
     steps:
       - name: Checkout
         uses: actions/checkout@0ad4b8fadaa221de15dcec353f45205ec38ea70b # v4
@@ -29,4 +29,4 @@ jobs:
         uses: ./.github/actions/pack
         with:
           node-version: ${{ matrix.node-version }}
-          plugin: 'scaffolder-backend-module-ansible'
+          plugin: 'ansible'

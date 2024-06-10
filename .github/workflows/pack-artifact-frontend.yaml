@@ -1,0 +1,32 @@
+---
+name: Pack / frontend
+concurrency:
+  group: ${{ github.head_ref || github.run_id }}
+  cancel-in-progress: true
+
+on:  # yamllint disable-line rule:truthy
+  workflow_dispatch:
+  schedule:
+    - cron: '0 0 * * *'
+
+jobs:
+  test:
+    name: 📦 / frontend / Node-${{ matrix.node-version }}
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ./scaffolder-backend-module-ansible
+    strategy:
+      matrix:
+        node-version: [18]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@0ad4b8fadaa221de15dcec353f45205ec38ea70b # v4
+        with:
+          fetch-depth: 0
+
+      - name: Pack task
+        uses: ./.github/actions/pack
+        with:
+          node-version: ${{ matrix.node-version }}
+          plugin: 'scaffolder-backend-module-ansible'

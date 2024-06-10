@@ -17,6 +17,7 @@
 import { createTemplateAction } from '@backstage/plugin-scaffolder-node';
 import { ansibleCreatorRun } from './ansibleContentCreate';
 import {
+  validateAnsibleConfig,
   getServiceUrlFromAnsibleConfig,
   getDevspacesUrlFromAnsibleConfig,
   generateRepoUrl,
@@ -111,6 +112,8 @@ export function createAnsibleContentAction(config: Config) {
       ctx.logger.info(
         `Creating Ansible content within ${collectionGroup}.${collectionName} collection with description: ${description}`,
       );
+
+      validateAnsibleConfig(config);
 
       await ansibleCreatorRun(
         ctx.workspacePath,

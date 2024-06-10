@@ -72,3 +72,18 @@ export const getDevspacesUrlFromAnsibleConfig = (
     repoName,
   );
 };
+
+export const validateAnsibleConfig = (config: Config) => {
+  if (!config.has('ansible.creatorService.baseUrl')) {
+    throw new Error(
+      'Missing required configuration: ansible.creatorService.baseUrl',
+    );
+  }
+
+  if (!config.has('ansible.creatorService.port')) {
+    throw new Error(
+      'Missing required configuration: ansible.creatorService.port',
+    );
+  }
+
+};
