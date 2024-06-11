@@ -46,14 +46,14 @@ export const EntityCreateContentCards = () => {
 
   if (loading) {
     return (
-      <div>
+      <div data-testid="progress">
         <Progress />
       </div>
     );
   }
 
   if (error) {
-    return <div>Error: {error.message}</div>;
+    return <div data-testid="error-message">Error: {error.message}</div>;
   }
 
   return (
@@ -92,10 +92,10 @@ export const EntityCreateContentCards = () => {
 
 export const EntityCreateContent = () => {
   return (
-    <>
+    <div data-testid="create-content">
       <EntityListProvider>
         <EntityCreateContentCards />
       </EntityListProvider>
-    </>
+    </div>
   );
 };

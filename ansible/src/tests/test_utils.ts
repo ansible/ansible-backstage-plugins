@@ -26,15 +26,26 @@ export const configApi = new ConfigReader({
     },
   });
 
+export const mockEntities: Entity[] = [ 
+  {
+    apiVersion: '1',
+    kind: 'Template',
+    metadata: {
+      name: 'playbook-template',
+      tags: ["ansible"]
+    },
+  },
+  {
+    apiVersion: '1',
+    kind: 'Template',
+    metadata: {
+      name: 'collection-template',
+      tags: []
+    },
+  }
+];
+
 export const catalogApi: jest.Mocked<CatalogApi> = {
       getEntitiesByRefs: jest.fn(),
       getEntities: jest.fn().mockImplementation(() => Promise.resolve())
 } as any;
-
-export const mockEntity: Entity = {
-  apiVersion: '1',
-  kind: 'Template',
-  metadata: {
-    name: 'playbook-template',
-  },
-};
