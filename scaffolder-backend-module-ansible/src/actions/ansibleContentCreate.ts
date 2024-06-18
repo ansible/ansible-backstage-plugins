@@ -27,9 +27,10 @@ export async function ansibleCreatorRun(
   collectionName: string,
   creatorServiceUrl: string,
 ) {
+  const pluginLogName = 'scaffolder-backend-module-ansible';
   const fileDownloader = new BackendServiceAPI();
   logger.info(
-    `Running ansible collection create for ${collectionGroup}.${collectionName}`,
+    `[${pluginLogName}] Running plugin operation for ${collectionGroup}.${collectionName}`,
   );
 
   const scaffoldPath = workspacePath
@@ -38,28 +39,40 @@ export async function ansibleCreatorRun(
 
   const tarName = `${collectionGroup}-${applicationType}.tar.gz`;
 
-  logger.debug(`[ansible-creator] Invoking ansible-creator service`);
-  if (applicationType === 'playbook-project') {
-    await fileDownloader.downloadPlaybookProject(
-      workspacePath,
-      logger,
-      creatorServiceUrl,
-      collectionGroup,
-      collectionName,
-      tarName,
+  logger.info(`[${pluginLogName}] Invoking ansible-devtools-server`);
+  try {
+    if (applicationType === 'playbook-project') {
+      await fileDownloader.downloadPlaybookProject(
+        scaffoldPath,
+        logger,
+        creatorServiceUrl,
+        collectionGroup,
+        collectionName,
+        tarName,
+      );
+    } else if (applicationType === 'collection-project') {
+      await fileDownloader.downloadCollectionProject(
+        scaffoldPath,
+        logger,
+        creatorServiceUrl,
+        collectionGroup,
+        collectionName,
+        tarName,
+      );
+    }
+    logger.info(
+      `[${pluginLogName}] ${applicationType} download at ${scaffoldPath}`,
     );
-  } else if (applicationType === 'collection-project') {
-    await fileDownloader.downloadCollectionProject(
-      workspacePath,
-      logger,
-      creatorServiceUrl,
-      collectionGroup,
-      collectionName,
-      tarName,
+  } catch (error) {
+    logger.error(
+      `[${pluginLogName}] Error occurred while downloading the project tar at:`,
+      error,
     );
   }
-  logger.info(`Out of file download operation`);
 
+  logger.info(
+    `[${pluginLogName}] Initiating ${tarName} un-tar at ${scaffoldPath}`,
+  );
   // untar the scaffolded collection
   await executeShellCommand({
     command: 'tar',
@@ -69,7 +82,10 @@ export async function ansibleCreatorRun(
     },
     logStream: logger,
   });
+  logger.info(`[${pluginLogName}] ${tarName} un-tar successful`);
+
   // delete the tarball as it must not be published in Source Control
+  logger.info(`[${pluginLogName}] deleting ${tarName} from ${scaffoldPath}`);
   await executeShellCommand({
     command: 'rm',
     args: [tarName],
@@ -78,5 +94,11 @@ export async function ansibleCreatorRun(
     },
     logStream: logger,
   });
-  logger.info(`[ansible-creator] Completed ansible-creator service invocation`);
+  logger.info(
+    `[${pluginLogName}] ${scaffoldPath} clean for repository creation`,
+  );
+
+  logger.info(
+    `[${pluginLogName}] create operation for ${applicationType} completed`,
+  );
 }

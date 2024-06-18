@@ -109,11 +109,18 @@ export function createAnsibleContentAction(config: Config) {
         collectionGroup,
         collectionName,
       } = ctx.input;
+      const pluginLogName = 'scaffolder-backend-module-ansible'
       ctx.logger.info(
-        `Creating Ansible content within ${collectionGroup}.${collectionName} collection with description: ${description}`,
+        `[${pluginLogName}] Creating Ansible content ${collectionGroup}.${collectionName}`,
       );
 
+      ctx.logger.info(
+        `[${pluginLogName}] Checking plugin configuration`,
+      );
       validateAnsibleConfig(config);
+      ctx.logger.debug(
+        `[${pluginLogName}] Plugin configuration is correct`,
+      );
 
       await ansibleCreatorRun(
         ctx.workspacePath,
@@ -124,11 +131,18 @@ export function createAnsibleContentAction(config: Config) {
         collectionName,
         getServiceUrlFromAnsibleConfig(config),
       );
+
+      ctx.logger.info(
+        `[${pluginLogName}] ansibleCreatorRun completed successfully`,
+      );
       ctx.output(
         'devSpacesBaseUrl',
         getDevspacesUrlFromAnsibleConfig(config, repoOwner, repoName),
       );
       ctx.output('repoUrl', generateRepoUrl(repoOwner, repoName));
+      ctx.logger.debug(
+        `[${pluginLogName}] context output processed successfully`,
+      );
     },
   });
 }

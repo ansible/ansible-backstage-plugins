@@ -19,6 +19,8 @@ import fetch, { Response } from 'node-fetch';
 import { Logger } from 'winston';
 
 export class BackendServiceAPI {
+  pluginLogName = 'scaffolder-backend-module-ansible';
+
   private async sendPostRequest(url: string, data: any): Promise<Response> {
     const requestOptions = {
       method: 'POST',
@@ -31,16 +33,16 @@ export class BackendServiceAPI {
     try {
       const response = await fetch(url, requestOptions);
       if (!response.ok) {
-        throw new Error('Failed to fetch data');
+        throw new Error(`Failed to fetch data`);
       }
       return response;
     } catch (error) {
-      if (error instanceof Error){
+      if (error instanceof Error) {
         throw new Error(
-          `Failed to send POST request to fetch scaffoled data: ${error.message}`,
+          `Failed to send POST request: ${error.message}`,
         );
       } else {
-        throw new Error('Failed to send POST request due to an unknown error');
+        throw new Error(`Failed to send POST request`);
       }
     }
   }
@@ -62,9 +64,9 @@ export class BackendServiceAPI {
           resolve(true);
         });
       });
-      logger.info('File downloaded successfully');
+      logger.debug(`[${this.pluginLogName}] Project tar file downloaded successfully`);
     } catch (error) {
-      if (error instanceof Error){
+      if (error instanceof Error) {
         throw new Error(`Failed to download file: ${error.message}`);
       }
     }
@@ -80,7 +82,7 @@ export class BackendServiceAPI {
   ) {
     try {
       logger.debug(
-        `[ansible-creator] Request for ansible-playbook-project: ${collectionOrgName}`,
+        `${this.pluginLogName}] Request for ansible playbook-project: ${collectionOrgName}`,
       );
       const playbookUrl = 'v1/creator/playbook';
       const postData = {
@@ -95,7 +97,7 @@ export class BackendServiceAPI {
       );
       await this.downloadFile(response, logger, workspacePath, tarName);
     } catch (error) {
-      console.error('Error:', error);
+      throw new Error(`:downloadPlaybookProject:`);
     }
   }
 
@@ -109,7 +111,7 @@ export class BackendServiceAPI {
   ) {
     try {
       logger.debug(
-        `[ansible-creator] Request for ansible-collection-project: ${collectionOrgName}`,
+        `${this.pluginLogName}] Request for ansible collection-project: ${collectionOrgName}`,
       );
       const collectionUrl = 'v1/creator/collection';
       const postData = {
@@ -123,7 +125,7 @@ export class BackendServiceAPI {
       );
       await this.downloadFile(response, logger, workspacePath, tarName);
     } catch (error) {
-      console.error('Error:', error);
+      throw new Error(`:downloadCollectionProject`);
     }
   }
 }
