@@ -1,3 +1,2 @@
 plugins/ansible:
-plugins/ansible-backend:
 plugins/scaffolder-backend-module-ansible:
