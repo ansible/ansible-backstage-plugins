@@ -25,6 +25,7 @@ runs:
       shell: bash
       working-directory: ${{ inputs.plugin }}
       run: |
+        pwd
         yarn install
         npm install -g prettier
         git diff
