@@ -1,6 +1,6 @@
 dynamicPlugins:
   frontend:
-    janus-idp.backstage-plugin-ansible:
+    ansible.plugin-backstage-rhaap:
       appIcons:
         - name: AnsibleLogo
           importName: AnsibleLogo

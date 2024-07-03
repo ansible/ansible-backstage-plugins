@@ -1,5 +1,5 @@
 {
-  "name": "@janus-idp/backstage-plugin-ansible",
+  "name": "@ansible/plugin-backstage-rhaap",
   "version": "0.0.4",
   "main": "src/index.ts",
   "types": "src/index.ts",
@@ -13,7 +13,7 @@
     "role": "frontend-plugin",
     "pluginId": "ansible",
     "pluginPackages": [
-      "@janus-idp/backstage-plugin-ansible"
+      "@ansible/plugin-backstage-rhaap"
     ]
   },
   "sideEffects": false,
