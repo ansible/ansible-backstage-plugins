@@ -32,6 +32,14 @@ jobs:
         with:
           fetch-depth: 0
 
+      - name: Show GitHub ref
+        run: echo "$GITHUB_REF"
+        if: runner.os != 'Windows'
+
+      - name: Show GitHub ref tag only
+        run: echo "${GITHUB_REF##*/}"
+        if: runner.os != 'Windows'
+
       - name: Pack 📦 & release 🚀
         uses: ./.github/actions/pack
         with:
