@@ -1,5 +1,5 @@
 /*
- * Copyright 2024 The Ansible Plugin Authors
+ * Copyright 2024 The Ansible plugin Authors
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -13,32 +13,31 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-import {
-  coreServices,
-  createBackendPlugin,
-} from '@backstage/backend-plugin-api';
+
+import { loggerToWinstonLogger } from '@backstage/backend-common';
+import { coreServices, createBackendPlugin } from '@backstage/backend-plugin-api';
 import { createRouter } from './service/router';
 
 /**
- * ansiblePlugin backend plugin
+ * Backstage Anisble backend plugin
  *
  * @public
  */
-export const ansiblePlugin = createBackendPlugin({
-  pluginId: 'ansiblePlugin',
+export const backstageRHAAPPlugin = createBackendPlugin({
+  pluginId: 'backstage-rhaap',
   register(env) {
     env.registerInit({
       deps: {
-        httpRouter: coreServices.httpRouter,
+        config: coreServices.rootConfig,
         logger: coreServices.logger,
+        reader: coreServices.urlReader,
+        httpRouter: coreServices.httpRouter,
       },
-      async init({
-        httpRouter,
-        logger,
-      }) {
+      async init({ config, logger, httpRouter }) {
         httpRouter.use(
           await createRouter({
-            logger,
+            config,
+            logger: loggerToWinstonLogger(logger),
           }),
         );
       },

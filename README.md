@@ -367,6 +367,7 @@ LOG_LEVEL=debug yarn start-backend
 ## Installing Ansible plugins with RHDH instance running on Openshift using helm chart
 
 ### Pre-requisite
+#### Note: TODO: Add steps to dynamically load the `backstage-rhaap-backend` backend plugin using helm config
 
 - Openshift cluster installed on a supported provider Refer docs here <https://docs.openshift.com/container-platform/4.15/installing/installing_aws/installing-aws-account.html>
 - RHDH instance installed on openshift cluster using helm charts. Refer docs here <https://access.redhat.com/documentation/en-us/red_hat_developer_hub/1.0/html/getting_started_with_red_hat_developer_hub/proc-install-rhdh-helm_rhdh-getting-started>

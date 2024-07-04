@@ -1,0 +1,50 @@
+{
+  "name": "@ansible/plugin-backstage-rhaap-backend",
+  "version": "0.0.0",
+  "main": "src/index.ts",
+  "types": "src/index.ts",
+  "license": "Apache-2.0",
+  "publishConfig": {
+    "access": "public",
+    "main": "dist/index.cjs.js",
+    "types": "dist/index.d.ts"
+  },
+  "backstage": {
+    "role": "backend-plugin"
+  },
+  "scripts": {
+    "start": "backstage-cli package start",
+    "build": "backstage-cli package build",
+    "lint": "backstage-cli package lint",
+    "test": "backstage-cli package test",
+    "clean": "backstage-cli package clean",
+    "prepack": "backstage-cli package prepack",
+    "postpack": "backstage-cli package postpack"
+  },
+  "dependencies": {
+    "@backstage/backend-common": "^0.23.2^",
+    "@backstage/backend-plugin-api": "^0.6.21",
+    "@backstage/config": "^1.2.0",
+    "@types/express": "*",
+    "express": "^4.17.1",
+    "express-promise-router": "^4.1.0",
+    "node-fetch": "^2.6.7",
+    "winston": "^3.2.1",
+    "yn": "^4.0.0"
+  },
+  "devDependencies": {
+    "@backstage/cli": "^0.26.2",
+    "@types/jest": "^29.5.12",
+    "@types/node-fetch": "^2.6.11",
+    "@types/supertest": "^2.0.8",
+    "fetch-mock-jest": "^1.5.1",
+    "jest": "^29.7.0",
+    "msw": "^1.0.0",
+    "supertest": "^6.2.4",
+    "ts-jest": "^29.1.5"
+  },
+  "files": [
+    "dist"
+  ],
+  "configSchema": "config.d.ts"
+}

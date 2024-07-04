@@ -13,12 +13,28 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-import { createBackend } from '@backstage/backend-defaults';
 
-const backend = createBackend();
-
-backend.add(import('@backstage/plugin-auth-backend'));
-backend.add(import('@backstage/plugin-auth-backend-module-guest-provider'));
-backend.add(import('../src'));
-
-backend.start();
+export interface Config {
+  /**
+   * Configuration options for the Ansible backend plugin.
+   */
+  ansible: {
+    /**
+     * Ansible Automation Platform (AAP) configuration.
+     */
+    aap: {
+      /**
+       * Base URL of Ansible Controller.
+      */
+      baseUrl: string;
+      /**
+       * Token for authentication.
+      */
+      token: string;
+      /**
+       * Check SSL certificate.
+      */
+      checkSSL?: boolean;
+    }
+  };
+}
