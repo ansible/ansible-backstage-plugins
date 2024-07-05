@@ -20,13 +20,7 @@ import { EntityOverviewContent } from '../OverviewContent';
 import { EntityCatalogContent } from '../CatalogContent';
 import { EntityCreateContent } from '../CreateContent';
 import { EntityLearnContent } from '../LearnContent';
-import {
-  Navigate,
-  Route,
-  Routes,
-  useNavigate,
-  useParams,
-} from 'react-router';
+import { Navigate, Route, Routes, useNavigate, useParams } from 'react-router';
 import { Fab, Typography, makeStyles } from '@material-ui/core';
 import Comment from '@material-ui/icons/Comment';
 import RatingsFeedbackModal from './RatingsFeedbackModal';
@@ -36,19 +30,26 @@ const feedbackStyles = makeStyles({
     position: 'fixed',
     bottom: '24px',
     right: '30px',
+    padding: '10px !important',
     zIndex: 99999,
+    textTransform: 'none',
   },
   mb_2: {
-    marginBottom: '2px'
-  }
+    marginBottom: '2px',
+  },
 });
 
-
 export const AnsibleHeader = () => {
-  const headerTitle = "Welcome to the Ansible plug-ins for Red Hat Developer Hub"
+  const headerTitle =
+    'Welcome to the Ansible plug-ins for Red Hat Developer Hub';
   const headerSubtitle = (
-    <Typography component="span" variant='subtitle1' data-testid="ansible-header">
-      This Ansible out-of-the-box experience accelerates content creation and meets you where you are in the development process.
+    <Typography
+      component="span"
+      variant="subtitle1"
+      data-testid="ansible-header"
+    >
+      This Ansible out-of-the-box experience accelerates content creation and
+      meets you where you are in the development process.
     </Typography>
   );
 
@@ -56,10 +57,10 @@ export const AnsibleHeader = () => {
     <Header
       title={headerTitle}
       subtitle={headerSubtitle}
-      style={{fontFamily: 'Red Hat Text', color: 'white'}}
+      style={{ fontFamily: 'Red Hat Text', color: 'white' }}
     />
-  )
-}
+  );
+};
 
 const tabs = [
   { id: 0, label: 'Overview', nav: 'overview' },
@@ -77,23 +78,22 @@ export const AnsiblePage = () => {
   const handleOpen = () => setOpen(true);
   const handleClose = () => setOpen(false);
 
-  const selectedTabIndex = tabs.findIndex(
-    item => item.nav === section,
-  );
+  const selectedTabIndex = tabs.findIndex(item => item.nav === section);
   const [selectedTab, setSelectedTab] = useState<any>(0);
 
   useEffect(() => {
-    if(selectedTabIndex > -1) {
-      setSelectedTab(tabs[selectedTabIndex])
+    if (selectedTabIndex > -1) {
+      setSelectedTab(tabs[selectedTabIndex]);
     }
-  }, [selectedTabIndex])
+  }, [selectedTabIndex]);
 
   const onTabSelect = (index: number) => {
     setSelectedTab(tabs[index]);
     navigate(tabs[index].nav);
   };
-  return (
-    section === '' ? <Navigate to='overview'/> : (
+  return section === '' ? (
+    <Navigate to="overview" />
+  ) : (
     <Page themeId="app">
       <AnsibleHeader />
       <HeaderTabs
@@ -108,28 +108,28 @@ export const AnsiblePage = () => {
       <Content>
         <Routes>
           <Route path="/">
-            <Route
-              path="overview"
-              element={<EntityOverviewContent />}
-            />
+            <Route path="overview" element={<EntityOverviewContent />} />
             <Route path="myitems" element={<EntityCatalogContent />} />
             <Route path="create" element={<EntityCreateContent />} />
             <Route path="learn" element={<EntityLearnContent />} />
           </Route>
         </Routes>
-        <Fab 
-          variant="extended" 
-          size="small" 
-          color="primary" 
+        <Fab
+          variant="extended"
+          size="small"
+          color="primary"
           className={classes.feedback_btn}
-          onClick={handleOpen}>
-          <Comment />&nbsp;
+          onClick={handleOpen}
+          disableRipple
+        >
+          <Comment />
+          &nbsp;
           <Typography component="span" className={classes.mb_2}>
             Feedback
           </Typography>
         </Fab>
-        {open && <RatingsFeedbackModal handleClose={handleClose}/>}
+        {open && <RatingsFeedbackModal handleClose={handleClose} />}
       </Content>
     </Page>
-  ));
+  );
 };

@@ -19,18 +19,15 @@ export interface Config {
       * @visibility backend
       */
       baseUrl?: string;
-
       /**
       * @visibility backend
       */
       token?: string;
-
       /**
       * @visibility backend
       */
       checkSSL?: boolean;
     };
-
     /**
      * Base url for the creator-service
      */

@@ -18,19 +18,78 @@ export interface Config {
   /** Configurations for the Ansible plugin */
   ansible?: {
     /**
-     * The devspacesBaseUrl for Openshift Dev Spaces Dashboard.
-     * @visibility frontend
+     * The devspaces baseUrl for Openshift Dev Spaces Dashboard.
+     * @deepVisibility frontend
      */
-    devSpacesBaseUrl?: string;
+    devSpaces?: {
+      /**
+       * @visibility frontend
+       */
+      baseUrl: string;
+    };
 
     /**
-     * @visibility frontend
+     * @deepVisibility frontend
      */
-    pahUrl?: string;
+    automationHub?: {
+      /**
+       * @visibility frontend
+       */
+      baseUrl: string;
+    };
 
     /**
-     * @visibility frontend
+     * @deepVisibility frontend
      */
-    aapUrl?: string;
+    aap?: {
+      /**
+       * @visibility frontend
+       */
+      baseUrl: string;
+    };
+
+    analytics:
+      | {
+          /**
+           * Prevents events from actually being sent when set to true. Defaults
+           * to true.
+           * @visibility frontend
+           */
+          enabled: boolean;
+
+          /**
+           * Prevents events from actually being sent when set to true. Defaults
+           * to false.
+           * @visibility frontend
+           */
+          testMode: true;
+
+          /**
+           * Prevents IP address to be sent as when set to true. Defaults to false
+           * @visibility frontend
+           */
+          maskIP?: boolean;
+        }
+      | {
+          /**
+           * Prevents events from actually being sent when set to true. Defaults
+           * to true.
+           * @visibility frontend
+           */
+          enabled: boolean;
+
+          /**
+           * Prevents events from actually being sent when set to true. Defaults
+           * to false.
+           * @visibility frontend
+           */
+          testMode?: false;
+
+          /**
+           * Prevents IP address to be sent as when set to true. Defaults to false
+           * @visibility frontend
+           */
+          maskIP?: boolean;
+        };
   };
 }

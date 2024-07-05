@@ -65,7 +65,7 @@ export const discoverContent: IQuickAccessLinks = {
     showButton: true,
     button: {
         text: 'Go to Automation Hub',
-        url: 'app-config:ansible.pahUrl',
+        url: 'app-config:ansible.automationHub.baseUrl',
         fallbackUrl: 'https://console.redhat.com/ansible/automation-hub/',
         isExternalUrl: true
     },
@@ -103,7 +103,7 @@ export const develop: IQuickAccessLinks = {
     showButton: true,
     button: {
         text: 'Go to OpenShift Dev Spaces Dashboard',
-        url: 'app-config:ansible.devSpacesBaseUrl',
+        url: 'app-config:ansible.devSpaces.baseUrl',
         fallbackUrl: 'https://red.ht/aap-developer-tools',
         isExternalUrl: true
     },
@@ -120,7 +120,7 @@ export const operate: IQuickAccessLinks = {
     showButton: true,
     button: {
         text: 'Go to Ansible Automation Platform',
-        url: 'app-config:ansible.aapUrl',
+        url: 'app-config:ansible.aap.baseUrl',
         fallbackUrl: 'https://www.redhat.com/en/technologies/management/ansible/trial',
         isExternalUrl: true
     },

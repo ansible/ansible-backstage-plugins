@@ -13,23 +13,9 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-import '@testing-library/jest-dom';
-import 'cross-fetch/polyfill';
 
-// eslint-disable-next-line no-restricted-imports
-import { TextEncoder } from 'util';
+export const WRITE_KEY_DEV: string = '4HEiF8hezyi2JCcVGQzLM60bUuNx4tZZ';
+export const WRITE_KEY_PROD: string = 'uCMHvkR5n5q2v57LNXHwvTYlGV8lqFR9';
 
-// Mock browser crypto.subtle.digest method for sha-256 hashing.
-Object.defineProperty(global.self, 'crypto', {
-  value: {
-    subtle: {
-      digest: (_algo: string, data: Uint8Array): ArrayBuffer => data.buffer,
-    },
-  },
-});
-
-// Also used in browser-based APIs for hashing.
-Object.defineProperty(global.self, 'TextEncoder', {
-  value: TextEncoder,
-});
-
+export const ENV_DEV = 'development';
+export const ENV_PROD = 'production';
