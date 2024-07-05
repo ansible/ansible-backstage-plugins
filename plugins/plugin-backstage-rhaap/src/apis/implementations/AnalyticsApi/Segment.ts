@@ -50,15 +50,16 @@ export class SegmentAnalytics implements AnalyticsApi {
     this.testMode = testMode;
     this.maskIP = maskIP;
     this.analytics = new AnalyticsBrowser();
-    this.analytics.load({ writeKey: env === ENV_DEV ? WRITE_KEY_DEV : WRITE_KEY_PROD });
+    this.analytics.load({
+      writeKey: env === ENV_DEV ? WRITE_KEY_DEV : WRITE_KEY_PROD,
+    });
   }
 
   /**
    * Instantiate a fully configured Segment API implementation.
    */
   static fromConfig(config: Config, identityApi?: IdentityApi) {
-    const enabled =
-      config.getBoolean('ansible.analytics.enabled') ?? true;
+    const enabled = config.getBoolean('ansible.analytics.enabled') ?? true;
     const testMode =
       config.getOptionalBoolean('ansible.analytics.testMode') ?? false;
     const maskIP =
@@ -80,8 +81,62 @@ export class SegmentAnalytics implements AnalyticsApi {
     if (!this.enabled || this.testMode) {
       return;
     }
-    const analyticsOpts = this.maskIP ? { ip: '0.0.0.0' } : {};
     const { action, subject, context, attributes } = event;
+
+    /**
+     * Following events are being tracked by the ansible plugin
+     * event.context.pluginId !== 'ansible'
+     * event.context.pluginId !== 'catalog' && event.subject !== 'OpenShift Dev Spaces'
+     * template choose => navigate => subject
+     * review step click event and entityRef in context
+     * if action == create and subject = ansible template name
+     * feedback even from ansible plugin
+     */
+
+    let canCaptureEvent = false;
+
+    if (context.pluginId === 'ansible') {
+      canCaptureEvent = true;
+    }
+
+    if (
+      !canCaptureEvent &&
+      context.pluginId === 'catalog' &&
+      subject === 'OpenShift Dev Spaces'
+    ) {
+      canCaptureEvent = true;
+    }
+
+    if (
+      !canCaptureEvent &&
+      action === 'navigate' &&
+      subject.includes('ansible')
+    ) {
+      canCaptureEvent = true;
+    }
+
+    if (
+      !canCaptureEvent &&
+      action === 'click' &&
+      context.entityRef &&
+      String(context.entityRef).includes('ansible')
+    ) {
+      canCaptureEvent = true;
+    }
+
+    if (
+      !canCaptureEvent &&
+      action === 'create' &&
+      subject.includes('ansible')
+    ) {
+      canCaptureEvent = true;
+    }
+
+    if (!canCaptureEvent) {
+      return;
+    }
+
+    const analyticsOpts = this.maskIP ? { ip: '0.0.0.0' } : {};
 
     // Identify users.
     if (action === 'identify') {

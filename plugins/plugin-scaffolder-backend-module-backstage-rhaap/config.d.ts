@@ -3,7 +3,14 @@ export interface Config {
     /**
      * Url of the hub cluster developer hub instance
      */
-    devSpacesBaseUrl?: string;
+    devSpaces: {
+      baseUrl?: string;
+    }
+
+    aap: {
+      baseUrl?: string;
+      token?: string;
+    }
     /**
      * Base url for the creator-service
      */
