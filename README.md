@@ -161,8 +161,8 @@ to enable  `ansible-automation-platform-25-ansible-dev-tools-rhel8` image:
 Steps to get Red Hat registry authentication ready -
 - Follow, Getting a Red Hat Login steps [here](https://access.redhat.com/RegistryAuthentication)
 - Check your Registry Service Accounts [here](https://access.redhat.com/terms-based-registry/)
-- Open your Token information > OpenShift Secret and download the pull-secrets.yml
-- Use the following command to add the secret `kubectl create -f rhdh-secret-brew-registry.yaml --namespace=<YOUR_NAMESPACE>`
+- Open your Token information > OpenShift Secret and download the pull-secrets.yml and rename it to `rhdh-secret-brew-registry.yml`
+- Use the following command to add the secret `kubectl create -f rhdh-secret-brew-registry.yml --namespace=<YOUR_NAMESPACE>`
 
 ```yaml
 upstream:
@@ -182,7 +182,7 @@ upstream:
       pullPolicy: Always
       pullSecrets:
         - ...
-        - rhdh-secret-brew-registry <--------------------just this pull secret reference
+        - rhdh-secret-brew-registry   # just this pull secret reference
       registry: registry.redhat.io
       repository: rhdh/rhdh-hub-rhel9
       tag: 1.2-105
