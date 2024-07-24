@@ -109,10 +109,10 @@ export class RHAAPService {
         `[backstage-rhaap-backend] Checking AAP subscription at ${baseUrl}/api/v2/config/`,
       );
       const data = await aapResponse.json();
-      this.statusCode = aapResponse.status
+      this.statusCode = aapResponse.status;
       this.hasValidSubscription =
         data?.license_info?.license_type === 'enterprise';
-      this.isAAPCompliant = data?.license_info?.compliant;
+      this.isAAPCompliant = data?.license_info?.compliant ?? false;
     } catch (error: any) {
       this.logger.error(
         `[backstage-rhaap-backend] AAP subscription Check failed at ${baseUrl}/api/v2/config/`,

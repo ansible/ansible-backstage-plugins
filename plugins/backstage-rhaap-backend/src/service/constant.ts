@@ -19,6 +19,6 @@
  * frequency supports hours, minutes, seconds and can customize as required
  */
 export const DEFAULT_SCHEDULE = {
-  frequency: { minutes: 1 },
+  frequency: { hours: 24 },
   timeout: { minutes: 1 },
 };
