@@ -101,6 +101,7 @@ export default function RatingsFeedbackModal(props: IProps) {
     // send custom events to analytics provider
     analytics.captureEvent('feedback', 'sentiment', {
       attributes: {
+        type: selectedIssueType,
         ratings: ratings,
         feedback: feedback,
       },
