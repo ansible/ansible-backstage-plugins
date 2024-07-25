@@ -14,7 +14,7 @@ export interface Config {
     /**
     * @visibility backend
     */
-    aap?: {
+    rhaap?: {
       /**
       * @visibility backend
       */
