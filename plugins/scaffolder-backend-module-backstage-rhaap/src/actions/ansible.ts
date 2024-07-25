@@ -26,8 +26,9 @@ import { Logger } from 'winston';
 import { Config } from '@backstage/config';
 import { AnsibleApiClient, BackendServiceAPI } from './utils/api';
 import { ScaffolderLogger } from './utils/logger';
+import { AuthService } from '@backstage/backend-plugin-api';
 
-export function createAnsibleContentAction(config: Config, logger: Logger) {
+export function createAnsibleContentAction(config: Config, logger: Logger, auth: AuthService) {
   return createTemplateAction<{
     sourceControl: string;
     repoOwner: string;
@@ -125,7 +126,7 @@ export function createAnsibleContentAction(config: Config, logger: Logger) {
         BackendServiceAPI.pluginLogName,
         ctx.logger as Logger,
       );
-      const AAPSubscription = new AnsibleApiClient({ config, logger });
+      const AAPSubscription = new AnsibleApiClient({ config, logger, auth });
 
       try {
         log.info(`Checking for Ansible Automation Platform subscription`);

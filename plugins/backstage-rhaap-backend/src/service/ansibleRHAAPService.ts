@@ -109,12 +109,13 @@ export class RHAAPService {
   }
 
   private async checkSubscription() {
-    const ansibleConfig = this.config.getConfig('ansible');
-    const rhaapConfig = ansibleConfig.getConfig('rhaap');
-    const baseUrl = rhaapConfig.getString('baseUrl');
-    const token = rhaapConfig.getString('token');
-    const checkSSL = rhaapConfig.getBoolean('checkSSL') ?? true;
+    let baseUrl;
     try {
+      const ansibleConfig = this.config.getConfig('ansible');
+      const rhaapConfig = ansibleConfig.getConfig('rhaap');
+      baseUrl = rhaapConfig.getString('baseUrl');
+      const token = rhaapConfig.getString('token');
+      const checkSSL = rhaapConfig.getBoolean('checkSSL') ?? true;
       const agent = new https.Agent({
         rejectUnauthorized: checkSSL,
       });

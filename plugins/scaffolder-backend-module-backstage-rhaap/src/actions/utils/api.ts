@@ -20,6 +20,7 @@ import * as fs from 'fs';
 import fetch, { Response } from 'node-fetch';
 import { Logger } from 'winston';
 import https from 'https';
+import { AuthService } from '@backstage/backend-plugin-api';
 
 export interface AAPSubscriptionCheck {
   status: number;
@@ -146,10 +147,12 @@ export class BackendServiceAPI {
 export class AnsibleApiClient implements AnsibleApi {
   private readonly config: Config;
   private readonly logger: Logger;
+  private readonly auth: AuthService;
 
-  constructor({ config, logger }: { config: Config; logger: Logger }) {
+  constructor({ config, logger, auth }: { config: Config; logger: Logger, auth: AuthService }) {
     this.config = config;
     this.logger = logger;
+    this.auth = auth;
   }
 
   async isValidSubscription(): Promise<AAPSubscriptionCheck> {
@@ -162,8 +165,10 @@ export class AnsibleApiClient implements AnsibleApi {
       const agent = new https.Agent({
         rejectUnauthorized: true,
       });
-      const keys = this.config.getStringArray('backend.auth.keys');
-      const token = keys.length > 0 ? keys[0]['secret' as any] : null;
+      const { token } = await this.auth.getPluginRequestToken({
+        onBehalfOf: await this.auth.getOwnServiceCredentials(),
+        targetPluginId: 'backstage-rhaap', // e.g. 'catalog'
+      });
       if (!token)
         throw new Error('Authentication token missing');
       const response = await fetch(`${baseUrl}/aap/subscription`, {

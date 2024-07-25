@@ -32,6 +32,7 @@ import {
 import { ConfigReader } from '@backstage/config';
 import { createMockActionContext } from '@backstage/plugin-scaffolder-node-test-utils';
 import { AnsibleApiClient } from './utils/api';
+import { MockAuthService } from './MockAuthService';
 
 describe('ansible:content:create', () => {
     const config = new ConfigReader({
@@ -48,7 +49,12 @@ describe('ansible:content:create', () => {
 
     const logger = getVoidLogger();
 
-    const action = createAnsibleContentAction(config, logger);
+    const auth = new MockAuthService({
+      pluginId: 'test',
+      disableDefaultAuthPolicy: false,
+    });
+
+    const action = createAnsibleContentAction(config, logger, auth);
 
     const mockContext = createMockActionContext({
       input: {
