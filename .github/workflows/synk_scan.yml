@@ -1,8 +1,8 @@
 ---
 name: Snyk / scan
 on:
-  pull_request:
-    types: [opened, synchronize, reopened]
+  schedule:
+    - cron: '0 0 * * *'
 jobs:
   backstage-rhaap-snyk-scan:
     runs-on: ubuntu-latest

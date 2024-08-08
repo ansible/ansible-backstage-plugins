@@ -10,6 +10,10 @@ inputs:
     description: Node.js version
     required: true
     default: 20
+  codecov:
+    description: Codecov token
+    required: true
+    default: ""
 runs:
   using: 'composite'
   steps:
@@ -45,6 +49,6 @@ runs:
     - name: Upload coverage report to Codecov
       uses: codecov/codecov-action@v3
       with:
-        # token: ${{ secrets.CODECOV_TOKEN }}
-        file: ./coverage/lcov.info
+        token: ${{ inputs.codecov }}
+        file: ./${{ inputs.plugin }}/coverage/lcov.info
         fail_ci_if_error: false

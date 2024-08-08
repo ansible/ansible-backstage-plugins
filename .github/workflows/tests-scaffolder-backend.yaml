@@ -94,6 +94,7 @@ jobs:
         with:
           node-version: ${{ matrix.node-version }}
           plugin: 'plugins/scaffolder-backend-module-backstage-rhaap'
+          codecov: ${{ secrets.CODECOV_TOKEN }}
 
   all-green:
     if: ${{ always() }}
