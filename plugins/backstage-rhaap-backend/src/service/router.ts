@@ -22,6 +22,7 @@ import { Config } from '@backstage/config';
 import { SchedulerService } from '@backstage/backend-plugin-api';
 
 import { RHAAPService } from './ansibleRHAAPService';
+import helmet from 'helmet';
 
 export interface RouterOptions {
   logger: Logger;
@@ -37,6 +38,7 @@ export async function createRouter(
   const instance = RHAAPService.getInstance(config, logger, scheduler);
 
   const router = Router();
+  router.use(helmet());
   router.use(express.json());
 
   router.get('/health', (_, response) => {
