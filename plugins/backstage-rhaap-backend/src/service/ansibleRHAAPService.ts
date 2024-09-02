@@ -108,6 +108,21 @@ export class RHAAPService {
       });
   }
 
+  private async isAAP25Instance(
+    baseUrl: string,
+    reqHeaders: fetch.RequestInit,
+  ) {
+    try {
+      const res = await fetch(`${baseUrl}/api/gateway/v1/ping/`, reqHeaders);
+      if(!res.ok) {
+        return false;
+      }
+      return true;
+    } catch (error) {
+      return false;
+    }
+  }
+
   private async checkSubscription() {
     let baseUrl;
     try {
@@ -119,23 +134,43 @@ export class RHAAPService {
       const agent = new https.Agent({
         rejectUnauthorized: checkSSL,
       });
-
-      // Send request to AAP
-      this.logger.info(
-        `[backstage-rhaap-backend] Checking AAP subscription at ${baseUrl}/api/v2/config/`,
-      );
-      const aapResponse = await fetch(`${baseUrl}/api/v2/config`, {
+      const reqHeaders = {
         headers: { Authorization: `Bearer ${token}` },
         agent,
-      });
+      };
+
+      // check if AAP >=2.5 instance
+      let aapResponse: fetch.Response;
+      const isAAP25 = await this.isAAP25Instance(baseUrl, reqHeaders);
+      if (isAAP25) {
+        // Send request to AAP
+        this.logger.info(
+          `[backstage-rhaap-backend] Checking AAP subscription at ${baseUrl}/api/controller/v2/config/`,
+        );
+
+        // subscription check for AAP >=2.5
+        aapResponse = await fetch(
+          `${baseUrl}/api/controller/v2/config`,
+          reqHeaders,
+        );
+      } else {
+        // Send request to AAP
+        this.logger.info(
+          `[backstage-rhaap-backend] Checking AAP subscription at ${baseUrl}/api/v2/config/`,
+        );
+        // subscription check for AAP <2.5
+        aapResponse = await fetch(`${baseUrl}/api/v2/config`, reqHeaders);
+      }
+
       const data = await aapResponse.json();
       if (!aapResponse.ok) {
         // make the promise be rejected if we didn't get a 2xx response
         throw new AAPSubscriptionCheckError(aapResponse.status, data.detail);
       } else {
         this.statusCode = aapResponse.status;
-        this.hasValidSubscription =
-          VALID_LICENSE_TYPES.includes(data?.license_info?.license_type);
+        this.hasValidSubscription = VALID_LICENSE_TYPES.includes(
+          data?.license_info?.license_type,
+        );
         this.isAAPCompliant = data?.license_info?.compliant ?? false;
       }
     } catch (error: any) {
@@ -144,18 +179,19 @@ export class RHAAPService {
       );
       if (error instanceof AAPSubscriptionCheckError) {
         this.statusCode = error.status ?? 404;
-      }
-      else if (error.code === 'CERT_HAS_EXPIRED') {
+      } else if (error.code === 'CERT_HAS_EXPIRED') {
         this.statusCode = 495;
       } else if (error.code === 'ECONNREFUSED' || error.code === 'ENOTFOUND') {
         this.statusCode = 404;
       } else {
         this.statusCode =
-        Number.isInteger(error.code) && error.code >= 100 && error.code < 600
-        ? error.code
-        : 500;
+          Number.isInteger(error.code) && error.code >= 100 && error.code < 600
+            ? error.code
+            : 500;
       }
-      this.logger.error(`[backstage-rhaap-backend] Error: ${this.statusCode}: ${error.message}`);
+      this.logger.error(
+        `[backstage-rhaap-backend] Error: ${this.statusCode}: ${error.message}`,
+      );
       this.hasValidSubscription = false;
       this.isAAPCompliant = false;
     }
