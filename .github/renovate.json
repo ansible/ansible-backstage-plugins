@@ -1,0 +1,92 @@
+{
+  "extends": [
+    "config:best-practices",
+    ":gitSignOff",
+    ":rebaseStalePrs",
+    ":preserveSemverRanges",
+    "group:allNonMajor"
+  ],
+  "lockFileMaintenance": {
+    "enabled": true,
+    "automerge": true
+  },
+  "labels": [
+    "dependency",
+    "skip-changelog"
+  ],
+  "npm": {
+    "minimumReleaseAge": "1 day"
+  },
+  "major": {
+    "dependencyDashboardApproval": true
+  },
+  "docker": {
+    "digest": {
+      "enabled": false
+    }
+  },
+  "prCreation": "status-success",
+  "packageRules": [
+    {
+      "matchDepTypes": ["devDependencies"],
+      "matchUpdateTypes": ["patch", "minor"],
+      "matchCurrentVersion": "!/^0/",
+      "groupName": ["DevDependencies (non-major)"],
+      "automerge": true
+    },
+    {
+      "matchDepTypes": ["devDependencies"],
+      "matchUpdateTypes": ["major"],
+      "groupName": ["DevDependencies "]
+    },
+    {
+      "extends": ["packages:test"],
+      "matchUpdateTypes": ["patch", "minor"],
+      "matchCurrentVersion": "!/^0/",
+      "groupName": "Test packages (non-major)"
+    },
+    {
+      "extends": ["packages:test"],
+      "matchUpdateTypes": ["major"],
+      "groupName": "Test packages "
+    },
+    {
+      "extends": ["monorepo:material-ui"],
+      "matchUpdateTypes": ["patch", "minor"],
+      "groupName": "material-ui (non-major)"
+    },
+    {
+      "extends": ["monorepo:material-ui"],
+      "matchUpdateTypes": ["major"],
+      "groupName": "material-ui"
+    },
+    {
+      "extends": "monorepo:react",
+      "matchUpdateTypes": ["patch", "minor"],
+      "groupName": "react (non-major)"
+    },
+    {
+      "extends": "monorepo:react",
+      "matchUpdateTypes": ["major"],
+      "groupName": "react"
+    },
+    {
+      "matchPackagePrefixes": ["@types/"],
+      "matchUpdateTypes": ["patch", "minor"],
+      "groupName": "types (non-major)"
+    },
+    {
+      "matchPackagePrefixes": ["@types/"],
+      "matchUpdateTypes": ["major"],
+      "groupName": "types "
+    }
+  ],
+  "separateMajorMinor": true,
+  "ignorePaths": ["**/dist-dynamic/**"],
+  "vulnerabilityAlerts": {
+    "additionalBranchPrefix": "",
+    "enabled": true,
+    "addLabels": ["security"]
+  },
+  "osvVulnerabilityAlerts": true
+}
