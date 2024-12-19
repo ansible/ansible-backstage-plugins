@@ -1,0 +1,124 @@
+---
+name: CI / wizard-catalog
+
+on:  # yamllint disable-line rule:truthy
+  pull_request:
+    branches: [main]
+    paths:
+      - '.github/actions/**'
+      - '.github/workflows/**'
+      - 'plugins/wizard-catalog/**'
+  workflow_dispatch:
+  schedule:
+    - cron: '0 0 * * *'
+
+jobs:
+  test:
+    name: 🧪 / test / Node-${{ matrix.node-version }}
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ./plugins/wizard-catalog
+    strategy:
+      matrix:
+        node-version: [18, 20]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Test
+        uses: ./.github/actions/test
+        with:
+          node-version: ${{ matrix.node-version }}
+          plugin: 'plugins/wizard-catalog'
+
+  lint:
+    name: 👷 / lint / Node-${{ matrix.node-version }}
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ./plugins/wizard-catalog
+    strategy:
+      matrix:
+        node-version: [20]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Test
+        uses: ./.github/actions/lint
+        with:
+          node-version: ${{ matrix.node-version }}
+          plugin: 'plugins/wizard-catalog'
+
+  build:
+    name: 🛠️ / 📦 build / Node-${{ matrix.node-version }}
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ./plugins/wizard-catalog
+    strategy:
+      matrix:
+        node-version: [18, 20]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Build
+        uses: ./.github/actions/build
+        with:
+          node-version: ${{ matrix.node-version }}
+          plugin: 'plugins/wizard-catalog'
+
+  coverage:
+    name: 📝 / coverage / Node-${{ matrix.node-version }}
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ./plugins/wizard-catalog
+    permissions:
+        actions: read
+        checks: read
+        contents: read
+        id-token: write
+    strategy:
+      matrix:
+        node-version: [18]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Coverage
+        uses: ./.github/actions/code-coverage
+        with:
+          node-version: ${{ matrix.node-version }}
+          plugin: 'plugins/wizard-catalog'
+        env:
+          codecov: ${{ secrets.CODECOV_TOKEN }}
+
+  all-green:
+    if: ${{ always() }}
+    name: ✅ / check
+    needs:
+      - coverage
+      - build
+      - lint
+      - test
+    runs-on: ubuntu-latest
+    steps:
+      - run: >-
+          python -c "assert 'failure' not in
+          set([
+          '${{ needs.coverage.result }}',
+          '${{ needs.build.result }}',
+          '${{ needs.lint.result }}',
+          '${{ needs.test.result }}'
+          ])"

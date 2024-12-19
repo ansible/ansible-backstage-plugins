@@ -1,3 +1,5 @@
+import { SchedulerServiceTaskScheduleDefinitionConfig } from '@backstage/backend-plugin-api';
+
 export interface Config {
   ansible?: {
     /**
@@ -41,6 +43,34 @@ export interface Config {
        * Port at which the creator-service is exposed
        */
       port: string;
+    };
+  };
+  catalog?: {
+    providers?: {
+      /** @visibility frontend */
+      rhaap?: {
+        [authEnv: string]: {
+          schedule: SchedulerServiceTaskScheduleDefinitionConfig;
+        };
+      };
+      locations: [
+        /**
+         * Generic seed template
+         * https://github.com/ansible/ansible-rhdh-templates/blob/main/seed.yaml
+         */
+        {
+          type: 'file' | 'url';
+          location: string;
+        },
+        /**
+         * If showcase location type is file
+         * location is a path to created templates
+         */
+        {
+          type: 'file';
+          location: string;
+        },
+      ];
     };
   };
 }

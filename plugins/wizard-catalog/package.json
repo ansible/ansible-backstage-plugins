@@ -1,0 +1,86 @@
+{
+  "name": "@ansible/backstage-plugin-wizard-catalog",
+  "version": "0.1.0",
+  "main": "src/index.ts",
+  "types": "src/index.ts",
+  "license": "Apache-2.0",
+  "private": true,
+  "publishConfig": {
+    "access": "public",
+    "main": "dist/index.esm.js",
+    "types": "dist/index.d.ts"
+  },
+  "backstage": {
+    "role": "frontend-plugin",
+    "pluginId": "wizard-catalog",
+    "pluginPackages": [
+      "@ansible/backstage-plugin-wizard-catalog"
+    ]
+  },
+  "sideEffects": false,
+  "scripts": {
+    "start": "backstage-cli package start",
+    "build": "backstage-cli package build",
+    "lint": "backstage-cli package lint",
+    "test": "backstage-cli package test",
+    "clean": "backstage-cli package clean",
+    "prepack": "backstage-cli package prepack",
+    "postpack": "backstage-cli package postpack",
+    "fix": "backstage-cli repo fix --publish",
+    "export-dynamic": "janus-cli package export-dynamic-plugin --in-place"
+  },
+  "dependencies": {
+    "@backstage/backend-dynamic-feature-service": "^0.2.10",
+    "@backstage/catalog-model": "^1.4.5",
+    "@backstage/config": "^1.2.0",
+    "@backstage/core-components": "^0.15.0",
+    "@backstage/core-plugin-api": "^1.9.4",
+    "@backstage/integration-react": "^1.1.25",
+    "@backstage/plugin-catalog-react": "^1.14.0",
+    "@backstage/plugin-home": "^0.7.2",
+    "@backstage/plugin-scaffolder": "^1.27.1",
+    "@backstage/plugin-scaffolder-react": "^1.14.1",
+    "@backstage/plugin-search-react": "^1.7.9",
+    "@backstage/theme": "^0.5.7",
+    "@emotion/react": "^11.13.3",
+    "@emotion/styled": "^11.13.0",
+    "@material-ui/core": "^4.12.4",
+    "@mui/icons-material": "^5.16.7",
+    "@mui/lab": "^5.0.0-alpha.173",
+    "@mui/material": "^5.16.7",
+    "@rjsf/core": "^5.22.4",
+    "@rjsf/material-ui": "*",
+    "@rjsf/mui": "^5.22.4",
+    "@rjsf/utils": "^5.22.4",
+    "@rjsf/validator-ajv8": "^5.22.4",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "react-router-dom": "^6.23.1",
+    "react-use": "^17.2.4"
+  },
+  "peerDependencies": {
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "react-router": "*",
+    "react-router-dom": "^6.22.3"
+  },
+  "devDependencies": {
+    "@backstage/cli": "^0.27.1",
+    "@backstage/core-app-api": "^1.15.0",
+    "@backstage/dev-utils": "^1.1.0",
+    "@backstage/test-utils": "^1.6.0",
+    "@janus-idp/cli": "^1.15.0",
+    "@testing-library/jest-dom": "^6.0.0",
+    "@testing-library/react": "^14.0.0",
+    "@testing-library/user-event": "^14.0.0",
+    "@types/react": "^18.3.3",
+    "@types/react-dom": "^18.3.0",
+    "msw": "^1.0.0"
+  },
+  "files": [
+    "dist",
+    "config.d.ts",
+    "dist-scalprum"
+  ],
+  "configSchema": "config.d.ts"
+}
