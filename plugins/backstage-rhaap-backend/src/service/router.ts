@@ -44,7 +44,7 @@ export async function createRouter(
     logger.info('PONG!');
     response.json({ status: 'ok' });
   });
-  
+
   router.get('/aap/subscription', async (_, response) => {
     // Return the subscription status
     const res = instance.getSubscriptionStatus();
