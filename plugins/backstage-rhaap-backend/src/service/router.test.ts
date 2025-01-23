@@ -18,14 +18,14 @@ import express from 'express';
 import request from 'supertest';
 import { createRouter } from './router';
 import { ConfigReader } from '@backstage/config';
-import { getVoidLogger } from '@backstage/backend-common';
+import { mockServices } from '@backstage/backend-test-utils';
 
 import { RHAAPService } from './ansibleRHAAPService';
 
 describe('createRouter', () => {
   let app: express.Express;
   let getSubscriptionStatusMock: any;
-  const logger = getVoidLogger();
+  const logger = mockServices.logger.mock();
   const config = new ConfigReader({
     ansible: {
       rhaap: {

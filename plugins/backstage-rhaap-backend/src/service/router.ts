@@ -15,17 +15,15 @@
  */
 import express from 'express';
 import Router from 'express-promise-router';
-import { Logger } from 'winston';
 
-import { errorHandler } from '@backstage/backend-common';
+import { MiddlewareFactory } from '@backstage/backend-defaults/rootHttpRouter';
 import { Config } from '@backstage/config';
-import { SchedulerService } from '@backstage/backend-plugin-api';
+import { LoggerService, SchedulerService } from '@backstage/backend-plugin-api';
 
 import { RHAAPService } from './ansibleRHAAPService';
-import helmet from 'helmet';
 
 export interface RouterOptions {
-  logger: Logger;
+  logger: LoggerService;
   config: Config;
   scheduler?: SchedulerService;
 }
@@ -34,18 +32,18 @@ export async function createRouter(
   options: RouterOptions,
 ): Promise<express.Router> {
   const { logger, config, scheduler } = options;
-
+  const middleware = MiddlewareFactory.create({ config, logger });
   const instance = RHAAPService.getInstance(config, logger, scheduler);
 
   const router = Router();
-  router.use(helmet());
+  router.use(middleware.helmet());
   router.use(express.json());
+  router.use(middleware.error());
 
   router.get('/health', (_, response) => {
     logger.info('PONG!');
     response.json({ status: 'ok' });
   });
-  router.use(errorHandler());
 
   router.get('/aap/subscription', async (_, response) => {
     // Return the subscription status

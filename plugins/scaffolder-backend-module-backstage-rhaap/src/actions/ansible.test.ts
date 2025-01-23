@@ -35,80 +35,121 @@ import { AnsibleApiClient } from './utils/api';
 import { MockAuthService } from './MockAuthService';
 
 describe('ansible:content:create', () => {
-    const config = new ConfigReader({
-        ansible: {
-          devSpaces: {
-              baseUrl: 'https://test.apps.test-rhdh.testing.ansible.com/',
-            },
-          creatorService: {
-              baseUrl: 'localhost',
-              port: '8000',
-            },
+  const config = new ConfigReader({
+      ansible: {
+        devSpaces: {
+            baseUrl: 'https://test.apps.test-rhdh.testing.ansible.com/',
           },
-        });
+        creatorService: {
+            baseUrl: 'localhost',
+            port: '8000',
+          },
+        },
+      });
 
-    const logger = getVoidLogger();
+  const logger = getVoidLogger();
 
-    const auth = new MockAuthService({
-      pluginId: 'test',
-      disableDefaultAuthPolicy: false,
-    });
-
-    const action = createAnsibleContentAction(config, logger, auth);
-
-    const mockContext = createMockActionContext({
-      input: {
-        sourceControl: 'github.com',
-        repoOwner: 'testOwner',
-        repoName: 'testRepo',
-        description: 'test description',
-        collectionGroup: 'dummyGroup',
-        collectionName: 'dummyName',
-        applicationType: 'collection-project',
-       },
-    });
-
-    const isValidSubscriptionMock = jest
-      .spyOn(AnsibleApiClient.prototype, 'isValidSubscription')
-      .mockImplementation(async () => {
-        return {status: 200, isValid: true, isCompliant: false}
-    });
-
-    beforeEach(() => {
-      jest.clearAllMocks();
-    });
-
-    it('should call output with the devSpaces.baseUrl and the repoUrl and check', async () => {
-      await action.handler(mockContext);
-
-      expect(isValidSubscriptionMock).toHaveBeenCalledTimes(1);
-      expect(mockContext.output).toHaveBeenCalledWith(
-        'devSpacesBaseUrl',
-        getDevspacesUrlFromAnsibleConfig(config, 'github.com', 'testOwner', 'testRepo'),
-      );
-      expect(mockContext.output).toHaveBeenCalledWith(
-        'repoUrl',
-        generateRepoUrl('github.com', 'testOwner', 'testRepo'),
-      );
-    });
-
-    it('match ansibleCreatorRun call with the correct parameters', async () => {
-      await action.handler(mockContext);
-
-      expect(isValidSubscriptionMock).toHaveBeenCalledTimes(1);
-      expect(ansibleCreatorRun).toHaveBeenCalledWith(
-        mockContext.workspacePath,
-        'collection-project',
-        logger,
-        'test description',
-        'dummyGroup',
-        'dummyName',
-        getServiceUrlFromAnsibleConfig(config),
-      );
-      expect(ansibleCreatorRun).toHaveBeenCalledTimes(1);
-      expect(mockContext.output).toHaveBeenCalledWith(
-        'repoUrl',
-        generateRepoUrl('github.com', 'testOwner', 'testRepo'),
-      );
-    });
+  const auth = new MockAuthService({
+    pluginId: 'test',
+    disableDefaultAuthPolicy: false,
   });
+
+  const action = createAnsibleContentAction(config, logger, auth);
+
+  const mockContext = createMockActionContext({
+    input: {
+      sourceControl: 'github.com',
+      repoOwner: 'testOwner',
+      repoName: 'testRepo',
+      description: 'test description',
+      collectionGroup: 'dummyGroup',
+      collectionName: 'dummyName',
+      applicationType: 'collection-project',
+      },
+  });
+
+  const isValidSubscriptionMock = jest
+    .spyOn(AnsibleApiClient.prototype, 'isValidSubscription')
+    .mockImplementation(async () => {
+      return {status: 200, isValid: true, isCompliant: false}
+    });
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+  });
+
+  it('should call output with the devSpaces.baseUrl and the repoUrl and check', async () => {
+    await action.handler(mockContext);
+
+    expect(isValidSubscriptionMock).toHaveBeenCalledTimes(1);
+    expect(mockContext.output).toHaveBeenCalledWith(
+      'devSpacesBaseUrl',
+      getDevspacesUrlFromAnsibleConfig(config, 'github.com', 'testOwner', 'testRepo'),
+    );
+    expect(mockContext.output).toHaveBeenCalledWith(
+      'repoUrl',
+      generateRepoUrl('github.com', 'testOwner', 'testRepo'),
+    );
+  });
+
+  it('match ansibleCreatorRun call with the correct parameters', async () => {
+    await action.handler(mockContext);
+
+    expect(isValidSubscriptionMock).toHaveBeenCalledTimes(1);
+    expect(ansibleCreatorRun).toHaveBeenCalledWith(
+      mockContext.workspacePath,
+      'collection-project',
+      logger,
+      'test description',
+      'dummyGroup',
+      'dummyName',
+      getServiceUrlFromAnsibleConfig(config),
+    );
+    expect(ansibleCreatorRun).toHaveBeenCalledTimes(1);
+    expect(mockContext.output).toHaveBeenCalledWith(
+      'repoUrl',
+      generateRepoUrl('github.com', 'testOwner', 'testRepo'),
+    );
+  });
+
+  it('should call output with the devSpaces.baseUrl and the repoUrl and check', async () => {
+    // @ts-ignore
+    await action.handler(mockContext);
+
+    expect(isValidSubscriptionMock).toHaveBeenCalledTimes(1);
+    expect(mockContext.output).toHaveBeenCalledWith(
+      'devSpacesBaseUrl',
+      getDevspacesUrlFromAnsibleConfig(
+        config,
+        'github.com',
+        'testOwner',
+        'testRepo',
+      ),
+    );
+    expect(mockContext.output).toHaveBeenCalledWith(
+      'repoUrl',
+      generateRepoUrl('github.com', 'testOwner', 'testRepo'),
+    );
+  });
+
+  it('match ansibleCreatorRun call with the correct parameters', async () => {
+    // @ts-ignore
+    await action.handler(mockContext);
+
+    expect(isValidSubscriptionMock).toHaveBeenCalledTimes(1);
+    expect(ansibleCreatorRun).toHaveBeenCalledWith(
+      mockContext.workspacePath,
+      'collection-project',
+      logger,
+      'test description',
+      'dummyGroup',
+      'dummyName',
+      getServiceUrlFromAnsibleConfig(config),
+    );
+    expect(ansibleCreatorRun).toHaveBeenCalledTimes(1);
+    expect(mockContext.output).toHaveBeenCalledWith(
+      'repoUrl',
+      generateRepoUrl('github.com', 'testOwner', 'testRepo'),
+    );
+  });
+});

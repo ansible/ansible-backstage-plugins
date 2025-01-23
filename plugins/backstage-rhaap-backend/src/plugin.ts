@@ -14,8 +14,10 @@
  * limitations under the License.
  */
 
-import { loggerToWinstonLogger } from '@backstage/backend-common';
-import { coreServices, createBackendPlugin } from '@backstage/backend-plugin-api';
+import {
+  coreServices,
+  createBackendPlugin,
+} from '@backstage/backend-plugin-api';
 import { createRouter } from './service/router';
 
 /**
@@ -37,8 +39,8 @@ export const backstageRHAAPPlugin = createBackendPlugin({
         httpRouter.use(
           await createRouter({
             config,
-            logger: loggerToWinstonLogger(logger),
-            scheduler
+            logger,
+            scheduler,
           }),
         );
       },

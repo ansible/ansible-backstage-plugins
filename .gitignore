@@ -24,7 +24,6 @@ node_modules/
 !.yarn/sdks
 !.yarn/versions
 plugins/**/.yarn/*
-e2e-tests/.yarn/*
 
 # dotenv environment variables file
 .env
