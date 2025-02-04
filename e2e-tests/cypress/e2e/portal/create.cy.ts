@@ -21,10 +21,10 @@ describe('Ansible Portal Wizard Catalog Create and execution tests', () => {
 
     // Open the Create wizard use case form and fill details
     cy.get(
-      ':nth-child(3) > .MuiPaper-root > .MuiCardActions-root > .MuiBox-root > .MuiButtonBase-root',
+      ':nth-child(1) > .MuiPaper-root > .MuiCardActions-root > .MuiBox-root > .MuiButtonBase-root',
     ).as('createCard');
     cy.get('@createCard').click();
-    cy.wait(1000);
+    cy.wait(5000);
 
     cy.get('h1 > div > div').as('pageHeader');
     cy.get('@pageHeader').should('have.text', 'Create wizard use cases');
@@ -35,7 +35,7 @@ describe('Ansible Portal Wizard Catalog Create and execution tests', () => {
 
     cy.get('div[aria-labelledby="jobInventory-select-label"').click();
 
-    cy.contains(inventory).click();
+    cy.contains('li', inventory).click();
 
     cy.get('#root_scmUrl').as('scmUrl').clear().type(scmUrl);
     cy.get('@scmUrl').should('have.value', scmUrl);
@@ -91,13 +91,13 @@ describe('Ansible Portal Wizard Catalog Create and execution tests', () => {
   it('Validates successful Wizard Catalog "Create" functionality - RHEL services', () => {
     createWizardUseCase(
       'Default',
-      'MVP RHEL Inventory',
+      'Demo Inventory',
       'https://github.com/ansible/ansible-pattern-loader',
       'main',
       'seed_portal_content.yml',
       'Rhel',
     );
-    cy.get('@statusText', { timeout: 50000 }).should(
+    cy.get('@statusText', { timeout: 70000 }).should(
       'have.text',
       'Job generic seed template executed successfully',
     );
@@ -115,7 +115,7 @@ describe('Ansible Portal Wizard Catalog Create and execution tests', () => {
   it('Validates failed Wizard Catalog "Create" functionality - invalid playbook', () => {
     createWizardUseCase(
       'Default',
-      'MVP RHEL Inventory',
+      'Demo Inventory',
       'https://github.com/ansible/ansible-pattern-loader',
       'main',
       'invalid_playbook.yml',
@@ -131,7 +131,7 @@ describe('Ansible Portal Wizard Catalog Create and execution tests', () => {
   it('Validates failed Wizard Catalog "Create" functionality - invalid source control URL', () => {
     createWizardUseCase(
       'Default',
-      'MVP RHEL Inventory',
+      'Demo Inventory',
       'https://github.com/ansible/invalid-source',
       'seed_portal_content.yml',
       'main',

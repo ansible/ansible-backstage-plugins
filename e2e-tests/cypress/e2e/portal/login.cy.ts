@@ -9,7 +9,7 @@ describe('Ansible Portal Authentication Tests', () => {
     cy.visit('/wizard/catalog');
     cy.wait(3000);
     cy.get(
-      '#root > div > main > article > .MuiGrid-container > .MuiGrid-item > :nth-child(2) > :nth-child(3)',
+      '#root > div > main > article > .MuiGrid-container > .MuiGrid-item > :nth-child(2)',
     ).should('contain.text', 'Create wizard use cases');
   });
 });

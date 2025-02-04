@@ -15,13 +15,13 @@ module.exports = defineConfig({
   e2e: {
     testIsolation: false,
     defaultCommandTimeout: 10000,
-    baseUrl: 'http://localhost:3000',
+    baseUrl: 'http://localhost:3000', // changeme before running tests
     setupNodeEvents(on, config) {
       // implement node event listeners here
     },
   },
   env: {
-    AAP_USER_ID: 'Wingardium', // changeme before running portal tests
+    AAP_USER_ID: 'admin', // changeme before running portal tests
     AAP_USER_PASS: 'Leviosa@', // changeme before running portal tests
     AAP_URL: 'default_url', // changeme before running portal tests
     GH_USER_ID: 'testrhdh', // changeme before running rhdh tests

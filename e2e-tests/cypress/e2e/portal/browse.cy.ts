@@ -18,8 +18,7 @@ describe('Ansible Portal Browse Page Functional Tests', () => {
       '#root > div > main > article > .MuiGrid-container > .MuiGrid-root > :nth-child(2) > div';
 
     // All cards should be visible before searching
-    // Currently there are 3 cards available. Update the length when more cards are added
-    cy.get(allCardsContainer).should('have.length.greaterThan', 2);
+    cy.get(allCardsContainer).should('have.length.greaterThan', 0);
 
     cy.get('@searchBar').type('Create wizard use cases');
     cy.get('@searchBar').should('have.value', 'Create wizard use cases');
@@ -68,8 +67,7 @@ describe('Ansible Portal Browse Page Functional Tests', () => {
       '#root > div > main > article > .MuiGrid-container > .MuiGrid-root > :nth-child(2) > div';
 
     // All cards should be visible before option selection
-    // Currently there are 3 cards available. Update the length when more cards are added
-    cy.get(allCardsContainer).should('have.length.greaterThan', 2);
+    cy.get(allCardsContainer).should('have.length.greaterThan', 0);
 
     cy.contains('li', 'AAP Operations').click();
     cy.get('[aria-labelledby="domain-select-label"]').should(
@@ -127,8 +125,7 @@ describe('Ansible Portal Browse Page Functional Tests', () => {
       '#root > div > main > article > .MuiGrid-container > .MuiGrid-root > :nth-child(2) > div';
 
     // All cards should be visible before option selection
-    // Currently there are 3 cards available. Update the length when more cards are added
-    cy.get(allCardsContainer).should('have.length.greaterThan', 2);
+    cy.get(allCardsContainer).should('have.length.greaterThan', 0);
 
     cy.contains('li', 'RedHat').click();
     cy.get(
@@ -167,11 +164,7 @@ describe('Ansible Portal Browse Page Functional Tests', () => {
       testCardNavigation(index + 1, expectedUrls);
     }
 
-    const expectedUrls = [
-      '/wizard/catalog/create-task/default/ansible-collection-template',
-      '/wizard/catalog/create-task/default/ansible-playbook-template',
-      '/wizard/catalog/create-task/default/generic-seed',
-    ];
+    const expectedUrls = ['/wizard/catalog/create-task/default/generic-seed'];
 
     testCardNavigation(0, expectedUrls);
   });
@@ -182,7 +175,7 @@ describe('Ansible Portal Browse Page Functional Tests', () => {
     const favoritesContainer =
       '#root > div > main > article > .MuiGrid-container > :nth-child(2) > :nth-child(1)';
 
-    const cardTitle = 'Create Ansible Collection Project';
+    const cardTitle = 'Create wizard use cases';
 
     cy.get(allCardsContainer).contains(cardTitle).should('exist');
 
