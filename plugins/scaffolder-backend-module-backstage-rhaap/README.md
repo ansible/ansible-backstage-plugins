@@ -118,7 +118,7 @@ c42ff7b0b083e5388bbbaa0d2bf3969ef29d9c5dfd193621dec596139cc4bddc
 * processing: localhost:8000/v1/creator/collection
 > Host: localhost:8000
 ...
-< Content-Disposition: attachment; filename="namespace.name.tar.gz"
+< Content-Disposition: attachment; filename="namespace.name.tar"
 <
 { [24769 bytes data]
 100 24825  100 24769  100    56   251k    581 --:decrement:-- --:decrement:-- --:decrement:--  252k
@@ -130,15 +130,15 @@ c42ff7b0b083e5388bbbaa0d2bf3969ef29d9c5dfd193621dec596139cc4bddc
 * processing: localhost:8000/v1/creator/playbook
 > Host: localhost:8000
 ...
-< Content-Disposition: attachment; filename="ansible.devops.tar.gz"
+< Content-Disposition: attachment; filename="ansible.devops.tar"
 <
 { [24769 bytes data]
 100 24825  100 24769  100    56   251k    581 --:decrement:-- --:decrement:-- --:decrement:--  252k
 * Closing connection
 
 ❯ ls
- namespace.name.tar.gz
- ansible.devops.tar.gz
+ namespace.name.tar
+ ansible.devops.tar
 ```
 
 ### Add ansible-rhdh-templates reference in app-config.yaml

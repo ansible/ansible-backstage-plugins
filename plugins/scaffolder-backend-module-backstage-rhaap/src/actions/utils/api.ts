@@ -95,15 +95,15 @@ export class BackendServiceAPI {
     tarName: string,
   ) {
     try {
-      logger.debug(
-        `${BackendServiceAPI.pluginLogName}] Request for ansible playbook-project: ${collectionOrgName}`,
-      );
-      const playbookUrl = 'v1/creator/playbook';
+      const playbookUrl = 'v2/creator/playbook';
       const postData = {
         scm_org: collectionOrgName,
         project: 'ansible-project',
         scm_project: collectionName,
       };
+      logger.info(
+        `${BackendServiceAPI.pluginLogName}] Request for ansible playbook-project: ${collectionOrgName} using ${playbookUrl}`,
+      );
 
       const response = await this.sendPostRequest(
         `${creatorServiceUrl}${playbookUrl}`,
@@ -111,7 +111,32 @@ export class BackendServiceAPI {
       );
       await this.downloadFile(response, logger, workspacePath, tarName);
     } catch (error) {
-      throw new Error(`:downloadPlaybookProject:`);
+      try {
+        logger.info(
+          `${BackendServiceAPI.pluginLogName}] [DEPRECATION WARNING] Older versions of ansible-creator is not recommended. Please upgrade to the recent version of ansible-creator to get the latest support.`,
+        );
+        const playbookUrlV1 = 'v1/creator/playbook';
+        const postDataV1 = {
+          scm_org: collectionOrgName,
+          project: 'ansible-project',
+          scm_project: collectionName,
+        };
+
+        logger.info(
+          `${BackendServiceAPI.pluginLogName}] Request for ansible playbook-project: ${collectionOrgName} using ${playbookUrlV1}`,
+        );
+
+        const responseV1 = await this.sendPostRequest(
+          `${creatorServiceUrl}${playbookUrlV1}`,
+          postDataV1,
+        );
+        await this.downloadFile(responseV1, logger, workspacePath, tarName);
+      } catch (fallbackError) {
+        logger.error(
+          `${BackendServiceAPI.pluginLogName}] Failed. Please ensure your ansible-creator version is supported.`,
+        );
+        throw new Error(`:downloadPlaybookProject:`);
+      }
     }
   }
 
@@ -124,14 +149,15 @@ export class BackendServiceAPI {
     tarName: string,
   ) {
     try {
-      logger.debug(
-        `${BackendServiceAPI.pluginLogName}] Request for ansible collection-project: ${collectionOrgName}`,
-      );
-      const collectionUrl = 'v1/creator/collection';
+      const collectionUrl = 'v2/creator/collection';
       const postData = {
         collection: `${collectionOrgName}.${collectionName}`,
         project: 'collection',
       };
+
+      logger.debug(
+        `${BackendServiceAPI.pluginLogName}] Request for ansible collection-project: ${collectionOrgName} using ${collectionUrl}`,
+      );
 
       const response = await this.sendPostRequest(
         `${creatorServiceUrl}${collectionUrl}`,
@@ -139,7 +165,31 @@ export class BackendServiceAPI {
       );
       await this.downloadFile(response, logger, workspacePath, tarName);
     } catch (error) {
-      throw new Error(`:downloadCollectionProject`);
+      try {
+        logger.info(
+          `${BackendServiceAPI.pluginLogName}] [DEPRECATION WARNING] Older versions of ansible-creator is not recommended. Please upgrade to the recent version of ansible-creator to get the latest support.`,
+        );
+        const collectionUrlV1 = 'v1/creator/collection';
+        const postDataV1 = {
+          collection: `${collectionOrgName}.${collectionName}`,
+          project: 'collection',
+        };
+
+        logger.debug(
+          `${BackendServiceAPI.pluginLogName}] Request for ansible collection-project: ${collectionOrgName} using ${collectionUrlV1}`,
+        );
+
+        const responseV1 = await this.sendPostRequest(
+          `${creatorServiceUrl}${collectionUrlV1}`,
+          postDataV1,
+        );
+        await this.downloadFile(responseV1, logger, workspacePath, tarName);
+      } catch (fallbackError) {
+        logger.error(
+          `${BackendServiceAPI.pluginLogName}] Failed. Please ensure your ansible-creator version is supported.`,
+        );
+        throw new Error(`:downloadCollectionProject:`);
+      }
     }
   }
 }

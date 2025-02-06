@@ -193,6 +193,7 @@ export function createAnsibleContentAction(config: Config, logger: Logger, auth:
         );
         log.info(`context output processed successfully`);
       } catch (error: any) {
+        log.error(`Error occured: ${JSON.stringify(error)}`);
         throw new Error(error.message);
       }
     },

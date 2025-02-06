@@ -29,7 +29,7 @@ describe('BackendServiceAPI', () => {
     const workspacePath = '/tmp/workspace';
     const collectionOrgName = 'my-org';
     const collectionName = 'my-collection';
-    const tarName = 'my-collection-playbook-project.tar.gz';
+    const tarName = 'my-collection-playbook-project.tar';
     const creatorServiceUrl = 'http://localhost:8000/';
 
     const api = new BackendServiceAPI();
@@ -41,13 +41,130 @@ describe('BackendServiceAPI', () => {
     privateFuncsendPostRequest.mockImplementation(() => {});
 
     await api.downloadPlaybookProject(
+      workspacePath,
+      mockLogger,
+      creatorServiceUrl,
+      collectionOrgName,
+      collectionName,
+      tarName,
+    );
+
+    // Assert
+    expect(privateFuncdownloadFile).toHaveBeenCalled();
+    expect(privateFuncsendPostRequest).toHaveBeenCalledWith(
+      'http://localhost:8000/v2/creator/playbook',
+      {
+        project: 'ansible-project',
+        namespace: 'my-org',
+        collection_name: 'my-collection',
+      },
+    );
+  });
+
+  it('tests playbook project call with V2 API failure and fallback to V1', async () => {
+    const workspacePath = '/tmp/workspace';
+    const collectionOrgName = 'my-org';
+    const collectionName = 'my-collection';
+    const tarName = 'my-collection-playbook-project.tar';
+    const creatorServiceUrl = 'http://localhost:8000/';
+
+    const api = new BackendServiceAPI();
+
+    const privateFuncdownloadFile = jest.spyOn(
+      BackendServiceAPI.prototype as any,
+      'downloadFile',
+    );
+    privateFuncdownloadFile.mockImplementation(() => {});
+
+    const privateFuncsendPostRequest = jest.spyOn(
+      BackendServiceAPI.prototype as any,
+      'sendPostRequest',
+    );
+    privateFuncsendPostRequest
+      .mockImplementationOnce(() => {
+        throw new Error('V2 failed');
+      })
+      .mockImplementationOnce(() => {});
+
+    await api.downloadPlaybookProject(
+      workspacePath,
+      mockLogger,
+      creatorServiceUrl,
+      collectionOrgName,
+      collectionName,
+      tarName,
+    );
+
+    expect(privateFuncsendPostRequest).toHaveBeenCalledTimes(2);
+    expect(privateFuncsendPostRequest).toHaveBeenCalledWith(
+      'http://localhost:8000/v1/creator/playbook',
+      {
+        project: 'ansible-project',
+        scm_org: 'my-org',
+        scm_project: 'my-collection',
+      },
+    );
+  });
+
+  it('tests error handling when both V1 and V2 APIs fail for playbook project', async () => {
+    const workspacePath = '/tmp/workspace';
+    const collectionOrgName = 'my-org';
+    const collectionName = 'my-collection';
+    const tarName = 'my-collection-playbook-project.tar';
+    const creatorServiceUrl = 'http://localhost:8000/';
+
+    const api = new BackendServiceAPI();
+
+    jest.spyOn(BackendServiceAPI.prototype as any, 'downloadFile');
+    const privateFuncsendPostRequest = jest.spyOn(
+      BackendServiceAPI.prototype as any,
+      'sendPostRequest',
+    );
+    privateFuncsendPostRequest.mockImplementation(() => {
+      throw new Error('API failed');
+    });
+
+    await expect(
+      api.downloadPlaybookProject(
         workspacePath,
         mockLogger,
         creatorServiceUrl,
         collectionOrgName,
         collectionName,
         tarName,
-      );
+      ),
+    ).rejects.toThrow(':downloadPlaybookProject:');
+  });
+
+  it('tests collection project call with V2 API success', async () => {
+    const workspacePath = '/tmp/workspace';
+    const collectionOrgName = 'my-org';
+    const collectionName = 'my-collection';
+    const tarName = 'my-collection-project.tar';
+    const creatorServiceUrl = 'http://localhost:8000/';
+
+    const api = new BackendServiceAPI();
+
+    const privateFuncdownloadFile = jest.spyOn(
+      BackendServiceAPI.prototype as any,
+      'downloadFile',
+    );
+    privateFuncdownloadFile.mockImplementation(() => {});
+
+    const privateFuncsendPostRequest = jest.spyOn(
+      BackendServiceAPI.prototype as any,
+      'sendPostRequest',
+    );
+    privateFuncsendPostRequest.mockImplementation(() => {});
+
+    await api.downloadCollectionProject(
+      workspacePath,
+      mockLogger,
+      creatorServiceUrl,
+      collectionOrgName,
+      collectionName,
+      tarName,
+    );
 
     // Assert
     expect(privateFuncdownloadFile).toHaveBeenCalled();
@@ -58,7 +175,7 @@ describe('BackendServiceAPI', () => {
     const workspacePath = '/tmp/workspace';
     const collectionOrgName = 'my-org';
     const collectionName = 'my-collection';
-    const tarName = 'my-collection-project.tar.gz';
+    const tarName = 'my-collection-project.tar';
     const creatorServiceUrl = 'http://localhost:8000/';
 
     const api = new BackendServiceAPI();
@@ -70,6 +187,44 @@ describe('BackendServiceAPI', () => {
     privateFuncsendPostRequest.mockImplementation(() => {});
 
     await api.downloadCollectionProject(
+      workspacePath,
+      mockLogger,
+      creatorServiceUrl,
+      collectionOrgName,
+      collectionName,
+      tarName,
+    );
+
+    expect(privateFuncsendPostRequest).toHaveBeenCalledTimes(2);
+    expect(privateFuncsendPostRequest).toHaveBeenCalledWith(
+      'http://localhost:8000/v1/creator/collection',
+      {
+        collection: 'my-org.my-collection',
+        project: 'collection',
+      },
+    );
+  });
+
+  it('tests error handling when both V1 and V2 APIs fail for collection project', async () => {
+    const workspacePath = '/tmp/workspace';
+    const collectionOrgName = 'my-org';
+    const collectionName = 'my-collection';
+    const tarName = 'my-collection-project.tar';
+    const creatorServiceUrl = 'http://localhost:8000/';
+
+    const api = new BackendServiceAPI();
+
+    jest.spyOn(BackendServiceAPI.prototype as any, 'downloadFile');
+    const privateFuncsendPostRequest = jest.spyOn(
+      BackendServiceAPI.prototype as any,
+      'sendPostRequest',
+    );
+    privateFuncsendPostRequest.mockImplementation(() => {
+      throw new Error('API failed');
+    });
+
+    await expect(
+      api.downloadCollectionProject(
         workspacePath,
         mockLogger,
         creatorServiceUrl,

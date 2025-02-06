@@ -36,7 +36,7 @@ export async function ansibleCreatorRun(
     ? workspacePath
     : `${os.homedir()}/.ansible/collections/ansible_collections`;
 
-  const tarName = `${collectionGroup}-${applicationType}.tar.gz`;
+  const tarName = `${collectionGroup}-${applicationType}.tar`;
 
   logger.info(`[${BackendServiceAPI.pluginLogName}] Invoking ansible-devtools-server`);
   try {
@@ -72,32 +72,52 @@ export async function ansibleCreatorRun(
   logger.info(
     `[${BackendServiceAPI.pluginLogName}] Initiating ${tarName} un-tar at ${scaffoldPath}`,
   );
-  // untar the scaffolded collection
-  await executeShellCommand({
-    command: 'tar',
-    args: ['-xvf', tarName],
-    options: {
-      cwd: scaffoldPath,
-    },
-    logStream: logger,
-  });
-  logger.info(`[${BackendServiceAPI.pluginLogName}] ${tarName} un-tar successful`);
+  try {
+    // untar the scaffolded collection
+    await executeShellCommand({
+      command: 'tar',
+      args: ['-xvf', tarName],
+      options: {
+        cwd: scaffoldPath,
+      },
+      logStream: logger,
+    });
+    logger.info(
+      `[${BackendServiceAPI.pluginLogName}] ${tarName} un-tar successful`,
+    );
+  } catch (error: any) {
+    logger.error(
+      `[${BackendServiceAPI.pluginLogName}] Error while un-tar`,
+      error,
+    );
+    throw new Error(error);
+  }
 
-  // delete the tarball as it must not be published in Source Control
-  logger.info(`[${BackendServiceAPI.pluginLogName}] deleting ${tarName} from ${scaffoldPath}`);
-  await executeShellCommand({
-    command: 'rm',
-    args: [tarName],
-    options: {
-      cwd: scaffoldPath,
-    },
-    logStream: logger,
-  });
-  logger.info(
-    `[${BackendServiceAPI.pluginLogName}] ${scaffoldPath} clean for repository creation`,
-  );
+  try {
+    // delete the tarball as it must not be published in Source Control
+    logger.info(
+      `[${BackendServiceAPI.pluginLogName}] deleting ${tarName} from ${scaffoldPath}`,
+    );
+    await executeShellCommand({
+      command: 'rm',
+      args: [tarName],
+      options: {
+        cwd: scaffoldPath,
+      },
+      logStream: logger,
+    });
+    logger.info(
+      `[${BackendServiceAPI.pluginLogName}] ${scaffoldPath} clean for repository creation`,
+    );
 
-  logger.info(
-    `[${BackendServiceAPI.pluginLogName}] create operation for ${applicationType} completed`,
-  );
+    logger.info(
+      `[${BackendServiceAPI.pluginLogName}] create operation for ${applicationType} completed`,
+    );
+  } catch (error: any) {
+    logger.error(
+      `[${BackendServiceAPI.pluginLogName}] Error while deleting tarball: `,
+      error,
+    );
+    throw new Error(error);
+  }
 }
