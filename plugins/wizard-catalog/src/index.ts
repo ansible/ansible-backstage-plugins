@@ -1,5 +1,8 @@
 export { wizardCatalogPlugin, WizardCatalogPage } from './plugin';
 export { wizardCatalogRouteRef } from './routes';
 
-// export { AAPTokenFieldExtension } from "./components/Scaffolder/AAPTokenFieldExtension";
-// export { AAPResourcePicker } from "./components/Scaffolder/AAPResourcePicker";
+export { SignInPage } from './components/SignInPage/SignInPage';
+export { AAPTokenFieldExtension } from './components/Scaffolder/AAPTokenField';
+export { AAPResourcePickerExtension } from './components/Scaffolder/AAResourcePicker';
+
+export * from './apis';

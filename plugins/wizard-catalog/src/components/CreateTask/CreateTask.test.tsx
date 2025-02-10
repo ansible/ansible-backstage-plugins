@@ -11,7 +11,7 @@ import { FavoritesProvider } from '../../helpers/Favorite';
 import { mockScaffolderApi } from '../../tests/scaffolderApi_utils';
 import { CreateTask } from './CreateTask';
 import { scaffolderApiRef } from '@backstage/plugin-scaffolder-react';
-import { rhAapAuthApiRef } from '../../api/AuthApiRefs';
+import { rhAapAuthApiRef } from '../../apis';
 
 // Mock the module
 jest.mock('react-router-dom', () => ({

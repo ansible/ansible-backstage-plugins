@@ -11,7 +11,7 @@ import FormHelperText from '@material-ui/core/FormHelperText';
 
 import { InputLabel, MenuItem, Select } from '@material-ui/core';
 import { SelectChangeEvent } from '@mui/material/Select';
-import { rhAapAuthApiRef } from '../../../api/AuthApiRefs';
+import { rhAapAuthApiRef } from '../../../apis';
 
 export const AAPResourcePicker = (props: ScaffolderRJSFFieldProps) => {
   const {

@@ -1,5 +1,5 @@
 {
-  "name": "@internal/backstage-plugin-auth-backend-module-rhaap-provider",
+  "name": "@ansible/backstage-plugin-auth-backend-module-rhaap-provider",
   "description": "The rhaap-provider backend module for the auth plugin.",
   "version": "0.1.0",
   "main": "src/index.ts",
@@ -26,28 +26,39 @@
     "test": "backstage-cli package test",
     "clean": "backstage-cli package clean",
     "prepack": "backstage-cli package prepack",
-    "postpack": "backstage-cli package postpack"
+    "postpack": "backstage-cli package postpack",
+    "fix": "backstage-cli repo fix --publish",
+    "export-dynamic": "janus-cli package export-dynamic-plugin --clean"
   },
   "dependencies": {
-    "@backstage/backend-common": "^0.23.3",
-    "@backstage/backend-plugin-api": "^1.0.1",
-    "@backstage/catalog-model": "^1.7.0",
-    "@backstage/config-loader": "^1.9.1",
-    "@backstage/errors": "^1.2.4",
-    "@backstage/plugin-auth-backend": "0.23.1",
-    "@backstage/plugin-auth-node": "^0.4.17",
+    "@backstage/backend-common": "^0.25.0",
+    "@backstage/backend-defaults": "^0.6.0",
+    "@backstage/backend-dynamic-feature-service": "^0.5.2",
+    "@backstage/backend-plugin-api": "^1.1.0",
+    "@backstage/catalog-model": "^1.7.2",
+    "@backstage/config-loader": "^1.9.3",
+    "@backstage/errors": "^1.2.6",
+    "@backstage/plugin-auth-backend": "^0.24.1",
+    "@backstage/plugin-auth-node": "^0.5.5",
     "passport-oauth2": "^1.8.0",
     "undici": "6.21.1"
   },
   "devDependencies": {
-    "@backstage/backend-defaults": "0.4.1",
-    "@backstage/backend-test-utils": "^0.4.4",
-    "@backstage/cli": "0.28.2",
+    "@backstage/backend-test-utils": "^1.2.0",
+    "@backstage/cli": "^0.29.4",
+    "@types/supertest": "^6.0.2",
+    "@janus-idp/cli": "^1.18.0",
     "jose": "5.9.3",
     "msw": "2.4.9",
     "supertest": "6.3.4"
   },
   "files": [
-    "dist"
-  ]
+    "dist",
+    "dist-dynamic/*.*",
+    "dist-dynamic/dist/**",
+    "dist-dynamic/alpha/*",
+    "build",
+    "src/**/*.d.ts"
+  ],
+  "configSchema": "config.d.ts"
 }

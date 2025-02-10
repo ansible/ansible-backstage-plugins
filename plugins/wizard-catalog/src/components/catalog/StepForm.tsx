@@ -20,7 +20,7 @@ import {
   SecretsContextProvider,
 } from '@backstage/plugin-scaffolder-react';
 import { useApi } from '@backstage/core-plugin-api';
-import { rhAapAuthApiRef } from '../../api/AuthApiRefs';
+import { rhAapAuthApiRef } from '../../apis';
 import CheckIcon from '@mui/icons-material/Check';
 import CloseIcon from '@mui/icons-material/Close';
 import { createTheme, ThemeProvider } from '@material-ui/core/styles';

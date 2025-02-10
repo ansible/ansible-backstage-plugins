@@ -3,7 +3,7 @@ import React from 'react';
 import { useApi } from '@backstage/core-plugin-api';
 import { FieldExtensionComponentProps } from '@backstage/plugin-scaffolder-react';
 
-import { rhAapAuthApiRef } from '../../../api/AuthApiRefs';
+import { rhAapAuthApiRef } from '../../../apis';
 
 export const AAPTokenField = ({
   onChange,
