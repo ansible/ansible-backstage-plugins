@@ -23,6 +23,8 @@ node_modules/
 !.yarn/releases
 !.yarn/sdks
 !.yarn/versions
+plugins/**/.yarn/*
+e2e-tests/.yarn/*
 
 # dotenv environment variables file
 .env
