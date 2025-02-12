@@ -20,6 +20,7 @@ jest.mock('node-fetch');
 
 describe('BackendServiceAPI', () => {
   const mockLogger = getVoidLogger();
+  const privateFuncdownloadFile = jest.spyOn(BackendServiceAPI.prototype as any, 'downloadFile');
 
   beforeEach(() => {
     jest.clearAllMocks();
@@ -34,7 +35,6 @@ describe('BackendServiceAPI', () => {
 
     const api = new BackendServiceAPI();
 
-    const privateFuncdownloadFile = jest.spyOn(BackendServiceAPI.prototype as any, 'downloadFile');
     privateFuncdownloadFile.mockImplementation(() => {});
 
     const privateFuncsendPostRequest = jest.spyOn(BackendServiceAPI.prototype as any, 'sendPostRequest');
@@ -231,7 +231,8 @@ describe('BackendServiceAPI', () => {
         collectionOrgName,
         collectionName,
         tarName,
-      );
+      )
+    );
 
     // Assert
     expect(privateFuncdownloadFile).toHaveBeenCalled();

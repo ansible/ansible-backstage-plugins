@@ -79,6 +79,7 @@ describe('ansible:content:create', () => {
   });
 
   it('should call output with the devSpaces.baseUrl and the repoUrl and check', async () => {
+    // @ts-ignore
     await action.handler(mockContext);
 
     expect(isValidSubscriptionMock).toHaveBeenCalledTimes(1);
@@ -93,6 +94,7 @@ describe('ansible:content:create', () => {
   });
 
   it('match ansibleCreatorRun call with the correct parameters', async () => {
+    // @ts-ignore
     await action.handler(mockContext);
 
     expect(isValidSubscriptionMock).toHaveBeenCalledTimes(1);
