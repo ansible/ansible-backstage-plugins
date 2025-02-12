@@ -1,5 +1,5 @@
 ansible:
-  aap:
+  rhaap:
     baseUrl: 'change-me'
     token: 'change-me'
     checkSSL: true
