@@ -60,7 +60,7 @@ export function SearchBar({
           height: '67px',
           padding: '16px',
           '& input': {
-            color: '#181818',
+            // color: '#181818',
             fontFamily: 'Red Hat Text',
             fontSize: '18px',
             fontStyle: 'normal',
@@ -74,10 +74,7 @@ export function SearchBar({
         startAdornment: (
           <InputAdornment position="start">
             <Box style={{ padding: '8px' }}>
-              <SearchIcon
-                fontSize="large"
-                sx={{ color: '#181818', marginTop: '3px' }}
-              />
+              <SearchIcon fontSize="medium" sx={{ marginTop: '3px' }} />
             </Box>
           </InputAdornment>
         ),

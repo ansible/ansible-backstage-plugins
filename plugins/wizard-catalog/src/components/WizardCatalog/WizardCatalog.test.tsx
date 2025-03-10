@@ -44,17 +44,14 @@ describe('WizardCatalog', () => {
     // load wizard card
     expect(screen.getByText('Service')).toBeInTheDocument();
     expect(screen.getByText('Create wizard use cases')).toBeInTheDocument();
-    expect(screen.getByText('DESCRIPTION')).toBeInTheDocument();
     expect(
       screen.getByText(
         'Use this template to create actual wizard use case templates',
       ),
     ).toBeInTheDocument();
-    expect(screen.getByText('OWNER')).toBeInTheDocument();
     expect(screen.getByText('RedHat')).toBeInTheDocument();
-    expect(screen.getByText('TAGS')).toBeInTheDocument();
     expect(screen.getByText('aap-operations')).toBeInTheDocument();
     expect(screen.getByText('intermediate')).toBeInTheDocument();
-    expect(screen.getByText('Choose')).toBeInTheDocument();
+    expect(screen.getByText('Start')).toBeInTheDocument();
   });
 });

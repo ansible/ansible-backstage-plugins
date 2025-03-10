@@ -111,7 +111,12 @@ export const CreateTask = () => {
       />
       <Content>
         <StepForm steps={entityTemplate.steps} submitFunction={finalSubmit} />
-        <Box display="flex" justifyContent="flex-end" marginTop="16px">
+        <Box
+          display="flex"
+          justifyContent="flex-end"
+          marginTop="16px"
+          marginBottom={4}
+        >
           <Button href="/wizard/catalog" variant="text" color="primary">
             Cancel
           </Button>

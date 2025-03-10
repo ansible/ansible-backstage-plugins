@@ -22,7 +22,6 @@ import { useApi } from '@backstage/core-plugin-api';
 import { rhAapAuthApiRef } from '../../apis';
 import CheckIcon from '@mui/icons-material/Check';
 import CloseIcon from '@mui/icons-material/Close';
-import { createTheme, ThemeProvider } from '@material-ui/core/styles';
 import { formExtraFields } from '../../constants/formExtraFields';
 import { ScaffolderForm } from './ScaffolderFormWrapper';
 
@@ -33,45 +32,6 @@ interface StepFormProps {
   }>;
   submitFunction: (formData: Record<string, any>) => Promise<void>;
 }
-
-const scaffolderTheme = createTheme({
-  props: {
-    MuiTextField: {
-      variant: 'outlined',
-    },
-    MuiSelect: {
-      variant: 'outlined',
-    },
-    MuiFormControl: {
-      variant: 'outlined',
-    },
-    MuiButton: {
-      variant: 'contained',
-      color: 'primary',
-    },
-    MuiCheckbox: {
-      color: 'primary',
-    },
-    MuiRadio: {
-      color: 'primary',
-    },
-    MuiSwitch: {
-      color: 'primary',
-    },
-    MuiDialog: {
-      fullWidth: true,
-    },
-    MuiTypography: {
-      variant: 'body1',
-    },
-    MuiIconButton: {
-      color: 'default',
-    },
-    MuiAppBar: {
-      position: 'sticky',
-    },
-  },
-});
 
 export function StepForm({ steps, submitFunction }: StepFormProps) {
   const [activeStep, setActiveStep] = useState(0);
@@ -164,43 +124,37 @@ export function StepForm({ steps, submitFunction }: StepFormProps) {
             <Step key={index}>
               <StepLabel>{step.title}</StepLabel>
               <StepContent>
-                <ThemeProvider theme={scaffolderTheme}>
-                  <ScaffolderForm
-                    schema={{
-                      ...step.schema,
-                      title: '',
-                    }}
-                    uiSchema={extractProperties(step)}
-                    formData={formData}
-                    fields={fields}
-                    onSubmit={handleFormSubmit}
-                    validator={validator}
-                  >
-                    <ScaffolderFieldExtensions>
-                      <EntityPickerFieldExtension />
-                    </ScaffolderFieldExtensions>
-                    <div>
-                      {index > 0 && (
-                        <Button
-                          onClick={handleBack}
-                          style={{ marginRight: '10px' }}
-                          variant="outlined"
-                        >
-                          Back
-                        </Button>
-                      )}
-                      {index < steps.length && (
-                        <Button
-                          type="submit"
-                          variant="contained"
-                          color="primary"
-                        >
-                          Next
-                        </Button>
-                      )}
-                    </div>
-                  </ScaffolderForm>
-                </ThemeProvider>
+                <ScaffolderForm
+                  schema={{
+                    ...step.schema,
+                    title: '',
+                  }}
+                  uiSchema={extractProperties(step)}
+                  formData={formData}
+                  fields={fields}
+                  onSubmit={handleFormSubmit}
+                  validator={validator}
+                >
+                  <ScaffolderFieldExtensions>
+                    <EntityPickerFieldExtension />
+                  </ScaffolderFieldExtensions>
+                  <div>
+                    {index > 0 && (
+                      <Button
+                        onClick={handleBack}
+                        style={{ marginRight: '10px' }}
+                        variant="outlined"
+                      >
+                        Back
+                      </Button>
+                    )}
+                    {index < steps.length && (
+                      <Button type="submit" variant="contained" color="primary">
+                        Next
+                      </Button>
+                    )}
+                  </div>
+                </ScaffolderForm>
               </StepContent>
             </Step>
           ))}
@@ -216,10 +170,7 @@ export function StepForm({ steps, submitFunction }: StepFormProps) {
                 <Table sx={{ border: 0 }}>
                   <TableBody sx={{ border: 0 }}>
                     {steps.flatMap((step, stepIndex) => [
-                      <TableRow
-                        key={`${stepIndex}-title`}
-                        sx={{ backgroundColor: '#F8F8F8' }}
-                      >
+                      <TableRow key={`${stepIndex}-title`}>
                         <TableCell colSpan={2} sx={{ border: 0 }}>
                           <strong>{step.title}</strong>
                         </TableCell>

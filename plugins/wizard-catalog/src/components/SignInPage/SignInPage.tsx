@@ -7,6 +7,8 @@ export function SignInPage(props: SignInPageProps): React.JSX.Element {
   return (
     <PortalSignInPage
       {...props}
+      align="center"
+      title="Select a Sign-in method"
       providers={[
         {
           id: 'rhaap',

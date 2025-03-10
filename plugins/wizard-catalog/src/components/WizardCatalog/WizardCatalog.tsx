@@ -1,7 +1,7 @@
 import React, { useCallback, useState } from 'react';
 import Box from '@mui/material/Box';
 import Grid from '@mui/material/Grid';
-import { Page, Content } from '@backstage/core-components';
+import { Page, Content, Header } from '@backstage/core-components';
 import { SearchBar } from '../catalog/SearchBar';
 import { WizardCard } from '../catalog/WizardCard';
 import { useApi } from '@backstage/core-plugin-api';
@@ -110,6 +110,18 @@ export const WizardCatalog = () => {
 
   return (
     <Page themeId="tool">
+      <Header
+        pageTitleOverride="Wizard Catalog"
+        title="Automation Templates"
+        subtitle={`
+          Browse through certified automation content and search for off the shelf job templates that fits your needs.
+          Upon launching a template, a new job template will be created in AAP and will automatically run.
+        `}
+      >
+        <Button href="/catalog-import" variant="contained">
+          Add Template
+        </Button>
+      </Header>
       <Content>
         <Box sx={{ padding: '17px 0 33px' }}>
           <SearchBar onSearchChange={handleSearchChange} />

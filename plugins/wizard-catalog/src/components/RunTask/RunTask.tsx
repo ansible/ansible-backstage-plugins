@@ -1,18 +1,16 @@
-import React, { useState } from 'react';
-import LinearProgress from '@mui/material/LinearProgress';
+import React, { useMemo, useState } from 'react';
 import Typography from '@mui/material/Typography';
 import CircularProgress from '@mui/material/CircularProgress';
 import { Page, Header, Content } from '@backstage/core-components';
 import { useParams } from 'react-router-dom';
-import { CheckCircleOutlined } from '@mui/icons-material';
 import { useTaskEventStream } from '@backstage/plugin-scaffolder-react';
 import Button from '@mui/material/Button';
-import ErrorOutlineIcon from '@mui/icons-material/ErrorOutline';
 import { HeaderWithBreadcrumbs } from '../catalog/HeaderWithBreadcrumbs';
+import { TaskSteps } from '@backstage/plugin-scaffolder-react/alpha';
 
 export const RunTask = () => {
   const { taskId } = useParams<{ taskId: string }>();
-  const { task, completed, loading, error, output, stepLogs } =
+  const { task, completed, loading, error, output, steps, stepLogs } =
     useTaskEventStream(taskId!);
   const taskMetadata = task?.spec?.templateInfo?.entity?.metadata;
   const breadcrumbs = [
@@ -20,6 +18,23 @@ export const RunTask = () => {
     { label: taskMetadata?.title || 'Unnamed' },
   ];
   const [showLogs, setShowLogs] = useState(false);
+  const allSteps = useMemo(
+    () =>
+      task?.spec.steps.map(step => ({
+        ...step,
+        ...steps?.[step.id],
+      })) ?? [],
+    [task, steps],
+  );
+
+  const activeStep = useMemo(() => {
+    for (let i = allSteps.length - 1; i >= 0; i--) {
+      if (allSteps[i].status !== 'open') {
+        return i;
+      }
+    }
+    return 0;
+  }, [allSteps]);
 
   // Formatting task duration
   // @ts-ignore
@@ -68,68 +83,19 @@ export const RunTask = () => {
         showStar={false}
       />
       <Content>
-        <div
-          style={{
-            display: 'flex',
-            flexDirection: 'column',
-            alignItems: 'center',
-            marginTop: '2px',
-            border: '2px solid #E4E4E4',
-            borderRadius: '4px',
-          }}
-        >
-          {error ? (
-            <>
-              <LinearProgress
-                style={{ width: '100%' }}
-                value={100}
-                variant="determinate"
-                color="error"
-              />
-              <div style={{ alignItems: 'center', padding: '37px' }}>
-                <div style={{ textAlign: 'center', fontSize: '30px' }}>
-                  <ErrorOutlineIcon color="error" fontSize="inherit" />
-                </div>
-                <Typography fontSize="14px">{error.message}</Typography>
-              </div>
-            </>
-          ) : (
-            <>
-              {completed && (
-                <LinearProgress
-                  style={{ width: '100%' }}
-                  value={100}
-                  variant="determinate"
-                  color="success"
-                />
-              )}
-              {!completed && <LinearProgress style={{ width: '100%' }} />}
-              <div style={{ alignItems: 'center', padding: '37px' }}>
-                <div style={{ textAlign: 'center', fontSize: '30px' }}>
-                  {completed ? (
-                    <CheckCircleOutlined color="success" fontSize="inherit" />
-                  ) : (
-                    <CircularProgress
-                      style={{ width: '30px', height: '30px' }}
-                    />
-                  )}
-                </div>
-                <Typography fontSize="14px">
-                  {output?.text && output.text.length > 0
-                    ? output.text.map(text => text.title ?? '').join('\n')
-                    : taskMetadata?.title}
-                </Typography>
-              </div>{' '}
-            </>
-          )}
-        </div>
+        <TaskSteps
+          steps={allSteps}
+          activeStep={activeStep}
+          isComplete={completed}
+          isError={Boolean(error)}
+        />
         <div
           style={{
             marginTop: '20px',
             textAlign: 'center',
             marginLeft: 'auto',
             marginRight: 'auto',
-            border: '2px solid #E4E4E4',
+            border: '1px solid #E4E4E4',
             borderRadius: '4px',
             padding: '37px',
             width: '100%',
@@ -158,12 +124,11 @@ export const RunTask = () => {
         {showLogs && (
           <div
             style={{
-              marginTop: '20px',
-              marginLeft: 'auto',
-              marginRight: 'auto',
-              border: '2px solid #E4E4E4',
+              marginBottom: 30,
               borderRadius: '4px',
-              padding: '37px',
+              padding: '24px',
+              boxShadow:
+                '0px 3px 1px -2px rgba(0,0,0,0.2),0px 2px 2px 0px rgba(0,0,0,0.14),0px 1px 5px 0px rgba(0,0,0,0.12)',
             }}
           >
             {Object.entries(stepLogs).map(

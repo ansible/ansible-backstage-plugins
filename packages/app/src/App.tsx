@@ -67,7 +67,13 @@ const app = createApp({
   },
   components: {
     SignInPage: props => (
-      <SignInPage {...props} auto providers={['guest', ...providers]} />
+      <SignInPage
+        {...props}
+        align="center"
+        title="Select a sign-in method"
+        auto
+        providers={['guest', ...providers]}
+      />
     ),
   },
 });
