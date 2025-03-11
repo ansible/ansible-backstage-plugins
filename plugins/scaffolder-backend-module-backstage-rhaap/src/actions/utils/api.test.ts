@@ -256,4 +256,38 @@ describe('BackendServiceAPI', () => {
       ),
     ).rejects.toThrow(':downloadCollectionProject:');
   });
+
+  it('tests devfile call with V2 API success', async () => {
+    const workspacePath = '/tmp/workspace';
+    const tarName = 'devfile.tar';
+    const creatorServiceUrl = 'http://localhost:8000/';
+
+    const api = new BackendServiceAPI();
+
+    const privateFuncdownloadFile = jest.spyOn(
+      BackendServiceAPI.prototype as any,
+      'downloadFile',
+    );
+    privateFuncdownloadFile.mockImplementation(() => {});
+
+    const privateFuncsendPostRequest = jest.spyOn(
+      BackendServiceAPI.prototype as any,
+      'sendPostRequest',
+    );
+    privateFuncsendPostRequest.mockImplementation(() => {});
+
+    await api.downloadDevfileProject(
+      workspacePath,
+      mockLogger,
+      creatorServiceUrl,
+      tarName,
+    );
+
+    // Assert
+    expect(privateFuncdownloadFile).toHaveBeenCalled();
+    expect(privateFuncsendPostRequest).toHaveBeenCalledWith(
+      'http://localhost:8000/v2/creator/devfile',
+      {},
+    );
+  });
 });

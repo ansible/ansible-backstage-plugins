@@ -27,16 +27,21 @@ import { Config } from '@backstage/config';
 import { AnsibleApiClient, BackendServiceAPI } from './utils/api';
 import { ScaffolderLogger } from './utils/logger';
 import { AuthService } from '@backstage/backend-plugin-api';
+import { AnsibleConfig } from '../types';
+import { handleDevfileProject } from './ansibleContentCreate';
+import { appType } from './constants';
 
 export function createAnsibleContentAction(
   config: Config,
   logger: Logger,
   auth: AuthService,
+  ansibleConfig: AnsibleConfig,
 ) {
   return createTemplateAction<{
     sourceControl: string;
     repoOwner: string;
     repoName: string;
+    repositoryUrl: string;
     description: string;
     collectionGroup: string;
     collectionName: string;
@@ -47,12 +52,7 @@ export function createAnsibleContentAction(
     schema: {
       input: {
         type: 'object',
-        required: [
-          'repoOwner',
-          'repoName',
-          'collectionGroup',
-          'collectionName',
-        ],
+        required: [],
         properties: {
           sourceControl: {
             title: 'Source control options',
@@ -70,6 +70,12 @@ export function createAnsibleContentAction(
             title: 'Repository Name',
             description:
               'The name of the new playbook project repository. For example, “my-new-playbook-repo”.',
+            type: 'string',
+          },
+          repositoryUrl: {
+            title: 'Source code repository URL',
+            description:
+              'The repository URL where the devfile needs to be scaffolded.',
             type: 'string',
           },
           collectionGroup: {
@@ -103,6 +109,7 @@ export function createAnsibleContentAction(
           'sourceControl',
           'repoOwner',
           'repoName',
+          'repositoryUrl',
           'collectionGroup',
           'collectionName',
         ],
@@ -121,6 +128,7 @@ export function createAnsibleContentAction(
         sourceControl,
         repoOwner,
         repoName,
+        repositoryUrl,
         description,
         collectionGroup,
         collectionName,
@@ -180,21 +188,31 @@ export function createAnsibleContentAction(
           collectionName,
           getServiceUrlFromAnsibleConfig(config),
         );
-
         log.info(`ansibleCreatorRun completed successfully`);
-        ctx.output(
-          'devSpacesBaseUrl',
-          getDevspacesUrlFromAnsibleConfig(
-            config,
-            sourceControl,
-            repoOwner,
-            repoName,
-          ),
-        );
-        ctx.output(
-          'repoUrl',
-          generateRepoUrl(sourceControl, repoOwner, repoName),
-        );
+        if (ctx.input.applicationType === appType.DEVFILE) {
+          log.info(`RepoURL ${repositoryUrl}`);
+          const prLink = await handleDevfileProject(
+            ansibleConfig,
+            logger,
+            ctx.input.repositoryUrl,
+            ctx.workspacePath,
+          );
+          ctx.output('prUrl', prLink);
+        } else {
+          ctx.output(
+            'devSpacesBaseUrl',
+            getDevspacesUrlFromAnsibleConfig(
+              config,
+              sourceControl,
+              repoOwner,
+              repoName,
+            ),
+          );
+          ctx.output(
+            'repoUrl',
+            generateRepoUrl(sourceControl, repoOwner, repoName),
+          );
+        }
         log.info(`context output processed successfully`);
       } catch (error: any) {
         log.error(`Error occured: ${JSON.stringify(error)}`);

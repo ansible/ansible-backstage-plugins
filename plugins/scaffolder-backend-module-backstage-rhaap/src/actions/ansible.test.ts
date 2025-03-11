@@ -33,6 +33,8 @@ import { ConfigReader } from '@backstage/config';
 import { createMockActionContext } from '@backstage/plugin-scaffolder-node-test-utils';
 import { AnsibleApiClient } from './utils/api';
 import { MockAuthService } from './MockAuthService';
+import { AnsibleConfig } from '../types';
+import { appType } from './constants';
 
 describe('ansible:content:create', () => {
   const config = new ConfigReader({
@@ -54,7 +56,31 @@ describe('ansible:content:create', () => {
     disableDefaultAuthPolicy: false,
   });
 
-  const action = createAnsibleContentAction(config, logger, auth);
+  const ansibleConfig: AnsibleConfig = {
+    baseUrl: 'https://test.ansible.com/',
+    checkSSL: true,
+    : {
+      type: 'url',
+      target: 'https://showcase.example.com',
+      githubBranch: 'main',
+      githubUser: 'dummyUser',
+      githubEmail: 'dummyuser@example.com',
+    },
+    gitHubIntegration: {
+      host: 'github.com',
+      apiBaseUrl: 'https://api.github.com',
+      rawBaseUrl: 'https://raw.githubusercontent.com',
+      token: 'dummy-personal-access-token',
+      apps: [],
+    },
+  };
+
+  const action = createAnsibleContentAction(
+    config,
+    logger,
+    auth,
+    ansibleConfig,
+  );
 
   const mockContext = createMockActionContext({
     input: {
@@ -64,7 +90,7 @@ describe('ansible:content:create', () => {
       description: 'test description',
       collectionGroup: 'dummyGroup',
       collectionName: 'dummyName',
-      applicationType: 'collection-project',
+      applicationType: appType.COLLECTION,
     },
   });
 

@@ -8,6 +8,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { Git } from './scm';
+import { randomBytes } from 'crypto';
 
 import {
   AAPTemplate,
@@ -34,9 +35,9 @@ export class UseCaseMaker {
   static pluginLogName =
     'plugin-scaffolder-backend-module-backstage-rhaap:UseCaseMaker';
   private readonly logger: LoggerService;
-  private readonly organization: Organization;
+  private readonly organization!: Organization;
   private ansibleConfig: AnsibleConfig;
-  private apiClient: AAPApiClient;
+  private apiClient!: AAPApiClient;
   private readonly useCases: UseCase[];
   private showCaseFolder: string;
   private octokit: Octokit;
@@ -50,16 +51,20 @@ export class UseCaseMaker {
     winstonLogger,
   }: {
     ansibleConfig: AnsibleConfig;
-    apiClient: AAPApiClient;
-    organization: Organization;
+    apiClient: AAPApiClient | null;
+    organization: Organization | null;
     logger: LoggerService;
     useCases: UseCase[];
     winstonLogger: Logger;
   }) {
     this.ansibleConfig = ansibleConfig;
     this.logger = logger;
-    this.organization = organization;
-    this.apiClient = apiClient;
+    if (organization) {
+      this.organization = organization;
+    }
+    if (apiClient) {
+      this.apiClient = apiClient;
+    }
     this.useCases = useCases;
     this.showCaseFolder =
       this.ansibleConfig..type === 'file'
@@ -763,6 +768,138 @@ export class UseCaseMaker {
       isNewRepo,
     });
     this.winstonLogger.info(`End creating gitHub content.`);
+  }
+
+  async devfilePushToGithub(options: { value: string; repositoryUrl: string }) {
+    // Extract repository owner and name from the URL
+    const repoUrlPattern = /https:\/\/github\.com\/([^/]+)\/([^/]+)/;
+    const matches = options.repositoryUrl.match(repoUrlPattern);
+    if (!matches) {
+      throw new Error('Invalid repository URL');
+    }
+
+    const owner = matches[1];
+    const repo = matches[2];
+    this.logger.info(owner);
+    this.logger.info(repo);
+    if (!this.ansibleConfig?.gitHubIntegration.token) {
+      throw new Error('Missing show case target GitHub configuration');
+    }
+    this.logger.info('in devfile push to github');
+
+    const octokit = new Octokit({
+      auth: this.ansibleConfig?.gitHubIntegration.token,
+    });
+
+    // Prepare the content for devfile.yaml (i.e., the raw string value)
+    const devfileContent = options.value;
+
+    try {
+      // Step 1: Get the repository's default branch
+      const { data: repoData } = await octokit.request(
+        'GET /repos/{owner}/{repo}',
+        {
+          owner,
+          repo,
+        },
+      );
+
+      const defaultBranch = repoData.default_branch;
+      this.logger.info(defaultBranch);
+
+      // Step 2: Get the reference for the default branch (to create a new branch)
+      const { data: refData } = await octokit.request(
+        'GET /repos/{owner}/{repo}/git/refs/heads/{branch}',
+        {
+          owner,
+          repo,
+          branch: defaultBranch,
+        },
+      );
+      this.logger.info(refData.object.sha);
+
+      // Create a new branch (use the current timestamp to ensure uniqueness)
+      if (!refData || !refData.object || !refData.object.sha) {
+        this.logger.info(
+          'Unable to fetch the latest commit SHA for the default branch',
+        );
+      }
+
+      const newBranchName = `create-devfile-${randomBytes(2).toString('hex')}`;
+      await octokit.request('POST /repos/{owner}/{repo}/git/refs', {
+        owner,
+        repo,
+        ref: `refs/heads/${newBranchName}`,
+        sha: refData.object.sha, // Using the sha of the default branch to create the new branch
+      });
+
+      // Step 3: Create a new file (devfile.yaml) in the new branch
+      const newContent = Buffer.from(devfileContent).toString('base64'); // Base64 encode content for GitHub API
+      const commitMessage = 'Create devfile.yaml with new content';
+      let shaValue;
+
+      try {
+        const result = await octokit.request(
+          'GET /repos/{owner}/{repo}/contents/{path}',
+          {
+            owner,
+            repo,
+            path: 'devfile.yaml',
+            ref: defaultBranch,
+          },
+        );
+        // If the result is an array, we need to extract the sha from the specific file object
+        if (Array.isArray(result.data)) {
+          // Look for the 'devfile.yaml' file in the directory
+          const fileData = result.data.find(
+            item => item.path === 'devfile.yaml',
+          );
+          shaValue = fileData?.sha;
+        } else {
+          // If the result is a single file, check if it's a file object and contains sha
+          if (result.data.sha) {
+            shaValue = result.data.sha;
+          }
+        }
+      } catch (error) {
+        // If the file doesn't exist, shaValue will remain undefined
+        shaValue = undefined;
+      }
+      this.logger.info('result is here');
+
+      await octokit.request('PUT /repos/{owner}/{repo}/contents/{path}', {
+        owner,
+        repo,
+        path: 'devfile.yaml', // Path for the new file
+        message: commitMessage,
+        content: newContent, // The base64-encoded content of the new file
+        branch: newBranchName, // Use the new branch
+        sha: shaValue,
+      });
+
+      // Step 4: Create a pull request to merge the changes
+      const prTitle = 'Add devfile.yaml';
+      const prBody =
+        'This PR creates a new devfile.yaml file with the provided content.';
+
+      const { data: prData } = await octokit.request(
+        'POST /repos/{owner}/{repo}/pulls',
+        {
+          owner,
+          repo,
+          title: prTitle,
+          head: newBranchName, // The branch with new file
+          base: defaultBranch, // The default branch to merge into
+          body: prBody,
+        },
+      );
+
+      console.log(`Pull request created: ${prData.html_url}`);
+      return prData.html_url;
+    } catch (error) {
+      console.error('Error creating pull request:', error);
+      throw error;
+    }
   }
 
   async makeTemplates() {

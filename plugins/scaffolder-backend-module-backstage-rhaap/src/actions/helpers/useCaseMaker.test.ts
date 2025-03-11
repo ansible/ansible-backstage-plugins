@@ -10,6 +10,7 @@ import { setupServer } from 'msw/node';
 import fs from 'node:fs';
 import { http } from 'msw';
 
+jest.mock('crypto');
 jest.mock('winston', () => {
   const mFormat = {
     combine: jest.fn(),
@@ -44,6 +45,7 @@ jest.mock('octokit', () => ({
     }
   },
 }));
+
 describe('ansible-aap:useCaseMaker', () => {
   const config = new ConfigReader(MOCK_CONFIG.data);
   const ansibleConfig = getAnsibleConfig(config);
@@ -179,5 +181,17 @@ describe('ansible-aap:useCaseMaker', () => {
       recursive: true,
       force: true,
     });
+  });
+
+  it('should throw an error if the repository URL is invalid', async () => {
+    const invalidOptions = {
+      value: 'devfile content',
+      repositoryUrl: 'https://github.com/invalid-url', // Invalid URL
+    };
+
+    // Call the method and assert that it throws the expected error for invalid URL
+    await expect(
+      useCaseMaker.devfilePushToGithub(invalidOptions),
+    ).rejects.toThrow('Invalid repository URL');
   });
 });

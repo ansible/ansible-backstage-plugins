@@ -17,6 +17,10 @@ import * as os from 'os';
 import { Logger } from 'winston';
 import { executeShellCommand } from '@backstage/plugin-scaffolder-node';
 import { BackendServiceAPI } from './utils/api';
+import { promises as fs } from 'fs';
+import { UseCaseMaker } from './helpers';
+import { AnsibleConfig } from '../types';
+import { appType } from './constants';
 
 export async function ansibleCreatorRun(
   workspacePath: string,
@@ -36,13 +40,16 @@ export async function ansibleCreatorRun(
     ? workspacePath
     : `${os.homedir()}/.ansible/collections/ansible_collections`;
 
-  const tarName = `${collectionGroup}-${applicationType}.tar`;
+  const tarName =
+    applicationType === appType.DEVFILE
+      ? 'devfile.tar'
+      : `${collectionGroup}-${applicationType}.tar`;
 
   logger.info(
     `[${BackendServiceAPI.pluginLogName}] Invoking ansible-devtools-server`,
   );
   try {
-    if (applicationType === 'playbook-project') {
+    if (applicationType === appType.PLAYBOOK) {
       await fileDownloader.downloadPlaybookProject(
         scaffoldPath,
         logger,
@@ -51,13 +58,20 @@ export async function ansibleCreatorRun(
         collectionName,
         tarName,
       );
-    } else if (applicationType === 'collection-project') {
+    } else if (applicationType === appType.COLLECTION) {
       await fileDownloader.downloadCollectionProject(
         scaffoldPath,
         logger,
         creatorServiceUrl,
         collectionGroup,
         collectionName,
+        tarName,
+      );
+    } else if (applicationType === appType.DEVFILE) {
+      await fileDownloader.downloadDevfileProject(
+        scaffoldPath,
+        logger,
+        creatorServiceUrl,
         tarName,
       );
     }
@@ -121,5 +135,37 @@ export async function ansibleCreatorRun(
       error,
     );
     throw new Error(error);
+  }
+}
+
+export async function handleDevfileProject(
+  ansibleConfig: AnsibleConfig,
+  logger: Logger,
+  repositoryUrl: string,
+  workspacePath: string,
+) {
+  const useCaseMaker = new UseCaseMaker({
+    ansibleConfig,
+    logger,
+    apiClient: null,
+    useCases: [],
+    organization: null,
+    winstonLogger: logger,
+  });
+
+  try {
+    const path = `${workspacePath}/devfile.yaml`;
+    const fileContent = await fs.readFile(path, 'utf8');
+
+    const options = {
+      value: fileContent,
+      repositoryUrl,
+    };
+
+    const prLink = useCaseMaker.devfilePushToGithub(options);
+    return prLink;
+  } catch (error: any) {
+    console.error('Error reading the file or pushing to GitHub:', error);
+    throw new Error(error.message);
   }
 }

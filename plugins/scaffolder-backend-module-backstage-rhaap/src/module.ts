@@ -72,6 +72,7 @@ export const scaffolderModuleAnsible = createBackendModule({
             config,
             loggerToWinstonLogger(logger),
             auth,
+            ansibleConfig,
           ),
           createProjectAction(ansibleConfig, logger),
           createExecutionEnvironment(ansibleConfig, logger),

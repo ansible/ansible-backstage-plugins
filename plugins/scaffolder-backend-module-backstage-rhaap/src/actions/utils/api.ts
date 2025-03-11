@@ -192,6 +192,37 @@ export class BackendServiceAPI {
       }
     }
   }
+
+  public async downloadDevfileProject(
+    workspacePath: string,
+    logger: Logger,
+    creatorServiceUrl: string,
+    tarName: string,
+  ) {
+    try {
+      const devfileUrl = 'v2/creator/devfile';
+      const postData = {};
+
+      logger.info(
+        `${BackendServiceAPI.pluginLogName}] Request for ansible devfile`,
+      );
+
+      const response = await this.sendPostRequest(
+        `${creatorServiceUrl}${devfileUrl}`,
+        postData,
+      );
+
+      logger.info(
+        `${BackendServiceAPI.pluginLogName}] Request complete for ansible devfile`,
+      );
+      await this.downloadFile(response, logger, workspacePath, tarName);
+    } catch (fallbackError) {
+      logger.error(
+        `${BackendServiceAPI.pluginLogName}] Failed. Please ensure your ansible-creator version is supported.`,
+      );
+      throw new Error(`:downloadDevfileProject:`);
+    }
+  }
 }
 
 export class AnsibleApiClient implements AnsibleApi {
