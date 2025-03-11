@@ -542,6 +542,19 @@ export class AAPApiClient {
     const jobID = jobResponseJson.job;
     this.logOutput('info', `Waiting for result of the executed job template.`);
     const result = await this.fetchResult(jobID);
+    let lastEvent;
+    if (result.jobData.status !== 'successful') {
+      try {
+        lastEvent =
+          result.jobEvents[result.jobEvents.length - 2].event_data.res
+            .results[0].msg;
+      } catch (error) {
+        lastEvent =
+          'with an undefined error. Please check the RHAAP portal for job execution logs.';
+      }
+      this.logOutput('info', `Job has failed ${lastEvent}`);
+      throw new Error(`Job execution failed due to ${lastEvent}`);
+    }
     return {
       id: jobID,
       status: result.jobData.status,
