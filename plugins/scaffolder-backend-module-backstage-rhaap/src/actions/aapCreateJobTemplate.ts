@@ -1,12 +1,8 @@
 import { createTemplateAction } from '@backstage/plugin-scaffolder-node';
-import { LoggerService } from '@backstage/backend-plugin-api';
 import { AAPApiClient } from './helpers';
 import { AnsibleConfig, JobTemplate } from '../types';
 
-export const createJobTemplate = (
-  ansibleConfig: AnsibleConfig,
-  logger: LoggerService,
-) => {
+export const createJobTemplate = (ansibleConfig: AnsibleConfig) => {
   return createTemplateAction<{
     token: string;
     deleteIfExist: boolean;
@@ -147,7 +143,7 @@ export const createJobTemplate = (
       },
     },
     async handler(ctx) {
-      const { input, logger: winstonLogger } = ctx;
+      const { input, logger } = ctx;
       const token = input.token;
       if (!token?.length) {
         const error = new Error('Authorization token not provided.');
@@ -158,7 +154,6 @@ export const createJobTemplate = (
         ansibleConfig,
         logger,
         token,
-        winstonLogger,
       });
       let jobTemplateData;
       try {

@@ -1,5 +1,4 @@
 import { createMockActionContext } from '@backstage/plugin-scaffolder-node-test-utils';
-import { mockServices } from '@backstage/backend-test-utils';
 import { ConfigReader } from '@backstage/config';
 import {
   MOCK_CONFIG,
@@ -16,8 +15,7 @@ import { cleanUp } from './aapCleanUp';
 describe('ansible-aap:cleanUp:launch', () => {
   const config = new ConfigReader(MOCK_CONFIG.data);
   const ansibleConfig = getAnsibleConfig(config);
-  const logger = mockServices.logger.mock();
-  const action = cleanUp(ansibleConfig, logger);
+  const action = cleanUp(ansibleConfig);
 
   const cleanUpData: CleanUp = {
     project: MOCK_PROJECT,

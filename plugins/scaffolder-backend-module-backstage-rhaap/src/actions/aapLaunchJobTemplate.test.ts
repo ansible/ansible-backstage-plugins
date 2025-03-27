@@ -1,5 +1,4 @@
 import { createMockActionContext } from '@backstage/plugin-scaffolder-node-test-utils';
-import { mockServices } from '@backstage/backend-test-utils';
 import { ConfigReader } from '@backstage/config';
 import { MOCK_CONFIG, MOCK_TOKEN } from '../mock';
 import { getAnsibleConfig } from '../config-reader';
@@ -10,8 +9,7 @@ import { launchJobTemplate } from './aapLaunchJobTemplate';
 describe('ansible-aap:jobTemplate:launch', () => {
   const config = new ConfigReader(MOCK_CONFIG.data);
   const ansibleConfig = getAnsibleConfig(config);
-  const logger = mockServices.logger.mock();
-  const action = launchJobTemplate(ansibleConfig, logger);
+  const action = launchJobTemplate(ansibleConfig);
 
   const projectData: LaunchJobTemplate = {
     template: {

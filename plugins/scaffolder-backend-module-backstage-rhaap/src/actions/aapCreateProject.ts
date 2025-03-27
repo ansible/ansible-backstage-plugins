@@ -1,12 +1,8 @@
 import { createTemplateAction } from '@backstage/plugin-scaffolder-node';
-import { LoggerService } from '@backstage/backend-plugin-api';
 import { AAPApiClient } from './helpers';
 import { AnsibleConfig, Project } from '../types';
 
-export const createProjectAction = (
-  ansibleConfig: AnsibleConfig,
-  logger: LoggerService,
-) => {
+export const createProjectAction = (ansibleConfig: AnsibleConfig) => {
   return createTemplateAction<{
     token: string;
     deleteIfExist: boolean;
@@ -101,7 +97,7 @@ export const createProjectAction = (
       },
     },
     async handler(ctx) {
-      const { input, logger: winstonLogger } = ctx;
+      const { input, logger } = ctx;
       const token = input.token;
       if (!token?.length) {
         const error = new Error('Authorization token not provided.');
@@ -112,7 +108,6 @@ export const createProjectAction = (
         ansibleConfig,
         logger,
         token,
-        winstonLogger,
       });
       let projectData;
       try {

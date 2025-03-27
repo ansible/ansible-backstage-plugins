@@ -14,13 +14,12 @@
  * limitations under the License.
  */
 
-import { HostDiscovery } from '@backstage/backend-common';
+import { HostDiscovery } from '@backstage/backend-defaults/discovery';
 import { Config } from '@backstage/config';
 import * as fs from 'fs';
 import fetch, { Response } from 'node-fetch';
-import { Logger } from 'winston';
 import https from 'https';
-import { AuthService } from '@backstage/backend-plugin-api';
+import { AuthService, LoggerService } from '@backstage/backend-plugin-api';
 
 export interface AAPSubscriptionCheck {
   status: number;
@@ -61,7 +60,7 @@ export class BackendServiceAPI {
 
   private async downloadFile(
     response: Response,
-    logger: Logger,
+    logger: LoggerService,
     workspacePath: string,
     tarName: string,
   ) {
@@ -88,7 +87,7 @@ export class BackendServiceAPI {
 
   public async downloadPlaybookProject(
     workspacePath: string,
-    logger: Logger,
+    logger: LoggerService,
     creatorServiceUrl: string,
     collectionOrgName: string,
     collectionName: string,
@@ -142,7 +141,7 @@ export class BackendServiceAPI {
 
   public async downloadCollectionProject(
     workspacePath: string,
-    logger: Logger,
+    logger: LoggerService,
     creatorServiceUrl: string,
     collectionOrgName: string,
     collectionName: string,
@@ -195,7 +194,7 @@ export class BackendServiceAPI {
 
   public async downloadDevfileProject(
     workspacePath: string,
-    logger: Logger,
+    logger: LoggerService,
     creatorServiceUrl: string,
     tarName: string,
   ) {
@@ -227,7 +226,7 @@ export class BackendServiceAPI {
 
 export class AnsibleApiClient implements AnsibleApi {
   private readonly config: Config;
-  private readonly logger: Logger;
+  private readonly logger: LoggerService;
   private readonly auth: AuthService;
 
   constructor({
@@ -236,7 +235,7 @@ export class AnsibleApiClient implements AnsibleApi {
     auth,
   }: {
     config: Config;
-    logger: Logger;
+    logger: LoggerService;
     auth: AuthService;
   }) {
     this.config = config;
@@ -272,7 +271,7 @@ export class AnsibleApiClient implements AnsibleApi {
       if (error instanceof Error) {
         this.logger.error(
           `[${BackendServiceAPI.pluginLogName}] Scaffolder AAP Error checking AAP subscription:`,
-          error.message,
+          error,
         );
       } else {
         this.logger.error(

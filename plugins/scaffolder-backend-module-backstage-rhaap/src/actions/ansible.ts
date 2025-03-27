@@ -22,7 +22,6 @@ import {
   getDevspacesUrlFromAnsibleConfig,
   generateRepoUrl,
 } from './utils/config';
-import { Logger } from 'winston';
 import { Config } from '@backstage/config';
 import { AnsibleApiClient, BackendServiceAPI } from './utils/api';
 import { ScaffolderLogger } from './utils/logger';
@@ -33,7 +32,6 @@ import { appType } from './constants';
 
 export function createAnsibleContentAction(
   config: Config,
-  logger: Logger,
   auth: AuthService,
   ansibleConfig: AnsibleConfig,
 ) {
@@ -124,6 +122,7 @@ export function createAnsibleContentAction(
       },
     },
     async handler(ctx) {
+      const { input, logger } = ctx;
       const {
         sourceControl,
         repoOwner,
@@ -132,12 +131,9 @@ export function createAnsibleContentAction(
         description,
         collectionGroup,
         collectionName,
-      } = ctx.input;
+      } = input;
 
-      const log = new ScaffolderLogger(
-        BackendServiceAPI.pluginLogName,
-        ctx.logger as Logger,
-      );
+      const log = new ScaffolderLogger(BackendServiceAPI.pluginLogName, logger);
       const AAPSubscription = new AnsibleApiClient({ config, logger, auth });
 
       try {

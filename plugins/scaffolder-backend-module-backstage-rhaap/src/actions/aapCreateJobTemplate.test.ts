@@ -1,5 +1,4 @@
 import { createMockActionContext } from '@backstage/plugin-scaffolder-node-test-utils';
-import { mockServices } from '@backstage/backend-test-utils';
 import { ConfigReader } from '@backstage/config';
 import {
   MOCK_CONFIG,
@@ -17,8 +16,7 @@ import { createJobTemplate } from './aapCreateJobTemplate';
 describe('ansible-aap:jobTemplate:create', () => {
   const config = new ConfigReader(MOCK_CONFIG.data);
   const ansibleConfig = getAnsibleConfig(config);
-  const logger = mockServices.logger.mock();
-  const action = createJobTemplate(ansibleConfig, logger);
+  const action = createJobTemplate(ansibleConfig);
 
   const jobTemplateData: JobTemplate = {
     templateName: 'Test template',

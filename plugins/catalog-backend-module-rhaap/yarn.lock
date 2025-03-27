@@ -31,6 +31,7 @@ __metadata:
     "@backstage/plugin-catalog-backend": "npm:1.27.1"
     "@backstage/plugin-catalog-node": "npm:^1.12.5"
     "@janus-idp/cli": "npm:^1.18.0"
+    "@types/jest": "npm:^29.5.14"
     undici: "npm:6.21.1"
   languageName: unknown
   linkType: soft
@@ -7661,7 +7662,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@types/jest@npm:^29.5.11":
+"@types/jest@npm:^29.5.11, @types/jest@npm:^29.5.14":
   version: 29.5.14
   resolution: "@types/jest@npm:29.5.14"
   dependencies:

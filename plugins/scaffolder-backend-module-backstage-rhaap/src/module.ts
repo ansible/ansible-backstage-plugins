@@ -18,7 +18,6 @@ import {
   coreServices,
   createBackendModule,
 } from '@backstage/backend-plugin-api';
-import { loggerToWinstonLogger } from '@backstage/backend-common';
 import {
   scaffolderActionsExtensionPoint,
   scaffolderAutocompleteExtensionPoint,
@@ -68,18 +67,13 @@ export const scaffolderModuleAnsible = createBackendModule({
       }) {
         const ansibleConfig = getAnsibleConfig(config);
         scaffolder.addActions(
-          createAnsibleContentAction(
-            config,
-            loggerToWinstonLogger(logger),
-            auth,
-            ansibleConfig,
-          ),
-          createProjectAction(ansibleConfig, logger),
-          createExecutionEnvironment(ansibleConfig, logger),
-          createJobTemplate(ansibleConfig, logger),
-          launchJobTemplate(ansibleConfig, logger),
-          cleanUp(ansibleConfig, logger),
-          createShowCases(ansibleConfig, logger),
+          createAnsibleContentAction(config, auth, ansibleConfig),
+          createProjectAction(ansibleConfig),
+          createExecutionEnvironment(ansibleConfig),
+          createJobTemplate(ansibleConfig),
+          launchJobTemplate(ansibleConfig),
+          cleanUp(ansibleConfig),
+          createShowCases(ansibleConfig),
         );
         scaffolderTemplating.addTemplateFilters({
           useCaseNameFilter: useCaseNameFilter,

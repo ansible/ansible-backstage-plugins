@@ -48,6 +48,7 @@
     "@backstage/backend-test-utils": "^1.2.0",
     "@backstage/cli": "^0.29.4",
     "@janus-idp/cli": "^1.18.0",
+    "@types/jest": "^29.5.14",
     "@types/supertest": "^6.0.2",
     "jose": "5.9.3",
     "msw": "2.4.9",

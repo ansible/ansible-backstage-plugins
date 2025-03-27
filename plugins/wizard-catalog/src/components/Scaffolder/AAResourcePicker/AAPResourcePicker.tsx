@@ -98,9 +98,12 @@ export const AAPResourcePicker = (props: ScaffolderRJSFFieldProps) => {
         onChange={change}
         value={selected}
       >
-        {availableResources.map(item => (
+        {availableResources.map((item, index) => (
           // @ts-ignore
-          <MenuItem value={item[_idKey]}>{item[_nameKey]}</MenuItem>
+          <MenuItem key={index} value={item[_idKey]}>
+            {/* @ts-ignore */}
+            {item[_nameKey]}
+          </MenuItem>
         ))}
       </Select>
       {errors}

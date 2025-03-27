@@ -1,12 +1,8 @@
 import { createTemplateAction } from '@backstage/plugin-scaffolder-node';
-import { LoggerService } from '@backstage/backend-plugin-api';
 import { AAPApiClient } from './helpers';
 import { ExecutionEnvironment, AnsibleConfig } from '../types';
 
-export const createExecutionEnvironment = (
-  ansibleConfig: AnsibleConfig,
-  logger: LoggerService,
-) => {
+export const createExecutionEnvironment = (ansibleConfig: AnsibleConfig) => {
   return createTemplateAction<{
     token: string;
     deleteIfExist: boolean;
@@ -98,7 +94,7 @@ export const createExecutionEnvironment = (
       },
     },
     async handler(ctx) {
-      const { input, logger: winstonLogger } = ctx;
+      const { input, logger } = ctx;
       const token = input.token;
       if (!token?.length) {
         const error = new Error('Authorization token not provided.');
@@ -110,7 +106,6 @@ export const createExecutionEnvironment = (
         ansibleConfig,
         logger,
         token,
-        winstonLogger,
       });
       let eeData;
       try {

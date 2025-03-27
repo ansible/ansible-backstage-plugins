@@ -14,13 +14,13 @@
  * limitations under the License.
  */
 
-import { Logger } from 'winston';
+import { LoggerService } from '@backstage/backend-plugin-api';
 
 export class ScaffolderLogger {
   private pluginName: string;
-  private ctx: Logger;
+  private ctx: LoggerService;
 
-  constructor(pluginName: string, ctx: Logger) {
+  constructor(pluginName: string, ctx: LoggerService) {
     this.pluginName = pluginName;
     this.ctx = ctx;
   }

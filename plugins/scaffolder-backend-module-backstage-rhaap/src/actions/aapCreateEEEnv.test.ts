@@ -1,5 +1,4 @@
 import { createMockActionContext } from '@backstage/plugin-scaffolder-node-test-utils';
-import { mockServices } from '@backstage/backend-test-utils';
 import { ConfigReader } from '@backstage/config';
 import { MOCK_CONFIG, MOCK_ORGANIZATION, MOCK_TOKEN } from '../mock';
 import { getAnsibleConfig } from '../config-reader';
@@ -10,8 +9,7 @@ import { createExecutionEnvironment } from './aapCreateEEEnv';
 describe('ansible-aap:eEnv:create', () => {
   const config = new ConfigReader(MOCK_CONFIG.data);
   const ansibleConfig = getAnsibleConfig(config);
-  const logger = mockServices.logger.mock();
-  const action = createExecutionEnvironment(ansibleConfig, logger);
+  const action = createExecutionEnvironment(ansibleConfig);
 
   const eEnvData: ExecutionEnvironment = {
     environmentName: 'Test environment',

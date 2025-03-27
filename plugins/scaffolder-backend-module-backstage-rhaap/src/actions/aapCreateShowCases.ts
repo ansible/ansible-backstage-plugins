@@ -1,12 +1,8 @@
 import { createTemplateAction } from '@backstage/plugin-scaffolder-node';
-import { LoggerService } from '@backstage/backend-plugin-api';
 import { UseCaseMaker, AAPApiClient } from './helpers';
 import { Organization, UseCase, AnsibleConfig } from '../types';
 
-export const createShowCases = (
-  ansibleConfig: AnsibleConfig,
-  logger: LoggerService,
-) => {
+export const createShowCases = (ansibleConfig: AnsibleConfig) => {
   return createTemplateAction<{
     token: string;
     values: {
@@ -59,7 +55,7 @@ export const createShowCases = (
       },
     },
     async handler(ctx) {
-      const { input, logger: winstonLogger } = ctx;
+      const { input, logger } = ctx;
       const token = input.token;
       if (!token?.length) {
         const error = new Error('Authorization token not provided.');
@@ -70,7 +66,6 @@ export const createShowCases = (
         ansibleConfig,
         logger,
         token,
-        winstonLogger,
       });
       const useCaseMaker = new UseCaseMaker({
         ansibleConfig: ansibleConfig,
@@ -79,7 +74,6 @@ export const createShowCases = (
         scmType: input.values.scmType,
         apiClient: apiClient,
         useCases: input.values.useCases,
-        winstonLogger: winstonLogger,
       });
       try {
         await useCaseMaker.makeTemplates();

@@ -1,12 +1,8 @@
 import { createTemplateAction } from '@backstage/plugin-scaffolder-node';
-import { LoggerService } from '@backstage/backend-plugin-api';
 import { AAPApiClient } from './helpers';
 import { LaunchJobTemplate, AnsibleConfig } from '../types';
 
-export const launchJobTemplate = (
-  ansibleConfig: AnsibleConfig,
-  logger: LoggerService,
-) => {
+export const launchJobTemplate = (ansibleConfig: AnsibleConfig) => {
   return createTemplateAction<{ token: string; values: LaunchJobTemplate }>({
     id: 'rhaap:launch-job-template',
     schema: {
@@ -166,7 +162,7 @@ export const launchJobTemplate = (
       },
     },
     async handler(ctx) {
-      const { input, logger: winstonLogger } = ctx;
+      const { input, logger } = ctx;
       const token = input.token;
       if (!token?.length) {
         const error = new Error('Authorization token not provided.');
@@ -177,7 +173,6 @@ export const launchJobTemplate = (
         ansibleConfig,
         logger,
         token,
-        winstonLogger,
       });
       let jobResult;
       try {

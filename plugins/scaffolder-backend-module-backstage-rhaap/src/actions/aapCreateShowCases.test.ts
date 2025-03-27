@@ -1,5 +1,4 @@
 import { createMockActionContext } from '@backstage/plugin-scaffolder-node-test-utils';
-import { mockServices } from '@backstage/backend-test-utils';
 import { ConfigReader } from '@backstage/config';
 import { MOCK_CONFIG, MOCK_ORGANIZATION, MOCK_TOKEN } from '../mock';
 import { getAnsibleConfig } from '../config-reader';
@@ -9,8 +8,7 @@ import { UseCaseMaker } from './helpers';
 describe('ansible-aap:showCases:create', () => {
   const config = new ConfigReader(MOCK_CONFIG.data);
   const ansibleConfig = getAnsibleConfig(config);
-  const logger = mockServices.logger.mock();
-  const action = createShowCases(ansibleConfig, logger);
+  const action = createShowCases(ansibleConfig);
 
   const createShowCasesData = {
     organization: MOCK_ORGANIZATION,

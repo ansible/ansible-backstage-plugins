@@ -14,18 +14,18 @@
  * limitations under the License.
  */
 import * as os from 'os';
-import { Logger } from 'winston';
 import { executeShellCommand } from '@backstage/plugin-scaffolder-node';
 import { BackendServiceAPI } from './utils/api';
 import { promises as fs } from 'fs';
 import { UseCaseMaker } from './helpers';
 import { AnsibleConfig } from '../types';
 import { appType } from './constants';
+import { LoggerService } from '@backstage/backend-plugin-api';
 
 export async function ansibleCreatorRun(
   workspacePath: string,
   applicationType: string,
-  logger: Logger,
+  logger: LoggerService,
   _description: string,
   collectionGroup: string,
   collectionName: string,
@@ -81,7 +81,7 @@ export async function ansibleCreatorRun(
   } catch (error) {
     logger.error(
       `[${BackendServiceAPI.pluginLogName}] Error occurred while downloading the project tar at:`,
-      error,
+      error as Error,
     );
   }
 
@@ -96,7 +96,7 @@ export async function ansibleCreatorRun(
       options: {
         cwd: scaffoldPath,
       },
-      logStream: logger,
+      logger,
     });
     logger.info(
       `[${BackendServiceAPI.pluginLogName}] ${tarName} un-tar successful`,
@@ -120,7 +120,7 @@ export async function ansibleCreatorRun(
       options: {
         cwd: scaffoldPath,
       },
-      logStream: logger,
+      logger,
     });
     logger.info(
       `[${BackendServiceAPI.pluginLogName}] ${scaffoldPath} clean for repository creation`,
@@ -140,7 +140,7 @@ export async function ansibleCreatorRun(
 
 export async function handleDevfileProject(
   ansibleConfig: AnsibleConfig,
-  logger: Logger,
+  logger: LoggerService,
   sourceControl: string,
   repositoryUrl: string,
   workspacePath: string,
@@ -155,7 +155,6 @@ export async function handleDevfileProject(
     apiClient: null,
     useCases: [],
     organization: null,
-    winstonLogger: logger,
   });
 
   try {

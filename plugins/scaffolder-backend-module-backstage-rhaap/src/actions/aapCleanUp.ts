@@ -1,12 +1,8 @@
 import { createTemplateAction } from '@backstage/plugin-scaffolder-node';
-import { LoggerService } from '@backstage/backend-plugin-api';
 import { CleanUp, AnsibleConfig } from '../types';
 import { AAPApiClient } from './helpers';
 
-export const cleanUp = (
-  ansibleConfig: AnsibleConfig,
-  logger: LoggerService,
-) => {
+export const cleanUp = (ansibleConfig: AnsibleConfig) => {
   return createTemplateAction<{ token: string; values: CleanUp }>({
     id: 'rhaap:clean-up',
     schema: {
@@ -71,7 +67,7 @@ export const cleanUp = (
       },
     },
     async handler(ctx) {
-      const { input, logger: winstonLogger } = ctx;
+      const { input, logger } = ctx;
       const token = input.token;
       if (!token?.length) {
         const error = new Error('Authorization token not provided.');
@@ -83,7 +79,6 @@ export const cleanUp = (
         ansibleConfig,
         logger,
         token,
-        winstonLogger,
       });
       try {
         await apiClient.cleanUp({

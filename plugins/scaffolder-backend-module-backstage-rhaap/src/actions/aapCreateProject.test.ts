@@ -1,6 +1,5 @@
 import { createProjectAction } from './aapCreateProject';
 import { createMockActionContext } from '@backstage/plugin-scaffolder-node-test-utils';
-import { mockServices } from '@backstage/backend-test-utils';
 import { ConfigReader } from '@backstage/config';
 import { MOCK_CONFIG, MOCK_ORGANIZATION, MOCK_TOKEN } from '../mock';
 import { getAnsibleConfig } from '../config-reader';
@@ -10,8 +9,7 @@ import { AAPApiClient } from './helpers';
 describe('ansible-aap:project:create', () => {
   const config = new ConfigReader(MOCK_CONFIG.data);
   const ansibleConfig = getAnsibleConfig(config);
-  const logger = mockServices.logger.mock();
-  const action = createProjectAction(ansibleConfig, logger);
+  const action = createProjectAction(ansibleConfig);
 
   const projectData: Project = {
     projectName: 'Test project',

@@ -5,34 +5,11 @@ import { getAnsibleConfig } from '../../config-reader';
 import { mockServices } from '@backstage/backend-test-utils';
 import { AAPApiClient } from './apis';
 import { Organization, UseCase } from '../../types';
-import { createLogger } from 'winston';
 import { setupServer } from 'msw/node';
 import fs from 'node:fs';
 import { http, HttpResponse } from 'msw';
 
 jest.mock('crypto');
-jest.mock('winston', () => {
-  const mFormat = {
-    combine: jest.fn(),
-    timestamp: jest.fn(),
-    printf: jest.fn(),
-    colorize: jest.fn(),
-  };
-  const mTransports = {
-    Console: jest.fn(),
-    File: jest.fn(),
-  };
-  const mLogger = {
-    info: jest.fn(),
-    warn: jest.fn(),
-  };
-  return {
-    format: mFormat,
-    transports: mTransports,
-    createLogger: jest.fn(() => mLogger),
-  };
-});
-
 const mockOctokit = {
   request: jest.fn(),
 };
@@ -94,7 +71,6 @@ describe('ansible-aap:useCaseMaker:github', () => {
       url: 'https://github.com/userName/repoName',
     },
   ] as UseCase[];
-  const winstonLogger = createLogger();
 
   const handlers = [
     http.get(
@@ -206,7 +182,6 @@ describe('ansible-aap:useCaseMaker:github', () => {
       scmType,
       apiClient,
       useCases,
-      winstonLogger,
     });
     jest
       .spyOn(AAPApiClient.prototype, 'getJobTemplatesByName')
@@ -235,7 +210,6 @@ describe('ansible-aap:useCaseMaker:github', () => {
       scmType,
       apiClient,
       useCases,
-      winstonLogger,
     });
     jest
       .spyOn(AAPApiClient.prototype, 'getJobTemplatesByName')
@@ -284,7 +258,6 @@ describe('ansible-aap:useCaseMaker:github', () => {
       scmType,
       apiClient,
       useCases,
-      winstonLogger,
     });
 
     // Call the method and assert that it throws the expected error for invalid URL
@@ -305,7 +278,6 @@ describe('ansible-aap:useCaseMaker:github', () => {
       scmType,
       apiClient,
       useCases,
-      winstonLogger,
     });
     await expect(
       useCaseMaker.devfilePushToGithub(validOptions),
@@ -362,7 +334,6 @@ describe('ansible-aap:useCaseMaker:gitlab', () => {
       url: 'https://gitlab.com/userName/repoName',
     },
   ] as UseCase[];
-  const winstonLogger = createLogger();
 
   const handlers = [
     http.get(
@@ -690,7 +661,6 @@ describe('ansible-aap:useCaseMaker:gitlab', () => {
       scmType,
       apiClient,
       useCases,
-      winstonLogger,
     });
     jest
       .spyOn(AAPApiClient.prototype, 'getJobTemplatesByName')
@@ -719,7 +689,6 @@ describe('ansible-aap:useCaseMaker:gitlab', () => {
       scmType,
       apiClient,
       useCases,
-      winstonLogger,
     });
     jest
       .spyOn(AAPApiClient.prototype, 'getJobTemplatesByName')
@@ -768,7 +737,6 @@ describe('ansible-aap:useCaseMaker:gitlab', () => {
       scmType,
       apiClient,
       useCases,
-      winstonLogger,
     });
 
     await expect(
@@ -788,7 +756,6 @@ describe('ansible-aap:useCaseMaker:gitlab', () => {
       scmType,
       apiClient,
       useCases,
-      winstonLogger,
     });
     await expect(
       useCaseMaker.devfilePushToGitLab(validOptions),

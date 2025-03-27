@@ -31,6 +31,7 @@ __metadata:
     "@backstage/plugin-auth-backend": "npm:^0.24.1"
     "@backstage/plugin-auth-node": "npm:^0.5.5"
     "@janus-idp/cli": "npm:^1.18.0"
+    "@types/jest": "npm:^29.5.14"
     "@types/node": "npm:^22.13.4"
     "@types/supertest": "npm:^6.0.2"
     jose: "npm:5.9.3"
@@ -7915,7 +7916,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@types/jest@npm:^29.5.11":
+"@types/jest@npm:^29.5.11, @types/jest@npm:^29.5.14":
   version: 29.5.14
   resolution: "@types/jest@npm:29.5.14"
   dependencies:

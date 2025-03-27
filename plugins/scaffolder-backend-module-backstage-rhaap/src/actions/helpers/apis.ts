@@ -12,12 +12,9 @@ import {
 import * as YAML from 'yaml';
 import { Agent, fetch } from 'undici';
 
-import { Logger } from 'winston';
-
 export class AAPApiClient {
   static pluginLogName = 'plugin-scaffolder-backend-module-backstage-rhaap';
   private readonly logger: LoggerService;
-  private readonly winstonLogger: Logger | null;
   private readonly token: string;
   private readonly ansibleConfig: AnsibleConfig;
   private readonly proxyAgent: Agent;
@@ -26,15 +23,12 @@ export class AAPApiClient {
     ansibleConfig,
     logger,
     token,
-    winstonLogger,
   }: {
     ansibleConfig: AnsibleConfig;
     logger: LoggerService;
     token: string;
-    winstonLogger?: Logger;
   }) {
     this.logger = logger;
-    this.winstonLogger = winstonLogger ?? null;
     this.token = token;
     this.ansibleConfig = ansibleConfig;
     this.proxyAgent = new Agent({
@@ -50,16 +44,16 @@ export class AAPApiClient {
     });
   }
   private logOutput(level: 'error' | 'warn' | 'info', message: string) {
-    if (this.winstonLogger) {
+    if (this.logger) {
       switch (level) {
         case 'error':
-          this.winstonLogger.error(message);
+          this.logger.error(message);
           break;
         case 'warn':
-          this.winstonLogger.warn(message);
+          this.logger.warn(message);
           break;
         case 'info':
-          this.winstonLogger.info(message);
+          this.logger.info(message);
           break;
         default:
           break;

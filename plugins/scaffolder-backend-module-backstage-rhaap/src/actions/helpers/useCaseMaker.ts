@@ -23,7 +23,6 @@ import {
   ParsedTemplate,
   BackstageAAPShowcase,
 } from '../../types';
-import { Logger } from 'winston';
 
 export type GithubConfig = {
   url: string;
@@ -61,7 +60,6 @@ export class UseCaseMaker {
     | GithubIntegrationConfig
     | GitLabIntegrationConfig
     | null = null;
-  private readonly winstonLogger: Logger;
   constructor({
     ansibleConfig,
     logger,
@@ -69,7 +67,6 @@ export class UseCaseMaker {
     scmType,
     apiClient,
     useCases,
-    winstonLogger,
   }: {
     ansibleConfig: AnsibleConfig;
     scmType: string;
@@ -77,7 +74,6 @@ export class UseCaseMaker {
     organization: Organization | null;
     logger: LoggerService;
     useCases: UseCase[];
-    winstonLogger: Logger;
   }) {
     this.ansibleConfig = ansibleConfig;
     this.logger = logger;
@@ -105,7 +101,6 @@ export class UseCaseMaker {
       octokitOptions.auth = this.scmIntegration?.token;
     }
     this.octokit = new Octokit(octokitOptions);
-    this.winstonLogger = winstonLogger;
   }
 
   private async fetchGithubData(options: {
@@ -211,14 +206,14 @@ export class UseCaseMaker {
     const url = `/repos/${userName}/${repoName}/contents/extensions/patterns?ref=${branch}`;
     const locationsResponse = await this.fetchGithubData({ url });
     if (!locationsResponse || !Array.isArray(locationsResponse?.data)) {
-      this.winstonLogger.warn('No locations found.');
+      this.logger.warn('No locations found.');
       return locations;
     }
     const folders = locationsResponse.data.filter((r: any) => r.type === 'dir');
-    this.winstonLogger.info(`Found ${folders.length} folders in gitHub.`);
+    this.logger.info(`Found ${folders.length} folders in gitHub.`);
     await Promise.all(
       folders.map(async (folder: any) => {
-        this.winstonLogger.info(`Search for setup files`);
+        this.logger.info(`Search for setup files`);
         const filesUrl = `/repos/${userName}/${repoName}/contents/${folder.path}?ref=${branch}`;
         const filesResponse = await this.fetchGithubData({ url: filesUrl });
         if (filesResponse && Array.isArray(filesResponse?.data)) {
@@ -237,7 +232,7 @@ export class UseCaseMaker {
               try {
                 jsonContent = YAML.parse(atob(setupFileResponse.data.content));
               } catch (e) {
-                this.winstonLogger.error(
+                this.logger.error(
                   ` Error while parsing yaml file ${setupFileUrl}.`,
                 );
                 this.logger.error(
@@ -259,14 +254,10 @@ export class UseCaseMaker {
                       if (Array.isArray(tmp) && tmp.length > 1) {
                         filename = tmp[1];
                       } else {
-                        this.winstonLogger.warn(
-                          `Filename of the template not found.`,
-                        );
+                        this.logger.warn(`Filename of the template not found.`);
                       }
                       if (templateName && filename) {
-                        this.winstonLogger.info(
-                          `Added location for ${templateName}`,
-                        );
+                        this.logger.info(`Added location for ${templateName}`);
                         locations.push({
                           path: `/repos/${userName}/${repoName}/contents/${folder.path}/template_rhdh/${filename}?ref=${branch}`,
                           templateName: templateName,
@@ -278,7 +269,7 @@ export class UseCaseMaker {
               }
             }
           } else {
-            this.winstonLogger.warn(`No setup files found.`);
+            this.logger.warn(`No setup files found.`);
           }
         }
       }),
@@ -312,7 +303,7 @@ export class UseCaseMaker {
       );
 
       if (!locationsResponse.ok) {
-        this.winstonLogger.warn(
+        this.logger.warn(
           `Failed to fetch locations. Status: ${locationsResponse.status}`,
         );
         return locations;
@@ -321,18 +312,16 @@ export class UseCaseMaker {
       const locationsData = await locationsResponse.json();
 
       if (!Array.isArray(locationsData) || locationsData.length === 0) {
-        this.winstonLogger.warn('No locations found.');
+        this.logger.warn('No locations found.');
         return locations;
       }
 
       const folders = locationsData.filter(item => item.type === 'tree');
-      this.winstonLogger.info(`Found ${folders.length} folders in GitLab.`);
+      this.logger.info(`Found ${folders.length} folders in GitLab.`);
 
       await Promise.all(
         folders.map(async folder => {
-          this.winstonLogger.info(
-            `Searching for setup files in ${folder.path}`,
-          );
+          this.logger.info(`Searching for setup files in ${folder.path}`);
           const filesResponse = await fetch(
             `${gitlabApiUrl}/projects/${encodeURIComponent(
               userName,
@@ -344,7 +333,7 @@ export class UseCaseMaker {
             { headers },
           );
           if (!filesResponse.ok) {
-            this.winstonLogger.warn(
+            this.logger.warn(
               `Failed to fetch files. Status: ${filesResponse.status}`,
             );
             return;
@@ -372,7 +361,7 @@ export class UseCaseMaker {
               );
 
               if (!setupFileResponse.ok) {
-                this.winstonLogger.warn(
+                this.logger.warn(
                   `Failed to fetch setup file. Status: ${setupFileResponse.status}`,
                 );
                 return;
@@ -384,7 +373,7 @@ export class UseCaseMaker {
               try {
                 jsonContent = YAML.parse(setupFileData);
               } catch (e) {
-                this.winstonLogger.error(
+                this.logger.error(
                   `Error while parsing YAML file ${setupFile.path}.`,
                 );
                 return;
@@ -404,17 +393,13 @@ export class UseCaseMaker {
 
                     if (Array.isArray(tmp) && tmp.length > 1) {
                       filename = tmp[1];
-                      this.winstonLogger.info(`Filename found ${filename}`);
+                      this.logger.info(`Filename found ${filename}`);
                     } else {
-                      this.winstonLogger.warn(
-                        `Filename of the template not found.`,
-                      );
+                      this.logger.warn(`Filename of the template not found.`);
                     }
 
                     if (templateName && filename) {
-                      this.winstonLogger.info(
-                        `Added location for ${templateName}`,
-                      );
+                      this.logger.info(`Added location for ${templateName}`);
                       locations.push({
                         path: `projects/${encodeURIComponent(
                           userName,
@@ -430,7 +415,7 @@ export class UseCaseMaker {
                 );
               }
             } else {
-              this.winstonLogger.warn(`No setup files found.`);
+              this.logger.warn(`No setup files found.`);
             }
           }
         }),
@@ -462,7 +447,7 @@ export class UseCaseMaker {
     let templatesLocations: { path: string; templateName: string }[] | null =
       null;
 
-    this.winstonLogger.info('Search for use case templates.');
+    this.logger.info('Search for use case templates.');
     if (useCase.url.includes('github')) {
       templatesLocations = await this.getTemplatesLocation({
         userName,
@@ -619,7 +604,7 @@ export class UseCaseMaker {
       .then(() => true)
       .catch(() => false);
     if (!isDirExist) {
-      this.winstonLogger.info(`Creating local folder ${dirPath}`);
+      this.logger.info(`Creating local folder ${dirPath}`);
       this.createFolder({ dirPath });
     }
     this.logger.info(
@@ -630,7 +615,7 @@ export class UseCaseMaker {
       .then(() => true)
       .catch(() => false);
     if (!isTemplateDirExist) {
-      this.winstonLogger.info(`Creating local folder ${dirPath}/templates.`);
+      this.logger.info(`Creating local folder ${dirPath}/templates.`);
       this.createFolder({ dirPath: `${dirPath}/templates` });
     }
   }
@@ -647,7 +632,7 @@ export class UseCaseMaker {
       this.logger.info(
         `[${UseCaseMaker.pluginLogName}] Check if file ${filePath} exists.`,
       );
-      this.winstonLogger.info('Creating file all.yaml');
+      this.logger.info('Creating file all.yaml');
       allFileExists = await fs.promises
         .access(filePath)
         .then(() => true)
@@ -705,7 +690,7 @@ export class UseCaseMaker {
       this.logger.info(
         `[${UseCaseMaker.pluginLogName}] Saving file ${filePath}.`,
       );
-      this.winstonLogger.info(`Saving file ${filePath}.`);
+      this.logger.info(`Saving file ${filePath}.`);
       fs.writeFileSync(filePath, YAML.stringify(allFileContent));
     } catch (e) {
       this.logger.info(
@@ -719,7 +704,7 @@ export class UseCaseMaker {
     parsedTemplates: ParsedTemplate[];
     type?: string;
   }) {
-    this.winstonLogger.info(`Begin saving templates locally.`);
+    this.logger.info(`Begin saving templates locally.`);
     const { parsedTemplates, type = 'file' } = options;
     if (!this.ansibleConfig.) {
       throw new Error('Show case location not defined.');
@@ -749,7 +734,7 @@ export class UseCaseMaker {
       }
     });
     await this.createAllFile({ dirPath, savedTemplates, type });
-    this.winstonLogger.info(`End saving templates locally.`);
+    this.logger.info(`End saving templates locally.`);
   }
 
   private async createRepositoryIfNotExists(options: {
@@ -762,7 +747,7 @@ export class UseCaseMaker {
       this.logger.info(
         `[${UseCaseMaker.pluginLogName}] Check if github repo ${githubConfig.githubRepo} exists`,
       );
-      this.winstonLogger.info(
+      this.logger.info(
         `Check if github repo ${githubConfig.githubRepo} exists.`,
       );
       response = await this.octokit.request('GET /repos/{owner}/{repo}', {
@@ -787,9 +772,7 @@ export class UseCaseMaker {
     }
 
     if (response === null) {
-      this.winstonLogger.info(
-        `Creating gitHub repo ${githubConfig.githubRepo}.`,
-      );
+      this.logger.info(`Creating gitHub repo ${githubConfig.githubRepo}.`);
       isNew = true;
       this.logger.info(
         `[${UseCaseMaker.pluginLogName}] Github repo ${githubConfig.githubRepo} does not exists. Let's make it.`,
@@ -835,11 +818,9 @@ export class UseCaseMaker {
       this.logger.info(
         `[${UseCaseMaker.pluginLogName}] Github repo ${githubConfig.githubRepo} successfully created.`,
       );
-      this.winstonLogger.info(
-        `End creating gitHub repo ${githubConfig.githubRepo}.`,
-      );
+      this.logger.info(`End creating gitHub repo ${githubConfig.githubRepo}.`);
     } else {
-      this.winstonLogger.info(`Github repo ${githubConfig.githubRepo} exists.`);
+      this.logger.info(`Github repo ${githubConfig.githubRepo} exists.`);
       let branchesResponse;
       try {
         this.logger.info(
@@ -1087,7 +1068,7 @@ export class UseCaseMaker {
       this.logger.info(
         `[${UseCaseMaker.pluginLogName}] Commit and push to remote ${this.showCaseFolder}`,
       );
-      this.winstonLogger.info(`Start commit and push.`);
+      this.logger.info(`Start commit and push.`);
       await git.commitAndPush({
         url: `${githubConfig.url}.git`,
         dir: this.showCaseFolder,
@@ -1098,7 +1079,7 @@ export class UseCaseMaker {
         commitMessage: `AAP showcase templates at: ${new Date().toString()}`,
         branch: githubConfig.githubBranch,
       });
-      this.winstonLogger.info(`End commit and push.`);
+      this.logger.info(`End commit and push.`);
     } catch (e) {
       this.logger.error(`[${UseCaseMaker.pluginLogName}] Git error ${e}`);
       throw new Error('Something went wrong: git error.');
@@ -1176,7 +1157,7 @@ export class UseCaseMaker {
       this.logger.info(
         `[${UseCaseMaker.pluginLogName}] Commit and push to remote ${this.showCaseFolder}`,
       );
-      this.winstonLogger.info(`Start commit and push.`);
+      this.logger.info(`Start commit and push.`);
       await git.commitAndPush({
         url: `${gitlabConfig.url}.git`,
         dir: this.showCaseFolder,
@@ -1187,7 +1168,7 @@ export class UseCaseMaker {
         commitMessage: `AAP showcase templates at: ${new Date().toString()}`,
         branch: gitlabConfig.gitlabBranch,
       });
-      this.winstonLogger.info(`End commit and push.`);
+      this.logger.info(`End commit and push.`);
     } catch (e) {
       this.logger.error(`[${UseCaseMaker.pluginLogName}] Git error ${e}`);
       throw new Error('Something went wrong: git error.');
@@ -1245,13 +1226,13 @@ export class UseCaseMaker {
     const isNewRepo = await this.createRepositoryIfNotExists({
       githubConfig,
     });
-    this.winstonLogger.info(`Start creating gitHub content.`);
+    this.logger.info(`Start creating gitHub content.`);
     await this.createGitHubContent({
       githubConfig,
       parsedTemplates,
       isNewRepo,
     });
-    this.winstonLogger.info(`End creating gitHub content.`);
+    this.logger.info(`End creating gitHub content.`);
   }
 
   private async pushToGitLab(options: { parsedTemplates: ParsedTemplate[] }) {
@@ -1290,13 +1271,13 @@ export class UseCaseMaker {
     const isNewRepo = await this.createGitLabRepoIfNotExists({
       gitlabConfig,
     });
-    this.winstonLogger.info(`Start creating gitLab content.`);
+    this.logger.info(`Start creating gitLab content.`);
     await this.createGitLabContent({
       gitlabConfig,
       parsedTemplates,
       isNewRepo,
     });
-    this.winstonLogger.info(`End creating gitLab content.`);
+    this.logger.info(`End creating gitLab content.`);
   }
 
   async devfilePushToGithub(options: { value: string; repositoryUrl: string }) {
@@ -1450,7 +1431,9 @@ export class UseCaseMaker {
 
     try {
       const repoResponse = await fetch(
-        `${this.scmIntegration.apiBaseUrl}/projects/${encodeURIComponent(`${owner}/${repo}`)}`,
+        `${this.scmIntegration.apiBaseUrl}/projects/${encodeURIComponent(
+          `${owner}/${repo}`,
+        )}`,
         { headers },
       );
       if (!repoResponse.ok) {
