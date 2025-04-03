@@ -6,6 +6,12 @@ import {
   MOCK_ROLE_ASSIGNMENT_RESPONSE,
   MOCK_TEAMS_RESPONSE,
   MOCK_USERS_RESPONSE,
+  MOCK_ORGANIZATION_USERS_RESPONSE_1,
+  MOCK_ORGANIZATION_USERS_RESPONSE_2,
+  MOCK_TEAM_USERS_RESPONSE_1,
+  MOCK_TEAM_USERS_RESPONSE_2,
+  MOCK_USERS_ORG_RESPONSE_1,
+  MOCK_USERS_ORG_RESPONSE_2,
 } from '../mock';
 import { AAPEntityProvider } from './AAPEntityProvider';
 import {
@@ -29,6 +35,27 @@ jest.mock('undici', () => ({
     }
     if (input === `${MOCK_BASE_URL}/api/gateway/v1/role_user_assignments/`) {
       return Promise.resolve(MOCK_ROLE_ASSIGNMENT_RESPONSE);
+    }
+    if (input === `${MOCK_BASE_URL}/api/gateway/v1/organizations/1/users/`) {
+      return Promise.resolve(MOCK_ORGANIZATION_USERS_RESPONSE_1);
+    }
+    if (input === `${MOCK_BASE_URL}/api/gateway/v1/organizations/2/users/`) {
+      return Promise.resolve(MOCK_ORGANIZATION_USERS_RESPONSE_2);
+    }
+    if (input === `${MOCK_BASE_URL}/api/gateway/v1/teams/1/users/`) {
+      return Promise.resolve(MOCK_TEAM_USERS_RESPONSE_1);
+    }
+    if (input === `${MOCK_BASE_URL}/api/gateway/v1/teams/2/users/`) {
+      return Promise.resolve(MOCK_TEAM_USERS_RESPONSE_2);
+    }
+    if (input === `${MOCK_BASE_URL}/api/gateway/v1/teams/3/users/`) {
+      return Promise.resolve(MOCK_TEAM_USERS_RESPONSE_1);
+    }
+    if (input === `${MOCK_BASE_URL}/api/gateway/v1/users/1/organizations/`) {
+      return Promise.resolve(MOCK_USERS_ORG_RESPONSE_1);
+    }
+    if (input === `${MOCK_BASE_URL}/api/gateway/v1/users/2/organizations/`) {
+      return Promise.resolve(MOCK_USERS_ORG_RESPONSE_2);
     }
     return null;
   }),
@@ -58,7 +85,47 @@ describe('AAPEntityProvider', () => {
       kind: 'Group',
       metadata: {
         namespace: 'default',
-        name: 'team-a-1',
+        name: 'default',
+        title: 'Default',
+        annotations: {
+          'backstage.io/managed-by-location':
+            'url:https://rhaap.test/access/organizations/1/details',
+          'backstage.io/managed-by-origin-location':
+            'url:https://rhaap.test/access/organizations/1/details',
+        },
+      },
+      spec: {
+        type: 'organization',
+        children: [],
+        members: ['user1', 'user2'],
+      },
+    },
+    {
+      apiVersion: 'backstage.io/v1alpha1',
+      kind: 'Group',
+      metadata: {
+        namespace: 'default',
+        name: 'test-organization',
+        title: 'Test organization',
+        annotations: {
+          'backstage.io/managed-by-location':
+            'url:https://rhaap.test/access/organizations/2/details',
+          'backstage.io/managed-by-origin-location':
+            'url:https://rhaap.test/access/organizations/2/details',
+        },
+      },
+      spec: {
+        type: 'organization',
+        children: [],
+        members: ['user1'],
+      },
+    },
+    {
+      apiVersion: 'backstage.io/v1alpha1',
+      kind: 'Group',
+      metadata: {
+        namespace: 'default',
+        name: 'team-a',
         title: 'Team A',
         description: 'Team A description',
         annotations: {
@@ -68,15 +135,18 @@ describe('AAPEntityProvider', () => {
             'url:https://rhaap.test/access/teams/1/details',
         },
       },
-      spec: { type: 'team', children: [] },
+      spec: {
+        type: 'team',
+        children: [],
+        members: ['user1'],
+      },
     },
-
     {
       apiVersion: 'backstage.io/v1alpha1',
       kind: 'Group',
       metadata: {
         namespace: 'default',
-        name: 'team-b-2',
+        name: 'team-b',
         title: 'Team B',
         description: 'Team B description',
         annotations: {
@@ -86,17 +156,20 @@ describe('AAPEntityProvider', () => {
             'url:https://rhaap.test/access/teams/2/details',
         },
       },
-      spec: { type: 'team', children: [] },
+      spec: {
+        type: 'team',
+        children: [],
+        members: ['user2'],
+      },
     },
-
     {
       apiVersion: 'backstage.io/v1alpha1',
       kind: 'Group',
       metadata: {
-        namespace: 'test-organization',
-        name: 'team-a-3',
-        title: 'Team A',
-        description: 'Team A test organization ',
+        namespace: 'default',
+        name: 'team-c',
+        title: 'Team C',
+        description: 'Team C description',
         annotations: {
           'backstage.io/managed-by-location':
             'url:https://rhaap.test/access/teams/3/details',
@@ -104,9 +177,12 @@ describe('AAPEntityProvider', () => {
             'url:https://rhaap.test/access/teams/3/details',
         },
       },
-      spec: { type: 'team', children: [] },
+      spec: {
+        type: 'team',
+        children: [],
+        members: ['user1'],
+      },
     },
-
     {
       apiVersion: 'backstage.io/v1alpha1',
       kind: 'User',
@@ -127,34 +203,9 @@ describe('AAPEntityProvider', () => {
           displayName: 'User1 first name User1 last name',
           email: 'user1@test.com',
         },
-        memberOf: ['team-a-1', 'team-b-2'],
+        memberOf: ['default', 'test-organization'],
       },
     },
-
-    {
-      apiVersion: 'backstage.io/v1alpha1',
-      kind: 'User',
-      metadata: {
-        namespace: 'test-organization',
-        name: 'user1',
-        title: 'User1 first name User1 last name',
-        annotations: {
-          'backstage.io/managed-by-location':
-            'url:https://rhaap.test/access/users/1/details',
-          'backstage.io/managed-by-origin-location':
-            'url:https://rhaap.test/access/users/1/details',
-        },
-      },
-      spec: {
-        profile: {
-          username: 'user1',
-          displayName: 'User1 first name User1 last name',
-          email: 'user1@test.com',
-        },
-        memberOf: ['team-a-3'],
-      },
-    },
-
     {
       apiVersion: 'backstage.io/v1alpha1',
       kind: 'User',
@@ -175,7 +226,7 @@ describe('AAPEntityProvider', () => {
           displayName: 'User2 first name User2 last name',
           email: 'user2@test.com',
         },
-        memberOf: ['team-a-1'],
+        memberOf: ['default'],
       },
     },
   ].map(entity => ({

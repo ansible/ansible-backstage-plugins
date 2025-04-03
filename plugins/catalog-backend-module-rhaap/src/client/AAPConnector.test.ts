@@ -45,22 +45,22 @@ describe('AAP Connector', () => {
         id: 1,
         organization: 1,
         name: 'Team A',
-        groupName: 'team-a-1',
+        groupName: 'team-a',
         description: 'Team A description',
       },
       '2': {
         id: 2,
         organization: 1,
         name: 'Team B',
-        groupName: 'team-b-2',
+        groupName: 'team-b',
         description: 'Team B description',
       },
       '3': {
         id: 3,
         organization: 2,
-        name: 'Team A',
-        groupName: 'team-a-3',
-        description: 'Team A test organization ',
+        name: 'Team C',
+        groupName: 'team-c',
+        description: 'Team C description',
       },
     });
   });

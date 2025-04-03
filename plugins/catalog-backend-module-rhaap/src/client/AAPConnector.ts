@@ -98,7 +98,7 @@ export class AAPConnector {
         id: item.id,
         organization: item.organization,
         name: item.name,
-        groupName: `${formatNameSpace(item.name)}-${item.id}`,
+        groupName: `${formatNameSpace(item.name)}`,
         description: item?.description,
       };
       return map;
@@ -110,6 +110,56 @@ export class AAPConnector {
     this.logger.info(`Fetching users from RH AAP.`);
     const users = await this.executeGetRequest(endPoint);
     return users as Users;
+  }
+
+  async getUsersByTeamId(teamID: number): Promise<{ name: string }[]> {
+    const endPoint = `/api/gateway/v1/teams/${teamID}/users/`;
+    this.logger.info(`Fetching users for team ID: ${teamID} from RH AAP.`);
+    const users = await this.executeGetRequest(endPoint);
+    return users
+      .filter((user: any) => user?.username)
+      .map((user: any) => ({
+        name: user.username,
+      }));
+  }
+
+  async getTeamsByUserId(
+    userID: number,
+  ): Promise<{ name: string; groupName: string }[]> {
+    const endPoint = `/api/gateway/v1/users/${userID}/teams/`;
+    this.logger.info(`Fetching teams for user ID: ${userID} from RH AAP.`);
+    const teams = await this.executeGetRequest(endPoint);
+    return teams
+      .filter((team: any) => team?.name)
+      .map((team: any) => ({
+        name: team.name,
+        groupName: formatNameSpace(team.name),
+      }));
+  }
+
+  async getOrgsByUserId(
+    userID: number,
+  ): Promise<{ name: string; groupName: string }[]> {
+    const endPoint = `/api/gateway/v1/users/${userID}/organizations/`;
+    this.logger.info(`Fetching orgs for user ID: ${userID} from RH AAP.`);
+    const orgs = await this.executeGetRequest(endPoint);
+    return orgs
+      .filter((org: any) => org?.name)
+      .map((org: any) => ({
+        name: org.name,
+        groupName: formatNameSpace(org.name),
+      }));
+  }
+
+  async getUsersByOrgId(orgID: number): Promise<{ name: string }[]> {
+    const endPoint = `/api/gateway/v1/organizations/${orgID}/users/`;
+    this.logger.info(`Fetching users for org ID: ${orgID} from RH AAP.`);
+    const users = await this.executeGetRequest(endPoint);
+    return users
+      .filter((user: any) => user?.username)
+      .map((user: any) => ({
+        name: user.username,
+      }));
   }
 
   async getUserRoleAssignments(): Promise<RoleAssignments> {

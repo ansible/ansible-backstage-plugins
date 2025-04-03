@@ -20,8 +20,8 @@ export const MOCK_TEAMS_RESPONSE = {
         },
         {
           id: 3,
-          name: 'Team A',
-          description: 'Team A test organization ',
+          name: 'Team C',
+          description: 'Team C description',
           organization: 2,
         },
       ],

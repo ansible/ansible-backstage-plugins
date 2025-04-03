@@ -16,14 +16,12 @@ import { AapConfig } from './types';
 import {
   AAPConnector,
   Organizations,
-  RoleAssignment,
   RoleAssignments,
   Teams,
   Users,
 } from '../client';
 import { Entity } from '@backstage/catalog-model';
-import { ORGANIZATION_MEMBER, TEAM_MEMBER } from './constants';
-import { teamParser, userParser } from './entityParser';
+import { OrganizationParser, teamParser, userParser } from './entityParser';
 
 export class AAPEntityProvider implements EntityProvider {
   private readonly env: string;
@@ -133,7 +131,7 @@ export class AAPEntityProvider implements EntityProvider {
     }
     let groupCount = 0;
     let usersCount = 0;
-    let organizations: Organizations;
+    let organizations = {} as Organizations;
     let userRoleAssignments: RoleAssignments;
     let teams = {} as Teams;
     let users = [] as Users;
@@ -184,6 +182,9 @@ export class AAPEntityProvider implements EntityProvider {
 
     try {
       userRoleAssignments = await apiClient.getUserRoleAssignments();
+      this.logger.info(
+        `[${AAPEntityProvider.pluginLogName}]: Fetched ${Object.keys(userRoleAssignments).length} user role assignments.`,
+      );
     } catch (e: any) {
       this.logger.error(
         `[${AAPEntityProvider.pluginLogName}]: Error while fetching User Role Assignments. ${e?.message ?? ''}`,
@@ -192,7 +193,23 @@ export class AAPEntityProvider implements EntityProvider {
     }
 
     if (!error) {
-      Object.values(teams).forEach(team => {
+      for (const org of Object.values(organizations)) {
+        const orgUsers = await apiClient.getUsersByOrgId(org.id);
+        const OrgMembers = orgUsers?.length
+          ? orgUsers.map(user => user.name)
+          : [];
+
+        entities.push(
+          OrganizationParser({
+            baseUrl: this.baseUrl,
+            nameSpace: 'default',
+            org,
+            orgMembers: OrgMembers,
+          }),
+        );
+      }
+
+      for (const team of Object.values(teams)) {
         const teamOrganization = organizations[team?.organization];
         if (teamOrganization) {
           const nameSpace = teamOrganization.namespace;
@@ -201,56 +218,41 @@ export class AAPEntityProvider implements EntityProvider {
             : [];
           tmp.push(team.groupName);
           nameSpacesGroups[nameSpace] = tmp;
-          entities.push(teamParser({ baseUrl: this.baseUrl, nameSpace, team }));
-          groupCount += 1;
-        }
-      });
-      users.forEach(user => {
-        let nameSpaces: string[] = [];
-        let userRoleAssignment: RoleAssignment;
-        if (user.is_superuser) {
-          nameSpaces = Object.values(organizations).map(org => org.namespace);
-        } else {
-          userRoleAssignment = userRoleAssignments[user.id];
-          if (userRoleAssignment?.[ORGANIZATION_MEMBER]?.length) {
-            nameSpaces = userRoleAssignment[ORGANIZATION_MEMBER].map(key => {
-              const organization = organizations[key as number];
-              return organization.namespace;
-            });
-          } else {
-            nameSpaces = ['default'];
-          }
-        }
 
-        nameSpaces.forEach(nameSpace => {
-          let groupMemberships: string[] = [];
-          if (user.is_superuser && nameSpacesGroups[nameSpace]?.length) {
-            groupMemberships = nameSpacesGroups[nameSpace];
-          } else {
-            if (
-              userRoleAssignment &&
-              userRoleAssignment[TEAM_MEMBER]?.length &&
-              nameSpacesGroups[nameSpace]?.length
-            ) {
-              groupMemberships = userRoleAssignment[TEAM_MEMBER].map(key => {
-                const group = teams[key as number];
-                return nameSpacesGroups[nameSpace].includes(group.groupName)
-                  ? group.groupName
-                  : '';
-              }).filter(x => x?.length);
-            }
-          }
+          const teamUsers = await apiClient.getUsersByTeamId(team.id);
+          const teamMembers = teamUsers?.length
+            ? teamUsers.map(user => user.name)
+            : [];
+
           entities.push(
-            userParser({
+            teamParser({
               baseUrl: this.baseUrl,
-              nameSpace,
-              user,
-              groupMemberships,
+              nameSpace: 'default',
+              team,
+              teamMembers,
             }),
           );
-          usersCount += 1;
-        });
-      });
+          groupCount += 1;
+        }
+      }
+
+      for (const user of users) {
+        const userOrgs = await apiClient.getOrgsByUserId(user.id);
+        const groupMemberships = userOrgs?.length
+          ? userOrgs.map(userOrg => userOrg.groupName)
+          : [];
+
+        entities.push(
+          userParser({
+            baseUrl: this.baseUrl,
+            nameSpace: 'default',
+            user,
+            groupMemberships,
+          }),
+        );
+        usersCount += 1;
+      }
+
       await this.connection.applyMutation({
         type: 'full',
         entities: entities.map(entity => ({
