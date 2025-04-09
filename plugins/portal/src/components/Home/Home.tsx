@@ -1,5 +1,5 @@
 import React from 'react';
-import { Link, makeStyles } from '@material-ui/core';
+import { Button, makeStyles } from '@material-ui/core';
 import { Content, Header, Page } from '@backstage/core-components';
 import {
   CatalogFilterLayout,
@@ -51,13 +51,12 @@ export const HomeComponent = () => {
         }
         style={{ background: 'inherit' }}
       >
-        <Link
+        <Button
           onClick={() => navigate(`${rootLink()}/catalog-import`)}
-          variant="button"
-          style={{ textDecoration: 'none', cursor: 'pointer' }}
+          variant="contained"
         >
           Add Template
-        </Link>
+        </Button>
       </Header>
       <Content>
         <EntityListProvider>

@@ -10,6 +10,7 @@ import {
 import { catalogApiRef } from '@backstage/plugin-catalog-react';
 import { mockCatalogApi } from '../../tests/catalogApi_utils';
 import { CatalogItemsDetails } from './CatalogItemDetails';
+import { rootRouteRef } from '../../routes';
 
 describe('Catalog items details', () => {
   const server = setupServer();
@@ -28,6 +29,11 @@ describe('Catalog items details', () => {
       <TestApiProvider apis={[[catalogApiRef, mockCatalogApi]]}>
         <>{children}</>
       </TestApiProvider>,
+      {
+        mountedRoutes: {
+          '/portal': rootRouteRef,
+        },
+      },
     );
   };
 

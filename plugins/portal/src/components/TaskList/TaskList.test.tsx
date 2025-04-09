@@ -39,7 +39,7 @@ describe('My items', () => {
 
   it('should render', async () => {
     await render(<TaskList />);
-    expect(screen.getByText('My items')).toBeInTheDocument();
+    expect(screen.getByText('Task List')).toBeInTheDocument();
     expect(
       screen.getByText('All tasks that have been started'),
     ).toBeInTheDocument();

@@ -15,6 +15,7 @@ import {
   Grid,
   IconButton,
   Link,
+  makeStyles,
   MenuItem,
   Select,
   Table,
@@ -36,6 +37,21 @@ import PlayCircleOutlineIcon from '@material-ui/icons/PlayCircleOutline';
 import AddCircleOutlineIcon from '@material-ui/icons/AddCircleOutline';
 import BlockIcon from '@material-ui/icons/Block';
 import { rootRouteRef } from '../../routes';
+
+const headerStyles = makeStyles(theme => ({
+  header_title_color: {
+    color: theme.palette.type === 'light' ? 'rgba(0, 0, 0, 0.87)' : '#ffffff',
+  },
+  header_subtitle: {
+    display: 'inline-block',
+    color: theme.palette.type === 'light' ? 'rgba(0, 0, 0, 0.87)' : '#ffffff',
+    opacity: 0.8,
+    maxWidth: '75ch',
+    marginTop: '8px',
+    fontWeight: 500,
+    lineHeight: 1.57,
+  },
+}));
 
 export interface MyTaskPageProps {
   initiallySelectedFilter?: 'owned' | 'all';
@@ -112,6 +128,7 @@ function TablePaginationActions(props: TablePaginationActionsProps) {
 }
 
 export const TaskList = () => {
+  const classes = headerStyles();
   const scaffolderApi = useApi(scaffolderApiRef);
   const [tasks, setTasks] = useState<ScaffolderTask[]>([]);
   const [totalTasks, setTotalTasks] = useState<number>(0);
@@ -220,8 +237,13 @@ export const TaskList = () => {
     <Page themeId="tool">
       <Header
         pageTitleOverride="Ansible Portal - Tasks"
-        title="My items"
-        subtitle="All tasks that have been started"
+        title={<span className={classes.header_title_color}>Task List</span>}
+        subtitle={
+          <span className={classes.header_subtitle}>
+            All tasks that have been started
+          </span>
+        }
+        style={{ background: 'inherit' }}
       />
       <Content>
         <Grid container spacing={2}>

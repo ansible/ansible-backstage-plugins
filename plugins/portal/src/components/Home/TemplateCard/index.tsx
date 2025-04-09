@@ -10,6 +10,7 @@ import {
   CardHeader,
   Chip,
   Divider,
+  Link,
   Typography,
   useTheme,
 } from '@material-ui/core';
@@ -21,18 +22,26 @@ export function WizardCard({ template }: { template: TemplateEntityV1beta3 }) {
   const theme = useTheme();
   const navigate = useNavigate();
   const rootLink = useRouteRef(rootRouteRef);
-  const chooseWizardItem = () => {
-    const namespace = template?.metadata?.namespace ?? 'default';
-    const name = template?.metadata?.name ?? '';
+  const namespace = template?.metadata?.namespace ?? 'default';
+  const name = template?.metadata?.name ?? '';
 
-    // Navigate to the route dynamically
+  const chooseWizardItem = () =>
     navigate(`${rootLink()}/create/templates/${namespace}/${name}`);
-  };
+
+  const onTemplateClick = () =>
+    navigate(`${rootLink()}/catalog/${namespace}/${name}`);
 
   return (
     <Card>
       <CardHeader
-        title={template?.metadata?.title}
+        title={
+          <Link
+            onClick={onTemplateClick}
+            style={{ cursor: 'pointer', textDecoration: 'none' }}
+          >
+            {template?.metadata?.title}
+          </Link>
+        }
         subheader={template?.spec?.type?.toString()}
         action={<FavoriteEntity entity={template} style={{ padding: 0 }} />}
         style={{ padding: 16 }}
@@ -45,9 +54,7 @@ export function WizardCard({ template }: { template: TemplateEntityV1beta3 }) {
               marginBottom: '16px',
             }}
           >
-            {template?.metadata?.description
-              ?.split('(Template Info)')[0]
-              .trim()}
+            {template?.metadata?.description}
           </Typography>
         </div>
         {template?.metadata?.tags?.length && (
