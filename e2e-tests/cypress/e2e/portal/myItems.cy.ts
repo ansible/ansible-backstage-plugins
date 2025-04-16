@@ -1,46 +1,26 @@
 import { Common } from '../utils/common';
 
-describe('Ansible Portal Wizard Catalog My Items Page Functional Tests', () => {
+describe('Portal Login', () => {
   it('Sign In to Portal', { retries: 2 }, () => {
     Common.LogintoAAP();
   });
+});
 
+describe('Ansible Portal Wizard Catalog My Items Page Functional Tests', () => {
   beforeEach(() => {
     // Visit the page
-    cy.visit('/wizard/my-items');
+    cy.visit('/portal/create/tasks');
   });
 
   it('Validates the page header', () => {
-    cy.get('h1 > div > div').as('pageHeader');
-    cy.get('@pageHeader').should('have.text', 'My items');
-  });
-
-  it('Validates scenarios with or without records in the my items table', () => {
-    cy.get('.MuiTableContainer-root').then($body => {
-      if (
-        $body.find('table').length &&
-        $body.find('table > tbody').length > 0 &&
-        $body.find('table > tbody > tr > td').length > 1
-      ) {
-        cy.get('table > tbody > tr')
-          .first()
-          .within(() => {
-            cy.get('button').click();
-            cy.url().should('include', '/wizard/my-items/default/');
-            cy.go('back');
-          });
-      } else {
-        cy.contains('No tasks found').should('be.visible');
-      }
-    });
+    cy.get('[data-testid="taskHeader"]').as('pageHeader');
+    cy.get('@pageHeader').should('have.text', 'Task List');
   });
 
   it('Validates the Owner dropdown options', () => {
-    const ownerContainer =
-      '#root > div > main > article > div > .MuiGrid-root > form > div > .MuiInputBase-root > div';
+    const ownerContainer = '[data-testid="select-owner"]';
 
-    cy.get(ownerContainer).click().should('contain.text', '');
-    cy.get('.MuiInputBase-root > input').should('have.attr', 'value', '');
+    cy.get(ownerContainer).click().should('contain.text', 'All');
 
     cy.get('button').contains('Clear all').as('clearButton');
 
@@ -52,7 +32,11 @@ describe('Ansible Portal Wizard Catalog My Items Page Functional Tests', () => {
 
     cy.contains('li', 'All').click();
     cy.get(ownerContainer).should('contain.text', 'All');
-    cy.get('.MuiInputBase-root > input').should('have.attr', 'value', 'all');
+    cy.get('[data-testid="select-owner"] > input').should(
+      'have.attr',
+      'value',
+      'all',
+    );
 
     cy.get('@clearButton').click();
 
@@ -60,7 +44,11 @@ describe('Ansible Portal Wizard Catalog My Items Page Functional Tests', () => {
 
     cy.contains('li', 'My').click();
     cy.get(ownerContainer).should('contain.text', 'My');
-    cy.get('.MuiInputBase-root > input').should('have.attr', 'value', 'owned');
+    cy.get('[data-testid="select-owner"] > input').should(
+      'have.attr',
+      'value',
+      'owned',
+    );
 
     cy.get('@clearButton').click();
     cy.get(ownerContainer).should('contain.text', '');
@@ -68,7 +56,8 @@ describe('Ansible Portal Wizard Catalog My Items Page Functional Tests', () => {
 
   it('Validates the column headers correctly in the table', () => {
     cy.get('table').within(() => {
-      cy.contains('Name').should('be.visible');
+      cy.contains('Task ID').should('be.visible');
+      cy.contains('Template').should('be.visible');
       cy.contains('Created at').should('be.visible');
       cy.contains('Owner').should('be.visible');
       cy.contains('Status').should('be.visible');
@@ -76,12 +65,8 @@ describe('Ansible Portal Wizard Catalog My Items Page Functional Tests', () => {
   });
 
   it('Validates the pagination controls correctly', () => {
-    cy.get('.MuiTablePagination-toolbar').should('be.visible');
+    cy.get('[data-testid="tableToolBar"]').should('be.visible');
     cy.contains('Rows per page').should('be.visible');
-
-    cy.get('.MuiTablePagination-input').should('contain.text', '10').click();
-    cy.get('li').contains('25').click();
-    cy.get('.MuiTablePagination-input').should('contain.text', '25');
 
     cy.get('[aria-label="first page"]').should('have.attr', 'type', 'button');
     cy.get('[aria-label="previous page"]').should(

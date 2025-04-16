@@ -37,10 +37,11 @@ export function WizardCard({ template }: { template: TemplateEntityV1beta3 }) {
     navigate(`${rootLink()}/catalog/${namespace}/${name}`);
 
   return (
-    <Card>
+    <Card data-testid={`${namespace}-${name}`}>
       <CardHeader
         title={
           <Link
+            data-testid="template--title"
             onClick={onTemplateClick}
             style={{ cursor: 'pointer', textDecoration: 'none' }}
           >
@@ -58,15 +59,21 @@ export function WizardCard({ template }: { template: TemplateEntityV1beta3 }) {
             style={{
               marginBottom: '16px',
             }}
+            data-testid="template--description"
           >
             {template?.metadata?.description}
           </Typography>
         </div>
         {template?.metadata?.tags?.length && (
-          <div className="tags">
+          <div className="tags" data-testid="template--tags">
             <div style={{ marginTop: 8 }}>
               {template?.metadata?.tags?.map((tag, index) => (
-                <Chip label={tag} key={index} size="small" />
+                <Chip
+                  label={tag}
+                  key={index}
+                  size="small"
+                  data-testid={`template-tags--${tag}`}
+                />
               ))}
             </div>
           </div>

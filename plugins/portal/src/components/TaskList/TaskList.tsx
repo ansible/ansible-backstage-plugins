@@ -237,7 +237,11 @@ export const TaskList = () => {
     <Page themeId="tool">
       <Header
         pageTitleOverride="Tasks"
-        title={<span className={classes.header_title_color}>Task List</span>}
+        title={
+          <span data-testid="taskHeader" className={classes.header_title_color}>
+            Task List
+          </span>
+        }
         subtitle={
           <span className={classes.header_subtitle}>
             All tasks that have been started
@@ -271,6 +275,7 @@ export const TaskList = () => {
                   </Typography>
                 </Box>
                 <Select
+                  data-testid="select-owner"
                   variant="outlined"
                   value={filters.owner ?? ''}
                   onChange={e => {
@@ -388,6 +393,7 @@ export const TaskList = () => {
                     rowsPerPage={rowsPerPage}
                     onRowsPerPageChange={handleRowsPerPageChange}
                     ActionsComponent={TablePaginationActions}
+                    data-testid="tableToolBar"
                   />
                 </TableContainer>
               </Box>

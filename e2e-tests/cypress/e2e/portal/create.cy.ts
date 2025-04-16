@@ -1,12 +1,14 @@
 import { Common } from '../utils/common';
 
-describe('Ansible Portal Wizard Catalog Create and execution tests', () => {
+describe('Portal Login', () => {
   it('Sign In to Portal', { retries: 2 }, () => {
     Common.LogintoAAP();
   });
+});
 
+describe('Ansible Portal Create and execution tests', () => {
   beforeEach(() => {
-    cy.visit('/wizard/catalog');
+    cy.visit('/portal');
   });
 
   function createWizardUseCase(
@@ -20,13 +22,15 @@ describe('Ansible Portal Wizard Catalog Create and execution tests', () => {
     const aapUrl = Cypress.env('AAP_URL');
 
     // Open the Create wizard use case form and fill details
-    cy.get(
-      ':nth-child(1) > .MuiPaper-root > .MuiCardActions-root > .MuiBox-root > .MuiButtonBase-root',
-    ).as('createCard');
+    cy.get('[data-testid="default-generic-seed"]')
+      .find(`button[data-testid=template-card-actions--create]`)
+      .as('createCard');
     cy.get('@createCard').click();
-    cy.wait(5000);
+    cy.wait(1000);
 
-    cy.get('h1 > div > div').as('pageHeader');
+    // cy.get('h1 > div > div').as('pageHeader');
+    // header > div > h1 > span
+    cy.get('header > div > h1 > span').as('pageHeader');
     cy.get('@pageHeader').should('have.text', 'Create wizard use cases');
 
     cy.get('div[aria-labelledby="organization-select-label"').click();
@@ -72,8 +76,8 @@ describe('Ansible Portal Wizard Catalog Create and execution tests', () => {
     cy.get('#root_playbook').as('playbook').clear().type(playbook);
     cy.get('@playbook').should('have.value', playbook);
 
-    cy.get('#root_aapHostName').as('aapHostName').clear().type(aapUrl);
-    cy.get('@aapHostName').should('have.value', aapUrl);
+    cy.get('div[aria-labelledby="aapHostName-select-label"]').as('aapHostName');
+    cy.get('@aapHostName').should('have.text', aapUrl);
 
     // Submit before picking a use case - error message should appear
     cy.get('@submitButton').click();
@@ -90,9 +94,7 @@ describe('Ansible Portal Wizard Catalog Create and execution tests', () => {
 
     cy.get('button').contains('Create').click();
 
-    cy.get('#root > div > main > article > div:nth-child(1) > div > p').as(
-      'statusText',
-    );
+    cy.get('header > div > h1 > span').as('statusText');
     cy.get('@statusText').should('have.text', 'Create wizard use cases');
 
     // Check that logs are not visible before opening
@@ -104,8 +106,7 @@ describe('Ansible Portal Wizard Catalog Create and execution tests', () => {
   }
 
   function validateCreatedCards(cardNames: string[]) {
-    const allCardsContainer =
-      '#root > div > main > article > .MuiGrid-container > :nth-child(2) > :nth-child(2)';
+    const allCardsContainer = 'main > article > div > div > article > div';
 
     cardNames.forEach(card => {
       cy.get(allCardsContainer).contains(card).should('exist');
@@ -119,12 +120,11 @@ describe('Ansible Portal Wizard Catalog Create and execution tests', () => {
       'https://github.com/ansible/ansible-pattern-loader',
       'main',
       'seed_portal_content.yml',
-      'Rhel',
+      'Network',
     );
-    cy.get('@statusText', { timeout: 70000 }).should(
-      'have.text',
-      'Job generic seed template executed successfully',
-    );
+    cy.contains('p', 'Finished step Launch job template', {
+      timeout: 70000,
+    }).should('exist');
 
     cy.contains('a', 'View in RH AAP')
       .as('aapButton')
@@ -146,9 +146,8 @@ describe('Ansible Portal Wizard Catalog Create and execution tests', () => {
       'Rhel',
     );
 
-    cy.get('@statusText', { timeout: 30000 }).should(
-      'have.text',
-      'Playbook not found for project.',
+    cy.contains('p', 'Failed to send POST request', { timeout: 30000 }).should(
+      'exist',
     );
   });
 
@@ -162,15 +161,14 @@ describe('Ansible Portal Wizard Catalog Create and execution tests', () => {
       'Network',
     );
 
-    cy.get('@statusText', { timeout: 30000 }).should(
-      'have.text',
-      'Failed to create project',
-    );
+    cy.contains('p', 'Error creating project: failed', {
+      timeout: 30000,
+    }).should('exist');
   });
 
-  it('Validates created use cases - RHEL services', () => {
-    const rhelCardNames = ['Manage RHEL services', 'Manage RHEL time servers'];
+  it('Validates created use cases - Network services', () => {
+    const networkCardNames = ['Network backup', 'Network backup restore'];
 
-    validateCreatedCards(rhelCardNames);
+    validateCreatedCards(networkCardNames);
   });
 });

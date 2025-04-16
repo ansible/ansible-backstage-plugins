@@ -50,10 +50,7 @@ export class Common {
     cy.visit('/');
     cy.wait(7000);
     cy.get('body').then($body => {
-      if (
-        $body.find('li:nth-child(2) > div > .MuiCardActions-root-220 > button')
-          .length > 0
-      ) {
+      if ($body.text().includes('Select a Sign-in method')) {
         cy.contains('Sign In').invoke('removeAttr', 'target').click();
         cy.wait(7000);
         cy.get('body').then($body => {
@@ -87,7 +84,7 @@ export class Common {
           }
         });
         cy.visit('/');
-        cy.get('nav').contains('Settings').should('exist');
+        cy.get('nav').contains('Templates').should('exist');
       }
     });
   }

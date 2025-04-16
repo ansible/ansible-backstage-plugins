@@ -133,7 +133,10 @@ export const CreateTask = () => {
       <Header
         pageTitleOverride="Create Task"
         title={
-          <span className={classes.header_title_color}>
+          <span
+            className={classes.header_title_color}
+            data-testid="template-task--title"
+          >
             {entityTemplate.title}
           </span>
         }
