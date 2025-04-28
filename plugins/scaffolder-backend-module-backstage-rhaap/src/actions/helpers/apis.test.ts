@@ -161,6 +161,7 @@ describe('ansible-aap:api', () => {
       credentials: {
         id: 1,
         name: 'mock credential',
+        kind: 'scm',
         inputs: {
           username: 'mock user',
         },

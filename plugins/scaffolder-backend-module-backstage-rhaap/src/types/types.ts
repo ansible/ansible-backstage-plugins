@@ -16,6 +16,7 @@ export type Inventory = {
 export type Credential = {
   id: number;
   name: string;
+  kind: string;
   inputs?: {
     username: string;
   };

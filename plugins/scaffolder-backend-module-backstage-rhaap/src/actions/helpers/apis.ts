@@ -412,7 +412,7 @@ export class AAPApiClient {
     if (extraVariables !== '') {
       extraVariables.aap_validate_certs = this.ansibleConfig.checkSSL;
       extraVariables.aap_hostname = this.ansibleConfig.baseUrl;
-      if (payload.credentials) {
+      if (payload.credentials && payload.credentials?.kind === 'scm') {
         let git_password;
         if (payload.scmType === 'Github') {
           git_password = this.ansibleConfig.githubIntegration.token;

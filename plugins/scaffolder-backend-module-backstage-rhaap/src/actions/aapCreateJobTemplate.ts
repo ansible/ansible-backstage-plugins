@@ -87,6 +87,10 @@ export const createJobTemplate = (ansibleConfig: AnsibleConfig) => {
                     type: 'string',
                     description: 'Credential name',
                   },
+                  kind: {
+                    type: 'string',
+                    description: 'Credential Type',
+                  },
                   inputs: {
                     type: 'object',
                     description: 'Credential Inputs',

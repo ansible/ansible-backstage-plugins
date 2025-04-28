@@ -12,6 +12,7 @@ import { getAnsibleConfig } from '../config-reader';
 import { JobTemplate } from '../types';
 import { AAPApiClient } from './helpers';
 import { createJobTemplate } from './aapCreateJobTemplate';
+import { MOCK_NEW_SCM_CREDENTIAL_DATA } from '../mock/mockScmCredential';
 
 describe('ansible-aap:jobTemplate:create', () => {
   const config = new ConfigReader(MOCK_CONFIG.data);
@@ -26,6 +27,7 @@ describe('ansible-aap:jobTemplate:create', () => {
     jobInventory: MOCK_INVENTORY,
     playbook: 'Test playbook',
     executionEnvironment: MOCK_EXECUTION_ENVIRONMENT,
+    credentials: MOCK_NEW_SCM_CREDENTIAL_DATA,
   };
 
   const mockContext = createMockActionContext({
@@ -76,6 +78,14 @@ describe('ansible-aap:jobTemplate:create', () => {
         organization: { id: 1, name: 'Default organization' },
         image: 'some.image',
         pull: 'always',
+      },
+      credentials: {
+        id: 1,
+        name: 'mock credential',
+        kind: 'scm',
+        inputs: {
+          username: 'mock user',
+        },
       },
       url: 'https/testJobTemplate.url',
       id: 1,
