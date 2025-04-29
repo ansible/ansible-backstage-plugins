@@ -1,5 +1,5 @@
 app:
-  title: Ansible RHDH / Portal
+  title: Ansible RHDH / Self-Service
   baseUrl: http://localhost:3000
 
 organization:

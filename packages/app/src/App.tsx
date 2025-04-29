@@ -43,8 +43,8 @@ import { DelayingComponentFieldExtension } from './components/scaffolder/customS
 import {
   AAPTokenFieldExtension,
   AAPResourcePickerExtension,
-  PortalPage,
-} from '@ansible/plugin-backstage-portal';
+  SelfServicePage,
+} from '@ansible/plugin-backstage-self-service';
 import { RbacPage } from '@backstage-community/plugin-rbac';
 
 const app = createApp({
@@ -121,7 +121,7 @@ const routes = (
     <Route path="/settings" element={<UserSettingsPage />} />
     <Route path="/catalog-graph" element={<CatalogGraphPage />} />
     <Route path="/ansible" element={<AnsiblePage />} />
-    <Route path="/portal" element={<PortalPage />} />
+    <Route path="/self-service" element={<SelfServicePage />} />
   </FlatRoutes>
 );
 

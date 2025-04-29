@@ -2,7 +2,7 @@
   "scripts": {
     "cy:open": "cypress open --browser chrome --e2e",
     "e2e": "cypress run --browser chrome",
-    "e2e:portal": "cypress run --browser chrome --spec 'cypress/e2e/portal/**/*'",
+    "e2e:self-service": "cypress run --browser chrome --spec 'cypress/e2e/self-service/**/*'",
     "e2e:rhdh": "cypress run --browser chrome --spec 'cypress/e2e/rhdh/**/*'"
   },
   "devDependencies": {

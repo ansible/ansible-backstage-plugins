@@ -80,7 +80,7 @@ export OCI_IMAGE_PUSH=true
 This example will try to push N different images, like;
 
 - quay.io/my-namespace/backstage-rhaap:vA.B.C
-- quay.io/my-namespace/portal:vD.E.F
+- quay.io/my-namespace/self-service:vD.E.F
 - ...
 
 Make sure to create needed image repositories before.

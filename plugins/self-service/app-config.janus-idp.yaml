@@ -1,0 +1,20 @@
+dynamicPlugins:
+  frontend:
+    ansible.plugin-backstage-self-service:
+      signInPage:
+        importName: SignInPage
+      providerSettings:
+        - title: Ansible Automation Platform
+          description: Sign in with Ansible Automation Platform
+          provider: ansible.auth.rhaap
+      scaffolderFieldExtensions:
+        - importName: AAPTokenFieldExtension
+        - importName: AAPResourcePickerExtension
+      dynamicRoutes:
+        - importName: LandingPage
+          path: /
+        - importName: SelfServicePage
+          path: /self-service
+      mountPoints:
+        - mountPoint: application/listener
+          importName: LocationListener

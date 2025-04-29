@@ -21,9 +21,9 @@ module.exports = defineConfig({
     },
   },
   env: {
-    AAP_USER_ID: 'admin', // changeme before running portal tests
-    AAP_USER_PASS: 'Leviosa@', // changeme before running portal tests
-    AAP_URL: 'default_url', // changeme before running portal tests
+    AAP_USER_ID: 'admin', // changeme before running self-service tests
+    AAP_USER_PASS: 'Leviosa@', // changeme before running self-service tests
+    AAP_URL: 'default_url', // changeme before running self-service tests
     GH_USER_ID: 'changeme', // changeme before running rhdh tests
     GH_USER_PASS: 'changeme', // changeme before running rhdh tests
     devspacesurl: 'changeme', //changeme before running rhdh tests
