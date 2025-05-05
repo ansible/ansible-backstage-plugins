@@ -19,7 +19,7 @@ export class AAPConnector {
   private readonly baseUrl: string;
   private readonly token: string;
   private readonly proxyAgent: Agent;
-  private readonly orgSync: string[];
+  private readonly orgSync: string;
 
   constructor({
     token,
@@ -32,7 +32,7 @@ export class AAPConnector {
     baseUrl: string;
     checkSSL: boolean;
     logger: LoggerService;
-    orgSync: string[];
+    orgSync: string;
   }) {
     this.logger = logger;
     this.token = token;
@@ -89,7 +89,11 @@ export class AAPConnector {
   > {
     const orgEndPoint = '/api/gateway/v1/organizations/';
     try {
-      const rawOrgs = await this.executeGetRequest(orgEndPoint);
+      let rawOrgs = await this.executeGetRequest(orgEndPoint);
+      rawOrgs = rawOrgs.filter(
+        (org: any) =>
+          this.orgSync.toLocaleLowerCase() === org.name.toLocaleLowerCase(),
+      );
 
       const orgData = await Promise.all(
         rawOrgs.map(async (org: any) => {
@@ -124,10 +128,7 @@ export class AAPConnector {
         }),
       );
 
-      const result = orgData.filter(item =>
-        this.orgSync.includes(item.organization.name),
-      );
-      return result;
+      return orgData;
     } catch (err) {
       this.logger.error(
         `Error retrieving organization details from ${orgEndPoint}.`,

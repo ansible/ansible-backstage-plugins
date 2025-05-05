@@ -19,7 +19,7 @@ describe('AAP Connector', () => {
     baseUrl: MOCK_BASE_URL,
     token: MOCK_TOKEN,
     checkSSL: MOCK_CHECK_SSL,
-    orgSync: ['Default'],
+    orgSync: 'Default',
   });
   beforeEach(() => {
     jest.clearAllMocks();

@@ -31,6 +31,7 @@ catalog:
         schedule:
           frequency: { minutes: 30 }
           timeout: { seconds: 5 }
+        orgs: Default
 ansible:
   rhaap:
     baseUrl: { $AAP_URL }

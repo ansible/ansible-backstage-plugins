@@ -7,7 +7,7 @@ export interface Config {
       rhaap?: {
         [authEnv: string]: {
           schedule: SchedulerServiceTaskScheduleDefinitionConfig;
-          orgs: string[];
+          orgs: string;
         };
       };
     };

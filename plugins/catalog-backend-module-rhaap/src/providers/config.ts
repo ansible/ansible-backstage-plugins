@@ -29,8 +29,8 @@ function readAapApiEntityConfig(
       )
     : undefined;
   const orgSync = catalogConfig.has('orgs')
-    ? catalogConfig.getStringArray('orgs')?.map(org => org.trim())
-    : [];
+    ? catalogConfig.getString('orgs')
+    : '';
 
   return {
     id,

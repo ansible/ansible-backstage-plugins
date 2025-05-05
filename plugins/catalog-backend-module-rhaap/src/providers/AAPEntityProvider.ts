@@ -28,7 +28,7 @@ export class AAPEntityProvider implements EntityProvider {
   private readonly env: string;
   private readonly baseUrl: string;
   private readonly logger: LoggerService;
-  private readonly orgSync: string[] = [];
+  private readonly orgSync: string = '';
   private readonly scheduleFn: () => Promise<void>;
   private connection?: EntityProviderConnection;
   private readonly accessToken: string;
@@ -89,7 +89,7 @@ export class AAPEntityProvider implements EntityProvider {
     this.scheduleFn = this.createScheduleFn(taskRunner);
     this.accessToken = config.token;
     this.checkSSL = config.checkSSL;
-    this.orgSync = config.orgSync?.map(org => org.trim()) ?? [];
+    this.orgSync = config.orgSync ?? '';
   }
 
   createScheduleFn(
@@ -154,11 +154,15 @@ export class AAPEntityProvider implements EntityProvider {
     try {
       orgsDetails = await apiClient.getOrganizationsWithDetails();
       this.logger.info(
-        `[${AAPEntityProvider.pluginLogName}]: Fetched ${Object.keys(orgsDetails).length} organizations.`,
+        `[${AAPEntityProvider.pluginLogName}]: Fetched ${
+          Object.keys(orgsDetails).length
+        } organizations.`,
       );
     } catch (e: any) {
       this.logger.error(
-        `[${AAPEntityProvider.pluginLogName}]: Error while fetching organizations. ${e?.message ?? ''}`,
+        `[${
+          AAPEntityProvider.pluginLogName
+        }]: Error while fetching organizations. ${e?.message ?? ''}`,
       );
       error = true;
     }
@@ -166,11 +170,15 @@ export class AAPEntityProvider implements EntityProvider {
     try {
       userRoleAssignments = await apiClient.getUserRoleAssignments();
       this.logger.info(
-        `[${AAPEntityProvider.pluginLogName}]: Fetched ${Object.keys(userRoleAssignments).length} user role assignments.`,
+        `[${AAPEntityProvider.pluginLogName}]: Fetched ${
+          Object.keys(userRoleAssignments).length
+        } user role assignments.`,
       );
     } catch (e: any) {
       this.logger.error(
-        `[${AAPEntityProvider.pluginLogName}]: Error while fetching users. ${e?.message ?? ''}`,
+        `[${AAPEntityProvider.pluginLogName}]: Error while fetching users. ${
+          e?.message ?? ''
+        }`,
       );
       error = true;
     }
@@ -182,7 +190,9 @@ export class AAPEntityProvider implements EntityProvider {
       );
     } catch (e: any) {
       this.logger.error(
-        `[${AAPEntityProvider.pluginLogName}]: Error while fetching system users. ${e?.message ?? ''}`,
+        `[${
+          AAPEntityProvider.pluginLogName
+        }]: Error while fetching system users. ${e?.message ?? ''}`,
       );
       error = true;
     }
@@ -286,10 +296,14 @@ export class AAPEntityProvider implements EntityProvider {
         })),
       });
       this.logger.info(
-        `[${AAPEntityProvider.pluginLogName}]: Refreshed ${this.getProviderName()}: ${groupCount} groups added.`,
+        `[${
+          AAPEntityProvider.pluginLogName
+        }]: Refreshed ${this.getProviderName()}: ${groupCount} groups added.`,
       );
       this.logger.info(
-        `[${AAPEntityProvider.pluginLogName}]: Refreshed ${this.getProviderName()}: ${usersCount} users added.`,
+        `[${
+          AAPEntityProvider.pluginLogName
+        }]: Refreshed ${this.getProviderName()}: ${usersCount} users added.`,
       );
     }
   }
