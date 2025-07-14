@@ -27,7 +27,7 @@ repos:
       - id: detect-private-key
 
   - repo: https://github.com/adrienverge/yamllint.git
-    rev: v1.35.1
+    rev: v1.37.1
     hooks:
       - id: yamllint
         files: \.(yaml|yml)$
@@ -35,7 +35,7 @@ repos:
         entry: yamllint --strict
 
   - repo: https://github.com/pycontribs/mirrors-prettier
-    rev: v3.3.3
+    rev: v3.6.2
     hooks:
       - id: prettier
         always_run: true
@@ -46,6 +46,6 @@ repos:
           - '@spotify/prettier-config'
           - '@ianvs/prettier-plugin-sort-imports'
   - repo: https://github.com/gitleaks/gitleaks
-    rev: v8.24.2
+    rev: v8.27.2
     hooks:
       - id: gitleaks

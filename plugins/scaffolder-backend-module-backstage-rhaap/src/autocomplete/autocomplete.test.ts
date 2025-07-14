@@ -84,4 +84,17 @@ describe('ansible-aap:autocomplete', () => {
     });
     expect(response).toEqual(mockOrganizations);
   });
+
+  it('should return aap hostname', async () => {
+    const response = await handleAutocompleteRequest({
+      resource: 'aaphostname',
+      token: 'token',
+      config,
+      logger,
+      ansibleService: mockAnsibleService,
+    });
+    expect(response).toEqual({
+      results: [{ id: 1, name: 'https://rhaap.test' }],
+    });
+  });
 });

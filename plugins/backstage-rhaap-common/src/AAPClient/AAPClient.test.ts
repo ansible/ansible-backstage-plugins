@@ -2,7 +2,8 @@ import { Config } from '@backstage/config';
 import { LoggerService } from '@backstage/backend-plugin-api';
 import { AAPClient } from './AAPClient';
 import { fetch } from 'undici';
-import { AnsibleConfig } from '../types';
+import { AnsibleConfig, CatalogConfig } from '../types';
+import { mockJobTemplateResponse, mockSurveyResponse } from './mockData';
 
 jest.mock('undici', () => ({
   Agent: jest.fn(),
@@ -78,8 +79,18 @@ describe('AAPClient', () => {
       },
     };
 
+    const mockCatalogConfig: CatalogConfig = {
+      surveyEnabled: false,
+      jobTemplateLabels: [],
+    };
+
     mockConfig = {
-      getOptionalConfig: jest.fn(),
+      getOptionalConfig: jest.fn().mockImplementation((path: string) => {
+        if (path === 'catalog.providers.rhaap') {
+          return mockCatalogConfig;
+        }
+        return mockAnsibleConfig;
+      }),
       getOptionalString: jest.fn().mockImplementation((path: string) => {
         const paths: Record<string, string> = {
           'ansible.rhaap.token': 'test-token',
@@ -98,6 +109,8 @@ describe('AAPClient', () => {
       }),
       getString: jest.fn().mockImplementation((path: string) => {
         const paths: Record<string, string> = {
+          'catalog.providers.rhaap.development.orgs': 'TestOrg',
+          'catalog.providers.rhaap.production.orgs': 'TestOrg',
           'ansible.rhaap.token': 'test-token',
           'ansible.rhaap.baseUrl': 'https://test.example.com',
         };
@@ -149,8 +162,10 @@ describe('AAPClient', () => {
           };
         }
         if (
-          key === 'catalog.providers.rhaap.development.schedule' ||
-          key === 'catalog.providers.rhaap.production.schedule'
+          key ===
+            'catalog.providers.rhaap.development.sync.orgsUsersTeams.schedule' ||
+          key ===
+            'catalog.providers.rhaap.production.sync.orgsUsersTeams.schedule'
         ) {
           const scheduleConfig = {
             get: jest.fn().mockImplementation((scheduleKey: string) => {
@@ -264,7 +279,8 @@ describe('AAPClient', () => {
           'rhaap.token',
           'rhaap.checkSSL',
           'analytics.enabled',
-          'catalog.providers.rhaap.development.schedule',
+          'catalog.providers.rhaap.development.sync.orgsUsersTeams.schedule',
+          'catalog.providers.rhaap.development.sync.jobTemplates.schedule',
           'catalog.providers.rhaap.development',
           'catalog.providers.rhaap.production',
         ].includes(key);
@@ -789,6 +805,76 @@ describe('AAPClient', () => {
           'Cannot assign multiple credentials of the same type',
         );
       });
+
+      it('should handle failed job execution with error parsing', async () => {
+        const mockLaunchResponse = {
+          ok: true,
+          json: jest.fn().mockResolvedValue({ job: 123 }),
+        };
+        const mockStatusResponse = {
+          ok: true,
+          json: jest.fn().mockResolvedValue({ status: 'failed' }),
+        };
+        const mockEventsResponse = {
+          ok: true,
+          json: jest.fn().mockResolvedValue({
+            results: [{ event_data: { test: 'data' } }],
+            next: null,
+          }),
+        };
+        const mockStdoutResponse = {
+          ok: true,
+          text: jest.fn().mockResolvedValue('{"msg": "Task failed"}'),
+        };
+
+        mockFetch
+          .mockResolvedValueOnce(mockLaunchResponse)
+          .mockResolvedValueOnce(mockStatusResponse)
+          .mockResolvedValueOnce(mockEventsResponse)
+          .mockResolvedValueOnce(mockStdoutResponse);
+
+        await expect(
+          client.launchJobTemplate(
+            {
+              template: { id: 1, name: 'test-template' },
+            },
+            'test-token',
+          ),
+        ).rejects.toThrow('Job execution failed due to Task failed');
+      });
+
+      it('should handle failed job execution with stdout error', async () => {
+        const mockLaunchResponse = {
+          ok: true,
+          json: jest.fn().mockResolvedValue({ job: 123 }),
+        };
+        const mockStatusResponse = {
+          ok: true,
+          json: jest.fn().mockResolvedValue({ status: 'failed' }),
+        };
+        const mockEventsResponse = {
+          ok: true,
+          json: jest.fn().mockResolvedValue({
+            results: [{ event_data: { test: 'data' } }],
+            next: null,
+          }),
+        };
+
+        mockFetch
+          .mockResolvedValueOnce(mockLaunchResponse)
+          .mockResolvedValueOnce(mockStatusResponse)
+          .mockResolvedValueOnce(mockEventsResponse)
+          .mockRejectedValueOnce(new Error('Stdout error'));
+
+        await expect(
+          client.launchJobTemplate(
+            {
+              template: { id: 1, name: 'test-template' },
+            },
+            'test-token',
+          ),
+        ).rejects.toThrow('Job execution failed due to Undefined Error');
+      });
     });
 
     describe('fetchEvents', () => {
@@ -1145,6 +1231,44 @@ describe('AAPClient', () => {
 
         expect(result).toEqual({ results: [{ id: 1 }] });
       });
+
+      it('should handle execution_environments resource with orgId', async () => {
+        const mockResponse = {
+          ok: true,
+          json: jest.fn().mockResolvedValue({ results: [{ id: 1 }] }),
+        };
+        mockFetch.mockResolvedValue(mockResponse);
+
+        const result = await client.getResourceData(
+          'execution_environments:123',
+          'test-token',
+        );
+
+        expect(result).toEqual({ results: [{ id: 1 }] });
+        expect(mockFetch).toHaveBeenCalledWith(
+          expect.stringContaining('or__organization__id=123'),
+          expect.any(Object),
+        );
+      });
+
+      it('should handle job_templates resource with survey and labels', async () => {
+        const mockResponse = {
+          ok: true,
+          json: jest.fn().mockResolvedValue({ results: [{ id: 1 }] }),
+        };
+        mockFetch.mockResolvedValue(mockResponse);
+
+        const result = await client.getResourceData(
+          'job_templates',
+          'test-token',
+        );
+
+        expect(result).toEqual({ results: [{ id: 1 }] });
+        expect(mockFetch).toHaveBeenCalledWith(
+          expect.stringContaining('organization__name=TestOrg'),
+          expect.any(Object),
+        );
+      });
     });
 
     describe('getJobTemplatesByName', () => {
@@ -1206,248 +1330,8 @@ describe('AAPClient', () => {
     });
   });
 
-  describe('checkSubscription', () => {
-    it('should return valid subscription status for AAP 2.5+', async () => {
-      mockFetch.mockResolvedValueOnce({ ok: true });
-
-      const mockResponse = {
-        ok: true,
-        status: 200,
-        json: jest.fn().mockResolvedValue({
-          license_info: {
-            license_type: 'enterprise',
-            compliant: true,
-          },
-        }),
-      };
-      mockFetch.mockResolvedValueOnce(mockResponse);
-
-      const result = await client.checkSubscription();
-
-      expect(mockFetch).toHaveBeenNthCalledWith(
-        2,
-        'https://test.example.com/api/controller/v2/config',
-        expect.any(Object),
-      );
-      expect(result).toEqual({
-        status: 200,
-        isValid: true,
-        isCompliant: true,
-      });
-    });
-
-    it('should return valid subscription status for AAP < 2.5', async () => {
-      mockFetch.mockResolvedValueOnce({ ok: false });
-
-      const mockResponse = {
-        ok: true,
-        status: 200,
-        json: jest.fn().mockResolvedValue({
-          license_info: {
-            license_type: 'enterprise',
-            compliant: true,
-          },
-        }),
-      };
-      mockFetch.mockResolvedValueOnce(mockResponse);
-
-      const result = await client.checkSubscription();
-
-      expect(mockFetch).toHaveBeenNthCalledWith(
-        2,
-        'https://test.example.com/api/v2/config',
-        expect.any(Object),
-      );
-      expect(result).toEqual({
-        status: 200,
-        isValid: true,
-        isCompliant: true,
-      });
-    });
-
-    it('should handle generic errors', async () => {
-      mockFetch.mockResolvedValueOnce({ ok: true });
-
-      const error = new Error('Generic error');
-      mockFetch.mockRejectedValueOnce(error);
-
-      jest
-        .spyOn(client as any, 'executeGetRequest')
-        .mockRejectedValueOnce(error);
-
-      const result = await client.checkSubscription();
-
-      expect(result).toEqual({
-        status: 500,
-        isValid: false,
-        isCompliant: false,
-      });
-    });
-    describe('rhAAPAuthenticate', () => {
-      it('should authenticate with code and return session', async () => {
-        const mockTokenResponse = {
-          ok: true,
-          json: jest.fn().mockResolvedValue({
-            access_token: 'access-token',
-            token_type: 'bearer',
-            scope: 'read',
-            expires_in: 3600,
-            refresh_token: 'refresh-token',
-          }),
-        };
-        jest
-          .spyOn(client as any, 'executePostRequest')
-          .mockResolvedValue(mockTokenResponse);
-
-        const result = await client.rhAAPAuthenticate({
-          host: 'https://test.example.com',
-          checkSSL: true,
-          clientId: 'client-id',
-          clientSecret: 'client-secret',
-          callbackURL: 'https://callback.url',
-          code: 'auth-code',
-        });
-
-        expect(result).toEqual({
-          session: {
-            accessToken: 'access-token',
-            tokenType: 'bearer',
-            scope: 'read',
-            expiresInSeconds: 3600,
-            refreshToken: 'refresh-token',
-          },
-        });
-      });
-
-      it('should authenticate with refreshToken and return session', async () => {
-        const mockTokenResponse = {
-          ok: true,
-          json: jest.fn().mockResolvedValue({
-            access_token: 'access-token',
-            token_type: 'bearer',
-            scope: 'read',
-            expires_in: 3600,
-            refresh_token: 'refresh-token',
-          }),
-        };
-        mockFetch.mockResolvedValueOnce(mockTokenResponse);
-
-        const result = await client.rhAAPAuthenticate({
-          host: 'https://test.example.com',
-          checkSSL: true,
-          clientId: 'client-id',
-          clientSecret: 'client-secret',
-          callbackURL: 'https://callback.url',
-          refreshToken: 'refresh-token',
-        });
-
-        expect(result.session.accessToken).toBe('access-token');
-        expect(result.session.refreshToken).toBe('refresh-token');
-      });
-
-      it('should throw error if authentication fails', async () => {
-        const mockErrorResponse = {
-          ok: false,
-          status: 400,
-          json: jest.fn().mockResolvedValue({
-            error: 'invalid_grant',
-            error_description: 'Invalid code',
-          }),
-        };
-        mockFetch.mockResolvedValueOnce(mockErrorResponse);
-
-        jest
-          .spyOn(client as any, 'executePostRequest')
-          .mockImplementation(async () => {
-            if (!mockErrorResponse.ok) {
-              const errorBody = await mockErrorResponse.json();
-              throw new Error(errorBody.error_description);
-            }
-            return mockErrorResponse;
-          });
-
-        await expect(
-          client.rhAAPAuthenticate({
-            host: 'https://test.example.com',
-            checkSSL: true,
-            clientId: 'client-id',
-            clientSecret: 'client-secret',
-            callbackURL: 'https://callback.url',
-            code: 'bad-code',
-          }),
-        ).rejects.toThrow('Invalid code');
-      });
-    });
-    describe('fetchProfile', () => {
-      it('should fetch and return user profile data', async () => {
-        const mockProfileResponse = {
-          ok: true,
-          json: jest.fn().mockResolvedValue({
-            results: [
-              {
-                username: 'testuser',
-                email: 'testuser@example.com',
-                first_name: 'Test',
-                last_name: 'User',
-              },
-            ],
-          }),
-        };
-        jest
-          .spyOn(client as any, 'executeGetRequest')
-          .mockResolvedValue(mockProfileResponse);
-
-        const result = await client.fetchProfile('test-token');
-
-        expect(result).toEqual({
-          provider: 'AAP oauth2',
-          username: 'testuser',
-          email: 'testuser@example.com',
-          displayName: 'Test User',
-        });
-      });
-
-      it('should throw error if response is not ok', async () => {
-        const error = new Error('Failed to retrieve profile data from RH AAP.');
-        jest
-          .spyOn(client as any, 'executeGetRequest')
-          .mockRejectedValueOnce(error);
-
-        await expect(client.fetchProfile('bad-token')).rejects.toThrow(
-          'Failed to retrieve profile data from RH AAP.',
-        );
-      });
-
-      it('should throw error if no results in response', async () => {
-        const mockProfileResponse = {
-          ok: true,
-          json: jest.fn().mockResolvedValue({
-            results: [],
-          }),
-        };
-        jest
-          .spyOn(client as any, 'executeGetRequest')
-          .mockResolvedValueOnce(mockProfileResponse);
-
-        await expect(client.fetchProfile('test-token')).rejects.toThrow(
-          'Profile data from RH AAP is in an unexpected format. Please contact your system administrator',
-        );
-      });
-
-      it('should throw error if fetch fails', async () => {
-        jest
-          .spyOn(client as any, 'executeGetRequest')
-          .mockRejectedValueOnce(new Error('Network error'));
-
-        await expect(client.fetchProfile('test-token')).rejects.toThrow(
-          'Failed to retrieve profile data from RH AAP.',
-        );
-      });
-    });
-  });
-
   describe('Catalog Functions', () => {
-    describe('getOrganizationsWithDetails', () => {
+    describe('getOrganizations', () => {
       it('should fetch organizations with teams and users details', async () => {
         const mockOrgsData = [
           {
@@ -1503,8 +1387,8 @@ describe('AAPClient', () => {
           .mockResolvedValueOnce(mockOrgUsersData)
           .mockResolvedValueOnce(mockTeamUsersData);
 
-        const result = await client.getOrganizationsWithDetails();
-
+        const result = await client.getOrganizations(true);
+        expect((client as any).executeCatalogRequest).toHaveBeenCalledTimes(4);
         expect(result).toHaveLength(1);
         expect(result[0]).toEqual({
           organization: {
@@ -1542,7 +1426,7 @@ describe('AAPClient', () => {
           .spyOn(client as any, 'executeCatalogRequest')
           .mockRejectedValueOnce(new Error('API Error'));
 
-        await expect(client.getOrganizationsWithDetails()).rejects.toThrow(
+        await expect(client.getOrganizations(true)).rejects.toThrow(
           'Error retrieving organization details from api/controller/v2/organizations/ : Error: API Error.',
         );
       });
@@ -1579,7 +1463,7 @@ describe('AAPClient', () => {
           .mockResolvedValueOnce([])
           .mockResolvedValueOnce([]);
 
-        const result = await client.getOrganizationsWithDetails();
+        const result = await client.getOrganizations(true);
 
         expect(result).toHaveLength(1);
         expect(result[0].organization.name).toBe('TestOrg');
@@ -1615,9 +1499,12 @@ describe('AAPClient', () => {
           },
         ];
 
-        jest
-          .spyOn(client as any, 'executeCatalogRequest')
-          .mockResolvedValueOnce(mockUsersData);
+        jest.spyOn(client as any, 'executeGetRequest').mockResolvedValueOnce({
+          ok: true,
+          json: jest.fn().mockResolvedValue({
+            results: mockUsersData,
+          }),
+        });
 
         const result = await client.listSystemUsers();
 
@@ -1648,9 +1535,12 @@ describe('AAPClient', () => {
           },
         ];
 
-        jest
-          .spyOn(client as any, 'executeCatalogRequest')
-          .mockResolvedValueOnce(mockUserTeamsData);
+        jest.spyOn(client as any, 'executeGetRequest').mockResolvedValueOnce({
+          ok: true,
+          json: jest.fn().mockResolvedValue({
+            results: mockUserTeamsData,
+          }),
+        });
 
         const result = await client.getTeamsByUserId(1);
 
@@ -1680,9 +1570,12 @@ describe('AAPClient', () => {
           },
         ];
 
-        jest
-          .spyOn(client as any, 'executeCatalogRequest')
-          .mockResolvedValueOnce(mockUserTeamsData);
+        jest.spyOn(client as any, 'executeGetRequest').mockResolvedValueOnce({
+          ok: true,
+          json: jest.fn().mockResolvedValue({
+            results: mockUserTeamsData,
+          }),
+        });
 
         const result = await client.getTeamsByUserId(1);
 
@@ -1795,6 +1688,323 @@ describe('AAPClient', () => {
 
         expect(result).toEqual({});
       });
+    });
+
+    describe('syncJobTemplates', () => {
+      it('should fetch job templates with a disabled survey from AAP', async () => {
+        const mockSurveyDisabledJobTemplateResponse = [
+          {
+            ...mockJobTemplateResponse[0],
+            survey_enabled: false,
+          },
+        ];
+        jest
+          .spyOn(client as any, 'executeCatalogRequest')
+          .mockResolvedValueOnce(mockSurveyDisabledJobTemplateResponse);
+
+        const result = await client.syncJobTemplates(false, []);
+        expect(result).toEqual([
+          { job: mockSurveyDisabledJobTemplateResponse[0], survey: null },
+        ]);
+        expect(result[0].job.survey_enabled).toEqual(false);
+      });
+
+      it('should fetch survey enabled job templates from AAP', async () => {
+        jest
+          .spyOn(client as any, 'executeGetRequest')
+          .mockResolvedValueOnce({
+            ok: true,
+            json: jest.fn().mockResolvedValue({
+              results: mockJobTemplateResponse,
+            }),
+          })
+          .mockResolvedValueOnce({
+            ok: true,
+            json: jest.fn().mockResolvedValue(mockSurveyResponse),
+          });
+
+        const result = await client.syncJobTemplates(true, []);
+        expect(client.executeGetRequest).toHaveBeenCalled();
+        expect(result).toEqual([
+          {
+            job: mockJobTemplateResponse[0],
+            survey: mockSurveyResponse,
+          },
+        ]);
+      });
+
+      it('should throw an error while fetching job templates from AAP', async () => {
+        jest
+          .spyOn(client as any, 'executeCatalogRequest')
+          .mockRejectedValueOnce(new Error('API Error'));
+
+        await expect(client.syncJobTemplates(false, [])).rejects.toThrow(
+          'Error retrieving job templates from /api/controller/v2/job_templates.',
+        );
+      });
+    });
+  });
+
+  describe('Authentication Methods', () => {
+    describe('rhAAPAuthenticate', () => {
+      it('should authenticate with authorization code', async () => {
+        const mockResponse = {
+          ok: true,
+          json: jest.fn().mockResolvedValue({
+            access_token: 'test-access-token',
+            token_type: 'Bearer',
+            scope: 'read write',
+            expires_in: 3600,
+            refresh_token: 'test-refresh-token',
+          }),
+        };
+        mockFetch.mockResolvedValue(mockResponse);
+
+        const result = await client.rhAAPAuthenticate({
+          host: 'https://test.example.com',
+          checkSSL: true,
+          clientId: 'test-client-id',
+          clientSecret: 'test-client-secret',
+          callbackURL: 'https://callback.example.com',
+          code: 'test-code',
+        });
+
+        expect(result.session.accessToken).toBe('test-access-token');
+        expect(result.session.tokenType).toBe('Bearer');
+        expect(result.session.refreshToken).toBe('test-refresh-token');
+      });
+
+      it('should authenticate with refresh token', async () => {
+        const mockResponse = {
+          ok: true,
+          json: jest.fn().mockResolvedValue({
+            access_token: 'new-access-token',
+            token_type: 'Bearer',
+            scope: 'read write',
+            expires_in: 3600,
+            refresh_token: 'new-refresh-token',
+          }),
+        };
+        mockFetch.mockResolvedValue(mockResponse);
+
+        const result = await client.rhAAPAuthenticate({
+          host: 'https://test.example.com',
+          checkSSL: true,
+          clientId: 'test-client-id',
+          clientSecret: 'test-client-secret',
+          callbackURL: 'https://callback.example.com',
+          refreshToken: 'test-refresh-token',
+        });
+
+        expect(result.session.accessToken).toBe('new-access-token');
+        expect(result.session.refreshToken).toBe('new-refresh-token');
+      });
+
+      it('should throw error when neither code nor refreshToken provided', async () => {
+        await expect(
+          client.rhAAPAuthenticate({
+            host: 'https://test.example.com',
+            checkSSL: true,
+            clientId: 'test-client-id',
+            clientSecret: 'test-client-secret',
+            callbackURL: 'https://callback.example.com',
+          }),
+        ).rejects.toThrow('You have to provide code or refreshToken');
+      });
+
+      it('should handle authentication failure', async () => {
+        const mockResponse = {
+          ok: false,
+          status: 401,
+          statusText: 'Unauthorized',
+          json: jest.fn().mockResolvedValue({ error: 'invalid_grant' }),
+        };
+        mockFetch.mockResolvedValue(mockResponse);
+
+        await expect(
+          client.rhAAPAuthenticate({
+            host: 'https://test.example.com',
+            checkSSL: true,
+            clientId: 'test-client-id',
+            clientSecret: 'test-client-secret',
+            callbackURL: 'https://callback.example.com',
+            code: 'invalid-code',
+          }),
+        ).rejects.toThrow('invalid_grant');
+      });
+    });
+
+    describe('fetchProfile', () => {
+      it('should fetch user profile successfully', async () => {
+        const mockResponse = {
+          ok: true,
+          json: jest.fn().mockResolvedValue({
+            results: [
+              {
+                username: 'testuser',
+                email: 'test@example.com',
+                first_name: 'Test',
+                last_name: 'User',
+              },
+            ],
+          }),
+        };
+        mockFetch.mockResolvedValue(mockResponse);
+
+        const result = await client.fetchProfile('test-token');
+
+        expect(result).toEqual({
+          provider: 'AAP oauth2',
+          username: 'testuser',
+          email: 'test@example.com',
+          displayName: 'Test User',
+        });
+      });
+
+      it('should handle profile fetch error', async () => {
+        mockFetch.mockRejectedValue(new Error('Network error'));
+
+        await expect(client.fetchProfile('test-token')).rejects.toThrow(
+          'Failed to retrieve profile data from RH AAP',
+        );
+      });
+
+      it('should handle unsuccessful response', async () => {
+        const mockResponse = {
+          ok: false,
+          status: 401,
+          statusText: 'Unauthorized',
+        };
+        mockFetch.mockResolvedValue(mockResponse);
+
+        await expect(client.fetchProfile('test-token')).rejects.toThrow(
+          'Failed to retrieve profile data from RH AAP',
+        );
+      });
+
+      it('should handle unexpected profile format', async () => {
+        const mockResponse = {
+          ok: true,
+          json: jest.fn().mockResolvedValue({
+            results: [],
+          }),
+        };
+        mockFetch.mockResolvedValue(mockResponse);
+
+        await expect(client.fetchProfile('test-token')).rejects.toThrow(
+          'Profile data from RH AAP is in an unexpected format',
+        );
+      });
+
+      it('should handle profile with missing names', async () => {
+        const mockResponse = {
+          ok: true,
+          json: jest.fn().mockResolvedValue({
+            results: [
+              {
+                username: 'testuser',
+                email: 'test@example.com',
+                first_name: '',
+                last_name: null,
+              },
+            ],
+          }),
+        };
+        mockFetch.mockResolvedValue(mockResponse);
+
+        const result = await client.fetchProfile('test-token');
+
+        expect(result.displayName).toBe(' ');
+      });
+    });
+  });
+
+  describe('Edge Cases and Error Handling', () => {
+    it('should handle organizations with production config', async () => {
+      // Mock config to not have development but have production
+      mockConfig.has = jest.fn().mockImplementation((key: string) => {
+        return key === 'catalog.providers.rhaap.production';
+      });
+
+      const mockOrgsData = [
+        {
+          id: 1,
+          name: 'TestOrg',
+          namespace: 'testorg',
+          related: {
+            users:
+              'https://test.example.com/api/controller/v2/organizations/1/users/',
+            teams:
+              'https://test.example.com/api/controller/v2/organizations/1/teams/',
+          },
+        },
+      ];
+
+      jest
+        .spyOn(client as any, 'executeCatalogRequest')
+        .mockResolvedValueOnce(mockOrgsData)
+        .mockResolvedValueOnce([])
+        .mockResolvedValueOnce([]);
+
+      const result = await client.getOrganizations(false);
+
+      expect(result).toHaveLength(1);
+      expect(result[0].organization.name).toBe('TestOrg');
+    });
+
+    it('should handle organizations without userAndTeamDetails', async () => {
+      const mockOrgsData = [
+        {
+          id: 1,
+          name: 'TestOrg',
+          namespace: 'testorg',
+        },
+      ];
+
+      jest
+        .spyOn(client as any, 'executeCatalogRequest')
+        .mockResolvedValueOnce(mockOrgsData);
+
+      const result = await client.getOrganizations(false);
+
+      expect(result).toHaveLength(1);
+      expect(result[0].teams).toEqual([]);
+      expect(result[0].users).toEqual([]);
+    });
+
+    it('should handle organizations with teams but no users URL', async () => {
+      const mockOrgsData = [
+        {
+          id: 1,
+          name: 'TestOrg',
+          namespace: 'testorg',
+          related: {
+            teams:
+              'https://test.example.com/api/controller/v2/organizations/1/teams/',
+          },
+        },
+      ];
+
+      const mockTeamsData = [
+        {
+          id: 1,
+          organization: 1,
+          name: 'Test Team',
+          description: 'A test team',
+          related: {},
+        },
+      ];
+
+      jest
+        .spyOn(client as any, 'executeCatalogRequest')
+        .mockResolvedValueOnce(mockOrgsData)
+        .mockResolvedValueOnce(mockTeamsData)
+        .mockResolvedValueOnce([]);
+
+      const result = await client.getOrganizations(true);
+
+      expect(result).toHaveLength(1);
+      expect(result[0].teams).toHaveLength(1);
     });
   });
 });

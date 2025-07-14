@@ -135,14 +135,14 @@ catalog:
     #   target: https://github.com/backstage/backstage/blob/master/packages/catalog-model/examples/acme-corp.yaml
     #   rules:
     #     - allow: [User, Group]
-    - type: url
-      target: https://github.com/ansible/ansible-rhdh-templates/blob/devel/all.yaml
-      rules:
-        - allow: [Template]
-    - type: url
-      target: https://github.com/ansible/ansible-rhdh-templates/blob/devel/seed.yaml
-      rules:
-        - allow: [Template]
+    # - type: url
+    #   target: https://github.com/ansible/ansible-rhdh-templates/blob/devel/all.yaml
+    #   rules:
+    #     - allow: [Template]
+    # - type: url
+    #   target: https://github.com/ansible/ansible-rhdh-templates/blob/devel/seed.yaml
+    #   rules:
+    #     - allow: [Template]
     - type: file
       target: all.yaml
       rules:
@@ -153,10 +153,26 @@ catalog:
   providers:
     rhaap:
       development:
-        schedule:
-          frequency: { minutes: 5 }
-          timeout: { seconds: 30 }
         orgs: Default
+        sync:
+          orgsUsersTeams:
+            schedule:
+              frequency: { minutes: 60 }
+              timeout: { seconds: 30 }
+          jobTemplates:
+            enabled: true
+            # labels?: []
+            # surveyEnabled?: false
+            schedule:
+              frequency: { minutes: 60 }
+              timeout: { seconds: 30 }
+          # ADDED FOR FUTURE REFERENCE
+          # TODO: UNCOMMENT FOR PATTERN INTEGRATION
+          # collections:
+          #   enabled: true
+          #   schedule:
+          #     frequency: { minutes: 5 }
+          #     timeout: { seconds: 30 }
 
 ansible:
   analytics:

@@ -1,5 +1,5 @@
 export * from './AAPClient';
 export * from './AAPService';
+export * from './interfaces';
 export * from './types';
-export { backstageRhaapCommonPlugin as default } from './plugin';
-export * from './router';
+export * from './constants';

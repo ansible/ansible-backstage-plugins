@@ -21,6 +21,12 @@ export const mockScaffolderApi: jest.Mocked<ScaffolderApi> = {
     description: 'Use this template to create actual wizard use case templates',
     steps: [],
   }),
+  autocomplete: jest.fn().mockResolvedValue({
+    results: [
+      { id: '1', title: 'Template 1' },
+      { id: '2', title: 'Template 2' },
+    ],
+  }) as jest.MockedFunction<any>,
   listTasks: jest.fn().mockImplementation(() =>
     Promise.resolve({
       tasks: [
@@ -225,7 +231,7 @@ export const mockScaffolderApi: jest.Mocked<ScaffolderApi> = {
                   kubernetes: false,
                 },
               ],
-              token: 'kon45ymgau3GgopXR3Ngcyjxd9oO66',
+              token: 'test-token',
               inventory: {
                 id: 4,
                 type: 'inventory',
@@ -734,7 +740,7 @@ export const mockScaffolderApi: jest.Mocked<ScaffolderApi> = {
                   kubernetes: false,
                 },
               ],
-              token: 'kon45ymgau3GgopXR3Ngcyjxd9oO66',
+              token: 'test-token',
               inventory: {
                 id: 4,
                 type: 'inventory',
@@ -1066,7 +1072,7 @@ export const mockScaffolderApi: jest.Mocked<ScaffolderApi> = {
               },
               scmUrl: 'https://github.com/ansible/ansible-pattern-loader',
               scmBranch: 'main',
-              token: 'IIZrmgNrfYvcMq8pzDGQvmexwwtEvS',
+              token: 'test-token',
               useCases: [
                 {
                   name: 'rhel',

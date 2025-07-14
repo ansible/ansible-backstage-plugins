@@ -36,7 +36,6 @@
     "@backstage/errors": "^1.2.7",
     "@backstage/integration": "^1.17.0",
     "@backstage/plugin-catalog-import": "^0.13.0",
-    "@backstage/plugin-catalog-react": "^1.18.0",
     "@backstage/plugin-scaffolder": "^1.31.0",
     "@backstage/plugin-scaffolder-backend": "^1.33.0",
     "@backstage/plugin-scaffolder-node": "^0.8.2",
@@ -44,8 +43,7 @@
     "@octokit/core": "^5.0.0",
     "isomorphic-git": "^1.23.0",
     "node-fetch": "^2.6.7",
-    "react-use": "^17.2.4",
-    "undici": "6.21.1",
+    "undici": "6.21.2",
     "yaml": "^2.0.0"
   },
   "peerDependencies": {

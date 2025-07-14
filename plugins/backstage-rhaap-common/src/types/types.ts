@@ -143,6 +143,11 @@ export type RHAAPConfig = {
   ?: ShowCaseLocation;
 };
 
+export type CatalogConfig = {
+  surveyEnabled: boolean | undefined;
+  jobTemplateLabels: string[];
+};
+
 export type AnsibleConfig = {
   analytics?: Analytics;
   devSpaces?: DevSpaces;

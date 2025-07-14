@@ -17,7 +17,6 @@
 import { Entity } from '@backstage/catalog-model';
 import { ConfigReader } from '@backstage/config';
 import { CatalogApi } from '@backstage/plugin-catalog-react';
-import { AnsibleApi } from '../api';
 
 export const mockConfigApi = new ConfigReader({
   ansible: {
@@ -49,8 +48,4 @@ export const mockEntities: Entity[] = [
 export const mockCatalogApi: jest.Mocked<CatalogApi> = {
   getEntitiesByRefs: jest.fn(),
   getEntities: jest.fn().mockImplementation(() => Promise.resolve()),
-} as any;
-
-export const mockAnsibleApi: jest.Mocked<AnsibleApi> = {
-  isValidSubscription: jest.fn().mockImplementation(() => Promise.resolve()),
 } as any;

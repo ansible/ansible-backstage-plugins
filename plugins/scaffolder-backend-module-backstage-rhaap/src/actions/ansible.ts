@@ -26,15 +26,14 @@ import {
   generateRepoUrl,
 } from './utils/config';
 import { Config } from '@backstage/config';
-import { AnsibleApiClient, BackendServiceAPI } from './utils/api';
+import { BackendServiceAPI } from './utils/api';
 import { ScaffolderLogger } from './utils/logger';
-import { AnsibleConfig, IAAPService } from '@ansible/backstage-rhaap-common';
+import { AnsibleConfig } from '@ansible/backstage-rhaap-common';
 import { appType } from './constants';
 
 export function createAnsibleContentAction(
   config: Config,
   ansibleConfig: AnsibleConfig,
-  ansibleServiceRef: IAAPService,
 ) {
   return createTemplateAction<{
     sourceControl: string;
@@ -135,43 +134,7 @@ export function createAnsibleContentAction(
       } = input;
 
       const log = new ScaffolderLogger(BackendServiceAPI.pluginLogName, logger);
-      const AAPSubscription = new AnsibleApiClient({
-        config: config,
-        logger: logger,
-        ansibleService: ansibleServiceRef,
-      });
-
       try {
-        log.info(`Checking for Ansible Automation Platform subscription`);
-
-        const { status, isValid, isCompliant } =
-          await AAPSubscription.isValidSubscription();
-
-        if (status === 495 || status === 500) {
-          log.warn(
-            `Verify that Ansible Automation Platform is reachable and correctly configured in the Ansible plug-ins.`,
-          );
-        } else if (status === 404) {
-          log.warn(
-            `Verify that the resource url for Ansible Automation Platform are correctly configured in the Ansible plug-ins.`,
-          );
-        } else if (status === 401) {
-          log.warn(
-            `Verify that the authentication details for Ansible Automation Platform are correctly configured in the Ansible plug-ins.`,
-          );
-        } else if (!isCompliant) {
-          log.warn(
-            `The connected Ansible Automation Platform subscription is out of compliance. Contact your Red Hat account team to obtain a new subscription entitlement.`,
-          );
-        } else if (!isValid) {
-          log.warn(
-            `The connected Ansible Automation Platform subscription is invalid. Contact your Red Hat account team.`,
-          );
-        }
-
-        if (isValid)
-          log.info(`Valid Ansible Automation Platform subscription found`);
-
         log.info(
           `Creating Ansible content ${collectionGroup}.${collectionName} with source control ${sourceControl}`,
         );

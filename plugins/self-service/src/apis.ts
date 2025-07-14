@@ -1,15 +1,12 @@
 import {
   ApiFactory,
-  configApiRef,
   createApiFactory,
   DiscoveryApi,
-  discoveryApiRef,
+  FetchApi,
   OAuthRequestApi,
+  configApiRef,
+  discoveryApiRef,
   oauthRequestApiRef,
-} from '@backstage/core-plugin-api';
-import { OAuth2 } from '@backstage/core-app-api';
-
-import {
   createApiRef,
   type ApiRef,
   type BackstageIdentityApi,
@@ -17,7 +14,9 @@ import {
   type OpenIdConnectApi,
   type ProfileInfoApi,
   type SessionApi,
+  fetchApiRef,
 } from '@backstage/core-plugin-api';
+import { OAuth2 } from '@backstage/core-app-api';
 import { Config } from '@backstage/config';
 
 type CustomAuthApiRefType = OAuthApi &
@@ -26,11 +25,20 @@ type CustomAuthApiRefType = OAuthApi &
   BackstageIdentityApi &
   SessionApi;
 
+export interface AnsibleApi {
+  syncTemplates(): Promise<boolean>;
+  syncOrgsUsersTeam(): Promise<boolean>;
+}
+
+export const ansibleApiRef = createApiRef<AnsibleApi>({
+  id: 'ansible',
+});
+
 export const rhAapAuthApiRef: ApiRef<CustomAuthApiRefType> = createApiRef({
   id: 'ansible.auth.rhaap',
 });
 
-type AAPApiFactoryType = ApiFactory<
+type AAPAuthApiFactoryType = ApiFactory<
   CustomAuthApiRefType,
   OAuth2,
   {
@@ -40,7 +48,54 @@ type AAPApiFactoryType = ApiFactory<
   }
 >;
 
-export const AapApi: AAPApiFactoryType = createApiFactory({
+export class AnsibleApiClient implements AnsibleApi {
+  private readonly discoveryApi: DiscoveryApi;
+  private readonly fetchApi: FetchApi;
+
+  constructor(options: { discoveryApi: DiscoveryApi; fetchApi: FetchApi }) {
+    this.discoveryApi = options.discoveryApi;
+    this.fetchApi = options.fetchApi;
+  }
+
+  async syncTemplates(): Promise<boolean> {
+    const baseUrl = await this.discoveryApi.getBaseUrl('catalog');
+    try {
+      const response = await this.fetchApi.fetch(
+        `${baseUrl}/aap/sync_job_templates`,
+      );
+      const data = await response.json();
+      return data;
+    } catch (error) {
+      return false;
+    }
+  }
+
+  async syncOrgsUsersTeam(): Promise<boolean> {
+    const baseUrl = await this.discoveryApi.getBaseUrl('catalog');
+    try {
+      const response = await this.fetchApi.fetch(
+        `${baseUrl}/aap/sync_orgs_users_teams`,
+      );
+      const data = await response.json();
+      return data;
+    } catch (error) {
+      return false;
+    }
+  }
+}
+
+export const AAPApis: ApiFactory<
+  AnsibleApi,
+  AnsibleApiClient,
+  { discoveryApi: DiscoveryApi; fetchApi: FetchApi }
+> = createApiFactory({
+  api: ansibleApiRef,
+  deps: { discoveryApi: discoveryApiRef, fetchApi: fetchApiRef },
+  factory: ({ discoveryApi, fetchApi }) =>
+    new AnsibleApiClient({ discoveryApi, fetchApi }),
+});
+
+export const AapAuthApi: AAPAuthApiFactoryType = createApiFactory({
   api: rhAapAuthApiRef,
   deps: {
     discoveryApi: discoveryApiRef,

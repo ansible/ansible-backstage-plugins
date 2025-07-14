@@ -21,19 +21,6 @@ jest.mock('./ansibleContentCreate', () => {
   };
 });
 
-jest.mock('./utils/api', () => {
-  return {
-    ...jest.requireActual('./utils/api'),
-    AnsibleApiClient: jest.fn().mockImplementation(() => ({
-      isValidSubscription: jest.fn().mockResolvedValue({
-        status: 200,
-        isValid: true,
-        isCompliant: false,
-      }),
-    })),
-  };
-});
-
 import * as fs from 'fs';
 import * as path from 'path';
 import { mockServices } from '@backstage/backend-test-utils';
@@ -51,7 +38,6 @@ import { ConfigReader } from '@backstage/config';
 import { createMockActionContext } from '@backstage/plugin-scaffolder-node-test-utils';
 import { AnsibleConfig } from '@ansible/backstage-rhaap-common';
 import { appType } from './constants';
-import { mockAnsibleService } from './mockIAAPService';
 
 describe('ansible:content:create', () => {
   const config = new ConfigReader({
@@ -95,11 +81,7 @@ describe('ansible:content:create', () => {
     },
   };
 
-  const action = createAnsibleContentAction(
-    config,
-    ansibleConfig,
-    mockAnsibleService,
-  );
+  const action = createAnsibleContentAction(config, ansibleConfig);
 
   const mockContext = createMockActionContext({
     input: {

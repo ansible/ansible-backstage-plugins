@@ -70,7 +70,7 @@ export const scaffolderModuleAnsible = createBackendModule({
       }) {
         const ansibleConfig = getAnsibleConfig(config);
         scaffolder.addActions(
-          createAnsibleContentAction(config, ansibleConfig, ansibleService),
+          createAnsibleContentAction(config, ansibleConfig),
           createProjectAction(ansibleService),
           createExecutionEnvironment(ansibleService),
           createJobTemplate(ansibleService),

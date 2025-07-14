@@ -1,4 +1,7 @@
-import { catalogProcessingExtensionPoint } from '@backstage/plugin-catalog-node/alpha';
+import {
+  catalogModelExtensionPoint,
+  catalogProcessingExtensionPoint,
+} from '@backstage/plugin-catalog-node/alpha';
 import { catalogModuleRhaap } from './module';
 import { SchedulerServiceTaskScheduleDefinition } from '@backstage/backend-plugin-api';
 import { AAPEntityProvider } from './providers/AAPEntityProvider';
@@ -9,6 +12,9 @@ describe('catalogModuleRHAAPEntityProvider', () => {
   it('should register provider at the catalog extension point', async () => {
     let addedProviders: Array<AAPEntityProvider> | undefined;
     let usedSchedule: SchedulerServiceTaskScheduleDefinition | undefined;
+    const modelExtensionPoint = {
+      setFieldValidators: (validators: any) => jest.fn(validators),
+    };
     const extensionPoint = {
       addEntityProvider: (providers: any) => {
         addedProviders = providers;
@@ -23,7 +29,10 @@ describe('catalogModuleRHAAPEntityProvider', () => {
     });
 
     await startTestBackend({
-      extensionPoints: [[catalogProcessingExtensionPoint, extensionPoint]],
+      extensionPoints: [
+        [catalogModelExtensionPoint, modelExtensionPoint],
+        [catalogProcessingExtensionPoint, extensionPoint],
+      ],
       features: [
         catalogModuleRhaap,
         mockServices.rootConfig.factory(MOCK_CONFIG),
@@ -35,7 +44,7 @@ describe('catalogModuleRHAAPEntityProvider', () => {
     expect(usedSchedule?.timeout).toEqual({ minutes: 3 });
     expect(addedProviders?.length).toEqual(1);
     expect(addedProviders?.pop()?.getProviderName()).toEqual(
-      'AapEntityProvider:dev',
+      'AapEntityProvider:development',
     );
     expect(runner).not.toHaveBeenCalled();
   });

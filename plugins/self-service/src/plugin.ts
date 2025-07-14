@@ -5,11 +5,11 @@ import {
 } from '@backstage/core-plugin-api';
 
 import { rootRouteRef } from './routes';
-import { AapApi } from './apis';
+import { AAPApis, AapAuthApi } from './apis';
 
 export const selfServicePlugin = createPlugin({
   id: 'self-service',
-  apis: [AapApi],
+  apis: [AAPApis, AapAuthApi],
   routes: {
     root: rootRouteRef,
   },

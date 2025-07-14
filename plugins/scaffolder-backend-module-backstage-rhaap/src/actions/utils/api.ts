@@ -14,18 +14,9 @@
  * limitations under the License.
  */
 
-import { Config } from '@backstage/config';
 import * as fs from 'fs';
 import fetch, { Response } from 'node-fetch';
 import { LoggerService } from '@backstage/backend-plugin-api';
-import {
-  AAPSubscriptionCheck,
-  IAAPService,
-} from '@ansible/backstage-rhaap-common';
-
-export interface AnsibleApi {
-  isValidSubscription(): Promise<AAPSubscriptionCheck>;
-}
 
 export class BackendServiceAPI {
   static pluginLogName = 'plugin-scaffolder-backend-module-backstage-rhaap';
@@ -217,32 +208,5 @@ export class BackendServiceAPI {
       );
       throw new Error(`:downloadDevfileProject:`);
     }
-  }
-}
-
-export class AnsibleApiClient implements AnsibleApi {
-  private readonly config: Config;
-  private readonly logger: LoggerService;
-  private readonly ansibleService: IAAPService;
-
-  constructor({
-    config,
-    logger,
-    ansibleService,
-  }: {
-    config: Config;
-    logger: LoggerService;
-    ansibleService: IAAPService;
-  }) {
-    this.config = config;
-    this.logger = logger;
-    this.ansibleService = ansibleService;
-  }
-
-  async isValidSubscription(): Promise<AAPSubscriptionCheck> {
-    this.logger.info(
-      `[${BackendServiceAPI.pluginLogName}] Scaffolder checking AAP subscription at ${this.config.getString('ansible.rhaap.baseUrl')}/aap/subscription`,
-    );
-    return this.ansibleService.checkSubscription();
   }
 }

@@ -5,6 +5,7 @@ on:
   push:
     branches:
       - main
+      - devel
       - "releases/**"
       - "stable/**"
   workflow_dispatch:

@@ -20,14 +20,12 @@ export const ansibleServiceRef = createServiceRef<IAAPService>({
       deps: {
         rootConfig: coreServices.rootConfig,
         logger: coreServices.logger,
-        scheduler: coreServices.scheduler,
       },
-      async factory({ rootConfig, logger, scheduler }) {
+      async factory({ rootConfig, logger }) {
         logger.info('Creating a new AAP client');
         return new AAPClient({
           rootConfig: rootConfig,
           logger: logger,
-          scheduler: scheduler,
         });
       },
     }),

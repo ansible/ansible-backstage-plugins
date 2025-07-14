@@ -22,7 +22,7 @@ import {
   Organization,
 } from '@ansible/backstage-rhaap-common';
 import { Entity } from '@backstage/catalog-model';
-import { OrganizationParser, teamParser, userParser } from './entityParser';
+import { organizationParser, teamParser, userParser } from './entityParser';
 
 export class AAPEntityProvider implements EntityProvider {
   private readonly env: string;
@@ -32,7 +32,8 @@ export class AAPEntityProvider implements EntityProvider {
   private readonly scheduleFn: () => Promise<void>;
   private connection?: EntityProviderConnection;
 
-  static pluginLogName = 'plugin-catalog-rh-aap';
+  static pluginLogName = 'plugin-catalog-rhaap';
+  static syncEntity = 'orgsUsersTeams';
 
   static fromConfig(
     config: Config,
@@ -44,7 +45,7 @@ export class AAPEntityProvider implements EntityProvider {
     },
   ): AAPEntityProvider[] {
     const { logger } = options;
-    const providerConfigs = readAapApiEntityConfigs(config);
+    const providerConfigs = readAapApiEntityConfigs(config, this.syncEntity);
     logger.info(`Init AAP entity provider from config.`);
     return providerConfigs.map(providerConfig => {
       let taskRunner;
@@ -131,7 +132,7 @@ export class AAPEntityProvider implements EntityProvider {
     return `AapEntityProvider:${this.env}`;
   }
 
-  async run(): Promise<void> {
+  async run(): Promise<boolean> {
     if (!this.connection) {
       throw new NotFoundError('Not initialized');
     }
@@ -148,7 +149,7 @@ export class AAPEntityProvider implements EntityProvider {
 
     let error = false;
     try {
-      orgsDetails = await this.ansibleServiceRef.getOrganizationsWithDetails();
+      orgsDetails = await this.ansibleServiceRef.getOrganizations(true);
       this.logger.info(
         `[${AAPEntityProvider.pluginLogName}]: Fetched ${
           Object.keys(orgsDetails).length
@@ -211,7 +212,7 @@ export class AAPEntityProvider implements EntityProvider {
           : [];
 
         entities.push(
-          OrganizationParser({
+          organizationParser({
             baseUrl: this.baseUrl,
             nameSpace: 'default',
             org: org.organization,
@@ -298,6 +299,7 @@ export class AAPEntityProvider implements EntityProvider {
         );
         usersCount += 1;
       }
+
       await this.connection.applyMutation({
         type: 'full',
         entities: entities.map(entity => ({
@@ -305,6 +307,7 @@ export class AAPEntityProvider implements EntityProvider {
           locationKey: this.getProviderName(),
         })),
       });
+
       this.logger.info(
         `[${
           AAPEntityProvider.pluginLogName
@@ -316,10 +319,12 @@ export class AAPEntityProvider implements EntityProvider {
         }]: Refreshed ${this.getProviderName()}: ${usersCount} users added.`,
       );
     }
+    return !error;
   }
 
   async connect(connection: EntityProviderConnection): Promise<void> {
     this.connection = connection;
     await this.scheduleFn();
+    await this.run();
   }
 }

@@ -6,8 +6,18 @@ export interface Config {
       /** @visibility frontend */
       rhaap?: {
         [authEnv: string]: {
-          schedule: SchedulerServiceTaskScheduleDefinitionConfig;
           orgs: string;
+          sync: {
+            orgsUsersTeams: {
+              schedule: SchedulerServiceTaskScheduleDefinitionConfig;
+            };
+            jobTemplates: {
+              enabled: boolean;
+              labels?: Array<string>;
+              surveyEnabled?: boolean;
+              schedule?: SchedulerServiceTaskScheduleDefinitionConfig;
+            };
+          };
         };
       };
     };

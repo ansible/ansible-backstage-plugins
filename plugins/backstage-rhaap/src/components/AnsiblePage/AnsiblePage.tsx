@@ -15,27 +15,16 @@
  */
 
 import { useEffect, useState } from 'react';
-import {
-  Header,
-  Page,
-  HeaderTabs,
-  Content,
-  ContentHeader,
-} from '@backstage/core-components';
-import { useApi } from '@backstage/core-plugin-api';
+import { Header, Page, HeaderTabs, Content } from '@backstage/core-components';
 import { Navigate, Route, Routes, useNavigate, useParams } from 'react-router';
-import { useEffectOnce } from 'react-use';
 import { Fab, Typography, makeStyles } from '@material-ui/core';
 import Comment from '@material-ui/icons/Comment';
-import { Alert, AlertTitle } from '@material-ui/lab';
 
-import { ansibleApiRef, AAPSubscriptionCheck } from '../../api';
 import { EntityOverviewContent } from '../OverviewContent';
 import { EntityCatalogContent } from '../CatalogContent';
 import { EntityCreateContent } from '../CreateContent';
 import { EntityLearnContent } from '../LearnContent';
 import RatingsFeedbackModal from './RatingsFeedbackModal';
-import { errorTitle, errorMessage } from './SubscriptionCheckMsgs';
 
 const feedbackStyles = makeStyles({
   feedback_btn: {
@@ -88,14 +77,8 @@ export const AnsiblePage = () => {
   const section = param['*'];
 
   const [open, setOpen] = useState(false);
-  const [showSubscriptionAlert, setShowSubscriptionAlert] = useState(true);
   const handleOpen = () => setOpen(true);
   const handleClose = () => setOpen(false);
-
-  const [subscription, setSubscription] = useState<AAPSubscriptionCheck | null>(
-    null,
-  );
-  const ansibleApi = useApi(ansibleApiRef);
 
   const selectedTabIndex = tabs.findIndex(item => item.nav === section);
   const [selectedTab, setSelectedTab] = useState<any>(0);
@@ -106,56 +89,9 @@ export const AnsiblePage = () => {
     }
   }, [selectedTabIndex]);
 
-  useEffectOnce(() => {
-    const checkSubscription = async () => {
-      setSubscription(await ansibleApi.isValidSubscription());
-    };
-
-    checkSubscription();
-  });
-
   const onTabSelect = (index: number) => {
     setSelectedTab(tabs[index]);
     navigate(tabs[index].nav);
-  };
-
-  const renderAlertMessage = () => {
-    let title;
-    let message;
-    if (subscription?.status === 495 || subscription?.status === 500) {
-      title = errorTitle.SSL_OR_UNREACHABLE;
-      message = errorMessage.SSL_OR_UNREACHABLE;
-    } else if (subscription?.status === 404) {
-      title = errorTitle.RESOURCE_FAIL;
-      message = errorMessage.RESOURCE_FAIL;
-    } else if (subscription?.status === 401) {
-      title = errorTitle.AUTH_FAIL;
-      message = errorMessage.AUTH_FAIL;
-    } else if (!subscription?.isCompliant) {
-      title = errorTitle.NON_COMPLIANT;
-      message = errorMessage.NON_COMPLIANT;
-    } else if (!subscription?.isValid) {
-      title = errorTitle.INVALID_LICENSE;
-      message = errorMessage.INVALID_LICENSE;
-    }
-    return title && message ? (
-      <ContentHeader
-        titleComponent={
-          <div>
-            <Alert
-              severity="warning"
-              color="warning"
-              role="alert"
-              onClose={() => setShowSubscriptionAlert(false)}
-              data-testid="subscription-alert"
-            >
-              <AlertTitle>{title}</AlertTitle>
-              {message}
-            </Alert>
-          </div>
-        }
-      />
-    ) : null;
   };
 
   return section === '' ? (
@@ -173,7 +109,6 @@ export const AnsiblePage = () => {
       />
 
       <Content>
-        {showSubscriptionAlert && subscription && renderAlertMessage()}
         <Routes>
           <Route path="/">
             <Route path="overview" element={<EntityOverviewContent />} />

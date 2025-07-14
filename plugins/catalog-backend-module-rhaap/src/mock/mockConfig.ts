@@ -5,12 +5,25 @@ export const MOCK_CONFIG = {
     catalog: {
       providers: {
         rhaap: {
-          dev: {
-            schedule: {
-              frequency: 'P1M',
-              timeout: 'PT3M',
-            },
+          development: {
             orgs: 'Default',
+            sync: {
+              orgsUsersTeams: {
+                schedule: {
+                  frequency: 'P1M',
+                  timeout: 'PT3M',
+                },
+              },
+              jobTemplates: {
+                enabled: true,
+                labels: [],
+                surveyEnabled: false,
+                schedule: {
+                  frequency: 'P1M',
+                  timeout: 'PT3M',
+                },
+              },
+            },
           },
         },
       },

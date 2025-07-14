@@ -5,9 +5,16 @@ import {
   ANNOTATION_ORIGIN_LOCATION,
   Entity,
 } from '@backstage/catalog-model';
-import { Team, User, Organization } from '@ansible/backstage-rhaap-common';
+import {
+  IJobTemplate,
+  Organization,
+  ISurvey,
+  Team,
+  User,
+} from '@ansible/backstage-rhaap-common';
+import { generateTemplate } from './dynamicJobTemplate';
 
-export function OrganizationParser(options: {
+export function organizationParser(options: {
   baseUrl: string;
   nameSpace: string;
   org: Organization;
@@ -97,3 +104,12 @@ export function userParser(options: {
     },
   };
 }
+
+export const aapJobTemplateParser = (options: {
+  baseUrl: string;
+  nameSpace: string;
+  job: IJobTemplate;
+  survey: ISurvey | null;
+}): Entity => {
+  return generateTemplate(options);
+};

@@ -215,7 +215,7 @@ LOG_LEVEL=debug yarn start
 
 ## AAP secrets configuration setup
 
-Add Ansible Automation Platform (AAP) controller configuration in `app-config.yaml` file to allow for subscription checks, the plugin is dependent on the provided configuration to do the subscription checks, and the analytics tag is required to enable analytics.
+Add Ansible Automation Platform (AAP) controller configuration in `app-config.yaml` file. The analytics tag is required to enable analytics.
 
 ```yaml
 ansible:

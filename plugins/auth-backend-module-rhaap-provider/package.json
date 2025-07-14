@@ -41,7 +41,7 @@
     "@backstage/plugin-auth-backend": "^0.25.0",
     "@backstage/plugin-auth-node": "^0.6.3",
     "passport-oauth2": "^1.8.0",
-    "undici": "6.21.1"
+    "undici": "6.21.2"
   },
   "devDependencies": {
     "@backstage/backend-defaults": "^0.10.0",

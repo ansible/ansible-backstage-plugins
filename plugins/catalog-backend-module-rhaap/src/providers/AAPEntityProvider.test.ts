@@ -229,7 +229,7 @@ describe('AAPEntityProvider', () => {
     },
   ].map(entity => ({
     entity,
-    locationKey: 'AapEntityProvider:dev',
+    locationKey: 'AapEntityProvider:development',
   }));
 
   const expectMutation = async () => {
@@ -237,7 +237,7 @@ describe('AAPEntityProvider', () => {
     const logger = mockServices.logger.mock();
     const schedulingConfig: Record<string, any> = {};
 
-    mockAnsibleService.getOrganizationsWithDetails.mockResolvedValue([
+    mockAnsibleService.getOrganizations.mockResolvedValue([
       {
         organization: {
           id: 1,
@@ -343,7 +343,7 @@ describe('AAPEntityProvider', () => {
       logger,
     })[0];
 
-    expect(provider.getProviderName()).toEqual('AapEntityProvider:dev');
+    expect(provider.getProviderName()).toEqual('AapEntityProvider:development');
 
     try {
       await provider.connect(entityProviderConnection);
@@ -352,7 +352,7 @@ describe('AAPEntityProvider', () => {
     }
 
     const taskDef = schedule.getTasks()[0];
-    expect(taskDef.id).toEqual('AapEntityProvider:dev:run');
+    expect(taskDef.id).toEqual('AapEntityProvider:development:run');
 
     await (taskDef.fn as () => Promise<void>)();
 
@@ -366,5 +366,41 @@ describe('AAPEntityProvider', () => {
   it('test', async () => {
     const result = await expectMutation();
     expect(result).toBe(true);
+  });
+
+  it('handles errors gracefully', async () => {
+    const config = new ConfigReader(MOCK_CONFIG.data);
+    const logger = mockServices.logger.mock();
+    const schedule = new PersistingTaskRunner();
+
+    mockAnsibleService.getOrganizations.mockRejectedValue(
+      new Error('Test error'),
+    );
+    mockAnsibleService.getUserRoleAssignments.mockRejectedValue(
+      new Error('Test error'),
+    );
+    mockAnsibleService.listSystemUsers.mockRejectedValue(
+      new Error('Test error'),
+    );
+    mockAnsibleService.getTeamsByUserId.mockRejectedValue(
+      new Error('Test error'),
+    );
+
+    const provider = AAPEntityProvider.fromConfig(config, mockAnsibleService, {
+      schedule,
+      logger,
+    })[0];
+
+    const entityProviderConnection: EntityProviderConnection = {
+      applyMutation: jest.fn(),
+      refresh: jest.fn(),
+    };
+
+    await provider.connect(entityProviderConnection);
+
+    const taskDef = schedule.getTasks()[0];
+    await (taskDef.fn as () => Promise<void>)();
+
+    expect(entityProviderConnection.applyMutation).not.toHaveBeenCalled();
   });
 });

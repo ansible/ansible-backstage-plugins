@@ -126,15 +126,7 @@ export interface Config {
     providers?: {
       rhaap?: {
         [authEnv: string]: {
-          schedule?: {
-            frequency?: {
-              hours?: number;
-              minutes?: number;
-            };
-            timeout?: {
-              minutes?: number;
-            };
-          };
+          orgs: string;
         };
       };
     };

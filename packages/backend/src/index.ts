@@ -59,7 +59,6 @@ backend.add(import('@backstage/plugin-search-backend-module-techdocs'));
 // kubernetes
 backend.add(import('@backstage/plugin-kubernetes-backend'));
 
-backend.add(import('@ansible/backstage-rhaap-common'));
 backend.add(import('@ansible/backstage-plugin-catalog-backend-module-rhaap'));
 backend.add(
   import('@ansible/plugin-scaffolder-backend-module-backstage-rhaap'),

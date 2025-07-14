@@ -6,3 +6,4 @@
  */
 
 export { catalogModuleRhaap as default } from './module';
+export * from './router';

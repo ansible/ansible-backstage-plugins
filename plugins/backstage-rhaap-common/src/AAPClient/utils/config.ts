@@ -1,7 +1,7 @@
 import { Config } from '@backstage/config';
 import { ScmIntegrations } from '@backstage/integration';
 
-import { AnsibleConfig } from '../../types';
+import { AnsibleConfig, CatalogConfig } from '../../types';
 
 export function getAnsibleConfig(config: Config): AnsibleConfig {
   const ansibleConfig = config.getConfig('ansible');
@@ -53,6 +53,27 @@ export function getAnsibleConfig(config: Config): AnsibleConfig {
       : undefined,
   };
   return ansibleConfigVales;
+}
+
+export function getCatalogConfig(rootConfig: Config): CatalogConfig {
+  const catalogRhaapConfig = rootConfig.getOptionalConfig(
+    'catalog.providers.rhaap',
+  );
+  const catalogConfig: CatalogConfig = {
+    surveyEnabled: undefined,
+    jobTemplateLabels: [],
+  };
+  if (catalogRhaapConfig && typeof catalogRhaapConfig.keys === 'function') {
+    catalogRhaapConfig.keys().forEach(key => {
+      const config = catalogRhaapConfig.getConfig(key);
+      catalogConfig.surveyEnabled = config.getOptionalBoolean(
+        `sync.jobTemplates.surveyEnabled`,
+      );
+      catalogConfig.jobTemplateLabels =
+        config.getOptionalStringArray(`sync.jobTemplates.labels`) ?? [];
+    });
+  }
+  return catalogConfig;
 }
 
 function validateShowCaseType(type: string | undefined): 'url' | 'file' {

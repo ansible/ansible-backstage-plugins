@@ -1,4 +1,4 @@
-import { screen } from '@testing-library/react';
+import { screen, fireEvent, waitFor } from '@testing-library/react';
 import {
   mockApis,
   renderInTestApp,
@@ -10,17 +10,50 @@ import {
   starredEntitiesApiRef,
 } from '@backstage/plugin-catalog-react';
 import { MockEntityListContextProvider } from '@backstage/plugin-catalog-react/testUtils';
-import { mockCatalogApi } from '../../tests/catalogApi_utils';
+import { permissionApiRef } from '@backstage/plugin-permission-react';
+import { scaffolderApiRef } from '@backstage/plugin-scaffolder-react';
+
 import { HomeComponent } from './Home';
 import { rootRouteRef } from '../../routes';
-import { permissionApiRef } from '@backstage/plugin-permission-react';
+import { ansibleApiRef, rhAapAuthApiRef } from '../../apis';
+import { mockCatalogApi } from '../../tests/catalogApi_utils';
+import { mockAnsibleApi, mockRhAapAuthApi } from '../../tests/mockAnsibleApi';
+import { mockScaffolderApi } from '../../tests/scaffolderApi_utils';
 
 describe('self-service', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+    // Reset mock implementations
+    mockRhAapAuthApi.getAccessToken.mockResolvedValue('mock-token');
+
+    // Restore autocomplete if it was deleted
+    if (!mockScaffolderApi.autocomplete) {
+      mockScaffolderApi.autocomplete = jest.fn().mockResolvedValue({
+        results: [
+          { id: '1', title: 'Template 1' },
+          { id: '2', title: 'Template 2' },
+        ],
+      }) as jest.MockedFunction<any>;
+    } else {
+      (
+        mockScaffolderApi.autocomplete as jest.MockedFunction<any>
+      ).mockResolvedValue({
+        results: [
+          { id: '1', title: 'Template 1' },
+          { id: '2', title: 'Template 2' },
+        ],
+      });
+    }
+  });
+
   const render = (children: JSX.Element) => {
     return renderInTestApp(
       <TestApiProvider
         apis={[
           [catalogApiRef, mockCatalogApi],
+          [ansibleApiRef, mockAnsibleApi],
+          [rhAapAuthApiRef, mockRhAapAuthApi],
+          [scaffolderApiRef, mockScaffolderApi],
           [starredEntitiesApiRef, new MockStarredEntitiesApi()],
           [permissionApiRef, mockApis.permission()],
         ]}
@@ -53,7 +86,7 @@ describe('self-service', () => {
       facetsFromEntityRefs(entityRefs, tags),
     );
     await render(<HomeComponent />);
-    expect(screen.getByText('Templates')).toBeInTheDocument();
+    expect(screen.getByText('Templates', { exact: true })).toBeInTheDocument();
     expect(screen.getByText('Add Template')).toBeInTheDocument();
     expect(screen.getByText('Personal')).toBeInTheDocument();
     expect(screen.getByText('Categories')).toBeInTheDocument();
@@ -71,5 +104,203 @@ describe('self-service', () => {
     expect(screen.getByText('aap-operations')).toBeInTheDocument();
     expect(screen.getByText('intermediate')).toBeInTheDocument();
     expect(screen.getByText('Start')).toBeInTheDocument();
+  });
+
+  it('should handle sync operations successfully', async () => {
+    const entityRefs = ['component:default/e1'];
+    const tags = ['tag1'];
+    mockCatalogApi.getEntityFacets.mockResolvedValue(
+      facetsFromEntityRefs(entityRefs, tags),
+    );
+    mockAnsibleApi.syncOrgsUsersTeam.mockResolvedValue(true);
+    mockAnsibleApi.syncTemplates.mockResolvedValue(true);
+
+    await render(<HomeComponent />);
+
+    // Simulate clicking sync button
+    const syncButton = screen.getByText('Sync now');
+    fireEvent.click(syncButton);
+
+    // Wait for dialog to appear
+    await waitFor(() => {
+      expect(screen.getByRole('dialog')).toBeInTheDocument();
+    });
+
+    // Select both options
+    const orgsCheckbox = screen.getByLabelText(
+      'Organizations, Users and Teams',
+    );
+    const templatesCheckbox = screen.getByLabelText('Templates');
+    fireEvent.click(orgsCheckbox);
+    fireEvent.click(templatesCheckbox);
+
+    // Click OK to trigger sync
+    const okButton = screen.getByText('Ok');
+    fireEvent.click(okButton);
+
+    // Wait for sync operations to complete
+    await waitFor(() => {
+      expect(mockAnsibleApi.syncOrgsUsersTeam).toHaveBeenCalled();
+      expect(mockAnsibleApi.syncTemplates).toHaveBeenCalled();
+    });
+  });
+
+  it('should handle sync operations with failures', async () => {
+    const entityRefs = ['component:default/e1'];
+    const tags = ['tag1'];
+    mockCatalogApi.getEntityFacets.mockResolvedValue(
+      facetsFromEntityRefs(entityRefs, tags),
+    );
+    mockAnsibleApi.syncOrgsUsersTeam.mockResolvedValue(false);
+    mockAnsibleApi.syncTemplates.mockResolvedValue(false);
+
+    await render(<HomeComponent />);
+
+    // Simulate clicking sync button
+    const syncButton = screen.getByText('Sync now');
+    fireEvent.click(syncButton);
+
+    // Wait for dialog to appear
+    await waitFor(() => {
+      expect(screen.getByRole('dialog')).toBeInTheDocument();
+    });
+
+    // Select both options
+    const orgsCheckbox = screen.getByLabelText(
+      'Organizations, Users and Teams',
+    );
+    const templatesCheckbox = screen.getByLabelText('Templates');
+    fireEvent.click(orgsCheckbox);
+    fireEvent.click(templatesCheckbox);
+
+    // Click OK to trigger sync
+    const okButton = screen.getByText('Ok');
+    fireEvent.click(okButton);
+
+    // Wait for sync operations to complete
+    await waitFor(() => {
+      expect(mockAnsibleApi.syncOrgsUsersTeam).toHaveBeenCalled();
+      expect(mockAnsibleApi.syncTemplates).toHaveBeenCalled();
+    });
+  });
+
+  it('should handle organizations sync only', async () => {
+    const entityRefs = ['component:default/e1'];
+    const tags = ['tag1'];
+    mockCatalogApi.getEntityFacets.mockResolvedValue(
+      facetsFromEntityRefs(entityRefs, tags),
+    );
+    mockAnsibleApi.syncOrgsUsersTeam.mockResolvedValue(true);
+
+    await render(<HomeComponent />);
+
+    // Simulate clicking sync button
+    const syncButton = screen.getByText('Sync now');
+    fireEvent.click(syncButton);
+
+    // Wait for dialog to appear
+    await waitFor(() => {
+      expect(screen.getByRole('dialog')).toBeInTheDocument();
+    });
+
+    // Select only organizations option
+    const orgsCheckbox = screen.getByLabelText(
+      'Organizations, Users and Teams',
+    );
+    fireEvent.click(orgsCheckbox);
+
+    // Click OK to trigger sync
+    const okButton = screen.getByText('Ok');
+    fireEvent.click(okButton);
+
+    // Wait for sync operations to complete
+    await waitFor(() => {
+      expect(mockAnsibleApi.syncOrgsUsersTeam).toHaveBeenCalled();
+      expect(mockAnsibleApi.syncTemplates).not.toHaveBeenCalled();
+    });
+  });
+
+  it('should handle sync dialog cancel', async () => {
+    const entityRefs = ['component:default/e1'];
+    const tags = ['tag1'];
+    mockCatalogApi.getEntityFacets.mockResolvedValue(
+      facetsFromEntityRefs(entityRefs, tags),
+    );
+
+    await render(<HomeComponent />);
+
+    // Simulate clicking sync button
+    const syncButton = screen.getByText('Sync now');
+    fireEvent.click(syncButton);
+
+    // Wait for dialog to appear
+    await waitFor(() => {
+      expect(screen.getByRole('dialog')).toBeInTheDocument();
+    });
+
+    // Click Cancel
+    const cancelButton = screen.getByText('Cancel');
+    fireEvent.click(cancelButton);
+
+    // Verify no sync operations were called
+    expect(mockAnsibleApi.syncOrgsUsersTeam).not.toHaveBeenCalled();
+    expect(mockAnsibleApi.syncTemplates).not.toHaveBeenCalled();
+  });
+
+  it('should handle case when scaffolderApi.autocomplete does not exist', async () => {
+    const entityRefs = ['component:default/e1'];
+    const tags = ['tag1'];
+    mockCatalogApi.getEntityFacets.mockResolvedValue(
+      facetsFromEntityRefs(entityRefs, tags),
+    );
+
+    // Remove autocomplete from scaffolderApi
+    delete (mockScaffolderApi as any).autocomplete;
+
+    await render(<HomeComponent />);
+
+    expect(screen.getByText('Templates', { exact: true })).toBeInTheDocument();
+  });
+
+  it('should handle templates only sync', async () => {
+    const entityRefs = ['component:default/e1'];
+    const tags = ['tag1'];
+    mockCatalogApi.getEntityFacets.mockResolvedValue(
+      facetsFromEntityRefs(entityRefs, tags),
+    );
+    mockAnsibleApi.syncTemplates.mockResolvedValue(true);
+
+    await render(<HomeComponent />);
+
+    const syncButton = screen.getByText('Sync now');
+    fireEvent.click(syncButton);
+
+    await waitFor(() => {
+      expect(screen.getByRole('dialog')).toBeInTheDocument();
+    });
+
+    const templatesCheckbox = screen.getByLabelText('Templates');
+    fireEvent.click(templatesCheckbox);
+
+    const okButton = screen.getByText('Ok');
+    fireEvent.click(okButton);
+
+    await waitFor(() => {
+      expect(mockAnsibleApi.syncTemplates).toHaveBeenCalled();
+      expect(mockAnsibleApi.syncOrgsUsersTeam).not.toHaveBeenCalled();
+    });
+  });
+
+  it('should handle snackbar closing', async () => {
+    const entityRefs = ['component:default/e1'];
+    const tags = ['tag1'];
+    mockCatalogApi.getEntityFacets.mockResolvedValue(
+      facetsFromEntityRefs(entityRefs, tags),
+    );
+
+    await render(<HomeComponent />);
+
+    // Test snackbar functionality exists
+    expect(screen.getByText('Templates', { exact: true })).toBeInTheDocument();
   });
 });

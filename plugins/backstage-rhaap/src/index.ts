@@ -33,5 +33,3 @@ export const AnsibleSegmentAnalyticsApi = createApiFactory({
   factory: ({ configApi, identityApi }) =>
     AnsibleSegmentAnalytics.fromConfig(configApi, identityApi),
 });
-
-export * from './api';

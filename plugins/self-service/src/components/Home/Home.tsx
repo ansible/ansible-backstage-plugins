@@ -1,7 +1,14 @@
-import { Button, makeStyles } from '@material-ui/core';
+import { useCallback, useEffect, useState } from 'react';
 import { useNavigate } from 'react-router';
-import { Content, Header, Page } from '@backstage/core-components';
-import { useRouteRef } from '@backstage/core-plugin-api';
+import {
+  Button,
+  makeStyles,
+  Snackbar,
+  Tooltip,
+  Typography,
+} from '@material-ui/core';
+import { Content, Header, HeaderLabel, Page } from '@backstage/core-components';
+import { useApi, useRouteRef } from '@backstage/core-plugin-api';
 import {
   CatalogFilterLayout,
   EntityKindPicker,
@@ -17,8 +24,16 @@ import {
 } from '@backstage/plugin-scaffolder-react/alpha';
 import { usePermission } from '@backstage/plugin-permission-react';
 import { catalogEntityCreatePermission } from '@backstage/plugin-catalog-common/alpha';
+
 import { WizardCard } from './TemplateCard';
 import { rootRouteRef } from '../../routes';
+import { ansibleApiRef, rhAapAuthApiRef } from '../../apis';
+import { SyncConfirmationDialog } from './SyncConfirmationDialog';
+import Sync from '@material-ui/icons/Sync';
+import Info from '@material-ui/icons/Info';
+import { TemplateEntityV1beta3 } from '@backstage/plugin-scaffolder-common';
+import { SkeletonLoader } from './SkeletonLoader';
+import { scaffolderApiRef } from '@backstage/plugin-scaffolder-react';
 
 const headerStyles = makeStyles(theme => ({
   header_title_color: {
@@ -39,25 +54,143 @@ export const HomeComponent = () => {
   const classes = headerStyles();
   const navigate = useNavigate();
   const rootLink = useRouteRef(rootRouteRef);
+  const ansibleApi = useApi(ansibleApiRef);
+  const rhAapAuthApi = useApi(rhAapAuthApiRef);
+  const scaffolderApi = useApi(scaffolderApiRef);
   const { allowed } = usePermission({
     permission: catalogEntityCreatePermission,
   });
+  const [open, setOpen] = useState(false);
+  const [syncOptions, setSyncOptions] = useState<string[]>([]);
+  const [showSnackbar, setShowSnackbar] = useState<boolean>(false);
+  const [snackbarMsg, setSnackbarMsg] = useState<string>('Sync failed');
+  const [jobTemplates, setJobTemplates] = useState<
+    { id: number; name: string }[]
+  >([]);
+  const [loading, setLoading] = useState<boolean>(true);
+
+  const ShowSyncConfirmationDialog = () => {
+    setOpen(true);
+  };
+
+  const handleSync = useCallback(async () => {
+    let result = false;
+    setSnackbarMsg('Starting sync...');
+    setShowSnackbar(true);
+    if (syncOptions.includes('orgsUsersTeams')) {
+      result = await ansibleApi.syncOrgsUsersTeam();
+      if (result) {
+        setSnackbarMsg('Organizations, Users and Teams synced successfully');
+      } else {
+        setSnackbarMsg('Organizations, Users and Teams sync failed');
+      }
+      setShowSnackbar(true);
+    }
+    if (syncOptions.includes('templates')) {
+      result = await ansibleApi.syncTemplates();
+      setShowSnackbar(false);
+      if (result) {
+        setSnackbarMsg('Templates synced successfully');
+      } else {
+        setSnackbarMsg('Templates sync failed');
+      }
+      setShowSnackbar(true);
+    }
+    setSyncOptions([]);
+  }, [ansibleApi, syncOptions]);
+
+  const handleClose = (newSyncOptions?: string[]) => {
+    setOpen(false);
+
+    if (newSyncOptions) {
+      setSyncOptions(newSyncOptions);
+    }
+  };
+
+  useEffect(() => {
+    rhAapAuthApi.getAccessToken().then(token => {
+      if (scaffolderApi.autocomplete) {
+        scaffolderApi
+          .autocomplete({
+            token,
+            resource: 'job_templates',
+            provider: 'aap-api-cloud',
+          })
+          .then(({ results }) =>
+            setJobTemplates(
+              results.map(result => ({
+                id: parseInt(result.id, 10),
+                name: result.title as string,
+              })),
+            ),
+          )
+          .finally(() => setLoading(false));
+      }
+    });
+  }, [scaffolderApi, rhAapAuthApi]);
+
+  useEffect(() => {
+    if (syncOptions.length > 0) {
+      handleSync();
+    }
+  }, [syncOptions, handleSync]);
 
   return (
     <Page themeId="app">
+      {open && (
+        <SyncConfirmationDialog
+          id="sync-menu"
+          keepMounted
+          open={open}
+          onClose={handleClose}
+          value={syncOptions}
+        />
+      )}
       <Header
         pageTitleOverride="View Templates"
         title={<span className={classes.header_title_color}>Templates</span>}
         subtitle={
-          <span className={classes.header_subtitle}>
-            Browse through automation template. Upon launching a template, a new
-            job will be created and executed in AAP.
-          </span>
+          <>
+            <div>
+              <span className={classes.header_subtitle}>
+                Browse through automation template. Upon launching a template, a
+                new job will be created and executed in AAP.
+              </span>
+            </div>
+            {allowed && (
+              <HeaderLabel
+                label=""
+                value={
+                  <Typography
+                    component="a"
+                    onClick={ShowSyncConfirmationDialog}
+                    style={{ cursor: 'pointer', color: 'inherit' }}
+                  >
+                    <span
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '4px',
+                        textDecoration: 'underline',
+                      }}
+                    >
+                      Sync now <Sync fontSize="small" />
+                      <Tooltip title="This will allow you to sync the templates, organizations, users and teams from AAP to Automation Portal.">
+                        <Info fontSize="small" style={{ marginLeft: '4px' }} />
+                      </Tooltip>
+                    </span>
+                  </Typography>
+                }
+                contentTypograpyRootComponent="span"
+              />
+            )}
+          </>
         }
         style={{ background: 'inherit' }}
       >
         {allowed && (
           <Button
+            data-testid="add-template-button"
             onClick={() => navigate(`${rootLink()}/catalog-import`)}
             variant="contained"
           >
@@ -80,18 +213,47 @@ export const HomeComponent = () => {
               <EntityOwnerPicker />
             </CatalogFilterLayout.Filters>
             <CatalogFilterLayout.Content>
-              <TemplateGroups
-                groups={[
-                  {
-                    filter: () => true,
-                  },
-                ]}
-                TemplateCardComponent={WizardCard}
-              />
+              {loading ? (
+                <div
+                  style={{
+                    display: 'flex',
+                    justifyContent: 'center',
+                    alignItems: 'center',
+                    width: '100%',
+                    gap: '10px',
+                  }}
+                >
+                  {Array.from({ length: 3 }).map(_ => (
+                    <SkeletonLoader />
+                  ))}
+                </div>
+              ) : (
+                <TemplateGroups
+                  groups={[
+                    {
+                      filter: (entity: TemplateEntityV1beta3) => {
+                        return jobTemplates.some(({ id }) =>
+                          entity.metadata.aapJobTemplateId
+                            ? id === entity.metadata.aapJobTemplateId
+                            : true,
+                        );
+                      },
+                    },
+                  ]}
+                  TemplateCardComponent={WizardCard}
+                />
+              )}
             </CatalogFilterLayout.Content>
           </CatalogFilterLayout>
         </EntityListProvider>
       </Content>
+      <Snackbar
+        anchorOrigin={{ vertical: 'top', horizontal: 'right' }}
+        open={showSnackbar}
+        onClose={() => setShowSnackbar(false)}
+        autoHideDuration={3000}
+        message={snackbarMsg}
+      />
     </Page>
   );
 };

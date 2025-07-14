@@ -4,6 +4,12 @@ export const rootRouteRef = createRouteRef({
   id: 'self-service',
 });
 
+export const catalogImportRouteRef = createSubRouteRef({
+  id: 'self-service/catalog-import',
+  parent: rootRouteRef,
+  path: '/catalog-import',
+});
+
 export const selectedTemplateRouteRef = createSubRouteRef({
   id: 'self-service/selected-template',
   parent: rootRouteRef,

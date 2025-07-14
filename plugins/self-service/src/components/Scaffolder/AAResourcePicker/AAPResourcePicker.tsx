@@ -53,7 +53,10 @@ export const AAPResourcePicker = (props: ScaffolderRJSFFieldProps) => {
   const multiple = type === 'array';
 
   const getInitValue = () => {
-    if (!formData) return [];
+    if (!formData) return multiple ? [] : '';
+    if (typeof formData === 'string' || typeof formData === 'number') {
+      return formData;
+    }
     if (multiple) {
       return formData.map((item: { [x: string]: any }) => item[_idKey]);
     }
@@ -65,6 +68,10 @@ export const AAPResourcePicker = (props: ScaffolderRJSFFieldProps) => {
   const [availableResources, setAvailableResources] = useState<Array<Object>>(
     [],
   );
+
+  // Store the initial formData for rendering chips before API loads
+  const [initialFormData, setInitialFormData] = useState<any>(formData);
+
   const [selected, setSelected] = useState<
     string | number | string[] | number[]
     // @ts-ignore
@@ -83,8 +90,22 @@ export const AAPResourcePicker = (props: ScaffolderRJSFFieldProps) => {
             provider: 'aap-api-cloud',
           })
           .then(({ results }) => {
+            if (initialFormData) {
+              const key = typeof selected === 'string' ? _nameKey : _idKey;
+              const selectedArray = Array.isArray(selected)
+                ? selected
+                : [selected];
+              const selectedIDs = results
+                .filter((item: any) =>
+                  selectedArray.includes(item[key] as never),
+                )
+                .map(item => item.id);
+              setSelected(selectedIDs);
+            }
             setAvailableResources(results);
             setLoading(false);
+            // Clear initial form data since we now have resources loaded
+            setInitialFormData(null);
           })
           .catch(() => {
             setAvailableResources([]);
@@ -95,6 +116,7 @@ export const AAPResourcePicker = (props: ScaffolderRJSFFieldProps) => {
         setLoading(false);
       }
     });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [aapAuth, resource, scaffolderApi]);
   useEffect(updateAvailableResources, [updateAvailableResources]);
 
@@ -118,12 +140,15 @@ export const AAPResourcePicker = (props: ScaffolderRJSFFieldProps) => {
   }
 
   const renderSelectedValues = (values: any) => {
-    let items;
+    let items: any[] = [];
     if (typeof values[0] === 'number') {
       items = availableResources.filter((e: any) => values.includes(e[_idKey]));
     } else {
-      items = values;
+      items = availableResources.filter((e: any) =>
+        values.includes(e[_nameKey]),
+      );
     }
+
     return (
       <div className={classes.chips}>
         {/* @ts-ignore */}

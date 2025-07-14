@@ -102,7 +102,6 @@ ls -al
 1. (Optional) Create local configuration overrides.
 
    RHDH Local supports user-specific configuration overrides using a structured `configs/` directory. You do not need to modify default files. However, if you want to customize your setup:
-
    - Add your app config overrides to: `configs/app-config/app-config.local.yaml`
 
      > You can use the included `.example.yaml` files to get started quickly:

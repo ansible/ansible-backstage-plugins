@@ -71,20 +71,14 @@ export const mockCatalogApi: jest.Mocked<CatalogApi> = {
                 description: 'Select organization',
                 resource: 'organizations',
                 'ui:field': 'AAPResourcePicker',
-                default: {
-                  id: 1,
-                  name: 'Default',
-                },
+                default: 'Default',
               },
               jobInventory: {
                 title: 'Inventory',
                 description: 'Select inventory',
                 resource: 'inventories',
                 'ui:field': 'AAPResourcePicker',
-                default: {
-                  id: 1,
-                  name: 'Default',
-                },
+                default: 'Default',
               },
               scmUrl: {
                 title: 'Source control URL',
@@ -388,20 +382,14 @@ export const mockCatalogApi: jest.Mocked<CatalogApi> = {
                     description: 'Select organization',
                     resource: 'organizations',
                     'ui:field': 'AAPResourcePicker',
-                    default: {
-                      id: 1,
-                      name: 'Default',
-                    },
+                    default: 'Default',
                   },
                   jobInventory: {
                     title: 'Inventory',
                     description: 'Select inventory',
                     resource: 'inventories',
                     'ui:field': 'AAPResourcePicker',
-                    default: {
-                      id: 1,
-                      name: 'Default',
-                    },
+                    default: 'Default',
                   },
                   scmUrl: {
                     title: 'Source control URL',

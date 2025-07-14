@@ -1,10 +1,4 @@
-import {
-  LoggerService,
-  readSchedulerServiceTaskScheduleDefinitionFromConfig,
-  SchedulerService,
-  SchedulerServiceTaskRunner,
-  SchedulerServiceTaskScheduleDefinition,
-} from '@backstage/backend-plugin-api';
+import { LoggerService } from '@backstage/backend-plugin-api';
 import { Config } from '@backstage/config';
 
 import * as YAML from 'yaml';
@@ -31,15 +25,11 @@ import {
   Team,
   User,
   Users,
+  CatalogConfig,
 } from '../types';
+import { IJobTemplate, ISurvey } from '../interfaces';
 
-import { getAnsibleConfig } from './utils/config';
-
-export interface AAPSubscriptionCheck {
-  status: number;
-  isValid: boolean;
-  isCompliant: boolean;
-}
+import { getAnsibleConfig, getCatalogConfig } from './utils/config';
 
 export interface IAAPService
   extends Pick<
@@ -66,89 +56,33 @@ export interface IAAPService
     | 'setLogger'
     | 'rhAAPAuthenticate'
     | 'fetchProfile'
-    | 'checkSubscription'
-    | 'getOrganizationsWithDetails'
+    | 'getOrganizations'
     | 'listSystemUsers'
     | 'getTeamsByUserId'
     | 'getUserRoleAssignments'
+    | 'syncJobTemplates'
   > {}
 
 export class AAPClient implements IAAPService {
   static readonly pluginLogName = 'backstage-rhaap-common';
   private readonly config: Config;
   private readonly ansibleConfig: AnsibleConfig;
+  private readonly catalogConfig: CatalogConfig;
   private readonly proxyAgent: Agent;
   private readonly pluginLogName: string;
   private logger: LoggerService;
-  private hasValidSubscription: boolean = false;
-  private isAAPCompliant: boolean = false;
-  private statusCode: number = 500;
-  private static _instance: AAPClient;
-  private readonly scheduleFn: () => Promise<void> = async () => {};
 
-  constructor(options: {
-    rootConfig: Config;
-    logger: LoggerService;
-    scheduler?: SchedulerService;
-  }) {
+  constructor(options: { rootConfig: Config; logger: LoggerService }) {
     this.pluginLogName = AAPClient.pluginLogName;
     this.config = options.rootConfig;
     this.ansibleConfig = getAnsibleConfig(this.config);
+    this.catalogConfig = getCatalogConfig(this.config);
     this.logger = options.logger;
     this.proxyAgent = new Agent({
       connect: {
         rejectUnauthorized: this.ansibleConfig.rhaap?.checkSSL ?? true,
       },
     });
-    const scheduler = options.scheduler;
-
-    if (AAPClient._instance) return AAPClient._instance;
-
-    this.logger.info(`[${this.pluginLogName}] Setting up the scheduler`);
-
-    const DEFAULT_SCHEDULE = {
-      frequency: { hours: 24 },
-      timeout: { minutes: 1 },
-    };
-    let schedule: SchedulerServiceTaskScheduleDefinition = DEFAULT_SCHEDULE;
-    if (this.config.has('catalog.providers.rhaap.development.schedule')) {
-      schedule = readSchedulerServiceTaskScheduleDefinitionFromConfig(
-        this.config.getConfig('catalog.providers.rhaap.development.schedule'),
-      );
-    } else if (this.config.has('catalog.providers.rhaap.production.schedule')) {
-      schedule = readSchedulerServiceTaskScheduleDefinitionFromConfig(
-        this.config.getConfig('catalog.providers.rhaap.production.schedule'),
-      );
-    }
-
-    if (scheduler) {
-      const taskRunner = scheduler.createScheduledTaskRunner(schedule);
-      this.scheduleFn = this.createFn(taskRunner);
-      const clearSubscriptionCheckTimeout = setTimeout(async () => {
-        this.scheduleFn();
-        await this.checkSubscription();
-        clearTimeout(clearSubscriptionCheckTimeout);
-      }, 500);
-    }
-    AAPClient._instance = this;
-  }
-
-  static getInstance(
-    config: Config,
-    logger: LoggerService,
-    scheduler?: SchedulerService,
-  ): AAPClient {
-    return new AAPClient({ rootConfig: config, logger, scheduler });
-  }
-
-  private createFn(taskRunner: SchedulerServiceTaskRunner) {
-    return async () =>
-      taskRunner.run({
-        id: 'backstage-rhaap-subscription-check',
-        fn: async () => {
-          this.checkSubscription();
-        },
-      });
   }
 
   private sleep(ms: number) {
@@ -785,7 +719,39 @@ export class AAPClient implements IAAPService {
   }
 
   public async getResourceData(resource: string, token: string): Promise<any> {
-    const endPoint = `api/controller/v2/${resource}/`;
+    let aapResource = resource;
+    const urlSearchParams = new URLSearchParams();
+    urlSearchParams.set('order_by', 'name');
+    urlSearchParams.set('page_size', '200');
+    if (resource.includes('execution_environments')) {
+      const [url, orgId] = resource.split(':');
+      aapResource = url;
+      if (orgId) {
+        urlSearchParams.set('or__organization__id', orgId);
+        urlSearchParams.set('or__organization__isnull', 'True');
+      }
+    }
+    if (resource.includes('job_templates')) {
+      const orgName = this.config.getString(
+        'catalog.providers.rhaap.development.orgs',
+      );
+      // TODO: Add support for multiple orgs with OR operator
+      urlSearchParams.set('organization__name', orgName);
+      if (this.catalogConfig.surveyEnabled !== undefined) {
+        urlSearchParams.set(
+          'survey_enabled',
+          this.catalogConfig.surveyEnabled.toString(),
+        );
+      }
+
+      if (this.catalogConfig.jobTemplateLabels.length > 0) {
+        this.catalogConfig.jobTemplateLabels.forEach(label => {
+          urlSearchParams.set(`or__labels__name__icontains`, label);
+        });
+      }
+    }
+
+    const endPoint = `api/controller/v2/${aapResource}/?${decodeURIComponent(urlSearchParams.toString())}`;
     const response = await this.executeGetRequest(endPoint, token);
     return await response.json();
   }
@@ -931,77 +897,6 @@ export class AAPClient implements IAAPService {
     } as PassportProfile;
   }
 
-  private async isAAP25Instance(token: string): Promise<boolean> {
-    try {
-      const url = `${this.ansibleConfig.rhaap?.baseUrl}/api/gateway/v1/ping/`;
-      this.logger.info(`[${this.pluginLogName}] Pinging api gateway at ${url}`);
-      const response = await this.executeGetRequest(
-        'api/gateway/v1/ping/',
-        token,
-      );
-      return response.ok;
-    } catch (error) {
-      this.logger.error(
-        `[${this.pluginLogName}] Error checking AAP version: ${error}`,
-      );
-      return false;
-    }
-  }
-
-  public async checkSubscription(): Promise<AAPSubscriptionCheck> {
-    try {
-      const token = this.config.getString('ansible.rhaap.token');
-      const isAAP25 = await this.isAAP25Instance(token);
-      const endpoint = isAAP25 ? 'api/controller/v2/config' : 'api/v2/config';
-      this.logger.info(
-        `[${this.pluginLogName}] Checking AAP subscription at ${this.ansibleConfig.rhaap?.baseUrl}/${endpoint}`,
-      );
-
-      const response = await this.executeGetRequest(endpoint, token);
-      const data = await response.json();
-
-      this.statusCode = response.status;
-      this.hasValidSubscription = ['enterprise', 'developer', 'trial'].includes(
-        data?.license_info?.license_type,
-      );
-
-      this.isAAPCompliant = data?.license_info?.compliant ?? false;
-
-      if (this.hasValidSubscription && this.isAAPCompliant) {
-        this.logger.info(
-          `[${this.pluginLogName}] AAP Subscription Check complete. Subscription is Valid.`,
-        );
-      }
-
-      return {
-        status: this.statusCode,
-        isValid: this.hasValidSubscription,
-        isCompliant: this.isAAPCompliant,
-      };
-    } catch (error: any) {
-      this.logger.error(
-        `[${this.pluginLogName}] AAP subscription check failed: ${error}`,
-      );
-
-      if (error.code === 'CERT_HAS_EXPIRED') {
-        this.statusCode = 495;
-      } else if (error.code === 'ECONNREFUSED' || error.code === 'ENOTFOUND') {
-        this.statusCode = 404;
-      } else {
-        this.statusCode =
-          Number.isInteger(error.code) && error.code >= 100 && error.code < 600
-            ? error.code
-            : 500;
-      }
-
-      return {
-        status: this.statusCode,
-        isValid: false,
-        isCompliant: false,
-      };
-    }
-  }
-
   private formatNameSpace(name: string): string {
     return name
       .toLowerCase()
@@ -1024,7 +919,7 @@ export class AAPClient implements IAAPService {
     return result;
   }
 
-  public async getOrganizationsWithDetails(): Promise<
+  public async getOrganizations(userAndTeamDetails?: boolean): Promise<
     Array<{
       organization: Organization;
       teams: Team[];
@@ -1052,30 +947,38 @@ export class AAPClient implements IAAPService {
           orgSync.toLocaleLowerCase() === org.name.toLocaleLowerCase(),
       );
 
+      if (!userAndTeamDetails) {
+        return rawOrgs.map((org: any) => {
+          return {
+            organization: org,
+            teams: [],
+            users: [],
+          };
+        });
+      }
+
       const orgData = await Promise.all(
         rawOrgs.map(async (org: any) => {
           const usersUrl: string | undefined = org.related?.users;
           const teamsUrl: string = org.related.teams;
 
-          const [rawTeams, rawUsers] = await Promise.all([
+          const [rawTeams, users] = await Promise.all([
             teamsUrl ? this.executeCatalogRequest(teamsUrl, token) : [],
             (usersUrl
               ? this.executeCatalogRequest(usersUrl, token)
               : []) as Users,
           ]);
 
-          const users: User[] = rawUsers;
           rawTeams.map(async (team: any) => {
             const teamUsersUrl: string | undefined = team.related?.users;
             if (!teamUsersUrl) {
               return;
             }
 
-            let [teamUsers] = (await Promise.all([
-              teamUsersUrl
-                ? this.executeCatalogRequest(teamUsersUrl, token)
-                : [],
-            ])) as Users[];
+            let teamUsers = ((await this.executeCatalogRequest(
+              teamUsersUrl,
+              token,
+            )) ?? []) as Users;
 
             teamUsers = teamUsers.map((user: User) => {
               if (!users.includes(user)) {
@@ -1166,5 +1069,59 @@ export class AAPClient implements IAAPService {
       },
       {},
     ) as RoleAssignments;
+  }
+
+  async syncJobTemplates(
+    surveyEnabled: boolean | undefined,
+    jobTemplateLabels: string[],
+  ): Promise<{ job: IJobTemplate; survey: ISurvey | null }[]> {
+    const endPoint = '/api/controller/v2/job_templates';
+    const orgName = this.config.getString(
+      'catalog.providers.rhaap.development.orgs',
+    );
+    const urlSearchParams = new URLSearchParams();
+    // TODO: Add support for multiple orgs with OR operator
+    urlSearchParams.set('organization__name', orgName);
+    if (surveyEnabled !== undefined) {
+      urlSearchParams.set('survey_enabled', surveyEnabled.toString());
+    }
+
+    if (jobTemplateLabels.length > 0) {
+      jobTemplateLabels.forEach(label => {
+        urlSearchParams.set(`or__labels__name__icontains`, label);
+      });
+    }
+    this.logger.info(`Fetching job templates from RH AAP.`);
+    try {
+      const token = this.ansibleConfig.rhaap?.token ?? null;
+      const templates = await this.executeCatalogRequest(
+        `${endPoint}?${decodeURIComponent(urlSearchParams.toString())}`,
+        token,
+      );
+      const jobTemplatesData = await Promise.all(
+        templates.map(async (template: IJobTemplate) => {
+          let survey = null;
+          if (template.survey_enabled) {
+            const response = await this.executeGetRequest(
+              template.related?.survey_spec,
+              token,
+            );
+            survey = (await response.json()) as ISurvey;
+          }
+
+          return {
+            job: template,
+            survey,
+          };
+        }),
+      );
+
+      return jobTemplatesData;
+    } catch (err) {
+      this.logger.error(
+        `Error retrieving job templates from ${endPoint}. ${JSON.stringify(err)}`,
+      );
+      throw new Error(`Error retrieving job templates from ${endPoint}.`);
+    }
   }
 }

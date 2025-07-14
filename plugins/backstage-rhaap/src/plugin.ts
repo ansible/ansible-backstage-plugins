@@ -14,26 +14,14 @@
  * limitations under the License.
  */
 import {
-  createApiFactory,
   createPlugin,
   createRoutableExtension,
-  discoveryApiRef,
-  fetchApiRef,
 } from '@backstage/core-plugin-api';
 
 import { rootRouteRef } from './routes';
-import { AnsibleApiClient, ansibleApiRef } from './api';
 
 export const ansiblePlugin = createPlugin({
   id: 'ansible',
-  apis: [
-    createApiFactory({
-      api: ansibleApiRef,
-      deps: { discoveryApi: discoveryApiRef, fetchApi: fetchApiRef },
-      factory: ({ discoveryApi, fetchApi }) =>
-        new AnsibleApiClient({ discoveryApi, fetchApi }),
-    }),
-  ],
   routes: {
     root: rootRouteRef,
   },
