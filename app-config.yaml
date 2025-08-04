@@ -33,6 +33,16 @@ backend:
   # workingDirectory: /tmp # Use this to configure a working directory for the scaffolder, defaults to the OS temp-dir
   auth:
     dangerouslyDisableDefaultAuthPolicy: true
+  reading:
+    allow:
+      - host: gitlab.com
+      - host: github.com
+      - host: raw.githubusercontent.com
+      - host: localhost
+  # Fix for body parser conflicts in catalog import
+  request:
+    bodyParsing:
+      sizeLimit: 10mb
 
 integrations:
   github:

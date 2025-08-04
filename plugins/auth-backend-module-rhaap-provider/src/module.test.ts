@@ -18,6 +18,7 @@ import {
 } from './mockData';
 import { ansibleServiceRef } from '@ansible/backstage-rhaap-common';
 import { createServiceFactory } from '@backstage/backend-plugin-api';
+import authBackend from '@backstage/plugin-auth-backend';
 
 const mockAnsibleService = {
   rhAAPAuthenticate: jest.fn().mockResolvedValue({
@@ -92,7 +93,7 @@ describe('authModuleRHAAPProvider', () => {
     const backend = await startTestBackend({
       features: [
         authModuleRhaapProvider,
-        import('@backstage/plugin-auth-backend'),
+        authBackend,
         mockServices.rootConfig.factory(MOCK_CONFIG),
         createServiceFactory({
           service: ansibleServiceRef,
@@ -108,7 +109,9 @@ describe('authModuleRHAAPProvider', () => {
   }, 20000);
 
   afterEach(() => {
-    backstageServer.close();
+    if (backstageServer) {
+      backstageServer.close();
+    }
   });
 
   it('should start', async () => {

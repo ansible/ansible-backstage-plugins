@@ -958,6 +958,562 @@ describe('AAPClient', () => {
           'No job template found with name: non existing template',
         );
       });
+
+      it('should launch a job template with timeout parameter', async () => {
+        mockFetch
+          .mockResolvedValueOnce({
+            ok: true,
+            json: jest.fn().mockResolvedValue({
+              results: [{ id: 1, name: 'Test Template' }],
+            }),
+          })
+          .mockResolvedValueOnce({
+            ok: true,
+            json: jest.fn().mockResolvedValue({ job: 123 }),
+          })
+          .mockResolvedValueOnce({
+            ok: true,
+            json: jest.fn().mockResolvedValue({ status: 'successful' }),
+          })
+          .mockResolvedValueOnce({
+            ok: true,
+            json: jest.fn().mockResolvedValue({ results: [] }),
+          });
+
+        const result = await client.launchJobTemplate(
+          {
+            template: 'Test Template',
+            timeout: 300,
+          },
+          'test-token',
+        );
+
+        expect(result.status).toBe('successful');
+      });
+
+      describe('Parameter Setting Tests', () => {
+        let launchSpy: jest.SpyInstance;
+
+        beforeEach(() => {
+          // Mock the necessary responses for successful job template launch
+          mockFetch
+            .mockResolvedValueOnce({
+              ok: true,
+              json: jest.fn().mockResolvedValue({
+                results: [{ id: 1, name: 'Test Template' }],
+              }),
+            })
+            .mockResolvedValueOnce({
+              ok: true,
+              json: jest.fn().mockResolvedValue({ job: 123 }),
+            })
+            .mockResolvedValueOnce({
+              ok: true,
+              json: jest.fn().mockResolvedValue({ status: 'successful' }),
+            })
+            .mockResolvedValueOnce({
+              ok: true,
+              json: jest.fn().mockResolvedValue({ results: [] }),
+            });
+
+          // Spy on executePostRequest to capture the data being sent
+          launchSpy = jest.spyOn(client, 'executePostRequest');
+        });
+
+        it('should set jobType when provided', async () => {
+          await client.launchJobTemplate(
+            {
+              template: 'Test Template',
+              jobType: 'check',
+            },
+            'test-token',
+          );
+
+          expect(launchSpy).toHaveBeenCalledWith(
+            expect.stringContaining('launch'),
+            'test-token',
+            expect.objectContaining({
+              job_type: 'check',
+            }),
+          );
+        });
+
+        it('should not set jobType when not provided', async () => {
+          await client.launchJobTemplate(
+            {
+              template: 'Test Template',
+            },
+            'test-token',
+          );
+
+          expect(launchSpy).toHaveBeenCalledWith(
+            expect.stringContaining('launch'),
+            'test-token',
+            expect.not.objectContaining({
+              job_type: expect.anything(),
+            }),
+          );
+        });
+
+        it('should set executionEnvironment when provided with id', async () => {
+          await client.launchJobTemplate(
+            {
+              template: 'Test Template',
+              executionEnvironment: {
+                id: 42,
+                environmentName: 'test-ee',
+                organization: { id: 1, name: 'test-org' },
+                image: 'test-image',
+                pull: 'always',
+              },
+            },
+            'test-token',
+          );
+
+          expect(launchSpy).toHaveBeenCalledWith(
+            expect.stringContaining('launch'),
+            'test-token',
+            expect.objectContaining({
+              execution_environment: 42,
+            }),
+          );
+        });
+
+        it('should not set executionEnvironment when id is missing', async () => {
+          await client.launchJobTemplate(
+            {
+              template: 'Test Template',
+              executionEnvironment: {
+                environmentName: 'test-ee',
+                organization: { id: 1, name: 'test-org' },
+                image: 'test-image',
+                pull: 'always',
+              },
+            },
+            'test-token',
+          );
+
+          expect(launchSpy).toHaveBeenCalledWith(
+            expect.stringContaining('launch'),
+            'test-token',
+            expect.not.objectContaining({
+              execution_environment: expect.anything(),
+            }),
+          );
+        });
+
+        it('should set forks when provided as positive number', async () => {
+          await client.launchJobTemplate(
+            {
+              template: 'Test Template',
+              forks: 5,
+            },
+            'test-token',
+          );
+
+          expect(launchSpy).toHaveBeenCalledWith(
+            expect.stringContaining('launch'),
+            'test-token',
+            expect.objectContaining({
+              forks: 5,
+            }),
+          );
+        });
+
+        it('should set forks when provided as zero', async () => {
+          await client.launchJobTemplate(
+            {
+              template: 'Test Template',
+              forks: 0,
+            },
+            'test-token',
+          );
+
+          expect(launchSpy).toHaveBeenCalledWith(
+            expect.stringContaining('launch'),
+            'test-token',
+            expect.objectContaining({
+              forks: 0,
+            }),
+          );
+        });
+
+        it('should not set forks when not provided', async () => {
+          await client.launchJobTemplate(
+            {
+              template: 'Test Template',
+            },
+            'test-token',
+          );
+
+          expect(launchSpy).toHaveBeenCalledWith(
+            expect.stringContaining('launch'),
+            'test-token',
+            expect.not.objectContaining({
+              forks: expect.anything(),
+            }),
+          );
+        });
+
+        it('should set limit when provided', async () => {
+          await client.launchJobTemplate(
+            {
+              template: 'Test Template',
+              limit: 'web',
+            },
+            'test-token',
+          );
+
+          expect(launchSpy).toHaveBeenCalledWith(
+            expect.stringContaining('launch'),
+            'test-token',
+            expect.objectContaining({
+              limit: 'web',
+            }),
+          );
+        });
+
+        it('should not set limit when not provided', async () => {
+          await client.launchJobTemplate(
+            {
+              template: 'Test Template',
+            },
+            'test-token',
+          );
+
+          expect(launchSpy).toHaveBeenCalledWith(
+            expect.stringContaining('launch'),
+            'test-token',
+            expect.not.objectContaining({
+              limit: expect.anything(),
+            }),
+          );
+        });
+
+        it('should set verbosity when provided with id', async () => {
+          await client.launchJobTemplate(
+            {
+              template: 'Test Template',
+              verbosity: { id: 3, name: 'verbose' },
+            },
+            'test-token',
+          );
+
+          expect(launchSpy).toHaveBeenCalledWith(
+            expect.stringContaining('launch'),
+            'test-token',
+            expect.objectContaining({
+              verbosity: 3,
+            }),
+          );
+        });
+
+        it('should set verbosity when provided with id as zero', async () => {
+          await client.launchJobTemplate(
+            {
+              template: 'Test Template',
+              verbosity: { id: 0, name: 'verbose' },
+            },
+            'test-token',
+          );
+
+          expect(launchSpy).toHaveBeenCalledWith(
+            expect.stringContaining('launch'),
+            'test-token',
+            expect.objectContaining({
+              verbosity: 0,
+            }),
+          );
+        });
+
+        it('should not set verbosity when not provided', async () => {
+          await client.launchJobTemplate(
+            {
+              template: 'Test Template',
+            },
+            'test-token',
+          );
+
+          expect(launchSpy).toHaveBeenCalledWith(
+            expect.stringContaining('launch'),
+            'test-token',
+            expect.not.objectContaining({
+              verbosity: expect.anything(),
+            }),
+          );
+        });
+
+        it('should set jobSliceCount when provided as positive number', async () => {
+          await client.launchJobTemplate(
+            {
+              template: 'Test Template',
+              jobSliceCount: 4,
+            },
+            'test-token',
+          );
+
+          expect(launchSpy).toHaveBeenCalledWith(
+            expect.stringContaining('launch'),
+            'test-token',
+            expect.objectContaining({
+              job_slice_count: 4,
+            }),
+          );
+        });
+
+        it('should set jobSliceCount when provided as zero', async () => {
+          await client.launchJobTemplate(
+            {
+              template: 'Test Template',
+              jobSliceCount: 0,
+            },
+            'test-token',
+          );
+
+          expect(launchSpy).toHaveBeenCalledWith(
+            expect.stringContaining('launch'),
+            'test-token',
+            expect.objectContaining({
+              job_slice_count: 0,
+            }),
+          );
+        });
+
+        it('should not set jobSliceCount when not provided', async () => {
+          await client.launchJobTemplate(
+            {
+              template: 'Test Template',
+            },
+            'test-token',
+          );
+
+          expect(launchSpy).toHaveBeenCalledWith(
+            expect.stringContaining('launch'),
+            'test-token',
+            expect.not.objectContaining({
+              job_slice_count: expect.anything(),
+            }),
+          );
+        });
+
+        it('should set timeout when provided', async () => {
+          await client.launchJobTemplate(
+            {
+              template: 'Test Template',
+              timeout: 300,
+            },
+            'test-token',
+          );
+
+          expect(launchSpy).toHaveBeenCalledWith(
+            expect.stringContaining('launch'),
+            'test-token',
+            expect.objectContaining({
+              timeout: 300,
+            }),
+          );
+        });
+
+        it('should set timeout when provided as zero', async () => {
+          await client.launchJobTemplate(
+            {
+              template: 'Test Template',
+              timeout: 0,
+            },
+            'test-token',
+          );
+
+          expect(launchSpy).toHaveBeenCalledWith(
+            expect.stringContaining('launch'),
+            'test-token',
+            expect.objectContaining({
+              timeout: 0,
+            }),
+          );
+        });
+
+        it('should not set timeout when not provided', async () => {
+          await client.launchJobTemplate(
+            {
+              template: 'Test Template',
+            },
+            'test-token',
+          );
+
+          expect(launchSpy).toHaveBeenCalledWith(
+            expect.stringContaining('launch'),
+            'test-token',
+            expect.not.objectContaining({
+              timeout: expect.anything(),
+            }),
+          );
+        });
+
+        it('should set diffMode when provided as true', async () => {
+          await client.launchJobTemplate(
+            {
+              template: 'Test Template',
+              diffMode: true,
+            },
+            'test-token',
+          );
+
+          expect(launchSpy).toHaveBeenCalledWith(
+            expect.stringContaining('launch'),
+            'test-token',
+            expect.objectContaining({
+              diff_mode: true,
+            }),
+          );
+        });
+
+        it('should set diffMode when provided as false', async () => {
+          await client.launchJobTemplate(
+            {
+              template: 'Test Template',
+              diffMode: false,
+            },
+            'test-token',
+          );
+
+          expect(launchSpy).toHaveBeenCalledWith(
+            expect.stringContaining('launch'),
+            'test-token',
+            expect.objectContaining({
+              diff_mode: false,
+            }),
+          );
+        });
+
+        it('should not set diffMode when not provided', async () => {
+          await client.launchJobTemplate(
+            {
+              template: 'Test Template',
+            },
+            'test-token',
+          );
+
+          expect(launchSpy).toHaveBeenCalledWith(
+            expect.stringContaining('launch'),
+            'test-token',
+            expect.not.objectContaining({
+              diff_mode: expect.anything(),
+            }),
+          );
+        });
+
+        it('should set jobTags when provided', async () => {
+          await client.launchJobTemplate(
+            {
+              template: 'Test Template',
+              jobTags: 'tag1,tag2',
+            },
+            'test-token',
+          );
+
+          expect(launchSpy).toHaveBeenCalledWith(
+            expect.stringContaining('launch'),
+            'test-token',
+            expect.objectContaining({
+              job_tags: 'tag1,tag2',
+            }),
+          );
+        });
+
+        it('should not set jobTags when not provided', async () => {
+          await client.launchJobTemplate(
+            {
+              template: 'Test Template',
+            },
+            'test-token',
+          );
+
+          expect(launchSpy).toHaveBeenCalledWith(
+            expect.stringContaining('launch'),
+            'test-token',
+            expect.not.objectContaining({
+              job_tags: expect.anything(),
+            }),
+          );
+        });
+
+        it('should set skipTags when provided', async () => {
+          await client.launchJobTemplate(
+            {
+              template: 'Test Template',
+              skipTags: 'skip1,skip2',
+            },
+            'test-token',
+          );
+
+          expect(launchSpy).toHaveBeenCalledWith(
+            expect.stringContaining('launch'),
+            'test-token',
+            expect.objectContaining({
+              skip_tags: 'skip1,skip2',
+            }),
+          );
+        });
+
+        it('should not set skipTags when not provided', async () => {
+          await client.launchJobTemplate(
+            {
+              template: 'Test Template',
+            },
+            'test-token',
+          );
+
+          expect(launchSpy).toHaveBeenCalledWith(
+            expect.stringContaining('launch'),
+            'test-token',
+            expect.not.objectContaining({
+              skip_tags: expect.anything(),
+            }),
+          );
+        });
+
+        it('should set multiple parameters when all are provided', async () => {
+          await client.launchJobTemplate(
+            {
+              template: 'Test Template',
+              jobType: 'run',
+              executionEnvironment: {
+                id: 1,
+                environmentName: 'test-ee',
+                organization: { id: 1, name: 'test-org' },
+                image: 'test-image',
+                pull: 'always',
+              },
+              forks: 5,
+              limit: 'web',
+              verbosity: { id: 2, name: 'verbose' },
+              jobSliceCount: 3,
+              timeout: 600,
+              diffMode: true,
+              jobTags: 'deploy',
+              skipTags: 'skip-backup',
+            },
+            'test-token',
+          );
+
+          expect(launchSpy).toHaveBeenCalledWith(
+            expect.stringContaining('launch'),
+            'test-token',
+            expect.objectContaining({
+              job_type: 'run',
+              execution_environment: 1,
+              forks: 5,
+              limit: 'web',
+              verbosity: 2,
+              job_slice_count: 3,
+              timeout: 600,
+              diff_mode: true,
+              job_tags: 'deploy',
+              skip_tags: 'skip-backup',
+            }),
+          );
+        });
+      });
     });
 
     describe('fetchEvents', () => {
@@ -1459,6 +2015,69 @@ describe('AAPClient', () => {
           expect.any(Object),
         );
       });
+
+      it('should handle job_templates resource with labels', async () => {
+        // Create a client with job template labels configured
+        const mockLabelCatalogConfig = {
+          keys: jest.fn().mockReturnValue(['development']),
+          getConfig: jest.fn().mockImplementation((key: string) => {
+            if (key === 'development') {
+              return {
+                getString: jest.fn().mockImplementation((path: string) => {
+                  if (path === 'orgs') {
+                    return 'TestOrg';
+                  }
+                  throw new Error(`No value for ${path}`);
+                }),
+                getStringArray: jest.fn().mockImplementation((path: string) => {
+                  if (path === 'orgs') {
+                    return ['TestOrg'];
+                  }
+                  throw new Error(`No value for ${path}`);
+                }),
+                getOptionalBoolean: jest.fn().mockReturnValue(false),
+                getOptionalStringArray: jest
+                  .fn()
+                  .mockImplementation((labelKey: string) => {
+                    if (labelKey === 'sync.jobTemplates.labels') {
+                      return ['label1', 'label2'];
+                    }
+                    return [];
+                  }),
+              };
+            }
+            throw new Error(`No config for key ${key}`);
+          }),
+        };
+
+        const mockLabelConfig = {
+          ...mockConfig,
+          getOptionalConfig: jest.fn().mockImplementation((path: string) => {
+            if (path === 'catalog.providers.rhaap') {
+              return mockLabelCatalogConfig;
+            }
+            return mockConfig.getOptionalConfig(path);
+          }),
+        };
+
+        const labelClient = new AAPClient({
+          rootConfig: mockLabelConfig,
+          logger: mockLogger,
+        });
+
+        const mockResponse = {
+          ok: true,
+          json: jest.fn().mockResolvedValue({ results: [{ id: 1 }] }),
+        };
+        mockFetch.mockResolvedValue(mockResponse);
+
+        await labelClient.getResourceData('job_templates', 'test-token');
+
+        expect(mockFetch).toHaveBeenCalledWith(
+          expect.stringContaining('or__labels__name__icontains=label2'),
+          expect.any(Object),
+        );
+      });
     });
 
     describe('getJobTemplatesByName', () => {
@@ -1594,20 +2213,77 @@ describe('AAPClient', () => {
               description: 'A test team',
             },
           ],
-          users: expect.arrayContaining([
-            expect.objectContaining({
+          users: [
+            {
               id: 1,
               username: 'user1',
               email: 'user1@example.com',
-            }),
-            expect.objectContaining({
+              first_name: 'User',
+              last_name: 'One',
+            },
+            {
               id: 2,
               username: 'user2',
               email: 'user2@example.com',
               is_orguser: false,
-            }),
-          ]),
+              first_name: 'User',
+              last_name: 'Two',
+            },
+          ],
         });
+      });
+
+      it('should fetch organizations with multiple orgs configured', async () => {
+        const mockMultiOrgConfig = {
+          keys: jest.fn().mockReturnValue(['development']),
+          getConfig: jest.fn().mockImplementation((key: string) => {
+            if (key === 'development') {
+              return {
+                getString: jest.fn().mockImplementation((path: string) => {
+                  if (path === 'orgs') {
+                    return 'TestOrg1,TestOrg2';
+                  }
+                  throw new Error(`No value for ${path}`);
+                }),
+                getStringArray: jest.fn().mockImplementation((path: string) => {
+                  if (path === 'orgs') {
+                    return ['TestOrg1', 'TestOrg2'];
+                  }
+                  throw new Error(`No value for ${path}`);
+                }),
+                getOptionalBoolean: jest.fn().mockReturnValue(false),
+                getOptionalStringArray: jest.fn().mockReturnValue([]),
+              };
+            }
+            throw new Error(`No config for key ${key}`);
+          }),
+        };
+
+        const multiOrgClient = new AAPClient({
+          rootConfig: {
+            ...mockConfig,
+            getOptionalConfig: jest.fn().mockImplementation((path: string) => {
+              if (path === 'catalog.providers.rhaap') {
+                return mockMultiOrgConfig;
+              }
+              return mockConfig.getOptionalConfig(path);
+            }),
+          },
+          logger: mockLogger,
+        });
+
+        jest
+          .spyOn(multiOrgClient as any, 'executeCatalogRequest')
+          .mockResolvedValueOnce([
+            {
+              id: 1,
+              name: 'TestOrg1',
+              namespace: 'testorg1',
+            },
+          ]);
+
+        const result = await multiOrgClient.getOrganizations(false);
+        expect(result).toHaveLength(1);
       });
 
       it('should handle errors when fetching organization details', async () => {
@@ -2079,6 +2755,73 @@ describe('AAPClient', () => {
             survey: mockSurveyResponse,
           },
         ]);
+      });
+
+      it('should fetch job templates with labels from AAP', async () => {
+        jest
+          .spyOn(client as any, 'executeCatalogRequest')
+          .mockResolvedValueOnce(mockJobTemplateResponse);
+        jest.spyOn(client as any, 'executeGetRequest').mockResolvedValueOnce({
+          ok: true,
+          json: jest.fn().mockResolvedValue({ results: [] }),
+        });
+
+        const result = await client.syncJobTemplates(false, [
+          'label1',
+          'label2',
+        ]);
+        expect(result).toEqual([
+          { job: mockJobTemplateResponse[0], survey: { results: [] } },
+        ]);
+      });
+
+      it('should fetch job templates with multiple organizations from AAP', async () => {
+        const mockMultiOrgConfig = {
+          keys: jest.fn().mockReturnValue(['development']),
+          getConfig: jest.fn().mockImplementation((key: string) => {
+            if (key === 'development') {
+              return {
+                getString: jest.fn().mockImplementation((path: string) => {
+                  if (path === 'orgs') {
+                    return 'TestOrg1,TestOrg2';
+                  }
+                  throw new Error(`No value for ${path}`);
+                }),
+                getStringArray: jest.fn().mockImplementation((path: string) => {
+                  if (path === 'orgs') {
+                    return ['TestOrg1', 'TestOrg2'];
+                  }
+                  throw new Error(`No value for ${path}`);
+                }),
+                getOptionalBoolean: jest.fn().mockReturnValue(false),
+                getOptionalStringArray: jest.fn().mockReturnValue([]),
+              };
+            }
+            throw new Error(`No config for key ${key}`);
+          }),
+        };
+
+        const multiOrgClient = new AAPClient({
+          rootConfig: {
+            ...mockConfig,
+            getOptionalConfig: jest.fn().mockImplementation((path: string) => {
+              if (path === 'catalog.providers.rhaap') {
+                return mockMultiOrgConfig;
+              }
+              return mockConfig.getOptionalConfig(path);
+            }),
+          },
+          logger: mockLogger,
+        });
+
+        jest
+          .spyOn(multiOrgClient as any, 'executeCatalogRequest')
+          .mockResolvedValueOnce(mockJobTemplateResponse);
+
+        await multiOrgClient.syncJobTemplates(false, []);
+        expect(
+          (multiOrgClient as any).executeCatalogRequest,
+        ).toHaveBeenCalled();
       });
 
       it('should throw an error while fetching job templates from AAP', async () => {

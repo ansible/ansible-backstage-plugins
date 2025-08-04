@@ -8,7 +8,7 @@ import {
   PassportProfile,
 } from '@backstage/plugin-auth-node';
 import { AuthenticationError } from '@backstage/errors';
-
+import uniqBy from 'lodash.uniqby';
 import {
   AAPTemplate,
   CleanUp,
@@ -625,14 +625,14 @@ export class AAPClient implements IAAPService {
     if (payload?.limit) {
       data.limit = payload.limit;
     }
-    if (payload?.verbosity?.id) {
+    if (payload?.verbosity?.id !== undefined) {
       data.verbosity = payload.verbosity.id;
     }
     if (payload?.jobSliceCount || payload.jobSliceCount === 0) {
       data.job_slice_count = payload.jobSliceCount;
     }
     if (payload?.timeout || payload.timeout === 0) {
-      data.job_slice_count = payload.timeout;
+      data.timeout = payload.timeout;
     }
     if (payload?.diffMode || payload.diffMode === false) {
       data.diff_mode = payload.diffMode;
@@ -1018,27 +1018,29 @@ export class AAPClient implements IAAPService {
               : []) as Users,
           ]);
 
-          rawTeams.map(async (team: any) => {
-            let teamUsersUrl: string | undefined = team.related?.users;
-            if (!teamUsersUrl) {
-              return;
-            }
-
-            teamUsersUrl = `${teamUsersUrl}?${decodeURIComponent(urlSearchParams.toString())}`;
-            let teamUsers = ((await this.executeCatalogRequest(
-              teamUsersUrl,
-              token,
-            )) ?? []) as Users;
-
-            teamUsers = teamUsers.map((user: User) => {
-              if (!users.includes(user)) {
-                user.is_orguser = false;
+          await Promise.all(
+            rawTeams.map(async (team: any) => {
+              let teamUsersUrl: string | undefined = team.related?.users;
+              if (!teamUsersUrl) {
+                return;
               }
-              return user;
-            });
-            // merge elements of array rawUsers into the teamUsers
-            users.push(...teamUsers);
-          });
+
+              teamUsersUrl = `${teamUsersUrl}?${decodeURIComponent(urlSearchParams.toString())}`;
+              let teamUsers = ((await this.executeCatalogRequest(
+                teamUsersUrl,
+                token,
+              )) ?? []) as Users;
+
+              teamUsers = teamUsers.map((user: User) => {
+                if (!users.some(orgUser => orgUser.id === user.id)) {
+                  user.is_orguser = false;
+                }
+                return user;
+              });
+              // merge elements of array rawUsers into the teamUsers
+              users.push(...teamUsers);
+            }),
+          );
 
           const teams: Team[] = (rawTeams || []).map((item: Team) => ({
             id: item.id,
@@ -1056,7 +1058,7 @@ export class AAPClient implements IAAPService {
                 org.namespace ?? org.name.toLowerCase().replace(/\s/g, '-'),
             },
             teams,
-            users,
+            users: uniqBy(users, 'id'),
           };
         }),
       );
@@ -1153,7 +1155,12 @@ export class AAPClient implements IAAPService {
     const endPoint = 'api/gateway/v1/role_user_assignments/';
     const token = this.ansibleConfig.rhaap?.token ?? null;
     this.logger.info(`Fetching role assignments from RH AAP.`);
-    const roles = await this.executeCatalogRequest(endPoint, token);
+    const urlSearchParams = new URLSearchParams();
+    urlSearchParams.set('page_size', '200');
+    const roles = await this.executeCatalogRequest(
+      `${endPoint}?${decodeURIComponent(urlSearchParams.toString())}`,
+      token,
+    );
     return roles.reduce(
       (map: RoleAssignments, item: RoleAssignmentResponse) => {
         const tmp = map?.[item.user] ? map[item.user] : {};
