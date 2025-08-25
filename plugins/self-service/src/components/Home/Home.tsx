@@ -202,19 +202,26 @@ export const HomeComponent = () => {
         <EntityListProvider>
           <CatalogFilterLayout>
             <CatalogFilterLayout.Filters>
-              <EntitySearchBar />
+              <div data-testid="search-bar-container">
+                <EntitySearchBar />
+              </div>
               <EntityKindPicker initialFilter="template" hidden />
-              <UserListPicker
-                initialFilter="all"
-                availableFilters={['all', 'starred']}
-              />
-              <TemplateCategoryPicker />
+              <div data-testid="user-picker-container">
+                <UserListPicker
+                  initialFilter="all"
+                  availableFilters={['all', 'starred']}
+                />
+              </div>
+              <div data-testid="categories-picker">
+                <TemplateCategoryPicker />
+              </div>
               <EntityTagPicker />
               <EntityOwnerPicker />
             </CatalogFilterLayout.Filters>
             <CatalogFilterLayout.Content>
               {loading ? (
                 <div
+                  data-testid="loading-templates"
                   style={{
                     display: 'flex',
                     justifyContent: 'center',
@@ -223,25 +230,27 @@ export const HomeComponent = () => {
                     gap: '10px',
                   }}
                 >
-                  {Array.from({ length: 3 }).map(_ => (
-                    <SkeletonLoader />
+                  {Array.from({ length: 3 }).map((_, index) => (
+                    <SkeletonLoader key={index} />
                   ))}
                 </div>
               ) : (
-                <TemplateGroups
-                  groups={[
-                    {
-                      filter: (entity: TemplateEntityV1beta3) => {
-                        return jobTemplates.some(({ id }) =>
-                          entity.metadata.aapJobTemplateId
-                            ? id === entity.metadata.aapJobTemplateId
-                            : true,
-                        );
+                <div data-testid="templates-container">
+                  <TemplateGroups
+                    groups={[
+                      {
+                        filter: (entity: TemplateEntityV1beta3) => {
+                          return jobTemplates.some(({ id }) =>
+                            entity.metadata.aapJobTemplateId
+                              ? id === entity.metadata.aapJobTemplateId
+                              : true,
+                          );
+                        },
                       },
-                    },
-                  ]}
-                  TemplateCardComponent={WizardCard}
-                />
+                    ]}
+                    TemplateCardComponent={WizardCard}
+                  />
+                </div>
               )}
             </CatalogFilterLayout.Content>
           </CatalogFilterLayout>

@@ -1,0 +1,185 @@
+# Ansible Backstage Plugins - Cursor Rules
+
+## Project Overview
+This is a monorepo for Ansible plugins for Backstage/Red Hat Developer Hub (RHDH). The project contains multiple plugins that integrate Ansible Automation Platform (AAP) with Backstage, providing self-service capabilities for Ansible automation.
+
+## Technology Stack
+- **Framework**: Backstage (v1.39.1)
+- **Language**: TypeScript 5.8+
+- **Runtime**: Node.js 20 || 22
+- **Package Manager**: Yarn 4.9.2 (workspaces)
+- **Testing**: Jest, Cypress (E2E)
+- **Build Tools**: Backstage CLI, Janus CLI
+- **UI Framework**: Material-UI v4, React 18.3+
+
+## Project Structure
+```
+ansible-backstage-plugins/
+├── packages/           # Core Backstage app and backend
+├── plugins/           # Ansible-specific plugins
+│   ├── backstage-rhaap/                    # Frontend plugin
+│   ├── backstage-rhaap-common/             # Shared utilities
+│   ├── auth-backend-module-rhaap-provider/ # Auth provider
+│   ├── catalog-backend-module-rhaap/       # Catalog integration
+│   ├── scaffolder-backend-module-backstage-rhaap/ # Scaffolder actions
+│   └── self-service/                       # Self-service UI
+├── e2e-tests/         # Cypress E2E tests
+├── docs/              # Documentation
+└── examples/          # Example configurations
+```
+
+## Development Guidelines
+
+### Code Style & Formatting
+- Use TypeScript strict mode
+- Follow Backstage plugin conventions
+- Use Prettier with Spotify config (`@spotify/prettier-config`)
+- ESLint with Backstage rules
+- 2-space indentation
+- Prefer named exports over default exports
+- Use kebab-case for file names, PascalCase for components
+
+### Plugin Development
+- Each plugin should have its own package.json with proper Backstage metadata
+- Frontend plugins use `@backstage/core-plugin-api` and Material-UI v4
+- Backend plugins extend Backstage's backend framework
+- Use `@ansible/plugin-backstage-rhaap-common` for shared utilities
+- Follow the plugin ID convention: `ansible` for the main plugin
+
+### File Naming Conventions
+- Components: `ComponentName.tsx`
+- Hooks: `useHookName.ts`
+- APIs: `apiName.ts`
+- Types: `types.ts` or `interfaces.ts`
+- Tests: `*.test.ts` or `*.test.tsx`
+- Config: `config.d.ts` for schema definitions
+
+### Import Organization
+```typescript
+// 1. Node modules (Backstage core)
+import { createPlugin } from '@backstage/core-plugin-api';
+
+// 2. Backstage plugins
+import { catalogApiRef } from '@backstage/plugin-catalog-react';
+
+// 3. Internal shared modules
+import { AAPClient } from '@ansible/plugin-backstage-rhaap-common';
+
+// 4. Relative imports
+import { MyComponent } from './MyComponent';
+```
+
+### Testing Standards
+- Unit tests with Jest for all business logic
+- React Testing Library for component tests
+- Cypress for E2E tests with multiple configurations:
+  - `cypress.config.ts` - Main configuration
+  - `cypress.self-service.config.ts` - Self-service plugin tests
+  - `cypress.rhdh.config.ts` - RHDH-specific tests
+- Mock external dependencies (AAP API calls)
+- Test coverage should be maintained
+
+### Configuration Management
+- Use `app-config.yaml` for development configuration
+- Environment-specific configs in separate files
+- Schema validation with `config.d.ts` files
+- Support for dynamic RBAC with AAP integration
+
+### API Integration
+- Use `AAPClient` from common package for AAP API calls
+- Implement proper error handling and loading states
+- Support both development and production AAP environments
+- Handle authentication via RHAAP provider
+
+### Dynamic Plugin Support
+- All plugins support dynamic loading via Janus CLI
+- Export configurations for RHDH deployment
+- Include integrity hashes for security
+- Support OCI image packaging
+
+### Performance Considerations
+- Lazy load components where appropriate
+- Use React.memo for expensive components
+- Implement proper caching for API calls
+- Optimize bundle size with tree shaking
+
+### Security Best Practices
+- Validate all user inputs
+- Use proper CORS configuration
+- Implement RBAC with AAP superuser integration
+- Secure API tokens and secrets
+- Follow Backstage security guidelines
+
+### Documentation
+- JSDoc for public APIs
+- README.md for each plugin
+- Configuration examples in docs/
+- Installation guides for different deployment methods
+
+### Git Workflow
+- Use conventional commits
+- Husky pre-commit hooks for linting
+- lint-staged for staged file processing
+- Branch naming: `feature/`, `fix/`, `enhancement/`
+
+### Build & Deployment
+- `yarn build:all` - Build all packages
+- `yarn export-dynamic` - Export dynamic plugins
+- Support for Helm and Operator deployments
+- Container image builds with proper tagging
+
+### Environment Variables
+```bash
+# Development
+BACKEND_SECRET=development-secret-change-in-production
+AUTH_SIGNING_KEY=<AUTH_SIGNING_KEY>
+
+# AAP Integration
+AAP_BASE_URL=https://your-aap-instance.com
+AAP_TOKEN=your-aap-token
+AAP_CHECK_SSL=false
+
+# GitHub Integration
+GITHUB_TOKEN=your-github-token
+```
+
+### Common Patterns
+- Use Backstage's entity model for catalog integration
+- Implement scaffolder actions for automation workflows
+- Follow Material-UI theming for consistent UI
+- Use React Router for navigation
+- Implement proper loading and error states
+
+### Troubleshooting
+- Check Backstage logs for plugin loading issues
+- Verify AAP connectivity and authentication
+- Ensure proper RBAC configuration
+- Test dynamic plugin integrity hashes
+- Validate YAML configurations
+
+### VS Code Extensions Recommended
+- TypeScript and JavaScript Language Features
+- ESLint
+- Prettier
+- GitLens
+- Backstage (if available)
+- YAML Language Support
+
+## Quick Commands
+```bash
+# Development
+yarn start                    # Start development server
+yarn test                     # Run unit tests
+yarn test:e2e                # Run E2E tests
+yarn lint                     # Lint all packages
+yarn build                    # Build all packages
+
+# Plugin Development
+yarn workspace @ansible/plugin-backstage-rhaap start
+yarn workspace backend build-image
+
+# Dynamic Plugin Export
+yarn export-dynamic --tag quay.io/ansible/ansible-backstage-plugins:$TAG
+```
+
+Remember: This is a Backstage plugin ecosystem focused on Ansible automation. Always consider the Backstage plugin architecture and AAP integration patterns when making changes.

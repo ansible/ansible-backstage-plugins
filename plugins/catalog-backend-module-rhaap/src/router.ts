@@ -28,8 +28,8 @@ export async function createRouter(options: {
   const { logger, aapEntityProvider, jobTemplateProvider } = options;
   const router = Router();
 
-  // Add JSON parsing middleware for POST requests
-  router.use(express.json());
+  // Note: Don't apply express.json() globally to avoid conflicts with catalog backend
+  // Instead, apply it only to specific routes that need it
 
   router.get('/health', (_, response) => {
     logger.info('PONG!');
@@ -48,7 +48,7 @@ export async function createRouter(options: {
     response.status(200).json(res);
   });
 
-  router.post('/aap/create_user', async (request, response) => {
+  router.post('/aap/create_user', express.json(), async (request, response) => {
     const { username, userID } = request.body;
     if (!username || userID === undefined || userID === null) {
       response

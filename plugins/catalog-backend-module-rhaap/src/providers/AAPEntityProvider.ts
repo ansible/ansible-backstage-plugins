@@ -283,7 +283,6 @@ export class AAPEntityProvider implements EntityProvider {
                   }
                 }
               }
-
               const userEntity = userParser({
                 baseUrl: this.baseUrl,
                 nameSpace: 'default',
@@ -337,7 +336,6 @@ export class AAPEntityProvider implements EntityProvider {
                   }
                 }
               }
-
               const userEntity = userParser({
                 baseUrl: this.baseUrl,
                 nameSpace: 'default',

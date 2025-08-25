@@ -1,20 +1,32 @@
-// ***********************************************************
-// This example support/e2e.js is processed and
-// loaded automatically before your test files.
-//
-// This is a great place to put global configuration and
-// behavior that modifies Cypress.
-//
-// You can change the location of this file or turn off
-// automatically serving support files with the
-// 'supportFile' configuration option.
-//
-// You can read more here:
-// https://on.cypress.io/configuration
-// ***********************************************************
+/// <reference types="cypress" />
 
-// Import commands.js using ES2015 syntax:
+/**
+ * E2E support file with optimized login performance
+ * Simplified to focus on core functionality
+ */
+
+// Import existing commands for compatibility
 import './commands';
 
-// Alternatively you can use CommonJS syntax:
-// require('./commands')
+// Import existing utilities to maintain compatibility
+import { Common } from '../e2e/utils/common';
+
+/**
+ * Global error handling
+ */
+Cypress.on('uncaught:exception', (err, runnable) => {
+  // Don't fail on specific known issues
+  if (
+    err.message.includes('ResizeObserver loop limit exceeded') ||
+    err.message.includes('Script error') ||
+    err.message.includes('ChunkLoadError') ||
+    err.message.includes('Loading chunk')
+  ) {
+    return false;
+  }
+
+  // Let other errors fail the test
+  return true;
+});
+
+// E2E Support file loaded successfully

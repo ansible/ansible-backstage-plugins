@@ -301,15 +301,6 @@ export const getSurveyDetails = (
       .map(item => item.variable),
   ];
 
-  // const surveyForm = {
-  //   title: survey.name,
-  //   description: survey.description,
-  //   required: (survey.spec || [])
-  //     .filter(item => item.required)
-  //     .map(item => item.variable),
-  //   properties: surveyParams,
-  // };
-
   return [promptForm, extraVariables];
 };
 
