@@ -86,7 +86,7 @@ describe('self-service', () => {
       facetsFromEntityRefs(entityRefs, tags),
     );
     await render(<HomeComponent />);
-    expect(screen.getByText('Templates', { exact: true })).toBeInTheDocument();
+    expect(screen.getByText(/Job Templates/i)).toBeInTheDocument();
     expect(screen.getByText('Add Template')).toBeInTheDocument();
     expect(screen.getByText('Personal')).toBeInTheDocument();
     expect(screen.getByText('Categories')).toBeInTheDocument();
@@ -128,9 +128,9 @@ describe('self-service', () => {
 
     // Select both options
     const orgsCheckbox = screen.getByLabelText(
-      'Organizations, Users and Teams',
+      'Organizations, Users, and Teams',
     );
-    const templatesCheckbox = screen.getByLabelText('Templates');
+    const templatesCheckbox = screen.getByLabelText('Job Templates');
     fireEvent.click(orgsCheckbox);
     fireEvent.click(templatesCheckbox);
 
@@ -167,9 +167,9 @@ describe('self-service', () => {
 
     // Select both options
     const orgsCheckbox = screen.getByLabelText(
-      'Organizations, Users and Teams',
+      'Organizations, Users, and Teams',
     );
-    const templatesCheckbox = screen.getByLabelText('Templates');
+    const templatesCheckbox = screen.getByLabelText('Job Templates');
     fireEvent.click(orgsCheckbox);
     fireEvent.click(templatesCheckbox);
 
@@ -205,7 +205,7 @@ describe('self-service', () => {
 
     // Select only organizations option
     const orgsCheckbox = screen.getByLabelText(
-      'Organizations, Users and Teams',
+      'Organizations, Users, and Teams',
     );
     fireEvent.click(orgsCheckbox);
 
@@ -259,7 +259,9 @@ describe('self-service', () => {
 
     await render(<HomeComponent />);
 
-    expect(screen.getByText('Templates', { exact: true })).toBeInTheDocument();
+    expect(
+      screen.getByText('Job Templates', { exact: true }),
+    ).toBeInTheDocument();
   });
 
   it('should handle templates only sync', async () => {
@@ -279,7 +281,7 @@ describe('self-service', () => {
       expect(screen.getByRole('dialog')).toBeInTheDocument();
     });
 
-    const templatesCheckbox = screen.getByLabelText('Templates');
+    const templatesCheckbox = screen.getByLabelText('Job Templates');
     fireEvent.click(templatesCheckbox);
 
     const okButton = screen.getByText('Ok');
@@ -301,6 +303,8 @@ describe('self-service', () => {
     await render(<HomeComponent />);
 
     // Test snackbar functionality exists
-    expect(screen.getByText('Templates', { exact: true })).toBeInTheDocument();
+    expect(
+      screen.getByText('Job Templates', { exact: true }),
+    ).toBeInTheDocument();
   });
 });

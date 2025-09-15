@@ -1,10 +1,17 @@
 # auth-backend-module-rhaap-provider
 
-The auth-backend-module-rhaap-provider is authentication plugin for Red Hat Ansible Automation Platforms.
+The auth-backend-module-rhaap-provider is an authentication plugin for Red Hat Ansible Automation Platform (AAP) that enables OAuth2-based single sign-on (SSO) integration with Backstage.
 
-Note: the auth-backend-module-rhaap-provider is used only for authentication.
-For AAP user to be able to login into RHDH / Ansible Self-Service, also plugin catalog-backend-module-rhaap is needed.
-The catalog-backend-module-rhaap plugin synchronizes users from AAP into RHDH.
+## Overview
+
+This plugin provides external authentication capabilities using AAP's OAuth2 implementation, allowing users to authenticate with Backstage using their existing AAP credentials.
+
+**Note**: This plugin handles authentication only. For complete AAP integration, you also need:
+
+- [catalog-backend-module-rhaap](../catalog-backend-module-rhaap/) for user/team synchronization
+- Proper RBAC configuration for access control
+
+For comprehensive setup and configuration instructions, see the [External Authentication Documentation](../../docs/features/external-authentication.md).
 
 ## Installation
 
@@ -40,4 +47,11 @@ auth:
       signIn:
         resolvers:
           - resolver: usernameMatchingUser
+
+## Detailed Documentation
+
+For comprehensive configuration, troubleshooting, and advanced usage, see:
+- [External Authentication Documentation](../../docs/features/external-authentication.md) - Complete setup and configuration guide
+- [Users, Teams, and Organizations Sync](../../docs/features/users-teams-organizations.md) - User catalog synchronization
+- [Job Template Execution](../../docs/features/job-templates.md) - Executing AAP job templates with authenticated users
 ```

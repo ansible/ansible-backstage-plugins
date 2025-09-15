@@ -1904,7 +1904,7 @@ describe('AAPClient', () => {
 
         expect(result).toEqual({ results: [{ id: 1 }] });
         expect(mockFetch).toHaveBeenCalledWith(
-          expect.stringContaining('organization__name__icontains=testorg'),
+          expect.stringContaining('organization__name__iexact=testorg'),
           expect.any(Object),
         );
       });
@@ -1967,7 +1967,7 @@ describe('AAPClient', () => {
         expect(result).toEqual({ results: [{ id: 1 }, { id: 2 }] });
         // Due to urlSearchParams.set() overwriting values, only the last organization will be in the URL
         expect(mockFetch).toHaveBeenCalledWith(
-          expect.stringContaining('or__organization__name__icontains=testorg2'),
+          expect.stringContaining('or__organization__name__iexact=testorg2'),
           expect.any(Object),
         );
       });
@@ -2007,11 +2007,11 @@ describe('AAPClient', () => {
         expect(result).toEqual({ results: [{ id: 1 }] });
         // When no organizations are configured, no organization filter should be applied
         expect(mockFetch).toHaveBeenCalledWith(
-          expect.not.stringContaining('organization__name__icontains'),
+          expect.not.stringContaining('organization__name__iexact'),
           expect.any(Object),
         );
         expect(mockFetch).toHaveBeenCalledWith(
-          expect.not.stringContaining('or__organization__name__icontains'),
+          expect.not.stringContaining('or__organization__name__iexact'),
           expect.any(Object),
         );
       });
@@ -2074,7 +2074,7 @@ describe('AAPClient', () => {
         await labelClient.getResourceData('job_templates', 'test-token');
 
         expect(mockFetch).toHaveBeenCalledWith(
-          expect.stringContaining('or__labels__name__icontains=label2'),
+          expect.stringContaining('or__labels__name__iexact=label2'),
           expect.any(Object),
         );
       });

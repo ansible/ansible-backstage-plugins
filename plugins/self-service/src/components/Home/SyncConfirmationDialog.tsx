@@ -9,11 +9,11 @@ import FormControlLabel from '@material-ui/core/FormControlLabel';
 
 const options = [
   {
-    label: 'Organizations, Users and Teams',
+    label: 'Organizations, Users, and Teams',
     value: 'orgsUsersTeams',
   },
   {
-    label: 'Templates',
+    label: 'Job Templates',
     value: 'templates',
   },
 ];
@@ -50,7 +50,9 @@ export const SyncConfirmationDialog = (props: SyncConfirmationDialogProps) => {
       open={open}
       {...other}
     >
-      <DialogTitle id="confirmation-dialog-title">Sync Options</DialogTitle>
+      <DialogTitle id="confirmation-dialog-title">
+        AAP synchronization options
+      </DialogTitle>
       <DialogContent dividers>
         {options.map(option => (
           <FormControlLabel

@@ -70,6 +70,10 @@ nav:
       - plugins/catalog.md
       - plugins/scaffolder.md
       - plugins/self-service.md
+  - Features:
+      - features/external-authentication.md
+      - features/users-teams-organizations.md
+      - features/job-templates.md
 
 exclude_docs: |
   _autofix_rules.md

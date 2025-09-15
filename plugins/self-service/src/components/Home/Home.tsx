@@ -31,6 +31,7 @@ import { ansibleApiRef, rhAapAuthApiRef } from '../../apis';
 import { SyncConfirmationDialog } from './SyncConfirmationDialog';
 import Sync from '@material-ui/icons/Sync';
 import Info from '@material-ui/icons/Info';
+import OpenInNew from '@material-ui/icons/OpenInNew';
 import { TemplateEntityV1beta3 } from '@backstage/plugin-scaffolder-common';
 import { SkeletonLoader } from './SkeletonLoader';
 import { scaffolderApiRef } from '@backstage/plugin-scaffolder-react';
@@ -147,16 +148,37 @@ export const HomeComponent = () => {
         />
       )}
       <Header
-        pageTitleOverride="View Templates"
-        title={<span className={classes.header_title_color}>Templates</span>}
+        pageTitleOverride="View Job Templates"
+        title={
+          <span className={classes.header_title_color}>Job Templates</span>
+        }
         subtitle={
           <>
             <div>
               <span className={classes.header_subtitle}>
-                Browse available templates. Templates provide step-by-step
-                guidance to perform a task.
+                Browse available templates. Each template provides a guided
+                experience to get your automation running. Select "Start" to
+                begin the guided task.
               </span>
             </div>
+            <Typography
+              component="a"
+              href="https://docs.redhat.com/en/documentation/red_hat_ansible_automation_platform/2.6/html/using_self-service_automation_portal/self-service-working-templates_aap-self-service-using#self-service-launch-template_self-service-working-templates"
+              target="_blank"
+              rel="noopener noreferrer"
+              style={{
+                cursor: 'pointer',
+                color: 'inherit',
+                textDecoration: 'underline',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '4px',
+                marginTop: '8px',
+                opacity: 0.8,
+              }}
+            >
+              Learn more <OpenInNew fontSize="small" />
+            </Typography>
             {allowed && (
               <HeaderLabel
                 label=""
@@ -175,7 +197,7 @@ export const HomeComponent = () => {
                       }}
                     >
                       Sync now <Sync fontSize="small" />
-                      <Tooltip title="This will allow you to sync the templates, organizations, users and teams from AAP to Automation Portal.">
+                      <Tooltip title="Sync AAP Job Templates, Organizations, Users, and Teams from AAP to automation portal.">
                         <Info fontSize="small" style={{ marginLeft: '4px' }} />
                       </Tooltip>
                     </span>

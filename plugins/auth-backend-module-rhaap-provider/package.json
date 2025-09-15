@@ -1,7 +1,7 @@
 {
   "name": "@ansible/backstage-plugin-auth-backend-module-rhaap-provider",
   "description": "The rhaap-provider backend module for the auth plugin.",
-  "version": "1.5.0",
+  "version": "2.0.0",
   "main": "src/index.ts",
   "types": "src/index.ts",
   "license": "Apache-2.0",
@@ -28,7 +28,7 @@
     "export-dynamic": "janus-cli package export-dynamic-plugin --embed-package @ansible/backstage-rhaap-common"
   },
   "dependencies": {
-    "@ansible/backstage-rhaap-common": "^0.1.0",
+    "@ansible/backstage-rhaap-common": "workspace:^",
     "@backstage/backend-common": "^0.25.0",
     "@backstage/backend-dynamic-feature-service": "^0.7.0",
     "@backstage/backend-plugin-api": "^1.3.1",

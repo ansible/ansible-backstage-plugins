@@ -40,7 +40,9 @@ describe('My items', () => {
     await render(<TaskList />);
     expect(screen.getByText('Task List')).toBeInTheDocument();
     expect(
-      screen.getByText('All tasks that have been started'),
+      screen.getByText(
+        'View all your past tasks launched from self-service automation portal.',
+      ),
     ).toBeInTheDocument();
     expect(
       screen.getByRole('columnheader', { name: 'Task ID' }),

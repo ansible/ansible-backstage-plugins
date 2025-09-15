@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useMemo, useState, useEffect, useCallback } from 'react';
 import { IChangeEvent } from '@rjsf/core';
 import validator from '@rjsf/validator-ajv8';
 import { EntityPickerFieldExtension } from '@backstage/plugin-scaffolder';
@@ -37,13 +37,44 @@ interface StepFormProps {
 }
 
 export const StepForm = ({ steps, submitFunction }: StepFormProps) => {
-  const [activeStep, setActiveStep] = useState(0);
+  // Filter out steps that only contain a "token" field
+  const filteredSteps = useMemo(() => {
+    return steps.filter(step => {
+      const properties = step.schema?.properties || {};
+      const propertyKeys = Object.keys(properties);
+
+      // Skip step if it only has "token" field or no fields at all
+      if (propertyKeys.length === 0) return false;
+      if (propertyKeys.length === 1 && propertyKeys[0] === 'token')
+        return false;
+
+      return true;
+    });
+  }, [steps]);
+
+  // If no form steps, start directly at review step
+  const [activeStep, setActiveStep] = useState(
+    filteredSteps.length === 0 ? filteredSteps.length : 0,
+  );
   const [formData, setFormData] = useState<Record<string, any>>({});
-  let token: string;
+  const [isAutoExecuting, setIsAutoExecuting] = useState(false);
+
+  // Check if there are any meaningful fields to show (non-token fields with values)
+  const hasDisplayableFields = useMemo(() => {
+    return steps.some(step =>
+      Object.entries(step.schema.properties || {}).some(
+        ([key, property]: [string, any]) => {
+          if (key === 'token') return false;
+          // Check if field has a default value or user input
+          const hasDefault = property?.default !== undefined;
+          const hasUserValue = formData[key] !== undefined;
+          return hasDefault || hasUserValue;
+        },
+      ),
+    );
+  }, [steps, formData]);
+
   const aapAuth = useApi(rhAapAuthApiRef);
-  aapAuth.getAccessToken().then((t: string) => {
-    token = t;
-  });
 
   const extensions = useMemo(() => {
     return Object.fromEntries(
@@ -68,23 +99,43 @@ export const StepForm = ({ steps, submitFunction }: StepFormProps) => {
     handleNext();
   };
 
-  const handleFinalSubmit = async () => {
-    formData.token = token;
+  const handleFinalSubmit = useCallback(async () => {
+    const authToken = await aapAuth.getAccessToken();
+    const finalData = { ...formData, token: authToken };
     try {
-      await submitFunction(formData);
+      await submitFunction(finalData);
     } catch (error) {
       console.error('Error during final submission:', error); // eslint-disable-line no-console
     }
-  };
+  }, [formData, submitFunction, aapAuth]);
+
+  // Auto-execute if no form steps and no displayable fields
+  useEffect(() => {
+    if (
+      filteredSteps.length === 0 &&
+      !hasDisplayableFields &&
+      !isAutoExecuting
+    ) {
+      setIsAutoExecuting(true);
+      // Use existing handleFinalSubmit function
+      handleFinalSubmit().catch(error => {
+        console.error('Error during auto-execution:', error); // eslint-disable-line no-console
+        setIsAutoExecuting(false);
+      });
+    }
+  }, [
+    filteredSteps.length,
+    hasDisplayableFields,
+    isAutoExecuting,
+    handleFinalSubmit,
+  ]);
 
   const getLabel = (key: string, stepIndex: number) => {
     const stepSchema = steps[stepIndex].schema.properties || {};
     return stepSchema[key]?.title || key;
   };
 
-  if (!steps || steps.length === 0) {
-    return <p>No steps available</p>;
-  }
+  // Don't return early if no filtered steps - we still want to show the review step
 
   const extractProperties = (step: any) => {
     // Check if step.schema exists and has a properties field
@@ -123,7 +174,7 @@ export const StepForm = ({ steps, submitFunction }: StepFormProps) => {
     <div>
       <SecretsContextProvider>
         <Stepper activeStep={activeStep} orientation="vertical">
-          {steps.map((step, index) => (
+          {filteredSteps.map((step, index) => (
             <Step key={index}>
               <StepLabel>{step.title}</StepLabel>
               <StepContent>
@@ -151,7 +202,7 @@ export const StepForm = ({ steps, submitFunction }: StepFormProps) => {
                         Back
                       </Button>
                     )}
-                    {index < steps.length && (
+                    {index < filteredSteps.length && (
                       <Button type="submit" variant="contained" color="primary">
                         Next
                       </Button>
@@ -201,13 +252,15 @@ export const StepForm = ({ steps, submitFunction }: StepFormProps) => {
                 </Table>
               </TableContainer>
               <div>
-                <Button
-                  onClick={handleBack}
-                  style={{ marginRight: '10px' }}
-                  variant="outlined"
-                >
-                  Back
-                </Button>
+                {filteredSteps.length > 0 && (
+                  <Button
+                    onClick={handleBack}
+                    style={{ marginRight: '10px' }}
+                    variant="outlined"
+                  >
+                    Back
+                  </Button>
+                )}
                 <Button
                   onClick={handleFinalSubmit}
                   variant="contained"
@@ -219,7 +272,7 @@ export const StepForm = ({ steps, submitFunction }: StepFormProps) => {
             </StepContent>
           </Step>
         </Stepper>
-        {activeStep === steps.length + 1 && (
+        {activeStep === filteredSteps.length + 1 && (
           <Typography variant="h6" style={{ marginTop: '20px' }}>
             All steps completed!
           </Typography>

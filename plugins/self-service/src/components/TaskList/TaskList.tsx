@@ -259,7 +259,8 @@ export const TaskList = () => {
         }
         subtitle={
           <span className={classes.header_subtitle}>
-            All tasks that have been started
+            View all your past tasks launched from self-service automation
+            portal.
           </span>
         }
         style={{ background: 'inherit' }}

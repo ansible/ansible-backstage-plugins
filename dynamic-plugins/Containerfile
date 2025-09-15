@@ -1,11 +1,12 @@
-# Use Red Hat Universal Base Image (UBI) for certification compliance
-FROM registry.access.redhat.com/ubi9/nodejs-22:9.6-1753172464
-USER root
+FROM scratch
+
+# Copy dynamic plugins
+COPY . .
 
 # Required labels for Red Hat certification
 LABEL name="ansible-backstage-plugins" \
       vendor="Red Hat, Inc." \
-      version="1.5.0" \
+      version="2.0.0" \
       release="1" \
       summary="Red Hat Developer Hub Ansible Backstage Dynamic Plugins" \
       description="Dynamic plugins collection for Red Hat Developer Hub (RHDH) providing Ansible automation capabilities, authentication, catalog management, and scaffolding functionality." \
@@ -17,10 +18,9 @@ LABEL name="ansible-backstage-plugins" \
       distribution-scope="public" \
       url="https://github.com/ansible/ansible-backstage-plugins/" \
       vcs-ref="main" \
-      vcs-type="git"
-
-# Copy dynamic plugins
-COPY . .
+      vcs-type="git" \
+      cpe="cpe:/a:redhat:ansible_portal:2.0::el9" \
+      org.opencontainers.image.created="${SOURCE_DATE_EPOCH}"
 
 # Add license information for certification compliance
 COPY LICENSE /licenses/

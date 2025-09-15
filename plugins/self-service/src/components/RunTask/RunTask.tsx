@@ -38,6 +38,31 @@ export const RunTask = () => {
   const taskMetadata = task?.spec?.templateInfo?.entity?.metadata;
   const [showLogs, setShowLogs] = useState(false);
 
+  // Function to clean up log content by removing timestamps, logging levels, and AAP URL lines
+  const cleanLogContent = (logContent: string): string => {
+    return (
+      logContent
+        .split('\n')
+        .filter(line => {
+          return (
+            !line.includes('[backstage-rhaap-common]: Executing') &&
+            !line.match(/https?:\/\/[^\/\s]+\/api\//)
+          );
+        })
+        .join('\n')
+        .replace(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z\s*/gm, '')
+        // eslint-disable-next-line no-control-regex
+        .replace(/\u001b\[[0-9;]*m/g, '')
+        .split('\n')
+        .map(line => {
+          return line.replace(/^\s*(info|warn|error|debug):\s*/i, '').trim();
+        })
+        .join('\n')
+        .replace(/^\s+/gm, '')
+        .trim()
+    );
+  };
+
   // Start Over endpoint requires user to have both read (to grab parameters) and create (to create new task) permissions
   const allSteps = useMemo(
     () =>
@@ -176,7 +201,7 @@ export const RunTask = () => {
                         variant="body2"
                         style={{ whiteSpace: 'break-spaces' }}
                       >
-                        <MarkdownContent content={log} />
+                        <MarkdownContent content={cleanLogContent(log)} />
                       </Typography>
                     ))}
                   </div>

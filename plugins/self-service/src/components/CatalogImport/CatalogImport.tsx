@@ -40,17 +40,26 @@ export const CatalogImport = () => {
               titleTypographyProps={{ component: 'h3' }}
               deepLink={{
                 title: 'View template YAML example',
-                link: 'https://github.com/ansible/ansible-rhdh-templates/blob/main/generic-seed/template.yaml',
+                link: 'https://red.ht/portal_template_example',
               }}
             >
               <Typography variant="body2" paragraph>
-                To add a template to Ansible self-service, provide the URL to a
-                source code repository, or a link to an existing entity file.
-              </Typography>
+                Import custom templates. Provide the URL to the existing
+                Template YAML file hosted in a source code repository. The
+                import process will analyze the file(s), and add them to
+                automation portal. Please remember that managing these custom
+                templates will require automation portal RBAC rules.{' '}
+                <a
+                  href="https://docs.redhat.com/en/documentation/red_hat_ansible_automation_platform/latest/html/using_self-service_automation_portal/self-service-working-templates_aap-self-service-using#self-service-add-template_self-service-working-templates
 
-              <Typography variant="body2" paragraph>
-                The wizard analyzes the file, previews the entities, and adds
-                them to the Ansible self-service catalog.
+"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  style={{ color: '#1976d2', textDecoration: 'underline' }}
+                >
+                  Learn more about configuring RBAC rules for external templates
+                  in our documentation.
+                </a>
               </Typography>
             </InfoCard>
           </Grid>
