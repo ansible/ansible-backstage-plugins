@@ -2722,30 +2722,31 @@ describe('AAPClient', () => {
             survey_enabled: false,
           },
         ];
+
         jest
           .spyOn(client as any, 'executeCatalogRequest')
           .mockResolvedValueOnce(mockSurveyDisabledJobTemplateResponse);
 
         const result = await client.syncJobTemplates(false, []);
         expect(result).toEqual([
-          { job: mockSurveyDisabledJobTemplateResponse[0], survey: null },
+          {
+            job: mockSurveyDisabledJobTemplateResponse[0],
+            survey: null,
+            instanceGroup: [],
+          },
         ]);
         expect(result[0].job.survey_enabled).toEqual(false);
       });
 
       it('should fetch survey enabled job templates from AAP', async () => {
         jest
-          .spyOn(client as any, 'executeGetRequest')
-          .mockResolvedValueOnce({
-            ok: true,
-            json: jest.fn().mockResolvedValue({
-              results: mockJobTemplateResponse,
-            }),
-          })
-          .mockResolvedValueOnce({
-            ok: true,
-            json: jest.fn().mockResolvedValue(mockSurveyResponse),
-          });
+          .spyOn(client as any, 'executeCatalogRequest')
+          .mockResolvedValueOnce(mockJobTemplateResponse);
+
+        jest.spyOn(client as any, 'executeGetRequest').mockResolvedValueOnce({
+          ok: true,
+          json: jest.fn().mockResolvedValue(mockSurveyResponse),
+        });
 
         const result = await client.syncJobTemplates(true, []);
         expect(client.executeGetRequest).toHaveBeenCalled();
@@ -2753,6 +2754,7 @@ describe('AAPClient', () => {
           {
             job: mockJobTemplateResponse[0],
             survey: mockSurveyResponse,
+            instanceGroup: [],
           },
         ]);
       });
@@ -2771,7 +2773,11 @@ describe('AAPClient', () => {
           'label2',
         ]);
         expect(result).toEqual([
-          { job: mockJobTemplateResponse[0], survey: { results: [] } },
+          {
+            job: mockJobTemplateResponse[0],
+            survey: { results: [] },
+            instanceGroup: [],
+          },
         ]);
       });
 
@@ -2825,6 +2831,9 @@ describe('AAPClient', () => {
       });
 
       it('should throw an error while fetching job templates from AAP', async () => {
+        // Clear any previous mocks
+        jest.clearAllMocks();
+
         jest
           .spyOn(client as any, 'executeCatalogRequest')
           .mockRejectedValueOnce(new Error('API Error'));
@@ -2832,6 +2841,144 @@ describe('AAPClient', () => {
         await expect(client.syncJobTemplates(false, [])).rejects.toThrow(
           'Error retrieving job templates from /api/controller/v2/job_templates.',
         );
+      });
+
+      it('should fetch job templates with instance groups from AAP', async () => {
+        const mockJobTemplateWithInstanceGroups = [
+          {
+            ...mockJobTemplateResponse[0],
+            survey_enabled: false,
+            related: {
+              ...mockJobTemplateResponse[0].related,
+              instance_groups:
+                '/api/controller/v2/job_templates/1/instance_groups/',
+            },
+          },
+        ];
+
+        const mockInstanceGroupsResponse = {
+          results: [
+            { id: 1, name: 'default', capacity: 100 },
+            { id: 2, name: 'production', capacity: 200 },
+          ],
+        };
+
+        // Clear any previous mocks
+        jest.clearAllMocks();
+
+        jest
+          .spyOn(client as any, 'executeCatalogRequest')
+          .mockResolvedValueOnce(mockJobTemplateWithInstanceGroups);
+
+        jest.spyOn(client as any, 'executeGetRequest').mockResolvedValueOnce({
+          ok: true,
+          json: jest.fn().mockResolvedValue(mockInstanceGroupsResponse),
+        });
+
+        const result = await client.syncJobTemplates(false, []);
+
+        expect(result).toEqual([
+          {
+            job: mockJobTemplateWithInstanceGroups[0],
+            survey: null,
+            instanceGroup: [
+              { id: 1, name: 'default', capacity: 100 },
+              { id: 2, name: 'production', capacity: 200 },
+            ],
+          },
+        ]);
+
+        expect(client.executeGetRequest).toHaveBeenCalledWith(
+          '/api/controller/v2/job_templates/1/instance_groups/',
+          'test-token',
+        );
+      });
+
+      it('should handle job templates without instance groups', async () => {
+        const mockJobTemplateWithoutInstanceGroups = [
+          {
+            ...mockJobTemplateResponse[0],
+            survey_enabled: false,
+            related: {
+              ...mockJobTemplateResponse[0].related,
+              instance_groups: undefined,
+            },
+          },
+        ];
+
+        // Clear any previous mocks
+        jest.clearAllMocks();
+
+        jest
+          .spyOn(client as any, 'executeCatalogRequest')
+          .mockResolvedValueOnce(mockJobTemplateWithoutInstanceGroups);
+
+        const executeGetRequestSpy = jest.spyOn(
+          client as any,
+          'executeGetRequest',
+        );
+
+        const result = await client.syncJobTemplates(false, []);
+
+        expect(result).toEqual([
+          {
+            job: mockJobTemplateWithoutInstanceGroups[0],
+            survey: null,
+            instanceGroup: [],
+          },
+        ]);
+
+        // Should not call executeGetRequest for instance groups
+        expect(executeGetRequestSpy).not.toHaveBeenCalled();
+      });
+
+      it('should fetch job templates with both survey and instance groups', async () => {
+        const mockJobTemplateWithBoth = [
+          {
+            ...mockJobTemplateResponse[0],
+            survey_enabled: true,
+            related: {
+              ...mockJobTemplateResponse[0].related,
+              instance_groups:
+                '/api/controller/v2/job_templates/1/instance_groups/',
+            },
+          },
+        ];
+
+        const mockInstanceGroupsResponse = {
+          results: [{ id: 1, name: 'default', capacity: 100 }],
+        };
+
+        // Clear any previous mocks
+        jest.clearAllMocks();
+
+        jest
+          .spyOn(client as any, 'executeCatalogRequest')
+          .mockResolvedValueOnce(mockJobTemplateWithBoth);
+
+        jest
+          .spyOn(client as any, 'executeGetRequest')
+          .mockResolvedValueOnce({
+            ok: true,
+            json: jest.fn().mockResolvedValue(mockSurveyResponse),
+          })
+          .mockResolvedValueOnce({
+            ok: true,
+            json: jest.fn().mockResolvedValue(mockInstanceGroupsResponse),
+          });
+
+        const result = await client.syncJobTemplates(true, []);
+
+        expect(result).toEqual([
+          {
+            job: mockJobTemplateWithBoth[0],
+            survey: mockSurveyResponse,
+            instanceGroup: [{ id: 1, name: 'default', capacity: 100 }],
+          },
+        ]);
+
+        // Should call executeGetRequest for both survey and instance groups
+        expect(client.executeGetRequest).toHaveBeenCalledTimes(2);
       });
     });
   });

@@ -445,6 +445,7 @@ describe('entityParser', () => {
         nameSpace: 'test-namespace',
         job: mockJob,
         survey: mockSurvey,
+        instanceGroup: [],
       };
       const result = aapJobTemplateParser(options); // The function should return a Template entity
       expect(result.apiVersion).toBe('scaffolder.backstage.io/v1beta3');
@@ -629,6 +630,7 @@ describe('entityParser', () => {
         nameSpace: 'test-namespace',
         job: mockJob,
         survey: null, // Test with null survey
+        instanceGroup: [],
       };
       const result = aapJobTemplateParser(options); // The function should still return a Template entity
       expect(result.apiVersion).toBe('scaffolder.backstage.io/v1beta3');

@@ -7,7 +7,11 @@ import { mockServices } from '@backstage/backend-test-utils';
 import { EntityProviderConnection } from '@backstage/plugin-catalog-node';
 import { AAPJobTemplateProvider } from './AAPJobTemplateProvider';
 import { mockAnsibleService } from '../mock/mockIAAPService';
-import { IJobTemplate, ISurvey } from '@ansible/backstage-rhaap-common';
+import {
+  IJobTemplate,
+  ISurvey,
+  InstanceGroup,
+} from '@ansible/backstage-rhaap-common';
 
 // Mock config for job template provider
 const MOCK_JOB_TEMPLATE_CONFIG = {
@@ -413,6 +417,7 @@ describe('AAPJobTemplateProvider', () => {
         {
           job: MOCK_JOB_TEMPLATE,
           survey: MOCK_SURVEY,
+          instanceGroup: [],
         },
       ]);
 
@@ -479,10 +484,12 @@ describe('AAPJobTemplateProvider', () => {
         {
           job: MOCK_JOB_TEMPLATE,
           survey: MOCK_SURVEY,
+          instanceGroup: [],
         },
         {
           job: secondJobTemplate,
           survey: null,
+          instanceGroup: [],
         },
       ]);
 
@@ -649,6 +656,7 @@ describe('AAPJobTemplateProvider', () => {
         {
           job: MOCK_JOB_TEMPLATE,
           survey: null,
+          instanceGroup: [],
         },
       ]);
 
@@ -707,6 +715,112 @@ describe('AAPJobTemplateProvider', () => {
       expect(entityProviderConnection.applyMutation).toHaveBeenCalledWith({
         type: 'full',
         entities: [],
+      });
+    });
+
+    it('should handle job templates with instance groups', async () => {
+      const config = new ConfigReader(MOCK_JOB_TEMPLATE_CONFIG);
+      const logger = mockServices.logger.mock();
+      const schedule = new PersistingTaskRunner();
+
+      const mockInstanceGroups: InstanceGroup[] = [
+        {
+          id: 1,
+          name: 'default',
+          capacity: 100,
+          consumed_capacity: 0,
+          max_concurrent_jobs: 0,
+          max_forks: 0,
+          pod_spec_override: '',
+          percent_capacity_remaining: 100.0,
+          is_container_group: false,
+          policy_instance_list: [],
+          results: [],
+          summary_fields: {
+            object_roles: {
+              admin_role: { description: 'Admin', name: 'Admin', id: 1 },
+              update_role: { description: 'Update', name: 'Update', id: 2 },
+              adhoc_role: { description: 'Adhoc', name: 'Adhoc', id: 3 },
+              use_role: { description: 'Use', name: 'Use', id: 4 },
+              read_role: { description: 'Read', name: 'Read', id: 5 },
+            },
+            user_capabilities: { edit: true, delete: false },
+          },
+        },
+        {
+          id: 2,
+          name: 'production',
+          capacity: 200,
+          consumed_capacity: 0,
+          max_concurrent_jobs: 0,
+          max_forks: 0,
+          pod_spec_override: '',
+          percent_capacity_remaining: 100.0,
+          is_container_group: false,
+          policy_instance_list: [],
+          results: [],
+          summary_fields: {
+            object_roles: {
+              admin_role: { description: 'Admin', name: 'Admin', id: 1 },
+              update_role: { description: 'Update', name: 'Update', id: 2 },
+              adhoc_role: { description: 'Adhoc', name: 'Adhoc', id: 3 },
+              use_role: { description: 'Use', name: 'Use', id: 4 },
+              read_role: { description: 'Read', name: 'Read', id: 5 },
+            },
+            user_capabilities: { edit: true, delete: false },
+          },
+        },
+      ];
+
+      // Mock the service response with instance groups
+      mockAnsibleService.syncJobTemplates.mockResolvedValue([
+        {
+          job: MOCK_JOB_TEMPLATE,
+          survey: MOCK_SURVEY,
+          instanceGroup: mockInstanceGroups,
+        },
+      ]);
+
+      const provider = AAPJobTemplateProvider.fromConfig(
+        config,
+        mockAnsibleService,
+        {
+          logger,
+          schedule,
+        },
+      )[0];
+
+      const entityProviderConnection: EntityProviderConnection = {
+        applyMutation: jest.fn(),
+        refresh: jest.fn(),
+      };
+
+      await provider.connect(entityProviderConnection);
+
+      const taskDef = schedule.getTasks()[0];
+      expect(taskDef.id).toEqual('AAPJobTemplateProvider:development:run');
+
+      // Execute the task
+      await (taskDef.fn as () => Promise<void>)();
+
+      expect(mockAnsibleService.syncJobTemplates).toHaveBeenCalledWith(
+        true, // surveyEnabled
+        ['test-label', 'production'], // jobTemplateLabels
+      );
+
+      expect(entityProviderConnection.applyMutation).toHaveBeenCalledWith({
+        type: 'full',
+        entities: [
+          {
+            entity: expect.objectContaining({
+              kind: 'Template',
+              metadata: expect.objectContaining({
+                name: 'test-job-template',
+              }),
+            }),
+            locationKey: 'AAPJobTemplateProvider:development',
+          },
+        ],
       });
     });
   });

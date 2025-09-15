@@ -11,6 +11,7 @@ import {
   ISurvey,
   Team,
   User,
+  InstanceGroup,
 } from '@ansible/backstage-rhaap-common';
 import { generateTemplate } from './dynamicJobTemplate';
 
@@ -124,6 +125,7 @@ export const aapJobTemplateParser = (options: {
   nameSpace: string;
   job: IJobTemplate;
   survey: ISurvey | null;
+  instanceGroup: InstanceGroup[];
 }): Entity => {
   return generateTemplate(options);
 };

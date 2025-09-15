@@ -278,7 +278,54 @@ describe('dynamicJobTemplate', () => {
 
   describe('getInstanceGroupsProps', () => {
     it('should return instance groups properties with default values', () => {
-      const instanceGroups = ['group1', 'group2'];
+      const instanceGroups = [
+        {
+          id: 1,
+          name: 'group1',
+          capacity: 100,
+          consumed_capacity: 0,
+          max_concurrent_jobs: 0,
+          max_forks: 0,
+          pod_spec_override: '',
+          percent_capacity_remaining: 100.0,
+          is_container_group: false,
+          policy_instance_list: [],
+          results: [],
+          summary_fields: {
+            object_roles: {
+              admin_role: { description: 'Admin', name: 'Admin', id: 1 },
+              update_role: { description: 'Update', name: 'Update', id: 2 },
+              adhoc_role: { description: 'Adhoc', name: 'Adhoc', id: 3 },
+              use_role: { description: 'Use', name: 'Use', id: 4 },
+              read_role: { description: 'Read', name: 'Read', id: 5 },
+            },
+            user_capabilities: { edit: true, delete: false },
+          },
+        },
+        {
+          id: 2,
+          name: 'group2',
+          capacity: 200,
+          consumed_capacity: 0,
+          max_concurrent_jobs: 0,
+          max_forks: 0,
+          pod_spec_override: '',
+          percent_capacity_remaining: 100.0,
+          is_container_group: false,
+          policy_instance_list: [],
+          results: [],
+          summary_fields: {
+            object_roles: {
+              admin_role: { description: 'Admin', name: 'Admin', id: 1 },
+              update_role: { description: 'Update', name: 'Update', id: 2 },
+              adhoc_role: { description: 'Adhoc', name: 'Adhoc', id: 3 },
+              use_role: { description: 'Use', name: 'Use', id: 4 },
+              read_role: { description: 'Read', name: 'Read', id: 5 },
+            },
+            user_capabilities: { edit: true, delete: false },
+          },
+        },
+      ];
       const result = getInstanceGroupsProps(instanceGroups);
 
       expect(result).toEqual({
@@ -288,7 +335,7 @@ describe('dynamicJobTemplate', () => {
         type: 'array',
         'ui:field': 'AAPResourcePicker',
         resource: 'instance_groups',
-        default: instanceGroups,
+        default: ['1', '2'],
       });
     });
   });
@@ -523,7 +570,7 @@ describe('dynamicJobTemplate', () => {
         ask_diff_mode_on_launch: true,
       };
 
-      const [promptForm, inputVars] = getPromptFormDetails(jobWithAllFlags);
+      const [promptForm, inputVars] = getPromptFormDetails(jobWithAllFlags, []);
 
       expect(promptForm.title).toBe('Please enter the following details');
       expect(promptForm.required).toEqual(['token', 'job_type', 'inventory']);
@@ -562,7 +609,7 @@ describe('dynamicJobTemplate', () => {
     });
 
     it('should return minimal prompt form for job with no ask_on_launch flags', () => {
-      const [promptForm, inputVars] = getPromptFormDetails(mockJob);
+      const [promptForm, inputVars] = getPromptFormDetails(mockJob, []);
 
       expect(promptForm.title).toBe('Please enter the following details');
       expect(promptForm.required).toEqual(['token']);
@@ -1008,6 +1055,7 @@ describe('dynamicJobTemplate', () => {
         nameSpace: 'default',
         job: mockJob,
         survey: null,
+        instanceGroup: [],
       };
 
       const result = generateTemplate(options);
@@ -1062,6 +1110,7 @@ describe('dynamicJobTemplate', () => {
         nameSpace: 'test-namespace',
         job: mockJob,
         survey: mockSurvey,
+        instanceGroup: [],
       };
 
       const result = generateTemplate(options);
@@ -1091,6 +1140,7 @@ describe('dynamicJobTemplate', () => {
         nameSpace: 'default',
         job: jobWithFlags,
         survey: null,
+        instanceGroup: [],
       };
 
       const result = generateTemplate(options);
@@ -1121,6 +1171,7 @@ describe('dynamicJobTemplate', () => {
         nameSpace: 'default',
         job: jobWithoutLabels,
         survey: null,
+        instanceGroup: [],
       };
 
       const result = generateTemplate(options);
@@ -1258,6 +1309,7 @@ describe('dynamicJobTemplate', () => {
         nameSpace: 'default',
         job: jobWithSpecialLabels,
         survey: null,
+        instanceGroup: [],
       };
 
       const result = generateTemplate(options);

@@ -17,6 +17,7 @@ import {
   IAAPService,
   IJobTemplate,
   ISurvey,
+  InstanceGroup,
 } from '@ansible/backstage-rhaap-common';
 import { Entity } from '@backstage/catalog-model';
 import { aapJobTemplateParser } from './entityParser';
@@ -142,6 +143,7 @@ export class AAPJobTemplateProvider implements EntityProvider {
     let aapJobTemplates: Array<{
       job: IJobTemplate;
       survey: ISurvey | null;
+      instanceGroup: InstanceGroup[];
     }> = [];
 
     let error = false;
@@ -163,13 +165,14 @@ export class AAPJobTemplateProvider implements EntityProvider {
     }
 
     if (!error) {
-      for (const { job, survey } of aapJobTemplates) {
+      for (const { job, survey, instanceGroup } of aapJobTemplates) {
         entities.push(
           aapJobTemplateParser({
             baseUrl: this.baseUrl,
             nameSpace: 'default',
             job,
             survey,
+            instanceGroup,
           }),
         );
         jobTemplateCount++;

@@ -4,6 +4,7 @@ import {
   ILabel,
   ISpec,
   ISurvey,
+  InstanceGroup,
 } from '@ansible/backstage-rhaap-common';
 import {
   ANNOTATION_LOCATION,
@@ -157,18 +158,54 @@ export const getDiffModeProps = (diffMode: boolean) => {
   };
 };
 
-export const getInstanceGroupsProps = (instanceGroups: string[]) => {
+export const getInstanceGroupsProps = (instanceGroups: InstanceGroup[]) => {
   return {
     title: 'Instance groups',
     description: 'Select the instance groups for this job template to run on.',
     type: 'array',
     'ui:field': 'AAPResourcePicker',
     resource: 'instance_groups',
-    default: instanceGroups,
+    default: instanceGroups.map(ig => ig.id.toString()),
   };
 };
 
-export const getPromptFormDetails = (job: IJobTemplate) => {
+export const getSCMBranchProps = (scmBranch: string) => {
+  return {
+    title: 'SCM Branch',
+    description:
+      'Branch to use in job run. Project default used if blank. Only allowed if project allow_override field is set to true.',
+    placeholder: 'Enter source control branch',
+    type: 'string',
+    default: scmBranch,
+  };
+};
+
+export const getTagsProps = (tags: string[]) => {
+  return {
+    title: 'Tags',
+    description: 'Tags to use in job run.',
+    type: 'array',
+    'ui:field': 'AAPResourcePicker',
+    resource: 'tags',
+    default: tags,
+  };
+};
+
+export const getSkipTagsProps = (skipTags: string[]) => {
+  return {
+    title: 'Skip Tags',
+    description: 'Tags to skip in job run.',
+    type: 'array',
+    'ui:field': 'AAPResourcePicker',
+    resource: 'skip_tags',
+    default: skipTags,
+  };
+};
+
+export const getPromptFormDetails = (
+  job: IJobTemplate,
+  instanceGroup: InstanceGroup[],
+) => {
   const promptForm = getPromptForm();
   const properties: JsonObject = {};
 
@@ -189,6 +226,10 @@ export const getPromptFormDetails = (job: IJobTemplate) => {
     );
   }
 
+  if (job.ask_scm_branch_on_launch) {
+    properties.scm_branch = getSCMBranchProps(job.scm_branch);
+  }
+
   if (job.ask_credential_on_launch) {
     properties.credentials = getCredentialsProps(
       job.summary_fields.credentials as JsonArray,
@@ -199,6 +240,18 @@ export const getPromptFormDetails = (job: IJobTemplate) => {
     properties.labels = getLabelsProps(
       job.summary_fields.labels.results as any,
     );
+  }
+
+  if (job.ask_instance_groups_on_launch) {
+    properties.instance_groups = getInstanceGroupsProps(instanceGroup);
+  }
+
+  if (job.ask_tags_on_launch) {
+    properties.tags = getTagsProps(job.job_tags.split(',') ?? []);
+  }
+
+  if (job.ask_skip_tags_on_launch) {
+    properties.skip_tags = getSkipTagsProps(job.skip_tags.split(',') ?? []);
   }
 
   if (job.ask_forks_on_launch) {
@@ -312,9 +365,10 @@ export const generateTemplate = (options: {
   nameSpace: string;
   job: IJobTemplate;
   survey: ISurvey | null;
+  instanceGroup: InstanceGroup[];
 }): Entity => {
-  const { baseUrl, nameSpace, job, survey } = options;
-  const [promptForm, inputVars] = getPromptFormDetails(job);
+  const { baseUrl, nameSpace, job, survey, instanceGroup } = options;
+  const [promptForm, inputVars] = getPromptFormDetails(job, instanceGroup);
   const [finalPromptForm, extraVariables] = getSurveyDetails(
     promptForm,
     survey,

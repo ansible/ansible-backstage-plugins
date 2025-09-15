@@ -27,7 +27,7 @@ import {
   Users,
   CatalogConfig,
 } from '../types';
-import { IJobTemplate, ISurvey } from '../interfaces';
+import { IJobTemplate, ISurvey, InstanceGroup } from '../interfaces';
 
 import { getAnsibleConfig, getCatalogConfig } from './utils/config';
 
@@ -1210,10 +1210,16 @@ export class AAPClient implements IAAPService {
   async syncJobTemplates(
     surveyEnabled: boolean | undefined,
     jobTemplateLabels: string[],
-  ): Promise<{ job: IJobTemplate; survey: ISurvey | null }[]> {
+  ): Promise<
+    {
+      job: IJobTemplate;
+      survey: ISurvey | null;
+      instanceGroup: InstanceGroup[];
+    }[]
+  > {
     const endPoint = '/api/controller/v2/job_templates';
     const urlSearchParams = new URLSearchParams();
-    urlSearchParams.set('page_size', '200');
+    urlSearchParams.set('page_size', '100');
     if (this.catalogConfig.organizations.length === 1) {
       urlSearchParams.set(
         'organization__name__icontains',
@@ -1246,6 +1252,7 @@ export class AAPClient implements IAAPService {
       const jobTemplatesData = await Promise.all(
         templates.map(async (template: IJobTemplate) => {
           let survey = null;
+          let instanceGroup: InstanceGroup[] = [];
           if (template.survey_enabled) {
             const response = await this.executeGetRequest(
               template.related?.survey_spec,
@@ -1254,9 +1261,18 @@ export class AAPClient implements IAAPService {
             survey = (await response.json()) as ISurvey;
           }
 
+          if (template.related?.instance_groups) {
+            const instanceGroupResults = (await this.executeCatalogRequest(
+              template.related?.instance_groups,
+              token,
+            )) as InstanceGroup[];
+            instanceGroup = instanceGroupResults;
+          }
+
           return {
             job: template,
             survey,
+            instanceGroup,
           };
         }),
       );
