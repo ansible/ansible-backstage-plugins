@@ -444,9 +444,9 @@ export class AAPEntityProvider implements EntityProvider {
 
       // Process user organizations and teams
       const userOrgNames = userOrgs.map(org => org.name.toLowerCase());
-      const matchingOrgs = userOrgNames.filter(orgName =>
-        this.orgs.includes(orgName),
-      );
+      const matchingOrgs = userOrgs
+        .filter(org => this.orgs.includes(org.name.toLowerCase()))
+        .map(org => org.groupName);
 
       const teamsInConfiguredOrgs = userTeams
         .filter(team => this.orgs.includes(team.orgName.toLowerCase()))
@@ -471,7 +471,7 @@ export class AAPEntityProvider implements EntityProvider {
       // Log access type and superuser status
       if (hasDirectOrgAccess) {
         this.logger.info(
-          `User ${username} found in organizations: ${matchingOrgs.join(', ')}`,
+          `User ${username} found in organizations: ${userOrgNames.filter(orgName => this.orgs.includes(orgName)).join(', ')}`,
         );
       } else if (hasTeamAccess) {
         this.logger.info(
