@@ -383,7 +383,11 @@ export const generateTemplate = (options: {
       aapJobTemplateId: job.id,
       description: job.description,
       tags: (job.summary_fields.labels?.results ?? []).map((label: ILabel) =>
-        label.name.replace(/[\s.,_]+/g, '-'),
+        label.name
+          .toLowerCase()
+          .replace(/[^a-z0-9+#-]/g, '-')
+          .replace(/-+/g, '-')
+          .replace(/^(-|-$)/g, ''),
       ),
       annotations: {
         [ANNOTATION_LOCATION]: `url:${baseUrl}/execution/templates/job-template/${job.id}/details`,

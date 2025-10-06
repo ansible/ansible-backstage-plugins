@@ -1321,5 +1321,115 @@ describe('dynamicJobTemplate', () => {
         'staging-server',
       ]);
     });
+
+    it('should handle uppercase labels and convert them to lowercase', () => {
+      const jobWithUppercaseLabels = {
+        ...mockJob,
+        summary_fields: {
+          ...mockJob.summary_fields,
+          labels: {
+            count: 3,
+            results: [
+              {
+                id: 1,
+                name: 'CaC',
+                organization: 1,
+                type: 'label',
+                url: 'test-url',
+                created: '2023-01-01T00:00:00Z',
+                modified: '2023-01-01T00:00:00Z',
+                summary_fields: {
+                  created_by: {
+                    username: 'test',
+                    first_name: 'Test',
+                    last_name: 'User',
+                    id: 1,
+                  },
+                  modified_by: {
+                    username: 'test',
+                    first_name: 'Test',
+                    last_name: 'User',
+                    id: 1,
+                  },
+                  organization: {
+                    id: 1,
+                    name: 'Test Org',
+                    description: 'Test organization',
+                  },
+                },
+              },
+              {
+                id: 2,
+                name: 'Network',
+                organization: 1,
+                type: 'label',
+                url: 'test-url',
+                created: '2023-01-01T00:00:00Z',
+                modified: '2023-01-01T00:00:00Z',
+                summary_fields: {
+                  created_by: {
+                    username: 'test',
+                    first_name: 'Test',
+                    last_name: 'User',
+                    id: 1,
+                  },
+                  modified_by: {
+                    username: 'test',
+                    first_name: 'Test',
+                    last_name: 'User',
+                    id: 1,
+                  },
+                  organization: {
+                    id: 1,
+                    name: 'Test Org',
+                    description: 'Test organization',
+                  },
+                },
+              },
+              {
+                id: 3,
+                name: 'DevOps@Team',
+                organization: 1,
+                type: 'label',
+                url: 'test-url',
+                created: '2023-01-01T00:00:00Z',
+                modified: '2023-01-01T00:00:00Z',
+                summary_fields: {
+                  created_by: {
+                    username: 'test',
+                    first_name: 'Test',
+                    last_name: 'User',
+                    id: 1,
+                  },
+                  modified_by: {
+                    username: 'test',
+                    first_name: 'Test',
+                    last_name: 'User',
+                    id: 1,
+                  },
+                  organization: {
+                    id: 1,
+                    name: 'Test Org',
+                    description: 'Test organization',
+                  },
+                },
+              },
+            ],
+          },
+        },
+      };
+
+      const options = {
+        baseUrl: 'https://ansible.example.com',
+        nameSpace: 'default',
+        job: jobWithUppercaseLabels,
+        survey: null,
+        instanceGroup: [],
+      };
+
+      const result = generateTemplate(options);
+
+      expect(result.metadata.tags).toEqual(['cac', 'network', 'devops-team']);
+    });
   });
 });
