@@ -813,9 +813,10 @@ export class AAPClient implements IAAPService {
       }
 
       if (this.catalogConfig.jobTemplateLabels.length > 0) {
-        this.catalogConfig.jobTemplateLabels.forEach(label => {
-          urlSearchParams.append(`or__labels__name__iexact`, label);
-        });
+        urlSearchParams.set(
+          'labels__name__in',
+          this.catalogConfig.jobTemplateLabels.join(','),
+        );
       }
     }
 
@@ -1261,9 +1262,7 @@ export class AAPClient implements IAAPService {
     }
 
     if (jobTemplateLabels.length > 0) {
-      jobTemplateLabels.forEach(label => {
-        urlSearchParams.append(`or__labels__name__iexact`, label);
-      });
+      urlSearchParams.set('labels__name__in', jobTemplateLabels.join(','));
     }
     this.logger.info(`Fetching job templates from RH AAP.`);
     try {

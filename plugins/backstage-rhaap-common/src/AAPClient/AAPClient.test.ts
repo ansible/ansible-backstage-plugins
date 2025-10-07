@@ -2040,7 +2040,7 @@ describe('AAPClient', () => {
                   .fn()
                   .mockImplementation((labelKey: string) => {
                     if (labelKey === 'sync.jobTemplates.labels') {
-                      return ['label1', 'label2'];
+                      return ['label1', 'Label2'];
                     }
                     return [];
                   }),
@@ -2074,7 +2074,7 @@ describe('AAPClient', () => {
         await labelClient.getResourceData('job_templates', 'test-token');
 
         expect(mockFetch).toHaveBeenCalledWith(
-          expect.stringContaining('or__labels__name__iexact=label2'),
+          expect.stringContaining('labels__name__in=label1,Label2'),
           expect.any(Object),
         );
       });
@@ -2770,7 +2770,7 @@ describe('AAPClient', () => {
 
         const result = await client.syncJobTemplates(false, [
           'label1',
-          'label2',
+          'Label2',
         ]);
         expect(result).toEqual([
           {
