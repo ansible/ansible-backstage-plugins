@@ -1,0 +1,269 @@
+# RHDH Ansible Portal VM Management on macOS
+# Local QEMU virtual machine management for QCOW2 deployment
+
+# Configuration
+VM_NAME := rhdh-ansible-portal
+VM_MEMORY := 4G
+VM_VCPUS := 2
+VM_DISK := $(PWD)/output/qcow2/disk.qcow2
+VM_PID_FILE := $(PWD)/vm.pid
+VM_MONITOR := $(PWD)/vm.monitor
+VM_LOG := $(PWD)/vm.log
+
+# Network Configuration
+HOST_PORT := 8008
+VM_PORT := 7007
+SSH_HOST_PORT := 2225
+SSH_VM_PORT := 22
+
+# Colors for output
+GREEN := \033[0;32m
+YELLOW := \033[1;33m
+RED := \033[0;31m
+NC := \033[0m # No Color
+
+.PHONY: help vm-start vm-stop vm-status vm-test vm-ssh vm-console vm-info vm-clean check-qemu check-image vm-interactive vm-debug
+
+# Default target
+help: ## Show this help message
+	@echo "$(GREEN)RHDH Ansible Portal VM Management (macOS)$(NC)"
+	@echo "=========================================="
+	@echo ""
+	@echo "$(YELLOW)Prerequisites:$(NC)"
+	@echo "  - QEMU installed (brew install qemu)"
+	@echo "  - QCOW2 image in output-macos/qcow2/disk.qcow2"
+	@echo ""
+	@echo "$(YELLOW)Network Access:$(NC)"
+	@echo "  - RHDH Web UI: http://localhost:$(HOST_PORT)"
+	@echo "  - SSH Access: ssh -p $(SSH_HOST_PORT) root@localhost"
+	@echo ""
+	@echo "Available targets:"
+	@awk 'BEGIN {FS = ":.*?## "} /^[a-zA-Z_-]+:.*?## / {printf "  $(YELLOW)%-15s$(NC) %s\n", $$1, $$2}' $(MAKEFILE_LIST)
+
+check-qemu: ## Check if QEMU is installed
+	@echo "$(GREEN)Checking QEMU installation...$(NC)"
+	@which qemu-system-aarch64 > /dev/null && echo "$(GREEN)✅ QEMU ARM64 is installed$(NC)" || (echo "$(RED)❌ QEMU not found. Install with: brew install qemu$(NC)" && exit 1)
+	@qemu-system-aarch64 --version
+
+check-image: ## Check if QCOW2 image exists
+	@echo "$(GREEN)Checking QCOW2 image...$(NC)"
+	@if [ -f "$(VM_DISK)" ]; then \
+		echo "$(GREEN)✅ QCOW2 image found: $(VM_DISK)$(NC)"; \
+		qemu-img info $(VM_DISK); \
+	else \
+		echo "$(RED)❌ QCOW2 image not found: $(VM_DISK)$(NC)"; \
+		echo "$(YELLOW)Run 'make qcow2' to create the image first$(NC)"; \
+		exit 1; \
+	fi
+
+vm-start: check-qemu check-image ## Start the VM
+	@echo "$(GREEN)Starting RHDH VM...$(NC)"
+	@if [ -f "$(VM_PID_FILE)" ]; then \
+		echo "$(YELLOW)VM may already be running (PID file exists)$(NC)"; \
+		$(MAKE) vm-status; \
+	else \
+		echo "$(GREEN)Booting VM with QEMU...$(NC)"; \
+		cp /opt/homebrew/share/qemu/edk2-aarch64-vars.fd /tmp/efi-vars-arm64.fd 2>/dev/null || dd if=/dev/zero of=/tmp/efi-vars-arm64.fd bs=1M count=64 2>/dev/null; \
+		qemu-system-aarch64 \
+			-name "$(VM_NAME)" \
+			-m $(VM_MEMORY) \
+			-smp $(VM_VCPUS) \
+		-drive file=$(VM_DISK),format=qcow2,if=virtio \
+			-netdev user,id=net0,hostfwd=tcp::$(HOST_PORT)-:$(VM_PORT),hostfwd=tcp::$(SSH_HOST_PORT)-:$(SSH_VM_PORT) \
+			-device virtio-net,netdev=net0 \
+			-machine virt \
+			-cpu cortex-a72 \
+			-drive if=pflash,format=raw,readonly=on,file=/opt/homebrew/share/qemu/edk2-aarch64-code.fd \
+			-drive if=pflash,format=raw,file=/tmp/efi-vars-arm64.fd \
+			-display none \
+			-serial file:$(VM_LOG) \
+			-monitor unix:$(VM_MONITOR),server,nowait \
+			-pidfile $(VM_PID_FILE) \
+			-daemonize; \
+		echo "$(GREEN)✅ VM started in background$(NC)"; \
+		echo "$(GREEN)🌐 RHDH will be available at: http://localhost:$(HOST_PORT)$(NC)"; \
+		echo "$(GREEN)🔐 SSH access: ssh -p $(SSH_HOST_PORT) root@localhost$(NC)"; \
+		echo "$(YELLOW)⏳ Please wait 2-3 minutes for services to start...$(NC)"; \
+	fi
+
+vm-stop: ## Stop the VM
+	@echo "$(GREEN)Stopping VM...$(NC)"
+	@if [ -f "$(VM_PID_FILE)" ]; then \
+		PID=$$(cat $(VM_PID_FILE)); \
+		echo "Stopping VM process (PID: $$PID)"; \
+		kill $$PID 2>/dev/null || true; \
+		sleep 3; \
+		rm -f $(VM_PID_FILE); \
+		echo "$(GREEN)✅ VM stopped$(NC)"; \
+	else \
+		echo "$(YELLOW)VM not running (no PID file)$(NC)"; \
+	fi
+
+vm-force-stop: ## Force stop the VM
+	@echo "$(GREEN)Force stopping VM...$(NC)"
+	@pkill -f "qemu-system-x86_64.*$(VM_NAME)" || true
+	@rm -f $(VM_PID_FILE)
+	@echo "$(GREEN)✅ VM force stopped$(NC)"
+
+vm-restart: vm-stop vm-start ## Restart the VM
+	@echo "$(GREEN)VM restarted$(NC)"
+
+vm-status: ## Show VM status
+	@echo "$(GREEN)VM Status:$(NC)"
+	@if [ -f "$(VM_PID_FILE)" ]; then \
+		PID=$$(cat $(VM_PID_FILE)); \
+		if ps -p $$PID > /dev/null; then \
+			echo "$(GREEN)✅ VM is running (PID: $$PID)$(NC)"; \
+			echo "$(GREEN)🌐 RHDH: http://localhost:$(HOST_PORT)$(NC)"; \
+			echo "$(GREEN)🔐 SSH: ssh -p $(SSH_HOST_PORT) root@localhost$(NC)"; \
+		else \
+			echo "$(RED)❌ VM process not found$(NC)"; \
+			rm -f $(VM_PID_FILE); \
+		fi; \
+	else \
+		echo "$(YELLOW)VM not running$(NC)"; \
+	fi
+
+vm-test: ## Test RHDH service
+	@echo "$(GREEN)Testing RHDH service...$(NC)"
+	@if curl -s --connect-timeout 5 http://localhost:$(HOST_PORT) > /dev/null; then \
+		echo "$(GREEN)✅ RHDH is responding on http://localhost:$(HOST_PORT)$(NC)"; \
+		echo "$(GREEN)Testing main page...$(NC)"; \
+		curl -s http://localhost:$(HOST_PORT) | head -3; \
+		echo ""; \
+		echo "$(GREEN)Testing health endpoint...$(NC)"; \
+		curl -s http://localhost:$(HOST_PORT); \
+		echo ""; \
+	else \
+		echo "$(RED)❌ RHDH is not responding$(NC)"; \
+		echo "$(YELLOW)VM might still be booting. Wait 2-3 minutes and try again.$(NC)"; \
+	fi
+
+
+vm-ssh: ## SSH into the VM as root using SSH key
+	@echo "$(GREEN)Connecting to VM as root via SSH with password...$(NC)"
+	@echo "$(YELLOW)Use password: root123$(NC)"
+	ssh -p $(SSH_HOST_PORT) -o StrictHostKeyChecking=no root@localhost
+
+vm-ssh-admin: ## SSH into the VM as admin user
+	@echo "$(GREEN)Connecting to VM as admin via SSH with password...$(NC)"
+	@echo "$(YELLOW)Use password: admin123$(NC)"
+	ssh -p $(SSH_HOST_PORT) -o StrictHostKeyChecking=no admin@localhost
+
+vm-console: ## Connect to VM monitor console
+	@echo "$(GREEN)Connecting to VM monitor...$(NC)"
+	@if [ -S "$(VM_MONITOR)" ]; then \
+		echo "$(YELLOW)Type 'info status' to check VM state, 'quit' to exit$(NC)"; \
+		socat - unix-connect:$(VM_MONITOR); \
+	else \
+		echo "$(RED)❌ VM monitor socket not found$(NC)"; \
+	fi
+
+vm-interactive: check-qemu check-image ## Start VM in interactive mode
+	@echo "$(GREEN)Starting ARM64 VM with UEFI in interactive mode...$(NC)"
+	@echo "$(YELLOW)Press Ctrl+C to stop the VM$(NC)"
+	@echo "$(YELLOW)Note: bootc images may take 5-10 minutes to boot completely$(NC)"
+	@echo "$(YELLOW)Console Login: admin:admin123 or root:root123$(NC)"
+	@echo "$(YELLOW)SSH Access: ssh -p $(SSH_HOST_PORT) admin@localhost$(NC)"
+	@cp /opt/homebrew/share/qemu/edk2-aarch64-vars.fd /tmp/efi-vars-arm64.fd 2>/dev/null || dd if=/dev/zero of=/tmp/efi-vars-arm64.fd bs=1M count=64 2>/dev/null
+	qemu-system-aarch64 \
+		-name "$(VM_NAME)" \
+		-m $(VM_MEMORY) \
+		-smp $(VM_VCPUS) \
+		-drive file=$(VM_DISK),format=qcow2,if=virtio \
+		-netdev user,id=net0,hostfwd=tcp::$(HOST_PORT)-:$(VM_PORT),hostfwd=tcp::$(SSH_HOST_PORT)-:$(SSH_VM_PORT) \
+		-device virtio-net,netdev=net0 \
+		-machine virt \
+		-cpu cortex-a72 \
+		-drive if=pflash,format=raw,readonly=on,file=/opt/homebrew/share/qemu/edk2-aarch64-code.fd \
+		-drive if=pflash,format=raw,file=/tmp/efi-vars-arm64.fd \
+		-nographic
+
+vm-simple: check-qemu check-image ## Start VM with minimal configuration for testing
+	@echo "$(GREEN)Starting VM with minimal configuration...$(NC)"
+	@echo "$(YELLOW)This uses legacy BIOS boot - simpler but may not work with all bootc images$(NC)"
+	qemu-system-x86_64 \
+		-name "$(VM_NAME)" \
+		-m $(VM_MEMORY) \
+		-smp $(VM_VCPUS) \
+		-hda $(VM_DISK) \
+		-netdev user,id=net0,hostfwd=tcp::$(HOST_PORT)-:$(VM_PORT),hostfwd=tcp::$(SSH_HOST_PORT)-:$(SSH_VM_PORT) \
+		-device e1000,netdev=net0 \
+		-nographic
+
+vm-debug: check-qemu check-image ## Start VM with verbose boot output for debugging
+	@echo "$(GREEN)Starting VM in debug mode...$(NC)"
+	@echo "$(YELLOW)This will show detailed boot output. Press Ctrl+C to stop.$(NC)"
+	qemu-system-x86_64 \
+		-name "$(VM_NAME)" \
+		-m $(VM_MEMORY) \
+		-smp $(VM_VCPUS) \
+		-drive file=$(VM_DISK),format=qcow2,if=virtio \
+		-netdev user,id=net0,hostfwd=tcp::$(HOST_PORT)-:$(VM_PORT),hostfwd=tcp::$(SSH_HOST_PORT)-:$(SSH_VM_PORT) \
+		-device virtio-net,netdev=net0 \
+		-machine type=q35 \
+		-cpu qemu64 \
+		-nographic \
+		-d guest_errors
+
+vm-logs: ## Show VM logs
+	@echo "$(GREEN)VM Logs:$(NC)"
+	@if [ -f "$(VM_LOG)" ]; then \
+		tail -50 $(VM_LOG); \
+	else \
+		echo "$(YELLOW)No log file found$(NC)"; \
+	fi
+
+vm-info: ## Show comprehensive VM information
+	@echo "$(GREEN)VM Information:$(NC)"
+	@echo "==============="
+	@$(MAKE) vm-status
+	@echo ""
+	@echo "$(GREEN)Image Info:$(NC)"
+	@$(MAKE) check-image
+	@echo ""
+	@echo "$(GREEN)Network Ports:$(NC)"
+	@echo "  RHDH Web UI: http://localhost:$(HOST_PORT)"
+	@echo "  SSH Access:  ssh -p $(SSH_HOST_PORT) root@localhost"
+
+vm-clean: vm-stop ## Stop VM and clean up files
+	@echo "$(GREEN)Cleaning up VM files...$(NC)"
+	@rm -f $(VM_PID_FILE) $(VM_MONITOR) $(VM_LOG)
+	@echo "$(GREEN)✅ Cleanup completed$(NC)"
+
+vm-wait-ready: ## Wait for VM to be ready and test RHDH
+	@echo "$(GREEN)Waiting for VM to be ready...$(NC)"
+	@echo "$(YELLOW)This may take 2-3 minutes...$(NC)"
+	@for i in {1..36}; do \
+		sleep 5; \
+		if curl -s --connect-timeout 3 http://localhost:$(HOST_PORT) > /dev/null 2>&1; then \
+			echo "$(GREEN)✅ RHDH is ready!$(NC)"; \
+			$(MAKE) vm-test; \
+			break; \
+		else \
+			echo -n "."; \
+		fi; \
+		if [ $$i -eq 36 ]; then \
+			echo ""; \
+			echo "$(RED)❌ Timeout waiting for RHDH$(NC)"; \
+		fi; \
+	done
+
+# Workflow targets
+vm-deploy: vm-start vm-wait-ready ## Start VM and wait for RHDH to be ready
+	@echo "$(GREEN)🚀 VM deployment completed!$(NC)"
+	@echo "$(GREEN)🌐 Access RHDH at: http://localhost:$(HOST_PORT)$(NC)"
+
+vm-quick-test: ## Quick test if VM and RHDH are working
+	@$(MAKE) vm-status
+	@echo ""
+	@$(MAKE) vm-test
+
+# Aliases
+start: vm-start ## Alias for vm-start
+stop: vm-stop ## Alias for vm-stop
+status: vm-status ## Alias for vm-status
+test: vm-test ## Alias for vm-test
+ssh: vm-ssh ## Alias for vm-ssh
+info: vm-info ## Alias for vm-info
+deploy: vm-deploy ## Alias for vm-deploy

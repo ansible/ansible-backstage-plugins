@@ -1,0 +1,141 @@
+# ---------------------------------------------------------------------------
+# RHEL 10 Image Mode with RHDH and Ansible Self-Service Portal
+# This Containerfile creates a RHEL 10 bootc-based image that layers RHDH on top
+# with Ansible plugins and sets up systemd integration.
+# ---------------------------------------------------------------------------
+
+# Stage 1: pull RHDH community image
+FROM quay.io/rhdh-community/rhdh:1.7 AS rhdh-source
+
+# Stage 2: RHEL 10 bootc base
+FROM registry.redhat.io/rhel10/rhel-bootc:latest
+
+# Install required packages including Node.js
+RUN dnf install -y nodejs npm python3 curl sudo && \
+    dnf clean all
+
+# Create users and required directories, set up access
+RUN useradd -r -u 1001 -g root -d /opt/app-root/src -s /sbin/nologin rhdh && \
+    mkdir -p /opt/app-root/src /opt/app-root/src/dynamic-plugins-root /etc/rhdh /var/lib/rhdh && \
+    echo "rhdh ALL=(root) NOPASSWD: /usr/bin/chown, /usr/bin/chmod, /usr/bin/mkdir" > /etc/sudoers.d/rhdh && \
+    # Install SSH server for remote access \
+    dnf install -y openssh-server && \
+    systemctl enable sshd && \
+    # Create simple admin user for VM console and SSH access \
+    useradd -m -u 1000 -G wheel -s /bin/bash admin && \
+    # Set passwords using usermod for more reliable password setting \
+    echo 'admin123' | passwd --stdin admin && \
+    echo 'root123' | passwd --stdin root && \
+    passwd -u admin && \
+    passwd -u root && \
+    # Configure SSH for password authentication \
+    sed -i 's/#PermitRootLogin prohibit-password/PermitRootLogin yes/' /etc/ssh/sshd_config && \
+    sed -i 's/#PasswordAuthentication yes/PasswordAuthentication yes/' /etc/ssh/sshd_config && \
+    sed -i 's/#PubkeyAuthentication yes/PubkeyAuthentication yes/' /etc/ssh/sshd_config && \
+    sed -i 's/#AuthorizedKeysFile/AuthorizedKeysFile/' /etc/ssh/sshd_config && \
+    # Allow wheel group sudo access \
+    echo '%wheel ALL=(ALL) NOPASSWD: ALL' >> /etc/sudoers
+
+# Copy RHDH app into immutable system area
+COPY --from=rhdh-source /opt/app-root/src /usr/share/rhdh
+
+# Copy configuration and scripts (from local build context)
+COPY ./configs /etc/rhdh/configs
+COPY ./default.env /etc/rhdh/default.env
+COPY ./local-plugins /var/lib/rhdh/local-plugins
+COPY ./scripts/prepare-and-install-dynamic-plugins.sh /usr/local/bin/
+COPY ./scripts/wait-for-plugins-and-start.sh /usr/local/bin/
+
+# Set up app symlinks, fix permissions, and configure dynamic plugins path
+RUN cp -r /usr/share/rhdh/* /opt/app-root/src/ && \
+    rm -rf /opt/app-root/src/configs /opt/app-root/src/local-plugins /opt/app-root/src/default.env /opt/app-root/src/generated /opt/app-root/src/dynamic-plugins-root && \
+    ln -sf /etc/rhdh/configs /opt/app-root/src/configs && \
+    ln -sf /var/lib/rhdh/local-plugins /opt/app-root/src/local-plugins && \
+    ln -sf /etc/rhdh/default.env /opt/app-root/src/default.env && \
+    ln -sf /var/lib/rhdh/generated /opt/app-root/src/generated && \
+    ln -sf /var/lib/rhdh/dynamic-plugins-root /opt/app-root/src/dynamic-plugins-root && \
+    ln -sf /usr/local/bin/prepare-and-install-dynamic-plugins.sh /opt/app-root/src/prepare-and-install-dynamic-plugins.sh && \
+    ln -sf /usr/local/bin/wait-for-plugins-and-start.sh /opt/app-root/src/wait-for-plugins-and-start.sh && \
+    chmod +x /usr/local/bin/prepare-and-install-dynamic-plugins.sh /usr/local/bin/wait-for-plugins-and-start.sh /usr/share/rhdh/install-dynamic-plugins.sh && \
+    chown -R 1001:0 /opt/app-root /var/lib/rhdh /etc/rhdh && \
+    chmod -R g=u /opt/app-root /var/lib/rhdh /etc/rhdh
+
+# Startup script for RHDH
+RUN printf '%s\n' \
+  '#!/bin/bash' \
+  'set -e' \
+  'echo "Starting RHDH with Ansible Self-Service Portal..."' \
+  '# Load environment variables and ensure they are exported' \
+  '[ -f /etc/rhdh/default.env ] && set -a && source /etc/rhdh/default.env && set +a' \
+  'export BASE_URL="${BASE_URL:-http://localhost:7007}"' \
+  'export NODE_TLS_REJECT_UNAUTHORIZED="${NODE_TLS_REJECT_UNAUTHORIZED:-0}"' \
+  'export BACKEND_SECRET="${BACKEND_SECRET:-your-backend-secret-key-here-must-be-set}"' \
+  '# Ensure all AAP environment variables are exported' \
+  'export AAP_HOST_URL="${AAP_HOST_URL}"' \
+  'export AAP_TOKEN="${AAP_TOKEN}"' \
+  'export OAUTH_CLIENT_ID="${OAUTH_CLIENT_ID}"' \
+  'export OAUTH_CLIENT_SECRET="${OAUTH_CLIENT_SECRET}"' \
+  'export ENABLE_AUTH_PROVIDER_MODULE_OVERRIDE="${ENABLE_AUTH_PROVIDER_MODULE_OVERRIDE:-true}"' \
+  '# Set NODE_PATH for dynamic plugins to access backstage modules' \
+  'export NODE_PATH="/opt/app-root/src/node_modules:${NODE_PATH:-}"' \
+  'cd /opt/app-root/src' \
+  '# Create all writable directories in /var/lib/rhdh' \
+  'mkdir -p /var/lib/rhdh/dynamic-plugins-root /var/lib/rhdh/generated /var/lib/rhdh/config /var/lib/rhdh/.npm' \
+  'chown -R 1001:0 /var/lib/rhdh' \
+  '# Copy config files to writable location' \
+  'cp /opt/app-root/src/configs/dynamic-plugins/dynamic-plugins.override.yaml /var/lib/rhdh/config/dynamic-plugins.yaml 2>/dev/null || true' \
+  '# Create symlinks in writable location for Python script' \
+  'ln -sf /var/lib/rhdh/config/dynamic-plugins.yaml /var/lib/rhdh/dynamic-plugins.yaml' \
+  'ln -sf /var/lib/rhdh/config/dynamic-plugins.yaml /var/lib/rhdh/dynamic-plugins-root/dynamic-plugins.yaml' \
+  '# Run plugin installation with correct directory mapping and npm cache' \
+  'NPM_CONFIG_CACHE=/var/lib/rhdh/.npm DYNAMIC_PLUGINS_ROOT=/var/lib/rhdh/dynamic-plugins-root ./prepare-and-install-dynamic-plugins.sh' \
+  '# Install dynamic plugins manually to ensure they are loaded' \
+  'cd /var/lib/rhdh/dynamic-plugins-root' \
+  'NPM_CONFIG_CACHE=/var/lib/rhdh/.npm python3 /opt/app-root/src/install-dynamic-plugins.py /var/lib/rhdh/dynamic-plugins-root || echo "Dynamic plugins installation completed with warnings"' \
+  'cd /opt/app-root/src' \
+  '# Remove any circular symlinks created by plugin installation' \
+  'rm -f /var/lib/rhdh/dynamic-plugins-root/dynamic-plugins-root 2>/dev/null || true' \
+  '# Ensure dynamic-plugins rootDirectory is absolute after plugin generation' \
+  "sed -i 's|rootDirectory: dynamic-plugins-root|rootDirectory: /var/lib/rhdh/dynamic-plugins-root|g' /var/lib/rhdh/dynamic-plugins-root/app-config.dynamic-plugins.yaml 2>/dev/null || true" \
+  '# Start RHDH directly with proper config and dynamic plugins' \
+  'exec sudo -E -u rhdh bash -c "cd /opt/app-root/src && export ENABLE_AUTH_PROVIDER_MODULE_OVERRIDE=true && export NODE_PATH=\"/opt/app-root/src/node_modules:${NODE_PATH:-}\" && node packages/backend --config configs/app-config/app-config.yaml --config /var/lib/rhdh/dynamic-plugins-root/app-config.dynamic-plugins.yaml"' \
+  > /usr/local/bin/start-rhdh.sh && chmod +x /usr/local/bin/start-rhdh.sh
+
+# Systemd unit for RHDH
+RUN printf '%s\n' \
+  '[Unit]' \
+  'Description=Red Hat Developer Hub with Ansible Self-Service Portal' \
+  'After=network-online.target' \
+  'Wants=network-online.target' \
+  '' \
+  '[Service]' \
+  'Type=simple' \
+  'User=root' \
+  'Environment=NODE_PATH=/opt/app-root/src/node_modules' \
+  'ExecStart=/usr/local/bin/start-rhdh.sh' \
+  'Restart=always' \
+  'RestartSec=15' \
+  'Environment=NODE_OPTIONS="--no-node-snapshot"' \
+  'WorkingDirectory=/opt/app-root/src' \
+  '' \
+  '[Install]' \
+  'WantedBy=multi-user.target' \
+  > /etc/systemd/system/rhdh.service && \
+  ln -s /etc/systemd/system/rhdh.service /etc/systemd/system/multi-user.target.wants/rhdh.service
+
+# Health check helper
+RUN printf '%s\n' \
+  '#!/bin/bash' \
+  'curl -f http://localhost:7007 >/dev/null 2>&1 && echo "✓ RHDH Backend is healthy" || { echo "✗ RHDH Backend not responding"; exit 1; }' \
+  'curl -f http://localhost:7007/self-service >/dev/null 2>&1 && echo "✓ Ansible Self-Service Portal available" || { echo "✗ Self-Service Portal not available"; exit 1; }' \
+  'echo "=== All services are healthy ==="' \
+  > /usr/local/bin/health-check.sh && chmod +x /usr/local/bin/health-check.sh
+
+# Expose RHDH port
+EXPOSE 7007
+
+# Default working directory
+WORKDIR /opt/app-root/src
+
+# bootc images always run systemd as init
+CMD ["/usr/sbin/init"]

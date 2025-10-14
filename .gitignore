@@ -1,0 +1,96 @@
+# macOS
+.DS_Store
+
+# Logs
+logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Coverage directory generated when running tests with coverage
+coverage
+
+# Dependencies
+node_modules/
+
+# Yarn files
+.pnp.*
+.yarn/*
+!.yarn/patches
+!.yarn/plugins
+!.yarn/releases
+!.yarn/sdks
+!.yarn/versions
+plugins/*/.yarn
+plugins/*/.yarnrc.yml
+
+# Node version directives
+.nvmrc
+plugins/**/.yarn/*
+e2e-tests/.yarn/*
+
+# dotenv environment variables file
+.env
+.env.test
+
+# Build output
+dist
+dist-types
+dist-scalprum
+plugins/*/dist-dynamic/*
+storybook-static
+
+# Temporary change files created by Vim
+*.swp
+
+# MkDocs build output
+site
+
+# Local configuration files
+*.local.yaml
+
+# Sensitive credentials
+*-credentials.yaml
+
+# vscode database functionality support files
+*.session.sql
+
+.vscode
+
+# turbo
+.turbo
+
+# idea
+.idea
+*.iml
+
+# build cache
+.webpack-cache
+
+.tmp
+
+.cache
+
+# playwright
+test-results/
+playwright-report/
+blob-report/
+playwright/.cache/
+
+# tmp files
+*.tmp*
+
+# tar files when yarn tsc is ran
+ansible-plugins-pack/
+dynamic-plugins-archives/
+
+# E2E test reports
+e2e-test-report/
+# Videos
+videos/
+**/videos
+
+# Screenshots
+screenshots/
+**/screenshots

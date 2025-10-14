@@ -1,0 +1,23 @@
+# Sensitive files - never commit these
+auth.json
+*.auth
+
+# Build artifacts and output directories
+quadlet/output/
+output/
+output-*/
+*.qcow2
+*.iso
+*.vmdk
+*.vhd
+*.raw
+
+# Logs and temporary files
+*.log
+vm.pid
+vm.monitor
+/tmp/
+
+# Environment files with secrets (use .env.example instead)
+.env.local
+.env.production

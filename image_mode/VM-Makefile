@@ -1,0 +1,194 @@
+# RHDH Ansible Portal VM Management on RHEL 10 EC2
+# Virtual Machine lifecycle management for QCOW2 deployment
+
+# Configuration
+VM_NAME := rhdh-ansible-portal
+VM_MEMORY := 4096
+VM_VCPUS := 2
+EC2_HOST := your-ec2-instance.compute.amazonaws.com  
+SSH_KEY := ~/.ssh/your-key.pem
+SSH_USER := ec2-user
+SSH_CMD := ssh -i $(SSH_KEY) $(SSH_USER)@$(EC2_HOST)
+
+# VM Paths
+# Note: Copy the QCOW2 created under image_mode/output/qcow2/disk.qcow2
+QCOW2_SOURCE := /home/ec2-user/rhdh/output/qcow2/disk.qcow2
+QCOW2_TARGET := /var/lib/libvirt/images/$(VM_NAME).qcow2
+
+# Colors for output
+GREEN := \033[0;32m
+YELLOW := \033[1;33m
+RED := \033[0;31m
+NC := \033[0m # No Color
+
+.PHONY: help vm-create vm-start vm-stop vm-restart vm-status vm-ip vm-test vm-console vm-destroy vm-info ssh-test
+
+# Default target
+help: ## Show this help message
+	@echo "$(GREEN)RHDH Ansible Portal VM Management$(NC)"
+	@echo "=================================="
+	@echo ""
+	@echo "$(YELLOW)Prerequisites:$(NC)"
+	@echo "  - QCOW2 image copied to EC2 instance"
+	@echo "  - SSH access configured"
+	@echo ""
+	@echo "Available targets:"
+	@awk 'BEGIN {FS = ":.*?## "} /^[a-zA-Z_-]+:.*?## / {printf "  $(YELLOW)%-15s$(NC) %s\n", $$1, $$2}' $(MAKEFILE_LIST)
+
+ssh-test: ## Test SSH connection to EC2 instance
+	@echo "$(GREEN)Testing SSH connection...$(NC)"
+	$(SSH_CMD) "echo 'SSH connection successful' && uname -a"
+
+vm-setup: ## Install virtualization packages and setup environment
+	@echo "$(GREEN)Setting up virtualization environment...$(NC)"
+	$(SSH_CMD) "sudo dnf install -y qemu-kvm libvirt virt-install virt-viewer"
+	$(SSH_CMD) "sudo systemctl start libvirtd && sudo systemctl enable libvirtd"
+	$(SSH_CMD) "sudo usermod -a -G libvirt $(SSH_USER)"
+	@echo "$(GREEN)✅ Virtualization setup completed$(NC)"
+
+vm-prepare: ## Copy QCOW2 image to libvirt directory
+	@echo "$(GREEN)Preparing VM image...$(NC)"
+	$(SSH_CMD) "sudo mkdir -p /var/lib/libvirt/images"
+	$(SSH_CMD) "sudo cp $(QCOW2_SOURCE) $(QCOW2_TARGET)"
+	$(SSH_CMD) "sudo chown qemu:qemu $(QCOW2_TARGET)"
+	$(SSH_CMD) "sudo ls -la /var/lib/libvirt/images/"
+	@echo "$(GREEN)✅ VM image prepared$(NC)"
+
+vm-create: vm-prepare ## Create VM from QCOW2 image
+	@echo "$(GREEN)Creating VM: $(VM_NAME)...$(NC)"
+	$(SSH_CMD) "sudo virt-install \
+		--name $(VM_NAME) \
+		--memory $(VM_MEMORY) \
+		--vcpus $(VM_VCPUS) \
+		--disk path=$(QCOW2_TARGET),format=qcow2 \
+		--import \
+		--os-variant rhel10.0 \
+		--network default \
+		--graphics none \
+		--console pty,target_type=serial \
+		--noautoconsole"
+	@echo "$(GREEN)✅ VM created and started$(NC)"
+
+vm-start: ## Start the VM
+	@echo "$(GREEN)Starting VM: $(VM_NAME)...$(NC)"
+	$(SSH_CMD) "sudo virsh start $(VM_NAME)" || echo "$(YELLOW)VM may already be running$(NC)"
+	@echo "$(GREEN)✅ VM start command completed$(NC)"
+
+vm-stop: ## Stop the VM gracefully
+	@echo "$(GREEN)Stopping VM: $(VM_NAME)...$(NC)"
+	$(SSH_CMD) "sudo virsh shutdown $(VM_NAME)"
+	@echo "$(GREEN)✅ VM shutdown initiated$(NC)"
+
+vm-force-stop: ## Force stop the VM
+	@echo "$(GREEN)Force stopping VM: $(VM_NAME)...$(NC)"
+	$(SSH_CMD) "sudo virsh destroy $(VM_NAME)"
+	@echo "$(GREEN)✅ VM force stopped$(NC)"
+
+vm-restart: vm-stop ## Restart the VM
+	@echo "$(GREEN)Restarting VM: $(VM_NAME)...$(NC)"
+	@sleep 10
+	@$(MAKE) vm-start
+
+vm-status: ## Show VM status
+	@echo "$(GREEN)VM Status:$(NC)"
+	$(SSH_CMD) "sudo virsh list --all"
+	@echo ""
+	@echo "$(GREEN)VM Details:$(NC)"
+	$(SSH_CMD) "sudo virsh dominfo $(VM_NAME)" || echo "$(YELLOW)VM not found$(NC)"
+
+vm-ip: ## Get VM IP address
+	@echo "$(GREEN)Getting VM IP address...$(NC)"
+	$(SSH_CMD) "sudo virsh domifaddr $(VM_NAME)" || echo "$(YELLOW)No IP assigned yet$(NC)"
+	@echo ""
+	@echo "$(GREEN)DHCP Leases:$(NC)"
+	$(SSH_CMD) "sudo virsh net-dhcp-leases default"
+
+vm-network: ## Show network information
+	@echo "$(GREEN)Network Information:$(NC)"
+	$(SSH_CMD) "sudo virsh net-list"
+	@echo ""
+	@echo "$(GREEN)Bridge Status:$(NC)"
+	$(SSH_CMD) "ip addr show virbr0"
+
+vm-console: ## Connect to VM console (interactive)
+	@echo "$(GREEN)Connecting to VM console (use Ctrl+] to exit)...$(NC)"
+	$(SSH_CMD) -t "sudo virsh console $(VM_NAME)"
+
+vm-test: ## Test RHDH service on VM
+	@echo "$(GREEN)Testing RHDH service...$(NC)"
+	@echo "$(YELLOW)Scanning for VM IP...$(NC)"
+	$(SSH_CMD) 'for ip in 192.168.122.{100..120}; do \
+		if ping -c1 -W1 $$ip >/dev/null 2>&1; then \
+			echo "Found VM at: $$ip"; \
+			echo "Testing RHDH..."; \
+			curl -s --connect-timeout 5 http://$$ip:7007 | head -3 && echo "✅ RHDH is responding at $$ip:7007"; \
+			break; \
+		fi; \
+	done'
+
+vm-test-comprehensive: ## Comprehensive RHDH service test
+	@echo "$(GREEN)Comprehensive RHDH test...$(NC)"
+	$(SSH_CMD) 'VM_IP=$$(sudo virsh domifaddr $(VM_NAME) | grep -oE "192\.168\.[0-9]+\.[0-9]+" | head -1); \
+	if [ -n "$$VM_IP" ]; then \
+		echo "Testing RHDH at $$VM_IP:7007"; \
+		echo "=== Main Page ==="; \
+		curl -s http://$$VM_IP:7007 | head -5; \
+		echo -e "\n=== Health Check ==="; \
+		curl -s http://$$VM_IP:7007/api/app/health; \
+		echo -e "\n=== Self-Service Portal ==="; \
+		curl -s http://$$VM_IP:7007/self-service | head -3; \
+	else \
+		echo "$(RED)❌ No IP address found for VM$(NC)"; \
+	fi'
+
+vm-destroy: ## Destroy VM and remove disk
+	@echo "$(GREEN)Destroying VM: $(VM_NAME)...$(NC)"
+	$(SSH_CMD) "sudo virsh destroy $(VM_NAME) 2>/dev/null || true"
+	$(SSH_CMD) "sudo virsh undefine $(VM_NAME) 2>/dev/null || true"
+	$(SSH_CMD) "sudo rm -f $(QCOW2_TARGET)"
+	@echo "$(GREEN)✅ VM destroyed and cleaned up$(NC)"
+
+vm-info: ## Show comprehensive VM information
+	@echo "$(GREEN)VM Information:$(NC)"
+	@echo "=================="
+	@echo "$(YELLOW)VM Status:$(NC)"
+	@$(MAKE) vm-status
+	@echo ""
+	@echo "$(YELLOW)Network Info:$(NC)"
+	@$(MAKE) vm-ip
+	@echo ""
+	@echo "$(YELLOW)RHDH Test:$(NC)"
+	@$(MAKE) vm-test
+
+# Workflow targets
+vm-deploy: vm-setup vm-create ## Complete VM deployment workflow
+	@echo "$(GREEN)🚀 VM deployment completed!$(NC)"
+	@echo "$(YELLOW)⏳ Waiting for services to start...$(NC)"
+	@sleep 120
+	@$(MAKE) vm-test
+
+vm-redeploy: vm-destroy vm-deploy ## Destroy and redeploy VM
+	@echo "$(GREEN)🔄 VM redeployment completed!$(NC)"
+
+# Monitoring targets
+vm-monitor: ## Monitor VM status continuously
+	@echo "$(GREEN)Monitoring VM (Ctrl+C to exit)...$(NC)"
+	@while true; do \
+		clear; \
+		echo "$(GREEN)=== VM Status at $$(date) ===$(NC)"; \
+		$(MAKE) vm-status; \
+		echo ""; \
+		$(MAKE) vm-ip; \
+		sleep 10; \
+	done
+
+vm-logs: ## Show VM and libvirt logs
+	@echo "$(GREEN)VM and Libvirt Logs:$(NC)"
+	$(SSH_CMD) "sudo journalctl -u libvirtd -n 20"
+
+# Quick access targets
+up: vm-start ## Alias for vm-start
+down: vm-stop ## Alias for vm-stop
+status: vm-status ## Alias for vm-status
+test: vm-test ## Alias for vm-test
+info: vm-info ## Alias for vm-info
