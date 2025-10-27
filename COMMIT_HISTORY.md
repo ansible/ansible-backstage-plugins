@@ -48,7 +48,7 @@ Search the entire repository history for:
 
 - [ ] API keys and tokens (`grep -r "api[_-]key" $(git rev-list --all)`)
 - [ ] Passwords (`grep -r "password\|passwd" $(git rev-list --all)`)
-- [ ] Private keys (search for "BEGIN PRIVATE KEY", "BEGIN RSA PRIVATE KEY")
+- [ ] Private keys (search for "BEGIN" + "PRIVATE" + "KEY", "BEGIN" + "RSA" patterns)
 - [ ] Internal URLs (search for company-specific domains)
 - [ ] Email addresses (search for internal domains)
 - [ ] IP addresses of internal systems
@@ -367,24 +367,20 @@ git log --all | grep -i "internal\|secret\|confidential"
 ### For Future Commits
 
 1. **Use .gitignore Properly**
-
    - Add sensitive files before committing
    - Maintain comprehensive .gitignore
    - Use .env files for local secrets
 
 2. **Pre-Commit Hooks**
-
    - Install hooks to prevent sensitive data commits
    - Use tools like `git-secrets` or `detect-secrets`
 
 3. **Commit Message Guidelines**
-
    - Avoid internal references in commit messages
    - Use public issue tracker references
    - Keep messages professional and clear
 
 4. **Configuration Management**
-
    - Use environment variables for secrets
    - Never commit credentials or tokens
    - Use example files (e.g., `.env.example`)

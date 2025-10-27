@@ -547,4 +547,3 @@ For questions about the release process:
 ---
 
 Last updated: October 2025
-

@@ -48,13 +48,11 @@ Enable and configure the following settings:
 #### Require Status Checks
 
 - [x] **Require status checks to pass before merging**
-
   - Ensures automated tests and CI checks pass before merge
   - [x] **Require branches to be up to date before merging**
     - Branch must be current with main before merging
 
   **Status checks to require** (add these if available):
-
   - `lint` - ESLint code quality checks
   - `test` - Unit tests
   - `build` - Build verification
@@ -258,7 +256,6 @@ This configuration aligns with Red Hat's GitHub security guidelines:
 Beyond branch protection, configure these security settings:
 
 1. **Security** → **Code security and analysis**
-
    - Enable Dependabot alerts
    - Enable Dependabot security updates
    - Enable Dependabot version updates
@@ -266,7 +263,6 @@ Beyond branch protection, configure these security settings:
    - Enable Push protection
 
 2. **Settings** → **Moderation options**
-
    - Enable interaction limits if needed
 
 3. **Settings** → **Actions** → **General**
