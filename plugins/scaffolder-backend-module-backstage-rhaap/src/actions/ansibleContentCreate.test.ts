@@ -304,7 +304,7 @@ describe('ansibleContentCreate', () => {
       rhaap: {
         baseUrl: 'https://test.ansible.com/',
         checkSSL: true,
-        showcase: {
+        showCaseLocation: {
           type: 'url',
           target: 'https://showcase.example.com',
           gitBranch: 'main',

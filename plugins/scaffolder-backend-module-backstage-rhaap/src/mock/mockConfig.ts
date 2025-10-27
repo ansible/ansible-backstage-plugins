@@ -1,4 +1,6 @@
 import { MOCK_BASE_URL, MOCK_CHECK_SSL, MOCK_TOKEN } from './mockData';
+import * as os from 'os';
+import * as path from 'path';
 
 export const MOCK_CONFIG = {
   data: {
@@ -23,9 +25,9 @@ export const MOCK_CONFIG = {
         baseUrl: MOCK_BASE_URL,
         token: MOCK_TOKEN,
         checkSSL: MOCK_CHECK_SSL,
-        showcase: {
+        showCaseLocation: {
           type: 'file',
-          target: '',
+          target: path.join(os.tmpdir(), 'ansible-test-showcases'),
         },
       },
       devSpaces: {

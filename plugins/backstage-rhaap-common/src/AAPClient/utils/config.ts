@@ -22,14 +22,22 @@ export function getAnsibleConfig(config: Config): AnsibleConfig {
       baseUrl: ansibleConfig.getOptionalString('rhaap.baseUrl'),
       token: ansibleConfig.getOptionalString('rhaap.token'),
       checkSSL: ansibleConfig.getOptionalBoolean('rhaap.checkSSL') ?? true,
-      showcase: {
+      showCaseLocation: {
         type: validateShowCaseType(
-          ansibleConfig.getOptionalString('rhaap.showcase.type'),
+          ansibleConfig.getOptionalString('rhaap.showCaseLocation.type'),
         ),
-        target: ansibleConfig.getOptionalString('rhaap.showcase.target'),
-        gitBranch: ansibleConfig.getOptionalString('rhaap.showcase.gitBranch'),
-        gitUser: ansibleConfig.getOptionalString('rhaap.showcase.gitUser'),
-        gitEmail: ansibleConfig.getOptionalString('rhaap.showcase.gitEmail'),
+        target: ansibleConfig.getOptionalString(
+          'rhaap.showCaseLocation.target',
+        ),
+        gitBranch: ansibleConfig.getOptionalString(
+          'rhaap.showCaseLocation.gitBranch',
+        ),
+        gitUser: ansibleConfig.getOptionalString(
+          'rhaap.showCaseLocation.gitUser',
+        ),
+        gitEmail: ansibleConfig.getOptionalString(
+          'rhaap.showCaseLocation.gitEmail',
+        ),
       },
     },
     githubIntegration,

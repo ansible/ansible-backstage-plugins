@@ -61,7 +61,7 @@ describe('AAPClient', () => {
         baseUrl: 'https://test.example.com',
         token: 'test-token',
         checkSSL: true,
-        showcase: {
+        showCaseLocation: {
           type: 'file',
           target: 'test-target',
           gitBranch: 'main',

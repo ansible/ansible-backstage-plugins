@@ -88,7 +88,7 @@ describe('ansible-aap:useCaseMaker:github', () => {
           baseUrl: 'https://rhaap.test',
           token: MOCK_TOKEN,
           checkSSL: false,
-          showcase: {
+          showCaseLocation: {
             type: 'url',
             target: 'https://github.com/testUser/testRepo',
             gitBranch: 'main',
@@ -266,7 +266,7 @@ describe('ansible-aap:useCaseMaker:github', () => {
         },
       );
     await useCaseMaker.makeTemplates();
-    const dirPath = MOCK_CONFIG.data.ansible.rhaap.showcase.target;
+    const dirPath = MOCK_CONFIG.data.ansible.rhaap.showCaseLocation.target;
     const isDirExist = await fs.promises
       .access(dirPath)
       .then(() => true)
@@ -348,7 +348,7 @@ describe('ansible-aap:useCaseMaker:gitlab', () => {
           baseUrl: 'https://rhaap.test',
           token: MOCK_TOKEN,
           checkSSL: false,
-          showcase: {
+          showCaseLocation: {
             type: 'url',
             target: 'https://gitlab.com/testUser/testRepo',
             gitBranch: 'main',

@@ -73,7 +73,7 @@ export interface Config {
        * Configuration for showcase location
        * @visibility backend
        */
-      showcase?: {
+      showCaseLocation?: {
         /**
          * Type of showcase location ('url' or 'file')
          * @visibility backend
