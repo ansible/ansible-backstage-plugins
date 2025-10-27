@@ -143,18 +143,22 @@ All notable changes to this project will be documented in this file.
 ## [1.2.0] - 2025-10-27
 
 ### Added
+
 - New job template filtering feature (#123)
 - Support for organization-based inventory (#124)
 
 ### Changed
+
 - Improved error handling in AAP client (#125)
 - Updated Backstage dependencies to v1.39.1
 
 ### Fixed
+
 - Fixed issue with empty inventory list (#126)
 - Corrected scaffolder action parameters (#127)
 
 ### Security
+
 - Updated vulnerable dependencies
 ```
 
@@ -353,6 +357,7 @@ See [CHANGELOG.md](CHANGELOG.md) for complete details.
 ### What Gets Released Upstream
 
 ✅ **Released Upstream**:
+
 - Source code (all commits)
 - Git tags marking releases
 - Documentation
@@ -360,6 +365,7 @@ See [CHANGELOG.md](CHANGELOG.md) for complete details.
 - Tests
 
 ❌ **NOT Released Upstream**:
+
 - Build artifacts (dist files, bundles)
 - Compiled binaries
 - Container images
