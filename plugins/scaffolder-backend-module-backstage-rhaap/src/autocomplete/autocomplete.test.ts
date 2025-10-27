@@ -11,7 +11,7 @@ describe('ansible-aap:autocomplete', () => {
         baseUrl: 'https://rhaap.test',
         token: MOCK_TOKEN,
         checkSSL: false,
-        : {
+        showcase: {
           type: 'url',
           target: 'https://showcase.example.com',
           gitBranch: 'main',

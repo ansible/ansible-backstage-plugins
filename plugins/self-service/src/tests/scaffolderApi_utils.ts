@@ -1148,8 +1148,7 @@ export const mockScaffolderApi: jest.Mocked<ScaffolderApi> = {
             },
             templateInfo: {
               entityRef: 'template:default/generic-seed',
-              baseUrl:
-                'https://github.com//tree/update-urls/generic-seed/',
+              baseUrl: 'https://github.com//tree/update-urls/generic-seed/',
               entity: {
                 metadata: {
                   annotations: {

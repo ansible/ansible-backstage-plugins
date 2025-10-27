@@ -28,7 +28,6 @@ plugins/*/.yarnrc.yml
 # Node version directives
 .nvmrc
 plugins/**/.yarn/*
-e2e-tests/.yarn/*
 
 # dotenv environment variables file
 .env
@@ -72,25 +71,9 @@ site
 
 .cache
 
-# playwright
-test-results/
-playwright-report/
-blob-report/
-playwright/.cache/
-
 # tmp files
 *.tmp*
 
 # tar files when yarn tsc is ran
 ansible-plugins-pack/
 /
-
-# E2E test reports
-e2e-test-report/
-# Videos
-videos/
-**/videos
-
-# Screenshots
-screenshots/
-**/screenshots

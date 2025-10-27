@@ -470,10 +470,6 @@ interface AAPAuthConfig {
 - [Backstage Authentication](https://backstage.io/docs/auth/) - General Backstage authentication
 - [OAuth2 Best Practices](https://datatracker.ietf.org/doc/html/draft-ietf-oauth-security-topics) - OAuth2 security guidelines
 
-***REMOVED***
+**_REMOVED_**
 
-***REMOVED***
-
-
-
-
+**_REMOVED_**

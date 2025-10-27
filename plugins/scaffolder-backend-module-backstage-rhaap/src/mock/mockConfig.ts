@@ -23,7 +23,7 @@ export const MOCK_CONFIG = {
         baseUrl: MOCK_BASE_URL,
         token: MOCK_TOKEN,
         checkSSL: MOCK_CHECK_SSL,
-        : {
+        showcase: {
           type: 'file',
           target: '',
         },

@@ -39,7 +39,7 @@ export interface Config {
        * Check SSL certificate.
        */
       checkSSL?: boolean;
-      ?: {
+      showcase?: {
         /**
          * Generated showcase location type
          * url: gitHub

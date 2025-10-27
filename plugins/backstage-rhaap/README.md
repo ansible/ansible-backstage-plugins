@@ -162,7 +162,7 @@ yarn start-backend --inspect
 
 Refer to the step mentioned here <https://github.com//blob/main/docs/dynamic-plugins/packaging-dynamic-plugins.md>
 
-### Plugin registration with 
+### Plugin registration with
 
 - Update the below section in `app-config.local.yaml` file
 

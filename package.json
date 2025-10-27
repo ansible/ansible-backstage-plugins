@@ -19,7 +19,6 @@
     "test": "NODE_OPTIONS=\"$NODE_OPTIONS --experimental-vm-modules\" backstage-cli repo test --watch=false",
     "test:watch": "NODE_OPTIONS=\"$NODE_OPTIONS --experimental-vm-modules\" backstage-cli repo test",
     "test:all": "NODE_OPTIONS=\"--experimental-vm-modules\" backstage-cli repo test --coverage",
-    "test:e2e": "playwright test",
     "fix": "backstage-cli repo fix",
     "lint": "backstage-cli repo lint --since origin/main",
     "lint:all": "backstage-cli repo lint",
@@ -33,15 +32,12 @@
   "workspaces": {
     "packages": [
       "packages/*",
-      "plugins/*",
-      "e2e-tests/*"
+      "plugins/*"
     ]
   },
   "devDependencies": {
     "@backstage/cli": "^0.33.1",
-    "@backstage/e2e-test-utils": "^0.1.1",
     "@janus-idp/cli": "^3.6.1",
-    "@playwright/test": "^1.32.3",
     "@spotify/prettier-config": "^12.0.0",
     "@types/jest": "^30.0.0",
     "@types/node": "^22.13.4",

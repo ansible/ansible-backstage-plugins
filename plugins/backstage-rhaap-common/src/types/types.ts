@@ -137,7 +137,7 @@ export type RHAAPConfig = {
   baseUrl?: string;
   token?: string;
   checkSSL?: boolean;
-  ?: ShowCaseLocation;
+  showcase?: ShowCaseLocation;
 };
 
 export type CatalogConfig = {
