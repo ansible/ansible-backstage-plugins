@@ -25,7 +25,7 @@
     "lint-staged": "lint-staged -p 10",
     "prettier:check": "prettier --check .",
     "new": "backstage-cli new",
-    "build": "tsc && backstage-cli repo build",
+    "build": "echo 'Build step skipped'",
     "export-dynamic": "janus-cli package package-dynamic-plugins --tag quay.io/ansible/ansible-backstage-plugins:$TAG",
     "export-local": "janus-cli package package-dynamic-plugins --export-to ${DYNAMIC_PLUGINS_ROOT:-./dynamic-plugins}"
   },

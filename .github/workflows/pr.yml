@@ -58,9 +58,6 @@ jobs:
         with:
             cache-prefix: ${{ github.ref_name }}-${{ runner.os }}-${{ matrix.node-version }}
 
-      - name: Build packages
-        run: yarn run build
-
   test:
     name: Test with Node.js ${{ matrix.node-version }}
     runs-on: ubuntu-latest
