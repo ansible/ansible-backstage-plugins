@@ -131,37 +131,6 @@ Ensure internal dependencies reference the correct versions:
 }
 ```
 
-#### Update Changelog
-
-Update `CHANGELOG.md` (create if it doesn't exist):
-
-```markdown
-# Changelog
-
-All notable changes to this project will be documented in this file.
-
-## [1.2.0] - 2025-10-27
-
-### Added
-
-- New job template filtering feature (#123)
-- Support for organization-based inventory (#124)
-
-### Changed
-
-- Improved error handling in AAP client (#125)
-- Updated Backstage dependencies to v1.39.1
-
-### Fixed
-
-- Fixed issue with empty inventory list (#126)
-- Corrected scaffolder action parameters (#127)
-
-### Security
-
-- Updated vulnerable dependencies
-```
-
 ### 2. Run Pre-Release Checks
 
 ```bash
@@ -192,7 +161,6 @@ git add .
 git commit -m "chore(release): prepare for v1.2.0 release
 
 - Updated plugin versions to 1.2.0
-- Updated CHANGELOG.md
 - Updated dependencies
 "
 ```
@@ -207,8 +175,6 @@ git tag -a v1.2.0 -m "Release version 1.2.0
 - Job template filtering
 - Organization-based inventory
 - Improved error handling
-
-See CHANGELOG.md for full details.
 "
 
 # Push the commit and tag
@@ -224,7 +190,7 @@ While we don't upload release assets, we can create GitHub releases for document
 2. Click "Releases" → "Draft a new release"
 3. Select the tag (v1.2.0)
 4. Set release title: "v1.2.0 - Release Name"
-5. Copy release notes from CHANGELOG.md
+5. Add release notes describing the changes
 6. Check "Set as the latest release"
 7. Click "Publish release"
 
@@ -346,10 +312,6 @@ Thank you to all contributors who made this release possible!
 - @contributor1
 - @contributor2
 - @contributor3
-
-## Full Changelog
-
-See [CHANGELOG.md](CHANGELOG.md) for complete details.
 ```
 
 ## Upstream Release Policy
@@ -454,7 +416,6 @@ yarn test:all
 
 ```bash
 # Update version to 1.2.1
-# Update CHANGELOG.md
 git commit -m "fix: critical security vulnerability (#XXX)"
 
 # Tag the hotfix
@@ -519,7 +480,6 @@ git show v1.2.0
 While CI/CD is excluded from this repository, release automation may include:
 
 - Automated version bumping
-- Changelog generation from commit messages
 - Tag creation from CI/CD pipeline
 - Notification systems for releases
 
@@ -539,7 +499,6 @@ These are implemented in internal CI/CD systems, not in this repository.
 ## Related Documentation
 
 - [CONTRIBUTING.md](CONTRIBUTING.md) - Contribution guidelines
-- [CHANGELOG.md](CHANGELOG.md) - Change history
 - [SECURITY.md](SECURITY.md) - Security policy
 
 ## Contact
