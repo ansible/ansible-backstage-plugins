@@ -292,6 +292,7 @@ backstage-plugins-ansible/
 │   └── backend/              # Backend Node.js service
 │
 ├── plugins/                   # Ansible-specific plugins
+│   ├── backstage-rhaap/                    # Provides access to the frontend plugin
 │   ├── backstage-rhaap-common/             # Shared utilities and types
 │   ├── auth-backend-module-rhaap-provider/ # Authentication provider
 │   ├── catalog-backend-module-rhaap/       # Catalog integration
@@ -317,6 +318,17 @@ backstage-plugins-ansible/
 ## Available Plugins
 
 ### Frontend Plugins
+
+#### [@ansible/plugin-backstage-rhaap](./plugins/backstage-rhaap)
+
+Enables the Ansible sidebar option and provides access to the frontend plugin
+
+**Features**:
+
+- Job template browser and launcher
+- Inventory management views
+- Project and credential views
+- Job execution history
 
 #### [@ansible/plugin-self-service](./plugins/self-service)
 
