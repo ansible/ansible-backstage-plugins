@@ -73,7 +73,6 @@ cp app-config.yaml app-config.local.yaml
 
 Update the following fields in `app-config.local.yaml`:
 
-- `integrations.github.token`: Your GitHub personal access token
 - `backend.auth.keys.secret`: A secure random string (generate with `openssl rand -base64 32`)
 - `auth.environment`: Set to 'development'
 - `aap.baseUrl`: Your Ansible Automation Platform instance URL (if available)
