@@ -88,8 +88,8 @@ Before setting up the development environment, ensure you have:
 1. **Clone the Repository**
 
 ```bash
-git clone https://github.com/ansible/backstage-plugins-ansible.git
-cd backstage-plugins-ansible
+git clone https://github.com/ansible/ansible-backstage-plugins.git
+cd ansible-backstage-plugins
 ```
 
 2. **Install Dependencies**
@@ -257,7 +257,7 @@ Normal startup logs include:
 ## Repository Structure
 
 ```
-backstage-plugins-ansible/
+ansible-backstage-plugins/
 ├── packages/                  # Core Backstage application
 │   ├── app/                  # Frontend React application
 │   └── backend/              # Backend Node.js service
@@ -469,10 +469,10 @@ yarn tsc
 
 If you encounter issues:
 
-1. Check existing [GitHub Issues](https://github.com/ansible/backstage-plugins-ansible/issues)
+1. Check existing [GitHub Issues](https://github.com/ansible/ansible-backstage-plugins/issues)
 2. Review plugin-specific README files
 3. Consult the [Documentation](#documentation)
-4. Ask in [GitHub Discussions](https://github.com/ansible/backstage-plugins-ansible/discussions)
+4. Ask in [GitHub Discussions](https://github.com/ansible/ansible-backstage-plugins/discussions)
 
 ## Documentation
 
@@ -538,8 +538,8 @@ This project is actively maintained by the Ansible team at Red Hat. We appreciat
 
 ## Support
 
-- **Issues**: [GitHub Issues](https://github.com/ansible/backstage-plugins-ansible/issues)
-- **Discussions**: [GitHub Discussions](https://github.com/ansible/backstage-plugins-ansible/discussions)
+- **Issues**: [GitHub Issues](https://github.com/ansible/ansible-backstage-plugins/issues)
+- **Discussions**: [GitHub Discussions](https://github.com/ansible/ansible-backstage-plugins/discussions)
 
 ---
 

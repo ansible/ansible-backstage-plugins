@@ -29,7 +29,7 @@ Before contributing, please:
 
 1. Read this contributing guide thoroughly
 2. Review the [README.md](README.md) for project overview
-3. Check existing [issues](https://github.com/ansible/backstage-plugins-ansible/issues) and [pull requests](https://github.com/ansible/backstage-plugins-ansible/pulls)
+3. Check existing [issues](https://github.com/ansible/ansible-backstage-plugins/issues) and [pull requests](https://github.com/ansible/ansible-backstage-plugins/pulls)
 4. Set up your development environment following the instructions below
 
 ## Development Environment Setup
@@ -47,8 +47,8 @@ Before contributing, please:
 1. **Fork and Clone the Repository**
 
 ```bash
-git clone https://github.com/YOUR_USERNAME/backstage-plugins-ansible.git
-cd backstage-plugins-ansible
+git clone https://github.com/YOUR_USERNAME/ansible-backstage-plugins.git
+cd ansible-backstage-plugins
 ```
 
 2. **Install Dependencies**

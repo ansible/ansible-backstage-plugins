@@ -103,7 +103,7 @@ jobs:
         run: |
             echo "SONAR_ARGS=-Dsonar.organization=${{ env.REPO_OWNER }} \
             -Dsonar.projectKey=${{ env.REPO_OWNER }}_${{ env.REPO_NAME }} \
-            -Dsonar.projectName='backstage-plugins-ansible' \
+            -Dsonar.projectName='ansible-backstage-plugins' \
             -Dsonar.sources=plugins \
             -Dsonar.tests=plugins \
             -Dsonar.test.inclusions=**/*.test.ts,**/*.test.tsx,**/*.test.js,**/*.test.jsx \
