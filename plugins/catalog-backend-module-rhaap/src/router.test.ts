@@ -20,12 +20,17 @@ import { createRouter } from './router';
 import { AAPEntityProvider } from './providers/AAPEntityProvider';
 import { AAPJobTemplateProvider } from './providers/AAPJobTemplateProvider';
 import { LoggerService } from '@backstage/backend-plugin-api';
+import { EEEntityProvider } from './providers/EEEntityProvider';
+import { DiscoveryService, AuthService } from '@backstage/backend-plugin-api';
 
 describe('createRouter', () => {
   let app: express.Express;
   let mockLogger: jest.Mocked<LoggerService>;
   let mockAAPEntityProvider: jest.Mocked<AAPEntityProvider>;
   let mockJobTemplateProvider: jest.Mocked<AAPJobTemplateProvider>;
+  let mockEEEntityProvider: jest.Mocked<EEEntityProvider>;
+  let mockDiscovery: jest.Mocked<DiscoveryService>;
+  let mockAuth: jest.Mocked<AuthService>;
 
   beforeEach(async () => {
     mockLogger = {
@@ -48,10 +53,34 @@ describe('createRouter', () => {
       connect: jest.fn(),
     } as unknown as jest.Mocked<AAPJobTemplateProvider>;
 
+    mockEEEntityProvider = {
+      run: jest.fn(),
+      getProviderName: jest.fn().mockReturnValue('EEEntityProvider:test'),
+      connect: jest.fn(),
+    } as unknown as jest.Mocked<EEEntityProvider>;
+
+    mockDiscovery = {
+      getBaseUrl: jest
+        .fn()
+        .mockResolvedValue('http://localhost:7007/api/catalog'),
+    } as unknown as jest.Mocked<DiscoveryService>;
+
+    mockAuth = {
+      getOwnServiceCredentials: jest
+        .fn()
+        .mockResolvedValue({ principal: { type: 'service' } }),
+      getPluginRequestToken: jest
+        .fn()
+        .mockResolvedValue({ token: 'mock-service-token' }),
+    } as unknown as jest.Mocked<AuthService>;
+
     const router = await createRouter({
       logger: mockLogger,
       aapEntityProvider: mockAAPEntityProvider,
       jobTemplateProvider: mockJobTemplateProvider,
+      eeEntityProvider: mockEEEntityProvider,
+      discovery: mockDiscovery,
+      auth: mockAuth,
     });
 
     app = express().use(router);
@@ -182,6 +211,9 @@ describe('createRouter', () => {
           logger: mockLogger,
           aapEntityProvider: mockProvider as any,
           jobTemplateProvider: {} as any,
+          eeEntityProvider: mockEEEntityProvider,
+          discovery: mockDiscovery,
+          auth: mockAuth,
         }),
       );
 
@@ -211,6 +243,9 @@ describe('createRouter', () => {
           logger: mockLogger,
           aapEntityProvider: mockProvider as any,
           jobTemplateProvider: {} as any,
+          eeEntityProvider: mockEEEntityProvider,
+          discovery: mockDiscovery,
+          auth: mockAuth,
         }),
       );
 
@@ -238,6 +273,9 @@ describe('createRouter', () => {
           logger: mockLogger,
           aapEntityProvider: mockProvider as any,
           jobTemplateProvider: {} as any,
+          eeEntityProvider: mockEEEntityProvider,
+          discovery: mockDiscovery,
+          auth: mockAuth,
         }),
       );
 
@@ -265,6 +303,9 @@ describe('createRouter', () => {
           logger: mockLogger,
           aapEntityProvider: mockProvider as any,
           jobTemplateProvider: {} as any,
+          eeEntityProvider: mockEEEntityProvider,
+          discovery: mockDiscovery,
+          auth: mockAuth,
         }),
       );
 
@@ -295,6 +336,9 @@ describe('createRouter', () => {
           logger: mockLogger,
           aapEntityProvider: mockProvider as any,
           jobTemplateProvider: {} as any,
+          eeEntityProvider: mockEEEntityProvider,
+          discovery: mockDiscovery,
+          auth: mockAuth,
         }),
       );
 
@@ -326,6 +370,9 @@ describe('createRouter', () => {
           logger: mockLogger,
           aapEntityProvider: mockProvider as any,
           jobTemplateProvider: {} as any,
+          eeEntityProvider: mockEEEntityProvider,
+          discovery: mockDiscovery,
+          auth: mockAuth,
         }),
       );
 
@@ -357,6 +404,9 @@ describe('createRouter', () => {
           logger: mockLogger,
           aapEntityProvider: mockProvider as any,
           jobTemplateProvider: {} as any,
+          eeEntityProvider: mockEEEntityProvider,
+          discovery: mockDiscovery,
+          auth: mockAuth,
         }),
       );
 
@@ -384,6 +434,9 @@ describe('createRouter', () => {
           logger: mockLogger,
           aapEntityProvider: mockProvider as any,
           jobTemplateProvider: {} as any,
+          eeEntityProvider: mockEEEntityProvider,
+          discovery: mockDiscovery,
+          auth: mockAuth,
         }),
       );
 
@@ -413,6 +466,9 @@ describe('createRouter', () => {
           logger: mockLogger,
           aapEntityProvider: mockProvider as any,
           jobTemplateProvider: {} as any,
+          eeEntityProvider: mockEEEntityProvider,
+          discovery: mockDiscovery,
+          auth: mockAuth,
         }),
       );
 
@@ -451,6 +507,9 @@ describe('createRouter', () => {
         logger: undefined as any,
         aapEntityProvider: mockAAPEntityProvider,
         jobTemplateProvider: mockJobTemplateProvider,
+        eeEntityProvider: mockEEEntityProvider,
+        discovery: mockDiscovery,
+        auth: mockAuth,
       });
 
       const testApp = express().use(routerWithInvalidLogger);
@@ -465,6 +524,9 @@ describe('createRouter', () => {
         logger: mockLogger,
         aapEntityProvider: undefined as any,
         jobTemplateProvider: mockJobTemplateProvider,
+        eeEntityProvider: mockEEEntityProvider,
+        discovery: mockDiscovery,
+        auth: mockAuth,
       });
 
       const testApp = express().use(routerWithInvalidProvider);
@@ -479,6 +541,9 @@ describe('createRouter', () => {
         logger: mockLogger,
         aapEntityProvider: mockAAPEntityProvider,
         jobTemplateProvider: undefined as any,
+        eeEntityProvider: mockEEEntityProvider,
+        discovery: mockDiscovery,
+        auth: mockAuth,
       });
 
       const testApp = express().use(routerWithInvalidProvider);

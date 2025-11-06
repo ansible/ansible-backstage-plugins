@@ -21,3 +21,7 @@ export { createJobTemplate } from './aapCreateJobTemplate';
 export { launchJobTemplate } from './aapLaunchJobTemplate';
 export { cleanUp } from './aapCleanUp';
 export { createShowCases } from './aapCreateShowCases';
+export { createEEDefinitionAction } from './createEEDefinition';
+export { createEETemplateAction } from './createEETemplate';
+export { prepareForPublishAction } from './prepareForPublish';
+export { createEECatalogInfoAction } from './createEECatalogInfo';
