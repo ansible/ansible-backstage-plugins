@@ -41,8 +41,11 @@
     "@backstage/plugin-scaffolder-node": "^0.8.2",
     "@backstage/types": "^1.2.1",
     "@octokit/core": "^5.0.0",
+    "fs-extra": "^11.3.2",
     "isomorphic-git": "^1.23.0",
+    "js-yaml": "^4.1.0",
     "node-fetch": "^2.6.7",
+    "semver": "^7.7.3",
     "undici": "6.21.2",
     "yaml": "^2.0.0"
   },
@@ -55,9 +58,12 @@
     "@backstage/plugin-scaffolder-node-test-utils": "^0.2.2",
     "@backstage/test-utils": "^1.7.8",
     "@janus-idp/cli": "^3.6.1",
+    "@types/fs-extra": "^11",
     "@types/jest": "^29.5.12",
+    "@types/js-yaml": "^4",
     "@types/node": "^22.13.4",
     "@types/node-fetch": "2.6.11",
+    "@types/semver": "^7",
     "msw": "2.4.9"
   },
   "files": [
