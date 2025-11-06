@@ -71,10 +71,12 @@ __metadata:
     "@backstage/types": "npm:^1.2.1"
     "@janus-idp/cli": "npm:^3.6.1"
     "@types/express": "npm:^5.0.3"
+    "@types/fs-extra": "npm:^11"
     "@types/jest": "npm:^29.5.14"
     "@types/supertest": "npm:^6.0.3"
     express: "npm:^5.1.0"
     express-promise-router: "npm:^4.1.1"
+    fs-extra: "npm:^11.3.2"
     supertest: "npm:^7.1.1"
     undici: "npm:6.21.2"
   languageName: unknown

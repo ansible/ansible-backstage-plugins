@@ -13,6 +13,10 @@ jest.mock('./actions', () => ({
   launchJobTemplate: jest.fn(() => 'action5'),
   cleanUp: jest.fn(() => 'action6'),
   createShowCases: jest.fn(() => 'action7'),
+  createEEDefinitionAction: jest.fn(() => 'action8'),
+  createEETemplateAction: jest.fn(() => 'action9'),
+  prepareForPublishAction: jest.fn(() => 'action10'),
+  createEECatalogInfoAction: jest.fn(() => 'action11'),
 }));
 
 jest.mock('./filters', () => ({
