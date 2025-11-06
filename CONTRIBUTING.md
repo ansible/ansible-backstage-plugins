@@ -1,6 +1,6 @@
-# Contributing to Ansible Backstage Plugins
+# Contributing to Backstage Plugins for Ansible
 
-Thank you for your interest in contributing to the Ansible Backstage Plugins project! This document provides guidelines and instructions for contributing to the project.
+Thank you for your interest in contributing to the Backstage Plugins for Ansible project! This document provides guidelines and instructions for contributing to the project.
 
 ## Table of Contents
 
@@ -157,12 +157,6 @@ Pre-commit hooks automatically run:
 - Prettier (formatting)
 - Type checking on staged files
 
-To bypass hooks in exceptional cases (not recommended):
-
-```bash
-git commit --no-verify
-```
-
 ## Code Style and Standards
 
 ### TypeScript
@@ -203,14 +197,6 @@ import { MyComponent } from './MyComponent';
 import { useLocalHook } from './hooks';
 ```
 
-### Code Formatting
-
-- **Indentation**: 2 spaces
-- **Line length**: 80 characters (soft limit)
-- **Quotes**: Single quotes for strings
-- **Semicolons**: Required
-- **Trailing commas**: Required for multi-line
-
 Prettier handles formatting automatically. Run:
 
 ```bash
@@ -249,24 +235,6 @@ yarn test:all        # Run all tests with coverage
   - API client methods
   - Utility functions
 
-### Example Test
-
-```typescript
-import { renderHook } from '@testing-library/react';
-import { useJobTemplates } from './useJobTemplates';
-
-describe('useJobTemplates', () => {
-  it('should fetch job templates', async () => {
-    const { result, waitForNextUpdate } = renderHook(() => useJobTemplates());
-
-    await waitForNextUpdate();
-
-    expect(result.current.templates).toHaveLength(5);
-    expect(result.current.loading).toBe(false);
-  });
-});
-```
-
 ## Pull Request Process
 
 ### Before Submitting
@@ -297,41 +265,6 @@ yarn build:all       # Ensure build succeeds
 - [ ] PR description clearly explains changes
 - [ ] Related issue(s) linked
 
-### PR Template
-
-When creating a PR, include:
-
-```markdown
-## Description
-
-Brief description of changes
-
-## Related Issues
-
-Closes #123
-
-## Type of Change
-
-- [ ] Bug fix
-- [ ] New feature
-- [ ] Breaking change
-- [ ] Documentation update
-
-## Testing
-
-Describe testing performed
-
-## Screenshots (if applicable)
-
-Add screenshots for UI changes
-
-## Checklist
-
-- [ ] Code follows project style
-- [ ] Tests pass locally
-- [ ] Documentation updated
-```
-
 ### Review Process
 
 1. **Automated Checks**: CI runs tests, linting, and builds
@@ -340,11 +273,6 @@ Add screenshots for UI changes
 4. **Approval**: Maintainer approves PR
 5. **Merge**: Maintainer merges using squash or merge commit
 
-### Review Timeline
-
-- **Initial Review**: Within 3-5 business days
-- **Follow-up**: Within 1-2 business days after updates
-
 ## Issue Reporting
 
 ### Before Creating an Issue
@@ -352,39 +280,6 @@ Add screenshots for UI changes
 - Search existing issues to avoid duplicates
 - Verify the issue in the latest version
 - Gather relevant information
-
-### Issue Template
-
-```markdown
-## Description
-
-Clear description of the issue
-
-## Steps to Reproduce
-
-1. Step one
-2. Step two
-3. Step three
-
-## Expected Behavior
-
-What should happen
-
-## Actual Behavior
-
-What actually happens
-
-## Environment
-
-- OS: [e.g., Ubuntu 22.04]
-- Node.js: [e.g., v20.11.0]
-- Backstage: [e.g., v1.39.1]
-- Plugin: [e.g., backstage-rhaap v1.0.0]
-
-## Additional Context
-
-Screenshots, logs, or other relevant information
-```
 
 ### Issue Labels
 
@@ -473,22 +368,12 @@ We follow [Semantic Versioning](https://semver.org/):
 - **GitHub Issues**: Bug reports and feature requests
 - **GitHub Discussions**: General questions and discussions
 - **Pull Requests**: Code contributions
-- **Email**: ansible-devtools@redhat.com
 
 ### Getting Help
 
 - Check existing documentation and issues
 - Ask questions in GitHub Discussions
 - Join Ansible community forums
-- Attend Ansible contributor meetups
-
-### Recognition
-
-We value all contributions! Contributors are:
-
-- Listed in release notes for their contributions
-- Credited in commit history
-- Invited to join maintainer discussions (for regular contributors)
 
 ## Security
 
@@ -511,30 +396,9 @@ This project is licensed under the Apache-2.0 License. See [LICENSE](LICENSE) fo
 
 By contributing, you agree that your contributions will be licensed under the Apache-2.0 License.
 
----
-
-## Quick Reference Commands
-
-```bash
-# Development
-yarn start                # Start dev server
-yarn test                 # Run tests
-yarn lint:all             # Lint all files
-yarn build:all            # Build all packages
-
-# Plugin-specific
-yarn workspace @ansible/plugin-backstage-rhaap start
-yarn workspace backend build-image
-
-# Maintenance
-yarn prettier:check       # Check formatting
-yarn fix                  # Auto-fix issues
-yarn tsc                  # Type check
-```
-
 ## Thank You!
 
-Thank you for contributing to Ansible Backstage Plugins! Your contributions help make this project better for everyone in the Ansible and Backstage communities.
+Thank you for contributing to Backstage Plugins for Ansible! Your contributions help make this project better for everyone in the Ansible and Backstage communities.
 
 ---
 

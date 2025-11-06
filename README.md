@@ -27,7 +27,7 @@ Welcome to the Ansible plugins for Backstage project! This repository provides p
 
 ## Overview
 
-The Ansible Backstage Plugins project brings Ansible Automation Platform capabilities into Backstage, enabling developers to:
+The Backstage Plugins for Ansible project brings Ansible Automation Platform capabilities into Backstage, enabling developers to:
 
 - Browse and launch job templates
 - Manage inventories, projects, and credentials
@@ -40,7 +40,7 @@ This is a monorepo containing multiple plugins that work together to provide a c
 
 ## Features
 
-- **Frontend Integration**: Browse AAP resources directly in Backstage UI
+- **Frontend Integration**: Browse resources directly in Backstage UI
 - **Self-Service Automation**: Enable developers to trigger automations without AAP knowledge
 - **Catalog Integration**: Sync AAP resources into Backstage catalog
 - **Scaffolder Actions**: Create software templates that interact with AAP
@@ -199,36 +199,6 @@ EOF
 #### 4. Additional Configuration Options
 
 <details>
-<summary><b>Database Configuration</b></summary>
-
-By default, the app uses SQLite. For PostgreSQL:
-
-```yaml
-backend:
-  database:
-    client: pg
-    connection:
-      host: ${POSTGRES_HOST}
-      port: ${POSTGRES_PORT}
-      user: ${POSTGRES_USER}
-      password: ${POSTGRES_PASSWORD}
-```
-
-</details>
-
-<details>
-<summary><b>CORS Configuration</b></summary>
-
-```yaml
-backend:
-  cors:
-    origin: http://localhost:3000
-    credentials: true
-```
-
-</details>
-
-<details>
 <summary><b>Authentication Providers</b></summary>
 
 ```yaml
@@ -281,6 +251,7 @@ Normal startup logs include:
 - **Home**: `http://localhost:3000`
 - **Catalog**: `http://localhost:3000/catalog`
 - **Ansible Plugin**: `http://localhost:3000/ansible`
+- **Ansible Self-service Plugin**: `http://localhost:3000/self-service` (AAP Related)
 - **API Docs**: `http://localhost:7007/api/docs`
 
 ## Repository Structure
@@ -325,10 +296,10 @@ Enables the Ansible sidebar option and provides access to the frontend plugin
 
 **Features**:
 
-- Job template browser and launcher
-- Inventory management views
-- Project and credential views
-- Job execution history
+- Ansible specific UI
+- Allows to view ansible specific catalog information
+- Allows to view and run ansible specific software templates
+- Ansible related learning paths.
 
 #### [@ansible/plugin-self-service](./plugins/self-service)
 
@@ -420,75 +391,6 @@ yarn tsc
 yarn build:all
 ```
 
-#### Build Specific Components
-
-```bash
-# Build only backend
-yarn build:backend
-
-# Build backend container image
-yarn build-image
-```
-
-#### Export Dynamic Plugins
-
-```bash
-# Export to local directory
-yarn export-local
-
-# Export to container image
-yarn export-dynamic --tag quay.io/your-org/backstage-plugins-ansible:latest
-```
-
-### Linting and Formatting
-
-```bash
-# Run ESLint
-yarn lint:all          # Check all files
-yarn lint              # Check files changed since main
-
-# Auto-fix issues
-yarn fix
-
-# Check Prettier formatting
-yarn prettier:check
-```
-
-### Plugin Development
-
-When developing plugins:
-
-1. **Follow Backstage Conventions**
-   - Use standard plugin structure
-   - Export plugins properly from `src/plugin.ts`
-   - Define configuration schema in `config.d.ts`
-
-2. **Use Shared Utilities**
-   - Import common utilities from `@ansible/plugin-backstage-rhaap-common`
-   - Leverage existing AAP API clients
-
-3. **Add Tests**
-   - Write unit tests for business logic
-   - Use React Testing Library for components
-   - Mock external dependencies
-
-4. **Document Your Plugin**
-   - Update plugin README.md
-   - Add JSDoc comments for public APIs
-   - Include usage examples
-
-#### Create New Plugin
-
-```bash
-# Use Backstage CLI to create plugin scaffold
-yarn new
-
-# Follow prompts to create:
-# - Frontend plugin
-# - Backend plugin
-# - Backend module
-```
-
 ## Troubleshooting
 
 ### Common Issues and Solutions
@@ -571,7 +473,6 @@ If you encounter issues:
 2. Review plugin-specific README files
 3. Consult the [Documentation](#documentation)
 4. Ask in [GitHub Discussions](https://github.com/ansible/backstage-plugins-ansible/discussions)
-5. Contact ansible-devtools@redhat.com
 
 ## Documentation
 
@@ -597,7 +498,6 @@ If you encounter issues:
 ### Additional Resources
 
 - [Backstage Documentation](https://backstage.io/docs/)
-- [Ansible Automation Platform Documentation](https://docs.ansible.com/automation-controller/)
 
 ## Contributing
 
@@ -618,14 +518,6 @@ We welcome contributions! Please see our [Contributing Guide](./CONTRIBUTING.md)
 5. Run `yarn lint:all` and `yarn test:all`
 6. Submit a pull request
 
-### Branch Protection
-
-The `main` branch is protected. See [BRANCH_PROTECTION.md](./BRANCH_PROTECTION.md) for details on branch protection rules.
-
-### Commit History
-
-For information on commit history sanitization, see [COMMIT_HISTORY.md](./COMMIT_HISTORY.md).
-
 ### Release Process
 
 For information on how releases are managed, see [RELEASE_PROCESS.md](./RELEASE_PROCESS.md).
@@ -634,54 +526,11 @@ For information on how releases are managed, see [RELEASE_PROCESS.md](./RELEASE_
 
 For information about reporting security vulnerabilities, see [SECURITY.md](./SECURITY.md).
 
-**Quick Contact**:
-
-- **Security Issues**: secalert@redhat.com
-- **Product Security Team**: [Red Hat Product Security](https://access.redhat.com/security/team/contact)
-
-### Security Best Practices
-
-- Never commit sensitive information (tokens, passwords, keys)
-- Use environment variables for secrets
-- Enable SSL verification in production (`AAP_CHECK_SSL=true`)
-- Keep dependencies up to date (`yarn audit`)
-- Follow secure coding practices
-
 ## License
 
 This project is licensed under the **Apache License 2.0**. See [LICENSE](./LICENSE) for details.
 
 By contributing to this project, you agree that your contributions will be licensed under the Apache License 2.0.
-
----
-
-## Quick Reference Commands
-
-```bash
-# Development
-yarn start                    # Start dev server
-yarn test                     # Run tests once
-yarn test:watch              # Run tests in watch mode
-yarn test:all                # Run all tests with coverage
-
-# Code Quality
-yarn lint:all                # Lint all files
-yarn fix                     # Auto-fix lint/format issues
-yarn prettier:check          # Check formatting
-yarn tsc                     # Type check
-
-# Building
-yarn build:all               # Build all packages
-yarn build:backend           # Build backend only
-yarn export-local            # Export dynamic plugins
-
-# Plugin Development
-yarn workspace @ansible/plugin-backstage-rhaap start
-yarn workspace @ansible/plugin-backstage-rhaap test
-
-# Cleaning
-yarn clean                   # Clean build artifacts
-```
 
 ## Project Status
 
@@ -691,7 +540,6 @@ This project is actively maintained by the Ansible team at Red Hat. We appreciat
 
 - **Issues**: [GitHub Issues](https://github.com/ansible/backstage-plugins-ansible/issues)
 - **Discussions**: [GitHub Discussions](https://github.com/ansible/backstage-plugins-ansible/discussions)
-- **Email**: ansible-devtools@redhat.com
 
 ---
 
