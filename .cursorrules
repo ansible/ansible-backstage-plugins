@@ -1,4 +1,4 @@
-# Ansible Backstage Plugins - Cursor Rules
+# Backstage Plugins for Ansible - Cursor Rules
 
 ## Project Overview
 This is a monorepo for Ansible plugins for Backstage/Red Hat Developer Hub (RHDH). The project contains multiple plugins that integrate Ansible Automation Platform (AAP) with Backstage, providing self-service capabilities for Ansible automation.

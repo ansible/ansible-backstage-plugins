@@ -1,6 +1,6 @@
 ---
 # cspell:ignore autohide, autofix
-site_name: Ansible Backstage Plugins Documentation
+site_name: Backstage Plugins for Ansible Documentation
 site_url: https://ansible.github.io/projects/ansible-backstage-plugins/
 repo_url: https://github.com/ansible/ansible-backstage-plugins
 edit_uri: blob/main/docs/

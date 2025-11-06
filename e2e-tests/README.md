@@ -1,6 +1,6 @@
-# Enhanced E2E Testing for Ansible Backstage Plugins
+# Enhanced E2E Testing for Backstage Plugins for Ansible
 
-This directory contains the enhanced end-to-end testing setup for the Ansible Backstage plugins, featuring improved architecture, session management, and robust error handling inspired by the aap-ui project.
+This directory contains the enhanced end-to-end testing setup for the Backstage Plugins for Ansible, featuring improved architecture, session management, and robust error handling inspired by the aap-ui project.
 
 ## 🏗️ Architecture Overview
 

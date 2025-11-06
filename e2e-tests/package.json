@@ -1,7 +1,7 @@
 {
   "name": "ansible-backstage-plugins-e2e",
   "version": "1.0.0",
-  "description": "Enhanced E2E tests for Ansible Backstage plugins",
+  "description": "Enhanced E2E tests for Backstage Plugins for Ansible",
   "scripts": {
     "cy:open": "cypress open --browser chrome --e2e",
     "cy:open:self-service": "cypress open --config-file cypress.self-service.config.ts --browser chrome --e2e",
