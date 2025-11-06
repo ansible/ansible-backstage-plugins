@@ -275,7 +275,7 @@ export function createEEDefinitionAction() {
       // If mcpServers are specified, add them to the collections list
       // and add the MCP install playbook command to the additional build steps
       if (mcpServers.length > 0) {
-        let mcpInstallCmd =
+        const mcpInstallCmd =
           'RUN ansible-playbook ansible.mcp_builder.install_mcp -e mcp_servers=' +
           mcpServers.map(s => `${s.toLowerCase()}_mcp`).join(',');
 
