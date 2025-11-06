@@ -573,7 +573,7 @@ To build this Execution Environment, you need to have the following tools instal
 
 2. Run the following command to build the Execution Environment:
 \`\`\`bash
-ansible-builder build --file \${values.eeFileName}.yaml\ --tag ${values.eeFileName}:latest --container-runtime podman
+ansible-builder build --file ${values.eeFileName}.yaml --tag ${values.eeFileName}:latest --container-runtime podman
 \`\`\`
 
 Please update the tag (specified after the \`--tag\` flag) to the desired tag for the built image and
