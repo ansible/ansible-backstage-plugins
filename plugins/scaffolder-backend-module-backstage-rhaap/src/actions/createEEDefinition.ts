@@ -4,10 +4,7 @@ import * as path from 'path';
 import yaml from 'js-yaml';
 import semver from 'semver';
 import { z } from 'zod';
-import {
-  CollectionSchema,
-  CollectionRequirementsSchema,
-} from './helpers/schemas';
+import { CollectionRequirementsSchema } from './helpers/schemas';
 
 interface Collection {
   name: string;
@@ -267,9 +264,6 @@ export function createEEDefinitionAction() {
       const decodedSystemPackagesContent = parseDataUrl(systemPackagesFile);
 
       const parsedCollections = parseCollectionsFile(decodedCollectionsContent);
-      logger.info(
-        `[ansible:ee:create-definition] parsedCollections: ${JSON.stringify(parsedCollections)}`,
-      );
       const parsedPythonRequirements = parseTextRequirementsFile(
         decodedPythonRequirementsContent,
       );
@@ -277,51 +271,14 @@ export function createEEDefinitionAction() {
         decodedSystemPackagesContent,
       );
 
-      // If mcpServers are specified, add them to the collections list
-      // and add the MCP install playbook command to the additional build steps
-      if (mcpServers.length > 0) {
-        const mcpInstallCmd = `RUN ansible-playbook ansible.mcp_builder.install_mcp -e mcp_servers=${mcpServers
-          .map(s => `${s.toLowerCase()}_mcp`)
-          .join(',')}`;
-
-        parsedCollections.push(
-          { name: 'ansible.mcp_builder' },
-          { name: 'ansible.mcp' },
-        );
-
-        // Find if there's already a step with stepType 'append_builder'
-        const appendBuilderStep = additionalBuildSteps.find(
-          step => step.stepType === 'append_builder',
-        );
-
-        if (appendBuilderStep) {
-          // If found, add the MCP install playbook command to its commands array
-          appendBuilderStep.commands.push(mcpInstallCmd);
-        } else {
-          // Otherwise, create a new step entry
-          additionalBuildSteps.push({
-            stepType: 'append_builder',
-            commands: [mcpInstallCmd],
-          });
-        }
-        // Find if there's already a step with stepType 'append_builder'
-        const appendFinalStep = additionalBuildSteps.find(
-          step => step.stepType === 'append_final',
-        );
-
-        const appendFinalMCPCommand = 'COPY --from=builder /opt/mcp /opt/mcp';
-
-        if (appendFinalStep) {
-          // If found, add the MCP install playbook command to its commands array
-          appendFinalStep.commands.push(appendFinalMCPCommand);
-        } else {
-          // Otherwise, create a new step entry
-          additionalBuildSteps.push({
-            stepType: 'append_final',
-            commands: [appendFinalMCPCommand],
-          });
-        }
-      }
+      // generate MCP builder steps
+      // if any MCP servers are specified, we need to add the ansible.mcp ansible.mcp_builder collections
+      // for that we use the parsedCollections list
+      generateMCPBuilderSteps(
+        mcpServers,
+        parsedCollections,
+        additionalBuildSteps,
+      );
 
       try {
         // Merge collections from different sources
@@ -761,9 +718,7 @@ function parseTextRequirementsFile(decodedContent: string): string[] {
   return parsedRequirements;
 }
 
-export function parseCollectionsFile(
-  decodedCollectionsContent: string,
-): z.infer<typeof CollectionSchema>[] {
+function parseCollectionsFile(decodedCollectionsContent: string): Collection[] {
   if (!decodedCollectionsContent?.trim()) {
     throw new Error('Uploaded collections file content is empty');
   }
@@ -784,5 +739,57 @@ export function parseCollectionsFile(
 
     // this will result from the content not being valid YAML or any other error
     throw new Error(`Failed to parse collections file: ${err.message}`);
+  }
+}
+
+function generateMCPBuilderSteps(
+  mcpServers: string[],
+  parsedCollections: Collection[],
+  additionalBuildSteps: AdditionalBuildStep[],
+) {
+  // If mcpServers are specified, add them to the collections list
+  // and add the MCP install playbook command to the additional build steps
+  if (mcpServers.length > 0) {
+    const mcpInstallCmd = `RUN ansible-playbook ansible.mcp_builder.install_mcp -e mcp_servers=${mcpServers
+      .map(s => `${s.toLowerCase()}_mcp`)
+      .join(',')}`;
+
+    parsedCollections.push(
+      { name: 'ansible.mcp_builder' },
+      { name: 'ansible.mcp' },
+    );
+
+    // Find if there's already a step with stepType 'append_builder'
+    const appendBuilderStep = additionalBuildSteps.find(
+      step => step.stepType === 'append_builder',
+    );
+
+    if (appendBuilderStep) {
+      // If found, add the MCP install playbook command to its commands array
+      appendBuilderStep.commands.push(mcpInstallCmd);
+    } else {
+      // Otherwise, create a new step entry
+      additionalBuildSteps.push({
+        stepType: 'append_builder',
+        commands: [mcpInstallCmd],
+      });
+    }
+    // Find if there's already a step with stepType 'append_builder'
+    const appendFinalStep = additionalBuildSteps.find(
+      step => step.stepType === 'append_final',
+    );
+
+    const appendFinalMCPCommand = 'COPY --from=builder /opt/mcp /opt/mcp';
+
+    if (appendFinalStep) {
+      // If found, add the MCP install playbook command to its commands array
+      appendFinalStep.commands.push(appendFinalMCPCommand);
+    } else {
+      // Otherwise, create a new step entry
+      additionalBuildSteps.push({
+        stepType: 'append_final',
+        commands: [appendFinalMCPCommand],
+      });
+    }
   }
 }
