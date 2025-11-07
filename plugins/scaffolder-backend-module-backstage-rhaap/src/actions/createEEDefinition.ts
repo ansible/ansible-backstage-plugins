@@ -3,6 +3,11 @@ import * as fs from 'fs/promises';
 import * as path from 'path';
 import yaml from 'js-yaml';
 import semver from 'semver';
+import { z } from 'zod';
+import {
+  CollectionSchema,
+  CollectionRequirementsSchema,
+} from './helpers/schemas';
 
 interface Collection {
   name: string;
@@ -742,25 +747,6 @@ function parseDataUrl(dataUrl: string): string {
   return decodedContent;
 }
 
-function parseCollectionsFile(decodedCollectionsContent: string): Collection[] {
-  let parsedCollections: Collection[] = [];
-  try {
-    // a correct requirements.yml file will have a collections key
-    // if it does not, we raise an error
-    if (decodedCollectionsContent) {
-      const parsed = yaml.load(decodedCollectionsContent.trim()) as {
-        collections: Collection[];
-      };
-      if (parsed) {
-        parsedCollections = parsed.collections as Collection[];
-      }
-    }
-  } catch (error: any) {
-    throw new Error(`Failed to parse collections file: ${error.message}`);
-  }
-  return parsedCollections;
-}
-
 function parseTextRequirementsFile(decodedContent: string): string[] {
   let parsedRequirements: string[] = [];
   try {
@@ -773,4 +759,30 @@ function parseTextRequirementsFile(decodedContent: string): string[] {
     );
   }
   return parsedRequirements;
+}
+
+export function parseCollectionsFile(
+  decodedCollectionsContent: string,
+): z.infer<typeof CollectionSchema>[] {
+  if (!decodedCollectionsContent?.trim()) {
+    throw new Error('Uploaded collections file content is empty');
+  }
+
+  try {
+    const parsedYaml = yaml.load(decodedCollectionsContent.trim());
+
+    const validated = CollectionRequirementsSchema.parse(parsedYaml);
+
+    return validated.collections;
+  } catch (err: any) {
+    // this will result from the content not conforming to the schema defined above
+    if (err instanceof z.ZodError) {
+      throw new Error(
+        `Invalid collections file structure:\n${err.errors.map(e => `- ${e.path.join('.')}: ${e.message}`).join('\n')}`,
+      );
+    }
+
+    // this will result from the content not being valid YAML or any other error
+    throw new Error(`Failed to parse collections file: ${err.message}`);
+  }
 }
