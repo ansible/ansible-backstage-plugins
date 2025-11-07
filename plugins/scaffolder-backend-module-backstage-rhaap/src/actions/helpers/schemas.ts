@@ -1,3 +1,7 @@
+/*
+Various schema definitions for validating the input data
+*/
+
 import { z } from 'zod';
 
 export const CollectionSchema = z

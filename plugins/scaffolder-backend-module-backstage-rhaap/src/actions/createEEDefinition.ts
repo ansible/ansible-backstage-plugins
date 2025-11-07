@@ -733,7 +733,7 @@ function parseCollectionsFile(decodedCollectionsContent: string): Collection[] {
     // this will result from the content not conforming to the schema defined above
     if (err instanceof z.ZodError) {
       throw new Error(
-        `Invalid collections file structure:\n${err.errors.map(e => `- ${e.path.join('.')}: ${e.message}`).join('\n')}`,
+        `Invalid collections file structure:\n${err.issues.map(e => `- ${e.path.join('.')}: ${e.message}`).join('\n')}`,
       );
     }
 
