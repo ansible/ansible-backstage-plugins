@@ -4,7 +4,11 @@ import * as path from 'path';
 import yaml from 'js-yaml';
 import semver from 'semver';
 import { z } from 'zod';
-import { CollectionRequirementsSchema } from './helpers/schemas';
+import {
+  CollectionRequirementsSchema,
+  EEDefinitionSchema,
+} from './helpers/schemas';
+import { parseUploadedFileContent } from './utils/utils';
 
 interface Collection {
   name: string;
@@ -257,11 +261,13 @@ export function createEEDefinitionAction() {
       const baseImage = values.baseImage;
       logger.info(`[ansible:ee:create-definition] EE base image: ${baseImage}`);
 
-      const decodedCollectionsContent = parseDataUrl(collectionsFile);
-      const decodedPythonRequirementsContent = parseDataUrl(
+      const decodedCollectionsContent =
+        parseUploadedFileContent(collectionsFile);
+      const decodedPythonRequirementsContent = parseUploadedFileContent(
         pythonRequirementsFile,
       );
-      const decodedSystemPackagesContent = parseDataUrl(systemPackagesFile);
+      const decodedSystemPackagesContent =
+        parseUploadedFileContent(systemPackagesFile);
 
       const parsedCollections = parseCollectionsFile(decodedCollectionsContent);
       const parsedPythonRequirements = parseTextRequirementsFile(
@@ -329,6 +335,9 @@ export function createEEDefinitionAction() {
 
         // Generate EE definition file
         const eeDefinition = generateEEDefinition(mergedValues);
+        // validate the generated EE definition YAML content
+        // this will throw an error if the generated EE definition YAML content is invalid
+        validateEEDefinition(eeDefinition);
 
         await fs.writeFile(eeDefinitionPath, eeDefinition);
         logger.info(
@@ -683,27 +692,6 @@ function mergePackages(
   return Array.from(new Set(packages));
 }
 
-function parseDataUrl(dataUrl: string): string {
-  // Start parsing of collections file content
-  let decodedContent = '';
-
-  if (typeof dataUrl === 'string' && dataUrl.includes('base64,')) {
-    const matches = dataUrl.match(/^data:(.*?);base64,(.*)$/);
-    if (!matches) {
-      throw new Error('Invalid data URL format for the file uploaded');
-    }
-    const base64Data = matches[2];
-    try {
-      decodedContent = Buffer.from(base64Data, 'base64')
-        .toString('utf-8')
-        .trim();
-    } catch (error: any) {
-      throw new Error(`Failed to parse data URL: ${error.message}`);
-    }
-  }
-  return decodedContent;
-}
-
 function parseTextRequirementsFile(decodedContent: string): string[] {
   let parsedRequirements: string[] = [];
   try {
@@ -720,7 +708,7 @@ function parseTextRequirementsFile(decodedContent: string): string[] {
 
 function parseCollectionsFile(decodedCollectionsContent: string): Collection[] {
   if (!decodedCollectionsContent?.trim()) {
-    throw new Error('Uploaded collections file content is empty');
+    return [];
   }
 
   try {
@@ -791,5 +779,41 @@ function generateMCPBuilderSteps(
         commands: [appendFinalMCPCommand],
       });
     }
+  }
+}
+
+function validateEEDefinition(eeDefinition: string): boolean {
+  if (!eeDefinition?.trim()) {
+    throw new Error('EE definition content is empty');
+  }
+
+  // load the generated EE definition YAML content
+  let parsed: {};
+  try {
+    parsed = yaml.load(eeDefinition.trim()) as {};
+  } catch (e: any) {
+    throw new Error(
+      `Invalid YAML syntax in the generated EE definition: ${e.message}`,
+    );
+  }
+
+  // validate the generated EE definition YAML content against the schema
+  try {
+    EEDefinitionSchema.parse(parsed);
+    return true;
+  } catch (e: any) {
+    if (e instanceof z.ZodError) {
+      const formatted = e.issues
+        .map(err => `- ${err.path.join('.')}: ${err.message}`)
+        .join('\n');
+
+      throw new Error(
+        `Schema validation failed for the generated EE definition:\n${formatted}`,
+      );
+    }
+
+    throw new Error(
+      `Unknown error validating the generated EE definition: ${e.message}`,
+    );
   }
 }

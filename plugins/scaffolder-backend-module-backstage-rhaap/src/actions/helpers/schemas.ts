@@ -19,3 +19,50 @@ export const CollectionRequirementsSchema = z
     collections: z.array(CollectionSchema),
   })
   .strict();
+
+export const GalaxyDependenciesSchema = z
+  .object({
+    collections: z.array(CollectionSchema),
+  })
+  .strict();
+
+export const DependenciesSchema = z
+  .object({
+    python: z.array(z.string()).optional(),
+    system: z.array(z.string()).optional(),
+    galaxy: GalaxyDependenciesSchema.optional(),
+  })
+  .strict();
+
+export const ImagesSchema = z
+  .object({
+    base_image: z
+      .object({
+        name: z.string(),
+      })
+      .strict(),
+  })
+  .strict();
+
+export const AdditionalBuildStepsSchema = z
+  .object({
+    prepend_base: z.array(z.string()).optional(),
+    append_base: z.array(z.string()).optional(),
+    prepend_galaxy: z.array(z.string()).optional(),
+    append_galaxy: z.array(z.string()).optional(),
+    prepend_builder: z.array(z.string()).optional(),
+    append_builder: z.array(z.string()).optional(),
+    prepend_final: z.array(z.string()).optional(),
+    append_final: z.array(z.string()).optional(),
+  })
+  .strict();
+
+// final schema for the entire EE definition YAML file
+export const EEDefinitionSchema = z
+  .object({
+    version: z.number(),
+    images: ImagesSchema,
+    dependencies: DependenciesSchema.optional(),
+    additional_build_steps: AdditionalBuildStepsSchema.optional(),
+  })
+  .strict();
