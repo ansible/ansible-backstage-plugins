@@ -1,6 +1,6 @@
 import { createTemplateAction } from '@backstage/plugin-scaffolder-node';
 import * as path from 'path';
-import * as fs from 'fs-extra';
+import * as fs from 'fs/promises';
 import { AuthService } from '@backstage/backend-plugin-api';
 import { DiscoveryService } from '@backstage/backend-plugin-api';
 import { randomBytes } from 'crypto';
@@ -171,7 +171,7 @@ export function createEECatalogInfoAction(options: {
           );
           // This directory should already exist from previous steps, but just in case
           const eeDir = path.join(workspacePath, contextDirName);
-          await fs.ensureDir(eeDir);
+          await fs.mkdir(eeDir, { recursive: true });
 
           const catalogInfoPath = path.join(eeDir, 'catalog-info.yaml');
           await fs.writeFile(catalogInfoPath, catalogInfoContent);

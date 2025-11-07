@@ -1,5 +1,5 @@
 import { createTemplateAction } from '@backstage/plugin-scaffolder-node';
-import * as fs from 'fs-extra';
+import * as fs from 'fs/promises';
 import * as path from 'path';
 import yaml from 'js-yaml';
 import semver from 'semver';
@@ -238,7 +238,7 @@ export function createEEDefinitionAction() {
       // create the directory path for the EE files
       const eeDir = path.join(workspacePath, contextDirName);
       // Ensure the directory exists (recursively)
-      await fs.ensureDir(eeDir);
+      await fs.mkdir(eeDir, { recursive: true });
 
       // create the path for the EE definition file
       const eeDefinitionPath = path.join(eeDir, `${values.eeFileName}.yaml`);
@@ -247,7 +247,7 @@ export function createEEDefinitionAction() {
 
       // create docs directory for techdocs
       const docsDir = path.join(eeDir, 'docs');
-      await fs.ensureDir(docsDir);
+      await fs.mkdir(docsDir, { recursive: true });
 
       // symlink the README file to the docs directory so that techdocs can pick it up
       const docsMdPath = path.join(docsDir, 'index.md');

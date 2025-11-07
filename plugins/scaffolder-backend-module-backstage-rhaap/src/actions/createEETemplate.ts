@@ -1,5 +1,5 @@
 import { createTemplateAction } from '@backstage/plugin-scaffolder-node';
-import * as fs from 'fs-extra';
+import * as fs from 'fs/promises';
 import * as path from 'path';
 
 interface createEETemplateInput {
@@ -116,7 +116,7 @@ export function createEETemplateAction() {
 
         // This directory should already exist from previous steps, but just in case
         const eeDir = path.join(workspacePath, values.contextDirName);
-        await fs.ensureDir(eeDir);
+        await fs.mkdir(eeDir, { recursive: true });
 
         // Write the template file to workspace
         const templatePath = path.join(eeDir, 'template.yaml');
