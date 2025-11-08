@@ -87,6 +87,7 @@ jobs:
           path: ./coverage/lcov.info
         
       - name: 'Extract and export repo owner/name'
+        if: github.event_name == 'pull_request' && github.event.pull_request.head.repo.fork == false
         shell: bash
         run: |
           # 1. Read the full slug (owner/repo)
@@ -99,6 +100,7 @@ jobs:
 
       # Prepare Sonar arguments
       - name: Prepare Sonar arguments
+        if: github.event_name == 'pull_request' && github.event.pull_request.head.repo.fork == false
         id: sonar-args
         run: |
             echo "SONAR_ARGS=-Dsonar.organization=${{ env.REPO_OWNER }} \
@@ -112,7 +114,7 @@ jobs:
 
       # SonarCloud Scan for PRs
       - name: SonarCloud Scan (Pull Request)
-        if: github.event_name == 'pull_request'
+        if: github.event_name == 'pull_request' && github.event.pull_request.head.repo.fork == false
         uses: SonarSource/sonarqube-scan-action@v6
         env:
           SONAR_TOKEN: ${{ secrets[format('{0}', vars.SONAR_TOKEN_SECRET_NAME)] }}
