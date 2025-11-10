@@ -84,6 +84,21 @@ export function createEEDefinitionAction() {
                       type: 'string',
                       description: 'Collection version (optional)',
                     },
+                    source: {
+                      type: 'string',
+                      description: 'Collection source (optional)',
+                    },
+                    type: {
+                      type: 'string',
+                      description: 'Collection type (optional)',
+                    },
+                    signatures: {
+                      type: 'array',
+                      description: 'Collection signatures (optional)',
+                      items: {
+                        type: 'string',
+                      },
+                    },
                   },
                   required: ['name'],
                 },
