@@ -253,7 +253,9 @@ export function createEEDefinitionAction() {
         .toString()
         .trim()
         .toLowerCase()
-        .replace(/[^a-z0-9-_]/g, '-');
+        .replace(/[^a-z0-9-_]/g, '-')
+        .replace(/-+/g, '-') // Replace multiple consecutive dashes with a single dash
+        .replace(/^-|-$/g, ''); // Remove leading and trailing dashes
       ctx.output('contextDirName', contextDirName);
 
       // create the directory path for the EE files
@@ -435,10 +437,11 @@ function generateEEDefinition(values: EEDefinitionInput): string {
         });
       }
     });
+  }
 
-    if (dependenciesContent.length > 0) {
-      dependenciesContent = `dependencies:${dependenciesContent}`;
-    }
+  // Add dependencies: prefix if any dependencies exist
+  if (dependenciesContent.length > 0) {
+    dependenciesContent = `dependencies:${dependenciesContent}`;
   }
 
   let content = `---
@@ -448,7 +451,7 @@ images:
   base_image:
     name: '${values.baseImage}'
 
-${dependenciesContent}`;
+${dependenciesContent}`.trimEnd();
 
   // Add additional_build_steps if any are defined
   if (additionalBuildSteps.length > 0) {
@@ -469,8 +472,7 @@ ${dependenciesContent}`;
     });
   }
 
-  content += '\n';
-  return content;
+  return `${content.trimEnd()}\n`;
 }
 
 function generateReadme(values: EEDefinitionInput): string {
@@ -711,7 +713,10 @@ function parseTextRequirementsFile(decodedContent: string): string[] {
   let parsedRequirements: string[] = [];
   try {
     if (decodedContent) {
-      parsedRequirements = decodedContent.split('\n').map(line => line.trim());
+      parsedRequirements = decodedContent
+        .split('\n')
+        .map(line => line.trim())
+        .filter(line => line.length > 0 && !line.startsWith('#'));
     }
   } catch (error: any) {
     throw new Error(
