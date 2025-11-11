@@ -9,4 +9,3 @@ export const EEFileNamePickerFieldExtension = scaffolderPlugin.provide(
     component: EEFileNamePickerExtension,
   }),
 );
-

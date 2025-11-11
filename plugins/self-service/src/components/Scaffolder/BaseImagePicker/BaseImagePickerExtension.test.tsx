@@ -71,4 +71,117 @@ describe('BaseImagePickerExtension', () => {
       'registry.access.redhat.com/ubi9/python-311:latest',
     );
   });
+
+  describe('Red Hat registry validation', () => {
+    it('shows tags for valid registry.redhat.io images', () => {
+      const props = {
+        ...mockProps,
+        schema: {
+          ...mockProps.schema,
+          enum: [
+            'registry.redhat.io/ansible-automation-platform-25/ee-minimal-rhel9:latest',
+          ],
+          enumNames: ['Red Hat EE'],
+        },
+      };
+      render(<BaseImagePickerExtension {...props} />);
+
+      expect(screen.getByText('Subscription')).toBeInTheDocument();
+      expect(screen.getByText('Recommended')).toBeInTheDocument();
+    });
+
+    it('shows tags for valid redhat.io images', () => {
+      const props = {
+        ...mockProps,
+        schema: {
+          ...mockProps.schema,
+          enum: [
+            'redhat.io/ansible-automation-platform-25/ee-minimal-rhel9:latest',
+          ],
+          enumNames: ['Red Hat EE'],
+        },
+      };
+      render(<BaseImagePickerExtension {...props} />);
+
+      expect(screen.getByText('Subscription')).toBeInTheDocument();
+      expect(screen.getByText('Recommended')).toBeInTheDocument();
+    });
+
+    it('shows tags for registry.redhat.io with port', () => {
+      const props = {
+        ...mockProps,
+        schema: {
+          ...mockProps.schema,
+          enum: [
+            'registry.redhat.io:5000/ansible-automation-platform-25/ee-minimal-rhel9:latest',
+          ],
+          enumNames: ['Red Hat EE'],
+        },
+      };
+      render(<BaseImagePickerExtension {...props} />);
+
+      expect(screen.getByText('Subscription')).toBeInTheDocument();
+      expect(screen.getByText('Recommended')).toBeInTheDocument();
+    });
+
+    it('does not show tags for malicious URL with redhat.io in path', () => {
+      const props = {
+        ...mockProps,
+        schema: {
+          ...mockProps.schema,
+          enum: ['evil.com/redhat.io/malicious-image:latest'],
+          enumNames: ['Malicious Image'],
+        },
+      };
+      render(<BaseImagePickerExtension {...props} />);
+
+      expect(screen.queryByText('Subscription')).not.toBeInTheDocument();
+      expect(screen.queryByText('Recommended')).not.toBeInTheDocument();
+    });
+
+    it('does not show tags for malicious URL with redhat.io as subdomain', () => {
+      const props = {
+        ...mockProps,
+        schema: {
+          ...mockProps.schema,
+          enum: ['redhat.io.evil.com/malicious-image:latest'],
+          enumNames: ['Malicious Image'],
+        },
+      };
+      render(<BaseImagePickerExtension {...props} />);
+
+      expect(screen.queryByText('Subscription')).not.toBeInTheDocument();
+      expect(screen.queryByText('Recommended')).not.toBeInTheDocument();
+    });
+
+    it('does not show tags for URL with redhat.io in query string', () => {
+      const props = {
+        ...mockProps,
+        schema: {
+          ...mockProps.schema,
+          enum: ['evil.com/image?redirect=redhat.io'],
+          enumNames: ['Malicious Image'],
+        },
+      };
+      render(<BaseImagePickerExtension {...props} />);
+
+      expect(screen.queryByText('Subscription')).not.toBeInTheDocument();
+      expect(screen.queryByText('Recommended')).not.toBeInTheDocument();
+    });
+
+    it('shows tags for images containing rhel', () => {
+      const props = {
+        ...mockProps,
+        schema: {
+          ...mockProps.schema,
+          enum: ['registry.access.redhat.com/ubi9/rhel9:latest'],
+          enumNames: ['RHEL Image'],
+        },
+      };
+      render(<BaseImagePickerExtension {...props} />);
+
+      expect(screen.getByText('Subscription')).toBeInTheDocument();
+      expect(screen.getByText('Recommended')).toBeInTheDocument();
+    });
+  });
 });

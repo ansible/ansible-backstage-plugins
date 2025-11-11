@@ -1,4 +1,10 @@
-import { render, screen, fireEvent, waitFor, act } from '@testing-library/react';
+import {
+  render,
+  screen,
+  fireEvent,
+  waitFor,
+  act,
+} from '@testing-library/react';
 import { EEFileNamePickerExtension } from './EEFileNamePickerExtension';
 import { catalogApiRef } from '@backstage/plugin-catalog-react';
 import { TestApiProvider } from '@backstage/test-utils';
@@ -51,7 +57,11 @@ const createMockProps = (overrides = {}) => ({
   ...overrides,
 });
 
-const createMockEntity = (name: string, title?: string, specName?: string): Entity => ({
+const createMockEntity = (
+  name: string,
+  title?: string,
+  specName?: string,
+): Entity => ({
   apiVersion: 'backstage.io/v1alpha1',
   kind: 'Component',
   metadata: {
@@ -168,7 +178,6 @@ describe('EEFileNamePickerExtension', () => {
 
       expect(props.onChange).toHaveBeenCalledWith('new-ee');
 
-      // Rerender with updated formData to reflect the change
       rerender(
         <TestApiProvider apis={[[catalogApiRef, mockCatalogApi]]}>
           <EEFileNamePickerExtension {...props} formData="new-ee" />
@@ -255,30 +264,28 @@ describe('EEFileNamePickerExtension', () => {
       const { rerender } = renderWithProviders(props);
 
       const input = screen.getByRole('textbox');
-      
-      // Simulate rapid changes - each change calls onChange and updates formData
-      // which should reset the debounce timer. All changes happen quickly (within 500ms)
+
       fireEvent.change(input, { target: { value: 't' } });
       rerender(
         <TestApiProvider apis={[[catalogApiRef, mockCatalogApi]]}>
           <EEFileNamePickerExtension {...props} formData="t" />
         </TestApiProvider>,
       );
-      
+
       fireEvent.change(input, { target: { value: 'te' } });
       rerender(
         <TestApiProvider apis={[[catalogApiRef, mockCatalogApi]]}>
           <EEFileNamePickerExtension {...props} formData="te" />
         </TestApiProvider>,
       );
-      
+
       fireEvent.change(input, { target: { value: 'tes' } });
       rerender(
         <TestApiProvider apis={[[catalogApiRef, mockCatalogApi]]}>
           <EEFileNamePickerExtension {...props} formData="tes" />
         </TestApiProvider>,
       );
-      
+
       fireEvent.change(input, { target: { value: 'test' } });
       rerender(
         <TestApiProvider apis={[[catalogApiRef, mockCatalogApi]]}>
@@ -286,14 +293,11 @@ describe('EEFileNamePickerExtension', () => {
         </TestApiProvider>,
       );
 
-      // Advance past the debounce delay - should only trigger one API call
-      // because each formData change cleared the previous timeout
       act(() => {
         jest.advanceTimersByTime(500);
       });
 
       await waitFor(() => {
-        // Should only be called once after the final debounce
         expect(mockCatalogApi.getEntities).toHaveBeenCalledTimes(1);
       });
     });
@@ -334,7 +338,9 @@ describe('EEFileNamePickerExtension', () => {
       });
 
       await waitFor(() => {
-        expect(screen.queryByText('Checking catalog...')).not.toBeInTheDocument();
+        expect(
+          screen.queryByText('Checking catalog...'),
+        ).not.toBeInTheDocument();
       });
     });
   });
@@ -355,7 +361,9 @@ describe('EEFileNamePickerExtension', () => {
 
       await waitFor(() => {
         expect(
-          screen.getByText(/An execution environment definition with the name "test-ee" already exists/i),
+          screen.getByText(
+            /An execution environment definition with the name "test-ee" already exists/i,
+          ),
         ).toBeInTheDocument();
       });
     });
@@ -375,7 +383,9 @@ describe('EEFileNamePickerExtension', () => {
 
       await waitFor(() => {
         expect(
-          screen.getByText(/An execution environment definition with the name "different-name" already exists/i),
+          screen.getByText(
+            /An execution environment definition with the name "different-name" already exists/i,
+          ),
         ).toBeInTheDocument();
       });
     });
@@ -405,7 +415,9 @@ describe('EEFileNamePickerExtension', () => {
 
       await waitFor(() => {
         expect(
-          screen.getByText(/An execution environment definition with the name "different-name" already exists/i),
+          screen.getByText(
+            /An execution environment definition with the name "different-name" already exists/i,
+          ),
         ).toBeInTheDocument();
       });
     });
@@ -425,10 +437,14 @@ describe('EEFileNamePickerExtension', () => {
 
       await waitFor(() => {
         expect(
-          screen.getByText(/An execution environment definition with the name "my-ee" already exists/i),
+          screen.getByText(
+            /An execution environment definition with the name "my-ee" already exists/i,
+          ),
         ).toBeInTheDocument();
         expect(
-          screen.getByText(/If you proceed, your existing definition will be updated/i),
+          screen.getByText(
+            /If you proceed, your existing definition will be updated/i,
+          ),
         ).toBeInTheDocument();
       });
     });
@@ -713,9 +729,7 @@ describe('EEFileNamePickerExtension', () => {
         jest.advanceTimersByTime(500);
       });
 
-      // Should not cause errors after unmount
       expect(mockCatalogApi.getEntities).not.toHaveBeenCalled();
     });
   });
 });
-

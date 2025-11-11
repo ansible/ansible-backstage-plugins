@@ -38,4 +38,3 @@ describe('EEFileNamePickerFieldExtension', () => {
     expect(EEFileNamePickerExtension).toBeDefined();
   });
 });
-

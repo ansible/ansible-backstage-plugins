@@ -54,7 +54,6 @@ export const EEFileNamePickerExtension = ({
       setCheckError(null);
 
       try {
-        // Check for Component entities with type 'execution-environment'
         const { items } = await catalogApi.getEntities({
           filter: {
             kind: 'Component',
@@ -62,8 +61,6 @@ export const EEFileNamePickerExtension = ({
           },
         });
 
-        // Check if any entity has a matching name
-        // The entity name might be the fileName directly, or fileName with a suffix
         const normalizedFileName = fileName.toLowerCase().trim();
         const foundEntity = items.find(entity => {
           const entityName = entity.metadata.name?.toLowerCase() || '';
@@ -71,9 +68,9 @@ export const EEFileNamePickerExtension = ({
           const specName =
             (typeof entity.spec?.name === 'string'
               ? entity.spec.name
-              : '')?.toLowerCase() || '';
+              : ''
+            )?.toLowerCase() || '';
 
-          // Check if the entity name, title, or spec.name matches the fileName
           return (
             entityName === normalizedFileName ||
             entityTitle === normalizedFileName ||
@@ -99,7 +96,6 @@ export const EEFileNamePickerExtension = ({
   );
 
   useEffect(() => {
-    // Debounce the check to avoid too many API calls
     const timeoutId = setTimeout(() => {
       if (formData) {
         checkEntityExists(formData);
@@ -155,11 +151,12 @@ export const EEFileNamePickerExtension = ({
           className={classes.warningBox}
         >
           <Typography variant="body2" component="div">
-            <strong>Warning:</strong> An execution environment definition with the name "
-            {existingEntity.metadata.name}" already exists in the catalog.
+            <strong>Warning:</strong> An execution environment definition with
+            the name "{existingEntity.metadata.name}" already exists in the
+            catalog.
             <br />
-            If you proceed, your existing definition will be updated with
-            the new information.
+            If you proceed, your existing definition will be updated with the
+            new information.
           </Typography>
         </Alert>
       )}

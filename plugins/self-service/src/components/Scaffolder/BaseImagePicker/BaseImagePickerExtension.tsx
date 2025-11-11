@@ -92,6 +92,20 @@ export const BaseImagePickerExtension = ({
     onChange(value);
   };
 
+  const isValidRedHatRegistry = (value: string): boolean => {
+    try {
+      const parts = value.split('/');
+      if (parts.length === 0) {
+        return false;
+      }
+      const registryPart = parts[0];
+      const hostname = registryPart.split(':')[0];
+      return hostname === 'redhat.io' || hostname.endsWith('.redhat.io');
+    } catch {
+      return false;
+    }
+  };
+
   const getImageTags = (value: string) => {
     const tags = [];
 
@@ -109,7 +123,7 @@ export const BaseImagePickerExtension = ({
       });
     }
 
-    if (value.includes('rhel') || value.includes('redhat.io')) {
+    if (value.includes('rhel') || isValidRedHatRegistry(value)) {
       tags.push(
         {
           label: 'Subscription',
