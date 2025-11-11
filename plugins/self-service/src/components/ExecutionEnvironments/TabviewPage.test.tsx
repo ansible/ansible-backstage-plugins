@@ -19,7 +19,7 @@ jest.mock('@backstage/core-components', () => ({
           <span data-testid={`tab-label-${i}`}>
             {typeof t.label === 'string'
               ? t.label
-              : t.label?.props?.children ?? `tab-${i}`}
+              : (t.label?.props?.children ?? `tab-${i}`)}
           </span>
         </button>
       ))}
@@ -40,7 +40,7 @@ jest.mock('./catalog/CatalogContent', () => ({
   ),
 }));
 
-jest.mock('./create/CreateContent.tsx', () => ({
+jest.mock('./create/CreateContent', () => ({
   CreateContent: () => <div data-testid="create-content">CreateContent</div>,
 }));
 

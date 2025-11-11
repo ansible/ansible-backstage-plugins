@@ -3,7 +3,10 @@ import userEvent from '@testing-library/user-event';
 import { ThemeProvider, createMuiTheme } from '@material-ui/core/styles';
 
 // Mock the SVG import so the component's img src becomes a string we can check.
-jest.mock('../../../../images/ee-illustration.svg', () => 'ee-illustration.svg');
+jest.mock(
+  '../../../../images/ee-illustration.svg',
+  () => 'ee-illustration.svg',
+);
 
 import { CreateCatalog } from './CreateCatalog';
 
@@ -30,9 +33,15 @@ describe('CreateCatalog', () => {
 
     // some description sentences are present
     expect(
-      screen.getByText(/Get started with Execution Environment \(EE\) to ensure your/i),
+      screen.getByText(
+        /Get started with Execution Environment \(EE\) to ensure your/i,
+      ),
     ).toBeInTheDocument();
-    expect(screen.getByText(/Once your definition is saved, we'll walk you through building the EE./i)).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        /Once your definition is saved, we'll walk you through building the EE./i,
+      ),
+    ).toBeInTheDocument();
 
     // button is present with accessible name
     const createButton = screen.getByRole('button', {
@@ -41,7 +50,9 @@ describe('CreateCatalog', () => {
     expect(createButton).toBeInTheDocument();
 
     // link is present with correct visible text and href attribute
-    const howToLink = screen.getByText(/How to build and use Execution Environment from definition files/i);
+    const howToLink = screen.getByText(
+      /How to build and use Execution Environment from definition files/i,
+    );
     expect(howToLink).toBeInTheDocument();
     // it's a MuiLink (anchor) with href "#"
     expect(howToLink.closest('a')).toHaveAttribute('href', '#');
@@ -50,7 +61,9 @@ describe('CreateCatalog', () => {
     const img = screen.getByAltText('Execution environment illustration');
     expect(img).toBeInTheDocument();
     // mocked import returns the string 'ee-illustration.svg'
-    expect((img as HTMLImageElement).getAttribute('src')).toBe('ee-illustration.svg');
+    expect((img as HTMLImageElement).getAttribute('src')).toBe(
+      'ee-illustration.svg',
+    );
   });
 
   it('calls onTabSwitch with 1 when Create button is clicked', async () => {

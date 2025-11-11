@@ -138,8 +138,7 @@ export const EEListPage = ({
           const { owners, tags } = getUniqueOwnersAndTags(items);
           setAllOwners(['All', ...owners]);
           setAllTags(['All', ...tags]);
-        } 
-        else {
+        } else {
           setFiltered(false);
         }
         setAnsibleComponents(
@@ -166,7 +165,7 @@ export const EEListPage = ({
         tagFilter === 'All' || d?.metadata?.tags?.includes(tagFilter);
       return matchesOwner && matchesTag;
     });
-    setFiltered((allEntities && allEntities.length > 0));
+    setFiltered(allEntities && allEntities.length > 0);
     setAnsibleComponents(filterData);
   }, [ownerFilter, tagFilter, allEntities]);
 
