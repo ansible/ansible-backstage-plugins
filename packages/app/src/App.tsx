@@ -46,6 +46,7 @@ import {
   AAPResourcePickerExtension,
   BaseImagePickerFieldExtension,
   CollectionsPickerFieldExtension,
+  EEFileNamePickerFieldExtension,
   FileUploadPickerFieldExtension,
   PackagesPickerFieldExtension,
   MCPServersPickerFieldExtension,
@@ -113,6 +114,7 @@ const routes = (
         <AAPResourcePickerExtension />
         <BaseImagePickerFieldExtension />
         <CollectionsPickerFieldExtension />
+        <EEFileNamePickerFieldExtension />
         <FileUploadPickerFieldExtension />
         <PackagesPickerFieldExtension />
         <MCPServersPickerFieldExtension />

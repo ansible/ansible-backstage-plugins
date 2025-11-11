@@ -415,11 +415,11 @@ export const RunTask = () => {
         const foundEntity = items.find(entity => {
           const entityName = entity.metadata.name.toLowerCase();
           const fileName = eeFileName.toLowerCase();
-          const expectedPrefix = `${fileName}-`;
-          const expectedLength = fileName.length + 1 + 4;
           return (
-            entityName.startsWith(expectedPrefix) &&
-            entityName.length === expectedLength
+            entityName === fileName ||
+            entity.metadata.title?.toLowerCase() === fileName ||
+            (typeof entity.spec?.name === 'string' &&
+              entity.spec.name.toLowerCase() === fileName)
           );
         });
 
@@ -463,11 +463,11 @@ export const RunTask = () => {
       const foundEntity = items.find(e => {
         const entityName = e.metadata.name.toLowerCase();
         const fileName = eeFileName.toLowerCase();
-        const expectedPrefix = `${fileName}-`;
-        const expectedLength = fileName.length + 1 + 4;
         return (
-          entityName.startsWith(expectedPrefix) &&
-          entityName.length === expectedLength
+          entityName === fileName ||
+          e.metadata.title?.toLowerCase() === fileName ||
+          (typeof e.spec?.name === 'string' &&
+            e.spec.name.toLowerCase() === fileName)
         );
       });
 

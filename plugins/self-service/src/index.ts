@@ -11,5 +11,6 @@ export { FileUploadPickerFieldExtension } from './components/Scaffolder/FileUplo
 export { PackagesPickerFieldExtension } from './components/Scaffolder/PackagesPicker/extensions';
 export { MCPServersPickerFieldExtension } from './components/Scaffolder/MCPServersPicker/extensions';
 export { AdditionalBuildStepsPickerFieldExtension } from './components/Scaffolder/AdditionalBuildStepsPicker/extensions';
+export { EEFileNamePickerFieldExtension } from './components/Scaffolder/EEFileNamePicker/extensions';
 
 export * from './apis';

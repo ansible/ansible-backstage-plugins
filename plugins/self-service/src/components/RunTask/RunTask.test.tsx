@@ -1153,7 +1153,7 @@ describe('RunTask', () => {
 
       const mockEntity = {
         metadata: {
-          name: 'test-ee-1234',
+          name: 'test-ee',
           uid: 'test-uid',
         },
         spec: {
@@ -1270,7 +1270,7 @@ describe('RunTask', () => {
 
       const mockEntity = {
         metadata: {
-          name: 'test-ee-1234',
+          name: 'test-ee',
           uid: 'test-uid',
         },
         spec: {
@@ -1391,7 +1391,7 @@ describe('RunTask', () => {
 
       const mockEntity = {
         metadata: {
-          name: 'test-ee-1234',
+          name: 'test-ee',
           uid: 'test-uid',
         },
         spec: {
@@ -1474,7 +1474,7 @@ describe('RunTask', () => {
 
       const mockEntity = {
         metadata: {
-          name: 'test-ee-1234',
+          name: 'test-ee',
           uid: 'test-uid',
         },
         spec: {
@@ -1674,7 +1674,7 @@ describe('RunTask', () => {
 
       const mockEntity = {
         metadata: {
-          name: 'test-ee-1234',
+          name: 'test-ee',
           uid: 'test-uid',
         },
         spec: {
@@ -1795,7 +1795,7 @@ describe('RunTask', () => {
 
       const mockEntity = {
         metadata: {
-          name: 'test-ee-1234',
+          name: 'test-ee',
           uid: 'test-uid',
         },
         spec: {
@@ -1865,7 +1865,7 @@ describe('RunTask', () => {
 
       const initialEntity = {
         metadata: {
-          name: 'test-ee-1234',
+          name: 'test-ee',
           uid: 'test-uid-initial',
         },
         spec: {
@@ -1940,7 +1940,7 @@ describe('RunTask', () => {
 
       const initialEntity = {
         metadata: {
-          name: 'test-ee-1234',
+          name: 'test-ee',
           uid: 'test-uid-initial',
         },
         spec: {
@@ -2094,7 +2094,7 @@ describe('RunTask', () => {
 
       const entityWithoutFields = {
         metadata: {
-          name: 'test-ee-1234',
+          name: 'test-ee',
           uid: 'test-uid',
         },
         spec: {
@@ -2190,7 +2190,7 @@ describe('RunTask', () => {
 
       const mockEntity = {
         metadata: {
-          name: 'test-ee-1234',
+          name: 'test-ee',
           uid: 'test-uid',
         },
         spec: {

@@ -12,6 +12,7 @@ dynamicPlugins:
         - importName: AAPResourcePickerExtension
         - importName: BaseImagePickerFieldExtension
         - importName: CollectionsPickerFieldExtension
+        - importName: EEFileNamePickerExtension
         - importName: FileUploadPickerFieldExtension
         - importName: PackagesPickerFieldExtension
         - importName: MCPServersPickerFieldExtension
