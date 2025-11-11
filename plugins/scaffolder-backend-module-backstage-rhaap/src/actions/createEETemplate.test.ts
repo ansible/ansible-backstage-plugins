@@ -541,9 +541,7 @@ describe('createEETemplate', () => {
       expect(content).toContain('output:');
       expect(content).toContain('links:');
       expect(content).toContain('text:');
-      expect(content).toContain('Execution Environment Definition');
-      expect(content).toContain('Execution Environment README');
-      expect(content).toContain('Execution Environment Template');
+      expect(content).toContain('Next Steps');
     });
   });
 

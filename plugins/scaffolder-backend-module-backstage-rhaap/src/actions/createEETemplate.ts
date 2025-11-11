@@ -592,23 +592,16 @@ spec:
       - title: GitLab Merge Request
         url: \${{ steps['publish-gitlab-merge-request'].output.mergeRequestUrl  }}
         if: \${{ (parameters.publishToSCM) and (not steps['prepare-publish'].output.createNewRepo) and (parameters.sourceControlProvider == 'Gitlab') }}
-    text:
-      - title: Execution Environment Definition
-        content: |
-          \`\`\`yaml
-          \${{ steps['create-ee-definition'].output.eeDefinitionContent }}
-          \`\`\`
 
-      - title: Execution Environment README
+      - title: View details in catalog
+        icon: catalog
+        entityRef: \${{ steps['register-catalog-component'].output.entityRef or steps['create-catalog-info'].output.generatedEntityRef }}
+
+    text:
+      - title: Next Steps
         content: |
           \`\`\`md
           \${{ steps['create-ee-definition'].output.readmeContent }}
-          \`\`\`
-
-      - title: Execution Environment Template
-        content: |
-          \`\`\`yaml
-          \${{ steps['create-template'].output.templateContent }}
           \`\`\`
     `;
 }
