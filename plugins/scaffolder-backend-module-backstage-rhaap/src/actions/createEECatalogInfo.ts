@@ -4,6 +4,7 @@ import * as fs from 'fs/promises';
 import { AuthService } from '@backstage/backend-plugin-api';
 import { DiscoveryService } from '@backstage/backend-plugin-api';
 import { randomBytes } from 'crypto';
+import { stringifyEntityRef } from '@backstage/catalog-model';
 
 interface CreateEECatalogInfoInput {
   componentName: string;
@@ -144,6 +145,11 @@ export function createEECatalogInfoAction(options: {
             title: 'Contents of the generated catalog-info file',
             type: 'string',
           },
+          generatedEntityRef: {
+            title:
+              'Generated entity reference (for dynamically registered catalog entities ONLY)',
+            type: 'string',
+          },
         },
       },
     },
@@ -212,6 +218,7 @@ export function createEECatalogInfoAction(options: {
             const errorText = await response.text();
             throw new Error(`Failed to register EE definition: ${errorText}`);
           }
+          ctx.output('generatedEntityRef', stringifyEntityRef(entity));
         }
       } catch (error: any) {
         throw new Error(`${error.message}`);
