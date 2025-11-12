@@ -16,6 +16,7 @@ jest.mock('@material-ui/core/styles', () => ({
     container: 'container',
     warningBox: 'warningBox',
     loadingBox: 'loadingBox',
+    errorBox: 'errorBox',
   }),
 }));
 
@@ -713,6 +714,353 @@ describe('EEFileNamePickerExtension', () => {
 
       const input = screen.getByRole('textbox') as HTMLInputElement;
       expect(input.value).toBe('test-ee_v2.0');
+    });
+  });
+
+  describe('Format Validation', () => {
+    it('accepts valid entity names with alphanumeric characters', () => {
+      const props = createMockProps({ formData: 'my-ee-123' });
+      mockCatalogApi.getEntities.mockResolvedValue({ items: [] });
+
+      renderWithProviders(props);
+
+      const input = screen.getByRole('textbox') as HTMLInputElement;
+      expect(input.value).toBe('my-ee-123');
+      expect(input).not.toHaveAttribute('aria-invalid', 'true');
+    });
+
+    it('accepts valid entity names with underscores', () => {
+      const props = createMockProps({ formData: 'my_ee_123' });
+      mockCatalogApi.getEntities.mockResolvedValue({ items: [] });
+
+      renderWithProviders(props);
+
+      const input = screen.getByRole('textbox') as HTMLInputElement;
+      expect(input.value).toBe('my_ee_123');
+    });
+
+    it('accepts valid entity names with dots', () => {
+      const props = createMockProps({ formData: 'my.ee.123' });
+      mockCatalogApi.getEntities.mockResolvedValue({ items: [] });
+
+      renderWithProviders(props);
+
+      const input = screen.getByRole('textbox') as HTMLInputElement;
+      expect(input.value).toBe('my.ee.123');
+    });
+
+    it('accepts valid entity names with mixed separators', () => {
+      const props = createMockProps({ formData: 'my-ee_v2.0' });
+      mockCatalogApi.getEntities.mockResolvedValue({ items: [] });
+
+      renderWithProviders(props);
+
+      const input = screen.getByRole('textbox') as HTMLInputElement;
+      expect(input.value).toBe('my-ee_v2.0');
+    });
+
+    it('rejects names starting with a separator', async () => {
+      const props = createMockProps({ formData: '-my-ee' });
+      mockCatalogApi.getEntities.mockResolvedValue({ items: [] });
+
+      renderWithProviders(props);
+
+      await waitFor(() => {
+        const alert = screen.getByRole('alert');
+        expect(alert).toHaveTextContent(
+          /Name cannot start with a hyphen, underscore, or dot/i,
+        );
+      });
+
+      const input = screen.getByRole('textbox') as HTMLInputElement;
+      expect(input).toHaveAttribute('aria-invalid', 'true');
+      expect(mockCatalogApi.getEntities).not.toHaveBeenCalled();
+    });
+
+    it('rejects names starting with underscore', async () => {
+      const props = createMockProps({ formData: '_my-ee' });
+      mockCatalogApi.getEntities.mockResolvedValue({ items: [] });
+
+      renderWithProviders(props);
+
+      await waitFor(() => {
+        const alert = screen.getByRole('alert');
+        expect(alert).toHaveTextContent(
+          /Name cannot start with a hyphen, underscore, or dot/i,
+        );
+      });
+
+      expect(mockCatalogApi.getEntities).not.toHaveBeenCalled();
+    });
+
+    it('rejects names starting with dot', async () => {
+      const props = createMockProps({ formData: '.my-ee' });
+      mockCatalogApi.getEntities.mockResolvedValue({ items: [] });
+
+      renderWithProviders(props);
+
+      await waitFor(() => {
+        const alert = screen.getByRole('alert');
+        expect(alert).toHaveTextContent(
+          /Name cannot start with a hyphen, underscore, or dot/i,
+        );
+      });
+
+      expect(mockCatalogApi.getEntities).not.toHaveBeenCalled();
+    });
+
+    it('rejects names ending with a separator', async () => {
+      const props = createMockProps({ formData: 'my-ee-' });
+      mockCatalogApi.getEntities.mockResolvedValue({ items: [] });
+
+      renderWithProviders(props);
+
+      await waitFor(() => {
+        const alert = screen.getByRole('alert');
+        expect(alert).toHaveTextContent(
+          /Name cannot end with a hyphen, underscore, or dot/i,
+        );
+      });
+
+      expect(mockCatalogApi.getEntities).not.toHaveBeenCalled();
+    });
+
+    it('rejects names ending with underscore', async () => {
+      const props = createMockProps({ formData: 'my-ee_' });
+      mockCatalogApi.getEntities.mockResolvedValue({ items: [] });
+
+      renderWithProviders(props);
+
+      await waitFor(() => {
+        const alert = screen.getByRole('alert');
+        expect(alert).toHaveTextContent(
+          /Name cannot end with a hyphen, underscore, or dot/i,
+        );
+      });
+
+      expect(mockCatalogApi.getEntities).not.toHaveBeenCalled();
+    });
+
+    it('rejects names ending with dot', async () => {
+      const props = createMockProps({ formData: 'my-ee.' });
+      mockCatalogApi.getEntities.mockResolvedValue({ items: [] });
+
+      renderWithProviders(props);
+
+      await waitFor(() => {
+        const alert = screen.getByRole('alert');
+        expect(alert).toHaveTextContent(
+          /Name cannot end with a hyphen, underscore, or dot/i,
+        );
+      });
+
+      expect(mockCatalogApi.getEntities).not.toHaveBeenCalled();
+    });
+
+    it('rejects names with consecutive separators', async () => {
+      const props = createMockProps({ formData: 'my--ee' });
+      mockCatalogApi.getEntities.mockResolvedValue({ items: [] });
+
+      renderWithProviders(props);
+
+      await waitFor(() => {
+        const alert = screen.getByRole('alert');
+        expect(alert).toHaveTextContent(
+          /Name cannot contain consecutive hyphens, underscores, or dots/i,
+        );
+      });
+
+      expect(mockCatalogApi.getEntities).not.toHaveBeenCalled();
+    });
+
+    it('rejects names with consecutive underscores', async () => {
+      const props = createMockProps({ formData: 'my__ee' });
+      mockCatalogApi.getEntities.mockResolvedValue({ items: [] });
+
+      renderWithProviders(props);
+
+      await waitFor(() => {
+        const alert = screen.getByRole('alert');
+        expect(alert).toHaveTextContent(
+          /Name cannot contain consecutive hyphens, underscores, or dots/i,
+        );
+      });
+
+      expect(mockCatalogApi.getEntities).not.toHaveBeenCalled();
+    });
+
+    it('rejects names with consecutive dots', async () => {
+      const props = createMockProps({ formData: 'my..ee' });
+      mockCatalogApi.getEntities.mockResolvedValue({ items: [] });
+
+      renderWithProviders(props);
+
+      await waitFor(() => {
+        const alert = screen.getByRole('alert');
+        expect(alert).toHaveTextContent(
+          /Name cannot contain consecutive hyphens, underscores, or dots/i,
+        );
+      });
+
+      expect(mockCatalogApi.getEntities).not.toHaveBeenCalled();
+    });
+
+    it('rejects names with mixed consecutive separators', async () => {
+      const props = createMockProps({ formData: 'my-_.ee' });
+      mockCatalogApi.getEntities.mockResolvedValue({ items: [] });
+
+      renderWithProviders(props);
+
+      await waitFor(() => {
+        const alert = screen.getByRole('alert');
+        expect(alert).toHaveTextContent(
+          /Name cannot contain consecutive hyphens, underscores, or dots/i,
+        );
+      });
+
+      expect(mockCatalogApi.getEntities).not.toHaveBeenCalled();
+    });
+
+    it('rejects names with invalid characters', async () => {
+      const props = createMockProps({ formData: 'my-ee@123' });
+      mockCatalogApi.getEntities.mockResolvedValue({ items: [] });
+
+      renderWithProviders(props);
+
+      await waitFor(() => {
+        const alert = screen.getByRole('alert');
+        expect(alert).toHaveTextContent(
+          /Name must consist of alphanumeric characters \[a-z0-9A-Z\] separated by hyphens, underscores, or dots/i,
+        );
+      });
+
+      expect(mockCatalogApi.getEntities).not.toHaveBeenCalled();
+    });
+
+    it('rejects names with spaces', async () => {
+      const props = createMockProps({ formData: 'my ee' });
+      mockCatalogApi.getEntities.mockResolvedValue({ items: [] });
+
+      renderWithProviders(props);
+
+      await waitFor(() => {
+        const alert = screen.getByRole('alert');
+        expect(alert).toHaveTextContent(
+          /Name must consist of alphanumeric characters \[a-z0-9A-Z\] separated by hyphens, underscores, or dots/i,
+        );
+      });
+
+      expect(mockCatalogApi.getEntities).not.toHaveBeenCalled();
+    });
+
+    it('rejects names longer than 63 characters', async () => {
+      const longName = 'a'.repeat(64);
+      const props = createMockProps({ formData: longName });
+      mockCatalogApi.getEntities.mockResolvedValue({ items: [] });
+
+      renderWithProviders(props);
+
+      await waitFor(() => {
+        const alert = screen.getByRole('alert');
+        expect(alert).toHaveTextContent(
+          /Name must be at most 63 characters long/i,
+        );
+      });
+
+      expect(mockCatalogApi.getEntities).not.toHaveBeenCalled();
+    });
+
+    it('accepts names exactly 63 characters long', () => {
+      const validName = 'a'.repeat(63);
+      const props = createMockProps({ formData: validName });
+      mockCatalogApi.getEntities.mockResolvedValue({ items: [] });
+
+      renderWithProviders(props);
+
+      const input = screen.getByRole('textbox') as HTMLInputElement;
+      expect(input.value).toBe(validName);
+    });
+
+    it('rejects empty names', async () => {
+      const props = createMockProps({ formData: '   ' });
+      mockCatalogApi.getEntities.mockResolvedValue({ items: [] });
+
+      renderWithProviders(props);
+
+      await waitFor(() => {
+        const alert = screen.getByRole('alert');
+        expect(alert).toHaveTextContent(/Name is required/i);
+      });
+
+      expect(mockCatalogApi.getEntities).not.toHaveBeenCalled();
+    });
+
+    it('does not check catalog when format is invalid', async () => {
+      const props = createMockProps({ formData: 'invalid@name' });
+      mockCatalogApi.getEntities.mockResolvedValue({ items: [] });
+
+      renderWithProviders(props);
+
+      act(() => {
+        jest.advanceTimersByTime(600);
+      });
+
+      await waitFor(() => {
+        expect(mockCatalogApi.getEntities).not.toHaveBeenCalled();
+      });
+    });
+
+    it('checks catalog only when format is valid', async () => {
+      const props = createMockProps({ formData: 'valid-name' });
+      mockCatalogApi.getEntities.mockResolvedValue({ items: [] });
+
+      renderWithProviders(props);
+
+      act(() => {
+        jest.advanceTimersByTime(500);
+      });
+
+      await waitFor(() => {
+        expect(mockCatalogApi.getEntities).toHaveBeenCalledTimes(1);
+      });
+    });
+
+    it('shows format error in alert', async () => {
+      const props = createMockProps({ formData: 'invalid@name' });
+      mockCatalogApi.getEntities.mockResolvedValue({ items: [] });
+
+      renderWithProviders(props);
+
+      await waitFor(() => {
+        const input = screen.getByRole('textbox');
+        expect(input).toHaveAttribute('aria-invalid', 'true');
+        const alert = screen.getByRole('alert');
+        expect(alert).toBeInTheDocument();
+      });
+    });
+
+    it('clears format error when valid name is entered', async () => {
+      const props = createMockProps({ formData: 'invalid@name' });
+      mockCatalogApi.getEntities.mockResolvedValue({ items: [] });
+
+      const { rerender } = renderWithProviders(props);
+
+      await waitFor(() => {
+        const alert = screen.getByRole('alert');
+        expect(alert).toHaveTextContent(
+          /Name must consist of alphanumeric characters \[a-z0-9A-Z\] separated by hyphens, underscores, or dots/i,
+        );
+      });
+
+      rerender(
+        <TestApiProvider apis={[[catalogApiRef, mockCatalogApi]]}>
+          <EEFileNamePickerExtension {...props} formData="valid-name" />
+        </TestApiProvider>,
+      );
+
+      await waitFor(() => {
+        expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+      });
     });
   });
 

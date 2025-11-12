@@ -26,7 +26,67 @@ const useStyles = makeStyles(theme => ({
     gap: theme.spacing(1),
     marginTop: theme.spacing(1),
   },
+  errorBox: {
+    marginTop: theme.spacing(1),
+  },
 }));
+
+/**
+ * Validate entity name according to Backstage catalog rules:
+ * - Length: 1-63 characters
+ * - Must consist of sequences of [a-z0-9A-Z] possibly separated by one of [-_.]
+ * - Cannot start or end with a separator (eg. -abc, abc_)
+ * - Cannot have consecutive separators (eg. abc.-abc)
+ */
+const isValidEntityName = (
+  name: string,
+): { valid: boolean; error?: string } => {
+  if (!name || name.trim().length === 0) {
+    return { valid: false, error: 'Name is required' };
+  }
+
+  const trimmedName = name.trim();
+
+  if (trimmedName.length < 1) {
+    return { valid: false, error: 'Name must be at least 1 character long' };
+  }
+
+  if (trimmedName.length > 63) {
+    return { valid: false, error: 'Name must be at most 63 characters long' };
+  }
+
+  if (/^[-_.]/.test(trimmedName)) {
+    return {
+      valid: false,
+      error: 'Name cannot start with a hyphen, underscore, or dot',
+    };
+  }
+
+  if (/[-_.]$/.test(trimmedName)) {
+    return {
+      valid: false,
+      error: 'Name cannot end with a hyphen, underscore, or dot',
+    };
+  }
+
+  if (/[-_.]{2,}/.test(trimmedName)) {
+    return {
+      valid: false,
+      error: 'Name cannot contain consecutive hyphens, underscores, or dots',
+    };
+  }
+
+  const validPattern = /^[a-z0-9A-Z]+([-_.][a-z0-9A-Z]+)*$/;
+  if (!validPattern.test(trimmedName)) {
+    return {
+      valid: false,
+      error:
+        'Name must consist of alphanumeric characters [a-z0-9A-Z] separated by hyphens, underscores, or dots',
+    };
+  }
+
+  return { valid: true };
+};
 
 export const EEFileNamePickerExtension = ({
   onChange,
@@ -41,6 +101,7 @@ export const EEFileNamePickerExtension = ({
   const [existingEntity, setExistingEntity] = useState<Entity | null>(null);
   const [isChecking, setIsChecking] = useState(false);
   const [checkError, setCheckError] = useState<string | null>(null);
+  const [formatError, setFormatError] = useState<string | null>(null);
 
   const checkEntityExists = useCallback(
     async (fileName: string) => {
@@ -50,6 +111,16 @@ export const EEFileNamePickerExtension = ({
         return;
       }
 
+      const validation = isValidEntityName(fileName);
+      if (!validation.valid) {
+        setFormatError(validation.error || null);
+        setExistingEntity(null);
+        setCheckError(null);
+        setIsChecking(false);
+        return;
+      }
+
+      setFormatError(null);
       setIsChecking(true);
       setCheckError(null);
 
@@ -96,16 +167,33 @@ export const EEFileNamePickerExtension = ({
   );
 
   useEffect(() => {
-    const timeoutId = setTimeout(() => {
-      if (formData) {
-        checkEntityExists(formData);
-      } else {
+    let timeoutId: NodeJS.Timeout | undefined;
+
+    if (formData) {
+      const validation = isValidEntityName(formData);
+      if (!validation.valid) {
+        setFormatError(validation.error || null);
         setExistingEntity(null);
         setCheckError(null);
+        setIsChecking(false);
+      } else {
+        setFormatError(null);
+        timeoutId = setTimeout(() => {
+          checkEntityExists(formData);
+        }, 500);
       }
-    }, 500);
+    } else {
+      setFormatError(null);
+      setExistingEntity(null);
+      setCheckError(null);
+      setIsChecking(false);
+    }
 
-    return () => clearTimeout(timeoutId);
+    return () => {
+      if (timeoutId) {
+        clearTimeout(timeoutId);
+      }
+    };
   }, [formData, checkEntityExists]);
 
   const handleChange = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -115,6 +203,8 @@ export const EEFileNamePickerExtension = ({
 
   const customTitle = schema?.title || 'EE File Name';
 
+  const hasError = rawErrors.length > 0 || formatError !== null;
+
   return (
     <Box className={classes.container}>
       <TextField
@@ -123,13 +213,13 @@ export const EEFileNamePickerExtension = ({
         onChange={handleChange}
         required={required}
         disabled={disabled}
-        error={rawErrors.length > 0}
+        error={hasError}
         fullWidth
         margin="normal"
         variant="outlined"
       />
 
-      {isChecking && (
+      {isChecking && !formatError && (
         <Box className={classes.loadingBox}>
           <CircularProgress size={16} />
           <Typography variant="caption" color="textSecondary">
@@ -138,13 +228,19 @@ export const EEFileNamePickerExtension = ({
         </Box>
       )}
 
-      {checkError && (
+      {checkError && !formatError && (
         <Alert severity="warning" className={classes.warningBox}>
           {checkError}
         </Alert>
       )}
 
-      {existingEntity && !isChecking && (
+      {formatError && (
+        <Alert severity="error" className={classes.errorBox}>
+          {formatError}
+        </Alert>
+      )}
+
+      {existingEntity && !isChecking && !formatError && (
         <Alert
           severity="warning"
           icon={<WarningIcon />}
