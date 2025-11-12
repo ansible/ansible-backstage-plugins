@@ -9,12 +9,14 @@ import {
 export async function handleAutocompleteRequest({
   resource,
   token,
+  context,
   config,
   logger,
   ansibleService,
 }: {
   resource: string;
   token: string;
+  context?: Record<string, string>;
   config: Config;
   logger: LoggerService;
   ansibleService: IAAPService;

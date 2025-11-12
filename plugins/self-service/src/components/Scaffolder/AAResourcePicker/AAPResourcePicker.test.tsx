@@ -203,6 +203,7 @@ describe('AAPResourcePicker', () => {
           token: 'test-token',
           resource: 'inventories',
           provider: 'aap-api-cloud',
+          context: {},
         });
       });
     });
