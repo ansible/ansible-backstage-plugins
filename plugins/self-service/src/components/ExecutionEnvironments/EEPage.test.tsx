@@ -1,8 +1,5 @@
 import { screen, waitFor } from '@testing-library/react';
-import {
-  renderInTestApp,
-  TestApiProvider,
-} from '@backstage/test-utils';
+import { renderInTestApp, TestApiProvider } from '@backstage/test-utils';
 import { identityApiRef } from '@backstage/core-plugin-api';
 import { catalogApiRef } from '@backstage/plugin-catalog-react';
 import { Entity } from '@backstage/catalog-model';
@@ -51,16 +48,12 @@ describe('EEPage', () => {
     );
   };
 
-  const createMockUserEntity = (
-    isSuperuser: boolean,
-  ): Entity => ({
+  const createMockUserEntity = (isSuperuser: boolean): Entity => ({
     apiVersion: 'backstage.io/v1alpha1',
     kind: 'User',
     metadata: {
       name: 'test-user',
-      annotations: isSuperuser
-        ? { 'aap.platform/is_superuser': 'true' }
-        : {},
+      annotations: isSuperuser ? { 'aap.platform/is_superuser': 'true' } : {},
     },
     spec: {},
   });
@@ -366,4 +359,3 @@ describe('EEPage', () => {
     });
   });
 });
-

@@ -5,7 +5,6 @@ import { Page, Header, Content } from '@backstage/core-components';
 import { CircularProgress } from '@material-ui/core';
 import { EETabs } from './TabviewPage';
 
-
 export const EEPage = () => {
   const identityApi = useApi(identityApiRef);
   const catalogApi = useApi(catalogApiRef);
@@ -41,7 +40,6 @@ export const EEPage = () => {
     checkSuperuser();
   }, [identityApi, catalogApi]);
 
-
   if (loading) {
     return (
       <Page themeId="tool">
@@ -66,4 +64,3 @@ export const EEPage = () => {
 
   return <EETabs />;
 };
-
