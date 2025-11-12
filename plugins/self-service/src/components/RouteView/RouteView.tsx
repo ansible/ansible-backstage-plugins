@@ -10,7 +10,7 @@ import { RunTask } from '../RunTask';
 import { FeedbackFooter } from '../feedback/FeedbackFooter';
 import { TaskList } from '../TaskList';
 import { CatalogItemsDetails } from '../CatalogItemDetails';
-import { EETabs } from '../ExecutionEnvironments';
+import { EETabs, EEPage } from '../ExecutionEnvironments';
 
 export const RouteView = () => {
   return (
@@ -58,7 +58,7 @@ export const RouteView = () => {
           />
         </Route>
         <Route path="ee">
-          <Route index element={<Navigate to="catalog" replace />} />
+          <Route index element={<EEPage />} />
           <Route path="catalog" element={<EETabs />} />
           <Route path="create" element={<EETabs />} />
           <Route path="docs" element={<EETabs />} />
