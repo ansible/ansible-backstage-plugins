@@ -3,7 +3,6 @@ import * as path from 'path';
 import * as fs from 'fs/promises';
 import { AuthService } from '@backstage/backend-plugin-api';
 import { DiscoveryService } from '@backstage/backend-plugin-api';
-import { randomBytes } from 'crypto';
 import { stringifyEntityRef } from '@backstage/catalog-model';
 
 interface CreateEECatalogInfoInput {
@@ -68,7 +67,7 @@ function generateDynamicCatalogEntity(
     apiVersion: 'backstage.io/v1alpha1',
     kind: 'Component',
     metadata: {
-      name: `${componentName.toLowerCase()}-${randomBytes(2).toString('hex')}`,
+      name: componentName,
       title: componentName,
       description: description,
       tags: tags,
@@ -82,7 +81,6 @@ function generateDynamicCatalogEntity(
       type: 'execution-environment',
       lifecycle: 'production',
       owner: owner,
-      name: componentName,
       definition: eeDefinitionContent,
       readme: readmeContent,
     },

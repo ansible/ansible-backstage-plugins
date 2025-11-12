@@ -627,4 +627,23 @@ export class AAPEntityProvider implements EntityProvider {
 
   // Note: Admin access is now handled via dynamic aap-admins group membership
   // No separate API-based assignment needed
+
+  async registerExecutionEnvironment(entity: any): Promise<void> {
+    if (!this.connection) {
+      throw new Error('AAPEntityProvider is not connected yet');
+    }
+
+    this.logger.info(`Registering entity ${entity.metadata?.name}`);
+
+    await this.connection.applyMutation({
+      type: 'delta',
+      added: [
+        {
+          entity,
+          locationKey: this.getProviderName(),
+        },
+      ],
+      removed: [],
+    });
+  }
 }

@@ -20,18 +20,15 @@ import { AAPJobTemplateProvider } from './providers/AAPJobTemplateProvider';
 import { AAPEntityProvider } from './providers/AAPEntityProvider';
 import { LoggerService } from '@backstage/backend-plugin-api';
 import { DiscoveryService, AuthService } from '@backstage/backend-plugin-api';
-import { EEEntityProvider } from './providers/EEEntityProvider';
 
 export async function createRouter(options: {
   logger: LoggerService;
   aapEntityProvider: AAPEntityProvider;
   jobTemplateProvider: AAPJobTemplateProvider;
-  eeEntityProvider: EEEntityProvider;
   discovery: DiscoveryService;
   auth: AuthService;
 }): Promise<express.Router> {
-  const { logger, aapEntityProvider, jobTemplateProvider, eeEntityProvider } =
-    options;
+  const { logger, aapEntityProvider, jobTemplateProvider } = options;
   const router = Router();
 
   // Note: Don't apply express.json() globally to avoid conflicts with catalog backend
@@ -88,16 +85,17 @@ export async function createRouter(options: {
     }
 
     try {
-      await eeEntityProvider.registerEntity(entity);
+      await aapEntityProvider.registerExecutionEnvironment(entity);
       response.status(200).json({ success: true });
     } catch (error) {
       const errorMessage =
         error instanceof Error ? error.message : String(error);
-      logger.error(`Failed to register EE: ${errorMessage}`);
-      response
-        .status(500)
-        .json({ error: `Failed to register EE: ${errorMessage}` });
+      logger.error(`Failed to register Execution Environment: ${errorMessage}`);
+      response.status(500).json({
+        error: `Failed to register Execution Environment: ${errorMessage}`,
+      });
     }
   });
+
   return router;
 }

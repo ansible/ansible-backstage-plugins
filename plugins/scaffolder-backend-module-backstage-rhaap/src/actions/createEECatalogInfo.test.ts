@@ -314,7 +314,6 @@ spec:
 
   describe('generateDynamicCatalogEntity functionality', () => {
     it('should generate dynamic catalog entity with all fields', async () => {
-      mockRandomBytes.mockReturnValue(Buffer.from('1234', 'hex'));
       const action = createEECatalogInfoAction({ auth, discovery });
       const ctx = {
         input: {
@@ -351,7 +350,7 @@ spec:
           apiVersion: 'backstage.io/v1alpha1',
           kind: 'Component',
           metadata: {
-            name: 'testee-1234',
+            name: 'TestEE',
             title: 'TestEE',
             description: 'Test Execution Environment',
             tags: ['ansible', 'ee'],
@@ -365,7 +364,6 @@ spec:
             type: 'execution-environment',
             lifecycle: 'production',
             owner: 'user:testuser',
-            name: 'TestEE',
             definition:
               'version: 3\nimages:\n  base_image:\n    name: quay.io/ansible/ee-base:latest',
             readme: '# Test EE\nThis is a test execution environment.',
@@ -375,47 +373,7 @@ spec:
       expect(body).toEqual(expectedBodyEntity);
     });
 
-    it('should generate unique entity names with random suffix', async () => {
-      const action = createEECatalogInfoAction({ auth, discovery });
-      const entityNames: string[] = [];
-
-      // Generate multiple entities
-      for (let i = 0; i < 3; i++) {
-        mockRandomBytes.mockReturnValueOnce(
-          Buffer.from(`${i}${i}${i}${i}`, 'hex'),
-        );
-        const ctx = {
-          input: {
-            componentName: 'TestEE',
-            description: 'Test Execution Environment',
-            tags: ['ansible'],
-            eeDefinitionContent: 'version: 3',
-            readmeContent: '# Test',
-            publishToSCM: false,
-          },
-          logger,
-          workspacePath: mockWorkspacePath,
-          user: { ref: 'user:testuser' },
-          output: jest.fn(),
-        } as any;
-
-        await action.handler(ctx);
-
-        const fetchCall = mockFetch.mock.calls[i];
-        const body = JSON.parse(fetchCall[1]?.body as string);
-        entityNames.push(body.entity.metadata.name);
-      }
-
-      // All names should be unique
-      expect(new Set(entityNames).size).toBe(3);
-      // All names should follow the pattern
-      entityNames.forEach(name => {
-        expect(name).toMatch(/^testee-[a-f0-9]{4}$/);
-      });
-    });
-
     it('should lowercase component name in entity name', async () => {
-      mockRandomBytes.mockReturnValue(Buffer.from('abcd', 'hex'));
       const action = createEECatalogInfoAction({ auth, discovery });
       const ctx = {
         input: {
@@ -436,7 +394,7 @@ spec:
 
       const fetchCall = mockFetch.mock.calls[0];
       const body = JSON.parse(fetchCall[1]?.body as string);
-      expect(body.entity.metadata.name).toBe('mycustomee-abcd');
+      expect(body.entity.metadata.name).toBe('MyCustomEE');
       expect(body.entity.metadata.title).toBe('MyCustomEE');
     });
 
