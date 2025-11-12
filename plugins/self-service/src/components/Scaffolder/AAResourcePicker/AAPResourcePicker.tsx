@@ -88,6 +88,7 @@ export const AAPResourcePicker = (props: ScaffolderRJSFFieldProps) => {
             token: token,
             resource: resource,
             provider: 'aap-api-cloud',
+            context: {},
           })
           .then(({ results }) => {
             if (initialFormData) {

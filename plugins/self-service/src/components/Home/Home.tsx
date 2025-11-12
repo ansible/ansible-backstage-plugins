@@ -116,6 +116,7 @@ export const HomeComponent = () => {
             token,
             resource: 'job_templates',
             provider: 'aap-api-cloud',
+            context: {},
           })
           .then(({ results }) =>
             setJobTemplates(

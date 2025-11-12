@@ -101,6 +101,7 @@ describe('scaffolderModuleAnsible', () => {
     const handlerResult = await providerArg.handler({
       resource: 'my-resource',
       token: 'my-token',
+      context: {},
     });
 
     expect(handleAutocompleteRequest).toHaveBeenCalledTimes(1);
@@ -109,6 +110,7 @@ describe('scaffolderModuleAnsible', () => {
     expect(calledWith).toMatchObject({
       resource: 'my-resource',
       token: 'my-token',
+      context: {},
       config: fakeEnv.config,
       logger: fakeEnv.logger,
       ansibleService: fakeEnv.ansibleService,

@@ -88,13 +88,16 @@ export const scaffolderModuleAnsible = createBackendModule({
           handler: ({
             resource,
             token,
+            context,
           }: {
             resource: string;
             token: string;
+            context: Record<string, string>;
           }): Promise<{ results: any[] }> =>
             handleAutocompleteRequest({
               resource,
               token,
+              context,
               config,
               logger,
               ansibleService,
