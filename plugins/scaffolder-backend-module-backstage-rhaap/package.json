@@ -57,7 +57,7 @@
     "@janus-idp/cli": "^3.6.1",
     "@types/jest": "^29.5.12",
     "@types/node": "^22.13.4",
-    "@types/node-fetch": "2.6.11",
+    "@types/node-fetch": "2.6.13",
     "msw": "2.4.9"
   },
   "files": [
