@@ -108,9 +108,7 @@ jest.mock('./Favourites', () => ({
 }));
 
 jest.mock('./CreateCatalog', () => ({
-  CreateCatalog: ({ onTabSwitch }: any) => (
-    <div data-testid="create-catalog">CreateCatalog</div>
-  ),
+  CreateCatalog: () => <div data-testid="create-catalog">CreateCatalog</div>,
 }));
 
 // ------------------ Test data ------------------

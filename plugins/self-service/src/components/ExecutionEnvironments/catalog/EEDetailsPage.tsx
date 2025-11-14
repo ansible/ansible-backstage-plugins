@@ -31,7 +31,6 @@ import {
   catalogApiRef,
   InspectEntityDialog,
   UnregisterEntityDialog,
-  useStarredEntities,
 } from '@backstage/plugin-catalog-react';
 import { useApi } from '@backstage/core-plugin-api';
 import { ANNOTATION_EDIT_URL } from '@backstage/catalog-model';
@@ -83,7 +82,6 @@ export const EEDetailsPage: React.FC = () => {
   const [entity, setEntity] = useState<any | null>(null);
   const [menuid, setMenuId] = useState<string>('');
   const [defaultReadme, setDefaultReadme] = useState<string>('');
-  const { isStarredEntity, toggleStarredEntity } = useStarredEntities();
 
   const callApi = useCallback(() => {
     catalogApi
@@ -391,12 +389,7 @@ export const EEDetailsPage: React.FC = () => {
             {templateName}
           </Typography>
 
-          <IconButton
-            size="small"
-            onClick={() => {
-              toggleStarredEntity(entity);
-            }}
-          >
+          <IconButton size="small">
             <StarBorderIcon />
           </IconButton>
         </Box>

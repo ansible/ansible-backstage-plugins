@@ -30,10 +30,8 @@ jest.mock('@material-ui/core/styles', () => {
   const actual = jest.requireActual('@material-ui/core/styles');
   return {
     ...actual,
-    makeStyles: (fn: any) => () => ({}),
-    withStyles: (styles: any) => (Comp: any) => (props: any) => (
-      <Comp {...props} />
-    ),
+    makeStyles: () => () => ({}),
+    withStyles: () => (Comp: any) => (props: any) => <Comp {...props} />,
   };
 });
 
