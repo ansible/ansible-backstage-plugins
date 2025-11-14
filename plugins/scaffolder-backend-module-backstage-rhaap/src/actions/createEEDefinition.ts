@@ -388,7 +388,7 @@ export function createEEDefinitionAction(options: {
         ctx.output('eeDefinitionContent', eeDefinition);
 
         // Generate README with instructions
-        const readmeContent = generateReadme(mergedValues);
+        const readmeContent = generateReadme(mergedValues, values.publishToSCM);
         await fs.writeFile(readmePath, readmeContent);
         logger.info(
           `[ansible:create:ee-definition] created README.md at ${readmePath}`,
@@ -546,7 +546,10 @@ ${dependenciesContent}`.trimEnd();
   return `${content.trimEnd()}\n`;
 }
 
-function generateReadme(values: EEDefinitionInput): string {
+function generateReadme(
+  values: EEDefinitionInput,
+  publishToSCM: boolean,
+): string {
   const collections = values.collections || [];
   const requirements = values.pythonRequirements || [];
   const packages = values.systemPackages || [];
@@ -554,13 +557,22 @@ function generateReadme(values: EEDefinitionInput): string {
 
   return `# Ansible Execution Environment Definition
 
-This directory contains the definition file for an Ansible Execution Environment.
+${
+  publishToSCM
+    ? 'This directory contains the definition file for an Ansible Execution Environment.'
+    : ''
+}
 
-## Files Generated
+${publishToSCM ? `## Files Generated` : '## Files available for download'}
 
-- \`${values.eeFileName}.yaml\` - The Execution Environment definition file
-- \`template.yaml\` - The software template for Ansible Portal that allows reusing this Execution Environment definition file to create custom ones.
+- \`${values.eeFileName}.yaml\` - The Execution Environment definition file.
+${
+  publishToSCM
+    ? `- \`template.yaml\` - The software template for Ansible Portal that allows reusing this Execution Environment definition file to create custom ones.
 - \`catalog-info.yaml\` - The Catalog Entity Descriptor file that allows registering this Execution Environment as a catalog component in Ansible Portal.
+`
+    : '- `README.md` - contains instructions on how to build and use the Execution Environment.'
+}
 
 ## Configuration
 
@@ -581,6 +593,22 @@ ${collections
   })
   .join('\n')}
 \`\`\`\n
+
+If one or more collections specified in your Execution Environment definition are to be pulled from Automation Hub (or a custom Galaxy server),
+please ensure that those servers are configured in a \`ansible.cfg\` file and included in the EE build.
+You can refer to this documentation for more details: [Configure Red Hat automation hub as the primary content source](https://docs.redhat.com/en/documentation/red_hat_ansible_automation_platform/2.4/html/getting_started_with_automation_hub/configure-hub-primary#proc-configure-automation-hub-server-cli)
+
+For reference, here is an example of an \`ansible.cfg\` file that includes the Red Hat Automation Hub server:
+
+\`\`\`yaml
+[galaxy]
+server_list = automation_hub
+
+[galaxy_server.automation_hub]
+url=https://console.redhat.com/api/automation-hub/content/published/
+auth_url=https://sso.redhat.com/auth/realms/redhat-external/protocol/openid-connect/token
+token=<SuperSecretToken>
+\`\`\`
 
 To include an \`ansible.cfg\` file in your execution environment build specifying additional configuration such as Automation Hub settings, please add the following sections to the generated Execution Environment definition file:
 
@@ -624,7 +652,7 @@ ${packages.map(pkg => `- \`${pkg}\``).join('\n')}
 To build this Execution Environment, you need to have the following tools installed:
 
 1. [ansible-builder](https://docs.redhat.com/en/documentation/red_hat_ansible_automation_platform/2.6/html/creating_and_using_execution_environments/assembly-using-builder)
-2. Container Runtime: [Podman](https://www.redhat.com/en/topics/containers/what-is-podman)(recommended) or [Docker](https://www.docker.com/)
+2. Container Engine: [Podman](https://podman.io/getting-started/installation) (recommended) or [Docker](https://docs.docker.com/engine/install/)
 
 ### Step 2: Build the Execution Environment
 
@@ -646,10 +674,15 @@ For the full list of supported flags, refer to the
 
 ### Step 3: Using the Execution Environment locally
 
-1. Install [\`ansible-navigator\`](https://docs.redhat.com/en/documentation/red_hat_ansible_automation_platform/2.0-ea/html-single/ansible_navigator_creator_guide/index) using the following command:
-\`\`\`bash
-pip install ansible-navigator
-\`\`\`
+1. Install [\`ansible-navigator\`](https://docs.redhat.com/en/documentation/red_hat_ansible_automation_platform/2.6/html/using_content_navigator/assembly-intro-navigator_ansible-navigator):
+
+\`ansible-navigator\` is a part of Ansible development tools. The can be installed on a container inside VS Code or from a package on RHEL.
+
+Please refer to the following documentations for more details:
+
+[Installing Ansible development tools on a container inside VS Code](https://docs.redhat.com/en/documentation/red_hat_ansible_automation_platform/2.6/html/using_content_navigator/installing-devtools#devtools-install-container_installing-devtools)
+
+[Installing Ansible development tools from a package on RHEL](https://docs.redhat.com/en/documentation/red_hat_ansible_automation_platform/2.6/html/using_content_navigator/installing-devtools#devtools-install_installing-devtools)
 
 2. Run your playbook with the built Execution Environment:
 \`\`\`bash
