@@ -197,7 +197,7 @@ export const EEListPage = ({
       field: 'metadata.name',
       highlight: true,
       render: (entity: any) => (
-        <Link to={`/self-service/EEDetailsPage/${entity.metadata.name}`}>
+        <Link to={`/self-service/catalog/${entity.metadata.name}`}>
           {entity.metadata.name}
         </Link>
       ),

@@ -45,6 +45,8 @@
     "@rjsf/core": "^5.24.7",
     "@rjsf/utils": "^5.24.7",
     "@rjsf/validator-ajv8": "^5.24.7",
+    "file-saver": "^2.0.5",
+    "react-markdown": "^10.1.0",
     "react-use": "^17.2.4"
   },
   "peerDependencies": {
@@ -62,6 +64,7 @@
     "@testing-library/jest-dom": "^6.0.0",
     "@testing-library/react": "^16.0.0",
     "@testing-library/user-event": "^14.0.0",
+    "@types/file-saver": "^2",
     "@types/react": "^18.3.3",
     "msw": "^1.0.0",
     "react": "^18.3.1",

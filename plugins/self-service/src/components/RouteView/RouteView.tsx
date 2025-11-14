@@ -59,7 +59,7 @@ export const RouteView = () => {
           />
         </Route>
         <Route path="ee" element={<EETabs />} />
-        <Route path="EEDetailsPage/:templateName" element={<EEDetailsPage />} />
+        <Route path="catalog/:templateName" element={<EEDetailsPage />} />
         {/* Default redirects */}
         <Route
           path="/catalog/*"
