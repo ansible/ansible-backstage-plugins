@@ -1829,9 +1829,7 @@ describe('createEEDefinition', () => {
 
       // Verify key steps are present
       expect(content).toContain('id: create-ee-definition');
-      expect(content).toContain('id: create-template');
-      expect(content).toContain('id: prepare-publish');
-      expect(content).toContain('id: create-catalog-info');
+      expect(content).toContain('id: create-catalog-info-file');
     });
 
     it('should include base image enum options in template', async () => {

@@ -706,15 +706,13 @@ spec:
         baseImage:
           title: Base execution environment image
           type: string
-          default: 'registry.access.redhat.com/ubi9/python-311:latest'
+          default: '${values.customBaseImage || values.baseImage}'
           enum:
             - 'registry.access.redhat.com/ubi9/python-311:latest'
-            - 'registry.redhat.io/ansible-automation-platform-25/ee-minimal-rhel9:latest'
-            - 'custom'
+            - 'registry.redhat.io/ansible-automation-platform-25/ee-minimal-rhel9:latest'${values.customBaseImage?.trim() ? `\n            - '${values.customBaseImage}'` : ''}
           enumNames:
             - 'Red Hat Universal Base Image 9 w/ Python 3.11 (Recommended)'
-            - 'Red Hat Ansible Minimal EE base (RHEL 9) (Requires subscription)'
-            - 'Custom Image'
+            - 'Red Hat Ansible Minimal EE base (RHEL 9) (Requires subscription)'${values.customBaseImage?.trim() ? `\n            - '${values.customBaseImage}'` : ''}
           ui:field: BaseImagePicker
       dependencies:
         baseImage:
@@ -770,6 +768,7 @@ spec:
         collections:
           title: Ansible Collections
           type: array
+          default: ${collectionsJson}
           description: Add collections manually
           items:
             type: object
@@ -836,6 +835,7 @@ spec:
                 pythonRequirements:
                   title: Additional Python Requirements
                   type: array
+                  default: ${requirementsJson}
                   description: |
                     Specify additional python packages that are required in addition to what the selected collections already specify as dependencies.
                     Packages already specified in the collections as a dependency should not be repeated here.
@@ -854,6 +854,7 @@ spec:
                 systemPackages:
                   title: Additional System Packages
                   type: array
+                  default: ${packagesJson}
                   description: |
                     Specify additional system-level packages that are required in addition to what the selected collections already specify as dependencies.
                     Packages already specified in the collections as a dependency should not be repeated here.
@@ -880,6 +881,7 @@ spec:
         mcpServers:
           title: MCP Servers
           type: array
+          default: ${mcpServersJson}
           items:
             type: string
             title: MCP Server
@@ -896,6 +898,7 @@ spec:
         additionalBuildSteps:
           title: Additional Build Steps
           type: array
+          default: ${buildStepsJson}
           items:
             type: object
             properties:
