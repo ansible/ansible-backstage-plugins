@@ -37,7 +37,6 @@ import {
   launchJobTemplate,
   createEEDefinitionAction,
   prepareForPublishAction,
-  createEECatalogInfoAction,
 } from './actions';
 
 import {
