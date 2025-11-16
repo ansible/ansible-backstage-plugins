@@ -112,7 +112,7 @@ export const EEDetailsPage: React.FC = () => {
   }, [callApi]);
 
   useEffect(() => {
-    if (entity && (!entity.spec || !entity?.spec?.readme)) {
+    if (entity && (!entity.spec || (!entity?.spec?.readme && !defaultReadme))) {
       const rawUrl = makeDefaultReadmeFileUrl();
       if (!rawUrl) return;
       fetch(rawUrl)
@@ -345,6 +345,7 @@ export const EEDetailsPage: React.FC = () => {
           entity={entity}
           onConfirm={() => {
             setMenuId('');
+            navigate('/self-service/ee/');
           }}
           onClose={() => {
             setMenuId('');
