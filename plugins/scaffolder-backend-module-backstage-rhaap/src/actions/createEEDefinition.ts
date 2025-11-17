@@ -11,7 +11,6 @@ import {
 import { parseUploadedFileContent } from './utils/utils';
 import { AuthService } from '@backstage/backend-plugin-api';
 import { DiscoveryService } from '@backstage/backend-plugin-api';
-import { stringifyEntityRef } from '@backstage/catalog-model';
 
 interface Collection {
   name: string;
@@ -1204,14 +1203,12 @@ spec:
 
       - title: View details in catalog
         icon: catalog
-        entityRef: \${{ steps['register-catalog-component'].output.entityRef or steps['create-catalog-info'].output.generatedEntityRef }}
+        url: \${{ steps['create-ee-definition'].output.generatedEntityRef }}
 
     text:
       - title: Next Steps
         content: |
-          \`\`\`md
           \${{ steps['create-ee-definition'].output.readmeContent }}
-          \`\`\`
     `;
 }
 

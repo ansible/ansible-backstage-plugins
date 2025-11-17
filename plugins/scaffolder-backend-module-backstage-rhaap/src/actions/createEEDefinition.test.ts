@@ -111,7 +111,11 @@ describe('createEEDefinition', () => {
 
   describe('generateEEDefinition functionality', () => {
     it('should generate EE definition with base image only', async () => {
-      const action = createEEDefinitionAction({ auth, discovery });
+      const action = createEEDefinitionAction({
+        frontendUrl: 'http://localhost:3000',
+        auth,
+        discovery,
+      });
       const ctx = {
         input: {
           values: {
@@ -142,7 +146,11 @@ describe('createEEDefinition', () => {
     });
 
     it('should generate EE definition with collections', async () => {
-      const action = createEEDefinitionAction({ auth, discovery });
+      const action = createEEDefinitionAction({
+        frontendUrl: 'http://localhost:3000',
+        auth,
+        discovery,
+      });
       const ctx = {
         input: {
           values: {
@@ -182,7 +190,11 @@ describe('createEEDefinition', () => {
     });
 
     it('should generate EE definition with only Python requirements', async () => {
-      const action = createEEDefinitionAction({ auth, discovery });
+      const action = createEEDefinitionAction({
+        frontendUrl: 'http://localhost:3000',
+        auth,
+        discovery,
+      });
       const ctx = {
         input: {
           values: {
@@ -217,7 +229,11 @@ describe('createEEDefinition', () => {
     });
 
     it('should generate EE definition with system packages', async () => {
-      const action = createEEDefinitionAction({ auth, discovery });
+      const action = createEEDefinitionAction({
+        frontendUrl: 'http://localhost:3000',
+        auth,
+        discovery,
+      });
       const ctx = {
         input: {
           values: {
@@ -257,7 +273,11 @@ describe('createEEDefinition', () => {
     });
 
     it('should generate EE definition with collection signatures', async () => {
-      const action = createEEDefinitionAction({ auth, discovery });
+      const action = createEEDefinitionAction({
+        frontendUrl: 'http://localhost:3000',
+        auth,
+        discovery,
+      });
       const ctx = {
         input: {
           values: {
@@ -305,7 +325,11 @@ describe('createEEDefinition', () => {
     });
 
     it('should generate EE definition with additional build steps', async () => {
-      const action = createEEDefinitionAction({ auth, discovery });
+      const action = createEEDefinitionAction({
+        frontendUrl: 'http://localhost:3000',
+        auth,
+        discovery,
+      });
       const ctx = {
         input: {
           values: {
@@ -351,7 +375,11 @@ describe('createEEDefinition', () => {
     });
 
     it('should generate EE definition with all inputs provided', async () => {
-      const action = createEEDefinitionAction({ auth, discovery });
+      const action = createEEDefinitionAction({
+        frontendUrl: 'http://localhost:3000',
+        auth,
+        discovery,
+      });
       const ctx = {
         input: {
           values: {
@@ -435,7 +463,11 @@ describe('createEEDefinition', () => {
     });
 
     it('should group multiple commands for same step type', async () => {
-      const action = createEEDefinitionAction({ auth, discovery });
+      const action = createEEDefinitionAction({
+        frontendUrl: 'http://localhost:3000',
+        auth,
+        discovery,
+      });
       const ctx = {
         input: {
           values: {
@@ -479,7 +511,11 @@ describe('createEEDefinition', () => {
 
   describe('generateReadme functionality', () => {
     it('should generate README with base image', async () => {
-      const action = createEEDefinitionAction({ auth, discovery });
+      const action = createEEDefinitionAction({
+        frontendUrl: 'http://localhost:3000',
+        auth,
+        discovery,
+      });
       const ctx = {
         input: {
           values: {
@@ -506,7 +542,11 @@ describe('createEEDefinition', () => {
     });
 
     it('should generate README with collections section', async () => {
-      const action = createEEDefinitionAction({ auth, discovery });
+      const action = createEEDefinitionAction({
+        frontendUrl: 'http://localhost:3000',
+        auth,
+        discovery,
+      });
       const ctx = {
         input: {
           values: {
@@ -536,7 +576,11 @@ describe('createEEDefinition', () => {
     });
 
     it('should generate README with Python requirements section', async () => {
-      const action = createEEDefinitionAction({ auth, discovery });
+      const action = createEEDefinitionAction({
+        frontendUrl: 'http://localhost:3000',
+        auth,
+        discovery,
+      });
       const ctx = {
         input: {
           values: {
@@ -561,7 +605,11 @@ describe('createEEDefinition', () => {
     });
 
     it('should generate README with system packages section', async () => {
-      const action = createEEDefinitionAction({ auth, discovery });
+      const action = createEEDefinitionAction({
+        frontendUrl: 'http://localhost:3000',
+        auth,
+        discovery,
+      });
       const ctx = {
         input: {
           values: {
@@ -587,7 +635,11 @@ describe('createEEDefinition', () => {
     });
 
     it('should generate README with MCP servers section', async () => {
-      const action = createEEDefinitionAction({ auth, discovery });
+      const action = createEEDefinitionAction({
+        frontendUrl: 'http://localhost:3000',
+        auth,
+        discovery,
+      });
       const ctx = {
         input: {
           values: {
@@ -613,7 +665,11 @@ describe('createEEDefinition', () => {
     });
 
     it('should include build instructions in README', async () => {
-      const action = createEEDefinitionAction({ auth, discovery });
+      const action = createEEDefinitionAction({
+        frontendUrl: 'http://localhost:3000',
+        auth,
+        discovery,
+      });
       const ctx = {
         input: {
           values: {
@@ -639,7 +695,11 @@ describe('createEEDefinition', () => {
 
   describe('mergeCollections functionality', () => {
     it('should merge collections from different sources', async () => {
-      const action = createEEDefinitionAction({ auth, discovery });
+      const action = createEEDefinitionAction({
+        frontendUrl: 'http://localhost:3000',
+        auth,
+        discovery,
+      });
       const ctx = {
         input: {
           values: {
@@ -671,7 +731,11 @@ describe('createEEDefinition', () => {
     });
 
     it('should remove duplicate collections by name', async () => {
-      const action = createEEDefinitionAction({ auth, discovery });
+      const action = createEEDefinitionAction({
+        frontendUrl: 'http://localhost:3000',
+        auth,
+        discovery,
+      });
       const ctx = {
         input: {
           values: {
@@ -700,7 +764,11 @@ describe('createEEDefinition', () => {
     });
 
     it('should prefer collection without version over versioned one', async () => {
-      const action = createEEDefinitionAction({ auth, discovery });
+      const action = createEEDefinitionAction({
+        frontendUrl: 'http://localhost:3000',
+        auth,
+        discovery,
+      });
       const ctx = {
         input: {
           values: {
@@ -739,7 +807,11 @@ describe('createEEDefinition', () => {
         return false;
       });
 
-      const action = createEEDefinitionAction({ auth, discovery });
+      const action = createEEDefinitionAction({
+        frontendUrl: 'http://localhost:3000',
+        auth,
+        discovery,
+      });
       const ctx = {
         input: {
           values: {
@@ -785,7 +857,11 @@ describe('createEEDefinition', () => {
         realSchemas.CollectionRequirementsSchema.parse,
       );
 
-      const action = createEEDefinitionAction({ auth, discovery });
+      const action = createEEDefinitionAction({
+        frontendUrl: 'http://localhost:3000',
+        auth,
+        discovery,
+      });
       const ctx = {
         input: {
           values: {
@@ -828,7 +904,11 @@ describe('createEEDefinition', () => {
         return '';
       });
 
-      const action = createEEDefinitionAction({ auth, discovery });
+      const action = createEEDefinitionAction({
+        frontendUrl: 'http://localhost:3000',
+        auth,
+        discovery,
+      });
       const ctx = {
         input: {
           values: {
@@ -858,7 +938,11 @@ describe('createEEDefinition', () => {
     });
 
     it('should remove duplicate requirements', async () => {
-      const action = createEEDefinitionAction({ auth, discovery });
+      const action = createEEDefinitionAction({
+        frontendUrl: 'http://localhost:3000',
+        auth,
+        discovery,
+      });
       const ctx = {
         input: {
           values: {
@@ -895,7 +979,11 @@ describe('createEEDefinition', () => {
         return '';
       });
 
-      const action = createEEDefinitionAction({ auth, discovery });
+      const action = createEEDefinitionAction({
+        frontendUrl: 'http://localhost:3000',
+        auth,
+        discovery,
+      });
       const ctx = {
         input: {
           values: {
@@ -925,7 +1013,11 @@ describe('createEEDefinition', () => {
     });
 
     it('should remove duplicate packages', async () => {
-      const action = createEEDefinitionAction({ auth, discovery });
+      const action = createEEDefinitionAction({
+        frontendUrl: 'http://localhost:3000',
+        auth,
+        discovery,
+      });
       const ctx = {
         input: {
           values: {
@@ -962,7 +1054,11 @@ describe('createEEDefinition', () => {
         return '';
       });
 
-      const action = createEEDefinitionAction({ auth, discovery });
+      const action = createEEDefinitionAction({
+        frontendUrl: 'http://localhost:3000',
+        auth,
+        discovery,
+      });
       const ctx = {
         input: {
           values: {
@@ -996,7 +1092,11 @@ describe('createEEDefinition', () => {
     it('should handle empty text requirements file', async () => {
       mockParseUploadedFileContent.mockReturnValue('');
 
-      const action = createEEDefinitionAction({ auth, discovery });
+      const action = createEEDefinitionAction({
+        frontendUrl: 'http://localhost:3000',
+        auth,
+        discovery,
+      });
       const ctx = {
         input: {
           values: {
@@ -1040,7 +1140,11 @@ describe('createEEDefinition', () => {
         realSchemas.CollectionRequirementsSchema.parse,
       );
 
-      const action = createEEDefinitionAction({ auth, discovery });
+      const action = createEEDefinitionAction({
+        frontendUrl: 'http://localhost:3000',
+        auth,
+        discovery,
+      });
       const ctx = {
         input: {
           values: {
@@ -1063,7 +1167,11 @@ describe('createEEDefinition', () => {
     it('should handle empty collections file', async () => {
       mockParseUploadedFileContent.mockReturnValue('');
 
-      const action = createEEDefinitionAction({ auth, discovery });
+      const action = createEEDefinitionAction({
+        frontendUrl: 'http://localhost:3000',
+        auth,
+        discovery,
+      });
       const ctx = {
         input: {
           values: {
@@ -1089,7 +1197,11 @@ describe('createEEDefinition', () => {
         throw new Error('YAML parse error');
       });
 
-      const action = createEEDefinitionAction({ auth, discovery });
+      const action = createEEDefinitionAction({
+        frontendUrl: 'http://localhost:3000',
+        auth,
+        discovery,
+      });
       const ctx = {
         input: {
           values: {
@@ -1121,7 +1233,11 @@ describe('createEEDefinition', () => {
         throw zodError;
       });
 
-      const action = createEEDefinitionAction({ auth, discovery });
+      const action = createEEDefinitionAction({
+        frontendUrl: 'http://localhost:3000',
+        auth,
+        discovery,
+      });
       const ctx = {
         input: {
           values: {
@@ -1143,7 +1259,11 @@ describe('createEEDefinition', () => {
 
   describe('generateMCPBuilderSteps functionality', () => {
     it('should add MCP collections and build steps when MCP servers are specified', async () => {
-      const action = createEEDefinitionAction({ auth, discovery });
+      const action = createEEDefinitionAction({
+        frontendUrl: 'http://localhost:3000',
+        auth,
+        discovery,
+      });
       const ctx = {
         input: {
           values: {
@@ -1199,7 +1319,11 @@ describe('createEEDefinition', () => {
     });
 
     it('should append to existing append_builder step', async () => {
-      const action = createEEDefinitionAction({ auth, discovery });
+      const action = createEEDefinitionAction({
+        frontendUrl: 'http://localhost:3000',
+        auth,
+        discovery,
+      });
       const ctx = {
         input: {
           values: {
@@ -1239,7 +1363,11 @@ describe('createEEDefinition', () => {
     });
 
     it('should not add MCP steps when no MCP servers specified', async () => {
-      const action = createEEDefinitionAction({ auth, discovery });
+      const action = createEEDefinitionAction({
+        frontendUrl: 'http://localhost:3000',
+        auth,
+        discovery,
+      });
       const ctx = {
         input: {
           values: {
@@ -1280,7 +1408,11 @@ describe('createEEDefinition', () => {
       mockYamlLoad.mockReturnValue(validEEDefinition);
       mockEEDefinitionSchemaParse.mockReturnValue(validEEDefinition);
 
-      const action = createEEDefinitionAction({ auth, discovery });
+      const action = createEEDefinitionAction({
+        frontendUrl: 'http://localhost:3000',
+        auth,
+        discovery,
+      });
       const ctx = {
         input: {
           values: {
@@ -1319,7 +1451,11 @@ describe('createEEDefinition', () => {
         throw zodError;
       });
 
-      const action = createEEDefinitionAction({ auth, discovery });
+      const action = createEEDefinitionAction({
+        frontendUrl: 'http://localhost:3000',
+        auth,
+        discovery,
+      });
       const ctx = {
         input: {
           values: {
@@ -1340,7 +1476,11 @@ describe('createEEDefinition', () => {
 
   describe('contextDirName generation', () => {
     it('should generate sanitized directory name from eeFileName', async () => {
-      const action = createEEDefinitionAction({ auth, discovery });
+      const action = createEEDefinitionAction({
+        frontendUrl: 'http://localhost:3000',
+        auth,
+        discovery,
+      });
       const ctx = {
         input: {
           values: {
@@ -1365,7 +1505,11 @@ describe('createEEDefinition', () => {
     });
 
     it('should handle special characters in eeFileName', async () => {
-      const action = createEEDefinitionAction({ auth, discovery });
+      const action = createEEDefinitionAction({
+        frontendUrl: 'http://localhost:3000',
+        auth,
+        discovery,
+      });
       const ctx = {
         input: {
           values: {
@@ -1392,7 +1536,11 @@ describe('createEEDefinition', () => {
     it('should handle file write errors', async () => {
       mockWriteFile.mockRejectedValueOnce(new Error('Write failed'));
 
-      const action = createEEDefinitionAction({ auth, discovery });
+      const action = createEEDefinitionAction({
+        frontendUrl: 'http://localhost:3000',
+        auth,
+        discovery,
+      });
       const ctx = {
         input: {
           values: {
@@ -1411,7 +1559,11 @@ describe('createEEDefinition', () => {
     it('should handle directory creation errors', async () => {
       mockMkdir.mockRejectedValueOnce(new Error('Mkdir failed'));
 
-      const action = createEEDefinitionAction({ auth, discovery });
+      const action = createEEDefinitionAction({
+        frontendUrl: 'http://localhost:3000',
+        auth,
+        discovery,
+      });
       const ctx = {
         input: {
           values: {
@@ -1430,7 +1582,11 @@ describe('createEEDefinition', () => {
 
   describe('generateEETemplate functionality', () => {
     it('should generate EE template with minimal inputs', async () => {
-      const action = createEEDefinitionAction({ auth, discovery });
+      const action = createEEDefinitionAction({
+        frontendUrl: 'http://localhost:3000',
+        auth,
+        discovery,
+      });
       const ctx = {
         input: {
           values: {
@@ -1468,7 +1624,11 @@ describe('createEEDefinition', () => {
     });
 
     it('should generate EE template with default description when not provided', async () => {
-      const action = createEEDefinitionAction({ auth, discovery });
+      const action = createEEDefinitionAction({
+        frontendUrl: 'http://localhost:3000',
+        auth,
+        discovery,
+      });
       const ctx = {
         input: {
           values: {
@@ -1495,7 +1655,11 @@ describe('createEEDefinition', () => {
     });
 
     it('should generate EE template with collections', async () => {
-      const action = createEEDefinitionAction({ auth, discovery });
+      const action = createEEDefinitionAction({
+        frontendUrl: 'http://localhost:3000',
+        auth,
+        discovery,
+      });
       const ctx = {
         input: {
           values: {
@@ -1529,7 +1693,11 @@ describe('createEEDefinition', () => {
     });
 
     it('should generate EE template with Python requirements', async () => {
-      const action = createEEDefinitionAction({ auth, discovery });
+      const action = createEEDefinitionAction({
+        frontendUrl: 'http://localhost:3000',
+        auth,
+        discovery,
+      });
       const ctx = {
         input: {
           values: {
@@ -1560,7 +1728,11 @@ describe('createEEDefinition', () => {
     });
 
     it('should generate EE template with system packages', async () => {
-      const action = createEEDefinitionAction({ auth, discovery });
+      const action = createEEDefinitionAction({
+        frontendUrl: 'http://localhost:3000',
+        auth,
+        discovery,
+      });
       const ctx = {
         input: {
           values: {
@@ -1589,7 +1761,11 @@ describe('createEEDefinition', () => {
     });
 
     it('should generate EE template with MCP servers', async () => {
-      const action = createEEDefinitionAction({ auth, discovery });
+      const action = createEEDefinitionAction({
+        frontendUrl: 'http://localhost:3000',
+        auth,
+        discovery,
+      });
       const ctx = {
         input: {
           values: {
@@ -1618,7 +1794,11 @@ describe('createEEDefinition', () => {
     });
 
     it('should generate EE template with additional build steps', async () => {
-      const action = createEEDefinitionAction({ auth, discovery });
+      const action = createEEDefinitionAction({
+        frontendUrl: 'http://localhost:3000',
+        auth,
+        discovery,
+      });
       const ctx = {
         input: {
           values: {
@@ -1654,7 +1834,11 @@ describe('createEEDefinition', () => {
     });
 
     it('should generate EE template with tags', async () => {
-      const action = createEEDefinitionAction({ auth, discovery });
+      const action = createEEDefinitionAction({
+        frontendUrl: 'http://localhost:3000',
+        auth,
+        discovery,
+      });
       const ctx = {
         input: {
           values: {
@@ -1682,7 +1866,11 @@ describe('createEEDefinition', () => {
     });
 
     it('should generate EE template with custom base image', async () => {
-      const action = createEEDefinitionAction({ auth, discovery });
+      const action = createEEDefinitionAction({
+        frontendUrl: 'http://localhost:3000',
+        auth,
+        discovery,
+      });
       const ctx = {
         input: {
           values: {
@@ -1719,7 +1907,11 @@ describe('createEEDefinition', () => {
     });
 
     it('should generate EE template with all inputs provided', async () => {
-      const action = createEEDefinitionAction({ auth, discovery });
+      const action = createEEDefinitionAction({
+        frontendUrl: 'http://localhost:3000',
+        auth,
+        discovery,
+      });
       const ctx = {
         input: {
           values: {
@@ -1770,7 +1962,11 @@ describe('createEEDefinition', () => {
     });
 
     it('should handle empty arrays in template generation', async () => {
-      const action = createEEDefinitionAction({ auth, discovery });
+      const action = createEEDefinitionAction({
+        frontendUrl: 'http://localhost:3000',
+        auth,
+        discovery,
+      });
       const ctx = {
         input: {
           values: {
@@ -1804,7 +2000,11 @@ describe('createEEDefinition', () => {
     });
 
     it('should include all template steps in generated template', async () => {
-      const action = createEEDefinitionAction({ auth, discovery });
+      const action = createEEDefinitionAction({
+        frontendUrl: 'http://localhost:3000',
+        auth,
+        discovery,
+      });
       const ctx = {
         input: {
           values: {
@@ -1833,7 +2033,11 @@ describe('createEEDefinition', () => {
     });
 
     it('should include base image enum options in template', async () => {
-      const action = createEEDefinitionAction({ auth, discovery });
+      const action = createEEDefinitionAction({
+        frontendUrl: 'http://localhost:3000',
+        auth,
+        discovery,
+      });
       const ctx = {
         input: {
           values: {
@@ -1866,7 +2070,11 @@ describe('createEEDefinition', () => {
     });
 
     it('should include popular collections enum in template', async () => {
-      const action = createEEDefinitionAction({ auth, discovery });
+      const action = createEEDefinitionAction({
+        frontendUrl: 'http://localhost:3000',
+        auth,
+        discovery,
+      });
       const ctx = {
         input: {
           values: {
@@ -1898,7 +2106,11 @@ describe('createEEDefinition', () => {
     });
 
     it('should include MCP servers enum in template', async () => {
-      const action = createEEDefinitionAction({ auth, discovery });
+      const action = createEEDefinitionAction({
+        frontendUrl: 'http://localhost:3000',
+        auth,
+        discovery,
+      });
       const ctx = {
         input: {
           values: {
@@ -1928,7 +2140,11 @@ describe('createEEDefinition', () => {
     });
 
     it('should include all build step types in enum', async () => {
-      const action = createEEDefinitionAction({ auth, discovery });
+      const action = createEEDefinitionAction({
+        frontendUrl: 'http://localhost:3000',
+        auth,
+        discovery,
+      });
       const ctx = {
         input: {
           values: {
