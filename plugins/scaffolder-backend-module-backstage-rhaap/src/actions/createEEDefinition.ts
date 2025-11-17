@@ -1203,14 +1203,12 @@ spec:
 
       - title: View details in catalog
         icon: catalog
-        entityRef: \${{ steps['register-catalog-component'].output.entityRef or steps['create-catalog-info'].output.generatedEntityRef }}
+        url: \${{ steps['create-ee-definition'].output.generatedEntityRef }}
 
     text:
       - title: Next Steps
         content: |
-          \`\`\`md
           \${{ steps['create-ee-definition'].output.readmeContent }}
-          \`\`\`
     `;
 }
 
