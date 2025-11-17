@@ -11,7 +11,6 @@ import {
 import { parseUploadedFileContent } from './utils/utils';
 import { AuthService } from '@backstage/backend-plugin-api';
 import { DiscoveryService } from '@backstage/backend-plugin-api';
-import { stringifyEntityRef } from '@backstage/catalog-model';
 
 interface Collection {
   name: string;
