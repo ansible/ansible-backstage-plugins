@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import {
   Header,
   Page,
@@ -11,7 +11,8 @@ import {
   scaffolderApiRef,
   TemplateParameterSchema,
 } from '@backstage/plugin-scaffolder-react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { catalogApiRef } from '@backstage/plugin-catalog-react';
+import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import {
   Box,
   Button,
@@ -19,8 +20,10 @@ import {
   CardContent,
   CardHeader,
   Grid,
+  IconButton,
   makeStyles,
 } from '@material-ui/core';
+import ArrowBack from '@material-ui/icons/ArrowBack';
 import { rootRouteRef } from '../../routes';
 
 const headerStyles = makeStyles(theme => ({
@@ -36,6 +39,24 @@ const headerStyles = makeStyles(theme => ({
     fontWeight: 500,
     lineHeight: 1.57,
   },
+  headerTitleContainer: {
+    display: 'flex',
+    flexDirection: 'column',
+    alignItems: 'flex-start',
+  },
+  backButtonContainer: {
+    marginBottom: theme.spacing(1),
+    marginLeft: theme.spacing(-1),
+    [theme.breakpoints.up('sm')]: {
+      marginLeft: theme.spacing(-1.5),
+    },
+  },
+  backButton: {
+    color: theme.palette.type === 'light' ? 'rgba(0, 0, 0, 0.87)' : '#ffffff',
+    '&:hover': {
+      backgroundColor: 'rgba(0, 0, 0, 0.04)',
+    },
+  },
 }));
 
 export const CreateTask = () => {
@@ -45,13 +66,25 @@ export const CreateTask = () => {
     templateName: string;
   }>();
   const scaffolderApi = useApi(scaffolderApiRef);
+  const catalogApi = useApi(catalogApiRef);
   const rootLink = useRouteRef(rootRouteRef);
+  const location = useLocation();
 
   const [entityTemplate, setEntityTemplate] =
     useState<TemplateParameterSchema | null>(null);
+  const [templateEntity, setTemplateEntity] = useState<{
+    spec?: { type?: string };
+  } | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const navigate = useNavigate();
+
+  const initialFormData = useMemo(() => {
+    const state = location.state as {
+      initialFormData?: Record<string, any>;
+    } | null;
+    return state?.initialFormData;
+  }, [location.state]);
 
   const finalSubmit = async (formData: Record<string, any>) => {
     if (!namespace || !templateName) {
@@ -75,12 +108,23 @@ export const CreateTask = () => {
     const fetchEntity = async () => {
       setLoading(true);
       try {
-        if (!templateName) {
-          throw new Error('Missing name in URL parameters');
+        if (!templateName || !namespace) {
+          throw new Error('Missing name or namespace in URL parameters');
         }
         const response =
           await scaffolderApi.getTemplateParameterSchema(templateName);
         setEntityTemplate(response as TemplateParameterSchema);
+
+        try {
+          const entityRef = `template:${namespace}/${templateName}`;
+          const entity = await catalogApi.getEntityByRef(entityRef);
+          if (entity) {
+            setTemplateEntity(entity);
+          }
+        } catch {
+          // Get back to home page if we can't fetch the entity
+          // fail silently
+        }
       } catch (err) {
         setError('Failed to fetch entity');
       } finally {
@@ -89,7 +133,7 @@ export const CreateTask = () => {
     };
 
     fetchEntity();
-  }, [templateName, scaffolderApi]);
+  }, [templateName, namespace, scaffolderApi, catalogApi]);
 
   if (loading) {
     return (
@@ -128,22 +172,45 @@ export const CreateTask = () => {
     ? entityTemplate.description.split('(Template Info)')
     : [];
 
+  const handleBack = () => {
+    const isExecutionEnvironment =
+      templateEntity?.spec?.type?.includes('execution-environment') ?? false;
+
+    if (isExecutionEnvironment) {
+      navigate(`${rootLink()}/ee/create`);
+    } else {
+      navigate(`${rootLink()}`);
+    }
+  };
+
   return (
     <Page themeId="website">
       <Header
         pageTitleOverride="Create Task"
         title={
-          <span
-            className={classes.header_title_color}
-            data-testid="template-task--title"
-          >
-            {entityTemplate.title}
-          </span>
+          <Box className={classes.headerTitleContainer}>
+            <Box className={classes.backButtonContainer}>
+              <IconButton
+                onClick={handleBack}
+                className={classes.backButton}
+                aria-label="go back"
+                data-testid="back-button"
+              >
+                <ArrowBack />
+              </IconButton>
+            </Box>
+            <span
+              className={classes.header_title_color}
+              data-testid="template-task--title"
+            >
+              {entityTemplate.title}
+            </span>
+          </Box>
         }
         subtitle={
           <span className={classes.header_subtitle}>{description}</span>
         }
-        style={{ background: 'inherit' }}
+        style={{ background: 'inherit', paddingTop: 0 }}
       />
       <Content>
         <Grid container direction="row-reverse">
@@ -167,6 +234,7 @@ export const CreateTask = () => {
             <StepForm
               steps={entityTemplate.steps}
               submitFunction={finalSubmit}
+              initialFormData={initialFormData}
             />
             <Box
               display="flex"
@@ -174,7 +242,22 @@ export const CreateTask = () => {
               marginTop="16px"
               marginBottom={4}
             >
-              <Button href="/self-service" variant="text" color="primary">
+              <Button
+                onClick={() => {
+                  const isExecutionEnvironment =
+                    templateEntity?.spec?.type?.includes(
+                      'execution-environment',
+                    ) ?? false;
+
+                  if (isExecutionEnvironment) {
+                    navigate(`${rootLink()}/ee/create`);
+                  } else {
+                    navigate(`${rootLink()}`);
+                  }
+                }}
+                variant="text"
+                color="primary"
+              >
                 Cancel
               </Button>
             </Box>
