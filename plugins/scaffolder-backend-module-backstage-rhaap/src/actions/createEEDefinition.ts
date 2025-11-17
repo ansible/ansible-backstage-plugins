@@ -278,6 +278,7 @@ export function createEEDefinitionAction(options: {
       const eeDescription = values.eeDescription || 'Execution Environment';
       const tags = values.tags || [];
       const owner = ctx.user?.ref || '';
+      const repositoryName = values.repositoryName || '';
 
       // required for catalog component registration
       ctx.output('owner', owner);
@@ -388,7 +389,12 @@ export function createEEDefinitionAction(options: {
         ctx.output('eeDefinitionContent', eeDefinition);
 
         // Generate README with instructions
-        const readmeContent = generateReadme(mergedValues, values.publishToSCM);
+        const readmeContent = generateReadme(
+          mergedValues,
+          values.publishToSCM,
+          contextDirName,
+          repositoryName,
+        );
         await fs.writeFile(readmePath, readmeContent);
         logger.info(
           `[ansible:create:ee-definition] created README.md at ${readmePath}`,
@@ -549,6 +555,8 @@ ${dependenciesContent}`.trimEnd();
 function generateReadme(
   values: EEDefinitionInput,
   publishToSCM: boolean,
+  contextDirName: string,
+  repositoryName: string,
 ): string {
   const collections = values.collections || [];
   const requirements = values.pythonRequirements || [];
@@ -592,36 +600,6 @@ ${collections
     return collectionContent;
   })
   .join('\n')}
-\`\`\`\n
-
-If one or more collections specified in your Execution Environment definition are to be pulled from Automation Hub (or a custom Galaxy server),
-please ensure that those servers are configured in a \`ansible.cfg\` file and included in the EE build.
-You can refer to this documentation for more details: [Configure Red Hat automation hub as the primary content source](https://docs.redhat.com/en/documentation/red_hat_ansible_automation_platform/2.4/html/getting_started_with_automation_hub/configure-hub-primary#proc-configure-automation-hub-server-cli)
-
-For reference, here is an example of an \`ansible.cfg\` file that includes the Red Hat Automation Hub server:
-
-\`\`\`yaml
-[galaxy]
-server_list = automation_hub
-
-[galaxy_server.automation_hub]
-url=https://console.redhat.com/api/automation-hub/content/published/
-auth_url=https://sso.redhat.com/auth/realms/redhat-external/protocol/openid-connect/token
-token=<SuperSecretToken>
-\`\`\`
-
-To include an \`ansible.cfg\` file in your execution environment build specifying additional configuration such as Automation Hub settings, please add the following sections to the generated Execution Environment definition file:
-
-\`\`\`yaml
-additional_build_files:
-  - src: /path-to/ansible.cfg
-    dest: configs
-
-additional_build_steps:
-  prepend_galaxy:
-    - COPY _build/configs/ansible.cfg /etc/ansible/ansible.cfg
-\`\`\`
-
 `
     : ''
 }${
@@ -656,9 +634,51 @@ To build this Execution Environment, you need to have the following tools instal
 
 ### Step 2: Build the Execution Environment
 
-1. Clone the repository and navigate to this directory.
+${
+  publishToSCM
+    ? `1. Clone the repository and navigate to this directory.
 
-2. Run the following command to build the Execution Environment:
+\`\`\`bash
+git clone <repository URL>
+cd ${{ repositoryName }}/${{ contextDirName }}
+\`\`\`
+`
+    : `1. Download the Execution Environment definition file.`
+}
+
+2. Customize the Execution Environment definition file as needed.
+
+\`\`\`\n
+
+If one or more collections specified in your Execution Environment definition are to be pulled from Automation Hub (or a custom Galaxy server),
+please ensure that those servers are configured in a \`ansible.cfg\` file and included in the EE build.
+You can refer to this documentation for more details: [Configure Red Hat automation hub as the primary content source](https://docs.redhat.com/en/documentation/red_hat_ansible_automation_platform/2.4/html/getting_started_with_automation_hub/configure-hub-primary#proc-configure-automation-hub-server-cli)
+
+For reference, here is an example of an \`ansible.cfg\` file that includes the Red Hat Automation Hub server:
+
+\`\`\`yaml
+[galaxy]
+server_list = automation_hub
+
+[galaxy_server.automation_hub]
+url=https://console.redhat.com/api/automation-hub/content/published/
+auth_url=https://sso.redhat.com/auth/realms/redhat-external/protocol/openid-connect/token
+token=<SuperSecretToken>
+\`\`\`
+
+To include an \`ansible.cfg\` file in your execution environment build specifying additional configuration such as Automation Hub settings, please add the following sections to the generated Execution Environment definition file:
+
+\`\`\`yaml
+additional_build_files:
+  - src: /path-to/ansible.cfg
+    dest: configs
+
+additional_build_steps:
+  prepend_galaxy:
+    - COPY _build/configs/ansible.cfg /etc/ansible/ansible.cfg
+\`\`\`
+
+3. Run the following command to build the Execution Environment:
 \`\`\`bash
 ansible-builder build --file ${values.eeFileName}.yaml --tag ${values.eeFileName}:latest --container-runtime podman
 \`\`\`
@@ -671,6 +691,7 @@ use the \`--build-arg\` flag to pass these arguments.
 
 For the full list of supported flags, refer to the
 [ansible-builder reference for \`build arguments\`](https://docs.redhat.com/en/documentation/red_hat_ansible_automation_platform/2.6/html/creating_and_using_execution_environments/assembly-using-builder)
+
 
 ### Step 3: Using the Execution Environment locally
 
