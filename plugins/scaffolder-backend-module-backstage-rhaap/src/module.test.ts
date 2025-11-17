@@ -55,7 +55,14 @@ describe('scaffolderModuleAnsible', () => {
       scaffolder: { addActions: jest.fn() },
       scaffolderTemplating: { addTemplateFilters: jest.fn() },
       autocomplete: { addAutocompleteProvider: jest.fn() },
-      config: { some: 'config' },
+      config: {
+        getString: jest.fn((key: string) => {
+          if (key === 'app.baseUrl') {
+            return 'http://localhost:3000';
+          }
+          return '';
+        }),
+      },
       logger: { info: jest.fn(), debug: jest.fn(), error: jest.fn() },
       ansibleService: { name: 'ansibleService' },
     };

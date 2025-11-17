@@ -76,6 +76,7 @@ export const scaffolderModuleAnsible = createBackendModule({
         discovery,
       }) {
         const ansibleConfig = getAnsibleConfig(config);
+        const frontendUrl = config.getString('app.baseUrl');
         scaffolder.addActions(
           createAnsibleContentAction(config, ansibleConfig),
           createProjectAction(ansibleService),
@@ -85,6 +86,7 @@ export const scaffolderModuleAnsible = createBackendModule({
           cleanUp(ansibleService),
           createShowCases(ansibleService, ansibleConfig),
           createEEDefinitionAction({
+            frontendUrl,
             auth,
             discovery,
           }),
