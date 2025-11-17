@@ -366,11 +366,11 @@ export const RunTask = () => {
       return false;
     }
 
-    const hasCatalogInfoStep = allSteps.some(
-      step => step.id === 'create-catalog-info',
+    const hasEEDefinitionStep = allSteps.some(
+      step => step.id === 'create-ee-definition',
     );
 
-    if (!hasCatalogInfoStep) {
+    if (!hasEEDefinitionStep) {
       return false;
     }
 
@@ -382,16 +382,16 @@ export const RunTask = () => {
       return undefined;
     }
 
-    const hasCatalogInfoStep = allSteps.some(
-      step => step.id === 'create-catalog-info',
-    );
-
-    if (!hasCatalogInfoStep) {
+    const publishToSCM = task?.spec?.parameters?.publishToSCM;
+    if (publishToSCM === true) {
       return undefined;
     }
 
-    const publishToSCM = task?.spec?.parameters?.publishToSCM;
-    if (publishToSCM === true) {
+    const hasEEDefinitionStep = allSteps.some(
+      step => step.id === 'create-ee-definition',
+    );
+
+    if (!hasEEDefinitionStep) {
       return undefined;
     }
 
@@ -472,9 +472,10 @@ export const RunTask = () => {
     }
 
     try {
-      const eeFileName = `${entity.spec.name || 'execution-environment'}.yaml`;
-      const readmeFileName = `README-${entity.spec.name || 'execution-environment'}.md`;
-      const archiveName = `${entity.spec.name || 'execution-environment'}.tar`;
+      const entityName = entity.metadata?.name || 'execution-environment';
+      const eeFileName = `${entityName}.yaml`;
+      const readmeFileName = `README-${entityName}.md`;
+      const archiveName = `${entityName}.tar`;
 
       const tarData = createTarArchive([
         { name: eeFileName, content: entity.spec.definition },

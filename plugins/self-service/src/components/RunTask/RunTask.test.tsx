@@ -1186,7 +1186,7 @@ describe('RunTask', () => {
             },
             steps: [
               { id: 'step1', name: 'Step 1' },
-              { id: 'create-catalog-info', name: 'Create Catalog Info' },
+              { id: 'create-ee-definition', name: 'Create EE Definition' },
             ],
           },
         },
@@ -1196,7 +1196,7 @@ describe('RunTask', () => {
         output: { links: [] },
         steps: {
           step1: { status: 'completed' },
-          'create-catalog-info': { status: 'completed' },
+          'create-ee-definition': { status: 'completed' },
         },
         stepLogs: {},
       }));
@@ -1238,7 +1238,7 @@ describe('RunTask', () => {
             },
             steps: [
               { id: 'step1', name: 'Step 1' },
-              { id: 'create-catalog-info', name: 'Create Catalog Info' },
+              { id: 'create-ee-definition', name: 'Create EE Definition' },
             ],
           },
         },
@@ -1248,7 +1248,7 @@ describe('RunTask', () => {
         output: { links: [] },
         steps: {
           step1: { status: 'completed' },
-          'create-catalog-info': { status: 'completed' },
+          'create-ee-definition': { status: 'completed' },
         },
         stepLogs: {},
       }));
@@ -1303,7 +1303,7 @@ describe('RunTask', () => {
             },
             steps: [
               { id: 'step1', name: 'Step 1' },
-              { id: 'create-catalog-info', name: 'Create Catalog Info' },
+              { id: 'create-ee-definition', name: 'Create EE Definition' },
             ],
           },
         },
@@ -1313,7 +1313,7 @@ describe('RunTask', () => {
         output: { links: [] },
         steps: {
           step1: { status: 'completed' },
-          'create-catalog-info': { status: 'completed' },
+          'create-ee-definition': { status: 'completed' },
         },
         stepLogs: {},
       }));
@@ -1424,7 +1424,7 @@ describe('RunTask', () => {
             },
             steps: [
               { id: 'step1', name: 'Step 1' },
-              { id: 'create-catalog-info', name: 'Create Catalog Info' },
+              { id: 'create-ee-definition', name: 'Create EE Definition' },
             ],
           },
         },
@@ -1434,7 +1434,7 @@ describe('RunTask', () => {
         output: { links: [] },
         steps: {
           step1: { status: 'completed' },
-          'create-catalog-info': { status: 'completed' },
+          'create-ee-definition': { status: 'completed' },
         },
         stepLogs: {},
       }));
@@ -1506,7 +1506,7 @@ describe('RunTask', () => {
             },
             steps: [
               { id: 'step1', name: 'Step 1' },
-              { id: 'create-catalog-info', name: 'Create Catalog Info' },
+              { id: 'create-ee-definition', name: 'Create EE Definition' },
             ],
           },
         },
@@ -1516,7 +1516,7 @@ describe('RunTask', () => {
         output: { links: [] },
         steps: {
           step1: { status: 'completed' },
-          'create-catalog-info': { status: 'completed' },
+          'create-ee-definition': { status: 'completed' },
         },
         stepLogs: {},
       }));
@@ -1564,7 +1564,7 @@ describe('RunTask', () => {
             },
             steps: [
               { id: 'step1', name: 'Step 1' },
-              { id: 'create-catalog-info', name: 'Create Catalog Info' },
+              { id: 'create-ee-definition', name: 'Create EE Definition' },
             ],
           },
         },
@@ -1574,7 +1574,7 @@ describe('RunTask', () => {
         output: { links: [] },
         steps: {
           step1: { status: 'completed' },
-          'create-catalog-info': { status: 'completed' },
+          'create-ee-definition': { status: 'completed' },
         },
         stepLogs: {},
       }));
@@ -1623,7 +1623,7 @@ describe('RunTask', () => {
             },
             steps: [
               { id: 'step1', name: 'Step 1' },
-              { id: 'create-catalog-info', name: 'Create Catalog Info' },
+              { id: 'create-ee-definition', name: 'Create EE Definition' },
             ],
           },
         },
@@ -1633,7 +1633,7 @@ describe('RunTask', () => {
         output: { links: [] },
         steps: {
           step1: { status: 'completed' },
-          'create-catalog-info': { status: 'completed' },
+          'create-ee-definition': { status: 'completed' },
         },
         stepLogs: {},
       }));
@@ -1701,7 +1701,7 @@ describe('RunTask', () => {
             },
             steps: [
               { id: 'step1', name: 'Step 1' },
-              { id: 'create-catalog-info', name: 'Create Catalog Info' },
+              { id: 'create-ee-definition', name: 'Create EE Definition' },
             ],
           },
         },
@@ -1711,7 +1711,7 @@ describe('RunTask', () => {
         output: { links: [] },
         steps: {
           step1: { status: 'completed' },
-          'create-catalog-info': { status: 'completed' },
+          'create-ee-definition': { status: 'completed' },
         },
         stepLogs: {},
       }));
@@ -1758,7 +1758,7 @@ describe('RunTask', () => {
             },
             steps: [
               { id: 'step1', name: 'Step 1' },
-              { id: 'create-catalog-info', name: 'Create Catalog Info' },
+              { id: 'create-ee-definition', name: 'Create EE Definition' },
             ],
           },
         },
@@ -1768,7 +1768,7 @@ describe('RunTask', () => {
         output: { links: [] },
         steps: {
           step1: { status: 'completed' },
-          'create-catalog-info': { status: 'completed' },
+          'create-ee-definition': { status: 'completed' },
         },
         stepLogs: {},
       }));
@@ -1824,7 +1824,7 @@ describe('RunTask', () => {
             },
             steps: [
               { id: 'step1', name: 'Step 1' },
-              { id: 'create-catalog-info', name: 'Create Catalog Info' },
+              { id: 'create-ee-definition', name: 'Create EE Definition' },
             ],
           },
         },
@@ -1834,7 +1834,7 @@ describe('RunTask', () => {
         output: { links: [] },
         steps: {
           step1: { status: 'completed' },
-          'create-catalog-info': { status: 'completed' },
+          'create-ee-definition': { status: 'completed' },
         },
         stepLogs: {},
       }));
@@ -1896,7 +1896,7 @@ describe('RunTask', () => {
             },
             steps: [
               { id: 'step1', name: 'Step 1' },
-              { id: 'create-catalog-info', name: 'Create Catalog Info' },
+              { id: 'create-ee-definition', name: 'Create EE Definition' },
             ],
           },
         },
@@ -1906,7 +1906,7 @@ describe('RunTask', () => {
         output: { links: [] },
         steps: {
           step1: { status: 'completed' },
-          'create-catalog-info': { status: 'completed' },
+          'create-ee-definition': { status: 'completed' },
         },
         stepLogs: {},
       }));
@@ -1967,7 +1967,7 @@ describe('RunTask', () => {
             },
             steps: [
               { id: 'step1', name: 'Step 1' },
-              { id: 'create-catalog-info', name: 'Create Catalog Info' },
+              { id: 'create-ee-definition', name: 'Create EE Definition' },
             ],
           },
         },
@@ -1977,7 +1977,7 @@ describe('RunTask', () => {
         output: { links: [] },
         steps: {
           step1: { status: 'completed' },
-          'create-catalog-info': { status: 'completed' },
+          'create-ee-definition': { status: 'completed' },
         },
         stepLogs: {},
       }));
@@ -2023,7 +2023,7 @@ describe('RunTask', () => {
             },
             steps: [
               { id: 'step1', name: 'Step 1' },
-              { id: 'create-catalog-info', name: 'Create Catalog Info' },
+              { id: 'create-ee-definition', name: 'Create EE Definition' },
             ],
           },
         },
@@ -2033,7 +2033,7 @@ describe('RunTask', () => {
         output: { links: [] },
         steps: {
           step1: { status: 'completed' },
-          'create-catalog-info': { status: 'completed' },
+          'create-ee-definition': { status: 'completed' },
         },
         stepLogs: {},
       }));
@@ -2116,7 +2116,7 @@ describe('RunTask', () => {
             },
             steps: [
               { id: 'step1', name: 'Step 1' },
-              { id: 'create-catalog-info', name: 'Create Catalog Info' },
+              { id: 'create-ee-definition', name: 'Create EE Definition' },
             ],
           },
         },
@@ -2126,7 +2126,7 @@ describe('RunTask', () => {
         output: { links: [] },
         steps: {
           step1: { status: 'completed' },
-          'create-catalog-info': { status: 'completed' },
+          'create-ee-definition': { status: 'completed' },
         },
         stepLogs: {},
       }));
@@ -2214,7 +2214,7 @@ describe('RunTask', () => {
             },
             steps: [
               { id: 'step1', name: 'Step 1' },
-              { id: 'create-catalog-info', name: 'Create Catalog Info' },
+              { id: 'create-ee-definition', name: 'Create EE Definition' },
             ],
           },
         },
@@ -2224,7 +2224,7 @@ describe('RunTask', () => {
         output: { links: [] },
         steps: {
           step1: { status: 'completed' },
-          'create-catalog-info': { status: 'completed' },
+          'create-ee-definition': { status: 'completed' },
         },
         stepLogs: {},
       }));
@@ -2485,7 +2485,7 @@ describe('RunTask', () => {
             },
             steps: [
               { id: 'step1', name: 'Step 1' },
-              { id: 'create-catalog-info', name: 'Create Catalog Info' },
+              { id: 'create-ee-definition', name: 'Create EE Definition' },
             ],
           },
         },
@@ -2495,7 +2495,7 @@ describe('RunTask', () => {
         output: { links: [] },
         steps: {
           step1: { status: 'processing' },
-          'create-catalog-info': { status: 'open' },
+          'create-ee-definition': { status: 'open' },
         },
         stepLogs: {},
       }));
@@ -2507,7 +2507,7 @@ describe('RunTask', () => {
       useTaskEventStreamMock.mockImplementation(originalImplementation);
     }, 15000);
 
-    it('should not show download button when there is no catalog info step', async () => {
+    it('should not show download button when there is no create-ee-definition step', async () => {
       const useTaskEventStreamMock =
         require('@backstage/plugin-scaffolder-react').useTaskEventStream;
 
