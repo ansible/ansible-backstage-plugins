@@ -605,6 +605,8 @@ ${collections
     return collectionContent;
   })
   .join('\n')}
+\`\`\`
+
 `
     : ''
 }${
