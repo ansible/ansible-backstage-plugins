@@ -767,14 +767,16 @@ export class UseCaseMaker {
       this.logger.info(`SCM Integration Token: ${this.scmIntegration?.token}`);
       if (this.scmType?.toString().toLowerCase() === 'github') {
         headers = {
-          Authorization: `Bearer `,
+          ...(this.scmIntegration?.token && {
+            Authorization: `Bearer ${this.scmIntegration.token}`,
+          }),
           Accept: 'application/vnd.github+json',
         };
       } else if (this.scmType?.toString().toLowerCase() === 'gitlab') {
         headers = {
           'Content-Type': 'application/json',
           ...(this.scmIntegration?.token && {
-            'PRIVATE-TOKEN': this.scmIntegration?.token,
+            'PRIVATE-TOKEN': this.scmIntegration.token,
           }),
         };
       } else {
