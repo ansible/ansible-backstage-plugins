@@ -308,11 +308,13 @@ export const EEDetailsPage: React.FC = () => {
     }
 
     try {
-      const eeFileName = `${entity.spec.name || 'execution-environment'}.yaml`;
+      const eeFileName = `${entity.metadata.name || 'execution-environment'}.yaml`;
       const readmeFileName = `README-${
-        entity.spec.name || 'execution-environment'
+        entity.metadata.name || 'execution-environment'
       }.md`;
-      const archiveName = `${entity.metadata.name || 'execution-environment'}.tar`;
+      const archiveName = `${
+        entity.metadata.name || 'execution-environment'
+      }.tar`;
 
       const tarData = createTarArchive([
         { name: eeFileName, content: entity.spec.definition },
