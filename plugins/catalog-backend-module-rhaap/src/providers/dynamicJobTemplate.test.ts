@@ -479,7 +479,7 @@ describe('dynamicJobTemplate', () => {
                 name: 'example',
               },
             },
-            type: 'credntial',
+            type: 'credential',
           },
         ],
         labels: {
@@ -587,7 +587,7 @@ describe('dynamicJobTemplate', () => {
               name: 'example',
             },
           },
-          type: 'credntial',
+          type: 'credential',
         },
       },
     };
@@ -1063,7 +1063,7 @@ describe('dynamicJobTemplate', () => {
               name: 'example',
             },
           },
-          type: 'credntial',
+          type: 'credential',
         },
       },
     };
