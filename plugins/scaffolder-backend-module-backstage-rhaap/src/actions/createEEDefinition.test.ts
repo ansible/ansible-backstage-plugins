@@ -105,17 +105,28 @@ describe('createEEDefinition', () => {
     discovery.getBaseUrl.mockResolvedValue('http://localhost:7007/api/catalog');
     // Mock server manifest for MCP vars generation
     const mockServerManifest = `---
-- role: github
-  vars:
-    github_token: "{{ github_token }}"
-    github_org: "{{ github_org }}"
-- role: gitlab
-  vars:
-    gitlab_token: "{{ gitlab_token }}"
-    gitlab_url: "{{ gitlab_url }}"
 - role: common
+  servers: []
   vars:
-    common_var: "{{ common_value }}"
+    common_mcp_base_path: /opt/mcp
+    common_golang_version: 1.25.4
+    common_nodejs_min_version: 20
+    common_system_bin_path: /usr/local/bin
+    common_uv_installer_url: https://astral.sh/uv/install.sh
+- role: github_mcp
+  servers:
+  - name: github-mcp-server
+    type: stdio
+    lang: go
+    args:
+    - stdio
+    description: GitHub MCP Server - Access GitHub repositories, issues, and pull
+      requests
+  vars:
+    github_mcp_mode: local
+    github_mcp_build_repo: https://github.com/github/github-mcp-server.git
+    github_mcp_build_repo_branch: main
+    github_mcp_build_path: github/build
 `;
     mockFetch.mockResolvedValue({
       ok: true,
