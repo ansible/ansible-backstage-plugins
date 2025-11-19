@@ -29,9 +29,7 @@ export async function createRouter(options: {
 
   router.get('/aap/get_ee_readme', async (req, res) => {
     const { scm, host, owner, repository, subdir } = req.query;
-
     let readmeContent = '';
-    logger.info(`${host}`);
 
     const useCaseMaker = new UseCaseMaker({
       ansibleConfig: ansibleConfig,
@@ -59,7 +57,7 @@ export async function createRouter(options: {
       if (scm?.toString().toLowerCase() === 'github') {
         readmeUrl = `https://raw.githubusercontent.com/${owner}/${repository}/refs/heads/main/${subdir}/README.md`;
       } else if (scm?.toString().toLowerCase() === 'gitlab') {
-        // TO-DO
+        readmeUrl = `https://${host}/${owner}/${repository}/-/raw/main/${subdir}/README.md`;
       } else {
         res.status(400).send('Unsupported SCM type\n');
         return;
@@ -67,6 +65,7 @@ export async function createRouter(options: {
       readmeContent = await useCaseMaker.fetchReadmeContent({
         readmeUrl: readmeUrl,
       });
+      res.type('text/markdown');
       res.send(readmeContent);
     }
   });

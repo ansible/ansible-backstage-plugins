@@ -22,6 +22,11 @@ jest.mock('fs/promises', () => ({
 
 jest.mock('js-yaml', () => ({
   load: jest.fn(),
+  dump: jest.fn(),
+  default: {
+    load: jest.fn(),
+    dump: jest.fn(),
+  },
 }));
 
 jest.mock('semver', () => ({
@@ -60,6 +65,7 @@ import { createEEDefinitionAction } from './createEEDefinition';
 const mockMkdir = fs.mkdir as jest.MockedFunction<typeof fs.mkdir>;
 const mockWriteFile = fs.writeFile as jest.MockedFunction<typeof fs.writeFile>;
 const mockYamlLoad = yaml.load as jest.MockedFunction<typeof yaml.load>;
+const mockYamlDump = yaml.dump as jest.MockedFunction<typeof yaml.dump>;
 const mockSemverGt = semver.gt as jest.MockedFunction<typeof semver.gt>;
 const mockCollectionRequirementsSchemaParse = (
   CollectionRequirementsSchema as any
@@ -87,19 +93,34 @@ describe('createEEDefinition', () => {
     mockMkdir.mockResolvedValue(undefined);
     mockWriteFile.mockResolvedValue(undefined);
     mockParseUploadedFileContent.mockReturnValue('');
-    // Use real yaml.load implementation by default so validation works
+    // Use real yaml.load and yaml.dump implementation by default so validation works
     const realYaml = jest.requireActual('js-yaml');
     mockYamlLoad.mockImplementation(realYaml.load);
+    mockYamlDump.mockImplementation(realYaml.dump);
     // Use real EEDefinitionSchema.parse implementation by default
     const realSchemas = jest.requireActual('./helpers/schemas');
     mockEEDefinitionSchemaParse.mockImplementation(
       realSchemas.EEDefinitionSchema.parse,
     );
     discovery.getBaseUrl.mockResolvedValue('http://localhost:7007/api/catalog');
+    // Mock server manifest for MCP vars generation
+    const mockServerManifest = `---
+- role: github
+  vars:
+    github_token: "{{ github_token }}"
+    github_org: "{{ github_org }}"
+- role: gitlab
+  vars:
+    gitlab_token: "{{ gitlab_token }}"
+    gitlab_url: "{{ gitlab_url }}"
+- role: common
+  vars:
+    common_var: "{{ common_value }}"
+`;
     mockFetch.mockResolvedValue({
       ok: true,
       status: 200,
-      text: jest.fn().mockResolvedValue(''),
+      text: jest.fn().mockResolvedValue(mockServerManifest),
     } as any);
     auth.getOwnServiceCredentials.mockResolvedValue({
       token: 'service-token',
@@ -141,7 +162,18 @@ describe('createEEDefinition', () => {
 
     images:
       base_image:
-        name: 'quay.io/ansible/ee-base:latest'\n`;
+        name: 'quay.io/ansible/ee-base:latest'
+
+
+    additional_build_files:
+      - src: ./ansible.cfg
+        dest: configs
+
+    additional_build_steps:
+      prepend_base:
+        - COPY _build/configs/ansible.cfg /etc/ansible/ansible.cfg
+      append_final:
+        - RUN rm -f /etc/ansible/ansible.cfg\n`;
       expect(content).toEqual(expectedContent);
     });
 
@@ -185,7 +217,17 @@ describe('createEEDefinition', () => {
         collections:
           - name: community.general
             version: 1.0.0
-          - name: ansible.netcommon\n`;
+          - name: ansible.netcommon
+
+    additional_build_files:
+      - src: ./ansible.cfg
+        dest: configs
+
+    additional_build_steps:
+      prepend_base:
+        - COPY _build/configs/ansible.cfg /etc/ansible/ansible.cfg
+      append_final:
+        - RUN rm -f /etc/ansible/ansible.cfg\n`;
       expect(content).toEqual(expectedContent);
     });
 
@@ -224,7 +266,17 @@ describe('createEEDefinition', () => {
     dependencies:
       python:
         - requests==2.28.0
-        - jinja2>=3.0.0\n`;
+        - jinja2>=3.0.0
+
+    additional_build_files:
+      - src: ./ansible.cfg
+        dest: configs
+
+    additional_build_steps:
+      prepend_base:
+        - COPY _build/configs/ansible.cfg /etc/ansible/ansible.cfg
+      append_final:
+        - RUN rm -f /etc/ansible/ansible.cfg\n`;
       expect(content).toEqual(expectedContent);
     });
 
@@ -268,7 +320,17 @@ describe('createEEDefinition', () => {
       system:
         - libssh-devel [platform:rpm]
         - gcc-c++ [platform:dpkg]
-        - libffi-devel [platform:base-py3]\n`;
+        - libffi-devel [platform:base-py3]
+
+    additional_build_files:
+      - src: ./ansible.cfg
+        dest: configs
+
+    additional_build_steps:
+      prepend_base:
+        - COPY _build/configs/ansible.cfg /etc/ansible/ansible.cfg
+      append_final:
+        - RUN rm -f /etc/ansible/ansible.cfg\n`;
       expect(content).toEqual(expectedContent);
     });
 
@@ -320,7 +382,17 @@ describe('createEEDefinition', () => {
             version: 1.0.0
             signatures:
               - https://examplehost.com/detached_signature.asc
-              - file:///path/to/local/detached_signature.asc\n`;
+              - file:///path/to/local/detached_signature.asc
+
+    additional_build_files:
+      - src: ./ansible.cfg
+        dest: configs
+
+    additional_build_steps:
+      prepend_base:
+        - COPY _build/configs/ansible.cfg /etc/ansible/ansible.cfg
+      append_final:
+        - RUN rm -f /etc/ansible/ansible.cfg\n`;
       expect(content).toEqual(expectedContent);
     });
 
@@ -365,12 +437,21 @@ describe('createEEDefinition', () => {
       base_image:
         name: 'quay.io/ansible/ee-base:latest'
 
+
+    additional_build_files:
+      - src: ./ansible.cfg
+        dest: configs
+
     additional_build_steps:
       append_builder:
         - RUN whoami
         - RUN pwd
       prepend_final:
-        - RUN ls -la\n`;
+        - RUN ls -la
+      prepend_base:
+        - COPY _build/configs/ansible.cfg /etc/ansible/ansible.cfg
+      append_final:
+        - RUN rm -f /etc/ansible/ansible.cfg\n`;
       expect(content).toEqual(expectedContent);
     });
 
@@ -450,15 +531,24 @@ describe('createEEDefinition', () => {
             - name: ansible.mcp_builder
             - name: ansible.mcp
 
+      additional_build_files:
+        - src: ./ansible.cfg
+          dest: configs
+        - src: ./mcp_vars.yaml
+          dest: configs
+
       additional_build_steps:
         append_builder:
           - RUN whoami
           - RUN pwd
-          - RUN ansible-playbook ansible.mcp_builder.install_mcp -e mcp_servers=github_mcp,gitlab_mcp
         prepend_final:
           - RUN ls -la
+        prepend_base:
+          - COPY _build/configs/ansible.cfg /etc/ansible/ansible.cfg
+          - COPY _build/configs/mcp_vars.yaml /tmp/mcp_vars.yaml
         append_final:
-          - COPY --from=builder /opt/mcp /opt/mcp\n`;
+          - RUN ansible-playbook ansible.mcp_builder.install_mcp -e mcp_servers=github,gitlab -e @/tmp/mcp_vars.yaml
+          - RUN rm -f /etc/ansible/ansible.cfg /tmp/mcp_vars.yaml\n`;
       expect(content).toEqual(expectedContent);
     });
 
@@ -1269,7 +1359,7 @@ describe('createEEDefinition', () => {
           values: {
             eeFileName: 'test-ee',
             baseImage: 'quay.io/ansible/ee-base:latest',
-            mcpServers: ['github', 'aws'],
+            mcpServers: ['github_mcp', 'aws_mcp'],
           },
         },
         logger,
@@ -1298,24 +1388,11 @@ describe('createEEDefinition', () => {
 
       // Verify MCP build steps are added
       const buildSteps = parsed.additional_build_steps || {};
-      const appendBuilderCommands = buildSteps.append_builder || [];
-      expect(appendBuilderCommands.length).toBeGreaterThan(0);
-      expect(
-        appendBuilderCommands.some((cmd: string) =>
-          cmd.includes('ansible-playbook ansible.mcp_builder.install_mcp'),
-        ),
-      ).toBeTruthy();
-      expect(
-        appendBuilderCommands.some((cmd: string) =>
-          cmd.includes('github_mcp,aws_mcp'),
-        ),
-      ).toBeTruthy();
-
       const appendFinalCommands = buildSteps.append_final || [];
-      expect(appendFinalCommands.length).toBeGreaterThan(0);
-      expect(appendFinalCommands).toContain(
-        'COPY --from=builder /opt/mcp /opt/mcp',
-      );
+      expect(appendFinalCommands).toEqual([
+        'RUN ansible-playbook ansible.mcp_builder.install_mcp -e mcp_servers=github_mcp,aws_mcp -e @/tmp/mcp_vars.yaml',
+        'RUN rm -f /etc/ansible/ansible.cfg /tmp/mcp_vars.yaml',
+      ]);
     });
 
     it('should append to existing append_builder step', async () => {
@@ -1329,10 +1406,10 @@ describe('createEEDefinition', () => {
           values: {
             eeFileName: 'test-ee',
             baseImage: 'quay.io/ansible/ee-base:latest',
-            mcpServers: ['github'],
+            mcpServers: ['github_mcp'],
             additionalBuildSteps: [
               {
-                stepType: 'append_builder',
+                stepType: 'append_final',
                 commands: ['RUN echo "existing command"'],
               },
             ],
@@ -1352,14 +1429,15 @@ describe('createEEDefinition', () => {
       const content = writeCall![1] as string;
       const parsed = yaml.load(content) as any;
       const buildSteps = parsed.additional_build_steps || {};
-      const appendBuilderCommands = buildSteps.append_builder || [];
+      const appendFinalCommands = buildSteps.append_final || [];
 
       const expectedCommands = [
+        'RUN ansible-playbook ansible.mcp_builder.install_mcp -e mcp_servers=github_mcp -e @/tmp/mcp_vars.yaml',
         'RUN echo "existing command"',
-        'RUN ansible-playbook ansible.mcp_builder.install_mcp -e mcp_servers=github_mcp',
+        'RUN rm -f /etc/ansible/ansible.cfg /tmp/mcp_vars.yaml',
       ];
 
-      expect(appendBuilderCommands).toEqual(expectedCommands);
+      expect(appendFinalCommands).toEqual(expectedCommands);
     });
 
     it('should not add MCP steps when no MCP servers specified', async () => {
@@ -1395,7 +1473,6 @@ describe('createEEDefinition', () => {
       // Verify no MCP build steps are added
       const buildSteps = parsed.additional_build_steps || {};
       expect(buildSteps.append_builder).toBeUndefined();
-      expect(buildSteps.append_final).toBeUndefined();
     });
   });
 
@@ -1829,7 +1906,7 @@ describe('createEEDefinition', () => {
 
       // Verify additional build steps are included
       expect(content).toContain(
-        'default: [{"stepType":"append_builder","commands":["RUN whoami","RUN pwd"]}]',
+        'default: [{"stepType":"append_builder","commands":["RUN whoami","RUN pwd"]},{"stepType":"prepend_base","commands":["COPY _build/configs/ansible.cfg /etc/ansible/ansible.cfg"]},{"stepType":"append_final","commands":["RUN rm -f /etc/ansible/ansible.cfg"]}]',
       );
     });
 
@@ -1955,9 +2032,6 @@ describe('createEEDefinition', () => {
       expect(content).toContain('default: ["requests==2.28.0"]');
       expect(content).toContain('default: ["git"]');
       expect(content).toContain('default: ["github"]');
-      expect(content).toContain(
-        'default: [{"stepType":"append_builder","commands":["RUN echo \\"test\\"","RUN ansible-playbook ansible.mcp_builder.install_mcp -e mcp_servers=github_mcp"]},{"stepType":"append_final","commands":["COPY --from=builder /opt/mcp /opt/mcp"]}]',
-      );
       expect(content).toContain("- 'quay.io/custom/ee:latest'");
     });
 
