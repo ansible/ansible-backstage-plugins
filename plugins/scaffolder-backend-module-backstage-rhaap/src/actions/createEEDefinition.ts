@@ -49,7 +49,6 @@ interface EEDefinitionInput {
   systemPackagesFile?: string;
   mcpServers?: string[];
   additionalBuildSteps?: AdditionalBuildStep[];
-  sourceControlProvider?: string;
   repositoryOwner?: string;
   repositoryName?: string;
 }
@@ -212,12 +211,6 @@ export function createEEDefinitionAction(options: {
                   required: ['stepType', 'commands'],
                 },
               },
-              sourceControlProvider: {
-                title: 'Source Control Provider',
-                description:
-                  'Source control provider to use for the execution environment',
-                type: 'string',
-              },
               repositoryOwner: {
                 title: 'Repository Owner',
                 description:
@@ -348,7 +341,7 @@ export function createEEDefinitionAction(options: {
           additionalBuildSteps,
         );
 
-        // create mcp_vars.yaml content
+        // create mcp-vars.yaml content
         mcpVarsContent = await generateMCPVarsContent(mcpServers);
       }
 
@@ -412,10 +405,10 @@ export function createEEDefinitionAction(options: {
         await fs.writeFile(readmePath, readmeContent);
         ctx.output('readmeContent', readmeContent);
 
-        // write MCP vars contents to mcp_vars.yaml
+        // write MCP vars contents to mcp-vars.yaml
         if (mcpVarsContent.length > 0) {
-          // create the path for the mcp_vars.yaml file
-          const mcpVarsPath = path.join(eeDir, 'mcp_vars.yaml');
+          // create the path for the mcp-vars.yaml file
+          const mcpVarsPath = path.join(eeDir, 'mcp-vars.yaml');
           await fs.writeFile(mcpVarsPath, mcpVarsContent);
           ctx.output('mcpVarsContent', mcpVarsContent);
         }
@@ -558,9 +551,9 @@ function generateEEDefinition(values: EEDefinitionInput): string {
     dependenciesContent = `\ndependencies:${dependenciesContent}`;
   }
 
-  let additional_build_files = `additional_build_files:\n  - src: ./ansible.cfg\n    dest: configs`;
+  let additional_build_files = `\nadditional_build_files:\n  - src: ./ansible.cfg\n    dest: configs`;
   if (values.mcpServers && values.mcpServers.length > 0) {
-    additional_build_files += `\n  - src: ./mcp_vars.yaml\n    dest: configs`;
+    additional_build_files += `\n  - src: ./mcp-vars.yaml\n    dest: configs`;
   }
 
   let content = `---
@@ -570,10 +563,9 @@ images:
   base_image:
     name: '${values.baseImage}'
 ${dependenciesContent.trimEnd()}
-
 ${additional_build_files}
-${overridePkgMgrPath ? `options:\n  package_manager_path: /usr/bin/microdnf`.trimEnd() : ''}
-`;
+${overridePkgMgrPath ? `\noptions:\n  package_manager_path: /usr/bin/microdnf\n` : ''}`;
+
   // Add additional_build_steps if any are defined
   if (additionalBuildSteps.length > 0) {
     const buildStepsGroups: Record<string, string[]> = {};
@@ -584,7 +576,8 @@ ${overridePkgMgrPath ? `options:\n  package_manager_path: /usr/bin/microdnf`.tri
       buildStepsGroups[step.stepType].push(...step.commands);
     });
 
-    content += 'additional_build_steps:';
+    content.trimEnd();
+    content += '\nadditional_build_steps:';
     Object.entries(buildStepsGroups).forEach(([stepType, commands]) => {
       content += `\n  ${stepType}:`;
       commands.forEach(command => {
@@ -1315,13 +1308,13 @@ url=https://galaxy.ansible.com/
 url=https://console.redhat.com/api/automation-hub/content/published/
 auth_url=https://sso.redhat.com/auth/realms/redhat-external/protocol/openid-connect/token
 # Add the token for the automation hub published server
-token=''
+token=
 
 [galaxy_server.automation_hub_validated]
 url=https://console.redhat.com/api/automation-hub/content/validated/
 auth_url=https://sso.redhat.com/auth/realms/redhat-external/protocol/openid-connect/token
 # Add the token for the automation hub validated server
-token=''
+token=
 `;
 }
 
@@ -1518,7 +1511,7 @@ function generateMCPBuilderSteps(
 ) {
   // If mcpServers are specified, add them to the collections list
   // and add the MCP install playbook command to the additional build steps
-  const mcpInstallCmd = `RUN ansible-playbook ansible.mcp_builder.install_mcp -e mcp_servers=${mcpServers.join(',')} -e @/tmp/mcp_vars.yaml`;
+  const mcpInstallCmd = `RUN ansible-playbook ansible.mcp_builder.install_mcp -e mcp_servers=${mcpServers.join(',')} -e @/tmp/mcp-vars.yaml`;
 
   parsedCollections.push(
     { name: 'ansible.mcp_builder' },
@@ -1553,12 +1546,12 @@ function modifyAdditionalBuildSteps(
   let appendFinalStepCommands: string = 'RUN rm -f /etc/ansible/ansible.cfg';
 
   if (mcpServers.length > 0) {
-    // the mcp_vars.yaml step is required only if MCP servers are specified
+    // the mcp-vars.yaml step is required only if MCP servers are specified
     prependBaseStepCommands.push(
-      'COPY _build/configs/mcp_vars.yaml /tmp/mcp_vars.yaml',
+      'COPY _build/configs/mcp-vars.yaml /tmp/mcp-vars.yaml',
     );
-    // remove the mcp_vars.yaml file after the build only if MCP servers are specified
-    appendFinalStepCommands += ' /tmp/mcp_vars.yaml';
+    // remove the mcp-vars.yaml file after the build only if MCP servers are specified
+    appendFinalStepCommands += ' /tmp/mcp-vars.yaml';
   }
 
   // Find if there's already a step with stepType 'prepend_base'
@@ -1648,7 +1641,7 @@ async function generateMCPVarsContent(mcpServers: string[]): Promise<string> {
   mcpServers.pop();
 
   // Ensure exactly one trailing newline (yaml.dump already adds one, but trim to be safe)
-  return output.trimEnd() + '\n';
+  return `${output.trimEnd()}\n`;
 }
 
 function validateEEDefinition(eeDefinition: string): boolean {

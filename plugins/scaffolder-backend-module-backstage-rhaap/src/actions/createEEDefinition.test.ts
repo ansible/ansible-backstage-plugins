@@ -545,7 +545,7 @@ describe('createEEDefinition', () => {
       additional_build_files:
         - src: ./ansible.cfg
           dest: configs
-        - src: ./mcp_vars.yaml
+        - src: ./mcp-vars.yaml
           dest: configs
 
       additional_build_steps:
@@ -556,10 +556,10 @@ describe('createEEDefinition', () => {
           - RUN ls -la
         prepend_base:
           - COPY _build/configs/ansible.cfg /etc/ansible/ansible.cfg
-          - COPY _build/configs/mcp_vars.yaml /tmp/mcp_vars.yaml
+          - COPY _build/configs/mcp-vars.yaml /tmp/mcp-vars.yaml
         append_final:
-          - RUN ansible-playbook ansible.mcp_builder.install_mcp -e mcp_servers=github,gitlab -e @/tmp/mcp_vars.yaml
-          - RUN rm -f /etc/ansible/ansible.cfg /tmp/mcp_vars.yaml\n`;
+          - RUN ansible-playbook ansible.mcp_builder.install_mcp -e mcp_servers=github,gitlab -e @/tmp/mcp-vars.yaml
+          - RUN rm -f /etc/ansible/ansible.cfg /tmp/mcp-vars.yaml\n`;
       expect(content).toEqual(expectedContent);
     });
 
@@ -1401,8 +1401,8 @@ describe('createEEDefinition', () => {
       const buildSteps = parsed.additional_build_steps || {};
       const appendFinalCommands = buildSteps.append_final || [];
       expect(appendFinalCommands).toEqual([
-        'RUN ansible-playbook ansible.mcp_builder.install_mcp -e mcp_servers=github_mcp,aws_mcp -e @/tmp/mcp_vars.yaml',
-        'RUN rm -f /etc/ansible/ansible.cfg /tmp/mcp_vars.yaml',
+        'RUN ansible-playbook ansible.mcp_builder.install_mcp -e mcp_servers=github_mcp,aws_mcp -e @/tmp/mcp-vars.yaml',
+        'RUN rm -f /etc/ansible/ansible.cfg /tmp/mcp-vars.yaml',
       ]);
     });
 
@@ -1443,9 +1443,9 @@ describe('createEEDefinition', () => {
       const appendFinalCommands = buildSteps.append_final || [];
 
       const expectedCommands = [
-        'RUN ansible-playbook ansible.mcp_builder.install_mcp -e mcp_servers=github_mcp -e @/tmp/mcp_vars.yaml',
+        'RUN ansible-playbook ansible.mcp_builder.install_mcp -e mcp_servers=github_mcp -e @/tmp/mcp-vars.yaml',
         'RUN echo "existing command"',
-        'RUN rm -f /etc/ansible/ansible.cfg /tmp/mcp_vars.yaml',
+        'RUN rm -f /etc/ansible/ansible.cfg /tmp/mcp-vars.yaml',
       ];
 
       expect(appendFinalCommands).toEqual(expectedCommands);
