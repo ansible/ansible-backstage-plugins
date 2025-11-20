@@ -133,6 +133,7 @@ export const MCPServersPickerExtension = ({
   const classes = useStyles();
 
   const enumValues = (schema?.items as any)?.enum || [];
+  const enumNames = (schema?.items as any)?.enumNames || [];
 
   const [selectedServers, setSelectedServers] = useState<Set<string>>(
     new Set(formData || []),
@@ -160,13 +161,18 @@ export const MCPServersPickerExtension = ({
 
   const hasSelectedServers = selectedServers.size > 0;
 
+  const getDisplayName = (value: string, index: number): string => {
+    return enumNames[index] || value;
+  };
+
   return (
     <Box>
       <Typography className={classes.title}>{customTitle}</Typography>
 
       <Grid container spacing={2} className={classes.cardsContainer}>
-        {enumValues.map((value: string) => {
+        {enumValues.map((value: string, index: number) => {
           const isSelected = selectedServers.has(value);
+          const displayName = getDisplayName(value, index);
           return (
             <Grid item xs={12} sm={6} md={6} key={value}>
               <Paper
@@ -183,7 +189,7 @@ export const MCPServersPickerExtension = ({
                   }
                 }}
                 aria-pressed={isSelected}
-                aria-label={`${isSelected ? 'Deselect' : 'Select'} ${value}`}
+                aria-label={`${isSelected ? 'Deselect' : 'Select'} ${displayName}`}
               >
                 <Box className={classes.cardContent}>
                   <Box
@@ -198,7 +204,7 @@ export const MCPServersPickerExtension = ({
                       return <IconComponent className={classes.cardIcon} />;
                     })()}
                     <Typography className={classes.cardText}>
-                      {value}
+                      {displayName}
                     </Typography>
                   </Box>
                   {isSelected && (
