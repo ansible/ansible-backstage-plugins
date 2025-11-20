@@ -44,9 +44,7 @@ jest.mock('./create/CreateContent', () => ({
   CreateContent: () => <div data-testid="create-content">CreateContent</div>,
 }));
 
-jest.mock('./docs/DocsContent', () => ({
-  DocsContent: () => <div data-testid="docs-content">DocsContent</div>,
-}));
+// removed DocsContent mock since Docs tab was removed
 
 // --------- Mock useLocation so tests control location.state -----------------
 const mockUseLocation = jest.fn().mockReturnValue({ pathname: '/', state: {} });
@@ -79,11 +77,11 @@ describe('EETabs + EEHeader', () => {
     const catalog = screen.getByTestId('entity-catalog-content');
     expect(catalog).toBeInTheDocument();
 
-    // Ensure HeaderTabs shows tab buttons
+    // Ensure HeaderTabs shows tab buttons (now only Catalog and Create)
     expect(screen.getByTestId('header-tabs')).toBeInTheDocument();
     expect(screen.getByTestId('tab-btn-0')).toBeInTheDocument();
     expect(screen.getByTestId('tab-btn-1')).toBeInTheDocument();
-    expect(screen.getByTestId('tab-btn-2')).toBeInTheDocument();
+    // removed check for a third tab
   });
 
   test('honors initial tabIndex from location.state (Create tab)', () => {
@@ -100,7 +98,7 @@ describe('EETabs + EEHeader', () => {
     ).not.toBeInTheDocument();
   });
 
-  test('clicking header tab buttons switches content (Catalog -> Docs)', async () => {
+  test('clicking header tab buttons switches content (Catalog -> Create)', async () => {
     // default state
     mockUseLocation.mockReturnValue({ pathname: '/', state: {} });
 
@@ -109,11 +107,11 @@ describe('EETabs + EEHeader', () => {
     // Initially Catalog
     expect(screen.getByTestId('entity-catalog-content')).toBeInTheDocument();
 
-    // Click on tab 2 (Docs)
-    await userEvent.click(screen.getByTestId('tab-btn-2'));
+    // Click on tab 1 (Create)
+    await userEvent.click(screen.getByTestId('tab-btn-1'));
 
-    // Docs content should appear
-    expect(screen.getByTestId('docs-content')).toBeInTheDocument();
+    // Create content should appear
+    expect(screen.getByTestId('create-content')).toBeInTheDocument();
     // Catalog content should not be present now
     expect(
       screen.queryByTestId('entity-catalog-content'),

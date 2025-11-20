@@ -54,13 +54,19 @@ describe('CreateCatalog', () => {
       /How to build and use Execution Environment from definition files/i,
     );
     expect(howToLink).toBeInTheDocument();
-    // it's a MuiLink (anchor) with href "#"
-    expect(howToLink.closest('a')).toHaveAttribute('href', '#');
+
+    // anchor element
+    const anchor = howToLink.closest('a');
+    expect(anchor).toBeInTheDocument();
+
+    // validate href (trim whitespace to avoid trailing space issues)
+    expect(anchor!.getAttribute('href')!.trim()).toBe(
+      'https://red.ht/self-service_build_and_use_ee_definition',
+    );
 
     // illustration image is present with mocked src and correct alt
     const img = screen.getByAltText('Execution environment illustration');
     expect(img).toBeInTheDocument();
-    // mocked import returns the string 'ee-illustration.svg'
     expect((img as HTMLImageElement).getAttribute('src')).toBe(
       'ee-illustration.svg',
     );
