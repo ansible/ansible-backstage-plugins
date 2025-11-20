@@ -2423,6 +2423,55 @@ describe('RunTask', () => {
     }, 15000);
   });
 
+  describe('Link filtering with if conditions', () => {
+    it('should filter out links with if condition set to false', async () => {
+      const useTaskEventStreamMock =
+        require('@backstage/plugin-scaffolder-react').useTaskEventStream;
+
+      const originalImplementation =
+        useTaskEventStreamMock.getMockImplementation();
+
+      useTaskEventStreamMock.mockImplementation(() => ({
+        task: {
+          spec: {
+            templateInfo: {
+              entity: {
+                metadata: {
+                  title: 'Test Template',
+                },
+              },
+            },
+            steps: [{ id: 'step1', name: 'Step 1' }],
+          },
+        },
+        completed: true,
+        loading: false,
+        error: undefined,
+        output: {
+          links: [
+            { title: 'Link 1', url: 'https://example.com/link1' },
+            { title: 'Link 2', url: 'https://example.com/link2', if: false },
+            { title: 'Link 3', url: 'https://example.com/link3', if: true },
+            { title: 'Link 4', url: 'https://example.com/link4' },
+          ],
+        },
+        steps: { step1: { status: 'completed' } },
+        stepLogs: {},
+      }));
+
+      await render(<RunTask />);
+
+      await waitFor(() => {
+        expect(screen.getByText('Link 1')).toBeInTheDocument();
+        expect(screen.queryByText('Link 2')).not.toBeInTheDocument();
+        expect(screen.getByText('Link 3')).toBeInTheDocument();
+        expect(screen.getByText('Link 4')).toBeInTheDocument();
+      });
+
+      useTaskEventStreamMock.mockImplementation(originalImplementation);
+    }, 15000);
+  });
+
   describe('Task status edge cases', () => {
     it('should handle failed task status', async () => {
       const useTaskEventStreamMock =

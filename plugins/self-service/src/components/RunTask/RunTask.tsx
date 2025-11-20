@@ -599,6 +599,9 @@ export const RunTask = () => {
             >
               {output?.links
                 ?.filter(link => {
+                  if ('if' in link && link.if === false) {
+                    return false;
+                  }
                   if ('entityRef' in link) {
                     return !!link.entityRef && link.entityRef.trim() !== '';
                   }
