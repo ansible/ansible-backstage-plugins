@@ -32,7 +32,7 @@ import {
   InspectEntityDialog,
   UnregisterEntityDialog,
 } from '@backstage/plugin-catalog-react';
-import { useApi } from '@backstage/core-plugin-api';
+import { discoveryApiRef, useApi } from '@backstage/core-plugin-api';
 import { ANNOTATION_EDIT_URL } from '@backstage/catalog-model';
 import { MarkdownContent, Link as CoreLink } from '@backstage/core-components';
 
@@ -66,6 +66,34 @@ const useStyles = makeStyles(theme => ({
     borderColor: '#D3D3D3',
     textTransform: 'none',
   },
+  scrollArea: {
+    maxHeight: '58vh',
+    overflowY: 'auto',
+    paddingRight: 8,
+
+    /* Optional prettier scrollbar */
+    '&::-webkit-scrollbar': {
+      width: '6px',
+    },
+    '&::-webkit-scrollbar-thumb': {
+      backgroundColor: '#bfbfbf',
+      borderRadius: '4px',
+    },
+  },
+  markdownScroll: {
+    maxHeight: '60vh',
+    overflowY: 'auto',
+    minHeight: 0,
+    paddingRight: 8,
+
+    '&::-webkit-scrollbar': {
+      width: 8,
+    },
+    '&::-webkit-scrollbar-thumb': {
+      backgroundColor: '#bfbfbf',
+      borderRadius: 4,
+    },
+  },
 }));
 
 export const EEDetailsPage: React.FC = () => {
@@ -82,6 +110,7 @@ export const EEDetailsPage: React.FC = () => {
   const [entity, setEntity] = useState<any | null>(null);
   const [menuid, setMenuId] = useState<string>('');
   const [defaultReadme, setDefaultReadme] = useState<string>('');
+  const discoveryApi = useApi(discoveryApiRef);
 
   const callApi = useCallback(() => {
     catalogApi
@@ -111,47 +140,86 @@ export const EEDetailsPage: React.FC = () => {
     callApi();
   }, [callApi]);
 
-  useEffect(() => {
-    if (entity && (!entity.spec || (!entity?.spec?.readme && !defaultReadme))) {
-      const rawUrl = makeDefaultReadmeFileUrl();
-      if (!rawUrl) return;
-      fetch(rawUrl)
-        .then(r => {
-          if (!r.ok) throw new Error(`HTTP ${r.status}`);
-          return r.text();
-        })
-        .then(text => {
-          setDefaultReadme(text);
-        })
-        .catch(() => {});
-    }
-  });
-
-  function makeDefaultReadmeFileUrl() {
+  const buildReadmeUrlParams = useCallback(() => {
     const sourceLocation =
       entity?.metadata?.annotations?.['backstage.io/source-location'];
-    if (!sourceLocation) return null;
-    const techdocsRef =
-      entity?.metadata?.annotations?.['backstage.io/techdocs-ref'];
-    if (!techdocsRef) return null;
 
-    const src = sourceLocation.replace(/^url:/, '').replace(/\/$/, '');
-    const file = techdocsRef.replace(/^file:/, '').replace(/^\.\//, '');
+    if (!sourceLocation) return '';
 
-    const after = src.split('github.com/')[1]; // owner/repo/tree/branch/...
-    const parts = after.split('/').filter(Boolean);
+    // Clean URL
+    const cleanUrl = sourceLocation.replace(/^url:/, '').replace(/\/$/, '');
+    const url = new URL(cleanUrl);
+
+    // Parts of pathname
+    const parts = url.pathname.split('/').filter(Boolean);
+    const host = url.host;
+
+    // Extract owner and repo
     const owner = parts[0];
-    const repo = parts[1];
-    const treeIndex = parts.indexOf('tree');
-    const branch = treeIndex >= 0 ? parts[treeIndex + 1] : parts[2];
-    const folder =
-      treeIndex >= 0
-        ? parts.slice(treeIndex + 2).join('/')
-        : parts.slice(3).join('');
-    const folderPath = folder ? `${folder.replace(/\/$/, '')}/` : '';
+    const repository = parts[1];
 
-    return `https://raw.githubusercontent.com/${owner}/${repo}/${branch}/${folderPath}${file}`;
-  }
+    let subdir = '';
+
+    // ---------- GITHUB ----------
+    // Example: /owner/repo/tree/branch/ee1/
+    if (host.includes('github.com')) {
+      const treeIndex = parts.indexOf('tree');
+
+      if (treeIndex !== -1) {
+        // skip 'tree' and branch → subdir starts after that
+        subdir = parts.slice(treeIndex + 2).join('/');
+      } else {
+        // fallback (unexpected GitHub case)
+        subdir = parts.slice(2).join('/');
+      }
+
+      return `scm=Github&host=${host}&owner=${owner}&repository=${repository}&subdir=${subdir}`;
+    }
+
+    // ---------- GITLAB ----------
+    // Example: /owner/repo/-/raw/branch/ee1/README.md
+    if (host.includes('gitlab')) {
+      const rawIndex = parts.indexOf('raw');
+
+      // file path parts come after 'raw/<branch>/'
+      const filePathParts =
+        rawIndex !== -1 ? parts.slice(rawIndex + 2) : parts.slice(2);
+
+      // subdir excludes the file name (README.md)
+      const subdirParts =
+        filePathParts.length > 1 ? filePathParts.slice(0, -1) : [];
+
+      subdir = subdirParts.join('/');
+
+      return `scm=Gitlab&host=${host}&owner=${owner}&repository=${repository}&subdir=${subdir}`;
+    }
+
+    // fallback (if new SCM type is added later)
+    return `host=${host}&owner=${owner}&repository=${repository}&subdir=${subdir}`;
+  }, [entity]);
+
+  useEffect(() => {
+    const fetchDefaultReadme = async () => {
+      if (
+        entity &&
+        (!entity.spec || (!entity?.spec?.readme && !defaultReadme))
+      ) {
+        const rawUrl = `${await discoveryApi.getBaseUrl('scaffolder')}
+          /aap/get_ee_readme?${buildReadmeUrlParams()}`;
+        if (!rawUrl) return;
+        fetch(rawUrl)
+          .then(r => {
+            if (!r.ok) throw new Error(`HTTP ${r.status}`);
+            return r.text();
+          })
+          .then(text => {
+            setDefaultReadme(text);
+          })
+          .catch(() => {});
+      }
+    };
+    fetchDefaultReadme();
+  }, [entity, discoveryApi, buildReadmeUrlParams, defaultReadme]);
 
   const getTechdocsUrl = (techdoc: any) => {
     const ref = techdoc?.metadata?.annotations?.['backstage.io/techdocs-ref'];
@@ -189,7 +257,7 @@ export const EEDetailsPage: React.FC = () => {
 
     const url = loc.replace(/^url:/, '');
     window.open(url, '_blank');
-    return url; // needs to check add callback and return url entity
+    return url;
   }, [entity]);
   const createTarArchive = (
     files: Array<{ name: string; content: string }>,
@@ -308,7 +376,9 @@ export const EEDetailsPage: React.FC = () => {
     }
 
     try {
-      const eeFileName = `${entity.metadata.name || 'execution-environment'}.yaml`;
+      const eeFileName = `${
+        entity.metadata.name || 'execution-environment'
+      }.yaml`;
       const readmeFileName = `README-${
         entity.metadata.name || 'execution-environment'
       }.md`;
@@ -466,67 +536,68 @@ export const EEDetailsPage: React.FC = () => {
             gridGap={24}
           >
             {/* Links Card */}
-            {!(
-              entity &&
-              entity.spec &&
-              entity.spec.parameters &&
-              entity.spec.parameters.publishToSCM
-            ) && (
-              <Card
-                variant="outlined"
-                style={{ borderRadius: 16, borderColor: '#D3D3D3' }}
-              >
-                <CardContent>
-                  <Typography
-                    variant="h6"
-                    style={{
-                      fontWeight: 'bold',
-                      fontSize: '1.5rem',
-                      margin: '6px 0 13px 10px',
-                    }}
-                  >
-                    Links
-                  </Typography>
-                  <Divider style={{ margin: '0 -16px 12px' }} />
+            {entity &&
+              entity.metadata &&
+              entity.metadata.annotations &&
+              entity.metadata.annotations['ansible.io/download-experience']
+                ?.toString()
+                .toLowerCase()
+                .trim() === 'true' && (
+                <Card
+                  variant="outlined"
+                  style={{ borderRadius: 16, borderColor: '#D3D3D3' }}
+                >
+                  <CardContent>
+                    <Typography
+                      variant="h6"
+                      style={{
+                        fontWeight: 'bold',
+                        fontSize: '1.5rem',
+                        margin: '6px 0 13px 10px',
+                      }}
+                    >
+                      Links
+                    </Typography>
+                    <Divider style={{ margin: '0 -16px 12px' }} />
 
-                  {[
-                    {
-                      icon: <GetAppIcon />,
-                      text: 'Download EE files',
-                      onClick: handleDownloadArchive,
-                    },
-                  ].map((item, i) => {
-                    return (
-                      <Box
-                        key={i}
-                        display="flex"
-                        alignItems="center"
-                        gridGap={12}
-                        onClick={item.onClick}
-                        style={{
-                          marginLeft: 10,
-                          marginBottom: 10,
-                          cursor: 'pointer',
-                          color: '#1976d2',
-                        }}
-                      >
-                        {item.icon}
-                        <Typography
-                          variant="body1"
-                          className={classes.linkText}
+                    {[
+                      {
+                        icon: <GetAppIcon />,
+                        text: 'Download EE files',
+                        onClick: handleDownloadArchive,
+                      },
+                    ].map((item, i) => {
+                      return (
+                        <Box
+                          key={i}
+                          display="flex"
+                          alignItems="center"
+                          gridGap={12}
+                          onClick={item.onClick}
                           style={{
+                            marginLeft: 10,
+                            marginBottom: 10,
+                            cursor: 'pointer',
                             color: '#1976d2',
-                            transition: 'all 0.2s ease',
                           }}
                         >
-                          {item.text}
-                        </Typography>
-                      </Box>
-                    );
-                  })}
-                </CardContent>
-              </Card>
-            )}
+                          {item.icon}
+                          <Typography
+                            variant="body1"
+                            className={classes.linkText}
+                            style={{
+                              color: '#1976d2',
+                              transition: 'all 0.2s ease',
+                            }}
+                          >
+                            {item.text}
+                          </Typography>
+                        </Box>
+                      );
+                    })}
+                  </CardContent>
+                </Card>
+              )}
 
             {/* About Card */}
             <Card
@@ -549,61 +620,97 @@ export const EEDetailsPage: React.FC = () => {
                   >
                     About
                   </Typography>
-                  <Box display="flex" alignItems="center">
-                    <IconButton size="small">
-                      <AutorenewIcon style={{ color: '#757575' }} />
-                    </IconButton>
-                    <IconButton size="small">
-                      <>
-                        <a
-                          href={
-                            entity?.metadata?.annotations?.[ANNOTATION_EDIT_URL]
-                          }
-                          target="_blank"
-                        >
-                          <EditIcon style={{ color: '#1976d2' }} />
-                        </a>
-                      </>
-                    </IconButton>
-                  </Box>
+                  <Divider style={{ margin: '16px 0' }} />
+                  {!(
+                    entity &&
+                    entity.metadata &&
+                    entity.metadata.annotations &&
+                    entity.metadata.annotations[
+                      'ansible.io/download-experience'
+                    ]
+                      ?.toString()
+                      .toLowerCase()
+                      .trim() === 'true'
+                  ) && (
+                    <Box display="flex" alignItems="center">
+                      <IconButton size="small">
+                        <AutorenewIcon style={{ color: '#757575' }} />
+                      </IconButton>
+                      <IconButton size="small">
+                        <>
+                          <a
+                            href={
+                              entity?.metadata?.annotations?.[
+                                ANNOTATION_EDIT_URL
+                              ]
+                            }
+                            target="_blank"
+                          >
+                            <EditIcon style={{ color: '#1976d2' }} />
+                          </a>
+                        </>
+                      </IconButton>
+                    </Box>
+                  )}
                 </Box>
                 {/* Top Actions (View Techdocs / Source) */}
-                <Box
-                  display="flex"
-                  justifyContent="space-around"
-                  alignItems="center"
-                  textAlign="center"
-                  mt={2}
-                  mb={2}
-                >
+                {!(
+                  entity &&
+                  entity.metadata &&
+                  entity.metadata.annotations &&
+                  entity.metadata.annotations['ansible.io/download-experience']
+                    ?.toString()
+                    .toLowerCase()
+                    .trim() === 'true'
+                ) && (
                   <Box
-                    onClick={handleViewTechdocs}
-                    style={{
-                      cursor: 'pointer',
-                      display: 'flex',
-                      flexDirection: 'column',
-                      alignItems: 'center',
-                      minWidth: 120,
-                      pointerEvents:
-                        entity &&
-                        entity.spec &&
-                        entity.spec.parameters &&
-                        entity.spec.parameters.publishToSCM
-                          ? 'inherit'
-                          : 'none',
-                      opacity:
-                        entity &&
-                        entity.spec &&
-                        entity.spec.parameters &&
-                        entity.spec.parameters.publishToSCM
-                          ? 1
-                          : 0.5,
-                    }}
+                    display="flex"
+                    justifyContent="space-around"
+                    alignItems="center"
+                    textAlign="center"
+                    mt={2}
+                    mb={2}
                   >
-                    <DescriptionOutlinedIcon
-                      style={{ color: '#1976d2', fontSize: 30 }}
-                    />
-                    <CoreLink to={`catalog/default/component/${templateName}`}>
+                    <Box
+                      onClick={handleViewTechdocs}
+                      style={{
+                        cursor: 'pointer',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        alignItems: 'center',
+                        minWidth: 120,
+                      }}
+                    >
+                      <DescriptionOutlinedIcon
+                        style={{ color: '#1976d2', fontSize: 30 }}
+                      />
+                      <CoreLink
+                        to={`catalog/default/component/${templateName}`}
+                      >
+                        <Typography
+                          variant="body2"
+                          style={{
+                            color: '#1976d2',
+                            fontWeight: 600,
+                            marginTop: 6,
+                          }}
+                        >
+                          VIEW <br /> TECHDOCS
+                        </Typography>
+                      </CoreLink>
+                    </Box>
+
+                    <Box
+                      onClick={openSourceLocationUrl}
+                      style={{
+                        cursor: 'pointer',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        alignItems: 'center',
+                        minWidth: 120,
+                      }}
+                    >
+                      <GitHubIcon style={{ color: '#1976d2', fontSize: 30 }} />
                       <Typography
                         variant="body2"
                         style={{
@@ -612,48 +719,11 @@ export const EEDetailsPage: React.FC = () => {
                           marginTop: 6,
                         }}
                       >
-                        VIEW <br /> TECHDOCS
+                        VIEW <br /> SOURCE
                       </Typography>
-                    </CoreLink>
+                    </Box>
                   </Box>
-
-                  <Box
-                    onClick={openSourceLocationUrl}
-                    style={{
-                      cursor: 'pointer',
-                      display: 'flex',
-                      flexDirection: 'column',
-                      alignItems: 'center',
-                      minWidth: 120,
-                      pointerEvents:
-                        entity &&
-                        entity.spec &&
-                        entity.spec.parameters &&
-                        entity.spec.parameters.publishToSCM
-                          ? 'inherit'
-                          : 'none',
-                      opacity:
-                        entity &&
-                        entity.spec &&
-                        entity.spec.parameters &&
-                        entity.spec.parameters.publishToSCM
-                          ? 1
-                          : 0.5,
-                    }}
-                  >
-                    <GitHubIcon style={{ color: '#1976d2', fontSize: 30 }} />
-                    <Typography
-                      variant="body2"
-                      style={{
-                        color: '#1976d2',
-                        fontWeight: 600,
-                        marginTop: 6,
-                      }}
-                    >
-                      VIEW <br /> SOURCE
-                    </Typography>
-                  </Box>
-                </Box>
+                )}
 
                 <Divider style={{ margin: '16px 0' }} />
 
@@ -671,11 +741,11 @@ export const EEDetailsPage: React.FC = () => {
                       'No description available.'}
                   </Typography>
                 </Box>
-
                 <Box
                   display="flex"
-                  justifyContent="space-between"
-                  marginTop={8}
+                  flexDirection="column"
+                  gridGap={4}
+                  marginTop={2}
                 >
                   <Box>
                     <Typography
@@ -693,7 +763,7 @@ export const EEDetailsPage: React.FC = () => {
                         'Unknown'}
                     </Typography>
                   </Box>
-                  <Box>
+                  <Box marginTop={2}>
                     <Typography
                       variant="caption"
                       style={{ color: 'gray', fontWeight: 600 }}
@@ -708,7 +778,7 @@ export const EEDetailsPage: React.FC = () => {
                   </Box>
                 </Box>
 
-                <Box marginTop={8}>
+                <Box marginTop={2}>
                   <Typography
                     variant="caption"
                     style={{ color: 'gray', fontWeight: 600 }}
@@ -716,7 +786,7 @@ export const EEDetailsPage: React.FC = () => {
                     TAGS
                   </Typography>
 
-                  <Box display="flex" gridGap={8} marginTop={4} flexWrap="wrap">
+                  <Box display="flex" gridGap={8} marginTop={1} flexWrap="wrap">
                     {Array.isArray(entity?.metadata?.tags) &&
                     entity.metadata?.tags?.length > 0 ? (
                       entity.metadata?.tags?.map((t: string) => (
@@ -746,12 +816,15 @@ export const EEDetailsPage: React.FC = () => {
           </Box>
 
           {/* Right Column */}
-          <Box flex={2}>
+          <Box flex={1} style={{ minHeight: 0 }}>
             <Card variant="outlined">
-              <CardContent>
-                <MarkdownContent
-                  content={entity?.spec.readme || defaultReadme}
-                />
+              <CardContent style={{ flex: 1, minHeight: 0 }}>
+                <div className={classes.scrollArea}>
+                  <MarkdownContent
+                    className={classes.markdownScroll}
+                    content={entity?.spec.readme || defaultReadme}
+                  />
+                </div>
               </CardContent>
             </Card>
           </Box>

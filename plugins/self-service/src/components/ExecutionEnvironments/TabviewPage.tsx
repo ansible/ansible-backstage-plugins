@@ -4,9 +4,7 @@ import { Typography, Box, makeStyles } from '@material-ui/core';
 import { useLocation } from 'react-router-dom';
 import CategoryOutlinedIcon from '@material-ui/icons/CategoryOutlined';
 import CreateComponentIcon from '@material-ui/icons/AddCircleOutline';
-import LibraryBooks from '@material-ui/icons/LibraryBooks';
 import { CreateContent } from './create/CreateContent';
-import { DocsContent } from './docs/DocsContent';
 import { EntityCatalogContent } from './catalog/CatalogContent';
 
 const useStyles = makeStyles(() => ({
@@ -65,7 +63,6 @@ export const EEHeader = () => {
 const tabs = [
   { id: 0, label: 'Catalog', icon: <CategoryOutlinedIcon /> },
   { id: 1, label: 'Create', icon: <CreateComponentIcon /> },
-  { id: 2, label: 'Docs', icon: <LibraryBooks /> },
 ];
 
 export const EETabs: React.FC = () => {
@@ -95,8 +92,6 @@ export const EETabs: React.FC = () => {
         return <EntityCatalogContent onTabSwitch={setSelectedTab} />;
       case 1:
         return <CreateContent />;
-      case 2:
-        return <DocsContent />;
       default:
         return <EntityCatalogContent onTabSwitch={setSelectedTab} />;
     }

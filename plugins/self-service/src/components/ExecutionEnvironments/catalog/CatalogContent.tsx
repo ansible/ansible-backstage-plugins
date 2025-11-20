@@ -244,14 +244,24 @@ export const EEListPage = ({
                 </Typography>
               </div>
             </Tooltip>
-            <Tooltip title="Edit">
-              <div className={classes.ml_16}>
-                <a href={editUrl} target="_blank">
-                  <Typography style={visuallyHidden}>{title}</Typography>
-                  <Edit fontSize="small" />
-                </a>
-              </div>
-            </Tooltip>
+            {!(
+              entity &&
+              entity.metadata &&
+              entity.metadata.annotations &&
+              entity.metadata.annotations['ansible.io/download-experience']
+                ?.toString()
+                .toLowerCase()
+                .trim() === 'true'
+            ) && (
+              <Tooltip title="Edit">
+                <div className={classes.ml_16}>
+                  <a href={editUrl} target="_blank">
+                    <Typography style={visuallyHidden}>{title}</Typography>
+                    <Edit fontSize="small" />
+                  </a>
+                </div>
+              </Tooltip>
+            )}
           </div>
         );
       },
