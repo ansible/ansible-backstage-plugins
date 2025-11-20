@@ -148,16 +148,17 @@ export const EEDetailsPage: React.FC = () => {
   const buildReadmeUrlParams = useCallback(() => {
     const sourceLocation =
       entity?.metadata?.annotations?.['backstage.io/source-location'];
-
+    const scm = entity?.metadata?.annotations?.['ansible.io/scm-provider'];
     if (!sourceLocation) return '';
 
     // Clean URL
     const cleanUrl = sourceLocation.replace(/^url:/, '').replace(/\/$/, '');
     const url = new URL(cleanUrl);
+    const host = url.host;
 
     // Parts of pathname
     const parts = url.pathname.split('/').filter(Boolean);
-    const host = url.host;
+    if (parts.length < 2) return '';
 
     // Extract owner and repo
     const owner = parts[0];
@@ -167,8 +168,7 @@ export const EEDetailsPage: React.FC = () => {
 
     // ---------- GITHUB ----------
     // Example: /owner/repo/tree/branch/ee1/
-    const githubHosts = ['github.com', 'www.github.com'];
-    if (githubHosts.includes(host)) {
+    if (scm && scm.toLowerCase().includes('github')) {
       const treeIndex = parts.indexOf('tree');
 
       if (treeIndex !== -1) {
@@ -179,28 +179,17 @@ export const EEDetailsPage: React.FC = () => {
         subdir = parts.slice(2).join('/');
       }
 
-      return `scm=Github&host=${host}&owner=${owner}&repository=${repository}&subdir=${subdir}`;
+      return `scm=${scm}&host=${host}&owner=${owner}&repository=${repository}&subdir=${subdir}`;
     }
 
     // ---------- GITLAB ----------
     // Example: /owner/repo/-/raw/branch/ee1/README.md
-    const gitlabHosts = ['gitlab.com', 'www.gitlab.com'];
-    if (gitlabHosts.includes(host)) {
-      const rawIndex = parts.indexOf('raw');
-
-      // file path parts come after 'raw/<branch>/'
-      const filePathParts =
-        rawIndex !== -1 ? parts.slice(rawIndex + 2) : parts.slice(2);
-
+    if (scm && scm.toLowerCase().includes('gitlab')) {
       // subdir excludes the file name (README.md)
-      const subdirParts =
-        filePathParts.length > 1 ? filePathParts.slice(0, -1) : [];
+      subdir = parts[parts.length - 1];
 
-      subdir = subdirParts.join('/');
-
-      return `scm=Gitlab&host=${host}&owner=${owner}&repository=${repository}&subdir=${subdir}`;
+      return `scm=${scm}&host=${host}&owner=${owner}&repository=${repository}&subdir=${subdir}`;
     }
-
     // fallback (if new SCM type is added later)
     return `host=${host}&owner=${owner}&repository=${repository}&subdir=${subdir}`;
   }, [entity]);
@@ -234,17 +223,17 @@ export const EEDetailsPage: React.FC = () => {
     fetchDefaultReadme();
   }, [entity, discoveryApi, buildReadmeUrlParams, defaultReadme, identityApi]);
 
-  const getTechdocsUrl = (techdoc: any) => {
-    const ref = techdoc?.metadata?.annotations?.['backstage.io/techdocs-ref'];
-    if (ref) {
-      if (ref.startsWith('url:')) return ref.replace(/^url:/, '');
-      return `/docs/${techdoc.metadata.namespace}/${techdoc.metadata.name}`;
-    }
-    return null;
+  const getTechdocsUrl = () => {
+    // const ref = techdoc?.metadata?.annotations?.['backstage.io/techdocs-ref'];
+    // if (ref) {
+    //   if (ref.startsWith('url:')) return ref.replace(/^url:/, '');
+    //   return `/docs/${techdoc.metadata.namespace}/${techdoc.metadata.name}`;
+    // }
+    return `/docs/${entity?.metadata?.namespace}/${entity?.kind}/${entity?.metadata?.name}`;
   };
 
   const handleViewTechdocs = () => {
-    const url = getTechdocsUrl(entity);
+    const url = getTechdocsUrl();
     if (url) window.open(url, '_blank');
     // else alert('TechDocs not available for this template');
   };
@@ -410,12 +399,14 @@ export const EEDetailsPage: React.FC = () => {
       }.tar`;
       const mcpVarsFileName = `mcp_vars.yaml`;
       const ansibleCfgFileName = `ansible.cfg`;
+      const templateFileName = `${eeFileName}-template.yaml`;
 
       const tarData = createTarArchive([
         { name: eeFileName, content: entity.spec.definition },
         { name: readmeFileName, content: entity.spec.readme },
         { name: mcpVarsFileName, content: entity.spec.mcp_vars },
         { name: ansibleCfgFileName, content: entity.spec.ansible_cfg },
+        { name: templateFileName, content: entity.spec.template },
       ]);
 
       const blob = new Blob([tarData as BlobPart], {

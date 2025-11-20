@@ -126,9 +126,11 @@ export const CreateCatalog = ({
               </Button>
 
               <MuiLink
-                href="https://red.ht/self-service_build_and_use_ee_definition "
+                href="https://red.ht/self-service_build_and_use_ee_definition"
                 underline="hover"
                 className={classes.link}
+                target="_blank"
+                rel="noopener noreferrer"
               >
                 How to build and use Execution Environment from definition files
               </MuiLink>
