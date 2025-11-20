@@ -38,7 +38,7 @@ import {
   useApi,
 } from '@backstage/core-plugin-api';
 import { ANNOTATION_EDIT_URL } from '@backstage/catalog-model';
-import { MarkdownContent, Link as CoreLink } from '@backstage/core-components';
+import { MarkdownContent } from '@backstage/core-components';
 
 const useStyles = makeStyles(theme => ({
   breadcrumb: {
