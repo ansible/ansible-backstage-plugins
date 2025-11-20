@@ -470,11 +470,12 @@ export const RunTask = () => {
       !entity?.spec?.definition ||
       !entity?.spec?.readme ||
       !entity?.spec?.mcp_vars ||
-      !entity?.spec?.ansible_cfg
+      !entity?.spec?.ansible_cfg ||
+      !entity?.spec?.template
     ) {
       // eslint-disable-next-line no-console
       console.error(
-        'Entity, definition, readme, mcp_vars, or ansible_cfg not available',
+        'Entity, definition, readme, mcp_vars, ansible_cfg, or template not available',
       );
       return;
     }
@@ -483,8 +484,9 @@ export const RunTask = () => {
       const entityName = entity.metadata?.name || 'execution-environment';
       const eeFileName = `${entityName}.yaml`;
       const readmeFileName = `README-${entityName}.md`;
-      const mcpVarsFileName = `mcp_vars.yaml`;
+      const mcpVarsFileName = `mcp-vars.yaml`;
       const ansibleCfgFileName = `ansible.cfg`;
+      const templateFileName = `${entityName}-template.yaml`;
       const archiveName = `${entityName}.tar`;
 
       const tarData = createTarArchive([
@@ -492,6 +494,7 @@ export const RunTask = () => {
         { name: readmeFileName, content: entity.spec.readme },
         { name: mcpVarsFileName, content: entity.spec.mcp_vars },
         { name: ansibleCfgFileName, content: entity.spec.ansible_cfg },
+        { name: templateFileName, content: entity.spec.template },
       ]);
 
       const blob = new Blob([tarData as BlobPart], {

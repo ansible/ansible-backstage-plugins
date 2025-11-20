@@ -1286,6 +1286,7 @@ describe('RunTask', () => {
           readme: '# Test EE\nThis is a test execution environment.',
           mcp_vars: 'mcp_vars: test',
           ansible_cfg: 'ansible_cfg: test',
+          template: 'template: test',
         },
       };
 
@@ -1950,6 +1951,9 @@ describe('RunTask', () => {
           type: 'execution-environment',
           definition: 'version: 3',
           readme: '# Test',
+          template: 'template: test',
+          ansible_cfg: 'ansible_cfg: test',
+          mcp_vars: 'mcp_vars: test',
         },
       };
 
@@ -2160,7 +2164,7 @@ describe('RunTask', () => {
             call =>
               typeof call[0] === 'string' &&
               call[0] ===
-                'Entity, definition, readme, mcp_vars, or ansible_cfg not available',
+                'Entity, definition, readme, mcp_vars, ansible_cfg, or template not available',
           );
           expect(hasExpectedError).toBe(true);
         },
@@ -2200,6 +2204,7 @@ describe('RunTask', () => {
           readme: '# Test',
           mcp_vars: 'mcp_vars: test',
           ansible_cfg: 'ansible_cfg: test',
+          template: 'template: test',
         },
       };
 
