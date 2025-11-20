@@ -206,8 +206,9 @@ export const EEDetailsPage: React.FC = () => {
         entity &&
         (!entity.spec || (!entity?.spec?.readme && !defaultReadme))
       ) {
-        const rawUrl = `${await discoveryApi.getBaseUrl('scaffolder')}
-          /aap/get_ee_readme?${buildReadmeUrlParams()}`;
+        const rawUrl = `${await discoveryApi.getBaseUrl(
+          'scaffolder',
+        )}/aap/get_ee_readme?${buildReadmeUrlParams()}`;
         if (!rawUrl) return;
         fetch(rawUrl)
           .then(r => {
@@ -372,8 +373,18 @@ export const EEDetailsPage: React.FC = () => {
   };
 
   const handleDownloadArchive = () => {
-    if (!entity?.spec?.definition || !entity?.spec?.readme) {
+    if (
+      !entity?.spec?.definition ||
+      !entity?.spec?.readme ||
+      !entity?.spec?.mcp_vars ||
+      !entity?.spec?.ansible_cfg
+    ) {
+      // eslint-disable-next-line no-console
+      console.error(
+        'Entity, definition, readme, mcp_vars, or ansible_cfg not available',
+      );
       console.error('Entity, definition, or readme not available'); // eslint-disable-line no-console
+
       return;
     }
 
@@ -387,10 +398,14 @@ export const EEDetailsPage: React.FC = () => {
       const archiveName = `${
         entity.metadata.name || 'execution-environment'
       }.tar`;
+      const mcpVarsFileName = `mcp_vars.yaml`;
+      const ansibleCfgFileName = `ansible.cfg`;
 
       const tarData = createTarArchive([
         { name: eeFileName, content: entity.spec.definition },
         { name: readmeFileName, content: entity.spec.readme },
+        { name: mcpVarsFileName, content: entity.spec.mcp_vars },
+        { name: ansibleCfgFileName, content: entity.spec.ansible_cfg },
       ]);
 
       const blob = new Blob([tarData as BlobPart], {
