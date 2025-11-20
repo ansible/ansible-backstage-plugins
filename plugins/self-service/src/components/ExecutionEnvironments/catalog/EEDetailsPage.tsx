@@ -162,7 +162,8 @@ export const EEDetailsPage: React.FC = () => {
 
     // ---------- GITHUB ----------
     // Example: /owner/repo/tree/branch/ee1/
-    if (host.includes('github.com')) {
+    const githubHosts = ['github.com', 'www.github.com'];
+    if (githubHosts.includes(host)) {
       const treeIndex = parts.indexOf('tree');
 
       if (treeIndex !== -1) {
@@ -178,7 +179,8 @@ export const EEDetailsPage: React.FC = () => {
 
     // ---------- GITLAB ----------
     // Example: /owner/repo/-/raw/branch/ee1/README.md
-    if (host.includes('gitlab')) {
+    const gitlabHosts = ['gitlab.com', 'www.gitlab.com'];
+    if (gitlabHosts.includes(host)) {
       const rawIndex = parts.indexOf('raw');
 
       // file path parts come after 'raw/<branch>/'
