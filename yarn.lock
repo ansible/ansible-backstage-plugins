@@ -232,6 +232,7 @@ __metadata:
     msw: "npm:2.4.9"
     node-fetch: "npm:^2.6.7"
     semver: "npm:^7.7.3"
+    supertest: "npm:^7.1.4"
     undici: "npm:6.21.2"
     yaml: "npm:^2.0.0"
     zod: "npm:^4.1.12"
@@ -36390,7 +36391,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"supertest@npm:^7.1.1":
+"supertest@npm:^7.1.1, supertest@npm:^7.1.4":
   version: 7.1.4
   resolution: "supertest@npm:7.1.4"
   dependencies:

@@ -44,6 +44,17 @@ export const ImagesSchema = z
   })
   .strict();
 
+export const AdditionalBuildFilesSchema = z
+  .array(
+    z
+      .object({
+        src: z.string(),
+        dest: z.string(),
+      })
+      .strict(),
+  )
+  .optional();
+
 export const AdditionalBuildStepsSchema = z
   .object({
     prepend_base: z.array(z.string()).optional(),
@@ -57,12 +68,20 @@ export const AdditionalBuildStepsSchema = z
   })
   .strict();
 
+export const OptionsSchema = z
+  .object({
+    package_manager_path: z.string().optional(),
+  })
+  .strict();
+
 // final schema for the entire EE definition YAML file
 export const EEDefinitionSchema = z
   .object({
     version: z.number(),
     images: ImagesSchema,
     dependencies: DependenciesSchema.optional(),
+    additional_build_files: AdditionalBuildFilesSchema.optional(),
     additional_build_steps: AdditionalBuildStepsSchema.optional(),
+    options: OptionsSchema.optional(),
   })
   .strict();

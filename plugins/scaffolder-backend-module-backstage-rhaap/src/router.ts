@@ -28,11 +28,30 @@ export async function createRouter(options: {
   const router = Router();
 
   router.get('/aap/get_ee_readme', async (req, res) => {
-    const { scm, host, owner, repository, subdir } = req.query;
+    // these query parameters are required
+    // host is optional for now with Github
+    const required = ['scm', 'owner', 'repository', 'subdir'];
 
-    let readmeContent = '';
-    logger.info(`${host}`);
+    const missing = required.filter(p => !req.query[p]);
+    if (missing.length > 0) {
+      return res.status(400).json({
+        error: `Missing required query parameters: ${missing.join(', ')}\n`,
+      });
+    }
 
+    const scm = req.query.scm!.toString();
+    const owner = req.query.owner!.toString();
+    const repository = req.query.repository!.toString();
+    const subdir = req.query.subdir!.toString();
+    const host = req.query.host?.toString(); // optional for GitHub
+
+    // Only allow supported SCM types
+    const allowedScm = ['Github', 'Gitlab'];
+    if (!allowedScm.includes(scm)) {
+      return res.status(400).json({
+        error: `Unsupported SCM type '${scm}'. Supported values are: ${allowedScm.join(', ')}`,
+      });
+    }
     const useCaseMaker = new UseCaseMaker({
       ansibleConfig: ansibleConfig,
       logger,
@@ -49,26 +68,24 @@ export async function createRouter(options: {
     });
 
     if (!repoExists) {
-      res
+      return res
         .status(404)
         .send(
           'Unable to fetch EE README because the repository does not exist\n',
         );
-    } else {
-      let readmeUrl: string = '';
-      if (scm?.toString().toLowerCase() === 'github') {
-        readmeUrl = `https://raw.githubusercontent.com/${owner}/${repository}/refs/heads/main/${subdir}/README.md`;
-      } else if (scm?.toString().toLowerCase() === 'gitlab') {
-        // TO-DO
-      } else {
-        res.status(400).send('Unsupported SCM type\n');
-        return;
-      }
-      readmeContent = await useCaseMaker.fetchReadmeContent({
-        readmeUrl: readmeUrl,
-      });
-      res.send(readmeContent);
     }
+
+    // Determine the correct README URL
+    let readmeUrl: string = '';
+    if (scm === 'Github') {
+      readmeUrl = `https://raw.githubusercontent.com/${owner}/${repository}/refs/heads/main/${subdir}/README.md`;
+    } else if (scm === 'Gitlab') {
+      readmeUrl = `https://${host}/${owner}/${repository}/-/raw/main/${subdir}/README.md`;
+    }
+    const readmeContent = await useCaseMaker.fetchReadmeContent({ readmeUrl });
+
+    res.type('text/markdown');
+    return res.send(readmeContent);
   });
 
   return router;

@@ -258,6 +258,10 @@ export function createEEDefinitionAction(options: {
             title: 'README Content',
             type: 'string',
           },
+          mcpVarsContent: {
+            title: 'MCP Vars Content',
+            type: 'string',
+          },
         },
       },
     },
@@ -301,9 +305,10 @@ export function createEEDefinitionAction(options: {
 
       // create the path for the EE definition file
       const eeDefinitionPath = path.join(eeDir, `${eeFileName}.yaml`);
+      // create the path for the ansible.cfg file
+      const ansibleConfigPath = path.join(eeDir, 'ansible.cfg');
       // create the path for the README file
       const readmePath = path.join(eeDir, 'README.md');
-
       // create docs directory for techdocs
       const docsDir = path.join(eeDir, 'docs');
       await fs.mkdir(docsDir, { recursive: true });
@@ -329,14 +334,23 @@ export function createEEDefinitionAction(options: {
         decodedSystemPackagesContent,
       );
 
+      // modify the additional build steps (generic)
+      modifyAdditionalBuildSteps(additionalBuildSteps, mcpServers);
+
       // generate MCP builder steps
       // if any MCP servers are specified, we need to add the ansible.mcp ansible.mcp_builder collections
       // for that we use the parsedCollections list
-      generateMCPBuilderSteps(
-        mcpServers,
-        parsedCollections,
-        additionalBuildSteps,
-      );
+      let mcpVarsContent: string = '';
+      if (mcpServers.length > 0) {
+        generateMCPBuilderSteps(
+          mcpServers,
+          parsedCollections,
+          additionalBuildSteps,
+        );
+
+        // create mcp_vars.yaml content
+        mcpVarsContent = await generateMCPVarsContent(mcpServers);
+      }
 
       try {
         // Merge collections from different sources
@@ -396,16 +410,22 @@ export function createEEDefinitionAction(options: {
           repositoryName,
         );
         await fs.writeFile(readmePath, readmeContent);
-        logger.info(
-          `[ansible:create:ee-definition] created README.md at ${readmePath}`,
-        );
         ctx.output('readmeContent', readmeContent);
+
+        // write MCP vars contents to mcp_vars.yaml
+        if (mcpVarsContent.length > 0) {
+          // create the path for the mcp_vars.yaml file
+          const mcpVarsPath = path.join(eeDir, 'mcp_vars.yaml');
+          await fs.writeFile(mcpVarsPath, mcpVarsContent);
+          ctx.output('mcpVarsContent', mcpVarsContent);
+        }
 
         // write README contents to docs/index.md
         await fs.writeFile(docsMdPath, readmeContent);
-        logger.info(
-          `[ansible:create:ee-definition] created docs/index.md from README.md at ${docsMdPath}`,
-        );
+
+        // write ansible.cfg contents to ansible.cfg file
+        const ansibleConfigContent = await generateAnsibleConfigContent();
+        await fs.writeFile(ansibleConfigPath, ansibleConfigContent);
 
         // perform the following only if the user has chosen to publish to a SCM repository
         if (values.publishToSCM) {
@@ -439,6 +459,8 @@ export function createEEDefinitionAction(options: {
             owner,
             eeDefinition,
             readmeContent,
+            mcpVarsContent,
+            ansibleConfigContent,
           );
           // register the EE catalog entity with the catalog
           const response = await fetch(`${baseUrl}/aap/register_ee`, {
@@ -481,6 +503,11 @@ function generateEEDefinition(values: EEDefinitionInput): string {
   const requirements = values.pythonRequirements || [];
   const packages = values.systemPackages || [];
   const additionalBuildSteps = values.additionalBuildSteps || [];
+  let overridePkgMgrPath = false;
+
+  if (values.baseImage.includes('ee-minimal')) {
+    overridePkgMgrPath = true;
+  }
 
   // Build dependencies section using inline values (no separate files)
   let dependenciesContent = '';
@@ -526,7 +553,12 @@ function generateEEDefinition(values: EEDefinitionInput): string {
 
   // Add dependencies: prefix if any dependencies exist
   if (dependenciesContent.length > 0) {
-    dependenciesContent = `dependencies:${dependenciesContent}`;
+    dependenciesContent = `\ndependencies:${dependenciesContent}`;
+  }
+
+  let additional_build_files = `additional_build_files:\n  - src: ./ansible.cfg\n    dest: configs`;
+  if (values.mcpServers && values.mcpServers.length > 0) {
+    additional_build_files += `\n  - src: ./mcp_vars.yaml\n    dest: configs`;
   }
 
   let content = `---
@@ -535,9 +567,11 @@ version: 3
 images:
   base_image:
     name: '${values.baseImage}'
+${dependenciesContent.trimEnd()}
 
-${dependenciesContent}`.trimEnd();
-
+${additional_build_files}
+${overridePkgMgrPath ? `options:\n  package_manager_path: /usr/bin/microdnf`.trimEnd() : ''}
+`;
   // Add additional_build_steps if any are defined
   if (additionalBuildSteps.length > 0) {
     const buildStepsGroups: Record<string, string[]> = {};
@@ -548,7 +582,7 @@ ${dependenciesContent}`.trimEnd();
       buildStepsGroups[step.stepType].push(...step.commands);
     });
 
-    content += '\n\nadditional_build_steps:';
+    content += 'additional_build_steps:';
     Object.entries(buildStepsGroups).forEach(([stepType, commands]) => {
       content += `\n  ${stepType}:`;
       commands.forEach(command => {
@@ -1257,6 +1291,27 @@ spec:
     `;
 }
 
+function generateAnsibleConfigContent(): string {
+  return `[galaxy]
+server_list=automation_hub_published, automation_hub_validated, release_galaxy
+
+[galaxy_server.release_galaxy]
+url=https://galaxy.ansible.com/
+
+[galaxy_server.automation_hub_published]
+url=https://console.redhat.com/api/automation-hub/content/published/
+auth_url=https://sso.redhat.com/auth/realms/redhat-external/protocol/openid-connect/token
+# Add the token for the automation hub published server
+token=''
+
+[galaxy_server.automation_hub_validated]
+url=https://console.redhat.com/api/automation-hub/content/validated/
+auth_url=https://sso.redhat.com/auth/realms/redhat-external/protocol/openid-connect/token
+# Add the token for the automation hub validated server
+token=''
+`;
+}
+
 function generateEECatalogEntity(
   componentName: string,
   description: string,
@@ -1264,8 +1319,10 @@ function generateEECatalogEntity(
   owner: string,
   eeDefinitionContent: string,
   readmeContent: string,
+  mcpVarsContent: string,
+  ansibleConfigContent: string,
 ) {
-  return {
+  const catalogEntity: any = {
     apiVersion: 'backstage.io/v1alpha1',
     kind: 'Component',
     metadata: {
@@ -1285,8 +1342,14 @@ function generateEECatalogEntity(
       owner: owner,
       definition: eeDefinitionContent,
       readme: readmeContent,
+      ansible_cfg: ansibleConfigContent,
     },
   };
+
+  if (mcpVarsContent !== '') {
+    catalogEntity.spec.mcp_vars = mcpVarsContent;
+  }
+  return catalogEntity;
 }
 
 function mergeCollections(
@@ -1440,49 +1503,136 @@ function generateMCPBuilderSteps(
 ) {
   // If mcpServers are specified, add them to the collections list
   // and add the MCP install playbook command to the additional build steps
-  if (mcpServers.length > 0) {
-    const mcpInstallCmd = `RUN ansible-playbook ansible.mcp_builder.install_mcp -e mcp_servers=${mcpServers
-      .map(s => `${s.toLowerCase()}_mcp`)
-      .join(',')}`;
+  const mcpInstallCmd = `RUN ansible-playbook ansible.mcp_builder.install_mcp -e mcp_servers=${mcpServers.join(',')} -e @/tmp/mcp_vars.yaml`;
 
-    parsedCollections.push(
-      { name: 'ansible.mcp_builder' },
-      { name: 'ansible.mcp' },
-    );
+  parsedCollections.push(
+    { name: 'ansible.mcp_builder' },
+    { name: 'ansible.mcp' },
+  );
 
-    // Find if there's already a step with stepType 'append_builder'
-    const appendBuilderStep = additionalBuildSteps.find(
-      step => step.stepType === 'append_builder',
-    );
+  // Find if there's already a step with stepType 'append_final'
+  const appendFinalStep = additionalBuildSteps.find(
+    step => step.stepType === 'append_final',
+  );
 
-    if (appendBuilderStep) {
-      // If found, add the MCP install playbook command to its commands array
-      appendBuilderStep.commands.push(mcpInstallCmd);
-    } else {
-      // Otherwise, create a new step entry
-      additionalBuildSteps.push({
-        stepType: 'append_builder',
-        commands: [mcpInstallCmd],
-      });
-    }
-    // Find if there's already a step with stepType 'append_builder'
-    const appendFinalStep = additionalBuildSteps.find(
-      step => step.stepType === 'append_final',
-    );
-
-    const appendFinalMCPCommand = 'COPY --from=builder /opt/mcp /opt/mcp';
-
-    if (appendFinalStep) {
-      // If found, add the MCP install playbook command to its commands array
-      appendFinalStep.commands.push(appendFinalMCPCommand);
-    } else {
-      // Otherwise, create a new step entry
-      additionalBuildSteps.push({
-        stepType: 'append_final',
-        commands: [appendFinalMCPCommand],
-      });
-    }
+  if (appendFinalStep) {
+    // If found, add the MCP install playbook command to its commands array as the first command
+    appendFinalStep.commands.unshift(mcpInstallCmd);
+  } else {
+    // Otherwise, create a new step entry
+    additionalBuildSteps.push({
+      stepType: 'append_final',
+      commands: [mcpInstallCmd],
+    });
   }
+}
+
+function modifyAdditionalBuildSteps(
+  additionalBuildSteps: AdditionalBuildStep[],
+  mcpServers: string[],
+) {
+  // the ansible.cfg step is mandatory
+  const prependBaseStepCommands: string[] = [
+    'COPY _build/configs/ansible.cfg /etc/ansible/ansible.cfg',
+  ];
+  let appendFinalStepCommands: string = 'RUN rm -f /etc/ansible/ansible.cfg';
+
+  if (mcpServers.length > 0) {
+    // the mcp_vars.yaml step is required only if MCP servers are specified
+    prependBaseStepCommands.push(
+      'COPY _build/configs/mcp_vars.yaml /tmp/mcp_vars.yaml',
+    );
+    // remove the mcp_vars.yaml file after the build only if MCP servers are specified
+    appendFinalStepCommands += ' /tmp/mcp_vars.yaml';
+  }
+
+  // Find if there's already a step with stepType 'prepend_base'
+  const prependBaseStep = additionalBuildSteps.find(
+    step => step.stepType === 'prepend_base',
+  );
+
+  if (prependBaseStep) {
+    // If found, add the MCP install playbook command to its commands array
+    prependBaseStep.commands.push(...prependBaseStepCommands);
+  } else {
+    // Otherwise, create a new step entry
+    additionalBuildSteps.push({
+      stepType: 'prepend_base',
+      commands: prependBaseStepCommands,
+    });
+  }
+
+  // Find if there's already a step with stepType 'append_final'
+  const appendFinalStep = additionalBuildSteps.find(
+    step => step.stepType === 'append_final',
+  );
+
+  if (appendFinalStep) {
+    // If found, add the MCP install playbook command to its commands array
+    appendFinalStep.commands.push(appendFinalStepCommands);
+  } else {
+    // Otherwise, create a new step entry
+    additionalBuildSteps.push({
+      stepType: 'append_final',
+      commands: [appendFinalStepCommands],
+    });
+  }
+}
+
+async function generateMCPVarsContent(mcpServers: string[]): Promise<string> {
+  let serverManifest: any;
+
+  // fetch the server manifest from ansible.mcp_builder and load it as YAML
+  try {
+    const response = await fetch(
+      `https://raw.githubusercontent.com/ansible/ansible.mcp_builder/refs/heads/main/extensions/mcp/servers.yaml`,
+    );
+
+    if (!response.ok) {
+      throw new Error(
+        `Failed to fetch server manifest from ansible.mcp_builder: ${response.statusText}`,
+      );
+    }
+
+    const rawServerManifest = await response.text();
+    serverManifest = yaml.load(rawServerManifest);
+
+    // Validate that serverManifest is an array
+    if (!Array.isArray(serverManifest)) {
+      throw new Error('Server manifest is not a valid array');
+    }
+  } catch (error: any) {
+    throw new Error(
+      `Failed to fetch and parse server manifest from ansible.mcp_builder: ${error.message}`,
+    );
+  }
+
+  // this does not need to be explicitly installed
+  // but it's vars should be included in the MCP vars file
+  mcpServers.push('common');
+
+  // Filter sections matching roles
+  const filtered = serverManifest.filter((entry: any) =>
+    mcpServers.includes(entry.role),
+  );
+
+  // Build final YAML string
+  let output: string = '---\n';
+
+  for (const entry of filtered) {
+    output += `# Vars for ${entry.role}\n`;
+
+    // Dump only the "vars" section (if it exists and is not empty)
+    if (entry.vars && Object.keys(entry.vars).length > 0) {
+      const varsYaml = yaml.dump(entry.vars);
+      // Indentation safety: yaml.dump already returns valid YAML
+      output += varsYaml;
+    }
+    output += '\n';
+  }
+  mcpServers.pop();
+
+  return output;
 }
 
 function validateEEDefinition(eeDefinition: string): boolean {

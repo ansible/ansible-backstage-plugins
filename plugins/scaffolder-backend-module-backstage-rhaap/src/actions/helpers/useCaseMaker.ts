@@ -763,16 +763,14 @@ export class UseCaseMaker {
 
     try {
       let headers;
-      this.logger.info(`SCM Type: ${this.scmType}`);
-      this.logger.info(`SCM Integration Token: ${this.scmIntegration?.token}`);
-      if (this.scmType?.toString().toLowerCase() === 'github') {
+      if (this.scmType === 'Github') {
         headers = {
           ...(this.scmIntegration?.token && {
             Authorization: `Bearer ${this.scmIntegration.token}`,
           }),
           Accept: 'application/vnd.github+json',
         };
-      } else if (this.scmType?.toString().toLowerCase() === 'gitlab') {
+      } else if (this.scmType === 'Gitlab') {
         headers = {
           'Content-Type': 'application/json',
           ...(this.scmIntegration?.token && {
