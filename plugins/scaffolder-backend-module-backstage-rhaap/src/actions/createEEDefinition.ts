@@ -427,10 +427,11 @@ export function createEEDefinitionAction(options: {
         const ansibleConfigContent = await generateAnsibleConfigContent();
         await fs.writeFile(ansibleConfigPath, ansibleConfigContent);
 
+        const eeTemplateContent = generateEETemplate(mergedValues);
+
         // perform the following only if the user has chosen to publish to a SCM repository
         if (values.publishToSCM) {
           const templatePath = path.join(eeDir, 'template.yaml');
-          const eeTemplateContent = generateEETemplate(mergedValues);
           await fs.writeFile(templatePath, eeTemplateContent);
           logger.info(
             `[ansible:create:ee-definition created EE template.yaml at ${templatePath}`,
@@ -461,6 +462,7 @@ export function createEEDefinitionAction(options: {
             readmeContent,
             mcpVarsContent,
             ansibleConfigContent,
+            eeTemplateContent,
           );
           // register the EE catalog entity with the catalog
           const response = await fetch(`${baseUrl}/aap/register_ee`, {
@@ -823,7 +825,8 @@ function generateEETemplate(values: EEDefinitionInput): string {
   const tagsJson = JSON.stringify(values.tags);
   const mcpServersJson = JSON.stringify(values.mcpServers);
 
-  return `apiVersion: scaffolder.backstage.io/v1beta3
+  return `---
+apiVersion: scaffolder.backstage.io/v1beta3
 kind: Template
 metadata:
   name: ${values.eeFileName}
@@ -1024,9 +1027,19 @@ spec:
             type: string
             title: MCP Server
             enum:
-              - Github
-              - AWS
+              - aws_ccapi_mcp
+              - aws_cdk_mcp
+              - aws_core_mcp
+              - aws_iam_mcp
+              - azure_mcp
+              - github_mcp
+            enumNames:
+              - AWS CCAPI
+              - AWS CDK
+              - AWS Core
+              - AWS IAM
               - Azure
+              - GitHub
           ui:field: MCPServersPicker
 
     # Step 4: Additional Build Steps
@@ -1321,6 +1334,7 @@ function generateEECatalogEntity(
   readmeContent: string,
   mcpVarsContent: string,
   ansibleConfigContent: string,
+  eeTemplateContent: string,
 ) {
   const catalogEntity: any = {
     apiVersion: 'backstage.io/v1alpha1',
@@ -1341,6 +1355,7 @@ function generateEECatalogEntity(
       lifecycle: 'production',
       owner: owner,
       definition: eeDefinitionContent,
+      template: eeTemplateContent,
       readme: readmeContent,
       ansible_cfg: ansibleConfigContent,
     },
@@ -1620,19 +1635,20 @@ async function generateMCPVarsContent(mcpServers: string[]): Promise<string> {
   let output: string = '---\n';
 
   for (const entry of filtered) {
-    output += `# Vars for ${entry.role}\n`;
-
     // Dump only the "vars" section (if it exists and is not empty)
     if (entry.vars && Object.keys(entry.vars).length > 0) {
+      output += `# vars for ${entry.role}\n`;
       const varsYaml = yaml.dump(entry.vars);
       // Indentation safety: yaml.dump already returns valid YAML
+      // yaml.dump adds a trailing newline, so we append it directly
       output += varsYaml;
+      output += '\n';
     }
-    output += '\n';
   }
   mcpServers.pop();
 
-  return output;
+  // Ensure exactly one trailing newline (yaml.dump already adds one, but trim to be safe)
+  return output.trimEnd() + '\n';
 }
 
 function validateEEDefinition(eeDefinition: string): boolean {
