@@ -20,6 +20,50 @@ interface Collection {
   type?: string;
 }
 
+const MCPSERVER_VARS = [
+  {
+    role: 'aws_ccapi_mcp',
+    vars: {},
+  },
+  {
+    role: 'aws_cdk_mcp',
+    vars: {},
+  },
+  {
+    role: 'aws_core_mcp',
+    vars: {},
+  },
+  {
+    role: 'aws_iam_mcp',
+    vars: {},
+  },
+  {
+    role: 'azure_mcp',
+    vars: {
+      azure_mcp_namespaces: ['az'],
+    },
+  },
+  {
+    role: 'common',
+    vars: {
+      common_mcp_base_path: '/opt/mcp',
+      common_golang_version: 1.25,
+      common_nodejs_min_version: 20,
+      common_system_bin_path: '/usr/local/bin',
+      common_uv_installer_url: 'https://astral.sh/uv/install.sh',
+    },
+  },
+  {
+    role: 'github_mcp',
+    vars: {
+      github_mcp_mode: 'local',
+      github_mcp_build_repo: 'https://github.com/github/github-mcp-server.git',
+      github_mcp_build_repo_branch: 'main',
+      github_mcp_build_path: 'github/build',
+    },
+  },
+];
+
 const PRESET_IMAGES = {
   minimal: {
     name: 'registry.redhat.io/ansible-automation-platform-25/ee-minimal-rhel9:latest',
@@ -344,7 +388,7 @@ export function createEEDefinitionAction(options: {
         );
 
         // create mcp-vars.yaml content
-        mcpVarsContent = await generateMCPVarsContent(mcpServers);
+        mcpVarsContent = generateMCPVarsContent(mcpServers);
       }
 
       try {
@@ -1582,40 +1626,13 @@ function modifyAdditionalBuildSteps(
   }
 }
 
-async function generateMCPVarsContent(mcpServers: string[]): Promise<string> {
-  let serverManifest: any;
-
-  // fetch the server manifest from ansible.mcp_builder and load it as YAML
-  try {
-    const response = await fetch(
-      `https://raw.githubusercontent.com/ansible/ansible.mcp_builder/refs/heads/main/extensions/mcp/servers.yaml`,
-    );
-
-    if (!response.ok) {
-      throw new Error(
-        `Failed to fetch server manifest from ansible.mcp_builder: ${response.statusText}`,
-      );
-    }
-
-    const rawServerManifest = await response.text();
-    serverManifest = yaml.load(rawServerManifest);
-
-    // Validate that serverManifest is an array
-    if (!Array.isArray(serverManifest)) {
-      throw new Error('Server manifest is not a valid array');
-    }
-  } catch (error: any) {
-    throw new Error(
-      `Failed to fetch and parse server manifest from ansible.mcp_builder: ${error.message}`,
-    );
-  }
-
+function generateMCPVarsContent(mcpServers: string[]): string {
   // this does not need to be explicitly installed
   // but it's vars should be included in the MCP vars file
   mcpServers.push('common');
 
   // Filter sections matching roles
-  const filtered = serverManifest.filter((entry: any) =>
+  const filtered = MCPSERVER_VARS.filter((entry: any) =>
     mcpServers.includes(entry.role),
   );
 
@@ -1633,6 +1650,8 @@ async function generateMCPVarsContent(mcpServers: string[]): Promise<string> {
       output += '\n';
     }
   }
+  // drop common from the list of MCP servers
+  // it was only added to get it's vars
   mcpServers.pop();
 
   // Ensure exactly one trailing newline (yaml.dump already adds one, but trim to be safe)
