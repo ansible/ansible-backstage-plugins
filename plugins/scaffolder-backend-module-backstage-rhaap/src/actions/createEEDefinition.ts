@@ -241,6 +241,11 @@ export function createEEDefinitionAction(options: {
             title: 'MCP Vars Content',
             type: 'string',
           },
+          catalogInfoPath: {
+            title:
+              'Relative path for the catalog-info.yaml file (for SCM publishing only)',
+            type: 'string',
+          },
         },
       },
     },
