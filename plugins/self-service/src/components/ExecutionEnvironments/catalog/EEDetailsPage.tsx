@@ -261,6 +261,7 @@ export const EEDetailsPage: React.FC = () => {
     window.open(url, '_blank');
     return url;
   }, [entity]);
+
   const createTarArchive = (
     files: Array<{ name: string; content: string }>,
   ): Uint8Array => {
@@ -397,9 +398,11 @@ export const EEDetailsPage: React.FC = () => {
       const archiveName = `${
         entity.metadata.name || 'execution-environment'
       }.tar`;
-      const mcpVarsFileName = `mcp_vars.yaml`;
+      const mcpVarsFileName = `mcp-vars.yaml`;
       const ansibleCfgFileName = `ansible.cfg`;
-      const templateFileName = `${eeFileName}-template.yaml`;
+      const templateFileName = `${
+        entity.metadata.name || 'execution-environment'
+      }-template.yaml`;
 
       const tarData = createTarArchive([
         { name: eeFileName, content: entity.spec.definition },
