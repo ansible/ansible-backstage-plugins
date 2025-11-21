@@ -49,8 +49,6 @@ interface EEDefinitionInput {
   systemPackagesFile?: string;
   mcpServers?: string[];
   additionalBuildSteps?: AdditionalBuildStep[];
-  repositoryOwner?: string;
-  repositoryName?: string;
 }
 
 export function createEEDefinitionAction(options: {
@@ -211,18 +209,6 @@ export function createEEDefinitionAction(options: {
                   required: ['stepType', 'commands'],
                 },
               },
-              repositoryOwner: {
-                title: 'Repository Owner',
-                description:
-                  'Owner of the repository to publish the execution environment definition files to',
-                type: 'string',
-              },
-              repositoryName: {
-                title: 'Repository Name',
-                description:
-                  'Name of the repository to publish the execution environment definition files to',
-                type: 'string',
-              },
             },
           },
         },
@@ -275,7 +261,6 @@ export function createEEDefinitionAction(options: {
       const eeDescription = values.eeDescription || 'Execution Environment';
       const tags = values.tags || [];
       const owner = ctx.user?.ref || '';
-      const repositoryName = values.repositoryName || '';
 
       // required for catalog component registration
       ctx.output('owner', owner);
@@ -398,9 +383,8 @@ export function createEEDefinitionAction(options: {
         // Generate README with instructions
         const readmeContent = generateReadme(
           mergedValues,
+          mcpServers,
           values.publishToSCM,
-          contextDirName,
-          repositoryName,
         );
         await fs.writeFile(readmePath, readmeContent);
         ctx.output('readmeContent', readmeContent);
@@ -591,222 +575,226 @@ ${overridePkgMgrPath ? `\noptions:\n  package_manager_path: /usr/bin/microdnf\n`
 
 function generateReadme(
   values: EEDefinitionInput,
+  mcpServers: string[],
   publishToSCM: boolean,
-  contextDirName: string,
-  repositoryName: string,
 ): string {
-  const collections = values.collections || [];
-  const requirements = values.pythonRequirements || [];
-  const packages = values.systemPackages || [];
-  const mcpServers = values.mcpServers || [];
+  const eeFileName = values.eeFileName || 'execution-environment';
 
-  return `# Ansible Execution Environment Definition: Getting Started Guide
+  return `# Ansible Execution Environment Definition File: Getting Started Guide
 
-Congratulations on Your New Execution Environment Definition file!
+This file tells how to build your defined **execution environment (EE)** using **Ansible Builder** (the tool used to build EEs). An **EE** is a container image that bundles all the tools and collections your automation needs to run consistently.
 
-This file tells **Ansible Builder** (the tool used to build EEs) how to create the build instruction file (\`Containerfile\` for **Podman**, \`Dockerfile\` for **Docker**) and the build context for your Execution Environment image.
 
-An EE is a container image (like a "workspace") that bundles all the tools and collections your automation needs to run consistently everywhere.
-This guide will walk you through the entire process, from reviewing your new files to using your final image in Ansible Automation Platform (AAP).
+[Ansible Execution Environment Definition File: Getting Started Guide](#ansible-execution-environment-definition-file-getting-started-guide)
 
-## Review What Was Generated
+- [Step 1: Review What Was Generated](#step-1-review-what-was-generated)
+
+- [Step 2: Confirm Access to Collection Sources](#step-2-confirm-access-to-collection-sources)
+
+- [Step 3: Install Required Tools](#step-3-install-required-tools)
+
+- [Step 4: Build Your Execution Environment](#step-4-build-your-execution-environment)
+
+- [Step 5 (Recommended): Test Your EE Locally](#step-5-recommended-test-your-ee-locally)
+
+- [Step 6: Push to a Container Registry](#step-6-push-to-a-container-registry)
+
+- [Step 7: Use Your EE in Ansible Automation Platform](#step-7-use-your-ee-in-ansible-automation-platform)
+
+- [Step 8 (Optional): Import EE template into self-service automation portal](#step-8-optional-import-ee-template-into-self-service-automation-portal)
+
+## Step 1: Review What Was Generated
 
 First, let us review the files that were just created for you:
 
-- \`${values.eeFileName}.yaml\` - This is the main definition file that \`ansible-builder\` will use to construct your EE image.
+- **\`${values.eeFileName}.yaml\`**: This is your EE's "blueprint." It's the main definition file that ansible-builder will use to construct your image.
+- **\`${values.eeFileName}-template.yaml\`**: This is the Ansible self-service automation portal template file that generated this. You can import it and use it as a base to create new templates for your portal.
+- **\`ansible.cfg\`**: This Ansible configuration file specifies the sources from which your collections will be retrieved, by default it includes **Automation Hub** and **Ansible Galaxy**.
+${mcpServers && mcpServers.length > 0 ? '- **\`mcp-vars.yaml\`**: This Ansible variables file contains variables for the selected **Model Context Protocol (MCP) servers** which will be used when installing them in the Execution Environment.' : ''}
+${publishToSCM ? '- **\`catalog-info.yaml\ `**: This is the Ansible self-service automation portal file that registers this as a "component" in your portal\'s catalog.' : ''}
 
-${
-  publishToSCM
-    ? `- \`template.yaml\` - This is the Ansible portal template file that generated this. You can use it as a base to create new templates for your portal.
-- \`catalog-info.yaml\` - This is the Ansible portal file that registers this Execution Environment definition as a "component" in your portal's catalog.
-`
-    : ''
-}
+## Step 2: Confirm Access to Collection Sources
 
-## Configuration
+If your execution environment (EE) uses only collections that are available in Ansible Galaxy (such as \`community.general\`), you can skip this step and continue to **Step 3**.
 
-### Base Image
-- **Base Image**: \`${values.baseImage}\`
+If your EE relies on collections from **Automation Hub**, **Private Automation Hub** or another private Galaxy server, you must update the generated **ansible.cfg** file so that \`ansible-builder\` can authenticate and download those collections.
 
-${
-  collections.length > 0
-    ? `### Ansible Collections (${collections.length})
-\`\`\`yaml
-${collections
-  .map(c => {
-    let collectionContent = `- name: ${c.name}`;
-    if (c.version) {
-      collectionContent += `\n  version: v${c.version}`;
-    }
-    return collectionContent;
-  })
-  .join('\n')}
-\`\`\`
+**Configure Automation Hub access**
 
-`
-    : ''
-}${
-    mcpServers.length > 0
-      ? `### MCP Servers (${mcpServers.length})
-${mcpServers.map(mcpServer => `- \`${mcpServer}\``).join('\n')}
+**Automation Hub** is already configured as a source in the generated **ansible.cfg** file. Open the file in your favorite text editor and update both the \`token\` fields with your **Automation Hub** token. If you already have a token, please ensure that it has not expired.
 
-`
-      : ''
-  }${
-    requirements.length > 0
-      ? `### Python Requirements (${requirements.length})
-${requirements.map(req => `- \`${req}\``).join('\n')}
+If you do not have a token, please follow these steps:
 
-`
-      : ''
-  }${
-    packages.length > 0
-      ? `### System Packages (${packages.length})
-${packages.map(pkg => `- \`${pkg}\``).join('\n')}
+1. Navigate to [Ansible Automation Platform on the Red Hat Hybrid Cloud Console](Ansible Automation Platform on the Red Hat Hybrid Cloud Console).
+2. From the navigation panel, select **Automation Hub** → **Connect to Hub**.
+3. Under **Offline token**, click **Load Token**.
+4. Click the [**Copy to clipboard**] icon to copy the offline token.
+5. Paste the token into a file and store in a secure location.
 
-`
-      : ''
-  }## Get the Execution Environment definition file
-${
-  publishToSCM
-    ? `#### Clone the repository and navigate to this directory.
+**Configure Private Automation Hub access**
 
-\`\`\`bash
-git clone <repository URL>
-cd ${repositoryName}/${contextDirName}
-\`\`\`
+If you do not have a **Private Automation Hub (PAH)** or the EE does not require collection(s) to be installed from one you can skip this step and continue to **Step 3**.
 
-`
-    : `#### Download the Execution Environment definition file
+For **PAH**, an additional entry needs to be added to the generated **ansible.cfg** file in the same format as the existing Automation Hub entries with the appropriate \`url\`, \`auth_url\` and \`token\` for your **PAH**.
 
-1. Click on the "Download" button to download the Execution Environment tar file.
-2. Extract the Execution Environment definition file from the downloaded tar.
+To obtain your **Private Automation Hub** token:
 
-\`\`\`bash
-tar -xvf ${contextDirName}.tar
-\`\`\`
+1. Log in to your private automation hub.
+2. From the navigation panel, select **Automation Content** → **API token**.
+3. Click **[Load Token]**.
+4. To copy the API token, click the **[Copy to clipboard]** icon.
 
-`
-}Open \`${values.eeFileName}.yaml\` in your favorite text editor and review the configuration.
+For detailed instructions, refer to the official Red Hat Ansible Automation Platform 2.6 documentation for [managing automation content](https://docs.redhat.com/en/documentation/red_hat_ansible_automation_platform/2.6/html-single/managing_automation_content/index#proc-create-api-token-pah_cloud-sync).
 
-## Build Your Execution Environment (EE)
-
-### Step 1: Install Required Tools
+## Step 3: Install Required Tools
 
 With your configuration ready, you'll need the following tools on your local machine to build the image:
 
-- ansible-builder (The tool that builds the EE).
-- A container engine: Podman (recommended) or Docker.
+- **ansible-builder** (The tool that builds the EE)
+- **A container engine**: Podman (recommended) or Docker
+- **ansible-navigator** (For testing your EE)
 
-If you don't have them, you can find installation guides here:
+### Red Hat Supported Installation (Recommended for RHEL/AAP environments)
 
-1. [Installing ansible-builder](https://docs.redhat.com/en/documentation/red_hat_ansible_automation_platform/2.6/html/creating_and_using_execution_environments/assembly-using-builder)
-2. [Installing Podman](https://podman.io/getting-started/installation) (recommended) OR [Installing Docker](https://docs.docker.com/engine/install/)
-
-### Step 2 (Optional): Add additional configuration to the Execution Environment definition file
-
-Before you build the EE, you must ensure \`ansible-builder\` can access all the collections you listed in your \`${values.eeFileName}.yaml\` file.
-If the EE definition only uses collections from [Ansible Galaxy](https://galaxy.ansible.com/), you can safely **skip this step**.
-
-If one or more collections specified in your EE definition are to be pulled from Automation Hub (or a custom Galaxy server),
-please ensure that those servers are configured in an \`ansible.cfg\` file and included in the EE build.
-You can refer to this documentation for more details: [Configure Red Hat Automation Hub as the primary content source](https://docs.redhat.com/en/documentation/red_hat_ansible_automation_platform/2.4/html/getting_started_with_automation_hub/configure-hub-primary#proc-configure-automation-hub-server-cli)
-
-For reference, here is an example of an \`ansible.cfg\` file that includes the Red Hat Automation Hub server:
-
-\`\`\`yaml
-[galaxy]
-server_list = automation_hub
-
-[galaxy_server.automation_hub]
-url=https://console.redhat.com/api/automation-hub/content/published/
-auth_url=https://sso.redhat.com/auth/realms/redhat-external/protocol/openid-connect/token
-token=<SuperSecretToken>
-\`\`\`
-
-Next, include the \`ansible.cfg\` file in your Execution Environment build by adding the following sections to the generated EE definition file:
-
-\`\`\`yaml
-additional_build_files:
-  - src: /path-to/ansible.cfg
-    dest: configs
-
-additional_build_steps:
-  prepend_galaxy:
-    - COPY _build/configs/ansible.cfg /etc/ansible/ansible.cfg
-\`\`\`
-
-### Step 3: Build Your Execution Environment
-
-Now you're ready to build! Open a terminal in the directory where the EE definition file exists and run the build command:
+For Red Hat Enterprise Linux systems with Red Hat Ansible Automation Platform subscriptions:
 
 \`\`\`bash
+# Install all tools via system package manager (Red Hat supported)
+sudo dnf install -y ansible-core podman ansible-builder ansible-navigator
+\`\`\`
+
+**Note**: \`ansible-builder\` and \`ansible-navigator\` availability via \`dnf\` depends on your RHEL version and AAP subscription. If not available via \`dnf\`, use the community method below.
+
+### Community-supported Installation Method
+
+For other systems or when Red Hat packages are not available:
+
+\`\`\`bash
+# Install Ansible tools via pip
+pip install ansible-core ansible-builder ansible-navigator
+\`\`\`
+
+## Step 4: Build Your Execution Environment
+
+Now you're ready to build. Open your terminal in this directory and run the build command:
+
+\`\`\`bash
+# This command uses your '${values.eeFileName}.yaml' file to build an image
+# and tags it as '${values.eeFileName}:latest'
+
 ansible-builder build --file ${values.eeFileName}.yaml --tag ${values.eeFileName}:latest --container-runtime podman
 \`\`\`
 
-This command uses your \`${values.eeFileName}.yaml\` file to build an image and tags it as \`${values.eeFileName}:latest\`
+### Command Options:
+- You can change the \`tag\` (e.g., --tag my-custom-ee:1.0)
+- If you're using Docker, change the runtime (\`--container-runtime docker\`)
+- Add \`--verbosity 2\` for more detailed build output
 
-- You can update the tag (specified after the \`--tag\` flag) to the desired tag for the built image.
-- If you are using \`Docker\`, change the runtime with \`--container-runtime docker\`.
-
-The \`ansible-builder\` CLI supports passing build-time arguments to the container runtime,
-use the \`--build-arg\` flag to pass these arguments.
-
-For the full list of supported flags, refer to the
-[ansible-builder reference for \`build arguments\`](https://docs.redhat.com/en/documentation/red_hat_ansible_automation_platform/2.6/html/creating_and_using_execution_environments/assembly-using-builder)
-
-### Step 4 (Recommended): Test Your Execution Environment Locally
+## Step 5 (Recommended): Test Your EE Locally
 
 This is the best way to verify your EE works before you share it. To do this, you can use \`ansible-navigator\`.
 
-1. Install [\`ansible-navigator\`](https://docs.redhat.com/en/documentation/red_hat_ansible_automation_platform/2.6/html/using_content_navigator/assembly-intro-navigator_ansible-navigator):
+### Create a Test Playbook
 
-\`ansible-navigator\` is a part of Ansible development tools. The can be installed on a container inside VS Code or from a package on RHEL.
+Create a file named \`playbook.yaml\` in this directory:
 
-Please refer to the following documentations for more details:
+\`\`\`yaml
+---
+- name: Test my new EE
+  hosts: localhost
+  connection: local
+  gather_facts: false
+  tasks:
+    - name: Print ansible version
+      ansible.builtin.command: ansible --version
+      register: ansible_version
 
-[Installing Ansible development tools on a container inside VS Code](https://docs.redhat.com/en/documentation/red_hat_ansible_automation_platform/2.6/html/using_content_navigator/installing-devtools#devtools-install-container_installing-devtools)
+    - name: Display version
+      ansible.builtin.debug:
+        var: ansible_version.stdout_lines
 
-[Installing Ansible development tools from a package on RHEL](https://docs.redhat.com/en/documentation/red_hat_ansible_automation_platform/2.6/html/using_content_navigator/installing-devtools#devtools-install_installing-devtools)
+    - name: Test collection availability
+      ansible.builtin.debug:
+        msg: "EE is working correctly!"
+\`\`\`
 
-2. Run your playbook with the built Execution Environment:
+### Run the Test Playbook
+
 \`\`\`bash
-ansible-navigator run playbook.yml --execution-environment-image ${values.eeFileName}:latest
+ansible-navigator run playbook.yml --eei ${eeFileName}:latest --pull-policy missing
 \`\`\`
 
 If it runs successfully, your EE is working!
 
-### Step 5: Push Your Execution Environment to a Container Registry
+**Note**: The playbook provided is a generic example compatible with all correctly built EEs. You may tailor it to better match the EE you have built.
 
-To use this EE in Ansible Automation Platform (AAP), it must exist in a container registry (like quay.io, or [private Automation Hub](https://docs.redhat.com/en/documentation/red_hat_ansible_automation_platform/2.6/html/managing_automation_content/managing-containers-hub)).
+## Step 6: Push to a Container Registry
 
-1. Tag your local image for the target registry (e.g., \`quay.io/your-username/${values.eeFileName}:latest\`).
+To use this EE in Ansible Automation Platform (AAP), it must live in a registry. Red Hat recommends using **Private Automation Hub** as your primary registry for enterprise environments.
 
-\`\`\`bash
-podman tag ${values.eeFileName}:latest quay.io/your-username/${values.eeFileName}:latest
-\`\`\`
+### Private Automation Hub (Recommended for Red Hat AAP)
 
-2. Push the tagged image to the target registry:
+Private Automation Hub is the Red Hat supported registry for execution environments in enterprise AAP deployments.
 
 \`\`\`bash
-podman push quay.io/your-username/${values.eeFileName}:latest
+# Tag the image for your Private Automation Hub
+podman tag ${eeFileName}:latest your-pah-hostname/${eeFileName}:latest
+
+# Login to your Private Automation Hub
+podman login your-pah-hostname
+
+# Push the image
+podman push your-pah-hostname/${eeFileName}:latest
 \`\`\`
 
-### Step 6: Use Your Execution Environment in Ansible Automation Platform (AAP)
+### Internal/Corporate Registry
 
-You're all set! Now just tell AAP about your new EE.
+\`\`\`bash
+# Use your organization's internal registry URL
+podman tag ${eeFileName}:latest your-internal-registry.com/${eeFileName}:latest
+podman login your-internal-registry.com
+podman push your-internal-registry.com/${eeFileName}:latest
+\`\`\`
 
-1. In your AAP dashboard, navigate to Administration -> Execution Environments.
-2. Click the *Add* button.
-3. Fill in the fields:
-  - **Name**: A friendly name (e.g., "My New Custom EE")
-  - **Image**: The full path from Step 4 (e.g., quay.io/your-username/ee-new:latest)
-  - **Pull**: Choose your pull policy (e.g., "Always pull image before running")
-4. Click the *Save* button.
+# Step 7: Use Your EE in Ansible Automation Platform
 
-Your new EE can now be selected in any Job Template.
+Once your execution environment is built and pushed to a registry, you need to register it in AAP.
 
-See the [Add a execution environment to a job template](https://docs.redhat.com/en/documentation/red_hat_ansible_automation_platform/2.6/html/using_automation_execution/assembly-controller-execution-environments) documentation for more details.
+#### Adding Your EE to AAP Controller:
+
+1. Log into **AAP**
+2. Navigate to **Automation Execution** → **Infrastructure**  → **Execution Environments**
+3. Click **Create execution environment** and provide the details of your execution environment.
+
+#### Using Your EE in Job Templates:
+
+1. Navigate to **Automation Execution** → **Templates**
+2. Create a new AAP Job Template or edit an existing one
+3. In the **Execution Environment** field, select your newly added EE from the dropdown
+4. Save and launch - your playbooks now run in your custom environment
+
+For detailed instructions, see the official Red Hat Ansible Automation Platform documentation:
+
+- [Creating and using execution environments](https://docs.redhat.com/en/documentation/red_hat_ansible_automation_platform/2.6/html/creating_and_using_execution_environments/index)
+- [Ansible Automation Platform Job Templates](https://docs.redhat.com/en/documentation/red_hat_ansible_automation_platform/2.6/html/using_automation_execution/controller-job-templates#controller-create-job-template)
+
+## Step 8 (Optional): Import EE template into self-service automation portal
+
+If you want to reuse this execution environment template for future projects, you can import the generated \`${eeFileName}.yaml\` file into your self-service automation portal.
+
+#### Prerequisites:
+
+- You must be logged in to self-service automation portal as an Ansible Automation Platform administrator
+
+#### How to Import:
+
+1. **Access the portal and add template**: Navigate to your self-service automation portal, go to the **Templates** page, and click **Add template**.
+2. **Import from Git repository**: Enter the Git SCM URL containing your \`${eeFileName}.yaml\` file, click **Analyze** to validate, review the details, then click **Import**.
+3. **Configure RBAC**: Set up Role-Based Access Control (RBAC) to allow users to view and run your custom Execution Environment template
+
+Once imported and configured, other users can use your template as a starting point for their own execution environment projects, promoting consistency and best practices across your automation initiatives.
+
+For detailed instructions, see the [self-service automation portal documentation](https://docs.redhat.com/en/documentation/red_hat_ansible_automation_platform/2.6/html/using_self-service_automation_portal/self-service-working-templates_aap-self-service-using#self-service-add-template_self-service-working-templates).
 `;
 }
 
