@@ -75,7 +75,6 @@ const useStyles = makeStyles(theme => ({
     overflowY: 'auto',
     paddingRight: 8,
 
-    /* Optional prettier scrollbar */
     '&::-webkit-scrollbar': {
       width: '6px',
     },
@@ -98,6 +97,13 @@ const useStyles = makeStyles(theme => ({
       borderRadius: 4,
     },
   },
+  rotate: {
+    animation: '$spin 1s linear',
+  },
+  '@keyframes spin': {
+    '0%': { transform: 'rotate(0deg)' },
+    '100%': { transform: 'rotate(360deg)' },
+  },
 }));
 
 export const EEDetailsPage: React.FC = () => {
@@ -116,6 +122,7 @@ export const EEDetailsPage: React.FC = () => {
   const [defaultReadme, setDefaultReadme] = useState<string>('');
   const discoveryApi = useApi(discoveryApiRef);
   const identityApi = useApi(identityApiRef);
+  const [isRefreshing, setIsRefreshing] = useState(false);
 
   const callApi = useCallback(() => {
     catalogApi
@@ -261,7 +268,6 @@ export const EEDetailsPage: React.FC = () => {
     window.open(url, '_blank');
     return url;
   }, [entity]);
-
   const createTarArchive = (
     files: Array<{ name: string; content: string }>,
   ): Uint8Array => {
@@ -428,6 +434,15 @@ export const EEDetailsPage: React.FC = () => {
     } catch (err) {
       console.error('Failed to download archive:', err); // eslint-disable-line no-console
     }
+  };
+
+  const handleRefresh = () => {
+    setIsRefreshing(true);
+    callApi();
+
+    setTimeout(() => {
+      setIsRefreshing(false);
+    }, 500);
   };
 
   return (
@@ -654,9 +669,12 @@ export const EEDetailsPage: React.FC = () => {
                       .trim() === 'true'
                   ) && (
                     <Box display="flex" alignItems="center">
-                      <IconButton size="small">
-                        <AutorenewIcon style={{ color: '#757575' }} />
-                      </IconButton>
+                      <IconButton size="small" onClick={handleRefresh}>
+                        <AutorenewIcon
+                          className={isRefreshing ? classes.rotate : ''}
+                          style={{ color: '#757575' }}
+                        />
+                      </IconButton>{' '}
                       <IconButton size="small">
                         <>
                           <a
