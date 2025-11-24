@@ -12,6 +12,7 @@ import {
 import { makeStyles } from '@material-ui/core/styles';
 import {
   CatalogFilterLayout,
+  EntityKindFilter,
   EntityListProvider,
   EntityTagFilter,
   UserListPicker,
@@ -341,6 +342,21 @@ export const EEListPage = ({
     </div>
   );
 };
+const ExecutionEnvironmentTypeFilter = () => {
+  const { filters, updateFilters } = useEntityList();
+
+  useEffect(() => {
+    if (!filters.type) {
+      updateFilters({
+        ...filters,
+        kind: new EntityKindFilter('Component', 'Component'),
+        tags: new EntityTagFilter(['execution-environment']),
+      });
+    }
+  }, [filters, updateFilters]);
+
+  return null;
+};
 
 export const EntityCatalogContent = ({
   onTabSwitch,
@@ -353,6 +369,7 @@ export const EntityCatalogContent = ({
     <Grid container spacing={2} justifyContent="space-between">
       <Grid item xs={12} className={classes.flex}>
         <EntityListProvider>
+          <ExecutionEnvironmentTypeFilter />
           <EEListPage onTabSwitch={onTabSwitch} />
         </EntityListProvider>
       </Grid>

@@ -16,7 +16,6 @@ import {
 } from '@material-ui/core';
 import { makeStyles } from '@material-ui/core/styles';
 import MoreVertIcon from '@material-ui/icons/MoreVert';
-import StarBorderIcon from '@material-ui/icons/StarBorder';
 import GetAppIcon from '@material-ui/icons/GetApp';
 import CancelIcon from '@material-ui/icons/Cancel';
 import BugReportIcon from '@material-ui/icons/BugReport';
@@ -29,6 +28,7 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { useEffect, useState, useCallback } from 'react';
 import {
   catalogApiRef,
+  FavoriteEntity,
   InspectEntityDialog,
   UnregisterEntityDialog,
 } from '@backstage/plugin-catalog-react';
@@ -75,6 +75,7 @@ const useStyles = makeStyles(theme => ({
     overflowY: 'auto',
     paddingRight: 8,
 
+    /* Optional prettier scrollbar */
     '&::-webkit-scrollbar': {
       width: '6px',
     },
@@ -150,7 +151,7 @@ export const EEDetailsPage: React.FC = () => {
 
   useEffect(() => {
     callApi();
-  }, [callApi]);
+  }, [callApi, isRefreshing]);
 
   const buildReadmeUrlParams = useCallback(() => {
     const sourceLocation =
@@ -186,7 +187,7 @@ export const EEDetailsPage: React.FC = () => {
         subdir = parts.slice(2).join('/');
       }
 
-      return `scm=${scm}&host=${host}&owner=${owner}&repository=${repository}&subdir=${subdir}`;
+      return `scm=${scm}&owner=${owner}&repository=${repository}&subdir=${subdir}`;
     }
 
     // ---------- GITLAB ----------
@@ -195,18 +196,15 @@ export const EEDetailsPage: React.FC = () => {
       // subdir excludes the file name (README.md)
       subdir = parts[parts.length - 1];
 
-      return `scm=${scm}&host=${host}&owner=${owner}&repository=${repository}&subdir=${subdir}`;
+      return `scm=${scm}&owner=${owner}&repository=${repository}&subdir=${subdir}`;
     }
     // fallback (if new SCM type is added later)
-    return `host=${host}&owner=${owner}&repository=${repository}&subdir=${subdir}`;
+    return `scm=${scm}&owner=${owner}&repository=${repository}&subdir=${subdir}`;
   }, [entity]);
 
   useEffect(() => {
     const fetchDefaultReadme = async () => {
-      if (
-        entity &&
-        (!entity.spec || (!entity?.spec?.readme && !defaultReadme))
-      ) {
+      if (entity && (!entity.spec || !entity?.spec?.readme)) {
         const rawUrl = `${await discoveryApi.getBaseUrl(
           'scaffolder',
         )}/aap/get_ee_readme?${buildReadmeUrlParams()}`;
@@ -228,14 +226,9 @@ export const EEDetailsPage: React.FC = () => {
       }
     };
     fetchDefaultReadme();
-  }, [entity, discoveryApi, buildReadmeUrlParams, defaultReadme, identityApi]);
+  }, [entity, discoveryApi, buildReadmeUrlParams, identityApi]);
 
   const getTechdocsUrl = () => {
-    // const ref = techdoc?.metadata?.annotations?.['backstage.io/techdocs-ref'];
-    // if (ref) {
-    //   if (ref.startsWith('url:')) return ref.replace(/^url:/, '');
-    //   return `/docs/${techdoc.metadata.namespace}/${techdoc.metadata.name}`;
-    // }
     return `/docs/${entity?.metadata?.namespace}/${entity?.kind}/${entity?.metadata?.name}`;
   };
 
@@ -268,6 +261,7 @@ export const EEDetailsPage: React.FC = () => {
     window.open(url, '_blank');
     return url;
   }, [entity]);
+
   const createTarArchive = (
     files: Array<{ name: string; content: string }>,
   ): Uint8Array => {
@@ -437,12 +431,8 @@ export const EEDetailsPage: React.FC = () => {
   };
 
   const handleRefresh = () => {
-    setIsRefreshing(true);
-    callApi();
-
-    setTimeout(() => {
-      setIsRefreshing(false);
-    }, 500);
+    setIsRefreshing(!isRefreshing);
+    setDefaultReadme('');
   };
 
   return (
@@ -497,7 +487,7 @@ export const EEDetailsPage: React.FC = () => {
           </Typography>
 
           <IconButton size="small">
-            <StarBorderIcon />
+            {entity && <FavoriteEntity entity={entity} />}
           </IconButton>
         </Box>
         <IconButton onClick={handleMenuOpen}>
