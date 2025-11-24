@@ -12,6 +12,5 @@ export { PackagesPickerFieldExtension } from './components/Scaffolder/PackagesPi
 export { MCPServersPickerFieldExtension } from './components/Scaffolder/MCPServersPicker/extensions';
 export { AdditionalBuildStepsPickerFieldExtension } from './components/Scaffolder/AdditionalBuildStepsPicker/extensions';
 export { EEFileNamePickerFieldExtension } from './components/Scaffolder/EEFileNamePicker/extensions';
-export { EEPage } from './components/ExecutionEnvironments';
 
 export * from './apis';
