@@ -91,6 +91,11 @@ export const Root = ({ children }: PropsWithChildren<{}>) => (
             to="self-service"
             text="Self Service"
           />
+          <SidebarItem
+            icon={MenuIcon}
+            to="/self-service/ee"
+            text="Execution Environments"
+          />
         </SidebarScrollWrapper>
       </SidebarGroup>
       <SidebarSpace />

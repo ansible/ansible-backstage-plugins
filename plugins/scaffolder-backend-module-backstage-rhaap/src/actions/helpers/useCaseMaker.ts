@@ -749,6 +749,141 @@ export class UseCaseMaker {
     this.logger.info(`End saving templates locally.`);
   }
 
+  async generateRepositoryUrl(options: {
+    repoOwner: string;
+    repoName: string;
+  }): Promise<string> {
+    const { repoOwner, repoName } = options;
+    return `${this.scmIntegration?.host}?repo=${repoName}&owner=${repoOwner}`;
+  }
+
+  async fetchGithubFileContent(options: {
+    owner: string;
+    repo: string;
+    filePath: string;
+    branch: string;
+  }): Promise<string> {
+    const { owner, repo, filePath, branch } = options;
+    let readmeContent: string = '';
+
+    this.logger.info(
+      `Fetching file content from ${owner}/${repo}/${filePath} on branch ${branch}`,
+    );
+
+    // we have initialized octokit in the constructor
+    // so a host must already be configured
+    // hence an explicit check is not needed
+    try {
+      const response = await this.octokit.request(
+        'GET /repos/{owner}/{repo}/contents/{path}',
+        {
+          owner: owner,
+          repo: repo,
+          path: filePath,
+          ref: branch,
+          headers: {
+            accept: 'application/vnd.github.raw',
+          },
+        },
+      );
+      if (response && response.status === 200 && response.data) {
+        readmeContent = response.data as unknown as string;
+      }
+    } catch (e: any) {
+      throw new Error(`Error fetching file content: ${e.message}`);
+    }
+    return readmeContent;
+  }
+
+  async fetchGitlabFileContent(options: {
+    owner: string;
+    repo: string;
+    filePath: string;
+    branch: string;
+  }): Promise<string> {
+    const { owner, repo, filePath, branch } = options;
+    let response;
+
+    if (!this.scmIntegration?.host) {
+      throw new Error('Not Gitlab host configured.');
+    }
+
+    const host = this.scmIntegration.host;
+
+    try {
+      const headers = {
+        'Content-Type': 'application/json',
+        ...(this.scmIntegration?.token && {
+          'PRIVATE-TOKEN': this.scmIntegration.token,
+        }),
+      };
+
+      this.logger.info(
+        `Fetching file content from ${owner}/${repo}/${filePath} on branch ${branch}`,
+      );
+      response = await fetch(
+        `https://${host}/${owner}/${repo}/-/raw/${branch}/${filePath}`,
+        { headers },
+      );
+
+      return response.text();
+    } catch (error: any) {
+      throw new Error(`Error fetching file content: ${error.message}`);
+    }
+  }
+
+  async checkIfRepositoryExists(options: {
+    repoOwner: string;
+    repoName: string;
+  }): Promise<boolean> {
+    const { repoOwner, repoName } = options;
+    let exists = false;
+    let response;
+
+    this.logger.info(
+      `[${UseCaseMaker.pluginLogName}] Checking if ${this.scmType} Repository ${repoOwner}/${repoName} exists`,
+    );
+
+    try {
+      if (this.scmType === 'Github') {
+        response = await this.octokit.request('HEAD /repos/{owner}/{repo}', {
+          owner: repoOwner,
+          repo: repoName,
+        });
+      } else if (this.scmType === 'Gitlab') {
+        const gitlabApiUrl = this.scmIntegration?.apiBaseUrl;
+        const headers = {
+          'Content-Type': 'application/json',
+          ...(this.scmIntegration?.token && {
+            'PRIVATE-TOKEN': this.scmIntegration.token,
+          }),
+        };
+
+        response = await fetch(
+          `${gitlabApiUrl}/projects/${encodeURIComponent(
+            repoOwner,
+          )}%2F${encodeURIComponent(repoName)}`,
+          { headers },
+        );
+      }
+
+      if (response && response.status === 200) {
+        exists = true;
+      }
+    } catch (error: any) {
+      if (error.status === 404) {
+        this.logger.info(
+          `[${UseCaseMaker.pluginLogName}] ${this.scmType} Repository ${repoOwner}/${repoName} does not exist`,
+        );
+      } else {
+        throw new Error(
+          `Error checking if ${this.scmType} Repository ${repoOwner}/${repoName} exists: ${error.message}`,
+        );
+      }
+    }
+    return exists;
+  }
+
   private async createRepositoryIfNotExists(options: {
     githubConfig: GithubConfig;
   }): Promise<boolean> {

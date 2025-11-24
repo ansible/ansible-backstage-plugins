@@ -35,6 +35,8 @@ import {
   createProjectAction,
   createShowCases,
   launchJobTemplate,
+  createEEDefinitionAction,
+  prepareForPublishAction,
 } from './actions';
 
 import {
@@ -43,6 +45,9 @@ import {
   useCaseNameFilter,
 } from './filters';
 import { handleAutocompleteRequest } from './autocomplete';
+
+import { createRouter } from './router';
+
 /**
  * @public
  * The Ansible Module for the Scaffolder Backend
@@ -59,6 +64,9 @@ export const scaffolderModuleAnsible = createBackendModule({
         scaffolderTemplating: scaffolderTemplatingExtensionPoint,
         autocomplete: scaffolderAutocompleteExtensionPoint,
         ansibleService: ansibleServiceRef,
+        auth: coreServices.auth,
+        discovery: coreServices.discovery,
+        httpRouter: coreServices.httpRouter,
       },
       async init({
         scaffolder,
@@ -67,8 +75,12 @@ export const scaffolderModuleAnsible = createBackendModule({
         scaffolderTemplating,
         autocomplete,
         ansibleService,
+        auth,
+        discovery,
+        httpRouter,
       }) {
         const ansibleConfig = getAnsibleConfig(config);
+        const frontendUrl = config.getString('app.baseUrl');
         scaffolder.addActions(
           createAnsibleContentAction(config, ansibleConfig),
           createProjectAction(ansibleService),
@@ -77,6 +89,14 @@ export const scaffolderModuleAnsible = createBackendModule({
           launchJobTemplate(ansibleService),
           cleanUp(ansibleService),
           createShowCases(ansibleService, ansibleConfig),
+          createEEDefinitionAction({
+            frontendUrl,
+            auth,
+            discovery,
+          }),
+          prepareForPublishAction({
+            ansibleConfig: ansibleConfig,
+          }),
         );
         scaffolderTemplating.addTemplateFilters({
           useCaseNameFilter: useCaseNameFilter,
@@ -103,6 +123,12 @@ export const scaffolderModuleAnsible = createBackendModule({
               ansibleService,
             }),
         });
+        httpRouter.use(
+          (await createRouter({
+            logger,
+            ansibleConfig,
+          })) as any,
+        );
       },
     });
   },

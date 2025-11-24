@@ -34,9 +34,14 @@ interface StepFormProps {
     schema: Record<string, any>;
   }>;
   submitFunction: (formData: Record<string, any>) => Promise<void>;
+  initialFormData?: Record<string, any>;
 }
 
-export const StepForm = ({ steps, submitFunction }: StepFormProps) => {
+export const StepForm = ({
+  steps,
+  submitFunction,
+  initialFormData,
+}: StepFormProps) => {
   // Filter out steps that only contain a "token" field
   const filteredSteps = useMemo(() => {
     return steps.filter(step => {
@@ -56,13 +61,21 @@ export const StepForm = ({ steps, submitFunction }: StepFormProps) => {
   const [activeStep, setActiveStep] = useState(
     filteredSteps.length === 0 ? filteredSteps.length : 0,
   );
-  const [formData, setFormData] = useState<Record<string, any>>({});
+  const [formData, setFormData] = useState<Record<string, any>>(
+    initialFormData || {},
+  );
   const [isAutoExecuting, setIsAutoExecuting] = useState(false);
+
+  useEffect(() => {
+    if (initialFormData) {
+      setFormData(initialFormData);
+    }
+  }, [initialFormData]);
 
   // Check if there are any meaningful fields to show (non-token fields with values)
   const hasDisplayableFields = useMemo(() => {
     return steps.some(step =>
-      Object.entries(step.schema.properties || {}).some(
+      Object.entries(step.schema?.properties || {}).some(
         ([key, property]: [string, any]) => {
           if (key === 'token') return false;
           // Check if field has a default value or user input
@@ -130,21 +143,115 @@ export const StepForm = ({ steps, submitFunction }: StepFormProps) => {
     handleFinalSubmit,
   ]);
 
+  const getAllProperties = (step: any): Record<string, any> => {
+    const allProperties: Record<string, any> = {};
+
+    if (step?.schema?.properties) {
+      Object.assign(allProperties, step.schema.properties);
+    }
+
+    if (step?.schema?.dependencies) {
+      for (const depKey of Object.keys(step.schema.dependencies)) {
+        const dependency = step.schema.dependencies[depKey];
+        if (dependency.oneOf && Array.isArray(dependency.oneOf)) {
+          for (const branch of dependency.oneOf) {
+            if (branch.properties) {
+              for (const key of Object.keys(branch.properties)) {
+                if (key !== depKey && !allProperties[key]) {
+                  allProperties[key] = branch.properties[key];
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+    return allProperties;
+  };
+
   const getLabel = (key: string, stepIndex: number) => {
-    const stepSchema = steps[stepIndex].schema.properties || {};
-    return stepSchema[key]?.title || key;
+    const allProperties = getAllProperties(steps[stepIndex]);
+    return allProperties[key]?.title || key;
   };
 
   // Don't return early if no filtered steps - we still want to show the review step
 
-  const extractProperties = (step: any) => {
-    // Check if step.schema exists and has a properties field
-    if (step?.schema?.properties) {
-      return step.schema.properties;
+  const extractUiSchema = (
+    properties: Record<string, any>,
+    dependencies?: Record<string, any>,
+  ): Record<string, any> => {
+    const uiSchema: Record<string, any> = {};
+
+    if (!properties) return uiSchema;
+
+    const extractUiFromProperty = (
+      property: any,
+    ): Record<string, any> | null => {
+      if (!property) return null;
+
+      const ui: Record<string, any> = {};
+      let hasUiProperties = false;
+
+      for (const key of Object.keys(property)) {
+        if (key.startsWith('ui:')) {
+          ui[key] = property[key];
+          hasUiProperties = true;
+        }
+      }
+
+      if (property.ui && typeof property.ui === 'object') {
+        for (const uiKey of Object.keys(property.ui)) {
+          const uiPropertyKey = `ui:${uiKey}`;
+          if (!ui[uiPropertyKey]) {
+            ui[uiPropertyKey] = property.ui[uiKey];
+            hasUiProperties = true;
+          }
+        }
+      }
+      return hasUiProperties ? ui : null;
+    };
+
+    for (const key of Object.keys(properties)) {
+      const ui = extractUiFromProperty(properties[key]);
+      if (ui) {
+        uiSchema[key] = ui;
+      }
     }
 
-    // Return an empty object if no properties are found
-    return {};
+    if (dependencies) {
+      for (const depKey of Object.keys(dependencies)) {
+        const dependency = dependencies[depKey];
+        if (dependency.oneOf && Array.isArray(dependency.oneOf)) {
+          for (const branch of dependency.oneOf) {
+            if (branch.properties) {
+              for (const key of Object.keys(branch.properties)) {
+                if (key !== depKey) {
+                  const ui = extractUiFromProperty(branch.properties[key]);
+                  if (ui) {
+                    uiSchema[key] = ui;
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+
+    return uiSchema;
+  };
+
+  const extractProperties = (step: any) => {
+    if (!step?.schema) {
+      return {};
+    }
+
+    const schema = step.schema;
+    const properties = schema.properties || {};
+    const dependencies = schema.dependencies;
+
+    // Extract and return the ui schema
+    return extractUiSchema(properties, dependencies);
   };
 
   const getReviewValue = (
@@ -154,7 +261,19 @@ export const StepForm = ({ steps, submitFunction }: StepFormProps) => {
     const value = formData[key];
     if (typeof value === 'object') {
       if (Array.isArray(value)) {
-        return value.map(el => el.name).join(', ');
+        if (value.length > 0 && typeof value[0] === 'string') {
+          return value.join(', ');
+        }
+        if (value.length > 0 && typeof value[0] === 'object' && value[0].name) {
+          return value.map(el => el.name).join(', ');
+        }
+        return value
+          .map(el =>
+            typeof el === 'object' && el !== null
+              ? el.name || JSON.stringify(el)
+              : String(el),
+          )
+          .join(', ');
       }
       return value.name ?? JSON.stringify(value);
     }
@@ -192,7 +311,7 @@ export const StepForm = ({ steps, submitFunction }: StepFormProps) => {
                   <ScaffolderFieldExtensions>
                     <EntityPickerFieldExtension />
                   </ScaffolderFieldExtensions>
-                  <div>
+                  <div style={{ marginTop: '25px' }}>
                     {index > 0 && (
                       <Button
                         onClick={handleBack}
@@ -223,15 +342,27 @@ export const StepForm = ({ steps, submitFunction }: StepFormProps) => {
               >
                 <Table style={{ border: 0 }}>
                   <TableBody style={{ border: 0 }}>
-                    {steps.flatMap((step, stepIndex) => [
-                      <TableRow key={`${stepIndex}-title`}>
-                        <TableCell colSpan={2} style={{ border: 0 }}>
-                          <strong>{step.title}</strong>
-                        </TableCell>
-                      </TableRow>,
-                      ...Object.entries(step.schema.properties || {}).flatMap(
-                        ([key, _]) => {
+                    {steps.flatMap((step, stepIndex) => {
+                      const allProperties = getAllProperties(step);
+                      return [
+                        <TableRow key={`${stepIndex}-title`}>
+                          <TableCell colSpan={2} style={{ border: 0 }}>
+                            <strong>{step.title}</strong>
+                          </TableCell>
+                        </TableRow>,
+                        ...Object.entries(allProperties).flatMap(([key, _]) => {
                           if (key === 'token') {
+                            return [];
+                          }
+                          const value = formData[key];
+                          if (
+                            value === undefined ||
+                            value === null ||
+                            value === ''
+                          ) {
+                            return [];
+                          }
+                          if (Array.isArray(value) && value.length === 0) {
                             return [];
                           }
                           const label = getLabel(key, stepIndex);
@@ -245,13 +376,13 @@ export const StepForm = ({ steps, submitFunction }: StepFormProps) => {
                               </TableCell>
                             </TableRow>
                           );
-                        },
-                      ),
-                    ])}
+                        }),
+                      ];
+                    })}
                   </TableBody>
                 </Table>
               </TableContainer>
-              <div>
+              <div style={{ marginTop: '25px' }}>
                 {filteredSteps.length > 0 && (
                   <Button
                     onClick={handleBack}

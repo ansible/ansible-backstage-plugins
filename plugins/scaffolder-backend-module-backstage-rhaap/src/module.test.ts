@@ -13,6 +13,10 @@ jest.mock('./actions', () => ({
   launchJobTemplate: jest.fn(() => 'action5'),
   cleanUp: jest.fn(() => 'action6'),
   createShowCases: jest.fn(() => 'action7'),
+  createEEDefinitionAction: jest.fn(() => 'action8'),
+  createEETemplateAction: jest.fn(() => 'action9'),
+  prepareForPublishAction: jest.fn(() => 'action10'),
+  createEECatalogInfoAction: jest.fn(() => 'action11'),
 }));
 
 jest.mock('./filters', () => ({
@@ -23,6 +27,10 @@ jest.mock('./filters', () => ({
 
 jest.mock('./autocomplete', () => ({
   handleAutocompleteRequest: jest.fn(() => Promise.resolve({ results: [] })),
+}));
+
+jest.mock('./router', () => ({
+  createRouter: jest.fn(() => Promise.resolve(jest.fn())),
 }));
 
 jest.mock('@ansible/backstage-rhaap-common', () => ({
@@ -51,9 +59,24 @@ describe('scaffolderModuleAnsible', () => {
       scaffolder: { addActions: jest.fn() },
       scaffolderTemplating: { addTemplateFilters: jest.fn() },
       autocomplete: { addAutocompleteProvider: jest.fn() },
-      config: { some: 'config' },
+      config: {
+        getString: jest.fn((key: string) => {
+          if (key === 'app.baseUrl') {
+            return 'http://localhost:3000';
+          }
+          return '';
+        }),
+      },
       logger: { info: jest.fn(), debug: jest.fn(), error: jest.fn() },
       ansibleService: { name: 'ansibleService' },
+      httpRouter: { use: jest.fn() },
+      auth: {
+        getOwnServiceCredentials: jest.fn(),
+        getPluginRequestToken: jest.fn(),
+      },
+      discovery: {
+        getBaseUrl: jest.fn(),
+      },
     };
 
     // --- Get registrations from module ---
@@ -122,5 +145,8 @@ describe('scaffolderModuleAnsible', () => {
       fakeEnv.ansibleService,
       (getAnsibleConfig as jest.Mock).mock.results[0].value,
     );
+
+    // --- Verify httpRouter.use call ---
+    expect(fakeEnv.httpRouter.use).toHaveBeenCalledTimes(1);
   });
 });
