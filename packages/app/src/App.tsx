@@ -44,6 +44,13 @@ import { DelayingComponentFieldExtension } from './components/scaffolder/customS
 import {
   AAPTokenFieldExtension,
   AAPResourcePickerExtension,
+  BaseImagePickerFieldExtension,
+  CollectionsPickerFieldExtension,
+  EEFileNamePickerFieldExtension,
+  FileUploadPickerFieldExtension,
+  PackagesPickerFieldExtension,
+  MCPServersPickerFieldExtension,
+  AdditionalBuildStepsPickerFieldExtension,
   SelfServicePage,
 } from '@ansible/plugin-backstage-self-service';
 import { RbacPage } from '@backstage-community/plugin-rbac';
@@ -105,6 +112,13 @@ const routes = (
         <DelayingComponentFieldExtension />
         <AAPTokenFieldExtension />
         <AAPResourcePickerExtension />
+        <BaseImagePickerFieldExtension />
+        <CollectionsPickerFieldExtension />
+        <EEFileNamePickerFieldExtension />
+        <FileUploadPickerFieldExtension />
+        <PackagesPickerFieldExtension />
+        <MCPServersPickerFieldExtension />
+        <AdditionalBuildStepsPickerFieldExtension />
       </ScaffolderFieldExtensions>
     </Route>
     <Route path="/api-docs" element={<ApiExplorerPage />} />
