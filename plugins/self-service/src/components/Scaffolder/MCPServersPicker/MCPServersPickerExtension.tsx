@@ -221,7 +221,7 @@ export const MCPServersPickerExtension = ({
         <Box className={classes.noteBox}>
           <InfoIcon className={classes.noteIcon} />
           <Typography className={classes.noteText}>
-            Update 'mcp-vars.yaml' file if you want to override the default
+            Update the 'mcp-vars.yaml' file if you want to override the default
             variables for the MCP servers selected for installation.
           </Typography>
         </Box>
