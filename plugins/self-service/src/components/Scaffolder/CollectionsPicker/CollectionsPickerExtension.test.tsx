@@ -305,7 +305,7 @@ describe('CollectionsPickerExtension', () => {
       fireEvent.click(submitButton);
 
       expect(props.onChange).toHaveBeenCalledWith([
-        { name: 'community.general', version: '' },
+        { name: 'community.general' },
       ]);
     });
 
@@ -330,8 +330,8 @@ describe('CollectionsPickerExtension', () => {
 
       expect(props.onChange).toHaveBeenCalledTimes(2);
       expect(props.onChange).toHaveBeenLastCalledWith([
-        { name: 'community.general', version: '' },
-        { name: 'ansible.builtin', version: '' },
+        { name: 'community.general' },
+        { name: 'ansible.builtin' },
       ]);
     });
 
@@ -678,7 +678,7 @@ describe('CollectionsPickerExtension', () => {
       fireEvent.click(submitButton);
 
       expect(props.onChange).toHaveBeenCalledWith([
-        { name: 'community.general', version: '' },
+        { name: 'community.general' },
       ]);
     });
 
@@ -1326,9 +1326,7 @@ describe('CollectionsPickerExtension', () => {
       const submitButton = screen.getByText('Add Collection');
       fireEvent.click(submitButton);
 
-      expect(props.onChange).toHaveBeenCalledWith([
-        { name: longName, version: '' },
-      ]);
+      expect(props.onChange).toHaveBeenCalledWith([{ name: longName }]);
     });
 
     it('handles collection names with special characters in valid format', () => {
@@ -1349,7 +1347,7 @@ describe('CollectionsPickerExtension', () => {
       fireEvent.click(submitButton);
 
       expect(props.onChange).toHaveBeenCalledWith([
-        { name: 'ns123.collection_456', version: '' },
+        { name: 'ns123.collection_456' },
       ]);
     });
 
@@ -1394,7 +1392,7 @@ describe('CollectionsPickerExtension', () => {
       fireEvent.click(submitButton);
 
       expect(props.onChange).toHaveBeenCalledWith([
-        { name: 'community.general', version: '' },
+        { name: 'community.general' },
       ]);
     });
 
@@ -2126,7 +2124,7 @@ describe('CollectionsPickerExtension', () => {
       fireEvent.click(submitButton);
 
       expect(props.onChange).toHaveBeenCalledWith([
-        { name: 'community.general', version: '' },
+        { name: 'community.general' },
       ]);
     });
 
@@ -2162,6 +2160,626 @@ describe('CollectionsPickerExtension', () => {
       expect(screen.getByText('collection.one')).toBeInTheDocument();
       expect(screen.getByText('collection.two')).toBeInTheDocument();
       expect(screen.getByText('collection.three')).toBeInTheDocument();
+    });
+  });
+
+  describe('Array Field Support', () => {
+    it('handles signatures array field with comma-separated values', () => {
+      const props = createMockProps({
+        schema: {
+          items: {
+            type: 'object' as const,
+            properties: {
+              name: {
+                type: 'string' as const,
+                title: 'Collection Name',
+              },
+              signatures: {
+                type: 'array' as const,
+                title: 'Signatures (Optional)',
+                items: { type: 'string' as const },
+              },
+            },
+          },
+        },
+      });
+      render(<CollectionsPickerExtension {...props} />);
+
+      const addButton = screen.getByText('Add Collection Manually');
+      fireEvent.click(addButton);
+
+      const nameInput = screen.getByPlaceholderText('e.g., community.general');
+      fireEvent.change(nameInput, { target: { value: 'community.general' } });
+
+      const signaturesInput = screen.getByPlaceholderText(
+        'Enter values separated by commas or newlines',
+      );
+      fireEvent.change(signaturesInput, {
+        target: { value: 'sig1, sig2, sig3' },
+      });
+
+      const submitButton = screen.getByText('Add Collection');
+      fireEvent.click(submitButton);
+
+      expect(props.onChange).toHaveBeenCalledWith([
+        {
+          name: 'community.general',
+          signatures: ['sig1', 'sig2', 'sig3'],
+        },
+      ]);
+    });
+
+    it('handles signatures array field with newline-separated values', () => {
+      const props = createMockProps({
+        schema: {
+          items: {
+            type: 'object' as const,
+            properties: {
+              name: {
+                type: 'string' as const,
+                title: 'Collection Name',
+              },
+              signatures: {
+                type: 'array' as const,
+                title: 'Signatures (Optional)',
+                items: { type: 'string' as const },
+              },
+            },
+          },
+        },
+      });
+      render(<CollectionsPickerExtension {...props} />);
+
+      const addButton = screen.getByText('Add Collection Manually');
+      fireEvent.click(addButton);
+
+      const nameInput = screen.getByPlaceholderText('e.g., community.general');
+      fireEvent.change(nameInput, { target: { value: 'community.general' } });
+
+      const signaturesInput = screen.getByPlaceholderText(
+        'Enter values separated by commas or newlines',
+      );
+      fireEvent.change(signaturesInput, {
+        target: { value: 'sig1\nsig2\nsig3' },
+      });
+
+      const submitButton = screen.getByText('Add Collection');
+      fireEvent.click(submitButton);
+
+      expect(props.onChange).toHaveBeenCalledWith([
+        {
+          name: 'community.general',
+          signatures: ['sig1', 'sig2', 'sig3'],
+        },
+      ]);
+    });
+
+    it('handles empty signatures array field', () => {
+      const props = createMockProps({
+        schema: {
+          items: {
+            type: 'object' as const,
+            properties: {
+              name: {
+                type: 'string' as const,
+                title: 'Collection Name',
+              },
+              signatures: {
+                type: 'array' as const,
+                title: 'Signatures (Optional)',
+                items: { type: 'string' as const },
+              },
+            },
+          },
+        },
+      });
+      render(<CollectionsPickerExtension {...props} />);
+
+      const addButton = screen.getByText('Add Collection Manually');
+      fireEvent.click(addButton);
+
+      const nameInput = screen.getByPlaceholderText('e.g., community.general');
+      fireEvent.change(nameInput, { target: { value: 'community.general' } });
+
+      const submitButton = screen.getByText('Add Collection');
+      fireEvent.click(submitButton);
+
+      expect(props.onChange).toHaveBeenCalledWith([
+        { name: 'community.general' },
+      ]);
+    });
+
+    it('handles editing collection with array field as array', async () => {
+      const props = createMockProps({
+        schema: {
+          items: {
+            type: 'object' as const,
+            properties: {
+              name: {
+                type: 'string' as const,
+                title: 'Collection Name',
+              },
+              signatures: {
+                type: 'array' as const,
+                title: 'Signatures (Optional)',
+                items: { type: 'string' as const },
+              },
+            },
+          },
+        },
+        formData: [{ name: 'community.general', signatures: ['sig1', 'sig2'] }],
+      });
+      render(<CollectionsPickerExtension {...props} />);
+
+      const chip = screen.getByText('community.general');
+      fireEvent.click(chip);
+
+      await waitFor(() => {
+        expect(screen.getByText('Edit Collection')).toBeInTheDocument();
+      });
+
+      const signaturesInput = screen.getByPlaceholderText(
+        'Enter values separated by commas or newlines',
+      );
+      expect(signaturesInput).toHaveValue('sig1, sig2');
+    });
+
+    it('handles editing collection with array field as string', async () => {
+      const props = createMockProps({
+        schema: {
+          items: {
+            type: 'object' as const,
+            properties: {
+              name: {
+                type: 'string' as const,
+                title: 'Collection Name',
+              },
+              signatures: {
+                type: 'array' as const,
+                title: 'Signatures (Optional)',
+                items: { type: 'string' as const },
+              },
+            },
+          },
+        },
+        formData: [{ name: 'community.general', signatures: 'sig1' as any }],
+      });
+      render(<CollectionsPickerExtension {...props} />);
+
+      const chip = screen.getByText('community.general');
+      fireEvent.click(chip);
+
+      await waitFor(() => {
+        expect(screen.getByText('Edit Collection')).toBeInTheDocument();
+      });
+
+      const signaturesInput = screen.getByPlaceholderText(
+        'Enter values separated by commas or newlines',
+      );
+      expect(signaturesInput).toHaveValue('sig1');
+    });
+
+    it('handles required array field', () => {
+      const props = createMockProps({
+        schema: {
+          items: {
+            type: 'object' as const,
+            required: ['name', 'signatures'],
+            properties: {
+              name: {
+                type: 'string' as const,
+                title: 'Collection Name',
+              },
+              signatures: {
+                type: 'array' as const,
+                title: 'Signatures',
+                items: { type: 'string' as const },
+              },
+            },
+          },
+        },
+      });
+      render(<CollectionsPickerExtension {...props} />);
+
+      const addButton = screen.getByText('Add Collection Manually');
+      fireEvent.click(addButton);
+
+      const nameInput = screen.getByPlaceholderText('e.g., community.general');
+      fireEvent.change(nameInput, { target: { value: 'community.general' } });
+
+      const submitButton = screen.getByText('Add Collection');
+      fireEvent.click(submitButton);
+
+      expect(props.onChange).toHaveBeenCalledWith([
+        {
+          name: 'community.general',
+          signatures: [],
+        },
+      ]);
+    });
+  });
+
+  describe('Editing Functionality Edge Cases', () => {
+    it('handles editing with invalid index (negative)', () => {
+      const props = createMockProps({
+        formData: [{ name: 'community.general' }],
+      });
+      render(<CollectionsPickerExtension {...props} />);
+
+      const addButton = screen.getByText('Add Collection Manually');
+      fireEvent.click(addButton);
+
+      expect(screen.getByText('Add New Collection')).toBeInTheDocument();
+    });
+
+    it('handles editing with invalid index (out of bounds)', () => {
+      const props = createMockProps({
+        formData: [{ name: 'community.general' }],
+      });
+      render(<CollectionsPickerExtension {...props} />);
+
+      const addButton = screen.getByText('Add Collection Manually');
+      fireEvent.click(addButton);
+
+      expect(screen.getByText('Add New Collection')).toBeInTheDocument();
+    });
+
+    it('updates existing collection when editing', async () => {
+      const props = createMockProps({
+        formData: [{ name: 'community.general', version: '1.0.0' }],
+      });
+      render(<CollectionsPickerExtension {...props} />);
+
+      const chip = screen.getByText('community.general');
+      fireEvent.click(chip);
+
+      await waitFor(() => {
+        expect(screen.getByText('Edit Collection')).toBeInTheDocument();
+      });
+
+      const versionInput = screen.getByPlaceholderText('e.g., 7.2.1');
+      fireEvent.change(versionInput, { target: { value: '2.0.0' } });
+
+      const updateButton = screen.getByText('Update Collection');
+      fireEvent.click(updateButton);
+
+      expect(props.onChange).toHaveBeenCalledWith([
+        { name: 'community.general', version: '2.0.0' },
+      ]);
+    });
+
+    it('does not add duplicate when editing', async () => {
+      const props = createMockProps({
+        formData: [{ name: 'community.general' }],
+      });
+      render(<CollectionsPickerExtension {...props} />);
+
+      const chip = screen.getByText('community.general');
+      fireEvent.click(chip);
+
+      await waitFor(() => {
+        expect(screen.getByText('Edit Collection')).toBeInTheDocument();
+      });
+
+      const updateButton = screen.getByText('Update Collection');
+      fireEvent.click(updateButton);
+
+      expect(props.onChange).toHaveBeenCalledTimes(1);
+      expect(props.onChange).toHaveBeenCalledWith([
+        { name: 'community.general' },
+      ]);
+    });
+  });
+
+  describe('Required Field Validation', () => {
+    it('validates required non-name field', () => {
+      const props = createMockProps({
+        schema: {
+          items: {
+            type: 'object' as const,
+            required: ['name', 'version'],
+            properties: {
+              name: {
+                type: 'string' as const,
+                title: 'Collection Name',
+              },
+              version: {
+                type: 'string' as const,
+                title: 'Version',
+              },
+            },
+          },
+        },
+      });
+      render(<CollectionsPickerExtension {...props} />);
+
+      const addButton = screen.getByText('Add Collection Manually');
+      fireEvent.click(addButton);
+
+      const nameInput = screen.getByPlaceholderText('e.g., community.general');
+      fireEvent.change(nameInput, { target: { value: 'community.general' } });
+
+      const submitButton = screen.getByText('Add Collection');
+      fireEvent.click(submitButton);
+
+      expect(screen.getByText(/Version is required/i)).toBeInTheDocument();
+      expect(submitButton.closest('button')).toHaveAttribute('disabled');
+    });
+  });
+
+  describe('Field Metadata Edge Cases', () => {
+    it('handles ui.placeholder (dot notation)', () => {
+      const props = createMockProps({
+        schema: {
+          items: {
+            type: 'object' as const,
+            properties: {
+              name: {
+                type: 'string' as const,
+                title: 'Collection Name',
+                ui: { placeholder: 'Custom placeholder' },
+              },
+            },
+          },
+        },
+      });
+      render(<CollectionsPickerExtension {...props} />);
+
+      const addButton = screen.getByText('Add Collection Manually');
+      fireEvent.click(addButton);
+
+      expect(
+        screen.getByPlaceholderText('Custom placeholder'),
+      ).toBeInTheDocument();
+    });
+
+    it('handles enumNames for enum fields', async () => {
+      const props = createMockProps({
+        schema: {
+          items: {
+            type: 'object' as const,
+            properties: {
+              name: {
+                type: 'string' as const,
+                title: 'Collection Name',
+              },
+              type: {
+                type: 'string' as const,
+                title: 'Type',
+                enum: ['file', 'galaxy'],
+                enumNames: ['File System', 'Galaxy Server'],
+              },
+            },
+          },
+        },
+      });
+      render(<CollectionsPickerExtension {...props} />);
+
+      const addButton = screen.getByText('Add Collection Manually');
+      fireEvent.click(addButton);
+
+      await waitFor(() => {
+        const dialog = document.querySelector('.MuiDialog-root');
+        expect(dialog).toBeInTheDocument();
+      });
+
+      const select = document.querySelector(
+        '[aria-haspopup="listbox"]',
+      ) as HTMLElement;
+      fireEvent.mouseDown(select);
+
+      await waitFor(() => {
+        expect(screen.getByText('File System')).toBeInTheDocument();
+        expect(screen.getByText('Galaxy Server')).toBeInTheDocument();
+      });
+    });
+  });
+
+  describe('Collection Display Edge Cases', () => {
+    it('displays "Unnamed" for collection without name', () => {
+      const props = createMockProps({
+        formData: [{ name: '' } as any],
+      });
+      render(<CollectionsPickerExtension {...props} />);
+
+      expect(screen.getByText('Unnamed')).toBeInTheDocument();
+    });
+
+    it('handles collection with undefined name', () => {
+      const props = createMockProps({
+        formData: [{} as any],
+      });
+      render(<CollectionsPickerExtension {...props} />);
+
+      expect(screen.getByText('Unnamed')).toBeInTheDocument();
+    });
+  });
+
+  describe('Form Data Updates', () => {
+    it('updates collections when formData changes', () => {
+      const props = createMockProps({
+        formData: [{ name: 'collection.one' }],
+      });
+      const { rerender } = render(<CollectionsPickerExtension {...props} />);
+
+      expect(screen.getByText('collection.one')).toBeInTheDocument();
+
+      const newProps = {
+        ...props,
+        formData: [{ name: 'collection.one' }, { name: 'collection.two' }],
+      };
+      rerender(<CollectionsPickerExtension {...newProps} />);
+
+      expect(screen.getByText('collection.one')).toBeInTheDocument();
+      expect(screen.getByText('collection.two')).toBeInTheDocument();
+    });
+
+    it('handles formData as undefined', () => {
+      const props = createMockProps({
+        formData: undefined as any,
+      });
+      render(<CollectionsPickerExtension {...props} />);
+
+      expect(screen.getByText('Add Collection Manually')).toBeInTheDocument();
+      expect(screen.queryByText('community.general')).not.toBeInTheDocument();
+    });
+  });
+
+  describe('Dialog State Management', () => {
+    it('resets state when dialog closes', () => {
+      const props = createMockProps();
+      render(<CollectionsPickerExtension {...props} />);
+
+      const addButton = screen.getByText('Add Collection Manually');
+      fireEvent.click(addButton);
+
+      const nameInput = screen.getByPlaceholderText(
+        'e.g., community.general, abc.abc',
+      );
+      fireEvent.change(nameInput, { target: { value: 'test' } });
+
+      const cancelButton = screen.getByText('Cancel');
+      fireEvent.click(cancelButton);
+
+      fireEvent.click(addButton);
+
+      const nameInputAfterClose = screen.getByPlaceholderText(
+        'e.g., community.general, abc.abc',
+      );
+      expect(nameInputAfterClose).toHaveValue('');
+    });
+
+    it('closes dialog when clicking close icon', async () => {
+      const props = createMockProps();
+      render(<CollectionsPickerExtension {...props} />);
+
+      const addButton = screen.getByText('Add Collection Manually');
+      fireEvent.click(addButton);
+
+      expect(screen.getByText('Add New Collection')).toBeInTheDocument();
+
+      const closeButton = screen.getByLabelText('close');
+      fireEvent.click(closeButton);
+
+      await waitFor(() => {
+        expect(
+          screen.queryByText('Add New Collection'),
+        ).not.toBeInTheDocument();
+      });
+    });
+  });
+
+  describe('Field Change Handling', () => {
+    it('clears error for non-name field when changed', () => {
+      const props = createMockProps();
+      render(<CollectionsPickerExtension {...props} />);
+
+      const addButton = screen.getByText('Add Collection Manually');
+      fireEvent.click(addButton);
+
+      const versionInput = screen.getByPlaceholderText('e.g., 7.2.1');
+      fireEvent.change(versionInput, { target: { value: 'test' } });
+      fireEvent.change(versionInput, { target: { value: '' } });
+
+      expect(screen.queryByText(/is required/i)).not.toBeInTheDocument();
+    });
+
+    it('validates name field only when it has content', () => {
+      const props = createMockProps();
+      render(<CollectionsPickerExtension {...props} />);
+
+      const addButton = screen.getByText('Add Collection Manually');
+      fireEvent.click(addButton);
+
+      const nameInput = screen.getByPlaceholderText(
+        'e.g., community.general, abc.abc',
+      );
+
+      fireEvent.change(nameInput, { target: { value: '' } });
+      expect(
+        screen.queryByText('Collection name is required'),
+      ).not.toBeInTheDocument();
+
+      fireEvent.change(nameInput, { target: { value: 'invalid' } });
+      expect(
+        screen.getByText(
+          'Collection name must be in namespace.collection format (e.g., community.general)',
+        ),
+      ).toBeInTheDocument();
+
+      fireEvent.change(nameInput, { target: { value: 'community.general' } });
+      expect(
+        screen.queryByText(
+          'Collection name must be in namespace.collection format',
+        ),
+      ).not.toBeInTheDocument();
+    });
+  });
+
+  describe('Button State', () => {
+    it('disables submit button when name is empty', () => {
+      const props = createMockProps();
+      render(<CollectionsPickerExtension {...props} />);
+
+      const addButton = screen.getByText('Add Collection Manually');
+      fireEvent.click(addButton);
+
+      const submitButton = screen.getByText('Add Collection');
+      expect(submitButton.closest('button')).toHaveAttribute('disabled');
+    });
+
+    it('disables submit button when there are validation errors', () => {
+      const props = createMockProps();
+      render(<CollectionsPickerExtension {...props} />);
+
+      const addButton = screen.getByText('Add Collection Manually');
+      fireEvent.click(addButton);
+
+      const nameInput = screen.getByPlaceholderText(
+        'e.g., community.general, abc.abc',
+      );
+      fireEvent.change(nameInput, { target: { value: 'invalid' } });
+
+      const submitButton = screen.getByText('Add Collection');
+      expect(submitButton.closest('button')).toHaveAttribute('disabled');
+    });
+  });
+
+  describe('Raw Errors Display', () => {
+    it('displays rawErrors when provided', () => {
+      const props = createMockProps({
+        rawErrors: ['Error 1', 'Error 2'],
+      });
+      render(<CollectionsPickerExtension {...props} />);
+
+      expect(screen.getByText('Error 1, Error 2')).toBeInTheDocument();
+    });
+
+    it('does not display rawErrors when empty', () => {
+      const props = createMockProps({
+        rawErrors: [],
+      });
+      render(<CollectionsPickerExtension {...props} />);
+
+      expect(screen.queryByText(/Error/i)).not.toBeInTheDocument();
+    });
+  });
+
+  describe('Disabled State Edge Cases', () => {
+    it('disables all interactions when disabled prop is true', () => {
+      const props = createMockProps({
+        disabled: true,
+        formData: [{ name: 'community.general' }],
+      });
+      render(<CollectionsPickerExtension {...props} />);
+
+      const addButton = screen.getByText('Add Collection Manually');
+      expect(addButton.closest('button')).toHaveAttribute('disabled');
+
+      const chip = screen.getByText('community.general');
+      fireEvent.click(chip);
+
+      expect(screen.queryByText('Add New Collection')).not.toBeInTheDocument();
     });
   });
 });
