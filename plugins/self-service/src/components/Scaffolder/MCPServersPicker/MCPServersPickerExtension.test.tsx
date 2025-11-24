@@ -90,7 +90,7 @@ describe('MCPServersPickerExtension', () => {
       render(<MCPServersPickerExtension {...props} />);
       expect(
         screen.queryByText(
-          'Update placeholder values within the YAML file once the EE definition file is created.',
+          'Update \'mcp-vars.yaml\' file if you want to override the default variables for the MCP servers selected for installation.',
         ),
       ).not.toBeInTheDocument();
     });
@@ -253,7 +253,7 @@ describe('MCPServersPickerExtension', () => {
 
       expect(
         screen.getByText(
-          'Update placeholder values within the YAML file once the EE definition file is created.',
+          'Update \'mcp-vars.yaml\' file if you want to override the default variables for the MCP servers selected for installation.',
         ),
       ).toBeInTheDocument();
     });
@@ -264,7 +264,7 @@ describe('MCPServersPickerExtension', () => {
       render(<MCPServersPickerExtension {...props} />);
 
       const noteBoxes = screen.getAllByText(
-        'Update placeholder values within the YAML file once the EE definition file is created.',
+        'Update \'mcp-vars.yaml\' file if you want to override the default variables for the MCP servers selected for installation.',
       );
       expect(noteBoxes.length).toBe(1);
     });
@@ -276,7 +276,7 @@ describe('MCPServersPickerExtension', () => {
 
       expect(
         screen.getByText(
-          'Update placeholder values within the YAML file once the EE definition file is created.',
+          'Update \'mcp-vars.yaml\' file if you want to override the default variables for the MCP servers selected for installation.',
         ),
       ).toBeInTheDocument();
 
@@ -284,7 +284,7 @@ describe('MCPServersPickerExtension', () => {
 
       expect(
         screen.queryByText(
-          'Update placeholder values within the YAML file once the EE definition file is created.',
+          'Update \'mcp-vars.yaml\' file if you want to override the default variables for the MCP servers selected for installation.',
         ),
       ).not.toBeInTheDocument();
     });
@@ -498,7 +498,7 @@ describe('MCPServersPickerExtension', () => {
 
       expect(
         screen.getByText(
-          'Update placeholder values within the YAML file once the EE definition file is created.',
+          'Update \'mcp-vars.yaml\' file if you want to override the default variables for the MCP servers selected for installation.',
         ),
       ).toBeInTheDocument();
 
@@ -509,7 +509,7 @@ describe('MCPServersPickerExtension', () => {
 
       expect(
         screen.queryByText(
-          'Update placeholder values within the YAML file once the EE definition file is created.',
+          'Update \'mcp-vars.yaml\' file if you want to override the default variables for the MCP servers selected for installation.',
         ),
       ).not.toBeInTheDocument();
 

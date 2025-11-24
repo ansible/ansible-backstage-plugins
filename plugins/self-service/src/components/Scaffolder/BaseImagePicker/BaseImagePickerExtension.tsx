@@ -11,6 +11,7 @@ import {
 import { makeStyles } from '@material-ui/core/styles';
 import AccessTimeIcon from '@material-ui/icons/AccessTime';
 import CheckCircleIcon from '@material-ui/icons/CheckCircle';
+import InfoIcon from '@material-ui/icons/Info';
 import { parseMarkdownLinks } from '../utils/parseMarkdownLinks';
 
 const useStyles = makeStyles(theme => ({
@@ -58,6 +59,26 @@ const useStyles = makeStyles(theme => ({
   tag: {
     fontSize: '0.7rem',
     height: '20px',
+  },
+  noteBox: {
+    display: 'flex',
+    alignItems: 'flex-start',
+    padding: theme.spacing(1.5),
+    border: `2px solid #81c784`,
+    borderRadius: theme.shape.borderRadius,
+    backgroundColor: theme.palette.background.paper,
+    marginTop: theme.spacing(2),
+  },
+  noteIcon: {
+    color: '#81c784',
+    marginRight: theme.spacing(1),
+    marginTop: theme.spacing(0.25),
+    fontSize: '1.2rem',
+  },
+  noteText: {
+    color: theme.palette.text.primary,
+    fontSize: '0.875rem',
+    lineHeight: 1.5,
   },
 }));
 
@@ -211,6 +232,16 @@ export const BaseImagePickerExtension = ({
           ))}
         </RadioGroup>
       </FormControl>
+
+      {formData === 'custom' && (
+        <Box className={classes.noteBox}>
+          <InfoIcon className={classes.noteIcon} />
+          <Typography className={classes.noteText}>
+            When using a custom base image, please ensure that it has
+            ansible-core and ansible-runner available in it.
+          </Typography>
+        </Box>
+      )}
 
       {rawErrors.length > 0 && (
         <Typography

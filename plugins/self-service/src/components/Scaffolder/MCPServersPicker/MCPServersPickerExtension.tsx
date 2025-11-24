@@ -221,8 +221,8 @@ export const MCPServersPickerExtension = ({
         <Box className={classes.noteBox}>
           <InfoIcon className={classes.noteIcon} />
           <Typography className={classes.noteText}>
-            Update placeholder values within the YAML file once the EE
-            definition file is created.
+            Update 'mcp-vars.yaml' file if you want to override the default
+            variables for the MCP servers selected for installation.
           </Typography>
         </Box>
       )}
