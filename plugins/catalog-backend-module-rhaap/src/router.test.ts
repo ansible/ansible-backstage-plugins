@@ -428,6 +428,196 @@ describe('createRouter', () => {
     });
   });
 
+  describe('POST /aap/register_ee', () => {
+    it('should successfully register an execution environment', async () => {
+      const mockRegisterExecutionEnvironment = jest
+        .fn()
+        .mockResolvedValue(undefined);
+      const mockProvider = {
+        registerExecutionEnvironment: mockRegisterExecutionEnvironment,
+      };
+
+      const testApp = express();
+      testApp.use(express.json());
+      testApp.use(
+        '/',
+        await createRouter({
+          logger: mockLogger,
+          aapEntityProvider: mockProvider as any,
+          jobTemplateProvider: {} as any,
+        }),
+      );
+
+      const mockEntity = {
+        apiVersion: 'backstage.io/v1alpha1',
+        kind: 'Component',
+        metadata: {
+          name: 'test-ee',
+          title: 'test-ee',
+          description: 'test-ee',
+          tags: ['test-ee'],
+          annotations: {
+            'backstage.io/managed-by-location': `url:127.0.0.1`,
+            'backstage.io/managed-by-origin-location': `url:127.0.0.1`,
+            'ansible.io/download-experience': 'true',
+          },
+        },
+        spec: {
+          type: 'execution-environment',
+          lifecycle: 'production',
+          owner: 'team-a',
+          definition: 'sample \ntest-ee \ndefinition',
+          readme: 'sample \ntest-ee \nreadme',
+        },
+      };
+
+      const response = await request(testApp)
+        .post('/aap/register_ee')
+        .send({ entity: mockEntity })
+        .expect(200);
+
+      expect(response.body).toEqual({
+        success: true,
+      });
+      expect(mockRegisterExecutionEnvironment).toHaveBeenCalledWith(mockEntity);
+    });
+
+    it('should return 400 when entity is missing', async () => {
+      const mockProvider = {
+        registerExecutionEnvironment: jest.fn(),
+      };
+
+      const testApp = express();
+      testApp.use(express.json());
+      testApp.use(
+        '/',
+        await createRouter({
+          logger: mockLogger,
+          aapEntityProvider: mockProvider as any,
+          jobTemplateProvider: {} as any,
+        }),
+      );
+
+      const response = await request(testApp)
+        .post('/aap/register_ee')
+        .send({})
+        .expect(400);
+
+      expect(response.body).toEqual({
+        error: 'Missing entity in request body.',
+      });
+      expect(mockProvider.registerExecutionEnvironment).not.toHaveBeenCalled();
+    });
+
+    it('should return 400 when entity is null', async () => {
+      const mockProvider = {
+        registerExecutionEnvironment: jest.fn(),
+      };
+
+      const testApp = express();
+      testApp.use(express.json());
+      testApp.use(
+        '/',
+        await createRouter({
+          logger: mockLogger,
+          aapEntityProvider: mockProvider as any,
+          jobTemplateProvider: {} as any,
+        }),
+      );
+
+      const response = await request(testApp)
+        .post('/aap/register_ee')
+        .send({ entity: null })
+        .expect(400);
+
+      expect(response.body).toEqual({
+        error: 'Missing entity in request body.',
+      });
+      expect(mockProvider.registerExecutionEnvironment).not.toHaveBeenCalled();
+    });
+
+    it('should handle registerExecutionEnvironment failure with proper error response', async () => {
+      const mockRegisterExecutionEnvironment = jest
+        .fn()
+        .mockRejectedValue(
+          new Error('Execution Environment registration failed'),
+        );
+      const mockProvider = {
+        registerExecutionEnvironment: mockRegisterExecutionEnvironment,
+      };
+
+      const testApp = express();
+      testApp.use(express.json());
+      testApp.use(
+        '/',
+        await createRouter({
+          logger: mockLogger,
+          aapEntityProvider: mockProvider as any,
+          jobTemplateProvider: {} as any,
+        }),
+      );
+
+      const mockEntity = {
+        apiVersion: 'backstage.io/v1alpha1',
+        kind: 'Component',
+        metadata: { name: 'test-ee' },
+      };
+
+      const response = await request(testApp)
+        .post('/aap/register_ee')
+        .send({ entity: mockEntity })
+        .expect(500);
+
+      expect(response.body).toEqual({
+        error:
+          'Failed to register Execution Environment: Execution Environment registration failed',
+      });
+      expect(mockRegisterExecutionEnvironment).toHaveBeenCalledWith(mockEntity);
+      expect(mockLogger.error).toHaveBeenCalledWith(
+        'Failed to register Execution Environment: Execution Environment registration failed',
+      );
+    });
+
+    it('should handle non-Error exceptions gracefully', async () => {
+      const mockRegisterExecutionEnvironment = jest
+        .fn()
+        .mockRejectedValue('String error');
+      const mockProvider = {
+        registerExecutionEnvironment: mockRegisterExecutionEnvironment,
+      };
+
+      const testApp = express();
+      testApp.use(express.json());
+      testApp.use(
+        '/',
+        await createRouter({
+          logger: mockLogger,
+          aapEntityProvider: mockProvider as any,
+          jobTemplateProvider: {} as any,
+        }),
+      );
+
+      const mockEntity = {
+        apiVersion: 'backstage.io/v1alpha1',
+        kind: 'Component',
+        metadata: { name: 'test-ee' },
+      };
+
+      const response = await request(testApp)
+        .post('/aap/register_ee')
+        .send({ entity: mockEntity })
+        .expect(500);
+
+      expect(response.body).toEqual({
+        error: 'Failed to register Execution Environment: String error',
+      });
+      expect(mockRegisterExecutionEnvironment).toHaveBeenCalledWith(mockEntity);
+      expect(mockLogger.error).toHaveBeenCalledWith(
+        'Failed to register Execution Environment: String error',
+      );
+    });
+  });
+
   describe('Router setup', () => {
     it('should use express.json() middleware', async () => {
       const response = await request(app)

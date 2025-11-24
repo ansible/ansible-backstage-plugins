@@ -26,6 +26,8 @@ export const catalogModuleRhaap = createBackendModule({
         scheduler: coreServices.scheduler,
         ansibleService: ansibleServiceRef,
         httpRouter: coreServices.httpRouter,
+        discovery: coreServices.discovery,
+        auth: coreServices.auth,
       },
       async init({
         logger,
@@ -56,7 +58,6 @@ export const catalogModuleRhaap = createBackendModule({
             scheduler,
           },
         );
-
         const jobTemplateProvider = AAPJobTemplateProvider.fromConfig(
           config,
           ansibleService,
