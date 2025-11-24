@@ -20,13 +20,14 @@ import {
   useEntityList,
   useStarredEntities,
 } from '@backstage/plugin-catalog-react';
-import { Table, TableColumn, Link } from '@backstage/core-components';
-import { Chip } from '@material-ui/core';
+import { Table, TableColumn } from '@backstage/core-components';
+import { Chip, IconButton } from '@material-ui/core';
 import Edit from '@material-ui/icons/Edit';
 import { Tooltip } from '@material-ui/core';
 import { ANNOTATION_EDIT_URL, Entity } from '@backstage/catalog-model';
 import StarBorder from '@material-ui/icons/StarBorder';
 import { useApi } from '@backstage/core-plugin-api';
+import { useNavigate } from 'react-router-dom';
 import { useEffectOnce } from 'react-use';
 import { YellowStar } from './Favourites';
 import { CreateCatalog } from './CreateCatalog';
@@ -65,6 +66,34 @@ const useStyles = makeStyles(theme => ({
       fontWeight: 500,
     },
   },
+  actionButton: {
+    cursor: 'pointer',
+    padding: theme.spacing(0.5),
+    position: 'relative',
+    zIndex: 10,
+    '&:hover': {
+      opacity: 0.7,
+    },
+    '&:focus': {
+      outline: 'none',
+    },
+  },
+  entityLink: {
+    cursor: 'pointer',
+    color: theme.palette.primary.main,
+    textDecoration: 'none',
+    background: 'none',
+    border: 'none',
+    padding: 0,
+    font: 'inherit',
+    fontWeight: 'normal',
+    textAlign: 'left',
+    position: 'relative',
+    zIndex: 10,
+    '&:hover': {
+      textDecoration: 'underline',
+    },
+  },
   description: {
     color: theme.palette.text.secondary,
     fontSize: 16,
@@ -92,6 +121,7 @@ export const EEListPage = ({
 }) => {
   const classes = useStyles();
   const catalogApi = useApi(catalogApiRef);
+  const navigate = useNavigate();
   const { isStarredEntity, toggleStarredEntity } = useStarredEntities();
   const [loading, setLoading] = useState<boolean>(true);
   const [showError, setShowError] = useState<boolean>(false);
@@ -103,7 +133,7 @@ export const EEListPage = ({
   const [allOwners, setAllOwners] = useState<string[]>(['All']);
   const [allTags, setAllTags] = useState<string[]>(['All']);
   const [filtered, setFiltered] = useState<boolean>(true);
-  const { filters } = useEntityList();
+  const { filters, updateFilters } = useEntityList();
 
   const getUniqueOwnersAndTags = (entities: Entity[]) => {
     const owners = Array.from(
@@ -171,6 +201,7 @@ export const EEListPage = ({
   }, [ownerFilter, tagFilter, allEntities]);
 
   useEffectOnce(() => {
+    updateFilters({ ...filters, tags: new EntityTagFilter(['ansible']) });
     callApi();
   });
 
@@ -196,11 +227,37 @@ export const EEListPage = ({
       id: 'name',
       field: 'metadata.name',
       highlight: true,
-      render: (entity: any) => (
-        <Link to={`/self-service/catalog/${entity.metadata.name}`}>
-          {entity.metadata.name}
-        </Link>
-      ),
+      render: (entity: any) => {
+        const entityName = entity.metadata.name;
+        const linkPath = `/self-service/catalog/${entityName}`;
+
+        const handleClick = (e: React.MouseEvent | React.KeyboardEvent) => {
+          e.preventDefault();
+          e.stopPropagation();
+          navigate(linkPath);
+        };
+
+        return (
+          <button
+            type="button"
+            onClick={handleClick}
+            onMouseDown={(e: React.MouseEvent) => {
+              e.preventDefault();
+              e.stopPropagation();
+              navigate(linkPath);
+            }}
+            onKeyDown={(e: React.KeyboardEvent) => {
+              if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault();
+                handleClick(e);
+              }
+            }}
+            className={classes.entityLink}
+          >
+            {entityName}
+          </button>
+        );
+      },
     },
     { title: 'Owner', field: 'spec.owner', id: 'owner' },
     { title: 'Description', field: 'metadata.description', id: 'description' },
@@ -232,17 +289,33 @@ export const EEListPage = ({
           : 'Add to favorites';
 
         return (
-          <div className={classes.flex}>
+          <div
+            className={classes.flex}
+            style={{ position: 'relative', zIndex: 1 }}
+          >
             <Tooltip title={starredTitle}>
-              <div>
+              <IconButton
+                size="small"
+                onClick={(e: React.MouseEvent) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  toggleStarredEntity(entity);
+                }}
+                onMouseDown={(e: React.MouseEvent) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  toggleStarredEntity(entity);
+                }}
+                onMouseUp={(e: React.MouseEvent) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                }}
+                className={classes.actionButton}
+                aria-label={starredTitle}
+              >
                 <Typography style={visuallyHidden}>{starredTitle}</Typography>
-                <Typography
-                  component="span"
-                  onClick={() => toggleStarredEntity(entity)}
-                >
-                  {isStarred ? <YellowStar /> : <StarBorder />}
-                </Typography>
-              </div>
+                {isStarred ? <YellowStar /> : <StarBorder />}
+              </IconButton>
             </Tooltip>
             {!(
               entity &&
@@ -254,12 +327,33 @@ export const EEListPage = ({
                 .trim() === 'true'
             ) && (
               <Tooltip title="Edit">
-                <div className={classes.ml_16}>
-                  <a href={editUrl} target="_blank">
-                    <Typography style={visuallyHidden}>{title}</Typography>
-                    <Edit fontSize="small" />
-                  </a>
-                </div>
+                <IconButton
+                  size="small"
+                  onClick={(e: React.MouseEvent) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    if (editUrl) {
+                      window.open(editUrl, '_blank', 'noopener,noreferrer');
+                    }
+                  }}
+                  onMouseDown={(e: React.MouseEvent) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    if (editUrl) {
+                      window.open(editUrl, '_blank', 'noopener,noreferrer');
+                    }
+                  }}
+                  onMouseUp={(e: React.MouseEvent) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                  }}
+                  className={classes.actionButton}
+                  aria-label={title}
+                  disabled={!editUrl}
+                >
+                  <Typography style={visuallyHidden}>{title}</Typography>
+                  <Edit fontSize="small" />
+                </IconButton>
               </Tooltip>
             )}
           </div>
@@ -328,6 +422,7 @@ export const EEListPage = ({
                 title={`Execution Environments definition files (${ansibleComponents?.length})`}
                 options={{
                   search: true,
+                  rowStyle: { cursor: 'default' },
                 }}
                 columns={columns}
                 data={ansibleComponents || []}

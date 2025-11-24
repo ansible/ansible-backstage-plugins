@@ -14,7 +14,7 @@ import {
   Popover,
   ListItemIcon,
 } from '@material-ui/core';
-import { makeStyles } from '@material-ui/core/styles';
+import { makeStyles, useTheme } from '@material-ui/core/styles';
 import MoreVertIcon from '@material-ui/icons/MoreVert';
 import GetAppIcon from '@material-ui/icons/GetApp';
 import CancelIcon from '@material-ui/icons/Cancel';
@@ -56,7 +56,7 @@ const useStyles = makeStyles(theme => ({
     padding: theme.spacing(1.5, 2.2),
   },
   linkText: {
-    color: '#1976d2',
+    color: theme.palette.primary.main,
     fontWeight: 500,
     cursor: 'pointer',
     transition: 'all 0.2s ease',
@@ -111,6 +111,7 @@ const useStyles = makeStyles(theme => ({
 export const EEDetailsPage: React.FC = () => {
   const { templateName } = useParams<{ templateName: string }>();
   const classes = useStyles();
+  const theme = useTheme();
   const navigate = useNavigate();
   const [tab, setTab] = useState(0);
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
@@ -604,17 +605,12 @@ export const EEDetailsPage: React.FC = () => {
                             marginLeft: 10,
                             marginBottom: 10,
                             cursor: 'pointer',
-                            color: '#1976d2',
                           }}
                         >
                           {item.icon}
                           <Typography
                             variant="body1"
                             className={classes.linkText}
-                            style={{
-                              color: '#1976d2',
-                              transition: 'all 0.2s ease',
-                            }}
                           >
                             {item.text}
                           </Typography>
@@ -674,7 +670,9 @@ export const EEDetailsPage: React.FC = () => {
                             }
                             target="_blank"
                           >
-                            <EditIcon style={{ color: '#1976d2' }} />
+                            <EditIcon
+                              style={{ color: theme.palette.primary.main }}
+                            />
                           </a>
                         </>
                       </IconButton>
@@ -710,12 +708,15 @@ export const EEDetailsPage: React.FC = () => {
                       }}
                     >
                       <DescriptionOutlinedIcon
-                        style={{ color: '#1976d2', fontSize: 30 }}
+                        style={{
+                          color: theme.palette.primary.main,
+                          fontSize: 30,
+                        }}
                       />
                       <Typography
                         variant="body2"
                         style={{
-                          color: '#1976d2',
+                          color: theme.palette.primary.main,
                           fontWeight: 600,
                           marginTop: 6,
                         }}
@@ -734,11 +735,16 @@ export const EEDetailsPage: React.FC = () => {
                         minWidth: 120,
                       }}
                     >
-                      <GitHubIcon style={{ color: '#1976d2', fontSize: 30 }} />
+                      <GitHubIcon
+                        style={{
+                          color: theme.palette.primary.main,
+                          fontSize: 30,
+                        }}
+                      />
                       <Typography
                         variant="body2"
                         style={{
-                          color: '#1976d2',
+                          color: theme.palette.primary.main,
                           fontWeight: 600,
                           marginTop: 6,
                         }}
@@ -778,7 +784,10 @@ export const EEDetailsPage: React.FC = () => {
                     </Typography>
                     <Typography
                       variant="body2"
-                      style={{ color: '#1976d2', cursor: 'pointer' }}
+                      style={{
+                        color: theme.palette.primary.main,
+                        cursor: 'pointer',
+                      }}
                     >
                       {entity?.spec?.owner ??
                         entity?.metadata?.namespace ??
