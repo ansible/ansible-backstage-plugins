@@ -43,7 +43,6 @@ export async function createRouter(options: {
     const owner = req.query.owner!.toString();
     const repository = req.query.repository!.toString();
     const subdir = req.query.subdir!.toString();
-    const host = req.query.host?.toString(); // optional for GitHub
 
     // Only allow supported SCM types
     const allowedScm = ['Github', 'Gitlab'];
@@ -76,14 +75,22 @@ export async function createRouter(options: {
     }
 
     // Determine the correct README URL
-    let readmeUrl: string = '';
+    let readmeContent: string = '';
     if (scm === 'Github') {
-      readmeUrl = `https://raw.githubusercontent.com/${owner}/${repository}/refs/heads/main/${subdir}/README.md`;
+      readmeContent = await useCaseMaker.fetchGithubFileContent({
+        owner: owner,
+        repo: repository,
+        filePath: `${subdir}/README.md`,
+        branch: 'main',
+      });
     } else if (scm === 'Gitlab') {
-      readmeUrl = `https://${host}/${owner}/${repository}/-/raw/main/${subdir}/README.md`;
+      readmeContent = await useCaseMaker.fetchGitlabFileContent({
+        owner: owner,
+        repo: repository,
+        filePath: `${subdir}/README.md`,
+        branch: 'main',
+      });
     }
-    const readmeContent = await useCaseMaker.fetchReadmeContent({ readmeUrl });
-
     res.type('text/markdown');
     return res.send(readmeContent);
   });

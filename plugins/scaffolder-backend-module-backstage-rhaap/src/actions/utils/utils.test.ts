@@ -156,4 +156,22 @@ describe('parseUploadedFileContent', () => {
 
     expect(result).toBe('Hello');
   });
+
+  it('should throw error when Buffer.from fails to parse base64 data', () => {
+    const dataUrl = 'data:text/plain;base64,SGVsbG8=';
+    const originalBufferFrom = Buffer.from;
+    const mockError = new Error('Invalid base64 encoding');
+
+    // Mock Buffer.from to throw an error
+    Buffer.from = jest.fn(() => {
+      throw mockError;
+    });
+
+    expect(() => {
+      parseUploadedFileContent(dataUrl);
+    }).toThrow('Failed to parse data URL: Invalid base64 encoding');
+
+    // Restore original Buffer.from
+    Buffer.from = originalBufferFrom;
+  });
 });

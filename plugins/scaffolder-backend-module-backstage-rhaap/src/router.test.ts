@@ -34,7 +34,8 @@ describe('createRouter', () => {
   let mockAnsibleConfig: AnsibleConfig;
   let mockUseCaseMakerInstance: {
     checkIfRepositoryExists: jest.Mock;
-    fetchReadmeContent: jest.Mock;
+    fetchGithubFileContent: jest.Mock;
+    fetchGitlabFileContent: jest.Mock;
   };
 
   beforeEach(async () => {
@@ -57,7 +58,8 @@ describe('createRouter', () => {
 
     mockUseCaseMakerInstance = {
       checkIfRepositoryExists: jest.fn(),
-      fetchReadmeContent: jest.fn(),
+      fetchGithubFileContent: jest.fn(),
+      fetchGitlabFileContent: jest.fn(),
     };
 
     MockUseCaseMaker.mockImplementation(() => {
@@ -92,7 +94,10 @@ describe('createRouter', () => {
         mockUseCaseMakerInstance.checkIfRepositoryExists,
       ).not.toHaveBeenCalled();
       expect(
-        mockUseCaseMakerInstance.fetchReadmeContent,
+        mockUseCaseMakerInstance.fetchGithubFileContent,
+      ).not.toHaveBeenCalled();
+      expect(
+        mockUseCaseMakerInstance.fetchGitlabFileContent,
       ).not.toHaveBeenCalled();
     });
 
@@ -111,7 +116,10 @@ describe('createRouter', () => {
         mockUseCaseMakerInstance.checkIfRepositoryExists,
       ).not.toHaveBeenCalled();
       expect(
-        mockUseCaseMakerInstance.fetchReadmeContent,
+        mockUseCaseMakerInstance.fetchGithubFileContent,
+      ).not.toHaveBeenCalled();
+      expect(
+        mockUseCaseMakerInstance.fetchGitlabFileContent,
       ).not.toHaveBeenCalled();
     });
 
@@ -130,7 +138,10 @@ describe('createRouter', () => {
         mockUseCaseMakerInstance.checkIfRepositoryExists,
       ).not.toHaveBeenCalled();
       expect(
-        mockUseCaseMakerInstance.fetchReadmeContent,
+        mockUseCaseMakerInstance.fetchGithubFileContent,
+      ).not.toHaveBeenCalled();
+      expect(
+        mockUseCaseMakerInstance.fetchGitlabFileContent,
       ).not.toHaveBeenCalled();
     });
 
@@ -147,7 +158,10 @@ describe('createRouter', () => {
         mockUseCaseMakerInstance.checkIfRepositoryExists,
       ).not.toHaveBeenCalled();
       expect(
-        mockUseCaseMakerInstance.fetchReadmeContent,
+        mockUseCaseMakerInstance.fetchGithubFileContent,
+      ).not.toHaveBeenCalled();
+      expect(
+        mockUseCaseMakerInstance.fetchGitlabFileContent,
       ).not.toHaveBeenCalled();
     });
 
@@ -172,7 +186,10 @@ describe('createRouter', () => {
         repoName: 'test-repo',
       });
       expect(
-        mockUseCaseMakerInstance.fetchReadmeContent,
+        mockUseCaseMakerInstance.fetchGithubFileContent,
+      ).not.toHaveBeenCalled();
+      expect(
+        mockUseCaseMakerInstance.fetchGitlabFileContent,
       ).not.toHaveBeenCalled();
     });
 
@@ -193,14 +210,17 @@ describe('createRouter', () => {
         mockUseCaseMakerInstance.checkIfRepositoryExists,
       ).not.toHaveBeenCalled();
       expect(
-        mockUseCaseMakerInstance.fetchReadmeContent,
+        mockUseCaseMakerInstance.fetchGithubFileContent,
+      ).not.toHaveBeenCalled();
+      expect(
+        mockUseCaseMakerInstance.fetchGitlabFileContent,
       ).not.toHaveBeenCalled();
     });
 
     it('should successfully fetch README for GitHub repository', async () => {
       mockUseCaseMakerInstance.checkIfRepositoryExists.mockResolvedValue(true);
       const mockReadmeContent = '# Test README\n\nThis is a test README.';
-      mockUseCaseMakerInstance.fetchReadmeContent.mockResolvedValue(
+      mockUseCaseMakerInstance.fetchGithubFileContent.mockResolvedValue(
         mockReadmeContent,
       );
 
@@ -220,16 +240,23 @@ describe('createRouter', () => {
         repoOwner: 'test-owner',
         repoName: 'test-repo',
       });
-      expect(mockUseCaseMakerInstance.fetchReadmeContent).toHaveBeenCalledWith({
-        readmeUrl:
-          'https://raw.githubusercontent.com/test-owner/test-repo/refs/heads/main/ee/README.md',
+      expect(
+        mockUseCaseMakerInstance.fetchGithubFileContent,
+      ).toHaveBeenCalledWith({
+        owner: 'test-owner',
+        repo: 'test-repo',
+        filePath: 'ee/README.md',
+        branch: 'main',
       });
+      expect(
+        mockUseCaseMakerInstance.fetchGitlabFileContent,
+      ).not.toHaveBeenCalled();
     });
 
     it('should successfully fetch README for GitHub repository without host parameter', async () => {
       mockUseCaseMakerInstance.checkIfRepositoryExists.mockResolvedValue(true);
       const mockReadmeContent = '# Test README\n\nThis is a test README.';
-      mockUseCaseMakerInstance.fetchReadmeContent.mockResolvedValue(
+      mockUseCaseMakerInstance.fetchGithubFileContent.mockResolvedValue(
         mockReadmeContent,
       );
 
@@ -250,16 +277,23 @@ describe('createRouter', () => {
         repoOwner: 'test-owner',
         repoName: 'test-repo',
       });
-      expect(mockUseCaseMakerInstance.fetchReadmeContent).toHaveBeenCalledWith({
-        readmeUrl:
-          'https://raw.githubusercontent.com/test-owner/test-repo/refs/heads/main/ee/README.md',
+      expect(
+        mockUseCaseMakerInstance.fetchGithubFileContent,
+      ).toHaveBeenCalledWith({
+        owner: 'test-owner',
+        repo: 'test-repo',
+        filePath: 'ee/README.md',
+        branch: 'main',
       });
+      expect(
+        mockUseCaseMakerInstance.fetchGitlabFileContent,
+      ).not.toHaveBeenCalled();
     });
 
     it('should successfully fetch README for GitLab repository', async () => {
       mockUseCaseMakerInstance.checkIfRepositoryExists.mockResolvedValue(true);
       const mockReadmeContent = '# GitLab README\n\nThis is a GitLab README.';
-      mockUseCaseMakerInstance.fetchReadmeContent.mockResolvedValue(
+      mockUseCaseMakerInstance.fetchGitlabFileContent.mockResolvedValue(
         mockReadmeContent,
       );
 
@@ -280,10 +314,17 @@ describe('createRouter', () => {
         repoOwner: 'test-owner',
         repoName: 'test-repo',
       });
-      expect(mockUseCaseMakerInstance.fetchReadmeContent).toHaveBeenCalledWith({
-        readmeUrl:
-          'https://gitlab.example.com/test-owner/test-repo/-/raw/main/ee/README.md',
+      expect(
+        mockUseCaseMakerInstance.fetchGitlabFileContent,
+      ).toHaveBeenCalledWith({
+        owner: 'test-owner',
+        repo: 'test-repo',
+        filePath: 'ee/README.md',
+        branch: 'main',
       });
+      expect(
+        mockUseCaseMakerInstance.fetchGithubFileContent,
+      ).not.toHaveBeenCalled();
     });
 
     it('should return 400 when SCM type is case-sensitive (GITHUB)', async () => {
@@ -303,7 +344,10 @@ describe('createRouter', () => {
         mockUseCaseMakerInstance.checkIfRepositoryExists,
       ).not.toHaveBeenCalled();
       expect(
-        mockUseCaseMakerInstance.fetchReadmeContent,
+        mockUseCaseMakerInstance.fetchGithubFileContent,
+      ).not.toHaveBeenCalled();
+      expect(
+        mockUseCaseMakerInstance.fetchGitlabFileContent,
       ).not.toHaveBeenCalled();
     });
 
@@ -325,7 +369,10 @@ describe('createRouter', () => {
         mockUseCaseMakerInstance.checkIfRepositoryExists,
       ).not.toHaveBeenCalled();
       expect(
-        mockUseCaseMakerInstance.fetchReadmeContent,
+        mockUseCaseMakerInstance.fetchGithubFileContent,
+      ).not.toHaveBeenCalled();
+      expect(
+        mockUseCaseMakerInstance.fetchGitlabFileContent,
       ).not.toHaveBeenCalled();
     });
 
@@ -350,14 +397,19 @@ describe('createRouter', () => {
         repoName: 'test-repo',
       });
       expect(
-        mockUseCaseMakerInstance.fetchReadmeContent,
+        mockUseCaseMakerInstance.fetchGithubFileContent,
+      ).not.toHaveBeenCalled();
+      expect(
+        mockUseCaseMakerInstance.fetchGitlabFileContent,
       ).not.toHaveBeenCalled();
     });
 
-    it('should handle errors when fetchReadmeContent throws', async () => {
+    it('should handle errors when fetchGithubFileContent throws', async () => {
       mockUseCaseMakerInstance.checkIfRepositoryExists.mockResolvedValue(true);
       const mockError = new Error('Failed to fetch README');
-      mockUseCaseMakerInstance.fetchReadmeContent.mockRejectedValue(mockError);
+      mockUseCaseMakerInstance.fetchGithubFileContent.mockRejectedValue(
+        mockError,
+      );
 
       const response = await request(app).get('/aap/get_ee_readme').query({
         scm: 'Github',
@@ -373,10 +425,17 @@ describe('createRouter', () => {
         repoOwner: 'test-owner',
         repoName: 'test-repo',
       });
-      expect(mockUseCaseMakerInstance.fetchReadmeContent).toHaveBeenCalledWith({
-        readmeUrl:
-          'https://raw.githubusercontent.com/test-owner/test-repo/refs/heads/main/ee/README.md',
+      expect(
+        mockUseCaseMakerInstance.fetchGithubFileContent,
+      ).toHaveBeenCalledWith({
+        owner: 'test-owner',
+        repo: 'test-repo',
+        filePath: 'ee/README.md',
+        branch: 'main',
       });
+      expect(
+        mockUseCaseMakerInstance.fetchGitlabFileContent,
+      ).not.toHaveBeenCalled();
     });
 
     it('should return 400 when subdir parameter is empty', async () => {
@@ -395,7 +454,10 @@ describe('createRouter', () => {
         mockUseCaseMakerInstance.checkIfRepositoryExists,
       ).not.toHaveBeenCalled();
       expect(
-        mockUseCaseMakerInstance.fetchReadmeContent,
+        mockUseCaseMakerInstance.fetchGithubFileContent,
+      ).not.toHaveBeenCalled();
+      expect(
+        mockUseCaseMakerInstance.fetchGitlabFileContent,
       ).not.toHaveBeenCalled();
     });
 
@@ -414,7 +476,10 @@ describe('createRouter', () => {
         mockUseCaseMakerInstance.checkIfRepositoryExists,
       ).not.toHaveBeenCalled();
       expect(
-        mockUseCaseMakerInstance.fetchReadmeContent,
+        mockUseCaseMakerInstance.fetchGithubFileContent,
+      ).not.toHaveBeenCalled();
+      expect(
+        mockUseCaseMakerInstance.fetchGitlabFileContent,
       ).not.toHaveBeenCalled();
     });
 

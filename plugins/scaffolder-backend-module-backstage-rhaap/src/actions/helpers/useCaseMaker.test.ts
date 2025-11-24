@@ -799,7 +799,7 @@ spec:
     expect(result).toBeNull();
   });
 
-  it('should throw an error if tfails to fetch repository details', async () => {
+  it('should throw an error if it fails to fetch repository details', async () => {
     const invalidOptions = {
       value: 'devfile content',
       repositoryUrl: 'https://gitlab.com/invalid-url',
@@ -930,6 +930,173 @@ spec:
     );
 
     // Restore original fetch
+    global.fetch = originalFetch;
+  });
+
+  it('fetchGitlabFileContent - should successfully fetch file content from GitLab', async () => {
+    const fileContent = '# Test File\n\nThis is a test file content.';
+    server.use(
+      http.get(
+        'https://gitlab.com/testOwner/testRepo/-/raw/main/path/to/file.md',
+        () => {
+          return HttpResponse.text(fileContent);
+        },
+      ),
+    );
+
+    config = new ConfigReader(MOCK_CONF.data);
+    ansibleConfig = getAnsibleConfig(config);
+    useCaseMaker = new UseCaseMaker({
+      ansibleConfig,
+      logger,
+      organization,
+      scmType,
+      apiClient: mockAnsibleService,
+      useCases,
+      token: MOCK_TOKEN,
+    });
+
+    const content = await useCaseMaker.fetchGitlabFileContent({
+      owner: 'testOwner',
+      repo: 'testRepo',
+      filePath: 'path/to/file.md',
+      branch: 'main',
+    });
+
+    expect(content).toBe(fileContent);
+  });
+
+  it('fetchGitlabFileContent - should throw error when GitLab host is not configured', async () => {
+    config = new ConfigReader(MOCK_CONF.data);
+    ansibleConfig = getAnsibleConfig(config);
+    useCaseMaker = new UseCaseMaker({
+      ansibleConfig,
+      logger,
+      organization,
+      scmType,
+      apiClient: mockAnsibleService,
+      useCases,
+      token: MOCK_TOKEN,
+    });
+
+    // Directly set scmIntegration to an object without host to test the error case
+    useCaseMaker.scmIntegration = {
+      token: 'mockToken',
+      // host is missing
+    } as any;
+
+    await expect(
+      useCaseMaker.fetchGitlabFileContent({
+        owner: 'testOwner',
+        repo: 'testRepo',
+        filePath: 'path/to/file.md',
+        branch: 'main',
+      }),
+    ).rejects.toThrow('Not Gitlab host configured.');
+  });
+
+  it('fetchGitlabFileContent - should handle fetch errors', async () => {
+    const originalFetch = global.fetch;
+    global.fetch = jest
+      .fn()
+      .mockRejectedValueOnce(new Error('Failed to fetch'));
+
+    config = new ConfigReader(MOCK_CONF.data);
+    ansibleConfig = getAnsibleConfig(config);
+    useCaseMaker = new UseCaseMaker({
+      ansibleConfig,
+      logger,
+      organization,
+      scmType,
+      apiClient: mockAnsibleService,
+      useCases,
+      token: MOCK_TOKEN,
+    });
+
+    await expect(
+      useCaseMaker.fetchGitlabFileContent({
+        owner: 'testOwner',
+        repo: 'testRepo',
+        filePath: 'path/to/file.md',
+        branch: 'main',
+      }),
+    ).rejects.toThrow('Error fetching file content: Failed to fetch');
+
+    global.fetch = originalFetch;
+  });
+
+  it('fetchGitlabFileContent - should work without token', async () => {
+    const fileContent = '# Test File\n\nThis is a test file content.';
+    const MOCK_CONF_NO_TOKEN = {
+      data: {
+        ...MOCK_CONF.data,
+        integrations: {
+          gitlab: [
+            {
+              host: 'gitlab.com',
+              // No token
+            },
+          ],
+        },
+      },
+    };
+
+    server.use(
+      http.get(
+        'https://gitlab.com/testOwner/testRepo/-/raw/main/path/to/file.md',
+        () => {
+          return HttpResponse.text(fileContent);
+        },
+      ),
+    );
+
+    config = new ConfigReader(MOCK_CONF_NO_TOKEN.data);
+    ansibleConfig = getAnsibleConfig(config);
+    useCaseMaker = new UseCaseMaker({
+      ansibleConfig,
+      logger,
+      organization,
+      scmType,
+      apiClient: mockAnsibleService,
+      useCases,
+      token: MOCK_TOKEN,
+    });
+
+    const content = await useCaseMaker.fetchGitlabFileContent({
+      owner: 'testOwner',
+      repo: 'testRepo',
+      filePath: 'path/to/file.md',
+      branch: 'main',
+    });
+
+    expect(content).toBe(fileContent);
+  });
+
+  it('fetchGitlabFileContent - should handle network errors', async () => {
+    const originalFetch = global.fetch;
+    global.fetch = jest.fn().mockRejectedValueOnce(new Error('Network error'));
+
+    config = new ConfigReader(MOCK_CONF.data);
+    ansibleConfig = getAnsibleConfig(config);
+    useCaseMaker = new UseCaseMaker({
+      ansibleConfig,
+      logger,
+      organization,
+      scmType,
+      apiClient: mockAnsibleService,
+      useCases,
+      token: MOCK_TOKEN,
+    });
+
+    await expect(
+      useCaseMaker.fetchGitlabFileContent({
+        owner: 'testOwner',
+        repo: 'testRepo',
+        filePath: 'path/to/file.md',
+        branch: 'main',
+      }),
+    ).rejects.toThrow('Error fetching file content: Network error');
+
     global.fetch = originalFetch;
   });
 });

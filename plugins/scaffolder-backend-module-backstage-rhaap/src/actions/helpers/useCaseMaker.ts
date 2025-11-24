@@ -757,37 +757,78 @@ export class UseCaseMaker {
     return `${this.scmIntegration?.host}?repo=${repoName}&owner=${repoOwner}`;
   }
 
-  async fetchReadmeContent(options: { readmeUrl: string }): Promise<string> {
-    const { readmeUrl } = options;
+  async fetchGithubFileContent(options: {
+    owner: string;
+    repo: string;
+    filePath: string;
+    branch: string;
+  }): Promise<string> {
+    const { owner, repo, filePath, branch } = options;
+    let readmeContent: string = '';
+
+    this.logger.info(
+      `Fetching file content from ${owner}/${repo}/${filePath} on branch ${branch}`,
+    );
+
+    // we have initialized octokit in the constructor
+    // so a host must already be configured
+    // hence an explicit check is not needed
+    try {
+      const response = await this.octokit.request(
+        'GET /repos/{owner}/{repo}/contents/{path}',
+        {
+          owner: owner,
+          repo: repo,
+          path: filePath,
+          ref: branch,
+          headers: {
+            accept: 'application/vnd.github.raw',
+          },
+        },
+      );
+      if (response && response.status === 200 && response.data) {
+        readmeContent = response.data as unknown as string;
+      }
+    } catch (e: any) {
+      throw new Error(`Error fetching file content: ${e.message}`);
+    }
+    return readmeContent;
+  }
+
+  async fetchGitlabFileContent(options: {
+    owner: string;
+    repo: string;
+    filePath: string;
+    branch: string;
+  }): Promise<string> {
+    const { owner, repo, filePath, branch } = options;
     let response;
 
-    try {
-      let headers;
-      if (this.scmType === 'Github') {
-        headers = {
-          ...(this.scmIntegration?.token && {
-            Authorization: `Bearer ${this.scmIntegration.token}`,
-          }),
-          Accept: 'application/vnd.github+json',
-        };
-      } else if (this.scmType === 'Gitlab') {
-        headers = {
-          'Content-Type': 'application/json',
-          ...(this.scmIntegration?.token && {
-            'PRIVATE-TOKEN': this.scmIntegration.token,
-          }),
-        };
-      } else {
-        throw new Error(`Unsupported SCM type: ${this.scmType}`);
-      }
+    if (!this.scmIntegration?.host) {
+      throw new Error('Not Gitlab host configured.');
+    }
 
-      this.logger.info(`Fetching README content from ${readmeUrl}`);
-      response = await fetch(`${readmeUrl}`, { headers });
+    const host = this.scmIntegration.host;
+
+    try {
+      const headers = {
+        'Content-Type': 'application/json',
+        ...(this.scmIntegration?.token && {
+          'PRIVATE-TOKEN': this.scmIntegration.token,
+        }),
+      };
+
+      this.logger.info(
+        `Fetching file content from ${owner}/${repo}/${filePath} on branch ${branch}`,
+      );
+      response = await fetch(
+        `https://${host}/${owner}/${repo}/-/raw/${branch}/${filePath}`,
+        { headers },
+      );
+
       return response.text();
     } catch (error: any) {
-      throw new Error(
-        `Error fetching README content from ${readmeUrl}: ${error.message}`,
-      );
+      throw new Error(`Error fetching file content: ${error.message}`);
     }
   }
 

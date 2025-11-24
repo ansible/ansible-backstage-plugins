@@ -1333,6 +1333,359 @@ describe('createEEDefinition', () => {
     });
   });
 
+  describe('generateMCPVarsContent functionality', () => {
+    it('should generate MCP vars content with only common vars when mcpServers contains only servers with empty vars', async () => {
+      const action = createEEDefinitionAction({
+        frontendUrl: 'http://localhost:3000',
+        auth,
+        discovery,
+      });
+      const ctx = {
+        input: {
+          values: {
+            eeFileName: 'test-ee',
+            baseImage: 'quay.io/ansible/ee-base:latest',
+            mcpServers: ['aws_ccapi_mcp'],
+          },
+        },
+        logger,
+        workspacePath: mockWorkspacePath,
+        output: jest.fn(),
+      } as any;
+
+      await action.handler(ctx);
+
+      // Check that mcp-vars.yaml file was written
+      const writeCall = mockWriteFile.mock.calls.find((call: any[]) =>
+        call[0].toString().endsWith('mcp-vars.yaml'),
+      );
+      expect(writeCall).toBeDefined();
+      const content = writeCall![1] as string;
+
+      // Should include common vars (common is always added internally)
+      expect(content).toContain('# vars for common');
+      expect(content).toContain('common_mcp_base_path: /opt/mcp');
+      expect(content).toContain('common_golang_version: 1.25');
+      expect(content).toContain('common_nodejs_min_version: 20');
+      expect(content).toContain('common_system_bin_path: /usr/local/bin');
+      expect(content).toContain(
+        'common_uv_installer_url: https://astral.sh/uv/install.sh',
+      );
+
+      // Should not include vars for aws_ccapi_mcp (it has empty vars)
+      expect(content).not.toContain('# vars for aws_ccapi_mcp');
+
+      // Check output
+      const outputCall = ctx.output.mock.calls.find(
+        (call: any[]) => call[0] === 'mcpVarsContent',
+      );
+      expect(outputCall).toBeDefined();
+      expect(outputCall![1]).toBe(content);
+    });
+
+    it('should generate MCP vars content for azure_mcp server', async () => {
+      const action = createEEDefinitionAction({
+        frontendUrl: 'http://localhost:3000',
+        auth,
+        discovery,
+      });
+      const ctx = {
+        input: {
+          values: {
+            eeFileName: 'test-ee',
+            baseImage: 'quay.io/ansible/ee-base:latest',
+            mcpServers: ['azure_mcp'],
+          },
+        },
+        logger,
+        workspacePath: mockWorkspacePath,
+        output: jest.fn(),
+      } as any;
+
+      await action.handler(ctx);
+
+      const writeCall = mockWriteFile.mock.calls.find((call: any[]) =>
+        call[0].toString().endsWith('mcp-vars.yaml'),
+      );
+      expect(writeCall).toBeDefined();
+      const content = writeCall![1] as string;
+
+      // Should include azure_mcp vars
+      expect(content).toContain('# vars for azure_mcp');
+      expect(content).toContain('azure_mcp_namespaces:');
+      expect(content).toContain('- az');
+
+      // Should also include common vars
+      expect(content).toContain('# vars for common');
+      expect(content).toContain('common_mcp_base_path: /opt/mcp');
+    });
+
+    it('should generate MCP vars content for github_mcp server', async () => {
+      const action = createEEDefinitionAction({
+        frontendUrl: 'http://localhost:3000',
+        auth,
+        discovery,
+      });
+      const ctx = {
+        input: {
+          values: {
+            eeFileName: 'test-ee',
+            baseImage: 'quay.io/ansible/ee-base:latest',
+            mcpServers: ['github_mcp'],
+          },
+        },
+        logger,
+        workspacePath: mockWorkspacePath,
+        output: jest.fn(),
+      } as any;
+
+      await action.handler(ctx);
+
+      const writeCall = mockWriteFile.mock.calls.find((call: any[]) =>
+        call[0].toString().endsWith('mcp-vars.yaml'),
+      );
+      expect(writeCall).toBeDefined();
+      const content = writeCall![1] as string;
+
+      // Should include github_mcp vars
+      expect(content).toContain('# vars for github_mcp');
+      expect(content).toContain('github_mcp_mode: local');
+      expect(content).toContain(
+        'github_mcp_build_repo: https://github.com/github/github-mcp-server.git',
+      );
+      expect(content).toContain('github_mcp_build_repo_branch: main');
+      expect(content).toContain('github_mcp_build_path: github/build');
+
+      // Should also include common vars
+      expect(content).toContain('# vars for common');
+    });
+
+    it('should not include vars for MCP servers with empty vars', async () => {
+      const action = createEEDefinitionAction({
+        frontendUrl: 'http://localhost:3000',
+        auth,
+        discovery,
+      });
+      const ctx = {
+        input: {
+          values: {
+            eeFileName: 'test-ee',
+            baseImage: 'quay.io/ansible/ee-base:latest',
+            mcpServers: ['aws_ccapi_mcp', 'aws_cdk_mcp'],
+          },
+        },
+        logger,
+        workspacePath: mockWorkspacePath,
+        output: jest.fn(),
+      } as any;
+
+      await action.handler(ctx);
+
+      const writeCall = mockWriteFile.mock.calls.find((call: any[]) =>
+        call[0].toString().endsWith('mcp-vars.yaml'),
+      );
+      expect(writeCall).toBeDefined();
+      const content = writeCall![1] as string;
+
+      // Should not include vars for aws_ccapi_mcp or aws_cdk_mcp (they have empty vars)
+      expect(content).not.toContain('# vars for aws_ccapi_mcp');
+      expect(content).not.toContain('# vars for aws_cdk_mcp');
+
+      // Should only include common vars
+      expect(content).toContain('# vars for common');
+      expect(content).toContain('common_mcp_base_path: /opt/mcp');
+    });
+
+    it('should generate MCP vars content for multiple servers with mixed vars', async () => {
+      const action = createEEDefinitionAction({
+        frontendUrl: 'http://localhost:3000',
+        auth,
+        discovery,
+      });
+      const ctx = {
+        input: {
+          values: {
+            eeFileName: 'test-ee',
+            baseImage: 'quay.io/ansible/ee-base:latest',
+            mcpServers: ['azure_mcp', 'github_mcp', 'aws_ccapi_mcp'],
+          },
+        },
+        logger,
+        workspacePath: mockWorkspacePath,
+        output: jest.fn(),
+      } as any;
+
+      await action.handler(ctx);
+
+      const writeCall = mockWriteFile.mock.calls.find((call: any[]) =>
+        call[0].toString().endsWith('mcp-vars.yaml'),
+      );
+      expect(writeCall).toBeDefined();
+      const content = writeCall![1] as string;
+
+      // Should include vars for azure_mcp
+      expect(content).toContain('# vars for azure_mcp');
+      expect(content).toContain('azure_mcp_namespaces:');
+
+      // Should include vars for github_mcp
+      expect(content).toContain('# vars for github_mcp');
+      expect(content).toContain('github_mcp_mode: local');
+
+      // Should not include vars for aws_ccapi_mcp (empty vars)
+      expect(content).not.toContain('# vars for aws_ccapi_mcp');
+
+      // Should include common vars
+      expect(content).toContain('# vars for common');
+      expect(content).toContain('common_mcp_base_path: /opt/mcp');
+    });
+
+    it('should generate valid YAML format for MCP vars content', async () => {
+      const action = createEEDefinitionAction({
+        frontendUrl: 'http://localhost:3000',
+        auth,
+        discovery,
+      });
+      const ctx = {
+        input: {
+          values: {
+            eeFileName: 'test-ee',
+            baseImage: 'quay.io/ansible/ee-base:latest',
+            mcpServers: ['azure_mcp', 'github_mcp'],
+          },
+        },
+        logger,
+        workspacePath: mockWorkspacePath,
+        output: jest.fn(),
+      } as any;
+
+      await action.handler(ctx);
+
+      const writeCall = mockWriteFile.mock.calls.find((call: any[]) =>
+        call[0].toString().endsWith('mcp-vars.yaml'),
+      );
+      expect(writeCall).toBeDefined();
+      const content = writeCall![1] as string;
+
+      // Should start with YAML document marker
+      expect(content).toMatch(/^---\n/);
+
+      // Should be valid YAML (can be parsed)
+      const parsed = yaml.load(content);
+      expect(parsed).toBeDefined();
+
+      // Should end with exactly one newline
+      expect(content.endsWith('\n')).toBe(true);
+      expect(content.match(/\n$/g)?.length).toBe(1);
+    });
+
+    it('should not write mcp-vars.yaml file when no MCP servers are specified', async () => {
+      const action = createEEDefinitionAction({
+        frontendUrl: 'http://localhost:3000',
+        auth,
+        discovery,
+      });
+      const ctx = {
+        input: {
+          values: {
+            eeFileName: 'test-ee',
+            baseImage: 'quay.io/ansible/ee-base:latest',
+            mcpServers: [],
+          },
+        },
+        logger,
+        workspacePath: mockWorkspacePath,
+        output: jest.fn(),
+      } as any;
+
+      await action.handler(ctx);
+
+      // Should not write mcp-vars.yaml when mcpServers is empty
+      const writeCall = mockWriteFile.mock.calls.find((call: any[]) =>
+        call[0].toString().endsWith('mcp-vars.yaml'),
+      );
+      // Actually, looking at the code, it seems mcp-vars.yaml is only written if mcpServers.length > 0
+      // But generateMCPVarsContent is only called when mcpServers.length > 0
+      // So when empty, the file should not be written
+      expect(writeCall).toBeUndefined();
+
+      // mcpVarsContent should not be output
+      const outputCall = ctx.output.mock.calls.find(
+        (call: any[]) => call[0] === 'mcpVarsContent',
+      );
+      expect(outputCall).toBeUndefined();
+    });
+
+    it('should output mcpVarsContent when MCP servers are specified', async () => {
+      const action = createEEDefinitionAction({
+        frontendUrl: 'http://localhost:3000',
+        auth,
+        discovery,
+      });
+      const ctx = {
+        input: {
+          values: {
+            eeFileName: 'test-ee',
+            baseImage: 'quay.io/ansible/ee-base:latest',
+            mcpServers: ['azure_mcp'],
+          },
+        },
+        logger,
+        workspacePath: mockWorkspacePath,
+        output: jest.fn(),
+      } as any;
+
+      await action.handler(ctx);
+
+      // Check that mcpVarsContent was output
+      const outputCall = ctx.output.mock.calls.find(
+        (call: any[]) => call[0] === 'mcpVarsContent',
+      );
+      expect(outputCall).toBeDefined();
+      const mcpVarsContent = outputCall![1] as string;
+
+      // Verify the content matches what was written to file
+      const writeCall = mockWriteFile.mock.calls.find((call: any[]) =>
+        call[0].toString().endsWith('mcp-vars.yaml'),
+      );
+      expect(writeCall).toBeDefined();
+      expect(mcpVarsContent).toBe(writeCall![1]);
+    });
+
+    it('should preserve mcpServers array after generating vars (common should be removed)', async () => {
+      const action = createEEDefinitionAction({
+        frontendUrl: 'http://localhost:3000',
+        auth,
+        discovery,
+      });
+      const originalMcpServers = ['azure_mcp', 'github_mcp'];
+      const ctx = {
+        input: {
+          values: {
+            eeFileName: 'test-ee',
+            baseImage: 'quay.io/ansible/ee-base:latest',
+            mcpServers: [...originalMcpServers],
+          },
+        },
+        logger,
+        workspacePath: mockWorkspacePath,
+        output: jest.fn(),
+      } as any;
+
+      await action.handler(ctx);
+
+      const writeCall = mockWriteFile.mock.calls.find((call: any[]) =>
+        call[0].toString().endsWith('mcp-vars.yaml'),
+      );
+      expect(writeCall).toBeDefined();
+      const content = writeCall![1] as string;
+
+      // Should include vars for both servers and common
+      expect(content).toContain('# vars for azure_mcp');
+      expect(content).toContain('# vars for github_mcp');
+      expect(content).toContain('# vars for common');
+    });
+  });
+
   describe('validateEEDefinition functionality', () => {
     it('should validate valid EE definition', async () => {
       const validEEDefinition = {
