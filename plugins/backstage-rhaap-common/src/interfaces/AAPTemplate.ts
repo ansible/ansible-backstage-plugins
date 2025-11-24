@@ -42,6 +42,9 @@ export interface ISummaryFieldCredential {
   description: string;
   kind: string;
   cloud: boolean;
+  type: string;
+  credential_type: number;
+  summary_fields: Record<string, { id: number; name: string }>;
 }
 
 // JOB TEMPLATE
