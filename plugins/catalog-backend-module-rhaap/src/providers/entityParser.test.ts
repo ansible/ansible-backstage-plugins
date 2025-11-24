@@ -427,6 +427,14 @@ describe('entityParser', () => {
             description: 'Test credential description',
             kind: 'ssh',
             cloud: false,
+            credential_type: 1,
+            summary_fields: {
+              credential_type: {
+                id: 1,
+                name: 'example',
+              },
+            },
+            type: 'credential',
           },
         },
         webhook_credential: 1,
@@ -617,6 +625,14 @@ describe('entityParser', () => {
             description: 'Test credential description',
             kind: 'ssh',
             cloud: false,
+            credential_type: 1,
+            summary_fields: {
+              credential_type: {
+                id: 1,
+                name: 'example',
+              },
+            },
+            type: 'credential',
           },
         },
         webhook_credential: 1,
