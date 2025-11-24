@@ -72,6 +72,40 @@ export const getEEProps = (
 };
 
 export const getCredentialsProps = (selectedCredentials: JsonArray) => {
+  const normalizedCredentials = (selectedCredentials || [])
+    .filter(
+      (cred): cred is JsonObject => cred !== null && typeof cred === 'object',
+    )
+    .map((cred: JsonObject) => {
+      const summaryFields = cred.summary_fields;
+      const summaryFieldsObj =
+        summaryFields &&
+        typeof summaryFields === 'object' &&
+        !Array.isArray(summaryFields)
+          ? summaryFields
+          : {};
+
+      const normalizedObj: JsonObject = {
+        id: cred.id,
+        name: cred.name,
+        type: cred.type || 'credential',
+        credential_type: cred.credential_type,
+        summary_fields: {
+          ...summaryFieldsObj,
+          credential_type:
+            summaryFieldsObj.credential_type &&
+            typeof summaryFieldsObj.credential_type === 'object' &&
+            !Array.isArray(summaryFieldsObj.credential_type)
+              ? summaryFieldsObj.credential_type
+              : {
+                  id: cred.credential_type,
+                  name: (cred.kind as string) || 'Unknown',
+                },
+        },
+      };
+      return normalizedObj;
+    });
+
   return {
     title: 'Credentials',
     description:
@@ -79,7 +113,7 @@ export const getCredentialsProps = (selectedCredentials: JsonArray) => {
     type: 'array',
     'ui:field': 'AAPResourcePicker',
     resource: 'credentials',
-    default: selectedCredentials,
+    default: normalizedCredentials,
   };
 };
 

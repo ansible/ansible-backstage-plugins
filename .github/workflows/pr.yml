@@ -63,6 +63,9 @@ jobs:
         with:
             cache-prefix: ${{ github.ref_name }}-${{ runner.os }}-${{ matrix.node-version }}
   
+      - name: Run TSC
+        run: yarn tsc
+
       - name: Run Lint
         run: yarn lint:all
 
