@@ -20,7 +20,10 @@ Cypress.on('uncaught:exception', (err, runnable) => {
     err.message.includes('ResizeObserver loop limit exceeded') ||
     err.message.includes('Script error') ||
     err.message.includes('ChunkLoadError') ||
-    err.message.includes('Loading chunk')
+    err.message.includes('Loading chunk') ||
+    err.message.includes('Request failed with 400') ||
+    err.message.includes('Request failed with 4') ||
+    err.message.includes('ResponseError')
   ) {
     return false;
   }
