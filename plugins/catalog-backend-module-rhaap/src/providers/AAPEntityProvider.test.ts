@@ -850,6 +850,160 @@ describe('AAPEntityProvider', () => {
     });
   });
 
+  describe('registerExecutionEnvironment', () => {
+    let provider: AAPEntityProvider;
+    let mockConnection: EntityProviderConnection;
+    let logger: ReturnType<typeof mockServices.logger.mock>;
+    let executionEnvironmentEntity: any;
+
+    beforeEach(() => {
+      const config = new ConfigReader(MOCK_CONFIG.data);
+      logger = mockServices.logger.mock();
+      const schedule = new PersistingTaskRunner();
+      executionEnvironmentEntity = {
+        apiVersion: 'backstage.io/v1alpha1',
+        kind: 'Component',
+        metadata: {
+          name: 'test-ee',
+          title: 'test-ee',
+          description: 'test-ee',
+          tags: ['test-ee'],
+          annotations: {
+            'backstage.io/managed-by-location': `url:127.0.0.1`,
+            'backstage.io/managed-by-origin-location': `url:127.0.0.1`,
+            'ansible.io/download-experience': 'true',
+          },
+        },
+        spec: {
+          type: 'execution-environment',
+          lifecycle: 'production',
+          owner: 'team-a',
+          definition: 'sample \ntest-ee \ndefinition',
+          readme: 'sample \ntest-ee \nreadme',
+        },
+      };
+
+      provider = AAPEntityProvider.fromConfig(config, mockAnsibleService, {
+        schedule,
+        logger,
+      })[0];
+
+      mockConnection = {
+        applyMutation: jest.fn().mockResolvedValue(undefined),
+        refresh: jest.fn(),
+      };
+
+      provider.connect(mockConnection);
+    });
+
+    it('should successfully register an execution environment entity', async () => {
+      await provider.registerExecutionEnvironment(executionEnvironmentEntity);
+
+      expect(mockConnection.applyMutation).toHaveBeenCalledWith({
+        type: 'delta',
+        added: [
+          {
+            entity: executionEnvironmentEntity,
+            locationKey: 'AapEntityProvider:development',
+          },
+        ],
+        removed: [],
+      });
+    });
+
+    it('should raise error if entity has missing metadata name', async () => {
+      // remove metadata.name from executionEnvironmentEntity
+      delete executionEnvironmentEntity.metadata.name;
+      await expect(
+        provider.registerExecutionEnvironment(executionEnvironmentEntity),
+      ).rejects.toThrow(
+        'Name [metadata.name] is required for Execution Environment registration',
+      );
+    });
+
+    it('should raise error if EEentity has no type', async () => {
+      // remove metadata.name from executionEnvironmentEntity
+      delete executionEnvironmentEntity.spec.type;
+      await expect(
+        provider.registerExecutionEnvironment(executionEnvironmentEntity),
+      ).rejects.toThrow(
+        'Type [spec.type] must be "execution-environment" for Execution Environment registration',
+      );
+    });
+
+    it('should raise error if EEentity has incorrect type', async () => {
+      // remove metadata.name from executionEnvironmentEntity
+      executionEnvironmentEntity.spec.type = 'not-an-execution-environment';
+      await expect(
+        provider.registerExecutionEnvironment(executionEnvironmentEntity),
+      ).rejects.toThrow(
+        'Type [spec.type] must be "execution-environment" for Execution Environment registration',
+      );
+    });
+
+    it('should throw error when connection is not initialized', async () => {
+      const uninitializedProvider = AAPEntityProvider.fromConfig(
+        new ConfigReader(MOCK_CONFIG.data),
+        mockAnsibleService,
+        {
+          schedule: new PersistingTaskRunner(),
+          logger: mockServices.logger.mock(),
+        },
+      )[0];
+      await expect(
+        uninitializedProvider.registerExecutionEnvironment(
+          executionEnvironmentEntity,
+        ),
+      ).rejects.toThrow('AAPEntityProvider is not connected yet');
+    });
+
+    it('should register entity with correct locationKey', async () => {
+      await provider.registerExecutionEnvironment(executionEnvironmentEntity);
+
+      expect(mockConnection.applyMutation).toHaveBeenCalledWith(
+        expect.objectContaining({
+          added: expect.arrayContaining([
+            expect.objectContaining({
+              locationKey: 'AapEntityProvider:development',
+            }),
+          ]),
+        }),
+      );
+    });
+
+    it('should register multiple entities independently', async () => {
+      const entity1 = JSON.parse(JSON.stringify(executionEnvironmentEntity));
+      const entity2 = JSON.parse(JSON.stringify(executionEnvironmentEntity));
+      entity1.metadata.name = 'entity1';
+      entity2.metadata.name = 'entity2';
+
+      await provider.registerExecutionEnvironment(entity1);
+      await provider.registerExecutionEnvironment(entity2);
+
+      expect(mockConnection.applyMutation).toHaveBeenCalledTimes(2);
+      expect(mockConnection.applyMutation).toHaveBeenNthCalledWith(1, {
+        type: 'delta',
+        added: [
+          {
+            entity: entity1,
+            locationKey: 'AapEntityProvider:development',
+          },
+        ],
+        removed: [],
+      });
+      expect(mockConnection.applyMutation).toHaveBeenNthCalledWith(2, {
+        type: 'delta',
+        added: [
+          {
+            entity: entity2,
+            locationKey: 'AapEntityProvider:development',
+          },
+        ],
+        removed: [],
+      });
+    });
+  });
+
   it('handles errors gracefully', async () => {
     const config = new ConfigReader(MOCK_CONFIG.data);
     const logger = mockServices.logger.mock();

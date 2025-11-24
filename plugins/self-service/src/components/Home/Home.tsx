@@ -263,6 +263,13 @@ export const HomeComponent = () => {
                     groups={[
                       {
                         filter: (entity: TemplateEntityV1beta3) => {
+                          const hasExecutionEnvironmentType =
+                            entity.spec?.type?.includes(
+                              'execution-environment',
+                            ) ?? false;
+                          if (hasExecutionEnvironmentType) {
+                            return false;
+                          }
                           return jobTemplates.some(({ id }) =>
                             entity.metadata.aapJobTemplateId
                               ? id === entity.metadata.aapJobTemplateId

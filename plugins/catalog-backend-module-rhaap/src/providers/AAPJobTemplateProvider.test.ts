@@ -230,6 +230,14 @@ const MOCK_JOB_TEMPLATE: IJobTemplate = {
       description: 'Test webhook credential',
       kind: 'github_token',
       cloud: false,
+      credential_type: 1,
+      summary_fields: {
+        credential_type: {
+          id: 1,
+          name: 'example',
+        },
+      },
+      type: 'credential',
     },
   },
   created: '2023-01-01T00:00:00.000000Z',

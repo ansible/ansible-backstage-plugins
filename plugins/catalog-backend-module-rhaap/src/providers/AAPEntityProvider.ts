@@ -627,4 +627,35 @@ export class AAPEntityProvider implements EntityProvider {
 
   // Note: Admin access is now handled via dynamic aap-admins group membership
   // No separate API-based assignment needed
+
+  async registerExecutionEnvironment(entity: any): Promise<void> {
+    if (!this.connection) {
+      throw new Error('AAPEntityProvider is not connected yet');
+    }
+
+    if (!entity.metadata?.name) {
+      throw new Error(
+        'Name [metadata.name] is required for Execution Environment registration',
+      );
+    }
+
+    if (!entity.spec?.type || entity.spec.type !== 'execution-environment') {
+      throw new Error(
+        'Type [spec.type] must be "execution-environment" for Execution Environment registration',
+      );
+    }
+
+    this.logger.info(`Registering entity ${entity.metadata?.name}`);
+
+    await this.connection.applyMutation({
+      type: 'delta',
+      added: [
+        {
+          entity,
+          locationKey: this.getProviderName(),
+        },
+      ],
+      removed: [],
+    });
+  }
 }

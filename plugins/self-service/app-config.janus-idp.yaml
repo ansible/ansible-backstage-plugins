@@ -10,11 +10,25 @@ dynamicPlugins:
       scaffolderFieldExtensions:
         - importName: AAPTokenFieldExtension
         - importName: AAPResourcePickerExtension
+        - importName: BaseImagePickerFieldExtension
+        - importName: CollectionsPickerFieldExtension
+        - importName: EEFileNamePickerExtension
+        - importName: FileUploadPickerFieldExtension
+        - importName: PackagesPickerFieldExtension
+        - importName: MCPServersPickerFieldExtension
+        - importName: AdditionalBuildStepsPickerFieldExtension
       dynamicRoutes:
         - importName: LandingPage
           path: /
         - importName: SelfServicePage
           path: /self-service
+        - importName: EEPage
+          path: /self-service/ee
+      menuItems:
+        execution-environments:
+          title: Execution Environments
+          icon: extension
+          to: /self-service/ee
       mountPoints:
         - mountPoint: application/listener
           importName: LocationListener
