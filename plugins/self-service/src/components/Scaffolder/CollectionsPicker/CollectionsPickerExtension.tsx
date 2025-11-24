@@ -130,7 +130,7 @@ export const CollectionsPickerExtension = ({
         defaultDescription = 'Specific version of the collection';
         defaultPlaceholder = 'e.g., 7.2.1';
       } else if (fieldName === 'signatures') {
-        defaultPlaceholder = 'Enter values separated by commas or newlines';
+        defaultPlaceholder = 'Enter values separated by newlines';
       }
 
       return {
@@ -171,7 +171,7 @@ export const CollectionsPickerExtension = ({
   const parseArrayValue = (value: string): string[] => {
     if (!value.trim()) return [];
     return value
-      .split(/[,\n]/)
+      .split('\n')
       .map(item => item.trim())
       .filter(item => item.length > 0);
   };
@@ -346,7 +346,7 @@ export const CollectionsPickerExtension = ({
 
         if (fieldType === 'array') {
           if (Array.isArray(value)) {
-            collectionData[fieldName] = value.join(', ');
+            collectionData[fieldName] = value.join('\n');
           } else if (value) {
             collectionData[fieldName] = String(value);
           } else {
@@ -454,7 +454,7 @@ export const CollectionsPickerExtension = ({
             if (typeof fieldValue === 'string') {
               displayValue = fieldValue;
             } else if (Array.isArray(fieldValue)) {
-              displayValue = fieldValue.join(', ');
+              displayValue = fieldValue.join('\n');
             }
 
             if (hasEnum) {
@@ -520,7 +520,7 @@ export const CollectionsPickerExtension = ({
                 required={fieldMeta.required}
                 disabled={disabled}
                 multiline={isArrayField}
-                minRows={isArrayField ? 3 : 1}
+                minRows={1}
               />
             );
           })}

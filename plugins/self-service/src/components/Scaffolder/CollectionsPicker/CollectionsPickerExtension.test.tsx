@@ -2164,7 +2164,7 @@ describe('CollectionsPickerExtension', () => {
   });
 
   describe('Array Field Support', () => {
-    it('handles signatures array field with comma-separated values', () => {
+    it('handles signatures array field with comma-separated values)', () => {
       const props = createMockProps({
         schema: {
           items: {
@@ -2192,7 +2192,7 @@ describe('CollectionsPickerExtension', () => {
       fireEvent.change(nameInput, { target: { value: 'community.general' } });
 
       const signaturesInput = screen.getByPlaceholderText(
-        'Enter values separated by commas or newlines',
+        'Enter values separated by newlines',
       );
       fireEvent.change(signaturesInput, {
         target: { value: 'sig1, sig2, sig3' },
@@ -2204,7 +2204,7 @@ describe('CollectionsPickerExtension', () => {
       expect(props.onChange).toHaveBeenCalledWith([
         {
           name: 'community.general',
-          signatures: ['sig1', 'sig2', 'sig3'],
+          signatures: ['sig1, sig2, sig3'],
         },
       ]);
     });
@@ -2237,7 +2237,7 @@ describe('CollectionsPickerExtension', () => {
       fireEvent.change(nameInput, { target: { value: 'community.general' } });
 
       const signaturesInput = screen.getByPlaceholderText(
-        'Enter values separated by commas or newlines',
+        'Enter values separated by newlines',
       );
       fireEvent.change(signaturesInput, {
         target: { value: 'sig1\nsig2\nsig3' },
@@ -2319,9 +2319,9 @@ describe('CollectionsPickerExtension', () => {
       });
 
       const signaturesInput = screen.getByPlaceholderText(
-        'Enter values separated by commas or newlines',
+        'Enter values separated by newlines',
       );
-      expect(signaturesInput).toHaveValue('sig1, sig2');
+      expect(signaturesInput).toHaveValue('sig1\nsig2');
     });
 
     it('handles editing collection with array field as string', async () => {
@@ -2354,7 +2354,7 @@ describe('CollectionsPickerExtension', () => {
       });
 
       const signaturesInput = screen.getByPlaceholderText(
-        'Enter values separated by commas or newlines',
+        'Enter values separated by newlines',
       );
       expect(signaturesInput).toHaveValue('sig1');
     });
