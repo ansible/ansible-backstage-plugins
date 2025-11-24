@@ -5,15 +5,15 @@ import { Common } from '../utils/common';
  * Properly handles the skeleton loader -> API request -> templates flow
  */
 
-describe('Job Template Sync Tests - Fixed', () => {
-  before(() => {
-    // Login once before all tests using session-based authentication
-    Common.LogintoAAPWithSession();
+describe('self-service Login', () => {
+  it('Sign In to self-service', { retries: 2 }, () => {
+    Common.LogintoAAP();
   });
+});
 
+describe('Job Template Sync Tests - Fixed', () => {
   beforeEach(() => {
-    // Restore session and navigate to self-service
-    Common.LogintoAAPWithSession();
+    // Navigate to self-service
     cy.visit('/self-service');
     cy.wait(2000);
 

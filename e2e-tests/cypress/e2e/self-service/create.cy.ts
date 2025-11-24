@@ -1,14 +1,14 @@
 import { Common } from '../utils/common';
 
-describe('Ansible self-service Create and execution tests', () => {
-  before(() => {
-    // Login once before all tests using session-based authentication
-    Common.LogintoAAPWithSession();
+describe('self-service Login', () => {
+  it('Sign In to self-service', { retries: 2 }, () => {
+    Common.LogintoAAP();
   });
+});
 
+describe('Ansible self-service Create and execution tests', () => {
   beforeEach(() => {
-    // Restore session and navigate to self-service
-    Common.LogintoAAPWithSession();
+    // Navigate to self-service and wait for page to load
     cy.visit('/self-service');
     cy.wait(2000);
 
