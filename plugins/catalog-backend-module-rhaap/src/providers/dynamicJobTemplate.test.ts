@@ -136,8 +136,30 @@ describe('dynamicJobTemplate', () => {
   describe('getCredentialsProps', () => {
     it('should return credentials properties with default values', () => {
       const credentials = [
-        { id: 1, name: 'cred1' },
-        { id: 2, name: 'cred2' },
+        {
+          id: 1,
+          name: 'cred1',
+          credential_type: 1,
+          type: 'credential',
+          summary_fields: {
+            credential_type: {
+              id: 1,
+              name: 'example1',
+            },
+          },
+        },
+        {
+          id: 2,
+          name: 'cred2',
+          credential_type: 2,
+          type: 'credential',
+          summary_fields: {
+            credential_type: {
+              id: 2,
+              name: 'example2',
+            },
+          },
+        },
       ];
       const result = getCredentialsProps(credentials);
 
@@ -450,6 +472,14 @@ describe('dynamicJobTemplate', () => {
             description: 'Test credential description',
             kind: 'ssh',
             cloud: false,
+            credential_type: 1,
+            summary_fields: {
+              credential_type: {
+                id: 1,
+                name: 'example',
+              },
+            },
+            type: 'credential',
           },
         ],
         labels: {
@@ -550,6 +580,14 @@ describe('dynamicJobTemplate', () => {
           description: 'Test credential description',
           kind: 'ssh',
           cloud: false,
+          credential_type: 1,
+          summary_fields: {
+            credential_type: {
+              id: 1,
+              name: 'example',
+            },
+          },
+          type: 'credential',
         },
       },
     };
@@ -1018,6 +1056,14 @@ describe('dynamicJobTemplate', () => {
           description: 'Test credential description',
           kind: 'ssh',
           cloud: false,
+          credential_type: 1,
+          summary_fields: {
+            credential_type: {
+              id: 1,
+              name: 'example',
+            },
+          },
+          type: 'credential',
         },
       },
     };

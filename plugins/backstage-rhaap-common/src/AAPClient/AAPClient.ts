@@ -652,20 +652,32 @@ export class AAPClient implements IAAPService {
       const seen = new Set();
       const duplicates = [] as string[];
       payload.credentials.some(currentObject => {
+        if (!currentObject.credential_type) {
+          return false;
+        }
         if (seen.size === seen.add(currentObject.credential_type).size) {
-          duplicates.push(currentObject.summary_fields.credential_type.name);
+          const credentialTypeName =
+            currentObject.summary_fields?.credential_type?.name ||
+            currentObject.name ||
+            'Unknown';
+          duplicates.push(credentialTypeName);
           return true;
         }
         return false;
       });
       if (duplicates.length) {
+        this.logger.error(
+          `Cannot assign multiple credentials of the same type. Duplicated credential types are: ${duplicates.join(', ')}`,
+        );
         throw new Error(
           `Cannot assign multiple credentials of the same type. Duplicated credential types are: ${duplicates.join(
             ', ',
           )}`,
         );
       }
-      data.credentials = payload.credentials.map(c => c.id);
+      data.credentials = payload.credentials
+        .filter(c => c.id !== undefined && c.id !== null)
+        .map(c => c.id);
     }
 
     let templateID;
