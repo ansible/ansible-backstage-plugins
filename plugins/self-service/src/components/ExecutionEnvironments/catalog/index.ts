@@ -1,1 +1,1 @@
-export { CatalogContent } from './CatalogContent';
+export { EntityCatalogContent } from './CatalogContent';
