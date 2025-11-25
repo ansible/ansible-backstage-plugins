@@ -10,13 +10,17 @@ const mockProps = {
     title: 'Execution environment definition details',
     description: 'Configure the base image for your execution environment',
     enum: [
-      'registry.access.redhat.com/ubi9/python-311:latest',
-      'registry.redhat.io/ansible-automation-platform-25/ee-minimal-rhel9:latest',
+      'registry.redhat.io/ansible-automation-platform/ee-minimal-rhel8:2.18',
+      'registry.redhat.io/ansible-automation-platform/ee-minimal-rhel9:2.18',
+      'registry.redhat.io/ansible-automation-platform/ee-minimal-rhel8:2.16',
+      'registry.redhat.io/ansible-automation-platform/ee-minimal-rhel9:2.16',
       'custom',
     ],
     enumNames: [
-      'Red Hat Universal Base Image 9 w/ Python 3.11 (Recommended)',
-      'Red Hat Ansible Minimal EE base (RHEL 9) (Requires subscription)',
+      'Red Hat Ansible Minimal EE - Ansible Core 2.18 (RHEL 8)',
+      'Red Hat Ansible Minimal EE - Ansible Core 2.18 (RHEL 9)',
+      'Red Hat Ansible Minimal EE - Ansible Core 2.16 (RHEL 8)',
+      'Red Hat Ansible Minimal EE - Ansible Core 2.16 (RHEL 9)',
       'Custom Image',
     ],
   },
@@ -48,12 +52,22 @@ describe('BaseImagePickerExtension', () => {
 
     expect(
       screen.getByText(
-        'Red Hat Universal Base Image 9 w/ Python 3.11 (Recommended)',
+        'Red Hat Ansible Minimal EE - Ansible Core 2.18 (RHEL 8)',
       ),
     ).toBeInTheDocument();
     expect(
       screen.getByText(
-        'Red Hat Ansible Minimal EE base (RHEL 9) (Requires subscription)',
+        'Red Hat Ansible Minimal EE - Ansible Core 2.18 (RHEL 9)',
+      ),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        'Red Hat Ansible Minimal EE - Ansible Core 2.16 (RHEL 8)',
+      ),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        'Red Hat Ansible Minimal EE - Ansible Core 2.16 (RHEL 9)',
       ),
     ).toBeInTheDocument();
     expect(screen.getByText('Custom Image')).toBeInTheDocument();
@@ -63,12 +77,12 @@ describe('BaseImagePickerExtension', () => {
     render(<BaseImagePickerExtension {...mockProps} />);
 
     const radioButton = screen.getByDisplayValue(
-      'registry.access.redhat.com/ubi9/python-311:latest',
+      'registry.redhat.io/ansible-automation-platform/ee-minimal-rhel8:2.18',
     );
     fireEvent.click(radioButton);
 
     expect(mockProps.onChange).toHaveBeenCalledWith(
-      'registry.access.redhat.com/ubi9/python-311:latest',
+      'registry.redhat.io/ansible-automation-platform/ee-minimal-rhel8:2.18',
     );
   });
 
@@ -79,48 +93,13 @@ describe('BaseImagePickerExtension', () => {
         schema: {
           ...mockProps.schema,
           enum: [
-            'registry.redhat.io/ansible-automation-platform-25/ee-minimal-rhel9:latest',
+            'registry.redhat.io/ansible-automation-platform/ee-minimal-rhel8:2.18',
           ],
           enumNames: ['Red Hat EE'],
         },
       };
       render(<BaseImagePickerExtension {...props} />);
 
-      expect(screen.getByText('Subscription')).toBeInTheDocument();
-      expect(screen.getByText('Recommended')).toBeInTheDocument();
-    });
-
-    it('shows tags for valid redhat.io images', () => {
-      const props = {
-        ...mockProps,
-        schema: {
-          ...mockProps.schema,
-          enum: [
-            'redhat.io/ansible-automation-platform-25/ee-minimal-rhel9:latest',
-          ],
-          enumNames: ['Red Hat EE'],
-        },
-      };
-      render(<BaseImagePickerExtension {...props} />);
-
-      expect(screen.getByText('Subscription')).toBeInTheDocument();
-      expect(screen.getByText('Recommended')).toBeInTheDocument();
-    });
-
-    it('shows tags for registry.redhat.io with port', () => {
-      const props = {
-        ...mockProps,
-        schema: {
-          ...mockProps.schema,
-          enum: [
-            'registry.redhat.io:5000/ansible-automation-platform-25/ee-minimal-rhel9:latest',
-          ],
-          enumNames: ['Red Hat EE'],
-        },
-      };
-      render(<BaseImagePickerExtension {...props} />);
-
-      expect(screen.getByText('Subscription')).toBeInTheDocument();
       expect(screen.getByText('Recommended')).toBeInTheDocument();
     });
 
@@ -129,13 +108,12 @@ describe('BaseImagePickerExtension', () => {
         ...mockProps,
         schema: {
           ...mockProps.schema,
-          enum: ['evil.com/redhat.io/malicious-image:latest'],
+          enum: ['evil.com/ansible-automation-platform/ee-minimal-rhel8:2.18'],
           enumNames: ['Malicious Image'],
         },
       };
       render(<BaseImagePickerExtension {...props} />);
 
-      expect(screen.queryByText('Subscription')).not.toBeInTheDocument();
       expect(screen.queryByText('Recommended')).not.toBeInTheDocument();
     });
 
@@ -150,7 +128,6 @@ describe('BaseImagePickerExtension', () => {
       };
       render(<BaseImagePickerExtension {...props} />);
 
-      expect(screen.queryByText('Subscription')).not.toBeInTheDocument();
       expect(screen.queryByText('Recommended')).not.toBeInTheDocument();
     });
 
@@ -165,23 +142,7 @@ describe('BaseImagePickerExtension', () => {
       };
       render(<BaseImagePickerExtension {...props} />);
 
-      expect(screen.queryByText('Subscription')).not.toBeInTheDocument();
       expect(screen.queryByText('Recommended')).not.toBeInTheDocument();
-    });
-
-    it('shows tags for images containing rhel', () => {
-      const props = {
-        ...mockProps,
-        schema: {
-          ...mockProps.schema,
-          enum: ['registry.access.redhat.com/ubi9/rhel9:latest'],
-          enumNames: ['RHEL Image'],
-        },
-      };
-      render(<BaseImagePickerExtension {...props} />);
-
-      expect(screen.getByText('Subscription')).toBeInTheDocument();
-      expect(screen.getByText('Recommended')).toBeInTheDocument();
     });
   });
 });

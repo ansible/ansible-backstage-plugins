@@ -9,10 +9,14 @@ import {
   Chip,
 } from '@material-ui/core';
 import { makeStyles } from '@material-ui/core/styles';
-import AccessTimeIcon from '@material-ui/icons/AccessTime';
 import CheckCircleIcon from '@material-ui/icons/CheckCircle';
 import InfoIcon from '@material-ui/icons/Info';
 import { parseMarkdownLinks } from '../utils/parseMarkdownLinks';
+
+// This is the recommended base image value for EE builder templates
+// The recommended base image maybe updated in the future
+const RECOMMENDED_BASE_IMAGE_VALUE =
+  'registry.redhat.io/ansible-automation-platform/ee-minimal-rhel8:2.18';
 
 const useStyles = makeStyles(theme => ({
   title: {
@@ -113,60 +117,24 @@ export const BaseImagePickerExtension = ({
     onChange(value);
   };
 
-  const isValidRedHatRegistry = (value: string): boolean => {
-    try {
-      const parts = value.split('/');
-      if (parts.length === 0) {
-        return false;
-      }
-      const registryPart = parts[0];
-      const hostname = registryPart.split(':')[0];
-      return hostname === 'redhat.io' || hostname.endsWith('.redhat.io');
-    } catch {
-      return false;
-    }
-  };
-
   const getImageTags = (value: string) => {
     const tags = [];
 
-    if (value.includes('python')) {
+    if (value === RECOMMENDED_BASE_IMAGE_VALUE) {
       tags.push({
-        label: 'Fast start',
+        label: 'Recommended',
         icon: (
-          <AccessTimeIcon style={{ fontSize: '0.8rem', color: '#252323ff' }} />
+          <CheckCircleIcon
+            style={{
+              fontSize: '0.8rem',
+              color: '#81c784',
+            }}
+          />
         ),
         color: 'default' as const,
         variant: 'outlined' as const,
-        backgroundColor: '#81c784',
         borderColor: '#81c784',
-        textColor: '#252323ff',
       });
-    }
-
-    if (value.includes('rhel') || isValidRedHatRegistry(value)) {
-      tags.push(
-        {
-          label: 'Subscription',
-          icon: undefined,
-          color: 'default' as const,
-          variant: 'outlined' as const,
-        },
-        {
-          label: 'Recommended',
-          icon: (
-            <CheckCircleIcon
-              style={{
-                fontSize: '0.8rem',
-                color: '#81c784',
-              }}
-            />
-          ),
-          color: 'default' as const,
-          variant: 'outlined' as const,
-          borderColor: '#81c784',
-        },
-      );
     }
 
     return tags;
@@ -219,10 +187,6 @@ export const BaseImagePickerExtension = ({
                         ...(tag.borderColor
                           ? { borderColor: tag.borderColor }
                           : {}),
-                        ...(tag.backgroundColor
-                          ? { backgroundColor: tag.backgroundColor }
-                          : {}),
-                        ...(tag.textColor ? { color: tag.textColor } : {}),
                       }}
                     />
                   ))}
