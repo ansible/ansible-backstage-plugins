@@ -58,7 +58,12 @@ export const RouteView = () => {
             }
           />
         </Route>
-        <Route path="ee" element={<EETabs />} />
+        <Route path="ee">
+          <Route index element={<Navigate to="catalog" replace />} />
+          <Route path="catalog" element={<EETabs />} />
+          <Route path="create" element={<EETabs />} />
+          <Route path="docs" element={<EETabs />} />
+        </Route>
         <Route path="catalog/:templateName" element={<EEDetailsPage />} />
         {/* Default redirects */}
         <Route

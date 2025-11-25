@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Header, Page, HeaderTabs, Content } from '@backstage/core-components';
 import { Typography, Box, makeStyles } from '@material-ui/core';
-import { useLocation } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import CategoryOutlinedIcon from '@material-ui/icons/CategoryOutlined';
 import CreateComponentIcon from '@material-ui/icons/AddCircleOutline';
 import { CreateContent } from './create/CreateContent';
@@ -61,35 +61,56 @@ export const EEHeader = () => {
 };
 
 const tabs = [
-  { id: 0, label: 'Catalog', icon: <CategoryOutlinedIcon /> },
-  { id: 1, label: 'Create', icon: <CreateComponentIcon /> },
+  { id: 0, label: 'Catalog', icon: <CategoryOutlinedIcon />, path: 'catalog' },
+  { id: 1, label: 'Create', icon: <CreateComponentIcon />, path: 'create' },
 ];
+
+const getTabIndexFromPath = (pathname: string): number => {
+  if (pathname.includes('/ee/create')) return 1;
+  if (pathname.includes('/ee/docs')) return 2;
+  return 0;
+};
 
 export const EETabs: React.FC = () => {
   const classes = useStyles();
   const location = useLocation();
+  const navigate = useNavigate();
 
-  // Check if tab index is provided in navigation state
-  const initialState = (location.state as { tabIndex?: number })?.tabIndex ?? 0;
-  const [selectedTab, setSelectedTab] = useState(initialState);
+  const tabIndexFromPath = getTabIndexFromPath(location.pathname);
+  const [selectedTab, setSelectedTab] = useState(tabIndexFromPath);
 
-  // Update selected tab if navigation state changes
+  useEffect(() => {
+    const newTabIndex = getTabIndexFromPath(location.pathname);
+    setSelectedTab(newTabIndex);
+  }, [location.pathname]);
+
   useEffect(() => {
     const tabIndex = (location.state as { tabIndex?: number })?.tabIndex;
     if (tabIndex !== undefined) {
       setSelectedTab(tabIndex);
+      const tab = tabs[tabIndex];
+      if (tab) {
+        navigate(`/self-service/ee/${tab.path}`, { replace: true });
+      }
     }
-  }, [location.state]);
+  }, [location.state, navigate]);
 
   const onTabSelect = (index: number) => {
     setSelectedTab(index);
+    const tab = tabs[index];
+    if (tab) {
+      navigate(`/self-service/ee/${tab.path}`);
+    }
   };
 
-  // Determine which content to show based on selected tab
+  const handleTabSwitch = (index: number) => {
+    onTabSelect(index);
+  };
+
   const renderContent = () => {
     switch (selectedTab) {
       case 0:
-        return <EntityCatalogContent onTabSwitch={setSelectedTab} />;
+        return <EntityCatalogContent onTabSwitch={handleTabSwitch} />;
       case 1:
         return <CreateContent />;
       default:
