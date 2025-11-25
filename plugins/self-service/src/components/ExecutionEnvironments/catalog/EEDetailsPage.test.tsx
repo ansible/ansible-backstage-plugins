@@ -7,10 +7,7 @@ import {
 } from '@testing-library/react';
 import { TestApiProvider } from '@backstage/test-utils';
 import { catalogApiRef } from '@backstage/plugin-catalog-react';
-import {
-  discoveryApiRef,
-  identityApiRef,
-} from '@backstage/core-plugin-api';
+import { discoveryApiRef, identityApiRef } from '@backstage/core-plugin-api';
 import { ThemeProvider, createMuiTheme } from '@material-ui/core/styles';
 import { MemoryRouter } from 'react-router-dom';
 
@@ -113,8 +110,12 @@ const renderWithCatalogApi = (
   identityImpl?: any,
 ) => {
   const mockCatalogApi = { getEntities: getEntitiesImpl };
-  const mockDiscoveryApi = discoveryImpl ?? { getBaseUrl: async () => 'http://scaffolder' };
-  const mockIdentityApi = identityImpl ?? { getCredentials: async () => ({ token: 'tok' }) };
+  const mockDiscoveryApi = discoveryImpl ?? {
+    getBaseUrl: async () => 'http://scaffolder',
+  };
+  const mockIdentityApi = identityImpl ?? {
+    getCredentials: async () => ({ token: 'tok' }),
+  };
 
   return render(
     <MemoryRouter initialEntries={['/']}>
@@ -175,7 +176,10 @@ describe('EEDetailsPage', () => {
       // only delete if it was defined configurable above
       // eslint-disable-next-line @typescript-eslint/ban-ts-comment
       // @ts-ignore
-      if ((navigator as any).clipboard && (navigator as any).clipboard._isMockFunction) {
+      if (
+        (navigator as any).clipboard &&
+        (navigator as any).clipboard._isMockFunction
+      ) {
         // unlikely, but safe-guard
       }
       // eslint-disable-next-line @typescript-eslint/ban-ts-comment
@@ -192,13 +196,19 @@ describe('EEDetailsPage', () => {
     // wait for entity-specific UI
     await screen.findByTestId('favorite-entity');
 
-    expect(screen.getByText('Execution env one description')).toBeInTheDocument();
+    expect(
+      screen.getByText('Execution env one description'),
+    ).toBeInTheDocument();
     expect(screen.getByText('team-a')).toBeInTheDocument();
     expect(screen.getByText('ansible')).toBeInTheDocument();
     expect(screen.getByText('linux')).toBeInTheDocument();
 
-    expect(screen.getByTestId('markdown-content').textContent).toContain('# README CONTENT');
-    expect(screen.getByTestId('favorite-entity').textContent).toContain('ee-one');
+    expect(screen.getByTestId('markdown-content').textContent).toContain(
+      '# README CONTENT',
+    );
+    expect(screen.getByTestId('favorite-entity').textContent).toContain(
+      'ee-one',
+    );
   });
 
   test('catalogApi.getEntities is invoked on mount', async () => {
@@ -254,11 +264,13 @@ describe('EEDetailsPage', () => {
 
     await screen.findByTestId('favorite-entity');
 
-    const editLink = screen.queryByRole('link', { name: /edit/i }) || screen.queryByText(/Edit/i);
+    const editLink =
+      screen.queryByRole('link', { name: /edit/i }) ||
+      screen.queryByText(/Edit/i);
     if (editLink) {
       fireEvent.click(editLink);
       // link has target _blank in the markup — ensure href contains the edit url
-    //   expect((editLink as HTMLAnchorElement).href).toContain('http://edit/ee-one');
+      //   expect((editLink as HTMLAnchorElement).href).toContain('http://edit/ee-one');
     }
   });
 
@@ -342,13 +354,17 @@ describe('EEDetailsPage', () => {
         ...entityFull.metadata,
         annotations: {
           // remove the download-experience annotation
-          'backstage.io/source-location': entityFull.metadata.annotations['backstage.io/source-location'],
-          'backstage.io/edit-url': entityFull.metadata.annotations['backstage.io/edit-url'],
+          'backstage.io/source-location':
+            entityFull.metadata.annotations['backstage.io/source-location'],
+          'backstage.io/edit-url':
+            entityFull.metadata.annotations['backstage.io/edit-url'],
         },
       },
     };
 
-    renderWithCatalogApi(() => Promise.resolve({ items: [entityNoDownloadAnnotation] }));
+    renderWithCatalogApi(() =>
+      Promise.resolve({ items: [entityNoDownloadAnnotation] }),
+    );
     await screen.findByTestId('favorite-entity');
 
     expect(screen.queryByText(/Download EE files/i)).not.toBeInTheDocument();
@@ -365,7 +381,10 @@ describe('EEDetailsPage', () => {
 
     // wait for MarkdownContent to contain fetched text
     await waitFor(
-      () => expect(screen.getByTestId('markdown-content').textContent).toContain('Fetched README content'),
+      () =>
+        expect(screen.getByTestId('markdown-content').textContent).toContain(
+          'Fetched README content',
+        ),
       { timeout: 2000 },
     );
 
@@ -441,7 +460,11 @@ describe('EEDetailsPage', () => {
 
     // Find the menu button: choose a header icon button that does not contain favorite-entity
     const buttons = screen.getAllByRole('button');
-    const menuButton = buttons.find(b => !b.querySelector('[data-testid="favorite-entity"]') && b.querySelector('svg'));
+    const menuButton = buttons.find(
+      b =>
+        !b.querySelector('[data-testid="favorite-entity"]') &&
+        b.querySelector('svg'),
+    );
     expect(menuButton).toBeTruthy();
     fireEvent.click(menuButton!);
 
@@ -456,14 +479,16 @@ describe('EEDetailsPage', () => {
     fireEvent.click(menuButton!);
     const unregisterItem = await screen.findByText(/Unregister entity/i);
     fireEvent.click(unregisterItem);
-    await waitFor(() => expect(screen.getByTestId('unregister-dialog')).toBeInTheDocument());
+    await waitFor(() =>
+      expect(screen.getByTestId('unregister-dialog')).toBeInTheDocument(),
+    );
 
     // Open menu again and click Inspect entity -> should show inspect-dialog
     fireEvent.click(menuButton!);
     const inspectItem = await screen.findByText(/Inspect entity/i);
     fireEvent.click(inspectItem);
-    await waitFor(() => expect(screen.getByTestId('inspect-dialog')).toBeInTheDocument());
+    await waitFor(() =>
+      expect(screen.getByTestId('inspect-dialog')).toBeInTheDocument(),
+    );
   });
 });
-
-

@@ -44,14 +44,25 @@ jest.mock('./create/CreateContent', () => ({
   CreateContent: () => <div data-testid="create-content">CreateContent</div>,
 }));
 
-// removed DocsContent mock since Docs tab was removed
-
 // --------- Mock useLocation so tests control location.state -----------------
+// Keep a jest.fn() the tests can update per-case
 const mockUseLocation = jest.fn().mockReturnValue({ pathname: '/', state: {} });
-jest.mock('react-router-dom', () => ({
-  // preserve other exports if needed
-  useLocation: () => mockUseLocation(),
-}));
+
+// Mock react-router-dom properly: preserve actual exports and override hooks we need.
+// Note: place this mock BEFORE importing the component under test.
+jest.mock('react-router-dom', () => {
+  const actual = jest.requireActual('react-router-dom');
+  return {
+    ...actual,
+    // useLocation returns the current value of mockUseLocation()
+    useLocation: () => mockUseLocation(),
+    // provide a navigate mock function so useNavigate() returns a function
+    useNavigate: () => jest.fn(),
+    // safe stubs for other router utilities/components your components may use
+    useParams: () => ({}),
+    Link: ({ children }: any) => children,
+  };
+});
 
 // Now import the component under test after mocks are declared
 import { EETabs, EEHeader } from './TabviewPage'; // adjust path if needed
