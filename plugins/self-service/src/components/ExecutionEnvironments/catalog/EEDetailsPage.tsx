@@ -106,6 +106,15 @@ const useStyles = makeStyles(theme => ({
     '0%': { transform: 'rotate(0deg)' },
     '100%': { transform: 'rotate(360deg)' },
   },
+  ownerButton: {
+    background: 'none',
+    border: 'none',
+    color: theme.palette.primary.main,
+    padding: 0,
+    cursor: 'pointer',
+    textTransform: 'none',
+    font: 'inherit',
+  },
 }));
 
 export const EEDetailsPage: React.FC = () => {
@@ -799,6 +808,7 @@ export const EEDetailsPage: React.FC = () => {
                     >
                       {' '}
                       <button
+                        className={classes.ownerButton}
                         onClick={() => {
                           const path = generateUrlFromTargetRef();
                           if (path) navigate(path);
