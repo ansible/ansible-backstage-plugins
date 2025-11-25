@@ -1383,6 +1383,127 @@ describe('RunTask', () => {
       useTaskEventStreamMock.mockImplementation(originalImplementation);
     }, 15000);
 
+    it('should download archive successfully without mcp_vars', async () => {
+      const user = userEvent.setup();
+
+      const useTaskEventStreamMock =
+        require('@backstage/plugin-scaffolder-react').useTaskEventStream;
+
+      const originalImplementation =
+        useTaskEventStreamMock.getMockImplementation();
+
+      const mockEntity = {
+        apiVersion: 'backstage.io/v1alpha1',
+        kind: 'Component',
+        metadata: {
+          name: 'test-ee',
+          uid: 'test-uid',
+        },
+        spec: {
+          name: 'test-ee',
+          type: 'execution-environment',
+          definition:
+            'version: 3\nimages:\n  base_image:\n    name: quay.io/test',
+          readme: '# Test EE\nThis is a test execution environment.',
+          // mcp_vars is not added
+          ansible_cfg: 'ansible_cfg: test',
+          template: 'template: test',
+        },
+      };
+
+      useTaskEventStreamMock.mockImplementation(() => ({
+        task: {
+          spec: {
+            templateInfo: {
+              entity: {
+                metadata: {
+                  title: 'Test Template',
+                },
+              },
+            },
+            parameters: {
+              eeFileName: 'test-ee',
+              publishToSCM: false,
+            },
+            steps: [
+              { id: 'step1', name: 'Step 1' },
+              { id: 'create-ee-definition', name: 'Create EE Definition' },
+            ],
+          },
+        },
+        completed: true,
+        loading: false,
+        error: undefined,
+        output: { links: [] },
+        steps: {
+          step1: { status: 'completed' },
+          'create-ee-definition': { status: 'completed' },
+        },
+        stepLogs: {},
+      }));
+
+      mockCatalogApi.getEntityByRef.mockResolvedValue(mockEntity);
+
+      await render(<RunTask />);
+
+      await waitFor(
+        () => {
+          expect(screen.getByText('Download EE Files')).toBeInTheDocument();
+        },
+        { timeout: 10000 },
+      );
+
+      const createObjectURLSpy = jest.fn(() => 'blob:mock-url');
+      const revokeObjectURLSpy = jest.fn();
+      globalThis.URL.createObjectURL = createObjectURLSpy;
+      globalThis.URL.revokeObjectURL = revokeObjectURLSpy;
+
+      const mockLink = {
+        href: '',
+        download: '',
+        style: { display: '' },
+        click: jest.fn(),
+        remove: jest.fn(),
+      } as any;
+
+      const originalCreateElement = Document.prototype.createElement;
+
+      createElementSpy = jest.spyOn(document, 'createElement');
+      createElementSpy.mockImplementation(function createElementMock(
+        this: Document,
+        tagName: string,
+      ) {
+        if (tagName === 'a') {
+          return mockLink as any;
+        }
+        return originalCreateElement.call(this, tagName);
+      });
+
+      appendChildSpy = jest.spyOn(document.body, 'appendChild');
+      removeSpy = jest.spyOn(HTMLElement.prototype, 'remove');
+      appendChildSpy.mockImplementation(() => mockLink);
+      removeSpy.mockImplementation(() => {});
+
+      const downloadButton = screen.getByText('Download EE Files');
+      expect(downloadButton).not.toBeDisabled();
+
+      await user.click(downloadButton);
+
+      await waitFor(
+        () => {
+          expect(createObjectURLSpy).toHaveBeenCalled();
+        },
+        { timeout: 10000 },
+      );
+
+      expect(mockLink.click).toHaveBeenCalled();
+      expect(revokeObjectURLSpy).toHaveBeenCalledWith('blob:mock-url');
+
+      delete (globalThis.URL as any).createObjectURL;
+      delete (globalThis.URL as any).revokeObjectURL;
+      useTaskEventStreamMock.mockImplementation(originalImplementation);
+    }, 15000);
+
     it('should handle download error gracefully', async () => {
       const user = userEvent.setup();
       const consoleErrorSpy = jest
@@ -2164,7 +2285,7 @@ describe('RunTask', () => {
             call =>
               typeof call[0] === 'string' &&
               call[0] ===
-                'Entity, definition, readme, mcp_vars, ansible_cfg, or template not available',
+                'Entity, definition, readme, ansible_cfg or template not available',
           );
           expect(hasExpectedError).toBe(true);
         },
