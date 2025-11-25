@@ -436,6 +436,14 @@ export const EEDetailsPage: React.FC = () => {
     setDefaultReadme('');
   };
 
+  function generateUrlFromTargetRef() {
+    if (entity && entity.relations && entity.relations.length <= 0) return null;
+    const targetRef = entity?.relations[0]?.targetRef || '';
+    const [kind, rest] = targetRef.split(':');
+    const [namespace, name] = rest.split('/');
+    return `/catalog/${namespace}/${kind}/${name}`;
+  }
+
   return (
     <Box p={3}>
       {entity && (
@@ -789,9 +797,17 @@ export const EEDetailsPage: React.FC = () => {
                         cursor: 'pointer',
                       }}
                     >
-                      {entity?.spec?.owner ??
-                        entity?.metadata?.namespace ??
-                        'Unknown'}
+                      {' '}
+                      <button
+                        onClick={() => {
+                          const path = generateUrlFromTargetRef();
+                          if (path) navigate(path);
+                        }}
+                      >
+                        {entity?.spec?.owner ??
+                          entity?.metadata?.namespace ??
+                          'Unknown'}
+                      </button>
                     </Typography>
                   </Box>
                   <Box marginTop={2}>
