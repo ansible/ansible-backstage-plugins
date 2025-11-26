@@ -100,6 +100,7 @@ interface EEDefinitionInput {
   systemPackagesFile?: string;
   mcpServers?: string[];
   additionalBuildSteps?: AdditionalBuildStep[];
+  owner?: string;
 }
 
 export function createEEDefinitionAction(options: {
@@ -321,7 +322,7 @@ export function createEEDefinitionAction(options: {
       const eeFileName = values.eeFileName || 'execution-environment';
       const eeDescription = values.eeDescription || 'Execution Environment';
       const tags = values.tags || [];
-      const owner = ctx.user?.ref || '';
+      const owner = values.owner || ctx.user?.ref || '';
 
       // required for catalog component registration
       ctx.output('owner', owner);
@@ -503,7 +504,7 @@ export function createEEDefinitionAction(options: {
             eeTemplateContent,
           );
           // register the EE catalog entity with the catalog
-          const response = await fetch(`${baseUrl}/aap/register_ee`, {
+          const response = await fetch(`${baseUrl}/register_ee`, {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',
