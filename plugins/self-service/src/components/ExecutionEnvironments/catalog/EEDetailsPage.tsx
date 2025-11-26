@@ -459,16 +459,18 @@ export const EEDetailsPage: React.FC = () => {
     return `/catalog/${namespace}/${kind}/${name}`;
   }
 
+  const handleUnregisterConfirm = () => {
+    setMenuId('');
+    navigate('/self-service/ee', { replace: true });
+  };
+
   return (
     <Box p={3}>
       {entity && (
         <UnregisterEntityDialog
           open={menuid === '1'}
           entity={entity}
-          onConfirm={() => {
-            setMenuId('');
-            navigate(-1);
-          }}
+          onConfirm={handleUnregisterConfirm}
           onClose={() => {
             setMenuId('');
           }}
