@@ -221,7 +221,7 @@ export const EEDetailsPage: React.FC = () => {
       if (entity && (!entity.spec || !entity?.spec?.readme)) {
         const rawUrl = `${await discoveryApi.getBaseUrl(
           'scaffolder',
-        )}/aap/get_ee_readme?${buildReadmeUrlParams()}`;
+        )}/get_ee_readme?${buildReadmeUrlParams()}`;
         if (!rawUrl) return;
         const { token } = await identityApi.getCredentials();
         fetch(rawUrl, {
