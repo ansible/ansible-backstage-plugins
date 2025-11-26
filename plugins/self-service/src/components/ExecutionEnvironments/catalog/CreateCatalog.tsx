@@ -6,7 +6,7 @@ import {
   Button,
 } from '@material-ui/core';
 import { makeStyles } from '@material-ui/core/styles';
-import eeIllustration from '../../../../images/ee-illustration.svg';
+import eeIllustration from '../../../../images/ee-illustration.png';
 
 const useStyles = makeStyles(theme => ({
   containerPadding: {

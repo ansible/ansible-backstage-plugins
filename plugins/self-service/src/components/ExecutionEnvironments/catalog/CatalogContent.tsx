@@ -363,13 +363,13 @@ export const EEListPage = ({
   ];
 
   return (
-    <div style={{ flexDirection: 'column' }}>
+    <div style={{ flexDirection: 'column', width: '100%' }}>
       {filtered || (allEntities && allEntities.length > 0) ? (
         <Typography variant="body1" className={classes.description}>
           Create an Execution Environment (EE) definition to ensure your
           playbooks run the same way, every time. Choose a recommended preset or
           start from scratch for full control. After saving your definition,
-          follow our guide to create your EE image.
+          follow our guide to create your EE image.ee
         </Typography>
       ) : null}
       <>
