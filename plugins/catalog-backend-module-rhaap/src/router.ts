@@ -73,7 +73,7 @@ export async function createRouter(options: {
     }
   });
 
-  router.post('/aap/register_ee', express.json(), async (request, response) => {
+  router.post('/register_ee', express.json(), async (request, response) => {
     const { entity } = request.body;
 
     if (!entity) {

@@ -504,7 +504,7 @@ export function createEEDefinitionAction(options: {
             eeTemplateContent,
           );
           // register the EE catalog entity with the catalog
-          const response = await fetch(`${baseUrl}/aap/register_ee`, {
+          const response = await fetch(`${baseUrl}/register_ee`, {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',

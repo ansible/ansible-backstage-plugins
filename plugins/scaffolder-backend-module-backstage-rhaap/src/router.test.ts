@@ -78,9 +78,9 @@ describe('createRouter', () => {
     jest.clearAllMocks();
   });
 
-  describe('GET /aap/get_ee_readme', () => {
+  describe('GET /get_ee_readme', () => {
     it('should return 400 when scm parameter is missing', async () => {
-      const response = await request(app).get('/aap/get_ee_readme').query({
+      const response = await request(app).get('/get_ee_readme').query({
         owner: 'test-owner',
         repository: 'test-repo',
         subdir: 'ee',
@@ -102,7 +102,7 @@ describe('createRouter', () => {
     });
 
     it('should return 400 when owner parameter is missing', async () => {
-      const response = await request(app).get('/aap/get_ee_readme').query({
+      const response = await request(app).get('/get_ee_readme').query({
         scm: 'Github',
         repository: 'test-repo',
         subdir: 'ee',
@@ -124,7 +124,7 @@ describe('createRouter', () => {
     });
 
     it('should return 400 when repository parameter is missing', async () => {
-      const response = await request(app).get('/aap/get_ee_readme').query({
+      const response = await request(app).get('/get_ee_readme').query({
         scm: 'Github',
         owner: 'test-owner',
         subdir: 'ee',
@@ -146,7 +146,7 @@ describe('createRouter', () => {
     });
 
     it('should return 400 when multiple required parameters are missing', async () => {
-      const response = await request(app).get('/aap/get_ee_readme').query({
+      const response = await request(app).get('/get_ee_readme').query({
         scm: 'Github',
       });
 
@@ -168,7 +168,7 @@ describe('createRouter', () => {
     it('should return 404 when repository does not exist', async () => {
       mockUseCaseMakerInstance.checkIfRepositoryExists.mockResolvedValue(false);
 
-      const response = await request(app).get('/aap/get_ee_readme').query({
+      const response = await request(app).get('/get_ee_readme').query({
         scm: 'Github',
         owner: 'test-owner',
         repository: 'test-repo',
@@ -194,7 +194,7 @@ describe('createRouter', () => {
     });
 
     it('should return 400 when SCM type is unsupported', async () => {
-      const response = await request(app).get('/aap/get_ee_readme').query({
+      const response = await request(app).get('/get_ee_readme').query({
         scm: 'bitbucket',
         owner: 'test-owner',
         repository: 'test-repo',
@@ -224,7 +224,7 @@ describe('createRouter', () => {
         mockReadmeContent,
       );
 
-      const response = await request(app).get('/aap/get_ee_readme').query({
+      const response = await request(app).get('/get_ee_readme').query({
         scm: 'Github',
         owner: 'test-owner',
         repository: 'test-repo',
@@ -260,7 +260,7 @@ describe('createRouter', () => {
         mockReadmeContent,
       );
 
-      const response = await request(app).get('/aap/get_ee_readme').query({
+      const response = await request(app).get('/get_ee_readme').query({
         scm: 'Github',
         owner: 'test-owner',
         repository: 'test-repo',
@@ -297,7 +297,7 @@ describe('createRouter', () => {
         mockReadmeContent,
       );
 
-      const response = await request(app).get('/aap/get_ee_readme').query({
+      const response = await request(app).get('/get_ee_readme').query({
         scm: 'Gitlab',
         host: 'gitlab.example.com',
         owner: 'test-owner',
@@ -328,7 +328,7 @@ describe('createRouter', () => {
     });
 
     it('should return 400 when SCM type is case-sensitive (GITHUB)', async () => {
-      const response = await request(app).get('/aap/get_ee_readme').query({
+      const response = await request(app).get('/get_ee_readme').query({
         scm: 'GITHUB',
         owner: 'test-owner',
         repository: 'test-repo',
@@ -352,7 +352,7 @@ describe('createRouter', () => {
     });
 
     it('should return 400 when SCM type is case-sensitive (GITLAB)', async () => {
-      const response = await request(app).get('/aap/get_ee_readme').query({
+      const response = await request(app).get('/get_ee_readme').query({
         scm: 'GITLAB',
         host: 'gitlab.example.com',
         owner: 'test-owner',
@@ -382,7 +382,7 @@ describe('createRouter', () => {
         mockError,
       );
 
-      const response = await request(app).get('/aap/get_ee_readme').query({
+      const response = await request(app).get('/get_ee_readme').query({
         scm: 'Github',
         owner: 'test-owner',
         repository: 'test-repo',
@@ -411,7 +411,7 @@ describe('createRouter', () => {
         mockError,
       );
 
-      const response = await request(app).get('/aap/get_ee_readme').query({
+      const response = await request(app).get('/get_ee_readme').query({
         scm: 'Github',
         owner: 'test-owner',
         repository: 'test-repo',
@@ -439,7 +439,7 @@ describe('createRouter', () => {
     });
 
     it('should return 400 when subdir parameter is empty', async () => {
-      const response = await request(app).get('/aap/get_ee_readme').query({
+      const response = await request(app).get('/get_ee_readme').query({
         scm: 'Github',
         owner: 'test-owner',
         repository: 'test-repo',
@@ -462,7 +462,7 @@ describe('createRouter', () => {
     });
 
     it('should return 400 when subdir parameter is missing', async () => {
-      const response = await request(app).get('/aap/get_ee_readme').query({
+      const response = await request(app).get('/get_ee_readme').query({
         scm: 'Github',
         owner: 'test-owner',
         repository: 'test-repo',
@@ -486,7 +486,7 @@ describe('createRouter', () => {
     it('should create UseCaseMaker with correct parameters', async () => {
       mockUseCaseMakerInstance.checkIfRepositoryExists.mockResolvedValue(false);
 
-      await request(app).get('/aap/get_ee_readme').query({
+      await request(app).get('/get_ee_readme').query({
         scm: 'Github',
         owner: 'test-owner',
         repository: 'test-repo',
