@@ -369,7 +369,7 @@ export const EEListPage = ({
           Create an Execution Environment (EE) definition to ensure your
           playbooks run the same way, every time. Choose a recommended preset or
           start from scratch for full control. After saving your definition,
-          follow our guide to create your EE image.ee
+          follow our guide to create your EE image.
         </Typography>
       ) : null}
       <>
