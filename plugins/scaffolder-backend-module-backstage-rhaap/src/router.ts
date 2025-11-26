@@ -27,7 +27,7 @@ export async function createRouter(options: {
   const { logger, ansibleConfig } = options;
   const router = Router();
 
-  router.get('/aap/get_ee_readme', async (req, res) => {
+  router.get('/get_ee_readme', async (req, res) => {
     // these query parameters are required
     // host is optional for now with Github
     const required = ['scm', 'owner', 'repository', 'subdir'];

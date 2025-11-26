@@ -428,7 +428,7 @@ describe('createRouter', () => {
     });
   });
 
-  describe('POST /aap/register_ee', () => {
+  describe('POST /register_ee', () => {
     it('should successfully register an execution environment', async () => {
       const mockRegisterExecutionEnvironment = jest
         .fn()
@@ -472,7 +472,7 @@ describe('createRouter', () => {
       };
 
       const response = await request(testApp)
-        .post('/aap/register_ee')
+        .post('/register_ee')
         .send({ entity: mockEntity })
         .expect(200);
 
@@ -499,7 +499,7 @@ describe('createRouter', () => {
       );
 
       const response = await request(testApp)
-        .post('/aap/register_ee')
+        .post('/register_ee')
         .send({})
         .expect(400);
 
@@ -526,7 +526,7 @@ describe('createRouter', () => {
       );
 
       const response = await request(testApp)
-        .post('/aap/register_ee')
+        .post('/register_ee')
         .send({ entity: null })
         .expect(400);
 
@@ -564,7 +564,7 @@ describe('createRouter', () => {
       };
 
       const response = await request(testApp)
-        .post('/aap/register_ee')
+        .post('/register_ee')
         .send({ entity: mockEntity })
         .expect(500);
 
@@ -604,7 +604,7 @@ describe('createRouter', () => {
       };
 
       const response = await request(testApp)
-        .post('/aap/register_ee')
+        .post('/register_ee')
         .send({ entity: mockEntity })
         .expect(500);
 
