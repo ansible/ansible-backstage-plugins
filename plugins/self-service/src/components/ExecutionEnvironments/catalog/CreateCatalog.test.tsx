@@ -2,10 +2,10 @@ import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { ThemeProvider, createMuiTheme } from '@material-ui/core/styles';
 
-// Mock the SVG import so the component's img src becomes a string we can check.
+// Mock the png import so the component's img src becomes a string we can check.
 jest.mock(
-  '../../../../images/ee-illustration.svg',
-  () => 'ee-illustration.svg',
+  '../../../../images/ee-illustration.png',
+  () => 'ee-illustration.png',
 );
 
 import { CreateCatalog } from './CreateCatalog';
@@ -68,7 +68,7 @@ describe('CreateCatalog', () => {
     const img = screen.getByAltText('Execution environment illustration');
     expect(img).toBeInTheDocument();
     expect((img as HTMLImageElement).getAttribute('src')).toBe(
-      'ee-illustration.svg',
+      'ee-illustration.png',
     );
   });
 
