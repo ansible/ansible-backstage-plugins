@@ -628,20 +628,43 @@ describe('Execution Environment Template Execution Tests', () => {
                               );
                             }
                           } catch (e) {
-                            // If URL parsing fails, fall back to original check for relative URLs
-                            if (url.includes('github.com')) {
+                            // If URL parsing fails, try parsing with base URL for relative URLs
+                            try {
+                              // Get current URL as base for relative URLs
+                              const currentUrl = cy.url();
+                              cy.url().then(baseUrl => {
+                                try {
+                                  const urlObj = new URL(url, baseUrl);
+                                  const hostname = urlObj.hostname;
+                                  if (
+                                    hostname === 'github.com' ||
+                                    hostname.endsWith('.github.com')
+                                  ) {
+                                    cy.log(
+                                      `✅ Getting Started button navigated to: ${url}`,
+                                    );
+                                    cy.go('back');
+                                    cy.wait(2000);
+                                    cy.get('body', { timeout: 15000 }).should(
+                                      'be.visible',
+                                    );
+                                    cy.log('✅ Navigated back from Getting Started');
+                                  } else {
+                                    cy.log(
+                                      `ℹ️ Getting Started button clicked, URL: ${url}`,
+                                    );
+                                  }
+                                } catch (e2) {
+                                  // If still can't parse, treat as indeterminate
+                                  cy.log(
+                                    `ℹ️ Could not parse URL reliably: ${url}. Treating as non-GitHub.`,
+                                  );
+                                }
+                              });
+                            } catch (e2) {
+                              // If we can't get base URL, treat as indeterminate
                               cy.log(
-                                `✅ Getting Started button navigated to: ${url}`,
-                              );
-                              cy.go('back');
-                              cy.wait(2000);
-                              cy.get('body', { timeout: 15000 }).should(
-                                'be.visible',
-                              );
-                              cy.log('✅ Navigated back from Getting Started');
-                            } else {
-                              cy.log(
-                                `ℹ️ Getting Started button clicked, URL: ${url}`,
+                                `ℹ️ Could not parse URL reliably: ${url}. Treating as non-GitHub.`,
                               );
                             }
                           }
@@ -761,22 +784,32 @@ describe('Execution Environment Template Execution Tests', () => {
                                   }
                                 }
                               } catch (e) {
-                                // If URL parsing fails, fall back to original check for relative URLs
-                                if (url.includes('github.com')) {
-                                  cy.log(
-                                    `✅ Github Repository button navigated to GitHub: ${url}`,
-                                  );
-                                  cy.go('back');
-                                  cy.wait(2000);
-                                } else {
-                                  cy.log(
-                                    `ℹ️ Github Repository button clicked, but URL is: ${url}`,
-                                  );
-                                  if (url !== originalUrl) {
-                                    cy.go('back');
-                                    cy.wait(2000);
+                                // If URL parsing fails, try parsing with base URL for relative URLs
+                                cy.url().then(baseUrl => {
+                                  try {
+                                    const urlObj = new URL(url, baseUrl);
+                                    const hostname = urlObj.hostname;
+                                    if (
+                                      hostname === 'github.com' ||
+                                      hostname.endsWith('.github.com')
+                                    ) {
+                                      cy.log(
+                                        `✅ Github Repository button navigated to GitHub: ${url}`,
+                                      );
+                                      cy.go('back');
+                                      cy.wait(2000);
+                                    } else {
+                                      cy.log(
+                                        `ℹ️ Github Repository button clicked, URL: ${url}`,
+                                      );
+                                    }
+                                  } catch (e2) {
+                                    // If still can't parse, treat as indeterminate
+                                    cy.log(
+                                      `ℹ️ Could not parse URL reliably: ${url}. Treating as non-GitHub.`,
+                                    );
                                   }
-                                }
+                                });
                               }
                             });
                           } else {
@@ -807,18 +840,32 @@ describe('Execution Environment Template Execution Tests', () => {
                                   );
                                 }
                               } catch (e) {
-                                // If URL parsing fails, fall back to original check for relative URLs
-                                if (url.includes('github.com')) {
-                                  cy.log(
-                                    `✅ Github Repository button navigated to GitHub: ${url}`,
-                                  );
-                                  cy.go('back');
-                                  cy.wait(2000);
-                                } else {
-                                  cy.log(
-                                    `ℹ️ Github Repository button clicked, URL: ${url}`,
-                                  );
-                                }
+                                // If URL parsing fails, try parsing with base URL for relative URLs
+                                cy.url().then(baseUrl => {
+                                  try {
+                                    const urlObj = new URL(url, baseUrl);
+                                    const hostname = urlObj.hostname;
+                                    if (
+                                      hostname === 'github.com' ||
+                                      hostname.endsWith('.github.com')
+                                    ) {
+                                      cy.log(
+                                        `✅ Github Repository button navigated to GitHub: ${url}`,
+                                      );
+                                      cy.go('back');
+                                      cy.wait(2000);
+                                    } else {
+                                      cy.log(
+                                        `ℹ️ Github Repository button clicked, URL: ${url}`,
+                                      );
+                                    }
+                                  } catch (e2) {
+                                    // If still can't parse, treat as indeterminate
+                                    cy.log(
+                                      `ℹ️ Could not parse URL reliably: ${url}. Treating as non-GitHub.`,
+                                    );
+                                  }
+                                });
                               }
                             });
                           }
