@@ -648,7 +648,9 @@ describe('Execution Environment Template Execution Tests', () => {
                                     cy.get('body', { timeout: 15000 }).should(
                                       'be.visible',
                                     );
-                                    cy.log('✅ Navigated back from Getting Started');
+                                    cy.log(
+                                      '✅ Navigated back from Getting Started',
+                                    );
                                   } else {
                                     cy.log(
                                       `ℹ️ Getting Started button clicked, URL: ${url}`,
@@ -813,7 +815,6 @@ describe('Execution Environment Template Execution Tests', () => {
                               }
                             });
                           } else {
-                            // No href, treat as button
                             cy.log(
                               'ℹ️ Github Repository button has no href, clicking as button',
                             );
