@@ -806,7 +806,6 @@ describe('Execution Environment Template Execution Tests', () => {
                                       );
                                     }
                                   } catch (e2) {
-                                    // If still can't parse, treat as indeterminate
                                     cy.log(
                                       `ℹ️ Could not parse URL reliably: ${url}. Treating as non-GitHub.`,
                                     );
