@@ -666,9 +666,7 @@ export class AAPClient implements IAAPService {
       });
       if (duplicates.length) {
         this.logger.error(
-          `Cannot assign multiple credentials of the same type. Duplicated credential types are: ${duplicates.join(
-            ', ',
-          )}`,
+          `Cannot assign multiple credentials of the same type. Duplicated credential types are: ${duplicates.join(', ')}`,
         );
         throw new Error(
           `Cannot assign multiple credentials of the same type. Duplicated credential types are: ${duplicates.join(
@@ -684,9 +682,7 @@ export class AAPClient implements IAAPService {
     let templateID;
     const urlSearchParams = new URLSearchParams();
     urlSearchParams.set('name', payload.template);
-    const templateIdEndpoint = `api/controller/v2/job_templates/?${decodeURIComponent(
-      urlSearchParams.toString(),
-    )}`;
+    const templateIdEndpoint = `api/controller/v2/job_templates/?${decodeURIComponent(urlSearchParams.toString())}`;
     try {
       const templateResponse = await this.executeGetRequest(
         templateIdEndpoint,
@@ -835,9 +831,7 @@ export class AAPClient implements IAAPService {
       }
     }
 
-    const endPoint = `api/controller/v2/${aapResource}/?${decodeURIComponent(
-      urlSearchParams.toString(),
-    )}`;
+    const endPoint = `api/controller/v2/${aapResource}/?${decodeURIComponent(urlSearchParams.toString())}`;
     const response = await this.executeGetRequest(endPoint, token);
     return await response.json();
   }
@@ -981,9 +975,7 @@ export class AAPClient implements IAAPService {
       id: userData.id ? userData.id.toString() : '',
       username: userData.username,
       email: userData.email,
-      displayName: `${userData?.first_name ? userData.first_name : ''} ${
-        userData?.last_name ? userData.last_name : ''
-      }`,
+      displayName: `${userData?.first_name ? userData.first_name : ''} ${userData?.last_name ? userData.last_name : ''}`,
     } as PassportProfile;
   }
 
@@ -1058,17 +1050,13 @@ export class AAPClient implements IAAPService {
           const [rawTeams, users] = await Promise.all([
             teamsUrl
               ? this.executeCatalogRequest(
-                  `${teamsUrl}?${decodeURIComponent(
-                    urlSearchParams.toString(),
-                  )}`,
+                  `${teamsUrl}?${decodeURIComponent(urlSearchParams.toString())}`,
                   token,
                 )
               : [],
             (usersUrl
               ? this.executeCatalogRequest(
-                  `${usersUrl}?${decodeURIComponent(
-                    urlSearchParams.toString(),
-                  )}`,
+                  `${usersUrl}?${decodeURIComponent(urlSearchParams.toString())}`,
                   token,
                 )
               : []) as Users,
@@ -1085,9 +1073,7 @@ export class AAPClient implements IAAPService {
               if (!teamUsersUrl) {
                 return [];
               }
-              teamUsersUrl = `${teamUsersUrl}?${decodeURIComponent(
-                batchUrlSearchParams.toString(),
-              )}`;
+              teamUsersUrl = `${teamUsersUrl}?${decodeURIComponent(batchUrlSearchParams.toString())}`;
               const teamUsers = ((await this.executeCatalogRequest(
                 teamUsersUrl,
                 token,
@@ -1327,9 +1313,7 @@ export class AAPClient implements IAAPService {
       return jobTemplatesData;
     } catch (err) {
       this.logger.error(
-        `Error retrieving job templates from ${endPoint}. ${JSON.stringify(
-          err,
-        )}`,
+        `Error retrieving job templates from ${endPoint}. ${JSON.stringify(err)}`,
       );
       throw new Error(`Error retrieving job templates from ${endPoint}.`);
     }
