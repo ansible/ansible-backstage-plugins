@@ -174,7 +174,9 @@ describe('Execution Environment Tabview Tests', () => {
       }
 
       // User filter (All/Starred) via UserListPicker
-      const $container = $body.find('[data-testid="user-picker-container"]').first();
+      const $container = $body
+        .find('[data-testid="user-picker-container"]')
+        .first();
 
       if ($container.length === 0) {
         cy.log('ℹ️ EE Create tab user picker container not found');
@@ -218,7 +220,7 @@ describe('Execution Environment Tabview Tests', () => {
         );
       }
     });
-    
+
     // Template cards and Start/Create button on Create tab
     cy.get('body').then($body => {
       const hasTemplates =
@@ -232,7 +234,9 @@ describe('Execution Environment Tabview Tests', () => {
 
       cy.log('✅ EE Create tab templates container/cards found');
 
-      cy.get('[data-testid="templates-container"], .MuiCard-root, article, .template')
+      cy.get(
+        '[data-testid="templates-container"], .MuiCard-root, article, .template',
+      )
         .first()
         .then($card => {
           cy.wrap($card).within(() => {
@@ -244,7 +248,9 @@ describe('Execution Environment Tabview Tests', () => {
 
               const startButton = $buttons.filter((_, btn) => {
                 const txt = (btn.textContent || '').toLowerCase();
-                const testId = (btn.getAttribute('data-testid') || '').toLowerCase();
+                const testId = (
+                  btn.getAttribute('data-testid') || ''
+                ).toLowerCase();
                 return (
                   txt.includes('start') ||
                   txt.includes('create') ||
