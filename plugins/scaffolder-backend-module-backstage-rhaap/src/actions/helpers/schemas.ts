@@ -26,11 +26,18 @@ export const GalaxyDependenciesSchema = z
   })
   .strict();
 
+export const PythonInterpreterSchema = z
+  .object({
+    python_path: z.string(),
+  })
+  .strict();
+
 export const DependenciesSchema = z
   .object({
     python: z.array(z.string()).optional(),
     system: z.array(z.string()).optional(),
     galaxy: GalaxyDependenciesSchema.optional(),
+    python_interpreter: PythonInterpreterSchema.optional(),
   })
   .strict();
 

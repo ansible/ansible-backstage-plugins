@@ -538,6 +538,7 @@ function generateEEDefinition(values: EEDefinitionInput): string {
   const packages = values.systemPackages || [];
   const additionalBuildSteps = values.additionalBuildSteps || [];
   let overridePkgMgrPath = false;
+  let overridePythonInterpreter = false;
 
   if (
     values.baseImage
@@ -547,6 +548,7 @@ function generateEEDefinition(values: EEDefinitionInput): string {
       )
   ) {
     overridePkgMgrPath = true;
+    overridePythonInterpreter = true;
   }
 
   // Build dependencies section using inline values (no separate files)
@@ -589,6 +591,10 @@ function generateEEDefinition(values: EEDefinitionInput): string {
         });
       }
     });
+  }
+
+  if (overridePythonInterpreter) {
+    dependenciesContent += `\n  python_interpreter:\n    python_path: "/usr/bin/python3.11"`;
   }
 
   // Add dependencies: prefix if any dependencies exist
@@ -866,7 +872,6 @@ metadata:
   title: ${values.eeFileName}
   description: ${values.eeDescription || 'Saved Ansible Execution Environment Definition template'}
   annotations:
-    ansible.io/template-type: execution-environment
     ansible.io/saved-template: 'true'
   tags: ${tagsJson}
 spec:
@@ -882,11 +887,15 @@ spec:
           type: string
           default: '${values.customBaseImage || values.baseImage}'
           enum:
-            - 'registry.access.redhat.com/ubi9/python-311:latest'
-            - 'registry.redhat.io/ansible-automation-platform-25/ee-minimal-rhel9:latest'${values.customBaseImage?.trim() ? `\n            - '${values.customBaseImage}'` : ''}
+            - 'registry.redhat.io/ansible-automation-platform/ee-minimal-rhel8:2.18'
+            - 'registry.redhat.io/ansible-automation-platform/ee-minimal-rhel9:2.18'
+            - 'registry.redhat.io/ansible-automation-platform/ee-minimal-rhel8:2.16'
+            - 'registry.redhat.io/ansible-automation-platform/ee-minimal-rhel9:2.16'${values.customBaseImage?.trim() ? `\n            - '${values.customBaseImage}'` : ''}
           enumNames:
-            - 'Red Hat Universal Base Image 9 w/ Python 3.11 (Recommended)'
-            - 'Red Hat Ansible Minimal EE base (RHEL 9) (Requires subscription)'${values.customBaseImage?.trim() ? `\n            - '${values.customBaseImage}'` : ''}
+            - 'Red Hat Ansible Minimal EE - Ansible Core 2.18 (RHEL 8)'
+            - 'Red Hat Ansible Minimal EE - Ansible Core 2.18 (RHEL 9)'
+            - 'Red Hat Ansible Minimal EE - Ansible Core 2.16 (RHEL 8)'
+            - 'Red Hat Ansible Minimal EE - Ansible Core 2.16 (RHEL 9)'${values.customBaseImage?.trim() ? `\n            - '${values.customBaseImage}'` : ''}
           ui:field: BaseImagePicker
       dependencies:
         baseImage:
@@ -924,17 +933,18 @@ spec:
           items:
             type: string
             enum:
-              - 'ansible.posix'
               - 'community.general'
-              - 'community.crypto'
+              - 'ansible.posix'
               - 'ansible.windows'
-              - 'community.kubernetes'
-              - 'community.docker'
-              - 'cisco.ios'
-              - 'arista.eos'
+              - 'ansible.utils'
               - 'amazon.aws'
               - 'azure.azcollection'
               - 'google.cloud'
+              - 'amazon.ai'
+              - 'cisco.ios'
+              - 'cisco.nxos'
+              - 'arista.eos'
+              - 'cisco.iosxr'
           uniqueItems: true
           ui:widget: checkboxes
           ui:options:
@@ -952,7 +962,7 @@ spec:
                 title: Collection Name
                 description: The name of the collection in namespace.collection format
                 pattern: '^[a-zA-Z0-9_]+\.[a-zA-Z0-9_]+$'
-                ui:placeholder: 'e.g., community.general'
+                ui:placeholder: 'e.g., amazon.aws'
               version:
                 type: string
                 title: Version (Optional)
@@ -966,7 +976,6 @@ spec:
                 description: |
                   The Galaxy URL to pull the collection from.
                   If type is 'file', 'dir', or 'subdirs', this should be a local path to the collection.
-                ui:placeholder: 'e.g., https://github.com/ansible-collections/community.general'
               type:
                 type: string
                 title: Type (Optional)
@@ -1152,11 +1161,11 @@ spec:
               removable: true
             help: "Add one or more tags for the generated template."
         publishToSCM:
-          title: Publish to a SCM repository
-          description: Publish the EE definition file and template to a SCM repository.
+          title: Publish to a Git repository
+          description: Publish the EE definition file and template to a Git repository.
           type: boolean
           default: true
-          ui:help: "If unchecked, the EE definition file and template will not be pushed to a SCM repository. Regardless of your selection, you will get a link to download the files locally."
+          ui:help: "If unchecked, the EE definition file and template will not be pushed to a Git repository. Regardless of your selection, you will get a link to download the files locally."
       required:
         - eeFileName
         - templateDescription
@@ -1177,9 +1186,9 @@ spec:
                     component: select
                     help: Select the source control provider to publish the EE definition files to.
                 repositoryOwner:
-                  title: SCM repository organization or username
+                  title: Git repository organization or username
                   type: string
-                  description: The organization or username that owns the SCM repository
+                  description: The organization or username that owns the Git repository.
                 repositoryName:
                   title: Repository Name
                   type: string
@@ -1309,6 +1318,10 @@ spec:
         optional: true
 
   output:
+    text:
+      - title: Next Steps
+        content: |
+          \${{ steps['create-ee-definition'].output.readmeContent }}
     links:
       - title: \${{ parameters.sourceControlProvider }} Repository
         url: \${{ steps['prepare-publish'].output.generatedFullRepoUrl }}
@@ -1328,11 +1341,6 @@ spec:
         icon: catalog
         url: \${{ steps['create-ee-definition'].output.generatedEntityRef }}
         if: \${{ not (steps['publish-github-pull-request'].output.remoteUrl or steps['publish-gitlab-merge-request'].output.mergeRequestUrl) }}
-
-    text:
-      - title: Next Steps
-        content: |
-          \${{ steps['create-ee-definition'].output.readmeContent }}
 `;
 }
 
