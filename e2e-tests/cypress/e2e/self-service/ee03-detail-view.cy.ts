@@ -33,13 +33,11 @@ describe('Execution Environment Catalog and Detail View Tests', () => {
       const hasTableRows = $body.find('table tbody tr').length > 0;
       if (hasTableRows) {
         cy.log(
-          `✅ Catalog has ${$body.find('table tbody tr').length} item(s) for testing`,
+          ` Catalog has ${$body.find('table tbody tr').length} item(s) for testing`,
         );
       } else {
-        cy.log('ℹ️ Catalog is empty - some tests may be skipped');
-        cy.log(
-          'ℹ️ Run ee02-template-execution.cy.ts first to create test data',
-        );
+        cy.log(' Catalog is empty - some tests may be skipped');
+        cy.log(' Run ee02-template-execution.cy.ts first to create test data');
       }
     });
   });
@@ -49,20 +47,18 @@ describe('Execution Environment Catalog and Detail View Tests', () => {
 
     cy.get('body').then($body => {
       const text = $body.text();
-      const hasEmptyState =
-        text.includes('No Execution Environment definition files, yet') ||
-        text.includes('No Execution Environment definition files') ||
-        text.includes('No Execution Environment');
-
+      const hasEmptyState = text.includes(
+        'No Execution Environment definition files, yet',
+      );
       if (hasEmptyState) {
-        cy.log('✅ EE Catalog is in empty state');
+        cy.log(' EE Catalog is in empty state');
         // Empty state tests can be added here if needed
         return;
       }
 
       // Check if table exists
       if ($body.find('table').length > 0) {
-        cy.log('✅ EE Catalog table found');
+        cy.log(' EE Catalog table found');
         // Check if table exists in DOM (don't require full visibility due to CSS clipping)
         cy.get('table').should('exist');
 
@@ -76,13 +72,13 @@ describe('Execution Environment Catalog and Detail View Tests', () => {
           .then($table => {
             const $rows = $table.find('tbody tr');
             if ($rows.length > 0) {
-              cy.log(`✅ Table found with ${$rows.length} row(s)`);
+              cy.log(` Table found with ${$rows.length} row(s)`);
             } else {
-              cy.log('✅ Table found but has no rows (empty table)');
+              cy.log(' Table found but has no rows (empty table)');
             }
           });
       } else {
-        cy.log('ℹ️ EE Catalog table not found');
+        cy.log(' EE Catalog table not found');
       }
     });
   });
@@ -95,10 +91,10 @@ describe('Execution Environment Catalog and Detail View Tests', () => {
 
       // Personal -> Starred filter
       if (text.includes('Personal') && text.includes('Starred')) {
-        cy.log('✅ Personal / Starred section found on sidebar');
+        cy.log(' Personal / Starred section found on sidebar');
         cy.contains('Starred').click({ force: true });
         cy.wait(1000);
-        cy.log('✅ Clicked Starred filter in sidebar');
+        cy.log(' Clicked Starred filter in sidebar');
 
         // Click back to All or reset
         if (text.includes('All')) {
@@ -106,22 +102,22 @@ describe('Execution Environment Catalog and Detail View Tests', () => {
           cy.wait(1000);
         }
       } else {
-        cy.log('ℹ️ Sidebar Personal / Starred section not found');
+        cy.log(' Sidebar Personal / Starred section not found');
       }
 
       // My Org -> All filter
       if (text.includes('My Org') && text.includes('All')) {
-        cy.log('✅ My Org / All section found on sidebar');
+        cy.log(' My Org / All section found on sidebar');
         cy.contains('All').click({ force: true });
         cy.wait(1000);
-        cy.log('✅ Clicked My Org All filter in sidebar');
+        cy.log(' Clicked My Org All filter in sidebar');
       } else {
-        cy.log('ℹ️ Sidebar My Org / All section not found');
+        cy.log(' Sidebar My Org / All section not found');
       }
 
       // Tags dropdown filter (in right sidebar)
       if (text.includes('Tags')) {
-        cy.log('✅ Tags filter label found on sidebar');
+        cy.log(' Tags filter label found on sidebar');
         cy.get('body').then($body => {
           // Look for Tags in the sidebar (not in table)
           // Find element containing "Tags" text
@@ -147,7 +143,7 @@ describe('Execution Environment Catalog and Detail View Tests', () => {
             ) {
               cy.wrap($tagsLabel).click({ force: true });
               cy.wait(1000);
-              cy.log('✅ Clicked Tags filter label directly');
+              cy.log(' Clicked Tags filter label directly');
             } else {
               // Look for clickable element in parent or sibling
               const $parent = $tagsLabel.parent();
@@ -158,25 +154,25 @@ describe('Execution Environment Catalog and Detail View Tests', () => {
               if ($clickable.length > 0) {
                 cy.wrap($clickable).click({ force: true });
                 cy.wait(1000);
-                cy.log('✅ Clicked Tags filter element');
+                cy.log(' Clicked Tags filter element');
               } else {
                 // Try clicking the parent if it's clickable
                 if ($parent.is('button') || $parent.attr('role') === 'button') {
                   cy.wrap($parent).click({ force: true });
                   cy.wait(1000);
-                  cy.log('✅ Clicked Tags filter parent');
+                  cy.log(' Clicked Tags filter parent');
                 } else {
                   // Fallback: click near the Tags text
                   cy.contains('Tags').then($el => {
                     cy.wrap($el).click({ force: true });
                   });
                   cy.wait(1000);
-                  cy.log('✅ Clicked Tags filter (fallback)');
+                  cy.log(' Clicked Tags filter (fallback)');
                 }
               }
             }
           } else {
-            cy.log('ℹ️ Tags filter element not found in sidebar');
+            cy.log(' Tags filter element not found in sidebar');
           }
         });
 
@@ -193,12 +189,12 @@ describe('Execution Environment Catalog and Detail View Tests', () => {
           }
         });
       } else {
-        cy.log('ℹ️ Tags filter label not found on sidebar');
+        cy.log(' Tags filter label not found on sidebar');
       }
 
       // Owner dropdown filter (in right sidebar)
       if (text.includes('Owner')) {
-        cy.log('✅ Owner filter label found on sidebar');
+        cy.log(' Owner filter label found on sidebar');
         cy.get('body').then($body => {
           // Look for Owner in the sidebar (not in table)
           const $ownerLabel = $body
@@ -222,7 +218,7 @@ describe('Execution Environment Catalog and Detail View Tests', () => {
             ) {
               cy.wrap($ownerLabel).click({ force: true });
               cy.wait(1000);
-              cy.log('✅ Clicked Owner filter label directly');
+              cy.log(' Clicked Owner filter label directly');
             } else {
               // Look for clickable element in parent or sibling
               const $parent = $ownerLabel.parent();
@@ -233,25 +229,25 @@ describe('Execution Environment Catalog and Detail View Tests', () => {
               if ($clickable.length > 0) {
                 cy.wrap($clickable).click({ force: true });
                 cy.wait(1000);
-                cy.log('✅ Clicked Owner filter element');
+                cy.log(' Clicked Owner filter element');
               } else {
                 // Try clicking the parent if it's clickable
                 if ($parent.is('button') || $parent.attr('role') === 'button') {
                   cy.wrap($parent).click({ force: true });
                   cy.wait(1000);
-                  cy.log('✅ Clicked Owner filter parent');
+                  cy.log(' Clicked Owner filter parent');
                 } else {
                   // Fallback: click near the Owner text
                   cy.contains('Owner').then($el => {
                     cy.wrap($el).click({ force: true });
                   });
                   cy.wait(1000);
-                  cy.log('✅ Clicked Owner filter (fallback)');
+                  cy.log(' Clicked Owner filter (fallback)');
                 }
               }
             }
           } else {
-            cy.log('ℹ️ Owner filter element not found in sidebar');
+            cy.log(' Owner filter element not found in sidebar');
           }
         });
 
@@ -268,7 +264,7 @@ describe('Execution Environment Catalog and Detail View Tests', () => {
           }
         });
       } else {
-        cy.log('ℹ️ Owner filter label not found on sidebar');
+        cy.log(' Owner filter label not found on sidebar');
       }
     });
   });
@@ -280,47 +276,49 @@ describe('Execution Environment Catalog and Detail View Tests', () => {
       const text = $body.text();
 
       // First check for empty state message
-      const hasEmptyState =
-        text.includes('No Execution Environment definition files, yet') ||
-        text.includes('No Execution Environment definition files') ||
-        text.includes('No Execution Environment');
+      const hasEmptyState = text.includes(
+        'No Execution Environment definition files, yet',
+      );
 
       if (hasEmptyState) {
-        cy.log('✅ EE Catalog is in empty state - no table expected');
+        cy.contains('No Execution Environment definition files, yet').should(
+          'exist',
+        );
+        cy.log(' EE Catalog is in empty state - no table expected');
         // Verify empty state elements
         if (text.includes('Create Execution Environment definition file')) {
           cy.contains('Create Execution Environment definition file').should(
             'exist',
           );
-          cy.log('✅ Empty state CTA button found');
+          cy.log(' Empty state CTA button found');
         }
         return; // Exit early if empty state
       }
 
       // Check if table exists
       if ($body.find('table').length === 0) {
-        cy.log('ℹ️ No table found - catalog may be empty or loading');
+        cy.log(' No table found - catalog may be empty or loading');
         return;
       }
 
       // Check if table has rows
       const $tableRows = $body.find('table tbody tr');
       if ($tableRows.length === 0) {
-        cy.log('ℹ️ Table exists but has no rows - empty table state');
+        cy.log(' Table exists but has no rows - empty table state');
         // Verify table headers are still present even with no rows
         cy.get('table')
           .first()
           .then($table => {
             const tableText = $table.text();
             if (tableText.includes('Name') || tableText.includes('Owner')) {
-              cy.log('✅ Table headers present even with no rows');
+              cy.log(' Table headers present even with no rows');
             }
           });
         return; // Exit if no rows
       }
 
       cy.log(
-        `✅ Table found with ${$tableRows.length} row(s), checking row elements`,
+        ` Table found with ${$tableRows.length} row(s), checking row elements`,
       );
 
       // Check table headers - use .first() to get single table
@@ -352,28 +350,28 @@ describe('Execution Environment Catalog and Detail View Tests', () => {
         .find('tbody tr')
         .first()
         .then($firstRow => {
-          cy.log('✅ First table row found');
+          cy.log(' First table row found');
 
           // Check for Name (should be a link or clickable)
           const $nameLink = $firstRow.find('a').first();
           if ($nameLink.length > 0) {
-            cy.log(`✅ Name link found: ${$nameLink.text()}`);
+            cy.log(` Name link found: ${$nameLink.text()}`);
           } else {
             // Check if first cell has clickable content
             const $firstCell = $firstRow.find('td').first();
             if ($firstCell.length > 0) {
-              cy.log(`✅ Name cell found: ${$firstCell.text().trim()}`);
+              cy.log(` Name cell found: ${$firstCell.text().trim()}`);
             }
           }
 
           // Check for Owner
           if ($firstRow.text().includes('user:default')) {
-            cy.log('✅ Owner information found in row');
+            cy.log(' Owner information found in row');
           }
 
           // Check for Description
           if ($firstRow.text().includes('execution environment')) {
-            cy.log('✅ Description found in row');
+            cy.log(' Description found in row');
           }
 
           // Check for Tags
@@ -381,7 +379,7 @@ describe('Execution Environment Catalog and Detail View Tests', () => {
             $firstRow.find('[class*="chip"], [class*="tag"], [class*="badge"]')
               .length > 0
           ) {
-            cy.log('✅ Tags found in row');
+            cy.log(' Tags found in row');
           }
 
           // Check for Actions (star and edit buttons)
@@ -413,11 +411,11 @@ describe('Execution Environment Catalog and Detail View Tests', () => {
           });
 
           if ($starButton.length > 0) {
-            cy.log('✅ Star/favorite button found in Actions column');
+            cy.log(' Star/favorite button found in Actions column');
           }
 
           if ($editButton.length > 0) {
-            cy.log('✅ Edit button found in Actions column');
+            cy.log(' Edit button found in Actions column');
           }
         });
     });
@@ -428,7 +426,7 @@ describe('Execution Environment Catalog and Detail View Tests', () => {
 
     cy.get('body').then($body => {
       if ($body.find('table tbody tr').length === 0) {
-        cy.log('ℹ️ No table rows found - skipping star button test');
+        cy.log(' No table rows found - skipping star button test');
         return;
       }
 
@@ -452,12 +450,12 @@ describe('Execution Environment Catalog and Detail View Tests', () => {
             });
 
             if ($starButton.length > 0) {
-              cy.log('✅ Star/favorite button found');
+              cy.log(' Star/favorite button found');
               cy.wrap($starButton.first()).click({ force: true });
               cy.wait(2000); // Wait longer for DOM update
-              cy.log('✅ Clicked star/favorite button - should add to starred');
+              cy.log(' Clicked star/favorite button - should add to starred');
             } else {
-              cy.log('ℹ️ Star/favorite button not found in Actions column');
+              cy.log(' Star/favorite button not found in Actions column');
             }
           });
         });
@@ -468,7 +466,7 @@ describe('Execution Environment Catalog and Detail View Tests', () => {
       // Re-query the table from body level (not inside .within())
       cy.get('body').then($bodyAfter => {
         if ($bodyAfter.find('table tbody tr').length > 0) {
-          cy.log('✅ Table still available after star click');
+          cy.log(' Table still available after star click');
 
           // Try to click star again to toggle off
           cy.get('table tbody tr')
@@ -493,16 +491,16 @@ describe('Execution Environment Catalog and Detail View Tests', () => {
                   cy.wrap($starButtonAfter.first()).click({ force: true });
                   cy.wait(1000);
                   cy.log(
-                    '✅ Clicked star/favorite button again - should remove from starred',
+                    ' Clicked star/favorite button again - should remove from starred',
                   );
                 } else {
-                  cy.log('ℹ️ Star button not found after first click');
+                  cy.log(' Star button not found after first click');
                 }
               });
             });
         } else {
           cy.log(
-            'ℹ️ Table not found after star click (may have navigated or re-rendered)',
+            ' Table not found after star click (may have navigated or re-rendered)',
           );
         }
       });
@@ -513,7 +511,7 @@ describe('Execution Environment Catalog and Detail View Tests', () => {
 
     cy.get('body').then($body => {
       if ($body.find('table tbody tr').length === 0) {
-        cy.log('ℹ️ No table rows found - skipping edit button test');
+        cy.log(' No table rows found - skipping edit button test');
         return;
       }
 
@@ -536,18 +534,16 @@ describe('Execution Environment Catalog and Detail View Tests', () => {
             });
 
             if ($editButton.length > 0) {
-              cy.log('✅ Edit button found');
+              cy.log(' Edit button found');
               cy.wrap($editButton.first()).click({ force: true });
               cy.wait(2000);
 
               // Check if edit dialog/modal opened or navigated
               cy.url().then(url => {
                 if (url.includes('/edit') || url.includes('/catalog')) {
-                  cy.log(`✅ Edit button clicked, navigated to: ${url}`);
+                  cy.log(` Edit button clicked, navigated to: ${url}`);
                 } else {
-                  cy.log(
-                    '✅ Edit button clicked (may have opened modal/dialog)',
-                  );
+                  cy.log(' Edit button clicked (may have opened modal/dialog)');
                 }
               });
 
@@ -559,7 +555,7 @@ describe('Execution Environment Catalog and Detail View Tests', () => {
                 }
               });
             } else {
-              cy.log('ℹ️ Edit button not found in Actions column');
+              cy.log(' Edit button not found in Actions column');
             }
           });
         });
@@ -571,7 +567,7 @@ describe('Execution Environment Catalog and Detail View Tests', () => {
 
     cy.get('body').then($body => {
       if ($body.find('table tbody tr').length === 0) {
-        cy.log('ℹ️ No table rows found - skipping name link test');
+        cy.log(' No table rows found - skipping name link test');
         return;
       }
 
@@ -593,7 +589,7 @@ describe('Execution Environment Catalog and Detail View Tests', () => {
 
           if ($nameElement.length > 0) {
             const entityName = $nameElement.text().trim();
-            cy.log(`✅ Found name element: ${entityName}`);
+            cy.log(` Found name element: ${entityName}`);
 
             cy.wrap($nameElement).click({ force: true });
             cy.wait(3000);
@@ -605,7 +601,7 @@ describe('Execution Environment Catalog and Detail View Tests', () => {
                 url.includes('/self-service/catalog/') ||
                 url.includes('/catalog/')
               ) {
-                cy.log(`✅ Navigated to detail view page: ${url}`);
+                cy.log(` Navigated to detail view page: ${url}`);
 
                 // Wait for body to be visible (more reliable than main)
                 cy.get('body', { timeout: 20000 }).should('be.visible');
@@ -617,19 +613,19 @@ describe('Execution Environment Catalog and Detail View Tests', () => {
                   const hasMain = $detailBody.find('main').length > 0;
                   if (hasMain) {
                     cy.get('main').should('be.visible');
-                    cy.log('✅ Main element found on detail page');
+                    cy.log(' Main element found on detail page');
                   } else {
                     cy.log(
-                      'ℹ️ Main element not found (detail page may use different structure)',
+                      ' Main element not found (detail page may use different structure)',
                     );
                   }
 
                   // Verify entity name is on the page
                   if ($detailBody.text().includes(entityName)) {
-                    cy.log(`✅ Detail page shows entity name: ${entityName}`);
+                    cy.log(` Detail page shows entity name: ${entityName}`);
                   } else {
                     cy.log(
-                      `ℹ️ Entity name "${entityName}" not clearly visible on detail page`,
+                      ` Entity name "${entityName}" not clearly visible on detail page`,
                     );
                   }
 
@@ -641,20 +637,20 @@ describe('Execution Environment Catalog and Detail View Tests', () => {
                     .includes('DESCRIPTION');
 
                   if (hasOverview || hasAbout || hasDescription) {
-                    cy.log('✅ Detail page content indicators found');
+                    cy.log(' Detail page content indicators found');
                   } else {
                     cy.log(
-                      'ℹ️ Detail page content indicators not clearly visible',
+                      ' Detail page content indicators not clearly visible',
                     );
                   }
                 });
               } else {
-                cy.log(`ℹ️ After clicking name element, URL is: ${url}`);
+                cy.log(` After clicking name element, URL is: ${url}`);
               }
             });
           } else {
             // Fallback: try clicking the first cell in the row
-            cy.log('ℹ️ Name link/button not found, trying first cell click');
+            cy.log(' Name link/button not found, trying first cell click');
             cy.get('table tbody tr')
               .first()
               .within(() => {
@@ -663,7 +659,7 @@ describe('Execution Environment Catalog and Detail View Tests', () => {
                   .then($firstCell => {
                     const cellText = $firstCell.text().trim();
                     if (cellText) {
-                      cy.log(`✅ Found first cell text: ${cellText}`);
+                      cy.log(` Found first cell text: ${cellText}`);
                       // Try clicking the cell or any clickable element within it
                       cy.wrap($firstCell)
                         .find('*')
@@ -676,11 +672,9 @@ describe('Execution Environment Catalog and Detail View Tests', () => {
                           url.includes('/self-service/catalog/') ||
                           url.includes('/catalog/')
                         ) {
-                          cy.log(`✅ Navigated to detail view page: ${url}`);
+                          cy.log(` Navigated to detail view page: ${url}`);
                         } else {
-                          cy.log(
-                            `ℹ️ After clicking first cell, URL is: ${url}`,
-                          );
+                          cy.log(` After clicking first cell, URL is: ${url}`);
                         }
                       });
                     }
@@ -695,7 +689,7 @@ describe('Execution Environment Catalog and Detail View Tests', () => {
 
     cy.get('body').then($body => {
       if ($body.find('table tbody tr').length === 0) {
-        cy.log('ℹ️ No table rows found - skipping detail view test');
+        cy.log(' No table rows found - skipping detail view test');
         return;
       }
 
@@ -712,7 +706,7 @@ describe('Execution Environment Catalog and Detail View Tests', () => {
             .first();
           if ($nameElement.length > 0) {
             const entityName = $nameElement.text().trim();
-            cy.log(`✅ Found name element: ${entityName}`);
+            cy.log(` Found name element: ${entityName}`);
 
             cy.wrap($nameElement).click({ force: true });
             cy.wait(3000);
@@ -723,7 +717,7 @@ describe('Execution Environment Catalog and Detail View Tests', () => {
                 url.includes('/self-service/catalog/') ||
                 url.includes('/catalog/')
               ) {
-                cy.log(`✅ Navigated to detail view page: ${url}`);
+                cy.log(` Navigated to detail view page: ${url}`);
                 cy.get('body', { timeout: 20000 }).should('be.visible');
                 cy.wait(2000);
 
@@ -734,7 +728,7 @@ describe('Execution Environment Catalog and Detail View Tests', () => {
                     $detailBody.text().includes('Links') ||
                     $detailBody.text().includes('Download')
                   ) {
-                    cy.log('✅ Links section found on detail page');
+                    cy.log(' Links section found on detail page');
 
                     // Find Download EE files - it's a Box with onClick, containing text "Download EE files"
                     cy.contains('Download EE files').then(
@@ -749,33 +743,33 @@ describe('Execution Environment Catalog and Detail View Tests', () => {
 
                           if ($clickableBox.length > 0) {
                             cy.log(
-                              '✅ Found Download EE files clickable element',
+                              ' Found Download EE files clickable element',
                             );
                             cy.wrap($clickableBox).click({ force: true });
                             cy.wait(2000);
-                            cy.log('✅ Clicked Download EE files button');
+                            cy.log(' Clicked Download EE files button');
                           } else {
                             // Fallback: click the text element itself or its parent
                             cy.wrap($downloadText).click({ force: true });
                             cy.wait(2000);
-                            cy.log('✅ Clicked Download EE files (fallback)');
+                            cy.log(' Clicked Download EE files (fallback)');
                           }
                         } else {
-                          cy.log('ℹ️ Download EE files text not found');
+                          cy.log(' Download EE files text not found');
                         }
                       },
                     );
                   } else {
-                    cy.log('ℹ️ Links section not found on detail page');
+                    cy.log(' Links section not found on detail page');
                   }
 
                   // 2. Verify About box and OWNER field
                   if ($detailBody.text().includes('About')) {
-                    cy.log('✅ About section found on detail page');
+                    cy.log(' About section found on detail page');
 
                     // Check for OWNER field
                     if ($detailBody.text().includes('OWNER')) {
-                      cy.log('✅ OWNER field found in About section');
+                      cy.log(' OWNER field found in About section');
 
                       // Find OWNER label, then find the button element that follows it
                       cy.contains('OWNER').then(
@@ -790,40 +784,40 @@ describe('Execution Environment Catalog and Detail View Tests', () => {
 
                             if ($ownerButton.length > 0) {
                               const ownerText = $ownerButton.text().trim();
-                              cy.log(`✅ OWNER button found: ${ownerText}`);
+                              cy.log(` OWNER button found: ${ownerText}`);
 
                               // Click OWNER button to verify it's working
                               cy.wrap($ownerButton).click({ force: true });
                               cy.wait(2000);
-                              cy.log('✅ Clicked OWNER button');
+                              cy.log(' Clicked OWNER button');
 
                               // Check if navigation occurred
                               cy.url().then(currentUrl => {
                                 if (currentUrl !== url) {
                                   cy.log(
-                                    `✅ OWNER button navigated to: ${currentUrl}`,
+                                    ` OWNER button navigated to: ${currentUrl}`,
                                   );
                                   cy.go('back');
                                   cy.wait(2000);
                                 } else {
                                   cy.log(
-                                    '✅ OWNER button clicked (may have filtered or navigated)',
+                                    ' OWNER button clicked (may have filtered or navigated)',
                                   );
                                 }
                               });
                             } else {
-                              cy.log('ℹ️ OWNER button not found');
+                              cy.log(' OWNER button not found');
                             }
                           } else {
-                            cy.log('ℹ️ OWNER label element not found');
+                            cy.log(' OWNER label element not found');
                           }
                         },
                       );
                     } else {
-                      cy.log('ℹ️ OWNER field not found in About section');
+                      cy.log(' OWNER field not found in About section');
                     }
                   } else {
-                    cy.log('ℹ️ About section not found on detail page');
+                    cy.log(' About section not found on detail page');
                   }
 
                   // 3. Verify 3 dots menu (kebab menu) in top right
@@ -859,7 +853,7 @@ describe('Execution Environment Catalog and Detail View Tests', () => {
                                 cy.wrap($btn).click({ force: true });
                                 cy.wait(1000);
                                 cy.log(
-                                  '✅ Clicked menu button (fallback by position)',
+                                  ' Clicked menu button (fallback by position)',
                                 );
                               });
                             }
@@ -869,11 +863,11 @@ describe('Execution Environment Catalog and Detail View Tests', () => {
                     }
 
                     if ($menuButton.length > 0) {
-                      cy.log('✅ Found 3 dots menu button');
+                      cy.log(' Found 3 dots menu button');
                       // Click to open menu
                       cy.wrap($menuButton).click({ force: true });
                       cy.wait(1500); // Wait for menu to open
-                      cy.log('✅ Opened 3 dots menu');
+                      cy.log(' Opened 3 dots menu');
 
                       // 3a. Test second option: "Inspect entity"
                       cy.get('body').then($menuOpenBody => {
@@ -881,10 +875,10 @@ describe('Execution Environment Catalog and Detail View Tests', () => {
                         cy.contains('Inspect entity').then(
                           ($inspectOption: JQuery<HTMLElement>) => {
                             if ($inspectOption && $inspectOption.length > 0) {
-                              cy.log('✅ Found "Inspect entity" option');
+                              cy.log(' Found "Inspect entity" option');
                               cy.wrap($inspectOption).click({ force: true });
                               cy.wait(3000);
-                              cy.log('✅ Clicked "Inspect entity" option');
+                              cy.log(' Clicked "Inspect entity" option');
 
                               // Verify Entity Inspector opened
                               cy.get('body').then($inspectorBody => {
@@ -897,7 +891,7 @@ describe('Execution Environment Catalog and Detail View Tests', () => {
                                   $inspectorBody.text().includes('Raw YAML')
                                 ) {
                                   cy.log(
-                                    '✅ Entity Inspector opened successfully',
+                                    ' Entity Inspector opened successfully',
                                   );
 
                                   // Close Entity Inspector - look for Close button with defensive check
@@ -925,7 +919,7 @@ describe('Execution Environment Catalog and Detail View Tests', () => {
                                           force: true,
                                         });
                                         cy.wait(2000);
-                                        cy.log('✅ Closed Entity Inspector');
+                                        cy.log(' Closed Entity Inspector');
                                       } else {
                                         // Fallback: Try cy.contains with error handling
                                         cy.get('body').then($fallbackBody => {
@@ -943,14 +937,14 @@ describe('Execution Environment Catalog and Detail View Tests', () => {
                                               .click({ force: true });
                                             cy.wait(2000);
                                             cy.log(
-                                              '✅ Closed Entity Inspector (fallback method)',
+                                              ' Closed Entity Inspector (fallback method)',
                                             );
                                           } else {
                                             // Last resort: press Escape key
                                             cy.get('body').type('{esc}');
                                             cy.wait(1000);
                                             cy.log(
-                                              '✅ Closed Entity Inspector using Escape key',
+                                              ' Closed Entity Inspector using Escape key',
                                             );
                                           }
                                         });
@@ -959,13 +953,13 @@ describe('Execution Environment Catalog and Detail View Tests', () => {
                                   );
                                 } else {
                                   cy.log(
-                                    'ℹ️ Entity Inspector may not have opened as expected',
+                                    ' Entity Inspector may not have opened as expected',
                                   );
                                 }
                               });
                             } else {
                               cy.log(
-                                'ℹ️ "Inspect entity" option not found in menu',
+                                ' "Inspect entity" option not found in menu',
                               );
                             }
                           },
@@ -990,7 +984,7 @@ describe('Execution Environment Catalog and Detail View Tests', () => {
                         if ($menuButtonAgain.length > 0) {
                           cy.wrap($menuButtonAgain).click({ force: true });
                           cy.wait(1500);
-                          cy.log('✅ Re-opened 3 dots menu');
+                          cy.log(' Re-opened 3 dots menu');
                         }
                       });
 
@@ -1003,10 +997,10 @@ describe('Execution Environment Catalog and Detail View Tests', () => {
                               $unregisterOption &&
                               $unregisterOption.length > 0
                             ) {
-                              cy.log('✅ Found "Unregister entity" option');
+                              cy.log(' Found "Unregister entity" option');
                               cy.wrap($unregisterOption).click({ force: true });
                               cy.wait(2000);
-                              cy.log('✅ Clicked "Unregister entity" option');
+                              cy.log(' Clicked "Unregister entity" option');
 
                               // Verify modal opened
                               cy.get('body').then($modalBody => {
@@ -1016,7 +1010,7 @@ describe('Execution Environment Catalog and Detail View Tests', () => {
                                   $modalBody.text().includes('delete')
                                 ) {
                                   cy.log(
-                                    '✅ Unregister confirmation modal opened',
+                                    ' Unregister confirmation modal opened',
                                   );
 
                                   // Wait a bit for modal to fully render
@@ -1049,15 +1043,13 @@ describe('Execution Environment Catalog and Detail View Tests', () => {
                                     if ($deleteButton.length > 0) {
                                       // Flow 1: Direct Delete Entity button found
                                       cy.log(
-                                        '✅ Found "Delete Entity" button directly (Flow 1)',
+                                        ' Found "Delete Entity" button directly (Flow 1)',
                                       );
                                       cy.wrap($deleteButton).click({
                                         force: true,
                                       });
                                       cy.wait(2000);
-                                      cy.log(
-                                        '✅ Clicked "Delete Entity" button',
-                                      );
+                                      cy.log(' Clicked "Delete Entity" button');
 
                                       // After deletion, verify navigation
                                       cy.url({ timeout: 10000 }).then(
@@ -1069,11 +1061,11 @@ describe('Execution Environment Catalog and Detail View Tests', () => {
                                             currentUrl.includes('/catalog')
                                           ) {
                                             cy.log(
-                                              `✅ Navigated back to catalog after deletion: ${currentUrl}`,
+                                              ` Navigated back to catalog after deletion: ${currentUrl}`,
                                             );
                                           } else {
                                             cy.log(
-                                              `ℹ️ Current URL after deletion: ${currentUrl}`,
+                                              ` Current URL after deletion: ${currentUrl}`,
                                             );
                                           }
                                         },
@@ -1081,7 +1073,7 @@ describe('Execution Environment Catalog and Detail View Tests', () => {
                                     } else {
                                       // Flow 2: Check for "Unregister entity" button in first modal
                                       cy.log(
-                                        'ℹ️ Delete Entity button not found - checking for Unregister entity button (Flow 2)',
+                                        ' Delete Entity button not found - checking for Unregister entity button (Flow 2)',
                                       );
 
                                       cy.get('body').then($flow2Body => {
@@ -1107,14 +1099,14 @@ describe('Execution Environment Catalog and Detail View Tests', () => {
                                         if ($unregisterButton.length > 0) {
                                           // Flow 2: Click Unregister entity button to get to Delete Entity modal
                                           cy.log(
-                                            '✅ Found "Unregister entity" button in first modal (Flow 2)',
+                                            ' Found "Unregister entity" button in first modal (Flow 2)',
                                           );
                                           cy.wrap($unregisterButton).click({
                                             force: true,
                                           });
                                           cy.wait(2000);
                                           cy.log(
-                                            '✅ Clicked "Unregister entity" button in modal',
+                                            ' Clicked "Unregister entity" button in modal',
                                           );
 
                                           // Now look for Delete Entity button in second modal
@@ -1155,14 +1147,14 @@ describe('Execution Environment Catalog and Detail View Tests', () => {
 
                                               if ($deleteButton2.length > 0) {
                                                 cy.log(
-                                                  '✅ Found "Delete Entity" button in second modal (Flow 2)',
+                                                  ' Found "Delete Entity" button in second modal (Flow 2)',
                                                 );
                                                 cy.wrap($deleteButton2).click({
                                                   force: true,
                                                 });
                                                 cy.wait(2000);
                                                 cy.log(
-                                                  '✅ Clicked "Delete Entity" button',
+                                                  ' Clicked "Delete Entity" button',
                                                 );
 
                                                 // After deletion, verify navigation
@@ -1177,18 +1169,18 @@ describe('Execution Environment Catalog and Detail View Tests', () => {
                                                       )
                                                     ) {
                                                       cy.log(
-                                                        `✅ Navigated back to catalog after deletion: ${currentUrl}`,
+                                                        ` Navigated back to catalog after deletion: ${currentUrl}`,
                                                       );
                                                     } else {
                                                       cy.log(
-                                                        `ℹ️ Current URL after deletion: ${currentUrl}`,
+                                                        ` Current URL after deletion: ${currentUrl}`,
                                                       );
                                                     }
                                                   },
                                                 );
                                               } else {
                                                 cy.log(
-                                                  'ℹ️ Delete Entity button not found in second modal',
+                                                  ' Delete Entity button not found in second modal',
                                                 );
                                                 // Try alternative selector
                                                 cy.get('body').then(
@@ -1210,7 +1202,7 @@ describe('Execution Environment Catalog and Detail View Tests', () => {
                                                         .click({ force: true });
                                                       cy.wait(2000);
                                                       cy.log(
-                                                        '✅ Clicked "Delete Entity" button (alternative)',
+                                                        ' Clicked "Delete Entity" button (alternative)',
                                                       );
                                                     } else {
                                                       // Close modal - use jQuery first to check existence
@@ -1247,7 +1239,7 @@ describe('Execution Environment Catalog and Detail View Tests', () => {
                                                             });
                                                             cy.wait(1000);
                                                             cy.log(
-                                                              '✅ Clicked Cancel button',
+                                                              ' Clicked Cancel button',
                                                             );
                                                           } else {
                                                             // Last resort: press Escape key
@@ -1256,7 +1248,7 @@ describe('Execution Environment Catalog and Detail View Tests', () => {
                                                             );
                                                             cy.wait(1000);
                                                             cy.log(
-                                                              '✅ Closed modal using Escape key',
+                                                              ' Closed modal using Escape key',
                                                             );
                                                           }
                                                         },
@@ -1270,7 +1262,7 @@ describe('Execution Environment Catalog and Detail View Tests', () => {
                                         } else {
                                           // Neither Delete Entity nor Unregister entity button found
                                           cy.log(
-                                            'ℹ️ Neither Delete Entity nor Unregister entity button found in modal',
+                                            ' Neither Delete Entity nor Unregister entity button found in modal',
                                           );
 
                                           // Try to find Cancel button using jQuery first (defensive)
@@ -1293,14 +1285,14 @@ describe('Execution Environment Catalog and Detail View Tests', () => {
                                               });
                                               cy.wait(1000);
                                               cy.log(
-                                                '✅ Clicked Cancel button to close modal',
+                                                ' Clicked Cancel button to close modal',
                                               );
                                             } else {
                                               // Last resort: press Escape key
                                               cy.get('body').type('{esc}');
                                               cy.wait(1000);
                                               cy.log(
-                                                '✅ Closed modal using Escape key',
+                                                ' Closed modal using Escape key',
                                               );
                                             }
                                           });
@@ -1310,33 +1302,29 @@ describe('Execution Environment Catalog and Detail View Tests', () => {
                                   });
                                 } else {
                                   cy.log(
-                                    'ℹ️ Unregister confirmation modal may not have opened',
+                                    ' Unregister confirmation modal may not have opened',
                                   );
                                 }
                               });
                             } else {
                               cy.log(
-                                'ℹ️ "Unregister entity" option not found in menu',
+                                ' "Unregister entity" option not found in menu',
                               );
                             }
                           },
                         );
                       });
                     } else {
-                      cy.log('ℹ️ 3 dots menu button not found on detail page');
+                      cy.log(' 3 dots menu button not found on detail page');
                     }
                   });
                 });
               } else {
-                cy.log(
-                  `ℹ️ Did not navigate to detail view. Current URL: ${url}`,
-                );
+                cy.log(` Did not navigate to detail view. Current URL: ${url}`);
               }
             });
           } else {
-            cy.log(
-              'ℹ️ Name element not found - cannot navigate to detail view',
-            );
+            cy.log(' Name element not found - cannot navigate to detail view');
           }
         });
     });

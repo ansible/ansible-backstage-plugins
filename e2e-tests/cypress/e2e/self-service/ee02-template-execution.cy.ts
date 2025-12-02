@@ -37,7 +37,7 @@ describe('Execution Environment Template Execution Tests', () => {
         cy.wait(2000);
       } else {
         cy.log(
-          'ℹ️ Create tab not found on EE page - aborting template import test',
+          ' Create tab not found on EE page - aborting template import test',
         );
         return;
       }
@@ -52,12 +52,12 @@ describe('Execution Environment Template Execution Tests', () => {
 
       if (!hasAddTemplate) {
         cy.log(
-          'ℹ️ Add Template button not available on Create tab (permission or config)',
+          'Add Template button not available on Create tab (permission or config)',
         );
         return;
       }
 
-      cy.log('✅ Add Template button found on Create tab');
+      cy.log(' Add Template button found on Create tab');
 
       if ($body.find('[data-testid="add-template-button"]').length > 0) {
         cy.get('[data-testid="add-template-button"]').click({ force: true });
@@ -70,11 +70,11 @@ describe('Execution Environment Template Execution Tests', () => {
     cy.wait(3000);
     cy.url({ timeout: 15000 }).then(url => {
       if (url.includes('/self-service/catalog-import')) {
-        cy.log('✅ Navigated to catalog import from Add Template');
+        cy.log(' Navigated to catalog import from Add Template');
         cy.get('main', { timeout: 15000 }).should('be.visible');
       } else {
         cy.log(
-          `ℹ️ After Add Template, URL did not include /catalog-import. Current URL: ${url}`,
+          ` After Add Template, URL did not include /catalog-import. Current URL: ${url}`,
         );
         // Bail out of the rest of this test if we never reached catalog-import
         throw new Error(
@@ -103,7 +103,7 @@ describe('Execution Environment Template Execution Tests', () => {
       .clear({ force: true })
       .type(EE_TEMPLATE_URL, { force: true });
 
-    cy.log(`✅ Typed EE template URL: ${EE_TEMPLATE_URL}`);
+    cy.log(` Typed EE template URL: ${EE_TEMPLATE_URL}`);
 
     cy.contains('button', /analyze/i).click({ force: true });
     cy.wait(5000);
@@ -117,9 +117,9 @@ describe('Execution Environment Template Execution Tests', () => {
         !text.includes('review') &&
         !text.includes('the following entities')
       ) {
-        cy.log('ℹ️ Review step text not clearly visible after Analyze');
+        cy.log(' Review step text not clearly visible after Analyze');
       } else {
-        cy.log('✅ Review step visible after Analyze');
+        cy.log(' Review step visible after Analyze');
       }
 
       const importButton = $body
@@ -133,10 +133,10 @@ describe('Execution Environment Template Execution Tests', () => {
       if (importButton.length) {
         cy.wrap(importButton).click({ force: true });
         cy.wait(7000);
-        cy.log('✅ Clicked Import button on Review step');
+        cy.log(' Clicked Import button on Review step');
       } else {
         cy.log(
-          'ℹ️ Import button not found on Review step - wizard may behave differently',
+          ' Import button not found on Review step - wizard may behave differently',
         );
       }
     });
@@ -151,9 +151,9 @@ describe('Execution Environment Template Execution Tests', () => {
           .toLowerCase()
           .includes('the following entities have been added to the catalog')
       ) {
-        cy.log('✅ Finish step shows entities added to the catalog');
+        cy.log(' Finish step shows entities added to the catalog');
       } else {
-        cy.log('ℹ️ Finish step summary text not clearly visible');
+        cy.log(' Finish step summary text not clearly visible');
       }
 
       if (finishText.toLowerCase().includes('register another')) {
@@ -171,9 +171,7 @@ describe('Execution Environment Template Execution Tests', () => {
 
     cy.get('body').then($body => {
       if ($body.text().includes(EE_TEMPLATE_TITLE)) {
-        cy.log(
-          `✅ EE template "${EE_TEMPLATE_TITLE}" now visible on Create tab`,
-        );
+        cy.log(` EE template "${EE_TEMPLATE_TITLE}" now visible on Create tab`);
 
         // Click Start on that specific template card
         cy.contains(EE_TEMPLATE_TITLE)
@@ -191,10 +189,10 @@ describe('Execution Environment Template Execution Tests', () => {
         cy.wait(3000);
         cy.url().then(url => {
           if (url.includes('/create')) {
-            cy.log(`✅ Navigated to template execution page: ${url}`);
+            cy.log(` Navigated to template execution page: ${url}`);
           } else {
             cy.log(
-              `ℹ️ After Start click, URL did not include /create. Current URL: ${url}`,
+              ` After Start click, URL did not include /create. Current URL: ${url}`,
             );
           }
         });
@@ -231,9 +229,9 @@ describe('Execution Environment Template Execution Tests', () => {
               .first()
               .click({ force: true });
             cy.wait(500);
-            cy.log('✅ Selected GitHub MCP server');
+            cy.log(' Selected GitHub MCP server');
           } else {
-            cy.log('ℹ️ GitHub MCP server option not found');
+            cy.log(' GitHub MCP server option not found');
           }
         });
         cy.contains('button', /^Next$/i).click({ force: true });
@@ -310,14 +308,14 @@ describe('Execution Environment Template Execution Tests', () => {
 
           if (!hasCompletion) {
             cy.log(
-              'ℹ️ Completion page may still be loading, waiting additional time...',
+              ' Completion page may still be loading, waiting additional time...',
             );
             cy.wait(5000);
           }
         });
 
         cy.url().then(finalUrl => {
-          cy.log(`✅ Completed EE creation wizard, final URL: ${finalUrl}`);
+          cy.log(` Completed EE creation wizard, final URL: ${finalUrl}`);
         });
 
         // Wait for action buttons to be visible before proceeding to second execution
@@ -338,10 +336,10 @@ describe('Execution Environment Template Execution Tests', () => {
             }).length > 0;
 
           if (hasButtons) {
-            cy.log('✅ Action buttons are visible on completion page');
+            cy.log(' Action buttons are visible on completion page');
             cy.wait(2000); // Additional wait to ensure buttons are fully interactive
           } else {
-            cy.log('ℹ️ Waiting for action buttons to appear...');
+            cy.log(' Waiting for action buttons to appear...');
             cy.wait(5000);
           }
         });
@@ -349,9 +347,7 @@ describe('Execution Environment Template Execution Tests', () => {
         //
         // 8. Second execution: Without Git publishing
         //
-        cy.log(
-          '🔄 Starting second template execution (without Git publishing)',
-        );
+        cy.log('Starting second template execution (without Git publishing)');
 
         // Go back to EE Create tab
         cy.visit('/self-service/ee');
@@ -363,7 +359,7 @@ describe('Execution Environment Template Execution Tests', () => {
         cy.get('body').then($body => {
           if ($body.text().includes(EE_TEMPLATE_TITLE)) {
             cy.log(
-              `✅ Starting second execution of "${EE_TEMPLATE_TITLE}" template`,
+              ` Starting second execution of "${EE_TEMPLATE_TITLE}" template`,
             );
 
             // Click Start on template card
@@ -411,7 +407,7 @@ describe('Execution Environment Template Execution Tests', () => {
                 if ($githubCard.length > 0) {
                   cy.wrap($githubCard).click({ force: true });
                   cy.wait(500);
-                  cy.log('✅ Selected GitHub MCP server');
+                  cy.log(' Selected GitHub MCP server');
                 } else {
                   cy.contains(/^github$/i).then($el => {
                     cy.wrap($el).parents().first().click({ force: true });
@@ -460,12 +456,10 @@ describe('Execution Environment Template Execution Tests', () => {
                   if ($checkbox.is(':checked')) {
                     cy.wrap($checkbox).uncheck({ force: true });
                     cy.wait(500);
-                    cy.log(
-                      '✅ Unchecked "Publish to a Git repository" checkbox',
-                    );
+                    cy.log(' Unchecked "Publish to a Git repository" checkbox');
                   } else {
                     cy.log(
-                      'ℹ️ "Publish to a Git repository" checkbox already unchecked',
+                      ' "Publish to a Git repository" checkbox already unchecked',
                     );
                   }
                 });
@@ -478,7 +472,7 @@ describe('Execution Environment Template Execution Tests', () => {
                   .uncheck({ force: true });
                 cy.wait(500);
                 cy.log(
-                  '✅ Unchecked "Publish to a Git repository" checkbox (fallback method)',
+                  ' Unchecked "Publish to a Git repository" checkbox (fallback method)',
                 );
               }
             });
@@ -509,7 +503,7 @@ describe('Execution Environment Template Execution Tests', () => {
 
               if (!hasCompletion) {
                 cy.log(
-                  'ℹ️ Completion page may still be loading, waiting additional time...',
+                  ' Completion page may still be loading, waiting additional time...',
                 );
                 cy.wait(5000);
               }
@@ -517,7 +511,7 @@ describe('Execution Environment Template Execution Tests', () => {
 
             cy.url().then(finalUrl => {
               cy.log(
-                `✅ Completed second EE creation (without Git) wizard, final URL: ${finalUrl}`,
+                ` Completed second EE creation (without Git) wizard, final URL: ${finalUrl}`,
               );
             });
 
@@ -526,7 +520,7 @@ describe('Execution Environment Template Execution Tests', () => {
             //
             cy.get('body', { timeout: 30000 }).then($body => {
               const bodyText = $body.text();
-              cy.log(`ℹ️ Page text includes: ${bodyText.substring(0, 200)}...`); // Debug: log first 200 chars
+              cy.log(` Page text includes: ${bodyText.substring(0, 200)}...`); // Debug: log first 200 chars
 
               // 9a. Verify "EE files download" button (first)
               if (
@@ -535,7 +529,7 @@ describe('Execution Environment Template Execution Tests', () => {
                 bodyText.includes('EE files') ||
                 bodyText.includes('files')
               ) {
-                cy.log('✅ Found Download/EE files text on page');
+                cy.log(' Found Download/EE files text on page');
                 cy.get('body').then($b => {
                   const $downloadBtn = $b
                     .find('button, a, [role="button"]')
@@ -551,14 +545,14 @@ describe('Execution Environment Template Execution Tests', () => {
                     .first();
 
                   if ($downloadBtn.length > 0) {
-                    cy.log('✅ Found EE files download button');
+                    cy.log(' Found EE files download button');
                     cy.wrap($downloadBtn).then($btn => {
                       const href = $btn.attr('href');
                       const downloadAttr = $btn.attr('download');
 
                       if (href || downloadAttr) {
                         cy.log(
-                          `✅ EE files download button has href/download attribute: ${href || downloadAttr}`,
+                          ` EE files download button has href/download attribute: ${href || downloadAttr}`,
                         );
                       }
 
@@ -567,15 +561,15 @@ describe('Execution Environment Template Execution Tests', () => {
                         .invoke('removeAttr', 'target')
                         .click({ force: true });
                       cy.wait(2000);
-                      cy.log('✅ Clicked EE files download button');
+                      cy.log(' Clicked EE files download button');
                     });
                   } else {
-                    cy.log('ℹ️ EE files download button element not found');
+                    cy.log(' EE files download button element not found');
                   }
                 });
               } else {
                 cy.log(
-                  'ℹ️ EE files download button not found on completion page',
+                  ' EE files download button not found on completion page',
                 );
               }
 
@@ -587,7 +581,7 @@ describe('Execution Environment Template Execution Tests', () => {
                   bodyTextAfter.includes('Getting started') ||
                   bodyTextAfter.includes('getting started')
                 ) {
-                  cy.log('✅ Found Getting Started text on page');
+                  cy.log(' Found Getting Started text on page');
                   cy.url().then(originalUrl => {
                     cy.get('body').then($b => {
                       const $gettingStartedBtn = $b
@@ -614,17 +608,17 @@ describe('Execution Environment Template Execution Tests', () => {
                               hostname.endsWith('.github.com')
                             ) {
                               cy.log(
-                                `✅ Getting Started button navigated to: ${url}`,
+                                ` Getting Started button navigated to: ${url}`,
                               );
                               cy.go('back');
                               cy.wait(2000);
                               cy.get('body', { timeout: 15000 }).should(
                                 'be.visible',
                               );
-                              cy.log('✅ Navigated back from Getting Started');
+                              cy.log(' Navigated back from Getting Started');
                             } else {
                               cy.log(
-                                `ℹ️ Getting Started button clicked, URL: ${url}`,
+                                ` Getting Started button clicked, URL: ${url}`,
                               );
                             }
                           } catch (e) {
@@ -641,7 +635,7 @@ describe('Execution Environment Template Execution Tests', () => {
                                     hostname.endsWith('.github.com')
                                   ) {
                                     cy.log(
-                                      `✅ Getting Started button navigated to: ${url}`,
+                                      ` Getting Started button navigated to: ${url}`,
                                     );
                                     cy.go('back');
                                     cy.wait(2000);
@@ -649,36 +643,36 @@ describe('Execution Environment Template Execution Tests', () => {
                                       'be.visible',
                                     );
                                     cy.log(
-                                      '✅ Navigated back from Getting Started',
+                                      ' Navigated back from Getting Started',
                                     );
                                   } else {
                                     cy.log(
-                                      `ℹ️ Getting Started button clicked, URL: ${url}`,
+                                      ` Getting Started button clicked, URL: ${url}`,
                                     );
                                   }
                                 } catch (e2) {
                                   // If still can't parse, treat as indeterminate
                                   cy.log(
-                                    `ℹ️ Could not parse URL reliably: ${url}. Treating as non-GitHub.`,
+                                    ` Could not parse URL reliably: ${url}. Treating as non-GitHub.`,
                                   );
                                 }
                               });
                             } catch (e2) {
                               // If we can't get base URL, treat as indeterminate
                               cy.log(
-                                `ℹ️ Could not parse URL reliably: ${url}. Treating as non-GitHub.`,
+                                ` Could not parse URL reliably: ${url}. Treating as non-GitHub.`,
                               );
                             }
                           }
                         });
                       } else {
-                        cy.log('ℹ️ Getting Started button element not found');
+                        cy.log(' Getting Started button element not found');
                       }
                     });
                   });
                 } else {
                   cy.log(
-                    'ℹ️ Getting Started button not found on completion page',
+                    ' Getting Started button not found on completion page',
                   );
                 }
               });
@@ -691,7 +685,7 @@ describe('Execution Environment Template Execution Tests', () => {
                   bodyTextCatalog.includes('View details in Catalog') ||
                   bodyTextCatalog.includes('catalog')
                 ) {
-                  cy.log('✅ Found View details in Catalog text on page');
+                  cy.log(' Found View details in Catalog text on page');
                   cy.get('body').then($b => {
                     const $catalogBtn = $b
                       .find('button, a, [role="button"]')
@@ -708,18 +702,18 @@ describe('Execution Environment Template Execution Tests', () => {
                       cy.wrap($catalogBtn).click({ force: true });
                       cy.wait(2000);
                       cy.log(
-                        '✅ Clicked View details in Catalog button (opens in another window)',
+                        ' Clicked View details in Catalog button (opens in another window)',
                       );
                       // Note: Since it opens in another window, we don't navigate back
                     } else {
                       cy.log(
-                        'ℹ️ View details in Catalog button element not found',
+                        ' View details in Catalog button element not found',
                       );
                     }
                   });
                 } else {
                   cy.log(
-                    'ℹ️ View details in Catalog button not found on completion page',
+                    ' View details in Catalog button not found on completion page',
                   );
                 }
               });
@@ -732,7 +726,7 @@ describe('Execution Environment Template Execution Tests', () => {
                   bodyTextGithub.includes('GitHub Repository') ||
                   bodyTextGithub.includes('Github')
                 ) {
-                  cy.log('✅ Found Github Repository text on page');
+                  cy.log(' Found Github Repository text on page');
                   cy.get('body').then($b => {
                     const $githubBtn = $b
                       .find('button, a, [role="button"]')
@@ -750,7 +744,7 @@ describe('Execution Environment Template Execution Tests', () => {
                         cy.url().then(originalUrl => {
                           if (href) {
                             cy.log(
-                              `✅ Github Repository link found with href: ${href}`,
+                              ` Github Repository link found with href: ${href}`,
                             );
                             // Click the link and verify it navigates to GitHub
                             cy.wrap($btn)
@@ -766,7 +760,7 @@ describe('Execution Environment Template Execution Tests', () => {
                                   hostname.endsWith('.github.com')
                                 ) {
                                   cy.log(
-                                    `✅ Github Repository button navigated to GitHub: ${url}`,
+                                    ` Github Repository button navigated to GitHub: ${url}`,
                                   );
                                   // Navigate back if needed
                                   cy.go('back');
@@ -774,10 +768,10 @@ describe('Execution Environment Template Execution Tests', () => {
                                   cy.get('body', { timeout: 15000 }).should(
                                     'be.visible',
                                   );
-                                  cy.log('✅ Navigated back from GitHub');
+                                  cy.log(' Navigated back from GitHub');
                                 } else {
                                   cy.log(
-                                    `ℹ️ Github Repository button clicked, but URL is: ${url}`,
+                                    ` Github Repository button clicked, but URL is: ${url}`,
                                   );
                                   // If we didn't navigate to GitHub, go back anyway
                                   if (url !== originalUrl) {
@@ -796,18 +790,18 @@ describe('Execution Environment Template Execution Tests', () => {
                                       hostname.endsWith('.github.com')
                                     ) {
                                       cy.log(
-                                        `✅ Github Repository button navigated to GitHub: ${url}`,
+                                        ` Github Repository button navigated to GitHub: ${url}`,
                                       );
                                       cy.go('back');
                                       cy.wait(2000);
                                     } else {
                                       cy.log(
-                                        `ℹ️ Github Repository button clicked, URL: ${url}`,
+                                        ` Github Repository button clicked, URL: ${url}`,
                                       );
                                     }
                                   } catch (e2) {
                                     cy.log(
-                                      `ℹ️ Could not parse URL reliably: ${url}. Treating as non-GitHub.`,
+                                      ` Could not parse URL reliably: ${url}. Treating as non-GitHub.`,
                                     );
                                   }
                                 });
@@ -815,7 +809,7 @@ describe('Execution Environment Template Execution Tests', () => {
                             });
                           } else {
                             cy.log(
-                              'ℹ️ Github Repository button has no href, clicking as button',
+                              ' Github Repository button has no href, clicking as button',
                             );
                             cy.wrap($btn)
                               .invoke('removeAttr', 'target')
@@ -830,13 +824,13 @@ describe('Execution Environment Template Execution Tests', () => {
                                   hostname.endsWith('.github.com')
                                 ) {
                                   cy.log(
-                                    `✅ Github Repository button navigated to GitHub: ${url}`,
+                                    ` Github Repository button navigated to GitHub: ${url}`,
                                   );
                                   cy.go('back');
                                   cy.wait(2000);
                                 } else {
                                   cy.log(
-                                    `ℹ️ Github Repository button clicked, URL: ${url}`,
+                                    ` Github Repository button clicked, URL: ${url}`,
                                   );
                                 }
                               } catch (e) {
@@ -850,19 +844,19 @@ describe('Execution Environment Template Execution Tests', () => {
                                       hostname.endsWith('.github.com')
                                     ) {
                                       cy.log(
-                                        `✅ Github Repository button navigated to GitHub: ${url}`,
+                                        ` Github Repository button navigated to GitHub: ${url}`,
                                       );
                                       cy.go('back');
                                       cy.wait(2000);
                                     } else {
                                       cy.log(
-                                        `ℹ️ Github Repository button clicked, URL: ${url}`,
+                                        ` Github Repository button clicked, URL: ${url}`,
                                       );
                                     }
                                   } catch (e2) {
                                     // If still can't parse, treat as indeterminate
                                     cy.log(
-                                      `ℹ️ Could not parse URL reliably: ${url}. Treating as non-GitHub.`,
+                                      ` Could not parse URL reliably: ${url}. Treating as non-GitHub.`,
                                     );
                                   }
                                 });
@@ -873,26 +867,26 @@ describe('Execution Environment Template Execution Tests', () => {
                       });
                     } else {
                       cy.log(
-                        'ℹ️ Github Repository button element not found (text exists but no clickable element)',
+                        ' Github Repository button element not found (text exists but no clickable element)',
                       );
                     }
                   });
                 } else {
                   cy.log(
-                    'ℹ️ Github Repository button not found on completion page',
+                    ' Github Repository button not found on completion page',
                   );
                 }
               });
             });
           } else {
             cy.log(
-              `ℹ️ EE template card "${EE_TEMPLATE_TITLE}" not found for second execution`,
+              ` EE template card "${EE_TEMPLATE_TITLE}" not found for second execution`,
             );
           }
         });
       } else {
         cy.log(
-          `ℹ️ EE template card "${EE_TEMPLATE_TITLE}" not found on Create tab after import`,
+          ` EE template card "${EE_TEMPLATE_TITLE}" not found on Create tab after import`,
         );
       }
     });
