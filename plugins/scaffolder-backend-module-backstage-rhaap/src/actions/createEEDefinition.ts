@@ -64,13 +64,6 @@ const MCPSERVER_VARS = [
   },
 ];
 
-const PRESET_IMAGES = {
-  minimal: {
-    name: 'registry.redhat.io/ansible-automation-platform-25/ee-minimal-rhel9:latest',
-    pkgMgrPath: '/usr/bin/microdnf',
-  },
-};
-
 interface AdditionalBuildStep {
   stepType:
     | 'prepend_base'
@@ -546,7 +539,13 @@ function generateEEDefinition(values: EEDefinitionInput): string {
   const additionalBuildSteps = values.additionalBuildSteps || [];
   let overridePkgMgrPath = false;
 
-  if (values.baseImage === PRESET_IMAGES.minimal.name) {
+  if (
+    values.baseImage
+      .toString()
+      .includes(
+        'registry.redhat.io/ansible-automation-platform/ee-minimal-rhel',
+      )
+  ) {
     overridePkgMgrPath = true;
   }
 
