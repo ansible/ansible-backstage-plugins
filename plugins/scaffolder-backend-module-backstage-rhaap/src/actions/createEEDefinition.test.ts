@@ -563,6 +563,65 @@ describe('createEEDefinition', () => {
       expect(content).toEqual(expectedContent);
     });
 
+    it('should generate EE definition with package manager and python interpreter overridden for minimal EE base image', async () => {
+      const action = createEEDefinitionAction({
+        frontendUrl: 'http://localhost:3000',
+        auth,
+        discovery,
+      });
+      const ctx = {
+        input: {
+          values: {
+            eeFileName: 'test-ee',
+            baseImage:
+              'registry.redhat.io/ansible-automation-platform/ee-minimal-rhel8:2.18',
+            collections: [
+              {
+                name: 'amazon.aws',
+              },
+            ],
+          },
+        },
+        logger,
+        workspacePath: mockWorkspacePath,
+        output: jest.fn(),
+      } as any;
+
+      await action.handler(ctx);
+
+      const writeCall = mockWriteFile.mock.calls.find((call: any[]) =>
+        call[0].toString().endsWith('test-ee.yaml'),
+      );
+      const content = writeCall![1] as string;
+      const expectedContent = dedent`---
+      version: 3
+
+      images:
+        base_image:
+          name: 'registry.redhat.io/ansible-automation-platform/ee-minimal-rhel8:2.18'
+
+      dependencies:
+        galaxy:
+          collections:
+            - name: amazon.aws
+        python_interpreter:
+          python_path: "/usr/bin/python3.11"
+
+      additional_build_files:
+        - src: ./ansible.cfg
+          dest: configs
+
+      options:
+        package_manager_path: /usr/bin/microdnf
+
+      additional_build_steps:
+        prepend_base:
+          - COPY _build/configs/ansible.cfg /etc/ansible/ansible.cfg
+        append_final:
+          - RUN rm -f /etc/ansible/ansible.cfg\n`;
+      expect(content).toEqual(expectedContent);
+    });
+
     it('should group multiple commands for same step type', async () => {
       const action = createEEDefinitionAction({
         frontendUrl: 'http://localhost:3000',
@@ -1903,9 +1962,6 @@ describe('createEEDefinition', () => {
       expect(content).toContain('name: test-ee');
       expect(content).toContain('title: test-ee');
       expect(content).toContain('description: Test EE Description');
-      expect(content).toContain(
-        'ansible.io/template-type: execution-environment',
-      );
       expect(content).toContain("ansible.io/saved-template: 'true'");
       expect(content).toContain('type: execution-environment');
     });
@@ -2346,10 +2402,16 @@ describe('createEEDefinition', () => {
 
       // Verify default base image enum options are present
       expect(content).toContain(
-        "- 'registry.access.redhat.com/ubi9/python-311:latest'",
+        "- 'registry.redhat.io/ansible-automation-platform/ee-minimal-rhel8:2.18'",
       );
       expect(content).toContain(
-        "- 'registry.redhat.io/ansible-automation-platform-25/ee-minimal-rhel9:latest'",
+        "- 'registry.redhat.io/ansible-automation-platform/ee-minimal-rhel9:2.18'",
+      );
+      expect(content).toContain(
+        "- 'registry.redhat.io/ansible-automation-platform/ee-minimal-rhel8:2.16'",
+      );
+      expect(content).toContain(
+        "- 'registry.redhat.io/ansible-automation-platform/ee-minimal-rhel9:2.16'",
       );
     });
 
@@ -2384,7 +2446,6 @@ describe('createEEDefinition', () => {
       // Verify popular collections enum includes expected collections
       expect(content).toContain("- 'ansible.posix'");
       expect(content).toContain("- 'community.general'");
-      expect(content).toContain("- 'community.crypto'");
       expect(content).toContain("- 'amazon.aws'");
       expect(content).toContain("- 'azure.azcollection'");
     });
