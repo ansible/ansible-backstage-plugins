@@ -52,7 +52,6 @@ jobs:
             -Dsonar.projectKey=ansible_ansible-backstage-plugins
             -Dsonar.organization=ansible
             -Dsonar.sources=plugins
-            -Dsonar.tests=plugins
             -Dsonar.test.inclusions=**/*.test.ts,**/*.test.tsx,**/*.test.js,**/*.test.jsx
             -Dsonar.exclusions=**/*.test.ts,**/*.test.tsx,**/*.test.js,**/*.test.jsx,**/.eslintrc.js
           projectBaseDir: .
