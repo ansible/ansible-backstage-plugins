@@ -960,9 +960,8 @@ spec:
               name:
                 type: string
                 title: Collection Name
-                description: The name of the collection in namespace.collection format
-                pattern: '^[a-zA-Z0-9_]+\.[a-zA-Z0-9_]+$'
-                ui:placeholder: 'e.g., amazon.aws'
+                description: The name or source of the collection.
+                ui:placeholder: 'e.g., amazon.aws, https://github.com/ansible-collections/cisco.ios'
               version:
                 type: string
                 title: Version (Optional)

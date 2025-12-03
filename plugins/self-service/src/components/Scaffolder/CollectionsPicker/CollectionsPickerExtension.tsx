@@ -150,9 +150,11 @@ export const CollectionsPickerExtension = ({
     [properties, itemsSchema?.required],
   );
 
-  const namePatternString =
-    properties?.name?.pattern || String.raw`^[a-zA-Z0-9_]+\.[a-zA-Z0-9_]+$`;
-  const collectionNamePattern = new RegExp(namePatternString);
+  const namePatternString = properties?.name?.pattern;
+  let collectionNamePattern: RegExp;
+  if (namePatternString) {
+    collectionNamePattern = new RegExp(namePatternString);
+  }
 
   useEffect(() => {
     if (formData !== undefined) {
@@ -190,7 +192,7 @@ export const CollectionsPickerExtension = ({
       if (!trimmedName) {
         return 'Collection name is required';
       }
-      if (!collectionNamePattern.test(trimmedName)) {
+      if (collectionNamePattern && !collectionNamePattern.test(trimmedName)) {
         return 'Collection name must be in namespace.collection format (e.g., community.general)';
       }
       return '';
