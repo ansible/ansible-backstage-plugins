@@ -152,6 +152,8 @@ ansible:
   creatorService:
     baseUrl: localhost
     port: '8000'
+  feedback:
+    enabled: true
 kubernetes: null
 
 permission:
