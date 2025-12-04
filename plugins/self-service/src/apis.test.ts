@@ -105,6 +105,61 @@ describe('Ansible API module', () => {
     expect(result).toBe(false);
   });
 
+  it('AnsibleApiClient.getSyncStatus returns sync status when fetch succeeds', async () => {
+    const mockDiscovery = {
+      getBaseUrl: jest.fn().mockResolvedValue('http://example.com'),
+    };
+    const mockFetch = {
+      fetch: jest.fn().mockResolvedValue({
+        json: jest.fn().mockResolvedValue({
+          orgsUsersTeams: { lastSync: '2024-01-15T10:00:00Z' },
+          jobTemplates: { lastSync: '2024-01-15T11:00:00Z' },
+        }),
+      }),
+    };
+
+    const client = new AnsibleApiClient({
+      discoveryApi: mockDiscovery as any,
+      fetchApi: mockFetch as any,
+    });
+
+    const result = await client.getSyncStatus();
+
+    expect(mockDiscovery.getBaseUrl).toHaveBeenCalledWith('catalog');
+    expect(mockFetch.fetch).toHaveBeenCalledWith(
+      'http://example.com/aap/sync_status',
+    );
+    expect(result).toEqual({
+      orgsUsersTeams: { lastSync: '2024-01-15T10:00:00Z' },
+      jobTemplates: { lastSync: '2024-01-15T11:00:00Z' },
+    });
+  });
+
+  it('AnsibleApiClient.getSyncStatus returns default values when fetch throws', async () => {
+    const mockDiscovery = {
+      getBaseUrl: jest.fn().mockResolvedValue('http://example.com'),
+    };
+    const mockFetch = {
+      fetch: jest.fn().mockRejectedValue(new Error('network error')),
+    };
+
+    const client = new AnsibleApiClient({
+      discoveryApi: mockDiscovery as any,
+      fetchApi: mockFetch as any,
+    });
+
+    const result = await client.getSyncStatus();
+
+    expect(mockDiscovery.getBaseUrl).toHaveBeenCalledWith('catalog');
+    expect(mockFetch.fetch).toHaveBeenCalledWith(
+      'http://example.com/aap/sync_status',
+    );
+    expect(result).toEqual({
+      orgsUsersTeams: { lastSync: null },
+      jobTemplates: { lastSync: null },
+    });
+  });
+
   it('AAPApis factory produces an AnsibleApiClient wired with the provided apis', () => {
     const mockDiscovery = {
       getBaseUrl: jest.fn().mockResolvedValue('http://example.com'),

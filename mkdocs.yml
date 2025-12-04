@@ -74,6 +74,7 @@ nav:
       - features/external-authentication.md
       - features/users-teams-organizations.md
       - features/job-templates.md
+      - features/feedback-configuration.md
 
 exclude_docs: |
   _autofix_rules.md

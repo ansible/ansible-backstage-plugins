@@ -15,6 +15,7 @@
  */
 import { forwardRef, useState } from 'react';
 import OpenInNew from '@material-ui/icons/OpenInNew';
+import HelpOutline from '@material-ui/icons/HelpOutline';
 import { useAnalytics } from '@backstage/core-plugin-api';
 import { Link } from '@backstage/core-components';
 import {
@@ -26,13 +27,13 @@ import {
   Divider,
   FormControl,
   FormControlLabel,
-  InputLabel,
-  MenuItem,
-  Select,
+  IconButton,
+  Popover,
   Slide,
   SlideProps,
   Snackbar,
   TextField,
+  Tooltip,
   Typography,
 } from '@material-ui/core';
 import { Rating } from '@material-ui/lab';
@@ -49,79 +50,48 @@ const SlideTransition = forwardRef(function Transition(
   return <Slide direction="up" ref={ref} {...props} />;
 });
 
-export default function RatingsFeedbackModal(props: IProps) {
+export default function RatingsFeedbackModal(props: Readonly<IProps>) {
   const analytics = useAnalytics();
 
   const [ratings, setRatings] = useState<number>(0);
   const [feedback, setFeedback] = useState<string>('');
   const [shareFeedback, setShareFeedback] = useState<boolean>(false);
 
-  const [selectedIssueType, setSelectedIssueType] =
-    useState<string>('sentiment');
-  const [title, setTitle] = useState<string>('');
-  const [description, setDescription] = useState<string>('');
-
   const [showSnackbar, setShowSnackbar] = useState<boolean>(false);
   const [snackbarMsg, setSnackbarMsg] = useState<string>(
     'Thank you for sharing your feedback!',
   );
-
-  const handleChange = (event: any) => {
-    setSelectedIssueType(event.target.value);
-    setShareFeedback(false);
-  };
+  const [helpAnchorEl, setHelpAnchorEl] = useState<HTMLElement | null>(null);
 
   const checkDisabled = () => {
-    if (selectedIssueType === 'sentiment') {
-      return !ratings || !feedback || !shareFeedback;
-    } else if (selectedIssueType === 'feature-request') {
-      return !title || !description || !shareFeedback;
-    }
-    return false;
+    return !ratings || !feedback || !shareFeedback;
   };
 
-  const sendSentimentFeedback = () => {
+  const sendFeedback = () => {
     // send custom events to analytics provider
     analytics.captureEvent('feedback', 'sentiment', {
       attributes: {
-        type: selectedIssueType,
+        type: 'sentiment',
         ratings: ratings,
         feedback,
       },
     });
-    setSnackbarMsg('Thank you sharing the ratings and feedback');
+    setSnackbarMsg('Thank you for sharing your ratings and feedback');
     setShowSnackbar(true);
-    const clearSentiment = setTimeout(() => {
+    const clearFeedback = setTimeout(() => {
       setRatings(0);
       setFeedback('');
       setShareFeedback(false);
-      clearTimeout(clearSentiment);
+      clearTimeout(clearFeedback);
     }, 500);
   };
 
-  const sendIssueFeedback = () => {
-    // send custom events to analytics provider
-    analytics.captureEvent('feedback', 'issue', {
-      attributes: {
-        type: selectedIssueType,
-        title,
-        description,
-      },
-    });
-    const msg = `Thank you sharing this feature request`;
-    setSnackbarMsg(msg);
-    setShowSnackbar(true);
-    const clearIssueData = setTimeout(() => {
-      setTitle('');
-      setDescription('');
-      setShareFeedback(false);
-      clearTimeout(clearIssueData);
-    }, 500);
+  const handleHelpClick = (event: React.MouseEvent<HTMLElement>) => {
+    setHelpAnchorEl(event.currentTarget);
   };
 
-  const sendFeedback = () => {
-    if (selectedIssueType === 'sentiment') sendSentimentFeedback();
-    else sendIssueFeedback();
+  const handleHelpClose = () => {
+    setHelpAnchorEl(null);
   };
 
   return (
@@ -133,113 +103,69 @@ export default function RatingsFeedbackModal(props: IProps) {
         aria-describedby="modal-modal-description"
         TransitionComponent={SlideTransition}
       >
-        <DialogTitle>Share Your Valuable Feedback</DialogTitle>
+        <DialogTitle>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            Share Your Valuable Feedback
+            <Tooltip title="Feedback Requirements">
+              <IconButton
+                size="small"
+                onClick={handleHelpClick}
+                style={{ padding: '4px' }}
+                data-testid="feedback-help-icon"
+              >
+                <HelpOutline fontSize="small" />
+              </IconButton>
+            </Tooltip>
+          </div>
+        </DialogTitle>
         <Divider />
         <DialogContent>
-          <div style={{ marginTop: '10px', marginBottom: '10px' }}>
+          <div>
             <FormControl fullWidth>
-              <InputLabel id="feedback-type">Type of feedback</InputLabel>
-              <Select
-                labelId="feedback-type"
-                id="feedback-type"
-                value={selectedIssueType}
-                label="Type of feedback"
-                onChange={handleChange}
-                defaultValue="sentiment"
-                data-testid="feedback-type"
+              <div
+                style={{ marginTop: '10px', marginBottom: '10px' }}
+                data-testid="user-ratings"
               >
-                <MenuItem value="sentiment">General Sentiment</MenuItem>
-                <MenuItem value="feature-request">Feature Request</MenuItem>
-              </Select>
+                <Typography
+                  component="div"
+                  id="modal-modal-description"
+                  style={{ marginTop: 2 }}
+                >
+                  <Typography>
+                    How was your experience?{' '}
+                    <sup style={{ fontWeight: 600 }}>*</sup>
+                  </Typography>
+                  <Rating
+                    name="user-ratings"
+                    value={ratings}
+                    onChange={(e, newRatings) => {
+                      e.stopPropagation();
+                      if (newRatings) setRatings(newRatings);
+                    }}
+                    style={{ marginTop: '10px' }}
+                  />
+                </Typography>
+              </div>
+            </FormControl>
+            <Divider />
+            <FormControl fullWidth>
+              <div style={{ marginTop: '15px' }} data-testid="tell-us-why">
+                <TextField
+                  multiline
+                  variant="outlined"
+                  aria-required
+                  required
+                  minRows={10}
+                  id="feedback"
+                  label="Tell us why?"
+                  placeholder="Enter feedback"
+                  value={feedback}
+                  onChange={e => setFeedback(e.target.value)}
+                  fullWidth
+                />
+              </div>
             </FormControl>
           </div>
-          {selectedIssueType === 'sentiment' && (
-            <div>
-              <FormControl fullWidth>
-                <div
-                  style={{ marginTop: '10px', marginBottom: '10px' }}
-                  data-testid="user-ratings"
-                >
-                  <Typography
-                    component="div"
-                    id="modal-modal-description"
-                    style={{ marginTop: 2 }}
-                  >
-                    <Typography>
-                      How was your experience?
-                      <sup style={{ fontWeight: 600 }}>*</sup>
-                    </Typography>
-                    <Rating
-                      name="user-ratings"
-                      value={ratings}
-                      onChange={(e, newRatings) => {
-                        e.stopPropagation();
-                        if (newRatings) setRatings(newRatings);
-                      }}
-                      style={{ marginTop: '10px' }}
-                    />
-                  </Typography>
-                </div>
-              </FormControl>
-              <Divider />
-              <FormControl fullWidth>
-                <div style={{ marginTop: '15px' }} data-testid="tell-us-why">
-                  <TextField
-                    multiline
-                    variant="outlined"
-                    aria-required
-                    required
-                    minRows={10}
-                    id="title"
-                    label="Tell us why?"
-                    placeholder="Enter feedback"
-                    value={feedback}
-                    onChange={e => setFeedback(e.target.value)}
-                    fullWidth
-                  />
-                </div>
-              </FormControl>
-            </div>
-          )}
-          {selectedIssueType === 'feature-request' && (
-            <div style={{ marginTop: '10px' }}>
-              <div>
-                <FormControl fullWidth>
-                  <div data-testid="issue-title">
-                    <TextField
-                      aria-required
-                      required
-                      fullWidth
-                      variant="outlined"
-                      id="title"
-                      label="Title"
-                      placeholder="Enter a title"
-                      value={title}
-                      onChange={e => setTitle(e.target.value)}
-                    />
-                  </div>
-                  <div
-                    style={{ marginTop: '30px' }}
-                    data-testid="issue-description"
-                  >
-                    <TextField
-                      aria-required
-                      multiline
-                      required
-                      fullWidth
-                      variant="outlined"
-                      minRows={10}
-                      id="title"
-                      label="Description"
-                      placeholder="Enter details"
-                      value={description}
-                      onChange={e => setDescription(e.target.value)}
-                    />
-                  </div>
-                </FormControl>
-              </div>
-            </div>
-          )}
           <FormControl>
             <FormControlLabel
               style={{ marginTop: '10px' }}
@@ -290,6 +216,59 @@ export default function RatingsFeedbackModal(props: IProps) {
           autoHideDuration={3000}
           message={snackbarMsg}
         />
+        <Popover
+          open={Boolean(helpAnchorEl)}
+          anchorEl={helpAnchorEl}
+          onClose={handleHelpClose}
+          anchorOrigin={{
+            vertical: 'bottom',
+            horizontal: 'left',
+          }}
+          transformOrigin={{
+            vertical: 'top',
+            horizontal: 'left',
+          }}
+          data-testid="feedback-help-popover"
+        >
+          <div style={{ padding: '16px', maxWidth: '300px' }}>
+            <Typography
+              variant="subtitle2"
+              style={{ marginBottom: '8px', fontWeight: 600 }}
+            >
+              Feedback Requirements
+            </Typography>
+            <Typography variant="body2" style={{ marginBottom: '12px' }}>
+              To share feedback, please provide:
+            </Typography>
+            <ul style={{ margin: '0 0 12px 0', paddingLeft: '20px' }}>
+              <li style={{ marginBottom: '4px' }}>
+                <Typography variant="body2">A rating (1-5 stars)</Typography>
+              </li>
+              <li style={{ marginBottom: '4px' }}>
+                <Typography variant="body2">Detailed feedback text</Typography>
+              </li>
+              <li>
+                <Typography variant="body2">
+                  Consent to share with Red Hat
+                </Typography>
+              </li>
+            </ul>
+            <Typography variant="body2" style={{ marginBottom: '8px' }}>
+              <strong>Note:</strong> Please ensure any ad-blockers are disabled
+              to share feedback properly.
+            </Typography>
+            <Typography variant="body2" style={{ marginBottom: '8px' }}>
+              For more information about how we use your feedback:
+            </Typography>
+            <Link
+              to="https://www.redhat.com/en/about/privacy-policy"
+              target="_blank"
+            >
+              Red Hat Privacy Policy{' '}
+              <OpenInNew fontSize="small" style={{ fontSize: '14px' }} />
+            </Link>
+          </div>
+        </Popover>
       </Dialog>
     </div>
   );

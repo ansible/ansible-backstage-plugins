@@ -48,6 +48,28 @@ export async function createRouter(options: {
     response.status(200).json(res);
   });
 
+  router.get('/aap/sync_status', async (_, response) => {
+    logger.info('Getting sync status');
+    try {
+      const orgsUsersTeamsLastSync = aapEntityProvider.getLastSyncTime();
+      const jobTemplatesLastSync = jobTemplateProvider.getLastSyncTime();
+
+      response.status(200).json({
+        orgsUsersTeams: { lastSync: orgsUsersTeamsLastSync },
+        jobTemplates: { lastSync: jobTemplatesLastSync },
+      });
+    } catch (error) {
+      const errorMessage =
+        error instanceof Error ? error.message : String(error);
+      logger.error(`Failed to get sync status: ${errorMessage}`);
+      response.status(500).json({
+        error: `Failed to get sync status: ${errorMessage}`,
+        orgsUsersTeams: { lastSync: null },
+        jobTemplates: { lastSync: null },
+      });
+    }
+  });
+
   router.post('/aap/create_user', express.json(), async (request, response) => {
     const { username, userID } = request.body;
     if (!username || userID === undefined || userID === null) {

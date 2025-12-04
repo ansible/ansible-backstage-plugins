@@ -32,6 +32,7 @@ export class AAPEntityProvider implements EntityProvider {
   private readonly ansibleServiceRef: IAAPService;
   private readonly scheduleFn: () => Promise<void>;
   private connection?: EntityProviderConnection;
+  private lastSyncTime: string | null = null;
 
   static pluginLogName = 'plugin-catalog-rhaap';
   static syncEntity = 'orgsUsersTeams';
@@ -134,6 +135,10 @@ export class AAPEntityProvider implements EntityProvider {
 
   getProviderName(): string {
     return `AapEntityProvider:${this.env}`;
+  }
+
+  getLastSyncTime(): string | null {
+    return this.lastSyncTime;
   }
 
   async run(): Promise<boolean> {
@@ -387,6 +392,8 @@ export class AAPEntityProvider implements EntityProvider {
           AAPEntityProvider.pluginLogName
         }]: Refreshed ${this.getProviderName()}: ${usersCount} users added.`,
       );
+
+      this.lastSyncTime = new Date().toISOString();
     }
     return !error;
   }

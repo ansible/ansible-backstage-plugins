@@ -6,6 +6,8 @@ import DialogContent from '@material-ui/core/DialogContent';
 import DialogTitle from '@material-ui/core/DialogTitle';
 import Dialog from '@material-ui/core/Dialog';
 import FormControlLabel from '@material-ui/core/FormControlLabel';
+import Typography from '@material-ui/core/Typography';
+import { formatRelativeTime } from '../../utils/timeUtils';
 
 const options = [
   {
@@ -23,11 +25,15 @@ export interface SyncConfirmationDialogProps {
   keepMounted: boolean;
   value: string[];
   open: boolean;
+  syncStatus?: {
+    orgsUsersTeams: { lastSync: string | null };
+    jobTemplates: { lastSync: string | null };
+  };
   onClose: (value?: string[]) => void;
 }
 
 export const SyncConfirmationDialog = (props: SyncConfirmationDialogProps) => {
-  const { onClose, value: valueProp, open, ...other } = props;
+  const { onClose, value: valueProp, open, syncStatus, ...other } = props;
   const [value, setValue] = useState<string[]>(valueProp);
 
   const handleCancel = () => {
@@ -45,7 +51,7 @@ export const SyncConfirmationDialog = (props: SyncConfirmationDialogProps) => {
 
   return (
     <Dialog
-      maxWidth="xs"
+      maxWidth="md"
       aria-labelledby="confirmation-dialog-title"
       open={open}
       {...other}
@@ -54,20 +60,62 @@ export const SyncConfirmationDialog = (props: SyncConfirmationDialogProps) => {
         AAP synchronization options
       </DialogTitle>
       <DialogContent dividers>
-        {options.map(option => (
-          <FormControlLabel
-            key={option.value}
-            control={
-              <Checkbox
-                checked={value.includes(option.value)}
-                onChange={handleChange}
-                name={option.value}
-                value={option.value}
+        {options.map(option => {
+          const lastSync =
+            option.value === 'orgsUsersTeams'
+              ? syncStatus?.orgsUsersTeams.lastSync
+              : syncStatus?.jobTemplates.lastSync;
+
+          return (
+            <div
+              key={option.value}
+              style={{ marginBottom: '8px', width: '100%' }}
+            >
+              <FormControlLabel
+                control={
+                  <Checkbox
+                    checked={value.includes(option.value)}
+                    onChange={handleChange}
+                    name={option.value}
+                    value={option.value}
+                  />
+                }
+                label={
+                  <div
+                    style={{
+                      display: 'flex',
+                      alignItems: 'baseline',
+                      gap: '6px',
+                      minWidth: 0,
+                      flex: 1,
+                    }}
+                  >
+                    <span
+                      style={{
+                        whiteSpace: 'nowrap',
+                        flexShrink: 0,
+                      }}
+                    >
+                      {option.label}
+                    </span>
+                    <Typography
+                      variant="caption"
+                      color="textSecondary"
+                      style={{
+                        fontSize: '0.6rem',
+                        fontStyle: 'italic',
+                        whiteSpace: 'nowrap',
+                        flexShrink: 0,
+                      }}
+                    >
+                      {formatRelativeTime(lastSync || null)}
+                    </Typography>
+                  </div>
+                }
               />
-            }
-            label={option.label}
-          />
-        ))}
+            </div>
+          );
+        })}
       </DialogContent>
       <DialogActions>
         <Button onClick={handleCancel} color="primary">

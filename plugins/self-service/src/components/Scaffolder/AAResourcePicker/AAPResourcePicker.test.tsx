@@ -440,4 +440,169 @@ describe('AAPResourcePicker', () => {
       expect(formControl).toBeInTheDocument();
     });
   });
+
+  describe('Credential Type Display', () => {
+    const credentialResources = [
+      {
+        id: 1,
+        name: 'My Credential',
+        summary_fields: {
+          credential_type: {
+            name: 'Machine',
+          },
+        },
+      },
+      {
+        id: 2,
+        name: 'Another Credential',
+        credential_type_name: 'Vault',
+      },
+      {
+        id: 3,
+        name: 'Third Credential',
+        type: 'Network',
+      },
+    ];
+
+    const credentialProps = {
+      ...defaultProps,
+      schema: {
+        ...defaultProps.schema,
+        resource: 'credentials',
+        title: 'Credential',
+      },
+    };
+
+    beforeEach(() => {
+      mockScaffolderApi.autocomplete.mockResolvedValue({
+        results: credentialResources,
+      });
+    });
+
+    it('should display credential type in dropdown for credentials resource', async () => {
+      renderComponent(credentialProps);
+
+      await waitFor(() => {
+        expect(screen.queryByRole('progressbar')).not.toBeInTheDocument();
+      });
+
+      const select = screen.getByRole('button');
+      fireEvent.mouseDown(select);
+
+      await waitFor(() => {
+        expect(screen.getByText('My Credential')).toBeInTheDocument();
+        expect(screen.getByText('Another Credential')).toBeInTheDocument();
+        expect(screen.getByText('Third Credential')).toBeInTheDocument();
+
+        expect(screen.getByText('Machine')).toBeInTheDocument();
+        expect(screen.getByText('Vault')).toBeInTheDocument();
+        expect(screen.getByText('Network')).toBeInTheDocument();
+      });
+    });
+
+    it('should not display credential type for non-credential resources', async () => {
+      mockScaffolderApi.autocomplete.mockResolvedValue({
+        results: mockResources,
+      });
+
+      renderComponent();
+
+      await waitFor(() => {
+        expect(screen.queryByRole('progressbar')).not.toBeInTheDocument();
+      });
+
+      const select = screen.getByRole('button');
+      fireEvent.mouseDown(select);
+
+      await waitFor(() => {
+        expect(screen.getByText('Inventory 1')).toBeInTheDocument();
+        expect(screen.getByText('Inventory 2')).toBeInTheDocument();
+        expect(screen.getByText('Inventory 3')).toBeInTheDocument();
+
+        expect(screen.queryByText('Machine')).not.toBeInTheDocument();
+        expect(screen.queryByText('Vault')).not.toBeInTheDocument();
+        expect(screen.queryByText('Network')).not.toBeInTheDocument();
+      });
+    });
+
+    it('should only show credential name in selected field, not type', async () => {
+      const formData = credentialResources[0];
+      renderComponent({ ...credentialProps, formData });
+
+      await waitFor(() => {
+        expect(screen.queryByRole('progressbar')).not.toBeInTheDocument();
+      });
+
+      expect(screen.getByDisplayValue('1')).toBeInTheDocument();
+      expect(screen.queryByText('Machine')).not.toBeInTheDocument();
+    });
+
+    it('should handle credentials without type information', async () => {
+      const credentialsWithoutType = [
+        { id: 1, name: 'Credential Without Type' },
+        { id: 2, name: 'Another Without Type' },
+      ];
+
+      mockScaffolderApi.autocomplete.mockResolvedValue({
+        results: credentialsWithoutType,
+      });
+
+      renderComponent(credentialProps);
+
+      await waitFor(() => {
+        expect(screen.queryByRole('progressbar')).not.toBeInTheDocument();
+      });
+
+      const select = screen.getByRole('button');
+      fireEvent.mouseDown(select);
+
+      await waitFor(() => {
+        expect(screen.getByText('Credential Without Type')).toBeInTheDocument();
+        expect(screen.getByText('Another Without Type')).toBeInTheDocument();
+      });
+    });
+
+    it('should handle different credential type field formats', async () => {
+      const mixedCredentialTypes = [
+        {
+          id: 1,
+          name: 'From Summary Fields',
+          summary_fields: {
+            credential_type: {
+              name: 'Machine',
+            },
+          },
+        },
+        {
+          id: 2,
+          name: 'From Type Name',
+          credential_type_name: 'Vault',
+        },
+        {
+          id: 3,
+          name: 'From Type Field',
+          type: 'Network',
+        },
+      ];
+
+      mockScaffolderApi.autocomplete.mockResolvedValue({
+        results: mixedCredentialTypes,
+      });
+
+      renderComponent(credentialProps);
+
+      await waitFor(() => {
+        expect(screen.queryByRole('progressbar')).not.toBeInTheDocument();
+      });
+
+      const select = screen.getByRole('button');
+      fireEvent.mouseDown(select);
+
+      await waitFor(() => {
+        expect(screen.getByText('Machine')).toBeInTheDocument();
+        expect(screen.getByText('Vault')).toBeInTheDocument();
+        expect(screen.getByText('Network')).toBeInTheDocument();
+      });
+    });
+  });
 });

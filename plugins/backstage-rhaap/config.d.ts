@@ -91,5 +91,16 @@ export interface Config {
            */
           maskIP?: boolean;
         };
+    /**
+     * Feedback form configuration
+     * @deepVisibility frontend
+     */
+    feedback?: {
+      /**
+       * Enable or disable the feedback form. Defaults to true.
+       * @visibility frontend
+       */
+      enabled?: boolean;
+    };
   };
 }

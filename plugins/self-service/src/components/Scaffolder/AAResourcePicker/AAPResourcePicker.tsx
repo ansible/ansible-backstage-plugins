@@ -15,6 +15,7 @@ import {
   makeStyles,
   MenuItem,
   Select,
+  Typography,
 } from '@material-ui/core';
 import { rhAapAuthApiRef } from '../../../apis';
 
@@ -33,6 +34,12 @@ const useStyles = makeStyles(theme => ({
   },
   noLabel: {
     marginTop: theme.spacing(3),
+  },
+  menuItemContent: {
+    display: 'flex',
+    flexDirection: 'column',
+    alignItems: 'flex-start',
+    width: '100%',
   },
 }));
 
@@ -78,6 +85,22 @@ export const AAPResourcePicker = (props: ScaffolderRJSFFieldProps) => {
   >(getInitValue);
   const [loading, setLoading] = useState<boolean>(false);
   const classes = useStyles();
+
+  const getCredentialType = (item: any): string => {
+    if (resource !== 'credentials') {
+      return '';
+    }
+    if (item.summary_fields?.credential_type?.name) {
+      return item.summary_fields.credential_type.name;
+    }
+    if (item.credential_type_name) {
+      return item.credential_type_name;
+    }
+    if (item.type) {
+      return item.type;
+    }
+    return '';
+  };
 
   const updateAvailableResources = useCallback(() => {
     aapAuth.getAccessToken().then((token: string) => {
@@ -156,12 +179,17 @@ export const AAPResourcePicker = (props: ScaffolderRJSFFieldProps) => {
         {items.map(value => (
           <Chip
             key={value[_idKey]}
-            label={value[_nameKey]}
+            label={String(value[_nameKey])}
             className={classes.chip}
           />
         ))}
       </div>
     );
+  };
+
+  const renderSingleValue = (value: any) => {
+    const item = availableResources.find((e: any) => e[_idKey] === value);
+    return item ? String((item as any)[_nameKey]) : '';
   };
 
   return (
@@ -183,18 +211,32 @@ export const AAPResourcePicker = (props: ScaffolderRJSFFieldProps) => {
         // @ts-ignore
         onChange={change}
         value={selected}
-        {...(multiple && {
-          renderValue: renderSelectedValues,
-        })}
+        renderValue={multiple ? renderSelectedValues : renderSingleValue}
       >
         {availableResources.length > 0 ? (
-          availableResources.map((item, index) => (
-            // @ts-ignore
-            <MenuItem key={index} value={item[_idKey]}>
-              {/* @ts-ignore */}
-              {item[_nameKey]}
-            </MenuItem>
-          ))
+          availableResources.map((item, index) => {
+            const credentialType = getCredentialType(item);
+            return (
+              // @ts-ignore
+              <MenuItem key={index} value={item[_idKey]}>
+                {credentialType ? (
+                  <div className={classes.menuItemContent}>
+                    <Typography>
+                      <span style={{ fontWeight: 450 }}>
+                        {/* @ts-ignore */}
+                        {item[_nameKey]}
+                      </span>{' '}
+                      |{' '}
+                      <span style={{ fontWeight: 400 }}>{credentialType}</span>
+                    </Typography>
+                  </div>
+                ) : (
+                  // @ts-ignore
+                  item[_nameKey]
+                )}
+              </MenuItem>
+            );
+          })
         ) : (
           <MenuItem value={0} disabled>
             No{' '}

@@ -1,4 +1,4 @@
-import { screen, fireEvent, waitFor } from '@testing-library/react';
+import { screen, fireEvent, waitFor, within } from '@testing-library/react';
 import {
   mockApis,
   renderInTestApp,
@@ -25,6 +25,10 @@ describe('self-service', () => {
     jest.clearAllMocks();
     // Reset mock implementations
     mockRhAapAuthApi.getAccessToken.mockResolvedValue('mock-token');
+    mockAnsibleApi.getSyncStatus.mockResolvedValue({
+      orgsUsersTeams: { lastSync: null },
+      jobTemplates: { lastSync: null },
+    });
 
     // Restore autocomplete if it was deleted
     if (!mockScaffolderApi.autocomplete) {
@@ -106,6 +110,37 @@ describe('self-service', () => {
     expect(screen.getByText('Start')).toBeInTheDocument();
   });
 
+  it('should open sync dialog when sync button is clicked', async () => {
+    const entityRefs = ['component:default/e1'];
+    const tags = ['tag1'];
+    mockCatalogApi.getEntityFacets.mockResolvedValue(
+      facetsFromEntityRefs(entityRefs, tags),
+    );
+    mockAnsibleApi.getSyncStatus.mockResolvedValue({
+      orgsUsersTeams: { lastSync: null },
+      jobTemplates: { lastSync: null },
+    });
+
+    await render(<HomeComponent />);
+
+    await waitFor(() => {
+      expect(screen.getByText('Sync now')).toBeInTheDocument();
+    });
+
+    const syncButton = screen.getByText('Sync now');
+    fireEvent.click(syncButton);
+
+    await waitFor(() => {
+      expect(screen.getByRole('dialog')).toBeInTheDocument();
+    });
+
+    expect(screen.getByText('AAP synchronization options')).toBeInTheDocument();
+    expect(
+      screen.getByText('Organizations, Users, and Teams'),
+    ).toBeInTheDocument();
+    expect(screen.getAllByText('Job Templates')).toHaveLength(2);
+  });
+
   it('should handle sync operations successfully', async () => {
     const entityRefs = ['component:default/e1'];
     const tags = ['tag1'];
@@ -114,8 +149,17 @@ describe('self-service', () => {
     );
     mockAnsibleApi.syncOrgsUsersTeam.mockResolvedValue(true);
     mockAnsibleApi.syncTemplates.mockResolvedValue(true);
+    mockAnsibleApi.getSyncStatus.mockResolvedValue({
+      orgsUsersTeams: { lastSync: null },
+      jobTemplates: { lastSync: null },
+    });
 
     await render(<HomeComponent />);
+
+    // Wait for component to load
+    await waitFor(() => {
+      expect(screen.getByText('Sync now')).toBeInTheDocument();
+    });
 
     // Simulate clicking sync button
     const syncButton = screen.getByText('Sync now');
@@ -126,11 +170,11 @@ describe('self-service', () => {
       expect(screen.getByRole('dialog')).toBeInTheDocument();
     });
 
-    // Select both options
-    const orgsCheckbox = screen.getByLabelText(
-      'Organizations, Users, and Teams',
-    );
-    const templatesCheckbox = screen.getByLabelText('Job Templates');
+    // Select both options - find checkboxes within the dialog by role
+    const dialog = screen.getByRole('dialog');
+    const checkboxes = within(dialog).getAllByRole('checkbox');
+    const orgsCheckbox = checkboxes[0]; // First checkbox is for Organizations, Users, and Teams
+    const templatesCheckbox = checkboxes[1]; // Second checkbox is for Job Templates
     fireEvent.click(orgsCheckbox);
     fireEvent.click(templatesCheckbox);
 
@@ -153,8 +197,17 @@ describe('self-service', () => {
     );
     mockAnsibleApi.syncOrgsUsersTeam.mockResolvedValue(false);
     mockAnsibleApi.syncTemplates.mockResolvedValue(false);
+    mockAnsibleApi.getSyncStatus.mockResolvedValue({
+      orgsUsersTeams: { lastSync: null },
+      jobTemplates: { lastSync: null },
+    });
 
     await render(<HomeComponent />);
+
+    // Wait for component to load
+    await waitFor(() => {
+      expect(screen.getByText('Sync now')).toBeInTheDocument();
+    });
 
     // Simulate clicking sync button
     const syncButton = screen.getByText('Sync now');
@@ -165,11 +218,11 @@ describe('self-service', () => {
       expect(screen.getByRole('dialog')).toBeInTheDocument();
     });
 
-    // Select both options
-    const orgsCheckbox = screen.getByLabelText(
-      'Organizations, Users, and Teams',
-    );
-    const templatesCheckbox = screen.getByLabelText('Job Templates');
+    // Select both options - find checkboxes within the dialog by role
+    const dialog = screen.getByRole('dialog');
+    const checkboxes = within(dialog).getAllByRole('checkbox');
+    const orgsCheckbox = checkboxes[0]; // First checkbox is for Organizations, Users, and Teams
+    const templatesCheckbox = checkboxes[1]; // Second checkbox is for Job Templates
     fireEvent.click(orgsCheckbox);
     fireEvent.click(templatesCheckbox);
 
@@ -191,8 +244,17 @@ describe('self-service', () => {
       facetsFromEntityRefs(entityRefs, tags),
     );
     mockAnsibleApi.syncOrgsUsersTeam.mockResolvedValue(true);
+    mockAnsibleApi.getSyncStatus.mockResolvedValue({
+      orgsUsersTeams: { lastSync: null },
+      jobTemplates: { lastSync: null },
+    });
 
     await render(<HomeComponent />);
+
+    // Wait for component to load
+    await waitFor(() => {
+      expect(screen.getByText('Sync now')).toBeInTheDocument();
+    });
 
     // Simulate clicking sync button
     const syncButton = screen.getByText('Sync now');
@@ -203,10 +265,10 @@ describe('self-service', () => {
       expect(screen.getByRole('dialog')).toBeInTheDocument();
     });
 
-    // Select only organizations option
-    const orgsCheckbox = screen.getByLabelText(
-      'Organizations, Users, and Teams',
-    );
+    // Select only organizations option - find checkbox within the dialog by role
+    const dialog = screen.getByRole('dialog');
+    const checkboxes = within(dialog).getAllByRole('checkbox');
+    const orgsCheckbox = checkboxes[0]; // First checkbox is for Organizations, Users, and Teams
     fireEvent.click(orgsCheckbox);
 
     // Click OK to trigger sync
@@ -226,8 +288,17 @@ describe('self-service', () => {
     mockCatalogApi.getEntityFacets.mockResolvedValue(
       facetsFromEntityRefs(entityRefs, tags),
     );
+    mockAnsibleApi.getSyncStatus.mockResolvedValue({
+      orgsUsersTeams: { lastSync: null },
+      jobTemplates: { lastSync: null },
+    });
 
     await render(<HomeComponent />);
+
+    // Wait for component to load
+    await waitFor(() => {
+      expect(screen.getByText('Sync now')).toBeInTheDocument();
+    });
 
     // Simulate clicking sync button
     const syncButton = screen.getByText('Sync now');
@@ -271,8 +342,17 @@ describe('self-service', () => {
       facetsFromEntityRefs(entityRefs, tags),
     );
     mockAnsibleApi.syncTemplates.mockResolvedValue(true);
+    mockAnsibleApi.getSyncStatus.mockResolvedValue({
+      orgsUsersTeams: { lastSync: null },
+      jobTemplates: { lastSync: null },
+    });
 
     await render(<HomeComponent />);
+
+    // Wait for component to load
+    await waitFor(() => {
+      expect(screen.getByText('Sync now')).toBeInTheDocument();
+    });
 
     const syncButton = screen.getByText('Sync now');
     fireEvent.click(syncButton);
@@ -281,7 +361,9 @@ describe('self-service', () => {
       expect(screen.getByRole('dialog')).toBeInTheDocument();
     });
 
-    const templatesCheckbox = screen.getByLabelText('Job Templates');
+    const dialog = screen.getByRole('dialog');
+    const checkboxes = within(dialog).getAllByRole('checkbox');
+    const templatesCheckbox = checkboxes[1]; // Second checkbox is for Job Templates
     fireEvent.click(templatesCheckbox);
 
     const okButton = screen.getByText('Ok');

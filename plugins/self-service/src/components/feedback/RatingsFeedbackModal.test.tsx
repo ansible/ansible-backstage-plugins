@@ -1,6 +1,6 @@
 import { rest } from 'msw';
 import { setupServer } from 'msw/node';
-import { screen, waitFor, within } from '@testing-library/react';
+import { screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { registerMswTestHooks, renderInTestApp } from '@backstage/test-utils';
 
@@ -40,7 +40,6 @@ describe('Ratings feedback modal', () => {
     expect(
       screen.getByText('Share Your Valuable Feedback'),
     ).toBeInTheDocument();
-    expect(screen.getByLabelText('Type of feedback')).toBeInTheDocument();
     expect(screen.getByText('How was your experience?')).toBeInTheDocument();
     expect(screen.getByLabelText(/Tell us why/i)).toBeInTheDocument();
     expect(
@@ -103,69 +102,62 @@ describe('Ratings feedback modal', () => {
     );
 
     expect(
-      await screen.findByText(/Thank you sharing the ratings and feedback/i),
+      await screen.findByText(
+        /Thank you for sharing your ratings and feedback/i,
+      ),
     ).toBeInTheDocument();
   });
 
-  it('sends feature-request feedback and shows snackbar', async () => {
+  it('should show help icon and tooltip', async () => {
+    const handleClose = jest.fn();
+    await render(<RatingsFeedbackModal handleClose={handleClose} open />);
+
+    const helpIcon = screen.getByTestId('feedback-help-icon');
+    expect(helpIcon).toBeInTheDocument();
+
+    expect(screen.getByTitle('Feedback Requirements')).toBeInTheDocument();
+  });
+
+  it('should open help popover when help icon is clicked', async () => {
     const handleClose = jest.fn();
     await render(<RatingsFeedbackModal handleClose={handleClose} open />);
 
     const user = userEvent.setup();
 
-    // Open the select and choose Feature Request
-    const select = screen.getByLabelText('Type of feedback');
-    await user.click(select);
+    const helpIcon = screen.getByTestId('feedback-help-icon');
+    await user.click(helpIcon);
 
-    // Material-UI renders options into a portal — look up by role 'option'
-    const featureOption = await screen.findByRole('option', {
-      name: 'Feature Request',
-    });
-    await user.click(featureOption);
-
-    // Wait for feature request inputs to appear (by test ids)
-    const titleContainer = await screen.findByTestId('issue-title');
-    const descriptionContainer = await screen.findByTestId('issue-description');
-
-    // Fill title and description by placeholder text (robust to MUI labeling)
-    const titleInput =
-      within(titleContainer).getByPlaceholderText('Enter a title');
-    const descInput =
-      within(descriptionContainer).getByPlaceholderText('Enter details');
-
-    await user.type(titleInput, 'New great feature');
-    await user.type(descInput, 'Please add support for X and Y.');
-
-    // Toggle the consent checkbox
-    await user.click(
-      screen.getByText(/I understand that feedback is shared with Red Hat\./i),
-    );
-    const checkbox = screen.getByRole('checkbox', {
-      name: /I understand that feedback is shared with Red Hat\./i,
-    }) as HTMLInputElement;
-    expect(checkbox.checked).toBe(true);
-
-    // Submit
-    const submitBtn = screen.getByTestId('sentiment-submit-btn');
-    await user.click(submitBtn);
-
-    // Wait for analytics to be called and snackbar to appear
-    await waitFor(() =>
-      expect(mockCaptureEvent).toHaveBeenCalledWith(
-        'feedback',
-        'issue',
-        expect.objectContaining({
-          attributes: expect.objectContaining({
-            type: 'feature-request',
-            title: 'New great feature',
-            description: 'Please add support for X and Y.',
-          }),
-        }),
-      ),
-    );
-
+    expect(screen.getByTestId('feedback-help-popover')).toBeInTheDocument();
+    expect(screen.getByText('Feedback Requirements')).toBeInTheDocument();
     expect(
-      await screen.findByText(/Thank you sharing this feature request/i),
+      screen.getByText('To share feedback, please provide:'),
     ).toBeInTheDocument();
+    expect(screen.getByText('A rating (1-5 stars)')).toBeInTheDocument();
+    expect(screen.getByText('Detailed feedback text')).toBeInTheDocument();
+    expect(
+      screen.getByText('Consent to share with Red Hat'),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(/Please ensure any ad-blockers are disabled/),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole('link', { name: /Red Hat Privacy Policy/ }),
+    ).toBeInTheDocument();
+  });
+
+  it('should close help popover when pressing escape key', async () => {
+    const handleClose = jest.fn();
+    await render(<RatingsFeedbackModal handleClose={handleClose} open />);
+
+    const user = userEvent.setup();
+
+    const helpIcon = screen.getByTestId('feedback-help-icon');
+    await user.click(helpIcon);
+
+    expect(screen.getByTestId('feedback-help-popover')).toBeInTheDocument();
+    await user.keyboard('{Escape}');
+    expect(
+      screen.queryByTestId('feedback-help-popover'),
+    ).not.toBeInTheDocument();
   });
 });

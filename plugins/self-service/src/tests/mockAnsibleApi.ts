@@ -4,6 +4,7 @@ export const mockAnsibleApi: jest.Mocked<AnsibleApi> = {
   ...jest.requireActual<AnsibleApi>('../apis'),
   syncTemplates: jest.fn(),
   syncOrgsUsersTeam: jest.fn(),
+  getSyncStatus: jest.fn(),
 } as any;
 
 export const mockRhAapAuthApi: jest.Mocked<any> = {
