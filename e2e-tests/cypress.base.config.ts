@@ -22,6 +22,12 @@ export const baseConfig = defineConfig({
   video: true,
   screenshotOnRunFailure: true,
 
+  // Reporter configuration for CI integration
+  reporter: 'cypress-multi-reporters',
+  reporterOptions: {
+    configFile: 'reporter-config.json',
+  },
+
   // E2E specific configuration
   e2e: {
     // Performance optimizations (like aap-ui)
