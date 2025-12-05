@@ -75,11 +75,17 @@ jobs:
           yarn run test:all
           npx -y nyc report --reporter html --reporter text -t coverage --report-dir coverage/summary
 
+      # Filter coverage to only include plugins/ directory
+      - name: Filter coverage for plugins only
+        run: |
+          # Create filtered coverage file containing only plugins/ paths
+          awk '/^SF:/{found=/^SF:plugins\//} found' ./coverage/lcov.info > ./coverage/lcov-plugins.info || true
+
       - name: Upload coverage report to Codecov
         uses: codecov/codecov-action@v4
         with:
           use_oidc: ${{ !(github.event_name == 'pull_request' && github.event.pull_request.head.repo.fork) }}
-          file: ./coverage/lcov.info
+          file: ./coverage/lcov-plugins.info
           flags: plugins
           fail_ci_if_error: false
           verbose: true
@@ -90,6 +96,7 @@ jobs:
           name: coverage-report-${{ matrix.node-version }}
           path: |
             ./coverage/lcov.info
+            ./coverage/lcov-plugins.info
             ./coverage/summary/
           retention-days: 30
         
@@ -117,7 +124,7 @@ jobs:
             -Dsonar.tests=plugins \
             -Dsonar.test.inclusions=**/*.test.ts,**/*.test.tsx,**/*.test.js,**/*.test.jsx \
             -Dsonar.exclusions=**/*.test.ts,**/*.test.tsx,**/*.test.js,**/*.test.jsx,**/.eslintrc.js \
-            -Dsonar.javascript.lcov.reportPaths=./coverage/lcov.info" >> $GITHUB_ENV
+            -Dsonar.javascript.lcov.reportPaths=./coverage/lcov-plugins.info" >> $GITHUB_ENV
 
       # SonarCloud Scan for PRs
       - name: SonarCloud Scan (Pull Request)
@@ -141,10 +148,18 @@ jobs:
       - test
     runs-on: ubuntu-latest
     steps:
-      - run: >-
-          python -c "assert 'failure' not in
-          set([
-          '${{ needs.docs.result }}',
-          '${{ needs.test.result }}'
-          ])"
+      - name: Verify all jobs succeeded
+        run: |
+          python -c "
+          results = {
+            'docs': '${{ needs.docs.result }}',
+            'test': '${{ needs.test.result }}'
+          }
+          failed = [job for job, result in results.items() if result != 'success']
+          if failed:
+            print(f'Failed jobs: {failed}')
+            print(f'Results: {results}')
+            exit(1)
+          print('All jobs succeeded!')
+          "
           
