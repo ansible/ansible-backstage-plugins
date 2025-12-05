@@ -297,17 +297,9 @@ export const CollectionsPickerExtension = ({
   const handleFieldChange =
     (fieldName: string) =>
     (event: ChangeEvent<{ name?: string; value: unknown }>) => {
-      const fieldSchema = properties[fieldName] || {};
-      const fieldMeta = getFieldMetadata(fieldName);
-      const fieldType = fieldSchema.type || fieldMeta.type || 'string';
       const rawValue = event.target.value;
 
-      let processedValue: string | string[];
-      if (fieldType === 'array') {
-        processedValue = rawValue as string;
-      } else {
-        processedValue = rawValue as string;
-      }
+      const processedValue: string | string[] = rawValue as string;
 
       setNewCollection({ ...newCollection, [fieldName]: processedValue });
 
