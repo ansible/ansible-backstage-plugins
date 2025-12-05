@@ -148,10 +148,18 @@ jobs:
       - test
     runs-on: ubuntu-latest
     steps:
-      - run: >-
-          python -c "assert 'failure' not in
-          set([
-          '${{ needs.docs.result }}',
-          '${{ needs.test.result }}'
-          ])"
+      - name: Verify all jobs succeeded
+        run: |
+          python -c "
+          results = {
+            'docs': '${{ needs.docs.result }}',
+            'test': '${{ needs.test.result }}'
+          }
+          failed = [job for job, result in results.items() if result != 'success']
+          if failed:
+            print(f'Failed jobs: {failed}')
+            print(f'Results: {results}')
+            exit(1)
+          print('All jobs succeeded!')
+          "
           
