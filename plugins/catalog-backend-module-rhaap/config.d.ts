@@ -14,6 +14,7 @@ export interface Config {
             jobTemplates: {
               enabled: boolean;
               labels?: Array<string>;
+              excludeLabels?: Array<string>;
               surveyEnabled?: boolean;
               schedule?: SchedulerServiceTaskScheduleDefinitionConfig;
             };
