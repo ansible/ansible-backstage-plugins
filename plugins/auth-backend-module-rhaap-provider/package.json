@@ -38,12 +38,12 @@
     "@backstage/plugin-auth-backend": "^0.25.0",
     "@backstage/plugin-auth-node": "^0.6.3",
     "passport-oauth2": "^1.8.0",
-    "undici": "6.21.2"
+    "undici": "6.22.0"
   },
   "devDependencies": {
-    "@backstage/backend-defaults": "^0.11.1",
+    "@backstage/backend-defaults": "^0.13.0",
     "@backstage/backend-test-utils": "^1.5.0",
-    "@backstage/cli": "^0.33.1",
+    "@backstage/cli": "^0.34.0",
     "@janus-idp/cli": "^3.6.1",
     "@types/jest": "^29.5.14",
     "@types/node": "^22.13.4",
