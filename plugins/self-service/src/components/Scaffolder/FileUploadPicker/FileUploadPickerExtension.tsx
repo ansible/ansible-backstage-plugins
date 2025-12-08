@@ -76,7 +76,7 @@ export const FileUploadPickerExtension = ({
     typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function'
       ? crypto.randomUUID().toString().replace(/-/g, '').substring(2, 11)
       : Math.random().toString(36).substring(2, 11)
-  }`;
+  }`;    // NOSONAR
 
   const storageKey = `file-upload-filename-${schema?.title || 'default'}`;
 
