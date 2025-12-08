@@ -71,7 +71,12 @@ export const FileUploadPickerExtension = ({
   const customDescription =
     uiSchema?.['ui:options']?.description || schema?.description;
 
-  const fileInputId = `file-upload-input-${Math.random().toString(36).substring(2, 11)}`;
+  // NOSONAR - fallback uses Math.random only in non-browser test environments
+  const fileInputId = `file-upload-input-${
+    typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function'
+      ? crypto.randomUUID().toString().replace(/-/g, '').substring(2, 11)
+      : Math.random().toString(36).substring(2, 11)
+  }`;
 
   const storageKey = `file-upload-filename-${schema?.title || 'default'}`;
 
