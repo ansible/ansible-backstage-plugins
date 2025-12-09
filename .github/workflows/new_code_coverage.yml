@@ -32,7 +32,7 @@ jobs:
           BRANCH="$branch_name"
           echo "Branch = $BRANCH"
 
-          API="https://sonarcloud.io/api/measures/component?component=ansible_ansible-backstage-plugins&metricKeys=new_coverage&branch=$BRANCH"
+          API="https://sonarcloud.io/api/measures/component?component=ansible_ansible-backstage-plugins&metricKeys=new_coverage"
           VALUE=$(curl -s "$API" | jq -r '.component.measures[0].periods[0].value // "0"')
 
           echo "New Code Coverage = $VALUE"
