@@ -3,7 +3,7 @@ name: Update New Code Coverage (GitHub Pages)
 on:
   push:
     branches:
-      - main        
+      - "**"
   workflow_dispatch:
 
 permissions:
@@ -14,7 +14,7 @@ permissions:
 jobs:
   update-coverage:
     environment:
-      name: github-pages
+      name: github-pages     
       url: ${{ steps.deployment.outputs.page_url }}
 
     runs-on: ubuntu-latest
@@ -23,12 +23,16 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Fetch SonarCloud New Code Coverage for Bug/sonar-validation-checks2
-        run: |
-          TARGET_BRANCH="Bug/sonar-validation-checks2"
-          echo "Target branch = $TARGET_BRANCH"
+      - name: Get branch name
+        id: branch
+        run: echo "branch_name=${GITHUB_REF#refs/heads/}" >> $GITHUB_ENV
 
-          API="https://sonarcloud.io/api/measures/component?component=ansible_ansible-backstage-plugins&metricKeys=new_coverage&branch=$TARGET_BRANCH"
+      - name: Fetch SonarCloud New Code Coverage
+        run: |
+          BRANCH="$branch_name"
+          echo "Branch = $BRANCH"
+
+          API="https://sonarcloud.io/api/measures/component?component=ansible_ansible-backstage-plugins&metricKeys=new_coverage&branch=$BRANCH"
           VALUE=$(curl -s "$API" | jq -r '.component.measures[0].periods[0].value // "0"')
 
           echo "New Code Coverage = $VALUE"
@@ -37,7 +41,7 @@ jobs:
           cat <<EOF > public/new-coverage.json
           {
             "schemaVersion": 1,
-            "label": "New Code Coverage ($TARGET_BRANCH)",
+            "label": "New Code Coverage ($BRANCH)",
             "message": "${VALUE}%",
             "color": "brightgreen"
           }
