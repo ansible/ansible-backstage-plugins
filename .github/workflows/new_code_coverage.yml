@@ -6,13 +6,19 @@ on:
       - "**"
   workflow_dispatch:
 
+permissions:
+  contents: write
+  pages: write
+  id-token: write
+
 jobs:
   update-coverage:
+    environment:
+      name: github-pages     
+      url: ${{ steps.deployment.outputs.page_url }}
+
     runs-on: ubuntu-latest
-    permissions:
-      contents: write     # required for GH Pages
-      pages: write        # publish to gh-pages
-      id-token: write     # deploy
+
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -26,13 +32,11 @@ jobs:
           BRANCH="$branch_name"
           echo "Branch = $BRANCH"
 
-          # Fetch new_coverage from SonarCloud
           API="https://sonarcloud.io/api/measures/component?component=ansible_ansible-backstage-plugins&metricKeys=new_coverage&branch=$BRANCH"
           VALUE=$(curl -s "$API" | jq -r '.component.measures[0].periods[0].value // "0"')
 
           echo "New Code Coverage = $VALUE"
 
-          # Prepare output file for GH Pages
           mkdir -p public
           cat <<EOF > public/new-coverage.json
           {
@@ -49,4 +53,5 @@ jobs:
           path: public
 
       - name: Deploy to GitHub Pages
+        id: deployment
         uses: actions/deploy-pages@v4
