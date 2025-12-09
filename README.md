@@ -4,7 +4,6 @@
 [![codecov](https://codecov.io/gh/ansible/ansible-backstage-plugins/graph/badge.svg)](https://codecov.io/gh/ansible/ansible-backstage-plugins)
 
 <!-- [![Coverage](https://sonarcloud.io/api/project_badges/measure?project=ansible_ansible-backstage-plugins&metric=coverage)](https://sonarcloud.io/api/measures/component?component=ansible_ansible-backstage-plugins&metricKeys=new_coverage) -->
-
 ![New Code Coverage](https://img.shields.io/endpoint?url=https://ansible.github.io/ansible-backstage-plugins/new-coverage.json)
 
 Welcome to the Ansible plugins for Backstage project! This repository provides plugins for [backstage.io](https://backstage.io) to deliver Ansible-specific user experiences in the developer portal, enabling self-service automation and integration with Ansible Automation Platform (AAP).
