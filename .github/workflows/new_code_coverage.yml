@@ -1,41 +1,40 @@
-name: Update New Code Coverage (Branch)
+name: Update New Code Coverage (GitHub Pages)
 
 on:
   push:
     branches:
-      - '**'   # runs for all branches
+      - "**"
   workflow_dispatch:
 
 jobs:
   update-coverage:
     runs-on: ubuntu-latest
     permissions:
-        actions: read
-        checks: read
-        contents: read
-        id-token: write
+      contents: write     # required for GH Pages
+      pages: write        # publish to gh-pages
+      id-token: write     # deploy
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-        with:
-          persist-credentials: true
 
-      - name: Get Branch Name
+      - name: Get branch name
         id: branch
         run: echo "branch_name=${GITHUB_REF#refs/heads/}" >> $GITHUB_ENV
 
-      - name: Fetch SonarCloud New Code Coverage for this branch
+      - name: Fetch SonarCloud New Code Coverage
         run: |
           BRANCH="$branch_name"
           echo "Branch = $BRANCH"
 
-          API="https://sonarcloud.io/api/measures/component?component=ansible_ansible-backstage-plugins&metricKeys=new_coverage"
+          # Fetch new_coverage from SonarCloud
+          API="https://sonarcloud.io/api/measures/component?component=ansible_ansible-backstage-plugins&metricKeys=new_coverage&branch=$BRANCH"
           VALUE=$(curl -s "$API" | jq -r '.component.measures[0].periods[0].value // "0"')
 
-          echo "New Coverage = $VALUE"
+          echo "New Code Coverage = $VALUE"
 
-          mkdir -p .github/badges
-          cat <<EOF > .github/badges/new-coverage.json
+          # Prepare output file for GH Pages
+          mkdir -p public
+          cat <<EOF > public/new-coverage.json
           {
             "schemaVersion": 1,
             "label": "New Code Coverage ($BRANCH)",
@@ -44,10 +43,10 @@ jobs:
           }
           EOF
 
-      - name: Commit Badge JSON
-        run: |
-          git config user.name "github-actions"
-          git config user.email "actions@github.com"
-          git add .github/badges/new-coverage.json
-          git commit -m "Update badge for $branch_name" || echo "No changes"
-          git push
+      - name: Upload artifact for GitHub Pages
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: public
+
+      - name: Deploy to GitHub Pages
+        uses: actions/deploy-pages@v4
