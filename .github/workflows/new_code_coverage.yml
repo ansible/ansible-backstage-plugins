@@ -1,0 +1,49 @@
+name: Update New Code Coverage (Branch)
+
+on:
+  push:
+    branches:
+      - '**'   # runs for all branches
+  workflow_dispatch:
+
+jobs:
+  update-coverage:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: true
+
+      - name: Get Branch Name
+        id: branch
+        run: echo "branch_name=${GITHUB_REF#refs/heads/}" >> $GITHUB_ENV
+
+      - name: Fetch SonarCloud New Code Coverage for this branch
+        run: |
+          BRANCH="$branch_name"
+          echo "Branch = $BRANCH"
+
+          API="https://sonarcloud.io/api/measures/component?component=ansible_ansible-backstage-plugins&metricKeys=new_coverage"
+          VALUE=$(curl -s "$API" | jq -r '.component.measures[0].periods[0].value // "0"')
+
+          echo "New Coverage = $VALUE"
+
+          mkdir -p .github/badges
+          cat <<EOF > .github/badges/new-coverage.json
+          {
+            "schemaVersion": 1,
+            "label": "New Code Coverage ($BRANCH)",
+            "message": "${VALUE}%",
+            "color": "brightgreen"
+          }
+          EOF
+
+      - name: Commit Badge JSON
+        run: |
+          git config user.name "github-actions"
+          git config user.email "actions@github.com"
+          git add .github/badges/new-coverage.json
+          git commit -m "Update badge for $branch_name" || echo "No changes"
+          git push
