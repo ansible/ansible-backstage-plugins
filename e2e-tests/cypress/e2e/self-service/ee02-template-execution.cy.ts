@@ -266,8 +266,8 @@ describe('Execution Environment Template Execution Tests', () => {
 
         cy.contains(/github/i).click({ force: true });
 
-        // SCM repository organization or username
-        cy.contains('label', /SCM repository organization or username/i)
+        // Git repository organization or username
+        cy.contains('label', /Git repository organization or username/i)
           .closest('div')
           .find('input, textarea')
           .first()
