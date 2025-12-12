@@ -2,7 +2,7 @@ import { Common } from '../utils/common';
 
 const EE_TEMPLATE_URL =
   Cypress.env('EE_IMPORT_REPO_URL') ||
-  'https://github.com/NilashishC/ansible-rhdh-templates/blob/ee_templates/templates/ee-start-from-scratch.yaml';
+  'https://github.com/ansible/ansible-rhdh-templates/blob/main/templates/ee-start-from-scratch.yaml';
 
 const EE_TEMPLATE_TITLE = 'Start from scratch';
 
