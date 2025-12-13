@@ -49,11 +49,11 @@ export class Common {
   static LogintoAAP() {
     cy.wait(200); // Reduced to minimum
     cy.visit('/');
-    cy.wait(3000); // Reduced further
+    cy.wait(5000); // Reduced further
     cy.get('body').then($body => {
       if ($body.text().includes('Select a Sign-in method')) {
         cy.contains('Sign In').invoke('removeAttr', 'target').click();
-        cy.wait(3000); // Reduced further
+        cy.wait(5000); // Reduced further
         cy.get('body').then($body => {
           cy.wait(200); // Minimal wait
           if ($body.text().includes('Log in to your account')) {
@@ -72,7 +72,7 @@ export class Common {
             cy.get('button').contains('Log in').as('login');
             cy.wait(100); // Minimal wait
             cy.get('@login').click();
-            cy.wait(1000); // Reduced significantly
+            cy.wait(2000); // Reduced significantly
           }
         });
         cy.wait(500); // Reduced from 1000

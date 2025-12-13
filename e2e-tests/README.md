@@ -249,3 +249,51 @@ cy.login();
 - Monitor test performance trends
 - Update selectors and commands as UI changes
 - Use type definitions for better IDE support
+
+### Generating Reports
+
+After running tests, generate consolidated HTML reports:
+
+```bash
+# Run tests (reports auto-generated)
+npm run e2e:self-service
+
+# Generate merged HTML report
+npm run report:generate
+
+# Individual report commands
+npm run report:merge    # Merge JSON reports
+npm run report:html     # Generate HTML from merged JSON
+```
+
+### Viewing Reports
+
+```bash
+# Open HTML report (macOS)
+open cypress/reports/html/report.html
+
+# Open HTML report (Linux)
+xdg-open cypress/reports/html/report.html
+
+# Open HTML report (Windows)
+start cypress/reports/html/report.html
+```
+
+### Report Configuration
+
+Reporter settings are defined in `reporter-config.json`:
+
+```json
+{
+  "reporterEnabled": "spec, mocha-junit-reporter, mochawesome",
+  "mochaJunitReporterReporterOptions": {
+    "mochaFile": "cypress/reports/junit/results-[hash].xml"
+  },
+  "mochawesomeReporterOptions": {
+    "reportDir": "cypress/reports/json",
+    "overwrite": false,
+    "html": false,
+    "json": true
+  }
+}
+```

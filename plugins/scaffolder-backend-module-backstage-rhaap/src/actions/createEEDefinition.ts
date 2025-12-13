@@ -1334,7 +1334,7 @@ spec:
 
       - title: GitLab Merge Request
         url: \${{ steps['publish-gitlab-merge-request'].output.mergeRequestUrl  }}
-      if: \${{ (parameters.publishToSCM) and (not steps['prepare-publish'].output.createNewRepo) and (parameters.sourceControlProvider == 'Gitlab') }}
+        if: \${{ (parameters.publishToSCM) and (not steps['prepare-publish'].output.createNewRepo) and (parameters.sourceControlProvider == 'Gitlab') }}
 
       - title: View details in catalog
         icon: catalog
@@ -1570,8 +1570,11 @@ function generateMCPBuilderSteps(
   );
 
   if (appendFinalStep) {
-    // If found, add the MCP install playbook command to its commands array as the first command
-    appendFinalStep.commands.unshift(mcpInstallCmd);
+    if (!appendFinalStep.commands.includes(mcpInstallCmd)) {
+      // If found and not already present, add the MCP install playbook command
+      // to its commands array as the first command
+      appendFinalStep.commands.unshift(mcpInstallCmd);
+    }
   } else {
     // Otherwise, create a new step entry
     additionalBuildSteps.push({
@@ -1589,7 +1592,7 @@ function modifyAdditionalBuildSteps(
   const prependBaseStepCommands: string[] = [
     'COPY _build/configs/ansible.cfg /etc/ansible/ansible.cfg',
   ];
-  let appendFinalStepCommands: string = 'RUN rm -f /etc/ansible/ansible.cfg';
+  let appendFinalStepCommand: string = 'RUN rm -f /etc/ansible/ansible.cfg';
 
   if (mcpServers.length > 0) {
     // the mcp-vars.yaml step is required only if MCP servers are specified
@@ -1597,7 +1600,7 @@ function modifyAdditionalBuildSteps(
       'COPY _build/configs/mcp-vars.yaml /tmp/mcp-vars.yaml',
     );
     // remove the mcp-vars.yaml file after the build only if MCP servers are specified
-    appendFinalStepCommands += ' /tmp/mcp-vars.yaml';
+    appendFinalStepCommand += ' /tmp/mcp-vars.yaml';
   }
 
   // Find if there's already a step with stepType 'prepend_base'
@@ -1606,8 +1609,12 @@ function modifyAdditionalBuildSteps(
   );
 
   if (prependBaseStep) {
-    // If found, add the MCP install playbook command to its commands array
-    prependBaseStep.commands.push(...prependBaseStepCommands);
+    // If found and not already present, add the commands to its commands array
+    prependBaseStepCommands.forEach(cmd => {
+      if (!prependBaseStep.commands.includes(cmd)) {
+        prependBaseStep.commands.push(cmd);
+      }
+    });
   } else {
     // Otherwise, create a new step entry
     additionalBuildSteps.push({
@@ -1622,13 +1629,15 @@ function modifyAdditionalBuildSteps(
   );
 
   if (appendFinalStep) {
-    // If found, add the MCP install playbook command to its commands array
-    appendFinalStep.commands.push(appendFinalStepCommands);
+    // If found and already present, append the file removal command to its commands array
+    if (!appendFinalStep.commands.includes(appendFinalStepCommand)) {
+      appendFinalStep.commands.push(appendFinalStepCommand);
+    }
   } else {
     // Otherwise, create a new step entry
     additionalBuildSteps.push({
       stepType: 'append_final',
-      commands: [appendFinalStepCommands],
+      commands: [appendFinalStepCommand],
     });
   }
 }

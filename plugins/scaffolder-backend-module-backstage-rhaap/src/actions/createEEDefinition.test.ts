@@ -1390,6 +1390,382 @@ describe('createEEDefinition', () => {
       const buildSteps = parsed.additional_build_steps || {};
       expect(buildSteps.append_builder).toBeUndefined();
     });
+
+    it('should not duplicate MCP install command if already present', async () => {
+      const mcpInstallCmd =
+        'RUN ansible-playbook ansible.mcp_builder.install_mcp -e mcp_servers=github_mcp -e @/tmp/mcp-vars.yaml';
+      const action = createEEDefinitionAction({
+        frontendUrl: 'http://localhost:3000',
+        auth,
+        discovery,
+      });
+      const ctx = {
+        input: {
+          values: {
+            eeFileName: 'test-ee',
+            baseImage: 'quay.io/ansible/ee-base:latest',
+            mcpServers: ['github_mcp'],
+            additionalBuildSteps: [
+              {
+                stepType: 'append_final',
+                commands: [mcpInstallCmd, 'RUN echo "existing command"'],
+              },
+            ],
+          },
+        },
+        logger,
+        workspacePath: mockWorkspacePath,
+        output: jest.fn(),
+      } as any;
+
+      await action.handler(ctx);
+
+      const writeCall = mockWriteFile.mock.calls.find((call: any[]) =>
+        call[0].toString().endsWith('test-ee.yaml'),
+      );
+      const content = writeCall![1] as string;
+      const parsed = yaml.load(content) as any;
+      const buildSteps = parsed.additional_build_steps || {};
+      const appendFinalCommands = buildSteps.append_final || [];
+
+      // MCP install command should appear only once
+      const mcpCmdCount = appendFinalCommands.filter((cmd: string) =>
+        cmd.includes('ansible-playbook ansible.mcp_builder.install_mcp'),
+      ).length;
+      expect(mcpCmdCount).toBe(1);
+    });
+
+    it('should add MCP collections to parsedCollections array', async () => {
+      const action = createEEDefinitionAction({
+        frontendUrl: 'http://localhost:3000',
+        auth,
+        discovery,
+      });
+      const ctx = {
+        input: {
+          values: {
+            eeFileName: 'test-ee',
+            baseImage: 'quay.io/ansible/ee-base:latest',
+            mcpServers: ['github_mcp'],
+            collections: [{ name: 'community.general' }],
+          },
+        },
+        logger,
+        workspacePath: mockWorkspacePath,
+        output: jest.fn(),
+      } as any;
+
+      await action.handler(ctx);
+
+      const writeCall = mockWriteFile.mock.calls.find((call: any[]) =>
+        call[0].toString().endsWith('test-ee.yaml'),
+      );
+      const content = writeCall![1] as string;
+      const parsed = yaml.load(content) as any;
+      const collections = parsed.dependencies?.galaxy?.collections || [];
+
+      // Should include both user collections and MCP collections
+      expect(
+        collections.some((c: any) => c.name === 'community.general'),
+      ).toBeTruthy();
+      expect(
+        collections.some((c: any) => c.name === 'ansible.mcp_builder'),
+      ).toBeTruthy();
+      expect(
+        collections.some((c: any) => c.name === 'ansible.mcp'),
+      ).toBeTruthy();
+    });
+  });
+
+  describe('modifyAdditionalBuildSteps functionality', () => {
+    it('should create prepend_base and append_final steps when none exist', async () => {
+      const action = createEEDefinitionAction({
+        frontendUrl: 'http://localhost:3000',
+        auth,
+        discovery,
+      });
+      const ctx = {
+        input: {
+          values: {
+            eeFileName: 'test-ee',
+            baseImage: 'quay.io/ansible/ee-base:latest',
+            additionalBuildSteps: [],
+          },
+        },
+        logger,
+        workspacePath: mockWorkspacePath,
+        output: jest.fn(),
+      } as any;
+
+      await action.handler(ctx);
+
+      const writeCall = mockWriteFile.mock.calls.find((call: any[]) =>
+        call[0].toString().endsWith('test-ee.yaml'),
+      );
+      const content = writeCall![1] as string;
+      const parsed = yaml.load(content) as any;
+      const buildSteps = parsed.additional_build_steps || {};
+
+      // Should have prepend_base step
+      expect(buildSteps.prepend_base).toBeDefined();
+      expect(buildSteps.prepend_base).toContain(
+        'COPY _build/configs/ansible.cfg /etc/ansible/ansible.cfg',
+      );
+
+      // Should have append_final step
+      expect(buildSteps.append_final).toBeDefined();
+      expect(buildSteps.append_final).toContain(
+        'RUN rm -f /etc/ansible/ansible.cfg',
+      );
+    });
+
+    it('should add mcp-vars.yaml commands when MCP servers are specified', async () => {
+      const action = createEEDefinitionAction({
+        frontendUrl: 'http://localhost:3000',
+        auth,
+        discovery,
+      });
+      const ctx = {
+        input: {
+          values: {
+            eeFileName: 'test-ee',
+            baseImage: 'quay.io/ansible/ee-base:latest',
+            mcpServers: ['github_mcp'],
+            additionalBuildSteps: [],
+          },
+        },
+        logger,
+        workspacePath: mockWorkspacePath,
+        output: jest.fn(),
+      } as any;
+
+      await action.handler(ctx);
+
+      const writeCall = mockWriteFile.mock.calls.find((call: any[]) =>
+        call[0].toString().endsWith('test-ee.yaml'),
+      );
+      const content = writeCall![1] as string;
+      const parsed = yaml.load(content) as any;
+      const buildSteps = parsed.additional_build_steps || {};
+
+      // prepend_base should include mcp-vars.yaml copy
+      expect(buildSteps.prepend_base).toContain(
+        'COPY _build/configs/mcp-vars.yaml /tmp/mcp-vars.yaml',
+      );
+
+      // append_final should include mcp-vars.yaml removal
+      const appendFinalCommands = buildSteps.append_final || [];
+      expect(
+        appendFinalCommands.some((cmd: string) =>
+          cmd.includes('RUN rm -f /etc/ansible/ansible.cfg /tmp/mcp-vars.yaml'),
+        ),
+      ).toBeTruthy();
+    });
+
+    it('should not add mcp-vars.yaml commands when no MCP servers', async () => {
+      const action = createEEDefinitionAction({
+        frontendUrl: 'http://localhost:3000',
+        auth,
+        discovery,
+      });
+      const ctx = {
+        input: {
+          values: {
+            eeFileName: 'test-ee',
+            baseImage: 'quay.io/ansible/ee-base:latest',
+            mcpServers: [],
+            additionalBuildSteps: [],
+          },
+        },
+        logger,
+        workspacePath: mockWorkspacePath,
+        output: jest.fn(),
+      } as any;
+
+      await action.handler(ctx);
+
+      const writeCall = mockWriteFile.mock.calls.find((call: any[]) =>
+        call[0].toString().endsWith('test-ee.yaml'),
+      );
+      const content = writeCall![1] as string;
+      const parsed = yaml.load(content) as any;
+      const buildSteps = parsed.additional_build_steps || {};
+
+      // prepend_base should NOT include mcp-vars.yaml copy
+      expect(buildSteps.prepend_base).not.toContain(
+        'COPY _build/configs/mcp-vars.yaml /tmp/mcp-vars.yaml',
+      );
+
+      // append_final should only remove ansible.cfg, not mcp-vars.yaml
+      const appendFinalCommands = buildSteps.append_final || [];
+      expect(
+        appendFinalCommands.some((cmd: string) =>
+          cmd.includes('RUN rm -f /etc/ansible/ansible.cfg /tmp/mcp-vars.yaml'),
+        ),
+      ).toBeFalsy();
+      expect(
+        appendFinalCommands.some((cmd: string) =>
+          cmd.includes('RUN rm -f /etc/ansible/ansible.cfg'),
+        ),
+      ).toBeTruthy();
+    });
+
+    it('should append to existing prepend_base step without duplicating', async () => {
+      const action = createEEDefinitionAction({
+        frontendUrl: 'http://localhost:3000',
+        auth,
+        discovery,
+      });
+      const ctx = {
+        input: {
+          values: {
+            eeFileName: 'test-ee',
+            baseImage: 'quay.io/ansible/ee-base:latest',
+            additionalBuildSteps: [
+              {
+                stepType: 'prepend_base',
+                commands: ['RUN echo "custom command"'],
+              },
+            ],
+          },
+        },
+        logger,
+        workspacePath: mockWorkspacePath,
+        output: jest.fn(),
+      } as any;
+
+      await action.handler(ctx);
+
+      const writeCall = mockWriteFile.mock.calls.find((call: any[]) =>
+        call[0].toString().endsWith('test-ee.yaml'),
+      );
+      const content = writeCall![1] as string;
+      const parsed = yaml.load(content) as any;
+      const buildSteps = parsed.additional_build_steps || {};
+      const prependBaseCommands = buildSteps.prepend_base || [];
+
+      // Should include both the existing command and the ansible.cfg copy
+      expect(prependBaseCommands).toContain('RUN echo "custom command"');
+      expect(prependBaseCommands).toContain(
+        'COPY _build/configs/ansible.cfg /etc/ansible/ansible.cfg',
+      );
+
+      // ansible.cfg command should appear only once
+      const ansibleCfgCount = prependBaseCommands.filter((cmd: string) =>
+        cmd.includes('COPY _build/configs/ansible.cfg'),
+      ).length;
+      expect(ansibleCfgCount).toBe(1);
+    });
+
+    it('should append to existing append_final step without duplicating', async () => {
+      const action = createEEDefinitionAction({
+        frontendUrl: 'http://localhost:3000',
+        auth,
+        discovery,
+      });
+      const ctx = {
+        input: {
+          values: {
+            eeFileName: 'test-ee',
+            baseImage: 'quay.io/ansible/ee-base:latest',
+            additionalBuildSteps: [
+              {
+                stepType: 'append_final',
+                commands: ['RUN echo "custom cleanup"'],
+              },
+            ],
+          },
+        },
+        logger,
+        workspacePath: mockWorkspacePath,
+        output: jest.fn(),
+      } as any;
+
+      await action.handler(ctx);
+
+      const writeCall = mockWriteFile.mock.calls.find((call: any[]) =>
+        call[0].toString().endsWith('test-ee.yaml'),
+      );
+      const content = writeCall![1] as string;
+      const parsed = yaml.load(content) as any;
+      const buildSteps = parsed.additional_build_steps || {};
+      const appendFinalCommands = buildSteps.append_final || [];
+
+      // Should include both the existing command and the cleanup command
+      expect(appendFinalCommands).toContain('RUN echo "custom cleanup"');
+      expect(appendFinalCommands).toContain(
+        'RUN rm -f /etc/ansible/ansible.cfg',
+      );
+
+      // Cleanup command should appear only once
+      const cleanupCount = appendFinalCommands.filter((cmd: string) =>
+        cmd.includes('RUN rm -f /etc/ansible/ansible.cfg'),
+      ).length;
+      expect(cleanupCount).toBe(1);
+    });
+
+    it('should handle both prepend_base and append_final existing with MCP servers', async () => {
+      const action = createEEDefinitionAction({
+        frontendUrl: 'http://localhost:3000',
+        auth,
+        discovery,
+      });
+      const ctx = {
+        input: {
+          values: {
+            eeFileName: 'test-ee',
+            baseImage: 'quay.io/ansible/ee-base:latest',
+            mcpServers: ['azure_mcp'],
+            additionalBuildSteps: [
+              {
+                stepType: 'prepend_base',
+                commands: ['RUN echo "pre-base"'],
+              },
+              {
+                stepType: 'append_final',
+                commands: ['RUN echo "post-final"'],
+              },
+            ],
+          },
+        },
+        logger,
+        workspacePath: mockWorkspacePath,
+        output: jest.fn(),
+      } as any;
+
+      await action.handler(ctx);
+
+      const writeCall = mockWriteFile.mock.calls.find((call: any[]) =>
+        call[0].toString().endsWith('test-ee.yaml'),
+      );
+      const content = writeCall![1] as string;
+      const parsed = yaml.load(content) as any;
+      const buildSteps = parsed.additional_build_steps || {};
+
+      // prepend_base should have both existing and new commands
+      const prependBaseCommands = buildSteps.prepend_base || [];
+      expect(prependBaseCommands).toContain('RUN echo "pre-base"');
+      expect(prependBaseCommands).toContain(
+        'COPY _build/configs/ansible.cfg /etc/ansible/ansible.cfg',
+      );
+      expect(prependBaseCommands).toContain(
+        'COPY _build/configs/mcp-vars.yaml /tmp/mcp-vars.yaml',
+      );
+
+      // append_final should have existing, MCP install, and cleanup commands
+      const appendFinalCommands = buildSteps.append_final || [];
+      expect(appendFinalCommands).toContain('RUN echo "post-final"');
+      expect(
+        appendFinalCommands.some((cmd: string) =>
+          cmd.includes('ansible-playbook ansible.mcp_builder.install_mcp'),
+        ),
+      ).toBeTruthy();
+      expect(
+        appendFinalCommands.some((cmd: string) =>
+          cmd.includes('RUN rm -f /etc/ansible/ansible.cfg /tmp/mcp-vars.yaml'),
+        ),
+      ).toBeTruthy();
+    });
   });
 
   describe('generateMCPVarsContent functionality', () => {
