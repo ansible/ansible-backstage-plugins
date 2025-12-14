@@ -140,6 +140,23 @@ jobs:
             -Dsonar.pullrequest.branch=${{ github.event.pull_request.head.ref }}
             -Dsonar.pullrequest.base=${{ github.event.pull_request.base.ref }}            
   
+      - name: Upload JUnit XML results to PDE
+        if: github.ref == 'refs/heads/main'
+        run: |
+          if [ -f test-results.xml ]; then
+            echo "Uploading test-results.xml ..."
+            http --check-status --ignore-stdin \
+              --auth "${{ vars.PDE_ORG_RESULTS_AGGREGATOR_UPLOAD_USER }}:${{ secrets.PDE_ORG_RESULTS_UPLOAD_PASSWORD }}" \
+              -f POST "${{ vars.PDE_ORG_RESULTS_AGGREGATOR_UPLOAD_URL }}/api/results/upload/" \
+              xunit_xml@test-results.xml \
+              component_name=sandbox \
+              git_commit_sha=${{ github.sha }} \
+              git_repository_url=${{ github.repositoryUrl }}
+          else
+            echo "test-results.xml not found!"
+            exit 1
+          fi
+
   all-green:
     if: ${{ always() }}
     name: check
