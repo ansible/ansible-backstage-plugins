@@ -50,6 +50,8 @@ site
 # Local configuration files
 *.local.yaml
 
+# JUnit test results
+junit.xml
 # Sensitive credentials
 *-credentials.yaml
 
