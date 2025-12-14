@@ -141,7 +141,6 @@ jobs:
             -Dsonar.pullrequest.base=${{ github.event.pull_request.base.ref }}            
   
       - name: Upload JUnit XML results to PDE
-        if: github.ref == 'refs/heads/main'
         run: |
           if [ -f junit.xml ]; then
             echo "Uploading junit.xml ..."

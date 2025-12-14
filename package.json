@@ -35,8 +35,8 @@
     ]
   },
   "jest": {
-  "testResultsProcessor": "jest-junit"
-},
+    "testResultsProcessor": "jest-junit"
+  },
   "devDependencies": {
     "@backstage/cli": "^0.33.1",
     "@backstage/e2e-test-utils": "^0.1.1",

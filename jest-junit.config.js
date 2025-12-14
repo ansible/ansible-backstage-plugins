@@ -1,3 +1,3 @@
 module.exports = {
-  outputName: "junit.xml",
+  outputName: 'junit.xml',
 };
