@@ -2,7 +2,7 @@ import { Common } from '../utils/common';
 
 const EE_TEMPLATE_URL =
   Cypress.env('EE_IMPORT_REPO_URL') ||
-  'https://github.com/NilashishC/ansible-rhdh-templates/blob/ee_templates/templates/ee-start-from-scratch.yaml';
+  'https://github.com/ansible/ansible-rhdh-templates/blob/main/templates/ee-start-from-scratch.yaml';
 
 const EE_TEMPLATE_TITLE = 'Start from scratch';
 
@@ -266,8 +266,8 @@ describe('Execution Environment Template Execution Tests', () => {
 
         cy.contains(/github/i).click({ force: true });
 
-        // SCM repository organization or username
-        cy.contains('label', /SCM repository organization or username/i)
+        // Git repository organization or username
+        cy.contains('label', /Git repository organization or username/i)
           .closest('div')
           .find('input, textarea')
           .first()
