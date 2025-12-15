@@ -40,6 +40,7 @@ jobs:
         checks: read
         contents: read
         id-token: write
+        pull-requests: write
     strategy:
       matrix:
         node-version: [20, 22]
@@ -132,13 +133,15 @@ jobs:
         uses: SonarSource/sonarqube-scan-action@v6
         env:
           SONAR_TOKEN: ${{ secrets[format('{0}', vars.SONAR_TOKEN_SECRET_NAME)] }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           args: >
             ${{ env.SONAR_ARGS }}
             -Dsonar.scm.revision=${{ github.event.pull_request.head.sha }}
             -Dsonar.pullrequest.key=${{ github.event.pull_request.number }}
             -Dsonar.pullrequest.branch=${{ github.event.pull_request.head.ref }}
-            -Dsonar.pullrequest.base=${{ github.event.pull_request.base.ref }}            
+            -Dsonar.pullrequest.base=${{ github.event.pull_request.base.ref }}
+            -Dsonar.qualitygate.wait=true            
   
   all-green:
     if: ${{ always() }}
