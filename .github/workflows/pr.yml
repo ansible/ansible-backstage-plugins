@@ -99,46 +99,6 @@ jobs:
             ./coverage/lcov-plugins.info
             ./coverage/summary/
           retention-days: 30
-        
-      - name: 'Extract and export repo owner/name'
-        if: github.event_name == 'pull_request' && github.event.pull_request.head.repo.fork == false
-        shell: bash
-        run: |
-          # 1. Read the full slug (owner/repo)
-          REPO_SLUG="${GITHUB_REPOSITORY}"
-          # 2. Split into owner and repo
-          IFS="/" read -r REPO_OWNER REPO_NAME <<< "$REPO_SLUG"
-          # 3. Export to the workflow environment
-          echo "REPO_OWNER=$REPO_OWNER" >> $GITHUB_ENV
-          echo "REPO_NAME=$REPO_NAME"   >> $GITHUB_ENV
-
-      # Prepare Sonar arguments
-      - name: Prepare Sonar arguments
-        if: github.event_name == 'pull_request' && github.event.pull_request.head.repo.fork == false
-        id: sonar-args
-        run: |
-            echo "SONAR_ARGS=-Dsonar.organization=${{ env.REPO_OWNER }} \
-            -Dsonar.projectKey=${{ env.REPO_OWNER }}_${{ env.REPO_NAME }} \
-            -Dsonar.projectName='ansible-backstage-plugins' \
-            -Dsonar.sources=plugins \
-            -Dsonar.tests=plugins \
-            -Dsonar.test.inclusions=**/*.test.ts,**/*.test.tsx,**/*.test.js,**/*.test.jsx \
-            -Dsonar.exclusions=**/*.test.ts,**/*.test.tsx,**/*.test.js,**/*.test.jsx,**/.eslintrc.js \
-            -Dsonar.javascript.lcov.reportPaths=./coverage/lcov-plugins.info" >> $GITHUB_ENV
-
-      # SonarCloud Scan for PRs
-      - name: SonarCloud Scan (Pull Request)
-        if: github.event_name == 'pull_request' && github.event.pull_request.head.repo.fork == false
-        uses: SonarSource/sonarqube-scan-action@v6
-        env:
-          SONAR_TOKEN: ${{ secrets[format('{0}', vars.SONAR_TOKEN_SECRET_NAME)] }}
-        with:
-          args: >
-            ${{ env.SONAR_ARGS }}
-            -Dsonar.scm.revision=${{ github.event.pull_request.head.sha }}
-            -Dsonar.pullrequest.key=${{ github.event.pull_request.number }}
-            -Dsonar.pullrequest.branch=${{ github.event.pull_request.head.ref }}
-            -Dsonar.pullrequest.base=${{ github.event.pull_request.base.ref }}            
   
   all-green:
     if: ${{ always() }}
