@@ -86,7 +86,7 @@ describe('self-service', () => {
       facetsFromEntityRefs(entityRefs, tags),
     );
     await render(<HomeComponent />);
-    expect(screen.getByText(/Job Templates/i)).toBeInTheDocument();
+    expect(screen.getByText('Templates', { exact: true })).toBeInTheDocument();
     expect(screen.getByText('Add Template')).toBeInTheDocument();
     expect(screen.getByText('Personal')).toBeInTheDocument();
     expect(screen.getByText('Categories')).toBeInTheDocument();
@@ -259,9 +259,7 @@ describe('self-service', () => {
 
     await render(<HomeComponent />);
 
-    expect(
-      screen.getByText('Job Templates', { exact: true }),
-    ).toBeInTheDocument();
+    expect(screen.getByText('Templates', { exact: true })).toBeInTheDocument();
   });
 
   it('should handle templates only sync', async () => {
@@ -303,8 +301,6 @@ describe('self-service', () => {
     await render(<HomeComponent />);
 
     // Test snackbar functionality exists
-    expect(
-      screen.getByText('Job Templates', { exact: true }),
-    ).toBeInTheDocument();
+    expect(screen.getByText('Templates', { exact: true })).toBeInTheDocument();
   });
 });
