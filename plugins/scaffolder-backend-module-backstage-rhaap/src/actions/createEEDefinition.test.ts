@@ -1851,7 +1851,6 @@ describe('createEEDefinition', () => {
       expect(content).toContain('- az');
       expect(content).toContain('azure_mcp_version: latest');
 
-
       // Should also include common vars
       expect(content).toContain('# vars for common');
       expect(content).toContain('common_mcp_base_path: /opt/mcp');
