@@ -23,24 +23,33 @@ interface Collection {
 const MCPSERVER_VARS = [
   {
     role: 'aws_ccapi_mcp',
-    vars: {},
+    vars: {
+      aws_ccapi_mcp_version: 'latest',
+    },
   },
   {
     role: 'aws_cdk_mcp',
-    vars: {},
+    vars: {
+      aws_cdk_mcp_version: 'latest',
+    },
   },
   {
     role: 'aws_core_mcp',
-    vars: {},
+    vars: {
+      aws_core_mcp_version: 'latest',
+    },
   },
   {
     role: 'aws_iam_mcp',
-    vars: {},
+    vars: {
+      aws_iam_mcp_version: 'latest',
+    },
   },
   {
     role: 'azure_mcp',
     vars: {
       azure_mcp_namespaces: ['az'],
+      azure_mcp_version: 'latest',
     },
   },
   {
