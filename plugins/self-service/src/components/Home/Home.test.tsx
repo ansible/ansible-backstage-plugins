@@ -138,7 +138,7 @@ describe('self-service', () => {
     expect(
       screen.getByText('Organizations, Users, and Teams'),
     ).toBeInTheDocument();
-    expect(screen.getAllByText('Job Templates')).toHaveLength(2);
+    expect(screen.getByText('Job Templates')).toBeInTheDocument();
   });
 
   it('should handle sync operations successfully', async () => {
