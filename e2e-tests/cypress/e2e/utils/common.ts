@@ -49,7 +49,7 @@ export class Common {
   static LogintoAAP() {
     cy.wait(200); // Reduced to minimum
     cy.visit('/');
-    cy.wait(5000); // Reduced further
+    cy.get('main', { timeout: 15000 }).should('be.visible');
     cy.get('body').then($body => {
       if ($body.text().includes('Select a Sign-in method')) {
         cy.contains('Sign In').invoke('removeAttr', 'target').click();
