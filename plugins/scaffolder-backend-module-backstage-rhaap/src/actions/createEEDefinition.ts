@@ -327,7 +327,7 @@ export function createEEDefinitionAction(options: {
         .toLowerCase()
         .replace(/[^a-z0-9-_]/g, '-')
         .replace(/-+/g, '-') // Replace multiple consecutive dashes with a single dash
-        .replace(/^-|-$/g, ''); // Remove leading and trailing dashes
+        .replace(/(?:^-)|(?:-$)/g, ''); // Remove leading and trailing dashes
 
       ctx.output('contextDirName', contextDirName);
 
