@@ -149,10 +149,8 @@ export const HomeComponent = () => {
         />
       )}
       <Header
-        pageTitleOverride="View Job Templates"
-        title={
-          <span className={classes.header_title_color}>Job Templates</span>
-        }
+        pageTitleOverride="View Templates"
+        title={<span className={classes.header_title_color}>Templates</span>}
         subtitle={
           <>
             <div>
