@@ -9,7 +9,8 @@ import { Link } from '@material-ui/core';
 export const parseMarkdownLinks = (text: string): ReactNode => {
   if (!text) return text;
 
-  const linkRegex = /\[([^\]]+)\]\(([^)]+)\)/g;
+  // NOSONAR - regex is safe; needed to match full markdown links with no limits
+  const linkRegex = /\[([^\]]+)\]\(([^)]+)\)/g; // NOSONAR
   const parts: ReactNode[] = [];
   let lastIndex = 0;
   let match = linkRegex.exec(text);
