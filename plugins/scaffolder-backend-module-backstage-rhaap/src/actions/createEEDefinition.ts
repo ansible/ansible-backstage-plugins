@@ -747,9 +747,9 @@ Now you're ready to build. Open your terminal in this directory and run the buil
 
 \`\`\`bash
 # This command uses your '${values.eeFileName}.yaml' file to build an image
-# and tags it as '${values.eeFileName}:latest'
+# and tags it as '${values.eeFileName.toLowerCase()}:latest'
 
-ansible-builder build --file ${values.eeFileName}.yaml --tag ${values.eeFileName}:latest --container-runtime podman
+ansible-builder build --file ${values.eeFileName}.yaml --tag ${values.eeFileName.toLowerCase()}:latest --container-runtime podman
 \`\`\`
 
 ### Command Options:
