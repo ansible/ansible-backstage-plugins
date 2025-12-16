@@ -1,46 +1,75 @@
 name: Code Quality
 
 on:
-  workflow_run:
-    workflows: ["PR"]
-    types:
-      - completed
+  pull_request_target:
+    branches:
+      - main
+  push:
+    branches:
+      - main
   workflow_dispatch:
 
 concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
 
 jobs:
   sonarcloud:
     name: SonarCloud Analysis
     runs-on: ubuntu-latest
-    # Only run if PR workflow succeeded and for non-fork PRs
-    if: |
-      github.event_name == 'workflow_dispatch' || 
-      (github.event.workflow_run.conclusion == 'success' && 
-       github.event.workflow_run.event == 'pull_request' &&
-       github.event.workflow_run.head_repository.full_name == github.repository) ||
-      (github.event.workflow_run.conclusion == 'success' && 
-       github.event.workflow_run.event == 'push')
+    # Only run for non-fork PRs (forks don't have access to secrets)
+    if: github.event_name == 'push' || github.event_name == 'workflow_dispatch' || github.event.pull_request.head.repo.full_name == github.repository
     permissions:
       actions: read
       contents: read
       pull-requests: write
+      statuses: write
     steps:
-      - name: Checkout
+      - name: Checkout PR code
         uses: actions/checkout@v4
         with:
-          ref: ${{ github.event.workflow_run.head_sha }}
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
           fetch-depth: 0  # Shallow clones should be disabled for better SonarCloud analysis
 
+      - name: Wait for PR workflow to complete
+        if: github.event_name == 'pull_request_target'
+        uses: lewagon/wait-on-check-action@v1.3.4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          check-name: 'Test with Node.js 20'
+          repo-token: ${{ secrets.GITHUB_TOKEN }}
+          wait-interval: 10
+
+      - name: Get PR workflow run ID
+        if: github.event_name == 'pull_request_target'
+        id: get-run-id
+        run: |
+          RUN_ID=$(gh api \
+            -H "Accept: application/vnd.github+json" \
+            "/repos/${{ github.repository }}/actions/workflows/pr.yml/runs?head_sha=${{ github.event.pull_request.head.sha }}&status=completed&per_page=1" \
+            --jq '.workflow_runs[0].id')
+          echo "run_id=$RUN_ID" >> $GITHUB_OUTPUT
+          echo "Found PR workflow run ID: $RUN_ID"
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
       - name: Download coverage artifacts from PR workflow
+        if: github.event_name == 'pull_request_target'
         uses: actions/download-artifact@v4
         with:
           name: coverage-report-20
           path: ./coverage
           github-token: ${{ secrets.GITHUB_TOKEN }}
-          run-id: ${{ github.event.workflow_run.id }}
+          run-id: ${{ steps.get-run-id.outputs.run_id }}
+
+      - name: Run tests with coverage (for push to main)
+        if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
+        run: |
+          # Setup Node.js, install deps, and run tests only for push events
+          yarn install --frozen-lockfile
+          yarn run test:all
+          npx -y nyc report --reporter html --reporter text -t coverage --report-dir coverage/summary
+          awk '/^SF:/{found=/^SF:plugins\//} found' ./coverage/lcov.info > ./coverage/lcov-plugins.info || true
         
       - name: Extract and export repo owner/name
         shell: bash
@@ -50,16 +79,8 @@ jobs:
           echo "REPO_OWNER=$REPO_OWNER" >> $GITHUB_ENV
           echo "REPO_NAME=$REPO_NAME" >> $GITHUB_ENV
 
-      - name: Get PR number
-        if: github.event.workflow_run.event == 'pull_request'
-        id: pr
-        run: |
-          echo "number=${{ github.event.workflow_run.pull_requests[0].number }}" >> $GITHUB_OUTPUT
-          echo "head_ref=${{ github.event.workflow_run.head_branch }}" >> $GITHUB_OUTPUT
-          echo "base_ref=${{ github.event.workflow_run.pull_requests[0].base.ref }}" >> $GITHUB_OUTPUT
-
       - name: SonarCloud Scan (Pull Request)
-        if: github.event.workflow_run.event == 'pull_request'
+        if: github.event_name == 'pull_request_target'
         uses: SonarSource/sonarqube-scan-action@v6
         env:
           SONAR_TOKEN: ${{ secrets[format('{0}', vars.SONAR_TOKEN_SECRET_NAME)] }}
@@ -74,14 +95,14 @@ jobs:
             -Dsonar.test.inclusions=**/*.test.ts,**/*.test.tsx,**/*.test.js,**/*.test.jsx
             -Dsonar.exclusions=**/*.test.ts,**/*.test.tsx,**/*.test.js,**/*.test.jsx,**/.eslintrc.js
             -Dsonar.javascript.lcov.reportPaths=./coverage/lcov-plugins.info
-            -Dsonar.scm.revision=${{ github.event.workflow_run.head_sha }}
-            -Dsonar.pullrequest.key=${{ steps.pr.outputs.number }}
-            -Dsonar.pullrequest.branch=${{ steps.pr.outputs.head_ref }}
-            -Dsonar.pullrequest.base=${{ steps.pr.outputs.base_ref }}
+            -Dsonar.scm.revision=${{ github.event.pull_request.head.sha }}
+            -Dsonar.pullrequest.key=${{ github.event.pull_request.number }}
+            -Dsonar.pullrequest.branch=${{ github.event.pull_request.head.ref }}
+            -Dsonar.pullrequest.base=${{ github.event.pull_request.base.ref }}
             -Dsonar.qualitygate.wait=true
 
       - name: SonarCloud Scan (Branch)
-        if: github.event.workflow_run.event == 'push' || github.event_name == 'workflow_dispatch'
+        if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
         uses: SonarSource/sonarqube-scan-action@v6
         env:
           SONAR_TOKEN: ${{ secrets[format('{0}', vars.SONAR_TOKEN_SECRET_NAME)] }}
@@ -96,6 +117,6 @@ jobs:
             -Dsonar.test.inclusions=**/*.test.ts,**/*.test.tsx,**/*.test.js,**/*.test.jsx
             -Dsonar.exclusions=**/*.test.ts,**/*.test.tsx,**/*.test.js,**/*.test.jsx,**/.eslintrc.js
             -Dsonar.javascript.lcov.reportPaths=./coverage/lcov-plugins.info
-            -Dsonar.branch.name=${{ github.event.workflow_run.head_branch }}
+            -Dsonar.branch.name=${{ github.ref_name }}
             -Dsonar.qualitygate.wait=true
 
