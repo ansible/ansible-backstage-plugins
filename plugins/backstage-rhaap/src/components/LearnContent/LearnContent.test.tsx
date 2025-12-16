@@ -28,19 +28,19 @@ jest.mock('@backstage/plugin-search-react', () => ({
     .mockReturnValue({
       term: '',
       setTerm: (term: any) => setTermMock(term),
-      filters: { types: ['Learning Paths', 'Labs'] },
+      filters: { types: ['Learning Paths'] },
       setFilters: (filters: any) => setFiltersMock(filters),
     })
     .mockReturnValueOnce({
       term: '',
       setTerm: (term: any) => setTermMock(term),
-      filters: { types: ['Learning Paths', 'Labs'] },
+      filters: { types: ['Learning Paths'] },
       setFilters: (filters: any) => setFiltersMock(filters),
     })
     .mockReturnValueOnce({
       term: 'yaml',
       setTerm: (term: any) => setTermMock(term),
-      filters: { types: ['Learning Paths', 'Labs'] },
+      filters: { types: ['Learning Paths'] },
       setFilters: (filters: any) => setFiltersMock(filters),
     }),
 }));

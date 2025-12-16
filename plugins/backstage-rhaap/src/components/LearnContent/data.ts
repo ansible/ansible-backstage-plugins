@@ -24,8 +24,6 @@ export interface ILearningPath {
   description?: string;
 }
 
-export type ILab = ILearningPath;
-
 export const learningPaths: ILearningPath[] = [
   {
     label: 'Introduction to Ansible',
@@ -81,51 +79,4 @@ export const learningPaths: ILearningPath[] = [
     description:
       'Learn more about using the Ansible plug-ins for Red Hat Developer Hub.',
   },
-];
-
-export const labs: ILab[] = [
-  {
-    minutes: 30,
-    level: 'Beginner',
-    type: 'Lab',
-    description: 'Install ansible-navigator and get hands-on using it.',
-    label: 'Getting started with ansible-navigator',
-    url: 'https://red.ht/aap-lab-getting-started-navigator',
-  },
-  {
-    minutes: 45,
-    level: 'Beginner',
-    type: 'Lab',
-    description:
-      'Install ansible-builder and create a custom Execution Environment.',
-    label: 'Getting started with ansible-builder',
-    url: 'https://red.ht/aap-lab-getting-started-builder',
-  },
-  {
-    hours: 1,
-    level: 'Beginner',
-    type: 'Lab',
-    description:
-      'Learn the basics of Ansible playbooks and automate basic infrastructure tasks.',
-    label: 'Writing your first playbook',
-    url: 'https://red.ht/aap-lab-getting-started-playbook',
-  },
-  {
-    minutes: 30,
-    level: 'Beginner',
-    type: 'Lab',
-    description:
-      'Learn to sign Ansible Content Collections using a Private Automation Hub and install collections with ansible-galaxy CLI.',
-    label: 'Signing Ansible Content Collections with Private Automation Hub',
-    url: 'https://red.ht/aap-lab-sign-collections-with-pah',
-  },
-  // Commented this for now since this lab will not be available in the MVP
-  // {
-  //     "label": "Writing your first Content Collection",
-  //     "url": "https://red.ht/aap-lab-create-collection",
-  //     time: "50 minutes",
-  //     level: "Beginner",
-  //     type: "Lab",
-  //     description: "Learn more about Ansible Content Collections and get hands-on experience by creating a Collection."
-  // },
 ];
