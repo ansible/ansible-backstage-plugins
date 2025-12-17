@@ -786,12 +786,19 @@ describe('AAPClient', () => {
             next: null,
           }),
         };
+        const mockStdoutResponse = {
+          ok: true,
+          text: jest
+            .fn()
+            .mockResolvedValue('{"msg": "Task completed successfully"}'),
+        };
 
         mockFetch
           .mockResolvedValueOnce(mockTemplateResponse)
           .mockResolvedValueOnce(mockLaunchResponse)
           .mockResolvedValueOnce(mockStatusResponse)
-          .mockResolvedValueOnce(mockEventsResponse);
+          .mockResolvedValueOnce(mockEventsResponse)
+          .mockResolvedValueOnce(mockStdoutResponse);
 
         const result = await client.launchJobTemplate(
           {
@@ -978,6 +985,10 @@ describe('AAPClient', () => {
           .mockResolvedValueOnce({
             ok: true,
             json: jest.fn().mockResolvedValue({ results: [] }),
+          })
+          .mockResolvedValueOnce({
+            ok: true,
+            text: jest.fn().mockResolvedValue(''),
           });
 
         const result = await client.launchJobTemplate(
@@ -989,6 +1000,58 @@ describe('AAPClient', () => {
         );
 
         expect(result.status).toBe('successful');
+      });
+
+      it('should log stdout messages including array format', async () => {
+        const infoSpy = jest.spyOn(mockLogger, 'info');
+        const mockTemplateResponse = {
+          ok: true,
+          json: jest.fn().mockResolvedValue({
+            results: [{ id: 456, name: 'test-template' }],
+          }),
+        };
+        const mockLaunchResponse = {
+          ok: true,
+          json: jest.fn().mockResolvedValue({ job: 123 }),
+        };
+        const mockStatusResponse = {
+          ok: true,
+          json: jest.fn().mockResolvedValue({ status: 'successful' }),
+        };
+        const mockEventsResponse = {
+          ok: true,
+          json: jest.fn().mockResolvedValue({
+            results: [{ event_data: { test: 'data' } }],
+            next: null,
+          }),
+        };
+        const mockStdoutResponse = {
+          ok: true,
+          text: jest
+            .fn()
+            .mockResolvedValue(
+              '{"msg": "Single message"}\n{"msg": ["Message item 1", "Message item 2"]}',
+            ),
+        };
+
+        mockFetch
+          .mockResolvedValueOnce(mockTemplateResponse)
+          .mockResolvedValueOnce(mockLaunchResponse)
+          .mockResolvedValueOnce(mockStatusResponse)
+          .mockResolvedValueOnce(mockEventsResponse)
+          .mockResolvedValueOnce(mockStdoutResponse);
+
+        const result = await client.launchJobTemplate(
+          {
+            template: 'test-template',
+          },
+          'test-token',
+        );
+
+        expect(result.status).toBe('successful');
+        expect(infoSpy).toHaveBeenCalledWith('Single message');
+        expect(infoSpy).toHaveBeenCalledWith('Message item 1');
+        expect(infoSpy).toHaveBeenCalledWith('Message item 2');
       });
 
       describe('Parameter Setting Tests', () => {
@@ -1014,6 +1077,10 @@ describe('AAPClient', () => {
             .mockResolvedValueOnce({
               ok: true,
               json: jest.fn().mockResolvedValue({ results: [] }),
+            })
+            .mockResolvedValueOnce({
+              ok: true,
+              text: jest.fn().mockResolvedValue(''),
             });
 
           // Spy on executePostRequest to capture the data being sent
