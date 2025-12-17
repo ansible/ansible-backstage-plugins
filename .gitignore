@@ -53,6 +53,9 @@ site
 # Sensitive credentials
 *-credentials.yaml
 
+# JUnit test results
+junit.xml
+
 # vscode database functionality support files
 *.session.sql
 

@@ -129,6 +129,25 @@ jobs:
             -Dsonar.pullrequest.branch=${{ github.event.pull_request.head.ref }}
             -Dsonar.pullrequest.base=${{ github.event.pull_request.base.ref }}            
   
+      - name: Install httpie
+        run: pip install httpie 
+
+      - name: Upload JUnit XML results to PDE
+        run: |
+          if [ -f junit.xml ]; then
+            echo "Uploading junit.xml ..."
+            http --print=HBhb --check-status --ignore-stdin \
+              --auth "${{ vars.PDE_ORG_RESULTS_AGGREGATOR_UPLOAD_USER }}:${{ secrets.PDE_ORG_RESULTS_UPLOAD_PASSWORD }}" \
+              -f POST "${{ vars.PDE_ORG_RESULTS_AGGREGATOR_UPLOAD_URL }}/api/results/upload/" \
+              xunit_xml@junit.xml \
+              component_name=sandbox \
+              git_commit_sha=${{ github.sha }} \
+              git_repository_url=${{ github.repositoryUrl }}
+          else
+            echo "junit.xml not found!"
+            exit 1
+          fi
+          
   all-green:
     if: ${{ always() }}
     name: check
