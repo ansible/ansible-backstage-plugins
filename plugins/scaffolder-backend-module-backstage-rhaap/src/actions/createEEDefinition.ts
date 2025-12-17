@@ -665,7 +665,7 @@ This file tells how to build your defined **execution environment (EE)** using *
 **Quick Start**: Install \`ansible-builder\`, \`podman\` (or Docker), and \`ansible-navigator\`, then run:
 
 \`\`\`bash
-ansible-builder build --file ${eeFileName}.yaml --tag ${eeFileName}:latest --container-runtime podman
+ansible-builder build --file ${eeFileName}.yaml --tag ${eeFileName.toLowerCase()}:latest --container-runtime podman
 \`\`\`
 
 **Important**: This quick start only builds the EE. Please continue reading to configure collection sources, test your EE, push it to a registry, and use it in AAP.
@@ -747,9 +747,9 @@ Now you're ready to build. Open your terminal in this directory and run the buil
 
 \`\`\`bash
 # This command uses your '${values.eeFileName}.yaml' file to build an image
-# and tags it as '${values.eeFileName}:latest'
+# and tags it as '${values.eeFileName.toLowerCase()}:latest'
 
-ansible-builder build --file ${values.eeFileName}.yaml --tag ${values.eeFileName}:latest --container-runtime podman
+ansible-builder build --file ${values.eeFileName}.yaml --tag ${values.eeFileName.toLowerCase()}:latest --container-runtime podman
 \`\`\`
 
 ### Command Options:
