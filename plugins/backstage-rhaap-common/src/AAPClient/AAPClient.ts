@@ -705,15 +705,23 @@ export class AAPClient implements IAAPService {
     let result;
     try {
       result = await this.fetchResult(jobID, token);
+      const stdoutEndPoint = `api/controller/v2/jobs/${jobID}/stdout/?format=txt`;
+      const stdoutResponse = await this.executeGetRequest(
+        stdoutEndPoint,
+        token,
+      );
+      const stdoutRespText = await stdoutResponse.text();
+      const messageRegex = /"msg":\s*"([^"]+)"|"msg":\s*\[(.*?)\]/gs;
+      const matchRegex = [...stdoutRespText.matchAll(messageRegex)];
+      matchRegex.forEach(macthingMsg => {
+        if (macthingMsg[1]) {
+          this.logger.info(macthingMsg[1]);
+        } else if (macthingMsg[2]) {
+          const arrayItems = [...macthingMsg[2].matchAll(/"([^"]+)"/g)];
+          arrayItems.forEach(arrayItem => this.logger.info(arrayItem[1]));
+        }
+      });
       if (result.jobData.status !== 'successful') {
-        const stdoutEndPoint = `api/controller/v2/jobs/${jobID}/stdout/?format=txt`;
-        const stdoutResponse = await this.executeGetRequest(
-          stdoutEndPoint,
-          token,
-        );
-        const stdoutRespText = await stdoutResponse.text();
-        const errorRegex = /"msg":\s*"([^"]+)"/g;
-        const matchRegex = [...stdoutRespText.matchAll(errorRegex)];
         lastEvent = matchRegex[matchRegex.length - 1][1];
         this.logger.error(`Job failed: ${lastEvent}`);
         throw new Error(`Job execution failed due to ${lastEvent}`);
@@ -731,24 +739,6 @@ export class AAPClient implements IAAPService {
       this.logger.error(`Error while executing job template.`);
       this.logger.error(`Job failed: ${lastEvent}`);
       throw new Error(`Job execution failed due to ${lastEvent}`);
-    }
-
-    if (
-      result.jobEvents &&
-      Array.isArray(result.jobEvents) &&
-      result.jobEvents.length > 0
-    ) {
-      this.logger.info(`Job Events Summary:`);
-      result.jobEvents
-        .filter(
-          (event: any) =>
-            event.event_display && !event.event_display.includes('Verbose'),
-        )
-        .forEach((event: any) => {
-          this.logger.info(`${event.event_display}`);
-        });
-    } else {
-      this.logger.info(`No job events found.`);
     }
 
     return {
