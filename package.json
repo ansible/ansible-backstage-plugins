@@ -34,6 +34,9 @@
       "e2e-tests/*"
     ]
   },
+  "jest": {
+    "testResultsProcessor": "jest-junit"
+  },
   "devDependencies": {
     "@backstage/cli": "^0.33.1",
     "@backstage/e2e-test-utils": "^0.1.1",
@@ -46,6 +49,7 @@
     "eslint-plugin-jest": "^29.0.1",
     "husky": "8.0.3",
     "jest-environment-node": "^29.7.0",
+    "jest-junit": "^16.0.0",
     "lint-staged": "15.2.10",
     "node-gyp": "^10.0.0",
     "prettier": "^2.3.2",

@@ -1769,7 +1769,7 @@ describe('createEEDefinition', () => {
   });
 
   describe('generateMCPVarsContent functionality', () => {
-    it('should generate MCP vars content with only common vars when mcpServers contains only servers with empty vars', async () => {
+    it('should generate MCP vars content with only common vars and version vars when mcpServers contains servers with only version vars', async () => {
       const action = createEEDefinitionAction({
         frontendUrl: 'http://localhost:3000',
         auth,
@@ -1807,8 +1807,8 @@ describe('createEEDefinition', () => {
         'common_uv_installer_url: https://astral.sh/uv/install.sh',
       );
 
-      // Should not include vars for aws_ccapi_mcp (it has empty vars)
-      expect(content).not.toContain('# vars for aws_ccapi_mcp');
+      // Should include version vars for aws_ccapi_mcp
+      expect(content).toContain('aws_ccapi_mcp_version: latest');
 
       // Check output
       const outputCall = ctx.output.mock.calls.find(
@@ -1849,6 +1849,7 @@ describe('createEEDefinition', () => {
       expect(content).toContain('# vars for azure_mcp');
       expect(content).toContain('azure_mcp_namespaces:');
       expect(content).toContain('- az');
+      expect(content).toContain('azure_mcp_version: latest');
 
       // Should also include common vars
       expect(content).toContain('# vars for common');
@@ -1895,7 +1896,7 @@ describe('createEEDefinition', () => {
       expect(content).toContain('# vars for common');
     });
 
-    it('should not include vars for MCP servers with empty vars', async () => {
+    it('should generate MCP vars content for MCP servers with version vars', async () => {
       const action = createEEDefinitionAction({
         frontendUrl: 'http://localhost:3000',
         auth,
@@ -1922,11 +1923,11 @@ describe('createEEDefinition', () => {
       expect(writeCall).toBeDefined();
       const content = writeCall![1] as string;
 
-      // Should not include vars for aws_ccapi_mcp or aws_cdk_mcp (they have empty vars)
-      expect(content).not.toContain('# vars for aws_ccapi_mcp');
-      expect(content).not.toContain('# vars for aws_cdk_mcp');
+      // Should include version vars
+      expect(content).toContain('aws_ccapi_mcp_version: latest');
+      expect(content).toContain('aws_cdk_mcp_version: latest');
 
-      // Should only include common vars
+      // Should include common vars
       expect(content).toContain('# vars for common');
       expect(content).toContain('common_mcp_base_path: /opt/mcp');
     });
@@ -1966,8 +1967,8 @@ describe('createEEDefinition', () => {
       expect(content).toContain('# vars for github_mcp');
       expect(content).toContain('github_mcp_mode: local');
 
-      // Should not include vars for aws_ccapi_mcp (empty vars)
-      expect(content).not.toContain('# vars for aws_ccapi_mcp');
+      // Should include vars for aws_ccapi_mcp
+      expect(content).toContain('aws_ccapi_mcp_version: latest');
 
       // Should include common vars
       expect(content).toContain('# vars for common');
