@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useEffect, useCallback, useMemo } from 'react';
 import { Header, Page, HeaderTabs, Content } from '@backstage/core-components';
 import { Typography, Box, makeStyles } from '@material-ui/core';
 import { useLocation, useNavigate } from 'react-router-dom';
@@ -76,47 +76,47 @@ export const EETabs: React.FC = () => {
   const location = useLocation();
   const navigate = useNavigate();
 
-  const tabIndexFromPath = getTabIndexFromPath(location.pathname);
-  const [selectedTab, setSelectedTab] = useState(tabIndexFromPath);
-
-  useEffect(() => {
-    const newTabIndex = getTabIndexFromPath(location.pathname);
-    setSelectedTab(newTabIndex);
-  }, [location.pathname]);
+  const selectedTab = useMemo(
+    () => getTabIndexFromPath(location.pathname),
+    [location.pathname],
+  );
 
   useEffect(() => {
     const tabIndex = (location.state as { tabIndex?: number })?.tabIndex;
-    if (tabIndex !== undefined) {
-      setSelectedTab(tabIndex);
+    if (tabIndex !== undefined && tabIndex !== selectedTab) {
       const tab = tabs[tabIndex];
       if (tab) {
-        navigate(`/self-service/ee/${tab.path}`, { replace: true });
+        navigate(`/self-service/ee/${tab.path}`, {
+          replace: true,
+          state: {},
+        });
       }
     }
-  }, [location.state, navigate]);
+  }, [location.state, navigate, selectedTab]);
 
-  const onTabSelect = (index: number) => {
-    setSelectedTab(index);
-    const tab = tabs[index];
-    if (tab) {
-      navigate(`/self-service/ee/${tab.path}`);
+  const onTabSelect = useCallback(
+    (index: number) => {
+      const tab = tabs[index];
+      if (tab) {
+        navigate(`/self-service/ee/${tab.path}`);
+      }
+    },
+    [navigate],
+  );
+
+  const handleTabSwitch = useCallback(
+    (index: number) => {
+      onTabSelect(index);
+    },
+    [onTabSelect],
+  );
+
+  const content = useMemo(() => {
+    if (selectedTab === 1) {
+      return <CreateContent key="create" />;
     }
-  };
-
-  const handleTabSwitch = (index: number) => {
-    onTabSelect(index);
-  };
-
-  const renderContent = () => {
-    switch (selectedTab) {
-      case 0:
-        return <EntityCatalogContent onTabSwitch={handleTabSwitch} />;
-      case 1:
-        return <CreateContent />;
-      default:
-        return <EntityCatalogContent onTabSwitch={setSelectedTab} />;
-    }
-  };
+    return <EntityCatalogContent key="catalog" onTabSwitch={handleTabSwitch} />;
+  }, [selectedTab, handleTabSwitch]);
 
   return (
     <Page themeId="app">
@@ -136,7 +136,7 @@ export const EETabs: React.FC = () => {
           })) as any
         }
       />
-      <Content>{renderContent()}</Content>
+      <Content>{content}</Content>
     </Page>
   );
 };
