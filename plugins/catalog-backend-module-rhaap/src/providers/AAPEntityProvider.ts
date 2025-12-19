@@ -652,7 +652,7 @@ export class AAPEntityProvider implements EntityProvider {
       added: [
         {
           entity,
-          locationKey: this.getProviderName(),
+          locationKey: 'EEEntityProvider',
         },
       ],
       removed: [],
