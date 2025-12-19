@@ -104,6 +104,9 @@ jobs:
         run: pip install httpie 
 
       - name: Upload JUnit XML results to PDE
+        if: >
+          github.event_name != 'pull_request' ||
+          github.event.pull_request.head.repo.fork == false
         run: |
           if [ -f junit.xml ]; then
             echo "Uploading junit.xml ..."
