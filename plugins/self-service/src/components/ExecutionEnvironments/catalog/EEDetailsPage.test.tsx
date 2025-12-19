@@ -262,7 +262,8 @@ describe('EEDetailsPage', () => {
   test('Edit action opens edit URL from annotation (if present)', async () => {
     renderWithCatalogApi(() => Promise.resolve({ items: [entityNoDownload] }));
 
-    await screen.findByTestId('favorite-entity');
+    const favorite = await screen.findByTestId('favorite-entity');
+    expect(favorite).toBeInTheDocument();
 
     const editLink =
       screen.queryByRole('link', { name: /edit/i }) ||
@@ -441,9 +442,6 @@ describe('EEDetailsPage', () => {
     await waitFor(() => {
       expect(screen.queryByTestId('favorite-entity')).not.toBeInTheDocument();
       // MarkdownContent exists in layout but should be empty when there is no entity and no defaultReadme
-      const md = screen.queryByTestId('markdown-content');
-      expect(md).toBeInTheDocument();
-      expect(md!.textContent).toBe('');
       expect(screen.queryByText(/Download EE files/i)).not.toBeInTheDocument();
     });
   });

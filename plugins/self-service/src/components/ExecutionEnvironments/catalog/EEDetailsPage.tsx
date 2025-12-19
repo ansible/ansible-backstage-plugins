@@ -38,7 +38,12 @@ import {
   useApi,
 } from '@backstage/core-plugin-api';
 import { ANNOTATION_EDIT_URL } from '@backstage/catalog-model';
-import { MarkdownContent } from '@backstage/core-components';
+import {
+  MarkdownContent,
+  WarningPanel,
+  Link as BackstageLink,
+  Content,
+} from '@backstage/core-components';
 
 const useStyles = makeStyles(theme => ({
   breadcrumb: {
@@ -118,6 +123,12 @@ const useStyles = makeStyles(theme => ({
     //   textDecoration: 'underline',
     //   background: 'transparent',
     // },
+  },
+  warningPanel: {
+    marginTop: 16,
+    marginBottom: 24,
+    height: '80vh',
+    borderRadius: 15,
   },
 }));
 
@@ -516,159 +527,85 @@ export const EEDetailsPage: React.FC = () => {
             {entity && <FavoriteEntity entity={entity} />}
           </IconButton>
         </Box>
-        <IconButton onClick={handleMenuOpen}>
-          <MoreVertIcon />
-        </IconButton>
+        {entity && (
+          <IconButton onClick={handleMenuOpen}>
+            <MoreVertIcon />
+          </IconButton>
+        )}
 
         {/* Menu Popover */}
-        <Popover
-          open={Boolean(anchorEl)}
-          anchorEl={anchorEl}
-          onClose={handleMenuClose}
-          anchorOrigin={{ horizontal: 'right', vertical: 'bottom' }}
-          transformOrigin={{ horizontal: 'right', vertical: 'top' }}
-          classes={{ paper: classes.menuPaper }}
-        >
-          {/* Menu Options */}
-          {[
-            {
-              title: 'Unregister entity',
-              id: '1',
-              icon: <CancelIcon fontSize="small" />,
-            },
-            {
-              title: 'Inspect entity',
-              id: '2',
-              icon: <BugReportIcon fontSize="small" />,
-            },
-            {
-              title: 'Copy entity URL',
-              id: '3',
-              icon: <FileCopyIcon fontSize="small" />,
-            },
-          ].map((item, i) => (
-            <MenuItem
-              onClick={() => {
-                handleMenuClick(item.id);
-              }}
-              key={i}
-              className={classes.menuItem}
-            >
-              <Typography
-                style={{ display: 'flex', alignItems: 'center', gap: 8 }}
-              >
-                <ListItemIcon style={{ minWidth: 42 }}>
-                  {item.icon}
-                </ListItemIcon>
-                {item.title}
-              </Typography>
-            </MenuItem>
-          ))}
-        </Popover>
-      </Box>
-
-      {/* Tabs */}
-      <Tabs
-        value={tab}
-        onChange={(_, v) => setTab(v)}
-        style={{ marginTop: 16, marginBottom: 24 }}
-      >
-        <Tab label="Overview" />
-      </Tabs>
-
-      {/* Overview */}
-      {tab === 0 && (
-        <Box display="flex" gridGap={24}>
-          {/* Left Column */}
-          <Box
-            flex={1}
-            maxWidth={320}
-            display="flex"
-            flexDirection="column"
-            gridGap={24}
+        {entity && (
+          <Popover
+            open={Boolean(anchorEl)}
+            anchorEl={anchorEl}
+            onClose={handleMenuClose}
+            anchorOrigin={{ horizontal: 'right', vertical: 'bottom' }}
+            transformOrigin={{ horizontal: 'right', vertical: 'top' }}
+            classes={{ paper: classes.menuPaper }}
           >
-            {/* Links Card */}
-            {entity &&
-              entity.metadata &&
-              entity.metadata.annotations &&
-              entity.metadata.annotations['ansible.io/download-experience']
-                ?.toString()
-                .toLowerCase()
-                .trim() === 'true' && (
-                <Card
-                  variant="outlined"
-                  style={{ borderRadius: 16, borderColor: '#D3D3D3' }}
+            {/* Menu Options */}
+            {[
+              {
+                title: 'Unregister entity',
+                id: '1',
+                icon: <CancelIcon fontSize="small" />,
+              },
+              {
+                title: 'Inspect entity',
+                id: '2',
+                icon: <BugReportIcon fontSize="small" />,
+              },
+              {
+                title: 'Copy entity URL',
+                id: '3',
+                icon: <FileCopyIcon fontSize="small" />,
+              },
+            ].map((item, i) => (
+              <MenuItem
+                onClick={() => {
+                  handleMenuClick(item.id);
+                }}
+                key={i}
+                className={classes.menuItem}
+              >
+                <Typography
+                  style={{ display: 'flex', alignItems: 'center', gap: 8 }}
                 >
-                  <CardContent>
-                    <Typography
-                      variant="h6"
-                      style={{
-                        fontWeight: 'bold',
-                        fontSize: '1.5rem',
-                        margin: '6px 0 13px 10px',
-                      }}
-                    >
-                      Links
-                    </Typography>
-                    <Divider style={{ margin: '0 -16px 12px' }} />
-
-                    {[
-                      {
-                        icon: <GetAppIcon />,
-                        text: 'Download EE files',
-                        onClick: handleDownloadArchive,
-                      },
-                    ].map((item, i) => {
-                      return (
-                        <Box
-                          key={i}
-                          display="flex"
-                          alignItems="center"
-                          gridGap={12}
-                          onClick={item.onClick}
-                          style={{
-                            marginLeft: 10,
-                            marginBottom: 10,
-                            cursor: 'pointer',
-                          }}
-                        >
-                          {item.icon}
-                          <Typography
-                            variant="body1"
-                            className={classes.linkText}
-                          >
-                            {item.text}
-                          </Typography>
-                        </Box>
-                      );
-                    })}
-                  </CardContent>
-                </Card>
-              )}
-
-            {/* About Card */}
-            <Card
-              variant="outlined"
-              style={{ borderRadius: 16, borderColor: '#D3D3D3' }}
+                  <ListItemIcon style={{ minWidth: 42 }}>
+                    {item.icon}
+                  </ListItemIcon>
+                  {item.title}
+                </Typography>
+              </MenuItem>
+            ))}
+          </Popover>
+        )}
+      </Box>
+      <>
+        {' '}
+        {entity ? (
+          <>
+            {/* Tabs */}
+            <Tabs
+              value={tab}
+              onChange={(_, v) => setTab(v)}
+              style={{ marginTop: 16, marginBottom: 24 }}
             >
-              <CardContent>
+              <Tab label="Overview" />
+            </Tabs>
+            {/* Overview */}
+            {tab === 0 && (
+              <Box display="flex" gridGap={24}>
+                {/* Left Column */}
                 <Box
+                  flex={1}
+                  maxWidth={320}
                   display="flex"
-                  justifyContent="space-between"
-                  alignItems="center"
+                  flexDirection="column"
+                  gridGap={24}
                 >
-                  <Typography
-                    variant="h6"
-                    style={{
-                      fontWeight: 'bold',
-                      fontSize: '1.5rem',
-                      marginLeft: 10,
-                    }}
-                  >
-                    About
-                  </Typography>
-                  {!(
-                    entity &&
+                  {/* Links Card */}
+                  {entity &&
                     entity.metadata &&
                     entity.metadata.annotations &&
                     entity.metadata.annotations[
@@ -676,225 +613,335 @@ export const EEDetailsPage: React.FC = () => {
                     ]
                       ?.toString()
                       .toLowerCase()
-                      .trim() === 'true'
-                  ) && (
-                    <Box display="flex" alignItems="center">
-                      <IconButton size="small" onClick={handleRefresh}>
-                        <AutorenewIcon
-                          className={isRefreshing ? classes.rotate : ''}
-                          style={{ color: '#757575' }}
-                        />
-                      </IconButton>{' '}
-                      <IconButton size="small">
-                        <>
-                          <a
-                            href={
-                              entity?.metadata?.annotations?.[
-                                ANNOTATION_EDIT_URL
-                              ]
-                            }
-                            target="_blank"
+                      .trim() === 'true' && (
+                      <Card
+                        variant="outlined"
+                        style={{ borderRadius: 16, borderColor: '#D3D3D3' }}
+                      >
+                        <CardContent>
+                          <Typography
+                            variant="h6"
+                            style={{
+                              fontWeight: 'bold',
+                              fontSize: '1.5rem',
+                              margin: '6px 0 13px 10px',
+                            }}
                           >
-                            <EditIcon
-                              style={{ color: theme.palette.primary.main }}
-                            />
-                          </a>
-                        </>
-                      </IconButton>
-                    </Box>
-                  )}
-                </Box>
-                {/* Top Actions (View Techdocs / Source) */}
-                {!(
-                  entity &&
-                  entity.metadata &&
-                  entity.metadata.annotations &&
-                  entity.metadata.annotations['ansible.io/download-experience']
-                    ?.toString()
-                    .toLowerCase()
-                    .trim() === 'true'
-                ) && (
-                  <Box
-                    display="flex"
-                    justifyContent="space-around"
-                    alignItems="center"
-                    textAlign="center"
-                    mt={2}
-                    mb={2}
-                  >
-                    <Box
-                      onClick={handleViewTechdocs}
-                      style={{
-                        cursor: 'pointer',
-                        display: 'flex',
-                        flexDirection: 'column',
-                        alignItems: 'center',
-                        minWidth: 120,
-                      }}
-                    >
-                      <DescriptionOutlinedIcon
-                        style={{
-                          color: theme.palette.primary.main,
-                          fontSize: 30,
-                        }}
-                      />
-                      <Typography
-                        variant="body2"
-                        style={{
-                          color: theme.palette.primary.main,
-                          fontWeight: 600,
-                          marginTop: 6,
-                        }}
-                      >
-                        VIEW <br /> TECHDOCS
-                      </Typography>
-                    </Box>
+                            Links
+                          </Typography>
+                          <Divider style={{ margin: '0 -16px 12px' }} />
 
-                    <Box
-                      onClick={openSourceLocationUrl}
-                      style={{
-                        cursor: 'pointer',
-                        display: 'flex',
-                        flexDirection: 'column',
-                        alignItems: 'center',
-                        minWidth: 120,
-                      }}
-                    >
-                      <GitHubIcon
-                        style={{
-                          color: theme.palette.primary.main,
-                          fontSize: 30,
-                        }}
-                      />
-                      <Typography
-                        variant="body2"
-                        style={{
-                          color: theme.palette.primary.main,
-                          fontWeight: 600,
-                          marginTop: 6,
-                        }}
-                      >
-                        VIEW <br /> SOURCE
-                      </Typography>
-                    </Box>
-                  </Box>
-                )}
-                <Divider style={{ margin: '12px -16px 12px' }} />
-                {/* Details */}
-                <Box>
-                  <Typography
-                    variant="caption"
-                    style={{ color: 'gray', fontWeight: 600 }}
-                  >
-                    DESCRIPTION
-                  </Typography>
-                  <Typography variant="body2">
-                    {entity?.metadata?.description ??
-                      entity?.metadata?.title ??
-                      'No description available.'}
-                  </Typography>
-                </Box>
-                <Box
-                  display="flex"
-                  flexDirection="column"
-                  gridGap={4}
-                  marginTop={2}
-                >
-                  <Box>
-                    <Typography
-                      variant="caption"
-                      style={{ color: 'gray', fontWeight: 600 }}
-                    >
-                      OWNER
-                    </Typography>
-                    <Typography
-                      variant="body2"
-                      style={{
-                        color: theme.palette.primary.main,
-                        cursor: 'pointer',
-                      }}
-                    >
-                      {' '}
-                      <button
-                        className={classes.ownerButton}
-                        onClick={() => {
-                          const path = generateUrlFromTargetRef();
-                          if (path) navigate(path);
-                        }}
-                      >
-                        {entity?.spec?.owner ??
-                          entity?.metadata?.namespace ??
-                          'Unknown'}
-                      </button>
-                    </Typography>
-                  </Box>
-                  <Box marginTop={2}>
-                    <Typography
-                      variant="caption"
-                      style={{ color: 'gray', fontWeight: 600 }}
-                    >
-                      TYPE
-                    </Typography>
-                    <Typography variant="body2" style={{ fontWeight: 600 }}>
-                      {entity?.spec?.type ??
-                        entity?.metadata?.namespace ??
-                        'Unknown'}
-                    </Typography>
-                  </Box>
-                </Box>
+                          {[
+                            {
+                              icon: <GetAppIcon />,
+                              text: 'Download EE files',
+                              onClick: handleDownloadArchive,
+                            },
+                          ].map((item, i) => {
+                            return (
+                              <Box
+                                key={i}
+                                display="flex"
+                                alignItems="center"
+                                gridGap={12}
+                                onClick={item.onClick}
+                                style={{
+                                  marginLeft: 10,
+                                  marginBottom: 10,
+                                  cursor: 'pointer',
+                                }}
+                              >
+                                {item.icon}
+                                <Typography
+                                  variant="body1"
+                                  className={classes.linkText}
+                                >
+                                  {item.text}
+                                </Typography>
+                              </Box>
+                            );
+                          })}
+                        </CardContent>
+                      </Card>
+                    )}
 
-                <Box marginTop={2}>
-                  <Typography
-                    variant="caption"
-                    style={{ color: 'gray', fontWeight: 600 }}
+                  {/* About Card */}
+                  <Card
+                    variant="outlined"
+                    style={{ borderRadius: 16, borderColor: '#D3D3D3' }}
                   >
-                    TAGS
-                  </Typography>
-
-                  <Box display="flex" gridGap={8} marginTop={1} flexWrap="wrap">
-                    {Array.isArray(entity?.metadata?.tags) &&
-                    entity.metadata?.tags?.length > 0 ? (
-                      entity.metadata?.tags?.map((t: string) => (
-                        <Button
-                          variant="outlined"
-                          size="small"
-                          key={t}
-                          className={classes.tagButton}
+                    <CardContent>
+                      <Box
+                        display="flex"
+                        justifyContent="space-between"
+                        alignItems="center"
+                      >
+                        <Typography
+                          variant="h6"
                           style={{
-                            textTransform: 'none',
-                            borderRadius: 8,
-                            borderColor: '#D3D3D3',
+                            fontWeight: 'bold',
+                            fontSize: '1.5rem',
+                            marginLeft: 10,
                           }}
                         >
-                          {t}
-                        </Button>
-                      ))
-                    ) : (
-                      <Typography variant="body2" color="textSecondary">
-                        No tags
-                      </Typography>
-                    )}
-                  </Box>
-                </Box>
-              </CardContent>
-            </Card>
-          </Box>
+                          About
+                        </Typography>
+                        {!(
+                          entity &&
+                          entity.metadata &&
+                          entity.metadata.annotations &&
+                          entity.metadata.annotations[
+                            'ansible.io/download-experience'
+                          ]
+                            ?.toString()
+                            .toLowerCase()
+                            .trim() === 'true'
+                        ) && (
+                          <Box display="flex" alignItems="center">
+                            <IconButton size="small" onClick={handleRefresh}>
+                              <AutorenewIcon
+                                className={isRefreshing ? classes.rotate : ''}
+                                style={{ color: '#757575' }}
+                              />
+                            </IconButton>{' '}
+                            <IconButton size="small">
+                              <>
+                                <a
+                                  href={
+                                    entity?.metadata?.annotations?.[
+                                      ANNOTATION_EDIT_URL
+                                    ]
+                                  }
+                                  target="_blank"
+                                >
+                                  <EditIcon
+                                    style={{
+                                      color: theme.palette.primary.main,
+                                    }}
+                                  />
+                                </a>
+                              </>
+                            </IconButton>
+                          </Box>
+                        )}
+                      </Box>
+                      {/* Top Actions (View Techdocs / Source) */}
+                      {!(
+                        entity &&
+                        entity.metadata &&
+                        entity.metadata.annotations &&
+                        entity.metadata.annotations[
+                          'ansible.io/download-experience'
+                        ]
+                          ?.toString()
+                          .toLowerCase()
+                          .trim() === 'true'
+                      ) && (
+                        <Box
+                          display="flex"
+                          justifyContent="space-around"
+                          alignItems="center"
+                          textAlign="center"
+                          mt={2}
+                          mb={2}
+                        >
+                          <Box
+                            onClick={handleViewTechdocs}
+                            style={{
+                              cursor: 'pointer',
+                              display: 'flex',
+                              flexDirection: 'column',
+                              alignItems: 'center',
+                              minWidth: 120,
+                            }}
+                          >
+                            <DescriptionOutlinedIcon
+                              style={{
+                                color: theme.palette.primary.main,
+                                fontSize: 30,
+                              }}
+                            />
+                            <Typography
+                              variant="body2"
+                              style={{
+                                color: theme.palette.primary.main,
+                                fontWeight: 600,
+                                marginTop: 6,
+                              }}
+                            >
+                              VIEW <br /> TECHDOCS
+                            </Typography>
+                          </Box>
 
-          {/* Right Column */}
-          <Box flex={1} style={{ minHeight: 0 }}>
-            <Card variant="outlined">
-              <CardContent style={{ flex: 1, minHeight: 0 }}>
-                <div className={classes.scrollArea}>
-                  <MarkdownContent
-                    className={classes.markdownScroll}
-                    content={entity?.spec.readme || defaultReadme}
-                  />
-                </div>
-              </CardContent>
-            </Card>
-          </Box>
-        </Box>
-      )}
+                          <Box
+                            onClick={openSourceLocationUrl}
+                            style={{
+                              cursor: 'pointer',
+                              display: 'flex',
+                              flexDirection: 'column',
+                              alignItems: 'center',
+                              minWidth: 120,
+                            }}
+                          >
+                            <GitHubIcon
+                              style={{
+                                color: theme.palette.primary.main,
+                                fontSize: 30,
+                              }}
+                            />
+                            <Typography
+                              variant="body2"
+                              style={{
+                                color: theme.palette.primary.main,
+                                fontWeight: 600,
+                                marginTop: 6,
+                              }}
+                            >
+                              VIEW <br /> SOURCE
+                            </Typography>
+                          </Box>
+                        </Box>
+                      )}
+                      <Divider style={{ margin: '12px -16px 12px' }} />
+                      {/* Details */}
+                      <Box>
+                        <Typography
+                          variant="caption"
+                          style={{ color: 'gray', fontWeight: 600 }}
+                        >
+                          DESCRIPTION
+                        </Typography>
+                        <Typography variant="body2">
+                          {entity?.metadata?.description ??
+                            entity?.metadata?.title ??
+                            'No description available.'}
+                        </Typography>
+                      </Box>
+                      <Box
+                        display="flex"
+                        flexDirection="column"
+                        gridGap={4}
+                        marginTop={2}
+                      >
+                        <Box>
+                          <Typography
+                            variant="caption"
+                            style={{ color: 'gray', fontWeight: 600 }}
+                          >
+                            OWNER
+                          </Typography>
+                          <Typography
+                            variant="body2"
+                            style={{
+                              color: theme.palette.primary.main,
+                              cursor: 'pointer',
+                            }}
+                          >
+                            {' '}
+                            <button
+                              className={classes.ownerButton}
+                              onClick={() => {
+                                const path = generateUrlFromTargetRef();
+                                if (path) navigate(path);
+                              }}
+                            >
+                              {entity?.spec?.owner ??
+                                entity?.metadata?.namespace ??
+                                'Unknown'}
+                            </button>
+                          </Typography>
+                        </Box>
+                        <Box marginTop={2}>
+                          <Typography
+                            variant="caption"
+                            style={{ color: 'gray', fontWeight: 600 }}
+                          >
+                            TYPE
+                          </Typography>
+                          <Typography
+                            variant="body2"
+                            style={{ fontWeight: 600 }}
+                          >
+                            {entity?.spec?.type ??
+                              entity?.metadata?.namespace ??
+                              'Unknown'}
+                          </Typography>
+                        </Box>
+                      </Box>
+
+                      <Box marginTop={2}>
+                        <Typography
+                          variant="caption"
+                          style={{ color: 'gray', fontWeight: 600 }}
+                        >
+                          TAGS
+                        </Typography>
+
+                        <Box
+                          display="flex"
+                          gridGap={8}
+                          marginTop={1}
+                          flexWrap="wrap"
+                        >
+                          {Array.isArray(entity?.metadata?.tags) &&
+                          entity.metadata?.tags?.length > 0 ? (
+                            entity.metadata?.tags?.map((t: string) => (
+                              <Button
+                                variant="outlined"
+                                size="small"
+                                key={t}
+                                className={classes.tagButton}
+                                style={{
+                                  textTransform: 'none',
+                                  borderRadius: 8,
+                                  borderColor: '#D3D3D3',
+                                }}
+                              >
+                                {t}
+                              </Button>
+                            ))
+                          ) : (
+                            <Typography variant="body2" color="textSecondary">
+                              No tags
+                            </Typography>
+                          )}
+                        </Box>
+                      </Box>
+                    </CardContent>
+                  </Card>
+                </Box>
+
+                {/* Right Column */}
+                <Box flex={1} style={{ minHeight: 0 }}>
+                  <Card variant="outlined">
+                    <CardContent style={{ flex: 1, minHeight: 0 }}>
+                      <div className={classes.scrollArea}>
+                        <MarkdownContent
+                          className={classes.markdownScroll}
+                          content={entity?.spec.readme || defaultReadme}
+                        />
+                      </div>
+                    </CardContent>
+                  </Card>
+                </Box>
+              </Box>
+            )}{' '}
+          </>
+        ) : (
+          <div>
+            {' '}
+            <Content className={classes.warningPanel}>
+              <WarningPanel title="Entity not found">
+                There is no {entity?.kind ?? ''} with the requested{' '}
+                <BackstageLink to="https://backstage.io/docs/features/software-catalog/references">
+                  kind, namespace, and name
+                </BackstageLink>
+                .
+              </WarningPanel>
+            </Content>
+          </div>
+        )}
+      </>
     </Box>
   );
 };
