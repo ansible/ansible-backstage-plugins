@@ -18,7 +18,7 @@ import { useEffect, useState } from 'react';
 import { InfoCard, ItemCardGrid, Link } from '@backstage/core-components';
 import { Grid, Typography, makeStyles } from '@material-ui/core';
 import OpenInNew from '@material-ui/icons/OpenInNew';
-import { ILearningPath, labs, learningPaths } from './data';
+import { ILearningPath, learningPaths } from './data';
 import {
   SearchBar,
   SearchContextProvider,
@@ -132,7 +132,6 @@ const EntityLearnIntroCard = () => {
   const { filters, term } = useSearch();
   const [filteredData, setFilteredData] = useState({
     learningPaths: learningPaths,
-    labs: labs,
   });
 
   useEffect(() => {
@@ -143,13 +142,8 @@ const EntityLearnIntroCard = () => {
             item.label?.toLocaleLowerCase().includes(term) ||
             item.description?.toLocaleLowerCase().includes(term),
         ),
-        labs: labs.filter(
-          item =>
-            item.label?.toLocaleLowerCase().includes(term) ||
-            item.description?.toLocaleLowerCase().includes(term),
-        ),
       });
-    } else setFilteredData({ learningPaths: learningPaths, labs: labs });
+    } else setFilteredData({ learningPaths: learningPaths });
   }, [term]);
 
   return (
@@ -164,8 +158,8 @@ const EntityLearnIntroCard = () => {
           />
           <SearchFilter.Checkbox
             name="types"
-            values={['Learning Paths', 'Labs']}
-            defaultValue={['Learning Paths', 'Labs']}
+            values={['Learning Paths']}
+            defaultValue={['Learning Paths']}
           />
 
           <Typography style={{ marginTop: '32px' }} component="div">
@@ -239,23 +233,6 @@ const EntityLearnIntroCard = () => {
                 </Typography>
                 <ItemCardGrid>
                   <RenderCourses data={filteredData.learningPaths} />
-                </ItemCardGrid>
-              </div>
-            )}
-          {Array.isArray(filters?.types) &&
-            filters?.types?.includes('Labs') &&
-            filteredData.labs.length > 0 && (
-              <div>
-                <Typography paragraph>
-                  <Typography component="span">
-                    LABS <br />
-                  </Typography>
-                  <Typography component="span" className={classes.fontSize14}>
-                    Hands-on, interactive learning scenarios.
-                  </Typography>
-                </Typography>
-                <ItemCardGrid>
-                  <RenderCourses data={filteredData.labs} />
                 </ItemCardGrid>
               </div>
             )}

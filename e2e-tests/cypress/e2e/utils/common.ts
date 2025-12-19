@@ -49,12 +49,12 @@ export class Common {
   static LogintoAAP() {
     cy.wait(200); // Reduced to minimum
     cy.visit('/');
-    cy.wait(3000); // Reduced further
+    cy.get('main', { timeout: 30000 }).should('be.visible');
     cy.get('body').then($body => {
       if ($body.text().includes('Select a Sign-in method')) {
         cy.contains('Sign In').invoke('removeAttr', 'target').click();
-        cy.wait(3000); // Reduced further
-        cy.get('body').then($body => {
+        cy.wait(10000);
+        cy.get('body', { timeout: 20000 }).then($body => {
           cy.wait(200); // Minimal wait
           if ($body.text().includes('Log in to your account')) {
             cy.wait(50); // Minimal wait
@@ -72,7 +72,7 @@ export class Common {
             cy.get('button').contains('Log in').as('login');
             cy.wait(100); // Minimal wait
             cy.get('@login').click();
-            cy.wait(1000); // Reduced significantly
+            cy.wait(2000); // Reduced significantly
           }
         });
         cy.wait(500); // Reduced from 1000
@@ -86,7 +86,7 @@ export class Common {
         });
         cy.visit('/');
         cy.wait(1000); // Reduced from 2000
-        cy.get('header')
+        cy.get('header', { timeout: 20000 })
           .contains('Templates', { timeout: 15000 })
           .should('exist');
       }

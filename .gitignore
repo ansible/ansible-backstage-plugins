@@ -53,6 +53,9 @@ site
 # Sensitive credentials
 *-credentials.yaml
 
+# JUnit test results
+junit.xml
+
 # vscode database functionality support files
 *.session.sql
 
@@ -87,6 +90,9 @@ ansible-plugins-pack/
 
 # E2E test reports
 e2e-test-report/
+e2e-tests/cypress/reports/
+e2e-tests/cypress/downloads/
+
 # Videos
 videos/
 **/videos

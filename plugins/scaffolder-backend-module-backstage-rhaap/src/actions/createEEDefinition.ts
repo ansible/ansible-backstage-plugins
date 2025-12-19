@@ -23,24 +23,33 @@ interface Collection {
 const MCPSERVER_VARS = [
   {
     role: 'aws_ccapi_mcp',
-    vars: {},
+    vars: {
+      aws_ccapi_mcp_version: 'latest',
+    },
   },
   {
     role: 'aws_cdk_mcp',
-    vars: {},
+    vars: {
+      aws_cdk_mcp_version: 'latest',
+    },
   },
   {
     role: 'aws_core_mcp',
-    vars: {},
+    vars: {
+      aws_core_mcp_version: 'latest',
+    },
   },
   {
     role: 'aws_iam_mcp',
-    vars: {},
+    vars: {
+      aws_iam_mcp_version: 'latest',
+    },
   },
   {
     role: 'azure_mcp',
     vars: {
       azure_mcp_namespaces: ['az'],
+      azure_mcp_version: 'latest',
     },
   },
   {
@@ -327,7 +336,7 @@ export function createEEDefinitionAction(options: {
         .toLowerCase()
         .replace(/[^a-z0-9-_]/g, '-')
         .replace(/-+/g, '-') // Replace multiple consecutive dashes with a single dash
-        .replace(/^-|-$/g, ''); // Remove leading and trailing dashes
+        .replace(/(?:^-)|(?:-$)/g, ''); // Remove leading and trailing dashes
 
       ctx.output('contextDirName', contextDirName);
 
@@ -656,7 +665,7 @@ This file tells how to build your defined **execution environment (EE)** using *
 **Quick Start**: Install \`ansible-builder\`, \`podman\` (or Docker), and \`ansible-navigator\`, then run:
 
 \`\`\`bash
-ansible-builder build --file ${eeFileName}.yaml --tag ${eeFileName}:latest --container-runtime podman
+ansible-builder build --file ${eeFileName}.yaml --tag ${eeFileName.toLowerCase()}:latest --container-runtime podman
 \`\`\`
 
 **Important**: This quick start only builds the EE. Please continue reading to configure collection sources, test your EE, push it to a registry, and use it in AAP.
@@ -738,9 +747,9 @@ Now you're ready to build. Open your terminal in this directory and run the buil
 
 \`\`\`bash
 # This command uses your '${values.eeFileName}.yaml' file to build an image
-# and tags it as '${values.eeFileName}:latest'
+# and tags it as '${values.eeFileName.toLowerCase()}:latest'
 
-ansible-builder build --file ${values.eeFileName}.yaml --tag ${values.eeFileName}:latest --container-runtime podman
+ansible-builder build --file ${values.eeFileName}.yaml --tag ${values.eeFileName.toLowerCase()}:latest --container-runtime podman
 \`\`\`
 
 ### Command Options:
