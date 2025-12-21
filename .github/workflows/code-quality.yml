@@ -26,14 +26,14 @@ jobs:
       statuses: write
     steps:
       - name: Checkout PR code
-        uses: actions/checkout@v4
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
         with:
           ref: ${{ github.event.pull_request.head.sha || github.sha }}
           fetch-depth: 0  # Shallow clones should be disabled for better SonarCloud analysis
 
       - name: Wait for PR workflow to complete
         if: github.event_name == 'pull_request_target'
-        uses: lewagon/wait-on-check-action@v1.3.4
+        uses: lewagon/wait-on-check-action@ccfb013c15c8afb7bf2b7c028fb74dc5a068cccc # v1.3.4
         with:
           ref: ${{ github.event.pull_request.head.sha }}
           check-name: 'Test with Node.js 20'
@@ -55,7 +55,7 @@ jobs:
 
       - name: Download coverage artifacts from PR workflow
         if: github.event_name == 'pull_request_target'
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
         with:
           name: coverage-report-20
           path: ./coverage
@@ -81,7 +81,7 @@ jobs:
 
       - name: SonarCloud Scan (Pull Request)
         if: github.event_name == 'pull_request_target'
-        uses: SonarSource/sonarqube-scan-action@v6
+        uses: SonarSource/sonarqube-scan-action@fd88b7d7ccbaefd23d8f36f73b59db7a3d246602 # v6
         env:
           SONAR_TOKEN: ${{ secrets[format('{0}', vars.SONAR_TOKEN_SECRET_NAME)] }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -103,7 +103,7 @@ jobs:
 
       - name: SonarCloud Scan (Branch)
         if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
-        uses: SonarSource/sonarqube-scan-action@v6
+        uses: SonarSource/sonarqube-scan-action@fd88b7d7ccbaefd23d8f36f73b59db7a3d246602 # v6
         env:
           SONAR_TOKEN: ${{ secrets[format('{0}', vars.SONAR_TOKEN_SECRET_NAME)] }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
