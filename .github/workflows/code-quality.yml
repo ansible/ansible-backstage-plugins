@@ -55,12 +55,17 @@ jobs:
 
       - name: Download coverage artifacts from PR workflow
         if: github.event_name == 'pull_request_target'
-        uses: actions/download-artifact@v4
+        uses: nick-fields/retry@v3
         with:
-          name: coverage-report-20
-          path: ./coverage
-          github-token: ${{ secrets.GITHUB_TOKEN }}
-          run-id: ${{ steps.get-run-id.outputs.run_id }}
+          timeout_minutes: 5
+          max_attempts: 3
+          retry_wait_seconds: 10
+          command: |
+            gh run download ${{ steps.get-run-id.outputs.run_id }} \
+              --name coverage-report-20 \
+              --dir ./coverage
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Run tests with coverage (for push to main)
         if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
