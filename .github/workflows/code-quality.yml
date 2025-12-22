@@ -1,66 +1,51 @@
 name: Code Quality
 
 on:
-  pull_request_target:
-    branches:
-      - main
+  workflow_run:
+    workflows: [pr]
+    types:
+      - completed
   push:
     branches:
       - main
   workflow_dispatch:
 
 concurrency:
-  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  group: ${{ github.workflow }}-${{ github.event.workflow_run.pull_requests[0].number || github.ref }}
   cancel-in-progress: true
 
 jobs:
   sonarcloud:
     name: SonarCloud Analysis
     runs-on: ubuntu-latest
-    # Only run for non-fork PRs (forks don't have access to secrets)
-    if: github.event_name == 'push' || github.event_name == 'workflow_dispatch' || github.event.pull_request.head.repo.full_name == github.repository
+    # For workflow_run: only run if PR workflow succeeded and is from same repo (not fork)
+    # For push/workflow_dispatch: always run
+    if: |
+      github.event_name == 'push' ||
+      github.event_name == 'workflow_dispatch' ||
+      (github.event_name == 'workflow_run' &&
+       github.event.workflow_run.conclusion == 'success' &&
+       github.event.workflow_run.head_repository.full_name == github.repository)
     permissions:
       actions: read
       contents: read
       pull-requests: write
       statuses: write
     steps:
-      - name: Checkout PR code
+      - name: Checkout code
         uses: actions/checkout@v4
         with:
-          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          ref: ${{ github.event.workflow_run.head_sha || github.sha }}
           fetch-depth: 0  # Shallow clones should be disabled for better SonarCloud analysis
 
-      - name: Wait for PR workflow to complete
-        if: github.event_name == 'pull_request_target'
-        uses: lewagon/wait-on-check-action@v1.3.4
-        with:
-          ref: ${{ github.event.pull_request.head.sha }}
-          check-regexp: 'Test with Node.js (20|22)'
-          repo-token: ${{ secrets.GITHUB_TOKEN }}
-          wait-interval: 10
-
-      - name: Get PR workflow run ID
-        if: github.event_name == 'pull_request_target'
-        id: get-run-id
-        run: |
-          RUN_ID=$(gh api \
-            -H "Accept: application/vnd.github+json" \
-            "/repos/${{ github.repository }}/actions/workflows/pr.yml/runs?head_sha=${{ github.event.pull_request.head.sha }}&status=completed&per_page=1" \
-            --jq '.workflow_runs[0].id')
-          echo "run_id=$RUN_ID" >> $GITHUB_OUTPUT
-          echo "Found PR workflow run ID: $RUN_ID"
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
       - name: Download coverage artifacts from PR workflow
-        if: github.event_name == 'pull_request_target'
+        if: github.event_name == 'workflow_run'
         uses: actions/download-artifact@v4
         with:
           name: coverage-report-20
           path: ./coverage
           github-token: ${{ secrets.GITHUB_TOKEN }}
-          run-id: ${{ steps.get-run-id.outputs.run_id }}
+          run-id: ${{ github.event.workflow_run.id }}
 
       - name: Run tests with coverage (for push to main)
         if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
@@ -70,7 +55,7 @@ jobs:
           yarn run test:all
           npx -y nyc report --reporter html --reporter text -t coverage --report-dir coverage/summary
           awk '/^SF:/{found=/^SF:plugins\//} found' ./coverage/lcov.info > ./coverage/lcov-plugins.info || true
-        
+
       - name: Extract and export repo owner/name
         shell: bash
         run: |
@@ -80,7 +65,7 @@ jobs:
           echo "REPO_NAME=$REPO_NAME" >> $GITHUB_ENV
 
       - name: SonarCloud Scan (Pull Request)
-        if: github.event_name == 'pull_request_target'
+        if: github.event_name == 'workflow_run'
         uses: SonarSource/sonarqube-scan-action@v6
         env:
           SONAR_TOKEN: ${{ secrets[format('{0}', vars.SONAR_TOKEN_SECRET_NAME)] }}
@@ -95,10 +80,10 @@ jobs:
             -Dsonar.test.inclusions=**/*.test.ts,**/*.test.tsx,**/*.test.js,**/*.test.jsx
             -Dsonar.exclusions=**/*.test.ts,**/*.test.tsx,**/*.test.js,**/*.test.jsx,**/.eslintrc.js
             -Dsonar.javascript.lcov.reportPaths=./coverage/lcov-plugins.info
-            -Dsonar.scm.revision=${{ github.event.pull_request.head.sha }}
-            -Dsonar.pullrequest.key=${{ github.event.pull_request.number }}
-            -Dsonar.pullrequest.branch=${{ github.event.pull_request.head.ref }}
-            -Dsonar.pullrequest.base=${{ github.event.pull_request.base.ref }}
+            -Dsonar.scm.revision=${{ github.event.workflow_run.head_sha }}
+            -Dsonar.pullrequest.key=${{ github.event.workflow_run.pull_requests[0].number }}
+            -Dsonar.pullrequest.branch=${{ github.event.workflow_run.head_branch }}
+            -Dsonar.pullrequest.base=${{ github.event.workflow_run.pull_requests[0].base.ref }}
             -Dsonar.qualitygate.wait=true
 
       - name: SonarCloud Scan (Branch)
@@ -119,4 +104,3 @@ jobs:
             -Dsonar.javascript.lcov.reportPaths=./coverage/lcov-plugins.info
             -Dsonar.branch.name=${{ github.ref_name }}
             -Dsonar.qualitygate.wait=true
-
