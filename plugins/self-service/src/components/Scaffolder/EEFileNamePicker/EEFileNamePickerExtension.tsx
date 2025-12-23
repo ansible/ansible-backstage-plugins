@@ -85,6 +85,17 @@ const isValidEntityName = (
     };
   }
 
+  if (
+    trimmedName.toLowerCase().endsWith('.yaml') ||
+    trimmedName.toLowerCase().endsWith('.yml')
+  ) {
+    return {
+      valid: false,
+      error:
+        'Name should not end with .yaml or .yml. A .yaml extension will automatically be added to the generated EE definition file name.',
+    };
+  }
+
   return { valid: true };
 };
 
