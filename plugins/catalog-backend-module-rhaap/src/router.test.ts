@@ -19,6 +19,7 @@ import request from 'supertest';
 import { createRouter } from './router';
 import { AAPEntityProvider } from './providers/AAPEntityProvider';
 import { AAPJobTemplateProvider } from './providers/AAPJobTemplateProvider';
+import { EEEntityProvider } from './providers/EEEntityProvider';
 import { LoggerService } from '@backstage/backend-plugin-api';
 
 describe('createRouter', () => {
@@ -26,6 +27,7 @@ describe('createRouter', () => {
   let mockLogger: jest.Mocked<LoggerService>;
   let mockAAPEntityProvider: jest.Mocked<AAPEntityProvider>;
   let mockJobTemplateProvider: jest.Mocked<AAPJobTemplateProvider>;
+  let mockEEEntityProvider: jest.Mocked<EEEntityProvider>;
 
   beforeEach(async () => {
     mockLogger = {
@@ -48,10 +50,17 @@ describe('createRouter', () => {
       connect: jest.fn(),
     } as unknown as jest.Mocked<AAPJobTemplateProvider>;
 
+    mockEEEntityProvider = {
+      registerExecutionEnvironment: jest.fn(),
+      getProviderName: jest.fn().mockReturnValue('EEEntityProvider:test'),
+      connect: jest.fn(),
+    } as unknown as jest.Mocked<EEEntityProvider>;
+
     const router = await createRouter({
       logger: mockLogger,
       aapEntityProvider: mockAAPEntityProvider,
       jobTemplateProvider: mockJobTemplateProvider,
+      eeEntityProvider: mockEEEntityProvider,
     });
 
     app = express().use(router);
@@ -182,6 +191,7 @@ describe('createRouter', () => {
           logger: mockLogger,
           aapEntityProvider: mockProvider as any,
           jobTemplateProvider: {} as any,
+          eeEntityProvider: mockEEEntityProvider,
         }),
       );
 
@@ -211,6 +221,7 @@ describe('createRouter', () => {
           logger: mockLogger,
           aapEntityProvider: mockProvider as any,
           jobTemplateProvider: {} as any,
+          eeEntityProvider: mockEEEntityProvider,
         }),
       );
 
@@ -238,6 +249,7 @@ describe('createRouter', () => {
           logger: mockLogger,
           aapEntityProvider: mockProvider as any,
           jobTemplateProvider: {} as any,
+          eeEntityProvider: mockEEEntityProvider,
         }),
       );
 
@@ -265,6 +277,7 @@ describe('createRouter', () => {
           logger: mockLogger,
           aapEntityProvider: mockProvider as any,
           jobTemplateProvider: {} as any,
+          eeEntityProvider: mockEEEntityProvider,
         }),
       );
 
@@ -295,6 +308,7 @@ describe('createRouter', () => {
           logger: mockLogger,
           aapEntityProvider: mockProvider as any,
           jobTemplateProvider: {} as any,
+          eeEntityProvider: mockEEEntityProvider,
         }),
       );
 
@@ -326,6 +340,7 @@ describe('createRouter', () => {
           logger: mockLogger,
           aapEntityProvider: mockProvider as any,
           jobTemplateProvider: {} as any,
+          eeEntityProvider: mockEEEntityProvider,
         }),
       );
 
@@ -357,6 +372,7 @@ describe('createRouter', () => {
           logger: mockLogger,
           aapEntityProvider: mockProvider as any,
           jobTemplateProvider: {} as any,
+          eeEntityProvider: mockEEEntityProvider,
         }),
       );
 
@@ -384,6 +400,7 @@ describe('createRouter', () => {
           logger: mockLogger,
           aapEntityProvider: mockProvider as any,
           jobTemplateProvider: {} as any,
+          eeEntityProvider: mockEEEntityProvider,
         }),
       );
 
@@ -413,6 +430,7 @@ describe('createRouter', () => {
           logger: mockLogger,
           aapEntityProvider: mockProvider as any,
           jobTemplateProvider: {} as any,
+          eeEntityProvider: mockEEEntityProvider,
         }),
       );
 
@@ -430,12 +448,7 @@ describe('createRouter', () => {
 
   describe('POST /register_ee', () => {
     it('should successfully register an execution environment', async () => {
-      const mockRegisterExecutionEnvironment = jest
-        .fn()
-        .mockResolvedValue(undefined);
-      const mockProvider = {
-        registerExecutionEnvironment: mockRegisterExecutionEnvironment,
-      };
+      const mockProvider = {};
 
       const testApp = express();
       testApp.use(express.json());
@@ -445,6 +458,7 @@ describe('createRouter', () => {
           logger: mockLogger,
           aapEntityProvider: mockProvider as any,
           jobTemplateProvider: {} as any,
+          eeEntityProvider: mockEEEntityProvider,
         }),
       );
 
@@ -479,7 +493,9 @@ describe('createRouter', () => {
       expect(response.body).toEqual({
         success: true,
       });
-      expect(mockRegisterExecutionEnvironment).toHaveBeenCalledWith(mockEntity);
+      expect(
+        mockEEEntityProvider.registerExecutionEnvironment,
+      ).toHaveBeenCalledWith(mockEntity);
     });
 
     it('should return 400 when entity is missing', async () => {
@@ -495,6 +511,7 @@ describe('createRouter', () => {
           logger: mockLogger,
           aapEntityProvider: mockProvider as any,
           jobTemplateProvider: {} as any,
+          eeEntityProvider: mockEEEntityProvider,
         }),
       );
 
@@ -522,6 +539,7 @@ describe('createRouter', () => {
           logger: mockLogger,
           aapEntityProvider: mockProvider as any,
           jobTemplateProvider: {} as any,
+          eeEntityProvider: mockEEEntityProvider,
         }),
       );
 
@@ -537,14 +555,15 @@ describe('createRouter', () => {
     });
 
     it('should handle registerExecutionEnvironment failure with proper error response', async () => {
-      const mockRegisterExecutionEnvironment = jest
+      const mockProvider = {};
+
+      mockEEEntityProvider.registerExecutionEnvironment = jest
         .fn()
         .mockRejectedValue(
-          new Error('Execution Environment registration failed'),
+          new Error(
+            'Type [spec.type] must be "execution-environment" for Execution Environment registration',
+          ),
         );
-      const mockProvider = {
-        registerExecutionEnvironment: mockRegisterExecutionEnvironment,
-      };
 
       const testApp = express();
       testApp.use(express.json());
@@ -554,6 +573,7 @@ describe('createRouter', () => {
           logger: mockLogger,
           aapEntityProvider: mockProvider as any,
           jobTemplateProvider: {} as any,
+          eeEntityProvider: mockEEEntityProvider,
         }),
       );
 
@@ -570,21 +590,22 @@ describe('createRouter', () => {
 
       expect(response.body).toEqual({
         error:
-          'Failed to register Execution Environment: Execution Environment registration failed',
+          'Failed to register Execution Environment: Type [spec.type] must be "execution-environment" for Execution Environment registration',
       });
-      expect(mockRegisterExecutionEnvironment).toHaveBeenCalledWith(mockEntity);
+      expect(
+        mockEEEntityProvider.registerExecutionEnvironment,
+      ).toHaveBeenCalledWith(mockEntity);
       expect(mockLogger.error).toHaveBeenCalledWith(
-        'Failed to register Execution Environment: Execution Environment registration failed',
+        'Failed to register Execution Environment: Type [spec.type] must be "execution-environment" for Execution Environment registration',
       );
     });
 
     it('should handle non-Error exceptions gracefully', async () => {
-      const mockRegisterExecutionEnvironment = jest
+      const mockProvider = {};
+
+      mockEEEntityProvider.registerExecutionEnvironment = jest
         .fn()
-        .mockRejectedValue('String error');
-      const mockProvider = {
-        registerExecutionEnvironment: mockRegisterExecutionEnvironment,
-      };
+        .mockRejectedValue(new Error('String error'));
 
       const testApp = express();
       testApp.use(express.json());
@@ -594,6 +615,7 @@ describe('createRouter', () => {
           logger: mockLogger,
           aapEntityProvider: mockProvider as any,
           jobTemplateProvider: {} as any,
+          eeEntityProvider: mockEEEntityProvider,
         }),
       );
 
@@ -611,7 +633,9 @@ describe('createRouter', () => {
       expect(response.body).toEqual({
         error: 'Failed to register Execution Environment: String error',
       });
-      expect(mockRegisterExecutionEnvironment).toHaveBeenCalledWith(mockEntity);
+      expect(
+        mockEEEntityProvider.registerExecutionEnvironment,
+      ).toHaveBeenCalledWith(mockEntity);
       expect(mockLogger.error).toHaveBeenCalledWith(
         'Failed to register Execution Environment: String error',
       );
@@ -641,6 +665,7 @@ describe('createRouter', () => {
         logger: undefined as any,
         aapEntityProvider: mockAAPEntityProvider,
         jobTemplateProvider: mockJobTemplateProvider,
+        eeEntityProvider: mockEEEntityProvider,
       });
 
       const testApp = express().use(routerWithInvalidLogger);
@@ -655,6 +680,7 @@ describe('createRouter', () => {
         logger: mockLogger,
         aapEntityProvider: undefined as any,
         jobTemplateProvider: mockJobTemplateProvider,
+        eeEntityProvider: mockEEEntityProvider,
       });
 
       const testApp = express().use(routerWithInvalidProvider);
@@ -669,6 +695,7 @@ describe('createRouter', () => {
         logger: mockLogger,
         aapEntityProvider: mockAAPEntityProvider,
         jobTemplateProvider: undefined as any,
+        eeEntityProvider: mockEEEntityProvider,
       });
 
       const testApp = express().use(routerWithInvalidProvider);
