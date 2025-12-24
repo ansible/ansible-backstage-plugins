@@ -134,6 +134,8 @@ catalog:
               timeout: { minutes: 15 }
           jobTemplates:
             enabled: true
+            # labels?: []
+            # excludeLabels?: []
             schedule:
               frequency: { minutes: 60 }
               timeout: { minutes: 15 }

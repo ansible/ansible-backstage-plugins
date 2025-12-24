@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback, useRef } from 'react';
 import { Progress } from '@backstage/core-components';
 import {
   FormControl,
@@ -28,7 +28,6 @@ import { ANNOTATION_EDIT_URL, Entity } from '@backstage/catalog-model';
 import StarBorder from '@material-ui/icons/StarBorder';
 import { useApi } from '@backstage/core-plugin-api';
 import { useNavigate } from 'react-router-dom';
-import { useEffectOnce } from 'react-use';
 import { YellowStar } from './Favourites';
 import { CreateCatalog } from './CreateCatalog';
 
@@ -135,7 +134,9 @@ export const EEListPage = ({
   const [filtered, setFiltered] = useState<boolean>(true);
   const { filters, updateFilters } = useEntityList();
 
-  const getUniqueOwnersAndTags = (entities: Entity[]) => {
+  const isMountedRef = useRef(true);
+
+  const getUniqueOwnersAndTags = useCallback((entities: Entity[]) => {
     const owners = Array.from(
       new Set(
         entities
@@ -152,14 +153,16 @@ export const EEListPage = ({
       ),
     );
     return { owners, tags };
-  };
+  }, []);
 
-  const callApi = () => {
+  const callApi = useCallback(() => {
     catalogApi
       .getEntities({
         filter: [{ kind: 'Component', 'spec.type': 'execution-environment' }],
       })
       .then(entities => {
+        if (!isMountedRef.current) return;
+
         const items = Array.isArray(entities)
           ? entities
           : entities?.items || [];
@@ -180,13 +183,15 @@ export const EEListPage = ({
       })
 
       .catch(error => {
+        if (!isMountedRef.current) return;
+
         if (error) {
           setErrorMessage(error.message);
           setShowError(true);
           setLoading(false);
         }
       });
-  };
+  }, [catalogApi, getUniqueOwnersAndTags]);
 
   useEffect(() => {
     const filterData = allEntities.filter(d => {
@@ -200,10 +205,16 @@ export const EEListPage = ({
     setAnsibleComponents(filterData);
   }, [ownerFilter, tagFilter, allEntities]);
 
-  useEffectOnce(() => {
+  useEffect(() => {
+    isMountedRef.current = true;
     updateFilters({ ...filters, tags: new EntityTagFilter(['ansible']) });
     callApi();
-  });
+
+    return () => {
+      isMountedRef.current = false;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   useEffect(() => {
     if (allEntities && filters.user?.value === 'starred')

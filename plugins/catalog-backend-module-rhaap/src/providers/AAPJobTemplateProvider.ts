@@ -27,6 +27,7 @@ export class AAPJobTemplateProvider implements EntityProvider {
   private readonly baseUrl: string;
   private readonly surveyEnabled: boolean | undefined;
   private readonly jobTemplateLabels: string[];
+  private readonly jobTemplateExcludeLabels: string[];
   private readonly logger: LoggerService;
   private readonly ansibleServiceRef: IAAPService;
   private readonly scheduleFn: () => Promise<void>;
@@ -91,6 +92,7 @@ export class AAPJobTemplateProvider implements EntityProvider {
     this.baseUrl = config.baseUrl;
     this.surveyEnabled = config.surveyEnabled ?? undefined;
     this.jobTemplateLabels = config.jobTemplateLabels ?? [];
+    this.jobTemplateExcludeLabels = config.jobTemplateExcludeLabels ?? [];
     this.logger = logger.child({
       target: this.getProviderName(),
     });
@@ -156,6 +158,7 @@ export class AAPJobTemplateProvider implements EntityProvider {
       aapJobTemplates = await this.ansibleServiceRef.syncJobTemplates(
         this.surveyEnabled,
         this.jobTemplateLabels,
+        this.jobTemplateExcludeLabels,
       );
       this.logger.info(
         `[${AAPJobTemplateProvider.pluginLogName}]: Fetched ${aapJobTemplates.length} job templates.`,

@@ -66,6 +66,7 @@ export function getCatalogConfig(rootConfig: Config): CatalogConfig {
     organizations: [],
     surveyEnabled: undefined,
     jobTemplateLabels: [],
+    jobTemplateExcludeLabels: [],
   };
   if (catalogRhaapConfig && typeof catalogRhaapConfig.keys === 'function') {
     catalogRhaapConfig.keys().forEach(key => {
@@ -85,6 +86,8 @@ export function getCatalogConfig(rootConfig: Config): CatalogConfig {
       );
       catalogConfig.jobTemplateLabels =
         config.getOptionalStringArray(`sync.jobTemplates.labels`) ?? [];
+      catalogConfig.jobTemplateExcludeLabels =
+        config.getOptionalStringArray(`sync.jobTemplates.excludeLabels`) ?? [];
     });
   }
   return catalogConfig;

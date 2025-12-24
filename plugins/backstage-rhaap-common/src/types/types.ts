@@ -148,6 +148,7 @@ export type CatalogConfig = {
   organizations: string[];
   surveyEnabled: boolean | undefined;
   jobTemplateLabels: string[];
+  jobTemplateExcludeLabels: string[];
 };
 
 export type AnsibleConfig = {
