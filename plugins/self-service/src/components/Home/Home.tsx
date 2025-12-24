@@ -1,12 +1,18 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router';
 import {
+  Box,
   Button,
+  Checkbox,
   makeStyles,
   Snackbar,
+  TextField,
   Tooltip,
   Typography,
 } from '@material-ui/core';
+import Autocomplete from '@material-ui/lab/Autocomplete';
+import CheckBoxOutlineBlankIcon from '@material-ui/icons/CheckBoxOutlineBlank';
+import CheckBoxIcon from '@material-ui/icons/CheckBox';
 import { Content, Header, HeaderLabel, Page } from '@backstage/core-components';
 import { useApi, useRouteRef } from '@backstage/core-plugin-api';
 import {
@@ -15,13 +21,11 @@ import {
   EntityListProvider,
   EntityOwnerPicker,
   EntitySearchBar,
-  EntityTagPicker,
+  EntityTagFilter,
   UserListPicker,
+  useEntityList,
 } from '@backstage/plugin-catalog-react';
-import {
-  TemplateCategoryPicker,
-  TemplateGroups,
-} from '@backstage/plugin-scaffolder-react/alpha';
+import { TemplateGroups } from '@backstage/plugin-scaffolder-react/alpha';
 import { usePermission } from '@backstage/plugin-permission-react';
 import { catalogEntityCreatePermission } from '@backstage/plugin-catalog-common/alpha';
 
@@ -50,6 +54,165 @@ const headerStyles = makeStyles(theme => ({
     lineHeight: 1.57,
   },
 }));
+
+const icon = <CheckBoxOutlineBlankIcon fontSize="small" />;
+const checkedIcon = <CheckBoxIcon fontSize="small" />;
+
+const isHomePageTemplate = (
+  entity: TemplateEntityV1beta3,
+  jobTemplates: { id: number; name: string }[],
+): boolean => {
+  if (entity.spec?.type?.includes('execution-environment')) {
+    return false;
+  }
+  return jobTemplates.some(({ id }) =>
+    entity.metadata.aapJobTemplateId
+      ? id === entity.metadata.aapJobTemplateId
+      : true,
+  );
+};
+
+const HomeTagPicker = ({
+  jobTemplates,
+}: {
+  jobTemplates: { id: number; name: string }[];
+}) => {
+  const { backendEntities, filters, updateFilters } = useEntityList();
+  const [selectedTags, setSelectedTags] = useState<string[]>([]);
+
+  const availableTags = useMemo(() => {
+    const tagSet = new Set<string>();
+
+    for (const entity of backendEntities) {
+      const templateEntity = entity as TemplateEntityV1beta3;
+      if (isHomePageTemplate(templateEntity, jobTemplates)) {
+        const tags = entity.metadata?.tags || [];
+        for (const tag of tags) {
+          tagSet.add(tag);
+        }
+      }
+    }
+
+    return Array.from(tagSet).sort((a, b) => a.localeCompare(b));
+  }, [backendEntities, jobTemplates]);
+
+  const handleTagChange = (_event: any, newValue: string[]) => {
+    setSelectedTags(newValue);
+
+    if (newValue.length > 0) {
+      updateFilters({
+        ...filters,
+        tags: new EntityTagFilter(newValue),
+      });
+    } else {
+      updateFilters({
+        ...filters,
+        tags: undefined,
+      });
+    }
+  };
+
+  return (
+    <Box pb={1} pt={1}>
+      <Typography
+        variant="subtitle2"
+        component="label"
+        style={{ fontWeight: 500 }}
+      >
+        Tags
+      </Typography>
+      <Autocomplete
+        multiple
+        options={availableTags}
+        disableCloseOnSelect
+        value={selectedTags}
+        onChange={handleTagChange}
+        getOptionLabel={option => option}
+        renderOption={(option, { selected }) => (
+          <>
+            <Checkbox
+              icon={icon}
+              checkedIcon={checkedIcon}
+              checked={selected}
+              style={{ marginRight: 8 }}
+            />
+            {option}
+          </>
+        )}
+        size="small"
+        renderInput={params => (
+          <TextField {...params} variant="outlined" placeholder="Tags" />
+        )}
+        noOptionsText="No tags available"
+      />
+    </Box>
+  );
+};
+
+const HomeCategoryPicker = ({
+  jobTemplates,
+}: {
+  jobTemplates: { id: number; name: string }[];
+}) => {
+  const { backendEntities } = useEntityList();
+  const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
+
+  const availableCategories = useMemo(() => {
+    const categorySet = new Set<string>();
+
+    for (const entity of backendEntities) {
+      const templateEntity = entity as TemplateEntityV1beta3;
+      if (isHomePageTemplate(templateEntity, jobTemplates)) {
+        const type = templateEntity.spec?.type;
+        if (type) {
+          categorySet.add(type);
+        }
+      }
+    }
+
+    return Array.from(categorySet).sort((a, b) => a.localeCompare(b));
+  }, [backendEntities, jobTemplates]);
+
+  const handleCategoryChange = (_event: any, newValue: string[]) => {
+    setSelectedCategories(newValue);
+  };
+
+  return (
+    <Box pb={1} pt={1}>
+      <Typography
+        variant="subtitle2"
+        component="label"
+        style={{ fontWeight: 500 }}
+      >
+        Categories
+      </Typography>
+      <Autocomplete
+        multiple
+        options={availableCategories}
+        disableCloseOnSelect
+        value={selectedCategories}
+        onChange={handleCategoryChange}
+        getOptionLabel={option => option}
+        renderOption={(option, { selected }) => (
+          <>
+            <Checkbox
+              icon={icon}
+              checkedIcon={checkedIcon}
+              checked={selected}
+              style={{ marginRight: 8 }}
+            />
+            {option}
+          </>
+        )}
+        size="small"
+        renderInput={params => (
+          <TextField {...params} variant="outlined" placeholder="Categories" />
+        )}
+        noOptionsText="No categories available"
+      />
+    </Box>
+  );
+};
 
 export const HomeComponent = () => {
   const classes = headerStyles();
@@ -255,9 +418,9 @@ export const HomeComponent = () => {
                 />
               </div>
               <div data-testid="categories-picker">
-                <TemplateCategoryPicker />
+                <HomeCategoryPicker jobTemplates={jobTemplates} />
               </div>
-              <EntityTagPicker />
+              <HomeTagPicker jobTemplates={jobTemplates} />
               <EntityOwnerPicker />
             </CatalogFilterLayout.Filters>
             <CatalogFilterLayout.Content>
