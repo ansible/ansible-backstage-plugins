@@ -1,13 +1,24 @@
 import { useState } from 'react';
 import { Fab, Typography, useTheme } from '@material-ui/core';
 import CommentIcon from '@material-ui/icons/Comment';
+import { useApi, configApiRef } from '@backstage/core-plugin-api';
 import RatingsFeedbackModal from './RatingsFeedbackModal';
 
 export const FeedbackFooter = () => {
   const theme = useTheme();
+  const config = useApi(configApiRef);
   const [open, setOpen] = useState(false);
+
+  const feedbackEnabled =
+    config.getOptionalBoolean('ansible.feedback.enabled') ?? false;
+
   const handleOpen = () => setOpen(true);
   const handleClose = () => setOpen(false);
+
+  if (!feedbackEnabled) {
+    return null;
+  }
+
   return (
     <>
       <Fab

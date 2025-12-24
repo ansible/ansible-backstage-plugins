@@ -18,11 +18,6 @@ describe('RatingsFeedbackModal', () => {
   it('renders modal with sentiment feedback by default', () => {
     render(<RatingsFeedbackModal handleClose={handleClose} />);
     expect(screen.getByTestId('ratings-feedback-modal')).toBeInTheDocument();
-    // Check the value of the native select input
-    const feedbackTypeInput = screen
-      .getByTestId('feedback-type')
-      .querySelector('input');
-    expect(feedbackTypeInput).toHaveValue('sentiment');
     expect(screen.getByTestId('user-ratings')).toBeInTheDocument();
     expect(screen.getByTestId('tell-us-why')).toBeInTheDocument();
     expect(screen.getByTestId('sentiment-checkbox')).toBeInTheDocument();
@@ -73,71 +68,62 @@ describe('RatingsFeedbackModal', () => {
     });
 
     expect(
-      screen.getByText(/Thank you sharing the ratings and feedback/),
+      screen.getByText(/Thank you for sharing your ratings and feedback/),
     ).toBeInTheDocument();
   });
 
-  it('switches to feature-request and validates fields', () => {
+  it('should show help icon and tooltip', () => {
     render(<RatingsFeedbackModal handleClose={handleClose} />);
 
-    // Select feature request via native input
-    const feedbackTypeInput = screen
-      .getByTestId('feedback-type')
-      .querySelector('input') as HTMLInputElement;
-    fireEvent.change(feedbackTypeInput, {
-      target: { value: 'feature-request' },
-    });
+    const helpIcon = screen.getByTestId('feedback-help-icon');
+    expect(helpIcon).toBeInTheDocument();
 
-    expect(screen.getByTestId('issue-title')).toBeInTheDocument();
-    expect(screen.getByTestId('issue-description')).toBeInTheDocument();
-
-    const submitBtn = screen.getByTestId('sentiment-submit-btn');
-    expect(submitBtn).toBeDisabled();
-
-    // Fill fields
-    const titleInput = screen.getByTestId('issue-title').querySelector('input');
-    const descInput = screen
-      .getByTestId('issue-description')
-      .querySelector('textarea');
-    fireEvent.change(titleInput!, { target: { value: 'New Feature' } });
-    fireEvent.change(descInput!, { target: { value: 'Add X functionality' } });
-    fireEvent.click(screen.getByTestId('sentiment-checkbox'));
-
-    expect(submitBtn).not.toBeDisabled();
+    expect(screen.getByTitle('Feedback Requirements')).toBeInTheDocument();
   });
 
-  it('sends feature-request feedback and shows snackbar', async () => {
+  it('should open help popover when help icon is clicked', async () => {
     render(<RatingsFeedbackModal handleClose={handleClose} />);
 
-    const feedbackTypeInput = screen
-      .getByTestId('feedback-type')
-      .querySelector('input') as HTMLInputElement;
-    fireEvent.change(feedbackTypeInput, {
-      target: { value: 'feature-request' },
-    });
+    const helpIcon = screen.getByTestId('feedback-help-icon');
+    fireEvent.click(helpIcon);
 
-    const titleInput = screen.getByTestId('issue-title').querySelector('input');
-    const descInput = screen
-      .getByTestId('issue-description')
+    expect(screen.getByTestId('feedback-help-popover')).toBeInTheDocument();
+    expect(screen.getByText('Feedback Requirements')).toBeInTheDocument();
+    expect(
+      screen.getByText('To share feedback, please provide:'),
+    ).toBeInTheDocument();
+    expect(screen.getByText('A rating (1-5 stars)')).toBeInTheDocument();
+    expect(screen.getByText('Detailed feedback text')).toBeInTheDocument();
+    expect(
+      screen.getByText('Consent to share with Red Hat'),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(/Please ensure any ad-blockers are disabled/),
+    ).toBeInTheDocument();
+  });
+
+  it('should clear timeout when feedback is submitted', async () => {
+    jest.useFakeTimers();
+    const clearTimeoutSpy = jest.spyOn(global, 'clearTimeout');
+
+    render(<RatingsFeedbackModal handleClose={handleClose} />);
+
+    const ratingStars = screen
+      .getByTestId('user-ratings')
+      .querySelectorAll('label');
+    fireEvent.click(ratingStars[2]);
+    const feedbackInput = screen
+      .getByTestId('tell-us-why')
       .querySelector('textarea');
-    fireEvent.change(titleInput!, { target: { value: 'New Feature' } });
-    fireEvent.change(descInput!, { target: { value: 'Add X functionality' } });
+    fireEvent.change(feedbackInput!, { target: { value: 'Test feedback' } });
     fireEvent.click(screen.getByTestId('sentiment-checkbox'));
-
     fireEvent.click(screen.getByTestId('sentiment-submit-btn'));
 
-    await waitFor(() => {
-      expect(captureEventMock).toHaveBeenCalledWith('feedback', 'issue', {
-        attributes: {
-          type: 'feature-request',
-          title: 'New Feature',
-          description: 'Add X functionality',
-        },
-      });
-    });
+    jest.advanceTimersByTime(500);
 
-    expect(
-      screen.getByText(/Thank you sharing this feature request/),
-    ).toBeInTheDocument();
+    expect(clearTimeoutSpy).toHaveBeenCalled();
+
+    jest.useRealTimers();
+    clearTimeoutSpy.mockRestore();
   });
 });

@@ -32,6 +32,7 @@ export class AAPJobTemplateProvider implements EntityProvider {
   private readonly ansibleServiceRef: IAAPService;
   private readonly scheduleFn: () => Promise<void>;
   private connection?: EntityProviderConnection;
+  private lastSyncTime: string | null = null;
 
   static pluginLogName = 'plugin-catalog-rh-aap';
   static syncEntity = 'jobTemplates';
@@ -136,6 +137,10 @@ export class AAPJobTemplateProvider implements EntityProvider {
     return `AAPJobTemplateProvider:${this.env}`;
   }
 
+  getLastSyncTime(): string | null {
+    return this.lastSyncTime;
+  }
+
   async run(): Promise<boolean> {
     if (!this.connection) {
       throw new NotFoundError('Not initialized');
@@ -194,6 +199,8 @@ export class AAPJobTemplateProvider implements EntityProvider {
           AAPJobTemplateProvider.pluginLogName
         }]: Refreshed ${this.getProviderName()}: ${jobTemplateCount} job templates added.`,
       );
+
+      this.lastSyncTime = new Date().toISOString();
     }
     return !error;
   }
