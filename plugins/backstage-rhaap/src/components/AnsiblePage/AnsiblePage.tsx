@@ -83,7 +83,7 @@ export const AnsiblePage = () => {
   const handleClose = () => setOpen(false);
 
   const feedbackEnabled =
-    config.getOptionalBoolean('ansible.feedback.enabled') ?? true;
+    config.getOptionalBoolean('ansible.feedback.enabled') ?? false;
 
   const selectedTabIndex = tabs.findIndex(item => item.nav === section);
   const [selectedTab, setSelectedTab] = useState<any>(0);

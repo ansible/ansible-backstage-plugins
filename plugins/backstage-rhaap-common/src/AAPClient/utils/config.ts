@@ -52,7 +52,7 @@ export function getAnsibleConfig(config: Config): AnsibleConfig {
         }
       : undefined,
     feedback: {
-      enabled: ansibleConfig.getOptionalBoolean('feedback.enabled') ?? true,
+      enabled: ansibleConfig.getOptionalBoolean('feedback.enabled') ?? false,
     },
   };
   return ansibleConfigVales;

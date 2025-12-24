@@ -8,19 +8,9 @@ The feedback system is controlled by the `ansible.feedback.enabled` configuratio
 
 ### Default Configuration
 
-By default, the feedback system is **enabled**. If no configuration is provided, the feedback forms will be displayed.
+By default, the feedback system is **disabled** completely. If no configuration is provided, the feedback forms will not be displayed.
 
 ### Configuration Options
-
-```yaml
-ansible:
-  feedback:
-    enabled: true
-```
-
-### Disabling Feedback
-
-To disable the feedback system completely, set the `enabled` option to `false`:
 
 ```yaml
 ansible:
@@ -33,6 +23,16 @@ When disabled:
 - The feedback floating action button (FAB) will not be displayed
 - Users will not be able to access the feedback modal
 - No feedback forms will be rendered in the UI
+
+### Enabling Feedback
+
+To enable the feedback system, set the `enabled` option to `true`:
+
+```yaml
+ansible:
+  feedback:
+    enabled: true
+```
 
 ## Where Feedback Appears
 
@@ -76,7 +76,7 @@ The feedback system includes:
 ```yaml
 ansible:
   feedback:
-    enabled: true # Default set to enabled
+    enabled: true # Default set to disabled
 ```
 
 ## Troubleshooting

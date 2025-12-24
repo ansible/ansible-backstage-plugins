@@ -153,7 +153,7 @@ ansible:
     baseUrl: localhost
     port: '8000'
   feedback:
-    enabled: true
+    enabled: false
 kubernetes: null
 
 permission:

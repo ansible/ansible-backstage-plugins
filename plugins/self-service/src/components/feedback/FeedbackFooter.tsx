@@ -10,7 +10,7 @@ export const FeedbackFooter = () => {
   const [open, setOpen] = useState(false);
 
   const feedbackEnabled =
-    config.getOptionalBoolean('ansible.feedback.enabled') ?? true;
+    config.getOptionalBoolean('ansible.feedback.enabled') ?? false;
 
   const handleOpen = () => setOpen(true);
   const handleClose = () => setOpen(false);
