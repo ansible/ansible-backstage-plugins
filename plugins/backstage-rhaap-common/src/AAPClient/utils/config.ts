@@ -51,6 +51,9 @@ export function getAnsibleConfig(config: Config): AnsibleConfig {
             ansibleConfig.getOptionalString('creatorService.port') ?? '8000',
         }
       : undefined,
+    feedback: {
+      enabled: ansibleConfig.getOptionalBoolean('feedback.enabled') ?? false,
+    },
   };
   return ansibleConfigVales;
 }
