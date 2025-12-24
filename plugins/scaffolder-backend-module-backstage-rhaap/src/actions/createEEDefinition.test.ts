@@ -2338,7 +2338,7 @@ describe('createEEDefinition', () => {
       expect(content).toContain('kind: Template');
       expect(content).toContain('name: test-ee');
       expect(content).toContain('title: test-ee');
-      expect(content).toContain('description: \"Test EE Description\"');
+      expect(content).toContain('description: "Test EE Description"');
       expect(content).toContain("ansible.io/saved-template: 'true'");
       expect(content).toContain('type: execution-environment');
     });
@@ -2354,7 +2354,7 @@ describe('createEEDefinition', () => {
           values: {
             eeFileName: 'test-ee',
             eeDescription:
-              'Test EE Description with "special" characters: :!@#$%^&*()',
+              "Test EE Description 'single quotes' and characters: :!@#$%^&*()",
             baseImage: 'quay.io/ansible/ee-base:latest',
             tags: [],
             publishToSCM: true,
@@ -2385,7 +2385,7 @@ describe('createEEDefinition', () => {
       expect(content).toContain('name: test-ee');
       expect(content).toContain('title: test-ee');
       expect(content).toContain(
-        'description: \"Test EE Description with \'special\' characters: :!@#$%^&*()\"',
+        'description: "Test EE Description \'single quotes\' and characters: :!@#$%^&*()"',
       );
       expect(content).toContain("ansible.io/saved-template: 'true'");
       expect(content).toContain('type: execution-environment');
