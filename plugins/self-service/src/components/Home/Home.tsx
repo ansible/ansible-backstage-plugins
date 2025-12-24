@@ -69,8 +69,26 @@ export const HomeComponent = () => {
     { id: number; name: string }[]
   >([]);
   const [loading, setLoading] = useState<boolean>(true);
+  const [syncStatus, setSyncStatus] = useState<{
+    orgsUsersTeams: { lastSync: string | null };
+    jobTemplates: { lastSync: string | null };
+  }>({
+    orgsUsersTeams: { lastSync: null },
+    jobTemplates: { lastSync: null },
+  });
+
+  const fetchSyncStatus = useCallback(async () => {
+    try {
+      const status = await ansibleApi.getSyncStatus();
+      setSyncStatus(status);
+    } catch {
+      // Silently handle sync status fetch errors
+      // The dialog will show "Never synced" as fallback
+    }
+  }, [ansibleApi]);
 
   const ShowSyncConfirmationDialog = () => {
+    fetchSyncStatus();
     setOpen(true);
   };
 
@@ -82,6 +100,7 @@ export const HomeComponent = () => {
       result = await ansibleApi.syncOrgsUsersTeam();
       if (result) {
         setSnackbarMsg('Organizations, Users and Teams synced successfully');
+        fetchSyncStatus();
       } else {
         setSnackbarMsg('Organizations, Users and Teams sync failed');
       }
@@ -92,13 +111,14 @@ export const HomeComponent = () => {
       setShowSnackbar(false);
       if (result) {
         setSnackbarMsg('Templates synced successfully');
+        fetchSyncStatus();
       } else {
         setSnackbarMsg('Templates sync failed');
       }
       setShowSnackbar(true);
     }
     setSyncOptions([]);
-  }, [ansibleApi, syncOptions]);
+  }, [ansibleApi, syncOptions, fetchSyncStatus]);
 
   const handleClose = (newSyncOptions?: string[]) => {
     setOpen(false);
@@ -146,6 +166,7 @@ export const HomeComponent = () => {
           open={open}
           onClose={handleClose}
           value={syncOptions}
+          syncStatus={syncStatus}
         />
       )}
       <Header
@@ -252,7 +273,7 @@ export const HomeComponent = () => {
                   }}
                 >
                   {Array.from({ length: 3 }).map((_, index) => (
-                    <SkeletonLoader key={index} />
+                    <SkeletonLoader key={`skeleton-${index}`} />
                   ))}
                 </div>
               ) : (

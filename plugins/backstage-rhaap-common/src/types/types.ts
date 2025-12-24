@@ -133,6 +133,10 @@ export type CreatorService = {
   port: string;
 };
 
+export type FeedbackConfig = {
+  enabled?: boolean;
+};
+
 export type RHAAPConfig = {
   baseUrl?: string;
   token?: string;
@@ -155,6 +159,7 @@ export type AnsibleConfig = {
   githubIntegration?: GithubIntegrationConfig;
   gitlabIntegration?: GitLabIntegrationConfig;
   creatorService?: CreatorService;
+  feedback?: FeedbackConfig;
 };
 
 export type CreatedTemplate = {

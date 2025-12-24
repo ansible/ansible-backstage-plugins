@@ -28,6 +28,10 @@ type CustomAuthApiRefType = OAuthApi &
 export interface AnsibleApi {
   syncTemplates(): Promise<boolean>;
   syncOrgsUsersTeam(): Promise<boolean>;
+  getSyncStatus(): Promise<{
+    orgsUsersTeams: { lastSync: string | null };
+    jobTemplates: { lastSync: string | null };
+  }>;
 }
 
 export const ansibleApiRef = createApiRef<AnsibleApi>({
@@ -65,7 +69,7 @@ export class AnsibleApiClient implements AnsibleApi {
       );
       const data = await response.json();
       return data;
-    } catch (error) {
+    } catch {
       return false;
     }
   }
@@ -78,8 +82,25 @@ export class AnsibleApiClient implements AnsibleApi {
       );
       const data = await response.json();
       return data;
-    } catch (error) {
+    } catch {
       return false;
+    }
+  }
+
+  async getSyncStatus(): Promise<{
+    orgsUsersTeams: { lastSync: string | null };
+    jobTemplates: { lastSync: string | null };
+  }> {
+    const baseUrl = await this.discoveryApi.getBaseUrl('catalog');
+    try {
+      const response = await this.fetchApi.fetch(`${baseUrl}/aap/sync_status`);
+      const data = await response.json();
+      return data;
+    } catch {
+      return {
+        orgsUsersTeams: { lastSync: null },
+        jobTemplates: { lastSync: null },
+      };
     }
   }
 }

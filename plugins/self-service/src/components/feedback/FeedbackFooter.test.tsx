@@ -1,6 +1,7 @@
-import { renderInTestApp } from '@backstage/test-utils';
+import { renderInTestApp, TestApiProvider } from '@backstage/test-utils';
 import { screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import { configApiRef } from '@backstage/core-plugin-api';
 
 // --- Mocks ---
 // Mock RatingsFeedbackModal inside jest.mock to avoid ReferenceError
@@ -25,6 +26,29 @@ jest.mock('@material-ui/core', () => {
   };
 });
 
+// Mock config API that enables feedback
+const mockConfigApi = {
+  getOptionalBoolean: (key: string) => {
+    if (key === 'ansible.feedback.enabled') {
+      return true;
+    }
+    return undefined;
+  },
+  getString: jest.fn(),
+  getOptionalString: jest.fn(),
+  getConfig: jest.fn(),
+  getOptionalConfig: jest.fn(),
+  getConfigArray: jest.fn(),
+  getOptionalConfigArray: jest.fn(),
+  getNumber: jest.fn(),
+  getOptionalNumber: jest.fn(),
+  getBoolean: jest.fn(),
+  getStringArray: jest.fn(),
+  getOptionalStringArray: jest.fn(),
+  keys: jest.fn(),
+  has: jest.fn(),
+};
+
 describe('FeedbackFooter', () => {
   let mockRatingsFeedbackModal: jest.Mock;
 
@@ -35,7 +59,11 @@ describe('FeedbackFooter', () => {
   });
 
   it('renders the FAB with "Feedback" label', async () => {
-    await renderInTestApp(<FeedbackFooter />);
+    await renderInTestApp(
+      <TestApiProvider apis={[[configApiRef, mockConfigApi]]}>
+        <FeedbackFooter />
+      </TestApiProvider>,
+    );
 
     expect(screen.getByText(/Feedback/i)).toBeInTheDocument();
 
@@ -46,7 +74,11 @@ describe('FeedbackFooter', () => {
   it('opens RatingsFeedbackModal when FAB is clicked and passes correct props', async () => {
     const user = userEvent.setup();
 
-    await renderInTestApp(<FeedbackFooter />);
+    await renderInTestApp(
+      <TestApiProvider apis={[[configApiRef, mockConfigApi]]}>
+        <FeedbackFooter />
+      </TestApiProvider>,
+    );
 
     const fab = screen.getByRole('button', { name: /Feedback/i });
     await user.click(fab);

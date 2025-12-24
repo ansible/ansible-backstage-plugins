@@ -40,12 +40,14 @@ describe('createRouter', () => {
       run: jest.fn(),
       getProviderName: jest.fn().mockReturnValue('AapEntityProvider:test'),
       connect: jest.fn(),
+      getLastSyncTime: jest.fn(),
     } as unknown as jest.Mocked<AAPEntityProvider>;
 
     mockJobTemplateProvider = {
       run: jest.fn(),
       getProviderName: jest.fn().mockReturnValue('AAPJobTemplateProvider:test'),
       connect: jest.fn(),
+      getLastSyncTime: jest.fn(),
     } as unknown as jest.Mocked<AAPJobTemplateProvider>;
 
     const router = await createRouter({
@@ -425,6 +427,62 @@ describe('createRouter', () => {
         error: 'Missing username and user id in request body.',
       });
       expect(mockProvider.createSingleUser).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('GET /aap/sync_status', () => {
+    it('should return sync status successfully', async () => {
+      mockAAPEntityProvider.getLastSyncTime.mockReturnValue(
+        '2024-01-15T10:00:00Z',
+      );
+      mockJobTemplateProvider.getLastSyncTime.mockReturnValue(
+        '2024-01-15T11:00:00Z',
+      );
+
+      const response = await request(app).get('/aap/sync_status');
+
+      expect(response.status).toBe(200);
+      expect(response.body).toEqual({
+        orgsUsersTeams: { lastSync: '2024-01-15T10:00:00Z' },
+        jobTemplates: { lastSync: '2024-01-15T11:00:00Z' },
+      });
+      expect(mockLogger.info).toHaveBeenCalledWith('Getting sync status');
+    });
+
+    it('should handle errors when getLastSyncTime throws', async () => {
+      const mockError = new Error('Failed to get sync time');
+      mockAAPEntityProvider.getLastSyncTime.mockImplementation(() => {
+        throw mockError;
+      });
+      mockJobTemplateProvider.getLastSyncTime.mockReturnValue(null);
+
+      const response = await request(app).get('/aap/sync_status');
+
+      expect(response.status).toBe(500);
+      expect(response.body).toEqual({
+        error: 'Failed to get sync status: Failed to get sync time',
+        orgsUsersTeams: { lastSync: null },
+        jobTemplates: { lastSync: null },
+      });
+      expect(mockLogger.error).toHaveBeenCalledWith(
+        'Failed to get sync status: Failed to get sync time',
+      );
+    });
+
+    it('should handle non-Error exceptions', async () => {
+      mockAAPEntityProvider.getLastSyncTime.mockImplementation(() => {
+        throw new Error('String error');
+      });
+      mockJobTemplateProvider.getLastSyncTime.mockReturnValue(null);
+
+      const response = await request(app).get('/aap/sync_status');
+
+      expect(response.status).toBe(500);
+      expect(response.body).toEqual({
+        error: 'Failed to get sync status: String error',
+        orgsUsersTeams: { lastSync: null },
+        jobTemplates: { lastSync: null },
+      });
     });
   });
 
