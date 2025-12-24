@@ -2338,7 +2338,55 @@ describe('createEEDefinition', () => {
       expect(content).toContain('kind: Template');
       expect(content).toContain('name: test-ee');
       expect(content).toContain('title: test-ee');
-      expect(content).toContain('description: Test EE Description');
+      expect(content).toContain('description: \"Test EE Description\"');
+      expect(content).toContain("ansible.io/saved-template: 'true'");
+      expect(content).toContain('type: execution-environment');
+    });
+
+    it('should generate EE template that is valid YAML', async () => {
+      const action = createEEDefinitionAction({
+        frontendUrl: 'http://localhost:3000',
+        auth,
+        discovery,
+      });
+      const ctx = {
+        input: {
+          values: {
+            eeFileName: 'test-ee',
+            eeDescription:
+              'Test EE Description with "special" characters: :!@#$%^&*()',
+            baseImage: 'quay.io/ansible/ee-base:latest',
+            tags: [],
+            publishToSCM: true,
+          },
+        },
+        logger,
+        workspacePath: mockWorkspacePath,
+        output: jest.fn(),
+      } as any;
+
+      await action.handler(ctx);
+
+      const writeCall = mockWriteFile.mock.calls.find((call: any[]) =>
+        call[0].toString().endsWith('template.yaml'),
+      );
+
+      expect(writeCall).toBeDefined();
+      const content = writeCall![1] as string;
+
+      // Verify that the template is valid YAML
+      expect(() => {
+        yaml.load(content);
+      }).not.toThrow();
+
+      // Verify basic template structure
+      expect(content).toContain('apiVersion: scaffolder.backstage.io/v1beta3');
+      expect(content).toContain('kind: Template');
+      expect(content).toContain('name: test-ee');
+      expect(content).toContain('title: test-ee');
+      expect(content).toContain(
+        'description: \"Test EE Description with \'special\' characters: :!@#$%^&*()\"',
+      );
       expect(content).toContain("ansible.io/saved-template: 'true'");
       expect(content).toContain('type: execution-environment');
     });
@@ -2370,7 +2418,7 @@ describe('createEEDefinition', () => {
       );
       const content = writeCall![1] as string;
       expect(content).toContain(
-        'description: Saved Ansible Execution Environment Definition template',
+        'description: "Saved Ansible Execution Environment Definition template"',
       );
     });
 
@@ -2667,7 +2715,7 @@ describe('createEEDefinition', () => {
 
       // Verify all sections are present
       expect(content).toContain('name: test-ee');
-      expect(content).toContain('description: Complete Test EE');
+      expect(content).toContain('description: "Complete Test EE"');
       expect(content).toContain('tags: ["ansible","test"]');
       expect(content).toContain(
         'default: [{"name":"community.general","version":"1.0.0"},{"name":"ansible.mcp_builder"},{"name":"ansible.mcp"}]',

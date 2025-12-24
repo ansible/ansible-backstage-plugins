@@ -879,7 +879,7 @@ kind: Template
 metadata:
   name: ${values.eeFileName}
   title: ${values.eeFileName}
-  description: ${values.eeDescription || 'Saved Ansible Execution Environment Definition template'}
+  description: "${(values.eeDescription || 'Saved Ansible Execution Environment Definition template').replaceAll('"', "'")}"
   annotations:
     ansible.io/saved-template: 'true'
   tags: ${tagsJson}
