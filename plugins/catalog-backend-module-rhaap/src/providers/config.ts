@@ -53,6 +53,7 @@ function readAapApiEntityConfig(
   }
   let surveyEnabled: boolean | undefined = undefined;
   let jobTemplateLabels: string[] = [];
+  let jobTemplateExcludeLabels: string[] = [];
 
   if (syncEntity === 'jobTemplates') {
     if (catalogConfig.has(`sync.${syncEntity}.surveyEnabled`)) {
@@ -63,6 +64,12 @@ function readAapApiEntityConfig(
     if (catalogConfig.has(`sync.${syncEntity}.labels`)) {
       jobTemplateLabels =
         catalogConfig.getOptionalStringArray(`sync.${syncEntity}.labels`) ?? [];
+    }
+    if (catalogConfig.has(`sync.${syncEntity}.excludeLabels`)) {
+      jobTemplateExcludeLabels =
+        catalogConfig.getOptionalStringArray(
+          `sync.${syncEntity}.excludeLabels`,
+        ) ?? [];
     }
   }
 
@@ -75,5 +82,6 @@ function readAapApiEntityConfig(
     organizations,
     surveyEnabled,
     jobTemplateLabels,
+    jobTemplateExcludeLabels,
   };
 }
