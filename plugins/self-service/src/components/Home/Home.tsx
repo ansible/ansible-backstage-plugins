@@ -1,18 +1,12 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router';
 import {
-  Box,
   Button,
-  Checkbox,
   makeStyles,
   Snackbar,
-  TextField,
   Tooltip,
   Typography,
 } from '@material-ui/core';
-import Autocomplete from '@material-ui/lab/Autocomplete';
-import CheckBoxOutlineBlankIcon from '@material-ui/icons/CheckBoxOutlineBlank';
-import CheckBoxIcon from '@material-ui/icons/CheckBox';
 import { Content, Header, HeaderLabel, Page } from '@backstage/core-components';
 import { useApi, useRouteRef } from '@backstage/core-plugin-api';
 import {
@@ -39,6 +33,7 @@ import OpenInNew from '@material-ui/icons/OpenInNew';
 import { TemplateEntityV1beta3 } from '@backstage/plugin-scaffolder-common';
 import { SkeletonLoader } from './SkeletonLoader';
 import { scaffolderApiRef } from '@backstage/plugin-scaffolder-react';
+import { TagFilterPicker } from '../utils/TagFilterPicker';
 
 const headerStyles = makeStyles(theme => ({
   header_title_color: {
@@ -54,9 +49,6 @@ const headerStyles = makeStyles(theme => ({
     lineHeight: 1.57,
   },
 }));
-
-const icon = <CheckBoxOutlineBlankIcon fontSize="small" />;
-const checkedIcon = <CheckBoxIcon fontSize="small" />;
 
 const isHomePageTemplate = (
   entity: TemplateEntityV1beta3,
@@ -78,74 +70,34 @@ const HomeTagPicker = ({
   jobTemplates: { id: number; name: string }[];
 }) => {
   const { backendEntities, filters, updateFilters } = useEntityList();
-  const [selectedTags, setSelectedTags] = useState<string[]>([]);
 
   const availableTags = useMemo(() => {
     const tagSet = new Set<string>();
-
     for (const entity of backendEntities) {
       const templateEntity = entity as TemplateEntityV1beta3;
       if (isHomePageTemplate(templateEntity, jobTemplates)) {
-        const tags = entity.metadata?.tags || [];
-        for (const tag of tags) {
+        for (const tag of entity.metadata?.tags || []) {
           tagSet.add(tag);
         }
       }
     }
-
     return Array.from(tagSet).sort((a, b) => a.localeCompare(b));
   }, [backendEntities, jobTemplates]);
 
-  const handleTagChange = (_event: any, newValue: string[]) => {
-    setSelectedTags(newValue);
-
-    if (newValue.length > 0) {
-      updateFilters({
-        ...filters,
-        tags: new EntityTagFilter(newValue),
-      });
-    } else {
-      updateFilters({
-        ...filters,
-        tags: undefined,
-      });
-    }
+  const handleTagChange = (newValue: string[]) => {
+    updateFilters({
+      ...filters,
+      tags: newValue.length > 0 ? new EntityTagFilter(newValue) : undefined,
+    });
   };
 
   return (
-    <Box pb={1} pt={1}>
-      <Typography
-        variant="subtitle2"
-        component="label"
-        style={{ fontWeight: 500 }}
-      >
-        Tags
-      </Typography>
-      <Autocomplete
-        multiple
-        options={availableTags}
-        disableCloseOnSelect
-        value={selectedTags}
-        onChange={handleTagChange}
-        getOptionLabel={option => option}
-        renderOption={(option, { selected }) => (
-          <>
-            <Checkbox
-              icon={icon}
-              checkedIcon={checkedIcon}
-              checked={selected}
-              style={{ marginRight: 8 }}
-            />
-            {option}
-          </>
-        )}
-        size="small"
-        renderInput={params => (
-          <TextField {...params} variant="outlined" placeholder="Tags" />
-        )}
-        noOptionsText="No tags available"
-      />
-    </Box>
+    <TagFilterPicker
+      label="Tags"
+      options={availableTags}
+      onChange={handleTagChange}
+      noOptionsText="No tags available"
+    />
   );
 };
 
@@ -155,11 +107,9 @@ const HomeCategoryPicker = ({
   jobTemplates: { id: number; name: string }[];
 }) => {
   const { backendEntities } = useEntityList();
-  const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
 
   const availableCategories = useMemo(() => {
     const categorySet = new Set<string>();
-
     for (const entity of backendEntities) {
       const templateEntity = entity as TemplateEntityV1beta3;
       if (isHomePageTemplate(templateEntity, jobTemplates)) {
@@ -169,48 +119,16 @@ const HomeCategoryPicker = ({
         }
       }
     }
-
     return Array.from(categorySet).sort((a, b) => a.localeCompare(b));
   }, [backendEntities, jobTemplates]);
 
-  const handleCategoryChange = (_event: any, newValue: string[]) => {
-    setSelectedCategories(newValue);
-  };
-
   return (
-    <Box pb={1} pt={1}>
-      <Typography
-        variant="subtitle2"
-        component="label"
-        style={{ fontWeight: 500 }}
-      >
-        Categories
-      </Typography>
-      <Autocomplete
-        multiple
-        options={availableCategories}
-        disableCloseOnSelect
-        value={selectedCategories}
-        onChange={handleCategoryChange}
-        getOptionLabel={option => option}
-        renderOption={(option, { selected }) => (
-          <>
-            <Checkbox
-              icon={icon}
-              checkedIcon={checkedIcon}
-              checked={selected}
-              style={{ marginRight: 8 }}
-            />
-            {option}
-          </>
-        )}
-        size="small"
-        renderInput={params => (
-          <TextField {...params} variant="outlined" placeholder="Categories" />
-        )}
-        noOptionsText="No categories available"
-      />
-    </Box>
+    <TagFilterPicker
+      label="Categories"
+      options={availableCategories}
+      onChange={() => {}}
+      noOptionsText="No categories available"
+    />
   );
 };
 

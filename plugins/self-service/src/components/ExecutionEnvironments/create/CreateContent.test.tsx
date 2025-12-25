@@ -1,4 +1,4 @@
-import { screen, waitFor } from '@testing-library/react';
+import { screen, waitFor, fireEvent } from '@testing-library/react';
 import {
   mockApis,
   renderInTestApp,
@@ -389,6 +389,163 @@ describe('CreateContent', () => {
 
       await waitFor(() => {
         expect(screen.getByTestId('templates-container')).toBeInTheDocument();
+      });
+    });
+  });
+
+  describe('EETagPicker', () => {
+    it('should render Tags label when execution-environment templates have tags', async () => {
+      const entityRefs = ['component:default/e1'];
+      const tagFacets = ['ee-tag1', 'ee-tag2'];
+      mockCatalogApi.getEntityFacets.mockResolvedValue(
+        facetsFromEntityRefs(entityRefs, tagFacets),
+      );
+
+      const eeTemplateWithTags: TemplateEntityV1beta3 = {
+        apiVersion: 'scaffolder.backstage.io/v1beta3',
+        kind: 'Template',
+        metadata: {
+          name: 'ee-template-with-tags',
+          namespace: 'default',
+          title: 'EE Template With Tags',
+          tags: ['ee-tag1', 'ee-tag2'],
+        },
+        spec: {
+          type: 'execution-environment',
+          steps: [],
+          parameters: [],
+        },
+      };
+
+      mockCatalogApi.getEntities.mockResolvedValue({
+        items: [eeTemplateWithTags],
+      });
+
+      await render(<CreateContent />);
+
+      await waitFor(() => {
+        expect(screen.getByText('Tags')).toBeInTheDocument();
+      });
+    });
+
+    it('should not render EETagPicker when no execution-environment templates have tags', async () => {
+      const entityRefs = ['component:default/e1'];
+      const tagFacets: string[] = [];
+      mockCatalogApi.getEntityFacets.mockResolvedValue(
+        facetsFromEntityRefs(entityRefs, tagFacets),
+      );
+
+      const eeTemplateWithoutTags: TemplateEntityV1beta3 = {
+        apiVersion: 'scaffolder.backstage.io/v1beta3',
+        kind: 'Template',
+        metadata: {
+          name: 'ee-template-no-tags',
+          namespace: 'default',
+          title: 'EE Template Without Tags',
+        },
+        spec: {
+          type: 'execution-environment',
+          steps: [],
+          parameters: [],
+        },
+      };
+
+      mockCatalogApi.getEntities.mockResolvedValue({
+        items: [eeTemplateWithoutTags],
+      });
+
+      await render(<CreateContent />);
+
+      await waitFor(() => {
+        expect(screen.getByTestId('create-content')).toBeInTheDocument();
+      });
+
+      expect(screen.queryByText('Tags')).not.toBeInTheDocument();
+    });
+
+    it('should filter tags based on execution-environment templates only', async () => {
+      const entityRefs = ['component:default/e1'];
+      const tagFacets = ['ee-tag', 'other-tag'];
+      mockCatalogApi.getEntityFacets.mockResolvedValue(
+        facetsFromEntityRefs(entityRefs, tagFacets),
+      );
+
+      const eeTemplate: TemplateEntityV1beta3 = {
+        apiVersion: 'scaffolder.backstage.io/v1beta3',
+        kind: 'Template',
+        metadata: {
+          name: 'ee-template',
+          namespace: 'default',
+          title: 'EE Template',
+          tags: ['ee-tag'],
+        },
+        spec: {
+          type: 'execution-environment',
+          steps: [],
+          parameters: [],
+        },
+      };
+
+      mockCatalogApi.getEntities.mockResolvedValue({
+        items: [eeTemplate],
+      });
+
+      await render(<CreateContent />);
+
+      await waitFor(() => {
+        expect(screen.getByTestId('create-content')).toBeInTheDocument();
+      });
+    });
+  });
+
+  describe('Kebab Menu', () => {
+    it('should render kebab menu button', async () => {
+      const entityRefs = ['component:default/e1'];
+      const tagFacets = ['execution-environment'];
+      mockCatalogApi.getEntityFacets.mockResolvedValue(
+        facetsFromEntityRefs(entityRefs, tagFacets),
+      );
+
+      await render(<CreateContent />);
+
+      await waitFor(() => {
+        expect(screen.getByTestId('kebab-menu-button')).toBeInTheDocument();
+      });
+    });
+
+    it('should open menu when kebab button is clicked', async () => {
+      const entityRefs = ['component:default/e1'];
+      const tagFacets = ['execution-environment'];
+      mockCatalogApi.getEntityFacets.mockResolvedValue(
+        facetsFromEntityRefs(entityRefs, tagFacets),
+      );
+
+      await render(<CreateContent />);
+
+      const kebabButton = screen.getByTestId('kebab-menu-button');
+      fireEvent.click(kebabButton);
+
+      await waitFor(() => {
+        expect(screen.getByText('Import Template')).toBeInTheDocument();
+      });
+    });
+
+    it('should render Import Template menu item', async () => {
+      const entityRefs = ['component:default/e1'];
+      const tagFacets = ['execution-environment'];
+      mockCatalogApi.getEntityFacets.mockResolvedValue(
+        facetsFromEntityRefs(entityRefs, tagFacets),
+      );
+
+      await render(<CreateContent />);
+
+      const kebabButton = screen.getByTestId('kebab-menu-button');
+      fireEvent.click(kebabButton);
+
+      await waitFor(() => {
+        expect(
+          screen.getByTestId('import-template-button'),
+        ).toBeInTheDocument();
       });
     });
   });

@@ -2,16 +2,11 @@ import {
   Typography,
   makeStyles,
   Box,
-  Checkbox,
-  TextField,
   IconButton,
   Menu,
   MenuItem,
 } from '@material-ui/core';
 import MoreVertIcon from '@material-ui/icons/MoreVert';
-import Autocomplete from '@material-ui/lab/Autocomplete';
-import CheckBoxOutlineBlankIcon from '@material-ui/icons/CheckBoxOutlineBlank';
-import CheckBoxIcon from '@material-ui/icons/CheckBox';
 import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useRouteRef } from '@backstage/core-plugin-api';
@@ -31,6 +26,7 @@ import { TemplateGroups } from '@backstage/plugin-scaffolder-react/alpha';
 import { WizardCard } from '../../Home/TemplateCard';
 import { TemplateEntityV1beta3 } from '@backstage/plugin-scaffolder-common';
 import { rootRouteRef } from '../../../routes';
+import { TagFilterPicker } from '../../utils/TagFilterPicker';
 
 const useStyles = makeStyles(theme => ({
   headerRow: {
@@ -53,43 +49,27 @@ const useStyles = makeStyles(theme => ({
   },
 }));
 
-const icon = <CheckBoxOutlineBlankIcon fontSize="small" />;
-const checkedIcon = <CheckBoxIcon fontSize="small" />;
-
 const EETagPicker = () => {
   const { backendEntities, filters, updateFilters } = useEntityList();
-  const [selectedTags, setSelectedTags] = useState<string[]>([]);
 
   const availableTags = useMemo(() => {
     const tagSet = new Set<string>();
-
     for (const entity of backendEntities) {
       const templateEntity = entity as TemplateEntityV1beta3;
       if (templateEntity.spec?.type?.includes('execution-environment')) {
-        const tags = entity.metadata?.tags || [];
-        for (const tag of tags) {
+        for (const tag of entity.metadata?.tags || []) {
           tagSet.add(tag);
         }
       }
     }
-
     return Array.from(tagSet).sort((a, b) => a.localeCompare(b));
   }, [backendEntities]);
 
-  const handleTagChange = (_event: any, newValue: string[]) => {
-    setSelectedTags(newValue);
-
-    if (newValue.length > 0) {
-      updateFilters({
-        ...filters,
-        tags: new EntityTagFilter(newValue),
-      });
-    } else {
-      updateFilters({
-        ...filters,
-        tags: undefined,
-      });
-    }
+  const handleTagChange = (newValue: string[]) => {
+    updateFilters({
+      ...filters,
+      tags: newValue.length > 0 ? new EntityTagFilter(newValue) : undefined,
+    });
   };
 
   if (availableTags.length === 0) {
@@ -97,38 +77,11 @@ const EETagPicker = () => {
   }
 
   return (
-    <Box pb={1} pt={1}>
-      <Typography
-        variant="subtitle2"
-        component="label"
-        style={{ fontWeight: 500 }}
-      >
-        Tags
-      </Typography>
-      <Autocomplete
-        multiple
-        options={availableTags}
-        disableCloseOnSelect
-        value={selectedTags}
-        onChange={handleTagChange}
-        getOptionLabel={option => option}
-        renderOption={(option, { selected }) => (
-          <>
-            <Checkbox
-              icon={icon}
-              checkedIcon={checkedIcon}
-              checked={selected}
-              style={{ marginRight: 8 }}
-            />
-            {option}
-          </>
-        )}
-        size="small"
-        renderInput={params => (
-          <TextField {...params} variant="outlined" placeholder="Tags" />
-        )}
-      />
-    </Box>
+    <TagFilterPicker
+      label="Tags"
+      options={availableTags}
+      onChange={handleTagChange}
+    />
   );
 };
 
