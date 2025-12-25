@@ -138,11 +138,7 @@ describe('TagFilterPicker', () => {
 
   it('should display default noOptionsText when no custom text provided', async () => {
     render(
-      <TagFilterPicker
-        label="Tags"
-        options={[]}
-        onChange={mockOnChange}
-      />,
+      <TagFilterPicker label="Tags" options={[]} onChange={mockOnChange} />,
     );
 
     const input = screen.getByPlaceholderText('Tags');
