@@ -1,4 +1,4 @@
-import { render } from '@testing-library/react';
+import { render, cleanup } from '@testing-library/react';
 import { LocationListener } from './LocationListener';
 import { useLocation } from 'react-router-dom';
 
@@ -12,6 +12,7 @@ jest.mock('react-router-dom', () => ({
 describe('LocationListener', () => {
   beforeEach(() => {
     mockNavigate.mockClear();
+    cleanup();
   });
 
   it('redirects / and /create to /self-service/catalog', () => {
@@ -19,31 +20,63 @@ describe('LocationListener', () => {
     locations.forEach(path => {
       (useLocation as jest.Mock).mockReturnValue({ pathname: path });
       render(<LocationListener />);
-      expect(mockNavigate).toHaveBeenCalledWith('/self-service/catalog');
+      expect(mockNavigate).toHaveBeenCalledWith('/self-service/catalog', {
+        replace: true,
+      });
       mockNavigate.mockClear();
+      cleanup();
     });
+  });
+
+  it('redirects /create/templates/:namespace/:templateName to self-service equivalents', () => {
+    (useLocation as jest.Mock).mockReturnValue({
+      pathname: '/create/templates/default/my-job-template',
+    });
+    render(<LocationListener />);
+    expect(mockNavigate).toHaveBeenCalledWith(
+      '/self-service/create/templates/default/my-job-template',
+      { replace: true },
+    );
   });
 
   it('redirects /create/tasks and /create/tasks/:taskId correctly', () => {
     (useLocation as jest.Mock).mockReturnValue({ pathname: '/create/tasks' });
     render(<LocationListener />);
-    expect(mockNavigate).toHaveBeenCalledWith('/self-service/create/tasks');
+    expect(mockNavigate).toHaveBeenCalledWith('/self-service/create/tasks', {
+      replace: true,
+    });
 
     mockNavigate.mockClear();
+    cleanup();
 
+    // Test with actual task ID, not literal :taskId
     (useLocation as jest.Mock).mockReturnValue({
-      pathname: '/create/tasks/:taskId',
+      pathname: '/create/tasks/abc123-task-id',
     });
     render(<LocationListener />);
     expect(mockNavigate).toHaveBeenCalledWith(
-      '/self-service/create/tasks/:taskId',
+      '/self-service/create/tasks/abc123-task-id',
+      { replace: true },
     );
+  });
+
+  it('redirects any unknown /create/* paths to /self-service/catalog', () => {
+    // Test catch-all for unexpected /create/* paths
+    (useLocation as jest.Mock).mockReturnValue({
+      pathname: '/create/some/unknown/path',
+    });
+    render(<LocationListener />);
+    expect(mockNavigate).toHaveBeenCalledWith('/self-service/catalog', {
+      replace: true,
+    });
   });
 
   it('redirects /catalog-import correctly', () => {
     (useLocation as jest.Mock).mockReturnValue({ pathname: '/catalog-import' });
     render(<LocationListener />);
-    expect(mockNavigate).toHaveBeenCalledWith('/self-service/catalog-import');
+    expect(mockNavigate).toHaveBeenCalledWith('/self-service/catalog-import', {
+      replace: true,
+    });
   });
 
   it('hides links for /self-service/catalog-import', () => {
@@ -84,6 +117,7 @@ describe('LocationListener', () => {
     render(<LocationListener />);
     expect(mockNavigate).toHaveBeenCalledWith(
       `/self-service/catalog/default/${templateName}`,
+      { replace: true },
     );
   });
 });
