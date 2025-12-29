@@ -108,8 +108,19 @@ const renderWithCatalogApi = (
   getEntitiesImpl: any,
   discoveryImpl?: any,
   identityImpl?: any,
+  getEntityByRefImpl?: any,
 ) => {
-  const mockCatalogApi = { getEntities: getEntitiesImpl };
+  const mockCatalogApi = {
+    getEntities: getEntitiesImpl,
+    getEntityByRef:
+      getEntityByRefImpl ??
+      jest.fn().mockResolvedValue({
+        metadata: {
+          name: 'team-a',
+          title: 'Team A',
+        },
+      }),
+  };
   const mockDiscoveryApi = discoveryImpl ?? {
     getBaseUrl: async () => 'http://scaffolder',
   };
@@ -199,7 +210,8 @@ describe('EEDetailsPage', () => {
     expect(
       screen.getByText('Execution env one description'),
     ).toBeInTheDocument();
-    expect(screen.getByText('team-a')).toBeInTheDocument();
+    // Wait for owner name to be loaded asynchronously
+    expect(await screen.findByText('Team A')).toBeInTheDocument();
     expect(screen.getByText('ansible')).toBeInTheDocument();
     expect(screen.getByText('linux')).toBeInTheDocument();
 
