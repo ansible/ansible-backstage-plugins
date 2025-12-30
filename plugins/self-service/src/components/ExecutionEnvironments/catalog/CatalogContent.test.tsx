@@ -141,7 +141,25 @@ const theme = createMuiTheme();
 
 // ------------------ Render helper (only catalogApiRef provided) ------------------
 const renderWithCatalogApi = (getEntitiesImpl: any) => {
-  const mockCatalogApi = { getEntities: getEntitiesImpl };
+  const getOwnerTitle = (ref: string): string => {
+    if (ref === 'team-a') return 'Team A';
+    if (ref === 'team-b') return 'Team B';
+    return ref;
+  };
+
+  const mockCatalogApi = {
+    getEntities: getEntitiesImpl,
+    getEntityByRef: jest.fn((ref: string) =>
+      Promise.resolve({
+        apiVersion: 'backstage.io/v1alpha1',
+        kind: 'User',
+        metadata: {
+          name: ref,
+          title: getOwnerTitle(ref),
+        },
+      }),
+    ),
+  };
   return render(
     <MemoryRouter initialEntries={['/']}>
       <TestApiProvider apis={[[catalogApiRef, mockCatalogApi]]}>
