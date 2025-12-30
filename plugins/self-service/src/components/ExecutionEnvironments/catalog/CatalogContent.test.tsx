@@ -4,6 +4,7 @@ import { catalogApiRef } from '@backstage/plugin-catalog-react';
 import { MemoryRouter } from 'react-router-dom';
 import { EEListPage } from './CatalogContent';
 import { ThemeProvider, createMuiTheme } from '@material-ui/core/styles';
+import { Entity } from '@backstage/catalog-model';
 // import { within } from '@testing-library/react';
 
 // ------------------ STUB: core components (Table, Link) ------------------
@@ -602,6 +603,47 @@ describe('fetchOwnerNames and getOwnerName', () => {
       expect(screen.getByText('ee-one')).toBeInTheDocument();
       // Owner column should show the ref as fallback when API fails
       expect(screen.getByText('user:default/team-a')).toBeInTheDocument();
+    });
+  });
+
+  test('Owner column falls back to ownerRef when not in ownerNames map', async () => {
+    // Create an entity with an ownerRef that won't be in the ownerNames map
+    const entityWithOwner = {
+      ...entityA,
+      spec: { ...entityA.spec, owner: 'user:default/unmapped-owner' },
+    };
+
+    // Mock getEntityByRef to never resolve, simulating a case where
+    // fetchOwnerNames hasn't completed yet or the ownerRef wasn't fetched
+    const mockGetEntityByRef = jest.fn(
+      () => new Promise<Entity | undefined>(() => {}),
+    ); // Never resolves
+
+    const mockCatalogApi = {
+      getEntities: () => Promise.resolve({ items: [entityWithOwner] }),
+      getEntityByRef: mockGetEntityByRef,
+    };
+
+    render(
+      <MemoryRouter initialEntries={['/']}>
+        <TestApiProvider apis={[[catalogApiRef, mockCatalogApi]]}>
+          <ThemeProvider theme={theme}>
+            <EEListPage onTabSwitch={jest.fn()} />
+          </ThemeProvider>
+        </TestApiProvider>
+      </MemoryRouter>,
+    );
+
+    await waitFor(() =>
+      expect(screen.getByTestId('stubbed-table-title')).toBeInTheDocument(),
+    );
+
+    // Before fetchOwnerNames completes, ownerNames.get() returns undefined,
+    // so the || ownerRef fallback should be used
+    await waitFor(() => {
+      expect(
+        screen.getByText('user:default/unmapped-owner'),
+      ).toBeInTheDocument();
     });
   });
 });
