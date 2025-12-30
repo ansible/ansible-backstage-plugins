@@ -140,14 +140,19 @@ export const EEListPage = ({
   const getOwnerName = useCallback(
     async (ownerRef: string | undefined): Promise<string> => {
       if (!ownerRef) return 'Unknown';
-      const ownerEntity = await catalogApi.getEntityByRef(ownerRef);
-      // precedence: title >> name >> user reference >> unknown
-      return (
-        ownerEntity?.metadata?.title ??
-        ownerEntity?.metadata?.name ??
-        ownerRef ??
-        'Unknown'
-      );
+      try {
+        const ownerEntity = await catalogApi.getEntityByRef(ownerRef);
+        // precedence: title >> name >> user reference >> unknown
+        return (
+          ownerEntity?.metadata?.title ??
+          ownerEntity?.metadata?.name ??
+          ownerRef ??
+          'Unknown'
+        );
+      } catch (error) {
+        // If API call fails, fallback to ownerRef
+        return ownerRef ?? 'Unknown';
+      }
     },
     [catalogApi],
   );
