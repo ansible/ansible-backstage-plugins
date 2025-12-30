@@ -205,7 +205,7 @@ describe('EEDetailsPage', () => {
   });
 
   test('renders entity details (title, description, owner, tags, readme with OWNER title)', async () => {
-    // fallsback to defaultGetEntityByRefMock which has title and name set, so should show title
+    // falls back to defaultGetEntityByRefMock which has title and name set, so should show title
     renderWithCatalogApi(() => Promise.resolve({ items: [entityFull] }), {});
 
     // wait for entity-specific UI
