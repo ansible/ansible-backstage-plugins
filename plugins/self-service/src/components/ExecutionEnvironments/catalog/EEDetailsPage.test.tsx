@@ -71,7 +71,7 @@ const entityFull = {
     },
   },
   spec: {
-    owner: 'team-a',
+    owner: 'user:default/team-a',
     type: 'execution-environment',
     readme: '# README CONTENT',
     definition: 'definition-yaml',
@@ -106,25 +106,28 @@ const theme = createMuiTheme();
 // ----------------- Helper render (provides catalog, discovery, identity APIs) -----------------
 const renderWithCatalogApi = (
   getEntitiesImpl: any,
-  discoveryImpl?: any,
-  identityImpl?: any,
-  getEntityByRefImpl?: any,
+  options?: {
+    discoveryImpl?: any;
+    identityImpl?: any;
+    getEntityByRefImpl?: any;
+  },
 ) => {
+  // Create a flexible mock for getEntityByRef that can return different values
+  const defaultGetEntityByRefMock = jest.fn().mockResolvedValue({
+    metadata: {
+      name: 'team-a',
+      title: 'Team A',
+    },
+  });
+
   const mockCatalogApi = {
     getEntities: getEntitiesImpl,
-    getEntityByRef:
-      getEntityByRefImpl ??
-      jest.fn().mockResolvedValue({
-        metadata: {
-          name: 'team-a',
-          title: 'Team A',
-        },
-      }),
+    getEntityByRef: options?.getEntityByRefImpl ?? defaultGetEntityByRefMock,
   };
-  const mockDiscoveryApi = discoveryImpl ?? {
+  const mockDiscoveryApi = options?.discoveryImpl ?? {
     getBaseUrl: async () => 'http://scaffolder',
   };
-  const mockIdentityApi = identityImpl ?? {
+  const mockIdentityApi = options?.identityImpl ?? {
     getCredentials: async () => ({ token: 'tok' }),
   };
 
@@ -201,8 +204,9 @@ describe('EEDetailsPage', () => {
     }
   });
 
-  test('renders entity details (title, description, owner, tags, readme)', async () => {
-    renderWithCatalogApi(() => Promise.resolve({ items: [entityFull] }));
+  test('renders entity details (title, description, owner, tags, readme with OWNER title)', async () => {
+    // fallsback to defaultGetEntityByRefMock which has title and name set, so should show title
+    renderWithCatalogApi(() => Promise.resolve({ items: [entityFull] }), {});
 
     // wait for entity-specific UI
     await screen.findByTestId('favorite-entity');
@@ -221,6 +225,40 @@ describe('EEDetailsPage', () => {
     expect(screen.getByTestId('favorite-entity').textContent).toContain(
       'ee-one',
     );
+  });
+
+  test('renders entity details (title, description, owner, tags, readme with OWNER name)', async () => {
+    const getEntityByRefImpl = jest.fn().mockImplementation(() => {
+      // title not set, so should show name
+      return Promise.resolve({ metadata: { name: 'team-b' } });
+    });
+
+    renderWithCatalogApi(() => Promise.resolve({ items: [entityFull] }), {
+      getEntityByRefImpl,
+    });
+
+    // wait for entity-specific UI
+    await screen.findByTestId('favorite-entity');
+
+    // Wait for owner name to be loaded asynchronously
+    expect(await screen.findByText('team-b')).toBeInTheDocument();
+  });
+
+  test('renders entity details (title, description, owner, tags, readme with OWNER ref)', async () => {
+    const getEntityByRefImpl = jest.fn().mockImplementation(() => {
+      // no title or name, so should show owner ref set in entity catalog descriptor
+      return Promise.resolve({ metadata: {} });
+    });
+
+    renderWithCatalogApi(() => Promise.resolve({ items: [entityFull] }), {
+      getEntityByRefImpl,
+    });
+
+    // wait for entity-specific UI
+    await screen.findByTestId('favorite-entity');
+
+    // Wait for owner name to be loaded asynchronously
+    expect(await screen.findByText('user:default/team-a')).toBeInTheDocument();
   });
 
   test('catalogApi.getEntities is invoked on mount', async () => {
