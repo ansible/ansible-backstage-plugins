@@ -27,10 +27,12 @@ export class AAPJobTemplateProvider implements EntityProvider {
   private readonly baseUrl: string;
   private readonly surveyEnabled: boolean | undefined;
   private readonly jobTemplateLabels: string[];
+  private readonly jobTemplateExcludeLabels: string[];
   private readonly logger: LoggerService;
   private readonly ansibleServiceRef: IAAPService;
   private readonly scheduleFn: () => Promise<void>;
   private connection?: EntityProviderConnection;
+  private lastSyncTime: string | null = null;
 
   static pluginLogName = 'plugin-catalog-rh-aap';
   static syncEntity = 'jobTemplates';
@@ -90,6 +92,7 @@ export class AAPJobTemplateProvider implements EntityProvider {
     this.baseUrl = config.baseUrl;
     this.surveyEnabled = config.surveyEnabled ?? undefined;
     this.jobTemplateLabels = config.jobTemplateLabels ?? [];
+    this.jobTemplateExcludeLabels = config.jobTemplateExcludeLabels ?? [];
     this.logger = logger.child({
       target: this.getProviderName(),
     });
@@ -134,6 +137,10 @@ export class AAPJobTemplateProvider implements EntityProvider {
     return `AAPJobTemplateProvider:${this.env}`;
   }
 
+  getLastSyncTime(): string | null {
+    return this.lastSyncTime;
+  }
+
   async run(): Promise<boolean> {
     if (!this.connection) {
       throw new NotFoundError('Not initialized');
@@ -151,6 +158,7 @@ export class AAPJobTemplateProvider implements EntityProvider {
       aapJobTemplates = await this.ansibleServiceRef.syncJobTemplates(
         this.surveyEnabled,
         this.jobTemplateLabels,
+        this.jobTemplateExcludeLabels,
       );
       this.logger.info(
         `[${AAPJobTemplateProvider.pluginLogName}]: Fetched ${aapJobTemplates.length} job templates.`,
@@ -191,6 +199,8 @@ export class AAPJobTemplateProvider implements EntityProvider {
           AAPJobTemplateProvider.pluginLogName
         }]: Refreshed ${this.getProviderName()}: ${jobTemplateCount} job templates added.`,
       );
+
+      this.lastSyncTime = new Date().toISOString();
     }
     return !error;
   }

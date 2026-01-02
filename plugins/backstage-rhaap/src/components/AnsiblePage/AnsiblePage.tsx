@@ -19,6 +19,7 @@ import { Header, Page, HeaderTabs, Content } from '@backstage/core-components';
 import { Navigate, Route, Routes, useNavigate, useParams } from 'react-router';
 import { Fab, Typography, makeStyles } from '@material-ui/core';
 import Comment from '@material-ui/icons/Comment';
+import { useApi, configApiRef } from '@backstage/core-plugin-api';
 
 import { EntityOverviewContent } from '../OverviewContent';
 import { EntityCatalogContent } from '../CatalogContent';
@@ -75,10 +76,14 @@ export const AnsiblePage = () => {
   const navigate = useNavigate();
   const param = useParams();
   const section = param['*'];
+  const config = useApi(configApiRef);
 
   const [open, setOpen] = useState(false);
   const handleOpen = () => setOpen(true);
   const handleClose = () => setOpen(false);
+
+  const feedbackEnabled =
+    config.getOptionalBoolean('ansible.feedback.enabled') ?? false;
 
   const selectedTabIndex = tabs.findIndex(item => item.nav === section);
   const [selectedTab, setSelectedTab] = useState<any>(0);
@@ -117,21 +122,25 @@ export const AnsiblePage = () => {
             <Route path="learn" element={<EntityLearnContent />} />
           </Route>
         </Routes>
-        <Fab
-          variant="extended"
-          size="small"
-          color="primary"
-          className={classes.feedback_btn}
-          onClick={handleOpen}
-          disableRipple
-        >
-          <Comment />
-          &nbsp;
-          <Typography component="span" className={classes.mb_2}>
-            Feedback
-          </Typography>
-        </Fab>
-        {open && <RatingsFeedbackModal handleClose={handleClose} />}
+        {feedbackEnabled && (
+          <>
+            <Fab
+              variant="extended"
+              size="small"
+              color="primary"
+              className={classes.feedback_btn}
+              onClick={handleOpen}
+              disableRipple
+            >
+              <Comment />
+              &nbsp;
+              <Typography component="span" className={classes.mb_2}>
+                Feedback
+              </Typography>
+            </Fab>
+            {open && <RatingsFeedbackModal handleClose={handleClose} />}
+          </>
+        )}
       </Content>
     </Page>
   );
