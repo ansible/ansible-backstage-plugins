@@ -132,9 +132,30 @@ export const EEListPage = ({
   const [allOwners, setAllOwners] = useState<string[]>(['All']);
   const [allTags, setAllTags] = useState<string[]>(['All']);
   const [filtered, setFiltered] = useState<boolean>(true);
+  const [ownerNames, setOwnerNames] = useState<Map<string, string>>(new Map());
   const { filters, updateFilters } = useEntityList();
 
   const isMountedRef = useRef(true);
+
+  const getOwnerName = useCallback(
+    async (ownerRef: string | undefined): Promise<string> => {
+      if (!ownerRef) return 'Unknown';
+      try {
+        const ownerEntity = await catalogApi.getEntityByRef(ownerRef);
+        // precedence: title >> name >> user reference >> unknown
+        return (
+          ownerEntity?.metadata?.title ??
+          ownerEntity?.metadata?.name ??
+          ownerRef ??
+          'Unknown'
+        );
+      } catch (error) {
+        // If API call fails, fallback to ownerRef
+        return ownerRef ?? 'Unknown';
+      }
+    },
+    [catalogApi],
+  );
 
   const getUniqueOwnersAndTags = useCallback((entities: Entity[]) => {
     const owners = Array.from(
@@ -154,6 +175,33 @@ export const EEListPage = ({
     );
     return { owners, tags };
   }, []);
+
+  const fetchOwnerNames = useCallback(
+    async (entities: Entity[]) => {
+      const ownerRefs = Array.from(
+        new Set(
+          entities
+            .map(e => e.spec?.owner)
+            .filter((owner): owner is string => Boolean(owner)),
+        ),
+      );
+
+      const namePromises = ownerRefs.map(async ownerRef => {
+        const name = await getOwnerName(ownerRef);
+        return [ownerRef, name] as [string, string];
+      });
+
+      const nameEntries = await Promise.all(namePromises);
+      if (isMountedRef.current) {
+        setOwnerNames(prev => {
+          const updated = new Map(prev);
+          nameEntries.forEach(([ref, name]) => updated.set(ref, name));
+          return updated;
+        });
+      }
+    },
+    [getOwnerName],
+  );
 
   const callApi = useCallback(() => {
     catalogApi
@@ -178,6 +226,7 @@ export const EEListPage = ({
         setAnsibleComponents(
           items.filter(item => item.metadata.tags?.includes('ansible')),
         );
+        fetchOwnerNames(items);
         setLoading(false);
         setShowError(false);
       })
@@ -191,7 +240,7 @@ export const EEListPage = ({
           setLoading(false);
         }
       });
-  }, [catalogApi, getUniqueOwnersAndTags]);
+  }, [catalogApi, getUniqueOwnersAndTags, fetchOwnerNames]);
 
   useEffect(() => {
     const filterData = allEntities.filter(d => {
@@ -270,7 +319,18 @@ export const EEListPage = ({
         );
       },
     },
-    { title: 'Owner', field: 'spec.owner', id: 'owner' },
+    {
+      title: 'Owner',
+      field: 'spec.owner',
+      id: 'owner',
+      render: (entity: any) => {
+        const ownerRef = entity.spec?.owner as string | undefined;
+        const ownerName = ownerRef
+          ? ownerNames.get(ownerRef) || ownerRef
+          : 'Unknown';
+        return <div>{ownerName}</div>;
+      },
+    },
     { title: 'Description', field: 'metadata.description', id: 'description' },
     {
       title: 'Tags',
