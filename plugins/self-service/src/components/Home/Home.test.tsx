@@ -385,4 +385,80 @@ describe('self-service', () => {
     // Test snackbar functionality exists
     expect(screen.getByText('Templates', { exact: true })).toBeInTheDocument();
   });
+
+  describe('HomeTagPicker', () => {
+    it('should render Tags filter', async () => {
+      const entityRefs = ['component:default/e1'];
+      const tags = ['tag1', 'tag2'];
+      mockCatalogApi.getEntityFacets.mockResolvedValue(
+        facetsFromEntityRefs(entityRefs, tags),
+      );
+
+      await render(<HomeComponent />);
+
+      await waitFor(() => {
+        expect(screen.getByText('Tags')).toBeInTheDocument();
+      });
+    });
+
+    it('should render TagFilterPicker with correct placeholder', async () => {
+      const entityRefs = ['component:default/e1'];
+      const tags = ['tag1', 'tag2'];
+      mockCatalogApi.getEntityFacets.mockResolvedValue(
+        facetsFromEntityRefs(entityRefs, tags),
+      );
+
+      await render(<HomeComponent />);
+
+      await waitFor(() => {
+        const tagsInputs = screen.getAllByPlaceholderText('Tags');
+        expect(tagsInputs.length).toBeGreaterThan(0);
+      });
+    });
+  });
+
+  describe('HomeCategoryPicker', () => {
+    it('should render Categories filter', async () => {
+      const entityRefs = ['component:default/e1'];
+      const tags = ['tag1'];
+      mockCatalogApi.getEntityFacets.mockResolvedValue(
+        facetsFromEntityRefs(entityRefs, tags),
+      );
+
+      await render(<HomeComponent />);
+
+      await waitFor(() => {
+        expect(screen.getByText('Categories')).toBeInTheDocument();
+      });
+    });
+
+    it('should render categories picker container', async () => {
+      const entityRefs = ['component:default/e1'];
+      const tags = ['tag1'];
+      mockCatalogApi.getEntityFacets.mockResolvedValue(
+        facetsFromEntityRefs(entityRefs, tags),
+      );
+
+      await render(<HomeComponent />);
+
+      await waitFor(() => {
+        expect(screen.getByTestId('categories-picker')).toBeInTheDocument();
+      });
+    });
+
+    it('should render TagFilterPicker with Categories placeholder', async () => {
+      const entityRefs = ['component:default/e1'];
+      const tags = ['tag1'];
+      mockCatalogApi.getEntityFacets.mockResolvedValue(
+        facetsFromEntityRefs(entityRefs, tags),
+      );
+
+      await render(<HomeComponent />);
+
+      await waitFor(() => {
+        const categoriesInput = screen.getByPlaceholderText('Categories');
+        expect(categoriesInput).toBeInTheDocument();
+      });
+    });
+  });
 });
