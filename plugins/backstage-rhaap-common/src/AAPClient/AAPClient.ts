@@ -819,6 +819,13 @@ export class AAPClient implements IAAPService {
           this.catalogConfig.jobTemplateLabels.join(','),
         );
       }
+
+      if (this.catalogConfig.jobTemplateExcludeLabels.length > 0) {
+        urlSearchParams.set(
+          'not__labels__name__in',
+          this.catalogConfig.jobTemplateExcludeLabels.join(','),
+        );
+      }
     }
 
     const endPoint = `api/controller/v2/${aapResource}/?${decodeURIComponent(urlSearchParams.toString())}`;
@@ -1235,6 +1242,7 @@ export class AAPClient implements IAAPService {
   async syncJobTemplates(
     surveyEnabled: boolean | undefined,
     jobTemplateLabels: string[],
+    jobTemplateExcludeLabels: string[] = [],
   ): Promise<
     {
       job: IJobTemplate;
@@ -1265,6 +1273,14 @@ export class AAPClient implements IAAPService {
     if (jobTemplateLabels.length > 0) {
       urlSearchParams.set('labels__name__in', jobTemplateLabels.join(','));
     }
+
+    if (jobTemplateExcludeLabels.length > 0) {
+      urlSearchParams.set(
+        'not__labels__name__in',
+        jobTemplateExcludeLabels.join(','),
+      );
+    }
+
     this.logger.info(`Fetching job templates from RH AAP.`);
     try {
       const token = this.ansibleConfig.rhaap?.token ?? null;

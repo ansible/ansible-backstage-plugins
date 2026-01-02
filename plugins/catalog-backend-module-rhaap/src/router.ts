@@ -19,13 +19,16 @@ import Router from 'express-promise-router';
 import { AAPJobTemplateProvider } from './providers/AAPJobTemplateProvider';
 import { AAPEntityProvider } from './providers/AAPEntityProvider';
 import { LoggerService } from '@backstage/backend-plugin-api';
+import { EEEntityProvider } from './providers/EEEntityProvider';
 
 export async function createRouter(options: {
   logger: LoggerService;
   aapEntityProvider: AAPEntityProvider;
   jobTemplateProvider: AAPJobTemplateProvider;
+  eeEntityProvider: EEEntityProvider;
 }): Promise<express.Router> {
-  const { logger, aapEntityProvider, jobTemplateProvider } = options;
+  const { logger, aapEntityProvider, jobTemplateProvider, eeEntityProvider } =
+    options;
   const router = Router();
 
   // Note: Don't apply express.json() globally to avoid conflicts with catalog backend
@@ -46,6 +49,28 @@ export async function createRouter(options: {
     logger.info('Starting job templates sync');
     const res = await jobTemplateProvider.run();
     response.status(200).json(res);
+  });
+
+  router.get('/aap/sync_status', async (_, response) => {
+    logger.info('Getting sync status');
+    try {
+      const orgsUsersTeamsLastSync = aapEntityProvider.getLastSyncTime();
+      const jobTemplatesLastSync = jobTemplateProvider.getLastSyncTime();
+
+      response.status(200).json({
+        orgsUsersTeams: { lastSync: orgsUsersTeamsLastSync },
+        jobTemplates: { lastSync: jobTemplatesLastSync },
+      });
+    } catch (error) {
+      const errorMessage =
+        error instanceof Error ? error.message : String(error);
+      logger.error(`Failed to get sync status: ${errorMessage}`);
+      response.status(500).json({
+        error: `Failed to get sync status: ${errorMessage}`,
+        orgsUsersTeams: { lastSync: null },
+        jobTemplates: { lastSync: null },
+      });
+    }
   });
 
   router.post('/aap/create_user', express.json(), async (request, response) => {
@@ -82,7 +107,7 @@ export async function createRouter(options: {
     }
 
     try {
-      await aapEntityProvider.registerExecutionEnvironment(entity);
+      await eeEntityProvider.registerExecutionEnvironment(entity);
       response.status(200).json({ success: true });
     } catch (error) {
       const errorMessage =

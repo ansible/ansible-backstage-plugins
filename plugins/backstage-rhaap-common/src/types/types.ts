@@ -133,6 +133,10 @@ export type CreatorService = {
   port: string;
 };
 
+export type FeedbackConfig = {
+  enabled?: boolean;
+};
+
 export type RHAAPConfig = {
   baseUrl?: string;
   token?: string;
@@ -144,6 +148,7 @@ export type CatalogConfig = {
   organizations: string[];
   surveyEnabled: boolean | undefined;
   jobTemplateLabels: string[];
+  jobTemplateExcludeLabels: string[];
 };
 
 export type AnsibleConfig = {
@@ -154,6 +159,7 @@ export type AnsibleConfig = {
   githubIntegration?: GithubIntegrationConfig;
   gitlabIntegration?: GitLabIntegrationConfig;
   creatorService?: CreatorService;
+  feedback?: FeedbackConfig;
 };
 
 export type CreatedTemplate = {
