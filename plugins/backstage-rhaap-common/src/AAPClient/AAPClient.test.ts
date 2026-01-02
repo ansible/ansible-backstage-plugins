@@ -2145,6 +2145,68 @@ describe('AAPClient', () => {
           expect.any(Object),
         );
       });
+
+      it('should handle job_templates resource with exclude labels', async () => {
+        const mockExcludeLabelCatalogConfig = {
+          keys: jest.fn().mockReturnValue(['development']),
+          getConfig: jest.fn().mockImplementation((key: string) => {
+            if (key === 'development') {
+              return {
+                getString: jest.fn().mockImplementation((path: string) => {
+                  if (path === 'orgs') {
+                    return 'TestOrg';
+                  }
+                  throw new Error(`No value for ${path}`);
+                }),
+                getStringArray: jest.fn().mockImplementation((path: string) => {
+                  if (path === 'orgs') {
+                    return ['TestOrg'];
+                  }
+                  throw new Error(`No value for ${path}`);
+                }),
+                getOptionalBoolean: jest.fn().mockReturnValue(false),
+                getOptionalStringArray: jest
+                  .fn()
+                  .mockImplementation((labelKey: string) => {
+                    if (labelKey === 'sync.jobTemplates.excludeLabels') {
+                      return ['exclude1', 'Exclude2'];
+                    }
+                    return [];
+                  }),
+              };
+            }
+            throw new Error(`No config for key ${key}`);
+          }),
+        };
+
+        const mockExcludeLabelConfig = {
+          ...mockConfig,
+          getOptionalConfig: jest.fn().mockImplementation((path: string) => {
+            if (path === 'catalog.providers.rhaap') {
+              return mockExcludeLabelCatalogConfig;
+            }
+            return mockConfig.getOptionalConfig(path);
+          }),
+        };
+
+        const excludeLabelClient = new AAPClient({
+          rootConfig: mockExcludeLabelConfig,
+          logger: mockLogger,
+        });
+
+        const mockResponse = {
+          ok: true,
+          json: jest.fn().mockResolvedValue({ results: [{ id: 1 }] }),
+        };
+        mockFetch.mockResolvedValue(mockResponse);
+
+        await excludeLabelClient.getResourceData('job_templates', 'test-token');
+
+        expect(mockFetch).toHaveBeenCalledWith(
+          expect.stringContaining('not__labels__name__in=exclude1,Exclude2'),
+          expect.any(Object),
+        );
+      });
     });
 
     describe('getJobTemplatesByName', () => {
@@ -2839,6 +2901,29 @@ describe('AAPClient', () => {
           'label1',
           'Label2',
         ]);
+        expect(result).toEqual([
+          {
+            job: mockJobTemplateResponse[0],
+            survey: { results: [] },
+            instanceGroup: [],
+          },
+        ]);
+      });
+
+      it('should fetch job templates with exclude labels from AAP', async () => {
+        jest
+          .spyOn(client as any, 'executeCatalogRequest')
+          .mockResolvedValueOnce(mockJobTemplateResponse);
+        jest.spyOn(client as any, 'executeGetRequest').mockResolvedValueOnce({
+          ok: true,
+          json: jest.fn().mockResolvedValue({ results: [] }),
+        });
+
+        const result = await client.syncJobTemplates(
+          false,
+          [],
+          ['exclude1', 'Exclude2'],
+        );
         expect(result).toEqual([
           {
             job: mockJobTemplateResponse[0],

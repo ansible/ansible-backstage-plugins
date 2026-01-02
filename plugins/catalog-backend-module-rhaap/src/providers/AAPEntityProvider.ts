@@ -32,6 +32,7 @@ export class AAPEntityProvider implements EntityProvider {
   private readonly ansibleServiceRef: IAAPService;
   private readonly scheduleFn: () => Promise<void>;
   private connection?: EntityProviderConnection;
+  private lastSyncTime: string | null = null;
 
   static pluginLogName = 'plugin-catalog-rhaap';
   static syncEntity = 'orgsUsersTeams';
@@ -134,6 +135,10 @@ export class AAPEntityProvider implements EntityProvider {
 
   getProviderName(): string {
     return `AapEntityProvider:${this.env}`;
+  }
+
+  getLastSyncTime(): string | null {
+    return this.lastSyncTime;
   }
 
   async run(): Promise<boolean> {
@@ -387,6 +392,8 @@ export class AAPEntityProvider implements EntityProvider {
           AAPEntityProvider.pluginLogName
         }]: Refreshed ${this.getProviderName()}: ${usersCount} users added.`,
       );
+
+      this.lastSyncTime = new Date().toISOString();
     }
     return !error;
   }
@@ -627,35 +634,4 @@ export class AAPEntityProvider implements EntityProvider {
 
   // Note: Admin access is now handled via dynamic aap-admins group membership
   // No separate API-based assignment needed
-
-  async registerExecutionEnvironment(entity: any): Promise<void> {
-    if (!this.connection) {
-      throw new Error('AAPEntityProvider is not connected yet');
-    }
-
-    if (!entity.metadata?.name) {
-      throw new Error(
-        'Name [metadata.name] is required for Execution Environment registration',
-      );
-    }
-
-    if (!entity.spec?.type || entity.spec.type !== 'execution-environment') {
-      throw new Error(
-        'Type [spec.type] must be "execution-environment" for Execution Environment registration',
-      );
-    }
-
-    this.logger.info(`Registering entity ${entity.metadata?.name}`);
-
-    await this.connection.applyMutation({
-      type: 'delta',
-      added: [
-        {
-          entity,
-          locationKey: this.getProviderName(),
-        },
-      ],
-      removed: [],
-    });
-  }
 }
