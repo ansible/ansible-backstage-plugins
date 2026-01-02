@@ -139,6 +139,23 @@ export const EEDetailsPage: React.FC = () => {
   const discoveryApi = useApi(discoveryApiRef);
   const identityApi = useApi(identityApiRef);
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [ownerName, setOwnerName] = useState<string | null>(null);
+
+  const getOwnerName = useCallback(async () => {
+    if (!entity?.spec?.owner) return 'Unknown';
+    const ownerEntity = await catalogApi.getEntityByRef(entity?.spec?.owner);
+    // precedence: title >> name >> user reference >> unknown
+    return (
+      ownerEntity?.metadata?.title ??
+      ownerEntity?.metadata?.name ??
+      entity?.spec?.owner ??
+      'Unknown'
+    );
+  }, [entity, catalogApi]);
+
+  useEffect(() => {
+    getOwnerName().then(name => setOwnerName(name));
+  }, [getOwnerName]);
 
   const callApi = useCallback(() => {
     catalogApi
@@ -450,14 +467,6 @@ export const EEDetailsPage: React.FC = () => {
     setIsRefreshing(!isRefreshing);
     setDefaultReadme('');
   };
-
-  function generateUrlFromTargetRef() {
-    if (entity && entity.relations && entity.relations.length <= 0) return null;
-    const targetRef = entity?.relations[0]?.targetRef || '';
-    const [kind, rest] = targetRef.split(':');
-    const [namespace, name] = rest.split('/');
-    return `/catalog/${namespace}/${kind}/${name}`;
-  }
 
   const handleUnregisterConfirm = () => {
     setMenuId('');
@@ -806,27 +815,8 @@ export const EEDetailsPage: React.FC = () => {
                       style={{ color: 'gray', fontWeight: 600 }}
                     >
                       OWNER
-                    </Typography>
-                    <Typography
-                      variant="body2"
-                      style={{
-                        color: theme.palette.primary.main,
-                        cursor: 'pointer',
-                      }}
-                    >
-                      {' '}
-                      <button
-                        className={classes.ownerButton}
-                        onClick={() => {
-                          const path = generateUrlFromTargetRef();
-                          if (path) navigate(path);
-                        }}
-                      >
-                        {entity?.spec?.owner ??
-                          entity?.metadata?.namespace ??
-                          'Unknown'}
-                      </button>
-                    </Typography>
+                    </Typography>{' '}
+                    <Typography variant="body2">{ownerName}</Typography>
                   </Box>
                   <Box marginTop={2}>
                     <Typography
