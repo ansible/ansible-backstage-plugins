@@ -808,6 +808,31 @@ describe('StepForm', () => {
         expect(screen.getByText('name')).toBeInTheDocument();
       });
     });
+
+    it('shows None when a step is skipped without any values', async () => {
+      const steps = [
+        {
+          title: 'Step 1',
+          schema: {
+            properties: {
+              name: { type: 'string', title: 'Name' },
+            },
+          },
+        },
+      ];
+
+      jest
+        .spyOn(require('./ScaffolderFormWrapper'), 'ScaffolderForm')
+        .mockImplementation(createScaffolderFormMock({}));
+
+      render(<StepForm steps={steps} submitFunction={submitFunction} />);
+
+      fireEvent.click(screen.getByText('Submit'));
+
+      await waitFor(() => {
+        expect(screen.getByText('None')).toBeInTheDocument();
+      });
+    });
   });
 
   describe('Edge cases', () => {

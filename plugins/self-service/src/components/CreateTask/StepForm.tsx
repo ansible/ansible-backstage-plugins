@@ -384,13 +384,8 @@ export const StepForm = ({
                   <TableBody style={{ border: 0 }}>
                     {steps.flatMap((step, stepIndex) => {
                       const allProperties = getAllProperties(step);
-                      return [
-                        <TableRow key={`${stepIndex}-title`}>
-                          <TableCell colSpan={2} style={{ border: 0 }}>
-                            <strong>{step.title}</strong>
-                          </TableCell>
-                        </TableRow>,
-                        ...Object.entries(allProperties).flatMap(([key, _]) => {
+                      const propertyRows = Object.entries(allProperties).flatMap(
+                        ([key, _]) => {
                           if (key === 'token') {
                             return [];
                           }
@@ -408,15 +403,35 @@ export const StepForm = ({
                           const label = getLabel(key, stepIndex);
                           return (
                             <TableRow key={`${stepIndex}-${key}`}>
-                              <TableCell style={{ border: 0 }}>
-                                {label}
-                              </TableCell>
+                              <TableCell style={{ border: 0 }}>{label}</TableCell>
                               <TableCell style={{ border: 0 }}>
                                 {getReviewValue(key, stepIndex)}
                               </TableCell>
                             </TableRow>
                           );
-                        }),
+                        },
+                      );
+
+                      const hasNoValues = propertyRows.length === 0;
+
+                      return [
+                        <TableRow key={`${stepIndex}-title`}>
+                          <TableCell style={{ border: 0 }}>
+                            <strong>{step.title}</strong>
+                          </TableCell>
+                          <TableCell
+                            style={{
+                              border: 0,
+                              color: hasNoValues
+                                ? 'rgba(128, 128, 128, 0.8)'
+                                : 'inherit',
+                              fontStyle: hasNoValues ? 'italic' : 'normal',
+                            }}
+                          >
+                            {hasNoValues ? 'None' : ''}
+                          </TableCell>
+                        </TableRow>,
+                        ...propertyRows,
                       ];
                     })}
                   </TableBody>
