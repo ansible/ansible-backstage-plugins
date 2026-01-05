@@ -292,7 +292,7 @@ describe('StepForm', () => {
   });
 
   describe('getAllProperties with dependencies', () => {
-    it('includes properties from dependencies oneOf', () => {
+    it('includes properties from dependencies oneOf', async () => {
       const steps = [
         {
           title: 'Step with Dependencies',
@@ -326,8 +326,11 @@ describe('StepForm', () => {
 
       fireEvent.click(screen.getByText('Submit'));
 
-      waitFor(() => {
-        expect(screen.getByText('Step with Dependencies')).toBeInTheDocument();
+      await waitFor(() => {
+        // Text appears in both stepper label and review table
+        expect(
+          screen.getAllByText('Step with Dependencies').length,
+        ).toBeGreaterThan(0);
       });
     });
   });
