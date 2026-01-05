@@ -384,33 +384,33 @@ export const StepForm = ({
                   <TableBody style={{ border: 0 }}>
                     {steps.flatMap((step, stepIndex) => {
                       const allProperties = getAllProperties(step);
-                      const propertyRows = Object.entries(allProperties).flatMap(
-                        ([key, _]) => {
-                          if (key === 'token') {
-                            return [];
-                          }
-                          const value = formData[key];
-                          if (
-                            value === undefined ||
-                            value === null ||
-                            value === ''
-                          ) {
-                            return [];
-                          }
-                          if (Array.isArray(value) && value.length === 0) {
-                            return [];
-                          }
-                          const label = getLabel(key, stepIndex);
-                          return (
-                            <TableRow key={`${stepIndex}-${key}`}>
-                              <TableCell style={{ border: 0 }}>{label}</TableCell>
-                              <TableCell style={{ border: 0 }}>
-                                {getReviewValue(key, stepIndex)}
-                              </TableCell>
-                            </TableRow>
-                          );
-                        },
-                      );
+                      const propertyRows = Object.entries(
+                        allProperties,
+                      ).flatMap(([key, _]) => {
+                        if (key === 'token') {
+                          return [];
+                        }
+                        const value = formData[key];
+                        if (
+                          value === undefined ||
+                          value === null ||
+                          value === ''
+                        ) {
+                          return [];
+                        }
+                        if (Array.isArray(value) && value.length === 0) {
+                          return [];
+                        }
+                        const label = getLabel(key, stepIndex);
+                        return (
+                          <TableRow key={`${stepIndex}-${key}`}>
+                            <TableCell style={{ border: 0 }}>{label}</TableCell>
+                            <TableCell style={{ border: 0 }}>
+                              {getReviewValue(key, stepIndex)}
+                            </TableCell>
+                          </TableRow>
+                        );
+                      });
 
                       const hasNoValues = propertyRows.length === 0;
 
