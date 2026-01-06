@@ -1,4 +1,3 @@
-import { useState } from 'react';
 import { Box, Checkbox, TextField, Typography } from '@material-ui/core';
 import Autocomplete from '@material-ui/lab/Autocomplete';
 import CheckBoxOutlineBlankIcon from '@material-ui/icons/CheckBoxOutlineBlank';
@@ -10,6 +9,7 @@ const checkedIcon = <CheckBoxIcon fontSize="small" />;
 interface TagFilterPickerProps {
   label: string;
   options: string[];
+  value: string[];
   onChange: (selectedValues: string[]) => void;
   placeholder?: string;
   noOptionsText?: string;
@@ -18,14 +18,12 @@ interface TagFilterPickerProps {
 export const TagFilterPicker = ({
   label,
   options,
+  value,
   onChange,
   placeholder,
   noOptionsText = 'No options available',
 }: TagFilterPickerProps) => {
-  const [selectedValues, setSelectedValues] = useState<string[]>([]);
-
   const handleChange = (_event: any, newValue: string[]) => {
-    setSelectedValues(newValue);
     onChange(newValue);
   };
 
@@ -42,7 +40,7 @@ export const TagFilterPicker = ({
         multiple
         options={options}
         disableCloseOnSelect
-        value={selectedValues}
+        value={value}
         onChange={handleChange}
         getOptionLabel={option => option}
         renderOption={(option, { selected }) => (

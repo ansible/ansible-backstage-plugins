@@ -51,6 +51,7 @@ const useStyles = makeStyles(theme => ({
 
 const EETagPicker = () => {
   const { backendEntities, filters, updateFilters } = useEntityList();
+  const selectedTags = (filters.tags as EntityTagFilter)?.values ?? [];
 
   const availableTags = useMemo(() => {
     const tagSet = new Set<string>();
@@ -80,6 +81,7 @@ const EETagPicker = () => {
     <TagFilterPicker
       label="Tags"
       options={availableTags}
+      value={selectedTags}
       onChange={handleTagChange}
     />
   );

@@ -16,6 +16,7 @@ import {
   EntityOwnerPicker,
   EntitySearchBar,
   EntityTagFilter,
+  EntityTypeFilter,
   UserListPicker,
   useEntityList,
 } from '@backstage/plugin-catalog-react';
@@ -70,6 +71,7 @@ const HomeTagPicker = ({
   jobTemplates: { id: number; name: string }[];
 }) => {
   const { backendEntities, filters, updateFilters } = useEntityList();
+  const selectedTags = (filters.tags as EntityTagFilter)?.values ?? [];
 
   const availableTags = useMemo(() => {
     const tagSet = new Set<string>();
@@ -95,6 +97,7 @@ const HomeTagPicker = ({
     <TagFilterPicker
       label="Tags"
       options={availableTags}
+      value={selectedTags}
       onChange={handleTagChange}
       noOptionsText="No tags available"
     />
@@ -106,10 +109,14 @@ const HomeCategoryPicker = ({
 }: {
   jobTemplates: { id: number; name: string }[];
 }) => {
-  const { backendEntities } = useEntityList();
+  const { backendEntities, filters, updateFilters } = useEntityList();
+  const [allCategories, setAllCategories] = useState<string[]>([]);
 
-  const availableCategories = useMemo(() => {
-    const categorySet = new Set<string>();
+  const selectedCategories =
+    (filters.type as EntityTypeFilter)?.getTypes() ?? [];
+
+  useEffect(() => {
+    const categorySet = new Set<string>(allCategories);
     for (const entity of backendEntities) {
       const templateEntity = entity as TemplateEntityV1beta3;
       if (isHomePageTemplate(templateEntity, jobTemplates)) {
@@ -119,14 +126,27 @@ const HomeCategoryPicker = ({
         }
       }
     }
-    return Array.from(categorySet).sort((a, b) => a.localeCompare(b));
-  }, [backendEntities, jobTemplates]);
+    const newCategories = Array.from(categorySet).sort((a, b) =>
+      a.localeCompare(b),
+    );
+    if (newCategories.length !== allCategories.length) {
+      setAllCategories(newCategories);
+    }
+  }, [backendEntities, jobTemplates, allCategories]);
+
+  const handleCategoryChange = (newValue: string[]) => {
+    updateFilters({
+      ...filters,
+      type: newValue.length > 0 ? new EntityTypeFilter(newValue) : undefined,
+    });
+  };
 
   return (
     <TagFilterPicker
       label="Categories"
-      options={availableCategories}
-      onChange={() => {}}
+      options={allCategories}
+      value={selectedCategories}
+      onChange={handleCategoryChange}
       noOptionsText="No categories available"
     />
   );

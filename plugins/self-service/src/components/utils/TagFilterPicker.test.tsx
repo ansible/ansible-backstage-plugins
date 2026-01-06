@@ -13,6 +13,7 @@ describe('TagFilterPicker', () => {
       <TagFilterPicker
         label="Tags"
         options={['tag1', 'tag2']}
+        value={[]}
         onChange={mockOnChange}
       />,
     );
@@ -25,6 +26,7 @@ describe('TagFilterPicker', () => {
       <TagFilterPicker
         label="Tags"
         options={['tag1', 'tag2']}
+        value={[]}
         onChange={mockOnChange}
         placeholder="Select tags..."
       />,
@@ -38,6 +40,7 @@ describe('TagFilterPicker', () => {
       <TagFilterPicker
         label="Tags"
         options={['tag1', 'tag2']}
+        value={[]}
         onChange={mockOnChange}
       />,
     );
@@ -50,6 +53,7 @@ describe('TagFilterPicker', () => {
       <TagFilterPicker
         label="Tags"
         options={['tag1', 'tag2', 'tag3']}
+        value={[]}
         onChange={mockOnChange}
       />,
     );
@@ -71,6 +75,7 @@ describe('TagFilterPicker', () => {
       <TagFilterPicker
         label="Tags"
         options={['tag1', 'tag2']}
+        value={[]}
         onChange={mockOnChange}
       />,
     );
@@ -89,33 +94,18 @@ describe('TagFilterPicker', () => {
     });
   });
 
-  it('should allow multiple selections', async () => {
+  it('should display selected values as chips', async () => {
     render(
       <TagFilterPicker
         label="Tags"
         options={['tag1', 'tag2', 'tag3']}
+        value={['tag1', 'tag2']}
         onChange={mockOnChange}
       />,
     );
 
-    const input = screen.getByPlaceholderText('Tags');
-    fireEvent.mouseDown(input);
-
-    await waitFor(() => {
-      expect(screen.getByRole('listbox')).toBeInTheDocument();
-    });
-
-    fireEvent.click(screen.getByText('tag1'));
-
-    await waitFor(() => {
-      expect(mockOnChange).toHaveBeenCalledWith(['tag1']);
-    });
-
-    fireEvent.click(screen.getByText('tag2'));
-
-    await waitFor(() => {
-      expect(mockOnChange).toHaveBeenCalledWith(['tag1', 'tag2']);
-    });
+    expect(screen.getByText('tag1')).toBeInTheDocument();
+    expect(screen.getByText('tag2')).toBeInTheDocument();
   });
 
   it('should display custom noOptionsText when no options available', async () => {
@@ -123,6 +113,7 @@ describe('TagFilterPicker', () => {
       <TagFilterPicker
         label="Tags"
         options={[]}
+        value={[]}
         onChange={mockOnChange}
         noOptionsText="No tags found"
       />,
@@ -138,7 +129,12 @@ describe('TagFilterPicker', () => {
 
   it('should display default noOptionsText when no custom text provided', async () => {
     render(
-      <TagFilterPicker label="Tags" options={[]} onChange={mockOnChange} />,
+      <TagFilterPicker
+        label="Tags"
+        options={[]}
+        value={[]}
+        onChange={mockOnChange}
+      />,
     );
 
     const input = screen.getByPlaceholderText('Tags');
@@ -154,6 +150,7 @@ describe('TagFilterPicker', () => {
       <TagFilterPicker
         label="Tags"
         options={['tag1', 'tag2']}
+        value={[]}
         onChange={mockOnChange}
       />,
     );
@@ -174,6 +171,7 @@ describe('TagFilterPicker', () => {
       <TagFilterPicker
         label="Tags"
         options={['tag1', 'tag2', 'tag3']}
+        value={[]}
         onChange={mockOnChange}
       />,
     );
@@ -200,6 +198,7 @@ describe('TagFilterPicker', () => {
       <TagFilterPicker
         label="Custom Label"
         options={['option1']}
+        value={[]}
         onChange={mockOnChange}
       />,
     );
@@ -207,5 +206,29 @@ describe('TagFilterPicker', () => {
     const label = screen.getByText('Custom Label');
     expect(label).toBeInTheDocument();
     expect(label.tagName.toLowerCase()).toBe('label');
+  });
+
+  it('should be a controlled component', () => {
+    const { rerender } = render(
+      <TagFilterPicker
+        label="Tags"
+        options={['tag1', 'tag2']}
+        value={[]}
+        onChange={mockOnChange}
+      />,
+    );
+
+    expect(screen.queryByText('tag1')).not.toBeInTheDocument();
+
+    rerender(
+      <TagFilterPicker
+        label="Tags"
+        options={['tag1', 'tag2']}
+        value={['tag1']}
+        onChange={mockOnChange}
+      />,
+    );
+
+    expect(screen.getByText('tag1')).toBeInTheDocument();
   });
 });
