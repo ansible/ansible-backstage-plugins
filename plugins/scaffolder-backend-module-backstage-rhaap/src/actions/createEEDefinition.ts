@@ -56,7 +56,8 @@ const MCPSERVER_VARS = [
     role: 'common',
     vars: {
       common_mcp_base_path: '/opt/mcp',
-      common_golang_version: 1.25,
+      common_runtime_user: '1000',
+      common_golang_version: '1.25.4',
       common_nodejs_min_version: 20,
       common_system_bin_path: '/usr/local/bin',
       common_uv_installer_url: 'https://astral.sh/uv/install.sh',
