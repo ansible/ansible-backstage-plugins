@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router';
 import {
   Button,
@@ -15,13 +15,12 @@ import {
   EntityListProvider,
   EntityOwnerPicker,
   EntitySearchBar,
-  EntityTagPicker,
+  EntityTagFilter,
+  EntityTypeFilter,
   UserListPicker,
+  useEntityList,
 } from '@backstage/plugin-catalog-react';
-import {
-  TemplateCategoryPicker,
-  TemplateGroups,
-} from '@backstage/plugin-scaffolder-react/alpha';
+import { TemplateGroups } from '@backstage/plugin-scaffolder-react/alpha';
 import { usePermission } from '@backstage/plugin-permission-react';
 import { catalogEntityCreatePermission } from '@backstage/plugin-catalog-common/alpha';
 
@@ -35,6 +34,7 @@ import OpenInNew from '@material-ui/icons/OpenInNew';
 import { TemplateEntityV1beta3 } from '@backstage/plugin-scaffolder-common';
 import { SkeletonLoader } from './SkeletonLoader';
 import { scaffolderApiRef } from '@backstage/plugin-scaffolder-react';
+import { TagFilterPicker } from '../utils/TagFilterPicker';
 
 const headerStyles = makeStyles(theme => ({
   header_title_color: {
@@ -50,6 +50,107 @@ const headerStyles = makeStyles(theme => ({
     lineHeight: 1.57,
   },
 }));
+
+const isHomePageTemplate = (
+  entity: TemplateEntityV1beta3,
+  jobTemplates: { id: number; name: string }[],
+): boolean => {
+  if (entity.spec?.type?.includes('execution-environment')) {
+    return false;
+  }
+  return jobTemplates.some(({ id }) =>
+    entity.metadata.aapJobTemplateId
+      ? id === entity.metadata.aapJobTemplateId
+      : true,
+  );
+};
+
+const HomeTagPicker = ({
+  jobTemplates,
+}: {
+  jobTemplates: { id: number; name: string }[];
+}) => {
+  const { backendEntities, filters, updateFilters } = useEntityList();
+  const selectedTags = (filters.tags as EntityTagFilter)?.values ?? [];
+
+  const availableTags = useMemo(() => {
+    const tagSet = new Set<string>();
+    for (const entity of backendEntities) {
+      const templateEntity = entity as TemplateEntityV1beta3;
+      if (isHomePageTemplate(templateEntity, jobTemplates)) {
+        for (const tag of entity.metadata?.tags || []) {
+          tagSet.add(tag);
+        }
+      }
+    }
+    return Array.from(tagSet).sort((a, b) => a.localeCompare(b));
+  }, [backendEntities, jobTemplates]);
+
+  const handleTagChange = (newValue: string[]) => {
+    updateFilters({
+      ...filters,
+      tags: newValue.length > 0 ? new EntityTagFilter(newValue) : undefined,
+    });
+  };
+
+  return (
+    <TagFilterPicker
+      label="Tags"
+      options={availableTags}
+      value={selectedTags}
+      onChange={handleTagChange}
+      noOptionsText="No tags available"
+    />
+  );
+};
+
+const HomeCategoryPicker = ({
+  jobTemplates,
+}: {
+  jobTemplates: { id: number; name: string }[];
+}) => {
+  const { backendEntities, filters, updateFilters } = useEntityList();
+  const [allCategories, setAllCategories] = useState<string[]>([]);
+
+  const selectedCategories =
+    (filters.type as EntityTypeFilter)?.getTypes() ?? [];
+
+  useEffect(() => {
+    const categorySet = new Set<string>(allCategories);
+    for (const entity of backendEntities) {
+      const templateEntity = entity as TemplateEntityV1beta3;
+      if (isHomePageTemplate(templateEntity, jobTemplates)) {
+        const type = templateEntity.spec?.type;
+        if (type) {
+          categorySet.add(type);
+        }
+      }
+    }
+    const newCategories = Array.from(categorySet).sort((a, b) =>
+      a.localeCompare(b),
+    );
+    if (newCategories.length !== allCategories.length) {
+      setAllCategories(newCategories);
+    }
+  }, [backendEntities, jobTemplates, allCategories]);
+
+  const handleCategoryChange = (newValue: string[]) => {
+    updateFilters({
+      ...filters,
+      type: newValue.length > 0 ? new EntityTypeFilter(newValue) : undefined,
+    });
+  };
+
+  return (
+    <TagFilterPicker
+      label="Categories"
+      options={allCategories}
+      value={selectedCategories}
+      onChange={handleCategoryChange}
+      noOptionsText="No categories available"
+    />
+  );
+};
 
 export const HomeComponent = () => {
   const classes = headerStyles();
@@ -255,9 +356,9 @@ export const HomeComponent = () => {
                 />
               </div>
               <div data-testid="categories-picker">
-                <TemplateCategoryPicker />
+                <HomeCategoryPicker jobTemplates={jobTemplates} />
               </div>
-              <EntityTagPicker />
+              <HomeTagPicker jobTemplates={jobTemplates} />
               <EntityOwnerPicker />
             </CatalogFilterLayout.Filters>
             <CatalogFilterLayout.Content>
