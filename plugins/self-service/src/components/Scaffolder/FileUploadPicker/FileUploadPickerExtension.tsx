@@ -71,7 +71,11 @@ export const FileUploadPickerExtension = ({
   const customDescription =
     uiSchema?.['ui:options']?.description || schema?.description;
 
-  const fileInputId = `file-upload-input-${Math.random().toString(36).substring(2, 11)}`;
+  const fileInputId = `file-upload-input-${
+    typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function'
+      ? crypto.randomUUID().toString().replaceAll('-', '').substring(2, 11)
+      : Date.now().toString(36).substring(2, 11)
+  }`;
 
   const storageKey = `file-upload-filename-${schema?.title || 'default'}`;
 
