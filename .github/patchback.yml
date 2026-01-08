@@ -1,0 +1,13 @@
+---
+# Patchback configuration for automated PR backporting
+# See: https://github.com/apps/patchback
+# Docs: https://github.com/sanitizers/patchback-github-app
+#
+# Usage:
+#   1. Merge a PR to main
+#   2. Add label "backport-2.1" to backport to release-2.1
+#   3. Patchback will automatically create a backport PR
+#
+backport_branch_prefix: patchback/backports/
+backport_label_prefix: backport-
+target_branch_prefix: release-
