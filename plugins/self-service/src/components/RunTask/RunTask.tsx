@@ -30,7 +30,7 @@ import {
 import GetAppIcon from '@material-ui/icons/GetApp';
 import ArrowBack from '@material-ui/icons/ArrowBack';
 import { selectedTemplateRouteRef } from '../../routes';
-import { createTarArchive } from '../../utils/tarArchiveUtils';
+import { createTarArchive } from '../utils/tarArchiveUtils';
 
 const headerStyles = makeStyles(theme => ({
   header_title_color: {

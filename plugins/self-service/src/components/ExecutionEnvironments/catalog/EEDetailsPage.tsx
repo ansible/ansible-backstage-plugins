@@ -19,7 +19,7 @@ import { LinksCard } from './LinksCard';
 import { AboutCard } from './AboutCard';
 import { ReadmeCard } from './ReadmeCard';
 import { EntityNotFound } from './EntityNotFound';
-import { createTarArchive } from '../../../utils/tarArchiveUtils';
+import { createTarArchive } from '../../utils/tarArchiveUtils';
 
 export const EEDetailsPage: React.FC = () => {
   const { templateName } = useParams<{ templateName: string }>();
