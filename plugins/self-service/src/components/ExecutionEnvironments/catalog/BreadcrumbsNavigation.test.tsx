@@ -67,7 +67,7 @@ describe('BreadcrumbsNavigation', () => {
     // Check that breadcrumb structure exists
     const breadcrumbs = container.querySelector('nav');
     expect(breadcrumbs).toBeInTheDocument();
-    
+
     // Verify other breadcrumb items are still present
     expect(
       screen.getByText('Execution environment definition files'),

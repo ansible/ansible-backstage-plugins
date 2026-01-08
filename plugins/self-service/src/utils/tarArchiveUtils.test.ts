@@ -57,7 +57,7 @@ describe('tarArchiveUtils', () => {
       const nameBytes = result.slice(0, 100);
       const decoder = new TextDecoder();
       const storedName = decoder.decode(nameBytes).replace(/\0/g, '');
-      
+
       expect(storedName).toBe('myfile.txt');
     });
 
@@ -89,7 +89,7 @@ describe('tarArchiveUtils', () => {
       const nameBytes = result.slice(0, 100);
       const decoder = new TextDecoder();
       const storedName = decoder.decode(nameBytes).replace(/\0/g, '');
-      
+
       expect(storedName).toBe('test-file_v2.0.yaml');
     });
 
@@ -117,13 +117,13 @@ describe('tarArchiveUtils', () => {
       // Last 1024 bytes (two 512-byte blocks) should be all zeros
       const lastTwoBlocks = result.slice(-1024);
       const allZeros = lastTwoBlocks.every(byte => byte === 0);
-      
+
       expect(allZeros).toBe(true);
     });
 
     it('creates consistent output for same input', () => {
       const files = [{ name: 'test.txt', content: 'consistent' }];
-      
+
       const result1 = createTarArchive(files);
       const result2 = createTarArchive(files);
 
@@ -150,7 +150,7 @@ describe('tarArchiveUtils', () => {
       const modeBytes = result.slice(100, 108);
       const decoder = new TextDecoder();
       const modeStr = decoder.decode(modeBytes).replace(/\0/g, '').trim();
-      
+
       // Should be "000644 " or similar (octal representation)
       expect(modeStr).toContain('644');
     });
@@ -168,9 +168,7 @@ describe('tarArchiveUtils', () => {
     });
 
     it('handles newlines in content', () => {
-      const files = [
-        { name: 'multiline.txt', content: 'line1\nline2\nline3' },
-      ];
+      const files = [{ name: 'multiline.txt', content: 'line1\nline2\nline3' }];
       const result = createTarArchive(files);
 
       expect(result).toBeInstanceOf(Uint8Array);
@@ -202,7 +200,7 @@ describe('tarArchiveUtils', () => {
       // Checksum is at offset 148-155
       const checksumBytes = result.slice(148, 155);
       const hasChecksum = checksumBytes.some(byte => byte !== 0);
-      
+
       expect(hasChecksum).toBe(true);
     });
   });

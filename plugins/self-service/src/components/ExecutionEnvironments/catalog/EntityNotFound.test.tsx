@@ -56,7 +56,7 @@ describe('EntityNotFound', () => {
 
   it('renders without crashing', () => {
     const { container } = renderWithTheme(<EntityNotFound />);
-    
+
     expect(container.firstChild).toBeInTheDocument();
   });
 
@@ -77,7 +77,7 @@ describe('EntityNotFound', () => {
 
     const content = screen.getByTestId('content');
     const warningPanel = screen.getByTestId('warning-panel');
-    
+
     expect(content).toContainElement(warningPanel);
   });
 });
