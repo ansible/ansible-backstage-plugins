@@ -48,9 +48,9 @@ export const LinksCard: React.FC<LinksCardProps> = ({ onDownloadArchive }) => {
         </Typography>
         <Divider style={{ margin: '0 -16px 12px' }} />
 
-        {links.map((item, i) => (
+        {links.map(item => (
           <Box
-            key={i}
+            key={item.text}
             display="flex"
             alignItems="center"
             gridGap={12}

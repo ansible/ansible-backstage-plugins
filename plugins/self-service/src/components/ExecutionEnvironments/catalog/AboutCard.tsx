@@ -12,8 +12,7 @@ import DescriptionOutlinedIcon from '@material-ui/icons/DescriptionOutlined';
 import GitHubIcon from '@material-ui/icons/GitHub';
 import AutorenewIcon from '@material-ui/icons/Autorenew';
 import EditIcon from '@material-ui/icons/Edit';
-import { Entity } from '@backstage/catalog-model';
-import { ANNOTATION_EDIT_URL } from '@backstage/catalog-model';
+import { Entity, ANNOTATION_EDIT_URL } from '@backstage/catalog-model';
 
 const useStyles = makeStyles(() => ({
   tagButton: {
@@ -78,14 +77,13 @@ export const AboutCard: React.FC<AboutCardProps> = ({
                 />
               </IconButton>{' '}
               <IconButton size="small">
-                <>
-                  <a
-                    href={entity?.metadata?.annotations?.[ANNOTATION_EDIT_URL]}
-                    target="_blank"
-                  >
-                    <EditIcon style={{ color: theme.palette.primary.main }} />
-                  </a>
-                </>
+                <a
+                  href={entity?.metadata?.annotations?.[ANNOTATION_EDIT_URL]}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
+                  <EditIcon style={{ color: theme.palette.primary.main }} />
+                </a>
               </IconButton>
             </Box>
           )}

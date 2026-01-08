@@ -106,8 +106,8 @@ export const createTarArchive = (
     tarData.push(...Array.from(content));
 
     const padding = (BLOCK_SIZE - (content.length % BLOCK_SIZE)) % BLOCK_SIZE;
-    for (let i = 0; i < padding; i++) {
-      tarData.push(0);
+    if (padding > 0) {
+      tarData.push(...new Array(padding).fill(0));
     }
   }
 

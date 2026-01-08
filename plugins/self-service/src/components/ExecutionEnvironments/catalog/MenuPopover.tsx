@@ -58,12 +58,12 @@ export const MenuPopover: React.FC<MenuPopoverProps> = ({
       transformOrigin={{ horizontal: 'right', vertical: 'top' }}
       classes={{ paper: classes.menuPaper }}
     >
-      {menuItems.map((item, i) => (
+      {menuItems.map(item => (
         <MenuItem
           onClick={() => {
             onMenuClick(item.id);
           }}
-          key={i}
+          key={item.id}
           className={classes.menuItem}
         >
           <Typography style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
