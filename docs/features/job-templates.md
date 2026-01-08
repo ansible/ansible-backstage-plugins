@@ -218,6 +218,27 @@ labels:
 
 This configuration will sync only job templates that have at least one of the specified labels.
 
+### By Exclude Labels
+
+Exclude job templates with specific labels:
+
+```yaml
+excludeLabels:
+  - deprecated
+  - experimental
+  - internal-only
+```
+
+This configuration will exclude job templates that have any of the specified labels from synchronization.
+
+**Implementation Details:**
+
+- The plugin first attempts to use the AAP API parameter `not__labels__name__in` for server-side filtering
+- If the API doesn't support this parameter, client-side filtering is applied as a fallback
+- This ensures compatibility across different AAP versions
+
+**Note:** You can use both `labels` and `excludeLabels` together. The `labels` filter is applied first (include only templates with these labels), then the `excludeLabels` filter is applied (exclude templates with these labels from the result).
+
 ### By Organization
 
 Filter by AAP organization:
