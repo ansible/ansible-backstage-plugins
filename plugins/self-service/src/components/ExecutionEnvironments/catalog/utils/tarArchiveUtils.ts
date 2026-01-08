@@ -102,18 +102,16 @@ export const createTarArchive = (
     header[154] = 0x20;
     header[155] = 0;
 
-    tarData.push(...Array.from(header));
-    tarData.push(...Array.from(content));
-
     const padding = (BLOCK_SIZE - (content.length % BLOCK_SIZE)) % BLOCK_SIZE;
-    if (padding > 0) {
-      tarData.push(...new Array(padding).fill(0));
-    }
+    const paddingArray = padding > 0 ? new Array(padding).fill(0) : [];
+    tarData.push(
+      ...Array.from(header),
+      ...Array.from(content),
+      ...paddingArray,
+    );
   }
 
-  for (let i = 0; i < BLOCK_SIZE * 2; i++) {
-    tarData.push(0);
-  }
+  tarData.push(...new Array(BLOCK_SIZE * 2).fill(0));
 
   return new Uint8Array(tarData);
 };
