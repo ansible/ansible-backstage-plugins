@@ -471,13 +471,13 @@ describe('StepForm', () => {
       });
     });
 
-    it('displays boolean values with icons', async () => {
+    it('displays boolean true values as "Yes"', async () => {
       const steps = [
         {
           title: 'Step 1',
           schema: {
             properties: {
-              enabled: { type: 'boolean', title: 'Enabled' },
+              isActive: { type: 'boolean', title: 'Is Active' },
             },
           },
         },
@@ -485,17 +485,39 @@ describe('StepForm', () => {
 
       jest
         .spyOn(require('./ScaffolderFormWrapper'), 'ScaffolderForm')
-        .mockImplementation(createScaffolderFormMock({ enabled: true }));
+        .mockImplementation(createScaffolderFormMock({ isActive: true }));
 
-      const { container } = render(
-        <StepForm steps={steps} submitFunction={submitFunction} />,
-      );
+      render(<StepForm steps={steps} submitFunction={submitFunction} />);
 
       fireEvent.click(screen.getByText('Submit'));
 
       await waitFor(() => {
-        const checkIcons = container.querySelectorAll('svg');
-        expect(checkIcons.length).toBeGreaterThan(0);
+        expect(screen.getByText('Yes')).toBeInTheDocument();
+      });
+    });
+
+    it('displays boolean false values as "No"', async () => {
+      const steps = [
+        {
+          title: 'Step 1',
+          schema: {
+            properties: {
+              isActive: { type: 'boolean', title: 'Is Active' },
+            },
+          },
+        },
+      ];
+
+      jest
+        .spyOn(require('./ScaffolderFormWrapper'), 'ScaffolderForm')
+        .mockImplementation(createScaffolderFormMock({ isActive: false }));
+
+      render(<StepForm steps={steps} submitFunction={submitFunction} />);
+
+      fireEvent.click(screen.getByText('Submit'));
+
+      await waitFor(() => {
+        expect(screen.getByText('No')).toBeInTheDocument();
       });
     });
 
@@ -600,6 +622,65 @@ describe('StepForm', () => {
 
       await waitFor(() => {
         expect(screen.queryByText('tags')).not.toBeInTheDocument();
+      });
+    });
+
+    it('decodes and displays base64-encoded file content', async () => {
+      const steps = [
+        {
+          title: 'Step 1',
+          schema: {
+            properties: {
+              fileContent: { type: 'string', title: 'Uploaded File' },
+            },
+          },
+        },
+      ];
+
+      const fileContent = 'Hello, World!';
+      const base64Content = btoa(fileContent);
+      const dataUrl = `data:text/plain;base64,${base64Content}`;
+
+      jest
+        .spyOn(require('./ScaffolderFormWrapper'), 'ScaffolderForm')
+        .mockImplementation(createScaffolderFormMock({ fileContent: dataUrl }));
+
+      render(<StepForm steps={steps} submitFunction={submitFunction} />);
+
+      fireEvent.click(screen.getByText('Submit'));
+
+      await waitFor(() => {
+        expect(screen.getByText('Hello, World!')).toBeInTheDocument();
+        expect(
+          screen.queryByText(/data:text\/plain;base64/),
+        ).not.toBeInTheDocument();
+      });
+    });
+
+    it('displays regular string values normally (not base64)', async () => {
+      const steps = [
+        {
+          title: 'Step 1',
+          schema: {
+            properties: {
+              description: { type: 'string', title: 'Description' },
+            },
+          },
+        },
+      ];
+
+      jest
+        .spyOn(require('./ScaffolderFormWrapper'), 'ScaffolderForm')
+        .mockImplementation(
+          createScaffolderFormMock({ description: 'A regular description' }),
+        );
+
+      render(<StepForm steps={steps} submitFunction={submitFunction} />);
+
+      fireEvent.click(screen.getByText('Submit'));
+
+      await waitFor(() => {
+        expect(screen.getByText('A regular description')).toBeInTheDocument();
       });
     });
   });
@@ -728,6 +809,31 @@ describe('StepForm', () => {
 
       await waitFor(() => {
         expect(screen.getByText('name')).toBeInTheDocument();
+      });
+    });
+
+    it('shows None when a step is skipped without any values', async () => {
+      const steps = [
+        {
+          title: 'Step 1',
+          schema: {
+            properties: {
+              name: { type: 'string', title: 'Name' },
+            },
+          },
+        },
+      ];
+
+      jest
+        .spyOn(require('./ScaffolderFormWrapper'), 'ScaffolderForm')
+        .mockImplementation(createScaffolderFormMock({}));
+
+      render(<StepForm steps={steps} submitFunction={submitFunction} />);
+
+      fireEvent.click(screen.getByText('Submit'));
+
+      await waitFor(() => {
+        expect(screen.getByText('None')).toBeInTheDocument();
       });
     });
   });

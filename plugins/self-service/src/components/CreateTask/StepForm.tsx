@@ -7,8 +7,6 @@ import {
   SecretsContextProvider,
 } from '@backstage/plugin-scaffolder-react';
 import { useApi } from '@backstage/core-plugin-api';
-import CheckIcon from '@material-ui/icons/Check';
-import CloseIcon from '@material-ui/icons/Close';
 
 import {
   Button,
@@ -254,11 +252,56 @@ export const StepForm = ({
     return extractUiSchema(properties, dependencies);
   };
 
+  const decodeBase64FileContent = (dataUrl: string): string | null => {
+    if (
+      typeof dataUrl === 'string' &&
+      dataUrl.startsWith('data:text/plain;base64,')
+    ) {
+      try {
+        const base64Content = dataUrl.split(',')[1];
+        if (base64Content) {
+          return atob(base64Content);
+        }
+      } catch {
+        // If decoding fails, return null to fall back to default display
+      }
+    }
+    return null;
+  };
+
   const getReviewValue = (
     key: any,
     stepIndex?: number,
   ): string | JSX.Element => {
     const value = formData[key];
+    if (
+      typeof value === 'string' &&
+      value.startsWith('data:text/plain;base64,')
+    ) {
+      const decodedContent = decodeBase64FileContent(value);
+      if (decodedContent) {
+        return (
+          <pre
+            style={{
+              fontFamily: 'monospace',
+              fontSize: '0.875rem',
+              whiteSpace: 'pre-wrap',
+              wordBreak: 'break-word',
+              margin: 0,
+              padding: '8px',
+              backgroundColor: 'rgba(128, 128, 128, 0.1)',
+              border: '1px solid rgba(128, 128, 128, 0.4)',
+              borderRadius: '4px',
+              maxHeight: '200px',
+              overflow: 'auto',
+            }}
+          >
+            {decodedContent}
+          </pre>
+        );
+      }
+    }
+
     if (typeof value === 'object') {
       if (Array.isArray(value)) {
         if (value.length > 0 && typeof value[0] === 'string') {
@@ -279,12 +322,9 @@ export const StepForm = ({
     }
     if (stepIndex !== undefined) {
       const stepSchema = steps[stepIndex].schema.properties || {};
-      if (stepSchema[key]?.type === 'boolean')
-        return value ? (
-          <CheckIcon color="primary" />
-        ) : (
-          <CloseIcon color="error" />
-        );
+      if (stepSchema[key]?.type === 'boolean') {
+        return value ? 'Yes' : 'No';
+      }
     }
     return String(value || '');
   };
@@ -344,39 +384,54 @@ export const StepForm = ({
                   <TableBody style={{ border: 0 }}>
                     {steps.flatMap((step, stepIndex) => {
                       const allProperties = getAllProperties(step);
+                      const propertyRows = Object.entries(
+                        allProperties,
+                      ).flatMap(([key, _]) => {
+                        if (key === 'token') {
+                          return [];
+                        }
+                        const value = formData[key];
+                        if (
+                          value === undefined ||
+                          value === null ||
+                          value === ''
+                        ) {
+                          return [];
+                        }
+                        if (Array.isArray(value) && value.length === 0) {
+                          return [];
+                        }
+                        const label = getLabel(key, stepIndex);
+                        return (
+                          <TableRow key={`${stepIndex}-${key}`}>
+                            <TableCell style={{ border: 0 }}>{label}</TableCell>
+                            <TableCell style={{ border: 0 }}>
+                              {getReviewValue(key, stepIndex)}
+                            </TableCell>
+                          </TableRow>
+                        );
+                      });
+
+                      const hasNoValues = propertyRows.length === 0;
+
                       return [
                         <TableRow key={`${stepIndex}-title`}>
-                          <TableCell colSpan={2} style={{ border: 0 }}>
+                          <TableCell style={{ border: 0 }}>
                             <strong>{step.title}</strong>
                           </TableCell>
+                          <TableCell
+                            style={{
+                              border: 0,
+                              color: hasNoValues
+                                ? 'rgba(128, 128, 128, 0.8)'
+                                : 'inherit',
+                              fontStyle: hasNoValues ? 'italic' : 'normal',
+                            }}
+                          >
+                            {hasNoValues ? 'None' : ''}
+                          </TableCell>
                         </TableRow>,
-                        ...Object.entries(allProperties).flatMap(([key, _]) => {
-                          if (key === 'token') {
-                            return [];
-                          }
-                          const value = formData[key];
-                          if (
-                            value === undefined ||
-                            value === null ||
-                            value === ''
-                          ) {
-                            return [];
-                          }
-                          if (Array.isArray(value) && value.length === 0) {
-                            return [];
-                          }
-                          const label = getLabel(key, stepIndex);
-                          return (
-                            <TableRow key={`${stepIndex}-${key}`}>
-                              <TableCell style={{ border: 0 }}>
-                                {label}
-                              </TableCell>
-                              <TableCell style={{ border: 0 }}>
-                                {getReviewValue(key, stepIndex)}
-                              </TableCell>
-                            </TableRow>
-                          );
-                        }),
+                        ...propertyRows,
                       ];
                     })}
                   </TableBody>
