@@ -30,4 +30,3 @@ export const BreadcrumbsNavigation: React.FC<BreadcrumbsNavigationProps> = ({
     </Breadcrumbs>
   );
 };
-

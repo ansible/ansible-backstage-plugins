@@ -56,4 +56,3 @@ export const ReadmeCard: React.FC<ReadmeCardProps> = ({ readmeContent }) => {
     </Box>
   );
 };
-

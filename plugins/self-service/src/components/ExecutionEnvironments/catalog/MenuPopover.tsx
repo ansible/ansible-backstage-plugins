@@ -1,9 +1,4 @@
-import {
-  MenuItem,
-  Popover,
-  Typography,
-  ListItemIcon,
-} from '@material-ui/core';
+import { MenuItem, Popover, Typography, ListItemIcon } from '@material-ui/core';
 import { makeStyles } from '@material-ui/core/styles';
 import CancelIcon from '@material-ui/icons/Cancel';
 import BugReportIcon from '@material-ui/icons/BugReport';
@@ -71,9 +66,7 @@ export const MenuPopover: React.FC<MenuPopoverProps> = ({
           key={i}
           className={classes.menuItem}
         >
-          <Typography
-            style={{ display: 'flex', alignItems: 'center', gap: 8 }}
-          >
+          <Typography style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
             <ListItemIcon style={{ minWidth: 42 }}>{item.icon}</ListItemIcon>
             {item.title}
           </Typography>
@@ -82,4 +75,3 @@ export const MenuPopover: React.FC<MenuPopoverProps> = ({
     </Popover>
   );
 };
-

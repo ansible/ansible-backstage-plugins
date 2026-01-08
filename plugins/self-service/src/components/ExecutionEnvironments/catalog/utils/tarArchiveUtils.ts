@@ -117,4 +117,3 @@ export const createTarArchive = (
 
   return new Uint8Array(tarData);
 };
-

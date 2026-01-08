@@ -1,10 +1,4 @@
-import {
-  Box,
-  Card,
-  CardContent,
-  Typography,
-  Divider,
-} from '@material-ui/core';
+import { Box, Card, CardContent, Typography, Divider } from '@material-ui/core';
 import { makeStyles } from '@material-ui/core/styles';
 import GetAppIcon from '@material-ui/icons/GetApp';
 
@@ -77,4 +71,3 @@ export const LinksCard: React.FC<LinksCardProps> = ({ onDownloadArchive }) => {
     </Card>
   );
 };
-
