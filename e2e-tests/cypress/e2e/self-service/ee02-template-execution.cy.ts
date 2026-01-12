@@ -22,6 +22,7 @@ describe('self-service Login', () => {
 
 describe('Execution Environment Template Execution Tests', () => {
   it('Imports EE template via Add Template and executes it from Create tab', () => {
+    Common.LogintoAAP();
     //
     // 1. Go to EE Create tab
     //
@@ -43,26 +44,59 @@ describe('Execution Environment Template Execution Tests', () => {
       }
     });
 
-    // 2. Click Add Template to open catalog-import stepper
-    //
+    // 2. Click three-dot menu → Import Template to open catalog-import stepper
     cy.get('body').then($body => {
-      const hasAddTemplate =
-        $body.find('[data-testid="add-template-button"]').length > 0 ||
-        $body.text().toLowerCase().includes('add template');
+      cy.log(
+        'Looking for three-dot menu or Import Template button on Create tab',
+      );
 
-      if (!hasAddTemplate) {
-        cy.log(
-          'Add Template button not available on Create tab (permission or config)',
+      // First, try to find the three-dot/more menu button (most common in new UI)
+      const $moreButton = $body.find('button').filter((_, btn) => {
+        const $btn = Cypress.$(btn);
+        const ariaLabel = ($btn.attr('aria-label') || '').toLowerCase();
+        const dataTestId = ($btn.attr('data-testid') || '').toLowerCase();
+        const title = ($btn.attr('title') || '').toLowerCase();
+
+        return (
+          ariaLabel.includes('more') ||
+          ariaLabel.includes('options') ||
+          ariaLabel.includes('menu') ||
+          dataTestId.includes('more') ||
+          title.includes('more')
         );
-        return;
-      }
+      });
 
-      cy.log(' Add Template button found on Create tab');
+      if ($moreButton.length > 0) {
+        // Found three-dot menu - click it
+        cy.log('Found three-dot menu button');
+        cy.wrap($moreButton.first()).click({ force: true });
+        cy.wait(2000); // Wait for menu/modal to appear
+        cy.log('Opened three-dot menu');
 
-      if ($body.find('[data-testid="add-template-button"]').length > 0) {
-        cy.get('[data-testid="add-template-button"]').click({ force: true });
+        // Now look for "Import Template" in the opened menu
+        cy.get('body').then($menuBody => {
+          if ($menuBody.text().toLowerCase().includes('import template')) {
+            cy.contains(/import template/i).click({ force: true });
+            cy.log('Clicked Import Template from menu');
+          } else {
+            cy.log('Import Template option not found in menu');
+            return;
+          }
+        });
       } else {
-        cy.contains(/add template/i).click({ force: true });
+        // Fallback: Look for direct "Import Template" button (old UI or different config)
+        cy.log(
+          'No three-dot menu found, looking for direct Import Template button',
+        );
+
+        const bodyText = $body.text().toLowerCase();
+        if (bodyText.includes('import template')) {
+          cy.contains(/import template/i).click({ force: true });
+          cy.log('Clicked direct Import Template button');
+        } else {
+          cy.log('Import Template option not available (permission or config)');
+          return;
+        }
       }
     });
 
@@ -234,17 +268,25 @@ describe('Execution Environment Template Execution Tests', () => {
             cy.log(' GitHub MCP server option not found');
           }
         });
-        cy.contains('button', /^Next$/i).click({ force: true });
-        cy.wait(1000);
+        cy.contains('button', /^Next$/i)
+          .should('be.visible')
+          .click({ force: true });
+        cy.wait(2000);
         // Step 4: Additional Build Steps - click Next
-        cy.contains('button', /^Next$/i).click({ force: true });
-        cy.wait(1000);
+        cy.contains('button', /^Next$/i)
+          .should('be.visible')
+          .click({ force: true });
+        cy.wait(2000);
 
         // Step 5: Generate and publish - fill required fields
-        cy.contains('label', /^EE File Name/i)
+        cy.get('main', { timeout: 15000 }).should('be.visible');
+        cy.wait(3000); // Extra wait for form rendering in CI
+        cy.contains('label', /EE File Name/i, { timeout: 20000 })
+          .should('be.visible')
           .closest('div')
           .find('input, textarea')
           .first()
+          .should('be.visible')
           .clear({ force: true })
           .type(EE_FILE_NAME, { force: true });
 
@@ -416,17 +458,25 @@ describe('Execution Environment Template Execution Tests', () => {
                 }
               }
             });
-            cy.contains('button', /^Next$/i).click({ force: true });
-            cy.wait(1000);
+            cy.contains('button', /^Next$/i)
+              .should('be.visible')
+              .click({ force: true });
+            cy.wait(2000);
             // Step 4: Additional Build Steps - click Next
-            cy.contains('button', /^Next$/i).click({ force: true });
-            cy.wait(1000);
+            cy.contains('button', /^Next$/i)
+              .should('be.visible')
+              .click({ force: true });
+            cy.wait(2000);
 
             // Step 5: Generate and publish - WITHOUT Git publishing
-            cy.contains('label', /^EE File Name/i)
+            cy.get('main', { timeout: 15000 }).should('be.visible');
+            cy.wait(3000); // Extra wait for form rendering in CI
+            cy.contains('label', /EE File Name/i, { timeout: 20000 })
+              .should('be.visible')
               .closest('div')
               .find('input, textarea')
               .first()
+              .should('be.visible')
               .clear({ force: true })
               .type(`${EE_FILE_NAME}`, { force: true });
 
