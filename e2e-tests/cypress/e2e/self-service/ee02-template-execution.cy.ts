@@ -73,11 +73,21 @@ describe('Execution Environment Template Execution Tests', () => {
         cy.wait(2000); // Wait for menu/modal to appear
         cy.log('Opened three-dot menu');
 
-        // Now look for "Import Template" in the opened menu
+        // Now look for "Import Template" button in the opened menu with the new data-testid
         cy.get('body').then($menuBody => {
-          if ($menuBody.text().toLowerCase().includes('import template')) {
+          // Try to find the button by data-testid first (new UI)
+          if (
+            $menuBody.find('[data-testid="import-template-button"]').length > 0
+          ) {
+            cy.get('[data-testid="import-template-button"]').click({
+              force: true,
+            });
+            cy.log('✓ Clicked Import Template button via data-testid');
+          }
+          // Fallback: look for text "import template" (old UI or different browsers)
+          else if ($menuBody.text().toLowerCase().includes('import template')) {
             cy.contains(/import template/i).click({ force: true });
-            cy.log('Clicked Import Template from menu');
+            cy.log('✓ Clicked Import Template via text search');
           } else {
             cy.log('Import Template option not found in menu');
             return;
@@ -89,12 +99,19 @@ describe('Execution Environment Template Execution Tests', () => {
           'No three-dot menu found, looking for direct Import Template button',
         );
 
-        const bodyText = $body.text().toLowerCase();
-        if (bodyText.includes('import template')) {
+        // Try data-testid first
+        if ($body.find('[data-testid="import-template-button"]').length > 0) {
+          cy.get('[data-testid="import-template-button"]').click({
+            force: true,
+          });
+          cy.log('✓ Clicked direct Import Template button via data-testid');
+        }
+        // Fallback to text search
+        else if ($body.text().toLowerCase().includes('import template')) {
           cy.contains(/import template/i).click({ force: true });
-          cy.log('Clicked direct Import Template button');
+          cy.log('✓ Clicked direct Import Template button via text');
         } else {
-          cy.log('Import Template option not available (permission or config)');
+          cy.log('Import Template option not available');
           return;
         }
       }
@@ -217,6 +234,8 @@ describe('Execution Environment Template Execution Tests', () => {
                 (btn.textContent || '').toLowerCase().includes('start'),
               )
               .first()
+              .scrollIntoView()
+              .should('be.visible', { timeout: 10000 })
               .click({ force: true });
           });
 
@@ -414,6 +433,8 @@ describe('Execution Environment Template Execution Tests', () => {
                     (btn.textContent || '').toLowerCase().includes('start'),
                   )
                   .first()
+                  .scrollIntoView()
+                  .should('be.visible', { timeout: 10000 })
                   .click({ force: true });
               });
             cy.wait(3000);
