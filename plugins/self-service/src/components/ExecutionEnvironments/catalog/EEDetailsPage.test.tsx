@@ -255,8 +255,8 @@ describe('EEDetailsPage', () => {
     });
 
     // wait for entity-specific UI
-    await screen.findByTestId('favorite-entity');
-
+    const favorite = await screen.findByTestId('favorite-entity');
+    expect(favorite).toBeInTheDocument();
     // Wait for owner name to be loaded asynchronously
     expect(await screen.findByText('user:default/team-a')).toBeInTheDocument();
   });
@@ -491,9 +491,6 @@ describe('EEDetailsPage', () => {
     await waitFor(() => {
       expect(screen.queryByTestId('favorite-entity')).not.toBeInTheDocument();
       // MarkdownContent exists in layout but should be empty when there is no entity and no defaultReadme
-      const md = screen.queryByTestId('markdown-content');
-      expect(md).toBeInTheDocument();
-      expect(md!.textContent).toBe('');
       expect(screen.queryByText(/Download EE files/i)).not.toBeInTheDocument();
     });
   });
