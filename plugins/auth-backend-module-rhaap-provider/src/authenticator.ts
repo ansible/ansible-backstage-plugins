@@ -5,7 +5,12 @@ import {
   PassportOAuthDoneCallback,
   PassportProfile,
 } from '@backstage/plugin-auth-node';
-import { IAAPService } from '@ansible/backstage-rhaap-common';
+import {
+  IAAPService,
+  storeAAPToken,
+  removeAAPToken,
+  RequestWithAAPSession,
+} from '@ansible/backstage-rhaap-common';
 
 /** @public */
 export interface AAPAuthenticatorContext {
@@ -87,6 +92,19 @@ export const aapAuthAuthenticator = (aapService: IAAPService) =>
       const fullProfile = await aapService.fetchProfile(
         result.session.accessToken,
       );
+
+      // Store AAP token in session for permission policy
+      if (fullProfile.username) {
+        const expiresAt = result.session.expiresInSeconds
+          ? new Date(Date.now() + result.session.expiresInSeconds * 1000).toISOString()
+          : undefined;
+
+        storeAAPToken(input.req as RequestWithAAPSession, result.session.accessToken, {
+          username: fullProfile.username,
+          expiresAt,
+        });
+      }
+
       return { ...result, fullProfile };
     },
 
@@ -106,6 +124,24 @@ export const aapAuthAuthenticator = (aapService: IAAPService) =>
       const fullProfile = await aapService.fetchProfile(
         result.session.accessToken,
       );
+
+      // Update AAP token in session after refresh
+      if (fullProfile.username) {
+        const expiresAt = result.session.expiresInSeconds
+          ? new Date(Date.now() + result.session.expiresInSeconds * 1000).toISOString()
+          : undefined;
+
+        storeAAPToken(input.req as RequestWithAAPSession, result.session.accessToken, {
+          username: fullProfile.username,
+          expiresAt,
+        });
+      }
+
       return { ...result, fullProfile };
+    },
+
+    async logout(input) {
+      // Remove AAP token from session on logout
+      removeAAPToken(input.req as RequestWithAAPSession);
     },
   });
