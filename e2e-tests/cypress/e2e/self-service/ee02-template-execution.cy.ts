@@ -2,7 +2,7 @@ import { Common } from '../utils/common';
 
 const EE_TEMPLATE_URL =
   Cypress.env('EE_IMPORT_REPO_URL') ||
-  'https://github.com/ansible/ansible-rhdh-templates/blob/main/templates/ee-start-from-scratch.yaml';
+  'https://github.com/ansible/ansible-rhdh-templates/blob/v1.0.2/templates/ee-start-from-scratch.yaml';
 
 const EE_TEMPLATE_TITLE = 'Start from scratch';
 
@@ -21,7 +21,7 @@ describe('self-service Login', () => {
 });
 
 describe('Execution Environment Template Execution Tests', () => {
-  it('Imports EE template via Add Template and executes it from Create tab', () => {
+  it('Imports EE template via kebab menu and executes it from Create tab', () => {
     //
     // 1. Go to EE Create tab
     //
@@ -43,38 +43,38 @@ describe('Execution Environment Template Execution Tests', () => {
       }
     });
 
-    // 2. Click Add Template to open catalog-import stepper
+    // 2. Click kebab menu and select Import Template to open catalog-import stepper
     //
     cy.get('body').then($body => {
-      const hasAddTemplate =
-        $body.find('[data-testid="add-template-button"]').length > 0 ||
-        $body.text().toLowerCase().includes('add template');
+      const hasKebabMenu =
+        $body.find('[data-testid="kebab-menu-button"]').length > 0;
 
-      if (!hasAddTemplate) {
+      if (!hasKebabMenu) {
         cy.log(
-          'Add Template button not available on Create tab (permission or config)',
+          'Kebab menu button not available on Create tab (permission or config)',
         );
         return;
       }
 
-      cy.log(' Add Template button found on Create tab');
+      cy.log(' Kebab menu button found on Create tab');
 
-      if ($body.find('[data-testid="add-template-button"]').length > 0) {
-        cy.get('[data-testid="add-template-button"]').click({ force: true });
-      } else {
-        cy.contains(/add template/i).click({ force: true });
-      }
+      // Click the kebab menu button to open the menu
+      cy.get('[data-testid="kebab-menu-button"]').click({ force: true });
+      cy.wait(500);
+
+      // Click the Import Template menu item
+      cy.get('[data-testid="import-template-button"]').click({ force: true });
     });
 
     // Now wait and CHECK the URL, but don’t assume it always changed
     cy.wait(3000);
     cy.url({ timeout: 15000 }).then(url => {
       if (url.includes('/self-service/catalog-import')) {
-        cy.log(' Navigated to catalog import from Add Template');
+        cy.log(' Navigated to catalog import from Import Template');
         cy.get('main', { timeout: 15000 }).should('be.visible');
       } else {
         cy.log(
-          ` After Add Template, URL did not include /catalog-import. Current URL: ${url}`,
+          ` After Import Template, URL did not include /catalog-import. Current URL: ${url}`,
         );
         // Bail out of the rest of this test if we never reached catalog-import
         throw new Error(
@@ -241,7 +241,7 @@ describe('Execution Environment Template Execution Tests', () => {
         cy.wait(1000);
 
         // Step 5: Generate and publish - fill required fields
-        cy.contains('label', /^EE File Name/i)
+        cy.contains('label', /^EE Definition Name/i)
           .closest('div')
           .find('input, textarea')
           .first()
@@ -423,7 +423,7 @@ describe('Execution Environment Template Execution Tests', () => {
             cy.wait(1000);
 
             // Step 5: Generate and publish - WITHOUT Git publishing
-            cy.contains('label', /^EE File Name/i)
+            cy.contains('label', /^EE Definition Name/i)
               .closest('div')
               .find('input, textarea')
               .first()
