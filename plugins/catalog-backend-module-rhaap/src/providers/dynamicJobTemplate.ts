@@ -426,6 +426,7 @@ export const generateTemplate = (options: {
       annotations: {
         [ANNOTATION_LOCATION]: `url:${baseUrl}/execution/templates/job-template/${job.id}/details`,
         [ANNOTATION_ORIGIN_LOCATION]: `url:${baseUrl}/execution/templates/job-template/${job.id}/details`,
+        'ansible.com/aapJobTemplateId': String(job.id),
       },
     },
     spec: {

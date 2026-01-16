@@ -50,6 +50,11 @@ site
 # Local configuration files
 *.local.yaml
 
+# SQLite database (local development)
+*.sqlite
+*.sqlite3
+.backstage-db/
+
 # Sensitive credentials
 *-credentials.yaml
 
