@@ -134,6 +134,6 @@ export const AapAuthApi: AAPAuthApiFactoryType = createApiFactory({
         icon: () => null,
       },
       environment: configApi.getOptionalString('auth.environment'),
-      defaultScopes: ['read'],
+      defaultScopes: ['read', 'write'],
     }),
 });
