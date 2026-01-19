@@ -9,9 +9,6 @@ export function getAnsibleConfig(config: Config): AnsibleConfig {
   const githubIntegration = integrations.github.list()[0]?.config;
   const gitlabIntegration = integrations.gitlab.list()[0]?.config;
   const ansibleConfigVales: AnsibleConfig = {
-    analytics: {
-      enabled: ansibleConfig.getOptionalBoolean('analytics.enabled') ?? false,
-    },
     devSpaces: {
       baseUrl: ansibleConfig.getOptionalString('devSpaces.baseUrl'),
     },
