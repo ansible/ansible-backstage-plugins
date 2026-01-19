@@ -55,7 +55,7 @@ jobs:
       # Auto-add 'safe to test' label for collaborators
       - name: Add 'safe to test' label for collaborators
         if: steps.authorization.outputs.is_collaborator == 'true'
-        run: gh pr edit ${{ github.event.pull_request.number }} --add-label "safe to test"
+        run: gh pr edit ${{ github.event.pull_request.number }} --add-label "safe to test" --repo ${{ github.repository }}
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
@@ -82,7 +82,7 @@ jobs:
           (github.event.action == 'synchronize' || github.event.action == 'reopened')
         run: |
           echo "🔒 Removing 'safe to test' label - PR was updated by non-collaborator"
-          gh pr edit ${{ github.event.pull_request.number }} --remove-label "safe to test"
+          gh pr edit ${{ github.event.pull_request.number }} --remove-label "safe to test" --repo ${{ github.repository }}
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
