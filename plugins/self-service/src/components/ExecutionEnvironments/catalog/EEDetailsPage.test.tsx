@@ -313,6 +313,8 @@ describe('EEDetailsPage', () => {
     renderWithCatalogApi(() => Promise.resolve({ items: [entityNoDownload] }));
 
     await screen.findByTestId('favorite-entity');
+    const favorite = await screen.findByTestId('favorite-entity');
+    expect(favorite).toBeInTheDocument();
 
     const editLink =
       screen.queryByRole('link', { name: /edit/i }) ||
