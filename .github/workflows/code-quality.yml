@@ -4,6 +4,7 @@ on:
   pull_request_target:
     branches:
       - main
+    types: [opened, synchronize, reopened, labeled]
   push:
     branches:
       - main
@@ -14,11 +15,23 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  # SECURITY: Gate for pull_request_target to prevent pwn requests
+  # https://securitylab.github.com/resources/github-actions-preventing-pwn-requests/
+  authorize:
+    name: Authorize
+    if: github.event_name == 'pull_request_target'
+    uses: ./.github/workflows/safe-to-test.yml
+    secrets: inherit
+
   sonarcloud:
     name: SonarCloud Analysis
     runs-on: ubuntu-latest
-    # Only run for non-fork PRs (forks don't have access to secrets)
-    if: github.event_name == 'push' || github.event_name == 'workflow_dispatch' || github.event.pull_request.head.repo.full_name == github.repository
+    needs: [authorize]
+    # For PRs: require authorization. For push/dispatch: run directly
+    if: |
+      always() && 
+      (github.event_name == 'push' || github.event_name == 'workflow_dispatch' || 
+       (github.event_name == 'pull_request_target' && needs.authorize.outputs.is_authorized == 'true'))
     permissions:
       actions: read
       contents: read
@@ -124,4 +137,3 @@ jobs:
             -Dsonar.javascript.lcov.reportPaths=./coverage/lcov-plugins.info
             -Dsonar.branch.name=${{ github.ref_name }}
             -Dsonar.qualitygate.wait=true
-
