@@ -19,7 +19,10 @@ jobs:
   # https://securitylab.github.com/resources/github-actions-preventing-pwn-requests/
   authorize:
     name: Authorize
-    if: github.event_name == 'pull_request_target'
+    # Skip for patchback PRs (automated backports of already-tested code)
+    if: |
+      github.event_name == 'pull_request_target' &&
+      !startsWith(github.event.pull_request.head.ref, 'patchback/backports/')
     uses: ./.github/workflows/safe-to-test.yml
     secrets: inherit
 
@@ -28,9 +31,11 @@ jobs:
     runs-on: ubuntu-latest
     needs: [authorize]
     # For PRs: require authorization. For push/dispatch: run directly
+    # Skip for patchback PRs (automated backports of already-tested code)
     if: |
-      always() && 
-      (github.event_name == 'push' || github.event_name == 'workflow_dispatch' || 
+      always() &&
+      !startsWith(github.event.pull_request.head.ref, 'patchback/backports/') &&
+      (github.event_name == 'push' || github.event_name == 'workflow_dispatch' ||
        (github.event_name == 'pull_request_target' && needs.authorize.outputs.is_authorized == 'true'))
     permissions:
       actions: read
