@@ -14,22 +14,5 @@
  * limitations under the License.
  */
 
-import {
-  analyticsApiRef,
-  configApiRef,
-  createApiFactory,
-  identityApiRef,
-} from '@backstage/core-plugin-api';
-
-import { AnsibleSegmentAnalytics } from './apis/implementations/AnalyticsApi';
-
 export { ansiblePlugin, AnsiblePage } from './plugin';
 export { AnsibleLogo } from './components/AnsibleLogo';
-
-export * from './apis/implementations/AnalyticsApi';
-export const AnsibleSegmentAnalyticsApi = createApiFactory({
-  api: analyticsApiRef,
-  deps: { configApi: configApiRef, identityApi: identityApiRef },
-  factory: ({ configApi, identityApi }) =>
-    AnsibleSegmentAnalytics.fromConfig(configApi, identityApi),
-});

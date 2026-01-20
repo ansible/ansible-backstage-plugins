@@ -43,7 +43,6 @@
     "@material-ui/icons": "^4.9.1",
     "@material-ui/lab": "^4.0.0-alpha.61",
     "@mui/utils": "^5.15.14",
-    "@segment/analytics-next": "^1.70.0",
     "react-use": "^17.2.4"
   },
   "peerDependencies": {

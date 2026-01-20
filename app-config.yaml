@@ -140,8 +140,6 @@ catalog:
               frequency: { minutes: 60 }
               timeout: { minutes: 15 }
 ansible:
-  analytics:
-    enabled: true
   devSpaces:
     baseUrl: https://devspaces.apps.ansible-rhdh.testing.ansible.com/
   automationHub:

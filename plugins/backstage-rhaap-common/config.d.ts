@@ -17,17 +17,6 @@
 export interface Config {
   ansible?: {
     /**
-     * Configuration for analytics features
-     * @visibility backend
-     */
-    analytics?: {
-      /**
-       * Whether analytics is enabled
-       * @visibility backend
-       */
-      enabled?: boolean;
-    };
-    /**
      * Configuration for Openshift Dev Spaces Dashboard
      * @visibility backend
      */
