@@ -48,49 +48,6 @@ export interface Config {
       baseUrl: string;
     };
 
-    analytics?:
-      | {
-          /**
-           * Prevents events from actually being sent when set to true. Defaults
-           * to true.
-           * @visibility frontend
-           */
-          enabled: boolean;
-
-          /**
-           * Prevents events from actually being sent when set to true. Defaults
-           * to false.
-           * @visibility frontend
-           */
-          testMode: true;
-
-          /**
-           * Prevents IP address to be sent as when set to true. Defaults to false
-           * @visibility frontend
-           */
-          maskIP?: boolean;
-        }
-      | {
-          /**
-           * Prevents events from actually being sent when set to true. Defaults
-           * to true.
-           * @visibility frontend
-           */
-          enabled: boolean;
-
-          /**
-           * Prevents events from actually being sent when set to true. Defaults
-           * to false.
-           * @visibility frontend
-           */
-          testMode?: false;
-
-          /**
-           * Prevents IP address to be sent as when set to true. Defaults to false
-           * @visibility frontend
-           */
-          maskIP?: boolean;
-        };
     /**
      * Feedback form configuration
      * @deepVisibility frontend

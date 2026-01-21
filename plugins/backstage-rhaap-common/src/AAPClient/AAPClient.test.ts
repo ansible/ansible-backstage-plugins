@@ -48,9 +48,6 @@ describe('AAPClient', () => {
     jest.useFakeTimers();
 
     const mockAnsibleConfig: AnsibleConfig = {
-      analytics: {
-        enabled: false,
-      },
       devSpaces: {
         baseUrl: 'https://devspaces.example.com',
       },
@@ -158,7 +155,6 @@ describe('AAPClient', () => {
             }),
             getOptionalBoolean: jest.fn().mockImplementation((path: string) => {
               const paths: Record<string, boolean> = {
-                'analytics.enabled': false,
                 'rhaap.checkSSL': true,
               };
               return paths[path];
@@ -316,7 +312,6 @@ describe('AAPClient', () => {
           'rhaap.baseUrl',
           'rhaap.token',
           'rhaap.checkSSL',
-          'analytics.enabled',
           'catalog.providers.rhaap.development.sync.orgsUsersTeams.schedule',
           'catalog.providers.rhaap.development.sync.jobTemplates.schedule',
           'catalog.providers.rhaap.development.orgs',

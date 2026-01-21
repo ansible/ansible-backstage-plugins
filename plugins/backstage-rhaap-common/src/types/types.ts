@@ -108,10 +108,6 @@ export type AAPTemplate = {
   name: string;
 };
 
-export type Analytics = {
-  enabled?: boolean;
-};
-
 export type DevSpaces = {
   baseUrl?: string;
 };
@@ -152,7 +148,6 @@ export type CatalogConfig = {
 };
 
 export type AnsibleConfig = {
-  analytics?: Analytics;
   devSpaces?: DevSpaces;
   automationHub?: AutomationHub;
   rhaap?: RHAAPConfig;
