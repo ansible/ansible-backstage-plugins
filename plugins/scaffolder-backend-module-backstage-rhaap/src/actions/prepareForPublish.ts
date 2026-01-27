@@ -5,6 +5,7 @@ import { randomBytes } from 'crypto';
 
 interface CheckRepositoryExistsInput {
   sourceControlProvider: string;
+  scmHost?: string;
   repositoryOwner: string;
   repositoryName: string;
   createNewRepository: boolean;
@@ -31,6 +32,11 @@ export function prepareForPublishAction(options: {
         ],
         properties: {
           sourceControlProvider: { type: 'string' },
+          scmHost: {
+            type: 'string',
+            description:
+              'The SCM host to use (e.g., "github.com", "ghe.example.net"). If not provided, uses the first configured integration.',
+          },
           repositoryOwner: { type: 'string' },
           repositoryName: { type: 'string' },
           eeFileName: { type: 'string' },
@@ -83,6 +89,7 @@ export function prepareForPublishAction(options: {
       const { input, logger } = ctx;
       const values = input as unknown as CheckRepositoryExistsInput;
       const sourceControlProvider = values.sourceControlProvider;
+      const scmHost = values.scmHost;
       const repositoryOwner = values.repositoryOwner;
       const repositoryName = values.repositoryName;
       const createNewRepository = values.createNewRepository;
@@ -95,6 +102,7 @@ export function prepareForPublishAction(options: {
           ansibleConfig: ansibleConfig,
           logger,
           scmType: sourceControlProvider,
+          scmHost: scmHost,
           apiClient: null,
           useCases: [],
           organization: null,

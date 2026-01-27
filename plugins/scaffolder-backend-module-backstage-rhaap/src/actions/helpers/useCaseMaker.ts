@@ -22,6 +22,7 @@ import {
   BackstageAAPShowcase,
   IAAPService,
   AnsibleConfig,
+  getIntegrationByHost,
 } from '@ansible/backstage-rhaap-common';
 
 export type GithubConfig = {
@@ -67,12 +68,15 @@ export class UseCaseMaker {
     logger,
     organization,
     scmType,
+    scmHost,
     apiClient,
     useCases,
     token,
   }: {
     ansibleConfig: AnsibleConfig;
     scmType: string;
+    /** Optional: specific SCM host to use (e.g., 'github.com', 'ghe.example.net'). If provided, looks up the integration by host instead of using the first one. */
+    scmHost?: string;
     apiClient: IAAPService | null;
     organization: Organization | null;
     logger: LoggerService;
@@ -94,11 +98,27 @@ export class UseCaseMaker {
       this.ansibleConfig.rhaap?.showCaseLocation?.type === 'file'
         ? (this.ansibleConfig.rhaap?.showCaseLocation?.target ?? '')
         : '';
-    if (this.scmType === 'Github') {
-      this.scmIntegration = this.ansibleConfig.githubIntegration;
-    } else if (this.scmType === 'Gitlab') {
-      this.scmIntegration = this.ansibleConfig.gitlabIntegration;
+
+    // If scmHost is provided, look up the specific integration by host
+    // Otherwise, fall back to the first integration (backward compatible behavior)
+    if (scmHost) {
+      this.scmIntegration = getIntegrationByHost(this.ansibleConfig, scmHost);
+      if (!this.scmIntegration) {
+        this.logger.warn(
+          `[${UseCaseMaker.pluginLogName}] No SCM integration found for host: ${scmHost}. Falling back to default.`,
+        );
+      }
     }
+
+    // Fallback to first integration if scmHost not provided or not found
+    if (!this.scmIntegration) {
+      if (this.scmType === 'Github') {
+        this.scmIntegration = this.ansibleConfig.githubIntegration;
+      } else if (this.scmType === 'Gitlab') {
+        this.scmIntegration = this.ansibleConfig.gitlabIntegration;
+      }
+    }
+
     const octokitOptions = {
       baseUrl: this.scmIntegration?.apiBaseUrl,
     } as OctokitOptions;
