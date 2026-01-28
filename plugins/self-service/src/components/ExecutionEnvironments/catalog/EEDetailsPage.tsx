@@ -31,7 +31,7 @@ export const EEDetailsPage: React.FC = () => {
   };
   const handleMenuClose = () => setAnchorEl(null);
   const catalogApi = useApi(catalogApiRef);
-  const [entity, setEntity] = useState<any | null>(null);
+  const [entity, setEntity] = useState<any | null>(false);
   const [menuid, setMenuId] = useState<string>('');
   const [defaultReadme, setDefaultReadme] = useState<string>('');
   const discoveryApi = useApi(discoveryApiRef);
@@ -374,7 +374,7 @@ export const EEDetailsPage: React.FC = () => {
             )}
           </>
         ) : (
-          <EntityNotFound />
+          <> {entity !== false && <EntityNotFound />}</>
         )}
       </>
     </Box>
