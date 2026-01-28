@@ -1099,4 +1099,120 @@ spec:
 
     global.fetch = originalFetch;
   });
+
+  describe('scmHost parameter', () => {
+    const MOCK_CONF_MULTI_HOSTS = {
+      data: {
+        integrations: {
+          github: [
+            { host: 'github.com', token: 'github-token' },
+            {
+              host: 'ghe.example.net',
+              apiBaseUrl: 'https://ghe.example.net/api/v3',
+              token: 'ghe-token',
+            },
+          ],
+          gitlab: [
+            { host: 'gitlab.com', token: 'gitlab-token' },
+            {
+              host: 'gitlab.example.net',
+              apiBaseUrl: 'https://gitlab.example.net/api/v4',
+              token: 'gitlab-self-hosted-token',
+            },
+          ],
+        },
+        ansible: {
+          rhaap: {
+            baseUrl: 'https://rhaap.test',
+            token: MOCK_TOKEN,
+            checkSSL: false,
+            showCaseLocation: {
+              type: 'file',
+              target: '/tmp/test-showcase',
+            },
+          },
+        },
+      },
+    };
+
+    it('should use specific GitHub host when scmHost is provided', () => {
+      config = new ConfigReader(MOCK_CONF_MULTI_HOSTS.data);
+      ansibleConfig = getAnsibleConfig(config);
+
+      useCaseMaker = new UseCaseMaker({
+        ansibleConfig,
+        logger,
+        organization,
+        scmType: 'Github',
+        scmHost: 'ghe.example.net',
+        apiClient: mockAnsibleService,
+        useCases: [],
+        token: MOCK_TOKEN,
+      });
+
+      // The integration should be the one matching the scmHost
+      expect((useCaseMaker as any).scmIntegration?.host).toBe(
+        'ghe.example.net',
+      );
+    });
+
+    it('should use specific GitLab host when scmHost is provided', () => {
+      config = new ConfigReader(MOCK_CONF_MULTI_HOSTS.data);
+      ansibleConfig = getAnsibleConfig(config);
+
+      useCaseMaker = new UseCaseMaker({
+        ansibleConfig,
+        logger,
+        organization,
+        scmType: 'Gitlab',
+        scmHost: 'gitlab.example.net',
+        apiClient: mockAnsibleService,
+        useCases: [],
+        token: MOCK_TOKEN,
+      });
+
+      expect((useCaseMaker as any).scmIntegration?.host).toBe(
+        'gitlab.example.net',
+      );
+    });
+
+    it('should fallback to first integration when scmHost is not provided', () => {
+      config = new ConfigReader(MOCK_CONF_MULTI_HOSTS.data);
+      ansibleConfig = getAnsibleConfig(config);
+
+      useCaseMaker = new UseCaseMaker({
+        ansibleConfig,
+        logger,
+        organization,
+        scmType: 'Github',
+        apiClient: mockAnsibleService,
+        useCases: [],
+        token: MOCK_TOKEN,
+      });
+
+      // Should use the first GitHub integration (backward compatible behavior)
+      expect((useCaseMaker as any).scmIntegration?.host).toBe('github.com');
+    });
+
+    it('should fallback to first integration when scmHost is not found', () => {
+      config = new ConfigReader(MOCK_CONF_MULTI_HOSTS.data);
+      ansibleConfig = getAnsibleConfig(config);
+
+      useCaseMaker = new UseCaseMaker({
+        ansibleConfig,
+        logger,
+        organization,
+        scmType: 'Github',
+        scmHost: 'unknown.host.com',
+        apiClient: mockAnsibleService,
+        useCases: [],
+        token: MOCK_TOKEN,
+      });
+
+      // Should fallback to first integration since host wasn't found
+      expect((useCaseMaker as any).scmIntegration?.host).toBe('github.com');
+      // Logger should have been called with a warning
+      expect(logger.warn).toHaveBeenCalled();
+    });
+  });
 });

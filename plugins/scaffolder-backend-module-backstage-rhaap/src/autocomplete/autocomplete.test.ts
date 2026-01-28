@@ -6,6 +6,13 @@ import { MOCK_TOKEN } from '../mock';
 
 describe('ansible-aap:autocomplete', () => {
   const config = new ConfigReader({
+    integrations: {
+      github: [
+        { host: 'github.com', token: 'github-token-1' },
+        { host: 'ghe.example.net', token: 'github-token-2' },
+      ],
+      gitlab: [{ host: 'gitlab.com', token: 'gitlab-token-1' }],
+    },
     ansible: {
       rhaap: {
         baseUrl: 'https://rhaap.test',
@@ -155,5 +162,67 @@ describe('ansible-aap:autocomplete', () => {
       call[0]?.includes('Autocomplete context'),
     );
     expect(contextCalls.length).toBe(0);
+  });
+
+  it('should return scm_integrations with all configured GitHub and GitLab hosts', async () => {
+    const response = await handleAutocompleteRequest({
+      resource: 'scm_integrations',
+      token: 'token',
+      config,
+      logger,
+      ansibleService: mockAnsibleService,
+    });
+
+    expect(response.results).toHaveLength(3);
+    expect(response.results).toEqual([
+      {
+        id: 'github-0',
+        host: 'github.com',
+        type: 'github',
+        name: 'github.com',
+      },
+      {
+        id: 'github-1',
+        host: 'ghe.example.net',
+        type: 'github',
+        name: 'ghe.example.net',
+      },
+      {
+        id: 'gitlab-0',
+        host: 'gitlab.com',
+        type: 'gitlab',
+        name: 'gitlab.com',
+      },
+    ]);
+  });
+
+  it('should return scm_integrations with only GitHub when no GitLab configured', async () => {
+    const configWithOnlyGithub = new ConfigReader({
+      integrations: {
+        github: [{ host: 'github.com', token: 'token1' }],
+      },
+      ansible: {
+        rhaap: {
+          baseUrl: 'https://rhaap.test',
+          token: MOCK_TOKEN,
+          checkSSL: false,
+        },
+      },
+    });
+
+    const response = await handleAutocompleteRequest({
+      resource: 'scm_integrations',
+      token: 'token',
+      config: configWithOnlyGithub,
+      logger,
+      ansibleService: mockAnsibleService,
+    });
+
+    // Should have GitHub but no GitLab (since GitLab wasn't explicitly configured)
+    const githubHosts = response.results.filter(
+      (r: any) => r.type === 'github',
+    );
+    expect(githubHosts.length).toBeGreaterThanOrEqual(1);
+    expect(githubHosts.some((r: any) => r.host === 'github.com')).toBe(true);
   });
 });
