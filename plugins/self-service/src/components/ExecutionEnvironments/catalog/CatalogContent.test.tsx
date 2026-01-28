@@ -609,7 +609,7 @@ describe('EEListPage', () => {
     });
 
     test('handles owner name lookup with title precedence', async () => {
-      const mockGetEntityByRef = jest.fn((ref: string) =>
+      const mockGetEntityByRef = jest.fn(() =>
         Promise.resolve({
           apiVersion: 'backstage.io/v1alpha1',
           kind: 'User',
@@ -636,7 +636,7 @@ describe('EEListPage', () => {
     });
 
     test('handles owner name lookup with name fallback when title missing', async () => {
-      const mockGetEntityByRef = jest.fn((ref: string) =>
+      const mockGetEntityByRef = jest.fn(() =>
         Promise.resolve({
           apiVersion: 'backstage.io/v1alpha1',
           kind: 'User',
