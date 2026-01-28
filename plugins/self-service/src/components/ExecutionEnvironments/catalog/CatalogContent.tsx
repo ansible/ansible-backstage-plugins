@@ -259,12 +259,12 @@ export const EEListPage = ({
       });
   }, [catalogApi, getUniqueOwnersAndTags, fetchOwnerNames]);
 
-  function sortByMetadataTitleAsc<T extends { metadata?: { title?: string } }>(
+  function sortByMetadataTitleAsc<T extends { metadata?: { name?: string } }>(
     data: T[],
   ): T[] {
     return [...data].sort((a, b) => {
-      const titleA = a.metadata?.title ?? '';
-      const titleB = b.metadata?.title ?? '';
+      const titleA = a.metadata?.name ?? '';
+      const titleB = b.metadata?.name ?? '';
 
       const numA = Number(titleA);
       const numB = Number(titleB);
@@ -539,7 +539,7 @@ export const EEListPage = ({
                 options={{
                   search: true,
                   rowStyle: { cursor: 'default' },
-                  sorting: true,
+                  // sorting: true,
                 }}
                 columns={columns}
                 data={ansibleComponents || []}
