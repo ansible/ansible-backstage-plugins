@@ -16,6 +16,7 @@ export const createShowCases = (
     values: {
       organization: Organization;
       scmType: string;
+      scmHost?: string;
       useCases: UseCase[];
     };
   }>({
@@ -35,7 +36,13 @@ export const createShowCases = (
               scmType: {
                 title: 'Source control type',
                 description:
-                  'The source control source type. For example, “Github”.',
+                  'The source control source type. For example, "Github".',
+                type: 'string',
+              },
+              scmHost: {
+                title: 'Source control host',
+                description:
+                  'The SCM host to use (e.g., "github.com", "ghe.example.net"). If not provided, uses the first configured integration.',
                 type: 'string',
               },
               organization: {
@@ -77,6 +84,7 @@ export const createShowCases = (
         logger: logger,
         organization: input.values.organization,
         scmType: input.values.scmType,
+        scmHost: input.values.scmHost,
         apiClient: ansibleServiceRef,
         useCases: input.values.useCases,
         token: input.token,

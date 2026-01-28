@@ -143,6 +143,7 @@ export async function handleDevfileProject(
   sourceControl: string,
   repositoryUrl: string,
   workspacePath: string,
+  scmHost?: string,
 ) {
   const scmType = sourceControl
     .replace(/\.com$/, '')
@@ -151,6 +152,7 @@ export async function handleDevfileProject(
     ansibleConfig,
     logger,
     scmType,
+    scmHost,
     apiClient: null,
     useCases: [],
     organization: null,
