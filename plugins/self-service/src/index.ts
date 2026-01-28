@@ -5,6 +5,7 @@ export { LandingPage } from './components/LandingPage';
 export { TaskList } from './components/TaskList';
 export { AAPTokenFieldExtension } from './components/Scaffolder/AAPTokenField/extensions';
 export { AAPResourcePickerExtension } from './components/Scaffolder/AAResourcePicker';
+export { SCMResourcePickerExtension } from './components/Scaffolder/SCMResourcePicker';
 export { BaseImagePickerFieldExtension } from './components/Scaffolder/BaseImagePicker/extensions';
 export { CollectionsPickerFieldExtension } from './components/Scaffolder/CollectionsPicker/extensions';
 export { FileUploadPickerFieldExtension } from './components/Scaffolder/FileUploadPicker/extensions';
