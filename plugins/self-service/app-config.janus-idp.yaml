@@ -10,6 +10,7 @@ dynamicPlugins:
       scaffolderFieldExtensions:
         - importName: AAPTokenFieldExtension
         - importName: AAPResourcePickerExtension
+        - importName: SCMResourcePickerExtension
         - importName: BaseImagePickerFieldExtension
         - importName: CollectionsPickerFieldExtension
         - importName: EEFileNamePickerExtension
