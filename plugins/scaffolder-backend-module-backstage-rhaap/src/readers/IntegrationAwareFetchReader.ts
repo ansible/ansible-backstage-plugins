@@ -191,9 +191,14 @@ export class IntegrationAwareFetchReader implements UrlReaderService {
     if (response.ok) {
       const etag = response.headers.get('etag') || undefined;
       const lastModifiedHeader = response.headers.get('last-modified');
-      const lastModifiedAt = lastModifiedHeader
-        ? new Date(lastModifiedHeader)
-        : undefined;
+      let lastModifiedAt: Date | undefined;
+      if (lastModifiedHeader) {
+        const parsedDate = new Date(lastModifiedHeader);
+        // Only use the date if it's valid (not NaN)
+        if (!Number.isNaN(parsedDate.getTime())) {
+          lastModifiedAt = parsedDate;
+        }
+      }
 
       // Create a proper response object
       let buffer: Promise<Buffer> | undefined;
@@ -208,7 +213,10 @@ export class IntegrationAwareFetchReader implements UrlReaderService {
         },
         stream: () => {
           if (!stream && response.body) {
-            stream = Readable.fromWeb(response.body as any);
+            // ReadableStream from fetch is compatible with Readable.fromWeb
+            stream = Readable.fromWeb(
+              response.body as Parameters<typeof Readable.fromWeb>[0],
+            );
           }
           if (!stream) {
             throw new Error('Response body is not available');
