@@ -97,43 +97,6 @@ index 6294aa785671..f23085e4e0cb 100644
          <Shortcuts allowExternalLinks />
 ```
 
-Update the apis.ts to enable analytics, follow the changes in the `diff` add it to the file at `packages/app/src/apis.ts`.
-
-```diff
-+
- import {
-   ScmIntegrationsApi,
-   scmIntegrationsApiRef,
-@@ -21,11 +22,14 @@ import {
- } from '@backstage/integration-react';
- import {
-   AnyApiFactory,
-+  analyticsApiRef,
-   configApiRef,
-   createApiFactory,
-   discoveryApiRef,
-+  identityApiRef,
- } from '@backstage/core-plugin-api';
- import { AuthProxyDiscoveryApi } from './AuthProxyDiscoveryApi';
-+import { AnsibleSegmentAnalytics } from '@janus-idp/backstage-plugin-ansible';
-
- export const apis: AnyApiFactory[] = [
-   createApiFactory({
-@@ -38,6 +42,11 @@ export const apis: AnyApiFactory[] = [
-     deps: { configApi: configApiRef },
-     factory: ({ configApi }) => ScmIntegrationsApi.fromConfig(configApi),
-   }),
--
-+  createApiFactory({
-+    api: analyticsApiRef,
-+    deps: { configApi: configApiRef, identityApi: identityApiRef },
-+    factory: ({ configApi, identityApi }) =>
-+      AnsibleSegmentAnalytics.fromConfig(configApi, identityApi),
-+  }),
-   ScmAuth.createDefaultApiFactory(),
- ];
-```
-
 ### Start frontend and backend
 
 Run the following commands in separate terminals from the root folder of backstage.
@@ -189,12 +152,10 @@ LOG_LEVEL=debug yarn start
 
 ## AAP secrets configuration setup
 
-Add Ansible Automation Platform (AAP) controller configuration in `app-config.yaml` file. The analytics tag is required to enable analytics.
+Add Ansible Automation Platform (AAP) controller configuration in `app-config.yaml` file.
 
 ```yaml
 ansible:
-  analytics:
-    enabled: true
   rhaap:
     baseUrl: '<AAP controller base URL>'
     token: '<access token>'

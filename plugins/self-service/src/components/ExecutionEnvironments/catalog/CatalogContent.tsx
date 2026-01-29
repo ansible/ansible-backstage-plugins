@@ -113,6 +113,23 @@ const useStyles = makeStyles(theme => ({
   },
 }));
 
+const ExecutionEnvironmentTypeFilter = () => {
+  const { filters, updateFilters } = useEntityList();
+  const { type } = filters;
+
+  useEffect(() => {
+    if (!type) {
+      updateFilters(prev => ({
+        ...prev,
+        kind: new EntityKindFilter('Component', 'Component'),
+        tags: new EntityTagFilter(['execution-environment']),
+      }));
+    }
+  }, [type, updateFilters]);
+
+  return null;
+};
+
 export const EEListPage = ({
   onTabSwitch,
 }: {
@@ -446,6 +463,7 @@ export const EEListPage = ({
       <>
         {filtered || (allEntities && allEntities.length > 0) ? (
           <CatalogFilterLayout>
+            <ExecutionEnvironmentTypeFilter />
             <CatalogFilterLayout.Filters>
               <UserListPicker availableFilters={['starred', 'all']} />
               <Typography>Owner</Typography>
@@ -507,21 +525,6 @@ export const EEListPage = ({
     </div>
   );
 };
-const ExecutionEnvironmentTypeFilter = () => {
-  const { filters, updateFilters } = useEntityList();
-
-  useEffect(() => {
-    if (!filters.type) {
-      updateFilters({
-        ...filters,
-        kind: new EntityKindFilter('Component', 'Component'),
-        tags: new EntityTagFilter(['execution-environment']),
-      });
-    }
-  }, [filters, updateFilters]);
-
-  return null;
-};
 
 export const EntityCatalogContent = ({
   onTabSwitch,
@@ -534,7 +537,6 @@ export const EntityCatalogContent = ({
     <Grid container spacing={2} justifyContent="space-between">
       <Grid item xs={12} className={classes.flex}>
         <EntityListProvider>
-          <ExecutionEnvironmentTypeFilter />
           <EEListPage onTabSwitch={onTabSwitch} />
         </EntityListProvider>
       </Grid>

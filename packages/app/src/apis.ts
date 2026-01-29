@@ -10,7 +10,6 @@ import {
   discoveryApiRef,
   oauthRequestApiRef,
 } from '@backstage/core-plugin-api';
-import { AnsibleSegmentAnalyticsApi } from '@ansible/plugin-backstage-rhaap';
 import { OAuth2 } from '@backstage/core-app-api';
 import { rhAapAuthApiRef } from '@ansible/plugin-backstage-self-service';
 
@@ -20,7 +19,6 @@ export const apis: AnyApiFactory[] = [
     deps: { configApi: configApiRef },
     factory: ({ configApi }) => ScmIntegrationsApi.fromConfig(configApi),
   }),
-  AnsibleSegmentAnalyticsApi,
   ScmAuth.createDefaultApiFactory(),
   createApiFactory({
     api: rhAapAuthApiRef,
