@@ -243,6 +243,43 @@ describe('IntegrationAwareFetchReader', () => {
       );
     });
 
+    it('should handle invalid last-modified header gracefully', async () => {
+      const config = new ConfigReader({
+        integrations: {
+          github: [{ host: 'github.com', token: 'token1' }],
+        },
+      });
+
+      const headersData: Record<string, string> = {
+        etag: '"abc123"',
+        'last-modified': 'invalid-date-string',
+      };
+      const mockHeaders = {
+        get: (key: string) => headersData[key] || null,
+      };
+
+      const mockResponse = {
+        ok: true,
+        status: 200,
+        headers: mockHeaders,
+        arrayBuffer: jest.fn().mockResolvedValue(new ArrayBuffer(8)),
+        body: null,
+      };
+
+      mockFetch.mockResolvedValue(mockResponse);
+
+      const result = IntegrationAwareFetchReader.factory({ config, logger });
+      const reader = result[0].reader;
+
+      const response = await reader.readUrl(
+        'https://github.com/org/repo/file.txt',
+      );
+
+      // Should not throw, and lastModifiedAt should be undefined for invalid date
+      expect(response.etag).toBe('"abc123"');
+      expect(response.lastModifiedAt).toBeUndefined();
+    });
+
     it('should pass options to fetch', async () => {
       const config = new ConfigReader({
         integrations: {
