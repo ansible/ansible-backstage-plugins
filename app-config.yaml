@@ -139,6 +139,28 @@ catalog:
             schedule:
               frequency: { minutes: 60 }
               timeout: { minutes: 15 }
+          # Ansible collections discovery from SCM orgs by searching for VALID galaxy.yml files in repos
+          # ansibleCollections:
+            # sources:
+              # - scmProvider: github
+                # host: github.com  # optional, defaults to github.com
+                # organization: ansible-collections # Github org to search
+                # branches: [main, master, dev, devel] # optional, searches only the default branch if not specified
+                # tags: ['v*']  # optional, supports glob patterns
+                # galaxyFilePaths: []  # optional, specific paths to search
+                # crawlDepth: 5  # optional, max directory depth to search
+                # schedule:
+                #   frequency: { minutes: 60 }
+                #   timeout: { minutes: 30 }
+              # - scmProvider: gitlab
+              #   host: gitlab.com  # optional, defaults to gitlab.com
+              #   organization: ansible-team  # Gitlab group (supports nested groups like 'group/subgroup')
+              #   branches:
+              #     - main
+              #   crawlDepth: 3
+              #   schedule:
+              #     frequency: { minutes: 120 }
+              #     timeout: { minutes: 15 }
 ansible:
   devSpaces:
     baseUrl: https://devspaces.apps.ansible-rhdh.testing.ansible.com/

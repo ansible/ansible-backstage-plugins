@@ -20,15 +20,22 @@ import { AAPJobTemplateProvider } from './providers/AAPJobTemplateProvider';
 import { AAPEntityProvider } from './providers/AAPEntityProvider';
 import { LoggerService } from '@backstage/backend-plugin-api';
 import { EEEntityProvider } from './providers/EEEntityProvider';
+import { AnsibleCollectionProvider } from './providers/ansible-collections';
 
 export async function createRouter(options: {
   logger: LoggerService;
   aapEntityProvider: AAPEntityProvider;
   jobTemplateProvider: AAPJobTemplateProvider;
   eeEntityProvider: EEEntityProvider;
+  ansibleCollectionProviders?: AnsibleCollectionProvider[];
 }): Promise<express.Router> {
-  const { logger, aapEntityProvider, jobTemplateProvider, eeEntityProvider } =
-    options;
+  const {
+    logger,
+    aapEntityProvider,
+    jobTemplateProvider,
+    eeEntityProvider,
+    ansibleCollectionProviders = [],
+  } = options;
   const router = Router();
 
   // Note: Don't apply express.json() globally to avoid conflicts with catalog backend
@@ -118,6 +125,89 @@ export async function createRouter(options: {
       });
     }
   });
+
+  router.get('/ansible-collections/sync_status', async (_, response) => {
+    logger.info('Getting Ansible collections sync status');
+    try {
+      const status = ansibleCollectionProviders.map(provider =>
+        provider.getSyncStatus(),
+      );
+      response.status(200).json({ sources: status });
+    } catch (error) {
+      const errorMessage =
+        error instanceof Error ? error.message : String(error);
+      logger.error(
+        `Failed to get Ansible collections sync status: ${errorMessage}`,
+      );
+      response.status(500).json({
+        error: `Failed to get sync status: ${errorMessage}`,
+        sources: [],
+      });
+    }
+  });
+
+  // TO-DO: refactor this sync till orgs level deep
+  router.post(
+    '/ansible-collections/sync',
+    express.json(),
+    async (request, response) => {
+      const { sourceId } = request.body;
+      logger.info(
+        `Starting Ansible collections sync${sourceId ? ` for source: ${sourceId}` : ' for all sources'}`,
+      );
+
+      try {
+        const results: Array<{
+          sourceId: string;
+          success: boolean;
+          error?: string;
+        }> = [];
+
+        const providersToSync = sourceId
+          ? ansibleCollectionProviders.filter(p => p.getSourceId() === sourceId)
+          : ansibleCollectionProviders;
+
+        if (sourceId && providersToSync.length === 0) {
+          response.status(404).json({
+            error: `Source not found: ${sourceId}`,
+            availableSources: ansibleCollectionProviders.map(p =>
+              p.getSourceId(),
+            ),
+          });
+          return;
+        }
+
+        for (const provider of providersToSync) {
+          try {
+            const success = await provider.run();
+            results.push({
+              sourceId: provider.getSourceId(),
+              success,
+            });
+          } catch (syncError) {
+            const errorMessage =
+              syncError instanceof Error
+                ? syncError.message
+                : String(syncError);
+            results.push({
+              sourceId: provider.getSourceId(),
+              success: false,
+              error: errorMessage,
+            });
+          }
+        }
+
+        response.status(200).json({ results });
+      } catch (error) {
+        const errorMessage =
+          error instanceof Error ? error.message : String(error);
+        logger.error(`Failed to sync Ansible collections: ${errorMessage}`);
+        response.status(500).json({
+          error: `Failed to sync Ansible collections: ${errorMessage}`,
+        });
+      }
+    },
+  );
 
   return router;
 }

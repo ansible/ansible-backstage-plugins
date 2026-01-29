@@ -6,17 +6,38 @@ export interface Config {
       /** @visibility frontend */
       rhaap?: {
         [authEnv: string]: {
-          orgs: string;
-          sync: {
-            orgsUsersTeams: {
+          orgs?: string;
+          sync?: {
+            orgsUsersTeams?: {
               schedule: SchedulerServiceTaskScheduleDefinitionConfig;
             };
-            jobTemplates: {
+            jobTemplates?: {
               enabled: boolean;
               labels?: Array<string>;
               excludeLabels?: Array<string>;
               surveyEnabled?: boolean;
               schedule?: SchedulerServiceTaskScheduleDefinitionConfig;
+            };
+            ansibleCollections?: {
+              sources: Array<{
+                /** @default true */
+                enabled?: boolean;
+                /** @visibility frontend */
+                scmProvider: 'github' | 'gitlab';
+                /**
+                 * @default 'github.com' for github, 'gitlab.com' for gitlab
+                 * @visibility frontend
+                 */
+                host?: string;
+                /** @visibility frontend */
+                organization: string;
+                branches?: Array<string>;
+                tags?: Array<string>;
+                galaxyFilePaths?: Array<string>;
+                /** @default 5 */
+                crawlDepth?: number;
+                schedule: SchedulerServiceTaskScheduleDefinitionConfig;
+              }>;
             };
           };
         };
