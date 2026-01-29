@@ -201,15 +201,16 @@ export class IntegrationAwareFetchReader implements UrlReaderService {
       }
 
       // Create a proper response object
-      let buffer: Promise<Buffer> | undefined;
+      let cachedBuffer: Buffer | undefined;
       let stream: Readable | undefined;
 
       return {
         buffer: async () => {
-          if (!buffer) {
-            buffer = response.arrayBuffer().then(ab => Buffer.from(ab));
+          if (cachedBuffer === undefined) {
+            const arrayBuffer = await response.arrayBuffer();
+            cachedBuffer = Buffer.from(arrayBuffer);
           }
-          return buffer;
+          return cachedBuffer;
         },
         stream: () => {
           if (!stream && response.body) {
