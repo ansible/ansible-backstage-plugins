@@ -53,9 +53,24 @@ backend:
   # workingDirectory: /tmp # Use this to configure a working directory for the scaffolder, defaults to the OS temp-dir
   reading:
     allow:
-      - host: gitlab.com
-      - host: github.com
-      - host: raw.githubusercontent.com
+      # ============================================================================
+      # DYNAMIC SCM READING (provided by IntegrationAwareFetchReader):
+      # 
+      # Hosts from 'integrations.github' and 'integrations.gitlab' are automatically
+      # allowed by the IntegrationAwareFetchReader module. You don't need to manually
+      # add GitHub Enterprise or self-hosted GitLab hosts here.
+      #
+      # For example, if you configure:
+      #   integrations:
+      #     github:
+      #       - host: ghe.example.net
+      #         token: ...
+      #
+      # The backend will automatically allow reading from ghe.example.net without
+      # needing to add it to this allow list.
+      #
+      # Only add hosts here that are NOT configured as integrations:
+      # ============================================================================
       - host: localhost
   request:
     bodyParsing:
