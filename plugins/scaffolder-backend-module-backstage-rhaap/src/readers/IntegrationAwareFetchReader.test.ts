@@ -16,16 +16,22 @@
 
 import { ConfigReader } from '@backstage/config';
 import { mockServices } from '@backstage/backend-test-utils';
+import { NotFoundError, NotModifiedError } from '@backstage/errors';
 import {
   IntegrationAwareFetchReader,
   buildAllowedHostsFromIntegrations,
 } from './IntegrationAwareFetchReader';
+
+// Mock global fetch
+const mockFetch = jest.fn();
+global.fetch = mockFetch;
 
 describe('IntegrationAwareFetchReader', () => {
   const logger = mockServices.logger.mock();
 
   beforeEach(() => {
     jest.clearAllMocks();
+    mockFetch.mockReset();
   });
 
   describe('buildAllowedHostsFromIntegrations', () => {
@@ -195,6 +201,312 @@ describe('IntegrationAwareFetchReader', () => {
       await expect(
         reader.readUrl('https://unknown.host.com/file.txt'),
       ).rejects.toThrow('URL host not in configured integrations');
+    });
+
+    it('should successfully read URL and return response', async () => {
+      const config = new ConfigReader({
+        integrations: {
+          github: [{ host: 'github.com', token: 'token1' }],
+        },
+      });
+
+      const headersData: Record<string, string> = {
+        etag: '"abc123"',
+        'last-modified': 'Wed, 21 Oct 2015 07:28:00 GMT',
+      };
+      const mockHeaders = {
+        get: (key: string) => headersData[key] || null,
+      };
+
+      const mockResponse = {
+        ok: true,
+        status: 200,
+        headers: mockHeaders,
+        arrayBuffer: jest.fn().mockResolvedValue(new ArrayBuffer(8)),
+        body: null,
+      };
+
+      mockFetch.mockResolvedValue(mockResponse);
+
+      const result = IntegrationAwareFetchReader.factory({ config, logger });
+      const reader = result[0].reader;
+
+      const response = await reader.readUrl(
+        'https://github.com/org/repo/file.txt',
+      );
+
+      expect(response.etag).toBe('"abc123"');
+      expect(response.lastModifiedAt).toBeInstanceOf(Date);
+      expect(mockFetch).toHaveBeenCalledWith(
+        'https://github.com/org/repo/file.txt',
+        expect.any(Object),
+      );
+    });
+
+    it('should pass options to fetch', async () => {
+      const config = new ConfigReader({
+        integrations: {
+          github: [{ host: 'github.com', token: 'token1' }],
+        },
+      });
+
+      const mockHeaders = { get: () => null };
+      const mockResponse = {
+        ok: true,
+        status: 200,
+        headers: mockHeaders,
+        arrayBuffer: jest.fn().mockResolvedValue(new ArrayBuffer(8)),
+        body: null,
+      };
+
+      mockFetch.mockResolvedValue(mockResponse);
+
+      const result = IntegrationAwareFetchReader.factory({ config, logger });
+      const reader = result[0].reader;
+
+      await reader.readUrl('https://github.com/org/repo/file.txt', {
+        etag: 'test-etag',
+        token: 'bearer-token',
+        lastModifiedAfter: new Date('2020-01-01'),
+      });
+
+      expect(mockFetch).toHaveBeenCalledWith(
+        'https://github.com/org/repo/file.txt',
+        expect.objectContaining({
+          headers: expect.objectContaining({
+            'If-None-Match': 'test-etag',
+            Authorization: 'Bearer bearer-token',
+            'If-Modified-Since': expect.any(String),
+          }),
+        }),
+      );
+    });
+
+    it('should throw NotModifiedError on 304 response', async () => {
+      const config = new ConfigReader({
+        integrations: {
+          github: [{ host: 'github.com', token: 'token1' }],
+        },
+      });
+
+      const mockHeaders = { get: () => null };
+      const mockResponse = {
+        ok: false,
+        status: 304,
+        statusText: 'Not Modified',
+        headers: mockHeaders,
+      };
+
+      mockFetch.mockResolvedValue(mockResponse);
+
+      const result = IntegrationAwareFetchReader.factory({ config, logger });
+      const reader = result[0].reader;
+
+      await expect(
+        reader.readUrl('https://github.com/org/repo/file.txt'),
+      ).rejects.toThrow(NotModifiedError);
+    });
+
+    it('should throw NotFoundError on 404 response', async () => {
+      const config = new ConfigReader({
+        integrations: {
+          github: [{ host: 'github.com', token: 'token1' }],
+        },
+      });
+
+      const mockHeaders = { get: () => null };
+      const mockResponse = {
+        ok: false,
+        status: 404,
+        statusText: 'Not Found',
+        headers: mockHeaders,
+      };
+
+      mockFetch.mockResolvedValue(mockResponse);
+
+      const result = IntegrationAwareFetchReader.factory({ config, logger });
+      const reader = result[0].reader;
+
+      await expect(
+        reader.readUrl('https://github.com/org/repo/file.txt'),
+      ).rejects.toThrow(NotFoundError);
+    });
+
+    it('should throw Error on other error responses', async () => {
+      const config = new ConfigReader({
+        integrations: {
+          github: [{ host: 'github.com', token: 'token1' }],
+        },
+      });
+
+      const mockHeaders = { get: () => null };
+      const mockResponse = {
+        ok: false,
+        status: 500,
+        statusText: 'Internal Server Error',
+        headers: mockHeaders,
+      };
+
+      mockFetch.mockResolvedValue(mockResponse);
+
+      const result = IntegrationAwareFetchReader.factory({ config, logger });
+      const reader = result[0].reader;
+
+      await expect(
+        reader.readUrl('https://github.com/org/repo/file.txt'),
+      ).rejects.toThrow('could not read');
+    });
+
+    it('should throw Error when fetch fails', async () => {
+      const config = new ConfigReader({
+        integrations: {
+          github: [{ host: 'github.com', token: 'token1' }],
+        },
+      });
+
+      mockFetch.mockRejectedValue(new Error('Network error'));
+
+      const result = IntegrationAwareFetchReader.factory({ config, logger });
+      const reader = result[0].reader;
+
+      await expect(
+        reader.readUrl('https://github.com/org/repo/file.txt'),
+      ).rejects.toThrow('Unable to read');
+    });
+  });
+
+  describe('IntegrationAwareFetchReader response buffer', () => {
+    it('should return buffer from response', async () => {
+      const config = new ConfigReader({
+        integrations: {
+          github: [{ host: 'github.com', token: 'token1' }],
+        },
+      });
+
+      const testData = Buffer.from('test content');
+      const mockHeaders = { get: () => null };
+      const mockResponse = {
+        ok: true,
+        status: 200,
+        headers: mockHeaders,
+        arrayBuffer: jest.fn().mockResolvedValue(testData.buffer),
+        body: null,
+      };
+
+      mockFetch.mockResolvedValue(mockResponse);
+
+      const result = IntegrationAwareFetchReader.factory({ config, logger });
+      const reader = result[0].reader;
+
+      const response = await reader.readUrl(
+        'https://github.com/org/repo/file.txt',
+      );
+      const buffer = await response.buffer();
+
+      expect(Buffer.isBuffer(buffer)).toBe(true);
+    });
+  });
+
+  describe('IntegrationAwareFetchReader.search', () => {
+    it('should return file info for valid URL', async () => {
+      const config = new ConfigReader({
+        integrations: {
+          github: [{ host: 'github.com', token: 'token1' }],
+        },
+      });
+
+      const headersData: Record<string, string> = { etag: '"abc123"' };
+      const mockHeaders = { get: (key: string) => headersData[key] || null };
+      const mockResponse = {
+        ok: true,
+        status: 200,
+        headers: mockHeaders,
+        arrayBuffer: jest.fn().mockResolvedValue(new ArrayBuffer(8)),
+        body: null,
+      };
+
+      mockFetch.mockResolvedValue(mockResponse);
+
+      const result = IntegrationAwareFetchReader.factory({ config, logger });
+      const reader = result[0].reader;
+
+      const searchResult = await reader.search(
+        'https://github.com/org/repo/file.txt',
+      );
+
+      expect(searchResult.files).toHaveLength(1);
+      expect(searchResult.files[0].url).toBe(
+        'https://github.com/org/repo/file.txt',
+      );
+      expect(searchResult.etag).toBe('"abc123"');
+    });
+
+    it('should return empty files for NotFoundError', async () => {
+      const config = new ConfigReader({
+        integrations: {
+          github: [{ host: 'github.com', token: 'token1' }],
+        },
+      });
+
+      const mockHeaders = { get: () => null };
+      const mockResponse = {
+        ok: false,
+        status: 404,
+        statusText: 'Not Found',
+        headers: mockHeaders,
+      };
+
+      mockFetch.mockResolvedValue(mockResponse);
+
+      const result = IntegrationAwareFetchReader.factory({ config, logger });
+      const reader = result[0].reader;
+
+      const searchResult = await reader.search(
+        'https://github.com/org/repo/file.txt',
+      );
+
+      expect(searchResult.files).toHaveLength(0);
+      expect(searchResult.etag).toBe('');
+    });
+
+    it('should throw error for glob patterns', async () => {
+      const config = new ConfigReader({
+        integrations: {
+          github: [{ host: 'github.com', token: 'token1' }],
+        },
+      });
+
+      const result = IntegrationAwareFetchReader.factory({ config, logger });
+      const reader = result[0].reader;
+
+      await expect(
+        reader.search('https://github.com/org/repo/*.txt'),
+      ).rejects.toThrow('Unsupported search pattern URL');
+    });
+
+    it('should rethrow non-NotFoundError errors', async () => {
+      const config = new ConfigReader({
+        integrations: {
+          github: [{ host: 'github.com', token: 'token1' }],
+        },
+      });
+
+      const mockHeaders = { get: () => null };
+      const mockResponse = {
+        ok: false,
+        status: 500,
+        statusText: 'Internal Server Error',
+        headers: mockHeaders,
+      };
+
+      mockFetch.mockResolvedValue(mockResponse);
+
+      const result = IntegrationAwareFetchReader.factory({ config, logger });
+      const reader = result[0].reader;
+
+      await expect(
+        reader.search('https://github.com/org/repo/file.txt'),
+      ).rejects.toThrow('could not read');
     });
   });
 
