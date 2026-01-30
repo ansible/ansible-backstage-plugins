@@ -83,7 +83,7 @@ export const EETabs: React.FC = () => {
 
   useEffect(() => {
     const tabIndex = (location.state as { tabIndex?: number })?.tabIndex;
-    if (tabIndex !== undefined && tabIndex !== selectedTab) {
+    if (tabIndex !== undefined) {
       const tab = tabs[tabIndex];
       if (tab) {
         navigate(`/self-service/ee/${tab.path}`, {
@@ -92,7 +92,7 @@ export const EETabs: React.FC = () => {
         });
       }
     }
-  }, [location.state, navigate, selectedTab]);
+  }, [location.state, navigate]);
 
   const onTabSelect = useCallback(
     (index: number) => {
