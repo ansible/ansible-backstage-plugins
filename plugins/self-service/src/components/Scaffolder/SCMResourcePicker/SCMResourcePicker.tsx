@@ -123,16 +123,6 @@ export const SCMResourcePicker = (props: ScaffolderRJSFFieldProps) => {
     return host ? host.name : '';
   };
 
-  const getTypeIcon = (type: string) => {
-    if (type === 'github') {
-      return '🐙';
-    }
-    if (type === 'gitlab') {
-      return '🦊';
-    }
-    return '📁';
-  };
-
   return (
     <FormControl
       fullWidth
@@ -157,9 +147,6 @@ export const SCMResourcePicker = (props: ScaffolderRJSFFieldProps) => {
             <MenuItem key={host.id} value={host.host}>
               <div className={classes.menuItemContent}>
                 <Typography>
-                  <span style={{ marginRight: 8 }}>
-                    {getTypeIcon(host.type)}
-                  </span>
                   <span style={{ fontWeight: 450 }}>{host.name}</span>
                 </Typography>
                 <span className={classes.typeLabel}>{host.type}</span>
