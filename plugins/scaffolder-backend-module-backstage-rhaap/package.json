@@ -43,7 +43,7 @@
     "@octokit/core": "^5.0.0",
     "isomorphic-git": "^1.23.0",
     "node-fetch": "^2.6.7",
-    "undici": "6.21.2",
+    "undici": "6.23.0",
     "yaml": "^2.0.0"
   },
   "peerDependencies": {
