@@ -16,6 +16,8 @@ concurrency:
 
 jobs:
   docs:
+    # Skip for patchback PRs (automated backports of already-tested code)
+    if: ${{ !startsWith(github.head_ref, 'patchback/backports/') }}
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repo
@@ -33,6 +35,8 @@ jobs:
         run: mkdocs build
 
   test:
+    # Skip for patchback PRs (automated backports of already-tested code)
+    if: ${{ !startsWith(github.head_ref, 'patchback/backports/') }}
     name: Test with Node.js ${{ matrix.node-version }}
     runs-on: ubuntu-latest
     permissions:
@@ -137,7 +141,8 @@ jobs:
             'docs': '${{ needs.docs.result }}',
             'test': '${{ needs.test.result }}'
           }
-          failed = [job for job, result in results.items() if result != 'success']
+          # Allow 'skipped' for patchback PRs
+          failed = [job for job, result in results.items() if result not in ('success', 'skipped')]
           if failed:
             print(f'Failed jobs: {failed}')
             print(f'Results: {results}')
