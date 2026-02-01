@@ -38,7 +38,7 @@ export const formExtraFields = [
   { name: 'AAPTokenField', component: AAPTokenField },
   { name: 'BaseImagePicker', component: BaseImagePickerExtension },
   { name: 'CollectionsPicker', component: CollectionsPickerExtension },
-  { name: 'FileUploadPicker', component: FileUploadPickerExtension },
+  { name: 'FileUploadPicker', component: CollectionsYAMLPickerExtension },
   { name: 'PackagesPicker', component: PackagesPickerExtension },
   { name: 'MCPServersPicker', component: MCPServersPickerExtension },
   { name: 'CollectionsYAMLPicker', component: CollectionsYAMLPickerExtension },
