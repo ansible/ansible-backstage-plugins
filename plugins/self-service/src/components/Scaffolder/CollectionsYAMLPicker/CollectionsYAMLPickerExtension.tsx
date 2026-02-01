@@ -33,7 +33,6 @@ const useStyles = makeStyles(theme => ({
     },
   },
   uploadButton: {
-    // padding: theme.spacing(2),
     textTransform: 'none',
     fontSize: '15px',
     marginBottom: theme.spacing(2),
@@ -48,23 +47,23 @@ const useStyles = makeStyles(theme => ({
       marginRight: theme.spacing(1),
     },
   },
-  fileContent: {
+  fileUploadContent: {
     marginTop: theme.spacing(2),
     padding: theme.spacing(2),
     backgroundColor: theme.palette.background.paper,
     borderRadius: theme.shape.borderRadius,
     border: `1px solid ${theme.palette.divider}`,
   },
-  fileContentText: {
+  fileUploadContentText: {
     fontFamily: 'monospace',
     fontSize: '0.875rem',
     whiteSpace: 'pre-wrap',
     wordBreak: 'break-word',
   },
-  hiddenFileInput: {
+  hideFileInput: {
     display: 'none',
   },
-  fileHeader: {
+  filePickerHeader: {
     display: 'flex',
     justifyContent: 'space-between',
     alignItems: 'center',
@@ -82,33 +81,32 @@ export const CollectionsYAMLPickerExtension = ({
 }: FieldExtensionComponentProps<string>) => {
   const classes = useStyles();
 
-  //   const [yamlContent, setYamlContent] = useState<string>('');
   const [yamlInput, setYamlInput] = useState<string>('');
   const [isYAMLDataFrom, setIsYAMLDataFrom] = useState<string>('none');
-  const [uploadedFile, setUploadedFile] = useState<{
+  const [fileData, setFileData] = useState<{
     name: string;
     content: string;
   } | null>(null);
-  const isInitialized = useRef(false);
+  const isInitalize = useRef(false);
 
-  const customTitle =
+  const modifiedTitle =
     uiSchema?.['ui:options']?.title || schema?.title || 'Upload File';
-  const customDescription =
+  const modifiedDescription =
     uiSchema?.['ui:options']?.description || schema?.description;
 
-  const fileInputId = `file-upload-input-${
+  const fileInputIdentifier = `file-upload-input-${
     typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function'
       ? crypto.randomUUID().toString().replaceAll('-', '').substring(2, 11)
       : Date.now().toString(36).substring(2, 11)
   }`;
 
-  const storageKey = `file-upload-filename-${schema?.title || 'default'}`;
+  const dataStorageKey = `file-upload-filename-${schema?.title || 'default'}`;
 
   const handleInputData = (content: string) => {
     if (content) {
-      setUploadedFile({ name: 'input-data', content });
+      setFileData({ name: 'input-data', content });
       try {
-        sessionStorage.setItem(storageKey, 'input-data');
+        sessionStorage.setItem(dataStorageKey, 'input-data');
       } catch {
         // Ignore sessionStorage errors (e.g., in private browsing)
       }
@@ -118,17 +116,17 @@ export const CollectionsYAMLPickerExtension = ({
   };
 
   useEffect(() => {
-    if (!isInitialized.current && formData === '') {
+    if (!isInitalize.current && formData === '') {
       onChange(undefined as any);
-      isInitialized.current = true;
+      isInitalize.current = true;
     } else if (formData && formData !== '') {
-      isInitialized.current = true;
+      isInitalize.current = true;
     }
   }, [formData, onChange]);
 
   useEffect(() => {
     if (!formData || formData === '') {
-      setUploadedFile(null);
+      setFileData(null);
       setIsYAMLDataFrom('none');
 
       return;
@@ -142,7 +140,7 @@ export const CollectionsYAMLPickerExtension = ({
       try {
         const base64Content = formData.split(',')[1];
         if (!base64Content) {
-          setUploadedFile(null);
+          setFileData(null);
           setIsYAMLDataFrom('none');
           return;
         }
@@ -150,7 +148,7 @@ export const CollectionsYAMLPickerExtension = ({
 
         let fileName: string;
         try {
-          const storedFilename = sessionStorage.getItem(storageKey);
+          const storedFilename = sessionStorage.getItem(dataStorageKey);
           if (storedFilename) {
             fileName = storedFilename;
           } else {
@@ -164,7 +162,7 @@ export const CollectionsYAMLPickerExtension = ({
             : 'uploaded-file.txt';
         }
 
-        setUploadedFile(prev => {
+        setFileData(prev => {
           if (prev?.content === content && prev?.name === fileName) {
             return prev;
           }
@@ -172,15 +170,15 @@ export const CollectionsYAMLPickerExtension = ({
         });
       } catch {
         setYamlInput('');
-        setUploadedFile(null);
+        setFileData(null);
         setIsYAMLDataFrom('none');
       }
     } else if (formData && !formData.includes('data:')) {
       setYamlInput(formData);
-      setUploadedFile(null);
+      setFileData(null);
       setIsYAMLDataFrom('none');
     }
-  }, [formData, schema?.title, storageKey]);
+  }, [formData, schema?.title, dataStorageKey]);
 
   const handleYAMLChange = (event: ChangeEvent<HTMLInputElement>) => {
     const value = event.target.value;
@@ -188,10 +186,10 @@ export const CollectionsYAMLPickerExtension = ({
     setIsYAMLDataFrom('input');
 
     if (value.trim()) {
-      setUploadedFile(null);
+      setFileData(null);
 
       try {
-        sessionStorage.removeItem(storageKey);
+        sessionStorage.removeItem(dataStorageKey);
       } catch {
         // Ignore sessionStorage errors (e.g., in private browsing)
       }
@@ -202,42 +200,37 @@ export const CollectionsYAMLPickerExtension = ({
     }
   };
 
-  const handleFileUpload = (event: ChangeEvent<HTMLInputElement>) => {
+  const handleFileUpload = async (event: ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (file) {
-      const reader = new FileReader();
-      reader.onload = e => {
-        const content = e.target?.result as string;
-        setUploadedFile({ name: file.name, content });
-        // setYamlContent('');
-        setYamlInput('');
-        setIsYAMLDataFrom('file');
-        try {
-          sessionStorage.setItem(storageKey, file.name);
-        } catch {
-          // Ignore sessionStorage errors (e.g., in private browsing)
-        }
-        const dataUrl = `data:text/plain;base64,${btoa(content)}`;
-        onChange(dataUrl);
-      };
-      reader.readAsText(file);
+      const content = await file.text();
+      setFileData({ name: file.name, content });
+      setYamlInput('');
+      setIsYAMLDataFrom('file');
+      try {
+        sessionStorage.setItem(dataStorageKey, file.name);
+      } catch {
+        // Ignore sessionStorage errors (e.g., in private browsing)
+      }
+      const dataUrl = `data:text/plain;base64,${btoa(content)}`;
+      onChange(dataUrl);
     }
   };
-
   const triggerFileUpload = () => {
-    const fileInput = document.getElementById(fileInputId) as HTMLInputElement;
+    const fileInput = document.getElementById(
+      fileInputIdentifier,
+    ) as HTMLInputElement;
     fileInput?.click();
   };
 
   const clearFile = () => {
-    setUploadedFile(null);
-    // setYamlContent('');
+    setFileData(null);
     setIsYAMLDataFrom('none');
     setYamlInput('');
 
     onChange(undefined as any);
     try {
-      sessionStorage.removeItem(storageKey);
+      sessionStorage.removeItem(dataStorageKey);
     } catch {
       // Ignore sessionStorage errors (e.g., in private browsing)
     }
@@ -248,11 +241,11 @@ export const CollectionsYAMLPickerExtension = ({
 
   return (
     <Box>
-      <Typography className={classes.title}>{customTitle}</Typography>
+      <Typography className={classes.title}>{modifiedTitle}</Typography>
 
-      {customDescription && (
+      {modifiedDescription && (
         <Typography className={classes.description} component="div">
-          {parseMarkdownLinks(customDescription)}
+          {parseMarkdownLinks(modifiedDescription)}
         </Typography>
       )}
       {isYAMLDataFrom !== 'file' && (
@@ -282,20 +275,20 @@ export const CollectionsYAMLPickerExtension = ({
           </Button>
 
           <input
-            id={fileInputId}
+            id={fileInputIdentifier}
             type="file"
             accept=".yml,.yaml,.txt"
             onChange={handleFileUpload}
-            className={classes.hiddenFileInput}
+            className={classes.hideFileInput}
             disabled={isUploadDisabled}
           />
         </>
       )}
-      {uploadedFile && isYAMLDataFrom !== 'input' && (
-        <Box className={classes.fileContent}>
-          <Box className={classes.fileHeader}>
+      {fileData && isYAMLDataFrom !== 'input' && (
+        <Box className={classes.fileUploadContent}>
+          <Box className={classes.filePickerHeader}>
             <Typography variant="subtitle2">
-              {isYAMLDataFrom === 'file' ? `File: ${uploadedFile.name}` : ''}
+              {isYAMLDataFrom === 'file' ? `File: ${fileData.name}` : ''}
             </Typography>
             <IconButton
               size="small"
@@ -306,8 +299,8 @@ export const CollectionsYAMLPickerExtension = ({
               <DeleteIcon fontSize="small" />
             </IconButton>
           </Box>
-          <Typography className={classes.fileContentText}>
-            {uploadedFile.content}
+          <Typography className={classes.fileUploadContentText}>
+            {fileData.content}
           </Typography>
         </Box>
       )}

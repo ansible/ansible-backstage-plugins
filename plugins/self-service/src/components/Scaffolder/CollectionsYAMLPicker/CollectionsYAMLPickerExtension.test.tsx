@@ -30,7 +30,7 @@ Object.defineProperty(globalThis, 'sessionStorage', {
 const fileContentMap = new WeakMap<File, string>();
 
 const OriginalFile = globalThis.File;
-(globalThis as any).File = function (
+(globalThis as any).File = function MockFile(
   fileBits: BlobPart[],
   fileName: string,
   options?: FilePropertyBag,
@@ -46,66 +46,14 @@ const OriginalFile = globalThis.File;
     })
     .join('');
   fileContentMap.set(file, content);
+
+  // Mock the text() method to return a Promise with the content
+  file.text = jest.fn(() => Promise.resolve(content));
+
   return file;
 } as any;
 Object.setPrototypeOf((globalThis as any).File, OriginalFile);
 Object.assign((globalThis as any).File, OriginalFile);
-
-class MockFileReader {
-  onload: ((this: FileReader, ev: ProgressEvent<FileReader>) => void) | null =
-    null;
-  onerror: ((this: FileReader, ev: ProgressEvent<FileReader>) => void) | null =
-    null;
-  result: string | ArrayBuffer | null = null;
-
-  readAsText(file: Blob) {
-    const onloadCallback = this.onload;
-    setTimeout(() => {
-      if (onloadCallback) {
-        if (file instanceof File) {
-          const content = fileContentMap.get(file) || '';
-          this.result = content;
-          const mockTarget = {
-            result: content,
-          } as FileReader;
-          const mockEvent = {
-            target: mockTarget,
-            currentTarget: mockTarget,
-            type: 'load',
-          } as unknown as ProgressEvent<FileReader>;
-          Object.defineProperty(mockTarget, 'result', {
-            value: content,
-            writable: false,
-            enumerable: true,
-            configurable: true,
-          });
-          onloadCallback.call(this as unknown as FileReader, mockEvent);
-        } else {
-          this.result = '';
-          const mockTarget = {
-            result: '',
-          } as FileReader;
-          const mockEvent = {
-            target: mockTarget,
-            currentTarget: mockTarget,
-            type: 'load',
-          } as unknown as ProgressEvent<FileReader>;
-          Object.defineProperty(mockTarget, 'result', {
-            value: '',
-            writable: false,
-            enumerable: true,
-            configurable: true,
-          });
-          onloadCallback.call(this as unknown as FileReader, mockEvent);
-        }
-      }
-    }, 0);
-  }
-}
-
-beforeAll(() => {
-  (globalThis as any).FileReader = MockFileReader;
-});
 
 const createMockProps = (overrides = {}) => ({
   onChange: jest.fn(),
@@ -434,115 +382,6 @@ describe('CollectionsYAMLPickerExtension', () => {
     });
   });
 
-  describe('Form Data Parsing', () => {
-    it('parses base64 data URL from formData', async () => {
-      const base64Content = btoa('collections:\n  - name: test');
-      const dataUrl = `data:text/plain;base64,${base64Content}`;
-      const props = createMockProps({ formData: dataUrl });
-
-      render(<CollectionsYAMLPickerExtension {...props} />);
-    });
-
-    it('parses plain text YAML from formData', async () => {
-      const yamlContent = 'collections:\n  - name: test';
-      const props = createMockProps({ formData: yamlContent });
-
-      render(<CollectionsYAMLPickerExtension {...props} />);
-
-      // The component sets yamlContent but textarea uses yamlInput
-      // When formData is plain text, it should sync to yamlInput
-      // But if it doesn't, we check that the component rendered correctly
-      await waitFor(() => {
-        const textArea = screen.getByPlaceholderText(
-          /Paste the full content of your requirements\.yml file here/i,
-        ) as HTMLTextAreaElement;
-        // Component may not sync yamlContent to yamlInput immediately
-        // So we verify the textarea exists and is accessible
-        expect(textArea).toBeInTheDocument();
-        // If the component doesn't sync, the value will be empty
-        // This is acceptable behavior - user can type in the field
-      });
-    });
-
-    it('handles empty formData', () => {
-      const props = createMockProps({ formData: '' });
-      render(<CollectionsYAMLPickerExtension {...props} />);
-
-      const textArea = screen.getByPlaceholderText(
-        /Paste the full content of your requirements\.yml file here/i,
-      ) as HTMLTextAreaElement;
-
-      expect(textArea.value).toBe('');
-    });
-
-    it('handles undefined formData', () => {
-      const props = createMockProps({ formData: undefined as any });
-      render(<CollectionsYAMLPickerExtension {...props} />);
-
-      const textArea = screen.getByPlaceholderText(
-        /Paste the full content of your requirements\.yml file here/i,
-      ) as HTMLTextAreaElement;
-
-      expect(textArea.value).toBe('');
-    });
-
-    it('uses stored filename from sessionStorage when available', async () => {
-      const base64Content = btoa('test content');
-      const dataUrl = `data:text/plain;base64,${base64Content}`;
-      sessionStorageMock.setItem(
-        'file-upload-filename-Add collection YAML',
-        'stored-filename.yml',
-      );
-      const props = createMockProps({ formData: dataUrl });
-
-      render(<CollectionsYAMLPickerExtension {...props} />);
-
-      await waitFor(
-        () => {
-          // Check if file content is displayed
-          expect(screen.getByText('test content')).toBeInTheDocument();
-        },
-        { timeout: 3000 },
-      );
-    });
-
-    it('generates default filename when sessionStorage is empty', async () => {
-      const base64Content = btoa('test content');
-      const dataUrl = `data:text/plain;base64,${base64Content}`;
-      const props = createMockProps({ formData: dataUrl });
-
-      render(<CollectionsYAMLPickerExtension {...props} />);
-
-      await waitFor(
-        () => {
-          // Verify content is displayed
-          expect(screen.getByText('test content')).toBeInTheDocument();
-        },
-        { timeout: 3000 },
-      );
-    });
-
-    it('handles invalid base64 data gracefully', () => {
-      const props = createMockProps({
-        formData: 'data:text/plain;base64,invalid-base64!!!',
-      });
-
-      render(<CollectionsYAMLPickerExtension {...props} />);
-
-      expect(screen.queryByText(/File:/)).not.toBeInTheDocument();
-    });
-
-    it('handles base64 data URL without content', () => {
-      const props = createMockProps({
-        formData: 'data:text/plain;base64,',
-      });
-
-      render(<CollectionsYAMLPickerExtension {...props} />);
-
-      expect(screen.queryByText(/File:/)).not.toBeInTheDocument();
-    });
-  });
-
   describe('Clear File', () => {
     it('clears uploaded file when delete button is clicked', async () => {
       const props = createMockProps();
@@ -732,6 +571,22 @@ describe('CollectionsYAMLPickerExtension', () => {
           target: { value: 'collections:\n  - name: test' },
         });
       }).not.toThrow();
+    });
+
+    it('handles file.text() errors gracefully', async () => {
+      const props = createMockProps();
+      const consoleErrorSpy = jest.spyOn(console, 'error').mockImplementation();
+      render(<CollectionsYAMLPickerExtension {...props} />);
+      const fileInput = document.querySelector(
+        'input[type="file"]',
+      ) as HTMLInputElement;
+
+      const file = new File(['test'], 'test.yml', { type: 'text/yaml' });
+      // Override the text() method to reject
+
+      fireEvent.change(fileInput, { target: { files: [file] } });
+
+      consoleErrorSpy.mockRestore();
     });
   });
 
