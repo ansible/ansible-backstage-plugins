@@ -2,8 +2,7 @@ import {
   render,
   screen,
   fireEvent,
-  waitFor,
-  act,
+  waitFor
 } from '@testing-library/react';
 import { CollectionsYAMLPickerExtension } from './CollectionsYAMLPickerExtension';
 
@@ -675,7 +674,6 @@ describe('CollectionsYAMLPickerExtension', () => {
     });
 
     it('disables delete button when disabled prop is true', async () => {
-      const props = createMockProps({ disabled: true });
       const base64Content = btoa('test content');
       const dataUrl = `data:text/plain;base64,${base64Content}`;
       const propsWithData = createMockProps({
