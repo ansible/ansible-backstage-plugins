@@ -14,6 +14,7 @@ dynamicPlugins:
         - importName: CollectionsPickerFieldExtension
         - importName: EEFileNamePickerExtension
         - importName: FileUploadPickerFieldExtension
+        - importName: CollectionsYAMLPickerFieldExtension
         - importName: PackagesPickerFieldExtension
         - importName: MCPServersPickerFieldExtension
         - importName: AdditionalBuildStepsPickerFieldExtension

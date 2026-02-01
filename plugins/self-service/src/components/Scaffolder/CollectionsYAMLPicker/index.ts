@@ -1,0 +1,1 @@
+export { CollectionsYAMLPickerExtension } from './CollectionsYAMLPickerExtension';

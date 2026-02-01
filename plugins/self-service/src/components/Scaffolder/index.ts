@@ -5,6 +5,7 @@ export * from './BaseImagePicker';
 export * from './CollectionsPicker';
 export * from './EEFileNamePicker';
 export * from './FileUploadPicker';
+export * from './CollectionsYAMLPicker';
 export * from './MCPServersPicker';
 export * from './PackagesPicker';
 export * from './utils';

@@ -1008,11 +1008,10 @@ spec:
                   description: URI of the signature file
           ui:field: CollectionsPicker
         collectionsFile:
-          title: Upload a requirements.yml file
-          description: Optionally upload a requirements file with collection details
+          title: Add Collection YAML file
           type: string
           format: data-url
-          ui:field: FileUploadPicker
+          ui:field: CollectionsYAMLPicker
         specifyRequirements:
           title: Specify additional Python requirements and System packages
           type: boolean

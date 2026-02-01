@@ -7,6 +7,7 @@ export { AAPTokenFieldExtension } from './components/Scaffolder/AAPTokenField/ex
 export { AAPResourcePickerExtension } from './components/Scaffolder/AAResourcePicker';
 export { BaseImagePickerFieldExtension } from './components/Scaffolder/BaseImagePicker/extensions';
 export { CollectionsPickerFieldExtension } from './components/Scaffolder/CollectionsPicker/extensions';
+export { CollectionsYAMLPickerFieldExtension } from './components/Scaffolder/CollectionsYAMLPicker/extensions';
 export { FileUploadPickerFieldExtension } from './components/Scaffolder/FileUploadPicker/extensions';
 export { PackagesPickerFieldExtension } from './components/Scaffolder/PackagesPicker/extensions';
 export { MCPServersPickerFieldExtension } from './components/Scaffolder/MCPServersPicker/extensions';

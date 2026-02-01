@@ -51,6 +51,7 @@ import {
   PackagesPickerFieldExtension,
   MCPServersPickerFieldExtension,
   AdditionalBuildStepsPickerFieldExtension,
+  CollectionsYAMLPickerFieldExtension,
   SelfServicePage,
 } from '@ansible/plugin-backstage-self-service';
 import { RbacPage } from '@backstage-community/plugin-rbac';
@@ -115,6 +116,7 @@ const routes = (
         <BaseImagePickerFieldExtension />
         <CollectionsPickerFieldExtension />
         <EEFileNamePickerFieldExtension />
+        <CollectionsYAMLPickerFieldExtension />
         <FileUploadPickerFieldExtension />
         <PackagesPickerFieldExtension />
         <MCPServersPickerFieldExtension />
