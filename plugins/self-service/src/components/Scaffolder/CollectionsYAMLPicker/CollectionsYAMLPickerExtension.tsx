@@ -82,7 +82,7 @@ export const CollectionsYAMLPickerExtension = ({
 }: FieldExtensionComponentProps<string>) => {
   const classes = useStyles();
 
-//   const [yamlContent, setYamlContent] = useState<string>('');
+  //   const [yamlContent, setYamlContent] = useState<string>('');
   const [yamlInput, setYamlInput] = useState<string>('');
   const [isYAMLDataFrom, setIsYAMLDataFrom] = useState<string>('none');
   const [uploadedFile, setUploadedFile] = useState<{
@@ -110,7 +110,7 @@ export const CollectionsYAMLPickerExtension = ({
       try {
         sessionStorage.setItem(storageKey, 'input-data');
       } catch {
-            // Ignore sessionStorage errors (e.g., in private browsing)
+        // Ignore sessionStorage errors (e.g., in private browsing)
       }
       const dataUrl = `data:text/plain;base64,${btoa(content)}`;
       onChange(dataUrl);
@@ -176,7 +176,7 @@ export const CollectionsYAMLPickerExtension = ({
         setIsYAMLDataFrom('none');
       }
     } else if (formData && !formData.includes('data:')) {
-    setYamlInput(formData);
+      setYamlInput(formData);
       setUploadedFile(null);
       setIsYAMLDataFrom('none');
     }
@@ -215,7 +215,7 @@ export const CollectionsYAMLPickerExtension = ({
         try {
           sessionStorage.setItem(storageKey, file.name);
         } catch {
-            // Ignore sessionStorage errors (e.g., in private browsing)
+          // Ignore sessionStorage errors (e.g., in private browsing)
         }
         const dataUrl = `data:text/plain;base64,${btoa(content)}`;
         onChange(dataUrl);
@@ -239,7 +239,7 @@ export const CollectionsYAMLPickerExtension = ({
     try {
       sessionStorage.removeItem(storageKey);
     } catch {
-        // Ignore sessionStorage errors (e.g., in private browsing)
+      // Ignore sessionStorage errors (e.g., in private browsing)
     }
   };
 

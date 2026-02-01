@@ -231,9 +231,7 @@ describe('CollectionsYAMLPickerExtension', () => {
         target: { value: 'collections:\n  - name: community.general' },
       });
 
-      expect(textArea.value).toBe(
-        'collections:\n  - name: community.general',
-      );
+      expect(textArea.value).toBe('collections:\n  - name: community.general');
     });
 
     it('calls onChange when YAML text is entered', async () => {
