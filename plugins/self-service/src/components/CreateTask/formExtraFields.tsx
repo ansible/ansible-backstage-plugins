@@ -40,7 +40,6 @@ export const formExtraFields = [
   { name: 'FileUploadPicker', component: FileUploadPickerExtension },
   { name: 'PackagesPicker', component: PackagesPickerExtension },
   { name: 'MCPServersPicker', component: MCPServersPickerExtension },
-  // { name: 'CollectionsYAMLPicker', component: CollectionsYAMLPickerExtension },
   {
     name: 'AdditionalBuildStepsPicker',
     component: AdditionalBuildStepsPickerExtension,
