@@ -53,6 +53,10 @@ export class GitlabClient extends BaseScmClient {
 
     const encodedGroup = encodeURIComponent(this.config.organization);
 
+    this.logger.info(
+      `[GitlabClient] Starting to fetch projects from group: ${this.config.organization}`,
+    );
+
     interface ProjectResponse {
       id: number;
       name: string;
@@ -66,12 +70,23 @@ export class GitlabClient extends BaseScmClient {
 
     while (hasMore) {
       try {
-        const data = await this.fetchRest<ProjectResponse[]>(
-          `/groups/${encodedGroup}/projects?include_subgroups=true&per_page=${perPage}&page=${page}`,
-        );
+        const endpoint = `/groups/${encodedGroup}/projects?include_subgroups=true&per_page=${perPage}&page=${page}`;
+        const data = await this.fetchRest<ProjectResponse[]>(endpoint);
 
         for (const project of data) {
-          if (project.archived || project.empty_repo) {
+          // skip archived repos
+          if (project.archived) {
+            this.logger.debug(
+              `[GitlabClient] Skipping archived project: ${project.path_with_namespace}`,
+            );
+            continue;
+          }
+
+          // skip empty repos
+          if (project.empty_repo) {
+            this.logger.debug(
+              `[GitlabClient] Skipping empty project: ${project.path_with_namespace}`,
+            );
             continue;
           }
 
@@ -164,6 +179,11 @@ export class GitlabClient extends BaseScmClient {
     ref: string,
     path: string,
   ): Promise<DirectoryEntry[]> {
+    const allEntries: DirectoryEntry[] = [];
+    let page = 1;
+    const perPage = 100;
+    let hasMore = true;
+
     try {
       const encodedPath = encodeURIComponent(repo.fullPath);
       const encodedRef = encodeURIComponent(ref);
@@ -175,20 +195,43 @@ export class GitlabClient extends BaseScmClient {
         type: string;
       }
 
-      const endpoint = encodedFilePath
-        ? `/projects/${encodedPath}/repository/tree?ref=${encodedRef}&path=${encodedFilePath}`
-        : `/projects/${encodedPath}/repository/tree?ref=${encodedRef}`;
+      while (hasMore) {
+        const endpoint = encodedFilePath
+          ? `/projects/${encodedPath}/repository/tree?ref=${encodedRef}&path=${encodedFilePath}&per_page=${perPage}&page=${page}`
+          : `/projects/${encodedPath}/repository/tree?ref=${encodedRef}&per_page=${perPage}&page=${page}`;
 
-      const data = await this.fetchRest<TreeResponse[]>(endpoint);
+        const data = await this.fetchRest<TreeResponse[]>(endpoint);
 
-      return data.map(item => ({
-        name: item.name,
-        path: item.path,
-        type: item.type === 'tree' ? 'dir' : 'file',
-      }));
+        const galaxyFiles = data.filter(
+          item =>
+            item.type === 'blob' &&
+            (item.name === 'galaxy.yml' || item.name === 'galaxy.yaml'),
+        );
+        if (galaxyFiles.length > 0) {
+          this.logger.info(
+            `[GitlabClient] Found galaxy files in ${repo.fullPath}@${ref}`,
+          );
+        }
+
+        allEntries.push(
+          ...data.map(item => ({
+            name: item.name,
+            path: item.path,
+            type: (item.type === 'tree' ? 'dir' : 'file') as 'dir' | 'file',
+          })),
+        );
+
+        if (data.length < perPage) {
+          hasMore = false;
+        } else {
+          page++;
+        }
+      }
+
+      return allEntries;
     } catch (error) {
-      this.logger.debug(
-        `[GitlabClient] Could not get contents for ${repo.fullPath}/${path}@${ref}: ${error}`,
+      this.logger.warn(
+        `[GitlabClient] Error getting contents for ${repo.fullPath}/${path}@${ref}: ${error}`,
       );
       return [];
     }
