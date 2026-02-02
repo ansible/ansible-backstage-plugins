@@ -7,7 +7,6 @@ import { PackagesPickerExtension } from '../Scaffolder/PackagesPicker/PackagesPi
 import { MCPServersPickerExtension } from '../Scaffolder/MCPServersPicker/MCPServersPickerExtension';
 import { AdditionalBuildStepsPickerExtension } from '../Scaffolder/AdditionalBuildStepsPicker/AdditionalBuildStepsPickerExtension';
 import { EEFileNamePickerExtension } from '../Scaffolder/EEFileNamePicker/EEFileNamePickerExtension';
-import { CollectionsYAMLPickerExtension } from '../Scaffolder/CollectionsYAMLPicker/CollectionsYAMLPickerExtension';
 import {
   EntityNamePicker,
   EntityNamePickerSchema,
@@ -41,7 +40,7 @@ export const formExtraFields = [
   { name: 'FileUploadPicker', component: FileUploadPickerExtension },
   { name: 'PackagesPicker', component: PackagesPickerExtension },
   { name: 'MCPServersPicker', component: MCPServersPickerExtension },
-  { name: 'CollectionsYAMLPicker', component: CollectionsYAMLPickerExtension },
+  // { name: 'CollectionsYAMLPicker', component: CollectionsYAMLPickerExtension },
   {
     name: 'AdditionalBuildStepsPicker',
     component: AdditionalBuildStepsPickerExtension,

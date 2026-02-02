@@ -1,6 +1,12 @@
 import { ChangeEvent, useState, useEffect, useRef } from 'react';
 import { FieldExtensionComponentProps } from '@backstage/plugin-scaffolder-react';
-import { Button, Typography, Box, IconButton } from '@material-ui/core';
+import {
+  Button,
+  Typography,
+  Box,
+  IconButton,
+  TextField,
+} from '@material-ui/core';
 import { makeStyles } from '@material-ui/core/styles';
 import UploadIcon from '@material-ui/icons/CloudUpload';
 import DeleteIcon from '@material-ui/icons/Delete';
@@ -19,12 +25,27 @@ const useStyles = makeStyles(theme => ({
     marginBottom: theme.spacing(2),
     lineHeight: 1.5,
   },
-  uploadButton: {
-    width: '100%',
-    padding: theme.spacing(1.5),
-    textTransform: 'none',
-    fontSize: '1rem',
+  textArea: {
     marginBottom: theme.spacing(2),
+    '& .MuiInputBase-root': {
+      fontFamily: 'monospace',
+      fontSize: '0.875rem',
+    },
+  },
+  uploadButton: {
+    textTransform: 'none',
+    fontSize: '15px',
+    marginBottom: theme.spacing(2),
+    color: theme.palette.primary.main,
+    '&:hover': {
+      backgroundColor: theme.palette.action.hover,
+    },
+    '&:disabled': {
+      color: theme.palette.action.disabled,
+    },
+    '& .MuiButton-startIcon': {
+      marginRight: theme.spacing(1),
+    },
   },
   fileContent: {
     marginTop: theme.spacing(2),
@@ -60,6 +81,8 @@ export const FileUploadPickerExtension = ({
 }: FieldExtensionComponentProps<string>) => {
   const classes = useStyles();
 
+  const [textInput, setTextInput] = useState<string>('');
+  const [dataSource, setIsDataSource] = useState<string>('none');
   const [uploadedFile, setUploadedFile] = useState<{
     name: string;
     content: string;
@@ -79,6 +102,19 @@ export const FileUploadPickerExtension = ({
 
   const storageKey = `file-upload-filename-${schema?.title || 'default'}`;
 
+  const handleTextInput = (content: string) => {
+    if (content) {
+      setUploadedFile({ name: 'input-data', content });
+      try {
+        sessionStorage.setItem(storageKey, 'input-data');
+      } catch {
+        // Ignore sessionStorage errors (e.g., in private browsing)
+      }
+      const dataUrl = `data:text/plain;base64,${btoa(content)}`;
+      onChange(dataUrl);
+    }
+  };
+
   useEffect(() => {
     if (!isInitialized.current && formData === '') {
       onChange(undefined as any);
@@ -91,14 +127,17 @@ export const FileUploadPickerExtension = ({
   useEffect(() => {
     if (!formData || formData === '') {
       setUploadedFile(null);
+      setIsDataSource('none');
+      setTextInput('');
       return;
     }
 
-    if (formData.startsWith('data:text/plain;base64,')) {
+    if (formData && formData.startsWith('data:text/plain;base64,')) {
       try {
         const base64Content = formData.split(',')[1];
         if (!base64Content) {
           setUploadedFile(null);
+          setIsDataSource('none');
           return;
         }
         const content = atob(base64Content);
@@ -108,15 +147,26 @@ export const FileUploadPickerExtension = ({
           const storedFilename = sessionStorage.getItem(storageKey);
           if (storedFilename) {
             fileName = storedFilename;
+            if (fileName === 'input-data') {
+              setIsDataSource('input');
+              setTextInput(content);
+            } else {
+              setIsDataSource('file');
+              setTextInput('');
+            }
           } else {
             fileName = schema?.title
               ? `${schema.title.toLowerCase().replaceAll(/\s+/g, '-')}.txt`
               : 'uploaded-file.txt';
+            setIsDataSource('file');
+            setTextInput('');
           }
         } catch {
           fileName = schema?.title
             ? `${schema.title.toLowerCase().replaceAll(/\s+/g, '-')}.txt`
             : 'uploaded-file.txt';
+          setIsDataSource('file');
+          setTextInput('');
         }
 
         setUploadedFile(prev => {
@@ -126,20 +176,45 @@ export const FileUploadPickerExtension = ({
           return { name: fileName, content };
         });
       } catch {
+        setTextInput('');
         setUploadedFile(null);
+        setIsDataSource('none');
       }
-    } else if (formData && !formData.startsWith('data:')) {
+    } else if (formData && !formData.includes('data:')) {
+      setTextInput(formData);
       setUploadedFile(null);
+      setIsDataSource('input');
     }
   }, [formData, schema?.title, storageKey]);
 
-  const handleFileUpload = (event: ChangeEvent<HTMLInputElement>) => {
+  const handleTextChange = (event: ChangeEvent<HTMLInputElement>) => {
+    const value = event.target.value;
+    setTextInput(value);
+    setIsDataSource('input');
+
+    if (value.trim()) {
+      setUploadedFile(null);
+
+      try {
+        sessionStorage.removeItem(storageKey);
+      } catch {
+        // Ignore sessionStorage errors (e.g., in private browsing)
+      }
+      handleTextInput(value);
+    } else {
+      onChange(undefined as any);
+      setIsDataSource('none');
+    }
+  };
+
+  const handleFileUpload = async (event: ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (file) {
-      const reader = new FileReader();
-      reader.onload = e => {
-        const content = e.target?.result as string;
+      try {
+        const content = await file.text();
         setUploadedFile({ name: file.name, content });
+        setTextInput('');
+        setIsDataSource('file');
         try {
           sessionStorage.setItem(storageKey, file.name);
         } catch {
@@ -147,8 +222,10 @@ export const FileUploadPickerExtension = ({
         }
         const dataUrl = `data:text/plain;base64,${btoa(content)}`;
         onChange(dataUrl);
-      };
-      reader.readAsText(file);
+      } catch (error) {
+        // eslint-disable-next-line no-console
+        console.error('Failed to read file:', error);
+      }
     }
   };
 
@@ -159,6 +236,8 @@ export const FileUploadPickerExtension = ({
 
   const clearFile = () => {
     setUploadedFile(null);
+    setIsDataSource('none');
+    setTextInput('');
     onChange(undefined as any);
     try {
       sessionStorage.removeItem(storageKey);
@@ -166,6 +245,9 @@ export const FileUploadPickerExtension = ({
       // Ignore sessionStorage errors
     }
   };
+
+  const isUploadDisabled = disabled || dataSource === 'input';
+  const isTextDisabled = disabled || dataSource === 'file';
 
   return (
     <Box>
@@ -177,29 +259,49 @@ export const FileUploadPickerExtension = ({
         </Typography>
       )}
 
-      <Button
-        variant="outlined"
-        startIcon={<UploadIcon />}
-        onClick={triggerFileUpload}
-        disabled={disabled}
-        className={classes.uploadButton}
-      >
-        Choose File
-      </Button>
+      {dataSource !== 'file' && (
+        <TextField
+          fullWidth
+          multiline
+          minRows={6}
+          maxRows={12}
+          value={textInput}
+          onChange={handleTextChange}
+          disabled={isTextDisabled}
+          placeholder="Paste the content here. Alternatively, upload a file."
+          className={classes.textArea}
+          variant="outlined"
+        />
+      )}
 
-      <input
-        id={fileInputId}
-        type="file"
-        accept=".yml,.yaml,.txt"
-        onChange={handleFileUpload}
-        className={classes.hiddenFileInput}
-      />
+      {dataSource !== 'file' && dataSource !== 'input' && (
+        <>
+          <Button
+            variant="text"
+            startIcon={<UploadIcon />}
+            onClick={triggerFileUpload}
+            disabled={isUploadDisabled}
+            className={classes.uploadButton}
+          >
+            Upload File
+          </Button>
 
-      {uploadedFile && (
+          <input
+            id={fileInputId}
+            type="file"
+            accept=".yml,.yaml,.txt"
+            onChange={handleFileUpload}
+            className={classes.hiddenFileInput}
+            disabled={isUploadDisabled}
+          />
+        </>
+      )}
+
+      {uploadedFile && dataSource !== 'input' && (
         <Box className={classes.fileContent}>
           <Box className={classes.fileHeader}>
             <Typography variant="subtitle2">
-              File: {uploadedFile.name}
+              {dataSource === 'file' ? `File: ${uploadedFile.name}` : ''}
             </Typography>
             <IconButton
               size="small"

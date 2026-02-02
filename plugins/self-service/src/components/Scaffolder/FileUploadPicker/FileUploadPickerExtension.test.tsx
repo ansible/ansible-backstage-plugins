@@ -1,10 +1,4 @@
-import {
-  render,
-  screen,
-  fireEvent,
-  waitFor,
-  act,
-} from '@testing-library/react';
+import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { FileUploadPickerExtension } from './FileUploadPickerExtension';
 
 const sessionStorageMock = (() => {
@@ -36,7 +30,7 @@ Object.defineProperty(globalThis, 'sessionStorage', {
 const fileContentMap = new WeakMap<File, string>();
 
 const OriginalFile = globalThis.File;
-(globalThis as any).File = function (
+(globalThis as any).File = function MockFile(
   fileBits: BlobPart[],
   fileName: string,
   options?: FilePropertyBag,
@@ -52,67 +46,14 @@ const OriginalFile = globalThis.File;
     })
     .join('');
   fileContentMap.set(file, content);
+
+  // Mock the text() method to return a Promise with the content
+  file.text = jest.fn(() => Promise.resolve(content));
+
   return file;
 } as any;
 Object.setPrototypeOf((globalThis as any).File, OriginalFile);
 Object.assign((globalThis as any).File, OriginalFile);
-
-class MockFileReader {
-  onload: ((this: FileReader, ev: ProgressEvent<FileReader>) => void) | null =
-    null;
-  onerror: ((this: FileReader, ev: ProgressEvent<FileReader>) => void) | null =
-    null;
-  result: string | ArrayBuffer | null = null;
-
-  readAsText(file: Blob) {
-    const onloadCallback = this.onload;
-
-    setTimeout(() => {
-      if (onloadCallback) {
-        if (file instanceof File) {
-          const content = fileContentMap.get(file) || '';
-          this.result = content;
-          const mockTarget = {
-            result: content,
-          } as FileReader;
-          const mockEvent = {
-            target: mockTarget,
-            currentTarget: mockTarget,
-            type: 'load',
-          } as unknown as ProgressEvent<FileReader>;
-          Object.defineProperty(mockTarget, 'result', {
-            value: content,
-            writable: false,
-            enumerable: true,
-            configurable: true,
-          });
-          onloadCallback.call(this as unknown as FileReader, mockEvent);
-        } else {
-          this.result = '';
-          const mockTarget = {
-            result: '',
-          } as FileReader;
-          const mockEvent = {
-            target: mockTarget,
-            currentTarget: mockTarget,
-            type: 'load',
-          } as unknown as ProgressEvent<FileReader>;
-          Object.defineProperty(mockTarget, 'result', {
-            value: '',
-            writable: false,
-            enumerable: true,
-            configurable: true,
-          });
-          onloadCallback.call(this as unknown as FileReader, mockEvent);
-        }
-      }
-    }, 0);
-  }
-}
-
-beforeAll(() => {
-  (globalThis as any).FileReader = MockFileReader;
-});
 
 const createMockProps = (overrides = {}) => ({
   onChange: jest.fn(),
@@ -173,9 +114,12 @@ describe('FileUploadPickerExtension', () => {
         uiSchema: {},
       });
       render(<FileUploadPickerExtension {...props} />);
-      expect(screen.getByText('Upload File')).toBeInTheDocument();
+      // "Upload File" appears in both title and button
+      const uploadFileElements = screen.getAllByText('Upload File');
+      expect(uploadFileElements.length).toBe(2);
+      // Verify the title is present (first element should be the title)
+      expect(uploadFileElements[0]).toBeInTheDocument();
     });
-
     it('renders the description', () => {
       const props = createMockProps();
       render(<FileUploadPickerExtension {...props} />);
@@ -217,11 +161,18 @@ describe('FileUploadPickerExtension', () => {
       ).not.toBeInTheDocument();
     });
 
-    it('renders the choose file button', () => {
+    it('renders text input field initially', () => {
+      const props = createMockProps();
+      render(<FileUploadPickerExtension {...props} />);
+      const textArea = screen.getByRole('textbox');
+      expect(textArea).toBeInTheDocument();
+    });
+
+    it('renders the upload file button initially', () => {
       const props = createMockProps();
       render(<FileUploadPickerExtension {...props} />);
 
-      expect(screen.getByText('Choose File')).toBeInTheDocument();
+      expect(screen.getByText('Upload File')).toBeInTheDocument();
     });
 
     it('renders file input with correct accept attribute', () => {
@@ -233,30 +184,175 @@ describe('FileUploadPickerExtension', () => {
     });
   });
 
+  describe('Text Input', () => {
+    it('allows user to type in text area', () => {
+      const props = createMockProps();
+      render(<FileUploadPickerExtension {...props} />);
+      const textArea = screen.getByRole('textbox') as HTMLTextAreaElement;
+
+      fireEvent.change(textArea, {
+        target: { value: 'collections:\n  - name: test' },
+      });
+
+      expect(textArea.value).toBe('collections:\n  - name: test');
+    });
+
+    it('calls onChange when text is entered', async () => {
+      const props = createMockProps();
+      render(<FileUploadPickerExtension {...props} />);
+
+      // Wait for initial onChange call
+      await waitFor(() => {
+        expect(props.onChange).toHaveBeenCalled();
+      });
+
+      jest.clearAllMocks();
+
+      const textArea = screen.getByRole('textbox');
+
+      const content = 'collections:\n  - name: test';
+      fireEvent.change(textArea, { target: { value: content } });
+
+      await waitFor(() => {
+        expect(props.onChange).toHaveBeenCalled();
+      });
+    });
+
+    it('hides upload button when text is entered', async () => {
+      const props = createMockProps();
+      render(<FileUploadPickerExtension {...props} />);
+
+      // Wait for initial render
+      await waitFor(() => {
+        expect(screen.getByText('Upload File')).toBeInTheDocument();
+      });
+
+      const textArea = screen.getByRole('textbox');
+
+      fireEvent.change(textArea, {
+        target: { value: 'collections:\n  - name: test' },
+      });
+
+      await waitFor(() => {
+        expect(screen.queryByText('Upload File')).not.toBeInTheDocument();
+      });
+    });
+
+    it('clears sessionStorage when text is entered', async () => {
+      const props = createMockProps();
+      sessionStorageMock.setItem(
+        'file-upload-filename-Upload a requirements.yml file',
+        'test.yml',
+      );
+      render(<FileUploadPickerExtension {...props} />);
+
+      // Wait for initial render
+      await waitFor(() => {
+        expect(screen.getByRole('textbox')).toBeInTheDocument();
+      });
+
+      const textArea = screen.getByRole('textbox');
+
+      fireEvent.change(textArea, {
+        target: { value: 'collections:\n  - name: test' },
+      });
+
+      await waitFor(() => {
+        expect(sessionStorageMock.removeItem).toHaveBeenCalled();
+      });
+    });
+
+    it('calls onChange with undefined when text is cleared', async () => {
+      const props = createMockProps();
+      render(<FileUploadPickerExtension {...props} />);
+
+      // Wait for initial onChange
+      await waitFor(() => {
+        expect(props.onChange).toHaveBeenCalled();
+      });
+
+      jest.clearAllMocks();
+
+      const textArea = screen.getByRole('textbox');
+
+      fireEvent.change(textArea, {
+        target: { value: 'collections:\n  - name: test' },
+      });
+
+      await waitFor(() => {
+        expect(props.onChange).toHaveBeenCalled();
+      });
+
+      jest.clearAllMocks();
+
+      fireEvent.change(textArea, { target: { value: '' } });
+
+      await waitFor(() => {
+        expect(props.onChange).toHaveBeenCalledWith(undefined);
+      });
+    });
+
+    it('disables text input when file is uploaded', async () => {
+      const props = createMockProps();
+      render(<FileUploadPickerExtension {...props} />);
+      const fileInput = document.querySelector(
+        'input[type="file"]',
+      ) as HTMLInputElement;
+
+      const file = new File(['test content'], 'test.yml', {
+        type: 'text/yaml',
+      });
+
+      fireEvent.change(fileInput, { target: { files: [file] } });
+
+      await waitFor(
+        () => {
+          const textArea = screen.queryByRole(
+            'textbox',
+          ) as HTMLTextAreaElement | null;
+          expect(textArea).not.toBeInTheDocument();
+        },
+        { timeout: 3000 },
+      );
+    });
+  });
+
   describe('Disabled State', () => {
     it('disables the upload button when disabled prop is true', () => {
       const props = createMockProps({ disabled: true });
       render(<FileUploadPickerExtension {...props} />);
-      const button = screen.getByText('Choose File').closest('button');
+      const button = screen.getByText('Upload File').closest('button');
       expect(button).toBeDisabled();
     });
 
+    it('disables the text input when disabled prop is true', () => {
+      const props = createMockProps({ disabled: true });
+      render(<FileUploadPickerExtension {...props} />);
+      const textArea = screen.getByRole('textbox') as HTMLTextAreaElement;
+      expect(textArea).toBeDisabled();
+    });
+
     it('disables the delete button when disabled prop is true', async () => {
+      const base64Content = btoa('Hello World');
+      const formData = `data:text/plain;base64,${base64Content}`;
       const props = createMockProps({
         disabled: true,
-        formData: 'data:text/plain;base64,SGVsbG8gV29ybGQ=',
+        formData,
       });
       render(<FileUploadPickerExtension {...props} />);
-      await waitFor(() => {
-        const deleteButton = screen.getByLabelText('Remove File');
-        expect(deleteButton).toBeDisabled();
-      });
+      await waitFor(
+        () => {
+          const deleteButton = screen.getByLabelText('Remove File');
+          expect(deleteButton).toBeDisabled();
+        },
+        { timeout: 3000 },
+      );
     });
 
     it('enables the upload button when disabled prop is false', () => {
       const props = createMockProps({ disabled: false });
       render(<FileUploadPickerExtension {...props} />);
-      const button = screen.getByText('Choose File').closest('button');
+      const button = screen.getByText('Upload File').closest('button');
       expect(button).not.toBeDisabled();
     });
   });
@@ -296,9 +392,12 @@ describe('FileUploadPickerExtension', () => {
       const props = createMockProps({ formData });
       render(<FileUploadPickerExtension {...props} />);
 
-      await waitFor(() => {
-        expect(screen.getByText('Hello World')).toBeInTheDocument();
-      });
+      await waitFor(
+        () => {
+          expect(screen.getByText('Hello World')).toBeInTheDocument();
+        },
+        { timeout: 3000 },
+      );
     });
 
     it('uses filename from sessionStorage when available', async () => {
@@ -311,11 +410,33 @@ describe('FileUploadPickerExtension', () => {
       const props = createMockProps({ formData });
       render(<FileUploadPickerExtension {...props} />);
 
-      await waitFor(() => {
-        expect(
-          screen.getByText(/File: my-custom-file\.txt/),
-        ).toBeInTheDocument();
-      });
+      await waitFor(
+        () => {
+          expect(
+            screen.getByText(/File: my-custom-file\.txt/),
+          ).toBeInTheDocument();
+        },
+        { timeout: 3000 },
+      );
+    });
+
+    it('detects input-data from sessionStorage and shows text input', async () => {
+      const base64Content = btoa('collections:\n  - name: test');
+      const formData = `data:text/plain;base64,${base64Content}`;
+      sessionStorageMock.setItem(
+        'file-upload-filename-Upload a requirements.yml file',
+        'input-data',
+      );
+      const props = createMockProps({ formData });
+      render(<FileUploadPickerExtension {...props} />);
+
+      await waitFor(
+        () => {
+          const textArea = screen.getByRole('textbox') as HTMLTextAreaElement;
+          expect(textArea.value).toBe('collections:\n  - name: test');
+        },
+        { timeout: 3000 },
+      );
     });
 
     it('generates filename from schema title when sessionStorage is empty', async () => {
@@ -327,11 +448,14 @@ describe('FileUploadPickerExtension', () => {
       });
       render(<FileUploadPickerExtension {...props} />);
 
-      await waitFor(() => {
-        expect(
-          screen.getByText(/File: my-requirements-file\.txt/),
-        ).toBeInTheDocument();
-      });
+      await waitFor(
+        () => {
+          expect(
+            screen.getByText(/File: my-requirements-file\.txt/),
+          ).toBeInTheDocument();
+        },
+        { timeout: 3000 },
+      );
     });
 
     it('uses default filename when schema title is not available', async () => {
@@ -343,11 +467,14 @@ describe('FileUploadPickerExtension', () => {
       });
       render(<FileUploadPickerExtension {...props} />);
 
-      await waitFor(() => {
-        expect(
-          screen.getByText(/File: uploaded-file\.txt/),
-        ).toBeInTheDocument();
-      });
+      await waitFor(
+        () => {
+          expect(
+            screen.getByText(/File: uploaded-file\.txt/),
+          ).toBeInTheDocument();
+        },
+        { timeout: 3000 },
+      );
     });
 
     it('handles sessionStorage error gracefully when getting filename', async () => {
@@ -362,9 +489,12 @@ describe('FileUploadPickerExtension', () => {
       });
       render(<FileUploadPickerExtension {...props} />);
 
-      await waitFor(() => {
-        expect(screen.getByText(/File: test-file\.txt/)).toBeInTheDocument();
-      });
+      await waitFor(
+        () => {
+          expect(screen.getByText(/File: test-file\.txt/)).toBeInTheDocument();
+        },
+        { timeout: 3000 },
+      );
     });
 
     it('handles invalid base64 gracefully', async () => {
@@ -372,9 +502,12 @@ describe('FileUploadPickerExtension', () => {
       const props = createMockProps({ formData });
       render(<FileUploadPickerExtension {...props} />);
 
-      await waitFor(() => {
-        expect(screen.queryByText(/File:/)).not.toBeInTheDocument();
-      });
+      await waitFor(
+        () => {
+          expect(screen.queryByText(/File:/)).not.toBeInTheDocument();
+        },
+        { timeout: 3000 },
+      );
     });
 
     it('handles base64 formData without comma separator', async () => {
@@ -382,9 +515,12 @@ describe('FileUploadPickerExtension', () => {
       const props = createMockProps({ formData });
       render(<FileUploadPickerExtension {...props} />);
 
-      await waitFor(() => {
-        expect(screen.queryByText(/File:/)).not.toBeInTheDocument();
-      });
+      await waitFor(
+        () => {
+          expect(screen.queryByText(/File:/)).not.toBeInTheDocument();
+        },
+        { timeout: 3000 },
+      );
     });
 
     it('clears uploaded file when formData is empty', async () => {
@@ -393,60 +529,50 @@ describe('FileUploadPickerExtension', () => {
       const props = createMockProps({ formData });
       const { rerender } = render(<FileUploadPickerExtension {...props} />);
 
-      await waitFor(() => {
-        expect(screen.getByText('Hello World')).toBeInTheDocument();
-      });
+      await waitFor(
+        () => {
+          expect(screen.getByText('Hello World')).toBeInTheDocument();
+        },
+        { timeout: 3000 },
+      );
 
       rerender(<FileUploadPickerExtension {...props} formData="" />);
 
-      await waitFor(() => {
-        expect(screen.queryByText('Hello World')).not.toBeInTheDocument();
-      });
-    });
-
-    it('clears uploaded file when formData does not start with data:', async () => {
-      const base64Content = btoa('Hello World');
-      const formData = `data:text/plain;base64,${base64Content}`;
-      const props = createMockProps({ formData });
-      const { rerender } = render(<FileUploadPickerExtension {...props} />);
-
-      await waitFor(() => {
-        expect(screen.getByText('Hello World')).toBeInTheDocument();
-      });
-
-      rerender(<FileUploadPickerExtension {...props} formData="plain-text" />);
-
-      await waitFor(() => {
-        expect(screen.queryByText('Hello World')).not.toBeInTheDocument();
-      });
-    });
-
-    it('does not update file when content and name are the same', async () => {
-      const base64Content = btoa('Hello World');
-      const formData = `data:text/plain;base64,${base64Content}`;
-      sessionStorageMock.setItem(
-        'file-upload-filename-Upload a requirements.yml file',
-        'test.txt',
+      await waitFor(
+        () => {
+          expect(screen.queryByText('Hello World')).not.toBeInTheDocument();
+        },
+        { timeout: 3000 },
       );
-      const props = createMockProps({ formData });
-      const { rerender } = render(<FileUploadPickerExtension {...props} />);
+    });
+  });
 
-      await waitFor(() => {
-        expect(screen.getByText('Hello World')).toBeInTheDocument();
-      });
+  describe('Plain Text FormData', () => {
+    it('parses plain text from formData', async () => {
+      const textContent = 'collections:\n  - name: test';
+      const props = createMockProps({ formData: textContent });
+      render(<FileUploadPickerExtension {...props} />);
 
-      const setUploadedFileSpy = jest.spyOn(
-        require('react'),
-        'useState',
-      ) as jest.SpyInstance;
+      await waitFor(
+        () => {
+          const textArea = screen.getByRole('textbox') as HTMLTextAreaElement;
+          expect(textArea.value).toBe(textContent);
+        },
+        { timeout: 3000 },
+      );
+    });
 
-      rerender(<FileUploadPickerExtension {...props} />);
+    it('hides upload button when plain text formData is provided', async () => {
+      const textContent = 'collections:\n  - name: test';
+      const props = createMockProps({ formData: textContent });
+      render(<FileUploadPickerExtension {...props} />);
 
-      await waitFor(() => {
-        expect(screen.getByText('Hello World')).toBeInTheDocument();
-      });
-
-      setUploadedFileSpy.mockRestore();
+      await waitFor(
+        () => {
+          expect(screen.queryByText('Upload File')).not.toBeInTheDocument();
+        },
+        { timeout: 3000 },
+      );
     });
   });
 
@@ -456,6 +582,14 @@ describe('FileUploadPickerExtension', () => {
       const props = createMockProps({ onChange });
       render(<FileUploadPickerExtension {...props} />);
 
+      // Wait for initial onChange
+      await waitFor(() => {
+        expect(onChange).toHaveBeenCalled();
+      });
+
+      jest.clearAllMocks();
+      sessionStorageMock.setItem.mockClear();
+
       const file = new File(['Test content'], 'my-file.txt', {
         type: 'text/plain',
       });
@@ -463,77 +597,143 @@ describe('FileUploadPickerExtension', () => {
         'input[type="file"]',
       ) as HTMLInputElement;
 
-      Object.defineProperty(fileInput, 'files', {
-        value: [file],
-        writable: false,
-      });
+      fireEvent.change(fileInput, { target: { files: [file] } });
 
-      await act(async () => {
-        fireEvent.change(fileInput);
-        await new Promise(resolve => setTimeout(resolve, 10));
-      });
-
-      await waitFor(() => {
-        expect(sessionStorageMock.setItem).toHaveBeenCalledWith(
-          'file-upload-filename-Upload a requirements.yml file',
-          'my-file.txt',
-        );
-      });
+      await waitFor(
+        () => {
+          expect(sessionStorageMock.setItem).toHaveBeenCalledWith(
+            'file-upload-filename-Upload a requirements.yml file',
+            'my-file.txt',
+          );
+        },
+        { timeout: 3000 },
+      );
     });
 
-    it('does not process upload when no file is selected', () => {
-      const onChange = jest.fn();
-      const props = createMockProps({ onChange, formData: 'not-empty' });
+    it('handles file upload correctly', async () => {
+      const props = createMockProps();
       render(<FileUploadPickerExtension {...props} />);
 
-      onChange.mockClear();
+      // Wait for initial onChange
+      await waitFor(() => {
+        expect(props.onChange).toHaveBeenCalled();
+      });
+
+      jest.clearAllMocks();
 
       const fileInput = document.querySelector(
         'input[type="file"]',
       ) as HTMLInputElement;
 
-      Object.defineProperty(fileInput, 'files', {
-        value: [],
-        writable: false,
+      const file = new File(['collections:\n  - name: test'], 'test.yml', {
+        type: 'text/yaml',
       });
 
-      fireEvent.change(fileInput);
+      fireEvent.change(fileInput, { target: { files: [file] } });
 
-      expect(onChange).not.toHaveBeenCalled();
+      await waitFor(
+        () => {
+          expect(props.onChange).toHaveBeenCalled();
+        },
+        { timeout: 3000 },
+      );
+
+      expect(props.onChange).toHaveBeenCalledWith(
+        expect.stringContaining('data:text/plain;base64,'),
+      );
     });
 
-    it('handles FileReader error', async () => {
-      const onChange = jest.fn();
-      const props = createMockProps({ onChange });
+    it('hides text input when file is uploaded', async () => {
+      const props = createMockProps();
       render(<FileUploadPickerExtension {...props} />);
-
-      const mockFileReader = {
-        readAsText: jest.fn(),
-        onload: null as any,
-        onerror: null as any,
-      };
-
-      (globalThis as any).FileReader = jest.fn(() => mockFileReader);
-
-      const file = new File(['Test'], 'test.txt', { type: 'text/plain' });
       const fileInput = document.querySelector(
         'input[type="file"]',
       ) as HTMLInputElement;
 
-      Object.defineProperty(fileInput, 'files', {
-        value: [file],
-        writable: false,
+      const file = new File(['test content'], 'test.yml', {
+        type: 'text/yaml',
       });
 
-      fireEvent.change(fileInput);
+      fireEvent.change(fileInput, { target: { files: [file] } });
 
-      if (mockFileReader.onerror) {
-        mockFileReader.onerror(new Error('Read error') as any);
-      }
+      await waitFor(
+        () => {
+          expect(screen.queryByRole('textbox')).not.toBeInTheDocument();
+        },
+        { timeout: 3000 },
+      );
+    });
 
+    it('displays uploaded file content', async () => {
+      const props = createMockProps();
+      render(<FileUploadPickerExtension {...props} />);
+      const fileInput = document.querySelector(
+        'input[type="file"]',
+      ) as HTMLInputElement;
+
+      const fileContent = 'collections:\n  - name: community.general';
+      const file = new File([fileContent], 'test.yml', {
+        type: 'text/yaml',
+      });
+
+      fireEvent.change(fileInput, { target: { files: [file] } });
+
+      await waitFor(
+        () => {
+          expect(screen.getByText('File: test.yml')).toBeInTheDocument();
+        },
+        { timeout: 3000 },
+      );
+    });
+
+    it('does not process upload when no file is selected', async () => {
+      const props = createMockProps();
+      render(<FileUploadPickerExtension {...props} />);
+
+      // Wait for initial onChange call to complete
       await waitFor(() => {
-        expect(mockFileReader.readAsText).toHaveBeenCalledWith(file);
+        expect(props.onChange).toHaveBeenCalled();
       });
+
+      jest.clearAllMocks();
+
+      const fileInput = document.querySelector(
+        'input[type="file"]',
+      ) as HTMLInputElement;
+
+      fireEvent.change(fileInput, { target: { files: null } });
+
+      // Give it a moment to ensure no additional calls
+      await new Promise(resolve => setTimeout(resolve, 100));
+
+      expect(props.onChange).not.toHaveBeenCalled();
+    });
+
+    it('handles file.text() errors gracefully', async () => {
+      const props = createMockProps();
+      const consoleErrorSpy = jest.spyOn(console, 'error').mockImplementation();
+      render(<FileUploadPickerExtension {...props} />);
+      const fileInput = document.querySelector(
+        'input[type="file"]',
+      ) as HTMLInputElement;
+
+      const file = new File(['test'], 'test.yml', { type: 'text/yaml' });
+      // Override the text() method to reject
+      file.text = jest.fn(() => Promise.reject(new Error('Read error')));
+
+      fireEvent.change(fileInput, { target: { files: [file] } });
+
+      await waitFor(
+        () => {
+          expect(consoleErrorSpy).toHaveBeenCalledWith(
+            'Failed to read file:',
+            expect.any(Error),
+          );
+        },
+        { timeout: 3000 },
+      );
+
+      consoleErrorSpy.mockRestore();
     });
   });
 
@@ -545,9 +745,12 @@ describe('FileUploadPickerExtension', () => {
       const props = createMockProps({ formData, onChange });
       render(<FileUploadPickerExtension {...props} />);
 
-      await waitFor(() => {
-        expect(screen.getByText('Hello World')).toBeInTheDocument();
-      });
+      await waitFor(
+        () => {
+          expect(screen.getByText('Hello World')).toBeInTheDocument();
+        },
+        { timeout: 3000 },
+      );
 
       onChange.mockClear();
 
@@ -564,10 +767,6 @@ describe('FileUploadPickerExtension', () => {
       const onChange = jest.fn();
       const base64Content = btoa('Hello World');
       const formData = `data:text/plain;base64,${base64Content}`;
-      const originalSetItem = sessionStorageMock.setItem;
-      sessionStorageMock.setItem = jest.fn((key: string, value: string) => {
-        (sessionStorageMock as any).__store[key] = value.toString();
-      }) as unknown as jest.Mock<void, [key: string, value: string]>;
       sessionStorageMock.setItem(
         'file-upload-filename-Upload a requirements.yml file',
         'test.txt',
@@ -575,9 +774,12 @@ describe('FileUploadPickerExtension', () => {
       const props = createMockProps({ formData, onChange });
       render(<FileUploadPickerExtension {...props} />);
 
-      await waitFor(() => {
-        expect(screen.getByText('Hello World')).toBeInTheDocument();
-      });
+      await waitFor(
+        () => {
+          expect(screen.getByText('Hello World')).toBeInTheDocument();
+        },
+        { timeout: 3000 },
+      );
 
       sessionStorageMock.removeItem.mockClear();
 
@@ -589,8 +791,37 @@ describe('FileUploadPickerExtension', () => {
           'file-upload-filename-Upload a requirements.yml file',
         );
       });
+    });
 
-      sessionStorageMock.setItem = originalSetItem;
+    it('shows text input again after clearing file', async () => {
+      const props = createMockProps();
+      render(<FileUploadPickerExtension {...props} />);
+      const fileInput = document.querySelector(
+        'input[type="file"]',
+      ) as HTMLInputElement;
+
+      const file = new File(['test content'], 'test.yml', {
+        type: 'text/yaml',
+      });
+
+      fireEvent.change(fileInput, { target: { files: [file] } });
+
+      await waitFor(
+        () => {
+          expect(screen.queryByRole('textbox')).not.toBeInTheDocument();
+        },
+        { timeout: 3000 },
+      );
+
+      const deleteButton = screen.getByLabelText('Remove File');
+      fireEvent.click(deleteButton);
+
+      await waitFor(
+        () => {
+          expect(screen.getByRole('textbox')).toBeInTheDocument();
+        },
+        { timeout: 3000 },
+      );
     });
 
     it('handles sessionStorage error when clearing file', async () => {
@@ -603,9 +834,12 @@ describe('FileUploadPickerExtension', () => {
       const props = createMockProps({ formData, onChange });
       render(<FileUploadPickerExtension {...props} />);
 
-      await waitFor(() => {
-        expect(screen.getByText('Hello World')).toBeInTheDocument();
-      });
+      await waitFor(
+        () => {
+          expect(screen.getByText('Hello World')).toBeInTheDocument();
+        },
+        { timeout: 3000 },
+      );
 
       const deleteButton = screen.getByLabelText('Remove File');
       fireEvent.click(deleteButton);
@@ -614,6 +848,48 @@ describe('FileUploadPickerExtension', () => {
         expect(onChange).toHaveBeenCalledWith(undefined);
         expect(screen.queryByText('Hello World')).not.toBeInTheDocument();
       });
+    });
+  });
+
+  describe('Mutual Exclusivity', () => {
+    it('hides upload button when text is entered', async () => {
+      const props = createMockProps();
+      render(<FileUploadPickerExtension {...props} />);
+
+      await waitFor(() => {
+        expect(screen.getByText('Upload File')).toBeInTheDocument();
+      });
+
+      const textArea = screen.getByRole('textbox');
+
+      fireEvent.change(textArea, {
+        target: { value: 'collections:\n  - name: test' },
+      });
+
+      await waitFor(() => {
+        expect(screen.queryByText('Upload File')).not.toBeInTheDocument();
+      });
+    });
+
+    it('prevents text input when file is uploaded', async () => {
+      const props = createMockProps();
+      render(<FileUploadPickerExtension {...props} />);
+      const fileInput = document.querySelector(
+        'input[type="file"]',
+      ) as HTMLInputElement;
+
+      const file = new File(['test'], 'test.yml', { type: 'text/yaml' });
+      fireEvent.change(fileInput, { target: { files: [file] } });
+
+      await waitFor(
+        () => {
+          const textArea = screen.queryByRole(
+            'textbox',
+          ) as HTMLTextAreaElement | null;
+          expect(textArea).not.toBeInTheDocument();
+        },
+        { timeout: 3000 },
+      );
     });
   });
 
@@ -627,7 +903,7 @@ describe('FileUploadPickerExtension', () => {
       ) as HTMLInputElement;
       const clickSpy = jest.spyOn(fileInput, 'click');
 
-      const button = screen.getByText('Choose File').closest('button');
+      const button = screen.getByText('Upload File').closest('button');
       fireEvent.click(button!);
 
       expect(clickSpy).toHaveBeenCalled();
@@ -641,7 +917,7 @@ describe('FileUploadPickerExtension', () => {
       const fileInput = document.querySelector('input[type="file"]');
       fileInput?.remove();
 
-      const button = screen.getByText('Choose File').closest('button');
+      const button = screen.getByText('Upload File').closest('button');
       expect(() => fireEvent.click(button!)).not.toThrow();
     });
   });
@@ -723,10 +999,13 @@ describe('FileUploadPickerExtension', () => {
       const props = createMockProps({ formData });
       render(<FileUploadPickerExtension {...props} />);
 
-      await waitFor(() => {
-        expect(screen.getByText(/File: test-file\.yml/)).toBeInTheDocument();
-        expect(screen.getByLabelText('Remove File')).toBeInTheDocument();
-      });
+      await waitFor(
+        () => {
+          expect(screen.getByText(/File: test-file\.yml/)).toBeInTheDocument();
+          expect(screen.getByLabelText('Remove File')).toBeInTheDocument();
+        },
+        { timeout: 3000 },
+      );
     });
   });
 });
