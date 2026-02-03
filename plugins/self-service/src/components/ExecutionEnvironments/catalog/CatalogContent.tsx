@@ -228,9 +228,9 @@ export const EEListPage = ({
       .then(entities => {
         if (!isMountedRef.current) return;
 
-        const items = Array.isArray(entities)
-          ? entities
-          : entities?.items || [];
+        let items = Array.isArray(entities) ? entities : entities?.items || [];
+        const sortedData = sortByMetadataTitleAsc(items);
+        items = sortedData;
         setAllEntities(items);
         if (items && items.length > 0) {
           setFiltered(true);
@@ -258,6 +258,33 @@ export const EEListPage = ({
         }
       });
   }, [catalogApi, getUniqueOwnersAndTags, fetchOwnerNames]);
+
+  function sortByMetadataTitleAsc<T extends { metadata?: { name?: string } }>(
+    data: T[],
+  ): T[] {
+    return [...data].sort((a, b) => {
+      const titleA = a.metadata?.name ?? '';
+      const titleB = b.metadata?.name ?? '';
+
+      const numA = Number(titleA);
+      const numB = Number(titleB);
+
+      const isNumA = !isNaN(numA);
+      const isNumB = !isNaN(numB);
+
+      // both numeric → numeric sort
+      if (isNumA && isNumB) {
+        return numA - numB;
+      }
+
+      // numeric before string
+      if (isNumA) return -1;
+      if (isNumB) return 1;
+
+      // both strings → string sort
+      return titleA.localeCompare(titleB, undefined, { sensitivity: 'base' });
+    });
+  }
 
   useEffect(() => {
     const filterData = allEntities.filter(d => {
@@ -512,6 +539,7 @@ export const EEListPage = ({
                 options={{
                   search: true,
                   rowStyle: { cursor: 'default' },
+                  // sorting: true,
                 }}
                 columns={columns}
                 data={ansibleComponents || []}
