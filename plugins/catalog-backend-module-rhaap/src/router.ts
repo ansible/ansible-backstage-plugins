@@ -175,31 +175,36 @@ export async function createRouter(options: {
     logger.info(
       `Starting PAH collections sync for repository name(s): ${repositoryNames.join(', ')}`,
     );
-    try {
-      const results = await Promise.all(
-        providersToRun.map(provider => provider.run()),
-      );
+    const results = await Promise.all(
+      providersToRun.map(async provider => {
+        const { success, collectionsCount } = await provider.run();
+        return {
+          repositoryName: provider.getPahRepositoryName(),
+          providerName: provider.getProviderName(),
+          success,
+          collectionsCount,
+        };
+      }),
+    );
+
+    const allSucceeded = results.every(r => r.success);
+    const failedProviders = results.filter(r => !r.success);
+
+    if (allSucceeded) {
       response.status(200).json({
         success: true,
         providersRun: providersToRun.length,
-        // This is just for debugging purposes, to return the number of collections synced for each provider
-        // TODO: Remove this after debugging
-        // A 200 response returned will indicate that the request to sync PAH collections was successful
-        results: results.map((collections, i) => ({
-          provider: providersToRun[i].getProviderName(),
-          repositoryName: providersToRun[i].getPahRepositoryName(),
-          collectionsCount: Array.isArray(collections) ? collections.length : 0,
-        })),
+        results,
       });
-    } catch (error) {
-      // we will only reach here if something went wrong while syncing PAH collections
-      // error will most likely propagate from the PAHCollectionProvider object
-      const errorMessage =
-        error instanceof Error ? error.message : String(error);
-      logger.error(`Failed to sync PAH collections: ${errorMessage}`);
-      response.status(500).json({
+    } else {
+      logger.error(
+        `PAH collections sync failed for: ${failedProviders.map(r => r.repositoryName).join(', ')}`,
+      );
+      response.status(207).json({
         success: false,
-        error: errorMessage,
+        providersRun: providersToRun.length,
+        results,
+        failedRepositories: failedProviders.map(r => r.repositoryName),
       });
     }
   });
