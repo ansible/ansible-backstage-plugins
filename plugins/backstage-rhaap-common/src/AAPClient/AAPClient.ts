@@ -27,7 +27,12 @@ import {
   Users,
   CatalogConfig,
 } from '../types';
-import { IJobTemplate, ISurvey, InstanceGroup } from '../interfaces';
+import {
+  IJobTemplate,
+  ICollection,
+  ISurvey,
+  InstanceGroup,
+} from '../interfaces';
 
 import { getAnsibleConfig, getCatalogConfig } from './utils/config';
 
@@ -62,7 +67,7 @@ export interface IAAPService extends Pick<
   | 'syncJobTemplates'
   | 'getOrgsByUserId'
   | 'getUserInfoById'
-  | 'isValidPrivateAutomationHubRepository'
+  | 'isValidPAHRepository'
   | 'getCollectionsByRepositories'
 > {}
 
@@ -1327,7 +1332,7 @@ export class AAPClient implements IAAPService {
     }
   }
 
-  public async isValidPrivateAutomationHubRepository(
+  public async isValidPAHRepository(
     repositoryName: string,
   ): Promise<boolean> {
     const endPoint = `api/galaxy/pulp/api/v3/repositories?name=${repositoryName}`;
@@ -1343,8 +1348,8 @@ export class AAPClient implements IAAPService {
   public async getCollectionsByRepositories(
     repositories: string[],
     limit: number = 100,
-  ): Promise<any[]> {
-    const collections: Record<string, any>[] = [];
+  ): Promise<ICollection[]> {
+    const collections: ICollection[] = [];
     const token = this.ansibleConfig.rhaap?.token ?? null;
 
     // Validate input parameters
@@ -1384,7 +1389,7 @@ export class AAPClient implements IAAPService {
     const validRepositories: string[] = [];
     for (const repo of repositories) {
       try {
-        const isValid = await this.isValidPrivateAutomationHubRepository(repo);
+        const isValid = await this.isValidPAHRepository(repo);
         if (!isValid) {
           this.logger.warn(
             `[${this.pluginLogName}]: Repository '${repo}' is not a valid Private Automation Hub repository. Skipping.`,
@@ -1501,17 +1506,18 @@ export class AAPClient implements IAAPService {
               );
             }
 
-            collections.push({
+            const entry: ICollection = {
               namespace,
               name,
               version: cv.version ?? null,
-              dependencies: cv.dependencies ?? null,
+              dependencies: (cv.dependencies ?? null) as Record<string, string> | null,
               description: cv.description ?? null,
-              tags: cv.tags ?? null,
+              tags: (cv.tags ?? null) as string[] | null,
               repository_name: repositoryName,
               collection_readme_html: docsBlob,
               authors,
-            });
+            };
+            collections.push(entry);
           } catch (itemError) {
             this.logger.error(
               `[${this.pluginLogName}]: Error processing collection item: ${String(itemError)}`,
