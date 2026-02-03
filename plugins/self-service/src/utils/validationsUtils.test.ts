@@ -1,4 +1,4 @@
-import { isValidEntityName} from './validationsUtils';
+import { isValidEntityName } from './validationsUtils';
 
 describe('validationsUtils', () => {
   describe('isValidEntityName', () => {

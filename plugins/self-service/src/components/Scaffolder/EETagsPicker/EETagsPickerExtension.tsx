@@ -1,11 +1,6 @@
 import { useState, useEffect, useMemo } from 'react';
 import { FieldExtensionComponentProps } from '@backstage/plugin-scaffolder-react';
-import {
-  TextField,
-  Typography,
-  Box,
-  IconButton,
-} from '@material-ui/core';
+import { TextField, Typography, Box, IconButton } from '@material-ui/core';
 import { Alert } from '@material-ui/lab';
 import { makeStyles } from '@material-ui/core/styles';
 import AddIcon from '@material-ui/icons/Add';
@@ -97,10 +92,14 @@ export const EETagsPickerExtension = ({
   formData,
 }: FieldExtensionComponentProps<string[]>) => {
   const classes = useStyles();
-  const requiredField = required? required : true;
-  const defaultTags = useMemo(() => (schema?.default as string[]) || [], [schema?.default]);  const customTitle = schema?.title;
+  const requiredField = required ? required : true;
+  const defaultTags = useMemo(
+    () => (schema?.default as string[]) || [],
+    [schema?.default],
+  );
+  const customTitle = schema?.title;
   const customDescription = schema?.description;
-  
+
   const [tags, setTags] = useState<string[]>(
     formData && formData.length > 0 ? formData : defaultTags,
   );
@@ -128,12 +127,12 @@ export const EETagsPickerExtension = ({
 
   const handleTagChange = (index: number, value: string) => {
     if (index === 0) {
-        return;
+      return;
     }
     if (value.length === 0) {
-        setTagErrors(prev => ({ ...prev, [index]: '' }));
+      setTagErrors(prev => ({ ...prev, [index]: '' }));
     } else {
-        validateTag(value, index);
+      validateTag(value, index);
     }
     const updatedTags = [...tags];
     updatedTags[index] = value;
@@ -178,9 +177,9 @@ export const EETagsPickerExtension = ({
       updatedTags[index],
       updatedTags[index - 1],
     ];
-        if(updatedTags[0].trim().length === 0) {
-            updatedTags[0] = defaultTags[0];
-        } 
+    if (updatedTags[0].trim().length === 0) {
+      updatedTags[0] = defaultTags[0];
+    }
     setTags(updatedTags);
     onChange(updatedTags);
     setTagErrors(prev => {
@@ -206,9 +205,9 @@ export const EETagsPickerExtension = ({
       updatedTags[index + 1],
       updatedTags[index],
     ];
-    if(updatedTags[0].trim().length === 0) {
-        updatedTags[0] = defaultTags[0];
-    } 
+    if (updatedTags[0].trim().length === 0) {
+      updatedTags[0] = defaultTags[0];
+    }
     setTags(updatedTags);
     onChange(updatedTags);
     setTagErrors(prev => {
@@ -244,11 +243,15 @@ export const EETagsPickerExtension = ({
   };
 
   return (
-    <Box className={classes.container} >
+    <Box className={classes.container}>
       <Box className={classes.mainContainer}>
-        <Box >
+        <Box>
           {customTitle && (
-            <Typography variant="h6" gutterBottom className={classes.titleSection}>
+            <Typography
+              variant="h6"
+              gutterBottom
+              className={classes.titleSection}
+            >
               {customTitle}
             </Typography>
           )}
@@ -287,24 +290,26 @@ export const EETagsPickerExtension = ({
                 )}
               </Box>
               <Box className={classes.actionsBox}>
-        { tags && tags.length > 1 && <> 
-                <IconButton
-                  size="small"
-                  onClick={() => handleMoveUp(index)}
-                  disabled={disabled || index === 0}
-                  aria-label="Move up"
-                >
-                  <ArrowUpwardIcon fontSize="small" />
-                </IconButton>
-                <IconButton
-                  size="small"
-                  onClick={() => handleMoveDown(index)}
-                  disabled={disabled || index === tags.length - 1}
-                  aria-label="Move down"
-                >
-                  <ArrowDownwardIcon fontSize="small" />
-                </IconButton>
-</>}
+                {tags && tags.length > 1 && (
+                  <>
+                    <IconButton
+                      size="small"
+                      onClick={() => handleMoveUp(index)}
+                      disabled={disabled || index === 0}
+                      aria-label="Move up"
+                    >
+                      <ArrowUpwardIcon fontSize="small" />
+                    </IconButton>
+                    <IconButton
+                      size="small"
+                      onClick={() => handleMoveDown(index)}
+                      disabled={disabled || index === tags.length - 1}
+                      aria-label="Move down"
+                    >
+                      <ArrowDownwardIcon fontSize="small" />
+                    </IconButton>
+                  </>
+                )}
                 <IconButton
                   onClick={() => handleRemoveTag(index)}
                   disabled={disabled || (required && tags.length === 1)}
@@ -312,7 +317,7 @@ export const EETagsPickerExtension = ({
                   className={classes.minusButton}
                   color="primary"
                 >
-                   <DeleteIcon />
+                  <DeleteIcon />
                 </IconButton>
               </Box>
             </Box>
