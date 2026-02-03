@@ -1006,7 +1006,7 @@ spec:
                   type: string
                   title: Signature
                   description: URI of the signature file
-        ui:field: CollectionsPicker
+          ui:field: CollectionsPicker
         collectionsFile:
           title: Upload a requirements.yml file
           description: Optionally upload a requirements file with collection details
