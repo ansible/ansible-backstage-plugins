@@ -149,7 +149,7 @@ catalog:
               - name: validated
                 schedule:
                   frequency: { minutes: 60 }
-                  timeout: { minutes: 15 } # not used
+                  timeout: { minutes: 15 }
               - name: published
                 schedule:
                   frequency: { minutes: 60 }

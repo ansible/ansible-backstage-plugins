@@ -107,6 +107,10 @@ export class PAHCollectionProvider implements EntityProvider {
     return `PAHCollectionProvider:${this.env}:${this.pahRepositoryName}`;
   }
 
+  getPahRepositoryName(): string {
+    return this.pahRepositoryName;
+  }
+
   getLastSyncTime(): string | null {
     return this.lastSyncTime;
   }
@@ -153,6 +157,9 @@ export class PAHCollectionProvider implements EntityProvider {
       await this.ansibleServiceRef.getCollectionsByRepositories([
         this.pahRepositoryName,
       ]);
+    this.logger.info(
+      `[${PAHCollectionProvider.pluginLogName}]: Synced ${JSON.stringify(collections)}`,
+    );
     return collections;
   }
 

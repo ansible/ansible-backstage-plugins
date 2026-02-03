@@ -6,6 +6,7 @@ import {
   Entity,
 } from '@backstage/catalog-model';
 import {
+  ICollection,
   IJobTemplate,
   Organization,
   ISurvey,
@@ -128,4 +129,17 @@ export const aapJobTemplateParser = (options: {
   instanceGroup: InstanceGroup[];
 }): Entity => {
   return generateTemplate(options);
+};
+
+export const pahCollectionParser = (options: {
+  collection: ICollection;
+}): Entity => {
+  return {
+    apiVersion: 'backstage.io/v1alpha1',
+    kind: 'Component',
+    metadata: {
+      namespace: options.collection.namespace,
+      name: options.collection.name,
+    },
+  };
 };
