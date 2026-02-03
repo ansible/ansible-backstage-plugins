@@ -11,10 +11,9 @@ import {
 import type { Config } from '@backstage/config';
 
 import { readAapApiEntityConfigs } from './config';
-import { InputError } from '@backstage/errors';
+import { InputError, isError } from '@backstage/errors';
 import { AapConfig, type PAHRepositoryConfig } from './types';
-import { IAAPService } from '@ansible/backstage-rhaap-common';
-import { ICollection } from '@ansible/backstage-rhaap-common';
+import { IAAPService, ICollection } from '@ansible/backstage-rhaap-common';
 
 export class PAHCollectionProvider implements EntityProvider {
   private readonly env: string;
@@ -105,7 +104,7 @@ export class PAHCollectionProvider implements EntityProvider {
   }
 
   getProviderName(): string {
-    return `PAHCollectionProvider:${this.env}`;
+    return `PAHCollectionProvider:${this.env}:${this.pahRepositoryName}`;
   }
 
   getLastSyncTime(): string | null {
@@ -118,15 +117,28 @@ export class PAHCollectionProvider implements EntityProvider {
     return async () => {
       const taskId = `${this.getProviderName()}:run`;
       this.logger.info(
-        `[${PAHCollectionProvider.pluginLogName}]: Base URL: ${this.baseUrl}`,
-      );
-      this.logger.info(
-        `[${PAHCollectionProvider.pluginLogName}]: Creating schedule function.`,
+        `[${PAHCollectionProvider.pluginLogName}]: Creating schedule function for ${this.getProviderName()} with baseURL ${this.baseUrl}`,
       );
       return taskRunner.run({
         id: taskId,
         fn: async () => {
-          await this.run();
+          try {
+            await this.run();
+          } catch (error) {
+            if (isError(error)) {
+              // Ensure that we don't log any sensitive internal data
+              this.logger.error(
+                `Error while syncing PAH collections for ${this.getProviderName()}`,
+                {
+                  name: error.name,
+                  message: error.message,
+                  stack: error.stack,
+                  // Additional status code if available:
+                  status: (error.response as { status?: string })?.status,
+                },
+              );
+            }
+          }
         },
       });
     };
