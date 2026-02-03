@@ -14,6 +14,8 @@ import { readAapApiEntityConfigs } from './config';
 import { InputError, isError } from '@backstage/errors';
 import { AapConfig, type PAHRepositoryConfig } from './types';
 import { IAAPService, ICollection } from '@ansible/backstage-rhaap-common';
+import { pahCollectionParser } from './ansible-collections/pahCollectionParser';
+import { Entity } from '@backstage/catalog-model';
 
 export class PAHCollectionProvider implements EntityProvider {
   private readonly env: string;
@@ -148,19 +150,56 @@ export class PAHCollectionProvider implements EntityProvider {
     };
   }
 
-  async run(): Promise<ICollection[]> {
+  async run(): Promise<{ success: boolean; collectionsCount: number }> {
     if (!this.connection) {
       throw new Error('PAHCollectionProvider not connected');
     }
-    this.logger.info('Starting PAH collections sync');
-    const collections =
-      await this.ansibleServiceRef.getCollectionsByRepositories([
+
+    this.logger.info(
+      `[${this.getProviderName()}]: Starting PAH collections sync for repository: ${this.pahRepositoryName}`,
+    );
+
+    let collectionsCount = 0;
+    let collections: ICollection[] = [];
+    let error: boolean = false;
+    const entities: Entity[] = [];
+    try {
+      collections = await this.ansibleServiceRef.getCollectionsByRepositories([
         this.pahRepositoryName,
       ]);
-    this.logger.info(
-      `[${PAHCollectionProvider.pluginLogName}]: Synced ${JSON.stringify(collections)}`,
-    );
-    return collections;
+      this.logger.info(
+        `[${this.getProviderName()}]: Fetched ${collections.length} collections from repository: ${this.pahRepositoryName}`,
+      );
+    } catch (e: any) {
+      this.logger.error(
+        `[${this.getProviderName()}]: Error while fetching collections from repository: ${this.pahRepositoryName}. ${e?.message ?? ''}`,
+      );
+      error = true;
+    }
+
+    if (!error) {
+      for (const collection of collections) {
+        entities.push(
+          pahCollectionParser({ baseUrl: this.baseUrl, collection }),
+        );
+        collectionsCount++;
+      }
+
+      await this.connection.applyMutation({
+        type: 'full',
+        entities: entities.map(entity => ({
+          entity,
+          locationKey: this.getProviderName(),
+        })),
+      });
+
+      this.logger.info(
+        `[${this.getProviderName()}]: Refreshed ${this.getProviderName()}: ${collectionsCount} collections added.`,
+      );
+
+      this.lastSyncTime = new Date().toISOString();
+    }
+    return { success: !error, collectionsCount };
   }
 
   async connect(connection: EntityProviderConnection): Promise<void> {
