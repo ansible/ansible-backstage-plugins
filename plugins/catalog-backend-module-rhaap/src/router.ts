@@ -136,6 +136,13 @@ export async function createRouter(options: {
   });
 
   router.get('/aap/sync_pah_collections', async (_request, response) => {
+    // TO-DO (final flow):
+    // receive a request body with the repository name
+    // find the provider for the repository name in PROVIDERS dict
+    // O(1) -> if PROVIDER is found, run the provider.run() method
+    // O(n) -> if PROVIDER is not found, iterate over pahCollectionProviders list
+    // and find the provider for the repository name and update PROVIDERS dict with the new provider
+    // run the provider.run() method
     logger.info('Starting PAH collections sync for all providers');
     try {
       const results = await Promise.all(

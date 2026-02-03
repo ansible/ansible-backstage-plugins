@@ -14,6 +14,7 @@ import { readAapApiEntityConfigs } from './config';
 import { InputError } from '@backstage/errors';
 import { AapConfig, type PAHRepositoryConfig } from './types';
 import { IAAPService } from '@ansible/backstage-rhaap-common';
+import { ICollection } from '@ansible/backstage-rhaap-common';
 
 export class PAHCollectionProvider implements EntityProvider {
   private readonly env: string;
@@ -131,7 +132,7 @@ export class PAHCollectionProvider implements EntityProvider {
     };
   }
 
-  async run(): Promise<unknown[]> {
+  async run(): Promise<ICollection[]> {
     if (!this.connection) {
       throw new Error('PAHCollectionProvider not connected');
     }
