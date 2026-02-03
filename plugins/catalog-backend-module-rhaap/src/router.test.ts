@@ -20,6 +20,7 @@ import { createRouter } from './router';
 import { AAPEntityProvider } from './providers/AAPEntityProvider';
 import { AAPJobTemplateProvider } from './providers/AAPJobTemplateProvider';
 import { EEEntityProvider } from './providers/EEEntityProvider';
+import { PAHCollectionProvider } from './providers/PAHCollectionProvider';
 import { LoggerService } from '@backstage/backend-plugin-api';
 
 describe('createRouter', () => {
@@ -28,6 +29,7 @@ describe('createRouter', () => {
   let mockAAPEntityProvider: jest.Mocked<AAPEntityProvider>;
   let mockJobTemplateProvider: jest.Mocked<AAPJobTemplateProvider>;
   let mockEEEntityProvider: jest.Mocked<EEEntityProvider>;
+  let mockPAHCollectionProvider: jest.Mocked<PAHCollectionProvider>;
 
   beforeEach(async () => {
     mockLogger = {
@@ -58,11 +60,19 @@ describe('createRouter', () => {
       connect: jest.fn(),
     } as unknown as jest.Mocked<EEEntityProvider>;
 
+    mockPAHCollectionProvider = {
+      run: jest.fn(),
+      getProviderName: jest.fn().mockReturnValue('PAHCollectionProvider:test'),
+      connect: jest.fn(),
+      getLastSyncTime: jest.fn(),
+    } as unknown as jest.Mocked<PAHCollectionProvider>;
+
     const router = await createRouter({
       logger: mockLogger,
       aapEntityProvider: mockAAPEntityProvider,
       jobTemplateProvider: mockJobTemplateProvider,
       eeEntityProvider: mockEEEntityProvider,
+      pahCollectionProviders: [mockPAHCollectionProvider],
     });
 
     app = express().use(router);
@@ -194,6 +204,7 @@ describe('createRouter', () => {
           aapEntityProvider: mockProvider as any,
           jobTemplateProvider: {} as any,
           eeEntityProvider: mockEEEntityProvider,
+          pahCollectionProviders: [mockPAHCollectionProvider],
         }),
       );
 
@@ -224,6 +235,7 @@ describe('createRouter', () => {
           aapEntityProvider: mockProvider as any,
           jobTemplateProvider: {} as any,
           eeEntityProvider: mockEEEntityProvider,
+          pahCollectionProviders: [mockPAHCollectionProvider],
         }),
       );
 
@@ -252,6 +264,7 @@ describe('createRouter', () => {
           aapEntityProvider: mockProvider as any,
           jobTemplateProvider: {} as any,
           eeEntityProvider: mockEEEntityProvider,
+          pahCollectionProviders: [mockPAHCollectionProvider],
         }),
       );
 
@@ -280,6 +293,7 @@ describe('createRouter', () => {
           aapEntityProvider: mockProvider as any,
           jobTemplateProvider: {} as any,
           eeEntityProvider: mockEEEntityProvider,
+          pahCollectionProviders: [mockPAHCollectionProvider],
         }),
       );
 
@@ -311,6 +325,7 @@ describe('createRouter', () => {
           aapEntityProvider: mockProvider as any,
           jobTemplateProvider: {} as any,
           eeEntityProvider: mockEEEntityProvider,
+          pahCollectionProviders: [mockPAHCollectionProvider],
         }),
       );
 
@@ -343,6 +358,7 @@ describe('createRouter', () => {
           aapEntityProvider: mockProvider as any,
           jobTemplateProvider: {} as any,
           eeEntityProvider: mockEEEntityProvider,
+          pahCollectionProviders: [mockPAHCollectionProvider],
         }),
       );
 
@@ -375,6 +391,7 @@ describe('createRouter', () => {
           aapEntityProvider: mockProvider as any,
           jobTemplateProvider: {} as any,
           eeEntityProvider: mockEEEntityProvider,
+          pahCollectionProviders: [mockPAHCollectionProvider],
         }),
       );
 
@@ -403,6 +420,7 @@ describe('createRouter', () => {
           aapEntityProvider: mockProvider as any,
           jobTemplateProvider: {} as any,
           eeEntityProvider: mockEEEntityProvider,
+          pahCollectionProviders: [mockPAHCollectionProvider],
         }),
       );
 
@@ -433,6 +451,7 @@ describe('createRouter', () => {
           aapEntityProvider: mockProvider as any,
           jobTemplateProvider: {} as any,
           eeEntityProvider: mockEEEntityProvider,
+          pahCollectionProviders: [mockPAHCollectionProvider],
         }),
       );
 
@@ -461,6 +480,7 @@ describe('createRouter', () => {
           aapEntityProvider: mockProvider as any,
           jobTemplateProvider: {} as any,
           eeEntityProvider: mockEEEntityProvider,
+          pahCollectionProviders: [mockPAHCollectionProvider],
         }),
       );
 
@@ -514,6 +534,7 @@ describe('createRouter', () => {
           aapEntityProvider: mockProvider as any,
           jobTemplateProvider: {} as any,
           eeEntityProvider: mockEEEntityProvider,
+          pahCollectionProviders: [mockPAHCollectionProvider],
         }),
       );
 
@@ -542,6 +563,7 @@ describe('createRouter', () => {
           aapEntityProvider: mockProvider as any,
           jobTemplateProvider: {} as any,
           eeEntityProvider: mockEEEntityProvider,
+          pahCollectionProviders: [mockPAHCollectionProvider],
         }),
       );
 
@@ -576,6 +598,7 @@ describe('createRouter', () => {
           aapEntityProvider: mockProvider as any,
           jobTemplateProvider: {} as any,
           eeEntityProvider: mockEEEntityProvider,
+          pahCollectionProviders: [mockPAHCollectionProvider],
         }),
       );
 
@@ -618,6 +641,7 @@ describe('createRouter', () => {
           aapEntityProvider: mockProvider as any,
           jobTemplateProvider: {} as any,
           eeEntityProvider: mockEEEntityProvider,
+          pahCollectionProviders: [mockPAHCollectionProvider],
         }),
       );
 
@@ -736,6 +760,7 @@ describe('createRouter', () => {
         aapEntityProvider: mockAAPEntityProvider,
         jobTemplateProvider: mockJobTemplateProvider,
         eeEntityProvider: mockEEEntityProvider,
+        pahCollectionProviders: [mockPAHCollectionProvider],
       });
 
       const testApp = express().use(routerWithInvalidLogger);
@@ -751,6 +776,7 @@ describe('createRouter', () => {
         aapEntityProvider: undefined as any,
         jobTemplateProvider: mockJobTemplateProvider,
         eeEntityProvider: mockEEEntityProvider,
+        pahCollectionProviders: [mockPAHCollectionProvider],
       });
 
       const testApp = express().use(routerWithInvalidProvider);
@@ -766,6 +792,7 @@ describe('createRouter', () => {
         aapEntityProvider: mockAAPEntityProvider,
         jobTemplateProvider: undefined as any,
         eeEntityProvider: mockEEEntityProvider,
+        pahCollectionProviders: [mockPAHCollectionProvider],
       });
 
       const testApp = express().use(routerWithInvalidProvider);

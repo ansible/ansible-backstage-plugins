@@ -1,7 +1,7 @@
 import { readSchedulerServiceTaskScheduleDefinitionFromConfig } from '@backstage/backend-plugin-api';
 import type { Config } from '@backstage/config';
 
-import type { AapConfig } from './types';
+import type { AapConfig, PAHRepositoryConfig } from './types';
 
 export function readAapApiEntityConfigs(
   config: Config,
@@ -73,6 +73,24 @@ function readAapApiEntityConfig(
     }
   }
 
+  let pahRepositories: PAHRepositoryConfig[] = [];
+  if (syncEntity === 'pahCollections') {
+    if (catalogConfig.has(`sync.${syncEntity}.repositories`)) {
+      const entries =
+        catalogConfig.getOptionalConfigArray(
+          `sync.${syncEntity}.repositories`,
+        ) ?? [];
+      pahRepositories = entries.map(entry => ({
+        name: entry.getString('name'),
+        schedule: entry.getConfig('schedule')
+          ? readSchedulerServiceTaskScheduleDefinitionFromConfig(
+              entry.getConfig('schedule'),
+            )
+          : undefined,
+      }));
+    }
+  }
+
   return {
     id,
     baseUrl,
@@ -83,5 +101,6 @@ function readAapApiEntityConfig(
     surveyEnabled,
     jobTemplateLabels,
     jobTemplateExcludeLabels,
+    pahRepositories,
   };
 }
