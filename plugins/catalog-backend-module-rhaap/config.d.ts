@@ -18,6 +18,11 @@ export interface Config {
               surveyEnabled?: boolean;
               schedule?: SchedulerServiceTaskScheduleDefinitionConfig;
             };
+            pahCollections: {
+              enabled: boolean;
+              repositories: Array<string>;
+              schedule?: SchedulerServiceTaskScheduleDefinitionConfig;
+            };
           };
         };
       };

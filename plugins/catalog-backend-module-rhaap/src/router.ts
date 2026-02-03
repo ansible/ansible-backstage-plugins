@@ -20,15 +20,22 @@ import { AAPJobTemplateProvider } from './providers/AAPJobTemplateProvider';
 import { AAPEntityProvider } from './providers/AAPEntityProvider';
 import { LoggerService } from '@backstage/backend-plugin-api';
 import { EEEntityProvider } from './providers/EEEntityProvider';
+import { PAHCollectionProvider } from './providers/PAHCollectionProvider';
 
 export async function createRouter(options: {
   logger: LoggerService;
   aapEntityProvider: AAPEntityProvider;
   jobTemplateProvider: AAPJobTemplateProvider;
   eeEntityProvider: EEEntityProvider;
+  pahCollectionProviders: PAHCollectionProvider[];
 }): Promise<express.Router> {
-  const { logger, aapEntityProvider, jobTemplateProvider, eeEntityProvider } =
-    options;
+  const {
+    logger,
+    aapEntityProvider,
+    jobTemplateProvider,
+    eeEntityProvider,
+    pahCollectionProviders,
+  } = options;
   const router = Router();
 
   // Note: Don't apply express.json() globally to avoid conflicts with catalog backend
@@ -124,6 +131,31 @@ export async function createRouter(options: {
       logger.error(`Failed to register Execution Environment: ${errorMessage}`);
       response.status(500).json({
         error: `Failed to register Execution Environment: ${errorMessage}`,
+      });
+    }
+  });
+
+  router.get('/aap/sync_pah_collections', async (_request, response) => {
+    logger.info('Starting PAH collections sync for all providers');
+    try {
+      const results = await Promise.all(
+        pahCollectionProviders.map(provider => provider.run()),
+      );
+      response.status(200).json({
+        success: true,
+        providersRun: pahCollectionProviders.length,
+        results: results.map((collections, i) => ({
+          provider: pahCollectionProviders[i].getProviderName(),
+          collectionsCount: Array.isArray(collections) ? collections.length : 0,
+        })),
+      });
+    } catch (error) {
+      const errorMessage =
+        error instanceof Error ? error.message : String(error);
+      logger.error(`Failed to sync PAH collections: ${errorMessage}`);
+      response.status(500).json({
+        success: false,
+        error: errorMessage,
       });
     }
   });
