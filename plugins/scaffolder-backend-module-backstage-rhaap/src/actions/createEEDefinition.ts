@@ -1163,6 +1163,7 @@ spec:
             - 'execution-environment'
           items:
             type: string
+            pattern: '^(?=.{1,63}$)[a-z0-9+#]+(?:-[a-z0-9+#]+)*$'
           ui:
             field: EETagsPicker
             options:

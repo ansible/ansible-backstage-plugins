@@ -12,7 +12,6 @@ import { useApi } from '@backstage/core-plugin-api';
 import { catalogApiRef } from '@backstage/plugin-catalog-react';
 import { Entity } from '@backstage/catalog-model';
 import WarningIcon from '@material-ui/icons/Warning';
-import { isValidEntityName } from '../../../utils/validationsUtils';
 
 const useStyles = makeStyles(theme => ({
   container: {
@@ -39,6 +38,66 @@ const useStyles = makeStyles(theme => ({
  * - Cannot start or end with a separator (eg. -abc, abc_)
  * - Cannot have consecutive separators (eg. abc.-abc)
  */
+const isValidEntityName = (
+  name: string,
+): { valid: boolean; error?: string } => {
+  if (!name || name.trim().length === 0) {
+    return { valid: false, error: 'Name is required' };
+  }
+
+  const trimmedName = name.trim();
+
+  if (trimmedName.length < 1) {
+    return { valid: false, error: 'Name must be at least 1 character long' };
+  }
+
+  if (trimmedName.length > 63) {
+    return { valid: false, error: 'Name must be at most 63 characters long' };
+  }
+
+  if (/^[-_.]/.test(trimmedName)) {
+    return {
+      valid: false,
+      error: 'Name cannot start with a hyphen, underscore, or dot',
+    };
+  }
+
+  if (/[-_.]$/.test(trimmedName)) {
+    return {
+      valid: false,
+      error: 'Name cannot end with a hyphen, underscore, or dot',
+    };
+  }
+
+  if (/[-_.]{2,}/.test(trimmedName)) {
+    return {
+      valid: false,
+      error: 'Name cannot contain consecutive hyphens, underscores, or dots',
+    };
+  }
+
+  const validPattern = /^[a-z0-9A-Z]+([-_.][a-z0-9A-Z]+)*$/;
+  if (!validPattern.test(trimmedName)) {
+    return {
+      valid: false,
+      error:
+        'Name must consist of alphanumeric characters [a-z0-9A-Z] separated by hyphens, underscores, or dots',
+    };
+  }
+
+  if (
+    trimmedName.toLowerCase().endsWith('.yaml') ||
+    trimmedName.toLowerCase().endsWith('.yml')
+  ) {
+    return {
+      valid: false,
+      error:
+        'Name should not end with .yaml or .yml. A .yaml extension will automatically be added to the generated EE definition file name.',
+    };
+  }
+
+  return { valid: true };
+};
 
 export const EEFileNamePickerExtension = ({
   onChange,

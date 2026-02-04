@@ -6,7 +6,6 @@ import { makeStyles } from '@material-ui/core/styles';
 import AddIcon from '@material-ui/icons/Add';
 import ArrowUpwardIcon from '@material-ui/icons/ArrowUpward';
 import ArrowDownwardIcon from '@material-ui/icons/ArrowDownward';
-import { isValidEntityName } from '../../../utils/validationsUtils';
 import DeleteIcon from '@material-ui/icons/Delete';
 
 const useStyles = makeStyles(theme => ({
@@ -83,6 +82,57 @@ const useStyles = makeStyles(theme => ({
   },
 }));
 
+// Tag validation function - validates according to Backstage rules
+// Tags must be sequences of [a-z0-9+#] separated by [-], at most 63 characters
+
+const isValidTag = (tag: string): { valid: boolean; error?: string } => {
+  if (!tag || tag.trim().length === 0) {
+    return { valid: false, error: 'Tag is required' };
+  }
+
+  const trimmedTag = tag.trim();
+
+  if (trimmedTag.length < 1) {
+    return { valid: false, error: 'Tag must be at least 1 character long' };
+  }
+
+  if (trimmedTag.length > 63) {
+    return { valid: false, error: 'Tag must be at most 63 characters long' };
+  }
+
+  if (trimmedTag.startsWith('-')) {
+    return {
+      valid: false,
+      error: 'Tag cannot start with a hyphen',
+    };
+  }
+
+  if (trimmedTag.endsWith('-')) {
+    return {
+      valid: false,
+      error: 'Tag cannot end with a hyphen',
+    };
+  }
+
+  if (/-{2,}/.test(trimmedTag)) {
+    return {
+      valid: false,
+      error: 'Tag cannot contain consecutive hyphens',
+    };
+  }
+
+  // Default: lowercase letters, numbers, plus signs, hash signs [a-z0-9+#] separated by hyphens
+  const validPattern = /^(?=.{1,63}$)[a-z0-9+#]+(?:-[a-z0-9+#]+)*$/;
+  if (!validPattern.test(trimmedTag)) {
+    return {
+      valid: false,
+      error:
+        'Tag must consist of lowercase letters, numbers, plus signs, and hash signs [a-z0-9+#] separated by hyphens',
+    };
+  }
+  return { valid: true };
+};
+
 export const EETagsPickerExtension = ({
   onChange,
   required,
@@ -112,7 +162,7 @@ export const EETagsPickerExtension = ({
   }, [formData, defaultTags]);
 
   const validateTag = (tag: string, index: number): boolean => {
-    const validation = isValidEntityName(tag, true);
+    const validation = isValidTag(tag);
     if (!validation.valid) {
       setTagErrors(prev => ({ ...prev, [index]: validation.error || '' }));
       return false;
@@ -126,9 +176,6 @@ export const EETagsPickerExtension = ({
   };
 
   const handleTagChange = (index: number, value: string) => {
-    if (index === 0) {
-      return;
-    }
     if (value.length === 0) {
       setTagErrors(prev => ({ ...prev, [index]: '' }));
     } else {
@@ -177,9 +224,6 @@ export const EETagsPickerExtension = ({
       updatedTags[index],
       updatedTags[index - 1],
     ];
-    if (updatedTags[0].trim().length === 0) {
-      updatedTags[0] = defaultTags[0];
-    }
     setTags(updatedTags);
     onChange(updatedTags);
     setTagErrors(prev => {
@@ -205,9 +249,6 @@ export const EETagsPickerExtension = ({
       updatedTags[index + 1],
       updatedTags[index],
     ];
-    if (updatedTags[0].trim().length === 0) {
-      updatedTags[0] = defaultTags[0];
-    }
     setTags(updatedTags);
     onChange(updatedTags);
     setTagErrors(prev => {
