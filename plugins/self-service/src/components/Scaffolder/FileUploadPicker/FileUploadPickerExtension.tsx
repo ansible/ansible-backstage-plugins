@@ -1,16 +1,10 @@
 import { ChangeEvent, useState, useEffect, useRef } from 'react';
 import { FieldExtensionComponentProps } from '@backstage/plugin-scaffolder-react';
-import {
-  Button,
-  Typography,
-  Box,
-  IconButton,
-  TextField,
-} from '@material-ui/core';
+import { Button, Typography, Box, TextField } from '@material-ui/core';
 import { makeStyles } from '@material-ui/core/styles';
 import UploadIcon from '@material-ui/icons/CloudUpload';
 import DeleteIcon from '@material-ui/icons/Delete';
-import { parseMarkdownLinks } from '../utils/parseMarkdownLinks';
+import CheckCircleIcon from '@material-ui/icons/CheckCircle';
 
 const useStyles = makeStyles(theme => ({
   title: {
@@ -69,6 +63,48 @@ const useStyles = makeStyles(theme => ({
     alignItems: 'center',
     marginBottom: theme.spacing(1),
   },
+  fileDisplayBox: {
+    marginTop: theme.spacing(2),
+    padding: theme.spacing(2),
+    backgroundColor: theme.palette.background.paper,
+    borderRadius: theme.shape.borderRadius,
+    border: `1px solid ${theme.palette.divider}`,
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  fileInfo: {
+    display: 'flex',
+    alignItems: 'center',
+    flex: 1,
+  },
+  checkIcon: {
+    color: theme.palette.success.main,
+    marginRight: theme.spacing(1.5),
+  },
+  fileName: {
+    color: theme.palette.primary.main,
+    fontWeight: 500,
+    marginRight: theme.spacing(1),
+    cursor: 'pointer',
+  },
+  fileSize: {
+    color: theme.palette.text.secondary,
+    fontSize: '0.875rem',
+  },
+  removeButton: {
+    display: 'flex',
+    alignItems: 'center',
+    color: theme.palette.primary.main,
+    cursor: 'pointer',
+    '&:hover': {
+      textDecoration: 'underline',
+    },
+  },
+  removeText: {
+    marginRight: theme.spacing(0.5),
+    fontSize: '0.875rem',
+  },
 }));
 
 export const FileUploadPickerExtension = ({
@@ -91,8 +127,14 @@ export const FileUploadPickerExtension = ({
 
   const customTitle =
     uiSchema?.['ui:options']?.title || schema?.title || 'Upload File';
-  const customDescription =
-    uiSchema?.['ui:options']?.description || schema?.description;
+  const customPlaceholder =
+    uiSchema?.['ui:options']?.placeholder ||
+    schema?.['ui:placeholder'] ||
+    'Paste the content here. Alternatively, upload a file.';
+  const customButtonText =
+    uiSchema?.['ui:options']?.buttonText ||
+    schema?.['ui:buttonText'] ||
+    'Upload File';
 
   const fileInputId = `file-upload-input-${
     typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function'
@@ -102,14 +144,16 @@ export const FileUploadPickerExtension = ({
 
   const storageKey = `file-upload-filename-${schema?.title || 'default'}`;
 
+  const formatFileSize = (bytes: number): string => {
+    if (bytes < 1024) return `${bytes} B`;
+    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} kb`;
+    return `${(bytes / (1024 * 1024)).toFixed(1)} mb`;
+  };
+
   const handleTextInput = (content: string) => {
     if (content) {
       setUploadedFile({ name: 'input-data', content });
-      try {
-        sessionStorage.setItem(storageKey, 'input-data');
-      } catch {
-        // Ignore sessionStorage errors (e.g., in private browsing)
-      }
+      sessionStorage.setItem(storageKey, 'input-data');
       const dataUrl = `data:text/plain;base64,${btoa(content)}`;
       onChange(dataUrl);
     }
@@ -194,12 +238,7 @@ export const FileUploadPickerExtension = ({
 
     if (value.trim()) {
       setUploadedFile(null);
-
-      try {
-        sessionStorage.removeItem(storageKey);
-      } catch {
-        // Ignore sessionStorage errors (e.g., in private browsing)
-      }
+      sessionStorage.removeItem(storageKey);
       handleTextInput(value);
     } else {
       onChange(undefined as any);
@@ -215,11 +254,7 @@ export const FileUploadPickerExtension = ({
         setUploadedFile({ name: file.name, content });
         setTextInput('');
         setIsDataSource('file');
-        try {
-          sessionStorage.setItem(storageKey, file.name);
-        } catch {
-          // Ignore sessionStorage errors (e.g., in private browsing)
-        }
+        sessionStorage.setItem(storageKey, file.name);
         const dataUrl = `data:text/plain;base64,${btoa(content)}`;
         onChange(dataUrl);
       } catch (error) {
@@ -239,11 +274,7 @@ export const FileUploadPickerExtension = ({
     setIsDataSource('none');
     setTextInput('');
     onChange(undefined as any);
-    try {
-      sessionStorage.removeItem(storageKey);
-    } catch {
-      // Ignore sessionStorage errors
-    }
+    sessionStorage.removeItem(storageKey);
   };
 
   const isUploadDisabled = disabled || dataSource === 'input';
@@ -252,13 +283,6 @@ export const FileUploadPickerExtension = ({
   return (
     <Box>
       <Typography className={classes.title}>{customTitle}</Typography>
-
-      {customDescription && (
-        <Typography className={classes.description} component="div">
-          {parseMarkdownLinks(customDescription)}
-        </Typography>
-      )}
-
       {dataSource !== 'file' && (
         <TextField
           fullWidth
@@ -268,7 +292,7 @@ export const FileUploadPickerExtension = ({
           value={textInput}
           onChange={handleTextChange}
           disabled={isTextDisabled}
-          placeholder="Paste the content here. Alternatively, upload a file."
+          placeholder={customPlaceholder}
           className={classes.textArea}
           variant="outlined"
         />
@@ -283,7 +307,7 @@ export const FileUploadPickerExtension = ({
             disabled={isUploadDisabled}
             className={classes.uploadButton}
           >
-            Upload File
+            {customButtonText}
           </Button>
 
           <input
@@ -297,27 +321,39 @@ export const FileUploadPickerExtension = ({
         </>
       )}
 
-      {uploadedFile && dataSource !== 'input' && (
-        <Box className={classes.fileContent}>
-          <Box className={classes.fileHeader}>
-            <Typography variant="subtitle2">
-              {dataSource === 'file' ? `File: ${uploadedFile.name}` : ''}
-            </Typography>
-            <IconButton
-              size="small"
-              onClick={clearFile}
-              disabled={disabled}
-              aria-label="Remove File"
-            >
-              <DeleteIcon fontSize="small" />
-            </IconButton>
+      {uploadedFile && dataSource === 'file' && (
+        <Box className={classes.fileDisplayBox}>
+          <Box className={classes.fileInfo}>
+            <CheckCircleIcon className={classes.checkIcon} />
+            <Box>
+              <Typography className={classes.fileName} component="span">
+                {uploadedFile.name}
+              </Typography>
+              <Typography className={classes.fileSize} component="span">
+                {formatFileSize(new Blob([uploadedFile.content]).size)}
+              </Typography>
+            </Box>
           </Box>
-          <Typography className={classes.fileContentText}>
-            {uploadedFile.content}
-          </Typography>
+          <Box
+            className={classes.removeButton}
+            onClick={clearFile}
+            role="button"
+            tabIndex={0}
+            onKeyDown={e => {
+              if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault();
+                clearFile();
+              }
+            }}
+            style={{ cursor: disabled ? 'not-allowed' : 'pointer' }}
+          >
+            <Typography className={classes.removeText} component="span">
+              remove
+            </Typography>
+            <DeleteIcon fontSize="small" />
+          </Box>
         </Box>
       )}
-
       {rawErrors.length > 0 && (
         <Typography
           color="error"

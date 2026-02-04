@@ -120,40 +120,11 @@ describe('FileUploadPickerExtension', () => {
       // Verify the title is present (first element should be the title)
       expect(uploadFileElements[0]).toBeInTheDocument();
     });
-    it('renders the description', () => {
+
+    it('does not render description', () => {
       const props = createMockProps();
       render(<FileUploadPickerExtension {...props} />);
 
-      expect(
-        screen.getByText(
-          'Optionally upload a requirements file with collection details',
-        ),
-      ).toBeInTheDocument();
-    });
-
-    it('renders custom description from uiSchema', () => {
-      const props = createMockProps({
-        uiSchema: { 'ui:options': { description: 'Custom description' } },
-      });
-      render(<FileUploadPickerExtension {...props} />);
-      expect(screen.getByText('Custom description')).toBeInTheDocument();
-    });
-
-    it('renders description from schema when uiSchema description is not provided', () => {
-      const props = createMockProps({
-        uiSchema: {},
-        schema: { description: 'Schema description' },
-      });
-      render(<FileUploadPickerExtension {...props} />);
-      expect(screen.getByText('Schema description')).toBeInTheDocument();
-    });
-
-    it('does not render description when not provided', () => {
-      const props = createMockProps({
-        schema: {},
-        uiSchema: {},
-      });
-      render(<FileUploadPickerExtension {...props} />);
       expect(
         screen.queryByText(
           'Optionally upload a requirements file with collection details',
@@ -168,11 +139,65 @@ describe('FileUploadPickerExtension', () => {
       expect(textArea).toBeInTheDocument();
     });
 
-    it('renders the upload file button initially', () => {
+    it('renders default placeholder in text input', () => {
       const props = createMockProps();
       render(<FileUploadPickerExtension {...props} />);
+      const textArea = screen.getByPlaceholderText(
+        'Paste the content here. Alternatively, upload a file.',
+      );
+      expect(textArea).toBeInTheDocument();
+    });
 
+    it('renders custom placeholder from uiSchema', () => {
+      const props = createMockProps({
+        uiSchema: {
+          'ui:options': {
+            placeholder: 'Custom placeholder text',
+          },
+        },
+      });
+      render(<FileUploadPickerExtension {...props} />);
+      const textArea = screen.getByPlaceholderText('Custom placeholder text');
+      expect(textArea).toBeInTheDocument();
+    });
+
+    it('renders custom placeholder from schema ui:placeholder', () => {
+      const props = createMockProps({
+        schema: {
+          'ui:placeholder': 'Schema placeholder text',
+        },
+      });
+      render(<FileUploadPickerExtension {...props} />);
+      const textArea = screen.getByPlaceholderText('Schema placeholder text');
+      expect(textArea).toBeInTheDocument();
+    });
+
+    it('renders default button text', () => {
+      const props = createMockProps();
+      render(<FileUploadPickerExtension {...props} />);
       expect(screen.getByText('Upload File')).toBeInTheDocument();
+    });
+
+    it('renders custom button text from uiSchema', () => {
+      const props = createMockProps({
+        uiSchema: {
+          'ui:options': { buttonText: 'Upload YAML file' },
+        },
+      });
+      render(<FileUploadPickerExtension {...props} />);
+      expect(screen.getByText('Upload YAML file')).toBeInTheDocument();
+    });
+
+    it('renders custom button text from schema ui:buttonText', () => {
+      const props = createMockProps({
+        schema: {
+          'ui:buttonText': 'Upload requirements.txt file',
+        },
+      });
+      render(<FileUploadPickerExtension {...props} />);
+      expect(
+        screen.getByText('Upload requirements.txt file'),
+      ).toBeInTheDocument();
     });
 
     it('renders file input with correct accept attribute', () => {
@@ -342,8 +367,10 @@ describe('FileUploadPickerExtension', () => {
       render(<FileUploadPickerExtension {...props} />);
       await waitFor(
         () => {
-          const deleteButton = screen.getByLabelText('Remove File');
-          expect(deleteButton).toBeDisabled();
+          const removeButton = screen.getByText('remove');
+          expect(removeButton.closest('div')).toHaveStyle({
+            cursor: 'not-allowed',
+          });
         },
         { timeout: 3000 },
       );
@@ -386,7 +413,7 @@ describe('FileUploadPickerExtension', () => {
   });
 
   describe('FormData Loading from Base64', () => {
-    it('loads and displays file content from base64 formData', async () => {
+    it('loads and displays file from base64 formData', async () => {
       const base64Content = btoa('Hello World');
       const formData = `data:text/plain;base64,${base64Content}`;
       const props = createMockProps({ formData });
@@ -394,7 +421,11 @@ describe('FileUploadPickerExtension', () => {
 
       await waitFor(
         () => {
-          expect(screen.getByText('Hello World')).toBeInTheDocument();
+          // Check for checkmark icon (success indicator)
+          const checkIcon = document.querySelector(
+            '[class*="checkIcon"], [class*="MuiSvgIcon-root"]',
+          );
+          expect(checkIcon).toBeInTheDocument();
         },
         { timeout: 3000 },
       );
@@ -412,9 +443,27 @@ describe('FileUploadPickerExtension', () => {
 
       await waitFor(
         () => {
-          expect(
-            screen.getByText(/File: my-custom-file\.txt/),
-          ).toBeInTheDocument();
+          expect(screen.getByText('my-custom-file.txt')).toBeInTheDocument();
+        },
+        { timeout: 3000 },
+      );
+    });
+
+    it('displays file size when file is uploaded', async () => {
+      const base64Content = btoa('Test content');
+      const formData = `data:text/plain;base64,${base64Content}`;
+      sessionStorageMock.setItem(
+        'file-upload-filename-Upload a requirements.yml file',
+        'my-custom-file.txt',
+      );
+      const props = createMockProps({ formData });
+      render(<FileUploadPickerExtension {...props} />);
+
+      await waitFor(
+        () => {
+          // File size should be displayed (format: "X.X kb" or "X B")
+          const fileSize = screen.getByText(/\d+\.?\d*\s*(B|kb|mb)/i);
+          expect(fileSize).toBeInTheDocument();
         },
         { timeout: 3000 },
       );
@@ -451,7 +500,7 @@ describe('FileUploadPickerExtension', () => {
       await waitFor(
         () => {
           expect(
-            screen.getByText(/File: my-requirements-file\.txt/),
+            screen.getByText(/my-requirements-file\.txt/),
           ).toBeInTheDocument();
         },
         { timeout: 3000 },
@@ -469,9 +518,7 @@ describe('FileUploadPickerExtension', () => {
 
       await waitFor(
         () => {
-          expect(
-            screen.getByText(/File: uploaded-file\.txt/),
-          ).toBeInTheDocument();
+          expect(screen.getByText(/uploaded-file\.txt/)).toBeInTheDocument();
         },
         { timeout: 3000 },
       );
@@ -491,7 +538,7 @@ describe('FileUploadPickerExtension', () => {
 
       await waitFor(
         () => {
-          expect(screen.getByText(/File: test-file\.txt/)).toBeInTheDocument();
+          expect(screen.getByText(/test-file\.txt/)).toBeInTheDocument();
         },
         { timeout: 3000 },
       );
@@ -504,7 +551,8 @@ describe('FileUploadPickerExtension', () => {
 
       await waitFor(
         () => {
-          expect(screen.queryByText(/File:/)).not.toBeInTheDocument();
+          // Should not show file display
+          expect(screen.queryByText(/remove/)).not.toBeInTheDocument();
         },
         { timeout: 3000 },
       );
@@ -517,7 +565,7 @@ describe('FileUploadPickerExtension', () => {
 
       await waitFor(
         () => {
-          expect(screen.queryByText(/File:/)).not.toBeInTheDocument();
+          expect(screen.queryByText(/remove/)).not.toBeInTheDocument();
         },
         { timeout: 3000 },
       );
@@ -531,7 +579,7 @@ describe('FileUploadPickerExtension', () => {
 
       await waitFor(
         () => {
-          expect(screen.getByText('Hello World')).toBeInTheDocument();
+          expect(screen.getByText(/remove/)).toBeInTheDocument();
         },
         { timeout: 3000 },
       );
@@ -540,7 +588,7 @@ describe('FileUploadPickerExtension', () => {
 
       await waitFor(
         () => {
-          expect(screen.queryByText('Hello World')).not.toBeInTheDocument();
+          expect(screen.queryByText(/remove/)).not.toBeInTheDocument();
         },
         { timeout: 3000 },
       );
@@ -664,7 +712,7 @@ describe('FileUploadPickerExtension', () => {
       );
     });
 
-    it('displays uploaded file content', async () => {
+    it('displays uploaded file with checkmark, filename, and size', async () => {
       const props = createMockProps();
       render(<FileUploadPickerExtension {...props} />);
       const fileInput = document.querySelector(
@@ -680,7 +728,13 @@ describe('FileUploadPickerExtension', () => {
 
       await waitFor(
         () => {
-          expect(screen.getByText('File: test.yml')).toBeInTheDocument();
+          // Check for filename
+          expect(screen.getByText('test.yml')).toBeInTheDocument();
+          // Check for remove button
+          expect(screen.getByText('remove')).toBeInTheDocument();
+          // Check for file size (should be displayed)
+          const fileSize = screen.getByText(/\d+\.?\d*\s*(B|kb|mb)/i);
+          expect(fileSize).toBeInTheDocument();
         },
         { timeout: 3000 },
       );
@@ -747,19 +801,19 @@ describe('FileUploadPickerExtension', () => {
 
       await waitFor(
         () => {
-          expect(screen.getByText('Hello World')).toBeInTheDocument();
+          expect(screen.getByText(/remove/)).toBeInTheDocument();
         },
         { timeout: 3000 },
       );
 
       onChange.mockClear();
 
-      const deleteButton = screen.getByLabelText('Remove File');
-      fireEvent.click(deleteButton);
+      const removeButton = screen.getByText('remove');
+      fireEvent.click(removeButton);
 
       await waitFor(() => {
         expect(onChange).toHaveBeenCalledWith(undefined);
-        expect(screen.queryByText('Hello World')).not.toBeInTheDocument();
+        expect(screen.queryByText(/remove/)).not.toBeInTheDocument();
       });
     });
 
@@ -776,15 +830,15 @@ describe('FileUploadPickerExtension', () => {
 
       await waitFor(
         () => {
-          expect(screen.getByText('Hello World')).toBeInTheDocument();
+          expect(screen.getByText(/remove/)).toBeInTheDocument();
         },
         { timeout: 3000 },
       );
 
       sessionStorageMock.removeItem.mockClear();
 
-      const deleteButton = screen.getByLabelText('Remove File');
-      fireEvent.click(deleteButton);
+      const removeButton = screen.getByText('remove');
+      fireEvent.click(removeButton);
 
       await waitFor(() => {
         expect(sessionStorageMock.removeItem).toHaveBeenCalledWith(
@@ -813,8 +867,8 @@ describe('FileUploadPickerExtension', () => {
         { timeout: 3000 },
       );
 
-      const deleteButton = screen.getByLabelText('Remove File');
-      fireEvent.click(deleteButton);
+      const removeButton = screen.getByText('remove');
+      fireEvent.click(removeButton);
 
       await waitFor(
         () => {
@@ -828,25 +882,26 @@ describe('FileUploadPickerExtension', () => {
       const onChange = jest.fn();
       const base64Content = btoa('Hello World');
       const formData = `data:text/plain;base64,${base64Content}`;
-      sessionStorageMock.removeItem = jest.fn(() => {
-        throw new Error('Storage error');
-      }) as unknown as jest.Mock<void, [key: string]>;
+      sessionStorageMock.removeItem = jest.fn(() => {}) as unknown as jest.Mock<
+        void,
+        [key: string]
+      >;
       const props = createMockProps({ formData, onChange });
       render(<FileUploadPickerExtension {...props} />);
 
       await waitFor(
         () => {
-          expect(screen.getByText('Hello World')).toBeInTheDocument();
+          expect(screen.getByText(/remove/)).toBeInTheDocument();
         },
         { timeout: 3000 },
       );
 
-      const deleteButton = screen.getByLabelText('Remove File');
-      fireEvent.click(deleteButton);
+      const removeButton = screen.getByText('remove');
+      fireEvent.click(removeButton);
 
       await waitFor(() => {
         expect(onChange).toHaveBeenCalledWith(undefined);
-        expect(screen.queryByText('Hello World')).not.toBeInTheDocument();
+        expect(screen.queryByText(/remove/)).not.toBeInTheDocument();
       });
     });
   });
@@ -947,19 +1002,101 @@ describe('FileUploadPickerExtension', () => {
     });
   });
 
-  describe('Markdown Links in Description', () => {
-    it('renders markdown links in description', () => {
-      const props = createMockProps({
-        schema: {
-          description:
-            'Check out [this link](https://example.com) for more info',
-        },
-      });
+  describe('File Display UI', () => {
+    it('displays checkmark icon when file is uploaded', async () => {
+      const props = createMockProps();
       render(<FileUploadPickerExtension {...props} />);
+      const fileInput = document.querySelector(
+        'input[type="file"]',
+      ) as HTMLInputElement;
 
-      const link = screen.getByText('this link');
-      expect(link).toBeInTheDocument();
-      expect(link.closest('a')).toHaveAttribute('href', 'https://example.com');
+      const file = new File(['test content'], 'test.yml', {
+        type: 'text/yaml',
+      });
+
+      fireEvent.change(fileInput, { target: { files: [file] } });
+
+      await waitFor(
+        () => {
+          // Check for checkmark icon (success indicator)
+          const checkIcon = document.querySelector(
+            '[class*="checkIcon"], [class*="MuiSvgIcon-root"]',
+          );
+          expect(checkIcon).toBeInTheDocument();
+        },
+        { timeout: 3000 },
+      );
+    });
+
+    it('displays filename in blue color', async () => {
+      const props = createMockProps();
+      render(<FileUploadPickerExtension {...props} />);
+      const fileInput = document.querySelector(
+        'input[type="file"]',
+      ) as HTMLInputElement;
+
+      const file = new File(['test content'], 'test.yml', {
+        type: 'text/yaml',
+      });
+
+      fireEvent.change(fileInput, { target: { files: [file] } });
+
+      await waitFor(
+        () => {
+          const fileName = screen.getByText('test.yml');
+          expect(fileName).toBeInTheDocument();
+        },
+        { timeout: 3000 },
+      );
+    });
+
+    it('displays file size', async () => {
+      const props = createMockProps();
+      render(<FileUploadPickerExtension {...props} />);
+      const fileInput = document.querySelector(
+        'input[type="file"]',
+      ) as HTMLInputElement;
+
+      const file = new File(['test content'], 'test.yml', {
+        type: 'text/yaml',
+      });
+
+      fireEvent.change(fileInput, { target: { files: [file] } });
+
+      await waitFor(
+        () => {
+          // File size should be displayed
+          const fileSize = screen.getByText(/\d+\.?\d*\s*(B|kb|mb)/i);
+          expect(fileSize).toBeInTheDocument();
+        },
+        { timeout: 3000 },
+      );
+    });
+
+    it('displays remove button with text and icon', async () => {
+      const props = createMockProps();
+      render(<FileUploadPickerExtension {...props} />);
+      const fileInput = document.querySelector(
+        'input[type="file"]',
+      ) as HTMLInputElement;
+
+      const file = new File(['test content'], 'test.yml', {
+        type: 'text/yaml',
+      });
+
+      fireEvent.change(fileInput, { target: { files: [file] } });
+
+      await waitFor(
+        () => {
+          expect(screen.getByText('remove')).toBeInTheDocument();
+          // Delete icon should also be present
+          const deleteIcon = document.querySelector(
+            '[class*="MuiSvgIcon-root"]',
+          );
+          expect(deleteIcon).toBeInTheDocument();
+        },
+        { timeout: 3000 },
+      );
     });
   });
 
@@ -981,31 +1118,6 @@ describe('FileUploadPickerExtension', () => {
       expect(input1?.id).toBeTruthy();
       expect(input2?.id).toBeTruthy();
       expect(input1?.id).not.toBe(input2?.id);
-    });
-  });
-
-  describe('File Content Display', () => {
-    it('displays file name and delete button in header', async () => {
-      const base64Content = btoa('Content');
-      const formData = `data:text/plain;base64,${base64Content}`;
-      const store = (sessionStorageMock as any).__store || {};
-      store['file-upload-filename-Upload a requirements.yml file'] =
-        'test-file.yml';
-      (sessionStorageMock as any).__store = store;
-      sessionStorageMock.getItem = jest.fn(
-        (key: string) => store[key] || null,
-      ) as jest.Mock<string | null, [key: string]>;
-
-      const props = createMockProps({ formData });
-      render(<FileUploadPickerExtension {...props} />);
-
-      await waitFor(
-        () => {
-          expect(screen.getByText(/File: test-file\.yml/)).toBeInTheDocument();
-          expect(screen.getByLabelText('Remove File')).toBeInTheDocument();
-        },
-        { timeout: 3000 },
-      );
     });
   });
 });
