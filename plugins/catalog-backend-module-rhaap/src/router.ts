@@ -21,6 +21,13 @@ import { AAPEntityProvider } from './providers/AAPEntityProvider';
 import { LoggerService } from '@backstage/backend-plugin-api';
 import { EEEntityProvider } from './providers/EEEntityProvider';
 import { AnsibleGitContentsProvider } from './providers/ansible-collections';
+import {
+  SyncFilter,
+  parseSourceId,
+  buildSourcesTree,
+  findMatchingProviders,
+  buildFilterDescription,
+} from './helpers';
 
 export async function createRouter(options: {
   logger: LoggerService;
@@ -40,6 +47,11 @@ export async function createRouter(options: {
 
   // Note: Don't apply express.json() globally to avoid conflicts with catalog backend
   // Instead, apply it only to specific routes that need it
+
+  const _GIT_CONTENTS_PROVIDERS = new Map<string, AnsibleGitContentsProvider>();
+  for (const provider of ansibleGitContentsProviders) {
+    _GIT_CONTENTS_PROVIDERS.set(provider.getSourceId(), provider);
+  }
 
   router.get('/health', (_, response) => {
     logger.info('PONG!');
@@ -129,10 +141,23 @@ export async function createRouter(options: {
   router.get('/ansible-collections/sync_status', async (_, response) => {
     logger.info('Getting Ansible Git Contents sync status');
     try {
-      const status = ansibleGitContentsProviders.map(provider =>
-        provider.getSyncStatus(),
-      );
-      response.status(200).json({ sources: status });
+      const sources = ansibleGitContentsProviders.map(provider => {
+        const syncStatus = provider.getSyncStatus();
+        const providerInfo = parseSourceId(provider.getSourceId());
+        return {
+          ...syncStatus,
+          scmProvider: providerInfo.scmProvider,
+          host: providerInfo.host,
+          organization: providerInfo.organization,
+        };
+      });
+
+      const sourcesTree = buildSourcesTree(ansibleGitContentsProviders);
+
+      response.status(200).json({
+        sources,
+        sourcesTree,
+      });
     } catch (error) {
       const errorMessage =
         error instanceof Error ? error.message : String(error);
@@ -142,73 +167,119 @@ export async function createRouter(options: {
       response.status(500).json({
         error: `Failed to get sync status: ${errorMessage}`,
         sources: [],
+        sourcesTree: {},
       });
     }
   });
 
+  // sync endpoint with flexible hierarchical filtering
+  // supports UI tree selection:
+  //  - all sources (no filters or empty body)
+  //  - by scmProvider (e.g., all github sources)
+  //  - by host (e.g., all sources from github.com)
+  //  - by organization (e.g., specific org)
+  //
+  // request body examples:
+  //  {} or { "filters": [] } -> sync all sources
+  //  { "filters": [{ "scmProvider": "github" }] } -> all github sources
+  //  { "filters": [{ "host": "github.com" }] } -> all sources with host github.com
+  //  { "filters": [{ "organization": "ansible-collections" }] } -> specific org (across all providers/hosts)
+  //  { "filters": [{ "scmProvider": "github", "host": "github.com" }] } -> host github.com in scmProvider github
+  //  { "filters": [
+  //      { "scmProvider": "github", "host": "github.com", "organization": "ansible-collections" },
+  //      { "scmProvider": "gitlab" }
+  //    ]
+  //  } -> multiple selections
   router.post(
     '/ansible-collections/sync',
     express.json(),
     async (request, response) => {
-      const { sourceId } = request.body;
+      const { filters = [] } = request.body as { filters?: SyncFilter[] };
+
       logger.info(
-        `Triggering Ansible Git Contents sync${sourceId ? ` for source: ${sourceId}` : ' for all sources'}`,
+        `Triggering Ansible Git Contents sync for ${buildFilterDescription(filters)}`,
       );
 
       try {
-        const results: Array<{
-          sourceId: string;
-          success: boolean;
-          error?: string;
-        }> = [];
+        const providersToSync =
+          filters.length === 0
+            ? ansibleGitContentsProviders
+            : getProvidersFromFilters(filters);
 
-        const providersToSync = sourceId
-          ? ansibleGitContentsProviders.filter(
-              p => p.getSourceId() === sourceId,
-            )
-          : ansibleGitContentsProviders;
-
-        if (sourceId && providersToSync.length === 0) {
+        if (providersToSync.length === 0) {
           response.status(404).json({
-            error: `Source not found: ${sourceId}`,
-            availableSources: ansibleGitContentsProviders.map(p =>
-              p.getSourceId(),
-            ),
+            success: false,
+            error: 'No sources match the provided filters',
+            filters,
+            availableSources: buildSourcesTree(ansibleGitContentsProviders),
           });
           return;
         }
 
-        for (const provider of providersToSync) {
-          try {
-            const success = await provider.run();
-            results.push({
-              sourceId: provider.getSourceId(),
-              success,
-            });
-          } catch (syncError) {
-            const errorMessage =
-              syncError instanceof Error
-                ? syncError.message
-                : String(syncError);
-            results.push({
-              sourceId: provider.getSourceId(),
-              success: false,
-              error: errorMessage,
-            });
-          }
-        }
+        const settledResults = await Promise.allSettled(
+          providersToSync.map(provider => provider.run()),
+        );
 
-        response.status(200).json({ results });
+        const results = buildSyncResults(providersToSync, settledResults);
+        const successCount = results.filter(r => r.success).length;
+
+        response.status(200).json({
+          success: successCount === results.length,
+          providersRun: results.length,
+          successCount,
+          failureCount: results.length - successCount,
+          results,
+        });
       } catch (error) {
         const errorMessage =
           error instanceof Error ? error.message : String(error);
         logger.error(`Failed to sync Ansible Git Contents: ${errorMessage}`);
         response.status(500).json({
+          success: false,
           error: `Failed to sync Ansible Git Contents: ${errorMessage}`,
         });
       }
     },
   );
+
+  function getProvidersFromFilters(
+    filters: SyncFilter[],
+  ): AnsibleGitContentsProvider[] {
+    const matchedIds = findMatchingProviders(
+      ansibleGitContentsProviders,
+      filters,
+    );
+    return Array.from(matchedIds).map(id => _GIT_CONTENTS_PROVIDERS.get(id)!);
+  }
+
+  function buildSyncResults(
+    providers: AnsibleGitContentsProvider[],
+    settledResults: PromiseSettledResult<boolean>[],
+  ) {
+    return settledResults.map((result, index) => {
+      const provider = providers[index];
+      const providerInfo = parseSourceId(provider.getSourceId());
+      const baseResult = {
+        sourceId: provider.getSourceId(),
+        scmProvider: providerInfo.scmProvider,
+        host: providerInfo.host,
+        organization: providerInfo.organization,
+      };
+
+      if (result.status === 'fulfilled') {
+        return { ...baseResult, success: result.value };
+      }
+
+      return {
+        ...baseResult,
+        success: false,
+        error:
+          result.reason instanceof Error
+            ? result.reason.message
+            : String(result.reason),
+      };
+    });
+  }
 
   return router;
 }

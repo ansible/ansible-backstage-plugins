@@ -19,14 +19,13 @@ import type {
 import { ScmCrawlerFactory } from './scm';
 import type { ScmCrawler } from './scm';
 import {
-  parseCollectionToEntity,
-  parseRepositoryToEntity,
   createCollectionKey,
   createCollectionIdentifier,
   createRepositoryKey,
   generateSourceId,
   generateCollectionEntityName,
-} from './collectionParser';
+} from './utils';
+import { collectionParser, repositoryParser } from '../entityParser';
 import { readAnsibleGitContentsConfigs } from './config';
 
 const DEFAULT_CRAWL_DEPTH = 5;
@@ -409,7 +408,7 @@ export class AnsibleGitContentsProvider implements EntityProvider {
           galaxyFile.path,
         );
 
-        const entity = parseCollectionToEntity({
+        const entity = collectionParser({
           galaxyFile,
           sourceConfig: this.sourceConfig,
           sourceLocation,
@@ -440,7 +439,7 @@ export class AnsibleGitContentsProvider implements EntityProvider {
 
     for (const [, { repo, count, collectionEntityNames }] of repositoryData) {
       try {
-        const entity = parseRepositoryToEntity({
+        const entity = repositoryParser({
           repository: repo,
           sourceConfig: this.sourceConfig,
           collectionCount: count,

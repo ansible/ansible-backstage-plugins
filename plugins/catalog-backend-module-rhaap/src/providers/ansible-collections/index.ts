@@ -6,11 +6,11 @@ export {
   hasRequiredFields,
 } from './galaxySchema';
 export {
-  parseCollectionToEntity,
   createCollectionIdentifier,
   createCollectionKey,
   generateSourceId,
-} from './collectionParser';
+} from './utils';
+export { collectionParser, repositoryParser } from '../entityParser';
 export type {
   AnsibleGitContentsSourceConfig,
   AnsibleGitContentsConfig,
