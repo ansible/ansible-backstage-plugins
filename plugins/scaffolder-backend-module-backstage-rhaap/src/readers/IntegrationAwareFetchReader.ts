@@ -46,7 +46,8 @@ export type ReaderFactory = (options: {
 
 /**
  * Builds a set of allowed hosts from all configured SCM integrations.
- * Includes GitHub, GitLab hosts and their associated raw content URL hosts.
+ * Only includes hosts that need the IntegrationAwareFetchReader for raw content,
+ * NOT the main SCM hosts which have dedicated readers (GithubUrlReader, etc.)
  */
 export function buildAllowedHostsFromIntegrations(
   config: RootConfigService,
@@ -55,46 +56,54 @@ export function buildAllowedHostsFromIntegrations(
   const integrations = ScmIntegrations.fromConfig(config);
   const allowedHosts = new Set<string>();
 
-  // Add GitHub hosts and their raw content variants
+  // For GitHub, only add raw.githubusercontent.com
+  // The main github.com host is handled by GithubUrlReader which knows how to
+  // transform URLs to raw content. We should NOT intercept those URLs.
   for (const gh of integrations.github.list()) {
     const host = gh.config.host;
-    allowedHosts.add(host);
-    logger.debug(`[IntegrationAwareFetchReader] Allowing GitHub host: ${host}`);
+    logger.debug(
+      `[IntegrationAwareFetchReader] Found GitHub integration for ${host} (handled by GithubUrlReader)`,
+    );
 
     if (host === 'github.com') {
       // For github.com, raw content is served from raw.githubusercontent.com
+      // This host doesn't have a dedicated reader, so we handle it
       allowedHosts.add('raw.githubusercontent.com');
       logger.debug(
         `[IntegrationAwareFetchReader] Allowing raw.githubusercontent.com for github.com`,
       );
     }
-    // For GHE, raw URLs are typically on the same host or /raw/ paths
+    // For GHE, raw URLs are typically on the same host via /raw/ paths
+    // which GithubUrlReader should handle, so we don't add GHE hosts here
   }
 
-  // Add GitLab hosts
+  // For GitLab, the main host is handled by GitlabUrlReader
+  // which knows how to transform URLs to raw content.
+  // GitLab serves raw content from the same host via /-/raw/ paths.
   for (const gl of integrations.gitlab.list()) {
     const host = gl.config.host;
-    allowedHosts.add(host);
-    logger.debug(`[IntegrationAwareFetchReader] Allowing GitLab host: ${host}`);
-    // GitLab serves raw content from the same host via /-/raw/ paths
+    logger.debug(
+      `[IntegrationAwareFetchReader] Found GitLab integration for ${host} (handled by GitlabUrlReader)`,
+    );
+    // Don't add GitLab hosts - they're handled by GitlabUrlReader
   }
 
-  // Add Bitbucket hosts if configured
+  // For Bitbucket, the main host is handled by BitbucketUrlReader
   for (const bb of integrations.bitbucket.list()) {
     const host = bb.config.host;
-    allowedHosts.add(host);
     logger.debug(
-      `[IntegrationAwareFetchReader] Allowing Bitbucket host: ${host}`,
+      `[IntegrationAwareFetchReader] Found Bitbucket integration for ${host} (handled by BitbucketUrlReader)`,
     );
+    // Don't add Bitbucket hosts - they're handled by BitbucketUrlReader
   }
 
-  // Add Azure DevOps hosts if configured
+  // For Azure DevOps, the main host is handled by AzureUrlReader
   for (const azure of integrations.azure.list()) {
     const host = azure.config.host;
-    allowedHosts.add(host);
     logger.debug(
-      `[IntegrationAwareFetchReader] Allowing Azure DevOps host: ${host}`,
+      `[IntegrationAwareFetchReader] Found Azure DevOps integration for ${host} (handled by AzureUrlReader)`,
     );
+    // Don't add Azure hosts - they're handled by AzureUrlReader
   }
 
   return allowedHosts;

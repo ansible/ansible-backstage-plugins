@@ -35,7 +35,7 @@ describe('IntegrationAwareFetchReader', () => {
   });
 
   describe('buildAllowedHostsFromIntegrations', () => {
-    it('should extract GitHub hosts from integrations config', () => {
+    it('should NOT include GitHub hosts (handled by GithubUrlReader) but SHOULD include raw.githubusercontent.com', () => {
       const config = new ConfigReader({
         integrations: {
           github: [
@@ -47,13 +47,14 @@ describe('IntegrationAwareFetchReader', () => {
 
       const allowedHosts = buildAllowedHostsFromIntegrations(config, logger);
 
-      expect(allowedHosts.has('github.com')).toBe(true);
-      expect(allowedHosts.has('ghe.example.net')).toBe(true);
-      // raw.githubusercontent.com should be added for github.com
+      // Main GitHub hosts should NOT be included - they're handled by GithubUrlReader
+      expect(allowedHosts.has('github.com')).toBe(false);
+      expect(allowedHosts.has('ghe.example.net')).toBe(false);
+      // raw.githubusercontent.com SHOULD be added for github.com (no dedicated reader)
       expect(allowedHosts.has('raw.githubusercontent.com')).toBe(true);
     });
 
-    it('should extract GitLab hosts from integrations config', () => {
+    it('should NOT include GitLab hosts (handled by GitlabUrlReader)', () => {
       const config = new ConfigReader({
         integrations: {
           gitlab: [
@@ -69,11 +70,12 @@ describe('IntegrationAwareFetchReader', () => {
 
       const allowedHosts = buildAllowedHostsFromIntegrations(config, logger);
 
-      expect(allowedHosts.has('gitlab.com')).toBe(true);
-      expect(allowedHosts.has('gitlab.example.net')).toBe(true);
+      // GitLab hosts should NOT be included - they're handled by GitlabUrlReader
+      expect(allowedHosts.has('gitlab.com')).toBe(false);
+      expect(allowedHosts.has('gitlab.example.net')).toBe(false);
     });
 
-    it('should extract Bitbucket hosts from integrations config', () => {
+    it('should NOT include Bitbucket hosts (handled by BitbucketUrlReader)', () => {
       const config = new ConfigReader({
         integrations: {
           bitbucket: [
@@ -89,11 +91,12 @@ describe('IntegrationAwareFetchReader', () => {
 
       const allowedHosts = buildAllowedHostsFromIntegrations(config, logger);
 
-      expect(allowedHosts.has('bitbucket.org')).toBe(true);
-      expect(allowedHosts.has('bitbucket.example.net')).toBe(true);
+      // Bitbucket hosts should NOT be included - they're handled by BitbucketUrlReader
+      expect(allowedHosts.has('bitbucket.org')).toBe(false);
+      expect(allowedHosts.has('bitbucket.example.net')).toBe(false);
     });
 
-    it('should extract Azure DevOps hosts from integrations config', () => {
+    it('should NOT include Azure DevOps hosts (handled by AzureUrlReader)', () => {
       const config = new ConfigReader({
         integrations: {
           azure: [{ host: 'dev.azure.com', token: 'token1' }],
@@ -102,10 +105,11 @@ describe('IntegrationAwareFetchReader', () => {
 
       const allowedHosts = buildAllowedHostsFromIntegrations(config, logger);
 
-      expect(allowedHosts.has('dev.azure.com')).toBe(true);
+      // Azure hosts should NOT be included - they're handled by AzureUrlReader
+      expect(allowedHosts.has('dev.azure.com')).toBe(false);
     });
 
-    it('should combine hosts from multiple integration types', () => {
+    it('should only include raw.githubusercontent.com when github.com is configured', () => {
       const config = new ConfigReader({
         integrations: {
           github: [{ host: 'github.com', token: 'token1' }],
@@ -115,9 +119,12 @@ describe('IntegrationAwareFetchReader', () => {
 
       const allowedHosts = buildAllowedHostsFromIntegrations(config, logger);
 
-      expect(allowedHosts.has('github.com')).toBe(true);
-      expect(allowedHosts.has('gitlab.com')).toBe(true);
+      // Main SCM hosts should NOT be included
+      expect(allowedHosts.has('github.com')).toBe(false);
+      expect(allowedHosts.has('gitlab.com')).toBe(false);
+      // Only raw.githubusercontent.com should be included
       expect(allowedHosts.has('raw.githubusercontent.com')).toBe(true);
+      expect(allowedHosts.size).toBe(1);
     });
 
     it('should return empty set when no integrations configured', () => {
@@ -125,13 +132,13 @@ describe('IntegrationAwareFetchReader', () => {
 
       const allowedHosts = buildAllowedHostsFromIntegrations(config, logger);
 
-      // Default github.com is added by Backstage
+      // Default github.com adds raw.githubusercontent.com
       expect(allowedHosts.size).toBeGreaterThanOrEqual(0);
     });
   });
 
   describe('IntegrationAwareFetchReader.factory', () => {
-    it('should create reader with predicate for configured hosts', () => {
+    it('should create reader with predicate only for raw.githubusercontent.com', () => {
       const config = new ConfigReader({
         integrations: {
           github: [
@@ -150,13 +157,15 @@ describe('IntegrationAwareFetchReader', () => {
       expect(result[0].reader).toBeDefined();
       expect(result[0].predicate).toBeDefined();
 
-      // Test predicate matches configured hosts
+      // Test predicate should NOT match main SCM hosts (handled by dedicated readers)
       expect(result[0].predicate(new URL('https://github.com/org/repo'))).toBe(
-        true,
+        false,
       );
       expect(
         result[0].predicate(new URL('https://ghe.example.net/org/repo')),
-      ).toBe(true);
+      ).toBe(false);
+
+      // Test predicate SHOULD match raw.githubusercontent.com
       expect(
         result[0].predicate(new URL('https://raw.githubusercontent.com/file')),
       ).toBe(true);
@@ -167,9 +176,11 @@ describe('IntegrationAwareFetchReader', () => {
       ).toBe(false);
     });
 
-    it('should return empty array when no integrations configured', () => {
+    it('should return empty array when no GitHub integrations configured', () => {
       const config = new ConfigReader({
-        integrations: {},
+        integrations: {
+          gitlab: [{ host: 'gitlab.com', token: 'token1' }],
+        },
       });
 
       const result = IntegrationAwareFetchReader.factory({
@@ -177,8 +188,8 @@ describe('IntegrationAwareFetchReader', () => {
         logger,
       });
 
-      // When no integrations, should return empty (or single with default github.com)
-      // Depends on Backstage default behavior
+      // When no github.com integration, no raw.githubusercontent.com is added
+      // so allowed hosts would be empty
       expect(Array.isArray(result)).toBe(true);
     });
   });
@@ -232,13 +243,13 @@ describe('IntegrationAwareFetchReader', () => {
       const reader = result[0].reader;
 
       const response = await reader.readUrl(
-        'https://github.com/org/repo/file.txt',
+        'https://raw.githubusercontent.com/org/repo/main/file.txt',
       );
 
       expect(response.etag).toBe('"abc123"');
       expect(response.lastModifiedAt).toBeInstanceOf(Date);
       expect(mockFetch).toHaveBeenCalledWith(
-        'https://github.com/org/repo/file.txt',
+        'https://raw.githubusercontent.com/org/repo/main/file.txt',
         expect.any(Object),
       );
     });
@@ -272,7 +283,7 @@ describe('IntegrationAwareFetchReader', () => {
       const reader = result[0].reader;
 
       const response = await reader.readUrl(
-        'https://github.com/org/repo/file.txt',
+        'https://raw.githubusercontent.com/org/repo/main/file.txt',
       );
 
       // Should not throw, and lastModifiedAt should be undefined for invalid date
@@ -301,14 +312,17 @@ describe('IntegrationAwareFetchReader', () => {
       const result = IntegrationAwareFetchReader.factory({ config, logger });
       const reader = result[0].reader;
 
-      await reader.readUrl('https://github.com/org/repo/file.txt', {
-        etag: 'test-etag',
-        token: 'bearer-token',
-        lastModifiedAfter: new Date('2020-01-01'),
-      });
+      await reader.readUrl(
+        'https://raw.githubusercontent.com/org/repo/main/file.txt',
+        {
+          etag: 'test-etag',
+          token: 'bearer-token',
+          lastModifiedAfter: new Date('2020-01-01'),
+        },
+      );
 
       expect(mockFetch).toHaveBeenCalledWith(
-        'https://github.com/org/repo/file.txt',
+        'https://raw.githubusercontent.com/org/repo/main/file.txt',
         expect.objectContaining({
           headers: expect.objectContaining({
             'If-None-Match': 'test-etag',
@@ -340,7 +354,9 @@ describe('IntegrationAwareFetchReader', () => {
       const reader = result[0].reader;
 
       await expect(
-        reader.readUrl('https://github.com/org/repo/file.txt'),
+        reader.readUrl(
+          'https://raw.githubusercontent.com/org/repo/main/file.txt',
+        ),
       ).rejects.toThrow(NotModifiedError);
     });
 
@@ -365,7 +381,9 @@ describe('IntegrationAwareFetchReader', () => {
       const reader = result[0].reader;
 
       await expect(
-        reader.readUrl('https://github.com/org/repo/file.txt'),
+        reader.readUrl(
+          'https://raw.githubusercontent.com/org/repo/main/file.txt',
+        ),
       ).rejects.toThrow(NotFoundError);
     });
 
@@ -390,7 +408,9 @@ describe('IntegrationAwareFetchReader', () => {
       const reader = result[0].reader;
 
       await expect(
-        reader.readUrl('https://github.com/org/repo/file.txt'),
+        reader.readUrl(
+          'https://raw.githubusercontent.com/org/repo/main/file.txt',
+        ),
       ).rejects.toThrow('could not read');
     });
 
@@ -407,7 +427,9 @@ describe('IntegrationAwareFetchReader', () => {
       const reader = result[0].reader;
 
       await expect(
-        reader.readUrl('https://github.com/org/repo/file.txt'),
+        reader.readUrl(
+          'https://raw.githubusercontent.com/org/repo/main/file.txt',
+        ),
       ).rejects.toThrow('Unable to read');
     });
   });
@@ -436,7 +458,7 @@ describe('IntegrationAwareFetchReader', () => {
       const reader = result[0].reader;
 
       const response = await reader.readUrl(
-        'https://github.com/org/repo/file.txt',
+        'https://raw.githubusercontent.com/org/repo/main/file.txt',
       );
       const buffer = await response.buffer();
 
@@ -468,12 +490,12 @@ describe('IntegrationAwareFetchReader', () => {
       const reader = result[0].reader;
 
       const searchResult = await reader.search(
-        'https://github.com/org/repo/file.txt',
+        'https://raw.githubusercontent.com/org/repo/main/file.txt',
       );
 
       expect(searchResult.files).toHaveLength(1);
       expect(searchResult.files[0].url).toBe(
-        'https://github.com/org/repo/file.txt',
+        'https://raw.githubusercontent.com/org/repo/main/file.txt',
       );
       expect(searchResult.etag).toBe('"abc123"');
     });
@@ -499,7 +521,7 @@ describe('IntegrationAwareFetchReader', () => {
       const reader = result[0].reader;
 
       const searchResult = await reader.search(
-        'https://github.com/org/repo/file.txt',
+        'https://raw.githubusercontent.com/org/repo/main/file.txt',
       );
 
       expect(searchResult.files).toHaveLength(0);
@@ -517,7 +539,7 @@ describe('IntegrationAwareFetchReader', () => {
       const reader = result[0].reader;
 
       await expect(
-        reader.search('https://github.com/org/repo/*.txt'),
+        reader.search('https://raw.githubusercontent.com/org/repo/main/*.txt'),
       ).rejects.toThrow('Unsupported search pattern URL');
     });
 
@@ -542,7 +564,9 @@ describe('IntegrationAwareFetchReader', () => {
       const reader = result[0].reader;
 
       await expect(
-        reader.search('https://github.com/org/repo/file.txt'),
+        reader.search(
+          'https://raw.githubusercontent.com/org/repo/main/file.txt',
+        ),
       ).rejects.toThrow('could not read');
     });
   });
@@ -563,7 +587,7 @@ describe('IntegrationAwareFetchReader', () => {
       const reader = result[0].reader;
 
       await expect(
-        reader.readTree('https://github.com/org/repo'),
+        reader.readTree('https://raw.githubusercontent.com/org/repo'),
       ).rejects.toThrow('IntegrationAwareFetchReader does not implement');
     });
   });
@@ -585,7 +609,7 @@ describe('IntegrationAwareFetchReader', () => {
       const str = reader.toString();
 
       expect(str).toContain('IntegrationAwareFetchReader');
-      expect(str).toContain('github.com');
+      expect(str).toContain('raw.githubusercontent.com');
     });
   });
 });
