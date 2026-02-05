@@ -32,6 +32,27 @@ export interface SyncFilter {
   organization?: string;
 }
 
+export function validateSyncFilter(filter: SyncFilter): string | null {
+  if (!filter.scmProvider && !filter.host && !filter.organization) {
+    return null;
+  }
+
+  if (filter.host && !filter.scmProvider) {
+    return 'host requires scmProvider to be specified';
+  }
+
+  if (filter.organization) {
+    if (!filter.scmProvider) {
+      return 'organization requires scmProvider to be specified';
+    }
+    if (!filter.host) {
+      return 'organization requires host to be specified';
+    }
+  }
+
+  return null;
+}
+
 export interface ParsedSourceInfo {
   scmProvider: string;
   host: string;

@@ -27,6 +27,7 @@ import {
   buildSourcesTree,
   findMatchingProviders,
   buildFilterDescription,
+  validateSyncFilter,
 } from './helpers';
 
 export async function createRouter(options: {
@@ -172,19 +173,17 @@ export async function createRouter(options: {
     }
   });
 
-  // sync endpoint with flexible hierarchical filtering
-  // supports UI tree selection:
-  //  - all sources (no filters or empty body)
-  //  - by scmProvider (e.g., all github sources)
-  //  - by host (e.g., all sources from github.com)
-  //  - by organization (e.g., specific org)
+  // sync endpoint using POST with hierarchical filtering
+  // filter hierarchy: scmProvider → host → organization
+  //  - scmProvider can come alone (syncs all hosts and orgs for that provider)
+  //  - host requires scmProvider
+  //  - organization requires both scmProvider and host
   //
   // request body examples:
   //  {} or { "filters": [] } -> sync all sources
   //  { "filters": [{ "scmProvider": "github" }] } -> all github sources
-  //  { "filters": [{ "host": "github.com" }] } -> all sources with host github.com
-  //  { "filters": [{ "organization": "ansible-collections" }] } -> specific org (across all providers/hosts)
-  //  { "filters": [{ "scmProvider": "github", "host": "github.com" }] } -> host github.com in scmProvider github
+  //  { "filters": [{ "scmProvider": "github", "host": "github.com" }] } -> all orgs on github.com
+  //  { "filters": [{ "scmProvider": "gitlab", "host": "gitlab.cee.redhat.com", "organization": "ansible-team" }] } -> particular org sync
   //  { "filters": [
   //      { "scmProvider": "github", "host": "github.com", "organization": "ansible-collections" },
   //      { "scmProvider": "gitlab" }
@@ -195,6 +194,19 @@ export async function createRouter(options: {
     express.json(),
     async (request, response) => {
       const { filters = [] } = request.body as { filters?: SyncFilter[] };
+
+      for (const filter of filters) {
+        const validationError = validateSyncFilter(filter);
+        if (validationError) {
+          response.status(400).json({
+            success: false,
+            error: `Invalid filter: ${validationError}`,
+            invalidFilter: filter,
+            hint: 'Filter hierarchy: scmProvider → host → organization. Host requires scmProvider, organization requires both.',
+          });
+          return;
+        }
+      }
 
       logger.info(
         `Triggering Ansible Git Contents sync for ${buildFilterDescription(filters)}`,
