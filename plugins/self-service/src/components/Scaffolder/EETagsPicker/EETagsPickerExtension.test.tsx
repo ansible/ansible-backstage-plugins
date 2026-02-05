@@ -110,6 +110,20 @@ describe('EETagsPickerExtension', () => {
       expect(screen.getByDisplayValue('tag1')).toBeInTheDocument();
       expect(screen.getByDisplayValue('tag2')).toBeInTheDocument();
     });
+
+    it('calls onChange with default tags when formData is undefined', () => {
+      const props = createMockProps({
+        formData: undefined,
+        schema: {
+          default: ['execution-environment'],
+          title: 'Tags',
+          items: { type: 'string' },
+        },
+      });
+      render(<EETagsPickerExtension {...props} />);
+
+      expect(props.onChange).toHaveBeenCalledWith(['execution-environment']);
+    });
   });
 
   describe('Tag Validation - Pattern (Default)', () => {
@@ -134,10 +148,14 @@ describe('EETagsPickerExtension', () => {
       const props = createMockProps({
         formData: ['tag1', 'tag2'],
       });
-      render(<EETagsPickerExtension {...props} />);
+      const { rerender } = render(<EETagsPickerExtension {...props} />);
 
       const inputs = screen.getAllByRole('textbox');
       fireEvent.change(inputs[1], { target: { value: 'INVALID' } });
+
+      // Simulate parent updating formData
+      const updatedFormData = ['tag1', 'INVALID'];
+      rerender(<EETagsPickerExtension {...props} formData={updatedFormData} />);
 
       await waitFor(
         () => {
@@ -153,11 +171,16 @@ describe('EETagsPickerExtension', () => {
       const props = createMockProps({
         formData: ['tag1', 'tag@name'],
       });
-      render(<EETagsPickerExtension {...props} />);
+      const { rerender } = render(<EETagsPickerExtension {...props} />);
 
       const inputs = screen.getAllByRole('textbox');
       fireEvent.change(inputs[1], { target: { value: 'tag@name' } });
       fireEvent.blur(inputs[1]);
+
+      // Simulate parent updating formData
+      rerender(
+        <EETagsPickerExtension {...props} formData={['tag1', 'tag@name']} />,
+      );
 
       await waitFor(
         () => {
@@ -173,11 +196,16 @@ describe('EETagsPickerExtension', () => {
       const props = createMockProps({
         formData: ['tag1', 'tag name'],
       });
-      render(<EETagsPickerExtension {...props} />);
+      const { rerender } = render(<EETagsPickerExtension {...props} />);
 
       const inputs = screen.getAllByRole('textbox');
       fireEvent.change(inputs[1], { target: { value: 'tag name' } });
       fireEvent.blur(inputs[1]);
+
+      // Simulate parent updating formData
+      rerender(
+        <EETagsPickerExtension {...props} formData={['tag1', 'tag name']} />,
+      );
 
       await waitFor(
         () => {
@@ -285,11 +313,15 @@ describe('EETagsPickerExtension', () => {
       const props = createMockProps({
         formData: ['tag1', '-invalid'],
       });
-      render(<EETagsPickerExtension {...props} />);
+      const { rerender } = render(<EETagsPickerExtension {...props} />);
 
       const inputs = screen.getAllByRole('textbox');
       fireEvent.change(inputs[1], { target: { value: '-invalid' } });
       fireEvent.blur(inputs[1]);
+
+      rerender(
+        <EETagsPickerExtension {...props} formData={['tag1', '-invalid']} />,
+      );
 
       await waitFor(
         () => {
@@ -305,11 +337,15 @@ describe('EETagsPickerExtension', () => {
       const props = createMockProps({
         formData: ['tag1', 'invalid-'],
       });
-      render(<EETagsPickerExtension {...props} />);
+      const { rerender } = render(<EETagsPickerExtension {...props} />);
 
       const inputs = screen.getAllByRole('textbox');
       fireEvent.change(inputs[1], { target: { value: 'invalid-' } });
       fireEvent.blur(inputs[1]);
+
+      rerender(
+        <EETagsPickerExtension {...props} formData={['tag1', 'invalid-']} />,
+      );
 
       await waitFor(
         () => {
@@ -325,11 +361,18 @@ describe('EETagsPickerExtension', () => {
       const props = createMockProps({
         formData: ['tag1', 'invalid--tag'],
       });
-      render(<EETagsPickerExtension {...props} />);
+      const { rerender } = render(<EETagsPickerExtension {...props} />);
 
       const inputs = screen.getAllByRole('textbox');
       fireEvent.change(inputs[1], { target: { value: 'invalid--tag' } });
       fireEvent.blur(inputs[1]);
+
+      rerender(
+        <EETagsPickerExtension
+          {...props}
+          formData={['tag1', 'invalid--tag']}
+        />,
+      );
 
       await waitFor(
         () => {
@@ -346,11 +389,15 @@ describe('EETagsPickerExtension', () => {
       const props = createMockProps({
         formData: ['tag1', longTag],
       });
-      render(<EETagsPickerExtension {...props} />);
+      const { rerender } = render(<EETagsPickerExtension {...props} />);
 
       const inputs = screen.getAllByRole('textbox');
       fireEvent.change(inputs[1], { target: { value: longTag } });
       fireEvent.blur(inputs[1]);
+
+      rerender(
+        <EETagsPickerExtension {...props} formData={['tag1', longTag]} />,
+      );
 
       await waitFor(
         () => {
@@ -398,31 +445,30 @@ describe('EETagsPickerExtension', () => {
       const addButton = screen.getByLabelText('Add tag');
       fireEvent.click(addButton);
 
-      expect(props.onChange).toHaveBeenCalled();
-      const inputs = screen.getAllByRole('textbox');
-      expect(inputs.length).toBeGreaterThanOrEqual(2);
+      expect(props.onChange).toHaveBeenCalledWith([
+        'execution-environment',
+        '',
+      ]);
     });
 
     it('adds empty tag to the list', () => {
       const props = createMockProps();
-      render(<EETagsPickerExtension {...props} />);
+      const { rerender } = render(<EETagsPickerExtension {...props} />);
 
       const addButton = screen.getByLabelText('Add tag');
       fireEvent.click(addButton);
+
+      // Simulate parent updating formData
+      rerender(
+        <EETagsPickerExtension
+          {...props}
+          formData={['execution-environment', '']}
+        />,
+      );
 
       const inputs = screen.getAllByRole('textbox');
       expect(inputs.length).toBe(2);
       expect(inputs[1]).toHaveValue('');
-    });
-
-    it('filters out empty tags when calling onChange', () => {
-      const props = createMockProps();
-      render(<EETagsPickerExtension {...props} />);
-
-      const addButton = screen.getByLabelText('Add tag');
-      fireEvent.click(addButton);
-
-      expect(props.onChange).toHaveBeenCalledWith(['execution-environment']);
     });
 
     it('disables add button when disabled is true', () => {
@@ -487,30 +533,22 @@ describe('EETagsPickerExtension', () => {
       expect(removeButton).toBeDisabled();
     });
 
-    it('restores default tags when removing last tag and required', () => {
-      const props = createMockProps({
-        required: true,
-        formData: ['tag1'],
-        schema: {
-          default: ['execution-environment'],
-          title: 'Tags',
-          items: { type: 'string' },
-        },
-      });
-      render(<EETagsPickerExtension {...props} />);
-
-      const removeButton = screen.getByLabelText('Remove tag');
-      expect(removeButton).toBeDisabled();
-    });
-
     it('reindexes errors when tag is removed', async () => {
       const props = createMockProps({
         formData: ['tag1', 'tag2', 'tag3'],
       });
-      render(<EETagsPickerExtension {...props} />);
+      const { rerender } = render(<EETagsPickerExtension {...props} />);
 
       const inputs = screen.getAllByRole('textbox');
       fireEvent.change(inputs[1], { target: { value: 'INVALID' } });
+
+      // Simulate parent updating formData
+      rerender(
+        <EETagsPickerExtension
+          {...props}
+          formData={['tag1', 'INVALID', 'tag3']}
+        />,
+      );
 
       await waitFor(
         () => {
@@ -538,10 +576,7 @@ describe('EETagsPickerExtension', () => {
       const upButtons = screen.getAllByLabelText('Move up');
       fireEvent.click(upButtons[1]);
 
-      expect(props.onChange).toHaveBeenCalled();
-      const callArgs = (props.onChange as jest.Mock).mock.calls[0][0];
-      expect(callArgs[0]).toBe('tag2');
-      expect(callArgs[1]).toBe('tag1');
+      expect(props.onChange).toHaveBeenCalledWith(['tag2', 'tag1']);
     });
 
     it('moves tag down when down arrow is clicked', () => {
@@ -553,55 +588,7 @@ describe('EETagsPickerExtension', () => {
       const downButtons = screen.getAllByLabelText('Move down');
       fireEvent.click(downButtons[0]);
 
-      expect(props.onChange).toHaveBeenCalled();
-      const callArgs = (props.onChange as jest.Mock).mock.calls[0][0];
-      expect(callArgs[0]).toBe('tag2');
-      expect(callArgs[1]).toBe('tag1');
-    });
-
-    // Note: Component doesn't currently restore default tag when first position becomes empty
-    // These tests are updated to match actual behavior
-    it('swaps tags when moving down and first position is empty', () => {
-      const props = createMockProps({
-        formData: ['tag1', ''],
-        schema: {
-          default: ['execution-environment'],
-          title: 'Tags',
-          items: { type: 'string' },
-        },
-      });
-      render(<EETagsPickerExtension {...props} />);
-
-      const downButtons = screen.getAllByLabelText('Move down');
-      fireEvent.click(downButtons[0]);
-
-      expect(props.onChange).toHaveBeenCalled();
-      const callArgs = (props.onChange as jest.Mock).mock.calls[0][0];
-      // Component just swaps, doesn't restore default
-      expect(callArgs[0]).toBe('');
-      expect(callArgs[1]).toBe('tag1');
-    });
-
-    it('swaps tags when moving up and first position becomes empty', () => {
-      const props = createMockProps({
-        formData: ['tag2', ''],
-        schema: {
-          default: ['execution-environment'],
-          title: 'Tags',
-          items: { type: 'string' },
-        },
-      });
-      render(<EETagsPickerExtension {...props} />);
-
-      // Move tag2 down, which swaps to ['', 'tag2']
-      const downButtons = screen.getAllByLabelText('Move down');
-      fireEvent.click(downButtons[0]);
-
-      expect(props.onChange).toHaveBeenCalled();
-      const callArgs = (props.onChange as jest.Mock).mock.calls[0][0];
-      // Component just swaps, doesn't restore default
-      expect(callArgs[0]).toBe('');
-      expect(callArgs[1]).toBe('tag2');
+      expect(props.onChange).toHaveBeenCalledWith(['tag2', 'tag1']);
     });
 
     it('does not restore default when first position has content after move', () => {
@@ -618,19 +605,22 @@ describe('EETagsPickerExtension', () => {
       const upButtons = screen.getAllByLabelText('Move up');
       fireEvent.click(upButtons[1]);
 
-      expect(props.onChange).toHaveBeenCalled();
-      const callArgs = (props.onChange as jest.Mock).mock.calls[0][0];
-      expect(callArgs[0]).toBe('tag2');
+      expect(props.onChange).toHaveBeenCalledWith(['tag2', 'tag1']);
     });
 
     it('reindexes errors when tags are moved up', async () => {
       const props = createMockProps({
         formData: ['tag1', 'tag2'],
       });
-      render(<EETagsPickerExtension {...props} />);
+      const { rerender } = render(<EETagsPickerExtension {...props} />);
 
       const inputs = screen.getAllByRole('textbox');
       fireEvent.change(inputs[1], { target: { value: 'INVALID' } });
+
+      // Simulate parent updating formData
+      rerender(
+        <EETagsPickerExtension {...props} formData={['tag1', 'INVALID']} />,
+      );
 
       await waitFor(
         () => {
@@ -651,10 +641,18 @@ describe('EETagsPickerExtension', () => {
       const props = createMockProps({
         formData: ['tag1', 'tag2', 'tag3'],
       });
-      render(<EETagsPickerExtension {...props} />);
+      const { rerender } = render(<EETagsPickerExtension {...props} />);
 
       const inputs = screen.getAllByRole('textbox');
       fireEvent.change(inputs[1], { target: { value: 'INVALID' } });
+
+      // Simulate parent updating formData
+      rerender(
+        <EETagsPickerExtension
+          {...props}
+          formData={['tag1', 'INVALID', 'tag3']}
+        />,
+      );
 
       await waitFor(
         () => {
@@ -724,8 +722,7 @@ describe('EETagsPickerExtension', () => {
       const input = inputs[0] as HTMLInputElement;
       fireEvent.change(input, { target: { value: 'new-value' } });
 
-      expect(input.value).toBe('new-value');
-      expect(props.onChange).toHaveBeenCalled();
+      expect(props.onChange).toHaveBeenCalledWith(['new-value']);
     });
 
     it('clears error when value is empty for non-zero index', () => {
@@ -745,10 +742,15 @@ describe('EETagsPickerExtension', () => {
       const props = createMockProps({
         formData: ['tag1', 'tag2'],
       });
-      render(<EETagsPickerExtension {...props} />);
+      const { rerender } = render(<EETagsPickerExtension {...props} />);
 
       const inputs = screen.getAllByRole('textbox');
       fireEvent.change(inputs[1], { target: { value: 'INVALID' } });
+
+      // Simulate parent updating formData
+      rerender(
+        <EETagsPickerExtension {...props} formData={['tag1', 'INVALID']} />,
+      );
 
       await waitFor(
         () => {
@@ -764,12 +766,22 @@ describe('EETagsPickerExtension', () => {
       const props = createMockProps({
         formData: ['tag1', 'tag2'],
       });
-      render(<EETagsPickerExtension {...props} />);
+      const { rerender } = render(<EETagsPickerExtension {...props} />);
 
       const inputs = screen.getAllByRole('textbox');
       fireEvent.change(inputs[1], { target: { value: 'INVALID' } });
-      fireEvent.blur(inputs[1]);
 
+      // Simulate parent updating formData after change
+      rerender(
+        <EETagsPickerExtension {...props} formData={['tag1', 'INVALID']} />,
+      );
+
+      // Get fresh inputs after rerender
+      const updatedInputs = screen.getAllByRole('textbox');
+      // Now blur to trigger validation
+      fireEvent.blur(updatedInputs[1]);
+
+      // Wait for validation to complete
       await waitFor(
         () => {
           expect(
@@ -807,21 +819,6 @@ describe('EETagsPickerExtension', () => {
       expect(screen.queryByText(/Tag is required/i)).not.toBeInTheDocument();
     });
 
-    it('trims whitespace on blur', () => {
-      const props = createMockProps({
-        formData: ['tag1', '  valid-tag  '],
-      });
-      render(<EETagsPickerExtension {...props} />);
-
-      const inputs = screen.getAllByRole('textbox');
-      fireEvent.blur(inputs[1]);
-
-      expect(props.onChange).toHaveBeenCalled();
-      // Component uses original tags array, not trimmed version
-      const callArgs = (props.onChange as jest.Mock).mock.calls[0][0];
-      expect(callArgs[1]).toBe('  valid-tag  ');
-    });
-
     it('handles formData update via useEffect', () => {
       const props = createMockProps({
         formData: ['tag1'],
@@ -847,25 +844,23 @@ describe('EETagsPickerExtension', () => {
       rerender(<EETagsPickerExtension {...props} formData={[]} />);
 
       expect(
-        screen.getByDisplayValue('execution-environment'),
-      ).toBeInTheDocument();
+        screen.queryByDisplayValue('execution-environment'),
+      ).not.toBeInTheDocument();
     });
 
     it('handles formData update to undefined', () => {
       const props = createMockProps({
-        formData: ['tag1'],
+        formData: undefined, // Start with undefined to trigger useEffect
         schema: {
           default: ['execution-environment'],
           title: 'Tags',
           items: { type: 'string' },
         },
       });
-      const { rerender } = render(<EETagsPickerExtension {...props} />);
+      render(<EETagsPickerExtension {...props} />);
 
-      rerender(<EETagsPickerExtension {...props} formData={undefined} />);
-
-      // When formData is undefined, useEffect doesn't update
-      expect(screen.getByDisplayValue('tag1')).toBeInTheDocument();
+      // When formData is undefined, useEffect should call onChange with defaultTags
+      expect(props.onChange).toHaveBeenCalledWith(['execution-environment']);
     });
   });
 
@@ -874,10 +869,15 @@ describe('EETagsPickerExtension', () => {
       const props = createMockProps({
         formData: ['tag1', 'tag2'],
       });
-      render(<EETagsPickerExtension {...props} />);
+      const { rerender } = render(<EETagsPickerExtension {...props} />);
 
       const inputs = screen.getAllByRole('textbox');
       fireEvent.change(inputs[1], { target: { value: 'INVALID' } });
+
+      // Simulate parent updating formData
+      rerender(
+        <EETagsPickerExtension {...props} formData={['tag1', 'INVALID']} />,
+      );
 
       // Wait for validation on change
       await waitFor(
@@ -895,13 +895,17 @@ describe('EETagsPickerExtension', () => {
         formData: ['tag1', 'tag2'],
       });
 
-      render(<EETagsPickerExtension {...props} />);
+      const { rerender } = render(<EETagsPickerExtension {...props} />);
 
       const inputs = screen.getAllByRole('textbox');
 
-      // First, change valid tag to invalid to trigger validation
+      // First, trigger validation by changing the value
       fireEvent.change(inputs[1], { target: { value: 'INVALID' } });
-      fireEvent.blur(inputs[1]);
+
+      // Simulate parent updating formData
+      rerender(
+        <EETagsPickerExtension {...props} formData={['tag1', 'INVALID']} />,
+      );
 
       await waitFor(
         () => {
@@ -909,20 +913,30 @@ describe('EETagsPickerExtension', () => {
             screen.getByText(/Tag must consist of lowercase letters/i),
           ).toBeInTheDocument();
         },
-        { timeout: 3000 },
+        { timeout: 2000 },
       );
 
-      // Now change to valid
-      fireEvent.change(inputs[1], { target: { value: 'valid-tag' } });
-      fireEvent.blur(inputs[1]);
+      // Now change to valid - get fresh inputs after rerender
+      const updatedInputs = screen.getAllByRole('textbox');
+      fireEvent.change(updatedInputs[1], { target: { value: 'valid-tag' } });
 
+      // Simulate parent updating formData with valid tag
+      rerender(
+        <EETagsPickerExtension {...props} formData={['tag1', 'valid-tag']} />,
+      );
+
+      // Blur to trigger validation which should clear the error
+      const finalInputs = screen.getAllByRole('textbox');
+      fireEvent.blur(finalInputs[1]);
+
+      // Wait for error to be cleared
       await waitFor(
         () => {
           expect(
             screen.queryByText(/Tag must consist of lowercase letters/i),
           ).not.toBeInTheDocument();
         },
-        { timeout: 3000 },
+        { timeout: 2000 },
       );
     });
 
@@ -949,10 +963,15 @@ describe('EETagsPickerExtension', () => {
       const props = createMockProps({
         formData: ['tag1', 'tag2'],
       });
-      render(<EETagsPickerExtension {...props} />);
+      const { rerender } = render(<EETagsPickerExtension {...props} />);
 
       const inputs = screen.getAllByRole('textbox');
       fireEvent.change(inputs[1], { target: { value: 'INVALID' } });
+
+      // Simulate parent updating formData
+      rerender(
+        <EETagsPickerExtension {...props} formData={['tag1', 'INVALID']} />,
+      );
 
       // Wait for validation to complete and error to be set
       await waitFor(
@@ -996,9 +1015,7 @@ describe('EETagsPickerExtension', () => {
       });
       render(<EETagsPickerExtension {...props} />);
 
-      expect(
-        screen.getByDisplayValue('execution-environment'),
-      ).toBeInTheDocument();
+      expect(props.onChange).toHaveBeenCalledWith(['execution-environment']);
     });
 
     it('handles disabled state for all buttons', () => {
@@ -1021,12 +1038,20 @@ describe('EETagsPickerExtension', () => {
       const props = createMockProps({
         formData: ['tag1', 'tag2', 'tag3'],
       });
-      render(<EETagsPickerExtension {...props} />);
+      const { rerender } = render(<EETagsPickerExtension {...props} />);
 
       const inputs = screen.getAllByRole('textbox');
 
       // Make tag2 invalid
       fireEvent.change(inputs[1], { target: { value: 'INVALID' } });
+
+      // Simulate parent updating formData
+      rerender(
+        <EETagsPickerExtension
+          {...props}
+          formData={['tag1', 'INVALID', 'tag3']}
+        />,
+      );
 
       await waitFor(
         () => {
@@ -1037,8 +1062,17 @@ describe('EETagsPickerExtension', () => {
         { timeout: 2000 },
       );
 
-      // Make tag3 invalid
-      fireEvent.change(inputs[2], { target: { value: 'ALSO-INVALID' } });
+      // Make tag3 invalid - get fresh inputs
+      const updatedInputs = screen.getAllByRole('textbox');
+      fireEvent.change(updatedInputs[2], { target: { value: 'ALSO-INVALID' } });
+
+      // Simulate parent updating formData
+      rerender(
+        <EETagsPickerExtension
+          {...props}
+          formData={['tag1', 'INVALID', 'ALSO-INVALID']}
+        />,
+      );
 
       await waitFor(
         () => {

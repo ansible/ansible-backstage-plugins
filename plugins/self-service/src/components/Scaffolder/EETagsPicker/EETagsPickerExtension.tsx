@@ -149,17 +149,8 @@ export const EETagsPickerExtension = ({
   );
   const customTitle = schema?.title;
   const customDescription = schema?.description;
-
-  const [tags, setTags] = useState<string[]>(
-    formData && formData.length > 0 ? formData : defaultTags,
-  );
+  const tags = formData ?? [];
   const [tagErrors, setTagErrors] = useState<Record<number, string>>({});
-
-  useEffect(() => {
-    if (formData !== undefined) {
-      setTags(formData.length > 0 ? formData : defaultTags);
-    }
-  }, [formData, defaultTags]);
 
   const validateTag = (tag: string, index: number): boolean => {
     const validation = isValidTag(tag);
@@ -175,6 +166,12 @@ export const EETagsPickerExtension = ({
     return true;
   };
 
+  useEffect(() => {
+    if (formData === undefined && defaultTags.length > 0) {
+      onChange(defaultTags);
+    }
+  }, [formData, defaultTags, onChange]);
+
   const handleTagChange = (index: number, value: string) => {
     if (value.length === 0) {
       setTagErrors(prev => ({ ...prev, [index]: '' }));
@@ -183,25 +180,17 @@ export const EETagsPickerExtension = ({
     }
     const updatedTags = [...tags];
     updatedTags[index] = value;
-    setTags(updatedTags);
     onChange(updatedTags);
   };
 
   const handleAddTag = () => {
     const newTags = [...tags, ''];
-    setTags(newTags);
-    onChange(newTags.filter(tag => tag.trim().length > 0));
+    onChange(newTags);
   };
 
   const handleRemoveTag = (index: number) => {
     const updatedTags = tags.filter((_, i) => i !== index);
-    if (updatedTags.length === 0 && required) {
-      setTags(defaultTags);
-      onChange(defaultTags);
-    } else {
-      setTags(updatedTags);
-      onChange(updatedTags);
-    }
+    onChange(updatedTags);
     setTagErrors(prev => {
       const newErrors = { ...prev };
       delete newErrors[index];
@@ -224,7 +213,6 @@ export const EETagsPickerExtension = ({
       updatedTags[index],
       updatedTags[index - 1],
     ];
-    setTags(updatedTags);
     onChange(updatedTags);
     setTagErrors(prev => {
       const updatedErrors: Record<number, string> = {};
@@ -249,7 +237,6 @@ export const EETagsPickerExtension = ({
       updatedTags[index + 1],
       updatedTags[index],
     ];
-    setTags(updatedTags);
     onChange(updatedTags);
     setTagErrors(prev => {
       const updatedErrors: Record<number, string> = {};
@@ -274,10 +261,8 @@ export const EETagsPickerExtension = ({
       validateTag(tag, index);
       const trimmedTags = tags;
       if (trimmedTags.length === 0 && required) {
-        setTags(defaultTags);
         onChange(defaultTags);
       } else {
-        setTags(trimmedTags);
         onChange(trimmedTags);
       }
     }
