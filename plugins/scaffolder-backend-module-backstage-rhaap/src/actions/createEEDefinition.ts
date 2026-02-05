@@ -1008,12 +1008,12 @@ spec:
                   description: URI of the signature file
           ui:field: CollectionsPicker
         collectionsFile:
-          title: Add Collection YAML file
+          title: Add collection requirements
           description: Optionally upload a requirements file with collection details
           type: string
           format: data-url
           ui:field: FileUploadPicker
-          ui:placeholder: Paste the full content of your requirements.yml file here. Alternativly, upload YAML file. Please verify formatting, as no syntax validation is applied.
+          ui:placeholder: Paste the full content of your collection requirements file (e.g., requirements.yml) here. Alternatively, upload the requirements file. Please verify formatting, as no syntax validation is applied.
           ui:buttonText: Upload YAML file
         specifyRequirements:
           title: Specify additional Python requirements and System packages
@@ -1045,8 +1045,7 @@ spec:
                   title: Add Python requirements
                   description: Upload a requirements.txt file with python package details
                   ui:field: FileUploadPicker
-                  ui:placeholder: Paste the full content of your requirements.txt file here. Alternativly, upload TXT file. Please verify formatting, as no syntax validation is applied.
-                  ui:buttonText: Upload requirements.txt file
+                  ui:placeholder: Paste the full content of your python package requirements file (e.g., requirements.txt) here. Alternatively, upload the requirements file. Please verify formatting, as no syntax validation is applied.
                 systemPackages:
                   title: Additional System Packages
                   type: array
@@ -1066,7 +1065,7 @@ spec:
                   title: Add system packages
                   description: Upload a bindep.txt file with system package details
                   ui:field: FileUploadPicker
-                  ui:placeholder: Paste the full content of your bindep.txt file here. Alternativly, upload TXT file. Please verify formatting, as no syntax validation is applied.
+                  ui:placeholder: Paste the full content of your bindep.txt file here. Alternatively, upload TXT file. Please verify formatting, as no syntax validation is applied.
                   ui:buttonText: Upload TXT file
             - properties:
                 specifyRequirements:
