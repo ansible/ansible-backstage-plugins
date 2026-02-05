@@ -32,7 +32,6 @@ export const EEDetailsPage: React.FC = () => {
   const handleMenuClose = () => setAnchorEl(null);
   const catalogApi = useApi(catalogApiRef);
   const [entity, setEntity] = useState<any | null>(null);
-  const [isEntityFetched, setIsEntityFetched] = useState(false);
   const [menuid, setMenuId] = useState<string>('');
   const [defaultReadme, setDefaultReadme] = useState<string>('');
   const discoveryApi = useApi(discoveryApiRef);
@@ -74,11 +73,9 @@ export const EEDetailsPage: React.FC = () => {
           : entities?.items || [];
         const first = items && items.length > 0 ? items[0] : null;
         setEntity(first);
-        setIsEntityFetched(true);
       })
       .catch(() => {
         setEntity(null);
-        setIsEntityFetched(true);
       });
   }, [catalogApi, templateName]);
 
@@ -377,7 +374,7 @@ export const EEDetailsPage: React.FC = () => {
             )}
           </>
         ) : (
-          <> {entity === null && isEntityFetched && <EntityNotFound />}</>
+          <> {entity === null && <EntityNotFound />}</>
         )}
       </>
     </Box>
