@@ -1332,9 +1332,7 @@ export class AAPClient implements IAAPService {
     }
   }
 
-  public async isValidPAHRepository(
-    repositoryName: string,
-  ): Promise<boolean> {
+  public async isValidPAHRepository(repositoryName: string): Promise<boolean> {
     const endPoint = `api/galaxy/pulp/api/v3/repositories?name=${repositoryName}`;
     const token = this.ansibleConfig.rhaap?.token ?? null;
     const response = await this.executeGetRequest(endPoint, token);
@@ -1510,7 +1508,10 @@ export class AAPClient implements IAAPService {
               namespace,
               name,
               version: cv.version ?? null,
-              dependencies: (cv.dependencies ?? null) as Record<string, string> | null,
+              dependencies: (cv.dependencies ?? null) as Record<
+                string,
+                string
+              > | null,
               description: cv.description ?? null,
               tags: (cv.tags ?? null) as string[] | null,
               repository_name: repositoryName,
