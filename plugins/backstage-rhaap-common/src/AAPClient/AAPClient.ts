@@ -68,7 +68,7 @@ export interface IAAPService extends Pick<
   | 'getOrgsByUserId'
   | 'getUserInfoById'
   | 'isValidPAHRepository'
-  | 'getCollectionsByRepositories'
+  | 'syncCollectionsByRepositories'
 > {}
 
 export class AAPClient implements IAAPService {
@@ -1343,7 +1343,7 @@ export class AAPClient implements IAAPService {
     return false;
   }
 
-  public async getCollectionsByRepositories(
+  public async syncCollectionsByRepositories(
     repositories: string[],
     limit: number = 100,
   ): Promise<ICollection[]> {

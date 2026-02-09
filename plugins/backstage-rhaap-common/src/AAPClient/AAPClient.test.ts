@@ -3448,9 +3448,9 @@ describe('AAPClient', () => {
       });
     });
 
-    describe('getCollectionsByRepositories', () => {
+    describe('syncCollectionsByRepositories', () => {
       it('should return empty array for null repositories', async () => {
-        const result = await client.getCollectionsByRepositories(
+        const result = await client.syncCollectionsByRepositories(
           null as unknown as string[],
           100,
         );
@@ -3462,7 +3462,7 @@ describe('AAPClient', () => {
       });
 
       it('should return empty array for non-array repositories', async () => {
-        const result = await client.getCollectionsByRepositories(
+        const result = await client.syncCollectionsByRepositories(
           'not-an-array' as unknown as string[],
           100,
         );
@@ -3474,7 +3474,7 @@ describe('AAPClient', () => {
       });
 
       it('should return empty array for empty repositories array', async () => {
-        const result = await client.getCollectionsByRepositories([], 100);
+        const result = await client.syncCollectionsByRepositories([], 100);
 
         expect(result).toEqual([]);
         expect(mockLogger.info).toHaveBeenCalledWith(
@@ -3485,7 +3485,7 @@ describe('AAPClient', () => {
       it('should sanitize limit exceeding maximum', async () => {
         jest.spyOn(client, 'isValidPAHRepository').mockResolvedValueOnce(false);
 
-        await client.getCollectionsByRepositories(['repo1'], 150);
+        await client.syncCollectionsByRepositories(['repo1'], 150);
 
         expect(mockLogger.warn).toHaveBeenCalledWith(
           expect.stringContaining('exceeds maximum allowed'),
@@ -3495,7 +3495,7 @@ describe('AAPClient', () => {
       it('should sanitize negative limit values', async () => {
         jest.spyOn(client, 'isValidPAHRepository').mockResolvedValueOnce(false);
 
-        await client.getCollectionsByRepositories(['repo1'], -5);
+        await client.syncCollectionsByRepositories(['repo1'], -5);
 
         expect(mockLogger.warn).toHaveBeenCalledWith(
           expect.stringContaining('Invalid limit value'),
@@ -3505,7 +3505,7 @@ describe('AAPClient', () => {
       it('should sanitize floating point limit values', async () => {
         jest.spyOn(client, 'isValidPAHRepository').mockResolvedValueOnce(false);
 
-        await client.getCollectionsByRepositories(['repo1'], 50.7);
+        await client.syncCollectionsByRepositories(['repo1'], 50.7);
 
         expect(mockLogger.warn).toHaveBeenCalledWith(
           expect.stringContaining('Invalid limit value'),
@@ -3527,7 +3527,7 @@ describe('AAPClient', () => {
         };
         mockFetch.mockResolvedValue(mockCollectionsResponse);
 
-        await client.getCollectionsByRepositories(
+        await client.syncCollectionsByRepositories(
           ['invalid-repo', 'valid-repo'],
           100,
         );
@@ -3550,7 +3550,7 @@ describe('AAPClient', () => {
           .mockResolvedValueOnce(false)
           .mockResolvedValueOnce(false);
 
-        const result = await client.getCollectionsByRepositories(
+        const result = await client.syncCollectionsByRepositories(
           ['invalid1', 'invalid2'],
           100,
         );
@@ -3578,7 +3578,7 @@ describe('AAPClient', () => {
         };
         mockFetch.mockResolvedValue(mockCollectionsResponse);
 
-        await client.getCollectionsByRepositories(
+        await client.syncCollectionsByRepositories(
           ['error-repo', 'valid-repo'],
           100,
         );
@@ -3630,7 +3630,7 @@ describe('AAPClient', () => {
             json: jest.fn().mockResolvedValue(mockDetailData),
           });
 
-        const result = await client.getCollectionsByRepositories(
+        const result = await client.syncCollectionsByRepositories(
           ['validated'],
           100,
         );
@@ -3708,7 +3708,7 @@ describe('AAPClient', () => {
             json: jest.fn().mockResolvedValue(mockDetailData),
           });
 
-        const result = await client.getCollectionsByRepositories(
+        const result = await client.syncCollectionsByRepositories(
           ['repo1'],
           100,
         );
@@ -3750,7 +3750,7 @@ describe('AAPClient', () => {
             json: jest.fn().mockResolvedValue(mockDetailData),
           });
 
-        const result = await client.getCollectionsByRepositories(
+        const result = await client.syncCollectionsByRepositories(
           ['repo1'],
           100,
         );
@@ -3809,7 +3809,7 @@ describe('AAPClient', () => {
             json: jest.fn().mockResolvedValue(mockDetailData),
           });
 
-        const result = await client.getCollectionsByRepositories(
+        const result = await client.syncCollectionsByRepositories(
           ['repo1'],
           100,
         );
@@ -3845,7 +3845,7 @@ describe('AAPClient', () => {
           json: jest.fn().mockResolvedValue(mockCollectionsData),
         });
 
-        const result = await client.getCollectionsByRepositories(
+        const result = await client.syncCollectionsByRepositories(
           ['repo1'],
           100,
         );
@@ -3886,7 +3886,7 @@ describe('AAPClient', () => {
           })
           .mockRejectedValueOnce(new Error('Failed to fetch details'));
 
-        const result = await client.getCollectionsByRepositories(
+        const result = await client.syncCollectionsByRepositories(
           ['repo1'],
           100,
         );
@@ -3906,7 +3906,7 @@ describe('AAPClient', () => {
           .spyOn(client, 'executeGetRequest')
           .mockRejectedValueOnce(new Error('Network error'));
 
-        const result = await client.getCollectionsByRepositories(
+        const result = await client.syncCollectionsByRepositories(
           ['repo1'],
           100,
         );
@@ -3925,7 +3925,7 @@ describe('AAPClient', () => {
           json: jest.fn().mockResolvedValue(null),
         });
 
-        const result = await client.getCollectionsByRepositories(
+        const result = await client.syncCollectionsByRepositories(
           ['repo1'],
           100,
         );
@@ -3949,7 +3949,7 @@ describe('AAPClient', () => {
           json: jest.fn().mockResolvedValue(mockCollectionsData),
         });
 
-        const result = await client.getCollectionsByRepositories(
+        const result = await client.syncCollectionsByRepositories(
           ['repo1'],
           100,
         );
@@ -3992,7 +3992,7 @@ describe('AAPClient', () => {
               .mockResolvedValue({ docs_blob: null, authors: null }),
           });
 
-        const result = await client.getCollectionsByRepositories(
+        const result = await client.syncCollectionsByRepositories(
           ['repo1'],
           100,
         );
@@ -4012,7 +4012,7 @@ describe('AAPClient', () => {
               .mockResolvedValue({ data: [], links: { next: null } }),
           });
 
-        await client.getCollectionsByRepositories(['repo1']);
+        await client.syncCollectionsByRepositories(['repo1']);
 
         expect(executeGetRequestSpy).toHaveBeenCalledWith(
           expect.stringContaining('limit=100'),
@@ -4035,7 +4035,7 @@ describe('AAPClient', () => {
               .mockResolvedValue({ data: [], links: { next: null } }),
           });
 
-        await client.getCollectionsByRepositories(['repo1', 'repo2'], 50);
+        await client.syncCollectionsByRepositories(['repo1', 'repo2'], 50);
 
         expect(executeGetRequestSpy).toHaveBeenCalledWith(
           expect.stringContaining('repository_name=repo1'),
@@ -4081,7 +4081,7 @@ describe('AAPClient', () => {
             json: jest.fn().mockResolvedValue(mockDetailData),
           });
 
-        const result = await client.getCollectionsByRepositories(
+        const result = await client.syncCollectionsByRepositories(
           ['repo1'],
           100,
         );
