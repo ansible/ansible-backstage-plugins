@@ -260,6 +260,7 @@ export function collectionParser(options: CollectionParserOptions): Entity {
         'backstage.io/managed-by-origin-location': `url:${galaxyFileUrl}`,
         'ansible.io/scm-provider': sourceConfig.scmProvider,
         'ansible.io/scm-host': host,
+        'ansible.io/scm-host-name': hostName,
         'ansible.io/scm-organization': sourceConfig.organization,
         'ansible.io/scm-repository': repository.fullPath,
         'ansible.io/ref': ref,
@@ -281,7 +282,6 @@ export function collectionParser(options: CollectionParserOptions): Entity {
       collection_name: metadata.name,
       collection_version: metadata.version,
       collection_full_name: `${metadata.namespace}.${metadata.name}`,
-      collection_host_name: hostName,
       ...(metadata.dependencies &&
         Object.keys(metadata.dependencies).length > 0 && {
           collection_dependencies: metadata.dependencies,
@@ -352,6 +352,7 @@ export function repositoryParser(options: RepositoryParserOptions): Entity {
         'backstage.io/managed-by-origin-location': `url:${repoUrl}`,
         'ansible.io/scm-provider': sourceConfig.scmProvider,
         'ansible.io/scm-host': host,
+        'ansible.io/scm-host-name': hostName,
         'ansible.io/scm-organization': sourceConfig.organization,
         'ansible.io/scm-repository': repository.fullPath,
         'ansible.io/discovery-source-id': sourceId,
@@ -368,7 +369,6 @@ export function repositoryParser(options: RepositoryParserOptions): Entity {
       repository_name: repository.name,
       repository_default_branch: repository.defaultBranch,
       repository_collection_count: collectionCount,
-      repository_host_name: hostName,
       ...(collectionEntityNames &&
         collectionEntityNames.length > 0 && {
           repository_collections: collectionEntityNames,
