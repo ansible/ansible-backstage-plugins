@@ -1,26 +1,26 @@
-import { ChangeEvent, useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import { FieldExtensionComponentProps } from '@backstage/plugin-scaffolder-react';
 import {
   Button,
   TextField,
   Typography,
   Box,
-  Dialog,
-  DialogTitle,
-  DialogContent,
-  DialogActions,
-  IconButton,
   Chip,
-  Select,
-  MenuItem,
-  FormControl,
-  InputLabel,
+  Card,
+  CardContent,
+  IconButton,
+  CircularProgress,
 } from '@material-ui/core';
+import { useTheme } from '@material-ui/core/styles';
 import { makeStyles } from '@material-ui/core/styles';
+import Autocomplete from '@material-ui/lab/Autocomplete';
 import AddIcon from '@material-ui/icons/Add';
 import CloseIcon from '@material-ui/icons/Close';
+import DeleteIcon from '@material-ui/icons/Delete';
 import { CollectionItem } from './types';
-import { parseMarkdownLinks } from '../utils/parseMarkdownLinks';
+import { useApi } from '@backstage/core-plugin-api';
+import { scaffolderApiRef } from '@backstage/plugin-scaffolder-react';
+import { rhAapAuthApiRef } from '../../../apis';
 
 const useStyles = makeStyles(theme => ({
   title: {
@@ -28,44 +28,83 @@ const useStyles = makeStyles(theme => ({
     fontWeight: 500,
     marginBottom: theme.spacing(1),
     color: theme.palette.text.primary,
+    display: 'flex',
+    alignItems: 'center',
+    gap: theme.spacing(1),
+  },
+  stepBadge: {
+    width: '32px',
+    height: '32px',
+    borderRadius: '50%',
+    backgroundColor: theme.palette.primary.main,
+    color: theme.palette.primary.contrastText,
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    fontSize: '0.875rem',
+    fontWeight: 500,
   },
   description: {
     fontSize: '0.875rem',
     color: theme.palette.text.secondary,
-    marginBottom: theme.spacing(2),
+    marginBottom: theme.spacing(3),
     lineHeight: 1.5,
   },
-  addButton: {
-    width: '100%',
+  addCollectionCard: {
+    marginBottom: theme.spacing(3),
+    borderRadius: theme.shape.borderRadius,
+    boxShadow: theme.shadows[1],
+  },
+  cardTitle: {
+    fontSize: '1rem',
+    fontWeight: 500,
     marginBottom: theme.spacing(2),
+    color: theme.palette.text.primary,
+  },
+  inputField: {
+    marginBottom: theme.spacing(2),
+  },
+  addCollectionButton: {
+    width: '100%',
+    marginTop: theme.spacing(1),
     padding: theme.spacing(1.5),
     textTransform: 'none',
     fontSize: '1rem',
   },
+  selectedCollectionsSection: {
+    marginTop: theme.spacing(3),
+  },
+  selectedCollectionsTitle: {
+    fontSize: '0.875rem',
+    fontWeight: 500,
+    marginBottom: theme.spacing(1),
+    color: theme.palette.text.primary,
+  },
   collectionsList: {
-    marginTop: theme.spacing(1),
     display: 'flex',
     flexWrap: 'wrap',
     gap: theme.spacing(1),
   },
   collectionChip: {
     marginBottom: theme.spacing(0.5),
-    '&:not([disabled])': {
-      cursor: 'pointer !important',
-      '& *': {
-        cursor: 'pointer !important',
-      },
-    },
   },
   collectionChipWrapper: {
     display: 'inline-block',
     cursor: 'pointer',
   },
-  dialogContent: {
-    padding: theme.spacing(2),
+  signatureItem: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: theme.spacing(1),
+    marginBottom: theme.spacing(1),
   },
-  inputField: {
-    marginBottom: theme.spacing(2),
+  addStringButton: {
+    marginTop: theme.spacing(1),
+    textTransform: 'none',
+  },
+  helperText: {
+    marginTop: theme.spacing(0.5),
+    fontSize: '0.75rem',
   },
 }));
 
@@ -78,83 +117,109 @@ export const CollectionsPickerExtension = ({
   formData,
 }: FieldExtensionComponentProps<CollectionItem[]>) => {
   const classes = useStyles();
+  const theme = useTheme();
 
   const [collections, setCollections] = useState<CollectionItem[]>(
     formData || [],
   );
-  const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingIndex, setEditingIndex] = useState<number | null>(null);
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
 
-  const customTitle =
-    uiSchema?.['ui:options']?.title || schema?.title || 'Ansible Collections';
-  const customDescription =
-    uiSchema?.['ui:options']?.description || schema?.description;
+  // Autocomplete states
+  const [availableCollections, setAvailableCollections] = useState<any[]>([]);
+  const [availableSources, setAvailableSources] = useState<any[]>([]);
+  const [availableVersions, setAvailableVersions] = useState<any[]>([]);
+  const [loadingCollections, setLoadingCollections] = useState(false);
+  const [loadingSources, setLoadingSources] = useState(false);
+  const [loadingVersions, setLoadingVersions] = useState(false);
 
+  // Form state
+  const [selectedCollection, setSelectedCollection] = useState<string | null>(null);
+  const [selectedSource, setSelectedSource] = useState<string | null>(null);
+  const [selectedVersion, setSelectedVersion] = useState<string | null>(null);
+  const [signatures, setSignatures] = useState<string[]>(['']);
+
+  const aapAuth = useApi(rhAapAuthApiRef);
+  const scaffolderApi = useApi(scaffolderApiRef);
   const itemsSchema = schema?.items as any;
   const properties = useMemo(
     () => itemsSchema?.properties || {},
     [itemsSchema?.properties],
   );
 
-  const fieldNames = useMemo(() => Object.keys(properties), [properties]);
-
-  const getInitialCollectionState = useMemo(
-    () => (): Record<string, string | string[]> => {
-      const initialState: Record<string, string | string[]> = {};
-      for (const fieldName of fieldNames) {
-        initialState[fieldName] = '';
+  // Fetch collections for autocomplete
+  const fetchCollections = useCallback(async () => {
+    try {
+      setLoadingCollections(true);
+      const token = await aapAuth.getAccessToken();
+      if (scaffolderApi.autocomplete) {
+        const { results } = await scaffolderApi.autocomplete({
+          token,
+          resource: 'collections',
+          provider: 'aap-api-cloud',
+          context: {},
+        });
+        setAvailableCollections(results || []);
       }
-      return initialState;
-    },
-    [fieldNames],
-  );
+    } catch (error) {
+      console.error('Error fetching collections:', error);
+      setAvailableCollections([]);
+    } finally {
+      setLoadingCollections(false);
+    }
+  }, [aapAuth, scaffolderApi]);
 
-  const [newCollection, setNewCollection] = useState<
-    Record<string, string | string[]>
-  >(getInitialCollectionState);
-
-  const getFieldMetadata = useMemo(
-    () => (fieldName: string) => {
-      const fieldSchema = properties[fieldName] || {};
-      let defaultTitle = fieldName;
-      let defaultDescription = '';
-      let defaultPlaceholder = '';
-
-      if (fieldName === 'name') {
-        defaultTitle = 'Collection Name';
-        defaultDescription = 'Collection name in namespace.collection format';
-        defaultPlaceholder = 'e.g., community.general';
-      } else if (fieldName === 'version') {
-        defaultTitle = 'Version (Optional)';
-        defaultDescription = 'Specific version of the collection';
-        defaultPlaceholder = 'e.g., 7.2.1';
-      } else if (fieldName === 'signatures') {
-        defaultPlaceholder = 'Enter values separated by newlines';
+  // Fetch sources when collection is selected
+  const fetchSources = useCallback(async (collectionName: string) => {
+    if (!collectionName) {
+      setAvailableSources([]);
+      return;
+    }
+    try {
+      setLoadingSources(true);
+      const token = await aapAuth.getAccessToken();
+      if (scaffolderApi.autocomplete) {
+        const { results } = await scaffolderApi.autocomplete({
+          token,
+          resource: 'collection_sources',
+          provider: 'aap-api-cloud',
+          context: { collection: collectionName },
+        });
+        setAvailableSources(results || []);
       }
+    } catch (error) {
+      console.error('Error fetching sources:', error);
+      setAvailableSources([]);
+    } finally {
+      setLoadingSources(false);
+    }
+  }, [aapAuth, scaffolderApi]);
 
-      return {
-        title: fieldSchema.title || defaultTitle,
-        description: fieldSchema.description || defaultDescription,
-        placeholder:
-          fieldSchema['ui:placeholder'] ||
-          fieldSchema.ui?.placeholder ||
-          defaultPlaceholder,
-        pattern: fieldSchema.pattern,
-        type: fieldSchema.type || 'string',
-        required: itemsSchema?.required?.includes(fieldName) || false,
-        enum: fieldSchema.enum || null,
-        enumNames: fieldSchema.enumNames || null,
-      };
-    },
-    [properties, itemsSchema?.required],
-  );
-
-  const namePatternString = properties?.name?.pattern;
-  let collectionNamePattern: RegExp;
-  if (namePatternString) {
-    collectionNamePattern = new RegExp(namePatternString);
-  }
+  // Fetch versions when source is selected
+  const fetchVersions = useCallback(async (collectionName: string, sourceId: string) => {
+    if (!collectionName || !sourceId) {
+      setAvailableVersions([]);
+      return;
+    }
+    try {
+      setLoadingVersions(true);
+      const token = await aapAuth.getAccessToken();
+      if (scaffolderApi.autocomplete) {
+        const { results } = await scaffolderApi.autocomplete({
+          token,
+          resource: 'collection_versions',
+          provider: 'aap-api-cloud',
+          context: { collection: collectionName, source: sourceId },
+        });
+        setAvailableVersions(results || []);
+      }
+    } catch (error) {
+      console.error('Error fetching versions:', error);
+      setAvailableVersions([]);
+    } finally {
+      setLoadingVersions(false);
+    }
+  }, [aapAuth, scaffolderApi]);
 
   useEffect(() => {
     if (formData !== undefined) {
@@ -162,115 +227,74 @@ export const CollectionsPickerExtension = ({
     }
   }, [formData]);
 
+  // Load collections on mount
   useEffect(() => {
-    if (!isDialogOpen) {
-      setNewCollection(getInitialCollectionState());
-      setFieldErrors({});
-      setEditingIndex(null);
+    fetchCollections();
+  }, [fetchCollections]);
+
+  // Load sources when collection changes
+  useEffect(() => {
+    if (selectedCollection) {
+      fetchSources(selectedCollection);
+      // Reset source and version when collection changes
+      setSelectedSource(null);
+      setSelectedVersion(null);
+      setAvailableVersions([]);
+    } else {
+      setAvailableSources([]);
+      setAvailableVersions([]);
     }
-  }, [isDialogOpen, getInitialCollectionState]);
+  }, [selectedCollection, fetchSources]);
 
-  const parseArrayValue = (value: string): string[] => {
-    if (!value.trim()) return [];
-    return value
-      .split('\n')
-      .map(item => item.trim())
-      .filter(item => item.length > 0);
-  };
-
-  const validateField = (
-    fieldName: string,
-    value: string | string[],
-  ): string => {
-    const fieldMeta = getFieldMetadata(fieldName);
-    const isRequired = fieldMeta.required;
-    const fieldSchema = properties[fieldName] || {};
-    const fieldType = fieldSchema.type || fieldMeta.type || 'string';
-
-    if (fieldName === 'name') {
-      const trimmedName = typeof value === 'string' ? value.trim() : '';
-      if (!trimmedName) {
-        return 'Collection name is required';
-      }
-      if (collectionNamePattern && !collectionNamePattern.test(trimmedName)) {
-        return 'Collection name must be in namespace.collection format (e.g., community.general)';
-      }
-      return '';
+  // Load versions when source changes
+  useEffect(() => {
+    if (selectedCollection && selectedSource) {
+      fetchVersions(selectedCollection, selectedSource);
+      setSelectedVersion(null);
+    } else {
+      setAvailableVersions([]);
     }
+  }, [selectedCollection, selectedSource, fetchVersions]);
 
-    if (isRequired) {
-      if (fieldType === 'array') {
-        return '';
-      }
-      const stringValue =
-        typeof value === 'string' ? value.trim() : String(value || '').trim();
-      if (!stringValue) {
-        return `${fieldMeta.title} is required`;
-      }
+  const namePatternString = properties?.name?.pattern;
+  let collectionNamePattern: RegExp;
+  if (namePatternString) {
+    collectionNamePattern = new RegExp(namePatternString);
+  }
+
+  const validateCollection = (): string => {
+    if (!selectedCollection || !selectedCollection.trim()) {
+      return 'Collection is required';
     }
-
+    if (collectionNamePattern && !collectionNamePattern.test(selectedCollection.trim())) {
+      return 'Collection name must be in namespace.collection format (e.g., community.general)';
+    }
     return '';
   };
 
-  const validateAllFields = (): boolean => {
-    const errors: Record<string, string> = {};
-    let hasErrors = false;
-
-    for (const fieldName of fieldNames) {
-      const fieldSchema = properties[fieldName] || {};
-      const fieldType = fieldSchema.type || 'string';
-      const value = newCollection[fieldName];
-
-      let valueToValidate: string | string[] = value;
-      if (fieldType === 'array') {
-        valueToValidate = Array.isArray(value)
-          ? value
-          : parseArrayValue(value as string);
-      }
-
-      const error = validateField(fieldName, valueToValidate);
-      if (error) {
-        errors[fieldName] = error;
-        hasErrors = true;
-      }
-    }
-
-    setFieldErrors(errors);
-    return !hasErrors;
-  };
-
   const handleAddCollection = () => {
-    if (!validateAllFields()) {
+    const collectionError = validateCollection();
+    if (collectionError) {
+      setFieldErrors({ name: collectionError });
       return;
     }
 
-    const collectionToAdd: CollectionItem = {} as CollectionItem;
-    for (const fieldName of fieldNames) {
-      const fieldSchema = properties[fieldName] || {};
-      const fieldMeta = getFieldMetadata(fieldName);
-      const fieldType = fieldSchema.type || 'string';
-      const isRequired = fieldMeta.required;
-      const value = newCollection[fieldName];
+    const collectionToAdd: CollectionItem = {
+      name: selectedCollection!.trim(),
+    };
 
-      if (fieldType === 'array') {
-        const arrayValue = Array.isArray(value)
-          ? value
-          : parseArrayValue(value as string);
-        if (arrayValue.length > 0 || isRequired) {
-          (collectionToAdd as any)[fieldName] = arrayValue;
-        }
-      } else {
-        const stringValue =
-          typeof value === 'string' ? value.trim() : String(value || '');
-        if (isRequired || stringValue) {
-          (collectionToAdd as any)[fieldName] = stringValue;
-        }
-      }
+    if (selectedSource) {
+      collectionToAdd.source = selectedSource;
     }
 
-    const trimmedName =
-      typeof newCollection.name === 'string' ? newCollection.name.trim() : '';
-    (collectionToAdd as any).name = trimmedName;
+    if (selectedVersion) {
+      collectionToAdd.version = selectedVersion;
+    }
+
+    const validSignatures = signatures.filter(sig => sig.trim().length > 0);
+    if (validSignatures.length > 0) {
+      collectionToAdd.signatures = validSignatures;
+    }
 
     let updatedCollections: CollectionItem[];
     if (editingIndex !== null) {
@@ -282,10 +306,14 @@ export const CollectionsPickerExtension = ({
 
     setCollections(updatedCollections);
     onChange(updatedCollections);
-    setNewCollection(getInitialCollectionState());
+    
+    // Reset form
+    setSelectedCollection(null);
+    setSelectedSource(null);
+    setSelectedVersion(null);
+    setSignatures(['']);
     setFieldErrors({});
     setEditingIndex(null);
-    setIsDialogOpen(false);
   };
 
   const handleRemoveCollection = (index: number) => {
@@ -294,248 +322,258 @@ export const CollectionsPickerExtension = ({
     onChange(updatedCollections);
   };
 
-  const handleFieldChange =
-    (fieldName: string) =>
-    (event: ChangeEvent<{ name?: string; value: unknown }>) => {
-      const rawValue = event.target.value;
+  const handleEditCollection = (index: number) => {
+    const collection = collections[index];
+    setSelectedCollection(collection.name || null);
+    setSelectedSource(collection.source || null);
+    setSelectedVersion(collection.version || null);
+    setSignatures(collection.signatures && collection.signatures.length > 0 
+      ? collection.signatures 
+      : ['']);
+    setEditingIndex(index);
+  };
 
-      const processedValue: string | string[] = rawValue as string;
+  const handleSignatureChange = (index: number, value: string) => {
+    const newSignatures = [...signatures];
+    newSignatures[index] = value;
+    setSignatures(newSignatures);
+  };
 
-      setNewCollection({ ...newCollection, [fieldName]: processedValue });
+  const handleAddSignature = () => {
+    setSignatures([...signatures, '']);
+  };
 
-      if (fieldName === 'name') {
-        const trimmedValue =
-          typeof processedValue === 'string' ? processedValue.trim() : '';
-        if (trimmedValue) {
-          const error = validateField(fieldName, processedValue);
-          setFieldErrors(prev => ({
-            ...prev,
-            [fieldName]: error,
-          }));
-        } else {
-          setFieldErrors(prev => {
-            const newErrors = { ...prev };
-            delete newErrors[fieldName];
-            return newErrors;
-          });
-        }
-      } else {
-        setFieldErrors(prev => {
-          const newErrors = { ...prev };
-          delete newErrors[fieldName];
-          return newErrors;
-        });
-      }
-    };
-
-  const openDialog = (index?: number) => {
-    if (index !== undefined && index >= 0 && index < collections.length) {
-      const collection = collections[index];
-      const collectionData: Record<string, string | string[]> = {};
-
-      for (const fieldName of fieldNames) {
-        const fieldSchema = properties[fieldName] || {};
-        const fieldType = fieldSchema.type || 'string';
-        const value = (collection as any)[fieldName];
-
-        if (fieldType === 'array') {
-          if (Array.isArray(value)) {
-            collectionData[fieldName] = value.join('\n');
-          } else if (value) {
-            collectionData[fieldName] = String(value);
-          } else {
-            collectionData[fieldName] = '';
-          }
-        } else {
-          collectionData[fieldName] = value || '';
-        }
-      }
-
-      setNewCollection(collectionData);
-      setEditingIndex(index);
-    } else {
-      setNewCollection(getInitialCollectionState());
-      setEditingIndex(null);
+  const handleRemoveSignature = (index: number) => {
+    if (signatures.length > 1) {
+      const newSignatures = signatures.filter((_, i) => i !== index);
+      setSignatures(newSignatures);
     }
-    setFieldErrors({});
-    setIsDialogOpen(true);
   };
 
-  const closeDialog = () => {
-    setIsDialogOpen(false);
-    setNewCollection(getInitialCollectionState());
-    setFieldErrors({});
-    setEditingIndex(null);
-  };
+  const isAddButtonDisabled = !selectedCollection || 
+    !selectedCollection.trim() || 
+    !!fieldErrors.name;
 
   return (
     <Box>
-      <Typography className={classes.title}>{customTitle}</Typography>
+      <Card className={classes.addCollectionCard}>
+        <CardContent>
+          <Typography className={classes.cardTitle}>Add collection</Typography>
 
-      {customDescription && (
-        <Typography className={classes.description} component="div">
-          {parseMarkdownLinks(customDescription)}
-        </Typography>
-      )}
+          {/* Collection Autocomplete */}
+          <Autocomplete
+            options={availableCollections}
+            getOptionLabel={(option) => 
+              typeof option === 'string' ? option : (option.name || option.label || '')
+            }
+            value={selectedCollection}
+            onChange={(event, newValue) => {
+              const value = typeof newValue === 'string' 
+                ? newValue 
+                : (newValue?.name || newValue?.label || null);
+              setSelectedCollection(value);
+              const error = value ? validateCollection() : '';
+              setFieldErrors(prev => ({
+                ...prev,
+                name: error,
+              }));
+            }}
+            loading={loadingCollections}
+            disabled={disabled}
+            freeSolo
+            renderInput={(params) => (
+              <TextField
+                {...params}
+                label="Collection *"
+                placeholder="Search collection e.g., community.general"
+                variant="outlined"
+                className={classes.inputField}
+                error={!!fieldErrors.name}
+                helperText={fieldErrors.name}
+                required
+                InputProps={{
+                  ...params.InputProps,
+                  endAdornment: (
+                    <>
+                      {loadingCollections ? <CircularProgress size={20} /> : null}
+                      {params.InputProps.endAdornment}
+                    </>
+                  ),
+                }}
+              />
+            )}
+            noOptionsText="No collections found"
+          />
 
-      <Button
-        variant="outlined"
-        startIcon={<AddIcon />}
-        onClick={() => openDialog()}
-        disabled={disabled}
-        className={classes.addButton}
-      >
-        Add Collection Manually
-      </Button>
+          {/* Source Autocomplete */}
+          <Autocomplete
+            options={availableSources}
+            getOptionLabel={(option) => 
+              typeof option === 'string' ? option : (option.name || option.label || '')
+            }
+            value={selectedSource}
+            onChange={(event, newValue) => {
+              const value = typeof newValue === 'string' 
+                ? newValue 
+                : (newValue?.name || newValue?.label || newValue?.id || null);
+              setSelectedSource(value);
+            }}
+            loading={loadingSources}
+            disabled={disabled || !selectedCollection}
+            freeSolo
+            renderInput={(params) => (
+              <TextField
+                {...params}
+                label="Source"
+                placeholder="Select source"
+                variant="outlined"
+                className={classes.inputField}
+                InputProps={{
+                  ...params.InputProps,
+                  endAdornment: (
+                    <>
+                      {loadingSources ? <CircularProgress size={20} /> : null}
+                      {params.InputProps.endAdornment}
+                    </>
+                  ),
+                }}
+              />
+            )}
+            noOptionsText="No sources found"
+          />
 
-      {collections.length > 0 && (
-        <Box className={classes.collectionsList}>
-          {collections.map((collection, index) => {
-            const collectionAny = collection as any;
-            const displayLabel = collectionAny.name || 'Unnamed';
-            const chipKey = `${collectionAny.name || 'unnamed'}-${index}-${JSON.stringify(collectionAny)}`;
-            return (
-              <Box
-                key={chipKey}
-                onClick={() => !disabled && openDialog(index)}
-                className={
-                  !disabled ? classes.collectionChipWrapper : undefined
-                }
-                style={{ display: 'inline-block' }}
-              >
-                <Chip
-                  label={displayLabel}
-                  onDelete={e => {
-                    e.stopPropagation();
-                    handleRemoveCollection(index);
-                  }}
-                  deleteIcon={<CloseIcon />}
+          {/* Version Autocomplete */}
+          <Autocomplete
+            options={availableVersions}
+            getOptionLabel={(option) => 
+              typeof option === 'string' ? option : (option.name || option.label || option.version || '')
+            }
+            value={selectedVersion}
+            onChange={(event, newValue) => {
+              const value = typeof newValue === 'string' 
+                ? newValue 
+                : (newValue?.name || newValue?.label || newValue?.version || null);
+              setSelectedVersion(value);
+            }}
+            loading={loadingVersions}
+            disabled={disabled || !selectedSource}
+            freeSolo
+            renderInput={(params) => (
+              <TextField
+                {...params}
+                label="Version"
+                placeholder="Select version"
+                variant="outlined"
+                className={classes.inputField}
+                InputProps={{
+                  ...params.InputProps,
+                  endAdornment: (
+                    <>
+                      {loadingVersions ? <CircularProgress size={20} /> : null}
+                      {params.InputProps.endAdornment}
+                    </>
+                  ),
+                }}
+              />
+            )}
+            noOptionsText="No versions found"
+          />
+
+          {/* Signatures */}
+          <Box>
+            <Typography variant="body2" style={{ marginBottom: theme.spacing(1) }}>
+              Signatures
+            </Typography>
+            <Typography variant="caption" color="textSecondary" className={classes.helperText}>
+              A list of URI paths to the signature files used to verify the collection's integrity. Press Enter to add each one.
+            </Typography>
+            {signatures.map((signature, index) => (
+              <Box key={index} className={classes.signatureItem}>
+                <TextField
+                  fullWidth
+                  placeholder="e.g., https://automation.example.com/signatures/my_collection-1.2.0.sig"
+                  value={signature}
+                  onChange={(e) => handleSignatureChange(index, e.target.value)}
                   disabled={disabled}
-                  color="primary"
                   variant="outlined"
-                  className={classes.collectionChip}
+                  size="small"
+                  InputProps={{
+                    endAdornment: signatures.length > 1 && (
+                      <IconButton
+                        size="small"
+                        onClick={() => handleRemoveSignature(index)}
+                        disabled={disabled}
+                      >
+                        <DeleteIcon fontSize="small" />
+                      </IconButton>
+                    ),
+                  }}
                 />
               </Box>
-            );
-          })}
-        </Box>
-      )}
+            ))}
+            <Button
+              startIcon={<AddIcon />}
+              onClick={handleAddSignature}
+              disabled={disabled}
+              className={classes.addStringButton}
+              size="small"
+            >
+              Add string
+            </Button>
+          </Box>
 
-      <Dialog open={isDialogOpen} onClose={closeDialog} maxWidth="sm" fullWidth>
-        <DialogTitle>
-          {editingIndex !== null ? 'Edit Collection' : 'Add New Collection'}
-          <IconButton
-            aria-label="close"
-            onClick={closeDialog}
-            style={{ position: 'absolute', right: 8, top: 8 }}
-          >
-            <CloseIcon />
-          </IconButton>
-        </DialogTitle>
-        <DialogContent className={classes.dialogContent}>
-          {fieldNames.map(fieldName => {
-            const fieldMeta = getFieldMetadata(fieldName);
-            const fieldSchema = properties[fieldName] || {};
-            const fieldType = fieldSchema.type || fieldMeta.type || 'string';
-            const isArrayField = fieldType === 'array';
-            const hasEnum =
-              fieldMeta.enum &&
-              Array.isArray(fieldMeta.enum) &&
-              fieldMeta.enum.length > 0;
-            const fieldError = fieldErrors[fieldName] || '';
-            const fieldValue = newCollection[fieldName];
-            let displayValue = '';
-            if (typeof fieldValue === 'string') {
-              displayValue = fieldValue;
-            } else if (Array.isArray(fieldValue)) {
-              displayValue = fieldValue.join('\n');
-            }
-
-            if (hasEnum) {
-              return (
-                <FormControl
-                  key={fieldName}
-                  fullWidth
-                  className={classes.inputField}
-                  required={fieldMeta.required}
-                  error={!!fieldError}
-                >
-                  <InputLabel>{fieldMeta.title}</InputLabel>
-                  <Select
-                    value={displayValue}
-                    onChange={handleFieldChange(fieldName)}
-                    label={fieldMeta.title}
-                    disabled={disabled}
-                  >
-                    {fieldMeta.enum.map((enumValue: string, index: number) => {
-                      const displayLabel = fieldMeta.enumNames?.[index]
-                        ? fieldMeta.enumNames[index]
-                        : enumValue;
-                      return (
-                        <MenuItem key={enumValue} value={enumValue}>
-                          {displayLabel}
-                        </MenuItem>
-                      );
-                    })}
-                  </Select>
-                  {fieldError && (
-                    <Typography
-                      variant="caption"
-                      color="error"
-                      style={{ marginTop: '4px' }}
-                    >
-                      {fieldError}
-                    </Typography>
-                  )}
-                  {!fieldError && fieldMeta.description && (
-                    <Typography
-                      variant="caption"
-                      color="textSecondary"
-                      style={{ marginTop: '4px' }}
-                    >
-                      {fieldMeta.description}
-                    </Typography>
-                  )}
-                </FormControl>
-              );
-            }
-
-            return (
-              <TextField
-                key={fieldName}
-                fullWidth
-                label={fieldMeta.title}
-                placeholder={fieldMeta.placeholder}
-                value={displayValue}
-                onChange={handleFieldChange(fieldName)}
-                className={classes.inputField}
-                helperText={fieldError || fieldMeta.description}
-                error={!!fieldError}
-                required={fieldMeta.required}
-                disabled={disabled}
-                multiline={isArrayField}
-                minRows={1}
-              />
-            );
-          })}
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={closeDialog}>Cancel</Button>
+          {/* Add Collection Button */}
           <Button
-            onClick={handleAddCollection}
             variant="contained"
             color="primary"
-            disabled={
-              !(
-                typeof newCollection.name === 'string' &&
-                newCollection.name.trim()
-              ) || Object.keys(fieldErrors).some(key => fieldErrors[key])
-            }
+            onClick={handleAddCollection}
+            disabled={disabled || isAddButtonDisabled}
+            className={classes.addCollectionButton}
+            startIcon={<AddIcon />}
           >
-            {editingIndex !== null ? 'Update Collection' : 'Add Collection'}
+            Add collection
           </Button>
-        </DialogActions>
-      </Dialog>
+        </CardContent>
+      </Card>
+
+      {/* Selected Collections Section */}
+      {collections.length > 0 && (
+        <Box className={classes.selectedCollectionsSection}>
+          <Typography className={classes.selectedCollectionsTitle}>
+            Selected collections ({collections.length})
+          </Typography>
+          <Box className={classes.collectionsList}>
+            {collections.map((collection, index) => {
+              const collectionAny = collection as any;
+              const displayLabel = collectionAny.name || 'Unnamed';
+              const chipKey = `${collectionAny.name || 'unnamed'}-${index}`;
+              return (
+                <Box
+                  key={chipKey}
+                  onClick={() => !disabled && handleEditCollection(index)}
+                  className={
+                    !disabled ? classes.collectionChipWrapper : undefined
+                  }
+                  style={{ display: 'inline-block' }}
+                >
+                  <Chip
+                    label={displayLabel}
+                    onDelete={e => {
+                      e.stopPropagation();
+                      handleRemoveCollection(index);
+                    }}
+                    deleteIcon={<CloseIcon />}
+                    disabled={disabled}
+                    color="primary"
+                    variant="outlined"
+                    className={classes.collectionChip}
+                  />
+                </Box>
+              );
+            })}
+          </Box>
+        </Box>
+      )}
 
       {rawErrors.length > 0 && (
         <Typography

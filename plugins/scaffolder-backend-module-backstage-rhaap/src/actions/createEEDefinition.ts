@@ -95,7 +95,6 @@ interface EEDefinitionInput {
   publishToSCM: boolean;
   baseImage: string;
   collections?: Collection[];
-  popularCollections?: string[];
   collectionsFile?: string;
   pythonRequirements?: string[];
   pythonRequirementsFile?: string;
@@ -314,7 +313,6 @@ export function createEEDefinitionAction(options: {
       const values = input.values as unknown as EEDefinitionInput;
       const baseImage = values.baseImage;
       const collections = values.collections || [];
-      const popularCollections = values.popularCollections || [];
       const collectionsFile = values.collectionsFile || '';
       const pythonRequirements = values.pythonRequirements || [];
       const pythonRequirementsFile = values.pythonRequirementsFile || '';
@@ -399,7 +397,6 @@ export function createEEDefinitionAction(options: {
         // Merge collections from different sources
         const allCollections = mergeCollections(
           collections,
-          popularCollections,
           parsedCollections,
         );
 
@@ -937,28 +934,6 @@ spec:
     - title: Collections
       description: Add collections to be included in your execution environment definition file (optional).
       properties:
-        popularCollections:
-          title: Add Popular Collections
-          type: array
-          items:
-            type: string
-            enum:
-              - 'community.general'
-              - 'ansible.posix'
-              - 'ansible.windows'
-              - 'ansible.utils'
-              - 'amazon.aws'
-              - 'azure.azcollection'
-              - 'google.cloud'
-              - 'amazon.ai'
-              - 'cisco.ios'
-              - 'cisco.nxos'
-              - 'arista.eos'
-              - 'cisco.iosxr'
-          uniqueItems: true
-          ui:widget: checkboxes
-          ui:options:
-            layout: horizontal
         collections:
           title: Ansible Collections
           type: array
@@ -1236,7 +1211,6 @@ spec:
           publishToSCM: \${{ parameters.publishToSCM }}
           baseImage: \${{ parameters.baseImage === 'custom' and parameters.customBaseImage or parameters.baseImage }}
           customBaseImage: \${{ parameters.customBaseImage or '' }}
-          popularCollections: \${{ parameters.popularCollections or [] }}
           collections: \${{ parameters.collections or [] }}
           collectionsFile: \${{ parameters.collectionsFile or [] }}
           pythonRequirements: \${{ parameters.pythonRequirements or [] }}
@@ -1424,7 +1398,6 @@ function generateEECatalogEntity(
 
 function mergeCollections(
   collections: Collection[],
-  popularCollections: string[],
   parsedCollections: Array<Record<string, any>>,
 ): Collection[] {
   const collectionsRequirements: Collection[] = [];
@@ -1432,12 +1405,6 @@ function mergeCollections(
   // Add individual collections
   if (collections) {
     collectionsRequirements.push(...collections);
-  }
-
-  // Add popular collections (convert string names to Collection objects)
-  if (popularCollections) {
-    const popularCollectionObjects = popularCollections.map(name => ({ name }));
-    collectionsRequirements.push(...popularCollectionObjects);
   }
 
   // Add content from uploaded collection requirements file
