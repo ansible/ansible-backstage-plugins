@@ -18,7 +18,7 @@ export const pahCollectionParser = (options: {
     metadata: {
       namespace: 'default',
       // name needs to be unique across all collections
-      name: `private-automation-hub-${options.collection.namespace}.${options.collection.name}-${options.collection.version}`,
+      name: `pah-${options.collection.repository_name}-${options.collection.namespace}.${options.collection.name}-${options.collection.version}`,
 
       title:
         options.collection.version && options.collection.version !== 'N/A'
@@ -35,7 +35,7 @@ export const pahCollectionParser = (options: {
         'backstage.io/managed-by-location': `url:${collectionBaseUrl}/details?version=${options.collection.version}`,
         'backstage.io/managed-by-origin-location': `url:${collectionBaseUrl}/details?version=${options.collection.version}`,
 
-        'ansible.io/collection-source': 'private-automation-hub',
+        'ansible.io/collection-source': 'pah',
         'ansible.io/collection-source-repository':
           options.collection.repository_name,
         'ansible.io/collection-install-url': `${collectionBaseUrl}/install?version=${options.collection.version}`,

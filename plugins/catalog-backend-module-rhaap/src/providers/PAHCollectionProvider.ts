@@ -164,7 +164,7 @@ export class PAHCollectionProvider implements EntityProvider {
     let error: boolean = false;
     const entities: Entity[] = [];
     try {
-      collections = await this.ansibleServiceRef.getCollectionsByRepositories([
+      collections = await this.ansibleServiceRef.syncCollectionsByRepositories([
         this.pahRepositoryName,
       ]);
       this.logger.info(

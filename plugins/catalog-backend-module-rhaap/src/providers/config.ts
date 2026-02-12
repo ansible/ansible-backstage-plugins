@@ -82,11 +82,12 @@ function readAapApiEntityConfig(
         ) ?? [];
       pahRepositories = entries.map(entry => ({
         name: entry.getString('name'),
-        schedule: entry.getConfig('schedule')
+        // Use repository-specific schedule if provided, otherwise fall back to top-level schedule
+        schedule: entry.has('schedule')
           ? readSchedulerServiceTaskScheduleDefinitionFromConfig(
               entry.getConfig('schedule'),
             )
-          : undefined,
+          : schedule,
       }));
     }
   }

@@ -40,9 +40,19 @@ export async function createRouter(options: {
 
   // 1:1 mapping repository name -> PAHCollectionProvider (built once at router creation)
   const _PAH_PROVIDERS = new Map<string, PAHCollectionProvider>();
+  logger.info(
+    `[RHAAP Router]: Initializing with ${pahCollectionProviders.length} PAH collection provider(s)`,
+  );
   for (const provider of pahCollectionProviders) {
-    _PAH_PROVIDERS.set(provider.getPahRepositoryName(), provider);
+    const repoName = provider.getPahRepositoryName();
+    logger.info(
+      `[RHAAP Router]: Registering PAH provider for repository: ${repoName}`,
+    );
+    _PAH_PROVIDERS.set(repoName, provider);
   }
+  logger.info(
+    `[RHAAP Router]: Available PAH repositories: ${Array.from(_PAH_PROVIDERS.keys()).join(', ') || 'none'}`,
+  );
 
   // Note: Don't apply express.json() globally to avoid conflicts with catalog backend
   // Instead, apply it only to specific routes that need it
@@ -141,73 +151,86 @@ export async function createRouter(options: {
     }
   });
 
-  router.get('/aap/sync_pah_collections', async (request, response) => {
-    const rawRequest = request.query.repository_name;
-    let repositoryNames: string[];
-    if (!rawRequest) {
-      // if no query parameter is provided, assume all repositories should be synced
-      repositoryNames = [];
-    } else if (Array.isArray(rawRequest)) {
-      repositoryNames = rawRequest as string[];
-    } else {
-      repositoryNames = [rawRequest as string];
-    }
+  router.post(
+    '/collections/sync/from-pah',
+    express.json(),
+    async (request, response) => {
+      // Extract repository names from request body
+      // Expected format: { "filters": [{ "repository_name": "rh-certified" }, { "repository_name": "validated" }] }
+      const { filters } = request.body as {
+        filters?: Array<{ repository_name: string }>;
+      };
 
-    let providersToRun: PAHCollectionProvider[];
-    if (repositoryNames.length > 0) {
-      // if query parameter is provided, sync only the repositories specified in the query parameter
-      const notFound = repositoryNames.filter(n => !_PAH_PROVIDERS.has(n));
-      if (notFound.length > 0) {
-        response.status(400).json({
-          success: false,
-          error: `No provider found for repository name(s): ${notFound.join(', ')}`,
-          notFound,
-        });
-        return;
+      let repositoryNames: string[];
+      if (!filters || filters.length === 0) {
+        // if no filters provided, assume all repositories should be synced
+        repositoryNames = [];
+      } else {
+        // extract repository_name from each filter object
+        repositoryNames = filters
+          .map(f => f.repository_name)
+          .filter(
+            (name): name is string =>
+              typeof name === 'string' && name.length > 0,
+          );
       }
-      // build a list of providers to run based on the repository names provided in the query parameter
-      providersToRun = repositoryNames.map(name => _PAH_PROVIDERS.get(name)!);
-    } else {
-      // if no query parameter is provided, run all providers
-      providersToRun = pahCollectionProviders;
-    }
 
-    logger.info(
-      `Starting PAH collections sync for repository name(s): ${repositoryNames.join(', ')}`,
-    );
-    const results = await Promise.all(
-      providersToRun.map(async provider => {
-        const { success, collectionsCount } = await provider.run();
-        return {
-          repositoryName: provider.getPahRepositoryName(),
-          providerName: provider.getProviderName(),
-          success,
-          collectionsCount,
-        };
-      }),
-    );
+      let providersToRun: PAHCollectionProvider[];
+      if (repositoryNames.length > 0) {
+        // if filters are provided, sync only the repositories specified
+        const notFound = repositoryNames.filter(n => !_PAH_PROVIDERS.has(n));
+        if (notFound.length > 0) {
+          response.status(400).json({
+            success: false,
+            error: `No provider found for repository name(s): ${notFound.join(', ')}`,
+            notFound,
+          });
+          return;
+        }
+        // build a list of providers to run based on the repository names provided
+        providersToRun = repositoryNames.map(name => _PAH_PROVIDERS.get(name)!);
+      } else {
+        // if no filters provided, run all providers
+        providersToRun = pahCollectionProviders;
+      }
 
-    const allSucceeded = results.every(r => r.success);
-    const failedProviders = results.filter(r => !r.success);
-
-    if (allSucceeded) {
-      response.status(200).json({
-        success: true,
-        providersRun: providersToRun.length,
-        results,
-      });
-    } else {
-      logger.error(
-        `PAH collections sync failed for: ${failedProviders.map(r => r.repositoryName).join(', ')}`,
+      logger.info(
+        `Starting PAH collections sync for repository name(s): ${repositoryNames.length > 0 ? repositoryNames.join(', ') : 'all'}`,
       );
-      response.status(207).json({
-        success: false,
-        providersRun: providersToRun.length,
-        results,
-        failedRepositories: failedProviders.map(r => r.repositoryName),
-      });
-    }
-  });
+      const results = await Promise.all(
+        providersToRun.map(async provider => {
+          const { success, collectionsCount } = await provider.run();
+          return {
+            repositoryName: provider.getPahRepositoryName(),
+            providerName: provider.getProviderName(),
+            success,
+            collectionsCount,
+          };
+        }),
+      );
+
+      const allSucceeded = results.every(r => r.success);
+      const failedProviders = results.filter(r => !r.success);
+
+      if (allSucceeded) {
+        response.status(200).json({
+          success: true,
+          providersRun: providersToRun.length,
+          results,
+        });
+      } else {
+        logger.error(
+          `PAH collections sync failed for: ${failedProviders.map(r => r.repositoryName).join(', ')}`,
+        );
+        response.status(207).json({
+          success: false,
+          providersRun: providersToRun.length,
+          results,
+          failedRepositories: failedProviders.map(r => r.repositoryName),
+        });
+      }
+    },
+  );
 
   return router;
 }
