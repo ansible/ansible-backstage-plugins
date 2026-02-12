@@ -641,7 +641,7 @@ describe('PAHCollectionProvider', () => {
 
       // Execute the captured task function
       expect(capturedTask).toBeDefined();
-      await capturedTask!.fn(jest.fn());
+      await capturedTask!.fn(new AbortController().signal);
 
       expect(
         mockAnsibleService.syncCollectionsByRepositories,
@@ -670,7 +670,9 @@ describe('PAHCollectionProvider', () => {
 
       // Execute the captured task function - should not throw
       expect(capturedTask).toBeDefined();
-      await expect(capturedTask!.fn(jest.fn())).resolves.not.toThrow();
+      await expect(
+        capturedTask!.fn(new AbortController().signal),
+      ).resolves.not.toThrow();
     });
   });
 
@@ -697,7 +699,10 @@ describe('PAHCollectionProvider', () => {
 
       await provider.run();
 
-      const mutation = mockConnection.applyMutation.mock.calls[0][0];
+      const mutation = mockConnection.applyMutation.mock.calls[0][0] as {
+        type: 'full';
+        entities: Array<{ entity: any; locationKey: string }>;
+      };
       expect(mutation.type).toBe('full');
       expect(mutation.entities).toHaveLength(1);
 
