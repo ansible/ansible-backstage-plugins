@@ -40,22 +40,9 @@ export async function createRouter(options: {
 
   // 1:1 mapping repository name -> PAHCollectionProvider (built once at router creation)
   const _PAH_PROVIDERS = new Map<string, PAHCollectionProvider>();
-  logger.info(
-    `[RHAAP Router]: Initializing with ${pahCollectionProviders.length} PAH collection provider(s)`,
-  );
   for (const provider of pahCollectionProviders) {
-    const repoName = provider.getPahRepositoryName();
-    logger.info(
-      `[RHAAP Router]: Registering PAH provider for repository: ${repoName}`,
-    );
-    _PAH_PROVIDERS.set(repoName, provider);
+    _PAH_PROVIDERS.set(provider.getPahRepositoryName(), provider);
   }
-  logger.info(
-    `[RHAAP Router]: Available PAH repositories: ${Array.from(_PAH_PROVIDERS.keys()).join(', ') || 'none'}`,
-  );
-
-  // Note: Don't apply express.json() globally to avoid conflicts with catalog backend
-  // Instead, apply it only to specific routes that need it
 
   router.get('/health', (_, response) => {
     logger.info('PONG!');
