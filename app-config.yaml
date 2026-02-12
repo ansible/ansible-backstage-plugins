@@ -142,6 +142,10 @@ catalog:
           # Ansible content discovery from SCM orgs
           # ansibleGitContents:
           #   enabled: true  # optional, defaults to true - enables/disables the whole provider
+          #   # Common schedule for all the providers (fallback if org-level schedule not defined)
+          #   schedule:
+          #     frequency: { minutes: 60 }
+          #     timeout: { minutes: 30 }
           #   providers:
           #     github:
           #       - name: "github-public"  # canonical name for easy identification
@@ -152,6 +156,7 @@ catalog:
           #             tags: ['v*']  # optional, supports glob patterns
           #             galaxyFilePaths: []  # optional, specific paths to search
           #             crawlDepth: 5  # optional, max directory depth to search
+          #             # Optional: org-level schedule overrides common schedule
           #             schedule:
           #               frequency: { minutes: 60 }
           #               timeout: { minutes: 30 }
@@ -160,6 +165,7 @@ catalog:
           #         host: gitlab.com  # optional, defaults to gitlab.com
           #         orgs:
           #           - name: ansible-team  # Gitlab group (supports nested groups like 'group/subgroup')
+          #             # Optional: org-level schedule overrides common schedule
           #             schedule:
           #               frequency: { minutes: 120 }
           #               timeout: { minutes: 15 }

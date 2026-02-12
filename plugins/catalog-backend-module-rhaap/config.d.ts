@@ -21,6 +21,11 @@ export interface Config {
             ansibleGitContents?: {
               /** @default true */
               enabled?: boolean;
+              /**
+               * Default schedule for all providers if not specified at the org level
+               * This is used as a fallback when an org doesn't have its own schedule defined
+               */
+              schedule?: SchedulerServiceTaskScheduleDefinitionConfig;
               providers?: {
                 github?: Array<{
                   /**
@@ -42,7 +47,11 @@ export interface Config {
                     galaxyFilePaths?: Array<string>;
                     /** @default 5 */
                     crawlDepth?: number;
-                    schedule: SchedulerServiceTaskScheduleDefinitionConfig;
+                    /**
+                     * Schedule for syncing this organization
+                     * If not provided, falls back to the common schedule at ansibleGitContents level
+                     */
+                    schedule?: SchedulerServiceTaskScheduleDefinitionConfig;
                   }>;
                 }>;
                 gitlab?: Array<{
@@ -65,7 +74,11 @@ export interface Config {
                     galaxyFilePaths?: Array<string>;
                     /** @default 5 */
                     crawlDepth?: number;
-                    schedule: SchedulerServiceTaskScheduleDefinitionConfig;
+                    /**
+                     * Schedule for syncing this group
+                     * If not provided, falls back to the common schedule at ansibleGitContents level
+                     */
+                    schedule?: SchedulerServiceTaskScheduleDefinitionConfig;
                   }>;
                 }>;
               };

@@ -57,13 +57,30 @@ export function readAnsibleGitContentsConfigs(
     }
 
     const providersConfig = gitContentsConfig.getConfig('providers');
-    const sources = processScmProviders(providersConfig, 'github', envKey);
+    let commonSchedule: ReturnType<
+      typeof readSchedulerServiceTaskScheduleDefinitionFromConfig
+    > | null = null;
+    if (gitContentsConfig.has('schedule')) {
+      commonSchedule = readSchedulerServiceTaskScheduleDefinitionFromConfig(
+        gitContentsConfig.getConfig('schedule'),
+      );
+      console.log(
+        `[AnsibleGitContentsConfig] Common schedule found in '${envKey}'`,
+      );
+    }
+    const sources = processScmProviders(
+      providersConfig,
+      'github',
+      envKey,
+      commonSchedule,
+    );
     allSources.push(...sources);
 
     const gitlabSources = processScmProviders(
       providersConfig,
       'gitlab',
       envKey,
+      commonSchedule,
     );
     allSources.push(...gitlabSources);
   }
@@ -74,10 +91,15 @@ export function readAnsibleGitContentsConfigs(
   return allSources;
 }
 
+type ScheduleDefinition = ReturnType<
+  typeof readSchedulerServiceTaskScheduleDefinitionFromConfig
+>;
+
 function processScmProviders(
   providersConfig: Config,
   scmProvider: ScmProvider,
   env: string,
+  commonSchedule: ScheduleDefinition | null,
 ): AnsibleGitContentsSourceConfig[] {
   const sources: AnsibleGitContentsSourceConfig[] = [];
 
@@ -113,6 +135,7 @@ function processScmProviders(
           hostName,
           host,
           env,
+          commonSchedule,
         });
         if (source) {
           console.log(
@@ -138,6 +161,7 @@ function readOrgConfig(
     hostName: string;
     host?: string;
     env: string;
+    commonSchedule: ScheduleDefinition | null;
   },
 ): AnsibleGitContentsSourceConfig | null {
   try {
@@ -147,14 +171,24 @@ function readOrgConfig(
     const galaxyFilePaths = config.getOptionalStringArray('galaxyFilePaths');
     const crawlDepth = config.getOptionalNumber('crawlDepth') ?? 5;
 
-    if (!config.has('schedule')) {
+    let schedule: ScheduleDefinition;
+    if (config.has('schedule')) {
+      schedule = readSchedulerServiceTaskScheduleDefinitionFromConfig(
+        config.getConfig('schedule'),
+      );
+      console.log(
+        `[AnsibleGitContentsConfig] Org '${orgName}' using org-level schedule`,
+      );
+    } else if (context.commonSchedule) {
+      schedule = context.commonSchedule;
+      console.log(
+        `[AnsibleGitContentsConfig] Org '${orgName}' using common schedule`,
+      );
+    } else {
       throw new Error(
-        `Schedule is required for org '${orgName}' in host '${context.hostName}'`,
+        `No schedule defined for org '${orgName}' in host '${context.hostName}' and no common schedule available`,
       );
     }
-    const schedule = readSchedulerServiceTaskScheduleDefinitionFromConfig(
-      config.getConfig('schedule'),
-    );
 
     console.log(
       `[AnsibleGitContentsConfig] Org config: ${context.scmProvider}/${context.hostName}/${orgName}, branches=${JSON.stringify(branches)}, tags=${JSON.stringify(tags)}, crawlDepth=${crawlDepth}`,

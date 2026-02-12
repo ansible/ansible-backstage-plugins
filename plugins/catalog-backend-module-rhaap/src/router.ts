@@ -191,7 +191,7 @@ export async function createRouter(options: {
   //    ]
   //  } -> multiple selections
   router.post(
-    '/ansible-collections/sync',
+    '/collections/sync/from-scm',
     express.json(),
     async (request, response) => {
       const { filters = [] } = request.body as { filters?: SyncFilter[] };
@@ -235,12 +235,22 @@ export async function createRouter(options: {
 
         const results = buildSyncResults(providersToSync, settledResults);
         const successCount = results.filter(r => r.success).length;
+        const failureCount = results.length - successCount;
 
-        response.status(200).json({
+        let statusCode: number;
+        if (successCount === results.length) {
+          statusCode = 200;
+        } else if (successCount > 0) {
+          statusCode = 207;
+        } else {
+          statusCode = 500;
+        }
+
+        response.status(statusCode).json({
           success: successCount === results.length,
           providersRun: results.length,
           successCount,
-          failureCount: results.length - successCount,
+          failureCount,
           results,
         });
       } catch (error) {
