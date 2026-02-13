@@ -653,12 +653,16 @@ describe('createRouter', () => {
         '2024-01-15T11:00:00Z',
       );
 
-      const response = await request(app).get('/aap/sync_status');
+      const response = await request(app).get(
+        '/aap/sync_status?aap_entities=true',
+      );
 
       expect(response.status).toBe(200);
       expect(response.body).toEqual({
-        orgsUsersTeams: { lastSync: '2024-01-15T10:00:00Z' },
-        jobTemplates: { lastSync: '2024-01-15T11:00:00Z' },
+        aap: {
+          orgsUsersTeams: { lastSync: '2024-01-15T10:00:00Z' },
+          jobTemplates: { lastSync: '2024-01-15T11:00:00Z' },
+        },
       });
       expect(mockLogger.info).toHaveBeenCalledWith('Getting sync status');
     });
@@ -670,13 +674,17 @@ describe('createRouter', () => {
       });
       mockJobTemplateProvider.getLastSyncTime.mockReturnValue(null);
 
-      const response = await request(app).get('/aap/sync_status');
+      const response = await request(app).get(
+        '/aap/sync_status?aap_entities=true',
+      );
 
       expect(response.status).toBe(500);
       expect(response.body).toEqual({
         error: 'Failed to get sync status: Failed to get sync time',
-        orgsUsersTeams: { lastSync: null },
-        jobTemplates: { lastSync: null },
+        aap: {
+          orgsUsersTeams: null,
+          jobTemplates: null,
+        },
       });
       expect(mockLogger.error).toHaveBeenCalledWith(
         'Failed to get sync status: Failed to get sync time',
@@ -689,13 +697,17 @@ describe('createRouter', () => {
       });
       mockJobTemplateProvider.getLastSyncTime.mockReturnValue(null);
 
-      const response = await request(app).get('/aap/sync_status');
+      const response = await request(app).get(
+        '/aap/sync_status?aap_entities=true',
+      );
 
       expect(response.status).toBe(500);
       expect(response.body).toEqual({
         error: 'Failed to get sync status: String error',
-        orgsUsersTeams: { lastSync: null },
-        jobTemplates: { lastSync: null },
+        aap: {
+          orgsUsersTeams: null,
+          jobTemplates: null,
+        },
       });
     });
   });
