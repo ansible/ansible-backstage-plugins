@@ -1030,7 +1030,7 @@ describe('RunTask', () => {
       mockRouteRefFn.mockClear();
     });
 
-    it('should navigate back to template page when back button is clicked', async () => {
+    it('should navigate back to catalog page when back button is clicked', async () => {
       const user = userEvent.setup();
 
       const useTaskEventStreamMock =
@@ -1071,19 +1071,13 @@ describe('RunTask', () => {
       await user.click(screen.getByTestId('back-button'));
 
       await waitFor(() => {
-        expect(mockRouteRefFn).toHaveBeenCalledWith({
-          namespace: 'default',
-          templateName: 'test-template',
-        });
-        expect(mockNavigate).toHaveBeenCalledWith(
-          '/templates/default/test-template',
-        );
+        expect(mockNavigate).toHaveBeenCalledWith('/self-service/catalog');
       });
 
       useTaskEventStreamMock.mockImplementation(originalImplementation);
     }, 15000);
 
-    it('should navigate back in history when template metadata is missing', async () => {
+    it('should navigate back to catalog page when template metadata is missing', async () => {
       const user = userEvent.setup();
 
       const useTaskEventStreamMock =
@@ -1116,7 +1110,7 @@ describe('RunTask', () => {
       await user.click(screen.getByTestId('back-button'));
 
       await waitFor(() => {
-        expect(mockNavigate).toHaveBeenCalledWith(-1);
+        expect(mockNavigate).toHaveBeenCalledWith('/self-service/catalog');
       });
 
       useTaskEventStreamMock.mockImplementation(originalImplementation);
