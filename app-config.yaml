@@ -139,6 +139,22 @@ catalog:
             schedule:
               frequency: { minutes: 60 }
               timeout: { minutes: 15 }
+          pahCollections:
+            enabled: true
+            repositories:
+              - name: rh-certified
+                schedule:
+                  frequency: { minutes: 60 }
+                  timeout: { minutes: 15 }
+              - name: validated
+                schedule:
+                  frequency: { minutes: 60 }
+                  timeout: { minutes: 15 }
+              - name: published
+                schedule:
+                  frequency: { minutes: 60 }
+                  timeout: { minutes: 15 }
+            
 ansible:
   devSpaces:
     baseUrl: https://devspaces.apps.ansible-rhdh.testing.ansible.com/

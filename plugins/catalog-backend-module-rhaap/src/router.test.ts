@@ -20,6 +20,7 @@ import { createRouter } from './router';
 import { AAPEntityProvider } from './providers/AAPEntityProvider';
 import { AAPJobTemplateProvider } from './providers/AAPJobTemplateProvider';
 import { EEEntityProvider } from './providers/EEEntityProvider';
+import { PAHCollectionProvider } from './providers/PAHCollectionProvider';
 import { LoggerService } from '@backstage/backend-plugin-api';
 
 describe('createRouter', () => {
@@ -28,6 +29,7 @@ describe('createRouter', () => {
   let mockAAPEntityProvider: jest.Mocked<AAPEntityProvider>;
   let mockJobTemplateProvider: jest.Mocked<AAPJobTemplateProvider>;
   let mockEEEntityProvider: jest.Mocked<EEEntityProvider>;
+  let mockPAHCollectionProvider: jest.Mocked<PAHCollectionProvider>;
 
   beforeEach(async () => {
     mockLogger = {
@@ -58,11 +60,20 @@ describe('createRouter', () => {
       connect: jest.fn(),
     } as unknown as jest.Mocked<EEEntityProvider>;
 
+    mockPAHCollectionProvider = {
+      run: jest.fn(),
+      getProviderName: jest.fn().mockReturnValue('PAHCollectionProvider:test'),
+      getPahRepositoryName: jest.fn().mockReturnValue('validated'),
+      connect: jest.fn(),
+      getLastSyncTime: jest.fn(),
+    } as unknown as jest.Mocked<PAHCollectionProvider>;
+
     const router = await createRouter({
       logger: mockLogger,
       aapEntityProvider: mockAAPEntityProvider,
       jobTemplateProvider: mockJobTemplateProvider,
       eeEntityProvider: mockEEEntityProvider,
+      pahCollectionProviders: [mockPAHCollectionProvider],
     });
 
     app = express().use(router);
@@ -194,6 +205,7 @@ describe('createRouter', () => {
           aapEntityProvider: mockProvider as any,
           jobTemplateProvider: {} as any,
           eeEntityProvider: mockEEEntityProvider,
+          pahCollectionProviders: [mockPAHCollectionProvider],
         }),
       );
 
@@ -224,6 +236,7 @@ describe('createRouter', () => {
           aapEntityProvider: mockProvider as any,
           jobTemplateProvider: {} as any,
           eeEntityProvider: mockEEEntityProvider,
+          pahCollectionProviders: [mockPAHCollectionProvider],
         }),
       );
 
@@ -252,6 +265,7 @@ describe('createRouter', () => {
           aapEntityProvider: mockProvider as any,
           jobTemplateProvider: {} as any,
           eeEntityProvider: mockEEEntityProvider,
+          pahCollectionProviders: [mockPAHCollectionProvider],
         }),
       );
 
@@ -280,6 +294,7 @@ describe('createRouter', () => {
           aapEntityProvider: mockProvider as any,
           jobTemplateProvider: {} as any,
           eeEntityProvider: mockEEEntityProvider,
+          pahCollectionProviders: [mockPAHCollectionProvider],
         }),
       );
 
@@ -311,6 +326,7 @@ describe('createRouter', () => {
           aapEntityProvider: mockProvider as any,
           jobTemplateProvider: {} as any,
           eeEntityProvider: mockEEEntityProvider,
+          pahCollectionProviders: [mockPAHCollectionProvider],
         }),
       );
 
@@ -343,6 +359,7 @@ describe('createRouter', () => {
           aapEntityProvider: mockProvider as any,
           jobTemplateProvider: {} as any,
           eeEntityProvider: mockEEEntityProvider,
+          pahCollectionProviders: [mockPAHCollectionProvider],
         }),
       );
 
@@ -375,6 +392,7 @@ describe('createRouter', () => {
           aapEntityProvider: mockProvider as any,
           jobTemplateProvider: {} as any,
           eeEntityProvider: mockEEEntityProvider,
+          pahCollectionProviders: [mockPAHCollectionProvider],
         }),
       );
 
@@ -403,6 +421,7 @@ describe('createRouter', () => {
           aapEntityProvider: mockProvider as any,
           jobTemplateProvider: {} as any,
           eeEntityProvider: mockEEEntityProvider,
+          pahCollectionProviders: [mockPAHCollectionProvider],
         }),
       );
 
@@ -433,6 +452,7 @@ describe('createRouter', () => {
           aapEntityProvider: mockProvider as any,
           jobTemplateProvider: {} as any,
           eeEntityProvider: mockEEEntityProvider,
+          pahCollectionProviders: [mockPAHCollectionProvider],
         }),
       );
 
@@ -461,6 +481,7 @@ describe('createRouter', () => {
           aapEntityProvider: mockProvider as any,
           jobTemplateProvider: {} as any,
           eeEntityProvider: mockEEEntityProvider,
+          pahCollectionProviders: [mockPAHCollectionProvider],
         }),
       );
 
@@ -514,6 +535,7 @@ describe('createRouter', () => {
           aapEntityProvider: mockProvider as any,
           jobTemplateProvider: {} as any,
           eeEntityProvider: mockEEEntityProvider,
+          pahCollectionProviders: [mockPAHCollectionProvider],
         }),
       );
 
@@ -542,6 +564,7 @@ describe('createRouter', () => {
           aapEntityProvider: mockProvider as any,
           jobTemplateProvider: {} as any,
           eeEntityProvider: mockEEEntityProvider,
+          pahCollectionProviders: [mockPAHCollectionProvider],
         }),
       );
 
@@ -576,6 +599,7 @@ describe('createRouter', () => {
           aapEntityProvider: mockProvider as any,
           jobTemplateProvider: {} as any,
           eeEntityProvider: mockEEEntityProvider,
+          pahCollectionProviders: [mockPAHCollectionProvider],
         }),
       );
 
@@ -618,6 +642,7 @@ describe('createRouter', () => {
           aapEntityProvider: mockProvider as any,
           jobTemplateProvider: {} as any,
           eeEntityProvider: mockEEEntityProvider,
+          pahCollectionProviders: [mockPAHCollectionProvider],
         }),
       );
 
@@ -736,6 +761,7 @@ describe('createRouter', () => {
         aapEntityProvider: mockAAPEntityProvider,
         jobTemplateProvider: mockJobTemplateProvider,
         eeEntityProvider: mockEEEntityProvider,
+        pahCollectionProviders: [mockPAHCollectionProvider],
       });
 
       const testApp = express().use(routerWithInvalidLogger);
@@ -751,6 +777,7 @@ describe('createRouter', () => {
         aapEntityProvider: undefined as any,
         jobTemplateProvider: mockJobTemplateProvider,
         eeEntityProvider: mockEEEntityProvider,
+        pahCollectionProviders: [mockPAHCollectionProvider],
       });
 
       const testApp = express().use(routerWithInvalidProvider);
@@ -766,6 +793,7 @@ describe('createRouter', () => {
         aapEntityProvider: mockAAPEntityProvider,
         jobTemplateProvider: undefined as any,
         eeEntityProvider: mockEEEntityProvider,
+        pahCollectionProviders: [mockPAHCollectionProvider],
       });
 
       const testApp = express().use(routerWithInvalidProvider);
@@ -773,6 +801,128 @@ describe('createRouter', () => {
       // The sync endpoint should fail when jobTemplateProvider is undefined
       const response = await request(testApp).get('/aap/sync_job_templates');
       expect(response.status).toBe(500);
+    });
+  });
+
+  describe('POST /collections/sync/from-pah', () => {
+    it('should sync all providers when no filters provided', async () => {
+      mockPAHCollectionProvider.run.mockResolvedValue({
+        success: true,
+        collectionsCount: 10,
+      });
+
+      const response = await request(app)
+        .post('/collections/sync/from-pah')
+        .send({});
+
+      expect(response.status).toBe(200);
+      expect(response.body).toEqual({
+        success: true,
+        providersRun: 1,
+        results: [
+          {
+            repositoryName: 'validated',
+            providerName: 'PAHCollectionProvider:test',
+            success: true,
+            collectionsCount: 10,
+          },
+        ],
+      });
+      expect(mockLogger.info).toHaveBeenCalledWith(
+        'Starting PAH collections sync for repository name(s): all',
+      );
+    });
+
+    it('should sync all providers when filters array is empty', async () => {
+      mockPAHCollectionProvider.run.mockResolvedValue({
+        success: true,
+        collectionsCount: 5,
+      });
+
+      const response = await request(app)
+        .post('/collections/sync/from-pah')
+        .send({ filters: [] });
+
+      expect(response.status).toBe(200);
+      expect(response.body.success).toBe(true);
+      expect(response.body.providersRun).toBe(1);
+    });
+
+    it('should sync specific repository when filter is provided', async () => {
+      mockPAHCollectionProvider.run.mockResolvedValue({
+        success: true,
+        collectionsCount: 15,
+      });
+
+      const response = await request(app)
+        .post('/collections/sync/from-pah')
+        .send({ filters: [{ repository_name: 'validated' }] });
+
+      expect(response.status).toBe(200);
+      expect(response.body).toEqual({
+        success: true,
+        providersRun: 1,
+        results: [
+          {
+            repositoryName: 'validated',
+            providerName: 'PAHCollectionProvider:test',
+            success: true,
+            collectionsCount: 15,
+          },
+        ],
+      });
+      expect(mockLogger.info).toHaveBeenCalledWith(
+        'Starting PAH collections sync for repository name(s): validated',
+      );
+    });
+
+    it('should return 400 when repository not found', async () => {
+      const response = await request(app)
+        .post('/collections/sync/from-pah')
+        .send({ filters: [{ repository_name: 'nonexistent' }] });
+
+      expect(response.status).toBe(400);
+      expect(response.body).toEqual({
+        success: false,
+        error: 'No provider found for repository name(s): nonexistent',
+        notFound: ['nonexistent'],
+      });
+    });
+
+    it('should return 207 when some providers fail', async () => {
+      mockPAHCollectionProvider.run.mockResolvedValue({
+        success: false,
+        collectionsCount: 0,
+      });
+
+      const response = await request(app)
+        .post('/collections/sync/from-pah')
+        .send({});
+
+      expect(response.status).toBe(207);
+      expect(response.body.success).toBe(false);
+      expect(response.body.failedRepositories).toContain('validated');
+      expect(mockLogger.error).toHaveBeenCalled();
+    });
+
+    it('should filter out invalid repository names from filters', async () => {
+      mockPAHCollectionProvider.run.mockResolvedValue({
+        success: true,
+        collectionsCount: 8,
+      });
+
+      const response = await request(app)
+        .post('/collections/sync/from-pah')
+        .send({
+          filters: [
+            { repository_name: 'validated' },
+            { repository_name: '' },
+            { repository_name: null },
+          ],
+        });
+
+      expect(response.status).toBe(200);
+      expect(response.body.success).toBe(true);
     });
   });
 });
