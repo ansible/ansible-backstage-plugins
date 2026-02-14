@@ -1,0 +1,44 @@
+import type { Enforcer } from 'casbin';
+import * as Knex from 'knex';
+import type { RBACProvider } from '@backstage-community/plugin-rbac-node';
+import { CasbinDBAdapterFactory } from '../src/database/casbin-adapter-factory';
+import { ConditionalStorage } from '../src/database/conditional-storage';
+import { RoleMetadataStorage } from '../src/database/role-metadata';
+import { EnforcerDelegate, RoleEventEmitter, RoleEvents } from '../src/service/enforcer-delegate';
+import { PluginPermissionMetadataCollector } from '../src/service/plugin-endpoints';
+import { PermissionDependentPluginStore } from '../src/database/extra-permission-enabled-plugins-storage';
+import { ExtendablePluginIdProvider } from '../src/service/extendable-id-provider';
+export declare const conditionalStorageMock: ConditionalStorage;
+export declare const roleMetadataStorageMock: RoleMetadataStorage;
+export declare const pluginMetadataCollectorMock: Partial<PluginPermissionMetadataCollector>;
+export declare const permissionDependentPluginStoreMock: PermissionDependentPluginStore;
+export declare const pluginIdProviderMock: {
+    getPluginIds: jest.Mock<any, any, any>;
+};
+export declare const extendablePluginIdProviderMock: Partial<ExtendablePluginIdProvider>;
+export declare const roleEventEmitterMock: RoleEventEmitter<RoleEvents>;
+export declare const enforcerMock: Partial<Enforcer>;
+export declare const enforcerDelegateMock: Partial<EnforcerDelegate>;
+export declare const dataBaseAdapterFactoryMock: Partial<CasbinDBAdapterFactory>;
+export declare const providerMock: RBACProvider;
+export declare const mockClientKnex: Knex.knex.Knex<any, unknown[]>;
+export declare const mockHttpAuth: import("@backstage/backend-plugin-api").HttpAuthService;
+export declare const mockAuthService: import("@backstage/backend-plugin-api").AuthService;
+export declare const createEventMock: {
+    success: jest.Mock<any, any, any>;
+    fail: jest.Mock<any, any, any>;
+};
+export declare const mockAuditorService: import("@backstage/backend-test-utils").ServiceMock<import("@backstage/backend-plugin-api").AuditorService>;
+export declare const credentials: import("@backstage/backend-plugin-api").BackstageCredentials<import("@backstage/backend-plugin-api").BackstageUserPrincipal>;
+export declare const mockLoggerService: import("@backstage/backend-test-utils").ServiceMock<import("@backstage/backend-plugin-api").LoggerService>;
+export declare const mockPermissionRegistry: import("@backstage/backend-test-utils").ServiceMock<import("@backstage/backend-plugin-api").PermissionsRegistryService>;
+export declare const mockedAuthorize: jest.Mock<any, any, any>;
+export declare const mockedAuthorizeConditional: jest.Mock<any, any, any>;
+export declare const mockPermissionEvaluator: {
+    authorize: jest.Mock<any, any, any>;
+    authorizeConditional: jest.Mock<any, any, any>;
+};
+export declare const testUsers: import("@backstage/catalog-model").Entity[];
+export declare const testGroups: import("@backstage/catalog-model").Entity[];
+export declare const catalogMock: import("@backstage/plugin-catalog-node/testUtils").CatalogServiceMock;
+export declare const csvPermFile: string;

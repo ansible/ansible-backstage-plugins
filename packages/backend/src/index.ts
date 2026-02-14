@@ -38,12 +38,21 @@ backend.add(
 backend.add(import('@backstage/plugin-catalog-backend-module-logs'));
 
 // See https://backstage.io/docs/permissions/getting-started for how to create your own permission policy
-// backend.add(
-//   import('@backstage/plugin-permission-backend-module-allow-all-policy'),
-// );
-// permission plugin
-// backend.add(import('@backstage/plugin-permission-backend'));
-backend.add(import('@backstage-community/plugin-rbac-backend'));
+//
+// Enhanced RBAC with External System Integration (Ansible Fork)
+// ==============================================================
+// The RBAC plugin is a MODULE that extends the permission backend.
+// We must load BOTH:
+// 1. Base permission backend (provides extension points)
+// 2. RBAC module (registers policy and UI)
+//
+// Features:
+// - RBAC UI for user-created entities (catalog, templates, scaffolder, etc.) ✅
+// - AAP RBAC for job templates (single source of truth: AAP) ✅
+// - Ready for GitHub/GitLab RBAC integration in future ✅
+
+backend.add(import('@backstage/plugin-permission-backend'));      // Base permission backend
+backend.add(import('@ansible/plugin-rbac-backend-ansible'));       // RBAC module with AAP integration
 
 // search plugin
 backend.add(import('@backstage/plugin-search-backend'));
