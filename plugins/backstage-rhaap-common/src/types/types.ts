@@ -151,8 +151,14 @@ export type AnsibleConfig = {
   devSpaces?: DevSpaces;
   automationHub?: AutomationHub;
   rhaap?: RHAAPConfig;
+  /** @deprecated Use githubIntegrations instead. Kept for backward compatibility. */
   githubIntegration?: GithubIntegrationConfig;
+  /** @deprecated Use gitlabIntegrations instead. Kept for backward compatibility. */
   gitlabIntegration?: GitLabIntegrationConfig;
+  /** All configured GitHub integrations (supports multiple hosts like github.com, ghe.example.net) */
+  githubIntegrations?: GithubIntegrationConfig[];
+  /** All configured GitLab integrations (supports multiple hosts like gitlab.com, gitlab.example.net) */
+  gitlabIntegrations?: GitLabIntegrationConfig[];
   creatorService?: CreatorService;
   feedback?: FeedbackConfig;
 };
