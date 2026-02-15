@@ -29,7 +29,7 @@ Welcome to the Ansible plugins for Backstage project! This repository provides p
 
 ## Overview
 
-The Ansible Backstage Plugins project brings Ansible Automation Platform capabilities into Backstage, enabling developers to:
+The Ansible Backstage Plugins project brings Ansible Automation Platform capabilities, enabling developers to:
 
 - Browse and launch job templates
 - Manage inventories, projects, and credentials
