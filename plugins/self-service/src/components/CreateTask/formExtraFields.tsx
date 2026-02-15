@@ -1,4 +1,5 @@
 import { AAPResourcePicker } from '../Scaffolder/AAResourcePicker/AAPResourcePicker';
+import { SCMResourcePicker } from '../Scaffolder/SCMResourcePicker/SCMResourcePicker';
 import { AAPTokenField } from '../Scaffolder/AAPTokenField/AAPTokenFieldExtension';
 import { BaseImagePickerExtension } from '../Scaffolder/BaseImagePicker/BaseImagePickerExtension';
 import { CollectionsPickerExtension } from '../Scaffolder/CollectionsPicker/CollectionsPickerExtension';
@@ -35,6 +36,7 @@ import {
 
 export const formExtraFields = [
   { name: 'AAPResourcePicker', component: AAPResourcePicker },
+  { name: 'SCMResourcePicker', component: SCMResourcePicker },
   { name: 'AAPTokenField', component: AAPTokenField },
   { name: 'BaseImagePicker', component: BaseImagePickerExtension },
   { name: 'CollectionsPicker', component: CollectionsPickerExtension },
