@@ -7,6 +7,7 @@
  */
 
 import { createBackend } from '@backstage/backend-defaults';
+import { integrationAwareUrlReaderFactory } from '@ansible/plugin-scaffolder-backend-module-backstage-rhaap';
 
 const backend = createBackend();
 
@@ -63,4 +64,9 @@ backend.add(import('@ansible/backstage-plugin-catalog-backend-module-rhaap'));
 backend.add(
   import('@ansible/plugin-scaffolder-backend-module-backstage-rhaap'),
 );
+
+// Integration-aware URL reader: automatically allows reading from all configured
+// SCM hosts (GitHub, GitLab, Bitbucket, Azure) without manual backend.reading.allow config
+backend.add(integrationAwareUrlReaderFactory);
+
 backend.start();
