@@ -20,7 +20,13 @@ export interface Config {
             };
             pahCollections: {
               enabled: boolean;
-              repositories: Array<string>;
+              repositories: Array<{
+                /** Name of the PAH repository to sync collections from */
+                name: string;
+                /** Optional repository-specific schedule. Falls back to top-level schedule if not provided */
+                schedule?: SchedulerServiceTaskScheduleDefinitionConfig;
+              }>;
+              /** Default schedule for all repositories that don't have their own schedule */
               schedule?: SchedulerServiceTaskScheduleDefinitionConfig;
             };
           };

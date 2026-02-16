@@ -92,6 +92,30 @@ describe('pahCollectionParser', () => {
     });
   });
 
+  describe('metadata.tags', () => {
+    it('should include collection tags in metadata for UI display', () => {
+      const tags = ['networking', 'cloud', 'aws'];
+      const collection = createMockCollection({ tags });
+      const entity = pahCollectionParser({ collection, baseUrl });
+
+      expect(entity.metadata.tags).toEqual(tags);
+    });
+
+    it('should use empty array for tags when null', () => {
+      const collection = createMockCollection({ tags: null });
+      const entity = pahCollectionParser({ collection, baseUrl });
+
+      expect(entity.metadata.tags).toEqual([]);
+    });
+
+    it('should preserve default tags from mock collection', () => {
+      const collection = createMockCollection();
+      const entity = pahCollectionParser({ collection, baseUrl });
+
+      expect(entity.metadata.tags).toEqual(['linux', 'posix', 'system']);
+    });
+  });
+
   describe('metadata.annotations', () => {
     it('should generate correct source URL', () => {
       const collection = createMockCollection();
@@ -232,21 +256,6 @@ describe('pahCollectionParser', () => {
       const entity = pahCollectionParser({ collection, baseUrl });
 
       expect(entity.spec!.collection_dependencies).toBeNull();
-    });
-
-    it('should include collection tags in spec', () => {
-      const tags = ['networking', 'cloud', 'aws'];
-      const collection = createMockCollection({ tags });
-      const entity = pahCollectionParser({ collection, baseUrl });
-
-      expect(entity.spec!.collection_tags).toEqual(tags);
-    });
-
-    it('should use empty array for tags when null', () => {
-      const collection = createMockCollection({ tags: null });
-      const entity = pahCollectionParser({ collection, baseUrl });
-
-      expect(entity.spec!.collection_tags).toEqual([]);
     });
 
     it('should include collection authors in spec', () => {

@@ -29,6 +29,9 @@ export const pahCollectionParser = (options: {
         options.collection.description ??
         `Ansible Collection: ${options.collection.namespace}.${options.collection.name}`,
 
+      // Tags displayed in the Backstage UI tags column
+      tags: options.collection.tags || [],
+
       annotations: {
         'backstage.io/source-url': `${collectionBaseUrl}/details?version=${options.collection.version}`,
         'backstage.io/view-url': `${collectionBaseUrl}/documentation?version=${options.collection.version}`,
@@ -55,7 +58,6 @@ export const pahCollectionParser = (options: {
       collection_description:
         options.collection.description ??
         `Ansible Collection: ${options.collection.namespace}.${options.collection.name}`,
-      collection_tags: options.collection.tags || [],
       collection_authors: options.collection.authors || [],
       collection_readme_html: options.collection.collection_readme_html || '',
     },
