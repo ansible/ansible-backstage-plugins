@@ -226,7 +226,9 @@ export class GithubClient extends BaseScmClient {
 
       const encodedPath = path ? encodeURIComponent(path) : '';
       const endpoint = encodedPath
-        ? `/repos/${repo.fullPath}/contents/${encodedPath}?ref=${encodeURIComponent(ref)}`
+        ? `/repos/${
+            repo.fullPath
+          }/contents/${encodedPath}?ref=${encodeURIComponent(ref)}`
         : `/repos/${repo.fullPath}/contents?ref=${encodeURIComponent(ref)}`;
 
       const data = await this.fetchRest<ContentResponse[]>(endpoint);
@@ -250,7 +252,9 @@ export class GithubClient extends BaseScmClient {
     path: string,
   ): Promise<string> {
     const response = await fetch(
-      `${this.apiUrl}/repos/${repo.fullPath}/contents/${encodeURIComponent(path)}?ref=${encodeURIComponent(ref)}`,
+      `${this.apiUrl}/repos/${repo.fullPath}/contents/${encodeURIComponent(
+        path,
+      )}?ref=${encodeURIComponent(ref)}`,
       {
         headers: {
           Authorization: `Bearer ${this.config.token}`,

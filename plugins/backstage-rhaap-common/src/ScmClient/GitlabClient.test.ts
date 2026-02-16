@@ -482,7 +482,9 @@ describe('GitlabClient', () => {
     });
 
     it('should fetch contents at a specific path', async () => {
-      const mockTree = [{ name: 'index.ts', path: 'src/index.ts', type: 'blob' }];
+      const mockTree = [
+        { name: 'index.ts', path: 'src/index.ts', type: 'blob' },
+      ];
 
       mockFetch.mockResolvedValueOnce({
         ok: true,
@@ -549,7 +551,11 @@ describe('GitlabClient', () => {
         text: () => Promise.resolve('Not Found'),
       });
 
-      const contents = await client.getContents(mockRepo, 'main', 'nonexistent');
+      const contents = await client.getContents(
+        mockRepo,
+        'main',
+        'nonexistent',
+      );
 
       expect(contents).toEqual([]);
       expect(mockLogger.warn).toHaveBeenCalled();
@@ -595,7 +601,11 @@ describe('GitlabClient', () => {
         text: () => Promise.resolve('content'),
       });
 
-      await client.getFileContent(mockRepo, 'main', 'src/components/Button.tsx');
+      await client.getFileContent(
+        mockRepo,
+        'main',
+        'src/components/Button.tsx',
+      );
 
       expect(mockFetch).toHaveBeenCalledWith(
         expect.stringContaining(
@@ -708,7 +718,11 @@ describe('GitlabClient', () => {
     });
 
     it('should build source location for root file', () => {
-      const location = client.buildSourceLocation(mockRepo, 'main', 'README.md');
+      const location = client.buildSourceLocation(
+        mockRepo,
+        'main',
+        'README.md',
+      );
 
       expect(location).toBe(
         'url:https://gitlab.com/test-group/test-project/-/tree/main',

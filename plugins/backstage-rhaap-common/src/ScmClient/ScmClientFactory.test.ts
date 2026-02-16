@@ -109,7 +109,9 @@ describe('ScmClientFactory', () => {
           organization: 'test-org',
         });
 
-        expect(mockIntegrations.github.byHost).toHaveBeenCalledWith('github.com');
+        expect(mockIntegrations.github.byHost).toHaveBeenCalledWith(
+          'github.com',
+        );
       });
 
       it('should throw error when GitHub integration not found', async () => {
@@ -192,7 +194,9 @@ describe('ScmClientFactory', () => {
           organization: 'test-group',
         });
 
-        expect(mockIntegrations.gitlab.byHost).toHaveBeenCalledWith('gitlab.com');
+        expect(mockIntegrations.gitlab.byHost).toHaveBeenCalledWith(
+          'gitlab.com',
+        );
       });
 
       it('should throw error when GitLab integration not found', async () => {

@@ -523,7 +523,11 @@ describe('GithubClient', () => {
         text: () => Promise.resolve('Not Found'),
       });
 
-      const contents = await client.getContents(mockRepo, 'main', 'nonexistent');
+      const contents = await client.getContents(
+        mockRepo,
+        'main',
+        'nonexistent',
+      );
 
       expect(contents).toEqual([]);
       expect(mockLogger.debug).toHaveBeenCalled();
@@ -662,7 +666,11 @@ describe('GithubClient', () => {
     });
 
     it('should build source location for root file', () => {
-      const location = client.buildSourceLocation(mockRepo, 'main', 'README.md');
+      const location = client.buildSourceLocation(
+        mockRepo,
+        'main',
+        'README.md',
+      );
 
       expect(location).toBe(
         'url:https://github.com/test-org/test-repo/tree/main',
