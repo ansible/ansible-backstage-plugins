@@ -49,7 +49,8 @@ backend:
     credentials: true
   database:
     client: better-sqlite3
-    connection: ':memory:'
+    connection:
+      directory: ./.backstage-db
   # workingDirectory: /tmp # Use this to configure a working directory for the scaffolder, defaults to the OS temp-dir
   reading:
     allow:
@@ -77,6 +78,9 @@ techdocs:
 enableExperimentalRedirectFlow: true
 signInPage: rhaap
 auth:
+  # Session storage for OAuth tokens (required for RBAC permission checks)
+  session:
+    secret: ${AUTH_SESSION_SECRET:-development-session-secret-change-in-production}
   # Omit group memberships from JWT tokens to prevent token size issues
   # Group memberships will be fetched via /v1/userinfo endpoint instead
   omitIdentityTokenOwnershipClaim: true
