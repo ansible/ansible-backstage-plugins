@@ -1,5 +1,6 @@
 import {
   identityApiRef,
+  configApiRef,
   errorApiRef,
   useApi,
 } from '@backstage/core-plugin-api';
@@ -10,6 +11,7 @@ export const AAPLogoutButton = () => {
   const identityApi = useApi(identityApiRef);
   const errorApi = useApi(errorApiRef);
   const rhAapAuthApi = useApi(rhAapAuthApiRef);
+  const config = useApi(configApiRef);
 
   const handleLogout = async () => {
     try {
@@ -20,7 +22,18 @@ export const AAPLogoutButton = () => {
     }
 
     // Sign out from primary identity provider
+    // This clears the local Backstage session state
     identityApi.signOut().catch(error => errorApi.post(error));
+
+    // Redirect to AAP logout to end the AAP browser session.
+    // This must be a top-level navigation so the browser sends the
+    // gateway_sessionid cookie (SameSite=Lax).
+    const aapHost = config
+      .getOptionalString('ansible.rhaap.baseUrl')
+      ?.replace(/\/+$/, '');
+    if (aapHost) {
+      window.location.href = `${aapHost}/api/gateway/v1/logout/`;
+    }
   };
 
   return <MenuItem onClick={handleLogout}>Sign out</MenuItem>;

@@ -32,10 +32,12 @@ jest.mock('@ansible/plugin-backstage-self-service', () => ({
 jest.mock('@backstage/core-plugin-api', () => ({
   __esModule: true,
   identityApiRef: Symbol('identityApiRef'),
+  configApiRef: Symbol('configApiRef'),
   errorApiRef: Symbol('errorApiRef'),
   useApi: () => ({
     signOut: mockSignOut,
     post: mockErrorPost,
+    getOptionalString: jest.fn().mockReturnValue(undefined),
   }),
 }));
 

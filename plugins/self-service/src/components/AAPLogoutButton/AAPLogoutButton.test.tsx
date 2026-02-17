@@ -1,7 +1,11 @@
 import { screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { renderInTestApp, TestApiProvider } from '@backstage/test-utils';
-import { identityApiRef, errorApiRef } from '@backstage/core-plugin-api';
+import {
+  identityApiRef,
+  configApiRef,
+  errorApiRef,
+} from '@backstage/core-plugin-api';
 import { rhAapAuthApiRef } from '../../apis';
 import { AAPLogoutButton } from './AAPLogoutButton';
 
@@ -16,6 +20,25 @@ describe('AAPLogoutButton', () => {
   const mockErrorApi = {
     post: jest.fn(),
     error$: jest.fn(),
+  };
+
+  const mockConfigApi = {
+    getOptionalString: jest.fn().mockReturnValue('https://aap.example.com'),
+    has: jest.fn(),
+    keys: jest.fn(),
+    get: jest.fn(),
+    getBoolean: jest.fn(),
+    getConfig: jest.fn(),
+    getConfigArray: jest.fn(),
+    getNumber: jest.fn(),
+    getOptional: jest.fn(),
+    getOptionalBoolean: jest.fn(),
+    getOptionalConfig: jest.fn(),
+    getOptionalConfigArray: jest.fn(),
+    getOptionalNumber: jest.fn(),
+    getOptionalStringArray: jest.fn(),
+    getString: jest.fn(),
+    getStringArray: jest.fn(),
   };
 
   const mockRhAapAuthApi = {
@@ -34,6 +57,7 @@ describe('AAPLogoutButton', () => {
       <TestApiProvider
         apis={[
           [identityApiRef, mockIdentityApi],
+          [configApiRef, mockConfigApi],
           [errorApiRef, mockErrorApi],
           [rhAapAuthApiRef, mockRhAapAuthApi],
         ]}
@@ -45,6 +69,8 @@ describe('AAPLogoutButton', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
+    delete (window as any).location;
+    (window as any).location = { href: '', origin: 'http://localhost:3000' };
   });
 
   it('should render sign out menu item', async () => {
@@ -87,5 +113,30 @@ describe('AAPLogoutButton', () => {
     await waitFor(() => {
       expect(mockErrorApi.post).toHaveBeenCalledWith(signOutError);
     });
+  });
+
+  it('should redirect to AAP logout endpoint to end browser session', async () => {
+    await renderComponent();
+
+    await userEvent.click(screen.getByText('Sign out'));
+
+    await waitFor(() => {
+      expect(window.location.href).toBe(
+        'https://aap.example.com/api/gateway/v1/logout/',
+      );
+    });
+  });
+
+  it('should skip AAP redirect when baseUrl is not configured', async () => {
+    mockConfigApi.getOptionalString.mockReturnValueOnce(undefined);
+
+    await renderComponent();
+
+    await userEvent.click(screen.getByText('Sign out'));
+
+    await waitFor(() => {
+      expect(mockIdentityApi.signOut).toHaveBeenCalled();
+    });
+    expect(window.location.href).toBe('');
   });
 });
