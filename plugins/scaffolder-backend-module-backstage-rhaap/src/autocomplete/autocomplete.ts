@@ -36,6 +36,25 @@ export async function handleAutocompleteRequest({
     };
   }
 
+  // Return all configured SCM integrations (GitHub and GitLab hosts)
+  if (resource === 'scm_integrations') {
+    const results = [
+      ...(ansibleConfig.githubIntegrations || []).map((cfg, idx) => ({
+        id: `github-${idx}`,
+        host: cfg.host,
+        type: 'github',
+        name: cfg.host,
+      })),
+      ...(ansibleConfig.gitlabIntegrations || []).map((cfg, idx) => ({
+        id: `gitlab-${idx}`,
+        host: cfg.host,
+        type: 'gitlab',
+        name: cfg.host,
+      })),
+    ];
+    return { results };
+  }
+
   await ansibleService.setLogger(logger);
   const data = await ansibleService.getResourceData(resource, token);
   return { results: data.results };
