@@ -54,6 +54,7 @@ export interface IAAPService extends Pick<
   | 'getJobTemplatesByName'
   | 'setLogger'
   | 'rhAAPAuthenticate'
+  | 'rhAAPRevokeToken'
   | 'fetchProfile'
   | 'getOrganizations'
   | 'listSystemUsers'
@@ -917,6 +918,43 @@ export class AAPClient implements IAAPService {
         refreshToken: jsonResponse.refresh_token,
       },
     } as OAuthAuthenticatorResult<PassportProfile>;
+  }
+
+  /**
+   * Revokes an OAuth token from the Red Hat Ansible Automation Platform (RH AAP).
+   *
+   * @param options - The revocation options.
+   * @param options.clientId - The OAuth client ID.
+   * @param options.clientSecret - The OAuth client secret.
+   * @param options.token - The token to revoke (access or refresh token).
+   */
+  public async rhAAPRevokeToken(options: {
+    clientId: string;
+    clientSecret: string;
+    token: string;
+  }): Promise<void> {
+    const endPoint = 'o/revoke_token/';
+    const data = new URLSearchParams();
+    data.append('token', options.token);
+    data.append('client_id', options.clientId);
+    data.append('client_secret', options.clientSecret);
+
+    this.logger.info(
+      `[${this.pluginLogName}]: Revoking token from RH AAP at ${this.ansibleConfig.rhaap?.baseUrl}/${endPoint}.`,
+    );
+
+    const response = await this.executePostRequest(
+      endPoint,
+      undefined,
+      data,
+      true,
+    );
+
+    if (!response.ok) {
+      this.logger.warn(
+        `[${this.pluginLogName}]: Failed to revoke AAP token: ${response.status}`,
+      );
+    }
   }
 
   /**
