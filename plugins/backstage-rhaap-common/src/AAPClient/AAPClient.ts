@@ -1255,10 +1255,10 @@ export class AAPClient implements IAAPService {
     const repository = annotations['ansible.io/scm-repository'];
 
     // Check if it's PAH (Private Automation Hub)
-    if (!scmProvider || annotations['ansible.io/source-type'] === 'pah') {
-      // PAH format: "Private Automation Hub / repository name"
+    if (annotations['ansible.io/collection-source'] === 'pah') {
       const repoName =
-        repository || annotations['ansible.io/pah-repository'] || 'unknown';
+        annotations['ansible.io/collection-source-repository'] || 'unknown';
+    
       return `Private Automation Hub / ${repoName}`;
     }
     // SCM format: "Provider / host (canonical name) / organization / repository"
