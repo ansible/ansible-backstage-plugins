@@ -159,7 +159,7 @@ export const CollectionsPickerExtension = ({
           resource: 'collections',
           provider: 'aap-api-cloud',
           context: {
-            searchQuery: 'kind=Component,spec.type=ansible-collection',
+            searchQuery: 'spec.type=ansible-collection',
           },
         });
 
