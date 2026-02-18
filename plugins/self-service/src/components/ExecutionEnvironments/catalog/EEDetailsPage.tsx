@@ -4,7 +4,6 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { useEffect, useState, useCallback } from 'react';
 import {
   catalogApiRef,
-  InspectEntityDialog,
   UnregisterEntityDialog,
 } from '@backstage/plugin-catalog-react';
 import {
@@ -167,17 +166,7 @@ export const EEDetailsPage: React.FC = () => {
     // else alert('TechDocs not available for this template');
   };
 
-  const handleCopyUrl = () => {
-    const currentUrl = window.location.href;
-    navigator.clipboard.writeText(currentUrl);
-  };
-
   const handleMenuClick = (id: string) => {
-    if (id === '3') {
-      handleCopyUrl();
-      handleMenuClose();
-      return;
-    }
     setMenuId(id);
     handleMenuClose();
   };
@@ -284,17 +273,6 @@ export const EEDetailsPage: React.FC = () => {
           onClose={() => {
             setMenuId('');
           }}
-        />
-      )}
-
-      {entity && (
-        <InspectEntityDialog
-          open={menuid === '2'}
-          entity={entity}
-          onClose={() => {
-            setMenuId('');
-          }}
-          initialTab="overview"
         />
       )}
 

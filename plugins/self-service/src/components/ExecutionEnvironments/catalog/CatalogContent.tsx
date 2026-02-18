@@ -539,7 +539,6 @@ export const EEListPage = ({
                 options={{
                   search: true,
                   rowStyle: { cursor: 'default' },
-                  // sorting: true,
                 }}
                 columns={columns}
                 data={ansibleComponents || []}

@@ -8,3 +8,4 @@ export * from './FileUploadPicker';
 export * from './MCPServersPicker';
 export * from './PackagesPicker';
 export * from './utils';
+export * from './EETagsPicker';

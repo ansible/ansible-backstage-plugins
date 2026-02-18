@@ -181,7 +181,7 @@ export const HomeComponent = () => {
   const fetchSyncStatus = useCallback(async () => {
     try {
       const status = await ansibleApi.getSyncStatus();
-      setSyncStatus(status);
+      setSyncStatus(status.aap);
     } catch {
       // Silently handle sync status fetch errors
       // The dialog will show "Never synced" as fallback

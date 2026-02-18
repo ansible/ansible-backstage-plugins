@@ -1,8 +1,6 @@
 import { MenuItem, Popover, Typography, ListItemIcon } from '@material-ui/core';
 import { makeStyles } from '@material-ui/core/styles';
 import CancelIcon from '@material-ui/icons/Cancel';
-import BugReportIcon from '@material-ui/icons/BugReport';
-import FileCopyIcon from '@material-ui/icons/FileCopy';
 
 const useStyles = makeStyles(theme => ({
   menuPaper: {
@@ -36,16 +34,6 @@ export const MenuPopover: React.FC<MenuPopoverProps> = ({
       title: 'Unregister entity',
       id: '1',
       icon: <CancelIcon fontSize="small" />,
-    },
-    {
-      title: 'Inspect entity',
-      id: '2',
-      icon: <BugReportIcon fontSize="small" />,
-    },
-    {
-      title: 'Copy entity URL',
-      id: '3',
-      icon: <FileCopyIcon fontSize="small" />,
     },
   ];
 

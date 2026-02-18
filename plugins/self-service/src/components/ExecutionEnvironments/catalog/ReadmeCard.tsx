@@ -18,7 +18,6 @@ const useStyles = makeStyles(() => ({
     },
   },
   markdownScroll: {
-    maxWidth: '60vw',
     maxHeight: '60vh',
     overflowY: 'auto',
     minHeight: 0,

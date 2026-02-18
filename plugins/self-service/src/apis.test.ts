@@ -112,8 +112,10 @@ describe('Ansible API module', () => {
     const mockFetch = {
       fetch: jest.fn().mockResolvedValue({
         json: jest.fn().mockResolvedValue({
-          orgsUsersTeams: { lastSync: '2024-01-15T10:00:00Z' },
-          jobTemplates: { lastSync: '2024-01-15T11:00:00Z' },
+          aap: {
+            orgsUsersTeams: { lastSync: '2024-01-15T10:00:00Z' },
+            jobTemplates: { lastSync: '2024-01-15T11:00:00Z' },
+          },
         }),
       }),
     };
@@ -127,11 +129,13 @@ describe('Ansible API module', () => {
 
     expect(mockDiscovery.getBaseUrl).toHaveBeenCalledWith('catalog');
     expect(mockFetch.fetch).toHaveBeenCalledWith(
-      'http://example.com/aap/sync_status',
+      'http://example.com/aap/sync_status?aap_entities=true',
     );
     expect(result).toEqual({
-      orgsUsersTeams: { lastSync: '2024-01-15T10:00:00Z' },
-      jobTemplates: { lastSync: '2024-01-15T11:00:00Z' },
+      aap: {
+        orgsUsersTeams: { lastSync: '2024-01-15T10:00:00Z' },
+        jobTemplates: { lastSync: '2024-01-15T11:00:00Z' },
+      },
     });
   });
 
@@ -152,11 +156,13 @@ describe('Ansible API module', () => {
 
     expect(mockDiscovery.getBaseUrl).toHaveBeenCalledWith('catalog');
     expect(mockFetch.fetch).toHaveBeenCalledWith(
-      'http://example.com/aap/sync_status',
+      'http://example.com/aap/sync_status?aap_entities=true',
     );
     expect(result).toEqual({
-      orgsUsersTeams: { lastSync: null },
-      jobTemplates: { lastSync: null },
+      aap: {
+        orgsUsersTeams: { lastSync: null },
+        jobTemplates: { lastSync: null },
+      },
     });
   });
 

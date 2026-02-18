@@ -273,23 +273,18 @@ yarn build:all       # Ensure build succeeds
 4. **Approval**: Maintainer approves PR
 5. **Merge**: Maintainer merges using squash or merge commit
 
-### Safe to Test Workflow (External Contributors)
+### Workflow Approval for Pull Requests
 
-For security reasons, workflows that require access to repository secrets use a "safe to test" label gate. This prevents potentially malicious code from being executed with elevated permissions.
+For security reasons, workflows that require access to repository secrets (such as SonarCloud analysis) use GitHub Environment protection. This prevents potentially malicious code from being executed with elevated permissions.
 
-**For repository collaborators (write/maintain/admin access):**
+**How it works:**
 
-- The "safe to test" label is automatically added to your PRs
-- CI workflows run immediately without manual intervention
+1. Submit your PR - privileged workflows will pause and wait for approval
+2. A maintainer will review your PR code for security concerns
+3. Once reviewed, a maintainer approves the workflow run in the GitHub Actions UI
+4. The workflow proceeds with access to secrets
 
-**For external contributors (fork PRs):**
-
-1. Submit your PR - the authorization check will initially fail
-2. Wait for a maintainer to review your PR code for security
-3. Once reviewed, a maintainer will add the "safe to test" label
-4. CI workflows will then run on your PR
-
-**Important:** If you push new commits to your PR after receiving the "safe to test" label, the label will be automatically removed and you'll need to wait for maintainer re-approval. This prevents malicious code from being added after initial review.
+**Note:** Each time you push new commits to your PR, the workflow will require re-approval. This ensures that any new code changes are reviewed before running with elevated permissions.
 
 ## Issue Reporting
 

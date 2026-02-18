@@ -4,7 +4,6 @@ on:
   pull_request_target:
     branches:
       - main
-    types: [opened, synchronize, reopened, labeled]
   push:
     branches:
       - main
@@ -15,28 +14,15 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  # SECURITY: Gate for pull_request_target to prevent pwn requests
-  # https://securitylab.github.com/resources/github-actions-preventing-pwn-requests/
-  authorize:
-    name: Authorize
-    # Skip for patchback PRs (automated backports of already-tested code)
-    if: |
-      github.event_name == 'pull_request_target' &&
-      !startsWith(github.event.pull_request.head.ref, 'patchback/backports/')
-    uses: ./.github/workflows/safe-to-test.yml
-    secrets: inherit
-
   sonarcloud:
     name: SonarCloud Analysis
     runs-on: ubuntu-latest
-    needs: [authorize]
-    # For PRs: require authorization. For push/dispatch: run directly
+    # SECURITY: Require environment approval for pull_request_target to prevent pwn requests
+    # https://securitylab.github.com/resources/github-actions-preventing-pwn-requests/
+    # The 'sonarcloud-analysis' environment must be created in repo settings with required reviewers
+    environment: ${{ github.event_name == 'pull_request_target' && 'sonarcloud-analysis' || '' }}
     # Skip for patchback PRs (automated backports of already-tested code)
-    if: |
-      always() &&
-      !startsWith(github.event.pull_request.head.ref, 'patchback/backports/') &&
-      (github.event_name == 'push' || github.event_name == 'workflow_dispatch' ||
-       (github.event_name == 'pull_request_target' && needs.authorize.outputs.is_authorized == 'true'))
+    if: "!startsWith(github.event.pull_request.head.ref, 'patchback/backports/')"
     permissions:
       actions: read
       contents: read
