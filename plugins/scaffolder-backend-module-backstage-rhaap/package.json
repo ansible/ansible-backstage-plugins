@@ -23,7 +23,8 @@
     "clean": "backstage-cli package clean",
     "prepack": "backstage-cli package prepack",
     "postpack": "backstage-cli package postpack",
-    "fix": "backstage-cli repo fix --publish"
+    "fix": "backstage-cli repo fix --publish",
+    "export-dynamic": "rhdh-cli plugin export --embed-package @ansible/backstage-rhaap-common"
   },
   "dependencies": {
     "@ansible/backstage-rhaap-common": "workspace:^",
