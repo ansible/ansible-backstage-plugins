@@ -25,7 +25,7 @@
     "prepack": "backstage-cli package prepack",
     "postpack": "backstage-cli package postpack",
     "fix": "backstage-cli repo fix --publish",
-    "export-dynamic": "janus-cli package export-dynamic-plugin --embed-package @ansible/backstage-rhaap-common"
+    "export-dynamic": "rhdh-cli plugin export --embed-package @ansible/backstage-rhaap-common"
   },
   "dependencies": {
     "@ansible/backstage-rhaap-common": "workspace:^",
@@ -44,7 +44,6 @@
     "@backstage/backend-defaults": "^0.11.1",
     "@backstage/backend-test-utils": "^1.5.0",
     "@backstage/cli": "^0.33.1",
-    "@janus-idp/cli": "^3.6.1",
     "@types/jest": "^29.5.14",
     "@types/node": "^22.13.4",
     "@types/passport-oauth2": "^1.4.17",
