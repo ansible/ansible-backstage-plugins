@@ -1,6 +1,5 @@
 import { LoggerService } from '@backstage/backend-plugin-api';
 import { Config } from '@backstage/config';
-
 import * as YAML from 'yaml';
 import { Agent, fetch } from 'undici';
 import {
@@ -26,43 +25,45 @@ import {
   User,
   Users,
   CatalogConfig,
+  Collections,
 } from '../types';
 import { IJobTemplate, ISurvey, InstanceGroup } from '../interfaces';
-
 import { getAnsibleConfig, getCatalogConfig } from './utils/config';
 
-export interface IAAPService extends Pick<
-  AAPClient,
-  | 'executePostRequest'
-  | 'executeGetRequest'
-  | 'executeDeleteRequest'
-  | 'getProject'
-  | 'deleteProject'
-  | 'deleteProjectIfExists'
-  | 'createProject'
-  | 'deleteExecutionEnvironmentExists'
-  | 'createExecutionEnvironment'
-  | 'deleteExecutionEnvironment'
-  | 'deleteJobTemplate'
-  | 'deleteJobTemplateIfExists'
-  | 'createJobTemplate'
-  | 'fetchEvents'
-  | 'fetchResult'
-  | 'launchJobTemplate'
-  | 'cleanUp'
-  | 'getResourceData'
-  | 'getJobTemplatesByName'
-  | 'setLogger'
-  | 'rhAAPAuthenticate'
-  | 'fetchProfile'
-  | 'getOrganizations'
-  | 'listSystemUsers'
-  | 'getTeamsByUserId'
-  | 'getUserRoleAssignments'
-  | 'syncJobTemplates'
-  | 'getOrgsByUserId'
-  | 'getUserInfoById'
-> {}
+export interface IAAPService
+  extends Pick<
+    AAPClient,
+    | 'executePostRequest'
+    | 'executeGetRequest'
+    | 'executeDeleteRequest'
+    | 'getProject'
+    | 'deleteProject'
+    | 'deleteProjectIfExists'
+    | 'createProject'
+    | 'deleteExecutionEnvironmentExists'
+    | 'createExecutionEnvironment'
+    | 'deleteExecutionEnvironment'
+    | 'deleteJobTemplate'
+    | 'deleteJobTemplateIfExists'
+    | 'createJobTemplate'
+    | 'fetchEvents'
+    | 'fetchResult'
+    | 'launchJobTemplate'
+    | 'cleanUp'
+    | 'getResourceData'
+    | 'getJobTemplatesByName'
+    | 'setLogger'
+    | 'rhAAPAuthenticate'
+    | 'fetchProfile'
+    | 'getOrganizations'
+    | 'listSystemUsers'
+    | 'getTeamsByUserId'
+    | 'getUserRoleAssignments'
+    | 'syncJobTemplates'
+    | 'getOrgsByUserId'
+    | 'getUserInfoById'
+    | 'getCollections'
+  > {}
 
 export class AAPClient implements IAAPService {
   static readonly pluginLogName = 'backstage-rhaap-common';
@@ -1188,6 +1189,86 @@ export class AAPClient implements IAAPService {
         name: org.name,
         groupName: this.formatNameSpace(org.name),
       }));
+  }
+
+  public async getCollections(
+    searchQuery: string,
+    token: string,
+  ): Promise<Collections[]> {
+    const endPoint = `/api/catalog/entities?filter=${searchQuery}`;
+    const data = await this.executeGetRequest(endPoint, token);
+    const collections = await data.json();
+    const collectionData = this.buildCollections(collections);
+    return collectionData;
+  }
+
+  public buildCollections(entities: any[]): Collections[] {
+    const map = new Map<string, Collections>();
+
+    for (const item of entities) {
+      const name =
+        item.spec?.collection_full_name ??
+        `${item.spec?.collection_namespace}.${item.spec?.collection_name}`;
+
+      if (!name) continue;
+
+      const version = item.spec?.collection_version;
+      const annotations = item.metadata?.annotations || {};
+
+      // Build source string in required format
+      const source = this.formatSource(annotations);
+
+      if (!map.has(name)) {
+        map.set(name, {
+          name,
+          versions: [],
+          sources: [],
+          sourceVersions: {},
+        });
+      }
+
+      const collection = map.get(name)!;
+
+      if (version && !collection.versions!.includes(version)) {
+        collection.versions!.push(version);
+      }
+      if (source) {
+        if (!collection.sourceVersions![source]) {
+          collection.sourceVersions![source] = [];
+        }
+        if (version && !collection.sourceVersions![source].includes(version)) {
+          collection.sourceVersions![source].push(version);
+        }
+
+        if (!collection.sources!.includes(source)) {
+          collection.sources!.push(source);
+        }
+      }
+    }
+
+    return Array.from(map.values());
+  }
+  private formatSource(annotations: Record<string, string>): string | null {
+    const scmProvider = annotations['ansible.io/scm-provider'];
+    const hostName = annotations['ansible.io/scm-host-name'];
+    const organization = annotations['ansible.io/scm-organization'];
+    const repository = annotations['ansible.io/scm-repository'];
+
+    // Check if it's PAH (Private Automation Hub)
+    if (!scmProvider || annotations['ansible.io/source-type'] === 'pah') {
+      // PAH format: "Private Automation Hub / repository name"
+      const repoName =
+        repository || annotations['ansible.io/pah-repository'] || 'unknown';
+      return `Private Automation Hub / ${repoName}`;
+    }
+    // SCM format: "Provider / host (canonical name) / organization / repository"
+    if (scmProvider && hostName && organization && repository) {
+      const providerName =
+        scmProvider.charAt(0).toUpperCase() + scmProvider.slice(1);
+      return `${providerName} / ${hostName} / ${organization} / ${repository}`;
+    }
+
+    return null;
   }
 
   public async getUserInfoById(userID: number): Promise<User> {

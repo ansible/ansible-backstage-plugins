@@ -35,7 +35,14 @@ export async function handleAutocompleteRequest({
       results: [{ id: 1, name: ansibleConfig.rhaap?.baseUrl }],
     };
   }
-
+  if (resource === 'collections') {
+    return {
+      results: await ansibleService.getCollections(
+        context?.searchQuery || '',
+        token,
+      ),
+    };
+  }
   await ansibleService.setLogger(logger);
   const data = await ansibleService.getResourceData(resource, token);
   return { results: data.results };

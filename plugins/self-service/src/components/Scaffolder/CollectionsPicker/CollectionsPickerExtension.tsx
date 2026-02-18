@@ -113,13 +113,12 @@ export const CollectionsPickerExtension = ({
   disabled,
   rawErrors = [],
   schema,
-  uiSchema,
   formData,
 }: FieldExtensionComponentProps<CollectionItem[]>) => {
   const classes = useStyles();
   const theme = useTheme();
 
-  const [collections, setCollections] = useState<CollectionItem[]>(
+  const [collections, setCollections] = useState<CollectionItem[] | any[]>(
     formData || [],
   );
   const [editingIndex, setEditingIndex] = useState<number | null>(null);
@@ -134,7 +133,9 @@ export const CollectionsPickerExtension = ({
   const [loadingVersions, setLoadingVersions] = useState(false);
 
   // Form state
-  const [selectedCollection, setSelectedCollection] = useState<string | null>(null);
+  const [selectedCollection, setSelectedCollection] = useState<string | null>(
+    null,
+  );
   const [selectedSource, setSelectedSource] = useState<string | null>(null);
   const [selectedVersion, setSelectedVersion] = useState<string | null>(null);
   const [signatures, setSignatures] = useState<string[]>(['']);
@@ -157,9 +158,15 @@ export const CollectionsPickerExtension = ({
           token,
           resource: 'collections',
           provider: 'aap-api-cloud',
-          context: {},
+          context: {
+            searchQuery: 'kind=Component,spec.type=ansible-collection',
+          },
         });
-        setAvailableCollections(results || []);
+
+        // Process results to extract unique collections with their versions and sources
+        const processedCollections = results || [];
+        setAvailableCollections(processedCollections);
+        console.log('collections', processedCollections);
       }
     } catch (error) {
       console.error('Error fetching collections:', error);
@@ -170,57 +177,117 @@ export const CollectionsPickerExtension = ({
   }, [aapAuth, scaffolderApi]);
 
   // Fetch sources when collection is selected
-  const fetchSources = useCallback(async (collectionName: string) => {
-    if (!collectionName) {
-      setAvailableSources([]);
-      return;
-    }
-    try {
-      setLoadingSources(true);
-      const token = await aapAuth.getAccessToken();
-      if (scaffolderApi.autocomplete) {
-        const { results } = await scaffolderApi.autocomplete({
-          token,
-          resource: 'collection_sources',
-          provider: 'aap-api-cloud',
-          context: { collection: collectionName },
-        });
-        setAvailableSources(results || []);
+  const fetchSources = useCallback(
+    async (collectionName: string) => {
+      if (!collectionName) {
+        setAvailableSources([]);
+        return;
       }
-    } catch (error) {
-      console.error('Error fetching sources:', error);
-      setAvailableSources([]);
-    } finally {
-      setLoadingSources(false);
-    }
-  }, [aapAuth, scaffolderApi]);
+
+      // Find the selected collection from availableCollections
+      const selectedCollection = availableCollections.find(
+        (col: any) => col.name === collectionName,
+      );
+
+      if (
+        selectedCollection &&
+        selectedCollection.sources &&
+        selectedCollection.sources.length > 0
+      ) {
+        // Use sources from the collection data
+        setAvailableSources(
+          selectedCollection.sources.map((source: string) => ({
+            name: source,
+            id: source,
+          })),
+        );
+      } else {
+        // Fallback to API call if sources not available
+        try {
+          setLoadingSources(true);
+          const token = await aapAuth.getAccessToken();
+          if (scaffolderApi.autocomplete) {
+            const { results } = await scaffolderApi.autocomplete({
+              token,
+              resource: 'collection_sources',
+              provider: 'aap-api-cloud',
+              context: { collection: collectionName },
+            });
+            setAvailableSources(results || []);
+          }
+        } catch (error) {
+          console.error('Error fetching sources:', error);
+          setAvailableSources([]);
+        } finally {
+          setLoadingSources(false);
+        }
+      }
+    },
+    [aapAuth, scaffolderApi, availableCollections],
+  );
 
   // Fetch versions when source is selected
-  const fetchVersions = useCallback(async (collectionName: string, sourceId: string) => {
-    if (!collectionName || !sourceId) {
-      setAvailableVersions([]);
-      return;
-    }
-    try {
-      setLoadingVersions(true);
-      const token = await aapAuth.getAccessToken();
-      if (scaffolderApi.autocomplete) {
-        const { results } = await scaffolderApi.autocomplete({
-          token,
-          resource: 'collection_versions',
-          provider: 'aap-api-cloud',
-          context: { collection: collectionName, source: sourceId },
-        });
-        setAvailableVersions(results || []);
+  const fetchVersions = useCallback(
+    async (collectionName: string, sourceId: string) => {
+      if (!collectionName || !sourceId) {
+        setAvailableVersions([]);
+        return;
       }
-    } catch (error) {
-      console.error('Error fetching versions:', error);
-      setAvailableVersions([]);
-    } finally {
-      setLoadingVersions(false);
-    }
-  }, [aapAuth, scaffolderApi]);
+      // Find the selected collection from availableCollections
+      const selectedCollection = availableCollections.find(
+        (col: any) => col.name === collectionName,
+      );
 
+      if (
+        selectedCollection &&
+        selectedCollection.sourceVersions &&
+        selectedCollection.sourceVersions[sourceId]
+      ) {
+        // Get versions for the specific source
+        const sourceVersions =
+          selectedCollection.sourceVersions[sourceId] || [];
+        setAvailableVersions(
+          sourceVersions.map((version: string) => ({
+            name: version,
+            version: version,
+          })),
+        );
+      } else if (
+        selectedCollection &&
+        selectedCollection.versions &&
+        selectedCollection.versions.length > 0
+      ) {
+        // Fallback: show all versions if source-version mapping not available
+        setAvailableVersions(
+          selectedCollection.versions.map((version: string) => ({
+            name: version,
+            version: version,
+          })),
+        );
+      } else {
+        // Fallback to API call
+        try {
+          setLoadingVersions(true);
+          const token = await aapAuth.getAccessToken();
+          if (scaffolderApi.autocomplete) {
+            const { results } = await scaffolderApi.autocomplete({
+              token,
+              resource: 'collection_versions',
+              provider: 'aap-api-cloud',
+              context: { collection: collectionName, source: sourceId },
+            });
+            setAvailableVersions(results || []);
+          }
+        } catch (error) {
+          console.error('Error fetching versions:', error);
+          setAvailableVersions([]);
+        } finally {
+          setLoadingVersions(false);
+        }
+      }
+    },
+    [aapAuth, scaffolderApi, availableCollections],
+  );
   useEffect(() => {
     if (formData !== undefined) {
       setCollections(formData);
@@ -236,7 +303,6 @@ export const CollectionsPickerExtension = ({
   useEffect(() => {
     if (selectedCollection) {
       fetchSources(selectedCollection);
-      // Reset source and version when collection changes
       setSelectedSource(null);
       setSelectedVersion(null);
       setAvailableVersions([]);
@@ -246,7 +312,6 @@ export const CollectionsPickerExtension = ({
     }
   }, [selectedCollection, fetchSources]);
 
-  // Load versions when source changes
   useEffect(() => {
     if (selectedCollection && selectedSource) {
       fetchVersions(selectedCollection, selectedSource);
@@ -256,31 +321,13 @@ export const CollectionsPickerExtension = ({
     }
   }, [selectedCollection, selectedSource, fetchVersions]);
 
-  const namePatternString = properties?.name?.pattern;
-  let collectionNamePattern: RegExp;
-  if (namePatternString) {
-    collectionNamePattern = new RegExp(namePatternString);
-  }
-
-  const validateCollection = (): string => {
-    if (!selectedCollection || !selectedCollection.trim()) {
-      return 'Collection is required';
-    }
-    if (collectionNamePattern && !collectionNamePattern.test(selectedCollection.trim())) {
-      return 'Collection name must be in namespace.collection format (e.g., community.general)';
-    }
-    return '';
-  };
-
   const handleAddCollection = () => {
-    const collectionError = validateCollection();
-    if (collectionError) {
-      setFieldErrors({ name: collectionError });
+    if (!selectedCollection || !selectedCollection.trim()) {
       return;
     }
 
     const collectionToAdd: CollectionItem = {
-      name: selectedCollection!.trim(),
+      name: selectedCollection.trim(),
     };
 
     if (selectedSource) {
@@ -291,23 +338,23 @@ export const CollectionsPickerExtension = ({
       collectionToAdd.version = selectedVersion;
     }
 
-    const validSignatures = signatures.filter(sig => sig.trim().length > 0);
-    if (validSignatures.length > 0) {
-      collectionToAdd.signatures = validSignatures;
-    }
+    // Check if collection already exists
+    const existingIndex = collections?.findIndex(
+      c => c.name === collectionToAdd.name,
+    );
 
     let updatedCollections: CollectionItem[];
-    if (editingIndex !== null) {
+
+    if (existingIndex !== -1) {
       updatedCollections = [...collections];
-      updatedCollections[editingIndex] = collectionToAdd;
+      updatedCollections[existingIndex] = collectionToAdd;
     } else {
       updatedCollections = [...collections, collectionToAdd];
     }
 
     setCollections(updatedCollections);
     onChange(updatedCollections);
-    
-    // Reset form
+
     setSelectedCollection(null);
     setSelectedSource(null);
     setSelectedVersion(null);
@@ -327,9 +374,11 @@ export const CollectionsPickerExtension = ({
     setSelectedCollection(collection.name || null);
     setSelectedSource(collection.source || null);
     setSelectedVersion(collection.version || null);
-    setSignatures(collection.signatures && collection.signatures.length > 0 
-      ? collection.signatures 
-      : ['']);
+    setSignatures(
+      collection.signatures && collection.signatures.length > 0
+        ? collection.signatures
+        : [''],
+    );
     setEditingIndex(index);
   };
 
@@ -350,9 +399,22 @@ export const CollectionsPickerExtension = ({
     }
   };
 
-  const isAddButtonDisabled = !selectedCollection || 
-    !selectedCollection.trim() || 
-    !!fieldErrors.name;
+  const isAddButtonDisabled =
+    !selectedCollection || !selectedCollection.trim() || disabled;
+
+  const handleCollectionChange = (event: any, newValue: any) => {
+    console.log('newValue', newValue);
+    const value =
+      typeof newValue === 'string'
+        ? newValue
+        : newValue?.name || newValue?.label || null;
+    setSelectedCollection(value);
+    setSelectedSource(null);
+    setAvailableSources(newValue?.sources || []);
+    setAvailableVersions(newValue?.versions || []);
+    setSelectedVersion(null);
+    setFieldErrors({});
+  };
 
   return (
     <Box>
@@ -363,39 +425,32 @@ export const CollectionsPickerExtension = ({
           {/* Collection Autocomplete */}
           <Autocomplete
             options={availableCollections}
-            getOptionLabel={(option) => 
-              typeof option === 'string' ? option : (option.name || option.label || '')
-            }
-            value={selectedCollection}
-            onChange={(event, newValue) => {
-              const value = typeof newValue === 'string' 
-                ? newValue 
-                : (newValue?.name || newValue?.label || null);
-              setSelectedCollection(value);
-              const error = value ? validateCollection() : '';
-              setFieldErrors(prev => ({
-                ...prev,
-                name: error,
-              }));
+            getOptionLabel={option => {
+              if (typeof option === 'string') return option;
+              return option?.name || option?.label || '';
             }}
+            value={
+              availableCollections.find(
+                (col: any) => col?.name === selectedCollection,
+              ) || null
+            }
+            onChange={handleCollectionChange}
             loading={loadingCollections}
             disabled={disabled}
-            freeSolo
-            renderInput={(params) => (
+            renderInput={params => (
               <TextField
                 {...params}
-                label="Collection *"
+                label="Collection"
                 placeholder="Search collection e.g., community.general"
                 variant="outlined"
                 className={classes.inputField}
-                error={!!fieldErrors.name}
-                helperText={fieldErrors.name}
-                required
                 InputProps={{
                   ...params.InputProps,
                   endAdornment: (
                     <>
-                      {loadingCollections ? <CircularProgress size={20} /> : null}
+                      {loadingCollections ? (
+                        <CircularProgress size={20} />
+                      ) : null}
                       {params.InputProps.endAdornment}
                     </>
                   ),
@@ -408,20 +463,23 @@ export const CollectionsPickerExtension = ({
           {/* Source Autocomplete */}
           <Autocomplete
             options={availableSources}
-            getOptionLabel={(option) => 
-              typeof option === 'string' ? option : (option.name || option.label || '')
+            getOptionLabel={option =>
+              typeof option === 'string'
+                ? option
+                : option.name || option.label || ''
             }
             value={selectedSource}
             onChange={(event, newValue) => {
-              const value = typeof newValue === 'string' 
-                ? newValue 
-                : (newValue?.name || newValue?.label || newValue?.id || null);
+              const value =
+                typeof newValue === 'string'
+                  ? newValue
+                  : newValue?.name || newValue?.label || newValue?.id || null;
               setSelectedSource(value);
             }}
             loading={loadingSources}
             disabled={disabled || !selectedCollection}
             freeSolo
-            renderInput={(params) => (
+            renderInput={params => (
               <TextField
                 {...params}
                 label="Source"
@@ -445,20 +503,26 @@ export const CollectionsPickerExtension = ({
           {/* Version Autocomplete */}
           <Autocomplete
             options={availableVersions}
-            getOptionLabel={(option) => 
-              typeof option === 'string' ? option : (option.name || option.label || option.version || '')
+            getOptionLabel={option =>
+              typeof option === 'string'
+                ? option
+                : option.name || option.label || option.version || ''
             }
             value={selectedVersion}
             onChange={(event, newValue) => {
-              const value = typeof newValue === 'string' 
-                ? newValue 
-                : (newValue?.name || newValue?.label || newValue?.version || null);
+              const value =
+                typeof newValue === 'string'
+                  ? newValue
+                  : newValue?.name ||
+                    newValue?.label ||
+                    newValue?.version ||
+                    null;
               setSelectedVersion(value);
             }}
             loading={loadingVersions}
             disabled={disabled || !selectedSource}
             freeSolo
-            renderInput={(params) => (
+            renderInput={params => (
               <TextField
                 {...params}
                 label="Version"
@@ -481,11 +545,19 @@ export const CollectionsPickerExtension = ({
 
           {/* Signatures */}
           <Box>
-            <Typography variant="body2" style={{ marginBottom: theme.spacing(1) }}>
+            <Typography
+              variant="body2"
+              style={{ marginBottom: theme.spacing(1) }}
+            >
               Signatures
             </Typography>
-            <Typography variant="caption" color="textSecondary" className={classes.helperText}>
-              A list of URI paths to the signature files used to verify the collection's integrity. Press Enter to add each one.
+            <Typography
+              variant="caption"
+              color="textSecondary"
+              className={classes.helperText}
+            >
+              A list of URI paths to the signature files used to verify the
+              collection's integrity. Press Enter to add each one.
             </Typography>
             {signatures.map((signature, index) => (
               <Box key={index} className={classes.signatureItem}>
@@ -493,7 +565,7 @@ export const CollectionsPickerExtension = ({
                   fullWidth
                   placeholder="e.g., https://automation.example.com/signatures/my_collection-1.2.0.sig"
                   value={signature}
-                  onChange={(e) => handleSignatureChange(index, e.target.value)}
+                  onChange={e => handleSignatureChange(index, e.target.value)}
                   disabled={disabled}
                   variant="outlined"
                   size="small"
@@ -527,7 +599,7 @@ export const CollectionsPickerExtension = ({
             variant="contained"
             color="primary"
             onClick={handleAddCollection}
-            disabled={disabled || isAddButtonDisabled}
+            disabled={isAddButtonDisabled}
             className={classes.addCollectionButton}
             startIcon={<AddIcon />}
           >
