@@ -12,6 +12,8 @@ import { TaskList } from '../TaskList';
 import { CatalogItemsDetails } from '../CatalogItemDetails';
 import { EETabs } from '../ExecutionEnvironments';
 import { EEDetailsPage } from '../ExecutionEnvironments/catalog/EEDetailsPage';
+import { CollectionsCatalogPage } from '../CollectionsCatalog';
+import { CollectionDetailsPage } from '../CollectionsCatalog/CollectionDetailsPage';
 
 export const RouteView = () => {
   return (
@@ -65,7 +67,11 @@ export const RouteView = () => {
           <Route path="docs" element={<EETabs />} />
         </Route>
         <Route path="catalog/:templateName" element={<EEDetailsPage />} />
-        {/* Default redirects */}
+        <Route path="collections" element={<CollectionsCatalogPage />} />
+        <Route
+          path="collections/:collectionName"
+          element={<CollectionDetailsPage />}
+        />
         <Route
           path="/catalog/*"
           element={<Navigate to="/self-service/catalog" />}
