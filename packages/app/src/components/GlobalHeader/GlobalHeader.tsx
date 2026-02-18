@@ -154,7 +154,7 @@ export const GlobalHeader = () => {
     // gateway_sessionid cookie (SameSite=Lax).
     const aapHost = config
       .getOptionalString('ansible.rhaap.baseUrl')
-      ?.replace(/\/+$/, '');
+      ?.replace(/\/$/, '');
     if (aapHost) {
       window.location.href = `${aapHost}/api/gateway/v1/logout/`;
     }
