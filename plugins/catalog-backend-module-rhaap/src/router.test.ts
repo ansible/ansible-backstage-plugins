@@ -21,6 +21,7 @@ import { AAPEntityProvider } from './providers/AAPEntityProvider';
 import { AAPJobTemplateProvider } from './providers/AAPJobTemplateProvider';
 import { EEEntityProvider } from './providers/EEEntityProvider';
 import { LoggerService } from '@backstage/backend-plugin-api';
+import { ConfigReader } from '@backstage/config';
 
 describe('createRouter', () => {
   let app: express.Express;
@@ -28,6 +29,13 @@ describe('createRouter', () => {
   let mockAAPEntityProvider: jest.Mocked<AAPEntityProvider>;
   let mockJobTemplateProvider: jest.Mocked<AAPJobTemplateProvider>;
   let mockEEEntityProvider: jest.Mocked<EEEntityProvider>;
+
+  const mockConfig = new ConfigReader({
+    integrations: {
+      github: [{ host: 'github.com', token: 'test-token' }],
+      gitlab: [{ host: 'gitlab.com', token: 'test-token' }],
+    },
+  });
 
   beforeEach(async () => {
     mockLogger = {
@@ -60,6 +68,7 @@ describe('createRouter', () => {
 
     const router = await createRouter({
       logger: mockLogger,
+      config: mockConfig,
       aapEntityProvider: mockAAPEntityProvider,
       jobTemplateProvider: mockJobTemplateProvider,
       eeEntityProvider: mockEEEntityProvider,
@@ -191,6 +200,7 @@ describe('createRouter', () => {
         '/',
         await createRouter({
           logger: mockLogger,
+          config: mockConfig,
           aapEntityProvider: mockProvider as any,
           jobTemplateProvider: {} as any,
           eeEntityProvider: mockEEEntityProvider,
@@ -221,6 +231,7 @@ describe('createRouter', () => {
         '/',
         await createRouter({
           logger: mockLogger,
+          config: mockConfig,
           aapEntityProvider: mockProvider as any,
           jobTemplateProvider: {} as any,
           eeEntityProvider: mockEEEntityProvider,
@@ -249,6 +260,7 @@ describe('createRouter', () => {
         '/',
         await createRouter({
           logger: mockLogger,
+          config: mockConfig,
           aapEntityProvider: mockProvider as any,
           jobTemplateProvider: {} as any,
           eeEntityProvider: mockEEEntityProvider,
@@ -277,6 +289,7 @@ describe('createRouter', () => {
         '/',
         await createRouter({
           logger: mockLogger,
+          config: mockConfig,
           aapEntityProvider: mockProvider as any,
           jobTemplateProvider: {} as any,
           eeEntityProvider: mockEEEntityProvider,
@@ -308,6 +321,7 @@ describe('createRouter', () => {
         '/',
         await createRouter({
           logger: mockLogger,
+          config: mockConfig,
           aapEntityProvider: mockProvider as any,
           jobTemplateProvider: {} as any,
           eeEntityProvider: mockEEEntityProvider,
@@ -340,6 +354,7 @@ describe('createRouter', () => {
         '/',
         await createRouter({
           logger: mockLogger,
+          config: mockConfig,
           aapEntityProvider: mockProvider as any,
           jobTemplateProvider: {} as any,
           eeEntityProvider: mockEEEntityProvider,
@@ -372,6 +387,7 @@ describe('createRouter', () => {
         '/',
         await createRouter({
           logger: mockLogger,
+          config: mockConfig,
           aapEntityProvider: mockProvider as any,
           jobTemplateProvider: {} as any,
           eeEntityProvider: mockEEEntityProvider,
@@ -400,6 +416,7 @@ describe('createRouter', () => {
         '/',
         await createRouter({
           logger: mockLogger,
+          config: mockConfig,
           aapEntityProvider: mockProvider as any,
           jobTemplateProvider: {} as any,
           eeEntityProvider: mockEEEntityProvider,
@@ -430,6 +447,7 @@ describe('createRouter', () => {
         '/',
         await createRouter({
           logger: mockLogger,
+          config: mockConfig,
           aapEntityProvider: mockProvider as any,
           jobTemplateProvider: {} as any,
           eeEntityProvider: mockEEEntityProvider,
@@ -458,6 +476,7 @@ describe('createRouter', () => {
         '/',
         await createRouter({
           logger: mockLogger,
+          config: mockConfig,
           aapEntityProvider: mockProvider as any,
           jobTemplateProvider: {} as any,
           eeEntityProvider: mockEEEntityProvider,
@@ -511,6 +530,7 @@ describe('createRouter', () => {
         '/',
         await createRouter({
           logger: mockLogger,
+          config: mockConfig,
           aapEntityProvider: mockProvider as any,
           jobTemplateProvider: {} as any,
           eeEntityProvider: mockEEEntityProvider,
@@ -539,6 +559,7 @@ describe('createRouter', () => {
         '/',
         await createRouter({
           logger: mockLogger,
+          config: mockConfig,
           aapEntityProvider: mockProvider as any,
           jobTemplateProvider: {} as any,
           eeEntityProvider: mockEEEntityProvider,
@@ -573,6 +594,7 @@ describe('createRouter', () => {
         '/',
         await createRouter({
           logger: mockLogger,
+          config: mockConfig,
           aapEntityProvider: mockProvider as any,
           jobTemplateProvider: {} as any,
           eeEntityProvider: mockEEEntityProvider,
@@ -615,6 +637,7 @@ describe('createRouter', () => {
         '/',
         await createRouter({
           logger: mockLogger,
+          config: mockConfig,
           aapEntityProvider: mockProvider as any,
           jobTemplateProvider: {} as any,
           eeEntityProvider: mockEEEntityProvider,
@@ -721,6 +744,7 @@ describe('createRouter', () => {
     it('should handle error when logger is not provided', async () => {
       const routerWithInvalidLogger = await createRouter({
         logger: undefined as any,
+        config: mockConfig,
         aapEntityProvider: mockAAPEntityProvider,
         jobTemplateProvider: mockJobTemplateProvider,
         eeEntityProvider: mockEEEntityProvider,
@@ -736,6 +760,7 @@ describe('createRouter', () => {
     it('should handle error when aapEntityProvider is not provided', async () => {
       const routerWithInvalidProvider = await createRouter({
         logger: mockLogger,
+        config: mockConfig,
         aapEntityProvider: undefined as any,
         jobTemplateProvider: mockJobTemplateProvider,
         eeEntityProvider: mockEEEntityProvider,
@@ -751,6 +776,7 @@ describe('createRouter', () => {
     it('should handle error when jobTemplateProvider is not provided', async () => {
       const routerWithInvalidProvider = await createRouter({
         logger: mockLogger,
+        config: mockConfig,
         aapEntityProvider: mockAAPEntityProvider,
         jobTemplateProvider: undefined as any,
         eeEntityProvider: mockEEEntityProvider,

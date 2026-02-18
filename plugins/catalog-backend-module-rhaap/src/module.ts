@@ -89,6 +89,7 @@ export const catalogModuleRhaap = createBackendModule({
         httpRouter.use(
           (await createRouter({
             logger,
+            config,
             aapEntityProvider: aapEntityProvider[0],
             jobTemplateProvider: jobTemplateProvider[0],
             eeEntityProvider: eeEntityProvider,

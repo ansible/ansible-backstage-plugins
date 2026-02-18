@@ -15,6 +15,7 @@
  */
 import express from 'express';
 import Router from 'express-promise-router';
+import type { Config } from '@backstage/config';
 
 import { AAPJobTemplateProvider } from './providers/AAPJobTemplateProvider';
 import { AAPEntityProvider } from './providers/AAPEntityProvider';
@@ -29,9 +30,11 @@ import {
   buildFilterDescription,
   validateSyncFilter,
 } from './helpers';
+import { ScmClientFactory } from '@ansible/backstage-rhaap-common';
 
 export async function createRouter(options: {
   logger: LoggerService;
+  config: Config;
   aapEntityProvider: AAPEntityProvider;
   jobTemplateProvider: AAPJobTemplateProvider;
   eeEntityProvider: EEEntityProvider;
@@ -39,12 +42,14 @@ export async function createRouter(options: {
 }): Promise<express.Router> {
   const {
     logger,
+    config,
     aapEntityProvider,
     jobTemplateProvider,
     eeEntityProvider,
     ansibleGitContentsProviders = [],
   } = options;
   const router = Router();
+  const scmClientFactory = new ScmClientFactory({ rootConfig: config, logger });
 
   // Note: Don't apply express.json() globally to avoid conflicts with catalog backend
   // Instead, apply it only to specific routes that need it
@@ -304,6 +309,68 @@ export async function createRouter(options: {
       };
     });
   }
+
+  router.get('/git_readme_content', async (request, response) => {
+    const { scmProvider, host, owner, repo, filePath, ref } = request.query;
+
+    const required = ['scmProvider', 'host', 'owner', 'repo', 'filePath', 'ref'];
+    const missing = required.filter(p => !request.query[p]);
+    if (missing.length > 0) {
+      response.status(400).json({
+        error: `Missing required query parameters: ${missing.join(', ')}`,
+      });
+      return;
+    }
+
+    const scm = (scmProvider as string).toLowerCase();
+    const hostUrl = host as string;
+    const ownerName = owner as string;
+    const repoName = repo as string;
+    const path = filePath as string;
+    const refName = ref as string;
+
+    if (!['github', 'gitlab'].includes(scm)) {
+      response.status(400).json({
+        error: `Unsupported SCM provider '${scm}'. Supported: github, gitlab`,
+      });
+      return;
+    }
+
+    logger.info(
+      `Fetching README from ${scm}://${hostUrl}/${ownerName}/${repoName}/${path}@${refName}`,
+    );
+
+    try {
+      const scmClient = await scmClientFactory.createClient({
+        scmProvider: scm as 'github' | 'gitlab',
+        host: hostUrl,
+        organization: ownerName,
+      });
+
+      const content = await scmClient.getFileContent(
+        {
+          name: repoName,
+          fullPath: `${ownerName}/${repoName}`,
+          defaultBranch: refName,
+          url: `https://${hostUrl}/${ownerName}/${repoName}`,
+        },
+        refName,
+        path,
+      );
+
+      response.type('text/markdown');
+      response.send(content);
+    } catch (error) {
+      const errorMessage =
+        error instanceof Error ? error.message : String(error);
+      logger.warn(`Failed to fetch README: ${errorMessage}`);
+
+      const status = errorMessage.includes('not found') ? 404 : 500;
+      response.status(status).json({
+        error: `Failed to fetch README: ${errorMessage}`,
+      });
+    }
+  });
 
   return router;
 }
