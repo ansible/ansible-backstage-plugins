@@ -22,7 +22,7 @@
     "clean": "backstage-cli package clean",
     "prepack": "backstage-cli package prepack",
     "postpack": "backstage-cli package postpack",
-    "export-dynamic": "janus-cli package export-dynamic-plugin"
+    "export-dynamic": "rhdh-cli plugin export"
   },
   "dependencies": {
     "@backstage/catalog-model": "^1.7.4",
@@ -57,7 +57,6 @@
     "@backstage/cli": "^0.33.1",
     "@backstage/dev-utils": "^1.1.10",
     "@backstage/test-utils": "^1.7.8",
-    "@janus-idp/cli": "^3.6.1",
     "@testing-library/dom": "^10.4.0",
     "@testing-library/jest-dom": "^6.0.0",
     "@testing-library/react": "^16.0.0",
