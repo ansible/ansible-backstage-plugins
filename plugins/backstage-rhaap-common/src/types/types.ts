@@ -201,6 +201,14 @@ export type User = {
   is_orguser?: boolean;
 };
 
+export type Collections = {
+  name: string;
+  id?: number;
+  versions?: string[];
+  sources?: string[];
+  sourceVersions?: Record<string, string[]>;
+};
+
 export type Users = User[];
 
 export type Team = {
