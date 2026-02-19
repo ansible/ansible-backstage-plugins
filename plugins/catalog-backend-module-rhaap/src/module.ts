@@ -13,6 +13,7 @@ import { AAPJobTemplateProvider } from './providers/AAPJobTemplateProvider';
 import { AAPEntityProvider } from './providers/AAPEntityProvider';
 import { makeValidator } from '@backstage/catalog-model';
 import { EEEntityProvider } from './providers/EEEntityProvider';
+import { PAHCollectionProvider } from './providers/PAHCollectionProvider';
 
 export const catalogModuleRhaap = createBackendModule({
   pluginId: 'catalog',
@@ -68,11 +69,17 @@ export const catalogModuleRhaap = createBackendModule({
             scheduler,
           },
         );
+        const pahCollectionProviders: PAHCollectionProvider[] =
+          PAHCollectionProvider.fromConfig(config, ansibleService, {
+            logger,
+            scheduler,
+          });
 
         catalogProcessing.addEntityProvider(
           aapEntityProvider,
           jobTemplateProvider,
           eeEntityProvider,
+          ...pahCollectionProviders,
         );
 
         httpRouter.use(
@@ -81,6 +88,7 @@ export const catalogModuleRhaap = createBackendModule({
             aapEntityProvider: aapEntityProvider[0],
             jobTemplateProvider: jobTemplateProvider[0],
             eeEntityProvider: eeEntityProvider,
+            pahCollectionProviders: pahCollectionProviders,
           })) as any,
         );
       },

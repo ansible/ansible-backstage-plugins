@@ -20,19 +20,29 @@ import { AAPJobTemplateProvider } from './providers/AAPJobTemplateProvider';
 import { AAPEntityProvider } from './providers/AAPEntityProvider';
 import { LoggerService } from '@backstage/backend-plugin-api';
 import { EEEntityProvider } from './providers/EEEntityProvider';
+import { PAHCollectionProvider } from './providers/PAHCollectionProvider';
 
 export async function createRouter(options: {
   logger: LoggerService;
   aapEntityProvider: AAPEntityProvider;
   jobTemplateProvider: AAPJobTemplateProvider;
   eeEntityProvider: EEEntityProvider;
+  pahCollectionProviders: PAHCollectionProvider[];
 }): Promise<express.Router> {
-  const { logger, aapEntityProvider, jobTemplateProvider, eeEntityProvider } =
-    options;
+  const {
+    logger,
+    aapEntityProvider,
+    jobTemplateProvider,
+    eeEntityProvider,
+    pahCollectionProviders,
+  } = options;
   const router = Router();
 
-  // Note: Don't apply express.json() globally to avoid conflicts with catalog backend
-  // Instead, apply it only to specific routes that need it
+  // 1:1 mapping repository name -> PAHCollectionProvider (built once at router creation)
+  const _PAH_PROVIDERS = new Map<string, PAHCollectionProvider>();
+  for (const provider of pahCollectionProviders) {
+    _PAH_PROVIDERS.set(provider.getPahRepositoryName(), provider);
+  }
 
   router.get('/health', (_, response) => {
     logger.info('PONG!');
@@ -54,19 +64,55 @@ export async function createRouter(options: {
   router.get('/aap/sync_status', async (request, response) => {
     logger.info('Getting sync status');
     const aapEntities = request.query.aap_entities === 'true';
+    const ansibleContents = request.query.ansible_contents === 'true';
+    const noQueryParams =
+      request.query.aap_entities === undefined &&
+      request.query.ansible_contents === undefined;
 
     try {
-      const orgsUsersTeamsLastSync = aapEntityProvider.getLastSyncTime();
-      const jobTemplatesLastSync = jobTemplateProvider.getLastSyncTime();
+      const result: {
+        aap?: {
+          orgsUsersTeams: { lastSync: string | null };
+          jobTemplates: { lastSync: string | null };
+        };
+        content?: {
+          lastSync: string | null;
+          syncInProgress: boolean;
+        };
+      } = {};
 
-      if (aapEntities) {
-        response.status(200).json({
-          aap: {
-            orgsUsersTeams: { lastSync: orgsUsersTeamsLastSync },
-            jobTemplates: { lastSync: jobTemplatesLastSync },
+      // Include aap block if aap_entities=true or no query params
+      if (aapEntities || noQueryParams) {
+        result.aap = {
+          orgsUsersTeams: {
+            lastSync: aapEntityProvider.getLastSyncTime(),
           },
-        });
+          jobTemplates: {
+            lastSync: jobTemplateProvider.getLastSyncTime(),
+          },
+        };
       }
+
+      // Include content block if ansible_contents=true or no query params
+      if (ansibleContents || noQueryParams) {
+        // Content is syncing if any PAH provider is syncing
+        const contentSyncInProgress = pahCollectionProviders.some(provider =>
+          provider.getIsSyncing(),
+        );
+        // Get the most recent lastSync time among all PAH providers
+        const lastSyncTimes = pahCollectionProviders
+          .map(provider => provider.getLastSyncTime())
+          .filter((time): time is string => time !== null);
+        const contentLastSync =
+          lastSyncTimes.length > 0 ? lastSyncTimes.sort().reverse()[0] : null;
+
+        result.content = {
+          lastSync: contentLastSync,
+          syncInProgress: contentSyncInProgress,
+        };
+      }
+
+      response.status(200).json(result);
     } catch (error) {
       const errorMessage =
         error instanceof Error ? error.message : String(error);
@@ -78,6 +124,7 @@ export async function createRouter(options: {
           orgsUsersTeams: null,
           jobTemplates: null,
         },
+        content: null,
       });
     }
   });
@@ -127,6 +174,87 @@ export async function createRouter(options: {
       });
     }
   });
+
+  router.post(
+    '/collections/sync/from-pah',
+    express.json(),
+    async (request, response) => {
+      // Extract repository names from request body
+      // Expected format: { "filters": [{ "repository_name": "rh-certified" }, { "repository_name": "validated" }] }
+      const { filters } = request.body as {
+        filters?: Array<{ repository_name: string }>;
+      };
+
+      let repositoryNames: string[];
+      if (!filters || filters.length === 0) {
+        // if no filters provided, assume all repositories should be synced
+        repositoryNames = [];
+      } else {
+        // extract repository_name from each filter object
+        repositoryNames = filters
+          .map(f => f.repository_name)
+          .filter(
+            (name): name is string =>
+              typeof name === 'string' && name.length > 0,
+          );
+      }
+
+      let providersToRun: PAHCollectionProvider[];
+      if (repositoryNames.length > 0) {
+        // if filters are provided, sync only the repositories specified
+        const notFound = repositoryNames.filter(n => !_PAH_PROVIDERS.has(n));
+        if (notFound.length > 0) {
+          response.status(400).json({
+            success: false,
+            error: `No provider found for repository name(s): ${notFound.join(', ')}`,
+            notFound,
+          });
+          return;
+        }
+        // build a list of providers to run based on the repository names provided
+        providersToRun = repositoryNames.map(name => _PAH_PROVIDERS.get(name)!);
+      } else {
+        // if no filters provided, run all providers
+        providersToRun = pahCollectionProviders;
+      }
+
+      logger.info(
+        `Starting PAH collections sync for repository name(s): ${repositoryNames.length > 0 ? repositoryNames.join(', ') : 'all'}`,
+      );
+      const results = await Promise.all(
+        providersToRun.map(async provider => {
+          const { success, collectionsCount } = await provider.run();
+          return {
+            repositoryName: provider.getPahRepositoryName(),
+            providerName: provider.getProviderName(),
+            success,
+            collectionsCount,
+          };
+        }),
+      );
+
+      const allSucceeded = results.every(r => r.success);
+      const failedProviders = results.filter(r => !r.success);
+
+      if (allSucceeded) {
+        response.status(200).json({
+          success: true,
+          providersRun: providersToRun.length,
+          results,
+        });
+      } else {
+        logger.error(
+          `PAH collections sync failed for: ${failedProviders.map(r => r.repositoryName).join(', ')}`,
+        );
+        response.status(207).json({
+          success: false,
+          providersRun: providersToRun.length,
+          results,
+          failedRepositories: failedProviders.map(r => r.repositoryName),
+        });
+      }
+    },
+  );
 
   return router;
 }
