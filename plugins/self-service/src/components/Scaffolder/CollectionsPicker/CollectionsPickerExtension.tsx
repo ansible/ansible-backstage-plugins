@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useCallback } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { FieldExtensionComponentProps } from '@backstage/plugin-scaffolder-react';
 import {
   Button,
@@ -8,15 +8,12 @@ import {
   Chip,
   Card,
   CardContent,
-  IconButton,
   CircularProgress,
 } from '@material-ui/core';
-import { useTheme } from '@material-ui/core/styles';
 import { makeStyles } from '@material-ui/core/styles';
 import Autocomplete from '@material-ui/lab/Autocomplete';
 import AddIcon from '@material-ui/icons/Add';
 import CloseIcon from '@material-ui/icons/Close';
-import DeleteIcon from '@material-ui/icons/Delete';
 import { CollectionItem } from './types';
 import { useApi } from '@backstage/core-plugin-api';
 import { scaffolderApiRef } from '@backstage/plugin-scaffolder-react';
@@ -31,24 +28,6 @@ const useStyles = makeStyles(theme => ({
     display: 'flex',
     alignItems: 'center',
     gap: theme.spacing(1),
-  },
-  stepBadge: {
-    width: '32px',
-    height: '32px',
-    borderRadius: '50%',
-    backgroundColor: theme.palette.primary.main,
-    color: theme.palette.primary.contrastText,
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    fontSize: '0.875rem',
-    fontWeight: 500,
-  },
-  description: {
-    fontSize: '0.875rem',
-    color: theme.palette.text.secondary,
-    marginBottom: theme.spacing(3),
-    lineHeight: 1.5,
   },
   addCollectionCard: {
     marginBottom: theme.spacing(3),
@@ -92,37 +71,21 @@ const useStyles = makeStyles(theme => ({
     display: 'inline-block',
     cursor: 'pointer',
   },
-  signatureItem: {
-    display: 'flex',
-    alignItems: 'center',
-    gap: theme.spacing(1),
-    marginBottom: theme.spacing(1),
-  },
-  addStringButton: {
-    marginTop: theme.spacing(1),
-    textTransform: 'none',
-  },
-  helperText: {
-    marginTop: theme.spacing(0.5),
-    fontSize: '0.75rem',
-  },
 }));
 
 export const CollectionsPickerExtension = ({
   onChange,
   disabled,
   rawErrors = [],
-  schema,
   formData,
 }: FieldExtensionComponentProps<CollectionItem[]>) => {
   const classes = useStyles();
-  const theme = useTheme();
 
   const [collections, setCollections] = useState<CollectionItem[] | any[]>(
     formData || [],
   );
-  const [editingIndex, setEditingIndex] = useState<number | null>(null);
-  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
+  const [_editingIndex, setEditingIndex] = useState<number | null>(null);
+  const [_fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
 
   // Autocomplete states
   const [availableCollections, setAvailableCollections] = useState<any[]>([]);
@@ -138,16 +101,9 @@ export const CollectionsPickerExtension = ({
   );
   const [selectedSource, setSelectedSource] = useState<string | null>(null);
   const [selectedVersion, setSelectedVersion] = useState<string | null>(null);
-  const [signatures, setSignatures] = useState<string[]>(['']);
 
   const aapAuth = useApi(rhAapAuthApiRef);
   const scaffolderApi = useApi(scaffolderApiRef);
-  const itemsSchema = schema?.items as any;
-  const properties = useMemo(
-    () => itemsSchema?.properties || {},
-    [itemsSchema?.properties],
-  );
-
   // Fetch collections for autocomplete
   const fetchCollections = useCallback(async () => {
     try {
@@ -166,10 +122,8 @@ export const CollectionsPickerExtension = ({
         // Process results to extract unique collections with their versions and sources
         const processedCollections = results || [];
         setAvailableCollections(processedCollections);
-        console.log('collections', processedCollections);
       }
     } catch (error) {
-      console.error('Error fetching collections:', error);
       setAvailableCollections([]);
     } finally {
       setLoadingCollections(false);
@@ -185,18 +139,18 @@ export const CollectionsPickerExtension = ({
       }
 
       // Find the selected collection from availableCollections
-      const selectedCollection = availableCollections.find(
+      const foundCollection = availableCollections.find(
         (col: any) => col.name === collectionName,
       );
 
       if (
-        selectedCollection &&
-        selectedCollection.sources &&
-        selectedCollection.sources.length > 0
+        foundCollection &&
+        foundCollection.sources &&
+        foundCollection.sources.length > 0
       ) {
         // Use sources from the collection data
         setAvailableSources(
-          selectedCollection.sources.map((source: string) => ({
+          foundCollection.sources.map((source: string) => ({
             name: source,
             id: source,
           })),
@@ -216,7 +170,6 @@ export const CollectionsPickerExtension = ({
             setAvailableSources(results || []);
           }
         } catch (error) {
-          console.error('Error fetching sources:', error);
           setAvailableSources([]);
         } finally {
           setLoadingSources(false);
@@ -234,18 +187,17 @@ export const CollectionsPickerExtension = ({
         return;
       }
       // Find the selected collection from availableCollections
-      const selectedCollection = availableCollections.find(
+      const foundCollection = availableCollections.find(
         (col: any) => col.name === collectionName,
       );
 
       if (
-        selectedCollection &&
-        selectedCollection.sourceVersions &&
-        selectedCollection.sourceVersions[sourceId]
+        foundCollection &&
+        foundCollection.sourceVersions &&
+        foundCollection.sourceVersions[sourceId]
       ) {
         // Get versions for the specific source
-        const sourceVersions =
-          selectedCollection.sourceVersions[sourceId] || [];
+        const sourceVersions = foundCollection.sourceVersions[sourceId] || [];
         setAvailableVersions(
           sourceVersions.map((version: string) => ({
             name: version,
@@ -253,13 +205,13 @@ export const CollectionsPickerExtension = ({
           })),
         );
       } else if (
-        selectedCollection &&
-        selectedCollection.versions &&
-        selectedCollection.versions.length > 0
+        foundCollection &&
+        foundCollection.versions &&
+        foundCollection.versions.length > 0
       ) {
         // Fallback: show all versions if source-version mapping not available
         setAvailableVersions(
-          selectedCollection.versions.map((version: string) => ({
+          foundCollection.versions.map((version: string) => ({
             name: version,
             version: version,
           })),
@@ -279,7 +231,6 @@ export const CollectionsPickerExtension = ({
             setAvailableVersions(results || []);
           }
         } catch (error) {
-          console.error('Error fetching versions:', error);
           setAvailableVersions([]);
         } finally {
           setLoadingVersions(false);
@@ -358,7 +309,6 @@ export const CollectionsPickerExtension = ({
     setSelectedCollection(null);
     setSelectedSource(null);
     setSelectedVersion(null);
-    setSignatures(['']);
     setFieldErrors({});
     setEditingIndex(null);
   };
@@ -374,36 +324,13 @@ export const CollectionsPickerExtension = ({
     setSelectedCollection(collection.name || null);
     setSelectedSource(collection.source || null);
     setSelectedVersion(collection.version || null);
-    setSignatures(
-      collection.signatures && collection.signatures.length > 0
-        ? collection.signatures
-        : [''],
-    );
     setEditingIndex(index);
-  };
-
-  const handleSignatureChange = (index: number, value: string) => {
-    const newSignatures = [...signatures];
-    newSignatures[index] = value;
-    setSignatures(newSignatures);
-  };
-
-  const handleAddSignature = () => {
-    setSignatures([...signatures, '']);
-  };
-
-  const handleRemoveSignature = (index: number) => {
-    if (signatures.length > 1) {
-      const newSignatures = signatures.filter((_, i) => i !== index);
-      setSignatures(newSignatures);
-    }
   };
 
   const isAddButtonDisabled =
     !selectedCollection || !selectedCollection.trim() || disabled;
 
-  const handleCollectionChange = (event: any, newValue: any) => {
-    console.log('newValue', newValue);
+  const handleCollectionChange = (_event: any, newValue: any) => {
     const value =
       typeof newValue === 'string'
         ? newValue
@@ -469,7 +396,7 @@ export const CollectionsPickerExtension = ({
                 : option.name || option.label || ''
             }
             value={selectedSource}
-            onChange={(event, newValue) => {
+            onChange={(_event, newValue) => {
               const value =
                 typeof newValue === 'string'
                   ? newValue
@@ -509,7 +436,7 @@ export const CollectionsPickerExtension = ({
                 : option.name || option.label || option.version || ''
             }
             value={selectedVersion}
-            onChange={(event, newValue) => {
+            onChange={(_event, newValue) => {
               const value =
                 typeof newValue === 'string'
                   ? newValue
@@ -542,57 +469,6 @@ export const CollectionsPickerExtension = ({
             )}
             noOptionsText="No versions found"
           />
-
-          {/* Signatures */}
-          <Box>
-            <Typography
-              variant="body2"
-              style={{ marginBottom: theme.spacing(1) }}
-            >
-              Signatures
-            </Typography>
-            <Typography
-              variant="caption"
-              color="textSecondary"
-              className={classes.helperText}
-            >
-              A list of URI paths to the signature files used to verify the
-              collection's integrity. Press Enter to add each one.
-            </Typography>
-            {signatures.map((signature, index) => (
-              <Box key={index} className={classes.signatureItem}>
-                <TextField
-                  fullWidth
-                  placeholder="e.g., https://automation.example.com/signatures/my_collection-1.2.0.sig"
-                  value={signature}
-                  onChange={e => handleSignatureChange(index, e.target.value)}
-                  disabled={disabled}
-                  variant="outlined"
-                  size="small"
-                  InputProps={{
-                    endAdornment: signatures.length > 1 && (
-                      <IconButton
-                        size="small"
-                        onClick={() => handleRemoveSignature(index)}
-                        disabled={disabled}
-                      >
-                        <DeleteIcon fontSize="small" />
-                      </IconButton>
-                    ),
-                  }}
-                />
-              </Box>
-            ))}
-            <Button
-              startIcon={<AddIcon />}
-              onClick={handleAddSignature}
-              disabled={disabled}
-              className={classes.addStringButton}
-              size="small"
-            >
-              Add string
-            </Button>
-          </Box>
 
           {/* Add Collection Button */}
           <Button

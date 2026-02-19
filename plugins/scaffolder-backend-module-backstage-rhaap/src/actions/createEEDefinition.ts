@@ -395,10 +395,7 @@ export function createEEDefinitionAction(options: {
 
       try {
         // Merge collections from different sources
-        const allCollections = mergeCollections(
-          collections,
-          parsedCollections,
-        );
+        const allCollections = mergeCollections(collections, parsedCollections);
 
         // Merge requirements from different sources
         const allRequirements = mergeRequirements(

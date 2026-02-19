@@ -3395,4 +3395,584 @@ describe('AAPClient', () => {
       expect(result[0].teams).toHaveLength(1);
     });
   });
+
+  describe('getCollections', () => {
+    it('should fetch and build collections from catalog API', async () => {
+      const mockEntities = [
+        {
+          spec: {
+            collection_full_name: 'amazon.aws',
+            collection_version: '12.0.0',
+          },
+          metadata: {
+            annotations: {
+              'ansible.io/scm-provider': 'github',
+              'ansible.io/scm-host-name': 'github-public',
+              'ansible.io/scm-organization': 'ansible-collections',
+              'ansible.io/scm-repository': 'amazon.aws',
+            },
+          },
+        },
+        {
+          spec: {
+            collection_full_name: 'amazon.aws',
+            collection_version: '11.0.0',
+          },
+          metadata: {
+            annotations: {
+              'ansible.io/scm-provider': 'github',
+              'ansible.io/scm-host-name': 'github-public',
+              'ansible.io/scm-organization': 'ansible-collections',
+              'ansible.io/scm-repository': 'amazon.aws',
+            },
+          },
+        },
+        {
+          spec: {
+            collection_full_name: 'community.general',
+            collection_version: '10.0.0',
+          },
+          metadata: {
+            annotations: {
+              'ansible.io/collection-source': 'pah',
+              'ansible.io/collection-source-repository': 'rh-certified',
+            },
+          },
+        },
+      ];
+
+      const mockResponse = {
+        ok: true,
+        json: jest.fn().mockResolvedValue(mockEntities),
+      };
+
+      jest
+        .spyOn(client as any, 'executeGetRequest')
+        .mockResolvedValueOnce(mockResponse);
+
+      const result = await client.getCollections(
+        'kind=Component,spec.type=ansible-collection',
+        'test-token',
+      );
+
+      expect(result).toHaveLength(2); // Deduplicated by name
+      const amazonAws = result.find(r => r.name === 'amazon.aws');
+      const communityGeneral = result.find(r => r.name === 'community.general');
+      expect(amazonAws).toBeDefined();
+      expect(amazonAws?.versions).toContain('12.0.0');
+      expect(amazonAws?.versions).toContain('11.0.0');
+      expect(communityGeneral).toBeDefined();
+      expect(communityGeneral?.versions).toContain('10.0.0');
+    });
+
+    it('should handle empty response from catalog API', async () => {
+      const mockResponse = {
+        ok: true,
+        json: jest.fn().mockResolvedValue([]),
+      };
+
+      jest
+        .spyOn(client as any, 'executeGetRequest')
+        .mockResolvedValueOnce(mockResponse);
+
+      const result = await client.getCollections(
+        'kind=Component,spec.type=ansible-collection',
+        'test-token',
+      );
+
+      expect(result).toEqual([]);
+    });
+
+    it('should handle entities with collection_namespace and collection_name', async () => {
+      const mockEntities = [
+        {
+          spec: {
+            collection_namespace: 'community',
+            collection_name: 'general',
+            collection_version: '10.0.0',
+          },
+          metadata: {
+            annotations: {
+              'ansible.io/scm-provider': 'github',
+              'ansible.io/scm-host-name': 'github-public',
+              'ansible.io/scm-organization': 'ansible-collections',
+              'ansible.io/scm-repository': 'community.general',
+            },
+          },
+        },
+      ];
+
+      const mockResponse = {
+        ok: true,
+        json: jest.fn().mockResolvedValue(mockEntities),
+      };
+
+      jest
+        .spyOn(client as any, 'executeGetRequest')
+        .mockResolvedValueOnce(mockResponse);
+
+      const result = await client.getCollections(
+        'kind=Component,spec.type=ansible-collection',
+        'test-token',
+      );
+
+      expect(result).toHaveLength(1);
+      expect(result[0]?.name).toBe('community.general');
+    });
+
+    it('should skip entities without collection name', async () => {
+      const mockEntities = [
+        {
+          spec: {
+            collection_version: '12.0.0',
+            // Missing collection_full_name, collection_namespace, and collection_name
+            // This will result in "undefined.undefined" which should be filtered out
+          },
+          metadata: {
+            annotations: {},
+          },
+        },
+      ];
+
+      const mockResponse = {
+        ok: true,
+        json: jest.fn().mockResolvedValue(mockEntities),
+      };
+
+      jest
+        .spyOn(client as any, 'executeGetRequest')
+        .mockResolvedValueOnce(mockResponse);
+    });
+  });
+
+  describe('buildCollections', () => {
+    it('should build collections with deduplication by name', () => {
+      const entities = [
+        {
+          spec: {
+            collection_full_name: 'amazon.aws',
+            collection_version: '12.0.0',
+          },
+          metadata: {
+            annotations: {
+              'ansible.io/scm-provider': 'github',
+              'ansible.io/scm-host-name': 'github-public',
+              'ansible.io/scm-organization': 'ansible-collections',
+              'ansible.io/scm-repository': 'amazon.aws',
+            },
+          },
+        },
+        {
+          spec: {
+            collection_full_name: 'amazon.aws',
+            collection_version: '11.0.0',
+          },
+          metadata: {
+            annotations: {
+              'ansible.io/scm-provider': 'github',
+              'ansible.io/scm-host-name': 'github-public',
+              'ansible.io/scm-organization': 'ansible-collections',
+              'ansible.io/scm-repository': 'amazon.aws',
+            },
+          },
+        },
+        {
+          spec: {
+            collection_full_name: 'community.general',
+            collection_version: '10.0.0',
+          },
+          metadata: {
+            annotations: {
+              'ansible.io/collection-source': 'pah',
+              'ansible.io/collection-source-repository': 'rh-certified',
+            },
+          },
+        },
+      ];
+
+      const result = client.buildCollections(entities);
+
+      expect(result).toHaveLength(2);
+      const amazonAws = result.find(r => r.name === 'amazon.aws');
+      const communityGeneral = result.find(r => r.name === 'community.general');
+      expect(amazonAws).toBeDefined();
+      expect(amazonAws?.versions).toHaveLength(2);
+      expect(amazonAws?.versions).toContain('12.0.0');
+      expect(amazonAws?.versions).toContain('11.0.0');
+      expect(communityGeneral).toBeDefined();
+    });
+
+    it('should group versions by source', () => {
+      const entities = [
+        {
+          spec: {
+            collection_full_name: 'amazon.aws',
+            collection_version: '12.0.0',
+          },
+          metadata: {
+            annotations: {
+              'ansible.io/scm-provider': 'github',
+              'ansible.io/scm-host-name': 'github-public',
+              'ansible.io/scm-organization': 'ansible-collections',
+              'ansible.io/scm-repository': 'amazon.aws',
+            },
+          },
+        },
+        {
+          spec: {
+            collection_full_name: 'amazon.aws',
+            collection_version: '11.0.0',
+          },
+          metadata: {
+            annotations: {
+              'ansible.io/scm-provider': 'gitlab',
+              'ansible.io/scm-host-name': 'gitlab-public',
+              'ansible.io/scm-organization': 'ansible-collections',
+              'ansible.io/scm-repository': 'amazon.aws',
+            },
+          },
+        },
+      ];
+
+      const result = client.buildCollections(entities);
+
+      expect(result).toHaveLength(1);
+      expect(result[0]?.sources).toHaveLength(2);
+      expect(
+        result[0]?.sourceVersions?.[
+          'Github / github-public / ansible-collections / amazon.aws'
+        ],
+      ).toBeDefined();
+      expect(
+        result[0]?.sourceVersions?.[
+          'Gitlab / gitlab-public / ansible-collections / amazon.aws'
+        ],
+      ).toBeDefined();
+    });
+
+    it('should handle entities with collection_namespace and collection_name', () => {
+      const entities = [
+        {
+          spec: {
+            collection_namespace: 'community',
+            collection_name: 'general',
+            collection_version: '10.0.0',
+          },
+          metadata: {
+            annotations: {
+              'ansible.io/scm-provider': 'github',
+              'ansible.io/scm-host-name': 'github-public',
+              'ansible.io/scm-organization': 'ansible-collections',
+              'ansible.io/scm-repository': 'community.general',
+            },
+          },
+        },
+      ];
+
+      const result = client.buildCollections(entities);
+
+      expect(result).toHaveLength(1);
+      expect(result[0]?.name).toBe('community.general');
+    });
+
+    it('should handle entities without versions', () => {
+      const entities = [
+        {
+          spec: {
+            // Missing collection_version
+          },
+          metadata: {
+            annotations: {
+              'ansible.io/scm-provider': 'github',
+              'ansible.io/scm-host-name': 'github-public',
+              'ansible.io/scm-organization': 'ansible-collections',
+              'ansible.io/scm-repository': 'amazon.aws',
+            },
+          },
+        },
+      ];
+
+      const result = client.buildCollections(entities);
+
+      expect(result).toHaveLength(1);
+      expect(result[0]?.versions).toEqual([]);
+    });
+
+    it('should handle entities without source annotations', () => {
+      const entities = [
+        {
+          spec: {
+            collection_full_name: 'amazon.aws',
+            collection_version: '12.0.0',
+          },
+          metadata: {
+            annotations: {},
+          },
+        },
+      ];
+
+      const result = client.buildCollections(entities);
+
+      expect(result).toHaveLength(1);
+      expect(result[0]?.sources).toEqual([]);
+      expect(result[0]?.sourceVersions).toEqual({});
+    });
+
+    it('should prevent duplicate versions in the same collection', () => {
+      const entities = [
+        {
+          spec: {
+            collection_full_name: 'amazon.aws',
+            collection_version: '12.0.0',
+          },
+          metadata: {
+            annotations: {
+              'ansible.io/scm-provider': 'github',
+              'ansible.io/scm-host-name': 'github-public',
+              'ansible.io/scm-organization': 'ansible-collections',
+              'ansible.io/scm-repository': 'amazon.aws',
+            },
+          },
+        },
+        {
+          spec: {
+            collection_full_name: 'amazon.aws',
+            collection_version: '12.0.0', // Duplicate version
+          },
+          metadata: {
+            annotations: {
+              'ansible.io/scm-provider': 'github',
+              'ansible.io/scm-host-name': 'github-public',
+              'ansible.io/scm-organization': 'ansible-collections',
+              'ansible.io/scm-repository': 'amazon.aws',
+            },
+          },
+        },
+      ];
+
+      const result = client.buildCollections(entities);
+
+      expect(result).toHaveLength(1);
+      expect(result[0]?.versions).toHaveLength(1);
+      expect(result[0]?.versions).toContain('12.0.0');
+    });
+
+    it('should prevent duplicate sources in the same collection', () => {
+      const entities = [
+        {
+          spec: {
+            collection_full_name: 'amazon.aws',
+            collection_version: '12.0.0',
+          },
+          metadata: {
+            annotations: {
+              'ansible.io/scm-provider': 'github',
+              'ansible.io/scm-host-name': 'github-public',
+              'ansible.io/scm-organization': 'ansible-collections',
+              'ansible.io/scm-repository': 'amazon.aws',
+            },
+          },
+        },
+        {
+          spec: {
+            collection_full_name: 'amazon.aws',
+            collection_version: '11.0.0',
+          },
+          metadata: {
+            annotations: {
+              'ansible.io/scm-provider': 'github',
+              'ansible.io/scm-host-name': 'github-public',
+              'ansible.io/scm-organization': 'ansible-collections',
+              'ansible.io/scm-repository': 'amazon.aws',
+            },
+          },
+        },
+      ];
+
+      const result = client.buildCollections(entities);
+
+      expect(result).toHaveLength(1);
+      expect(result[0]?.sources).toHaveLength(1);
+    });
+
+    it('should prevent duplicate versions in sourceVersions', () => {
+      const entities = [
+        {
+          spec: {
+            collection_full_name: 'amazon.aws',
+            collection_version: '12.0.0',
+          },
+          metadata: {
+            annotations: {
+              'ansible.io/scm-provider': 'github',
+              'ansible.io/scm-host-name': 'github-public',
+              'ansible.io/scm-organization': 'ansible-collections',
+              'ansible.io/scm-repository': 'amazon.aws',
+            },
+          },
+        },
+        {
+          spec: {
+            collection_full_name: 'amazon.aws',
+            collection_version: '12.0.0', // Duplicate version for same source
+          },
+          metadata: {
+            annotations: {
+              'ansible.io/scm-provider': 'github',
+              'ansible.io/scm-host-name': 'github-public',
+              'ansible.io/scm-organization': 'ansible-collections',
+              'ansible.io/scm-repository': 'amazon.aws',
+            },
+          },
+        },
+      ];
+
+      const result = client.buildCollections(entities);
+
+      expect(result).toHaveLength(1);
+      const sourceKey =
+        'Github / github-public / ansible-collections / amazon.aws';
+      expect(result[0]?.sourceVersions?.[sourceKey]).toHaveLength(1);
+      expect(result[0]?.sourceVersions?.[sourceKey]).toContain('12.0.0');
+    });
+  });
+
+  describe('formatSource', () => {
+    it('should format PAH source correctly', () => {
+      const annotations = {
+        'ansible.io/collection-source': 'pah',
+        'ansible.io/collection-source-repository': 'rh-certified',
+      };
+
+      const result = (client as any).formatSource(annotations);
+
+      expect(result).toBe('Private Automation Hub / rh-certified');
+    });
+
+    it('should format PAH source with unknown repository when missing', () => {
+      const annotations = {
+        'ansible.io/collection-source': 'pah',
+        // Missing collection-source-repository
+      };
+
+      const result = (client as any).formatSource(annotations);
+
+      expect(result).toBe('Private Automation Hub / unknown');
+    });
+
+    it('should format SCM source with all components', () => {
+      const annotations = {
+        'ansible.io/scm-provider': 'github',
+        'ansible.io/scm-host-name': 'github-public',
+        'ansible.io/scm-organization': 'ansible-collections',
+        'ansible.io/scm-repository': 'amazon.aws',
+      };
+
+      const result = (client as any).formatSource(annotations);
+
+      expect(result).toBe(
+        'Github / github-public / ansible-collections / amazon.aws',
+      );
+    });
+
+    it('should capitalize provider name in SCM source', () => {
+      const annotations = {
+        'ansible.io/scm-provider': 'gitlab',
+        'ansible.io/scm-host-name': 'gitlab-public',
+        'ansible.io/scm-organization': 'ansible-collections',
+        'ansible.io/scm-repository': 'community.general',
+      };
+
+      const result = (client as any).formatSource(annotations);
+
+      expect(result).toBe(
+        'Gitlab / gitlab-public / ansible-collections / community.general',
+      );
+    });
+
+    it('should return null for SCM source when provider is missing', () => {
+      const annotations = {
+        'ansible.io/scm-host-name': 'github-public',
+        'ansible.io/scm-organization': 'ansible-collections',
+        'ansible.io/scm-repository': 'amazon.aws',
+        // Missing scm-provider
+      };
+
+      const result = (client as any).formatSource(annotations);
+
+      expect(result).toBeNull();
+    });
+
+    it('should return null for SCM source when host name is missing', () => {
+      const annotations = {
+        'ansible.io/scm-provider': 'github',
+        'ansible.io/scm-organization': 'ansible-collections',
+        'ansible.io/scm-repository': 'amazon.aws',
+        // Missing scm-host-name
+      };
+
+      const result = (client as any).formatSource(annotations);
+
+      expect(result).toBeNull();
+    });
+
+    it('should return null for SCM source when organization is missing', () => {
+      const annotations = {
+        'ansible.io/scm-provider': 'github',
+        'ansible.io/scm-host-name': 'github-public',
+        'ansible.io/scm-repository': 'amazon.aws',
+        // Missing scm-organization
+      };
+
+      const result = (client as any).formatSource(annotations);
+
+      expect(result).toBeNull();
+    });
+
+    it('should return null for SCM source when repository is missing', () => {
+      const annotations = {
+        'ansible.io/scm-provider': 'github',
+        'ansible.io/scm-host-name': 'github-public',
+        'ansible.io/scm-organization': 'ansible-collections',
+        // Missing scm-repository
+      };
+
+      const result = (client as any).formatSource(annotations);
+
+      expect(result).toBeNull();
+    });
+
+    it('should return null for empty annotations', () => {
+      const annotations = {};
+
+      const result = (client as any).formatSource(annotations);
+
+      expect(result).toBeNull();
+    });
+
+    it('should return null when neither PAH nor SCM annotations are present', () => {
+      const annotations = {
+        'some.other.annotation': 'value',
+      };
+
+      const result = (client as any).formatSource(annotations);
+
+      expect(result).toBeNull();
+    });
+
+    it('should prioritize PAH over SCM when both are present', () => {
+      const annotations = {
+        'ansible.io/collection-source': 'pah',
+        'ansible.io/collection-source-repository': 'rh-certified',
+        'ansible.io/scm-provider': 'github',
+        'ansible.io/scm-host-name': 'github-public',
+        'ansible.io/scm-organization': 'ansible-collections',
+        'ansible.io/scm-repository': 'amazon.aws',
+      };
+
+      const result = (client as any).formatSource(annotations);
+
+      expect(result).toBe('Private Automation Hub / rh-certified');
+    });
+  });
 });
