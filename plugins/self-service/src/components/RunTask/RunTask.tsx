@@ -199,21 +199,8 @@ export const RunTask = () => {
   }, [task, canStartOver, isStartOverDisabled, navigate, templateRouteRef]);
 
   const handleBack = useCallback(() => {
-    if (!task?.spec?.templateInfo?.entity?.metadata) {
-      navigate(-1);
-      return;
-    }
-
-    const namespace =
-      task.spec.templateInfo.entity.metadata.namespace || 'default';
-    const templateName = task.spec.templateInfo.entity.metadata.name;
-
-    if (namespace && templateName) {
-      navigate(templateRouteRef({ namespace, templateName }));
-    } else {
-      navigate(-1);
-    }
-  }, [task, navigate, templateRouteRef]);
+    navigate('/self-service/catalog');
+  }, [navigate]);
 
   const handleEntityLinkClick = useCallback(
     (entityRef: string) => {

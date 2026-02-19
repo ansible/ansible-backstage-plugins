@@ -22,8 +22,6 @@ jest.mock('@backstage/plugin-catalog-react', () => {
     FavoriteEntity: ({ entity }: any) => (
       <span data-testid="favorite-entity">fav:{entity?.metadata?.name}</span>
     ),
-    InspectEntityDialog: ({ open }: any) =>
-      open ? <div data-testid="inspect-dialog">inspect</div> : null,
     UnregisterEntityDialog: ({ open }: any) =>
       open ? <div data-testid="unregister-dialog">unregister</div> : null,
     catalogApiRef: actual.catalogApiRef,
@@ -152,56 +150,11 @@ const renderWithCatalogApi = (
 describe('EEDetailsPage', () => {
   beforeEach(() => {
     jest.clearAllMocks();
-
-    // Ensure navigator.clipboard.writeText exists so tests can inspect/call it.
-    // Make it configurable so afterEach can delete it.
-    if (!(navigator as any).clipboard) {
-      Object.defineProperty(navigator, 'clipboard', {
-        configurable: true,
-        writable: true,
-        value: {
-          writeText: jest.fn().mockResolvedValue(undefined),
-        },
-      });
-    } else {
-      // If it already exists, but not a jest mock, ensure writeText is mockable
-      const cl = (navigator as any).clipboard;
-      if (!cl.writeText || typeof cl.writeText !== 'function') {
-        Object.defineProperty(navigator, 'clipboard', {
-          configurable: true,
-          writable: true,
-          value: {
-            writeText: jest.fn().mockResolvedValue(undefined),
-          },
-        });
-      } else if (!(cl.writeText as any)._isMockFunction) {
-        // wrap existing function with a mock so we can assert it was called
-        cl.writeText = jest.fn().mockImplementation(cl.writeText);
-      }
-    }
   });
 
   afterEach(() => {
     jest.restoreAllMocks();
     cleanup();
-
-    // Remove fake clipboard to avoid leaking to other test suites
-    try {
-      // only delete if it was defined configurable above
-      // eslint-disable-next-line @typescript-eslint/ban-ts-comment
-      // @ts-ignore
-      if (
-        (navigator as any).clipboard &&
-        (navigator as any).clipboard._isMockFunction
-      ) {
-        // unlikely, but safe-guard
-      }
-      // eslint-disable-next-line @typescript-eslint/ban-ts-comment
-      // @ts-ignore
-      delete (navigator as any).clipboard;
-    } catch (e) {
-      // ignore if deletion not permitted
-    }
   });
 
   test('renders entity details (title, description, owner, tags, readme with OWNER title)', async () => {
@@ -322,7 +275,7 @@ describe('EEDetailsPage', () => {
     if (editLink) {
       fireEvent.click(editLink);
       // link has target _blank in the markup — ensure href contains the edit url
-      //   expect((editLink as HTMLAnchorElement).href).toContain('http://edit/ee-one');
+      // expect((editLink as HTMLAnchorElement).href).toContain('http://edit/ee-one');
     }
   });
 
@@ -497,15 +450,10 @@ describe('EEDetailsPage', () => {
     });
   });
 
-  test('menu actions: copy url, unregister and inspect open respective flows', async () => {
+  test('menu actions: unregister opens unregister flow and other options are not present', async () => {
     renderWithCatalogApi(() => Promise.resolve({ items: [entityFull] }));
 
     await screen.findByTestId('favorite-entity');
-
-    // Use the mocked clipboard from beforeEach
-    const writeTextMock = (navigator.clipboard as any).writeText as jest.Mock;
-    // ensure it's a mock (should be from beforeEach)
-    expect(typeof writeTextMock).toBe('function');
 
     // Find the menu button: choose a header icon button that does not contain favorite-entity
     const buttons = screen.getAllByRole('button');
@@ -517,27 +465,18 @@ describe('EEDetailsPage', () => {
     expect(menuButton).toBeTruthy();
     fireEvent.click(menuButton!);
 
-    // Click "Copy entity URL"
-    const copyItem = await screen.findByText(/Copy entity URL/i);
-    fireEvent.click(copyItem);
-
-    // Clipboard was used
-    await waitFor(() => expect(writeTextMock).toHaveBeenCalled());
-
-    // Open menu again and click Unregister entity -> should show unregister-dialog
-    fireEvent.click(menuButton!);
+    // Verify only "Unregister entity" option is present
     const unregisterItem = await screen.findByText(/Unregister entity/i);
+    expect(unregisterItem).toBeInTheDocument();
+
+    // Verify "Copy entity URL" and "Inspect entity" are NOT present
+    expect(screen.queryByText(/Copy entity URL/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/Inspect entity/i)).not.toBeInTheDocument();
+
+    // Click Unregister entity -> should show unregister-dialog
     fireEvent.click(unregisterItem);
     await waitFor(() =>
       expect(screen.getByTestId('unregister-dialog')).toBeInTheDocument(),
-    );
-
-    // Open menu again and click Inspect entity -> should show inspect-dialog
-    fireEvent.click(menuButton!);
-    const inspectItem = await screen.findByText(/Inspect entity/i);
-    fireEvent.click(inspectItem);
-    await waitFor(() =>
-      expect(screen.getByTestId('inspect-dialog')).toBeInTheDocument(),
     );
   });
 });

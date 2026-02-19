@@ -51,24 +51,33 @@ export async function createRouter(options: {
     response.status(200).json(res);
   });
 
-  router.get('/aap/sync_status', async (_, response) => {
+  router.get('/aap/sync_status', async (request, response) => {
     logger.info('Getting sync status');
+    const aapEntities = request.query.aap_entities === 'true';
+
     try {
       const orgsUsersTeamsLastSync = aapEntityProvider.getLastSyncTime();
       const jobTemplatesLastSync = jobTemplateProvider.getLastSyncTime();
 
-      response.status(200).json({
-        orgsUsersTeams: { lastSync: orgsUsersTeamsLastSync },
-        jobTemplates: { lastSync: jobTemplatesLastSync },
-      });
+      if (aapEntities) {
+        response.status(200).json({
+          aap: {
+            orgsUsersTeams: { lastSync: orgsUsersTeamsLastSync },
+            jobTemplates: { lastSync: jobTemplatesLastSync },
+          },
+        });
+      }
     } catch (error) {
       const errorMessage =
         error instanceof Error ? error.message : String(error);
       logger.error(`Failed to get sync status: ${errorMessage}`);
+
       response.status(500).json({
         error: `Failed to get sync status: ${errorMessage}`,
-        orgsUsersTeams: { lastSync: null },
-        jobTemplates: { lastSync: null },
+        aap: {
+          orgsUsersTeams: null,
+          jobTemplates: null,
+        },
       });
     }
   });
