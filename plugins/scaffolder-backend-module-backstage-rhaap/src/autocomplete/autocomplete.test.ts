@@ -102,6 +102,129 @@ describe('ansible-aap:autocomplete', () => {
     });
   });
 
+  it('should return collections with search query', async () => {
+    const mockCollections = [
+      {
+        name: 'community.general',
+        versions: ['1.0.0', '2.0.0'],
+        sources: ['galaxy.ansible.com'],
+      },
+      {
+        name: 'ansible.builtin',
+        versions: ['1.0.0'],
+        sources: ['galaxy.ansible.com'],
+      },
+    ];
+
+    (mockAnsibleService.getCollections as jest.Mock) = jest
+      .fn()
+      .mockResolvedValue(mockCollections);
+
+    const context = {
+      searchQuery: 'kind=Component,spec.type=ansible-collection',
+    };
+
+    const response = await handleAutocompleteRequest({
+      resource: 'collections',
+      token: 'token',
+      context,
+      config,
+      logger,
+      ansibleService: mockAnsibleService,
+    });
+
+    expect(response).toEqual({ results: mockCollections });
+    expect(mockAnsibleService.getCollections).toHaveBeenCalledWith(
+      context.searchQuery,
+      'token',
+    );
+  });
+
+  it('should return collections with empty search query when context is not provided', async () => {
+    const mockCollections = [
+      {
+        name: 'community.general',
+        versions: ['1.0.0'],
+      },
+    ];
+
+    (mockAnsibleService.getCollections as jest.Mock) = jest
+      .fn()
+      .mockResolvedValue(mockCollections);
+
+    const response = await handleAutocompleteRequest({
+      resource: 'collections',
+      token: 'token',
+      config,
+      logger,
+      ansibleService: mockAnsibleService,
+    });
+
+    expect(response).toEqual({ results: mockCollections });
+    expect(mockAnsibleService.getCollections).toHaveBeenCalledWith('', 'token');
+  });
+
+  it('should return collections with empty search query when searchQuery is not in context', async () => {
+    const mockCollections = [
+      {
+        name: 'ansible.builtin',
+        versions: ['1.0.0'],
+      },
+    ];
+
+    (mockAnsibleService.getCollections as jest.Mock) = jest
+      .fn()
+      .mockResolvedValue(mockCollections);
+
+    const context = { otherField: 'value' };
+
+    const response = await handleAutocompleteRequest({
+      resource: 'collections',
+      token: 'token',
+      context,
+      config,
+      logger,
+      ansibleService: mockAnsibleService,
+    });
+
+    expect(response).toEqual({ results: mockCollections });
+    expect(mockAnsibleService.getCollections).toHaveBeenCalledWith('', 'token');
+  });
+
+  it('should handle empty collections result', async () => {
+    (mockAnsibleService.getCollections as jest.Mock) = jest
+      .fn()
+      .mockResolvedValue([]);
+
+    const response = await handleAutocompleteRequest({
+      resource: 'collections',
+      token: 'token',
+      config,
+      logger,
+      ansibleService: mockAnsibleService,
+    });
+
+    expect(response).toEqual({ results: [] });
+    expect(mockAnsibleService.getCollections).toHaveBeenCalledWith('', 'token');
+  });
+
+  it('should handle error when getCollections fails', async () => {
+    const error = new Error('Failed to fetch collections');
+    (mockAnsibleService.getCollections as jest.Mock) = jest
+      .fn()
+      .mockRejectedValue(error);
+
+    await expect(
+      handleAutocompleteRequest({
+        resource: 'collections',
+        token: 'token',
+        config,
+        logger,
+        ansibleService: mockAnsibleService,
+      }),
+    ).rejects.toThrow('Failed to fetch collections');
+  });
+
   it('should log context when provided', async () => {
     const mockOrganizations = {
       results: [
