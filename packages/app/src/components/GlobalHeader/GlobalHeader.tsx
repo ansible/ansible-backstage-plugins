@@ -13,7 +13,13 @@ import AddIcon from '@material-ui/icons/Add';
 import AccountCircle from '@material-ui/icons/AccountCircle';
 import { makeStyles, alpha } from '@material-ui/core/styles';
 import { Link, useNavigate } from 'react-router-dom';
-import { useApi, identityApiRef } from '@backstage/core-plugin-api';
+import {
+  useApi,
+  identityApiRef,
+  configApiRef,
+  errorApiRef,
+} from '@backstage/core-plugin-api';
+import { rhAapAuthApiRef } from '@ansible/plugin-backstage-self-service';
 import { useState } from 'react';
 
 const useStyles = makeStyles(theme => ({
@@ -115,6 +121,9 @@ export const GlobalHeader = () => {
   const classes = useStyles();
   const navigate = useNavigate();
   const identityApi = useApi(identityApiRef);
+  const errorApi = useApi(errorApiRef);
+  const rhAapAuthApi = useApi(rhAapAuthApiRef);
+  const config = useApi(configApiRef);
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
   const [searchValue, setSearchValue] = useState('');
 
@@ -127,8 +136,28 @@ export const GlobalHeader = () => {
   };
 
   const handleLogout = async () => {
-    await identityApi.signOut();
     handleMenuClose();
+
+    try {
+      // Revoke AAP OAuth token via backend /api/auth/rhaap/logout
+      await rhAapAuthApi.signOut();
+    } catch {
+      // Ignore if not logged into AAP
+    }
+
+    // Sign out from primary identity provider (e.g. GitHub / Gitlab)
+    // This clears the local Backstage session state
+    identityApi.signOut().catch(error => errorApi.post(error));
+
+    // Redirect to AAP logout to end the AAP browser session.
+    // This must be a top-level navigation so the browser sends the
+    // gateway_sessionid cookie (SameSite=Lax).
+    const aapHost = config
+      .getOptionalString('ansible.rhaap.baseUrl')
+      ?.replace(/\/$/, '');
+    if (aapHost) {
+      window.location.href = `${aapHost}/api/gateway/v1/logout/`;
+    }
   };
 
   const handleSearchSubmit = (event: React.FormEvent) => {

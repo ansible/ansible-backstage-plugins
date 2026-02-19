@@ -21,15 +21,24 @@ jest.mock('react-router-dom', () => ({
 
 // mock identity API and useApi
 const mockSignOut = jest.fn().mockResolvedValue(undefined);
-const mockIdentityApi = {
-  signOut: mockSignOut,
-};
+
+const mockErrorPost = jest.fn();
+
+jest.mock('@ansible/plugin-backstage-self-service', () => ({
+  __esModule: true,
+  rhAapAuthApiRef: Symbol('rhAapAuthApiRef'),
+}));
 
 jest.mock('@backstage/core-plugin-api', () => ({
   __esModule: true,
-  // keep identityApiRef so imports resolve; value isn't used directly in the test
-  identityApiRef: {},
-  useApi: () => mockIdentityApi,
+  identityApiRef: Symbol('identityApiRef'),
+  configApiRef: Symbol('configApiRef'),
+  errorApiRef: Symbol('errorApiRef'),
+  useApi: () => ({
+    signOut: mockSignOut,
+    post: mockErrorPost,
+    getOptionalString: jest.fn().mockReturnValue(undefined),
+  }),
 }));
 
 import { GlobalHeader } from './GlobalHeader';

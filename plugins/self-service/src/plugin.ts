@@ -35,3 +35,19 @@ export const LocationListener = selfServicePlugin.provide(
     },
   }),
 );
+
+/**
+ * Custom logout button that revokes the AAP OAuth token,
+ * ends the AAP browser session, and signs out of Backstage.
+ *
+ * @public
+ */
+export const AAPLogoutButton = selfServicePlugin.provide(
+  createComponentExtension({
+    name: 'AAPLogoutButton',
+    component: {
+      lazy: () =>
+        import('./components/AAPLogoutButton').then(m => m.AAPLogoutButton),
+    },
+  }),
+);

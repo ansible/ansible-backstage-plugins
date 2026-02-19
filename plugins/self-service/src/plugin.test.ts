@@ -23,6 +23,7 @@ describe('self-service plugin module', () => {
   let createComponentExtensionMock: jest.Mock;
   let SelfServicePage: any;
   let LocationListener: any;
+  let AAPLogoutButton: any;
 
   beforeEach(() => {
     jest.resetModules();
@@ -51,6 +52,7 @@ describe('self-service plugin module', () => {
       const mod = require('./plugin');
       SelfServicePage = mod.SelfServicePage;
       LocationListener = mod.LocationListener;
+      AAPLogoutButton = mod.AAPLogoutButton;
     });
   });
   afterEach(() => {
@@ -82,11 +84,20 @@ describe('self-service plugin module', () => {
   });
 
   it('exports LocationListener as the value returned by createComponentExtension', () => {
-    expect(createComponentExtensionMock).toHaveBeenCalledTimes(1);
+    expect(createComponentExtensionMock).toHaveBeenCalledTimes(2);
     const created = createComponentExtensionMock.mock.results[0].value;
     expect(LocationListener).toBe(created);
     const calledWith = createComponentExtensionMock.mock.calls[0][0];
     expect(calledWith).toHaveProperty('name', 'LocationListener');
+    expect(calledWith.component).toHaveProperty('lazy');
+    expect(typeof calledWith.component.lazy).toBe('function');
+  });
+
+  it('exports AAPLogoutButton as the value returned by createComponentExtension', () => {
+    const created = createComponentExtensionMock.mock.results[1].value;
+    expect(AAPLogoutButton).toBe(created);
+    const calledWith = createComponentExtensionMock.mock.calls[1][0];
+    expect(calledWith).toHaveProperty('name', 'AAPLogoutButton');
     expect(calledWith.component).toHaveProperty('lazy');
     expect(typeof calledWith.component.lazy).toBe('function');
   });
