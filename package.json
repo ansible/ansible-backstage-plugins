@@ -50,11 +50,11 @@
     "husky": "8.0.3",
     "jest-environment-node": "^29.7.0",
     "jest-junit": "^16.0.0",
-    "lint-staged": "15.2.10",
+    "lint-staged": "15.5.2",
     "node-gyp": "^10.0.0",
     "prettier": "^2.3.2",
     "sonarqube-scanner": "^4.3.2",
-    "typescript": "~5.8.0"
+    "typescript": "~5.9.0"
   },
   "resolutions": {
     "@types/react": "^18",

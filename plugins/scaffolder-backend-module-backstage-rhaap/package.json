@@ -67,7 +67,7 @@
     "@types/node-fetch": "2.6.11",
     "@types/semver": "^7",
     "dedent": "^1.7.0",
-    "msw": "2.4.9",
+    "msw": "2.12.10",
     "supertest": "^7.1.4"
   },
   "files": [
