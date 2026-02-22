@@ -28,7 +28,7 @@ __metadata:
   dependencies:
     "@ansible/backstage-rhaap-common": "workspace:^"
     "@backstage/backend-common": "npm:^0.25.0"
-    "@backstage/backend-defaults": "npm:^0.11.1"
+    "@backstage/backend-defaults": "npm:^0.12.0"
     "@backstage/backend-dynamic-feature-service": "npm:^0.7.0"
     "@backstage/backend-plugin-api": "npm:^1.3.1"
     "@backstage/backend-test-utils": "npm:^1.5.0"
@@ -55,7 +55,7 @@ __metadata:
   resolution: "@ansible/backstage-plugin-catalog-backend-module-rhaap@workspace:plugins/catalog-backend-module-rhaap"
   dependencies:
     "@ansible/backstage-rhaap-common": "workspace:^"
-    "@backstage/backend-defaults": "npm:^0.11.1"
+    "@backstage/backend-defaults": "npm:^0.12.0"
     "@backstage/backend-dynamic-feature-service": "npm:^0.7.0"
     "@backstage/backend-plugin-api": "npm:^1.3.1"
     "@backstage/backend-test-utils": "npm:^1.5.0"
@@ -192,7 +192,7 @@ __metadata:
   dependencies:
     "@ansible/backstage-rhaap-common": "workspace:^"
     "@backstage/backend-common": "npm:^0.25.0"
-    "@backstage/backend-defaults": "npm:^0.11.1"
+    "@backstage/backend-defaults": "npm:^0.12.0"
     "@backstage/backend-dynamic-feature-service": "npm:^0.7.0"
     "@backstage/backend-plugin-api": "npm:^1.3.1"
     "@backstage/backend-test-utils": "npm:^1.5.0"
@@ -18862,7 +18862,7 @@ __metadata:
     "@ansible/backstage-rhaap-common": "workspace:^"
     "@ansible/plugin-scaffolder-backend-module-backstage-rhaap": "workspace:^"
     "@backstage-community/plugin-rbac-backend": "npm:6.1.0"
-    "@backstage/backend-defaults": "npm:^0.11.1"
+    "@backstage/backend-defaults": "npm:^0.12.0"
     "@backstage/backend-plugin-api": "npm:^1.3.1"
     "@backstage/catalog-model": "npm:^1.7.4"
     "@backstage/cli": "npm:^0.33.1"
