@@ -48,8 +48,8 @@
     "@types/node": "^22.13.4",
     "@types/passport-oauth2": "^1.4.17",
     "@types/supertest": "^6.0.2",
-    "jose": "5.9.3",
-    "msw": "2.4.9",
+    "jose": "5.10.0",
+    "msw": "2.12.10",
     "supertest": "6.3.4"
   },
   "files": [
