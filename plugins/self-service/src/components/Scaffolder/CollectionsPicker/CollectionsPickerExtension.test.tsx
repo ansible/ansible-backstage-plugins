@@ -1361,50 +1361,48 @@ describe('CollectionsPickerExtension', () => {
       });
     });
 
-    it('handles adding collection with only source', async () => {
+    it('calls onChange when adding collection with name only', async () => {
       const mockCollections = [
-        {
-          name: 'community.general',
-          id: 'community.general',
-          sources: ['Source 1'],
-        },
+        { name: 'community.general', id: 'community.general' },
       ];
+
       mockScaffolderApi.autocomplete.mockResolvedValue({
         results: mockCollections,
       });
+
       const props = createMockProps();
+
       render(<CollectionsPickerExtension {...props} />);
 
       await waitFor(() => {
         expect(mockScaffolderApi.autocomplete).toHaveBeenCalled();
       });
 
-      const collectionInput = getInputElement('Collection');
-      if (collectionInput) {
-        fireEvent.change(collectionInput, {
-          target: { value: 'community.general' },
-        });
-      }
+      const collectionInput = screen.getByLabelText('Collection');
 
-      await waitFor(() => {
-        const sourceInput = getInputElement('Source');
-        if (sourceInput) {
-          fireEvent.change(sourceInput, {
-            target: { value: 'Source 1' },
-          });
-        }
+      // Open dropdown
+      fireEvent.mouseDown(collectionInput);
+
+      // Wait for option to appear
+      const option = await screen.findByText('community.general');
+
+      // Click option
+      fireEvent.click(option);
+
+      const addButton = screen.getByRole('button', {
+        name: 'Add collection',
       });
 
+      expect(addButton).not.toBeDisabled();
+
+      fireEvent.click(addButton);
+
       await waitFor(() => {
-        const addButton = screen.getByRole('button', {
-          name: 'Add collection',
-        });
-        if (!addButton.hasAttribute('disabled')) {
-          fireEvent.click(addButton);
-        }
+        expect(props.onChange).toHaveBeenCalledWith([
+          { name: 'community.general' },
+        ]);
       });
     });
-
     it('handles adding collection with source and version', async () => {
       const mockCollections = [
         {
@@ -1460,6 +1458,75 @@ describe('CollectionsPickerExtension', () => {
         }
       });
     });
+
+    // it('replaces existing collection when same name is added', async () => {
+    //   const mockCollections = [
+    //     { name: 'community.general', id: 'community.general' },
+    //   ];
+
+    //   mockScaffolderApi.autocomplete.mockResolvedValue({
+    //     results: mockCollections,
+    //   });
+
+    //   const formData = [{ name: 'community.general', version: '1.0.0' }];
+    //   const props = createMockProps({ formData });
+
+    //   render(<CollectionsPickerExtension {...props} />);
+
+    //   await waitFor(() => {
+    //     expect(mockScaffolderApi.autocomplete).toHaveBeenCalled();
+    //   });
+
+    //   const collectionInput = getInputElement('Collection');
+    //   fireEvent.change(collectionInput!, {
+    //     target: { value: 'community.general' },
+    //   });
+
+    //   const addButton = screen.getByRole('button', {
+    //     name: 'Add collection',
+    //   });
+
+    //   fireEvent.click(addButton);
+
+    //   expect(props.onChange).toHaveBeenCalledWith([
+    //     { name: 'community.general' },
+    //   ]);
+    // });
+
+    // it('handles undefined collections when adding', async () => {
+    //   const mockCollections = [
+    //     { name: 'community.general', id: 'community.general' },
+    //   ];
+
+    //   mockScaffolderApi.autocomplete.mockResolvedValue({
+    //     results: mockCollections,
+    //   });
+
+    //   const props = createMockProps({ formData: undefined });
+
+    //   render(<CollectionsPickerExtension {...props} />);
+
+    //   await waitFor(() => {
+    //     expect(mockScaffolderApi.autocomplete).toHaveBeenCalled();
+    //   });
+
+    //   // Click mocked autocomplete option
+    //   const option = screen.getByText('community.general');
+    //   fireEvent.click(option);
+
+    //   const addButton = screen.getByRole('button', {
+    //     name: 'Add collection',
+    //   });
+
+    //   expect(addButton).not.toBeDisabled();
+
+    //   fireEvent.click(addButton);
+
+    //   expect(props.onChange).toHaveBeenCalledTimes(1);
+    //   expect(props.onChange).toHaveBeenCalledWith([
+    //     { name: 'community.general' },
+    //   ]);
+    // });
   });
 
   describe('Removing Collections', () => {
@@ -1520,6 +1587,63 @@ describe('CollectionsPickerExtension', () => {
       if (deleteButton) {
         fireEvent.click(deleteButton);
       }
+    });
+
+    it('calls onChange after removing collection', async () => {
+      mockScaffolderApi.autocomplete.mockResolvedValue({ results: [] });
+
+      const formData = [
+        { name: 'community.general' },
+        { name: 'ansible.builtin' },
+      ];
+
+      const props = createMockProps({ formData });
+
+      render(<CollectionsPickerExtension {...props} />);
+
+      // Wait until chips appear
+      await waitFor(() => {
+        expect(screen.getByText('community.general')).toBeInTheDocument();
+      });
+
+      // Find the chip container
+      const chip = screen.getByText('community.general');
+      const chipRoot = chip.closest('.MuiChip-root');
+
+      // Click the delete icon inside the chip
+      const deleteIcon = chipRoot?.querySelector('svg');
+      fireEvent.click(deleteIcon!);
+
+      expect(props.onChange).toHaveBeenCalledWith([
+        { name: 'ansible.builtin' },
+      ]);
+    });
+
+    it('removes last collection correctly and returns empty array', async () => {
+      mockScaffolderApi.autocomplete.mockResolvedValue({ results: [] });
+
+      const formData = [{ name: 'community.general' }];
+
+      const props = createMockProps({ formData });
+
+      render(<CollectionsPickerExtension {...props} />);
+
+      // Wait for chip to render
+      await waitFor(() => {
+        expect(screen.getByText('community.general')).toBeInTheDocument();
+      });
+
+      const chip = screen.getByText('community.general');
+      const chipRoot = chip.closest('.MuiChip-root');
+
+      // MUI delete icon is an SVG inside chip
+      const deleteIcon = chipRoot?.querySelector('.MuiChip-deleteIcon');
+
+      expect(deleteIcon).toBeInTheDocument();
+
+      fireEvent.click(deleteIcon!);
+
+      expect(props.onChange).toHaveBeenCalledWith([]);
     });
   });
 
@@ -1623,6 +1747,24 @@ describe('CollectionsPickerExtension', () => {
         const collectionInput = screen.getAllByLabelText('Collection')[0];
         expect(collectionInput).toBeInTheDocument();
       });
+    });
+
+    it('sets selected values when editing collection', async () => {
+      mockScaffolderApi.autocomplete.mockResolvedValue({ results: [] });
+
+      const formData = [
+        { name: 'community.general', source: 'Source 1', version: '1.0.0' },
+      ];
+
+      const props = createMockProps({ formData });
+
+      render(<CollectionsPickerExtension {...props} />);
+
+      const chip = screen.getByText('community.general');
+      fireEvent.click(chip);
+
+      const collectionInput = screen.getAllByLabelText('Collection')[0];
+      expect(collectionInput).toBeInTheDocument();
     });
   });
 
@@ -2084,6 +2226,27 @@ describe('CollectionsPickerExtension', () => {
       await waitFor(() => {
         expect(mockScaffolderApi.autocomplete).toHaveBeenCalled();
       });
+    });
+
+    it('sets empty sources when source API fails', async () => {
+      const mockCollections = [
+        { name: 'community.general', id: 'community.general' },
+      ];
+
+      mockScaffolderApi.autocomplete
+        .mockResolvedValueOnce({ results: mockCollections })
+        .mockRejectedValueOnce(new Error('Source error'));
+
+      const props = createMockProps();
+
+      render(<CollectionsPickerExtension {...props} />);
+
+      await waitFor(() => {
+        expect(mockScaffolderApi.autocomplete).toHaveBeenCalled();
+      });
+
+      const sourceInput = screen.getAllByLabelText('Source')[0];
+      expect(sourceInput).toBeDisabled();
     });
   });
 
