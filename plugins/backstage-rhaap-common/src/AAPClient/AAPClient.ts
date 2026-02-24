@@ -30,40 +30,39 @@ import {
 import { IJobTemplate, ISurvey, InstanceGroup } from '../interfaces';
 import { getAnsibleConfig, getCatalogConfig } from './utils/config';
 
-export interface IAAPService
-  extends Pick<
-    AAPClient,
-    | 'executePostRequest'
-    | 'executeGetRequest'
-    | 'executeDeleteRequest'
-    | 'getProject'
-    | 'deleteProject'
-    | 'deleteProjectIfExists'
-    | 'createProject'
-    | 'deleteExecutionEnvironmentExists'
-    | 'createExecutionEnvironment'
-    | 'deleteExecutionEnvironment'
-    | 'deleteJobTemplate'
-    | 'deleteJobTemplateIfExists'
-    | 'createJobTemplate'
-    | 'fetchEvents'
-    | 'fetchResult'
-    | 'launchJobTemplate'
-    | 'cleanUp'
-    | 'getResourceData'
-    | 'getJobTemplatesByName'
-    | 'setLogger'
-    | 'rhAAPAuthenticate'
-    | 'fetchProfile'
-    | 'getOrganizations'
-    | 'listSystemUsers'
-    | 'getTeamsByUserId'
-    | 'getUserRoleAssignments'
-    | 'syncJobTemplates'
-    | 'getOrgsByUserId'
-    | 'getUserInfoById'
-    | 'getCollections'
-  > {}
+export interface IAAPService extends Pick<
+  AAPClient,
+  | 'executePostRequest'
+  | 'executeGetRequest'
+  | 'executeDeleteRequest'
+  | 'getProject'
+  | 'deleteProject'
+  | 'deleteProjectIfExists'
+  | 'createProject'
+  | 'deleteExecutionEnvironmentExists'
+  | 'createExecutionEnvironment'
+  | 'deleteExecutionEnvironment'
+  | 'deleteJobTemplate'
+  | 'deleteJobTemplateIfExists'
+  | 'createJobTemplate'
+  | 'fetchEvents'
+  | 'fetchResult'
+  | 'launchJobTemplate'
+  | 'cleanUp'
+  | 'getResourceData'
+  | 'getJobTemplatesByName'
+  | 'setLogger'
+  | 'rhAAPAuthenticate'
+  | 'fetchProfile'
+  | 'getOrganizations'
+  | 'listSystemUsers'
+  | 'getTeamsByUserId'
+  | 'getUserRoleAssignments'
+  | 'syncJobTemplates'
+  | 'getOrgsByUserId'
+  | 'getUserInfoById'
+  | 'getCollections'
+> {}
 
 export class AAPClient implements IAAPService {
   static readonly pluginLogName = 'backstage-rhaap-common';
