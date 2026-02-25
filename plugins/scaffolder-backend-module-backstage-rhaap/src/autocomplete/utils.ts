@@ -28,6 +28,7 @@ function formatSource(annotations: Record<string, string>): string | null {
  * Compare two version strings for descending sort (newest first).
  * Handles semver-like versions (e.g. 1.2.3, 2.0.0).
  */
+
 function compareVersionsDescending(a: string, b: string): number {
   const parse = (v: string) => {
     const parts = v.split('.');
