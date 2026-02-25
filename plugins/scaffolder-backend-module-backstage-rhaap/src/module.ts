@@ -121,6 +121,8 @@ export const scaffolderModuleAnsible = createBackendModule({
               config,
               logger,
               ansibleService,
+              auth,
+              discovery,
             }),
         });
         httpRouter.use(

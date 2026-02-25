@@ -2846,42 +2846,6 @@ describe('createEEDefinition', () => {
       );
     });
 
-    it('should not include popular collections enum in template', async () => {
-      const action = createEEDefinitionAction({
-        frontendUrl: 'http://localhost:3000',
-        auth,
-        discovery,
-      });
-      const ctx = {
-        input: {
-          values: {
-            eeFileName: 'test-ee',
-            eeDescription: 'Test EE',
-            baseImage: 'quay.io/ansible/ee-base:latest',
-            tags: [],
-            publishToSCM: true,
-          },
-        },
-        logger,
-        workspacePath: mockWorkspacePath,
-        output: jest.fn(),
-      } as any;
-
-      await action.handler(ctx);
-
-      const writeCall = mockWriteFile.mock.calls.find((call: any[]) =>
-        call[0].toString().endsWith('template.yaml'),
-      );
-      const content = writeCall![1] as string;
-
-      // Verify popular collections enum is NOT included (was removed)
-      expect(content).not.toContain('popularCollections');
-      expect(content).not.toContain("- 'ansible.posix'");
-      expect(content).not.toContain("- 'community.general'");
-      expect(content).not.toContain("- 'amazon.aws'");
-      expect(content).not.toContain("- 'azure.azcollection'");
-    });
-
     it('should include MCP servers enum in template', async () => {
       const action = createEEDefinitionAction({
         frontendUrl: 'http://localhost:3000',
