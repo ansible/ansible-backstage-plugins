@@ -99,7 +99,7 @@ export async function getCollections(options: {
     return { results: [] };
   }
   const body = await response.json();
-  const entities = Array.isArray(body) ? body : body?.items ?? [];
+  const entities = Array.isArray(body) ? body : (body?.items ?? []);
   const results = buildCollectionsFromCatalogEntities(entities);
   return { results };
 }

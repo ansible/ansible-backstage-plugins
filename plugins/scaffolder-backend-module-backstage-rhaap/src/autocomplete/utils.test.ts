@@ -15,10 +15,7 @@
  */
 
 import { mockServices } from '@backstage/backend-test-utils';
-import {
-  buildCollectionsFromCatalogEntities,
-  getCollections,
-} from './utils';
+import { buildCollectionsFromCatalogEntities, getCollections } from './utils';
 
 const mockFetch = jest.fn();
 
@@ -135,9 +132,9 @@ describe('autocomplete utils', () => {
       const result = buildCollectionsFromCatalogEntities(entities);
       expect(result).toHaveLength(1);
       expect(result[0].sources).toContain('Private Automation Hub / my-repo');
-      expect(result[0].sourceVersions!['Private Automation Hub / my-repo']).toEqual(
-        ['1.0.0'],
-      );
+      expect(
+        result[0].sourceVersions!['Private Automation Hub / my-repo'],
+      ).toEqual(['1.0.0']);
     });
 
     it('uses "unknown" when pah repo name is missing', () => {
@@ -178,9 +175,9 @@ describe('autocomplete utils', () => {
       expect(result[0].sources).toContain(
         'Github / github.com / myorg / myrepo',
       );
-      expect(result[0].sourceVersions!['Github / github.com / myorg / myrepo']).toEqual(
-        ['1.0.0'],
-      );
+      expect(
+        result[0].sourceVersions!['Github / github.com / myorg / myrepo'],
+      ).toEqual(['1.0.0']);
     });
 
     it('handles missing metadata.annotations', () => {
