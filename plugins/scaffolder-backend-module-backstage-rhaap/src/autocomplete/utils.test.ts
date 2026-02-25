@@ -97,7 +97,7 @@ describe('autocomplete utils', () => {
       ];
       const result = buildCollectionsFromCatalogEntities(entities);
       expect(result).toHaveLength(1);
-      expect(result[0].versions).toEqual(['1.0.0', '2.0.0']);
+      expect(result[0].versions).toEqual(['2.0.0', '1.0.0']);
     });
 
     it('includes entity with valid name when another has empty spec', () => {

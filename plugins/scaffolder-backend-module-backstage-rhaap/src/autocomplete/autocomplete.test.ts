@@ -167,14 +167,14 @@ describe('ansible-aap:autocomplete', () => {
     expect(response).toEqual({
       results: [
         {
-          name: 'community.general',
-          versions: ['1.0.0', '2.0.0'],
+          name: 'ansible.builtin',
+          versions: ['1.0.0'],
           sources: [],
           sourceVersions: {},
         },
         {
-          name: 'ansible.builtin',
-          versions: ['1.0.0'],
+          name: 'community.general',
+          versions: ['2.0.0', '1.0.0'],
           sources: [],
           sourceVersions: {},
         },

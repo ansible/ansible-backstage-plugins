@@ -24,6 +24,29 @@ function formatSource(annotations: Record<string, string>): string | null {
   return null;
 }
 
+/**
+ * Compare two version strings for descending sort (newest first).
+ * Handles semver-like versions (e.g. 1.2.3, 2.0.0).
+ */
+function compareVersionsDescending(a: string, b: string): number {
+  const parse = (v: string) => {
+    const parts = v.split('.');
+    return parts.map(p => {
+      const num = parseInt(p, 10);
+      return isNaN(num) ? 0 : num;
+    });
+  };
+  const pa = parse(a);
+  const pb = parse(b);
+  const len = Math.max(pa.length, pb.length);
+  for (let i = 0; i < len; i++) {
+    const na = pa[i] ?? 0;
+    const nb = pb[i] ?? 0;
+    if (na !== nb) return nb - na; // descending: higher version first
+  }
+  return 0;
+}
+
 export function buildCollectionsFromCatalogEntities(
   entities: any[],
 ): Collections[] {
@@ -67,7 +90,28 @@ export function buildCollectionsFromCatalogEntities(
     }
   }
 
-  return Array.from(map.values());
+  const collections = Array.from(map.values());
+
+  for (const collection of collections) {
+    if (collection.versions?.length) {
+      collection.versions.sort(compareVersionsDescending);
+    }
+    if (collection.sourceVersions) {
+      for (const source of Object.keys(collection.sourceVersions)) {
+        const versions = collection.sourceVersions[source];
+        if (versions?.length) {
+          collection.sourceVersions[source] = versions.sort(
+            compareVersionsDescending,
+          );
+        }
+      }
+    }
+  }
+
+  collections.sort((a, b) =>
+    a.name.localeCompare(b.name, undefined, { sensitivity: 'base' }),
+  );
+  return collections;
 }
 
 export async function getCollections(options: {
