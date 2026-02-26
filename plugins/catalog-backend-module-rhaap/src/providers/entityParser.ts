@@ -192,12 +192,21 @@ export const pahCollectionParser = (options: {
         options.collection.description ??
         `Ansible Collection: ${options.collection.namespace}.${options.collection.name}`,
 
-      // Tags displayed in the Backstage UI tags column (deduplicated, filtered to strings only)
+      // Tags displayed in the Backstage UI tags column (sanitized for Backstage compatibility)
       tags: [
         ...new Set(
-          (options.collection.tags || []).filter(
-            (tag): tag is string => typeof tag === 'string' && tag.length > 0,
-          ),
+          (options.collection.tags || [])
+            .filter(
+              (tag): tag is string => typeof tag === 'string' && tag.length > 0,
+            )
+            .map(tag =>
+              tag
+                .toLowerCase()
+                .replace(/[^a-z0-9+#-]/g, '-')
+                .replace(/-+/g, '-')
+                .replace(/^-|-$/g, ''),
+            )
+            .filter(tag => tag.length > 0),
         ),
       ],
 
