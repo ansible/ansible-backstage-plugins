@@ -11,18 +11,6 @@
     "main": "dist/index.cjs.js",
     "types": "dist/index.d.ts"
   },
-  "exports": {
-    ".": "./src/index.ts",
-    "./permissions": "./src/permissions.ts",
-    "./package.json": "./package.json"
-  },
-  "typesVersions": {
-    "*": {
-      "permissions": [
-        "src/permissions.ts"
-      ]
-    }
-  },
   "backstage": {
     "role": "backend-plugin-module",
     "pluginId": "catalog",
@@ -51,7 +39,6 @@
     "@backstage/integration": "^1.17.0",
     "@backstage/plugin-catalog-backend": "^3.0.0",
     "@backstage/plugin-catalog-node": "^1.17.0",
-    "@backstage/plugin-permission-common": "^0.9.6",
     "@backstage/types": "^1.2.1",
     "express": "^5.1.0",
     "express-promise-router": "^4.1.1",
