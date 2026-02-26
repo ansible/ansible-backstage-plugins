@@ -82,9 +82,13 @@ export async function fetchCollectionDetails(
       if (detailData) {
         docsBlob = detailData?.docs_blob?.collection_readme?.html ?? null;
         if (Array.isArray(detailData?.authors)) {
-          authors = detailData.authors.map((a: unknown) =>
-            typeof a === 'string' ? a : (a as { name?: string })?.name ?? '',
-          ).filter(Boolean);
+          authors = detailData.authors
+            .map((a: unknown) =>
+              typeof a === 'string'
+                ? a
+                : ((a as { name?: string })?.name ?? ''),
+            )
+            .filter(Boolean);
         }
       }
     }
@@ -145,9 +149,11 @@ export async function processCollectionItem(
       ? cv.dependencies
       : null;
   const tags: string[] | null = Array.isArray(cv.tags)
-    ? (cv.tags as unknown[]).map((t: unknown) =>
-        typeof t === 'string' ? t : (t as { name?: string })?.name ?? '',
-      ).filter(Boolean)
+    ? (cv.tags as unknown[])
+        .map((t: unknown) =>
+          typeof t === 'string' ? t : ((t as { name?: string })?.name ?? ''),
+        )
+        .filter(Boolean)
     : null;
 
   return {
