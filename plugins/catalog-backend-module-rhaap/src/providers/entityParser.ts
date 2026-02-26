@@ -16,6 +16,10 @@ import {
 } from '@ansible/backstage-rhaap-common';
 import { generateTemplate } from './dynamicJobTemplate';
 
+function normalizeBaseUrl(baseUrl: string): string {
+  return baseUrl.replace(/\/$/, '');
+}
+
 export function organizationParser(options: {
   baseUrl: string;
   nameSpace: string;
@@ -24,6 +28,7 @@ export function organizationParser(options: {
   teams: string[];
 }): Entity {
   const { baseUrl, org, nameSpace, orgMembers, teams } = options;
+  const normalizedBaseUrl = normalizeBaseUrl(baseUrl);
   return {
     apiVersion: 'backstage.io/v1alpha1',
     kind: 'Group',
@@ -32,8 +37,8 @@ export function organizationParser(options: {
       name: formatNameSpace(org.name),
       title: org.name,
       annotations: {
-        [ANNOTATION_LOCATION]: `url:${baseUrl}/access/organizations/${org.id}/details`,
-        [ANNOTATION_ORIGIN_LOCATION]: `url:${baseUrl}/access/organizations/${org.id}/details`,
+        [ANNOTATION_LOCATION]: `url:${normalizedBaseUrl}/access/organizations/${org.id}/details`,
+        [ANNOTATION_ORIGIN_LOCATION]: `url:${normalizedBaseUrl}/access/organizations/${org.id}/details`,
       },
     },
     spec: {
@@ -51,6 +56,7 @@ export function teamParser(options: {
   teamMembers: string[];
 }): Entity {
   const { baseUrl, team, nameSpace, teamMembers } = options;
+  const normalizedBaseUrl = normalizeBaseUrl(baseUrl);
   return {
     apiVersion: 'backstage.io/v1alpha1',
     kind: 'Group',
@@ -60,8 +66,8 @@ export function teamParser(options: {
       title: team.name,
       description: team.description,
       annotations: {
-        [ANNOTATION_LOCATION]: `url:${baseUrl}/access/teams/${team.id}/details`,
-        [ANNOTATION_ORIGIN_LOCATION]: `url:${baseUrl}/access/teams/${team.id}/details`,
+        [ANNOTATION_LOCATION]: `url:${normalizedBaseUrl}/access/teams/${team.id}/details`,
+        [ANNOTATION_ORIGIN_LOCATION]: `url:${normalizedBaseUrl}/access/teams/${team.id}/details`,
       },
     },
     spec: {
@@ -79,6 +85,7 @@ export function userParser(options: {
   groupMemberships: string[];
 }): Entity {
   const { baseUrl, user, nameSpace, groupMemberships } = options;
+  const normalizedBaseUrl = normalizeBaseUrl(baseUrl);
 
   // Add aap-admins group for superusers (this should always be included)
   const finalGroupMemberships = [...groupMemberships];
@@ -92,8 +99,8 @@ export function userParser(options: {
       : user.username;
 
   const annotations: Record<string, string> = {
-    [ANNOTATION_LOCATION]: `url:${baseUrl}/access/users/${user.id}/details`,
-    [ANNOTATION_ORIGIN_LOCATION]: `url:${baseUrl}/access/users/${user.id}/details`,
+    [ANNOTATION_LOCATION]: `url:${normalizedBaseUrl}/access/users/${user.id}/details`,
+    [ANNOTATION_ORIGIN_LOCATION]: `url:${normalizedBaseUrl}/access/users/${user.id}/details`,
   };
 
   // Add RBAC-relevant annotations
@@ -137,7 +144,7 @@ export const pahCollectionParser = (options: {
   sourceId: string;
 }): Entity => {
   const collectionBaseUrl =
-    `${options.baseUrl}/content/collections/` +
+    `${normalizeBaseUrl(options.baseUrl)}/content/collections/` +
     `${options.collection.repository_name}/` +
     `${options.collection.namespace}/` +
     `${options.collection.name}`;
