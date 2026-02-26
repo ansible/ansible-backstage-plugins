@@ -81,9 +81,11 @@ export async function fetchCollectionDetails(
       const detailData = await detailResponse.json();
       if (detailData) {
         docsBlob = detailData?.docs_blob?.collection_readme?.html ?? null;
-        authors = Array.isArray(detailData?.authors)
-          ? detailData.authors
-          : null;
+        if (Array.isArray(detailData?.authors)) {
+          authors = detailData.authors.map((a: unknown) =>
+            typeof a === 'string' ? a : (a as { name?: string })?.name ?? '',
+          ).filter(Boolean);
+        }
       }
     }
   } catch (error) {
@@ -142,7 +144,11 @@ export async function processCollectionItem(
     cv.dependencies && typeof cv.dependencies === 'object'
       ? cv.dependencies
       : null;
-  const tags: string[] | null = Array.isArray(cv.tags) ? cv.tags : null;
+  const tags: string[] | null = Array.isArray(cv.tags)
+    ? (cv.tags as unknown[]).map((t: unknown) =>
+        typeof t === 'string' ? t : (t as { name?: string })?.name ?? '',
+      ).filter(Boolean)
+    : null;
 
   return {
     namespace,
