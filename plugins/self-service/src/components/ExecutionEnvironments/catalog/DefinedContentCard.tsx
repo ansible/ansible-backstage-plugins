@@ -41,13 +41,13 @@ export const DefinedContentCard: React.FC<DefinedContentCardProps> = ({
   const collectionsFileRef = parsedDefinition?.collectionsFileRef ?? null;
   const pythonPackages =
     parsedDefinition?.pythonPackages &&
-    parsedDefinition.pythonPackages.length > 0
+      parsedDefinition.pythonPackages.length > 0
       ? parsedDefinition.pythonPackages
       : null;
   const pythonFileRef = parsedDefinition?.pythonFileRef ?? null;
   const systemPackages =
     parsedDefinition?.systemPackages &&
-    parsedDefinition.systemPackages.length > 0
+      parsedDefinition.systemPackages.length > 0
       ? parsedDefinition.systemPackages
       : null;
   const systemFileRef = parsedDefinition?.systemFileRef ?? null;
@@ -85,8 +85,8 @@ export const DefinedContentCard: React.FC<DefinedContentCardProps> = ({
           <Box className={classes.value}>
             {(() => {
               if (collections && collections.length > 0) {
-                return collections.map((c, i) => (
-                  <Typography key={i} variant="body2">
+                return collections.map((c) => (
+                  <Typography key={c.name} variant="body2">
                     <Link
                       href={`https://galaxy.ansible.com/${c.name}`}
                       target="_blank"

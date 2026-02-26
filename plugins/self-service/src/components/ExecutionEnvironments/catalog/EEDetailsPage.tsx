@@ -289,11 +289,11 @@ export const EEDetailsPage: React.FC = () => {
     const scm = entity?.metadata?.annotations?.['ansible.io/scm-provider'];
     if (!loc) return null;
     const cleanUrl = loc.replace(/^url:/, '').replace(/\/$/, '');
-    if (scm && scm.toLowerCase().includes('github')) {
+    if (scm?.toLowerCase()?.includes('github')) {
       const u = cleanUrl.replace(/\/tree\//, '/blob/');
       return u.includes('/blob/') ? `${u.replace(/\/$/, '')}/README.md` : null;
     }
-    if (scm && scm.toLowerCase().includes('gitlab')) {
+    if (scm?.toLowerCase()?.includes('gitlab')) {
       return cleanUrl
         .replace(/\/-\/raw\//, '/-/blob/')
         .replace(/\/[^/]+$/, '/README.md');

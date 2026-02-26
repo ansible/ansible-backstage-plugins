@@ -414,6 +414,29 @@ describe('EEDetailsPage', () => {
     // createObjectURLSpy.mockRestore();
   });
 
+  test('download with missing definition/readme/ansible_cfg logs error and returns early', async () => {
+    const consoleErrorSpy = jest
+      .spyOn(console, 'error')
+      .mockImplementation(() => {});
+
+    renderWithCatalogApi(() => Promise.resolve({ items: [entityNoReadme] }));
+
+    await screen.findByTestId('favorite-entity');
+
+    const downloadLink = screen.queryByText(/Download EE files/i);
+    expect(downloadLink).toBeInTheDocument();
+
+    fireEvent.click(downloadLink!);
+
+    await waitFor(() => {
+      expect(consoleErrorSpy).toHaveBeenCalledWith(
+        'Entity, definition, readme or ansible_cfg not available',
+      );
+    });
+
+    consoleErrorSpy.mockRestore();
+  });
+
   test('when annotation disables download, Download EE files not shown', async () => {
     const entityNoDownloadAnnotation = {
       ...entityFull,
