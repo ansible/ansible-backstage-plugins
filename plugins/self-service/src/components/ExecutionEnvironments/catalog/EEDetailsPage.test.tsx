@@ -278,37 +278,44 @@ describe('EEDetailsPage', () => {
     expect(getEntities).toHaveBeenCalled();
   });
 
-  test('clicking VIEW TECHDOCS calls window.open with computed docs url', async () => {
-    renderWithCatalogApi(() => Promise.resolve({ items: [entityNoDownload] }));
+  test('clicking Read more (long description) calls window.open with techdocs url', async () => {
+    const entityLongDesc = {
+      ...entityNoDownload,
+      metadata: {
+        ...entityNoDownload.metadata,
+        description:
+          'Long description over 150 characters. Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam.',
+      },
+    };
+    renderWithCatalogApi(() => Promise.resolve({ items: [entityLongDesc] }));
 
     await screen.findByTestId('favorite-entity');
 
     const openSpy = jest.spyOn(window, 'open').mockImplementation(() => null);
 
-    const techdocsBox = screen.queryByText(/VIEW\s*TECHDOCS/i);
-    expect(techdocsBox).toBeInTheDocument();
-
-    fireEvent.click(techdocsBox!);
+    const readMore = screen.queryByText(/Read more/i);
+    expect(readMore).toBeInTheDocument();
+    fireEvent.click(readMore!);
 
     expect(openSpy).toHaveBeenCalledWith(
-      `/docs/${entityNoDownload.metadata.namespace}/${entityNoDownload.kind}/${entityNoDownload.metadata.name}`,
+      `/docs/${entityLongDesc.metadata.namespace}/${entityLongDesc.kind}/${entityLongDesc.metadata.name}`,
       '_blank',
     );
 
     openSpy.mockRestore();
   });
 
-  test('clicking VIEW SOURCE opens source location cleaned', async () => {
+  test('clicking View in source opens source location', async () => {
     renderWithCatalogApi(() => Promise.resolve({ items: [entityNoDownload] }));
 
     await screen.findByTestId('favorite-entity');
 
     const openSpy = jest.spyOn(window, 'open').mockImplementation(() => null);
 
-    const viewSourceBox = screen.queryByText(/VIEW\s*SOURCE/i);
-    expect(viewSourceBox).toBeInTheDocument();
-
-    fireEvent.click(viewSourceBox!);
+    // View in source is in the Resources card (and in Actions dropdown when open)
+    const viewSourceLinks = screen.getAllByText(/View in source/i);
+    expect(viewSourceLinks.length).toBeGreaterThanOrEqual(1);
+    fireEvent.click(viewSourceLinks[0]);
 
     expect(openSpy).toHaveBeenCalledWith(
       'https://github.com/owner/repo/tree/branch/ee1/',
@@ -318,21 +325,20 @@ describe('EEDetailsPage', () => {
     openSpy.mockRestore();
   });
 
-  test('Edit action opens edit URL from annotation (if present)', async () => {
+  test('Edit definition action opens definition file URL', async () => {
     renderWithCatalogApi(() => Promise.resolve({ items: [entityNoDownload] }));
 
     await screen.findByTestId('favorite-entity');
-    const favorite = await screen.findByTestId('favorite-entity');
-    expect(favorite).toBeInTheDocument();
 
-    const editLink =
-      screen.queryByRole('link', { name: /edit/i }) ||
-      screen.queryByText(/Edit/i);
-    if (editLink) {
-      fireEvent.click(editLink);
-      // link has target _blank in the markup — ensure href contains the edit url
-      // expect((editLink as HTMLAnchorElement).href).toContain('http://edit/ee-one');
-    }
+    const openSpy = jest.spyOn(window, 'open').mockImplementation(() => null);
+
+    const actionsButton = screen.getByRole('button', { name: /Actions/i });
+    fireEvent.click(actionsButton);
+    const editDefinitionItem = await screen.findByText(/Edit definition/i);
+    fireEvent.click(editDefinitionItem);
+
+    expect(openSpy).toHaveBeenCalledWith('http://edit/ee-one.yaml', '_blank');
+    openSpy.mockRestore();
   });
 
   test('Download EE files triggers archive creation & download flow (create/revoke called)', async () => {
@@ -578,31 +584,26 @@ describe('EEDetailsPage', () => {
     });
   });
 
-  test('menu actions: unregister opens unregister flow and other options are not present', async () => {
+  test('Actions menu: Delete opens unregister flow; Build, Edit definition, View in source present', async () => {
     renderWithCatalogApi(() => Promise.resolve({ items: [entityFull] }));
 
     await screen.findByTestId('favorite-entity');
 
-    // Find the menu button: choose a header icon button that does not contain favorite-entity
-    const buttons = screen.getAllByRole('button');
-    const menuButton = buttons.find(
-      b =>
-        !b.querySelector('[data-testid="favorite-entity"]') &&
-        b.querySelector('svg'),
-    );
-    expect(menuButton).toBeTruthy();
-    fireEvent.click(menuButton!);
+    const actionsButton = screen.getByRole('button', { name: /Actions/i });
+    fireEvent.click(actionsButton);
 
-    // Verify only "Unregister entity" option is present
-    const unregisterItem = await screen.findByText(/Unregister entity/i);
-    expect(unregisterItem).toBeInTheDocument();
+    expect(screen.getByText(/Build/i)).toBeInTheDocument();
+    expect(screen.getByText(/Edit definition/i)).toBeInTheDocument();
+    expect(
+      screen.getAllByText(/View in source/i).length,
+    ).toBeGreaterThanOrEqual(1);
+    const deleteItem = await screen.findByText(/Delete/i);
+    expect(deleteItem).toBeInTheDocument();
 
-    // Verify "Copy entity URL" and "Inspect entity" are NOT present
     expect(screen.queryByText(/Copy entity URL/i)).not.toBeInTheDocument();
     expect(screen.queryByText(/Inspect entity/i)).not.toBeInTheDocument();
 
-    // Click Unregister entity -> should show unregister-dialog
-    fireEvent.click(unregisterItem);
+    fireEvent.click(deleteItem);
     await waitFor(() =>
       expect(screen.getByTestId('unregister-dialog')).toBeInTheDocument(),
     );

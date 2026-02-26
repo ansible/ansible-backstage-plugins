@@ -6,13 +6,11 @@ import {
   Divider,
   IconButton,
   Button,
+  Link,
 } from '@material-ui/core';
-import { makeStyles, useTheme } from '@material-ui/core/styles';
-import DescriptionOutlinedIcon from '@material-ui/icons/DescriptionOutlined';
-import GitHubIcon from '@material-ui/icons/GitHub';
+import { makeStyles } from '@material-ui/core/styles';
 import AutorenewIcon from '@material-ui/icons/Autorenew';
-import EditIcon from '@material-ui/icons/Edit';
-import { Entity, ANNOTATION_EDIT_URL } from '@backstage/catalog-model';
+import { Entity } from '@backstage/catalog-model';
 
 const useStyles = makeStyles(() => ({
   tagButton: {
@@ -27,29 +25,42 @@ const useStyles = makeStyles(() => ({
     '0%': { transform: 'rotate(0deg)' },
     '100%': { transform: 'rotate(360deg)' },
   },
+  descriptionExpand: {
+    color: 'primary',
+    cursor: 'pointer',
+    fontWeight: 600,
+  },
 }));
 
 interface AboutCardProps {
   entity: Entity;
   ownerName: string | null;
+  baseImageName: string | null;
+  sourceLocationUrl: string | null;
+  onOpenSourceLocation: () => void;
   isRefreshing: boolean;
   isDownloadExperience: boolean;
   onRefresh: () => void;
   onViewTechdocs: () => void;
-  onOpenSourceLocation: () => void;
 }
 
 export const AboutCard: React.FC<AboutCardProps> = ({
   entity,
   ownerName,
+  baseImageName,
+  sourceLocationUrl,
+  onOpenSourceLocation,
   isRefreshing,
   isDownloadExperience,
   onRefresh,
   onViewTechdocs,
-  onOpenSourceLocation,
 }) => {
   const classes = useStyles();
-  const theme = useTheme();
+  const description =
+    entity?.metadata?.description ??
+    entity?.metadata?.title ??
+    'No description available.';
+  const showReadMore = description.length > 150;
 
   return (
     <Card
@@ -75,134 +86,91 @@ export const AboutCard: React.FC<AboutCardProps> = ({
                   className={isRefreshing ? classes.rotate : ''}
                   style={{ color: '#757575' }}
                 />
-              </IconButton>{' '}
-              <IconButton size="small">
-                <a
-                  href={entity?.metadata?.annotations?.[ANNOTATION_EDIT_URL]}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                >
-                  <EditIcon style={{ color: theme.palette.primary.main }} />
-                </a>
               </IconButton>
             </Box>
           )}
         </Box>
-        {/* Top Actions (View Techdocs / Source) */}
-        {!isDownloadExperience && (
-          <Box
-            display="flex"
-            justifyContent="space-around"
-            alignItems="center"
-            textAlign="center"
-            mt={2}
-            mb={2}
-          >
-            <Box
-              onClick={onViewTechdocs}
-              style={{
-                cursor: 'pointer',
-                display: 'flex',
-                flexDirection: 'column',
-                alignItems: 'center',
-                minWidth: 120,
-              }}
-            >
-              <DescriptionOutlinedIcon
-                style={{
-                  color: theme.palette.primary.main,
-                  fontSize: 30,
-                }}
-              />
-              <Typography
-                variant="body2"
-                style={{
-                  color: theme.palette.primary.main,
-                  fontWeight: 600,
-                  marginTop: 6,
-                }}
-              >
-                VIEW <br /> TECHDOCS
-              </Typography>
-            </Box>
-
-            <Box
-              onClick={onOpenSourceLocation}
-              style={{
-                cursor: 'pointer',
-                display: 'flex',
-                flexDirection: 'column',
-                alignItems: 'center',
-                minWidth: 120,
-              }}
-            >
-              <GitHubIcon
-                style={{
-                  color: theme.palette.primary.main,
-                  fontSize: 30,
-                }}
-              />
-              <Typography
-                variant="body2"
-                style={{
-                  color: theme.palette.primary.main,
-                  fontWeight: 600,
-                  marginTop: 6,
-                }}
-              >
-                VIEW <br /> SOURCE
-              </Typography>
-            </Box>
-          </Box>
-        )}
         <Divider style={{ margin: '12px -16px 12px' }} />
-        {/* Details */}
+
+        {/* Description */}
         <Box>
           <Typography
             variant="caption"
             style={{ color: 'gray', fontWeight: 600 }}
           >
-            DESCRIPTION
+            Description
           </Typography>
           <Typography variant="body2">
-            {entity?.metadata?.description ??
-              entity?.metadata?.title ??
-              'No description available.'}
+            {showReadMore ? `${description.slice(0, 150)}...` : description}
           </Typography>
-        </Box>
-        <Box display="flex" flexDirection="column" gridGap={4} marginTop={2}>
-          <Box>
-            <Typography
-              variant="caption"
-              style={{ color: 'gray', fontWeight: 600 }}
+          {showReadMore && (
+            <Link
+              component="button"
+              variant="body2"
+              className={classes.descriptionExpand}
+              onClick={onViewTechdocs}
             >
-              OWNER
-            </Typography>{' '}
-            <Typography variant="body2">{ownerName}</Typography>
-          </Box>
-          <Box marginTop={2}>
-            <Typography
-              variant="caption"
-              style={{ color: 'gray', fontWeight: 600 }}
-            >
-              TYPE
-            </Typography>
-            <Typography variant="body2" style={{ fontWeight: 600 }}>
-              {(entity?.spec?.type as string) ??
-                (entity?.metadata?.namespace as string) ??
-                'Unknown'}
-            </Typography>
-          </Box>
+              Read more
+            </Link>
+          )}
         </Box>
 
+        {/* Owner */}
         <Box marginTop={2}>
           <Typography
             variant="caption"
             style={{ color: 'gray', fontWeight: 600 }}
           >
-            TAGS
+            Owner
           </Typography>
+          <Typography variant="body2">{ownerName}</Typography>
+        </Box>
 
+        {/* Base image */}
+        <Box marginTop={2}>
+          <Typography
+            variant="caption"
+            style={{ color: 'gray', fontWeight: 600 }}
+          >
+            Base image
+          </Typography>
+          <Typography variant="body2">{baseImageName ?? '—'}</Typography>
+        </Box>
+
+        {/* Source */}
+        <Box marginTop={2}>
+          <Typography
+            variant="caption"
+            style={{ color: 'gray', fontWeight: 600 }}
+          >
+            Source
+          </Typography>
+          <Box marginTop={0.5}>
+            {sourceLocationUrl ? (
+              <Link
+                component="button"
+                variant="body2"
+                color="primary"
+                onClick={onOpenSourceLocation}
+              >
+                {sourceLocationUrl}
+              </Link>
+            ) : (
+              <Typography variant="body2" color="textSecondary">
+                —
+              </Typography>
+            )}
+          </Box>
+        </Box>
+
+        {/* Tags */}
+        <Box marginTop={2}>
+          <Typography
+            variant="caption"
+            style={{ color: 'gray', fontWeight: 600 }}
+          >
+            Tags
+          </Typography>
           <Box display="flex" gridGap={8} marginTop={1} flexWrap="wrap">
             {Array.isArray(entity?.metadata?.tags) &&
             entity.metadata?.tags?.length > 0 ? (
