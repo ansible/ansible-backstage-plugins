@@ -51,7 +51,7 @@ export async function createRouter(options: {
     response.status(200).json(res);
   });
 
-  router.get('/aap/sync_status', async (request, response) => {
+  router.get('/ansible/sync/status', async (request, response) => {
     logger.info('Getting sync status');
     const aapEntities = request.query.aap_entities === 'true';
 
