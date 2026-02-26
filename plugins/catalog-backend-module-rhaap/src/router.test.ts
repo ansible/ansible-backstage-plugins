@@ -644,7 +644,7 @@ describe('createRouter', () => {
     });
   });
 
-  describe('GET /aap/sync_status', () => {
+  describe('GET /ansible/sync/status', () => {
     it('should return sync status successfully', async () => {
       mockAAPEntityProvider.getLastSyncTime.mockReturnValue(
         '2024-01-15T10:00:00Z',
@@ -654,7 +654,7 @@ describe('createRouter', () => {
       );
 
       const response = await request(app).get(
-        '/aap/sync_status?aap_entities=true',
+        '/ansible/sync/status?aap_entities=true',
       );
 
       expect(response.status).toBe(200);
@@ -675,7 +675,7 @@ describe('createRouter', () => {
       mockJobTemplateProvider.getLastSyncTime.mockReturnValue(null);
 
       const response = await request(app).get(
-        '/aap/sync_status?aap_entities=true',
+        '/ansible/sync/status?aap_entities=true',
       );
 
       expect(response.status).toBe(500);
@@ -698,7 +698,7 @@ describe('createRouter', () => {
       mockJobTemplateProvider.getLastSyncTime.mockReturnValue(null);
 
       const response = await request(app).get(
-        '/aap/sync_status?aap_entities=true',
+        '/ansible/sync/status?aap_entities=true',
       );
 
       expect(response.status).toBe(500);
