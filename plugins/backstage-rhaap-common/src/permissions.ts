@@ -3,9 +3,7 @@ import type { BasicPermission } from '@backstage/plugin-permission-common';
 export const eeBuilderReadPermission: BasicPermission = {
   type: 'basic',
   name: 'ansible.ee-builder.read',
-  attributes: {
-    action: 'read',
-  },
+  attributes: {},
 };
 
 export const eeBuilderCreatePermission: BasicPermission = {

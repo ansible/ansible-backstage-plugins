@@ -35,3 +35,21 @@ export const LocationListener = selfServicePlugin.provide(
     },
   }),
 );
+
+/**
+ * A sidebar item that checks EE Builder permissions before rendering.
+ * Returns null if the user doesn't have permission, hiding the sidebar entry.
+ *
+ * @public
+ */
+export const EEBuilderSidebarItem = selfServicePlugin.provide(
+  createComponentExtension({
+    name: 'EEBuilderSidebarItem',
+    component: {
+      lazy: () =>
+        import('./components/EEBuilderSidebarItem').then(
+          m => m.EEBuilderSidebarItem,
+        ),
+    },
+  }),
+);

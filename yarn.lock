@@ -147,6 +147,7 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "@ansible/plugin-backstage-self-service@workspace:plugins/self-service"
   dependencies:
+    "@ansible/backstage-rhaap-common": "workspace:^"
     "@backstage/catalog-model": "npm:^1.7.4"
     "@backstage/cli": "npm:^0.33.1"
     "@backstage/config": "npm:^1.3.2"

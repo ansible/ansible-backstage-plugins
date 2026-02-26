@@ -3,6 +3,7 @@ export * from './plugin';
 export { SignInPage } from './components/SignInPage';
 export { LandingPage } from './components/LandingPage';
 export { TaskList } from './components/TaskList';
+export { EEBuilderSidebarItem } from './components/EEBuilderSidebarItem';
 export { AAPTokenFieldExtension } from './components/Scaffolder/AAPTokenField/extensions';
 export { AAPResourcePickerExtension } from './components/Scaffolder/AAResourcePicker';
 export { BaseImagePickerFieldExtension } from './components/Scaffolder/BaseImagePicker/extensions';
