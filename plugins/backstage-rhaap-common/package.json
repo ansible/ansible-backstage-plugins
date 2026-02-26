@@ -12,6 +12,18 @@
     "module": "dist/index.esm.js",
     "types": "dist/index.d.ts"
   },
+  "exports": {
+    ".": "./src/index.ts",
+    "./permissions": "./src/permissions.ts",
+    "./package.json": "./package.json"
+  },
+  "typesVersions": {
+    "*": {
+      "permissions": [
+        "src/permissions.ts"
+      ]
+    }
+  },
   "backstage": {
     "role": "common-library"
   },
@@ -33,6 +45,7 @@
     "@backstage/errors": "^1.2.7",
     "@backstage/integration": "^1.17.0",
     "@backstage/plugin-auth-node": "^0.6.3",
+    "@backstage/plugin-permission-common": "^0.9.6",
     "lodash.uniqby": "^4.7.0",
     "undici": "6.23.0",
     "yaml": "^2.0.0"

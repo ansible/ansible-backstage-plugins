@@ -4,6 +4,7 @@ import {
 } from '@backstage/backend-plugin-api';
 
 import { ansibleServiceRef } from '@ansible/backstage-rhaap-common';
+import { ansiblePermissions } from '@ansible/backstage-rhaap-common/permissions';
 import { createRouter } from './router';
 import {
   catalogModelExtensionPoint,
@@ -30,6 +31,7 @@ export const catalogModuleRhaap = createBackendModule({
         httpRouter: coreServices.httpRouter,
         discovery: coreServices.discovery,
         auth: coreServices.auth,
+        permissionsRegistry: coreServices.permissionsRegistry,
       },
       async init({
         logger,
@@ -39,7 +41,9 @@ export const catalogModuleRhaap = createBackendModule({
         httpRouter,
         catalogProcessing,
         catalogModel,
+        permissionsRegistry,
       }) {
+        permissionsRegistry.addPermissions(ansiblePermissions);
         catalogModel.setFieldValidators(
           makeValidator({
             isValidEntityName: (value: string) => {

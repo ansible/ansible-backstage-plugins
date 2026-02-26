@@ -29,6 +29,8 @@ import { MyGroupsSidebarItem } from '@backstage/plugin-org';
 import GroupIcon from '@material-ui/icons/People';
 import { AnsibleLogo } from '@ansible/plugin-backstage-rhaap';
 import { Administration } from '@backstage-community/plugin-rbac';
+import { usePermission } from '@backstage/plugin-permission-react';
+import { eeBuilderReadPermission } from '@ansible/backstage-rhaap-common/permissions';
 
 const useSidebarLogoStyles = makeStyles({
   root: {
@@ -58,58 +60,70 @@ const SidebarLogo = () => {
   );
 };
 
-export const Root = ({ children }: PropsWithChildren<{}>) => (
-  <SidebarPage>
-    <Sidebar>
-      <SidebarLogo />
-      <SidebarGroup label="Search" icon={<SearchIcon />} to="/search">
-        <SidebarSearchModal />
-      </SidebarGroup>
-      <SidebarDivider />
-      <SidebarGroup label="Menu" icon={<MenuIcon />}>
-        {/* Global nav, not org-specific */}
-        <SidebarItem icon={HomeIcon} to="catalog" text="Home" />
-        <MyGroupsSidebarItem
-          singularTitle="My Group"
-          pluralTitle="My Groups"
-          icon={GroupIcon}
-        />
-        <SidebarItem icon={ExtensionIcon} to="api-docs" text="APIs" />
-        <SidebarItem icon={LibraryBooks} to="docs" text="Docs" />
-        <SidebarItem icon={CreateComponentIcon} to="create" text="Create..." />
-        {/* End global nav */}
+export const Root = ({ children }: PropsWithChildren<{}>) => {
+  const { allowed: canSeeEE } = usePermission({
+    permission: eeBuilderReadPermission,
+  });
+
+  return (
+    <SidebarPage>
+      <Sidebar>
+        <SidebarLogo />
+        <SidebarGroup label="Search" icon={<SearchIcon />} to="/search">
+          <SidebarSearchModal />
+        </SidebarGroup>
         <SidebarDivider />
-        <SidebarScrollWrapper>
-          {/* Items in this group will be scrollable if they run out of space */}
-          <SidebarItem
-            icon={AnsibleLogo}
-            to="ansible/overview"
-            text="Ansible"
+        <SidebarGroup label="Menu" icon={<MenuIcon />}>
+          {/* Global nav, not org-specific */}
+          <SidebarItem icon={HomeIcon} to="catalog" text="Home" />
+          <MyGroupsSidebarItem
+            singularTitle="My Group"
+            pluralTitle="My Groups"
+            icon={GroupIcon}
           />
+          <SidebarItem icon={ExtensionIcon} to="api-docs" text="APIs" />
+          <SidebarItem icon={LibraryBooks} to="docs" text="Docs" />
           <SidebarItem
-            icon={AnsibleLogo}
-            to="self-service"
-            text="Self Service"
+            icon={CreateComponentIcon}
+            to="create"
+            text="Create..."
           />
-          <SidebarItem
-            icon={MenuIcon}
-            to="/self-service/ee"
-            text="Execution Environments"
-          />
-        </SidebarScrollWrapper>
-      </SidebarGroup>
-      <SidebarSpace />
-      <SidebarDivider />
-      <Administration />
-      <SidebarDivider />
-      <SidebarGroup
-        label="Settings"
-        icon={<UserSettingsSignInAvatar />}
-        to="/settings"
-      >
-        <SidebarSettings />
-      </SidebarGroup>
-    </Sidebar>
-    {children}
-  </SidebarPage>
-);
+          {/* End global nav */}
+          <SidebarDivider />
+          <SidebarScrollWrapper>
+            {/* Items in this group will be scrollable if they run out of space */}
+            <SidebarItem
+              icon={AnsibleLogo}
+              to="ansible/overview"
+              text="Ansible"
+            />
+            <SidebarItem
+              icon={AnsibleLogo}
+              to="self-service"
+              text="Self Service"
+            />
+            {canSeeEE && (
+              <SidebarItem
+                icon={MenuIcon}
+                to="/self-service/ee"
+                text="Execution Environments"
+              />
+            )}
+          </SidebarScrollWrapper>
+        </SidebarGroup>
+        <SidebarSpace />
+        <SidebarDivider />
+        <Administration />
+        <SidebarDivider />
+        <SidebarGroup
+          label="Settings"
+          icon={<UserSettingsSignInAvatar />}
+          to="/settings"
+        >
+          <SidebarSettings />
+        </SidebarGroup>
+      </Sidebar>
+      {children}
+    </SidebarPage>
+  );
+};
