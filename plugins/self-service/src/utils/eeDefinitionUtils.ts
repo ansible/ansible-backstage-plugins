@@ -19,9 +19,8 @@ export interface ParsedEEDefinition {
 }
 
 function parseBaseImageName(yaml: string): string | null {
-  const m = /images:\s*\n\s*base_image:\s*\n\s*name:\s*['"]?([^'"\n]+)['"]?/.exec(
-    yaml,
-  );
+  const m =
+    /images:\s*\n\s*base_image:\s*\n\s*name:\s*['"]?([^'"\n]+)['"]?/.exec(yaml);
   return m ? m[1].trim() : null;
 }
 
@@ -69,9 +68,7 @@ function parsePythonPath(yaml: string): string | null {
 function extractPackagesFromListBlock(block: string): string[] {
   return block
     .split('\n')
-    .map(line =>
-      line.replace(/^\s*-\s*['"]?([^'"\n]+)['"]?.*$/, '$1').trim(),
-    )
+    .map(line => line.replace(/^\s*-\s*['"]?([^'"\n]+)['"]?.*$/, '$1').trim())
     .filter(Boolean);
 }
 
