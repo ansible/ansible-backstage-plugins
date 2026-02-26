@@ -38,10 +38,7 @@ describe('ResourcesCard', () => {
     const onViewInSource = jest.fn();
     const readmeUrl = 'https://github.com/org/repo/blob/main/README.md';
     renderWithTheme(
-      <ResourcesCard
-        onViewInSource={onViewInSource}
-        readmeUrl={readmeUrl}
-      />,
+      <ResourcesCard onViewInSource={onViewInSource} readmeUrl={readmeUrl} />,
     );
     const readmeLink = screen.getByRole('link', { name: 'readme.md' });
     expect(readmeLink).toHaveAttribute('href', readmeUrl);

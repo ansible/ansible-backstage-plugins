@@ -40,7 +40,10 @@ describe('DefinedContentCard', () => {
     expect(screen.getByText('cisco.nxos')).toBeInTheDocument();
     expect(screen.getByText(/2\.0\.0/)).toBeInTheDocument();
     const link = screen.getByRole('link', { name: /cisco\.nxos/ });
-    expect(link).toHaveAttribute('href', 'https://galaxy.ansible.com/cisco.nxos');
+    expect(link).toHaveAttribute(
+      'href',
+      'https://galaxy.ansible.com/cisco.nxos',
+    );
   });
 
   it('shows "From <file>" for collections when collectionsFileRef is set', () => {

@@ -46,7 +46,8 @@ export const DefinedContentCard: React.FC<DefinedContentCardProps> = ({
       : null;
   const pythonFileRef = parsedDefinition?.pythonFileRef ?? null;
   const systemPackages =
-    parsedDefinition?.systemPackages && parsedDefinition.systemPackages.length > 0
+    parsedDefinition?.systemPackages &&
+    parsedDefinition.systemPackages.length > 0
       ? parsedDefinition.systemPackages
       : null;
   const systemFileRef = parsedDefinition?.systemFileRef ?? null;
@@ -73,40 +74,15 @@ export const DefinedContentCard: React.FC<DefinedContentCardProps> = ({
           color="textSecondary"
           style={{ marginLeft: 10, marginBottom: 16 }}
         >
-          Shows explicitly added collections, Python requirements, and system packages only
+          Shows explicitly added collections, Python requirements, and system
+          packages only
         </Typography>
 
         <Box style={{ marginLeft: 10 }}>
           <Typography variant="caption" className={classes.label}>
             Collections ({collections?.length ?? (collectionsFileRef ? 1 : 0)}):
           </Typography>
-          {/* <Box className={classes.value}>
-            {collections && collections.length > 0 ? (
-              collections.map((c, i) => (
-                <Typography key={i} variant="body2">
-                  <Link
-                    href={`https://galaxy.ansible.com/${c.name}`}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    color="primary"
-                    className={classes.link}
-                  >
-                    {c.name}
-                  </Link>
-                  {c.version ? ` ${c.version}` : ''}
-                </Typography>
-              ))
-            ) : collectionsFileRef ? (
-              <Typography variant="body2" className={classes.fileRef}>
-                From {collectionsFileRef}
-              </Typography>
-            ) : (
-              <Typography variant="body2" color="textSecondary">
-                None
-              </Typography>
-            )}
-          </Box> */}
-                    <Box className={classes.value}>
+          <Box className={classes.value}>
             {(() => {
               if (collections && collections.length > 0) {
                 return collections.map((c, i) => (
@@ -142,21 +118,7 @@ export const DefinedContentCard: React.FC<DefinedContentCardProps> = ({
           <Typography variant="caption" className={classes.label}>
             Python requirements
           </Typography>
-          {/* <Box className={classes.value}>
-            {pythonPackages && pythonPackages.length > 0 ? (
-              <Typography variant="body2">{pythonPackages.join(', ')}</Typography>
-            ) : pythonFileRef ? (
-              <Typography variant="body2" className={classes.fileRef}>
-                From {pythonFileRef}
-              </Typography>
-            ) : (
-              <Typography variant="body2" color="textSecondary">
-                None
-              </Typography>
-            )}
-          </Box> */}
-
-<Box className={classes.value}>
+          <Box className={classes.value}>
             {(() => {
               if (pythonPackages && pythonPackages.length > 0) {
                 return (
@@ -183,20 +145,7 @@ export const DefinedContentCard: React.FC<DefinedContentCardProps> = ({
           <Typography variant="caption" className={classes.label}>
             System packages
           </Typography>
-          {/* <Box>
-            {systemPackages && systemPackages.length > 0 ? (
-              <Typography variant="body2">{systemPackages.join(', ')}</Typography>
-            ) : systemFileRef ? (
-              <Typography variant="body2" className={classes.fileRef}>
-                From {systemFileRef}
-              </Typography>
-            ) : (
-              <Typography variant="body2" color="textSecondary">
-                None
-              </Typography>
-            )}
-          </Box> */}
-                    <Box>
+          <Box>
             {(() => {
               if (systemPackages && systemPackages.length > 0) {
                 return (
