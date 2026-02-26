@@ -27,8 +27,9 @@ function parseBaseImageName(yaml: string): string | null {
 function parseCollections(
   yaml: string,
 ): Array<{ name: string; version?: string }> {
+  // Allow galaxy after other keys (e.g. python, system) so scaffolder-generated order is supported
   const galaxyMatch =
-    /dependencies:\s*\n\s*galaxy:\s*\n\s*collections:\s*([\s\S]*?)(?=\n [a-z_]+:|$)/.exec(
+    /dependencies:\s*\n(?:[^\n]*\n)*?\s*galaxy:\s*\n\s*collections:\s*([\s\S]*?)(?=\n {2}[a-z_]+:|$)/.exec(
       yaml,
     );
   if (!galaxyMatch) return [];
@@ -52,8 +53,9 @@ function parseCollections(
 }
 
 function parseCollectionsFileRef(yaml: string): string | null {
+  // Allow galaxy after other keys under dependencies (e.g. python, system)
   const m =
-    /dependencies:\s*\n\s*galaxy:\s*['"]?([^\s'"]+\.(?:ya?ml|yml))['"]?/.exec(
+    /dependencies:\s*\n(?:[^\n]*\n)*?\s*galaxy:\s*['"]?([^\s'"]+\.(?:ya?ml|yml))['"]?/.exec(
       yaml,
     );
   return m ? m[1].trim() : null;
@@ -119,6 +121,9 @@ function parseSystemFileRef(yaml: string): string | null {
   return m ? m[1].trim() : null;
 }
 
+/** Max length for definition YAML to bound regex runtime (ReDoS mitigation). */
+const MAX_DEFINITION_LENGTH = 100_000;
+
 /**
  * Parse EE definition YAML content.
  * Returns null if definition is empty or invalid.
@@ -127,6 +132,7 @@ export function parseEEDefinition(
   definitionYaml: string | undefined,
 ): ParsedEEDefinition | null {
   if (!definitionYaml || typeof definitionYaml !== 'string') return null;
+  if (definitionYaml.length > MAX_DEFINITION_LENGTH) return null;
 
   const result: ParsedEEDefinition = {
     baseImageName: null,

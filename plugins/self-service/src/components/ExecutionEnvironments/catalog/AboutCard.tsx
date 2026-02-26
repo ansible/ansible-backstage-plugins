@@ -137,31 +137,33 @@ export const AboutCard: React.FC<AboutCardProps> = ({
           <Typography variant="body2">{baseImageName ?? '—'}</Typography>
         </Box>
 
-        {/* Source */}
-        <Box marginTop={2}>
-          <Typography
-            variant="caption"
-            style={{ color: 'gray', fontWeight: 600 }}
-          >
-            Source
-          </Typography>
-          <Box marginTop={0.5}>
-            {sourceLocationUrl ? (
-              <Link
-                component="button"
-                variant="body2"
-                color="primary"
-                onClick={onOpenSourceLocation}
-              >
-                {sourceLocationUrl}
-              </Link>
-            ) : (
-              <Typography variant="body2" color="textSecondary">
-                —
-              </Typography>
-            )}
+        {/* Source - hidden when download-experience is true */}
+        {!isDownloadExperience && (
+          <Box marginTop={2}>
+            <Typography
+              variant="caption"
+              style={{ color: 'gray', fontWeight: 600 }}
+            >
+              Source
+            </Typography>
+            <Box marginTop={0.5}>
+              {sourceLocationUrl ? (
+                <Link
+                  component="button"
+                  variant="body2"
+                  color="primary"
+                  onClick={onOpenSourceLocation}
+                >
+                  {sourceLocationUrl}
+                </Link>
+              ) : (
+                <Typography variant="body2" color="textSecondary">
+                  —
+                </Typography>
+              )}
+            </Box>
           </Box>
-        </Box>
+        )}
 
         {/* Tags */}
         <Box marginTop={2}>

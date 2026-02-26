@@ -57,6 +57,29 @@ describe('parseEEDefinition', () => {
     expect(result!.collectionsFileRef).toBe('requirements.yaml');
   });
 
+  it('parses collections when galaxy comes after python and system (scaffolder order)', () => {
+    const yaml = `
+  dependencies:
+    python:
+      - six
+    system:
+      - git
+    galaxy:
+      collections:
+        - name: my.namespace
+          version: 2.0.0
+  `;
+    const result = parseEEDefinition(yaml);
+    expect(result).not.toBeNull();
+    expect(result!.collections).toHaveLength(1);
+    expect(result!.collections[0]).toEqual({
+      name: 'my.namespace',
+      version: '2.0.0',
+    });
+    expect(result!.pythonPackages).toEqual(['six']);
+    expect(result!.systemPackages).toEqual(['git']);
+  });
+
   it('parses python_interpreter.python_path', () => {
     const yaml = `
   dependencies:

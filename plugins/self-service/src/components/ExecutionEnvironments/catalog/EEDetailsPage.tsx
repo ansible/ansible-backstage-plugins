@@ -453,28 +453,32 @@ export const EEDetailsPage: React.FC = () => {
                 </ListItemIcon>
                 <Typography variant="body2">Build</Typography>
               </MenuItem>
-              <MenuItem
-                onClick={() => {
-                  handleEditDefinition();
-                  handleMenuClose();
-                }}
-              >
-                <ListItemIcon style={{ minWidth: 36 }}>
-                  <EditIcon fontSize="small" />
-                </ListItemIcon>
-                <Typography variant="body2">Edit definition</Typography>
-              </MenuItem>
-              <MenuItem
-                onClick={() => {
-                  openSourceLocationUrl();
-                  handleMenuClose();
-                }}
-              >
-                <ListItemIcon style={{ minWidth: 36 }}>
-                  <OpenInNewIcon fontSize="small" />
-                </ListItemIcon>
-                <Typography variant="body2">View in source</Typography>
-              </MenuItem>
+              {!isDownloadExperience && [
+                <MenuItem
+                  key="edit-definition"
+                  onClick={() => {
+                    handleEditDefinition();
+                    handleMenuClose();
+                  }}
+                >
+                  <ListItemIcon style={{ minWidth: 36 }}>
+                    <EditIcon fontSize="small" />
+                  </ListItemIcon>
+                  <Typography variant="body2">Edit definition</Typography>
+                </MenuItem>,
+                <MenuItem
+                  key="view-in-source"
+                  onClick={() => {
+                    openSourceLocationUrl();
+                    handleMenuClose();
+                  }}
+                >
+                  <ListItemIcon style={{ minWidth: 36 }}>
+                    <OpenInNewIcon fontSize="small" />
+                  </ListItemIcon>
+                  <Typography variant="body2">View in source</Typography>
+                </MenuItem>,
+              ]}
               <MenuItem
                 onClick={() => {
                   setMenuId('1');
@@ -540,11 +544,13 @@ export const EEDetailsPage: React.FC = () => {
                   {/* Defined Content Card */}
                   <DefinedContentCard parsedDefinition={parsedDefinition} />
 
-                  {/* Resources Card */}
-                  <ResourcesCard
-                    onViewInSource={openSourceLocationUrl}
-                    readmeUrl={getReadmeBlobUrl()}
-                  />
+                  {/* Resources Card - hidden when download-experience is true */}
+                  {!isDownloadExperience && (
+                    <ResourcesCard
+                      onViewInSource={openSourceLocationUrl}
+                      readmeUrl={getReadmeBlobUrl()}
+                    />
+                  )}
                 </Box>
               </Box>
             )}

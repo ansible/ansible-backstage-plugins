@@ -607,8 +607,9 @@ describe('EEDetailsPage', () => {
     });
   });
 
-  test('Actions menu: Delete opens unregister flow; Build, Edit definition, View in source present', async () => {
-    renderWithCatalogApi(() => Promise.resolve({ items: [entityFull] }));
+  test('Actions menu: Delete opens unregister flow; Build, Edit definition, View in source present when not download-experience', async () => {
+    // Use entity without download-experience so Edit definition and View in source are shown
+    renderWithCatalogApi(() => Promise.resolve({ items: [entityNoDownload] }));
 
     await screen.findByTestId('favorite-entity');
 
