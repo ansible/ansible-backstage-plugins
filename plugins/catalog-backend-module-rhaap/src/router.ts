@@ -535,7 +535,7 @@ export async function createRouter(options: {
         path,
       );
 
-      response.type('text/markdown');
+      // response.type('text/markdown');
       response.send(content);
     } catch (error) {
       const errorMessage =

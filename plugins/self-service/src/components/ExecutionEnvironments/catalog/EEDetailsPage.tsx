@@ -105,6 +105,9 @@ export const EEDetailsPage: React.FC = () => {
   const [entity, setEntity] = useState<any | null>(false);
   const [menuid, setMenuId] = useState<string>('');
   const [defaultReadme, setDefaultReadme] = useState<string>('');
+  const [fetchedDefinition, setFetchedDefinition] = useState<string | null>(
+    null,
+  );
   const discoveryApi = useApi(discoveryApiRef);
   const fetchApi = useApi(fetchApiRef);
   const [isRefreshing, setIsRefreshing] = useState(false);
@@ -159,6 +162,7 @@ export const EEDetailsPage: React.FC = () => {
     host: string;
     owner: string;
     repo: string;
+    subdir: string;
     filePath: string;
     ref: string;
   } | null => {
@@ -206,7 +210,7 @@ export const EEDetailsPage: React.FC = () => {
 
     const filePath = subdir ? `${subdir}/README.md` : 'README.md';
 
-    return { scmProvider, host, owner, repo, filePath, ref };
+    return { scmProvider, host, owner, repo, subdir, filePath, ref };
   }, [entity]);
 
   useEffect(() => {
@@ -241,15 +245,41 @@ export const EEDetailsPage: React.FC = () => {
     fetchDefaultReadme();
   }, [entity, discoveryApi, parseSourceLocationParams, fetchApi]);
 
-  const getTechdocsUrl = () => {
-    return `/docs/${entity?.metadata?.namespace}/${entity?.kind}/${entity?.metadata?.name}`;
-  };
+  useEffect(() => {
+    const fetchEEDefinition = async () => {
+      if (entity && !entity?.spec?.definition) {
+        const params = parseSourceLocationParams();
+        if (!params) return;
 
-  const handleViewTechdocs = () => {
-    const url = getTechdocsUrl();
-    if (url) window.open(url, '_blank');
-    // else alert('TechDocs not available for this template');
-  };
+        const baseUrl = await discoveryApi.getBaseUrl('catalog');
+        const queryParams = new URLSearchParams({
+          scmProvider: params.scmProvider,
+          host: params.host,
+          owner: params.owner,
+          repo: params.repo,
+          filePath: params.subdir ? `${params.subdir}/${entity?.metadata?.name ?? 'execution-environment'}.yaml` : `${entity?.metadata?.name ?? 'execution-environment'}.yaml`,
+          ref: params.ref,
+        });
+
+        try {
+          const response = await fetchApi.fetch(
+            `${baseUrl}/git_readme_content?${queryParams}`,
+          );
+          if (response.ok) {
+            const text = await response.text();
+            setDefaultReadme(text);
+          }
+        } catch {
+          // Silently ignore errors
+        }
+      }
+    };
+    fetchEEDefinition();
+  }, [entity, discoveryApi, parseSourceLocationParams, fetchApi]);
+
+  useEffect(() => {
+    if (entity?.spec?.definition) setFetchedDefinition(null);
+  }, [entity?.spec?.definition]);
 
   const openSourceLocationUrl = useCallback(() => {
     const loc = entity?.metadata?.annotations?.['backstage.io/source-location'];
@@ -301,10 +331,11 @@ export const EEDetailsPage: React.FC = () => {
     return null;
   }, [entity]);
 
-  const parsedDefinition = useMemo(
-    () => parseEEDefinition(entity?.spec?.definition),
-    [entity?.spec?.definition],
-  );
+  const parsedDefinition = useMemo(() => {
+    const fromSpec = parseEEDefinition(entity?.spec?.definition);
+    if (fromSpec) return fromSpec;
+    return fetchedDefinition ? parseEEDefinition(fetchedDefinition) : null;
+  }, [entity?.spec?.definition, fetchedDefinition]);
 
   const sourceLocationDisplayUrl = entity?.metadata?.annotations?.[
     'backstage.io/source-location'
@@ -535,10 +566,10 @@ export const EEDetailsPage: React.FC = () => {
                     baseImageName={parsedDefinition?.baseImageName ?? null}
                     sourceLocationUrl={sourceLocationDisplayUrl}
                     onOpenSourceLocation={openSourceLocationUrl}
+                    readmeUrl={getReadmeBlobUrl()}
                     isRefreshing={isRefreshing}
                     isDownloadExperience={isDownloadExperience}
                     onRefresh={handleRefresh}
-                    onViewTechdocs={handleViewTechdocs}
                   />
 
                   {/* Defined Content Card */}

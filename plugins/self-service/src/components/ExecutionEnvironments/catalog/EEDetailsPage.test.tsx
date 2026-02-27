@@ -278,31 +278,28 @@ describe('EEDetailsPage', () => {
     expect(getEntities).toHaveBeenCalled();
   });
 
-  test('clicking Read more (long description) calls window.open with techdocs url', async () => {
+  test('clicking Read more (long description) expands description inline and shows Read less', async () => {
+    const longDescription =
+      'Long description over 150 characters. Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam.';
     const entityLongDesc = {
       ...entityNoDownload,
       metadata: {
         ...entityNoDownload.metadata,
-        description:
-          'Long description over 150 characters. Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam.',
+        description: longDescription,
       },
     };
     renderWithCatalogApi(() => Promise.resolve({ items: [entityLongDesc] }));
 
     await screen.findByTestId('favorite-entity');
 
-    const openSpy = jest.spyOn(window, 'open').mockImplementation(() => null);
-
     const readMore = screen.queryByText(/Read more/i);
     expect(readMore).toBeInTheDocument();
+    expect(screen.queryByText(longDescription)).toBeNull();
+
     fireEvent.click(readMore!);
 
-    expect(openSpy).toHaveBeenCalledWith(
-      `/docs/${entityLongDesc.metadata.namespace}/${entityLongDesc.kind}/${entityLongDesc.metadata.name}`,
-      '_blank',
-    );
-
-    openSpy.mockRestore();
+    expect(screen.getByText(longDescription)).toBeInTheDocument();
+    expect(screen.getByText(/Read less/i)).toBeInTheDocument();
   });
 
   test('clicking View in source opens source location', async () => {

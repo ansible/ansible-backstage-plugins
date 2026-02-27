@@ -10,6 +10,8 @@ import {
 } from '@material-ui/core';
 import { makeStyles } from '@material-ui/core/styles';
 import AutorenewIcon from '@material-ui/icons/Autorenew';
+import OpenInNewIcon from '@material-ui/icons/OpenInNew';
+import React, { useState } from 'react';
 import { Entity } from '@backstage/catalog-model';
 
 const useStyles = makeStyles(() => ({
@@ -30,6 +32,19 @@ const useStyles = makeStyles(() => ({
     cursor: 'pointer',
     fontWeight: 600,
   },
+  sourceLinkRow: {
+    display: 'flex',
+    alignItems: 'center',
+    gridGap: 8,
+    marginBottom: 8,
+    '&:last-child': { marginBottom: 0 },
+  },
+  sourceLink: {
+    cursor: 'pointer',
+    display: 'flex',
+    alignItems: 'center',
+    gridGap: 8,
+  },
 }));
 
 interface AboutCardProps {
@@ -38,10 +53,10 @@ interface AboutCardProps {
   baseImageName: string | null;
   sourceLocationUrl: string | null;
   onOpenSourceLocation: () => void;
+  readmeUrl?: string | null;
   isRefreshing: boolean;
   isDownloadExperience: boolean;
   onRefresh: () => void;
-  onViewTechdocs: () => void;
 }
 
 export const AboutCard: React.FC<AboutCardProps> = ({
@@ -53,9 +68,16 @@ export const AboutCard: React.FC<AboutCardProps> = ({
   isRefreshing,
   isDownloadExperience,
   onRefresh,
-  onViewTechdocs,
 }) => {
   const classes = useStyles();
+  const [descriptionExpanded, setDescriptionExpanded] = useState(false);
+  const scmProvider =
+    entity?.metadata?.annotations?.['ansible.io/scm-provider']
+      ?.toString()
+      .toLowerCase() ?? '';
+  let sourceLabel = 'Source';
+  if (scmProvider.includes('github')) sourceLabel = 'GitHub Source Link';
+  else if (scmProvider.includes('gitlab')) sourceLabel = 'GitLab Source Link';
   const description =
     entity?.metadata?.description ??
     entity?.metadata?.title ??
@@ -92,7 +114,7 @@ export const AboutCard: React.FC<AboutCardProps> = ({
         </Box>
         <Divider style={{ margin: '12px -16px 12px' }} />
 
-        {/* Description */}
+        {/* Description - inline expand when > 150 chars, no TechDocs link */}
         <Box>
           <Typography
             variant="caption"
@@ -101,17 +123,32 @@ export const AboutCard: React.FC<AboutCardProps> = ({
             Description
           </Typography>
           <Typography variant="body2">
-            {showReadMore ? `${description.slice(0, 150)}...` : description}
+            {showReadMore && !descriptionExpanded
+              ? `${description.slice(0, 150)}...`
+              : description}
           </Typography>
           {showReadMore && (
-            <Link
-              component="button"
-              variant="body2"
-              className={classes.descriptionExpand}
-              onClick={onViewTechdocs}
-            >
-              Read more
-            </Link>
+            <>
+              {!descriptionExpanded ? (
+                <Link
+                  component="button"
+                  variant="body2"
+                  className={classes.descriptionExpand}
+                  onClick={() => setDescriptionExpanded(true)}
+                >
+                  Read more
+                </Link>
+              ) : (
+                <Link
+                  component="button"
+                  variant="body2"
+                  className={classes.descriptionExpand}
+                  onClick={() => setDescriptionExpanded(false)}
+                >
+                  Read less
+                </Link>
+              )}
+            </>
           )}
         </Box>
 
@@ -137,25 +174,31 @@ export const AboutCard: React.FC<AboutCardProps> = ({
           <Typography variant="body2">{baseImageName ?? '—'}</Typography>
         </Box>
 
-        {/* Source - hidden when download-experience is true */}
+        {/* Source - hidden when download-experience is true; label by SCM, View in source + readme.md like Resources card */}
         {!isDownloadExperience && (
           <Box marginTop={2}>
             <Typography
               variant="caption"
               style={{ color: 'gray', fontWeight: 600 }}
             >
-              Source
+              {sourceLabel}
             </Typography>
             <Box marginTop={0.5}>
               {sourceLocationUrl ? (
-                <Link
-                  component="button"
-                  variant="body2"
-                  color="primary"
-                  onClick={onOpenSourceLocation}
-                >
-                  {sourceLocationUrl}
-                </Link>
+                <>
+                  <Box className={classes.sourceLinkRow}>
+                    <OpenInNewIcon fontSize="small" color="primary" />
+                    <Link
+                      component="button"
+                      variant="body2"
+                      color="primary"
+                      onClick={onOpenSourceLocation}
+                      className={classes.sourceLink}
+                    >
+                      source link
+                    </Link>
+                  </Box>
+                </>
               ) : (
                 <Typography variant="body2" color="textSecondary">
                   —
