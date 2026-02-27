@@ -30,25 +30,11 @@ export const SelfServicePage = selfServicePlugin.provide(
  * @public
  */
 export const EEPage = selfServicePlugin.provide(
-  createComponentExtension({
+  createRoutableExtension({
     name: 'EEPage',
-    component: {
-      lazy: () =>
-        import('./components/ExecutionEnvironments').then(m => m.EEPage),
-    },
-  }),
-);
-
-/**
- * @public
- */
-export const LocationListener = selfServicePlugin.provide(
-  createComponentExtension({
-    name: 'LocationListener',
-    component: {
-      lazy: () =>
-        import('./components/LocationListener').then(m => m.LocationListener),
-    },
+    component: () =>
+      import('./components/ExecutionEnvironments').then((m: any) => m.EETabs),
+    mountPoint: rootRouteRef,
   }),
 );
 
