@@ -1,20 +1,25 @@
 import type { BasicPermission } from '@backstage/plugin-permission-common';
 
-export const eeBuilderReadPermission: BasicPermission = {
+export const executionEnvironmentViewPermission: BasicPermission = {
   type: 'basic',
-  name: 'ansible.ee-builder.read',
+  name: 'ansible.execution-environment.view',
   attributes: {},
 };
 
-export const eeBuilderCreatePermission: BasicPermission = {
+export const gitRepositoriesViewPermission: BasicPermission = {
   type: 'basic',
-  name: 'ansible.ee-builder.create',
-  attributes: {
-    action: 'create',
-  },
+  name: 'ansible.git-repositories.view',
+  attributes: {},
+};
+
+export const collectionsViewPermission: BasicPermission = {
+  type: 'basic',
+  name: 'ansible.collections.view',
+  attributes: {},
 };
 
 export const ansiblePermissions = [
-  eeBuilderReadPermission,
-  eeBuilderCreatePermission,
+  executionEnvironmentViewPermission,
+  gitRepositoriesViewPermission,
+  collectionsViewPermission,
 ];

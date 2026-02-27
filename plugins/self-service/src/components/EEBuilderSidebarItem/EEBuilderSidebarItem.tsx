@@ -2,11 +2,11 @@ import { usePermission } from '@backstage/plugin-permission-react';
 import { configApiRef, useApi } from '@backstage/core-plugin-api';
 import { SidebarItem } from '@backstage/core-components';
 import BuildIcon from '@material-ui/icons/Build';
-import { eeBuilderReadPermission } from '@ansible/backstage-rhaap-common/permissions';
+import { executionEnvironmentViewPermission } from '@ansible/backstage-rhaap-common/permissions';
 
 export const EEBuilderSidebarItem = () => {
   const { loading, allowed } = usePermission({
-    permission: eeBuilderReadPermission,
+    permission: executionEnvironmentViewPermission,
   });
 
   const config = useApi(configApiRef);
@@ -18,7 +18,7 @@ export const EEBuilderSidebarItem = () => {
       <SidebarItem
         icon={BuildIcon}
         to="/self-service/ee"
-        text="EE Definitions"
+        text="Execution Environments"
       />
     );
   }
@@ -28,6 +28,10 @@ export const EEBuilderSidebarItem = () => {
   }
 
   return (
-    <SidebarItem icon={BuildIcon} to="/self-service/ee" text="EE Definitions" />
+    <SidebarItem
+      icon={BuildIcon}
+      to="/self-service/ee"
+      text="Execution Environments"
+    />
   );
 };

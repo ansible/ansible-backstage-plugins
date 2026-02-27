@@ -24,6 +24,19 @@ export const SelfServicePage = selfServicePlugin.provide(
 );
 
 /**
+ * @public
+ */
+export const LocationListener = selfServicePlugin.provide(
+  createComponentExtension({
+    name: 'LocationListener',
+    component: {
+      lazy: () =>
+        import('./components/LocationListener').then(m => m.LocationListener),
+    },
+  }),
+);
+
+/**
  * EE Page component for mounting at /self-service/ee
  * Contains its own routing for the EE section.
  *

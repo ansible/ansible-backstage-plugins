@@ -11,7 +11,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useRouteRef } from '@backstage/core-plugin-api';
 import { usePermission } from '@backstage/plugin-permission-react';
-
+import { catalogEntityCreatePermission } from '@backstage/plugin-catalog-common/alpha';
 import {
   CatalogFilterLayout,
   EntityKindPicker,
@@ -27,7 +27,6 @@ import { WizardCard } from '../../Home/TemplateCard';
 import { TemplateEntityV1beta3 } from '@backstage/plugin-scaffolder-common';
 import { rootRouteRef } from '../../../routes';
 import { TagFilterPicker } from '../../utils/TagFilterPicker';
-import { eeBuilderCreatePermission } from '@ansible/backstage-rhaap-common/permissions';
 
 const useStyles = makeStyles(theme => ({
   headerRow: {
@@ -108,7 +107,7 @@ export const CreateContent = () => {
   const navigate = useNavigate();
   const rootLink = useRouteRef(rootRouteRef);
   const { allowed } = usePermission({
-    permission: eeBuilderCreatePermission,
+    permission: catalogEntityCreatePermission,
   });
   const [menuAnchorEl, setMenuAnchorEl] = useState<null | HTMLElement>(null);
   const menuOpen = Boolean(menuAnchorEl);
