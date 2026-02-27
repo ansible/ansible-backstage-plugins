@@ -14,7 +14,6 @@
     "lint": "backstage-cli package lint"
   },
   "dependencies": {
-    "@ansible/backstage-plugin-catalog-backend-module-rhaap": "workspace:^",
     "@ansible/plugin-backstage-rhaap": "workspace:^",
     "@ansible/plugin-backstage-self-service": "workspace:^",
     "@backstage-community/plugin-rbac": "1.38.3",
