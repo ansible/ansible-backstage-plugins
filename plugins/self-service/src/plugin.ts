@@ -4,7 +4,7 @@ import {
   createRoutableExtension,
 } from '@backstage/core-plugin-api';
 
-import { rootRouteRef, eeRouteRef } from './routes';
+import { rootRouteRef } from './routes';
 import { AAPApis, AapAuthApi } from './apis';
 
 export const selfServicePlugin = createPlugin({
@@ -12,7 +12,6 @@ export const selfServicePlugin = createPlugin({
   apis: [AAPApis, AapAuthApi],
   routes: {
     root: rootRouteRef,
-    ee: eeRouteRef,
   },
 });
 
@@ -31,11 +30,12 @@ export const SelfServicePage = selfServicePlugin.provide(
  * @public
  */
 export const EEPage = selfServicePlugin.provide(
-  createRoutableExtension({
+  createComponentExtension({
     name: 'EEPage',
-    component: () =>
-      import('./components/ExecutionEnvironments').then(m => m.EEPage),
-    mountPoint: eeRouteRef,
+    component: {
+      lazy: () =>
+        import('./components/ExecutionEnvironments').then(m => m.EEPage),
+    },
   }),
 );
 
