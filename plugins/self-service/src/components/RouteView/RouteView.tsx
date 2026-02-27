@@ -1,4 +1,4 @@
-import { Route, Routes, Navigate } from 'react-router-dom';
+import { Route, Routes, Navigate, Outlet } from 'react-router-dom';
 import { RequirePermission } from '@backstage/plugin-permission-react';
 import { catalogEntityCreatePermission } from '@backstage/plugin-catalog-common/alpha';
 import { taskReadPermission } from '@backstage/plugin-scaffolder-common/alpha';
@@ -17,6 +17,7 @@ export const RouteView = () => {
   return (
     <>
       <Routes>
+        <Route index element={<Navigate to="catalog" replace />} />
         <Route path="catalog" element={<HomeComponent />} />
         <Route
           path="catalog/:namespace/:templateName"
@@ -30,7 +31,7 @@ export const RouteView = () => {
             </RequirePermission>
           }
         />
-        <Route path="create">
+        <Route path="create" element={<Outlet />}>
           <Route
             path="templates/:namespace/:templateName"
             element={<CreateTask />}
@@ -58,19 +59,14 @@ export const RouteView = () => {
             }
           />
         </Route>
-        <Route path="ee">
+        <Route path="ee" element={<Outlet />}>
           <Route index element={<Navigate to="catalog" replace />} />
           <Route path="catalog" element={<EETabs />} />
           <Route path="create" element={<EETabs />} />
           <Route path="docs" element={<EETabs />} />
         </Route>
-        <Route path="catalog/:templateName" element={<EEDetailsPage />} />
-        {/* Default redirects */}
-        <Route
-          path="/catalog/*"
-          element={<Navigate to="/self-service/catalog" />}
-        />
-        <Route path="*" element={<Navigate to="/self-service/catalog" />} />
+        <Route path="ee/catalog/:templateName" element={<EEDetailsPage />} />
+        <Route path="*" element={<Navigate to="catalog" replace />} />
       </Routes>
       <FeedbackFooter />
     </>

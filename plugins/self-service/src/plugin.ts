@@ -4,7 +4,7 @@ import {
   createRoutableExtension,
 } from '@backstage/core-plugin-api';
 
-import { rootRouteRef } from './routes';
+import { rootRouteRef, eeRouteRef } from './routes';
 import { AAPApis, AapAuthApi } from './apis';
 
 export const selfServicePlugin = createPlugin({
@@ -12,6 +12,7 @@ export const selfServicePlugin = createPlugin({
   apis: [AAPApis, AapAuthApi],
   routes: {
     root: rootRouteRef,
+    ee: eeRouteRef,
   },
 });
 
@@ -20,6 +21,21 @@ export const SelfServicePage = selfServicePlugin.provide(
     name: 'SelfServicePage',
     component: () => import('./components/RouteView').then(m => m.RouteView),
     mountPoint: rootRouteRef,
+  }),
+);
+
+/**
+ * EE Page component for mounting at /self-service/ee
+ * Contains its own routing for the EE section.
+ *
+ * @public
+ */
+export const EEPage = selfServicePlugin.provide(
+  createRoutableExtension({
+    name: 'EEPage',
+    component: () =>
+      import('./components/ExecutionEnvironments').then(m => m.EEPage),
+    mountPoint: eeRouteRef,
   }),
 );
 

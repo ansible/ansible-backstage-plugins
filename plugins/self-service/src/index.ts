@@ -1,6 +1,7 @@
 export * from './plugin';
 
 export { SignInPage } from './components/SignInPage';
+export { EEPage } from './components/ExecutionEnvironments';
 export { LandingPage } from './components/LandingPage';
 export { TaskList } from './components/TaskList';
 export { EEBuilderSidebarItem } from './components/EEBuilderSidebarItem';
