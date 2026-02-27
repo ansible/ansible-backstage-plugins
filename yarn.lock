@@ -18125,7 +18125,6 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "app@workspace:packages/app"
   dependencies:
-    "@ansible/backstage-plugin-catalog-backend-module-rhaap": "workspace:^"
     "@ansible/plugin-backstage-rhaap": "workspace:^"
     "@ansible/plugin-backstage-self-service": "workspace:^"
     "@backstage-community/plugin-rbac": "npm:1.38.3"
