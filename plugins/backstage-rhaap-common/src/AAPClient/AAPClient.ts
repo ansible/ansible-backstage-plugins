@@ -40,7 +40,7 @@ import {
   validateRepositoriesInput,
   sanitizePAHLimit,
   validateAndFilterRepositories,
-  processCollectionItem,
+  appendCollectionsFromPage,
   fetchCollectionsPage,
   extractNextUrl,
 } from './pahHelpers';
@@ -1406,18 +1406,13 @@ export class AAPClient implements IAAPService {
         break;
       }
 
-      const { collectionsData } = pageResult;
-
-      if (collectionsData.data && Array.isArray(collectionsData.data)) {
-        for (const item of collectionsData.data) {
-          const entry = await processCollectionItem(item, token, context);
-          if (entry) {
-            collections.push(entry);
-          }
-        }
-      }
-
-      nextUrl = extractNextUrl(collectionsData);
+      await appendCollectionsFromPage(
+        pageResult.collectionsData,
+        collections,
+        token,
+        context,
+      );
+      nextUrl = extractNextUrl(pageResult.collectionsData);
     }
 
     this.logger.info(

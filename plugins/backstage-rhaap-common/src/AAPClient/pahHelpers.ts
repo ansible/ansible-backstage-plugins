@@ -208,3 +208,20 @@ export function extractNextUrl(collectionsData: any): string | null {
   }
   return null;
 }
+
+export async function appendCollectionsFromPage(
+  collectionsData: { data?: unknown[] },
+  collections: Collection[],
+  token: string | null,
+  context: PAHHelperContext,
+): Promise<void> {
+  if (!collectionsData?.data || !Array.isArray(collectionsData.data)) {
+    return;
+  }
+  for (const item of collectionsData.data) {
+    const entry = await processCollectionItem(item, token, context);
+    if (entry) {
+      collections.push(entry);
+    }
+  }
+}
