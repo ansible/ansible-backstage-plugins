@@ -203,7 +203,7 @@ export function extractNextUrl(collectionsData: any): string | null {
 }
 
 export async function appendCollectionsFromPage(
-  collectionsData: { data?: unknown[] },
+  collectionsData: { data?: unknown[] | null },
   collections: Collection[],
   token: string | null,
   context: PAHHelperContext,

@@ -6,6 +6,7 @@ import {
   processCollectionItem,
   fetchCollectionsPage,
   extractNextUrl,
+  appendCollectionsFromPage,
 } from './pahHelpers';
 
 describe('PAH Helpers', () => {
@@ -454,6 +455,93 @@ describe('PAH Helpers', () => {
       const result = extractNextUrl(undefined);
 
       expect(result).toBeNull();
+    });
+  });
+
+  describe('appendCollectionsFromPage', () => {
+    it('should do nothing when collectionsData is undefined', async () => {
+      const collections: any[] = [];
+      await appendCollectionsFromPage(
+        undefined as any,
+        collections,
+        null,
+        mockContext,
+      );
+      expect(collections).toHaveLength(0);
+      expect(mockExecuteGetRequest).not.toHaveBeenCalled();
+    });
+
+    it('should do nothing when collectionsData.data is null', async () => {
+      const collections: any[] = [];
+      await appendCollectionsFromPage(
+        { data: null },
+        collections,
+        null,
+        mockContext,
+      );
+      expect(collections).toHaveLength(0);
+    });
+
+    it('should do nothing when collectionsData.data is not an array', async () => {
+      const collections: any[] = [];
+      await appendCollectionsFromPage(
+        { data: 'not-array' as any },
+        collections,
+        null,
+        mockContext,
+      );
+      expect(collections).toHaveLength(0);
+    });
+
+    it('should do nothing when collectionsData.data is empty array', async () => {
+      const collections: any[] = [];
+      await appendCollectionsFromPage(
+        { data: [] },
+        collections,
+        null,
+        mockContext,
+      );
+      expect(collections).toHaveLength(0);
+      expect(mockExecuteGetRequest).not.toHaveBeenCalled();
+    });
+
+    it('should append collections when data contains valid items', async () => {
+      const collections: any[] = [];
+      mockExecuteGetRequest.mockResolvedValue({
+        json: jest.fn().mockResolvedValue({
+          docs_blob: { collection_readme: { html: '<p>README</p>' } },
+          authors: ['Ansible'],
+        }),
+      });
+
+      await appendCollectionsFromPage(
+        {
+          data: [
+            {
+              collection_version: {
+                namespace: 'ansible',
+                name: 'posix',
+                version: '1.0.0',
+                pulp_href:
+                  '/pulp/api/v3/content/ansible/collection_versions/1/',
+              },
+              repository: { name: 'validated' },
+            },
+          ],
+        },
+        collections,
+        null,
+        mockContext,
+      );
+
+      expect(collections).toHaveLength(1);
+      expect(collections[0].namespace).toBe('ansible');
+      expect(collections[0].name).toBe('posix');
+      expect(collections[0].repository_name).toBe('validated');
+      expect(mockExecuteGetRequest).toHaveBeenCalledWith(
+        '/pulp/api/v3/content/ansible/collection_versions/1/',
+        null,
+      );
     });
   });
 });

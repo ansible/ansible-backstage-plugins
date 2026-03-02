@@ -3446,6 +3446,21 @@ describe('AAPClient', () => {
 
         expect(result).toBe(true);
       });
+
+      it('should encode repository name in request URL', async () => {
+        const mockResponse = {
+          ok: true,
+          json: jest.fn().mockResolvedValue({ results: [] }),
+        };
+        mockFetch.mockResolvedValue(mockResponse);
+
+        await client.isValidPAHRepository('repo&name=value');
+
+        expect(mockFetch).toHaveBeenCalledWith(
+          'https://test.example.com/api/galaxy/pulp/api/v3/repositories?name=repo%26name%3Dvalue',
+          expect.any(Object),
+        );
+      });
     });
 
     describe('syncCollectionsByRepositories', () => {
