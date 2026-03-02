@@ -4065,6 +4065,29 @@ describe('AAPClient', () => {
         expect(result).toHaveLength(1);
         expect(result[0].authors).toBeNull(); // Should be null since authors is not an array
       });
+
+      it('should throw when AbortSignal is aborted during pagination', async () => {
+        jest.spyOn(client, 'isValidPAHRepository').mockResolvedValue(true);
+
+        const controller = new AbortController();
+        controller.abort();
+
+        await expect(
+          client.syncCollectionsByRepositories(
+            ['repo1'],
+            100,
+            controller.signal,
+          ),
+        ).rejects.toThrow(
+          /Sync aborted, stopping pagination after 0 collections/,
+        );
+
+        expect(mockLogger.info).toHaveBeenCalledWith(
+          expect.stringContaining(
+            'Sync aborted, stopping pagination after 0 collections',
+          ),
+        );
+      });
     });
   });
 });

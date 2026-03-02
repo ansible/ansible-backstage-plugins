@@ -1357,6 +1357,7 @@ export class AAPClient implements IAAPService {
   public async syncCollectionsByRepositories(
     repositories: string[],
     limit: number = 100,
+    signal?: AbortSignal,
   ): Promise<Collection[]> {
     const collections: Collection[] = [];
     const token = this.ansibleConfig.rhaap?.token ?? null;
@@ -1392,6 +1393,15 @@ export class AAPClient implements IAAPService {
       `/api/galaxy/v3/plugin/ansible/search/collection-versions/?${urlSearchParams.toString()}`;
 
     while (nextUrl) {
+      if (signal?.aborted) {
+        this.logger.info(
+          `[${this.pluginLogName}]: Sync aborted, stopping pagination after ${collections.length} collections`,
+        );
+        throw new Error(
+          `Sync aborted, stopping pagination after ${collections.length} collections`,
+        );
+      }
+
       const pageResult = await fetchCollectionsPage(nextUrl, token, context);
 
       if (!pageResult) {
