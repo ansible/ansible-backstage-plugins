@@ -1344,7 +1344,7 @@ export class AAPClient implements IAAPService {
   }
 
   public async isValidPAHRepository(repositoryName: string): Promise<boolean> {
-    const endPoint = `api/galaxy/pulp/api/v3/repositories?name=${repositoryName}`;
+    const endPoint = `api/galaxy/pulp/api/v3/repositories?name=${encodeURIComponent(repositoryName)}`;
     const token = this.ansibleConfig.rhaap?.token ?? null;
     const response = await this.executeGetRequest(endPoint, token);
     const data = await response.json();
