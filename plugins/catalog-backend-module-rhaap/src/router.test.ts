@@ -677,7 +677,7 @@ describe('createRouter', () => {
     });
   });
 
-  describe('GET /aap/sync_status', () => {
+  describe('GET /ansible/sync/status', () => {
     it('should return both aap and content status when no query params', async () => {
       mockAAPEntityProvider.getLastSyncTime.mockReturnValue(
         '2024-01-15T10:00:00Z',
@@ -694,7 +694,7 @@ describe('createRouter', () => {
       mockPAHCollectionProvider.getCollectionsDelta.mockReturnValue(5);
       mockPAHCollectionProvider.getIsSyncing.mockReturnValue(false);
 
-      const response = await request(app).get('/aap/sync_status');
+      const response = await request(app).get('/ansible/sync/status');
 
       expect(response.status).toBe(200);
       expect(response.body).toEqual({
@@ -732,7 +732,7 @@ describe('createRouter', () => {
       );
 
       const response = await request(app).get(
-        '/aap/sync_status?aap_entities=true',
+        '/ansible/sync/status?aap_entities=true',
       );
 
       expect(response.status).toBe(200);
@@ -757,7 +757,7 @@ describe('createRouter', () => {
       mockPAHCollectionProvider.getIsSyncing.mockReturnValue(true);
 
       const response = await request(app).get(
-        '/aap/sync_status?ansible_contents=true',
+        '/ansible/sync/status?ansible_contents=true',
       );
 
       expect(response.status).toBe(200);
@@ -799,7 +799,7 @@ describe('createRouter', () => {
       mockPAHCollectionProvider.getIsSyncing.mockReturnValue(false);
 
       const response = await request(app).get(
-        '/aap/sync_status?aap_entities=true&ansible_contents=true',
+        '/ansible/sync/status?aap_entities=true&ansible_contents=true',
       );
 
       expect(response.status).toBe(200);
@@ -835,7 +835,7 @@ describe('createRouter', () => {
       });
       mockJobTemplateProvider.getLastSyncTime.mockReturnValue(null);
 
-      const response = await request(app).get('/aap/sync_status');
+      const response = await request(app).get('/ansible/sync/status');
 
       expect(response.status).toBe(500);
       expect(response.body).toEqual({
@@ -857,7 +857,7 @@ describe('createRouter', () => {
       });
       mockJobTemplateProvider.getLastSyncTime.mockReturnValue(null);
 
-      const response = await request(app).get('/aap/sync_status');
+      const response = await request(app).get('/ansible/sync/status');
 
       expect(response.status).toBe(500);
       expect(response.body).toEqual({

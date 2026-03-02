@@ -129,7 +129,7 @@ describe('Ansible API module', () => {
 
     expect(mockDiscovery.getBaseUrl).toHaveBeenCalledWith('catalog');
     expect(mockFetch.fetch).toHaveBeenCalledWith(
-      'http://example.com/aap/sync_status?aap_entities=true',
+      'http://example.com/ansible/sync/status?aap_entities=true',
     );
     expect(result).toEqual({
       aap: {
@@ -156,7 +156,7 @@ describe('Ansible API module', () => {
 
     expect(mockDiscovery.getBaseUrl).toHaveBeenCalledWith('catalog');
     expect(mockFetch.fetch).toHaveBeenCalledWith(
-      'http://example.com/aap/sync_status?aap_entities=true',
+      'http://example.com/ansible/sync/status?aap_entities=true',
     );
     expect(result).toEqual({
       aap: {
