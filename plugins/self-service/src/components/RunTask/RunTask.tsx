@@ -29,7 +29,7 @@ import {
 } from '@material-ui/core';
 import GetAppIcon from '@material-ui/icons/GetApp';
 import ArrowBack from '@material-ui/icons/ArrowBack';
-import { selectedTemplateRouteRef } from '../../routes';
+import { rootRouteRef, selectedTemplateRouteRef } from '../../routes';
 import { createTarArchive } from '../utils/tarArchiveUtils';
 
 const headerStyles = makeStyles(theme => ({
@@ -68,8 +68,10 @@ const headerStyles = makeStyles(theme => ({
 export const RunTask = () => {
   const classes = headerStyles();
   const { taskId } = useParams<{ taskId: string }>();
+  if (!taskId) throw new Error('Task ID is required');
+
   const { task, completed, loading, error, output, steps, stepLogs } =
-    useTaskEventStream(taskId!);
+    useTaskEventStream(taskId);
   const taskMetadata = task?.spec?.templateInfo?.entity?.metadata;
   const [showLogs, setShowLogs] = useState(false);
   const [isCanceling, setIsCanceling] = useState(false);
@@ -77,9 +79,13 @@ export const RunTask = () => {
   const [expandedTextIndex, setExpandedTextIndex] = useState<number | null>(
     null,
   );
+  const [templateEntity, setTemplateEntity] = useState<{
+    spec?: { type?: string };
+  } | null>(null);
   const scaffolderApi = useApi(scaffolderApiRef);
   const catalogApi = useApi(catalogApiRef);
   const navigate = useNavigate();
+  const rootLink = useRouteRef(rootRouteRef);
   const templateRouteRef = useRouteRef(selectedTemplateRouteRef);
 
   const { allowed: canCancel } = usePermission({
@@ -109,6 +115,26 @@ export const RunTask = () => {
       setIsCanceling(false);
     }
   }, [taskStatus, isCanceling]);
+
+  useEffect(() => {
+    const fetchTemplateEntity = async () => {
+      const templateEntityRef = task?.spec?.templateInfo?.entityRef;
+      if (templateEntityRef) {
+        try {
+          const entity = await catalogApi.getEntityByRef(templateEntityRef);
+          if (entity) {
+            setTemplateEntity(entity);
+          }
+        } catch (err) {
+          console.error('Failed to fetch template entity', err); // eslint-disable-line no-console
+        }
+      }
+    };
+
+    if (task && !templateEntity) {
+      fetchTemplateEntity();
+    }
+  }, [task, catalogApi, templateEntity]);
 
   const canStartOver = canRead && canCreateTask;
   const showStartOver = canStartOver;
@@ -199,8 +225,20 @@ export const RunTask = () => {
   }, [task, canStartOver, isStartOverDisabled, navigate, templateRouteRef]);
 
   const handleBack = useCallback(() => {
-    navigate('/self-service/catalog');
-  }, [navigate]);
+    if (!task?.spec?.templateInfo?.entity?.metadata || !templateEntity) {
+      navigate(-1);
+      return;
+    }
+
+    const isExecutionEnvironment =
+      templateEntity?.spec?.type === 'execution-environment';
+
+    if (isExecutionEnvironment) {
+      navigate(`${rootLink()}/ee/create`);
+    } else {
+      navigate(`${rootLink()}/catalog`);
+    }
+  }, [task, templateEntity, navigate, rootLink]);
 
   const handleEntityLinkClick = useCallback(
     (entityRef: string) => {
@@ -501,10 +539,11 @@ export const RunTask = () => {
                 })
                 ?.map((link, index) => {
                   if ('entityRef' in link && link.entityRef) {
+                    const entityRef = link.entityRef;
                     return (
                       <Button
-                        key={link.entityRef || link.title || `link-${index}`}
-                        onClick={() => handleEntityLinkClick(link.entityRef!)}
+                        key={entityRef || link.title || `link-${index}`}
+                        onClick={() => handleEntityLinkClick(entityRef)}
                         variant="contained"
                         style={{
                           flex: '0 0 calc(33.333% - 6px)',
