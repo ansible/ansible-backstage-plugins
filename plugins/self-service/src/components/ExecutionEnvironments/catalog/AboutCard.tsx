@@ -76,15 +76,25 @@ export const AboutCard: React.FC<AboutCardProps> = ({
                   style={{ color: '#757575' }}
                 />
               </IconButton>{' '}
-              <IconButton size="small">
-                <a
-                  href={entity?.metadata?.annotations?.[ANNOTATION_EDIT_URL]}
+              {(entity?.metadata?.annotations?.[ANNOTATION_EDIT_URL] ||
+                entity?.metadata?.annotations?.['backstage.io/source-location']) && (
+                <IconButton
+                  size="small"
+                  component="a"
+                  href={
+                    entity.metadata.annotations[ANNOTATION_EDIT_URL] ||
+                    (entity.metadata.annotations['backstage.io/source-location'] || '').replace(
+                      /^url:/i,
+                      '',
+                    ).trim()
+                  }
                   target="_blank"
                   rel="noopener noreferrer"
+                  aria-label="Edit in Git"
                 >
                   <EditIcon style={{ color: theme.palette.primary.main }} />
-                </a>
-              </IconButton>
+                </IconButton>
+              )}
             </Box>
           )}
         </Box>
@@ -171,6 +181,38 @@ export const AboutCard: React.FC<AboutCardProps> = ({
           </Typography>
         </Box>
         <Box display="flex" flexDirection="column" gridGap={4} marginTop={2}>
+          {(entity?.metadata?.annotations?.[ANNOTATION_EDIT_URL] ||
+            entity?.metadata?.annotations?.['backstage.io/source-location']) && (
+            <Box>
+              <Typography
+                variant="caption"
+                style={{ color: 'gray', fontWeight: 600 }}
+              >
+                EDIT URL
+              </Typography>
+              <Typography variant="body2" style={{ marginTop: 4 }}>
+                <a
+                  href={
+                    entity.metadata.annotations[ANNOTATION_EDIT_URL] ||
+                    (entity.metadata.annotations['backstage.io/source-location'] || '')
+                      .replace(/^url:/i, '')
+                      .trim()
+                  }
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  style={{
+                    color: theme.palette.primary.main,
+                    wordBreak: 'break-all',
+                  }}
+                >
+                  {entity.metadata.annotations[ANNOTATION_EDIT_URL] ||
+                    (entity.metadata.annotations['backstage.io/source-location'] || '')
+                      .replace(/^url:/i, '')
+                      .trim()}
+                </a>
+              </Typography>
+            </Box>
+          )}
           <Box>
             <Typography
               variant="caption"

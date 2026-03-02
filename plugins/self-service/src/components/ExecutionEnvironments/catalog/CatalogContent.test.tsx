@@ -777,7 +777,27 @@ describe('EEListPage', () => {
       windowOpenSpy.mockRestore();
     });
 
-    test('hides edit button for entities with download-experience annotation', async () => {
+    test('shows Build, Edit, View, Delete when download-experience is false', async () => {
+      renderWithCatalogApi(() => Promise.resolve({ items: [entityA] }));
+
+      await waitFor(() =>
+        expect(screen.getByTestId('stubbed-table-title')).toBeInTheDocument(),
+      );
+
+      const actionsButton = screen.getByRole('button', { name: /actions/i });
+      fireEvent.click(actionsButton);
+
+      await waitFor(() => {
+        expect(screen.getByRole('menuitem', { name: /build/i })).toBeInTheDocument();
+        expect(screen.getByRole('menuitem', { name: /edit/i })).toBeInTheDocument();
+        expect(screen.getByRole('menuitem', { name: /view/i })).toBeInTheDocument();
+        expect(screen.getByRole('menuitem', { name: /delete/i })).toBeInTheDocument();
+      });
+      expect(screen.queryByRole('menuitem', { name: /unregister/i })).not.toBeInTheDocument();
+      expect(screen.queryByRole('menuitem', { name: /download/i })).not.toBeInTheDocument();
+    });
+
+    test('shows Build, Unregister, Download when download-experience is true', async () => {
       const entityWithDownload = {
         ...entityA,
         metadata: {
@@ -797,12 +817,17 @@ describe('EEListPage', () => {
         expect(screen.getByTestId('stubbed-table-title')).toBeInTheDocument(),
       );
 
-      // Edit button should not be present
-      const editButtons = screen.queryAllByRole('button');
-      const hasEditButton = editButtons.some(
-        btn => btn.getAttribute('aria-label') === 'Edit',
-      );
-      expect(hasEditButton).toBe(false);
+      const actionsButton = screen.getByRole('button', { name: /actions/i });
+      fireEvent.click(actionsButton);
+
+      await waitFor(() => {
+        expect(screen.getByRole('menuitem', { name: /build/i })).toBeInTheDocument();
+        expect(screen.getByRole('menuitem', { name: /unregister/i })).toBeInTheDocument();
+        expect(screen.getByRole('menuitem', { name: /download/i })).toBeInTheDocument();
+      });
+      expect(screen.queryByRole('menuitem', { name: /edit/i })).not.toBeInTheDocument();
+      expect(screen.queryByRole('menuitem', { name: /view/i })).not.toBeInTheDocument();
+      expect(screen.queryByRole('menuitem', { name: /delete/i })).not.toBeInTheDocument();
     });
 
     test('disables edit button when edit URL is missing', async () => {

@@ -4,6 +4,7 @@ import {
   FormControl,
   Grid,
   Input,
+  Menu,
   MenuItem,
   Paper,
   Select,
@@ -19,30 +20,19 @@ import {
   catalogApiRef,
   useEntityList,
   useStarredEntities,
+  UnregisterEntityDialog,
 } from '@backstage/plugin-catalog-react';
 import { Table, TableColumn } from '@backstage/core-components';
 import { Chip, IconButton } from '@material-ui/core';
-import Edit from '@material-ui/icons/Edit';
+import MoreVert from '@material-ui/icons/MoreVert';
 import { Tooltip } from '@material-ui/core';
 import { ANNOTATION_EDIT_URL, Entity } from '@backstage/catalog-model';
-import StarBorder from '@material-ui/icons/StarBorder';
 import { useApi } from '@backstage/core-plugin-api';
 import { useNavigate } from 'react-router-dom';
-import { YellowStar } from './Favourites';
 import { CreateCatalog } from './CreateCatalog';
 
-const visuallyHidden: React.CSSProperties = {
-  border: 0,
-  clip: 'rect(0 0 0 0)',
-  height: 1,
-  margin: -1,
-  overflow: 'hidden',
-  padding: 0,
-  position: 'absolute',
-  top: 20,
-  width: 1,
-  whiteSpace: 'nowrap',
-};
+const EE_BUILD_GUIDE_URL =
+  'https://red.ht/self-service_build_and_use_ee_definition';
 
 const useStyles = makeStyles(theme => ({
   flex: {
@@ -138,7 +128,7 @@ export const EEListPage = ({
   const classes = useStyles();
   const catalogApi = useApi(catalogApiRef);
   const navigate = useNavigate();
-  const { isStarredEntity, toggleStarredEntity } = useStarredEntities();
+  const { isStarredEntity } = useStarredEntities();
   const [loading, setLoading] = useState<boolean>(true);
   const [showError, setShowError] = useState<boolean>(false);
   const [errorMessage, setErrorMessage] = useState<string>('');
@@ -150,9 +140,39 @@ export const EEListPage = ({
   const [allTags, setAllTags] = useState<string[]>(['All']);
   const [filtered, setFiltered] = useState<boolean>(true);
   const [ownerNames, setOwnerNames] = useState<Map<string, string>>(new Map());
+  const [actionsMenuAnchor, setActionsMenuAnchor] = useState<null | HTMLElement>(
+    null,
+  );
+  const [menuAnchorPosition, setMenuAnchorPosition] = useState<
+    { top: number; left: number } | undefined
+  >(undefined);
+  const [actionsMenuEntity, setActionsMenuEntity] = useState<Entity | null>(null);
+  const [unregisterDialogOpen, setUnregisterDialogOpen] =
+    useState<boolean>(false);
+  const [entityToUnregister, setEntityToUnregister] = useState<Entity | null>(
+    null,
+  );
   const { filters, updateFilters } = useEntityList();
 
   const isMountedRef = useRef(true);
+
+  const handleActionsMenuOpen = (event: React.MouseEvent<HTMLElement>, entity: Entity) => {
+    event.preventDefault();
+    event.stopPropagation();
+    const target = event.currentTarget;
+    if (target) {
+      const rect = target.getBoundingClientRect();
+      setMenuAnchorPosition({ left: rect.left, top: rect.bottom });
+    }
+    setActionsMenuAnchor(target);
+    setActionsMenuEntity(entity);
+  };
+
+  const handleActionsMenuClose = () => {
+    setActionsMenuAnchor(null);
+    setMenuAnchorPosition(undefined);
+    setActionsMenuEntity(null);
+  };
 
   const getOwnerName = useCallback(
     async (ownerRef: string | undefined): Promise<string> => {
@@ -258,6 +278,12 @@ export const EEListPage = ({
         }
       });
   }, [catalogApi, getUniqueOwnersAndTags, fetchOwnerNames]);
+
+  const handleUnregisterConfirm = useCallback(() => {
+    setUnregisterDialogOpen(false);
+    setEntityToUnregister(null);
+    callApi();
+  }, [callApi]);
 
   function sortByMetadataTitleAsc<T extends { metadata?: { name?: string } }>(
     data: T[],
@@ -396,81 +422,34 @@ export const EEListPage = ({
       title: 'Actions',
       id: 'actions',
       render: (entity: any) => {
-        const editUrl = entity.metadata.annotations?.[ANNOTATION_EDIT_URL];
-        const title = 'Edit';
-        const isStarred = isStarredEntity(entity);
-        const starredTitle = isStarred
-          ? 'Remove from favorites'
-          : 'Add to favorites';
-
+        const entityName = entity.metadata?.name;
         return (
           <div
             className={classes.flex}
             style={{ position: 'relative', zIndex: 1 }}
           >
-            <Tooltip title={starredTitle}>
+            <Tooltip title="Actions">
               <IconButton
                 size="small"
-                onClick={(e: React.MouseEvent) => {
-                  e.preventDefault();
-                  e.stopPropagation();
-                  toggleStarredEntity(entity);
-                }}
+                onClick={(e: React.MouseEvent<HTMLElement>) =>
+                  handleActionsMenuOpen(e, entity)
+                }
                 onMouseDown={(e: React.MouseEvent) => {
-                  e.preventDefault();
-                  e.stopPropagation();
-                  toggleStarredEntity(entity);
-                }}
-                onMouseUp={(e: React.MouseEvent) => {
                   e.preventDefault();
                   e.stopPropagation();
                 }}
                 className={classes.actionButton}
-                aria-label={starredTitle}
+                aria-label="Actions"
+                aria-haspopup="true"
+                aria-controls={
+                  actionsMenuEntity?.metadata?.name === entityName
+                    ? 'ee-actions-menu'
+                    : undefined
+                }
               >
-                <Typography style={visuallyHidden}>{starredTitle}</Typography>
-                {isStarred ? <YellowStar /> : <StarBorder />}
+                <MoreVert fontSize="small" />
               </IconButton>
             </Tooltip>
-            {!(
-              entity &&
-              entity.metadata &&
-              entity.metadata.annotations &&
-              entity.metadata.annotations['ansible.io/download-experience']
-                ?.toString()
-                .toLowerCase()
-                .trim() === 'true'
-            ) && (
-              <Tooltip title="Edit">
-                <IconButton
-                  size="small"
-                  onClick={(e: React.MouseEvent) => {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    if (editUrl) {
-                      window.open(editUrl, '_blank', 'noopener,noreferrer');
-                    }
-                  }}
-                  onMouseDown={(e: React.MouseEvent) => {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    if (editUrl) {
-                      window.open(editUrl, '_blank', 'noopener,noreferrer');
-                    }
-                  }}
-                  onMouseUp={(e: React.MouseEvent) => {
-                    e.preventDefault();
-                    e.stopPropagation();
-                  }}
-                  className={classes.actionButton}
-                  aria-label={title}
-                  disabled={!editUrl}
-                >
-                  <Typography style={visuallyHidden}>{title}</Typography>
-                  <Edit fontSize="small" />
-                </IconButton>
-              </Tooltip>
-            )}
           </div>
         );
       },
@@ -543,6 +522,124 @@ export const EEListPage = ({
                 columns={columns}
                 data={ansibleComponents || []}
               />
+              <Menu
+                id="ee-actions-menu"
+                anchorEl={actionsMenuAnchor}
+                anchorReference="anchorPosition"
+                anchorPosition={
+                  menuAnchorPosition
+                    ? { top: menuAnchorPosition.top, left: menuAnchorPosition.left }
+                    : undefined
+                }
+                keepMounted
+                open={Boolean(actionsMenuAnchor)}
+                onClose={handleActionsMenuClose}
+                anchorOrigin={{ vertical: 'top', horizontal: 'left' }}
+                transformOrigin={{ vertical: 'top', horizontal: 'left' }}
+                onClick={(e: React.MouseEvent) => e.stopPropagation()}
+              >
+                {actionsMenuEntity && (() => {
+                  const isDownloadExperience =
+                    actionsMenuEntity?.metadata?.annotations?.[
+                      'ansible.io/download-experience'
+                    ]
+                      ?.toString()
+                      .toLowerCase()
+                      .trim() === 'true';
+                  const detailPath = `/self-service/catalog/${actionsMenuEntity.metadata?.name}`;
+                  return (
+                    <>
+                      <MenuItem
+                        onClick={() => {
+                          handleActionsMenuClose();
+                          window.open(EE_BUILD_GUIDE_URL, '_blank', 'noopener,noreferrer');
+                        }}
+                      >
+                        Build
+                      </MenuItem>
+                      {isDownloadExperience ? (
+                        <>
+                          <MenuItem
+                            onClick={() => {
+                              setEntityToUnregister(actionsMenuEntity);
+                              handleActionsMenuClose();
+                              setUnregisterDialogOpen(true);
+                            }}
+                          >
+                            Unregister
+                          </MenuItem>
+                          <MenuItem
+                            onClick={() => {
+                              handleActionsMenuClose();
+                              navigate(detailPath);
+                            }}
+                          >
+                            Download
+                          </MenuItem>
+                        </>
+                      ) : (
+                        <>
+                          <MenuItem
+                            onClick={() => {
+                              const editUrl =
+                                actionsMenuEntity?.metadata?.annotations?.[
+                                  ANNOTATION_EDIT_URL
+                                ];
+                              const sourceLocation =
+                                actionsMenuEntity?.metadata?.annotations?.[
+                                  'backstage.io/source-location'
+                                ];
+                              const urlToOpen =
+                                editUrl ||
+                                (typeof sourceLocation === 'string'
+                                  ? sourceLocation.replace(/^url:/i, '').trim()
+                                  : undefined);
+                              if (urlToOpen) {
+                                window.open(
+                                  urlToOpen,
+                                  '_blank',
+                                  'noopener,noreferrer',
+                                );
+                              }
+                              handleActionsMenuClose();
+                            }}
+                          >
+                            Edit
+                          </MenuItem>
+                          <MenuItem
+                            onClick={() => {
+                              handleActionsMenuClose();
+                              navigate(detailPath);
+                            }}
+                          >
+                            View
+                          </MenuItem>
+                          <MenuItem
+                            onClick={() => {
+                              setEntityToUnregister(actionsMenuEntity);
+                              handleActionsMenuClose();
+                              setUnregisterDialogOpen(true);
+                            }}
+                          >
+                            Delete
+                          </MenuItem>
+                        </>
+                      )}
+                    </>
+                  );
+                })()}
+              </Menu>
+              {entityToUnregister && (
+                <UnregisterEntityDialog
+                  open={unregisterDialogOpen}
+                  entity={entityToUnregister}
+                  onConfirm={handleUnregisterConfirm}
+                  onClose={() => {
+                    setUnregisterDialogOpen(false);
+                    setEntityToUnregister(null);
+                  }}
+                />
+              )}
             </CatalogFilterLayout.Content>
           </CatalogFilterLayout>
         ) : (
