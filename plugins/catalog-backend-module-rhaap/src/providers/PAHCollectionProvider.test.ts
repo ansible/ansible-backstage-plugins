@@ -644,7 +644,7 @@ describe('PAHCollectionProvider', () => {
       expect(result.collectionsCount).toBe(2);
       expect(
         mockAnsibleService.syncCollectionsByRepositories,
-      ).toHaveBeenCalledWith(['validated']);
+      ).toHaveBeenCalledWith(['validated'], 100, undefined);
       expect(mockConnection.applyMutation).toHaveBeenCalledWith({
         type: 'full',
         entities: expect.arrayContaining([
@@ -687,6 +687,35 @@ describe('PAHCollectionProvider', () => {
         type: 'full',
         entities: [],
       });
+    });
+
+    it('should return success false and skip sync when AbortSignal is already aborted', async () => {
+      const config = new ConfigReader(MOCK_PAH_CONFIG);
+      const logger = mockServices.logger.mock();
+
+      const providers = PAHCollectionProvider.fromConfig(
+        config,
+        mockAnsibleService,
+        {
+          logger,
+          schedule: mockTaskRunner,
+        },
+      );
+
+      const provider = providers[0];
+      await provider.connect(mockConnection);
+
+      const controller = new AbortController();
+      controller.abort();
+
+      const result = await provider.run(controller.signal);
+
+      expect(result.success).toBe(false);
+      expect(result.collectionsCount).toBe(0);
+      expect(
+        mockAnsibleService.syncCollectionsByRepositories,
+      ).not.toHaveBeenCalled();
+      expect(mockConnection.applyMutation).not.toHaveBeenCalled();
     });
 
     it('should handle errors from syncCollectionsByRepositories', async () => {

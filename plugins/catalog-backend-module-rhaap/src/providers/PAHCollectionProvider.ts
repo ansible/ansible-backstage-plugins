@@ -193,9 +193,9 @@ export class PAHCollectionProvider implements EntityProvider {
       );
       return taskRunner.run({
         id: taskId,
-        fn: async () => {
+        fn: async (signal: AbortSignal) => {
           try {
-            await this.run();
+            await this.run(signal);
           } catch (error) {
             if (isError(error)) {
               // Ensure that we don't log any sensitive internal data
@@ -216,9 +216,15 @@ export class PAHCollectionProvider implements EntityProvider {
     };
   }
 
-  async run(): Promise<{ success: boolean; collectionsCount: number }> {
+  async run(
+    signal?: AbortSignal,
+  ): Promise<{ success: boolean; collectionsCount: number }> {
     if (!this.connection) {
       throw new Error('PAHCollectionProvider not connected');
+    }
+
+    if (signal?.aborted) {
+      return { success: false, collectionsCount: 0 };
     }
 
     this.isSyncing = true;
@@ -233,14 +239,23 @@ export class PAHCollectionProvider implements EntityProvider {
       const entities: Entity[] = [];
 
       const collections =
-        await this.ansibleServiceRef.syncCollectionsByRepositories([
-          this.pahRepositoryName,
-        ]);
+        await this.ansibleServiceRef.syncCollectionsByRepositories(
+          [this.pahRepositoryName],
+          100,
+          signal,
+        );
       this.logger.info(
         `[${this.getProviderName()}]: Fetched ${
           collections.length
         } collections from repository: ${this.pahRepositoryName}`,
       );
+
+      if (signal?.aborted) {
+        this.logger.info(
+          `[${this.getProviderName()}]: Sync aborted after fetching collections, skipping catalog mutation`,
+        );
+        return { success: false, collectionsCount: 0 };
+      }
 
       for (const collection of collections) {
         entities.push(
