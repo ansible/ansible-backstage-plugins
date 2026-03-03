@@ -32,6 +32,8 @@ export const catalogModuleRhaap = createBackendModule({
         discovery: coreServices.discovery,
         auth: coreServices.auth,
         permissionsRegistry: coreServices.permissionsRegistry,
+        permissionsApi: coreServices.permissions,
+        httpAuth: coreServices.httpAuth,
       },
       async init({
         logger,
@@ -42,6 +44,8 @@ export const catalogModuleRhaap = createBackendModule({
         catalogProcessing,
         catalogModel,
         permissionsRegistry,
+        permissionsApi,
+        httpAuth,
       }) {
         permissionsRegistry.addPermissions(ansiblePermissions);
         catalogModel.setFieldValidators(
@@ -93,6 +97,8 @@ export const catalogModuleRhaap = createBackendModule({
             jobTemplateProvider: jobTemplateProvider[0],
             eeEntityProvider: eeEntityProvider,
             pahCollectionProviders: pahCollectionProviders,
+            permissionsApi: permissionsApi,
+            httpAuth: httpAuth,
           })) as any,
         );
       },

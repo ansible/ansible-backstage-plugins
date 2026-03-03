@@ -124,7 +124,7 @@ catalog:
   providers:
     rhaap:
       development:
-        orgs: SIG-IDE
+        orgs: Default
         sync:
           # Syncs AAP organizations, users, and teams
           # Also creates dynamic aap-admins group with current superusers

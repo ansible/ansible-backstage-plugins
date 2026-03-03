@@ -18,7 +18,14 @@ import Router from 'express-promise-router';
 
 import { AAPJobTemplateProvider } from './providers/AAPJobTemplateProvider';
 import { AAPEntityProvider } from './providers/AAPEntityProvider';
-import { LoggerService } from '@backstage/backend-plugin-api';
+import {
+  LoggerService,
+  HttpAuthService,
+  UserInfoService,
+  AuthService,
+  PermissionsService,
+} from '@backstage/backend-plugin-api';
+import { CatalogClient } from '@backstage/catalog-client';
 import { EEEntityProvider } from './providers/EEEntityProvider';
 import { PAHCollectionProvider } from './providers/PAHCollectionProvider';
 import {
@@ -34,6 +41,11 @@ export async function createRouter(options: {
   jobTemplateProvider: AAPJobTemplateProvider;
   eeEntityProvider: EEEntityProvider;
   pahCollectionProviders: PAHCollectionProvider[];
+  httpAuth: HttpAuthService;
+  userInfo: UserInfoService;
+  auth: AuthService;
+  catalogClient: CatalogClient;
+  permissionsApi: PermissionsService;
 }): Promise<express.Router> {
   const {
     logger,
@@ -41,6 +53,10 @@ export async function createRouter(options: {
     jobTemplateProvider,
     eeEntityProvider,
     pahCollectionProviders,
+    httpAuth,
+    userInfo,
+    auth,
+    catalogClient,
   } = options;
   const router = Router();
 
@@ -77,6 +93,28 @@ export async function createRouter(options: {
     const noQueryParams =
       request.query.aap_entities === undefined &&
       request.query.ansible_contents === undefined;
+    
+    const credentials = await httpAuth.credentials(request as any);
+    const { userEntityRef } = await userInfo.getUserInfo(credentials);
+
+    const { token } = await auth.getPluginRequestToken({
+      onBehalfOf: credentials,
+      targetPluginId: 'catalog',
+    });
+
+    const userEntity = await catalogClient.getEntityByRef(userEntityRef, {
+      token,
+    });
+    const isSuperuser =
+      userEntity?.metadata?.annotations?.['aap.platform/is_superuser'] ===
+      'true';
+
+    if (!isSuperuser) {
+      response
+        .status(403)
+        .json({ error: 'Forbidden: superuser access required' });
+      return;
+    }
 
     try {
       const result: {
@@ -180,6 +218,9 @@ export async function createRouter(options: {
   });
 
   router.post('/register_ee', express.json(), async (request, response) => {
+    // Only allow backend service calls (for example, scaffolder to catalog), not user requests
+    await httpAuth.credentials(request as any, { allow: ['service'] });
+
     const { entity } = request.body;
 
     if (!entity) {
