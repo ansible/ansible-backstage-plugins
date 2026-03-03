@@ -1,1 +1,0 @@
-export { SectionHeaderExtension } from './SectionHeaderExtension';
