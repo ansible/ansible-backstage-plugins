@@ -6,6 +6,7 @@ import { FileUploadPickerExtension } from '../Scaffolder/FileUploadPicker/FileUp
 import { PackagesPickerExtension } from '../Scaffolder/PackagesPicker/PackagesPickerExtension';
 import { MCPServersPickerExtension } from '../Scaffolder/MCPServersPicker/MCPServersPickerExtension';
 import { AdditionalBuildStepsPickerExtension } from '../Scaffolder/AdditionalBuildStepsPicker/AdditionalBuildStepsPickerExtension';
+import { SectionHeaderExtension } from '../Scaffolder/SectionHeader/SectionHeaderExtension';
 import { EEFileNamePickerExtension } from '../Scaffolder/EEFileNamePicker/EEFileNamePickerExtension';
 import { EETagsPickerExtension } from '../Scaffolder/EETagsPicker/EETagsPickerExtension';
 import {
@@ -44,6 +45,10 @@ export const formExtraFields = [
   {
     name: 'AdditionalBuildStepsPicker',
     component: AdditionalBuildStepsPickerExtension,
+  },
+  {
+    name: 'SectionHeader',
+    component: SectionHeaderExtension,
   },
   {
     name: 'EEFileNamePicker',

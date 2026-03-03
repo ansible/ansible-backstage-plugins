@@ -286,7 +286,15 @@ export const StepForm = ({
     const dependencies = schema.dependencies;
     const allOf = schema.allOf;
 
-    return extractUiSchema(properties, dependencies, allOf);
+    const uiSchema = extractUiSchema(properties, dependencies, allOf);
+
+    for (const key of Object.keys(schema)) {
+      if (key.startsWith('ui:')) {
+        uiSchema[key] = schema[key];
+      }
+    }
+
+    return uiSchema;
   };
 
   const decodeBase64FileContent = (dataUrl: string): string | null => {

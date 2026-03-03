@@ -861,10 +861,12 @@ describe('StepForm', () => {
           );
         });
 
+      const fieldOrder = ['name', 'config', 'conditionalField', '*'];
       const steps = [
         {
           title: 'Step',
           schema: {
+            'ui:order': fieldOrder,
             properties: {
               name: { type: 'string', title: 'Original' },
               emptyObj: { type: 'object' },
@@ -925,6 +927,7 @@ describe('StepForm', () => {
 
       render(<StepForm steps={steps} submitFunction={submitFunction} />);
 
+      expect(capturedUiSchema['ui:order']).toEqual(fieldOrder);
       expect(capturedUiSchema.emptyObj).toBeUndefined();
       expect(capturedUiSchema.conditionalField).toEqual({
         'ui:field': 'PackagesPicker',
