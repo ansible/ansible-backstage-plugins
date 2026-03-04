@@ -15,6 +15,7 @@ import { AAPEntityProvider } from './providers/AAPEntityProvider';
 import { makeValidator } from '@backstage/catalog-model';
 import { EEEntityProvider } from './providers/EEEntityProvider';
 import { PAHCollectionProvider } from './providers/PAHCollectionProvider';
+import { CatalogClient } from '@backstage/catalog-client';
 
 export const catalogModuleRhaap = createBackendModule({
   pluginId: 'catalog',
@@ -34,6 +35,7 @@ export const catalogModuleRhaap = createBackendModule({
         permissionsRegistry: coreServices.permissionsRegistry,
         permissionsApi: coreServices.permissions,
         httpAuth: coreServices.httpAuth,
+        userInfo: coreServices.userInfo,
       },
       async init({
         logger,
@@ -46,6 +48,9 @@ export const catalogModuleRhaap = createBackendModule({
         permissionsRegistry,
         permissionsApi,
         httpAuth,
+        userInfo,
+        discovery,
+        auth,
       }) {
         permissionsRegistry.addPermissions(ansiblePermissions);
         catalogModel.setFieldValidators(
@@ -90,6 +95,8 @@ export const catalogModuleRhaap = createBackendModule({
           ...pahCollectionProviders,
         );
 
+        const catalogClient = new CatalogClient({ discoveryApi: discovery });
+
         httpRouter.use(
           (await createRouter({
             logger,
@@ -97,8 +104,10 @@ export const catalogModuleRhaap = createBackendModule({
             jobTemplateProvider: jobTemplateProvider[0],
             eeEntityProvider: eeEntityProvider,
             pahCollectionProviders: pahCollectionProviders,
-            permissionsApi: permissionsApi,
             httpAuth: httpAuth,
+            userInfo: userInfo,
+            auth: auth,
+            catalogClient: catalogClient,
           })) as any,
         );
       },

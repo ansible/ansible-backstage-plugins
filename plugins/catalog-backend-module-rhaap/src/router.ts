@@ -26,7 +26,6 @@ import {
   PermissionsService,
 } from '@backstage/backend-plugin-api';
 import { CatalogClient } from '@backstage/catalog-client';
-import { EEEntityProvider } from './providers/EEEntityProvider';
 import { PAHCollectionProvider } from './providers/PAHCollectionProvider';
 import {
   SyncStatus,
@@ -34,6 +33,7 @@ import {
   buildInvalidRepositoryResults,
   resolveProvidersToRun,
 } from './helpers';
+import { EEEntityProvider } from './providers/EEEntityProvider';
 
 export async function createRouter(options: {
   logger: LoggerService;
@@ -45,7 +45,6 @@ export async function createRouter(options: {
   userInfo: UserInfoService;
   auth: AuthService;
   catalogClient: CatalogClient;
-  permissionsApi: PermissionsService;
 }): Promise<express.Router> {
   const {
     logger,
@@ -115,6 +114,8 @@ export async function createRouter(options: {
         .json({ error: 'Forbidden: superuser access required' });
       return;
     }
+
+    // Authorized request, proceed with sync status check
 
     try {
       const result: {
