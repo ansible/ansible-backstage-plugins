@@ -40,7 +40,7 @@
     "@backstage/integration": "^1.17.0",
     "@backstage/plugin-catalog-backend": "^3.0.0",
     "@backstage/plugin-catalog-node": "^1.17.0",
-    "@backstage/plugin-permission-common": "^0.8.3",
+    "@backstage/plugin-permission-common": "^0.9.6",
     "@backstage/types": "^1.2.1",
     "express": "^5.1.0",
     "express-promise-router": "^4.1.1",
@@ -49,7 +49,7 @@
   "devDependencies": {
     "@backstage/backend-test-utils": "^1.5.0",
     "@backstage/cli": "^0.33.1",
-    "@backstage/plugin-permission-common": "^0.8.3",
+    "@backstage/plugin-permission-common": "^0.9.6",
     "@types/express": "^5.0.3",
     "@types/jest": "^29.5.14",
     "@types/supertest": "^6.0.3",
