@@ -6,12 +6,6 @@ export const executionEnvironmentViewPermission: BasicPermission = {
   attributes: {},
 };
 
-export const executionEnvironmentCreatePermission: BasicPermission = {
-  type: 'basic',
-  name: 'ansible.execution-environment.create',
-  attributes: {},
-};
-
 export const gitRepositoriesViewPermission: BasicPermission = {
   type: 'basic',
   name: 'ansible.git-repositories.view',
@@ -26,7 +20,6 @@ export const collectionsViewPermission: BasicPermission = {
 
 export const ansiblePermissions = [
   executionEnvironmentViewPermission,
-  executionEnvironmentCreatePermission,
   gitRepositoriesViewPermission,
   collectionsViewPermission,
 ];

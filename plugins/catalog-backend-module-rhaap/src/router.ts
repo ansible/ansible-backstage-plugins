@@ -23,7 +23,6 @@ import {
   HttpAuthService,
   UserInfoService,
   AuthService,
-  PermissionsService,
 } from '@backstage/backend-plugin-api';
 import { CatalogClient } from '@backstage/catalog-client';
 import { PAHCollectionProvider } from './providers/PAHCollectionProvider';
