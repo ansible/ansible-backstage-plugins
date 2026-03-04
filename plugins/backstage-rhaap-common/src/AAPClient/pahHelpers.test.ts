@@ -1,12 +1,12 @@
 import {
   PAHHelperContext,
-  validateRepositoriesInput,
   sanitizePAHLimit,
   validateAndFilterRepositories,
   fetchCollectionDetails,
   processCollectionItem,
   fetchCollectionsPage,
   extractNextUrl,
+  appendCollectionsFromPage,
 } from './pahHelpers';
 
 describe('PAH Helpers', () => {
@@ -31,44 +31,6 @@ describe('PAH Helpers', () => {
       executeGetRequest: mockExecuteGetRequest,
       isValidPAHRepository: mockIsValidPAHRepository,
     };
-  });
-
-  describe('validateRepositoriesInput', () => {
-    it('should return false for null repositories', () => {
-      const result = validateRepositoriesInput(null, mockContext);
-      expect(result).toBe(false);
-      expect(mockLogger.warn).toHaveBeenCalledWith(
-        expect.stringContaining('Invalid repositories parameter'),
-      );
-    });
-
-    it('should return false for undefined repositories', () => {
-      const result = validateRepositoriesInput(undefined, mockContext);
-      expect(result).toBe(false);
-      expect(mockLogger.warn).toHaveBeenCalled();
-    });
-
-    it('should return false for non-array repositories', () => {
-      const result = validateRepositoriesInput('not-an-array', mockContext);
-      expect(result).toBe(false);
-      expect(mockLogger.warn).toHaveBeenCalledWith(
-        expect.stringContaining('Expected an array'),
-      );
-    });
-
-    it('should return false for empty array', () => {
-      const result = validateRepositoriesInput([], mockContext);
-      expect(result).toBe(false);
-      expect(mockLogger.info).toHaveBeenCalledWith(
-        expect.stringContaining('No repositories provided'),
-      );
-    });
-
-    it('should return true for valid non-empty array', () => {
-      const result = validateRepositoriesInput(['repo1', 'repo2'], mockContext);
-      expect(result).toBe(true);
-      expect(mockLogger.warn).not.toHaveBeenCalled();
-    });
   });
 
   describe('sanitizePAHLimit', () => {
@@ -493,6 +455,93 @@ describe('PAH Helpers', () => {
       const result = extractNextUrl(undefined);
 
       expect(result).toBeNull();
+    });
+  });
+
+  describe('appendCollectionsFromPage', () => {
+    it('should do nothing when collectionsData is undefined', async () => {
+      const collections: any[] = [];
+      await appendCollectionsFromPage(
+        undefined as any,
+        collections,
+        null,
+        mockContext,
+      );
+      expect(collections).toHaveLength(0);
+      expect(mockExecuteGetRequest).not.toHaveBeenCalled();
+    });
+
+    it('should do nothing when collectionsData.data is null', async () => {
+      const collections: any[] = [];
+      await appendCollectionsFromPage(
+        { data: null },
+        collections,
+        null,
+        mockContext,
+      );
+      expect(collections).toHaveLength(0);
+    });
+
+    it('should do nothing when collectionsData.data is not an array', async () => {
+      const collections: any[] = [];
+      await appendCollectionsFromPage(
+        { data: 'not-array' as any },
+        collections,
+        null,
+        mockContext,
+      );
+      expect(collections).toHaveLength(0);
+    });
+
+    it('should do nothing when collectionsData.data is empty array', async () => {
+      const collections: any[] = [];
+      await appendCollectionsFromPage(
+        { data: [] },
+        collections,
+        null,
+        mockContext,
+      );
+      expect(collections).toHaveLength(0);
+      expect(mockExecuteGetRequest).not.toHaveBeenCalled();
+    });
+
+    it('should append collections when data contains valid items', async () => {
+      const collections: any[] = [];
+      mockExecuteGetRequest.mockResolvedValue({
+        json: jest.fn().mockResolvedValue({
+          docs_blob: { collection_readme: { html: '<p>README</p>' } },
+          authors: ['Ansible'],
+        }),
+      });
+
+      await appendCollectionsFromPage(
+        {
+          data: [
+            {
+              collection_version: {
+                namespace: 'ansible',
+                name: 'posix',
+                version: '1.0.0',
+                pulp_href:
+                  '/pulp/api/v3/content/ansible/collection_versions/1/',
+              },
+              repository: { name: 'validated' },
+            },
+          ],
+        },
+        collections,
+        null,
+        mockContext,
+      );
+
+      expect(collections).toHaveLength(1);
+      expect(collections[0].namespace).toBe('ansible');
+      expect(collections[0].name).toBe('posix');
+      expect(collections[0].repository_name).toBe('validated');
+      expect(mockExecuteGetRequest).toHaveBeenCalledWith(
+        '/pulp/api/v3/content/ansible/collection_versions/1/',
+        null,
+      );
     });
   });
 });

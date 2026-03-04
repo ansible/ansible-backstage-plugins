@@ -8,25 +8,6 @@ export interface PAHHelperContext {
   isValidPAHRepository: (repositoryName: string) => Promise<boolean>;
 }
 
-export function validateRepositoriesInput(
-  repositories: unknown,
-  context: PAHHelperContext,
-): repositories is string[] {
-  if (!repositories || !Array.isArray(repositories)) {
-    context.logger.warn(
-      `[${context.pluginLogName}]: Invalid repositories parameter. Expected an array, received: ${typeof repositories}`,
-    );
-    return false;
-  }
-  if (repositories.length === 0) {
-    context.logger.info(
-      `[${context.pluginLogName}]: No repositories provided. Returning empty collection list.`,
-    );
-    return false;
-  }
-  return true;
-}
-
 export function sanitizePAHLimit(
   limit: number,
   context: PAHHelperContext,
@@ -100,9 +81,15 @@ export async function fetchCollectionDetails(
       const detailData = await detailResponse.json();
       if (detailData) {
         docsBlob = detailData?.docs_blob?.collection_readme?.html ?? null;
-        authors = Array.isArray(detailData?.authors)
-          ? detailData.authors
-          : null;
+        if (Array.isArray(detailData?.authors)) {
+          authors = detailData.authors
+            .map((a: unknown) =>
+              typeof a === 'string'
+                ? a
+                : ((a as { name?: string })?.name ?? ''),
+            )
+            .filter(Boolean);
+        }
       }
     }
   } catch (error) {
@@ -161,7 +148,13 @@ export async function processCollectionItem(
     cv.dependencies && typeof cv.dependencies === 'object'
       ? cv.dependencies
       : null;
-  const tags: string[] | null = Array.isArray(cv.tags) ? cv.tags : null;
+  const tags: string[] | null = Array.isArray(cv.tags)
+    ? (cv.tags as unknown[])
+        .map((t: unknown) =>
+          typeof t === 'string' ? t : ((t as { name?: string })?.name ?? ''),
+        )
+        .filter(Boolean)
+    : null;
 
   return {
     namespace,
@@ -210,7 +203,7 @@ export function extractNextUrl(collectionsData: any): string | null {
 }
 
 export async function appendCollectionsFromPage(
-  collectionsData: { data?: unknown[] },
+  collectionsData: { data?: unknown[] | null },
   collections: Collection[],
   token: string | null,
   context: PAHHelperContext,

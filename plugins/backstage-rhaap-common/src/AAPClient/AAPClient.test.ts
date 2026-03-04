@@ -3447,61 +3447,23 @@ describe('AAPClient', () => {
         expect(result).toBe(true);
       });
 
-      it('should validate custom repository names (not just standard ones)', async () => {
-        const customRepoNames = [
-          'my-custom-repo',
-          'internal-collections',
-          'team-specific-repo',
-          'company-private',
-        ];
+      it('should encode repository name in request URL', async () => {
+        const mockResponse = {
+          ok: true,
+          json: jest.fn().mockResolvedValue({ results: [] }),
+        };
+        mockFetch.mockResolvedValue(mockResponse);
 
-        for (const repoName of customRepoNames) {
-          const mockResponse = {
-            ok: true,
-            json: jest.fn().mockResolvedValue({
-              results: [
-                { name: repoName, pulp_href: `/api/pulp/repo/${repoName}/` },
-              ],
-            }),
-          };
-          mockFetch.mockResolvedValue(mockResponse);
+        await client.isValidPAHRepository('repo&name=value');
 
-          const result = await client.isValidPAHRepository(repoName);
-
-          expect(result).toBe(true);
-          expect(mockFetch).toHaveBeenCalledWith(
-            `https://test.example.com/api/galaxy/pulp/api/v3/repositories?name=${repoName}`,
-            expect.any(Object),
-          );
-        }
+        expect(mockFetch).toHaveBeenCalledWith(
+          'https://test.example.com/api/galaxy/pulp/api/v3/repositories?name=repo%26name%3Dvalue',
+          expect.any(Object),
+        );
       });
     });
 
     describe('syncCollectionsByRepositories', () => {
-      it('should return empty array for null repositories', async () => {
-        const result = await client.syncCollectionsByRepositories(
-          null as unknown as string[],
-          100,
-        );
-
-        expect(result).toEqual([]);
-        expect(mockLogger.warn).toHaveBeenCalledWith(
-          expect.stringContaining('Invalid repositories parameter'),
-        );
-      });
-
-      it('should return empty array for non-array repositories', async () => {
-        const result = await client.syncCollectionsByRepositories(
-          'not-an-array' as unknown as string[],
-          100,
-        );
-
-        expect(result).toEqual([]);
-        expect(mockLogger.warn).toHaveBeenCalledWith(
-          expect.stringContaining('Invalid repositories parameter'),
-        );
-      });
-
       it('should return empty array for empty repositories array', async () => {
         const result = await client.syncCollectionsByRepositories([], 100);
 

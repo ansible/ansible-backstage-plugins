@@ -37,7 +37,6 @@ import {
 import { getAnsibleConfig, getCatalogConfig } from './utils/config';
 import {
   PAHHelperContext,
-  validateRepositoriesInput,
   sanitizePAHLimit,
   validateAndFilterRepositories,
   appendCollectionsFromPage,
@@ -1370,7 +1369,10 @@ export class AAPClient implements IAAPService {
       isValidPAHRepository: this.isValidPAHRepository.bind(this),
     };
 
-    if (!validateRepositoriesInput(repositories, context)) {
+    if (repositories.length === 0) {
+      this.logger.info(
+        `[${this.pluginLogName}]: No repositories provided. Returning empty collection list.`,
+      );
       return collections;
     }
 
