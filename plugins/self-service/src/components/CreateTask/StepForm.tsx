@@ -314,16 +314,13 @@ export const StepForm = ({
     return null;
   };
 
-  const getReviewValue = (
-    key: any,
-    stepIndex?: number,
-  ): string | JSX.Element => {
-    const value = formData[key];
-    if (
-      typeof value === 'string' &&
-      value.startsWith('data:text/plain;base64,')
-    ) {
-      const decodedContent = decodeBase64FileContent(value);
+  const formatValueForDisplay = (val: any): string | JSX.Element => {
+    if (val === undefined || val === null || val === '') {
+      return '';
+    }
+
+    if (typeof val === 'string' && val.startsWith('data:text/plain;base64,')) {
+      const decodedContent = decodeBase64FileContent(val);
       if (decodedContent) {
         return (
           <pre
@@ -347,22 +344,93 @@ export const StepForm = ({
       }
     }
 
-    if (typeof value === 'object') {
-      if (Array.isArray(value)) {
-        if (value.length > 0 && typeof value[0] === 'string') {
-          return value.join(', ');
-        }
-        if (value.length > 0 && typeof value[0] === 'object' && value[0].name) {
-          return value.map(el => el.name).join(', ');
-        }
-        return value
-          .map(el =>
-            typeof el === 'object' && el !== null
-              ? el.name || JSON.stringify(el)
-              : String(el),
-          )
-          .join(', ');
+    if (Array.isArray(val)) {
+      if (val.length === 0) return '';
+      if (typeof val[0] === 'string') {
+        return val.join(', ');
       }
+      if (typeof val[0] === 'object' && val[0]?.name) {
+        return val.map(el => el.name).join(', ');
+      }
+      return val
+        .map(el =>
+          typeof el === 'object' && el !== null
+            ? el.name || JSON.stringify(el)
+            : String(el),
+        )
+        .join(', ');
+    }
+
+    if (typeof val === 'boolean') {
+      return val ? 'Yes' : 'No';
+    }
+
+    if (typeof val === 'object' && val.name) {
+      return val.name;
+    }
+
+    return String(val);
+  };
+
+  const renderNestedObject = (obj: Record<string, any>): JSX.Element => {
+    const entries = Object.entries(obj).filter(([_, v]) => {
+      if (v === undefined || v === null || v === '') return false;
+      if (Array.isArray(v) && v.length === 0) return false;
+      if (typeof v === 'boolean' && !v) return false;
+      return true;
+    });
+
+    if (entries.length === 0) {
+      return (
+        <span
+          style={{ color: 'rgba(128, 128, 128, 0.8)', fontStyle: 'italic' }}
+        >
+          None configured
+        </span>
+      );
+    }
+
+    return (
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+        {entries.map(([k, v]) => {
+          const label = k
+            .replace(/([A-Z])/g, ' $1')
+            .replace(/^./, str => str.toUpperCase())
+            .trim();
+          const formattedValue = formatValueForDisplay(v);
+
+          return (
+            <div key={k}>
+              <strong style={{ fontSize: '0.85rem' }}>{label}:</strong>{' '}
+              <span style={{ fontSize: '0.85rem' }}>{formattedValue}</span>
+            </div>
+          );
+        })}
+      </div>
+    );
+  };
+
+  const getReviewValue = (
+    key: any,
+    stepIndex?: number,
+  ): string | JSX.Element => {
+    const value = formData[key];
+
+    if (
+      typeof value === 'string' &&
+      value.startsWith('data:text/plain;base64,')
+    ) {
+      return formatValueForDisplay(value);
+    }
+
+    if (typeof value === 'object' && value !== null) {
+      if (Array.isArray(value)) {
+        return formatValueForDisplay(value);
+      }
+      if (!value.name && Object.keys(value).length > 0) {
+        return renderNestedObject(value);
+      }
+
       return value.name ?? JSON.stringify(value);
     }
     if (stepIndex !== undefined) {

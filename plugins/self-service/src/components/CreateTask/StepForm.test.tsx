@@ -546,12 +546,12 @@ describe('StepForm', () => {
       });
     });
 
-    it('displays object without name as JSON', async () => {
+    it('displays nested configuration object with formatted properties', async () => {
       const steps = [
         {
           title: 'Step 1',
           schema: {
-            properties: { item: { type: 'object' } },
+            properties: { advancedConfig: { type: 'object' } },
           },
         },
       ];
@@ -559,7 +559,13 @@ describe('StepForm', () => {
       jest
         .spyOn(require('./ScaffolderFormWrapper'), 'ScaffolderForm')
         .mockImplementation(
-          createScaffolderFormMock({ item: { id: 1, value: 'test' } }),
+          createScaffolderFormMock({
+            advancedConfig: {
+              enableFeature: true,
+              packages: ['package1', 'package2'],
+              description: 'Test description',
+            },
+          }),
         );
 
       render(<StepForm steps={steps} submitFunction={submitFunction} />);
@@ -567,7 +573,207 @@ describe('StepForm', () => {
       fireEvent.click(screen.getByText('Submit'));
 
       await waitFor(() => {
-        expect(screen.getByText(/"id":1/)).toBeInTheDocument();
+        expect(screen.getByText(/Enable Feature:/)).toBeInTheDocument();
+        expect(screen.getByText(/Yes/)).toBeInTheDocument();
+        expect(screen.getByText(/Packages:/)).toBeInTheDocument();
+        expect(screen.getByText(/package1, package2/)).toBeInTheDocument();
+        expect(screen.getByText(/Description:/)).toBeInTheDocument();
+        expect(screen.getByText(/Test description/)).toBeInTheDocument();
+      });
+    });
+
+    it('displays empty nested object as "None configured"', async () => {
+      const steps = [
+        {
+          title: 'Step 1',
+          schema: {
+            properties: { advancedConfig: { type: 'object' } },
+          },
+        },
+      ];
+
+      jest
+        .spyOn(require('./ScaffolderFormWrapper'), 'ScaffolderForm')
+        .mockImplementation(
+          createScaffolderFormMock({
+            advancedConfig: {
+              enableFeature: false,
+              packages: [],
+            },
+          }),
+        );
+
+      render(<StepForm steps={steps} submitFunction={submitFunction} />);
+
+      fireEvent.click(screen.getByText('Submit'));
+
+      await waitFor(() => {
+        expect(screen.getByText('None configured')).toBeInTheDocument();
+      });
+    });
+
+    it('displays nested object with base64 file content decoded', async () => {
+      const steps = [
+        {
+          title: 'Step 1',
+          schema: {
+            properties: { config: { type: 'object' } },
+          },
+        },
+      ];
+
+      const fileContent = 'file content here';
+      const base64Content = btoa(fileContent);
+
+      jest
+        .spyOn(require('./ScaffolderFormWrapper'), 'ScaffolderForm')
+        .mockImplementation(
+          createScaffolderFormMock({
+            config: {
+              uploadedFile: `data:text/plain;base64,${base64Content}`,
+            },
+          }),
+        );
+
+      render(<StepForm steps={steps} submitFunction={submitFunction} />);
+
+      fireEvent.click(screen.getByText('Submit'));
+
+      await waitFor(() => {
+        expect(screen.getByText(/Uploaded File:/)).toBeInTheDocument();
+        expect(screen.getByText('file content here')).toBeInTheDocument();
+      });
+    });
+
+    it('filters out false boolean values in nested objects', async () => {
+      const steps = [
+        {
+          title: 'Step 1',
+          schema: {
+            properties: { settings: { type: 'object' } },
+          },
+        },
+      ];
+
+      jest
+        .spyOn(require('./ScaffolderFormWrapper'), 'ScaffolderForm')
+        .mockImplementation(
+          createScaffolderFormMock({
+            settings: {
+              enableA: true,
+              enableB: false,
+              description: 'test value',
+            },
+          }),
+        );
+
+      render(<StepForm steps={steps} submitFunction={submitFunction} />);
+
+      fireEvent.click(screen.getByText('Submit'));
+
+      await waitFor(() => {
+        expect(screen.getByText(/Enable A:/)).toBeInTheDocument();
+        expect(screen.queryByText(/Enable B:/)).not.toBeInTheDocument();
+        expect(screen.getByText(/Description:/)).toBeInTheDocument();
+      });
+    });
+
+    it('filters out undefined and null values in nested objects', async () => {
+      const steps = [
+        {
+          title: 'Step 1',
+          schema: {
+            properties: { config: { type: 'object' } },
+          },
+        },
+      ];
+
+      jest
+        .spyOn(require('./ScaffolderFormWrapper'), 'ScaffolderForm')
+        .mockImplementation(
+          createScaffolderFormMock({
+            config: {
+              validField: 'has value',
+              undefinedField: undefined,
+              nullField: null,
+              emptyField: '',
+            },
+          }),
+        );
+
+      render(<StepForm steps={steps} submitFunction={submitFunction} />);
+
+      fireEvent.click(screen.getByText('Submit'));
+
+      await waitFor(() => {
+        expect(screen.getByText(/Valid Field:/)).toBeInTheDocument();
+        expect(screen.getByText('has value')).toBeInTheDocument();
+        expect(screen.queryByText(/Undefined Field:/)).not.toBeInTheDocument();
+        expect(screen.queryByText(/Null Field:/)).not.toBeInTheDocument();
+        expect(screen.queryByText(/Empty Field:/)).not.toBeInTheDocument();
+      });
+    });
+
+    it('displays nested object with array of objects without name property', async () => {
+      const steps = [
+        {
+          title: 'Step 1',
+          schema: {
+            properties: { buildSteps: { type: 'object' } },
+          },
+        },
+      ];
+
+      jest
+        .spyOn(require('./ScaffolderFormWrapper'), 'ScaffolderForm')
+        .mockImplementation(
+          createScaffolderFormMock({
+            buildSteps: {
+              steps: [
+                { stepType: 'prepend_base', commands: ['RUN apt-get update'] },
+                { stepType: 'append_final', commands: ['RUN cleanup'] },
+              ],
+            },
+          }),
+        );
+
+      render(<StepForm steps={steps} submitFunction={submitFunction} />);
+
+      fireEvent.click(screen.getByText('Submit'));
+
+      await waitFor(() => {
+        expect(screen.getByText(/Steps:/)).toBeInTheDocument();
+        expect(screen.getByText(/stepType.*prepend_base/)).toBeInTheDocument();
+      });
+    });
+
+    it('displays nested object with mixed array elements', async () => {
+      const steps = [
+        {
+          title: 'Step 1',
+          schema: {
+            properties: { mixedConfig: { type: 'object' } },
+          },
+        },
+      ];
+
+      jest
+        .spyOn(require('./ScaffolderFormWrapper'), 'ScaffolderForm')
+        .mockImplementation(
+          createScaffolderFormMock({
+            mixedConfig: {
+              items: [42, 'string value', { id: 1 }],
+            },
+          }),
+        );
+
+      render(<StepForm steps={steps} submitFunction={submitFunction} />);
+
+      fireEvent.click(screen.getByText('Submit'));
+
+      await waitFor(() => {
+        expect(screen.getByText(/Items:/)).toBeInTheDocument();
+        expect(screen.getByText(/42, string value/)).toBeInTheDocument();
       });
     });
 
