@@ -164,6 +164,19 @@ export const StepForm = ({
         }
       }
     }
+
+    if (step?.schema?.allOf && Array.isArray(step.schema.allOf)) {
+      for (const condition of step.schema.allOf) {
+        if (condition.then?.properties) {
+          for (const key of Object.keys(condition.then.properties)) {
+            if (!allProperties[key]) {
+              allProperties[key] = condition.then.properties[key];
+            }
+          }
+        }
+      }
+    }
+
     return allProperties;
   };
 
@@ -174,45 +187,56 @@ export const StepForm = ({
 
   // Don't return early if no filtered steps - we still want to show the review step
 
+  const extractUiFromProperty = (property: any): Record<string, any> | null => {
+    if (!property) return null;
+
+    const ui: Record<string, any> = {};
+    let hasUiProperties = false;
+
+    for (const key of Object.keys(property)) {
+      if (key.startsWith('ui:')) {
+        ui[key] = property[key];
+        hasUiProperties = true;
+      }
+    }
+
+    if (property.ui && typeof property.ui === 'object') {
+      for (const uiKey of Object.keys(property.ui)) {
+        const uiPropertyKey = `ui:${uiKey}`;
+        if (!ui[uiPropertyKey]) {
+          ui[uiPropertyKey] = property.ui[uiKey];
+          hasUiProperties = true;
+        }
+      }
+    }
+    return hasUiProperties ? ui : null;
+  };
+
   const extractUiSchema = (
     properties: Record<string, any>,
     dependencies?: Record<string, any>,
+    allOf?: any[],
   ): Record<string, any> => {
     const uiSchema: Record<string, any> = {};
 
     if (!properties) return uiSchema;
 
-    const extractUiFromProperty = (
-      property: any,
-    ): Record<string, any> | null => {
-      if (!property) return null;
-
-      const ui: Record<string, any> = {};
-      let hasUiProperties = false;
-
-      for (const key of Object.keys(property)) {
-        if (key.startsWith('ui:')) {
-          ui[key] = property[key];
-          hasUiProperties = true;
-        }
-      }
-
-      if (property.ui && typeof property.ui === 'object') {
-        for (const uiKey of Object.keys(property.ui)) {
-          const uiPropertyKey = `ui:${uiKey}`;
-          if (!ui[uiPropertyKey]) {
-            ui[uiPropertyKey] = property.ui[uiKey];
-            hasUiProperties = true;
-          }
-        }
-      }
-      return hasUiProperties ? ui : null;
-    };
-
     for (const key of Object.keys(properties)) {
-      const ui = extractUiFromProperty(properties[key]);
+      const property = properties[key];
+      const ui = extractUiFromProperty(property);
       if (ui) {
         uiSchema[key] = ui;
+      }
+
+      if (property?.type === 'object' && property?.properties) {
+        const nestedUi = extractUiSchema(
+          property.properties,
+          property.dependencies,
+          property.allOf,
+        );
+        if (Object.keys(nestedUi).length > 0) {
+          uiSchema[key] = { ...(uiSchema[key] || {}), ...nestedUi };
+        }
       }
     }
 
@@ -236,6 +260,19 @@ export const StepForm = ({
       }
     }
 
+    if (allOf && Array.isArray(allOf)) {
+      for (const condition of allOf) {
+        if (condition.then?.properties) {
+          for (const key of Object.keys(condition.then.properties)) {
+            const ui = extractUiFromProperty(condition.then.properties[key]);
+            if (ui) {
+              uiSchema[key] = ui;
+            }
+          }
+        }
+      }
+    }
+
     return uiSchema;
   };
 
@@ -247,9 +284,17 @@ export const StepForm = ({
     const schema = step.schema;
     const properties = schema.properties || {};
     const dependencies = schema.dependencies;
+    const allOf = schema.allOf;
 
-    // Extract and return the ui schema
-    return extractUiSchema(properties, dependencies);
+    const uiSchema = extractUiSchema(properties, dependencies, allOf);
+
+    for (const key of Object.keys(schema)) {
+      if (key.startsWith('ui:')) {
+        uiSchema[key] = schema[key];
+      }
+    }
+
+    return uiSchema;
   };
 
   const decodeBase64FileContent = (dataUrl: string): string | null => {

@@ -838,6 +838,117 @@ describe('StepForm', () => {
     });
   });
 
+  describe('allOf and nested object support', () => {
+    it('extracts uiSchema from allOf and nested objects, and includes allOf properties in review', async () => {
+      let capturedUiSchema: any;
+      jest
+        .spyOn(require('./ScaffolderFormWrapper'), 'ScaffolderForm')
+        .mockImplementation(({ uiSchema, onSubmit, children }: any) => {
+          capturedUiSchema = uiSchema;
+          return (
+            <form
+              onSubmit={e => {
+                e.preventDefault();
+                onSubmit({
+                  formData: { name: 'test', conditionalField: 'value' },
+                });
+              }}
+            >
+              <div>MockForm</div>
+              {children}
+              <button type="submit">Submit</button>
+            </form>
+          );
+        });
+
+      const fieldOrder = ['name', 'config', 'conditionalField', '*'];
+      const steps = [
+        {
+          title: 'Step',
+          schema: {
+            'ui:order': fieldOrder,
+            properties: {
+              name: { type: 'string', title: 'Original' },
+              emptyObj: { type: 'object' },
+              config: {
+                type: 'object',
+                'ui:title': 'Config',
+                properties: {
+                  flag: { type: 'boolean', 'ui:help': 'Toggle' },
+                },
+                dependencies: {
+                  flag: {
+                    oneOf: [
+                      {
+                        properties: {
+                          flag: { const: true },
+                          depField: {
+                            type: 'string',
+                            'ui:field': 'DepPicker',
+                          },
+                        },
+                      },
+                    ],
+                  },
+                },
+                allOf: [
+                  {
+                    then: {
+                      properties: {
+                        nestedAllOf: {
+                          type: 'string',
+                          'ui:field': 'AllOfPicker',
+                        },
+                      },
+                    },
+                  },
+                ],
+              },
+            },
+            allOf: [
+              {
+                then: {
+                  properties: {
+                    conditionalField: {
+                      type: 'string',
+                      title: 'Conditional',
+                      'ui:field': 'PackagesPicker',
+                    },
+                    name: { type: 'string', title: 'Overridden' },
+                  },
+                },
+              },
+              { if: { properties: { name: { const: 'x' } } } },
+              { then: {} },
+            ],
+          },
+        },
+      ];
+
+      render(<StepForm steps={steps} submitFunction={submitFunction} />);
+
+      expect(capturedUiSchema['ui:order']).toEqual(fieldOrder);
+      expect(capturedUiSchema.emptyObj).toBeUndefined();
+      expect(capturedUiSchema.conditionalField).toEqual({
+        'ui:field': 'PackagesPicker',
+      });
+      expect(capturedUiSchema.config).toEqual({
+        'ui:title': 'Config',
+        flag: { 'ui:help': 'Toggle' },
+        depField: { 'ui:field': 'DepPicker' },
+        nestedAllOf: { 'ui:field': 'AllOfPicker' },
+      });
+
+      fireEvent.click(screen.getByText('Submit'));
+
+      await waitFor(() => {
+        expect(screen.getByText('Conditional')).toBeInTheDocument();
+        expect(screen.getByText('Original')).toBeInTheDocument();
+        expect(screen.queryByText('Overridden')).not.toBeInTheDocument();
+      });
+    });
+  });
+
   describe('Edge cases', () => {
     it('handles no steps', () => {
       render(<StepForm steps={[]} submitFunction={submitFunction} />);
