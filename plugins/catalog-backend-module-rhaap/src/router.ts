@@ -19,16 +19,13 @@ import Router from 'express-promise-router';
 import { AAPJobTemplateProvider } from './providers/AAPJobTemplateProvider';
 import { AAPEntityProvider } from './providers/AAPEntityProvider';
 import { LoggerService } from '@backstage/backend-plugin-api';
-import { EEEntityProvider } from './providers/EEEntityProvider';
 
 export async function createRouter(options: {
   logger: LoggerService;
   aapEntityProvider: AAPEntityProvider;
   jobTemplateProvider: AAPJobTemplateProvider;
-  eeEntityProvider: EEEntityProvider;
 }): Promise<express.Router> {
-  const { logger, aapEntityProvider, jobTemplateProvider, eeEntityProvider } =
-    options;
+  const { logger, aapEntityProvider, jobTemplateProvider } = options;
   const router = Router();
 
   // Note: Don't apply express.json() globally to avoid conflicts with catalog backend
@@ -104,27 +101,6 @@ export async function createRouter(options: {
       response
         .status(500)
         .json({ error: `Failed to create user: ${errorMessage}` });
-    }
-  });
-
-  router.post('/register_ee', express.json(), async (request, response) => {
-    const { entity } = request.body;
-
-    if (!entity) {
-      response.status(400).json({ error: 'Missing entity in request body.' });
-      return;
-    }
-
-    try {
-      await eeEntityProvider.registerExecutionEnvironment(entity);
-      response.status(200).json({ success: true });
-    } catch (error) {
-      const errorMessage =
-        error instanceof Error ? error.message : String(error);
-      logger.error(`Failed to register Execution Environment: ${errorMessage}`);
-      response.status(500).json({
-        error: `Failed to register Execution Environment: ${errorMessage}`,
-      });
     }
   });
 

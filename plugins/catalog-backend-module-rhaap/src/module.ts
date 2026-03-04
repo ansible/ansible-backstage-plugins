@@ -3,7 +3,10 @@ import {
   createBackendModule,
 } from '@backstage/backend-plugin-api';
 
-import { ansibleServiceRef } from '@ansible/backstage-rhaap-common';
+import {
+  ansibleServiceRef,
+  eeEntityRegistrarRef,
+} from '@ansible/backstage-rhaap-common';
 import { createRouter } from './router';
 import {
   catalogModelExtensionPoint,
@@ -27,8 +30,7 @@ export const catalogModuleRhaap = createBackendModule({
         scheduler: coreServices.scheduler,
         ansibleService: ansibleServiceRef,
         httpRouter: coreServices.httpRouter,
-        discovery: coreServices.discovery,
-        auth: coreServices.auth,
+        eeRegistrar: eeEntityRegistrarRef,
       },
       async init({
         logger,
@@ -38,6 +40,7 @@ export const catalogModuleRhaap = createBackendModule({
         httpRouter,
         catalogProcessing,
         catalogModel,
+        eeRegistrar,
       }) {
         catalogModel.setFieldValidators(
           makeValidator({
@@ -59,7 +62,7 @@ export const catalogModuleRhaap = createBackendModule({
             scheduler,
           },
         );
-        const eeEntityProvider = new EEEntityProvider(logger);
+        const eeEntityProvider = new EEEntityProvider(eeRegistrar);
         const jobTemplateProvider = AAPJobTemplateProvider.fromConfig(
           config,
           ansibleService,
@@ -80,7 +83,6 @@ export const catalogModuleRhaap = createBackendModule({
             logger,
             aapEntityProvider: aapEntityProvider[0],
             jobTemplateProvider: jobTemplateProvider[0],
-            eeEntityProvider: eeEntityProvider,
           })) as any,
         );
       },

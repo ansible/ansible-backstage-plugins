@@ -9,8 +9,7 @@ import {
   EEDefinitionSchema,
 } from './helpers/schemas';
 import { parseUploadedFileContent } from './utils/utils';
-import { AuthService } from '@backstage/backend-plugin-api';
-import { DiscoveryService } from '@backstage/backend-plugin-api';
+import { IEEEntityRegistrar } from '@ansible/backstage-rhaap-common';
 
 interface Collection {
   name: string;
@@ -108,10 +107,9 @@ interface EEDefinitionInput {
 
 export function createEEDefinitionAction(options: {
   frontendUrl: string;
-  auth: AuthService;
-  discovery: DiscoveryService;
+  eeRegistrar: IEEEntityRegistrar;
 }) {
-  const { frontendUrl, auth, discovery } = options;
+  const { frontendUrl, eeRegistrar } = options;
   return createTemplateAction({
     id: 'ansible:create:ee-definition',
     description: 'Creates Ansible Execution Environment definition files',
@@ -487,13 +485,6 @@ export function createEEDefinitionAction(options: {
           );
           ctx.output('catalogInfoPath', catalogInfoPath);
         } else {
-          // dynamically register the execution environment entity in the catalog
-          const baseUrl = await discovery.getBaseUrl('catalog');
-          const { token } = await auth.getPluginRequestToken({
-            onBehalfOf: await auth.getOwnServiceCredentials(),
-            targetPluginId: 'catalog',
-          });
-
           // create the EE catalog entity dict
           const entity = generateEECatalogEntity(
             eeFileName,
@@ -506,24 +497,7 @@ export function createEEDefinitionAction(options: {
             ansibleConfigContent,
             eeTemplateContent,
           );
-          // register the EE catalog entity with the catalog
-          const response = await fetch(`${baseUrl}/register_ee`, {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              Authorization: `Bearer ${token}`,
-            },
-            body: JSON.stringify({ entity }),
-          });
-
-          if (response.ok) {
-            logger.info(
-              `[ansible:create:ee-definition] successfully registered EE catalog entity ${eeFileName} in the catalog`,
-            );
-          } else if (!response.ok) {
-            const errorText = await response.text();
-            throw new Error(`Failed to register EE definition: ${errorText}`);
-          }
+          await eeRegistrar.registerExecutionEnvironment(entity);
         }
 
         ctx.output(

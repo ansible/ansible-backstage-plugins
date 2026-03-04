@@ -6,4 +6,5 @@
  */
 
 export { catalogModuleRhaap as default } from './module';
+export { EEEntityProvider } from './providers/EEEntityProvider';
 export * from './router';

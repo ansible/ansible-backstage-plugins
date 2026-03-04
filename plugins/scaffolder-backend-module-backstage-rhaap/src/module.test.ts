@@ -36,6 +36,7 @@ jest.mock('./router', () => ({
 jest.mock('@ansible/backstage-rhaap-common', () => ({
   getAnsibleConfig: jest.fn(() => ({ ansible: 'config' })),
   ansibleServiceRef: Symbol('ansibleServiceRef'),
+  eeEntityRegistrarRef: Symbol('eeEntityRegistrarRef'),
 }));
 
 // import mocks for assertions
@@ -70,12 +71,8 @@ describe('scaffolderModuleAnsible', () => {
       logger: { info: jest.fn(), debug: jest.fn(), error: jest.fn() },
       ansibleService: { name: 'ansibleService' },
       httpRouter: { use: jest.fn() },
-      auth: {
-        getOwnServiceCredentials: jest.fn(),
-        getPluginRequestToken: jest.fn(),
-      },
-      discovery: {
-        getBaseUrl: jest.fn(),
+      eeRegistrar: {
+        registerExecutionEnvironment: jest.fn(),
       },
     };
 

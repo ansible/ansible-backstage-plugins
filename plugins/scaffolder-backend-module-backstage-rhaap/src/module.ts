@@ -25,6 +25,7 @@ import {
 } from '@backstage/plugin-scaffolder-node/alpha';
 import {
   ansibleServiceRef,
+  eeEntityRegistrarRef,
   getAnsibleConfig,
 } from '@ansible/backstage-rhaap-common';
 import {
@@ -64,9 +65,8 @@ export const scaffolderModuleAnsible = createBackendModule({
         scaffolderTemplating: scaffolderTemplatingExtensionPoint,
         autocomplete: scaffolderAutocompleteExtensionPoint,
         ansibleService: ansibleServiceRef,
-        auth: coreServices.auth,
-        discovery: coreServices.discovery,
         httpRouter: coreServices.httpRouter,
+        eeRegistrar: eeEntityRegistrarRef,
       },
       async init({
         scaffolder,
@@ -75,9 +75,8 @@ export const scaffolderModuleAnsible = createBackendModule({
         scaffolderTemplating,
         autocomplete,
         ansibleService,
-        auth,
-        discovery,
         httpRouter,
+        eeRegistrar,
       }) {
         const ansibleConfig = getAnsibleConfig(config);
         const frontendUrl = config.getString('app.baseUrl');
@@ -91,8 +90,7 @@ export const scaffolderModuleAnsible = createBackendModule({
           createShowCases(ansibleService, ansibleConfig),
           createEEDefinitionAction({
             frontendUrl,
-            auth,
-            discovery,
+            eeRegistrar,
           }),
           prepareForPublishAction({
             ansibleConfig: ansibleConfig,

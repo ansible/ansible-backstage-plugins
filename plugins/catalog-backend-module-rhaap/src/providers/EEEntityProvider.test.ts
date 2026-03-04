@@ -1,15 +1,18 @@
 import { EEEntityProvider } from './EEEntityProvider';
 import { EntityProviderConnection } from '@backstage/plugin-catalog-node';
+import { EEEntityRegistrar } from '@ansible/backstage-rhaap-common';
 import { mockServices } from '@backstage/backend-test-utils';
 
 describe('EEEntityProvider', () => {
   let provider: EEEntityProvider;
+  let registrar: EEEntityRegistrar;
   let mockConnection: EntityProviderConnection;
   let logger: ReturnType<typeof mockServices.logger.mock>;
 
   beforeEach(() => {
     logger = mockServices.logger.mock();
-    provider = new EEEntityProvider(logger);
+    registrar = new EEEntityRegistrar(logger);
+    provider = new EEEntityProvider(registrar);
     mockConnection = {
       applyMutation: jest.fn(),
       refresh: jest.fn(),
@@ -23,13 +26,15 @@ describe('EEEntityProvider', () => {
   });
 
   describe('connect', () => {
-    it('should connect and set the connection', async () => {
+    it('should connect and set the connection on the registrar', async () => {
       await provider.connect(mockConnection);
-      expect(logger.info).toHaveBeenCalledWith('EEEntityProvider connected!');
+      expect(logger.info).toHaveBeenCalledWith(
+        'EEEntityRegistrar: connection established',
+      );
     });
   });
 
-  describe('registerExecutionEnvironment', () => {
+  describe('registerExecutionEnvironment (via registrar)', () => {
     const validEntity = {
       apiVersion: 'backstage.io/v1alpha1',
       kind: 'Component',
@@ -47,7 +52,7 @@ describe('EEEntityProvider', () => {
     });
 
     it('should successfully register a valid execution environment entity', async () => {
-      await provider.registerExecutionEnvironment(validEntity);
+      await registrar.registerExecutionEnvironment(validEntity);
 
       expect(logger.info).toHaveBeenCalledWith('Registering entity test-ee');
       expect(mockConnection.applyMutation).toHaveBeenCalledWith({
@@ -63,11 +68,11 @@ describe('EEEntityProvider', () => {
     });
 
     it('should throw error when not connected', async () => {
-      const unconnectedProvider = new EEEntityProvider(logger);
+      const unconnectedRegistrar = new EEEntityRegistrar(logger);
 
       await expect(
-        unconnectedProvider.registerExecutionEnvironment(validEntity),
-      ).rejects.toThrow('EEEntityProvider is not connected yet');
+        unconnectedRegistrar.registerExecutionEnvironment(validEntity),
+      ).rejects.toThrow('EEEntityRegistrar is not connected yet');
     });
 
     it('should throw error when metadata.name is missing', async () => {
@@ -79,7 +84,7 @@ describe('EEEntityProvider', () => {
       };
 
       await expect(
-        provider.registerExecutionEnvironment(entityWithoutName),
+        registrar.registerExecutionEnvironment(entityWithoutName),
       ).rejects.toThrow(
         'Name [metadata.name] is required for Execution Environment registration',
       );
@@ -92,7 +97,7 @@ describe('EEEntityProvider', () => {
       };
 
       await expect(
-        provider.registerExecutionEnvironment(entityWithoutType),
+        registrar.registerExecutionEnvironment(entityWithoutType),
       ).rejects.toThrow(
         'Type [spec.type] must be "execution-environment" for Execution Environment registration',
       );
@@ -107,7 +112,7 @@ describe('EEEntityProvider', () => {
       };
 
       await expect(
-        provider.registerExecutionEnvironment(entityWithWrongType),
+        registrar.registerExecutionEnvironment(entityWithWrongType),
       ).rejects.toThrow(
         'Type [spec.type] must be "execution-environment" for Execution Environment registration',
       );
@@ -122,7 +127,7 @@ describe('EEEntityProvider', () => {
       };
 
       await expect(
-        provider.registerExecutionEnvironment(entityWithNullMetadata),
+        registrar.registerExecutionEnvironment(entityWithNullMetadata),
       ).rejects.toThrow(
         'Name [metadata.name] is required for Execution Environment registration',
       );
@@ -137,7 +142,7 @@ describe('EEEntityProvider', () => {
       };
 
       await expect(
-        provider.registerExecutionEnvironment(entityWithNullSpec),
+        registrar.registerExecutionEnvironment(entityWithNullSpec),
       ).rejects.toThrow(
         'Type [spec.type] must be "execution-environment" for Execution Environment registration',
       );
