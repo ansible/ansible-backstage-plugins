@@ -44,6 +44,9 @@ export async function createRouter(options: {
   } = options;
   const router = Router();
 
+  // Note: Don't apply express.json() globally to avoid conflicts with catalog backend.
+  // Apply it only to specific routes that need JSON body parsing (e.g. POST handlers).
+
   // 1:1 mapping repository name -> PAHCollectionProvider (built once at router creation)
   const _PAH_PROVIDERS = new Map<string, PAHCollectionProvider>();
   for (const provider of pahCollectionProviders) {
