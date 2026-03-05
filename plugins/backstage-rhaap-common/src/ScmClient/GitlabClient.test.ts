@@ -372,6 +372,54 @@ describe('GitlabClient', () => {
     });
   });
 
+  describe('getPipelines', () => {
+    it('should fetch pipelines and return ok, status, and data', async () => {
+      const mockPipelines = [
+        { id: 1, status: 'success', ref: 'main' },
+        { id: 2, status: 'running', ref: 'develop' },
+      ];
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        json: () => Promise.resolve(mockPipelines),
+      });
+
+      const result = await client.getPipelines('test-group/my-project', {
+        perPage: 20,
+      });
+
+      expect(result).toEqual({ ok: true, status: 200, data: mockPipelines });
+      expect(mockFetch).toHaveBeenCalledWith(
+        expect.stringContaining(
+          `/projects/${encodeURIComponent('test-group/my-project')}/pipelines`,
+        ),
+        expect.objectContaining({
+          headers: expect.objectContaining({
+            'PRIVATE-TOKEN': 'test-token',
+          }),
+        }),
+      );
+      expect(mockFetch.mock.calls[0][0]).toContain('per_page=20');
+      expect(mockFetch.mock.calls[0][0]).toContain('order_by=updated_at');
+    });
+
+    it('should return non-ok response without throwing', async () => {
+      mockFetch.mockResolvedValueOnce({
+        ok: false,
+        status: 404,
+        json: () => Promise.resolve({ message: 'Not found' }),
+      });
+
+      const result = await client.getPipelines('group/missing-project');
+
+      expect(result).toEqual({
+        ok: false,
+        status: 404,
+        data: { message: 'Not found' },
+      });
+    });
+  });
+
   describe('getBranches', () => {
     const mockRepo: RepositoryInfo = {
       name: 'test-project',
