@@ -53,6 +53,8 @@ const CollectionsCatalogPageInner = () => {
         <CollectionsContent
           onSyncClick={handleSyncClick}
           onSourcesStatusChange={handleSourcesStatusChange}
+          syncDisabled={syncDisabled}
+          syncDisabledReason={syncDisabledReason}
         />
         <SyncDialog
           open={syncDialogOpen}

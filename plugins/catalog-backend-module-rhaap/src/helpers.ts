@@ -18,6 +18,13 @@ export function getGitLabIntegrationForHost(
   return {};
 }
 
+export function isSafeHostname(host: string): boolean {
+  if (typeof host !== 'string' || host.length === 0 || host.length > 253) {
+    return false;
+  }
+  return /^[a-zA-Z0-9]([a-zA-Z0-9.-]*[a-zA-Z0-9])?$/.test(host);
+}
+
 export function getSkipTlsVerifyHosts(config: Config): string[] {
   return (
     config.getOptionalStringArray(

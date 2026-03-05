@@ -739,6 +739,18 @@ describe('createRouter', () => {
     });
   });
 
+  describe('GET /ansible/gitlab/pipelines', () => {
+    it('should return 400 when host is not a safe hostname', async () => {
+      const response = await request(app)
+        .get('/ansible/gitlab/pipelines')
+        .query({ projectPath: 'group/project', host: 'https://evil.com' })
+        .set('Authorization', 'Bearer token');
+
+      expect(response.status).toBe(400);
+      expect(response.body.error).toContain('Invalid host');
+    });
+  });
+
   describe('GET /ansible/sync/status', () => {
     it('should return both aap and content status when no query params', async () => {
       mockAAPEntityProvider.getLastSyncTime.mockReturnValue(

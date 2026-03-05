@@ -37,6 +37,7 @@ import {
   resolveProvidersToRun,
   getGitLabIntegrationForHost,
   getSkipTlsVerifyHosts,
+  isSafeHostname,
 } from './helpers';
 import { ScmClientFactory } from '@ansible/backstage-rhaap-common';
 
@@ -107,6 +108,12 @@ export async function createRouter(options: {
       response.status(400).json({
         error:
           'Missing projectPath or authorization (PRIVATE-TOKEN, Authorization header, or integrations.gitlab token in config)',
+      });
+      return;
+    }
+    if (!isSafeHostname(host)) {
+      response.status(400).json({
+        error: 'Invalid host: must be a valid hostname (e.g. gitlab.com)',
       });
       return;
     }

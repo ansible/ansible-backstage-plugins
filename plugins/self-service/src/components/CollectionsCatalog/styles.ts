@@ -49,6 +49,10 @@ export const useCollectionsStyles = makeStyles(theme => ({
       paddingTop: 0,
     },
   },
+  catalogLayoutStretch: {
+    width: '100%',
+    minHeight: '70vh',
+  },
   flex: {
     display: 'flex',
   },
@@ -91,6 +95,13 @@ export const useCollectionsStyles = makeStyles(theme => ({
   versionChip: {
     backgroundColor: theme.palette.action.selected,
     color: theme.palette.text.primary,
+  },
+  emptyStateContainer: {
+    width: '100%',
+    minHeight: '70vh',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   emptyState: {
     textAlign: 'center',

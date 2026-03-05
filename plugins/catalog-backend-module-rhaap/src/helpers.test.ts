@@ -10,6 +10,7 @@ import {
   resolveProvidersToRun,
   buildInvalidRepositoryResults,
   getSyncResponseStatusCode,
+  isSafeHostname,
 } from './helpers';
 import type { AnsibleGitContentsProvider } from './providers/AnsibleGitContentsProvider';
 
@@ -455,6 +456,35 @@ describe('helpers', () => {
     it('uses INVALID_REPOSITORY code for all entries', () => {
       const result = buildInvalidRepositoryResults(['x']);
       expect(result[0].error.code).toBe('INVALID_REPOSITORY');
+    });
+  });
+
+  describe('isSafeHostname', () => {
+    it('returns true for gitlab.com', () => {
+      expect(isSafeHostname('gitlab.com')).toBe(true);
+    });
+    it('returns true for single-label hostnames', () => {
+      expect(isSafeHostname('localhost')).toBe(true);
+    });
+    it('returns true for hostnames with hyphens and subdomains', () => {
+      expect(isSafeHostname('gitlab.enterprise.com')).toBe(true);
+      expect(isSafeHostname('my-gitlab.example.com')).toBe(true);
+    });
+    it('returns false for empty string', () => {
+      expect(isSafeHostname('')).toBe(false);
+    });
+    it('returns false when host contains path or scheme', () => {
+      expect(isSafeHostname('https://evil.com')).toBe(false);
+      expect(isSafeHostname('gitlab.com/path')).toBe(false);
+      expect(isSafeHostname('gitlab.com/')).toBe(false);
+    });
+    it('returns false when host contains credentials or @', () => {
+      expect(isSafeHostname('user@gitlab.com')).toBe(false);
+      expect(isSafeHostname('gitlab.com@evil.com')).toBe(false);
+    });
+    it('returns false for non-string or too long', () => {
+      expect(isSafeHostname(123 as unknown as string)).toBe(false);
+      expect(isSafeHostname('a'.repeat(254))).toBe(false);
     });
   });
 

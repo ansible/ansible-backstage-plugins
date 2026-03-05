@@ -160,3 +160,45 @@ export const getUniqueFilters = (
 
   return { sources, tags };
 };
+
+export function filterCollectionsByRepository(
+  collections: Entity[],
+  repoEntity: Entity,
+): Entity[] {
+  const repoSpec = (repoEntity.spec || {}) as {
+    repository_collections?: string[];
+  };
+  const repoAnnotations = repoEntity.metadata?.annotations || {};
+  const repoProvider = (repoAnnotations['ansible.io/scm-provider'] ?? '')
+    .toString()
+    .toLowerCase();
+  const repoHost = repoAnnotations['ansible.io/scm-host'];
+  const repoOrg = repoAnnotations['ansible.io/scm-organization'];
+  const repoRepo = repoAnnotations['ansible.io/scm-repository'];
+
+  const byName = new Set(
+    (repoSpec.repository_collections ?? []).filter(
+      (n): n is string => typeof n === 'string',
+    ),
+  );
+
+  return collections.filter(c => {
+    if (byName.size > 0) {
+      const name = c.metadata?.name;
+      return typeof name === 'string' && byName.has(name);
+    }
+    const ann = c.metadata?.annotations || {};
+    const provider = (ann['ansible.io/scm-provider'] ?? '')
+      .toString()
+      .toLowerCase();
+    const host = ann['ansible.io/scm-host'];
+    const org = ann['ansible.io/scm-organization'];
+    const repo = ann['ansible.io/scm-repository'];
+    return (
+      provider === repoProvider &&
+      host === repoHost &&
+      org === repoOrg &&
+      repo === repoRepo
+    );
+  });
+}
