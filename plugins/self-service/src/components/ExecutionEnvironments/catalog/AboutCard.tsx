@@ -13,7 +13,6 @@ import GitHubIcon from '@material-ui/icons/GitHub';
 import AutorenewIcon from '@material-ui/icons/Autorenew';
 import EditIcon from '@material-ui/icons/Edit';
 import { Entity, ANNOTATION_EDIT_URL } from '@backstage/catalog-model';
-import { getEEDefinitionFileUrl } from './eeDefinitionUrl';
 
 const useStyles = makeStyles(() => ({
   tagButton: {
@@ -36,6 +35,15 @@ const useStyles = makeStyles(() => ({
     '100%': { transform: 'rotate(360deg)' },
   },
 }));
+
+/** Resolve Edit/View URL to the EE definition file when it points at catalog-info.yaml. */
+function toEEDefinitionUrl(url: string, eeName: string): string {
+  if (!url?.trim() || !eeName) return url ?? '';
+  const t = url.replace(/^url:/i, '').trim();
+  return t.includes('catalog-info.yaml')
+    ? t.replace(/catalog-info\.yaml$/, `${eeName}.yaml`)
+    : t;
+}
 
 interface AboutCardProps {
   entity: Entity;
@@ -91,7 +99,7 @@ export const AboutCard: React.FC<AboutCardProps> = ({
                 <IconButton
                   size="small"
                   component="a"
-                  href={getEEDefinitionFileUrl(
+                  href={toEEDefinitionUrl(
                     entity.metadata.annotations[ANNOTATION_EDIT_URL] ||
                       (
                         entity.metadata.annotations[
@@ -216,7 +224,7 @@ export const AboutCard: React.FC<AboutCardProps> = ({
               </Typography>
               <Typography variant="body2" style={{ marginTop: 4 }}>
                 <a
-                  href={getEEDefinitionFileUrl(
+                  href={toEEDefinitionUrl(
                     entity.metadata.annotations[ANNOTATION_EDIT_URL] ||
                       (
                         entity.metadata.annotations[
@@ -234,7 +242,7 @@ export const AboutCard: React.FC<AboutCardProps> = ({
                     wordBreak: 'break-all',
                   }}
                 >
-                  {getEEDefinitionFileUrl(
+                  {toEEDefinitionUrl(
                     entity.metadata.annotations[ANNOTATION_EDIT_URL] ||
                       (
                         entity.metadata.annotations[

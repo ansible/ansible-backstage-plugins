@@ -34,9 +34,17 @@ import { useApi } from '@backstage/core-plugin-api';
 import { useNavigate } from 'react-router-dom';
 import { createTarArchive } from '../../utils/tarArchiveUtils';
 import { CreateCatalog } from './CreateCatalog';
-import { getEEDefinitionFileUrl } from './eeDefinitionUrl';
 
 const DESCRIPTION_TRUNCATE_LENGTH = 30;
+
+/** Resolve Edit/View URL to the EE definition file when it points at catalog-info.yaml. */
+function toEEDefinitionUrl(url: string, eeName: string): string {
+  if (!url?.trim() || !eeName) return url ?? '';
+  const t = url.replace(/^url:/i, '').trim();
+  return t.includes('catalog-info.yaml')
+    ? t.replace(/catalog-info\.yaml$/, `${eeName}.yaml`)
+    : t;
+}
 
 const useStyles = makeStyles(theme => ({
   flex: {
@@ -817,7 +825,7 @@ export const EEListPage = ({
                                         .replace(/^url:/i, '')
                                         .trim()
                                     : undefined);
-                                const urlToOpen = getEEDefinitionFileUrl(
+                                const urlToOpen = toEEDefinitionUrl(
                                   rawUrl ?? '',
                                   actionsMenuEntity?.metadata?.name ?? '',
                                 );
@@ -854,7 +862,7 @@ export const EEListPage = ({
                                         .trim()
                                     : undefined;
                                 const rawUrl = viewUrl || sourceUrl || editUrl;
-                                const urlToOpen = getEEDefinitionFileUrl(
+                                const urlToOpen = toEEDefinitionUrl(
                                   rawUrl ?? '',
                                   actionsMenuEntity?.metadata?.name ?? '',
                                 );
