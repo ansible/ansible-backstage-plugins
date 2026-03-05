@@ -269,9 +269,13 @@ describe('EEDetailsPage', () => {
     const favorite = await screen.findByTestId('favorite-entity');
     expect(favorite).toBeInTheDocument();
 
-    const editLinks = screen.queryAllByRole('link', { name: /edit/i });
+    const editLinks = screen.queryAllByRole('link', {
+      name: /edit definition/i,
+    });
     const editLink =
-      editLinks.length > 0 ? editLinks[0] : screen.queryByText(/Edit/i);
+      editLinks.length > 0
+        ? editLinks[0]
+        : screen.queryByText(/Edit definition/i);
     if (editLink) {
       fireEvent.click(editLink);
       // link has target _blank in the markup — ensure href contains the edit url

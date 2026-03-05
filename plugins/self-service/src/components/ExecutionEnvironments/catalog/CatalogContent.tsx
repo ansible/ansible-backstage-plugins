@@ -611,7 +611,7 @@ export const EEListPage = ({
                                 handleActionsMenuClose();
                               }}
                             >
-                              Edit
+                              Edit definition
                             </MenuItem>
                             <MenuItem
                               onClick={() => {
@@ -619,7 +619,7 @@ export const EEListPage = ({
                                 navigate(detailPath);
                               }}
                             >
-                              View
+                              View in source
                             </MenuItem>
                             <MenuItem
                               onClick={() => {

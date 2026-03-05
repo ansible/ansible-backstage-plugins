@@ -730,7 +730,7 @@ describe('EEListPage', () => {
       // Find edit button (IconButton with Edit icon)
       const editButtons = screen.getAllByRole('button');
       const editButton = editButtons.find(
-        btn => btn.getAttribute('aria-label') === 'Edit',
+        btn => btn.getAttribute('aria-label') === 'Edit definition',
       );
 
       if (editButton) windowOpenSpy.mockRestore();
@@ -749,7 +749,7 @@ describe('EEListPage', () => {
 
       const editButtons = screen.getAllByRole('button');
       const editButton = editButtons.find(
-        btn => btn.getAttribute('aria-label') === 'Edit',
+        btn => btn.getAttribute('aria-label') === 'Edit definition',
       );
 
       if (editButton) windowOpenSpy.mockRestore();
@@ -768,7 +768,7 @@ describe('EEListPage', () => {
 
       const editButtons = screen.getAllByRole('button');
       const editButton = editButtons.find(
-        btn => btn.getAttribute('aria-label') === 'Edit',
+        btn => btn.getAttribute('aria-label') === 'Edit definition',
       );
 
       if (editButton) {

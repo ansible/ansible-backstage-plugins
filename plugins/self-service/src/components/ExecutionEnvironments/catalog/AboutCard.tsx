@@ -77,20 +77,25 @@ export const AboutCard: React.FC<AboutCardProps> = ({
                 />
               </IconButton>{' '}
               {(entity?.metadata?.annotations?.[ANNOTATION_EDIT_URL] ||
-                entity?.metadata?.annotations?.['backstage.io/source-location']) && (
+                entity?.metadata?.annotations?.[
+                  'backstage.io/source-location'
+                ]) && (
                 <IconButton
                   size="small"
                   component="a"
                   href={
                     entity.metadata.annotations[ANNOTATION_EDIT_URL] ||
-                    (entity.metadata.annotations['backstage.io/source-location'] || '').replace(
-                      /^url:/i,
-                      '',
-                    ).trim()
+                    (
+                      entity.metadata.annotations[
+                        'backstage.io/source-location'
+                      ] || ''
+                    )
+                      .replace(/^url:/i, '')
+                      .trim()
                   }
                   target="_blank"
                   rel="noopener noreferrer"
-                  aria-label="Edit in Git"
+                  aria-label="Edit definition"
                 >
                   <EditIcon style={{ color: theme.palette.primary.main }} />
                 </IconButton>
@@ -182,7 +187,9 @@ export const AboutCard: React.FC<AboutCardProps> = ({
         </Box>
         <Box display="flex" flexDirection="column" gridGap={4} marginTop={2}>
           {(entity?.metadata?.annotations?.[ANNOTATION_EDIT_URL] ||
-            entity?.metadata?.annotations?.['backstage.io/source-location']) && (
+            entity?.metadata?.annotations?.[
+              'backstage.io/source-location'
+            ]) && (
             <Box>
               <Typography
                 variant="caption"
@@ -194,7 +201,11 @@ export const AboutCard: React.FC<AboutCardProps> = ({
                 <a
                   href={
                     entity.metadata.annotations[ANNOTATION_EDIT_URL] ||
-                    (entity.metadata.annotations['backstage.io/source-location'] || '')
+                    (
+                      entity.metadata.annotations[
+                        'backstage.io/source-location'
+                      ] || ''
+                    )
                       .replace(/^url:/i, '')
                       .trim()
                   }
@@ -206,7 +217,11 @@ export const AboutCard: React.FC<AboutCardProps> = ({
                   }}
                 >
                   {entity.metadata.annotations[ANNOTATION_EDIT_URL] ||
-                    (entity.metadata.annotations['backstage.io/source-location'] || '')
+                    (
+                      entity.metadata.annotations[
+                        'backstage.io/source-location'
+                      ] || ''
+                    )
                       .replace(/^url:/i, '')
                       .trim()}
                 </a>
