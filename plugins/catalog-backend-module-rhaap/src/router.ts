@@ -91,7 +91,7 @@ export async function createRouter(options: {
     const noQueryParams =
       request.query.aap_entities === undefined &&
       request.query.ansible_contents === undefined;
-    
+
     const credentials = await httpAuth.credentials(request as any);
     const { userEntityRef } = await userInfo.getUserInfo(credentials);
 
