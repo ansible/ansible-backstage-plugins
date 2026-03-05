@@ -21,7 +21,12 @@ import { AAPEntityProvider } from './providers/AAPEntityProvider';
 import { LoggerService } from '@backstage/backend-plugin-api';
 import { EEEntityProvider } from './providers/EEEntityProvider';
 import { PAHCollectionProvider } from './providers/PAHCollectionProvider';
-import { SyncStatus } from './helpers';
+import {
+  SyncStatus,
+  getSyncResponseStatusCode,
+  buildInvalidRepositoryResults,
+  resolveProvidersToRun,
+} from './helpers';
 
 export async function createRouter(options: {
   logger: LoggerService;
@@ -216,25 +221,11 @@ export async function createRouter(options: {
           );
       }
 
-      // Separate valid and invalid repository names
-      const invalidRepositories: string[] = [];
-      let providersToRun: PAHCollectionProvider[];
-
-      if (repositoryNames.length > 0) {
-        // Filter out invalid repositories but don't fail the request
-        const validNames: string[] = [];
-        for (const name of repositoryNames) {
-          if (_PAH_PROVIDERS.has(name)) {
-            validNames.push(name);
-          } else {
-            invalidRepositories.push(name);
-          }
-        }
-        providersToRun = validNames.map(name => _PAH_PROVIDERS.get(name)!);
-      } else {
-        // if no filters provided, run all providers
-        providersToRun = pahCollectionProviders;
-      }
+      const { providersToRun, invalidRepositories } = resolveProvidersToRun(
+        repositoryNames,
+        _PAH_PROVIDERS,
+        pahCollectionProviders,
+      );
 
       logger.info(
         `Starting PAH collections sync for repository name(s): ${
@@ -297,16 +288,7 @@ export async function createRouter(options: {
         };
       });
 
-      for (const invalidRepo of invalidRepositories) {
-        results.push({
-          repositoryName: invalidRepo,
-          status: 'invalid' as SyncResultStatus,
-          error: {
-            code: 'INVALID_REPOSITORY',
-            message: `Repository '${invalidRepo}' not found in configured providers`,
-          },
-        });
-      }
+      results.push(...buildInvalidRepositoryResults(invalidRepositories));
 
       const summary: SyncStatus & { total: number } = {
         total: results.length,
@@ -317,38 +299,9 @@ export async function createRouter(options: {
         invalid: results.filter(r => r.status === 'invalid').length,
       };
 
-      const hasFailures = results.some(r => r.status === 'failed');
-      const hasStarted = results.some(r => r.status === 'sync_started');
-      const hasInvalid = results.some(r => r.status === 'invalid');
-      const allStarted =
-        results.length > 0 && results.every(r => r.status === 'sync_started');
-      const allSkipped =
-        results.length > 0 &&
-        results.every(r => r.status === 'already_syncing');
-      const allFailed =
-        results.length > 0 && results.every(r => r.status === 'failed');
-      const allInvalid =
-        results.length > 0 && results.every(r => r.status === 'invalid');
       const emptyRequest =
         repositoryNames.length === 0 && pahCollectionProviders.length === 0;
-
-      let statusCode: number;
-      if (
-        allInvalid ||
-        emptyRequest ||
-        (hasInvalid && hasFailures && !hasStarted)
-      ) {
-        statusCode = 400;
-      } else if (allFailed) {
-        statusCode = 500;
-      } else if (allStarted) {
-        statusCode = 202;
-      } else if (allSkipped) {
-        statusCode = 200;
-      } else {
-        // Mixed results (e.g., some started + some skipped/failed/invalid)
-        statusCode = 207;
-      }
+      const statusCode = getSyncResponseStatusCode({ results, emptyRequest });
 
       response.status(statusCode).json({
         summary,

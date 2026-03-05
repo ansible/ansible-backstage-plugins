@@ -31,10 +31,10 @@ export class PAHCollectionProvider implements EntityProvider {
   private currentCollectionsCount: number = 0;
   private previousCollectionsCount: number = 0;
   private isSyncing: boolean = false;
-  private enabled: boolean = true;
+  private readonly enabled: boolean = true;
 
-  static pluginLogName = 'plugin-catalog-rh-aap';
-  static syncEntity = 'pahCollections';
+  static readonly pluginLogName = 'plugin-catalog-rh-aap';
+  static readonly syncEntity = 'pahCollections';
 
   static fromConfig(
     config: Config,

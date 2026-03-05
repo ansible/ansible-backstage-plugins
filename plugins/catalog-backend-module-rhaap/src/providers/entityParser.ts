@@ -17,7 +17,7 @@ import {
 import { generateTemplate } from './dynamicJobTemplate';
 
 function normalizeBaseUrl(baseUrl: string): string {
-  return baseUrl.replace(/\/$/, '');
+  return baseUrl.replaceAll(/\/$/g, '');
 }
 
 export function organizationParser(options: {
@@ -209,9 +209,9 @@ export const pahCollectionParser = (options: {
             .map(tag =>
               tag
                 .toLowerCase()
-                .replace(/[^a-z0-9+#-]/g, '-')
-                .replace(/-+/g, '-')
-                .replace(/^-|-$/g, ''),
+                .replaceAll(/[^a-z0-9+#-]/g, '-')
+                .replaceAll(/-+/g, '-')
+                .replaceAll(/^-|-$/g, ''),
             )
             .filter(tag => tag.length > 0),
         ),
