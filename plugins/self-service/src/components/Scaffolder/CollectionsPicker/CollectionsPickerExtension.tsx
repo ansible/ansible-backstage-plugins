@@ -86,8 +86,8 @@ export const CollectionsPickerExtension = ({
   const [collections, setCollections] = useState<CollectionItem[] | any[]>(
     formData || [],
   );
-  const [, setEditingIndex] = useState<number | null>(null);
-  const [, setFieldErrors] = useState<Record<string, string>>({});
+  const setEditingIndex = useState<number | null>(null)[1];
+  const setFieldErrors = useState<Record<string, string>>({})[1];
 
   // Autocomplete states
   const [availableCollections, setAvailableCollections] = useState<any[]>([]);
@@ -263,7 +263,7 @@ export const CollectionsPickerExtension = ({
   }, [selectedCollection, selectedSource, fetchVersions]);
 
   const handleAddCollection = () => {
-    if (!selectedCollection || !selectedCollection.trim()) {
+    if (!selectedCollection?.trim()) {
       return;
     }
 
