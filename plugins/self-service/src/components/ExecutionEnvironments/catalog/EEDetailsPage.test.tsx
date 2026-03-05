@@ -283,6 +283,33 @@ describe('EEDetailsPage', () => {
     }
   });
 
+  test('AboutCard shows EDIT URL from source-location when edit-url is missing', async () => {
+    const entitySourceLocationOnly = {
+      ...entityNoDownload,
+      metadata: {
+        ...entityNoDownload.metadata,
+        annotations: {
+          'backstage.io/source-location':
+            'url:https://git.example.com/org/repo',
+        },
+      },
+    };
+    renderWithCatalogApi(() =>
+      Promise.resolve({ items: [entitySourceLocationOnly] }),
+    );
+
+    await screen.findByTestId('favorite-entity');
+
+    expect(screen.getByText('EDIT URL')).toBeInTheDocument();
+    const editUrlLink = screen.getByRole('link', {
+      name: /https:\/\/git\.example\.com\/org\/repo/i,
+    });
+    expect(editUrlLink).toHaveAttribute(
+      'href',
+      'https://git.example.com/org/repo',
+    );
+  });
+
   test('Download EE files triggers archive creation & download flow (create/revoke called)', async () => {
     // Ensure URL blob helpers exist
     if (typeof URL.createObjectURL !== 'function') {

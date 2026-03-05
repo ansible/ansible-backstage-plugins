@@ -57,9 +57,33 @@ jest.mock('@backstage/core-components', () => {
   };
 });
 
-// ------------------ STUB: plugin-catalog-react internals ------------------
+// ------------------ STUB: UnregisterEntityDialog for coverage ------------------
 jest.mock('@backstage/plugin-catalog-react', () => {
   const actual = jest.requireActual('@backstage/plugin-catalog-react');
+
+  const UnregisterEntityDialogStub = ({
+    open,
+    entity,
+    onConfirm,
+    onClose,
+  }: any) =>
+    open ? (
+      <div data-testid="unregister-entity-dialog">
+        <span data-testid="unregister-entity-name">
+          {entity?.metadata?.name}
+        </span>
+        <button
+          type="button"
+          onClick={onConfirm}
+          data-testid="unregister-confirm"
+        >
+          Confirm
+        </button>
+        <button type="button" onClick={onClose} data-testid="unregister-cancel">
+          Cancel
+        </button>
+      </div>
+    ) : null;
 
   const CatalogFilterLayout = ({ children }: any) => (
     <div data-testid="catalog-filter-layout">{children}</div>
@@ -95,6 +119,7 @@ jest.mock('@backstage/plugin-catalog-react', () => {
     UserListPicker,
     useEntityList,
     useStarredEntities,
+    UnregisterEntityDialog: UnregisterEntityDialogStub,
     catalogApiRef: actual.catalogApiRef,
   };
 });
@@ -907,6 +932,175 @@ describe('EEListPage', () => {
 
       expect(windowOpenSpy).not.toHaveBeenCalled();
       windowOpenSpy.mockRestore();
+    });
+
+    test('Edit definition opens URL from source-location when edit-url is missing', async () => {
+      const entitySourceLocationOnly = {
+        ...entityA,
+        metadata: {
+          ...entityA.metadata,
+          annotations: {
+            'backstage.io/source-location':
+              'url:https://git.example.com/org/repo',
+          },
+        },
+      };
+      const windowOpenSpy = jest
+        .spyOn(window, 'open')
+        .mockImplementation(() => null);
+
+      renderWithCatalogApi(() =>
+        Promise.resolve({ items: [entitySourceLocationOnly] }),
+      );
+
+      await waitFor(() =>
+        expect(screen.getByTestId('stubbed-table-title')).toBeInTheDocument(),
+      );
+
+      fireEvent.click(screen.getByRole('button', { name: /actions/i }));
+      const editMenuItem = await screen.findByRole('menuitem', {
+        name: /edit definition/i,
+      });
+      fireEvent.click(editMenuItem);
+
+      expect(windowOpenSpy).toHaveBeenCalledWith(
+        'https://git.example.com/org/repo',
+        '_blank',
+        'noopener,noreferrer',
+      );
+      windowOpenSpy.mockRestore();
+    });
+
+    test('View in source navigates to detail path', async () => {
+      renderWithCatalogApi(() => Promise.resolve({ items: [entityA] }));
+
+      await waitFor(() =>
+        expect(screen.getByTestId('stubbed-table-title')).toBeInTheDocument(),
+      );
+
+      fireEvent.click(screen.getByRole('button', { name: /actions/i }));
+      const viewMenuItem = await screen.findByRole('menuitem', {
+        name: /view in source/i,
+      });
+      fireEvent.click(viewMenuItem);
+
+      expect(mockNavigate).toHaveBeenCalledWith('/self-service/catalog/ee-one');
+    });
+
+    test('Delete opens unregister dialog and Confirm calls handleUnregisterConfirm', async () => {
+      const getEntitiesMock = jest.fn().mockResolvedValue({ items: [entityA] });
+      renderWithCatalogApi(getEntitiesMock);
+
+      await waitFor(() =>
+        expect(screen.getByTestId('stubbed-table-title')).toBeInTheDocument(),
+      );
+
+      fireEvent.click(screen.getByRole('button', { name: /actions/i }));
+      const deleteMenuItem = await screen.findByRole('menuitem', {
+        name: /delete/i,
+      });
+      fireEvent.click(deleteMenuItem);
+
+      await waitFor(() => {
+        expect(
+          screen.getByTestId('unregister-entity-dialog'),
+        ).toBeInTheDocument();
+        expect(screen.getByTestId('unregister-entity-name')).toHaveTextContent(
+          'ee-one',
+        );
+      });
+
+      getEntitiesMock.mockClear();
+      fireEvent.click(screen.getByTestId('unregister-confirm'));
+      await waitFor(() => {
+        expect(getEntitiesMock).toHaveBeenCalled();
+      });
+    });
+
+    test('Delete opens unregister dialog and Cancel closes it', async () => {
+      renderWithCatalogApi(() => Promise.resolve({ items: [entityA] }));
+
+      await waitFor(() =>
+        expect(screen.getByTestId('stubbed-table-title')).toBeInTheDocument(),
+      );
+
+      fireEvent.click(screen.getByRole('button', { name: /actions/i }));
+      fireEvent.click(await screen.findByRole('menuitem', { name: /delete/i }));
+
+      await waitFor(() =>
+        expect(
+          screen.getByTestId('unregister-entity-dialog'),
+        ).toBeInTheDocument(),
+      );
+
+      fireEvent.click(screen.getByTestId('unregister-cancel'));
+      await waitFor(() => {
+        expect(
+          screen.queryByTestId('unregister-entity-dialog'),
+        ).not.toBeInTheDocument();
+      });
+    });
+
+    test('Download (download-experience) navigates to detail path', async () => {
+      const entityWithDownload = {
+        ...entityA,
+        metadata: {
+          ...entityA.metadata,
+          annotations: {
+            ...entityA.metadata.annotations,
+            'ansible.io/download-experience': 'true',
+          },
+        },
+      };
+      renderWithCatalogApi(() =>
+        Promise.resolve({ items: [entityWithDownload] }),
+      );
+
+      await waitFor(() =>
+        expect(screen.getByTestId('stubbed-table-title')).toBeInTheDocument(),
+      );
+
+      fireEvent.click(screen.getByRole('button', { name: /actions/i }));
+      const downloadMenuItem = await screen.findByRole('menuitem', {
+        name: /download/i,
+      });
+      fireEvent.click(downloadMenuItem);
+
+      expect(mockNavigate).toHaveBeenCalledWith('/self-service/catalog/ee-one');
+    });
+
+    test('Unregister (download-experience) opens unregister dialog', async () => {
+      const entityWithDownload = {
+        ...entityA,
+        metadata: {
+          ...entityA.metadata,
+          annotations: {
+            ...entityA.metadata.annotations,
+            'ansible.io/download-experience': 'true',
+          },
+        },
+      };
+      renderWithCatalogApi(() =>
+        Promise.resolve({ items: [entityWithDownload] }),
+      );
+
+      await waitFor(() =>
+        expect(screen.getByTestId('stubbed-table-title')).toBeInTheDocument(),
+      );
+
+      fireEvent.click(screen.getByRole('button', { name: /actions/i }));
+      fireEvent.click(
+        await screen.findByRole('menuitem', { name: /unregister/i }),
+      );
+
+      await waitFor(() => {
+        expect(
+          screen.getByTestId('unregister-entity-dialog'),
+        ).toBeInTheDocument();
+        expect(screen.getByTestId('unregister-entity-name')).toHaveTextContent(
+          'ee-one',
+        );
+      });
     });
 
     test('handles mouseDown on star button', async () => {
