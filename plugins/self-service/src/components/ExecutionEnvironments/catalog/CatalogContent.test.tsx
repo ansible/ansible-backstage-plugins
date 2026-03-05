@@ -971,7 +971,11 @@ describe('EEListPage', () => {
       windowOpenSpy.mockRestore();
     });
 
-    test('View in source navigates to detail path', async () => {
+    test('View in source opens source URL in new tab', async () => {
+      const windowOpenSpy = jest
+        .spyOn(window, 'open')
+        .mockImplementation(() => null);
+
       renderWithCatalogApi(() => Promise.resolve({ items: [entityA] }));
 
       await waitFor(() =>
@@ -984,7 +988,12 @@ describe('EEListPage', () => {
       });
       fireEvent.click(viewMenuItem);
 
-      expect(mockNavigate).toHaveBeenCalledWith('/self-service/catalog/ee-one');
+      expect(windowOpenSpy).toHaveBeenCalledWith(
+        'http://edit/ee-one',
+        '_blank',
+        'noopener,noreferrer',
+      );
+      windowOpenSpy.mockRestore();
     });
 
     test('Delete opens unregister dialog and Confirm calls handleUnregisterConfirm', async () => {
@@ -1041,7 +1050,7 @@ describe('EEListPage', () => {
       });
     });
 
-    test('Download (download-experience) navigates to detail path', async () => {
+    test('Download (download-experience) fetches entity and triggers archive download', async () => {
       const entityWithDownload = {
         ...entityA,
         metadata: {
@@ -1052,8 +1061,22 @@ describe('EEListPage', () => {
           },
         },
       };
-      renderWithCatalogApi(() =>
-        Promise.resolve({ items: [entityWithDownload] }),
+      const fullEntity = {
+        ...entityWithDownload,
+        kind: 'Component',
+        spec: {
+          ...entityA.spec,
+          definition: 'version: 3',
+          readme: '# README',
+          ansible_cfg: '[defaults]',
+          template: 'template: yaml',
+        },
+      };
+      const getEntityByRefMock = jest.fn().mockResolvedValue(fullEntity);
+
+      renderWithCatalogApi(
+        () => Promise.resolve({ items: [entityWithDownload] }),
+        getEntityByRefMock,
       );
 
       await waitFor(() =>
@@ -1066,7 +1089,11 @@ describe('EEListPage', () => {
       });
       fireEvent.click(downloadMenuItem);
 
-      expect(mockNavigate).toHaveBeenCalledWith('/self-service/catalog/ee-one');
+      await waitFor(() => {
+        expect(getEntityByRefMock).toHaveBeenCalledWith(
+          'Component:default/ee-one',
+        );
+      });
     });
 
     test('Unregister (download-experience) opens unregister dialog', async () => {

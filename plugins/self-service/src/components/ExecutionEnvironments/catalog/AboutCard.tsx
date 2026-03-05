@@ -20,6 +20,13 @@ const useStyles = makeStyles(() => ({
     borderColor: '#D3D3D3',
     textTransform: 'none',
   },
+  descriptionTruncate: {
+    display: '-webkit-box',
+    WebkitLineClamp: 4,
+    WebkitBoxOrient: 'vertical' as const,
+    overflow: 'hidden',
+    textOverflow: 'ellipsis',
+  },
   rotate: {
     animation: '$spin 1s linear',
   },
@@ -179,7 +186,15 @@ export const AboutCard: React.FC<AboutCardProps> = ({
           >
             DESCRIPTION
           </Typography>
-          <Typography variant="body2">
+          <Typography
+            variant="body2"
+            className={classes.descriptionTruncate}
+            title={
+              entity?.metadata?.description ??
+              entity?.metadata?.title ??
+              undefined
+            }
+          >
             {entity?.metadata?.description ??
               entity?.metadata?.title ??
               'No description available.'}

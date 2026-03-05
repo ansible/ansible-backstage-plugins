@@ -1,12 +1,14 @@
 import { useEffect, useState, useCallback, useRef } from 'react';
 import { Progress } from '@backstage/core-components';
 import {
+  Box,
   FormControl,
   Grid,
   Input,
   Menu,
   MenuItem,
   Paper,
+  Popover,
   Select,
   Typography,
 } from '@material-ui/core';
@@ -25,11 +27,15 @@ import {
 import { Table, TableColumn } from '@backstage/core-components';
 import { Chip, IconButton } from '@material-ui/core';
 import MoreVert from '@material-ui/icons/MoreVert';
+import OpenInNew from '@material-ui/icons/OpenInNew';
 import { Tooltip } from '@material-ui/core';
 import { ANNOTATION_EDIT_URL, Entity } from '@backstage/catalog-model';
 import { useApi } from '@backstage/core-plugin-api';
 import { useNavigate } from 'react-router-dom';
+import { createTarArchive } from '../../utils/tarArchiveUtils';
 import { CreateCatalog } from './CreateCatalog';
+
+const DESCRIPTION_TRUNCATE_LENGTH = 30;
 
 const useStyles = makeStyles(theme => ({
   flex: {
@@ -87,6 +93,53 @@ const useStyles = makeStyles(theme => ({
     padding: '16px 0',
     width: '100%',
     marginBottom: '16px',
+  },
+  descriptionCell: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: 4,
+    maxWidth: 240, // ~30 characters visible
+    minWidth: 0,
+  },
+  descriptionCellText: {
+    overflow: 'hidden',
+    textOverflow: 'ellipsis',
+    whiteSpace: 'nowrap',
+    minWidth: 0,
+    flex: 1,
+  },
+  descriptionCellTextFull: {
+    minWidth: 0,
+    flex: 1,
+  },
+  descriptionPopoverPaper: {
+    position: 'relative',
+    borderRadius: 12,
+    boxShadow: theme.shadows[4],
+    border: `1px solid ${theme.palette.divider}`,
+    marginTop: 6,
+    '&::before': {
+      content: '""',
+      position: 'absolute',
+      top: -9,
+      left: 16,
+      width: 0,
+      height: 0,
+      borderLeft: '9px solid transparent',
+      borderRight: '9px solid transparent',
+      borderBottom: `9px solid ${theme.palette.divider}`,
+    },
+    '&::after': {
+      content: '""',
+      position: 'absolute',
+      top: -8,
+      left: 17,
+      width: 0,
+      height: 0,
+      borderLeft: '8px solid transparent',
+      borderRight: '8px solid transparent',
+      borderBottom: `8px solid ${theme.palette.background.paper}`,
+    },
   },
   paper: {
     padding: theme.spacing(1.5, 1.5),
@@ -150,6 +203,13 @@ export const EEListPage = ({
   const [entityToUnregister, setEntityToUnregister] = useState<Entity | null>(
     null,
   );
+  const [descriptionPopoverOpen, setDescriptionPopoverOpen] =
+    useState<boolean>(false);
+  const [descriptionPopoverPosition, setDescriptionPopoverPosition] = useState<
+    { top: number; left: number } | undefined
+  >(undefined);
+  const [descriptionPopoverText, setDescriptionPopoverText] =
+    useState<string>('');
   const { filters, updateFilters } = useEntityList();
 
   const isMountedRef = useRef(true);
@@ -402,7 +462,54 @@ export const EEListPage = ({
         return <div>{ownerName}</div>;
       },
     },
-    { title: 'Description', field: 'metadata.description', id: 'description' },
+    {
+      title: 'Description',
+      field: 'metadata.description',
+      id: 'description',
+      render: (entity: any) => {
+        const desc = entity?.metadata?.description ?? '';
+        const displayText = desc || '—';
+        const isLong = desc.length > DESCRIPTION_TRUNCATE_LENGTH;
+        const cell = (
+          <Box
+            className={classes.descriptionCell}
+            onMouseEnter={
+              isLong
+                ? (e: React.MouseEvent<HTMLElement>) => {
+                    const rect = e.currentTarget.getBoundingClientRect();
+                    setDescriptionPopoverPosition({
+                      left: rect.left,
+                      top: rect.bottom,
+                    });
+                    setDescriptionPopoverText(desc);
+                    setDescriptionPopoverOpen(true);
+                  }
+                : undefined
+            }
+            onMouseLeave={
+              isLong
+                ? () => {
+                    setDescriptionPopoverOpen(false);
+                    setDescriptionPopoverPosition(undefined);
+                  }
+                : undefined
+            }
+          >
+            <Typography
+              className={
+                isLong
+                  ? classes.descriptionCellText
+                  : classes.descriptionCellTextFull
+              }
+              variant="body2"
+            >
+              {displayText}
+            </Typography>
+          </Box>
+        );
+        return cell;
+      },
+    },
     {
       title: 'Tags',
       field: 'metadata.tags',
@@ -523,6 +630,38 @@ export const EEListPage = ({
                 columns={columns}
                 data={ansibleComponents || []}
               />
+              <Popover
+                open={descriptionPopoverOpen}
+                anchorReference="anchorPosition"
+                anchorPosition={
+                  descriptionPopoverPosition
+                    ? {
+                        top: descriptionPopoverPosition.top,
+                        left: descriptionPopoverPosition.left,
+                      }
+                    : undefined
+                }
+                onClose={() => {
+                  setDescriptionPopoverOpen(false);
+                  setDescriptionPopoverPosition(undefined);
+                }}
+                anchorOrigin={{ vertical: 'top', horizontal: 'left' }}
+                transformOrigin={{ vertical: 'top', horizontal: 'left' }}
+                disableRestoreFocus
+                PaperProps={{
+                  className: classes.descriptionPopoverPaper,
+                  style: {
+                    maxWidth: 360,
+                    maxHeight: 320,
+                    overflow: 'auto',
+                    padding: 12,
+                  },
+                }}
+              >
+                <Typography variant="body2" style={{ whiteSpace: 'pre-wrap' }}>
+                  {descriptionPopoverText}
+                </Typography>
+              </Popover>
               <Menu
                 id="ee-actions-menu"
                 anchorEl={actionsMenuAnchor}
@@ -551,7 +690,6 @@ export const EEListPage = ({
                         ?.toString()
                         .toLowerCase()
                         .trim() === 'true';
-                    const detailPath = `/self-service/catalog/${actionsMenuEntity.metadata?.name}`;
                     return (
                       <>
                         <MenuItem
@@ -576,7 +714,84 @@ export const EEListPage = ({
                             <MenuItem
                               onClick={() => {
                                 handleActionsMenuClose();
-                                navigate(detailPath);
+                                const entityRef = `${actionsMenuEntity.kind}:${actionsMenuEntity.metadata?.namespace || 'default'}/${actionsMenuEntity.metadata?.name}`;
+                                catalogApi
+                                  .getEntityByRef(entityRef)
+                                  .then((entity: Entity | undefined) => {
+                                    if (
+                                      !entity?.spec?.definition ||
+                                      !entity?.spec?.readme ||
+                                      !entity?.spec?.ansible_cfg ||
+                                      !entity?.spec?.template
+                                    ) {
+                                      console.error(
+                                        'Entity, definition, readme, ansible_cfg or template not available for download',
+                                      );
+                                      return;
+                                    }
+                                    try {
+                                      const name =
+                                        entity.metadata?.name ||
+                                        'execution-environment';
+                                      const eeFileName = `${name}.yaml`;
+                                      const readmeFileName = `README-${name}.md`;
+                                      const archiveName = `${name}.tar`;
+                                      const ansibleCfgFileName = `ansible.cfg`;
+                                      const templateFileName = `${name}-template.yaml`;
+                                      const rawdata: Array<{
+                                        name: string;
+                                        content: string;
+                                      }> = [
+                                        {
+                                          name: eeFileName,
+                                          content: String(
+                                            entity.spec.definition,
+                                          ),
+                                        },
+                                        {
+                                          name: readmeFileName,
+                                          content: String(entity.spec.readme),
+                                        },
+                                        {
+                                          name: ansibleCfgFileName,
+                                          content: String(
+                                            entity.spec.ansible_cfg,
+                                          ),
+                                        },
+                                        {
+                                          name: templateFileName,
+                                          content: String(entity.spec.template),
+                                        },
+                                      ];
+                                      if (entity.spec.mcp_vars) {
+                                        rawdata.push({
+                                          name: 'mcp-vars.yaml',
+                                          content: String(entity.spec.mcp_vars),
+                                        });
+                                      }
+                                      const tarData = createTarArchive(rawdata);
+                                      const blob = new Blob(
+                                        [tarData as BlobPart],
+                                        {
+                                          type: 'application/x-tar',
+                                        },
+                                      );
+                                      const url = URL.createObjectURL(blob);
+                                      const link = document.createElement('a');
+                                      link.href = url;
+                                      link.download = archiveName;
+                                      link.style.display = 'none';
+                                      document.body.appendChild(link);
+                                      link.click();
+                                      link.remove();
+                                      URL.revokeObjectURL(url);
+                                    } catch (err) {
+                                      console.error(
+                                        'Failed to download archive:',
+                                        err,
+                                      );
+                                    }
+                                  });
                               }}
                             >
                               Download
@@ -615,11 +830,41 @@ export const EEListPage = ({
                             </MenuItem>
                             <MenuItem
                               onClick={() => {
+                                const editUrl =
+                                  actionsMenuEntity?.metadata?.annotations?.[
+                                    ANNOTATION_EDIT_URL
+                                  ];
+                                const sourceLocation =
+                                  actionsMenuEntity?.metadata?.annotations?.[
+                                    'backstage.io/source-location'
+                                  ];
+                                const sourceUrl =
+                                  typeof sourceLocation === 'string'
+                                    ? sourceLocation
+                                        .replace(/^url:/i, '')
+                                        .trim()
+                                    : undefined;
+                                const urlToOpen = sourceUrl || editUrl;
+                                if (urlToOpen) {
+                                  window.open(
+                                    urlToOpen,
+                                    '_blank',
+                                    'noopener,noreferrer',
+                                  );
+                                }
                                 handleActionsMenuClose();
-                                navigate(detailPath);
                               }}
                             >
-                              View in source
+                              <Box
+                                display="flex"
+                                alignItems="center"
+                                justifyContent="space-between"
+                                width="100%"
+                                style={{ gap: 8 }}
+                              >
+                                <span>View in source</span>
+                                <OpenInNew fontSize="small" />
+                              </Box>
                             </MenuItem>
                             <MenuItem
                               onClick={() => {
