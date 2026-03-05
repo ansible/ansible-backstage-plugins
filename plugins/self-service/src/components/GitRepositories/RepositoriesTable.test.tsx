@@ -709,7 +709,7 @@ describe('RepositoriesTable', () => {
     fireEvent.click(screen.getByText('View in source'));
 
     expect(windowOpenSpy).toHaveBeenCalledWith(
-      expect.stringContaining('github.com'),
+      expect.stringMatching(/github\.com|gitlab\.com/),
       '_blank',
       'noopener,noreferrer',
     );

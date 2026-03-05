@@ -1,12 +1,15 @@
 import { useEffect, useState, useCallback, useRef } from 'react';
-import { Progress } from '@backstage/core-components';
+import { Progress, Table, TableColumn } from '@backstage/core-components';
 import {
+  Chip,
   FormControl,
   Grid,
+  IconButton,
   Input,
   MenuItem,
   Paper,
   Select,
+  Tooltip,
   Typography,
 } from '@material-ui/core';
 import { makeStyles } from '@material-ui/core/styles';
@@ -20,10 +23,7 @@ import {
   useEntityList,
   useStarredEntities,
 } from '@backstage/plugin-catalog-react';
-import { Table, TableColumn } from '@backstage/core-components';
-import { Chip, IconButton } from '@material-ui/core';
 import Edit from '@material-ui/icons/Edit';
-import { Tooltip } from '@material-ui/core';
 import { ANNOTATION_EDIT_URL, Entity } from '@backstage/catalog-model';
 import StarBorder from '@material-ui/icons/StarBorder';
 import { useApi } from '@backstage/core-plugin-api';
@@ -130,6 +130,30 @@ const ExecutionEnvironmentTypeFilter = () => {
   return null;
 };
 
+function sortByMetadataTitleAsc<T extends { metadata?: { name?: string } }>(
+  data: T[],
+): T[] {
+  return [...data].sort((a, b) => {
+    const titleA = a.metadata?.name ?? '';
+    const titleB = b.metadata?.name ?? '';
+
+    const numA = Number(titleA);
+    const numB = Number(titleB);
+
+    const isNumA = !Number.isNaN(numA);
+    const isNumB = !Number.isNaN(numB);
+
+    if (isNumA && isNumB) {
+      return numA - numB;
+    }
+
+    if (isNumA) return -1;
+    if (isNumB) return 1;
+
+    return titleA.localeCompare(titleB, undefined, { sensitivity: 'base' });
+  });
+}
+
 export const EEListPage = ({
   onTabSwitch,
 }: {
@@ -143,8 +167,8 @@ export const EEListPage = ({
   const [errorMessage, setErrorMessage] = useState<string>('');
   const [allEntities, setAllEntities] = useState<Entity[]>([]);
   const [ansibleComponents, setAnsibleComponents] = useState<Entity[]>([]);
-  const [ownerFilter, setOwnerFilter] = useState<'All' | string>('All');
-  const [tagFilter, setTagFilter] = useState<'All' | string>('All');
+  const [ownerFilter, setOwnerFilter] = useState<string>('All');
+  const [tagFilter, setTagFilter] = useState<string>('All');
   const [allOwners, setAllOwners] = useState<string[]>(['All']);
   const [allTags, setAllTags] = useState<string[]>(['All']);
   const [filtered, setFiltered] = useState<boolean>(true);
@@ -165,7 +189,7 @@ export const EEListPage = ({
           ownerRef ??
           'Unknown'
         );
-      } catch (error) {
+      } catch {
         // If API call fails, fallback to ownerRef
         return ownerRef ?? 'Unknown';
       }
@@ -257,33 +281,6 @@ export const EEListPage = ({
         }
       });
   }, [catalogApi, getUniqueOwnersAndTags, fetchOwnerNames]);
-
-  function sortByMetadataTitleAsc<T extends { metadata?: { name?: string } }>(
-    data: T[],
-  ): T[] {
-    return [...data].sort((a, b) => {
-      const titleA = a.metadata?.name ?? '';
-      const titleB = b.metadata?.name ?? '';
-
-      const numA = Number(titleA);
-      const numB = Number(titleB);
-
-      const isNumA = !isNaN(numA);
-      const isNumB = !isNaN(numB);
-
-      // both numeric → numeric sort
-      if (isNumA && isNumB) {
-        return numA - numB;
-      }
-
-      // numeric before string
-      if (isNumA) return -1;
-      if (isNumB) return 1;
-
-      // both strings → string sort
-      return titleA.localeCompare(titleB, undefined, { sensitivity: 'base' });
-    });
-  }
 
   useEffect(() => {
     const filterData = allEntities.filter(d => {
@@ -409,15 +406,10 @@ export const EEListPage = ({
                 {isStarred ? <YellowStar /> : <StarBorder />}
               </IconButton>
             </Tooltip>
-            {!(
-              entity &&
-              entity.metadata &&
-              entity.metadata.annotations &&
-              entity.metadata.annotations['ansible.io/download-experience']
-                ?.toString()
-                .toLowerCase()
-                .trim() === 'true'
-            ) && (
+            {entity?.metadata?.annotations?.['ansible.io/download-experience']
+              ?.toString()
+              .toLowerCase()
+              .trim() !== 'true' && (
               <Tooltip title="Edit">
                 <IconButton
                   size="small"
@@ -464,68 +456,66 @@ export const EEListPage = ({
           follow our guide to create your EE image.
         </Typography>
       ) : null}
-      <>
-        {filtered || (allEntities && allEntities.length > 0) ? (
-          <CatalogFilterLayout>
-            <ExecutionEnvironmentTypeFilter />
-            <CatalogFilterLayout.Filters>
-              <UserListPicker availableFilters={['starred', 'all']} />
-              <Typography>Owner</Typography>
+      {filtered || (allEntities && allEntities.length > 0) ? (
+        <CatalogFilterLayout>
+          <ExecutionEnvironmentTypeFilter />
+          <CatalogFilterLayout.Filters>
+            <UserListPicker availableFilters={['starred', 'all']} />
+            <Typography>Owner</Typography>
 
-              <Paper className={classes.paper}>
-                <FormControl fullWidth>
-                  <Select
-                    value={ownerFilter}
-                    onChange={e => setOwnerFilter(e.target.value as any)}
-                    displayEmpty
-                    input={<Input disableUnderline />}
-                  >
-                    {allOwners.map(o => (
-                      <MenuItem key={o} value={o}>
-                        {o}
-                      </MenuItem>
-                    ))}
-                  </Select>
-                </FormControl>
-              </Paper>
+            <Paper className={classes.paper}>
+              <FormControl fullWidth>
+                <Select
+                  value={ownerFilter}
+                  onChange={e => setOwnerFilter(e.target.value as string)}
+                  displayEmpty
+                  input={<Input disableUnderline />}
+                >
+                  {allOwners.map(o => (
+                    <MenuItem key={o} value={o}>
+                      {o}
+                    </MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
+            </Paper>
 
-              <Typography style={{ marginTop: 10 }}>Tags</Typography>
-              <Paper className={classes.paper}>
-                <FormControl fullWidth variant="outlined">
-                  <Select
-                    value={tagFilter}
-                    onChange={e => setTagFilter(e.target.value as any)}
-                    input={<Input disableUnderline />}
-                    MenuProps={{
-                      getContentAnchorEl: null,
-                      anchorOrigin: { vertical: 'bottom', horizontal: 'left' },
-                    }}
-                  >
-                    {allTags.map(t => (
-                      <MenuItem key={t} value={t}>
-                        {t}
-                      </MenuItem>
-                    ))}
-                  </Select>
-                </FormControl>
-              </Paper>
-            </CatalogFilterLayout.Filters>
-            <CatalogFilterLayout.Content>
-              <Table
-                title={`Execution Environments definition files (${ansibleComponents?.length})`}
-                options={{
-                  search: true,
-                  rowStyle: { cursor: 'default' },
-                }}
-                columns={columns}
-                data={ansibleComponents || []}
-              />
-            </CatalogFilterLayout.Content>
-          </CatalogFilterLayout>
-        ) : (
-          <CreateCatalog onTabSwitch={onTabSwitch} />
-        )}
-      </>
+            <Typography style={{ marginTop: 10 }}>Tags</Typography>
+            <Paper className={classes.paper}>
+              <FormControl fullWidth variant="outlined">
+                <Select
+                  value={tagFilter}
+                  onChange={e => setTagFilter(e.target.value as string)}
+                  input={<Input disableUnderline />}
+                  MenuProps={{
+                    getContentAnchorEl: null,
+                    anchorOrigin: { vertical: 'bottom', horizontal: 'left' },
+                  }}
+                >
+                  {allTags.map(t => (
+                    <MenuItem key={t} value={t}>
+                      {t}
+                    </MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
+            </Paper>
+          </CatalogFilterLayout.Filters>
+          <CatalogFilterLayout.Content>
+            <Table
+              title={`Execution Environments definition files (${ansibleComponents?.length})`}
+              options={{
+                search: true,
+                rowStyle: { cursor: 'default' },
+              }}
+              columns={columns}
+              data={ansibleComponents || []}
+            />
+          </CatalogFilterLayout.Content>
+        </CatalogFilterLayout>
+      ) : (
+        <CreateCatalog onTabSwitch={onTabSwitch} />
+      )}
     </div>
   );
 };

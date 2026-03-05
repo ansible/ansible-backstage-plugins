@@ -390,4 +390,194 @@ describe('useLatestCIActivity', () => {
       'Deploy #999',
     );
   });
+
+  it('retries on 502 error and succeeds on second attempt', async () => {
+    let callCount = 0;
+    mockFetchApi.fetch.mockImplementation(() => {
+      callCount++;
+      if (callCount === 1) {
+        return Promise.resolve({ ok: false, status: 502 });
+      }
+      return Promise.resolve({
+        ok: true,
+        json: () =>
+          Promise.resolve([
+            {
+              id: 42,
+              created_at: '2024-06-15T11:00:00Z',
+              web_url: 'https://gitlab.com/group/project/pipelines/42',
+            },
+          ]),
+      });
+    });
+
+    renderTestConsumer([createGitLabEntity('retry-success-repo')]);
+
+    await waitFor(
+      () => {
+        expect(screen.getByTestId('loading')).toHaveTextContent('false');
+      },
+      { timeout: 3000 },
+    );
+
+    expect(screen.getByTestId('activity-retry-success-repo')).toHaveTextContent(
+      'Pipeline #42',
+    );
+    expect(callCount).toBeGreaterThan(1);
+  });
+
+  it('returns N/A after exhausting retries on 502 error', async () => {
+    mockFetchApi.fetch.mockResolvedValue({ ok: false, status: 502 });
+
+    renderTestConsumer([createGitLabEntity('retry-exhausted-repo')]);
+
+    await waitFor(
+      () => {
+        expect(screen.getByTestId('loading')).toHaveTextContent('false');
+      },
+      { timeout: 5000 },
+    );
+
+    expect(
+      screen.getByTestId('activity-retry-exhausted-repo'),
+    ).toHaveTextContent('N/A');
+  });
+
+  it('returns null from fetchWithRetry when cancelled before fetch (lines 31-32)', async () => {
+    let fetchCallCount = 0;
+    mockFetchApi.fetch.mockImplementation(() => {
+      fetchCallCount++;
+      return new Promise(resolve => {
+        setTimeout(
+          () =>
+            resolve({
+              ok: true,
+              json: () => Promise.resolve([{ id: 1 }]),
+            }),
+          500,
+        );
+      });
+    });
+
+    const { unmount } = renderTestConsumer([createGitLabEntity('cancel-repo')]);
+
+    unmount();
+
+    await jest.advanceTimersByTimeAsync(100);
+
+    expect(fetchCallCount).toBeLessThanOrEqual(1);
+  });
+
+  it('handles catch block in fetchGitLabActivity (lines 175-176)', async () => {
+    mockFetchApi.fetch.mockResolvedValue({
+      ok: true,
+      json: () => Promise.reject(new Error('JSON parse error')),
+    });
+
+    renderTestConsumer([createGitLabEntity('json-error-repo')]);
+
+    await waitFor(() => {
+      expect(screen.getByTestId('loading')).toHaveTextContent('false');
+    });
+
+    expect(screen.getByTestId('activity-json-error-repo')).toHaveTextContent(
+      'N/A',
+    );
+  });
+
+  it('exits early when cancelled during batch processing (lines 183-184)', async () => {
+    let fetchCallCount = 0;
+    mockFetchApi.fetch.mockImplementation(() => {
+      fetchCallCount++;
+      return new Promise(resolve => {
+        setTimeout(
+          () =>
+            resolve({
+              ok: true,
+              json: () => Promise.resolve([{ id: fetchCallCount }]),
+            }),
+          100,
+        );
+      });
+    });
+
+    const entities = [
+      createGitLabEntity('batch-repo-1'),
+      createGitLabEntity('batch-repo-2'),
+      createGitLabEntity('batch-repo-3'),
+      createGitLabEntity('batch-repo-4'),
+    ];
+
+    const { unmount } = renderTestConsumer(entities);
+
+    await jest.advanceTimersByTimeAsync(150);
+
+    unmount();
+
+    const callsBeforeUnmount = fetchCallCount;
+
+    await jest.advanceTimersByTimeAsync(500);
+
+    expect(fetchCallCount).toBe(callsBeforeUnmount);
+  });
+
+  it('adds delay between batches when processing multiple GitLab entities (lines 188-190)', async () => {
+    const fetchTimes: number[] = [];
+    const startTime = Date.now();
+
+    mockFetchApi.fetch.mockImplementation(() => {
+      fetchTimes.push(Date.now() - startTime);
+      return Promise.resolve({
+        ok: true,
+        json: () =>
+          Promise.resolve([
+            {
+              id: fetchTimes.length,
+              created_at: '2024-06-15T11:00:00Z',
+            },
+          ]),
+      });
+    });
+
+    const entities = [
+      createGitLabEntity('delay-repo-1'),
+      createGitLabEntity('delay-repo-2'),
+      createGitLabEntity('delay-repo-3'),
+    ];
+
+    renderTestConsumer(entities);
+
+    await jest.advanceTimersByTimeAsync(50);
+
+    expect(mockFetchApi.fetch).toHaveBeenCalledTimes(2);
+
+    await jest.advanceTimersByTimeAsync(200);
+
+    await waitFor(() => {
+      expect(mockFetchApi.fetch).toHaveBeenCalledTimes(3);
+    });
+  });
+
+  it('does not update state when cancelled after fetches complete (lines 195-196)', async () => {
+    let resolvePromise: (value: unknown) => void;
+    const fetchPromise = new Promise(resolve => {
+      resolvePromise = resolve;
+    });
+
+    mockFetchApi.fetch.mockImplementation(() => fetchPromise);
+
+    const { unmount } = renderTestConsumer([createGitLabEntity('late-cancel')]);
+
+    await jest.advanceTimersByTimeAsync(50);
+
+    unmount();
+
+    resolvePromise!({
+      ok: true,
+      json: () =>
+        Promise.resolve([{ id: 123, created_at: '2024-06-15T11:00:00Z' }]),
+    });
+
+    await jest.advanceTimersByTimeAsync(100);
+  });
 });

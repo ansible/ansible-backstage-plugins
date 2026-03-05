@@ -184,7 +184,11 @@ const RepositoriesTableInner = ({
     }
     const sourceMatch = (e: Entity) =>
       sourceFilter === 'All' || getRepoHost(e) === sourceFilter;
-    return list.filter(sourceMatch);
+    return list.filter(sourceMatch).sort((a, b) => {
+      const nameA = (a.metadata?.title ?? a.metadata?.name ?? '').toLowerCase();
+      const nameB = (b.metadata?.title ?? b.metadata?.name ?? '').toLowerCase();
+      return nameA.localeCompare(nameB);
+    });
   }, [allRepos, filters.user?.value, isStarredEntity, sourceFilter]);
 
   const handleKebabOpen = (

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { Entity } from '@backstage/catalog-model';
 import {
   useApi,
@@ -10,8 +10,48 @@ import { formatTimeAgo, getSourceUrl } from '../CollectionsCatalog/utils';
 import { getGitHubOwnerRepo, getGitLabProjectPath } from './scmUtils';
 
 const NO_ACTIVITY = 'N/A';
+const GITLAB_BATCH_SIZE = 2;
+const GITLAB_BATCH_DELAY_MS = 150;
+const MAX_RETRIES = 2;
+const INITIAL_RETRY_DELAY_MS = 300;
+const RETRYABLE_STATUS_CODES = new Set([502, 503, 504]);
 
 export type LatestActivityEntry = { text: string; url?: string };
+
+type FetchFn = (url: string, init?: RequestInit) => Promise<Response>;
+
+async function fetchWithRetry(
+  fetchFn: FetchFn,
+  url: string,
+  isCancelled: () => boolean,
+  retries: number = MAX_RETRIES,
+): Promise<Response | null> {
+  for (let attempt = 0; attempt <= retries; attempt++) {
+    if (isCancelled()) {
+      return null;
+    }
+    try {
+      const res = await fetchFn(url, { credentials: 'include' });
+      if (res.ok || !RETRYABLE_STATUS_CODES.has(res.status)) {
+        return res;
+      }
+      if (attempt < retries) {
+        const delay = INITIAL_RETRY_DELAY_MS * Math.pow(2, attempt);
+        await new Promise(resolve => setTimeout(resolve, delay));
+        continue;
+      }
+      return res;
+    } catch {
+      if (attempt < retries) {
+        const delay = INITIAL_RETRY_DELAY_MS * Math.pow(2, attempt);
+        await new Promise(resolve => setTimeout(resolve, delay));
+        continue;
+      }
+      return null;
+    }
+  }
+  return null;
+}
 
 export function useLatestCIActivity(entities: Entity[]): {
   lastActivityMap: Record<string, LatestActivityEntry>;
@@ -25,24 +65,28 @@ export function useLatestCIActivity(entities: Entity[]): {
     Record<string, LatestActivityEntry>
   >({});
   const [loading, setLoading] = useState(true);
+  const requestIdRef = useRef(0);
 
-  const fetchLatest = useCallback(async () => {
-    if (entities.length === 0) {
-      setLastActivityMap({});
-      setLoading(false);
-      return;
-    }
-    setLoading(true);
-    const map: Record<string, LatestActivityEntry> = {};
-    const githubEntities = entities.filter(
-      (e): e is Entity => getGitHubOwnerRepo(e) !== null,
-    );
-    const gitlabEntities = entities.filter(
-      (e): e is Entity => getGitLabProjectPath(e) !== null,
-    );
+  useEffect(() => {
+    const currentRequestId = ++requestIdRef.current;
+    let cancelled = false;
 
-    await Promise.all([
-      ...githubEntities.map(async entity => {
+    const fetchLatest = async () => {
+      if (entities.length === 0) {
+        setLastActivityMap({});
+        setLoading(false);
+        return;
+      }
+      setLoading(true);
+      const map: Record<string, LatestActivityEntry> = {};
+      const githubEntities = entities.filter(
+        (e): e is Entity => getGitHubOwnerRepo(e) !== null,
+      );
+      const gitlabEntities = entities.filter(
+        (e): e is Entity => getGitLabProjectPath(e) !== null,
+      );
+
+      const fetchGitHubActivity = async (entity: Entity) => {
         const name = entity.metadata?.name ?? '';
         const gh = getGitHubOwnerRepo(entity);
         if (!gh) {
@@ -79,8 +123,12 @@ export function useLatestCIActivity(entities: Entity[]): {
         } catch {
           map[name] = { text: NO_ACTIVITY };
         }
-      }),
-      ...gitlabEntities.map(async entity => {
+      };
+
+      const isCancelled = () =>
+        cancelled || requestIdRef.current !== currentRequestId;
+
+      const fetchGitLabActivity = async (entity: Entity) => {
         const name = entity.metadata?.name ?? '';
         const path = getGitLabProjectPath(entity);
         const repoUrl = getSourceUrl(entity);
@@ -99,10 +147,12 @@ export function useLatestCIActivity(entities: Entity[]): {
         try {
           const catalogBase = await discoveryApi.getBaseUrl('catalog');
           const proxyUrl = `${catalogBase}/ansible/gitlab/pipelines?projectPath=${encodeURIComponent(path)}&host=${encodeURIComponent(host)}&per_page=1`;
-          const res = await fetchApi.fetch(proxyUrl, {
-            credentials: 'include',
-          });
-          if (!res.ok) {
+          const res = await fetchWithRetry(
+            fetchApi.fetch,
+            proxyUrl,
+            isCancelled,
+          );
+          if (!res?.ok) {
             map[name] = { text: NO_ACTIVITY };
             return;
           }
@@ -124,21 +174,42 @@ export function useLatestCIActivity(entities: Entity[]): {
         } catch {
           map[name] = { text: NO_ACTIVITY };
         }
-      }),
-    ]);
+      };
 
-    entities.forEach(e => {
-      const name = e.metadata?.name ?? '';
-      if (!(name in map)) map[name] = { text: NO_ACTIVITY };
-    });
+      await Promise.all(githubEntities.map(fetchGitHubActivity));
 
-    setLastActivityMap(map);
-    setLoading(false);
-  }, [entities, githubActionsApi, discoveryApi, fetchApi]);
+      for (let i = 0; i < gitlabEntities.length; i += GITLAB_BATCH_SIZE) {
+        if (cancelled || requestIdRef.current !== currentRequestId) {
+          return;
+        }
+        const batch = gitlabEntities.slice(i, i + GITLAB_BATCH_SIZE);
+        await Promise.all(batch.map(fetchGitLabActivity));
+        if (i + GITLAB_BATCH_SIZE < gitlabEntities.length) {
+          await new Promise(resolve =>
+            setTimeout(resolve, GITLAB_BATCH_DELAY_MS),
+          );
+        }
+      }
 
-  useEffect(() => {
+      if (cancelled || requestIdRef.current !== currentRequestId) {
+        return;
+      }
+
+      entities.forEach(e => {
+        const name = e.metadata?.name ?? '';
+        if (!(name in map)) map[name] = { text: NO_ACTIVITY };
+      });
+
+      setLastActivityMap(map);
+      setLoading(false);
+    };
+
     fetchLatest();
-  }, [fetchLatest]);
+
+    return () => {
+      cancelled = true;
+    };
+  }, [entities, githubActionsApi, discoveryApi, fetchApi]);
 
   return { lastActivityMap, loading };
 }
