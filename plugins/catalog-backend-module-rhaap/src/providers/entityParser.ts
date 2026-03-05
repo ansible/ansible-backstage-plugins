@@ -483,7 +483,7 @@ export function repositoryParser(options: RepositoryParserOptions): Entity {
     metadata: {
       name: entityName,
       namespace: 'default',
-      title: repository.fullPath,
+      title: repository.name,
       description:
         repository.description ||
         `Git repository containing Ansible collections: ${repository.fullPath}`,
@@ -511,6 +511,7 @@ export function repositoryParser(options: RepositoryParserOptions): Entity {
       repository_name: repository.name,
       repository_default_branch: repository.defaultBranch,
       repository_collection_count: collectionCount,
+      repository_ee_count: 0, // Reserved for future EE discovery in this repo
       ...(collectionEntityNames &&
         collectionEntityNames.length > 0 && {
           repository_collections: collectionEntityNames,

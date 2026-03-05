@@ -16,6 +16,7 @@
   "dependencies": {
     "@ansible/plugin-backstage-rhaap": "workspace:^",
     "@ansible/plugin-backstage-self-service": "workspace:^",
+    "@backstage-community/plugin-github-actions": "^0.11.1",
     "@backstage-community/plugin-rbac": "1.38.3",
     "@backstage/app-defaults": "^1.6.2",
     "@backstage/canon": "^0.4.0",

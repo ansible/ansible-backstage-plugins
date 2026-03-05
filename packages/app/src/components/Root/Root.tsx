@@ -24,6 +24,7 @@ import {
   Link,
 } from '@backstage/core-components';
 import MenuIcon from '@material-ui/icons/Menu';
+import CodeIcon from '@material-ui/icons/Code';
 import SearchIcon from '@material-ui/icons/Search';
 import { MyGroupsSidebarItem } from '@backstage/plugin-org';
 import GroupIcon from '@material-ui/icons/People';
@@ -95,6 +96,11 @@ export const Root = ({ children }: PropsWithChildren<{}>) => (
             icon={MenuIcon}
             to="/self-service/ee"
             text="Execution Environments"
+          />
+          <SidebarItem
+            icon={CodeIcon}
+            to="/self-service/repositories/catalog"
+            text="Git Repositories"
           />
         </SidebarScrollWrapper>
       </SidebarGroup>

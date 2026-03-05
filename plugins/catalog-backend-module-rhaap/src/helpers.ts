@@ -1,4 +1,30 @@
+import type { Config } from '@backstage/config';
+
 import { AnsibleGitContentsProvider } from './providers/AnsibleGitContentsProvider';
+
+export function getGitLabIntegrationForHost(
+  config: Config,
+  host: string,
+): { token?: string; apiBaseUrl?: string } {
+  const arr = config.getOptionalConfigArray('integrations.gitlab');
+  if (!arr?.length) return {};
+  for (const c of arr) {
+    const h = c.getOptionalString('host') ?? 'gitlab.com';
+    if (h !== host) continue;
+    const token = c.getOptionalString('token');
+    const apiBaseUrl = c.getOptionalString('apiBaseUrl')?.replace(/\/$/, '');
+    return { token, apiBaseUrl };
+  }
+  return {};
+}
+
+export function getSkipTlsVerifyHosts(config: Config): string[] {
+  return (
+    config.getOptionalStringArray(
+      'catalog.ansible.gitlabPipelinesProxy.skipTlsVerifyForHosts',
+    ) ?? []
+  );
+}
 
 export function formatNameSpace(name: string): string {
   return name

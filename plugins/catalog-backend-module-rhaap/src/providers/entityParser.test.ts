@@ -983,6 +983,7 @@ describe('entityParser', () => {
       expect(result.spec?.repository_name).toBe('test-repo');
       expect(result.spec?.repository_default_branch).toBe('main');
       expect(result.spec?.repository_collection_count).toBe(5);
+      expect(result.metadata.title).toBe('test-repo');
     });
 
     it('should include discovery source ID annotation', () => {
