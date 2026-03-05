@@ -27,9 +27,22 @@ import {
   Users,
   CatalogConfig,
 } from '../types';
-import { IJobTemplate, ISurvey, InstanceGroup } from '../interfaces';
+import {
+  IJobTemplate,
+  Collection,
+  ISurvey,
+  InstanceGroup,
+} from '../interfaces';
 
 import { getAnsibleConfig, getCatalogConfig } from './utils/config';
+import {
+  PAHHelperContext,
+  sanitizePAHLimit,
+  validateAndFilterRepositories,
+  appendCollectionsFromPage,
+  fetchCollectionsPage,
+  extractNextUrl,
+} from './pahHelpers';
 
 export interface IAAPService extends Pick<
   AAPClient,
@@ -62,6 +75,8 @@ export interface IAAPService extends Pick<
   | 'syncJobTemplates'
   | 'getOrgsByUserId'
   | 'getUserInfoById'
+  | 'isValidPAHRepository'
+  | 'syncCollectionsByRepositories'
 > {}
 
 export class AAPClient implements IAAPService {
@@ -349,20 +364,23 @@ export class AAPClient implements IAAPService {
     let projectData = (await response.json()) as Project;
     const waitStatuses = ['new', 'pending', 'waiting', 'running'];
 
-    let projectStatus = projectData.status as string;
+    let projectStatus = projectData.status;
     this.logger.info(`Waiting for the project to be ready.`);
-    if (waitStatuses.includes(projectStatus)) {
+    if (projectStatus && waitStatuses.includes(projectStatus)) {
       let shouldWait = true;
-      while (shouldWait) {
+      while (shouldWait && projectData.id !== undefined) {
         await this.sleep(2000);
-        projectData = await this.getProject(projectData.id as number, token);
-        projectStatus = projectData.status as string;
-        if (!waitStatuses.includes(projectStatus)) {
+        projectData = await this.getProject(projectData.id, token);
+        projectStatus = projectData.status;
+        if (!projectStatus || !waitStatuses.includes(projectStatus)) {
           shouldWait = false;
         }
       }
     }
-    if (['failed', 'error', 'canceled'].includes(projectStatus)) {
+    if (
+      projectStatus &&
+      ['failed', 'error', 'canceled'].includes(projectStatus)
+    ) {
       this.logger.error(
         `[${this.pluginLogName}] Error creating project: ${projectStatus}`,
       );
@@ -649,7 +667,7 @@ export class AAPClient implements IAAPService {
 
     if (payload?.credentials?.length) {
       const seen = new Set();
-      const duplicates = [] as string[];
+      const duplicates: string[] = [];
       payload.credentials.some(currentObject => {
         if (!currentObject.credential_type) {
           return false;
@@ -1323,5 +1341,86 @@ export class AAPClient implements IAAPService {
       );
       throw new Error(`Error retrieving job templates from ${endPoint}.`);
     }
+  }
+
+  public async isValidPAHRepository(repositoryName: string): Promise<boolean> {
+    const endPoint = `api/galaxy/pulp/api/v3/repositories?name=${encodeURIComponent(repositoryName)}`;
+    const token = this.ansibleConfig.rhaap?.token ?? null;
+    const response = await this.executeGetRequest(endPoint, token);
+    const data = await response.json();
+    if (data.results.length > 0) {
+      return true;
+    }
+    return false;
+  }
+
+  public async syncCollectionsByRepositories(
+    repositories: string[],
+    limit: number = 100,
+    signal?: AbortSignal,
+  ): Promise<Collection[]> {
+    const collections: Collection[] = [];
+    const token = this.ansibleConfig.rhaap?.token ?? null;
+
+    const context: PAHHelperContext = {
+      logger: this.logger,
+      pluginLogName: this.pluginLogName,
+      executeGetRequest: this.executeGetRequest.bind(this),
+      isValidPAHRepository: this.isValidPAHRepository.bind(this),
+    };
+
+    if (repositories.length === 0) {
+      this.logger.info(
+        `[${this.pluginLogName}]: No repositories provided. Returning empty collection list.`,
+      );
+      return collections;
+    }
+
+    const sanitizedLimit = sanitizePAHLimit(limit, context);
+    const validationResult = await validateAndFilterRepositories(
+      repositories,
+      context,
+    );
+
+    if (!validationResult) {
+      return collections;
+    }
+
+    const { validRepos, urlSearchParams } = validationResult;
+    urlSearchParams.set('limit', sanitizedLimit.toString());
+
+    let nextUrl: string | null =
+      `/api/galaxy/v3/plugin/ansible/search/collection-versions/?${urlSearchParams.toString()}`;
+
+    while (nextUrl) {
+      if (signal?.aborted) {
+        this.logger.info(
+          `[${this.pluginLogName}]: Sync aborted, stopping pagination after ${collections.length} collections`,
+        );
+        throw new Error(
+          `Sync aborted, stopping pagination after ${collections.length} collections`,
+        );
+      }
+
+      const pageResult = await fetchCollectionsPage(nextUrl, token, context);
+
+      if (!pageResult) {
+        break;
+      }
+
+      await appendCollectionsFromPage(
+        pageResult.collectionsData,
+        collections,
+        token,
+        context,
+      );
+      nextUrl = extractNextUrl(pageResult.collectionsData);
+    }
+
+    this.logger.info(
+      `[${this.pluginLogName}]: Successfully retrieved ${collections.length} collections from ${validRepos.length} repositories.`,
+    );
+
+    return collections;
   }
 }
