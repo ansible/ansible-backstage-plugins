@@ -164,6 +164,19 @@ export const StepForm = ({
         }
       }
     }
+
+    if (step?.schema?.allOf && Array.isArray(step.schema.allOf)) {
+      for (const condition of step.schema.allOf) {
+        if (condition.then?.properties) {
+          for (const key of Object.keys(condition.then.properties)) {
+            if (!allProperties[key]) {
+              allProperties[key] = condition.then.properties[key];
+            }
+          }
+        }
+      }
+    }
+
     return allProperties;
   };
 
@@ -174,45 +187,56 @@ export const StepForm = ({
 
   // Don't return early if no filtered steps - we still want to show the review step
 
+  const extractUiFromProperty = (property: any): Record<string, any> | null => {
+    if (!property) return null;
+
+    const ui: Record<string, any> = {};
+    let hasUiProperties = false;
+
+    for (const key of Object.keys(property)) {
+      if (key.startsWith('ui:')) {
+        ui[key] = property[key];
+        hasUiProperties = true;
+      }
+    }
+
+    if (property.ui && typeof property.ui === 'object') {
+      for (const uiKey of Object.keys(property.ui)) {
+        const uiPropertyKey = `ui:${uiKey}`;
+        if (!ui[uiPropertyKey]) {
+          ui[uiPropertyKey] = property.ui[uiKey];
+          hasUiProperties = true;
+        }
+      }
+    }
+    return hasUiProperties ? ui : null;
+  };
+
   const extractUiSchema = (
     properties: Record<string, any>,
     dependencies?: Record<string, any>,
+    allOf?: any[],
   ): Record<string, any> => {
     const uiSchema: Record<string, any> = {};
 
     if (!properties) return uiSchema;
 
-    const extractUiFromProperty = (
-      property: any,
-    ): Record<string, any> | null => {
-      if (!property) return null;
-
-      const ui: Record<string, any> = {};
-      let hasUiProperties = false;
-
-      for (const key of Object.keys(property)) {
-        if (key.startsWith('ui:')) {
-          ui[key] = property[key];
-          hasUiProperties = true;
-        }
-      }
-
-      if (property.ui && typeof property.ui === 'object') {
-        for (const uiKey of Object.keys(property.ui)) {
-          const uiPropertyKey = `ui:${uiKey}`;
-          if (!ui[uiPropertyKey]) {
-            ui[uiPropertyKey] = property.ui[uiKey];
-            hasUiProperties = true;
-          }
-        }
-      }
-      return hasUiProperties ? ui : null;
-    };
-
     for (const key of Object.keys(properties)) {
-      const ui = extractUiFromProperty(properties[key]);
+      const property = properties[key];
+      const ui = extractUiFromProperty(property);
       if (ui) {
         uiSchema[key] = ui;
+      }
+
+      if (property?.type === 'object' && property?.properties) {
+        const nestedUi = extractUiSchema(
+          property.properties,
+          property.dependencies,
+          property.allOf,
+        );
+        if (Object.keys(nestedUi).length > 0) {
+          uiSchema[key] = { ...(uiSchema[key] || {}), ...nestedUi };
+        }
       }
     }
 
@@ -236,6 +260,19 @@ export const StepForm = ({
       }
     }
 
+    if (allOf && Array.isArray(allOf)) {
+      for (const condition of allOf) {
+        if (condition.then?.properties) {
+          for (const key of Object.keys(condition.then.properties)) {
+            const ui = extractUiFromProperty(condition.then.properties[key]);
+            if (ui) {
+              uiSchema[key] = ui;
+            }
+          }
+        }
+      }
+    }
+
     return uiSchema;
   };
 
@@ -247,9 +284,17 @@ export const StepForm = ({
     const schema = step.schema;
     const properties = schema.properties || {};
     const dependencies = schema.dependencies;
+    const allOf = schema.allOf;
 
-    // Extract and return the ui schema
-    return extractUiSchema(properties, dependencies);
+    const uiSchema = extractUiSchema(properties, dependencies, allOf);
+
+    for (const key of Object.keys(schema)) {
+      if (key.startsWith('ui:')) {
+        uiSchema[key] = schema[key];
+      }
+    }
+
+    return uiSchema;
   };
 
   const decodeBase64FileContent = (dataUrl: string): string | null => {
@@ -269,16 +314,13 @@ export const StepForm = ({
     return null;
   };
 
-  const getReviewValue = (
-    key: any,
-    stepIndex?: number,
-  ): string | JSX.Element => {
-    const value = formData[key];
-    if (
-      typeof value === 'string' &&
-      value.startsWith('data:text/plain;base64,')
-    ) {
-      const decodedContent = decodeBase64FileContent(value);
+  const formatValueForDisplay = (val: any): string | JSX.Element => {
+    if (val === undefined || val === null || val === '') {
+      return '';
+    }
+
+    if (typeof val === 'string' && val.startsWith('data:text/plain;base64,')) {
+      const decodedContent = decodeBase64FileContent(val);
       if (decodedContent) {
         return (
           <pre
@@ -302,22 +344,93 @@ export const StepForm = ({
       }
     }
 
-    if (typeof value === 'object') {
-      if (Array.isArray(value)) {
-        if (value.length > 0 && typeof value[0] === 'string') {
-          return value.join(', ');
-        }
-        if (value.length > 0 && typeof value[0] === 'object' && value[0].name) {
-          return value.map(el => el.name).join(', ');
-        }
-        return value
-          .map(el =>
-            typeof el === 'object' && el !== null
-              ? el.name || JSON.stringify(el)
-              : String(el),
-          )
-          .join(', ');
+    if (Array.isArray(val)) {
+      if (val.length === 0) return '';
+      if (typeof val[0] === 'string') {
+        return val.join(', ');
       }
+      if (typeof val[0] === 'object' && val[0]?.name) {
+        return val.map(el => el.name).join(', ');
+      }
+      return val
+        .map(el =>
+          typeof el === 'object' && el !== null
+            ? el.name || JSON.stringify(el)
+            : String(el),
+        )
+        .join(', ');
+    }
+
+    if (typeof val === 'boolean') {
+      return val ? 'Yes' : 'No';
+    }
+
+    if (typeof val === 'object' && val.name) {
+      return val.name;
+    }
+
+    return String(val);
+  };
+
+  const renderNestedObject = (obj: Record<string, any>): JSX.Element => {
+    const entries = Object.entries(obj).filter(([_, v]) => {
+      if (v === undefined || v === null || v === '') return false;
+      if (Array.isArray(v) && v.length === 0) return false;
+      if (typeof v === 'boolean' && !v) return false;
+      return true;
+    });
+
+    if (entries.length === 0) {
+      return (
+        <span
+          style={{ color: 'rgba(128, 128, 128, 0.8)', fontStyle: 'italic' }}
+        >
+          None configured
+        </span>
+      );
+    }
+
+    return (
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+        {entries.map(([k, v]) => {
+          const label = k
+            .replace(/([A-Z])/g, ' $1')
+            .replace(/^./, str => str.toUpperCase())
+            .trim();
+          const formattedValue = formatValueForDisplay(v);
+
+          return (
+            <div key={k}>
+              <strong style={{ fontSize: '0.85rem' }}>{label}:</strong>{' '}
+              <span style={{ fontSize: '0.85rem' }}>{formattedValue}</span>
+            </div>
+          );
+        })}
+      </div>
+    );
+  };
+
+  const getReviewValue = (
+    key: any,
+    stepIndex?: number,
+  ): string | JSX.Element => {
+    const value = formData[key];
+
+    if (
+      typeof value === 'string' &&
+      value.startsWith('data:text/plain;base64,')
+    ) {
+      return formatValueForDisplay(value);
+    }
+
+    if (typeof value === 'object' && value !== null) {
+      if (Array.isArray(value)) {
+        return formatValueForDisplay(value);
+      }
+      if (!value.name && Object.keys(value).length > 0) {
+        return renderNestedObject(value);
+      }
+
       return value.name ?? JSON.stringify(value);
     }
     if (stepIndex !== undefined) {
