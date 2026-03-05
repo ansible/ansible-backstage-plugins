@@ -96,7 +96,7 @@ export function useLatestCIActivity(entities: Entity[]): {
           }
           const eventName = run.name ?? 'Workflow';
           const runNum = run.run_number ?? run.id;
-          const timeAgo = formatTimeAgo(run.created_at);
+          const timeAgo = formatTimeAgo(run.created_at ?? undefined);
           map[name] = {
             text: `${eventName} #${runNum} • ${timeAgo}`,
             url: run.html_url ?? undefined,
@@ -141,7 +141,7 @@ export function useLatestCIActivity(entities: Entity[]): {
             map[name] = { text: NO_ACTIVITY };
             return;
           }
-          const timeAgo = formatTimeAgo(pipeline.created_at);
+          const timeAgo = formatTimeAgo(pipeline.created_at ?? undefined);
           map[name] = {
             text: `Pipeline #${pipeline.id} • ${timeAgo}`,
             url: pipeline.web_url ?? undefined,

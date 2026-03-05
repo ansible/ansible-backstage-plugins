@@ -124,7 +124,10 @@ export async function createRouter(options: {
         ? 'https://gitlab.com/api/v4'
         : `https://${host}/api/v4`);
     const url = `${apiBase}/projects/${encodeURIComponent(projectPath)}/pipelines?per_page=${perPage}&order_by=updated_at&sort=desc`;
-    const skipTlsVerify = getSkipTlsVerifyHosts(config).includes(host);
+    const hostLower = host.toLowerCase();
+    const skipTlsVerify = getSkipTlsVerifyHosts(config)
+      .filter(isSafeHostname)
+      .some(h => h.toLowerCase() === hostLower);
     const fetchOptions: RequestInit = {
       headers: { 'PRIVATE-TOKEN': token },
     };

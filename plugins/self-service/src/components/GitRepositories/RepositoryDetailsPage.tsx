@@ -188,7 +188,7 @@ export const RepositoryDetailsPage = () => {
   }, [entity]);
 
   const hasSourceUrl = useCallback(() => {
-    return Boolean(getSourceUrl(entity ?? undefined));
+    return entity ? Boolean(getSourceUrl(entity)) : false;
   }, [entity]);
 
   const displayName =

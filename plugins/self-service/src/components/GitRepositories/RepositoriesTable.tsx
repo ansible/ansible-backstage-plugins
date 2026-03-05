@@ -495,8 +495,13 @@ const RepositoriesTableInner = ({
             <Paper className={tableWrapperClasses.paper}>
               <Autocomplete<{ value: string; label: string }>
                 options={allSources}
-                getOptionLabel={opt => opt.label}
-                isOptionEqualToValue={(opt, val) => opt.value === val?.value}
+                getOptionLabel={(opt: { value: string; label: string }) =>
+                  opt.label
+                }
+                getOptionSelected={(
+                  opt: { value: string; label: string },
+                  val: { value: string; label: string },
+                ) => opt.value === val?.value}
                 value={allSources.find(o => o.value === sourceFilter) ?? null}
                 onChange={(_event, newValue) =>
                   setSourceFilter(newValue?.value ?? 'All')
@@ -515,7 +520,6 @@ const RepositoriesTableInner = ({
                     }}
                   />
                 )}
-                disableClearable={sourceFilter === 'All'}
                 size="small"
                 fullWidth
               />
