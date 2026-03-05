@@ -14,6 +14,8 @@
  * limitations under the License.
  */
 
+const mockGetPipelines = jest.fn();
+
 jest.mock('@ansible/backstage-rhaap-common', () => {
   const actual = jest.requireActual('@ansible/backstage-rhaap-common');
   return {
@@ -22,6 +24,9 @@ jest.mock('@ansible/backstage-rhaap-common', () => {
       createClient: jest.fn().mockResolvedValue({
         getFileContent: jest.fn().mockResolvedValue('# README content'),
       }),
+    })),
+    GitlabClient: jest.fn().mockImplementation(() => ({
+      getPipelines: mockGetPipelines,
     })),
   };
 });
@@ -748,6 +753,331 @@ describe('createRouter', () => {
 
       expect(response.status).toBe(400);
       expect(response.body.error).toContain('Invalid host');
+    });
+
+    it('should return 400 when projectPath is missing', async () => {
+      const response = await request(app)
+        .get('/ansible/gitlab/pipelines')
+        .query({ host: 'gitlab.com' });
+
+      expect(response.status).toBe(400);
+      expect(response.body.error).toContain('Missing projectPath');
+    });
+
+    it('should return 400 when token is missing and not in config', async () => {
+      const configWithoutToken = new ConfigReader({});
+      const routerWithoutToken = await createRouter({
+        logger: mockLogger,
+        config: configWithoutToken,
+        aapEntityProvider: mockAAPEntityProvider,
+        jobTemplateProvider: mockJobTemplateProvider,
+        eeEntityProvider: mockEEEntityProvider,
+        pahCollectionProviders: [],
+      });
+      const appWithoutToken = express().use(routerWithoutToken);
+
+      const response = await request(appWithoutToken)
+        .get('/ansible/gitlab/pipelines')
+        .query({ projectPath: 'group/project', host: 'gitlab.unknown.com' });
+
+      expect(response.status).toBe(400);
+      expect(response.body.error).toContain(
+        'Missing projectPath or authorization',
+      );
+    });
+
+    it('should use token from config for matching host', async () => {
+      mockGetPipelines.mockResolvedValue({
+        ok: true,
+        status: 200,
+        data: [{ id: 1, status: 'success' }],
+      });
+
+      const response = await request(app)
+        .get('/ansible/gitlab/pipelines')
+        .query({ projectPath: 'group/project', host: 'gitlab.com' });
+
+      expect(response.status).toBe(200);
+      expect(response.body).toEqual([{ id: 1, status: 'success' }]);
+    });
+
+    it('should use token from Authorization header when not in config', async () => {
+      mockGetPipelines.mockResolvedValue({
+        ok: true,
+        status: 200,
+        data: [],
+      });
+
+      const response = await request(app)
+        .get('/ansible/gitlab/pipelines')
+        .query({ projectPath: 'group/project', host: 'gitlab.other.com' })
+        .set('Authorization', 'Bearer request-token');
+
+      expect(response.status).toBe(200);
+    });
+
+    it('should use token from PRIVATE-TOKEN header', async () => {
+      mockGetPipelines.mockResolvedValue({
+        ok: true,
+        status: 200,
+        data: [],
+      });
+
+      const response = await request(app)
+        .get('/ansible/gitlab/pipelines')
+        .query({ projectPath: 'group/project', host: 'gitlab.other.com' })
+        .set('PRIVATE-TOKEN', 'private-token');
+
+      expect(response.status).toBe(200);
+    });
+
+    it('should return pipelines data on success', async () => {
+      const pipelines = [
+        { id: 1, status: 'success', ref: 'main' },
+        { id: 2, status: 'failed', ref: 'develop' },
+      ];
+
+      mockGetPipelines.mockResolvedValue({
+        ok: true,
+        status: 200,
+        data: pipelines,
+      });
+
+      const response = await request(app)
+        .get('/ansible/gitlab/pipelines')
+        .query({ projectPath: 'group/project', host: 'gitlab.com' });
+
+      expect(response.status).toBe(200);
+      expect(response.body).toEqual(pipelines);
+    });
+
+    it('should return GitLab error status when API returns non-OK', async () => {
+      mockGetPipelines.mockResolvedValue({
+        ok: false,
+        status: 404,
+        data: { message: 'Project not found' },
+      });
+
+      const response = await request(app)
+        .get('/ansible/gitlab/pipelines')
+        .query({ projectPath: 'group/nonexistent', host: 'gitlab.com' });
+
+      expect(response.status).toBe(404);
+      expect(mockLogger.warn).toHaveBeenCalled();
+    });
+
+    it('should return 502 when GitLab client throws error', async () => {
+      mockGetPipelines.mockRejectedValue(new Error('Network error'));
+
+      const response = await request(app)
+        .get('/ansible/gitlab/pipelines')
+        .query({ projectPath: 'group/project', host: 'gitlab.com' });
+
+      expect(response.status).toBe(502);
+      expect(response.body.error).toBe('Failed to fetch GitLab pipelines');
+    });
+
+    it('should default host to gitlab.com when not provided', async () => {
+      mockGetPipelines.mockResolvedValue({
+        ok: true,
+        status: 200,
+        data: [],
+      });
+
+      const response = await request(app)
+        .get('/ansible/gitlab/pipelines')
+        .query({ projectPath: 'group/project' });
+
+      expect(response.status).toBe(200);
+    });
+
+    it('should respect per_page query parameter', async () => {
+      mockGetPipelines.mockResolvedValue({
+        ok: true,
+        status: 200,
+        data: [],
+      });
+
+      await request(app).get('/ansible/gitlab/pipelines').query({
+        projectPath: 'group/project',
+        host: 'gitlab.com',
+        per_page: 50,
+      });
+
+      expect(mockGetPipelines).toHaveBeenCalledWith('group/project', {
+        perPage: 50,
+      });
+    });
+
+    it('should cap per_page at 100', async () => {
+      mockGetPipelines.mockResolvedValue({
+        ok: true,
+        status: 200,
+        data: [],
+      });
+
+      await request(app).get('/ansible/gitlab/pipelines').query({
+        projectPath: 'group/project',
+        host: 'gitlab.com',
+        per_page: 200,
+      });
+
+      expect(mockGetPipelines).toHaveBeenCalledWith('group/project', {
+        perPage: 100,
+      });
+    });
+
+    it('should default per_page to 15', async () => {
+      mockGetPipelines.mockResolvedValue({
+        ok: true,
+        status: 200,
+        data: [],
+      });
+
+      await request(app)
+        .get('/ansible/gitlab/pipelines')
+        .query({ projectPath: 'group/project', host: 'gitlab.com' });
+
+      expect(mockGetPipelines).toHaveBeenCalledWith('group/project', {
+        perPage: 15,
+      });
+    });
+
+    it('should disable SSL verification for hosts in skipTlsVerifyForHosts', async () => {
+      const configWithSkipTls = new ConfigReader({
+        integrations: {
+          gitlab: [{ host: 'gitlab.com', token: 'test-token' }],
+        },
+        catalog: {
+          ansible: {
+            gitlabPipelinesProxy: {
+              skipTlsVerifyForHosts: ['gitlab.insecure.com'],
+            },
+          },
+        },
+      });
+
+      const routerWithSkipTls = await createRouter({
+        logger: mockLogger,
+        config: configWithSkipTls,
+        aapEntityProvider: mockAAPEntityProvider,
+        jobTemplateProvider: mockJobTemplateProvider,
+        eeEntityProvider: mockEEEntityProvider,
+        pahCollectionProviders: [],
+      });
+
+      const appWithSkipTls = express().use(routerWithSkipTls);
+
+      mockGetPipelines.mockResolvedValue({
+        ok: true,
+        status: 200,
+        data: [],
+      });
+
+      const { GitlabClient } = require('@ansible/backstage-rhaap-common');
+
+      await request(appWithSkipTls)
+        .get('/ansible/gitlab/pipelines')
+        .query({ projectPath: 'group/project', host: 'gitlab.insecure.com' })
+        .set('PRIVATE-TOKEN', 'token');
+
+      expect(GitlabClient).toHaveBeenCalledWith(
+        expect.objectContaining({
+          config: expect.objectContaining({
+            checkSSL: false,
+          }),
+        }),
+      );
+    });
+
+    it('should enable SSL verification for hosts not in skipTlsVerifyForHosts', async () => {
+      mockGetPipelines.mockResolvedValue({
+        ok: true,
+        status: 200,
+        data: [],
+      });
+
+      const { GitlabClient } = require('@ansible/backstage-rhaap-common');
+
+      await request(app)
+        .get('/ansible/gitlab/pipelines')
+        .query({ projectPath: 'group/project', host: 'gitlab.com' });
+
+      expect(GitlabClient).toHaveBeenCalledWith(
+        expect.objectContaining({
+          config: expect.objectContaining({
+            checkSSL: true,
+          }),
+        }),
+      );
+    });
+
+    it('should use apiBaseUrl from config when available', async () => {
+      const configWithApiBase = new ConfigReader({
+        integrations: {
+          gitlab: [
+            {
+              host: 'gitlab.internal.com',
+              token: 'internal-token',
+              apiBaseUrl: 'https://gitlab.internal.com/api/v4',
+            },
+          ],
+        },
+      });
+
+      const routerWithApiBase = await createRouter({
+        logger: mockLogger,
+        config: configWithApiBase,
+        aapEntityProvider: mockAAPEntityProvider,
+        jobTemplateProvider: mockJobTemplateProvider,
+        eeEntityProvider: mockEEEntityProvider,
+        pahCollectionProviders: [],
+      });
+
+      const appWithApiBase = express().use(routerWithApiBase);
+
+      mockGetPipelines.mockResolvedValue({
+        ok: true,
+        status: 200,
+        data: [],
+      });
+
+      const { GitlabClient } = require('@ansible/backstage-rhaap-common');
+
+      await request(appWithApiBase)
+        .get('/ansible/gitlab/pipelines')
+        .query({ projectPath: 'group/project', host: 'gitlab.internal.com' });
+
+      expect(GitlabClient).toHaveBeenCalledWith(
+        expect.objectContaining({
+          config: expect.objectContaining({
+            apiBaseUrl: 'https://gitlab.internal.com/api/v4',
+          }),
+        }),
+      );
+    });
+
+    it('should prefer config token over request header token', async () => {
+      mockGetPipelines.mockResolvedValue({
+        ok: true,
+        status: 200,
+        data: [],
+      });
+
+      const { GitlabClient } = require('@ansible/backstage-rhaap-common');
+
+      await request(app)
+        .get('/ansible/gitlab/pipelines')
+        .query({ projectPath: 'group/project', host: 'gitlab.com' })
+        .set('Authorization', 'Bearer request-token');
+
+      expect(GitlabClient).toHaveBeenCalledWith(
+        expect.objectContaining({
+          config: expect.objectContaining({
+            token: 'test-token',
+          }),
+        }),
+      );
     });
   });
 

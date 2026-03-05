@@ -1,3 +1,4 @@
+import { ConfigReader } from '@backstage/config';
 import {
   formatNameSpace,
   buildFileUrl,
@@ -11,6 +12,8 @@ import {
   buildInvalidRepositoryResults,
   getSyncResponseStatusCode,
   isSafeHostname,
+  getGitLabIntegrationForHost,
+  getSkipTlsVerifyHosts,
 } from './helpers';
 import type { AnsibleGitContentsProvider } from './providers/AnsibleGitContentsProvider';
 
@@ -572,6 +575,161 @@ describe('helpers', () => {
           emptyRequest: true,
         }),
       ).toBe(400);
+    });
+  });
+
+  describe('getGitLabIntegrationForHost', () => {
+    it('returns empty object when no integrations configured', () => {
+      const config = new ConfigReader({});
+      const result = getGitLabIntegrationForHost(config, 'gitlab.com');
+      expect(result).toEqual({});
+    });
+
+    it('returns empty object when integrations array is empty', () => {
+      const config = new ConfigReader({
+        integrations: {
+          gitlab: [],
+        },
+      });
+      const result = getGitLabIntegrationForHost(config, 'gitlab.com');
+      expect(result).toEqual({});
+    });
+
+    it('returns token for matching host', () => {
+      const config = new ConfigReader({
+        integrations: {
+          gitlab: [
+            {
+              host: 'gitlab.com',
+              token: 'test-token',
+            },
+          ],
+        },
+      });
+      const result = getGitLabIntegrationForHost(config, 'gitlab.com');
+      expect(result).toEqual({ token: 'test-token', apiBaseUrl: undefined });
+    });
+
+    it('returns token and apiBaseUrl for matching host', () => {
+      const config = new ConfigReader({
+        integrations: {
+          gitlab: [
+            {
+              host: 'gitlab.example.com',
+              token: 'my-token',
+              apiBaseUrl: 'https://gitlab.example.com/api/v4/',
+            },
+          ],
+        },
+      });
+      const result = getGitLabIntegrationForHost(config, 'gitlab.example.com');
+      expect(result).toEqual({
+        token: 'my-token',
+        apiBaseUrl: 'https://gitlab.example.com/api/v4',
+      });
+    });
+
+    it('strips trailing slash from apiBaseUrl', () => {
+      const config = new ConfigReader({
+        integrations: {
+          gitlab: [
+            {
+              host: 'gitlab.com',
+              token: 'token',
+              apiBaseUrl: 'https://gitlab.com/api/v4/',
+            },
+          ],
+        },
+      });
+      const result = getGitLabIntegrationForHost(config, 'gitlab.com');
+      expect(result.apiBaseUrl).toBe('https://gitlab.com/api/v4');
+    });
+
+    it('defaults host to gitlab.com when not specified', () => {
+      const config = new ConfigReader({
+        integrations: {
+          gitlab: [
+            {
+              token: 'default-token',
+            },
+          ],
+        },
+      });
+      const result = getGitLabIntegrationForHost(config, 'gitlab.com');
+      expect(result).toEqual({ token: 'default-token', apiBaseUrl: undefined });
+    });
+
+    it('returns empty object when host does not match', () => {
+      const config = new ConfigReader({
+        integrations: {
+          gitlab: [
+            {
+              host: 'gitlab.example.com',
+              token: 'token',
+            },
+          ],
+        },
+      });
+      const result = getGitLabIntegrationForHost(config, 'gitlab.other.com');
+      expect(result).toEqual({});
+    });
+
+    it('finds correct host among multiple integrations', () => {
+      const config = new ConfigReader({
+        integrations: {
+          gitlab: [
+            {
+              host: 'gitlab.com',
+              token: 'public-token',
+            },
+            {
+              host: 'gitlab.internal.com',
+              token: 'internal-token',
+            },
+          ],
+        },
+      });
+      const result = getGitLabIntegrationForHost(config, 'gitlab.internal.com');
+      expect(result).toEqual({
+        token: 'internal-token',
+        apiBaseUrl: undefined,
+      });
+    });
+  });
+
+  describe('getSkipTlsVerifyHosts', () => {
+    it('returns empty array when config not set', () => {
+      const config = new ConfigReader({});
+      const result = getSkipTlsVerifyHosts(config);
+      expect(result).toEqual([]);
+    });
+
+    it('returns configured hosts', () => {
+      const config = new ConfigReader({
+        catalog: {
+          ansible: {
+            gitlabPipelinesProxy: {
+              skipTlsVerifyForHosts: ['gitlab.internal.com', 'gitlab.dev.com'],
+            },
+          },
+        },
+      });
+      const result = getSkipTlsVerifyHosts(config);
+      expect(result).toEqual(['gitlab.internal.com', 'gitlab.dev.com']);
+    });
+
+    it('returns empty array when array is empty', () => {
+      const config = new ConfigReader({
+        catalog: {
+          ansible: {
+            gitlabPipelinesProxy: {
+              skipTlsVerifyForHosts: [],
+            },
+          },
+        },
+      });
+      const result = getSkipTlsVerifyHosts(config);
+      expect(result).toEqual([]);
     });
   });
 });
