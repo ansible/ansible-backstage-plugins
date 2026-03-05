@@ -15,7 +15,6 @@ import { getSourceUrl, buildSourceString } from '../CollectionsCatalog/utils';
 export interface RepositoryAboutCardProps {
   entity: Entity;
   onViewSource?: () => void;
-  /** When set, the collections count in "Contains" is rendered as a link that calls this (e.g. switch to Collections tab). */
   onNavigateToCollections?: () => void;
 }
 

@@ -11,12 +11,10 @@ import {
   Typography,
 } from '@material-ui/core';
 import Autocomplete from '@material-ui/lab/Autocomplete';
-import { makeStyles } from '@material-ui/core/styles';
 import MoreVertIcon from '@material-ui/icons/MoreVert';
 import OpenInNewIcon from '@material-ui/icons/OpenInNew';
 import Star from '@material-ui/icons/Star';
 import StarBorder from '@material-ui/icons/StarBorder';
-import { useNavigate } from 'react-router-dom';
 import { Entity } from '@backstage/catalog-model';
 import {
   CatalogFilterLayout,
@@ -35,7 +33,10 @@ import HelpOutlineIcon from '@material-ui/icons/HelpOutline';
 import GitHubIcon from '@material-ui/icons/GitHub';
 import { getSourceUrl, formatTimeAgo } from '../CollectionsCatalog/utils';
 import { GitLabIcon } from '../CollectionsCatalog/icons';
-import { useCollectionsStyles } from '../CollectionsCatalog/styles';
+import {
+  useCollectionsStyles,
+  useTableWrapperStyles,
+} from '../CollectionsCatalog/styles';
 import type { SyncStatusMap } from '../CollectionsCatalog/types';
 import {
   COLUMN_SOURCE_TOOLTIP,
@@ -44,6 +45,7 @@ import {
   COLUMN_LAST_SYNC_TOOLTIP,
 } from './constants';
 import { useLatestCIActivity } from './useLatestCIActivity';
+import { EntityLinkButton } from '../common';
 
 const StarredIcon = () => <Star style={{ color: '#ffb74d' }} />;
 
@@ -78,31 +80,11 @@ const ColumnHeaderWithTooltip = ({
   </Box>
 );
 
-const useTableWrapperStyles = makeStyles(theme => ({
-  tableWrapper: {
-    borderRadius: 12,
-    overflow: 'hidden',
-    border: `1px solid ${theme.palette.type === 'dark' ? theme.palette.grey[700] : theme.palette.grey[500]}`,
-    '& .MuiTypography-h5': {
-      fontSize: '1.75rem',
-      fontWeight: 600,
-    },
-  },
-  filterGroup: {
-    marginBottom: 16,
-  },
-  paper: {
-    padding: theme.spacing(1, 2),
-    borderRadius: 8,
-  },
-}));
-
 interface RepositoriesTableProps {
   syncStatusMap: SyncStatusMap;
   onSourcesStatusChange?: (hasSources: boolean | null) => void;
 }
 
-/** Host value from annotations (for filtering). Always returns hostname, never URL. */
 const getRepoHost = (entity: Entity): string => {
   const annotations = entity.metadata?.annotations || {};
   let host = annotations['ansible.io/scm-host'];
@@ -123,7 +105,6 @@ const getRepoHost = (entity: Entity): string => {
   return provider || '';
 };
 
-/** Display name for source filter from ansible.io/scm-host-name, or host if not set. */
 const getRepoHostName = (entity: Entity): string => {
   const annotations = entity.metadata?.annotations || {};
   const name = annotations['ansible.io/scm-host-name'];
@@ -138,7 +119,6 @@ const RepositoriesTableInner = ({
   const classes = useCollectionsStyles();
   const tableWrapperClasses = useTableWrapperStyles();
   const catalogApi = useApi(catalogApiRef);
-  const navigate = useNavigate();
   const { isStarredEntity, toggleStarredEntity } = useStarredEntities();
   const { filters } = useEntityList();
 
@@ -276,30 +256,10 @@ const RepositoriesTableInner = ({
       render: (entity: Entity) => {
         const repoName = entity.metadata?.title ?? entity.metadata?.name ?? '—';
         const linkPath = `/self-service/repositories/${entity.metadata?.name ?? ''}`;
-        const handleClick = (e: React.MouseEvent | React.KeyboardEvent) => {
-          e.preventDefault();
-          e.stopPropagation();
-          navigate(linkPath);
-        };
         return (
-          <button
-            type="button"
-            onClick={handleClick}
-            onMouseDown={(e: React.MouseEvent) => {
-              e.preventDefault();
-              e.stopPropagation();
-              navigate(linkPath);
-            }}
-            onKeyDown={(e: React.KeyboardEvent) => {
-              if (e.key === 'Enter' || e.key === ' ') {
-                e.preventDefault();
-                handleClick(e);
-              }
-            }}
-            className={classes.entityLink}
-          >
+          <EntityLinkButton linkPath={linkPath} className={classes.entityLink}>
             {repoName}
-          </button>
+          </EntityLinkButton>
         );
       },
     },

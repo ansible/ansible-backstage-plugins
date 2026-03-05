@@ -1,5 +1,39 @@
 import { makeStyles } from '@material-ui/core/styles';
 
+export const useTableWrapperStyles = makeStyles(theme => ({
+  tableWrapper: {
+    borderRadius: 12,
+    overflow: 'hidden',
+    border: `1px solid ${theme.palette.type === 'dark' ? theme.palette.grey[700] : theme.palette.grey[500]}`,
+    '& .MuiTypography-h5': {
+      fontSize: '1.75rem',
+      fontWeight: 600,
+    },
+  },
+  filterGroup: {
+    marginBottom: 16,
+  },
+  paper: {
+    padding: theme.spacing(1, 2),
+    borderRadius: 8,
+  },
+  statusCell: {
+    display: 'inline-flex',
+    alignItems: 'center',
+    gap: 8,
+    '& svg': {
+      flexShrink: 0,
+    },
+  },
+  '@keyframes tableSpin': {
+    '0%': { transform: 'rotate(0deg)' },
+    '100%': { transform: 'rotate(360deg)' },
+  },
+  statusIconSpinning: {
+    animation: '$tableSpin 1.5s linear infinite',
+  },
+}));
+
 export const useCollectionsStyles = makeStyles(theme => ({
   pageHeader: {
     marginBottom: theme.spacing(2),

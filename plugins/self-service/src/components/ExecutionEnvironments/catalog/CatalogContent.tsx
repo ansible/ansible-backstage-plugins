@@ -27,9 +27,9 @@ import { Tooltip } from '@material-ui/core';
 import { ANNOTATION_EDIT_URL, Entity } from '@backstage/catalog-model';
 import StarBorder from '@material-ui/icons/StarBorder';
 import { useApi } from '@backstage/core-plugin-api';
-import { useNavigate } from 'react-router-dom';
 import { YellowStar } from './Favourites';
 import { CreateCatalog } from './CreateCatalog';
+import { EntityLinkButton } from '../../common';
 
 const visuallyHidden: React.CSSProperties = {
   border: 0,
@@ -137,7 +137,6 @@ export const EEListPage = ({
 }) => {
   const classes = useStyles();
   const catalogApi = useApi(catalogApiRef);
-  const navigate = useNavigate();
   const { isStarredEntity, toggleStarredEntity } = useStarredEntities();
   const [loading, setLoading] = useState<boolean>(true);
   const [showError, setShowError] = useState<boolean>(false);
@@ -334,32 +333,10 @@ export const EEListPage = ({
       render: (entity: any) => {
         const entityName = entity.metadata.name;
         const linkPath = `/self-service/catalog/${entityName}`;
-
-        const handleClick = (e: React.MouseEvent | React.KeyboardEvent) => {
-          e.preventDefault();
-          e.stopPropagation();
-          navigate(linkPath);
-        };
-
         return (
-          <button
-            type="button"
-            onClick={handleClick}
-            onMouseDown={(e: React.MouseEvent) => {
-              e.preventDefault();
-              e.stopPropagation();
-              navigate(linkPath);
-            }}
-            onKeyDown={(e: React.KeyboardEvent) => {
-              if (e.key === 'Enter' || e.key === ' ') {
-                e.preventDefault();
-                handleClick(e);
-              }
-            }}
-            className={classes.entityLink}
-          >
+          <EntityLinkButton linkPath={linkPath} className={classes.entityLink}>
             {entityName}
-          </button>
+          </EntityLinkButton>
         );
       },
     },

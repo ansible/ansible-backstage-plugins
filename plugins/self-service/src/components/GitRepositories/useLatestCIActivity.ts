@@ -7,37 +7,12 @@ import {
 } from '@backstage/core-plugin-api';
 import { githubActionsApiRef } from '@backstage-community/plugin-github-actions';
 import { formatTimeAgo, getSourceUrl } from '../CollectionsCatalog/utils';
-
-function getGitHubOwnerRepo(
-  entity: Entity,
-): { owner: string; repo: string } | null {
-  const annotations = entity.metadata?.annotations || {};
-  const provider = (annotations['ansible.io/scm-provider'] ?? '').toLowerCase();
-  if (provider !== 'github') return null;
-  const owner = annotations['ansible.io/scm-organization'];
-  const repo = annotations['ansible.io/scm-repository'];
-  if (typeof owner !== 'string' || typeof repo !== 'string') return null;
-  return { owner, repo };
-}
-
-function getGitLabProjectPath(entity: Entity): string | null {
-  const annotations = entity.metadata?.annotations || {};
-  const provider = (annotations['ansible.io/scm-provider'] ?? '').toLowerCase();
-  if (provider !== 'gitlab') return null;
-  const org = annotations['ansible.io/scm-organization'];
-  const repo = annotations['ansible.io/scm-repository'];
-  if (typeof org !== 'string' || typeof repo !== 'string') return null;
-  return `${org}/${repo}`;
-}
+import { getGitHubOwnerRepo, getGitLabProjectPath } from './scmUtils';
 
 const NO_ACTIVITY = 'N/A';
 
 export type LatestActivityEntry = { text: string; url?: string };
 
-/**
- * Fetches the latest CI run per repo (GitHub Actions or GitLab pipelines) and
- * returns a map of entity name -> { text, url? } for "Event #N • time ago" or "N/A".
- */
 export function useLatestCIActivity(entities: Entity[]): {
   lastActivityMap: Record<string, LatestActivityEntry>;
   loading: boolean;
@@ -152,7 +127,6 @@ export function useLatestCIActivity(entities: Entity[]): {
       }),
     ]);
 
-    // Entities that are neither GitHub nor GitLab
     entities.forEach(e => {
       const name = e.metadata?.name ?? '';
       if (!(name in map)) map[name] = { text: NO_ACTIVITY };

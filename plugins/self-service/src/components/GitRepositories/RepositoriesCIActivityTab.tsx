@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Box, Link, Paper, Typography } from '@material-ui/core';
-import { makeStyles, useTheme } from '@material-ui/core/styles';
+import { useTheme } from '@material-ui/core/styles';
 import Autocomplete from '@material-ui/lab/Autocomplete';
 import TextField from '@material-ui/core/TextField';
 import CheckCircleOutline from '@material-ui/icons/CheckCircleOutline';
@@ -23,42 +23,16 @@ import {
 import { Entity } from '@backstage/catalog-model';
 import { Progress, Table, TableColumn } from '@backstage/core-components';
 import { githubActionsApiRef } from '@backstage-community/plugin-github-actions';
-import { useCollectionsStyles } from '../CollectionsCatalog/styles';
+import {
+  useCollectionsStyles,
+  useTableWrapperStyles,
+} from '../CollectionsCatalog/styles';
 import { formatTimeAgo, getSourceUrl } from '../CollectionsCatalog/utils';
-
-const useTableWrapperStyles = makeStyles(theme => ({
-  tableWrapper: {
-    borderRadius: 12,
-    overflow: 'hidden',
-    border: `1px solid ${theme.palette.type === 'dark' ? theme.palette.grey[700] : theme.palette.grey[500]}`,
-    '& .MuiTypography-h5': {
-      fontSize: '1.75rem',
-      fontWeight: 600,
-    },
-  },
-  filterGroup: {
-    marginBottom: 16,
-  },
-  paper: {
-    padding: theme.spacing(1, 2),
-    borderRadius: 8,
-  },
-  statusCell: {
-    display: 'inline-flex',
-    alignItems: 'center',
-    gap: 8,
-    '& svg': {
-      flexShrink: 0,
-    },
-  },
-  '@keyframes spin': {
-    '0%': { transform: 'rotate(0deg)' },
-    '100%': { transform: 'rotate(360deg)' },
-  },
-  statusIconSpinning: {
-    animation: '$spin 1.5s linear infinite',
-  },
-}));
+import {
+  getGitHubOwnerRepo,
+  getGitLabProjectPath,
+  getProjectDisplayName,
+} from './scmUtils';
 
 export type CIActivityRow = {
   id: string;
@@ -78,32 +52,6 @@ export type CIActivityRow = {
   time: string;
   runUrl?: string;
 };
-
-function getGitHubOwnerRepo(
-  entity: Entity,
-): { owner: string; repo: string } | null {
-  const annotations = entity.metadata?.annotations || {};
-  const provider = (annotations['ansible.io/scm-provider'] ?? '').toLowerCase();
-  if (provider !== 'github') return null;
-  const owner = annotations['ansible.io/scm-organization'];
-  const repo = annotations['ansible.io/scm-repository'];
-  if (typeof owner !== 'string' || typeof repo !== 'string') return null;
-  return { owner, repo };
-}
-
-function getGitLabProjectPath(entity: Entity): string | null {
-  const annotations = entity.metadata?.annotations || {};
-  const provider = (annotations['ansible.io/scm-provider'] ?? '').toLowerCase();
-  if (provider !== 'gitlab') return null;
-  const org = annotations['ansible.io/scm-organization'];
-  const repo = annotations['ansible.io/scm-repository'];
-  if (typeof org !== 'string' || typeof repo !== 'string') return null;
-  return `${org}/${repo}`;
-}
-
-function getProjectDisplayName(entity: Entity): string {
-  return entity.metadata?.title ?? entity.metadata?.name ?? '—';
-}
 
 function normalizeGitLabStatus(
   s: string | undefined | null,
@@ -132,7 +80,6 @@ const STATUS_LABELS: Record<CIActivityRow['status'], string> = {
 };
 
 export interface RepositoriesCIActivityTabProps {
-  /** When set, show CI activity only for this repository. */
   filterByEntity?: Entity | null;
 }
 
@@ -263,7 +210,6 @@ export const RepositoriesCIActivityTab = ({
             }
             const catalogBase = await discoveryApi.getBaseUrl('catalog');
             const proxyUrl = `${catalogBase}/ansible/gitlab/pipelines?projectPath=${encodeURIComponent(path)}&host=${encodeURIComponent(host)}&per_page=${runsPerRepo}`;
-            // Rely on backend integration token (integrations.gitlab); no GitLab sign-in required
             const headers: Record<string, string> = {};
             if (backstageCreds?.token) {
               headers.Authorization = `Bearer ${backstageCreds.token}`;

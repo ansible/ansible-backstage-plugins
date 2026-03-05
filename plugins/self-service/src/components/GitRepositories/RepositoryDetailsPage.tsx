@@ -21,6 +21,7 @@ import { CollectionsListPage } from '../CollectionsCatalog/CollectionsListPage';
 import { useCollectionsStyles } from '../CollectionsCatalog/styles';
 import { getSourceUrl } from '../CollectionsCatalog/utils';
 import { EmptyState } from '../CollectionsCatalog/EmptyState';
+import { fetchReadmeFromBackend } from '../common';
 
 export const RepositoryDetailsPage = () => {
   const classes = useCollectionsStyles();
@@ -35,36 +36,6 @@ export const RepositoryDetailsPage = () => {
   const [readmeContent, setReadmeContent] = useState('');
   const [readmeLoading, setReadmeLoading] = useState(false);
   const [tab, setTab] = useState(0);
-
-  const fetchReadmeFromBackend = useCallback(
-    async (
-      scmProvider: string,
-      scmHost: string,
-      scmOrg: string,
-      scmRepo: string,
-      filePath: string,
-      gitRef: string,
-    ): Promise<string> => {
-      const baseUrl = await discoveryApi.getBaseUrl('catalog');
-      const params = new URLSearchParams({
-        scmProvider,
-        host: scmHost,
-        owner: scmOrg,
-        repo: scmRepo,
-        filePath,
-        ref: gitRef,
-      });
-
-      const response = await fetchApi.fetch(
-        `${baseUrl}/git_readme_content?${params}`,
-      );
-      if (response.ok) {
-        return response.text();
-      }
-      return '';
-    },
-    [discoveryApi, fetchApi],
-  );
 
   const fetchEntity = useCallback(() => {
     if (!repositoryName) return;
@@ -121,14 +92,14 @@ export const RepositoryDetailsPage = () => {
     setReadmeLoading(true);
 
     if (canUseBackend) {
-      fetchReadmeFromBackend(
+      fetchReadmeFromBackend(discoveryApi, fetchApi, {
         scmProvider,
-        String(scmHost),
-        String(scmOrg),
-        String(scmRepo),
+        scmHost: String(scmHost),
+        scmOrg: String(scmOrg),
+        scmRepo: String(scmRepo),
         filePath,
-        defaultBranch,
-      )
+        gitRef: defaultBranch,
+      })
         .then(setReadmeContent)
         .catch(() => setReadmeContent(''))
         .finally(() => setReadmeLoading(false));
@@ -173,7 +144,7 @@ export const RepositoryDetailsPage = () => {
       .then(setReadmeContent)
       .catch(() => setReadmeContent(''))
       .finally(() => setReadmeLoading(false));
-  }, [entity, fetchReadmeFromBackend]);
+  }, [entity, discoveryApi, fetchApi]);
 
   const handleNavigateToCatalog = useCallback(() => {
     navigate('/self-service/repositories/catalog');
