@@ -31,9 +31,6 @@ import { useApi } from '@backstage/core-plugin-api';
 import { useNavigate } from 'react-router-dom';
 import { CreateCatalog } from './CreateCatalog';
 
-const EE_BUILD_GUIDE_URL =
-  'https://red.ht/self-service_build_and_use_ee_definition';
-
 const useStyles = makeStyles(theme => ({
   flex: {
     display: 'flex',
@@ -140,13 +137,14 @@ export const EEListPage = ({
   const [allTags, setAllTags] = useState<string[]>(['All']);
   const [filtered, setFiltered] = useState<boolean>(true);
   const [ownerNames, setOwnerNames] = useState<Map<string, string>>(new Map());
-  const [actionsMenuAnchor, setActionsMenuAnchor] = useState<null | HTMLElement>(
-    null,
-  );
+  const [actionsMenuAnchor, setActionsMenuAnchor] =
+    useState<null | HTMLElement>(null);
   const [menuAnchorPosition, setMenuAnchorPosition] = useState<
     { top: number; left: number } | undefined
   >(undefined);
-  const [actionsMenuEntity, setActionsMenuEntity] = useState<Entity | null>(null);
+  const [actionsMenuEntity, setActionsMenuEntity] = useState<Entity | null>(
+    null,
+  );
   const [unregisterDialogOpen, setUnregisterDialogOpen] =
     useState<boolean>(false);
   const [entityToUnregister, setEntityToUnregister] = useState<Entity | null>(
@@ -156,7 +154,10 @@ export const EEListPage = ({
 
   const isMountedRef = useRef(true);
 
-  const handleActionsMenuOpen = (event: React.MouseEvent<HTMLElement>, entity: Entity) => {
+  const handleActionsMenuOpen = (
+    event: React.MouseEvent<HTMLElement>,
+    entity: Entity,
+  ) => {
     event.preventDefault();
     event.stopPropagation();
     const target = event.currentTarget;
@@ -528,7 +529,10 @@ export const EEListPage = ({
                 anchorReference="anchorPosition"
                 anchorPosition={
                   menuAnchorPosition
-                    ? { top: menuAnchorPosition.top, left: menuAnchorPosition.left }
+                    ? {
+                        top: menuAnchorPosition.top,
+                        left: menuAnchorPosition.left,
+                      }
                     : undefined
                 }
                 keepMounted
@@ -538,96 +542,99 @@ export const EEListPage = ({
                 transformOrigin={{ vertical: 'top', horizontal: 'left' }}
                 onClick={(e: React.MouseEvent) => e.stopPropagation()}
               >
-                {actionsMenuEntity && (() => {
-                  const isDownloadExperience =
-                    actionsMenuEntity?.metadata?.annotations?.[
-                      'ansible.io/download-experience'
-                    ]
-                      ?.toString()
-                      .toLowerCase()
-                      .trim() === 'true';
-                  const detailPath = `/self-service/catalog/${actionsMenuEntity.metadata?.name}`;
-                  return (
-                    <>
-                      <MenuItem
-                        onClick={() => {
-                          handleActionsMenuClose();
-                          window.open(EE_BUILD_GUIDE_URL, '_blank', 'noopener,noreferrer');
-                        }}
-                      >
-                        Build
-                      </MenuItem>
-                      {isDownloadExperience ? (
-                        <>
-                          <MenuItem
-                            onClick={() => {
-                              setEntityToUnregister(actionsMenuEntity);
-                              handleActionsMenuClose();
-                              setUnregisterDialogOpen(true);
-                            }}
-                          >
-                            Unregister
-                          </MenuItem>
-                          <MenuItem
-                            onClick={() => {
-                              handleActionsMenuClose();
-                              navigate(detailPath);
-                            }}
-                          >
-                            Download
-                          </MenuItem>
-                        </>
-                      ) : (
-                        <>
-                          <MenuItem
-                            onClick={() => {
-                              const editUrl =
-                                actionsMenuEntity?.metadata?.annotations?.[
-                                  ANNOTATION_EDIT_URL
-                                ];
-                              const sourceLocation =
-                                actionsMenuEntity?.metadata?.annotations?.[
-                                  'backstage.io/source-location'
-                                ];
-                              const urlToOpen =
-                                editUrl ||
-                                (typeof sourceLocation === 'string'
-                                  ? sourceLocation.replace(/^url:/i, '').trim()
-                                  : undefined);
-                              if (urlToOpen) {
-                                window.open(
-                                  urlToOpen,
-                                  '_blank',
-                                  'noopener,noreferrer',
-                                );
-                              }
-                              handleActionsMenuClose();
-                            }}
-                          >
-                            Edit
-                          </MenuItem>
-                          <MenuItem
-                            onClick={() => {
-                              handleActionsMenuClose();
-                              navigate(detailPath);
-                            }}
-                          >
-                            View
-                          </MenuItem>
-                          <MenuItem
-                            onClick={() => {
-                              setEntityToUnregister(actionsMenuEntity);
-                              handleActionsMenuClose();
-                              setUnregisterDialogOpen(true);
-                            }}
-                          >
-                            Delete
-                          </MenuItem>
-                        </>
-                      )}
-                    </>
-                  );
-                })()}
+                {actionsMenuEntity &&
+                  (() => {
+                    const isDownloadExperience =
+                      actionsMenuEntity?.metadata?.annotations?.[
+                        'ansible.io/download-experience'
+                      ]
+                        ?.toString()
+                        .toLowerCase()
+                        .trim() === 'true';
+                    const detailPath = `/self-service/catalog/${actionsMenuEntity.metadata?.name}`;
+                    return (
+                      <>
+                        <MenuItem
+                          onClick={() => {
+                            handleActionsMenuClose();
+                            // TODO: Build action - future implementation (e.g. trigger EE build)
+                          }}
+                        >
+                          Build
+                        </MenuItem>
+                        {isDownloadExperience ? (
+                          <>
+                            <MenuItem
+                              onClick={() => {
+                                setEntityToUnregister(actionsMenuEntity);
+                                handleActionsMenuClose();
+                                setUnregisterDialogOpen(true);
+                              }}
+                            >
+                              Unregister
+                            </MenuItem>
+                            <MenuItem
+                              onClick={() => {
+                                handleActionsMenuClose();
+                                navigate(detailPath);
+                              }}
+                            >
+                              Download
+                            </MenuItem>
+                          </>
+                        ) : (
+                          <>
+                            <MenuItem
+                              onClick={() => {
+                                const editUrl =
+                                  actionsMenuEntity?.metadata?.annotations?.[
+                                    ANNOTATION_EDIT_URL
+                                  ];
+                                const sourceLocation =
+                                  actionsMenuEntity?.metadata?.annotations?.[
+                                    'backstage.io/source-location'
+                                  ];
+                                const urlToOpen =
+                                  editUrl ||
+                                  (typeof sourceLocation === 'string'
+                                    ? sourceLocation
+                                        .replace(/^url:/i, '')
+                                        .trim()
+                                    : undefined);
+                                if (urlToOpen) {
+                                  window.open(
+                                    urlToOpen,
+                                    '_blank',
+                                    'noopener,noreferrer',
+                                  );
+                                }
+                                handleActionsMenuClose();
+                              }}
+                            >
+                              Edit
+                            </MenuItem>
+                            <MenuItem
+                              onClick={() => {
+                                handleActionsMenuClose();
+                                navigate(detailPath);
+                              }}
+                            >
+                              View
+                            </MenuItem>
+                            <MenuItem
+                              onClick={() => {
+                                setEntityToUnregister(actionsMenuEntity);
+                                handleActionsMenuClose();
+                                setUnregisterDialogOpen(true);
+                              }}
+                            >
+                              Delete
+                            </MenuItem>
+                          </>
+                        )}
+                      </>
+                    );
+                  })()}
               </Menu>
               {entityToUnregister && (
                 <UnregisterEntityDialog
