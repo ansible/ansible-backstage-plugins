@@ -33,8 +33,8 @@ function compareVersionsDescending(a: string, b: string): number {
   const parse = (v: string) => {
     const parts = v.split('.');
     return parts.map(p => {
-      const num = parseInt(p, 10);
-      return isNaN(num) ? 0 : num;
+      const num = Number.parseInt(p, 10);
+      return Number.isNaN(num) ? 0 : num;
     });
   };
   const pa = parse(a);
