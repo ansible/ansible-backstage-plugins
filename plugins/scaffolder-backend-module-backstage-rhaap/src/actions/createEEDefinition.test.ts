@@ -711,8 +711,11 @@ describe('createEEDefinition', () => {
           values: {
             eeFileName: 'test-ee',
             baseImage: 'quay.io/ansible/ee-base:latest',
-            collections: [{ name: 'collection1' }],
-            popularCollections: ['collection2', 'collection3'],
+            collections: [
+              { name: 'collection1' },
+              { name: 'collection2' },
+              { name: 'collection3' },
+            ],
           },
         },
         logger,
@@ -747,8 +750,10 @@ describe('createEEDefinition', () => {
           values: {
             eeFileName: 'test-ee',
             baseImage: 'quay.io/ansible/ee-base:latest',
-            collections: [{ name: 'collection1' }],
-            popularCollections: ['collection1'],
+            collections: [
+              { name: 'collection1' },
+              { name: 'collection1' }, // Duplicate
+            ],
           },
         },
         logger,
@@ -780,8 +785,10 @@ describe('createEEDefinition', () => {
           values: {
             eeFileName: 'test-ee',
             baseImage: 'quay.io/ansible/ee-base:latest',
-            collections: [{ name: 'collection1', version: '1.0.0' }],
-            popularCollections: ['collection1'],
+            collections: [
+              { name: 'collection1', version: '1.0.0' },
+              { name: 'collection1' }, // Non-versioned duplicate should win
+            ],
           },
         },
         logger,
@@ -798,9 +805,8 @@ describe('createEEDefinition', () => {
       const content = writeCall![1] as string;
       const parsed = yaml.load(content) as any;
       const collections = parsed.dependencies?.galaxy?.collections || [];
-      // When a versioned collection exists, it should be kept
-      // But if a non-versioned one comes later, it should win
-      // The non-versioned one from popularCollections should win
+      // When both versioned and non-versioned collections exist with same name,
+      // the non-versioned one should win (no version property)
       expect(collections).toHaveLength(1);
       expect(collections[0].name).toBe('collection1');
       // Non-versioned collection should win (no version property)
@@ -2838,41 +2844,6 @@ describe('createEEDefinition', () => {
       expect(content).toContain(
         "- 'registry.redhat.io/ansible-automation-platform/ee-minimal-rhel9:2.16'",
       );
-    });
-
-    it('should include popular collections enum in template', async () => {
-      const action = createEEDefinitionAction({
-        frontendUrl: 'http://localhost:3000',
-        auth,
-        discovery,
-      });
-      const ctx = {
-        input: {
-          values: {
-            eeFileName: 'test-ee',
-            eeDescription: 'Test EE',
-            baseImage: 'quay.io/ansible/ee-base:latest',
-            tags: [],
-            publishToSCM: true,
-          },
-        },
-        logger,
-        workspacePath: mockWorkspacePath,
-        output: jest.fn(),
-      } as any;
-
-      await action.handler(ctx);
-
-      const writeCall = mockWriteFile.mock.calls.find((call: any[]) =>
-        call[0].toString().endsWith('template.yaml'),
-      );
-      const content = writeCall![1] as string;
-
-      // Verify popular collections enum includes expected collections
-      expect(content).toContain("- 'ansible.posix'");
-      expect(content).toContain("- 'community.general'");
-      expect(content).toContain("- 'amazon.aws'");
-      expect(content).toContain("- 'azure.azcollection'");
     });
 
     it('should include MCP servers enum in template', async () => {
