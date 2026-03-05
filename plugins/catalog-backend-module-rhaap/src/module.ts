@@ -46,7 +46,6 @@ export const catalogModuleRhaap = createBackendModule({
         catalogProcessing,
         catalogModel,
         permissionsRegistry,
-        permissionsApi,
         httpAuth,
         userInfo,
         discovery,

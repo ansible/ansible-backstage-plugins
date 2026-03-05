@@ -20,20 +20,14 @@ import { createRouter } from './router';
 import { AAPEntityProvider } from './providers/AAPEntityProvider';
 import { AAPJobTemplateProvider } from './providers/AAPJobTemplateProvider';
 import { EEEntityProvider } from './providers/EEEntityProvider';
-<<<<<<< HEAD
 import { PAHCollectionProvider } from './providers/PAHCollectionProvider';
-import { LoggerService } from '@backstage/backend-plugin-api';
-=======
 import {
   LoggerService,
   HttpAuthService,
   UserInfoService,
   AuthService,
-  PermissionsService,
 } from '@backstage/backend-plugin-api';
-import { AuthorizeResult } from '@backstage/plugin-permission-common';
 import { CatalogClient } from '@backstage/catalog-client';
->>>>>>> b6932c2 (updates)
 
 describe('createRouter', () => {
   let app: express.Express;
@@ -41,15 +35,11 @@ describe('createRouter', () => {
   let mockAAPEntityProvider: jest.Mocked<AAPEntityProvider>;
   let mockJobTemplateProvider: jest.Mocked<AAPJobTemplateProvider>;
   let mockEEEntityProvider: jest.Mocked<EEEntityProvider>;
-<<<<<<< HEAD
   let mockPAHCollectionProvider: jest.Mocked<PAHCollectionProvider>;
-=======
   let mockHttpAuth: jest.Mocked<HttpAuthService>;
   let mockUserInfo: jest.Mocked<UserInfoService>;
   let mockAuth: jest.Mocked<AuthService>;
   let mockCatalogClient: jest.Mocked<CatalogClient>;
-  let mockPermissionsApi: jest.Mocked<PermissionsService>;
->>>>>>> b6932c2 (updates)
 
   beforeEach(async () => {
     mockLogger = {
@@ -80,7 +70,6 @@ describe('createRouter', () => {
       connect: jest.fn(),
     } as unknown as jest.Mocked<EEEntityProvider>;
 
-<<<<<<< HEAD
     mockPAHCollectionProvider = {
       run: jest.fn(),
       startSync: jest.fn().mockReturnValue({ started: true, skipped: false }),
@@ -96,7 +85,6 @@ describe('createRouter', () => {
       getSourceId: jest.fn().mockReturnValue('test:pah:validated'),
       isEnabled: jest.fn().mockReturnValue(true),
     } as unknown as jest.Mocked<PAHCollectionProvider>;
-=======
     mockHttpAuth = {
       credentials: jest.fn().mockResolvedValue({}),
       issueUserCookie: jest.fn(),
@@ -130,31 +118,16 @@ describe('createRouter', () => {
       }),
     } as unknown as jest.Mocked<CatalogClient>;
 
-    mockPermissionsApi = {
-      authorize: jest
-        .fn()
-        .mockResolvedValue([
-          { result: AuthorizeResult.ALLOW },
-          { result: AuthorizeResult.ALLOW },
-        ]),
-      authorizeConditional: jest.fn(),
-    } as unknown as jest.Mocked<PermissionsService>;
->>>>>>> b6932c2 (updates)
-
     const router = await createRouter({
       logger: mockLogger,
       aapEntityProvider: mockAAPEntityProvider,
       jobTemplateProvider: mockJobTemplateProvider,
       eeEntityProvider: mockEEEntityProvider,
-<<<<<<< HEAD
       pahCollectionProviders: [mockPAHCollectionProvider],
-=======
       httpAuth: mockHttpAuth,
       userInfo: mockUserInfo,
       auth: mockAuth,
       catalogClient: mockCatalogClient,
-      permissionsApi: mockPermissionsApi,
->>>>>>> b6932c2 (updates)
     });
 
     app = express().use(router);
@@ -286,15 +259,11 @@ describe('createRouter', () => {
           aapEntityProvider: mockProvider as any,
           jobTemplateProvider: {} as any,
           eeEntityProvider: mockEEEntityProvider,
-<<<<<<< HEAD
           pahCollectionProviders: [mockPAHCollectionProvider],
-=======
           httpAuth: mockHttpAuth,
           userInfo: mockUserInfo,
           auth: mockAuth,
           catalogClient: mockCatalogClient,
-          permissionsApi: mockPermissionsApi,
->>>>>>> b6932c2 (updates)
         }),
       );
 
@@ -325,15 +294,11 @@ describe('createRouter', () => {
           aapEntityProvider: mockProvider as any,
           jobTemplateProvider: {} as any,
           eeEntityProvider: mockEEEntityProvider,
-<<<<<<< HEAD
           pahCollectionProviders: [mockPAHCollectionProvider],
-=======
           httpAuth: mockHttpAuth,
           userInfo: mockUserInfo,
           auth: mockAuth,
           catalogClient: mockCatalogClient,
-          permissionsApi: mockPermissionsApi,
->>>>>>> b6932c2 (updates)
         }),
       );
 
@@ -362,15 +327,11 @@ describe('createRouter', () => {
           aapEntityProvider: mockProvider as any,
           jobTemplateProvider: {} as any,
           eeEntityProvider: mockEEEntityProvider,
-<<<<<<< HEAD
           pahCollectionProviders: [mockPAHCollectionProvider],
-=======
           httpAuth: mockHttpAuth,
           userInfo: mockUserInfo,
           auth: mockAuth,
           catalogClient: mockCatalogClient,
-          permissionsApi: mockPermissionsApi,
->>>>>>> b6932c2 (updates)
         }),
       );
 
@@ -399,15 +360,11 @@ describe('createRouter', () => {
           aapEntityProvider: mockProvider as any,
           jobTemplateProvider: {} as any,
           eeEntityProvider: mockEEEntityProvider,
-<<<<<<< HEAD
           pahCollectionProviders: [mockPAHCollectionProvider],
-=======
           httpAuth: mockHttpAuth,
           userInfo: mockUserInfo,
           auth: mockAuth,
           catalogClient: mockCatalogClient,
-          permissionsApi: mockPermissionsApi,
->>>>>>> b6932c2 (updates)
         }),
       );
 
@@ -439,15 +396,11 @@ describe('createRouter', () => {
           aapEntityProvider: mockProvider as any,
           jobTemplateProvider: {} as any,
           eeEntityProvider: mockEEEntityProvider,
-<<<<<<< HEAD
           pahCollectionProviders: [mockPAHCollectionProvider],
-=======
           httpAuth: mockHttpAuth,
           userInfo: mockUserInfo,
           auth: mockAuth,
           catalogClient: mockCatalogClient,
-          permissionsApi: mockPermissionsApi,
->>>>>>> b6932c2 (updates)
         }),
       );
 
@@ -480,15 +433,11 @@ describe('createRouter', () => {
           aapEntityProvider: mockProvider as any,
           jobTemplateProvider: {} as any,
           eeEntityProvider: mockEEEntityProvider,
-<<<<<<< HEAD
           pahCollectionProviders: [mockPAHCollectionProvider],
-=======
           httpAuth: mockHttpAuth,
           userInfo: mockUserInfo,
           auth: mockAuth,
           catalogClient: mockCatalogClient,
-          permissionsApi: mockPermissionsApi,
->>>>>>> b6932c2 (updates)
         }),
       );
 
@@ -521,15 +470,11 @@ describe('createRouter', () => {
           aapEntityProvider: mockProvider as any,
           jobTemplateProvider: {} as any,
           eeEntityProvider: mockEEEntityProvider,
-<<<<<<< HEAD
           pahCollectionProviders: [mockPAHCollectionProvider],
-=======
           httpAuth: mockHttpAuth,
           userInfo: mockUserInfo,
           auth: mockAuth,
           catalogClient: mockCatalogClient,
-          permissionsApi: mockPermissionsApi,
->>>>>>> b6932c2 (updates)
         }),
       );
 
@@ -558,15 +503,11 @@ describe('createRouter', () => {
           aapEntityProvider: mockProvider as any,
           jobTemplateProvider: {} as any,
           eeEntityProvider: mockEEEntityProvider,
-<<<<<<< HEAD
           pahCollectionProviders: [mockPAHCollectionProvider],
-=======
           httpAuth: mockHttpAuth,
           userInfo: mockUserInfo,
           auth: mockAuth,
           catalogClient: mockCatalogClient,
-          permissionsApi: mockPermissionsApi,
->>>>>>> b6932c2 (updates)
         }),
       );
 
@@ -597,15 +538,11 @@ describe('createRouter', () => {
           aapEntityProvider: mockProvider as any,
           jobTemplateProvider: {} as any,
           eeEntityProvider: mockEEEntityProvider,
-<<<<<<< HEAD
           pahCollectionProviders: [mockPAHCollectionProvider],
-=======
           httpAuth: mockHttpAuth,
           userInfo: mockUserInfo,
           auth: mockAuth,
           catalogClient: mockCatalogClient,
-          permissionsApi: mockPermissionsApi,
->>>>>>> b6932c2 (updates)
         }),
       );
 
@@ -634,15 +571,11 @@ describe('createRouter', () => {
           aapEntityProvider: mockProvider as any,
           jobTemplateProvider: {} as any,
           eeEntityProvider: mockEEEntityProvider,
-<<<<<<< HEAD
           pahCollectionProviders: [mockPAHCollectionProvider],
-=======
           httpAuth: mockHttpAuth,
           userInfo: mockUserInfo,
           auth: mockAuth,
           catalogClient: mockCatalogClient,
-          permissionsApi: mockPermissionsApi,
->>>>>>> b6932c2 (updates)
         }),
       );
 
@@ -696,15 +629,11 @@ describe('createRouter', () => {
           aapEntityProvider: mockProvider as any,
           jobTemplateProvider: {} as any,
           eeEntityProvider: mockEEEntityProvider,
-<<<<<<< HEAD
           pahCollectionProviders: [mockPAHCollectionProvider],
-=======
           httpAuth: mockHttpAuth,
           userInfo: mockUserInfo,
           auth: mockAuth,
           catalogClient: mockCatalogClient,
-          permissionsApi: mockPermissionsApi,
->>>>>>> b6932c2 (updates)
         }),
       );
 
@@ -733,15 +662,11 @@ describe('createRouter', () => {
           aapEntityProvider: mockProvider as any,
           jobTemplateProvider: {} as any,
           eeEntityProvider: mockEEEntityProvider,
-<<<<<<< HEAD
           pahCollectionProviders: [mockPAHCollectionProvider],
-=======
           httpAuth: mockHttpAuth,
           userInfo: mockUserInfo,
           auth: mockAuth,
           catalogClient: mockCatalogClient,
-          permissionsApi: mockPermissionsApi,
->>>>>>> b6932c2 (updates)
         }),
       );
 
@@ -776,15 +701,11 @@ describe('createRouter', () => {
           aapEntityProvider: mockProvider as any,
           jobTemplateProvider: {} as any,
           eeEntityProvider: mockEEEntityProvider,
-<<<<<<< HEAD
           pahCollectionProviders: [mockPAHCollectionProvider],
-=======
           httpAuth: mockHttpAuth,
           userInfo: mockUserInfo,
           auth: mockAuth,
           catalogClient: mockCatalogClient,
-          permissionsApi: mockPermissionsApi,
->>>>>>> b6932c2 (updates)
         }),
       );
 
@@ -827,15 +748,11 @@ describe('createRouter', () => {
           aapEntityProvider: mockProvider as any,
           jobTemplateProvider: {} as any,
           eeEntityProvider: mockEEEntityProvider,
-<<<<<<< HEAD
           pahCollectionProviders: [mockPAHCollectionProvider],
-=======
           httpAuth: mockHttpAuth,
           userInfo: mockUserInfo,
           auth: mockAuth,
           catalogClient: mockCatalogClient,
-          permissionsApi: mockPermissionsApi,
->>>>>>> b6932c2 (updates)
         }),
       );
 
@@ -1080,15 +997,11 @@ describe('createRouter', () => {
         aapEntityProvider: mockAAPEntityProvider,
         jobTemplateProvider: mockJobTemplateProvider,
         eeEntityProvider: mockEEEntityProvider,
-<<<<<<< HEAD
         pahCollectionProviders: [mockPAHCollectionProvider],
-=======
         httpAuth: mockHttpAuth,
         userInfo: mockUserInfo,
         auth: mockAuth,
         catalogClient: mockCatalogClient,
-        permissionsApi: mockPermissionsApi,
->>>>>>> b6932c2 (updates)
       });
 
       const testApp = express().use(routerWithInvalidLogger);
@@ -1104,15 +1017,11 @@ describe('createRouter', () => {
         aapEntityProvider: undefined as any,
         jobTemplateProvider: mockJobTemplateProvider,
         eeEntityProvider: mockEEEntityProvider,
-<<<<<<< HEAD
         pahCollectionProviders: [mockPAHCollectionProvider],
-=======
         httpAuth: mockHttpAuth,
         userInfo: mockUserInfo,
         auth: mockAuth,
         catalogClient: mockCatalogClient,
-        permissionsApi: mockPermissionsApi,
->>>>>>> b6932c2 (updates)
       });
 
       const testApp = express().use(routerWithInvalidProvider);
@@ -1128,15 +1037,11 @@ describe('createRouter', () => {
         aapEntityProvider: mockAAPEntityProvider,
         jobTemplateProvider: undefined as any,
         eeEntityProvider: mockEEEntityProvider,
-<<<<<<< HEAD
         pahCollectionProviders: [mockPAHCollectionProvider],
-=======
         httpAuth: mockHttpAuth,
         userInfo: mockUserInfo,
         auth: mockAuth,
         catalogClient: mockCatalogClient,
-        permissionsApi: mockPermissionsApi,
->>>>>>> b6932c2 (updates)
       });
 
       const testApp = express().use(routerWithInvalidProvider);
@@ -1381,6 +1286,10 @@ describe('createRouter', () => {
         jobTemplateProvider: mockJobTemplateProvider,
         eeEntityProvider: mockEEEntityProvider,
         pahCollectionProviders: [],
+        httpAuth: mockHttpAuth,
+        userInfo: mockUserInfo,
+        auth: mockAuth,
+        catalogClient: mockCatalogClient,
       });
       const appWithNoProviders = express().use(routerWithNoProviders);
 
@@ -1450,6 +1359,10 @@ describe('createRouter', () => {
         jobTemplateProvider: mockJobTemplateProvider,
         eeEntityProvider: mockEEEntityProvider,
         pahCollectionProviders: [mockProvider1, mockProvider2],
+        httpAuth: mockHttpAuth,
+        userInfo: mockUserInfo,
+        auth: mockAuth,
+        catalogClient: mockCatalogClient,
       });
 
       appWithMultipleProviders = express().use(router);
@@ -1504,6 +1417,7 @@ describe('createRouter', () => {
         ),
       ).toBe(true);
     });
+    ``;
 
     it('should return 207 when some providers start and some are skipped', async () => {
       mockProvider1.startSync.mockReturnValue({
