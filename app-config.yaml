@@ -60,13 +60,6 @@ backend:
   request:
     bodyParsing:
       sizeLimit: 10mb
-integrations:
-  github:
-    - host: github.com
-      token: <YOUR_GITHUB_PAT>
-  gitlab:
-    - host: gitlab.com
-      token: <YOUR_GITLAB_PAT>
 proxy: null
 techdocs:
   builder: local
@@ -170,12 +163,8 @@ catalog:
                         frequency: { minutes: 120 }
                         timeout: { minutes: 30 }
           pahCollections:
-            enabled: false
+            enabled: true
             repositories:
-              - name: rh-certified
-                schedule:
-                  frequency: { days: 1 }
-                  timeout: { minutes: 120 }
               - name: validated
                 schedule:
                   frequency: { minutes: 120 }

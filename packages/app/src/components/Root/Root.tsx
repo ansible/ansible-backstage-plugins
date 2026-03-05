@@ -4,6 +4,7 @@ import HomeIcon from '@material-ui/icons/Home';
 import ExtensionIcon from '@material-ui/icons/Extension';
 import LibraryBooks from '@material-ui/icons/LibraryBooks';
 import CreateComponentIcon from '@material-ui/icons/AddCircleOutline';
+import CategoryIcon from '@material-ui/icons/Category';
 import LogoFull from './LogoFull';
 import LogoIcon from './LogoIcon';
 import {
@@ -95,6 +96,11 @@ export const Root = ({ children }: PropsWithChildren<{}>) => (
             icon={MenuIcon}
             to="/self-service/ee"
             text="Execution Environments"
+          />
+          <SidebarItem
+            icon={CategoryIcon}
+            to="/self-service/collections"
+            text="Collections"
           />
         </SidebarScrollWrapper>
       </SidebarGroup>
