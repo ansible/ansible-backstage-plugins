@@ -19,6 +19,7 @@ import { AboutCard } from './AboutCard';
 import { ReadmeCard } from './ReadmeCard';
 import { EntityNotFound } from './EntityNotFound';
 import { createTarArchive } from '../../utils/tarArchiveUtils';
+import { getEEDefinitionFileUrl } from './eeDefinitionUrl';
 
 export const EEDetailsPage: React.FC = () => {
   const { templateName } = useParams<{ templateName: string }>();
@@ -175,8 +176,11 @@ export const EEDetailsPage: React.FC = () => {
     const loc = entity?.metadata?.annotations?.['backstage.io/source-location'];
     if (!loc) return null;
 
-    const url = loc.replace(/^url:/, '');
-    window.open(url, '_blank');
+    const url = getEEDefinitionFileUrl(
+      loc.replace(/^url:/, '').trim(),
+      entity?.metadata?.name ?? '',
+    );
+    if (url) window.open(url, '_blank');
     return url;
   }, [entity]);
 

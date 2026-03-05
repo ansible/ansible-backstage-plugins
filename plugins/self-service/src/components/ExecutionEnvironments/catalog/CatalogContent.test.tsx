@@ -971,6 +971,43 @@ describe('EEListPage', () => {
       windowOpenSpy.mockRestore();
     });
 
+    test('Edit definition opens EE definition file URL when annotation points to catalog-info.yaml', async () => {
+      const entityWithCatalogInfoUrl = {
+        ...entityA,
+        metadata: {
+          ...entityA.metadata,
+          annotations: {
+            'backstage.io/source-location':
+              'url:https://github.com/org/repo/blob/main/ctx/catalog-info.yaml',
+          },
+        },
+      };
+      const windowOpenSpy = jest
+        .spyOn(window, 'open')
+        .mockImplementation(() => null);
+
+      renderWithCatalogApi(() =>
+        Promise.resolve({ items: [entityWithCatalogInfoUrl] }),
+      );
+
+      await waitFor(() =>
+        expect(screen.getByTestId('stubbed-table-title')).toBeInTheDocument(),
+      );
+
+      fireEvent.click(screen.getByRole('button', { name: /actions/i }));
+      const editMenuItem = await screen.findByRole('menuitem', {
+        name: /edit definition/i,
+      });
+      fireEvent.click(editMenuItem);
+
+      expect(windowOpenSpy).toHaveBeenCalledWith(
+        'https://github.com/org/repo/blob/main/ctx/ee-one.yaml',
+        '_blank',
+        'noopener,noreferrer',
+      );
+      windowOpenSpy.mockRestore();
+    });
+
     test('View in source opens source URL in new tab', async () => {
       const windowOpenSpy = jest
         .spyOn(window, 'open')

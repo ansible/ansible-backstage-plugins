@@ -13,6 +13,7 @@ import GitHubIcon from '@material-ui/icons/GitHub';
 import AutorenewIcon from '@material-ui/icons/Autorenew';
 import EditIcon from '@material-ui/icons/Edit';
 import { Entity, ANNOTATION_EDIT_URL } from '@backstage/catalog-model';
+import { getEEDefinitionFileUrl } from './eeDefinitionUrl';
 
 const useStyles = makeStyles(() => ({
   tagButton: {
@@ -90,16 +91,17 @@ export const AboutCard: React.FC<AboutCardProps> = ({
                 <IconButton
                   size="small"
                   component="a"
-                  href={
+                  href={getEEDefinitionFileUrl(
                     entity.metadata.annotations[ANNOTATION_EDIT_URL] ||
-                    (
-                      entity.metadata.annotations[
-                        'backstage.io/source-location'
-                      ] || ''
-                    )
-                      .replace(/^url:/i, '')
-                      .trim()
-                  }
+                      (
+                        entity.metadata.annotations[
+                          'backstage.io/source-location'
+                        ] || ''
+                      )
+                        .replace(/^url:/i, '')
+                        .trim(),
+                    entity.metadata.name ?? '',
+                  )}
                   target="_blank"
                   rel="noopener noreferrer"
                   aria-label="Edit definition"
@@ -214,16 +216,17 @@ export const AboutCard: React.FC<AboutCardProps> = ({
               </Typography>
               <Typography variant="body2" style={{ marginTop: 4 }}>
                 <a
-                  href={
+                  href={getEEDefinitionFileUrl(
                     entity.metadata.annotations[ANNOTATION_EDIT_URL] ||
-                    (
-                      entity.metadata.annotations[
-                        'backstage.io/source-location'
-                      ] || ''
-                    )
-                      .replace(/^url:/i, '')
-                      .trim()
-                  }
+                      (
+                        entity.metadata.annotations[
+                          'backstage.io/source-location'
+                        ] || ''
+                      )
+                        .replace(/^url:/i, '')
+                        .trim(),
+                    entity.metadata.name ?? '',
+                  )}
                   target="_blank"
                   rel="noopener noreferrer"
                   style={{
@@ -231,14 +234,17 @@ export const AboutCard: React.FC<AboutCardProps> = ({
                     wordBreak: 'break-all',
                   }}
                 >
-                  {entity.metadata.annotations[ANNOTATION_EDIT_URL] ||
-                    (
-                      entity.metadata.annotations[
-                        'backstage.io/source-location'
-                      ] || ''
-                    )
-                      .replace(/^url:/i, '')
-                      .trim()}
+                  {getEEDefinitionFileUrl(
+                    entity.metadata.annotations[ANNOTATION_EDIT_URL] ||
+                      (
+                        entity.metadata.annotations[
+                          'backstage.io/source-location'
+                        ] || ''
+                      )
+                        .replace(/^url:/i, '')
+                        .trim(),
+                    entity.metadata.name ?? '',
+                  )}
                 </a>
               </Typography>
             </Box>

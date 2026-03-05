@@ -34,6 +34,7 @@ import { useApi } from '@backstage/core-plugin-api';
 import { useNavigate } from 'react-router-dom';
 import { createTarArchive } from '../../utils/tarArchiveUtils';
 import { CreateCatalog } from './CreateCatalog';
+import { getEEDefinitionFileUrl } from './eeDefinitionUrl';
 
 const DESCRIPTION_TRUNCATE_LENGTH = 30;
 
@@ -809,13 +810,17 @@ export const EEListPage = ({
                                   actionsMenuEntity?.metadata?.annotations?.[
                                     'backstage.io/source-location'
                                   ];
-                                const urlToOpen =
+                                const rawUrl =
                                   editUrl ||
                                   (typeof sourceLocation === 'string'
                                     ? sourceLocation
                                         .replace(/^url:/i, '')
                                         .trim()
                                     : undefined);
+                                const urlToOpen = getEEDefinitionFileUrl(
+                                  rawUrl ?? '',
+                                  actionsMenuEntity?.metadata?.name ?? '',
+                                );
                                 if (urlToOpen) {
                                   window.open(
                                     urlToOpen,
@@ -830,6 +835,10 @@ export const EEListPage = ({
                             </MenuItem>
                             <MenuItem
                               onClick={() => {
+                                const viewUrl =
+                                  actionsMenuEntity?.metadata?.annotations?.[
+                                    'backstage.io/view-url'
+                                  ];
                                 const editUrl =
                                   actionsMenuEntity?.metadata?.annotations?.[
                                     ANNOTATION_EDIT_URL
@@ -844,7 +853,11 @@ export const EEListPage = ({
                                         .replace(/^url:/i, '')
                                         .trim()
                                     : undefined;
-                                const urlToOpen = sourceUrl || editUrl;
+                                const rawUrl = viewUrl || sourceUrl || editUrl;
+                                const urlToOpen = getEEDefinitionFileUrl(
+                                  rawUrl ?? '',
+                                  actionsMenuEntity?.metadata?.name ?? '',
+                                );
                                 if (urlToOpen) {
                                   window.open(
                                     urlToOpen,
