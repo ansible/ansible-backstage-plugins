@@ -1417,7 +1417,6 @@ describe('createRouter', () => {
         ),
       ).toBe(true);
     });
-    ``;
 
     it('should return 207 when some providers start and some are skipped', async () => {
       mockProvider1.startSync.mockReturnValue({
