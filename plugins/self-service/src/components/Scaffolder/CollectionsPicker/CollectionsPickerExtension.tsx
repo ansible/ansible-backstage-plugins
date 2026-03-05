@@ -1,5 +1,8 @@
 import { useState, useEffect, useCallback } from 'react';
-import { FieldExtensionComponentProps } from '@backstage/plugin-scaffolder-react';
+import {
+  FieldExtensionComponentProps,
+  scaffolderApiRef,
+} from '@backstage/plugin-scaffolder-react';
 import {
   Button,
   TextField,
@@ -16,7 +19,6 @@ import AddIcon from '@material-ui/icons/Add';
 import CloseIcon from '@material-ui/icons/Close';
 import { CollectionItem } from './types';
 import { useApi } from '@backstage/core-plugin-api';
-import { scaffolderApiRef } from '@backstage/plugin-scaffolder-react';
 import { rhAapAuthApiRef } from '../../../apis';
 
 const useStyles = makeStyles(theme => ({
@@ -84,8 +86,8 @@ export const CollectionsPickerExtension = ({
   const [collections, setCollections] = useState<CollectionItem[] | any[]>(
     formData || [],
   );
-  const [_editingIndex, setEditingIndex] = useState<number | null>(null);
-  const [_fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
+  const [, setEditingIndex] = useState<number | null>(null);
+  const [, setFieldErrors] = useState<Record<string, string>>({});
 
   // Autocomplete states
   const [availableCollections, setAvailableCollections] = useState<any[]>([]);
@@ -123,7 +125,7 @@ export const CollectionsPickerExtension = ({
         const processedCollections = results || [];
         setAvailableCollections(processedCollections);
       }
-    } catch (error) {
+    } catch {
       setAvailableCollections([]);
     } finally {
       setLoadingCollections(false);
@@ -143,11 +145,7 @@ export const CollectionsPickerExtension = ({
         (col: any) => col.name === collectionName,
       );
 
-      if (
-        foundCollection &&
-        foundCollection.sources &&
-        foundCollection.sources.length > 0
-      ) {
+      if (foundCollection?.sources?.length > 0) {
         // Use sources from the collection data
         setAvailableSources(
           foundCollection.sources.map((source: string) => ({
@@ -169,7 +167,7 @@ export const CollectionsPickerExtension = ({
             });
             setAvailableSources(results || []);
           }
-        } catch (error) {
+        } catch {
           setAvailableSources([]);
         } finally {
           setLoadingSources(false);
@@ -191,11 +189,7 @@ export const CollectionsPickerExtension = ({
         (col: any) => col.name === collectionName,
       );
 
-      if (
-        foundCollection &&
-        foundCollection.sourceVersions &&
-        foundCollection.sourceVersions[sourceId]
-      ) {
+      if (foundCollection?.sourceVersions?.[sourceId]) {
         // Get versions for the specific source
         const sourceVersions = foundCollection.sourceVersions[sourceId] || [];
         setAvailableVersions(
@@ -204,11 +198,7 @@ export const CollectionsPickerExtension = ({
             version: version,
           })),
         );
-      } else if (
-        foundCollection &&
-        foundCollection.versions &&
-        foundCollection.versions.length > 0
-      ) {
+      } else if (foundCollection?.versions?.length > 0) {
         // Fallback: show all versions if source-version mapping not available
         setAvailableVersions(
           foundCollection.versions.map((version: string) => ({
@@ -230,7 +220,7 @@ export const CollectionsPickerExtension = ({
             });
             setAvailableVersions(results || []);
           }
-        } catch (error) {
+        } catch {
           setAvailableVersions([]);
         } finally {
           setLoadingVersions(false);
@@ -296,11 +286,11 @@ export const CollectionsPickerExtension = ({
 
     let updatedCollections: CollectionItem[];
 
-    if (existingIndex !== -1) {
+    if (existingIndex === -1) {
+      updatedCollections = [...collections, collectionToAdd];
+    } else {
       updatedCollections = [...collections];
       updatedCollections[existingIndex] = collectionToAdd;
-    } else {
-      updatedCollections = [...collections, collectionToAdd];
     }
 
     setCollections(updatedCollections);
@@ -327,8 +317,7 @@ export const CollectionsPickerExtension = ({
     setEditingIndex(index);
   };
 
-  const isAddButtonDisabled =
-    !selectedCollection || !selectedCollection.trim() || disabled;
+  const isAddButtonDisabled = !selectedCollection?.trim() || disabled;
 
   const handleCollectionChange = (_event: any, newValue: any) => {
     const value =
@@ -492,9 +481,8 @@ export const CollectionsPickerExtension = ({
           </Typography>
           <Box className={classes.collectionsList}>
             {collections.map((collection, index) => {
-              const collectionAny = collection as any;
-              const displayLabel = collectionAny.name || 'Unnamed';
-              const chipKey = `${collectionAny.name || 'unnamed'}-${index}`;
+              const displayLabel = collection.name || 'Unnamed';
+              const chipKey = `${collection.name || 'unnamed'}-${index}`;
               return (
                 <Box
                   key={chipKey}
