@@ -1,6 +1,8 @@
+import yaml from 'js-yaml';
+
 /**
  * Parses EE definition YAML string to extract fields for Defined Content and About card.
- * Uses simple parsing to avoid extra dependencies; handles common ansible-builder schema.
+ * Uses js-yaml for safe, structured parsing of the ansible-builder schema.
  * Supports both inline lists and file references (e.g. galaxy: requirements.yaml).
  */
 export interface ParsedEEDefinition {
@@ -18,110 +20,58 @@ export interface ParsedEEDefinition {
   collectionsFileRef: string | null;
 }
 
-function parseBaseImageName(yaml: string): string | null {
-  const m =
-    /images:\s*\n\s*base_image:\s*\n\s*name:\s*['"]?([^'"\n]+)['"]?/.exec(yaml);
-  return m ? m[1].trim() : null;
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
 
-function parseCollections(
-  yaml: string,
-): Array<{ name: string; version?: string }> {
-  // Allow galaxy after other keys (e.g. python, system) so scaffolder-generated order is supported
-  const galaxyMatch =
-    /dependencies:\s*\n(?:[^\n]*\n)*?\s*galaxy:\s*\n\s*collections:\s*([\s\S]*?)(?=\n {2}[a-z_]+:|$)/.exec(
-      yaml,
-    );
-  if (!galaxyMatch) return [];
-  const block = galaxyMatch[1];
-  const nameRegex = /-\s*name:\s*['"]?([^'"\n]+)['"]?/g;
-  const versionRegex = /\n\s*version:\s*['"]?([^'"\n]*)['"]?/;
-  const out: Array<{ name: string; version?: string }> = [];
-  let nameMatch = nameRegex.exec(block);
-  while (nameMatch !== null) {
-    const name = nameMatch[1].trim();
-    const afterName = block.slice(nameMatch.index + nameMatch[0].length);
-    const versionMatch = versionRegex.exec(afterName);
-    const version =
-      versionMatch && versionMatch.index === 0
-        ? versionMatch[1]?.trim()
-        : undefined;
-    out.push({ name, version });
-    nameMatch = nameRegex.exec(block);
-  }
-  return out;
-}
-
-function parseCollectionsFileRef(yaml: string): string | null {
-  // Allow galaxy after other keys under dependencies (e.g. python, system)
-  const m =
-    /dependencies:\s*\n(?:[^\n]*\n)*?\s*galaxy:\s*['"]?([^\s'"]+\.(?:ya?ml|yml))['"]?/.exec(
-      yaml,
-    );
-  return m ? m[1].trim() : null;
-}
-
-function parsePythonPath(yaml: string): string | null {
-  const m =
-    /python_interpreter:\s*\n\s*python_path:\s*['"]?([^'"\n]+)['"]?/.exec(yaml);
-  return m ? m[1].trim() : null;
-}
-
-function extractPackagesFromListBlock(block: string): string[] {
-  return block
-    .split('\n')
-    .map(line => line.replace(/^\s*-\s*['"]?([^'"\n]+)['"]?.*$/, '$1').trim())
-    .filter(Boolean);
-}
-
-function parsePythonPackages(yaml: string): string[] | null {
-  const m =
-    /dependencies:\s*\n(?:[^\n]*\n)*?\s*python:\s*\n((?:\s*-\s*[^\n]+\n?)+)/.exec(
-      yaml,
-    );
-  if (!m) return null;
-  const packages = extractPackagesFromListBlock(m[1]);
-  return packages.length > 0 ? packages : null;
-}
-
-function parsePythonFileRef(yaml: string): string | null {
-  const m =
-    /dependencies:\s*\n(?:[^\n]*\n)*?\s*python:\s*['"]?([^\s'"]+\.(?:txt|in))['"]?/.exec(
-      yaml,
-    );
-  return m ? m[1].trim() : null;
-}
-
-function parseSystemPackages(yaml: string): string[] | null {
-  const listMatch =
-    /dependencies:\s*\n(?:[^\n]*\n)*\s*system:\s*\n((?:\s*-\s*[^\n]+\n?)+)/.exec(
-      yaml,
-    );
-  if (listMatch) {
-    const packages = extractPackagesFromListBlock(listMatch[1]);
-    if (packages.length > 0) return packages;
-  }
-  const arrayMatch = /system:\s*\n\s*packages:\s*\[([\s\S]*?)\]/.exec(yaml);
-  if (arrayMatch) {
-    const listContent = arrayMatch[1];
-    const packages = listContent
-      .split(',')
-      .map(s => s.replaceAll(/^['"]|['"]$/g, '').trim())
-      .filter(Boolean);
-    if (packages.length > 0) return packages;
-  }
+function asString(value: unknown): string | null {
+  if (typeof value === 'string') return value.trim() || null;
+  if (typeof value === 'number') return String(value);
   return null;
 }
 
-function parseSystemFileRef(yaml: string): string | null {
-  const m =
-    /dependencies:\s*\n(?:[^\n]*\n)*\s*system:\s*['"]?([^\s'"]+\.(?:txt|in))['"]?/.exec(
-      yaml,
-    );
-  return m ? m[1].trim() : null;
+function extractBaseImageName(doc: Record<string, unknown>): string | null {
+  const images = doc.images;
+  if (!isRecord(images)) return null;
+  const baseImage = images.base_image;
+  if (!isRecord(baseImage)) return null;
+  return asString(baseImage.name);
 }
 
-/** Max length for definition YAML to bound regex runtime (ReDoS mitigation). */
+function extractPythonPath(deps: Record<string, unknown>): string | null {
+  const interp = deps.python_interpreter;
+  if (!isRecord(interp)) return null;
+  return asString(interp.python_path);
+}
+
+function extractStringList(value: unknown): string[] | null {
+  if (!Array.isArray(value)) return null;
+  const items = value
+    .map(v => (typeof v === 'string' ? v.trim() : null))
+    .filter((v): v is string => v !== null && v.length > 0);
+  return items.length > 0 ? items : null;
+}
+
+function extractCollections(
+  galaxy: unknown,
+): Array<{ name: string; version?: string }> {
+  if (!isRecord(galaxy)) return [];
+  const collections = galaxy.collections;
+  if (!Array.isArray(collections)) return [];
+  return collections
+    .filter(isRecord)
+    .filter(item => typeof item.name === 'string')
+    .map(item => {
+      const entry: { name: string; version?: string } = {
+        name: (item.name as string).trim(),
+      };
+      const ver = asString(item.version);
+      if (ver) entry.version = ver;
+      return entry;
+    });
+}
+
+/** Max length for definition YAML to bound parse time. */
 const MAX_DEFINITION_LENGTH = 100_000;
 
 /**
@@ -134,35 +84,56 @@ export function parseEEDefinition(
   if (!definitionYaml || typeof definitionYaml !== 'string') return null;
   if (definitionYaml.length > MAX_DEFINITION_LENGTH) return null;
 
-  const result: ParsedEEDefinition = {
-    baseImageName: null,
-    collections: [],
-    pythonPath: null,
-    pythonPackages: null,
-    pythonFileRef: null,
-    systemPackages: null,
-    systemFileRef: null,
-    collectionsFileRef: null,
-  };
-
   try {
-    result.baseImageName = parseBaseImageName(definitionYaml);
-    result.collections = parseCollections(definitionYaml);
-    if (result.collections.length === 0) {
-      result.collectionsFileRef = parseCollectionsFileRef(definitionYaml);
+    const doc = yaml.load(definitionYaml);
+    if (!isRecord(doc)) return null;
+
+    const result: ParsedEEDefinition = {
+      baseImageName: null,
+      collections: [],
+      pythonPath: null,
+      pythonPackages: null,
+      pythonFileRef: null,
+      systemPackages: null,
+      systemFileRef: null,
+      collectionsFileRef: null,
+    };
+
+    result.baseImageName = extractBaseImageName(doc);
+
+    const deps = doc.dependencies;
+    if (!isRecord(deps)) return result;
+
+    result.pythonPath = extractPythonPath(deps);
+
+    // dependencies.python: inline list or file reference
+    const python = deps.python;
+    if (Array.isArray(python)) {
+      result.pythonPackages = extractStringList(python);
+    } else if (typeof python === 'string' && /\.(?:txt|in)$/.test(python)) {
+      result.pythonFileRef = python.trim();
     }
-    result.pythonPath = parsePythonPath(definitionYaml);
-    result.pythonPackages = parsePythonPackages(definitionYaml);
-    if (!result.pythonPackages?.length) {
-      result.pythonFileRef = parsePythonFileRef(definitionYaml);
+
+    // dependencies.system: inline list, object with packages array, or file reference
+    const system = deps.system;
+    if (Array.isArray(system)) {
+      result.systemPackages = extractStringList(system);
+    } else if (isRecord(system) && Array.isArray(system.packages)) {
+      result.systemPackages = extractStringList(system.packages);
+    } else if (typeof system === 'string' && /\.(?:txt|in)$/.test(system)) {
+      result.systemFileRef = system.trim();
     }
-    result.systemPackages = parseSystemPackages(definitionYaml);
-    if (!result.systemPackages?.length) {
-      result.systemFileRef = parseSystemFileRef(definitionYaml);
+
+    // dependencies.galaxy: inline collections or file reference
+    const galaxy = deps.galaxy;
+    if (isRecord(galaxy)) {
+      result.collections = extractCollections(galaxy);
+    } else if (typeof galaxy === 'string' && /\.ya?ml$/.test(galaxy)) {
+      result.collectionsFileRef = galaxy.trim();
     }
+
+    return result;
   } catch {
     return null;
   }
-
-  return result;
 }
