@@ -93,8 +93,7 @@ catalog:
   # Skip TLS verification for GitLab pipelines proxy (self-signed / internal CA). Dev/internal only.
   # ansible:
   #   gitlabPipelinesProxy:
-  #     skipTlsVerifyForHosts:
-  #       - gitlab.cee.redhat.com
+  #     skipTlsVerifyForHosts: []
   stitchingStrategy:
     immediate: true
   orphanStrategy: delete
