@@ -1,4 +1,4 @@
-import { render, screen, fireEvent } from '@testing-library/react';
+import { render, screen } from '@testing-library/react';
 import { ThemeProvider, createMuiTheme } from '@material-ui/core/styles';
 import { ResourcesCard } from './ResourcesCard';
 
@@ -9,48 +9,47 @@ const renderWithTheme = (ui: React.ReactElement) =>
 
 describe('ResourcesCard', () => {
   it('renders card title Resources', () => {
-    const onViewInSource = jest.fn();
-    renderWithTheme(
-      <ResourcesCard onViewInSource={onViewInSource} readmeUrl={null} />,
-    );
+    renderWithTheme(<ResourcesCard />);
     expect(screen.getByText('Resources')).toBeInTheDocument();
   });
 
-  it('renders View in source link and readme.md', () => {
-    const onViewInSource = jest.fn();
-    renderWithTheme(
-      <ResourcesCard onViewInSource={onViewInSource} readmeUrl={null} />,
-    );
-    expect(screen.getByText('View in source')).toBeInTheDocument();
-    expect(screen.getByText('readme.md')).toBeInTheDocument();
+  it('renders all documentation links', () => {
+    renderWithTheme(<ResourcesCard />);
+    expect(
+      screen.getByText('Introduction to automation execution environments'),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        'Create execution environment definitions in self-service automation portal',
+      ),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        'Build execution environment images with Ansible Builder',
+      ),
+    ).toBeInTheDocument();
   });
 
-  it('calls onViewInSource when View in source is clicked', () => {
-    const onViewInSource = jest.fn();
-    renderWithTheme(
-      <ResourcesCard onViewInSource={onViewInSource} readmeUrl={null} />,
-    );
-    fireEvent.click(screen.getByText('View in source'));
-    expect(onViewInSource).toHaveBeenCalledTimes(1);
-  });
+  it('renders documentation links pointing to Red Hat docs', () => {
+    renderWithTheme(<ResourcesCard />);
 
-  it('renders readme.md as link when readmeUrl is provided', () => {
-    const onViewInSource = jest.fn();
-    const readmeUrl = 'https://github.com/org/repo/blob/main/README.md';
-    renderWithTheme(
-      <ResourcesCard onViewInSource={onViewInSource} readmeUrl={readmeUrl} />,
+    const docLink = screen.getByRole('link', {
+      name: 'Create execution environment definitions in self-service automation portal',
+    });
+    expect(docLink).toHaveAttribute(
+      'href',
+      'https://docs.redhat.com/en/documentation/red_hat_ansible_automation_platform/2.6/html-single/using_self-service_automation_portal/index#self-service-create-ee-definitions_aap-self-service-using',
     );
-    const readmeLink = screen.getByRole('link', { name: 'readme.md' });
-    expect(readmeLink).toHaveAttribute('href', readmeUrl);
-    expect(readmeLink).toHaveAttribute('target', '_blank');
-  });
+    expect(docLink).toHaveAttribute('target', '_blank');
 
-  it('renders readme.md as plain text when readmeUrl is null', () => {
-    const onViewInSource = jest.fn();
-    renderWithTheme(
-      <ResourcesCard onViewInSource={onViewInSource} readmeUrl={null} />,
-    );
-    const readmeEl = screen.getByText('readme.md');
-    expect(readmeEl.tagName).not.toBe('A');
+    const introLink = screen.getByRole('link', {
+      name: 'Introduction to automation execution environments',
+    });
+    expect(introLink).toHaveAttribute('target', '_blank');
+
+    const buildLink = screen.getByRole('link', {
+      name: 'Build execution environment images with Ansible Builder',
+    });
+    expect(buildLink).toHaveAttribute('target', '_blank');
   });
 });

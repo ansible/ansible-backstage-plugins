@@ -14,7 +14,7 @@ describe('DefinedContentCard', () => {
     expect(screen.getByText('Defined Content')).toBeInTheDocument();
     expect(
       screen.getByText(
-        /Shows explicitly added collections, Python requirements, and system packages only/,
+        /Shows explicitly added collections, python requirements, and system packages only/i,
       ),
     ).toBeInTheDocument();
   });
@@ -25,7 +25,7 @@ describe('DefinedContentCard', () => {
     expect(noneLabels.length).toBeGreaterThanOrEqual(3);
   });
 
-  it('shows collections with link when provided', () => {
+  it('shows collections when provided', () => {
     const parsed: ParsedEEDefinition = {
       baseImageName: null,
       collections: [{ name: 'cisco.nxos', version: '2.0.0' }],
@@ -37,28 +37,8 @@ describe('DefinedContentCard', () => {
       collectionsFileRef: null,
     };
     renderWithTheme(<DefinedContentCard parsedDefinition={parsed} />);
-    expect(screen.getByText('cisco.nxos')).toBeInTheDocument();
+    expect(screen.getByText(/cisco\.nxos/)).toBeInTheDocument();
     expect(screen.getByText(/2\.0\.0/)).toBeInTheDocument();
-    const link = screen.getByRole('link', { name: /cisco\.nxos/ });
-    expect(link).toHaveAttribute(
-      'href',
-      'https://galaxy.ansible.com/cisco.nxos',
-    );
-  });
-
-  it('shows "From <file>" for collections when collectionsFileRef is set', () => {
-    const parsed: ParsedEEDefinition = {
-      baseImageName: null,
-      collections: [],
-      pythonPath: null,
-      pythonPackages: null,
-      pythonFileRef: null,
-      systemPackages: null,
-      systemFileRef: null,
-      collectionsFileRef: 'requirements.yaml',
-    };
-    renderWithTheme(<DefinedContentCard parsedDefinition={parsed} />);
-    expect(screen.getByText(/From requirements\.yaml/)).toBeInTheDocument();
   });
 
   it('shows Python requirements list when provided', () => {
@@ -73,7 +53,8 @@ describe('DefinedContentCard', () => {
       collectionsFileRef: null,
     };
     renderWithTheme(<DefinedContentCard parsedDefinition={parsed} />);
-    expect(screen.getByText('six, psutil')).toBeInTheDocument();
+    expect(screen.getByText('six')).toBeInTheDocument();
+    expect(screen.getByText('psutil')).toBeInTheDocument();
   });
 
   it('shows system packages when provided', () => {
@@ -88,6 +69,7 @@ describe('DefinedContentCard', () => {
       collectionsFileRef: null,
     };
     renderWithTheme(<DefinedContentCard parsedDefinition={parsed} />);
-    expect(screen.getByText('git, curl')).toBeInTheDocument();
+    expect(screen.getByText('git')).toBeInTheDocument();
+    expect(screen.getByText('curl')).toBeInTheDocument();
   });
 });

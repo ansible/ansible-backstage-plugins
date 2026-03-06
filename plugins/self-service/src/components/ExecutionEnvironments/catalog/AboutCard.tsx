@@ -53,7 +53,6 @@ interface AboutCardProps {
   baseImageName: string | null;
   sourceLocationUrl: string | null;
   onOpenSourceLocation: () => void;
-  readmeUrl?: string | null;
   isRefreshing: boolean;
   isDownloadExperience: boolean;
   onRefresh: () => void;
@@ -129,16 +128,7 @@ export const AboutCard: React.FC<AboutCardProps> = ({
           </Typography>
           {showReadMore && (
             <>
-              {!descriptionExpanded ? (
-                <Link
-                  component="button"
-                  variant="body2"
-                  className={classes.descriptionExpand}
-                  onClick={() => setDescriptionExpanded(true)}
-                >
-                  Read more
-                </Link>
-              ) : (
+              {descriptionExpanded ? (
                 <Link
                   component="button"
                   variant="body2"
@@ -146,6 +136,15 @@ export const AboutCard: React.FC<AboutCardProps> = ({
                   onClick={() => setDescriptionExpanded(false)}
                 >
                   Read less
+                </Link>
+              ) : (
+                <Link
+                  component="button"
+                  variant="body2"
+                  className={classes.descriptionExpand}
+                  onClick={() => setDescriptionExpanded(true)}
+                >
+                  Read more
                 </Link>
               )}
             </>
@@ -185,20 +184,18 @@ export const AboutCard: React.FC<AboutCardProps> = ({
             </Typography>
             <Box marginTop={0.5}>
               {sourceLocationUrl ? (
-                <>
-                  <Box className={classes.sourceLinkRow}>
-                    <OpenInNewIcon fontSize="small" color="primary" />
-                    <Link
-                      component="button"
-                      variant="body2"
-                      color="primary"
-                      onClick={onOpenSourceLocation}
-                      className={classes.sourceLink}
-                    >
-                      source link
-                    </Link>
-                  </Box>
-                </>
+                <Box className={classes.sourceLinkRow}>
+                  <OpenInNewIcon fontSize="small" color="primary" />
+                  <Link
+                    component="button"
+                    variant="body2"
+                    color="primary"
+                    onClick={onOpenSourceLocation}
+                    className={classes.sourceLink}
+                  >
+                    source link
+                  </Link>
+                </Box>
               ) : (
                 <Typography variant="body2" color="textSecondary">
                   —

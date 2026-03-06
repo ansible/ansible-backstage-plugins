@@ -313,24 +313,6 @@ export const EEDetailsPage: React.FC = () => {
     // Placeholder: will be implemented later
   };
 
-  /** Blob URL for README (e.g. GitHub .../blob/main/subdir/README.md) */
-  const getReadmeBlobUrl = useCallback(() => {
-    const loc = entity?.metadata?.annotations?.['backstage.io/source-location'];
-    const scm = entity?.metadata?.annotations?.['ansible.io/scm-provider'];
-    if (!loc) return null;
-    const cleanUrl = loc.replace(/^url:/, '').replace(/\/$/, '');
-    if (scm?.toLowerCase()?.includes('github')) {
-      const u = cleanUrl.replace(/\/tree\//, '/blob/');
-      return u.includes('/blob/') ? `${u.replace(/\/$/, '')}/README.md` : null;
-    }
-    if (scm?.toLowerCase()?.includes('gitlab')) {
-      return cleanUrl
-        .replace(/\/-\/raw\//, '/-/blob/')
-        .replace(/\/[^/]+$/, '/README.md');
-    }
-    return null;
-  }, [entity]);
-
   const parsedDefinition = useMemo(() => {
     const fromSpec = parseEEDefinition(entity?.spec?.definition);
     if (fromSpec) return fromSpec;
@@ -566,7 +548,6 @@ export const EEDetailsPage: React.FC = () => {
                     baseImageName={parsedDefinition?.baseImageName ?? null}
                     sourceLocationUrl={sourceLocationDisplayUrl}
                     onOpenSourceLocation={openSourceLocationUrl}
-                    readmeUrl={getReadmeBlobUrl()}
                     isRefreshing={isRefreshing}
                     isDownloadExperience={isDownloadExperience}
                     onRefresh={handleRefresh}
@@ -575,13 +556,7 @@ export const EEDetailsPage: React.FC = () => {
                   {/* Defined Content Card */}
                   <DefinedContentCard parsedDefinition={parsedDefinition} />
 
-                  {/* Resources Card - hidden when download-experience is true */}
-                  {!isDownloadExperience && (
-                    <ResourcesCard
-                      onViewInSource={openSourceLocationUrl}
-                      readmeUrl={getReadmeBlobUrl()}
-                    />
-                  )}
+                  <ResourcesCard />
                 </Box>
               </Box>
             )}

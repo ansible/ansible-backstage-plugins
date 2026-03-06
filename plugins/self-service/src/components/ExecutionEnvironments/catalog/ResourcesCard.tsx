@@ -1,7 +1,6 @@
 import { Box, Card, CardContent, Typography, Link } from '@material-ui/core';
 import { makeStyles } from '@material-ui/core/styles';
 import OpenInNewIcon from '@material-ui/icons/OpenInNew';
-import DescriptionIcon from '@material-ui/icons/Description';
 
 const useStyles = makeStyles(() => ({
   linkRow: {
@@ -21,18 +20,12 @@ const useStyles = makeStyles(() => ({
   },
 }));
 
-interface ResourcesCardProps {
-  onViewInSource: () => void;
-  readmeUrl: string | null;
-}
+interface ResourcesCardProps {}
 
 /**
  * Card with View in source and readme.md links.
  */
-export const ResourcesCard: React.FC<ResourcesCardProps> = ({
-  onViewInSource,
-  readmeUrl,
-}) => {
+export const ResourcesCard: React.FC<ResourcesCardProps> = () => {
   const classes = useStyles();
 
   return (
@@ -57,33 +50,42 @@ export const ResourcesCard: React.FC<ResourcesCardProps> = ({
           <Box className={classes.linkRow}>
             <OpenInNewIcon fontSize="small" color="primary" />
             <Link
-              component="button"
+              href="https://docs.redhat.com/en/documentation/red_hat_ansible_automation_platform/2.6/html/creating_and_using_execution_environments/assembly-intro-to-builder"
+              target="_blank"
+              rel="noopener noreferrer"
               variant="body2"
               color="primary"
-              onClick={onViewInSource}
               className={classes.link}
             >
-              View in source
+              Introduction to automation execution environments
             </Link>
           </Box>
           <Box className={classes.linkRow}>
-            <DescriptionIcon fontSize="small" color="primary" />
-            {readmeUrl ? (
-              <Link
-                href={readmeUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                variant="body2"
-                color="primary"
-                className={classes.link}
-              >
-                readme.md
-              </Link>
-            ) : (
-              <Typography variant="body2" color="textSecondary">
-                readme.md
-              </Typography>
-            )}
+            <OpenInNewIcon fontSize="small" color="primary" />
+            <Link
+              href="https://docs.redhat.com/en/documentation/red_hat_ansible_automation_platform/2.6/html-single/using_self-service_automation_portal/index#self-service-create-ee-definitions_aap-self-service-using"
+              target="_blank"
+              rel="noopener noreferrer"
+              variant="body2"
+              color="primary"
+              className={classes.link}
+            >
+              Create execution environment definitions in self-service
+              automation portal
+            </Link>
+          </Box>
+          <Box className={classes.linkRow}>
+            <OpenInNewIcon fontSize="small" color="primary" />
+            <Link
+              href="https://docs.redhat.com/en/documentation/red_hat_ansible_automation_platform/2.6/html/creating_and_using_execution_environments/assembly-using-builder"
+              target="_blank"
+              rel="noopener noreferrer"
+              variant="body2"
+              color="primary"
+              className={classes.link}
+            >
+              Build execution environment images with Ansible Builder
+            </Link>
           </Box>
         </Box>
       </CardContent>

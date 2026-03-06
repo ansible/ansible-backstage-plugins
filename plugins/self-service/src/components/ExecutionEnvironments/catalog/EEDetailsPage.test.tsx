@@ -302,24 +302,16 @@ describe('EEDetailsPage', () => {
     expect(screen.getByText(/Read less/i)).toBeInTheDocument();
   });
 
-  test('clicking View in source opens source location', async () => {
+  test('Resources card renders documentation links', async () => {
     renderWithCatalogApi(() => Promise.resolve({ items: [entityNoDownload] }));
 
     await screen.findByTestId('favorite-entity');
 
-    const openSpy = jest.spyOn(window, 'open').mockImplementation(() => null);
-
-    // View in source is in the Resources card (and in Actions dropdown when open)
-    const viewSourceLinks = screen.getAllByText(/View in source/i);
-    expect(viewSourceLinks.length).toBeGreaterThanOrEqual(1);
-    fireEvent.click(viewSourceLinks[0]);
-
-    expect(openSpy).toHaveBeenCalledWith(
-      'https://github.com/owner/repo/tree/branch/ee1/',
-      '_blank',
-    );
-
-    openSpy.mockRestore();
+    expect(
+      screen.getByText(
+        /Create execution environment definitions in self-service automation portal/i,
+      ),
+    ).toBeInTheDocument();
   });
 
   test('Edit definition action opens definition file URL', async () => {
@@ -604,8 +596,7 @@ describe('EEDetailsPage', () => {
     });
   });
 
-  test('Actions menu: Delete opens unregister flow; Build, Edit definition, View in source present when not download-experience', async () => {
-    // Use entity without download-experience so Edit definition and View in source are shown
+  test('Actions menu: Delete opens unregister flow; Build, Edit definition present when not download-experience', async () => {
     renderWithCatalogApi(() => Promise.resolve({ items: [entityNoDownload] }));
 
     await screen.findByTestId('favorite-entity');
@@ -613,11 +604,10 @@ describe('EEDetailsPage', () => {
     const actionsButton = screen.getByRole('button', { name: /Actions/i });
     fireEvent.click(actionsButton);
 
-    expect(screen.getByText(/Build/i)).toBeInTheDocument();
-    expect(screen.getByText(/Edit definition/i)).toBeInTheDocument();
     expect(
-      screen.getAllByText(/View in source/i).length,
-    ).toBeGreaterThanOrEqual(1);
+      screen.getByRole('menuitem', { name: /Build/i }),
+    ).toBeInTheDocument();
+    expect(screen.getByText(/Edit definition/i)).toBeInTheDocument();
     const deleteItem = await screen.findByText(/Delete/i);
     expect(deleteItem).toBeInTheDocument();
 
