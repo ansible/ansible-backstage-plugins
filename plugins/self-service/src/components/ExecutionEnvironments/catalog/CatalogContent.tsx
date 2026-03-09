@@ -34,17 +34,9 @@ import { useApi } from '@backstage/core-plugin-api';
 import { useNavigate } from 'react-router-dom';
 import { createTarArchive } from '../../utils/tarArchiveUtils';
 import { CreateCatalog } from './CreateCatalog';
+import { toEEDefinitionUrl } from './helpers';
 
 const DESCRIPTION_TRUNCATE_LENGTH = 30;
-
-/** Resolve Edit/View URL to the EE definition file when it points at catalog-info.yaml. */
-function toEEDefinitionUrl(url: string, eeName: string): string {
-  if (!url?.trim() || !eeName) return url ?? '';
-  const t = url.replace(/^url:/i, '').trim();
-  return t.includes('catalog-info.yaml')
-    ? t.replace(/catalog-info\.yaml$/, `${eeName}.yaml`)
-    : t;
-}
 
 const useStyles = makeStyles(theme => ({
   flex: {
