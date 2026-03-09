@@ -595,7 +595,7 @@ export const EEListPage = ({
                 <FormControl fullWidth>
                   <Select
                     value={ownerFilter}
-                    onChange={e => setOwnerFilter(e.target.value as any)}
+                    onChange={e => setOwnerFilter(e.target.value as string)}
                     displayEmpty
                     input={<Input disableUnderline />}
                   >
@@ -613,7 +613,7 @@ export const EEListPage = ({
                 <FormControl fullWidth variant="outlined">
                   <Select
                     value={tagFilter}
-                    onChange={e => setTagFilter(e.target.value as any)}
+                    onChange={e => setTagFilter(e.target.value as string)}
                     input={<Input disableUnderline />}
                     MenuProps={{
                       getContentAnchorEl: null,
