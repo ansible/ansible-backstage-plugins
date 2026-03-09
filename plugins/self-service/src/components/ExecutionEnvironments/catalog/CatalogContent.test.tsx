@@ -514,8 +514,9 @@ describe('EEListPage', () => {
       expect(screen.getByText('ee-two')).toBeInTheDocument();
     });
 
+    // Skip: component uses UserListPicker for starred filter; no per-row star with data-testid yellow-star
+    // eslint-disable-next-line jest/no-disabled-tests
     test.skip('clicking star calls toggleStarredEntity', async () => {
-      // Skip: component uses UserListPicker for starred filter; no per-row star with data-testid yellow-star
       const pluginMock = jest.requireMock('@backstage/plugin-catalog-react');
       const starredMock = pluginMock.useStarredEntities();
       const toggleStarredEntityMock =

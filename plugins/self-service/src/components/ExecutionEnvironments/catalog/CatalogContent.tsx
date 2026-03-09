@@ -733,6 +733,7 @@ export const EEListPage = ({
                                       !entity?.spec?.ansible_cfg ||
                                       !entity?.spec?.template
                                     ) {
+                                      // eslint-disable-next-line no-console
                                       console.error(
                                         'Entity, definition, readme, ansible_cfg or template not available for download',
                                       );
@@ -795,6 +796,7 @@ export const EEListPage = ({
                                       link.remove();
                                       URL.revokeObjectURL(url);
                                     } catch (err) {
+                                      // eslint-disable-next-line no-console
                                       console.error(
                                         'Failed to download archive:',
                                         err,
