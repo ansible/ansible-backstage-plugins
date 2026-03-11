@@ -7,7 +7,11 @@ import {
 } from '@testing-library/react';
 import { TestApiProvider } from '@backstage/test-utils';
 import { catalogApiRef } from '@backstage/plugin-catalog-react';
-import { discoveryApiRef, identityApiRef } from '@backstage/core-plugin-api';
+import {
+  discoveryApiRef,
+  identityApiRef,
+  fetchApiRef,
+} from '@backstage/core-plugin-api';
 import { ThemeProvider, createMuiTheme } from '@material-ui/core/styles';
 import { MemoryRouter } from 'react-router-dom';
 
@@ -101,12 +105,13 @@ delete (entityNoReadme.spec as any).readme;
 
 const theme = createMuiTheme();
 
-// ----------------- Helper render (provides catalog, discovery, identity APIs) -----------------
+// ----------------- Helper render (provides catalog, discovery, identity, fetch APIs) -----------------
 const renderWithCatalogApi = (
   getEntitiesImpl: any,
   options?: {
     discoveryImpl?: any;
     identityImpl?: any;
+    fetchImpl?: any;
     getEntityByRefImpl?: any;
   },
 ) => {
@@ -128,6 +133,12 @@ const renderWithCatalogApi = (
   const mockIdentityApi = options?.identityImpl ?? {
     getCredentials: async () => ({ token: 'tok' }),
   };
+  const mockFetchApi = options?.fetchImpl ?? {
+    fetch: jest.fn().mockResolvedValue({
+      ok: true,
+      text: async () => '# Default README from fetch',
+    }),
+  };
 
   return render(
     <MemoryRouter initialEntries={['/']}>
@@ -136,6 +147,7 @@ const renderWithCatalogApi = (
           [catalogApiRef, mockCatalogApi],
           [discoveryApiRef, mockDiscoveryApi],
           [identityApiRef, mockIdentityApi],
+          [fetchApiRef, mockFetchApi],
         ]}
       >
         <ThemeProvider theme={theme}>
@@ -376,13 +388,16 @@ describe('EEDetailsPage', () => {
   });
 
   test('renders default readme when spec.readme is absent and fetch succeeds', async () => {
-    // mock fetch for default readme
-    const fetchSpy = jest.spyOn(global, 'fetch' as any).mockResolvedValue({
-      ok: true,
-      text: async () => 'Fetched README content',
-    });
+    const mockFetchApi = {
+      fetch: jest.fn().mockResolvedValue({
+        ok: true,
+        text: async () => 'Fetched README content',
+      }),
+    };
 
-    renderWithCatalogApi(() => Promise.resolve({ items: [entityNoReadme] }));
+    renderWithCatalogApi(() => Promise.resolve({ items: [entityNoReadme] }), {
+      fetchImpl: mockFetchApi,
+    });
 
     // wait for MarkdownContent to contain fetched text
     await waitFor(
@@ -392,25 +407,25 @@ describe('EEDetailsPage', () => {
         ),
       { timeout: 2000 },
     );
-
-    fetchSpy.mockRestore();
   });
 
   test('default readme fetch failure does not crash and markdown-content may be empty', async () => {
-    const fetchSpy = jest.spyOn(global, 'fetch' as any).mockResolvedValue({
-      ok: false,
-      status: 404,
-      text: async () => '',
-    });
+    const mockFetchApi = {
+      fetch: jest.fn().mockResolvedValue({
+        ok: false,
+        status: 404,
+        text: async () => '',
+      }),
+    };
 
-    renderWithCatalogApi(() => Promise.resolve({ items: [entityNoReadme] }));
+    renderWithCatalogApi(() => Promise.resolve({ items: [entityNoReadme] }), {
+      fetchImpl: mockFetchApi,
+    });
 
     await screen.findByTestId('favorite-entity');
 
     // fetch failed; component should not crash. MarkdownContent is present but may be empty.
     expect(screen.getByTestId('markdown-content')).toBeInTheDocument();
-
-    fetchSpy.mockRestore();
   });
 
   test('does not crash if catalogApi.getEntities rejects', async () => {

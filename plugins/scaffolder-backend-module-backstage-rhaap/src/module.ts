@@ -23,17 +23,13 @@ import {
   scaffolderAutocompleteExtensionPoint,
   scaffolderTemplatingExtensionPoint,
 } from '@backstage/plugin-scaffolder-node/alpha';
-import {
-  ansibleServiceRef,
-  getAnsibleConfig,
-} from '@ansible/backstage-rhaap-common';
+import { ansibleServiceRef } from '@ansible/backstage-rhaap-common';
 import {
   createAnsibleContentAction,
   cleanUp,
   createExecutionEnvironment,
   createJobTemplate,
   createProjectAction,
-  createShowCases,
   launchJobTemplate,
   createEEDefinitionAction,
   prepareForPublishAction,
@@ -43,6 +39,7 @@ import {
   multiResourceFilter,
   resourceFilter,
   useCaseNameFilter,
+  uuidFilter,
 } from './filters';
 import { handleAutocompleteRequest } from './autocomplete';
 
@@ -75,16 +72,14 @@ export const scaffolderModuleAnsible = createBackendModule({
         auth,
         discovery,
       }) {
-        const ansibleConfig = getAnsibleConfig(config);
         const frontendUrl = config.getString('app.baseUrl');
         scaffolder.addActions(
-          createAnsibleContentAction(config, ansibleConfig),
+          createAnsibleContentAction(config),
           createProjectAction(ansibleService),
           createExecutionEnvironment(ansibleService),
           createJobTemplate(ansibleService),
           launchJobTemplate(ansibleService),
           cleanUp(ansibleService),
-          createShowCases(ansibleService, ansibleConfig),
           createEEDefinitionAction({
             frontendUrl,
             auth,
@@ -98,6 +93,7 @@ export const scaffolderModuleAnsible = createBackendModule({
           useCaseNameFilter: useCaseNameFilter,
           resourceFilter: resourceFilter,
           multiResourceFilter: multiResourceFilter,
+          uuidFilter: uuidFilter,
         });
         autocomplete.addAutocompleteProvider({
           id: 'aap-api-cloud',

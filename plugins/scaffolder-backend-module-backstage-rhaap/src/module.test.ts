@@ -12,17 +12,17 @@ jest.mock('./actions', () => ({
   createJobTemplate: jest.fn(() => 'action4'),
   launchJobTemplate: jest.fn(() => 'action5'),
   cleanUp: jest.fn(() => 'action6'),
-  createShowCases: jest.fn(() => 'action7'),
-  createEEDefinitionAction: jest.fn(() => 'action8'),
-  createEETemplateAction: jest.fn(() => 'action9'),
-  prepareForPublishAction: jest.fn(() => 'action10'),
-  createEECatalogInfoAction: jest.fn(() => 'action11'),
+  createEEDefinitionAction: jest.fn(() => 'action7'),
+  createEETemplateAction: jest.fn(() => 'action8'),
+  prepareForPublishAction: jest.fn(() => 'action9'),
+  createEECatalogInfoAction: jest.fn(() => 'action10'),
 }));
 
 jest.mock('./filters', () => ({
   multiResourceFilter: 'multiResourceFilterValue',
   resourceFilter: 'resourceFilterValue',
   useCaseNameFilter: 'useCaseNameFilterValue',
+  uuidFilter: 'uuidFilterValue',
 }));
 
 jest.mock('./autocomplete', () => ({
@@ -35,14 +35,13 @@ jest.mock('@ansible/backstage-rhaap-common', () => ({
 }));
 
 // import mocks for assertions
-import { createShowCases } from './actions';
 import {
   multiResourceFilter,
   resourceFilter,
   useCaseNameFilter,
+  uuidFilter,
 } from './filters';
 import { handleAutocompleteRequest } from './autocomplete';
-import { getAnsibleConfig } from '@ansible/backstage-rhaap-common';
 
 describe('scaffolderModuleAnsible', () => {
   beforeEach(() => {
@@ -92,7 +91,6 @@ describe('scaffolderModuleAnsible', () => {
     expect(actions).toContain('action4');
     expect(actions).toContain('action5');
     expect(actions).toContain('action6');
-    expect(actions).toContain('action7');
 
     // --- Verify template filters ---
     expect(
@@ -104,6 +102,7 @@ describe('scaffolderModuleAnsible', () => {
       useCaseNameFilter,
       resourceFilter,
       multiResourceFilter,
+      uuidFilter,
     });
 
     // --- Verify autocomplete provider ---
@@ -134,11 +133,5 @@ describe('scaffolderModuleAnsible', () => {
       ansibleService: fakeEnv.ansibleService,
     });
     expect(handlerResult).toEqual({ results: [] });
-
-    // --- Verify createShowCases call ---
-    expect(createShowCases).toHaveBeenCalledWith(
-      fakeEnv.ansibleService,
-      (getAnsibleConfig as jest.Mock).mock.results[0].value,
-    );
   });
 });

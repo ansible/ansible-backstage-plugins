@@ -155,7 +155,7 @@ export const EEDetailsPage: React.FC = () => {
 
         try {
           const response = await fetchApi.fetch(
-            `${baseUrl}/ansible/git_readme_content?${queryParams}`,
+            `${baseUrl}/git_readme_content?${queryParams}`,
           );
           if (response.ok) {
             const text = await response.text();
