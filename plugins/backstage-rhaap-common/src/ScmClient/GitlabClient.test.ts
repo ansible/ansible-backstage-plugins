@@ -774,4 +774,87 @@ describe('GitlabClient', () => {
       );
     });
   });
+
+  describe('repositoryExists', () => {
+    it('should return true when repository exists', async () => {
+      (fetch as jest.Mock).mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+      });
+
+      const exists = await client.repositoryExists('test-owner', 'test-repo');
+
+      expect(exists).toBe(true);
+      expect(fetch).toHaveBeenCalledWith(
+        'https://gitlab.com/api/v4/projects/test-owner%2Ftest-repo',
+        expect.objectContaining({
+          method: 'HEAD',
+          headers: expect.objectContaining({
+            'PRIVATE-TOKEN': 'test-token',
+          }),
+        }),
+      );
+    });
+
+    it('should return false when repository does not exist', async () => {
+      (fetch as jest.Mock).mockResolvedValueOnce({
+        ok: false,
+        status: 404,
+      });
+
+      const exists = await client.repositoryExists('test-owner', 'nonexistent');
+
+      expect(exists).toBe(false);
+    });
+
+    it('should return false when fetch throws error', async () => {
+      (fetch as jest.Mock).mockRejectedValueOnce(new Error('Network error'));
+
+      const exists = await client.repositoryExists('test-owner', 'test-repo');
+
+      expect(exists).toBe(false);
+      expect(mockLogger.debug).toHaveBeenCalledWith(
+        expect.stringContaining(
+          '[GitlabClient] Repository test-owner/test-repo check failed',
+        ),
+      );
+    });
+
+    it('should encode project path correctly', async () => {
+      (fetch as jest.Mock).mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+      });
+
+      await client.repositoryExists('group/subgroup', 'project');
+
+      expect(fetch).toHaveBeenCalledWith(
+        'https://gitlab.com/api/v4/projects/group%2Fsubgroup%2Fproject',
+        expect.any(Object),
+      );
+    });
+
+    it('should use custom API URL', async () => {
+      const config: ScmClientConfig = {
+        scmProvider: 'gitlab',
+        host: 'gitlab.enterprise.com',
+        organization: 'test-group',
+        token: 'test-token',
+        apiBaseUrl: 'https://gitlab.enterprise.com/api/v4',
+      };
+      const enterpriseClient = new GitlabClient({ config, logger: mockLogger });
+
+      (fetch as jest.Mock).mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+      });
+
+      await enterpriseClient.repositoryExists('test-owner', 'test-repo');
+
+      expect(fetch).toHaveBeenCalledWith(
+        'https://gitlab.enterprise.com/api/v4/projects/test-owner%2Ftest-repo',
+        expect.any(Object),
+      );
+    });
+  });
 });

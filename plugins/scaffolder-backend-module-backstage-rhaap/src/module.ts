@@ -46,8 +46,6 @@ import {
 } from './filters';
 import { handleAutocompleteRequest } from './autocomplete';
 
-import { createRouter } from './router';
-
 /**
  * @public
  * The Ansible Module for the Scaffolder Backend
@@ -66,7 +64,6 @@ export const scaffolderModuleAnsible = createBackendModule({
         ansibleService: ansibleServiceRef,
         auth: coreServices.auth,
         discovery: coreServices.discovery,
-        httpRouter: coreServices.httpRouter,
       },
       async init({
         scaffolder,
@@ -77,7 +74,6 @@ export const scaffolderModuleAnsible = createBackendModule({
         ansibleService,
         auth,
         discovery,
-        httpRouter,
       }) {
         const ansibleConfig = getAnsibleConfig(config);
         const frontendUrl = config.getString('app.baseUrl');
@@ -95,7 +91,7 @@ export const scaffolderModuleAnsible = createBackendModule({
             discovery,
           }),
           prepareForPublishAction({
-            ansibleConfig: ansibleConfig,
+            rootConfig: config,
           }),
         );
         scaffolderTemplating.addTemplateFilters({
@@ -125,12 +121,6 @@ export const scaffolderModuleAnsible = createBackendModule({
               discovery,
             }),
         });
-        httpRouter.use(
-          (await createRouter({
-            logger,
-            ansibleConfig,
-          })) as any,
-        );
       },
     });
   },

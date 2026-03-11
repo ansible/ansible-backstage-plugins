@@ -776,4 +776,87 @@ describe('GithubClient', () => {
       );
     });
   });
+
+  describe('repositoryExists', () => {
+    it('should return true when repository exists', async () => {
+      (fetch as jest.Mock).mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+      });
+
+      const exists = await client.repositoryExists('test-owner', 'test-repo');
+
+      expect(exists).toBe(true);
+      expect(fetch).toHaveBeenCalledWith(
+        'https://api.github.com/repos/test-owner/test-repo',
+        expect.objectContaining({
+          method: 'HEAD',
+          headers: expect.objectContaining({
+            Authorization: 'Bearer test-token',
+          }),
+        }),
+      );
+    });
+
+    it('should return false when repository does not exist', async () => {
+      (fetch as jest.Mock).mockResolvedValueOnce({
+        ok: false,
+        status: 404,
+      });
+
+      const exists = await client.repositoryExists('test-owner', 'nonexistent');
+
+      expect(exists).toBe(false);
+    });
+
+    it('should return false when fetch throws error', async () => {
+      (fetch as jest.Mock).mockRejectedValueOnce(new Error('Network error'));
+
+      const exists = await client.repositoryExists('test-owner', 'test-repo');
+
+      expect(exists).toBe(false);
+      expect(mockLogger.debug).toHaveBeenCalledWith(
+        expect.stringContaining(
+          '[GithubClient] Repository test-owner/test-repo check failed',
+        ),
+      );
+    });
+
+    it('should encode owner and repo in URL', async () => {
+      (fetch as jest.Mock).mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+      });
+
+      await client.repositoryExists('test/owner', 'test/repo');
+
+      expect(fetch).toHaveBeenCalledWith(
+        'https://api.github.com/repos/test%2Fowner/test%2Frepo',
+        expect.any(Object),
+      );
+    });
+
+    it('should use enterprise API URL for enterprise host', async () => {
+      const config: ScmClientConfig = {
+        scmProvider: 'github',
+        host: 'github.enterprise.com',
+        organization: 'test-org',
+        token: 'test-token',
+        apiBaseUrl: 'https://github.enterprise.com/api/v3',
+      };
+      const enterpriseClient = new GithubClient({ config, logger: mockLogger });
+
+      (fetch as jest.Mock).mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+      });
+
+      await enterpriseClient.repositoryExists('test-owner', 'test-repo');
+
+      expect(fetch).toHaveBeenCalledWith(
+        'https://github.enterprise.com/api/v3/repos/test-owner/test-repo',
+        expect.any(Object),
+      );
+    });
+  });
 });

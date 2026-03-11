@@ -14,67 +14,65 @@
  * limitations under the License.
  */
 
-// Mock external dependencies first (before imports for proper hoisting)
-jest.mock('./helpers', () => ({
-  UseCaseMaker: jest.fn(),
-}));
-
-jest.mock('crypto', () => ({
+jest.mock('node:crypto', () => ({
   randomBytes: jest.fn(),
 }));
 
-import { randomBytes } from 'crypto';
+jest.mock('@ansible/backstage-rhaap-common', () => ({
+  ScmClientFactory: jest.fn(),
+}));
+
+import { randomBytes } from 'node:crypto';
 import { mockServices } from '@backstage/backend-test-utils';
+import { ConfigReader } from '@backstage/config';
 import { prepareForPublishAction } from './prepareForPublish';
-import { UseCaseMaker } from './helpers';
-import { AnsibleConfig } from '@ansible/backstage-rhaap-common';
+import { ScmClientFactory } from '@ansible/backstage-rhaap-common';
 
 const mockRandomBytes = randomBytes as jest.MockedFunction<
   (size: number) => Buffer
 >;
-const MockUseCaseMaker = UseCaseMaker as jest.MockedClass<typeof UseCaseMaker>;
+const MockScmClientFactory = ScmClientFactory as jest.MockedClass<
+  typeof ScmClientFactory
+>;
 
 describe('prepareForPublish', () => {
   const logger = mockServices.logger.mock();
   const mockWorkspacePath = '/tmp/test-workspace';
-  const mockAnsibleConfig: AnsibleConfig = {
-    githubIntegration: {
-      host: 'github.com',
+  const mockConfig = new ConfigReader({
+    integrations: {
+      github: [{ host: 'github.com', token: 'test-token' }],
+      gitlab: [{ host: 'gitlab.com', token: 'test-token' }],
     },
-    gitlabIntegration: {
-      host: 'gitlab.com',
-    },
-  } as AnsibleConfig;
+  });
 
-  let mockUseCaseMakerInstance: {
-    checkIfRepositoryExists: jest.Mock;
-    generateRepositoryUrl: jest.Mock;
+  let mockScmClient: {
+    repositoryExists: jest.Mock;
+    getHost: jest.Mock;
   };
 
   beforeEach(() => {
     jest.clearAllMocks();
     mockRandomBytes.mockReturnValue(Buffer.from('abcd', 'hex'));
 
-    mockUseCaseMakerInstance = {
-      checkIfRepositoryExists: jest.fn(),
-      generateRepositoryUrl: jest.fn(),
+    mockScmClient = {
+      repositoryExists: jest.fn(),
+      getHost: jest.fn(),
     };
 
-    MockUseCaseMaker.mockImplementation(() => {
-      return mockUseCaseMakerInstance as any;
-    });
+    MockScmClientFactory.mockImplementation(
+      () =>
+        ({
+          createClient: jest.fn().mockResolvedValue(mockScmClient),
+        }) as any,
+    );
   });
 
   describe('repository existence check functionality', () => {
     it('should set createNewRepo to false when repository exists', async () => {
-      mockUseCaseMakerInstance.checkIfRepositoryExists.mockResolvedValue(true);
-      mockUseCaseMakerInstance.generateRepositoryUrl.mockResolvedValue(
-        'github.com?repo=test-repo&owner=test-owner',
-      );
+      mockScmClient.repositoryExists.mockResolvedValue(true);
+      mockScmClient.getHost.mockReturnValue('github.com');
 
-      const action = prepareForPublishAction({
-        ansibleConfig: mockAnsibleConfig,
-      });
+      const action = prepareForPublishAction({ rootConfig: mockConfig });
       const ctx = {
         input: {
           sourceControlProvider: 'Github',
@@ -91,12 +89,10 @@ describe('prepareForPublish', () => {
 
       await action.handler(ctx);
 
-      expect(
-        mockUseCaseMakerInstance.checkIfRepositoryExists,
-      ).toHaveBeenCalledWith({
-        repoOwner: 'test-owner',
-        repoName: 'test-repo',
-      });
+      expect(mockScmClient.repositoryExists).toHaveBeenCalledWith(
+        'test-owner',
+        'test-repo',
+      );
       expect(ctx.output).toHaveBeenCalledWith('createNewRepo', false);
       expect(logger.info).toHaveBeenCalledWith(
         'Github Repository test-owner/test-repo exists: true',
@@ -104,14 +100,10 @@ describe('prepareForPublish', () => {
     });
 
     it('should set createNewRepo to true when repository does not exist and createNewRepository is true', async () => {
-      mockUseCaseMakerInstance.checkIfRepositoryExists.mockResolvedValue(false);
-      mockUseCaseMakerInstance.generateRepositoryUrl.mockResolvedValue(
-        'github.com?repo=test-repo&owner=test-owner',
-      );
+      mockScmClient.repositoryExists.mockResolvedValue(false);
+      mockScmClient.getHost.mockReturnValue('github.com');
 
-      const action = prepareForPublishAction({
-        ansibleConfig: mockAnsibleConfig,
-      });
+      const action = prepareForPublishAction({ rootConfig: mockConfig });
       const ctx = {
         input: {
           sourceControlProvider: 'Github',
@@ -135,11 +127,10 @@ describe('prepareForPublish', () => {
     });
 
     it('should throw error when repository does not exist and createNewRepository is false', async () => {
-      mockUseCaseMakerInstance.checkIfRepositoryExists.mockResolvedValue(false);
+      mockScmClient.repositoryExists.mockResolvedValue(false);
+      mockScmClient.getHost.mockReturnValue('github.com');
 
-      const action = prepareForPublishAction({
-        ansibleConfig: mockAnsibleConfig,
-      });
+      const action = prepareForPublishAction({ rootConfig: mockConfig });
       const ctx = {
         input: {
           sourceControlProvider: 'Github',
@@ -160,14 +151,10 @@ describe('prepareForPublish', () => {
     });
 
     it('should work with Gitlab provider', async () => {
-      mockUseCaseMakerInstance.checkIfRepositoryExists.mockResolvedValue(true);
-      mockUseCaseMakerInstance.generateRepositoryUrl.mockResolvedValue(
-        'gitlab.com?repo=test-repo&owner=test-owner',
-      );
+      mockScmClient.repositoryExists.mockResolvedValue(true);
+      mockScmClient.getHost.mockReturnValue('gitlab.com');
 
-      const action = prepareForPublishAction({
-        ansibleConfig: mockAnsibleConfig,
-      });
+      const action = prepareForPublishAction({ rootConfig: mockConfig });
       const ctx = {
         input: {
           sourceControlProvider: 'Gitlab',
@@ -192,15 +179,10 @@ describe('prepareForPublish', () => {
 
   describe('generateRepositoryUrl functionality', () => {
     it('should generate and output repository URL', async () => {
-      const mockRepoUrl = 'github.com?repo=test-repo&owner=test-owner';
-      mockUseCaseMakerInstance.checkIfRepositoryExists.mockResolvedValue(true);
-      mockUseCaseMakerInstance.generateRepositoryUrl.mockResolvedValue(
-        mockRepoUrl,
-      );
+      mockScmClient.repositoryExists.mockResolvedValue(true);
+      mockScmClient.getHost.mockReturnValue('github.com');
 
-      const action = prepareForPublishAction({
-        ansibleConfig: mockAnsibleConfig,
-      });
+      const action = prepareForPublishAction({ rootConfig: mockConfig });
       const ctx = {
         input: {
           sourceControlProvider: 'Github',
@@ -217,34 +199,26 @@ describe('prepareForPublish', () => {
 
       await action.handler(ctx);
 
-      expect(
-        mockUseCaseMakerInstance.generateRepositoryUrl,
-      ).toHaveBeenCalledWith({
-        repoOwner: 'test-owner',
-        repoName: 'test-repo',
-      });
-      expect(ctx.output).toHaveBeenCalledWith('generatedRepoUrl', mockRepoUrl);
+      expect(ctx.output).toHaveBeenCalledWith(
+        'generatedRepoUrl',
+        'github.com?repo=test-repo&owner=test-owner',
+      );
       expect(logger.info).toHaveBeenCalledWith(
-        `Generated repository URL: ${mockRepoUrl}`,
+        'Generated repository URL: github.com?repo=test-repo&owner=test-owner',
       );
     });
 
-    it('should generate repository URL even when creating new repository', async () => {
-      const mockRepoUrl = 'github.com?repo=new-repo&owner=test-owner';
-      mockUseCaseMakerInstance.checkIfRepositoryExists.mockResolvedValue(false);
-      mockUseCaseMakerInstance.generateRepositoryUrl.mockResolvedValue(
-        mockRepoUrl,
-      );
+    it('should generate normalized repository URL', async () => {
+      mockScmClient.repositoryExists.mockResolvedValue(true);
+      mockScmClient.getHost.mockReturnValue('github.com');
 
-      const action = prepareForPublishAction({
-        ansibleConfig: mockAnsibleConfig,
-      });
+      const action = prepareForPublishAction({ rootConfig: mockConfig });
       const ctx = {
         input: {
           sourceControlProvider: 'Github',
           repositoryOwner: 'test-owner',
-          repositoryName: 'new-repo',
-          createNewRepository: true,
+          repositoryName: 'test-repo',
+          createNewRepository: false,
           eeFileName: 'test-ee',
           contextDirName: 'test-ee',
         },
@@ -255,22 +229,23 @@ describe('prepareForPublish', () => {
 
       await action.handler(ctx);
 
-      expect(mockUseCaseMakerInstance.generateRepositoryUrl).toHaveBeenCalled();
-      expect(ctx.output).toHaveBeenCalledWith('generatedRepoUrl', mockRepoUrl);
+      expect(ctx.output).toHaveBeenCalledWith(
+        'normalizedRepoUrl',
+        'github.com/test-owner/test-repo',
+      );
+      expect(logger.info).toHaveBeenCalledWith(
+        'Normalized repository URL: github.com/test-owner/test-repo',
+      );
     });
   });
 
   describe('PR/MR generation functionality', () => {
     it('should generate PR title, description, and branch name when repository exists', async () => {
-      mockUseCaseMakerInstance.checkIfRepositoryExists.mockResolvedValue(true);
-      mockUseCaseMakerInstance.generateRepositoryUrl.mockResolvedValue(
-        'github.com?repo=test-repo&owner=test-owner',
-      );
+      mockScmClient.repositoryExists.mockResolvedValue(true);
+      mockScmClient.getHost.mockReturnValue('github.com');
       mockRandomBytes.mockReturnValue(Buffer.from('1234', 'hex'));
 
-      const action = prepareForPublishAction({
-        ansibleConfig: mockAnsibleConfig,
-      });
+      const action = prepareForPublishAction({ rootConfig: mockConfig });
       const ctx = {
         input: {
           sourceControlProvider: 'Github',
@@ -302,14 +277,10 @@ describe('prepareForPublish', () => {
     });
 
     it('should generate MR title and description for Gitlab', async () => {
-      mockUseCaseMakerInstance.checkIfRepositoryExists.mockResolvedValue(true);
-      mockUseCaseMakerInstance.generateRepositoryUrl.mockResolvedValue(
-        'gitlab.com?repo=test-repo&owner=test-owner',
-      );
+      mockScmClient.repositoryExists.mockResolvedValue(true);
+      mockScmClient.getHost.mockReturnValue('gitlab.com');
 
-      const action = prepareForPublishAction({
-        ansibleConfig: mockAnsibleConfig,
-      });
+      const action = prepareForPublishAction({ rootConfig: mockConfig });
       const ctx = {
         input: {
           sourceControlProvider: 'Gitlab',
@@ -333,14 +304,10 @@ describe('prepareForPublish', () => {
     });
 
     it('should not generate PR/MR fields when creating new repository', async () => {
-      mockUseCaseMakerInstance.checkIfRepositoryExists.mockResolvedValue(false);
-      mockUseCaseMakerInstance.generateRepositoryUrl.mockResolvedValue(
-        'github.com?repo=new-repo&owner=test-owner',
-      );
+      mockScmClient.repositoryExists.mockResolvedValue(false);
+      mockScmClient.getHost.mockReturnValue('github.com');
 
-      const action = prepareForPublishAction({
-        ansibleConfig: mockAnsibleConfig,
-      });
+      const action = prepareForPublishAction({ rootConfig: mockConfig });
       const ctx = {
         input: {
           sourceControlProvider: 'Github',
@@ -372,15 +339,11 @@ describe('prepareForPublish', () => {
     });
 
     it('should lowercase EE file name in branch name', async () => {
-      mockUseCaseMakerInstance.checkIfRepositoryExists.mockResolvedValue(true);
-      mockUseCaseMakerInstance.generateRepositoryUrl.mockResolvedValue(
-        'github.com?repo=test-repo&owner=test-owner',
-      );
+      mockScmClient.repositoryExists.mockResolvedValue(true);
+      mockScmClient.getHost.mockReturnValue('github.com');
       mockRandomBytes.mockReturnValue(Buffer.from('abcd', 'hex'));
 
-      const action = prepareForPublishAction({
-        ansibleConfig: mockAnsibleConfig,
-      });
+      const action = prepareForPublishAction({ rootConfig: mockConfig });
       const ctx = {
         input: {
           sourceControlProvider: 'Github',
@@ -406,14 +369,10 @@ describe('prepareForPublish', () => {
 
   describe('catalog info URL generation functionality', () => {
     it('should generate catalog info URL for Github', async () => {
-      mockUseCaseMakerInstance.checkIfRepositoryExists.mockResolvedValue(true);
-      mockUseCaseMakerInstance.generateRepositoryUrl.mockResolvedValue(
-        'github.com?repo=test-repo&owner=test-owner',
-      );
+      mockScmClient.repositoryExists.mockResolvedValue(true);
+      mockScmClient.getHost.mockReturnValue('github.com');
 
-      const action = prepareForPublishAction({
-        ansibleConfig: mockAnsibleConfig,
-      });
+      const action = prepareForPublishAction({ rootConfig: mockConfig });
       const ctx = {
         input: {
           sourceControlProvider: 'Github',
@@ -440,14 +399,10 @@ describe('prepareForPublish', () => {
     });
 
     it('should generate catalog info URL for Gitlab', async () => {
-      mockUseCaseMakerInstance.checkIfRepositoryExists.mockResolvedValue(true);
-      mockUseCaseMakerInstance.generateRepositoryUrl.mockResolvedValue(
-        'gitlab.com?repo=test-repo&owner=test-owner',
-      );
+      mockScmClient.repositoryExists.mockResolvedValue(true);
+      mockScmClient.getHost.mockReturnValue('gitlab.com');
 
-      const action = prepareForPublishAction({
-        ansibleConfig: mockAnsibleConfig,
-      });
+      const action = prepareForPublishAction({ rootConfig: mockConfig });
       const ctx = {
         input: {
           sourceControlProvider: 'Gitlab',
@@ -469,50 +424,14 @@ describe('prepareForPublish', () => {
         'https://gitlab.com/test-owner/test-repo/-/blob/main/my-ee/catalog-info.yaml',
       );
     });
-
-    it('should handle repository URL with query parameters', async () => {
-      mockUseCaseMakerInstance.checkIfRepositoryExists.mockResolvedValue(true);
-      mockUseCaseMakerInstance.generateRepositoryUrl.mockResolvedValue(
-        'github.com?repo=test-repo&owner=test-owner&other=param',
-      );
-
-      const action = prepareForPublishAction({
-        ansibleConfig: mockAnsibleConfig,
-      });
-      const ctx = {
-        input: {
-          sourceControlProvider: 'Github',
-          repositoryOwner: 'test-owner',
-          repositoryName: 'test-repo',
-          createNewRepository: false,
-          eeFileName: 'test-ee',
-          contextDirName: 'test-ee',
-        },
-        logger,
-        workspacePath: mockWorkspacePath,
-        output: jest.fn(),
-      } as any;
-
-      await action.handler(ctx);
-
-      // Should split on '?' and use only the host part
-      expect(ctx.output).toHaveBeenCalledWith(
-        'generatedCatalogInfoUrl',
-        'https://github.com/test-owner/test-repo/blob/main/test-ee/catalog-info.yaml',
-      );
-    });
   });
 
   describe('full repo URL generation functionality', () => {
     it('should generate full repo URL for Github when creating new repository', async () => {
-      mockUseCaseMakerInstance.checkIfRepositoryExists.mockResolvedValue(false);
-      mockUseCaseMakerInstance.generateRepositoryUrl.mockResolvedValue(
-        'github.com?repo=new-repo&owner=test-owner',
-      );
+      mockScmClient.repositoryExists.mockResolvedValue(false);
+      mockScmClient.getHost.mockReturnValue('github.com');
 
-      const action = prepareForPublishAction({
-        ansibleConfig: mockAnsibleConfig,
-      });
+      const action = prepareForPublishAction({ rootConfig: mockConfig });
       const ctx = {
         input: {
           sourceControlProvider: 'Github',
@@ -536,14 +455,10 @@ describe('prepareForPublish', () => {
     });
 
     it('should generate full repo URL for Gitlab when creating new repository', async () => {
-      mockUseCaseMakerInstance.checkIfRepositoryExists.mockResolvedValue(false);
-      mockUseCaseMakerInstance.generateRepositoryUrl.mockResolvedValue(
-        'gitlab.com?repo=new-repo&owner=test-owner',
-      );
+      mockScmClient.repositoryExists.mockResolvedValue(false);
+      mockScmClient.getHost.mockReturnValue('gitlab.com');
 
-      const action = prepareForPublishAction({
-        ansibleConfig: mockAnsibleConfig,
-      });
+      const action = prepareForPublishAction({ rootConfig: mockConfig });
       const ctx = {
         input: {
           sourceControlProvider: 'Gitlab',
@@ -567,14 +482,10 @@ describe('prepareForPublish', () => {
     });
 
     it('should not generate full repo URL when repository exists', async () => {
-      mockUseCaseMakerInstance.checkIfRepositoryExists.mockResolvedValue(true);
-      mockUseCaseMakerInstance.generateRepositoryUrl.mockResolvedValue(
-        'github.com?repo=test-repo&owner=test-owner',
-      );
+      mockScmClient.repositoryExists.mockResolvedValue(true);
+      mockScmClient.getHost.mockReturnValue('github.com');
 
-      const action = prepareForPublishAction({
-        ansibleConfig: mockAnsibleConfig,
-      });
+      const action = prepareForPublishAction({ rootConfig: mockConfig });
       const ctx = {
         input: {
           sourceControlProvider: 'Github',
@@ -598,16 +509,12 @@ describe('prepareForPublish', () => {
     });
   });
 
-  describe('UseCaseMaker initialization', () => {
-    it('should initialize UseCaseMaker with correct parameters', async () => {
-      mockUseCaseMakerInstance.checkIfRepositoryExists.mockResolvedValue(true);
-      mockUseCaseMakerInstance.generateRepositoryUrl.mockResolvedValue(
-        'github.com?repo=test-repo&owner=test-owner',
-      );
+  describe('ScmClientFactory initialization', () => {
+    it('should initialize ScmClientFactory with correct parameters', async () => {
+      mockScmClient.repositoryExists.mockResolvedValue(true);
+      mockScmClient.getHost.mockReturnValue('github.com');
 
-      const action = prepareForPublishAction({
-        ansibleConfig: mockAnsibleConfig,
-      });
+      const action = prepareForPublishAction({ rootConfig: mockConfig });
       const ctx = {
         input: {
           sourceControlProvider: 'Github',
@@ -624,26 +531,17 @@ describe('prepareForPublish', () => {
 
       await action.handler(ctx);
 
-      expect(MockUseCaseMaker).toHaveBeenCalledWith({
-        ansibleConfig: mockAnsibleConfig,
+      expect(MockScmClientFactory).toHaveBeenCalledWith({
+        rootConfig: mockConfig,
         logger,
-        scmType: 'Github',
-        apiClient: null,
-        useCases: [],
-        organization: null,
-        token: null,
       });
     });
 
-    it('should initialize UseCaseMaker with Gitlab scmType', async () => {
-      mockUseCaseMakerInstance.checkIfRepositoryExists.mockResolvedValue(true);
-      mockUseCaseMakerInstance.generateRepositoryUrl.mockResolvedValue(
-        'gitlab.com?repo=test-repo&owner=test-owner',
-      );
+    it('should create client with correct scmProvider', async () => {
+      mockScmClient.repositoryExists.mockResolvedValue(true);
+      mockScmClient.getHost.mockReturnValue('gitlab.com');
 
-      const action = prepareForPublishAction({
-        ansibleConfig: mockAnsibleConfig,
-      });
+      const action = prepareForPublishAction({ rootConfig: mockConfig });
       const ctx = {
         input: {
           sourceControlProvider: 'Gitlab',
@@ -660,28 +558,21 @@ describe('prepareForPublish', () => {
 
       await action.handler(ctx);
 
-      expect(MockUseCaseMaker).toHaveBeenCalledWith({
-        ansibleConfig: mockAnsibleConfig,
-        logger,
-        scmType: 'Gitlab',
-        apiClient: null,
-        useCases: [],
-        organization: null,
-        token: null,
+      const factoryInstance = MockScmClientFactory.mock.results[0].value;
+      expect(factoryInstance.createClient).toHaveBeenCalledWith({
+        scmProvider: 'gitlab',
+        organization: 'test-owner',
       });
     });
   });
 
   describe('error handling', () => {
-    it('should handle checkIfRepositoryExists errors', async () => {
+    it('should handle repositoryExists errors', async () => {
       const errorMessage = 'Repository check failed';
-      mockUseCaseMakerInstance.checkIfRepositoryExists.mockRejectedValue(
-        new Error(errorMessage),
-      );
+      mockScmClient.repositoryExists.mockRejectedValue(new Error(errorMessage));
+      mockScmClient.getHost.mockReturnValue('github.com');
 
-      const action = prepareForPublishAction({
-        ansibleConfig: mockAnsibleConfig,
-      });
+      const action = prepareForPublishAction({ rootConfig: mockConfig });
       const ctx = {
         input: {
           sourceControlProvider: 'Github',
@@ -699,16 +590,11 @@ describe('prepareForPublish', () => {
       await expect(action.handler(ctx)).rejects.toThrow(errorMessage);
     });
 
-    it('should handle generateRepositoryUrl errors', async () => {
-      const errorMessage = 'URL generation failed';
-      mockUseCaseMakerInstance.checkIfRepositoryExists.mockResolvedValue(true);
-      mockUseCaseMakerInstance.generateRepositoryUrl.mockRejectedValue(
-        new Error(errorMessage),
-      );
+    it('should handle non-Error exceptions', async () => {
+      mockScmClient.repositoryExists.mockRejectedValue('string error');
+      mockScmClient.getHost.mockReturnValue('github.com');
 
-      const action = prepareForPublishAction({
-        ansibleConfig: mockAnsibleConfig,
-      });
+      const action = prepareForPublishAction({ rootConfig: mockConfig });
       const ctx = {
         input: {
           sourceControlProvider: 'Github',
@@ -723,22 +609,18 @@ describe('prepareForPublish', () => {
         output: jest.fn(),
       } as any;
 
-      await expect(action.handler(ctx)).rejects.toThrow(errorMessage);
+      await expect(action.handler(ctx)).rejects.toThrow('Unknown error');
     });
   });
 
   describe('action schema and metadata', () => {
     it('should have correct action id', () => {
-      const action = prepareForPublishAction({
-        ansibleConfig: mockAnsibleConfig,
-      });
+      const action = prepareForPublishAction({ rootConfig: mockConfig });
       expect(action.id).toBe('ansible:prepare:publish');
     });
 
     it('should have correct action description', () => {
-      const action = prepareForPublishAction({
-        ansibleConfig: mockAnsibleConfig,
-      });
+      const action = prepareForPublishAction({ rootConfig: mockConfig });
       expect(action.description).toBe('Check if a repository exists');
     });
   });

@@ -333,6 +333,25 @@ export class GithubClient extends BaseScmClient {
     return response.text();
   }
 
+  async repositoryExists(
+    owner: string,
+    repo: string,
+    signal?: AbortSignal,
+  ): Promise<boolean> {
+    try {
+      const response = await this.doFetch(
+        `${this.apiUrl}/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}`,
+        { signal, method: 'HEAD' },
+      );
+      return response.ok;
+    } catch (error) {
+      this.logger.debug(
+        `[GithubClient] Repository ${owner}/${repo} check failed: ${error}`,
+      );
+      return false;
+    }
+  }
+
   buildUrl(options: UrlBuildOptions): string {
     const { repo, ref, path, type } = options;
     const urlType = type === 'file' ? 'blob' : 'tree';

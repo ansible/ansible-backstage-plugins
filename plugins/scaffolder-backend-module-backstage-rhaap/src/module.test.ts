@@ -29,10 +29,6 @@ jest.mock('./autocomplete', () => ({
   handleAutocompleteRequest: jest.fn(() => Promise.resolve({ results: [] })),
 }));
 
-jest.mock('./router', () => ({
-  createRouter: jest.fn(() => Promise.resolve(jest.fn())),
-}));
-
 jest.mock('@ansible/backstage-rhaap-common', () => ({
   getAnsibleConfig: jest.fn(() => ({ ansible: 'config' })),
   ansibleServiceRef: Symbol('ansibleServiceRef'),
@@ -69,7 +65,6 @@ describe('scaffolderModuleAnsible', () => {
       },
       logger: { info: jest.fn(), debug: jest.fn(), error: jest.fn() },
       ansibleService: { name: 'ansibleService' },
-      httpRouter: { use: jest.fn() },
       auth: {
         getOwnServiceCredentials: jest.fn(),
         getPluginRequestToken: jest.fn(),
@@ -145,8 +140,5 @@ describe('scaffolderModuleAnsible', () => {
       fakeEnv.ansibleService,
       (getAnsibleConfig as jest.Mock).mock.results[0].value,
     );
-
-    // --- Verify httpRouter.use call ---
-    expect(fakeEnv.httpRouter.use).toHaveBeenCalledTimes(1);
   });
 });

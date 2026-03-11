@@ -316,6 +316,28 @@ export class GitlabClient extends BaseScmClient {
     );
   }
 
+  async repositoryExists(
+    owner: string,
+    repo: string,
+    signal?: AbortSignal,
+  ): Promise<boolean> {
+    const projectPath = encodeURIComponent(`${owner}/${repo}`);
+    const url = `${this.apiUrl}/projects/${projectPath}`;
+    const opts = { ...this.getFetchOptions(), signal, method: 'HEAD' as const };
+
+    try {
+      const response = this.checkSSL
+        ? await fetch(url, opts)
+        : await undiciFetch(url, opts as Parameters<typeof undiciFetch>[1]);
+      return response.ok;
+    } catch (error) {
+      this.logger.debug(
+        `[GitlabClient] Repository ${owner}/${repo} check failed: ${error}`,
+      );
+      return false;
+    }
+  }
+
   buildUrl(options: UrlBuildOptions): string {
     const { repo, ref, path, type } = options;
     const urlType = type === 'file' ? 'blob' : 'tree';
