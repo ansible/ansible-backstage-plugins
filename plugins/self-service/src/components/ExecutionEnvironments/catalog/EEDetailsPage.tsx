@@ -128,7 +128,7 @@ export const EEDetailsPage: React.FC = () => {
         ref = parts[treeIndex + 1];
         subdir = parts.slice(treeIndex + 2).join('/');
       } else {
-        subdir = parts[parts.length - 1];
+        subdir = parts.at(-1) ?? '';
       }
     }
 
@@ -139,7 +139,7 @@ export const EEDetailsPage: React.FC = () => {
 
   useEffect(() => {
     const fetchDefaultReadme = async () => {
-      if (entity && (!entity.spec || !entity?.spec?.readme)) {
+      if (entity && !entity?.spec?.readme) {
         const params = parseSourceLocationParams();
         if (!params) return;
 
