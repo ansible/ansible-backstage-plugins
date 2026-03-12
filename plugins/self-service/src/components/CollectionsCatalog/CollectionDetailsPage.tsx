@@ -134,7 +134,7 @@ export const CollectionDetailsPage = () => {
       });
 
       const response = await fetchApi.fetch(
-        `${baseUrl}/git_readme_content?${params}`,
+        `${baseUrl}/git_file_content?${params}`,
       );
       if (response.ok) {
         return response.text();

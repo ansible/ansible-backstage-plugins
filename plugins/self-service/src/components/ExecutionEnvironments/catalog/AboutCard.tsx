@@ -7,6 +7,7 @@ import {
   IconButton,
   Button,
   Link,
+  Tooltip,
 } from '@material-ui/core';
 import { makeStyles } from '@material-ui/core/styles';
 import AutorenewIcon from '@material-ui/icons/Autorenew';
@@ -14,12 +15,7 @@ import OpenInNewIcon from '@material-ui/icons/OpenInNew';
 import React, { useState } from 'react';
 import { Entity } from '@backstage/catalog-model';
 
-const useStyles = makeStyles(() => ({
-  tagButton: {
-    borderRadius: 8,
-    borderColor: '#D3D3D3',
-    textTransform: 'none',
-  },
+const useStyles = makeStyles(theme => ({
   rotate: {
     animation: '$spin 1s linear',
   },
@@ -39,11 +35,65 @@ const useStyles = makeStyles(() => ({
     marginBottom: 8,
     '&:last-child': { marginBottom: 0 },
   },
-  sourceLink: {
-    cursor: 'pointer',
+  aboutCard: {
+    borderRadius: 12,
+    border: `1px solid ${theme.palette.divider}`,
+  },
+  aboutCardContent: {
+    padding: theme.spacing(2.5),
+  },
+  aboutCardHeader: {
+    display: 'flex',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: theme.spacing(2),
+  },
+  aboutCardTitle: {
+    fontWeight: 600,
+    fontSize: '1.25rem',
+  },
+  aboutCardActions: {
     display: 'flex',
     alignItems: 'center',
-    gridGap: 8,
+    gap: theme.spacing(0.5),
+  },
+  aboutCardLabel: {
+    color: theme.palette.text.secondary,
+    fontWeight: 600,
+    fontSize: '0.75rem',
+    textTransform: 'uppercase' as const,
+    marginBottom: theme.spacing(0.5),
+  },
+  aboutCardValue: {
+    fontSize: '0.875rem',
+    wordBreak: 'break-word' as const,
+  },
+  aboutCardSection: {
+    marginTop: theme.spacing(2),
+  },
+  aboutSourceIcon: {
+    fontSize: '0.875rem',
+    flexShrink: 0,
+  },
+  aboutCardDivider: {
+    margin: theme.spacing(2, -2.5),
+  },
+  aboutCardTag: {
+    borderRadius: 6,
+    borderColor: theme.palette.divider,
+    textTransform: 'none' as const,
+    fontSize: '0.75rem',
+    padding: theme.spacing(0.25, 1),
+  },
+  aboutSourceLink: {
+    color: theme.palette.primary.main,
+    textDecoration: 'none',
+    display: 'inline-flex',
+    alignItems: 'center',
+    gap: theme.spacing(0.5),
+    '&:hover': {
+      textDecoration: 'underline',
+    },
   },
 }));
 
@@ -52,7 +102,6 @@ interface AboutCardProps {
   ownerName: string | null;
   baseImageName: string | null;
   sourceLocationUrl: string | null;
-  onOpenSourceLocation: () => void;
   isRefreshing: boolean;
   isDownloadExperience: boolean;
   onRefresh: () => void;
@@ -63,7 +112,6 @@ export const AboutCard: React.FC<AboutCardProps> = ({
   ownerName,
   baseImageName,
   sourceLocationUrl,
-  onOpenSourceLocation,
   isRefreshing,
   isDownloadExperience,
   onRefresh,
@@ -75,8 +123,8 @@ export const AboutCard: React.FC<AboutCardProps> = ({
       ?.toString()
       .toLowerCase() ?? '';
   let sourceLabel = 'Source';
-  if (scmProvider.includes('github')) sourceLabel = 'GitHub Source Link';
-  else if (scmProvider.includes('gitlab')) sourceLabel = 'GitLab Source Link';
+  if (scmProvider.includes('github')) sourceLabel = 'GitHub';
+  else if (scmProvider.includes('gitlab')) sourceLabel = 'GitLab';
   const description =
     entity?.metadata?.description ??
     entity?.metadata?.title ??
@@ -84,30 +132,24 @@ export const AboutCard: React.FC<AboutCardProps> = ({
   const showReadMore = description.length > 150;
 
   return (
-    <Card
-      variant="outlined"
-      style={{ borderRadius: 16, borderColor: '#D3D3D3' }}
-    >
-      <CardContent>
-        <Box display="flex" justifyContent="space-between" alignItems="center">
-          <Typography
-            variant="h6"
-            style={{
-              fontWeight: 'bold',
-              fontSize: '1.5rem',
-              marginLeft: 10,
-            }}
-          >
-            About
-          </Typography>
+    <Card className={classes.aboutCard} variant="outlined">
+      <CardContent className={classes.aboutCardContent}>
+        <Box className={classes.aboutCardHeader}>
+          <Typography className={classes.aboutCardTitle}>About</Typography>
           {!isDownloadExperience && (
-            <Box display="flex" alignItems="center">
-              <IconButton size="small" onClick={onRefresh}>
-                <AutorenewIcon
-                  className={isRefreshing ? classes.rotate : ''}
-                  style={{ color: '#757575' }}
-                />
-              </IconButton>
+            <Box className={classes.aboutCardActions}>
+              <Tooltip title="Refresh">
+                <IconButton
+                  size="small"
+                  onClick={onRefresh}
+                  disabled={isRefreshing}
+                >
+                  <AutorenewIcon
+                    className={isRefreshing ? classes.rotate : ''}
+                    style={{ color: '#757575' }}
+                  />
+                </IconButton>
+              </Tooltip>
             </Box>
           )}
         </Box>
@@ -115,13 +157,10 @@ export const AboutCard: React.FC<AboutCardProps> = ({
 
         {/* Description - inline expand when > 150 chars, no TechDocs link */}
         <Box>
-          <Typography
-            variant="caption"
-            style={{ color: 'gray', fontWeight: 600 }}
-          >
+          <Typography className={classes.aboutCardLabel}>
             Description
           </Typography>
-          <Typography variant="body2">
+          <Typography className={classes.aboutCardValue}>
             {showReadMore && !descriptionExpanded
               ? `${description.slice(0, 150)}...`
               : description}
@@ -152,87 +191,69 @@ export const AboutCard: React.FC<AboutCardProps> = ({
         </Box>
 
         {/* Owner */}
-        <Box marginTop={2}>
-          <Typography
-            variant="caption"
-            style={{ color: 'gray', fontWeight: 600 }}
-          >
-            Owner
+        <Box className={classes.aboutCardSection}>
+          <Typography className={classes.aboutCardLabel}>Owner</Typography>
+          <Typography className={classes.aboutCardValue}>
+            {ownerName}
           </Typography>
-          <Typography variant="body2">{ownerName}</Typography>
         </Box>
 
         {/* Base image */}
-        <Box marginTop={2}>
-          <Typography
-            variant="caption"
-            style={{ color: 'gray', fontWeight: 600 }}
-          >
-            Base image
+        <Box className={classes.aboutCardSection}>
+          <Typography className={classes.aboutCardLabel}>Base image</Typography>
+          <Typography className={classes.aboutCardValue}>
+            {baseImageName ?? '—'}
           </Typography>
-          <Typography variant="body2">{baseImageName ?? '—'}</Typography>
         </Box>
 
         {/* Source - hidden when download-experience is true; label by SCM, View in source + readme.md like Resources card */}
         {!isDownloadExperience && (
-          <Box marginTop={2}>
-            <Typography
-              variant="caption"
-              style={{ color: 'gray', fontWeight: 600 }}
-            >
-              {sourceLabel}
-            </Typography>
-            <Box marginTop={0.5}>
-              {sourceLocationUrl ? (
-                <Box className={classes.sourceLinkRow}>
-                  <OpenInNewIcon fontSize="small" color="primary" />
-                  <Link
-                    component="button"
-                    variant="body2"
-                    color="primary"
-                    onClick={onOpenSourceLocation}
-                    className={classes.sourceLink}
-                  >
-                    source link
-                  </Link>
-                </Box>
-              ) : (
-                <Typography variant="body2" color="textSecondary">
-                  —
-                </Typography>
-              )}
-            </Box>
+          <Box className={classes.aboutCardSection}>
+            <Typography className={classes.aboutCardLabel}>Source</Typography>
+            {sourceLocationUrl ? (
+              <Box className={classes.sourceLinkRow}>
+                <Link
+                  href={sourceLocationUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className={classes.aboutSourceLink}
+                >
+                  <span>{sourceLabel}</span>
+                  <OpenInNewIcon className={classes.aboutSourceIcon} />
+                </Link>
+              </Box>
+            ) : (
+              <Typography variant="body2" color="textSecondary">
+                —
+              </Typography>
+            )}
           </Box>
         )}
 
+        <Divider className={classes.aboutCardDivider} />
+
         {/* Tags */}
         <Box marginTop={2}>
-          <Typography
-            variant="caption"
-            style={{ color: 'gray', fontWeight: 600 }}
-          >
-            Tags
-          </Typography>
+          <Typography className={classes.aboutCardLabel}>Tags</Typography>
           <Box display="flex" gridGap={8} marginTop={1} flexWrap="wrap">
             {Array.isArray(entity?.metadata?.tags) &&
             entity.metadata?.tags?.length > 0 ? (
               entity.metadata?.tags?.map((t: string) => (
                 <Button
+                  key={t}
                   variant="outlined"
                   size="small"
-                  key={t}
-                  className={classes.tagButton}
-                  style={{
-                    textTransform: 'none',
-                    borderRadius: 8,
-                    borderColor: '#D3D3D3',
-                  }}
+                  className={classes.aboutCardTag}
+                  disabled
                 >
                   {t}
                 </Button>
               ))
             ) : (
-              <Typography variant="body2" color="textSecondary">
+              <Typography
+                className={classes.aboutCardValue}
+                color="textSecondary"
+              >
                 No tags
               </Typography>
             )}

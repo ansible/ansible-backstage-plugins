@@ -298,9 +298,11 @@ export const EEDetailsPage: React.FC = () => {
       | string
       | undefined;
     if (!editUrl) return null;
-    const definitionFilename =
-      entity?.metadata?.annotations?.['ansible.io/ee-definition-filename'] ??
-      `${entity?.metadata?.name ?? 'execution-environment'}.yaml`;
+    const eeName = entity?.metadata?.name;
+    if (!eeName) {
+      throw new Error('Missing metadata.name on entity');
+    }
+    const definitionFilename = `${eeName}.yaml`;
     const pathParts = editUrl.split('/');
     pathParts[pathParts.length - 1] = definitionFilename;
     return pathParts.join('/');
@@ -312,7 +314,7 @@ export const EEDetailsPage: React.FC = () => {
   };
 
   const handleBuild = () => {
-    // Placeholder: will be implemented later
+    // TODO: Implement build
   };
 
   const parsedDefinition = useMemo(() => {
@@ -549,7 +551,6 @@ export const EEDetailsPage: React.FC = () => {
                     ownerName={ownerName}
                     baseImageName={parsedDefinition?.baseImageName ?? null}
                     sourceLocationUrl={sourceLocationDisplayUrl}
-                    onOpenSourceLocation={openSourceLocationUrl}
                     isRefreshing={isRefreshing}
                     isDownloadExperience={isDownloadExperience}
                     onRefresh={handleRefresh}
