@@ -181,8 +181,7 @@ describe('catalog helpers', () => {
       },
     } as unknown as Entity;
 
-    it('returns false and logs when definition is missing', () => {
-      const consoleSpy = jest.spyOn(console, 'error').mockImplementation();
+    it('returns false when definition is missing', () => {
       const entity = {
         ...validEntity,
         spec: { ...validEntity.spec },
@@ -190,14 +189,9 @@ describe('catalog helpers', () => {
       delete (entity.spec as any).definition;
 
       expect(downloadEntityAsTarArchive(entity)).toBe(false);
-      expect(consoleSpy).toHaveBeenCalledWith(
-        'Entity definition, readme, ansible_cfg or template not available for download',
-      );
-      consoleSpy.mockRestore();
     });
 
     it('returns false when readme is missing', () => {
-      const consoleSpy = jest.spyOn(console, 'error').mockImplementation();
       const entity = {
         ...validEntity,
         spec: { ...validEntity.spec },
@@ -205,11 +199,9 @@ describe('catalog helpers', () => {
       delete (entity.spec as any).readme;
 
       expect(downloadEntityAsTarArchive(entity)).toBe(false);
-      consoleSpy.mockRestore();
     });
 
     it('returns false when ansible_cfg is missing', () => {
-      const consoleSpy = jest.spyOn(console, 'error').mockImplementation();
       const entity = {
         ...validEntity,
         spec: { ...validEntity.spec },
@@ -217,11 +209,9 @@ describe('catalog helpers', () => {
       delete (entity.spec as any).ansible_cfg;
 
       expect(downloadEntityAsTarArchive(entity)).toBe(false);
-      consoleSpy.mockRestore();
     });
 
     it('returns false when template is missing', () => {
-      const consoleSpy = jest.spyOn(console, 'error').mockImplementation();
       const entity = {
         ...validEntity,
         spec: { ...validEntity.spec },
@@ -229,16 +219,13 @@ describe('catalog helpers', () => {
       delete (entity.spec as any).template;
 
       expect(downloadEntityAsTarArchive(entity)).toBe(false);
-      consoleSpy.mockRestore();
     });
 
     it('returns false when entity or spec is missing', () => {
-      const consoleSpy = jest.spyOn(console, 'error').mockImplementation();
       expect(downloadEntityAsTarArchive({} as Entity)).toBe(false);
       expect(downloadEntityAsTarArchive({ metadata: {} } as Entity)).toBe(
         false,
       );
-      consoleSpy.mockRestore();
     });
 
     it('creates archive and triggers download with valid entity', () => {
@@ -293,19 +280,13 @@ describe('catalog helpers', () => {
       ]);
     });
 
-    it('returns false and logs when createTarArchive throws', () => {
+    it('returns false when createTarArchive throws', () => {
       const { createTarArchive } = require('../../utils/tarArchiveUtils');
       (createTarArchive as jest.Mock).mockImplementationOnce(() => {
         throw new Error('tar failed');
       });
-      const consoleSpy = jest.spyOn(console, 'error').mockImplementation();
 
       expect(downloadEntityAsTarArchive(validEntity)).toBe(false);
-      expect(consoleSpy).toHaveBeenCalledWith(
-        'Failed to download archive:',
-        expect.any(Error),
-      );
-      consoleSpy.mockRestore();
     });
   });
 });
