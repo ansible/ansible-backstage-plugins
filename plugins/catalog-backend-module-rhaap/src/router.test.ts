@@ -1157,9 +1157,9 @@ describe('createRouter', () => {
     });
   });
 
-  describe('GET /git_readme_content', () => {
+  describe('GET /git_file_content', () => {
     it('should return 400 when required query parameters are missing', async () => {
-      const response = await request(app).get('/git_readme_content');
+      const response = await request(app).get('/git_file_content');
 
       expect(response.status).toBe(400);
       expect(response.body.error).toMatch(/Missing required query parameters/);
@@ -1167,7 +1167,7 @@ describe('createRouter', () => {
 
     it('should return 400 for unsupported SCM provider', async () => {
       const response = await request(app).get(
-        '/git_readme_content?scmProvider=bitbucket&host=h&owner=o&repo=r&filePath=README.md&ref=main',
+        '/git_file_content?scmProvider=bitbucket&host=h&owner=o&repo=r&filePath=README.md&ref=main',
       );
 
       expect(response.status).toBe(400);
@@ -1176,7 +1176,7 @@ describe('createRouter', () => {
 
     it('should log fetch message, call createClient and getFileContent, and return 200 with text/markdown', async () => {
       const response = await request(app).get(
-        '/git_readme_content?scmProvider=github&host=github.com&owner=myorg&repo=myrepo&filePath=README.md&ref=main',
+        '/git_file_content?scmProvider=github&host=github.com&owner=myorg&repo=myrepo&filePath=README.md&ref=main',
       );
 
       expect(response.status).toBe(200);
@@ -1206,7 +1206,7 @@ describe('createRouter', () => {
       const testApp = express().use(router);
 
       const response = await request(testApp).get(
-        '/git_readme_content?scmProvider=github&host=github.com&owner=myorg&repo=myrepo&filePath=README.md&ref=main',
+        '/git_file_content?scmProvider=github&host=github.com&owner=myorg&repo=myrepo&filePath=README.md&ref=main',
       );
 
       expect(response.status).toBe(404);
@@ -1237,7 +1237,7 @@ describe('createRouter', () => {
       const testApp = express().use(router);
 
       const response = await request(testApp).get(
-        '/git_readme_content?scmProvider=gitlab&host=gitlab.com&owner=grp&repo=proj&filePath=README.md&ref=main',
+        '/git_file_content?scmProvider=gitlab&host=gitlab.com&owner=grp&repo=proj&filePath=README.md&ref=main',
       );
 
       expect(response.status).toBe(500);

@@ -1,7 +1,21 @@
-import { Box, IconButton, Tabs, Tab } from '@material-ui/core';
-import MoreVertIcon from '@material-ui/icons/MoreVert';
+import {
+  Box,
+  Tabs,
+  Tab,
+  Button,
+  Menu,
+  MenuItem,
+  ListItemIcon,
+  Typography,
+} from '@material-ui/core';
+import { makeStyles } from '@material-ui/core/styles';
+import ArrowDropDownIcon from '@material-ui/icons/ArrowDropDown';
+import BuildIcon from '@material-ui/icons/Build';
+import EditIcon from '@material-ui/icons/Edit';
+import OpenInNewIcon from '@material-ui/icons/OpenInNew';
+import DeleteIcon from '@material-ui/icons/Delete';
 import { useNavigate, useParams } from 'react-router-dom';
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useMemo } from 'react';
 import {
   catalogApiRef,
   UnregisterEntityDialog,
@@ -11,16 +25,75 @@ import {
   fetchApiRef,
   useApi,
 } from '@backstage/core-plugin-api';
+import { ANNOTATION_EDIT_URL } from '@backstage/catalog-model';
 import { Header } from './Header';
 import { BreadcrumbsNavigation } from './BreadcrumbsNavigation';
-import { MenuPopover } from './MenuPopover';
 import { LinksCard } from './LinksCard';
 import { AboutCard } from './AboutCard';
 import { ReadmeCard } from './ReadmeCard';
+import { DefinedContentCard } from './DefinedContentCard';
+import { ResourcesCard } from './ResourcesCard';
 import { EntityNotFound } from './EntityNotFound';
 import { toEEDefinitionUrl, downloadEntityAsTarArchive } from './helpers';
+import { createTarArchive } from '../../utils/tarArchiveUtils';
+import { parseEEDefinition } from '../../../utils/eeDefinitionUtils';
+
+const useActionsMenuStyles = makeStyles(theme => ({
+  actionsButton: {
+    textTransform: 'none',
+    fontWeight: 600,
+  },
+  deleteItem: {
+    color: theme.palette.error.main,
+  },
+  menuPaper: {
+    borderRadius: 12,
+    boxShadow: '0px 8px 20px rgba(0,0,0,0.1)',
+    minWidth: 200,
+  },
+}));
+
+const usePageStyles = makeStyles(theme => ({
+  root: {
+    padding: theme.spacing(3),
+    [theme.breakpoints.down('sm')]: {
+      padding: theme.spacing(2),
+    },
+  },
+  header: {
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    flexWrap: 'wrap',
+    gap: theme.spacing(2),
+  },
+  overviewGrid: {
+    display: 'flex',
+    gap: theme.spacing(3),
+    flexDirection: 'row',
+    [theme.breakpoints.down('md')]: {
+      flexDirection: 'column',
+    },
+  },
+  sidebar: {
+    flex: 1,
+    maxWidth: 320,
+    display: 'flex',
+    flexDirection: 'column',
+    gap: theme.spacing(3),
+    [theme.breakpoints.down('md')]: {
+      maxWidth: '100%',
+    },
+  },
+  readmeWrapper: {
+    flex: 1,
+    minWidth: 0,
+  },
+}));
 
 export const EEDetailsPage: React.FC = () => {
+  const actionsMenuClasses = useActionsMenuStyles();
+  const pageClasses = usePageStyles();
   const { templateName } = useParams<{ templateName: string }>();
   const navigate = useNavigate();
   const [tab, setTab] = useState(0);
@@ -33,6 +106,9 @@ export const EEDetailsPage: React.FC = () => {
   const [entity, setEntity] = useState<any | null>(false);
   const [menuid, setMenuId] = useState<string>('');
   const [defaultReadme, setDefaultReadme] = useState<string>('');
+  const [fetchedDefinition, setFetchedDefinition] = useState<string | null>(
+    null,
+  );
   const discoveryApi = useApi(discoveryApiRef);
   const fetchApi = useApi(fetchApiRef);
   const [isRefreshing, setIsRefreshing] = useState(false);
@@ -87,6 +163,7 @@ export const EEDetailsPage: React.FC = () => {
     host: string;
     owner: string;
     repo: string;
+    subdir: string;
     filePath: string;
     ref: string;
   } | null => {
@@ -134,7 +211,7 @@ export const EEDetailsPage: React.FC = () => {
 
     const filePath = subdir ? `${subdir}/README.md` : 'README.md';
 
-    return { scmProvider, host, owner, repo, filePath, ref };
+    return { scmProvider, host, owner, repo, subdir, filePath, ref };
   }, [entity]);
 
   useEffect(() => {
@@ -155,7 +232,7 @@ export const EEDetailsPage: React.FC = () => {
 
         try {
           const response = await fetchApi.fetch(
-            `${baseUrl}/git_readme_content?${queryParams}`,
+            `${baseUrl}/git_file_content?${queryParams}`,
           );
           if (response.ok) {
             const text = await response.text();
@@ -169,20 +246,43 @@ export const EEDetailsPage: React.FC = () => {
     fetchDefaultReadme();
   }, [entity, discoveryApi, parseSourceLocationParams, fetchApi]);
 
-  const getTechdocsUrl = () => {
-    return `/docs/${entity?.metadata?.namespace}/${entity?.kind}/${entity?.metadata?.name}`;
-  };
+  useEffect(() => {
+    const fetchEEDefinition = async () => {
+      if (entity && !entity?.spec?.definition) {
+        const params = parseSourceLocationParams();
+        if (!params) return;
 
-  const handleViewTechdocs = () => {
-    const url = getTechdocsUrl();
-    if (url) window.open(url, '_blank');
-    // else alert('TechDocs not available for this template');
-  };
+        const baseUrl = await discoveryApi.getBaseUrl('catalog');
+        const queryParams = new URLSearchParams({
+          scmProvider: params.scmProvider,
+          host: params.host,
+          owner: params.owner,
+          repo: params.repo,
+          filePath: params.subdir
+            ? `${params.subdir}/${entity?.metadata?.name ?? 'execution-environment'}.yaml`
+            : `${entity?.metadata?.name ?? 'execution-environment'}.yaml`,
+          ref: params.ref,
+        });
 
-  const handleMenuClick = (id: string) => {
-    setMenuId(id);
-    handleMenuClose();
-  };
+        try {
+          const response = await fetchApi.fetch(
+            `${baseUrl}/git_file_content?${queryParams}`,
+          );
+          if (response.ok) {
+            const text = await response.text();
+            setFetchedDefinition(text);
+          }
+        } catch {
+          // Silently ignore errors
+        }
+      }
+    };
+    fetchEEDefinition();
+  }, [entity, discoveryApi, parseSourceLocationParams, fetchApi]);
+
+  useEffect(() => {
+    if (entity?.spec?.definition) setFetchedDefinition(null);
+  }, [entity?.spec?.definition]);
 
   const openSourceLocationUrl = useCallback(() => {
     const loc = entity?.metadata?.annotations?.['backstage.io/source-location'];
@@ -195,6 +295,45 @@ export const EEDetailsPage: React.FC = () => {
     if (url) window.open(url, '_blank');
     return url;
   }, [entity]);
+
+  /** URL to edit the EE definition file (e.g. test-2.yaml), not catalog-info.yaml */
+  const getDefinitionEditUrl = useCallback(() => {
+    const editUrl = entity?.metadata?.annotations?.[ANNOTATION_EDIT_URL] as
+      | string
+      | undefined;
+    if (!editUrl) return null;
+    const eeName = entity?.metadata?.name;
+    if (!eeName) {
+      throw new Error('Missing metadata.name on entity');
+    }
+    const definitionFilename = `${eeName}.yaml`;
+    const pathParts = editUrl.split('/');
+    pathParts[pathParts.length - 1] = definitionFilename;
+    return pathParts.join('/');
+  }, [entity]);
+
+  const handleEditDefinition = () => {
+    const url = getDefinitionEditUrl();
+    if (url) window.open(url, '_blank');
+  };
+
+  const handleBuild = () => {
+    // TODO: Implement build
+  };
+
+  const parsedDefinition = useMemo(() => {
+    const fromSpec = parseEEDefinition(entity?.spec?.definition);
+    if (fromSpec) return fromSpec;
+    return fetchedDefinition ? parseEEDefinition(fetchedDefinition) : null;
+  }, [entity?.spec?.definition, fetchedDefinition]);
+
+  const sourceLocationDisplayUrl = entity?.metadata?.annotations?.[
+    'backstage.io/source-location'
+  ]
+    ? (
+        entity.metadata.annotations['backstage.io/source-location'] as string
+      ).replace(/^url:/, '')
+    : null;
 
   const handleDownloadArchive = () => {
     downloadEntityAsTarArchive(entity);
@@ -224,7 +363,7 @@ export const EEDetailsPage: React.FC = () => {
       .trim() === 'true';
 
   return (
-    <Box p={3}>
+    <Box className={pageClasses.root}>
       {entity && (
         <UnregisterEntityDialog
           open={menuid === '1'}
@@ -243,24 +382,85 @@ export const EEDetailsPage: React.FC = () => {
       />
 
       {/* Header */}
-      <Box display="flex" alignItems="center" justifyContent="space-between">
+      <Box className={pageClasses.header}>
         <Header
           templateName={templateName?.toString() || ''}
           entity={entity || undefined}
         />
         {entity && (
-          <IconButton onClick={handleMenuOpen}>
-            <MoreVertIcon />
-          </IconButton>
-        )}
-
-        {/* Menu Popover */}
-        {entity && (
-          <MenuPopover
-            anchorEl={anchorEl}
-            onClose={handleMenuClose}
-            onMenuClick={handleMenuClick}
-          />
+          <>
+            <Button
+              variant="contained"
+              color="primary"
+              className={actionsMenuClasses.actionsButton}
+              onClick={handleMenuOpen}
+              endIcon={<ArrowDropDownIcon />}
+            >
+              Actions
+            </Button>
+            <Menu
+              anchorEl={anchorEl}
+              open={Boolean(anchorEl)}
+              onClose={handleMenuClose}
+              anchorOrigin={{ horizontal: 'right', vertical: 'bottom' }}
+              transformOrigin={{ horizontal: 'right', vertical: 'top' }}
+              classes={{ paper: actionsMenuClasses.menuPaper }}
+              getContentAnchorEl={null}
+            >
+              <MenuItem
+                onClick={() => {
+                  handleBuild();
+                  handleMenuClose();
+                }}
+              >
+                <ListItemIcon style={{ minWidth: 36 }}>
+                  <BuildIcon fontSize="small" />
+                </ListItemIcon>
+                <Typography variant="body2">Build</Typography>
+              </MenuItem>
+              {!isDownloadExperience && [
+                <MenuItem
+                  key="edit-definition"
+                  onClick={() => {
+                    handleEditDefinition();
+                    handleMenuClose();
+                  }}
+                >
+                  <ListItemIcon style={{ minWidth: 36 }}>
+                    <EditIcon fontSize="small" />
+                  </ListItemIcon>
+                  <Typography variant="body2">Edit definition</Typography>
+                </MenuItem>,
+                <MenuItem
+                  key="view-in-source"
+                  onClick={() => {
+                    openSourceLocationUrl();
+                    handleMenuClose();
+                  }}
+                >
+                  <ListItemIcon style={{ minWidth: 36 }}>
+                    <OpenInNewIcon fontSize="small" />
+                  </ListItemIcon>
+                  <Typography variant="body2">View in source</Typography>
+                </MenuItem>,
+              ]}
+              <MenuItem
+                onClick={() => {
+                  setMenuId('1');
+                  handleMenuClose();
+                }}
+                className={actionsMenuClasses.deleteItem}
+              >
+                <ListItemIcon
+                  style={{ minWidth: 36 }}
+                  className={actionsMenuClasses.deleteItem}
+                >
+                  <DeleteIcon fontSize="small" />
+                </ListItemIcon>
+                <Typography variant="body2">Delete</Typography>
+              </MenuItem>
+            </Menu>
+          </>
         )}
       </Box>
       <>
@@ -278,15 +478,16 @@ export const EEDetailsPage: React.FC = () => {
 
             {/* Overview */}
             {tab === 0 && (
-              <Box display="flex" gridGap={24}>
-                {/* Left Column */}
-                <Box
-                  flex={1}
-                  maxWidth={320}
-                  display="flex"
-                  flexDirection="column"
-                  gridGap={24}
-                >
+              <Box className={pageClasses.overviewGrid}>
+                {/* Left Column - README (stacks first on narrow) */}
+                <Box className={pageClasses.readmeWrapper}>
+                  <ReadmeCard
+                    readmeContent={entity?.spec.readme || defaultReadme}
+                  />
+                </Box>
+
+                {/* Right Column - About, Defined Content, Resources */}
+                <Box className={pageClasses.sidebar}>
                   {/* Links Card */}
                   {isDownloadExperience && (
                     <LinksCard onDownloadArchive={handleDownloadArchive} />
@@ -296,18 +497,18 @@ export const EEDetailsPage: React.FC = () => {
                   <AboutCard
                     entity={entity}
                     ownerName={ownerName}
+                    baseImageName={parsedDefinition?.baseImageName ?? null}
+                    sourceLocationUrl={sourceLocationDisplayUrl}
                     isRefreshing={isRefreshing}
                     isDownloadExperience={isDownloadExperience}
                     onRefresh={handleRefresh}
-                    onViewTechdocs={handleViewTechdocs}
-                    onOpenSourceLocation={openSourceLocationUrl}
                   />
-                </Box>
 
-                {/* Right Column */}
-                <ReadmeCard
-                  readmeContent={entity?.spec.readme || defaultReadme}
-                />
+                  {/* Defined Content Card */}
+                  <DefinedContentCard parsedDefinition={parsedDefinition} />
+
+                  <ResourcesCard />
+                </Box>
               </Box>
             )}
           </>

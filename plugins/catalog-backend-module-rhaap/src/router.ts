@@ -480,7 +480,7 @@ export async function createRouter(options: {
     return Array.from(matchedIds).map(id => _GIT_CONTENTS_PROVIDERS.get(id)!);
   }
 
-  router.get('/git_readme_content', async (request, response) => {
+  router.get('/git_file_content', async (request, response) => {
     const { scmProvider, host, owner, repo, filePath, ref } = request.query;
 
     const required = [
@@ -535,7 +535,15 @@ export async function createRouter(options: {
         path,
       );
 
-      response.type('text/markdown');
+      const ext = path.split('.').pop()?.toLowerCase();
+      const contentTypeMap: Record<string, string> = {
+        md: 'text/markdown',
+        yaml: 'application/yaml',
+        yml: 'application/yaml',
+        json: 'application/json',
+        txt: 'text/plain',
+      };
+      response.type(contentTypeMap[ext ?? ''] ?? 'text/plain');
       response.send(content);
     } catch (error) {
       const errorMessage =
