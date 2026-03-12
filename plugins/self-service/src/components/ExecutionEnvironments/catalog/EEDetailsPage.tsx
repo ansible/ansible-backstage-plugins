@@ -231,7 +231,7 @@ export const EEDetailsPage: React.FC = () => {
 
         try {
           const response = await fetchApi.fetch(
-            `${baseUrl}/git_readme_content?${queryParams}`,
+            `${baseUrl}/git_file_content?${queryParams}`,
           );
           if (response.ok) {
             const text = await response.text();
@@ -257,17 +257,19 @@ export const EEDetailsPage: React.FC = () => {
           host: params.host,
           owner: params.owner,
           repo: params.repo,
-          filePath: params.subdir ? `${params.subdir}/${entity?.metadata?.name ?? 'execution-environment'}.yaml` : `${entity?.metadata?.name ?? 'execution-environment'}.yaml`,
+          filePath: params.subdir
+            ? `${params.subdir}/${entity?.metadata?.name ?? 'execution-environment'}.yaml`
+            : `${entity?.metadata?.name ?? 'execution-environment'}.yaml`,
           ref: params.ref,
         });
 
         try {
           const response = await fetchApi.fetch(
-            `${baseUrl}/git_readme_content?${queryParams}`,
+            `${baseUrl}/git_file_content?${queryParams}`,
           );
           if (response.ok) {
             const text = await response.text();
-            setDefaultReadme(text);
+            setFetchedDefinition(text);
           }
         } catch {
           // Silently ignore errors
