@@ -950,9 +950,7 @@ describe('createRouter', () => {
         },
         catalog: {
           ansible: {
-            gitlabPipelinesProxy: {
-              skipTlsVerifyForHosts: ['gitlab.insecure.com'],
-            },
+            skipTlsVerifyForHosts: ['gitlab.insecure.com'],
           },
         },
       });

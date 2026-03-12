@@ -90,10 +90,9 @@ auth:
             - resolver: allowNewAAPUserSignIn
 scaffolder: null
 catalog:
-  # Skip TLS verification for GitLab pipelines proxy (self-signed / internal CA). Dev/internal only.
+  # Skip TLS verification for specified hosts (self-signed / internal CA).
   # ansible:
-  #   gitlabPipelinesProxy:
-  #     skipTlsVerifyForHosts: []
+  #   skipTlsVerifyForHosts: []
   stitchingStrategy:
     immediate: true
   orphanStrategy: delete

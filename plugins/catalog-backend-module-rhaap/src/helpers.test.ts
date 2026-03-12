@@ -708,9 +708,7 @@ describe('helpers', () => {
       const config = new ConfigReader({
         catalog: {
           ansible: {
-            gitlabPipelinesProxy: {
-              skipTlsVerifyForHosts: ['gitlab.internal.com', 'gitlab.dev.com'],
-            },
+            skipTlsVerifyForHosts: ['gitlab.internal.com', 'gitlab.dev.com'],
           },
         },
       });
@@ -722,9 +720,7 @@ describe('helpers', () => {
       const config = new ConfigReader({
         catalog: {
           ansible: {
-            gitlabPipelinesProxy: {
-              skipTlsVerifyForHosts: [],
-            },
+            skipTlsVerifyForHosts: [],
           },
         },
       });

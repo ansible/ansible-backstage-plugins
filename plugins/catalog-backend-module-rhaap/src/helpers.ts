@@ -27,9 +27,7 @@ export function isSafeHostname(host: string): boolean {
 
 export function getSkipTlsVerifyHosts(config: Config): string[] {
   return (
-    config.getOptionalStringArray(
-      'catalog.ansible.gitlabPipelinesProxy.skipTlsVerifyForHosts',
-    ) ?? []
+    config.getOptionalStringArray('catalog.ansible.skipTlsVerifyForHosts') ?? []
   );
 }
 
