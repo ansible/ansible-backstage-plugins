@@ -35,7 +35,6 @@ import { DefinedContentCard } from './DefinedContentCard';
 import { ResourcesCard } from './ResourcesCard';
 import { EntityNotFound } from './EntityNotFound';
 import { toEEDefinitionUrl, downloadEntityAsTarArchive } from './helpers';
-import { createTarArchive } from '../../utils/tarArchiveUtils';
 import { parseEEDefinition } from '../../../utils/eeDefinitionUtils';
 
 const useActionsMenuStyles = makeStyles(theme => ({
