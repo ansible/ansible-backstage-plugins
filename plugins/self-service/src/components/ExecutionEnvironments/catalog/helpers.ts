@@ -36,9 +36,6 @@ export function downloadEntityAsTarArchive(entity: Entity): boolean {
     !entity?.spec?.ansible_cfg ||
     !entity?.spec?.template
   ) {
-    console.error(
-      'Entity definition, readme, ansible_cfg or template not available for download',
-    );
     return false;
   }
 
@@ -78,8 +75,7 @@ export function downloadEntityAsTarArchive(entity: Entity): boolean {
     link.remove();
     URL.revokeObjectURL(url);
     return true;
-  } catch (err) {
-    console.error('Failed to download archive:', err);
+  } catch {
     return false;
   }
 }

@@ -58,9 +58,9 @@ describe('catalog helpers', () => {
     it('returns URL unchanged when it does not contain catalog-info.yaml', () => {
       const url = 'https://github.com/org/repo/tree/main/';
       expect(toEEDefinitionUrl(url, 'ee1')).toBe(url);
-      expect(
-        toEEDefinitionUrl('https://example.com/ee-one.yaml', 'ee1'),
-      ).toBe('https://example.com/ee-one.yaml');
+      expect(toEEDefinitionUrl('https://example.com/ee-one.yaml', 'ee1')).toBe(
+        'https://example.com/ee-one.yaml',
+      );
     });
   });
 
@@ -120,9 +120,7 @@ describe('catalog helpers', () => {
 
     it('handles entity with missing metadata or annotations', () => {
       expect(getEntityEEDefinitionUrl({} as Entity)).toBe('');
-      expect(
-        getEntityEEDefinitionUrl({ metadata: {} } as Entity),
-      ).toBe('');
+      expect(getEntityEEDefinitionUrl({ metadata: {} } as Entity)).toBe('');
     });
 
     it('returns empty string when annotation value is empty', () => {
@@ -185,7 +183,10 @@ describe('catalog helpers', () => {
 
     it('returns false and logs when definition is missing', () => {
       const consoleSpy = jest.spyOn(console, 'error').mockImplementation();
-      const entity = { ...validEntity, spec: { ...validEntity.spec } } as Entity;
+      const entity = {
+        ...validEntity,
+        spec: { ...validEntity.spec },
+      } as Entity;
       delete (entity.spec as any).definition;
 
       expect(downloadEntityAsTarArchive(entity)).toBe(false);
@@ -197,7 +198,10 @@ describe('catalog helpers', () => {
 
     it('returns false when readme is missing', () => {
       const consoleSpy = jest.spyOn(console, 'error').mockImplementation();
-      const entity = { ...validEntity, spec: { ...validEntity.spec } } as Entity;
+      const entity = {
+        ...validEntity,
+        spec: { ...validEntity.spec },
+      } as Entity;
       delete (entity.spec as any).readme;
 
       expect(downloadEntityAsTarArchive(entity)).toBe(false);
@@ -206,7 +210,10 @@ describe('catalog helpers', () => {
 
     it('returns false when ansible_cfg is missing', () => {
       const consoleSpy = jest.spyOn(console, 'error').mockImplementation();
-      const entity = { ...validEntity, spec: { ...validEntity.spec } } as Entity;
+      const entity = {
+        ...validEntity,
+        spec: { ...validEntity.spec },
+      } as Entity;
       delete (entity.spec as any).ansible_cfg;
 
       expect(downloadEntityAsTarArchive(entity)).toBe(false);
@@ -215,7 +222,10 @@ describe('catalog helpers', () => {
 
     it('returns false when template is missing', () => {
       const consoleSpy = jest.spyOn(console, 'error').mockImplementation();
-      const entity = { ...validEntity, spec: { ...validEntity.spec } } as Entity;
+      const entity = {
+        ...validEntity,
+        spec: { ...validEntity.spec },
+      } as Entity;
       delete (entity.spec as any).template;
 
       expect(downloadEntityAsTarArchive(entity)).toBe(false);
@@ -225,7 +235,9 @@ describe('catalog helpers', () => {
     it('returns false when entity or spec is missing', () => {
       const consoleSpy = jest.spyOn(console, 'error').mockImplementation();
       expect(downloadEntityAsTarArchive({} as Entity)).toBe(false);
-      expect(downloadEntityAsTarArchive({ metadata: {} } as Entity)).toBe(false);
+      expect(downloadEntityAsTarArchive({ metadata: {} } as Entity)).toBe(
+        false,
+      );
       consoleSpy.mockRestore();
     });
 
@@ -289,7 +301,10 @@ describe('catalog helpers', () => {
       const consoleSpy = jest.spyOn(console, 'error').mockImplementation();
 
       expect(downloadEntityAsTarArchive(validEntity)).toBe(false);
-      expect(consoleSpy).toHaveBeenCalledWith('Failed to download archive:', expect.any(Error));
+      expect(consoleSpy).toHaveBeenCalledWith(
+        'Failed to download archive:',
+        expect.any(Error),
+      );
       consoleSpy.mockRestore();
     });
   });
