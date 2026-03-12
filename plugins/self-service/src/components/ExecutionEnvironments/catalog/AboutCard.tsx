@@ -12,8 +12,8 @@ import DescriptionOutlinedIcon from '@material-ui/icons/DescriptionOutlined';
 import GitHubIcon from '@material-ui/icons/GitHub';
 import AutorenewIcon from '@material-ui/icons/Autorenew';
 import EditIcon from '@material-ui/icons/Edit';
-import { Entity, ANNOTATION_EDIT_URL } from '@backstage/catalog-model';
-import { toEEDefinitionUrl } from './helpers';
+import { Entity } from '@backstage/catalog-model';
+import { getEntityEEDefinitionUrl } from './helpers';
 
 const useStyles = makeStyles(() => ({
   tagButton: {
@@ -84,24 +84,11 @@ export const AboutCard: React.FC<AboutCardProps> = ({
                   style={{ color: '#757575' }}
                 />
               </IconButton>{' '}
-              {(entity?.metadata?.annotations?.[ANNOTATION_EDIT_URL] ||
-                entity?.metadata?.annotations?.[
-                  'backstage.io/source-location'
-                ]) && (
+              {getEntityEEDefinitionUrl(entity) && (
                 <IconButton
                   size="small"
                   component="a"
-                  href={toEEDefinitionUrl(
-                    entity.metadata.annotations[ANNOTATION_EDIT_URL] ||
-                      (
-                        entity.metadata.annotations[
-                          'backstage.io/source-location'
-                        ] || ''
-                      )
-                        .replace(/^url:/i, '')
-                        .trim(),
-                    entity.metadata.name ?? '',
-                  )}
+                  href={getEntityEEDefinitionUrl(entity)}
                   target="_blank"
                   rel="noopener noreferrer"
                   aria-label="Edit definition"
@@ -203,10 +190,7 @@ export const AboutCard: React.FC<AboutCardProps> = ({
           </Typography>
         </Box>
         <Box display="flex" flexDirection="column" gridGap={4} marginTop={2}>
-          {(entity?.metadata?.annotations?.[ANNOTATION_EDIT_URL] ||
-            entity?.metadata?.annotations?.[
-              'backstage.io/source-location'
-            ]) && (
+          {getEntityEEDefinitionUrl(entity) && (
             <Box>
               <Typography
                 variant="caption"
@@ -216,17 +200,7 @@ export const AboutCard: React.FC<AboutCardProps> = ({
               </Typography>
               <Typography variant="body2" style={{ marginTop: 4 }}>
                 <a
-                  href={toEEDefinitionUrl(
-                    entity.metadata.annotations[ANNOTATION_EDIT_URL] ||
-                      (
-                        entity.metadata.annotations[
-                          'backstage.io/source-location'
-                        ] || ''
-                      )
-                        .replace(/^url:/i, '')
-                        .trim(),
-                    entity.metadata.name ?? '',
-                  )}
+                  href={getEntityEEDefinitionUrl(entity)}
                   target="_blank"
                   rel="noopener noreferrer"
                   style={{
@@ -234,17 +208,7 @@ export const AboutCard: React.FC<AboutCardProps> = ({
                     wordBreak: 'break-all',
                   }}
                 >
-                  {toEEDefinitionUrl(
-                    entity.metadata.annotations[ANNOTATION_EDIT_URL] ||
-                      (
-                        entity.metadata.annotations[
-                          'backstage.io/source-location'
-                        ] || ''
-                      )
-                        .replace(/^url:/i, '')
-                        .trim(),
-                    entity.metadata.name ?? '',
-                  )}
+                  {getEntityEEDefinitionUrl(entity)}
                 </a>
               </Typography>
             </Box>

@@ -8,7 +8,6 @@ import {
   Menu,
   MenuItem,
   Paper,
-  Popover,
   Select,
   Typography,
 } from '@material-ui/core';
@@ -32,9 +31,8 @@ import { Tooltip } from '@material-ui/core';
 import { ANNOTATION_EDIT_URL, Entity } from '@backstage/catalog-model';
 import { useApi } from '@backstage/core-plugin-api';
 import { useNavigate } from 'react-router-dom';
-import { createTarArchive } from '../../utils/tarArchiveUtils';
 import { CreateCatalog } from './CreateCatalog';
-import { toEEDefinitionUrl } from './helpers';
+import { toEEDefinitionUrl, downloadEntityAsTarArchive } from './helpers';
 
 const DESCRIPTION_TRUNCATE_LENGTH = 30;
 
@@ -113,35 +111,6 @@ const useStyles = makeStyles(theme => ({
     minWidth: 0,
     flex: 1,
   },
-  descriptionPopoverPaper: {
-    position: 'relative',
-    borderRadius: 12,
-    boxShadow: theme.shadows[4],
-    border: `1px solid ${theme.palette.divider}`,
-    marginTop: 6,
-    '&::before': {
-      content: '""',
-      position: 'absolute',
-      top: -9,
-      left: 16,
-      width: 0,
-      height: 0,
-      borderLeft: '9px solid transparent',
-      borderRight: '9px solid transparent',
-      borderBottom: `9px solid ${theme.palette.divider}`,
-    },
-    '&::after': {
-      content: '""',
-      position: 'absolute',
-      top: -8,
-      left: 17,
-      width: 0,
-      height: 0,
-      borderLeft: '8px solid transparent',
-      borderRight: '8px solid transparent',
-      borderBottom: `8px solid ${theme.palette.background.paper}`,
-    },
-  },
   paper: {
     padding: theme.spacing(1.5, 1.5),
     borderRadius: 3,
@@ -204,13 +173,6 @@ export const EEListPage = ({
   const [entityToUnregister, setEntityToUnregister] = useState<Entity | null>(
     null,
   );
-  const [descriptionPopoverOpen, setDescriptionPopoverOpen] =
-    useState<boolean>(false);
-  const [descriptionPopoverPosition, setDescriptionPopoverPosition] = useState<
-    { top: number; left: number } | undefined
-  >(undefined);
-  const [descriptionPopoverText, setDescriptionPopoverText] =
-    useState<string>('');
   const { filters, updateFilters } = useEntityList();
 
   const isMountedRef = useRef(true);
@@ -472,41 +434,25 @@ export const EEListPage = ({
         const displayText = desc || '—';
         const isLong = desc.length > DESCRIPTION_TRUNCATE_LENGTH;
         const cell = (
-          <Box
-            className={classes.descriptionCell}
-            onMouseEnter={
-              isLong
-                ? (e: React.MouseEvent<HTMLElement>) => {
-                    const rect = e.currentTarget.getBoundingClientRect();
-                    setDescriptionPopoverPosition({
-                      left: rect.left,
-                      top: rect.bottom,
-                    });
-                    setDescriptionPopoverText(desc);
-                    setDescriptionPopoverOpen(true);
-                  }
-                : undefined
-            }
-            onMouseLeave={
-              isLong
-                ? () => {
-                    setDescriptionPopoverOpen(false);
-                    setDescriptionPopoverPosition(undefined);
-                  }
-                : undefined
-            }
+          <Tooltip
+            title={isLong ? desc : ''}
+            placement="bottom-start"
+            leaveDelay={0}
+            enterDelay={300}
           >
-            <Typography
-              className={
-                isLong
-                  ? classes.descriptionCellText
-                  : classes.descriptionCellTextFull
-              }
-              variant="body2"
-            >
-              {displayText}
-            </Typography>
-          </Box>
+            <Box className={classes.descriptionCell}>
+              <Typography
+                className={
+                  isLong
+                    ? classes.descriptionCellText
+                    : classes.descriptionCellTextFull
+                }
+                variant="body2"
+              >
+                {displayText}
+              </Typography>
+            </Box>
+          </Tooltip>
         );
         return cell;
       },
@@ -631,38 +577,6 @@ export const EEListPage = ({
                 columns={columns}
                 data={ansibleComponents || []}
               />
-              <Popover
-                open={descriptionPopoverOpen}
-                anchorReference="anchorPosition"
-                anchorPosition={
-                  descriptionPopoverPosition
-                    ? {
-                        top: descriptionPopoverPosition.top,
-                        left: descriptionPopoverPosition.left,
-                      }
-                    : undefined
-                }
-                onClose={() => {
-                  setDescriptionPopoverOpen(false);
-                  setDescriptionPopoverPosition(undefined);
-                }}
-                anchorOrigin={{ vertical: 'top', horizontal: 'left' }}
-                transformOrigin={{ vertical: 'top', horizontal: 'left' }}
-                disableRestoreFocus
-                PaperProps={{
-                  className: classes.descriptionPopoverPaper,
-                  style: {
-                    maxWidth: 360,
-                    maxHeight: 320,
-                    overflow: 'auto',
-                    padding: 12,
-                  },
-                }}
-              >
-                <Typography variant="body2" style={{ whiteSpace: 'pre-wrap' }}>
-                  {descriptionPopoverText}
-                </Typography>
-              </Popover>
               <Menu
                 id="ee-actions-menu"
                 anchorEl={actionsMenuAnchor}
@@ -719,80 +633,8 @@ export const EEListPage = ({
                                 catalogApi
                                   .getEntityByRef(entityRef)
                                   .then((entity: Entity | undefined) => {
-                                    if (
-                                      !entity?.spec?.definition ||
-                                      !entity?.spec?.readme ||
-                                      !entity?.spec?.ansible_cfg ||
-                                      !entity?.spec?.template
-                                    ) {
-                                      // eslint-disable-next-line no-console
-                                      console.error(
-                                        'Entity, definition, readme, ansible_cfg or template not available for download',
-                                      );
-                                      return;
-                                    }
-                                    try {
-                                      const name =
-                                        entity.metadata?.name ||
-                                        'execution-environment';
-                                      const eeFileName = `${name}.yaml`;
-                                      const readmeFileName = `README-${name}.md`;
-                                      const archiveName = `${name}.tar`;
-                                      const ansibleCfgFileName = `ansible.cfg`;
-                                      const templateFileName = `${name}-template.yaml`;
-                                      const rawdata: Array<{
-                                        name: string;
-                                        content: string;
-                                      }> = [
-                                        {
-                                          name: eeFileName,
-                                          content: String(
-                                            entity.spec.definition,
-                                          ),
-                                        },
-                                        {
-                                          name: readmeFileName,
-                                          content: String(entity.spec.readme),
-                                        },
-                                        {
-                                          name: ansibleCfgFileName,
-                                          content: String(
-                                            entity.spec.ansible_cfg,
-                                          ),
-                                        },
-                                        {
-                                          name: templateFileName,
-                                          content: String(entity.spec.template),
-                                        },
-                                      ];
-                                      if (entity.spec.mcp_vars) {
-                                        rawdata.push({
-                                          name: 'mcp-vars.yaml',
-                                          content: String(entity.spec.mcp_vars),
-                                        });
-                                      }
-                                      const tarData = createTarArchive(rawdata);
-                                      const blob = new Blob(
-                                        [tarData as BlobPart],
-                                        {
-                                          type: 'application/x-tar',
-                                        },
-                                      );
-                                      const url = URL.createObjectURL(blob);
-                                      const link = document.createElement('a');
-                                      link.href = url;
-                                      link.download = archiveName;
-                                      link.style.display = 'none';
-                                      document.body.appendChild(link);
-                                      link.click();
-                                      link.remove();
-                                      URL.revokeObjectURL(url);
-                                    } catch (err) {
-                                      // eslint-disable-next-line no-console
-                                      console.error(
-                                        'Failed to download archive:',
-                                        err,
-                                      );
+                                    if (entity) {
+                                      downloadEntityAsTarArchive(entity);
                                     }
                                   });
                               }}

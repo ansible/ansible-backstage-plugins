@@ -18,8 +18,7 @@ import { LinksCard } from './LinksCard';
 import { AboutCard } from './AboutCard';
 import { ReadmeCard } from './ReadmeCard';
 import { EntityNotFound } from './EntityNotFound';
-import { createTarArchive } from '../../utils/tarArchiveUtils';
-import { toEEDefinitionUrl } from './helpers';
+import { toEEDefinitionUrl, downloadEntityAsTarArchive } from './helpers';
 
 export const EEDetailsPage: React.FC = () => {
   const { templateName } = useParams<{ templateName: string }>();
@@ -198,63 +197,7 @@ export const EEDetailsPage: React.FC = () => {
   }, [entity]);
 
   const handleDownloadArchive = () => {
-    if (
-      !entity?.spec?.definition ||
-      !entity?.spec?.readme ||
-      !entity?.spec?.ansible_cfg
-    ) {
-      // eslint-disable-next-line no-console
-      console.error('Entity, definition, readme or ansible_cfg not available');
-      return;
-    }
-
-    try {
-      const eeFileName = `${
-        entity.metadata.name || 'execution-environment'
-      }.yaml`;
-      const readmeFileName = `README-${
-        entity.metadata.name || 'execution-environment'
-      }.md`;
-      const archiveName = `${
-        entity.metadata.name || 'execution-environment'
-      }.tar`;
-      const ansibleCfgFileName = `ansible.cfg`;
-      const templateFileName = `${
-        entity.metadata.name || 'execution-environment'
-      }-template.yaml`;
-
-      const rawdata = [
-        { name: eeFileName, content: entity.spec.definition },
-        { name: readmeFileName, content: entity.spec.readme },
-        { name: ansibleCfgFileName, content: entity.spec.ansible_cfg },
-        { name: templateFileName, content: entity.spec.template },
-      ];
-
-      if (entity.spec.mcp_vars) {
-        const mcpVarsFileName = `mcp-vars.yaml`;
-        rawdata.push({
-          name: mcpVarsFileName,
-          content: entity.spec.mcp_vars,
-        });
-      }
-      const tarData = createTarArchive(rawdata);
-
-      const blob = new Blob([tarData as BlobPart], {
-        type: 'application/x-tar',
-      });
-
-      const url = URL.createObjectURL(blob);
-      const link = document.createElement('a');
-      link.href = url;
-      link.download = archiveName;
-      link.style.display = 'none';
-      document.body.appendChild(link);
-      link.click();
-      link.remove();
-      URL.revokeObjectURL(url);
-    } catch (err) {
-      console.error('Failed to download archive:', err); // eslint-disable-line no-console
-    }
+    downloadEntityAsTarArchive(entity);
   };
 
   const handleRefresh = () => {
