@@ -174,9 +174,7 @@ export const AboutCard: React.FC<AboutCardProps> = ({
                   rel="noopener noreferrer"
                   aria-label="Edit definition"
                 >
-                  <EditIcon
-                    style={{ color: theme.palette.primary.main }}
-                  />
+                  <EditIcon style={{ color: theme.palette.primary.main }} />
                 </IconButton>
               )}
             </Box>
