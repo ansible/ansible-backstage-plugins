@@ -22,6 +22,11 @@ export interface ScmClient {
     path: string,
     signal?: AbortSignal,
   ): Promise<string>;
+  repositoryExists(
+    owner: string,
+    repo: string,
+    signal?: AbortSignal,
+  ): Promise<boolean>;
   buildUrl(options: UrlBuildOptions): string;
   buildSourceLocation(repo: RepositoryInfo, ref: string, path: string): string;
   getHost(): string;
@@ -81,6 +86,11 @@ export abstract class BaseScmClient implements ScmClient {
     path: string,
     signal?: AbortSignal,
   ): Promise<string>;
+  abstract repositoryExists(
+    owner: string,
+    repo: string,
+    signal?: AbortSignal,
+  ): Promise<boolean>;
   abstract buildUrl(options: UrlBuildOptions): string;
   abstract buildSourceLocation(
     repo: RepositoryInfo,

@@ -15,10 +15,7 @@
  */
 
 import { createTemplateAction } from '@backstage/plugin-scaffolder-node';
-import {
-  ansibleCreatorRun,
-  handleDevfileProject,
-} from './ansibleContentCreate';
+import { ansibleCreatorRun } from './ansibleContentCreate';
 import {
   validateAnsibleConfig,
   getServiceUrlFromAnsibleConfig,
@@ -28,13 +25,9 @@ import {
 import { Config } from '@backstage/config';
 import { BackendServiceAPI } from './utils/api';
 import { ScaffolderLogger } from './utils/logger';
-import { AnsibleConfig } from '@ansible/backstage-rhaap-common';
 import { appType } from './constants';
 
-export function createAnsibleContentAction(
-  config: Config,
-  ansibleConfig: AnsibleConfig,
-) {
+export function createAnsibleContentAction(config: Config) {
   return createTemplateAction<{
     sourceControl: string;
     repoOwner: string;
@@ -70,12 +63,6 @@ export function createAnsibleContentAction(
               'The name of the new playbook project repository. For example, “my-new-playbook-repo”.',
             type: 'string',
           },
-          repositoryUrl: {
-            title: 'Source code repository URL',
-            description:
-              'The repository URL where the devfile needs to be scaffolded.',
-            type: 'string',
-          },
           collectionGroup: {
             title: 'Collection Namespace',
             description:
@@ -107,7 +94,6 @@ export function createAnsibleContentAction(
           'sourceControl',
           'repoOwner',
           'repoName',
-          'repositoryUrl',
           'collectionGroup',
           'collectionName',
         ],
@@ -127,7 +113,6 @@ export function createAnsibleContentAction(
         sourceControl,
         repoOwner,
         repoName,
-        repositoryUrl,
         description,
         collectionGroup,
         collectionName,
@@ -153,17 +138,7 @@ export function createAnsibleContentAction(
           getServiceUrlFromAnsibleConfig(config),
         );
         log.info(`ansibleCreatorRun completed successfully`);
-        if (ctx.input.applicationType === appType.DEVFILE) {
-          log.info(`RepoURL ${repositoryUrl}`);
-          const prLink = await handleDevfileProject(
-            ansibleConfig,
-            logger,
-            sourceControl,
-            ctx.input.repositoryUrl,
-            ctx.workspacePath,
-          );
-          ctx.output('prUrl', prLink);
-        } else {
+        if (ctx.input.applicationType !== appType.DEVFILE) {
           ctx.output(
             'devSpacesBaseUrl',
             getDevspacesUrlFromAnsibleConfig(

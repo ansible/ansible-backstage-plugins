@@ -32,11 +32,7 @@ jest.mock('./utils/api', () => {
   };
 });
 
-jest.mock('./helpers', () => ({
-  UseCaseMaker: jest.fn(),
-}));
-
-jest.mock('os', () => ({
+jest.mock('node:os', () => ({
   homedir: jest.fn(),
   platform: jest.fn().mockReturnValue('linux'),
   cpus: jest.fn().mockReturnValue([]),
@@ -47,24 +43,12 @@ jest.mock('os', () => ({
   EOL: '\n',
 }));
 
-jest.mock('fs/promises', () => ({
-  readFile: jest.fn(),
-}));
-
-import * as os from 'os';
+import * as os from 'node:os';
 import { executeShellCommand } from '@backstage/plugin-scaffolder-node';
 import { mockServices } from '@backstage/backend-test-utils';
-import { AnsibleConfig } from '@ansible/backstage-rhaap-common';
-import {
-  ansibleCreatorRun,
-  handleDevfileProject,
-} from './ansibleContentCreate';
+import { ansibleCreatorRun } from './ansibleContentCreate';
 import { BackendServiceAPI } from './utils/api';
-import { UseCaseMaker } from './helpers';
 import { appType } from './constants';
-import * as fs from 'fs/promises';
-
-const mockReadFile = fs.readFile as jest.MockedFunction<typeof fs.readFile>;
 
 const mockExecuteShellCommand = executeShellCommand as jest.MockedFunction<
   typeof executeShellCommand
@@ -296,199 +280,6 @@ describe('ansibleContentCreate', () => {
         '[plugin-scaffolder-backend-module-backstage-rhaap] Error while deleting tarball: ',
         cleanupError,
       );
-    });
-  });
-
-  describe('handleDevfileProject', () => {
-    const mockAnsibleConfig: AnsibleConfig = {
-      rhaap: {
-        baseUrl: 'https://test.ansible.com/',
-        checkSSL: true,
-        showCaseLocation: {
-          type: 'url',
-          target: 'https://showcase.example.com',
-          gitBranch: 'main',
-          gitUser: 'testUser',
-          gitEmail: 'test@example.com',
-        },
-      },
-      githubIntegration: {
-        host: 'github.com',
-        apiBaseUrl: 'https://api.github.com',
-        rawBaseUrl: 'https://raw.githubusercontent.com',
-        token: 'dummy-token',
-        apps: [],
-      },
-      gitlabIntegration: {
-        host: 'gitlab.com',
-        apiBaseUrl: 'https://api.gitlab.com',
-        baseUrl: 'https://raw.gitlabusercontent.com',
-        token: 'dummy-token',
-      },
-    };
-
-    const mockSourceControl = 'github.com';
-    const mockRepositoryUrl = 'https://github.com/test/repo';
-
-    let mockUseCaseMaker: jest.Mocked<UseCaseMaker>;
-
-    beforeEach(() => {
-      mockUseCaseMaker = {
-        devfilePushToGithub: jest.fn(),
-        devfilePushToGitLab: jest.fn(),
-      } as any;
-      (
-        UseCaseMaker as jest.MockedClass<typeof UseCaseMaker>
-      ).mockImplementation(() => mockUseCaseMaker);
-    });
-
-    it('should handle GitHub devfile project successfully', async () => {
-      const mockDevfileContent = 'devfile content';
-      const mockPrLink = 'https://github.com/test/repo/pull/1';
-
-      mockReadFile.mockResolvedValueOnce(mockDevfileContent);
-      mockUseCaseMaker.devfilePushToGithub.mockResolvedValueOnce(mockPrLink);
-
-      const result = await handleDevfileProject(
-        mockAnsibleConfig,
-        logger,
-        mockSourceControl,
-        mockRepositoryUrl,
-        mockWorkspacePath,
-      );
-
-      expect(mockReadFile).toHaveBeenCalledWith(
-        `${mockWorkspacePath}/devfile.yaml`,
-        'utf8',
-      );
-      expect(UseCaseMaker).toHaveBeenCalledWith({
-        ansibleConfig: mockAnsibleConfig,
-        logger,
-        scmType: 'Github',
-        apiClient: null,
-        useCases: [],
-        organization: null,
-        token: null,
-      });
-      expect(mockUseCaseMaker.devfilePushToGithub).toHaveBeenCalledWith({
-        value: mockDevfileContent,
-        repositoryUrl: mockRepositoryUrl,
-      });
-      expect(result).toBe(mockPrLink);
-    });
-
-    it('should handle GitLab devfile project successfully', async () => {
-      const mockDevfileContent = 'devfile content';
-      const mockPrLink = 'https://gitlab.com/test/repo/-/merge_requests/1';
-
-      mockReadFile.mockResolvedValueOnce(mockDevfileContent);
-      mockUseCaseMaker.devfilePushToGitLab.mockResolvedValueOnce(mockPrLink);
-
-      const result = await handleDevfileProject(
-        mockAnsibleConfig,
-        logger,
-        'gitlab.com',
-        mockRepositoryUrl,
-        mockWorkspacePath,
-      );
-
-      expect(UseCaseMaker).toHaveBeenCalledWith({
-        ansibleConfig: mockAnsibleConfig,
-        logger,
-        scmType: 'Gitlab',
-        apiClient: null,
-        useCases: [],
-        organization: null,
-        token: null,
-      });
-      expect(mockUseCaseMaker.devfilePushToGitLab).toHaveBeenCalledWith({
-        value: mockDevfileContent,
-        repositoryUrl: mockRepositoryUrl,
-      });
-      expect(result).toBe(mockPrLink);
-    });
-
-    it('should handle unknown source control provider', async () => {
-      const mockDevfileContent = 'devfile content';
-
-      mockReadFile.mockResolvedValueOnce(mockDevfileContent);
-
-      const result = await handleDevfileProject(
-        mockAnsibleConfig,
-        logger,
-        'bitbucket.com',
-        mockRepositoryUrl,
-        mockWorkspacePath,
-      );
-
-      expect(UseCaseMaker).toHaveBeenCalledWith({
-        ansibleConfig: mockAnsibleConfig,
-        logger,
-        scmType: 'Bitbucket',
-        apiClient: null,
-        useCases: [],
-        organization: null,
-        token: null,
-      });
-      expect(mockUseCaseMaker.devfilePushToGithub).not.toHaveBeenCalled();
-      expect(mockUseCaseMaker.devfilePushToGitLab).not.toHaveBeenCalled();
-      expect(result).toBeUndefined();
-    });
-
-    it('should throw error when file reading fails', async () => {
-      const fileError = new Error('File not found');
-      mockReadFile.mockRejectedValueOnce(fileError);
-
-      await expect(
-        handleDevfileProject(
-          mockAnsibleConfig,
-          logger,
-          mockSourceControl,
-          mockRepositoryUrl,
-          mockWorkspacePath,
-        ),
-      ).rejects.toThrow('File not found');
-
-      expect(console.error).toHaveBeenCalledWith(
-        'Error reading the file or pushing to GitHub:',
-        fileError,
-      );
-    });
-
-    it('should throw error when GitHub push fails', async () => {
-      const mockDevfileContent = 'devfile content';
-      const pushError = new Error('GitHub push failed');
-
-      mockReadFile.mockResolvedValueOnce(mockDevfileContent);
-      mockUseCaseMaker.devfilePushToGithub.mockRejectedValueOnce(pushError);
-
-      await expect(
-        handleDevfileProject(
-          mockAnsibleConfig,
-          logger,
-          mockSourceControl,
-          mockRepositoryUrl,
-          mockWorkspacePath,
-        ),
-      ).rejects.toThrow('GitHub push failed');
-    });
-
-    it('should throw error when GitLab push fails', async () => {
-      const mockDevfileContent = 'devfile content';
-      const pushError = new Error('GitLab push failed');
-
-      mockReadFile.mockResolvedValueOnce(mockDevfileContent);
-      mockUseCaseMaker.devfilePushToGitLab.mockRejectedValueOnce(pushError);
-
-      await expect(
-        handleDevfileProject(
-          mockAnsibleConfig,
-          logger,
-          'gitlab.com',
-          mockRepositoryUrl,
-          mockWorkspacePath,
-        ),
-      ).rejects.toThrow('GitLab push failed');
     });
   });
 });

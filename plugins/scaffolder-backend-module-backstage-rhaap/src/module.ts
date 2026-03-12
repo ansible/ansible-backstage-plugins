@@ -23,17 +23,13 @@ import {
   scaffolderAutocompleteExtensionPoint,
   scaffolderTemplatingExtensionPoint,
 } from '@backstage/plugin-scaffolder-node/alpha';
-import {
-  ansibleServiceRef,
-  getAnsibleConfig,
-} from '@ansible/backstage-rhaap-common';
+import { ansibleServiceRef } from '@ansible/backstage-rhaap-common';
 import {
   createAnsibleContentAction,
   cleanUp,
   createExecutionEnvironment,
   createJobTemplate,
   createProjectAction,
-  createShowCases,
   launchJobTemplate,
   createEEDefinitionAction,
   prepareForPublishAction,
@@ -43,10 +39,9 @@ import {
   multiResourceFilter,
   resourceFilter,
   useCaseNameFilter,
+  uuidFilter,
 } from './filters';
 import { handleAutocompleteRequest } from './autocomplete';
-
-import { createRouter } from './router';
 
 /**
  * @public
@@ -66,7 +61,6 @@ export const scaffolderModuleAnsible = createBackendModule({
         ansibleService: ansibleServiceRef,
         auth: coreServices.auth,
         discovery: coreServices.discovery,
-        httpRouter: coreServices.httpRouter,
       },
       async init({
         scaffolder,
@@ -77,31 +71,29 @@ export const scaffolderModuleAnsible = createBackendModule({
         ansibleService,
         auth,
         discovery,
-        httpRouter,
       }) {
-        const ansibleConfig = getAnsibleConfig(config);
         const frontendUrl = config.getString('app.baseUrl');
         scaffolder.addActions(
-          createAnsibleContentAction(config, ansibleConfig),
+          createAnsibleContentAction(config),
           createProjectAction(ansibleService),
           createExecutionEnvironment(ansibleService),
           createJobTemplate(ansibleService),
           launchJobTemplate(ansibleService),
           cleanUp(ansibleService),
-          createShowCases(ansibleService, ansibleConfig),
           createEEDefinitionAction({
             frontendUrl,
             auth,
             discovery,
           }),
           prepareForPublishAction({
-            ansibleConfig: ansibleConfig,
+            rootConfig: config,
           }),
         );
         scaffolderTemplating.addTemplateFilters({
           useCaseNameFilter: useCaseNameFilter,
           resourceFilter: resourceFilter,
           multiResourceFilter: multiResourceFilter,
+          uuidFilter: uuidFilter,
         });
         autocomplete.addAutocompleteProvider({
           id: 'aap-api-cloud',
@@ -125,12 +117,6 @@ export const scaffolderModuleAnsible = createBackendModule({
               discovery,
             }),
         });
-        httpRouter.use(
-          (await createRouter({
-            logger,
-            ansibleConfig,
-          })) as any,
-        );
       },
     });
   },
