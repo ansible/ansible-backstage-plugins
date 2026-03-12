@@ -613,139 +613,135 @@ export const EEListPage = ({
                         ?.toString()
                         .toLowerCase()
                         .trim() === 'true';
-                    return (
-                      <>
-                        {isDownloadExperience ? (
-                          <>
-                            <MenuItem
-                              onClick={() => {
-                                handleActionsMenuClose();
-                                const entityRef = `${actionsMenuEntity.kind}:${actionsMenuEntity.metadata?.namespace || 'default'}/${actionsMenuEntity.metadata?.name}`;
-                                catalogApi
-                                  .getEntityByRef(entityRef)
-                                  .then((entity: Entity | undefined) => {
-                                    if (entity) {
-                                      downloadEntityAsTarArchive(entity);
-                                    }
-                                  });
-                              }}
-                            >
-                              Download
-                            </MenuItem>
-                            <MenuItem
-                              onClick={() => {
-                                setEntityToUnregister(actionsMenuEntity);
-                                handleActionsMenuClose();
-                                setUnregisterDialogOpen(true);
-                              }}
-                              style={{ color: theme.palette.error.main }}
-                            >
-                              Delete
-                            </MenuItem>
-                          </>
-                        ) : (
-                          <>
-                            <MenuItem
-                              onClick={() => {
-                                handleActionsMenuClose();
-                                // TODO: Build action - future implementation (e.g. trigger EE build)
-                              }}
-                            >
-                              Build
-                            </MenuItem>
-                            <MenuItem
-                              onClick={() => {
-                                const editUrl =
-                                  actionsMenuEntity?.metadata?.annotations?.[
-                                    ANNOTATION_EDIT_URL
-                                  ];
-                                const sourceLocation =
-                                  actionsMenuEntity?.metadata?.annotations?.[
-                                    'backstage.io/source-location'
-                                  ];
-                                const rawUrl =
-                                  editUrl ||
-                                  (typeof sourceLocation === 'string'
-                                    ? sourceLocation
-                                        .replace(/^url:/i, '')
-                                        .trim()
-                                    : undefined);
-                                const urlToOpen = toEEDefinitionUrl(
-                                  rawUrl ?? '',
-                                  actionsMenuEntity?.metadata?.name ?? '',
+                    return isDownloadExperience
+                      ? [
+                          <MenuItem
+                            key="download"
+                            onClick={() => {
+                              handleActionsMenuClose();
+                              const entityRef = `${actionsMenuEntity.kind}:${actionsMenuEntity.metadata?.namespace || 'default'}/${actionsMenuEntity.metadata?.name}`;
+                              catalogApi
+                                .getEntityByRef(entityRef)
+                                .then((entity: Entity | undefined) => {
+                                  if (entity) {
+                                    downloadEntityAsTarArchive(entity);
+                                  }
+                                });
+                            }}
+                          >
+                            Download
+                          </MenuItem>,
+                          <MenuItem
+                            key="delete"
+                            onClick={() => {
+                              setEntityToUnregister(actionsMenuEntity);
+                              handleActionsMenuClose();
+                              setUnregisterDialogOpen(true);
+                            }}
+                            style={{ color: theme.palette.error.main }}
+                          >
+                            Delete
+                          </MenuItem>,
+                        ]
+                      : [
+                          <MenuItem
+                            key="build"
+                            onClick={() => {
+                              handleActionsMenuClose();
+                              // TODO: Build action - future implementation (e.g. trigger EE build)
+                            }}
+                          >
+                            Build
+                          </MenuItem>,
+                          <MenuItem
+                            key="edit"
+                            onClick={() => {
+                              const editUrl =
+                                actionsMenuEntity?.metadata?.annotations?.[
+                                  ANNOTATION_EDIT_URL
+                                ];
+                              const sourceLocation =
+                                actionsMenuEntity?.metadata?.annotations?.[
+                                  'backstage.io/source-location'
+                                ];
+                              const rawUrl =
+                                editUrl ||
+                                (typeof sourceLocation === 'string'
+                                  ? sourceLocation.replace(/^url:/i, '').trim()
+                                  : undefined);
+                              const urlToOpen = toEEDefinitionUrl(
+                                rawUrl ?? '',
+                                actionsMenuEntity?.metadata?.name ?? '',
+                              );
+                              if (urlToOpen) {
+                                window.open(
+                                  urlToOpen,
+                                  '_blank',
+                                  'noopener,noreferrer',
                                 );
-                                if (urlToOpen) {
-                                  window.open(
-                                    urlToOpen,
-                                    '_blank',
-                                    'noopener,noreferrer',
-                                  );
-                                }
-                                handleActionsMenuClose();
-                              }}
-                            >
-                              Edit definition
-                            </MenuItem>
-                            <MenuItem
-                              onClick={() => {
-                                const viewUrl =
-                                  actionsMenuEntity?.metadata?.annotations?.[
-                                    'backstage.io/view-url'
-                                  ];
-                                const editUrl =
-                                  actionsMenuEntity?.metadata?.annotations?.[
-                                    ANNOTATION_EDIT_URL
-                                  ];
-                                const sourceLocation =
-                                  actionsMenuEntity?.metadata?.annotations?.[
-                                    'backstage.io/source-location'
-                                  ];
-                                const sourceUrl =
-                                  typeof sourceLocation === 'string'
-                                    ? sourceLocation
-                                        .replace(/^url:/i, '')
-                                        .trim()
-                                    : undefined;
-                                const rawUrl = viewUrl || sourceUrl || editUrl;
-                                const urlToOpen = toEEDefinitionUrl(
-                                  rawUrl ?? '',
-                                  actionsMenuEntity?.metadata?.name ?? '',
+                              }
+                              handleActionsMenuClose();
+                            }}
+                          >
+                            Edit definition
+                          </MenuItem>,
+                          <MenuItem
+                            key="view"
+                            onClick={() => {
+                              const viewUrl =
+                                actionsMenuEntity?.metadata?.annotations?.[
+                                  'backstage.io/view-url'
+                                ];
+                              const editUrl =
+                                actionsMenuEntity?.metadata?.annotations?.[
+                                  ANNOTATION_EDIT_URL
+                                ];
+                              const sourceLocation =
+                                actionsMenuEntity?.metadata?.annotations?.[
+                                  'backstage.io/source-location'
+                                ];
+                              const sourceUrl =
+                                typeof sourceLocation === 'string'
+                                  ? sourceLocation.replace(/^url:/i, '').trim()
+                                  : undefined;
+                              const rawUrl = viewUrl || sourceUrl || editUrl;
+                              const urlToOpen = toEEDefinitionUrl(
+                                rawUrl ?? '',
+                                actionsMenuEntity?.metadata?.name ?? '',
+                              );
+                              if (urlToOpen) {
+                                window.open(
+                                  urlToOpen,
+                                  '_blank',
+                                  'noopener,noreferrer',
                                 );
-                                if (urlToOpen) {
-                                  window.open(
-                                    urlToOpen,
-                                    '_blank',
-                                    'noopener,noreferrer',
-                                  );
-                                }
-                                handleActionsMenuClose();
-                              }}
+                              }
+                              handleActionsMenuClose();
+                            }}
+                          >
+                            <Box
+                              display="flex"
+                              alignItems="center"
+                              justifyContent="space-between"
+                              width="100%"
+                              style={{ gap: 8 }}
                             >
-                              <Box
-                                display="flex"
-                                alignItems="center"
-                                justifyContent="space-between"
-                                width="100%"
-                                style={{ gap: 8 }}
-                              >
-                                <span>View in source</span>
-                                <OpenInNew fontSize="small" />
-                              </Box>
-                            </MenuItem>
-                            <MenuItem
-                              onClick={() => {
-                                setEntityToUnregister(actionsMenuEntity);
-                                handleActionsMenuClose();
-                                setUnregisterDialogOpen(true);
-                              }}
-                              style={{ color: theme.palette.error.main }}
-                            >
-                              Delete
-                            </MenuItem>
-                          </>
-                        )}
-                      </>
-                    );
+                              <span>View in source</span>
+                              <OpenInNew fontSize="small" />
+                            </Box>
+                          </MenuItem>,
+                          <MenuItem
+                            key="delete"
+                            onClick={() => {
+                              setEntityToUnregister(actionsMenuEntity);
+                              handleActionsMenuClose();
+                              setUnregisterDialogOpen(true);
+                            }}
+                            style={{ color: theme.palette.error.main }}
+                          >
+                            Delete
+                          </MenuItem>,
+                        ];
                   })()}
               </Menu>
               {entityToUnregister && (

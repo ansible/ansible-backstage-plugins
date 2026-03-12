@@ -330,24 +330,18 @@ describe('EEDetailsPage', () => {
     openSpy.mockRestore();
   });
 
-  test('clicking VIEW SOURCE opens source location cleaned', async () => {
+  test('source link points to source location and opens in new tab', async () => {
     renderWithCatalogApi(() => Promise.resolve({ items: [entityNoDownload] }));
 
     await screen.findByTestId('favorite-entity');
 
-    const openSpy = jest.spyOn(window, 'open').mockImplementation(() => null);
-
-    const viewSourceBox = screen.queryByText(/VIEW\s*SOURCE/i);
-    expect(viewSourceBox).toBeInTheDocument();
-
-    fireEvent.click(viewSourceBox!);
-
-    expect(openSpy).toHaveBeenCalledWith(
+    // Main layout uses "Source" section with link labeled by SCM (e.g. GitHub)
+    const sourceLink = screen.getByRole('link', { name: /github/i });
+    expect(sourceLink).toHaveAttribute(
+      'href',
       'https://github.com/owner/repo/tree/branch/ee1/',
-      '_blank',
     );
-
-    openSpy.mockRestore();
+    expect(sourceLink).toHaveAttribute('target', '_blank');
   });
 
   test('Edit action opens edit URL from annotation (if present)', async () => {
@@ -371,7 +365,7 @@ describe('EEDetailsPage', () => {
     }
   });
 
-  test('AboutCard shows EDIT URL from source-location when edit-url is missing', async () => {
+  test('AboutCard shows source link from source-location when edit-url is missing', async () => {
     const entitySourceLocationOnly = {
       ...entityNoDownload,
       metadata: {
@@ -388,11 +382,11 @@ describe('EEDetailsPage', () => {
 
     await screen.findByTestId('favorite-entity');
 
-    expect(screen.getByText('EDIT URL')).toBeInTheDocument();
-    const editUrlLink = screen.getByRole('link', {
-      name: /https:\/\/git\.example\.com\/org\/repo/i,
+    // Main layout shows Source section with link (no separate EDIT URL block)
+    const sourceLink = screen.getByRole('link', {
+      name: /source/i,
     });
-    expect(editUrlLink).toHaveAttribute(
+    expect(sourceLink).toHaveAttribute(
       'href',
       'https://git.example.com/org/repo',
     );
@@ -471,10 +465,8 @@ describe('EEDetailsPage', () => {
     // createObjectURLSpy.mockRestore();
   });
 
-  test('download with missing definition/readme/ansible_cfg logs error and returns early', async () => {
-    const consoleErrorSpy = jest
-      .spyOn(console, 'error')
-      .mockImplementation(() => {});
+  test('download with missing definition/readme/ansible_cfg returns early without creating blob', async () => {
+    const createObjectURLSpy = jest.spyOn(URL, 'createObjectURL');
 
     renderWithCatalogApi(() => Promise.resolve({ items: [entityNoReadme] }));
 
@@ -485,13 +477,12 @@ describe('EEDetailsPage', () => {
 
     fireEvent.click(downloadLink!);
 
+    // downloadEntityAsTarArchive returns false when required spec is missing; no blob is created
     await waitFor(() => {
-      expect(consoleErrorSpy).toHaveBeenCalledWith(
-        'Entity, definition, readme or ansible_cfg not available',
-      );
+      expect(createObjectURLSpy).not.toHaveBeenCalled();
     });
 
-    consoleErrorSpy.mockRestore();
+    createObjectURLSpy.mockRestore();
   });
 
   test('when annotation disables download, Download EE files not shown', async () => {
