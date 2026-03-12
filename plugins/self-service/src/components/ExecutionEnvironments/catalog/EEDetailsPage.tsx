@@ -8,7 +8,7 @@ import {
 } from '@backstage/plugin-catalog-react';
 import {
   discoveryApiRef,
-  identityApiRef,
+  fetchApiRef,
   useApi,
 } from '@backstage/core-plugin-api';
 import { Header } from './Header';
@@ -34,7 +34,7 @@ export const EEDetailsPage: React.FC = () => {
   const [menuid, setMenuId] = useState<string>('');
   const [defaultReadme, setDefaultReadme] = useState<string>('');
   const discoveryApi = useApi(discoveryApiRef);
-  const identityApi = useApi(identityApiRef);
+  const fetchApi = useApi(fetchApiRef);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [ownerName, setOwnerName] = useState<string | null>(null);
 
@@ -82,79 +82,92 @@ export const EEDetailsPage: React.FC = () => {
     callApi();
   }, [callApi, isRefreshing]);
 
-  const buildReadmeUrlParams = useCallback(() => {
+  const parseSourceLocationParams = useCallback((): {
+    scmProvider: string;
+    host: string;
+    owner: string;
+    repo: string;
+    filePath: string;
+    ref: string;
+  } | null => {
     const sourceLocation =
       entity?.metadata?.annotations?.['backstage.io/source-location'];
     const scm = entity?.metadata?.annotations?.['ansible.io/scm-provider'];
-    if (!sourceLocation) return '';
+    if (!sourceLocation || !scm) return null;
 
-    // Clean URL
     const cleanUrl = sourceLocation.replace(/^url:/, '').replace(/\/$/, '');
-    const url = new URL(cleanUrl);
+    let url: URL;
+    try {
+      url = new URL(cleanUrl);
+    } catch {
+      return null;
+    }
 
-    // Parts of pathname
+    const host = url.host;
     const parts = url.pathname.split('/').filter(Boolean);
-    if (parts.length < 2) return '';
+    if (parts.length < 2) return null;
 
-    // Extract owner and repo
     const owner = parts[0];
-    const repository = parts[1];
+    const repo = parts[1];
+    const scmProvider = scm.toLowerCase();
 
     let subdir = '';
+    let ref = 'main';
 
-    // ---------- GITHUB ----------
-    // Example: /owner/repo/tree/branch/ee1/
-    if (scm && scm.toLowerCase().includes('github')) {
+    if (scmProvider === 'github') {
       const treeIndex = parts.indexOf('tree');
-
-      if (treeIndex !== -1) {
-        // skip 'tree' and branch → subdir starts after that
+      if (treeIndex !== -1 && parts.length > treeIndex + 1) {
+        ref = parts[treeIndex + 1];
         subdir = parts.slice(treeIndex + 2).join('/');
       } else {
-        // fallback (unexpected GitHub case)
         subdir = parts.slice(2).join('/');
       }
-
-      return `scm=${scm}&owner=${owner}&repository=${repository}&subdir=${subdir}`;
+    } else if (scmProvider === 'gitlab') {
+      const treeIndex = parts.indexOf('tree');
+      if (treeIndex !== -1 && parts.length > treeIndex + 1) {
+        ref = parts[treeIndex + 1];
+        subdir = parts.slice(treeIndex + 2).join('/');
+      } else {
+        subdir = parts.at(-1) ?? '';
+      }
     }
 
-    // ---------- GITLAB ----------
-    // Example: /owner/repo/-/raw/branch/ee1/README.md
-    if (scm && scm.toLowerCase().includes('gitlab')) {
-      // subdir excludes the file name (README.md)
-      subdir = parts[parts.length - 1];
+    const filePath = subdir ? `${subdir}/README.md` : 'README.md';
 
-      return `scm=${scm}&owner=${owner}&repository=${repository}&subdir=${subdir}`;
-    }
-    // fallback (if new SCM type is added later)
-    return `scm=${scm}&owner=${owner}&repository=${repository}&subdir=${subdir}`;
+    return { scmProvider, host, owner, repo, filePath, ref };
   }, [entity]);
 
   useEffect(() => {
     const fetchDefaultReadme = async () => {
-      if (entity && (!entity.spec || !entity?.spec?.readme)) {
-        const rawUrl = `${await discoveryApi.getBaseUrl(
-          'scaffolder',
-        )}/get_ee_readme?${buildReadmeUrlParams()}`;
-        if (!rawUrl) return;
-        const { token } = await identityApi.getCredentials();
-        fetch(rawUrl, {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        })
-          .then(r => {
-            if (!r.ok) throw new Error(`HTTP ${r.status}`);
-            return r.text();
-          })
-          .then(text => {
+      if (entity && !entity?.spec?.readme) {
+        const params = parseSourceLocationParams();
+        if (!params) return;
+
+        const baseUrl = await discoveryApi.getBaseUrl('catalog');
+        const queryParams = new URLSearchParams({
+          scmProvider: params.scmProvider,
+          host: params.host,
+          owner: params.owner,
+          repo: params.repo,
+          filePath: params.filePath,
+          ref: params.ref,
+        });
+
+        try {
+          const response = await fetchApi.fetch(
+            `${baseUrl}/git_readme_content?${queryParams}`,
+          );
+          if (response.ok) {
+            const text = await response.text();
             setDefaultReadme(text);
-          })
-          .catch(() => {});
+          }
+        } catch {
+          // Silently ignore errors
+        }
       }
     };
     fetchDefaultReadme();
-  }, [entity, discoveryApi, buildReadmeUrlParams, identityApi]);
+  }, [entity, discoveryApi, parseSourceLocationParams, fetchApi]);
 
   const getTechdocsUrl = () => {
     return `/docs/${entity?.metadata?.namespace}/${entity?.kind}/${entity?.metadata?.name}`;

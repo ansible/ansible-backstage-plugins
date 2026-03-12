@@ -7,7 +7,11 @@ import {
 } from '@testing-library/react';
 import { TestApiProvider } from '@backstage/test-utils';
 import { catalogApiRef } from '@backstage/plugin-catalog-react';
-import { discoveryApiRef, identityApiRef } from '@backstage/core-plugin-api';
+import {
+  discoveryApiRef,
+  identityApiRef,
+  fetchApiRef,
+} from '@backstage/core-plugin-api';
 import { ThemeProvider, createMuiTheme } from '@material-ui/core/styles';
 import { MemoryRouter } from 'react-router-dom';
 
@@ -99,14 +103,59 @@ const entityNoReadme = {
 };
 delete (entityNoReadme.spec as any).readme;
 
+// GitHub URL without tree path
+const entityGitHubNoTree = {
+  ...entityFull,
+  metadata: {
+    ...entityFull.metadata,
+    annotations: {
+      'backstage.io/source-location':
+        'url:https://github.com/owner/repo/blob/main/ee-dir',
+      'ansible.io/scm-provider': 'github',
+    },
+  },
+  spec: { ...entityFull.spec },
+};
+delete (entityGitHubNoTree.spec as any).readme;
+
+// GitLab URL with tree path
+const entityGitLabWithTree = {
+  ...entityFull,
+  metadata: {
+    ...entityFull.metadata,
+    annotations: {
+      'backstage.io/source-location':
+        'url:https://gitlab.com/owner/repo/-/tree/develop/subdir/ee',
+      'ansible.io/scm-provider': 'gitlab',
+    },
+  },
+  spec: { ...entityFull.spec },
+};
+delete (entityGitLabWithTree.spec as any).readme;
+
+// GitLab URL without tree path
+const entityGitLabNoTree = {
+  ...entityFull,
+  metadata: {
+    ...entityFull.metadata,
+    annotations: {
+      'backstage.io/source-location': 'url:https://gitlab.com/owner/repo',
+      'ansible.io/scm-provider': 'gitlab',
+    },
+  },
+  spec: { ...entityFull.spec },
+};
+delete (entityGitLabNoTree.spec as any).readme;
+
 const theme = createMuiTheme();
 
-// ----------------- Helper render (provides catalog, discovery, identity APIs) -----------------
+// ----------------- Helper render (provides catalog, discovery, identity, fetch APIs) -----------------
 const renderWithCatalogApi = (
   getEntitiesImpl: any,
   options?: {
     discoveryImpl?: any;
     identityImpl?: any;
+    fetchImpl?: any;
     getEntityByRefImpl?: any;
   },
 ) => {
@@ -128,6 +177,12 @@ const renderWithCatalogApi = (
   const mockIdentityApi = options?.identityImpl ?? {
     getCredentials: async () => ({ token: 'tok' }),
   };
+  const mockFetchApi = options?.fetchImpl ?? {
+    fetch: jest.fn().mockResolvedValue({
+      ok: true,
+      text: async () => '# Default README from fetch',
+    }),
+  };
 
   return render(
     <MemoryRouter initialEntries={['/']}>
@@ -136,6 +191,7 @@ const renderWithCatalogApi = (
           [catalogApiRef, mockCatalogApi],
           [discoveryApiRef, mockDiscoveryApi],
           [identityApiRef, mockIdentityApi],
+          [fetchApiRef, mockFetchApi],
         ]}
       >
         <ThemeProvider theme={theme}>
@@ -376,13 +432,16 @@ describe('EEDetailsPage', () => {
   });
 
   test('renders default readme when spec.readme is absent and fetch succeeds', async () => {
-    // mock fetch for default readme
-    const fetchSpy = jest.spyOn(global, 'fetch' as any).mockResolvedValue({
-      ok: true,
-      text: async () => 'Fetched README content',
-    });
+    const mockFetchApi = {
+      fetch: jest.fn().mockResolvedValue({
+        ok: true,
+        text: async () => 'Fetched README content',
+      }),
+    };
 
-    renderWithCatalogApi(() => Promise.resolve({ items: [entityNoReadme] }));
+    renderWithCatalogApi(() => Promise.resolve({ items: [entityNoReadme] }), {
+      fetchImpl: mockFetchApi,
+    });
 
     // wait for MarkdownContent to contain fetched text
     await waitFor(
@@ -392,25 +451,94 @@ describe('EEDetailsPage', () => {
         ),
       { timeout: 2000 },
     );
-
-    fetchSpy.mockRestore();
   });
 
   test('default readme fetch failure does not crash and markdown-content may be empty', async () => {
-    const fetchSpy = jest.spyOn(global, 'fetch' as any).mockResolvedValue({
-      ok: false,
-      status: 404,
-      text: async () => '',
-    });
+    const mockFetchApi = {
+      fetch: jest.fn().mockResolvedValue({
+        ok: false,
+        status: 404,
+        text: async () => '',
+      }),
+    };
 
-    renderWithCatalogApi(() => Promise.resolve({ items: [entityNoReadme] }));
+    renderWithCatalogApi(() => Promise.resolve({ items: [entityNoReadme] }), {
+      fetchImpl: mockFetchApi,
+    });
 
     await screen.findByTestId('favorite-entity');
 
     // fetch failed; component should not crash. MarkdownContent is present but may be empty.
     expect(screen.getByTestId('markdown-content')).toBeInTheDocument();
+  });
 
-    fetchSpy.mockRestore();
+  test('GitHub URL without tree path fetches README from correct path', async () => {
+    const mockFetchApi = {
+      fetch: jest.fn().mockResolvedValue({
+        ok: true,
+        text: async () => 'GitHub no-tree README',
+      }),
+    };
+
+    renderWithCatalogApi(
+      () => Promise.resolve({ items: [entityGitHubNoTree] }),
+      { fetchImpl: mockFetchApi },
+    );
+
+    await waitFor(() => expect(mockFetchApi.fetch).toHaveBeenCalled());
+
+    const fetchUrl = mockFetchApi.fetch.mock.calls[0][0];
+    expect(fetchUrl).toContain('scmProvider=github');
+    expect(fetchUrl).toContain('owner=owner');
+    expect(fetchUrl).toContain('repo=repo');
+    expect(fetchUrl).toContain('filePath=blob%2Fmain%2Fee-dir%2FREADME.md');
+    expect(fetchUrl).toContain('ref=main');
+  });
+
+  test('GitLab URL with tree path fetches README with correct ref and subdir', async () => {
+    const mockFetchApi = {
+      fetch: jest.fn().mockResolvedValue({
+        ok: true,
+        text: async () => 'GitLab with-tree README',
+      }),
+    };
+
+    renderWithCatalogApi(
+      () => Promise.resolve({ items: [entityGitLabWithTree] }),
+      { fetchImpl: mockFetchApi },
+    );
+
+    await waitFor(() => expect(mockFetchApi.fetch).toHaveBeenCalled());
+
+    const fetchUrl = mockFetchApi.fetch.mock.calls[0][0];
+    expect(fetchUrl).toContain('scmProvider=gitlab');
+    expect(fetchUrl).toContain('owner=owner');
+    expect(fetchUrl).toContain('repo=repo');
+    expect(fetchUrl).toContain('ref=develop');
+    expect(fetchUrl).toContain('filePath=subdir%2Fee%2FREADME.md');
+  });
+
+  test('GitLab URL without tree path fetches README from last path segment', async () => {
+    const mockFetchApi = {
+      fetch: jest.fn().mockResolvedValue({
+        ok: true,
+        text: async () => 'GitLab no-tree README',
+      }),
+    };
+
+    renderWithCatalogApi(
+      () => Promise.resolve({ items: [entityGitLabNoTree] }),
+      { fetchImpl: mockFetchApi },
+    );
+
+    await waitFor(() => expect(mockFetchApi.fetch).toHaveBeenCalled());
+
+    const fetchUrl = mockFetchApi.fetch.mock.calls[0][0];
+    expect(fetchUrl).toContain('scmProvider=gitlab');
+    expect(fetchUrl).toContain('owner=owner');
+    expect(fetchUrl).toContain('repo=repo');
+    expect(fetchUrl).toContain('filePath=repo%2FREADME.md');
+    expect(fetchUrl).toContain('ref=main');
   });
 
   test('does not crash if catalogApi.getEntities rejects', async () => {
