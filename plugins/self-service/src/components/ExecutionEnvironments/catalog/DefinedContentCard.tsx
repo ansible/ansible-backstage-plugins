@@ -1,22 +1,49 @@
-import { Box, Card, CardContent, Typography } from '@material-ui/core';
+import { Box, Card, CardContent, Typography, Divider } from '@material-ui/core';
 import { makeStyles } from '@material-ui/core/styles';
 import type { ParsedEEDefinition } from '../../../utils/eeDefinitionUtils';
 
 const useStyles = makeStyles(theme => ({
-  label: {
-    color: theme.palette.text.secondary,
-    fontWeight: 600,
-    marginBottom: 4,
-  },
   value: {
     marginBottom: 12,
   },
-  link: {
-    cursor: 'pointer',
+  aboutCard: {
+    borderRadius: 12,
+    border: `1px solid ${theme.palette.divider}`,
   },
-  fileRef: {
-    fontStyle: 'italic',
+  aboutCardContent: {
+    padding: theme.spacing(2.5),
+  },
+  aboutCardHeader: {
+    display: 'flex',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: theme.spacing(2),
+  },
+  aboutCardTitle: {
+    fontWeight: 600,
+    fontSize: '1.25rem',
+  },
+  aboutCardDescription: {
     color: theme.palette.text.secondary,
+    fontSize: '0.875rem',
+    marginBottom: theme.spacing(2),
+  },
+  aboutCardDivider: {
+    margin: theme.spacing(2, -2.5),
+  },
+  aboutCardLabel: {
+    color: theme.palette.text.secondary,
+    fontWeight: 600,
+    fontSize: '0.75rem',
+    textTransform: 'uppercase' as const,
+    marginBottom: theme.spacing(0.5),
+  },
+  aboutCardSection: {
+    marginTop: theme.spacing(2),
+  },
+  aboutCardValue: {
+    fontSize: '0.875rem',
+    wordBreak: 'break-word' as const,
   },
 }));
 
@@ -50,33 +77,23 @@ export const DefinedContentCard: React.FC<DefinedContentCardProps> = ({
       : null;
 
   return (
-    <Card
-      variant="outlined"
-      style={{ borderRadius: 16, borderColor: '#D3D3D3' }}
-    >
-      <CardContent>
-        <Typography
-          variant="h6"
-          style={{
-            fontWeight: 'bold',
-            fontSize: '1.5rem',
-            marginLeft: 10,
-            marginBottom: 4,
-          }}
-        >
-          Defined Content
-        </Typography>
-        <Typography
-          variant="body2"
-          color="textSecondary"
-          style={{ marginLeft: 10, marginBottom: 16 }}
-        >
+    <Card className={classes.aboutCard} variant="outlined">
+      <CardContent className={classes.aboutCardContent}>
+        <Box className={classes.aboutCardHeader}>
+          <Typography className={classes.aboutCardTitle}>
+            Defined Content
+          </Typography>
+        </Box>
+
+        <Divider className={classes.aboutCardDivider} />
+
+        <Typography className={classes.aboutCardDescription}>
           Shows explicitly added collections, python requirements, and system
           packages only.
         </Typography>
 
-        <Box style={{ marginLeft: 10 }}>
-          <Typography variant="caption" className={classes.label}>
+        <Box className={classes.aboutCardSection}>
+          <Typography className={classes.aboutCardLabel}>
             Collections ({collections?.length || 0}):
           </Typography>
           <Box className={classes.value}>
@@ -94,37 +111,33 @@ export const DefinedContentCard: React.FC<DefinedContentCardProps> = ({
             )}
           </Box>
 
-          <Typography variant="caption" className={classes.label}>
-            Python requirements ({pythonPackages?.length || 0}):
-          </Typography>
-          <Box className={classes.value}>
+          <Box className={classes.aboutCardSection}>
+            <Typography className={classes.aboutCardLabel}>
+              Python requirements ({pythonPackages?.length || 0}):
+            </Typography>
             {pythonPackages && pythonPackages.length > 0 ? (
               pythonPackages.map(p => (
-                <Typography key={p} variant="body2">
+                <Typography key={p} className={classes.aboutCardValue}>
                   {p}
                 </Typography>
               ))
             ) : (
-              <Typography variant="body2" color="textSecondary">
-                None
-              </Typography>
+              <Typography className={classes.aboutCardValue}>None</Typography>
             )}
           </Box>
 
-          <Typography variant="caption" className={classes.label}>
-            System packages ({systemPackages?.length || 0}):
-          </Typography>
-          <Box>
+          <Box className={classes.aboutCardSection}>
+            <Typography className={classes.aboutCardLabel}>
+              System Packages ({systemPackages?.length || 0}):
+            </Typography>
             {systemPackages && systemPackages.length > 0 ? (
               systemPackages.map(p => (
-                <Typography key={p} variant="body2">
+                <Typography key={p} className={classes.aboutCardValue}>
                   {p}
                 </Typography>
               ))
             ) : (
-              <Typography variant="body2" color="textSecondary">
-                None
-              </Typography>
+              <Typography className={classes.aboutCardValue}>None</Typography>
             )}
           </Box>
         </Box>

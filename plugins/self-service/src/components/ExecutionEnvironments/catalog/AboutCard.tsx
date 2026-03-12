@@ -153,7 +153,6 @@ export const AboutCard: React.FC<AboutCardProps> = ({
             </Box>
           )}
         </Box>
-        <Divider style={{ margin: '12px -16px 12px' }} />
 
         {/* Description - inline expand when > 150 chars, no TechDocs link */}
         <Box>

@@ -1,8 +1,15 @@
-import { Box, Card, CardContent, Typography, Link } from '@material-ui/core';
+import {
+  Box,
+  Card,
+  CardContent,
+  Typography,
+  Link,
+  Divider,
+} from '@material-ui/core';
 import { makeStyles } from '@material-ui/core/styles';
 import OpenInNewIcon from '@material-ui/icons/OpenInNew';
 
-const useStyles = makeStyles(() => ({
+const useStyles = makeStyles(theme => ({
   linkRow: {
     display: 'flex',
     alignItems: 'center',
@@ -18,6 +25,26 @@ const useStyles = makeStyles(() => ({
     alignItems: 'center',
     gridGap: 8,
   },
+  aboutCard: {
+    borderRadius: 12,
+    border: `1px solid ${theme.palette.divider}`,
+  },
+  aboutCardContent: {
+    padding: theme.spacing(2.5),
+  },
+  aboutCardHeader: {
+    display: 'flex',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: theme.spacing(2),
+  },
+  aboutCardTitle: {
+    fontWeight: 600,
+    fontSize: '1.25rem',
+  },
+  aboutCardDivider: {
+    margin: theme.spacing(2, -2.5),
+  },
 }));
 
 interface ResourcesCardProps {}
@@ -29,22 +56,13 @@ export const ResourcesCard: React.FC<ResourcesCardProps> = () => {
   const classes = useStyles();
 
   return (
-    <Card
-      variant="outlined"
-      style={{ borderRadius: 16, borderColor: '#D3D3D3' }}
-    >
-      <CardContent>
-        <Typography
-          variant="h6"
-          style={{
-            fontWeight: 'bold',
-            fontSize: '1.5rem',
-            marginLeft: 10,
-            marginBottom: 16,
-          }}
-        >
-          Resources
-        </Typography>
+    <Card className={classes.aboutCard} variant="outlined">
+      <CardContent className={classes.aboutCardContent}>
+        <Box className={classes.aboutCardHeader}>
+          <Typography className={classes.aboutCardTitle}>Resources</Typography>
+        </Box>
+
+        <Divider className={classes.aboutCardDivider} />
 
         <Box style={{ marginLeft: 10 }}>
           <Box className={classes.linkRow}>
