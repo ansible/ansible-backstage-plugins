@@ -113,12 +113,20 @@ jest.mock('@backstage/plugin-catalog-react', () => {
     toggleStarredEntity: toggleStarredEntityMock,
   });
 
+  const FavoriteEntityStub = ({ entity }: any) =>
+    entity ? (
+      <span data-testid="favorite-entity" aria-label="favorites">
+        fav:{entity?.metadata?.name}
+      </span>
+    ) : null;
+
   return {
     ...actual,
     CatalogFilterLayout,
     UserListPicker,
     useEntityList,
     useStarredEntities,
+    FavoriteEntity: FavoriteEntityStub,
     UnregisterEntityDialog: UnregisterEntityDialogStub,
     catalogApiRef: actual.catalogApiRef,
   };
@@ -836,7 +844,7 @@ describe('EEListPage', () => {
       ).not.toBeInTheDocument();
     });
 
-    test('shows Build, Unregister, Download when download-experience is true', async () => {
+    test('shows Download, Delete when download-experience is true', async () => {
       const entityWithDownload = {
         ...entityA,
         metadata: {
@@ -861,23 +869,20 @@ describe('EEListPage', () => {
 
       await waitFor(() => {
         expect(
-          screen.getByRole('menuitem', { name: /build/i }),
-        ).toBeInTheDocument();
-        expect(
-          screen.getByRole('menuitem', { name: /unregister/i }),
-        ).toBeInTheDocument();
-        expect(
           screen.getByRole('menuitem', { name: /download/i }),
         ).toBeInTheDocument();
+        expect(
+          screen.getByRole('menuitem', { name: /delete/i }),
+        ).toBeInTheDocument();
       });
+      expect(
+        screen.queryByRole('menuitem', { name: /build/i }),
+      ).not.toBeInTheDocument();
       expect(
         screen.queryByRole('menuitem', { name: /edit/i }),
       ).not.toBeInTheDocument();
       expect(
         screen.queryByRole('menuitem', { name: /view/i }),
-      ).not.toBeInTheDocument();
-      expect(
-        screen.queryByRole('menuitem', { name: /delete/i }),
       ).not.toBeInTheDocument();
     });
 
@@ -1134,7 +1139,7 @@ describe('EEListPage', () => {
       });
     });
 
-    test('Unregister (download-experience) opens unregister dialog', async () => {
+    test('Delete (download-experience) opens unregister dialog', async () => {
       const entityWithDownload = {
         ...entityA,
         metadata: {
@@ -1154,9 +1159,7 @@ describe('EEListPage', () => {
       );
 
       fireEvent.click(screen.getByRole('button', { name: /actions/i }));
-      fireEvent.click(
-        await screen.findByRole('menuitem', { name: /unregister/i }),
-      );
+      fireEvent.click(await screen.findByRole('menuitem', { name: /delete/i }));
 
       await waitFor(() => {
         expect(

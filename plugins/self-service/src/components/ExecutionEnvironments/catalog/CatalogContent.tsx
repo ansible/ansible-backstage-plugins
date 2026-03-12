@@ -11,7 +11,7 @@ import {
   Select,
   Typography,
 } from '@material-ui/core';
-import { makeStyles } from '@material-ui/core/styles';
+import { makeStyles, useTheme } from '@material-ui/core/styles';
 import {
   CatalogFilterLayout,
   EntityKindFilter,
@@ -22,6 +22,7 @@ import {
   useEntityList,
   useStarredEntities,
   UnregisterEntityDialog,
+  FavoriteEntity,
 } from '@backstage/plugin-catalog-react';
 import { Table, TableColumn } from '@backstage/core-components';
 import { Chip, IconButton } from '@material-ui/core';
@@ -121,6 +122,10 @@ const useStyles = makeStyles(theme => ({
     border: `1px solid ${theme.palette.divider}`,
     backgroundColor: 'red',
   },
+  actionsMenuPaper: {
+    padding: theme.spacing(1, 0),
+    minWidth: 180,
+  },
 }));
 
 const ExecutionEnvironmentTypeFilter = () => {
@@ -146,6 +151,7 @@ export const EEListPage = ({
   onTabSwitch: (index: number) => void;
 }) => {
   const classes = useStyles();
+  const theme = useTheme();
   const catalogApi = useApi(catalogApiRef);
   const navigate = useNavigate();
   const { isStarredEntity } = useStarredEntities();
@@ -483,6 +489,7 @@ export const EEListPage = ({
             className={classes.flex}
             style={{ position: 'relative', zIndex: 1 }}
           >
+            <FavoriteEntity entity={entity} style={{ padding: 0 }} />
             <Tooltip title="Actions">
               <IconButton
                 size="small"
@@ -595,6 +602,7 @@ export const EEListPage = ({
                 anchorOrigin={{ vertical: 'top', horizontal: 'left' }}
                 transformOrigin={{ vertical: 'top', horizontal: 'left' }}
                 onClick={(e: React.MouseEvent) => e.stopPropagation()}
+                PaperProps={{ className: classes.actionsMenuPaper }}
               >
                 {actionsMenuEntity &&
                   (() => {
@@ -607,25 +615,8 @@ export const EEListPage = ({
                         .trim() === 'true';
                     return (
                       <>
-                        <MenuItem
-                          onClick={() => {
-                            handleActionsMenuClose();
-                            // TODO: Build action - future implementation (e.g. trigger EE build)
-                          }}
-                        >
-                          Build
-                        </MenuItem>
                         {isDownloadExperience ? (
                           <>
-                            <MenuItem
-                              onClick={() => {
-                                setEntityToUnregister(actionsMenuEntity);
-                                handleActionsMenuClose();
-                                setUnregisterDialogOpen(true);
-                              }}
-                            >
-                              Unregister
-                            </MenuItem>
                             <MenuItem
                               onClick={() => {
                                 handleActionsMenuClose();
@@ -641,9 +632,27 @@ export const EEListPage = ({
                             >
                               Download
                             </MenuItem>
+                            <MenuItem
+                              onClick={() => {
+                                setEntityToUnregister(actionsMenuEntity);
+                                handleActionsMenuClose();
+                                setUnregisterDialogOpen(true);
+                              }}
+                              style={{ color: theme.palette.error.main }}
+                            >
+                              Delete
+                            </MenuItem>
                           </>
                         ) : (
                           <>
+                            <MenuItem
+                              onClick={() => {
+                                handleActionsMenuClose();
+                                // TODO: Build action - future implementation (e.g. trigger EE build)
+                              }}
+                            >
+                              Build
+                            </MenuItem>
                             <MenuItem
                               onClick={() => {
                                 const editUrl =
@@ -729,6 +738,7 @@ export const EEListPage = ({
                                 handleActionsMenuClose();
                                 setUnregisterDialogOpen(true);
                               }}
+                              style={{ color: theme.palette.error.main }}
                             >
                               Delete
                             </MenuItem>

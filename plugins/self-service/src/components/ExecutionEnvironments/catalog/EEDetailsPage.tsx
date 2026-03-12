@@ -114,7 +114,7 @@ export const EEDetailsPage: React.FC = () => {
     let subdir = '';
     let ref = 'main';
 
-    if (scmProvider === 'github') {
+    if (scm?.toLowerCase().includes('github')) {
       const treeIndex = parts.indexOf('tree');
       if (treeIndex !== -1 && parts.length > treeIndex + 1) {
         ref = parts[treeIndex + 1];
@@ -122,7 +122,7 @@ export const EEDetailsPage: React.FC = () => {
       } else {
         subdir = parts.slice(2).join('/');
       }
-    } else if (scmProvider === 'gitlab') {
+    } else if (scm?.toLowerCase().includes('gitlab')) {
       const treeIndex = parts.indexOf('tree');
       if (treeIndex !== -1 && parts.length > treeIndex + 1) {
         ref = parts[treeIndex + 1];
@@ -139,7 +139,7 @@ export const EEDetailsPage: React.FC = () => {
 
   useEffect(() => {
     const fetchDefaultReadme = async () => {
-      if (entity && !entity?.spec?.readme) {
+      if (!entity?.spec?.readme) {
         const params = parseSourceLocationParams();
         if (!params) return;
 
