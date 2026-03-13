@@ -39,6 +39,7 @@ import {
   getSyncResponseStatusCode,
   buildInvalidRepositoryResults,
   resolveProvidersToRun,
+  createRequireSuperuser,
 } from './helpers';
 import { EEEntityProvider } from './providers/EEEntityProvider';
 import { ScmClientFactory } from '@ansible/backstage-rhaap-common';
@@ -86,6 +87,14 @@ export async function createRouter(options: {
     _GIT_CONTENTS_PROVIDERS.set(provider.getSourceId(), provider);
   }
 
+  const requireSuperuser = createRequireSuperuser({
+    httpAuth,
+    userInfo,
+    auth,
+    catalogClient,
+    logger,
+  });
+
   router.get('/health', (_, response) => {
     logger.info('PONG!');
     response.json({ status: 'ok' });
@@ -105,35 +114,13 @@ export async function createRouter(options: {
 
   router.get('/ansible/sync/status', async (request, response) => {
     logger.info('Getting sync status');
+    if (!(await requireSuperuser(request, response))) return;
+
     const aapEntities = request.query.aap_entities === 'true';
     const ansibleContents = request.query.ansible_contents === 'true';
     const noQueryParams =
       request.query.aap_entities === undefined &&
       request.query.ansible_contents === undefined;
-
-    const credentials = await httpAuth.credentials(request as any);
-    const { userEntityRef } = await userInfo.getUserInfo(credentials);
-
-    const { token } = await auth.getPluginRequestToken({
-      onBehalfOf: credentials,
-      targetPluginId: 'catalog',
-    });
-
-    const userEntity = await catalogClient.getEntityByRef(userEntityRef, {
-      token,
-    });
-    const isSuperuser =
-      userEntity?.metadata?.annotations?.['aap.platform/is_superuser'] ===
-      'true';
-
-    if (!isSuperuser) {
-      response
-        .status(403)
-        .json({ error: 'Forbidden: superuser access required' });
-      return;
-    }
-
-    // Authorized request, proceed with sync status check
 
     try {
       const result: {
@@ -282,6 +269,8 @@ export async function createRouter(options: {
     '/ansible/sync/from-aap/content',
     express.json(),
     async (request, response) => {
+      if (!(await requireSuperuser(request, response))) return;
+
       // Extract repository names from request body
       // Expected format: { "filters": [{ "repository_name": "rh-certified" }, { "repository_name": "validated" }] }
       const { filters } = request.body as {
@@ -407,6 +396,8 @@ export async function createRouter(options: {
     '/ansible/sync/from-scm/content',
     express.json(),
     async (request, response) => {
+      if (!(await requireSuperuser(request, response))) return;
+
       const { filters = [] } = request.body as { filters?: SyncFilter[] };
       const invalidFilters: Array<{ filter: SyncFilter; error: string }> = [];
       for (const filter of filters) {

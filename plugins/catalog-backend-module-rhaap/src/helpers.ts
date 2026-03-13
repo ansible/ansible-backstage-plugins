@@ -1,3 +1,11 @@
+import type { Request, Response } from 'express';
+import type {
+  LoggerService,
+  HttpAuthService,
+  UserInfoService,
+  AuthService,
+} from '@backstage/backend-plugin-api';
+import type { CatalogClient } from '@backstage/catalog-client';
 import { AnsibleGitContentsProvider } from './providers/AnsibleGitContentsProvider';
 
 export function formatNameSpace(name: string): string {
@@ -225,4 +233,51 @@ export function getSyncResponseStatusCode(params: {
   if (allStarted) return 202;
   if (allSkipped) return 200;
   return 207; // Mixed results (e.g., some started + some skipped/failed/invalid)
+}
+
+export interface RequireSuperuserDeps {
+  httpAuth: HttpAuthService;
+  userInfo: UserInfoService;
+  auth: AuthService;
+  catalogClient: CatalogClient;
+  logger: LoggerService;
+}
+
+/**
+ * Returns a middleware-style function that checks the request has a catalog user
+ * with `aap.platform/is_superuser` annotation. If not, sends 403 and returns false.
+ */
+export function createRequireSuperuser(
+  deps: RequireSuperuserDeps,
+): (req: Request, res: Response) => Promise<boolean> {
+  const { httpAuth, userInfo, auth, catalogClient, logger } = deps;
+  return async (req: Request, res: Response): Promise<boolean> => {
+    try {
+      const credentials = await httpAuth.credentials(req as any);
+      const { userEntityRef } = await userInfo.getUserInfo(credentials);
+      const { token } = await auth.getPluginRequestToken({
+        onBehalfOf: credentials,
+        targetPluginId: 'catalog',
+      });
+      const userEntity = await catalogClient.getEntityByRef(userEntityRef, {
+        token,
+      });
+      const isSuperuser =
+        userEntity?.metadata?.annotations?.['aap.platform/is_superuser'] ===
+        'true';
+      if (!isSuperuser) {
+        res.status(403).json({ error: 'Forbidden: superuser access required' });
+        return false;
+      }
+      return true;
+    } catch (error) {
+      const errorMessage =
+        error instanceof Error ? error.message : String(error);
+      logger.error(`Superuser check failed: ${errorMessage}`);
+      res.status(500).json({
+        error: `Authorization failed: ${errorMessage}`,
+      });
+      return false;
+    }
+  };
 }
