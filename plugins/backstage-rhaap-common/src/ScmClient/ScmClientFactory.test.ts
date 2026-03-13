@@ -240,6 +240,110 @@ describe('ScmClientFactory', () => {
       });
     });
 
+    describe('provided token', () => {
+      it('should use provided token instead of integration token for GitHub', async () => {
+        mockIntegrations.github.byHost.mockReturnValue({
+          config: {
+            token: 'integration-token',
+            apiBaseUrl: 'https://api.github.com',
+          },
+        });
+
+        const client = await factory.createClient({
+          scmProvider: 'github',
+          organization: 'test-org',
+          token: 'user-oauth-token',
+        });
+
+        expect(client).toBeInstanceOf(GithubClient);
+        expect(mockLogger.info).toHaveBeenCalledWith(
+          '[ScmClientFactory] Using provided OAuth token for GitHub host: github.com',
+        );
+      });
+
+      it('should use provided token instead of integration token for GitLab', async () => {
+        mockIntegrations.gitlab.byHost.mockReturnValue({
+          config: {
+            token: 'integration-token',
+            apiBaseUrl: 'https://gitlab.com/api/v4',
+          },
+        });
+
+        const client = await factory.createClient({
+          scmProvider: 'gitlab',
+          organization: 'test-group',
+          token: 'user-oauth-token',
+        });
+
+        expect(client).toBeInstanceOf(GitlabClient);
+        expect(mockLogger.info).toHaveBeenCalledWith(
+          '[ScmClientFactory] Using provided OAuth token for GitLab host: gitlab.com',
+        );
+      });
+
+      it('should work with provided token when no integration token is configured for GitHub', async () => {
+        mockIntegrations.github.byHost.mockReturnValue({
+          config: {
+            token: undefined,
+          },
+        });
+
+        const client = await factory.createClient({
+          scmProvider: 'github',
+          organization: 'test-org',
+          token: 'user-oauth-token',
+        });
+
+        expect(client).toBeInstanceOf(GithubClient);
+      });
+
+      it('should work with provided token when no integration token is configured for GitLab', async () => {
+        mockIntegrations.gitlab.byHost.mockReturnValue({
+          config: {
+            token: undefined,
+          },
+        });
+
+        const client = await factory.createClient({
+          scmProvider: 'gitlab',
+          organization: 'test-group',
+          token: 'user-oauth-token',
+        });
+
+        expect(client).toBeInstanceOf(GitlabClient);
+      });
+
+      it('should work with provided token when no integration is configured for GitHub', async () => {
+        mockIntegrations.github.byHost.mockReturnValue(null);
+
+        const client = await factory.createClient({
+          scmProvider: 'github',
+          organization: 'test-org',
+          token: 'user-oauth-token',
+        });
+
+        expect(client).toBeInstanceOf(GithubClient);
+        expect(mockLogger.warn).toHaveBeenCalledWith(
+          '[ScmClientFactory] No GitHub integration configured for host: github.com, but using provided token',
+        );
+      });
+
+      it('should work with provided token when no integration is configured for GitLab', async () => {
+        mockIntegrations.gitlab.byHost.mockReturnValue(null);
+
+        const client = await factory.createClient({
+          scmProvider: 'gitlab',
+          organization: 'test-group',
+          token: 'user-oauth-token',
+        });
+
+        expect(client).toBeInstanceOf(GitlabClient);
+        expect(mockLogger.warn).toHaveBeenCalledWith(
+          '[ScmClientFactory] No GitLab integration configured for host: gitlab.com, but using provided token',
+        );
+      });
+    });
+
     describe('logging', () => {
       it('should log debug message when using GitHub integration', async () => {
         mockIntegrations.github.byHost.mockReturnValue({

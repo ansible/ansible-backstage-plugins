@@ -1,10 +1,11 @@
-import { useMemo, useState, useEffect, useCallback } from 'react';
+import { useMemo, useState, useEffect, useCallback, useRef } from 'react';
 import { IChangeEvent } from '@rjsf/core';
 import validator from '@rjsf/validator-ajv8';
 import { EntityPickerFieldExtension } from '@backstage/plugin-scaffolder';
 import {
   ScaffolderFieldExtensions,
   SecretsContextProvider,
+  useTemplateSecrets,
 } from '@backstage/plugin-scaffolder-react';
 import { useApi } from '@backstage/core-plugin-api';
 
@@ -31,14 +32,37 @@ interface StepFormProps {
     title: string;
     schema: Record<string, any>;
   }>;
-  submitFunction: (formData: Record<string, any>) => Promise<void>;
+  submitFunction: (
+    formData: Record<string, any>,
+    secrets?: Record<string, string>,
+  ) => Promise<void>;
   initialFormData?: Record<string, any>;
+  storageKey?: string;
 }
+
+interface CreateButtonProps {
+  onSubmit: (secrets?: Record<string, string>) => Promise<void>;
+}
+
+const CreateButton = ({ onSubmit }: CreateButtonProps) => {
+  const { secrets } = useTemplateSecrets();
+
+  const handleClick = useCallback(async () => {
+    await onSubmit(secrets);
+  }, [onSubmit, secrets]);
+
+  return (
+    <Button onClick={handleClick} variant="contained" color="secondary">
+      Create
+    </Button>
+  );
+};
 
 export const StepForm = ({
   steps,
   submitFunction,
   initialFormData,
+  storageKey,
 }: StepFormProps) => {
   // Filter out steps that only contain a "token" field
   const filteredSteps = useMemo(() => {
@@ -55,22 +79,121 @@ export const StepForm = ({
     });
   }, [steps]);
 
-  // If no form steps, start directly at review step
-  const [activeStep, setActiveStep] = useState(
-    filteredSteps.length === 0 ? filteredSteps.length : 0,
-  );
-  const [formData, setFormData] = useState<Record<string, any>>(
-    initialFormData || {},
-  );
+  // storage keys for form persistence to handle oAuth window reload
+  const formDataStorageKey = storageKey
+    ? `scaffolder-form-data-${storageKey}`
+    : null;
+  const activeStepStorageKey = storageKey
+    ? `scaffolder-active-step-${storageKey}`
+    : null;
+  // generic oAuth pending flag (set by ScmAuthPicker before oAuth)
+  const OAUTH_PENDING_KEY = 'scaffolder-oauth-pending';
+
+  const isOAuthRestoreRef = useRef<boolean | null>(null);
+  if (isOAuthRestoreRef.current === null) {
+    try {
+      isOAuthRestoreRef.current =
+        sessionStorage.getItem(OAUTH_PENDING_KEY) === 'true';
+      // clear the flag after reading
+      if (isOAuthRestoreRef.current) {
+        sessionStorage.removeItem(OAUTH_PENDING_KEY);
+      }
+    } catch {
+      isOAuthRestoreRef.current = false;
+    }
+  }
+  const isOAuthRestore = isOAuthRestoreRef.current;
+
+  // restore form data from sessionStorage after OAuth window reload
+  const getInitialFormData = useCallback((): Record<string, any> => {
+    if (isOAuthRestore && formDataStorageKey) {
+      try {
+        const saved = sessionStorage.getItem(formDataStorageKey);
+        if (saved) {
+          return JSON.parse(saved);
+        }
+      } catch {
+        // silently ignore parsing errors
+      }
+    }
+    return initialFormData || {};
+  }, [formDataStorageKey, initialFormData, isOAuthRestore]);
+
+  // restore active step from sessionStorage after oAuth window reload
+  const getInitialActiveStep = useCallback((): number => {
+    if (isOAuthRestore && activeStepStorageKey) {
+      try {
+        const saved = sessionStorage.getItem(activeStepStorageKey);
+        if (saved) {
+          const step = Number.parseInt(saved, 10);
+          if (!Number.isNaN(step) && step >= 0) {
+            return step;
+          }
+        }
+      } catch {
+        // silently ignore parsing errors
+      }
+    }
+    return filteredSteps.length === 0 ? filteredSteps.length : 0;
+  }, [activeStepStorageKey, filteredSteps.length, isOAuthRestore]);
+
+  const [activeStep, setActiveStep] = useState(getInitialActiveStep);
+  const [formData, setFormData] =
+    useState<Record<string, any>>(getInitialFormData);
   const [isAutoExecuting, setIsAutoExecuting] = useState(false);
+
+  // always persist form data to sessionStorage
+  // so its available if oAuth triggers window reload
+  useEffect(() => {
+    if (formDataStorageKey && Object.keys(formData).length > 0) {
+      try {
+        sessionStorage.setItem(formDataStorageKey, JSON.stringify(formData));
+      } catch {
+        // silently ignore storage errors
+      }
+    }
+  }, [formData, formDataStorageKey]);
+
+  // persist active step to sessionStorage
+  useEffect(() => {
+    if (activeStepStorageKey) {
+      try {
+        sessionStorage.setItem(activeStepStorageKey, String(activeStep));
+      } catch {
+        // silently ignore storage errors
+      }
+    }
+  }, [activeStep, activeStepStorageKey]);
+
+  // clear sessionStorage on unmount
+  // incase user navigates to another page
+  useEffect(() => {
+    return () => {
+      // only clear if OAuth is NOT pending
+      // incase user navigates to another page
+      try {
+        const oauthPending =
+          sessionStorage.getItem(OAUTH_PENDING_KEY) === 'true';
+        if (!oauthPending) {
+          if (formDataStorageKey) {
+            sessionStorage.removeItem(formDataStorageKey);
+          }
+          if (activeStepStorageKey) {
+            sessionStorage.removeItem(activeStepStorageKey);
+          }
+        }
+      } catch {
+        // silently ignore storage errors
+      }
+    };
+  }, [formDataStorageKey, activeStepStorageKey]);
 
   useEffect(() => {
     if (initialFormData) {
-      setFormData(initialFormData);
+      setFormData(prev => ({ ...prev, ...initialFormData }));
     }
   }, [initialFormData]);
 
-  // Check if there are any meaningful fields to show (non-token fields with values)
   const hasDisplayableFields = useMemo(() => {
     return steps.some(step =>
       Object.entries(step.schema?.properties || {}).some(
@@ -102,6 +225,17 @@ export const StepForm = ({
     setActiveStep(prevActiveStep => prevActiveStep - 1);
   };
 
+  // handle real-time form changes to persist data
+  // for window reload in case of authentication
+  const handleFormChange = useCallback((data: IChangeEvent<any>) => {
+    if (data.formData) {
+      setFormData(prev => ({
+        ...prev,
+        ...data.formData,
+      }));
+    }
+  }, []);
+
   const handleFormSubmit = (data: IChangeEvent<any>) => {
     setFormData(prev => ({
       ...prev,
@@ -110,15 +244,38 @@ export const StepForm = ({
     handleNext();
   };
 
-  const handleFinalSubmit = useCallback(async () => {
-    const authToken = await aapAuth.getAccessToken();
-    const finalData = { ...formData, token: authToken };
-    try {
-      await submitFunction(finalData);
-    } catch (error) {
-      console.error('Error during final submission:', error); // eslint-disable-line no-console
+  // clear persisted form data from sessionStorage
+  const clearPersistedFormData = useCallback(() => {
+    if (formDataStorageKey) {
+      try {
+        sessionStorage.removeItem(formDataStorageKey);
+      } catch {
+        // silently ignore storage errors
+      }
     }
-  }, [formData, submitFunction, aapAuth]);
+    if (activeStepStorageKey) {
+      try {
+        sessionStorage.removeItem(activeStepStorageKey);
+      } catch {
+        // silently ignore storage errors
+      }
+    }
+  }, [formDataStorageKey, activeStepStorageKey]);
+
+  const handleFinalSubmit = useCallback(
+    async (secrets?: Record<string, string>) => {
+      const authToken = await aapAuth.getAccessToken();
+      const finalData = { ...formData, token: authToken };
+      try {
+        await submitFunction(finalData, secrets);
+        // clear persisted form data after submission
+        clearPersistedFormData();
+      } catch (error) {
+        console.error('Error during final submission:', error); // eslint-disable-line no-console
+      }
+    },
+    [formData, submitFunction, aapAuth, clearPersistedFormData],
+  );
 
   // Auto-execute if no form steps and no displayable fields
   useEffect(() => {
@@ -458,6 +615,7 @@ export const StepForm = ({
                   uiSchema={extractProperties(step)}
                   formData={formData}
                   fields={fields}
+                  onChange={handleFormChange}
                   onSubmit={handleFormSubmit}
                   validator={validator}
                 >
@@ -560,13 +718,7 @@ export const StepForm = ({
                     Back
                   </Button>
                 )}
-                <Button
-                  onClick={handleFinalSubmit}
-                  variant="contained"
-                  color="secondary"
-                >
-                  Create
-                </Button>
+                <CreateButton onSubmit={handleFinalSubmit} />
               </div>
             </StepContent>
           </Step>

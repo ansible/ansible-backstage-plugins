@@ -10,6 +10,7 @@ interface CheckRepositoryExistsInput {
   createNewRepository: boolean;
   eeFileName: string;
   contextDirName: string;
+  token?: string;
 }
 
 export function prepareForPublishAction(options: { rootConfig: Config }) {
@@ -35,6 +36,12 @@ export function prepareForPublishAction(options: { rootConfig: Config }) {
           eeFileName: { type: 'string' },
           createNewRepository: { type: 'boolean' },
           contextDirName: { type: 'string' },
+          token: {
+            type: 'string',
+            title: 'Authentication Token',
+            description:
+              'Optional OAuth token for SCM authentication. If not provided, the integration token from app-config will be used.',
+          },
         },
       },
       output: {
@@ -87,6 +94,7 @@ export function prepareForPublishAction(options: { rootConfig: Config }) {
       const createNewRepository = values.createNewRepository;
       const eeFileName = values.eeFileName;
       const contextDirName = values.contextDirName;
+      const token = values.token;
       let createNewRepo = false;
 
       try {
@@ -101,6 +109,7 @@ export function prepareForPublishAction(options: { rootConfig: Config }) {
         const scmClient = await scmClientFactory.createClient({
           scmProvider,
           organization: repositoryOwner,
+          token,
         });
 
         const exists = await scmClient.repositoryExists(
