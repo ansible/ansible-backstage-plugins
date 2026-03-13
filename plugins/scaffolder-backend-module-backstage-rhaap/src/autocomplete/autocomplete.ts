@@ -1,10 +1,15 @@
 import { Config } from '@backstage/config';
-import { LoggerService } from '@backstage/backend-plugin-api';
+import {
+  AuthService,
+  DiscoveryService,
+  LoggerService,
+} from '@backstage/backend-plugin-api';
 import {
   IAAPService,
   getAnsibleConfig,
   getVerbosityLevels,
 } from '@ansible/backstage-rhaap-common';
+import { getCollections } from './utils';
 
 export async function handleAutocompleteRequest({
   resource,
@@ -13,6 +18,8 @@ export async function handleAutocompleteRequest({
   config,
   logger,
   ansibleService,
+  auth,
+  discovery,
 }: {
   resource: string;
   token: string;
@@ -20,6 +27,8 @@ export async function handleAutocompleteRequest({
   config: Config;
   logger: LoggerService;
   ansibleService: IAAPService;
+  auth: AuthService;
+  discovery: DiscoveryService;
 }): Promise<{ results: any[] }> {
   const ansibleConfig = getAnsibleConfig(config);
 
@@ -34,6 +43,14 @@ export async function handleAutocompleteRequest({
     return {
       results: [{ id: 1, name: ansibleConfig.rhaap?.baseUrl }],
     };
+  }
+  if (resource === 'collections') {
+    return getCollections({
+      auth,
+      discovery,
+      logger,
+      searchQuery: context?.searchQuery,
+    });
   }
 
   await ansibleService.setLogger(logger);

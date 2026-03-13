@@ -3,6 +3,8 @@ import {
   teamParser,
   userParser,
   aapJobTemplateParser,
+  scmCollectionParser,
+  repositoryParser,
 } from './entityParser';
 import {
   ANNOTATION_LOCATION,
@@ -15,6 +17,11 @@ import {
   IJobTemplate,
   ISurvey,
 } from '@ansible/backstage-rhaap-common';
+import type { RepositoryInfo } from '@ansible/backstage-rhaap-common';
+import type {
+  DiscoveredGalaxyFile,
+  AnsibleGitContentsSourceConfig,
+} from './types';
 
 describe('entityParser', () => {
   beforeEach(() => {
@@ -654,6 +661,435 @@ describe('entityParser', () => {
       expect(result.metadata.name).toBe('job-without-survey');
       expect(result.metadata.title).toBe('Job Without Survey');
       expect(result.metadata.description).toBe('A job template without survey');
+    });
+  });
+
+  describe('scmCollectionParser', () => {
+    const mockRepository: RepositoryInfo = {
+      name: 'test-repo',
+      fullPath: 'test-org/test-repo',
+      defaultBranch: 'main',
+      url: 'https://github.com/test-org/test-repo',
+    };
+
+    const mockSourceConfig: AnsibleGitContentsSourceConfig = {
+      env: 'development',
+      scmProvider: 'github',
+      host: 'github.com',
+      hostName: 'github',
+      organization: 'test-org',
+      enabled: true,
+      schedule: { frequency: { minutes: 30 }, timeout: { minutes: 10 } },
+    };
+
+    const mockGalaxyFile: DiscoveredGalaxyFile = {
+      repository: mockRepository,
+      ref: 'main',
+      refType: 'branch',
+      path: 'galaxy.yml',
+      content: 'namespace: test_ns\nname: test_collection\nversion: 1.0.0',
+      metadata: {
+        namespace: 'test_ns',
+        name: 'test_collection',
+        version: '1.0.0',
+      },
+    };
+
+    it('should parse collection data correctly', () => {
+      const result = scmCollectionParser({
+        galaxyFile: mockGalaxyFile,
+        sourceConfig: mockSourceConfig,
+        sourceLocation: 'url:https://github.com/test-org/test-repo',
+      });
+
+      expect(result.kind).toBe('Component');
+      expect(result.spec?.type).toBe('ansible-collection');
+      expect(result.spec?.collection_namespace).toBe('test_ns');
+      expect(result.spec?.collection_name).toBe('test_collection');
+      expect(result.spec?.collection_version).toBe('1.0.0');
+      expect(result.spec?.collection_full_name).toBe('test_ns.test_collection');
+    });
+
+    it('should set lifecycle to development for branches', () => {
+      const result = scmCollectionParser({
+        galaxyFile: mockGalaxyFile,
+        sourceConfig: mockSourceConfig,
+        sourceLocation: 'url:https://github.com/test-org/test-repo',
+      });
+
+      expect(result.spec?.lifecycle).toBe('development');
+    });
+
+    it('should set lifecycle to production for tags', () => {
+      const tagGalaxyFile = {
+        ...mockGalaxyFile,
+        refType: 'tag' as const,
+        ref: 'v1.0.0',
+      };
+      const result = scmCollectionParser({
+        galaxyFile: tagGalaxyFile,
+        sourceConfig: mockSourceConfig,
+        sourceLocation: 'url:https://github.com/test-org/test-repo',
+      });
+
+      expect(result.spec?.lifecycle).toBe('production');
+    });
+
+    it('should include discovery source ID annotation', () => {
+      const result = scmCollectionParser({
+        galaxyFile: mockGalaxyFile,
+        sourceConfig: mockSourceConfig,
+        sourceLocation: 'url:https://github.com/test-org/test-repo',
+      });
+
+      expect(
+        result.metadata.annotations?.['ansible.io/discovery-source-id'],
+      ).toBeDefined();
+    });
+
+    it('should sanitize and include galaxy tags', () => {
+      const galaxyFileWithTags = {
+        ...mockGalaxyFile,
+        metadata: {
+          ...mockGalaxyFile.metadata,
+          tags: ['Cloud', 'AWS-Services', 'Special@Tag!'],
+        },
+      };
+
+      const result = scmCollectionParser({
+        galaxyFile: galaxyFileWithTags,
+        sourceConfig: mockSourceConfig,
+        sourceLocation: 'url:https://github.com/test-org/test-repo',
+      });
+
+      expect(result.metadata.tags).toContain('cloud');
+      expect(result.metadata.tags).toContain('aws-services');
+      expect(result.metadata.tags).toContain('github');
+      expect(result.metadata.tags).toContain('ansible-collection');
+    });
+
+    it('should include unsanitized collection_tags in spec', () => {
+      const galaxyFileWithTags = {
+        ...mockGalaxyFile,
+        metadata: {
+          ...mockGalaxyFile.metadata,
+          tags: ['Cloud', 'AWS-Services'],
+        },
+      };
+
+      const result = scmCollectionParser({
+        galaxyFile: galaxyFileWithTags,
+        sourceConfig: mockSourceConfig,
+        sourceLocation: 'url:https://github.com/test-org/test-repo',
+      });
+
+      expect(result.spec?.collection_tags).toEqual(['Cloud', 'AWS-Services']);
+    });
+
+    it('should include links when metadata has repository, docs, etc', () => {
+      const galaxyFileWithLinks = {
+        ...mockGalaxyFile,
+        metadata: {
+          ...mockGalaxyFile.metadata,
+          repository: 'https://github.com/test/repo',
+          documentation: 'https://docs.example.com',
+          homepage: 'https://example.com',
+          issues: 'https://github.com/test/repo/issues',
+        },
+      };
+
+      const result = scmCollectionParser({
+        galaxyFile: galaxyFileWithLinks,
+        sourceConfig: mockSourceConfig,
+        sourceLocation: 'url:https://github.com/test-org/test-repo',
+      });
+
+      expect(result.metadata.links).toHaveLength(4);
+      expect(result.metadata.links).toContainEqual(
+        expect.objectContaining({ title: 'Repository' }),
+      );
+      expect(result.metadata.links).toContainEqual(
+        expect.objectContaining({ title: 'Documentation' }),
+      );
+    });
+
+    it('should include readme URL when readme is specified', () => {
+      const galaxyFileWithReadme = {
+        ...mockGalaxyFile,
+        metadata: {
+          ...mockGalaxyFile.metadata,
+          readme: 'README.md',
+        },
+      };
+
+      const result = scmCollectionParser({
+        galaxyFile: galaxyFileWithReadme,
+        sourceConfig: mockSourceConfig,
+        sourceLocation: 'url:https://github.com/test-org/test-repo',
+      });
+
+      expect(result.spec?.collection_readme_url).toBeDefined();
+    });
+
+    it('should include dependencies when present', () => {
+      const galaxyFileWithDeps = {
+        ...mockGalaxyFile,
+        metadata: {
+          ...mockGalaxyFile.metadata,
+          dependencies: {
+            'ansible.netcommon': '>=2.0.0',
+            'ansible.utils': '>=1.0.0',
+          },
+        },
+      };
+
+      const result = scmCollectionParser({
+        galaxyFile: galaxyFileWithDeps,
+        sourceConfig: mockSourceConfig,
+        sourceLocation: 'url:https://github.com/test-org/test-repo',
+      });
+
+      expect(result.spec?.collection_dependencies).toEqual({
+        'ansible.netcommon': '>=2.0.0',
+        'ansible.utils': '>=1.0.0',
+      });
+    });
+
+    it('should include authors when present', () => {
+      const galaxyFileWithAuthors = {
+        ...mockGalaxyFile,
+        metadata: {
+          ...mockGalaxyFile.metadata,
+          authors: ['Author One', 'Author Two'],
+        },
+      };
+
+      const result = scmCollectionParser({
+        galaxyFile: galaxyFileWithAuthors,
+        sourceConfig: mockSourceConfig,
+        sourceLocation: 'url:https://github.com/test-org/test-repo',
+      });
+
+      expect(result.spec?.collection_authors).toEqual([
+        'Author One',
+        'Author Two',
+      ]);
+    });
+
+    it('should include license when present', () => {
+      const galaxyFileWithLicense = {
+        ...mockGalaxyFile,
+        metadata: {
+          ...mockGalaxyFile.metadata,
+          license: 'GPL-3.0',
+        },
+      };
+
+      const result = scmCollectionParser({
+        galaxyFile: galaxyFileWithLicense,
+        sourceConfig: mockSourceConfig,
+        sourceLocation: 'url:https://github.com/test-org/test-repo',
+      });
+
+      expect(result.spec?.collection_license).toBe('GPL-3.0');
+    });
+
+    it('should join array licenses with comma', () => {
+      const galaxyFileWithLicenses = {
+        ...mockGalaxyFile,
+        metadata: {
+          ...mockGalaxyFile.metadata,
+          license: ['MIT', 'Apache-2.0'],
+        },
+      };
+
+      const result = scmCollectionParser({
+        galaxyFile: galaxyFileWithLicenses,
+        sourceConfig: mockSourceConfig,
+        sourceLocation: 'url:https://github.com/test-org/test-repo',
+      });
+
+      expect(result.spec?.collection_license).toBe('MIT, Apache-2.0');
+    });
+
+    it('should build correct GitLab URL for gitlab provider', () => {
+      const gitlabConfig: AnsibleGitContentsSourceConfig = {
+        ...mockSourceConfig,
+        scmProvider: 'gitlab',
+        host: 'gitlab.com',
+        hostName: 'gitlab',
+      };
+
+      const result = scmCollectionParser({
+        galaxyFile: mockGalaxyFile,
+        sourceConfig: gitlabConfig,
+        sourceLocation: 'url:https://gitlab.com/test-org/test-repo',
+      });
+
+      expect(result.metadata.annotations?.['backstage.io/view-url']).toContain(
+        '/-/blob/',
+      );
+    });
+
+    it('should handle version as N/A in title', () => {
+      const galaxyFileNoVersion = {
+        ...mockGalaxyFile,
+        metadata: {
+          ...mockGalaxyFile.metadata,
+          version: 'N/A',
+        },
+      };
+
+      const result = scmCollectionParser({
+        galaxyFile: galaxyFileNoVersion,
+        sourceConfig: mockSourceConfig,
+        sourceLocation: 'url:https://github.com/test-org/test-repo',
+      });
+
+      expect(result.metadata.title).toBe('test_ns.test_collection');
+    });
+  });
+
+  describe('repositoryParser', () => {
+    const mockRepository: RepositoryInfo = {
+      name: 'test-repo',
+      fullPath: 'test-org/test-repo',
+      defaultBranch: 'main',
+      description: 'Test repository description',
+      url: 'https://github.com/test-org/test-repo',
+    };
+
+    const mockSourceConfig: AnsibleGitContentsSourceConfig = {
+      env: 'development',
+      scmProvider: 'github',
+      host: 'github.com',
+      hostName: 'github',
+      organization: 'test-org',
+      enabled: true,
+
+      schedule: { frequency: { minutes: 30 }, timeout: { minutes: 10 } },
+    };
+
+    it('should parse repository data correctly', () => {
+      const result = repositoryParser({
+        repository: mockRepository,
+        sourceConfig: mockSourceConfig,
+        collectionCount: 5,
+      });
+
+      expect(result.kind).toBe('Component');
+      expect(result.spec?.type).toBe('git-repository');
+      expect(result.spec?.lifecycle).toBe('production');
+      expect(result.spec?.repository_name).toBe('test-repo');
+      expect(result.spec?.repository_default_branch).toBe('main');
+      expect(result.spec?.repository_collection_count).toBe(5);
+    });
+
+    it('should include discovery source ID annotation', () => {
+      const result = repositoryParser({
+        repository: mockRepository,
+        sourceConfig: mockSourceConfig,
+        collectionCount: 1,
+      });
+
+      expect(
+        result.metadata.annotations?.['ansible.io/discovery-source-id'],
+      ).toBeDefined();
+    });
+
+    it('should include repository tags', () => {
+      const result = repositoryParser({
+        repository: mockRepository,
+        sourceConfig: mockSourceConfig,
+        collectionCount: 1,
+      });
+
+      expect(result.metadata.tags).toContain('git-repository');
+      expect(result.metadata.tags).toContain('github');
+      expect(result.metadata.tags).toContain('ansible-collections-source');
+    });
+
+    it('should include collection entity names when provided', () => {
+      const result = repositoryParser({
+        repository: mockRepository,
+        sourceConfig: mockSourceConfig,
+        collectionCount: 2,
+        collectionEntityNames: ['collection-a', 'collection-b'],
+      });
+
+      expect(result.spec?.repository_collections).toEqual([
+        'collection-a',
+        'collection-b',
+      ]);
+      expect(result.spec?.dependsOn).toEqual([
+        'component:default/collection-a',
+        'component:default/collection-b',
+      ]);
+    });
+
+    it('should use repository URL when available', () => {
+      const result = repositoryParser({
+        repository: mockRepository,
+        sourceConfig: mockSourceConfig,
+        collectionCount: 1,
+      });
+
+      expect(result.metadata.links?.[0].url).toBe(
+        'https://github.com/test-org/test-repo',
+      );
+    });
+
+    it('should construct URL when repository URL is not available', () => {
+      const repoWithoutUrl = { ...mockRepository, url: '' };
+
+      const result = repositoryParser({
+        repository: repoWithoutUrl,
+        sourceConfig: mockSourceConfig,
+        collectionCount: 1,
+      });
+
+      expect(result.metadata.annotations?.['backstage.io/view-url']).toBe(
+        'https://github.com/test-org/test-repo',
+      );
+    });
+
+    it('should use repository description when available', () => {
+      const result = repositoryParser({
+        repository: mockRepository,
+        sourceConfig: mockSourceConfig,
+        collectionCount: 1,
+      });
+
+      expect(result.metadata.description).toBe('Test repository description');
+    });
+
+    it('should use default description when not available', () => {
+      const repoWithoutDesc = { ...mockRepository, description: undefined };
+
+      const result = repositoryParser({
+        repository: repoWithoutDesc,
+        sourceConfig: mockSourceConfig,
+        collectionCount: 1,
+      });
+
+      expect(result.metadata.description).toContain(
+        'Git repository containing Ansible collections',
+      );
+    });
+
+    it('should set correct icon for gitlab provider', () => {
+      const gitlabConfig: AnsibleGitContentsSourceConfig = {
+        ...mockSourceConfig,
+        scmProvider: 'gitlab',
+      };
+
+      const result = repositoryParser({
+        repository: mockRepository,
+        sourceConfig: gitlabConfig,
+        collectionCount: 1,
+      });
+
+      expect(result.metadata.links?.[0].icon).toBe('gitlab');
     });
   });
 });

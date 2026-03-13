@@ -6,12 +6,12 @@ export interface Config {
       /** @visibility frontend */
       rhaap?: {
         [authEnv: string]: {
-          orgs: string;
-          sync: {
-            orgsUsersTeams: {
+          orgs?: string;
+          sync?: {
+            orgsUsersTeams?: {
               schedule: SchedulerServiceTaskScheduleDefinitionConfig;
             };
-            jobTemplates: {
+            jobTemplates?: {
               enabled: boolean;
               labels?: Array<string>;
               excludeLabels?: Array<string>;
@@ -28,6 +28,71 @@ export interface Config {
               }>;
               /** Default schedule for all repositories that don't have their own schedule */
               schedule?: SchedulerServiceTaskScheduleDefinitionConfig;
+            };
+            ansibleGitContents?: {
+              /** @default true */
+              enabled?: boolean;
+              /**
+               * Default schedule for all providers if not specified at the org level
+               * This is used as a fallback when an org doesn't have its own schedule defined
+               */
+              schedule?: SchedulerServiceTaskScheduleDefinitionConfig;
+              providers?: {
+                github?: Array<{
+                  /**
+                   * Canonical name for easy identification of this source host
+                   * @visibility frontend
+                   */
+                  name: string;
+                  /**
+                   * The host URL for the SCM provider
+                   * @default 'github.com'
+                   * @visibility frontend
+                   */
+                  host?: string;
+                  orgs: Array<{
+                    /** @visibility frontend */
+                    name: string;
+                    branches?: Array<string>;
+                    tags?: Array<string>;
+                    galaxyFilePaths?: Array<string>;
+                    /** @default 5 */
+                    crawlDepth?: number;
+                    /**
+                     * Schedule for syncing this organization
+                     * If not provided, falls back to the common schedule at ansibleGitContents level
+                     */
+                    schedule?: SchedulerServiceTaskScheduleDefinitionConfig;
+                  }>;
+                }>;
+                gitlab?: Array<{
+                  /**
+                   * Canonical name for easy identification of this source host
+                   * @visibility frontend
+                   */
+                  name: string;
+                  /**
+                   * The host URL for the SCM provider
+                   * @default 'gitlab.com'
+                   * @visibility frontend
+                   */
+                  host?: string;
+                  orgs: Array<{
+                    /** @visibility frontend */
+                    name: string;
+                    branches?: Array<string>;
+                    tags?: Array<string>;
+                    galaxyFilePaths?: Array<string>;
+                    /** @default 5 */
+                    crawlDepth?: number;
+                    /**
+                     * Schedule for syncing this group
+                     * If not provided, falls back to the common schedule at ansibleGitContents level
+                     */
+                    schedule?: SchedulerServiceTaskScheduleDefinitionConfig;
+                  }>;
+                }>;
+              };
             };
           };
         };

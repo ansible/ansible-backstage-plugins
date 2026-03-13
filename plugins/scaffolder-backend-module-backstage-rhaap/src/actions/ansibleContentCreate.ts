@@ -13,12 +13,9 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-import * as os from 'os';
+import * as os from 'node:os';
 import { executeShellCommand } from '@backstage/plugin-scaffolder-node';
 import { BackendServiceAPI } from './utils/api';
-import * as fs from 'fs/promises';
-import { UseCaseMaker } from './helpers';
-import { AnsibleConfig } from '@ansible/backstage-rhaap-common';
 import { appType } from './constants';
 import { LoggerService } from '@backstage/backend-plugin-api';
 
@@ -134,47 +131,5 @@ export async function ansibleCreatorRun(
       error,
     );
     throw new Error(error);
-  }
-}
-
-export async function handleDevfileProject(
-  ansibleConfig: AnsibleConfig,
-  logger: LoggerService,
-  sourceControl: string,
-  repositoryUrl: string,
-  workspacePath: string,
-) {
-  const scmType = sourceControl
-    .replace(/\.com$/, '')
-    .replace(/^./, c => c.toUpperCase());
-  const useCaseMaker = new UseCaseMaker({
-    ansibleConfig,
-    logger,
-    scmType,
-    apiClient: null,
-    useCases: [],
-    organization: null,
-    token: null,
-  });
-
-  try {
-    const path = `${workspacePath}/devfile.yaml`;
-    const fileContent = await fs.readFile(path, 'utf8');
-
-    const options = {
-      value: fileContent,
-      repositoryUrl,
-    };
-
-    let prLink;
-    if (scmType === 'Github') {
-      prLink = useCaseMaker.devfilePushToGithub(options);
-    } else if (scmType === 'Gitlab') {
-      prLink = useCaseMaker.devfilePushToGitLab(options);
-    }
-    return prLink;
-  } catch (error: any) {
-    console.error('Error reading the file or pushing to GitHub:', error);
-    throw new Error(error.message);
   }
 }
