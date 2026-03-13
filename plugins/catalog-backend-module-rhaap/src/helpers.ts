@@ -1,4 +1,4 @@
-import type { Request, Response } from 'express';
+import type { Request, Response, RequestHandler } from 'express';
 import type {
   LoggerService,
   HttpAuthService,
@@ -244,8 +244,8 @@ export interface RequireSuperuserDeps {
 }
 
 /**
- * Returns a middleware-style function that checks the request has a catalog user
- * with `aap.platform/is_superuser` annotation. If not, sends 403 and returns false.
+ * Returns a function that checks the request has a catalog user with
+ * `aap.platform/is_superuser` annotation. If not, sends 403 and returns false.
  */
 export function createRequireSuperuser(
   deps: RequireSuperuserDeps,
@@ -279,5 +279,20 @@ export function createRequireSuperuser(
       });
       return false;
     }
+  };
+}
+
+/**
+ * Returns an Express middleware that requires superuser. Use as a route
+ * decorator: router.get('/path', requireSuperuserMiddleware, handler).
+ * On success calls next(); on failure sends 403/500 and does not call next().
+ */
+export function createRequireSuperuserMiddleware(
+  deps: RequireSuperuserDeps,
+): RequestHandler {
+  const requireSuperuser = createRequireSuperuser(deps);
+  return async (req: Request, res: Response, next: (err?: unknown) => void) => {
+    const allowed = await requireSuperuser(req, res);
+    if (allowed) next();
   };
 }

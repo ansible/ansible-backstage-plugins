@@ -39,7 +39,7 @@ import {
   getSyncResponseStatusCode,
   buildInvalidRepositoryResults,
   resolveProvidersToRun,
-  createRequireSuperuser,
+  createRequireSuperuserMiddleware,
 } from './helpers';
 import { EEEntityProvider } from './providers/EEEntityProvider';
 import { ScmClientFactory } from '@ansible/backstage-rhaap-common';
@@ -87,7 +87,7 @@ export async function createRouter(options: {
     _GIT_CONTENTS_PROVIDERS.set(provider.getSourceId(), provider);
   }
 
-  const requireSuperuser = createRequireSuperuser({
+  const requireSuperuserMiddleware = createRequireSuperuserMiddleware({
     httpAuth,
     userInfo,
     auth,
@@ -112,74 +112,59 @@ export async function createRouter(options: {
     response.status(200).json(res);
   });
 
-  router.get('/ansible/sync/status', async (request, response) => {
-    logger.info('Getting sync status');
-    if (!(await requireSuperuser(request, response))) return;
+  router.get(
+    '/ansible/sync/status',
+    requireSuperuserMiddleware,
+    async (request, response) => {
+      logger.info('Getting sync status');
+      const aapEntities = request.query.aap_entities === 'true';
+      const ansibleContents = request.query.ansible_contents === 'true';
+      const noQueryParams =
+        request.query.aap_entities === undefined &&
+        request.query.ansible_contents === undefined;
 
-    const aapEntities = request.query.aap_entities === 'true';
-    const ansibleContents = request.query.ansible_contents === 'true';
-    const noQueryParams =
-      request.query.aap_entities === undefined &&
-      request.query.ansible_contents === undefined;
-
-    try {
-      const result: {
-        aap?: {
-          orgsUsersTeams: { lastSync: string | null };
-          jobTemplates: { lastSync: string | null };
-        };
-        content?: {
-          syncInProgress: boolean;
-          providers: Array<{
-            sourceId: string;
-            repository?: string;
-            scmProvider?: string;
-            hostName?: string;
-            organization?: string;
-            providerName: string;
-            enabled: boolean;
+      try {
+        const result: {
+          aap?: {
+            orgsUsersTeams: { lastSync: string | null };
+            jobTemplates: { lastSync: string | null };
+          };
+          content?: {
             syncInProgress: boolean;
-            lastSyncTime: string | null;
-            lastFailedSyncTime: string | null;
-            lastSyncStatus: 'success' | 'failure' | null;
-            collectionsFound: number;
-            collectionsDelta: number;
-          }>;
-        };
-      } = {};
+            providers: Array<{
+              sourceId: string;
+              repository?: string;
+              scmProvider?: string;
+              hostName?: string;
+              organization?: string;
+              providerName: string;
+              enabled: boolean;
+              syncInProgress: boolean;
+              lastSyncTime: string | null;
+              lastFailedSyncTime: string | null;
+              lastSyncStatus: 'success' | 'failure' | null;
+              collectionsFound: number;
+              collectionsDelta: number;
+            }>;
+          };
+        } = {};
 
-      // Include aap block if aap_entities=true or no query params
-      if (aapEntities || noQueryParams) {
-        result.aap = {
-          orgsUsersTeams: {
-            lastSync: aapEntityProvider.getLastSyncTime(),
-          },
-          jobTemplates: {
-            lastSync: jobTemplateProvider.getLastSyncTime(),
-          },
-        };
-      }
+        // Include aap block if aap_entities=true or no query params
+        if (aapEntities || noQueryParams) {
+          result.aap = {
+            orgsUsersTeams: {
+              lastSync: aapEntityProvider.getLastSyncTime(),
+            },
+            jobTemplates: {
+              lastSync: jobTemplateProvider.getLastSyncTime(),
+            },
+          };
+        }
 
-      if (ansibleContents || noQueryParams) {
-        const pahProviders = pahCollectionProviders.map(provider => ({
-          sourceId: provider.getSourceId(),
-          repository: provider.getPahRepositoryName(),
-          providerName: provider.getProviderName(),
-          enabled: provider.isEnabled(),
-          syncInProgress: provider.getIsSyncing(),
-          lastSyncTime: provider.getLastSyncTime(),
-          lastFailedSyncTime: provider.getLastFailedSyncTime(),
-          lastSyncStatus: provider.getLastSyncStatus(),
-          collectionsFound: provider.getCurrentCollectionsCount(),
-          collectionsDelta: provider.getCollectionsDelta(),
-        }));
-        const scmProviders = ansibleGitContentsProviders.map(provider => {
-          const providerInfo = parseSourceId(provider.getSourceId());
-          return {
+        if (ansibleContents || noQueryParams) {
+          const pahProviders = pahCollectionProviders.map(provider => ({
             sourceId: provider.getSourceId(),
-            scmProvider: providerInfo.scmProvider,
-            hostName: providerInfo.hostName,
-            organization: providerInfo.organization,
+            repository: provider.getPahRepositoryName(),
             providerName: provider.getProviderName(),
             enabled: provider.isEnabled(),
             syncInProgress: provider.getIsSyncing(),
@@ -188,33 +173,50 @@ export async function createRouter(options: {
             lastSyncStatus: provider.getLastSyncStatus(),
             collectionsFound: provider.getCurrentCollectionsCount(),
             collectionsDelta: provider.getCollectionsDelta(),
+          }));
+          const scmProviders = ansibleGitContentsProviders.map(provider => {
+            const providerInfo = parseSourceId(provider.getSourceId());
+            return {
+              sourceId: provider.getSourceId(),
+              scmProvider: providerInfo.scmProvider,
+              hostName: providerInfo.hostName,
+              organization: providerInfo.organization,
+              providerName: provider.getProviderName(),
+              enabled: provider.isEnabled(),
+              syncInProgress: provider.getIsSyncing(),
+              lastSyncTime: provider.getLastSyncTime(),
+              lastFailedSyncTime: provider.getLastFailedSyncTime(),
+              lastSyncStatus: provider.getLastSyncStatus(),
+              collectionsFound: provider.getCurrentCollectionsCount(),
+              collectionsDelta: provider.getCollectionsDelta(),
+            };
+          });
+          const providers = [...pahProviders, ...scmProviders];
+          const anySyncInProgress = providers.some(p => p.syncInProgress);
+
+          result.content = {
+            syncInProgress: anySyncInProgress,
+            providers,
           };
+        }
+
+        response.status(200).json(result);
+      } catch (error) {
+        const errorMessage =
+          error instanceof Error ? error.message : String(error);
+        logger.error(`Failed to get sync status: ${errorMessage}`);
+
+        response.status(500).json({
+          error: `Failed to get sync status: ${errorMessage}`,
+          aap: {
+            orgsUsersTeams: null,
+            jobTemplates: null,
+          },
+          content: null,
         });
-        const providers = [...pahProviders, ...scmProviders];
-        const anySyncInProgress = providers.some(p => p.syncInProgress);
-
-        result.content = {
-          syncInProgress: anySyncInProgress,
-          providers,
-        };
       }
-
-      response.status(200).json(result);
-    } catch (error) {
-      const errorMessage =
-        error instanceof Error ? error.message : String(error);
-      logger.error(`Failed to get sync status: ${errorMessage}`);
-
-      response.status(500).json({
-        error: `Failed to get sync status: ${errorMessage}`,
-        aap: {
-          orgsUsersTeams: null,
-          jobTemplates: null,
-        },
-        content: null,
-      });
-    }
-  });
+    },
+  );
 
   router.post('/aap/create_user', express.json(), async (request, response) => {
     const { username, userID } = request.body;
@@ -268,9 +270,8 @@ export async function createRouter(options: {
   router.post(
     '/ansible/sync/from-aap/content',
     express.json(),
+    requireSuperuserMiddleware,
     async (request, response) => {
-      if (!(await requireSuperuser(request, response))) return;
-
       // Extract repository names from request body
       // Expected format: { "filters": [{ "repository_name": "rh-certified" }, { "repository_name": "validated" }] }
       const { filters } = request.body as {
@@ -395,9 +396,8 @@ export async function createRouter(options: {
   router.post(
     '/ansible/sync/from-scm/content',
     express.json(),
+    requireSuperuserMiddleware,
     async (request, response) => {
-      if (!(await requireSuperuser(request, response))) return;
-
       const { filters = [] } = request.body as { filters?: SyncFilter[] };
       const invalidFilters: Array<{ filter: SyncFilter; error: string }> = [];
       for (const filter of filters) {
