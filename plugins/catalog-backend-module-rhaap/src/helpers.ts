@@ -247,7 +247,7 @@ export interface RequireSuperuserDeps {
  * Returns a function that checks the request has a catalog user with
  * `aap.platform/is_superuser` annotation. If not, sends 403 and returns false.
  */
-export function createRequireSuperuser(
+export function checkRequireSuperuser(
   deps: RequireSuperuserDeps,
 ): (req: Request, res: Response) => Promise<boolean> {
   const { httpAuth, userInfo, auth, catalogClient, logger } = deps;
@@ -290,7 +290,7 @@ export function createRequireSuperuser(
 export function createRequireSuperuserMiddleware(
   deps: RequireSuperuserDeps,
 ): RequestHandler {
-  const requireSuperuser = createRequireSuperuser(deps);
+  const requireSuperuser = checkRequireSuperuser(deps);
   return async (req: Request, res: Response, next: (err?: unknown) => void) => {
     const allowed = await requireSuperuser(req, res);
     if (allowed) next();
