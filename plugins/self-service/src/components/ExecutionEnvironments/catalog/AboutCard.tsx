@@ -6,19 +6,29 @@ import {
   Divider,
   IconButton,
   Button,
+  Link,
+  Tooltip,
 } from '@material-ui/core';
 import { makeStyles, useTheme } from '@material-ui/core/styles';
-import DescriptionOutlinedIcon from '@material-ui/icons/DescriptionOutlined';
-import GitHubIcon from '@material-ui/icons/GitHub';
 import AutorenewIcon from '@material-ui/icons/Autorenew';
 import EditIcon from '@material-ui/icons/Edit';
-import { Entity, ANNOTATION_EDIT_URL } from '@backstage/catalog-model';
+import OpenInNewIcon from '@material-ui/icons/OpenInNew';
+import React, { useState } from 'react';
+import { Entity } from '@backstage/catalog-model';
+import { getEntityEEDefinitionUrl } from './helpers';
 
-const useStyles = makeStyles(() => ({
+const useStyles = makeStyles(theme => ({
   tagButton: {
     borderRadius: 8,
     borderColor: '#D3D3D3',
     textTransform: 'none',
+  },
+  descriptionTruncate: {
+    display: '-webkit-box',
+    WebkitLineClamp: 4,
+    WebkitBoxOrient: 'vertical' as const,
+    overflow: 'hidden',
+    textOverflow: 'ellipsis',
   },
   rotate: {
     animation: '$spin 1s linear',
@@ -27,202 +37,249 @@ const useStyles = makeStyles(() => ({
     '0%': { transform: 'rotate(0deg)' },
     '100%': { transform: 'rotate(360deg)' },
   },
+  descriptionExpand: {
+    color: 'primary',
+    cursor: 'pointer',
+    fontWeight: 600,
+  },
+  sourceLinkRow: {
+    display: 'flex',
+    alignItems: 'center',
+    gridGap: 8,
+    marginBottom: 8,
+    '&:last-child': { marginBottom: 0 },
+  },
+  aboutCard: {
+    borderRadius: 12,
+    border: `1px solid ${theme.palette.divider}`,
+  },
+  aboutCardContent: {
+    padding: theme.spacing(2.5),
+  },
+  aboutCardHeader: {
+    display: 'flex',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: theme.spacing(2),
+  },
+  aboutCardTitle: {
+    fontWeight: 600,
+    fontSize: '1.25rem',
+  },
+  aboutCardActions: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: theme.spacing(0.5),
+  },
+  aboutCardLabel: {
+    color: theme.palette.text.secondary,
+    fontWeight: 600,
+    fontSize: '0.75rem',
+    textTransform: 'uppercase' as const,
+    marginBottom: theme.spacing(0.5),
+  },
+  aboutCardValue: {
+    fontSize: '0.875rem',
+    wordBreak: 'break-word' as const,
+  },
+  aboutCardSection: {
+    marginTop: theme.spacing(2),
+  },
+  aboutSourceIcon: {
+    fontSize: '0.875rem',
+    flexShrink: 0,
+  },
+  aboutCardDivider: {
+    margin: theme.spacing(2, -2.5),
+  },
+  aboutCardTag: {
+    borderRadius: 6,
+    borderColor: theme.palette.divider,
+    textTransform: 'none' as const,
+    fontSize: '0.75rem',
+    padding: theme.spacing(0.25, 1),
+  },
+  aboutSourceLink: {
+    color: theme.palette.primary.main,
+    textDecoration: 'none',
+    display: 'inline-flex',
+    alignItems: 'center',
+    gap: theme.spacing(0.5),
+    '&:hover': {
+      textDecoration: 'underline',
+    },
+  },
 }));
 
 interface AboutCardProps {
   entity: Entity;
   ownerName: string | null;
+  baseImageName: string | null;
+  sourceLocationUrl: string | null;
   isRefreshing: boolean;
   isDownloadExperience: boolean;
   onRefresh: () => void;
-  onViewTechdocs: () => void;
-  onOpenSourceLocation: () => void;
 }
 
 export const AboutCard: React.FC<AboutCardProps> = ({
   entity,
   ownerName,
+  baseImageName,
+  sourceLocationUrl,
   isRefreshing,
   isDownloadExperience,
   onRefresh,
-  onViewTechdocs,
-  onOpenSourceLocation,
 }) => {
   const classes = useStyles();
   const theme = useTheme();
+  const [descriptionExpanded, setDescriptionExpanded] = useState(false);
+  const scmProvider =
+    entity?.metadata?.annotations?.['ansible.io/scm-provider']
+      ?.toString()
+      .toLowerCase() ?? '';
+  let sourceLabel = 'Source';
+  if (scmProvider.includes('github')) sourceLabel = 'GitHub';
+  else if (scmProvider.includes('gitlab')) sourceLabel = 'GitLab';
+  const description =
+    entity?.metadata?.description ??
+    entity?.metadata?.title ??
+    'No description available.';
+  const showReadMore = description.length > 150;
 
   return (
-    <Card
-      variant="outlined"
-      style={{ borderRadius: 16, borderColor: '#D3D3D3' }}
-    >
-      <CardContent>
-        <Box display="flex" justifyContent="space-between" alignItems="center">
-          <Typography
-            variant="h6"
-            style={{
-              fontWeight: 'bold',
-              fontSize: '1.5rem',
-              marginLeft: 10,
-            }}
-          >
-            About
-          </Typography>
+    <Card className={classes.aboutCard} variant="outlined">
+      <CardContent className={classes.aboutCardContent}>
+        <Box className={classes.aboutCardHeader}>
+          <Typography className={classes.aboutCardTitle}>About</Typography>
           {!isDownloadExperience && (
-            <Box display="flex" alignItems="center">
-              <IconButton size="small" onClick={onRefresh}>
-                <AutorenewIcon
-                  className={isRefreshing ? classes.rotate : ''}
-                  style={{ color: '#757575' }}
-                />
-              </IconButton>{' '}
-              <IconButton size="small">
-                <a
-                  href={entity?.metadata?.annotations?.[ANNOTATION_EDIT_URL]}
+            <Box className={classes.aboutCardActions}>
+              <Tooltip title="Refresh">
+                <IconButton
+                  size="small"
+                  onClick={onRefresh}
+                  disabled={isRefreshing}
+                >
+                  <AutorenewIcon
+                    className={isRefreshing ? classes.rotate : ''}
+                    style={{ color: '#757575' }}
+                  />
+                </IconButton>
+              </Tooltip>
+              {getEntityEEDefinitionUrl(entity) && (
+                <IconButton
+                  size="small"
+                  component="a"
+                  href={getEntityEEDefinitionUrl(entity)}
                   target="_blank"
                   rel="noopener noreferrer"
+                  aria-label="Edit definition"
                 >
                   <EditIcon style={{ color: theme.palette.primary.main }} />
-                </a>
-              </IconButton>
+                </IconButton>
+              )}
             </Box>
           )}
         </Box>
-        {/* Top Actions (View Techdocs / Source) */}
-        {!isDownloadExperience && (
-          <Box
-            display="flex"
-            justifyContent="space-around"
-            alignItems="center"
-            textAlign="center"
-            mt={2}
-            mb={2}
-          >
-            <Box
-              onClick={onViewTechdocs}
-              style={{
-                cursor: 'pointer',
-                display: 'flex',
-                flexDirection: 'column',
-                alignItems: 'center',
-                minWidth: 120,
-              }}
-            >
-              <DescriptionOutlinedIcon
-                style={{
-                  color: theme.palette.primary.main,
-                  fontSize: 30,
-                }}
-              />
-              <Typography
-                variant="body2"
-                style={{
-                  color: theme.palette.primary.main,
-                  fontWeight: 600,
-                  marginTop: 6,
-                }}
-              >
-                VIEW <br /> TECHDOCS
-              </Typography>
-            </Box>
 
-            <Box
-              onClick={onOpenSourceLocation}
-              style={{
-                cursor: 'pointer',
-                display: 'flex',
-                flexDirection: 'column',
-                alignItems: 'center',
-                minWidth: 120,
-              }}
-            >
-              <GitHubIcon
-                style={{
-                  color: theme.palette.primary.main,
-                  fontSize: 30,
-                }}
-              />
-              <Typography
-                variant="body2"
-                style={{
-                  color: theme.palette.primary.main,
-                  fontWeight: 600,
-                  marginTop: 6,
-                }}
-              >
-                VIEW <br /> SOURCE
+        {/* Description - inline expand when > 150 chars, no TechDocs link */}
+        <Box>
+          <Typography className={classes.aboutCardLabel}>
+            Description
+          </Typography>
+          <Typography className={classes.aboutCardValue}>
+            {showReadMore && !descriptionExpanded
+              ? `${description.slice(0, 150)}...`
+              : description}
+          </Typography>
+          {showReadMore && (
+            <>
+              {descriptionExpanded ? (
+                <Link
+                  component="button"
+                  variant="body2"
+                  className={classes.descriptionExpand}
+                  onClick={() => setDescriptionExpanded(false)}
+                >
+                  Read less
+                </Link>
+              ) : (
+                <Link
+                  component="button"
+                  variant="body2"
+                  className={classes.descriptionExpand}
+                  onClick={() => setDescriptionExpanded(true)}
+                >
+                  Read more
+                </Link>
+              )}
+            </>
+          )}
+        </Box>
+
+        {/* Owner */}
+        <Box className={classes.aboutCardSection}>
+          <Typography className={classes.aboutCardLabel}>Owner</Typography>
+          <Typography className={classes.aboutCardValue}>
+            {ownerName}
+          </Typography>
+        </Box>
+
+        {/* Base image */}
+        <Box className={classes.aboutCardSection}>
+          <Typography className={classes.aboutCardLabel}>Base image</Typography>
+          <Typography className={classes.aboutCardValue}>
+            {baseImageName ?? '—'}
+          </Typography>
+        </Box>
+
+        {/* Source - hidden when download-experience is true; label by SCM, View in source + readme.md like Resources card */}
+        {!isDownloadExperience && (
+          <Box className={classes.aboutCardSection}>
+            <Typography className={classes.aboutCardLabel}>Source</Typography>
+            {sourceLocationUrl ? (
+              <Box className={classes.sourceLinkRow}>
+                <Link
+                  href={sourceLocationUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className={classes.aboutSourceLink}
+                >
+                  <span>{sourceLabel}</span>
+                  <OpenInNewIcon className={classes.aboutSourceIcon} />
+                </Link>
+              </Box>
+            ) : (
+              <Typography variant="body2" color="textSecondary">
+                —
               </Typography>
-            </Box>
+            )}
           </Box>
         )}
-        <Divider style={{ margin: '12px -16px 12px' }} />
-        {/* Details */}
-        <Box>
-          <Typography
-            variant="caption"
-            style={{ color: 'gray', fontWeight: 600 }}
-          >
-            DESCRIPTION
-          </Typography>
-          <Typography variant="body2">
-            {entity?.metadata?.description ??
-              entity?.metadata?.title ??
-              'No description available.'}
-          </Typography>
-        </Box>
-        <Box display="flex" flexDirection="column" gridGap={4} marginTop={2}>
-          <Box>
-            <Typography
-              variant="caption"
-              style={{ color: 'gray', fontWeight: 600 }}
-            >
-              OWNER
-            </Typography>{' '}
-            <Typography variant="body2">{ownerName}</Typography>
-          </Box>
-          <Box marginTop={2}>
-            <Typography
-              variant="caption"
-              style={{ color: 'gray', fontWeight: 600 }}
-            >
-              TYPE
-            </Typography>
-            <Typography variant="body2" style={{ fontWeight: 600 }}>
-              {(entity?.spec?.type as string) ??
-                (entity?.metadata?.namespace as string) ??
-                'Unknown'}
-            </Typography>
-          </Box>
-        </Box>
 
+        <Divider className={classes.aboutCardDivider} />
+
+        {/* Tags */}
         <Box marginTop={2}>
-          <Typography
-            variant="caption"
-            style={{ color: 'gray', fontWeight: 600 }}
-          >
-            TAGS
-          </Typography>
-
+          <Typography className={classes.aboutCardLabel}>Tags</Typography>
           <Box display="flex" gridGap={8} marginTop={1} flexWrap="wrap">
             {Array.isArray(entity?.metadata?.tags) &&
             entity.metadata?.tags?.length > 0 ? (
               entity.metadata?.tags?.map((t: string) => (
                 <Button
+                  key={t}
                   variant="outlined"
                   size="small"
-                  key={t}
-                  className={classes.tagButton}
-                  style={{
-                    textTransform: 'none',
-                    borderRadius: 8,
-                    borderColor: '#D3D3D3',
-                  }}
+                  className={classes.aboutCardTag}
+                  disabled
                 >
                   {t}
                 </Button>
               ))
             ) : (
-              <Typography variant="body2" color="textSecondary">
+              <Typography
+                className={classes.aboutCardValue}
+                color="textSecondary"
+              >
                 No tags
               </Typography>
             )}
