@@ -278,44 +278,70 @@ describe('EEDetailsPage', () => {
     expect(getEntities).toHaveBeenCalled();
   });
 
-  test('clicking VIEW TECHDOCS calls window.open with computed docs url', async () => {
+  test('clicking Read more (long description) expands description inline and shows Read less', async () => {
+    const longDescription =
+      'Long description over 150 characters. Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam.';
+    const entityLongDesc = {
+      ...entityNoDownload,
+      metadata: {
+        ...entityNoDownload.metadata,
+        description: longDescription,
+      },
+    };
+    renderWithCatalogApi(() => Promise.resolve({ items: [entityLongDesc] }));
+
+    await screen.findByTestId('favorite-entity');
+
+    const readMore = screen.queryByText(/Read more/i);
+    expect(readMore).toBeInTheDocument();
+    expect(screen.queryByText(longDescription)).toBeNull();
+
+    fireEvent.click(readMore!);
+
+    expect(screen.getByText(longDescription)).toBeInTheDocument();
+    expect(screen.getByText(/Read less/i)).toBeInTheDocument();
+  });
+
+  test('Resources card renders documentation links', async () => {
+    renderWithCatalogApi(() => Promise.resolve({ items: [entityNoDownload] }));
+
+    await screen.findByTestId('favorite-entity');
+
+    expect(
+      screen.getByText(
+        /Create execution environment definitions in self-service automation portal/i,
+      ),
+    ).toBeInTheDocument();
+  });
+
+  test('Edit definition action opens definition file URL', async () => {
     renderWithCatalogApi(() => Promise.resolve({ items: [entityNoDownload] }));
 
     await screen.findByTestId('favorite-entity');
 
     const openSpy = jest.spyOn(window, 'open').mockImplementation(() => null);
 
-    const techdocsBox = screen.queryByText(/VIEW\s*TECHDOCS/i);
-    expect(techdocsBox).toBeInTheDocument();
+    const actionsButton = screen.getByRole('button', { name: /Actions/i });
+    fireEvent.click(actionsButton);
+    const editDefinitionItem = await screen.findByText(/Edit definition/i);
+    fireEvent.click(editDefinitionItem);
 
-    fireEvent.click(techdocsBox!);
-
-    expect(openSpy).toHaveBeenCalledWith(
-      `/docs/${entityNoDownload.metadata.namespace}/${entityNoDownload.kind}/${entityNoDownload.metadata.name}`,
-      '_blank',
-    );
-
+    expect(openSpy).toHaveBeenCalledWith('http://edit/ee-one.yaml', '_blank');
     openSpy.mockRestore();
   });
 
-  test('clicking VIEW SOURCE opens source location cleaned', async () => {
+  test('source link points to source location and opens in new tab', async () => {
     renderWithCatalogApi(() => Promise.resolve({ items: [entityNoDownload] }));
 
     await screen.findByTestId('favorite-entity');
 
-    const openSpy = jest.spyOn(window, 'open').mockImplementation(() => null);
-
-    const viewSourceBox = screen.queryByText(/VIEW\s*SOURCE/i);
-    expect(viewSourceBox).toBeInTheDocument();
-
-    fireEvent.click(viewSourceBox!);
-
-    expect(openSpy).toHaveBeenCalledWith(
+    // Main layout uses "Source" section with link labeled by SCM (e.g. GitHub)
+    const sourceLink = screen.getByRole('link', { name: /github/i });
+    expect(sourceLink).toHaveAttribute(
+      'href',
       'https://github.com/owner/repo/tree/branch/ee1/',
-      '_blank',
     );
-
-    openSpy.mockRestore();
+    expect(sourceLink).toHaveAttribute('target', '_blank');
   });
 
   test('Edit action opens edit URL from annotation (if present)', async () => {
@@ -325,14 +351,45 @@ describe('EEDetailsPage', () => {
     const favorite = await screen.findByTestId('favorite-entity');
     expect(favorite).toBeInTheDocument();
 
+    const editLinks = screen.queryAllByRole('link', {
+      name: /edit definition/i,
+    });
     const editLink =
-      screen.queryByRole('link', { name: /edit/i }) ||
-      screen.queryByText(/Edit/i);
+      editLinks.length > 0
+        ? editLinks[0]
+        : screen.queryByText(/Edit definition/i);
     if (editLink) {
       fireEvent.click(editLink);
       // link has target _blank in the markup — ensure href contains the edit url
       // expect((editLink as HTMLAnchorElement).href).toContain('http://edit/ee-one');
     }
+  });
+
+  test('AboutCard shows source link from source-location when edit-url is missing', async () => {
+    const entitySourceLocationOnly = {
+      ...entityNoDownload,
+      metadata: {
+        ...entityNoDownload.metadata,
+        annotations: {
+          'backstage.io/source-location':
+            'url:https://git.example.com/org/repo',
+        },
+      },
+    };
+    renderWithCatalogApi(() =>
+      Promise.resolve({ items: [entitySourceLocationOnly] }),
+    );
+
+    await screen.findByTestId('favorite-entity');
+
+    // Main layout shows Source section with link (no separate EDIT URL block)
+    const sourceLink = screen.getByRole('link', {
+      name: /source/i,
+    });
+    expect(sourceLink).toHaveAttribute(
+      'href',
+      'https://git.example.com/org/repo',
+    );
   });
 
   test('Download EE files triggers archive creation & download flow (create/revoke called)', async () => {
@@ -406,6 +463,26 @@ describe('EEDetailsPage', () => {
 
     // consoleErrorSpy.mockRestore();
     // createObjectURLSpy.mockRestore();
+  });
+
+  test('download with missing definition/readme/ansible_cfg returns early without creating blob', async () => {
+    const createObjectURLSpy = jest.spyOn(URL, 'createObjectURL');
+
+    renderWithCatalogApi(() => Promise.resolve({ items: [entityNoReadme] }));
+
+    await screen.findByTestId('favorite-entity');
+
+    const downloadLink = screen.queryByText(/Download EE files/i);
+    expect(downloadLink).toBeInTheDocument();
+
+    fireEvent.click(downloadLink!);
+
+    // downloadEntityAsTarArchive returns false when required spec is missing; no blob is created
+    await waitFor(() => {
+      expect(createObjectURLSpy).not.toHaveBeenCalled();
+    });
+
+    createObjectURLSpy.mockRestore();
   });
 
   test('when annotation disables download, Download EE files not shown', async () => {
@@ -578,31 +655,25 @@ describe('EEDetailsPage', () => {
     });
   });
 
-  test('menu actions: unregister opens unregister flow and other options are not present', async () => {
-    renderWithCatalogApi(() => Promise.resolve({ items: [entityFull] }));
+  test('Actions menu: Delete opens unregister flow; Build, Edit definition present when not download-experience', async () => {
+    renderWithCatalogApi(() => Promise.resolve({ items: [entityNoDownload] }));
 
     await screen.findByTestId('favorite-entity');
 
-    // Find the menu button: choose a header icon button that does not contain favorite-entity
-    const buttons = screen.getAllByRole('button');
-    const menuButton = buttons.find(
-      b =>
-        !b.querySelector('[data-testid="favorite-entity"]') &&
-        b.querySelector('svg'),
-    );
-    expect(menuButton).toBeTruthy();
-    fireEvent.click(menuButton!);
+    const actionsButton = screen.getByRole('button', { name: /Actions/i });
+    fireEvent.click(actionsButton);
 
-    // Verify only "Unregister entity" option is present
-    const unregisterItem = await screen.findByText(/Unregister entity/i);
-    expect(unregisterItem).toBeInTheDocument();
+    expect(
+      screen.getByRole('menuitem', { name: /Build/i }),
+    ).toBeInTheDocument();
+    expect(screen.getByText(/Edit definition/i)).toBeInTheDocument();
+    const deleteItem = await screen.findByText(/Delete/i);
+    expect(deleteItem).toBeInTheDocument();
 
-    // Verify "Copy entity URL" and "Inspect entity" are NOT present
     expect(screen.queryByText(/Copy entity URL/i)).not.toBeInTheDocument();
     expect(screen.queryByText(/Inspect entity/i)).not.toBeInTheDocument();
 
-    // Click Unregister entity -> should show unregister-dialog
-    fireEvent.click(unregisterItem);
+    fireEvent.click(deleteItem);
     await waitFor(() =>
       expect(screen.getByTestId('unregister-dialog')).toBeInTheDocument(),
     );
