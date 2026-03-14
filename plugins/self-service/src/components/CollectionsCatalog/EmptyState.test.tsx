@@ -2,9 +2,13 @@ import { render, screen, fireEvent } from '@testing-library/react';
 import { ThemeProvider, createTheme } from '@material-ui/core/styles';
 import { EmptyState } from './EmptyState';
 
-const mockUsePermission = jest.fn().mockReturnValue({ allowed: true });
-jest.mock('@backstage/plugin-permission-react', () => ({
-  usePermission: (...args: unknown[]) => mockUsePermission(...args),
+const mockUseIsSuperuser = jest.fn().mockReturnValue({
+  isSuperuser: true,
+  loading: false,
+  error: null,
+});
+jest.mock('../../hooks', () => ({
+  useIsSuperuser: () => mockUseIsSuperuser(),
 }));
 
 const theme = createTheme();
@@ -74,8 +78,12 @@ describe('EmptyState', () => {
     expect(screen.getByText('View Documentation')).toBeInTheDocument();
   });
 
-  it('shows admin message when allowed is false and hasConfiguredSources is false', () => {
-    mockUsePermission.mockReturnValueOnce({ allowed: false });
+  it('shows admin message when user is not superuser and hasConfiguredSources is false', () => {
+    mockUseIsSuperuser.mockReturnValueOnce({
+      isSuperuser: false,
+      loading: false,
+      error: null,
+    });
 
     renderWithTheme(
       <EmptyState hasConfiguredSources={false} onSyncClick={mockOnSyncClick} />,
@@ -87,8 +95,12 @@ describe('EmptyState', () => {
     expect(screen.queryByText('View Documentation')).not.toBeInTheDocument();
   });
 
-  it('shows admin message and no Sync when allowed is false and sources configured', () => {
-    mockUsePermission.mockReturnValueOnce({ allowed: false });
+  it('shows admin message and no Sync when user is not superuser and sources configured', () => {
+    mockUseIsSuperuser.mockReturnValueOnce({
+      isSuperuser: false,
+      loading: false,
+      error: null,
+    });
 
     renderWithTheme(
       <EmptyState hasConfiguredSources onSyncClick={mockOnSyncClick} />,

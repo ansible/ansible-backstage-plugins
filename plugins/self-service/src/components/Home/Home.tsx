@@ -21,10 +21,9 @@ import {
   useEntityList,
 } from '@backstage/plugin-catalog-react';
 import { TemplateGroups } from '@backstage/plugin-scaffolder-react/alpha';
-import { usePermission } from '@backstage/plugin-permission-react';
-import { catalogEntityCreatePermission } from '@backstage/plugin-catalog-common/alpha';
 
 import { WizardCard } from './TemplateCard';
+import { useIsSuperuser } from '../../hooks';
 import { rootRouteRef } from '../../routes';
 import { ansibleApiRef, rhAapAuthApiRef } from '../../apis';
 import { SyncConfirmationDialog } from './SyncConfirmationDialog';
@@ -159,9 +158,7 @@ export const HomeComponent = () => {
   const ansibleApi = useApi(ansibleApiRef);
   const rhAapAuthApi = useApi(rhAapAuthApiRef);
   const scaffolderApi = useApi(scaffolderApiRef);
-  const { allowed } = usePermission({
-    permission: catalogEntityCreatePermission,
-  });
+  const { isSuperuser: allowed } = useIsSuperuser();
   const [open, setOpen] = useState(false);
   const [syncOptions, setSyncOptions] = useState<string[]>([]);
   const [showSnackbar, setShowSnackbar] = useState<boolean>(false);

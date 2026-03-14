@@ -3,11 +3,10 @@ import SearchIcon from '@material-ui/icons/Search';
 import SyncIcon from '@material-ui/icons/Sync';
 import SettingsIcon from '@material-ui/icons/Settings';
 import OpenInNewIcon from '@material-ui/icons/OpenInNew';
-import { usePermission } from '@backstage/plugin-permission-react';
-import { catalogEntityCreatePermission } from '@backstage/plugin-catalog-common/alpha';
 
 import { useCollectionsStyles } from './styles';
 import { CONFIGURATION_DOCS_URL } from './constants';
+import { useIsSuperuser } from '../../hooks';
 
 export interface EmptyStateProps {
   onSyncClick?: () => void;
@@ -19,9 +18,7 @@ export const EmptyState = ({
   hasConfiguredSources,
 }: EmptyStateProps) => {
   const classes = useCollectionsStyles();
-  const { allowed } = usePermission({
-    permission: catalogEntityCreatePermission,
-  });
+  const { isSuperuser: allowed } = useIsSuperuser();
 
   // No content sources configured
   if (hasConfiguredSources === false) {
