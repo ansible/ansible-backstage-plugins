@@ -1,4 +1,4 @@
-import { Box, Card, CardContent, Typography } from '@material-ui/core';
+import { Box, Card, CardContent } from '@material-ui/core';
 import { makeStyles } from '@material-ui/core/styles';
 import { MarkdownContent } from '@backstage/core-components';
 
@@ -42,21 +42,8 @@ export const ReadmeCard: React.FC<ReadmeCardProps> = ({ readmeContent }) => {
 
   return (
     <Box flex={1} style={{ minHeight: 0 }}>
-      <Card
-        variant="outlined"
-        style={{ borderRadius: 16, borderColor: '#D3D3D3' }}
-      >
+      <Card variant="outlined">
         <CardContent style={{ flex: 1, minHeight: 0 }}>
-          <Typography
-            variant="h6"
-            style={{
-              fontWeight: 'bold',
-              fontSize: '1.5rem',
-              marginBottom: 12,
-            }}
-          >
-            README
-          </Typography>
           <div className={classes.scrollArea}>
             <MarkdownContent
               className={classes.markdownScroll}
