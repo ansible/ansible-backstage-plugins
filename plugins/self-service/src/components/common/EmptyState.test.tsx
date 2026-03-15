@@ -2,9 +2,13 @@ import { render, screen, fireEvent } from '@testing-library/react';
 import { ThemeProvider, createTheme } from '@material-ui/core/styles';
 import { EmptyState } from './EmptyState';
 
-const mockUsePermission = jest.fn().mockReturnValue({ allowed: true });
-jest.mock('@backstage/plugin-permission-react', () => ({
-  usePermission: (...args: unknown[]) => mockUsePermission(...args),
+const mockUseIsSuperuser = jest.fn().mockReturnValue({
+  isSuperuser: true,
+  loading: false,
+  error: null,
+});
+jest.mock('../../hooks', () => ({
+  useIsSuperuser: () => mockUseIsSuperuser(),
 }));
 
 const theme = createTheme();
@@ -18,6 +22,11 @@ describe('EmptyState', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
+    mockUseIsSuperuser.mockReturnValue({
+      isSuperuser: true,
+      loading: false,
+      error: null,
+    });
   });
 
   it('shows "No content sources configured" when hasConfiguredSources is false', () => {
@@ -54,7 +63,7 @@ describe('EmptyState', () => {
     expect(screen.getByText('No Collections Found')).toBeInTheDocument();
   });
 
-  it('renders Sync Now button when allowed and onSyncClick provided and sources configured', () => {
+  it('renders Sync Now button when superuser and onSyncClick provided and sources configured', () => {
     renderWithTheme(
       <EmptyState hasConfiguredSources onSyncClick={mockOnSyncClick} />,
     );
@@ -66,7 +75,7 @@ describe('EmptyState', () => {
     expect(mockOnSyncClick).toHaveBeenCalledTimes(1);
   });
 
-  it('renders View Documentation link when hasConfiguredSources is false and allowed', () => {
+  it('renders View Documentation link when hasConfiguredSources is false and superuser', () => {
     renderWithTheme(
       <EmptyState hasConfiguredSources={false} onSyncClick={mockOnSyncClick} />,
     );
@@ -74,8 +83,12 @@ describe('EmptyState', () => {
     expect(screen.getByText('View Documentation')).toBeInTheDocument();
   });
 
-  it('shows admin message when allowed is false and hasConfiguredSources is false', () => {
-    mockUsePermission.mockReturnValueOnce({ allowed: false });
+  it('shows admin message when not superuser and hasConfiguredSources is false', () => {
+    mockUseIsSuperuser.mockReturnValueOnce({
+      isSuperuser: false,
+      loading: false,
+      error: null,
+    });
 
     renderWithTheme(
       <EmptyState hasConfiguredSources={false} onSyncClick={mockOnSyncClick} />,
@@ -87,8 +100,12 @@ describe('EmptyState', () => {
     expect(screen.queryByText('View Documentation')).not.toBeInTheDocument();
   });
 
-  it('shows admin message and no Sync when allowed is false and sources configured', () => {
-    mockUsePermission.mockReturnValueOnce({ allowed: false });
+  it('shows admin message and no Sync when not superuser and sources configured', () => {
+    mockUseIsSuperuser.mockReturnValueOnce({
+      isSuperuser: false,
+      loading: false,
+      error: null,
+    });
 
     renderWithTheme(
       <EmptyState hasConfiguredSources onSyncClick={mockOnSyncClick} />,
@@ -100,5 +117,41 @@ describe('EmptyState', () => {
     expect(
       screen.queryByRole('button', { name: /Sync Now/i }),
     ).not.toBeInTheDocument();
+  });
+
+  it('shows repository filter message when repositoryFilter is true', () => {
+    renderWithTheme(
+      <EmptyState repositoryFilter onSyncClick={mockOnSyncClick} />,
+    );
+
+    expect(
+      screen.getByText('No collections discovered from this repository'),
+    ).toBeInTheDocument();
+  });
+
+  it('disables Sync Now button when syncDisabled is true', () => {
+    renderWithTheme(
+      <EmptyState
+        hasConfiguredSources
+        onSyncClick={mockOnSyncClick}
+        syncDisabled
+      />,
+    );
+
+    const syncButton = screen.getByRole('button', { name: /Sync Now/i });
+    expect(syncButton).toBeDisabled();
+  });
+
+  it('shows syncDisabledReason in tooltip when sync is disabled', () => {
+    renderWithTheme(
+      <EmptyState
+        hasConfiguredSources
+        onSyncClick={mockOnSyncClick}
+        syncDisabled
+        syncDisabledReason="Custom reason"
+      />,
+    );
+
+    expect(screen.getByTitle('Custom reason')).toBeInTheDocument();
   });
 });

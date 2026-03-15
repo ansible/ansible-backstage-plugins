@@ -31,7 +31,7 @@ describe('fetchReadmeFromBackend', () => {
     expect(mockDiscoveryApi.getBaseUrl).toHaveBeenCalledWith('catalog');
     expect(mockFetchApi.fetch).toHaveBeenCalledWith(
       expect.stringContaining(
-        'https://backstage.io/api/catalog/git_readme_content?',
+        'https://backstage.io/api/catalog/git_file_content?',
       ),
     );
 
@@ -155,7 +155,7 @@ describe('fetchReadmeFromBackend', () => {
     });
 
     expect(mockFetchApi.fetch).toHaveBeenCalledWith(
-      expect.stringContaining('https://custom.api/catalog/git_readme_content'),
+      expect.stringContaining('https://custom.api/catalog/git_file_content'),
     );
   });
 });

@@ -33,7 +33,7 @@ import {
 import { Entity } from '@backstage/catalog-model';
 import { useNavigate } from 'react-router-dom';
 
-import { SyncStatusMap } from './types';
+import { SyncStatusMap, EmptyState } from '../common';
 import { useCollectionsStyles } from './styles';
 import { PAGE_SIZE } from './constants';
 import {
@@ -43,7 +43,6 @@ import {
   filterCollectionsByRepository,
 } from './utils';
 import { CollectionCard } from './CollectionCard';
-import { EmptyState } from './EmptyState';
 
 export const CollectionsTypeFilter = () => {
   const { filters, updateFilters } = useEntityList();

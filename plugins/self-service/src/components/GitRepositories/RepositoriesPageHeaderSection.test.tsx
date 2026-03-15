@@ -2,9 +2,13 @@ import { render, screen, fireEvent } from '@testing-library/react';
 import { ThemeProvider, createTheme } from '@material-ui/core/styles';
 import { RepositoriesPageHeaderSection } from './RepositoriesPageHeaderSection';
 
-const mockUsePermission = jest.fn().mockReturnValue({ allowed: true });
-jest.mock('@backstage/plugin-permission-react', () => ({
-  usePermission: (...args: unknown[]) => mockUsePermission(...args),
+const mockUseIsSuperuser = jest.fn().mockReturnValue({
+  isSuperuser: true,
+  loading: false,
+  error: null,
+});
+jest.mock('../../hooks', () => ({
+  useIsSuperuser: () => mockUseIsSuperuser(),
 }));
 
 const theme = createTheme();
@@ -18,7 +22,11 @@ describe('RepositoriesPageHeaderSection', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
-    mockUsePermission.mockReturnValue({ allowed: true });
+    mockUseIsSuperuser.mockReturnValue({
+      isSuperuser: true,
+      loading: false,
+      error: null,
+    });
   });
 
   it('renders Git Repositories title', () => {
@@ -39,7 +47,7 @@ describe('RepositoriesPageHeaderSection', () => {
     ).toBeInTheDocument();
   });
 
-  it('renders Sync Now button when allowed', () => {
+  it('renders Sync Now button when user is superuser', () => {
     renderWithTheme(
       <RepositoriesPageHeaderSection onSyncClick={mockOnSyncClick} />,
     );
@@ -81,8 +89,12 @@ describe('RepositoriesPageHeaderSection', () => {
     ).toBeInTheDocument();
   });
 
-  it('does not render Sync Now when permission denied', () => {
-    mockUsePermission.mockReturnValueOnce({ allowed: false });
+  it('does not render Sync Now when user is not superuser', () => {
+    mockUseIsSuperuser.mockReturnValue({
+      isSuperuser: false,
+      loading: false,
+      error: null,
+    });
 
     renderWithTheme(
       <RepositoriesPageHeaderSection onSyncClick={mockOnSyncClick} />,

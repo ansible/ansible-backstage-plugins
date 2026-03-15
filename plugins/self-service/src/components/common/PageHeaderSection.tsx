@@ -1,9 +1,8 @@
 import { Box, Button, Tooltip, Typography } from '@material-ui/core';
 import HelpOutlineIcon from '@material-ui/icons/HelpOutline';
 import SyncIcon from '@material-ui/icons/Sync';
-import { usePermission } from '@backstage/plugin-permission-react';
-import { catalogEntityCreatePermission } from '@backstage/plugin-catalog-common/alpha';
 
+import { useIsSuperuser } from '../../hooks';
 import { useCollectionsStyles } from '../CollectionsCatalog/styles';
 
 export interface PageHeaderSectionProps {
@@ -24,9 +23,7 @@ export const PageHeaderSection = ({
   syncDisabledReason,
 }: PageHeaderSectionProps) => {
   const classes = useCollectionsStyles();
-  const { allowed } = usePermission({
-    permission: catalogEntityCreatePermission,
-  });
+  const { isSuperuser: allowed } = useIsSuperuser();
 
   return (
     <Box className={classes.pageHeader}>

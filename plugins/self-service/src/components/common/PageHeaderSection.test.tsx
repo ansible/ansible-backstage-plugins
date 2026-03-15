@@ -2,9 +2,13 @@ import { render, screen, fireEvent } from '@testing-library/react';
 import { ThemeProvider, createTheme } from '@material-ui/core/styles';
 import { PageHeaderSection } from './PageHeaderSection';
 
-const mockUsePermission = jest.fn().mockReturnValue({ allowed: true });
-jest.mock('@backstage/plugin-permission-react', () => ({
-  usePermission: (...args: unknown[]) => mockUsePermission(...args),
+const mockUseIsSuperuser = jest.fn().mockReturnValue({
+  isSuperuser: true,
+  loading: false,
+  error: null,
+});
+jest.mock('../../hooks', () => ({
+  useIsSuperuser: () => mockUseIsSuperuser(),
 }));
 
 const theme = createTheme();
@@ -25,7 +29,11 @@ describe('PageHeaderSection', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
-    mockUsePermission.mockReturnValue({ allowed: true });
+    mockUseIsSuperuser.mockReturnValue({
+      isSuperuser: true,
+      loading: false,
+      error: null,
+    });
   });
 
   it('renders title', () => {
@@ -69,8 +77,12 @@ describe('PageHeaderSection', () => {
     expect(syncButton).toBeDisabled();
   });
 
-  it('does not render Sync Now when permission denied', () => {
-    mockUsePermission.mockReturnValueOnce({ allowed: false });
+  it('does not render Sync Now when not superuser', () => {
+    mockUseIsSuperuser.mockReturnValueOnce({
+      isSuperuser: false,
+      loading: false,
+      error: null,
+    });
 
     renderWithTheme(<PageHeaderSection {...defaultProps} />);
 

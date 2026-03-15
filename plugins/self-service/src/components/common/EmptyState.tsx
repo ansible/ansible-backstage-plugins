@@ -3,19 +3,11 @@ import SearchIcon from '@material-ui/icons/Search';
 import SyncIcon from '@material-ui/icons/Sync';
 import SettingsIcon from '@material-ui/icons/Settings';
 import OpenInNewIcon from '@material-ui/icons/OpenInNew';
-import { usePermission } from '@backstage/plugin-permission-react';
-import { catalogEntityCreatePermission } from '@backstage/plugin-catalog-common/alpha';
 
-import { useCollectionsStyles } from './styles';
+import { useSharedStyles } from './styles';
 import { CONFIGURATION_DOCS_URL } from './constants';
-
-export interface EmptyStateProps {
-  onSyncClick?: () => void;
-  hasConfiguredSources?: boolean | null;
-  repositoryFilter?: boolean;
-  syncDisabled?: boolean;
-  syncDisabledReason?: string;
-}
+import { EmptyStateProps } from './types';
+import { useIsSuperuser } from '../../hooks';
 
 export const EmptyState = ({
   onSyncClick,
@@ -24,10 +16,8 @@ export const EmptyState = ({
   syncDisabled = false,
   syncDisabledReason,
 }: EmptyStateProps) => {
-  const classes = useCollectionsStyles();
-  const { allowed } = usePermission({
-    permission: catalogEntityCreatePermission,
-  });
+  const classes = useSharedStyles();
+  const { isSuperuser: allowed } = useIsSuperuser();
 
   if (repositoryFilter) {
     return (
@@ -44,7 +34,6 @@ export const EmptyState = ({
     );
   }
 
-  // No content sources configured
   if (hasConfiguredSources === false) {
     return (
       <Box className={classes.emptyState}>
@@ -72,7 +61,6 @@ export const EmptyState = ({
     );
   }
 
-  // Sources configured but no collections found
   return (
     <Box className={classes.emptyState}>
       <SearchIcon className={classes.emptyStateIcon} />

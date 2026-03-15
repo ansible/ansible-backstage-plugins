@@ -32,12 +32,11 @@ import { Progress, Table, TableColumn } from '@backstage/core-components';
 import HelpOutlineIcon from '@material-ui/icons/HelpOutline';
 import GitHubIcon from '@material-ui/icons/GitHub';
 import { getSourceUrl, formatTimeAgo } from '../CollectionsCatalog/utils';
-import { GitLabIcon } from '../CollectionsCatalog/icons';
+import { GitLabIcon, SyncStatusMap } from '../common';
 import {
   useCollectionsStyles,
   useTableWrapperStyles,
 } from '../CollectionsCatalog/styles';
-import type { SyncStatusMap } from '../CollectionsCatalog/types';
 import {
   COLUMN_SOURCE_TOOLTIP,
   COLUMN_CONTAINS_TOOLTIP,

@@ -2,9 +2,13 @@ import { render, screen, fireEvent } from '@testing-library/react';
 import { ThemeProvider, createTheme } from '@material-ui/core/styles';
 import { PageHeaderSection } from './PageHeaderSection';
 
-const mockUsePermission = jest.fn().mockReturnValue({ allowed: true });
-jest.mock('@backstage/plugin-permission-react', () => ({
-  usePermission: (...args: unknown[]) => mockUsePermission(...args),
+const mockUseIsSuperuser = jest.fn().mockReturnValue({
+  isSuperuser: true,
+  loading: false,
+  error: null,
+});
+jest.mock('../../hooks', () => ({
+  useIsSuperuser: () => mockUseIsSuperuser(),
 }));
 
 const theme = createTheme();
@@ -18,6 +22,11 @@ describe('PageHeaderSection', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
+    mockUseIsSuperuser.mockReturnValue({
+      isSuperuser: true,
+      loading: false,
+      error: null,
+    });
   });
 
   it('renders Collections title and description', () => {
@@ -31,7 +40,7 @@ describe('PageHeaderSection', () => {
     ).toBeInTheDocument();
   });
 
-  it('renders Sync Now button when allowed', () => {
+  it('renders Sync Now button when user is superuser', () => {
     renderWithTheme(<PageHeaderSection onSyncClick={mockOnSyncClick} />);
 
     const syncButton = screen.getByRole('button', { name: /Sync Now/i });
@@ -64,8 +73,12 @@ describe('PageHeaderSection', () => {
     ).toBeInTheDocument();
   });
 
-  it('does not render Sync Now when permission denied', () => {
-    mockUsePermission.mockReturnValueOnce({ allowed: false });
+  it('does not render Sync Now when user is not superuser', () => {
+    mockUseIsSuperuser.mockReturnValue({
+      isSuperuser: false,
+      loading: false,
+      error: null,
+    });
 
     renderWithTheme(<PageHeaderSection onSyncClick={mockOnSyncClick} />);
 

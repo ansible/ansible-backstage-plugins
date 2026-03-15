@@ -16,11 +16,8 @@ import {
   useNotifications,
 } from '../notifications';
 import { useSyncStatusPolling } from '../CollectionsCatalog/useSyncStatusPolling';
-import { SyncDialog } from '../CollectionsCatalog/SyncDialog';
-import type {
-  SyncStatusMap,
-  StartedSyncInfo,
-} from '../CollectionsCatalog/types';
+import { SyncDialog } from '../common';
+import type { SyncStatusMap, StartedSyncInfo } from '../common';
 
 import { RepositoriesPageHeaderSection } from './RepositoriesPageHeaderSection';
 import { RepositoriesTable } from './RepositoriesTable';

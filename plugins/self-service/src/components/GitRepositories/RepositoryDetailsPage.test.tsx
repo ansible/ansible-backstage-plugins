@@ -257,7 +257,7 @@ describe('RepositoryDetailsPage', () => {
 
     await waitFor(() => {
       expect(mockFetchApi.fetch).toHaveBeenCalledWith(
-        expect.stringContaining('/git_readme_content'),
+        expect.stringContaining('/git_file_content'),
       );
     });
   });

@@ -8,6 +8,14 @@ jest.mock('@backstage/plugin-permission-react', () => ({
   usePermission: () => ({ allowed: true }),
 }));
 
+jest.mock('../../hooks', () => ({
+  useIsSuperuser: () => ({
+    isSuperuser: true,
+    loading: false,
+    error: null,
+  }),
+}));
+
 const mockStartTracking = jest.fn();
 const mockUseSyncStatusPolling = jest.fn().mockReturnValue({
   isSyncInProgress: false,
@@ -18,7 +26,8 @@ jest.mock('../CollectionsCatalog/useSyncStatusPolling', () => ({
   useSyncStatusPolling: () => mockUseSyncStatusPolling(),
 }));
 
-jest.mock('../CollectionsCatalog/SyncDialog', () => ({
+jest.mock('../common', () => ({
+  ...jest.requireActual('../common'),
   SyncDialog: ({ open, onClose, onSyncsStarted }: any) =>
     open ? (
       <div data-testid="sync-dialog">

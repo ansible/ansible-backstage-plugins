@@ -2,7 +2,6 @@ import {
   COLLECTION_TOOLTIP,
   COLLECTION_DESCRIPTION,
   PAGE_SIZE,
-  CONFIGURATION_DOCS_URL,
 } from './constants';
 
 describe('CollectionsCatalog constants', () => {
@@ -21,10 +20,5 @@ describe('CollectionsCatalog constants', () => {
   it('PAGE_SIZE is a positive number', () => {
     expect(typeof PAGE_SIZE).toBe('number');
     expect(PAGE_SIZE).toBe(12);
-  });
-
-  it('CONFIGURATION_DOCS_URL is defined', () => {
-    expect(CONFIGURATION_DOCS_URL).toBeDefined();
-    expect(typeof CONFIGURATION_DOCS_URL).toBe('string');
   });
 });

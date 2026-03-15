@@ -20,8 +20,7 @@ import { RepositoriesCIActivityTab } from './RepositoriesCIActivityTab';
 import { CollectionsListPage } from '../CollectionsCatalog/CollectionsListPage';
 import { useCollectionsStyles } from '../CollectionsCatalog/styles';
 import { getSourceUrl } from '../CollectionsCatalog/utils';
-import { EmptyState } from '../CollectionsCatalog/EmptyState';
-import { fetchReadmeFromBackend } from '../common';
+import { EmptyState, fetchReadmeFromBackend } from '../common';
 
 export const RepositoryDetailsPage = () => {
   const classes = useCollectionsStyles();

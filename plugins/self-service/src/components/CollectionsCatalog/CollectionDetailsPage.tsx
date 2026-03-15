@@ -16,8 +16,7 @@ import { CollectionResourcesCard } from './CollectionResourcesCard';
 import { CollectionReadmeCard } from './CollectionReadmeCard';
 import { RepositoryBadge } from './RepositoryBadge';
 import { useCollectionsStyles } from './styles';
-import { EmptyState } from './EmptyState';
-import { fetchReadmeFromBackend } from '../common';
+import { EmptyState, fetchReadmeFromBackend } from '../common';
 
 export const CollectionDetailsPage = () => {
   const classes = useCollectionsStyles();
