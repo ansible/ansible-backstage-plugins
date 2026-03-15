@@ -33,6 +33,10 @@ export {
   getUniqueFilters,
 } from './utils';
 
-export { COLLECTION_TOOLTIP, COLLECTION_DESCRIPTION, PAGE_SIZE } from './constants';
+export {
+  COLLECTION_TOOLTIP,
+  COLLECTION_DESCRIPTION,
+  PAGE_SIZE,
+} from './constants';
 
 export { useCollectionsStyles } from './styles';
