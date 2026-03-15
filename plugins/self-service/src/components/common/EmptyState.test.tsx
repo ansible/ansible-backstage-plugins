@@ -83,7 +83,7 @@ describe('EmptyState', () => {
     expect(screen.getByText('View Documentation')).toBeInTheDocument();
   });
 
-  it('shows admin message when not superuser and hasConfiguredSources is false', () => {
+  it('shows admin message when user is not superuser and hasConfiguredSources is false', () => {
     mockUseIsSuperuser.mockReturnValueOnce({
       isSuperuser: false,
       loading: false,
@@ -100,7 +100,7 @@ describe('EmptyState', () => {
     expect(screen.queryByText('View Documentation')).not.toBeInTheDocument();
   });
 
-  it('shows admin message and no Sync when not superuser and sources configured', () => {
+  it('shows admin message and no Sync when user is not superuser and sources configured', () => {
     mockUseIsSuperuser.mockReturnValueOnce({
       isSuperuser: false,
       loading: false,

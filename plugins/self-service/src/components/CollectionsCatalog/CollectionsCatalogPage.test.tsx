@@ -4,8 +4,12 @@ import { ThemeProvider, createTheme } from '@material-ui/core/styles';
 import { discoveryApiRef, fetchApiRef } from '@backstage/core-plugin-api';
 import { CollectionsCatalogPage } from './CollectionsCatalogPage';
 
-jest.mock('@backstage/plugin-permission-react', () => ({
-  usePermission: () => ({ allowed: true }),
+jest.mock('../../hooks', () => ({
+  useIsSuperuser: () => ({
+    isSuperuser: true,
+    loading: false,
+    error: null,
+  }),
 }));
 
 const mockStartTracking = jest.fn();

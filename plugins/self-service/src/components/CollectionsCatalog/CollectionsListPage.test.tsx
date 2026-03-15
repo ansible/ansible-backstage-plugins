@@ -40,6 +40,15 @@ jest.mock('@backstage/plugin-catalog-react', () => {
     MockStarredEntitiesApi: actual.MockStarredEntitiesApi,
   };
 });
+
+jest.mock('../../hooks', () => ({
+  useIsSuperuser: () => ({
+    isSuperuser: true,
+    loading: false,
+    error: null,
+  }),
+}));
+
 import { Entity } from '@backstage/catalog-model';
 import { MemoryRouter } from 'react-router-dom';
 import { CollectionsListPage, CollectionsContent } from './CollectionsListPage';

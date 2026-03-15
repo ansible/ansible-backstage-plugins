@@ -74,7 +74,7 @@ describe('PageHeaderSection', () => {
   });
 
   it('does not render Sync Now when user is not superuser', () => {
-    mockUseIsSuperuser.mockReturnValue({
+    mockUseIsSuperuser.mockReturnValueOnce({
       isSuperuser: false,
       loading: false,
       error: null,
