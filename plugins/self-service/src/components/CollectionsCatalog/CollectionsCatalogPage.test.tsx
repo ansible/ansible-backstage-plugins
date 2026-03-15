@@ -22,7 +22,7 @@ jest.mock('./useSyncStatusPolling', () => ({
   useSyncStatusPolling: () => mockUseSyncStatusPolling(),
 }));
 
-jest.mock('./SyncDialog', () => ({
+jest.mock('../common/SyncDialog', () => ({
   SyncDialog: ({ open, onClose, onSyncsStarted }: any) =>
     open ? (
       <div>
