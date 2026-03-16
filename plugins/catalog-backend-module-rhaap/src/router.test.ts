@@ -1055,6 +1055,24 @@ describe('createRouter', () => {
         content: null,
       });
     });
+
+    it('should handle sync status when thrown value is not an Error (stringifies in response)', async () => {
+      mockAAPEntityProvider.getLastSyncTime.mockImplementation(() => {
+        throw 'plain string error';
+      });
+      mockJobTemplateProvider.getLastSyncTime.mockReturnValue(null);
+
+      const response = await request(app).get(
+        '/ansible/sync/status?aap_entities=true',
+      );
+
+      expect(response.status).toBe(500);
+      expect(response.body.error).toContain('plain string error');
+      expect(response.body.aap).toEqual({
+        orgsUsersTeams: null,
+        jobTemplates: null,
+      });
+    });
   });
 
   describe('GET /ansible/sync/status with ansible_contents', () => {
