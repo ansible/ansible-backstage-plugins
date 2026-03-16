@@ -39,9 +39,7 @@ describe('EEBuilderSidebarItem', () => {
     });
 
     await renderInTestApp(
-      <TestApiProvider
-        apis={[[configApiRef, createMockConfigApi(false)]]}
-      >
+      <TestApiProvider apis={[[configApiRef, createMockConfigApi(false)]]}>
         <EEBuilderSidebarItem />
       </TestApiProvider>,
     );
@@ -55,9 +53,7 @@ describe('EEBuilderSidebarItem', () => {
     mockUsePermission.mockReturnValue({ loading: false, allowed: false });
 
     await renderInTestApp(
-      <TestApiProvider
-        apis={[[configApiRef, createMockConfigApi(undefined)]]}
-      >
+      <TestApiProvider apis={[[configApiRef, createMockConfigApi(undefined)]]}>
         <EEBuilderSidebarItem />
       </TestApiProvider>,
     );
@@ -71,9 +67,7 @@ describe('EEBuilderSidebarItem', () => {
     mockUsePermission.mockReturnValue({ loading: true, allowed: false });
 
     const { container } = await renderInTestApp(
-      <TestApiProvider
-        apis={[[configApiRef, createMockConfigApi(true)]]}
-      >
+      <TestApiProvider apis={[[configApiRef, createMockConfigApi(true)]]}>
         <EEBuilderSidebarItem />
       </TestApiProvider>,
     );
@@ -88,9 +82,7 @@ describe('EEBuilderSidebarItem', () => {
     mockUsePermission.mockReturnValue({ loading: false, allowed: false });
 
     const { container } = await renderInTestApp(
-      <TestApiProvider
-        apis={[[configApiRef, createMockConfigApi(true)]]}
-      >
+      <TestApiProvider apis={[[configApiRef, createMockConfigApi(true)]]}>
         <EEBuilderSidebarItem />
       </TestApiProvider>,
     );
@@ -105,9 +97,7 @@ describe('EEBuilderSidebarItem', () => {
     mockUsePermission.mockReturnValue({ loading: false, allowed: true });
 
     await renderInTestApp(
-      <TestApiProvider
-        apis={[[configApiRef, createMockConfigApi(true)]]}
-      >
+      <TestApiProvider apis={[[configApiRef, createMockConfigApi(true)]]}>
         <EEBuilderSidebarItem />
       </TestApiProvider>,
     );
@@ -121,9 +111,7 @@ describe('EEBuilderSidebarItem', () => {
     mockUsePermission.mockReturnValue({ loading: false, allowed: true });
 
     await renderInTestApp(
-      <TestApiProvider
-        apis={[[configApiRef, createMockConfigApi(true)]]}
-      >
+      <TestApiProvider apis={[[configApiRef, createMockConfigApi(true)]]}>
         <EEBuilderSidebarItem />
       </TestApiProvider>,
     );
