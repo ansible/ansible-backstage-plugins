@@ -8,6 +8,14 @@ import { permissionApiRef } from '@backstage/plugin-permission-react';
 import { Entity } from '@backstage/catalog-model';
 import { CollectionDetailsPage } from './CollectionDetailsPage';
 
+jest.mock('../../hooks', () => ({
+  useIsSuperuser: () => ({
+    isSuperuser: true,
+    loading: false,
+    error: null,
+  }),
+}));
+
 const theme = createTheme();
 
 const mockEntity: Entity = {
@@ -57,6 +65,10 @@ const renderWithRouter = (collectionName: string) => {
             <Route
               path="/collections/:collectionName"
               element={<CollectionDetailsPage />}
+            />
+            <Route
+              path="/self-service/collections"
+              element={<div>Collections Page</div>}
             />
           </Routes>
         </MemoryRouter>

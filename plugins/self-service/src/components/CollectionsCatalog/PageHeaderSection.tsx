@@ -1,12 +1,11 @@
 import { Box, Button, Tooltip, Typography } from '@material-ui/core';
 import HelpOutlineIcon from '@material-ui/icons/HelpOutline';
 import SyncIcon from '@material-ui/icons/Sync';
-import { usePermission } from '@backstage/plugin-permission-react';
-import { catalogEntityCreatePermission } from '@backstage/plugin-catalog-common/alpha';
 
 import { PageHeaderSectionProps } from './types';
 import { useCollectionsStyles } from './styles';
 import { COLLECTION_TOOLTIP, COLLECTION_DESCRIPTION } from './constants';
+import { useIsSuperuser } from '../../hooks';
 
 export const PageHeaderSection = ({
   onSyncClick,
@@ -14,9 +13,7 @@ export const PageHeaderSection = ({
   syncDisabledReason,
 }: PageHeaderSectionProps) => {
   const classes = useCollectionsStyles();
-  const { allowed } = usePermission({
-    permission: catalogEntityCreatePermission,
-  });
+  const { isSuperuser } = useIsSuperuser();
 
   return (
     <Box className={classes.pageHeader}>
@@ -33,7 +30,7 @@ export const PageHeaderSection = ({
             <HelpOutlineIcon className={classes.helpIcon} />
           </Tooltip>
         </Box>
-        {allowed && (
+        {isSuperuser && (
           <Tooltip
             title={syncDisabled && syncDisabledReason ? syncDisabledReason : ''}
             arrow
