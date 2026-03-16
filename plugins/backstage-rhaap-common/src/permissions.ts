@@ -1,8 +1,8 @@
 import type { BasicPermission } from '@backstage/plugin-permission-common';
 
-export const executionEnvironmentViewPermission: BasicPermission = {
+export const executionEnvironmentsViewPermission: BasicPermission = {
   type: 'basic',
-  name: 'ansible.execution-environment.view',
+  name: 'ansible.execution-environments.view',
   attributes: {},
 };
 
@@ -19,7 +19,7 @@ export const collectionsViewPermission: BasicPermission = {
 };
 
 export const ansiblePermissions = [
-  executionEnvironmentViewPermission,
+  executionEnvironmentsViewPermission,
   gitRepositoriesViewPermission,
   collectionsViewPermission,
 ];

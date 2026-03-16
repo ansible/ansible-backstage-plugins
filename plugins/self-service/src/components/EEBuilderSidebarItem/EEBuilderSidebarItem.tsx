@@ -2,11 +2,11 @@ import { usePermission } from '@backstage/plugin-permission-react';
 import { configApiRef, useApi } from '@backstage/core-plugin-api';
 import { SidebarItem } from '@backstage/core-components';
 import BuildIcon from '@material-ui/icons/Build';
-import { executionEnvironmentViewPermission } from '@ansible/backstage-rhaap-common/permissions';
+import { executionEnvironmentsViewPermission } from '@ansible/backstage-rhaap-common/permissions';
 
 export const EEBuilderSidebarItem = () => {
   const { loading, allowed } = usePermission({
-    permission: executionEnvironmentViewPermission,
+    permission: executionEnvironmentsViewPermission,
   });
 
   const config = useApi(configApiRef);

@@ -1,15 +1,15 @@
 import {
-  executionEnvironmentViewPermission,
+  executionEnvironmentsViewPermission,
   gitRepositoriesViewPermission,
   collectionsViewPermission,
   ansiblePermissions,
 } from './permissions';
 
 describe('permissions', () => {
-  it('exports executionEnvironmentViewPermission with correct shape', () => {
-    expect(executionEnvironmentViewPermission).toEqual({
+  it('exports executionEnvironmentsViewPermission with correct shape', () => {
+    expect(executionEnvironmentsViewPermission).toEqual({
       type: 'basic',
-      name: 'ansible.execution-environment.view',
+      name: 'ansible.execution-environments.view',
       attributes: {},
     });
   });
@@ -32,7 +32,7 @@ describe('permissions', () => {
 
   it('ansiblePermissions contains all three permissions', () => {
     expect(ansiblePermissions).toHaveLength(3);
-    expect(ansiblePermissions).toContain(executionEnvironmentViewPermission);
+    expect(ansiblePermissions).toContain(executionEnvironmentsViewPermission);
     expect(ansiblePermissions).toContain(gitRepositoriesViewPermission);
     expect(ansiblePermissions).toContain(collectionsViewPermission);
   });
