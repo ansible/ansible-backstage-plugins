@@ -44,6 +44,9 @@ import {
 import { EEEntityProvider } from './providers/EEEntityProvider';
 import { ScmClientFactory } from '@ansible/backstage-rhaap-common';
 
+// Express Request is not assignable to Backstage's auth request type; cast is required.
+type HttpAuthRequest = Parameters<HttpAuthService['credentials']>[0];
+
 export async function createRouter(options: {
   logger: LoggerService;
   config: Config;
@@ -248,7 +251,9 @@ export async function createRouter(options: {
 
   router.post('/register_ee', express.json(), async (request, response) => {
     // Only allow backend service calls (for example, scaffolder to catalog), not user requests
-    await httpAuth.credentials(request as any, { allow: ['service'] });
+    await httpAuth.credentials(request as unknown as HttpAuthRequest, {
+      allow: ['service'],
+    });
 
     const { entity } = request.body;
 
