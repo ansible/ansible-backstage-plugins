@@ -13,7 +13,7 @@ import {
   TRACKING_TIMEOUT_MS,
   FAST_POLL_INTERVAL_MS,
   SLOW_POLL_INTERVAL_MS,
-} from './constants';
+} from '../common';
 
 interface ProviderStatus {
   sourceId: string;

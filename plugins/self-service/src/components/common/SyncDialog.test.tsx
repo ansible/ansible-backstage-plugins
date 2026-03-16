@@ -814,7 +814,6 @@ describe('SyncDialog', () => {
       { timeout: 3000 },
     );
 
-    // Deselect the github.com host so only GitLab remains (covers toggleSelection host-level branch)
     const hostRow = screen
       .getByText('github.com')
       .closest('.MuiListItem-root') as HTMLElement;

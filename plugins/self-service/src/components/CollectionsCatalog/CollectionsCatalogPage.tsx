@@ -2,7 +2,7 @@ import { useState, useCallback } from 'react';
 import { Page, Content } from '@backstage/core-components';
 
 import { PageHeaderSection } from './PageHeaderSection';
-import { SyncDialog } from './SyncDialog';
+import { SyncDialog, StartedSyncInfo } from '../common';
 import { CollectionsContent } from './CollectionsListPage';
 import {
   NotificationProvider,
@@ -10,7 +10,6 @@ import {
   useNotifications,
 } from '../notifications';
 import { useSyncStatusPolling } from './useSyncStatusPolling';
-import { StartedSyncInfo } from './types';
 
 const CollectionsCatalogPageInner = () => {
   const [syncDialogOpen, setSyncDialogOpen] = useState(false);
@@ -53,6 +52,8 @@ const CollectionsCatalogPageInner = () => {
         <CollectionsContent
           onSyncClick={handleSyncClick}
           onSourcesStatusChange={handleSourcesStatusChange}
+          syncDisabled={syncDisabled}
+          syncDisabledReason={syncDisabledReason}
         />
         <SyncDialog
           open={syncDialogOpen}

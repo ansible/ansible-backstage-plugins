@@ -6,7 +6,38 @@ import type {
   AuthService,
 } from '@backstage/backend-plugin-api';
 import type { CatalogClient } from '@backstage/catalog-client';
+import type { Config } from '@backstage/config';
+
 import { AnsibleGitContentsProvider } from './providers/AnsibleGitContentsProvider';
+
+export function getGitLabIntegrationForHost(
+  config: Config,
+  host: string,
+): { token?: string; apiBaseUrl?: string } {
+  const arr = config.getOptionalConfigArray('integrations.gitlab');
+  if (!arr?.length) return {};
+  for (const c of arr) {
+    const h = c.getOptionalString('host') ?? 'gitlab.com';
+    if (h !== host) continue;
+    const token = c.getOptionalString('token');
+    const apiBaseUrl = c.getOptionalString('apiBaseUrl')?.replace(/\/$/, '');
+    return { token, apiBaseUrl };
+  }
+  return {};
+}
+
+export function isSafeHostname(host: string): boolean {
+  if (typeof host !== 'string' || host.length === 0 || host.length > 253) {
+    return false;
+  }
+  return /^[a-zA-Z0-9]([a-zA-Z0-9.-]*[a-zA-Z0-9])?$/.test(host);
+}
+
+export function getSkipTlsVerifyHosts(config: Config): string[] {
+  return (
+    config.getOptionalStringArray('catalog.ansible.skipTlsVerifyForHosts') ?? []
+  );
+}
 
 export function formatNameSpace(name: string): string {
   return name

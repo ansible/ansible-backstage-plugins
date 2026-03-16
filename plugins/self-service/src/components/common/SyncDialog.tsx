@@ -35,9 +35,10 @@ import {
   SourcesTree,
   StartedSyncInfo,
 } from './types';
-import { useCollectionsStyles } from './styles';
+import { useSharedStyles } from './styles';
 import { GitLabIcon, RedHatIcon } from './icons';
 import { useNotifications } from '../notifications';
+import { SYNC_STARTED_CATEGORY } from './constants';
 
 interface ProviderInfo {
   sourceId: string;
@@ -48,14 +49,12 @@ interface ProviderInfo {
   lastSyncTime: string | null;
 }
 
-const SYNC_STARTED_CATEGORY = 'sync-started';
-
 export const SyncDialog = ({
   open,
   onClose,
   onSyncsStarted,
 }: SyncDialogProps) => {
-  const classes = useCollectionsStyles();
+  const classes = useSharedStyles();
   const discoveryApi = useApi(discoveryApiRef);
   const fetchApi = useApi(fetchApiRef);
   const { showNotification } = useNotifications();

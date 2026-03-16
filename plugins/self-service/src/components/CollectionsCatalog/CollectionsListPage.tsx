@@ -33,12 +33,16 @@ import {
 import { Entity } from '@backstage/catalog-model';
 import { useNavigate } from 'react-router-dom';
 
-import { SyncStatusMap } from './types';
+import { SyncStatusMap, EmptyState } from '../common';
 import { useCollectionsStyles } from './styles';
 import { PAGE_SIZE } from './constants';
-import { sortEntities, filterLatestVersions, getUniqueFilters } from './utils';
+import {
+  sortEntities,
+  filterLatestVersions,
+  getUniqueFilters,
+  filterCollectionsByRepository,
+} from './utils';
 import { CollectionCard } from './CollectionCard';
-import { EmptyState } from './EmptyState';
 
 export const CollectionsTypeFilter = () => {
   const { filters, updateFilters } = useEntityList();
@@ -54,14 +58,51 @@ export const CollectionsTypeFilter = () => {
   return null;
 };
 
+interface EmptyStateWrapperProps {
+  filterByRepositoryEntity: boolean;
+  onSyncClick?: () => void;
+  hasConfiguredSources?: boolean | null;
+  syncDisabled?: boolean;
+  syncDisabledReason?: string;
+}
+
+const EmptyStateWrapper = ({
+  filterByRepositoryEntity,
+  onSyncClick,
+  hasConfiguredSources,
+  syncDisabled,
+  syncDisabledReason,
+}: EmptyStateWrapperProps) => {
+  const classes = useCollectionsStyles();
+  const emptyState = (
+    <EmptyState
+      onSyncClick={onSyncClick}
+      hasConfiguredSources={hasConfiguredSources}
+      syncDisabled={syncDisabled}
+      syncDisabledReason={syncDisabledReason}
+      {...(filterByRepositoryEntity && { repositoryFilter: true })}
+    />
+  );
+  if (filterByRepositoryEntity) {
+    return <Box className={classes.emptyStateContainer}>{emptyState}</Box>;
+  }
+  return emptyState;
+};
+
 interface CollectionsListPageProps {
   onSyncClick?: () => void;
   onSourcesStatusChange?: (hasConfiguredSources: boolean | null) => void;
+  filterByRepositoryEntity?: Entity | null;
+  syncDisabled?: boolean;
+  syncDisabledReason?: string;
 }
 
 export const CollectionsListPage = ({
   onSyncClick,
   onSourcesStatusChange,
+  filterByRepositoryEntity,
+  syncDisabled,
+  syncDisabledReason,
 }: CollectionsListPageProps) => {
   const classes = useCollectionsStyles();
   const catalogApi = useApi(catalogApiRef);
@@ -97,9 +138,14 @@ export const CollectionsListPage = ({
       .then(response => {
         if (!isMountedRef.current) return;
 
-        const items = Array.isArray(response)
-          ? response
-          : response?.items || [];
+        let items = Array.isArray(response) ? response : response?.items || [];
+
+        if (filterByRepositoryEntity) {
+          items = filterCollectionsByRepository(
+            items,
+            filterByRepositoryEntity,
+          );
+        }
 
         setAllEntities(items);
         setFilteredEntities(items);
@@ -119,7 +165,7 @@ export const CollectionsListPage = ({
         setShowError(true);
         setLoading(false);
       });
-  }, [catalogApi]);
+  }, [catalogApi, filterByRepositoryEntity]);
 
   const fetchSyncStatus = useCallback(async () => {
     try {
@@ -166,6 +212,11 @@ export const CollectionsListPage = ({
   }, [discoveryApi, fetchApi]);
 
   useEffect(() => {
+    if (filterByRepositoryEntity) {
+      setFilteredEntities(sortEntities(allEntities));
+      return;
+    }
+
     const searchLower = searchQuery.toLowerCase().trim();
     let filtered = allEntities.filter(entity => {
       const annotations = entity.metadata?.annotations || {};
@@ -200,7 +251,14 @@ export const CollectionsListPage = ({
     }
 
     setFilteredEntities(sortEntities(filtered));
-  }, [sourceFilter, tagFilter, searchQuery, allEntities, showLatestOnly]);
+  }, [
+    filterByRepositoryEntity,
+    sourceFilter,
+    tagFilter,
+    searchQuery,
+    allEntities,
+    showLatestOnly,
+  ]);
 
   useEffect(() => {
     isMountedRef.current = true;
@@ -211,9 +269,11 @@ export const CollectionsListPage = ({
       isMountedRef.current = false;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [filterByRepositoryEntity]);
 
   useEffect(() => {
+    if (filterByRepositoryEntity) return;
+
     if (allEntities && filters.user?.value === 'starred') {
       let starred = allEntities.filter(e => isStarredEntity(e));
       if (showLatestOnly) {
@@ -227,11 +287,23 @@ export const CollectionsListPage = ({
       }
       setFilteredEntities(sortEntities(all));
     }
-  }, [filters.user, allEntities, isStarredEntity, showLatestOnly]);
+  }, [
+    filterByRepositoryEntity,
+    filters.user,
+    allEntities,
+    isStarredEntity,
+    showLatestOnly,
+  ]);
 
   useEffect(() => {
     setCurrentPage(1);
-  }, [sourceFilter, tagFilter, searchQuery, showLatestOnly]);
+  }, [
+    sourceFilter,
+    tagFilter,
+    searchQuery,
+    showLatestOnly,
+    filterByRepositoryEntity,
+  ]);
 
   useEffect(() => {
     if (onSourcesStatusChange) {
@@ -256,117 +328,136 @@ export const CollectionsListPage = ({
     <div style={{ flexDirection: 'column', width: '100%' }}>
       <CollectionsTypeFilter />
       {allEntities.length === 0 ? (
-        <EmptyState
+        <EmptyStateWrapper
+          filterByRepositoryEntity={!!filterByRepositoryEntity}
           onSyncClick={onSyncClick}
           hasConfiguredSources={hasConfiguredSources}
+          syncDisabled={syncDisabled}
+          syncDisabledReason={syncDisabledReason}
         />
       ) : (
-        <div className={classes.catalogLayout}>
+        <Box
+          className={
+            filterByRepositoryEntity
+              ? `${classes.catalogLayout} ${classes.catalogLayoutStretch}`
+              : classes.catalogLayout
+          }
+        >
           <CatalogFilterLayout>
-            <CatalogFilterLayout.Filters>
-              <TextField
-                className={classes.searchInput}
-                placeholder="Search"
-                variant="standard"
-                fullWidth
-                value={searchQuery}
-                onChange={e => setSearchQuery(e.target.value)}
-                InputProps={{
-                  startAdornment: (
-                    <InputAdornment position="start">
-                      <SearchIcon color="disabled" />
-                    </InputAdornment>
-                  ),
-                  endAdornment: searchQuery ? (
-                    <InputAdornment position="end">
-                      <IconButton
-                        size="small"
-                        onClick={() => setSearchQuery('')}
-                        aria-label="Clear search"
-                      >
-                        <ClearIcon fontSize="small" />
-                      </IconButton>
-                    </InputAdornment>
-                  ) : null,
-                }}
-              />
-              <UserListPicker availableFilters={['starred', 'all']} />
-
-              <Typography
-                style={{ marginTop: 16, fontWeight: 600, fontSize: '0.875rem' }}
-              >
-                Source Type
-              </Typography>
-              <Paper className={classes.paper}>
-                <Autocomplete
-                  options={allSources}
-                  value={sourceFilter}
-                  onChange={(_event, newValue) =>
-                    setSourceFilter(newValue || 'All')
-                  }
-                  openOnFocus
-                  renderInput={params => (
-                    <TextField
-                      {...params}
-                      placeholder="Search sources..."
-                      variant="standard"
-                      InputProps={{
-                        ...params.InputProps,
-                        disableUnderline: true,
-                        style: { fontSize: '0.875rem' },
-                      }}
-                    />
-                  )}
-                  disableClearable={sourceFilter === 'All'}
-                  size="small"
+            {!filterByRepositoryEntity && (
+              <CatalogFilterLayout.Filters>
+                <TextField
+                  className={classes.searchInput}
+                  placeholder="Search"
+                  variant="standard"
                   fullWidth
+                  value={searchQuery}
+                  onChange={e => setSearchQuery(e.target.value)}
+                  InputProps={{
+                    startAdornment: (
+                      <InputAdornment position="start">
+                        <SearchIcon color="disabled" />
+                      </InputAdornment>
+                    ),
+                    endAdornment: searchQuery ? (
+                      <InputAdornment position="end">
+                        <IconButton
+                          size="small"
+                          onClick={() => setSearchQuery('')}
+                          aria-label="Clear search"
+                        >
+                          <ClearIcon fontSize="small" />
+                        </IconButton>
+                      </InputAdornment>
+                    ) : null,
+                  }}
                 />
-              </Paper>
+                <UserListPicker availableFilters={['starred', 'all']} />
 
-              <Typography
-                style={{ marginTop: 16, fontWeight: 600, fontSize: '0.875rem' }}
-              >
-                Tags
-              </Typography>
-              <Paper className={classes.paper}>
-                <Autocomplete
-                  options={allTags}
-                  value={tagFilter}
-                  onChange={(_event, newValue) =>
-                    setTagFilter(newValue || 'All')
-                  }
-                  openOnFocus
-                  renderInput={params => (
-                    <TextField
-                      {...params}
-                      placeholder="Search tags..."
-                      variant="standard"
-                      InputProps={{
-                        ...params.InputProps,
-                        disableUnderline: true,
-                        style: { fontSize: '0.875rem' },
-                      }}
-                    />
-                  )}
-                  disableClearable={tagFilter === 'All'}
-                  size="small"
-                  fullWidth
-                />
-              </Paper>
-
-              <FormControlLabel
-                control={
-                  <Checkbox
-                    checked={showLatestOnly}
-                    onChange={e => setShowLatestOnly(e.target.checked)}
-                    color="primary"
+                <Typography
+                  style={{
+                    marginTop: 16,
+                    fontWeight: 600,
+                    fontSize: '0.875rem',
+                  }}
+                >
+                  Source Type
+                </Typography>
+                <Paper className={classes.paper}>
+                  <Autocomplete
+                    options={allSources}
+                    value={sourceFilter}
+                    onChange={(_event, newValue) =>
+                      setSourceFilter(newValue || 'All')
+                    }
+                    openOnFocus
+                    renderInput={params => (
+                      <TextField
+                        {...params}
+                        placeholder="Search sources..."
+                        variant="standard"
+                        InputProps={{
+                          ...params.InputProps,
+                          disableUnderline: true,
+                          style: { fontSize: '0.875rem' },
+                        }}
+                      />
+                    )}
+                    disableClearable={sourceFilter === 'All'}
                     size="small"
+                    fullWidth
                   />
-                }
-                label="Show latest version only"
-                style={{ marginTop: 16 }}
-              />
-            </CatalogFilterLayout.Filters>
+                </Paper>
+
+                <Typography
+                  style={{
+                    marginTop: 16,
+                    fontWeight: 600,
+                    fontSize: '0.875rem',
+                  }}
+                >
+                  Tags
+                </Typography>
+                <Paper className={classes.paper}>
+                  <Autocomplete
+                    options={allTags}
+                    value={tagFilter}
+                    onChange={(_event, newValue) =>
+                      setTagFilter(newValue || 'All')
+                    }
+                    openOnFocus
+                    renderInput={params => (
+                      <TextField
+                        {...params}
+                        placeholder="Search tags..."
+                        variant="standard"
+                        InputProps={{
+                          ...params.InputProps,
+                          disableUnderline: true,
+                          style: { fontSize: '0.875rem' },
+                        }}
+                      />
+                    )}
+                    disableClearable={tagFilter === 'All'}
+                    size="small"
+                    fullWidth
+                  />
+                </Paper>
+
+                <FormControlLabel
+                  control={
+                    <Checkbox
+                      checked={showLatestOnly}
+                      onChange={e => setShowLatestOnly(e.target.checked)}
+                      color="primary"
+                      size="small"
+                    />
+                  }
+                  label="Show latest version only"
+                  style={{ marginTop: 16 }}
+                />
+              </CatalogFilterLayout.Filters>
+            )}
 
             <CatalogFilterLayout.Content>
               <Box>
@@ -422,7 +513,7 @@ export const CollectionsListPage = ({
               </Box>
             </CatalogFilterLayout.Content>
           </CatalogFilterLayout>
-        </div>
+        </Box>
       )}
     </div>
   );
@@ -431,11 +522,15 @@ export const CollectionsListPage = ({
 interface CollectionsContentProps {
   onSyncClick?: () => void;
   onSourcesStatusChange?: (hasConfiguredSources: boolean | null) => void;
+  syncDisabled?: boolean;
+  syncDisabledReason?: string;
 }
 
 export const CollectionsContent = ({
   onSyncClick,
   onSourcesStatusChange,
+  syncDisabled,
+  syncDisabledReason,
 }: CollectionsContentProps) => {
   const classes = useCollectionsStyles();
 
@@ -446,6 +541,8 @@ export const CollectionsContent = ({
           <CollectionsListPage
             onSyncClick={onSyncClick}
             onSourcesStatusChange={onSourcesStatusChange}
+            syncDisabled={syncDisabled}
+            syncDisabledReason={syncDisabledReason}
           />
         </EntityListProvider>
       </Box>

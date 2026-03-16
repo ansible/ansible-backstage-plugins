@@ -90,6 +90,9 @@ auth:
             - resolver: allowNewAAPUserSignIn
 scaffolder: null
 catalog:
+  # Skip TLS verification for specified hosts (self-signed / internal CA).
+  # ansible:
+  #   skipTlsVerifyForHosts: []
   stitchingStrategy:
     immediate: true
   orphanStrategy: delete

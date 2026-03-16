@@ -8,6 +8,7 @@ import {
   sortEntities,
   filterLatestVersions,
   getUniqueFilters,
+  filterCollectionsByRepository,
 } from './utils';
 
 describe('CollectionsCatalog utils', () => {
@@ -488,6 +489,200 @@ describe('CollectionsCatalog utils', () => {
       const { sources, tags } = getUniqueFilters(entities);
       expect(sources).toEqual(['a-host', 'z-host']);
       expect(tags).toEqual(['a-tag', 'z-tag']);
+    });
+  });
+
+  describe('filterCollectionsByRepository', () => {
+    const createCollection = (
+      name: string,
+      annotations: Record<string, string> = {},
+    ): Entity => ({
+      apiVersion: 'backstage.io/v1alpha1',
+      kind: 'Component',
+      metadata: { name, annotations },
+      spec: {},
+    });
+
+    const createRepoEntity = (
+      name: string,
+      annotations: Record<string, string> = {},
+      spec: Record<string, unknown> = {},
+    ): Entity => ({
+      apiVersion: 'backstage.io/v1alpha1',
+      kind: 'Component',
+      metadata: { name, annotations },
+      spec: spec as Entity['spec'],
+    });
+
+    it('filters by repository_collections when present in spec', () => {
+      const collections = [
+        createCollection('collection-a'),
+        createCollection('collection-b'),
+        createCollection('collection-c'),
+      ];
+
+      const repoEntity = createRepoEntity(
+        'my-repo',
+        {},
+        { repository_collections: ['collection-a', 'collection-c'] },
+      );
+
+      const result = filterCollectionsByRepository(collections, repoEntity);
+      expect(result).toHaveLength(2);
+      expect(result.map(c => c.metadata.name)).toEqual([
+        'collection-a',
+        'collection-c',
+      ]);
+    });
+
+    it('filters by SCM annotations when no repository_collections', () => {
+      const collections = [
+        createCollection('collection-a', {
+          'ansible.io/scm-provider': 'github',
+          'ansible.io/scm-host': 'github.com',
+          'ansible.io/scm-organization': 'my-org',
+          'ansible.io/scm-repository': 'my-repo',
+        }),
+        createCollection('collection-b', {
+          'ansible.io/scm-provider': 'github',
+          'ansible.io/scm-host': 'github.com',
+          'ansible.io/scm-organization': 'other-org',
+          'ansible.io/scm-repository': 'other-repo',
+        }),
+      ];
+
+      const repoEntity = createRepoEntity('my-repo', {
+        'ansible.io/scm-provider': 'github',
+        'ansible.io/scm-host': 'github.com',
+        'ansible.io/scm-organization': 'my-org',
+        'ansible.io/scm-repository': 'my-repo',
+      });
+
+      const result = filterCollectionsByRepository(collections, repoEntity);
+      expect(result).toHaveLength(1);
+      expect(result[0].metadata.name).toBe('collection-a');
+    });
+
+    it('handles case insensitive provider matching', () => {
+      const collections = [
+        createCollection('collection-a', {
+          'ansible.io/scm-provider': 'GITHUB',
+          'ansible.io/scm-host': 'github.com',
+          'ansible.io/scm-organization': 'my-org',
+          'ansible.io/scm-repository': 'my-repo',
+        }),
+      ];
+
+      const repoEntity = createRepoEntity('my-repo', {
+        'ansible.io/scm-provider': 'github',
+        'ansible.io/scm-host': 'github.com',
+        'ansible.io/scm-organization': 'my-org',
+        'ansible.io/scm-repository': 'my-repo',
+      });
+
+      const result = filterCollectionsByRepository(collections, repoEntity);
+      expect(result).toHaveLength(1);
+    });
+
+    it('returns empty array when no collections match', () => {
+      const collections = [
+        createCollection('collection-a', {
+          'ansible.io/scm-provider': 'gitlab',
+          'ansible.io/scm-host': 'gitlab.com',
+          'ansible.io/scm-organization': 'other-org',
+          'ansible.io/scm-repository': 'other-repo',
+        }),
+      ];
+
+      const repoEntity = createRepoEntity('my-repo', {
+        'ansible.io/scm-provider': 'github',
+        'ansible.io/scm-host': 'github.com',
+        'ansible.io/scm-organization': 'my-org',
+        'ansible.io/scm-repository': 'my-repo',
+      });
+
+      const result = filterCollectionsByRepository(collections, repoEntity);
+      expect(result).toHaveLength(0);
+    });
+
+    it('filters non-string values from repository_collections', () => {
+      const collections = [
+        createCollection('collection-a'),
+        createCollection('collection-b'),
+      ];
+
+      const repoEntity = createRepoEntity(
+        'my-repo',
+        {},
+        {
+          repository_collections: [
+            'collection-a',
+            null,
+            undefined,
+            123,
+          ] as unknown as string[],
+        },
+      );
+
+      const result = filterCollectionsByRepository(collections, repoEntity);
+      expect(result).toHaveLength(1);
+      expect(result[0].metadata.name).toBe('collection-a');
+    });
+
+    it('returns all matching collections when annotations match', () => {
+      const collections = [
+        createCollection('collection-a', {
+          'ansible.io/scm-provider': 'github',
+          'ansible.io/scm-host': 'github.com',
+          'ansible.io/scm-organization': 'my-org',
+          'ansible.io/scm-repository': 'my-repo',
+        }),
+        createCollection('collection-b', {
+          'ansible.io/scm-provider': 'github',
+          'ansible.io/scm-host': 'github.com',
+          'ansible.io/scm-organization': 'my-org',
+          'ansible.io/scm-repository': 'my-repo',
+        }),
+        createCollection('collection-c', {
+          'ansible.io/scm-provider': 'github',
+          'ansible.io/scm-host': 'github.com',
+          'ansible.io/scm-organization': 'other-org',
+          'ansible.io/scm-repository': 'my-repo',
+        }),
+      ];
+
+      const repoEntity = createRepoEntity('my-repo', {
+        'ansible.io/scm-provider': 'github',
+        'ansible.io/scm-host': 'github.com',
+        'ansible.io/scm-organization': 'my-org',
+        'ansible.io/scm-repository': 'my-repo',
+      });
+
+      const result = filterCollectionsByRepository(collections, repoEntity);
+      expect(result).toHaveLength(2);
+      expect(result.map(c => c.metadata.name)).toEqual([
+        'collection-a',
+        'collection-b',
+      ]);
+    });
+
+    it('handles collection without metadata name', () => {
+      const collections = [
+        {
+          apiVersion: 'backstage.io/v1alpha1',
+          kind: 'Component',
+          metadata: { name: undefined as unknown as string },
+        } as Entity,
+      ];
+
+      const repoEntity = createRepoEntity(
+        'my-repo',
+        {},
+        { repository_collections: ['collection-a'] },
+      );
+
+      const result = filterCollectionsByRepository(collections, repoEntity);
+      expect(result).toHaveLength(0);
     });
   });
 });

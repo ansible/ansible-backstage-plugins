@@ -1,36 +1,10 @@
 import { Entity } from '@backstage/catalog-model';
-
-export interface SyncStatus {
-  lastSyncTime: string | null;
-  lastFailedSyncTime: string | null;
-}
-
-export type SyncStatusMap = Record<string, SyncStatus>;
-
-export type SourcesTree = Record<string, Record<string, string[]>>;
-
-export interface SyncFilter {
-  scmProvider?: string;
-  hostName?: string;
-  organization?: string;
-}
+import type { SyncStatusMap } from '../common';
 
 export interface PageHeaderSectionProps {
   onSyncClick: () => void;
   syncDisabled?: boolean;
   syncDisabledReason?: string;
-}
-
-export interface StartedSyncInfo {
-  sourceId: string;
-  displayName: string;
-  lastSyncTime: string | null;
-}
-
-export interface SyncDialogProps {
-  open: boolean;
-  onClose: () => void;
-  onSyncsStarted?: (syncs: StartedSyncInfo[]) => void;
 }
 
 export interface CollectionCardProps {

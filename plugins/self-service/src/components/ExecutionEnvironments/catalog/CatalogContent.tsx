@@ -1,14 +1,17 @@
 import { useEffect, useState, useCallback, useRef } from 'react';
-import { Progress } from '@backstage/core-components';
+import { Progress, Table, TableColumn } from '@backstage/core-components';
 import {
   Box,
+  Chip,
   FormControl,
   Grid,
+  IconButton,
   Input,
   Menu,
   MenuItem,
   Paper,
   Select,
+  Tooltip,
   Typography,
 } from '@material-ui/core';
 import { makeStyles, useTheme } from '@material-ui/core/styles';
@@ -24,16 +27,13 @@ import {
   UnregisterEntityDialog,
   FavoriteEntity,
 } from '@backstage/plugin-catalog-react';
-import { Table, TableColumn } from '@backstage/core-components';
-import { Chip, IconButton } from '@material-ui/core';
 import MoreVert from '@material-ui/icons/MoreVert';
 import OpenInNew from '@material-ui/icons/OpenInNew';
-import { Tooltip } from '@material-ui/core';
 import { ANNOTATION_EDIT_URL, Entity } from '@backstage/catalog-model';
 import { useApi } from '@backstage/core-plugin-api';
-import { useNavigate } from 'react-router-dom';
 import { CreateCatalog } from './CreateCatalog';
 import { toEEDefinitionUrl, downloadEntityAsTarArchive } from './helpers';
+import { EntityLinkButton } from '../../common';
 
 const DESCRIPTION_TRUNCATE_LENGTH = 30;
 
@@ -145,6 +145,33 @@ const ExecutionEnvironmentTypeFilter = () => {
   return null;
 };
 
+function sortByMetadataTitleAsc<T extends { metadata?: { name?: string } }>(
+  data: T[],
+): T[] {
+  return [...data].sort((a, b) => {
+    const titleA = a.metadata?.name ?? '';
+    const titleB = b.metadata?.name ?? '';
+
+    const numA = Number(titleA);
+    const numB = Number(titleB);
+
+    const isNumA = !Number.isNaN(numA);
+    const isNumB = !Number.isNaN(numB);
+
+    // both numeric → numeric sort
+    if (isNumA && isNumB) {
+      return numA - numB;
+    }
+
+    // numeric before string
+    if (isNumA) return -1;
+    if (isNumB) return 1;
+
+    // both strings → string sort
+    return titleA.localeCompare(titleB, undefined, { sensitivity: 'base' });
+  });
+}
+
 export const EEListPage = ({
   onTabSwitch,
 }: {
@@ -153,15 +180,14 @@ export const EEListPage = ({
   const classes = useStyles();
   const theme = useTheme();
   const catalogApi = useApi(catalogApiRef);
-  const navigate = useNavigate();
   const { isStarredEntity } = useStarredEntities();
   const [loading, setLoading] = useState<boolean>(true);
   const [showError, setShowError] = useState<boolean>(false);
   const [errorMessage, setErrorMessage] = useState<string>('');
   const [allEntities, setAllEntities] = useState<Entity[]>([]);
   const [ansibleComponents, setAnsibleComponents] = useState<Entity[]>([]);
-  const [ownerFilter, setOwnerFilter] = useState<'All' | string>('All');
-  const [tagFilter, setTagFilter] = useState<'All' | string>('All');
+  const [ownerFilter, setOwnerFilter] = useState<string>('All');
+  const [tagFilter, setTagFilter] = useState<string>('All');
   const [allOwners, setAllOwners] = useState<string[]>(['All']);
   const [allTags, setAllTags] = useState<string[]>(['All']);
   const [filtered, setFiltered] = useState<boolean>(true);
@@ -216,7 +242,7 @@ export const EEListPage = ({
           ownerRef ??
           'Unknown'
         );
-      } catch (error) {
+      } catch {
         // If API call fails, fallback to ownerRef
         return ownerRef ?? 'Unknown';
       }
@@ -315,33 +341,6 @@ export const EEListPage = ({
     callApi();
   }, [callApi]);
 
-  function sortByMetadataTitleAsc<T extends { metadata?: { name?: string } }>(
-    data: T[],
-  ): T[] {
-    return [...data].sort((a, b) => {
-      const titleA = a.metadata?.name ?? '';
-      const titleB = b.metadata?.name ?? '';
-
-      const numA = Number(titleA);
-      const numB = Number(titleB);
-
-      const isNumA = !isNaN(numA);
-      const isNumB = !isNaN(numB);
-
-      // both numeric → numeric sort
-      if (isNumA && isNumB) {
-        return numA - numB;
-      }
-
-      // numeric before string
-      if (isNumA) return -1;
-      if (isNumB) return 1;
-
-      // both strings → string sort
-      return titleA.localeCompare(titleB, undefined, { sensitivity: 'base' });
-    });
-  }
-
   useEffect(() => {
     const filterData = allEntities.filter(d => {
       const matchesOwner =
@@ -390,32 +389,10 @@ export const EEListPage = ({
       render: (entity: any) => {
         const entityName = entity.metadata.name;
         const linkPath = `/self-service/catalog/${entityName}`;
-
-        const handleClick = (e: React.MouseEvent | React.KeyboardEvent) => {
-          e.preventDefault();
-          e.stopPropagation();
-          navigate(linkPath);
-        };
-
         return (
-          <button
-            type="button"
-            onClick={handleClick}
-            onMouseDown={(e: React.MouseEvent) => {
-              e.preventDefault();
-              e.stopPropagation();
-              navigate(linkPath);
-            }}
-            onKeyDown={(e: React.KeyboardEvent) => {
-              if (e.key === 'Enter' || e.key === ' ') {
-                e.preventDefault();
-                handleClick(e);
-              }
-            }}
-            className={classes.entityLink}
-          >
+          <EntityLinkButton linkPath={linkPath} className={classes.entityLink}>
             {entityName}
-          </button>
+          </EntityLinkButton>
         );
       },
     },
@@ -528,239 +505,237 @@ export const EEListPage = ({
           follow our guide to create your EE image.
         </Typography>
       ) : null}
-      <>
-        {filtered || (allEntities && allEntities.length > 0) ? (
-          <CatalogFilterLayout>
-            <ExecutionEnvironmentTypeFilter />
-            <CatalogFilterLayout.Filters>
-              <UserListPicker availableFilters={['starred', 'all']} />
-              <Typography>Owner</Typography>
+      {filtered || (allEntities && allEntities.length > 0) ? (
+        <CatalogFilterLayout>
+          <ExecutionEnvironmentTypeFilter />
+          <CatalogFilterLayout.Filters>
+            <UserListPicker availableFilters={['starred', 'all']} />
+            <Typography>Owner</Typography>
 
-              <Paper className={classes.paper}>
-                <FormControl fullWidth>
-                  <Select
-                    value={ownerFilter}
-                    onChange={e => setOwnerFilter(e.target.value as string)}
-                    displayEmpty
-                    input={<Input disableUnderline />}
-                  >
-                    {allOwners.map(o => (
-                      <MenuItem key={o} value={o}>
-                        {o}
-                      </MenuItem>
-                    ))}
-                  </Select>
-                </FormControl>
-              </Paper>
+            <Paper className={classes.paper}>
+              <FormControl fullWidth>
+                <Select
+                  value={ownerFilter}
+                  onChange={e => setOwnerFilter(e.target.value as string)}
+                  displayEmpty
+                  input={<Input disableUnderline />}
+                >
+                  {allOwners.map(o => (
+                    <MenuItem key={o} value={o}>
+                      {o}
+                    </MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
+            </Paper>
 
-              <Typography style={{ marginTop: 10 }}>Tags</Typography>
-              <Paper className={classes.paper}>
-                <FormControl fullWidth variant="outlined">
-                  <Select
-                    value={tagFilter}
-                    onChange={e => setTagFilter(e.target.value as string)}
-                    input={<Input disableUnderline />}
-                    MenuProps={{
-                      getContentAnchorEl: null,
-                      anchorOrigin: { vertical: 'bottom', horizontal: 'left' },
-                    }}
-                  >
-                    {allTags.map(t => (
-                      <MenuItem key={t} value={t}>
-                        {t}
-                      </MenuItem>
-                    ))}
-                  </Select>
-                </FormControl>
-              </Paper>
-            </CatalogFilterLayout.Filters>
-            <CatalogFilterLayout.Content>
-              <Table
-                title={`Execution Environments definition files (${ansibleComponents?.length})`}
-                options={{
-                  search: true,
-                  rowStyle: { cursor: 'default' },
-                }}
-                columns={columns}
-                data={ansibleComponents || []}
-              />
-              <Menu
-                id="ee-actions-menu"
-                anchorEl={actionsMenuAnchor}
-                anchorReference="anchorPosition"
-                anchorPosition={
-                  menuAnchorPosition
-                    ? {
-                        top: menuAnchorPosition.top,
-                        left: menuAnchorPosition.left,
-                      }
-                    : undefined
-                }
-                keepMounted
-                open={Boolean(actionsMenuAnchor)}
-                onClose={handleActionsMenuClose}
-                anchorOrigin={{ vertical: 'top', horizontal: 'left' }}
-                transformOrigin={{ vertical: 'top', horizontal: 'left' }}
-                onClick={(e: React.MouseEvent) => e.stopPropagation()}
-                PaperProps={{ className: classes.actionsMenuPaper }}
-              >
-                {actionsMenuEntity &&
-                  (() => {
-                    const isDownloadExperience =
-                      actionsMenuEntity?.metadata?.annotations?.[
-                        'ansible.io/download-experience'
-                      ]
-                        ?.toString()
-                        .toLowerCase()
-                        .trim() === 'true';
-                    return isDownloadExperience
-                      ? [
-                          <MenuItem
-                            key="download"
-                            onClick={() => {
-                              handleActionsMenuClose();
-                              const entityRef = `${actionsMenuEntity.kind}:${actionsMenuEntity.metadata?.namespace || 'default'}/${actionsMenuEntity.metadata?.name}`;
-                              catalogApi
-                                .getEntityByRef(entityRef)
-                                .then((entity: Entity | undefined) => {
-                                  if (entity) {
-                                    downloadEntityAsTarArchive(entity);
-                                  }
-                                });
-                            }}
-                          >
-                            Download
-                          </MenuItem>,
-                          <MenuItem
-                            key="delete"
-                            onClick={() => {
-                              setEntityToUnregister(actionsMenuEntity);
-                              handleActionsMenuClose();
-                              setUnregisterDialogOpen(true);
-                            }}
-                            style={{ color: theme.palette.error.main }}
-                          >
-                            Delete
-                          </MenuItem>,
-                        ]
-                      : [
-                          <MenuItem
-                            key="build"
-                            onClick={() => {
-                              handleActionsMenuClose();
-                              // TODO: Build action - future implementation (e.g. trigger EE build)
-                            }}
-                          >
-                            Build
-                          </MenuItem>,
-                          <MenuItem
-                            key="edit"
-                            onClick={() => {
-                              const editUrl =
-                                actionsMenuEntity?.metadata?.annotations?.[
-                                  ANNOTATION_EDIT_URL
-                                ];
-                              const sourceLocation =
-                                actionsMenuEntity?.metadata?.annotations?.[
-                                  'backstage.io/source-location'
-                                ];
-                              const rawUrl =
-                                editUrl ||
-                                (typeof sourceLocation === 'string'
-                                  ? sourceLocation.replace(/^url:/i, '').trim()
-                                  : undefined);
-                              const urlToOpen = toEEDefinitionUrl(
-                                rawUrl ?? '',
-                                actionsMenuEntity?.metadata?.name ?? '',
-                              );
-                              if (urlToOpen) {
-                                window.open(
-                                  urlToOpen,
-                                  '_blank',
-                                  'noopener,noreferrer',
-                                );
-                              }
-                              handleActionsMenuClose();
-                            }}
-                          >
-                            Edit definition
-                          </MenuItem>,
-                          <MenuItem
-                            key="view"
-                            onClick={() => {
-                              const viewUrl =
-                                actionsMenuEntity?.metadata?.annotations?.[
-                                  'backstage.io/view-url'
-                                ];
-                              const editUrl =
-                                actionsMenuEntity?.metadata?.annotations?.[
-                                  ANNOTATION_EDIT_URL
-                                ];
-                              const sourceLocation =
-                                actionsMenuEntity?.metadata?.annotations?.[
-                                  'backstage.io/source-location'
-                                ];
-                              const sourceUrl =
-                                typeof sourceLocation === 'string'
-                                  ? sourceLocation.replace(/^url:/i, '').trim()
-                                  : undefined;
-                              const rawUrl = viewUrl || sourceUrl || editUrl;
-                              const urlToOpen = toEEDefinitionUrl(
-                                rawUrl ?? '',
-                                actionsMenuEntity?.metadata?.name ?? '',
-                              );
-                              if (urlToOpen) {
-                                window.open(
-                                  urlToOpen,
-                                  '_blank',
-                                  'noopener,noreferrer',
-                                );
-                              }
-                              handleActionsMenuClose();
-                            }}
-                          >
-                            <Box
-                              display="flex"
-                              alignItems="center"
-                              justifyContent="space-between"
-                              width="100%"
-                              style={{ gap: 8 }}
-                            >
-                              <span>View in source</span>
-                              <OpenInNew fontSize="small" />
-                            </Box>
-                          </MenuItem>,
-                          <MenuItem
-                            key="delete"
-                            onClick={() => {
-                              setEntityToUnregister(actionsMenuEntity);
-                              handleActionsMenuClose();
-                              setUnregisterDialogOpen(true);
-                            }}
-                            style={{ color: theme.palette.error.main }}
-                          >
-                            Delete
-                          </MenuItem>,
-                        ];
-                  })()}
-              </Menu>
-              {entityToUnregister && (
-                <UnregisterEntityDialog
-                  open={unregisterDialogOpen}
-                  entity={entityToUnregister}
-                  onConfirm={handleUnregisterConfirm}
-                  onClose={() => {
-                    setUnregisterDialogOpen(false);
-                    setEntityToUnregister(null);
+            <Typography style={{ marginTop: 10 }}>Tags</Typography>
+            <Paper className={classes.paper}>
+              <FormControl fullWidth variant="outlined">
+                <Select
+                  value={tagFilter}
+                  onChange={e => setTagFilter(e.target.value as string)}
+                  input={<Input disableUnderline />}
+                  MenuProps={{
+                    getContentAnchorEl: null,
+                    anchorOrigin: { vertical: 'bottom', horizontal: 'left' },
                   }}
-                />
-              )}
-            </CatalogFilterLayout.Content>
-          </CatalogFilterLayout>
-        ) : (
-          <CreateCatalog onTabSwitch={onTabSwitch} />
-        )}
-      </>
+                >
+                  {allTags.map(t => (
+                    <MenuItem key={t} value={t}>
+                      {t}
+                    </MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
+            </Paper>
+          </CatalogFilterLayout.Filters>
+          <CatalogFilterLayout.Content>
+            <Table
+              title={`Execution Environments definition files (${ansibleComponents?.length})`}
+              options={{
+                search: true,
+                rowStyle: { cursor: 'default' },
+              }}
+              columns={columns}
+              data={ansibleComponents || []}
+            />
+            <Menu
+              id="ee-actions-menu"
+              anchorEl={actionsMenuAnchor}
+              anchorReference="anchorPosition"
+              anchorPosition={
+                menuAnchorPosition
+                  ? {
+                      top: menuAnchorPosition.top,
+                      left: menuAnchorPosition.left,
+                    }
+                  : undefined
+              }
+              keepMounted
+              open={Boolean(actionsMenuAnchor)}
+              onClose={handleActionsMenuClose}
+              anchorOrigin={{ vertical: 'top', horizontal: 'left' }}
+              transformOrigin={{ vertical: 'top', horizontal: 'left' }}
+              onClick={(e: React.MouseEvent) => e.stopPropagation()}
+              PaperProps={{ className: classes.actionsMenuPaper }}
+            >
+              {actionsMenuEntity &&
+                (() => {
+                  const isDownloadExperience =
+                    actionsMenuEntity?.metadata?.annotations?.[
+                      'ansible.io/download-experience'
+                    ]
+                      ?.toString()
+                      .toLowerCase()
+                      .trim() === 'true';
+                  return isDownloadExperience
+                    ? [
+                        <MenuItem
+                          key="download"
+                          onClick={() => {
+                            handleActionsMenuClose();
+                            const entityRef = `${actionsMenuEntity.kind}:${actionsMenuEntity.metadata?.namespace || 'default'}/${actionsMenuEntity.metadata?.name}`;
+                            catalogApi
+                              .getEntityByRef(entityRef)
+                              .then((entity: Entity | undefined) => {
+                                if (entity) {
+                                  downloadEntityAsTarArchive(entity);
+                                }
+                              });
+                          }}
+                        >
+                          Download
+                        </MenuItem>,
+                        <MenuItem
+                          key="delete"
+                          onClick={() => {
+                            setEntityToUnregister(actionsMenuEntity);
+                            handleActionsMenuClose();
+                            setUnregisterDialogOpen(true);
+                          }}
+                          style={{ color: theme.palette.error.main }}
+                        >
+                          Delete
+                        </MenuItem>,
+                      ]
+                    : [
+                        <MenuItem
+                          key="build"
+                          onClick={() => {
+                            handleActionsMenuClose();
+                            // TODO: Build action - future implementation (e.g. trigger EE build)
+                          }}
+                        >
+                          Build
+                        </MenuItem>,
+                        <MenuItem
+                          key="edit"
+                          onClick={() => {
+                            const editUrl =
+                              actionsMenuEntity?.metadata?.annotations?.[
+                                ANNOTATION_EDIT_URL
+                              ];
+                            const sourceLocation =
+                              actionsMenuEntity?.metadata?.annotations?.[
+                                'backstage.io/source-location'
+                              ];
+                            const rawUrl =
+                              editUrl ||
+                              (typeof sourceLocation === 'string'
+                                ? sourceLocation.replace(/^url:/i, '').trim()
+                                : undefined);
+                            const urlToOpen = toEEDefinitionUrl(
+                              rawUrl ?? '',
+                              actionsMenuEntity?.metadata?.name ?? '',
+                            );
+                            if (urlToOpen) {
+                              window.open(
+                                urlToOpen,
+                                '_blank',
+                                'noopener,noreferrer',
+                              );
+                            }
+                            handleActionsMenuClose();
+                          }}
+                        >
+                          Edit definition
+                        </MenuItem>,
+                        <MenuItem
+                          key="view"
+                          onClick={() => {
+                            const viewUrl =
+                              actionsMenuEntity?.metadata?.annotations?.[
+                                'backstage.io/view-url'
+                              ];
+                            const editUrl =
+                              actionsMenuEntity?.metadata?.annotations?.[
+                                ANNOTATION_EDIT_URL
+                              ];
+                            const sourceLocation =
+                              actionsMenuEntity?.metadata?.annotations?.[
+                                'backstage.io/source-location'
+                              ];
+                            const sourceUrl =
+                              typeof sourceLocation === 'string'
+                                ? sourceLocation.replace(/^url:/i, '').trim()
+                                : undefined;
+                            const rawUrl = viewUrl || sourceUrl || editUrl;
+                            const urlToOpen = toEEDefinitionUrl(
+                              rawUrl ?? '',
+                              actionsMenuEntity?.metadata?.name ?? '',
+                            );
+                            if (urlToOpen) {
+                              window.open(
+                                urlToOpen,
+                                '_blank',
+                                'noopener,noreferrer',
+                              );
+                            }
+                            handleActionsMenuClose();
+                          }}
+                        >
+                          <Box
+                            display="flex"
+                            alignItems="center"
+                            justifyContent="space-between"
+                            width="100%"
+                            style={{ gap: 8 }}
+                          >
+                            <span>View in source</span>
+                            <OpenInNew fontSize="small" />
+                          </Box>
+                        </MenuItem>,
+                        <MenuItem
+                          key="delete"
+                          onClick={() => {
+                            setEntityToUnregister(actionsMenuEntity);
+                            handleActionsMenuClose();
+                            setUnregisterDialogOpen(true);
+                          }}
+                          style={{ color: theme.palette.error.main }}
+                        >
+                          Delete
+                        </MenuItem>,
+                      ];
+                })()}
+            </Menu>
+            {entityToUnregister && (
+              <UnregisterEntityDialog
+                open={unregisterDialogOpen}
+                entity={entityToUnregister}
+                onConfirm={handleUnregisterConfirm}
+                onClose={() => {
+                  setUnregisterDialogOpen(false);
+                  setEntityToUnregister(null);
+                }}
+              />
+            )}
+          </CatalogFilterLayout.Content>
+        </CatalogFilterLayout>
+      ) : (
+        <CreateCatalog onTabSwitch={onTabSwitch} />
+      )}
     </div>
   );
 };

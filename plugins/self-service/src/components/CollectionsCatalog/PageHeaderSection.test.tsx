@@ -22,6 +22,11 @@ describe('PageHeaderSection', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
+    mockUseIsSuperuser.mockReturnValue({
+      isSuperuser: true,
+      loading: false,
+      error: null,
+    });
   });
 
   it('renders Collections title and description', () => {
@@ -35,7 +40,7 @@ describe('PageHeaderSection', () => {
     ).toBeInTheDocument();
   });
 
-  it('renders Sync Now button when allowed', () => {
+  it('renders Sync Now button when user is superuser', () => {
     renderWithTheme(<PageHeaderSection onSyncClick={mockOnSyncClick} />);
 
     const syncButton = screen.getByRole('button', { name: /Sync Now/i });

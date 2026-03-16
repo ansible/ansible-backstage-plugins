@@ -22,6 +22,11 @@ describe('EmptyState', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
+    mockUseIsSuperuser.mockReturnValue({
+      isSuperuser: true,
+      loading: false,
+      error: null,
+    });
   });
 
   it('shows "No content sources configured" when hasConfiguredSources is false', () => {
@@ -58,7 +63,7 @@ describe('EmptyState', () => {
     expect(screen.getByText('No Collections Found')).toBeInTheDocument();
   });
 
-  it('renders Sync Now button when allowed and onSyncClick provided and sources configured', () => {
+  it('renders Sync Now button when superuser and onSyncClick provided and sources configured', () => {
     renderWithTheme(
       <EmptyState hasConfiguredSources onSyncClick={mockOnSyncClick} />,
     );
@@ -70,7 +75,7 @@ describe('EmptyState', () => {
     expect(mockOnSyncClick).toHaveBeenCalledTimes(1);
   });
 
-  it('renders View Documentation link when hasConfiguredSources is false and allowed', () => {
+  it('renders View Documentation link when hasConfiguredSources is false and superuser', () => {
     renderWithTheme(
       <EmptyState hasConfiguredSources={false} onSyncClick={mockOnSyncClick} />,
     );
@@ -112,5 +117,41 @@ describe('EmptyState', () => {
     expect(
       screen.queryByRole('button', { name: /Sync Now/i }),
     ).not.toBeInTheDocument();
+  });
+
+  it('shows repository filter message when repositoryFilter is true', () => {
+    renderWithTheme(
+      <EmptyState repositoryFilter onSyncClick={mockOnSyncClick} />,
+    );
+
+    expect(
+      screen.getByText('No collections discovered from this repository'),
+    ).toBeInTheDocument();
+  });
+
+  it('disables Sync Now button when syncDisabled is true', () => {
+    renderWithTheme(
+      <EmptyState
+        hasConfiguredSources
+        onSyncClick={mockOnSyncClick}
+        syncDisabled
+      />,
+    );
+
+    const syncButton = screen.getByRole('button', { name: /Sync Now/i });
+    expect(syncButton).toBeDisabled();
+  });
+
+  it('shows syncDisabledReason in tooltip when sync is disabled', () => {
+    renderWithTheme(
+      <EmptyState
+        hasConfiguredSources
+        onSyncClick={mockOnSyncClick}
+        syncDisabled
+        syncDisabledReason="Custom reason"
+      />,
+    );
+
+    expect(screen.getByTitle('Custom reason')).toBeInTheDocument();
   });
 });

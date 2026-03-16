@@ -4,7 +4,7 @@ import { TestApiProvider } from '@backstage/test-utils';
 import { discoveryApiRef, fetchApiRef } from '@backstage/core-plugin-api';
 import { NotificationProvider } from '../notifications';
 import { useSyncStatusPolling } from './useSyncStatusPolling';
-import { TRACKING_TIMEOUT_MS, FAST_POLL_INTERVAL_MS } from './constants';
+import { TRACKING_TIMEOUT_MS, FAST_POLL_INTERVAL_MS } from '../common';
 
 const theme = createTheme();
 

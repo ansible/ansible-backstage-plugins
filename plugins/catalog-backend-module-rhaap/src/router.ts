@@ -16,6 +16,7 @@
 import express from 'express';
 import Router from 'express-promise-router';
 import type { Config } from '@backstage/config';
+import type { JsonValue } from '@backstage/types';
 
 import { AAPJobTemplateProvider } from './providers/AAPJobTemplateProvider';
 import { AAPEntityProvider } from './providers/AAPEntityProvider';
@@ -40,9 +41,15 @@ import {
   buildInvalidRepositoryResults,
   resolveProvidersToRun,
   createRequireSuperuserMiddleware,
+  getGitLabIntegrationForHost,
+  getSkipTlsVerifyHosts,
+  isSafeHostname,
 } from './helpers';
 import { EEEntityProvider } from './providers/EEEntityProvider';
-import { ScmClientFactory } from '@ansible/backstage-rhaap-common';
+import {
+  GitlabClient,
+  ScmClientFactory,
+} from '@ansible/backstage-rhaap-common';
 
 // Express Request is not assignable to Backstage's auth request type; cast is required.
 type HttpAuthRequest = Parameters<HttpAuthService['credentials']>[0];
@@ -594,6 +601,85 @@ export async function createRouter(options: {
       response.status(status).json({
         error: `Failed to fetch README: ${errorMessage}`,
       });
+    }
+  });
+
+  // Proxy GitLab pipelines API to avoid CORS when fetching from the frontend
+  router.get('/ansible/gitlab/pipelines', async (request, response) => {
+    logger.info('[GitLab pipelines proxy] Request reached handler', {
+      path: request.path,
+      query: request.query,
+      hasAuth: !!request.headers['private-token'],
+      hasBearer: !!request.headers.authorization,
+    });
+    const projectPath = request.query.projectPath as string | undefined;
+    const host = (request.query.host as string) || 'gitlab.com';
+    const tokenFromRequest =
+      (request.headers['private-token'] as string) ||
+      (request.headers.authorization?.replace(/^Bearer\s+/i, '') as string);
+    const { token: tokenFromConfig, apiBaseUrl: apiBaseFromConfig } =
+      getGitLabIntegrationForHost(config, host);
+    const token = tokenFromConfig || tokenFromRequest;
+    logger.info('[GitLab pipelines proxy] Token resolution', {
+      projectPath,
+      host,
+      tokenFromConfig: !!tokenFromConfig,
+      tokenFromRequest: !!tokenFromRequest,
+      hasToken: !!token,
+    });
+    if (!projectPath || !token) {
+      response.status(400).json({
+        error:
+          'Missing projectPath or authorization (PRIVATE-TOKEN, Authorization header, or integrations.gitlab token in config)',
+      });
+      return;
+    }
+    if (!isSafeHostname(host)) {
+      response.status(400).json({
+        error: 'Invalid host: must be a valid hostname (e.g. gitlab.com)',
+      });
+      return;
+    }
+    const hostLower = host.toLowerCase();
+    const skipTlsVerify = getSkipTlsVerifyHosts(config)
+      .filter(isSafeHostname)
+      .some(h => h.toLowerCase() === hostLower);
+    const client = new GitlabClient({
+      config: {
+        scmProvider: 'gitlab',
+        host,
+        organization: '',
+        token,
+        apiBaseUrl: apiBaseFromConfig,
+        checkSSL: !skipTlsVerify,
+      },
+      logger,
+    });
+    const perPage = Math.min(Number(request.query.per_page) || 15, 100);
+    try {
+      const { ok, status, data } = await client.getPipelines(projectPath, {
+        perPage,
+      });
+      logger.info('[GitLab pipelines proxy] GitLab API response', {
+        status,
+        projectPath,
+        host,
+      });
+      if (!ok) {
+        logger.warn('[GitLab pipelines proxy] GitLab API returned non-OK', {
+          status,
+          projectPath,
+          host,
+          body: data as JsonValue,
+        });
+      }
+      response.status(status).json(data as JsonValue);
+    } catch (err) {
+      logger.warn(
+        'GitLab pipelines proxy failed',
+        err instanceof Error ? err : undefined,
+      );
+      response.status(502).json({ error: 'Failed to fetch GitLab pipelines' });
     }
   });
 

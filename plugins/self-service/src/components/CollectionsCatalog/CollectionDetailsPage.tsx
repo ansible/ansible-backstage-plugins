@@ -16,7 +16,7 @@ import { CollectionResourcesCard } from './CollectionResourcesCard';
 import { CollectionReadmeCard } from './CollectionReadmeCard';
 import { RepositoryBadge } from './RepositoryBadge';
 import { useCollectionsStyles } from './styles';
-import { EmptyState } from './EmptyState';
+import { EmptyState, fetchReadmeFromBackend } from '../common';
 
 export const CollectionDetailsPage = () => {
   const classes = useCollectionsStyles();
@@ -114,36 +114,6 @@ export const CollectionDetailsPage = () => {
     return '';
   }, []);
 
-  const fetchReadmeFromBackend = useCallback(
-    async (
-      scmProvider: string,
-      scmHost: string,
-      scmOrg: string,
-      scmRepo: string,
-      filePath: string,
-      gitRef: string,
-    ): Promise<string> => {
-      const baseUrl = await discoveryApi.getBaseUrl('catalog');
-      const params = new URLSearchParams({
-        scmProvider,
-        host: scmHost,
-        owner: scmOrg,
-        repo: scmRepo,
-        filePath,
-        ref: gitRef,
-      });
-
-      const response = await fetchApi.fetch(
-        `${baseUrl}/git_file_content?${params}`,
-      );
-      if (response.ok) {
-        return response.text();
-      }
-      return '';
-    },
-    [discoveryApi, fetchApi],
-  );
-
   useEffect(() => {
     if (!entity) return;
 
@@ -187,14 +157,14 @@ export const CollectionDetailsPage = () => {
     setReadmeLoading(true);
 
     if (canUseBackend) {
-      fetchReadmeFromBackend(
+      fetchReadmeFromBackend(discoveryApi, fetchApi, {
         scmProvider,
         scmHost,
         scmOrg,
         scmRepo,
         filePath,
         gitRef,
-      )
+      })
         .then(setReadmeContent)
         .catch(() => setReadmeContent(''))
         .finally(() => setReadmeLoading(false));
@@ -218,7 +188,7 @@ export const CollectionDetailsPage = () => {
       .then(setReadmeContent)
       .catch(() => setReadmeContent(''))
       .finally(() => setReadmeLoading(false));
-  }, [entity, parseReadmeFilePath, fetchReadmeFromBackend]);
+  }, [entity, parseReadmeFilePath, discoveryApi, fetchApi]);
 
   const handleNavigateToCatalog = useCallback(() => {
     navigate('/self-service/collections');

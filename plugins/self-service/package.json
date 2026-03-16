@@ -26,11 +26,13 @@
   },
   "dependencies": {
     "@ansible/backstage-rhaap-common": "workspace:^",
+    "@backstage-community/plugin-github-actions": "^0.11.1",
     "@backstage/catalog-model": "^1.7.4",
     "@backstage/config": "^1.3.2",
     "@backstage/core-app-api": "^1.17.0",
     "@backstage/core-components": "^0.17.2",
     "@backstage/core-plugin-api": "^1.10.7",
+    "@backstage/integration-react": "^1.2.7",
     "@backstage/plugin-catalog-common": "^1.1.4",
     "@backstage/plugin-catalog-import": "^0.13.0",
     "@backstage/plugin-catalog-react": "^1.18.0",

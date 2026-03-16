@@ -588,3 +588,252 @@ describe('CollectionsContent', () => {
     expect(container).toBeInTheDocument();
   });
 });
+
+describe('CollectionsListPage with filterByRepositoryEntity', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+    mockFetchApi.fetch.mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        content: {
+          providers: [
+            {
+              sourceId: 'src-1',
+              lastSyncTime: null,
+              lastFailedSyncTime: null,
+            },
+          ],
+        },
+      }),
+    });
+  });
+
+  const renderWithRepoFilter = (repoEntity: Entity) => {
+    return render(
+      <ThemeProvider theme={theme}>
+        <TestApiProvider
+          apis={[
+            [catalogApiRef, mockCatalogApi],
+            [discoveryApiRef, mockDiscoveryApi],
+            [fetchApiRef, mockFetchApi],
+            [starredEntitiesApiRef, new MockStarredEntitiesApi()],
+            [permissionApiRef, mockApis.permission()],
+          ]}
+        >
+          <MemoryRouter>
+            <EntityListProvider>
+              <CollectionsListPage filterByRepositoryEntity={repoEntity} />
+            </EntityListProvider>
+          </MemoryRouter>
+        </TestApiProvider>
+      </ThemeProvider>,
+    );
+  };
+
+  it('filters collections by repository_collections spec (lines 145-146)', async () => {
+    const collections = [
+      {
+        ...mockEntity,
+        metadata: {
+          ...mockEntity.metadata,
+          name: 'collection-a',
+          uid: 'uid-a',
+        },
+        spec: {
+          ...mockEntity.spec,
+          collection_full_name: 'ns.collection-a',
+        } as any,
+      },
+      {
+        ...mockEntity,
+        metadata: {
+          ...mockEntity.metadata,
+          name: 'collection-b',
+          uid: 'uid-b',
+        },
+        spec: {
+          ...mockEntity.spec,
+          collection_full_name: 'ns.collection-b',
+        } as any,
+      },
+      {
+        ...mockEntity,
+        metadata: {
+          ...mockEntity.metadata,
+          name: 'collection-c',
+          uid: 'uid-c',
+        },
+        spec: {
+          ...mockEntity.spec,
+          collection_full_name: 'ns.collection-c',
+        } as any,
+      },
+    ];
+    mockCatalogApi.getEntities.mockResolvedValue({ items: collections });
+
+    const repoEntity: Entity = {
+      apiVersion: 'backstage.io/v1alpha1',
+      kind: 'Component',
+      metadata: { name: 'my-repo' },
+      spec: {
+        repository_collections: ['collection-a', 'collection-c'],
+      },
+    };
+
+    renderWithRepoFilter(repoEntity);
+
+    await waitFor(() => {
+      expect(screen.getByText('ns.collection-a')).toBeInTheDocument();
+      expect(screen.getByText('ns.collection-c')).toBeInTheDocument();
+    });
+    expect(screen.queryByText('ns.collection-b')).not.toBeInTheDocument();
+  });
+
+  it('filters collections by SCM annotations (lines 145-146)', async () => {
+    const collections = [
+      {
+        ...mockEntity,
+        metadata: {
+          ...mockEntity.metadata,
+          name: 'collection-a',
+          uid: 'uid-a',
+          annotations: {
+            'ansible.io/scm-provider': 'github',
+            'ansible.io/scm-host': 'github.com',
+            'ansible.io/scm-organization': 'my-org',
+            'ansible.io/scm-repository': 'my-repo',
+            'ansible.io/discovery-source-id': 'src-1',
+          },
+        },
+        spec: {
+          ...mockEntity.spec,
+          collection_full_name: 'ns.collection-a',
+        } as any,
+      },
+      {
+        ...mockEntity,
+        metadata: {
+          ...mockEntity.metadata,
+          name: 'collection-b',
+          uid: 'uid-b',
+          annotations: {
+            'ansible.io/scm-provider': 'github',
+            'ansible.io/scm-host': 'github.com',
+            'ansible.io/scm-organization': 'other-org',
+            'ansible.io/scm-repository': 'other-repo',
+            'ansible.io/discovery-source-id': 'src-2',
+          },
+        },
+        spec: {
+          ...mockEntity.spec,
+          collection_full_name: 'ns.collection-b',
+        } as any,
+      },
+    ];
+    mockCatalogApi.getEntities.mockResolvedValue({ items: collections });
+
+    const repoEntity: Entity = {
+      apiVersion: 'backstage.io/v1alpha1',
+      kind: 'Component',
+      metadata: {
+        name: 'my-repo',
+        annotations: {
+          'ansible.io/scm-provider': 'github',
+          'ansible.io/scm-host': 'github.com',
+          'ansible.io/scm-organization': 'my-org',
+          'ansible.io/scm-repository': 'my-repo',
+        },
+      },
+      spec: {},
+    };
+
+    renderWithRepoFilter(repoEntity);
+
+    await waitFor(() => {
+      expect(screen.getByText('ns.collection-a')).toBeInTheDocument();
+    });
+    expect(screen.queryByText('ns.collection-b')).not.toBeInTheDocument();
+  });
+
+  it('sorts collections when filterByRepositoryEntity is set (lines 216-219)', async () => {
+    const collections = [
+      {
+        ...mockEntity,
+        metadata: {
+          ...mockEntity.metadata,
+          name: 'z-collection',
+          uid: 'uid-z',
+        },
+        spec: {
+          ...mockEntity.spec,
+          collection_full_name: 'ns.z-collection',
+        } as any,
+      },
+      {
+        ...mockEntity,
+        metadata: {
+          ...mockEntity.metadata,
+          name: 'a-collection',
+          uid: 'uid-a',
+        },
+        spec: {
+          ...mockEntity.spec,
+          collection_full_name: 'ns.a-collection',
+        } as any,
+      },
+    ];
+    mockCatalogApi.getEntities.mockResolvedValue({ items: collections });
+
+    const repoEntity: Entity = {
+      apiVersion: 'backstage.io/v1alpha1',
+      kind: 'Component',
+      metadata: { name: 'my-repo' },
+      spec: {
+        repository_collections: ['z-collection', 'a-collection'],
+      },
+    };
+
+    renderWithRepoFilter(repoEntity);
+
+    await waitFor(() => {
+      const cards = screen.getAllByText(/ns\./);
+      expect(cards[0]).toHaveTextContent('ns.a-collection');
+      expect(cards[1]).toHaveTextContent('ns.z-collection');
+    });
+  });
+
+  it('shows empty state when no collections match repository filter', async () => {
+    const collections = [
+      {
+        ...mockEntity,
+        metadata: {
+          ...mockEntity.metadata,
+          name: 'collection-x',
+          uid: 'uid-x',
+        },
+        spec: {
+          ...mockEntity.spec,
+          collection_full_name: 'ns.collection-x',
+        } as any,
+      },
+    ];
+    mockCatalogApi.getEntities.mockResolvedValue({ items: collections });
+
+    const repoEntity: Entity = {
+      apiVersion: 'backstage.io/v1alpha1',
+      kind: 'Component',
+      metadata: { name: 'my-repo' },
+      spec: {
+        repository_collections: ['non-existent'],
+      },
+    };
+
+    renderWithRepoFilter(repoEntity);
+
+    await waitFor(() => {
+      expect(
+        screen.getByText('No collections discovered from this repository'),
+      ).toBeInTheDocument();
+    });
+  });
+});
