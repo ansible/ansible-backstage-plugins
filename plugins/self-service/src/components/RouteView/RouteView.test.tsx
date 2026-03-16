@@ -26,12 +26,6 @@ jest.mock('../CatalogItemDetails', () => ({
 jest.mock('../feedback/FeedbackFooter', () => ({
   FeedbackFooter: () => <div data-testid="feedback-footer">FeedbackFooter</div>,
 }));
-
-// Mock RequirePermission to just render children
-jest.mock('@backstage/plugin-permission-react', () => ({
-  RequirePermission: ({ children }: any) => <>{children}</>,
-}));
-
 jest.mock('../ExecutionEnvironments', () => ({
   EETabs: () => <div data-testid="ee-tabs">EETabs</div>,
 }));
@@ -77,26 +71,39 @@ jest.mock('@ansible/backstage-rhaap-common/permissions', () => ({
   },
 }));
 
+// Track every permission passed to RequirePermission.
+// Default behaviour: render children (allowed).
+// Tests can override via mockImplementation to simulate denial.
+const mockRequirePermission = jest.fn();
+
+jest.mock('@backstage/plugin-permission-react', () => ({
+  RequirePermission: (props: any) => mockRequirePermission(props),
+}));
+
 describe('RouteView', () => {
+  beforeEach(() => {
+    mockRequirePermission.mockReset();
+    mockRequirePermission.mockImplementation(({ children }: any) => (
+      <>{children}</>
+    ));
+  });
+
   it('renders default routes without crashing', () => {
     render(
       <MemoryRouter initialEntries={['/catalog']}>
         <RouteView />
       </MemoryRouter>,
     );
-
-    // Check that home component renders
     expect(screen.getByTestId('home')).toBeInTheDocument();
     expect(screen.getByTestId('feedback-footer')).toBeInTheDocument();
   });
 
-  it('renders CatalogImport with permission wrapper', () => {
+  it('renders CatalogImport when allowed', () => {
     render(
       <MemoryRouter initialEntries={['/catalog-import']}>
         <RouteView />
       </MemoryRouter>,
     );
-
     expect(screen.getByTestId('catalog-import')).toBeInTheDocument();
   });
 
@@ -106,7 +113,6 @@ describe('RouteView', () => {
         <RouteView />
       </MemoryRouter>,
     );
-
     expect(screen.getByTestId('task-list')).toBeInTheDocument();
   });
 
@@ -116,7 +122,6 @@ describe('RouteView', () => {
         <RouteView />
       </MemoryRouter>,
     );
-
     expect(screen.getByTestId('run-task')).toBeInTheDocument();
   });
 
@@ -126,62 +131,81 @@ describe('RouteView', () => {
         <RouteView />
       </MemoryRouter>,
     );
-
     expect(screen.getByTestId('create-task')).toBeInTheDocument();
   });
 
-  it('renders EETabs at /ee/catalog through permission wrapper', () => {
-    render(
-      <MemoryRouter initialEntries={['/ee/catalog']}>
-        <RouteView />
-      </MemoryRouter>,
+  describe('when permission is allowed', () => {
+    it.each([
+      {
+        path: '/ee/catalog',
+        childTestId: 'ee-tabs',
+        permissionName: 'ee.view',
+      },
+      {
+        path: '/catalog/my-ee',
+        childTestId: 'ee-details',
+        permissionName: 'ee.view',
+      },
+      {
+        path: '/collections',
+        childTestId: 'collections-catalog',
+        permissionName: 'collections.view',
+      },
+      {
+        path: '/collections/my-col',
+        childTestId: 'collection-details',
+        permissionName: 'collections.view',
+      },
+      {
+        path: '/repositories/catalog',
+        childTestId: 'git-repositories',
+        permissionName: 'repos.view',
+      },
+      {
+        path: '/repositories/my-repo',
+        childTestId: 'repository-details',
+        permissionName: 'repos.view',
+      },
+    ])(
+      'renders $childTestId at $path with $permissionName',
+      ({ path, childTestId, permissionName }) => {
+        render(
+          <MemoryRouter initialEntries={[path]}>
+            <RouteView />
+          </MemoryRouter>,
+        );
+        expect(screen.getByTestId(childTestId)).toBeInTheDocument();
+        expect(mockRequirePermission).toHaveBeenCalledWith(
+          expect.objectContaining({
+            permission: expect.objectContaining({ name: permissionName }),
+          }),
+        );
+      },
     );
-    expect(screen.getByTestId('ee-tabs')).toBeInTheDocument();
   });
 
-  it('renders EEDetailsPage at /catalog/:templateName through permission wrapper', () => {
-    render(
-      <MemoryRouter initialEntries={['/catalog/my-ee']}>
-        <RouteView />
-      </MemoryRouter>,
-    );
-    expect(screen.getByTestId('ee-details')).toBeInTheDocument();
-  });
+  describe('when permission is denied', () => {
+    beforeEach(() => {
+      mockRequirePermission.mockImplementation(() => (
+        <div data-testid="permission-denied" />
+      ));
+    });
 
-  it('renders CollectionsCatalogPage at /collections through permission wrapper', () => {
-    render(
-      <MemoryRouter initialEntries={['/collections']}>
-        <RouteView />
-      </MemoryRouter>,
-    );
-    expect(screen.getByTestId('collections-catalog')).toBeInTheDocument();
-  });
-
-  it('renders CollectionDetailsPage at /collections/:name through permission wrapper', () => {
-    render(
-      <MemoryRouter initialEntries={['/collections/my-collection']}>
-        <RouteView />
-      </MemoryRouter>,
-    );
-    expect(screen.getByTestId('collection-details')).toBeInTheDocument();
-  });
-
-  it('renders GitRepositoriesPage at /repositories/catalog through permission wrapper', () => {
-    render(
-      <MemoryRouter initialEntries={['/repositories/catalog']}>
-        <RouteView />
-      </MemoryRouter>,
-    );
-    expect(screen.getByTestId('git-repositories')).toBeInTheDocument();
-  });
-
-  it('renders RepositoryDetailsPage at /repositories/:name through permission wrapper', () => {
-    render(
-      <MemoryRouter initialEntries={['/repositories/my-repo']}>
-        <RouteView />
-      </MemoryRouter>,
-    );
-    expect(screen.getByTestId('repository-details')).toBeInTheDocument();
+    it.each([
+      { path: '/ee/catalog', childTestId: 'ee-tabs' },
+      { path: '/collections', childTestId: 'collections-catalog' },
+      { path: '/repositories/catalog', childTestId: 'git-repositories' },
+    ])('blocks $childTestId at $path', ({ path, childTestId }) => {
+      render(
+        <MemoryRouter initialEntries={[path]}>
+          <RouteView />
+        </MemoryRouter>,
+      );
+      expect(screen.queryByTestId(childTestId)).not.toBeInTheDocument();
+      expect(screen.getAllByTestId('permission-denied').length).toBeGreaterThan(
+        0,
+      );
+    });
   });
 
   it('redirects unknown routes to /self-service/catalog', () => {
@@ -190,8 +214,6 @@ describe('RouteView', () => {
         <RouteView />
       </MemoryRouter>,
     );
-
-    // Since Navigate is not rendered to DOM, we can just check FeedbackFooter renders
     expect(screen.getByTestId('feedback-footer')).toBeInTheDocument();
   });
 });
