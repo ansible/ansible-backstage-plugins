@@ -32,7 +32,7 @@ import { Progress, Table, TableColumn } from '@backstage/core-components';
 import HelpOutlineIcon from '@material-ui/icons/HelpOutline';
 import GitHubIcon from '@material-ui/icons/GitHub';
 import { getSourceUrl, formatTimeAgo } from '../CollectionsCatalog/utils';
-import { GitLabIcon, SyncStatusMap } from '../common';
+import { EntityLinkButton, GitLabIcon, SyncStatusMap } from '../common';
 import {
   useCollectionsStyles,
   useTableWrapperStyles,
@@ -44,7 +44,6 @@ import {
   COLUMN_LAST_SYNC_TOOLTIP,
 } from './constants';
 import { useLatestCIActivity } from './useLatestCIActivity';
-import { EntityLinkButton } from '../common';
 
 const StarredIcon = () => <Star style={{ color: '#ffb74d' }} />;
 
