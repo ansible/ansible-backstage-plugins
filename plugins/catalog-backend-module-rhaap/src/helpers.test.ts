@@ -587,6 +587,9 @@ describe('helpers', () => {
             .mockResolvedValue({ userEntityRef: mockUserEntityRef }),
         } as any,
         auth: {
+          isPrincipal: jest
+            .fn()
+            .mockImplementation((_: any, type: string) => type === 'user'),
           getPluginRequestToken: jest
             .fn()
             .mockResolvedValue({ token: mockToken }),
@@ -620,7 +623,9 @@ describe('helpers', () => {
       expect(result).toBe(true);
       expect(res.status).not.toHaveBeenCalled();
       expect(res.json).not.toHaveBeenCalled();
-      expect(deps.httpAuth.credentials).toHaveBeenCalledWith(req);
+      expect(deps.httpAuth.credentials).toHaveBeenCalledWith(req, {
+        allow: ['service', 'user'],
+      });
       expect(deps.userInfo.getUserInfo).toHaveBeenCalledWith(mockCredentials);
       expect(deps.catalogClient.getEntityByRef).toHaveBeenCalledWith(
         mockUserEntityRef,
@@ -689,6 +694,132 @@ describe('helpers', () => {
       });
       expect(deps.logger.error).toHaveBeenCalledWith(
         'Superuser check failed: User not found',
+      );
+    });
+
+    it('returns true for service principal (external access token) when no subject allowlist', async () => {
+      const serviceCredentials = {
+        principal: { type: 'service' as const, subject: 'external-auth-token' },
+      };
+      const deps = createMockDeps({
+        httpAuth: {
+          credentials: jest.fn().mockResolvedValue(serviceCredentials),
+        } as any,
+        auth: {
+          isPrincipal: jest
+            .fn()
+            .mockImplementation((_: any, type: string) => type === 'service'),
+          getPluginRequestToken: jest
+            .fn()
+            .mockResolvedValue({ token: mockToken }),
+        } as any,
+      });
+
+      const check = checkRequireSuperuser(deps);
+      const res = createMockRes();
+
+      const result = await check(createMockReq(), res);
+
+      expect(result).toBe(true);
+      expect(res.status).not.toHaveBeenCalled();
+      expect(res.json).not.toHaveBeenCalled();
+      expect(deps.auth.isPrincipal).toHaveBeenCalledWith(
+        serviceCredentials,
+        'service',
+      );
+      expect(deps.logger.info).toHaveBeenCalledWith(
+        'Allowing sync request: external access (service principal, subject=external-auth-token)',
+      );
+      expect(deps.userInfo.getUserInfo).not.toHaveBeenCalled();
+    });
+
+    it('returns true for service principal when subject is in allowedExternalAccessSubjects', async () => {
+      const serviceCredentials = {
+        principal: { type: 'service' as const, subject: 'external-auth-token' },
+      };
+      const deps = createMockDeps({
+        httpAuth: {
+          credentials: jest.fn().mockResolvedValue(serviceCredentials),
+        } as any,
+        auth: {
+          isPrincipal: jest
+            .fn()
+            .mockImplementation((_: any, type: string) => type === 'service'),
+          getPluginRequestToken: jest
+            .fn()
+            .mockResolvedValue({ token: mockToken }),
+        } as any,
+        allowedExternalAccessSubjects: ['external-auth-token', 'other-allowed'],
+      });
+
+      const check = checkRequireSuperuser(deps);
+      const res = createMockRes();
+
+      const result = await check(createMockReq(), res);
+
+      expect(result).toBe(true);
+      expect(deps.logger.info).toHaveBeenCalledWith(
+        'Allowing sync request: external access (service principal, subject=external-auth-token)',
+      );
+    });
+
+    it('returns false and sends 403 when service principal subject not in allowedExternalAccessSubjects', async () => {
+      const serviceCredentials = {
+        principal: { type: 'service' as const, subject: 'random-service' },
+      };
+      const deps = createMockDeps({
+        httpAuth: {
+          credentials: jest.fn().mockResolvedValue(serviceCredentials),
+        } as any,
+        auth: {
+          isPrincipal: jest
+            .fn()
+            .mockImplementation((_: any, type: string) => type === 'service'),
+          getPluginRequestToken: jest
+            .fn()
+            .mockResolvedValue({ token: mockToken }),
+        } as any,
+        allowedExternalAccessSubjects: ['external-auth-token'],
+      });
+
+      const check = checkRequireSuperuser(deps);
+      const res = createMockRes();
+
+      const result = await check(createMockReq(), res);
+
+      expect(result).toBe(false);
+      expect(res.status).toHaveBeenCalledWith(403);
+      expect(res.json).toHaveBeenCalledWith({
+        error:
+          'Forbidden: external access subject not allowed for this endpoint',
+      });
+      expect(deps.logger.warn).toHaveBeenCalledWith(
+        "Rejecting sync request: service principal subject 'random-service' not in allowedExternalAccessSubjects",
+      );
+    });
+
+    it('returns false and sends 500 when credentials() throws (e.g. missing or not allowed)', async () => {
+      const deps = createMockDeps({
+        httpAuth: {
+          credentials: jest
+            .fn()
+            .mockRejectedValue(new Error('Missing credentials')),
+        } as any,
+      });
+
+      const check = checkRequireSuperuser(deps);
+      const res = createMockRes();
+
+      const result = await check(createMockReq(), res);
+
+      expect(result).toBe(false);
+      expect(res.status).toHaveBeenCalledWith(500);
+      expect(res.json).toHaveBeenCalledWith({
+        error: 'Authorization failed: Missing credentials',
+      });
+      expect(deps.httpAuth.credentials).toHaveBeenCalledWith(
+        expect.anything(),
+        { allow: ['service', 'user'] },
       );
     });
 
@@ -798,6 +929,9 @@ describe('helpers', () => {
             .mockResolvedValue({ userEntityRef: mockUserEntityRef }),
         } as any,
         auth: {
+          isPrincipal: jest
+            .fn()
+            .mockImplementation((_: any, type: string) => type === 'user'),
           getPluginRequestToken: jest
             .fn()
             .mockResolvedValue({ token: mockToken }),

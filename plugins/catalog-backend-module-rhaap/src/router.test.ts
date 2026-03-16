@@ -149,7 +149,9 @@ describe('createRouter', () => {
         .fn()
         .mockResolvedValue({ token: 'mock-token' }),
       getOwnServiceCredentials: jest.fn(),
-      isPrincipal: jest.fn(),
+      isPrincipal: jest
+        .fn()
+        .mockImplementation((_: unknown, type: string) => type === 'user'),
       getNoneCredentials: jest.fn(),
       authenticate: jest.fn(),
       getLimitedUserToken: jest.fn(),

@@ -107,6 +107,18 @@ export const catalogModuleRhaap = createBackendModule({
 
         const catalogClient = new CatalogClient({ discoveryApi: discovery });
 
+        const externalAccessConfig = config
+          .getOptionalConfig('backend')
+          ?.getOptionalConfig('auth')
+          ?.getOptionalConfigArray('externalAccess');
+        const allowedExternalAccessSubjects: string[] = [];
+        if (externalAccessConfig) {
+          for (const entry of externalAccessConfig) {
+            const subject = entry.getOptionalString('options.subject');
+            if (subject) allowedExternalAccessSubjects.push(subject);
+          }
+        }
+
         httpRouter.use(
           (await createRouter({
             logger,
@@ -120,6 +132,10 @@ export const catalogModuleRhaap = createBackendModule({
             auth: auth,
             catalogClient: catalogClient,
             ansibleGitContentsProviders,
+            allowedExternalAccessSubjects:
+              allowedExternalAccessSubjects.length > 0
+                ? allowedExternalAccessSubjects
+                : undefined,
           })) as any,
         );
       },

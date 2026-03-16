@@ -56,6 +56,7 @@ export async function createRouter(options: {
   auth: AuthService;
   catalogClient: CatalogClient;
   ansibleGitContentsProviders?: AnsibleGitContentsProvider[];
+  allowedExternalAccessSubjects?: string[];
 }): Promise<express.Router> {
   const {
     logger,
@@ -69,6 +70,7 @@ export async function createRouter(options: {
     auth,
     catalogClient,
     ansibleGitContentsProviders = [],
+    allowedExternalAccessSubjects,
   } = options;
   const router = Router();
   const scmClientFactory = new ScmClientFactory({ rootConfig: config, logger });
@@ -93,6 +95,7 @@ export async function createRouter(options: {
     auth,
     catalogClient,
     logger,
+    allowedExternalAccessSubjects,
   });
 
   router.get('/health', (_, response) => {

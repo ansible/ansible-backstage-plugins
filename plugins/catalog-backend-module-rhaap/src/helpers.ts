@@ -241,6 +241,12 @@ export interface RequireSuperuserDeps {
   auth: AuthService;
   catalogClient: CatalogClient;
   logger: LoggerService;
+  /**
+   * When set, only service principals with this subject are allowed as external access.
+   * Typically populated from backend.auth.externalAccess[].options.subject in app-config.
+   * If empty/undefined, any service principal is allowed.
+   */
+  allowedExternalAccessSubjects?: string[];
 }
 
 /**
@@ -250,10 +256,41 @@ export interface RequireSuperuserDeps {
 export function checkRequireSuperuser(
   deps: RequireSuperuserDeps,
 ): (req: Request, res: Response) => Promise<boolean> {
-  const { httpAuth, userInfo, auth, catalogClient, logger } = deps;
+  const {
+    httpAuth,
+    userInfo,
+    auth,
+    catalogClient,
+    logger,
+    allowedExternalAccessSubjects,
+  } = deps;
   return async (req: Request, res: Response): Promise<boolean> => {
     try {
-      const credentials = await httpAuth.credentials(req as any);
+      const credentials = await httpAuth.credentials(req as any, {
+        allow: ['service', 'user'],
+      });
+      // Service principal = external access token (from backend.auth.externalAccess in app-config).
+      if (auth.isPrincipal(credentials, 'service')) {
+        const subject = credentials.principal.subject;
+        const allowed =
+          !allowedExternalAccessSubjects?.length ||
+          allowedExternalAccessSubjects.includes(subject);
+        if (allowed) {
+          logger.info(
+            `Allowing sync request: external access (service principal, subject=${subject})`,
+          );
+          return true;
+        }
+        logger.warn(
+          `Rejecting sync request: service principal subject '${subject}' not in allowedExternalAccessSubjects`,
+        );
+        res.status(403).json({
+          error:
+            'Forbidden: external access subject not allowed for this endpoint',
+        });
+        return false;
+      }
+      // User principal: require superuser in catalog.
       const { userEntityRef } = await userInfo.getUserInfo(credentials);
       const { token } = await auth.getPluginRequestToken({
         onBehalfOf: credentials,
