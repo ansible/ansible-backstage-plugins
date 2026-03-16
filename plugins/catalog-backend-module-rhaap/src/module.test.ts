@@ -12,7 +12,7 @@ import { createRouter } from './router';
 jest.mock('./router', () => ({
   createRouter: jest
     .fn()
-    .mockResolvedValue((req: any, res: any, next: any) => next()),
+    .mockResolvedValue((_req: any, _res: any, next: any) => next()),
 }));
 
 describe('catalogModuleRHAAPEntityProvider', () => {
