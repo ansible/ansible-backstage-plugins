@@ -1058,7 +1058,7 @@ describe('createRouter', () => {
 
     it('should handle sync status when thrown value is not an Error (stringifies in response)', async () => {
       mockAAPEntityProvider.getLastSyncTime.mockImplementation(() => {
-        throw 'plain string error';
+        throw new Error('plain string error');
       });
       mockJobTemplateProvider.getLastSyncTime.mockReturnValue(null);
 

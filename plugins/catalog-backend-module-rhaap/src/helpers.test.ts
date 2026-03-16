@@ -560,14 +560,14 @@ describe('helpers', () => {
     function createMockRes() {
       const res: any = {
         statusCode: 200,
-        status: jest.fn().mockImplementation(function (
+        status: jest.fn().mockImplementation(function statusImpl(
           this: any,
           code: number,
         ) {
           this.statusCode = code;
           return this;
         }),
-        json: jest.fn().mockImplementation(function (this: any) {
+        json: jest.fn().mockImplementation(function jsonImpl(this: any) {
           return this;
         }),
       };
