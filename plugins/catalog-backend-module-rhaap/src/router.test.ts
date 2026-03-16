@@ -893,6 +893,10 @@ describe('createRouter', () => {
         jobTemplateProvider: mockJobTemplateProvider,
         eeEntityProvider: mockEEEntityProvider,
         pahCollectionProviders: [],
+        httpAuth: mockHttpAuth,
+        userInfo: mockUserInfo,
+        auth: mockAuth,
+        catalogClient: mockCatalogClient,
       });
       const appWithoutToken = express().use(routerWithoutToken);
 
@@ -1082,6 +1086,10 @@ describe('createRouter', () => {
         jobTemplateProvider: mockJobTemplateProvider,
         eeEntityProvider: mockEEEntityProvider,
         pahCollectionProviders: [],
+        httpAuth: mockHttpAuth,
+        userInfo: mockUserInfo,
+        auth: mockAuth,
+        catalogClient: mockCatalogClient,
       });
 
       const appWithSkipTls = express().use(routerWithSkipTls);
@@ -1150,6 +1158,10 @@ describe('createRouter', () => {
         jobTemplateProvider: mockJobTemplateProvider,
         eeEntityProvider: mockEEEntityProvider,
         pahCollectionProviders: [],
+        httpAuth: mockHttpAuth,
+        userInfo: mockUserInfo,
+        auth: mockAuth,
+        catalogClient: mockCatalogClient,
       });
 
       const appWithApiBase = express().use(routerWithApiBase);

@@ -931,6 +931,10 @@ describe('helpers', () => {
       expect(res.status).toHaveBeenCalledWith(403);
       expect(res.json).toHaveBeenCalledWith({
         error: 'Forbidden: superuser access required',
+      });
+    });
+  });
+
   describe('getGitLabIntegrationForHost', () => {
     it('returns empty object when no integrations configured', () => {
       const config = new ConfigReader({});
@@ -1149,6 +1153,9 @@ describe('helpers', () => {
       expect(res.json).toHaveBeenCalledWith({
         error: 'Authorization failed: Auth failed',
       });
+    });
+  });
+
   describe('getSkipTlsVerifyHosts', () => {
     it('returns empty array when config not set', () => {
       const config = new ConfigReader({});
