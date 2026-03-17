@@ -3,6 +3,15 @@ import { renderInTestApp, TestApiProvider } from '@backstage/test-utils';
 import { configApiRef } from '@backstage/core-plugin-api';
 import { CollectionsSidebarItem } from './CollectionsSidebarItem';
 
+jest.mock('@backstage/core-plugin-api', () => ({
+  ...jest.requireActual('@backstage/core-plugin-api'),
+  useRouteRef: () => () => '/self-service',
+}));
+
+jest.mock('../../routes', () => ({
+  rootRouteRef: { id: 'root-route-ref' },
+}));
+
 const mockUsePermission = jest.fn();
 jest.mock('@backstage/plugin-permission-react', () => ({
   usePermission: (...args: unknown[]) => mockUsePermission(...args),

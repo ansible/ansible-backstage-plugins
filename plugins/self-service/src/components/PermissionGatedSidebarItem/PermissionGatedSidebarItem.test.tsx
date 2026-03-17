@@ -1,16 +1,7 @@
 import { screen } from '@testing-library/react';
 import { renderInTestApp, TestApiProvider } from '@backstage/test-utils';
 import { configApiRef } from '@backstage/core-plugin-api';
-import { GitRepositoriesSidebarItem } from './GitRepositoriesSidebarItem';
-
-jest.mock('@backstage/core-plugin-api', () => ({
-  ...jest.requireActual('@backstage/core-plugin-api'),
-  useRouteRef: () => () => '/self-service',
-}));
-
-jest.mock('../../routes', () => ({
-  rootRouteRef: { id: 'root-route-ref' },
-}));
+import { PermissionGatedSidebarItem } from './PermissionGatedSidebarItem';
 
 const mockUsePermission = jest.fn();
 jest.mock('@backstage/plugin-permission-react', () => ({
@@ -36,26 +27,38 @@ const createMockConfigApi = (permissionEnabled: boolean | undefined) => ({
   has: jest.fn(),
 });
 
-describe('GitRepositoriesSidebarItem', () => {
+const testPermission = {
+  type: 'basic' as const,
+  name: 'test.permission',
+  attributes: {},
+};
+
+const TestIcon = () => <svg data-testid="test-icon" />;
+
+const defaultProps = {
+  permission: testPermission,
+  icon: TestIcon,
+  to: '/test/path',
+  text: 'Test Item',
+};
+
+describe('PermissionGatedSidebarItem', () => {
   beforeEach(() => {
     jest.clearAllMocks();
   });
 
   it('renders sidebar item when permission framework is disabled', async () => {
-    mockUsePermission.mockReturnValue({
-      loading: false,
-      allowed: false,
-    });
+    mockUsePermission.mockReturnValue({ loading: false, allowed: false });
 
     await renderInTestApp(
       <TestApiProvider apis={[[configApiRef, createMockConfigApi(false)]]}>
-        <GitRepositoriesSidebarItem />
+        <PermissionGatedSidebarItem {...defaultProps} />
       </TestApiProvider>,
     );
 
-    const link = screen.getByRole('link', { name: /Git Repositories/i });
+    const link = screen.getByRole('link', { name: /Test Item/i });
     expect(link).toBeInTheDocument();
-    expect(link).toHaveAttribute('href', '/self-service/repositories');
+    expect(link).toHaveAttribute('href', '/test/path');
   });
 
   it('renders sidebar item when permission.enabled is undefined (framework off)', async () => {
@@ -63,12 +66,12 @@ describe('GitRepositoriesSidebarItem', () => {
 
     await renderInTestApp(
       <TestApiProvider apis={[[configApiRef, createMockConfigApi(undefined)]]}>
-        <GitRepositoriesSidebarItem />
+        <PermissionGatedSidebarItem {...defaultProps} />
       </TestApiProvider>,
     );
 
     expect(
-      screen.getByRole('link', { name: /Git Repositories/i }),
+      screen.getByRole('link', { name: /Test Item/i }),
     ).toBeInTheDocument();
   });
 
@@ -77,12 +80,12 @@ describe('GitRepositoriesSidebarItem', () => {
 
     const { container } = await renderInTestApp(
       <TestApiProvider apis={[[configApiRef, createMockConfigApi(true)]]}>
-        <GitRepositoriesSidebarItem />
+        <PermissionGatedSidebarItem {...defaultProps} />
       </TestApiProvider>,
     );
 
     expect(
-      screen.queryByRole('link', { name: /Git Repositories/i }),
+      screen.queryByRole('link', { name: /Test Item/i }),
     ).not.toBeInTheDocument();
     expect(container.firstChild).toBeNull();
   });
@@ -92,12 +95,12 @@ describe('GitRepositoriesSidebarItem', () => {
 
     const { container } = await renderInTestApp(
       <TestApiProvider apis={[[configApiRef, createMockConfigApi(true)]]}>
-        <GitRepositoriesSidebarItem />
+        <PermissionGatedSidebarItem {...defaultProps} />
       </TestApiProvider>,
     );
 
     expect(
-      screen.queryByRole('link', { name: /Git Repositories/i }),
+      screen.queryByRole('link', { name: /Test Item/i }),
     ).not.toBeInTheDocument();
     expect(container.firstChild).toBeNull();
   });
@@ -107,29 +110,26 @@ describe('GitRepositoriesSidebarItem', () => {
 
     await renderInTestApp(
       <TestApiProvider apis={[[configApiRef, createMockConfigApi(true)]]}>
-        <GitRepositoriesSidebarItem />
+        <PermissionGatedSidebarItem {...defaultProps} />
       </TestApiProvider>,
     );
 
-    const link = screen.getByRole('link', { name: /Git Repositories/i });
+    const link = screen.getByRole('link', { name: /Test Item/i });
     expect(link).toBeInTheDocument();
-    expect(link).toHaveAttribute('href', '/self-service/repositories');
+    expect(link).toHaveAttribute('href', '/test/path');
   });
 
-  it('calls usePermission with git repositories view permission', async () => {
+  it('calls usePermission with the provided permission', async () => {
     mockUsePermission.mockReturnValue({ loading: false, allowed: true });
 
     await renderInTestApp(
       <TestApiProvider apis={[[configApiRef, createMockConfigApi(true)]]}>
-        <GitRepositoriesSidebarItem />
+        <PermissionGatedSidebarItem {...defaultProps} />
       </TestApiProvider>,
     );
 
     expect(mockUsePermission).toHaveBeenCalledWith({
-      permission: expect.objectContaining({
-        name: 'ansible.git-repositories.view',
-        type: 'basic',
-      }),
+      permission: testPermission,
     });
   });
 });

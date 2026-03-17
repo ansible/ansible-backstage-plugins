@@ -1,36 +1,18 @@
-import { usePermission } from '@backstage/plugin-permission-react';
-import { configApiRef, useApi } from '@backstage/core-plugin-api';
-import { SidebarItem } from '@backstage/core-components';
+import { useRouteRef } from '@backstage/core-plugin-api';
 import BuildIcon from '@material-ui/icons/Build';
 import { executionEnvironmentsViewPermission } from '@ansible/backstage-rhaap-common/permissions';
 
+import { rootRouteRef } from '../../routes';
+import { PermissionGatedSidebarItem } from '../PermissionGatedSidebarItem';
+
 export const EEBuilderSidebarItem = () => {
-  const { loading, allowed } = usePermission({
-    permission: executionEnvironmentsViewPermission,
-  });
-
-  const config = useApi(configApiRef);
-  const isPermissionFrameworkEnabled =
-    config.getOptionalBoolean('permission.enabled');
-
-  if (!isPermissionFrameworkEnabled) {
-    return (
-      <SidebarItem
-        icon={BuildIcon}
-        to="/self-service/ee"
-        text="Execution Environments"
-      />
-    );
-  }
-
-  if (loading || !allowed) {
-    return null;
-  }
+  const rootLink = useRouteRef(rootRouteRef);
 
   return (
-    <SidebarItem
+    <PermissionGatedSidebarItem
+      permission={executionEnvironmentsViewPermission}
       icon={BuildIcon}
-      to="/self-service/ee"
+      to={`${rootLink()}/ee`}
       text="Execution Environments"
     />
   );

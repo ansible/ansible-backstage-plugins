@@ -1,13 +1,14 @@
 import { useEffect, useCallback, useMemo } from 'react';
-import { Header, Page, HeaderTabs, Content } from '@backstage/core-components';
-import { Typography, Box, makeStyles } from '@material-ui/core';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { useRouteRef } from '@backstage/core-plugin-api';
-import { rootRouteRef } from '../../routes';
+import { Typography, Box, makeStyles } from '@material-ui/core';
 import CategoryOutlinedIcon from '@material-ui/icons/CategoryOutlined';
 import CreateComponentIcon from '@material-ui/icons/AddCircleOutline';
+import { Header, Page, HeaderTabs, Content } from '@backstage/core-components';
+import { useRouteRef } from '@backstage/core-plugin-api';
 import { RequirePermission } from '@backstage/plugin-permission-react';
 import { executionEnvironmentsViewPermission } from '@ansible/backstage-rhaap-common/permissions';
+
+import { rootRouteRef } from '../../routes';
 import { CreateContent } from './create/CreateContent';
 import { EntityCatalogContent } from './catalog/CatalogContent';
 
