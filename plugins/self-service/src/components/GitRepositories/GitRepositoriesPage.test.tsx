@@ -6,6 +6,15 @@ import { GitRepositoriesPage } from './GitRepositoriesPage';
 
 jest.mock('@backstage/plugin-permission-react', () => ({
   usePermission: () => ({ allowed: true }),
+  RequirePermission: (props: any) => props.children,
+}));
+
+jest.mock('@ansible/backstage-rhaap-common/permissions', () => ({
+  gitRepositoriesViewPermission: {
+    type: 'basic',
+    name: 'git-repositories.view',
+    attributes: {},
+  },
 }));
 
 jest.mock('../../hooks', () => ({

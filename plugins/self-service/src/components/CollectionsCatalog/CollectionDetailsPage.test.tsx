@@ -1,12 +1,23 @@
 import { render, screen, waitFor, fireEvent } from '@testing-library/react';
 import { ThemeProvider, createTheme } from '@material-ui/core/styles';
-import { TestApiProvider, mockApis } from '@backstage/test-utils';
+import { TestApiProvider } from '@backstage/test-utils';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { catalogApiRef } from '@backstage/plugin-catalog-react';
 import { discoveryApiRef, fetchApiRef } from '@backstage/core-plugin-api';
-import { permissionApiRef } from '@backstage/plugin-permission-react';
 import { Entity } from '@backstage/catalog-model';
 import { CollectionDetailsPage } from './CollectionDetailsPage';
+
+jest.mock('@backstage/plugin-permission-react', () => ({
+  RequirePermission: (props: any) => props.children,
+}));
+
+jest.mock('@ansible/backstage-rhaap-common/permissions', () => ({
+  collectionsViewPermission: {
+    type: 'basic',
+    name: 'collections.view',
+    attributes: {},
+  },
+}));
 
 jest.mock('../../hooks', () => ({
   useIsSuperuser: () => ({
@@ -57,7 +68,6 @@ const renderWithRouter = (collectionName: string) => {
           [catalogApiRef, mockCatalogApi],
           [discoveryApiRef, mockDiscoveryApi],
           [fetchApiRef, mockFetchApi],
-          [permissionApiRef, mockApis.permission()],
         ]}
       >
         <MemoryRouter initialEntries={[`/collections/${collectionName}`]}>

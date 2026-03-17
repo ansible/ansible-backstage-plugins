@@ -4,6 +4,18 @@ import { ThemeProvider, createTheme } from '@material-ui/core/styles';
 import { discoveryApiRef, fetchApiRef } from '@backstage/core-plugin-api';
 import { CollectionsCatalogPage } from './CollectionsCatalogPage';
 
+jest.mock('@backstage/plugin-permission-react', () => ({
+  RequirePermission: (props: any) => props.children,
+}));
+
+jest.mock('@ansible/backstage-rhaap-common/permissions', () => ({
+  collectionsViewPermission: {
+    type: 'basic',
+    name: 'collections.view',
+    attributes: {},
+  },
+}));
+
 jest.mock('../../hooks', () => ({
   useIsSuperuser: () => ({
     isSuperuser: true,

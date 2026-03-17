@@ -9,6 +9,8 @@ import {
   discoveryApiRef,
   fetchApiRef,
 } from '@backstage/core-plugin-api';
+import { RequirePermission } from '@backstage/plugin-permission-react';
+import { collectionsViewPermission } from '@ansible/backstage-rhaap-common/permissions';
 
 import { CollectionBreadcrumbs } from './CollectionBreadcrumbs';
 import { CollectionAboutCard } from './CollectionAboutCard';
@@ -18,7 +20,7 @@ import { RepositoryBadge } from './RepositoryBadge';
 import { useCollectionsStyles } from './styles';
 import { EmptyState, fetchReadmeFromBackend } from '../common';
 
-export const CollectionDetailsPage = () => {
+const CollectionDetailsPageInner = () => {
   const classes = useCollectionsStyles();
   const navigate = useNavigate();
   const { collectionName } = useParams<{ collectionName: string }>();
@@ -320,5 +322,13 @@ export const CollectionDetailsPage = () => {
         </Box>
       )}
     </Box>
+  );
+};
+
+export const CollectionDetailsPage = () => {
+  return (
+    <RequirePermission permission={collectionsViewPermission}>
+      <CollectionDetailsPageInner />
+    </RequirePermission>
   );
 };

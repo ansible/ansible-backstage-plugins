@@ -4,6 +4,8 @@ import { Typography, Box, makeStyles } from '@material-ui/core';
 import { useLocation, useNavigate } from 'react-router-dom';
 import CategoryOutlinedIcon from '@material-ui/icons/CategoryOutlined';
 import CreateComponentIcon from '@material-ui/icons/AddCircleOutline';
+import { RequirePermission } from '@backstage/plugin-permission-react';
+import { executionEnvironmentsViewPermission } from '@ansible/backstage-rhaap-common/permissions';
 import { CreateContent } from './create/CreateContent';
 import { EntityCatalogContent } from './catalog/CatalogContent';
 
@@ -119,24 +121,26 @@ export const EETabs: React.FC = () => {
   }, [selectedTab, handleTabSwitch]);
 
   return (
-    <Page themeId="app">
-      <EEHeader />
-      <HeaderTabs
-        selectedIndex={selectedTab}
-        onChange={onTabSelect}
-        tabs={
-          tabs.map(({ label, icon }) => ({
-            id: label.toLowerCase(),
-            label: (
-              <Box className={classes.tabWithIcon}>
-                {icon}
-                {label}
-              </Box>
-            ),
-          })) as any
-        }
-      />
-      <Content>{content}</Content>
-    </Page>
+    <RequirePermission permission={executionEnvironmentsViewPermission}>
+      <Page themeId="app">
+        <EEHeader />
+        <HeaderTabs
+          selectedIndex={selectedTab}
+          onChange={onTabSelect}
+          tabs={
+            tabs.map(({ label, icon }) => ({
+              id: label.toLowerCase(),
+              label: (
+                <Box className={classes.tabWithIcon}>
+                  {icon}
+                  {label}
+                </Box>
+              ),
+            })) as any
+          }
+        />
+        <Content>{content}</Content>
+      </Page>
+    </RequirePermission>
   );
 };

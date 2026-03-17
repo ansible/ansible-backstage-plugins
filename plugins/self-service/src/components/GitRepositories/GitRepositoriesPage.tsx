@@ -10,6 +10,8 @@ import {
   discoveryApiRef,
   fetchApiRef,
 } from '@backstage/core-plugin-api';
+import { RequirePermission } from '@backstage/plugin-permission-react';
+import { gitRepositoriesViewPermission } from '@ansible/backstage-rhaap-common/permissions';
 import {
   NotificationProvider,
   NotificationStack,
@@ -203,8 +205,10 @@ const GitRepositoriesPageInner = () => {
 
 export const GitRepositoriesPage = () => {
   return (
-    <NotificationProvider>
-      <GitRepositoriesPageInner />
-    </NotificationProvider>
+    <RequirePermission permission={gitRepositoriesViewPermission}>
+      <NotificationProvider>
+        <GitRepositoriesPageInner />
+      </NotificationProvider>
+    </RequirePermission>
   );
 };

@@ -1,5 +1,7 @@
 import { useState, useCallback } from 'react';
 import { Page, Content } from '@backstage/core-components';
+import { RequirePermission } from '@backstage/plugin-permission-react';
+import { collectionsViewPermission } from '@ansible/backstage-rhaap-common/permissions';
 
 import { PageHeaderSection } from './PageHeaderSection';
 import { SyncDialog, StartedSyncInfo } from '../common';
@@ -71,8 +73,10 @@ const CollectionsCatalogPageInner = () => {
 
 export const CollectionsCatalogPage = () => {
   return (
-    <NotificationProvider>
-      <CollectionsCatalogPageInner />
-    </NotificationProvider>
+    <RequirePermission permission={collectionsViewPermission}>
+      <NotificationProvider>
+        <CollectionsCatalogPageInner />
+      </NotificationProvider>
+    </RequirePermission>
   );
 };
