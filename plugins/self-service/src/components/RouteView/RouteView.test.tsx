@@ -94,16 +94,19 @@ describe('RouteView', () => {
         <RouteView />
       </MemoryRouter>,
     );
+
+    // Check that home component renders
     expect(screen.getByTestId('home')).toBeInTheDocument();
     expect(screen.getByTestId('feedback-footer')).toBeInTheDocument();
   });
 
-  it('renders CatalogImport when allowed', () => {
+  it('renders CatalogImport with permission wrapper', () => {
     render(
       <MemoryRouter initialEntries={['/catalog-import']}>
         <RouteView />
       </MemoryRouter>,
     );
+
     expect(screen.getByTestId('catalog-import')).toBeInTheDocument();
   });
 
@@ -113,6 +116,7 @@ describe('RouteView', () => {
         <RouteView />
       </MemoryRouter>,
     );
+
     expect(screen.getByTestId('task-list')).toBeInTheDocument();
   });
 
@@ -122,6 +126,7 @@ describe('RouteView', () => {
         <RouteView />
       </MemoryRouter>,
     );
+
     expect(screen.getByTestId('run-task')).toBeInTheDocument();
   });
 
@@ -131,6 +136,7 @@ describe('RouteView', () => {
         <RouteView />
       </MemoryRouter>,
     );
+
     expect(screen.getByTestId('create-task')).toBeInTheDocument();
   });
 
@@ -214,6 +220,8 @@ describe('RouteView', () => {
         <RouteView />
       </MemoryRouter>,
     );
+
+    // Since Navigate is not rendered to DOM, we can just check FeedbackFooter renders
     expect(screen.getByTestId('feedback-footer')).toBeInTheDocument();
   });
 });
