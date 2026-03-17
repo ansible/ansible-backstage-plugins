@@ -25,8 +25,8 @@ import {
 import { TemplateGroups } from '@backstage/plugin-scaffolder-react/alpha';
 import { WizardCard } from '../../Home/TemplateCard';
 import { TemplateEntityV1beta3 } from '@backstage/plugin-scaffolder-common';
-import { TagFilterPicker } from '../../utils/TagFilterPicker';
 import { rootRouteRef } from '../../../routes';
+import { TagFilterPicker } from '../../utils/TagFilterPicker';
 
 const useStyles = makeStyles(theme => ({
   headerRow: {
