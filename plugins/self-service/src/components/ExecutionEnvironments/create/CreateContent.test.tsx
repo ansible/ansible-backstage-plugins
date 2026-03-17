@@ -1,4 +1,5 @@
 import { screen, waitFor, fireEvent } from '@testing-library/react';
+import { useLocation } from 'react-router-dom';
 import {
   mockApis,
   renderInTestApp,
@@ -23,6 +24,11 @@ import {
   mockRhAapAuthApi,
 } from '../../../tests/mockAnsibleApi';
 import { mockScaffolderApi } from '../../../tests/scaffolderApi_utils';
+
+const LocationDisplay = () => {
+  const location = useLocation();
+  return <div data-testid="location-pathname">{location.pathname}</div>;
+};
 
 jest.mock('../../Home/TemplateCard', () => ({
   WizardCard: ({ template }: { template: TemplateEntityV1beta3 }) => (
@@ -546,6 +552,37 @@ describe('CreateContent', () => {
         expect(
           screen.getByTestId('import-template-button'),
         ).toBeInTheDocument();
+      });
+    });
+
+    it('should navigate to /self-service/catalog-import when Import Template is clicked', async () => {
+      const entityRefs = ['component:default/e1'];
+      const tagFacets = ['execution-environment'];
+      mockCatalogApi.getEntityFacets.mockResolvedValue(
+        facetsFromEntityRefs(entityRefs, tagFacets),
+      );
+
+      await render(
+        <>
+          <CreateContent />
+          <LocationDisplay />
+        </>,
+      );
+
+      fireEvent.click(screen.getByTestId('kebab-menu-button'));
+
+      await waitFor(() => {
+        expect(
+          screen.getByTestId('import-template-button'),
+        ).toBeInTheDocument();
+      });
+
+      fireEvent.click(screen.getByTestId('import-template-button'));
+
+      await waitFor(() => {
+        expect(screen.getByTestId('location-pathname')).toHaveTextContent(
+          '/self-service/catalog-import',
+        );
       });
     });
   });
