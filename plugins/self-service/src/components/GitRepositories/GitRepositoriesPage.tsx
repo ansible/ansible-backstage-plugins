@@ -1,7 +1,13 @@
 import { useState, useCallback, useEffect, useRef } from 'react';
 import { Page, Content, HeaderTabs } from '@backstage/core-components';
 import { Box, makeStyles } from '@material-ui/core';
-import { useLocation, useNavigate } from 'react-router-dom';
+import {
+  Navigate,
+  Route,
+  Routes,
+  useLocation,
+  useNavigate,
+} from 'react-router-dom';
 import CategoryOutlinedIcon from '@material-ui/icons/CategoryOutlined';
 import TimelineIcon from '@material-ui/icons/Timeline';
 
@@ -26,6 +32,7 @@ import { rootRouteRef } from '../../routes';
 import { RepositoriesPageHeaderSection } from './RepositoriesPageHeaderSection';
 import { RepositoriesTable } from './RepositoriesTable';
 import { RepositoriesCIActivityTab } from './RepositoriesCIActivityTab';
+import { RepositoryDetailsPage } from './RepositoryDetailsPage';
 
 const useStyles = makeStyles(theme => ({
   tabsSection: {
@@ -213,5 +220,19 @@ export const GitRepositoriesPage = () => {
         <GitRepositoriesPageInner />
       </NotificationProvider>
     </RequirePermission>
+  );
+};
+
+// Standalone route wrapper used by the dynamic plugin mount at /self-service/repositories
+// so detail URLs like /self-service/repositories/:repositoryName resolve correctly.
+export const GitRepositoriesRoutesPage = () => {
+  return (
+    <Routes>
+      <Route index element={<Navigate to="catalog" replace />} />
+      <Route path="catalog" element={<GitRepositoriesPage />} />
+      <Route path="ci-activity" element={<GitRepositoriesPage />} />
+      <Route path=":repositoryName" element={<RepositoryDetailsPage />} />
+      <Route path="*" element={<Navigate to="catalog" replace />} />
+    </Routes>
   );
 };

@@ -70,7 +70,7 @@ export const CollectionsPage = selfServicePlugin.provide(
     name: 'CollectionsPage',
     component: () =>
       import('./components/CollectionsCatalog').then(
-        m => m.CollectionsCatalogPage,
+        m => m.CollectionsRoutesPage,
       ),
     mountPoint: collectionsRouteRef,
   }),
@@ -122,7 +122,9 @@ export const GitRepositoriesPage = selfServicePlugin.provide(
   createRoutableExtension({
     name: 'GitRepositoriesPage',
     component: () =>
-      import('./components/GitRepositories').then(m => m.GitRepositoriesPage),
+      import('./components/GitRepositories').then(
+        m => m.GitRepositoriesRoutesPage,
+      ),
     mountPoint: gitRepositoriesRouteRef,
   }),
 );
