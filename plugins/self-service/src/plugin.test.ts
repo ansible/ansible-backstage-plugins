@@ -7,6 +7,7 @@ const mockAapAuthApi = { api: 'AapAuthApi' } as unknown as ApiFactory<
   any
 >;
 const mockRootRouteRef = { id: 'root-route-ref' };
+const mockEeRouteRef = { id: 'ee-route-ref' };
 
 // Mocks for local files (applied before module import)
 jest.mock('./apis', () => ({
@@ -15,6 +16,7 @@ jest.mock('./apis', () => ({
 }));
 jest.mock('./routes', () => ({
   rootRouteRef: mockRootRouteRef,
+  eeRouteRef: mockEeRouteRef,
 }));
 
 describe('self-service plugin module', () => {
@@ -74,6 +76,7 @@ describe('self-service plugin module', () => {
     expect(callArg.apis).toContain(mockAapAuthApi);
     expect(callArg).toHaveProperty('routes');
     expect(callArg.routes).toHaveProperty('root', mockRootRouteRef);
+    expect(callArg.routes).toHaveProperty('ee', mockEeRouteRef);
   });
 
   it('exports SelfServicePage as the value returned by createRoutableExtension', () => {
@@ -91,7 +94,7 @@ describe('self-service plugin module', () => {
     expect(EEPage).toBe(created);
     const calledWith = createRoutableExtensionMock.mock.calls[1][0];
     expect(calledWith).toHaveProperty('name', 'EEPage');
-    expect(calledWith).toHaveProperty('mountPoint', mockRootRouteRef);
+    expect(calledWith).toHaveProperty('mountPoint', mockEeRouteRef);
   });
 
   it('exports LocationListener as the value returned by createComponentExtension', () => {

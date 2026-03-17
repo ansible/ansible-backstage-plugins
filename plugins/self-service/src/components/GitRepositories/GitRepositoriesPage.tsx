@@ -7,6 +7,7 @@ import TimelineIcon from '@material-ui/icons/Timeline';
 
 import {
   useApi,
+  useRouteRef,
   discoveryApiRef,
   fetchApiRef,
 } from '@backstage/core-plugin-api';
@@ -21,6 +22,7 @@ import { useSyncStatusPolling } from '../CollectionsCatalog/useSyncStatusPolling
 import { SyncDialog } from '../common';
 import type { SyncStatusMap, StartedSyncInfo } from '../common';
 
+import { rootRouteRef } from '../../routes';
 import { RepositoriesPageHeaderSection } from './RepositoriesPageHeaderSection';
 import { RepositoriesTable } from './RepositoriesTable';
 import { RepositoriesCIActivityTab } from './RepositoriesCIActivityTab';
@@ -68,6 +70,7 @@ const GitRepositoriesPageInner = () => {
   const navigate = useNavigate();
   const discoveryApi = useApi(discoveryApiRef);
   const fetchApi = useApi(fetchApiRef);
+  const rootLink = useRouteRef(rootRouteRef);
   const { notifications, removeNotification } = useNotifications();
   const { isSyncInProgress, startTracking } = useSyncStatusPolling();
 
@@ -146,10 +149,10 @@ const GitRepositoriesPageInner = () => {
     (index: number) => {
       const tab = tabs[index];
       if (tab) {
-        navigate(`/self-service/repositories/${tab.path}`);
+        navigate(`${rootLink()}/repositories/${tab.path}`);
       }
     },
-    [navigate],
+    [navigate, rootLink],
   );
 
   const content =

@@ -35,8 +35,8 @@ import CheckCircleOutlineIcon from '@material-ui/icons/CheckCircleOutline';
 import PlayCircleOutlineIcon from '@material-ui/icons/PlayCircleOutline';
 import AddCircleOutlineIcon from '@material-ui/icons/AddCircleOutline';
 import BlockIcon from '@material-ui/icons/Block';
-import { rootRouteRef } from '../../routes';
 import { useAsync } from 'react-use';
+import { rootRouteRef } from '../../routes';
 
 const headerStyles = makeStyles(theme => ({
   header_title_color: {
@@ -155,7 +155,6 @@ export const TaskList = () => {
   });
   const [page, setPage] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(10);
-  const rootLink = useRouteRef(rootRouteRef);
 
   const fetchTasks = useCallback(async () => {
     if (!scaffolderApi?.listTasks) {
@@ -218,6 +217,7 @@ export const TaskList = () => {
   };
 
   const navigate = useNavigate();
+  const rootLink = useRouteRef(rootRouteRef);
   const navigateToTaskDetails = (id: string) => {
     navigate(`${rootLink()}/create/tasks/${id}`);
   };

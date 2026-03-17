@@ -19,6 +19,15 @@ interface TableColumn {
   render?: (entity: Entity) => React.ReactNode;
 }
 
+jest.mock('@backstage/core-plugin-api', () => ({
+  ...jest.requireActual('@backstage/core-plugin-api'),
+  useRouteRef: () => () => '/self-service',
+}));
+
+jest.mock('../../routes', () => ({
+  rootRouteRef: { id: 'root-route-ref' },
+}));
+
 jest.mock('@backstage/core-components', () => {
   const actual = jest.requireActual('@backstage/core-components');
   return {

@@ -3,6 +3,15 @@ import { ThemeProvider, createTheme } from '@material-ui/core/styles';
 import { Entity } from '@backstage/catalog-model';
 import { CollectionCard } from './CollectionCard';
 
+jest.mock('@backstage/core-plugin-api', () => ({
+  ...jest.requireActual('@backstage/core-plugin-api'),
+  useRouteRef: () => () => '/self-service',
+}));
+
+jest.mock('../../routes', () => ({
+  rootRouteRef: { id: 'root-route-ref' },
+}));
+
 const theme = createTheme();
 
 const mockEntity: Entity = {

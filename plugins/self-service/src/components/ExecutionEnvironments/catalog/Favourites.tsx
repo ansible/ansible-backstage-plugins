@@ -1,4 +1,4 @@
-import { useApi } from '@backstage/core-plugin-api';
+import { useApi, useRouteRef } from '@backstage/core-plugin-api';
 import {
   catalogApiRef,
   useStarredEntities,
@@ -7,6 +7,7 @@ import { Typography, makeStyles, withStyles } from '@material-ui/core';
 import Star from '@material-ui/icons/Star';
 import useAsync from 'react-use/esm/useAsync';
 import { InfoCard, Link } from '@backstage/core-components';
+import { rootRouteRef } from '../../../routes';
 
 const useStyles = makeStyles(theme => ({
   flex: {
@@ -32,6 +33,7 @@ export const YellowStar: React.ComponentType = withStyles({
 export const Favourites = () => {
   const classes = useStyles();
   const catalogApi = useApi(catalogApiRef);
+  const rootLink = useRouteRef(rootRouteRef);
   const {
     value: entities,
     loading,
@@ -65,8 +67,8 @@ export const Favourites = () => {
               <Link
                 to={`${
                   entity.kind === 'Template'
-                    ? `../../../create/templates/default/${entity.metadata.name}`
-                    : `../../../catalog/default/component/${entity.metadata.name}`
+                    ? `${rootLink()}/create/templates/default/${entity.metadata.name}`
+                    : `${rootLink()}/catalog/default/component/${entity.metadata.name}`
                 }`}
               >
                 {entity.metadata.name}

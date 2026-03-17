@@ -26,7 +26,7 @@ import {
   useEntityList,
   useStarredEntities,
 } from '@backstage/plugin-catalog-react';
-import { useApi } from '@backstage/core-plugin-api';
+import { useApi, useRouteRef } from '@backstage/core-plugin-api';
 import { Progress, Table, TableColumn } from '@backstage/core-components';
 
 import HelpOutlineIcon from '@material-ui/icons/HelpOutline';
@@ -43,6 +43,7 @@ import {
   COLUMN_LAST_ACTIVITY_TOOLTIP,
   COLUMN_LAST_SYNC_TOOLTIP,
 } from './constants';
+import { rootRouteRef } from '../../routes';
 import { useLatestCIActivity } from './useLatestCIActivity';
 
 const StarredIcon = () => <Star style={{ color: '#ffb74d' }} />;
@@ -117,6 +118,7 @@ const RepositoriesTableInner = ({
   const classes = useCollectionsStyles();
   const tableWrapperClasses = useTableWrapperStyles();
   const catalogApi = useApi(catalogApiRef);
+  const rootLink = useRouteRef(rootRouteRef);
   const { isStarredEntity, toggleStarredEntity } = useStarredEntities();
   const { filters } = useEntityList();
 
@@ -257,7 +259,7 @@ const RepositoriesTableInner = ({
       width: '28%',
       render: (entity: Entity) => {
         const repoName = entity.metadata?.title ?? entity.metadata?.name ?? '—';
-        const linkPath = `/self-service/repositories/${entity.metadata?.name ?? ''}`;
+        const linkPath = `${rootLink()}/repositories/${entity.metadata?.name ?? ''}`;
         return (
           <EntityLinkButton linkPath={linkPath} className={classes.entityLink}>
             {repoName}

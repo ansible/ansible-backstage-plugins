@@ -67,8 +67,8 @@ export const CreateTask = () => {
   }>();
   const scaffolderApi = useApi(scaffolderApiRef);
   const catalogApi = useApi(catalogApiRef);
-  const rootLink = useRouteRef(rootRouteRef);
   const location = useLocation();
+  const rootLink = useRouteRef(rootRouteRef);
 
   const [entityTemplate, setEntityTemplate] =
     useState<TemplateParameterSchema | null>(null);
@@ -179,7 +179,7 @@ export const CreateTask = () => {
     if (isExecutionEnvironment) {
       navigate(`${rootLink()}/ee/create`);
     } else {
-      navigate(`${rootLink()}`);
+      navigate(rootLink());
     }
   };
 
@@ -252,7 +252,7 @@ export const CreateTask = () => {
                   if (isExecutionEnvironment) {
                     navigate(`${rootLink()}/ee/create`);
                   } else {
-                    navigate(`${rootLink()}`);
+                    navigate(rootLink());
                   }
                 }}
                 variant="text"

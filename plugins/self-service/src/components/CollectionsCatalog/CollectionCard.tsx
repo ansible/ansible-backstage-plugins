@@ -11,8 +11,10 @@ import {
 import StarBorder from '@material-ui/icons/StarBorder';
 import Star from '@material-ui/icons/Star';
 import OpenInNewIcon from '@material-ui/icons/OpenInNew';
+import { useRouteRef } from '@backstage/core-plugin-api';
 
 import { CollectionCardProps } from './types';
+import { rootRouteRef } from '../../routes';
 import { useCollectionsStyles } from './styles';
 import { buildSourceString, formatTimeAgo, getSourceUrl } from './utils';
 import { RepositoryBadge } from './RepositoryBadge';
@@ -25,6 +27,7 @@ export const CollectionCard = ({
   syncStatusMap,
 }: CollectionCardProps) => {
   const classes = useCollectionsStyles();
+  const rootLink = useRouteRef(rootRouteRef);
 
   const spec = entity.spec || {};
   const collectionNamespace =
@@ -44,7 +47,7 @@ export const CollectionCard = ({
   const sourceString = buildSourceString(entity);
   const sourceUrl = getSourceUrl(entity);
   const entityName = entity.metadata.name;
-  const linkPath = `/self-service/collections/${entityName}`;
+  const linkPath = `${rootLink()}/collections/${entityName}`;
 
   const sourceId =
     entity.metadata?.annotations?.['ansible.io/discovery-source-id'];

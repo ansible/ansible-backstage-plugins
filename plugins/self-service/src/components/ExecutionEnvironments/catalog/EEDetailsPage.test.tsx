@@ -18,6 +18,15 @@ import { MemoryRouter } from 'react-router-dom';
 // Component under test (named export)
 import { EEDetailsPage } from './EEDetailsPage';
 
+jest.mock('@backstage/core-plugin-api', () => {
+  const actual = jest.requireActual('@backstage/core-plugin-api');
+  return { ...actual, useRouteRef: () => () => '/self-service' };
+});
+
+jest.mock('../../../routes', () => ({
+  rootRouteRef: { id: 'root-route-ref' },
+}));
+
 // ----------------- Simple UI stubs -----------------
 jest.mock('@backstage/plugin-catalog-react', () => {
   const actual = jest.requireActual('@backstage/plugin-catalog-react');

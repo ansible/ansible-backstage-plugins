@@ -9,6 +9,7 @@ import {
 import MoreVertIcon from '@material-ui/icons/MoreVert';
 import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useRouteRef } from '@backstage/core-plugin-api';
 import { usePermission } from '@backstage/plugin-permission-react';
 import { catalogEntityCreatePermission } from '@backstage/plugin-catalog-common/alpha';
 import {
@@ -25,6 +26,7 @@ import { TemplateGroups } from '@backstage/plugin-scaffolder-react/alpha';
 import { WizardCard } from '../../Home/TemplateCard';
 import { TemplateEntityV1beta3 } from '@backstage/plugin-scaffolder-common';
 import { TagFilterPicker } from '../../utils/TagFilterPicker';
+import { rootRouteRef } from '../../../routes';
 
 const useStyles = makeStyles(theme => ({
   headerRow: {
@@ -103,6 +105,7 @@ const ExecutionEnvironmentTypeFilter = () => {
 export const CreateContent = () => {
   const classes = useStyles();
   const navigate = useNavigate();
+  const rootLink = useRouteRef(rootRouteRef);
   const { allowed } = usePermission({
     permission: catalogEntityCreatePermission,
   });
@@ -119,7 +122,7 @@ export const CreateContent = () => {
 
   const handleAddTemplate = () => {
     handleMenuClose();
-    navigate('/self-service/catalog-import');
+    navigate(`${rootLink()}/catalog-import`);
   };
 
   return (

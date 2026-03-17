@@ -27,6 +27,15 @@ jest.mock('../../hooks', () => ({
   }),
 }));
 
+jest.mock('@backstage/core-plugin-api', () => {
+  const actual = jest.requireActual('@backstage/core-plugin-api');
+  return { ...actual, useRouteRef: () => () => '/self-service' };
+});
+
+jest.mock('../../routes', () => ({
+  rootRouteRef: { id: 'root-route-ref' },
+}));
+
 const theme = createTheme();
 
 const mockEntity: Entity = {

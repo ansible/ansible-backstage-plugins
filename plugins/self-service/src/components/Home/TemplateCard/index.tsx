@@ -1,4 +1,5 @@
 import { useNavigate } from 'react-router-dom';
+import { useRouteRef } from '@backstage/core-plugin-api';
 import PersonIcon from '@material-ui/icons/Person';
 import { TemplateEntityV1beta3 } from '@backstage/plugin-scaffolder-common';
 import {
@@ -13,11 +14,10 @@ import {
   Typography,
   useTheme,
 } from '@material-ui/core';
+import { rootRouteRef } from '../../../routes';
 import { FavoriteEntity } from '@backstage/plugin-catalog-react';
-import { useRouteRef } from '@backstage/core-plugin-api';
 import { usePermission } from '@backstage/plugin-permission-react';
 import { taskCreatePermission } from '@backstage/plugin-scaffolder-common/alpha';
-import { rootRouteRef } from '../../../routes';
 
 export function WizardCard({ template }: { template: TemplateEntityV1beta3 }) {
   const theme = useTheme();

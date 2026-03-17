@@ -9,6 +9,7 @@ import {
 } from '@backstage/plugin-catalog-react';
 import {
   useApi,
+  useRouteRef,
   discoveryApiRef,
   fetchApiRef,
 } from '@backstage/core-plugin-api';
@@ -22,6 +23,7 @@ import { RepositoriesCIActivityTab } from './RepositoriesCIActivityTab';
 import { CollectionsListPage } from '../CollectionsCatalog/CollectionsListPage';
 import { useCollectionsStyles } from '../CollectionsCatalog/styles';
 import { getSourceUrl } from '../CollectionsCatalog/utils';
+import { rootRouteRef } from '../../routes';
 import { EmptyState, fetchReadmeFromBackend } from '../common';
 
 const RepositoryDetailsPageInner = () => {
@@ -31,6 +33,7 @@ const RepositoryDetailsPageInner = () => {
   const catalogApi = useApi(catalogApiRef);
   const discoveryApi = useApi(discoveryApiRef);
   const fetchApi = useApi(fetchApiRef);
+  const rootLink = useRouteRef(rootRouteRef);
 
   const [entity, setEntity] = useState<Entity | null>(null);
   const [loading, setLoading] = useState(true);
@@ -148,8 +151,8 @@ const RepositoryDetailsPageInner = () => {
   }, [entity, discoveryApi, fetchApi]);
 
   const handleNavigateToCatalog = useCallback(() => {
-    navigate('/self-service/repositories/catalog');
-  }, [navigate]);
+    navigate(`${rootLink()}/repositories/catalog`);
+  }, [navigate, rootLink]);
 
   const handleViewSource = useCallback(() => {
     if (!entity) return;

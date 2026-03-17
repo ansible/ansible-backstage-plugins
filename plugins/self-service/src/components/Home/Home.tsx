@@ -24,8 +24,8 @@ import { TemplateGroups } from '@backstage/plugin-scaffolder-react/alpha';
 
 import { WizardCard } from './TemplateCard';
 import { useIsSuperuser } from '../../hooks';
-import { rootRouteRef } from '../../routes';
 import { ansibleApiRef, rhAapAuthApiRef } from '../../apis';
+import { rootRouteRef } from '../../routes';
 import { SyncConfirmationDialog } from './SyncConfirmationDialog';
 import Sync from '@material-ui/icons/Sync';
 import Info from '@material-ui/icons/Info';
