@@ -22,7 +22,6 @@ import {
 } from '@backstage/plugin-catalog-react';
 import { Entity } from '@backstage/catalog-model';
 import { Progress, Table, TableColumn } from '@backstage/core-components';
-import { githubActionsApiRef } from '@backstage-community/plugin-github-actions';
 import {
   useCollectionsStyles,
   useTableWrapperStyles,
@@ -90,7 +89,6 @@ export const RepositoriesCIActivityTab = ({
   const classes = useCollectionsStyles();
   const tableWrapperClasses = useTableWrapperStyles();
   const catalogApi = useApi(catalogApiRef);
-  const githubActionsApi = useApi(githubActionsApiRef);
   const discoveryApi = useApi(discoveryApiRef);
   const fetchApi = useApi(fetchApiRef);
   const identityApi = useApi(identityApiRef);
@@ -135,17 +133,29 @@ export const RepositoriesCIActivityTab = ({
           const gh = getGitHubOwnerRepo(entity);
           const projectName = getProjectDisplayName(entity);
           if (!gh) return;
+          const repoUrl = getSourceUrl(entity);
+          let host = 'github.com';
+          if (repoUrl) {
+            try {
+              host = new URL(repoUrl).hostname;
+            } catch {
+              // keep github.com
+            }
+          }
           try {
-            const data = await githubActionsApi.listWorkflowRuns({
-              owner: gh.owner,
-              repo: gh.repo,
-              pageSize: runsPerRepo,
+            const catalogBase = await discoveryApi.getBaseUrl('catalog');
+            const proxyUrl = `${catalogBase}/ansible/git/ci-activity?provider=github&owner=${encodeURIComponent(gh.owner)}&repo=${encodeURIComponent(gh.repo)}&host=${encodeURIComponent(host)}&per_page=${runsPerRepo}`;
+            const headers: Record<string, string> = {};
+            if (backstageCreds?.token) {
+              headers.Authorization = `Bearer ${backstageCreds.token}`;
+            }
+            const res = await fetchApi.fetch(proxyUrl, {
+              headers,
+              credentials: 'include',
             });
-            const runs = data.workflow_runs ?? [];
-            const baseUrl = (getSourceUrl(entity) ?? '').replace(/\.git$/i, '');
-            const projectUrl = baseUrl ? `${baseUrl}/actions` : undefined;
-            runs.forEach(
-              (run: {
+            if (!res.ok) return;
+            const data: {
+              workflow_runs?: Array<{
                 id: number;
                 run_number?: number;
                 name?: string | null;
@@ -154,37 +164,41 @@ export const RepositoriesCIActivityTab = ({
                 event?: string | null;
                 created_at?: string | null;
                 html_url?: string | null;
-              }) => {
-                const status = (
-                  run.conclusion ??
-                  run.status ??
-                  'unknown'
-                ).toLowerCase();
-                const trigger = (run.event ?? 'unknown').replaceAll('_', ' ');
-                const eventName = run.name ?? 'Workflow';
-                const runNum = run.run_number ?? run.id;
-                allRows.push({
-                  id: `gh-${entity.metadata?.name ?? ''}-${run.id}`,
-                  status: ([
-                    'success',
-                    'failure',
-                    'cancelled',
-                    'in_progress',
-                    'queued',
-                    'skipped',
-                  ].includes(status)
-                    ? status
-                    : 'unknown') as CIActivityRow['status'],
-                  project: projectName,
-                  projectUrl,
-                  event: eventName,
-                  eventDisplay: `${eventName} #${runNum}`,
-                  trigger,
-                  time: run.created_at ?? '',
-                  runUrl: run.html_url ?? undefined,
-                });
-              },
-            );
+              }>;
+            } = await res.json();
+            const runs = data.workflow_runs ?? [];
+            const baseUrl = (repoUrl ?? '').replace(/\.git$/i, '');
+            const projectUrl = baseUrl ? `${baseUrl}/actions` : undefined;
+            runs.forEach(run => {
+              const status = (
+                run.conclusion ??
+                run.status ??
+                'unknown'
+              ).toLowerCase();
+              const trigger = (run.event ?? 'unknown').replaceAll('_', ' ');
+              const eventName = run.name ?? 'Workflow';
+              const runNum = run.run_number ?? run.id;
+              allRows.push({
+                id: `gh-${entity.metadata?.name ?? ''}-${run.id}`,
+                status: ([
+                  'success',
+                  'failure',
+                  'cancelled',
+                  'in_progress',
+                  'queued',
+                  'skipped',
+                ].includes(status)
+                  ? status
+                  : 'unknown') as CIActivityRow['status'],
+                project: projectName,
+                projectUrl,
+                event: eventName,
+                eventDisplay: `${eventName} #${runNum}`,
+                trigger,
+                time: run.created_at ?? '',
+                runUrl: run.html_url ?? undefined,
+              });
+            });
           } catch {
             // Per-repo errors (e.g. 404, auth) skip that repo
             // silently fail
@@ -209,7 +223,7 @@ export const RepositoriesCIActivityTab = ({
               return;
             }
             const catalogBase = await discoveryApi.getBaseUrl('catalog');
-            const proxyUrl = `${catalogBase}/ansible/gitlab/pipelines?projectPath=${encodeURIComponent(path)}&host=${encodeURIComponent(host)}&per_page=${runsPerRepo}`;
+            const proxyUrl = `${catalogBase}/ansible/git/ci-activity?provider=gitlab&projectPath=${encodeURIComponent(path)}&host=${encodeURIComponent(host)}&per_page=${runsPerRepo}`;
             const headers: Record<string, string> = {};
             if (backstageCreds?.token) {
               headers.Authorization = `Bearer ${backstageCreds.token}`;
@@ -259,14 +273,7 @@ export const RepositoriesCIActivityTab = ({
     } finally {
       setLoading(false);
     }
-  }, [
-    catalogApi,
-    githubActionsApi,
-    discoveryApi,
-    fetchApi,
-    identityApi,
-    filterByEntity,
-  ]);
+  }, [catalogApi, discoveryApi, fetchApi, identityApi, filterByEntity]);
 
   useEffect(() => {
     fetchActivity();

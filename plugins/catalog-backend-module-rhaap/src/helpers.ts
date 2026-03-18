@@ -26,6 +26,22 @@ export function getGitLabIntegrationForHost(
   return {};
 }
 
+export function getGitHubIntegrationForHost(
+  config: Config,
+  host: string,
+): { token?: string; apiBaseUrl?: string } {
+  const arr = config.getOptionalConfigArray('integrations.github');
+  if (!arr?.length) return {};
+  for (const c of arr) {
+    const h = c.getOptionalString('host') ?? 'github.com';
+    if (h !== host) continue;
+    const token = c.getOptionalString('token');
+    const apiBaseUrl = c.getOptionalString('apiBaseUrl')?.replace(/\/$/, '');
+    return { token, apiBaseUrl };
+  }
+  return {};
+}
+
 export function isSafeHostname(host: string): boolean {
   if (typeof host !== 'string' || host.length === 0 || host.length > 253) {
     return false;

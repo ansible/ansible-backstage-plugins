@@ -9,7 +9,6 @@ import {
   EntityListProvider,
 } from '@backstage/plugin-catalog-react';
 import { permissionApiRef } from '@backstage/plugin-permission-react';
-import { githubActionsApiRef } from '@backstage-community/plugin-github-actions';
 import { Entity } from '@backstage/catalog-model';
 import { MemoryRouter } from 'react-router-dom';
 
@@ -18,6 +17,15 @@ interface TableColumn {
   id: string;
   render?: (entity: Entity) => React.ReactNode;
 }
+
+jest.mock('@backstage/core-plugin-api', () => ({
+  ...jest.requireActual('@backstage/core-plugin-api'),
+  useRouteRef: () => () => '/self-service',
+}));
+
+jest.mock('../../routes', () => ({
+  rootRouteRef: { id: 'root-route-ref' },
+}));
 
 jest.mock('@backstage/core-components', () => {
   const actual = jest.requireActual('@backstage/core-components');
@@ -114,12 +122,8 @@ const mockDiscoveryApi = {
 const mockFetchApi = {
   fetch: jest.fn().mockResolvedValue({
     ok: true,
-    json: () => Promise.resolve([]),
+    json: () => Promise.resolve({ workflow_runs: [] }),
   }),
-};
-
-const mockGithubActionsApi = {
-  listWorkflowRuns: jest.fn().mockResolvedValue({ workflow_runs: [] }),
 };
 
 const createMockEntity = (
@@ -186,7 +190,6 @@ describe('RepositoriesTable', () => {
           [catalogApiRef, mockCatalogApi],
           [discoveryApiRef, mockDiscoveryApi],
           [fetchApiRef, mockFetchApi],
-          [githubActionsApiRef, mockGithubActionsApi],
           [starredEntitiesApiRef, new MockStarredEntitiesApi()],
           [permissionApiRef, mockApis.permission()],
         ]}
@@ -755,8 +758,9 @@ describe('RepositoriesTable', () => {
   });
 
   it('displays N/A when no last activity', async () => {
-    mockGithubActionsApi.listWorkflowRuns.mockResolvedValue({
-      workflow_runs: [],
+    mockFetchApi.fetch.mockResolvedValue({
+      ok: true,
+      json: () => Promise.resolve({ workflow_runs: [] }),
     });
 
     renderTable();

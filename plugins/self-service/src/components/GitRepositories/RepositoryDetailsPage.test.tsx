@@ -7,11 +7,20 @@ import {
   identityApiRef,
 } from '@backstage/core-plugin-api';
 import { catalogApiRef } from '@backstage/plugin-catalog-react';
-import { githubActionsApiRef } from '@backstage-community/plugin-github-actions';
 import { Entity } from '@backstage/catalog-model';
 import { RepositoryDetailsPage } from './RepositoryDetailsPage';
 
 const mockNavigate = jest.fn();
+
+jest.mock('@backstage/core-plugin-api', () => ({
+  ...jest.requireActual('@backstage/core-plugin-api'),
+  useRouteRef: () => () => '/self-service',
+}));
+
+jest.mock('../../routes', () => ({
+  rootRouteRef: { id: 'root-route-ref' },
+}));
+
 jest.mock('react-router-dom', () => ({
   ...jest.requireActual('react-router-dom'),
   useNavigate: () => mockNavigate,
@@ -20,6 +29,15 @@ jest.mock('react-router-dom', () => ({
 
 jest.mock('@backstage/plugin-permission-react', () => ({
   usePermission: () => ({ allowed: true }),
+  RequirePermission: (props: any) => props.children,
+}));
+
+jest.mock('@ansible/backstage-rhaap-common/permissions', () => ({
+  gitRepositoriesViewPermission: {
+    type: 'basic',
+    name: 'git-repositories.view',
+    attributes: {},
+  },
 }));
 
 const theme = createTheme();
@@ -34,10 +52,6 @@ const mockDiscoveryApi = {
 
 const mockFetchApi = {
   fetch: jest.fn(),
-};
-
-const mockGithubActionsApi = {
-  listWorkflowRuns: jest.fn().mockResolvedValue({ workflow_runs: [] }),
 };
 
 const mockIdentityApi = {
@@ -112,7 +126,6 @@ describe('RepositoryDetailsPage', () => {
           [catalogApiRef, mockCatalogApi],
           [discoveryApiRef, mockDiscoveryApi],
           [fetchApiRef, mockFetchApi],
-          [githubActionsApiRef, mockGithubActionsApi],
           [identityApiRef, mockIdentityApi],
         ]}
       >
