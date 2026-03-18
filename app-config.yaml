@@ -60,6 +60,13 @@ backend:
   request:
     bodyParsing:
       sizeLimit: 10mb
+integrations:
+  github:
+    - host: github.com
+      token: <YOUR_GITHUB_PAT>
+  gitlab:
+    - host: gitlab.com
+      token: <YOUR_GITLAB_PAT>
 proxy: null
 techdocs:
   builder: local
