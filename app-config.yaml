@@ -173,7 +173,7 @@ catalog:
                         frequency: { minutes: 120 }
                         timeout: { minutes: 30 }
           pahCollections:
-            enabled: true
+            enabled: false
             repositories:
               - name: validated
                 schedule:
