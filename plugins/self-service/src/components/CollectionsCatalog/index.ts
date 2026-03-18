@@ -1,4 +1,7 @@
-export { CollectionsCatalogPage } from './CollectionsCatalogPage';
+export {
+  CollectionsCatalogPage,
+  CollectionsRoutesPage,
+} from './CollectionsCatalogPage';
 export { CollectionDetailsPage } from './CollectionDetailsPage';
 
 export { CollectionsListPage, CollectionsContent } from './CollectionsListPage';

@@ -6,6 +6,15 @@ import { GitRepositoriesPage } from './GitRepositoriesPage';
 
 jest.mock('@backstage/plugin-permission-react', () => ({
   usePermission: () => ({ allowed: true }),
+  RequirePermission: (props: any) => props.children,
+}));
+
+jest.mock('@ansible/backstage-rhaap-common/permissions', () => ({
+  gitRepositoriesViewPermission: {
+    type: 'basic',
+    name: 'git-repositories.view',
+    attributes: {},
+  },
 }));
 
 jest.mock('../../hooks', () => ({
@@ -14,6 +23,15 @@ jest.mock('../../hooks', () => ({
     loading: false,
     error: null,
   }),
+}));
+
+jest.mock('@backstage/core-plugin-api', () => ({
+  ...jest.requireActual('@backstage/core-plugin-api'),
+  useRouteRef: () => () => '/self-service',
+}));
+
+jest.mock('../../routes', () => ({
+  rootRouteRef: { id: 'root-route-ref' },
 }));
 
 const mockStartTracking = jest.fn();

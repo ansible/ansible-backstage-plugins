@@ -4,6 +4,18 @@ export const rootRouteRef = createRouteRef({
   id: 'self-service',
 });
 
+export const eeRouteRef = createRouteRef({
+  id: 'self-service/ee',
+});
+
+export const collectionsRouteRef = createRouteRef({
+  id: 'self-service/collections',
+});
+
+export const gitRepositoriesRouteRef = createRouteRef({
+  id: 'self-service/repositories',
+});
+
 export const catalogImportRouteRef = createSubRouteRef({
   id: 'self-service/catalog-import',
   parent: rootRouteRef,

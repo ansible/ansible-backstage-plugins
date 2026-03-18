@@ -1,9 +1,14 @@
 import { useEffect, useCallback, useMemo } from 'react';
-import { Header, Page, HeaderTabs, Content } from '@backstage/core-components';
-import { Typography, Box, makeStyles } from '@material-ui/core';
 import { useLocation, useNavigate } from 'react-router-dom';
+import { Typography, Box, makeStyles } from '@material-ui/core';
 import CategoryOutlinedIcon from '@material-ui/icons/CategoryOutlined';
 import CreateComponentIcon from '@material-ui/icons/AddCircleOutline';
+import { Header, Page, HeaderTabs, Content } from '@backstage/core-components';
+import { useRouteRef } from '@backstage/core-plugin-api';
+import { RequirePermission } from '@backstage/plugin-permission-react';
+import { executionEnvironmentsViewPermission } from '@ansible/backstage-rhaap-common/permissions';
+
+import { rootRouteRef } from '../../routes';
 import { CreateContent } from './create/CreateContent';
 import { EntityCatalogContent } from './catalog/CatalogContent';
 
@@ -75,6 +80,7 @@ export const EETabs: React.FC = () => {
   const classes = useStyles();
   const location = useLocation();
   const navigate = useNavigate();
+  const rootLink = useRouteRef(rootRouteRef);
 
   const selectedTab = useMemo(
     () => getTabIndexFromPath(location.pathname),
@@ -86,22 +92,22 @@ export const EETabs: React.FC = () => {
     if (tabIndex !== undefined) {
       const tab = tabs[tabIndex];
       if (tab) {
-        navigate(`/self-service/ee/${tab.path}`, {
+        navigate(`${rootLink()}/ee/${tab.path}`, {
           replace: true,
           state: {},
         });
       }
     }
-  }, [location.state, navigate]);
+  }, [location.state, navigate, rootLink]);
 
   const onTabSelect = useCallback(
     (index: number) => {
       const tab = tabs[index];
       if (tab) {
-        navigate(`/self-service/ee/${tab.path}`);
+        navigate(`${rootLink()}/ee/${tab.path}`);
       }
     },
-    [navigate],
+    [navigate, rootLink],
   );
 
   const handleTabSwitch = useCallback(
@@ -119,24 +125,26 @@ export const EETabs: React.FC = () => {
   }, [selectedTab, handleTabSwitch]);
 
   return (
-    <Page themeId="app">
-      <EEHeader />
-      <HeaderTabs
-        selectedIndex={selectedTab}
-        onChange={onTabSelect}
-        tabs={
-          tabs.map(({ label, icon }) => ({
-            id: label.toLowerCase(),
-            label: (
-              <Box className={classes.tabWithIcon}>
-                {icon}
-                {label}
-              </Box>
-            ),
-          })) as any
-        }
-      />
-      <Content>{content}</Content>
-    </Page>
+    <RequirePermission permission={executionEnvironmentsViewPermission}>
+      <Page themeId="app">
+        <EEHeader />
+        <HeaderTabs
+          selectedIndex={selectedTab}
+          onChange={onTabSelect}
+          tabs={
+            tabs.map(({ label, icon }) => ({
+              id: label.toLowerCase(),
+              label: (
+                <Box className={classes.tabWithIcon}>
+                  {icon}
+                  {label}
+                </Box>
+              ),
+            })) as any
+          }
+        />
+        <Content>{content}</Content>
+      </Page>
+    </RequirePermission>
   );
 };

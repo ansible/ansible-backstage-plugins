@@ -1,6 +1,28 @@
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 
+jest.mock('@backstage/core-plugin-api', () => ({
+  ...jest.requireActual('@backstage/core-plugin-api'),
+  useRouteRef: () => () => '/self-service',
+}));
+
+jest.mock('../../routes', () => ({
+  rootRouteRef: { id: 'root-route-ref' },
+}));
+
+// --------- Mock permission components ----------------------------------------
+jest.mock('@backstage/plugin-permission-react', () => ({
+  RequirePermission: (props: any) => props.children,
+}));
+
+jest.mock('@ansible/backstage-rhaap-common/permissions', () => ({
+  executionEnvironmentsViewPermission: {
+    type: 'basic',
+    name: 'ee.view',
+    attributes: {},
+  },
+}));
+
 // --------- Mocks for Backstage core components to keep tests simple ----------
 jest.mock('@backstage/core-components', () => ({
   Page: ({ children }: any) => <div data-testid="page">{children}</div>,

@@ -43,7 +43,7 @@ export const EmptyState = ({
         </Typography>
         <Typography variant="body1" className={classes.emptyStateDescription}>
           {allowed
-            ? 'No content sources are not defined in the application configuration. To view collections, configure a provider in the app-config.yaml file.'
+            ? 'No content sources are defined in the application configuration. To view collections, configure a provider in the app-config.yaml file.'
             : 'Content sources are not currently configured for this environment. Contact your organization administrator to add content providers.'}
         </Typography>
         {allowed && (

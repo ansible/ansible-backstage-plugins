@@ -1,7 +1,12 @@
-import { Route, Routes, Navigate } from 'react-router-dom';
+import { Route, Routes, Navigate, Outlet } from 'react-router-dom';
 import { RequirePermission } from '@backstage/plugin-permission-react';
 import { catalogEntityCreatePermission } from '@backstage/plugin-catalog-common/alpha';
 import { taskReadPermission } from '@backstage/plugin-scaffolder-common/alpha';
+import {
+  executionEnvironmentsViewPermission,
+  collectionsViewPermission,
+  gitRepositoriesViewPermission,
+} from '@ansible/backstage-rhaap-common/permissions';
 
 import { HomeComponent } from '../Home';
 import { CatalogImport } from '../CatalogImport';
@@ -62,19 +67,51 @@ export const RouteView = () => {
             }
           />
         </Route>
-        <Route path="ee">
+        <Route
+          path="ee"
+          element={
+            <RequirePermission permission={executionEnvironmentsViewPermission}>
+              <Outlet />
+            </RequirePermission>
+          }
+        >
           <Route index element={<Navigate to="catalog" replace />} />
           <Route path="catalog" element={<EETabs />} />
           <Route path="create" element={<EETabs />} />
           <Route path="docs" element={<EETabs />} />
         </Route>
-        <Route path="catalog/:templateName" element={<EEDetailsPage />} />
-        <Route path="collections" element={<CollectionsCatalogPage />} />
+        <Route
+          path="catalog/:templateName"
+          element={
+            <RequirePermission permission={executionEnvironmentsViewPermission}>
+              <EEDetailsPage />
+            </RequirePermission>
+          }
+        />
+        <Route
+          path="collections"
+          element={
+            <RequirePermission permission={collectionsViewPermission}>
+              <CollectionsCatalogPage />
+            </RequirePermission>
+          }
+        />
         <Route
           path="collections/:collectionName"
-          element={<CollectionDetailsPage />}
+          element={
+            <RequirePermission permission={collectionsViewPermission}>
+              <CollectionDetailsPage />
+            </RequirePermission>
+          }
         />
-        <Route path="repositories">
+        <Route
+          path="repositories"
+          element={
+            <RequirePermission permission={gitRepositoriesViewPermission}>
+              <Outlet />
+            </RequirePermission>
+          }
+        >
           <Route index element={<Navigate to="catalog" replace />} />
           <Route path="catalog" element={<GitRepositoriesPage />} />
           <Route path="ci-activity" element={<GitRepositoriesPage />} />

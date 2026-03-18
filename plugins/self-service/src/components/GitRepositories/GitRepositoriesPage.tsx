@@ -1,15 +1,24 @@
 import { useState, useCallback, useEffect, useRef } from 'react';
 import { Page, Content, HeaderTabs } from '@backstage/core-components';
 import { Box, makeStyles } from '@material-ui/core';
-import { useLocation, useNavigate } from 'react-router-dom';
+import {
+  Navigate,
+  Route,
+  Routes,
+  useLocation,
+  useNavigate,
+} from 'react-router-dom';
 import CategoryOutlinedIcon from '@material-ui/icons/CategoryOutlined';
 import TimelineIcon from '@material-ui/icons/Timeline';
 
 import {
   useApi,
+  useRouteRef,
   discoveryApiRef,
   fetchApiRef,
 } from '@backstage/core-plugin-api';
+import { RequirePermission } from '@backstage/plugin-permission-react';
+import { gitRepositoriesViewPermission } from '@ansible/backstage-rhaap-common/permissions';
 import {
   NotificationProvider,
   NotificationStack,
@@ -19,9 +28,11 @@ import { useSyncStatusPolling } from '../CollectionsCatalog/useSyncStatusPolling
 import { SyncDialog } from '../common';
 import type { SyncStatusMap, StartedSyncInfo } from '../common';
 
+import { rootRouteRef } from '../../routes';
 import { RepositoriesPageHeaderSection } from './RepositoriesPageHeaderSection';
 import { RepositoriesTable } from './RepositoriesTable';
 import { RepositoriesCIActivityTab } from './RepositoriesCIActivityTab';
+import { RepositoryDetailsPage } from './RepositoryDetailsPage';
 
 const useStyles = makeStyles(theme => ({
   tabsSection: {
@@ -66,6 +77,7 @@ const GitRepositoriesPageInner = () => {
   const navigate = useNavigate();
   const discoveryApi = useApi(discoveryApiRef);
   const fetchApi = useApi(fetchApiRef);
+  const rootLink = useRouteRef(rootRouteRef);
   const { notifications, removeNotification } = useNotifications();
   const { isSyncInProgress, startTracking } = useSyncStatusPolling();
 
@@ -144,10 +156,10 @@ const GitRepositoriesPageInner = () => {
     (index: number) => {
       const tab = tabs[index];
       if (tab) {
-        navigate(`/self-service/repositories/${tab.path}`);
+        navigate(`${rootLink()}/repositories/${tab.path}`);
       }
     },
-    [navigate],
+    [navigate, rootLink],
   );
 
   const content =
@@ -203,8 +215,24 @@ const GitRepositoriesPageInner = () => {
 
 export const GitRepositoriesPage = () => {
   return (
-    <NotificationProvider>
-      <GitRepositoriesPageInner />
-    </NotificationProvider>
+    <RequirePermission permission={gitRepositoriesViewPermission}>
+      <NotificationProvider>
+        <GitRepositoriesPageInner />
+      </NotificationProvider>
+    </RequirePermission>
+  );
+};
+
+// Standalone route wrapper used by the dynamic plugin mount at /self-service/repositories
+// so detail URLs like /self-service/repositories/:repositoryName resolve correctly.
+export const GitRepositoriesRoutesPage = () => {
+  return (
+    <Routes>
+      <Route index element={<Navigate to="catalog" replace />} />
+      <Route path="catalog" element={<GitRepositoriesPage />} />
+      <Route path="ci-activity" element={<GitRepositoriesPage />} />
+      <Route path=":repositoryName" element={<RepositoryDetailsPage />} />
+      <Route path="*" element={<Navigate to="catalog" replace />} />
+    </Routes>
   );
 };

@@ -24,6 +24,7 @@ import {
   discoveryApiRef,
   fetchApiRef,
   useApi,
+  useRouteRef,
 } from '@backstage/core-plugin-api';
 import { ANNOTATION_EDIT_URL } from '@backstage/catalog-model';
 import { Header } from './Header';
@@ -36,6 +37,7 @@ import { ResourcesCard } from './ResourcesCard';
 import { EntityNotFound } from './EntityNotFound';
 import { toEEDefinitionUrl, downloadEntityAsTarArchive } from './helpers';
 import { parseEEDefinition } from '../../../utils/eeDefinitionUtils';
+import { rootRouteRef } from '../../../routes';
 
 const useActionsMenuStyles = makeStyles(theme => ({
   actionsButton: {
@@ -95,6 +97,7 @@ export const EEDetailsPage: React.FC = () => {
   const pageClasses = usePageStyles();
   const { templateName } = useParams<{ templateName: string }>();
   const navigate = useNavigate();
+  const rootLink = useRouteRef(rootRouteRef);
   const [tab, setTab] = useState(0);
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
   const handleMenuOpen = (event: React.MouseEvent<HTMLButtonElement>) => {
@@ -345,11 +348,11 @@ export const EEDetailsPage: React.FC = () => {
 
   const handleUnregisterConfirm = () => {
     setMenuId('');
-    navigate('/self-service/ee', { replace: true });
+    navigate(`${rootLink()}/ee`, { replace: true });
   };
 
   const handleNavigateToCatalog = () => {
-    navigate('/self-service/ee/');
+    navigate(`${rootLink()}/ee/`);
   };
 
   const isDownloadExperience =

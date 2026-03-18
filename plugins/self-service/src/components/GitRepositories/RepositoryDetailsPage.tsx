@@ -9,9 +9,12 @@ import {
 } from '@backstage/plugin-catalog-react';
 import {
   useApi,
+  useRouteRef,
   discoveryApiRef,
   fetchApiRef,
 } from '@backstage/core-plugin-api';
+import { RequirePermission } from '@backstage/plugin-permission-react';
+import { gitRepositoriesViewPermission } from '@ansible/backstage-rhaap-common/permissions';
 
 import { RepositoryBreadcrumbs } from './RepositoryBreadcrumbs';
 import { RepositoryAboutCard } from './RepositoryAboutCard';
@@ -20,15 +23,17 @@ import { RepositoriesCIActivityTab } from './RepositoriesCIActivityTab';
 import { CollectionsListPage } from '../CollectionsCatalog/CollectionsListPage';
 import { useCollectionsStyles } from '../CollectionsCatalog/styles';
 import { getSourceUrl } from '../CollectionsCatalog/utils';
+import { rootRouteRef } from '../../routes';
 import { EmptyState, fetchReadmeFromBackend } from '../common';
 
-export const RepositoryDetailsPage = () => {
+const RepositoryDetailsPageInner = () => {
   const classes = useCollectionsStyles();
   const navigate = useNavigate();
   const { repositoryName } = useParams<{ repositoryName: string }>();
   const catalogApi = useApi(catalogApiRef);
   const discoveryApi = useApi(discoveryApiRef);
   const fetchApi = useApi(fetchApiRef);
+  const rootLink = useRouteRef(rootRouteRef);
 
   const [entity, setEntity] = useState<Entity | null>(null);
   const [loading, setLoading] = useState(true);
@@ -146,8 +151,8 @@ export const RepositoryDetailsPage = () => {
   }, [entity, discoveryApi, fetchApi]);
 
   const handleNavigateToCatalog = useCallback(() => {
-    navigate('/self-service/repositories/catalog');
-  }, [navigate]);
+    navigate(`${rootLink()}/repositories/catalog`);
+  }, [navigate, rootLink]);
 
   const handleViewSource = useCallback(() => {
     if (!entity) return;
@@ -266,5 +271,13 @@ export const RepositoryDetailsPage = () => {
         </Box>
       )}
     </Box>
+  );
+};
+
+export const RepositoryDetailsPage = () => {
+  return (
+    <RequirePermission permission={gitRepositoriesViewPermission}>
+      <RepositoryDetailsPageInner />
+    </RequirePermission>
   );
 };

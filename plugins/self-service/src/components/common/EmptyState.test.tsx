@@ -39,7 +39,7 @@ describe('EmptyState', () => {
     ).toBeInTheDocument();
     expect(
       screen.getByText(
-        /No content sources are not defined|Content sources are not currently configured/,
+        /No content sources are defined|Content sources are not currently configured/,
       ),
     ).toBeInTheDocument();
   });

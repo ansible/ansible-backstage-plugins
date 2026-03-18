@@ -26,13 +26,68 @@ jest.mock('../CatalogItemDetails', () => ({
 jest.mock('../feedback/FeedbackFooter', () => ({
   FeedbackFooter: () => <div data-testid="feedback-footer">FeedbackFooter</div>,
 }));
+jest.mock('../ExecutionEnvironments', () => ({
+  EETabs: () => <div data-testid="ee-tabs">EETabs</div>,
+}));
+jest.mock('../ExecutionEnvironments/catalog/EEDetailsPage', () => ({
+  EEDetailsPage: () => <div data-testid="ee-details">EEDetails</div>,
+}));
+jest.mock('../CollectionsCatalog', () => ({
+  CollectionsCatalogPage: () => (
+    <div data-testid="collections-catalog">CollectionsCatalog</div>
+  ),
+}));
+jest.mock('../CollectionsCatalog/CollectionDetailsPage', () => ({
+  CollectionDetailsPage: () => (
+    <div data-testid="collection-details">CollectionDetails</div>
+  ),
+}));
+jest.mock('../GitRepositories', () => ({
+  GitRepositoriesPage: () => (
+    <div data-testid="git-repositories">GitRepositories</div>
+  ),
+}));
+jest.mock('../GitRepositories/RepositoryDetailsPage', () => ({
+  RepositoryDetailsPage: () => (
+    <div data-testid="repository-details">RepositoryDetails</div>
+  ),
+}));
 
-// Mock RequirePermission to just render children
+jest.mock('@ansible/backstage-rhaap-common/permissions', () => ({
+  executionEnvironmentsViewPermission: {
+    type: 'basic',
+    name: 'ee.view',
+    attributes: {},
+  },
+  collectionsViewPermission: {
+    type: 'basic',
+    name: 'collections.view',
+    attributes: {},
+  },
+  gitRepositoriesViewPermission: {
+    type: 'basic',
+    name: 'repos.view',
+    attributes: {},
+  },
+}));
+
+// Track every permission passed to RequirePermission.
+// Default behaviour: render children (allowed).
+// Tests can override via mockImplementation to simulate denial.
+const mockRequirePermission = jest.fn();
+
 jest.mock('@backstage/plugin-permission-react', () => ({
-  RequirePermission: ({ children }: any) => <>{children}</>,
+  RequirePermission: (props: any) => mockRequirePermission(props),
 }));
 
 describe('RouteView', () => {
+  beforeEach(() => {
+    mockRequirePermission.mockReset();
+    mockRequirePermission.mockImplementation(({ children }: any) => (
+      <>{children}</>
+    ));
+  });
+
   it('renders default routes without crashing', () => {
     render(
       <MemoryRouter initialEntries={['/catalog']}>
@@ -83,6 +138,80 @@ describe('RouteView', () => {
     );
 
     expect(screen.getByTestId('create-task')).toBeInTheDocument();
+  });
+
+  describe('when permission is allowed', () => {
+    it.each([
+      {
+        path: '/ee/catalog',
+        childTestId: 'ee-tabs',
+        permissionName: 'ee.view',
+      },
+      {
+        path: '/catalog/my-ee',
+        childTestId: 'ee-details',
+        permissionName: 'ee.view',
+      },
+      {
+        path: '/collections',
+        childTestId: 'collections-catalog',
+        permissionName: 'collections.view',
+      },
+      {
+        path: '/collections/my-col',
+        childTestId: 'collection-details',
+        permissionName: 'collections.view',
+      },
+      {
+        path: '/repositories/catalog',
+        childTestId: 'git-repositories',
+        permissionName: 'repos.view',
+      },
+      {
+        path: '/repositories/my-repo',
+        childTestId: 'repository-details',
+        permissionName: 'repos.view',
+      },
+    ])(
+      'renders $childTestId at $path with $permissionName',
+      ({ path, childTestId, permissionName }) => {
+        render(
+          <MemoryRouter initialEntries={[path]}>
+            <RouteView />
+          </MemoryRouter>,
+        );
+        expect(screen.getByTestId(childTestId)).toBeInTheDocument();
+        expect(mockRequirePermission).toHaveBeenCalledWith(
+          expect.objectContaining({
+            permission: expect.objectContaining({ name: permissionName }),
+          }),
+        );
+      },
+    );
+  });
+
+  describe('when permission is denied', () => {
+    beforeEach(() => {
+      mockRequirePermission.mockImplementation(() => (
+        <div data-testid="permission-denied" />
+      ));
+    });
+
+    it.each([
+      { path: '/ee/catalog', childTestId: 'ee-tabs' },
+      { path: '/collections', childTestId: 'collections-catalog' },
+      { path: '/repositories/catalog', childTestId: 'git-repositories' },
+    ])('blocks $childTestId at $path', ({ path, childTestId }) => {
+      render(
+        <MemoryRouter initialEntries={[path]}>
+          <RouteView />
+        </MemoryRouter>,
+      );
+      expect(screen.queryByTestId(childTestId)).not.toBeInTheDocument();
+      expect(screen.getAllByTestId('permission-denied').length).toBeGreaterThan(
+        0,
+      );
+    });
   });
 
   it('redirects unknown routes to /self-service/catalog', () => {

@@ -3,9 +3,14 @@ import { render, screen } from '@testing-library/react';
 // Mock useAsync exactly where it's imported from in the component
 jest.mock('react-use/esm/useAsync');
 
-// Mock useApi from @backstage/core-plugin-api
+// Mock useApi and useRouteRef from @backstage/core-plugin-api
 jest.mock('@backstage/core-plugin-api', () => ({
   useApi: jest.fn(),
+  useRouteRef: () => () => '/self-service',
+}));
+
+jest.mock('../../../routes', () => ({
+  rootRouteRef: { id: 'root-route-ref' },
 }));
 
 // Mock useStarredEntities from @backstage/plugin-catalog-react
@@ -168,16 +173,17 @@ describe('Favourites component', () => {
     expect(compLink).toBeInTheDocument();
 
     // Because our mocked Link renders <a href={to}>, verify the hrefs follow component logic
+    // useRouteRef mock returns () => '/self-service', so paths are absolute
     // For Template:
     expect(templateLink.closest('a')).toHaveAttribute(
       'href',
-      '../../../create/templates/default/template-1',
+      '/self-service/create/templates/default/template-1',
     );
 
     // For Component:
     expect(compLink.closest('a')).toHaveAttribute(
       'href',
-      '../../../catalog/default/component/comp-2',
+      '/self-service/catalog/default/component/comp-2',
     );
 
     // Also, kind labels should appear for each entry (Template / Component)
