@@ -1,1 +1,0 @@
-export { PermissionGatedSidebarItem } from './PermissionGatedSidebarItem';

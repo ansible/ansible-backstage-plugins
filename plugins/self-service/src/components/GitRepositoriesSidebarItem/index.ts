@@ -1,1 +1,0 @@
-export { GitRepositoriesSidebarItem } from './GitRepositoriesSidebarItem';

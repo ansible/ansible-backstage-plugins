@@ -1,1 +1,0 @@
-export { CollectionsSidebarItem } from './CollectionsSidebarItem';

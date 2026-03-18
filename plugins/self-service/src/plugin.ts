@@ -87,9 +87,7 @@ export const EEBuilderSidebarItem = selfServicePlugin.provide(
     name: 'EEBuilderSidebarItem',
     component: {
       lazy: () =>
-        import('./components/EEBuilderSidebarItem').then(
-          m => m.EEBuilderSidebarItem,
-        ),
+        import('./components/SidebarItems').then(m => m.EEBuilderSidebarItem),
     },
   }),
 );
@@ -105,9 +103,7 @@ export const CollectionsSidebarItem = selfServicePlugin.provide(
     name: 'CollectionsSidebarItem',
     component: {
       lazy: () =>
-        import('./components/CollectionsSidebarItem').then(
-          m => m.CollectionsSidebarItem,
-        ),
+        import('./components/SidebarItems').then(m => m.CollectionsSidebarItem),
     },
   }),
 );
@@ -140,7 +136,7 @@ export const GitRepositoriesSidebarItem = selfServicePlugin.provide(
     name: 'GitRepositoriesSidebarItem',
     component: {
       lazy: () =>
-        import('./components/GitRepositoriesSidebarItem').then(
+        import('./components/SidebarItems').then(
           m => m.GitRepositoriesSidebarItem,
         ),
     },
