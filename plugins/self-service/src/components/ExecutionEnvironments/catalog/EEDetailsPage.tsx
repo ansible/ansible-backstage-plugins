@@ -261,8 +261,8 @@ export const EEDetailsPage: React.FC = () => {
           owner: params.owner,
           repo: params.repo,
           filePath: params.subdir
-            ? `${params.subdir}/${entity?.metadata?.name ?? 'execution-environment'}.yaml`
-            : `${entity?.metadata?.name ?? 'execution-environment'}.yaml`,
+            ? `${params.subdir}/${entity?.metadata?.name ?? 'execution-environment'}.yml`
+            : `${entity?.metadata?.name ?? 'execution-environment'}.yml`,
           ref: params.ref,
         });
 

@@ -2559,7 +2559,7 @@ describe('RunTask', () => {
             call =>
               typeof call[0] === 'string' &&
               call[0] ===
-                'Entity, definition, readme, ansible_cfg or template not available',
+                'Entity, definition, readme, or template not available',
           );
           expect(hasExpectedError).toBe(true);
         },

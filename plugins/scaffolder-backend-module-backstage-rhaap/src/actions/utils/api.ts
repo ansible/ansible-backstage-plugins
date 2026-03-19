@@ -179,6 +179,45 @@ export class BackendServiceAPI {
     }
   }
 
+  public async downloadEEScaffold(
+    workspacePath: string,
+    logger: LoggerService,
+    creatorServiceUrl: string,
+    eeConfig: Record<string, any>,
+    tarName: string,
+  ) {
+    try {
+      const scaffoldUrl = 'v2/creator/scaffold';
+      const postData = {
+        command_path: ['init', 'execution_env'],
+        params: { ee_config: eeConfig },
+      };
+
+      logger.info(
+        `${BackendServiceAPI.pluginLogName}] Request for EE scaffold using ${scaffoldUrl}`,
+      );
+
+      const response = await this.sendPostRequest(
+        `${creatorServiceUrl}${scaffoldUrl}`,
+        postData,
+      );
+
+      logger.info(
+        `${BackendServiceAPI.pluginLogName}] Request complete for EE scaffold`,
+      );
+      await this.downloadFile(response, logger, workspacePath, tarName);
+    } catch (error: unknown) {
+      const errorMessage =
+        error instanceof Error ? error.message : String(error);
+      logger.error(
+        `${BackendServiceAPI.pluginLogName}] Failed to scaffold EE definition. Please ensure your ansible-creator version supports the scaffold endpoint. ${errorMessage}`,
+      );
+      throw new Error(`Failed to scaffold EE definition: ${errorMessage}`, {
+        cause: error instanceof Error ? error : undefined,
+      });
+    }
+  }
+
   public async downloadDevfileProject(
     workspacePath: string,
     logger: LoggerService,

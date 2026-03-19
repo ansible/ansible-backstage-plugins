@@ -84,6 +84,7 @@ export const scaffolderModuleAnsible = createBackendModule({
             frontendUrl,
             auth,
             discovery,
+            config,
           }),
           prepareForPublishAction({
             rootConfig: config,

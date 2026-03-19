@@ -8,7 +8,7 @@ export function toEEDefinitionUrl(url: string, eeName: string): string {
   if (!url?.trim() || !eeName) return url ?? '';
   const t = url.replace(/^url:/i, '').trim();
   return t.includes('catalog-info.yaml')
-    ? t.replace(/catalog-info\.yaml$/, `${eeName}.yaml`)
+    ? t.replace(/catalog-info\.yaml$/, `${eeName}.yml`)
     : t;
 }
 
@@ -33,7 +33,6 @@ export function downloadEntityAsTarArchive(entity: Entity): boolean {
   if (
     !entity?.spec?.definition ||
     !entity?.spec?.readme ||
-    !entity?.spec?.ansible_cfg ||
     !entity?.spec?.template
   ) {
     return false;
@@ -44,15 +43,20 @@ export function downloadEntityAsTarArchive(entity: Entity): boolean {
     const eeFileName = `${name}.yaml`;
     const readmeFileName = `README-${name}.md`;
     const archiveName = `${name}.tar`;
-    const ansibleCfgFileName = `ansible.cfg`;
     const templateFileName = `${name}-template.yaml`;
 
     const rawdata: Array<{ name: string; content: string }> = [
       { name: eeFileName, content: String(entity.spec.definition) },
       { name: readmeFileName, content: String(entity.spec.readme) },
-      { name: ansibleCfgFileName, content: String(entity.spec.ansible_cfg) },
       { name: templateFileName, content: String(entity.spec.template) },
     ];
+
+    if (entity.spec.ansible_cfg) {
+      rawdata.push({
+        name: 'ansible.cfg',
+        content: String(entity.spec.ansible_cfg),
+      });
+    }
 
     if (entity.spec.mcp_vars) {
       rawdata.push({
