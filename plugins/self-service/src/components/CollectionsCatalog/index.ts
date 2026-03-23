@@ -43,3 +43,9 @@ export {
 } from './constants';
 
 export { useCollectionsStyles } from './styles';
+
+export { usePaginatedCollections } from './usePaginatedCollections';
+export type {
+  UsePaginatedCollectionsOptions,
+  UsePaginatedCollectionsResult,
+} from './usePaginatedCollections';
