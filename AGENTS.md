@@ -137,7 +137,7 @@ Plugins support deployment as dynamic plugins in RHDH. Each plugin has a `dist-d
 
 ## Guidelines for AI Agents
 
-- When working with any external library, look up the latest syntax and usage rather than relying on potentially outdated training data. Do not skip or replace a library because of errors — diagnose the root cause first.
+- When working with any external library, look up the latest syntax and usage rather than relying on potentially outdated training data. Do not skip or replace a library because of errors — diagnose the root cause first. This applies doubly when the user has explicitly asked to use a specific library; if they wanted a different library they would have asked for one.
 - Always run linting after making major changes to catch syntax errors, incorrect method usage, or corrupted files.
 - Organise code into separate files wherever appropriate. Follow best practices for variable naming, modularity, function complexity, file sizes, and commenting.
 - Optimise code for readability — code is read more often than it is written.
