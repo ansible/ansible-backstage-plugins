@@ -48,14 +48,14 @@ yarn prettier:check     # Check formatting
 
 ### Plugin Map
 
-| Directory | Package Name | Role | Type |
-|---|---|---|---|
-| `plugins/backstage-rhaap-common` | `@ansible/backstage-rhaap-common` | Shared AAP client, types, interfaces, permissions | Common library |
-| `plugins/backstage-rhaap` | `@ansible/plugin-backstage-rhaap` | Ansible sidebar & frontend pages | Frontend plugin |
-| `plugins/self-service` | `@ansible/plugin-backstage-self-service` | Self-service UI (job templates, EE builder, collections, git repos) | Frontend plugin |
-| `plugins/catalog-backend-module-rhaap` | `@ansible/backstage-plugin-catalog-backend-module-rhaap` | Entity providers that sync AAP resources into catalog | Backend module |
-| `plugins/scaffolder-backend-module-backstage-rhaap` | `@ansible/plugin-scaffolder-backend-module-backstage-rhaap` | Custom scaffolder actions for AAP | Backend module |
-| `plugins/auth-backend-module-rhaap-provider` | `@ansible/backstage-plugin-auth-backend-module-rhaap-provider` | AAP OAuth authentication | Backend module |
+| Directory                                           | Package Name                                                   | Role                                                                | Type            |
+| --------------------------------------------------- | -------------------------------------------------------------- | ------------------------------------------------------------------- | --------------- |
+| `plugins/backstage-rhaap-common`                    | `@ansible/backstage-rhaap-common`                              | Shared AAP client, types, interfaces, permissions                   | Common library  |
+| `plugins/backstage-rhaap`                           | `@ansible/plugin-backstage-rhaap`                              | Ansible sidebar & frontend pages                                    | Frontend plugin |
+| `plugins/self-service`                              | `@ansible/plugin-backstage-self-service`                       | Self-service UI (job templates, EE builder, collections, git repos) | Frontend plugin |
+| `plugins/catalog-backend-module-rhaap`              | `@ansible/backstage-plugin-catalog-backend-module-rhaap`       | Entity providers that sync AAP resources into catalog               | Backend module  |
+| `plugins/scaffolder-backend-module-backstage-rhaap` | `@ansible/plugin-scaffolder-backend-module-backstage-rhaap`    | Custom scaffolder actions for AAP                                   | Backend module  |
+| `plugins/auth-backend-module-rhaap-provider`        | `@ansible/backstage-plugin-auth-backend-module-rhaap-provider` | AAP OAuth authentication                                            | Backend module  |
 
 ### Core Service Pattern
 
