@@ -61,6 +61,7 @@ jest.mock('../../routes', () => ({
 import { Entity } from '@backstage/catalog-model';
 import { MemoryRouter } from 'react-router-dom';
 import { CollectionsListPage, CollectionsContent } from './CollectionsListPage';
+import { collectionsCache } from './collectionsCache';
 
 const theme = createTheme();
 
@@ -129,6 +130,8 @@ const renderListPage = (
 describe('CollectionsListPage', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    // Clear the collections cache before each test to ensure isolation
+    collectionsCache.clear();
     mockCatalogApi.queryEntities.mockResolvedValue({
       items: [mockEntity],
       totalItems: 1,
@@ -149,7 +152,7 @@ describe('CollectionsListPage', () => {
     });
   });
 
-  it('shows progress while loading', async () => {
+  it('shows progress while loading with UI shell visible', async () => {
     mockCatalogApi.queryEntities.mockImplementation(
       () => new Promise(() => {}),
     );
@@ -159,10 +162,17 @@ describe('CollectionsListPage', () => {
     await waitFor(() => {
       expect(mockCatalogApi.queryEntities).toHaveBeenCalled();
     });
+
+    // UI shell should be visible during loading
+    expect(screen.queryByPlaceholderText('Search')).toBeInTheDocument();
+    // Search should be disabled during loading
+    expect(screen.getByPlaceholderText('Search')).toBeDisabled();
+    // Empty state should not be shown during loading
     expect(
       screen.queryByText('No content sources configured'),
     ).not.toBeInTheDocument();
-    expect(screen.queryByPlaceholderText('Search')).not.toBeInTheDocument();
+    // Collection count should not show number while loading
+    expect(screen.getByText('Ansible Collections')).toBeInTheDocument();
   });
 
   it('renders EmptyState when no entities and sources not configured', async () => {
@@ -509,6 +519,7 @@ describe('CollectionsListPage', () => {
 describe('CollectionsTypeFilter', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    collectionsCache.clear();
     mockCatalogApi.queryEntities.mockResolvedValue({
       items: [mockEntity],
       totalItems: 1,
@@ -595,6 +606,11 @@ describe('CollectionsTypeFilter', () => {
 });
 
 describe('CollectionsContent', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+    collectionsCache.clear();
+  });
+
   it('renders when provided with router and APIs', async () => {
     mockCatalogApi.queryEntities.mockResolvedValue({
       items: [],
@@ -634,6 +650,7 @@ describe('CollectionsContent', () => {
 describe('CollectionsListPage with filterByRepositoryEntity', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    collectionsCache.clear();
     mockFetchApi.fetch.mockResolvedValue({
       ok: true,
       json: async () => ({

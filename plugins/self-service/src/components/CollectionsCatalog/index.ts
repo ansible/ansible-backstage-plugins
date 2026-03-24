@@ -49,3 +49,6 @@ export type {
   UsePaginatedCollectionsOptions,
   UsePaginatedCollectionsResult,
 } from './usePaginatedCollections';
+
+export { collectionsCache } from './collectionsCache';
+export type { CollectionsCacheState } from './collectionsCache';

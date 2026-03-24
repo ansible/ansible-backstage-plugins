@@ -162,18 +162,16 @@ export const CollectionsListPage = ({
   const startIndex = (currentPage - 1) * PAGE_SIZE;
   const endIndex = Math.min(startIndex + PAGE_SIZE, totalCount);
 
-  if (initialLoading) {
-    return <Progress />;
-  }
-
   if (error) {
     return <div>Error: {error ?? 'Unable to retrieve collections'}</div>;
   }
 
+  const showEmptyState = !initialLoading && totalCount === 0 && !loadingMore;
+
   return (
     <div style={{ flexDirection: 'column', width: '100%' }}>
       <CollectionsTypeFilter />
-      {totalCount === 0 && !loadingMore ? (
+      {showEmptyState ? (
         <EmptyStateWrapper
           filterByRepositoryEntity={!!filterByRepositoryEntity}
           onSyncClick={onSyncClick}
@@ -199,6 +197,7 @@ export const CollectionsListPage = ({
                   fullWidth
                   value={searchQuery}
                   onChange={e => setSearchQuery(e.target.value)}
+                  disabled={initialLoading}
                   InputProps={{
                     startAdornment: (
                       <InputAdornment position="start">
@@ -237,6 +236,7 @@ export const CollectionsListPage = ({
                       setSourceFilter(newValue || 'All')
                     }
                     openOnFocus
+                    disabled={initialLoading}
                     renderInput={params => (
                       <TextField
                         {...params}
@@ -272,6 +272,7 @@ export const CollectionsListPage = ({
                       setTagFilter(newValue || 'All')
                     }
                     openOnFocus
+                    disabled={initialLoading}
                     renderInput={params => (
                       <TextField
                         {...params}
@@ -297,6 +298,7 @@ export const CollectionsListPage = ({
                       onChange={e => setShowLatestOnly(e.target.checked)}
                       color="primary"
                       size="small"
+                      disabled={initialLoading}
                     />
                   }
                   label="Show latest version only"
@@ -309,8 +311,9 @@ export const CollectionsListPage = ({
               <Box>
                 <Box className={classes.contentHeader}>
                   <Typography variant="h6" className={classes.contentTitle}>
-                    Ansible Collections ({totalCount})
-                    {loadingMore && (
+                    Ansible Collections{' '}
+                    {initialLoading ? '' : `(${totalCount})`}
+                    {(initialLoading || loadingMore) && (
                       <CircularProgress
                         size={16}
                         style={{ marginLeft: 8, verticalAlign: 'middle' }}
@@ -319,20 +322,26 @@ export const CollectionsListPage = ({
                   </Typography>
                 </Box>
 
-                <Box className={classes.cardsContainer}>
-                  {displayedEntities.map(entity => (
-                    <CollectionCard
-                      key={entity.metadata.uid || entity.metadata.name}
-                      entity={entity}
-                      onClick={navigate}
-                      isStarred={isStarredEntity(entity)}
-                      onToggleStar={toggleStarredEntity}
-                      syncStatusMap={syncStatusMap}
-                    />
-                  ))}
-                </Box>
+                {initialLoading ? (
+                  <Box className={classes.cardsContainer}>
+                    <Progress />
+                  </Box>
+                ) : (
+                  <Box className={classes.cardsContainer}>
+                    {displayedEntities.map(entity => (
+                      <CollectionCard
+                        key={entity.metadata.uid || entity.metadata.name}
+                        entity={entity}
+                        onClick={navigate}
+                        isStarred={isStarredEntity(entity)}
+                        onToggleStar={toggleStarredEntity}
+                        syncStatusMap={syncStatusMap}
+                      />
+                    ))}
+                  </Box>
+                )}
 
-                {totalPages > 1 && (
+                {!initialLoading && totalPages > 1 && (
                   <Box className={classes.paginationContainer}>
                     <Typography className={classes.paginationInfo}>
                       Showing {startIndex + 1}-{endIndex} of {totalCount}{' '}

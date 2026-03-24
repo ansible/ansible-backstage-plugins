@@ -6,13 +6,10 @@ import { SyncStatusMap } from '../common';
 import {
   sortEntities,
   filterLatestVersions,
-  getUniqueFilters,
   filterCollectionsByRepository,
 } from './utils';
 import { PAGE_SIZE } from './constants';
-
-const INITIAL_FETCH_LIMIT = 50;
-const BACKGROUND_FETCH_LIMIT = 200;
+import { collectionsCache } from './collectionsCache';
 
 export interface UsePaginatedCollectionsOptions {
   catalogApi: CatalogApi;
@@ -55,109 +52,96 @@ export function usePaginatedCollections({
   fetchApi,
   filterByRepositoryEntity,
 }: UsePaginatedCollectionsOptions): UsePaginatedCollectionsResult {
-  const [allEntities, setAllEntities] = useState<Entity[]>([]);
+  // Initialize state from cache if available
+  const cachedState = collectionsCache.getState();
+
+  const [allEntities, setAllEntities] = useState<Entity[]>(
+    cachedState?.entities ?? [],
+  );
   const [filteredEntities, setFilteredEntities] = useState<Entity[]>([]);
-  const [initialLoading, setInitialLoading] = useState(true);
-  const [loadingMore, setLoadingMore] = useState(false);
+  const [initialLoading, setInitialLoading] = useState(
+    !cachedState?.entities.length,
+  );
+  const [loadingMore, setLoadingMore] = useState(
+    collectionsCache.isLoading() && !collectionsCache.isFullyLoaded(),
+  );
   const [error, setError] = useState<string | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
-  const [syncStatusMap, setSyncStatusMap] = useState<SyncStatusMap>({});
+  const [syncStatusMap, setSyncStatusMap] = useState<SyncStatusMap>(
+    cachedState?.syncStatusMap ?? {},
+  );
   const [hasConfiguredSources, setHasConfiguredSources] = useState<
     boolean | null
-  >(null);
-  const [allSources, setAllSources] = useState<string[]>(['All']);
-  const [allTags, setAllTags] = useState<string[]>(['All']);
+  >(cachedState?.hasConfiguredSources ?? null);
+  const [allSources, setAllSources] = useState<string[]>(
+    cachedState?.allSources ?? ['All'],
+  );
+  const [allTags, setAllTags] = useState<string[]>(
+    cachedState?.allTags ?? ['All'],
+  );
   const [sourceFilter, setSourceFilter] = useState('All');
   const [tagFilter, setTagFilter] = useState('All');
   const [searchQuery, setSearchQuery] = useState('');
   const [showLatestOnly, setShowLatestOnly] = useState(true);
 
   const isMountedRef = useRef(true);
-  const loadedAllRef = useRef(false);
-  const backgroundLoadingRef = useRef(false);
 
-  const fetchRemainingCollections = useCallback(
-    async (initialItems: Entity[], total: number) => {
-      if (backgroundLoadingRef.current || loadedAllRef.current) return;
-
-      backgroundLoadingRef.current = true;
-      setLoadingMore(true);
-
-      let allItems = [...initialItems];
-      let offset = initialItems.length;
-
-      try {
-        while (offset < total && isMountedRef.current) {
-          const response = await catalogApi.queryEntities({
-            filter: { kind: 'Component', 'spec.type': 'ansible-collection' },
-            limit: BACKGROUND_FETCH_LIMIT,
-            offset,
-          });
-
-          if (!isMountedRef.current) break;
-
-          const newItems = response?.items || [];
-          if (newItems.length === 0) break;
-
-          allItems = [...allItems, ...newItems];
-          offset += newItems.length;
-
-          setAllEntities(allItems);
-
-          const { sources, tags } = getUniqueFilters(allItems);
-          setAllSources(['All', ...sources]);
-          setAllTags(['All', ...tags]);
+  // Subscribe to cache updates - this allows background loading to continue
+  // and update the UI when we return to the page
+  useEffect(() => {
+    const unsubscribe = collectionsCache.subscribe(state => {
+      if (isMountedRef.current) {
+        setAllEntities(state.entities);
+        setAllSources(state.allSources);
+        setAllTags(state.allTags);
+        setLoadingMore(!state.isFullyLoaded && collectionsCache.isLoading());
+        if (state.error) {
+          setError(state.error);
+          setInitialLoading(false);
         }
-
-        loadedAllRef.current = true;
-      } catch (err) {
-        if (process.env.NODE_ENV === 'development') {
-          // eslint-disable-next-line no-console
-          console.error('Error loading remaining collections:', err);
-        }
-      } finally {
-        if (isMountedRef.current) {
-          setLoadingMore(false);
-        }
-        backgroundLoadingRef.current = false;
       }
-    },
-    [catalogApi],
-  );
+    });
+
+    return unsubscribe;
+  }, []);
 
   const fetchInitialCollections = useCallback(async () => {
+    // Check if we have valid cached data
+    const cached = collectionsCache.getState();
+    if (cached && cached.entities.length > 0) {
+      // Use cached data immediately
+      setAllEntities(cached.entities);
+      setAllSources(cached.allSources);
+      setAllTags(cached.allTags);
+      setInitialLoading(false);
+      setLoadingMore(!cached.isFullyLoaded && collectionsCache.isLoading());
+
+      // If not fully loaded, start/continue loading via cache
+      // (this will continue even if we navigate away)
+      if (!cached.isFullyLoaded) {
+        collectionsCache.startLoading(catalogApi);
+      }
+      return;
+    }
+
     setInitialLoading(true);
     setError(null);
-    loadedAllRef.current = false;
 
     try {
-      const response = await catalogApi.queryEntities({
-        filter: { kind: 'Component', 'spec.type': 'ansible-collection' },
-        limit: INITIAL_FETCH_LIMIT,
-      });
+      // Start loading via the cache - this runs in the background
+      // and continues even if the component unmounts
+      await collectionsCache.startLoading(catalogApi);
 
       if (!isMountedRef.current) return;
 
-      const items = response?.items || [];
-      const total = response?.totalItems ?? items.length;
-
-      setAllEntities(items);
-
-      if (items.length > 0) {
-        const { sources, tags } = getUniqueFilters(items);
-        setAllSources(['All', ...sources]);
-        setAllTags(['All', ...tags]);
+      const state = collectionsCache.getState();
+      if (state) {
+        setAllEntities(state.entities);
+        setAllSources(state.allSources);
+        setAllTags(state.allTags);
+        setLoadingMore(!state.isFullyLoaded && collectionsCache.isLoading());
       }
-
-      if (items.length >= total) {
-        loadedAllRef.current = true;
-      }
-
       setInitialLoading(false);
-
-      if (items.length < total && !backgroundLoadingRef.current) {
-        fetchRemainingCollections(items, total);
-      }
     } catch (err) {
       if (!isMountedRef.current) return;
       setError(
@@ -165,7 +149,7 @@ export function usePaginatedCollections({
       );
       setInitialLoading(false);
     }
-  }, [catalogApi, fetchRemainingCollections]);
+  }, [catalogApi]);
 
   const fetchSyncStatus = useCallback(async () => {
     try {
@@ -177,6 +161,7 @@ export function usePaginatedCollections({
       if (!response.ok) {
         if (isMountedRef.current) {
           setHasConfiguredSources(false);
+          collectionsCache.updateSyncStatus({}, false);
         }
         return;
       }
@@ -201,10 +186,12 @@ export function usePaginatedCollections({
       if (isMountedRef.current) {
         setSyncStatusMap(statusMap);
         setHasConfiguredSources(providers.length > 0);
+        collectionsCache.updateSyncStatus(statusMap, providers.length > 0);
       }
     } catch {
       if (isMountedRef.current) {
         setHasConfiguredSources(false);
+        collectionsCache.updateSyncStatus({}, false);
       }
     }
   }, [discoveryApi, fetchApi]);
@@ -274,8 +261,6 @@ export function usePaginatedCollections({
 
   useEffect(() => {
     isMountedRef.current = true;
-    loadedAllRef.current = false;
-    backgroundLoadingRef.current = false;
     fetchInitialCollections();
     fetchSyncStatus();
 
@@ -306,8 +291,14 @@ export function usePaginatedCollections({
   }, []);
 
   const refresh = useCallback(() => {
-    loadedAllRef.current = false;
-    backgroundLoadingRef.current = false;
+    // Clear cache to force a fresh fetch
+    collectionsCache.clear();
+    setAllEntities([]);
+    setAllSources(['All']);
+    setAllTags(['All']);
+    setInitialLoading(true);
+
+    // Re-fetch everything
     fetchInitialCollections();
     fetchSyncStatus();
   }, [fetchInitialCollections, fetchSyncStatus]);

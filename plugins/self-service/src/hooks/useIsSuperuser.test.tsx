@@ -3,7 +3,7 @@ import { renderHook, waitFor } from '@testing-library/react';
 import { TestApiProvider } from '@backstage/test-utils';
 import { identityApiRef } from '@backstage/core-plugin-api';
 import { catalogApiRef } from '@backstage/plugin-catalog-react';
-import { useIsSuperuser } from './useIsSuperuser';
+import { useIsSuperuser, clearSuperuserCache } from './useIsSuperuser';
 
 const mockIdentityApi = {
   getBackstageIdentity: jest.fn(),
@@ -27,6 +27,7 @@ const wrapper = ({ children }: { children: ReactNode }) => (
 describe('useIsSuperuser', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    clearSuperuserCache();
   });
 
   it('returns isSuperuser true when user has superuser annotation', async () => {
