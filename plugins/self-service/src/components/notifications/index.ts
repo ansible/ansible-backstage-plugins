@@ -1,4 +1,6 @@
 export { NotificationProvider, useNotifications } from './NotificationContext';
+export { notificationStore } from './notificationStore';
+export { syncPollingService } from './syncPollingService';
 
 export { NotificationCard } from './NotificationCard';
 export { NotificationStack } from './NotificationStack';

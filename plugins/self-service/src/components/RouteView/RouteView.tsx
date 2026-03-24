@@ -1,7 +1,13 @@
+import { useEffect } from 'react';
 import { Route, Routes, Navigate, Outlet } from 'react-router-dom';
 import { RequirePermission } from '@backstage/plugin-permission-react';
 import { catalogEntityCreatePermission } from '@backstage/plugin-catalog-common/alpha';
 import { taskReadPermission } from '@backstage/plugin-scaffolder-common/alpha';
+import {
+  useApi,
+  discoveryApiRef,
+  fetchApiRef,
+} from '@backstage/core-plugin-api';
 import {
   executionEnvironmentsViewPermission,
   collectionsViewPermission,
@@ -21,8 +27,23 @@ import { CollectionsCatalogPage } from '../CollectionsCatalog';
 import { CollectionDetailsPage } from '../CollectionsCatalog/CollectionDetailsPage';
 import { GitRepositoriesPage } from '../GitRepositories';
 import { RepositoryDetailsPage } from '../GitRepositories/RepositoryDetailsPage';
+import {
+  NotificationProvider,
+  NotificationStack,
+  useNotifications,
+  syncPollingService,
+} from '../notifications';
 
-export const RouteView = () => {
+const RouteViewContent = () => {
+  const { notifications, removeNotification } = useNotifications();
+  const discoveryApi = useApi(discoveryApiRef);
+  const fetchApi = useApi(fetchApiRef);
+
+  // Initialize the global sync polling service
+  useEffect(() => {
+    syncPollingService.initialize(discoveryApi, fetchApi);
+  }, [discoveryApi, fetchApi]);
+
   return (
     <>
       <Routes>
@@ -125,6 +146,18 @@ export const RouteView = () => {
         <Route path="*" element={<Navigate to="/self-service/catalog" />} />
       </Routes>
       <FeedbackFooter />
+      <NotificationStack
+        notifications={notifications}
+        onClose={removeNotification}
+      />
     </>
+  );
+};
+
+export const RouteView = () => {
+  return (
+    <NotificationProvider>
+      <RouteViewContent />
+    </NotificationProvider>
   );
 };

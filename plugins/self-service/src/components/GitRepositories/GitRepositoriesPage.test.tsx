@@ -17,12 +17,19 @@ jest.mock('@ansible/backstage-rhaap-common/permissions', () => ({
   },
 }));
 
+const mockStartTracking = jest.fn();
+const mockUseSyncStatusPolling = jest.fn().mockReturnValue({
+  isSyncInProgress: false,
+  startTracking: mockStartTracking,
+});
+
 jest.mock('../../hooks', () => ({
   useIsSuperuser: () => ({
     isSuperuser: true,
     loading: false,
     error: null,
   }),
+  useSyncStatusPolling: () => mockUseSyncStatusPolling(),
 }));
 
 jest.mock('@backstage/core-plugin-api', () => ({
@@ -34,14 +41,14 @@ jest.mock('../../routes', () => ({
   rootRouteRef: { id: 'root-route-ref' },
 }));
 
-const mockStartTracking = jest.fn();
-const mockUseSyncStatusPolling = jest.fn().mockReturnValue({
-  isSyncInProgress: false,
-  startTracking: mockStartTracking,
-});
-
-jest.mock('../CollectionsCatalog/useSyncStatusPolling', () => ({
-  useSyncStatusPolling: () => mockUseSyncStatusPolling(),
+jest.mock('../notifications', () => ({
+  ...jest.requireActual('../notifications'),
+  useNotifications: () => ({
+    notifications: [],
+    showNotification: jest.fn(),
+    removeNotification: jest.fn(),
+    clearAll: jest.fn(),
+  }),
 }));
 
 jest.mock('../common', () => ({

@@ -17,14 +17,7 @@ import {
   discoveryApiRef,
   fetchApiRef,
 } from '@backstage/core-plugin-api';
-import { RequirePermission } from '@backstage/plugin-permission-react';
-import { gitRepositoriesViewPermission } from '@ansible/backstage-rhaap-common/permissions';
-import {
-  NotificationProvider,
-  NotificationStack,
-  useNotifications,
-} from '../notifications';
-import { useSyncStatusPolling } from '../CollectionsCatalog/useSyncStatusPolling';
+import { useSyncStatusPolling } from '../../hooks';
 import { SyncDialog } from '../common';
 import type { SyncStatusMap, StartedSyncInfo } from '../common';
 
@@ -71,14 +64,13 @@ const getTabIndexFromPath = (pathname: string): number => {
   return 0;
 };
 
-const GitRepositoriesPageInner = () => {
+export const GitRepositoriesPage = () => {
   const classes = useStyles();
   const location = useLocation();
   const navigate = useNavigate();
   const discoveryApi = useApi(discoveryApiRef);
   const fetchApi = useApi(fetchApiRef);
   const rootLink = useRouteRef(rootRouteRef);
-  const { notifications, removeNotification } = useNotifications();
   const { isSyncInProgress, startTracking } = useSyncStatusPolling();
 
   const [syncDialogOpen, setSyncDialogOpen] = useState(false);
@@ -205,21 +197,7 @@ const GitRepositoriesPageInner = () => {
         onClose={() => setSyncDialogOpen(false)}
         onSyncsStarted={handleSyncsStarted}
       />
-      <NotificationStack
-        notifications={notifications}
-        onClose={removeNotification}
-      />
     </Page>
-  );
-};
-
-export const GitRepositoriesPage = () => {
-  return (
-    <RequirePermission permission={gitRepositoriesViewPermission}>
-      <NotificationProvider>
-        <GitRepositoriesPageInner />
-      </NotificationProvider>
-    </RequirePermission>
   );
 };
 

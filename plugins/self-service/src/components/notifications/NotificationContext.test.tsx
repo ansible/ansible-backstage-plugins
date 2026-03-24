@@ -2,6 +2,7 @@ import { render, screen, act, fireEvent } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { ThemeProvider, createTheme } from '@material-ui/core/styles';
 import { NotificationProvider, useNotifications } from './NotificationContext';
+import { notificationStore } from './notificationStore';
 
 const theme = createTheme();
 
@@ -82,8 +83,13 @@ const renderWithTheme = (ui: React.ReactElement) => {
 };
 
 describe('NotificationProvider', () => {
+  beforeEach(() => {
+    notificationStore.clearAll();
+  });
+
   afterEach(() => {
     jest.useRealTimers();
+    notificationStore.clearAll();
   });
 
   it('renders children and provides initial empty notifications', () => {

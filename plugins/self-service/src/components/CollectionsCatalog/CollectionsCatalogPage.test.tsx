@@ -16,21 +16,18 @@ jest.mock('@ansible/backstage-rhaap-common/permissions', () => ({
   },
 }));
 
-jest.mock('../../hooks', () => ({
-  useIsSuperuser: () => ({
-    isSuperuser: true,
-    loading: false,
-    error: null,
-  }),
-}));
-
 const mockStartTracking = jest.fn();
 const mockUseSyncStatusPolling = jest.fn().mockReturnValue({
   isSyncInProgress: false,
   startTracking: mockStartTracking,
 });
 
-jest.mock('./useSyncStatusPolling', () => ({
+jest.mock('../../hooks', () => ({
+  useIsSuperuser: () => ({
+    isSuperuser: true,
+    loading: false,
+    error: null,
+  }),
   useSyncStatusPolling: () => mockUseSyncStatusPolling(),
 }));
 

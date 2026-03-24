@@ -80,6 +80,33 @@ jest.mock('@backstage/plugin-permission-react', () => ({
   RequirePermission: (props: any) => mockRequirePermission(props),
 }));
 
+jest.mock('../notifications', () => ({
+  NotificationProvider: ({ children }: any) => <>{children}</>,
+  NotificationStack: () => null,
+  useNotifications: () => ({
+    notifications: [],
+    showNotification: jest.fn(),
+    removeNotification: jest.fn(),
+    clearAll: jest.fn(),
+  }),
+  syncPollingService: {
+    initialize: jest.fn(),
+    subscribe: jest.fn().mockReturnValue(() => {}),
+    getIsSyncInProgress: jest.fn().mockReturnValue(false),
+    startTracking: jest.fn(),
+  },
+}));
+
+jest.mock('@backstage/core-plugin-api', () => ({
+  ...jest.requireActual('@backstage/core-plugin-api'),
+  useApi: () => ({
+    getBaseUrl: jest.fn().mockResolvedValue('http://localhost'),
+    fetch: jest
+      .fn()
+      .mockResolvedValue({ ok: true, json: () => Promise.resolve({}) }),
+  }),
+}));
+
 describe('RouteView', () => {
   beforeEach(() => {
     mockRequirePermission.mockReset();
