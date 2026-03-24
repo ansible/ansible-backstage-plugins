@@ -162,8 +162,8 @@ export const CollectionsListPage = ({
   const startIndex = (currentPage - 1) * PAGE_SIZE;
   const endIndex = Math.min(startIndex + PAGE_SIZE, totalCount);
 
-  if (error) {
-    return <div>Error: {error ?? 'Unable to retrieve collections'}</div>;
+  if (error !== null) {
+    return <div>Error: {error}</div>;
   }
 
   const showEmptyState = !initialLoading && totalCount === 0 && !loadingMore;
