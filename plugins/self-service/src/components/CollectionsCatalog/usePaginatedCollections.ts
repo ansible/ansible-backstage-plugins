@@ -86,8 +86,6 @@ export function usePaginatedCollections({
 
   const isMountedRef = useRef(true);
 
-  // Subscribe to cache updates - this allows background loading to continue
-  // and update the UI when we return to the page
   useEffect(() => {
     const unsubscribe = collectionsCache.subscribe(state => {
       if (isMountedRef.current) {
@@ -106,18 +104,17 @@ export function usePaginatedCollections({
   }, []);
 
   const fetchInitialCollections = useCallback(async () => {
-    // Check if we have valid cached data
+    // check if we have valid cached data
     const cached = collectionsCache.getState();
     if (cached && cached.entities.length > 0) {
-      // Use cached data immediately
+      // use cached data immediately if available
       setAllEntities(cached.entities);
       setAllSources(cached.allSources);
       setAllTags(cached.allTags);
       setInitialLoading(false);
       setLoadingMore(!cached.isFullyLoaded && collectionsCache.isLoading());
 
-      // If not fully loaded, start/continue loading via cache
-      // (this will continue even if we navigate away)
+      // continue loading via cache if not fully loaded
       if (!cached.isFullyLoaded) {
         collectionsCache.startLoading(catalogApi);
       }
@@ -128,8 +125,8 @@ export function usePaginatedCollections({
     setError(null);
 
     try {
-      // Start loading via the cache - this runs in the background
-      // and continues even if the component unmounts
+      // Start loading via the cache (this runs in the background
+      // and continues even if the component unmounts)
       await collectionsCache.startLoading(catalogApi);
 
       if (!isMountedRef.current) return;

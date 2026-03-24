@@ -176,4 +176,45 @@ describe('useIsSuperuser', () => {
     expect(result.current.isSuperuser).toBe(false);
     expect(result.current.error).toBeNull();
   });
+
+  it('uses cached value on subsequent renders for same user', async () => {
+    mockIdentityApi.getBackstageIdentity.mockResolvedValue({
+      userEntityRef: 'user:default/testuser',
+    });
+    mockCatalogApi.getEntityByRef.mockResolvedValue({
+      apiVersion: 'backstage.io/v1alpha1',
+      kind: 'User',
+      metadata: {
+        name: 'testuser',
+        annotations: {
+          'aap.platform/is_superuser': 'true',
+        },
+      },
+    });
+
+    // First render - populates cache
+    const { result: result1, unmount } = renderHook(() => useIsSuperuser(), {
+      wrapper,
+    });
+
+    await waitFor(() => {
+      expect(result1.current.loading).toBe(false);
+    });
+
+    expect(result1.current.isSuperuser).toBe(true);
+    expect(mockCatalogApi.getEntityByRef).toHaveBeenCalledTimes(1);
+
+    unmount();
+
+    // Second render - should use cached value
+    const { result: result2 } = renderHook(() => useIsSuperuser(), { wrapper });
+
+    await waitFor(() => {
+      expect(result2.current.loading).toBe(false);
+    });
+
+    expect(result2.current.isSuperuser).toBe(true);
+    // Should not make additional API calls - cache is used
+    expect(mockCatalogApi.getEntityByRef).toHaveBeenCalledTimes(1);
+  });
 });
