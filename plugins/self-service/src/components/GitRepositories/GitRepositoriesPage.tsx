@@ -10,6 +10,8 @@ import {
 } from 'react-router-dom';
 import CategoryOutlinedIcon from '@material-ui/icons/CategoryOutlined';
 import TimelineIcon from '@material-ui/icons/Timeline';
+import { RequirePermission } from '@backstage/plugin-permission-react';
+import { gitRepositoriesViewPermission } from '@ansible/backstage-rhaap-common/permissions';
 
 import {
   useApi,
@@ -20,6 +22,11 @@ import {
 import { useSyncStatusPolling } from '../../hooks';
 import { SyncDialog } from '../common';
 import type { SyncStatusMap, StartedSyncInfo } from '../common';
+import {
+  NotificationProvider,
+  NotificationStack,
+  useNotifications,
+} from '../notifications';
 
 import { rootRouteRef } from '../../routes';
 import { RepositoriesPageHeaderSection } from './RepositoriesPageHeaderSection';
@@ -201,16 +208,35 @@ export const GitRepositoriesPage = () => {
   );
 };
 
+// Inner content component that uses the notification context
+const GitRepositoriesRoutesContent = () => {
+  const { notifications, removeNotification } = useNotifications();
+
+  return (
+    <>
+      <Routes>
+        <Route index element={<Navigate to="catalog" replace />} />
+        <Route path="catalog" element={<GitRepositoriesPage />} />
+        <Route path="ci-activity" element={<GitRepositoriesPage />} />
+        <Route path=":repositoryName" element={<RepositoryDetailsPage />} />
+        <Route path="*" element={<Navigate to="catalog" replace />} />
+      </Routes>
+      <NotificationStack
+        notifications={notifications}
+        onClose={removeNotification}
+      />
+    </>
+  );
+};
+
 // Standalone route wrapper used by the dynamic plugin mount at /self-service/repositories
 // so detail URLs like /self-service/repositories/:repositoryName resolve correctly.
 export const GitRepositoriesRoutesPage = () => {
   return (
-    <Routes>
-      <Route index element={<Navigate to="catalog" replace />} />
-      <Route path="catalog" element={<GitRepositoriesPage />} />
-      <Route path="ci-activity" element={<GitRepositoriesPage />} />
-      <Route path=":repositoryName" element={<RepositoryDetailsPage />} />
-      <Route path="*" element={<Navigate to="catalog" replace />} />
-    </Routes>
+    <RequirePermission permission={gitRepositoriesViewPermission}>
+      <NotificationProvider>
+        <GitRepositoriesRoutesContent />
+      </NotificationProvider>
+    </RequirePermission>
   );
 };
