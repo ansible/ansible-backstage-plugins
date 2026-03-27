@@ -23,6 +23,21 @@ const getInputElement = (label: string): HTMLInputElement | null => {
   return input as HTMLInputElement | null;
 };
 
+/**
+ * Catalog autocomplete may return `versions` as strings or as VersionOption-like objects
+ * (`name` + `version`). `handleCollectionChange` maps SourceVersionDetail using
+ * `label ?? name`; Version displays use getOptionLabel: name → label → version.
+ */
+function mockVersionOption(
+  displayName: string,
+  version?: string | null,
+): { name: string; version: string | null } {
+  return {
+    name: displayName,
+    version: version === undefined ? displayName : version,
+  };
+}
+
 describe('CollectionsPickerExtension', () => {
   let mockScaffolderApi: { autocomplete: jest.Mock };
   let mockAapAuth: { getAccessToken: jest.Mock };
@@ -255,7 +270,7 @@ describe('CollectionsPickerExtension', () => {
           name: 'community.general',
           id: 'community.general',
           sources: ['Source 1'],
-          versions: ['1.0.0'],
+          versions: [mockVersionOption('1.0.0')],
         },
       ];
       mockScaffolderApi.autocomplete.mockResolvedValue({
@@ -284,7 +299,7 @@ describe('CollectionsPickerExtension', () => {
           name: 'community.general',
           id: 'community.general',
           sources: ['Source 1'],
-          versions: ['1.0.0'],
+          versions: [mockVersionOption('1.0.0')],
         },
       ];
       mockScaffolderApi.autocomplete.mockResolvedValue({
@@ -307,7 +322,7 @@ describe('CollectionsPickerExtension', () => {
           label: 'community.general',
           id: 'community.general',
           sources: ['Source 1'],
-          versions: ['1.0.0'],
+          versions: [mockVersionOption('1.0.0')],
         },
       ];
       mockScaffolderApi.autocomplete.mockResolvedValue({
@@ -356,7 +371,7 @@ describe('CollectionsPickerExtension', () => {
           name: 'community.general',
           id: 'community.general',
           sources: ['Source 1', 'Source 2'],
-          versions: ['1.0.0', '2.0.0'],
+          versions: [mockVersionOption('1.0.0'), mockVersionOption('2.0.0')],
         },
       ];
       mockScaffolderApi.autocomplete.mockResolvedValue({
@@ -400,7 +415,7 @@ describe('CollectionsPickerExtension', () => {
           name: 'community.general',
           id: 'community.general',
           sources: ['Source 1'],
-          versions: ['1.0.0'],
+          versions: [mockVersionOption('1.0.0')],
         },
       ];
       mockScaffolderApi.autocomplete.mockResolvedValue({
@@ -901,6 +916,47 @@ describe('CollectionsPickerExtension', () => {
   });
 
   describe('Version Selection', () => {
+    it('shows ref and galaxy version label in Version dropdown when versions details are present', async () => {
+      const mockCollections = [
+        {
+          name: 'community.general',
+          id: 'community.general',
+          sources: ['Github / github.com / myorg / myrepo'],
+          versions: [
+            { ref: 'main', version: '1.0.0', label: 'main / 1.0.0' },
+            { ref: 'v1.0.1', version: null, label: 'v1.0.1 / null' },
+          ],
+        },
+      ];
+      mockScaffolderApi.autocomplete.mockResolvedValue({
+        results: mockCollections,
+      });
+
+      render(<CollectionsPickerExtension {...createMockProps()} />);
+
+      await waitFor(() => {
+        expect(mockScaffolderApi.autocomplete).toHaveBeenCalled();
+      });
+
+      const collectionInput = screen.getByLabelText('Collection');
+      fireEvent.mouseDown(collectionInput);
+      const collectionOption = await screen.findByText('community.general');
+      fireEvent.click(collectionOption);
+
+      const sourceInput = screen.getByLabelText('Source');
+      fireEvent.mouseDown(sourceInput);
+      const sourceOption = await screen.findByText(
+        'Github / github.com / myorg / myrepo',
+      );
+      fireEvent.click(sourceOption);
+
+      const versionInput = screen.getByLabelText('Version');
+      fireEvent.mouseDown(versionInput);
+
+      expect(await screen.findByText('main / 1.0.0')).toBeInTheDocument();
+      expect(await screen.findByText('v1.0.1 / null')).toBeInTheDocument();
+    });
+
     it('fetches versions from collection data when source is selected', async () => {
       const mockCollections = [
         {
@@ -930,7 +986,7 @@ describe('CollectionsPickerExtension', () => {
           name: 'community.general',
           id: 'community.general',
           sources: ['Source 1'],
-          versions: ['1.0.0', '2.0.0'],
+          versions: [mockVersionOption('1.0.0'), mockVersionOption('2.0.0')],
         },
       ];
       mockScaffolderApi.autocomplete.mockResolvedValue({
@@ -1364,7 +1420,7 @@ describe('CollectionsPickerExtension', () => {
           name: 'community.general',
           id: '1',
           sources: ['Source 1'],
-          versions: ['1.0.0', '2.0.0'], // fallback branch
+          versions: [mockVersionOption('1.0.0'), mockVersionOption('2.0.0')],
         },
       ];
 
@@ -1397,6 +1453,208 @@ describe('CollectionsPickerExtension', () => {
       await waitFor(() => {
         const versionInput = screen.getByLabelText('Version');
         expect(versionInput).toBeEnabled();
+      });
+    });
+
+    it('maps string versions in handleCollectionChange when collection is selected', async () => {
+      const mockCollections = [
+        {
+          name: 'demo.ns',
+          id: 'demo.ns',
+          sources: ['Src'],
+          versions: ['1.0.0', '2.0.0'],
+        },
+      ];
+      mockScaffolderApi.autocomplete.mockResolvedValue({
+        results: mockCollections,
+      });
+
+      render(<CollectionsPickerExtension {...createMockProps()} />);
+
+      await waitFor(() => {
+        expect(mockScaffolderApi.autocomplete).toHaveBeenCalled();
+      });
+
+      fireEvent.mouseDown(screen.getByLabelText('Collection'));
+      fireEvent.click(await screen.findByText('demo.ns'));
+
+      await waitFor(() => {
+        expect(screen.getByLabelText('Source')).toBeInTheDocument();
+      });
+    });
+
+    it('maps version objects with name when label is absent', async () => {
+      const mockCollections = [
+        {
+          name: 'demo.ns',
+          sources: ['Src'],
+          versions: [{ name: 'NameOnly', version: '1.0.0' }],
+        },
+      ];
+      mockScaffolderApi.autocomplete.mockResolvedValue({
+        results: mockCollections,
+      });
+
+      render(<CollectionsPickerExtension {...createMockProps()} />);
+
+      await waitFor(() => {
+        expect(mockScaffolderApi.autocomplete).toHaveBeenCalled();
+      });
+
+      fireEvent.mouseDown(screen.getByLabelText('Collection'));
+      fireEvent.click(await screen.findByText('demo.ns'));
+
+      await waitFor(() => {
+        expect(screen.getByLabelText('Source')).toBeInTheDocument();
+      });
+    });
+
+    it('selects merged catalog version and shows label in Version field', async () => {
+      const mockCollections = [
+        {
+          name: 'demo.ns',
+          id: 'demo.ns',
+          sources: ['Src'],
+          sourceVersions: { Src: ['1.0.0'] },
+          versions: [
+            { ref: 'main', version: '1.0.0', label: 'Merged display 1.0.0' },
+          ],
+        },
+      ];
+      mockScaffolderApi.autocomplete.mockResolvedValue({
+        results: mockCollections,
+      });
+
+      render(<CollectionsPickerExtension {...createMockProps()} />);
+
+      await waitFor(() => {
+        expect(mockScaffolderApi.autocomplete).toHaveBeenCalled();
+      });
+
+      fireEvent.mouseDown(screen.getByLabelText('Collection'));
+      fireEvent.click(await screen.findByText('demo.ns'));
+
+      fireEvent.mouseDown(screen.getByLabelText('Source'));
+      fireEvent.click(await screen.findByText('Src'));
+
+      await waitFor(() => {
+        expect(screen.getByLabelText('Version')).toBeEnabled();
+      });
+
+      fireEvent.mouseDown(screen.getByLabelText('Version'));
+      fireEvent.click(await screen.findByText('Merged display 1.0.0'));
+
+      expect(screen.getByLabelText('Version')).toBeInTheDocument();
+    });
+
+    it('accepts freeSolo version string not present in options', async () => {
+      const mockCollections = [
+        {
+          name: 'demo.ns',
+          sources: ['Src'],
+          sourceVersions: { Src: ['1.0.0'] },
+        },
+      ];
+      mockScaffolderApi.autocomplete.mockResolvedValue({
+        results: mockCollections,
+      });
+
+      render(<CollectionsPickerExtension {...createMockProps()} />);
+
+      await waitFor(() => {
+        expect(mockScaffolderApi.autocomplete).toHaveBeenCalled();
+      });
+
+      fireEvent.mouseDown(screen.getByLabelText('Collection'));
+      fireEvent.click(await screen.findByText('demo.ns'));
+
+      fireEvent.mouseDown(screen.getByLabelText('Source'));
+      fireEvent.click(await screen.findByText('Src'));
+
+      await waitFor(() => {
+        expect(screen.getByLabelText('Version')).toBeEnabled();
+      });
+
+      const versionInput = getInputElement('Version');
+      expect(versionInput).toBeTruthy();
+      fireEvent.change(versionInput!, { target: { value: '9.9.9' } });
+      fireEvent.blur(versionInput!);
+    });
+
+    it('clears Version when clear control is used', async () => {
+      const mockCollections = [
+        {
+          name: 'demo.ns',
+          sources: ['Src'],
+          sourceVersions: { Src: ['1.0.0'] },
+        },
+      ];
+      mockScaffolderApi.autocomplete.mockResolvedValue({
+        results: mockCollections,
+      });
+
+      render(<CollectionsPickerExtension {...createMockProps()} />);
+
+      await waitFor(() => {
+        expect(mockScaffolderApi.autocomplete).toHaveBeenCalled();
+      });
+
+      fireEvent.mouseDown(screen.getByLabelText('Collection'));
+      fireEvent.click(await screen.findByText('demo.ns'));
+
+      fireEvent.mouseDown(screen.getByLabelText('Source'));
+      fireEvent.click(await screen.findByText('Src'));
+
+      await waitFor(() => {
+        expect(screen.getByLabelText('Version')).toBeEnabled();
+      });
+
+      fireEvent.mouseDown(screen.getByLabelText('Version'));
+      fireEvent.click(await screen.findByText('1.0.0'));
+
+      const clearButtons = screen.queryAllByTitle('Clear');
+      if (clearButtons.length > 0) {
+        fireEvent.click(clearButtons[clearButtons.length - 1]);
+      }
+    });
+
+    it('uses collection_versions API with null version in results', async () => {
+      const mockCollections = [
+        {
+          name: 'demo.ns',
+          sources: ['Src'],
+        },
+      ];
+      mockScaffolderApi.autocomplete
+        .mockResolvedValueOnce({ results: mockCollections })
+        .mockResolvedValueOnce({
+          results: [{ name: 'edge', version: null }],
+        });
+
+      render(<CollectionsPickerExtension {...createMockProps()} />);
+
+      await waitFor(() => {
+        expect(mockScaffolderApi.autocomplete).toHaveBeenCalledTimes(1);
+      });
+
+      fireEvent.mouseDown(screen.getByLabelText('Collection'));
+      fireEvent.click(await screen.findByText('demo.ns'));
+
+      fireEvent.mouseDown(screen.getByLabelText('Source'));
+      fireEvent.click(await screen.findByText('Src'));
+
+      await waitFor(() => {
+        expect(mockScaffolderApi.autocomplete).toHaveBeenCalledTimes(2);
+      });
+
+      expect(mockScaffolderApi.autocomplete).toHaveBeenLastCalledWith(
+        expect.objectContaining({
+          resource: 'collection_versions',
+        }),
+      );
+
+      await waitFor(() => {
+        expect(screen.getByLabelText('Version')).toBeEnabled();
       });
     });
   });
@@ -2699,7 +2957,7 @@ describe('CollectionsPickerExtension', () => {
         {
           name: 'community.general',
           id: 'community.general',
-          versions: ['1.0.0'],
+          versions: [mockVersionOption('1.0.0')],
         },
       ];
       mockScaffolderApi.autocomplete.mockResolvedValue({

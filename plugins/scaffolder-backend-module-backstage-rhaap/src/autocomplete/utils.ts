@@ -3,7 +3,10 @@ import {
   DiscoveryService,
   LoggerService,
 } from '@backstage/backend-plugin-api';
-import type { Collections } from '@ansible/backstage-rhaap-common';
+import type {
+  Collections,
+  SourceVersionDetail,
+} from '@ansible/backstage-rhaap-common';
 
 function formatSource(annotations: Record<string, string>): string | null {
   const scmProvider = annotations['ansible.io/scm-provider'];
@@ -48,6 +51,13 @@ function compareVersionsDescending(a: string, b: string): number {
   return 0;
 }
 
+function compareSourceVersionDetailsDescending(
+  a: SourceVersionDetail,
+  b: SourceVersionDetail,
+): number {
+  return compareVersionsDescending(a.version ?? '', b.version ?? '');
+}
+
 export function buildCollectionsFromCatalogEntities(
   entities: any[],
 ): Collections[] {
@@ -60,9 +70,15 @@ export function buildCollectionsFromCatalogEntities(
 
     if (!name) continue;
 
-    const version = item.spec?.collection_version;
+    const specVersion = item.spec?.collection_version;
+    const version: string | null =
+      specVersion === undefined || specVersion === null
+        ? null
+        : String(specVersion);
     const annotations = item.metadata?.annotations || {};
     const source = formatSource(annotations);
+    const refRaw = annotations['ansible.io/ref'];
+    const ref = refRaw === undefined || refRaw === null ? '' : String(refRaw);
 
     if (!map.has(name)) {
       map.set(name, {
@@ -74,19 +90,36 @@ export function buildCollectionsFromCatalogEntities(
     }
 
     const collection = map.get(name)!;
+    const versions = collection.versions ?? (collection.versions = []);
+    const sources = collection.sources ?? (collection.sources = []);
+    const sourceVersions =
+      collection.sourceVersions ?? (collection.sourceVersions = {});
 
-    if (version && !collection.versions!.includes(version)) {
-      collection.versions!.push(version);
+    const shouldPushDetail = (version !== null && version !== '') || ref !== '';
+
+    if (shouldPushDetail) {
+      const detail: SourceVersionDetail = {
+        ref,
+        version,
+        label: ref && version ? `${ref} / ${version}` : `${version}`,
+      };
+      const isDuplicate = versions.some(
+        v => v.ref === detail.ref && v.version === detail.version,
+      );
+      if (!isDuplicate) {
+        versions.push(detail);
+      }
     }
+
     if (source) {
-      if (!collection.sourceVersions![source]) {
-        collection.sourceVersions![source] = [];
+      if (!sourceVersions[source]) {
+        sourceVersions[source] = [];
       }
-      if (version && !collection.sourceVersions![source].includes(version)) {
-        collection.sourceVersions![source].push(version);
+      if (version && !sourceVersions[source].includes(version)) {
+        sourceVersions[source].push(version);
       }
-      if (!collection.sources!.includes(source)) {
-        collection.sources!.push(source);
+      if (!sources.includes(source)) {
+        sources.push(source);
       }
     }
   }
@@ -95,13 +128,13 @@ export function buildCollectionsFromCatalogEntities(
 
   for (const collection of collections) {
     if (collection.versions?.length) {
-      collection.versions.sort(compareVersionsDescending);
+      collection.versions.sort(compareSourceVersionDetailsDescending);
     }
     if (collection.sourceVersions) {
       for (const source of Object.keys(collection.sourceVersions)) {
-        const versions = collection.sourceVersions[source];
-        if (versions?.length) {
-          collection.sourceVersions[source] = versions.sort(
+        const vers = collection.sourceVersions[source];
+        if (vers?.length) {
+          collection.sourceVersions[source] = vers.sort(
             compareVersionsDescending,
           );
         }
