@@ -207,8 +207,9 @@ describe('CollectionsListPage', () => {
     renderListPage();
 
     await waitFor(() => {
-      expect(screen.getByPlaceholderText('Search')).toBeInTheDocument();
+      expect(screen.getByText('ns.collection')).toBeInTheDocument();
     });
+    expect(screen.getByPlaceholderText('Search')).toBeInTheDocument();
   });
 
   it('filters by search query', async () => {
@@ -390,7 +391,7 @@ describe('CollectionsListPage', () => {
     renderListPage();
 
     await waitFor(() => {
-      expect(screen.getByPlaceholderText('Search')).toBeInTheDocument();
+      expect(screen.getByText('ns.collection')).toBeInTheDocument();
     });
     const searchInput = screen.getByPlaceholderText('Search');
     fireEvent.change(searchInput, { target: { value: 'test' } });
@@ -418,9 +419,7 @@ describe('CollectionsListPage', () => {
     renderListPage();
 
     await waitFor(() => {
-      expect(
-        screen.getByPlaceholderText('Search sources...'),
-      ).toBeInTheDocument();
+      expect(screen.getByText('ns.collection')).toBeInTheDocument();
     });
     const sourceInput = screen.getByPlaceholderText('Search sources...');
     fireEvent.focus(sourceInput);
