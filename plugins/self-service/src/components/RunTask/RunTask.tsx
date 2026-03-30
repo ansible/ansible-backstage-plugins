@@ -31,6 +31,10 @@ import GetAppIcon from '@material-ui/icons/GetApp';
 import ArrowBack from '@material-ui/icons/ArrowBack';
 import { rootRouteRef, selectedTemplateRouteRef } from '../../routes';
 import { createTarArchive } from '../utils/tarArchiveUtils';
+import {
+  resolveEeFileNameFromParameters,
+  resolvePublishToScmFromParameters,
+} from './runTaskParameters';
 
 const headerStyles = makeStyles(theme => ({
   header_title_color: {
@@ -272,8 +276,11 @@ export const RunTask = () => {
       return false;
     }
 
-    const publishToSCM = task?.spec?.parameters?.publishToSCM;
-    if (publishToSCM === true) {
+    if (
+      resolvePublishToScmFromParameters(
+        task?.spec?.parameters as Record<string, unknown> | undefined,
+      )
+    ) {
       return false;
     }
 
@@ -297,8 +304,11 @@ export const RunTask = () => {
       return undefined;
     }
 
-    const publishToSCM = task?.spec?.parameters?.publishToSCM;
-    if (publishToSCM === true) {
+    if (
+      resolvePublishToScmFromParameters(
+        task?.spec?.parameters as Record<string, unknown> | undefined,
+      )
+    ) {
       return undefined;
     }
 
@@ -312,9 +322,9 @@ export const RunTask = () => {
 
     const fetchEntity = async () => {
       try {
-        const eeFileName = task?.spec?.parameters?.eeFileName as
-          | string
-          | undefined;
+        const eeFileName = resolveEeFileNameFromParameters(
+          task?.spec?.parameters as Record<string, unknown> | undefined,
+        );
         if (!eeFileName) {
           console.warn('EE file name not found in task parameters'); // eslint-disable-line no-console
           return;
@@ -348,9 +358,9 @@ export const RunTask = () => {
     let entity = matchingEntity;
 
     if (!entity) {
-      const eeFileName = task?.spec?.parameters?.eeFileName as
-        | string
-        | undefined;
+      const eeFileName = resolveEeFileNameFromParameters(
+        task?.spec?.parameters as Record<string, unknown> | undefined,
+      );
       if (!eeFileName) {
         console.error('EE file name not found in task parameters'); // eslint-disable-line no-console
         return null;
