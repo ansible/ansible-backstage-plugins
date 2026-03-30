@@ -3,3 +3,4 @@ export * from './ScmClient';
 export * from './GithubClient';
 export * from './GitlabClient';
 export * from './ScmClientFactory';
+export * from './resolveGithubToken';

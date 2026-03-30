@@ -1,6 +1,7 @@
 import type { LoggerService } from '@backstage/backend-plugin-api';
 import type { Config } from '@backstage/config';
 import {
+  DefaultGithubCredentialsProvider,
   ScmIntegrationRegistry,
   ScmIntegrations,
 } from '@backstage/integration';
@@ -9,21 +10,30 @@ import type { ScmClient } from './ScmClient';
 import type { ScmProvider } from './types';
 import { GithubClient } from './GithubClient';
 import { GitlabClient } from './GitlabClient';
+import { resolveGithubToken } from './resolveGithubToken';
 
 export interface CreateScmClientOptions {
   scmProvider: ScmProvider;
   host?: string;
   organization: string;
+  /**
+   * GitHub only: when set, credentials (GitHub App installation) are resolved for this repo URL.
+   * Omit for org-wide operations (e.g. catalog crawl).
+   */
+  repository?: string;
   checkSSL?: boolean;
   token?: string;
 }
 
 export class ScmClientFactory {
-  private readonly integrations: ScmIntegrationRegistry;
+  readonly integrations: ScmIntegrationRegistry;
+  readonly githubCredentialsProvider: DefaultGithubCredentialsProvider;
   private readonly logger: LoggerService;
 
   constructor(options: { rootConfig: Config; logger: LoggerService }) {
     this.integrations = ScmIntegrations.fromConfig(options.rootConfig);
+    this.githubCredentialsProvider =
+      DefaultGithubCredentialsProvider.fromIntegrations(this.integrations);
     this.logger = options.logger;
   }
 
@@ -32,6 +42,7 @@ export class ScmClientFactory {
       scmProvider,
       host,
       organization,
+      repository,
       checkSSL,
       token: providedToken,
     } = options;
@@ -40,11 +51,14 @@ export class ScmClientFactory {
       host || (scmProvider === 'github' ? 'github.com' : 'gitlab.com');
 
     if (scmProvider === 'github') {
-      const { token: configToken, apiBaseUrl } = this.getGithubConfig(
-        resolvedHost,
-        !!providedToken,
-      );
-      const token = providedToken || configToken;
+      const { token: resolvedToken, apiBaseUrl } =
+        await this.resolveGithubCredentials(
+          resolvedHost,
+          organization,
+          repository,
+          !!providedToken,
+        );
+      const token = providedToken || resolvedToken;
 
       if (providedToken) {
         this.logger.info(
@@ -90,44 +104,31 @@ export class ScmClientFactory {
     throw new Error(`Unsupported SCM provider: ${scmProvider}`);
   }
 
-  private getGithubConfig(
+  private async resolveGithubCredentials(
     host: string,
+    organization: string,
+    repository?: string,
     hasProvidedToken: boolean = false,
-  ): {
-    token: string;
-    apiBaseUrl?: string;
-  } {
-    const integration = this.integrations.github.byHost(host);
-    if (!integration) {
+  ): Promise<{ token: string; apiBaseUrl?: string }> {
+    try {
+      return await resolveGithubToken({
+        integrations: this.integrations,
+        credentialsProvider: this.githubCredentialsProvider,
+        logger: this.logger,
+        host,
+        organization,
+        repository,
+      });
+    } catch (err) {
       if (hasProvidedToken) {
         this.logger.warn(
-          `[ScmClientFactory] No GitHub integration configured for host: ${host}, but using provided token`,
+          `[ScmClientFactory] GitHub credential resolution failed for host: ${host}, but using provided token`,
         );
-        return { token: '' };
+        const integration = this.integrations.github.byHost(host);
+        return { token: '', apiBaseUrl: integration?.config.apiBaseUrl };
       }
-      throw new Error(
-        `No GitHub integration configured for host: ${host}. ` +
-          `Please configure it in app-config.yaml under integrations.github`,
-      );
+      throw err;
     }
-
-    const config = integration.config;
-    const token = config.token;
-
-    if (!token && !hasProvidedToken) {
-      throw new Error(
-        `No token configured for GitHub host: ${host}. ` +
-          `Please add a token to the GitHub integration in app-config.yaml`,
-      );
-    }
-
-    this.logger.debug(
-      `[ScmClientFactory] Using GitHub integration for host: ${host}`,
-    );
-    return {
-      token: token || '',
-      apiBaseUrl: config.apiBaseUrl,
-    };
   }
 
   private getGitlabConfig(

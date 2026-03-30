@@ -608,6 +608,7 @@ export async function createRouter(options: {
         scmProvider: scm as 'github' | 'gitlab',
         host: hostUrl,
         organization: ownerName,
+        ...(scm === 'github' ? { repository: repoName } : {}),
       });
 
       const content = await scmClient.getFileContent(

@@ -4,10 +4,16 @@ import { ScmClientFactory } from './ScmClientFactory';
 import { GithubClient } from './GithubClient';
 import { GitlabClient } from './GitlabClient';
 
-// Mock the ScmIntegrations
+const mockGithubGetCredentials = jest.fn();
+
 jest.mock('@backstage/integration', () => ({
   ScmIntegrations: {
     fromConfig: jest.fn(),
+  },
+  DefaultGithubCredentialsProvider: class {
+    static fromIntegrations() {
+      return { getCredentials: mockGithubGetCredentials };
+    }
   },
 }));
 
@@ -24,6 +30,11 @@ describe('ScmClientFactory', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
+    mockGithubGetCredentials.mockReset();
+    mockGithubGetCredentials.mockResolvedValue({
+      type: 'token' as const,
+      token: 'github-token',
+    });
 
     mockLogger = {
       info: jest.fn(),
@@ -75,6 +86,9 @@ describe('ScmClientFactory', () => {
         expect(client).toBeInstanceOf(GithubClient);
         expect(client.getHost()).toBe('github.com');
         expect(client.getOrganization()).toBe('test-org');
+        expect(mockGithubGetCredentials).toHaveBeenCalledWith({
+          url: 'https://github.com/test-org',
+        });
       });
 
       it('should use custom host for GitHub enterprise', async () => {
@@ -128,11 +142,15 @@ describe('ScmClientFactory', () => {
         );
       });
 
-      it('should throw error when GitHub token not configured', async () => {
+      it('should throw error when neither app nor PAT credentials resolve', async () => {
         mockIntegrations.github.byHost.mockReturnValue({
           config: {
             token: undefined,
           },
+        });
+        mockGithubGetCredentials.mockResolvedValue({
+          type: 'token' as const,
+          token: undefined,
         });
 
         await expect(
@@ -140,7 +158,49 @@ describe('ScmClientFactory', () => {
             scmProvider: 'github',
             organization: 'test-org',
           }),
-        ).rejects.toThrow('No token configured for GitHub host: github.com');
+        ).rejects.toThrow('No credentials for GitHub host: github.com');
+      });
+
+      it('should request credentials for org/repo URL when repository is set', async () => {
+        mockIntegrations.github.byHost.mockReturnValue({
+          config: { token: 'pat' },
+        });
+        mockGithubGetCredentials.mockResolvedValue({
+          type: 'app' as const,
+          token: 'installation-token',
+        });
+
+        await factory.createClient({
+          scmProvider: 'github',
+          organization: 'acme',
+          repository: 'widgets',
+        });
+
+        expect(mockGithubGetCredentials).toHaveBeenCalledWith({
+          url: 'https://github.com/acme/widgets',
+        });
+      });
+
+      it('should fall back to PAT when getCredentials throws', async () => {
+        mockIntegrations.github.byHost.mockReturnValue({
+          config: { token: 'fallback-pat' },
+        });
+        mockGithubGetCredentials.mockRejectedValue(new Error('app auth failed'));
+
+        const client = await factory.createClient({
+          scmProvider: 'github',
+          organization: 'test-org',
+        });
+
+        expect(client).toBeInstanceOf(GithubClient);
+        expect(mockLogger.debug).toHaveBeenCalledWith(
+          expect.stringContaining(
+            'GitHub App credentials unavailable for https://github.com/test-org',
+          ),
+        );
+        expect(mockLogger.debug).toHaveBeenCalledWith(
+          '[ScmClientFactory] Using GitHub integration for host: github.com',
+        );
       });
     });
 
@@ -387,6 +447,10 @@ describe('ScmClientFactory', () => {
         config: {
           token: 'test-github-token',
         },
+      });
+      mockGithubGetCredentials.mockResolvedValue({
+        type: 'token' as const,
+        token: 'test-github-token',
       });
 
       const client = await factory.createClient({
