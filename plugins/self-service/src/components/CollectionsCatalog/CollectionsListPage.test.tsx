@@ -61,6 +61,7 @@ jest.mock('../../routes', () => ({
 import { Entity } from '@backstage/catalog-model';
 import { MemoryRouter } from 'react-router-dom';
 import { CollectionsListPage, CollectionsContent } from './CollectionsListPage';
+import { collectionsCache } from './collectionsCache';
 
 const theme = createTheme();
 
@@ -87,6 +88,7 @@ const mockEntity: Entity = {
 
 const mockCatalogApi = {
   getEntities: jest.fn(),
+  queryEntities: jest.fn(),
 };
 
 const mockDiscoveryApi = {
@@ -128,7 +130,12 @@ const renderListPage = (
 describe('CollectionsListPage', () => {
   beforeEach(() => {
     jest.clearAllMocks();
-    mockCatalogApi.getEntities.mockResolvedValue({ items: [mockEntity] });
+    // Clear the collections cache before each test to ensure isolation
+    collectionsCache.clear();
+    mockCatalogApi.queryEntities.mockResolvedValue({
+      items: [mockEntity],
+      totalItems: 1,
+    });
     mockFetchApi.fetch.mockResolvedValue({
       ok: true,
       json: async () => ({
@@ -145,22 +152,34 @@ describe('CollectionsListPage', () => {
     });
   });
 
-  it('shows progress while loading', async () => {
-    mockCatalogApi.getEntities.mockImplementation(() => new Promise(() => {}));
+  it('shows progress while loading with UI shell visible', async () => {
+    mockCatalogApi.queryEntities.mockImplementation(
+      () => new Promise(() => {}),
+    );
 
     renderListPage();
 
     await waitFor(() => {
-      expect(mockCatalogApi.getEntities).toHaveBeenCalled();
+      expect(mockCatalogApi.queryEntities).toHaveBeenCalled();
     });
+
+    // UI shell should be visible during loading
+    expect(screen.queryByPlaceholderText('Search')).toBeInTheDocument();
+    // Search should be disabled during loading
+    expect(screen.getByPlaceholderText('Search')).toBeDisabled();
+    // Empty state should not be shown during loading
     expect(
       screen.queryByText('No content sources configured'),
     ).not.toBeInTheDocument();
-    expect(screen.queryByPlaceholderText('Search')).not.toBeInTheDocument();
+    // Collection count should not show number while loading
+    expect(screen.getByText('Ansible Collections')).toBeInTheDocument();
   });
 
   it('renders EmptyState when no entities and sources not configured', async () => {
-    mockCatalogApi.getEntities.mockResolvedValue({ items: [] });
+    mockCatalogApi.queryEntities.mockResolvedValue({
+      items: [],
+      totalItems: 0,
+    });
     mockFetchApi.fetch.mockResolvedValue({
       ok: false,
     });
@@ -206,7 +225,10 @@ describe('CollectionsListPage', () => {
         } as any,
       },
     ];
-    mockCatalogApi.getEntities.mockResolvedValue({ items: entities });
+    mockCatalogApi.queryEntities.mockResolvedValue({
+      items: entities,
+      totalItems: entities.length,
+    });
 
     renderListPage();
 
@@ -239,7 +261,10 @@ describe('CollectionsListPage', () => {
         collection_version: '1.0.0',
       } as any,
     };
-    mockCatalogApi.getEntities.mockResolvedValue({ items: [entityWithTag] });
+    mockCatalogApi.queryEntities.mockResolvedValue({
+      items: [entityWithTag],
+      totalItems: 1,
+    });
 
     renderListPage();
 
@@ -270,8 +295,8 @@ describe('CollectionsListPage', () => {
     });
   });
 
-  it('shows error message when getEntities rejects', async () => {
-    mockCatalogApi.getEntities.mockRejectedValue(new Error('Catalog error'));
+  it('shows error message when queryEntities rejects', async () => {
+    mockCatalogApi.queryEntities.mockRejectedValue(new Error('Catalog error'));
 
     renderListPage();
 
@@ -280,8 +305,11 @@ describe('CollectionsListPage', () => {
     });
   });
 
-  it('handles getEntities returning array directly', async () => {
-    mockCatalogApi.getEntities.mockResolvedValue([mockEntity]);
+  it('handles queryEntities returning items array', async () => {
+    mockCatalogApi.queryEntities.mockResolvedValue({
+      items: [mockEntity],
+      totalItems: 1,
+    });
 
     renderListPage();
 
@@ -336,7 +364,10 @@ describe('CollectionsListPage', () => {
         collection_version: '1.0.0',
       } as any,
     }));
-    mockCatalogApi.getEntities.mockResolvedValue({ items: entities });
+    mockCatalogApi.queryEntities.mockResolvedValue({
+      items: entities,
+      totalItems: entities.length,
+    });
 
     renderListPage();
 
@@ -427,7 +458,10 @@ describe('CollectionsListPage', () => {
         } as any,
       },
     ];
-    mockCatalogApi.getEntities.mockResolvedValue({ items: entities });
+    mockCatalogApi.queryEntities.mockResolvedValue({
+      items: entities,
+      totalItems: entities.length,
+    });
 
     renderListPage(undefined, starredApi);
 
@@ -466,7 +500,10 @@ describe('CollectionsListPage', () => {
         } as any,
       },
     ];
-    mockCatalogApi.getEntities.mockResolvedValue({ items: entities });
+    mockCatalogApi.queryEntities.mockResolvedValue({
+      items: entities,
+      totalItems: entities.length,
+    });
 
     renderListPage();
 
@@ -482,7 +519,11 @@ describe('CollectionsListPage', () => {
 describe('CollectionsTypeFilter', () => {
   beforeEach(() => {
     jest.clearAllMocks();
-    mockCatalogApi.getEntities.mockResolvedValue({ items: [mockEntity] });
+    collectionsCache.clear();
+    mockCatalogApi.queryEntities.mockResolvedValue({
+      items: [mockEntity],
+      totalItems: 1,
+    });
     mockFetchApi.fetch.mockResolvedValue({
       ok: true,
       json: async () => ({
@@ -565,8 +606,16 @@ describe('CollectionsTypeFilter', () => {
 });
 
 describe('CollectionsContent', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+    collectionsCache.clear();
+  });
+
   it('renders when provided with router and APIs', async () => {
-    mockCatalogApi.getEntities.mockResolvedValue({ items: [] });
+    mockCatalogApi.queryEntities.mockResolvedValue({
+      items: [],
+      totalItems: 0,
+    });
     mockFetchApi.fetch.mockResolvedValue({
       ok: false,
     });
@@ -601,6 +650,7 @@ describe('CollectionsContent', () => {
 describe('CollectionsListPage with filterByRepositoryEntity', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    collectionsCache.clear();
     mockFetchApi.fetch.mockResolvedValue({
       ok: true,
       json: async () => ({
@@ -678,7 +728,10 @@ describe('CollectionsListPage with filterByRepositoryEntity', () => {
         } as any,
       },
     ];
-    mockCatalogApi.getEntities.mockResolvedValue({ items: collections });
+    mockCatalogApi.queryEntities.mockResolvedValue({
+      items: collections,
+      totalItems: collections.length,
+    });
 
     const repoEntity: Entity = {
       apiVersion: 'backstage.io/v1alpha1',
@@ -739,7 +792,10 @@ describe('CollectionsListPage with filterByRepositoryEntity', () => {
         } as any,
       },
     ];
-    mockCatalogApi.getEntities.mockResolvedValue({ items: collections });
+    mockCatalogApi.queryEntities.mockResolvedValue({
+      items: collections,
+      totalItems: collections.length,
+    });
 
     const repoEntity: Entity = {
       apiVersion: 'backstage.io/v1alpha1',
@@ -791,7 +847,10 @@ describe('CollectionsListPage with filterByRepositoryEntity', () => {
         } as any,
       },
     ];
-    mockCatalogApi.getEntities.mockResolvedValue({ items: collections });
+    mockCatalogApi.queryEntities.mockResolvedValue({
+      items: collections,
+      totalItems: collections.length,
+    });
 
     const repoEntity: Entity = {
       apiVersion: 'backstage.io/v1alpha1',
@@ -826,7 +885,10 @@ describe('CollectionsListPage with filterByRepositoryEntity', () => {
         } as any,
       },
     ];
-    mockCatalogApi.getEntities.mockResolvedValue({ items: collections });
+    mockCatalogApi.queryEntities.mockResolvedValue({
+      items: collections,
+      totalItems: collections.length,
+    });
 
     const repoEntity: Entity = {
       apiVersion: 'backstage.io/v1alpha1',

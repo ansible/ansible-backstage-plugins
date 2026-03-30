@@ -14,6 +14,7 @@ import {
   FAST_POLL_INTERVAL_MS,
   SLOW_POLL_INTERVAL_MS,
 } from '../common';
+import { collectionsCache } from './collectionsCache';
 
 interface ProviderStatus {
   sourceId: string;
@@ -128,6 +129,10 @@ export function useSyncStatusPolling() {
         const trackingTimedOut = now - tracked.startedAt > TRACKING_TIMEOUT_MS;
 
         if (syncCompleted) {
+          // Invalidate the collections cache so new data is fetched
+          // This ensures newly synced collections appear immediately
+          collectionsCache.clear();
+
           if (provider.lastSyncStatus === 'success') {
             const isFirstSync = tracked.lastSyncTimeAtStart === null;
 
