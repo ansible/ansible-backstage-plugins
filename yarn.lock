@@ -5511,16 +5511,17 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@backstage/plugin-auth-backend-module-gitlab-provider@npm:^0.2.0":
-  version: 0.2.4
-  resolution: "@backstage/plugin-auth-backend-module-gitlab-provider@npm:0.2.4"
+"@backstage/plugin-auth-backend-module-gitlab-provider@npm:^0.4.1":
+  version: 0.4.1
+  resolution: "@backstage/plugin-auth-backend-module-gitlab-provider@npm:0.4.1"
   dependencies:
-    "@backstage/backend-plugin-api": "npm:^1.1.1"
-    "@backstage/plugin-auth-node": "npm:^0.5.6"
-    express: "npm:^4.18.2"
+    "@backstage/backend-plugin-api": "npm:^1.8.0"
+    "@backstage/plugin-auth-node": "npm:^0.6.14"
+    express: "npm:^4.22.0"
     passport: "npm:^0.7.0"
     passport-gitlab2: "npm:^5.0.0"
-  checksum: 10c0/41ad36176dbc7dccc102dfeedd9a148cafc75f2f4b9ef0317f5288760629cff09a390eea8d436ca76a4cd594bcd48117210d1dddc8dc5cb0620ff2e10e6fad70
+    zod: "npm:^3.25.76 || ^4.0.0"
+  checksum: 10c0/2cf45498c0f808db433008ef0ab564d181875fab088c00aaec0739c82947799aaeb19edf916555b6bf34b12a5dbf81a503587e8e889a6538510722b38b1a7f2e
   languageName: node
   linkType: hard
 
@@ -5565,7 +5566,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@backstage/plugin-auth-node@npm:^0.5.2, @backstage/plugin-auth-node@npm:^0.5.6":
+"@backstage/plugin-auth-node@npm:^0.5.2":
   version: 0.5.6
   resolution: "@backstage/plugin-auth-node@npm:0.5.6"
   dependencies:
@@ -19318,7 +19319,7 @@ __metadata:
     "@backstage/plugin-app-backend": "npm:^0.5.2"
     "@backstage/plugin-auth-backend": "npm:^0.25.0"
     "@backstage/plugin-auth-backend-module-github-provider": "npm:^0.3.3"
-    "@backstage/plugin-auth-backend-module-gitlab-provider": "npm:^0.2.0"
+    "@backstage/plugin-auth-backend-module-gitlab-provider": "npm:^0.4.1"
     "@backstage/plugin-auth-backend-module-guest-provider": "npm:^0.2.8"
     "@backstage/plugin-auth-node": "npm:^0.6.3"
     "@backstage/plugin-catalog-backend": "npm:^3.0.0"
@@ -19342,6 +19343,7 @@ __metadata:
     better-sqlite3: "npm:^9.0.0"
     node-gyp: "npm:^10.0.0"
     pg: "npm:^8.11.3"
+    zod: "npm:^3.23.8"
   languageName: unknown
   linkType: soft
 

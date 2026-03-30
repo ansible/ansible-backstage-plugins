@@ -185,7 +185,9 @@ describe('ScmClientFactory', () => {
         mockIntegrations.github.byHost.mockReturnValue({
           config: { token: 'fallback-pat' },
         });
-        mockGithubGetCredentials.mockRejectedValue(new Error('app auth failed'));
+        mockGithubGetCredentials.mockRejectedValue(
+          new Error('app auth failed'),
+        );
 
         const client = await factory.createClient({
           scmProvider: 'github',
