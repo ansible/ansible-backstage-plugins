@@ -110,14 +110,40 @@ describe('syncPollingService', () => {
       expect(listener).toHaveBeenCalledWith(false);
     });
 
-    it('returns unsubscribe function', () => {
+    it('returns unsubscribe function that stops future notifications', async () => {
+      mockFetchApi.fetch.mockResolvedValue({
+        ok: true,
+        json: () =>
+          Promise.resolve({
+            content: { providers: [] },
+          }),
+      });
+
+      syncPollingService.initialize(
+        mockDiscoveryApi as any,
+        mockFetchApi as any,
+      );
+      await jest.advanceTimersByTimeAsync(0);
+
       const listener = jest.fn();
       const unsubscribe = syncPollingService.subscribe(listener);
-
+      expect(listener).toHaveBeenCalledWith(false);
       listener.mockClear();
+
       unsubscribe();
 
-      // Listener should not be called anymore
+      mockFetchApi.fetch.mockResolvedValue({
+        ok: true,
+        json: () =>
+          Promise.resolve({
+            content: {
+              providers: [{ sourceId: 'src-1', syncInProgress: true }],
+            },
+          }),
+      });
+
+      await jest.advanceTimersByTimeAsync(SLOW_POLL_INTERVAL_MS);
+
       expect(listener).not.toHaveBeenCalled();
     });
   });
@@ -929,17 +955,18 @@ describe('syncPollingService', () => {
         mockFetchApi as any,
       );
 
-      // Start first check (pending)
+      await jest.advanceTimersByTimeAsync(0);
+      expect(mockFetchApi.fetch).toHaveBeenCalledTimes(1);
 
-      // Try to start second check while first is in progress
+      // While first fetch is still pending, startTracking triggers another
+      // checkSyncStatus; it must return early (isChecking) and not call fetch again.
       syncPollingService.startTracking([
         { sourceId: 'src-1', displayName: 'Source 1', lastSyncTime: null },
       ]);
 
-      // startTracking sets isSyncInProgress immediately
+      expect(mockFetchApi.fetch).toHaveBeenCalledTimes(1);
       expect(syncPollingService.getIsSyncInProgress()).toBe(true);
 
-      // Resolve first fetch
       resolveFirst();
       await jest.advanceTimersByTimeAsync(0);
     });
