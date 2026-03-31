@@ -40,19 +40,19 @@ describe('catalog helpers', () => {
       );
     });
 
-    it('replaces catalog-info.yaml with eeName.yaml when URL contains catalog-info.yaml', () => {
+    it('replaces catalog-info.yaml with eeName.yml when URL contains catalog-info.yaml', () => {
       expect(
         toEEDefinitionUrl(
           'https://github.com/org/repo/blob/main/catalog-info.yaml',
           'my-ee',
         ),
-      ).toBe('https://github.com/org/repo/blob/main/my-ee.yaml');
+      ).toBe('https://github.com/org/repo/blob/main/my-ee.yml');
       expect(
         toEEDefinitionUrl(
           'url:https://gitlab.com/a/b/catalog-info.yaml',
           'ee2',
         ),
-      ).toBe('https://gitlab.com/a/b/ee2.yaml');
+      ).toBe('https://gitlab.com/a/b/ee2.yml');
     });
 
     it('returns URL unchanged when it does not contain catalog-info.yaml', () => {
@@ -99,7 +99,7 @@ describe('catalog helpers', () => {
         },
       } as unknown as Entity;
       expect(getEntityEEDefinitionUrl(entity)).toBe(
-        'https://github.com/org/repo/blob/main/my-ee.yaml',
+        'https://github.com/org/repo/blob/main/my-ee.yml',
       );
     });
 
@@ -114,7 +114,7 @@ describe('catalog helpers', () => {
         },
       } as unknown as Entity;
       expect(getEntityEEDefinitionUrl(entity)).toBe(
-        'https://gitlab.com/a/b/ee2.yaml',
+        'https://gitlab.com/a/b/ee2.yml',
       );
     });
 
@@ -201,14 +201,37 @@ describe('catalog helpers', () => {
       expect(downloadEntityAsTarArchive(entity)).toBe(false);
     });
 
-    it('returns false when ansible_cfg is missing', () => {
+    it('succeeds when ansible_cfg is missing', () => {
+      const { createTarArchive } = require('../../utils/tarArchiveUtils');
       const entity = {
         ...validEntity,
         spec: { ...validEntity.spec },
       } as Entity;
       delete (entity.spec as any).ansible_cfg;
 
-      expect(downloadEntityAsTarArchive(entity)).toBe(false);
+      expect(downloadEntityAsTarArchive(entity)).toBe(true);
+
+      expect(createTarArchive).toHaveBeenLastCalledWith([
+        { name: 'my-ee.yaml', content: 'def' },
+        { name: 'README-my-ee.md', content: 'readme' },
+        { name: 'my-ee-template.yaml', content: 'tpl' },
+      ]);
+    });
+
+    it('succeeds when ansible_cfg is empty string', () => {
+      const { createTarArchive } = require('../../utils/tarArchiveUtils');
+      const entity = {
+        ...validEntity,
+        spec: { ...validEntity.spec, ansible_cfg: '' },
+      } as Entity;
+
+      expect(downloadEntityAsTarArchive(entity)).toBe(true);
+
+      expect(createTarArchive).toHaveBeenLastCalledWith([
+        { name: 'my-ee.yaml', content: 'def' },
+        { name: 'README-my-ee.md', content: 'readme' },
+        { name: 'my-ee-template.yaml', content: 'tpl' },
+      ]);
     });
 
     it('returns false when template is missing', () => {
@@ -236,8 +259,8 @@ describe('catalog helpers', () => {
       expect(createTarArchive).toHaveBeenCalledWith([
         { name: 'my-ee.yaml', content: 'def' },
         { name: 'README-my-ee.md', content: 'readme' },
-        { name: 'ansible.cfg', content: 'cfg' },
         { name: 'my-ee-template.yaml', content: 'tpl' },
+        { name: 'ansible.cfg', content: 'cfg' },
       ]);
       expect(createObjectURLMock).toHaveBeenCalled();
       expect(linkClickSpy).toHaveBeenCalled();
@@ -256,8 +279,8 @@ describe('catalog helpers', () => {
       expect(createTarArchive).toHaveBeenCalledWith([
         { name: 'my-ee.yaml', content: 'def' },
         { name: 'README-my-ee.md', content: 'readme' },
-        { name: 'ansible.cfg', content: 'cfg' },
         { name: 'my-ee-template.yaml', content: 'tpl' },
+        { name: 'ansible.cfg', content: 'cfg' },
         { name: 'mcp-vars.yaml', content: 'mcp-content' },
       ]);
     });
@@ -275,8 +298,8 @@ describe('catalog helpers', () => {
       expect(createTarArchive).toHaveBeenCalledWith([
         { name: 'execution-environment.yaml', content: 'def' },
         { name: 'README-execution-environment.md', content: 'readme' },
-        { name: 'ansible.cfg', content: 'cfg' },
         { name: 'execution-environment-template.yaml', content: 'tpl' },
+        { name: 'ansible.cfg', content: 'cfg' },
       ]);
     });
 

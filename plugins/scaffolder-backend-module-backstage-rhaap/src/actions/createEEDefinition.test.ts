@@ -1,137 +1,94 @@
-/*
- * Copyright 2024 The Ansible plugin Authors
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
-
-// Mock external dependencies first (before imports for proper hoisting)
 jest.mock('fs/promises', () => ({
   mkdir: jest.fn(),
   writeFile: jest.fn(),
+  readFile: jest.fn(),
+  readdir: jest.fn(),
+  rename: jest.fn(),
+  rm: jest.fn(),
 }));
 
-jest.mock('js-yaml', () => ({
-  load: jest.fn(),
-  dump: jest.fn(),
-  default: {
-    load: jest.fn(),
-    dump: jest.fn(),
-  },
+const mockDownloadEEScaffold = jest.fn().mockResolvedValue(undefined);
+jest.mock('./utils/api', () => ({
+  BackendServiceAPI: jest.fn().mockImplementation(() => ({
+    downloadEEScaffold: mockDownloadEEScaffold,
+  })),
 }));
 
-jest.mock('semver', () => ({
-  gt: jest.fn(),
-}));
-
-jest.mock('./helpers/schemas', () => ({
-  CollectionRequirementsSchema: {
-    parse: jest.fn(),
-  },
-  EEDefinitionSchema: {
-    parse: jest.fn(),
-  },
+jest.mock('@backstage/plugin-scaffolder-node', () => ({
+  ...jest.requireActual('@backstage/plugin-scaffolder-node'),
+  executeShellCommand: jest.fn().mockResolvedValue(undefined),
 }));
 
 jest.mock('./utils/utils', () => ({
-  parseUploadedFileContent: jest.fn(),
+  parseUploadedFileContent: jest.fn().mockReturnValue(''),
 }));
 
-// Mock global fetch
 global.fetch = jest.fn();
 
-import dedent from 'dedent';
 import * as fs from 'fs/promises';
-import * as yaml from 'js-yaml';
-import * as semver from 'semver';
-import { z } from 'zod';
 import { mockServices } from '@backstage/backend-test-utils';
-import {
-  CollectionRequirementsSchema,
-  EEDefinitionSchema,
-} from './helpers/schemas';
+import { ConfigReader } from '@backstage/config';
 import { parseUploadedFileContent } from './utils/utils';
 import { createEEDefinitionAction } from './createEEDefinition';
 
 const mockMkdir = fs.mkdir as jest.MockedFunction<typeof fs.mkdir>;
 const mockWriteFile = fs.writeFile as jest.MockedFunction<typeof fs.writeFile>;
-const mockYamlLoad = yaml.load as jest.MockedFunction<typeof yaml.load>;
-const mockYamlDump = yaml.dump as jest.MockedFunction<typeof yaml.dump>;
-const mockSemverGt = semver.gt as jest.MockedFunction<typeof semver.gt>;
-const mockCollectionRequirementsSchemaParse = (
-  CollectionRequirementsSchema as any
-).parse as jest.MockedFunction<typeof CollectionRequirementsSchema.parse>;
-const mockEEDefinitionSchemaParse = (EEDefinitionSchema as any)
-  .parse as jest.MockedFunction<typeof EEDefinitionSchema.parse>;
+const mockReadFile = fs.readFile as jest.MockedFunction<typeof fs.readFile>;
+const mockReaddir = fs.readdir as jest.MockedFunction<typeof fs.readdir>;
+const mockRename = fs.rename as jest.MockedFunction<typeof fs.rename>;
+const mockRm = fs.rm as jest.MockedFunction<typeof fs.rm>;
 const mockParseUploadedFileContent =
   parseUploadedFileContent as jest.MockedFunction<
     typeof parseUploadedFileContent
   >;
 const mockFetch = global.fetch as jest.MockedFunction<typeof fetch>;
 
-// Import internal functions for testing (we'll need to export them or test via the action)
-// Since we can't easily test private functions, we'll test through the action handler
-// But let's create a test file that focuses on testing the logic through the action
-
 describe('createEEDefinition', () => {
   const logger = mockServices.logger.mock();
   const auth = mockServices.auth.mock();
   const discovery = mockServices.discovery.mock();
+  const config = new ConfigReader({
+    ansible: {
+      creatorService: { baseUrl: 'localhost', port: '8000' },
+      devSpaces: { baseUrl: 'https://devspaces.example.com' },
+    },
+  });
   const mockWorkspacePath = '/tmp/test-workspace';
+
+  function makeCtx(values: Record<string, any>) {
+    return {
+      input: { values },
+      logger,
+      workspacePath: mockWorkspacePath,
+      output: jest.fn(),
+      user: { ref: 'user:default/testuser' },
+    } as any;
+  }
+
+  function makeAction(cfg?: ConfigReader) {
+    return createEEDefinitionAction({
+      frontendUrl: 'http://localhost:3000',
+      auth,
+      discovery,
+      config: cfg ?? config,
+    });
+  }
 
   beforeEach(() => {
     jest.clearAllMocks();
     mockMkdir.mockResolvedValue(undefined);
     mockWriteFile.mockResolvedValue(undefined);
+    mockReadFile.mockResolvedValue('' as any);
+    mockReaddir.mockResolvedValue([] as any);
+    mockRename.mockResolvedValue(undefined);
+    mockRm.mockResolvedValue(undefined);
     mockParseUploadedFileContent.mockReturnValue('');
-    // Use real yaml.load and yaml.dump implementation by default so validation works
-    const realYaml = jest.requireActual('js-yaml');
-    mockYamlLoad.mockImplementation(realYaml.load);
-    mockYamlDump.mockImplementation(realYaml.dump);
-    // Use real EEDefinitionSchema.parse implementation by default
-    const realSchemas = jest.requireActual('./helpers/schemas');
-    mockEEDefinitionSchemaParse.mockImplementation(
-      realSchemas.EEDefinitionSchema.parse,
-    );
+    mockDownloadEEScaffold.mockResolvedValue(undefined);
     discovery.getBaseUrl.mockResolvedValue('http://localhost:7007/api/catalog');
-    // Mock server manifest for MCP vars generation
-    const mockServerManifest = `---
-- role: common
-  servers: []
-  vars:
-    common_mcp_base_path: /opt/mcp
-    common_golang_version: 1.25.4
-    common_nodejs_min_version: 20
-    common_system_bin_path: /usr/local/bin
-    common_uv_installer_url: https://astral.sh/uv/install.sh
-- role: github_mcp
-  servers:
-  - name: github-mcp-server
-    type: stdio
-    lang: go
-    args:
-    - stdio
-    description: GitHub MCP Server - Access GitHub repositories, issues, and pull
-      requests
-  vars:
-    github_mcp_mode: local
-    github_mcp_build_repo: https://github.com/github/github-mcp-server.git
-    github_mcp_build_repo_branch: main
-    github_mcp_build_path: github/build
-`;
     mockFetch.mockResolvedValue({
       ok: true,
       status: 200,
-      text: jest.fn().mockResolvedValue(mockServerManifest),
+      text: jest.fn().mockResolvedValue(''),
     } as any);
     auth.getOwnServiceCredentials.mockResolvedValue({
       token: 'service-token',
@@ -141,2782 +98,1355 @@ describe('createEEDefinition', () => {
     } as any);
   });
 
-  describe('generateEEDefinition functionality', () => {
-    it('should generate EE definition with base image only', async () => {
-      const action = createEEDefinitionAction({
-        frontendUrl: 'http://localhost:3000',
-        auth,
-        discovery,
-      });
-      const ctx = {
-        input: {
-          values: {
-            eeFileName: 'test-ee',
-            baseImage: 'quay.io/ansible/ee-base:latest',
-          },
-        },
-        logger,
-        workspacePath: mockWorkspacePath,
-        output: jest.fn(),
-      } as any;
+  // ─── Handler: scaffold flow ─────────────────────────────────────────
 
-      await action.handler(ctx);
-
-      expect(mockWriteFile).toHaveBeenCalled();
-      const writeCall = mockWriteFile.mock.calls.find((call: any[]) =>
-        call[0].toString().endsWith('test-ee.yaml'),
-      );
-      expect(writeCall).toBeDefined();
-      const content = writeCall![1] as string;
-      const expectedContent = dedent`---
-    version: 3
-
-    images:
-      base_image:
-        name: 'quay.io/ansible/ee-base:latest'
-
-
-    additional_build_files:
-      - src: ./ansible.cfg
-        dest: configs
-
-    additional_build_steps:
-      prepend_base:
-        - COPY _build/configs/ansible.cfg /etc/ansible/ansible.cfg
-      append_final:
-        - RUN rm -f /etc/ansible/ansible.cfg\n`;
-      expect(content).toEqual(expectedContent);
+  it('calls downloadEEScaffold and sets outputs', async () => {
+    const action = makeAction();
+    const ctx = makeCtx({
+      eeFileName: 'my-ee',
+      baseImage: 'quay.io/ansible/ee-base:latest',
+      publishToSCM: true,
     });
 
-    it('should generate EE definition with collections', async () => {
-      const action = createEEDefinitionAction({
-        frontendUrl: 'http://localhost:3000',
-        auth,
-        discovery,
-      });
-      const ctx = {
-        input: {
-          values: {
-            eeFileName: 'test-ee',
-            baseImage: 'quay.io/ansible/ee-base:latest',
-            collections: [
-              { name: 'community.general', version: '1.0.0' },
-              { name: 'ansible.netcommon' },
-            ],
-          },
-        },
-        logger,
-        workspacePath: mockWorkspacePath,
-        output: jest.fn(),
-      } as any;
+    await action.handler(ctx);
 
-      await action.handler(ctx);
+    expect(mockDownloadEEScaffold).toHaveBeenCalledTimes(1);
+    expect(ctx.output).toHaveBeenCalledWith('owner', 'user:default/testuser');
+    expect(ctx.output).toHaveBeenCalledWith('contextDirName', 'my-ee');
+    expect(ctx.output).toHaveBeenCalledWith(
+      'readmeContent',
+      expect.stringContaining('Execution Environment'),
+    );
+    expect(ctx.output).toHaveBeenCalledWith(
+      'catalogInfoPath',
+      'my-ee/catalog-info.yaml',
+    );
+    expect(mockWriteFile).toHaveBeenCalledWith(
+      '/tmp/test-workspace/my-ee/README.md',
+      expect.stringContaining('Execution Environment'),
+    );
+    expect(ctx.output).toHaveBeenCalledWith(
+      'generatedEntityRef',
+      'http://localhost:3000/self-service/catalog/my-ee',
+    );
+  });
 
-      const writeCall = mockWriteFile.mock.calls.find((call: any[]) =>
-        call[0].toString().endsWith('test-ee.yaml'),
-      );
-      const content = writeCall![1] as string;
-      const expectedContent = dedent`---
-    version: 3
-
-    images:
-      base_image:
-        name: 'quay.io/ansible/ee-base:latest'
-
-    dependencies:
-      galaxy:
-        collections:
-          - name: community.general
-            version: 1.0.0
-          - name: ansible.netcommon
-
-    additional_build_files:
-      - src: ./ansible.cfg
-        dest: configs
-
-    additional_build_steps:
-      prepend_base:
-        - COPY _build/configs/ansible.cfg /etc/ansible/ansible.cfg
-      append_final:
-        - RUN rm -f /etc/ansible/ansible.cfg\n`;
-      expect(content).toEqual(expectedContent);
+  it('sanitizes contextDirName from special characters', async () => {
+    const action = makeAction();
+    const ctx = makeCtx({
+      eeFileName: 'My EE @v2!',
+      baseImage: 'img:latest',
+      publishToSCM: true,
     });
 
-    it('should generate EE definition with only Python requirements', async () => {
-      const action = createEEDefinitionAction({
-        frontendUrl: 'http://localhost:3000',
-        auth,
-        discovery,
-      });
-      const ctx = {
-        input: {
-          values: {
-            eeFileName: 'test-ee',
-            baseImage: 'quay.io/ansible/ee-base:latest',
-            pythonRequirements: ['requests==2.28.0', 'jinja2>=3.0.0'],
-          },
-        },
-        logger,
-        workspacePath: mockWorkspacePath,
-        output: jest.fn(),
-      } as any;
+    await action.handler(ctx);
 
-      await action.handler(ctx);
+    expect(ctx.output).toHaveBeenCalledWith('contextDirName', 'my-ee-v2');
+  });
 
-      const writeCall = mockWriteFile.mock.calls.find((call: any[]) =>
-        call[0].toString().endsWith('test-ee.yaml'),
-      );
-      const content = writeCall![1] as string;
-      const expectedContent = dedent`---
-    version: 3
-
-    images:
-      base_image:
-        name: 'quay.io/ansible/ee-base:latest'
-
-    dependencies:
-      python:
-        - requests==2.28.0
-        - jinja2>=3.0.0
-
-    additional_build_files:
-      - src: ./ansible.cfg
-        dest: configs
-
-    additional_build_steps:
-      prepend_base:
-        - COPY _build/configs/ansible.cfg /etc/ansible/ansible.cfg
-      append_final:
-        - RUN rm -f /etc/ansible/ansible.cfg\n`;
-      expect(content).toEqual(expectedContent);
+  it('distributes scaffold files between eeDir and workspace root', async () => {
+    const action = makeAction();
+    const ctx = makeCtx({
+      eeFileName: 'test-ee',
+      baseImage: 'img:latest',
+      publishToSCM: true,
     });
 
-    it('should generate EE definition with system packages', async () => {
-      const action = createEEDefinitionAction({
-        frontendUrl: 'http://localhost:3000',
-        auth,
-        discovery,
-      });
-      const ctx = {
-        input: {
-          values: {
-            eeFileName: 'test-ee',
-            baseImage: 'quay.io/ansible/ee-base:latest',
-            systemPackages: [
-              'libssh-devel [platform:rpm]',
-              'gcc-c++ [platform:dpkg]',
-              'libffi-devel [platform:base-py3]',
-            ],
-          },
-        },
-        logger,
-        workspacePath: mockWorkspacePath,
-        output: jest.fn(),
-      } as any;
+    mockReaddir.mockResolvedValue([
+      { name: 'test-ee.yml', isFile: () => true },
+      { name: 'README.md', isFile: () => true },
+      { name: '.github', isFile: () => false },
+    ] as any);
 
-      await action.handler(ctx);
+    await action.handler(ctx);
 
-      const writeCall = mockWriteFile.mock.calls.find((call: any[]) =>
-        call[0].toString().endsWith('test-ee.yaml'),
-      );
-      const content = writeCall![1] as string;
-      const expectedContent = dedent`---
-    version: 3
+    // EE-specific files go to eeDir
+    expect(mockRename).toHaveBeenCalledWith(
+      '/tmp/test-workspace/.ee-scaffold-tmp/test-ee.yml',
+      '/tmp/test-workspace/test-ee/test-ee.yml',
+    );
+    expect(mockRename).toHaveBeenCalledWith(
+      '/tmp/test-workspace/.ee-scaffold-tmp/README.md',
+      '/tmp/test-workspace/test-ee/README.md',
+    );
+    // Non-EE files go to workspace root
+    expect(mockRename).toHaveBeenCalledWith(
+      '/tmp/test-workspace/.ee-scaffold-tmp/.github',
+      '/tmp/test-workspace/.github',
+    );
+    // Temp dir cleaned up
+    expect(mockRm).toHaveBeenCalledWith(
+      '/tmp/test-workspace/.ee-scaffold-tmp',
+      { recursive: true, force: true },
+    );
+  });
 
-    images:
-      base_image:
-        name: 'quay.io/ansible/ee-base:latest'
-
-    dependencies:
-      system:
-        - libssh-devel [platform:rpm]
-        - gcc-c++ [platform:dpkg]
-        - libffi-devel [platform:base-py3]
-
-    additional_build_files:
-      - src: ./ansible.cfg
-        dest: configs
-
-    additional_build_steps:
-      prepend_base:
-        - COPY _build/configs/ansible.cfg /etc/ansible/ansible.cfg
-      append_final:
-        - RUN rm -f /etc/ansible/ansible.cfg\n`;
-      expect(content).toEqual(expectedContent);
+  it('writes template file when publishToSCM is true', async () => {
+    const action = makeAction();
+    const ctx = makeCtx({
+      eeFileName: 'test-ee',
+      baseImage: 'img:latest',
+      publishToSCM: true,
     });
 
-    it('should generate EE definition with collection signatures', async () => {
-      const action = createEEDefinitionAction({
-        frontendUrl: 'http://localhost:3000',
-        auth,
-        discovery,
-      });
-      const ctx = {
-        input: {
-          values: {
-            eeFileName: 'test-ee',
-            baseImage: 'quay.io/ansible/ee-base:latest',
-            collections: [
-              {
-                name: 'community.general',
-                version: '1.0.0',
-                signatures: [
-                  'https://examplehost.com/detached_signature.asc',
-                  'file:///path/to/local/detached_signature.asc',
-                ],
-              },
-            ],
-          },
-        },
-        logger,
-        workspacePath: mockWorkspacePath,
-        output: jest.fn(),
-      } as any;
+    await action.handler(ctx);
 
-      await action.handler(ctx);
+    expect(mockWriteFile).toHaveBeenCalledWith(
+      '/tmp/test-workspace/test-ee/test-ee-template.yml',
+      expect.stringContaining('kind: Template'),
+    );
+    expect(ctx.output).toHaveBeenCalledWith(
+      'catalogInfoPath',
+      'test-ee/catalog-info.yaml',
+    );
+  });
 
-      const writeCall = mockWriteFile.mock.calls.find((call: any[]) =>
-        call[0].toString().endsWith('test-ee.yaml'),
-      );
-      const content = writeCall![1] as string;
-      const expectedContent = dedent`---
-    version: 3
-
-    images:
-      base_image:
-        name: 'quay.io/ansible/ee-base:latest'
-
-    dependencies:
-      galaxy:
-        collections:
-          - name: community.general
-            version: 1.0.0
-            signatures:
-              - https://examplehost.com/detached_signature.asc
-              - file:///path/to/local/detached_signature.asc
-
-    additional_build_files:
-      - src: ./ansible.cfg
-        dest: configs
-
-    additional_build_steps:
-      prepend_base:
-        - COPY _build/configs/ansible.cfg /etc/ansible/ansible.cfg
-      append_final:
-        - RUN rm -f /etc/ansible/ansible.cfg\n`;
-      expect(content).toEqual(expectedContent);
+  it('registers catalog entity when publishToSCM is false', async () => {
+    const action = makeAction();
+    const ctx = makeCtx({
+      eeFileName: 'test-ee',
+      baseImage: 'img:latest',
+      publishToSCM: false,
+      eeDescription: 'My EE',
     });
 
-    it('should generate EE definition with additional build steps', async () => {
-      const action = createEEDefinitionAction({
-        frontendUrl: 'http://localhost:3000',
-        auth,
-        discovery,
-      });
-      const ctx = {
-        input: {
-          values: {
-            eeFileName: 'test-ee',
-            baseImage: 'quay.io/ansible/ee-base:latest',
-            additionalBuildSteps: [
-              {
-                stepType: 'append_builder',
-                commands: ['RUN whoami', 'RUN pwd'],
-              },
-              {
-                stepType: 'prepend_final',
-                commands: ['RUN ls -la'],
-              },
-            ],
-          },
-        },
-        logger,
-        workspacePath: mockWorkspacePath,
-        output: jest.fn(),
-      } as any;
+    await action.handler(ctx);
 
-      await action.handler(ctx);
+    expect(mockFetch).toHaveBeenCalledWith(
+      'http://localhost:7007/api/catalog/register_ee',
+      expect.objectContaining({ method: 'POST' }),
+    );
+  });
 
-      const writeCall = mockWriteFile.mock.calls.find((call: any[]) =>
-        call[0].toString().endsWith('test-ee.yaml'),
-      );
-      const content = writeCall![1] as string;
-      const expectedContent = dedent`---
-    version: 3
+  it('throws when catalog registration fails', async () => {
+    const action = makeAction();
+    const ctx = makeCtx({
+      eeFileName: 'test-ee',
+      baseImage: 'img:latest',
+      publishToSCM: false,
+    });
+    mockFetch.mockResolvedValue({
+      ok: false,
+      text: jest.fn().mockResolvedValue('Server error'),
+    } as any);
 
-    images:
-      base_image:
-        name: 'quay.io/ansible/ee-base:latest'
+    await expect(action.handler(ctx)).rejects.toThrow(
+      'Failed to register EE definition',
+    );
+  });
 
-
-    additional_build_files:
-      - src: ./ansible.cfg
-        dest: configs
-
-    additional_build_steps:
-      append_builder:
-        - RUN whoami
-        - RUN pwd
-      prepend_final:
-        - RUN ls -la
-      prepend_base:
-        - COPY _build/configs/ansible.cfg /etc/ansible/ansible.cfg
-      append_final:
-        - RUN rm -f /etc/ansible/ansible.cfg\n`;
-      expect(content).toEqual(expectedContent);
+  it('patches ansible.cfg with ignore_certs when present', async () => {
+    const action = makeAction();
+    const ctx = makeCtx({
+      eeFileName: 'test-ee',
+      baseImage: 'img:latest',
+      publishToSCM: true,
     });
 
-    it('should generate EE definition with all inputs provided', async () => {
-      const action = createEEDefinitionAction({
-        frontendUrl: 'http://localhost:3000',
-        auth,
-        discovery,
-      });
-      const ctx = {
-        input: {
-          values: {
-            eeFileName: 'test-ee',
-            baseImage: 'quay.io/ansible/ee-base:latest',
-            collections: [
-              {
-                name: 'community.general',
-                version: '1.0.0',
-                signatures: [
-                  'https://examplehost.com/detached_signature.asc',
-                  'file:///path/to/local/detached_signature.asc',
-                ],
-              },
-            ],
-            pythonRequirements: ['requests==2.28.0', 'jinja2>=3.0.0'],
-            systemPackages: [
-              'libssh-devel [platform:rpm]',
-              'gcc-c++ [platform:dpkg]',
-              'libffi-devel [platform:base-py3]',
-            ],
-            mcpServers: ['github', 'gitlab'],
-            additionalBuildSteps: [
-              {
-                stepType: 'append_builder',
-                commands: ['RUN whoami', 'RUN pwd'],
-              },
-              {
-                stepType: 'prepend_final',
-                commands: ['RUN ls -la'],
-              },
-            ],
-          },
-        },
-        logger,
-        workspacePath: mockWorkspacePath,
-        output: jest.fn(),
-      } as any;
-
-      await action.handler(ctx);
-
-      const writeCall = mockWriteFile.mock.calls.find((call: any[]) =>
-        call[0].toString().endsWith('test-ee.yaml'),
-      );
-      const content = writeCall![1] as string;
-      const expectedContent = dedent`---
-      version: 3
-
-      images:
-        base_image:
-          name: 'quay.io/ansible/ee-base:latest'
-
-      dependencies:
-        python:
-          - requests==2.28.0
-          - jinja2>=3.0.0
-        system:
-          - libssh-devel [platform:rpm]
-          - gcc-c++ [platform:dpkg]
-          - libffi-devel [platform:base-py3]
-        galaxy:
-          collections:
-            - name: community.general
-              version: 1.0.0
-              signatures:
-                - https://examplehost.com/detached_signature.asc
-                - file:///path/to/local/detached_signature.asc
-            - name: ansible.mcp_builder
-            - name: ansible.mcp
-
-      additional_build_files:
-        - src: ./ansible.cfg
-          dest: configs
-        - src: ./mcp-vars.yaml
-          dest: configs
-
-      additional_build_steps:
-        append_builder:
-          - RUN whoami
-          - RUN pwd
-        prepend_final:
-          - RUN ls -la
-        prepend_base:
-          - COPY _build/configs/ansible.cfg /etc/ansible/ansible.cfg
-          - COPY _build/configs/mcp-vars.yaml /tmp/mcp-vars.yaml
-        append_final:
-          - RUN ansible-playbook ansible.mcp_builder.install_mcp -e mcp_servers=github,gitlab -e @/tmp/mcp-vars.yaml
-          - RUN rm -f /etc/ansible/ansible.cfg /tmp/mcp-vars.yaml\n`;
-      expect(content).toEqual(expectedContent);
+    // Return empty for most reads, but ansible.cfg content for the config path
+    mockReadFile.mockImplementation(async (filePath: any) => {
+      if (filePath.toString().endsWith('ansible.cfg')) {
+        return '[galaxy]\nserver_list = my_hub\n' as any;
+      }
+      return '' as any;
     });
 
-    it('should generate EE definition with package manager and python interpreter overridden for minimal EE base image', async () => {
-      const action = createEEDefinitionAction({
-        frontendUrl: 'http://localhost:3000',
-        auth,
-        discovery,
-      });
-      const ctx = {
-        input: {
-          values: {
-            eeFileName: 'test-ee',
-            baseImage:
-              'registry.redhat.io/ansible-automation-platform/ee-minimal-rhel8:2.18',
-            collections: [
-              {
-                name: 'amazon.aws',
-              },
-            ],
-          },
-        },
-        logger,
-        workspacePath: mockWorkspacePath,
-        output: jest.fn(),
-      } as any;
+    await action.handler(ctx);
 
-      await action.handler(ctx);
+    expect(mockWriteFile).toHaveBeenCalledWith(
+      '/tmp/test-workspace/test-ee/ansible.cfg',
+      expect.stringContaining('ignore_certs = true'),
+    );
+  });
 
-      const writeCall = mockWriteFile.mock.calls.find((call: any[]) =>
-        call[0].toString().endsWith('test-ee.yaml'),
-      );
-      const content = writeCall![1] as string;
-      const expectedContent = dedent`---
-      version: 3
-
-      images:
-        base_image:
-          name: 'registry.redhat.io/ansible-automation-platform/ee-minimal-rhel8:2.18'
-
-      dependencies:
-        galaxy:
-          collections:
-            - name: amazon.aws
-        python_interpreter:
-          python_path: "/usr/bin/python3.11"
-
-      additional_build_files:
-        - src: ./ansible.cfg
-          dest: configs
-
-      options:
-        package_manager_path: /usr/bin/microdnf
-
-      additional_build_steps:
-        prepend_base:
-          - COPY _build/configs/ansible.cfg /etc/ansible/ansible.cfg
-        append_final:
-          - RUN rm -f /etc/ansible/ansible.cfg\n`;
-      expect(content).toEqual(expectedContent);
+  it('patches ee-build.yml workflow ee_dir default', async () => {
+    const action = makeAction();
+    const ctx = makeCtx({
+      eeFileName: 'my-ee',
+      baseImage: 'img:latest',
+      publishToSCM: true,
     });
 
-    it('should group multiple commands for same step type', async () => {
-      const action = createEEDefinitionAction({
-        frontendUrl: 'http://localhost:3000',
-        auth,
-        discovery,
-      });
-      const ctx = {
-        input: {
-          values: {
-            eeFileName: 'test-ee',
-            baseImage: 'quay.io/ansible/ee-base:latest',
-            additionalBuildSteps: [
-              {
-                stepType: 'append_builder',
-                commands: ['RUN echo "first"'],
-              },
-              {
-                stepType: 'append_builder',
-                commands: ['RUN echo "second"'],
-              },
-            ],
-          },
-        },
-        logger,
-        workspacePath: mockWorkspacePath,
-        output: jest.fn(),
-      } as any;
+    mockReadFile.mockImplementation(async (filePath: any) => {
+      if (filePath.toString().endsWith('ee-build.yml')) {
+        return '      default: "."\n' as any;
+      }
+      return '' as any;
+    });
 
-      await action.handler(ctx);
+    await action.handler(ctx);
 
-      const writeCall = mockWriteFile.mock.calls.find((call: any[]) =>
-        call[0].toString().endsWith('test-ee.yaml'),
-      );
-      const content = writeCall![1] as string;
-      const appendBuilderIndex = content.indexOf('append_builder:');
-      const prependFinalIndex = content.indexOf('prepend_final:');
-      expect(appendBuilderIndex).toBeGreaterThan(-1);
-      // Should only have one append_builder section
-      const appendBuilderSection = content.substring(
-        appendBuilderIndex,
-        prependFinalIndex > -1 ? prependFinalIndex : content.length,
-      );
-      expect(appendBuilderSection).toContain('RUN echo "first"');
-      expect(appendBuilderSection).toContain('RUN echo "second"');
+    expect(mockWriteFile).toHaveBeenCalledWith(
+      '/tmp/test-workspace/.github/workflows/ee-build.yml',
+      expect.stringContaining('default: "my-ee"'),
+    );
+  });
+
+  it('throws when downloadEEScaffold fails', async () => {
+    const action = makeAction();
+    const ctx = makeCtx({
+      eeFileName: 'test-ee',
+      baseImage: 'img:latest',
+    });
+    mockDownloadEEScaffold.mockRejectedValue(new Error(':downloadEEScaffold:'));
+
+    await expect(action.handler(ctx)).rejects.toThrow(
+      'Failed to create EE definition files',
+    );
+  });
+
+  // ─── buildEEConfig (tested via eeConfig passed to downloadEEScaffold) ──
+
+  it('builds eeConfig with base fields only', async () => {
+    const action = makeAction();
+    const ctx = makeCtx({
+      eeFileName: 'test-ee',
+      baseImage: 'quay.io/test:latest',
+      publishToSCM: true,
+    });
+
+    await action.handler(ctx);
+
+    const eeConfig = mockDownloadEEScaffold.mock.calls[0][3];
+    expect(eeConfig).toMatchObject({
+      base_image: 'quay.io/test:latest',
+      ee_file_name: 'test-ee.yml',
+      registry_tls_verify: true,
     });
   });
 
-  describe('generateReadme functionality', () => {
-    it('should include build instructions in README', async () => {
-      const action = createEEDefinitionAction({
-        frontendUrl: 'http://localhost:3000',
-        auth,
-        discovery,
-      });
-      const ctx = {
-        input: {
-          values: {
-            eeFileName: 'test-ee',
-            baseImage: 'quay.io/ansible/ee-base:latest',
-          },
-        },
-        logger,
-        workspacePath: mockWorkspacePath,
-        output: jest.fn(),
-      } as any;
+  it('builds eeConfig with collections, python deps, system packages', async () => {
+    const action = makeAction();
+    const ctx = makeCtx({
+      eeFileName: 'test-ee',
+      baseImage: 'img:latest',
+      publishToSCM: true,
+      collections: [
+        { name: 'community.general', version: '1.0.0' },
+        { name: 'ansible.netcommon' },
+      ],
+      pythonRequirements: ['requests>=2.28.0'],
+      systemPackages: ['libssh-devel'],
+    });
 
-      await action.handler(ctx);
+    await action.handler(ctx);
 
-      const writeCall = mockWriteFile.mock.calls.find((call: any[]) =>
-        call[0].toString().endsWith('README.md'),
-      );
-      const content = writeCall![1] as string;
-      expect(content).toContain('ansible-builder build');
-      expect(content).toContain('ansible-navigator');
+    const eeConfig = mockDownloadEEScaffold.mock.calls[0][3];
+    expect(eeConfig.collections).toEqual([
+      { name: 'community.general', version: '1.0.0' },
+      { name: 'ansible.netcommon' },
+    ]);
+    expect(eeConfig.python_deps).toEqual(['requests>=2.28.0']);
+    expect(eeConfig.system_packages).toEqual(['libssh-devel']);
+  });
+
+  it('builds eeConfig with additional build steps', async () => {
+    const action = makeAction();
+    const ctx = makeCtx({
+      eeFileName: 'test-ee',
+      baseImage: 'img:latest',
+      publishToSCM: true,
+      additionalBuildSteps: [
+        { stepType: 'prepend_base', commands: ['RUN whoami'] },
+        { stepType: 'prepend_base', commands: ['RUN pwd'] },
+      ],
+    });
+
+    await action.handler(ctx);
+
+    const eeConfig = mockDownloadEEScaffold.mock.calls[0][3];
+    expect(eeConfig.additional_build_steps).toEqual({
+      prepend_base: ['RUN whoami', 'RUN pwd'],
     });
   });
 
-  describe('mergeCollections functionality', () => {
-    it('should merge collections from different sources', async () => {
-      const action = createEEDefinitionAction({
-        frontendUrl: 'http://localhost:3000',
-        auth,
-        discovery,
-      });
-      const ctx = {
-        input: {
-          values: {
-            eeFileName: 'test-ee',
-            baseImage: 'quay.io/ansible/ee-base:latest',
-            collections: [
-              { name: 'collection1' },
-              { name: 'collection2' },
-              { name: 'collection3' },
-            ],
-          },
-        },
-        logger,
-        workspacePath: mockWorkspacePath,
-        output: jest.fn(),
-      } as any;
-
-      await action.handler(ctx);
-
-      // Check the generated EE definition file content
-      const writeCall = mockWriteFile.mock.calls.find((call: any[]) =>
-        call[0].toString().endsWith('test-ee.yaml'),
-      );
-      expect(writeCall).toBeDefined();
-      const content = writeCall![1] as string;
-      const parsed = yaml.load(content) as any;
-      const collections = parsed.dependencies?.galaxy?.collections || [];
-      expect(collections).toHaveLength(3);
-      expect(collections.map((c: any) => c.name)).toContain('collection1');
-      expect(collections.map((c: any) => c.name)).toContain('collection2');
-      expect(collections.map((c: any) => c.name)).toContain('collection3');
+  it('builds eeConfig with registry and image name', async () => {
+    const action = makeAction();
+    const ctx = makeCtx({
+      eeFileName: 'test-ee',
+      baseImage: 'img:latest',
+      publishToSCM: true,
+      buildRegistry: 'ghcr.io',
+      buildImageName: 'my-org/my-ee',
     });
 
-    it('should remove duplicate collections by name', async () => {
-      const action = createEEDefinitionAction({
-        frontendUrl: 'http://localhost:3000',
-        auth,
-        discovery,
-      });
-      const ctx = {
-        input: {
-          values: {
-            eeFileName: 'test-ee',
-            baseImage: 'quay.io/ansible/ee-base:latest',
-            collections: [
-              { name: 'collection1' },
-              { name: 'collection1' }, // Duplicate
-            ],
-          },
-        },
-        logger,
-        workspacePath: mockWorkspacePath,
-        output: jest.fn(),
-      } as any;
+    await action.handler(ctx);
 
-      await action.handler(ctx);
-
-      // Check the generated EE definition file content
-      const writeCall = mockWriteFile.mock.calls.find((call: any[]) =>
-        call[0].toString().endsWith('test-ee.yaml'),
-      );
-      const content = writeCall![1] as string;
-      const parsed = yaml.load(content) as any;
-      const collections = parsed.dependencies?.galaxy?.collections || [];
-      expect(collections).toHaveLength(1);
-      expect(collections[0].name).toBe('collection1');
-    });
-
-    it('should prefer collection without version over versioned one', async () => {
-      const action = createEEDefinitionAction({
-        frontendUrl: 'http://localhost:3000',
-        auth,
-        discovery,
-      });
-      const ctx = {
-        input: {
-          values: {
-            eeFileName: 'test-ee',
-            baseImage: 'quay.io/ansible/ee-base:latest',
-            collections: [
-              { name: 'collection1', version: '1.0.0' },
-              { name: 'collection1' }, // Non-versioned duplicate should win
-            ],
-          },
-        },
-        logger,
-        workspacePath: mockWorkspacePath,
-        output: jest.fn(),
-      } as any;
-
-      await action.handler(ctx);
-
-      // Check the generated EE definition file content
-      const writeCall = mockWriteFile.mock.calls.find((call: any[]) =>
-        call[0].toString().endsWith('test-ee.yaml'),
-      );
-      const content = writeCall![1] as string;
-      const parsed = yaml.load(content) as any;
-      const collections = parsed.dependencies?.galaxy?.collections || [];
-      // When both versioned and non-versioned collections exist with same name,
-      // the non-versioned one should win (no version property)
-      expect(collections).toHaveLength(1);
-      expect(collections[0].name).toBe('collection1');
-      // Non-versioned collection should win (no version property)
-      expect(collections[0].version).toBeUndefined();
-    });
-
-    it('should prefer higher version when both have versions', async () => {
-      mockSemverGt.mockImplementation((v1, v2) => {
-        if (v1 === '2.0.0' && v2 === '1.0.0') return true;
-        return false;
-      });
-
-      const action = createEEDefinitionAction({
-        frontendUrl: 'http://localhost:3000',
-        auth,
-        discovery,
-      });
-      const ctx = {
-        input: {
-          values: {
-            eeFileName: 'test-ee',
-            baseImage: 'quay.io/ansible/ee-base:latest',
-            collections: [
-              { name: 'collection1', version: '1.0.0' },
-              { name: 'collection1', version: '2.0.0' },
-            ],
-          },
-        },
-        logger,
-        workspacePath: mockWorkspacePath,
-        output: jest.fn(),
-      } as any;
-
-      await action.handler(ctx);
-
-      // Check the generated EE definition file content
-      const writeCall = mockWriteFile.mock.calls.find((call: any[]) =>
-        call[0].toString().endsWith('test-ee.yaml'),
-      );
-      const content = writeCall![1] as string;
-      const parsed = yaml.load(content) as any;
-      const collections = parsed.dependencies?.galaxy?.collections || [];
-      expect(collections).toHaveLength(1);
-      expect(collections[0].version).toBe('2.0.0');
-    });
-
-    it('should merge collections from uploaded file', async () => {
-      mockParseUploadedFileContent.mockImplementation((dataUrl: string) => {
-        if (dataUrl.includes('text/yaml')) {
-          return 'collections:\n  - name: collection-from-file\n    version: 1.0.0';
-        }
-        return '';
-      });
-      // Use real yaml.load implementation to parse the YAML string
-      const realYaml = jest.requireActual('js-yaml');
-      mockYamlLoad.mockImplementation(realYaml.load);
-      // Use real schema parse implementation
-      const realSchemas = jest.requireActual('./helpers/schemas');
-      mockCollectionRequirementsSchemaParse.mockImplementation(
-        realSchemas.CollectionRequirementsSchema.parse,
-      );
-
-      const action = createEEDefinitionAction({
-        frontendUrl: 'http://localhost:3000',
-        auth,
-        discovery,
-      });
-      const ctx = {
-        input: {
-          values: {
-            eeFileName: 'test-ee',
-            baseImage: 'quay.io/ansible/ee-base:latest',
-            collections: [{ name: 'manual-collection' }],
-            collectionsFile: 'data:text/yaml;base64,test',
-          },
-        },
-        logger,
-        workspacePath: mockWorkspacePath,
-        output: jest.fn(),
-      } as any;
-
-      await action.handler(ctx);
-
-      // Check the generated EE definition file content
-      const writeCall = mockWriteFile.mock.calls.find((call: any[]) =>
-        call[0].toString().endsWith('test-ee.yaml'),
-      );
-      const content = writeCall![1] as string;
-      const parsed = yaml.load(content) as any;
-      const collections = parsed.dependencies?.galaxy?.collections || [];
-      expect(collections.length).toBeGreaterThanOrEqual(1);
-      expect(collections).toEqual(
-        expect.arrayContaining([
-          expect.objectContaining({ name: 'manual-collection' }),
-          expect.objectContaining({ name: 'collection-from-file' }),
-        ]),
-      );
-    });
+    const eeConfig = mockDownloadEEScaffold.mock.calls[0][3];
+    expect(eeConfig.registry).toBe('ghcr.io');
+    expect(eeConfig.image_name).toBe('my-org/my-ee');
   });
 
-  describe('mergeRequirements functionality', () => {
-    it('should merge Python requirements from different sources', async () => {
-      mockParseUploadedFileContent.mockImplementation((dataUrl: string) => {
-        if (dataUrl.includes('text/plain')) {
-          return 'paramiko==5.0.0';
-        }
-        return '';
-      });
-
-      const action = createEEDefinitionAction({
-        frontendUrl: 'http://localhost:3000',
-        auth,
-        discovery,
-      });
-      const ctx = {
-        input: {
-          values: {
-            eeFileName: 'test-ee',
-            baseImage: 'quay.io/ansible/ee-base:latest',
-            pythonRequirements: ['requests==2.28.0'],
-            pythonRequirementsFile: 'data:text/plain;base64,paramiko==5.0.0',
-          },
-        },
-        logger,
-        workspacePath: mockWorkspacePath,
-        output: jest.fn(),
-      } as any;
-
-      await action.handler(ctx);
-
-      // Check the generated EE definition file content
-      const writeCall = mockWriteFile.mock.calls.find((call: any[]) =>
-        call[0].toString().endsWith('test-ee.yaml'),
-      );
-      expect(writeCall).toBeDefined();
-      const content = writeCall![1] as string;
-      const parsed = yaml.load(content) as any;
-      const requirements = parsed.dependencies?.python || [];
-      expect(requirements).toContain('requests==2.28.0');
-      expect(requirements).toContain('paramiko==5.0.0');
+  it('resolves PAH registry to rhaap baseUrl hostname', async () => {
+    const pahConfig = new ConfigReader({
+      ansible: {
+        creatorService: { baseUrl: 'localhost', port: '8000' },
+        devSpaces: { baseUrl: 'https://devspaces.example.com' },
+        rhaap: { baseUrl: 'https://pah.example.com' },
+      },
+    });
+    const action = makeAction(pahConfig);
+    const ctx = makeCtx({
+      eeFileName: 'test-ee',
+      baseImage: 'img:latest',
+      publishToSCM: true,
+      buildRegistry: 'Private Automation Hub (PAH)',
     });
 
-    it('should remove duplicate requirements', async () => {
-      const action = createEEDefinitionAction({
-        frontendUrl: 'http://localhost:3000',
-        auth,
-        discovery,
-      });
-      const ctx = {
-        input: {
-          values: {
-            eeFileName: 'test-ee',
-            baseImage: 'quay.io/ansible/ee-base:latest',
-            pythonRequirements: ['requests==2.28.0', 'requests==2.28.0'],
-          },
-        },
-        logger,
-        workspacePath: mockWorkspacePath,
-        output: jest.fn(),
-      } as any;
+    await action.handler(ctx);
 
-      await action.handler(ctx);
-
-      // Check the generated EE definition file content
-      const writeCall = mockWriteFile.mock.calls.find((call: any[]) =>
-        call[0].toString().endsWith('test-ee.yaml'),
-      );
-      const content = writeCall![1] as string;
-      const parsed = yaml.load(content) as any;
-      const requirements = parsed.dependencies?.python || [];
-      expect(requirements).toHaveLength(1);
-      expect(requirements[0]).toBe('requests==2.28.0');
-    });
+    const eeConfig = mockDownloadEEScaffold.mock.calls[0][3];
+    expect(eeConfig.registry).toBe('pah.example.com');
   });
 
-  describe('mergePackages functionality', () => {
-    it('should merge system packages from different sources', async () => {
-      mockParseUploadedFileContent.mockImplementation((dataUrl: string) => {
-        if (dataUrl.includes('text/plain')) {
-          return 'curl';
-        }
-        return '';
-      });
-
-      const action = createEEDefinitionAction({
-        frontendUrl: 'http://localhost:3000',
-        auth,
-        discovery,
-      });
-      const ctx = {
-        input: {
-          values: {
-            eeFileName: 'test-ee',
-            baseImage: 'quay.io/ansible/ee-base:latest',
-            systemPackages: ['git'],
-            systemPackagesFile: 'data:text/plain;base64,curl',
-          },
-        },
-        logger,
-        workspacePath: mockWorkspacePath,
-        output: jest.fn(),
-      } as any;
-
-      await action.handler(ctx);
-
-      // Check the generated EE definition file content
-      const writeCall = mockWriteFile.mock.calls.find((call: any[]) =>
-        call[0].toString().endsWith('test-ee.yaml'),
-      );
-      expect(writeCall).toBeDefined();
-      const content = writeCall![1] as string;
-      const parsed = yaml.load(content) as any;
-      const packages = parsed.dependencies?.system || [];
-      expect(packages).toContain('git');
-      expect(packages).toContain('curl');
+  it('passes PAH registry as-is when no rhaap baseUrl configured', async () => {
+    const action = makeAction();
+    const ctx = makeCtx({
+      eeFileName: 'test-ee',
+      baseImage: 'img:latest',
+      publishToSCM: true,
+      buildRegistry: 'Private Automation Hub (PAH)',
     });
 
-    it('should remove duplicate packages', async () => {
-      const action = createEEDefinitionAction({
-        frontendUrl: 'http://localhost:3000',
-        auth,
-        discovery,
-      });
-      const ctx = {
-        input: {
-          values: {
-            eeFileName: 'test-ee',
-            baseImage: 'quay.io/ansible/ee-base:latest',
-            systemPackages: ['git', 'git'],
-          },
-        },
-        logger,
-        workspacePath: mockWorkspacePath,
-        output: jest.fn(),
-      } as any;
+    await action.handler(ctx);
 
-      await action.handler(ctx);
-
-      // Check the generated EE definition file content
-      const writeCall = mockWriteFile.mock.calls.find((call: any[]) =>
-        call[0].toString().endsWith('test-ee.yaml'),
-      );
-      const content = writeCall![1] as string;
-      const parsed = yaml.load(content) as any;
-      const packages = parsed.dependencies?.system || [];
-      expect(packages).toHaveLength(1);
-      expect(packages[0]).toBe('git');
-    });
+    const eeConfig = mockDownloadEEScaffold.mock.calls[0][3];
+    expect(eeConfig.registry).toBe('Private Automation Hub (PAH)');
   });
 
-  describe('parseTextRequirementsFile functionality', () => {
-    it('should parse text requirements file correctly', async () => {
-      mockParseUploadedFileContent.mockImplementation((dataUrl: string) => {
-        if (dataUrl.includes('text/plain')) {
-          return 'requests==2.28.0\njinja2>=3.0.0\n\n# comment line';
-        }
-        return '';
-      });
-
-      const action = createEEDefinitionAction({
-        frontendUrl: 'http://localhost:3000',
-        auth,
-        discovery,
-      });
-      const ctx = {
-        input: {
-          values: {
-            eeFileName: 'test-ee',
-            baseImage: 'quay.io/ansible/ee-base:latest',
-            pythonRequirementsFile: 'data:text/plain;base64,test',
-          },
-        },
-        logger,
-        workspacePath: mockWorkspacePath,
-        output: jest.fn(),
-      } as any;
-
-      await action.handler(ctx);
-
-      // Check the generated EE definition file content
-      const writeCall = mockWriteFile.mock.calls.find((call: any[]) =>
-        call[0].toString().endsWith('test-ee.yaml'),
-      );
-      expect(writeCall).toBeDefined();
-      const content = writeCall![1] as string;
-      const parsed = yaml.load(content) as any;
-      const requirements = parsed.dependencies?.python || [];
-      expect(requirements).toContain('requests==2.28.0');
-      expect(requirements).toContain('jinja2>=3.0.0');
-      // Empty lines and comment lines should be filtered out
-      expect(requirements).not.toContain('');
-      expect(requirements).not.toContain('# comment line');
+  it('sets registry_tls_verify false when explicitly disabled', async () => {
+    const action = makeAction();
+    const ctx = makeCtx({
+      eeFileName: 'test-ee',
+      baseImage: 'img:latest',
+      publishToSCM: true,
+      registryTlsVerify: false,
     });
 
-    it('should handle empty text requirements file', async () => {
-      mockParseUploadedFileContent.mockReturnValue('');
+    await action.handler(ctx);
 
-      const action = createEEDefinitionAction({
-        frontendUrl: 'http://localhost:3000',
-        auth,
-        discovery,
-      });
-      const ctx = {
-        input: {
-          values: {
-            eeFileName: 'test-ee',
-            baseImage: 'quay.io/ansible/ee-base:latest',
-            pythonRequirementsFile: 'data:text/plain;base64,',
-          },
-        },
-        logger,
-        workspacePath: mockWorkspacePath,
-        output: jest.fn(),
-      } as any;
-
-      await action.handler(ctx);
-
-      // Check the generated EE definition file content
-      const writeCall = mockWriteFile.mock.calls.find((call: any[]) =>
-        call[0].toString().endsWith('test-ee.yaml'),
-      );
-      const content = writeCall![1] as string;
-      const parsed = yaml.load(content) as any;
-      const requirements = parsed.dependencies?.python || [];
-      expect(requirements).toEqual([]);
-    });
+    const eeConfig = mockDownloadEEScaffold.mock.calls[0][3];
+    expect(eeConfig.registry_tls_verify).toBe(false);
   });
 
-  describe('parseCollectionsFile functionality', () => {
-    it('should parse valid collections YAML file', async () => {
-      mockParseUploadedFileContent.mockImplementation((dataUrl: string) => {
-        if (dataUrl.includes('text/yaml')) {
-          return 'collections:\n  - name: collection1\n    version: 1.0.0\n  - name: collection2';
-        }
-        return '';
-      });
-      // Use real yaml.load implementation to parse the YAML string
-      const realYaml = jest.requireActual('js-yaml');
-      mockYamlLoad.mockImplementation(realYaml.load);
-      // Use real schema parse implementation
-      const realSchemas = jest.requireActual('./helpers/schemas');
-      mockCollectionRequirementsSchemaParse.mockImplementation(
-        realSchemas.CollectionRequirementsSchema.parse,
-      );
+  // ─── mergeCollections (tested via eeConfig) ─────────────────────────
 
-      const action = createEEDefinitionAction({
-        frontendUrl: 'http://localhost:3000',
-        auth,
-        discovery,
-      });
-      const ctx = {
-        input: {
-          values: {
-            eeFileName: 'test-ee',
-            baseImage: 'quay.io/ansible/ee-base:latest',
-            collectionsFile: 'data:text/yaml;base64,test',
-          },
-        },
-        logger,
-        workspacePath: mockWorkspacePath,
-        output: jest.fn(),
-      } as any;
-
-      await action.handler(ctx);
-
-      expect(mockYamlLoad).toHaveBeenCalled();
-      expect(mockCollectionRequirementsSchemaParse).toHaveBeenCalled();
+  it('deduplicates collections keeping entry without version', async () => {
+    const action = makeAction();
+    const ctx = makeCtx({
+      eeFileName: 'test-ee',
+      baseImage: 'img:latest',
+      publishToSCM: true,
+      collections: [
+        { name: 'community.general', version: '1.0.0' },
+        { name: 'community.general' },
+      ],
     });
 
-    it('should handle empty collections file', async () => {
-      mockParseUploadedFileContent.mockReturnValue('');
+    await action.handler(ctx);
 
-      const action = createEEDefinitionAction({
-        frontendUrl: 'http://localhost:3000',
-        auth,
-        discovery,
-      });
-      const ctx = {
-        input: {
-          values: {
-            eeFileName: 'test-ee',
-            baseImage: 'quay.io/ansible/ee-base:latest',
-            collectionsFile: '',
-          },
-        },
-        logger,
-        workspacePath: mockWorkspacePath,
-        output: jest.fn(),
-      } as any;
+    const eeConfig = mockDownloadEEScaffold.mock.calls[0][3];
+    expect(eeConfig.collections).toEqual([{ name: 'community.general' }]);
+  });
 
-      await action.handler(ctx);
+  // ─── normalizeCollectionSources (tested via eeConfig) ───────────────
 
-      // Should not throw and should complete successfully
-      expect(mockWriteFile).toHaveBeenCalled();
+  it('normalizes PAH source to private_hub_ prefix', async () => {
+    const action = makeAction();
+    const ctx = makeCtx({
+      eeFileName: 'test-ee',
+      baseImage: 'img:latest',
+      publishToSCM: true,
+      collections: [
+        { name: 'my.collection', source: 'Private Automation Hub / validated' },
+      ],
     });
 
-    it('should throw error for invalid YAML in collections file', async () => {
-      mockParseUploadedFileContent.mockReturnValue('invalid: yaml: content: [');
-      mockYamlLoad.mockImplementation(() => {
-        throw new Error('YAML parse error');
-      });
+    await action.handler(ctx);
 
-      const action = createEEDefinitionAction({
-        frontendUrl: 'http://localhost:3000',
-        auth,
-        discovery,
-      });
-      const ctx = {
-        input: {
-          values: {
-            eeFileName: 'test-ee',
-            baseImage: 'quay.io/ansible/ee-base:latest',
-            collectionsFile: 'data:text/yaml;base64,invalid',
-          },
-        },
-        logger,
-        workspacePath: mockWorkspacePath,
-        output: jest.fn(),
-      } as any;
+    const eeConfig = mockDownloadEEScaffold.mock.calls[0][3];
+    expect(eeConfig.collections[0].source).toBe('private_hub_validated');
+  });
 
-      await expect(action.handler(ctx)).rejects.toThrow();
-    });
-
-    it('should throw error for invalid schema in collections file', async () => {
-      mockParseUploadedFileContent.mockReturnValue('invalid: content');
-      mockYamlLoad.mockReturnValue({ invalid: 'content' });
-      const zodError = new z.ZodError([
+  it('normalizes PAH source using deterministic repo-id rules', async () => {
+    const action = makeAction();
+    const ctx = makeCtx({
+      eeFileName: 'test-ee',
+      baseImage: 'img:latest',
+      publishToSCM: true,
+      collections: [
         {
-          code: 'invalid_type',
-          expected: 'array',
-          path: ['collections'],
-          message: 'Expected array, received string',
-        } as z.ZodIssue,
-      ]);
-      mockCollectionRequirementsSchemaParse.mockImplementation(() => {
-        throw zodError;
-      });
-
-      const action = createEEDefinitionAction({
-        frontendUrl: 'http://localhost:3000',
-        auth,
-        discovery,
-      });
-      const ctx = {
-        input: {
-          values: {
-            eeFileName: 'test-ee',
-            baseImage: 'quay.io/ansible/ee-base:latest',
-            collectionsFile: 'data:text/yaml;base64,invalid',
-          },
+          name: 'my.collection',
+          source: 'Private Automation Hub / My-- Repo__Name',
         },
-        logger,
-        workspacePath: mockWorkspacePath,
-        output: jest.fn(),
-      } as any;
-
-      await expect(action.handler(ctx)).rejects.toThrow(
-        'Invalid collections file structure',
-      );
+      ],
     });
+
+    await action.handler(ctx);
+
+    const eeConfig = mockDownloadEEScaffold.mock.calls[0][3];
+    expect(eeConfig.collections[0].source).toBe('private_hub_my_repo_name');
   });
 
-  describe('generateMCPBuilderSteps functionality', () => {
-    it('should add MCP collections and build steps when MCP servers are specified', async () => {
-      const action = createEEDefinitionAction({
-        frontendUrl: 'http://localhost:3000',
-        auth,
-        discovery,
-      });
-      const ctx = {
-        input: {
-          values: {
-            eeFileName: 'test-ee',
-            baseImage: 'quay.io/ansible/ee-base:latest',
-            mcpServers: ['github_mcp', 'aws_mcp'],
-          },
-        },
-        logger,
-        workspacePath: mockWorkspacePath,
-        output: jest.fn(),
-      } as any;
-
-      await action.handler(ctx);
-
-      // Check the generated EE definition file content
-      const writeCall = mockWriteFile.mock.calls.find((call: any[]) =>
-        call[0].toString().endsWith('test-ee.yaml'),
-      );
-      expect(writeCall).toBeDefined();
-      const content = writeCall![1] as string;
-      const parsed = yaml.load(content) as any;
-
-      // Verify MCP collections are added
-      const collections = parsed.dependencies?.galaxy?.collections || [];
-      expect(
-        collections.some((c: any) => c.name === 'ansible.mcp_builder'),
-      ).toBeTruthy();
-      expect(
-        collections.some((c: any) => c.name === 'ansible.mcp'),
-      ).toBeTruthy();
-
-      // Verify MCP build steps are added
-      const buildSteps = parsed.additional_build_steps || {};
-      const appendFinalCommands = buildSteps.append_final || [];
-      expect(appendFinalCommands).toEqual([
-        'RUN ansible-playbook ansible.mcp_builder.install_mcp -e mcp_servers=github_mcp,aws_mcp -e @/tmp/mcp-vars.yaml',
-        'RUN rm -f /etc/ansible/ansible.cfg /tmp/mcp-vars.yaml',
-      ]);
+  it('drops source key when PAH repo name is empty', async () => {
+    const action = makeAction();
+    const ctx = makeCtx({
+      eeFileName: 'test-ee',
+      baseImage: 'img:latest',
+      publishToSCM: true,
+      collections: [
+        { name: 'my.collection', source: 'Private Automation Hub' },
+      ],
     });
 
-    it('should append to existing append_builder step', async () => {
-      const action = createEEDefinitionAction({
-        frontendUrl: 'http://localhost:3000',
-        auth,
-        discovery,
-      });
-      const ctx = {
-        input: {
-          values: {
-            eeFileName: 'test-ee',
-            baseImage: 'quay.io/ansible/ee-base:latest',
-            mcpServers: ['github_mcp'],
-            additionalBuildSteps: [
-              {
-                stepType: 'append_final',
-                commands: ['RUN echo "existing command"'],
-              },
-            ],
-          },
-        },
-        logger,
-        workspacePath: mockWorkspacePath,
-        output: jest.fn(),
-      } as any;
+    await action.handler(ctx);
 
-      await action.handler(ctx);
-
-      // Check the generated EE definition file content
-      const writeCall = mockWriteFile.mock.calls.find((call: any[]) =>
-        call[0].toString().endsWith('test-ee.yaml'),
-      );
-      const content = writeCall![1] as string;
-      const parsed = yaml.load(content) as any;
-      const buildSteps = parsed.additional_build_steps || {};
-      const appendFinalCommands = buildSteps.append_final || [];
-
-      const expectedCommands = [
-        'RUN ansible-playbook ansible.mcp_builder.install_mcp -e mcp_servers=github_mcp -e @/tmp/mcp-vars.yaml',
-        'RUN echo "existing command"',
-        'RUN rm -f /etc/ansible/ansible.cfg /tmp/mcp-vars.yaml',
-      ];
-
-      expect(appendFinalCommands).toEqual(expectedCommands);
-    });
-
-    it('should not add MCP steps when no MCP servers specified', async () => {
-      const action = createEEDefinitionAction({
-        frontendUrl: 'http://localhost:3000',
-        auth,
-        discovery,
-      });
-      const ctx = {
-        input: {
-          values: {
-            eeFileName: 'test-ee',
-            baseImage: 'quay.io/ansible/ee-base:latest',
-            mcpServers: [],
-          },
-        },
-        logger,
-        workspacePath: mockWorkspacePath,
-        output: jest.fn(),
-      } as any;
-
-      await action.handler(ctx);
-
-      // Check the generated EE definition file content
-      const writeCall = mockWriteFile.mock.calls.find((call: any[]) =>
-        call[0].toString().endsWith('test-ee.yaml'),
-      );
-      const content = writeCall![1] as string;
-      const parsed = yaml.load(content) as any;
-      const collections = parsed.dependencies?.galaxy?.collections || [];
-      expect(collections).toEqual([]);
-
-      // Verify no MCP build steps are added
-      const buildSteps = parsed.additional_build_steps || {};
-      expect(buildSteps.append_builder).toBeUndefined();
-    });
-
-    it('should not duplicate MCP install command if already present', async () => {
-      const mcpInstallCmd =
-        'RUN ansible-playbook ansible.mcp_builder.install_mcp -e mcp_servers=github_mcp -e @/tmp/mcp-vars.yaml';
-      const action = createEEDefinitionAction({
-        frontendUrl: 'http://localhost:3000',
-        auth,
-        discovery,
-      });
-      const ctx = {
-        input: {
-          values: {
-            eeFileName: 'test-ee',
-            baseImage: 'quay.io/ansible/ee-base:latest',
-            mcpServers: ['github_mcp'],
-            additionalBuildSteps: [
-              {
-                stepType: 'append_final',
-                commands: [mcpInstallCmd, 'RUN echo "existing command"'],
-              },
-            ],
-          },
-        },
-        logger,
-        workspacePath: mockWorkspacePath,
-        output: jest.fn(),
-      } as any;
-
-      await action.handler(ctx);
-
-      const writeCall = mockWriteFile.mock.calls.find((call: any[]) =>
-        call[0].toString().endsWith('test-ee.yaml'),
-      );
-      const content = writeCall![1] as string;
-      const parsed = yaml.load(content) as any;
-      const buildSteps = parsed.additional_build_steps || {};
-      const appendFinalCommands = buildSteps.append_final || [];
-
-      // MCP install command should appear only once
-      const mcpCmdCount = appendFinalCommands.filter((cmd: string) =>
-        cmd.includes('ansible-playbook ansible.mcp_builder.install_mcp'),
-      ).length;
-      expect(mcpCmdCount).toBe(1);
-    });
-
-    it('should add MCP collections to parsedCollections array', async () => {
-      const action = createEEDefinitionAction({
-        frontendUrl: 'http://localhost:3000',
-        auth,
-        discovery,
-      });
-      const ctx = {
-        input: {
-          values: {
-            eeFileName: 'test-ee',
-            baseImage: 'quay.io/ansible/ee-base:latest',
-            mcpServers: ['github_mcp'],
-            collections: [{ name: 'community.general' }],
-          },
-        },
-        logger,
-        workspacePath: mockWorkspacePath,
-        output: jest.fn(),
-      } as any;
-
-      await action.handler(ctx);
-
-      const writeCall = mockWriteFile.mock.calls.find((call: any[]) =>
-        call[0].toString().endsWith('test-ee.yaml'),
-      );
-      const content = writeCall![1] as string;
-      const parsed = yaml.load(content) as any;
-      const collections = parsed.dependencies?.galaxy?.collections || [];
-
-      // Should include both user collections and MCP collections
-      expect(
-        collections.some((c: any) => c.name === 'community.general'),
-      ).toBeTruthy();
-      expect(
-        collections.some((c: any) => c.name === 'ansible.mcp_builder'),
-      ).toBeTruthy();
-      expect(
-        collections.some((c: any) => c.name === 'ansible.mcp'),
-      ).toBeTruthy();
-    });
+    const eeConfig = mockDownloadEEScaffold.mock.calls[0][3];
+    expect(eeConfig.collections[0]).toEqual({ name: 'my.collection' });
+    expect(eeConfig.collections[0].source).toBeUndefined();
   });
 
-  describe('modifyAdditionalBuildSteps functionality', () => {
-    it('should create prepend_base and append_final steps when none exist', async () => {
-      const action = createEEDefinitionAction({
-        frontendUrl: 'http://localhost:3000',
-        auth,
-        discovery,
-      });
-      const ctx = {
-        input: {
-          values: {
-            eeFileName: 'test-ee',
-            baseImage: 'quay.io/ansible/ee-base:latest',
-            additionalBuildSteps: [],
-          },
-        },
-        logger,
-        workspacePath: mockWorkspacePath,
-        output: jest.fn(),
-      } as any;
+  // ─── mergeRequirements / mergePackages ──────────────────────────────
 
-      await action.handler(ctx);
-
-      const writeCall = mockWriteFile.mock.calls.find((call: any[]) =>
-        call[0].toString().endsWith('test-ee.yaml'),
-      );
-      const content = writeCall![1] as string;
-      const parsed = yaml.load(content) as any;
-      const buildSteps = parsed.additional_build_steps || {};
-
-      // Should have prepend_base step
-      expect(buildSteps.prepend_base).toBeDefined();
-      expect(buildSteps.prepend_base).toContain(
-        'COPY _build/configs/ansible.cfg /etc/ansible/ansible.cfg',
-      );
-
-      // Should have append_final step
-      expect(buildSteps.append_final).toBeDefined();
-      expect(buildSteps.append_final).toContain(
-        'RUN rm -f /etc/ansible/ansible.cfg',
-      );
+  it('merges and deduplicates requirements from input and file', async () => {
+    const action = makeAction();
+    mockParseUploadedFileContent.mockReturnValueOnce(
+      'requests>=2.28.0\nurllib3\n',
+    );
+    const ctx = makeCtx({
+      eeFileName: 'test-ee',
+      baseImage: 'img:latest',
+      publishToSCM: true,
+      pythonRequirements: ['requests>=2.28.0', 'boto3'],
+      pythonRequirementsFile: 'data:text/plain;base64,...',
     });
 
-    it('should add mcp-vars.yaml commands when MCP servers are specified', async () => {
-      const action = createEEDefinitionAction({
-        frontendUrl: 'http://localhost:3000',
-        auth,
-        discovery,
-      });
-      const ctx = {
-        input: {
-          values: {
-            eeFileName: 'test-ee',
-            baseImage: 'quay.io/ansible/ee-base:latest',
-            mcpServers: ['github_mcp'],
-            additionalBuildSteps: [],
-          },
-        },
-        logger,
-        workspacePath: mockWorkspacePath,
-        output: jest.fn(),
-      } as any;
+    await action.handler(ctx);
 
-      await action.handler(ctx);
-
-      const writeCall = mockWriteFile.mock.calls.find((call: any[]) =>
-        call[0].toString().endsWith('test-ee.yaml'),
-      );
-      const content = writeCall![1] as string;
-      const parsed = yaml.load(content) as any;
-      const buildSteps = parsed.additional_build_steps || {};
-
-      // prepend_base should include mcp-vars.yaml copy
-      expect(buildSteps.prepend_base).toContain(
-        'COPY _build/configs/mcp-vars.yaml /tmp/mcp-vars.yaml',
-      );
-
-      // append_final should include mcp-vars.yaml removal
-      const appendFinalCommands = buildSteps.append_final || [];
-      expect(
-        appendFinalCommands.some((cmd: string) =>
-          cmd.includes('RUN rm -f /etc/ansible/ansible.cfg /tmp/mcp-vars.yaml'),
-        ),
-      ).toBeTruthy();
-    });
-
-    it('should not add mcp-vars.yaml commands when no MCP servers', async () => {
-      const action = createEEDefinitionAction({
-        frontendUrl: 'http://localhost:3000',
-        auth,
-        discovery,
-      });
-      const ctx = {
-        input: {
-          values: {
-            eeFileName: 'test-ee',
-            baseImage: 'quay.io/ansible/ee-base:latest',
-            mcpServers: [],
-            additionalBuildSteps: [],
-          },
-        },
-        logger,
-        workspacePath: mockWorkspacePath,
-        output: jest.fn(),
-      } as any;
-
-      await action.handler(ctx);
-
-      const writeCall = mockWriteFile.mock.calls.find((call: any[]) =>
-        call[0].toString().endsWith('test-ee.yaml'),
-      );
-      const content = writeCall![1] as string;
-      const parsed = yaml.load(content) as any;
-      const buildSteps = parsed.additional_build_steps || {};
-
-      // prepend_base should NOT include mcp-vars.yaml copy
-      expect(buildSteps.prepend_base).not.toContain(
-        'COPY _build/configs/mcp-vars.yaml /tmp/mcp-vars.yaml',
-      );
-
-      // append_final should only remove ansible.cfg, not mcp-vars.yaml
-      const appendFinalCommands = buildSteps.append_final || [];
-      expect(
-        appendFinalCommands.some((cmd: string) =>
-          cmd.includes('RUN rm -f /etc/ansible/ansible.cfg /tmp/mcp-vars.yaml'),
-        ),
-      ).toBeFalsy();
-      expect(
-        appendFinalCommands.some((cmd: string) =>
-          cmd.includes('RUN rm -f /etc/ansible/ansible.cfg'),
-        ),
-      ).toBeTruthy();
-    });
-
-    it('should append to existing prepend_base step without duplicating', async () => {
-      const action = createEEDefinitionAction({
-        frontendUrl: 'http://localhost:3000',
-        auth,
-        discovery,
-      });
-      const ctx = {
-        input: {
-          values: {
-            eeFileName: 'test-ee',
-            baseImage: 'quay.io/ansible/ee-base:latest',
-            additionalBuildSteps: [
-              {
-                stepType: 'prepend_base',
-                commands: ['RUN echo "custom command"'],
-              },
-            ],
-          },
-        },
-        logger,
-        workspacePath: mockWorkspacePath,
-        output: jest.fn(),
-      } as any;
-
-      await action.handler(ctx);
-
-      const writeCall = mockWriteFile.mock.calls.find((call: any[]) =>
-        call[0].toString().endsWith('test-ee.yaml'),
-      );
-      const content = writeCall![1] as string;
-      const parsed = yaml.load(content) as any;
-      const buildSteps = parsed.additional_build_steps || {};
-      const prependBaseCommands = buildSteps.prepend_base || [];
-
-      // Should include both the existing command and the ansible.cfg copy
-      expect(prependBaseCommands).toContain('RUN echo "custom command"');
-      expect(prependBaseCommands).toContain(
-        'COPY _build/configs/ansible.cfg /etc/ansible/ansible.cfg',
-      );
-
-      // ansible.cfg command should appear only once
-      const ansibleCfgCount = prependBaseCommands.filter((cmd: string) =>
-        cmd.includes('COPY _build/configs/ansible.cfg'),
-      ).length;
-      expect(ansibleCfgCount).toBe(1);
-    });
-
-    it('should append to existing append_final step without duplicating', async () => {
-      const action = createEEDefinitionAction({
-        frontendUrl: 'http://localhost:3000',
-        auth,
-        discovery,
-      });
-      const ctx = {
-        input: {
-          values: {
-            eeFileName: 'test-ee',
-            baseImage: 'quay.io/ansible/ee-base:latest',
-            additionalBuildSteps: [
-              {
-                stepType: 'append_final',
-                commands: ['RUN echo "custom cleanup"'],
-              },
-            ],
-          },
-        },
-        logger,
-        workspacePath: mockWorkspacePath,
-        output: jest.fn(),
-      } as any;
-
-      await action.handler(ctx);
-
-      const writeCall = mockWriteFile.mock.calls.find((call: any[]) =>
-        call[0].toString().endsWith('test-ee.yaml'),
-      );
-      const content = writeCall![1] as string;
-      const parsed = yaml.load(content) as any;
-      const buildSteps = parsed.additional_build_steps || {};
-      const appendFinalCommands = buildSteps.append_final || [];
-
-      // Should include both the existing command and the cleanup command
-      expect(appendFinalCommands).toContain('RUN echo "custom cleanup"');
-      expect(appendFinalCommands).toContain(
-        'RUN rm -f /etc/ansible/ansible.cfg',
-      );
-
-      // Cleanup command should appear only once
-      const cleanupCount = appendFinalCommands.filter((cmd: string) =>
-        cmd.includes('RUN rm -f /etc/ansible/ansible.cfg'),
-      ).length;
-      expect(cleanupCount).toBe(1);
-    });
-
-    it('should handle both prepend_base and append_final existing with MCP servers', async () => {
-      const action = createEEDefinitionAction({
-        frontendUrl: 'http://localhost:3000',
-        auth,
-        discovery,
-      });
-      const ctx = {
-        input: {
-          values: {
-            eeFileName: 'test-ee',
-            baseImage: 'quay.io/ansible/ee-base:latest',
-            mcpServers: ['azure_mcp'],
-            additionalBuildSteps: [
-              {
-                stepType: 'prepend_base',
-                commands: ['RUN echo "pre-base"'],
-              },
-              {
-                stepType: 'append_final',
-                commands: ['RUN echo "post-final"'],
-              },
-            ],
-          },
-        },
-        logger,
-        workspacePath: mockWorkspacePath,
-        output: jest.fn(),
-      } as any;
-
-      await action.handler(ctx);
-
-      const writeCall = mockWriteFile.mock.calls.find((call: any[]) =>
-        call[0].toString().endsWith('test-ee.yaml'),
-      );
-      const content = writeCall![1] as string;
-      const parsed = yaml.load(content) as any;
-      const buildSteps = parsed.additional_build_steps || {};
-
-      // prepend_base should have both existing and new commands
-      const prependBaseCommands = buildSteps.prepend_base || [];
-      expect(prependBaseCommands).toContain('RUN echo "pre-base"');
-      expect(prependBaseCommands).toContain(
-        'COPY _build/configs/ansible.cfg /etc/ansible/ansible.cfg',
-      );
-      expect(prependBaseCommands).toContain(
-        'COPY _build/configs/mcp-vars.yaml /tmp/mcp-vars.yaml',
-      );
-
-      // append_final should have existing, MCP install, and cleanup commands
-      const appendFinalCommands = buildSteps.append_final || [];
-      expect(appendFinalCommands).toContain('RUN echo "post-final"');
-      expect(
-        appendFinalCommands.some((cmd: string) =>
-          cmd.includes('ansible-playbook ansible.mcp_builder.install_mcp'),
-        ),
-      ).toBeTruthy();
-      expect(
-        appendFinalCommands.some((cmd: string) =>
-          cmd.includes('RUN rm -f /etc/ansible/ansible.cfg /tmp/mcp-vars.yaml'),
-        ),
-      ).toBeTruthy();
-    });
+    const eeConfig = mockDownloadEEScaffold.mock.calls[0][3];
+    expect(eeConfig.python_deps).toEqual([
+      'requests>=2.28.0',
+      'boto3',
+      'urllib3',
+    ]);
   });
 
-  describe('generateMCPVarsContent functionality', () => {
-    it('should generate MCP vars content with only common vars and version vars when mcpServers contains servers with only version vars', async () => {
-      const action = createEEDefinitionAction({
-        frontendUrl: 'http://localhost:3000',
-        auth,
-        discovery,
-      });
-      const ctx = {
-        input: {
-          values: {
-            eeFileName: 'test-ee',
-            baseImage: 'quay.io/ansible/ee-base:latest',
-            mcpServers: ['aws_ccapi_mcp'],
-          },
-        },
-        logger,
-        workspacePath: mockWorkspacePath,
-        output: jest.fn(),
-      } as any;
-
-      await action.handler(ctx);
-
-      // Check that mcp-vars.yaml file was written
-      const writeCall = mockWriteFile.mock.calls.find((call: any[]) =>
-        call[0].toString().endsWith('mcp-vars.yaml'),
-      );
-      expect(writeCall).toBeDefined();
-      const content = writeCall![1] as string;
-
-      // Should include common vars (common is always added internally)
-      expect(content).toContain('# vars for common');
-      expect(content).toContain('common_mcp_base_path: /opt/mcp');
-      expect(content).toContain('common_golang_version: 1.25');
-      expect(content).toContain('common_nodejs_min_version: 20');
-      expect(content).toContain('common_system_bin_path: /usr/local/bin');
-      expect(content).toContain(
-        'common_uv_installer_url: https://astral.sh/uv/install.sh',
-      );
-
-      // Should include version vars for aws_ccapi_mcp
-      expect(content).toContain('aws_ccapi_mcp_version: latest');
-
-      // Check output
-      const outputCall = ctx.output.mock.calls.find(
-        (call: any[]) => call[0] === 'mcpVarsContent',
-      );
-      expect(outputCall).toBeDefined();
-      expect(outputCall![1]).toBe(content);
+  it('merges and deduplicates system packages from input and file', async () => {
+    const action = makeAction();
+    mockParseUploadedFileContent
+      .mockReturnValueOnce('')
+      .mockReturnValueOnce('libssh-devel\ngcc\n');
+    const ctx = makeCtx({
+      eeFileName: 'test-ee',
+      baseImage: 'img:latest',
+      publishToSCM: true,
+      systemPackages: ['libssh-devel', 'openssl-devel'],
+      systemPackagesFile: 'data:text/plain;base64,...',
     });
 
-    it('should generate MCP vars content for azure_mcp server', async () => {
-      const action = createEEDefinitionAction({
-        frontendUrl: 'http://localhost:3000',
-        auth,
-        discovery,
-      });
-      const ctx = {
-        input: {
-          values: {
-            eeFileName: 'test-ee',
-            baseImage: 'quay.io/ansible/ee-base:latest',
-            mcpServers: ['azure_mcp'],
-          },
-        },
-        logger,
-        workspacePath: mockWorkspacePath,
-        output: jest.fn(),
-      } as any;
+    await action.handler(ctx);
 
-      await action.handler(ctx);
-
-      const writeCall = mockWriteFile.mock.calls.find((call: any[]) =>
-        call[0].toString().endsWith('mcp-vars.yaml'),
-      );
-      expect(writeCall).toBeDefined();
-      const content = writeCall![1] as string;
-
-      // Should include azure_mcp vars
-      expect(content).toContain('# vars for azure_mcp');
-      expect(content).toContain('azure_mcp_namespaces:');
-      expect(content).toContain('- az');
-      expect(content).toContain('azure_mcp_version: latest');
-
-      // Should also include common vars
-      expect(content).toContain('# vars for common');
-      expect(content).toContain('common_mcp_base_path: /opt/mcp');
-    });
-
-    it('should generate MCP vars content for github_mcp server', async () => {
-      const action = createEEDefinitionAction({
-        frontendUrl: 'http://localhost:3000',
-        auth,
-        discovery,
-      });
-      const ctx = {
-        input: {
-          values: {
-            eeFileName: 'test-ee',
-            baseImage: 'quay.io/ansible/ee-base:latest',
-            mcpServers: ['github_mcp'],
-          },
-        },
-        logger,
-        workspacePath: mockWorkspacePath,
-        output: jest.fn(),
-      } as any;
-
-      await action.handler(ctx);
-
-      const writeCall = mockWriteFile.mock.calls.find((call: any[]) =>
-        call[0].toString().endsWith('mcp-vars.yaml'),
-      );
-      expect(writeCall).toBeDefined();
-      const content = writeCall![1] as string;
-
-      // Should include github_mcp vars
-      expect(content).toContain('# vars for github_mcp');
-      expect(content).toContain('github_mcp_mode: local');
-      expect(content).toContain(
-        'github_mcp_build_repo: https://github.com/github/github-mcp-server.git',
-      );
-      expect(content).toContain('github_mcp_build_repo_branch: main');
-      expect(content).toContain('github_mcp_build_path: github/build');
-
-      // Should also include common vars
-      expect(content).toContain('# vars for common');
-    });
-
-    it('should generate MCP vars content for MCP servers with version vars', async () => {
-      const action = createEEDefinitionAction({
-        frontendUrl: 'http://localhost:3000',
-        auth,
-        discovery,
-      });
-      const ctx = {
-        input: {
-          values: {
-            eeFileName: 'test-ee',
-            baseImage: 'quay.io/ansible/ee-base:latest',
-            mcpServers: ['aws_ccapi_mcp', 'aws_cdk_mcp'],
-          },
-        },
-        logger,
-        workspacePath: mockWorkspacePath,
-        output: jest.fn(),
-      } as any;
-
-      await action.handler(ctx);
-
-      const writeCall = mockWriteFile.mock.calls.find((call: any[]) =>
-        call[0].toString().endsWith('mcp-vars.yaml'),
-      );
-      expect(writeCall).toBeDefined();
-      const content = writeCall![1] as string;
-
-      // Should include version vars
-      expect(content).toContain('aws_ccapi_mcp_version: latest');
-      expect(content).toContain('aws_cdk_mcp_version: latest');
-
-      // Should include common vars
-      expect(content).toContain('# vars for common');
-      expect(content).toContain('common_mcp_base_path: /opt/mcp');
-    });
-
-    it('should generate MCP vars content for multiple servers with mixed vars', async () => {
-      const action = createEEDefinitionAction({
-        frontendUrl: 'http://localhost:3000',
-        auth,
-        discovery,
-      });
-      const ctx = {
-        input: {
-          values: {
-            eeFileName: 'test-ee',
-            baseImage: 'quay.io/ansible/ee-base:latest',
-            mcpServers: ['azure_mcp', 'github_mcp', 'aws_ccapi_mcp'],
-          },
-        },
-        logger,
-        workspacePath: mockWorkspacePath,
-        output: jest.fn(),
-      } as any;
-
-      await action.handler(ctx);
-
-      const writeCall = mockWriteFile.mock.calls.find((call: any[]) =>
-        call[0].toString().endsWith('mcp-vars.yaml'),
-      );
-      expect(writeCall).toBeDefined();
-      const content = writeCall![1] as string;
-
-      // Should include vars for azure_mcp
-      expect(content).toContain('# vars for azure_mcp');
-      expect(content).toContain('azure_mcp_namespaces:');
-
-      // Should include vars for github_mcp
-      expect(content).toContain('# vars for github_mcp');
-      expect(content).toContain('github_mcp_mode: local');
-
-      // Should include vars for aws_ccapi_mcp
-      expect(content).toContain('aws_ccapi_mcp_version: latest');
-
-      // Should include common vars
-      expect(content).toContain('# vars for common');
-      expect(content).toContain('common_mcp_base_path: /opt/mcp');
-    });
-
-    it('should generate valid YAML format for MCP vars content', async () => {
-      const action = createEEDefinitionAction({
-        frontendUrl: 'http://localhost:3000',
-        auth,
-        discovery,
-      });
-      const ctx = {
-        input: {
-          values: {
-            eeFileName: 'test-ee',
-            baseImage: 'quay.io/ansible/ee-base:latest',
-            mcpServers: ['azure_mcp', 'github_mcp'],
-          },
-        },
-        logger,
-        workspacePath: mockWorkspacePath,
-        output: jest.fn(),
-      } as any;
-
-      await action.handler(ctx);
-
-      const writeCall = mockWriteFile.mock.calls.find((call: any[]) =>
-        call[0].toString().endsWith('mcp-vars.yaml'),
-      );
-      expect(writeCall).toBeDefined();
-      const content = writeCall![1] as string;
-
-      // Should start with YAML document marker
-      expect(content).toMatch(/^---\n/);
-
-      // Should be valid YAML (can be parsed)
-      const parsed = yaml.load(content);
-      expect(parsed).toBeDefined();
-
-      // Should end with exactly one newline
-      expect(content.endsWith('\n')).toBe(true);
-      expect(content.match(/\n$/g)?.length).toBe(1);
-    });
-
-    it('should not write mcp-vars.yaml file when no MCP servers are specified', async () => {
-      const action = createEEDefinitionAction({
-        frontendUrl: 'http://localhost:3000',
-        auth,
-        discovery,
-      });
-      const ctx = {
-        input: {
-          values: {
-            eeFileName: 'test-ee',
-            baseImage: 'quay.io/ansible/ee-base:latest',
-            mcpServers: [],
-          },
-        },
-        logger,
-        workspacePath: mockWorkspacePath,
-        output: jest.fn(),
-      } as any;
-
-      await action.handler(ctx);
-
-      // Should not write mcp-vars.yaml when mcpServers is empty
-      const writeCall = mockWriteFile.mock.calls.find((call: any[]) =>
-        call[0].toString().endsWith('mcp-vars.yaml'),
-      );
-      // Actually, looking at the code, it seems mcp-vars.yaml is only written if mcpServers.length > 0
-      // But generateMCPVarsContent is only called when mcpServers.length > 0
-      // So when empty, the file should not be written
-      expect(writeCall).toBeUndefined();
-
-      // mcpVarsContent should not be output
-      const outputCall = ctx.output.mock.calls.find(
-        (call: any[]) => call[0] === 'mcpVarsContent',
-      );
-      expect(outputCall).toBeUndefined();
-    });
-
-    it('should output mcpVarsContent when MCP servers are specified', async () => {
-      const action = createEEDefinitionAction({
-        frontendUrl: 'http://localhost:3000',
-        auth,
-        discovery,
-      });
-      const ctx = {
-        input: {
-          values: {
-            eeFileName: 'test-ee',
-            baseImage: 'quay.io/ansible/ee-base:latest',
-            mcpServers: ['azure_mcp'],
-          },
-        },
-        logger,
-        workspacePath: mockWorkspacePath,
-        output: jest.fn(),
-      } as any;
-
-      await action.handler(ctx);
-
-      // Check that mcpVarsContent was output
-      const outputCall = ctx.output.mock.calls.find(
-        (call: any[]) => call[0] === 'mcpVarsContent',
-      );
-      expect(outputCall).toBeDefined();
-      const mcpVarsContent = outputCall![1] as string;
-
-      // Verify the content matches what was written to file
-      const writeCall = mockWriteFile.mock.calls.find((call: any[]) =>
-        call[0].toString().endsWith('mcp-vars.yaml'),
-      );
-      expect(writeCall).toBeDefined();
-      expect(mcpVarsContent).toBe(writeCall![1]);
-    });
-
-    it('should preserve mcpServers array after generating vars (common should be removed)', async () => {
-      const action = createEEDefinitionAction({
-        frontendUrl: 'http://localhost:3000',
-        auth,
-        discovery,
-      });
-      const originalMcpServers = ['azure_mcp', 'github_mcp'];
-      const ctx = {
-        input: {
-          values: {
-            eeFileName: 'test-ee',
-            baseImage: 'quay.io/ansible/ee-base:latest',
-            mcpServers: [...originalMcpServers],
-          },
-        },
-        logger,
-        workspacePath: mockWorkspacePath,
-        output: jest.fn(),
-      } as any;
-
-      await action.handler(ctx);
-
-      const writeCall = mockWriteFile.mock.calls.find((call: any[]) =>
-        call[0].toString().endsWith('mcp-vars.yaml'),
-      );
-      expect(writeCall).toBeDefined();
-      const content = writeCall![1] as string;
-
-      // Should include vars for both servers and common
-      expect(content).toContain('# vars for azure_mcp');
-      expect(content).toContain('# vars for github_mcp');
-      expect(content).toContain('# vars for common');
-    });
+    const eeConfig = mockDownloadEEScaffold.mock.calls[0][3];
+    expect(eeConfig.system_packages).toEqual([
+      'libssh-devel',
+      'openssl-devel',
+      'gcc',
+    ]);
   });
 
-  describe('validateEEDefinition functionality', () => {
-    it('should validate valid EE definition', async () => {
-      const validEEDefinition = {
-        version: 3,
-        images: { base_image: { name: 'quay.io/ansible/ee-base:latest' } },
-      };
-      mockYamlLoad.mockReturnValue(validEEDefinition);
-      mockEEDefinitionSchemaParse.mockReturnValue(validEEDefinition);
+  // ─── buildGalaxyServersFromConfig ───────────────────────────────────
 
-      const action = createEEDefinitionAction({
-        frontendUrl: 'http://localhost:3000',
-        auth,
-        discovery,
-      });
-      const ctx = {
-        input: {
-          values: {
-            eeFileName: 'test-ee',
-            baseImage: 'quay.io/ansible/ee-base:latest',
+  it('builds galaxy servers from catalog provider config', async () => {
+    const pahConfig = new ConfigReader({
+      ansible: {
+        creatorService: { baseUrl: 'localhost', port: '8000' },
+        devSpaces: { baseUrl: 'https://devspaces.example.com' },
+        rhaap: { baseUrl: 'https://pah.example.com' },
+      },
+      catalog: {
+        providers: {
+          rhaap: {
+            default: {
+              sync: {
+                pahCollections: {
+                  repositories: [{ name: 'validated' }, { name: 'community' }],
+                },
+              },
+            },
           },
         },
-        logger,
-        workspacePath: mockWorkspacePath,
-        output: jest.fn(),
-      } as any;
-
-      await action.handler(ctx);
-
-      expect(mockEEDefinitionSchemaParse).toHaveBeenCalled();
+      },
+    });
+    const action = makeAction(pahConfig);
+    const ctx = makeCtx({
+      eeFileName: 'test-ee',
+      baseImage: 'img:latest',
+      publishToSCM: true,
     });
 
-    it('should throw error for schema validation failure', async () => {
-      /*
-     The invalid EE definition is just for reference. It is not used in the test.
-     It shows an example of what circumstances the schema validation will fail.
-      const invalidEEDefinition = {
-        version: 3,
-        // missing required images field
-      };
-      */
-      const zodError = new z.ZodError([
+    await action.handler(ctx);
+
+    const eeConfig = mockDownloadEEScaffold.mock.calls[0][3];
+    expect(eeConfig.galaxy_servers).toEqual([
+      {
+        id: 'private_hub_validated',
+        url: 'https://pah.example.com/api/galaxy/content/validated/',
+        token_required: true,
+      },
+      {
+        id: 'private_hub_community',
+        url: 'https://pah.example.com/api/galaxy/content/community/',
+        token_required: true,
+      },
+    ]);
+  });
+
+  it('uses the same PAH repo normalizer for galaxy server IDs', async () => {
+    const pahConfig = new ConfigReader({
+      ansible: {
+        creatorService: { baseUrl: 'localhost', port: '8000' },
+        devSpaces: { baseUrl: 'https://devspaces.example.com' },
+        rhaap: { baseUrl: 'https://pah.example.com' },
+      },
+      catalog: {
+        providers: {
+          rhaap: {
+            default: {
+              sync: {
+                pahCollections: {
+                  repositories: [{ name: 'My-- Repo__Name' }],
+                },
+              },
+            },
+          },
+        },
+      },
+    });
+    const action = makeAction(pahConfig);
+    const ctx = makeCtx({
+      eeFileName: 'test-ee',
+      baseImage: 'img:latest',
+      publishToSCM: true,
+      collections: [
         {
-          code: 'invalid_type',
-          expected: 'object',
-          path: ['images'],
-          message: 'Required',
-        } as z.ZodIssue,
-      ]);
-      mockEEDefinitionSchemaParse.mockImplementation(() => {
-        throw zodError;
-      });
-
-      const action = createEEDefinitionAction({
-        frontendUrl: 'http://localhost:3000',
-        auth,
-        discovery,
-      });
-      const ctx = {
-        input: {
-          values: {
-            eeFileName: 'test-ee',
-            baseImage: 'quay.io/ansible/ee-base:latest',
-          },
+          name: 'my.collection',
+          source: 'Private Automation Hub / My-- Repo__Name',
         },
-        logger,
-        workspacePath: mockWorkspacePath,
-        output: jest.fn(),
-      } as any;
-
-      await expect(action.handler(ctx)).rejects.toThrow(
-        'Schema validation failed for the generated EE definition:\n- images: Required',
-      );
+      ],
     });
+
+    await action.handler(ctx);
+
+    const eeConfig = mockDownloadEEScaffold.mock.calls[0][3];
+    expect(eeConfig.collections[0].source).toBe('private_hub_my_repo_name');
+    expect(eeConfig.galaxy_servers[0].id).toBe('private_hub_my_repo_name');
   });
 
-  describe('contextDirName generation', () => {
-    it('should generate sanitized directory name from eeFileName', async () => {
-      const action = createEEDefinitionAction({
-        frontendUrl: 'http://localhost:3000',
-        auth,
-        discovery,
-      });
-      const ctx = {
-        input: {
-          values: {
-            eeFileName: 'My Test EE!',
-            baseImage: 'quay.io/ansible/ee-base:latest',
-          },
-        },
-        logger,
-        workspacePath: mockWorkspacePath,
-        output: jest.fn(),
-      } as any;
-
-      await action.handler(ctx);
-
-      const outputCall = ctx.output.mock.calls.find(
-        (call: any[]) => call[0] === 'contextDirName',
-      );
-      expect(outputCall).toBeDefined();
-      const dirName = outputCall![1];
-      expect(dirName).toBe('my-test-ee');
-      expect(dirName).toMatch(/^[a-z0-9-_]+$/);
-    });
-
-    it('should handle special characters in eeFileName', async () => {
-      const action = createEEDefinitionAction({
-        frontendUrl: 'http://localhost:3000',
-        auth,
-        discovery,
-      });
-      const ctx = {
-        input: {
-          values: {
-            eeFileName: 'EE@#$%^&*()',
-            baseImage: 'quay.io/ansible/ee-base:latest',
-          },
-        },
-        logger,
-        workspacePath: mockWorkspacePath,
-        output: jest.fn(),
-      } as any;
-
-      await action.handler(ctx);
-
-      const outputCall = ctx.output.mock.calls.find(
-        (call: any[]) => call[0] === 'contextDirName',
-      );
-      const dirName = outputCall![1];
-      expect(dirName).toEqual('ee');
-    });
-  });
-
-  describe('error handling', () => {
-    it('should handle file write errors', async () => {
-      mockWriteFile.mockRejectedValueOnce(new Error('Write failed'));
-
-      const action = createEEDefinitionAction({
-        frontendUrl: 'http://localhost:3000',
-        auth,
-        discovery,
-      });
-      const ctx = {
-        input: {
-          values: {
-            eeFileName: 'test-ee',
-            baseImage: 'quay.io/ansible/ee-base:latest',
-          },
-        },
-        logger,
-        workspacePath: mockWorkspacePath,
-        output: jest.fn(),
-      } as any;
-
-      await expect(action.handler(ctx)).rejects.toThrow('Write failed');
-    });
-
-    it('should handle directory creation errors', async () => {
-      mockMkdir.mockRejectedValueOnce(new Error('Mkdir failed'));
-
-      const action = createEEDefinitionAction({
-        frontendUrl: 'http://localhost:3000',
-        auth,
-        discovery,
-      });
-      const ctx = {
-        input: {
-          values: {
-            eeFileName: 'test-ee',
-            baseImage: 'quay.io/ansible/ee-base:latest',
-          },
-        },
-        logger,
-        workspacePath: mockWorkspacePath,
-        output: jest.fn(),
-      } as any;
-
-      await expect(action.handler(ctx)).rejects.toThrow('Mkdir failed');
-    });
-  });
-
-  describe('generateEETemplate functionality', () => {
-    it('should generate EE template with minimal inputs', async () => {
-      const action = createEEDefinitionAction({
-        frontendUrl: 'http://localhost:3000',
-        auth,
-        discovery,
-      });
-      const ctx = {
-        input: {
-          values: {
-            eeFileName: 'test-ee',
-            eeDescription: 'Test EE Description',
-            baseImage: 'quay.io/ansible/ee-base:latest',
-            tags: [],
-            publishToSCM: true,
-          },
-        },
-        logger,
-        workspacePath: mockWorkspacePath,
-        output: jest.fn(),
-      } as any;
-
-      await action.handler(ctx);
-
-      const writeCall = mockWriteFile.mock.calls.find((call: any[]) =>
-        call[0].toString().endsWith('template.yaml'),
-      );
-      expect(writeCall).toBeDefined();
-      const content = writeCall![1] as string;
-
-      // Verify basic template structure
-      expect(content).toContain('apiVersion: scaffolder.backstage.io/v1beta3');
-      expect(content).toContain('kind: Template');
-      expect(content).toContain('name: test-ee');
-      expect(content).toContain('title: test-ee');
-      expect(content).toContain('description: "Test EE Description"');
-      expect(content).toContain("ansible.io/saved-template: 'true'");
-      expect(content).toContain('type: execution-environment');
-    });
-
-    it('should generate EE template that is valid YAML', async () => {
-      const action = createEEDefinitionAction({
-        frontendUrl: 'http://localhost:3000',
-        auth,
-        discovery,
-      });
-      const ctx = {
-        input: {
-          values: {
-            eeFileName: 'test-ee',
-            eeDescription:
-              "Test EE Description 'single quotes' and characters: :!@#$%^&*()",
-            baseImage: 'quay.io/ansible/ee-base:latest',
-            tags: [],
-            publishToSCM: true,
-          },
-        },
-        logger,
-        workspacePath: mockWorkspacePath,
-        output: jest.fn(),
-      } as any;
-
-      await action.handler(ctx);
-
-      const writeCall = mockWriteFile.mock.calls.find((call: any[]) =>
-        call[0].toString().endsWith('template.yaml'),
-      );
-
-      expect(writeCall).toBeDefined();
-      const content = writeCall![1] as string;
-
-      // Verify that the template is valid YAML
-      expect(() => {
-        yaml.load(content);
-      }).not.toThrow();
-
-      // Verify basic template structure
-      expect(content).toContain('apiVersion: scaffolder.backstage.io/v1beta3');
-      expect(content).toContain('kind: Template');
-      expect(content).toContain('name: test-ee');
-      expect(content).toContain('title: test-ee');
-      expect(content).toContain(
-        'description: "Test EE Description \'single quotes\' and characters: :!@#$%^&*()"',
-      );
-      expect(content).toContain("ansible.io/saved-template: 'true'");
-      expect(content).toContain('type: execution-environment');
-    });
-
-    it('should generate EE template with default description when not provided', async () => {
-      const action = createEEDefinitionAction({
-        frontendUrl: 'http://localhost:3000',
-        auth,
-        discovery,
-      });
-      const ctx = {
-        input: {
-          values: {
-            eeFileName: 'test-ee',
-            baseImage: 'quay.io/ansible/ee-base:latest',
-            tags: [],
-            publishToSCM: true,
-          },
-        },
-        logger,
-        workspacePath: mockWorkspacePath,
-        output: jest.fn(),
-      } as any;
-
-      await action.handler(ctx);
-
-      const writeCall = mockWriteFile.mock.calls.find((call: any[]) =>
-        call[0].toString().endsWith('template.yaml'),
-      );
-      const content = writeCall![1] as string;
-      expect(content).toContain(
-        'description: "Saved Ansible Execution Environment Definition template"',
-      );
-    });
-
-    it('should generate EE template with collections', async () => {
-      const action = createEEDefinitionAction({
-        frontendUrl: 'http://localhost:3000',
-        auth,
-        discovery,
-      });
-      const ctx = {
-        input: {
-          values: {
-            eeFileName: 'test-ee',
-            eeDescription: 'Test EE',
-            baseImage: 'quay.io/ansible/ee-base:latest',
-            collections: [
-              { name: 'community.general', version: '1.0.0' },
-              { name: 'ansible.netcommon' },
-            ],
-            tags: [],
-            publishToSCM: true,
-          },
-        },
-        logger,
-        workspacePath: mockWorkspacePath,
-        output: jest.fn(),
-      } as any;
-
-      await action.handler(ctx);
-
-      const writeCall = mockWriteFile.mock.calls.find((call: any[]) =>
-        call[0].toString().endsWith('template.yaml'),
-      );
-      const content = writeCall![1] as string;
-
-      // Verify collections are included in the template
-      expect(content).toContain(
-        'default: [{"name":"community.general","version":"1.0.0"},{"name":"ansible.netcommon"}]',
-      );
-    });
-
-    it('should generate EE template with Python requirements', async () => {
-      const action = createEEDefinitionAction({
-        frontendUrl: 'http://localhost:3000',
-        auth,
-        discovery,
-      });
-      const ctx = {
-        input: {
-          values: {
-            eeFileName: 'test-ee',
-            eeDescription: 'Test EE',
-            baseImage: 'quay.io/ansible/ee-base:latest',
-            pythonRequirements: ['requests==2.28.0', 'jinja2>=3.0.0'],
-            tags: [],
-            publishToSCM: true,
-          },
-        },
-        logger,
-        workspacePath: mockWorkspacePath,
-        output: jest.fn(),
-      } as any;
-
-      await action.handler(ctx);
-
-      const writeCall = mockWriteFile.mock.calls.find((call: any[]) =>
-        call[0].toString().endsWith('template.yaml'),
-      );
-      const content = writeCall![1] as string;
-
-      // Verify Python requirements are included
-      expect(content).toContain(
-        'default: ["requests==2.28.0","jinja2>=3.0.0"]',
-      );
-    });
-
-    it('should generate EE template with system packages', async () => {
-      const action = createEEDefinitionAction({
-        frontendUrl: 'http://localhost:3000',
-        auth,
-        discovery,
-      });
-      const ctx = {
-        input: {
-          values: {
-            eeFileName: 'test-ee',
-            eeDescription: 'Test EE',
-            baseImage: 'quay.io/ansible/ee-base:latest',
-            systemPackages: ['git', 'curl'],
-            tags: [],
-            publishToSCM: true,
-          },
-        },
-        logger,
-        workspacePath: mockWorkspacePath,
-        output: jest.fn(),
-      } as any;
-
-      await action.handler(ctx);
-
-      const writeCall = mockWriteFile.mock.calls.find((call: any[]) =>
-        call[0].toString().endsWith('template.yaml'),
-      );
-      const content = writeCall![1] as string;
-
-      // Verify system packages are included
-      expect(content).toContain('default: ["git","curl"]');
-    });
-
-    it('should generate EE template with MCP servers', async () => {
-      const action = createEEDefinitionAction({
-        frontendUrl: 'http://localhost:3000',
-        auth,
-        discovery,
-      });
-      const ctx = {
-        input: {
-          values: {
-            eeFileName: 'test-ee',
-            eeDescription: 'Test EE',
-            baseImage: 'quay.io/ansible/ee-base:latest',
-            mcpServers: ['github', 'aws'],
-            tags: [],
-            publishToSCM: true,
-          },
-        },
-        logger,
-        workspacePath: mockWorkspacePath,
-        output: jest.fn(),
-      } as any;
-
-      await action.handler(ctx);
-
-      const writeCall = mockWriteFile.mock.calls.find((call: any[]) =>
-        call[0].toString().endsWith('template.yaml'),
-      );
-      const content = writeCall![1] as string;
-
-      // Verify MCP servers are included
-      expect(content).toContain('default: ["github","aws"]');
-    });
-
-    it('should generate EE template with additional build steps', async () => {
-      const action = createEEDefinitionAction({
-        frontendUrl: 'http://localhost:3000',
-        auth,
-        discovery,
-      });
-      const ctx = {
-        input: {
-          values: {
-            eeFileName: 'test-ee',
-            eeDescription: 'Test EE',
-            baseImage: 'quay.io/ansible/ee-base:latest',
-            additionalBuildSteps: [
-              {
-                stepType: 'append_builder',
-                commands: ['RUN whoami', 'RUN pwd'],
+  it('skips galaxy servers when pahCollections.enabled is false', async () => {
+    const pahConfig = new ConfigReader({
+      ansible: {
+        creatorService: { baseUrl: 'localhost', port: '8000' },
+        devSpaces: { baseUrl: 'https://devspaces.example.com' },
+        rhaap: { baseUrl: 'https://pah.example.com' },
+      },
+      catalog: {
+        providers: {
+          rhaap: {
+            default: {
+              sync: {
+                pahCollections: {
+                  enabled: false,
+                  repositories: [{ name: 'validated' }],
+                },
               },
-            ],
-            tags: [],
-            publishToSCM: true,
+            },
           },
         },
-        logger,
-        workspacePath: mockWorkspacePath,
-        output: jest.fn(),
-      } as any;
-
-      await action.handler(ctx);
-
-      const writeCall = mockWriteFile.mock.calls.find((call: any[]) =>
-        call[0].toString().endsWith('template.yaml'),
-      );
-      const content = writeCall![1] as string;
-
-      // Verify additional build steps are included
-      expect(content).toContain(
-        'default: [{"stepType":"append_builder","commands":["RUN whoami","RUN pwd"]},{"stepType":"prepend_base","commands":["COPY _build/configs/ansible.cfg /etc/ansible/ansible.cfg"]},{"stepType":"append_final","commands":["RUN rm -f /etc/ansible/ansible.cfg"]}]',
-      );
+      },
+    });
+    const action = makeAction(pahConfig);
+    const ctx = makeCtx({
+      eeFileName: 'test-ee',
+      baseImage: 'img:latest',
+      publishToSCM: true,
     });
 
-    it('should generate EE template with tags', async () => {
-      const action = createEEDefinitionAction({
-        frontendUrl: 'http://localhost:3000',
-        auth,
-        discovery,
-      });
-      const ctx = {
-        input: {
-          values: {
-            eeFileName: 'test-ee',
-            eeDescription: 'Test EE',
-            baseImage: 'quay.io/ansible/ee-base:latest',
-            tags: ['ansible', 'automation', 'ee'],
-            publishToSCM: true,
-          },
-        },
-        logger,
-        workspacePath: mockWorkspacePath,
-        output: jest.fn(),
-      } as any;
+    await action.handler(ctx);
 
-      await action.handler(ctx);
+    const eeConfig = mockDownloadEEScaffold.mock.calls[0][3];
+    expect(eeConfig.galaxy_servers).toBeUndefined();
+  });
 
-      const writeCall = mockWriteFile.mock.calls.find((call: any[]) =>
-        call[0].toString().endsWith('template.yaml'),
-      );
-      const content = writeCall![1] as string;
+  // ─── generateEETemplate ─────────────────────────────────────────────
 
-      // Verify tags are included
-      expect(content).toContain('tags: ["ansible","automation","ee"]');
+  it('generates valid template YAML with all inputs', async () => {
+    const action = makeAction();
+    const ctx = makeCtx({
+      eeFileName: 'test-ee',
+      eeDescription: 'My test EE',
+      baseImage: 'img:latest',
+      publishToSCM: true,
+      collections: [{ name: 'community.general' }],
+      pythonRequirements: ['requests'],
+      systemPackages: ['gcc'],
+      additionalBuildSteps: [
+        { stepType: 'prepend_base', commands: ['RUN whoami'] },
+      ],
+      tags: ['execution-environment', 'test'],
     });
 
-    it('should generate EE template with custom base image', async () => {
-      const action = createEEDefinitionAction({
-        frontendUrl: 'http://localhost:3000',
-        auth,
-        discovery,
-      });
-      const ctx = {
-        input: {
-          values: {
-            eeFileName: 'test-ee',
-            eeDescription: 'Test EE',
-            baseImage: 'quay.io/ansible/ee-base:latest',
-            customBaseImage: 'quay.io/custom/ee-image:latest',
-            tags: [],
-            publishToSCM: true,
-          },
-        },
-        logger,
-        workspacePath: mockWorkspacePath,
-        output: jest.fn(),
-      } as any;
+    await action.handler(ctx);
 
-      await action.handler(ctx);
+    const templateWriteCall = mockWriteFile.mock.calls.find((call: any[]) =>
+      call[0].toString().endsWith('-template.yml'),
+    );
+    expect(templateWriteCall).toBeDefined();
+    const content = templateWriteCall![1] as string;
+    expect(content).toContain('kind: Template');
+    expect(content).toContain('name: test-ee');
+    expect(content).toContain('type: execution-environment');
+    expect(content).toContain('ansible.io/saved-template');
+    expect(content).toContain('BaseImagePicker');
+    expect(content).toContain('CollectionsPicker');
+    expect(content).toContain('PackagesPicker');
+    expect(content).toContain('AdditionalBuildStepsPicker');
+  });
 
-      const writeCall = mockWriteFile.mock.calls.find((call: any[]) =>
-        call[0].toString().endsWith('template.yaml'),
-      );
-      const content = writeCall![1] as string;
-
-      // Verify custom base image is included in enum
-      expect(content).toContain("- 'quay.io/custom/ee-image:latest'");
-      // Verify custom base image is in enumNames
-      const lines = content.split('\n');
-      const enumIndex = lines.findIndex(line => line.includes('enum:'));
-      const enumNamesIndex = lines.findIndex(line =>
-        line.includes('enumNames:'),
-      );
-      expect(enumIndex).toBeGreaterThan(-1);
-      expect(enumNamesIndex).toBeGreaterThan(-1);
+  it('includes custom base image in template enum when provided', async () => {
+    const action = makeAction();
+    const ctx = makeCtx({
+      eeFileName: 'test-ee',
+      baseImage: 'quay.io/custom/image:1.0',
+      customBaseImage: 'quay.io/custom/image:1.0',
+      publishToSCM: true,
     });
 
-    it('should generate EE template with all inputs provided', async () => {
-      const action = createEEDefinitionAction({
-        frontendUrl: 'http://localhost:3000',
-        auth,
-        discovery,
-      });
-      const ctx = {
-        input: {
-          values: {
-            eeFileName: 'test-ee',
-            eeDescription: 'Complete Test EE',
-            baseImage: 'quay.io/ansible/ee-base:latest',
-            customBaseImage: 'quay.io/custom/ee:latest',
-            collections: [{ name: 'community.general', version: '1.0.0' }],
-            pythonRequirements: ['requests==2.28.0'],
-            systemPackages: ['git'],
-            mcpServers: ['github'],
-            additionalBuildSteps: [
-              {
-                stepType: 'append_builder',
-                commands: ['RUN echo "test"'],
+    await action.handler(ctx);
+
+    const templateWriteCall = mockWriteFile.mock.calls.find((call: any[]) =>
+      call[0].toString().endsWith('-template.yml'),
+    );
+    const content = templateWriteCall![1] as string;
+    expect(content).toContain("'quay.io/custom/image:1.0'");
+  });
+
+  it('includes all build step types in template enum', async () => {
+    const action = makeAction();
+    const ctx = makeCtx({
+      eeFileName: 'test-ee',
+      baseImage: 'img:latest',
+      publishToSCM: true,
+    });
+
+    await action.handler(ctx);
+
+    const templateWriteCall = mockWriteFile.mock.calls.find((call: any[]) =>
+      call[0].toString().endsWith('-template.yml'),
+    );
+    const content = templateWriteCall![1] as string;
+    for (const step of [
+      'prepend_base',
+      'append_base',
+      'prepend_galaxy',
+      'append_galaxy',
+      'prepend_builder',
+      'append_builder',
+      'prepend_final',
+      'append_final',
+    ]) {
+      expect(content).toContain(step);
+    }
+  });
+
+  // ─── Edge cases for coverage gaps ───────────────────────────────────
+
+  it('handles missing ansible.cfg gracefully', async () => {
+    const action = makeAction();
+    const ctx = makeCtx({
+      eeFileName: 'test-ee',
+      baseImage: 'img:latest',
+      publishToSCM: false,
+    });
+    mockReadFile.mockImplementation(async (filePath: any) => {
+      if (filePath.toString().endsWith('ansible.cfg')) {
+        throw new Error('ENOENT');
+      }
+      return '' as any;
+    });
+
+    await action.handler(ctx);
+
+    expect(logger.info).toHaveBeenCalledWith(
+      expect.stringContaining('no ansible.cfg'),
+    );
+  });
+
+  it('deduplicates collections keeping higher semver version', async () => {
+    const action = makeAction();
+    const ctx = makeCtx({
+      eeFileName: 'test-ee',
+      baseImage: 'img:latest',
+      publishToSCM: true,
+      collections: [
+        { name: 'community.general', version: '1.0.0' },
+        { name: 'community.general', version: '2.0.0' },
+      ],
+    });
+
+    await action.handler(ctx);
+
+    const eeConfig = mockDownloadEEScaffold.mock.calls[0][3];
+    expect(eeConfig.collections).toEqual([
+      { name: 'community.general', version: '2.0.0' },
+    ]);
+  });
+
+  it('keeps existing versionless collection over versioned duplicate', async () => {
+    const action = makeAction();
+    const ctx = makeCtx({
+      eeFileName: 'test-ee',
+      baseImage: 'img:latest',
+      publishToSCM: true,
+      collections: [
+        { name: 'community.general' },
+        { name: 'community.general', version: '1.0.0' },
+      ],
+    });
+
+    await action.handler(ctx);
+
+    const eeConfig = mockDownloadEEScaffold.mock.calls[0][3];
+    expect(eeConfig.collections).toEqual([{ name: 'community.general' }]);
+  });
+
+  it('deduplicates galaxy servers across provider envs', async () => {
+    const pahConfig = new ConfigReader({
+      ansible: {
+        creatorService: { baseUrl: 'localhost', port: '8000' },
+        devSpaces: { baseUrl: 'https://devspaces.example.com' },
+        rhaap: { baseUrl: 'https://pah.example.com' },
+      },
+      catalog: {
+        providers: {
+          rhaap: {
+            env1: {
+              sync: {
+                pahCollections: {
+                  repositories: [{ name: 'validated' }],
+                },
               },
-            ],
-            tags: ['ansible', 'test'],
-            publishToSCM: true,
+            },
+            env2: {
+              sync: {
+                pahCollections: {
+                  repositories: [{ name: 'validated' }, { name: 'community' }],
+                },
+              },
+            },
           },
         },
-        logger,
-        workspacePath: mockWorkspacePath,
-        output: jest.fn(),
-      } as any;
-
-      await action.handler(ctx);
-
-      const writeCall = mockWriteFile.mock.calls.find((call: any[]) =>
-        call[0].toString().endsWith('template.yaml'),
-      );
-      const content = writeCall![1] as string;
-
-      // Verify all sections are present
-      expect(content).toContain('name: test-ee');
-      expect(content).toContain('description: "Complete Test EE"');
-      expect(content).toContain('tags: ["ansible","test"]');
-      expect(content).toContain(
-        'default: [{"name":"community.general","version":"1.0.0"},{"name":"ansible.mcp_builder"},{"name":"ansible.mcp"}]',
-      );
-      expect(content).toContain('default: ["requests==2.28.0"]');
-      expect(content).toContain('default: ["git"]');
-      expect(content).toContain('default: ["github"]');
-      expect(content).toContain("- 'quay.io/custom/ee:latest'");
+      },
+    });
+    const action = makeAction(pahConfig);
+    const ctx = makeCtx({
+      eeFileName: 'test-ee',
+      baseImage: 'img:latest',
+      publishToSCM: true,
     });
 
-    it('should handle empty arrays in template generation', async () => {
-      const action = createEEDefinitionAction({
-        frontendUrl: 'http://localhost:3000',
-        auth,
-        discovery,
-      });
-      const ctx = {
-        input: {
-          values: {
-            eeFileName: 'test-ee',
-            eeDescription: 'Test EE',
-            baseImage: 'quay.io/ansible/ee-base:latest',
-            collections: [],
-            pythonRequirements: [],
-            systemPackages: [],
-            mcpServers: [],
-            additionalBuildSteps: [],
-            tags: [],
-            publishToSCM: true,
+    await action.handler(ctx);
+
+    const eeConfig = mockDownloadEEScaffold.mock.calls[0][3];
+    expect(eeConfig.galaxy_servers).toHaveLength(2);
+  });
+
+  it('skips provider env without pahCollections.repositories', async () => {
+    const pahConfig = new ConfigReader({
+      ansible: {
+        creatorService: { baseUrl: 'localhost', port: '8000' },
+        devSpaces: { baseUrl: 'https://devspaces.example.com' },
+        rhaap: { baseUrl: 'https://pah.example.com' },
+      },
+      catalog: {
+        providers: {
+          rhaap: {
+            default: {
+              sync: {
+                pahCollections: {},
+              },
+            },
           },
         },
-        logger,
-        workspacePath: mockWorkspacePath,
-        output: jest.fn(),
-      } as any;
-
-      await action.handler(ctx);
-
-      const writeCall = mockWriteFile.mock.calls.find((call: any[]) =>
-        call[0].toString().endsWith('template.yaml'),
-      );
-      const content = writeCall![1] as string;
-
-      // Verify empty arrays are serialized correctly
-      expect(content).toContain('default: []');
-      expect(content).toContain('tags: []');
+      },
+    });
+    const action = makeAction(pahConfig);
+    const ctx = makeCtx({
+      eeFileName: 'test-ee',
+      baseImage: 'img:latest',
+      publishToSCM: true,
     });
 
-    it('should include all template steps in generated template', async () => {
-      const action = createEEDefinitionAction({
-        frontendUrl: 'http://localhost:3000',
-        auth,
-        discovery,
-      });
-      const ctx = {
-        input: {
-          values: {
-            eeFileName: 'test-ee',
-            eeDescription: 'Test EE',
-            baseImage: 'quay.io/ansible/ee-base:latest',
-            tags: [],
-            publishToSCM: true,
-          },
-        },
-        logger,
-        workspacePath: mockWorkspacePath,
-        output: jest.fn(),
-      } as any;
+    await action.handler(ctx);
 
-      await action.handler(ctx);
+    const eeConfig = mockDownloadEEScaffold.mock.calls[0][3];
+    expect(eeConfig.galaxy_servers).toBeUndefined();
+  });
 
-      const writeCall = mockWriteFile.mock.calls.find((call: any[]) =>
-        call[0].toString().endsWith('template.yaml'),
-      );
-      const content = writeCall![1] as string;
-
-      // Verify key steps are present
-      expect(content).toContain('id: create-ee-definition');
-      expect(content).toContain('id: create-catalog-info-file');
+  it('no-ops patchWorkflowEeDir when workflow file is missing', async () => {
+    const action = makeAction();
+    const ctx = makeCtx({
+      eeFileName: 'test-ee',
+      baseImage: 'img:latest',
+      publishToSCM: true,
+    });
+    mockReadFile.mockImplementation(async (filePath: any) => {
+      if (filePath.toString().endsWith('ee-build.yml')) {
+        throw new Error('ENOENT');
+      }
+      return '' as any;
     });
 
-    it('should include base image enum options in template', async () => {
-      const action = createEEDefinitionAction({
-        frontendUrl: 'http://localhost:3000',
-        auth,
-        discovery,
-      });
-      const ctx = {
-        input: {
-          values: {
-            eeFileName: 'test-ee',
-            eeDescription: 'Test EE',
-            baseImage: 'quay.io/ansible/ee-base:latest',
-            tags: [],
-            publishToSCM: true,
-          },
-        },
-        logger,
-        workspacePath: mockWorkspacePath,
-        output: jest.fn(),
-      } as any;
+    await action.handler(ctx);
 
-      await action.handler(ctx);
+    const workflowWriteCall = mockWriteFile.mock.calls.find((call: any[]) =>
+      call[0].toString().includes('ee-build.yml'),
+    );
+    expect(workflowWriteCall).toBeUndefined();
+  });
 
-      const writeCall = mockWriteFile.mock.calls.find((call: any[]) =>
-        call[0].toString().endsWith('template.yaml'),
-      );
-      const content = writeCall![1] as string;
-
-      // Verify default base image enum options are present
-      expect(content).toContain(
-        "- 'registry.redhat.io/ansible-automation-platform/ee-minimal-rhel8:2.18'",
-      );
-      expect(content).toContain(
-        "- 'registry.redhat.io/ansible-automation-platform/ee-minimal-rhel9:2.18'",
-      );
-      expect(content).toContain(
-        "- 'registry.redhat.io/ansible-automation-platform/ee-minimal-rhel8:2.16'",
-      );
-      expect(content).toContain(
-        "- 'registry.redhat.io/ansible-automation-platform/ee-minimal-rhel9:2.16'",
-      );
+  it('passes correct entity shape to catalog register_ee endpoint', async () => {
+    const action = makeAction();
+    const ctx = makeCtx({
+      eeFileName: 'test-ee',
+      eeDescription: 'Test EE desc',
+      baseImage: 'img:latest',
+      publishToSCM: false,
+      tags: ['execution-environment'],
     });
 
-    it('should include MCP servers enum in template', async () => {
-      const action = createEEDefinitionAction({
-        frontendUrl: 'http://localhost:3000',
-        auth,
-        discovery,
-      });
-      const ctx = {
-        input: {
-          values: {
-            eeFileName: 'test-ee',
-            eeDescription: 'Test EE',
-            baseImage: 'quay.io/ansible/ee-base:latest',
-            tags: [],
-            publishToSCM: true,
-          },
-        },
-        logger,
-        workspacePath: mockWorkspacePath,
-        output: jest.fn(),
-      } as any;
-
-      await action.handler(ctx);
-
-      const writeCall = mockWriteFile.mock.calls.find((call: any[]) =>
-        call[0].toString().endsWith('template.yaml'),
-      );
-      const content = writeCall![1] as string;
-
-      // Verify MCP servers enum includes expected options
-      expect(content).toContain('- Github');
-      expect(content).toContain('- AWS');
-      expect(content).toContain('- Azure');
+    mockReadFile.mockImplementation(async (filePath: any) => {
+      if (filePath.toString().endsWith('.yml')) return 'ee-def-content' as any;
+      if (filePath.toString().endsWith('ansible.cfg'))
+        return '[galaxy]\nserver_list = hub\n' as any;
+      return '' as any;
     });
 
-    it('should include all build step types in enum', async () => {
-      const action = createEEDefinitionAction({
-        frontendUrl: 'http://localhost:3000',
-        auth,
-        discovery,
-      });
-      const ctx = {
-        input: {
-          values: {
-            eeFileName: 'test-ee',
-            eeDescription: 'Test EE',
-            baseImage: 'quay.io/ansible/ee-base:latest',
-            tags: [],
-            publishToSCM: true,
+    await action.handler(ctx);
+
+    const [, fetchOptions] = (mockFetch as jest.Mock).mock.calls[0];
+    const body = JSON.parse(fetchOptions.body);
+    expect(body.entity).toMatchObject({
+      kind: 'Component',
+      metadata: {
+        name: 'test-ee',
+        description: 'Test EE desc',
+        tags: ['execution-environment'],
+        annotations: {
+          'ansible.io/download-experience': 'true',
+        },
+      },
+      spec: {
+        type: 'execution-environment',
+        owner: 'user:default/testuser',
+        definition: 'ee-def-content',
+        readme: expect.stringContaining('Execution Environment'),
+      },
+    });
+  });
+
+  it('uses owner from input when provided', async () => {
+    const action = makeAction();
+    const ctx = makeCtx({
+      eeFileName: 'test-ee',
+      baseImage: 'img:latest',
+      publishToSCM: true,
+      owner: 'group:default/platform',
+    });
+
+    await action.handler(ctx);
+
+    expect(ctx.output).toHaveBeenCalledWith('owner', 'group:default/platform');
+  });
+
+  it('falls back to customBaseImage when baseImage is empty', async () => {
+    const action = makeAction();
+    const ctx = makeCtx({
+      eeFileName: 'test-ee',
+      baseImage: '',
+      customBaseImage: 'quay.io/org/custom:latest',
+      publishToSCM: true,
+    });
+
+    await action.handler(ctx);
+
+    const eeConfig = mockDownloadEEScaffold.mock.calls[0][3];
+    expect(eeConfig.base_image).toBe('quay.io/org/custom:latest');
+  });
+
+  it('canonicalizes eeFileName by stripping leading path', async () => {
+    const action = makeAction();
+    const ctx = makeCtx({
+      eeFileName: '../evil',
+      baseImage: 'img:latest',
+      publishToSCM: true,
+    });
+
+    await action.handler(ctx);
+
+    expect(ctx.output).toHaveBeenCalledWith('contextDirName', 'evil');
+    const eeConfig = mockDownloadEEScaffold.mock.calls[0][3];
+    expect(eeConfig.ee_file_name).toBe('evil.yml');
+  });
+
+  it('canonicalizes eeFileName by removing one trailing yaml extension', async () => {
+    const action = makeAction();
+    const ctx = makeCtx({
+      eeFileName: 'My-EE.yaml',
+      baseImage: 'img:latest',
+      publishToSCM: true,
+    });
+
+    await action.handler(ctx);
+
+    expect(ctx.output).toHaveBeenCalledWith('contextDirName', 'my-ee');
+    const eeConfig = mockDownloadEEScaffold.mock.calls[0][3];
+    expect(eeConfig.ee_file_name).toBe('my-ee.yml');
+  });
+
+  it('rejects eeFileName when canonical slug becomes empty', async () => {
+    const action = makeAction();
+    const ctx = makeCtx({
+      eeFileName: '   .yaml   ',
+      baseImage: 'img:latest',
+      publishToSCM: true,
+    });
+
+    await expect(action.handler(ctx)).rejects.toThrow(
+      'Invalid eeFileName: canonical name is empty',
+    );
+    expect(mockDownloadEEScaffold).not.toHaveBeenCalled();
+  });
+
+  // ─── SCM collections: partition, transform, scmServers ──────────────
+
+  function makeScmConfig(gitProviders?: Record<string, any[]>) {
+    return new ConfigReader({
+      ansible: {
+        creatorService: { baseUrl: 'localhost', port: '8000' },
+        devSpaces: { baseUrl: 'https://devspaces.example.com' },
+      },
+      catalog: {
+        providers: {
+          rhaap: {
+            default: {
+              sync: {
+                ansibleGitContents: { providers: gitProviders ?? {} },
+              },
+            },
           },
         },
-        logger,
-        workspacePath: mockWorkspacePath,
-        output: jest.fn(),
-      } as any;
+      },
+    });
+  }
 
-      await action.handler(ctx);
+  it('partitions SCM collections from non-SCM and transforms git URLs', async () => {
+    const scmCfg = makeScmConfig({
+      github: [{ name: 'github-public', host: 'github.com' }],
+    });
+    const action = makeAction(scmCfg);
+    const ctx = makeCtx({
+      eeFileName: 'test-ee',
+      baseImage: 'img:latest',
+      publishToSCM: true,
+      collections: [
+        { name: 'community.general' },
+        {
+          name: 'my.scm_collection',
+          source: 'Github / github-public / my-org / my-repo',
+          version: 'main',
+        },
+      ],
+    });
 
-      const writeCall = mockWriteFile.mock.calls.find((call: any[]) =>
-        call[0].toString().endsWith('template.yaml'),
-      );
-      const content = writeCall![1] as string;
+    await action.handler(ctx);
 
-      // Verify all build step types are in enum
-      expect(content).toContain("- 'prepend_base'");
-      expect(content).toContain("- 'append_base'");
-      expect(content).toContain("- 'prepend_galaxy'");
-      expect(content).toContain("- 'append_galaxy'");
-      expect(content).toContain("- 'prepend_builder'");
-      expect(content).toContain("- 'append_builder'");
-      expect(content).toContain("- 'prepend_final'");
-      expect(content).toContain("- 'append_final'");
+    const eeConfig = mockDownloadEEScaffold.mock.calls[0][3];
+    expect(eeConfig.collections).toEqual([
+      { name: 'community.general' },
+      {
+        name: 'https://${AAP_EE_BUILDER_GITHUB_GITHUB_PUBLIC_TOKEN}@github.com/my-org/my-repo',
+        type: 'git',
+        version: 'main',
+      },
+    ]);
+  });
+
+  it('produces scmServers alongside SCM collections', async () => {
+    const scmCfg = makeScmConfig({
+      github: [{ name: 'github-public', host: 'github.com' }],
+    });
+    const action = makeAction(scmCfg);
+    const ctx = makeCtx({
+      eeFileName: 'test-ee',
+      baseImage: 'img:latest',
+      publishToSCM: true,
+      collections: [
+        {
+          name: 'col1',
+          source: 'Github / github-public / org1 / repo1',
+          version: 'v1.0',
+        },
+        {
+          name: 'col2',
+          source: 'Github / github-public / org2 / repo2',
+        },
+      ],
+    });
+
+    await action.handler(ctx);
+
+    const eeConfig = mockDownloadEEScaffold.mock.calls[0][3];
+    expect(eeConfig.scm_servers).toEqual([
+      {
+        id: 'aap_ee_builder_github_github_public_token',
+        hostname: 'github.com',
+        token_env_var: 'AAP_EE_BUILDER_GITHUB_GITHUB_PUBLIC_TOKEN',
+      },
+    ]);
+  });
+
+  it('deduplicates scmServers when multiple collections share the same provider', async () => {
+    const scmCfg = makeScmConfig({
+      gitlab: [{ name: 'corp-gitlab', host: 'gitlab.corp.com' }],
+    });
+    const action = makeAction(scmCfg);
+    const ctx = makeCtx({
+      eeFileName: 'test-ee',
+      baseImage: 'img:latest',
+      publishToSCM: true,
+      collections: [
+        {
+          name: 'col1',
+          source: 'Gitlab / corp-gitlab / team / repo-a',
+        },
+        {
+          name: 'col2',
+          source: 'Gitlab / corp-gitlab / team / repo-b',
+        },
+      ],
+    });
+
+    await action.handler(ctx);
+
+    const eeConfig = mockDownloadEEScaffold.mock.calls[0][3];
+    expect(eeConfig.scm_servers).toHaveLength(1);
+    expect(eeConfig.collections).toHaveLength(2);
+  });
+
+  it('defaults SCM host to <provider>.com when host is not configured', async () => {
+    const scmCfg = makeScmConfig({
+      github: [{ name: 'my-gh' }],
+    });
+    const action = makeAction(scmCfg);
+    const ctx = makeCtx({
+      eeFileName: 'test-ee',
+      baseImage: 'img:latest',
+      publishToSCM: true,
+      collections: [
+        {
+          name: 'col',
+          source: 'Github / my-gh / org / repo',
+        },
+      ],
+    });
+
+    await action.handler(ctx);
+
+    const eeConfig = mockDownloadEEScaffold.mock.calls[0][3];
+    expect(eeConfig.collections[0].name).toContain('@github.com/');
+  });
+
+  it('throws when SCM canonical name is not found in config', async () => {
+    const scmCfg = makeScmConfig({ github: [{ name: 'other-host' }] });
+    const action = makeAction(scmCfg);
+    const ctx = makeCtx({
+      eeFileName: 'test-ee',
+      baseImage: 'img:latest',
+      publishToSCM: true,
+      collections: [
+        {
+          name: 'col',
+          source: 'Github / unknown-host / org / repo',
+        },
+      ],
+    });
+
+    await expect(action.handler(ctx)).rejects.toThrow(
+      'Cannot resolve SCM host',
+    );
+  });
+
+  it('throws when no rhaap config exists for SCM host lookup', async () => {
+    const noRhaapCfg = new ConfigReader({
+      ansible: {
+        creatorService: { baseUrl: 'localhost', port: '8000' },
+        devSpaces: { baseUrl: 'https://devspaces.example.com' },
+      },
+    });
+    const action = makeAction(noRhaapCfg);
+    const ctx = makeCtx({
+      eeFileName: 'test-ee',
+      baseImage: 'img:latest',
+      publishToSCM: true,
+      collections: [
+        {
+          name: 'col',
+          source: 'Github / gh-pub / org / repo',
+        },
+      ],
+    });
+
+    await expect(action.handler(ctx)).rejects.toThrow(
+      'Cannot resolve SCM host',
+    );
+  });
+
+  it('strips display metadata after "/" from SCM collection version', async () => {
+    const scmCfg = makeScmConfig({
+      github: [{ name: 'gh', host: 'github.com' }],
+    });
+    const action = makeAction(scmCfg);
+    const ctx = makeCtx({
+      eeFileName: 'test-ee',
+      baseImage: 'img:latest',
+      publishToSCM: true,
+      collections: [
+        {
+          name: 'col',
+          source: 'Github / gh / org / repo',
+          version: 'main / extra-info',
+        },
+      ],
+    });
+
+    await action.handler(ctx);
+
+    const eeConfig = mockDownloadEEScaffold.mock.calls[0][3];
+    expect(eeConfig.collections[0].version).toBe('main');
+  });
+
+  it('omits scmServers from eeConfig when no SCM collections', async () => {
+    const action = makeAction();
+    const ctx = makeCtx({
+      eeFileName: 'test-ee',
+      baseImage: 'img:latest',
+      publishToSCM: true,
+      collections: [{ name: 'community.general' }],
+    });
+
+    await action.handler(ctx);
+
+    const eeConfig = mockDownloadEEScaffold.mock.calls[0][3];
+    expect(eeConfig.scm_servers).toBeUndefined();
+  });
+
+  // ─── Input sanitization (canonicalize + validate pipeline) ────────────
+
+  it('sanitizes NUL bytes out of eeFileName via canonicalization', async () => {
+    const action = makeAction();
+    const ctx = makeCtx({
+      eeFileName: 'bad\0name',
+      baseImage: 'img:latest',
+      publishToSCM: true,
+    });
+
+    await action.handler(ctx);
+
+    expect(ctx.output).toHaveBeenCalledWith('contextDirName', 'bad-name');
+  });
+
+  it('extracts basename from absolute eeFileName path', async () => {
+    const action = makeAction();
+    const ctx = makeCtx({
+      eeFileName: '/etc/passwd',
+      baseImage: 'img:latest',
+      publishToSCM: true,
+    });
+
+    await action.handler(ctx);
+
+    expect(ctx.output).toHaveBeenCalledWith('contextDirName', 'passwd');
+  });
+
+  it('extracts basename from eeFileName with path separators', async () => {
+    const action = makeAction();
+    const ctx = makeCtx({
+      eeFileName: 'foo/bar',
+      baseImage: 'img:latest',
+      publishToSCM: true,
+    });
+
+    await action.handler(ctx);
+
+    expect(ctx.output).toHaveBeenCalledWith('contextDirName', 'bar');
+  });
+
+  it('sanitizes backslash in eeFileName to dash', async () => {
+    const action = makeAction();
+    const ctx = makeCtx({
+      eeFileName: 'foo\\bar',
+      baseImage: 'img:latest',
+      publishToSCM: true,
+    });
+
+    await action.handler(ctx);
+
+    expect(ctx.output).toHaveBeenCalledWith('contextDirName', 'foo-bar');
+  });
+
+  // ─── Edge cases for deeper coverage ─────────────────────────────────
+
+  it('strips trailing slashes from PAH base URL', async () => {
+    const trailingSlashConfig = new ConfigReader({
+      ansible: {
+        creatorService: { baseUrl: 'localhost', port: '8000' },
+        devSpaces: { baseUrl: 'https://devspaces.example.com' },
+        rhaap: { baseUrl: 'https://pah.example.com///' },
+      },
+      catalog: {
+        providers: {
+          rhaap: {
+            default: {
+              sync: {
+                pahCollections: {
+                  repositories: [{ name: 'published' }],
+                },
+              },
+            },
+          },
+        },
+      },
+    });
+    const action = makeAction(trailingSlashConfig);
+    const ctx = makeCtx({
+      eeFileName: 'test-ee',
+      baseImage: 'img:latest',
+      publishToSCM: true,
+    });
+
+    await action.handler(ctx);
+
+    const eeConfig = mockDownloadEEScaffold.mock.calls[0][3];
+    expect(eeConfig.galaxy_servers[0].url).toBe(
+      'https://pah.example.com/api/galaxy/content/published/',
+    );
+  });
+
+  it('normalizes PAH repo names with leading/trailing special chars', async () => {
+    const pahConfig = new ConfigReader({
+      ansible: {
+        creatorService: { baseUrl: 'localhost', port: '8000' },
+        devSpaces: { baseUrl: 'https://devspaces.example.com' },
+        rhaap: { baseUrl: 'https://pah.example.com' },
+      },
+      catalog: {
+        providers: {
+          rhaap: {
+            default: {
+              sync: {
+                pahCollections: {
+                  repositories: [{ name: '---Published---' }],
+                },
+              },
+            },
+          },
+        },
+      },
+    });
+    const action = makeAction(pahConfig);
+    const ctx = makeCtx({
+      eeFileName: 'test-ee',
+      baseImage: 'img:latest',
+      publishToSCM: true,
+    });
+
+    await action.handler(ctx);
+
+    const eeConfig = mockDownloadEEScaffold.mock.calls[0][3];
+    expect(eeConfig.galaxy_servers[0].id).toBe('private_hub_published');
+  });
+
+  it('generates README without ansible.cfg section when cfg is absent', async () => {
+    const action = makeAction();
+    const ctx = makeCtx({
+      eeFileName: 'test-ee',
+      baseImage: 'img:latest',
+      publishToSCM: true,
+    });
+    mockReadFile.mockImplementation(async (filePath: any) => {
+      if (filePath.toString().endsWith('ansible.cfg')) {
+        throw new Error('ENOENT');
+      }
+      return '' as any;
+    });
+
+    await action.handler(ctx);
+
+    const readmeCall = mockWriteFile.mock.calls.find((call: any[]) =>
+      call[0].toString().endsWith('README.md'),
+    );
+    const readme = readmeCall![1] as string;
+    expect(readme).toContain(
+      'collection-source token configuration steps are omitted',
+    );
+    expect(readme).not.toContain('Configure Automation Hub access');
+  });
+
+  it('does not patch ansible.cfg when [galaxy] section is absent', async () => {
+    const action = makeAction();
+    const ctx = makeCtx({
+      eeFileName: 'test-ee',
+      baseImage: 'img:latest',
+      publishToSCM: true,
+    });
+    mockReadFile.mockImplementation(async (filePath: any) => {
+      if (filePath.toString().endsWith('ansible.cfg')) {
+        return '[defaults]\nhost_key_checking = False\n' as any;
+      }
+      return '' as any;
+    });
+
+    await action.handler(ctx);
+
+    const cfgWriteCall = mockWriteFile.mock.calls.find((call: any[]) =>
+      call[0].toString().endsWith('ansible.cfg'),
+    );
+    const cfgContent = cfgWriteCall![1] as string;
+    expect(cfgContent).not.toContain('ignore_certs');
+  });
+
+  it('passes non-PAH non-SCM collection sources through unchanged', async () => {
+    const action = makeAction();
+    const ctx = makeCtx({
+      eeFileName: 'test-ee',
+      baseImage: 'img:latest',
+      publishToSCM: true,
+      collections: [
+        {
+          name: 'custom.col',
+          source: 'https://galaxy.custom.com',
+          type: 'galaxy',
+        },
+      ],
+    });
+
+    await action.handler(ctx);
+
+    const eeConfig = mockDownloadEEScaffold.mock.calls[0][3];
+    expect(eeConfig.collections[0]).toEqual({
+      name: 'custom.col',
+      source: 'https://galaxy.custom.com',
+      type: 'galaxy',
     });
   });
 });

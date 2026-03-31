@@ -394,13 +394,10 @@ export const RunTask = () => {
     if (
       !entity?.spec?.definition ||
       !entity?.spec?.readme ||
-      !entity?.spec?.ansible_cfg ||
       !entity?.spec?.template
     ) {
       // eslint-disable-next-line no-console
-      console.error(
-        'Entity, definition, readme, ansible_cfg or template not available',
-      );
+      console.error('Entity, definition, readme, or template not available');
       return;
     }
 

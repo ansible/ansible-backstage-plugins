@@ -1007,7 +1007,7 @@ describe('EEListPage', () => {
       fireEvent.click(editMenuItem);
 
       expect(windowOpenSpy).toHaveBeenCalledWith(
-        'https://github.com/org/repo/blob/main/ctx/ee-one.yaml',
+        'https://github.com/org/repo/blob/main/ctx/ee-one.yml',
         '_blank',
         'noopener,noreferrer',
       );
