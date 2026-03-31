@@ -89,7 +89,11 @@ describe('createRouter', () => {
   const mockConfig = new ConfigReader({
     integrations: {
       github: [{ host: 'github.com', token: 'test-token' }],
-      gitlab: [{ host: 'gitlab.com', token: 'test-token' }],
+      gitlab: [
+        { host: 'gitlab.com', token: 'test-token' },
+        // Declared host so header-only auth tests can target a non-SaaS hostname (SSRF allowlist)
+        { host: 'gitlab.other.com' },
+      ],
     },
   });
 
@@ -879,16 +883,48 @@ describe('createRouter', () => {
       expect(response.body.error).toContain('Invalid host');
     });
 
+    it('should return 400 when host is not allowed (SSRF mitigation)', async () => {
+      const configNoGitlab = new ConfigReader({});
+      const routerNoGitlab = await createRouter({
+        logger: mockLogger,
+        config: configNoGitlab,
+        aapEntityProvider: mockAAPEntityProvider,
+        jobTemplateProvider: mockJobTemplateProvider,
+        eeEntityProvider: mockEEEntityProvider,
+        pahCollectionProviders: [],
+        httpAuth: mockHttpAuth,
+        userInfo: mockUserInfo,
+        auth: mockAuth,
+        catalogClient: mockCatalogClient,
+      });
+      const appNoGitlab = express().use(routerNoGitlab);
+
+      const response = await request(appNoGitlab)
+        .get('/ansible/git/ci-activity')
+        .query({
+          provider: 'gitlab',
+          projectPath: 'group/project',
+          host: '169.254.169.254',
+        })
+        .set('Authorization', 'Bearer token');
+
+      expect(response.status).toBe(400);
+      expect(response.body.error).toContain(
+        'not allowed for GitLab CI activity',
+      );
+      expect(response.body.error).toContain('integrations.gitlab');
+    });
+
     it('should return 400 when projectPath is missing', async () => {
       const response = await request(app)
         .get('/ansible/git/ci-activity')
         .query({ provider: 'gitlab', host: 'gitlab.com' });
 
       expect(response.status).toBe(400);
-      expect(response.body.error).toContain('Missing projectPath');
+      expect(response.body.error).toContain('projectPath');
     });
 
-    it('should return 400 when token is missing and not in config', async () => {
+    it('should return 400 when host is not declared in integrations.gitlab', async () => {
       const configWithoutToken = new ConfigReader({});
       const routerWithoutToken = await createRouter({
         logger: mockLogger,
@@ -910,12 +946,14 @@ describe('createRouter', () => {
           provider: 'gitlab',
           projectPath: 'group/project',
           host: 'gitlab.unknown.com',
-        });
+        })
+        .set('Authorization', 'Bearer some-token');
 
       expect(response.status).toBe(400);
       expect(response.body.error).toContain(
-        'Missing projectPath or authorization',
+        'not allowed for GitLab CI activity',
       );
+      expect(response.body.error).toContain('integrations.gitlab');
     });
 
     it('should use token from config for matching host', async () => {
@@ -1106,7 +1144,10 @@ describe('createRouter', () => {
     it('should disable SSL verification for hosts in skipTlsVerifyForHosts', async () => {
       const configWithSkipTls = new ConfigReader({
         integrations: {
-          gitlab: [{ host: 'gitlab.com', token: 'test-token' }],
+          gitlab: [
+            { host: 'gitlab.com', token: 'test-token' },
+            { host: 'gitlab.insecure.com', token: 'token' },
+          ],
         },
         catalog: {
           ansible: {
@@ -1320,6 +1361,39 @@ describe('createRouter', () => {
 
       expect(response.status).toBe(400);
       expect(response.body.error).toContain('Invalid host');
+    });
+
+    it('should return 400 when host is not allowed (SSRF mitigation)', async () => {
+      const configNoGithub = new ConfigReader({});
+      const routerNoGithub = await createRouter({
+        logger: mockLogger,
+        config: configNoGithub,
+        aapEntityProvider: mockAAPEntityProvider,
+        jobTemplateProvider: mockJobTemplateProvider,
+        eeEntityProvider: mockEEEntityProvider,
+        pahCollectionProviders: [],
+        httpAuth: mockHttpAuth,
+        userInfo: mockUserInfo,
+        auth: mockAuth,
+        catalogClient: mockCatalogClient,
+      });
+      const appNoGithub = express().use(routerNoGithub);
+
+      const response = await request(appNoGithub)
+        .get('/ansible/git/ci-activity')
+        .query({
+          provider: 'github',
+          owner: 'my-owner',
+          repo: 'my-repo',
+          host: '169.254.169.254',
+        })
+        .set('Authorization', 'Bearer token');
+
+      expect(response.status).toBe(400);
+      expect(response.body.error).toContain(
+        'not allowed for GitHub CI activity',
+      );
+      expect(response.body.error).toContain('integrations.github');
     });
 
     it('should return 400 when token is missing', async () => {

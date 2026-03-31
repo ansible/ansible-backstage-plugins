@@ -45,6 +45,8 @@ import {
   getGitHubIntegrationForHost,
   getSkipTlsVerifyHosts,
   isSafeHostname,
+  isGitHubHostAllowedForProxy,
+  isGitLabHostAllowedForProxy,
 } from './helpers';
 import { EEEntityProvider } from './providers/EEEntityProvider';
 import {
@@ -634,6 +636,13 @@ export async function createRouter(options: {
       return;
     }
 
+    if (!isGitHubHostAllowedForProxy(config, host)) {
+      response.status(400).json({
+        error: `Host '${host}' is not allowed for GitHub CI activity. Add it under integrations.github in app-config, or use github.com.`,
+      });
+      return;
+    }
+
     const tokenFromRequest = request.headers.authorization?.replace(
       /^Bearer\s+/i,
       '',
@@ -699,17 +708,9 @@ export async function createRouter(options: {
     const projectPath = request.query.projectPath as string | undefined;
     const host = (request.query.host as string) || 'gitlab.com';
 
-    const tokenFromRequest =
-      (request.headers['private-token'] as string) ||
-      request.headers.authorization?.replace(/^Bearer\s+/i, '');
-    const { token: tokenFromConfig, apiBaseUrl: apiBaseFromConfig } =
-      getGitLabIntegrationForHost(config, host);
-    const token = tokenFromConfig || tokenFromRequest;
-
-    if (!projectPath || !token) {
+    if (!projectPath) {
       response.status(400).json({
-        error:
-          'Missing projectPath or authorization (PRIVATE-TOKEN, Authorization header, or integrations.gitlab token in config)',
+        error: 'Missing required query parameter: projectPath',
       });
       return;
     }
@@ -717,6 +718,28 @@ export async function createRouter(options: {
     if (!isSafeHostname(host)) {
       response.status(400).json({
         error: 'Invalid host: must be a valid hostname (e.g. gitlab.com)',
+      });
+      return;
+    }
+
+    if (!isGitLabHostAllowedForProxy(config, host)) {
+      response.status(400).json({
+        error: `Host '${host}' is not allowed for GitLab CI activity. Add it under integrations.gitlab in app-config, or use gitlab.com.`,
+      });
+      return;
+    }
+
+    const tokenFromRequest =
+      (request.headers['private-token'] as string) ||
+      request.headers.authorization?.replace(/^Bearer\s+/i, '');
+    const { token: tokenFromConfig, apiBaseUrl: apiBaseFromConfig } =
+      getGitLabIntegrationForHost(config, host);
+    const token = tokenFromConfig || tokenFromRequest;
+
+    if (!token) {
+      response.status(400).json({
+        error:
+          'Missing projectPath or authorization (PRIVATE-TOKEN, Authorization header, or integrations.gitlab token in config)',
       });
       return;
     }

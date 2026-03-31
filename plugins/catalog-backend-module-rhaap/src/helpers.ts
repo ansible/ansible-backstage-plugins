@@ -42,6 +42,46 @@ export function getGitHubIntegrationForHost(
   return {};
 }
 
+export function isGitHubHostAllowedForProxy(
+  config: Config,
+  host: string,
+): boolean {
+  if (host === 'github.com') {
+    return true;
+  }
+  const arr = config.getOptionalConfigArray('integrations.github');
+  if (!arr?.length) {
+    return false;
+  }
+  for (const c of arr) {
+    const h = c.getOptionalString('host') ?? 'github.com';
+    if (h === host) {
+      return true;
+    }
+  }
+  return false;
+}
+
+export function isGitLabHostAllowedForProxy(
+  config: Config,
+  host: string,
+): boolean {
+  if (host === 'gitlab.com') {
+    return true;
+  }
+  const arr = config.getOptionalConfigArray('integrations.gitlab');
+  if (!arr?.length) {
+    return false;
+  }
+  for (const c of arr) {
+    const h = c.getOptionalString('host') ?? 'gitlab.com';
+    if (h === host) {
+      return true;
+    }
+  }
+  return false;
+}
+
 export function isSafeHostname(host: string): boolean {
   if (typeof host !== 'string' || host.length === 0 || host.length > 253) {
     return false;

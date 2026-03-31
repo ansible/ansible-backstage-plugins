@@ -17,6 +17,8 @@ import {
   isSafeHostname,
   getGitLabIntegrationForHost,
   getSkipTlsVerifyHosts,
+  isGitHubHostAllowedForProxy,
+  isGitLabHostAllowedForProxy,
 } from './helpers';
 import type { AnsibleGitContentsProvider } from './providers/AnsibleGitContentsProvider';
 
@@ -1051,6 +1053,70 @@ describe('helpers', () => {
         token: 'internal-token',
         apiBaseUrl: undefined,
       });
+    });
+  });
+
+  describe('isGitHubHostAllowedForProxy', () => {
+    it('allows github.com when integrations.github is missing', () => {
+      const config = new ConfigReader({});
+      expect(isGitHubHostAllowedForProxy(config, 'github.com')).toBe(true);
+    });
+
+    it('allows github.com when integrations.github is empty', () => {
+      const config = new ConfigReader({ integrations: { github: [] } });
+      expect(isGitHubHostAllowedForProxy(config, 'github.com')).toBe(true);
+    });
+
+    it('rejects other hosts when integrations.github is missing', () => {
+      const config = new ConfigReader({});
+      expect(isGitHubHostAllowedForProxy(config, 'git.example.com')).toBe(
+        false,
+      );
+    });
+
+    it('allows a host that appears in integrations.github', () => {
+      const config = new ConfigReader({
+        integrations: {
+          github: [{ host: 'git.enterprise.com', token: 't' }],
+        },
+      });
+      expect(isGitHubHostAllowedForProxy(config, 'git.enterprise.com')).toBe(
+        true,
+      );
+    });
+
+    it('matches default host github.com for an entry without host key', () => {
+      const config = new ConfigReader({
+        integrations: {
+          github: [{ token: 't' }],
+        },
+      });
+      expect(isGitHubHostAllowedForProxy(config, 'github.com')).toBe(true);
+    });
+  });
+
+  describe('isGitLabHostAllowedForProxy', () => {
+    it('allows gitlab.com when integrations.gitlab is missing', () => {
+      const config = new ConfigReader({});
+      expect(isGitLabHostAllowedForProxy(config, 'gitlab.com')).toBe(true);
+    });
+
+    it('rejects other hosts when integrations.gitlab is missing', () => {
+      const config = new ConfigReader({});
+      expect(isGitLabHostAllowedForProxy(config, 'gitlab.internal.com')).toBe(
+        false,
+      );
+    });
+
+    it('allows a host that appears in integrations.gitlab', () => {
+      const config = new ConfigReader({
+        integrations: {
+          gitlab: [{ host: 'gitlab.internal.com', token: 't' }],
+        },
+      });
+      expect(isGitLabHostAllowedForProxy(config, 'gitlab.internal.com')).toBe(
+        true,
+      );
     });
   });
 
