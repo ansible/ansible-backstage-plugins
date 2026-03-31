@@ -220,11 +220,11 @@ export function usePaginatedCollections({
 
       const matchesSearch =
         !searchLower ||
-        entity.metadata?.name?.toLowerCase().includes(searchLower) ||
+        entity.metadata?.name?.toLowerCase()?.includes(searchLower) ||
         (entity.spec?.collection_namespace as string | undefined)
           ?.toLowerCase()
-          .includes(searchLower) ||
-        entity.metadata?.description?.toLowerCase().includes(searchLower) ||
+          ?.includes(searchLower) ||
+        entity.metadata?.description?.toLowerCase()?.includes(searchLower) ||
         entity.metadata?.tags?.some((tag: string) =>
           tag.toLowerCase().includes(searchLower),
         );
