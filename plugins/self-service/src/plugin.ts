@@ -54,7 +54,7 @@ export const EEPage = selfServicePlugin.provide(
   createRoutableExtension({
     name: 'EEPage',
     component: () =>
-      import('./components/ExecutionEnvironments').then((m: any) => m.EETabs),
+      import('./components/ExecutionEnvironments').then(m => m.EERoutesPage),
     mountPoint: eeRouteRef,
   }),
 );

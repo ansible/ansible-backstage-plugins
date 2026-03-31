@@ -461,6 +461,31 @@ describe('collectionsCache', () => {
     });
   });
 
+  describe('invalidateFetchedData', () => {
+    it('notifies subscribers with empty data then reloads without dropping listeners', async () => {
+      const listener = jest.fn();
+      const mockCatalogApi = createMockCatalogApi();
+      collectionsCache.subscribe(listener);
+      await collectionsCache.startLoading(mockCatalogApi);
+      listener.mockClear();
+
+      collectionsCache.invalidateFetchedData();
+
+      expect(listener).toHaveBeenCalledWith(
+        expect.objectContaining({
+          entities: [],
+          totalServerItems: 0,
+          isFullyLoaded: false,
+        }),
+      );
+
+      await collectionsCache.startLoading(mockCatalogApi);
+
+      expect(collectionsCache.getState()?.entities).toHaveLength(1);
+      expect(listener.mock.calls.length).toBeGreaterThan(0);
+    });
+  });
+
   describe('clear', () => {
     it('clears all state', async () => {
       const mockCatalogApi = createMockCatalogApi();

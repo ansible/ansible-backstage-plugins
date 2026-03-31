@@ -797,6 +797,37 @@ describe('syncPollingService', () => {
       expect(mockFetchApi.fetch.mock.calls.length).toBe(callsBefore);
     });
 
+    it('does not reschedule polling when clear runs while fetch is in flight', async () => {
+      let finishFetch!: (value: unknown) => void;
+      const fetchGate = new Promise(resolve => {
+        finishFetch = resolve;
+      });
+
+      mockFetchApi.fetch.mockImplementation(() =>
+        fetchGate.then(() => ({
+          ok: true,
+          json: () => Promise.resolve({ content: { providers: [] } }),
+        })),
+      );
+
+      syncPollingService.initialize(
+        mockDiscoveryApi as any,
+        mockFetchApi as any,
+      );
+
+      await jest.advanceTimersByTimeAsync(0);
+      expect(mockFetchApi.fetch).toHaveBeenCalledTimes(1);
+
+      syncPollingService.clear();
+      finishFetch(undefined);
+
+      await jest.advanceTimersByTimeAsync(0);
+
+      await jest.advanceTimersByTimeAsync(SLOW_POLL_INTERVAL_MS * 2);
+
+      expect(mockFetchApi.fetch.mock.calls.length).toBe(1);
+    });
+
     it('clears tracked syncs', () => {
       syncPollingService.initialize(
         mockDiscoveryApi as any,

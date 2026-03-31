@@ -27,6 +27,7 @@ class CollectionsCache {
   private loadingPromise: Promise<void> | null = null;
   private catalogApi: CatalogApi | null = null;
   private readonly listeners: Set<CacheUpdateListener> = new Set();
+  private fetchEpoch = 0;
 
   getState(): CollectionsCacheState | null {
     if (!this.state) return null;
@@ -68,6 +69,38 @@ class CollectionsCache {
     }
   }
 
+  private createEmptySnapshot(): CollectionsCacheState {
+    return {
+      entities: [],
+      totalServerItems: 0,
+      loadedOffset: 0,
+      isFullyLoaded: false,
+      allSources: ['All'],
+      allTags: ['All'],
+      syncStatusMap: {},
+      hasConfiguredSources: null,
+      lastUpdated: Date.now(),
+      error: null,
+    };
+  }
+
+  private clearLoadingPromiseIfCurrent(epoch: number): void {
+    if (epoch === this.fetchEpoch) {
+      this.loadingPromise = null;
+    }
+  }
+
+  invalidateFetchedData(): void {
+    this.fetchEpoch++;
+    this.state = null;
+    this.loadingPromise = null;
+    const empty = this.createEmptySnapshot();
+    this.listeners.forEach(listener => listener(empty));
+    if (this.catalogApi) {
+      void this.startLoading(this.catalogApi);
+    }
+  }
+
   // initialize the cache
   async startLoading(catalogApi: CatalogApi): Promise<void> {
     this.catalogApi = catalogApi;
@@ -94,12 +127,17 @@ class CollectionsCache {
 
   private async performInitialLoad(): Promise<void> {
     if (!this.catalogApi) return;
+    const epoch = this.fetchEpoch;
 
     try {
       const response = await this.catalogApi.queryEntities({
         filter: { kind: 'Component', 'spec.type': 'ansible-collection' },
         limit: INITIAL_FETCH_LIMIT,
       });
+
+      if (epoch !== this.fetchEpoch) {
+        return;
+      }
 
       const items = response?.items || [];
       const total = response?.totalItems ?? items.length;
@@ -124,9 +162,13 @@ class CollectionsCache {
       if (items.length < total) {
         this.continueBackgroundLoading();
       } else {
-        this.loadingPromise = null;
+        this.clearLoadingPromiseIfCurrent(epoch);
       }
     } catch (err) {
+      if (epoch !== this.fetchEpoch) {
+        return;
+      }
+
       const errorMessage =
         err instanceof Error ? err.message : 'Failed to fetch collections';
 
@@ -144,7 +186,7 @@ class CollectionsCache {
       };
 
       this.notifyListeners();
-      this.loadingPromise = null;
+      this.clearLoadingPromiseIfCurrent(epoch);
     }
   }
 
@@ -163,6 +205,7 @@ class CollectionsCache {
     }
 
     const loadPromise = (async () => {
+      const epoch = this.fetchEpoch;
       if (!this.catalogApi || !this.state) return;
 
       let allItems = [...this.state.entities];
@@ -171,11 +214,19 @@ class CollectionsCache {
 
       try {
         while (offset < total) {
+          if (epoch !== this.fetchEpoch) {
+            break;
+          }
+
           const response = await this.catalogApi.queryEntities({
             filter: { kind: 'Component', 'spec.type': 'ansible-collection' },
             limit: BACKGROUND_FETCH_LIMIT,
             offset,
           });
+
+          if (epoch !== this.fetchEpoch) {
+            break;
+          }
 
           const newItems = response?.items || [];
           if (newItems.length === 0) break;
@@ -197,7 +248,7 @@ class CollectionsCache {
           this.notifyListeners();
         }
 
-        if (this.state) {
+        if (epoch === this.fetchEpoch && this.state) {
           this.state = {
             ...this.state,
             isFullyLoaded: true,
@@ -211,7 +262,7 @@ class CollectionsCache {
           console.error('Error loading remaining collections:', err);
         }
       } finally {
-        this.loadingPromise = null;
+        this.clearLoadingPromiseIfCurrent(epoch);
       }
     })();
 
@@ -246,6 +297,7 @@ class CollectionsCache {
   }
 
   clear(): void {
+    this.fetchEpoch++;
     this.state = null;
     this.loadingPromise = null;
     this.catalogApi = null;

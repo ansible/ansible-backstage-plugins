@@ -64,9 +64,14 @@ class SyncPollingService {
   private readonly trackedSyncs: Map<string, TrackedSync> = new Map();
   private pollTimer: NodeJS.Timeout | null = null;
   private pollLoopStarted = false;
+  private pollGeneration = 0;
   private isChecking = false;
   private isSyncInProgress = false;
   private readonly listeners: Set<SyncStatusListener> = new Set();
+
+  private isCurrentGeneration(gen: number): boolean {
+    return gen === this.pollGeneration;
+  }
 
   initialize(discoveryApi: DiscoveryApi, fetchApi: FetchApi): void {
     this.discoveryApi = discoveryApi;
@@ -77,7 +82,11 @@ class SyncPollingService {
     }
     this.pollLoopStarted = true;
 
+    const gen = this.pollGeneration;
     this.checkSyncStatus().then(anyInProgress => {
+      if (!this.isCurrentGeneration(gen)) {
+        return;
+      }
       this.scheduleNextPoll(anyInProgress);
     });
   }
@@ -124,18 +133,24 @@ class SyncPollingService {
     if (this.isChecking) {
       return this.isSyncInProgress;
     }
+    const genAtStart = this.pollGeneration;
     this.isChecking = true;
 
     try {
       const providers = await this.fetchSyncStatus();
+      if (!this.isCurrentGeneration(genAtStart)) {
+        return this.isSyncInProgress;
+      }
       if (providers === null) {
         return this.isSyncInProgress || this.trackedSyncs.size > 0;
       }
 
-      const anyInProgress = providers.some(p => p.syncInProgress);
+      const anyProviderInProgress = providers.some(p => p.syncInProgress);
+      const effectiveInProgress =
+        anyProviderInProgress || this.trackedSyncs.size > 0;
 
-      if (this.isSyncInProgress !== anyInProgress) {
-        this.isSyncInProgress = anyInProgress;
+      if (this.isSyncInProgress !== effectiveInProgress) {
+        this.isSyncInProgress = effectiveInProgress;
         this.notifyListeners();
       }
 
@@ -156,8 +171,7 @@ class SyncPollingService {
         const trackingTimedOut = now - tracked.startedAt > TRACKING_TIMEOUT_MS;
 
         if (syncCompleted) {
-          // Invalidate the collections cache so new data is fetched
-          collectionsCache.clear();
+          collectionsCache.invalidateFetchedData();
 
           if (provider.lastSyncStatus === 'success') {
             const isFirstSync = tracked.lastSyncTimeAtStart === null;
@@ -192,7 +206,7 @@ class SyncPollingService {
         }
       }
 
-      return anyInProgress;
+      return anyProviderInProgress || this.trackedSyncs.size > 0;
     } finally {
       this.isChecking = false;
     }
@@ -207,8 +221,15 @@ class SyncPollingService {
       ? FAST_POLL_INTERVAL_MS
       : SLOW_POLL_INTERVAL_MS;
 
+    const gen = this.pollGeneration;
     this.pollTimer = setTimeout(async () => {
+      if (!this.isCurrentGeneration(gen)) {
+        return;
+      }
       const stillInProgress = await this.checkSyncStatus();
+      if (!this.isCurrentGeneration(gen)) {
+        return;
+      }
       this.scheduleNextPoll(stillInProgress);
     }, interval);
   }
@@ -240,12 +261,17 @@ class SyncPollingService {
       this.notifyListeners();
     }
 
+    const gen = this.pollGeneration;
     this.checkSyncStatus().then(anyInProgress => {
+      if (!this.isCurrentGeneration(gen)) {
+        return;
+      }
       this.scheduleNextPoll(anyInProgress);
     });
   }
 
   clear(): void {
+    this.pollGeneration += 1;
     if (this.pollTimer !== null) {
       clearTimeout(this.pollTimer);
       this.pollTimer = null;
