@@ -52,9 +52,6 @@ import {
   ScmClientFactory,
 } from '@ansible/backstage-rhaap-common';
 
-// Express Request is not assignable to Backstage's auth request type; cast is required.
-type HttpAuthRequest = Parameters<HttpAuthService['credentials']>[0];
-
 export async function createRouter(options: {
   logger: LoggerService;
   config: Config;
@@ -259,9 +256,14 @@ export async function createRouter(options: {
 
   router.post('/register_ee', express.json(), async (request, response) => {
     // Only allow backend service calls (for example, scaffolder to catalog), not user requests
-    await httpAuth.credentials(request as unknown as HttpAuthRequest, {
-      allow: ['service'],
-    });
+    await httpAuth.credentials(
+      // Express Request (express-promise-router) vs Backstage's `credentials` param use incompatible Express generics; runtime value is valid.
+      // @ts-expect-error Avoid double assertion flagged by Sonar; types do not overlap per TS (e.g. `param` on Request).
+      request,
+      {
+        allow: ['service'],
+      },
+    );
 
     const { entity } = request.body;
 
@@ -525,7 +527,10 @@ export async function createRouter(options: {
       ansibleGitContentsProviders,
       filters,
     );
-    return Array.from(matchedIds).map(id => _GIT_CONTENTS_PROVIDERS.get(id)!);
+    return Array.from(matchedIds).flatMap(id => {
+      const provider = _GIT_CONTENTS_PROVIDERS.get(id);
+      return provider === undefined ? [] : [provider];
+    });
   }
 
   router.get('/git_file_content', async (request, response) => {

@@ -255,7 +255,7 @@ describe('useLatestCIActivity', () => {
 
   it('handles mixed GitHub and GitLab entities', async () => {
     mockFetchApi.fetch.mockImplementation((url: string) => {
-      if (url.includes('/ansible/github/workflow-runs')) {
+      if (url.includes('provider=github')) {
         return Promise.resolve({
           ok: true,
           json: () =>
@@ -272,17 +272,23 @@ describe('useLatestCIActivity', () => {
             }),
         });
       }
-      // GitLab
+      if (url.includes('provider=gitlab')) {
+        return Promise.resolve({
+          ok: true,
+          json: () =>
+            Promise.resolve([
+              {
+                id: 20,
+                created_at: '2024-06-15T11:00:00Z',
+                web_url: 'https://gitlab.com/group/project/pipelines/20',
+              },
+            ]),
+        });
+      }
       return Promise.resolve({
-        ok: true,
-        json: () =>
-          Promise.resolve([
-            {
-              id: 20,
-              created_at: '2024-06-15T11:00:00Z',
-              web_url: 'https://gitlab.com/group/project/pipelines/20',
-            },
-          ]),
+        ok: false,
+        status: 404,
+        json: () => Promise.resolve({}),
       });
     });
 

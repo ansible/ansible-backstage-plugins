@@ -213,15 +213,15 @@ export function resolveProvidersToRun<T>(
   if (repositoryNames.length === 0) {
     return { providersToRun: allProviders, invalidRepositories };
   }
-  const validNames: string[] = [];
+  const providersToRun: T[] = [];
   for (const name of repositoryNames) {
-    if (providerMap.has(name)) {
-      validNames.push(name);
-    } else {
+    const provider = providerMap.get(name);
+    if (provider === undefined) {
       invalidRepositories.push(name);
+    } else {
+      providersToRun.push(provider);
     }
   }
-  const providersToRun = validNames.map(name => providerMap.get(name)!);
   return { providersToRun, invalidRepositories };
 }
 
