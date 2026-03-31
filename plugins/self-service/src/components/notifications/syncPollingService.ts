@@ -8,6 +8,7 @@ import {
   FAST_POLL_INTERVAL_MS,
   SLOW_POLL_INTERVAL_MS,
 } from '../common/constants';
+import { collectionsCache } from '../CollectionsCatalog/collectionsCache';
 
 interface ProviderStatus {
   sourceId: string;
@@ -149,6 +150,9 @@ class SyncPollingService {
         const trackingTimedOut = now - tracked.startedAt > TRACKING_TIMEOUT_MS;
 
         if (syncCompleted) {
+          // Invalidate the collections cache so new data is fetched
+          collectionsCache.clear();
+
           if (provider.lastSyncStatus === 'success') {
             const isFirstSync = tracked.lastSyncTimeAtStart === null;
 
