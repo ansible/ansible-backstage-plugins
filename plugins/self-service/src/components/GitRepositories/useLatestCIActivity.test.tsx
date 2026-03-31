@@ -2,7 +2,6 @@ import { render, screen, waitFor } from '@testing-library/react';
 import { ThemeProvider, createTheme } from '@material-ui/core/styles';
 import { TestApiProvider } from '@backstage/test-utils';
 import { discoveryApiRef, fetchApiRef } from '@backstage/core-plugin-api';
-import { githubActionsApiRef } from '@backstage-community/plugin-github-actions';
 import { Entity } from '@backstage/catalog-model';
 import {
   useLatestCIActivity,
@@ -10,10 +9,6 @@ import {
 } from './useLatestCIActivity';
 
 const theme = createTheme();
-
-const mockGithubActionsApi = {
-  listWorkflowRuns: jest.fn(),
-};
 
 const mockDiscoveryApi = {
   getBaseUrl: jest.fn().mockResolvedValue('https://backstage.io/api/catalog'),
@@ -51,7 +46,6 @@ function renderTestConsumer(entities: Entity[]) {
         apis={[
           [discoveryApiRef, mockDiscoveryApi],
           [fetchApiRef, mockFetchApi],
-          [githubActionsApiRef, mockGithubActionsApi],
         ]}
       >
         <TestConsumer entities={entities} />
@@ -112,16 +106,20 @@ describe('useLatestCIActivity', () => {
   });
 
   it('fetches GitHub Actions workflow runs for GitHub entities', async () => {
-    mockGithubActionsApi.listWorkflowRuns.mockResolvedValue({
-      workflow_runs: [
-        {
-          run_number: 42,
-          id: 123,
-          name: 'CI Build',
-          created_at: '2024-06-15T11:30:00Z',
-          html_url: 'https://github.com/my-org/my-repo/actions/runs/123',
-        },
-      ],
+    mockFetchApi.fetch.mockResolvedValue({
+      ok: true,
+      json: () =>
+        Promise.resolve({
+          workflow_runs: [
+            {
+              run_number: 42,
+              id: 123,
+              name: 'CI Build',
+              created_at: '2024-06-15T11:30:00Z',
+              html_url: 'https://github.com/my-org/my-repo/actions/runs/123',
+            },
+          ],
+        }),
     });
 
     renderTestConsumer([createGitHubEntity('test-repo')]);
@@ -130,11 +128,10 @@ describe('useLatestCIActivity', () => {
       expect(screen.getByTestId('loading')).toHaveTextContent('false');
     });
 
-    expect(mockGithubActionsApi.listWorkflowRuns).toHaveBeenCalledWith({
-      owner: 'my-org',
-      repo: 'my-repo',
-      pageSize: 1,
-    });
+    expect(mockFetchApi.fetch).toHaveBeenCalledWith(
+      expect.stringContaining('/ansible/git/ci-activity?provider=github'),
+      expect.objectContaining({ credentials: 'include' }),
+    );
 
     expect(screen.getByTestId('activity-test-repo')).toHaveTextContent(
       'CI Build #42 • 30 minutes ago',
@@ -142,8 +139,9 @@ describe('useLatestCIActivity', () => {
   });
 
   it('returns N/A when GitHub has no workflow runs', async () => {
-    mockGithubActionsApi.listWorkflowRuns.mockResolvedValue({
-      workflow_runs: [],
+    mockFetchApi.fetch.mockResolvedValue({
+      ok: true,
+      json: () => Promise.resolve({ workflow_runs: [] }),
     });
 
     renderTestConsumer([createGitHubEntity('empty-repo')]);
@@ -156,9 +154,10 @@ describe('useLatestCIActivity', () => {
   });
 
   it('handles GitHub API errors gracefully', async () => {
-    mockGithubActionsApi.listWorkflowRuns.mockRejectedValue(
-      new Error('API Error'),
-    );
+    mockFetchApi.fetch.mockResolvedValue({
+      ok: false,
+      status: 500,
+    });
 
     renderTestConsumer([createGitHubEntity('error-repo')]);
 
@@ -189,7 +188,7 @@ describe('useLatestCIActivity', () => {
     });
 
     expect(mockFetchApi.fetch).toHaveBeenCalledWith(
-      expect.stringContaining('/ansible/gitlab/pipelines'),
+      expect.stringContaining('/ansible/git/ci-activity?provider=gitlab'),
       expect.objectContaining({ credentials: 'include' }),
     );
 
@@ -255,28 +254,42 @@ describe('useLatestCIActivity', () => {
   });
 
   it('handles mixed GitHub and GitLab entities', async () => {
-    mockGithubActionsApi.listWorkflowRuns.mockResolvedValue({
-      workflow_runs: [
-        {
-          run_number: 10,
-          id: 100,
-          name: 'Test',
-          created_at: '2024-06-15T11:00:00Z',
-          html_url: 'https://github.com/org/repo/actions/runs/100',
-        },
-      ],
-    });
-
-    mockFetchApi.fetch.mockResolvedValue({
-      ok: true,
-      json: () =>
-        Promise.resolve([
-          {
-            id: 20,
-            created_at: '2024-06-15T11:00:00Z',
-            web_url: 'https://gitlab.com/group/project/pipelines/20',
-          },
-        ]),
+    mockFetchApi.fetch.mockImplementation((url: string) => {
+      if (url.includes('provider=github')) {
+        return Promise.resolve({
+          ok: true,
+          json: () =>
+            Promise.resolve({
+              workflow_runs: [
+                {
+                  run_number: 10,
+                  id: 100,
+                  name: 'Test',
+                  created_at: '2024-06-15T11:00:00Z',
+                  html_url: 'https://github.com/org/repo/actions/runs/100',
+                },
+              ],
+            }),
+        });
+      }
+      if (url.includes('provider=gitlab')) {
+        return Promise.resolve({
+          ok: true,
+          json: () =>
+            Promise.resolve([
+              {
+                id: 20,
+                created_at: '2024-06-15T11:00:00Z',
+                web_url: 'https://gitlab.com/group/project/pipelines/20',
+              },
+            ]),
+        });
+      }
+      return Promise.resolve({
+        ok: false,
+        status: 404,
+        json: () => Promise.resolve({}),
+      });
     });
 
     renderTestConsumer([
@@ -293,16 +306,20 @@ describe('useLatestCIActivity', () => {
   });
 
   it('uses default workflow name when not provided', async () => {
-    mockGithubActionsApi.listWorkflowRuns.mockResolvedValue({
-      workflow_runs: [
-        {
-          run_number: 5,
-          id: 50,
-          name: null,
-          created_at: '2024-06-15T11:00:00Z',
-          html_url: null,
-        },
-      ],
+    mockFetchApi.fetch.mockResolvedValue({
+      ok: true,
+      json: () =>
+        Promise.resolve({
+          workflow_runs: [
+            {
+              run_number: 5,
+              id: 50,
+              name: null,
+              created_at: '2024-06-15T11:00:00Z',
+              html_url: null,
+            },
+          ],
+        }),
     });
 
     renderTestConsumer([createGitHubEntity('no-name-repo')]);
@@ -369,15 +386,19 @@ describe('useLatestCIActivity', () => {
   });
 
   it('uses id as run number fallback for GitHub workflow', async () => {
-    mockGithubActionsApi.listWorkflowRuns.mockResolvedValue({
-      workflow_runs: [
-        {
-          id: 999,
-          name: 'Deploy',
-          created_at: '2024-06-15T11:00:00Z',
-          html_url: 'https://github.com/org/repo/actions/runs/999',
-        },
-      ],
+    mockFetchApi.fetch.mockResolvedValue({
+      ok: true,
+      json: () =>
+        Promise.resolve({
+          workflow_runs: [
+            {
+              id: 999,
+              name: 'Deploy',
+              created_at: '2024-06-15T11:00:00Z',
+              html_url: 'https://github.com/org/repo/actions/runs/999',
+            },
+          ],
+        }),
     });
 
     renderTestConsumer([createGitHubEntity('id-fallback-repo')]);

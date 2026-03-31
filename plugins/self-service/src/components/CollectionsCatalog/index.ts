@@ -43,3 +43,12 @@ export {
 } from './constants';
 
 export { useCollectionsStyles } from './styles';
+
+export { usePaginatedCollections } from './usePaginatedCollections';
+export type {
+  UsePaginatedCollectionsOptions,
+  UsePaginatedCollectionsResult,
+} from './usePaginatedCollections';
+
+export { collectionsCache } from './collectionsCache';
+export type { CollectionsCacheState } from './collectionsCache';

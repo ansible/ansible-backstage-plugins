@@ -200,11 +200,18 @@ export type User = {
   is_superuser: boolean;
   is_orguser?: boolean;
 };
+export type SourceVersionDetail = {
+  source?: string;
+  ref: string;
+  version: string | null;
+  label: string;
+  name?: string;
+};
 
 export type Collections = {
   name: string;
   id?: number;
-  versions?: string[];
+  versions?: SourceVersionDetail[];
   sources?: string[];
   sourceVersions?: Record<string, string[]>;
 };

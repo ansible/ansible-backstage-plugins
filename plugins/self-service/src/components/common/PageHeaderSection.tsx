@@ -23,7 +23,18 @@ export const PageHeaderSection = ({
   syncDisabledReason,
 }: PageHeaderSectionProps) => {
   const classes = useCollectionsStyles();
-  const { isSuperuser: allowed } = useIsSuperuser();
+  const { isSuperuser: allowed, loading: checkingPermission } =
+    useIsSuperuser();
+
+  const showSyncButton = checkingPermission || allowed;
+  const isButtonDisabled = checkingPermission || syncDisabled;
+
+  const getButtonTooltip = () => {
+    if (checkingPermission) return 'Checking permissions...';
+    if (syncDisabled && syncDisabledReason) return syncDisabledReason;
+    return '';
+  };
+  const buttonTooltip = getButtonTooltip();
 
   return (
     <Box className={classes.pageHeader}>
@@ -40,11 +51,8 @@ export const PageHeaderSection = ({
             <HelpOutlineIcon className={classes.helpIcon} />
           </Tooltip>
         </Box>
-        {allowed && (
-          <Tooltip
-            title={syncDisabled && syncDisabledReason ? syncDisabledReason : ''}
-            arrow
-          >
+        {showSyncButton && (
+          <Tooltip title={buttonTooltip} arrow>
             <span>
               <Button
                 variant="outlined"
@@ -52,7 +60,7 @@ export const PageHeaderSection = ({
                 startIcon={<SyncIcon />}
                 onClick={onSyncClick}
                 className={classes.syncButton}
-                disabled={syncDisabled}
+                disabled={isButtonDisabled}
               >
                 Sync Now
               </Button>
