@@ -78,7 +78,10 @@ export class Common {
         cy.wait(500); // Reduced from 1000
         cy.get('body').then($body => {
           if (
-            $body.text().includes('Authorize Ansible Automation Experience App')
+            $body
+              .text()
+              .includes('Authorize Ansible Automation Experience App') ||
+            $body.text().includes('Authorize Portal ITS OAuth App')
           ) {
             cy.get('input').contains('Authorize').click();
             cy.wait(1500); // Reduced from 3000
@@ -137,7 +140,8 @@ export class Common {
               if (
                 $body
                   .text()
-                  .includes('Authorize Ansible Automation Experience App')
+                  .includes('Authorize Ansible Automation Experience App') ||
+                $body.text().includes('Authorize Portal ITS OAuth App')
               ) {
                 cy.get('input').contains('Authorize').click();
                 cy.wait(3000);

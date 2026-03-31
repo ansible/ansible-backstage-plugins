@@ -26,6 +26,62 @@ export function getGitLabIntegrationForHost(
   return {};
 }
 
+export function getGitHubIntegrationForHost(
+  config: Config,
+  host: string,
+): { token?: string; apiBaseUrl?: string } {
+  const arr = config.getOptionalConfigArray('integrations.github');
+  if (!arr?.length) return {};
+  for (const c of arr) {
+    const h = c.getOptionalString('host') ?? 'github.com';
+    if (h !== host) continue;
+    const token = c.getOptionalString('token');
+    const apiBaseUrl = c.getOptionalString('apiBaseUrl')?.replace(/\/$/, '');
+    return { token, apiBaseUrl };
+  }
+  return {};
+}
+
+export function isGitHubHostAllowedForProxy(
+  config: Config,
+  host: string,
+): boolean {
+  if (host === 'github.com') {
+    return true;
+  }
+  const arr = config.getOptionalConfigArray('integrations.github');
+  if (!arr?.length) {
+    return false;
+  }
+  for (const c of arr) {
+    const h = c.getOptionalString('host') ?? 'github.com';
+    if (h === host) {
+      return true;
+    }
+  }
+  return false;
+}
+
+export function isGitLabHostAllowedForProxy(
+  config: Config,
+  host: string,
+): boolean {
+  if (host === 'gitlab.com') {
+    return true;
+  }
+  const arr = config.getOptionalConfigArray('integrations.gitlab');
+  if (!arr?.length) {
+    return false;
+  }
+  for (const c of arr) {
+    const h = c.getOptionalString('host') ?? 'gitlab.com';
+    if (h === host) {
+      return true;
+    }
+  }
+  return false;
+}
+
 export function isSafeHostname(host: string): boolean {
   if (typeof host !== 'string' || host.length === 0 || host.length > 253) {
     return false;
@@ -197,15 +253,15 @@ export function resolveProvidersToRun<T>(
   if (repositoryNames.length === 0) {
     return { providersToRun: allProviders, invalidRepositories };
   }
-  const validNames: string[] = [];
+  const providersToRun: T[] = [];
   for (const name of repositoryNames) {
-    if (providerMap.has(name)) {
-      validNames.push(name);
-    } else {
+    const provider = providerMap.get(name);
+    if (provider === undefined) {
       invalidRepositories.push(name);
+    } else {
+      providersToRun.push(provider);
     }
   }
-  const providersToRun = validNames.map(name => providerMap.get(name)!);
   return { providersToRun, invalidRepositories };
 }
 

@@ -5,11 +5,12 @@ import {
   discoveryApiRef,
   fetchApiRef,
 } from '@backstage/core-plugin-api';
-import { githubActionsApiRef } from '@backstage-community/plugin-github-actions';
 import { formatTimeAgo, getSourceUrl } from '../CollectionsCatalog/utils';
 import { getGitHubOwnerRepo, getGitLabProjectPath } from './scmUtils';
 
 const NO_ACTIVITY = 'N/A';
+const GITHUB_BATCH_SIZE = 3;
+const GITHUB_BATCH_DELAY_MS = 100;
 const GITLAB_BATCH_SIZE = 2;
 const GITLAB_BATCH_DELAY_MS = 150;
 const MAX_RETRIES = 2;
@@ -57,7 +58,6 @@ export function useLatestCIActivity(entities: Entity[]): {
   lastActivityMap: Record<string, LatestActivityEntry>;
   loading: boolean;
 } {
-  const githubActionsApi = useApi(githubActionsApiRef);
   const discoveryApi = useApi(discoveryApiRef);
   const fetchApi = useApi(fetchApiRef);
 
@@ -86,6 +86,9 @@ export function useLatestCIActivity(entities: Entity[]): {
         (e): e is Entity => getGitLabProjectPath(e) !== null,
       );
 
+      const isCancelled = () =>
+        cancelled || requestIdRef.current !== currentRequestId;
+
       const fetchGitHubActivity = async (entity: Entity) => {
         const name = entity.metadata?.name ?? '';
         const gh = getGitHubOwnerRepo(entity);
@@ -93,22 +96,38 @@ export function useLatestCIActivity(entities: Entity[]): {
           map[name] = { text: NO_ACTIVITY };
           return;
         }
+        const repoUrl = getSourceUrl(entity);
+        let host = 'github.com';
+        if (repoUrl) {
+          try {
+            host = new URL(repoUrl).hostname;
+          } catch {
+            // keep github.com
+          }
+        }
         try {
-          const data = await githubActionsApi.listWorkflowRuns({
-            owner: gh.owner,
-            repo: gh.repo,
-            pageSize: 1,
-          });
+          const catalogBase = await discoveryApi.getBaseUrl('catalog');
+          const proxyUrl = `${catalogBase}/ansible/git/ci-activity?provider=github&owner=${encodeURIComponent(gh.owner)}&repo=${encodeURIComponent(gh.repo)}&host=${encodeURIComponent(host)}&per_page=1`;
+          const res = await fetchWithRetry(
+            fetchApi.fetch,
+            proxyUrl,
+            isCancelled,
+          );
+          if (!res?.ok) {
+            map[name] = { text: NO_ACTIVITY };
+            return;
+          }
+          const data: {
+            workflow_runs?: Array<{
+              run_number?: number;
+              id: number;
+              name?: string | null;
+              created_at?: string | null;
+              html_url?: string | null;
+            }>;
+          } = await res.json();
           const runs = data.workflow_runs ?? [];
-          const run = runs[0] as
-            | {
-                run_number?: number;
-                id: number;
-                name?: string | null;
-                created_at?: string | null;
-                html_url?: string | null;
-              }
-            | undefined;
+          const run = runs[0];
           if (!run) {
             map[name] = { text: NO_ACTIVITY };
             return;
@@ -124,9 +143,6 @@ export function useLatestCIActivity(entities: Entity[]): {
           map[name] = { text: NO_ACTIVITY };
         }
       };
-
-      const isCancelled = () =>
-        cancelled || requestIdRef.current !== currentRequestId;
 
       const fetchGitLabActivity = async (entity: Entity) => {
         const name = entity.metadata?.name ?? '';
@@ -146,7 +162,7 @@ export function useLatestCIActivity(entities: Entity[]): {
         }
         try {
           const catalogBase = await discoveryApi.getBaseUrl('catalog');
-          const proxyUrl = `${catalogBase}/ansible/gitlab/pipelines?projectPath=${encodeURIComponent(path)}&host=${encodeURIComponent(host)}&per_page=1`;
+          const proxyUrl = `${catalogBase}/ansible/git/ci-activity?provider=gitlab&projectPath=${encodeURIComponent(path)}&host=${encodeURIComponent(host)}&per_page=1`;
           const res = await fetchWithRetry(
             fetchApi.fetch,
             proxyUrl,
@@ -176,8 +192,21 @@ export function useLatestCIActivity(entities: Entity[]): {
         }
       };
 
-      await Promise.all(githubEntities.map(fetchGitHubActivity));
+      // Fetch GitHub activities in batches (using backend proxy)
+      for (let i = 0; i < githubEntities.length; i += GITHUB_BATCH_SIZE) {
+        if (cancelled || requestIdRef.current !== currentRequestId) {
+          return;
+        }
+        const batch = githubEntities.slice(i, i + GITHUB_BATCH_SIZE);
+        await Promise.all(batch.map(fetchGitHubActivity));
+        if (i + GITHUB_BATCH_SIZE < githubEntities.length) {
+          await new Promise(resolve =>
+            setTimeout(resolve, GITHUB_BATCH_DELAY_MS),
+          );
+        }
+      }
 
+      // Fetch GitLab activities in batches
       for (let i = 0; i < gitlabEntities.length; i += GITLAB_BATCH_SIZE) {
         if (cancelled || requestIdRef.current !== currentRequestId) {
           return;
@@ -209,7 +238,7 @@ export function useLatestCIActivity(entities: Entity[]): {
     return () => {
       cancelled = true;
     };
-  }, [entities, githubActionsApi, discoveryApi, fetchApi]);
+  }, [entities, discoveryApi, fetchApi]);
 
   return { lastActivityMap, loading };
 }

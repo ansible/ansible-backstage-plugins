@@ -42,17 +42,17 @@ import {
   resolveProvidersToRun,
   createRequireSuperuserMiddleware,
   getGitLabIntegrationForHost,
+  getGitHubIntegrationForHost,
   getSkipTlsVerifyHosts,
   isSafeHostname,
+  isGitHubHostAllowedForProxy,
+  isGitLabHostAllowedForProxy,
 } from './helpers';
 import { EEEntityProvider } from './providers/EEEntityProvider';
 import {
   GitlabClient,
   ScmClientFactory,
 } from '@ansible/backstage-rhaap-common';
-
-// Express Request is not assignable to Backstage's auth request type; cast is required.
-type HttpAuthRequest = Parameters<HttpAuthService['credentials']>[0];
 
 export async function createRouter(options: {
   logger: LoggerService;
@@ -258,9 +258,14 @@ export async function createRouter(options: {
 
   router.post('/register_ee', express.json(), async (request, response) => {
     // Only allow backend service calls (for example, scaffolder to catalog), not user requests
-    await httpAuth.credentials(request as unknown as HttpAuthRequest, {
-      allow: ['service'],
-    });
+    await httpAuth.credentials(
+      // Express Request (express-promise-router) vs Backstage's `credentials` param use incompatible Express generics; runtime value is valid.
+      // @ts-expect-error Avoid double assertion flagged by Sonar; types do not overlap per TS (e.g. `param` on Request).
+      request,
+      {
+        allow: ['service'],
+      },
+    );
 
     const { entity } = request.body;
 
@@ -524,7 +529,10 @@ export async function createRouter(options: {
       ansibleGitContentsProviders,
       filters,
     );
-    return Array.from(matchedIds).map(id => _GIT_CONTENTS_PROVIDERS.get(id)!);
+    return Array.from(matchedIds).flatMap(id => {
+      const provider = _GIT_CONTENTS_PROVIDERS.get(id);
+      return provider === undefined ? [] : [provider];
+    });
   }
 
   router.get('/git_file_content', async (request, response) => {
@@ -604,46 +612,143 @@ export async function createRouter(options: {
     }
   });
 
-  // Proxy GitLab pipelines API to avoid CORS when fetching from the frontend
-  router.get('/ansible/gitlab/pipelines', async (request, response) => {
-    logger.info('[GitLab pipelines proxy] Request reached handler', {
-      path: request.path,
-      query: request.query,
-      hasAuth: !!request.headers['private-token'],
-      hasBearer: !!request.headers.authorization,
-    });
-    const projectPath = request.query.projectPath as string | undefined;
-    const host = (request.query.host as string) || 'gitlab.com';
-    const tokenFromRequest =
-      (request.headers['private-token'] as string) ||
-      (request.headers.authorization?.replace(/^Bearer\s+/i, '') as string);
-    const { token: tokenFromConfig, apiBaseUrl: apiBaseFromConfig } =
-      getGitLabIntegrationForHost(config, host);
-    const token = tokenFromConfig || tokenFromRequest;
-    logger.info('[GitLab pipelines proxy] Token resolution', {
-      projectPath,
-      host,
-      tokenFromConfig: !!tokenFromConfig,
-      tokenFromRequest: !!tokenFromRequest,
-      hasToken: !!token,
-    });
-    if (!projectPath || !token) {
+  // Helper function for GitHub CI activity
+  async function handleGitHubCIActivity(
+    request: express.Request,
+    response: express.Response,
+    perPage: number,
+  ): Promise<void> {
+    const owner = request.query.owner as string | undefined;
+    const repo = request.query.repo as string | undefined;
+    const host = (request.query.host as string) || 'github.com';
+
+    if (!owner || !repo) {
       response.status(400).json({
-        error:
-          'Missing projectPath or authorization (PRIVATE-TOKEN, Authorization header, or integrations.gitlab token in config)',
+        error: 'Missing required query parameters for GitHub: owner, repo',
       });
       return;
     }
+
+    if (!isSafeHostname(host)) {
+      response.status(400).json({
+        error: 'Invalid host: must be a valid hostname (e.g. github.com)',
+      });
+      return;
+    }
+
+    if (!isGitHubHostAllowedForProxy(config, host)) {
+      response.status(400).json({
+        error: `Host '${host}' is not allowed for GitHub CI activity. Add it under integrations.github in app-config, or use github.com.`,
+      });
+      return;
+    }
+
+    const tokenFromRequest = request.headers.authorization?.replace(
+      /^Bearer\s+/i,
+      '',
+    );
+    const { token: tokenFromConfig, apiBaseUrl: apiBaseFromConfig } =
+      getGitHubIntegrationForHost(config, host);
+    const token = tokenFromConfig || tokenFromRequest;
+
+    if (!token) {
+      response.status(400).json({
+        error:
+          'Missing authorization (Authorization header or integrations.github token in config)',
+      });
+      return;
+    }
+
+    const apiBase =
+      apiBaseFromConfig ||
+      (host === 'github.com'
+        ? 'https://api.github.com'
+        : `https://${host}/api/v3`);
+    const apiUrl = `${apiBase}/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/actions/runs?per_page=${perPage}`;
+
+    try {
+      const fetchResponse = await fetch(apiUrl, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+          Accept: 'application/vnd.github+json',
+          'X-GitHub-Api-Version': '2022-11-28',
+        },
+      });
+
+      const data = await fetchResponse.json();
+
+      if (!fetchResponse.ok) {
+        logger.warn('[CI Activity proxy] GitHub API returned non-OK', {
+          status: fetchResponse.status,
+          owner,
+          repo,
+          host,
+          body: data as JsonValue,
+        });
+      }
+
+      response.status(fetchResponse.status).json(data as JsonValue);
+    } catch (err) {
+      logger.warn(
+        'CI Activity proxy (GitHub) failed',
+        err instanceof Error ? err : undefined,
+      );
+      response
+        .status(502)
+        .json({ error: 'Failed to fetch GitHub workflow runs' });
+    }
+  }
+
+  // Helper function for GitLab CI activity
+  async function handleGitLabCIActivity(
+    request: express.Request,
+    response: express.Response,
+    perPage: number,
+  ): Promise<void> {
+    const projectPath = request.query.projectPath as string | undefined;
+    const host = (request.query.host as string) || 'gitlab.com';
+
+    if (!projectPath) {
+      response.status(400).json({
+        error: 'Missing required query parameter: projectPath',
+      });
+      return;
+    }
+
     if (!isSafeHostname(host)) {
       response.status(400).json({
         error: 'Invalid host: must be a valid hostname (e.g. gitlab.com)',
       });
       return;
     }
+
+    if (!isGitLabHostAllowedForProxy(config, host)) {
+      response.status(400).json({
+        error: `Host '${host}' is not allowed for GitLab CI activity. Add it under integrations.gitlab in app-config, or use gitlab.com.`,
+      });
+      return;
+    }
+
+    const tokenFromRequest =
+      (request.headers['private-token'] as string) ||
+      request.headers.authorization?.replace(/^Bearer\s+/i, '');
+    const { token: tokenFromConfig, apiBaseUrl: apiBaseFromConfig } =
+      getGitLabIntegrationForHost(config, host);
+    const token = tokenFromConfig || tokenFromRequest;
+
+    if (!token) {
+      response.status(400).json({
+        error:
+          'Missing projectPath or authorization (PRIVATE-TOKEN, Authorization header, or integrations.gitlab token in config)',
+      });
+      return;
+    }
+
     const hostLower = host.toLowerCase();
     const skipTlsVerify = getSkipTlsVerifyHosts(config)
       .filter(isSafeHostname)
       .some(h => h.toLowerCase() === hostLower);
+
     const client = new GitlabClient({
       config: {
         scmProvider: 'gitlab',
@@ -655,31 +760,54 @@ export async function createRouter(options: {
       },
       logger,
     });
-    const perPage = Math.min(Number(request.query.per_page) || 15, 100);
+
     try {
       const { ok, status, data } = await client.getPipelines(projectPath, {
         perPage,
       });
-      logger.info('[GitLab pipelines proxy] GitLab API response', {
-        status,
-        projectPath,
-        host,
-      });
+
       if (!ok) {
-        logger.warn('[GitLab pipelines proxy] GitLab API returned non-OK', {
+        logger.warn('[CI Activity proxy] GitLab API returned non-OK', {
           status,
           projectPath,
           host,
           body: data as JsonValue,
         });
       }
+
       response.status(status).json(data as JsonValue);
     } catch (err) {
       logger.warn(
-        'GitLab pipelines proxy failed',
+        'CI Activity proxy (GitLab) failed',
         err instanceof Error ? err : undefined,
       );
       response.status(502).json({ error: 'Failed to fetch GitLab pipelines' });
+    }
+  }
+
+  // Unified CI activity proxy for GitHub and GitLab
+  // Query params:
+  //   - provider: 'github' | 'gitlab' (required)
+  //   - host: hostname (optional, defaults based on provider)
+  //   - per_page: number of results (optional)
+  //   GitHub-specific: owner, repo
+  //   GitLab-specific: projectPath
+  router.get('/ansible/git/ci-activity', async (request, response) => {
+    const provider = (request.query.provider as string)?.toLowerCase();
+    const perPage = Math.min(Number(request.query.per_page) || 15, 100);
+
+    if (!provider || !['github', 'gitlab'].includes(provider)) {
+      response.status(400).json({
+        error:
+          "Missing or invalid 'provider' query parameter. Must be 'github' or 'gitlab'.",
+      });
+      return;
+    }
+
+    if (provider === 'github') {
+      await handleGitHubCIActivity(request, response, perPage);
+    } else {
+      await handleGitLabCIActivity(request, response, perPage);
     }
   });
 

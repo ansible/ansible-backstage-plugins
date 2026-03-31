@@ -12,7 +12,6 @@ import {
   MockStarredEntitiesApi,
 } from '@backstage/plugin-catalog-react';
 import { permissionApiRef } from '@backstage/plugin-permission-react';
-import { githubActionsApiRef } from '@backstage-community/plugin-github-actions';
 import { Entity } from '@backstage/catalog-model';
 import { MemoryRouter } from 'react-router-dom';
 
@@ -106,13 +105,47 @@ const mockFetchApi = {
   fetch: jest.fn(),
 };
 
-const mockGithubActionsApi = {
-  listWorkflowRuns: jest.fn(),
-};
-
 const mockIdentityApi = {
   getCredentials: jest.fn().mockResolvedValue({ token: 'mock-token' }),
 };
+
+type GitHubWorkflowRun = {
+  id: number;
+  run_number?: number;
+  name?: string;
+  status?: string;
+  conclusion?: string | null;
+  event?: string;
+  created_at?: string;
+  html_url?: string;
+};
+
+type GitLabPipeline = {
+  id: number;
+  status?: string;
+  source?: string;
+  created_at?: string;
+  web_url?: string;
+};
+
+function setupFetchMock(
+  githubRuns: GitHubWorkflowRun[] = [],
+  gitlabPipelines: GitLabPipeline[] = [],
+) {
+  mockFetchApi.fetch.mockImplementation((url: string) => {
+    if (url.includes('provider=github')) {
+      return Promise.resolve({
+        ok: true,
+        json: () => Promise.resolve({ workflow_runs: githubRuns }),
+      });
+    }
+    // GitLab pipelines
+    return Promise.resolve({
+      ok: true,
+      json: () => Promise.resolve(gitlabPipelines),
+    });
+  });
+}
 
 const createGitHubEntity = (name: string): Entity => ({
   apiVersion: 'backstage.io/v1alpha1',
@@ -156,34 +189,44 @@ describe('RepositoriesCIActivityTab', () => {
       items: [createGitHubEntity('github-repo')],
     });
 
-    mockGithubActionsApi.listWorkflowRuns.mockResolvedValue({
-      workflow_runs: [
-        {
-          id: 123,
-          run_number: 42,
-          name: 'CI Build',
-          status: 'completed',
-          conclusion: 'success',
-          event: 'push',
-          created_at: '2024-06-15T11:00:00Z',
-          html_url: 'https://github.com/test-org/github-repo/actions/runs/123',
-        },
-      ],
-    });
-
-    mockFetchApi.fetch.mockResolvedValue({
-      ok: true,
-      json: () =>
-        Promise.resolve([
-          {
-            id: 456,
-            status: 'success',
-            source: 'push',
-            created_at: '2024-06-15T10:00:00Z',
-            web_url:
-              'https://gitlab.com/test-group/gitlab-repo/-/pipelines/456',
-          },
-        ]),
+    // Mock fetch to handle both GitHub and GitLab API calls
+    mockFetchApi.fetch.mockImplementation((url: string) => {
+      if (url.includes('provider=github')) {
+        return Promise.resolve({
+          ok: true,
+          json: () =>
+            Promise.resolve({
+              workflow_runs: [
+                {
+                  id: 123,
+                  run_number: 42,
+                  name: 'CI Build',
+                  status: 'completed',
+                  conclusion: 'success',
+                  event: 'push',
+                  created_at: '2024-06-15T11:00:00Z',
+                  html_url:
+                    'https://github.com/test-org/github-repo/actions/runs/123',
+                },
+              ],
+            }),
+        });
+      }
+      // GitLab pipelines
+      return Promise.resolve({
+        ok: true,
+        json: () =>
+          Promise.resolve([
+            {
+              id: 456,
+              status: 'success',
+              source: 'push',
+              created_at: '2024-06-15T10:00:00Z',
+              web_url:
+                'https://gitlab.com/test-group/gitlab-repo/-/pipelines/456',
+            },
+          ]),
+      });
     });
   });
 
@@ -198,7 +241,6 @@ describe('RepositoriesCIActivityTab', () => {
           [catalogApiRef, mockCatalogApi],
           [discoveryApiRef, mockDiscoveryApi],
           [fetchApiRef, mockFetchApi],
-          [githubActionsApiRef, mockGithubActionsApi],
           [identityApiRef, mockIdentityApi],
           [starredEntitiesApiRef, new MockStarredEntitiesApi()],
           [permissionApiRef, mockApis.permission()],
@@ -232,9 +274,7 @@ describe('RepositoriesCIActivityTab', () => {
   });
 
   it('renders empty state when no CI activity', async () => {
-    mockGithubActionsApi.listWorkflowRuns.mockResolvedValue({
-      workflow_runs: [],
-    });
+    setupFetchMock([], []);
     mockCatalogApi.getEntities.mockResolvedValue({ items: [] });
 
     renderTab();
@@ -252,9 +292,7 @@ describe('RepositoriesCIActivityTab', () => {
 
   it('renders empty state for filtered entity with no activity', async () => {
     const entity = createGitHubEntity('empty-repo');
-    mockGithubActionsApi.listWorkflowRuns.mockResolvedValue({
-      workflow_runs: [],
-    });
+    setupFetchMock([], []);
 
     renderTab(entity);
 
@@ -341,11 +379,10 @@ describe('RepositoriesCIActivityTab', () => {
     renderTab(entity);
 
     await waitFor(() => {
-      expect(mockGithubActionsApi.listWorkflowRuns).toHaveBeenCalledWith({
-        owner: 'test-org',
-        repo: 'specific-repo',
-        pageSize: 15,
-      });
+      expect(mockFetchApi.fetch).toHaveBeenCalledWith(
+        expect.stringContaining('/ansible/git/ci-activity?provider=github'),
+        expect.any(Object),
+      );
     });
 
     expect(mockCatalogApi.getEntities).not.toHaveBeenCalled();
@@ -370,20 +407,18 @@ describe('RepositoriesCIActivityTab', () => {
   });
 
   it('renders failure status correctly', async () => {
-    mockGithubActionsApi.listWorkflowRuns.mockResolvedValue({
-      workflow_runs: [
-        {
-          id: 124,
-          run_number: 43,
-          name: 'CI Build',
-          status: 'completed',
-          conclusion: 'failure',
-          event: 'push',
-          created_at: '2024-06-15T11:00:00Z',
-          html_url: 'https://github.com/test-org/github-repo/actions/runs/124',
-        },
-      ],
-    });
+    setupFetchMock([
+      {
+        id: 124,
+        run_number: 43,
+        name: 'CI Build',
+        status: 'completed',
+        conclusion: 'failure',
+        event: 'push',
+        created_at: '2024-06-15T11:00:00Z',
+        html_url: 'https://github.com/test-org/github-repo/actions/runs/124',
+      },
+    ]);
 
     renderTab();
 
@@ -393,20 +428,18 @@ describe('RepositoriesCIActivityTab', () => {
   });
 
   it('renders in_progress status correctly', async () => {
-    mockGithubActionsApi.listWorkflowRuns.mockResolvedValue({
-      workflow_runs: [
-        {
-          id: 125,
-          run_number: 44,
-          name: 'CI Build',
-          status: 'in_progress',
-          conclusion: null,
-          event: 'push',
-          created_at: '2024-06-15T11:30:00Z',
-          html_url: 'https://github.com/test-org/github-repo/actions/runs/125',
-        },
-      ],
-    });
+    setupFetchMock([
+      {
+        id: 125,
+        run_number: 44,
+        name: 'CI Build',
+        status: 'in_progress',
+        conclusion: null,
+        event: 'push',
+        created_at: '2024-06-15T11:30:00Z',
+        html_url: 'https://github.com/test-org/github-repo/actions/runs/125',
+      },
+    ]);
 
     renderTab();
 
@@ -466,30 +499,28 @@ describe('RepositoriesCIActivityTab', () => {
   });
 
   it('sorts status options alphabetically', async () => {
-    mockGithubActionsApi.listWorkflowRuns.mockResolvedValue({
-      workflow_runs: [
-        {
-          id: 1,
-          run_number: 1,
-          name: 'Build',
-          status: 'completed',
-          conclusion: 'success',
-          event: 'push',
-          created_at: '2024-06-15T11:00:00Z',
-          html_url: 'https://github.com/test-org/repo/actions/runs/1',
-        },
-        {
-          id: 2,
-          run_number: 2,
-          name: 'Build',
-          status: 'completed',
-          conclusion: 'failure',
-          event: 'push',
-          created_at: '2024-06-15T10:00:00Z',
-          html_url: 'https://github.com/test-org/repo/actions/runs/2',
-        },
-      ],
-    });
+    setupFetchMock([
+      {
+        id: 1,
+        run_number: 1,
+        name: 'Build',
+        status: 'completed',
+        conclusion: 'success',
+        event: 'push',
+        created_at: '2024-06-15T11:00:00Z',
+        html_url: 'https://github.com/test-org/repo/actions/runs/1',
+      },
+      {
+        id: 2,
+        run_number: 2,
+        name: 'Build',
+        status: 'completed',
+        conclusion: 'failure',
+        event: 'push',
+        created_at: '2024-06-15T10:00:00Z',
+        html_url: 'https://github.com/test-org/repo/actions/runs/2',
+      },
+    ]);
 
     renderTab();
 
@@ -502,30 +533,28 @@ describe('RepositoriesCIActivityTab', () => {
   });
 
   it('sorts trigger options alphabetically', async () => {
-    mockGithubActionsApi.listWorkflowRuns.mockResolvedValue({
-      workflow_runs: [
-        {
-          id: 1,
-          run_number: 1,
-          name: 'Build',
-          status: 'completed',
-          conclusion: 'success',
-          event: 'push',
-          created_at: '2024-06-15T11:00:00Z',
-          html_url: 'https://github.com/test-org/repo/actions/runs/1',
-        },
-        {
-          id: 2,
-          run_number: 2,
-          name: 'Build',
-          status: 'completed',
-          conclusion: 'success',
-          event: 'pull_request',
-          created_at: '2024-06-15T10:00:00Z',
-          html_url: 'https://github.com/test-org/repo/actions/runs/2',
-        },
-      ],
-    });
+    setupFetchMock([
+      {
+        id: 1,
+        run_number: 1,
+        name: 'Build',
+        status: 'completed',
+        conclusion: 'success',
+        event: 'push',
+        created_at: '2024-06-15T11:00:00Z',
+        html_url: 'https://github.com/test-org/repo/actions/runs/1',
+      },
+      {
+        id: 2,
+        run_number: 2,
+        name: 'Build',
+        status: 'completed',
+        conclusion: 'success',
+        event: 'pull_request',
+        created_at: '2024-06-15T10:00:00Z',
+        html_url: 'https://github.com/test-org/repo/actions/runs/2',
+      },
+    ]);
 
     renderTab();
 
@@ -538,20 +567,18 @@ describe('RepositoriesCIActivityTab', () => {
   });
 
   it('renders cancelled status', async () => {
-    mockGithubActionsApi.listWorkflowRuns.mockResolvedValue({
-      workflow_runs: [
-        {
-          id: 126,
-          run_number: 45,
-          name: 'CI Build',
-          status: 'completed',
-          conclusion: 'cancelled',
-          event: 'push',
-          created_at: '2024-06-15T11:00:00Z',
-          html_url: 'https://github.com/test-org/github-repo/actions/runs/126',
-        },
-      ],
-    });
+    setupFetchMock([
+      {
+        id: 126,
+        run_number: 45,
+        name: 'CI Build',
+        status: 'completed',
+        conclusion: 'cancelled',
+        event: 'push',
+        created_at: '2024-06-15T11:00:00Z',
+        html_url: 'https://github.com/test-org/github-repo/actions/runs/126',
+      },
+    ]);
 
     renderTab();
 
@@ -561,20 +588,18 @@ describe('RepositoriesCIActivityTab', () => {
   });
 
   it('renders queued status', async () => {
-    mockGithubActionsApi.listWorkflowRuns.mockResolvedValue({
-      workflow_runs: [
-        {
-          id: 127,
-          run_number: 46,
-          name: 'CI Build',
-          status: 'queued',
-          conclusion: null,
-          event: 'push',
-          created_at: '2024-06-15T11:00:00Z',
-          html_url: 'https://github.com/test-org/github-repo/actions/runs/127',
-        },
-      ],
-    });
+    setupFetchMock([
+      {
+        id: 127,
+        run_number: 46,
+        name: 'CI Build',
+        status: 'queued',
+        conclusion: null,
+        event: 'push',
+        created_at: '2024-06-15T11:00:00Z',
+        html_url: 'https://github.com/test-org/github-repo/actions/runs/127',
+      },
+    ]);
 
     renderTab();
 
@@ -584,20 +609,18 @@ describe('RepositoriesCIActivityTab', () => {
   });
 
   it('renders skipped status', async () => {
-    mockGithubActionsApi.listWorkflowRuns.mockResolvedValue({
-      workflow_runs: [
-        {
-          id: 128,
-          run_number: 47,
-          name: 'CI Build',
-          status: 'completed',
-          conclusion: 'skipped',
-          event: 'push',
-          created_at: '2024-06-15T11:00:00Z',
-          html_url: 'https://github.com/test-org/github-repo/actions/runs/128',
-        },
-      ],
-    });
+    setupFetchMock([
+      {
+        id: 128,
+        run_number: 47,
+        name: 'CI Build',
+        status: 'completed',
+        conclusion: 'skipped',
+        event: 'push',
+        created_at: '2024-06-15T11:00:00Z',
+        html_url: 'https://github.com/test-org/github-repo/actions/runs/128',
+      },
+    ]);
 
     renderTab();
 
@@ -607,20 +630,18 @@ describe('RepositoriesCIActivityTab', () => {
   });
 
   it('renders unknown status for unrecognized values', async () => {
-    mockGithubActionsApi.listWorkflowRuns.mockResolvedValue({
-      workflow_runs: [
-        {
-          id: 129,
-          run_number: 48,
-          name: 'CI Build',
-          status: 'completed',
-          conclusion: 'some_unknown_status',
-          event: 'push',
-          created_at: '2024-06-15T11:00:00Z',
-          html_url: 'https://github.com/test-org/github-repo/actions/runs/129',
-        },
-      ],
-    });
+    setupFetchMock([
+      {
+        id: 129,
+        run_number: 48,
+        name: 'CI Build',
+        status: 'completed',
+        conclusion: 'some_unknown_status',
+        event: 'push',
+        created_at: '2024-06-15T11:00:00Z',
+        html_url: 'https://github.com/test-org/github-repo/actions/runs/129',
+      },
+    ]);
 
     renderTab();
 
@@ -657,20 +678,17 @@ describe('RepositoriesCIActivityTab', () => {
   });
 
   it('renders row without run URL', async () => {
-    mockGithubActionsApi.listWorkflowRuns.mockResolvedValue({
-      workflow_runs: [
-        {
-          id: 130,
-          run_number: 49,
-          name: 'CI Build',
-          status: 'completed',
-          conclusion: 'success',
-          event: 'push',
-          created_at: '2024-06-15T11:00:00Z',
-          html_url: null,
-        },
-      ],
-    });
+    setupFetchMock([
+      {
+        id: 130,
+        run_number: 49,
+        name: 'CI Build',
+        status: 'completed',
+        conclusion: 'success',
+        event: 'push',
+        created_at: '2024-06-15T11:00:00Z',
+      },
+    ]);
 
     renderTab();
 
@@ -682,20 +700,18 @@ describe('RepositoriesCIActivityTab', () => {
   });
 
   it('renders project link when projectUrl is available', async () => {
-    mockGithubActionsApi.listWorkflowRuns.mockResolvedValue({
-      workflow_runs: [
-        {
-          id: 200,
-          run_number: 100,
-          name: 'Build',
-          status: 'completed',
-          conclusion: 'success',
-          event: 'push',
-          created_at: '2024-06-15T11:00:00Z',
-          html_url: 'https://github.com/test-org/github-repo/actions/runs/200',
-        },
-      ],
-    });
+    setupFetchMock([
+      {
+        id: 200,
+        run_number: 100,
+        name: 'Build',
+        status: 'completed',
+        conclusion: 'success',
+        event: 'push',
+        created_at: '2024-06-15T11:00:00Z',
+        html_url: 'https://github.com/test-org/github-repo/actions/runs/200',
+      },
+    ]);
 
     renderTab();
 
@@ -707,20 +723,18 @@ describe('RepositoriesCIActivityTab', () => {
   });
 
   it('renders run link when runUrl is available', async () => {
-    mockGithubActionsApi.listWorkflowRuns.mockResolvedValue({
-      workflow_runs: [
-        {
-          id: 201,
-          run_number: 101,
-          name: 'Deploy',
-          status: 'completed',
-          conclusion: 'success',
-          event: 'push',
-          created_at: '2024-06-15T11:00:00Z',
-          html_url: 'https://github.com/test-org/repo/actions/runs/201',
-        },
-      ],
-    });
+    setupFetchMock([
+      {
+        id: 201,
+        run_number: 101,
+        name: 'Deploy',
+        status: 'completed',
+        conclusion: 'success',
+        event: 'push',
+        created_at: '2024-06-15T11:00:00Z',
+        html_url: 'https://github.com/test-org/repo/actions/runs/201',
+      },
+    ]);
 
     renderTab();
 
@@ -732,20 +746,17 @@ describe('RepositoriesCIActivityTab', () => {
   });
 
   it('renders status icon based on status value', async () => {
-    mockGithubActionsApi.listWorkflowRuns.mockResolvedValue({
-      workflow_runs: [
-        {
-          id: 202,
-          run_number: 102,
-          name: 'Test',
-          status: 'completed',
-          conclusion: 'success',
-          event: 'push',
-          created_at: '2024-06-15T11:00:00Z',
-          html_url: null,
-        },
-      ],
-    });
+    setupFetchMock([
+      {
+        id: 202,
+        run_number: 102,
+        name: 'Test',
+        status: 'completed',
+        conclusion: 'success',
+        event: 'push',
+        created_at: '2024-06-15T11:00:00Z',
+      },
+    ]);
 
     renderTab();
 
@@ -757,30 +768,26 @@ describe('RepositoriesCIActivityTab', () => {
   });
 
   it('handles status filter selection', async () => {
-    mockGithubActionsApi.listWorkflowRuns.mockResolvedValue({
-      workflow_runs: [
-        {
-          id: 1,
-          run_number: 1,
-          name: 'Build',
-          status: 'completed',
-          conclusion: 'success',
-          event: 'push',
-          created_at: '2024-06-15T11:00:00Z',
-          html_url: null,
-        },
-        {
-          id: 2,
-          run_number: 2,
-          name: 'Build',
-          status: 'completed',
-          conclusion: 'failure',
-          event: 'push',
-          created_at: '2024-06-15T10:00:00Z',
-          html_url: null,
-        },
-      ],
-    });
+    setupFetchMock([
+      {
+        id: 1,
+        run_number: 1,
+        name: 'Build',
+        status: 'completed',
+        conclusion: 'success',
+        event: 'push',
+        created_at: '2024-06-15T11:00:00Z',
+      },
+      {
+        id: 2,
+        run_number: 2,
+        name: 'Build',
+        status: 'completed',
+        conclusion: 'failure',
+        event: 'push',
+        created_at: '2024-06-15T10:00:00Z',
+      },
+    ]);
 
     renderTab();
 
@@ -793,30 +800,26 @@ describe('RepositoriesCIActivityTab', () => {
   });
 
   it('handles trigger filter selection', async () => {
-    mockGithubActionsApi.listWorkflowRuns.mockResolvedValue({
-      workflow_runs: [
-        {
-          id: 1,
-          run_number: 1,
-          name: 'Build',
-          status: 'completed',
-          conclusion: 'success',
-          event: 'push',
-          created_at: '2024-06-15T11:00:00Z',
-          html_url: null,
-        },
-        {
-          id: 2,
-          run_number: 2,
-          name: 'Build',
-          status: 'completed',
-          conclusion: 'success',
-          event: 'pull_request',
-          created_at: '2024-06-15T10:00:00Z',
-          html_url: null,
-        },
-      ],
-    });
+    setupFetchMock([
+      {
+        id: 1,
+        run_number: 1,
+        name: 'Build',
+        status: 'completed',
+        conclusion: 'success',
+        event: 'push',
+        created_at: '2024-06-15T11:00:00Z',
+      },
+      {
+        id: 2,
+        run_number: 2,
+        name: 'Build',
+        status: 'completed',
+        conclusion: 'success',
+        event: 'pull_request',
+        created_at: '2024-06-15T10:00:00Z',
+      },
+    ]);
 
     renderTab();
 

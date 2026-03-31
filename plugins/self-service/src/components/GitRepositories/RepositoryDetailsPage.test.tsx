@@ -7,7 +7,6 @@ import {
   identityApiRef,
 } from '@backstage/core-plugin-api';
 import { catalogApiRef } from '@backstage/plugin-catalog-react';
-import { githubActionsApiRef } from '@backstage-community/plugin-github-actions';
 import { Entity } from '@backstage/catalog-model';
 import { RepositoryDetailsPage } from './RepositoryDetailsPage';
 
@@ -53,10 +52,6 @@ const mockDiscoveryApi = {
 
 const mockFetchApi = {
   fetch: jest.fn(),
-};
-
-const mockGithubActionsApi = {
-  listWorkflowRuns: jest.fn().mockResolvedValue({ workflow_runs: [] }),
 };
 
 const mockIdentityApi = {
@@ -131,7 +126,6 @@ describe('RepositoryDetailsPage', () => {
           [catalogApiRef, mockCatalogApi],
           [discoveryApiRef, mockDiscoveryApi],
           [fetchApiRef, mockFetchApi],
-          [githubActionsApiRef, mockGithubActionsApi],
           [identityApiRef, mockIdentityApi],
         ]}
       >
