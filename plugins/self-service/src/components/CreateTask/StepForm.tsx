@@ -25,6 +25,7 @@ import {
 } from '@material-ui/core';
 import { rhAapAuthApiRef } from '../../apis';
 import { formExtraFields } from './formExtraFields';
+import { sanitizeFormDataForSessionStorage } from './sanitizeFormDataForSessionStorage';
 import { ScaffolderForm } from './ScaffolderFormWrapper';
 
 interface StepFormProps {
@@ -46,13 +47,26 @@ interface CreateButtonProps {
 
 const CreateButton = ({ onSubmit }: CreateButtonProps) => {
   const { secrets } = useTemplateSecrets();
+  const [submitting, setSubmitting] = useState(false);
 
   const handleClick = useCallback(async () => {
-    await onSubmit(secrets);
+    setSubmitting(true);
+    try {
+      await onSubmit(secrets);
+    } catch {
+      // already logged by handleFinalSubmit
+    } finally {
+      setSubmitting(false);
+    }
   }, [onSubmit, secrets]);
 
   return (
-    <Button onClick={handleClick} variant="contained" color="secondary">
+    <Button
+      onClick={handleClick}
+      disabled={submitting}
+      variant="contained"
+      color="secondary"
+    >
       Create
     </Button>
   );
@@ -144,10 +158,12 @@ export const StepForm = ({
 
   // always persist form data to sessionStorage
   // so its available if oAuth triggers window reload
+  // omit data:/blob: URL payloads (e.g. uploaded files) to stay under quota
   useEffect(() => {
     if (formDataStorageKey && Object.keys(formData).length > 0) {
       try {
-        sessionStorage.setItem(formDataStorageKey, JSON.stringify(formData));
+        const snapshot = sanitizeFormDataForSessionStorage(formData);
+        sessionStorage.setItem(formDataStorageKey, JSON.stringify(snapshot));
       } catch {
         // silently ignore storage errors
       }
@@ -268,10 +284,10 @@ export const StepForm = ({
       const finalData = { ...formData, token: authToken };
       try {
         await submitFunction(finalData, secrets);
-        // clear persisted form data after submission
         clearPersistedFormData();
       } catch (error) {
         console.error('Error during final submission:', error); // eslint-disable-line no-console
+        throw error;
       }
     },
     [formData, submitFunction, aapAuth, clearPersistedFormData],
