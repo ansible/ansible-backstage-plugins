@@ -168,13 +168,16 @@ describe('ansible-aap:autocomplete', () => {
       results: [
         {
           name: 'ansible.builtin',
-          versions: ['1.0.0'],
+          versions: [{ ref: '', version: '1.0.0', label: '1.0.0' }],
           sources: [],
           sourceVersions: {},
         },
         {
           name: 'community.general',
-          versions: ['2.0.0', '1.0.0'],
+          versions: [
+            { ref: '', version: '2.0.0', label: '2.0.0' },
+            { ref: '', version: '1.0.0', label: '1.0.0' },
+          ],
           sources: [],
           sourceVersions: {},
         },
@@ -215,7 +218,7 @@ describe('ansible-aap:autocomplete', () => {
       results: [
         {
           name: 'community.general',
-          versions: ['1.0.0'],
+          versions: [{ ref: '', version: '1.0.0', label: '1.0.0' }],
           sources: [],
           sourceVersions: {},
         },
@@ -260,7 +263,7 @@ describe('ansible-aap:autocomplete', () => {
       results: [
         {
           name: 'ansible.builtin',
-          versions: ['1.0.0'],
+          versions: [{ ref: '', version: '1.0.0', label: '1.0.0' }],
           sources: [],
           sourceVersions: {},
         },

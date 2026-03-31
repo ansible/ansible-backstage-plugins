@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import {
   FieldExtensionComponentProps,
   scaffolderApiRef,
@@ -20,6 +20,23 @@ import CloseIcon from '@material-ui/icons/Close';
 import { CollectionItem } from './types';
 import { useApi } from '@backstage/core-plugin-api';
 import { rhAapAuthApiRef } from '../../../apis';
+import type { SourceVersionDetail } from '@ansible/backstage-rhaap-common';
+
+function isSourceVersionDetail(v: unknown): v is SourceVersionDetail {
+  return (
+    typeof v === 'object' &&
+    v !== null &&
+    'ref' in v &&
+    'label' in v &&
+    'version' in v
+  );
+}
+
+type VersionOption = {
+  name: string;
+  version?: string | null;
+  label?: string;
+};
 
 const useStyles = makeStyles(theme => ({
   title: {
@@ -92,7 +109,9 @@ export const CollectionsPickerExtension = ({
   // Autocomplete states
   const [availableCollections, setAvailableCollections] = useState<any[]>([]);
   const [availableSources, setAvailableSources] = useState<any[]>([]);
-  const [availableVersions, setAvailableVersions] = useState<any[]>([]);
+  const [availableVersions, setAvailableVersions] = useState<VersionOption[]>(
+    [],
+  );
   const [loadingCollections, setLoadingCollections] = useState(false);
   const [loadingSources, setLoadingSources] = useState(false);
   const [loadingVersions, setLoadingVersions] = useState(false);
@@ -189,8 +208,35 @@ export const CollectionsPickerExtension = ({
         (col: any) => col.name === collectionName,
       );
 
-      if (foundCollection?.sourceVersions?.[sourceId]) {
-        // Get versions for the specific source
+      const rawVersions: unknown[] = foundCollection?.versions ?? [];
+      const details = rawVersions.filter(isSourceVersionDetail);
+      const stringsOnly = rawVersions.filter(
+        (v: unknown): v is string => typeof v === 'string',
+      );
+      const stringsForSource: string[] | undefined =
+        foundCollection?.sourceVersions?.[sourceId];
+
+      if (stringsForSource?.length && details.length) {
+        const byVersion = new Map<string, SourceVersionDetail[]>();
+        for (const d of details) {
+          const key = d.version ?? '';
+          const list = byVersion.get(key) ?? [];
+          list.push(d);
+          byVersion.set(key, list);
+        }
+        setAvailableVersions(
+          stringsForSource.flatMap((v: string) => {
+            const matches = byVersion.get(v);
+            if (matches?.length) {
+              return matches.map((d: SourceVersionDetail) => ({
+                name: d.label,
+                version: d.version,
+              }));
+            }
+            return [{ name: v, version: v }];
+          }),
+        );
+      } else if (stringsForSource?.length) {
         const sourceVersions = foundCollection.sourceVersions[sourceId] || [];
         setAvailableVersions(
           sourceVersions.map((version: string) => ({
@@ -198,12 +244,18 @@ export const CollectionsPickerExtension = ({
             version: version,
           })),
         );
-      } else if (foundCollection?.versions?.length > 0) {
-        // Fallback: show all versions if source-version mapping not available
+      } else if (details.length) {
         setAvailableVersions(
-          foundCollection.versions.map((version: string) => ({
-            name: version,
-            version: version,
+          details.map((d: SourceVersionDetail) => ({
+            name: d.label,
+            version: d.version,
+          })),
+        );
+      } else if (stringsOnly.length) {
+        setAvailableVersions(
+          stringsOnly.map((v: string) => ({
+            name: v,
+            version: v,
           })),
         );
       } else {
@@ -218,7 +270,15 @@ export const CollectionsPickerExtension = ({
               provider: 'aap-api-cloud',
               context: { collection: collectionName, source: sourceId },
             });
-            setAvailableVersions(results || []);
+            setAvailableVersions(
+              (results || []).map((item: any) => {
+                const rawVersion = item?.version || item?.name || item?.label;
+                return {
+                  name: item?.name || item?.label || rawVersion || '',
+                  version: rawVersion || null,
+                };
+              }),
+            );
           }
         } catch {
           setAvailableVersions([]);
@@ -319,6 +379,20 @@ export const CollectionsPickerExtension = ({
 
   const isAddButtonDisabled = !selectedCollection?.trim() || disabled;
 
+  const versionAutocompleteValue = useMemo(():
+    | VersionOption
+    | string
+    | null => {
+    if (selectedVersion === null || selectedVersion === '') {
+      return null;
+    }
+    const match = availableVersions.find(o => o.version === selectedVersion);
+    if (match) {
+      return match;
+    }
+    return { name: selectedVersion, version: selectedVersion };
+  }, [selectedVersion, availableVersions]);
+
   const handleCollectionChange = (_event: any, newValue: any) => {
     const value =
       typeof newValue === 'string'
@@ -327,7 +401,18 @@ export const CollectionsPickerExtension = ({
     setSelectedCollection(value);
     setSelectedSource(null);
     setAvailableSources(newValue?.sources || []);
-    setAvailableVersions(newValue?.versions || []);
+    setAvailableVersions(
+      (newValue?.versions || []).map((item: string | SourceVersionDetail) => {
+        if (typeof item === 'string') {
+          return { name: item, version: item };
+        }
+        const withName = item as SourceVersionDetail;
+        return {
+          name: withName.label ?? withName.name ?? '',
+          version: withName.version,
+        };
+      }),
+    );
     setSelectedVersion(null);
     setFieldErrors({});
   };
@@ -424,16 +509,33 @@ export const CollectionsPickerExtension = ({
                 ? option
                 : option.name || option.label || option.version || ''
             }
-            value={selectedVersion}
+            getOptionSelected={(option, value) => {
+              if (value === null) {
+                return false;
+              }
+              if (typeof value === 'string') {
+                return (
+                  option.version === value ||
+                  option.name === value ||
+                  option.label === value
+                );
+              }
+              return (
+                option.version === value.version && option.name === value.name
+              );
+            }}
+            value={versionAutocompleteValue}
             onChange={(_event, newValue) => {
-              const value =
-                typeof newValue === 'string'
-                  ? newValue
-                  : newValue?.name ||
-                    newValue?.label ||
-                    newValue?.version ||
-                    null;
-              setSelectedVersion(value);
+              if (newValue === null) {
+                setSelectedVersion(null);
+                return;
+              }
+              if (typeof newValue === 'string') {
+                setSelectedVersion(newValue);
+                return;
+              }
+              const v = newValue.name;
+              setSelectedVersion(v === null ? null : String(v));
             }}
             loading={loadingVersions}
             disabled={disabled || !selectedSource}

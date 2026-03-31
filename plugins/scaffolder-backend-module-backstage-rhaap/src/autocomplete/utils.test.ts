@@ -55,7 +55,13 @@ describe('autocomplete utils', () => {
       expect(result).toHaveLength(1);
       expect(result[0]).toEqual({
         name: 'community.general',
-        versions: ['1.0.0'],
+        versions: [
+          {
+            ref: '',
+            version: '1.0.0',
+            label: '1.0.0',
+          },
+        ],
         sources: [],
         sourceVersions: {},
       });
@@ -75,7 +81,9 @@ describe('autocomplete utils', () => {
       const result = buildCollectionsFromCatalogEntities(entities);
       expect(result).toHaveLength(1);
       expect(result[0].name).toBe('ansible.builtin');
-      expect(result[0].versions).toEqual(['2.14.0']);
+      expect(result[0].versions).toEqual([
+        { ref: '', version: '2.14.0', label: '2.14.0' },
+      ]);
     });
 
     it('merges multiple entities with same name and different versions', () => {
@@ -97,7 +105,10 @@ describe('autocomplete utils', () => {
       ];
       const result = buildCollectionsFromCatalogEntities(entities);
       expect(result).toHaveLength(1);
-      expect(result[0].versions).toEqual(['2.0.0', '1.0.0']);
+      expect(result[0].versions).toEqual([
+        { ref: '', version: '2.0.0', label: '2.0.0' },
+        { ref: '', version: '1.0.0', label: '1.0.0' },
+      ]);
     });
 
     it('includes entity with valid name when another has empty spec', () => {
@@ -180,6 +191,48 @@ describe('autocomplete utils', () => {
       ).toEqual(['1.0.0']);
     });
 
+    it('adds ref and version label in versions for SCM collections', () => {
+      const entities = [
+        {
+          spec: {
+            collection_full_name: 'my.collection',
+            collection_version: '1.0.0',
+          },
+          metadata: {
+            annotations: {
+              'ansible.io/scm-provider': 'github',
+              'ansible.io/scm-host-name': 'github.com',
+              'ansible.io/scm-organization': 'myorg',
+              'ansible.io/scm-repository': 'myrepo',
+              'ansible.io/ref': 'main',
+            },
+          },
+        },
+        {
+          spec: {
+            collection_full_name: 'my.collection',
+            collection_version: null,
+          },
+          metadata: {
+            annotations: {
+              'ansible.io/scm-provider': 'github',
+              'ansible.io/scm-host-name': 'github.com',
+              'ansible.io/scm-organization': 'myorg',
+              'ansible.io/scm-repository': 'myrepo',
+              'ansible.io/ref': 'v1.0.1',
+            },
+          },
+        },
+      ];
+
+      const result = buildCollectionsFromCatalogEntities(entities);
+      expect(result).toHaveLength(1);
+      expect(result[0].versions).toEqual([
+        { ref: 'main', version: '1.0.0', label: 'main / 1.0.0' },
+        { ref: 'v1.0.1', version: null, label: 'null' },
+      ]);
+    });
+
     it('handles missing metadata.annotations', () => {
       const entities = [
         {
@@ -213,7 +266,9 @@ describe('autocomplete utils', () => {
         },
       ];
       const result = buildCollectionsFromCatalogEntities(entities);
-      expect(result[0].versions).toEqual(['1.0.0']);
+      expect(result[0].versions).toEqual([
+        { ref: '', version: '1.0.0', label: '1.0.0' },
+      ]);
     });
 
     it('returns multiple collections for different names', () => {
@@ -266,7 +321,9 @@ describe('autocomplete utils', () => {
 
       expect(result.results).toHaveLength(1);
       expect(result.results[0].name).toBe('community.general');
-      expect(result.results[0].versions).toEqual(['1.0.0']);
+      expect(result.results[0].versions).toEqual([
+        { ref: '', version: '1.0.0', label: '1.0.0' },
+      ]);
       expect(mockFetch).toHaveBeenCalledWith(
         expect.stringContaining('entities?filter='),
         expect.objectContaining({
