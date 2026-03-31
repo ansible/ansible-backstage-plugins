@@ -1,17 +1,12 @@
 import {
   createContext,
   useContext,
-  useState,
   useCallback,
   useMemo,
-  useEffect,
+  useSyncExternalStore,
   ReactNode,
 } from 'react';
-import {
-  Notification,
-  NotificationContextValue,
-  ShowNotificationOptions,
-} from './types';
+import { NotificationContextValue, ShowNotificationOptions } from './types';
 import { notificationStore } from './notificationStore';
 
 const NotificationContext = createContext<NotificationContextValue | undefined>(
@@ -25,17 +20,19 @@ interface NotificationProviderProps {
 export const NotificationProvider = ({
   children,
 }: NotificationProviderProps) => {
-  const [notifications, setNotifications] = useState<Notification[]>(
-    notificationStore.getNotifications(),
+  const subscribe = useCallback(
+    (onStoreChange: () => void) =>
+      notificationStore.subscribe(() => {
+        onStoreChange();
+      }),
+    [],
   );
 
-  useEffect(() => {
-    const unsubscribe = notificationStore.subscribe(updatedNotifications => {
-      setNotifications(updatedNotifications);
-    });
-
-    return unsubscribe;
-  }, []);
+  const notifications = useSyncExternalStore(
+    subscribe,
+    () => notificationStore.getNotifications(),
+    () => [],
+  );
 
   const showNotification = useCallback(
     (options: ShowNotificationOptions): string => {

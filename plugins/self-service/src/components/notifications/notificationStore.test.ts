@@ -272,6 +272,49 @@ describe('notificationStore', () => {
 
       expect(notificationStore.getNotifications()).toHaveLength(0);
     });
+
+    it('cancels exit-animation timers so removal does not run after clearAll', () => {
+      const id = notificationStore.showNotification({
+        title: 'Test',
+        autoHideDuration: 0,
+      });
+
+      notificationStore.removeNotification(id);
+      expect(notificationStore.getNotifications()[0].isExiting).toBe(true);
+
+      notificationStore.clearAll();
+
+      jest.advanceTimersByTime(300);
+
+      expect(notificationStore.getNotifications()).toHaveLength(0);
+    });
+
+    it('cancels dismissCategories batch timer so category removal does not run after clearAll', () => {
+      notificationStore.showNotification({
+        title: 'First',
+        category: 'cat-a',
+        autoHideDuration: 0,
+      });
+      notificationStore.showNotification({
+        title: 'Second',
+        dismissCategories: ['cat-a'],
+      });
+
+      expect(notificationStore.getNotifications()).toHaveLength(2);
+
+      notificationStore.clearAll();
+
+      notificationStore.showNotification({
+        title: 'New',
+        category: 'cat-a',
+        autoHideDuration: 0,
+      });
+
+      jest.advanceTimersByTime(300);
+
+      expect(notificationStore.getNotifications()).toHaveLength(1);
+      expect(notificationStore.getNotifications()[0].title).toBe('New');
+    });
   });
 
   describe('subscribe', () => {
@@ -321,14 +364,17 @@ describe('notificationStore', () => {
   });
 
   describe('getNotifications', () => {
-    it('returns a copy of notifications array', () => {
+    it('returns the same array reference until the store updates', () => {
       notificationStore.showNotification({ title: 'Test' });
 
       const notifications1 = notificationStore.getNotifications();
       const notifications2 = notificationStore.getNotifications();
 
-      expect(notifications1).not.toBe(notifications2);
-      expect(notifications1).toEqual(notifications2);
+      expect(notifications1).toBe(notifications2);
+
+      notificationStore.showNotification({ title: 'Second' });
+      const notifications3 = notificationStore.getNotifications();
+      expect(notifications3).not.toBe(notifications1);
     });
   });
 });

@@ -22,11 +22,16 @@ class NotificationStore {
   private notifications: Notification[] = [];
   private readonly listeners: Set<NotificationListener> = new Set();
   private readonly autoHideTimeouts: Map<string, NodeJS.Timeout> = new Map();
+  /** Per-notification exit timers from {@link startExitAnimation} */
+  private readonly exitAnimationTimeouts: Map<string, NodeJS.Timeout> =
+    new Map();
+  /** Batch timers from {@link showNotification} dismissCategories path */
+  private readonly pendingDismissTimeouts: Set<NodeJS.Timeout> = new Set();
 
   private static readonly EXIT_ANIMATION_DURATION = 300;
 
   getNotifications(): Notification[] {
-    return [...this.notifications];
+    return this.notifications;
   }
 
   subscribe(listener: NotificationListener): () => void {
@@ -42,11 +47,26 @@ class NotificationStore {
   }
 
   private removeNotificationById(id: string): void {
+    const exitT = this.exitAnimationTimeouts.get(id);
+    if (exitT) {
+      clearTimeout(exitT);
+      this.exitAnimationTimeouts.delete(id);
+    }
     this.notifications = this.notifications.filter(n => n.id !== id);
     this.notifyListeners();
   }
 
   private removeNotificationsByCategories(categories: string[]): void {
+    const idsBeingRemoved = this.notifications
+      .filter(n => n.category && categories.includes(n.category))
+      .map(n => n.id);
+    for (const id of idsBeingRemoved) {
+      const exitT = this.exitAnimationTimeouts.get(id);
+      if (exitT) {
+        clearTimeout(exitT);
+        this.exitAnimationTimeouts.delete(id);
+      }
+    }
     this.notifications = this.notifications.filter(
       n => !n.category || !categories.includes(n.category),
     );
@@ -54,14 +74,21 @@ class NotificationStore {
   }
 
   private startExitAnimation(id: string): void {
+    const existing = this.exitAnimationTimeouts.get(id);
+    if (existing) {
+      clearTimeout(existing);
+      this.exitAnimationTimeouts.delete(id);
+    }
+
     this.notifications = this.notifications.map(n =>
       n.id === id ? { ...n, isExiting: true } : n,
     );
     this.notifyListeners();
 
-    setTimeout(() => {
+    const timeout = setTimeout(() => {
       this.removeNotificationById(id);
     }, NotificationStore.EXIT_ANIMATION_DURATION);
+    this.exitAnimationTimeouts.set(id, timeout);
   }
 
   showNotification(options: ShowNotificationOptions): string {
@@ -110,9 +137,11 @@ class NotificationStore {
           : n,
       );
 
-      setTimeout(() => {
+      const dismissTimeout = setTimeout(() => {
+        this.pendingDismissTimeouts.delete(dismissTimeout);
         this.removeNotificationsByCategories(categoriesToDismiss);
       }, NotificationStore.EXIT_ANIMATION_DURATION);
+      this.pendingDismissTimeouts.add(dismissTimeout);
     }
 
     this.notifications = [...this.notifications, newNotification];
@@ -139,8 +168,15 @@ class NotificationStore {
   }
 
   clearAll(): void {
-    this.autoHideTimeouts.forEach(timeout => clearTimeout(timeout));
+    this.autoHideTimeouts.forEach(t => clearTimeout(t));
     this.autoHideTimeouts.clear();
+
+    this.exitAnimationTimeouts.forEach(t => clearTimeout(t));
+    this.exitAnimationTimeouts.clear();
+
+    this.pendingDismissTimeouts.forEach(t => clearTimeout(t));
+    this.pendingDismissTimeouts.clear();
+
     this.notifications = [];
     this.notifyListeners();
   }

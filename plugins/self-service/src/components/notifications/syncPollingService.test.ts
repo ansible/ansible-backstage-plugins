@@ -53,6 +53,21 @@ describe('syncPollingService', () => {
       expect(mockDiscoveryApi.getBaseUrl).toHaveBeenCalledWith('catalog');
     });
 
+    it('does not start a second poll loop when initialize is called again', async () => {
+      syncPollingService.initialize(
+        mockDiscoveryApi as any,
+        mockFetchApi as any,
+      );
+      syncPollingService.initialize(
+        mockDiscoveryApi as any,
+        mockFetchApi as any,
+      );
+
+      await jest.advanceTimersByTimeAsync(0);
+
+      expect(mockFetchApi.fetch.mock.calls.length).toBe(1);
+    });
+
     it('starts polling on first init', async () => {
       syncPollingService.initialize(
         mockDiscoveryApi as any,
@@ -687,7 +702,7 @@ describe('syncPollingService', () => {
   });
 
   describe('error handling', () => {
-    it('returns empty providers when fetch fails', async () => {
+    it('does not change sync state when fetch fails on poll', async () => {
       mockFetchApi.fetch.mockRejectedValue(new Error('Network error'));
 
       syncPollingService.initialize(
@@ -699,7 +714,7 @@ describe('syncPollingService', () => {
       expect(syncPollingService.getIsSyncInProgress()).toBe(false);
     });
 
-    it('returns empty providers when response is not ok', async () => {
+    it('does not change sync state when response is not ok', async () => {
       mockFetchApi.fetch.mockResolvedValue({
         ok: false,
         status: 500,
@@ -712,6 +727,51 @@ describe('syncPollingService', () => {
       await jest.advanceTimersByTimeAsync(0);
 
       expect(syncPollingService.getIsSyncInProgress()).toBe(false);
+    });
+
+    it('preserves in-progress flag and tracking when a later poll fails', async () => {
+      const inProgressPayload = {
+        ok: true,
+        json: () =>
+          Promise.resolve({
+            content: {
+              providers: [
+                {
+                  sourceId: 'src-1',
+                  syncInProgress: true,
+                  lastSyncTime: null,
+                },
+              ],
+            },
+          }),
+      };
+
+      mockFetchApi.fetch
+        .mockResolvedValueOnce(inProgressPayload)
+        .mockRejectedValue(new Error('Network error'));
+
+      syncPollingService.initialize(
+        mockDiscoveryApi as any,
+        mockFetchApi as any,
+      );
+      await jest.advanceTimersByTimeAsync(0);
+
+      expect(syncPollingService.getIsSyncInProgress()).toBe(true);
+
+      syncPollingService.startTracking([
+        { sourceId: 'src-1', displayName: 'Source 1', lastSyncTime: null },
+      ]);
+
+      await jest.advanceTimersByTimeAsync(0);
+
+      expect(syncPollingService.getIsSyncInProgress()).toBe(true);
+      expect(mockShowNotification).not.toHaveBeenCalled();
+
+      // Further scheduled polls also fail — state must not reset to empty providers.
+      await jest.advanceTimersByTimeAsync(FAST_POLL_INTERVAL_MS);
+
+      expect(syncPollingService.getIsSyncInProgress()).toBe(true);
+      expect(mockShowNotification).not.toHaveBeenCalled();
     });
 
     it('returns false when not initialized', () => {

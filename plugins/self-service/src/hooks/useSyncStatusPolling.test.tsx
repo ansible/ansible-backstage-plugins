@@ -88,23 +88,14 @@ describe('useSyncStatusPolling', () => {
     (syncPollingService as any)._reset();
   });
 
-  it('initializes syncPollingService with APIs on mount', async () => {
-    renderHook();
-
-    await waitFor(() => {
-      expect(syncPollingService.initialize).toHaveBeenCalledWith(
-        mockDiscoveryApi,
-        mockFetchApi,
-      );
-    });
-  });
-
-  it('subscribes to syncPollingService on mount', async () => {
+  it('subscribes on mount and does not call initialize (owned by app shell)', async () => {
     renderHook();
 
     await waitFor(() => {
       expect(syncPollingService.subscribe).toHaveBeenCalled();
     });
+
+    expect(syncPollingService.initialize).not.toHaveBeenCalled();
   });
 
   it('returns isSyncInProgress from syncPollingService', async () => {

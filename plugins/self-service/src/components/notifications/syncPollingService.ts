@@ -63,21 +63,23 @@ class SyncPollingService {
   private fetchApi: FetchApi | null = null;
   private readonly trackedSyncs: Map<string, TrackedSync> = new Map();
   private pollTimer: NodeJS.Timeout | null = null;
+  private pollLoopStarted = false;
   private isChecking = false;
   private isSyncInProgress = false;
   private readonly listeners: Set<SyncStatusListener> = new Set();
 
   initialize(discoveryApi: DiscoveryApi, fetchApi: FetchApi): void {
-    const isFirstInit = this.discoveryApi === null;
     this.discoveryApi = discoveryApi;
     this.fetchApi = fetchApi;
 
-    // start initial poll if not already polling or if this is the first init
-    if (this.pollTimer === null || isFirstInit) {
-      this.checkSyncStatus().then(anyInProgress => {
-        this.scheduleNextPoll(anyInProgress);
-      });
+    if (this.pollLoopStarted) {
+      return;
     }
+    this.pollLoopStarted = true;
+
+    this.checkSyncStatus().then(anyInProgress => {
+      this.scheduleNextPoll(anyInProgress);
+    });
   }
 
   subscribe(listener: SyncStatusListener): () => void {
@@ -96,9 +98,9 @@ class SyncPollingService {
     return this.isSyncInProgress;
   }
 
-  private async fetchSyncStatus(): Promise<ProviderStatus[]> {
+  private async fetchSyncStatus(): Promise<ProviderStatus[] | null> {
     if (!this.discoveryApi || !this.fetchApi) {
-      return [];
+      return null;
     }
 
     try {
@@ -108,13 +110,13 @@ class SyncPollingService {
       );
 
       if (!response.ok) {
-        return [];
+        return null;
       }
 
       const data = await response.json();
-      return data.content?.providers || [];
+      return data.content?.providers ?? [];
     } catch {
-      return [];
+      return null;
     }
   }
 
@@ -126,6 +128,10 @@ class SyncPollingService {
 
     try {
       const providers = await this.fetchSyncStatus();
+      if (providers === null) {
+        return this.isSyncInProgress || this.trackedSyncs.size > 0;
+      }
+
       const anyInProgress = providers.some(p => p.syncInProgress);
 
       if (this.isSyncInProgress !== anyInProgress) {
@@ -244,6 +250,7 @@ class SyncPollingService {
       clearTimeout(this.pollTimer);
       this.pollTimer = null;
     }
+    this.pollLoopStarted = false;
     this.trackedSyncs.clear();
     this.isSyncInProgress = false;
     this.listeners.clear();
