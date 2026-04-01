@@ -131,6 +131,13 @@ export class GithubClient extends BaseScmClient {
         return lastResponse;
       }
 
+      // Release the failed body before reusing the connection on the next attempt.
+      try {
+        await lastResponse.arrayBuffer().catch(() => undefined);
+      } catch {
+        // ignore (e.g. test doubles without arrayBuffer)
+      }
+
       const delayMs = 1000 * (attempt + 1);
       this.logger.warn(
         `[GithubClient] HTTP ${lastResponse.status}, retry ${attempt + 1}/${GithubClient.MAX_RETRIES} after ${delayMs}ms`,
