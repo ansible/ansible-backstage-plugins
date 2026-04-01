@@ -37,7 +37,7 @@ describe('AAPService', () => {
     };
 
     // Mock the AAPClient class to capture constructor args and return a sentinel object
-    AAPClientMock = jest.fn(function (this: any, opts: any) {
+    AAPClientMock = jest.fn(function mockAAPClient(this: any, opts: any) {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       (this as any).opts = opts;
       return { __isAAPClient: true, ...opts };

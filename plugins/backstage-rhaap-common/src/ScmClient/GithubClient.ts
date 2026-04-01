@@ -84,12 +84,9 @@ export class GithubClient extends BaseScmClient {
         );
         return;
       }
-      const id = setTimeout(() => {
-        signal?.removeEventListener('abort', onAbort);
-        resolve();
-      }, ms);
+      const timeoutRef: { id?: ReturnType<typeof setTimeout> } = {};
       const onAbort = () => {
-        clearTimeout(id);
+        if (timeoutRef.id !== undefined) clearTimeout(timeoutRef.id);
         signal?.removeEventListener('abort', onAbort);
         reject(
           Object.assign(new Error('The operation was aborted'), {
@@ -97,6 +94,10 @@ export class GithubClient extends BaseScmClient {
           }),
         );
       };
+      timeoutRef.id = setTimeout(() => {
+        signal?.removeEventListener('abort', onAbort);
+        resolve();
+      }, ms);
       signal?.addEventListener('abort', onAbort);
     });
   }
