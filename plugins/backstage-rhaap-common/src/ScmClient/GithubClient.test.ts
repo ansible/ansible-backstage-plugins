@@ -191,6 +191,62 @@ describe('GithubClient', () => {
       });
     });
 
+    it('retries GraphQL up to 2 times on HTTP 5xx then succeeds', async () => {
+      jest.useFakeTimers();
+
+      const successBody = {
+        data: {
+          organization: {
+            repositories: {
+              pageInfo: { hasNextPage: false, endCursor: null },
+              nodes: [],
+            },
+          },
+        },
+      };
+
+      mockFetch
+        .mockResolvedValueOnce({
+          ok: false,
+          status: 502,
+          text: () => Promise.resolve('bad gateway'),
+        })
+        .mockResolvedValueOnce({
+          ok: true,
+          json: () => Promise.resolve(successBody),
+        });
+
+      const promise = client.getRepositories();
+
+      await Promise.resolve();
+      await jest.runOnlyPendingTimersAsync();
+
+      const repos = await promise;
+
+      expect(mockFetch).toHaveBeenCalledTimes(2);
+      expect(repos).toHaveLength(0);
+      expect(mockLogger.warn).toHaveBeenCalledWith(
+        expect.stringMatching(/HTTP 502, retry 1\/2/),
+      );
+
+      jest.useRealTimers();
+    });
+
+    it('does not retry GraphQL on non-5xx errors', async () => {
+      mockFetch.mockResolvedValueOnce({
+        ok: false,
+        status: 404,
+        text: () => Promise.resolve('not found'),
+      });
+
+      await expect(client.getRepositories()).rejects.toThrow(
+        'GitHub GraphQL error (404)',
+      );
+
+      expect(mockFetch).toHaveBeenCalledTimes(1);
+      expect(mockLogger.warn).not.toHaveBeenCalled();
+    });
+
     it('should skip archived repositories', async () => {
       const mockResponse = {
         data: {
