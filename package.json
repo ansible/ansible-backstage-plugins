@@ -38,10 +38,10 @@
     "testResultsProcessor": "jest-junit"
   },
   "devDependencies": {
-    "@backstage/cli": "^0.33.1",
-    "@backstage/e2e-test-utils": "^0.1.1",
+    "@backstage/cli": "^0.34.5",
+    "@backstage/e2e-test-utils": "^0.1.2",
     "@playwright/test": "^1.32.3",
-    "@red-hat-developer-hub/cli": "^1.10.0",
+    "@red-hat-developer-hub/cli": "^1.10.2",
     "@spotify/prettier-config": "^12.0.0",
     "@types/jest": "^30.0.0",
     "@types/node": "^22.13.4",
@@ -60,7 +60,8 @@
     "@types/react": "^18",
     "@types/react-dom": "^18",
     "@rjsf/utils": "=5.24.0",
-    "bfj": "7.0.2"
+    "bfj": "7.0.2",
+    "isolated-vm": "5.0.4"
   },
   "prettier": "@spotify/prettier-config",
   "lint-staged": {

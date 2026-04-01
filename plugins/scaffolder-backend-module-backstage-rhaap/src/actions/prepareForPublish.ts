@@ -21,68 +21,30 @@ export function prepareForPublishAction(options: { rootConfig: Config }) {
     description: 'Check if a repository exists',
     schema: {
       input: {
-        type: 'object',
-        required: [
-          'sourceControlProvider',
-          'repositoryOwner',
-          'repositoryName',
-          'eeFileName',
-          'contextDirName',
-        ],
-        properties: {
-          sourceControlProvider: { type: 'string' },
-          repositoryOwner: { type: 'string' },
-          repositoryName: { type: 'string' },
-          eeFileName: { type: 'string' },
-          createNewRepository: { type: 'boolean' },
-          contextDirName: { type: 'string' },
-          token: {
-            type: 'string',
-            title: 'Authentication Token',
-            description:
+        sourceControlProvider: z =>
+          z.string({ description: 'SCM provider (e.g. GitHub, GitLab)' }),
+        repositoryOwner: z => z.string(),
+        repositoryName: z => z.string(),
+        eeFileName: z => z.string(),
+        createNewRepository: z => z.boolean().optional(),
+        contextDirName: z => z.string(),
+        token: z =>
+          z
+            .string()
+            .optional()
+            .describe(
               'Optional OAuth token for SCM authentication. If not provided, the integration token from app-config will be used.',
-          },
-        },
+            ),
       },
       output: {
-        type: 'object',
-        properties: {
-          createNewRepo: {
-            title:
-              'Specifies if the specified repository needs to be created or not',
-            type: 'boolean',
-          },
-          generatedRepoUrl: {
-            title:
-              'The URL of the repository generated from SCM integration settings',
-            type: 'string',
-          },
-          normalizedRepoUrl: {
-            title:
-              'The normalized URL of the repository (used for catalog component registration)',
-            type: 'string',
-          },
-          generatedTitle: {
-            title: 'The title of the PR/MR',
-            type: 'string',
-          },
-          generatedDescription: {
-            title: 'The description of the PR/MR',
-            type: 'string',
-          },
-          generatedBranchName: {
-            title: 'The name of the branch to be created',
-            type: 'string',
-          },
-          generatedCatalogInfoUrl: {
-            title: 'The (generated) URL of the catalog-info.yaml file',
-            type: 'string',
-          },
-          generatedFullRepoUrl: {
-            title: 'The (generated) URL of the repository contents',
-            type: 'string',
-          },
-        },
+        createNewRepo: z => z.boolean().optional(),
+        generatedRepoUrl: z => z.string().optional(),
+        normalizedRepoUrl: z => z.string().optional(),
+        generatedTitle: z => z.string().optional(),
+        generatedDescription: z => z.string().optional(),
+        generatedBranchName: z => z.string().optional(),
+        generatedCatalogInfoUrl: z => z.string().optional(),
+        generatedFullRepoUrl: z => z.string().optional(),
       },
     },
     async handler(ctx) {

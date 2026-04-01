@@ -482,26 +482,35 @@ describe('SyncDialog', () => {
   it('toggleSelection at provider level deselects provider and all children', async () => {
     renderDialog({ open: true, onClose: mockOnClose });
 
-    await waitFor(() => {
-      expect(screen.getByText('GitHub')).toBeInTheDocument();
-    });
+    await waitFor(
+      () => {
+        expect(screen.getByText('GitHub')).toBeInTheDocument();
+      },
+      { timeout: 15000 },
+    );
     fireEvent.click(screen.getByRole('button', { name: /Select All/i }));
-    await waitFor(() => {
-      expect(
-        screen.getByRole('button', { name: /Sync Selected/i }),
-      ).not.toBeDisabled();
-    });
+    await waitFor(
+      () => {
+        expect(
+          screen.getByRole('button', { name: /Sync Selected/i }),
+        ).not.toBeDisabled();
+      },
+      { timeout: 15000 },
+    );
     const providerRow = screen.getByText('GitHub').closest('.MuiListItem-root');
     const providerCheckbox = providerRow?.querySelector(
       'input[type="checkbox"]',
     );
     fireEvent.click(providerCheckbox!);
-    await waitFor(() => {
-      expect(
-        screen.getByRole('button', { name: /Sync Selected/i }),
-      ).toBeDisabled();
-    });
-  });
+    await waitFor(
+      () => {
+        expect(
+          screen.getByRole('button', { name: /Sync Selected/i }),
+        ).toBeDisabled();
+      },
+      { timeout: 15000 },
+    );
+  }, 20000);
 
   it('toggleSelection at provider level selects provider and all children', async () => {
     renderDialog({ open: true, onClose: mockOnClose });

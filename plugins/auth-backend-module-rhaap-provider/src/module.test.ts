@@ -121,12 +121,12 @@ describe('authModuleRHAAPProvider', () => {
     );
     expect(startResponse.status).toEqual(302);
 
-    const nonceCookie = agent.jar.getCookie('rhaap-nonce', {
-      domain: 'localhost',
-      path: '/api/auth/rhaap/handler',
-      script: false,
-      secure: false,
-    });
+    const setCookieHeaders = startResponse.headers['set-cookie'];
+    const cookieHeader = Array.isArray(setCookieHeaders)
+      ? setCookieHeaders.join(';')
+      : (setCookieHeaders ?? '');
+    const nonceFromCookie = cookieHeader.match(/rhaap-nonce=([^;]+)/)?.[1];
+    expect(nonceFromCookie).toBeDefined();
 
     const startUrl = new URL(startResponse.get('location') ?? '');
     expect(startUrl.origin).toBe('https://rhaap.test');
@@ -140,7 +140,7 @@ describe('authModuleRHAAPProvider', () => {
     });
     expect(decodeOAuthState(startUrl.searchParams.get('state')!)).toEqual({
       env: 'development',
-      nonce: decodeURIComponent(nonceCookie!.value),
+      nonce: decodeURIComponent(nonceFromCookie!),
       scope: '',
     });
   });

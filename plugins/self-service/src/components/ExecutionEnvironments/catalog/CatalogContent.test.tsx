@@ -567,31 +567,6 @@ describe('EEListPage', () => {
       expect(screen.getByText('ee-one')).toBeInTheDocument();
       expect(screen.getByText('ee-two')).toBeInTheDocument();
     });
-
-    // Skip: component uses UserListPicker for starred filter; no per-row star with data-testid yellow-star
-    // eslint-disable-next-line jest/no-disabled-tests
-    test.skip('clicking star calls toggleStarredEntity', async () => {
-      const pluginMock = jest.requireMock('@backstage/plugin-catalog-react');
-      const starredMock = pluginMock.useStarredEntities();
-      const toggleStarredEntityMock =
-        starredMock.toggleStarredEntity as jest.Mock;
-      const isStarredEntityMock = starredMock.isStarredEntity as jest.Mock;
-
-      isStarredEntityMock.mockImplementation(() => true);
-
-      renderWithCatalogApi(() => Promise.resolve({ items: [entityA] }));
-
-      await waitFor(() =>
-        expect(screen.getByTestId('stubbed-table-title')).toBeInTheDocument(),
-      );
-
-      const star = screen.getByTestId('yellow-star');
-      expect(star).toBeTruthy();
-
-      fireEvent.click(star);
-
-      expect(toggleStarredEntityMock).toHaveBeenCalledWith(entityA);
-    });
   });
 
   describe('Owner name fetching', () => {
