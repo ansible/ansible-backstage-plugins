@@ -16,7 +16,6 @@
 import express from 'express';
 import Router from 'express-promise-router';
 import type { Config } from '@backstage/config';
-import type { JsonValue } from '@backstage/types';
 
 import { AAPJobTemplateProvider } from './providers/AAPJobTemplateProvider';
 import { AAPEntityProvider } from './providers/AAPEntityProvider';
@@ -25,7 +24,15 @@ import {
   HttpAuthService,
   UserInfoService,
   AuthService,
+  PermissionsService,
 } from '@backstage/backend-plugin-api';
+import { AuthorizeResult } from '@backstage/plugin-permission-common';
+import { catalogEntityReadPermission } from '@backstage/plugin-catalog-common/alpha';
+import {
+  gitRepositoriesViewPermission,
+  executionEnvironmentsViewPermission,
+  collectionsViewPermission,
+} from '@ansible/backstage-rhaap-common/permissions';
 import { CatalogClient } from '@backstage/catalog-client';
 import { PAHCollectionProvider } from './providers/PAHCollectionProvider';
 import { AnsibleGitContentsProvider } from './providers/AnsibleGitContentsProvider';
@@ -41,18 +48,11 @@ import {
   buildInvalidRepositoryResults,
   resolveProvidersToRun,
   createRequireSuperuserMiddleware,
-  getGitLabIntegrationForHost,
-  getGitHubIntegrationForHost,
-  getSkipTlsVerifyHosts,
-  isSafeHostname,
-  isGitHubHostAllowedForProxy,
-  isGitLabHostAllowedForProxy,
+  handleGitHubCIActivity,
+  handleGitLabCIActivity,
 } from './helpers';
 import { EEEntityProvider } from './providers/EEEntityProvider';
-import {
-  GitlabClient,
-  ScmClientFactory,
-} from '@ansible/backstage-rhaap-common';
+import { ScmClientFactory } from '@ansible/backstage-rhaap-common';
 
 export async function createRouter(options: {
   logger: LoggerService;
@@ -65,6 +65,7 @@ export async function createRouter(options: {
   userInfo: UserInfoService;
   auth: AuthService;
   catalogClient: CatalogClient;
+  permissions: PermissionsService;
   ansibleGitContentsProviders?: AnsibleGitContentsProvider[];
   allowedExternalAccessSubjects?: string[];
 }): Promise<express.Router> {
@@ -79,6 +80,7 @@ export async function createRouter(options: {
     userInfo,
     auth,
     catalogClient,
+    permissions,
     ansibleGitContentsProviders = [],
     allowedExternalAccessSubjects,
   } = options;
@@ -256,7 +258,7 @@ export async function createRouter(options: {
     }
   });
 
-  router.post('/register_ee', express.json(), async (request, response) => {
+  router.post('/ansible/ee', express.json(), async (request, response) => {
     // Only allow backend service calls (for example, scaffolder to catalog), not user requests
     await httpAuth.credentials(
       // Express Request (express-promise-router) vs Backstage's `credentials` param use incompatible Express generics; runtime value is valid.
@@ -535,7 +537,36 @@ export async function createRouter(options: {
     });
   }
 
-  router.get('/git_file_content', async (request, response) => {
+  router.get('/ansible/git/file-content', async (request, response) => {
+    const credentials = await httpAuth.credentials(request as any);
+
+    const [basicDecisions, [catalogReadDecision]] = await Promise.all([
+      permissions.authorize(
+        [
+          { permission: gitRepositoriesViewPermission },
+          { permission: executionEnvironmentsViewPermission },
+          { permission: collectionsViewPermission },
+        ],
+        { credentials },
+      ),
+      permissions.authorizeConditional(
+        [{ permission: catalogEntityReadPermission }],
+        { credentials },
+      ),
+    ]);
+
+    const hasAnyAnsiblePermission = basicDecisions.some(
+      d => d.result === AuthorizeResult.ALLOW,
+    );
+    const hasCatalogRead = catalogReadDecision.result !== AuthorizeResult.DENY;
+
+    if (!hasAnyAnsiblePermission || !hasCatalogRead) {
+      response
+        .status(403)
+        .json({ error: 'Forbidden: insufficient permissions' });
+      return;
+    }
+
     const { scmProvider, host, owner, repo, filePath, ref } = request.query;
 
     const required = [
@@ -612,179 +643,6 @@ export async function createRouter(options: {
     }
   });
 
-  // Helper function for GitHub CI activity
-  async function handleGitHubCIActivity(
-    request: express.Request,
-    response: express.Response,
-    perPage: number,
-  ): Promise<void> {
-    const owner = request.query.owner as string | undefined;
-    const repo = request.query.repo as string | undefined;
-    const host = (request.query.host as string) || 'github.com';
-
-    if (!owner || !repo) {
-      response.status(400).json({
-        error: 'Missing required query parameters for GitHub: owner, repo',
-      });
-      return;
-    }
-
-    if (!isSafeHostname(host)) {
-      response.status(400).json({
-        error: 'Invalid host: must be a valid hostname (e.g. github.com)',
-      });
-      return;
-    }
-
-    if (!isGitHubHostAllowedForProxy(config, host)) {
-      response.status(400).json({
-        error: `Host '${host}' is not allowed for GitHub CI activity. Add it under integrations.github in app-config, or use github.com.`,
-      });
-      return;
-    }
-
-    const tokenFromRequest = request.headers.authorization?.replace(
-      /^Bearer\s+/i,
-      '',
-    );
-    const { token: tokenFromConfig, apiBaseUrl: apiBaseFromConfig } =
-      getGitHubIntegrationForHost(config, host);
-    const token = tokenFromConfig || tokenFromRequest;
-
-    if (!token) {
-      response.status(400).json({
-        error:
-          'Missing authorization (Authorization header or integrations.github token in config)',
-      });
-      return;
-    }
-
-    const apiBase =
-      apiBaseFromConfig ||
-      (host === 'github.com'
-        ? 'https://api.github.com'
-        : `https://${host}/api/v3`);
-    const apiUrl = `${apiBase}/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/actions/runs?per_page=${perPage}`;
-
-    try {
-      const fetchResponse = await fetch(apiUrl, {
-        headers: {
-          Authorization: `Bearer ${token}`,
-          Accept: 'application/vnd.github+json',
-          'X-GitHub-Api-Version': '2022-11-28',
-        },
-      });
-
-      const data = await fetchResponse.json();
-
-      if (!fetchResponse.ok) {
-        logger.warn('[CI Activity proxy] GitHub API returned non-OK', {
-          status: fetchResponse.status,
-          owner,
-          repo,
-          host,
-          body: data as JsonValue,
-        });
-      }
-
-      response.status(fetchResponse.status).json(data as JsonValue);
-    } catch (err) {
-      logger.warn(
-        'CI Activity proxy (GitHub) failed',
-        err instanceof Error ? err : undefined,
-      );
-      response
-        .status(502)
-        .json({ error: 'Failed to fetch GitHub workflow runs' });
-    }
-  }
-
-  // Helper function for GitLab CI activity
-  async function handleGitLabCIActivity(
-    request: express.Request,
-    response: express.Response,
-    perPage: number,
-  ): Promise<void> {
-    const projectPath = request.query.projectPath as string | undefined;
-    const host = (request.query.host as string) || 'gitlab.com';
-
-    if (!projectPath) {
-      response.status(400).json({
-        error: 'Missing required query parameter: projectPath',
-      });
-      return;
-    }
-
-    if (!isSafeHostname(host)) {
-      response.status(400).json({
-        error: 'Invalid host: must be a valid hostname (e.g. gitlab.com)',
-      });
-      return;
-    }
-
-    if (!isGitLabHostAllowedForProxy(config, host)) {
-      response.status(400).json({
-        error: `Host '${host}' is not allowed for GitLab CI activity. Add it under integrations.gitlab in app-config, or use gitlab.com.`,
-      });
-      return;
-    }
-
-    const tokenFromRequest =
-      (request.headers['private-token'] as string) ||
-      request.headers.authorization?.replace(/^Bearer\s+/i, '');
-    const { token: tokenFromConfig, apiBaseUrl: apiBaseFromConfig } =
-      getGitLabIntegrationForHost(config, host);
-    const token = tokenFromConfig || tokenFromRequest;
-
-    if (!token) {
-      response.status(400).json({
-        error:
-          'Missing projectPath or authorization (PRIVATE-TOKEN, Authorization header, or integrations.gitlab token in config)',
-      });
-      return;
-    }
-
-    const hostLower = host.toLowerCase();
-    const skipTlsVerify = getSkipTlsVerifyHosts(config)
-      .filter(isSafeHostname)
-      .some(h => h.toLowerCase() === hostLower);
-
-    const client = new GitlabClient({
-      config: {
-        scmProvider: 'gitlab',
-        host,
-        organization: '',
-        token,
-        apiBaseUrl: apiBaseFromConfig,
-        checkSSL: !skipTlsVerify,
-      },
-      logger,
-    });
-
-    try {
-      const { ok, status, data } = await client.getPipelines(projectPath, {
-        perPage,
-      });
-
-      if (!ok) {
-        logger.warn('[CI Activity proxy] GitLab API returned non-OK', {
-          status,
-          projectPath,
-          host,
-          body: data as JsonValue,
-        });
-      }
-
-      response.status(status).json(data as JsonValue);
-    } catch (err) {
-      logger.warn(
-        'CI Activity proxy (GitLab) failed',
-        err instanceof Error ? err : undefined,
-      );
-      response.status(502).json({ error: 'Failed to fetch GitLab pipelines' });
-    }
-  }
-
   // Unified CI activity proxy for GitHub and GitLab
   // Query params:
   //   - provider: 'github' | 'gitlab' (required)
@@ -793,8 +651,31 @@ export async function createRouter(options: {
   //   GitHub-specific: owner, repo
   //   GitLab-specific: projectPath
   router.get('/ansible/git/ci-activity', async (request, response) => {
+    const credentials = await httpAuth.credentials(request as any);
+
+    const [[gitRepoDecision], [catalogReadDecision]] = await Promise.all([
+      permissions.authorize([{ permission: gitRepositoriesViewPermission }], {
+        credentials,
+      }),
+      permissions.authorizeConditional(
+        [{ permission: catalogEntityReadPermission }],
+        { credentials },
+      ),
+    ]);
+
+    const hasGitRepoView = gitRepoDecision.result === AuthorizeResult.ALLOW;
+    const hasCatalogRead = catalogReadDecision.result !== AuthorizeResult.DENY;
+
+    if (!hasGitRepoView || !hasCatalogRead) {
+      response
+        .status(403)
+        .json({ error: 'Forbidden: insufficient permissions' });
+      return;
+    }
+
     const provider = (request.query.provider as string)?.toLowerCase();
     const perPage = Math.min(Number(request.query.per_page) || 15, 100);
+    const ciActivityDeps = { config, logger };
 
     if (!provider || !['github', 'gitlab'].includes(provider)) {
       response.status(400).json({
@@ -805,11 +686,44 @@ export async function createRouter(options: {
     }
 
     if (provider === 'github') {
-      await handleGitHubCIActivity(request, response, perPage);
+      await handleGitHubCIActivity(ciActivityDeps, request, response, perPage);
     } else {
-      await handleGitLabCIActivity(request, response, perPage);
+      await handleGitLabCIActivity(ciActivityDeps, request, response, perPage);
     }
   });
+
+  router.post(
+    '/ansible/git/build-ee',
+    express.json(),
+    async (request, response) => {
+      const credentials = await httpAuth.credentials(request as any);
+
+      const [[eeDecision], [catalogReadDecision]] = await Promise.all([
+        permissions.authorize(
+          [{ permission: executionEnvironmentsViewPermission }],
+          { credentials },
+        ),
+        permissions.authorizeConditional(
+          [{ permission: catalogEntityReadPermission }],
+          { credentials },
+        ),
+      ]);
+
+      const hasEEView = eeDecision.result === AuthorizeResult.ALLOW;
+      const hasCatalogRead =
+        catalogReadDecision.result !== AuthorizeResult.DENY;
+
+      if (!hasEEView || !hasCatalogRead) {
+        response
+          .status(403)
+          .json({ error: 'Forbidden: insufficient permissions' });
+        return;
+      }
+
+      // TODO: implement build-ee logic
+      response.status(501).json({ error: 'Not implemented' });
+    },
+  );
 
   return router;
 }

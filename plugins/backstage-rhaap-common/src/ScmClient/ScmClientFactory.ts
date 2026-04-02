@@ -15,6 +15,7 @@ export interface CreateScmClientOptions {
   host?: string;
   organization: string;
   checkSSL?: boolean;
+  token?: string;
 }
 
 export class ScmClientFactory {
@@ -27,13 +28,30 @@ export class ScmClientFactory {
   }
 
   async createClient(options: CreateScmClientOptions): Promise<ScmClient> {
-    const { scmProvider, host, organization, checkSSL } = options;
+    const {
+      scmProvider,
+      host,
+      organization,
+      checkSSL,
+      token: providedToken,
+    } = options;
 
     const resolvedHost =
       host || (scmProvider === 'github' ? 'github.com' : 'gitlab.com');
 
     if (scmProvider === 'github') {
-      const { token, apiBaseUrl } = this.getGithubConfig(resolvedHost);
+      const { token: configToken, apiBaseUrl } = this.getGithubConfig(
+        resolvedHost,
+        !!providedToken,
+      );
+      const token = providedToken || configToken;
+
+      if (providedToken) {
+        this.logger.info(
+          `[ScmClientFactory] Using provided OAuth token for GitHub host: ${resolvedHost}`,
+        );
+      }
+
       const config = {
         scmProvider,
         host: resolvedHost,
@@ -46,7 +64,18 @@ export class ScmClientFactory {
     }
 
     if (scmProvider === 'gitlab') {
-      const { token, apiBaseUrl } = this.getGitlabConfig(resolvedHost);
+      const { token: configToken, apiBaseUrl } = this.getGitlabConfig(
+        resolvedHost,
+        !!providedToken,
+      );
+      const token = providedToken || configToken;
+
+      if (providedToken) {
+        this.logger.info(
+          `[ScmClientFactory] Using provided OAuth token for GitLab host: ${resolvedHost}`,
+        );
+      }
+
       const config = {
         scmProvider,
         host: resolvedHost,
@@ -61,12 +90,21 @@ export class ScmClientFactory {
     throw new Error(`Unsupported SCM provider: ${scmProvider}`);
   }
 
-  private getGithubConfig(host: string): {
+  private getGithubConfig(
+    host: string,
+    hasProvidedToken: boolean = false,
+  ): {
     token: string;
     apiBaseUrl?: string;
   } {
     const integration = this.integrations.github.byHost(host);
     if (!integration) {
+      if (hasProvidedToken) {
+        this.logger.warn(
+          `[ScmClientFactory] No GitHub integration configured for host: ${host}, but using provided token`,
+        );
+        return { token: '' };
+      }
       throw new Error(
         `No GitHub integration configured for host: ${host}. ` +
           `Please configure it in app-config.yaml under integrations.github`,
@@ -76,7 +114,7 @@ export class ScmClientFactory {
     const config = integration.config;
     const token = config.token;
 
-    if (!token) {
+    if (!token && !hasProvidedToken) {
       throw new Error(
         `No token configured for GitHub host: ${host}. ` +
           `Please add a token to the GitHub integration in app-config.yaml`,
@@ -87,17 +125,26 @@ export class ScmClientFactory {
       `[ScmClientFactory] Using GitHub integration for host: ${host}`,
     );
     return {
-      token,
+      token: token || '',
       apiBaseUrl: config.apiBaseUrl,
     };
   }
 
-  private getGitlabConfig(host: string): {
+  private getGitlabConfig(
+    host: string,
+    hasProvidedToken: boolean = false,
+  ): {
     token: string;
     apiBaseUrl?: string;
   } {
     const integration = this.integrations.gitlab.byHost(host);
     if (!integration) {
+      if (hasProvidedToken) {
+        this.logger.warn(
+          `[ScmClientFactory] No GitLab integration configured for host: ${host}, but using provided token`,
+        );
+        return { token: '' };
+      }
       throw new Error(
         `No GitLab integration configured for host: ${host}. ` +
           `Please configure it in app-config.yaml under integrations.gitlab`,
@@ -107,7 +154,7 @@ export class ScmClientFactory {
     const config = integration.config;
     const token = config.token;
 
-    if (!token) {
+    if (!token && !hasProvidedToken) {
       throw new Error(
         `No token configured for GitLab host: ${host}. ` +
           `Please add a token to the GitLab integration in app-config.yaml`,
@@ -118,7 +165,7 @@ export class ScmClientFactory {
       `[ScmClientFactory] Using GitLab integration for host: ${host}`,
     );
     return {
-      token,
+      token: token || '',
       apiBaseUrl: config.apiBaseUrl,
     };
   }

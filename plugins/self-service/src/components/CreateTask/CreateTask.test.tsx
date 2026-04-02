@@ -312,4 +312,60 @@ describe('Create task', () => {
       );
     });
   });
+
+  it('should show error state when getTemplateParameterSchema fails', async () => {
+    (require('react-router-dom').useParams as jest.Mock).mockReturnValue({
+      namespace: 'default',
+      templateName: 'failing-template',
+    });
+
+    // Mock the scaffolder API to throw an error
+    const originalGetTemplateParameterSchema =
+      mockScaffolderApi.getTemplateParameterSchema;
+    mockScaffolderApi.getTemplateParameterSchema = jest
+      .fn()
+      .mockRejectedValue(new Error('Failed to fetch template'));
+
+    mockCatalogApi.getEntityByRef.mockResolvedValue(null);
+
+    await render(<CreateTask />);
+
+    await waitFor(() => {
+      expect(screen.getByText('Failed to fetch entity')).toBeInTheDocument();
+    });
+
+    // Restore the original mock
+    mockScaffolderApi.getTemplateParameterSchema =
+      originalGetTemplateParameterSchema;
+  });
+
+  it('should show error state when namespace is missing in URL params', async () => {
+    (require('react-router-dom').useParams as jest.Mock).mockReturnValue({
+      namespace: undefined,
+      templateName: 'generic-seed',
+    });
+
+    mockCatalogApi.getEntityByRef.mockResolvedValue(null);
+
+    await render(<CreateTask />);
+
+    await waitFor(() => {
+      expect(screen.getByText('Failed to fetch entity')).toBeInTheDocument();
+    });
+  });
+
+  it('should show error state when templateName is missing in URL params', async () => {
+    (require('react-router-dom').useParams as jest.Mock).mockReturnValue({
+      namespace: 'default',
+      templateName: undefined,
+    });
+
+    mockCatalogApi.getEntityByRef.mockResolvedValue(null);
+
+    await render(<CreateTask />);
+
+    await waitFor(() => {
+      expect(screen.getByText('Failed to fetch entity')).toBeInTheDocument();
+    });
+  });
 });

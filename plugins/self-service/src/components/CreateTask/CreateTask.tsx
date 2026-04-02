@@ -86,7 +86,10 @@ export const CreateTask = () => {
     return state?.initialFormData;
   }, [location.state]);
 
-  const finalSubmit = async (formData: Record<string, any>) => {
+  const finalSubmit = async (
+    formData: Record<string, any>,
+    secrets?: Record<string, string>,
+  ) => {
     if (!namespace || !templateName) {
       throw new Error('Missing namespace or name in URL parameters');
     }
@@ -95,6 +98,7 @@ export const CreateTask = () => {
       const task = await scaffolderApi.scaffold({
         templateRef: `template:${namespace}/${templateName}`,
         values: formData,
+        secrets,
       });
 
       // Redirect to the task details page
@@ -235,6 +239,7 @@ export const CreateTask = () => {
               steps={entityTemplate.steps}
               submitFunction={finalSubmit}
               initialFormData={initialFormData}
+              storageKey={`${namespace}/${templateName}`}
             />
             <Box
               display="flex"

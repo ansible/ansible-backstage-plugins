@@ -24,6 +24,10 @@ jest.mock('@backstage/plugin-scaffolder-react', () => ({
   ScaffolderFieldExtensions: ({ children }: { children?: React.ReactNode }) => (
     <div>{children}</div>
   ),
+  useTemplateSecrets: () => ({
+    secrets: { USER_OAUTH_TOKEN: 'mock-oauth-token' },
+    setSecrets: jest.fn(),
+  }),
 }));
 
 jest.mock('../../apis', () => ({
@@ -107,6 +111,7 @@ describe('StepForm', () => {
             testField: 'test-value',
             token: 'mock-token',
           }),
+          { USER_OAUTH_TOKEN: 'mock-oauth-token' },
         );
       });
     });
@@ -209,6 +214,7 @@ describe('StepForm', () => {
           expect.objectContaining({
             token: 'mock-token',
           }),
+          undefined, // Auto-execute doesn't have access to secrets context
         );
       });
     });
@@ -1178,6 +1184,483 @@ describe('StepForm', () => {
 
       await waitFor(() => {
         expect(submitFunction).toHaveBeenCalled();
+      });
+    });
+  });
+
+  describe('SessionStorage persistence', () => {
+    const storageKey = 'test-namespace/test-template';
+    // Match the actual storage key format used in the component
+    const formDataKey = `scaffolder-form-data-${storageKey}`;
+    const activeStepKey = `scaffolder-active-step-${storageKey}`;
+    const oauthPendingKey = 'scaffolder-oauth-pending';
+
+    beforeEach(() => {
+      sessionStorage.clear();
+    });
+
+    afterEach(() => {
+      sessionStorage.clear();
+    });
+
+    it('restores form data from sessionStorage when OAuth is pending', () => {
+      const savedFormData = { name: 'Restored Name', age: 30 };
+      sessionStorage.setItem(oauthPendingKey, 'true');
+      sessionStorage.setItem(formDataKey, JSON.stringify(savedFormData));
+      sessionStorage.setItem(activeStepKey, '1');
+
+      const steps = [
+        {
+          title: 'Step 1',
+          schema: { properties: { name: { type: 'string', title: 'Name' } } },
+        },
+        {
+          title: 'Step 2',
+          schema: { properties: { age: { type: 'number', title: 'Age' } } },
+        },
+      ];
+
+      render(
+        <StepForm
+          steps={steps}
+          submitFunction={submitFunction}
+          storageKey={storageKey}
+        />,
+      );
+
+      // Should have cleared the OAuth pending flag
+      expect(sessionStorage.getItem(oauthPendingKey)).toBeNull();
+
+      // Should be on step 2 (restored active step) - Back button is visible
+      expect(screen.getByText('Back')).toBeInTheDocument();
+    });
+
+    it('persists form data to sessionStorage when storageKey is provided', () => {
+      const setItemSpy = jest.spyOn(Storage.prototype, 'setItem');
+
+      const steps = [
+        {
+          title: 'Step 1',
+          schema: { properties: { name: { type: 'string' } } },
+        },
+      ];
+
+      render(
+        <StepForm
+          steps={steps}
+          submitFunction={submitFunction}
+          storageKey={storageKey}
+        />,
+      );
+
+      // Submit the form to update formData
+      fireEvent.click(screen.getByText('Submit'));
+
+      // Verify setItem was called for formData
+      expect(setItemSpy).toHaveBeenCalledWith(formDataKey, expect.any(String));
+
+      setItemSpy.mockRestore();
+    });
+
+    it('does not persist schema-marked secret fields to sessionStorage', async () => {
+      const steps = [
+        {
+          title: 'Step 1',
+          schema: {
+            properties: {
+              repo: { type: 'string' },
+              apiKey: { type: 'string', 'ui:field': 'Secret' },
+            },
+          },
+        },
+      ];
+
+      render(
+        <StepForm
+          steps={steps}
+          submitFunction={submitFunction}
+          storageKey={storageKey}
+          initialFormData={{ repo: 'my-repo', apiKey: 'top-secret' }}
+        />,
+      );
+
+      await waitFor(() => {
+        const raw = sessionStorage.getItem(formDataKey);
+        expect(raw).toBeTruthy();
+        const parsed = JSON.parse(raw!);
+        expect(parsed.repo).toBe('my-repo');
+        expect(parsed.apiKey).toBeUndefined();
+      });
+    });
+
+    it('persists active step to sessionStorage when storageKey is provided', () => {
+      const setItemSpy = jest.spyOn(Storage.prototype, 'setItem');
+
+      const steps = [
+        {
+          title: 'Step 1',
+          schema: { properties: { name: { type: 'string' } } },
+        },
+        {
+          title: 'Step 2',
+          schema: { properties: { age: { type: 'number' } } },
+        },
+      ];
+
+      render(
+        <StepForm
+          steps={steps}
+          submitFunction={submitFunction}
+          storageKey={storageKey}
+        />,
+      );
+
+      // Submit the form to go to next step
+      fireEvent.click(screen.getByText('Submit'));
+
+      // Verify setItem was called for active step
+      expect(setItemSpy).toHaveBeenCalledWith(activeStepKey, '1');
+
+      setItemSpy.mockRestore();
+    });
+
+    it('clears sessionStorage on unmount when OAuth is not pending', () => {
+      const removeItemSpy = jest.spyOn(Storage.prototype, 'removeItem');
+
+      const steps = [
+        {
+          title: 'Step 1',
+          schema: { properties: { name: { type: 'string' } } },
+        },
+      ];
+
+      const { unmount } = render(
+        <StepForm
+          steps={steps}
+          submitFunction={submitFunction}
+          storageKey={storageKey}
+        />,
+      );
+
+      // Unmount the component
+      unmount();
+
+      // Storage should be cleared
+      expect(removeItemSpy).toHaveBeenCalledWith(formDataKey);
+      expect(removeItemSpy).toHaveBeenCalledWith(activeStepKey);
+
+      removeItemSpy.mockRestore();
+    });
+
+    it('does not clear sessionStorage on unmount when OAuth is pending', () => {
+      const removeItemSpy = jest.spyOn(Storage.prototype, 'removeItem');
+
+      const steps = [
+        {
+          title: 'Step 1',
+          schema: { properties: { name: { type: 'string' } } },
+        },
+      ];
+
+      const { unmount } = render(
+        <StepForm
+          steps={steps}
+          submitFunction={submitFunction}
+          storageKey={storageKey}
+        />,
+      );
+
+      // Set OAuth pending AFTER the component has mounted
+      // This simulates ScmAuthPicker setting the flag before triggering OAuth
+      sessionStorage.setItem(oauthPendingKey, 'true');
+
+      // Clear the spy to ignore any previous calls
+      removeItemSpy.mockClear();
+
+      // Unmount the component
+      unmount();
+
+      // removeItem should NOT have been called for form/step keys
+      expect(removeItemSpy).not.toHaveBeenCalledWith(formDataKey);
+      expect(removeItemSpy).not.toHaveBeenCalledWith(activeStepKey);
+
+      removeItemSpy.mockRestore();
+    });
+
+    it('clears persisted form data after successful submission', async () => {
+      const removeItemSpy = jest.spyOn(Storage.prototype, 'removeItem');
+
+      const steps = [
+        {
+          title: 'Step 1',
+          schema: { properties: { name: { type: 'string' } } },
+        },
+      ];
+
+      render(
+        <StepForm
+          steps={steps}
+          submitFunction={submitFunction}
+          storageKey={storageKey}
+        />,
+      );
+
+      // Submit the form
+      fireEvent.click(screen.getByText('Submit'));
+
+      // Wait for review step
+      const createButton = await screen.findByText('Create');
+
+      // Final submit
+      fireEvent.click(createButton);
+
+      await waitFor(() => {
+        expect(submitFunction).toHaveBeenCalled();
+      });
+
+      // Storage should be cleared after successful submission
+      expect(removeItemSpy).toHaveBeenCalledWith(formDataKey);
+      expect(removeItemSpy).toHaveBeenCalledWith(activeStepKey);
+
+      removeItemSpy.mockRestore();
+    });
+
+    it('restores active step 0 when stored step is invalid', () => {
+      sessionStorage.setItem(oauthPendingKey, 'true');
+      sessionStorage.setItem(activeStepKey, 'invalid-step');
+
+      const steps = [
+        {
+          title: 'Step 1',
+          schema: { properties: { name: { type: 'string' } } },
+        },
+      ];
+
+      render(
+        <StepForm
+          steps={steps}
+          submitFunction={submitFunction}
+          storageKey={storageKey}
+        />,
+      );
+
+      // Should be on step 1 (default)
+      expect(screen.queryByText('Back')).not.toBeInTheDocument();
+    });
+
+    it('handles sessionStorage errors gracefully', () => {
+      const getItemSpy = jest
+        .spyOn(Storage.prototype, 'getItem')
+        .mockImplementation(() => {
+          throw new Error('Storage error');
+        });
+
+      const steps = [
+        {
+          title: 'Step 1',
+          schema: { properties: { name: { type: 'string' } } },
+        },
+      ];
+
+      // Should not throw
+      render(
+        <StepForm
+          steps={steps}
+          submitFunction={submitFunction}
+          storageKey={storageKey}
+        />,
+      );
+
+      expect(screen.getByText('MockForm')).toBeInTheDocument();
+
+      getItemSpy.mockRestore();
+    });
+  });
+
+  describe('Form change handling', () => {
+    it('updates form data on form change via onChange', async () => {
+      jest
+        .spyOn(require('./ScaffolderFormWrapper'), 'ScaffolderForm')
+        .mockImplementation(({ onChange, onSubmit, children }: any) => {
+          return (
+            <form
+              onSubmit={e => {
+                e.preventDefault();
+                onSubmit({ formData: { testField: 'test-value' } });
+              }}
+            >
+              <div>MockForm</div>
+              {children}
+              <button type="submit">Submit</button>
+              <button
+                type="button"
+                onClick={() => onChange?.({ formData: { name: 'changed' } })}
+              >
+                Change
+              </button>
+            </form>
+          );
+        });
+
+      const steps = [
+        {
+          title: 'Step 1',
+          schema: { properties: { name: { type: 'string' } } },
+        },
+      ];
+
+      render(<StepForm steps={steps} submitFunction={submitFunction} />);
+
+      // Simulate onChange being called
+      fireEvent.click(screen.getByText('Change'));
+
+      // The form data should be updated (verified through submission)
+      fireEvent.click(screen.getByText('Submit'));
+
+      await waitFor(() => {
+        expect(screen.getByText('Review')).toBeInTheDocument();
+      });
+    });
+  });
+
+  describe('Initial form data', () => {
+    it('applies initial form data when provided', () => {
+      const steps = [
+        {
+          title: 'Step 1',
+          schema: { properties: { name: { type: 'string', title: 'Name' } } },
+        },
+      ];
+
+      render(
+        <StepForm
+          steps={steps}
+          submitFunction={submitFunction}
+          initialFormData={{ name: 'Initial Name' }}
+        />,
+      );
+
+      expect(screen.getByText('MockForm')).toBeInTheDocument();
+    });
+  });
+
+  describe('extractProperties edge cases', () => {
+    it('handles step with no schema', () => {
+      const steps = [
+        {
+          title: 'Valid Step',
+          schema: { properties: { name: { type: 'string' } } },
+        },
+        {
+          title: 'No Schema',
+        } as any,
+      ];
+
+      render(<StepForm steps={steps} submitFunction={submitFunction} />);
+
+      expect(screen.getByText('Valid Step')).toBeInTheDocument();
+    });
+  });
+
+  describe('formatValueForDisplay edge cases', () => {
+    it('handles null values in review display', async () => {
+      const steps = [
+        {
+          title: 'Step 1',
+          schema: {
+            properties: { nullField: { type: 'string', title: 'Null Field' } },
+          },
+        },
+      ];
+
+      jest
+        .spyOn(require('./ScaffolderFormWrapper'), 'ScaffolderForm')
+        .mockImplementation(createScaffolderFormMock({ nullField: null }));
+
+      render(<StepForm steps={steps} submitFunction={submitFunction} />);
+
+      fireEvent.click(screen.getByText('Submit'));
+
+      await waitFor(() => {
+        // Null values should not be displayed
+        expect(screen.queryByText('Null Field')).not.toBeInTheDocument();
+      });
+    });
+
+    it('handles undefined values in review display', async () => {
+      const steps = [
+        {
+          title: 'Step 1',
+          schema: {
+            properties: {
+              undefinedField: { type: 'string', title: 'Undefined Field' },
+            },
+          },
+        },
+      ];
+
+      jest
+        .spyOn(require('./ScaffolderFormWrapper'), 'ScaffolderForm')
+        .mockImplementation(
+          createScaffolderFormMock({ undefinedField: undefined }),
+        );
+
+      render(<StepForm steps={steps} submitFunction={submitFunction} />);
+
+      fireEvent.click(screen.getByText('Submit'));
+
+      await waitFor(() => {
+        // Undefined values should not be displayed
+        expect(screen.queryByText('Undefined Field')).not.toBeInTheDocument();
+      });
+    });
+
+    it('handles object without name property in review display', async () => {
+      const steps = [
+        {
+          title: 'Step 1',
+          schema: {
+            properties: { item: { type: 'object', title: 'Item' } },
+          },
+        },
+      ];
+
+      jest
+        .spyOn(require('./ScaffolderFormWrapper'), 'ScaffolderForm')
+        .mockImplementation(createScaffolderFormMock({ item: { id: 123 } }));
+
+      render(<StepForm steps={steps} submitFunction={submitFunction} />);
+
+      fireEvent.click(screen.getByText('Submit'));
+
+      await waitFor(() => {
+        expect(screen.getByText('Item')).toBeInTheDocument();
+      });
+    });
+
+    it('handles decodeBase64FileContent returning null for invalid base64', async () => {
+      const steps = [
+        {
+          title: 'Step 1',
+          schema: {
+            properties: { file: { type: 'string', title: 'File' } },
+          },
+        },
+      ];
+
+      // Not a base64 data URL
+      jest
+        .spyOn(require('./ScaffolderFormWrapper'), 'ScaffolderForm')
+        .mockImplementation(
+          createScaffolderFormMock({ file: 'just-a-regular-string' }),
+        );
+
+      render(<StepForm steps={steps} submitFunction={submitFunction} />);
+
+      fireEvent.click(screen.getByText('Submit'));
+
+      await waitFor(() => {
+        expect(screen.getByText('just-a-regular-string')).toBeInTheDocument();
       });
     });
   });

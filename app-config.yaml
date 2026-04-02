@@ -86,6 +86,10 @@ auth:
       development:
         clientId: <changeme>
         clientSecret: <changeme>
+    gitlab:
+      development:
+        clientId: <changeme>
+        clientSecret: <changeme>
     rhaap:
       development:
         host: <changeme>

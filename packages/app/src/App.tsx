@@ -52,6 +52,7 @@ import {
   MCPServersPickerFieldExtension,
   AdditionalBuildStepsPickerFieldExtension,
   SelfServicePage,
+  ScmAuthPickerFieldExtension,
 } from '@ansible/plugin-backstage-self-service';
 import { RbacPage } from '@backstage-community/plugin-rbac';
 
@@ -119,6 +120,7 @@ const routes = (
         <PackagesPickerFieldExtension />
         <MCPServersPickerFieldExtension />
         <AdditionalBuildStepsPickerFieldExtension />
+        <ScmAuthPickerFieldExtension />
       </ScaffolderFieldExtensions>
     </Route>
     <Route path="/api-docs" element={<ApiExplorerPage />} />
