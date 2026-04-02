@@ -327,7 +327,7 @@ export const EEDetailsPage: React.FC = () => {
 
   const handleBuild = () => {
     if (entity) {
-      void startBuildFlow(entity as Entity);
+      startBuildFlow(entity as Entity).catch(() => undefined);
     }
   };
 

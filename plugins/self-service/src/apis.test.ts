@@ -292,6 +292,34 @@ describe('EEBuildApiClient', () => {
     });
   });
 
+  it('ignores workflowId when it is a non-primitive JSON value', async () => {
+    const mockFetch = {
+      fetch: jest.fn().mockResolvedValue({
+        ok: true,
+        text: async () =>
+          JSON.stringify({ workflowId: { nested: 'x' }, message: 'ok' }),
+      }),
+    };
+    const client = new EEBuildApiClient({
+      discoveryApi: mockDiscovery as any,
+      fetchApi: mockFetch as any,
+    });
+
+    const result = await client.triggerBuild({
+      entityRef: 'component:default/ee1',
+      registryType: 'pah',
+      imageName: 'ns/ee',
+      imageTag: '1',
+      verifyTls: true,
+    });
+
+    expect(result).toEqual({
+      accepted: true,
+      workflowId: undefined,
+      message: 'ok',
+    });
+  });
+
   it('accepts success with empty body', async () => {
     const mockFetch = {
       fetch: jest.fn().mockResolvedValue({

@@ -60,6 +60,23 @@ export interface EEBuildResult {
   message?: string;
 }
 
+function workflowIdFromJsonValue(raw: unknown): string | undefined {
+  if (raw === undefined || raw === null) {
+    return undefined;
+  }
+  if (typeof raw === 'string') {
+    const t = raw.trim();
+    return t.length > 0 ? t : undefined;
+  }
+  if (typeof raw === 'number' && Number.isFinite(raw)) {
+    return String(raw);
+  }
+  if (typeof raw === 'boolean') {
+    return raw ? 'true' : 'false';
+  }
+  return undefined;
+}
+
 function parseExecutionEnvironmentBuildResponse(text: string): {
   workflowId?: string;
   message?: string;
@@ -70,11 +87,9 @@ function parseExecutionEnvironmentBuildResponse(text: string): {
   }
   try {
     const data = JSON.parse(trimmed) as Record<string, unknown>;
-    const rawWid = data.workflowId ?? data.workflow_id;
-    const workflowId =
-      rawWid !== undefined && rawWid !== null && String(rawWid).length > 0
-        ? String(rawWid)
-        : undefined;
+    const workflowId = workflowIdFromJsonValue(
+      data.workflowId ?? data.workflow_id,
+    );
     const message =
       typeof data.message === 'string' && data.message.trim()
         ? data.message.trim()

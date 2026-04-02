@@ -145,6 +145,7 @@ export function EEBuildDialog({ open, entity, onClose }: EEBuildDialogProps) {
           <Select
             labelId="ee-build-registry-label"
             id="ee-build-registry-select"
+            data-testid="ee-build-registry-select"
             value={registryType}
             onChange={e =>
               setRegistryType(e.target.value as EEBuildRegistryType)
@@ -169,6 +170,7 @@ export function EEBuildDialog({ open, entity, onClose }: EEBuildDialogProps) {
             placeholder="https://registry.example.com"
             variant="outlined"
             margin="normal"
+            inputProps={{ 'data-testid': 'ee-build-custom-registry-url' }}
           />
         )}
 
@@ -178,6 +180,7 @@ export function EEBuildDialog({ open, entity, onClose }: EEBuildDialogProps) {
           label="Image name"
           value={imageName}
           onChange={e => setImageName(e.target.value)}
+          inputProps={{ 'data-testid': 'ee-build-image-name' }}
           helperText="Name for the built Execution Environment image in namespace/name format. For example, 'my-namespace/my-custom-ee'."
           variant="outlined"
           margin="normal"
@@ -189,6 +192,7 @@ export function EEBuildDialog({ open, entity, onClose }: EEBuildDialogProps) {
           label="Image tag"
           value={imageTag}
           onChange={e => setImageTag(e.target.value)}
+          inputProps={{ 'data-testid': 'ee-build-image-tag' }}
           helperText="Tag for the built Execution Environment image."
           variant="outlined"
           margin="normal"

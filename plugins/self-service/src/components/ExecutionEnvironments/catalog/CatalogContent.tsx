@@ -632,7 +632,9 @@ export const EEListPage = ({
                             const targetEntity = actionsMenuEntity;
                             handleActionsMenuClose();
                             if (targetEntity) {
-                              void startBuildFlow(targetEntity);
+                              startBuildFlow(targetEntity).catch(
+                                () => undefined,
+                              );
                             }
                           }}
                         >
