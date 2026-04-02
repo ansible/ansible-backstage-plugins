@@ -11,13 +11,11 @@ $ARGUMENTS
 ## Outline
 
 1. **Locate the feature directory**:
-
    - Parse the argument for the feature path (e.g., `specs/001-feature-name`)
    - If no argument provided, look for the most recently modified `specs/*/` directory
    - Verify `spec.md` and `plan.md` exist in the feature directory
 
 2. **Read design artifacts**:
-
    - Read `spec.md` for requirements and constraints
    - Read `plan.md` for architecture decisions, alternatives considered, and trade-offs
    - Read `tasks.md` for implementation notes and status
@@ -26,14 +24,12 @@ $ARGUMENTS
 
 3. **Identify ADR-worthy decisions**:
    A decision deserves an ADR when:
-
    - Multiple viable approaches were considered and one was chosen
    - The choice affects multiple components or deployment modes
    - The decision was changed during implementation
    - Future developers would likely ask "why was it done this way?"
 
    Look for these signals in the plan:
-
    - Sections comparing approaches ("Option A vs Option B")
    - Phrases like "instead of", "rather than", "we chose", "rejected because"
    - Deployment-specific logic (RHEL vs OpenShift vs local)
@@ -103,14 +99,12 @@ $ARGUMENTS
    ```
 
 5. **Create the ADR files**:
-
    - Create `specs/<feature>/adrs/` directory if it doesn't exist
    - Number ADRs sequentially: `001-`, `002-`, etc.
    - Use kebab-case descriptive filenames: `001-db-config-source-over-env-vars.md`
    - Create `README.md` index with one line per ADR
 
 6. **Quality checks**:
-
    - Every ADR MUST have at least one rejected alternative with specific "Why rejected" reasons
    - Every ADR MUST have at least one ASCII diagram
    - Every ADR MUST have both positive and negative consequences

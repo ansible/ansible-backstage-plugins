@@ -30,7 +30,6 @@ You **MUST** consider the user input before proceeding (if not empty).
   - If the hook has no `condition` field, or it is null/empty, treat the hook as executable
   - If the hook defines a non-empty `condition`, skip the hook and leave condition evaluation to the HookExecutor implementation
 - For each executable hook, output the following based on its `optional` flag:
-
   - **Optional hook** (`optional: true`):
 
     ```
@@ -65,7 +64,6 @@ The text the user typed after `/speckit.specify` in the triggering message **is*
 Given that feature description, do this:
 
 1. **Generate a concise short name** (2-4 words) for the branch:
-
    - Analyze the feature description and extract the most meaningful keywords
    - Create a 2-4 word short name that captures the essence of the feature
    - Use action-noun format when possible (e.g., "add-user-auth", "fix-payment-bug")
@@ -80,7 +78,6 @@ Given that feature description, do this:
 2. **Create the feature branch** by running the script with `--short-name` (and `--json`). In sequential mode, do NOT pass `--number` — the script auto-detects the next available number. In timestamp mode, the script generates a `YYYYMMDD-HHMMSS` prefix automatically:
 
    **Branch numbering mode**: Before running the script, check if `.specify/init-options.json` exists and read the `branch_numbering` value.
-
    - If `"timestamp"`, add `--timestamp` (Bash) or `-Timestamp` (PowerShell) to the script invocation
    - If `"sequential"` or absent, do not add any extra flag (default behavior)
 
@@ -90,7 +87,6 @@ Given that feature description, do this:
    - PowerShell (timestamp): `.specify/scripts/bash/create-new-feature.sh "$ARGUMENTS" -Json -Timestamp -ShortName "user-auth" "Add user authentication"`
 
    **IMPORTANT**:
-
    - Do NOT pass `--number` — the script determines the correct next number automatically
    - Always include the JSON flag (`--json` for Bash, `-Json` for PowerShell) so the output can be parsed reliably
    - You must only ever run this script once per feature
@@ -101,7 +97,6 @@ Given that feature description, do this:
 3. Load `.specify/templates/spec-template.md` to understand required sections.
 
 4. Follow this execution flow:
-
    1. Parse user description from Input
       If empty: ERROR "No feature description provided"
    2. Extract key concepts from description
@@ -170,23 +165,19 @@ Given that feature description, do this:
    ```
 
    b. **Run Validation Check**: Review the spec against each checklist item:
-
    - For each item, determine if it passes or fails
    - Document specific issues found (quote relevant spec sections)
 
    c. **Handle Validation Results**:
-
    - **If all items pass**: Mark checklist complete and proceed to step 7
 
    - **If items fail (excluding [NEEDS CLARIFICATION])**:
-
      1. List the failing items and specific issues
      2. Update the spec to address each issue
      3. Re-run validation until all items pass (max 3 iterations)
      4. If still failing after 3 iterations, document remaining issues in checklist notes and warn user
 
    - **If [NEEDS CLARIFICATION] markers remain**:
-
      1. Extract all [NEEDS CLARIFICATION: ...] markers from the spec
      2. **LIMIT CHECK**: If more than 3 markers exist, keep only the 3 most critical (by scope/security/UX impact) and make informed guesses for the rest
      3. For each clarification needed (max 3), present options to user in this format:
@@ -226,7 +217,6 @@ Given that feature description, do this:
 7. Report completion with branch name, spec file path, checklist results, and readiness for the next phase (`/speckit.clarify` or `/speckit.plan`).
 
 8. **Check for extension hooks**: After reporting completion, check if `.specify/extensions.yml` exists in the project root.
-
    - If it exists, read it and look for entries under the `hooks.after_specify` key
    - If the YAML cannot be parsed or is invalid, skip hook checking silently and continue normally
    - Filter out hooks where `enabled` is explicitly `false`. Treat hooks without an `enabled` field as enabled by default.
@@ -234,7 +224,6 @@ Given that feature description, do this:
      - If the hook has no `condition` field, or it is null/empty, treat the hook as executable
      - If the hook defines a non-empty `condition`, skip the hook and leave condition evaluation to the HookExecutor implementation
    - For each executable hook, output the following based on its `optional` flag:
-
      - **Optional hook** (`optional: true`):
 
        ```
