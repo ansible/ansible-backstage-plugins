@@ -204,6 +204,32 @@ describe('ScmClientFactory', () => {
           '[ScmClientFactory] Using GitHub integration for host: github.com',
         );
       });
+
+      it('should use integration PAT when getCredentials resolves without a token', async () => {
+        mockIntegrations.github.byHost.mockReturnValue({
+          config: { token: 'pat-only-no-app-token' },
+        });
+        mockGithubGetCredentials.mockResolvedValue({
+          type: 'token' as const,
+          token: undefined,
+        });
+
+        const client = await factory.createClient({
+          scmProvider: 'github',
+          organization: 'test-org',
+        });
+
+        expect(client).toBeInstanceOf(GithubClient);
+        expect(mockGithubGetCredentials).toHaveBeenCalledWith({
+          url: 'https://github.com/test-org',
+        });
+        expect(mockLogger.debug).not.toHaveBeenCalledWith(
+          expect.stringMatching(/GitHub App credentials unavailable/),
+        );
+        expect(mockLogger.debug).toHaveBeenCalledWith(
+          '[ScmClientFactory] Using GitHub integration for host: github.com',
+        );
+      });
     });
 
     describe('GitLab client creation', () => {

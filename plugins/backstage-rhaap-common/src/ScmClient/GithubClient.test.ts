@@ -234,6 +234,48 @@ describe('GithubClient', () => {
       }
     });
 
+    it('stops after all 5xx retries are exhausted and throws from the last response', async () => {
+      jest.useFakeTimers();
+
+      try {
+        const errorResponse = {
+          ok: false,
+          status: 503,
+          text: () => Promise.resolve('service unavailable'),
+        };
+
+        mockFetch
+          .mockResolvedValueOnce(errorResponse)
+          .mockResolvedValueOnce(errorResponse)
+          .mockResolvedValueOnce(errorResponse);
+
+        const promise = client.getRepositories();
+        const expectRejected = expect(promise).rejects.toThrow(
+          'GitHub GraphQL error (503): service unavailable',
+        );
+
+        await Promise.resolve();
+        await jest.runOnlyPendingTimersAsync();
+        await Promise.resolve();
+        await jest.runOnlyPendingTimersAsync();
+
+        await expectRejected;
+
+        expect(mockFetch).toHaveBeenCalledTimes(3);
+        expect(mockLogger.warn).toHaveBeenCalledTimes(2);
+        expect(mockLogger.warn).toHaveBeenNthCalledWith(
+          1,
+          expect.stringMatching(/HTTP 503, retry 1\/2/),
+        );
+        expect(mockLogger.warn).toHaveBeenNthCalledWith(
+          2,
+          expect.stringMatching(/HTTP 503, retry 2\/2/),
+        );
+      } finally {
+        jest.useRealTimers();
+      }
+    });
+
     it('does not retry GraphQL on non-5xx errors', async () => {
       mockFetch.mockResolvedValueOnce({
         ok: false,
