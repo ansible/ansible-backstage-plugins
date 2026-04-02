@@ -836,9 +836,36 @@ describe('GitlabClient', () => {
       expect(fetch).toHaveBeenCalledWith(
         'https://gitlab.com/api/v4/projects/test-owner%2Ftest-repo',
         expect.objectContaining({
-          method: 'HEAD',
+          method: 'GET',
           headers: expect.objectContaining({
             'PRIVATE-TOKEN': 'test-token',
+          }),
+        }),
+      );
+    });
+
+    it('should use Bearer auth when gitlabUseBearerAuth is set (OAuth token)', async () => {
+      const oauthClient = new GitlabClient({
+        config: { ...mockConfig, gitlabUseBearerAuth: true },
+        logger: mockLogger,
+      });
+      (fetch as jest.Mock).mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+      });
+
+      const exists = await oauthClient.repositoryExists(
+        'test-owner',
+        'test-repo',
+      );
+
+      expect(exists).toBe(true);
+      expect(fetch).toHaveBeenCalledWith(
+        'https://gitlab.com/api/v4/projects/test-owner%2Ftest-repo',
+        expect.objectContaining({
+          method: 'GET',
+          headers: expect.objectContaining({
+            Authorization: 'Bearer test-token',
           }),
         }),
       );

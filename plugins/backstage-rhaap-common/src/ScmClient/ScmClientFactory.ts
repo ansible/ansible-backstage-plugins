@@ -83,6 +83,8 @@ export class ScmClientFactory {
         token,
         apiBaseUrl,
         checkSSL,
+        // Scaffolder USER_OAUTH_TOKEN is an OAuth access token; GitLab expects Bearer, not PRIVATE-TOKEN.
+        gitlabUseBearerAuth: Boolean(providedToken),
       };
       return new GitlabClient({ config, logger: this.logger });
     }

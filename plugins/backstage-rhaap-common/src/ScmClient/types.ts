@@ -23,6 +23,11 @@ export interface ScmClientConfig {
   apiBaseUrl?: string;
   /** When false, TLS certificate verification is disabled (e.g. self-signed or internal CA). Default true. */
   checkSSL?: boolean;
+  /**
+   * When true, GitLab API requests use `Authorization: Bearer` (OAuth access tokens from the scaffolder).
+   * When false/undefined, uses `PRIVATE-TOKEN` (personal/project/group access tokens from integration config).
+   */
+  gitlabUseBearerAuth?: boolean;
 }
 
 export interface UrlBuildOptions {
