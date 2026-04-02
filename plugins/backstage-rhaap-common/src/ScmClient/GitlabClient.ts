@@ -21,10 +21,12 @@ export class GitlabClient extends BaseScmClient {
   private getFetchOptions(accept = 'application/json'): RequestInit & {
     dispatcher?: Agent;
   } {
-    const headers: Record<string, string> = {
-      'PRIVATE-TOKEN': this.config.token,
-      Accept: accept,
-    };
+    const headers: Record<string, string> = { Accept: accept };
+    if (this.config.gitlabUseBearerAuth) {
+      headers.Authorization = `Bearer ${this.config.token}`;
+    } else {
+      headers['PRIVATE-TOKEN'] = this.config.token;
+    }
     if (!this.checkSSL) {
       return {
         headers,
@@ -339,13 +341,25 @@ export class GitlabClient extends BaseScmClient {
   ): Promise<boolean> {
     const projectPath = encodeURIComponent(`${owner}/${repo}`);
     const url = `${this.apiUrl}/projects/${projectPath}`;
-    const opts = { ...this.getFetchOptions(), signal, method: 'HEAD' as const };
+    // GET is used instead of HEAD: GitLab documents GET for this endpoint; some stacks mishandle HEAD.
+    const opts = { ...this.getFetchOptions(), signal, method: 'GET' as const };
 
     try {
       const response = this.checkSSL
         ? await fetch(url, opts)
         : await undiciFetch(url, opts as Parameters<typeof undiciFetch>[1]);
-      return response.ok;
+      const ok = response.ok;
+      if (!ok) {
+        this.logger.debug(
+          `[GitlabClient] Repository ${owner}/${repo} existence check returned ${response.status}`,
+        );
+      }
+      try {
+        await response.arrayBuffer();
+      } catch {
+        /* ignore drain errors */
+      }
+      return ok;
     } catch (error) {
       this.logger.debug(
         `[GitlabClient] Repository ${owner}/${repo} check failed: ${error}`,

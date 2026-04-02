@@ -511,5 +511,37 @@ describe('ScmClientFactory', () => {
         'gitlab-gitlab-selfhosted-com-my-group-subgroup',
       );
     });
+
+    it('should enable GitLab Bearer auth when a user-provided token is passed', async () => {
+      const fetchMock = jest.fn().mockResolvedValue({
+        ok: true,
+        status: 200,
+        arrayBuffer: () => Promise.resolve(new ArrayBuffer(0)),
+      });
+      global.fetch = fetchMock as unknown as typeof fetch;
+
+      mockIntegrations.gitlab.byHost.mockReturnValue({
+        config: {
+          token: 'integration-token',
+        },
+      });
+
+      const client = await factory.createClient({
+        scmProvider: 'gitlab',
+        organization: 'my-group',
+        token: 'oauth-access-token',
+      });
+
+      await client.repositoryExists('my-group', 'my-project');
+
+      expect(fetchMock).toHaveBeenCalledWith(
+        expect.any(String),
+        expect.objectContaining({
+          headers: expect.objectContaining({
+            Authorization: 'Bearer oauth-access-token',
+          }),
+        }),
+      );
+    });
   });
 });
