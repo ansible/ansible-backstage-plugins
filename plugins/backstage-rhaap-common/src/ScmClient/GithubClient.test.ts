@@ -621,6 +621,17 @@ describe('GithubClient', () => {
         'GitHub API error (404): Not Found',
       );
     });
+
+    it('should throw when AbortSignal is already aborted', async () => {
+      const controller = new AbortController();
+      controller.abort();
+
+      await expect(
+        client.getBranches(mockRepo, controller.signal),
+      ).rejects.toThrow('SCM sync aborted, stopping branch fetch');
+
+      expect(mockFetch).not.toHaveBeenCalled();
+    });
   });
 
   describe('getTags', () => {
@@ -672,6 +683,29 @@ describe('GithubClient', () => {
 
       expect(tags).toHaveLength(101);
       expect(mockFetch).toHaveBeenCalledTimes(2);
+    });
+
+    it('should throw error on API failure', async () => {
+      mockFetch.mockResolvedValueOnce({
+        ok: false,
+        status: 403,
+        text: () => Promise.resolve('Forbidden'),
+      });
+
+      await expect(client.getTags(mockRepo)).rejects.toThrow(
+        'GitHub API error (403): Forbidden',
+      );
+    });
+
+    it('should throw when AbortSignal is already aborted', async () => {
+      const controller = new AbortController();
+      controller.abort();
+
+      await expect(client.getTags(mockRepo, controller.signal)).rejects.toThrow(
+        'SCM sync aborted, stopping tag fetch',
+      );
+
+      expect(mockFetch).not.toHaveBeenCalled();
     });
   });
 
@@ -780,6 +814,86 @@ describe('GithubClient', () => {
       await expect(
         client.getFileContent(mockRepo, 'main', 'nonexistent.txt'),
       ).rejects.toThrow('Failed to fetch file content: 404 Not Found');
+    });
+
+    it('should throw AbortError when signal is already aborted before fetch', async () => {
+      const controller = new AbortController();
+      controller.abort();
+
+      await expect(
+        client.getFileContent(mockRepo, 'main', 'file.ts', controller.signal),
+      ).rejects.toThrow('The operation was aborted');
+
+      expect(mockFetch).not.toHaveBeenCalled();
+    });
+
+    it('should throw AbortError when signal aborts between fetch and sleepMs', async () => {
+      jest.useFakeTimers();
+
+      try {
+        const controller = new AbortController();
+
+        mockFetch.mockResolvedValueOnce({
+          ok: false,
+          status: 502,
+          arrayBuffer: () => {
+            controller.abort();
+            return Promise.resolve(new ArrayBuffer(0));
+          },
+        });
+
+        const promise = client.getFileContent(
+          mockRepo,
+          'main',
+          'file.ts',
+          controller.signal,
+        );
+
+        await expect(promise).rejects.toThrow('The operation was aborted');
+
+        expect(mockFetch).toHaveBeenCalledTimes(1);
+      } finally {
+        jest.useRealTimers();
+      }
+    });
+
+    it('should throw AbortError when signal fires during retry backoff', async () => {
+      jest.useFakeTimers();
+
+      try {
+        const controller = new AbortController();
+
+        mockFetch.mockResolvedValueOnce({
+          ok: false,
+          status: 500,
+          arrayBuffer: () => Promise.resolve(new ArrayBuffer(0)),
+        });
+
+        const promise = client.getFileContent(
+          mockRepo,
+          'main',
+          'file.ts',
+          controller.signal,
+        );
+
+        const expectRejected =
+          // eslint-disable-next-line jest/valid-expect
+          expect(promise).rejects.toThrow('The operation was aborted');
+
+        // Flush enough microtasks for fetchWithRetry to enter sleepMs and set
+        // up the addEventListener before we fire abort.
+        for (let i = 0; i < 10; i++) {
+          await Promise.resolve();
+        }
+
+        controller.abort();
+
+        await expectRejected;
+
+        expect(mockFetch).toHaveBeenCalledTimes(1);
+      } finally {
+        jest.useRealTimers();
+      }
     });
   });
 
