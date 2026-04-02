@@ -36,8 +36,7 @@ describe('resolveGithubToken', () => {
     repository?: string;
   }) {
     return resolveGithubToken({
-      integrations:
-        mockIntegrations as unknown as ScmIntegrationRegistry,
+      integrations: mockIntegrations as unknown as ScmIntegrationRegistry,
       credentialsProvider: mockCredentialsProvider,
       logger: mockLogger,
       host: overrides?.host ?? 'github.com',
@@ -151,9 +150,9 @@ describe('resolveGithubToken', () => {
       new Error('no app'),
     );
 
-    await expect(
-      callResolve({ repository: 'my-repo' }),
-    ).rejects.toThrow('repo: my-repo');
+    await expect(callResolve({ repository: 'my-repo' })).rejects.toThrow(
+      'repo: my-repo',
+    );
   });
 
   it('should strip protocol and trailing slash from host when building URL', async () => {
@@ -195,9 +194,7 @@ describe('resolveGithubToken', () => {
     mockIntegrations.github.byHost.mockReturnValue({
       config: { token: 'pat' },
     });
-    mockCredentialsProvider.getCredentials.mockRejectedValue(
-      'string-error',
-    );
+    mockCredentialsProvider.getCredentials.mockRejectedValue('string-error');
 
     await callResolve();
 
