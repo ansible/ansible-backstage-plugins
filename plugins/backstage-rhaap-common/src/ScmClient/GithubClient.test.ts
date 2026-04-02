@@ -194,42 +194,44 @@ describe('GithubClient', () => {
     it('retries GraphQL up to 2 times on HTTP 5xx then succeeds', async () => {
       jest.useFakeTimers();
 
-      const successBody = {
-        data: {
-          organization: {
-            repositories: {
-              pageInfo: { hasNextPage: false, endCursor: null },
-              nodes: [],
+      try {
+        const successBody = {
+          data: {
+            organization: {
+              repositories: {
+                pageInfo: { hasNextPage: false, endCursor: null },
+                nodes: [],
+              },
             },
           },
-        },
-      };
+        };
 
-      mockFetch
-        .mockResolvedValueOnce({
-          ok: false,
-          status: 502,
-          text: () => Promise.resolve('bad gateway'),
-        })
-        .mockResolvedValueOnce({
-          ok: true,
-          json: () => Promise.resolve(successBody),
-        });
+        mockFetch
+          .mockResolvedValueOnce({
+            ok: false,
+            status: 502,
+            text: () => Promise.resolve('bad gateway'),
+          })
+          .mockResolvedValueOnce({
+            ok: true,
+            json: () => Promise.resolve(successBody),
+          });
 
-      const promise = client.getRepositories();
+        const promise = client.getRepositories();
 
-      await Promise.resolve();
-      await jest.runOnlyPendingTimersAsync();
+        await Promise.resolve();
+        await jest.runOnlyPendingTimersAsync();
 
-      const repos = await promise;
+        const repos = await promise;
 
-      expect(mockFetch).toHaveBeenCalledTimes(2);
-      expect(repos).toHaveLength(0);
-      expect(mockLogger.warn).toHaveBeenCalledWith(
-        expect.stringMatching(/HTTP 502, retry 1\/2/),
-      );
-
-      jest.useRealTimers();
+        expect(mockFetch).toHaveBeenCalledTimes(2);
+        expect(repos).toHaveLength(0);
+        expect(mockLogger.warn).toHaveBeenCalledWith(
+          expect.stringMatching(/HTTP 502, retry 1\/2/),
+        );
+      } finally {
+        jest.useRealTimers();
+      }
     });
 
     it('does not retry GraphQL on non-5xx errors', async () => {
