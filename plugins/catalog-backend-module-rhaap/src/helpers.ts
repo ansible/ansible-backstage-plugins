@@ -8,7 +8,14 @@ import type {
 import type { CatalogClient } from '@backstage/catalog-client';
 import type { Config } from '@backstage/config';
 import type { JsonValue } from '@backstage/types';
-import { GitlabClient } from '@ansible/backstage-rhaap-common';
+import type {
+  DefaultGithubCredentialsProvider,
+  ScmIntegrationRegistry,
+} from '@backstage/integration';
+import {
+  GitlabClient,
+  resolveGithubToken,
+} from '@ansible/backstage-rhaap-common';
 
 import { AnsibleGitContentsProvider } from './providers/AnsibleGitContentsProvider';
 
@@ -426,6 +433,8 @@ export function createRequireSuperuserMiddleware(
 export interface CIActivityDeps {
   config: Config;
   logger: LoggerService;
+  scmIntegrations: ScmIntegrationRegistry;
+  githubCredentialsProvider: DefaultGithubCredentialsProvider;
 }
 
 export async function handleGitHubCIActivity(
@@ -434,7 +443,7 @@ export async function handleGitHubCIActivity(
   response: Response,
   perPage: number,
 ): Promise<void> {
-  const { config, logger } = deps;
+  const { config, logger, scmIntegrations, githubCredentialsProvider } = deps;
   const owner = request.query.owner as string | undefined;
   const repo = request.query.repo as string | undefined;
   const host = (request.query.host as string) || 'github.com';
@@ -460,13 +469,27 @@ export async function handleGitHubCIActivity(
     return;
   }
 
-  const tokenFromRequest = request.headers.authorization?.replace(
-    /^Bearer\s+/i,
-    '',
-  );
-  const { token: tokenFromConfig, apiBaseUrl: apiBaseFromConfig } =
-    getGitHubIntegrationForHost(config, host);
-  const token = tokenFromConfig || tokenFromRequest;
+  // Resolve token: GitHub App installation token → integration PAT → request header.
+  let token: string | undefined;
+  let apiBase: string | undefined;
+  try {
+    const resolved = await resolveGithubToken({
+      integrations: scmIntegrations,
+      credentialsProvider: githubCredentialsProvider,
+      logger,
+      host,
+      organization: owner,
+      repository: repo,
+    });
+    token = resolved.token;
+    apiBase = resolved.apiBaseUrl;
+  } catch {
+    const tokenFromRequest = request.headers.authorization?.replace(
+      /^Bearer\s+/i,
+      '',
+    );
+    token = tokenFromRequest;
+  }
 
   if (!token) {
     response.status(400).json({
@@ -476,11 +499,12 @@ export async function handleGitHubCIActivity(
     return;
   }
 
-  const apiBase =
-    apiBaseFromConfig ||
-    (host === 'github.com'
-      ? 'https://api.github.com'
-      : `https://${host}/api/v3`);
+  if (!apiBase) {
+    apiBase =
+      host === 'github.com'
+        ? 'https://api.github.com'
+        : `https://${host}/api/v3`;
+  }
   const apiUrl = `${apiBase}/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/actions/runs?per_page=${perPage}`;
 
   try {

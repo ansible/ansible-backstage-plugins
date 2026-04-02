@@ -676,7 +676,12 @@ export async function createRouter(options: {
 
     const provider = (request.query.provider as string)?.toLowerCase();
     const perPage = Math.min(Number(request.query.per_page) || 15, 100);
-    const ciActivityDeps = { config, logger };
+    const ciActivityDeps = {
+      config,
+      logger,
+      scmIntegrations: scmClientFactory.integrations,
+      githubCredentialsProvider: scmClientFactory.githubCredentialsProvider,
+    };
 
     if (!provider || !['github', 'gitlab'].includes(provider)) {
       response.status(400).json({

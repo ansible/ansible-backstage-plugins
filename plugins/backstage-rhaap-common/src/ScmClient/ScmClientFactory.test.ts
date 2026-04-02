@@ -201,7 +201,7 @@ describe('ScmClientFactory', () => {
           ),
         );
         expect(mockLogger.debug).toHaveBeenCalledWith(
-          '[ScmClientFactory] Using GitHub integration for host: github.com',
+          '[resolveGithubToken] Resolved GitHub credentials for host: github.com',
         );
       });
 
@@ -227,7 +227,7 @@ describe('ScmClientFactory', () => {
           expect.stringMatching(/GitHub App credentials unavailable/),
         );
         expect(mockLogger.debug).toHaveBeenCalledWith(
-          '[ScmClientFactory] Using GitHub integration for host: github.com',
+          '[resolveGithubToken] Resolved GitHub credentials for host: github.com',
         );
       });
     });
@@ -446,7 +446,7 @@ describe('ScmClientFactory', () => {
         });
 
         expect(mockLogger.debug).toHaveBeenCalledWith(
-          '[ScmClientFactory] Using GitHub integration for host: github.com',
+          '[resolveGithubToken] Resolved GitHub credentials for host: github.com',
         );
       });
 

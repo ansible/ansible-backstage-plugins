@@ -18,13 +18,37 @@ const mockGetPipelines = jest.fn();
 
 jest.mock('@ansible/backstage-rhaap-common', () => {
   const actual = jest.requireActual('@ansible/backstage-rhaap-common');
+  const {
+    ScmIntegrations,
+    DefaultGithubCredentialsProvider,
+  } = require('@backstage/integration');
   return {
     ...actual,
-    ScmClientFactory: jest.fn().mockImplementation(() => ({
-      createClient: jest.fn().mockResolvedValue({
-        getFileContent: jest.fn().mockResolvedValue('# README content'),
-      }),
-    })),
+    ScmClientFactory: jest.fn().mockImplementation(opts => {
+      let integrations;
+      let githubCredentialsProvider;
+      try {
+        integrations = ScmIntegrations.fromConfig(opts.rootConfig);
+        githubCredentialsProvider =
+          DefaultGithubCredentialsProvider.fromIntegrations(integrations);
+      } catch {
+        integrations = {
+          github: { byHost: () => undefined },
+          gitlab: { byHost: () => undefined },
+        };
+        githubCredentialsProvider = {
+          getCredentials: () =>
+            Promise.resolve({ headers: {}, token: undefined }),
+        };
+      }
+      return {
+        createClient: jest.fn().mockResolvedValue({
+          getFileContent: jest.fn().mockResolvedValue('# README content'),
+        }),
+        integrations,
+        githubCredentialsProvider,
+      };
+    }),
     GitlabClient: jest.fn().mockImplementation(() => ({
       getPipelines: mockGetPipelines,
     })),
