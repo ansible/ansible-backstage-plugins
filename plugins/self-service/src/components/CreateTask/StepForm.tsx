@@ -54,7 +54,7 @@ const CreateButton = ({ onSubmit }: CreateButtonProps) => {
     try {
       await onSubmit(secrets);
     } catch {
-      // already logged by handleFinalSubmit
+      // errors are logged by handleFinalSubmit before rethrow.
     } finally {
       setSubmitting(false);
     }
@@ -156,17 +156,18 @@ export const StepForm = ({
     useState<Record<string, any>>(getInitialFormData);
   const [isAutoExecuting, setIsAutoExecuting] = useState(false);
 
-  // always persist form data to sessionStorage
-  // so its available if oAuth triggers window reload
+  // always persist form data to sessionStorage for oAuth reload. write on every change,
+  // including when the form is cleared, so we do not leave a stale non-empty snapshot.
   // omit data:/blob: URL payloads (e.g. uploaded files) to stay under quota
   useEffect(() => {
-    if (formDataStorageKey && Object.keys(formData).length > 0) {
-      try {
-        const snapshot = sanitizeFormDataForSessionStorage(formData);
-        sessionStorage.setItem(formDataStorageKey, JSON.stringify(snapshot));
-      } catch {
-        // silently ignore storage errors
-      }
+    if (!formDataStorageKey) {
+      return;
+    }
+    try {
+      const snapshot = sanitizeFormDataForSessionStorage(formData);
+      sessionStorage.setItem(formDataStorageKey, JSON.stringify(snapshot));
+    } catch {
+      // silently ignore storage errors
     }
   }, [formData, formDataStorageKey]);
 
@@ -206,7 +207,7 @@ export const StepForm = ({
 
   useEffect(() => {
     if (initialFormData) {
-      setFormData(prev => ({ ...prev, ...initialFormData }));
+      setFormData(prev => ({ ...initialFormData, ...prev }));
     }
   }, [initialFormData]);
 
@@ -280,9 +281,9 @@ export const StepForm = ({
 
   const handleFinalSubmit = useCallback(
     async (secrets?: Record<string, string>) => {
-      const authToken = await aapAuth.getAccessToken();
-      const finalData = { ...formData, token: authToken };
       try {
+        const authToken = await aapAuth.getAccessToken();
+        const finalData = { ...formData, token: authToken };
         await submitFunction(finalData, secrets);
         clearPersistedFormData();
       } catch (error) {
