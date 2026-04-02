@@ -25,7 +25,10 @@ import {
 } from '@material-ui/core';
 import { rhAapAuthApiRef } from '../../apis';
 import { formExtraFields } from './formExtraFields';
-import { sanitizeFormDataForSessionStorage } from './sanitizeFormDataForSessionStorage';
+import {
+  collectSensitiveTemplateKeysFromSteps,
+  sanitizeFormDataForSessionStorage,
+} from './sanitizeFormDataForSessionStorage';
 import { ScaffolderForm } from './ScaffolderFormWrapper';
 
 interface StepFormProps {
@@ -72,6 +75,98 @@ const CreateButton = ({ onSubmit }: CreateButtonProps) => {
   );
 };
 
+type StepSchemaPropertyMap = Record<string, any>;
+
+function assignSchemaPropertyIfMissing(
+  target: StepSchemaPropertyMap,
+  key: string,
+  value: unknown,
+): void {
+  if (!target[key]) {
+    target[key] = value;
+  }
+}
+
+function mergeRootSchemaProperties(
+  target: StepSchemaPropertyMap,
+  step: any,
+): void {
+  const props = step?.schema?.properties;
+  if (props) {
+    Object.assign(target, props);
+  }
+}
+
+function mergeDependencyOneOfSchemaInto(
+  target: StepSchemaPropertyMap,
+  dependencies: StepSchemaPropertyMap,
+): void {
+  for (const depKey of Object.keys(dependencies)) {
+    const branches = dependencies[depKey]?.oneOf;
+    if (!Array.isArray(branches)) {
+      continue;
+    }
+    for (const branch of branches) {
+      const branchProps = branch?.properties;
+      if (!branchProps) {
+        continue;
+      }
+      for (const key of Object.keys(branchProps)) {
+        if (key === depKey) {
+          continue;
+        }
+        assignSchemaPropertyIfMissing(target, key, branchProps[key]);
+      }
+    }
+  }
+}
+
+function mergeAllOfThenSchemaInto(
+  target: StepSchemaPropertyMap,
+  allOf: unknown,
+): void {
+  if (!Array.isArray(allOf)) {
+    return;
+  }
+  for (const condition of allOf) {
+    const thenProps = condition?.then?.properties;
+    if (!thenProps) {
+      continue;
+    }
+    for (const key of Object.keys(thenProps)) {
+      assignSchemaPropertyIfMissing(target, key, thenProps[key]);
+    }
+  }
+}
+
+/** Union of top-level parameter keys a step schema may bind (incl. dependency oneOf / allOf). */
+function getAllProperties(step: any): StepSchemaPropertyMap {
+  const allProperties: StepSchemaPropertyMap = {};
+  mergeRootSchemaProperties(allProperties, step);
+  const dependencies = step?.schema?.dependencies;
+  if (dependencies) {
+    mergeDependencyOneOfSchemaInto(allProperties, dependencies);
+  }
+  const allOf = step?.schema?.allOf;
+  if (allOf) {
+    mergeAllOfThenSchemaInto(allProperties, allOf);
+  }
+  return allProperties;
+}
+
+/** Drop this step's keys then apply RJSF payload so oneOf/branch changes do not leave stale fields. */
+function mergeStepFormDataIntoState(
+  prev: Record<string, any>,
+  step: { schema?: Record<string, any> },
+  patch: Record<string, any>,
+): Record<string, any> {
+  const next = { ...prev };
+  for (const k of Object.keys(getAllProperties(step))) {
+    delete next[k];
+  }
+  return { ...next, ...patch };
+}
+
 export const StepForm = ({
   steps,
   submitFunction,
@@ -92,6 +187,11 @@ export const StepForm = ({
       return true;
     });
   }, [steps]);
+
+  const sessionStorageOmitKeys = useMemo(
+    () => collectSensitiveTemplateKeysFromSteps(steps),
+    [steps],
+  );
 
   // storage keys for form persistence to handle oAuth window reload
   const formDataStorageKey = storageKey
@@ -164,12 +264,14 @@ export const StepForm = ({
       return;
     }
     try {
-      const snapshot = sanitizeFormDataForSessionStorage(formData);
+      const snapshot = sanitizeFormDataForSessionStorage(formData, {
+        omitKeys: sessionStorageOmitKeys,
+      });
       sessionStorage.setItem(formDataStorageKey, JSON.stringify(snapshot));
     } catch {
       // silently ignore storage errors
     }
-  }, [formData, formDataStorageKey]);
+  }, [formData, formDataStorageKey, sessionStorageOmitKeys]);
 
   // persist active step to sessionStorage
   useEffect(() => {
@@ -234,32 +336,46 @@ export const StepForm = ({
   }, []);
   const fields = useMemo(() => ({ ...extensions }), [extensions]);
 
-  const handleNext = () => {
+  const handleNext = useCallback(() => {
     setActiveStep(prevActiveStep => prevActiveStep + 1);
-  };
+  }, []);
 
   const handleBack = () => {
     setActiveStep(prevActiveStep => prevActiveStep - 1);
   };
 
-  // handle real-time form changes to persist data
-  // for window reload in case of authentication
-  const handleFormChange = useCallback((data: IChangeEvent<any>) => {
-    if (data.formData) {
-      setFormData(prev => ({
-        ...prev,
-        ...data.formData,
-      }));
-    }
-  }, []);
+  // Replace each step's slice in formData (not shallow-merge) so dependency/oneOf branch
+  // changes and removed fields do not leave stale keys in state or in final submit.
+  const handleFormChange = useCallback(
+    (stepIndex: number, data: IChangeEvent<any>) => {
+      if (!data.formData) {
+        return;
+      }
+      const step = filteredSteps[stepIndex];
+      if (!step) {
+        return;
+      }
+      setFormData(prev =>
+        mergeStepFormDataIntoState(prev, step, data.formData),
+      );
+    },
+    [filteredSteps],
+  );
 
-  const handleFormSubmit = (data: IChangeEvent<any>) => {
-    setFormData(prev => ({
-      ...prev,
-      ...data.formData,
-    }));
-    handleNext();
-  };
+  const handleFormSubmit = useCallback(
+    (stepIndex: number, data: IChangeEvent<any>) => {
+      if (data.formData) {
+        const step = filteredSteps[stepIndex];
+        if (step) {
+          setFormData(prev =>
+            mergeStepFormDataIntoState(prev, step, data.formData),
+          );
+        }
+      }
+      handleNext();
+    },
+    [filteredSteps, handleNext],
+  );
 
   // clear persisted form data from sessionStorage
   const clearPersistedFormData = useCallback(() => {
@@ -314,45 +430,6 @@ export const StepForm = ({
     isAutoExecuting,
     handleFinalSubmit,
   ]);
-
-  const getAllProperties = (step: any): Record<string, any> => {
-    const allProperties: Record<string, any> = {};
-
-    if (step?.schema?.properties) {
-      Object.assign(allProperties, step.schema.properties);
-    }
-
-    if (step?.schema?.dependencies) {
-      for (const depKey of Object.keys(step.schema.dependencies)) {
-        const dependency = step.schema.dependencies[depKey];
-        if (dependency.oneOf && Array.isArray(dependency.oneOf)) {
-          for (const branch of dependency.oneOf) {
-            if (branch.properties) {
-              for (const key of Object.keys(branch.properties)) {
-                if (key !== depKey && !allProperties[key]) {
-                  allProperties[key] = branch.properties[key];
-                }
-              }
-            }
-          }
-        }
-      }
-    }
-
-    if (step?.schema?.allOf && Array.isArray(step.schema.allOf)) {
-      for (const condition of step.schema.allOf) {
-        if (condition.then?.properties) {
-          for (const key of Object.keys(condition.then.properties)) {
-            if (!allProperties[key]) {
-              allProperties[key] = condition.then.properties[key];
-            }
-          }
-        }
-      }
-    }
-
-    return allProperties;
-  };
 
   const getLabel = (key: string, stepIndex: number) => {
     const allProperties = getAllProperties(steps[stepIndex]);
@@ -632,8 +709,12 @@ export const StepForm = ({
                   uiSchema={extractProperties(step)}
                   formData={formData}
                   fields={fields}
-                  onChange={handleFormChange}
-                  onSubmit={handleFormSubmit}
+                  onChange={(data: IChangeEvent<any>) =>
+                    handleFormChange(index, data)
+                  }
+                  onSubmit={(data: IChangeEvent<any>) =>
+                    handleFormSubmit(index, data)
+                  }
                   validator={validator}
                 >
                   <ScaffolderFieldExtensions>

@@ -1262,6 +1262,37 @@ describe('StepForm', () => {
       setItemSpy.mockRestore();
     });
 
+    it('does not persist schema-marked secret fields to sessionStorage', async () => {
+      const steps = [
+        {
+          title: 'Step 1',
+          schema: {
+            properties: {
+              repo: { type: 'string' },
+              apiKey: { type: 'string', 'ui:field': 'Secret' },
+            },
+          },
+        },
+      ];
+
+      render(
+        <StepForm
+          steps={steps}
+          submitFunction={submitFunction}
+          storageKey={storageKey}
+          initialFormData={{ repo: 'my-repo', apiKey: 'top-secret' }}
+        />,
+      );
+
+      await waitFor(() => {
+        const raw = sessionStorage.getItem(formDataKey);
+        expect(raw).toBeTruthy();
+        const parsed = JSON.parse(raw!);
+        expect(parsed.repo).toBe('my-repo');
+        expect(parsed.apiKey).toBeUndefined();
+      });
+    });
+
     it('persists active step to sessionStorage when storageKey is provided', () => {
       const setItemSpy = jest.spyOn(Storage.prototype, 'setItem');
 

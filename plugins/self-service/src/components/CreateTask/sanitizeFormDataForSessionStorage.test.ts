@@ -1,4 +1,29 @@
-import { sanitizeFormDataForSessionStorage } from './sanitizeFormDataForSessionStorage';
+import {
+  collectSensitiveTemplateKeysFromSteps,
+  sanitizeFormDataForSessionStorage,
+} from './sanitizeFormDataForSessionStorage';
+
+describe('collectSensitiveTemplateKeysFromSteps', () => {
+  it('collects token, Secret, AAPTokenField, password, and writeOnly keys', () => {
+    const keys = collectSensitiveTemplateKeysFromSteps([
+      {
+        schema: {
+          properties: {
+            name: { type: 'string' },
+            token: { type: 'string' },
+            apiPassword: { type: 'string', format: 'password' },
+            scmSecret: { 'ui:field': 'Secret' },
+            aapTok: { 'ui:field': 'AAPTokenField' },
+            legacy: { type: 'string', writeOnly: true },
+          },
+        },
+      },
+    ]);
+    expect(keys).toEqual(
+      new Set(['token', 'apiPassword', 'scmSecret', 'aapTok', 'legacy']),
+    );
+  });
+});
 
 describe('sanitizeFormDataForSessionStorage', () => {
   it('replaces data: URL strings with empty string', () => {
@@ -36,5 +61,14 @@ describe('sanitizeFormDataForSessionStorage', () => {
 
   it('is case-insensitive for data: prefix', () => {
     expect(sanitizeFormDataForSessionStorage('DATA:text/plain,hi')).toBe('');
+  });
+
+  it('omits top-level keys when omitKeys is provided', () => {
+    expect(
+      sanitizeFormDataForSessionStorage(
+        { name: 'x', token: 'secret', nested: { a: 1 } },
+        { omitKeys: new Set(['token']) },
+      ),
+    ).toEqual({ name: 'x', nested: { a: 1 } });
   });
 });
