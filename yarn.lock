@@ -67,6 +67,7 @@ __metadata:
     "@backstage/errors": "npm:^1.2.7"
     "@backstage/integration": "npm:^1.17.0"
     "@backstage/plugin-catalog-backend": "npm:^3.0.0"
+    "@backstage/plugin-catalog-common": "npm:^1.1.5"
     "@backstage/plugin-catalog-node": "npm:^1.17.0"
     "@backstage/plugin-permission-common": "npm:^0.9.6"
     "@backstage/types": "npm:^1.2.1"

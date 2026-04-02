@@ -436,7 +436,7 @@ describe('CollectionDetailsPage', () => {
           }),
         });
       }
-      if (url.includes('git_file_content')) {
+      if (url.includes('ansible/git/file-content')) {
         return Promise.resolve({
           ok: true,
           text: () => Promise.resolve('# Backend readme content'),
@@ -452,7 +452,7 @@ describe('CollectionDetailsPage', () => {
     });
     expect(mockFetchApi.fetch).toHaveBeenCalledWith(
       expect.stringMatching(
-        /git_file_content\?.*filePath=README\.md.*ref=main/,
+        /ansible\/git\/file-content\?.*filePath=README\.md.*ref=main/,
       ),
     );
   });
@@ -490,7 +490,7 @@ describe('CollectionDetailsPage', () => {
           }),
         });
       }
-      if (url.includes('git_file_content')) {
+      if (url.includes('ansible/git/file-content')) {
         return Promise.resolve({
           ok: true,
           text: () => Promise.resolve('Nested path readme'),
@@ -539,7 +539,7 @@ describe('CollectionDetailsPage', () => {
           json: async () => ({ content: { providers: [] } }),
         });
       }
-      if (url.includes('git_file_content')) {
+      if (url.includes('ansible/git/file-content')) {
         return Promise.resolve({ ok: false });
       }
       return Promise.resolve({ ok: false });
@@ -552,7 +552,7 @@ describe('CollectionDetailsPage', () => {
     });
     await waitFor(() => {
       expect(mockFetchApi.fetch).toHaveBeenCalledWith(
-        expect.stringContaining('git_file_content'),
+        expect.stringContaining('ansible/git/file-content'),
       );
     });
   });
@@ -587,7 +587,7 @@ describe('CollectionDetailsPage', () => {
           json: async () => ({ content: { providers: [] } }),
         });
       }
-      if (url.includes('git_file_content')) {
+      if (url.includes('ansible/git/file-content')) {
         return Promise.reject(new Error('Backend error'));
       }
       return Promise.resolve({ ok: false });
@@ -600,7 +600,7 @@ describe('CollectionDetailsPage', () => {
     });
     await waitFor(() => {
       expect(mockFetchApi.fetch).toHaveBeenCalledWith(
-        expect.stringContaining('git_file_content'),
+        expect.stringContaining('ansible/git/file-content'),
       );
     });
   });
@@ -770,7 +770,7 @@ describe('CollectionDetailsPage', () => {
       expect(screen.getByText('Direct fetch readme')).toBeInTheDocument();
     });
     expect(mockFetchApi.fetch).not.toHaveBeenCalledWith(
-      expect.stringContaining('git_file_content'),
+      expect.stringContaining('ansible/git/file-content'),
     );
     expect(globalThis.fetch).toHaveBeenCalledWith(
       'https://raw.githubusercontent.com/o/r/main/README.md',
@@ -805,7 +805,7 @@ describe('CollectionDetailsPage', () => {
       expect(screen.getByText('About')).toBeInTheDocument();
     });
     expect(mockFetchApi.fetch).not.toHaveBeenCalledWith(
-      expect.stringContaining('git_file_content'),
+      expect.stringContaining('ansible/git/file-content'),
     );
   });
 

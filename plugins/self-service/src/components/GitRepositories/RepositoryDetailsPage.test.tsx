@@ -270,7 +270,7 @@ describe('RepositoryDetailsPage', () => {
 
     await waitFor(() => {
       expect(mockFetchApi.fetch).toHaveBeenCalledWith(
-        expect.stringContaining('/git_file_content'),
+        expect.stringContaining('/ansible/git/file-content'),
       );
     });
   });
