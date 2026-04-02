@@ -250,9 +250,13 @@ describe('GithubClient', () => {
           .mockResolvedValueOnce(errorResponse);
 
         const promise = client.getRepositories();
-        const expectRejected = expect(promise).rejects.toThrow(
-          'GitHub GraphQL error (503): service unavailable',
-        );
+        // Attach the matcher before advancing timers so the rejection is never "unhandled";
+        // await is deferred until after fake timers (jest/valid-expect disallows non-awaited expect).
+        const expectRejected =
+          // eslint-disable-next-line jest/valid-expect -- awaited after runOnlyPendingTimersAsync below
+          expect(promise).rejects.toThrow(
+            'GitHub GraphQL error (503): service unavailable',
+          );
 
         await Promise.resolve();
         await jest.runOnlyPendingTimersAsync();
