@@ -412,7 +412,7 @@ describe('ScmClientFactory', () => {
 
         expect(client).toBeInstanceOf(GithubClient);
         expect(mockLogger.warn).toHaveBeenCalledWith(
-          '[ScmClientFactory] No GitHub integration configured for host: github.com, but using provided token',
+          '[ScmClientFactory] GitHub credential resolution failed for host: github.com, but using provided token',
         );
       });
 
