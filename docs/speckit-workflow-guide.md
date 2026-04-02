@@ -32,17 +32,17 @@ Speckit was initialized in this repo with the following structure:
 
 ## Available Commands
 
-| Command | Purpose | Input | Output |
-|---------|---------|-------|--------|
-| `/speckit.specify` | Create or update feature spec | Natural language description | `specs/<feature>/spec.md` |
-| `/speckit.clarify` | Find gaps in the spec | Existing `spec.md` | Up to 5 clarification questions, answers encoded back into spec |
-| `/speckit.plan` | Generate architecture and design plan | `spec.md` | `specs/<feature>/plan.md` |
-| `/speckit.tasks` | Break plan into ordered tasks | `spec.md` + `plan.md` | `specs/<feature>/tasks.md` |
-| `/speckit.checklist` | Generate quality checklists | User requirements | `specs/<feature>/checklists/*.md` |
-| `/speckit.analyze` | Cross-artifact consistency check | `spec.md` + `plan.md` + `tasks.md` | Analysis report (non-destructive) |
-| `/speckit.implement` | Execute all tasks | `tasks.md` + `plan.md` | Code changes, tasks marked `[X]` |
-| `/speckit.taskstoissues` | Convert tasks to GitHub issues | `tasks.md` | GitHub issues via `gh` CLI |
-| `/speckit.constitution` | Define project principles | Interactive input | `.specify/constitution.md` |
+| Command                  | Purpose                               | Input                              | Output                                                          |
+| ------------------------ | ------------------------------------- | ---------------------------------- | --------------------------------------------------------------- |
+| `/speckit.specify`       | Create or update feature spec         | Natural language description       | `specs/<feature>/spec.md`                                       |
+| `/speckit.clarify`       | Find gaps in the spec                 | Existing `spec.md`                 | Up to 5 clarification questions, answers encoded back into spec |
+| `/speckit.plan`          | Generate architecture and design plan | `spec.md`                          | `specs/<feature>/plan.md`                                       |
+| `/speckit.tasks`         | Break plan into ordered tasks         | `spec.md` + `plan.md`              | `specs/<feature>/tasks.md`                                      |
+| `/speckit.checklist`     | Generate quality checklists           | User requirements                  | `specs/<feature>/checklists/*.md`                               |
+| `/speckit.analyze`       | Cross-artifact consistency check      | `spec.md` + `plan.md` + `tasks.md` | Analysis report (non-destructive)                               |
+| `/speckit.implement`     | Execute all tasks                     | `tasks.md` + `plan.md`             | Code changes, tasks marked `[X]`                                |
+| `/speckit.taskstoissues` | Convert tasks to GitHub issues        | `tasks.md`                         | GitHub issues via `gh` CLI                                      |
+| `/speckit.constitution`  | Define project principles             | Interactive input                  | `.specify/constitution.md`                                      |
 
 ## Feature Directory Structure
 
@@ -74,6 +74,7 @@ Create the feature specification from a Jira ticket, user story, or feature desc
 ```
 
 **Tips:**
+
 - Reference Figma mockup filenames in the spec so the plan and implementation can trace back to designs
 - Include deployment constraints (RHEL vs OpenShift) early — they affect architecture decisions
 - Mark the spec version and status at the top for traceability
@@ -145,6 +146,7 @@ Not all decisions from the original spec survive implementation. Some are change
 3. Keep the original text in the spec as historical context (strikethrough or notes)
 
 Examples from ANSTRAT-1806:
+
 - **General page removed**: The spec defined a General page with a local admin toggle. Testing showed it created a broken logout flow. Moved to CLI-only per enterprise break-glass patterns.
 - **Sign-in modes expanded**: Two modes became three after testing revealed auto-authentication made logout impossible post-setup.
 - **Partial secret updates**: Testing showed edit forms couldn't require re-entering secrets the admin didn't have.
@@ -156,6 +158,7 @@ Every feature should produce ADRs for decisions that involved trade-offs between
 ### When to Write an ADR
 
 Write an ADR when:
+
 - You chose between 2+ viable approaches and the choice isn't obvious
 - The decision affects multiple components or deployment modes
 - A decision was changed during implementation (document why the original was wrong)
@@ -183,6 +186,7 @@ What problem are we solving? What constraints exist?
 Brief description.
 
 **Why rejected:**
+
 - Concrete reasons with specifics (not generic "too complex")
 - Reference deployment modes where it fails (e.g., "only works on OpenShift, not RHEL")
 - Reference specific technical limitations
@@ -202,6 +206,7 @@ What we chose and **why this approach wins** over the alternatives. Be specific.
 ### Diagrams
 
 Include ASCII diagrams showing:
+
 - Data/request flow
 - Component relationships
 - Decision trees
@@ -212,9 +217,11 @@ Diagrams make ADRs scannable — a reader should understand the decision from th
 ## Consequences
 
 **Positive:**
+
 - What this enables
 
 **Negative:**
+
 - What this costs, and how the costs are mitigated
 
 ## Related
@@ -230,10 +237,10 @@ Each feature's `adrs/README.md` is a one-line-per-ADR index:
 ```markdown
 # Architecture Decision Records
 
-| ADR | Title | Status |
-|-----|-------|--------|
+| ADR                 | Title             | Status   |
+| ------------------- | ----------------- | -------- |
 | [001](001-title.md) | Descriptive title | Accepted |
-| [002](002-title.md) | Another title | Accepted |
+| [002](002-title.md) | Another title     | Accepted |
 ```
 
 ## Conventions
