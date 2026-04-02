@@ -348,12 +348,18 @@ export class GitlabClient extends BaseScmClient {
       const response = this.checkSSL
         ? await fetch(url, opts)
         : await undiciFetch(url, opts as Parameters<typeof undiciFetch>[1]);
-      if (!response.ok) {
+      const ok = response.ok;
+      if (!ok) {
         this.logger.debug(
           `[GitlabClient] Repository ${owner}/${repo} existence check returned ${response.status}`,
         );
       }
-      return response.ok;
+      try {
+        await response.arrayBuffer();
+      } catch {
+        /* ignore drain errors */
+      }
+      return ok;
     } catch (error) {
       this.logger.debug(
         `[GitlabClient] Repository ${owner}/${repo} check failed: ${error}`,

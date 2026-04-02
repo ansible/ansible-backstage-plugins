@@ -424,6 +424,7 @@ describe('ScmClientFactory', () => {
       const fetchMock = jest.fn().mockResolvedValue({
         ok: true,
         status: 200,
+        arrayBuffer: () => Promise.resolve(new ArrayBuffer(0)),
       });
       global.fetch = fetchMock as unknown as typeof fetch;
 

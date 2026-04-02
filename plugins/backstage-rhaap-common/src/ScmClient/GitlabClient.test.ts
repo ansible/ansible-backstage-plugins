@@ -824,11 +824,15 @@ describe('GitlabClient', () => {
   });
 
   describe('repositoryExists', () => {
+    const jsonResponse = (overrides?: { ok?: boolean; status?: number }) => ({
+      ok: true,
+      status: 200,
+      arrayBuffer: () => Promise.resolve(new ArrayBuffer(0)),
+      ...overrides,
+    });
+
     it('should return true when repository exists', async () => {
-      (fetch as jest.Mock).mockResolvedValueOnce({
-        ok: true,
-        status: 200,
-      });
+      (fetch as jest.Mock).mockResolvedValueOnce(jsonResponse());
 
       const exists = await client.repositoryExists('test-owner', 'test-repo');
 
@@ -849,10 +853,7 @@ describe('GitlabClient', () => {
         config: { ...mockConfig, gitlabUseBearerAuth: true },
         logger: mockLogger,
       });
-      (fetch as jest.Mock).mockResolvedValueOnce({
-        ok: true,
-        status: 200,
-      });
+      (fetch as jest.Mock).mockResolvedValueOnce(jsonResponse());
 
       const exists = await oauthClient.repositoryExists(
         'test-owner',
@@ -872,10 +873,9 @@ describe('GitlabClient', () => {
     });
 
     it('should return false when repository does not exist', async () => {
-      (fetch as jest.Mock).mockResolvedValueOnce({
-        ok: false,
-        status: 404,
-      });
+      (fetch as jest.Mock).mockResolvedValueOnce(
+        jsonResponse({ ok: false, status: 404 }),
+      );
 
       const exists = await client.repositoryExists('test-owner', 'nonexistent');
 
@@ -896,10 +896,7 @@ describe('GitlabClient', () => {
     });
 
     it('should encode project path correctly', async () => {
-      (fetch as jest.Mock).mockResolvedValueOnce({
-        ok: true,
-        status: 200,
-      });
+      (fetch as jest.Mock).mockResolvedValueOnce(jsonResponse());
 
       await client.repositoryExists('group/subgroup', 'project');
 
@@ -919,10 +916,7 @@ describe('GitlabClient', () => {
       };
       const enterpriseClient = new GitlabClient({ config, logger: mockLogger });
 
-      (fetch as jest.Mock).mockResolvedValueOnce({
-        ok: true,
-        status: 200,
-      });
+      (fetch as jest.Mock).mockResolvedValueOnce(jsonResponse());
 
       await enterpriseClient.repositoryExists('test-owner', 'test-repo');
 
