@@ -2,6 +2,7 @@ import {
   AnsibleApiClient,
   AAPApis,
   AapAuthApi,
+  EEBuildApiClient,
   ansibleApiRef,
   rhAapAuthApiRef,
 } from './apis.ts';
@@ -224,5 +225,97 @@ describe('Ansible API module', () => {
   it('exports api refs', () => {
     expect(ansibleApiRef).toBeDefined();
     expect(rhAapAuthApiRef).toBeDefined();
+  });
+});
+
+describe('EEBuildApiClient', () => {
+  const mockDiscovery = {
+    getBaseUrl: jest.fn().mockResolvedValue('http://catalog.example'),
+  };
+
+  afterEach(() => {
+    jest.clearAllMocks();
+  });
+
+  it('parses workflowId from JSON body on success', async () => {
+    const mockFetch = {
+      fetch: jest.fn().mockResolvedValue({
+        ok: true,
+        text: async () =>
+          JSON.stringify({ workflowId: 'run-123', message: 'queued' }),
+      }),
+    };
+    const client = new EEBuildApiClient({
+      discoveryApi: mockDiscovery as any,
+      fetchApi: mockFetch as any,
+    });
+
+    const result = await client.triggerBuild({
+      entityRef: 'component:default/ee1',
+      registryType: 'pah',
+      imageName: 'ns/ee',
+      imageTag: '1',
+      verifyTls: true,
+    });
+
+    expect(result).toEqual({
+      accepted: true,
+      workflowId: 'run-123',
+      message: 'queued',
+    });
+  });
+
+  it('parses workflow_id (snake_case) from JSON body on success', async () => {
+    const mockFetch = {
+      fetch: jest.fn().mockResolvedValue({
+        ok: true,
+        text: async () => JSON.stringify({ workflow_id: 999 }),
+      }),
+    };
+    const client = new EEBuildApiClient({
+      discoveryApi: mockDiscovery as any,
+      fetchApi: mockFetch as any,
+    });
+
+    const result = await client.triggerBuild({
+      entityRef: 'component:default/ee1',
+      registryType: 'pah',
+      imageName: 'ns/ee',
+      imageTag: '1',
+      verifyTls: true,
+    });
+
+    expect(result).toEqual({
+      accepted: true,
+      workflowId: '999',
+      message: undefined,
+    });
+  });
+
+  it('accepts success with empty body', async () => {
+    const mockFetch = {
+      fetch: jest.fn().mockResolvedValue({
+        ok: true,
+        text: async () => '',
+      }),
+    };
+    const client = new EEBuildApiClient({
+      discoveryApi: mockDiscovery as any,
+      fetchApi: mockFetch as any,
+    });
+
+    const result = await client.triggerBuild({
+      entityRef: 'component:default/ee1',
+      registryType: 'pah',
+      imageName: 'ns/ee',
+      imageTag: '1',
+      verifyTls: true,
+    });
+
+    expect(result).toEqual({
+      accepted: true,
+      workflowId: undefined,
+      message: undefined,
+    });
   });
 });

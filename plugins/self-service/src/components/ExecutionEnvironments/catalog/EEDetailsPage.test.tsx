@@ -12,6 +12,9 @@ import {
   identityApiRef,
   fetchApiRef,
 } from '@backstage/core-plugin-api';
+import { scmAuthApiRef } from '@backstage/integration-react';
+import { eeBuildApiRef } from '../../../apis';
+import { NotificationProvider, notificationStore } from '../../notifications';
 import { ThemeProvider, createMuiTheme } from '@material-ui/core/styles';
 import { MemoryRouter } from 'react-router-dom';
 
@@ -192,6 +195,12 @@ const renderWithCatalogApi = (
       text: async () => '# Default README from fetch',
     }),
   };
+  const mockScmAuthApi = {
+    getCredentials: jest.fn().mockResolvedValue({ token: 't', headers: {} }),
+  };
+  const mockEeBuildApi = {
+    triggerBuild: jest.fn().mockResolvedValue({ accepted: true }),
+  };
 
   return render(
     <MemoryRouter initialEntries={['/']}>
@@ -201,11 +210,15 @@ const renderWithCatalogApi = (
           [discoveryApiRef, mockDiscoveryApi],
           [identityApiRef, mockIdentityApi],
           [fetchApiRef, mockFetchApi],
+          [scmAuthApiRef, mockScmAuthApi],
+          [eeBuildApiRef, mockEeBuildApi],
         ]}
       >
-        <ThemeProvider theme={theme}>
-          <EEDetailsPage />
-        </ThemeProvider>
+        <NotificationProvider>
+          <ThemeProvider theme={theme}>
+            <EEDetailsPage />
+          </ThemeProvider>
+        </NotificationProvider>
       </TestApiProvider>
     </MemoryRouter>,
   );
@@ -215,6 +228,8 @@ const renderWithCatalogApi = (
 describe('EEDetailsPage', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    sessionStorage.clear();
+    notificationStore.clearAll();
   });
 
   afterEach(() => {

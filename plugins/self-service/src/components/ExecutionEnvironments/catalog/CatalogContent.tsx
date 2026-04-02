@@ -1,8 +1,10 @@
 import { useEffect, useState, useCallback, useRef } from 'react';
 import { Progress, Table, TableColumn } from '@backstage/core-components';
 import {
+  Backdrop,
   Box,
   Chip,
+  CircularProgress,
   FormControl,
   Grid,
   IconButton,
@@ -32,7 +34,9 @@ import OpenInNew from '@material-ui/icons/OpenInNew';
 import { ANNOTATION_EDIT_URL, Entity } from '@backstage/catalog-model';
 import { useApi } from '@backstage/core-plugin-api';
 import { CreateCatalog } from './CreateCatalog';
+import { EEBuildDialog } from './EEBuildDialog';
 import { toEEDefinitionUrl, downloadEntityAsTarArchive } from './helpers';
+import { useEEBuildFlow } from './useEEBuildFlow';
 import { EntityLinkButton } from '../../common';
 
 const DESCRIPTION_TRUNCATE_LENGTH = 30;
@@ -206,6 +210,8 @@ export const EEListPage = ({
     null,
   );
   const { filters, updateFilters } = useEntityList();
+  const { startBuildFlow, authBusy, dialogOpen, buildEntity, closeDialog } =
+    useEEBuildFlow();
 
   const isMountedRef = useRef(true);
 
@@ -623,8 +629,11 @@ export const EEListPage = ({
                         <MenuItem
                           key="build"
                           onClick={() => {
+                            const targetEntity = actionsMenuEntity;
                             handleActionsMenuClose();
-                            // TODO: Build action - future implementation (e.g. trigger EE build)
+                            if (targetEntity) {
+                              void startBuildFlow(targetEntity);
+                            }
                           }}
                         >
                           Build
@@ -731,6 +740,14 @@ export const EEListPage = ({
                 }}
               />
             )}
+            <Backdrop open={authBusy} style={{ zIndex: 1400, color: '#fff' }}>
+              <CircularProgress color="inherit" />
+            </Backdrop>
+            <EEBuildDialog
+              open={dialogOpen}
+              entity={buildEntity}
+              onClose={closeDialog}
+            />
           </CatalogFilterLayout.Content>
         </CatalogFilterLayout>
       ) : (

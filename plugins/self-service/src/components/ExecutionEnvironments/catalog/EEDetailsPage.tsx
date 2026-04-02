@@ -1,8 +1,10 @@
 import {
+  Backdrop,
   Box,
   Tabs,
   Tab,
   Button,
+  CircularProgress,
   Menu,
   MenuItem,
   ListItemIcon,
@@ -26,7 +28,7 @@ import {
   useApi,
   useRouteRef,
 } from '@backstage/core-plugin-api';
-import { ANNOTATION_EDIT_URL } from '@backstage/catalog-model';
+import { ANNOTATION_EDIT_URL, type Entity } from '@backstage/catalog-model';
 import { Header } from './Header';
 import { BreadcrumbsNavigation } from './BreadcrumbsNavigation';
 import { LinksCard } from './LinksCard';
@@ -35,7 +37,9 @@ import { ReadmeCard } from './ReadmeCard';
 import { DefinedContentCard } from './DefinedContentCard';
 import { ResourcesCard } from './ResourcesCard';
 import { EntityNotFound } from './EntityNotFound';
+import { EEBuildDialog } from './EEBuildDialog';
 import { toEEDefinitionUrl, downloadEntityAsTarArchive } from './helpers';
+import { useEEBuildFlow } from './useEEBuildFlow';
 import { parseEEDefinition } from '../../../utils/eeDefinitionUtils';
 import { rootRouteRef } from '../../../routes';
 
@@ -105,6 +109,8 @@ export const EEDetailsPage: React.FC = () => {
   };
   const handleMenuClose = () => setAnchorEl(null);
   const catalogApi = useApi(catalogApiRef);
+  const { startBuildFlow, authBusy, dialogOpen, buildEntity, closeDialog } =
+    useEEBuildFlow();
   const [entity, setEntity] = useState<any | null>(false);
   const [menuid, setMenuId] = useState<string>('');
   const [defaultReadme, setDefaultReadme] = useState<string>('');
@@ -320,7 +326,9 @@ export const EEDetailsPage: React.FC = () => {
   };
 
   const handleBuild = () => {
-    // TODO: Implement build
+    if (entity) {
+      void startBuildFlow(entity as Entity);
+    }
   };
 
   const parsedDefinition = useMemo(() => {
@@ -366,6 +374,14 @@ export const EEDetailsPage: React.FC = () => {
 
   return (
     <Box className={pageClasses.root}>
+      <Backdrop open={authBusy} style={{ zIndex: 1400, color: '#fff' }}>
+        <CircularProgress color="inherit" />
+      </Backdrop>
+      <EEBuildDialog
+        open={dialogOpen}
+        entity={buildEntity}
+        onClose={closeDialog}
+      />
       {entity && (
         <UnregisterEntityDialog
           open={menuid === '1'}

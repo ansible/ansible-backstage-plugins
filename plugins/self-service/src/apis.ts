@@ -40,6 +40,62 @@ export const ansibleApiRef = createApiRef<AnsibleApi>({
   id: 'ansible',
 });
 
+/** Target registry for pushing a built execution environment image. */
+export type EEBuildRegistryType = 'pah' | 'custom';
+
+export interface EEBuildRequest {
+  entityRef: string;
+  registryType: EEBuildRegistryType;
+  /** Required when registryType is `custom` */
+  customRegistryUrl?: string;
+  imageName: string;
+  imageTag: string;
+  verifyTls: boolean;
+}
+
+export interface EEBuildResult {
+  accepted: boolean;
+  /** CI/workflow run id when returned by the catalog build API (JSON `workflowId` or `workflow_id`). */
+  workflowId?: string;
+  message?: string;
+}
+
+function parseExecutionEnvironmentBuildResponse(text: string): {
+  workflowId?: string;
+  message?: string;
+} {
+  const trimmed = text.trim();
+  if (!trimmed) {
+    return {};
+  }
+  try {
+    const data = JSON.parse(trimmed) as Record<string, unknown>;
+    const rawWid = data.workflowId ?? data.workflow_id;
+    const workflowId =
+      rawWid !== undefined && rawWid !== null && String(rawWid).length > 0
+        ? String(rawWid)
+        : undefined;
+    const message =
+      typeof data.message === 'string' && data.message.trim()
+        ? data.message.trim()
+        : undefined;
+    return { workflowId, message };
+  } catch {
+    return { message: trimmed };
+  }
+}
+
+/**
+ * Placeholder client for catalog POST `/execution_environment/build` (backend TBD).
+ */
+export interface EEBuildApi {
+  triggerBuild(request: EEBuildRequest): Promise<EEBuildResult>;
+}
+
+export const eeBuildApiRef = createApiRef<EEBuildApi>({
+  id: 'plugin.self-service.ee-build',
+});
+
 export const rhAapAuthApiRef: ApiRef<CustomAuthApiRefType> = createApiRef({
   id: 'ansible.auth.rhaap',
 });
@@ -122,6 +178,58 @@ export const AAPApis: ApiFactory<
   deps: { discoveryApi: discoveryApiRef, fetchApi: fetchApiRef },
   factory: ({ discoveryApi, fetchApi }) =>
     new AnsibleApiClient({ discoveryApi, fetchApi }),
+});
+
+export class EEBuildApiClient implements EEBuildApi {
+  private readonly discoveryApi: DiscoveryApi;
+  private readonly fetchApi: FetchApi;
+
+  constructor(options: { discoveryApi: DiscoveryApi; fetchApi: FetchApi }) {
+    this.discoveryApi = options.discoveryApi;
+    this.fetchApi = options.fetchApi;
+  }
+
+  async triggerBuild(request: EEBuildRequest): Promise<EEBuildResult> {
+    const baseUrl = await this.discoveryApi.getBaseUrl('catalog');
+    try {
+      const response = await this.fetchApi.fetch(
+        `${baseUrl}/ansible/git/build-ee`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(request),
+        },
+      );
+      const text = await response.text();
+      if (response.ok) {
+        const parsed = parseExecutionEnvironmentBuildResponse(text);
+        return {
+          accepted: true,
+          workflowId: parsed.workflowId,
+          message: parsed.message,
+        };
+      }
+      const parsed = parseExecutionEnvironmentBuildResponse(text);
+      return {
+        accepted: false,
+        message:
+          parsed.message || text || `Request failed (${response.status})`,
+      };
+    } catch (e) {
+      return { accepted: false, message: String(e) };
+    }
+  }
+}
+
+export const EEBuildApis: ApiFactory<
+  EEBuildApi,
+  EEBuildApiClient,
+  { discoveryApi: DiscoveryApi; fetchApi: FetchApi }
+> = createApiFactory({
+  api: eeBuildApiRef,
+  deps: { discoveryApi: discoveryApiRef, fetchApi: fetchApiRef },
+  factory: ({ discoveryApi, fetchApi }) =>
+    new EEBuildApiClient({ discoveryApi, fetchApi }),
 });
 
 export const AapAuthApi: AAPAuthApiFactoryType = createApiFactory({
