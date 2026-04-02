@@ -1,3 +1,15 @@
+const mockGetPipelines = jest.fn();
+
+jest.mock('@ansible/backstage-rhaap-common', () => {
+  const actual = jest.requireActual('@ansible/backstage-rhaap-common');
+  return {
+    ...actual,
+    GitlabClient: jest.fn().mockImplementation(() => ({
+      getPipelines: mockGetPipelines,
+    })),
+  };
+});
+
 import { ConfigReader } from '@backstage/config';
 import {
   formatNameSpace,
@@ -14,11 +26,15 @@ import {
   checkRequireSuperuser,
   createRequireSuperuserMiddleware,
   type RequireSuperuserDeps,
+  type CIActivityDeps,
   isSafeHostname,
+  getGitHubIntegrationForHost,
   getGitLabIntegrationForHost,
   getSkipTlsVerifyHosts,
   isGitHubHostAllowedForProxy,
   isGitLabHostAllowedForProxy,
+  handleGitHubCIActivity,
+  handleGitLabCIActivity,
 } from './helpers';
 import type { AnsibleGitContentsProvider } from './providers/AnsibleGitContentsProvider';
 
@@ -1222,6 +1238,101 @@ describe('helpers', () => {
     });
   });
 
+  describe('getGitHubIntegrationForHost', () => {
+    it('returns empty object when no integrations configured', () => {
+      const config = new ConfigReader({});
+      expect(getGitHubIntegrationForHost(config, 'github.com')).toEqual({});
+    });
+
+    it('returns empty object when integrations array is empty', () => {
+      const config = new ConfigReader({ integrations: { github: [] } });
+      expect(getGitHubIntegrationForHost(config, 'github.com')).toEqual({});
+    });
+
+    it('returns token for matching host', () => {
+      const config = new ConfigReader({
+        integrations: {
+          github: [{ host: 'github.com', token: 'gh-token' }],
+        },
+      });
+      const result = getGitHubIntegrationForHost(config, 'github.com');
+      expect(result).toEqual({ token: 'gh-token', apiBaseUrl: undefined });
+    });
+
+    it('returns token and apiBaseUrl for matching host', () => {
+      const config = new ConfigReader({
+        integrations: {
+          github: [
+            {
+              host: 'github.enterprise.com',
+              token: 'ghe-token',
+              apiBaseUrl: 'https://github.enterprise.com/api/v3/',
+            },
+          ],
+        },
+      });
+      const result = getGitHubIntegrationForHost(
+        config,
+        'github.enterprise.com',
+      );
+      expect(result).toEqual({
+        token: 'ghe-token',
+        apiBaseUrl: 'https://github.enterprise.com/api/v3',
+      });
+    });
+
+    it('strips trailing slash from apiBaseUrl', () => {
+      const config = new ConfigReader({
+        integrations: {
+          github: [
+            {
+              host: 'github.com',
+              token: 't',
+              apiBaseUrl: 'https://api.github.com/',
+            },
+          ],
+        },
+      });
+      expect(getGitHubIntegrationForHost(config, 'github.com').apiBaseUrl).toBe(
+        'https://api.github.com',
+      );
+    });
+
+    it('defaults host to github.com when not specified in config', () => {
+      const config = new ConfigReader({
+        integrations: { github: [{ token: 'default-token' }] },
+      });
+      expect(getGitHubIntegrationForHost(config, 'github.com')).toEqual({
+        token: 'default-token',
+        apiBaseUrl: undefined,
+      });
+    });
+
+    it('returns empty object when host does not match', () => {
+      const config = new ConfigReader({
+        integrations: {
+          github: [{ host: 'github.com', token: 'token' }],
+        },
+      });
+      expect(getGitHubIntegrationForHost(config, 'other.com')).toEqual({});
+    });
+
+    it('finds correct host among multiple integrations', () => {
+      const config = new ConfigReader({
+        integrations: {
+          github: [
+            { host: 'github.com', token: 'public-token' },
+            { host: 'ghe.corp.com', token: 'corp-token' },
+          ],
+        },
+      });
+      expect(getGitHubIntegrationForHost(config, 'ghe.corp.com')).toEqual({
+        token: 'corp-token',
+        apiBaseUrl: undefined,
+      });
+    });
+  });
+
   describe('getSkipTlsVerifyHosts', () => {
     it('returns empty array when config not set', () => {
       const config = new ConfigReader({});
@@ -1251,6 +1362,405 @@ describe('helpers', () => {
       });
       const result = getSkipTlsVerifyHosts(config);
       expect(result).toEqual([]);
+    });
+  });
+
+  describe('handleGitHubCIActivity', () => {
+    let mockLogger: any;
+    let mockDeps: CIActivityDeps;
+
+    function createMockRequest(
+      query: Record<string, string>,
+      headers: Record<string, string> = {},
+    ): any {
+      return { query, headers };
+    }
+
+    function createMockResponse() {
+      const res: any = {
+        statusCode: 0,
+        body: undefined,
+        status: jest.fn().mockImplementation(function (
+          this: any,
+          code: number,
+        ) {
+          this.statusCode = code;
+          return this;
+        }),
+        json: jest.fn().mockImplementation(function (this: any, data: any) {
+          this.body = data;
+          return this;
+        }),
+      };
+      return res;
+    }
+
+    beforeEach(() => {
+      mockLogger = {
+        info: jest.fn(),
+        warn: jest.fn(),
+        error: jest.fn(),
+        debug: jest.fn(),
+        child: jest.fn().mockReturnThis(),
+      };
+      mockDeps = {
+        config: new ConfigReader({
+          integrations: {
+            github: [{ host: 'github.com', token: 'config-token' }],
+          },
+        }),
+        logger: mockLogger,
+        scmIntegrations: {
+          github: {
+            byHost: jest.fn().mockReturnValue({
+              config: { token: 'config-token', apiBaseUrl: undefined },
+            }),
+          },
+        } as any,
+        githubCredentialsProvider: {
+          getCredentials: jest.fn().mockResolvedValue({
+            token: 'config-token',
+            headers: {},
+          }),
+        } as any,
+      };
+    });
+
+    afterEach(() => {
+      jest.restoreAllMocks();
+    });
+
+    it('returns 400 when owner is missing', async () => {
+      const req = createMockRequest({ provider: 'github', repo: 'my-repo' });
+      const res = createMockResponse();
+      await handleGitHubCIActivity(mockDeps, req, res, 10);
+      expect(res.statusCode).toBe(400);
+      expect(res.body.error).toContain('owner, repo');
+    });
+
+    it('returns 400 when repo is missing', async () => {
+      const req = createMockRequest({ provider: 'github', owner: 'my-owner' });
+      const res = createMockResponse();
+      await handleGitHubCIActivity(mockDeps, req, res, 10);
+      expect(res.statusCode).toBe(400);
+    });
+
+    it('returns 400 for unsafe hostname', async () => {
+      const req = createMockRequest({
+        owner: 'o',
+        repo: 'r',
+        host: 'https://evil.com',
+      });
+      const res = createMockResponse();
+      await handleGitHubCIActivity(mockDeps, req, res, 10);
+      expect(res.statusCode).toBe(400);
+      expect(res.body.error).toContain('Invalid host');
+    });
+
+    it('returns 400 for disallowed host', async () => {
+      const req = createMockRequest({
+        owner: 'o',
+        repo: 'r',
+        host: 'internal.corp.com',
+      });
+      const res = createMockResponse();
+      await handleGitHubCIActivity(mockDeps, req, res, 10);
+      expect(res.statusCode).toBe(400);
+      expect(res.body.error).toContain('not allowed');
+    });
+
+    it('returns 400 when no token is available', async () => {
+      const deps: CIActivityDeps = {
+        ...mockDeps,
+        config: new ConfigReader({}),
+        scmIntegrations: {
+          github: { byHost: jest.fn().mockReturnValue(undefined) },
+        } as any,
+        githubCredentialsProvider: {
+          getCredentials: jest.fn().mockRejectedValue(new Error('no creds')),
+        } as any,
+      };
+      const req = createMockRequest({ owner: 'o', repo: 'r' });
+      const res = createMockResponse();
+      await handleGitHubCIActivity(deps, req, res, 10);
+      expect(res.statusCode).toBe(400);
+      expect(res.body.error).toContain('Missing authorization');
+    });
+
+    it('fetches workflow runs and returns 200 on success', async () => {
+      const workflowData = { workflow_runs: [{ id: 1 }] };
+      const mockFetch = jest.spyOn(global, 'fetch').mockResolvedValue({
+        ok: true,
+        status: 200,
+        json: async () => workflowData,
+      } as Response);
+
+      const req = createMockRequest({ owner: 'my-owner', repo: 'my-repo' });
+      const res = createMockResponse();
+      await handleGitHubCIActivity(mockDeps, req, res, 5);
+
+      expect(res.statusCode).toBe(200);
+      expect(res.body).toEqual(workflowData);
+      expect(mockFetch).toHaveBeenCalledWith(
+        expect.stringContaining(
+          'api.github.com/repos/my-owner/my-repo/actions/runs',
+        ),
+        expect.objectContaining({
+          headers: expect.objectContaining({
+            Authorization: expect.stringContaining('Bearer'),
+          }),
+        }),
+      );
+      mockFetch.mockRestore();
+    });
+
+    it('returns 502 when fetch throws', async () => {
+      const mockFetch = jest
+        .spyOn(global, 'fetch')
+        .mockRejectedValue(new Error('Network error'));
+
+      const req = createMockRequest({ owner: 'o', repo: 'r' });
+      const res = createMockResponse();
+      await handleGitHubCIActivity(mockDeps, req, res, 10);
+
+      expect(res.statusCode).toBe(502);
+      expect(res.body.error).toBe('Failed to fetch GitHub workflow runs');
+      mockFetch.mockRestore();
+    });
+
+    it('falls back to Authorization header token when resolveGithubToken throws', async () => {
+      const deps: CIActivityDeps = {
+        ...mockDeps,
+        config: new ConfigReader({
+          integrations: { github: [{ host: 'github.com' }] },
+        }),
+        scmIntegrations: {
+          github: { byHost: jest.fn().mockReturnValue(undefined) },
+        } as any,
+        githubCredentialsProvider: {
+          getCredentials: jest.fn().mockRejectedValue(new Error('no token')),
+        } as any,
+      };
+
+      const mockFetch = jest.spyOn(global, 'fetch').mockResolvedValue({
+        ok: true,
+        status: 200,
+        json: async () => ({ workflow_runs: [] }),
+      } as Response);
+
+      const req = createMockRequest(
+        { owner: 'o', repo: 'r' },
+        { authorization: 'Bearer header-token' },
+      );
+      const res = createMockResponse();
+      await handleGitHubCIActivity(deps, req, res, 10);
+
+      expect(res.statusCode).toBe(200);
+      expect(mockFetch).toHaveBeenCalledWith(
+        expect.any(String),
+        expect.objectContaining({
+          headers: expect.objectContaining({
+            Authorization: 'Bearer header-token',
+          }),
+        }),
+      );
+      mockFetch.mockRestore();
+    });
+
+    it('uses per_page in the API URL', async () => {
+      const mockFetch = jest.spyOn(global, 'fetch').mockResolvedValue({
+        ok: true,
+        status: 200,
+        json: async () => ({ workflow_runs: [] }),
+      } as Response);
+
+      const req = createMockRequest({ owner: 'o', repo: 'r' });
+      const res = createMockResponse();
+      await handleGitHubCIActivity(mockDeps, req, res, 42);
+
+      expect(mockFetch).toHaveBeenCalledWith(
+        expect.stringContaining('per_page=42'),
+        expect.any(Object),
+      );
+      mockFetch.mockRestore();
+    });
+
+    it('uses GHE api base for non-github.com hosts', async () => {
+      const gheDeps: CIActivityDeps = {
+        ...mockDeps,
+        config: new ConfigReader({
+          integrations: {
+            github: [
+              {
+                host: 'ghe.corp.com',
+                token: 'ghe-token',
+              },
+            ],
+          },
+        }),
+        scmIntegrations: {
+          github: {
+            byHost: jest.fn().mockReturnValue({
+              config: { token: 'ghe-token', apiBaseUrl: undefined },
+            }),
+          },
+        } as any,
+        githubCredentialsProvider: {
+          getCredentials: jest
+            .fn()
+            .mockResolvedValue({ token: 'ghe-token', headers: {} }),
+        } as any,
+      };
+
+      const mockFetch = jest.spyOn(global, 'fetch').mockResolvedValue({
+        ok: true,
+        status: 200,
+        json: async () => ({ workflow_runs: [] }),
+      } as Response);
+
+      const req = createMockRequest({
+        owner: 'o',
+        repo: 'r',
+        host: 'ghe.corp.com',
+      });
+      const res = createMockResponse();
+      await handleGitHubCIActivity(gheDeps, req, res, 10);
+
+      expect(mockFetch).toHaveBeenCalledWith(
+        expect.stringContaining('ghe.corp.com/api/v3'),
+        expect.any(Object),
+      );
+      mockFetch.mockRestore();
+    });
+  });
+
+  describe('handleGitLabCIActivity', () => {
+    let mockLogger: any;
+    let mockDeps: CIActivityDeps;
+
+    function createMockRequest(
+      query: Record<string, string>,
+      headers: Record<string, string> = {},
+    ): any {
+      return { query, headers };
+    }
+
+    function createMockResponse() {
+      const res: any = {
+        statusCode: 0,
+        body: undefined,
+        status: jest.fn().mockImplementation(function (
+          this: any,
+          code: number,
+        ) {
+          this.statusCode = code;
+          return this;
+        }),
+        json: jest.fn().mockImplementation(function (this: any, data: any) {
+          this.body = data;
+          return this;
+        }),
+      };
+      return res;
+    }
+
+    beforeEach(() => {
+      mockLogger = {
+        info: jest.fn(),
+        warn: jest.fn(),
+        error: jest.fn(),
+        debug: jest.fn(),
+        child: jest.fn().mockReturnThis(),
+      };
+      mockDeps = {
+        config: new ConfigReader({
+          integrations: {
+            gitlab: [{ host: 'gitlab.com', token: 'gl-token' }],
+          },
+        }),
+        logger: mockLogger,
+        scmIntegrations: {} as any,
+        githubCredentialsProvider: {} as any,
+      };
+    });
+
+    it('returns 400 when projectPath is missing', async () => {
+      const req = createMockRequest({});
+      const res = createMockResponse();
+      await handleGitLabCIActivity(mockDeps, req, res, 10);
+      expect(res.statusCode).toBe(400);
+      expect(res.body.error).toContain('projectPath');
+    });
+
+    it('returns 400 for unsafe hostname', async () => {
+      const req = createMockRequest({
+        projectPath: 'group/project',
+        host: 'user@evil.com',
+      });
+      const res = createMockResponse();
+      await handleGitLabCIActivity(mockDeps, req, res, 10);
+      expect(res.statusCode).toBe(400);
+      expect(res.body.error).toContain('Invalid host');
+    });
+
+    it('returns 400 for disallowed host', async () => {
+      const req = createMockRequest({
+        projectPath: 'group/project',
+        host: 'internal.corp.com',
+      });
+      const res = createMockResponse();
+      await handleGitLabCIActivity(mockDeps, req, res, 10);
+      expect(res.statusCode).toBe(400);
+      expect(res.body.error).toContain('not allowed');
+    });
+
+    it('returns 400 when no token is available', async () => {
+      const deps: CIActivityDeps = {
+        ...mockDeps,
+        config: new ConfigReader({
+          integrations: { gitlab: [{ host: 'gitlab.com' }] },
+        }),
+      };
+      const req = createMockRequest({ projectPath: 'group/project' });
+      const res = createMockResponse();
+      await handleGitLabCIActivity(deps, req, res, 10);
+      expect(res.statusCode).toBe(400);
+      expect(res.body.error).toContain('Missing projectPath or authorization');
+    });
+
+    it('uses token from Authorization header when config has none', async () => {
+      mockGetPipelines.mockResolvedValue({
+        ok: true,
+        status: 200,
+        data: [],
+      });
+
+      const deps: CIActivityDeps = {
+        ...mockDeps,
+        config: new ConfigReader({
+          integrations: { gitlab: [{ host: 'gitlab.com' }] },
+        }),
+      };
+      const req = createMockRequest(
+        { projectPath: 'group/project' },
+        { authorization: 'Bearer header-gl-token' },
+      );
+      const res = createMockResponse();
+      await handleGitLabCIActivity(deps, req, res, 10);
+      expect(res.statusCode).toBe(200);
+    });
+
+    it('defaults host to gitlab.com', async () => {
+      mockGetPipelines.mockResolvedValue({
+        ok: true,
+        status: 200,
+        data: [{ id: 1 }],
+      });
+
+      const req = createMockRequest({ projectPath: 'group/project' });
+      const res = createMockResponse();
+      await handleGitLabCIActivity(mockDeps, req, res, 10);
+      expect(res.statusCode).toBe(200);
     });
   });
 });
