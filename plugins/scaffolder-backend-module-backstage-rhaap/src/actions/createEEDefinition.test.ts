@@ -213,7 +213,7 @@ describe('createEEDefinition', () => {
     await action.handler(ctx);
 
     expect(mockFetch).toHaveBeenCalledWith(
-      'http://localhost:7007/api/catalog/register_ee',
+      'http://localhost:7007/api/catalog/ansible/ee',
       expect.objectContaining({ method: 'POST' }),
     );
   });
@@ -914,7 +914,7 @@ describe('createEEDefinition', () => {
     expect(workflowWriteCall).toBeUndefined();
   });
 
-  it('passes correct entity shape to catalog register_ee endpoint', async () => {
+  it('passes correct entity shape to catalog ansible/ee endpoint', async () => {
     const action = makeAction();
     const ctx = makeCtx({
       eeFileName: 'test-ee',

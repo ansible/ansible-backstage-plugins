@@ -7,6 +7,8 @@ import type {
 } from '@backstage/backend-plugin-api';
 import type { CatalogClient } from '@backstage/catalog-client';
 import type { Config } from '@backstage/config';
+import type { JsonValue } from '@backstage/types';
+import { GitlabClient } from '@ansible/backstage-rhaap-common';
 
 import { AnsibleGitContentsProvider } from './providers/AnsibleGitContentsProvider';
 
@@ -419,4 +421,184 @@ export function createRequireSuperuserMiddleware(
     const allowed = await requireSuperuser(req, res);
     if (allowed) next();
   };
+}
+
+export interface CIActivityDeps {
+  config: Config;
+  logger: LoggerService;
+}
+
+export async function handleGitHubCIActivity(
+  deps: CIActivityDeps,
+  request: Request,
+  response: Response,
+  perPage: number,
+): Promise<void> {
+  const { config, logger } = deps;
+  const owner = request.query.owner as string | undefined;
+  const repo = request.query.repo as string | undefined;
+  const host = (request.query.host as string) || 'github.com';
+
+  if (!owner || !repo) {
+    response.status(400).json({
+      error: 'Missing required query parameters for GitHub: owner, repo',
+    });
+    return;
+  }
+
+  if (!isSafeHostname(host)) {
+    response.status(400).json({
+      error: 'Invalid host: must be a valid hostname (e.g. github.com)',
+    });
+    return;
+  }
+
+  if (!isGitHubHostAllowedForProxy(config, host)) {
+    response.status(400).json({
+      error: `Host '${host}' is not allowed for GitHub CI activity. Add it under integrations.github in app-config, or use github.com.`,
+    });
+    return;
+  }
+
+  const tokenFromRequest = request.headers.authorization?.replace(
+    /^Bearer\s+/i,
+    '',
+  );
+  const { token: tokenFromConfig, apiBaseUrl: apiBaseFromConfig } =
+    getGitHubIntegrationForHost(config, host);
+  const token = tokenFromConfig || tokenFromRequest;
+
+  if (!token) {
+    response.status(400).json({
+      error:
+        'Missing authorization (Authorization header or integrations.github token in config)',
+    });
+    return;
+  }
+
+  const apiBase =
+    apiBaseFromConfig ||
+    (host === 'github.com'
+      ? 'https://api.github.com'
+      : `https://${host}/api/v3`);
+  const apiUrl = `${apiBase}/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/actions/runs?per_page=${perPage}`;
+
+  try {
+    const fetchResponse = await fetch(apiUrl, {
+      headers: {
+        Authorization: `Bearer ${token}`,
+        Accept: 'application/vnd.github+json',
+        'X-GitHub-Api-Version': '2022-11-28',
+      },
+    });
+
+    const data = await fetchResponse.json();
+
+    if (!fetchResponse.ok) {
+      logger.warn('[CI Activity proxy] GitHub API returned non-OK', {
+        status: fetchResponse.status,
+        owner,
+        repo,
+        host,
+        body: data as JsonValue,
+      });
+    }
+
+    response.status(fetchResponse.status).json(data as JsonValue);
+  } catch (err) {
+    logger.warn(
+      'CI Activity proxy (GitHub) failed',
+      err instanceof Error ? err : undefined,
+    );
+    response
+      .status(502)
+      .json({ error: 'Failed to fetch GitHub workflow runs' });
+  }
+}
+
+export async function handleGitLabCIActivity(
+  deps: CIActivityDeps,
+  request: Request,
+  response: Response,
+  perPage: number,
+): Promise<void> {
+  const { config, logger } = deps;
+  const projectPath = request.query.projectPath as string | undefined;
+  const host = (request.query.host as string) || 'gitlab.com';
+
+  if (!projectPath) {
+    response.status(400).json({
+      error: 'Missing required query parameter: projectPath',
+    });
+    return;
+  }
+
+  if (!isSafeHostname(host)) {
+    response.status(400).json({
+      error: 'Invalid host: must be a valid hostname (e.g. gitlab.com)',
+    });
+    return;
+  }
+
+  if (!isGitLabHostAllowedForProxy(config, host)) {
+    response.status(400).json({
+      error: `Host '${host}' is not allowed for GitLab CI activity. Add it under integrations.gitlab in app-config, or use gitlab.com.`,
+    });
+    return;
+  }
+
+  const tokenFromRequest =
+    (request.headers['private-token'] as string) ||
+    request.headers.authorization?.replace(/^Bearer\s+/i, '');
+  const { token: tokenFromConfig, apiBaseUrl: apiBaseFromConfig } =
+    getGitLabIntegrationForHost(config, host);
+  const token = tokenFromConfig || tokenFromRequest;
+
+  if (!token) {
+    response.status(400).json({
+      error:
+        'Missing projectPath or authorization (PRIVATE-TOKEN, Authorization header, or integrations.gitlab token in config)',
+    });
+    return;
+  }
+
+  const hostLower = host.toLowerCase();
+  const skipTlsVerify = getSkipTlsVerifyHosts(config)
+    .filter(isSafeHostname)
+    .some(h => h.toLowerCase() === hostLower);
+
+  const client = new GitlabClient({
+    config: {
+      scmProvider: 'gitlab',
+      host,
+      organization: '',
+      token,
+      apiBaseUrl: apiBaseFromConfig,
+      checkSSL: !skipTlsVerify,
+    },
+    logger,
+  });
+
+  try {
+    const { ok, status, data } = await client.getPipelines(projectPath, {
+      perPage,
+    });
+
+    if (!ok) {
+      logger.warn('[CI Activity proxy] GitLab API returned non-OK', {
+        status,
+        projectPath,
+        host,
+        body: data as JsonValue,
+      });
+    }
+
+    response.status(status).json(data as JsonValue);
+  } catch (err) {
+    logger.warn(
+      'CI Activity proxy (GitLab) failed',
+      err instanceof Error ? err : undefined,
+    );
+    response.status(502).json({ error: 'Failed to fetch GitLab pipelines' });
+  }
 }

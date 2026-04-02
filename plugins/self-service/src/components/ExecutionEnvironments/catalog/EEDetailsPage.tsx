@@ -234,7 +234,7 @@ export const EEDetailsPage: React.FC = () => {
 
         try {
           const response = await fetchApi.fetch(
-            `${baseUrl}/git_file_content?${queryParams}`,
+            `${baseUrl}/ansible/git/file-content?${queryParams}`,
           );
           if (response.ok) {
             const text = await response.text();
@@ -268,7 +268,7 @@ export const EEDetailsPage: React.FC = () => {
 
         try {
           const response = await fetchApi.fetch(
-            `${baseUrl}/git_file_content?${queryParams}`,
+            `${baseUrl}/ansible/git/file-content?${queryParams}`,
           );
           if (response.ok) {
             const text = await response.text();

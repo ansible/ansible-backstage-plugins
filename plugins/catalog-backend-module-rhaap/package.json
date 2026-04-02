@@ -39,6 +39,7 @@
     "@backstage/errors": "^1.2.7",
     "@backstage/integration": "^1.17.0",
     "@backstage/plugin-catalog-backend": "^3.0.0",
+    "@backstage/plugin-catalog-common": "^1.1.5",
     "@backstage/plugin-catalog-node": "^1.17.0",
     "@backstage/plugin-permission-common": "^0.9.6",
     "@backstage/types": "^1.2.1",

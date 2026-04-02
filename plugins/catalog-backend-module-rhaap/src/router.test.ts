@@ -43,7 +43,9 @@ import {
   HttpAuthService,
   UserInfoService,
   AuthService,
+  PermissionsService,
 } from '@backstage/backend-plugin-api';
+import { AuthorizeResult } from '@backstage/plugin-permission-common';
 import { CatalogClient } from '@backstage/catalog-client';
 import type { AnsibleGitContentsProvider } from './providers/AnsibleGitContentsProvider';
 import { ConfigReader } from '@backstage/config';
@@ -85,6 +87,7 @@ describe('createRouter', () => {
   let mockUserInfo: jest.Mocked<UserInfoService>;
   let mockAuth: jest.Mocked<AuthService>;
   let mockCatalogClient: jest.Mocked<CatalogClient>;
+  let mockPermissions: jest.Mocked<PermissionsService>;
 
   const mockConfig = new ConfigReader({
     integrations: {
@@ -177,6 +180,19 @@ describe('createRouter', () => {
       }),
     } as unknown as jest.Mocked<CatalogClient>;
 
+    mockPermissions = {
+      authorize: jest
+        .fn()
+        .mockResolvedValue([
+          { result: AuthorizeResult.ALLOW },
+          { result: AuthorizeResult.ALLOW },
+          { result: AuthorizeResult.ALLOW },
+        ]),
+      authorizeConditional: jest
+        .fn()
+        .mockResolvedValue([{ result: AuthorizeResult.ALLOW }]),
+    } as unknown as jest.Mocked<PermissionsService>;
+
     const router = await createRouter({
       logger: mockLogger,
       config: mockConfig,
@@ -188,6 +204,7 @@ describe('createRouter', () => {
       userInfo: mockUserInfo,
       auth: mockAuth,
       catalogClient: mockCatalogClient,
+      permissions: mockPermissions,
       ansibleGitContentsProviders: [],
     });
 
@@ -326,6 +343,7 @@ describe('createRouter', () => {
           userInfo: mockUserInfo,
           auth: mockAuth,
           catalogClient: mockCatalogClient,
+          permissions: mockPermissions,
           ansibleGitContentsProviders: [],
         }),
       );
@@ -363,6 +381,7 @@ describe('createRouter', () => {
           userInfo: mockUserInfo,
           auth: mockAuth,
           catalogClient: mockCatalogClient,
+          permissions: mockPermissions,
           ansibleGitContentsProviders: [],
         }),
       );
@@ -398,6 +417,7 @@ describe('createRouter', () => {
           userInfo: mockUserInfo,
           auth: mockAuth,
           catalogClient: mockCatalogClient,
+          permissions: mockPermissions,
           ansibleGitContentsProviders: [],
         }),
       );
@@ -433,6 +453,7 @@ describe('createRouter', () => {
           userInfo: mockUserInfo,
           auth: mockAuth,
           catalogClient: mockCatalogClient,
+          permissions: mockPermissions,
           ansibleGitContentsProviders: [],
         }),
       );
@@ -471,6 +492,7 @@ describe('createRouter', () => {
           userInfo: mockUserInfo,
           auth: mockAuth,
           catalogClient: mockCatalogClient,
+          permissions: mockPermissions,
           ansibleGitContentsProviders: [],
         }),
       );
@@ -510,6 +532,7 @@ describe('createRouter', () => {
           userInfo: mockUserInfo,
           auth: mockAuth,
           catalogClient: mockCatalogClient,
+          permissions: mockPermissions,
           ansibleGitContentsProviders: [],
         }),
       );
@@ -549,6 +572,7 @@ describe('createRouter', () => {
           userInfo: mockUserInfo,
           auth: mockAuth,
           catalogClient: mockCatalogClient,
+          permissions: mockPermissions,
           ansibleGitContentsProviders: [],
         }),
       );
@@ -584,6 +608,7 @@ describe('createRouter', () => {
           userInfo: mockUserInfo,
           auth: mockAuth,
           catalogClient: mockCatalogClient,
+          permissions: mockPermissions,
           ansibleGitContentsProviders: [],
         }),
       );
@@ -621,6 +646,7 @@ describe('createRouter', () => {
           userInfo: mockUserInfo,
           auth: mockAuth,
           catalogClient: mockCatalogClient,
+          permissions: mockPermissions,
           ansibleGitContentsProviders: [],
         }),
       );
@@ -637,7 +663,7 @@ describe('createRouter', () => {
     });
   });
 
-  describe('POST /register_ee', () => {
+  describe('POST /ansible/ee', () => {
     it('should successfully register an execution environment', async () => {
       const mockProvider = {};
 
@@ -656,6 +682,7 @@ describe('createRouter', () => {
           userInfo: mockUserInfo,
           auth: mockAuth,
           catalogClient: mockCatalogClient,
+          permissions: mockPermissions,
           ansibleGitContentsProviders: [],
         }),
       );
@@ -684,7 +711,7 @@ describe('createRouter', () => {
       };
 
       const response = await request(testApp)
-        .post('/register_ee')
+        .post('/ansible/ee')
         .send({ entity: mockEntity })
         .expect(200);
 
@@ -716,12 +743,13 @@ describe('createRouter', () => {
           userInfo: mockUserInfo,
           auth: mockAuth,
           catalogClient: mockCatalogClient,
+          permissions: mockPermissions,
           ansibleGitContentsProviders: [],
         }),
       );
 
       const response = await request(testApp)
-        .post('/register_ee')
+        .post('/ansible/ee')
         .send({})
         .expect(400);
 
@@ -751,12 +779,13 @@ describe('createRouter', () => {
           userInfo: mockUserInfo,
           auth: mockAuth,
           catalogClient: mockCatalogClient,
+          permissions: mockPermissions,
           ansibleGitContentsProviders: [],
         }),
       );
 
       const response = await request(testApp)
-        .post('/register_ee')
+        .post('/ansible/ee')
         .send({ entity: null })
         .expect(400);
 
@@ -792,6 +821,7 @@ describe('createRouter', () => {
           userInfo: mockUserInfo,
           auth: mockAuth,
           catalogClient: mockCatalogClient,
+          permissions: mockPermissions,
           ansibleGitContentsProviders: [],
         }),
       );
@@ -803,7 +833,7 @@ describe('createRouter', () => {
       };
 
       const response = await request(testApp)
-        .post('/register_ee')
+        .post('/ansible/ee')
         .send({ entity: mockEntity })
         .expect(500);
 
@@ -841,6 +871,7 @@ describe('createRouter', () => {
           userInfo: mockUserInfo,
           auth: mockAuth,
           catalogClient: mockCatalogClient,
+          permissions: mockPermissions,
           ansibleGitContentsProviders: [],
         }),
       );
@@ -852,7 +883,7 @@ describe('createRouter', () => {
       };
 
       const response = await request(testApp)
-        .post('/register_ee')
+        .post('/ansible/ee')
         .send({ entity: mockEntity })
         .expect(500);
 
@@ -896,6 +927,7 @@ describe('createRouter', () => {
         userInfo: mockUserInfo,
         auth: mockAuth,
         catalogClient: mockCatalogClient,
+        permissions: mockPermissions,
       });
       const appNoGitlab = express().use(routerNoGitlab);
 
@@ -937,6 +969,7 @@ describe('createRouter', () => {
         userInfo: mockUserInfo,
         auth: mockAuth,
         catalogClient: mockCatalogClient,
+        permissions: mockPermissions,
       });
       const appWithoutToken = express().use(routerWithoutToken);
 
@@ -1167,6 +1200,7 @@ describe('createRouter', () => {
         userInfo: mockUserInfo,
         auth: mockAuth,
         catalogClient: mockCatalogClient,
+        permissions: mockPermissions,
       });
 
       const appWithSkipTls = express().use(routerWithSkipTls);
@@ -1245,6 +1279,7 @@ describe('createRouter', () => {
         userInfo: mockUserInfo,
         auth: mockAuth,
         catalogClient: mockCatalogClient,
+        permissions: mockPermissions,
       });
 
       const appWithApiBase = express().use(routerWithApiBase);
@@ -1297,6 +1332,81 @@ describe('createRouter', () => {
           }),
         }),
       );
+    });
+  });
+
+  describe('GET /ansible/git/ci-activity (permissions)', () => {
+    it('should return 403 when user lacks git-repositories view permission', async () => {
+      mockPermissions.authorize.mockResolvedValueOnce([
+        { result: AuthorizeResult.DENY },
+      ] as any);
+      mockPermissions.authorizeConditional.mockResolvedValueOnce([
+        { result: AuthorizeResult.ALLOW },
+      ] as any);
+
+      const response = await request(app)
+        .get('/ansible/git/ci-activity')
+        .query({ provider: 'github', owner: 'o', repo: 'r' });
+      expect(response.status).toBe(403);
+      expect(response.body.error).toBe('Forbidden: insufficient permissions');
+    });
+
+    it('should return 403 when user lacks catalog entity read permission', async () => {
+      mockPermissions.authorize.mockResolvedValueOnce([
+        { result: AuthorizeResult.ALLOW },
+      ] as any);
+      mockPermissions.authorizeConditional.mockResolvedValueOnce([
+        { result: AuthorizeResult.DENY },
+      ] as any);
+
+      const response = await request(app)
+        .get('/ansible/git/ci-activity')
+        .query({ provider: 'github', owner: 'o', repo: 'r' });
+      expect(response.status).toBe(403);
+      expect(response.body.error).toBe('Forbidden: insufficient permissions');
+    });
+
+    it('should allow access with both git-repo view and catalog entity read', async () => {
+      mockPermissions.authorize.mockResolvedValueOnce([
+        { result: AuthorizeResult.ALLOW },
+      ] as any);
+      mockPermissions.authorizeConditional.mockResolvedValueOnce([
+        { result: AuthorizeResult.ALLOW },
+      ] as any);
+
+      const response = await request(app)
+        .get('/ansible/git/ci-activity')
+        .query({
+          provider: 'github',
+          owner: 'myorg',
+          repo: 'myrepo',
+          host: 'github.com',
+        });
+      expect(response.status).not.toBe(403);
+    });
+
+    it('should allow access when catalog entity read returns CONDITIONAL', async () => {
+      mockPermissions.authorize.mockResolvedValueOnce([
+        { result: AuthorizeResult.ALLOW },
+      ] as any);
+      mockPermissions.authorizeConditional.mockResolvedValueOnce([
+        {
+          result: AuthorizeResult.CONDITIONAL,
+          pluginId: 'catalog',
+          resourceType: 'catalog-entity',
+          conditions: { rule: 'IS_ENTITY_OWNER', params: {} },
+        },
+      ] as any);
+
+      const response = await request(app)
+        .get('/ansible/git/ci-activity')
+        .query({
+          provider: 'github',
+          owner: 'myorg',
+          repo: 'myrepo',
+          host: 'github.com',
+        });
+      expect(response.status).not.toBe(403);
     });
   });
 
@@ -1376,6 +1486,7 @@ describe('createRouter', () => {
         userInfo: mockUserInfo,
         auth: mockAuth,
         catalogClient: mockCatalogClient,
+        permissions: mockPermissions,
       });
       const appNoGithub = express().use(routerNoGithub);
 
@@ -1409,6 +1520,7 @@ describe('createRouter', () => {
         userInfo: mockUserInfo,
         auth: mockAuth,
         catalogClient: mockCatalogClient,
+        permissions: mockPermissions,
       });
       const appWithoutToken = express().use(routerWithoutToken);
 
@@ -1442,6 +1554,7 @@ describe('createRouter', () => {
         userInfo: mockUserInfo,
         auth: mockAuth,
         catalogClient: mockCatalogClient,
+        permissions: mockPermissions,
       });
 
       const appWithGitHub = express().use(routerWithGitHub);
@@ -1494,6 +1607,7 @@ describe('createRouter', () => {
         userInfo: mockUserInfo,
         auth: mockAuth,
         catalogClient: mockCatalogClient,
+        permissions: mockPermissions,
       });
 
       const appWithoutGitHub = express().use(routerWithoutGitHub);
@@ -1544,6 +1658,7 @@ describe('createRouter', () => {
         userInfo: mockUserInfo,
         auth: mockAuth,
         catalogClient: mockCatalogClient,
+        permissions: mockPermissions,
       });
 
       const appWithGitHub = express().use(routerWithGitHub);
@@ -1594,6 +1709,7 @@ describe('createRouter', () => {
         userInfo: mockUserInfo,
         auth: mockAuth,
         catalogClient: mockCatalogClient,
+        permissions: mockPermissions,
       });
 
       const appWithGitHub = express().use(routerWithGitHub);
@@ -1634,6 +1750,7 @@ describe('createRouter', () => {
         userInfo: mockUserInfo,
         auth: mockAuth,
         catalogClient: mockCatalogClient,
+        permissions: mockPermissions,
       });
 
       const appWithGitHub = express().use(routerWithGitHub);
@@ -1677,6 +1794,7 @@ describe('createRouter', () => {
         userInfo: mockUserInfo,
         auth: mockAuth,
         catalogClient: mockCatalogClient,
+        permissions: mockPermissions,
       });
 
       const appWithGitHub = express().use(routerWithGitHub);
@@ -1726,6 +1844,7 @@ describe('createRouter', () => {
         userInfo: mockUserInfo,
         auth: mockAuth,
         catalogClient: mockCatalogClient,
+        permissions: mockPermissions,
       });
 
       const appWithGHE = express().use(routerWithGHE);
@@ -1988,6 +2107,7 @@ describe('createRouter', () => {
           userInfo: mockUserInfo,
           auth: mockAuth,
           catalogClient: mockCatalogClient,
+          permissions: mockPermissions,
           ansibleGitContentsProviders: [mockGitProvider],
         }),
       );
@@ -2028,6 +2148,7 @@ describe('createRouter', () => {
           userInfo: mockUserInfo,
           auth: mockAuth,
           catalogClient: mockCatalogClient,
+          permissions: mockPermissions,
           ansibleGitContentsProviders: [mockGitProvider],
         }),
       );
@@ -2055,6 +2176,7 @@ describe('createRouter', () => {
       userInfo: mockUserInfo,
       auth: mockAuth,
       catalogClient: mockCatalogClient,
+      permissions: mockPermissions,
       ansibleGitContentsProviders: providers,
     });
     return express().use(express.json()).use(router);
@@ -2200,9 +2322,9 @@ describe('createRouter', () => {
     });
   });
 
-  describe('GET /git_file_content', () => {
+  describe('GET /ansible/git/file-content', () => {
     it('should return 400 when required query parameters are missing', async () => {
-      const response = await request(app).get('/git_file_content');
+      const response = await request(app).get('/ansible/git/file-content');
 
       expect(response.status).toBe(400);
       expect(response.body.error).toMatch(/Missing required query parameters/);
@@ -2210,7 +2332,7 @@ describe('createRouter', () => {
 
     it('should return 400 for unsupported SCM provider', async () => {
       const response = await request(app).get(
-        '/git_file_content?scmProvider=bitbucket&host=h&owner=o&repo=r&filePath=README.md&ref=main',
+        '/ansible/git/file-content?scmProvider=bitbucket&host=h&owner=o&repo=r&filePath=README.md&ref=main',
       );
 
       expect(response.status).toBe(400);
@@ -2219,7 +2341,7 @@ describe('createRouter', () => {
 
     it('should log fetch message, call createClient and getFileContent, and return 200 with text/markdown', async () => {
       const response = await request(app).get(
-        '/git_file_content?scmProvider=github&host=github.com&owner=myorg&repo=myrepo&filePath=README.md&ref=main',
+        '/ansible/git/file-content?scmProvider=github&host=github.com&owner=myorg&repo=myrepo&filePath=README.md&ref=main',
       );
 
       expect(response.status).toBe(200);
@@ -2249,12 +2371,13 @@ describe('createRouter', () => {
         userInfo: mockUserInfo,
         auth: mockAuth,
         catalogClient: mockCatalogClient,
+        permissions: mockPermissions,
         ansibleGitContentsProviders: [],
       });
       const testApp = express().use(router);
 
       const response = await request(testApp).get(
-        '/git_file_content?scmProvider=github&host=github.com&owner=myorg&repo=myrepo&filePath=README.md&ref=main',
+        '/ansible/git/file-content?scmProvider=github&host=github.com&owner=myorg&repo=myrepo&filePath=README.md&ref=main',
       );
 
       expect(response.status).toBe(404);
@@ -2285,12 +2408,13 @@ describe('createRouter', () => {
         userInfo: mockUserInfo,
         auth: mockAuth,
         catalogClient: mockCatalogClient,
+        permissions: mockPermissions,
         ansibleGitContentsProviders: [],
       });
       const testApp = express().use(router);
 
       const response = await request(testApp).get(
-        '/git_file_content?scmProvider=gitlab&host=gitlab.com&owner=grp&repo=proj&filePath=README.md&ref=main',
+        '/ansible/git/file-content?scmProvider=gitlab&host=gitlab.com&owner=grp&repo=proj&filePath=README.md&ref=main',
       );
 
       expect(response.status).toBe(500);
@@ -2302,7 +2426,7 @@ describe('createRouter', () => {
 
     it('should set content-type application/yaml for .yaml file', async () => {
       const response = await request(app).get(
-        '/git_file_content?scmProvider=github&host=github.com&owner=myorg&repo=myrepo&filePath=ansible.yaml&ref=main',
+        '/ansible/git/file-content?scmProvider=github&host=github.com&owner=myorg&repo=myrepo&filePath=ansible.yaml&ref=main',
       );
       expect(response.status).toBe(200);
       expect(response.headers['content-type']).toMatch(/application\/yaml/);
@@ -2310,7 +2434,7 @@ describe('createRouter', () => {
 
     it('should set content-type application/yaml for .yml file', async () => {
       const response = await request(app).get(
-        '/git_file_content?scmProvider=github&host=github.com&owner=myorg&repo=myrepo&filePath=config.yml&ref=main',
+        '/ansible/git/file-content?scmProvider=github&host=github.com&owner=myorg&repo=myrepo&filePath=config.yml&ref=main',
       );
       expect(response.status).toBe(200);
       expect(response.headers['content-type']).toMatch(/application\/yaml/);
@@ -2334,11 +2458,12 @@ describe('createRouter', () => {
         userInfo: mockUserInfo,
         auth: mockAuth,
         catalogClient: mockCatalogClient,
+        permissions: mockPermissions,
         ansibleGitContentsProviders: [],
       });
       const testApp = express().use(router);
       const response = await request(testApp).get(
-        '/git_file_content?scmProvider=github&host=github.com&owner=myorg&repo=myrepo&filePath=data.json&ref=main',
+        '/ansible/git/file-content?scmProvider=github&host=github.com&owner=myorg&repo=myrepo&filePath=data.json&ref=main',
       );
       expect(response.status).toBe(200);
       expect(response.headers['content-type']).toMatch(/application\/json/);
@@ -2347,7 +2472,7 @@ describe('createRouter', () => {
 
     it('should set content-type text/plain for .txt file', async () => {
       const response = await request(app).get(
-        '/git_file_content?scmProvider=github&host=github.com&owner=myorg&repo=myrepo&filePath=notes.txt&ref=main',
+        '/ansible/git/file-content?scmProvider=github&host=github.com&owner=myorg&repo=myrepo&filePath=notes.txt&ref=main',
       );
       expect(response.status).toBe(200);
       expect(response.headers['content-type']).toMatch(/text\/plain/);
@@ -2355,10 +2480,179 @@ describe('createRouter', () => {
 
     it('should set content-type text/plain for unknown or missing extension', async () => {
       const response = await request(app).get(
-        '/git_file_content?scmProvider=github&host=github.com&owner=myorg&repo=myrepo&filePath=README&ref=main',
+        '/ansible/git/file-content?scmProvider=github&host=github.com&owner=myorg&repo=myrepo&filePath=README&ref=main',
       );
       expect(response.status).toBe(200);
       expect(response.headers['content-type']).toMatch(/text\/plain/);
+    });
+
+    it('should return 403 when user has no ansible permissions', async () => {
+      mockPermissions.authorize.mockResolvedValueOnce([
+        { result: AuthorizeResult.DENY },
+        { result: AuthorizeResult.DENY },
+        { result: AuthorizeResult.DENY },
+      ] as any);
+      mockPermissions.authorizeConditional.mockResolvedValueOnce([
+        { result: AuthorizeResult.ALLOW },
+      ] as any);
+
+      const response = await request(app).get(
+        '/ansible/git/file-content?scmProvider=github&host=github.com&owner=myorg&repo=myrepo&filePath=README.md&ref=main',
+      );
+      expect(response.status).toBe(403);
+      expect(response.body.error).toBe('Forbidden: insufficient permissions');
+    });
+
+    it('should return 403 when user lacks catalog entity read permission', async () => {
+      mockPermissions.authorize.mockResolvedValueOnce([
+        { result: AuthorizeResult.ALLOW },
+        { result: AuthorizeResult.ALLOW },
+        { result: AuthorizeResult.ALLOW },
+      ] as any);
+      mockPermissions.authorizeConditional.mockResolvedValueOnce([
+        { result: AuthorizeResult.DENY },
+      ] as any);
+
+      const response = await request(app).get(
+        '/ansible/git/file-content?scmProvider=github&host=github.com&owner=myorg&repo=myrepo&filePath=README.md&ref=main',
+      );
+      expect(response.status).toBe(403);
+      expect(response.body.error).toBe('Forbidden: insufficient permissions');
+    });
+
+    it('should allow access with git-repo view and catalog entity read', async () => {
+      mockPermissions.authorize.mockResolvedValueOnce([
+        { result: AuthorizeResult.ALLOW },
+        { result: AuthorizeResult.DENY },
+        { result: AuthorizeResult.DENY },
+      ] as any);
+      mockPermissions.authorizeConditional.mockResolvedValueOnce([
+        { result: AuthorizeResult.ALLOW },
+      ] as any);
+
+      const response = await request(app).get(
+        '/ansible/git/file-content?scmProvider=github&host=github.com&owner=myorg&repo=myrepo&filePath=README.md&ref=main',
+      );
+      expect(response.status).toBe(200);
+    });
+
+    it('should allow access with ee view and catalog entity read', async () => {
+      mockPermissions.authorize.mockResolvedValueOnce([
+        { result: AuthorizeResult.DENY },
+        { result: AuthorizeResult.ALLOW },
+        { result: AuthorizeResult.DENY },
+      ] as any);
+      mockPermissions.authorizeConditional.mockResolvedValueOnce([
+        { result: AuthorizeResult.ALLOW },
+      ] as any);
+
+      const response = await request(app).get(
+        '/ansible/git/file-content?scmProvider=github&host=github.com&owner=myorg&repo=myrepo&filePath=README.md&ref=main',
+      );
+      expect(response.status).toBe(200);
+    });
+
+    it('should allow access with collections view and catalog entity read', async () => {
+      mockPermissions.authorize.mockResolvedValueOnce([
+        { result: AuthorizeResult.DENY },
+        { result: AuthorizeResult.DENY },
+        { result: AuthorizeResult.ALLOW },
+      ] as any);
+      mockPermissions.authorizeConditional.mockResolvedValueOnce([
+        { result: AuthorizeResult.ALLOW },
+      ] as any);
+
+      const response = await request(app).get(
+        '/ansible/git/file-content?scmProvider=github&host=github.com&owner=myorg&repo=myrepo&filePath=README.md&ref=main',
+      );
+      expect(response.status).toBe(200);
+    });
+
+    it('should allow access when catalog entity read returns CONDITIONAL', async () => {
+      mockPermissions.authorize.mockResolvedValueOnce([
+        { result: AuthorizeResult.ALLOW },
+        { result: AuthorizeResult.DENY },
+        { result: AuthorizeResult.DENY },
+      ] as any);
+      mockPermissions.authorizeConditional.mockResolvedValueOnce([
+        {
+          result: AuthorizeResult.CONDITIONAL,
+          pluginId: 'catalog',
+          resourceType: 'catalog-entity',
+          conditions: { rule: 'IS_ENTITY_OWNER', params: {} },
+        },
+      ] as any);
+
+      const response = await request(app).get(
+        '/ansible/git/file-content?scmProvider=github&host=github.com&owner=myorg&repo=myrepo&filePath=README.md&ref=main',
+      );
+      expect(response.status).toBe(200);
+    });
+  });
+
+  describe('POST /ansible/git/build-ee', () => {
+    it('should return 403 when user lacks ee view permission', async () => {
+      mockPermissions.authorize.mockResolvedValueOnce([
+        { result: AuthorizeResult.DENY },
+      ] as any);
+      mockPermissions.authorizeConditional.mockResolvedValueOnce([
+        { result: AuthorizeResult.ALLOW },
+      ] as any);
+
+      const response = await request(app)
+        .post('/ansible/git/build-ee')
+        .send({});
+      expect(response.status).toBe(403);
+      expect(response.body.error).toBe('Forbidden: insufficient permissions');
+    });
+
+    it('should return 403 when user lacks catalog entity read permission', async () => {
+      mockPermissions.authorize.mockResolvedValueOnce([
+        { result: AuthorizeResult.ALLOW },
+      ] as any);
+      mockPermissions.authorizeConditional.mockResolvedValueOnce([
+        { result: AuthorizeResult.DENY },
+      ] as any);
+
+      const response = await request(app)
+        .post('/ansible/git/build-ee')
+        .send({});
+      expect(response.status).toBe(403);
+      expect(response.body.error).toBe('Forbidden: insufficient permissions');
+    });
+
+    it('should return 501 when permissions pass (not yet implemented)', async () => {
+      mockPermissions.authorize.mockResolvedValueOnce([
+        { result: AuthorizeResult.ALLOW },
+      ] as any);
+      mockPermissions.authorizeConditional.mockResolvedValueOnce([
+        { result: AuthorizeResult.ALLOW },
+      ] as any);
+
+      const response = await request(app)
+        .post('/ansible/git/build-ee')
+        .send({});
+      expect(response.status).toBe(501);
+      expect(response.body.error).toBe('Not implemented');
+    });
+
+    it('should allow access when catalog entity read returns CONDITIONAL', async () => {
+      mockPermissions.authorize.mockResolvedValueOnce([
+        { result: AuthorizeResult.ALLOW },
+      ] as any);
+      mockPermissions.authorizeConditional.mockResolvedValueOnce([
+        {
+          result: AuthorizeResult.CONDITIONAL,
+          pluginId: 'catalog',
+          resourceType: 'catalog-entity',
+          conditions: { rule: 'IS_ENTITY_OWNER', params: {} },
+        },
+      ] as any);
+
+      const response = await request(app)
+        .post('/ansible/git/build-ee')
+        .send({});
+      expect(response.status).toBe(501);
     });
   });
 
@@ -2390,6 +2684,7 @@ describe('createRouter', () => {
         userInfo: mockUserInfo,
         auth: mockAuth,
         catalogClient: mockCatalogClient,
+        permissions: mockPermissions,
         ansibleGitContentsProviders: [] as AnsibleGitContentsProvider[],
       };
       const { ansibleGitContentsProviders: _omit, ...rest } = opts;
@@ -2416,6 +2711,7 @@ describe('createRouter', () => {
         userInfo: mockUserInfo,
         auth: mockAuth,
         catalogClient: mockCatalogClient,
+        permissions: mockPermissions,
         ansibleGitContentsProviders: [],
       });
 
@@ -2438,6 +2734,7 @@ describe('createRouter', () => {
         userInfo: mockUserInfo,
         auth: mockAuth,
         catalogClient: mockCatalogClient,
+        permissions: mockPermissions,
         ansibleGitContentsProviders: [],
       });
 
@@ -2460,6 +2757,7 @@ describe('createRouter', () => {
         userInfo: mockUserInfo,
         auth: mockAuth,
         catalogClient: mockCatalogClient,
+        permissions: mockPermissions,
         ansibleGitContentsProviders: [],
       });
 
@@ -2710,6 +3008,7 @@ describe('createRouter', () => {
         userInfo: mockUserInfo,
         auth: mockAuth,
         catalogClient: mockCatalogClient,
+        permissions: mockPermissions,
         ansibleGitContentsProviders: [],
       });
       const appWithNoProviders = express().use(routerWithNoProviders);
@@ -2801,6 +3100,7 @@ describe('createRouter', () => {
         userInfo: mockUserInfo,
         auth: mockAuth,
         catalogClient: mockCatalogClient,
+        permissions: mockPermissions,
         ansibleGitContentsProviders: [],
       });
 

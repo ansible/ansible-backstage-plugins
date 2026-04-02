@@ -490,7 +490,7 @@ export function createEEDefinitionAction(options: {
             ansibleConfigContent,
             eeTemplateContent,
           );
-          const response = await fetch(`${baseUrl}/register_ee`, {
+          const response = await fetch(`${baseUrl}/ansible/ee`, {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',

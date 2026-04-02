@@ -25,7 +25,7 @@ export async function fetchReadmeFromBackend(
   });
 
   const response = await fetchApi.fetch(
-    `${baseUrl}/git_file_content?${urlParams}`,
+    `${baseUrl}/ansible/git/file-content?${urlParams}`,
   );
   if (response.ok) {
     return response.text();
