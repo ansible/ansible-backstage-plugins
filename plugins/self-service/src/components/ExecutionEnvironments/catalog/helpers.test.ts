@@ -2,6 +2,7 @@ import {
   toEEDefinitionUrl,
   getEntityEEDefinitionUrl,
   getScmRepoUrlForAuth,
+  isEntityPublishedToGithub,
   downloadEntityAsTarArchive,
 } from './helpers';
 import { Entity } from '@backstage/catalog-model';
@@ -204,6 +205,51 @@ describe('catalog helpers', () => {
           },
         } as unknown as Entity),
       ).toBeNull();
+    });
+  });
+
+  describe('isEntityPublishedToGithub', () => {
+    it('returns false without github scm-provider', () => {
+      expect(
+        isEntityPublishedToGithub({
+          metadata: {
+            name: 'ee1',
+            annotations: {
+              'backstage.io/source-location':
+                'url:https://gitlab.com/g/p/-/tree/main/',
+              'ansible.io/scm-provider': 'gitlab',
+            },
+          },
+        } as unknown as Entity),
+      ).toBe(false);
+    });
+
+    it('returns false when scm-provider is github but source URL cannot be resolved', () => {
+      expect(
+        isEntityPublishedToGithub({
+          metadata: {
+            name: 'ee1',
+            annotations: {
+              'ansible.io/scm-provider': 'github',
+            },
+          },
+        } as unknown as Entity),
+      ).toBe(false);
+    });
+
+    it('returns true for github with valid source-location', () => {
+      expect(
+        isEntityPublishedToGithub({
+          metadata: {
+            name: 'ee1',
+            annotations: {
+              'backstage.io/source-location':
+                'url:https://github.com/acme/widgets/tree/main/ee-dir/',
+              'ansible.io/scm-provider': 'Github',
+            },
+          },
+        } as unknown as Entity),
+      ).toBe(true);
     });
   });
 

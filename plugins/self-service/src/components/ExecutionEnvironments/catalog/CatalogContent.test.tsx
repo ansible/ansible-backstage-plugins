@@ -198,6 +198,20 @@ const entityB = createEntity(
   '2024-01-02T10:00:00Z',
 );
 
+/** EE published to GitHub — Build appears in the row actions menu */
+const entityGitHubPublished: Entity = {
+  ...entityA,
+  metadata: {
+    ...entityA.metadata,
+    annotations: {
+      ...entityA.metadata.annotations,
+      'backstage.io/source-location':
+        'url:https://github.com/org/repo/tree/main/ee-one/',
+      'ansible.io/scm-provider': 'github',
+    },
+  },
+};
+
 const entityC = createEntity(
   'ee-three',
   '3',
@@ -833,8 +847,10 @@ describe('EEListPage', () => {
       windowOpenSpy.mockRestore();
     });
 
-    test('shows Build, Edit, View, Delete when download-experience is false', async () => {
-      renderWithCatalogApi(() => Promise.resolve({ items: [entityA] }));
+    test('shows Build, Edit, View, Delete when download-experience is false and EE is on GitHub', async () => {
+      renderWithCatalogApi(() =>
+        Promise.resolve({ items: [entityGitHubPublished] }),
+      );
 
       await waitFor(() =>
         expect(screen.getByTestId('stubbed-table-title')).toBeInTheDocument(),
@@ -907,12 +923,7 @@ describe('EEListPage', () => {
       ).not.toBeInTheDocument();
     });
 
-    test('Build menu item does not open a URL; notifies when entity lacks SCM annotations', async () => {
-      const showSpy = jest.spyOn(notificationStore, 'showNotification');
-      const windowOpenSpy = jest
-        .spyOn(window, 'open')
-        .mockImplementation(() => null);
-
+    test('omits Build menu item when entity is not published to GitHub', async () => {
       renderWithCatalogApi(() => Promise.resolve({ items: [entityA] }));
 
       await waitFor(() =>
@@ -922,22 +933,14 @@ describe('EEListPage', () => {
       const actionsButton = screen.getByRole('button', { name: /actions/i });
       fireEvent.click(actionsButton);
 
-      const buildMenuItem = await screen.findByRole('menuitem', {
-        name: /build/i,
+      await waitFor(() => {
+        expect(
+          screen.getByRole('menuitem', { name: /edit/i }),
+        ).toBeInTheDocument();
       });
-      fireEvent.click(buildMenuItem);
-
-      expect(windowOpenSpy).not.toHaveBeenCalled();
-      await waitFor(() => expect(showSpy).toHaveBeenCalled());
-      expect(showSpy).toHaveBeenCalledWith(
-        expect.objectContaining({
-          title: 'Cannot start build',
-          severity: 'error',
-        }),
-      );
-      expect(mockScmAuthApi.getCredentials).not.toHaveBeenCalled();
-      showSpy.mockRestore();
-      windowOpenSpy.mockRestore();
+      expect(
+        screen.queryByRole('menuitem', { name: /build/i }),
+      ).not.toBeInTheDocument();
     });
 
     test('Build opens dialog when entity has GitHub SCM annotations', async () => {

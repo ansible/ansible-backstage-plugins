@@ -38,7 +38,11 @@ import { DefinedContentCard } from './DefinedContentCard';
 import { ResourcesCard } from './ResourcesCard';
 import { EntityNotFound } from './EntityNotFound';
 import { EEBuildDialog } from './EEBuildDialog';
-import { toEEDefinitionUrl, downloadEntityAsTarArchive } from './helpers';
+import {
+  toEEDefinitionUrl,
+  downloadEntityAsTarArchive,
+  isEntityPublishedToGithub,
+} from './helpers';
 import { useEEBuildFlow } from './useEEBuildFlow';
 import { parseEEDefinition } from '../../../utils/eeDefinitionUtils';
 import { rootRouteRef } from '../../../routes';
@@ -425,17 +429,19 @@ export const EEDetailsPage: React.FC = () => {
               classes={{ paper: actionsMenuClasses.menuPaper }}
               getContentAnchorEl={null}
             >
-              <MenuItem
-                onClick={() => {
-                  handleBuild();
-                  handleMenuClose();
-                }}
-              >
-                <ListItemIcon style={{ minWidth: 36 }}>
-                  <BuildIcon fontSize="small" />
-                </ListItemIcon>
-                <Typography variant="body2">Build</Typography>
-              </MenuItem>
+              {entity && isEntityPublishedToGithub(entity as Entity) && (
+                <MenuItem
+                  onClick={() => {
+                    handleBuild();
+                    handleMenuClose();
+                  }}
+                >
+                  <ListItemIcon style={{ minWidth: 36 }}>
+                    <BuildIcon fontSize="small" />
+                  </ListItemIcon>
+                  <Typography variant="body2">Build</Typography>
+                </MenuItem>
+              )}
               {!isDownloadExperience && [
                 <MenuItem
                   key="edit-definition"

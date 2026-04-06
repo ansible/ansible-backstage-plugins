@@ -95,6 +95,14 @@ export function getScmRepoUrlForAuth(entity: Entity): string | null {
   return null;
 }
 
+export function isEntityPublishedToGithub(entity: Entity): boolean {
+  const scmRaw = entity?.metadata?.annotations?.[SCM_PROVIDER_ANNOTATION];
+  if (!scmRaw?.trim() || !scmRaw.toLowerCase().includes('github')) {
+    return false;
+  }
+  return getScmRepoUrlForAuth(entity) !== null;
+}
+
 /**
  * Resolve Edit/View URL to the EE definition file when it points at catalog-info.yaml.
  */

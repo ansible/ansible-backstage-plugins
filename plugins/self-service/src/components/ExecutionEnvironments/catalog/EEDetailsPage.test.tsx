@@ -202,7 +202,7 @@ const renderWithCatalogApi = (
     triggerBuild: jest.fn().mockResolvedValue({ accepted: true }),
   };
 
-  return render(
+  const view = render(
     <MemoryRouter initialEntries={['/']}>
       <TestApiProvider
         apis={[
@@ -222,6 +222,11 @@ const renderWithCatalogApi = (
       </TestApiProvider>
     </MemoryRouter>,
   );
+  return Object.assign(view, {
+    mockScmAuthApi,
+    mockCatalogApi,
+    mockEeBuildApi,
+  });
 };
 
 // ----------------- Tests -----------------
@@ -701,5 +706,42 @@ describe('EEDetailsPage', () => {
     await waitFor(() =>
       expect(screen.getByTestId('unregister-dialog')).toBeInTheDocument(),
     );
+  });
+
+  test('Actions menu: clicking Build runs SCM auth and opens build dialog (GitHub-published EE)', async () => {
+    const { mockScmAuthApi } = renderWithCatalogApi(() =>
+      Promise.resolve({ items: [entityNoDownload] }),
+    );
+
+    await screen.findByTestId('favorite-entity');
+
+    fireEvent.click(screen.getByRole('button', { name: /Actions/i }));
+    fireEvent.click(await screen.findByRole('menuitem', { name: /^Build$/i }));
+
+    await waitFor(() =>
+      expect(mockScmAuthApi.getCredentials).toHaveBeenCalledWith({
+        url: 'https://github.com/owner/repo',
+      }),
+    );
+    expect(
+      await screen.findByText('Build execution environment image'),
+    ).toBeInTheDocument();
+  });
+
+  test('Actions menu: Build is hidden when EE is not published to GitHub', async () => {
+    renderWithCatalogApi(() =>
+      Promise.resolve({ items: [entityGitLabWithTree] }),
+    );
+
+    await screen.findByTestId('favorite-entity');
+
+    fireEvent.click(screen.getByRole('button', { name: /Actions/i }));
+
+    expect(
+      screen.queryByRole('menuitem', { name: /^Build$/i }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.getByRole('menuitem', { name: /Edit definition/i }),
+    ).toBeInTheDocument();
   });
 });

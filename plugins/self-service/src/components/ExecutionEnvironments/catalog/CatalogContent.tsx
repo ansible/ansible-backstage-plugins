@@ -35,7 +35,11 @@ import { ANNOTATION_EDIT_URL, Entity } from '@backstage/catalog-model';
 import { useApi } from '@backstage/core-plugin-api';
 import { CreateCatalog } from './CreateCatalog';
 import { EEBuildDialog } from './EEBuildDialog';
-import { toEEDefinitionUrl, downloadEntityAsTarArchive } from './helpers';
+import {
+  toEEDefinitionUrl,
+  downloadEntityAsTarArchive,
+  isEntityPublishedToGithub,
+} from './helpers';
 import { useEEBuildFlow } from './useEEBuildFlow';
 import { EntityLinkButton } from '../../common';
 
@@ -626,20 +630,24 @@ export const EEListPage = ({
                         </MenuItem>,
                       ]
                     : [
-                        <MenuItem
-                          key="build"
-                          onClick={() => {
-                            const targetEntity = actionsMenuEntity;
-                            handleActionsMenuClose();
-                            if (targetEntity) {
-                              startBuildFlow(targetEntity).catch(
-                                () => undefined,
-                              );
-                            }
-                          }}
-                        >
-                          Build
-                        </MenuItem>,
+                        ...(isEntityPublishedToGithub(actionsMenuEntity)
+                          ? [
+                              <MenuItem
+                                key="build"
+                                onClick={() => {
+                                  const targetEntity = actionsMenuEntity;
+                                  handleActionsMenuClose();
+                                  if (targetEntity) {
+                                    startBuildFlow(targetEntity).catch(
+                                      () => undefined,
+                                    );
+                                  }
+                                }}
+                              >
+                                Build
+                              </MenuItem>,
+                            ]
+                          : []),
                         <MenuItem
                           key="edit"
                           onClick={() => {
