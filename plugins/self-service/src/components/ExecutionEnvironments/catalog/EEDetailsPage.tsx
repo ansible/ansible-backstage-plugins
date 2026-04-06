@@ -429,7 +429,7 @@ export const EEDetailsPage: React.FC = () => {
               classes={{ paper: actionsMenuClasses.menuPaper }}
               getContentAnchorEl={null}
             >
-              {entity && isEntityPublishedToGithub(entity as Entity) && (
+              {isEntityPublishedToGithub(entity as Entity) && (
                 <MenuItem
                   onClick={() => {
                     handleBuild();
