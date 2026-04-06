@@ -15,12 +15,24 @@ import {
   Box,
   Typography,
   Chip,
+  TextField,
 } from '@material-ui/core';
 import { makeStyles } from '@material-ui/core/styles';
+import { Alert } from '@material-ui/lab';
 import CheckCircleIcon from '@material-ui/icons/CheckCircle';
 import ErrorIcon from '@material-ui/icons/Error';
 
+type ProviderType = 'github' | 'gitlab';
+
+interface ProviderConfig {
+  label: string;
+  provider: ProviderType;
+  host?: string;
+  apiBaseUrl?: string;
+}
+
 interface ScmAuthPickerOptions {
+  providers?: ProviderConfig[];
   requestUserCredentials?: {
     secretsKey: string;
     additionalScopes?: {
@@ -28,7 +40,19 @@ interface ScmAuthPickerOptions {
       gitlab?: string[];
     };
   };
-  hostMapping?: Record<string, string>;
+}
+
+export interface ScmAuthPickerData {
+  provider: string;
+  org: string;
+  repoName: string;
+  repoExists: boolean;
+}
+
+interface OrgItem {
+  id: string;
+  name: string;
+  displayName: string;
 }
 
 const useStyles = makeStyles(theme => ({
@@ -61,6 +85,10 @@ const useStyles = makeStyles(theme => ({
   statusText: {
     fontSize: '0.75rem',
   },
+  repoAvailable: {
+    fontSize: '0.75rem',
+    color: theme.palette.success.main,
+  },
 }));
 
 export const ScmAuthPickerExtension = ({
@@ -71,7 +99,7 @@ export const ScmAuthPickerExtension = ({
   schema,
   uiSchema,
   formData,
-}: FieldExtensionComponentProps<string>) => {
+}: FieldExtensionComponentProps<ScmAuthPickerData>) => {
   const classes = useStyles();
   const scmAuthApi = useApi(scmAuthApiRef);
   const { setSecrets } = useTemplateSecrets();
@@ -80,30 +108,148 @@ export const ScmAuthPickerExtension = ({
   const [authError, setAuthError] = useState<string | null>(null);
   const hasInitializedRef = useRef(false);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [organizations, setOrganizations] = useState<OrgItem[]>([]);
+  const [isFetchingOrgs, setIsFetchingOrgs] = useState(false);
+  const [repoStatus, setRepoStatus] = useState<
+    'checking' | 'available' | 'exists' | null
+  >(null);
+  const tokenRef = useRef<string | null>(null);
+  const onChangeRef = useRef(onChange);
+  onChangeRef.current = onChange;
 
   const options = (uiSchema?.['ui:options'] as ScmAuthPickerOptions) || {};
-  const { requestUserCredentials, hostMapping } = options;
+  const { requestUserCredentials, providers = [] } = options;
+
+  const selectedProvider = formData?.provider ?? '';
+  const selectedOrg = formData?.org ?? '';
+  const repoName = formData?.repoName ?? '';
 
   const title = schema?.title || 'Source Control Provider';
   const description = schema?.description;
-  const enumValues: string[] = (schema?.enum || []).map(String);
-  const enumNames: string[] = (schema?.enumNames || enumValues).map(String);
+  const enumValues = providers.map(p => p.label);
+  const enumNames = enumValues;
+
+  const getProviderConfig = useCallback(
+    (value: string): ProviderConfig | undefined =>
+      providers.find(p => p.label === value),
+    [providers],
+  );
+
+  const getProviderType = useCallback(
+    (value: string): ProviderType | undefined =>
+      getProviderConfig(value)?.provider,
+    [getProviderConfig],
+  );
 
   const getHostForValue = useCallback(
     (value: string): string => {
-      if (hostMapping?.[value]) {
-        return hostMapping[value];
-      }
-      const lowerValue = value.toLowerCase();
-      if (lowerValue.includes('github')) {
-        return 'github.com';
-      }
-      if (lowerValue.includes('gitlab')) {
-        return 'gitlab.com';
-      }
+      const config = getProviderConfig(value);
+      if (config?.host) return config.host;
+      if (config?.provider === 'github') return 'github.com';
+      if (config?.provider === 'gitlab') return 'gitlab.com';
       return value;
     },
-    [hostMapping],
+    [getProviderConfig],
+  );
+
+  const getApiBaseUrl = useCallback(
+    (value: string): string => {
+      const config = getProviderConfig(value);
+      if (config?.apiBaseUrl) return config.apiBaseUrl;
+      const host = getHostForValue(value);
+      if (config?.provider === 'github') {
+        return host === 'github.com'
+          ? 'https://api.github.com'
+          : `https://${host}/api/v3`;
+      }
+      return `https://${host}/api/v4`;
+    },
+    [getProviderConfig, getHostForValue],
+  );
+
+  const fetchOrganizations = useCallback(
+    async (token: string, providerValue: string) => {
+      const providerType = getProviderType(providerValue);
+
+      if (!providerType) {
+        throw new Error(
+          `Unsupported provider type for "${providerValue}". Each provider must specify provider: "github" or "gitlab".`,
+        );
+      }
+
+      const apiBase = getApiBaseUrl(providerValue);
+
+      setIsFetchingOrgs(true);
+
+      try {
+        let items: OrgItem[] = [];
+
+        if (providerType === 'github') {
+          const headers = {
+            Authorization: `Bearer ${token}`,
+            Accept: 'application/vnd.github+json',
+          };
+          const [userRes, orgsRes] = await Promise.all([
+            fetch(`${apiBase}/user`, { headers }),
+            fetch(`${apiBase}/user/orgs?per_page=100`, { headers }),
+          ]);
+          if (!userRes.ok || !orgsRes.ok) {
+            throw new Error('Failed to fetch GitHub namespaces');
+          }
+          const user: { login: string } = await userRes.json();
+          const orgs: { login: string }[] = await orgsRes.json();
+          items = [
+            {
+              id: user.login,
+              name: user.login,
+              displayName: `${user.login} (personal)`,
+            },
+            ...orgs.map(org => ({
+              id: org.login,
+              name: org.login,
+              displayName: org.login,
+            })),
+          ];
+        } else if (providerType === 'gitlab') {
+          const headers = { Authorization: `Bearer ${token}` };
+          const [userRes, groupsRes] = await Promise.all([
+            fetch(`${apiBase}/user`, { headers }),
+            fetch(
+              `${apiBase}/groups?per_page=100&min_access_level=30&order_by=name&sort=asc`,
+              { headers },
+            ),
+          ]);
+          if (!userRes.ok || !groupsRes.ok) {
+            throw new Error('Failed to fetch GitLab namespaces');
+          }
+          const user: { username: string } = await userRes.json();
+          const groups: { full_path: string; name: string }[] =
+            await groupsRes.json();
+          items = [
+            {
+              id: user.username,
+              name: user.username,
+              displayName: `${user.username} (personal)`,
+            },
+            ...groups.map(group => ({
+              id: group.full_path,
+              name: group.full_path,
+              displayName: group.name,
+            })),
+          ];
+        }
+
+        setOrganizations(items);
+      } catch (err) {
+        setOrganizations([]);
+        setAuthError(
+          err instanceof Error ? err.message : 'Failed to fetch namespaces',
+        );
+      } finally {
+        setIsFetchingOrgs(false);
+      }
+    },
+    [getApiBaseUrl, getProviderType],
   );
 
   const authenticateWithProvider = useCallback(
@@ -115,6 +261,7 @@ export const ScmAuthPickerExtension = ({
       setIsAuthenticating(true);
       setAuthError(null);
       setIsAuthenticated(false);
+      setOrganizations([]);
 
       try {
         const host = getHostForValue(providerValue);
@@ -144,7 +291,6 @@ export const ScmAuthPickerExtension = ({
           additionalScope,
         });
 
-        // clear OAuth pending flag after authentication is successful
         try {
           sessionStorage.removeItem('scaffolder-oauth-pending');
         } catch {
@@ -154,6 +300,8 @@ export const ScmAuthPickerExtension = ({
         if (token) {
           setSecrets({ [requestUserCredentials.secretsKey]: token });
           setIsAuthenticated(true);
+          tokenRef.current = token;
+          fetchOrganizations(token, providerValue);
         } else {
           throw new Error('No token received from authentication');
         }
@@ -172,13 +320,20 @@ export const ScmAuthPickerExtension = ({
         setIsAuthenticating(false);
       }
     },
-    [scmAuthApi, setSecrets, requestUserCredentials, getHostForValue],
+    [
+      scmAuthApi,
+      setSecrets,
+      requestUserCredentials,
+      getHostForValue,
+      fetchOrganizations,
+    ],
   );
 
   const handleChange = useCallback(
     async (event: ChangeEvent<{ value: unknown }>) => {
       const value = event.target.value as string;
-      onChange(value);
+      onChange({ provider: value, org: '', repoName: '', repoExists: false });
+      setRepoStatus(null);
 
       if (value && requestUserCredentials) {
         await authenticateWithProvider(value);
@@ -187,23 +342,119 @@ export const ScmAuthPickerExtension = ({
     [onChange, requestUserCredentials, authenticateWithProvider],
   );
 
+  const handleOrgChange = useCallback(
+    (event: ChangeEvent<{ value: unknown }>) => {
+      onChange({
+        provider: selectedProvider,
+        org: event.target.value as string,
+        repoName: '',
+        repoExists: false,
+      });
+      setRepoStatus(null);
+    },
+    [onChange, selectedProvider],
+  );
+
+  const handleRepoNameChange = useCallback(
+    (event: ChangeEvent<HTMLInputElement>) => {
+      onChange({
+        provider: selectedProvider,
+        org: selectedOrg,
+        repoName: event.target.value,
+        repoExists: false,
+      });
+      setRepoStatus(null);
+    },
+    [onChange, selectedProvider, selectedOrg],
+  );
+
   useEffect(() => {
     if (
       !hasInitializedRef.current &&
-      formData &&
+      selectedProvider &&
       requestUserCredentials &&
       !isAuthenticated &&
       !isAuthenticating
     ) {
       hasInitializedRef.current = true;
-      authenticateWithProvider(formData);
+      authenticateWithProvider(selectedProvider);
     }
   }, [
-    formData,
+    selectedProvider,
     requestUserCredentials,
     isAuthenticated,
     isAuthenticating,
     authenticateWithProvider,
+  ]);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    if (
+      !repoName.trim() ||
+      !selectedOrg ||
+      !isAuthenticated ||
+      !tokenRef.current
+    ) {
+      setRepoStatus(null);
+      return undefined;
+    }
+
+    const providerType = getProviderType(selectedProvider);
+    if (!providerType) {
+      setRepoStatus(null);
+      return undefined;
+    }
+
+    const apiBase = getApiBaseUrl(selectedProvider);
+    const token = tokenRef.current;
+    const trimmed = repoName.trim();
+
+    setRepoStatus('checking');
+
+    const timer = setTimeout(async () => {
+      try {
+        let response: Response;
+        if (providerType === 'github') {
+          response = await fetch(`${apiBase}/repos/${selectedOrg}/${trimmed}`, {
+            headers: {
+              Authorization: `Bearer ${token}`,
+              Accept: 'application/vnd.github+json',
+            },
+          });
+        } else {
+          const projectPath = encodeURIComponent(`${selectedOrg}/${trimmed}`);
+          response = await fetch(`${apiBase}/projects/${projectPath}`, {
+            headers: { Authorization: `Bearer ${token}` },
+          });
+        }
+
+        if (cancelled) return;
+
+        const exists = response.status === 200;
+        setRepoStatus(exists ? 'exists' : 'available');
+        onChangeRef.current({
+          provider: selectedProvider,
+          org: selectedOrg,
+          repoName: trimmed,
+          repoExists: exists,
+        });
+      } catch {
+        if (!cancelled) setRepoStatus(null);
+      }
+    }, 500);
+
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
+    };
+  }, [
+    repoName,
+    selectedOrg,
+    selectedProvider,
+    isAuthenticated,
+    getProviderType,
+    getApiBaseUrl,
   ]);
 
   const renderAuthStatus = () => {
@@ -233,7 +484,7 @@ export const ScmAuthPickerExtension = ({
       );
     }
 
-    if (isAuthenticated && formData) {
+    if (isAuthenticated && selectedProvider) {
       return (
         <Box className={classes.authStatus}>
           <CheckCircleIcon className={classes.successIcon} />
@@ -241,7 +492,7 @@ export const ScmAuthPickerExtension = ({
             className={classes.statusText}
             style={{ color: '#4caf50' }}
           >
-            Authenticated with {getHostForValue(formData)}
+            Authenticated with {getHostForValue(selectedProvider)}
           </Typography>
         </Box>
       );
@@ -259,21 +510,21 @@ export const ScmAuthPickerExtension = ({
         disabled={disabled || isAuthenticating}
         variant="outlined"
       >
-        <InputLabel id="scm-auth-picker-label" shrink={!!formData}>
+        <InputLabel id="scm-auth-picker-label" shrink={!!selectedProvider}>
           {title}
         </InputLabel>
         <Box className={classes.selectContainer}>
           <Select
             labelId="scm-auth-picker-label"
             label={title}
-            value={formData || ''}
+            value={selectedProvider}
             onChange={handleChange}
             style={{ flex: 1 }}
           >
             {enumValues.map((value, index) => (
               <MenuItem key={value} value={value}>
                 {enumNames[index] || value}
-                {isAuthenticated && formData === value && (
+                {isAuthenticated && selectedProvider === value && (
                   <Chip
                     size="small"
                     label="Authenticated"
@@ -293,6 +544,73 @@ export const ScmAuthPickerExtension = ({
         )}
       </FormControl>
       {renderAuthStatus()}
+      {isAuthenticated &&
+        selectedProvider &&
+        (isFetchingOrgs || organizations.length > 0) && (
+          <FormControl
+            className={classes.formControl}
+            disabled={isFetchingOrgs}
+            variant="outlined"
+            style={{ marginTop: 16 }}
+          >
+            <InputLabel id="scm-org-picker-label" shrink={!!selectedOrg}>
+              Namespace
+            </InputLabel>
+            <Box className={classes.selectContainer}>
+              <Select
+                labelId="scm-org-picker-label"
+                label="Namespace"
+                value={selectedOrg}
+                onChange={handleOrgChange}
+                style={{ flex: 1 }}
+              >
+                {organizations.map(org => (
+                  <MenuItem key={org.id} value={org.name}>
+                    {org.displayName}
+                  </MenuItem>
+                ))}
+              </Select>
+              {isFetchingOrgs && <CircularProgress size={20} />}
+            </Box>
+          </FormControl>
+        )}
+      {isAuthenticated && selectedProvider && selectedOrg && (
+        <Box style={{ marginTop: 16 }}>
+          <TextField
+            fullWidth
+            label="Repository Name"
+            variant="outlined"
+            value={repoName}
+            onChange={handleRepoNameChange}
+            InputProps={{
+              endAdornment:
+                repoStatus === 'checking' ? (
+                  <CircularProgress size={20} />
+                ) : undefined,
+            }}
+          />
+          {repoStatus === 'available' && (
+            <Box className={classes.authStatus}>
+              <CheckCircleIcon className={classes.successIcon} />
+              <Typography className={classes.repoAvailable}>
+                {repoName.trim()} is available
+              </Typography>
+            </Box>
+          )}
+          {repoStatus === 'exists' && (
+            <Alert severity="warning" style={{ marginTop: 8 }}>
+              <Typography variant="body2">
+                A repository with the name "{repoName.trim()}" already exists in
+                the selected namespace. If you proceed, a{' '}
+                {getProviderType(selectedProvider) === 'gitlab'
+                  ? 'merge request'
+                  : 'pull request'}{' '}
+                will be opened.
+              </Typography>
+            </Alert>
+          )}
+        </Box>
+      )}
     </Box>
   );
 };

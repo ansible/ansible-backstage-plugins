@@ -26,11 +26,13 @@ const defaultProps = {
   schema: {
     title: 'Source Control',
     description: 'Select your source control provider',
-    enum: ['Github', 'Gitlab'],
-    enumNames: ['GitHub', 'GitLab'],
   },
   uiSchema: {
     'ui:options': {
+      providers: [
+        { label: 'Github', provider: 'github', host: 'github.com' },
+        { label: 'Gitlab', provider: 'gitlab', host: 'gitlab.com' },
+      ],
       requestUserCredentials: {
         secretsKey: 'USER_OAUTH_TOKEN',
         additionalScopes: {
@@ -38,13 +40,9 @@ const defaultProps = {
           gitlab: ['write_repository'],
         },
       },
-      hostMapping: {
-        Github: 'github.com',
-        Gitlab: 'gitlab.com',
-      },
     },
   },
-  formData: '',
+  formData: { provider: '', org: '', repoName: '', repoExists: false },
   formContext: {},
   registry: {} as any,
   idSchema: {} as any,
@@ -65,6 +63,21 @@ describe('ScmAuthPickerExtension', () => {
     mockScmAuthApi.getCredentials.mockResolvedValue({
       token: 'test-oauth-token',
     });
+    jest.spyOn(global, 'fetch').mockImplementation(async (input: any) => {
+      const url = typeof input === 'string' ? input : input.toString();
+      if (url.includes('/user/orgs') || url.includes('/groups')) {
+        return { ok: true, status: 200, json: async () => [] } as Response;
+      }
+      return {
+        ok: true,
+        status: 200,
+        json: async () => ({ login: 'testuser', username: 'testuser' }),
+      } as Response;
+    });
+  });
+
+  afterEach(() => {
+    jest.restoreAllMocks();
   });
 
   it('renders the select field with options', () => {
@@ -80,10 +93,15 @@ describe('ScmAuthPickerExtension', () => {
     const select = screen.getByRole('button', { name: /Source Control/i });
     fireEvent.mouseDown(select);
 
-    const githubOption = await screen.findByText('GitHub');
+    const githubOption = await screen.findByText('Github');
     fireEvent.click(githubOption);
 
-    expect(onChange).toHaveBeenCalledWith('Github');
+    expect(onChange).toHaveBeenCalledWith({
+      provider: 'Github',
+      org: '',
+      repoName: '',
+      repoExists: false,
+    });
   });
 
   it('triggers OAuth authentication when a provider is selected', async () => {
@@ -92,7 +110,7 @@ describe('ScmAuthPickerExtension', () => {
     const select = screen.getByRole('button', { name: /Source Control/i });
     fireEvent.mouseDown(select);
 
-    const githubOption = await screen.findByText('GitHub');
+    const githubOption = await screen.findByText('Github');
     fireEvent.click(githubOption);
 
     await waitFor(() => {
@@ -115,7 +133,7 @@ describe('ScmAuthPickerExtension', () => {
     const select = screen.getByRole('button', { name: /Source Control/i });
     fireEvent.mouseDown(select);
 
-    const githubOption = await screen.findByText('GitHub');
+    const githubOption = await screen.findByText('Github');
     fireEvent.click(githubOption);
 
     await waitFor(() => {
@@ -131,7 +149,7 @@ describe('ScmAuthPickerExtension', () => {
     const select = screen.getByRole('button', { name: /Source Control/i });
     fireEvent.mouseDown(select);
 
-    const githubOption = await screen.findByText('GitHub');
+    const githubOption = await screen.findByText('Github');
     fireEvent.click(githubOption);
 
     // Wait for authentication to complete
@@ -144,7 +162,15 @@ describe('ScmAuthPickerExtension', () => {
     // Re-render with the selected value to simulate parent state update
     rerender(
       <TestApiProvider apis={[[scmAuthApiRef, mockScmAuthApi]]}>
-        <ScmAuthPickerExtension {...defaultProps} formData="Github" />
+        <ScmAuthPickerExtension
+          {...defaultProps}
+          formData={{
+            provider: 'Github',
+            org: '',
+            repoName: '',
+            repoExists: false,
+          }}
+        />
       </TestApiProvider>,
     );
 
@@ -162,7 +188,7 @@ describe('ScmAuthPickerExtension', () => {
     const select = screen.getByRole('button', { name: /Source Control/i });
     fireEvent.mouseDown(select);
 
-    const githubOption = await screen.findByText('GitHub');
+    const githubOption = await screen.findByText('Github');
     fireEvent.click(githubOption);
 
     await waitFor(() => {
@@ -172,14 +198,19 @@ describe('ScmAuthPickerExtension', () => {
 
   it('does not trigger auth when requestUserCredentials is not configured', async () => {
     const uiSchema = {
-      'ui:options': {},
+      'ui:options': {
+        providers: [
+          { label: 'Github', provider: 'github', host: 'github.com' },
+          { label: 'Gitlab', provider: 'gitlab', host: 'gitlab.com' },
+        ],
+      },
     };
     renderComponent({ uiSchema });
 
     const select = screen.getByRole('button', { name: /Source Control/i });
     fireEvent.mouseDown(select);
 
-    const githubOption = await screen.findByText('GitHub');
+    const githubOption = await screen.findByText('Github');
     fireEvent.click(githubOption);
 
     expect(mockScmAuthApi.getCredentials).not.toHaveBeenCalled();
@@ -199,13 +230,13 @@ describe('ScmAuthPickerExtension', () => {
   });
 
   describe('getHostForValue fallback logic', () => {
-    it('uses github.com for values containing "github" without hostMapping', async () => {
+    it('defaults to github.com when host is omitted for a github provider', async () => {
       const uiSchema = {
         'ui:options': {
+          providers: [{ label: 'My GitHub', provider: 'github' }],
           requestUserCredentials: {
             secretsKey: 'USER_OAUTH_TOKEN',
           },
-          // No hostMapping provided
         },
       };
       renderComponent({ uiSchema });
@@ -213,7 +244,7 @@ describe('ScmAuthPickerExtension', () => {
       const select = screen.getByRole('button', { name: /Source Control/i });
       fireEvent.mouseDown(select);
 
-      const githubOption = await screen.findByText('GitHub');
+      const githubOption = await screen.findByText('My GitHub');
       fireEvent.click(githubOption);
 
       await waitFor(() => {
@@ -225,13 +256,13 @@ describe('ScmAuthPickerExtension', () => {
       });
     });
 
-    it('uses gitlab.com for values containing "gitlab" without hostMapping', async () => {
+    it('defaults to gitlab.com when host is omitted for a gitlab provider', async () => {
       const uiSchema = {
         'ui:options': {
+          providers: [{ label: 'My GitLab', provider: 'gitlab' }],
           requestUserCredentials: {
             secretsKey: 'USER_OAUTH_TOKEN',
           },
-          // No hostMapping provided
         },
       };
       renderComponent({ uiSchema });
@@ -239,7 +270,7 @@ describe('ScmAuthPickerExtension', () => {
       const select = screen.getByRole('button', { name: /Source Control/i });
       fireEvent.mouseDown(select);
 
-      const gitlabOption = await screen.findByText('GitLab');
+      const gitlabOption = await screen.findByText('My GitLab');
       fireEvent.click(gitlabOption);
 
       await waitFor(() => {
@@ -251,33 +282,33 @@ describe('ScmAuthPickerExtension', () => {
       });
     });
 
-    it('uses the value itself when no hostMapping and no github/gitlab in name', async () => {
-      const schema = {
-        title: 'Source Control',
-        description: 'Select your source control provider',
-        enum: ['bitbucket.org'],
-        enumNames: ['Bitbucket'],
-      };
+    it('uses the explicit host when provided', async () => {
       const uiSchema = {
         'ui:options': {
+          providers: [
+            {
+              label: 'Corp GHE',
+              provider: 'github',
+              host: 'ghe.corp.example.com',
+            },
+          ],
           requestUserCredentials: {
             secretsKey: 'USER_OAUTH_TOKEN',
           },
-          // No hostMapping provided
         },
       };
-      renderComponent({ schema, uiSchema });
+      renderComponent({ uiSchema });
 
       const select = screen.getByRole('button', { name: /Source Control/i });
       fireEvent.mouseDown(select);
 
-      const bitbucketOption = await screen.findByText('Bitbucket');
-      fireEvent.click(bitbucketOption);
+      const gheOption = await screen.findByText('Corp GHE');
+      fireEvent.click(gheOption);
 
       await waitFor(() => {
         expect(mockScmAuthApi.getCredentials).toHaveBeenCalledWith(
           expect.objectContaining({
-            url: 'https://bitbucket.org',
+            url: 'https://ghe.corp.example.com',
           }),
         );
       });
@@ -291,7 +322,7 @@ describe('ScmAuthPickerExtension', () => {
     const select = screen.getByRole('button', { name: /Source Control/i });
     fireEvent.mouseDown(select);
 
-    const githubOption = await screen.findByText('GitHub');
+    const githubOption = await screen.findByText('Github');
     fireEvent.click(githubOption);
 
     await waitFor(() => {
@@ -302,7 +333,14 @@ describe('ScmAuthPickerExtension', () => {
   });
 
   it('auto-authenticates when formData is pre-populated', async () => {
-    renderComponent({ formData: 'Github' });
+    renderComponent({
+      formData: {
+        provider: 'Github',
+        org: '',
+        repoName: '',
+        repoExists: false,
+      },
+    });
 
     await waitFor(() => {
       expect(mockScmAuthApi.getCredentials).toHaveBeenCalledWith(
@@ -320,7 +358,7 @@ describe('ScmAuthPickerExtension', () => {
     const select = screen.getByRole('button', { name: /Source Control/i });
     fireEvent.mouseDown(select);
 
-    const githubOption = await screen.findByText('GitHub');
+    const githubOption = await screen.findByText('Github');
     fireEvent.click(githubOption);
 
     await waitFor(() => {
@@ -340,7 +378,7 @@ describe('ScmAuthPickerExtension', () => {
     const select = screen.getByRole('button', { name: /Source Control/i });
     fireEvent.mouseDown(select);
 
-    const githubOption = await screen.findByText('GitHub');
+    const githubOption = await screen.findByText('Github');
     fireEvent.click(githubOption);
 
     await waitFor(() => {
@@ -358,7 +396,7 @@ describe('ScmAuthPickerExtension', () => {
     const select = screen.getByRole('button', { name: /Source Control/i });
     fireEvent.mouseDown(select);
 
-    const githubOption = await screen.findByText('GitHub');
+    const githubOption = await screen.findByText('Github');
     fireEvent.click(githubOption);
 
     await waitFor(() => {
