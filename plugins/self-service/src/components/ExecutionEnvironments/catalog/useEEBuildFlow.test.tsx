@@ -8,6 +8,7 @@ import { NotificationProvider, notificationStore } from '../../notifications';
 import {
   EE_BUILD_PENDING_MAX_AGE_MS,
   EE_BUILD_PENDING_SESSION_KEY,
+  type EeBuildPendingPayload,
 } from './eeBuildSession';
 import { useEEBuildFlow } from './useEEBuildFlow';
 
@@ -98,7 +99,16 @@ describe('useEEBuildFlow', () => {
   });
 
   it('stores pending key before getCredentials and removes it on failure', async () => {
-    mockGetCredentials.mockRejectedValue(new Error('oauth denied'));
+    mockGetCredentials.mockImplementation(async () => {
+      const raw = sessionStorage.getItem(EE_BUILD_PENDING_SESSION_KEY);
+      if (raw === null) {
+        throw new Error('expected pending EE build payload in sessionStorage');
+      }
+      const payload: EeBuildPendingPayload = JSON.parse(raw);
+      expect(payload.entityRef).toBe('component:default/my-ee');
+      expect(payload.savedAt).toEqual(expect.any(Number));
+      throw new Error('oauth denied');
+    });
 
     const showSpy = jest.spyOn(notificationStore, 'showNotification');
     const { result } = renderHook(() => useEEBuildFlow(), { wrapper });
