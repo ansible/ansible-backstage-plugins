@@ -100,9 +100,3 @@ videos/
 # Screenshots
 screenshots/
 **/screenshots
-
-# Local dev database
-portal-dev-db/
-
-# Local session context
-.claude/CONTEXT.md
