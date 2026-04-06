@@ -523,13 +523,12 @@ spec:
 
       - title: \${{ parameters.publishAndBuild.sourceControlProvider }} EE Build Workflow Run
         url: "https://\${{ steps['prepare-publish'].output.normalizedRepoUrl }}/actions/workflows/ee-build.yml"
-        if: \${{ parameters.publishAndBuild.buildExecutionEnvironment and (parameters.publishAndBuild.sourceControlProvider == 'Github') }}
+        if: \${{ (parameters.publishAndBuild.buildExecutionEnvironment == true) }}
         icon: github
 
       - title: View details in catalog
         icon: catalog
         url: \${{ steps['create-ee-definition'].output.generatedEntityRef }}
         if: \${{ not (steps['publish-github-pull-request'].output.remoteUrl or steps['publish-gitlab-merge-request'].output.mergeRequestUrl) }}
-
 `;
 }
