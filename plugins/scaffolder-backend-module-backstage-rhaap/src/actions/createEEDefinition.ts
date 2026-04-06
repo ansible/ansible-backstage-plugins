@@ -727,7 +727,7 @@ function toEnvVarSegment(value: string): string {
  * `<SCM Provider> / <canonical name> / <org> / <repo>` pattern, the
  * `name` field is rewritten to:
  *
- *   `https://${AAP_EE_BUILDER_<PROVIDER>_<CANONICAL>_TOKEN}@<host>/<org>/<repo>`
+ *   `https://${AAP_EE_BUILDER_<PROVIDER>_<CANONICAL>_<ORG>_TOKEN}@<host>/<org>/<repo>`
  *
  * The host is resolved from the Backstage config via
  * {@link lookupScmHostFromConfig}.  The original collection `name` is
@@ -757,7 +757,7 @@ function transformScmCollections(
       canonicalName,
     );
 
-    const tokenVar = `AAP_EE_BUILDER_${toEnvVarSegment(provider)}_${toEnvVarSegment(canonicalName)}_TOKEN`;
+    const tokenVar = `AAP_EE_BUILDER_${toEnvVarSegment(provider)}_${toEnvVarSegment(canonicalName)}_${toEnvVarSegment(org)}_TOKEN`;
     const gitUrl = `https://\${${tokenVar}}@${host}/${org}/${repo}`;
 
     if (!seenServers.has(tokenVar)) {

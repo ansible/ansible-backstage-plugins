@@ -1074,7 +1074,7 @@ describe('createEEDefinition', () => {
     expect(eeConfig.collections).toEqual([
       { name: 'community.general' },
       {
-        name: 'https://${AAP_EE_BUILDER_GITHUB_GITHUB_PUBLIC_TOKEN}@github.com/my-org/my-repo',
+        name: 'https://${AAP_EE_BUILDER_GITHUB_GITHUB_PUBLIC_MY_ORG_TOKEN}@github.com/my-org/my-repo',
         type: 'git',
         version: 'main',
       },
@@ -1108,14 +1108,19 @@ describe('createEEDefinition', () => {
     const eeConfig = mockDownloadEEScaffold.mock.calls[0][3];
     expect(eeConfig.scm_servers).toEqual([
       {
-        id: 'aap_ee_builder_github_github_public_token',
+        id: 'aap_ee_builder_github_github_public_org1_token',
         hostname: 'github.com',
-        token_env_var: 'AAP_EE_BUILDER_GITHUB_GITHUB_PUBLIC_TOKEN',
+        token_env_var: 'AAP_EE_BUILDER_GITHUB_GITHUB_PUBLIC_ORG1_TOKEN',
+      },
+      {
+        id: 'aap_ee_builder_github_github_public_org2_token',
+        hostname: 'github.com',
+        token_env_var: 'AAP_EE_BUILDER_GITHUB_GITHUB_PUBLIC_ORG2_TOKEN',
       },
     ]);
   });
 
-  it('deduplicates scmServers when multiple collections share the same provider', async () => {
+  it('deduplicates scmServers when multiple collections share the same provider and org', async () => {
     const scmCfg = makeScmConfig({
       gitlab: [{ name: 'corp-gitlab', host: 'gitlab.corp.com' }],
     });
