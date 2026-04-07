@@ -1,4 +1,5 @@
 const mockGetPipelines = jest.fn();
+const mockDispatchActionsWorkflow = jest.fn();
 
 jest.mock('@ansible/backstage-rhaap-common', () => {
   const actual = jest.requireActual('@ansible/backstage-rhaap-common');
@@ -6,6 +7,9 @@ jest.mock('@ansible/backstage-rhaap-common', () => {
     ...actual,
     GitlabClient: jest.fn().mockImplementation(() => ({
       getPipelines: mockGetPipelines,
+    })),
+    createGithubClientForWorkflowDispatch: jest.fn(() => ({
+      dispatchActionsWorkflow: mockDispatchActionsWorkflow,
     })),
   };
 });
@@ -48,6 +52,8 @@ import {
   createPermissionCheckMiddleware,
   validateGitHubHost,
   isKnownEeBuildError,
+  resolveEntityAndRepo,
+  dispatchEeBuild,
 } from './helpers';
 import { AuthorizeResult } from '@backstage/plugin-permission-common';
 import type { AnsibleGitContentsProvider } from './providers/AnsibleGitContentsProvider';
@@ -2735,6 +2741,243 @@ describe('helpers', () => {
 
     it('returns false for an empty string', () => {
       expect(isKnownEeBuildError('')).toBe(false);
+    });
+  });
+
+  describe('resolveEntityAndRepo', () => {
+    const mockAuth = {
+      getPluginRequestToken: jest.fn(),
+    } as any;
+    const mockCatalog = {
+      getEntityByRef: jest.fn(),
+    } as any;
+
+    function makeRes() {
+      const json = jest.fn();
+      const status = jest.fn(() => ({ json }));
+      return {
+        res: { locals: {}, status, json } as any,
+        status,
+        json,
+      };
+    }
+
+    it('returns 500 when credentials are missing from locals', async () => {
+      const { res, status, json } = makeRes();
+      const result = await resolveEntityAndRepo(res, mockAuth, mockCatalog, 'component:default/my-ee');
+      expect(result).toBeUndefined();
+      expect(status).toHaveBeenCalledWith(500);
+      expect(json).toHaveBeenCalledWith(
+        expect.objectContaining({ error: expect.stringContaining('missing auth context') }),
+      );
+    });
+
+    it('returns 404 when entity is not found', async () => {
+      const { res, status, json } = makeRes();
+      res.locals[EE_BUILD_CATALOG_CREDENTIALS_LOCALS_KEY] = { token: 'tok' };
+      mockAuth.getPluginRequestToken.mockResolvedValue({ token: 'cat-tok' });
+      mockCatalog.getEntityByRef.mockResolvedValue(undefined);
+
+      const result = await resolveEntityAndRepo(res, mockAuth, mockCatalog, 'component:default/missing');
+      expect(result).toBeUndefined();
+      expect(status).toHaveBeenCalledWith(404);
+      expect(json).toHaveBeenCalledWith(
+        expect.objectContaining({ error: expect.stringContaining('not found') }),
+      );
+    });
+
+    it('returns resolved entity on success', async () => {
+      const { res } = makeRes();
+      res.locals[EE_BUILD_CATALOG_CREDENTIALS_LOCALS_KEY] = { token: 'tok' };
+      mockAuth.getPluginRequestToken.mockResolvedValue({ token: 'cat-tok' });
+      mockCatalog.getEntityByRef.mockResolvedValue({
+        apiVersion: 'backstage.io/v1alpha1',
+        kind: 'Component',
+        metadata: {
+          name: 'my-ee',
+          annotations: {
+            'backstage.io/source-location': 'url:https://github.com/acme/repo/tree/main/ee',
+          },
+        },
+        spec: { type: 'execution-environment' },
+      });
+
+      const result = await resolveEntityAndRepo(res, mockAuth, mockCatalog, 'component:default/my-ee');
+      expect(result).toBeDefined();
+      expect(result!.gh.owner).toBe('acme');
+      expect(result!.gh.repo).toBe('repo');
+    });
+
+    it('returns 403 when catalog throws ResponseError 403', async () => {
+      const { res, status, json } = makeRes();
+      res.locals[EE_BUILD_CATALOG_CREDENTIALS_LOCALS_KEY] = { token: 'tok' };
+      mockAuth.getPluginRequestToken.mockResolvedValue({ token: 'cat-tok' });
+
+      const { ResponseError: RE } = require('@backstage/errors');
+      const fakeResponse = {
+        status: 403,
+        statusText: 'Forbidden',
+        ok: false,
+        headers: { get: () => 'application/json', entries: () => [] },
+        text: async () => '{"error":"Forbidden"}',
+      };
+      const respError = Object.create(RE.prototype);
+      Object.assign(respError, new Error('Forbidden'));
+      respError.name = 'ResponseError';
+      respError.response = fakeResponse;
+      respError.body = { error: 'Forbidden' };
+      mockCatalog.getEntityByRef.mockRejectedValue(respError);
+
+      const result = await resolveEntityAndRepo(res, mockAuth, mockCatalog, 'component:default/my-ee');
+      expect(result).toBeUndefined();
+      expect(status).toHaveBeenCalledWith(403);
+      expect(json).toHaveBeenCalledWith(
+        expect.objectContaining({ error: expect.stringContaining('Not allowed') }),
+      );
+    });
+
+    it('returns 400 when resolveGithubRepoForEeBuild throws', async () => {
+      const { res, status, json } = makeRes();
+      res.locals[EE_BUILD_CATALOG_CREDENTIALS_LOCALS_KEY] = { token: 'tok' };
+      mockAuth.getPluginRequestToken.mockResolvedValue({ token: 'cat-tok' });
+      mockCatalog.getEntityByRef.mockResolvedValue({
+        apiVersion: 'backstage.io/v1alpha1',
+        kind: 'Component',
+        metadata: { name: 'bad-ee', annotations: {} },
+        spec: { type: 'execution-environment' },
+      });
+
+      const result = await resolveEntityAndRepo(res, mockAuth, mockCatalog, 'component:default/bad-ee');
+      expect(result).toBeUndefined();
+      expect(status).toHaveBeenCalledWith(400);
+      expect(json).toHaveBeenCalledWith(
+        expect.objectContaining({ error: expect.stringContaining('source annotation') }),
+      );
+    });
+  });
+
+  describe('dispatchEeBuild', () => {
+    const ghConfig = new ConfigReader({
+      integrations: {
+        github: [{ host: 'github.com', token: 'tok', apiBaseUrl: 'https://api.github.com' }],
+      },
+    });
+    const mockLogger = {
+      info: jest.fn(),
+      warn: jest.fn(),
+      error: jest.fn(),
+      debug: jest.fn(),
+    } as any;
+    const gh = { host: 'github.com', owner: 'acme', repo: 'widgets', ref: 'main' };
+    const parsedBody = {
+      customRegistryUrl: 'quay.io/org',
+      imageName: 'my-img',
+      imageTag: 'latest',
+      verifyTls: true,
+    };
+
+    function makeRes() {
+      const json = jest.fn();
+      const status = jest.fn(() => ({ json }));
+      return {
+        res: { locals: {}, status, json } as any,
+        status,
+        json,
+      };
+    }
+
+    beforeEach(() => {
+      mockDispatchActionsWorkflow.mockReset();
+    });
+
+    it('sends 202 on successful dispatch', async () => {
+      mockDispatchActionsWorkflow.mockResolvedValue({
+        ok: true,
+        status: 200,
+        workflowRunId: '123',
+        workflowRunUrl: 'https://github.com/acme/widgets/actions/runs/123',
+      });
+
+      const { res, status, json } = makeRes();
+      await dispatchEeBuild(res, mockLogger, ghConfig, gh, 'ee', 'ee.yml', 'gh-tok', parsedBody);
+
+      expect(status).toHaveBeenCalledWith(202);
+      expect(json).toHaveBeenCalledWith(
+        expect.objectContaining({
+          message: 'Build started',
+          workflow_id: '123',
+          workflow_url: 'https://github.com/acme/widgets/actions/runs/123',
+        }),
+      );
+    });
+
+    it('sends 202 without workflow_id when not returned', async () => {
+      mockDispatchActionsWorkflow.mockResolvedValue({
+        ok: true,
+        status: 200,
+      });
+
+      const { res, status, json } = makeRes();
+      await dispatchEeBuild(res, mockLogger, ghConfig, gh, 'ee', 'ee.yml', 'gh-tok', parsedBody);
+
+      expect(status).toHaveBeenCalledWith(202);
+      expect(json).toHaveBeenCalledWith({ message: 'Build started' });
+    });
+
+    it('sends client error status on 4xx dispatch failure', async () => {
+      mockDispatchActionsWorkflow.mockResolvedValue({
+        ok: false,
+        status: 422,
+        statusText: 'Unprocessable Entity',
+        bodyText: '{"message":"Unexpected inputs"}',
+      });
+
+      const { res, status, json } = makeRes();
+      await dispatchEeBuild(res, mockLogger, ghConfig, gh, 'ee', 'ee.yml', 'gh-tok', parsedBody);
+
+      expect(status).toHaveBeenCalledWith(422);
+      expect(json).toHaveBeenCalledWith(
+        expect.objectContaining({ error: expect.stringContaining('Unexpected inputs') }),
+      );
+    });
+
+    it('sends 502 on 5xx dispatch failure', async () => {
+      mockDispatchActionsWorkflow.mockResolvedValue({
+        ok: false,
+        status: 500,
+        statusText: 'Internal Server Error',
+        bodyText: '',
+      });
+
+      const { res, status, json } = makeRes();
+      await dispatchEeBuild(res, mockLogger, ghConfig, gh, 'ee', 'ee.yml', 'gh-tok', parsedBody);
+
+      expect(status).toHaveBeenCalledWith(502);
+      expect(json).toHaveBeenCalledWith(
+        expect.objectContaining({ error: expect.stringContaining('Internal Server Error') }),
+      );
+    });
+
+    it('passes correct workflow inputs', async () => {
+      mockDispatchActionsWorkflow.mockResolvedValue({ ok: true, status: 200 });
+
+      const { res } = makeRes();
+      await dispatchEeBuild(res, mockLogger, ghConfig, gh, 'my/ee', 'ee.yml', 'gh-tok', parsedBody);
+
+      expect(mockDispatchActionsWorkflow).toHaveBeenCalledWith(
+        'acme',
+        'widgets',
+        'ee-build.yml',
+        'main',
+        {
+          ee_dir: 'my/ee',
+          ee_file_name: 'ee.yml',
+          ee_registry: 'quay.io/org',
+          ee_image_name: 'my-img',
+          image_build_tag: 'latest',
+          registry_tls_verify: 'true',
+        },
+      );
     });
   });
 });

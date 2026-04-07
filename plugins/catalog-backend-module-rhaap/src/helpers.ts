@@ -405,6 +405,10 @@ export function isKnownEeBuildError(msg: string): boolean {
   );
 }
 
+/** `res.locals` key where EE build middleware stores credentials for the route handler. */
+export const EE_BUILD_CATALOG_CREDENTIALS_LOCALS_KEY =
+  'rhaapEeBuildCatalogCredentials' as const;
+
 export interface ResolvedEeEntity {
   gh: { host: string; owner: string; repo: string; ref: string };
   eeDir: string | undefined;
@@ -783,10 +787,6 @@ export interface RequireUserOrExternalAccessDeps {
   logger: LoggerService;
   allowedExternalAccessSubjects?: string[];
 }
-
-/** `res.locals` key where EE build middleware stores credentials for the route handler. */
-export const EE_BUILD_CATALOG_CREDENTIALS_LOCALS_KEY =
-  'rhaapEeBuildCatalogCredentials' as const;
 
 /**
  * Authenticates the request as a Backstage user or an allowed external-access (service) principal.
