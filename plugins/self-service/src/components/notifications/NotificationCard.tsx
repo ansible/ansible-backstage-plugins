@@ -114,15 +114,21 @@ const useStyles = makeStyles(theme => ({
   },
   header: {
     display: 'flex',
-    alignItems: 'center',
+    alignItems: 'flex-start',
     justifyContent: 'space-between',
+    gap: theme.spacing(1),
   },
   title: {
+    flex: 1,
+    minWidth: 0,
     fontWeight: 600,
     fontSize: '0.95rem',
     color: theme.palette.text.primary,
+    overflowWrap: 'break-word',
+    wordBreak: 'break-word',
   },
   closeButton: {
+    flexShrink: 0,
     padding: 4,
     marginTop: -4,
     marginRight: -8,
@@ -136,6 +142,8 @@ const useStyles = makeStyles(theme => ({
     fontSize: '0.85rem',
     color: theme.palette.text.secondary,
     lineHeight: 1.4,
+    overflowWrap: 'break-word',
+    wordBreak: 'break-word',
   },
   itemsList: {
     marginTop: theme.spacing(1),
@@ -146,6 +154,8 @@ const useStyles = makeStyles(theme => ({
     fontSize: '0.85rem',
     color: theme.palette.text.secondary,
     lineHeight: 1.6,
+    overflowWrap: 'break-word',
+    wordBreak: 'break-word',
     '&::marker': {
       color: theme.palette.text.disabled,
     },
