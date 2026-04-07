@@ -144,17 +144,17 @@ export function parseGitHubRepoFromSourceUrl(
       const remaining = parts.slice(4).join('/');
       return {
         host,
-        owner: parts[0]!,
-        repo: parts[1]!,
-        defaultRef: parts[3]!,
+        owner: parts[0],
+        repo: parts[1],
+        defaultRef: parts[3],
         ...(remaining ? { filePath: remaining } : {}),
       };
     }
     if (parts.length === 2) {
       return {
         host,
-        owner: parts[0]!,
-        repo: parts[1]!,
+        owner: parts[0],
+        repo: parts[1],
         defaultRef: 'main',
       };
     }
@@ -185,7 +185,7 @@ function assertNoControlChars(value: string, field: string): void {
 
 /** Rejects path traversal and absolute paths for a repo-relative directory. */
 export function assertSafeRepoRelativeEeDir(eeDir: string): void {
-  const normalized = eeDir.trim().replace(/\\/g, '/');
+  const normalized = eeDir.trim().replaceAll('\\', '/');
   if (normalized.startsWith('/')) {
     throw new Error('ee_dir must be relative to the repository root');
   }
@@ -207,6 +207,36 @@ export function assertSafeEeFileName(fileName: string): void {
   }
 }
 
+function requireString(val: unknown, field: string): string {
+  if (typeof val !== 'string' || !val.trim()) {
+    throw new Error(`${field} is required`);
+  }
+  return val.trim();
+}
+
+function validateStringLength(
+  val: string,
+  field: string,
+  maxLen: number,
+): void {
+  if (val.length > maxLen) {
+    throw new Error(`${field} is too long`);
+  }
+  assertNoControlChars(val, field);
+}
+
+function parseOptionalRegistryType(val: unknown): string | undefined {
+  if (val === undefined) {
+    return undefined;
+  }
+  if (typeof val !== 'string' || !val.trim()) {
+    throw new Error('registryType must be a non-empty string when provided');
+  }
+  const trimmed = val.trim();
+  assertNoControlChars(trimmed, 'registryType');
+  return trimmed;
+}
+
 /**
  * Validates POST /ansible/ee/build JSON body.
  * @throws Error with a message suitable for HTTP 400 responses.
@@ -218,84 +248,48 @@ export function parseEeBuildRequestBody(
     throw new Error('Request body must be a JSON object');
   }
   const o = body as Record<string, unknown>;
-  const entityRef = o.entityRef;
-  const owner = o.owner;
-  const repo = o.repo;
-  const host = o.host;
-  const customRegistryUrl = o.customRegistryUrl;
-  const imageName = o.imageName;
-  const imageTag = o.imageTag;
-  const verifyTls = o.verifyTls;
-  const registryType = o.registryType;
 
   const hasEntityRef =
-    typeof entityRef === 'string' && entityRef.trim().length > 0;
+    typeof o.entityRef === 'string' && o.entityRef.trim().length > 0;
   const hasOwnerRepo =
-    typeof owner === 'string' &&
-    owner.trim().length > 0 &&
-    typeof repo === 'string' &&
-    repo.trim().length > 0;
+    typeof o.owner === 'string' &&
+    o.owner.trim().length > 0 &&
+    typeof o.repo === 'string' &&
+    o.repo.trim().length > 0;
 
   if (!hasEntityRef && !hasOwnerRepo) {
     throw new Error('Either entityRef or both owner and repo are required');
   }
 
-  for (const [key, val] of [
-    ['customRegistryUrl', customRegistryUrl],
-    ['imageName', imageName],
-    ['imageTag', imageTag],
-  ] as const) {
-    if (typeof val !== 'string' || !val.trim()) {
-      throw new Error(`${key} is required`);
-    }
+  const registryStr = requireString(o.customRegistryUrl, 'customRegistryUrl');
+  const imageStr = requireString(o.imageName, 'imageName');
+  const imageTagStr = requireString(o.imageTag, 'imageTag');
+
+  if (typeof o.verifyTls !== 'boolean') {
+    throw new TypeError('verifyTls is required and must be a boolean');
   }
 
-  if (typeof verifyTls !== 'boolean') {
-    throw new Error('verifyTls is required and must be a boolean');
-  }
+  validateStringLength(registryStr, 'customRegistryUrl', 1024);
+  validateStringLength(imageStr, 'imageName', 1024);
+  validateStringLength(imageTagStr, 'imageTag', 256);
 
-  const registryStr = (customRegistryUrl as string).trim();
-  const imageStr = (imageName as string).trim();
-  const imageTagStr = (imageTag as string).trim();
-
-  for (const [val, field] of [
-    [registryStr, 'customRegistryUrl'],
-    [imageStr, 'imageName'],
-  ] as const) {
-    if (val.length > 1024) {
-      throw new Error(`${field} is too long`);
-    }
-    assertNoControlChars(val, field);
-  }
-  if (imageTagStr.length > 256) {
-    throw new Error('imageTag is too long');
-  }
-  assertNoControlChars(imageTagStr, 'imageTag');
-
-  let registryTypeStr: string | undefined;
-  if (registryType !== undefined) {
-    if (typeof registryType !== 'string' || !registryType.trim()) {
-      throw new Error('registryType must be a non-empty string when provided');
-    }
-    registryTypeStr = registryType.trim();
-    assertNoControlChars(registryTypeStr, 'registryType');
-  }
+  const registryTypeStr = parseOptionalRegistryType(o.registryType);
 
   return {
-    ...(hasEntityRef ? { entityRef: (entityRef as string).trim() } : {}),
+    ...(hasEntityRef ? { entityRef: String(o.entityRef).trim() } : {}),
     ...(hasOwnerRepo
       ? {
-          owner: (owner as string).trim(),
-          repo: (repo as string).trim(),
-          ...(typeof host === 'string' && host.trim()
-            ? { host: host.trim() }
+          owner: String(o.owner).trim(),
+          repo: String(o.repo).trim(),
+          ...(typeof o.host === 'string' && o.host.trim()
+            ? { host: o.host.trim() }
             : {}),
         }
       : {}),
     customRegistryUrl: registryStr,
     imageName: imageStr,
     imageTag: imageTagStr,
-    verifyTls,
+    verifyTls: o.verifyTls,
     ...(registryTypeStr ? { registryType: registryTypeStr } : {}),
   };
 }
@@ -310,6 +304,31 @@ export interface EeGithubDispatchContext {
   eeDir?: string;
   /** EE definition file name, derived from the annotation file path. */
   eeFileName?: string;
+}
+
+function getAnnotationString(ann: Record<string, string>, key: string): string {
+  const val = ann[key];
+  return typeof val === 'string' ? val : '';
+}
+
+function deriveEeDirAndFile(
+  filePath: string,
+  entityName: string,
+): { eeDir: string; eeFileName: string | undefined } {
+  const lastSlash = filePath.lastIndexOf('/');
+  let eeDir: string;
+  let eeFileName: string | undefined;
+  if (lastSlash >= 0) {
+    eeDir = filePath.substring(0, lastSlash);
+    eeFileName = filePath.substring(lastSlash + 1);
+  } else {
+    eeDir = '.';
+    eeFileName = filePath;
+  }
+  if (eeFileName === 'catalog-info.yaml') {
+    eeFileName = entityName ? `${entityName}.yml` : undefined;
+  }
+  return { eeDir, eeFileName };
 }
 
 /**
@@ -327,53 +346,61 @@ export function resolveGithubRepoForEeBuild(
     throw new Error('Entity spec.type must be execution-environment');
   }
   const ann = entity.metadata?.annotations ?? {};
-  const editUrl =
-    typeof ann[ANNOTATION_EDIT_URL] === 'string'
-      ? ann[ANNOTATION_EDIT_URL]
-      : '';
-  const sourceLoc =
-    typeof ann['backstage.io/source-location'] === 'string'
-      ? ann['backstage.io/source-location']
-      : '';
-  const raw = (editUrl || sourceLoc).trim();
+  const raw = (
+    getAnnotationString(ann, ANNOTATION_EDIT_URL) ||
+    getAnnotationString(ann, 'backstage.io/source-location')
+  ).trim();
   if (!raw) {
     throw new Error(
       'Execution Environment is missing a Git source annotation (backstage.io/source-location or edit URL)',
     );
   }
-  const url = raw.replace(/^url:/i, '').trim();
-  const parsed = parseGitHubRepoFromSourceUrl(url);
+  const parsed = parseGitHubRepoFromSourceUrl(raw.replace(/^url:/i, '').trim());
   if (!parsed) {
     throw new Error(
       'Execution Environment source URL is not a GitHub repository URL; EE build workflow is GitHub-only',
     );
   }
 
-  let eeDir: string | undefined;
-  let eeFileName: string | undefined;
-  if (parsed.filePath) {
-    const lastSlash = parsed.filePath.lastIndexOf('/');
-    if (lastSlash >= 0) {
-      eeDir = parsed.filePath.substring(0, lastSlash);
-      eeFileName = parsed.filePath.substring(lastSlash + 1);
-    } else {
-      eeDir = '.';
-      eeFileName = parsed.filePath;
-    }
-    if (eeFileName === 'catalog-info.yaml') {
-      const entityName = entity.metadata?.name ?? '';
-      eeFileName = entityName ? `${entityName}.yml` : undefined;
-    }
-  }
+  const ee = parsed.filePath
+    ? deriveEeDirAndFile(parsed.filePath, entity.metadata?.name ?? '')
+    : undefined;
 
   return {
     host: parsed.host,
     owner: parsed.owner,
     repo: parsed.repo,
     ref: (gitRefOverride ?? parsed.defaultRef).trim(),
-    ...(eeDir ? { eeDir } : {}),
-    ...(eeFileName ? { eeFileName } : {}),
+    ...(ee?.eeDir ? { eeDir: ee.eeDir } : {}),
+    ...(ee?.eeFileName ? { eeFileName: ee.eeFileName } : {}),
   };
+}
+
+/**
+ * Validates a GitHub host is safe and allowed by the integrations config.
+ * Returns an error message string if invalid, or `undefined` if the host is OK.
+ */
+export function validateGitHubHost(
+  config: Config,
+  host: string,
+): string | undefined {
+  if (!isSafeHostname(host)) {
+    return 'Invalid GitHub host in entity URL';
+  }
+  if (!isGitHubHostAllowedForProxy(config, host)) {
+    return `Host '${host}' is not allowed. Configure it under integrations.github.`;
+  }
+  return undefined;
+}
+
+/** Returns `true` when the error message looks like a client/validation issue from EE build. */
+export function isKnownEeBuildError(msg: string): boolean {
+  return (
+    msg.includes('execution-environment') ||
+    msg.includes('GitHub') ||
+    msg.includes('source') ||
+    msg.includes('Component')
+  );
 }
 
 export function getSkipTlsVerifyHosts(config: Config): string[] {

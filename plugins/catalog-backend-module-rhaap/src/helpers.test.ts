@@ -46,6 +46,8 @@ import {
   assertSafeRepoRelativeEeDir,
   assertSafeEeFileName,
   createPermissionCheckMiddleware,
+  validateGitHubHost,
+  isKnownEeBuildError,
 } from './helpers';
 import { AuthorizeResult } from '@backstage/plugin-permission-common';
 import type { AnsibleGitContentsProvider } from './providers/AnsibleGitContentsProvider';
@@ -2673,6 +2675,66 @@ describe('helpers', () => {
       await middleware(req, res, next);
 
       expect(next).toHaveBeenCalledWith(error);
+    });
+  });
+
+  describe('validateGitHubHost', () => {
+    const configWithGithub = new ConfigReader({
+      integrations: {
+        github: [{ host: 'github.com', token: 'tok' }],
+      },
+    });
+
+    it('returns undefined for a valid, allowed host', () => {
+      expect(
+        validateGitHubHost(configWithGithub, 'github.com'),
+      ).toBeUndefined();
+    });
+
+    it('returns error for an unsafe hostname', () => {
+      expect(validateGitHubHost(configWithGithub, '..evil')).toBe(
+        'Invalid GitHub host in entity URL',
+      );
+    });
+
+    it('returns error for a host not in integrations config', () => {
+      expect(validateGitHubHost(configWithGithub, 'github.example.com')).toBe(
+        "Host 'github.example.com' is not allowed. Configure it under integrations.github.",
+      );
+    });
+
+    it('returns error for empty string', () => {
+      expect(validateGitHubHost(configWithGithub, '')).toBe(
+        'Invalid GitHub host in entity URL',
+      );
+    });
+  });
+
+  describe('isKnownEeBuildError', () => {
+    it('returns true for messages containing "execution-environment"', () => {
+      expect(
+        isKnownEeBuildError('Entity must be an execution-environment'),
+      ).toBe(true);
+    });
+
+    it('returns true for messages containing "GitHub"', () => {
+      expect(isKnownEeBuildError('GitHub API returned 403')).toBe(true);
+    });
+
+    it('returns true for messages containing "source"', () => {
+      expect(isKnownEeBuildError('Missing source annotation')).toBe(true);
+    });
+
+    it('returns true for messages containing "Component"', () => {
+      expect(isKnownEeBuildError('Component kind not supported')).toBe(true);
+    });
+
+    it('returns false for an unrelated error message', () => {
+      expect(isKnownEeBuildError('network timeout')).toBe(false);
+    });
+
+    it('returns false for an empty string', () => {
+      expect(isKnownEeBuildError('')).toBe(false);
     });
   });
 });

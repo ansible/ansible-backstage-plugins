@@ -56,16 +56,140 @@ import {
   handleGitHubCIActivity,
   handleGitLabCIActivity,
   getGitHubIntegrationForHost,
-  isSafeHostname,
-  isGitHubHostAllowedForProxy,
   parseEeBuildRequestBody,
   resolveGithubRepoForEeBuild,
+  validateGitHubHost,
+  isKnownEeBuildError,
 } from './helpers';
 import { EEEntityProvider } from './providers/EEEntityProvider';
 import {
   createGithubClientForWorkflowDispatch,
   ScmClientFactory,
 } from '@ansible/backstage-rhaap-common';
+
+interface ResolvedEeEntity {
+  gh: { host: string; owner: string; repo: string; ref: string };
+  eeDir: string | undefined;
+  eeFileName: string | undefined;
+}
+
+async function resolveEntityAndRepo(
+  response: express.Response,
+  auth: AuthService,
+  catalogClient: CatalogClient,
+  entityRef: string,
+): Promise<ResolvedEeEntity | undefined> {
+  const credentials = (
+    response.locals as Record<string, BackstageCredentials | undefined>
+  )[EE_BUILD_CATALOG_CREDENTIALS_LOCALS_KEY];
+  if (!credentials) {
+    response.status(500).json({
+      error: 'Internal error: missing auth context for EE build',
+    });
+    return undefined;
+  }
+
+  try {
+    const { token: catalogToken } = await auth.getPluginRequestToken({
+      onBehalfOf: credentials,
+      targetPluginId: 'catalog',
+    });
+
+    const entity = await catalogClient.getEntityByRef(entityRef, {
+      token: catalogToken,
+    });
+    if (!entity) {
+      response.status(404).json({
+        error: 'Entity not found or not visible with your credentials',
+      });
+      return undefined;
+    }
+
+    const resolved = resolveGithubRepoForEeBuild(entity);
+    return {
+      gh: resolved,
+      eeDir: resolved.eeDir,
+      eeFileName: resolved.eeFileName,
+    };
+  } catch (error) {
+    if (error instanceof ResponseError && error.response.status === 403) {
+      response.status(403).json({
+        error: 'Not allowed to read this entity with your credentials',
+      });
+      return undefined;
+    }
+    const msg = error instanceof Error ? error.message : String(error);
+    response.status(400).json({ error: msg });
+    return undefined;
+  }
+}
+
+async function dispatchEeBuild(
+  response: express.Response,
+  logger: LoggerService,
+  config: Config,
+  gh: { host: string; owner: string; repo: string; ref: string },
+  eeDir: string,
+  eeFileName: string,
+  githubToken: string,
+  parsedBody: {
+    customRegistryUrl: string;
+    imageName: string;
+    imageTag: string;
+    verifyTls: boolean;
+  },
+): Promise<void> {
+  const { apiBaseUrl } = getGitHubIntegrationForHost(config, gh.host);
+  const githubClient = createGithubClientForWorkflowDispatch({
+    logger,
+    host: gh.host,
+    token: githubToken,
+    apiBaseUrl,
+  });
+
+  const ghResp = await githubClient.dispatchActionsWorkflow(
+    gh.owner,
+    gh.repo,
+    'ee-build.yml',
+    gh.ref,
+    {
+      ee_dir: eeDir,
+      ee_file_name: eeFileName,
+      ee_registry: parsedBody.customRegistryUrl,
+      ee_image_name: parsedBody.imageName,
+      image_build_tag: parsedBody.imageTag,
+      registry_tls_verify: String(parsedBody.verifyTls),
+    },
+  );
+
+  if (!ghResp.ok) {
+    logger.warn('[ansible/ee/build] GitHub workflow_dispatch failed', {
+      status: ghResp.status,
+      owner: gh.owner,
+      repo: gh.repo,
+      body: ghResp.bodyText,
+    });
+    const clientErr = ghResp.status >= 400 && ghResp.status < 500;
+    response.status(clientErr ? ghResp.status : 502).json({
+      error: `GitHub workflow_dispatch failed: ${ghResp.bodyText || ghResp.statusText}`,
+    });
+    return;
+  }
+
+  logger.info(
+    `[ansible/ee/build] Dispatched ee-build.yml for ${gh.owner}/${gh.repo}@${gh.ref}`,
+  );
+
+  response.status(202).json({
+    message: 'Build started',
+    ...(ghResp.workflowRunId && {
+      workflow_id: ghResp.workflowRunId,
+    }),
+    ...(ghResp.workflowRunUrl && {
+      workflow_url: ghResp.workflowRunUrl,
+    }),
+  });
+}
 
 export async function createRouter(options: {
   logger: LoggerService;
@@ -342,10 +466,6 @@ export async function createRouter(options: {
         return;
       }
 
-      let gh: { host: string; owner: string; repo: string; ref: string };
-      let eeDir: string | undefined;
-      let eeFileName: string | undefined;
-
       if (!parsedBody.entityRef) {
         response.status(400).json({
           error:
@@ -354,50 +474,14 @@ export async function createRouter(options: {
         return;
       }
 
-      {
-        const credentials = (
-          response.locals as Record<string, BackstageCredentials | undefined>
-        )[EE_BUILD_CATALOG_CREDENTIALS_LOCALS_KEY];
-        if (!credentials) {
-          response.status(500).json({
-            error: 'Internal error: missing auth context for EE build',
-          });
-          return;
-        }
-
-        try {
-          const { token: catalogToken } = await auth.getPluginRequestToken({
-            onBehalfOf: credentials,
-            targetPluginId: 'catalog',
-          });
-
-          const entity = await catalogClient.getEntityByRef(
-            parsedBody.entityRef,
-            { token: catalogToken },
-          );
-          if (!entity) {
-            response.status(404).json({
-              error: 'Entity not found or not visible with your credentials',
-            });
-            return;
-          }
-
-          const resolved = resolveGithubRepoForEeBuild(entity);
-          gh = resolved;
-          eeDir = resolved.eeDir;
-          eeFileName = resolved.eeFileName;
-        } catch (error) {
-          if (error instanceof ResponseError && error.response.status === 403) {
-            response.status(403).json({
-              error: 'Not allowed to read this entity with your credentials',
-            });
-            return;
-          }
-          const msg = error instanceof Error ? error.message : String(error);
-          response.status(400).json({ error: msg });
-          return;
-        }
-      }
+      const resolved = await resolveEntityAndRepo(
+        response,
+        auth,
+        catalogClient,
+        parsedBody.entityRef,
+      );
+      if (!resolved) return;
+      const { gh, eeDir, eeFileName } = resolved;
 
       if (!eeDir || !eeFileName) {
         response.status(400).json({
@@ -407,87 +491,35 @@ export async function createRouter(options: {
         return;
       }
 
+      const hostErr = validateGitHubHost(config, gh.host);
+      if (hostErr) {
+        response.status(400).json({ error: hostErr });
+        return;
+      }
+
+      const githubToken = request.headers['x-github-token'] as string;
+      if (!githubToken) {
+        response.status(400).json({
+          error:
+            'No GitHub token available to dispatch the workflow. Send X-Github-Token header.',
+        });
+        return;
+      }
+
       try {
-        if (!isSafeHostname(gh.host)) {
-          response
-            .status(400)
-            .json({ error: 'Invalid GitHub host in entity URL' });
-          return;
-        }
-        if (!isGitHubHostAllowedForProxy(config, gh.host)) {
-          response.status(400).json({
-            error: `Host '${gh.host}' is not allowed. Configure it under integrations.github.`,
-          });
-          return;
-        }
-
-        const { apiBaseUrl } = getGitHubIntegrationForHost(config, gh.host);
-        const githubToken = request.headers['x-github-token'] as string;
-        if (!githubToken) {
-          response.status(400).json({
-            error:
-              'No GitHub token available to dispatch the workflow. Send X-Github-Token header.',
-          });
-          return;
-        }
-
-        const githubClient = createGithubClientForWorkflowDispatch({
+        await dispatchEeBuild(
+          response,
           logger,
-          host: gh.host,
-          token: githubToken,
-          apiBaseUrl,
-        });
-
-        const ghResp = await githubClient.dispatchActionsWorkflow(
-          gh.owner,
-          gh.repo,
-          'ee-build.yml',
-          gh.ref,
-          {
-            ee_dir: eeDir,
-            ee_file_name: eeFileName,
-            ee_registry: parsedBody.customRegistryUrl,
-            ee_image_name: parsedBody.imageName,
-            image_build_tag: parsedBody.imageTag,
-            registry_tls_verify: String(parsedBody.verifyTls),
-          },
+          config,
+          gh,
+          eeDir,
+          eeFileName,
+          githubToken,
+          parsedBody,
         );
-
-        if (!ghResp.ok) {
-          logger.warn('[ansible/ee/build] GitHub workflow_dispatch failed', {
-            status: ghResp.status,
-            owner: gh.owner,
-            repo: gh.repo,
-            body: ghResp.bodyText,
-          });
-          const clientErr = ghResp.status >= 400 && ghResp.status < 500;
-          response.status(clientErr ? ghResp.status : 502).json({
-            error: `GitHub workflow_dispatch failed: ${ghResp.bodyText || ghResp.statusText}`,
-          });
-          return;
-        }
-
-        logger.info(
-          `[ansible/ee/build] Dispatched ee-build.yml for ${gh.owner}/${gh.repo}@${gh.ref}`,
-        );
-
-        response.status(202).json({
-          message: 'Build started',
-          ...(ghResp.workflowRunId && {
-            workflow_id: ghResp.workflowRunId,
-          }),
-          ...(ghResp.workflowRunUrl && {
-            workflow_url: ghResp.workflowRunUrl,
-          }),
-        });
       } catch (error) {
         const msg = error instanceof Error ? error.message : String(error);
-        if (
-          msg.includes('execution-environment') ||
-          msg.includes('GitHub') ||
-          msg.includes('source') ||
-          msg.includes('Component')
-        ) {
+        if (isKnownEeBuildError(msg)) {
           logger.debug(`[ansible/ee/build] Bad request: ${msg}`);
           response.status(400).json({ error: msg });
           return;
