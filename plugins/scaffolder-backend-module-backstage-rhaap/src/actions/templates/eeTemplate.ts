@@ -249,7 +249,7 @@ spec:
                     sourceControlProvider:
                       title: Select source control provider
                       type: object
-                      ui:field: ScmAuthPicker
+                      ui:field: ScmSelector
                       ui:options:
                         providers:
                           - label: Github

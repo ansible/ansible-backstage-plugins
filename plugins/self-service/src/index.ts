@@ -18,6 +18,6 @@ export { MCPServersPickerFieldExtension } from './components/Scaffolder/MCPServe
 export { AdditionalBuildStepsPickerFieldExtension } from './components/Scaffolder/AdditionalBuildStepsPicker/extensions';
 export { EEFileNamePickerFieldExtension } from './components/Scaffolder/EEFileNamePicker/extensions';
 export { EETagsPickerFieldExtension } from './components/Scaffolder/EETagsPicker/extensions';
-export { ScmAuthPickerFieldExtension } from './components/Scaffolder/ScmAuthPicker/extensions';
+export { ScmSelectorFieldExtension } from './components/Scaffolder/ScmSelector/extensions';
 
 export * from './apis';

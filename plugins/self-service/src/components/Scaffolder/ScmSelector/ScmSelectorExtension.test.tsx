@@ -7,7 +7,7 @@ import {
 } from '@testing-library/react';
 import { TestApiProvider } from '@backstage/test-utils';
 import { scmAuthApiRef } from '@backstage/integration-react';
-import { ScmAuthPickerExtension } from './ScmAuthPickerExtension';
+import { ScmSelectorExtension } from './ScmSelectorExtension';
 
 const mockSetSecrets = jest.fn();
 jest.mock('@backstage/plugin-scaffolder-react', () => ({
@@ -129,12 +129,12 @@ const defaultProps = {
 const renderComponent = (props = {}) => {
   return render(
     <TestApiProvider apis={[[scmAuthApiRef, mockScmAuthApi]]}>
-      <ScmAuthPickerExtension {...defaultProps} {...props} />
+      <ScmSelectorExtension {...defaultProps} {...props} />
     </TestApiProvider>,
   );
 };
 
-describe('ScmAuthPickerExtension', () => {
+describe('ScmSelectorExtension', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     mockScmAuthApi.getCredentials.mockResolvedValue({
@@ -229,7 +229,7 @@ describe('ScmAuthPickerExtension', () => {
     // Re-render with the selected value to simulate parent state update
     rerender(
       <TestApiProvider apis={[[scmAuthApiRef, mockScmAuthApi]]}>
-        <ScmAuthPickerExtension
+        <ScmSelectorExtension
           {...defaultProps}
           formData={{
             provider: 'Github',

@@ -1371,7 +1371,7 @@ describe('StepForm', () => {
       );
 
       // Set OAuth pending AFTER the component has mounted
-      // This simulates ScmAuthPicker setting the flag before triggering OAuth
+      // This simulates ScmSelector setting the flag before triggering OAuth
       sessionStorage.setItem(oauthPendingKey, 'true');
 
       // Clear the spy to ignore any previous calls

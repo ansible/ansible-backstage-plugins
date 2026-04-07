@@ -31,7 +31,7 @@ interface ProviderConfig {
   apiBaseUrl?: string;
 }
 
-interface ScmAuthPickerOptions {
+interface ScmSelectorOptions {
   providers?: ProviderConfig[];
   requestUserCredentials?: {
     secretsKey: string;
@@ -42,7 +42,7 @@ interface ScmAuthPickerOptions {
   };
 }
 
-export interface ScmAuthPickerData {
+export interface ScmSelectorData {
   provider: string;
   org: string;
   repoName: string;
@@ -100,7 +100,7 @@ const useStyles = makeStyles(theme => ({
   },
 }));
 
-export const ScmAuthPickerExtension = ({
+export const ScmSelectorExtension = ({
   onChange,
   required,
   disabled,
@@ -108,7 +108,7 @@ export const ScmAuthPickerExtension = ({
   schema,
   uiSchema,
   formData,
-}: FieldExtensionComponentProps<ScmAuthPickerData>) => {
+}: FieldExtensionComponentProps<ScmSelectorData>) => {
   const classes = useStyles();
   const scmAuthApi = useApi(scmAuthApiRef);
   const { setSecrets } = useTemplateSecrets();
@@ -126,7 +126,7 @@ export const ScmAuthPickerExtension = ({
   const onChangeRef = useRef(onChange);
   onChangeRef.current = onChange;
 
-  const options = (uiSchema?.['ui:options'] as ScmAuthPickerOptions) || {};
+  const options = (uiSchema?.['ui:options'] as ScmSelectorOptions) || {};
   const { requestUserCredentials, providers = [] } = options;
 
   const selectedProvider = formData?.provider ?? '';
