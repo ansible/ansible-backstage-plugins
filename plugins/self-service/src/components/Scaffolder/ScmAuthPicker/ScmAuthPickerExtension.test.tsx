@@ -15,6 +15,77 @@ const mockScmAuthApi = {
   getCredentials: jest.fn(),
 };
 
+interface GithubFetchMockOptions {
+  user?: { login: string };
+  orgs?: Array<{ login: string }>;
+  repoExists?: boolean;
+}
+
+function makeGithubFetchMock({
+  user = { login: 'testuser' },
+  orgs = [],
+  repoExists,
+}: GithubFetchMockOptions = {}): (input: any) => Promise<Response> {
+  return async (input: any) => {
+    const url = typeof input === 'string' ? input : input.toString();
+    if (repoExists !== undefined && url.includes('/repos/')) {
+      return {
+        ok: repoExists,
+        status: repoExists ? 200 : 404,
+        json: async () => ({}),
+      } as Response;
+    }
+    if (url.includes('/user/orgs') || url.includes('/groups')) {
+      return { ok: true, status: 200, json: async () => orgs } as Response;
+    }
+    return {
+      ok: true,
+      status: 200,
+      json: async () => ({ login: user.login, username: user.login }),
+    } as Response;
+  };
+}
+
+interface GitlabFetchMockOptions {
+  user?: { username: string };
+  groups?: Array<{ full_path: string; name: string }>;
+  repoExists?: boolean;
+}
+
+function makeGitlabFetchMock({
+  user = { username: 'gluser' },
+  groups = [],
+  repoExists,
+}: GitlabFetchMockOptions = {}): (input: any) => Promise<Response> {
+  return async (input: any) => {
+    const url = typeof input === 'string' ? input : input.toString();
+    if (repoExists !== undefined && url.includes('/projects/')) {
+      return {
+        ok: repoExists,
+        status: repoExists ? 200 : 404,
+        json: async () => ({}),
+      } as Response;
+    }
+    if (url.includes('/user/orgs') || url.includes('/groups')) {
+      return { ok: true, status: 200, json: async () => groups } as Response;
+    }
+    return {
+      ok: true,
+      status: 200,
+      json: async () => ({ login: user.username, username: user.username }),
+    } as Response;
+  };
+}
+
+function makeFailingFetchMock(): (input: any) => Promise<Response> {
+  return async () =>
+    ({ ok: false, status: 500, json: async () => ({}) }) as Response;
+}
+
+function mockGlobalFetch(impl: (input: any) => Promise<Response>): void {
+  jest.spyOn(global, 'fetch').mockImplementation(impl as any);
+}
+
 const defaultProps = {
   onChange: jest.fn(),
   onBlur: jest.fn(),
@@ -63,17 +134,7 @@ describe('ScmAuthPickerExtension', () => {
     mockScmAuthApi.getCredentials.mockResolvedValue({
       token: 'test-oauth-token',
     });
-    jest.spyOn(global, 'fetch').mockImplementation(async (input: any) => {
-      const url = typeof input === 'string' ? input : input.toString();
-      if (url.includes('/user/orgs') || url.includes('/groups')) {
-        return { ok: true, status: 200, json: async () => [] } as Response;
-      }
-      return {
-        ok: true,
-        status: 200,
-        json: async () => ({ login: 'testuser', username: 'testuser' }),
-      } as Response;
-    });
+    mockGlobalFetch(makeGithubFetchMock());
   });
 
   afterEach(() => {
@@ -408,21 +469,7 @@ describe('ScmAuthPickerExtension', () => {
 
   describe('namespace dropdown', () => {
     it('renders GitHub personal namespace and orgs after auth', async () => {
-      (global.fetch as jest.Mock).mockImplementation(async (input: any) => {
-        const url = typeof input === 'string' ? input : input.toString();
-        if (url.includes('/user/orgs')) {
-          return {
-            ok: true,
-            status: 200,
-            json: async () => [{ login: 'my-org' }],
-          } as Response;
-        }
-        return {
-          ok: true,
-          status: 200,
-          json: async () => ({ login: 'testuser', username: 'testuser' }),
-        } as Response;
-      });
+      mockGlobalFetch(makeGithubFetchMock({ orgs: [{ login: 'my-org' }] }));
 
       renderComponent({
         formData: {
@@ -449,21 +496,11 @@ describe('ScmAuthPickerExtension', () => {
     });
 
     it('renders GitLab personal namespace and groups after auth', async () => {
-      (global.fetch as jest.Mock).mockImplementation(async (input: any) => {
-        const url = typeof input === 'string' ? input : input.toString();
-        if (url.includes('/groups')) {
-          return {
-            ok: true,
-            status: 200,
-            json: async () => [{ full_path: 'my-group', name: 'My Group' }],
-          } as Response;
-        }
-        return {
-          ok: true,
-          status: 200,
-          json: async () => ({ login: 'gluser', username: 'gluser' }),
-        } as Response;
-      });
+      mockGlobalFetch(
+        makeGitlabFetchMock({
+          groups: [{ full_path: 'my-group', name: 'My Group' }],
+        }),
+      );
 
       renderComponent({
         formData: {
@@ -490,21 +527,7 @@ describe('ScmAuthPickerExtension', () => {
     });
 
     it('calls onChange with selected org and resets repoName', async () => {
-      (global.fetch as jest.Mock).mockImplementation(async (input: any) => {
-        const url = typeof input === 'string' ? input : input.toString();
-        if (url.includes('/user/orgs')) {
-          return {
-            ok: true,
-            status: 200,
-            json: async () => [{ login: 'my-org' }],
-          } as Response;
-        }
-        return {
-          ok: true,
-          status: 200,
-          json: async () => ({ login: 'testuser', username: 'testuser' }),
-        } as Response;
-      });
+      mockGlobalFetch(makeGithubFetchMock({ orgs: [{ login: 'my-org' }] }));
 
       const onChange = jest.fn();
       renderComponent({
@@ -537,9 +560,7 @@ describe('ScmAuthPickerExtension', () => {
     });
 
     it('shows error when namespace fetch fails', async () => {
-      (global.fetch as jest.Mock).mockImplementation(async () => {
-        return { ok: false, status: 500, json: async () => ({}) } as Response;
-      });
+      mockGlobalFetch(makeFailingFetchMock());
 
       renderComponent({
         formData: {
@@ -560,20 +581,7 @@ describe('ScmAuthPickerExtension', () => {
 
   describe('repository name field', () => {
     it('calls onChange with repoName when typing in the repository field', async () => {
-      (global.fetch as jest.Mock).mockImplementation(async (input: any) => {
-        const url = typeof input === 'string' ? input : input.toString();
-        if (url.includes('/repos/')) {
-          return { ok: false, status: 404, json: async () => ({}) } as Response;
-        }
-        if (url.includes('/user/orgs')) {
-          return { ok: true, status: 200, json: async () => [] } as Response;
-        }
-        return {
-          ok: true,
-          status: 200,
-          json: async () => ({ login: 'testuser' }),
-        } as Response;
-      });
+      mockGlobalFetch(makeGithubFetchMock({ repoExists: false }));
 
       const onChange = jest.fn();
       renderComponent({
@@ -606,20 +614,7 @@ describe('ScmAuthPickerExtension', () => {
     });
 
     it('shows "available" when repo does not exist (GitHub)', async () => {
-      (global.fetch as jest.Mock).mockImplementation(async (input: any) => {
-        const url = typeof input === 'string' ? input : input.toString();
-        if (url.includes('/repos/')) {
-          return { ok: false, status: 404, json: async () => ({}) } as Response;
-        }
-        if (url.includes('/user/orgs')) {
-          return { ok: true, status: 200, json: async () => [] } as Response;
-        }
-        return {
-          ok: true,
-          status: 200,
-          json: async () => ({ login: 'testuser' }),
-        } as Response;
-      });
+      mockGlobalFetch(makeGithubFetchMock({ repoExists: false }));
 
       renderComponent({
         formData: {
@@ -639,20 +634,7 @@ describe('ScmAuthPickerExtension', () => {
     });
 
     it('shows warning when repo exists (GitHub)', async () => {
-      (global.fetch as jest.Mock).mockImplementation(async (input: any) => {
-        const url = typeof input === 'string' ? input : input.toString();
-        if (url.includes('/repos/')) {
-          return { ok: true, status: 200, json: async () => ({}) } as Response;
-        }
-        if (url.includes('/user/orgs')) {
-          return { ok: true, status: 200, json: async () => [] } as Response;
-        }
-        return {
-          ok: true,
-          status: 200,
-          json: async () => ({ login: 'testuser' }),
-        } as Response;
-      });
+      mockGlobalFetch(makeGithubFetchMock({ repoExists: true }));
 
       renderComponent({
         formData: {
@@ -675,20 +657,7 @@ describe('ScmAuthPickerExtension', () => {
     });
 
     it('shows "merge request" for GitLab when repo exists', async () => {
-      (global.fetch as jest.Mock).mockImplementation(async (input: any) => {
-        const url = typeof input === 'string' ? input : input.toString();
-        if (url.includes('/projects/')) {
-          return { ok: true, status: 200, json: async () => ({}) } as Response;
-        }
-        if (url.includes('/groups')) {
-          return { ok: true, status: 200, json: async () => [] } as Response;
-        }
-        return {
-          ok: true,
-          status: 200,
-          json: async () => ({ username: 'gluser' }),
-        } as Response;
-      });
+      mockGlobalFetch(makeGitlabFetchMock({ repoExists: true }));
 
       renderComponent({
         formData: {
