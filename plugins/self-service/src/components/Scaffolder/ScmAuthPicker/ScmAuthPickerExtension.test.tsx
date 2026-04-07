@@ -1,4 +1,10 @@
-import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import {
+  render,
+  screen,
+  fireEvent,
+  waitFor,
+  act,
+} from '@testing-library/react';
 import { TestApiProvider } from '@backstage/test-utils';
 import { scmAuthApiRef } from '@backstage/integration-react';
 import { ScmAuthPickerExtension } from './ScmAuthPickerExtension';
@@ -35,7 +41,7 @@ function makeGithubFetchMock({
         json: async () => ({}),
       } as Response;
     }
-    if (url.includes('/user/orgs') || url.includes('/groups')) {
+    if (url.includes('/user/orgs')) {
       return { ok: true, status: 200, json: async () => orgs } as Response;
     }
     return {
@@ -66,7 +72,7 @@ function makeGitlabFetchMock({
         json: async () => ({}),
       } as Response;
     }
-    if (url.includes('/user/orgs') || url.includes('/groups')) {
+    if (url.includes('/groups')) {
       return { ok: true, status: 200, json: async () => groups } as Response;
     }
     return {
@@ -318,6 +324,7 @@ describe('ScmAuthPickerExtension', () => {
     });
 
     it('defaults to gitlab.com when host is omitted for a gitlab provider', async () => {
+      mockGlobalFetch(makeGitlabFetchMock());
       const uiSchema = {
         'ui:options': {
           providers: [{ label: 'My GitLab', provider: 'gitlab' }],
@@ -580,6 +587,14 @@ describe('ScmAuthPickerExtension', () => {
   });
 
   describe('repository name field', () => {
+    beforeEach(() => {
+      jest.useFakeTimers();
+    });
+
+    afterEach(() => {
+      jest.useRealTimers();
+    });
+
     it('calls onChange with repoName when typing in the repository field', async () => {
       mockGlobalFetch(makeGithubFetchMock({ repoExists: false }));
 
@@ -594,12 +609,9 @@ describe('ScmAuthPickerExtension', () => {
         },
       });
 
-      await waitFor(
-        () => {
-          expect(screen.getByDisplayValue('init')).toBeInTheDocument();
-        },
-        { timeout: 2000 },
-      );
+      await act(async () => {});
+
+      expect(screen.getByDisplayValue('init')).toBeInTheDocument();
 
       fireEvent.change(screen.getByDisplayValue('init'), {
         target: { value: 'new-repo' },
@@ -625,12 +637,12 @@ describe('ScmAuthPickerExtension', () => {
         },
       });
 
-      await waitFor(
-        () => {
-          expect(screen.getByText('new-repo is available')).toBeInTheDocument();
-        },
-        { timeout: 2000 },
-      );
+      await act(async () => {});
+      await act(async () => {
+        jest.advanceTimersByTime(500);
+      });
+
+      expect(screen.getByText('new-repo is available')).toBeInTheDocument();
     });
 
     it('shows warning when repo exists (GitHub)', async () => {
@@ -645,15 +657,15 @@ describe('ScmAuthPickerExtension', () => {
         },
       });
 
-      await waitFor(
-        () => {
-          expect(
-            screen.getByText(/already exists in the selected namespace/),
-          ).toBeInTheDocument();
-          expect(screen.getByText(/pull request/i)).toBeInTheDocument();
-        },
-        { timeout: 2000 },
-      );
+      await act(async () => {});
+      await act(async () => {
+        jest.advanceTimersByTime(500);
+      });
+
+      expect(
+        screen.getByText(/already exists in the selected namespace/),
+      ).toBeInTheDocument();
+      expect(screen.getByText(/pull request/i)).toBeInTheDocument();
     });
 
     it('shows "merge request" for GitLab when repo exists', async () => {
@@ -668,12 +680,12 @@ describe('ScmAuthPickerExtension', () => {
         },
       });
 
-      await waitFor(
-        () => {
-          expect(screen.getByText(/merge request/i)).toBeInTheDocument();
-        },
-        { timeout: 2000 },
-      );
+      await act(async () => {});
+      await act(async () => {
+        jest.advanceTimersByTime(500);
+      });
+
+      expect(screen.getByText(/merge request/i)).toBeInTheDocument();
     });
   });
 
