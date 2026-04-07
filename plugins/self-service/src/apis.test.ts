@@ -374,4 +374,38 @@ describe('EEBuildApiClient', () => {
       message: undefined,
     });
   });
+
+  it('uses JSON error field on non-OK response instead of raw body', async () => {
+    const mockFetch = {
+      fetch: jest.fn().mockResolvedValue({
+        ok: false,
+        status: 422,
+        text: async () =>
+          JSON.stringify({
+            error: 'GitHub workflow_dispatch failed: invalid inputs',
+          }),
+      }),
+    };
+    const client = new EEBuildApiClient({
+      discoveryApi: mockDiscovery as any,
+      fetchApi: mockFetch as any,
+    });
+
+    const result = await client.triggerBuild(
+      {
+        entityRef: 'component:default/ee1',
+        registryType: 'pah',
+        customRegistryUrl: 'https://r.example',
+        imageName: 'ns/ee',
+        imageTag: '1',
+        verifyTls: true,
+      },
+      { githubToken: 'tok' },
+    );
+
+    expect(result).toEqual({
+      accepted: false,
+      message: 'GitHub workflow_dispatch failed: invalid inputs',
+    });
+  });
 });

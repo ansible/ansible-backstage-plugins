@@ -85,6 +85,18 @@ function workflowIdFromJsonValue(raw: unknown): string | undefined {
   return undefined;
 }
 
+function userTextFromBuildJson(
+  data: Record<string, unknown>,
+): string | undefined {
+  const fromMessage =
+    typeof data.message === 'string' ? data.message.trim() : '';
+  if (fromMessage.length > 0) {
+    return fromMessage;
+  }
+  const fromError = typeof data.error === 'string' ? data.error.trim() : '';
+  return fromError.length > 0 ? fromError : undefined;
+}
+
 function parseExecutionEnvironmentBuildResponse(text: string): {
   workflowId?: string;
   message?: string;
@@ -98,10 +110,7 @@ function parseExecutionEnvironmentBuildResponse(text: string): {
     const workflowId = workflowIdFromJsonValue(
       data.workflowId ?? data.workflow_id,
     );
-    const message =
-      typeof data.message === 'string' && data.message.trim()
-        ? data.message.trim()
-        : undefined;
+    const message = userTextFromBuildJson(data);
     return { workflowId, message };
   } catch {
     return { message: trimmed };

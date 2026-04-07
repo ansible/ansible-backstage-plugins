@@ -120,7 +120,7 @@ export function EEBuildDialog({
 
     const entityRef = stringifyEntityRef({
       kind: entity.kind,
-      namespace: entity.metadata.namespace,
+      namespace: entity.metadata.namespace ?? 'default',
       name: entity.metadata.name,
     });
 

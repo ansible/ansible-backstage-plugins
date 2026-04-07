@@ -11,6 +11,23 @@ import {
   type EeBuildPendingPayload,
 } from './eeBuildSession';
 
+function messageFromUnknown(err: unknown): string {
+  if (err instanceof Error) {
+    return err.message;
+  }
+  if (typeof err === 'string') {
+    return err;
+  }
+  if (typeof err === 'object' && err !== null) {
+    try {
+      return JSON.stringify(err);
+    } catch {
+      return 'Unknown error';
+    }
+  }
+  return String(err);
+}
+
 export function useEEBuildFlow() {
   const scmAuthApi = useApi(scmAuthApiRef);
   const catalogApi = useApi(catalogApiRef);
@@ -57,7 +74,7 @@ export function useEEBuildFlow() {
     let cancelled = false;
     catalogApi
       .getEntityByRef(payload.entityRef)
-      .then(resolved => {
+      .then(async resolved => {
         if (cancelled) {
           return;
         }
@@ -80,35 +97,33 @@ export function useEEBuildFlow() {
           });
           return;
         }
-        void scmAuthApi
-          .getCredentials({ url: repoUrl })
-          .then(creds => {
-            if (cancelled) {
-              return;
-            }
-            const tok = creds.token?.trim();
-            if (!tok) {
-              showNotification({
-                title: 'Build',
-                description:
-                  'No Git token after sign-in. Open Build again to sign in to your Git host.',
-                severity: 'error',
-              });
-              return;
-            }
-            setGithubToken(tok);
-            setBuildEntity(resolved);
-            setDialogOpen(true);
-          })
-          .catch((e: unknown) => {
-            if (!cancelled) {
-              showNotification({
-                title: 'Sign-in failed',
-                description: `Could not get Git credentials: ${e instanceof Error ? e.message : String(e)}`,
-                severity: 'error',
-              });
-            }
-          });
+        try {
+          const creds = await scmAuthApi.getCredentials({ url: repoUrl });
+          if (cancelled) {
+            return;
+          }
+          const tok = creds.token?.trim();
+          if (!tok) {
+            showNotification({
+              title: 'Build',
+              description:
+                'No Git token after sign-in. Open Build again to sign in to your Git host.',
+              severity: 'error',
+            });
+            return;
+          }
+          setGithubToken(tok);
+          setBuildEntity(resolved);
+          setDialogOpen(true);
+        } catch (e: unknown) {
+          if (!cancelled) {
+            showNotification({
+              title: 'Sign-in failed',
+              description: `Could not get Git credentials: ${messageFromUnknown(e)}`,
+              severity: 'error',
+            });
+          }
+        }
       })
       .catch(() => {
         if (!cancelled) {
@@ -144,7 +159,7 @@ export function useEEBuildFlow() {
 
       const entityRef = stringifyEntityRef({
         kind: entity.kind,
-        namespace: entity.metadata.namespace,
+        namespace: entity.metadata.namespace ?? 'default',
         name: entity.metadata.name,
       });
 
@@ -173,11 +188,11 @@ export function useEEBuildFlow() {
         setGithubToken(tok);
         setBuildEntity(entity);
         setDialogOpen(true);
-      } catch (e) {
+      } catch (e: unknown) {
         sessionStorage.removeItem(EE_BUILD_PENDING_SESSION_KEY);
         showNotification({
           title: 'Sign-in failed',
-          description: `Could not sign in to your Git host: ${e instanceof Error ? e.message : String(e)}`,
+          description: `Could not sign in to your Git host: ${messageFromUnknown(e)}`,
           severity: 'error',
         });
       } finally {
