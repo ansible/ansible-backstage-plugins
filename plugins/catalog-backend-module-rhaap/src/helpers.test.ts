@@ -43,6 +43,8 @@ import {
   resolveGithubRepoForEeBuild,
   parseEeBuildRequestBody,
   parseGitHubRepoFromSourceUrl,
+  assertSafeRepoRelativeEeDir,
+  assertSafeEeFileName,
   createPermissionCheckMiddleware,
 } from './helpers';
 import { AuthorizeResult } from '@backstage/plugin-permission-common';
@@ -1714,6 +1716,237 @@ describe('helpers', () => {
 
     it('returns null for non-http(s) protocol', () => {
       expect(parseGitHubRepoFromSourceUrl('ftp://github.com/o/r')).toBeNull();
+    });
+
+    it('parses /edit/ URL correctly', () => {
+      const result = parseGitHubRepoFromSourceUrl(
+        'https://github.com/org/repo/edit/main/ee1/catalog-info.yaml',
+      );
+      expect(result).toEqual({
+        host: 'github.com',
+        owner: 'org',
+        repo: 'repo',
+        defaultRef: 'main',
+        filePath: 'ee1/catalog-info.yaml',
+      });
+    });
+
+    it('returns null for completely invalid URL', () => {
+      expect(parseGitHubRepoFromSourceUrl('not-a-url-at-all')).toBeNull();
+    });
+  });
+
+  describe('assertSafeRepoRelativeEeDir', () => {
+    it('allows a simple directory', () => {
+      expect(() => assertSafeRepoRelativeEeDir('my-ee')).not.toThrow();
+    });
+
+    it('allows nested directories', () => {
+      expect(() => assertSafeRepoRelativeEeDir('envs/prod')).not.toThrow();
+    });
+
+    it('throws for absolute path', () => {
+      expect(() => assertSafeRepoRelativeEeDir('/etc/ee')).toThrow(
+        'ee_dir must be relative',
+      );
+    });
+
+    it('throws for path traversal', () => {
+      expect(() => assertSafeRepoRelativeEeDir('foo/../bar')).toThrow(
+        'path traversal',
+      );
+    });
+  });
+
+  describe('assertSafeEeFileName', () => {
+    it('allows a simple file name', () => {
+      expect(() => assertSafeEeFileName('ee.yml')).not.toThrow();
+    });
+
+    it('throws for path with forward slash', () => {
+      expect(() => assertSafeEeFileName('dir/ee.yml')).toThrow(
+        'file name without path separators',
+      );
+    });
+
+    it('throws for path with backslash', () => {
+      expect(() => assertSafeEeFileName('dir\\ee.yml')).toThrow(
+        'file name without path separators',
+      );
+    });
+
+    it('throws for dot', () => {
+      expect(() => assertSafeEeFileName('.')).toThrow(
+        'ee_file_name is invalid',
+      );
+    });
+
+    it('throws for dotdot', () => {
+      expect(() => assertSafeEeFileName('..')).toThrow(
+        'ee_file_name is invalid',
+      );
+    });
+  });
+
+  describe('parseEeBuildRequestBody – edge cases', () => {
+    const validBase = {
+      customRegistryUrl: 'quay.io/org',
+      imageName: 'my-ee',
+      imageTag: 'latest',
+      verifyTls: true,
+    };
+
+    it('throws when customRegistryUrl is too long', () => {
+      expect(() =>
+        parseEeBuildRequestBody({
+          owner: 'o',
+          repo: 'r',
+          ...validBase,
+          customRegistryUrl: 'a'.repeat(1025),
+        }),
+      ).toThrow('customRegistryUrl is too long');
+    });
+
+    it('throws when imageName is too long', () => {
+      expect(() =>
+        parseEeBuildRequestBody({
+          owner: 'o',
+          repo: 'r',
+          ...validBase,
+          imageName: 'a'.repeat(1025),
+        }),
+      ).toThrow('imageName is too long');
+    });
+
+    it('throws when imageTag is too long', () => {
+      expect(() =>
+        parseEeBuildRequestBody({
+          owner: 'o',
+          repo: 'r',
+          ...validBase,
+          imageTag: 'a'.repeat(257),
+        }),
+      ).toThrow('imageTag is too long');
+    });
+
+    it('throws when a field contains control characters', () => {
+      expect(() =>
+        parseEeBuildRequestBody({
+          owner: 'o',
+          repo: 'r',
+          ...validBase,
+          customRegistryUrl: 'quay.io/\x00evil',
+        }),
+      ).toThrow('contains invalid characters');
+    });
+
+    it('throws when registryType is empty string', () => {
+      expect(() =>
+        parseEeBuildRequestBody({
+          owner: 'o',
+          repo: 'r',
+          ...validBase,
+          registryType: '',
+        }),
+      ).toThrow('registryType must be a non-empty string');
+    });
+
+    it('throws when registryType contains control characters', () => {
+      expect(() =>
+        parseEeBuildRequestBody({
+          owner: 'o',
+          repo: 'r',
+          ...validBase,
+          registryType: 'quay\x01',
+        }),
+      ).toThrow('contains invalid characters');
+    });
+
+    it('accepts and trims valid registryType', () => {
+      const result = parseEeBuildRequestBody({
+        owner: 'o',
+        repo: 'r',
+        ...validBase,
+        registryType: '  quay  ',
+      });
+      expect(result.registryType).toBe('quay');
+    });
+  });
+
+  describe('resolveGithubRepoForEeBuild – edge cases', () => {
+    it('throws when entity has no source annotation at all', () => {
+      expect(() =>
+        resolveGithubRepoForEeBuild({
+          apiVersion: 'backstage.io/v1alpha1',
+          kind: 'Component',
+          metadata: { name: 'ee1', annotations: {} },
+          spec: { type: 'execution-environment' },
+        } as any),
+      ).toThrow('missing a Git source annotation');
+    });
+
+    it('replaces catalog-info.yaml with entityName.yml', () => {
+      const entity = {
+        apiVersion: 'backstage.io/v1alpha1',
+        kind: 'Component',
+        metadata: {
+          name: 'cloud-ee',
+          annotations: {
+            'backstage.io/edit-url':
+              'https://github.com/org/repo/edit/main/ee1/catalog-info.yaml',
+          },
+        },
+        spec: { type: 'execution-environment' },
+      };
+      const result = resolveGithubRepoForEeBuild(entity);
+      expect(result.eeDir).toBe('ee1');
+      expect(result.eeFileName).toBe('cloud-ee.yml');
+    });
+
+    it('sets eeFileName to undefined when catalog-info.yaml and entity name is empty', () => {
+      const entity = {
+        apiVersion: 'backstage.io/v1alpha1',
+        kind: 'Component',
+        metadata: {
+          name: '',
+          annotations: {
+            'backstage.io/source-location':
+              'url:https://github.com/org/repo/blob/main/ee1/catalog-info.yaml',
+          },
+        },
+        spec: { type: 'execution-environment' },
+      };
+      const result = resolveGithubRepoForEeBuild(entity);
+      expect(result.eeDir).toBe('ee1');
+      expect(result.eeFileName).toBeUndefined();
+    });
+
+    it('handles entity with undefined annotations (falls back to empty object)', () => {
+      expect(() =>
+        resolveGithubRepoForEeBuild({
+          apiVersion: 'backstage.io/v1alpha1',
+          kind: 'Component',
+          metadata: { name: 'ee1' },
+          spec: { type: 'execution-environment' },
+        } as any),
+      ).toThrow('missing a Git source annotation');
+    });
+
+    it('handles catalog-info.yaml when entity.metadata.name is undefined', () => {
+      const entity = {
+        apiVersion: 'backstage.io/v1alpha1',
+        kind: 'Component',
+        metadata: {
+          annotations: {
+            'backstage.io/source-location':
+              'url:https://github.com/org/repo/blob/main/ee1/catalog-info.yaml',
+          },
+        },
+        spec: { type: 'execution-environment' },
+      };
+      const result = resolveGithubRepoForEeBuild(entity as any);
+      expect(result.eeDir).toBe('ee1');
+      expect(result.eeFileName).toBeUndefined();
     });
   });
 

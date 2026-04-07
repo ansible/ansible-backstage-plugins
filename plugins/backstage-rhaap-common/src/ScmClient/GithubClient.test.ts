@@ -1156,6 +1156,49 @@ describe('GithubClient', () => {
       expect(result.workflowRunUrl).toBeUndefined();
     });
 
+    it('returns undefined run details when response JSON lacks those fields', async () => {
+      (fetch as jest.Mock).mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        statusText: 'OK',
+        text: () => Promise.resolve('{"some":"other"}'),
+      });
+
+      const result = await client.dispatchActionsWorkflow(
+        'acme',
+        'widgets',
+        'ee-build.yml',
+        'main',
+        { ee_dir: 'x' },
+      );
+
+      expect(result.ok).toBe(true);
+      expect(result.workflowRunId).toBeUndefined();
+      expect(result.workflowRunUrl).toBeUndefined();
+    });
+
+    it('ignores non-JSON body on success (catch branch)', async () => {
+      (fetch as jest.Mock).mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        statusText: 'OK',
+        text: () => Promise.resolve('not valid json'),
+      });
+
+      const result = await client.dispatchActionsWorkflow(
+        'acme',
+        'widgets',
+        'ee-build.yml',
+        'main',
+        { ee_dir: 'x' },
+      );
+
+      expect(result.ok).toBe(true);
+      expect(result.workflowRunId).toBeUndefined();
+      expect(result.workflowRunUrl).toBeUndefined();
+      expect(result.bodyText).toBe('not valid json');
+    });
+
     it('should return body text when GitHub returns an error', async () => {
       (fetch as jest.Mock).mockResolvedValueOnce({
         ok: false,

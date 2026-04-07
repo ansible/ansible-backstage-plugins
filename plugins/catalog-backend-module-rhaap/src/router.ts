@@ -346,7 +346,15 @@ export async function createRouter(options: {
       let eeDir: string | undefined;
       let eeFileName: string | undefined;
 
-      if (parsedBody.entityRef) {
+      if (!parsedBody.entityRef) {
+        response.status(400).json({
+          error:
+            'entityRef is required – ee_dir and ee_file_name are derived from entity annotations.',
+        });
+        return;
+      }
+
+      {
         const credentials = (
           response.locals as Record<string, BackstageCredentials | undefined>
         )[EE_BUILD_CATALOG_CREDENTIALS_LOCALS_KEY];
@@ -385,15 +393,10 @@ export async function createRouter(options: {
             });
             return;
           }
-          throw error;
+          const msg = error instanceof Error ? error.message : String(error);
+          response.status(400).json({ error: msg });
+          return;
         }
-      } else {
-        gh = {
-          host: parsedBody.host || 'github.com',
-          owner: parsedBody.owner!,
-          repo: parsedBody.repo!,
-          ref: 'main',
-        };
       }
 
       if (!eeDir || !eeFileName) {

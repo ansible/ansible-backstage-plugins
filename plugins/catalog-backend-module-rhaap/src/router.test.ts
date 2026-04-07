@@ -1139,7 +1139,7 @@ describe('createRouter', () => {
       expect(response.body.error).toContain('X-Github-Token');
     });
 
-    it('returns 400 when owner/repo used without entityRef (no ee_dir/ee_file_name derivable)', async () => {
+    it('returns 400 when entityRef is missing (owner/repo only)', async () => {
       mockHttpAuth.credentials.mockResolvedValue({} as any);
 
       const testApp = await createEeBuildTestApp();
@@ -1156,7 +1156,7 @@ describe('createRouter', () => {
         })
         .expect(400);
 
-      expect(response.body.error).toContain('ee_dir/ee_file_name');
+      expect(response.body.error).toContain('entityRef is required');
       expect(mockCatalogClient.getEntityByRef).not.toHaveBeenCalled();
     });
 
@@ -1260,6 +1260,285 @@ describe('createRouter', () => {
         .expect(400);
 
       expect(response.body.error).toContain('ee_dir/ee_file_name');
+    });
+
+    it('returns 403 when permissions are denied', async () => {
+      mockHttpAuth.credentials.mockResolvedValue({} as any);
+      mockPermissions.authorize.mockResolvedValueOnce([
+        { result: AuthorizeResult.DENY },
+      ] as any);
+      mockPermissions.authorizeConditional.mockResolvedValueOnce([
+        { result: AuthorizeResult.DENY },
+      ] as any);
+
+      const testApp = await createEeBuildTestApp();
+      const response = await request(testApp)
+        .post('/ansible/ee/build')
+        .set('X-Github-Token', 'gh-tok')
+        .send(validBuildBody)
+        .expect(403);
+
+      expect(response.body.error).toContain('insufficient permissions');
+    });
+
+    it('returns 400 when entity resolution throws (non-GitHub URL)', async () => {
+      mockHttpAuth.credentials.mockResolvedValue({} as any);
+      mockCatalogClient.getEntityByRef.mockResolvedValueOnce({
+        apiVersion: 'backstage.io/v1alpha1',
+        kind: 'Component',
+        metadata: {
+          name: 'ee1',
+          annotations: {
+            'backstage.io/source-location':
+              'url:https://gitlab.com/group/project/-/blob/main/ee.yml',
+          },
+        },
+        spec: { type: 'execution-environment' },
+      });
+
+      const testApp = await createEeBuildTestApp();
+      const response = await request(testApp)
+        .post('/ansible/ee/build')
+        .set('X-Github-Token', 'gh-tok')
+        .send(validBuildBody)
+        .expect(400);
+
+      expect(response.body.error).toContain('GitHub');
+    });
+
+    it('returns 400 when entity kind is wrong', async () => {
+      mockHttpAuth.credentials.mockResolvedValue({} as any);
+      mockCatalogClient.getEntityByRef.mockResolvedValueOnce({
+        apiVersion: 'backstage.io/v1alpha1',
+        kind: 'Template',
+        metadata: {
+          name: 'ee1',
+          annotations: {
+            'backstage.io/source-location':
+              'url:https://github.com/o/r/blob/main/ee.yml',
+          },
+        },
+        spec: { type: 'execution-environment' },
+      });
+
+      const testApp = await createEeBuildTestApp();
+      const response = await request(testApp)
+        .post('/ansible/ee/build')
+        .set('X-Github-Token', 'gh-tok')
+        .send(validBuildBody)
+        .expect(400);
+
+      expect(response.body.error).toContain('Component');
+    });
+
+    it('returns 400 when entity host is not safe', async () => {
+      mockHttpAuth.credentials.mockResolvedValue({} as any);
+      mockCatalogClient.getEntityByRef.mockResolvedValueOnce({
+        apiVersion: 'backstage.io/v1alpha1',
+        kind: 'Component',
+        metadata: {
+          name: 'ee1',
+          annotations: {
+            'backstage.io/source-location':
+              'url:https://evil.com%00/acme/repo/blob/main/ee1/ee.yml',
+          },
+        },
+        spec: { type: 'execution-environment' },
+      });
+
+      const testApp = await createEeBuildTestApp();
+      const response = await request(testApp)
+        .post('/ansible/ee/build')
+        .set('X-Github-Token', 'gh-tok')
+        .send(validBuildBody)
+        .expect(400);
+
+      expect(response.body.error).toBeTruthy();
+    });
+
+    it('returns 400 when entity host is not in integrations allowlist', async () => {
+      mockHttpAuth.credentials.mockResolvedValue({} as any);
+      mockCatalogClient.getEntityByRef.mockResolvedValueOnce({
+        apiVersion: 'backstage.io/v1alpha1',
+        kind: 'Component',
+        metadata: {
+          name: 'ee1',
+          annotations: {
+            'backstage.io/source-location':
+              'url:https://github.example.com/acme/repo/blob/main/ee1/ee.yml',
+          },
+        },
+        spec: { type: 'execution-environment' },
+      });
+
+      const testApp = await createEeBuildTestApp();
+      const response = await request(testApp)
+        .post('/ansible/ee/build')
+        .set('X-Github-Token', 'gh-tok')
+        .send(validBuildBody)
+        .expect(400);
+
+      expect(response.body.error).toContain('not allowed');
+    });
+
+    it('returns 422 when GitHub dispatch returns a client error', async () => {
+      mockHttpAuth.credentials.mockResolvedValue({} as any);
+      mockCatalogClient.getEntityByRef.mockResolvedValueOnce({
+        apiVersion: 'backstage.io/v1alpha1',
+        kind: 'Component',
+        metadata: {
+          name: 'my-ee',
+          annotations: {
+            'backstage.io/source-location':
+              'url:https://github.com/acme/widgets/blob/main/my-ee/my-ee.yml',
+          },
+        },
+        spec: { type: 'execution-environment' },
+      });
+
+      const mockFetch = jest.spyOn(global, 'fetch').mockResolvedValueOnce({
+        ok: false,
+        status: 422,
+        statusText: 'Unprocessable Entity',
+        text: async () => '{"message":"Validation Failed"}',
+      } as Response);
+
+      const testApp = await createEeBuildTestApp();
+      const response = await request(testApp)
+        .post('/ansible/ee/build')
+        .set('X-Github-Token', 'gh-tok')
+        .send(validBuildBody)
+        .expect(422);
+
+      expect(response.body.error).toContain('workflow_dispatch failed');
+      mockFetch.mockRestore();
+    });
+
+    it('returns 502 when GitHub dispatch returns a server error', async () => {
+      mockHttpAuth.credentials.mockResolvedValue({} as any);
+      mockCatalogClient.getEntityByRef.mockResolvedValueOnce({
+        apiVersion: 'backstage.io/v1alpha1',
+        kind: 'Component',
+        metadata: {
+          name: 'my-ee',
+          annotations: {
+            'backstage.io/source-location':
+              'url:https://github.com/acme/widgets/blob/main/my-ee/my-ee.yml',
+          },
+        },
+        spec: { type: 'execution-environment' },
+      });
+
+      const mockFetch = jest.spyOn(global, 'fetch').mockResolvedValueOnce({
+        ok: false,
+        status: 500,
+        statusText: 'Internal Server Error',
+        text: async () => '',
+      } as Response);
+
+      const testApp = await createEeBuildTestApp();
+      const response = await request(testApp)
+        .post('/ansible/ee/build')
+        .set('X-Github-Token', 'gh-tok')
+        .send(validBuildBody)
+        .expect(502);
+
+      expect(response.body.error).toContain('Internal Server Error');
+      mockFetch.mockRestore();
+    });
+
+    it('returns 500 when an unexpected error occurs during dispatch', async () => {
+      mockHttpAuth.credentials.mockResolvedValue({} as any);
+      mockCatalogClient.getEntityByRef.mockResolvedValueOnce({
+        apiVersion: 'backstage.io/v1alpha1',
+        kind: 'Component',
+        metadata: {
+          name: 'my-ee',
+          annotations: {
+            'backstage.io/source-location':
+              'url:https://github.com/acme/widgets/blob/main/my-ee/my-ee.yml',
+          },
+        },
+        spec: { type: 'execution-environment' },
+      });
+
+      const mockFetch = jest
+        .spyOn(global, 'fetch')
+        .mockRejectedValueOnce(new Error('network timeout'));
+
+      const testApp = await createEeBuildTestApp();
+      const response = await request(testApp)
+        .post('/ansible/ee/build')
+        .set('X-Github-Token', 'gh-tok')
+        .send(validBuildBody)
+        .expect(500);
+
+      expect(response.body.error).toContain('network timeout');
+      mockFetch.mockRestore();
+    });
+
+    it('returns 400 via outer catch when dispatch throws with known keyword', async () => {
+      mockHttpAuth.credentials.mockResolvedValue({} as any);
+      mockCatalogClient.getEntityByRef.mockResolvedValueOnce({
+        apiVersion: 'backstage.io/v1alpha1',
+        kind: 'Component',
+        metadata: {
+          name: 'my-ee',
+          annotations: {
+            'backstage.io/source-location':
+              'url:https://github.com/acme/widgets/blob/main/my-ee/my-ee.yml',
+          },
+        },
+        spec: { type: 'execution-environment' },
+      });
+
+      const mockFetch = jest
+        .spyOn(global, 'fetch')
+        .mockRejectedValueOnce(new Error('GitHub rate limit exceeded'));
+
+      const testApp = await createEeBuildTestApp();
+      const response = await request(testApp)
+        .post('/ansible/ee/build')
+        .set('X-Github-Token', 'gh-tok')
+        .send(validBuildBody)
+        .expect(400);
+
+      expect(response.body.error).toContain('GitHub rate limit exceeded');
+      mockFetch.mockRestore();
+    });
+
+    it('returns 403 when catalog throws ResponseError with 403', async () => {
+      mockHttpAuth.credentials.mockResolvedValue({} as any);
+      const respError = new Error('Forbidden') as any;
+      respError.name = 'ResponseError';
+      respError.response = { status: 403 };
+      Object.setPrototypeOf(
+        respError,
+        Object.getPrototypeOf(
+          (() => {
+            try {
+              const { ResponseError: RE } = require('@backstage/errors');
+              return new RE({
+                status: 403,
+                statusText: 'Forbidden',
+                ok: false,
+              } as Response);
+            } catch {
+              return respError;
+            }
+          })(),
+        ),
+      );
+      mockCatalogClient.getEntityByRef.mockRejectedValueOnce(respError);
+
+      const testApp = await createEeBuildTestApp();
+      const response = await request(testApp)
+        .post('/ansible/ee/build')
+        .set('X-Github-Token', 'gh-tok')
+        .send(validBuildBody)
+        .expect(403);
+
+      expect(response.body.error).toContain('Not allowed');
     });
   });
 
