@@ -253,9 +253,20 @@ spec:
                       enum:
                         - Github
                         - Gitlab
-                      ui:
-                        component: select
-                        help: Select the source control provider to publish the EE definition files to.
+                      ui:field: ScmAuthPicker
+                      ui:help: "Select the source control provider to publish the EE definition files to."
+                      ui:options:
+                        requestUserCredentials:
+                          secretsKey: USER_OAUTH_TOKEN
+                          additionalScopes:
+                            github:
+                              - repo
+                              - workflow
+                            gitlab:
+                              - write_repository
+                        hostMapping:
+                          Github: github.com
+                          Gitlab: gitlab.com
                     repositoryOwner:
                       title: Git organization or username
                       type: string
@@ -300,27 +311,56 @@ spec:
                                       default: 'Private Automation Hub (PAH)'
                                       enum:
                                         - 'Private Automation Hub (PAH)'
-                                        - 'ghcr.io'
-                                      ui:
-                                        component: select
-                                        help: Select the container registry where the built image will be pushed.
-                                    buildImageName:
-                                      title: Image Name
-                                      type: string
-                                      description: Name for the built Execution Environment image in namespace/name format. For example, 'my-namespace/my-custom-ee'.
-                                    buildImageTag:
-                                      title: Image Tag
-                                      type: string
-                                      description: Tag for the built Execution Environment image.
-                                    registryTlsVerify:
-                                      title: Verify TLS certificates
-                                      type: boolean
-                                      default: true
-                                      description: Verify TLS certificates when interacting with container registries.
-                                      ui:help: "Uncheck to disable TLS verification for registries using self-signed or untrusted certificates."
+                                        - 'Custom Registry'
+                                      ui:widget: select
+                                      ui:help: Select the container registry where the built image will be pushed.
                                   required:
                                     - buildRegistry
                                     - buildImageName
+                                  dependencies:
+                                    buildRegistry:
+                                      oneOf:
+                                        - properties:
+                                            buildRegistry:
+                                              const: 'Private Automation Hub (PAH)'
+                                            buildImageName:
+                                              title: Image Name
+                                              type: string
+                                              description: Name for the built Execution Environment image in namespace/name format. For example, 'my-namespace/my-custom-ee'.
+                                            buildImageTag:
+                                              title: Image Tag
+                                              type: string
+                                              description: Tag for the built Execution Environment image.
+                                            registryTlsVerify:
+                                              title: Verify TLS certificates
+                                              type: boolean
+                                              default: true
+                                              description: Verify TLS certificates when interacting with container registries.
+                                              ui:help: "Uncheck to disable TLS verification for registries using self-signed or untrusted certificates."
+                                        - properties:
+                                            buildRegistry:
+                                              const: 'Custom Registry'
+                                            customRegistryUrl:
+                                              title: Custom Registry URL
+                                              type: string
+                                              description: URL of the custom container registry (e.g., quay.io, docker.io).
+                                              ui:help: "Provide the full URL of the container registry."
+                                            buildImageName:
+                                              title: Image Name
+                                              type: string
+                                              description: Name for the built Execution Environment image in namespace/name format. For example, 'my-namespace/my-custom-ee'.
+                                            buildImageTag:
+                                              title: Image Tag
+                                              type: string
+                                              description: Tag for the built Execution Environment image.
+                                            registryTlsVerify:
+                                              title: Verify TLS certificates
+                                              type: boolean
+                                              default: true
+                                              description: Verify TLS certificates when interacting with container registries.
+                                              ui:help: "Uncheck to disable TLS verification for registries using self-signed or untrusted certificates."
+                                          required:
+                                            - customRegistryUrl
                                 - properties:
                                     buildExecutionEnvironment:
                                       const: false
@@ -335,7 +375,7 @@ spec:
         - templateDescription
 
   steps:
-     # Step 1: Create EE definition files
+    # Step 1: Create EE definition files
     - id: create-ee-definition
       name: Create Execution Environment Definition
       action: ansible:create:ee-definition
@@ -353,7 +393,7 @@ spec:
           systemPackages: \${{ parameters.advancedConfiguration.systemPackages or [] }}
           systemPackagesFile: \${{ parameters.advancedConfiguration.systemPackagesFile or '' }}
           additionalBuildSteps: \${{ parameters.advancedConfiguration.additionalBuildSteps or [] }}
-          buildRegistry: \${{ parameters.publishAndBuild.buildRegistry or '' }}
+          buildRegistry: \${{ parameters.publishAndBuild.buildRegistry === 'Custom Registry' and parameters.publishAndBuild.customRegistryUrl or parameters.publishAndBuild.buildRegistry or '' }}
           buildImageName: \${{ parameters.publishAndBuild.buildImageName or '' }}
           buildImageTag: \${{ parameters.publishAndBuild.buildImageTag or '' }}
           registryTlsVerify: \${{ parameters.publishAndBuild.registryTlsVerify }}
@@ -370,6 +410,7 @@ spec:
         createNewRepository: \${{ parameters.publishAndBuild.createNewRepository }}
         eeFileName: \${{ parameters.eeFileName }}
         contextDirName: \${{ steps['create-ee-definition'].output.contextDirName }}
+        token: \${{ secrets.USER_OAUTH_TOKEN }}
 
     - id: create-catalog-info-file
       action: catalog:write
@@ -403,16 +444,18 @@ spec:
         repoUrl: \${{ steps['prepare-publish'].output.generatedRepoUrl }}
         defaultBranch: 'main'
         repoVisibility: 'public'
+        token: \${{ secrets.USER_OAUTH_TOKEN }}
 
     # Step 5: Create and publish to a new Gitlab Repository
     - id: publish-gitlab
       name: Create and publish to a new GitLab Repository
       action: publish:gitlab
-      if: \${{ (parameters.publishAndBuild.publishToSCM) and (steps['prepare-publish'].output.createNewRepo) and parameters.publishAndBuild.sourceControlProvider == 'Gitlab' }}
+      if: \${{ (parameters.publishAndBuild.publishToSCM) and (steps['prepare-publish'].output.createNewRepo) and (parameters.publishAndBuild.sourceControlProvider == 'Gitlab') }}
       input:
         repoUrl: \${{ steps['prepare-publish'].output.generatedRepoUrl }}
         defaultBranch: 'main'
         repoVisibility: 'public'
+        token: \${{ secrets.USER_OAUTH_TOKEN }}
 
     # Step 5: Publish generated files as a Github Pull Request
     - id: publish-github-pull-request
@@ -424,6 +467,7 @@ spec:
         branchName: \${{ steps['prepare-publish'].output.generatedBranchName }}
         title: \${{ steps['prepare-publish'].output.generatedTitle }}
         description: \${{ steps['prepare-publish'].output.generatedDescription }}
+        token: \${{ secrets.USER_OAUTH_TOKEN }}
 
     # Step 5: Publish generated files as a Gitlab Merge Request
     - id: publish-gitlab-merge-request
@@ -435,6 +479,7 @@ spec:
         branchName: \${{ steps['prepare-publish'].output.generatedBranchName }}
         title: \${{ steps['prepare-publish'].output.generatedTitle }}
         description: \${{ steps['prepare-publish'].output.generatedDescription }}
+        token: \${{ secrets.USER_OAUTH_TOKEN }}
 
     - id: register-catalog-component
       name: Register published EE as a Catalog Component
@@ -444,13 +489,17 @@ spec:
         catalogInfoUrl: \${{ steps['prepare-publish'].output.generatedCatalogInfoUrl }}
         optional: true
 
-    - action: github:actions:dispatch
+    - id: dispatch-ee-build
+      action: github:actions:dispatch
       name: Start EE Build Workflow
-      if: \${{ parameters.publishAndBuild.buildExecutionEnvironment and (steps['prepare-publish'].output.createNewRepo) }}
+      if: \${{ parameters.publishAndBuild.buildExecutionEnvironment }}
       input:
         repoUrl: \${{ steps['prepare-publish'].output.generatedRepoUrl }}
         workflowId: ee-build.yml
-        branchOrTagName: main
+        branchOrTagName: \${{ steps['prepare-publish'].output.generatedBranchName or 'main' }}
+        token: \${{ secrets.USER_OAUTH_TOKEN }}
+        workflowInputs:
+          image_build_tag: \${{ parameters.publishAndBuild.buildImageTag or '' }}
 
   output:
     text:
@@ -471,6 +520,11 @@ spec:
       - title: GitLab Merge Request
         url: \${{ steps['publish-gitlab-merge-request'].output.mergeRequestUrl  }}
         if: \${{ (parameters.publishAndBuild.publishToSCM) and (not steps['prepare-publish'].output.createNewRepo) and (parameters.publishAndBuild.sourceControlProvider == 'Gitlab') }}
+
+      - title: \${{ parameters.publishAndBuild.sourceControlProvider }} EE Build Workflow Run
+        url: "https://\${{ steps['prepare-publish'].output.normalizedRepoUrl }}/actions/workflows/ee-build.yml"
+        if: \${{ (parameters.publishAndBuild.buildExecutionEnvironment == true) }}
+        icon: github
 
       - title: View details in catalog
         icon: catalog
