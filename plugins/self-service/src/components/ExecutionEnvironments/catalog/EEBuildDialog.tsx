@@ -18,9 +18,10 @@ import {
 } from '@material-ui/core';
 import { makeStyles } from '@material-ui/core/styles';
 import { Entity, stringifyEntityRef } from '@backstage/catalog-model';
-import { useApi } from '@backstage/core-plugin-api';
+import { configApiRef, useApi } from '@backstage/core-plugin-api';
 import { useNotifications } from '../../notifications';
 import { eeBuildApiRef, type EEBuildRegistryType } from '../../../apis';
+import { normalizePahRegistryUrlForBuild } from './helpers';
 
 const useStyles = makeStyles(theme => ({
   field: {
@@ -36,6 +37,7 @@ export type EEBuildDialogProps = Readonly<{
 
 export function EEBuildDialog({ open, entity, onClose }: EEBuildDialogProps) {
   const classes = useStyles();
+  const configApi = useApi(configApiRef);
   const eeBuildApi = useApi(eeBuildApiRef);
   const { showNotification } = useNotifications();
 
@@ -78,11 +80,21 @@ export function EEBuildDialog({ open, entity, onClose }: EEBuildDialogProps) {
       });
       return;
     }
-    if (registryType === 'custom' && !trimmedCustom) {
+    const pahBaseUrl =
+      configApi.getOptionalString('ansible.rhaap.baseUrl')?.trim() ?? '';
+
+    const resolvedRegistryUrl =
+      registryType === 'pah'
+        ? normalizePahRegistryUrlForBuild(pahBaseUrl)
+        : trimmedCustom;
+
+    if (!resolvedRegistryUrl) {
       showNotification({
         title: 'Cannot build',
         description:
-          'Custom registry URL is required when using a custom registry.',
+          registryType === 'pah'
+            ? 'PAH registry URL is not configured. Set ansible.rhaap.baseUrl in app-config.'
+            : 'Custom registry URL is required when using a custom registry.',
         severity: 'warning',
       });
       return;
@@ -99,8 +111,7 @@ export function EEBuildDialog({ open, entity, onClose }: EEBuildDialogProps) {
       const result = await eeBuildApi.triggerBuild({
         entityRef,
         registryType,
-        customRegistryUrl:
-          registryType === 'custom' ? trimmedCustom : undefined,
+        customRegistryUrl: resolvedRegistryUrl,
         imageName: trimmedName,
         imageTag: trimmedTag,
         verifyTls,
@@ -156,7 +167,9 @@ export function EEBuildDialog({ open, entity, onClose }: EEBuildDialogProps) {
             <MenuItem value="custom">Custom registry</MenuItem>
           </Select>
           <FormHelperText>
-            Container registry to push the built EE image to.
+            Container registry to push the built EE image to. PAH uses
+            ansible.rhaap.baseUrl from app-config. For custom, enter the URL
+            below.
           </FormHelperText>
         </FormControl>
 
@@ -167,7 +180,7 @@ export function EEBuildDialog({ open, entity, onClose }: EEBuildDialogProps) {
             label="Custom registry URL"
             value={customRegistryUrl}
             onChange={e => setCustomRegistryUrl(e.target.value)}
-            placeholder="https://registry.example.com"
+            placeholder="registry.example.com"
             variant="outlined"
             margin="normal"
             inputProps={{ 'data-testid': 'ee-build-custom-registry-url' }}

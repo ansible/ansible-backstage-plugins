@@ -185,3 +185,12 @@ export function downloadEntityAsTarArchive(entity: Entity): boolean {
     return false;
   }
 }
+
+/**
+ * PAH registry value for the EE build API: no http(s) scheme, no trailing slashes.
+ */
+export function normalizePahRegistryUrlForBuild(url: string): string {
+  let s = url.trim().replace(/\/+$/, '');
+  s = s.replace(/^https:\/\//i, '').replace(/^http:\/\//i, '');
+  return s.replace(/\/+$/, '').trim();
+}

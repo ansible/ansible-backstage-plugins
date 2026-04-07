@@ -2,6 +2,7 @@ import type { ComponentProps } from 'react';
 import { render, screen, waitFor, fireEvent } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { TestApiProvider } from '@backstage/test-utils';
+import { configApiRef } from '@backstage/core-plugin-api';
 import { ThemeProvider, createMuiTheme } from '@material-ui/core/styles';
 import type { Entity } from '@backstage/catalog-model';
 import { eeBuildApiRef } from '../../../apis';
@@ -13,6 +14,15 @@ const mockOnClose = jest.fn();
 
 const mockEeBuildApi = {
   triggerBuild: mockTriggerBuild,
+};
+
+const mockConfigApi = {
+  getOptionalString: jest.fn((key: string): string | undefined => {
+    if (key === 'ansible.rhaap.baseUrl') {
+      return 'https://aap.example.com';
+    }
+    return undefined;
+  }),
 };
 
 const theme = createMuiTheme();
@@ -31,7 +41,12 @@ function renderDialog(
   props: Partial<ComponentProps<typeof EEBuildDialog>> = {},
 ) {
   return render(
-    <TestApiProvider apis={[[eeBuildApiRef, mockEeBuildApi]]}>
+    <TestApiProvider
+      apis={[
+        [configApiRef, mockConfigApi],
+        [eeBuildApiRef, mockEeBuildApi],
+      ]}
+    >
       <NotificationProvider>
         <ThemeProvider theme={theme}>
           <EEBuildDialog
@@ -51,6 +66,14 @@ describe('EEBuildDialog', () => {
     jest.clearAllMocks();
     notificationStore.clearAll();
     mockTriggerBuild.mockResolvedValue({ accepted: true });
+    mockConfigApi.getOptionalString.mockImplementation(
+      (key: string): string | undefined => {
+        if (key === 'ansible.rhaap.baseUrl') {
+          return 'https://aap.example.com/';
+        }
+        return undefined;
+      },
+    );
   });
 
   it('renders title and entity name when open', () => {
@@ -120,6 +143,28 @@ describe('EEBuildDialog', () => {
     showSpy.mockRestore();
   });
 
+  it('shows warning when PAH is selected but ansible.rhaap.baseUrl is missing', async () => {
+    const showSpy = jest.spyOn(notificationStore, 'showNotification');
+    const user = userEvent.setup();
+    mockConfigApi.getOptionalString.mockReturnValue(undefined);
+
+    renderDialog();
+    await user.type(screen.getByTestId('ee-build-image-name'), 'ns/ee');
+    await user.click(screen.getByRole('button', { name: /^Build$/i }));
+
+    await waitFor(() => {
+      expect(showSpy).toHaveBeenCalledWith(
+        expect.objectContaining({
+          title: 'Cannot build',
+          severity: 'warning',
+          description: expect.stringContaining('ansible.rhaap.baseUrl'),
+        }),
+      );
+    });
+    expect(mockTriggerBuild).not.toHaveBeenCalled();
+    showSpy.mockRestore();
+  });
+
   it('calls triggerBuild with PAH payload and shows success notification', async () => {
     const showSpy = jest.spyOn(notificationStore, 'showNotification');
     const user = userEvent.setup();
@@ -141,6 +186,7 @@ describe('EEBuildDialog', () => {
         expect.objectContaining({
           entityRef: 'component:default/test-ee',
           registryType: 'pah',
+          customRegistryUrl: 'aap.example.com',
           imageName: 'my-ns/my-ee',
           imageTag: '2.0',
           verifyTls: true,
@@ -198,5 +244,33 @@ describe('EEBuildDialog', () => {
     expect(
       screen.getByTestId('ee-build-custom-registry-url'),
     ).toBeInTheDocument();
+  });
+
+  it('calls triggerBuild with custom registry URL when custom is selected', async () => {
+    const user = userEvent.setup();
+    renderDialog();
+
+    fireEvent.mouseDown(
+      screen.getByRole('button', { name: /Private Automation Hub \(PAH\)/i }),
+    );
+    fireEvent.click(
+      await screen.findByRole('option', { name: /Custom registry/i }),
+    );
+
+    await user.type(
+      screen.getByTestId('ee-build-custom-registry-url'),
+      'https://registry.custom.example',
+    );
+    await user.type(screen.getByTestId('ee-build-image-name'), 'ns/ee');
+    await user.click(screen.getByRole('button', { name: /^Build$/i }));
+
+    await waitFor(() => {
+      expect(mockTriggerBuild).toHaveBeenCalledWith(
+        expect.objectContaining({
+          registryType: 'custom',
+          customRegistryUrl: 'https://registry.custom.example',
+        }),
+      );
+    });
   });
 });

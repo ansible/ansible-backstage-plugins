@@ -46,8 +46,11 @@ export type EEBuildRegistryType = 'pah' | 'custom';
 export interface EEBuildRequest {
   entityRef: string;
   registryType: EEBuildRegistryType;
-  /** Required when registryType is `custom` */
-  customRegistryUrl?: string;
+  /**
+   * Registry URL sent for every build: PAH uses `ansible.rhaap.baseUrl` from app-config;
+   * custom uses the user-entered URL.
+   */
+  customRegistryUrl: string;
   imageName: string;
   imageTag: string;
   verifyTls: boolean;

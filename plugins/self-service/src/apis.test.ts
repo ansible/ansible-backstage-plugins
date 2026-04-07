@@ -253,6 +253,7 @@ describe('EEBuildApiClient', () => {
     const result = await client.triggerBuild({
       entityRef: 'component:default/ee1',
       registryType: 'pah',
+      customRegistryUrl: 'https://registry.example/pah',
       imageName: 'ns/ee',
       imageTag: '1',
       verifyTls: true,
@@ -263,6 +264,14 @@ describe('EEBuildApiClient', () => {
       workflowId: 'run-123',
       message: 'queued',
     });
+    expect(mockFetch.fetch).toHaveBeenCalledWith(
+      expect.any(String),
+      expect.objectContaining({
+        body: expect.stringContaining(
+          '"customRegistryUrl":"https://registry.example/pah"',
+        ),
+      }),
+    );
   });
 
   it('parses workflow_id (snake_case) from JSON body on success', async () => {
@@ -280,6 +289,7 @@ describe('EEBuildApiClient', () => {
     const result = await client.triggerBuild({
       entityRef: 'component:default/ee1',
       registryType: 'pah',
+      customRegistryUrl: 'https://r.example',
       imageName: 'ns/ee',
       imageTag: '1',
       verifyTls: true,
@@ -308,6 +318,7 @@ describe('EEBuildApiClient', () => {
     const result = await client.triggerBuild({
       entityRef: 'component:default/ee1',
       registryType: 'pah',
+      customRegistryUrl: 'https://r.example',
       imageName: 'ns/ee',
       imageTag: '1',
       verifyTls: true,
@@ -335,6 +346,7 @@ describe('EEBuildApiClient', () => {
     const result = await client.triggerBuild({
       entityRef: 'component:default/ee1',
       registryType: 'pah',
+      customRegistryUrl: 'https://r.example',
       imageName: 'ns/ee',
       imageTag: '1',
       verifyTls: true,

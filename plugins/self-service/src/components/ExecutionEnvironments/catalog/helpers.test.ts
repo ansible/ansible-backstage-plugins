@@ -4,6 +4,7 @@ import {
   getScmRepoUrlForAuth,
   isEntityPublishedToGithub,
   downloadEntityAsTarArchive,
+  normalizePahRegistryUrlForBuild,
 } from './helpers';
 import { Entity } from '@backstage/catalog-model';
 import { ANNOTATION_EDIT_URL } from '@backstage/catalog-model';
@@ -427,6 +428,30 @@ describe('catalog helpers', () => {
       });
 
       expect(downloadEntityAsTarArchive(validEntity)).toBe(false);
+    });
+  });
+
+  describe('normalizePahRegistryUrlForBuild', () => {
+    it('strips https, http, and trailing slashes', () => {
+      expect(normalizePahRegistryUrlForBuild('https://hub.example.com/')).toBe(
+        'hub.example.com',
+      );
+      expect(normalizePahRegistryUrlForBuild('http://hub.example.com///')).toBe(
+        'hub.example.com',
+      );
+      expect(normalizePahRegistryUrlForBuild('HTTPS://FOO.BAR/path///')).toBe(
+        'FOO.BAR/path',
+      );
+    });
+
+    it('leaves host-only values unchanged aside from trim', () => {
+      expect(normalizePahRegistryUrlForBuild('hub.example.com')).toBe(
+        'hub.example.com',
+      );
+    });
+
+    it('returns empty for whitespace-only input', () => {
+      expect(normalizePahRegistryUrlForBuild('   ')).toBe('');
     });
   });
 });
