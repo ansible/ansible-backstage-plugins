@@ -95,6 +95,7 @@ describe('useEEBuildFlow', () => {
     expect(sessionStorage.getItem(EE_BUILD_PENDING_SESSION_KEY)).toBeNull();
     expect(result.current.dialogOpen).toBe(true);
     expect(result.current.buildEntity).toEqual(entityWithGithub);
+    expect(result.current.githubToken).toBe('t');
     expect(result.current.authBusy).toBe(false);
   });
 
@@ -151,7 +152,11 @@ describe('useEEBuildFlow', () => {
     });
 
     expect(mockGetEntityByRef).toHaveBeenCalledWith('component:default/my-ee');
+    expect(mockGetCredentials).toHaveBeenCalledWith({
+      url: 'https://github.com/acme/repo',
+    });
     expect(result.current.buildEntity).toEqual(resolvedEntity);
+    expect(result.current.githubToken).toBe('t');
     expect(sessionStorage.getItem(EE_BUILD_PENDING_SESSION_KEY)).toBeNull();
   });
 
@@ -228,5 +233,26 @@ describe('useEEBuildFlow', () => {
 
     expect(result.current.dialogOpen).toBe(false);
     expect(result.current.buildEntity).toBeNull();
+    expect(result.current.githubToken).toBeNull();
+  });
+
+  it('shows notification and does not open dialog when getCredentials returns an empty token', async () => {
+    mockGetCredentials.mockResolvedValue({ token: '  ', headers: {} });
+    const showSpy = jest.spyOn(notificationStore, 'showNotification');
+    const { result } = renderHook(() => useEEBuildFlow(), { wrapper });
+
+    await act(async () => {
+      await result.current.startBuildFlow(entityWithGithub);
+    });
+
+    expect(showSpy).toHaveBeenCalledWith(
+      expect.objectContaining({
+        title: 'Cannot start build',
+        severity: 'error',
+      }),
+    );
+    expect(result.current.dialogOpen).toBe(false);
+    expect(result.current.githubToken).toBeNull();
+    showSpy.mockRestore();
   });
 });

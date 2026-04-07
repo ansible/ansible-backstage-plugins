@@ -32,10 +32,17 @@ const useStyles = makeStyles(theme => ({
 export type EEBuildDialogProps = Readonly<{
   open: boolean;
   entity: Entity | null;
+  /** GitHub (or GHE) token from ScmAuth; required for catalog `workflow_dispatch`. */
+  githubToken: string | null;
   onClose: () => void;
 }>;
 
-export function EEBuildDialog({ open, entity, onClose }: EEBuildDialogProps) {
+export function EEBuildDialog({
+  open,
+  entity,
+  githubToken,
+  onClose,
+}: EEBuildDialogProps) {
   const classes = useStyles();
   const configApi = useApi(configApiRef);
   const eeBuildApi = useApi(eeBuildApiRef);
@@ -100,6 +107,17 @@ export function EEBuildDialog({ open, entity, onClose }: EEBuildDialogProps) {
       return;
     }
 
+    const scmTok = githubToken?.trim();
+    if (!scmTok) {
+      showNotification({
+        title: 'Cannot build',
+        description:
+          'No Git token is available. Close this dialog and use Build again to sign in to your Git host.',
+        severity: 'warning',
+      });
+      return;
+    }
+
     const entityRef = stringifyEntityRef({
       kind: entity.kind,
       namespace: entity.metadata.namespace,
@@ -108,14 +126,17 @@ export function EEBuildDialog({ open, entity, onClose }: EEBuildDialogProps) {
 
     setSubmitting(true);
     try {
-      const result = await eeBuildApi.triggerBuild({
-        entityRef,
-        registryType,
-        customRegistryUrl: resolvedRegistryUrl,
-        imageName: trimmedName,
-        imageTag: trimmedTag,
-        verifyTls,
-      });
+      const result = await eeBuildApi.triggerBuild(
+        {
+          entityRef,
+          registryType,
+          customRegistryUrl: resolvedRegistryUrl,
+          imageName: trimmedName,
+          imageTag: trimmedTag,
+          verifyTls,
+        },
+        { githubToken: scmTok },
+      );
       if (result.accepted) {
         showNotification({
           title: 'Build triggered',

@@ -186,11 +186,24 @@ export function downloadEntityAsTarArchive(entity: Entity): boolean {
   }
 }
 
+function stripTrailingSlashes(value: string): string {
+  let end = value.length;
+  while (end > 0 && value[end - 1] === '/') {
+    end -= 1;
+  }
+  return end === value.length ? value : value.slice(0, end);
+}
+
 /**
  * PAH registry value for the EE build API: no http(s) scheme, no trailing slashes.
  */
 export function normalizePahRegistryUrlForBuild(url: string): string {
-  let s = url.trim().replace(/\/+$/, '');
-  s = s.replace(/^https:\/\//i, '').replace(/^http:\/\//i, '');
-  return s.replace(/\/+$/, '').trim();
+  let s = stripTrailingSlashes(url.trim());
+  const lower = s.toLowerCase();
+  if (lower.startsWith('https://')) {
+    s = s.slice('https://'.length);
+  } else if (lower.startsWith('http://')) {
+    s = s.slice('http://'.length);
+  }
+  return stripTrailingSlashes(s).trim();
 }

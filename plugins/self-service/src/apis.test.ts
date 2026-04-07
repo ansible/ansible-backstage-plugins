@@ -250,14 +250,17 @@ describe('EEBuildApiClient', () => {
       fetchApi: mockFetch as any,
     });
 
-    const result = await client.triggerBuild({
-      entityRef: 'component:default/ee1',
-      registryType: 'pah',
-      customRegistryUrl: 'https://registry.example/pah',
-      imageName: 'ns/ee',
-      imageTag: '1',
-      verifyTls: true,
-    });
+    const result = await client.triggerBuild(
+      {
+        entityRef: 'component:default/ee1',
+        registryType: 'pah',
+        customRegistryUrl: 'https://registry.example/pah',
+        imageName: 'ns/ee',
+        imageTag: '1',
+        verifyTls: true,
+      },
+      { githubToken: 'ghp_test_token' },
+    );
 
     expect(result).toEqual({
       accepted: true,
@@ -267,6 +270,10 @@ describe('EEBuildApiClient', () => {
     expect(mockFetch.fetch).toHaveBeenCalledWith(
       expect.any(String),
       expect.objectContaining({
+        headers: expect.objectContaining({
+          'Content-Type': 'application/json',
+          'X-Github-Token': 'ghp_test_token',
+        }),
         body: expect.stringContaining(
           '"customRegistryUrl":"https://registry.example/pah"',
         ),
@@ -286,14 +293,17 @@ describe('EEBuildApiClient', () => {
       fetchApi: mockFetch as any,
     });
 
-    const result = await client.triggerBuild({
-      entityRef: 'component:default/ee1',
-      registryType: 'pah',
-      customRegistryUrl: 'https://r.example',
-      imageName: 'ns/ee',
-      imageTag: '1',
-      verifyTls: true,
-    });
+    const result = await client.triggerBuild(
+      {
+        entityRef: 'component:default/ee1',
+        registryType: 'pah',
+        customRegistryUrl: 'https://r.example',
+        imageName: 'ns/ee',
+        imageTag: '1',
+        verifyTls: true,
+      },
+      { githubToken: 'tok' },
+    );
 
     expect(result).toEqual({
       accepted: true,
@@ -315,14 +325,17 @@ describe('EEBuildApiClient', () => {
       fetchApi: mockFetch as any,
     });
 
-    const result = await client.triggerBuild({
-      entityRef: 'component:default/ee1',
-      registryType: 'pah',
-      customRegistryUrl: 'https://r.example',
-      imageName: 'ns/ee',
-      imageTag: '1',
-      verifyTls: true,
-    });
+    const result = await client.triggerBuild(
+      {
+        entityRef: 'component:default/ee1',
+        registryType: 'pah',
+        customRegistryUrl: 'https://r.example',
+        imageName: 'ns/ee',
+        imageTag: '1',
+        verifyTls: true,
+      },
+      { githubToken: 'tok' },
+    );
 
     expect(result).toEqual({
       accepted: true,
@@ -343,14 +356,17 @@ describe('EEBuildApiClient', () => {
       fetchApi: mockFetch as any,
     });
 
-    const result = await client.triggerBuild({
-      entityRef: 'component:default/ee1',
-      registryType: 'pah',
-      customRegistryUrl: 'https://r.example',
-      imageName: 'ns/ee',
-      imageTag: '1',
-      verifyTls: true,
-    });
+    const result = await client.triggerBuild(
+      {
+        entityRef: 'component:default/ee1',
+        registryType: 'pah',
+        customRegistryUrl: 'https://r.example',
+        imageName: 'ns/ee',
+        imageTag: '1',
+        verifyTls: true,
+      },
+      { githubToken: 'tok' },
+    );
 
     expect(result).toEqual({
       accepted: true,

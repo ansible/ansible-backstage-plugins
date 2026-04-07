@@ -113,8 +113,14 @@ export const EEDetailsPage: React.FC = () => {
   };
   const handleMenuClose = () => setAnchorEl(null);
   const catalogApi = useApi(catalogApiRef);
-  const { startBuildFlow, authBusy, dialogOpen, buildEntity, closeDialog } =
-    useEEBuildFlow();
+  const {
+    startBuildFlow,
+    authBusy,
+    dialogOpen,
+    buildEntity,
+    githubToken,
+    closeDialog,
+  } = useEEBuildFlow();
   const [entity, setEntity] = useState<any | null>(false);
   const [menuid, setMenuId] = useState<string>('');
   const [defaultReadme, setDefaultReadme] = useState<string>('');
@@ -384,6 +390,7 @@ export const EEDetailsPage: React.FC = () => {
       <EEBuildDialog
         open={dialogOpen}
         entity={buildEntity}
+        githubToken={githubToken}
         onClose={closeDialog}
       />
       {entity && (

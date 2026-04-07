@@ -17,12 +17,15 @@ export function useEEBuildFlow() {
   const { showNotification } = useNotifications();
   const [dialogOpen, setDialogOpen] = useState(false);
   const [buildEntity, setBuildEntity] = useState<Entity | null>(null);
+  /** SCM OAuth token for `POST /ansible/ee/build` (X-Github-Token). Cleared when the dialog closes. */
+  const [githubToken, setGithubToken] = useState<string | null>(null);
   const [authBusy, setAuthBusy] = useState(false);
   const authInFlight = useRef(false);
 
   const closeDialog = useCallback(() => {
     setDialogOpen(false);
     setBuildEntity(null);
+    setGithubToken(null);
   }, []);
 
   /** After full-page SCM OAuth, reopen the build dialog for the pending entity. */
@@ -67,8 +70,45 @@ export function useEEBuildFlow() {
           });
           return;
         }
-        setBuildEntity(resolved);
-        setDialogOpen(true);
+        const repoUrl = getScmRepoUrlForAuth(resolved);
+        if (!repoUrl) {
+          showNotification({
+            title: 'Build',
+            description:
+              'This execution environment has no Git source metadata after sign-in. Open Build again from the catalog or details page.',
+            severity: 'error',
+          });
+          return;
+        }
+        void scmAuthApi
+          .getCredentials({ url: repoUrl })
+          .then(creds => {
+            if (cancelled) {
+              return;
+            }
+            const tok = creds.token?.trim();
+            if (!tok) {
+              showNotification({
+                title: 'Build',
+                description:
+                  'No Git token after sign-in. Open Build again to sign in to your Git host.',
+                severity: 'error',
+              });
+              return;
+            }
+            setGithubToken(tok);
+            setBuildEntity(resolved);
+            setDialogOpen(true);
+          })
+          .catch((e: unknown) => {
+            if (!cancelled) {
+              showNotification({
+                title: 'Sign-in failed',
+                description: `Could not get Git credentials: ${e instanceof Error ? e.message : String(e)}`,
+                severity: 'error',
+              });
+            }
+          });
       })
       .catch(() => {
         if (!cancelled) {
@@ -84,7 +124,7 @@ export function useEEBuildFlow() {
     return () => {
       cancelled = true;
     };
-  }, [catalogApi, showNotification]);
+  }, [catalogApi, scmAuthApi, showNotification]);
 
   const startBuildFlow = useCallback(
     async (entity: Entity) => {
@@ -118,8 +158,19 @@ export function useEEBuildFlow() {
             savedAt: Date.now(),
           } satisfies EeBuildPendingPayload),
         );
-        await scmAuthApi.getCredentials({ url: repoUrl });
+        const creds = await scmAuthApi.getCredentials({ url: repoUrl });
         sessionStorage.removeItem(EE_BUILD_PENDING_SESSION_KEY);
+        const tok = creds.token?.trim();
+        if (!tok) {
+          showNotification({
+            title: 'Cannot start build',
+            description:
+              'No Git token was returned after sign-in. Check GitHub (or GHE) authentication in Backstage.',
+            severity: 'error',
+          });
+          return;
+        }
+        setGithubToken(tok);
         setBuildEntity(entity);
         setDialogOpen(true);
       } catch (e) {
@@ -142,6 +193,7 @@ export function useEEBuildFlow() {
     authBusy,
     dialogOpen,
     buildEntity,
+    githubToken,
     closeDialog,
   };
 }

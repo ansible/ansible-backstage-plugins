@@ -52,6 +52,7 @@ function renderDialog(
           <EEBuildDialog
             open
             entity={testEntity}
+            githubToken="gh-mock-token"
             onClose={mockOnClose}
             {...props}
           />
@@ -191,6 +192,7 @@ describe('EEBuildDialog', () => {
           imageTag: '2.0',
           verifyTls: true,
         }),
+        { githubToken: 'gh-mock-token' },
       );
     });
 
@@ -270,7 +272,29 @@ describe('EEBuildDialog', () => {
           registryType: 'custom',
           customRegistryUrl: 'https://registry.custom.example',
         }),
+        { githubToken: 'gh-mock-token' },
       );
     });
+  });
+
+  it('shows warning when githubToken is missing', async () => {
+    const showSpy = jest.spyOn(notificationStore, 'showNotification');
+    const user = userEvent.setup();
+    renderDialog({ githubToken: null });
+
+    await user.type(screen.getByTestId('ee-build-image-name'), 'ns/ee');
+    await user.click(screen.getByRole('button', { name: /^Build$/i }));
+
+    await waitFor(() => {
+      expect(showSpy).toHaveBeenCalledWith(
+        expect.objectContaining({
+          title: 'Cannot build',
+          severity: 'warning',
+          description: expect.stringContaining('No Git token'),
+        }),
+      );
+    });
+    expect(mockTriggerBuild).not.toHaveBeenCalled();
+    showSpy.mockRestore();
   });
 });

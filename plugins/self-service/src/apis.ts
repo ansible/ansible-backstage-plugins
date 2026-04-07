@@ -63,6 +63,11 @@ export interface EEBuildResult {
   message?: string;
 }
 
+/** Sent as `X-Github-Token` so the catalog backend can call GitHub `workflow_dispatch`. */
+export interface EEBuildTriggerOptions {
+  githubToken: string;
+}
+
 function workflowIdFromJsonValue(raw: unknown): string | undefined {
   if (raw === undefined || raw === null) {
     return undefined;
@@ -107,7 +112,10 @@ function parseExecutionEnvironmentBuildResponse(text: string): {
  * Placeholder client for catalog POST `/execution_environment/build` (backend TBD).
  */
 export interface EEBuildApi {
-  triggerBuild(request: EEBuildRequest): Promise<EEBuildResult>;
+  triggerBuild(
+    request: EEBuildRequest,
+    options: EEBuildTriggerOptions,
+  ): Promise<EEBuildResult>;
 }
 
 export const eeBuildApiRef = createApiRef<EEBuildApi>({
@@ -207,14 +215,20 @@ export class EEBuildApiClient implements EEBuildApi {
     this.fetchApi = options.fetchApi;
   }
 
-  async triggerBuild(request: EEBuildRequest): Promise<EEBuildResult> {
+  async triggerBuild(
+    request: EEBuildRequest,
+    options: EEBuildTriggerOptions,
+  ): Promise<EEBuildResult> {
     const baseUrl = await this.discoveryApi.getBaseUrl('catalog');
     try {
       const response = await this.fetchApi.fetch(
-        `${baseUrl}/ansible/git/build-ee`,
+        `${baseUrl}/ansible/ee/build`,
         {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: {
+            'Content-Type': 'application/json',
+            'X-Github-Token': options.githubToken,
+          },
           body: JSON.stringify(request),
         },
       );

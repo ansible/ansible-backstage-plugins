@@ -214,8 +214,14 @@ export const EEListPage = ({
     null,
   );
   const { filters, updateFilters } = useEntityList();
-  const { startBuildFlow, authBusy, dialogOpen, buildEntity, closeDialog } =
-    useEEBuildFlow();
+  const {
+    startBuildFlow,
+    authBusy,
+    dialogOpen,
+    buildEntity,
+    githubToken,
+    closeDialog,
+  } = useEEBuildFlow();
 
   const isMountedRef = useRef(true);
 
@@ -756,6 +762,7 @@ export const EEListPage = ({
             <EEBuildDialog
               open={dialogOpen}
               entity={buildEntity}
+              githubToken={githubToken}
               onClose={closeDialog}
             />
           </CatalogFilterLayout.Content>
