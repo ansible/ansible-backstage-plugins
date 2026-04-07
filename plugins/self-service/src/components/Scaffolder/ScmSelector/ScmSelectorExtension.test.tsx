@@ -659,7 +659,9 @@ describe('ScmSelectorExtension', () => {
         jest.advanceTimersByTime(500);
       });
 
-      expect(screen.getByText('new-repo is available')).toBeInTheDocument();
+      await waitFor(() => {
+        expect(screen.getByText('new-repo is available')).toBeInTheDocument();
+      });
     });
 
     it('shows warning when repo exists (GitHub)', async () => {
@@ -680,10 +682,12 @@ describe('ScmSelectorExtension', () => {
         jest.advanceTimersByTime(500);
       });
 
-      expect(
-        screen.getByText(/already exists in the selected namespace/),
-      ).toBeInTheDocument();
-      expect(screen.getByText(/pull request/i)).toBeInTheDocument();
+      await waitFor(() => {
+        expect(
+          screen.getByText(/already exists in the selected namespace/),
+        ).toBeInTheDocument();
+        expect(screen.getByText(/pull request/i)).toBeInTheDocument();
+      });
     });
 
     it('shows "merge request" for GitLab when repo exists', async () => {
@@ -704,7 +708,9 @@ describe('ScmSelectorExtension', () => {
         jest.advanceTimersByTime(500);
       });
 
-      expect(screen.getByText(/merge request/i)).toBeInTheDocument();
+      await waitFor(() => {
+        expect(screen.getByText(/merge request/i)).toBeInTheDocument();
+      });
     });
   });
 
