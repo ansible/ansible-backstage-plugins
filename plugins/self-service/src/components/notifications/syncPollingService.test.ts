@@ -372,12 +372,98 @@ describe('syncPollingService', () => {
 
       await jest.advanceTimersByTimeAsync(FAST_POLL_INTERVAL_MS);
 
+      expect(mockInvalidateFetchedData).toHaveBeenCalled();
       expect(mockShowNotification).toHaveBeenCalledWith(
         expect.objectContaining({
           title: 'Sync failed',
           severity: 'error',
           description: 'Failed to sync content from Source 1.',
           autoHideDuration: 0,
+        }),
+      );
+    });
+
+    it('shows tracked failure and invalidates when lastSyncTime is unchanged', async () => {
+      const t0 = '2024-01-01T10:00:00Z';
+      let callCount = 0;
+      mockFetchApi.fetch.mockImplementation(() => {
+        callCount++;
+        if (callCount === 1) {
+          return Promise.resolve({
+            ok: true,
+            json: () =>
+              Promise.resolve({
+                content: {
+                  providers: [
+                    {
+                      sourceId: 'src-1',
+                      syncInProgress: false,
+                      lastSyncTime: t0,
+                    },
+                  ],
+                },
+              }),
+          });
+        }
+        if (callCount === 2) {
+          return Promise.resolve({
+            ok: true,
+            json: () =>
+              Promise.resolve({
+                content: {
+                  providers: [
+                    {
+                      sourceId: 'src-1',
+                      syncInProgress: true,
+                      lastSyncTime: t0,
+                    },
+                  ],
+                },
+              }),
+          });
+        }
+        return Promise.resolve({
+          ok: true,
+          json: () =>
+            Promise.resolve({
+              content: {
+                providers: [
+                  {
+                    sourceId: 'src-1',
+                    syncInProgress: false,
+                    lastSyncTime: t0,
+                    lastSyncStatus: 'failure',
+                    collectionsFound: 0,
+                    collectionsDelta: 0,
+                  },
+                ],
+              },
+            }),
+        });
+      });
+
+      syncPollingService.initialize(
+        mockDiscoveryApi as any,
+        mockFetchApi as any,
+      );
+      await jest.advanceTimersByTimeAsync(0);
+
+      syncPollingService.startTracking([
+        {
+          sourceId: 'src-1',
+          displayName: 'Source 1',
+          lastSyncTime: t0,
+        },
+      ]);
+      await jest.advanceTimersByTimeAsync(0);
+
+      await jest.advanceTimersByTimeAsync(FAST_POLL_INTERVAL_MS);
+
+      expect(mockInvalidateFetchedData).toHaveBeenCalled();
+      expect(mockShowNotification).toHaveBeenCalledWith(
+        expect.objectContaining({
+          title: 'Sync failed',
+          severity: 'error',
         }),
       );
     });
