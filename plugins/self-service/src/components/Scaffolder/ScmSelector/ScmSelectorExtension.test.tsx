@@ -119,7 +119,13 @@ const defaultProps = {
       },
     },
   },
-  formData: { provider: '', org: '', repoName: '', repoExists: false },
+  formData: {
+    provider: '',
+    providerLabel: '',
+    org: '',
+    repoName: '',
+    repoExists: false,
+  },
   formContext: {},
   registry: {} as any,
   idSchema: {} as any,
@@ -164,7 +170,8 @@ describe('ScmSelectorExtension', () => {
     fireEvent.click(githubOption);
 
     expect(onChange).toHaveBeenCalledWith({
-      provider: 'Github',
+      provider: 'github',
+      providerLabel: 'Github',
       org: '',
       repoName: '',
       repoExists: false,
@@ -232,7 +239,8 @@ describe('ScmSelectorExtension', () => {
         <ScmSelectorExtension
           {...defaultProps}
           formData={{
-            provider: 'Github',
+            provider: 'github',
+            providerLabel: 'Github',
             org: '',
             repoName: '',
             repoExists: false,
@@ -403,7 +411,8 @@ describe('ScmSelectorExtension', () => {
   it('auto-authenticates when formData is pre-populated', async () => {
     renderComponent({
       formData: {
-        provider: 'Github',
+        provider: 'github',
+        providerLabel: 'Github',
         org: '',
         repoName: '',
         repoExists: false,
@@ -480,7 +489,8 @@ describe('ScmSelectorExtension', () => {
 
       renderComponent({
         formData: {
-          provider: 'Github',
+          provider: 'github',
+          providerLabel: 'Github',
           org: '',
           repoName: '',
           repoExists: false,
@@ -511,7 +521,8 @@ describe('ScmSelectorExtension', () => {
 
       renderComponent({
         formData: {
-          provider: 'Gitlab',
+          provider: 'gitlab',
+          providerLabel: 'Gitlab',
           org: '',
           repoName: '',
           repoExists: false,
@@ -540,7 +551,8 @@ describe('ScmSelectorExtension', () => {
       renderComponent({
         onChange,
         formData: {
-          provider: 'Github',
+          provider: 'github',
+          providerLabel: 'Github',
           org: '',
           repoName: '',
           repoExists: false,
@@ -559,7 +571,8 @@ describe('ScmSelectorExtension', () => {
       fireEvent.click(orgOption);
 
       expect(onChange).toHaveBeenCalledWith({
-        provider: 'Github',
+        provider: 'github',
+        providerLabel: 'Github',
         org: 'my-org',
         repoName: '',
         repoExists: false,
@@ -571,7 +584,8 @@ describe('ScmSelectorExtension', () => {
 
       renderComponent({
         formData: {
-          provider: 'Github',
+          provider: 'github',
+          providerLabel: 'Github',
           org: '',
           repoName: '',
           repoExists: false,
@@ -602,7 +616,8 @@ describe('ScmSelectorExtension', () => {
       renderComponent({
         onChange,
         formData: {
-          provider: 'Github',
+          provider: 'github',
+          providerLabel: 'Github',
           org: 'my-org',
           repoName: 'init',
           repoExists: false,
@@ -618,7 +633,8 @@ describe('ScmSelectorExtension', () => {
       });
 
       expect(onChange).toHaveBeenCalledWith({
-        provider: 'Github',
+        provider: 'github',
+        providerLabel: 'Github',
         org: 'my-org',
         repoName: 'new-repo',
         repoExists: false,
@@ -630,7 +646,8 @@ describe('ScmSelectorExtension', () => {
 
       renderComponent({
         formData: {
-          provider: 'Github',
+          provider: 'github',
+          providerLabel: 'Github',
           org: 'my-org',
           repoName: 'new-repo',
           repoExists: false,
@@ -650,7 +667,8 @@ describe('ScmSelectorExtension', () => {
 
       renderComponent({
         formData: {
-          provider: 'Github',
+          provider: 'github',
+          providerLabel: 'Github',
           org: 'my-org',
           repoName: 'existing-repo',
           repoExists: false,
@@ -673,7 +691,8 @@ describe('ScmSelectorExtension', () => {
 
       renderComponent({
         formData: {
-          provider: 'Gitlab',
+          provider: 'gitlab',
+          providerLabel: 'Gitlab',
           org: 'my-group',
           repoName: 'my-project',
           repoExists: false,
@@ -708,7 +727,8 @@ describe('ScmSelectorExtension', () => {
       renderComponent({
         uiSchema,
         formData: {
-          provider: 'Corp GHE',
+          provider: 'github',
+          providerLabel: 'Github',
           org: '',
           repoName: '',
           repoExists: false,

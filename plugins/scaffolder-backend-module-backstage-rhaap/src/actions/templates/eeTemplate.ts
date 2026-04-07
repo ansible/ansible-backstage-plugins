@@ -275,7 +275,7 @@ spec:
                             sourceControlProvider:
                               properties:
                                 provider:
-                                  const: Github
+                                  const: github
                             buildExecutionEnvironment:
                               title: Build Execution Environment
                               description: Trigger a build of the Execution Environment after publishing.
@@ -352,7 +352,7 @@ spec:
                             sourceControlProvider:
                               properties:
                                 provider:
-                                  const: Gitlab
+                                  const: gitlab
                 - properties:
                     publishToSCM:
                       const: false
@@ -424,7 +424,7 @@ spec:
     - id: publish-github
       name: Create and publish to a new GitHub Repository
       action: publish:github
-      if: \${{ (parameters.publishAndBuild.publishToSCM) and (steps['prepare-publish'].output.createNewRepo) and (parameters.publishAndBuild.sourceControlProvider.provider == 'Github') }}
+      if: \${{ (parameters.publishAndBuild.publishToSCM) and (steps['prepare-publish'].output.createNewRepo) and (parameters.publishAndBuild.sourceControlProvider.provider == 'github') }}
       input:
         description: \${{ parameters.templateDescription }}
         repoUrl: \${{ steps['prepare-publish'].output.generatedRepoUrl }}
@@ -436,7 +436,7 @@ spec:
     - id: publish-gitlab
       name: Create and publish to a new GitLab Repository
       action: publish:gitlab
-      if: \${{ (parameters.publishAndBuild.publishToSCM) and (steps['prepare-publish'].output.createNewRepo) and (parameters.publishAndBuild.sourceControlProvider.provider == 'Gitlab') }}
+      if: \${{ (parameters.publishAndBuild.publishToSCM) and (steps['prepare-publish'].output.createNewRepo) and (parameters.publishAndBuild.sourceControlProvider.provider == 'gitlab') }}
       input:
         repoUrl: \${{ steps['prepare-publish'].output.generatedRepoUrl }}
         defaultBranch: 'main'
@@ -447,7 +447,7 @@ spec:
     - id: publish-github-pull-request
       name: Publish generated files as a Github Pull Request
       action: publish:github:pull-request
-      if: \${{ parameters.publishAndBuild.publishToSCM and (not steps['prepare-publish'].output.createNewRepo) and (parameters.publishAndBuild.sourceControlProvider.provider == 'Github') }}
+      if: \${{ parameters.publishAndBuild.publishToSCM and (not steps['prepare-publish'].output.createNewRepo) and (parameters.publishAndBuild.sourceControlProvider.provider == 'github') }}
       input:
         repoUrl: \${{ steps['prepare-publish'].output.generatedRepoUrl }}
         branchName: \${{ steps['prepare-publish'].output.generatedBranchName }}
@@ -459,7 +459,7 @@ spec:
     - id: publish-gitlab-merge-request
       name: Publish generated files as a Gitlab Merge Request
       action: publish:gitlab:merge-request
-      if: \${{ parameters.publishAndBuild.publishToSCM and (not steps['prepare-publish'].output.createNewRepo) and (parameters.publishAndBuild.sourceControlProvider.provider == 'Gitlab') }}
+      if: \${{ parameters.publishAndBuild.publishToSCM and (not steps['prepare-publish'].output.createNewRepo) and (parameters.publishAndBuild.sourceControlProvider.provider == 'gitlab') }}
       input:
         repoUrl: \${{ steps['prepare-publish'].output.generatedRepoUrl }}
         branchName: \${{ steps['prepare-publish'].output.generatedBranchName }}
@@ -495,24 +495,24 @@ spec:
           \${{ steps['create-ee-definition'].output.readmeContent }}
 
     links:
-      - title: \${{ parameters.publishAndBuild.sourceControlProvider.provider }} Repository
+      - title: \${{ parameters.publishAndBuild.sourceControlProvider.providerLabel }} Repository
         url: \${{ steps['prepare-publish'].output.generatedFullRepoUrl }}
         if: \${{ (parameters.publishAndBuild.publishToSCM) and (steps['prepare-publish'].output.createNewRepo) }}
         icon: \${{ parameters.publishAndBuild.sourceControlProvider.provider | lower }}
 
       - title: GitHub Pull Request
         url: \${{ steps['publish-github-pull-request'].output.remoteUrl }}
-        if: \${{ (parameters.publishAndBuild.publishToSCM) and (not steps['prepare-publish'].output.createNewRepo) and (parameters.publishAndBuild.sourceControlProvider.provider == 'Github') }}
+        if: \${{ (parameters.publishAndBuild.publishToSCM) and (not steps['prepare-publish'].output.createNewRepo) and (parameters.publishAndBuild.sourceControlProvider.provider == 'github') }}
         icon: github
 
-      - title: \${{ parameters.publishAndBuild.sourceControlProvider.provider }} EE Build Workflow Run
+      - title: \${{ parameters.publishAndBuild.sourceControlProvider.providerLabel }} EE Build Workflow Run
         url: "https://\${{ steps['prepare-publish'].output.normalizedRepoUrl }}/actions/workflows/ee-build.yml"
         if: \${{ (parameters.publishAndBuild.buildExecutionEnvironment == true) }}
         icon: github
 
       - title: GitLab Merge Request
         url: \${{ steps['publish-gitlab-merge-request'].output.mergeRequestUrl  }}
-        if: \${{ (parameters.publishAndBuild.publishToSCM) and (not steps['prepare-publish'].output.createNewRepo) and (parameters.publishAndBuild.sourceControlProvider.provider == 'Gitlab') }}
+        if: \${{ (parameters.publishAndBuild.publishToSCM) and (not steps['prepare-publish'].output.createNewRepo) and (parameters.publishAndBuild.sourceControlProvider.provider == 'gitlab') }}
 
 
       - title: View details in catalog

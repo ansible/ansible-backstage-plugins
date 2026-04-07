@@ -44,6 +44,7 @@ interface ScmSelectorOptions {
 
 export interface ScmSelectorData {
   provider: string;
+  providerLabel: string;
   org: string;
   repoName: string;
   repoExists: boolean;
@@ -130,16 +131,15 @@ export const ScmSelectorExtension = ({
   const { requestUserCredentials, providers = [] } = options;
 
   const selectedProvider = formData?.provider ?? '';
+  const providerLabel = formData?.providerLabel ?? '';
   const selectedOrg = formData?.org ?? '';
   const repoName = formData?.repoName ?? '';
 
   const title = schema?.title || 'Source Control Provider';
   const description = schema?.description;
-  const enumValues = providers.map(p => p.label);
-
   const getProviderConfig = useCallback(
     (value: string): ProviderConfig | undefined =>
-      providers.find(p => p.label === value),
+      providers.find(p => p.provider === value),
     [providers],
   );
 
@@ -344,40 +344,54 @@ export const ScmSelectorExtension = ({
   const handleChange = useCallback(
     async (event: ChangeEvent<{ value: unknown }>) => {
       const value = event.target.value as string;
-      onChange({ provider: value, org: '', repoName: '', repoExists: false });
+      const config = getProviderConfig(value);
+      onChange({
+        provider: value,
+        providerLabel: config?.label ?? value,
+        org: '',
+        repoName: '',
+        repoExists: false,
+      });
       setRepoStatus(null);
 
       if (value && requestUserCredentials) {
         await authenticateWithProvider(value);
       }
     },
-    [onChange, requestUserCredentials, authenticateWithProvider],
+    [
+      onChange,
+      requestUserCredentials,
+      authenticateWithProvider,
+      getProviderConfig,
+    ],
   );
 
   const handleOrgChange = useCallback(
     (event: ChangeEvent<{ value: unknown }>) => {
       onChange({
         provider: selectedProvider,
+        providerLabel,
         org: event.target.value as string,
         repoName: '',
         repoExists: false,
       });
       setRepoStatus(null);
     },
-    [onChange, selectedProvider],
+    [onChange, selectedProvider, providerLabel],
   );
 
   const handleRepoNameChange = useCallback(
     (event: ChangeEvent<HTMLInputElement>) => {
       onChange({
         provider: selectedProvider,
+        providerLabel,
         org: selectedOrg,
         repoName: event.target.value,
         repoExists: false,
       });
       setRepoStatus(null);
     },
-    [onChange, selectedProvider, selectedOrg],
+    [onChange, selectedProvider, providerLabel, selectedOrg],
   );
 
   useEffect(() => {
@@ -450,6 +464,7 @@ export const ScmSelectorExtension = ({
         setRepoStatus(exists ? 'exists' : 'available');
         onChangeRef.current({
           provider: selectedProvider,
+          providerLabel,
           org: selectedOrg,
           repoName: trimmed,
           repoExists: exists,
@@ -533,10 +548,10 @@ export const ScmSelectorExtension = ({
             onChange={handleChange}
             className={classes.flexGrow}
           >
-            {enumValues.map(value => (
-              <MenuItem key={value} value={value}>
-                {value}
-                {isAuthenticated && selectedProvider === value && (
+            {providers.map(p => (
+              <MenuItem key={p.provider} value={p.provider}>
+                {p.label}
+                {isAuthenticated && selectedProvider === p.provider && (
                   <Chip
                     size="small"
                     label="Authenticated"
