@@ -188,9 +188,7 @@ export function EEBuildDialog({
             <MenuItem value="custom">Custom registry</MenuItem>
           </Select>
           <FormHelperText>
-            Container registry to push the built EE image to. PAH uses
-            ansible.rhaap.baseUrl from app-config. For custom, enter the URL
-            below.
+            Container registry to push the built EE image to.
           </FormHelperText>
         </FormControl>
 
