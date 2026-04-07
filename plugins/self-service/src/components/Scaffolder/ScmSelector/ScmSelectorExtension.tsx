@@ -482,6 +482,7 @@ export const ScmSelectorExtension = ({
     repoName,
     selectedOrg,
     selectedProvider,
+    providerLabel,
     isAuthenticated,
     getProviderType,
     getApiBaseUrl,
