@@ -1,5 +1,6 @@
 import { render, screen, waitFor, fireEvent } from '@testing-library/react';
 import { TestApiProvider } from '@backstage/test-utils';
+import { configApiRef } from '@backstage/core-plugin-api';
 import { scmAuthApiRef } from '@backstage/integration-react';
 import { catalogApiRef } from '@backstage/plugin-catalog-react';
 import { eeBuildApiRef } from '../../../apis';
@@ -237,6 +238,15 @@ const mockEeBuildApi = {
   triggerBuild: jest.fn().mockResolvedValue({ accepted: true }),
 };
 
+const mockConfigApi = {
+  getOptionalString: jest.fn((key: string): string | undefined => {
+    if (key === 'ansible.rhaap.baseUrl') {
+      return 'https://aap.example.com';
+    }
+    return undefined;
+  }),
+};
+
 // ------------------ Render helper ------------------
 const renderWithCatalogApi = (
   getEntitiesImpl: any,
@@ -260,6 +270,7 @@ const renderWithCatalogApi = (
     <MemoryRouter initialEntries={['/']}>
       <TestApiProvider
         apis={[
+          [configApiRef, mockConfigApi],
           [catalogApiRef, mockCatalogApi],
           [scmAuthApiRef, mockScmAuthApi],
           [eeBuildApiRef, mockEeBuildApi],
@@ -1800,6 +1811,7 @@ describe('EEListPage', () => {
         <MemoryRouter initialEntries={['/']}>
           <TestApiProvider
             apis={[
+              [configApiRef, mockConfigApi],
               [
                 catalogApiRef,
                 { getEntities: () => Promise.resolve({ items: [] }) },
@@ -1908,6 +1920,7 @@ describe('EEListPage', () => {
         <MemoryRouter initialEntries={['/']}>
           <TestApiProvider
             apis={[
+              [configApiRef, mockConfigApi],
               [
                 catalogApiRef,
                 { getEntities: () => Promise.resolve({ items: [] }) },

@@ -8,6 +8,7 @@ import {
 import { TestApiProvider } from '@backstage/test-utils';
 import { catalogApiRef } from '@backstage/plugin-catalog-react';
 import {
+  configApiRef,
   discoveryApiRef,
   identityApiRef,
   fetchApiRef,
@@ -161,6 +162,15 @@ delete (entityGitLabNoTree.spec as any).readme;
 
 const theme = createMuiTheme();
 
+const mockConfigApi = {
+  getOptionalString: jest.fn((key: string): string | undefined => {
+    if (key === 'ansible.rhaap.baseUrl') {
+      return 'https://aap.example.com';
+    }
+    return undefined;
+  }),
+};
+
 // ----------------- Helper render (provides catalog, discovery, identity, fetch APIs) -----------------
 const renderWithCatalogApi = (
   getEntitiesImpl: any,
@@ -206,6 +216,7 @@ const renderWithCatalogApi = (
     <MemoryRouter initialEntries={['/']}>
       <TestApiProvider
         apis={[
+          [configApiRef, mockConfigApi],
           [catalogApiRef, mockCatalogApi],
           [discoveryApiRef, mockDiscoveryApi],
           [identityApiRef, mockIdentityApi],
