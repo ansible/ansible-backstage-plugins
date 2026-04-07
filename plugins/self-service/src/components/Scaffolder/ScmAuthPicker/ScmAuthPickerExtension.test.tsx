@@ -405,4 +405,341 @@ describe('ScmAuthPickerExtension', () => {
 
     removeItemSpy.mockRestore();
   });
+
+  describe('namespace dropdown', () => {
+    it('renders GitHub personal namespace and orgs after auth', async () => {
+      (global.fetch as jest.Mock).mockImplementation(async (input: any) => {
+        const url = typeof input === 'string' ? input : input.toString();
+        if (url.includes('/user/orgs')) {
+          return {
+            ok: true,
+            status: 200,
+            json: async () => [{ login: 'my-org' }],
+          } as Response;
+        }
+        return {
+          ok: true,
+          status: 200,
+          json: async () => ({ login: 'testuser', username: 'testuser' }),
+        } as Response;
+      });
+
+      renderComponent({
+        formData: {
+          provider: 'Github',
+          org: '',
+          repoName: '',
+          repoExists: false,
+        },
+      });
+
+      await waitFor(
+        () => {
+          expect(screen.getByLabelText('Namespace')).toBeInTheDocument();
+        },
+        { timeout: 2000 },
+      );
+
+      fireEvent.mouseDown(screen.getByLabelText('Namespace'));
+
+      await waitFor(() => {
+        expect(screen.getByText('testuser (personal)')).toBeInTheDocument();
+        expect(screen.getByText('my-org')).toBeInTheDocument();
+      });
+    });
+
+    it('renders GitLab personal namespace and groups after auth', async () => {
+      (global.fetch as jest.Mock).mockImplementation(async (input: any) => {
+        const url = typeof input === 'string' ? input : input.toString();
+        if (url.includes('/groups')) {
+          return {
+            ok: true,
+            status: 200,
+            json: async () => [{ full_path: 'my-group', name: 'My Group' }],
+          } as Response;
+        }
+        return {
+          ok: true,
+          status: 200,
+          json: async () => ({ login: 'gluser', username: 'gluser' }),
+        } as Response;
+      });
+
+      renderComponent({
+        formData: {
+          provider: 'Gitlab',
+          org: '',
+          repoName: '',
+          repoExists: false,
+        },
+      });
+
+      await waitFor(
+        () => {
+          expect(screen.getByLabelText('Namespace')).toBeInTheDocument();
+        },
+        { timeout: 2000 },
+      );
+
+      fireEvent.mouseDown(screen.getByLabelText('Namespace'));
+
+      await waitFor(() => {
+        expect(screen.getByText('gluser (personal)')).toBeInTheDocument();
+        expect(screen.getByText('My Group')).toBeInTheDocument();
+      });
+    });
+
+    it('calls onChange with selected org and resets repoName', async () => {
+      (global.fetch as jest.Mock).mockImplementation(async (input: any) => {
+        const url = typeof input === 'string' ? input : input.toString();
+        if (url.includes('/user/orgs')) {
+          return {
+            ok: true,
+            status: 200,
+            json: async () => [{ login: 'my-org' }],
+          } as Response;
+        }
+        return {
+          ok: true,
+          status: 200,
+          json: async () => ({ login: 'testuser', username: 'testuser' }),
+        } as Response;
+      });
+
+      const onChange = jest.fn();
+      renderComponent({
+        onChange,
+        formData: {
+          provider: 'Github',
+          org: '',
+          repoName: '',
+          repoExists: false,
+        },
+      });
+
+      await waitFor(
+        () => {
+          expect(screen.getByLabelText('Namespace')).toBeInTheDocument();
+        },
+        { timeout: 2000 },
+      );
+
+      fireEvent.mouseDown(screen.getByLabelText('Namespace'));
+      const orgOption = await screen.findByRole('option', { name: 'my-org' });
+      fireEvent.click(orgOption);
+
+      expect(onChange).toHaveBeenCalledWith({
+        provider: 'Github',
+        org: 'my-org',
+        repoName: '',
+        repoExists: false,
+      });
+    });
+
+    it('shows error when namespace fetch fails', async () => {
+      (global.fetch as jest.Mock).mockImplementation(async () => {
+        return { ok: false, status: 500, json: async () => ({}) } as Response;
+      });
+
+      renderComponent({
+        formData: {
+          provider: 'Github',
+          org: '',
+          repoName: '',
+          repoExists: false,
+        },
+      });
+
+      await waitFor(() => {
+        expect(
+          screen.getByText('Failed to fetch GitHub namespaces'),
+        ).toBeInTheDocument();
+      });
+    });
+  });
+
+  describe('repository name field', () => {
+    it('calls onChange with repoName when typing in the repository field', async () => {
+      (global.fetch as jest.Mock).mockImplementation(async (input: any) => {
+        const url = typeof input === 'string' ? input : input.toString();
+        if (url.includes('/repos/')) {
+          return { ok: false, status: 404, json: async () => ({}) } as Response;
+        }
+        if (url.includes('/user/orgs')) {
+          return { ok: true, status: 200, json: async () => [] } as Response;
+        }
+        return {
+          ok: true,
+          status: 200,
+          json: async () => ({ login: 'testuser' }),
+        } as Response;
+      });
+
+      const onChange = jest.fn();
+      renderComponent({
+        onChange,
+        formData: {
+          provider: 'Github',
+          org: 'my-org',
+          repoName: 'init',
+          repoExists: false,
+        },
+      });
+
+      await waitFor(
+        () => {
+          expect(screen.getByDisplayValue('init')).toBeInTheDocument();
+        },
+        { timeout: 2000 },
+      );
+
+      fireEvent.change(screen.getByDisplayValue('init'), {
+        target: { value: 'new-repo' },
+      });
+
+      expect(onChange).toHaveBeenCalledWith({
+        provider: 'Github',
+        org: 'my-org',
+        repoName: 'new-repo',
+        repoExists: false,
+      });
+    });
+
+    it('shows "available" when repo does not exist (GitHub)', async () => {
+      (global.fetch as jest.Mock).mockImplementation(async (input: any) => {
+        const url = typeof input === 'string' ? input : input.toString();
+        if (url.includes('/repos/')) {
+          return { ok: false, status: 404, json: async () => ({}) } as Response;
+        }
+        if (url.includes('/user/orgs')) {
+          return { ok: true, status: 200, json: async () => [] } as Response;
+        }
+        return {
+          ok: true,
+          status: 200,
+          json: async () => ({ login: 'testuser' }),
+        } as Response;
+      });
+
+      renderComponent({
+        formData: {
+          provider: 'Github',
+          org: 'my-org',
+          repoName: 'new-repo',
+          repoExists: false,
+        },
+      });
+
+      await waitFor(
+        () => {
+          expect(screen.getByText('new-repo is available')).toBeInTheDocument();
+        },
+        { timeout: 2000 },
+      );
+    });
+
+    it('shows warning when repo exists (GitHub)', async () => {
+      (global.fetch as jest.Mock).mockImplementation(async (input: any) => {
+        const url = typeof input === 'string' ? input : input.toString();
+        if (url.includes('/repos/')) {
+          return { ok: true, status: 200, json: async () => ({}) } as Response;
+        }
+        if (url.includes('/user/orgs')) {
+          return { ok: true, status: 200, json: async () => [] } as Response;
+        }
+        return {
+          ok: true,
+          status: 200,
+          json: async () => ({ login: 'testuser' }),
+        } as Response;
+      });
+
+      renderComponent({
+        formData: {
+          provider: 'Github',
+          org: 'my-org',
+          repoName: 'existing-repo',
+          repoExists: false,
+        },
+      });
+
+      await waitFor(
+        () => {
+          expect(
+            screen.getByText(/already exists in the selected namespace/),
+          ).toBeInTheDocument();
+          expect(screen.getByText(/pull request/i)).toBeInTheDocument();
+        },
+        { timeout: 2000 },
+      );
+    });
+
+    it('shows "merge request" for GitLab when repo exists', async () => {
+      (global.fetch as jest.Mock).mockImplementation(async (input: any) => {
+        const url = typeof input === 'string' ? input : input.toString();
+        if (url.includes('/projects/')) {
+          return { ok: true, status: 200, json: async () => ({}) } as Response;
+        }
+        if (url.includes('/groups')) {
+          return { ok: true, status: 200, json: async () => [] } as Response;
+        }
+        return {
+          ok: true,
+          status: 200,
+          json: async () => ({ username: 'gluser' }),
+        } as Response;
+      });
+
+      renderComponent({
+        formData: {
+          provider: 'Gitlab',
+          org: 'my-group',
+          repoName: 'my-project',
+          repoExists: false,
+        },
+      });
+
+      await waitFor(
+        () => {
+          expect(screen.getByText(/merge request/i)).toBeInTheDocument();
+        },
+        { timeout: 2000 },
+      );
+    });
+  });
+
+  describe('getApiBaseUrl', () => {
+    it('uses explicit apiBaseUrl when provided', async () => {
+      const uiSchema = {
+        'ui:options': {
+          providers: [
+            {
+              label: 'Corp GHE',
+              provider: 'github',
+              host: 'ghe.corp.example.com',
+              apiBaseUrl: 'https://ghe.corp.example.com/api/v3',
+            },
+          ],
+          requestUserCredentials: { secretsKey: 'USER_OAUTH_TOKEN' },
+        },
+      };
+
+      renderComponent({
+        uiSchema,
+        formData: {
+          provider: 'Corp GHE',
+          org: '',
+          repoName: '',
+          repoExists: false,
+        },
+      });
+
+      await waitFor(() => {
+        expect(global.fetch).toHaveBeenCalledWith(
+          'https://ghe.corp.example.com/api/v3/user',
+          expect.any(Object),
+        );
+      });
+    });
+  });
 });

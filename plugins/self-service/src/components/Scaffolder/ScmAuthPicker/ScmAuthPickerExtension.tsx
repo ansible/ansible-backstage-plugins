@@ -85,9 +85,18 @@ const useStyles = makeStyles(theme => ({
   statusText: {
     fontSize: '0.75rem',
   },
-  repoAvailable: {
+  successText: {
     fontSize: '0.75rem',
     color: theme.palette.success.main,
+  },
+  sectionSpacing: {
+    marginTop: theme.spacing(2),
+  },
+  alertSpacing: {
+    marginTop: theme.spacing(1),
+  },
+  flexGrow: {
+    flex: 1,
   },
 }));
 
@@ -127,7 +136,6 @@ export const ScmAuthPickerExtension = ({
   const title = schema?.title || 'Source Control Provider';
   const description = schema?.description;
   const enumValues = providers.map(p => p.label);
-  const enumNames = enumValues;
 
   const getProviderConfig = useCallback(
     (value: string): ProviderConfig | undefined =>
@@ -301,7 +309,11 @@ export const ScmAuthPickerExtension = ({
           setSecrets({ [requestUserCredentials.secretsKey]: token });
           setIsAuthenticated(true);
           tokenRef.current = token;
-          fetchOrganizations(token, providerValue);
+          fetchOrganizations(token, providerValue).catch(err => {
+            setAuthError(
+              err instanceof Error ? err.message : 'Failed to fetch namespaces',
+            );
+          });
         } else {
           throw new Error('No token received from authentication');
         }
@@ -416,12 +428,15 @@ export const ScmAuthPickerExtension = ({
       try {
         let response: Response;
         if (providerType === 'github') {
-          response = await fetch(`${apiBase}/repos/${selectedOrg}/${trimmed}`, {
-            headers: {
-              Authorization: `Bearer ${token}`,
-              Accept: 'application/vnd.github+json',
+          response = await fetch(
+            `${apiBase}/repos/${encodeURIComponent(selectedOrg)}/${encodeURIComponent(trimmed)}`,
+            {
+              headers: {
+                Authorization: `Bearer ${token}`,
+                Accept: 'application/vnd.github+json',
+              },
             },
-          });
+          );
         } else {
           const projectPath = encodeURIComponent(`${selectedOrg}/${trimmed}`);
           response = await fetch(`${apiBase}/projects/${projectPath}`, {
@@ -488,10 +503,7 @@ export const ScmAuthPickerExtension = ({
       return (
         <Box className={classes.authStatus}>
           <CheckCircleIcon className={classes.successIcon} />
-          <Typography
-            className={classes.statusText}
-            style={{ color: '#4caf50' }}
-          >
+          <Typography className={classes.successText}>
             Authenticated with {getHostForValue(selectedProvider)}
           </Typography>
         </Box>
@@ -519,11 +531,11 @@ export const ScmAuthPickerExtension = ({
             label={title}
             value={selectedProvider}
             onChange={handleChange}
-            style={{ flex: 1 }}
+            className={classes.flexGrow}
           >
-            {enumValues.map((value, index) => (
+            {enumValues.map(value => (
               <MenuItem key={value} value={value}>
-                {enumNames[index] || value}
+                {value}
                 {isAuthenticated && selectedProvider === value && (
                   <Chip
                     size="small"
@@ -548,10 +560,9 @@ export const ScmAuthPickerExtension = ({
         selectedProvider &&
         (isFetchingOrgs || organizations.length > 0) && (
           <FormControl
-            className={classes.formControl}
+            className={`${classes.formControl} ${classes.sectionSpacing}`}
             disabled={isFetchingOrgs}
             variant="outlined"
-            style={{ marginTop: 16 }}
           >
             <InputLabel id="scm-org-picker-label" shrink={!!selectedOrg}>
               Namespace
@@ -562,7 +573,7 @@ export const ScmAuthPickerExtension = ({
                 label="Namespace"
                 value={selectedOrg}
                 onChange={handleOrgChange}
-                style={{ flex: 1 }}
+                className={classes.flexGrow}
               >
                 {organizations.map(org => (
                   <MenuItem key={org.id} value={org.name}>
@@ -575,7 +586,7 @@ export const ScmAuthPickerExtension = ({
           </FormControl>
         )}
       {isAuthenticated && selectedProvider && selectedOrg && (
-        <Box style={{ marginTop: 16 }}>
+        <Box className={classes.sectionSpacing}>
           <TextField
             fullWidth
             label="Repository Name"
@@ -592,13 +603,13 @@ export const ScmAuthPickerExtension = ({
           {repoStatus === 'available' && (
             <Box className={classes.authStatus}>
               <CheckCircleIcon className={classes.successIcon} />
-              <Typography className={classes.repoAvailable}>
+              <Typography className={classes.successText}>
                 {repoName.trim()} is available
               </Typography>
             </Box>
           )}
           {repoStatus === 'exists' && (
-            <Alert severity="warning" style={{ marginTop: 8 }}>
+            <Alert severity="warning" className={classes.alertSpacing}>
               <Typography variant="body2">
                 A repository with the name "{repoName.trim()}" already exists in
                 the selected namespace. If you proceed, a{' '}

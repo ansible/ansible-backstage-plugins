@@ -375,9 +375,9 @@ spec:
           customBaseImage: \${{ parameters.customBaseImage or '' }}
           collections: \${{ parameters.collections or [] }}
           pythonRequirements: \${{ parameters.advancedConfiguration.pythonRequirements or [] }}
-          pythonRequirementsFile: \${{ parameters.advancedConfiguration.pythonRequirementsFile or [] }}
+          pythonRequirementsFile: \${{ parameters.advancedConfiguration.pythonRequirementsFile or '' }}
           systemPackages: \${{ parameters.advancedConfiguration.systemPackages or [] }}
-          systemPackagesFile: \${{ parameters.advancedConfiguration.systemPackagesFile or [] }}
+          systemPackagesFile: \${{ parameters.advancedConfiguration.systemPackagesFile or '' }}
           additionalBuildSteps: \${{ parameters.advancedConfiguration.additionalBuildSteps or [] }}
           buildRegistry: \${{ parameters.publishAndBuild.buildRegistry === 'Custom Registry' and parameters.publishAndBuild.customRegistryUrl or parameters.publishAndBuild.buildRegistry or '' }}
           buildImageName: \${{ parameters.publishAndBuild.buildImageName or '' }}
