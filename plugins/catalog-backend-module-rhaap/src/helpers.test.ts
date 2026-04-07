@@ -2764,11 +2764,18 @@ describe('helpers', () => {
 
     it('returns 500 when credentials are missing from locals', async () => {
       const { res, status, json } = makeRes();
-      const result = await resolveEntityAndRepo(res, mockAuth, mockCatalog, 'component:default/my-ee');
+      const result = await resolveEntityAndRepo(
+        res,
+        mockAuth,
+        mockCatalog,
+        'component:default/my-ee',
+      );
       expect(result).toBeUndefined();
       expect(status).toHaveBeenCalledWith(500);
       expect(json).toHaveBeenCalledWith(
-        expect.objectContaining({ error: expect.stringContaining('missing auth context') }),
+        expect.objectContaining({
+          error: expect.stringContaining('missing auth context'),
+        }),
       );
     });
 
@@ -2778,11 +2785,18 @@ describe('helpers', () => {
       mockAuth.getPluginRequestToken.mockResolvedValue({ token: 'cat-tok' });
       mockCatalog.getEntityByRef.mockResolvedValue(undefined);
 
-      const result = await resolveEntityAndRepo(res, mockAuth, mockCatalog, 'component:default/missing');
+      const result = await resolveEntityAndRepo(
+        res,
+        mockAuth,
+        mockCatalog,
+        'component:default/missing',
+      );
       expect(result).toBeUndefined();
       expect(status).toHaveBeenCalledWith(404);
       expect(json).toHaveBeenCalledWith(
-        expect.objectContaining({ error: expect.stringContaining('not found') }),
+        expect.objectContaining({
+          error: expect.stringContaining('not found'),
+        }),
       );
     });
 
@@ -2796,13 +2810,19 @@ describe('helpers', () => {
         metadata: {
           name: 'my-ee',
           annotations: {
-            'backstage.io/source-location': 'url:https://github.com/acme/repo/tree/main/ee',
+            'backstage.io/source-location':
+              'url:https://github.com/acme/repo/tree/main/ee',
           },
         },
         spec: { type: 'execution-environment' },
       });
 
-      const result = await resolveEntityAndRepo(res, mockAuth, mockCatalog, 'component:default/my-ee');
+      const result = await resolveEntityAndRepo(
+        res,
+        mockAuth,
+        mockCatalog,
+        'component:default/my-ee',
+      );
       expect(result).toBeDefined();
       expect(result!.gh.owner).toBe('acme');
       expect(result!.gh.repo).toBe('repo');
@@ -2828,11 +2848,18 @@ describe('helpers', () => {
       respError.body = { error: 'Forbidden' };
       mockCatalog.getEntityByRef.mockRejectedValue(respError);
 
-      const result = await resolveEntityAndRepo(res, mockAuth, mockCatalog, 'component:default/my-ee');
+      const result = await resolveEntityAndRepo(
+        res,
+        mockAuth,
+        mockCatalog,
+        'component:default/my-ee',
+      );
       expect(result).toBeUndefined();
       expect(status).toHaveBeenCalledWith(403);
       expect(json).toHaveBeenCalledWith(
-        expect.objectContaining({ error: expect.stringContaining('Not allowed') }),
+        expect.objectContaining({
+          error: expect.stringContaining('Not allowed'),
+        }),
       );
     });
 
@@ -2847,11 +2874,18 @@ describe('helpers', () => {
         spec: { type: 'execution-environment' },
       });
 
-      const result = await resolveEntityAndRepo(res, mockAuth, mockCatalog, 'component:default/bad-ee');
+      const result = await resolveEntityAndRepo(
+        res,
+        mockAuth,
+        mockCatalog,
+        'component:default/bad-ee',
+      );
       expect(result).toBeUndefined();
       expect(status).toHaveBeenCalledWith(400);
       expect(json).toHaveBeenCalledWith(
-        expect.objectContaining({ error: expect.stringContaining('source annotation') }),
+        expect.objectContaining({
+          error: expect.stringContaining('source annotation'),
+        }),
       );
     });
   });
@@ -2859,7 +2893,13 @@ describe('helpers', () => {
   describe('dispatchEeBuild', () => {
     const ghConfig = new ConfigReader({
       integrations: {
-        github: [{ host: 'github.com', token: 'tok', apiBaseUrl: 'https://api.github.com' }],
+        github: [
+          {
+            host: 'github.com',
+            token: 'tok',
+            apiBaseUrl: 'https://api.github.com',
+          },
+        ],
       },
     });
     const mockLogger = {
@@ -2868,7 +2908,12 @@ describe('helpers', () => {
       error: jest.fn(),
       debug: jest.fn(),
     } as any;
-    const gh = { host: 'github.com', owner: 'acme', repo: 'widgets', ref: 'main' };
+    const gh = {
+      host: 'github.com',
+      owner: 'acme',
+      repo: 'widgets',
+      ref: 'main',
+    };
     const parsedBody = {
       customRegistryUrl: 'quay.io/org',
       imageName: 'my-img',
@@ -2899,7 +2944,16 @@ describe('helpers', () => {
       });
 
       const { res, status, json } = makeRes();
-      await dispatchEeBuild(res, mockLogger, ghConfig, gh, 'ee', 'ee.yml', 'gh-tok', parsedBody);
+      await dispatchEeBuild(
+        res,
+        mockLogger,
+        ghConfig,
+        gh,
+        'ee',
+        'ee.yml',
+        'gh-tok',
+        parsedBody,
+      );
 
       expect(status).toHaveBeenCalledWith(202);
       expect(json).toHaveBeenCalledWith(
@@ -2918,7 +2972,16 @@ describe('helpers', () => {
       });
 
       const { res, status, json } = makeRes();
-      await dispatchEeBuild(res, mockLogger, ghConfig, gh, 'ee', 'ee.yml', 'gh-tok', parsedBody);
+      await dispatchEeBuild(
+        res,
+        mockLogger,
+        ghConfig,
+        gh,
+        'ee',
+        'ee.yml',
+        'gh-tok',
+        parsedBody,
+      );
 
       expect(status).toHaveBeenCalledWith(202);
       expect(json).toHaveBeenCalledWith({ message: 'Build started' });
@@ -2933,11 +2996,22 @@ describe('helpers', () => {
       });
 
       const { res, status, json } = makeRes();
-      await dispatchEeBuild(res, mockLogger, ghConfig, gh, 'ee', 'ee.yml', 'gh-tok', parsedBody);
+      await dispatchEeBuild(
+        res,
+        mockLogger,
+        ghConfig,
+        gh,
+        'ee',
+        'ee.yml',
+        'gh-tok',
+        parsedBody,
+      );
 
       expect(status).toHaveBeenCalledWith(422);
       expect(json).toHaveBeenCalledWith(
-        expect.objectContaining({ error: expect.stringContaining('Unexpected inputs') }),
+        expect.objectContaining({
+          error: expect.stringContaining('Unexpected inputs'),
+        }),
       );
     });
 
@@ -2950,11 +3024,22 @@ describe('helpers', () => {
       });
 
       const { res, status, json } = makeRes();
-      await dispatchEeBuild(res, mockLogger, ghConfig, gh, 'ee', 'ee.yml', 'gh-tok', parsedBody);
+      await dispatchEeBuild(
+        res,
+        mockLogger,
+        ghConfig,
+        gh,
+        'ee',
+        'ee.yml',
+        'gh-tok',
+        parsedBody,
+      );
 
       expect(status).toHaveBeenCalledWith(502);
       expect(json).toHaveBeenCalledWith(
-        expect.objectContaining({ error: expect.stringContaining('Internal Server Error') }),
+        expect.objectContaining({
+          error: expect.stringContaining('Internal Server Error'),
+        }),
       );
     });
 
@@ -2962,7 +3047,16 @@ describe('helpers', () => {
       mockDispatchActionsWorkflow.mockResolvedValue({ ok: true, status: 200 });
 
       const { res } = makeRes();
-      await dispatchEeBuild(res, mockLogger, ghConfig, gh, 'my/ee', 'ee.yml', 'gh-tok', parsedBody);
+      await dispatchEeBuild(
+        res,
+        mockLogger,
+        ghConfig,
+        gh,
+        'my/ee',
+        'ee.yml',
+        'gh-tok',
+        parsedBody,
+      );
 
       expect(mockDispatchActionsWorkflow).toHaveBeenCalledWith(
         'acme',
