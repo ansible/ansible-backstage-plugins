@@ -131,9 +131,6 @@ function parseExecutionEnvironmentBuildResponse(text: string): {
   }
 }
 
-/**
- * Placeholder client for catalog POST `/execution_environment/build` (backend TBD).
- */
 export interface EEBuildApi {
   triggerBuild(
     request: EEBuildRequest,
