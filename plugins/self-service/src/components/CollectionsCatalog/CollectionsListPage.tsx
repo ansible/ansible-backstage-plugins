@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, type ReactNode } from 'react';
 import { Progress } from '@backstage/core-components';
 import {
   Box,
@@ -111,6 +111,7 @@ export const CollectionsListPage = ({
 
   const {
     entities: paginatedEntities,
+    loadedEntityCount,
     totalCount,
     initialLoading,
     loadingMore,
@@ -166,12 +167,54 @@ export const CollectionsListPage = ({
     return <div>Error: {error}</div>;
   }
 
-  const showEmptyState = !initialLoading && totalCount === 0 && !loadingMore;
+  const showCatalogEmptyState =
+    !initialLoading &&
+    !loadingMore &&
+    (filterByRepositoryEntity ? totalCount === 0 : loadedEntityCount === 0);
+
+  const showNoFilterMatches =
+    !initialLoading &&
+    !loadingMore &&
+    !filterByRepositoryEntity &&
+    loadedEntityCount > 0 &&
+    totalCount === 0;
+
+  let collectionsCardsContent: ReactNode;
+  if (initialLoading) {
+    collectionsCardsContent = (
+      <Box className={classes.cardsContainer}>
+        <Progress />
+      </Box>
+    );
+  } else if (showNoFilterMatches) {
+    collectionsCardsContent = (
+      <Box className={classes.cardsContainer}>
+        <Typography variant="body1" color="textSecondary" component="p">
+          No collections match your search or filters.
+        </Typography>
+      </Box>
+    );
+  } else {
+    collectionsCardsContent = (
+      <Box className={classes.cardsContainer}>
+        {displayedEntities.map(entity => (
+          <CollectionCard
+            key={entity.metadata.uid || entity.metadata.name}
+            entity={entity}
+            onClick={navigate}
+            isStarred={isStarredEntity(entity)}
+            onToggleStar={toggleStarredEntity}
+            syncStatusMap={syncStatusMap}
+          />
+        ))}
+      </Box>
+    );
+  }
 
   return (
     <div style={{ flexDirection: 'column', width: '100%' }}>
       <CollectionsTypeFilter />
-      {showEmptyState ? (
+      {showCatalogEmptyState ? (
         <EmptyStateWrapper
           filterByRepositoryEntity={!!filterByRepositoryEntity}
           onSyncClick={onSyncClick}
@@ -322,24 +365,7 @@ export const CollectionsListPage = ({
                   </Typography>
                 </Box>
 
-                {initialLoading ? (
-                  <Box className={classes.cardsContainer}>
-                    <Progress />
-                  </Box>
-                ) : (
-                  <Box className={classes.cardsContainer}>
-                    {displayedEntities.map(entity => (
-                      <CollectionCard
-                        key={entity.metadata.uid || entity.metadata.name}
-                        entity={entity}
-                        onClick={navigate}
-                        isStarred={isStarredEntity(entity)}
-                        onToggleStar={toggleStarredEntity}
-                        syncStatusMap={syncStatusMap}
-                      />
-                    ))}
-                  </Box>
-                )}
+                {collectionsCardsContent}
 
                 {!initialLoading && totalPages > 1 && (
                   <Box className={classes.paginationContainer}>

@@ -62,6 +62,11 @@ class SyncPollingService {
   private discoveryApi: DiscoveryApi | null = null;
   private fetchApi: FetchApi | null = null;
   private readonly trackedSyncs: Map<string, TrackedSync> = new Map();
+  private providerSyncSnapshot = new Map<
+    string,
+    { lastSyncTime: string | null; syncInProgress: boolean }
+  >();
+  private providerSyncBaselineCaptured = false;
   private pollTimer: NodeJS.Timeout | null = null;
   private pollLoopStarted = false;
   private pollGeneration = 0;
@@ -145,6 +150,8 @@ class SyncPollingService {
         return this.isSyncInProgress || this.trackedSyncs.size > 0;
       }
 
+      const trackedProvidersAtStart = new Set(this.trackedSyncs.keys());
+
       const anyProviderInProgress = providers.some(p => p.syncInProgress);
       const effectiveInProgress =
         anyProviderInProgress || this.trackedSyncs.size > 0;
@@ -205,6 +212,34 @@ class SyncPollingService {
           this.trackedSyncs.delete(sourceId);
         }
       }
+
+      if (this.providerSyncBaselineCaptured) {
+        for (const p of providers) {
+          if (trackedProvidersAtStart.has(p.sourceId)) {
+            continue;
+          }
+          const prev = this.providerSyncSnapshot.get(p.sourceId);
+          if (!prev) {
+            continue;
+          }
+          const finishedRun =
+            (!p.syncInProgress && p.lastSyncTime !== prev.lastSyncTime) ||
+            (prev.syncInProgress && !p.syncInProgress);
+          if (finishedRun) {
+            collectionsCache.invalidateFetchedData();
+            break;
+          }
+        }
+      } else {
+        this.providerSyncBaselineCaptured = true;
+      }
+
+      this.providerSyncSnapshot = new Map(
+        providers.map(p => [
+          p.sourceId,
+          { lastSyncTime: p.lastSyncTime, syncInProgress: p.syncInProgress },
+        ]),
+      );
 
       return anyProviderInProgress || this.trackedSyncs.size > 0;
     } finally {
@@ -278,6 +313,8 @@ class SyncPollingService {
     }
     this.pollLoopStarted = false;
     this.trackedSyncs.clear();
+    this.providerSyncSnapshot.clear();
+    this.providerSyncBaselineCaptured = false;
     this.isSyncInProgress = false;
     this.listeners.clear();
     this.discoveryApi = null;
