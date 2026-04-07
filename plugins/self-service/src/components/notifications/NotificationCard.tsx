@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, type ReactNode } from 'react';
 import {
   Box,
   Collapse,
@@ -16,6 +16,18 @@ import ExpandMoreIcon from '@material-ui/icons/ExpandMore';
 import ExpandLessIcon from '@material-ui/icons/ExpandLess';
 
 import { NotificationCardProps, NotificationSeverity } from './types';
+
+function hasRenderableDescription(
+  description: string | ReactNode | undefined,
+): boolean {
+  if (description === undefined || description === null) {
+    return false;
+  }
+  if (typeof description === 'string') {
+    return description.trim().length > 0;
+  }
+  return true;
+}
 
 const severityColors: Record<
   NotificationSeverity,
@@ -270,8 +282,8 @@ export const NotificationCard = ({
             </IconButton>
           </Box>
 
-          {notification.description && (
-            <Typography className={classes.description}>
+          {hasRenderableDescription(notification.description) && (
+            <Typography component="div" className={classes.description}>
               {notification.description}
             </Typography>
           )}

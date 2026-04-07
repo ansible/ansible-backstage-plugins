@@ -265,6 +265,7 @@ describe('EEBuildApiClient', () => {
     expect(result).toEqual({
       accepted: true,
       workflowId: 'run-123',
+      workflowUrl: undefined,
       message: 'queued',
     });
     expect(mockFetch.fetch).toHaveBeenCalledWith(
@@ -308,7 +309,45 @@ describe('EEBuildApiClient', () => {
     expect(result).toEqual({
       accepted: true,
       workflowId: '999',
+      workflowUrl: undefined,
       message: undefined,
+    });
+  });
+
+  it('parses workflow_url (snake_case) on success', async () => {
+    const mockFetch = {
+      fetch: jest.fn().mockResolvedValue({
+        ok: true,
+        text: async () =>
+          JSON.stringify({
+            message: 'Build started',
+            workflow_id: 42,
+            workflow_url: 'https://github.com/acme/repo/actions/runs/42',
+          }),
+      }),
+    };
+    const client = new EEBuildApiClient({
+      discoveryApi: mockDiscovery as any,
+      fetchApi: mockFetch as any,
+    });
+
+    const result = await client.triggerBuild(
+      {
+        entityRef: 'component:default/ee1',
+        registryType: 'pah',
+        customRegistryUrl: 'https://r.example',
+        imageName: 'ns/ee',
+        imageTag: '1',
+        verifyTls: true,
+      },
+      { githubToken: 'tok' },
+    );
+
+    expect(result).toEqual({
+      accepted: true,
+      workflowId: '42',
+      workflowUrl: 'https://github.com/acme/repo/actions/runs/42',
+      message: 'Build started',
     });
   });
 
@@ -340,6 +379,7 @@ describe('EEBuildApiClient', () => {
     expect(result).toEqual({
       accepted: true,
       workflowId: undefined,
+      workflowUrl: undefined,
       message: 'ok',
     });
   });
@@ -371,6 +411,7 @@ describe('EEBuildApiClient', () => {
     expect(result).toEqual({
       accepted: true,
       workflowId: undefined,
+      workflowUrl: undefined,
       message: undefined,
     });
   });

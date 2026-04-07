@@ -1,4 +1,4 @@
-import type { ComponentProps } from 'react';
+import type { ComponentProps, ReactNode } from 'react';
 import { render, screen, waitFor, fireEvent } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { TestApiProvider } from '@backstage/test-utils';
@@ -6,8 +6,26 @@ import { configApiRef } from '@backstage/core-plugin-api';
 import { ThemeProvider, createMuiTheme } from '@material-ui/core/styles';
 import type { Entity } from '@backstage/catalog-model';
 import { eeBuildApiRef } from '../../../apis';
-import { NotificationProvider, notificationStore } from '../../notifications';
+import {
+  NotificationProvider,
+  NotificationStack,
+  notificationStore,
+  useNotifications,
+} from '../../notifications';
 import { EEBuildDialog } from './EEBuildDialog';
+
+function EeBuildNotificationShell({ children }: { children: ReactNode }) {
+  const { notifications, removeNotification } = useNotifications();
+  return (
+    <>
+      {children}
+      <NotificationStack
+        notifications={notifications}
+        onClose={removeNotification}
+      />
+    </>
+  );
+}
 
 const mockTriggerBuild = jest.fn();
 const mockOnClose = jest.fn();
@@ -48,15 +66,17 @@ function renderDialog(
       ]}
     >
       <NotificationProvider>
-        <ThemeProvider theme={theme}>
-          <EEBuildDialog
-            open
-            entity={testEntity}
-            githubToken="gh-mock-token"
-            onClose={mockOnClose}
-            {...props}
-          />
-        </ThemeProvider>
+        <EeBuildNotificationShell>
+          <ThemeProvider theme={theme}>
+            <EEBuildDialog
+              open
+              entity={testEntity}
+              githubToken="gh-mock-token"
+              onClose={mockOnClose}
+              {...props}
+            />
+          </ThemeProvider>
+        </EeBuildNotificationShell>
       </NotificationProvider>
     </TestApiProvider>,
   );
@@ -172,6 +192,7 @@ describe('EEBuildDialog', () => {
     mockTriggerBuild.mockResolvedValue({
       accepted: true,
       workflowId: 'wf-99',
+      workflowUrl: 'https://github.com/acme/widgets/actions/runs/99001',
     });
 
     renderDialog();
@@ -200,11 +221,22 @@ describe('EEBuildDialog', () => {
       expect(showSpy).toHaveBeenCalledWith(
         expect.objectContaining({
           title: 'Build triggered',
-          description: 'Build workflow id: wf-99',
           severity: 'success',
         }),
       );
     });
+    await waitFor(() => {
+      expect(document.body.textContent).toContain('Build workflow id: wf-99');
+      expect(document.body.textContent).toContain('Build workflow url:');
+    });
+    const runLink = screen.getByRole('link', {
+      name: 'https://github.com/acme/widgets/actions/runs/99001',
+    });
+    expect(runLink).toHaveAttribute(
+      'href',
+      'https://github.com/acme/widgets/actions/runs/99001',
+    );
+    expect(runLink).toHaveAttribute('target', '_blank');
     expect(mockOnClose).toHaveBeenCalled();
     showSpy.mockRestore();
   });

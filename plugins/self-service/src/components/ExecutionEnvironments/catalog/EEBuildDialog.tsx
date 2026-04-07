@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, type ReactNode } from 'react';
 import {
   Button,
   Checkbox,
@@ -11,6 +11,7 @@ import {
   FormControlLabel,
   FormHelperText,
   InputLabel,
+  Link,
   MenuItem,
   Select,
   TextField,
@@ -22,6 +23,39 @@ import { configApiRef, useApi } from '@backstage/core-plugin-api';
 import { useNotifications } from '../../notifications';
 import { eeBuildApiRef, type EEBuildRegistryType } from '../../../apis';
 import { normalizePahRegistryUrlForBuild } from './helpers';
+
+function buildTriggeredDescriptionNode(
+  workflowId?: string,
+  workflowUrl?: string,
+): ReactNode | undefined {
+  if (!workflowId && !workflowUrl) {
+    return undefined;
+  }
+  return (
+    <>
+      {workflowId ? (
+        <>
+          Build workflow id: {workflowId}
+          {workflowUrl ? <br /> : null}
+        </>
+      ) : null}
+      {workflowUrl ? (
+        <>
+          Build workflow url:{' '}
+          <Link
+            href={workflowUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            color="primary"
+            underline="always"
+          >
+            {workflowUrl}
+          </Link>
+        </>
+      ) : null}
+    </>
+  );
+}
 
 const useStyles = makeStyles(theme => ({
   field: {
@@ -140,9 +174,10 @@ export function EEBuildDialog({
       if (result.accepted) {
         showNotification({
           title: 'Build triggered',
-          description: result.workflowId
-            ? `Build workflow id: ${result.workflowId}`
-            : undefined,
+          description: buildTriggeredDescriptionNode(
+            result.workflowId,
+            result.workflowUrl,
+          ),
           severity: 'success',
         });
         onClose();

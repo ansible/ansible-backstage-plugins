@@ -1,5 +1,6 @@
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import Link from '@material-ui/core/Link';
 import { ThemeProvider, createTheme } from '@material-ui/core/styles';
 import { NotificationCard } from './NotificationCard';
 import type { Notification } from './types';
@@ -36,6 +37,28 @@ describe('NotificationCard', () => {
       () => {},
     );
     expect(screen.getByText('Test description')).toBeInTheDocument();
+  });
+
+  it('renders ReactNode description with links', () => {
+    renderWithTheme(
+      {
+        ...baseNotification,
+        description: (
+          <>
+            Build workflow id: 1<br />
+            Build workflow url:{' '}
+            <Link href="https://github.com/o/r/actions/runs/1">link text</Link>
+          </>
+        ),
+      },
+      () => {},
+    );
+    expect(document.body.textContent).toContain('Build workflow id: 1');
+    expect(document.body.textContent).toContain('Build workflow url:');
+    expect(screen.getByRole('link', { name: 'link text' })).toHaveAttribute(
+      'href',
+      'https://github.com/o/r/actions/runs/1',
+    );
   });
 
   it('does not render description when not provided', () => {

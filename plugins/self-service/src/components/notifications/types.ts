@@ -1,9 +1,11 @@
+import type { ReactNode } from 'react';
+
 export type NotificationSeverity = 'info' | 'success' | 'error' | 'warning';
 
 export interface Notification {
   id: string;
   title: string;
-  description?: string;
+  description?: string | ReactNode;
   items?: string[];
   severity: NotificationSeverity;
   collapsible?: boolean;
@@ -15,7 +17,7 @@ export interface Notification {
 
 export interface ShowNotificationOptions {
   title: string;
-  description?: string;
+  description?: string | ReactNode;
   items?: string[];
   severity?: NotificationSeverity;
   collapsible?: boolean;

@@ -60,6 +60,8 @@ export interface EEBuildResult {
   accepted: boolean;
   /** CI/workflow run id when returned by the catalog build API (JSON `workflowId` or `workflow_id`). */
   workflowId?: string;
+  /** Link to the workflow run when returned */
+  workflowUrl?: string;
   message?: string;
 }
 
@@ -85,6 +87,14 @@ function workflowIdFromJsonValue(raw: unknown): string | undefined {
   return undefined;
 }
 
+function workflowUrlFromJsonValue(raw: unknown): string | undefined {
+  if (typeof raw !== 'string') {
+    return undefined;
+  }
+  const t = raw.trim();
+  return t.length > 0 ? t : undefined;
+}
+
 function userTextFromBuildJson(
   data: Record<string, unknown>,
 ): string | undefined {
@@ -99,6 +109,7 @@ function userTextFromBuildJson(
 
 function parseExecutionEnvironmentBuildResponse(text: string): {
   workflowId?: string;
+  workflowUrl?: string;
   message?: string;
 } {
   const trimmed = text.trim();
@@ -110,8 +121,11 @@ function parseExecutionEnvironmentBuildResponse(text: string): {
     const workflowId = workflowIdFromJsonValue(
       data.workflowId ?? data.workflow_id,
     );
+    const workflowUrl = workflowUrlFromJsonValue(
+      data.workflowUrl ?? data.workflow_url,
+    );
     const message = userTextFromBuildJson(data);
-    return { workflowId, message };
+    return { workflowId, workflowUrl, message };
   } catch {
     return { message: trimmed };
   }
@@ -247,6 +261,7 @@ export class EEBuildApiClient implements EEBuildApi {
         return {
           accepted: true,
           workflowId: parsed.workflowId,
+          workflowUrl: parsed.workflowUrl,
           message: parsed.message,
         };
       }
