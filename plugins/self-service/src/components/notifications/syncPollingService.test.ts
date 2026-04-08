@@ -319,6 +319,69 @@ describe('syncPollingService', () => {
       );
     });
 
+    it('sets isSyncInProgress to false in the same poll when the last tracked sync completes', async () => {
+      let callCount = 0;
+      mockFetchApi.fetch.mockImplementation(() => {
+        callCount++;
+        if (callCount <= 2) {
+          return Promise.resolve({
+            ok: true,
+            json: () =>
+              Promise.resolve({
+                content: {
+                  providers: [
+                    {
+                      sourceId: 'src-1',
+                      syncInProgress: true,
+                      lastSyncTime: null,
+                    },
+                  ],
+                },
+              }),
+          });
+        }
+        return Promise.resolve({
+          ok: true,
+          json: () =>
+            Promise.resolve({
+              content: {
+                providers: [
+                  {
+                    sourceId: 'src-1',
+                    syncInProgress: false,
+                    lastSyncTime: '2024-01-01T12:00:00Z',
+                    lastSyncStatus: 'success',
+                    collectionsFound: 1,
+                    collectionsDelta: 0,
+                  },
+                ],
+              },
+            }),
+        });
+      });
+
+      syncPollingService.initialize(
+        mockDiscoveryApi as any,
+        mockFetchApi as any,
+      );
+      await jest.advanceTimersByTimeAsync(0);
+
+      const listener = jest.fn();
+      syncPollingService.subscribe(listener);
+      listener.mockClear();
+
+      syncPollingService.startTracking([
+        { sourceId: 'src-1', displayName: 'Source 1', lastSyncTime: null },
+      ]);
+      await jest.advanceTimersByTimeAsync(0);
+      expect(syncPollingService.getIsSyncInProgress()).toBe(true);
+
+      await jest.advanceTimersByTimeAsync(FAST_POLL_INTERVAL_MS);
+
+      expect(syncPollingService.getIsSyncInProgress()).toBe(false);
+      expect(listener).toHaveBeenCalledWith(false);
+    });
+
     it('shows failure notification when sync fails', async () => {
       let callCount = 0;
       mockFetchApi.fetch.mockImplementation(() => {

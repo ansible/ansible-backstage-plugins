@@ -275,15 +275,17 @@ class SyncPollingService {
       }
 
       const trackedProvidersAtStart = new Set(this.trackedSyncs.keys());
-      const anyProviderInProgress =
-        this.updateInProgressFromProviders(providers);
-
       this.processTrackedSyncCompletions(providers, Date.now());
       this.checkUntrackedProviderFinishedRuns(
         providers,
         trackedProvidersAtStart,
       );
       this.replaceProviderSnapshot(providers);
+
+      // Recompute after tracked-sync cleanup so isSyncInProgress matches
+      // providers.any(syncInProgress) or trackedSyncs.size (not stale size).
+      const anyProviderInProgress =
+        this.updateInProgressFromProviders(providers);
 
       return anyProviderInProgress || this.trackedSyncs.size > 0;
     } finally {
