@@ -169,6 +169,10 @@ export function prepareForPublishAction(options: { rootConfig: Config }) {
         } else if (scmProvider === 'gitlab') {
           catalogInfoUrl = `https://${host}/${repositoryOwner}/${repositoryName}/-/blob/main/${contextDirName}/catalog-info.yaml`;
           fullRepoUrl = `https://${host}/${repositoryOwner}/${repositoryName}/-/blob/main/${contextDirName}/`;
+        } else {
+          throw new Error(
+            `Unsupported SCM provider '${scmProvider}' for repository ${repositoryOwner}/${repositoryName}/${contextDirName}`,
+          );
         }
         logger.info(`Generated repository contents URL: ${catalogInfoUrl}`);
         ctx.output('generatedCatalogInfoUrl', catalogInfoUrl);

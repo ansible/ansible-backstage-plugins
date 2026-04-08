@@ -121,7 +121,7 @@ export const ScmSelectorExtension = ({
   const [organizations, setOrganizations] = useState<OrgItem[]>([]);
   const [isFetchingOrgs, setIsFetchingOrgs] = useState(false);
   const [repoStatus, setRepoStatus] = useState<
-    'checking' | 'available' | 'exists' | null
+    'checking' | 'available' | 'exists' | 'error' | null
   >(null);
   const tokenRef = useRef<string | null>(null);
   const onChangeRef = useRef(onChange);
@@ -470,7 +470,9 @@ export const ScmSelectorExtension = ({
           repoExists: exists,
         });
       } catch {
-        if (!cancelled) setRepoStatus(null);
+        if (!cancelled) {
+          setRepoStatus('error');
+        }
       }
     }, 500);
 
@@ -621,6 +623,14 @@ export const ScmSelectorExtension = ({
               <CheckCircleIcon className={classes.successIcon} />
               <Typography className={classes.successText}>
                 {repoName.trim()} is available
+              </Typography>
+            </Box>
+          )}
+          {repoStatus === 'error' && (
+            <Box className={classes.authStatus}>
+              <ErrorIcon className={classes.errorIcon} />
+              <Typography className={classes.statusText} color="error">
+                Failed to check repository availability
               </Typography>
             </Box>
           )}
