@@ -27,27 +27,13 @@ const useStyles = makeStyles(() => ({
 
 export const EEHeader = () => {
   const headerTitle = (
-    <Box style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-      <Typography
-        variant="h4"
-        component="h1"
-        style={{ fontWeight: 'bold', fontSize: '2rem' }}
-      >
-        Execution Environments definition files
-      </Typography>
-      <Box
-        style={{
-          backgroundColor: 'transparent',
-          color: 'inherit',
-          padding: '4px 12px',
-          borderRadius: '20px',
-          fontSize: '12px',
-          border: '1px solid #1976d2',
-        }}
-      >
-        Technology Preview
-      </Box>
-    </Box>
+    <Typography
+      variant="h4"
+      component="h1"
+      style={{ fontWeight: 'bold', fontSize: '2rem' }}
+    >
+      Execution Environments definition files
+    </Typography>
   );
 
   return (

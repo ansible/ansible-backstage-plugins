@@ -335,7 +335,7 @@ describe('EEDetailsPage', () => {
     const editDefinitionItem = await screen.findByText(/Edit definition/i);
     fireEvent.click(editDefinitionItem);
 
-    expect(openSpy).toHaveBeenCalledWith('http://edit/ee-one.yaml', '_blank');
+    expect(openSpy).toHaveBeenCalledWith('http://edit/ee-one.yml', '_blank');
     openSpy.mockRestore();
   });
 

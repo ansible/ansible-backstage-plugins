@@ -47,6 +47,38 @@ const useStyles = makeStyles(theme => ({
   },
 }));
 
+function maskEEBuilderTokens(value: string): string {
+  return value.replace(/\$\{[^}]+\}/g, 'token');
+}
+
+/**
+ * Extracts the `org/repo` path from a tokenized SCM git URL
+ * (e.g. `https://${TOKEN}@github.com/org/repo`).
+ * Returns the original value unchanged when it isn't a URL.
+ */
+function formatCollectionName(name: string): string {
+  try {
+    const url = new URL(maskEEBuilderTokens(name));
+    const urlPath = url.pathname.replace(/^\//, '').replace(/\.git$/, '');
+    return urlPath || name;
+  } catch {
+    return name;
+  }
+}
+
+/**
+ * Formats the version suffix for display.
+ * SCM collections (`type: 'git'`) show `(ref)`, e.g. `(main)`.
+ * Regular collections show `vX.Y.Z`.
+ */
+function formatCollectionVersion(
+  version: string | undefined,
+  type: string | undefined,
+): string {
+  if (!version) return '';
+  return type === 'git' ? ` (${version})` : ` v${version}`;
+}
+
 interface DefinedContentCardProps {
   parsedDefinition: ParsedEEDefinition | null;
 }
@@ -100,8 +132,8 @@ export const DefinedContentCard: React.FC<DefinedContentCardProps> = ({
             {collections && collections.length > 0 ? (
               collections.map(c => (
                 <Typography key={c.name} variant="body2">
-                  {c.name}
-                  {c.version ? ` v${c.version}` : ''}
+                  {formatCollectionName(c.name)}
+                  {formatCollectionVersion(c.version, c.type)}
                 </Typography>
               ))
             ) : (

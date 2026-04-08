@@ -35,7 +35,7 @@ describe('PageHeaderSection', () => {
     expect(screen.getByText('Collections')).toBeInTheDocument();
     expect(
       screen.getByText(
-        /Browse and discover Ansible collections \(modules, roles and plugins\)/,
+        /Browse and discover Ansible collections from all your connected sources/,
       ),
     ).toBeInTheDocument();
   });

@@ -298,7 +298,7 @@ export const EEDetailsPage: React.FC = () => {
     return url;
   }, [entity]);
 
-  /** URL to edit the EE definition file (e.g. test-2.yaml), not catalog-info.yaml */
+  /** URL to edit the EE definition file (e.g. test-2.yml), not catalog-info.yaml */
   const getDefinitionEditUrl = useCallback(() => {
     const editUrl = entity?.metadata?.annotations?.[ANNOTATION_EDIT_URL] as
       | string
@@ -308,7 +308,7 @@ export const EEDetailsPage: React.FC = () => {
     if (!eeName) {
       throw new Error('Missing metadata.name on entity');
     }
-    const definitionFilename = `${eeName}.yaml`;
+    const definitionFilename = `${eeName}.yml`;
     const pathParts = editUrl.split('/');
     pathParts[pathParts.length - 1] = definitionFilename;
     return pathParts.join('/');
