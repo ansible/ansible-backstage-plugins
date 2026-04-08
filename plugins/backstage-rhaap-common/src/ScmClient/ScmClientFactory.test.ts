@@ -157,9 +157,10 @@ describe('ScmClientFactory', () => {
         ).rejects.toThrow(
           'No GitHub integration configured for host: github.unknown.com',
         );
+        expect(mockGithubGetCredentials).not.toHaveBeenCalled();
       });
 
-      it('should throw error when neither app nor PAT credentials resolve', async () => {
+      it('should create client without token when neither app nor PAT credentials resolve', async () => {
         mockIntegrations.github.byHost.mockReturnValue({
           config: {
             token: undefined,
@@ -170,12 +171,20 @@ describe('ScmClientFactory', () => {
           token: undefined,
         });
 
-        await expect(
-          factory.createClient({
-            scmProvider: 'github',
-            organization: 'test-org',
-          }),
-        ).rejects.toThrow('No credentials for GitHub host: github.com');
+        const client = await factory.createClient({
+          scmProvider: 'github',
+          organization: 'test-org',
+        });
+
+        expect(client).toBeInstanceOf(GithubClient);
+        expect(mockLogger.info).toHaveBeenCalledWith(
+          '[ScmClientFactory] No GitHub credentials for host: github.com; public repository access only',
+        );
+        expect(mockLogger.warn).toHaveBeenCalledWith(
+          expect.stringContaining(
+            'GraphQL operations (organization repository listing) require authentication',
+          ),
+        );
       });
 
       it('should request credentials for org/repo URL when repository is set', async () => {
@@ -318,19 +327,22 @@ describe('ScmClientFactory', () => {
         );
       });
 
-      it('should throw error when GitLab token not configured', async () => {
+      it('should create client without token when GitLab token not configured', async () => {
         mockIntegrations.gitlab.byHost.mockReturnValue({
           config: {
             token: undefined,
           },
         });
 
-        await expect(
-          factory.createClient({
-            scmProvider: 'gitlab',
-            organization: 'test-group',
-          }),
-        ).rejects.toThrow('No token configured for GitLab host: gitlab.com');
+        const client = await factory.createClient({
+          scmProvider: 'gitlab',
+          organization: 'test-group',
+        });
+
+        expect(client).toBeInstanceOf(GitlabClient);
+        expect(mockLogger.info).toHaveBeenCalledWith(
+          '[ScmClientFactory] No token configured for GitLab host: gitlab.com; public repository access only',
+        );
       });
     });
 
@@ -418,33 +430,31 @@ describe('ScmClientFactory', () => {
         expect(client).toBeInstanceOf(GitlabClient);
       });
 
-      it('should work with provided token when no integration is configured for GitHub', async () => {
+      it('should throw when no integration is configured for GitHub even with provided token', async () => {
         mockIntegrations.github.byHost.mockReturnValue(null);
 
-        const client = await factory.createClient({
-          scmProvider: 'github',
-          organization: 'test-org',
-          token: 'user-oauth-token',
-        });
-
-        expect(client).toBeInstanceOf(GithubClient);
-        expect(mockLogger.warn).toHaveBeenCalledWith(
-          '[ScmClientFactory] GitHub credential resolution failed for host: github.com, but using provided token',
+        await expect(
+          factory.createClient({
+            scmProvider: 'github',
+            organization: 'test-org',
+            token: 'user-oauth-token',
+          }),
+        ).rejects.toThrow(
+          'No GitHub integration configured for host: github.com',
         );
       });
 
-      it('should work with provided token when no integration is configured for GitLab', async () => {
+      it('should throw when no integration is configured for GitLab even with provided token', async () => {
         mockIntegrations.gitlab.byHost.mockReturnValue(null);
 
-        const client = await factory.createClient({
-          scmProvider: 'gitlab',
-          organization: 'test-group',
-          token: 'user-oauth-token',
-        });
-
-        expect(client).toBeInstanceOf(GitlabClient);
-        expect(mockLogger.warn).toHaveBeenCalledWith(
-          '[ScmClientFactory] No GitLab integration configured for host: gitlab.com, but using provided token',
+        await expect(
+          factory.createClient({
+            scmProvider: 'gitlab',
+            organization: 'test-group',
+            token: 'user-oauth-token',
+          }),
+        ).rejects.toThrow(
+          'No GitLab integration configured for host: gitlab.com',
         );
       });
     });

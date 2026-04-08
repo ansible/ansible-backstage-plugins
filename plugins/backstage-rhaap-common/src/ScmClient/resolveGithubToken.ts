@@ -21,7 +21,8 @@ export interface ResolveGithubTokenOptions {
  *  2. Integration PAT from `integrations.github[].token`
  *
  * Throws when no integration is configured for the host or no token can be
- * resolved from either path.
+ * resolved from either path. {@link ScmClientFactory} catches this to allow
+ * token-optional (public repository) access for configured hosts.
  */
 export async function resolveGithubToken(
   options: ResolveGithubTokenOptions,

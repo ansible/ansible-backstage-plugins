@@ -43,11 +43,13 @@ export class GithubClient extends BaseScmClient {
     dispatcher?: Agent;
   } {
     const headers: Record<string, string> = {
-      Authorization: `Bearer ${this.config.token}`,
       Accept: 'application/vnd.github.v3+json',
       'X-GitHub-Api-Version': '2022-11-28',
       ...(init?.headers as Record<string, string>),
     };
+    if (this.config.token) {
+      headers.Authorization = `Bearer ${this.config.token}`;
+    }
     if (!this.checkSSL) {
       return {
         ...init,

@@ -22,10 +22,12 @@ export class GitlabClient extends BaseScmClient {
     dispatcher?: Agent;
   } {
     const headers: Record<string, string> = { Accept: accept };
-    if (this.config.gitlabUseBearerAuth) {
-      headers.Authorization = `Bearer ${this.config.token}`;
-    } else {
-      headers['PRIVATE-TOKEN'] = this.config.token;
+    if (this.config.token) {
+      if (this.config.gitlabUseBearerAuth) {
+        headers.Authorization = `Bearer ${this.config.token}`;
+      } else {
+        headers['PRIVATE-TOKEN'] = this.config.token;
+      }
     }
     if (!this.checkSSL) {
       return {

@@ -559,6 +559,51 @@ describe('GithubClient', () => {
     });
   });
 
+  describe('getFetchOptions (no token)', () => {
+    it('should omit Authorization header when token is not provided', async () => {
+      const config: ScmClientConfig = {
+        scmProvider: 'github',
+        host: 'github.com',
+        organization: 'test-org',
+      };
+      const ghClient = new GithubClient({ config, logger: mockLogger });
+      mockFetch.mockResolvedValueOnce({ ok: true, status: 200 });
+
+      await ghClient.repositoryExists('test-org', 'public-repo');
+
+      expect(mockFetch).toHaveBeenCalledWith(
+        expect.any(String),
+        expect.objectContaining({
+          headers: expect.not.objectContaining({
+            Authorization: expect.any(String),
+          }),
+        }),
+      );
+    });
+
+    it('should omit Authorization header when token is empty string', async () => {
+      const config: ScmClientConfig = {
+        scmProvider: 'github',
+        host: 'github.com',
+        organization: 'test-org',
+        token: '',
+      };
+      const ghClient = new GithubClient({ config, logger: mockLogger });
+      mockFetch.mockResolvedValueOnce({ ok: true, status: 200 });
+
+      await ghClient.repositoryExists('test-org', 'public-repo');
+
+      expect(mockFetch).toHaveBeenCalledWith(
+        expect.any(String),
+        expect.objectContaining({
+          headers: expect.not.objectContaining({
+            Authorization: expect.any(String),
+          }),
+        }),
+      );
+    });
+  });
+
   describe('getBranches', () => {
     const mockRepo: RepositoryInfo = {
       name: 'test-repo',

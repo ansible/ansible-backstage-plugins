@@ -91,6 +91,48 @@ describe('GitlabClient', () => {
     });
   });
 
+  describe('getFetchOptions (no token)', () => {
+    it('should omit auth headers when token is not provided', async () => {
+      const config: ScmClientConfig = {
+        scmProvider: 'gitlab',
+        host: 'gitlab.com',
+        organization: 'test-group',
+      };
+      const glClient = new GitlabClient({ config, logger: mockLogger });
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        json: () => Promise.resolve([]),
+      });
+
+      await glClient.getRepositories();
+
+      const callHeaders = mockFetch.mock.calls[0][1].headers;
+      expect(callHeaders).not.toHaveProperty('PRIVATE-TOKEN');
+      expect(callHeaders).not.toHaveProperty('Authorization');
+      expect(callHeaders).toHaveProperty('Accept', 'application/json');
+    });
+
+    it('should omit auth headers when token is empty string', async () => {
+      const config: ScmClientConfig = {
+        scmProvider: 'gitlab',
+        host: 'gitlab.com',
+        organization: 'test-group',
+        token: '',
+      };
+      const glClient = new GitlabClient({ config, logger: mockLogger });
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        json: () => Promise.resolve([]),
+      });
+
+      await glClient.getRepositories();
+
+      const callHeaders = mockFetch.mock.calls[0][1].headers;
+      expect(callHeaders).not.toHaveProperty('PRIVATE-TOKEN');
+      expect(callHeaders).not.toHaveProperty('Authorization');
+    });
+  });
+
   describe('getHost', () => {
     it('should return the configured host', () => {
       expect(client.getHost()).toBe('gitlab.com');
