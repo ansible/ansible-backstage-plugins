@@ -25,36 +25,55 @@ import { eeBuildApiRef, type EEBuildRegistryType } from '../../../apis';
 import { normalizePahRegistryUrlForBuild } from './helpers';
 
 function buildTriggeredDescriptionNode(
-  workflowId?: string,
   workflowUrl?: string,
 ): ReactNode | undefined {
-  if (!workflowId && !workflowUrl) {
+  if (!workflowUrl?.trim()) {
     return undefined;
   }
+  const href = workflowUrl.trim();
   return (
     <>
-      {workflowId ? (
-        <>
-          Build workflow id: {workflowId}
-          {workflowUrl ? <br /> : null}
-        </>
-      ) : null}
-      {workflowUrl ? (
-        <>
-          Build workflow url:{' '}
-          <Link
-            href={workflowUrl}
-            target="_blank"
-            rel="noopener noreferrer"
-            color="primary"
-            underline="always"
-          >
-            {workflowUrl}
-          </Link>
-        </>
-      ) : null}
+      Link:{' '}
+      <Link
+        href={href}
+        target="_blank"
+        rel="noopener noreferrer"
+        color="primary"
+        underline="always"
+      >
+        {href}
+      </Link>
     </>
   );
+}
+
+function messageFromUnknownError(err: unknown): string {
+  if (err instanceof Error) {
+    return err.message;
+  }
+  if (typeof err === 'string') {
+    return err;
+  }
+  if (typeof err === 'object' && err !== null) {
+    try {
+      return JSON.stringify(err);
+    } catch {
+      return 'Something went wrong. Try again.';
+    }
+  }
+  if (typeof err === 'number' || typeof err === 'boolean') {
+    return String(err);
+  }
+  if (typeof err === 'bigint') {
+    return err.toString();
+  }
+  if (typeof err === 'symbol') {
+    return err.description ? `Symbol(${err.description})` : 'Symbol';
+  }
+  if (typeof err === 'function') {
+    return 'Unexpected function thrown as error';
+  }
+  return 'Unknown error';
 }
 
 const useStyles = makeStyles(theme => ({
@@ -174,10 +193,7 @@ export function EEBuildDialog({
       if (result.accepted) {
         showNotification({
           title: 'Build triggered',
-          description: buildTriggeredDescriptionNode(
-            result.workflowId,
-            result.workflowUrl,
-          ),
+          description: buildTriggeredDescriptionNode(result.workflowUrl),
           severity: 'success',
         });
         onClose();
@@ -189,6 +205,12 @@ export function EEBuildDialog({
           severity: 'error',
         });
       }
+    } catch (e: unknown) {
+      showNotification({
+        title: 'Build failed',
+        description: messageFromUnknownError(e),
+        severity: 'error',
+      });
     } finally {
       setSubmitting(false);
     }

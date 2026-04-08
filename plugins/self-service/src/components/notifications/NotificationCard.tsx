@@ -90,12 +90,12 @@ const useStyles = makeStyles(theme => ({
     },
   },
   cardContent: {
-    padding: theme.spacing(1.5, 2),
+    padding: theme.spacing(1.5, 2.5, 1.5, 1),
     display: 'flex',
     alignItems: 'flex-start',
   },
   expandButtonContainer: {
-    marginRight: theme.spacing(0.5),
+    marginRight: theme.spacing(0.25),
     display: 'flex',
     alignItems: 'center',
     marginTop: -2,
@@ -108,11 +108,11 @@ const useStyles = makeStyles(theme => ({
     color: theme.palette.text.secondary,
   },
   expandPlaceholder: {
-    width: 28,
-    marginRight: theme.spacing(0.5),
+    width: 24,
+    marginRight: theme.spacing(0.25),
   },
   iconContainer: {
-    marginRight: theme.spacing(1.5),
+    marginRight: theme.spacing(1),
     display: 'flex',
     alignItems: 'center',
     paddingTop: 2,
@@ -143,7 +143,7 @@ const useStyles = makeStyles(theme => ({
     flexShrink: 0,
     padding: 4,
     marginTop: -4,
-    marginRight: -8,
+    marginRight: 0,
   },
   closeIcon: {
     fontSize: '1.1rem',

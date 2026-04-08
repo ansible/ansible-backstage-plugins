@@ -82,6 +82,31 @@ function renderDialog(
   );
 }
 
+async function submitBuildAndExpectTriggerBuildErrorDescription(
+  rejectedValue: unknown,
+  expectedDescription: string,
+) {
+  const showSpy = jest.spyOn(notificationStore, 'showNotification');
+  const user = userEvent.setup();
+  mockTriggerBuild.mockRejectedValueOnce(rejectedValue);
+
+  renderDialog();
+  await user.type(screen.getByTestId('ee-build-image-name'), 'ns/ee');
+  await user.click(screen.getByRole('button', { name: /^Build$/i }));
+
+  await waitFor(() => {
+    expect(showSpy).toHaveBeenCalledWith(
+      expect.objectContaining({
+        title: 'Build failed',
+        description: expectedDescription,
+        severity: 'error',
+      }),
+    );
+  });
+  expect(mockOnClose).not.toHaveBeenCalled();
+  showSpy.mockRestore();
+}
+
 describe('EEBuildDialog', () => {
   beforeEach(() => {
     jest.clearAllMocks();
@@ -226,8 +251,8 @@ describe('EEBuildDialog', () => {
       );
     });
     await waitFor(() => {
-      expect(document.body.textContent).toContain('Build workflow id: wf-99');
-      expect(document.body.textContent).toContain('Build workflow url:');
+      expect(document.body.textContent).toContain('Link:');
+      expect(document.body.textContent).not.toContain('Build workflow id:');
     });
     const runLink = screen.getByRole('link', {
       name: 'https://github.com/acme/widgets/actions/runs/99001',
@@ -264,6 +289,103 @@ describe('EEBuildDialog', () => {
     });
     expect(mockOnClose).not.toHaveBeenCalled();
     showSpy.mockRestore();
+  });
+
+  it('shows error notification when triggerBuild throws', async () => {
+    const showSpy = jest.spyOn(notificationStore, 'showNotification');
+    const user = userEvent.setup();
+    mockTriggerBuild.mockRejectedValueOnce(new Error('Network down'));
+
+    renderDialog();
+    await user.type(screen.getByTestId('ee-build-image-name'), 'ns/ee');
+    await user.click(screen.getByRole('button', { name: /^Build$/i }));
+
+    await waitFor(() => {
+      expect(showSpy).toHaveBeenCalledWith(
+        expect.objectContaining({
+          title: 'Build failed',
+          description: 'Network down',
+          severity: 'error',
+        }),
+      );
+    });
+    expect(mockOnClose).not.toHaveBeenCalled();
+    showSpy.mockRestore();
+  });
+
+  describe('Build failed notification when triggerBuild rejects (non-Error values)', () => {
+    it('uses string rejection as description', async () => {
+      expect.assertions(2);
+      await submitBuildAndExpectTriggerBuildErrorDescription(
+        'catalog timeout',
+        'catalog timeout',
+      );
+    });
+
+    it('stringifies plain object rejection with JSON.stringify', async () => {
+      expect.assertions(2);
+      await submitBuildAndExpectTriggerBuildErrorDescription(
+        { reason: 'rate_limited' },
+        '{"reason":"rate_limited"}',
+      );
+    });
+
+    it('falls back when object is not JSON-serializable', async () => {
+      expect.assertions(2);
+      const circular: Record<string, unknown> = {};
+      circular.self = circular;
+      await submitBuildAndExpectTriggerBuildErrorDescription(
+        circular,
+        'Something went wrong. Try again.',
+      );
+    });
+
+    it('stringifies number rejection', async () => {
+      expect.assertions(2);
+      await submitBuildAndExpectTriggerBuildErrorDescription(503, '503');
+    });
+
+    it('stringifies boolean rejection', async () => {
+      expect.assertions(2);
+      await submitBuildAndExpectTriggerBuildErrorDescription(false, 'false');
+    });
+
+    it('stringifies bigint rejection', async () => {
+      expect.assertions(2);
+      await submitBuildAndExpectTriggerBuildErrorDescription(BigInt(99), '99');
+    });
+
+    it('formats symbol with description', async () => {
+      expect.assertions(2);
+      await submitBuildAndExpectTriggerBuildErrorDescription(
+        Symbol('aborted'),
+        'Symbol(aborted)',
+      );
+    });
+
+    it('formats symbol without description', async () => {
+      expect.assertions(2);
+      await submitBuildAndExpectTriggerBuildErrorDescription(
+        Symbol(),
+        'Symbol',
+      );
+    });
+
+    it('formats function rejection', async () => {
+      expect.assertions(2);
+      await submitBuildAndExpectTriggerBuildErrorDescription(
+        () => {},
+        'Unexpected function thrown as error',
+      );
+    });
+
+    it('uses unknown error for undefined rejection', async () => {
+      expect.assertions(2);
+      await submitBuildAndExpectTriggerBuildErrorDescription(
+        undefined,
+        'Unknown error',
+      );
+    });
   });
 
   it('shows custom registry URL field when Custom registry is chosen', async () => {
