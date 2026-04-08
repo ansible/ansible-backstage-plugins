@@ -22,7 +22,10 @@ import { Entity, stringifyEntityRef } from '@backstage/catalog-model';
 import { configApiRef, useApi } from '@backstage/core-plugin-api';
 import { useNotifications } from '../../notifications';
 import { eeBuildApiRef, type EEBuildRegistryType } from '../../../apis';
-import { normalizePahRegistryUrlForBuild } from './helpers';
+import {
+  messageFromUnknownError,
+  normalizePahRegistryUrlForBuild,
+} from './helpers';
 
 function buildTriggeredDescriptionNode(
   workflowUrl?: string,
@@ -45,35 +48,6 @@ function buildTriggeredDescriptionNode(
       </Link>
     </>
   );
-}
-
-function messageFromUnknownError(err: unknown): string {
-  if (err instanceof Error) {
-    return err.message;
-  }
-  if (typeof err === 'string') {
-    return err;
-  }
-  if (typeof err === 'object' && err !== null) {
-    try {
-      return JSON.stringify(err);
-    } catch {
-      return 'Something went wrong. Try again.';
-    }
-  }
-  if (typeof err === 'number' || typeof err === 'boolean') {
-    return String(err);
-  }
-  if (typeof err === 'bigint') {
-    return err.toString();
-  }
-  if (typeof err === 'symbol') {
-    return err.description ? `Symbol(${err.description})` : 'Symbol';
-  }
-  if (typeof err === 'function') {
-    return 'Unexpected function thrown as error';
-  }
-  return 'Unknown error';
 }
 
 const useStyles = makeStyles(theme => ({

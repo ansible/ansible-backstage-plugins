@@ -4,29 +4,12 @@ import { useApi } from '@backstage/core-plugin-api';
 import { catalogApiRef } from '@backstage/plugin-catalog-react';
 import { scmAuthApiRef } from '@backstage/integration-react';
 import { useNotifications } from '../../notifications';
-import { getScmRepoUrlForAuth } from './helpers';
+import { getScmRepoUrlForAuth, messageFromUnknownError } from './helpers';
 import {
   EE_BUILD_PENDING_MAX_AGE_MS,
   EE_BUILD_PENDING_SESSION_KEY,
   type EeBuildPendingPayload,
 } from './eeBuildSession';
-
-function messageFromUnknown(err: unknown): string {
-  if (err instanceof Error) {
-    return err.message;
-  }
-  if (typeof err === 'string') {
-    return err;
-  }
-  if (typeof err === 'object' && err !== null) {
-    try {
-      return JSON.stringify(err);
-    } catch {
-      return 'Unknown error';
-    }
-  }
-  return String(err);
-}
 
 export function useEEBuildFlow() {
   const scmAuthApi = useApi(scmAuthApiRef);
@@ -119,7 +102,7 @@ export function useEEBuildFlow() {
           if (!cancelled) {
             showNotification({
               title: 'Sign-in failed',
-              description: `Could not get Git credentials: ${messageFromUnknown(e)}`,
+              description: `Could not get Git credentials: ${messageFromUnknownError(e)}`,
               severity: 'error',
             });
           }
@@ -192,7 +175,7 @@ export function useEEBuildFlow() {
         sessionStorage.removeItem(EE_BUILD_PENDING_SESSION_KEY);
         showNotification({
           title: 'Sign-in failed',
-          description: `Could not sign in to your Git host: ${messageFromUnknown(e)}`,
+          description: `Could not sign in to your Git host: ${messageFromUnknownError(e)}`,
           severity: 'error',
         });
       } finally {

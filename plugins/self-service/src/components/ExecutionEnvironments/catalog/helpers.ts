@@ -207,3 +207,32 @@ export function normalizePahRegistryUrlForBuild(url: string): string {
   }
   return stripTrailingSlashes(s).trim();
 }
+
+export function messageFromUnknownError(err: unknown): string {
+  if (err instanceof Error) {
+    return err.message;
+  }
+  if (typeof err === 'string') {
+    return err;
+  }
+  if (typeof err === 'object' && err !== null) {
+    try {
+      return JSON.stringify(err);
+    } catch {
+      return 'Something went wrong. Try again.';
+    }
+  }
+  if (typeof err === 'number' || typeof err === 'boolean') {
+    return String(err);
+  }
+  if (typeof err === 'bigint') {
+    return err.toString();
+  }
+  if (typeof err === 'symbol') {
+    return err.description ? `Symbol(${err.description})` : 'Symbol';
+  }
+  if (typeof err === 'function') {
+    return 'Unexpected function thrown as error';
+  }
+  return 'Unknown error';
+}

@@ -5,6 +5,7 @@ import {
   isEntityPublishedToGithub,
   downloadEntityAsTarArchive,
   normalizePahRegistryUrlForBuild,
+  messageFromUnknownError,
 } from './helpers';
 import { Entity } from '@backstage/catalog-model';
 import { ANNOTATION_EDIT_URL } from '@backstage/catalog-model';
@@ -452,6 +453,28 @@ describe('catalog helpers', () => {
 
     it('returns empty for whitespace-only input', () => {
       expect(normalizePahRegistryUrlForBuild('   ')).toBe('');
+    });
+  });
+
+  describe('messageFromUnknownError', () => {
+    it('handles Error, string, object, and fallbacks', () => {
+      expect(messageFromUnknownError(new Error('x'))).toBe('x');
+      expect(messageFromUnknownError('msg')).toBe('msg');
+      expect(messageFromUnknownError({ a: 1 })).toBe('{"a":1}');
+      const circular: Record<string, unknown> = {};
+      circular.self = circular;
+      expect(messageFromUnknownError(circular)).toBe(
+        'Something went wrong. Try again.',
+      );
+      expect(messageFromUnknownError(503)).toBe('503');
+      expect(messageFromUnknownError(false)).toBe('false');
+      expect(messageFromUnknownError(BigInt(1))).toBe('1');
+      expect(messageFromUnknownError(Symbol('s'))).toBe('Symbol(s)');
+      expect(messageFromUnknownError(Symbol())).toBe('Symbol');
+      expect(messageFromUnknownError(() => {})).toBe(
+        'Unexpected function thrown as error',
+      );
+      expect(messageFromUnknownError(undefined)).toBe('Unknown error');
     });
   });
 });
