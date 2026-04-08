@@ -24,7 +24,11 @@ const routeRegex =
 function findRouterFiles(dir) {
   const results = [];
   for (const entry of readdirSync(dir)) {
-    if (entry === 'node_modules' || entry === 'dist' || entry === 'dist-dynamic')
+    if (
+      entry === 'node_modules' ||
+      entry === 'dist' ||
+      entry === 'dist-dynamic'
+    )
       continue;
     const fullPath = resolve(dir, entry);
     const stat = statSync(fullPath);
@@ -84,12 +88,12 @@ for (const key of specRoutes.keys()) {
 
 // Report
 const scannedFiles = routerFiles.map(f => relative(repoRoot, f));
-console.log(`Scanned ${scannedFiles.length} router file(s): ${scannedFiles.join(', ')}`);
+console.log(
+  `Scanned ${scannedFiles.length} router file(s): ${scannedFiles.join(', ')}`,
+);
 
 if (inCodeNotInSpec.length === 0 && inSpecNotInCode.length === 0) {
-  console.log(
-    `OK: All ${codeRoutes.size} routes match api/openapi.yaml`,
-  );
+  console.log(`OK: All ${codeRoutes.size} routes match api/openapi.yaml`);
   process.exit(0);
 }
 
@@ -107,7 +111,5 @@ if (inSpecNotInCode.length > 0) {
   }
 }
 
-console.error(
-  '\nUpdate api/openapi.yaml to match the code (or vice versa).',
-);
+console.error('\nUpdate api/openapi.yaml to match the code (or vice versa).');
 process.exit(1);
