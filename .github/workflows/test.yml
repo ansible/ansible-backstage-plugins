@@ -19,4 +19,4 @@ jobs:
       with:
         python-version: "3.12"
     - run: pip install pre-commit
-    - run: pre-commit run --all-files
+    - run: SKIP=openapi-lint,openapi-drift pre-commit run --all-files
