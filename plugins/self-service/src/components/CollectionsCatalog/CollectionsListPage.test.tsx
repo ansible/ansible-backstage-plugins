@@ -265,6 +265,9 @@ describe('CollectionsListPage', () => {
     expect(
       screen.getByText('No collections match your search or filters.'),
     ).toBeInTheDocument();
+    expect(
+      screen.getByText(/Ansible Collections \(0 of 1\)/),
+    ).toBeInTheDocument();
     expect(screen.getByPlaceholderText('Search')).not.toBeDisabled();
     expect(screen.getByTestId('catalog-filters')).toBeInTheDocument();
   });

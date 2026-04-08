@@ -193,6 +193,8 @@ class SyncPollingService {
     providers: ProviderStatus[],
     now: number,
   ): void {
+    let anyTrackedSyncCompleted = false;
+
     for (const [sourceId, tracked] of this.trackedSyncs.entries()) {
       const provider = providers.find(p => p.sourceId === sourceId);
 
@@ -210,12 +212,16 @@ class SyncPollingService {
       const trackingTimedOut = now - tracked.startedAt > TRACKING_TIMEOUT_MS;
 
       if (syncCompleted) {
-        collectionsCache.invalidateFetchedData();
+        anyTrackedSyncCompleted = true;
         this.showTrackedSyncOutcome(provider, tracked);
         this.trackedSyncs.delete(sourceId);
       } else if (trackingTimedOut) {
         this.trackedSyncs.delete(sourceId);
       }
+    }
+
+    if (anyTrackedSyncCompleted) {
+      collectionsCache.invalidateFetchedData();
     }
   }
 

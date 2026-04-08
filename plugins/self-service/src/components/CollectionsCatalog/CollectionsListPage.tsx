@@ -94,6 +94,22 @@ interface CollectionsListPageProps {
   syncDisabledReason?: string;
 }
 
+function collectionsTitleCountSuffix(
+  initialLoading: boolean,
+  filterByRepositoryEntity: Entity | null | undefined,
+  showNoFilterMatches: boolean,
+  loadedEntityCount: number,
+  totalCount: number,
+): string {
+  if (initialLoading) {
+    return '';
+  }
+  if (!filterByRepositoryEntity && showNoFilterMatches) {
+    return ` (0 of ${loadedEntityCount})`;
+  }
+  return ` (${totalCount})`;
+}
+
 export const CollectionsListPage = ({
   onSyncClick,
   onSourcesStatusChange,
@@ -178,6 +194,14 @@ export const CollectionsListPage = ({
     !filterByRepositoryEntity &&
     loadedEntityCount > 0 &&
     totalCount === 0;
+
+  const collectionsTitleCount = collectionsTitleCountSuffix(
+    initialLoading,
+    filterByRepositoryEntity,
+    showNoFilterMatches,
+    loadedEntityCount,
+    totalCount,
+  );
 
   let collectionsCardsContent: ReactNode;
   if (initialLoading) {
@@ -354,8 +378,8 @@ export const CollectionsListPage = ({
               <Box>
                 <Box className={classes.contentHeader}>
                   <Typography variant="h6" className={classes.contentTitle}>
-                    Ansible Collections{' '}
-                    {initialLoading ? '' : `(${totalCount})`}
+                    Ansible Collections
+                    {collectionsTitleCount}
                     {(initialLoading || loadingMore) && (
                       <CircularProgress
                         size={16}
