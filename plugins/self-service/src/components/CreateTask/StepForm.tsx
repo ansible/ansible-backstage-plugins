@@ -200,7 +200,7 @@ export const StepForm = ({
   const activeStepStorageKey = storageKey
     ? `scaffolder-active-step-${storageKey}`
     : null;
-  // generic oAuth pending flag (set by ScmAuthPicker before oAuth)
+  // generic oAuth pending flag (set by ScmSelector before oAuth)
   const OAUTH_PENDING_KEY = 'scaffolder-oauth-pending';
 
   const isOAuthRestoreRef = useRef<boolean | null>(null);
