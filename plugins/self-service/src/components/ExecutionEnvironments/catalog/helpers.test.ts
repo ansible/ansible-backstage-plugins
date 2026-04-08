@@ -212,9 +212,9 @@ describe('catalog helpers', () => {
       expect(downloadEntityAsTarArchive(entity)).toBe(true);
 
       expect(createTarArchive).toHaveBeenLastCalledWith([
-        { name: 'my-ee.yaml', content: 'def' },
+        { name: 'my-ee.yml', content: 'def' },
         { name: 'README-my-ee.md', content: 'readme' },
-        { name: 'my-ee-template.yaml', content: 'tpl' },
+        { name: 'my-ee-template.yml', content: 'tpl' },
       ]);
     });
 
@@ -228,9 +228,9 @@ describe('catalog helpers', () => {
       expect(downloadEntityAsTarArchive(entity)).toBe(true);
 
       expect(createTarArchive).toHaveBeenLastCalledWith([
-        { name: 'my-ee.yaml', content: 'def' },
+        { name: 'my-ee.yml', content: 'def' },
         { name: 'README-my-ee.md', content: 'readme' },
-        { name: 'my-ee-template.yaml', content: 'tpl' },
+        { name: 'my-ee-template.yml', content: 'tpl' },
       ]);
     });
 
@@ -257,9 +257,9 @@ describe('catalog helpers', () => {
       expect(downloadEntityAsTarArchive(validEntity)).toBe(true);
 
       expect(createTarArchive).toHaveBeenCalledWith([
-        { name: 'my-ee.yaml', content: 'def' },
+        { name: 'my-ee.yml', content: 'def' },
         { name: 'README-my-ee.md', content: 'readme' },
-        { name: 'my-ee-template.yaml', content: 'tpl' },
+        { name: 'my-ee-template.yml', content: 'tpl' },
         { name: 'ansible.cfg', content: 'cfg' },
       ]);
       expect(createObjectURLMock).toHaveBeenCalled();
@@ -277,9 +277,9 @@ describe('catalog helpers', () => {
       expect(downloadEntityAsTarArchive(entityWithMcp)).toBe(true);
 
       expect(createTarArchive).toHaveBeenCalledWith([
-        { name: 'my-ee.yaml', content: 'def' },
+        { name: 'my-ee.yml', content: 'def' },
         { name: 'README-my-ee.md', content: 'readme' },
-        { name: 'my-ee-template.yaml', content: 'tpl' },
+        { name: 'my-ee-template.yml', content: 'tpl' },
         { name: 'ansible.cfg', content: 'cfg' },
         { name: 'mcp-vars.yaml', content: 'mcp-content' },
       ]);
@@ -296,9 +296,9 @@ describe('catalog helpers', () => {
       expect(downloadEntityAsTarArchive(entityNoName)).toBe(true);
 
       expect(createTarArchive).toHaveBeenCalledWith([
-        { name: 'execution-environment.yaml', content: 'def' },
+        { name: 'execution-environment.yml', content: 'def' },
         { name: 'README-execution-environment.md', content: 'readme' },
-        { name: 'execution-environment-template.yaml', content: 'tpl' },
+        { name: 'execution-environment-template.yml', content: 'tpl' },
         { name: 'ansible.cfg', content: 'cfg' },
       ]);
     });
