@@ -1024,7 +1024,18 @@ describe('EEDetailsPage', () => {
 
     const refreshButton = screen.getByRole('button', { name: /Refresh/i });
     fireEvent.click(refreshButton);
+    expect(refreshButton).toBeDisabled();
 
     await waitFor(() => expect(getEntities).toHaveBeenCalledTimes(2));
+    // callApi catch sets entity to null on rejection, so AboutCard may unmount
+    // and the refresh control disappears. .finally() still clears isRefreshing.
+    await waitFor(() => {
+      const btn = screen.queryByRole('button', { name: /Refresh/i });
+      const notFound = screen.queryByText(/Entity not found/i);
+      expect(
+        (btn === null && notFound !== null) ||
+          (btn instanceof HTMLButtonElement && !btn.disabled),
+      ).toBe(true);
+    });
   });
 });
