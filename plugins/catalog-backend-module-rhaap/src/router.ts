@@ -336,14 +336,6 @@ export async function createRouter(options: {
         return;
       }
 
-      if (!parsedBody.entityRef) {
-        response.status(400).json({
-          error:
-            'entityRef is required – ee_dir and ee_file_name are derived from entity annotations.',
-        });
-        return;
-      }
-
       const resolved = await resolveEntityAndRepo(
         response,
         auth,

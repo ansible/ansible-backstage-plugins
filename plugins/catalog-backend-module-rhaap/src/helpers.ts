@@ -215,9 +215,12 @@ function splitRefAndPath(segments: string[]): {
 }
 
 export interface EeBuildRequestValidated {
-  entityRef?: string;
+  entityRef: string;
+  /** Optional override; when omitted, owner is derived from entity annotations. */
   owner?: string;
+  /** Optional override; when omitted, repo is derived from entity annotations. */
   repo?: string;
+  /** Optional override; when omitted, host is derived from entity annotations. */
   host?: string;
   customRegistryUrl: string;
   imageName: string;
@@ -304,19 +307,18 @@ export function parseEeBuildRequestBody(
   const o = body as Record<string, unknown>;
 
   const entityRefStr = trimIfString(o.entityRef);
+  if (!entityRefStr) {
+    throw new Error(
+      'entityRef is required – ee_dir and ee_file_name are derived from entity annotations',
+    );
+  }
+  validateStringLength(entityRefStr, 'entityRef', 512);
+
   const ownerStr = trimIfString(o.owner);
   const repoStr = trimIfString(o.repo);
   const hostStr = trimIfString(o.host);
 
-  const hasEntityRef = !!entityRefStr;
-  const hasOwnerRepo = !!ownerStr && !!repoStr;
-
-  if (!hasEntityRef && !hasOwnerRepo) {
-    throw new Error('Either entityRef or both owner and repo are required');
-  }
-
   for (const [val, name, max] of [
-    [entityRefStr, 'entityRef', 512],
     [ownerStr, 'owner', 256],
     [repoStr, 'repo', 256],
     [hostStr, 'host', 256],
@@ -341,14 +343,10 @@ export function parseEeBuildRequestBody(
   const registryTypeStr = parseOptionalRegistryType(o.registryType);
 
   return {
-    ...(hasEntityRef ? { entityRef: entityRefStr } : {}),
-    ...(hasOwnerRepo
-      ? {
-          owner: ownerStr,
-          repo: repoStr,
-          ...(hostStr ? { host: hostStr } : {}),
-        }
-      : {}),
+    entityRef: entityRefStr,
+    ...(ownerStr ? { owner: ownerStr } : {}),
+    ...(repoStr ? { repo: repoStr } : {}),
+    ...(hostStr ? { host: hostStr } : {}),
     customRegistryUrl: registryStr,
     imageName: imageStr,
     imageTag: imageTagStr,
@@ -413,16 +411,21 @@ export function resolveGithubRepoForEeBuild(
     throw new Error('Entity spec.type must be execution-environment');
   }
   const ann = entity.metadata?.annotations ?? {};
-  const raw = (
-    getAnnotationString(ann, ANNOTATION_EDIT_URL) ||
-    getAnnotationString(ann, 'backstage.io/source-location')
-  ).trim();
-  if (!raw) {
+  const candidates = [
+    getAnnotationString(ann, ANNOTATION_EDIT_URL),
+    getAnnotationString(ann, 'backstage.io/source-location'),
+  ].filter(Boolean);
+
+  if (candidates.length === 0) {
     throw new Error(
       'Execution Environment is missing a Git source annotation (backstage.io/source-location or edit URL)',
     );
   }
-  const parsed = parseGitHubRepoFromSourceUrl(raw.replace(/^url:/i, '').trim());
+
+  const parsed = candidates
+    .map(c => parseGitHubRepoFromSourceUrl(c.replace(/^url:/i, '').trim()))
+    .find(Boolean);
+
   if (!parsed) {
     throw new Error(
       'Execution Environment source URL is not a GitHub repository URL; EE build workflow is GitHub-only',

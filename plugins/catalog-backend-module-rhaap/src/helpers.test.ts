@@ -1878,6 +1878,7 @@ describe('helpers', () => {
 
   describe('parseEeBuildRequestBody – edge cases', () => {
     const validBase = {
+      entityRef: 'component:default/my-ee',
       customRegistryUrl: 'quay.io/org',
       imageName: 'my-ee',
       imageTag: 'latest',
@@ -2471,6 +2472,7 @@ describe('helpers', () => {
 
   describe('parseEeBuildRequestBody', () => {
     const validBase = {
+      entityRef: 'component:default/my-ee',
       customRegistryUrl: 'quay.io/org',
       imageName: 'my-ee',
       imageTag: 'latest',
@@ -2478,59 +2480,53 @@ describe('helpers', () => {
     };
 
     it('accepts entityRef', () => {
-      const result = parseEeBuildRequestBody({
-        entityRef: 'component:default/my-ee',
-        ...validBase,
-      });
+      const result = parseEeBuildRequestBody({ ...validBase });
       expect(result.entityRef).toBe('component:default/my-ee');
       expect(result.owner).toBeUndefined();
     });
 
-    it('accepts owner and repo without entityRef', () => {
+    it('accepts optional owner, repo, and host overrides', () => {
       const result = parseEeBuildRequestBody({
-        owner: 'acme',
-        repo: 'widgets',
         ...validBase,
-      });
-      expect(result.entityRef).toBeUndefined();
-      expect(result.owner).toBe('acme');
-      expect(result.repo).toBe('widgets');
-      expect(result.host).toBeUndefined();
-    });
-
-    it('accepts owner, repo, and host', () => {
-      const result = parseEeBuildRequestBody({
         owner: 'acme',
         repo: 'widgets',
         host: 'ghe.example.com',
-        ...validBase,
       });
+      expect(result.entityRef).toBe('component:default/my-ee');
+      expect(result.owner).toBe('acme');
+      expect(result.repo).toBe('widgets');
       expect(result.host).toBe('ghe.example.com');
     });
 
-    it('throws when neither entityRef nor owner/repo provided', () => {
-      expect(() => parseEeBuildRequestBody({ ...validBase })).toThrow(
-        'Either entityRef or both owner and repo are required',
+    it('omits owner/repo/host when not provided', () => {
+      const result = parseEeBuildRequestBody({ ...validBase });
+      expect(result.owner).toBeUndefined();
+      expect(result.repo).toBeUndefined();
+      expect(result.host).toBeUndefined();
+    });
+
+    it('throws when entityRef is missing', () => {
+      const { entityRef: _, ...noEntityRef } = validBase;
+      expect(() => parseEeBuildRequestBody(noEntityRef)).toThrow(
+        'entityRef is required',
       );
     });
 
-    it('throws when only owner provided without repo', () => {
+    it('throws when entityRef is missing even with owner/repo', () => {
+      const { entityRef: _, ...noEntityRef } = validBase;
       expect(() =>
-        parseEeBuildRequestBody({ owner: 'acme', ...validBase }),
-      ).toThrow('Either entityRef or both owner and repo are required');
-    });
-
-    it('throws when only repo provided without owner', () => {
-      expect(() =>
-        parseEeBuildRequestBody({ repo: 'widgets', ...validBase }),
-      ).toThrow('Either entityRef or both owner and repo are required');
+        parseEeBuildRequestBody({
+          owner: 'acme',
+          repo: 'widgets',
+          ...noEntityRef,
+        }),
+      ).toThrow('entityRef is required');
     });
 
     it('throws when imageTag is missing', () => {
       expect(() =>
         parseEeBuildRequestBody({
-          owner: 'acme',
-          repo: 'widgets',
+          entityRef: 'component:default/my-ee',
           customRegistryUrl: 'quay.io/org',
           imageName: 'img',
           verifyTls: true,
@@ -2541,8 +2537,7 @@ describe('helpers', () => {
     it('throws when verifyTls is missing', () => {
       expect(() =>
         parseEeBuildRequestBody({
-          owner: 'acme',
-          repo: 'widgets',
+          entityRef: 'component:default/my-ee',
           customRegistryUrl: 'quay.io/org',
           imageName: 'img',
           imageTag: 'latest',
@@ -2553,8 +2548,7 @@ describe('helpers', () => {
     it('throws when verifyTls is not a boolean', () => {
       expect(() =>
         parseEeBuildRequestBody({
-          owner: 'acme',
-          repo: 'widgets',
+          entityRef: 'component:default/my-ee',
           customRegistryUrl: 'quay.io/org',
           imageName: 'img',
           imageTag: 'latest',

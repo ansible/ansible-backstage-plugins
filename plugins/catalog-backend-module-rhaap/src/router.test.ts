@@ -1160,7 +1160,7 @@ describe('createRouter', () => {
       expect(mockCatalogClient.getEntityByRef).not.toHaveBeenCalled();
     });
 
-    it('returns 400 when neither entityRef nor owner/repo are given', async () => {
+    it('returns 400 when entityRef is missing', async () => {
       mockHttpAuth.credentials.mockResolvedValue({} as any);
       const testApp = await createEeBuildTestApp();
       const response = await request(testApp)
@@ -1174,7 +1174,7 @@ describe('createRouter', () => {
         })
         .expect(400);
 
-      expect(response.body.error).toContain('entityRef');
+      expect(response.body.error).toContain('entityRef is required');
     });
 
     it('derives ee_dir and ee_file_name from entity annotations', async () => {
