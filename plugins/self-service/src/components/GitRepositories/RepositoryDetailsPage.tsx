@@ -82,7 +82,16 @@ const RepositoryDetailsPageInner = () => {
   }, [repositoryName]);
 
   useEffect(() => {
-    if (!entity) return;
+    if (!entity) {
+      return () => {};
+    }
+
+    // Wait until catalog row matches the URL; fetchEntity does not clear `entity` before the next response.
+    if (repositoryName && entity.metadata?.name !== repositoryName) {
+      return () => {};
+    }
+
+    let cancelled = false;
 
     const annotations = entity.metadata?.annotations || {};
     const spec = (entity.spec || {}) as { repository_default_branch?: string };
@@ -114,6 +123,7 @@ const RepositoryDetailsPageInner = () => {
         gitRef: defaultBranch,
       })
         .then(outcome => {
+          if (cancelled) return;
           if (outcome.ok) {
             setReadmeContent(outcome.data);
             setScmIntegrationAuthError(false);
@@ -125,54 +135,65 @@ const RepositoryDetailsPageInner = () => {
           }
         })
         .catch(() => {
+          if (cancelled) return;
           setReadmeContent('');
           setScmIntegrationAuthError(false);
         })
-        .finally(() => setReadmeLoading(false));
-      return;
-    }
+        .finally(() => {
+          if (!cancelled) setReadmeLoading(false);
+        });
+    } else {
+      setScmIntegrationAuthError(false);
 
-    setScmIntegrationAuthError(false);
+      const sourceUrl = getSourceUrl(entity);
+      if (sourceUrl) {
+        let fetchUrl: string | null = null;
+        try {
+          const url = new URL(sourceUrl);
+          const host = url.hostname;
+          const pathParts = url.pathname
+            .replace(/^\/+/, '')
+            .split('/')
+            .filter(Boolean);
+          const owner = pathParts[0] ?? '';
+          const repo = (pathParts[1] ?? '').replace(/\.git$/, '');
 
-    const sourceUrl = getSourceUrl(entity);
-    if (!sourceUrl) {
-      setReadmeContent('');
-      setReadmeLoading(false);
-      return;
-    }
+          if (host.includes('github')) {
+            fetchUrl = `https://raw.githubusercontent.com/${owner}/${repo}/${defaultBranch}/${filePath}`;
+          } else if (host.includes('gitlab')) {
+            fetchUrl = `${url.origin}/${owner}/${repo}/-/raw/${defaultBranch}/${filePath}`;
+          }
+        } catch {
+          // ignore
+        }
 
-    let fetchUrl: string | null = null;
-    try {
-      const url = new URL(sourceUrl);
-      const host = url.hostname;
-      const pathParts = url.pathname
-        .replace(/^\/+/, '')
-        .split('/')
-        .filter(Boolean);
-      const owner = pathParts[0] ?? '';
-      const repo = (pathParts[1] ?? '').replace(/\.git$/, '');
-
-      if (host.includes('github')) {
-        fetchUrl = `https://raw.githubusercontent.com/${owner}/${repo}/${defaultBranch}/${filePath}`;
-      } else if (host.includes('gitlab')) {
-        fetchUrl = `${url.origin}/${owner}/${repo}/-/raw/${defaultBranch}/${filePath}`;
+        if (fetchUrl) {
+          fetch(fetchUrl)
+            .then(response => (response.ok ? response.text() : ''))
+            .then(text => {
+              if (!cancelled) setReadmeContent(text);
+            })
+            .catch(() => {
+              if (!cancelled) setReadmeContent('');
+            })
+            .finally(() => {
+              if (!cancelled) setReadmeLoading(false);
+            });
+        } else {
+          setReadmeContent('');
+          setReadmeLoading(false);
+        }
+      } else {
+        setReadmeContent('');
+        setReadmeLoading(false);
       }
-    } catch {
-      // ignore
     }
 
-    if (!fetchUrl) {
-      setReadmeContent('');
+    return () => {
+      cancelled = true;
       setReadmeLoading(false);
-      return;
-    }
-
-    fetch(fetchUrl)
-      .then(response => (response.ok ? response.text() : ''))
-      .then(setReadmeContent)
-      .catch(() => setReadmeContent(''))
-      .finally(() => setReadmeLoading(false));
-  }, [entity, discoveryApi, fetchApi]);
+    };
+  }, [entity, discoveryApi, fetchApi, repositoryName]);
 
   const handleNavigateToCatalog = useCallback(() => {
     navigate(`${rootLink()}/repositories/catalog`);
