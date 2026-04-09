@@ -210,15 +210,22 @@ export const CollectionsPickerExtension = ({
 
       const rawVersions: unknown[] = foundCollection?.versions ?? [];
       const details = rawVersions.filter(isSourceVersionDetail);
+      const hasPerSourceMetadata = details.some(
+        (d: SourceVersionDetail) =>
+          typeof d.source === 'string' && d.source.length > 0,
+      );
+      const detailsForSource = hasPerSourceMetadata
+        ? details.filter((d: SourceVersionDetail) => d.source === sourceId)
+        : details;
       const stringsOnly = rawVersions.filter(
         (v: unknown): v is string => typeof v === 'string',
       );
       const stringsForSource: string[] | undefined =
         foundCollection?.sourceVersions?.[sourceId];
 
-      if (stringsForSource?.length && details.length) {
+      if (stringsForSource?.length && detailsForSource.length) {
         const byVersion = new Map<string, SourceVersionDetail[]>();
-        for (const d of details) {
+        for (const d of detailsForSource) {
           const key = d.version ?? '';
           const list = byVersion.get(key) ?? [];
           list.push(d);
@@ -244,9 +251,9 @@ export const CollectionsPickerExtension = ({
             version: version,
           })),
         );
-      } else if (details.length) {
+      } else if (detailsForSource.length) {
         setAvailableVersions(
-          details.map((d: SourceVersionDetail) => ({
+          detailsForSource.map((d: SourceVersionDetail) => ({
             name: d.label,
             version: d.version,
           })),
@@ -401,18 +408,6 @@ export const CollectionsPickerExtension = ({
     setSelectedCollection(value);
     setSelectedSource(null);
     setAvailableSources(newValue?.sources || []);
-    setAvailableVersions(
-      (newValue?.versions || []).map((item: string | SourceVersionDetail) => {
-        if (typeof item === 'string') {
-          return { name: item, version: item };
-        }
-        const withName = item as SourceVersionDetail;
-        return {
-          name: withName.label ?? withName.name ?? '',
-          version: withName.version,
-        };
-      }),
-    );
     setSelectedVersion(null);
     setFieldErrors({});
   };
