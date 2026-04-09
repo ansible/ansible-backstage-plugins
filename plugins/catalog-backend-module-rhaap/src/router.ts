@@ -754,7 +754,8 @@ export async function createRouter(options: {
       if (isScmIntegrationAuthFailure(errorMessage)) {
         response.status(401).json({
           code: SCM_INTEGRATION_AUTH_FAILED_CODE,
-          error: `SCM integration authentication failed: ${errorMessage}`,
+          error:
+            'Unable to authenticate with the configured GitHub or GitLab integration.',
         });
         return;
       }

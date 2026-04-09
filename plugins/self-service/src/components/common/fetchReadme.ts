@@ -65,10 +65,14 @@ export async function fetchReadmeFromBackend(
   fetchApi: FetchApi,
   params: FetchReadmeParams,
 ): Promise<string> {
-  const outcome = await fetchGitFileContentFromBackend(
-    discoveryApi,
-    fetchApi,
-    params,
-  );
-  return outcome.ok ? outcome.data : '';
+  try {
+    const outcome = await fetchGitFileContentFromBackend(
+      discoveryApi,
+      fetchApi,
+      params,
+    );
+    return outcome.ok ? outcome.data : '';
+  } catch {
+    return '';
+  }
 }

@@ -3065,7 +3065,12 @@ describe('createRouter', () => {
 
       expect(response.status).toBe(401);
       expect(response.body.code).toBe(SCM_INTEGRATION_AUTH_FAILED_CODE);
-      expect(response.body.error).toContain('Bad credentials');
+      expect(response.body.error).toBe(
+        'Unable to authenticate with the configured GitHub or GitLab integration.',
+      );
+      expect(mockLogger.warn).toHaveBeenCalledWith(
+        'Failed to fetch README: Bad credentials',
+      );
     });
 
     it('should return 500 and log warn when getFileContent throws other error', async () => {

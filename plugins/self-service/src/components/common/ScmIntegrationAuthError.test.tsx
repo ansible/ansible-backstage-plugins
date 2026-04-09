@@ -1,5 +1,5 @@
 import { render, screen } from '@testing-library/react';
-import { ThemeProvider, createTheme } from '@material-ui/core/styles';
+import { ThemeProvider, createMuiTheme } from '@material-ui/core/styles';
 import { ScmIntegrationAuthError } from './ScmIntegrationAuthError';
 
 const mockUseIsSuperuser = jest.fn();
@@ -8,7 +8,7 @@ jest.mock('../../hooks', () => ({
   useIsSuperuser: () => mockUseIsSuperuser(),
 }));
 
-const theme = createTheme();
+const theme = createMuiTheme();
 
 describe('ScmIntegrationAuthError', () => {
   beforeEach(() => {

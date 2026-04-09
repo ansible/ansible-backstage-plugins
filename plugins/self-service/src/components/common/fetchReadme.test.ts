@@ -94,6 +94,44 @@ describe('fetchReadmeFromBackend', () => {
     expect(result).toBe('');
   });
 
+  it('returns empty string when discovery getBaseUrl rejects', async () => {
+    mockDiscoveryApi.getBaseUrl.mockRejectedValueOnce(new Error('no catalog'));
+
+    const result = await fetchReadmeFromBackend(
+      mockDiscoveryApi as any,
+      mockFetchApi as any,
+      {
+        scmProvider: 'github',
+        scmHost: 'github.com',
+        scmOrg: 'org',
+        scmRepo: 'repo',
+        filePath: 'README.md',
+        gitRef: 'main',
+      },
+    );
+
+    expect(result).toBe('');
+  });
+
+  it('returns empty string when fetch rejects', async () => {
+    mockFetchApi.fetch.mockRejectedValueOnce(new Error('network error'));
+
+    const result = await fetchReadmeFromBackend(
+      mockDiscoveryApi as any,
+      mockFetchApi as any,
+      {
+        scmProvider: 'github',
+        scmHost: 'github.com',
+        scmOrg: 'org',
+        scmRepo: 'repo',
+        filePath: 'README.md',
+        gitRef: 'main',
+      },
+    );
+
+    expect(result).toBe('');
+  });
+
   it('fetchGitFileContentFromBackend returns integration_auth when API returns code', async () => {
     mockFetchApi.fetch.mockResolvedValue({
       ok: false,
