@@ -241,6 +241,8 @@ paths:
       description: Initiates a full synchronization of organizations, users, and teams from Ansible Automation Platform into the Backstage catalog.
       tags:
         - AAP Sync
+      security:
+        - JWT: []
       responses:
         '200':
           description: Sync completed successfully
@@ -257,6 +259,8 @@ paths:
       description: Initiates synchronization of job templates from Ansible Automation Platform into the Backstage catalog.
       tags:
         - AAP Sync
+      security:
+        - JWT: []
       responses:
         '200':
           description: Sync completed successfully
@@ -270,7 +274,10 @@ paths:
     post:
       operationId: createUser
       summary: Create a user in the catalog
-      description: Creates a single user entity in the Backstage catalog from AAP user data. Typically called by the auth resolver during login.
+      description: |
+        Creates a single user entity in the Backstage catalog from AAP user data.
+        Typically called by the auth resolver during login.
+        **Permissions**: No specific permission check (unauthenticated in current implementation).
       tags:
         - AAP Sync
       security:
@@ -336,7 +343,7 @@ paths:
       description: |
         Returns the current synchronization status for AAP entities and/or Ansible content providers.
         If neither query parameter is provided, both sections are returned.
-        Requires superuser access.
+        **Permissions**: Requires superuser access (`aap.platform/is_superuser` annotation) or an allowed external-access service principal.
       tags:
         - Ansible Content Sync
       security:
@@ -445,7 +452,7 @@ paths:
       description: |
         Starts synchronization of Private Automation Hub collections.
         If no filters are provided, all configured PAH repositories are synced.
-        Requires superuser access.
+        **Permissions**: Requires superuser access (`aap.platform/is_superuser` annotation) or an allowed external-access service principal.
       tags:
         - Ansible Content Sync
       security:
@@ -564,7 +571,7 @@ paths:
         Starts synchronization of Ansible content from Git repositories (GitHub/GitLab).
         Supports hierarchical filtering: scmProvider -> hostName -> organization.
         If no filters are provided, all configured SCM sources are synced.
-        Requires superuser access.
+        **Permissions**: Requires superuser access (`aap.platform/is_superuser` annotation) or an allowed external-access service principal.
       tags:
         - Ansible Content Sync
       security:
@@ -685,6 +692,7 @@ paths:
         Registers a new execution environment entity in the catalog.
         This endpoint is restricted to backend service-to-service calls only
         (e.g. from the scaffolder plugin). User requests are rejected.
+        **Permissions**: Service-to-service only (service principal required, user principals rejected).
       tags:
         - Execution Environments
       security:
@@ -737,8 +745,9 @@ paths:
       description: |
         Retrieves the content of a file from a GitHub or GitLab repository.
         The response content type is determined by the file extension.
-        Requires at least one Ansible permission (git-repositories, execution-environments,
-        or collections view) and catalog entity read permission.
+        **Permissions**: Requires at least one of `ansible.git-repositories.view`,
+        `ansible.execution-environments.view`, or `ansible.collections.view`,
+        plus `catalog.entity.read`.
       tags:
         - Git Content
       security:
@@ -830,7 +839,7 @@ paths:
       summary: Get CI/CD activity from GitHub or GitLab
       description: |
         Proxies CI/CD activity data from GitHub Actions or GitLab Pipelines.
-        Requires git-repositories view permission and catalog entity read permission.
+        **Permissions**: Requires `ansible.git-repositories.view` and `catalog.entity.read`.
       tags:
         - Git Content
       security:
@@ -943,14 +952,15 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
 
-  /ansible/git/build-ee:
+  /ansible/ee/build:
     post:
       operationId: buildExecutionEnvironment
       summary: Build an execution environment (not implemented)
       description: |
         Placeholder endpoint for building execution environments.
         Currently returns 501 Not Implemented.
-        Requires execution-environments view permission and catalog entity read permission.
+        **Permissions**: Requires `ansible.execution-environments.view` and `catalog.entity.read`.
+        Also accepts external-access service principals (filtered by allowlist).
       tags:
         - Execution Environments
       security:
