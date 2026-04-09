@@ -7,7 +7,7 @@ import yaml from 'js-yaml';
  */
 export interface ParsedEEDefinition {
   baseImageName: string | null;
-  collections: Array<{ name: string; version?: string }>;
+  collections: Array<{ name: string; version?: string; type?: string }>;
   pythonPath: string | null;
   /** Python requirements (pip packages) from dependencies.python */
   pythonPackages: string[] | null;
@@ -54,7 +54,7 @@ function extractStringList(value: unknown): string[] | null {
 
 function extractCollections(
   galaxy: unknown,
-): Array<{ name: string; version?: string }> {
+): Array<{ name: string; version?: string; type?: string }> {
   if (!isRecord(galaxy)) return [];
   const collections = galaxy.collections;
   if (!Array.isArray(collections)) return [];
@@ -62,11 +62,13 @@ function extractCollections(
     .filter(isRecord)
     .filter(item => typeof item.name === 'string')
     .map(item => {
-      const entry: { name: string; version?: string } = {
+      const entry: { name: string; version?: string; type?: string } = {
         name: (item.name as string).trim(),
       };
       const ver = asString(item.version);
       if (ver) entry.version = ver;
+      const typ = asString(item.type);
+      if (typ) entry.type = typ;
       return entry;
     });
 }

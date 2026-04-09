@@ -449,4 +449,63 @@ export class GithubClient extends BaseScmClient {
     const url = this.buildUrl({ repo, ref, path: dirPath, type: 'dir' });
     return `url:${url}`;
   }
+
+  /**
+   * POST /repos/{owner}/{repo}/actions/workflows/{workflow_file}/dispatches
+   *
+   * With API version 2026-03-10 the endpoint returns 200 with
+   * `workflow_run_id`, `run_url`, and `html_url` in the response body.
+   */
+  async dispatchActionsWorkflow(
+    owner: string,
+    repo: string,
+    workflowFileName: string,
+    ref: string,
+    inputs: Record<string, string>,
+    signal?: AbortSignal,
+  ): Promise<{
+    ok: boolean;
+    status: number;
+    statusText: string;
+    bodyText: string;
+    workflowRunId?: number;
+    workflowRunUrl?: string;
+  }> {
+    const path = `/repos/${encodeURIComponent(owner)}/${encodeURIComponent(
+      repo,
+    )}/actions/workflows/${encodeURIComponent(workflowFileName)}/dispatches`;
+    const url = `${this.apiUrl}${path}`;
+    const response = await this.doFetch(url, {
+      method: 'POST',
+      signal,
+      headers: {
+        'Content-Type': 'application/json',
+        Accept: 'application/vnd.github+json',
+        'X-GitHub-Api-Version': '2026-03-10',
+      },
+      body: JSON.stringify({ ref, inputs }),
+    });
+    const bodyText = await response.text();
+
+    let workflowRunId: number | undefined;
+    let workflowRunUrl: string | undefined;
+    if (response.ok && bodyText.trim()) {
+      try {
+        const data = JSON.parse(bodyText);
+        workflowRunId = data.workflow_run_id ?? undefined;
+        workflowRunUrl = data.html_url ?? undefined;
+      } catch {
+        /* non-JSON body (legacy 204) — ignore */
+      }
+    }
+
+    return {
+      ok: response.ok,
+      status: response.status,
+      statusText: response.statusText,
+      bodyText,
+      workflowRunId,
+      workflowRunUrl,
+    };
+  }
 }

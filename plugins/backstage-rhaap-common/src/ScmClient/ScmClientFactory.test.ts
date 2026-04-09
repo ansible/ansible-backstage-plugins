@@ -1,6 +1,9 @@
 import { LoggerService } from '@backstage/backend-plugin-api';
 import { Config } from '@backstage/config';
-import { ScmClientFactory } from './ScmClientFactory';
+import {
+  ScmClientFactory,
+  createGithubClientForWorkflowDispatch,
+} from './ScmClientFactory';
 import { GithubClient } from './GithubClient';
 import { GitlabClient } from './GitlabClient';
 
@@ -66,6 +69,20 @@ describe('ScmClientFactory', () => {
   describe('constructor', () => {
     it('should initialize with ScmIntegrations from config', () => {
       expect(ScmIntegrations.fromConfig).toHaveBeenCalledWith(mockConfig);
+    });
+  });
+
+  describe('createGithubClientForWorkflowDispatch', () => {
+    it('should return GithubClient with placeholder org and given token', () => {
+      const client = createGithubClientForWorkflowDispatch({
+        logger: mockLogger,
+        host: 'github.com',
+        token: 'pat',
+        apiBaseUrl: undefined,
+      });
+      expect(client).toBeInstanceOf(GithubClient);
+      expect(client.getOrganization()).toBe('__workflow_dispatch__');
+      expect(client.getHost()).toBe('github.com');
     });
   });
 

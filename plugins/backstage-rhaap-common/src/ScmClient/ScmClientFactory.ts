@@ -12,6 +12,33 @@ import { GithubClient } from './GithubClient';
 import { GitlabClient } from './GitlabClient';
 import { resolveGithubToken } from './resolveGithubToken';
 
+const WORKFLOW_DISPATCH_PLACEHOLDER_ORG = '__workflow_dispatch__';
+
+/**
+ * Builds a {@link GithubClient} for arbitrary-repo GitHub REST calls (e.g. Actions workflow_dispatch)
+ * using an explicit host and token — for example integration token plus optional request Bearer fallback.
+ * Does not use {@link ScmClientFactory#createClient}; organization is a placeholder and unused for dispatch.
+ */
+export function createGithubClientForWorkflowDispatch(options: {
+  logger: LoggerService;
+  host: string;
+  token: string;
+  apiBaseUrl?: string;
+  checkSSL?: boolean;
+}): GithubClient {
+  return new GithubClient({
+    logger: options.logger,
+    config: {
+      scmProvider: 'github',
+      host: options.host,
+      organization: WORKFLOW_DISPATCH_PLACEHOLDER_ORG,
+      token: options.token,
+      apiBaseUrl: options.apiBaseUrl,
+      checkSSL: options.checkSSL ?? true,
+    },
+  });
+}
+
 export interface CreateScmClientOptions {
   scmProvider: ScmProvider;
   host?: string;

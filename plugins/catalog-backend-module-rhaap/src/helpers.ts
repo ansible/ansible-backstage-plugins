@@ -1,20 +1,32 @@
-import type { Request, Response, RequestHandler } from 'express';
+import type { Request, Response, NextFunction, RequestHandler } from 'express';
 import type {
+  BackstageCredentials,
   LoggerService,
   HttpAuthService,
   UserInfoService,
   AuthService,
+  PermissionsService,
 } from '@backstage/backend-plugin-api';
 import type { CatalogClient } from '@backstage/catalog-client';
+import type { Entity } from '@backstage/catalog-model';
+import { ANNOTATION_EDIT_URL } from '@backstage/catalog-model';
 import type { Config } from '@backstage/config';
 import type { JsonValue } from '@backstage/types';
+import type {
+  BasicPermission,
+  Permission,
+  ResourcePermission,
+} from '@backstage/plugin-permission-common';
+import { AuthorizeResult } from '@backstage/plugin-permission-common';
 import type {
   DefaultGithubCredentialsProvider,
   ScmIntegrationRegistry,
 } from '@backstage/integration';
+import { ResponseError } from '@backstage/errors';
 import {
   GitlabClient,
   resolveGithubToken,
+  createGithubClientForWorkflowDispatch,
 } from '@ansible/backstage-rhaap-common';
 
 import { AnsibleGitContentsProvider } from './providers/AnsibleGitContentsProvider';
@@ -96,6 +108,511 @@ export function isSafeHostname(host: string): boolean {
     return false;
   }
   return /^[a-zA-Z0-9]([a-zA-Z0-9.-]*[a-zA-Z0-9])?$/.test(host);
+}
+
+/** Parsed GitHub repository from a source/edit URL pointing at a blob or tree. */
+export interface ParsedGitHubRepoFromSource {
+  host: string;
+  owner: string;
+  repo: string;
+  /** Branch or tag from the URL path (used as default workflow_dispatch ref). */
+  defaultRef: string;
+  /** Remaining path segments after ref (e.g. "ee1/execution-environment.yml"). */
+  filePath?: string;
+}
+
+const KNOWN_FILE_EXT_RE = /\.(ya?ml|json|md|txt|cfg|ini|toml)$/i;
+
+/**
+ * Parses `https://{host}/{owner}/{repo}/blob/{ref}/...` or `/tree/{ref}/...`.
+ * Also accepts `https://{host}/{owner}/{repo}` with default ref `main`.
+ */
+export function parseGitHubRepoFromSourceUrl(
+  raw: string | undefined,
+): ParsedGitHubRepoFromSource | null {
+  if (!raw?.trim()) {
+    return null;
+  }
+  try {
+    const url = raw.replace(/^url:/i, '').trim();
+    const u = new URL(url);
+    if (u.protocol !== 'http:' && u.protocol !== 'https:') {
+      return null;
+    }
+    const host = u.hostname;
+    const parts = u.pathname.split('/').filter(Boolean);
+    if (
+      parts.length >= 4 &&
+      (parts[2] === 'blob' || parts[2] === 'tree' || parts[2] === 'edit')
+    ) {
+      const afterAction = parts.slice(3);
+      const { ref, filePath } = splitRefAndPath(afterAction);
+      return {
+        host,
+        owner: parts[0],
+        repo: parts[1],
+        defaultRef: ref,
+        ...(filePath ? { filePath } : {}),
+      };
+    }
+    if (parts.length === 2) {
+      return {
+        host,
+        owner: parts[0],
+        repo: parts[1],
+        defaultRef: 'main',
+      };
+    }
+    return null;
+  } catch {
+    return null;
+  }
+}
+
+function looksLikeRefSegment(seg: string): boolean {
+  if (seg.includes('.')) return true;
+  if (/^v\d/i.test(seg)) return true;
+  if (/^\d+$/.test(seg)) return true;
+  return false;
+}
+
+/**
+ * Splits URL segments after the action keyword into ref and file path.
+ * Uses a file-extension heuristic to handle multi-segment refs.
+ */
+function splitRefAndPath(segments: string[]): {
+  ref: string;
+  filePath: string | undefined;
+} {
+  if (segments.length === 0) {
+    return { ref: 'main', filePath: undefined };
+  }
+  if (segments.length === 1) {
+    return { ref: segments[0], filePath: undefined };
+  }
+
+  let fileIdx = -1;
+  for (let i = segments.length - 1; i >= 0; i--) {
+    if (KNOWN_FILE_EXT_RE.test(segments[i])) {
+      fileIdx = i;
+      break;
+    }
+  }
+
+  if (fileIdx < 0) {
+    return { ref: segments.join('/'), filePath: undefined };
+  }
+
+  let pathStart = fileIdx;
+  while (pathStart > 1 && !looksLikeRefSegment(segments[pathStart - 1])) {
+    pathStart--;
+  }
+  pathStart = Math.max(pathStart, 1);
+
+  const ref = segments.slice(0, pathStart).join('/');
+  const filePath = segments.slice(pathStart).join('/');
+  return { ref, filePath: filePath || undefined };
+}
+
+export interface EeBuildRequestValidated {
+  entityRef: string;
+  /** Optional override; when omitted, owner is derived from entity annotations. */
+  owner?: string;
+  /** Optional override; when omitted, repo is derived from entity annotations. */
+  repo?: string;
+  /** Optional override; when omitted, host is derived from entity annotations. */
+  host?: string;
+  customRegistryUrl: string;
+  imageName: string;
+  imageTag: string;
+  verifyTls: boolean;
+  registryType?: string;
+}
+
+function assertNoControlChars(value: string, field: string): void {
+  // eslint-disable-next-line no-control-regex
+  if (/[\x00-\x1f\x7f]/.test(value)) {
+    throw new Error(`${field} contains invalid characters`);
+  }
+}
+
+/** Rejects path traversal and absolute paths for a repo-relative directory. */
+export function assertSafeRepoRelativeEeDir(eeDir: string): void {
+  const normalized = eeDir.trim().replaceAll('\\', '/');
+  if (normalized.startsWith('/')) {
+    throw new Error('ee_dir must be relative to the repository root');
+  }
+  for (const segment of normalized.split('/')) {
+    if (segment === '..') {
+      throw new Error('ee_dir must not contain path traversal (..)');
+    }
+  }
+}
+
+/** File name only for EE definition (no directory components). */
+export function assertSafeEeFileName(fileName: string): void {
+  const t = fileName.trim();
+  if (t.includes('/') || t.includes('\\')) {
+    throw new Error('ee_file_name must be a file name without path separators');
+  }
+  if (t === '.' || t === '..') {
+    throw new Error('ee_file_name is invalid');
+  }
+}
+
+function requireString(val: unknown, field: string): string {
+  if (typeof val !== 'string' || !val.trim()) {
+    throw new Error(`${field} is required`);
+  }
+  return val.trim();
+}
+
+function validateStringLength(
+  val: string,
+  field: string,
+  maxLen: number,
+): void {
+  if (val.length > maxLen) {
+    throw new Error(`${field} is too long`);
+  }
+  assertNoControlChars(val, field);
+}
+
+function parseOptionalRegistryType(val: unknown): string | undefined {
+  if (val === undefined) {
+    return undefined;
+  }
+  if (typeof val !== 'string' || !val.trim()) {
+    throw new Error('registryType must be a non-empty string when provided');
+  }
+  const trimmed = val.trim();
+  assertNoControlChars(trimmed, 'registryType');
+  return trimmed;
+}
+
+function trimIfString(val: unknown): string | undefined {
+  return typeof val === 'string' ? val.trim() || undefined : undefined;
+}
+
+/**
+ * Validates POST /ansible/ee/build JSON body.
+ * @throws Error with a message suitable for HTTP 400 responses.
+ */
+export function parseEeBuildRequestBody(
+  body: unknown,
+): EeBuildRequestValidated {
+  if (!body || typeof body !== 'object') {
+    throw new Error('Request body must be a JSON object');
+  }
+  const o = body as Record<string, unknown>;
+
+  const entityRefStr = trimIfString(o.entityRef);
+  if (!entityRefStr) {
+    throw new Error(
+      'entityRef is required – ee_dir and ee_file_name are derived from entity annotations',
+    );
+  }
+  validateStringLength(entityRefStr, 'entityRef', 512);
+
+  const ownerStr = trimIfString(o.owner);
+  const repoStr = trimIfString(o.repo);
+  const hostStr = trimIfString(o.host);
+
+  for (const [val, name, max] of [
+    [ownerStr, 'owner', 256],
+    [repoStr, 'repo', 256],
+    [hostStr, 'host', 256],
+  ] as const) {
+    if (val) {
+      validateStringLength(val, name, max);
+    }
+  }
+
+  const registryStr = requireString(o.customRegistryUrl, 'customRegistryUrl');
+  const imageStr = requireString(o.imageName, 'imageName');
+  const imageTagStr = requireString(o.imageTag, 'imageTag');
+
+  if (typeof o.verifyTls !== 'boolean') {
+    throw new TypeError('verifyTls is required and must be a boolean');
+  }
+
+  validateStringLength(registryStr, 'customRegistryUrl', 1024);
+  validateStringLength(imageStr, 'imageName', 1024);
+  validateStringLength(imageTagStr, 'imageTag', 256);
+
+  const registryTypeStr = parseOptionalRegistryType(o.registryType);
+
+  return {
+    entityRef: entityRefStr,
+    ...(ownerStr ? { owner: ownerStr } : {}),
+    ...(repoStr ? { repo: repoStr } : {}),
+    ...(hostStr ? { host: hostStr } : {}),
+    customRegistryUrl: registryStr,
+    imageName: imageStr,
+    imageTag: imageTagStr,
+    verifyTls: o.verifyTls,
+    ...(registryTypeStr ? { registryType: registryTypeStr } : {}),
+  };
+}
+
+/** Resolved GitHub repository + ref for dispatching `ee-build.yml` via workflow_dispatch. */
+export interface EeGithubDispatchContext {
+  host: string;
+  owner: string;
+  repo: string;
+  ref: string;
+  /** Directory containing the EE definition, derived from the annotation file path. */
+  eeDir?: string;
+  /** EE definition file name, derived from the annotation file path. */
+  eeFileName?: string;
+}
+
+function getAnnotationString(ann: Record<string, string>, key: string): string {
+  const val = ann[key];
+  return typeof val === 'string' ? val : '';
+}
+
+function deriveEeDirAndFile(
+  filePath: string,
+  entityName: string,
+): { eeDir: string; eeFileName: string | undefined } {
+  const lastSlash = filePath.lastIndexOf('/');
+  let eeDir: string;
+  let eeFileName: string | undefined;
+  if (lastSlash >= 0) {
+    eeDir = filePath.substring(0, lastSlash);
+    eeFileName = filePath.substring(lastSlash + 1);
+  } else {
+    eeDir = '.';
+    eeFileName = filePath;
+  }
+  if (eeFileName === 'catalog-info.yaml') {
+    eeFileName = entityName ? `${entityName}.yml` : undefined;
+  }
+  assertSafeRepoRelativeEeDir(eeDir);
+  if (eeFileName) {
+    assertSafeEeFileName(eeFileName);
+  }
+  return { eeDir, eeFileName };
+}
+
+/**
+ * Derives owner/repo/ref from a catalog EE Component's GitHub source or edit URL.
+ * @throws Error with a message suitable for HTTP 400 when the entity cannot be used for a GitHub EE build.
+ */
+export function resolveGithubRepoForEeBuild(
+  entity: Entity,
+  gitRefOverride?: string,
+): EeGithubDispatchContext {
+  if (entity.kind !== 'Component') {
+    throw new Error('Execution Environment build requires a Component entity');
+  }
+  if (entity.spec?.type !== 'execution-environment') {
+    throw new Error('Entity spec.type must be execution-environment');
+  }
+  const ann = entity.metadata?.annotations ?? {};
+  const candidates = [
+    getAnnotationString(ann, ANNOTATION_EDIT_URL),
+    getAnnotationString(ann, 'backstage.io/source-location'),
+  ].filter(Boolean);
+
+  if (candidates.length === 0) {
+    throw new Error(
+      'Execution Environment is missing a Git source annotation (backstage.io/source-location or edit URL)',
+    );
+  }
+
+  const parsed = candidates
+    .map(c => parseGitHubRepoFromSourceUrl(c.replace(/^url:/i, '').trim()))
+    .find(Boolean);
+
+  if (!parsed) {
+    throw new Error(
+      'Execution Environment source URL is not a GitHub repository URL; EE build workflow is GitHub-only',
+    );
+  }
+
+  const ee = parsed.filePath
+    ? deriveEeDirAndFile(parsed.filePath, entity.metadata?.name ?? '')
+    : undefined;
+
+  return {
+    host: parsed.host,
+    owner: parsed.owner,
+    repo: parsed.repo,
+    ref: (gitRefOverride ?? parsed.defaultRef).trim(),
+    ...(ee?.eeDir ? { eeDir: ee.eeDir } : {}),
+    ...(ee?.eeFileName ? { eeFileName: ee.eeFileName } : {}),
+  };
+}
+
+/**
+ * Validates a GitHub host is safe and allowed by the integrations config.
+ * Returns an error message string if invalid, or `undefined` if the host is OK.
+ */
+export function validateGitHubHost(
+  config: Config,
+  host: string,
+): string | undefined {
+  if (!isSafeHostname(host)) {
+    return 'Invalid GitHub host in entity URL';
+  }
+  if (!isGitHubHostAllowedForProxy(config, host)) {
+    return `Host '${host}' is not allowed. Configure it under integrations.github.`;
+  }
+  return undefined;
+}
+
+/** Returns `true` when the error message looks like a client/validation issue from EE build. */
+export function isKnownEeBuildError(msg: string): boolean {
+  return (
+    msg.includes('execution-environment') ||
+    msg.includes('GitHub') ||
+    msg.includes('source') ||
+    msg.includes('Component')
+  );
+}
+
+/** `res.locals` key where EE build middleware stores credentials for the route handler. */
+export const EE_BUILD_CATALOG_CREDENTIALS_LOCALS_KEY =
+  'rhaapEeBuildCatalogCredentials' as const;
+
+export interface ResolvedEeEntity {
+  gh: { host: string; owner: string; repo: string; ref: string };
+  eeDir: string | undefined;
+  eeFileName: string | undefined;
+}
+
+export async function resolveEntityAndRepo(
+  response: Response,
+  auth: AuthService,
+  catalogClient: CatalogClient,
+  entityRef: string,
+): Promise<ResolvedEeEntity | undefined> {
+  const credentials = (
+    response.locals as Record<string, BackstageCredentials | undefined>
+  )[EE_BUILD_CATALOG_CREDENTIALS_LOCALS_KEY];
+  if (!credentials) {
+    response.status(500).json({
+      error: 'Internal error: missing auth context for EE build',
+    });
+    return undefined;
+  }
+
+  try {
+    const { token: catalogToken } = await auth.getPluginRequestToken({
+      onBehalfOf: credentials,
+      targetPluginId: 'catalog',
+    });
+
+    const entity = await catalogClient.getEntityByRef(entityRef, {
+      token: catalogToken,
+    });
+    if (!entity) {
+      response.status(404).json({
+        error: 'Entity not found or not visible with your credentials',
+      });
+      return undefined;
+    }
+
+    const resolved = resolveGithubRepoForEeBuild(entity);
+    return {
+      gh: resolved,
+      eeDir: resolved.eeDir,
+      eeFileName: resolved.eeFileName,
+    };
+  } catch (error) {
+    if (error instanceof ResponseError && error.response.status === 403) {
+      response.status(403).json({
+        error: 'Not allowed to read this entity with your credentials',
+      });
+      return undefined;
+    }
+    const msg = error instanceof Error ? error.message : String(error);
+    response.status(400).json({ error: msg });
+    return undefined;
+  }
+}
+
+export interface DispatchEeBuildOptions {
+  response: Response;
+  logger: LoggerService;
+  config: Config;
+  gh: { host: string; owner: string; repo: string; ref: string };
+  eeDir: string;
+  eeFileName: string;
+  githubToken: string;
+  parsedBody: {
+    customRegistryUrl: string;
+    imageName: string;
+    imageTag: string;
+    verifyTls: boolean;
+  };
+}
+
+export async function dispatchEeBuild(
+  opts: DispatchEeBuildOptions,
+): Promise<void> {
+  const {
+    response,
+    logger,
+    config,
+    gh,
+    eeDir,
+    eeFileName,
+    githubToken,
+    parsedBody,
+  } = opts;
+  const { apiBaseUrl } = getGitHubIntegrationForHost(config, gh.host);
+  const githubClient = createGithubClientForWorkflowDispatch({
+    logger,
+    host: gh.host,
+    token: githubToken,
+    apiBaseUrl,
+  });
+
+  const ghResp = await githubClient.dispatchActionsWorkflow(
+    gh.owner,
+    gh.repo,
+    'ee-build.yml',
+    gh.ref,
+    {
+      ee_dir: eeDir,
+      ee_file_name: eeFileName,
+      ee_registry: parsedBody.customRegistryUrl,
+      ee_image_name: parsedBody.imageName,
+      image_build_tag: parsedBody.imageTag,
+      registry_tls_verify: String(parsedBody.verifyTls),
+    },
+  );
+
+  if (!ghResp.ok) {
+    logger.warn('[ansible/ee/build] GitHub workflow_dispatch failed', {
+      status: ghResp.status,
+      owner: gh.owner,
+      repo: gh.repo,
+      body: ghResp.bodyText,
+    });
+    const clientErr = ghResp.status >= 400 && ghResp.status < 500;
+    response.status(clientErr ? ghResp.status : 502).json({
+      error: `GitHub workflow_dispatch failed: ${ghResp.bodyText || ghResp.statusText}`,
+    });
+    return;
+  }
+
+  logger.info(
+    `[ansible/ee/build] Dispatched ee-build.yml for ${gh.owner}/${gh.repo}@${gh.ref}`,
+  );
+
+  response.status(202).json({
+    message: 'Build started',
+    ...(ghResp.workflowRunId && {
+      workflow_id: ghResp.workflowRunId,
+    }),
+    ...(ghResp.workflowRunUrl && {
+      workflow_url: ghResp.workflowRunUrl,
+    }),
+  });
 }
 
 export function getSkipTlsVerifyHosts(config: Config): string[] {
@@ -343,6 +860,80 @@ export interface RequireSuperuserDeps {
    * If empty/undefined, any service principal is allowed.
    */
   allowedExternalAccessSubjects?: string[];
+}
+
+/** Same allowlist semantics as sync superuser routes: optional subject filter for service principals. */
+export interface RequireUserOrExternalAccessDeps {
+  httpAuth: HttpAuthService;
+  auth: AuthService;
+  logger: LoggerService;
+  allowedExternalAccessSubjects?: string[];
+}
+
+/**
+ * Authenticates the request as a Backstage user or an allowed external-access (service) principal.
+ * @returns Credentials when the caller may proceed; otherwise sends 401/403 and returns null.
+ */
+export function checkRequireUserOrExternalAccess(
+  deps: RequireUserOrExternalAccessDeps,
+): (req: Request, res: Response) => Promise<BackstageCredentials | null> {
+  const { httpAuth, auth, logger, allowedExternalAccessSubjects } = deps;
+  return async (
+    req: Request,
+    res: Response,
+  ): Promise<BackstageCredentials | null> => {
+    try {
+      const credentials = await httpAuth.credentials(req as any, {
+        allow: ['user', 'service'],
+      });
+      if (auth.isPrincipal(credentials, 'service')) {
+        const subject = credentials.principal.subject;
+        const allowed =
+          !allowedExternalAccessSubjects?.length ||
+          allowedExternalAccessSubjects.includes(subject);
+        if (allowed) {
+          logger.info(
+            `[EE build] Allowing request: external access (service principal, subject=${subject})`,
+          );
+          return credentials;
+        }
+        logger.warn(
+          `[EE build] Rejecting request: service principal subject '${subject}' not in allowedExternalAccessSubjects`,
+        );
+        res.status(403).json({
+          error:
+            'Forbidden: external access subject not allowed for this endpoint',
+        });
+        return null;
+      }
+      return credentials;
+    } catch (error) {
+      const errorMessage =
+        error instanceof Error ? error.message : String(error);
+      logger.debug(`[EE build] Authentication failed: ${errorMessage}`);
+      res.status(401).json({ error: 'Authentication required' });
+      return null;
+    }
+  };
+}
+
+/**
+ * Middleware for POST /ansible/ee/build: user session or allowlisted external access token.
+ * Stores {@link BackstageCredentials} on `res.locals[EE_BUILD_CATALOG_CREDENTIALS_LOCALS_KEY]`.
+ */
+export function createRequireUserOrExternalAccessMiddleware(
+  deps: RequireUserOrExternalAccessDeps,
+): RequestHandler {
+  const authenticate = checkRequireUserOrExternalAccess(deps);
+  return async (req: Request, res: Response, next: (err?: unknown) => void) => {
+    const credentials = await authenticate(req, res);
+    if (credentials) {
+      (res.locals as Record<string, BackstageCredentials>)[
+        EE_BUILD_CATALOG_CREDENTIALS_LOCALS_KEY
+      ] = credentials;
+      next();
+    }
+  };
 }
 
 /**
@@ -625,4 +1216,88 @@ export async function handleGitLabCIActivity(
     );
     response.status(502).json({ error: 'Failed to fetch GitLab pipelines' });
   }
+}
+
+/* ------------------------------------------------------------------ */
+/*  Permission-check middleware factory                                */
+/* ------------------------------------------------------------------ */
+
+export interface PermissionMiddlewareDeps {
+  httpAuth: HttpAuthService;
+  permissions: PermissionsService;
+}
+
+/**
+ * Creates an Express middleware that resolves credentials and evaluates a
+ * mixed list of basic and resource permissions.
+ *
+ * Basic permissions (`type: 'basic'`) are checked via `authorize`; the result
+ * is `true` when `AuthorizeResult.ALLOW`.
+ *
+ * Resource permissions (`type: 'resource'`) are checked via
+ * `authorizeConditional`; the result is `true` when the decision is **not**
+ * `AuthorizeResult.DENY` (i.e. ALLOW or CONDITIONAL).
+ *
+ * On success the following are attached to `response.locals`:
+ *  - `credentials`  – the resolved {@link BackstageCredentials}
+ *  - `permissions`  – a `Record<string, boolean>` keyed by permission name
+ *
+ * The middleware does **not** enforce any policy; it is the caller's
+ * responsibility to inspect the map and return 403 when appropriate.
+ *
+ * @param deps - httpAuth and permissions services
+ * @param permissionsToCheck - basic and/or resource permissions to evaluate
+ */
+export function createPermissionCheckMiddleware(
+  deps: PermissionMiddlewareDeps,
+  permissionsToCheck: Permission[],
+): RequestHandler {
+  const { httpAuth, permissions } = deps;
+
+  const basicPerms = permissionsToCheck.filter(
+    (p): p is BasicPermission => p.type === 'basic',
+  );
+  const resourcePerms = permissionsToCheck.filter(
+    (p): p is ResourcePermission => p.type === 'resource',
+  );
+
+  return async (
+    request: Request,
+    response: Response,
+    next: NextFunction,
+  ): Promise<void> => {
+    try {
+      const credentials = await httpAuth.credentials(request as any);
+
+      const [basicDecisions, conditionalDecisions] = await Promise.all([
+        basicPerms.length
+          ? permissions.authorize(
+              basicPerms.map(permission => ({ permission })),
+              { credentials },
+            )
+          : Promise.resolve([]),
+        resourcePerms.length
+          ? permissions.authorizeConditional(
+              resourcePerms.map(permission => ({ permission })),
+              { credentials },
+            )
+          : Promise.resolve([]),
+      ]);
+
+      const results: Record<string, boolean> = {};
+      basicPerms.forEach((perm, i) => {
+        results[perm.name] = basicDecisions[i].result === AuthorizeResult.ALLOW;
+      });
+      resourcePerms.forEach((perm, i) => {
+        results[perm.name] =
+          conditionalDecisions[i].result !== AuthorizeResult.DENY;
+      });
+
+      response.locals.credentials = credentials;
+      response.locals.permissions = results;
+      next();
+    } catch (err) {
+      next(err);
+    }
+  };
 }

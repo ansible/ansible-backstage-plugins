@@ -1,7 +1,7 @@
 import { LoggerService } from '@backstage/backend-plugin-api';
 import * as undici from 'undici';
 import { GithubClient } from './GithubClient';
-import type { RepositoryInfo, ScmClientConfig } from './types';
+import { RepositoryInfo, ScmClientConfig } from './types';
 
 // Mock global fetch
 const mockFetch = jest.fn();
@@ -1075,6 +1075,151 @@ describe('GithubClient', () => {
         'https://github.enterprise.com/api/v3/repos/test-owner/test-repo',
         expect.any(Object),
       );
+    });
+  });
+
+  describe('dispatchActionsWorkflow', () => {
+    it('should POST workflow_dispatch with API version 2026-03-10 and parse run details', async () => {
+      const dispatchBody = JSON.stringify({
+        workflow_run_id: 987654,
+        run_url:
+          'https://api.github.com/repos/acme/widgets/actions/runs/987654',
+        html_url: 'https://github.com/acme/widgets/actions/runs/987654',
+      });
+      (fetch as jest.Mock).mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        statusText: 'OK',
+        text: () => Promise.resolve(dispatchBody),
+      });
+
+      const result = await client.dispatchActionsWorkflow(
+        'acme',
+        'widgets',
+        'ee-build.yml',
+        'main',
+        {
+          ee_dir: 'my-ee',
+          ee_file_name: 'my-ee.yml',
+          ee_registry: 'quay.io/ansible',
+          ee_image_name: 'ns/img',
+        },
+      );
+
+      expect(result.ok).toBe(true);
+      expect(result.status).toBe(200);
+      expect(result.workflowRunId).toBe(987654);
+      expect(result.workflowRunUrl).toBe(
+        'https://github.com/acme/widgets/actions/runs/987654',
+      );
+      expect(fetch).toHaveBeenCalledWith(
+        'https://api.github.com/repos/acme/widgets/actions/workflows/ee-build.yml/dispatches',
+        expect.objectContaining({
+          method: 'POST',
+          headers: expect.objectContaining({
+            Authorization: 'Bearer test-token',
+            Accept: 'application/vnd.github+json',
+            'Content-Type': 'application/json',
+            'X-GitHub-Api-Version': '2026-03-10',
+          }),
+          body: JSON.stringify({
+            ref: 'main',
+            inputs: {
+              ee_dir: 'my-ee',
+              ee_file_name: 'my-ee.yml',
+              ee_registry: 'quay.io/ansible',
+              ee_image_name: 'ns/img',
+            },
+          }),
+        }),
+      );
+    });
+
+    it('falls back gracefully when response body is empty (legacy 204)', async () => {
+      (fetch as jest.Mock).mockResolvedValueOnce({
+        ok: true,
+        status: 204,
+        statusText: 'No Content',
+        text: () => Promise.resolve(''),
+      });
+
+      const result = await client.dispatchActionsWorkflow(
+        'acme',
+        'widgets',
+        'ee-build.yml',
+        'main',
+        { ee_dir: 'x' },
+      );
+
+      expect(result.ok).toBe(true);
+      expect(result.workflowRunId).toBeUndefined();
+      expect(result.workflowRunUrl).toBeUndefined();
+    });
+
+    it('returns undefined run details when response JSON lacks those fields', async () => {
+      (fetch as jest.Mock).mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        statusText: 'OK',
+        text: () => Promise.resolve('{"some":"other"}'),
+      });
+
+      const result = await client.dispatchActionsWorkflow(
+        'acme',
+        'widgets',
+        'ee-build.yml',
+        'main',
+        { ee_dir: 'x' },
+      );
+
+      expect(result.ok).toBe(true);
+      expect(result.workflowRunId).toBeUndefined();
+      expect(result.workflowRunUrl).toBeUndefined();
+    });
+
+    it('ignores non-JSON body on success (catch branch)', async () => {
+      (fetch as jest.Mock).mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        statusText: 'OK',
+        text: () => Promise.resolve('not valid json'),
+      });
+
+      const result = await client.dispatchActionsWorkflow(
+        'acme',
+        'widgets',
+        'ee-build.yml',
+        'main',
+        { ee_dir: 'x' },
+      );
+
+      expect(result.ok).toBe(true);
+      expect(result.workflowRunId).toBeUndefined();
+      expect(result.workflowRunUrl).toBeUndefined();
+      expect(result.bodyText).toBe('not valid json');
+    });
+
+    it('should return body text when GitHub returns an error', async () => {
+      (fetch as jest.Mock).mockResolvedValueOnce({
+        ok: false,
+        status: 422,
+        statusText: 'Unprocessable',
+        text: () => Promise.resolve('{"message":"No ref"}'),
+      });
+
+      const result = await client.dispatchActionsWorkflow(
+        'o',
+        'r',
+        'w.yml',
+        'bad',
+        {},
+      );
+
+      expect(result.ok).toBe(false);
+      expect(result.status).toBe(422);
+      expect(result.bodyText).toBe('{"message":"No ref"}');
+      expect(result.workflowRunId).toBeUndefined();
+      expect(result.workflowRunUrl).toBeUndefined();
     });
   });
 });

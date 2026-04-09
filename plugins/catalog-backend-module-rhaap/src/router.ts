@@ -48,8 +48,15 @@ import {
   buildInvalidRepositoryResults,
   resolveProvidersToRun,
   createRequireSuperuserMiddleware,
+  createRequireUserOrExternalAccessMiddleware,
+  createPermissionCheckMiddleware,
   handleGitHubCIActivity,
   handleGitLabCIActivity,
+  parseEeBuildRequestBody,
+  validateGitHubHost,
+  isKnownEeBuildError,
+  resolveEntityAndRepo,
+  dispatchEeBuild,
 } from './helpers';
 import { EEEntityProvider } from './providers/EEEntityProvider';
 import { ScmClientFactory } from '@ansible/backstage-rhaap-common';
@@ -109,6 +116,14 @@ export async function createRouter(options: {
     logger,
     allowedExternalAccessSubjects,
   });
+
+  const requireUserOrExternalAccessForEeBuild =
+    createRequireUserOrExternalAccessMiddleware({
+      httpAuth,
+      auth,
+      logger,
+      allowedExternalAccessSubjects,
+    });
 
   router.get('/health', (_, response) => {
     logger.info('PONG!');
@@ -288,6 +303,96 @@ export async function createRouter(options: {
       });
     }
   });
+
+  /**
+   * Triggers GitHub Actions `ee-build.yml` via workflow_dispatch.
+   * Authenticated Backstage user or allowlisted external-access (service) token; loads the EE entity
+   * with that principal's catalog token so RBAC applies.
+   */
+  router.post(
+    '/ansible/ee/build',
+    express.json(),
+    requireUserOrExternalAccessForEeBuild,
+    createPermissionCheckMiddleware({ httpAuth, permissions }, [
+      executionEnvironmentsViewPermission,
+      catalogEntityReadPermission,
+    ]),
+    async (request, response) => {
+      const perms = response.locals.permissions as Record<string, boolean>;
+      if (!Object.values(perms).every(Boolean)) {
+        response
+          .status(403)
+          .json({ error: 'Forbidden: insufficient permissions' });
+        return;
+      }
+
+      let parsedBody;
+      try {
+        parsedBody = parseEeBuildRequestBody(request.body);
+      } catch (e) {
+        response.status(400).json({
+          error: e instanceof Error ? e.message : String(e),
+        });
+        return;
+      }
+
+      const resolved = await resolveEntityAndRepo(
+        response,
+        auth,
+        catalogClient,
+        parsedBody.entityRef,
+      );
+      if (!resolved) return;
+      const { gh, eeDir, eeFileName } = resolved;
+
+      if (!eeDir || !eeFileName) {
+        response.status(400).json({
+          error:
+            'Could not determine ee_dir/ee_file_name from entity annotations.',
+        });
+        return;
+      }
+
+      const hostErr = validateGitHubHost(config, gh.host);
+      if (hostErr) {
+        response.status(400).json({ error: hostErr });
+        return;
+      }
+
+      const githubToken = request.headers['x-github-token'] as string;
+      if (!githubToken) {
+        response.status(400).json({
+          error:
+            'No GitHub token available to dispatch the workflow. Send X-Github-Token header.',
+        });
+        return;
+      }
+
+      try {
+        await dispatchEeBuild({
+          response,
+          logger,
+          config,
+          gh,
+          eeDir,
+          eeFileName,
+          githubToken,
+          parsedBody,
+        });
+      } catch (error) {
+        const msg = error instanceof Error ? error.message : String(error);
+        if (isKnownEeBuildError(msg)) {
+          logger.debug(`[ansible/ee/build] Bad request: ${msg}`);
+          response.status(400).json({ error: msg });
+          return;
+        }
+        logger.error(`[ansible/ee/build] ${msg}`);
+        response
+          .status(500)
+          .json({ error: 'Internal error during EE build dispatch' });
+      }
+    },
+  );
 
   router.post(
     '/ansible/sync/from-aap/content',
@@ -697,39 +802,6 @@ export async function createRouter(options: {
       await handleGitLabCIActivity(ciActivityDeps, request, response, perPage);
     }
   });
-
-  router.post(
-    '/ansible/git/build-ee',
-    express.json(),
-    async (request, response) => {
-      const credentials = await httpAuth.credentials(request as any);
-
-      const [[eeDecision], [catalogReadDecision]] = await Promise.all([
-        permissions.authorize(
-          [{ permission: executionEnvironmentsViewPermission }],
-          { credentials },
-        ),
-        permissions.authorizeConditional(
-          [{ permission: catalogEntityReadPermission }],
-          { credentials },
-        ),
-      ]);
-
-      const hasEEView = eeDecision.result === AuthorizeResult.ALLOW;
-      const hasCatalogRead =
-        catalogReadDecision.result !== AuthorizeResult.DENY;
-
-      if (!hasEEView || !hasCatalogRead) {
-        response
-          .status(403)
-          .json({ error: 'Forbidden: insufficient permissions' });
-        return;
-      }
-
-      // TODO: implement build-ee logic
-      response.status(501).json({ error: 'Not implemented' });
-    },
-  );
 
   return router;
 }

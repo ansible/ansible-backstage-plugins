@@ -420,7 +420,7 @@ export function createEEDefinitionAction(options: {
         const mergedValues = {
           ...values,
           eeFileName,
-          collections: allCollections,
+          collections: [...allCollections, ...scmCollections],
           pythonRequirements: allRequirements,
           systemPackages: allPackages,
           additionalBuildSteps,
