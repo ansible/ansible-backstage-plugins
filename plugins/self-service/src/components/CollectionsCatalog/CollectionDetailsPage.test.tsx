@@ -5,6 +5,7 @@ import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { catalogApiRef } from '@backstage/plugin-catalog-react';
 import { discoveryApiRef, fetchApiRef } from '@backstage/core-plugin-api';
 import { Entity } from '@backstage/catalog-model';
+import { SCM_INTEGRATION_AUTH_FAILED_CODE } from '@ansible/backstage-rhaap-common/constants';
 import { CollectionDetailsPage } from './CollectionDetailsPage';
 
 jest.mock('@backstage/plugin-permission-react', () => ({
@@ -401,6 +402,69 @@ describe('CollectionDetailsPage', () => {
     expect(mockFetchApi.fetch).toHaveBeenCalledWith(
       expect.stringContaining('ansible/sync/status'),
     );
+  });
+
+  it('shows SCM integration auth error when backend returns integration auth for readme', async () => {
+    const entityWithScmReadme: Entity = {
+      ...mockEntity,
+      metadata: {
+        ...mockEntity.metadata,
+        annotations: {
+          ...mockEntity.metadata.annotations,
+          'ansible.io/collection-source': 'scm',
+          'ansible.io/scm-provider': 'github',
+          'ansible.io/scm-host': 'github.com',
+          'ansible.io/scm-organization': 'myorg',
+          'ansible.io/scm-repository': 'myrepo',
+          'ansible.io/ref': 'main',
+        },
+      },
+      spec: {
+        ...mockEntity.spec,
+        collection_readme_url:
+          'https://github.com/myorg/myrepo/blob/main/README.md',
+      } as any,
+    };
+    mockCatalogApi.getEntities.mockResolvedValue({
+      items: [entityWithScmReadme],
+    });
+    mockFetchApi.fetch.mockImplementation((url: string) => {
+      if (url.includes('ansible/sync/status')) {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({
+            content: { providers: [{ sourceId: 'src-1', lastSyncTime: null }] },
+          }),
+        });
+      }
+      if (url.includes('ansible/git/file-content')) {
+        return Promise.resolve({
+          ok: false,
+          status: 401,
+          text: () =>
+            Promise.resolve(
+              JSON.stringify({
+                code: SCM_INTEGRATION_AUTH_FAILED_CODE,
+                error: 'Bad credentials',
+              }),
+            ),
+        });
+      }
+      return Promise.resolve({ ok: false });
+    });
+
+    renderWithRouter('my-namespace-my-collection');
+
+    await waitFor(() => {
+      expect(
+        screen.getByText('SCM integration unavailable'),
+      ).toBeInTheDocument();
+    });
+    expect(
+      screen.getByText(
+        /This collection could not be loaded from the source repository/i,
+      ),
+    ).toBeInTheDocument();
   });
 
   it('fetches readme via backend when SCM annotations and blob readme URL are present', async () => {

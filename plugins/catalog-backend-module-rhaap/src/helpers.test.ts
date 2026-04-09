@@ -54,6 +54,7 @@ import {
   isKnownEeBuildError,
   resolveEntityAndRepo,
   dispatchEeBuild,
+  isScmIntegrationAuthFailure,
 } from './helpers';
 import { AuthorizeResult } from '@backstage/plugin-permission-common';
 import type { AnsibleGitContentsProvider } from './providers/AnsibleGitContentsProvider';
@@ -3146,6 +3147,42 @@ describe('helpers', () => {
           registry_tls_verify: 'true',
         },
       );
+    });
+  });
+
+  describe('isScmIntegrationAuthFailure', () => {
+    it('returns true for HTTP 401 in message', () => {
+      expect(
+        isScmIntegrationAuthFailure('Request failed with status code 401'),
+      ).toBe(true);
+    });
+
+    it('returns true for bad credentials', () => {
+      expect(isScmIntegrationAuthFailure('Bad credentials')).toBe(true);
+    });
+
+    it('returns true for expired token phrasing', () => {
+      expect(isScmIntegrationAuthFailure('Token expired')).toBe(true);
+    });
+
+    it('returns false for not found', () => {
+      expect(isScmIntegrationAuthFailure('not found')).toBe(false);
+    });
+
+    it('returns false for generic network errors', () => {
+      expect(isScmIntegrationAuthFailure('Connection refused')).toBe(false);
+    });
+
+    it('returns true for oauth token phrasing', () => {
+      expect(
+        isScmIntegrationAuthFailure('Invalid oauth token for this request'),
+      ).toBe(true);
+    });
+
+    it('returns false when only the substring oauth appears without oauth token', () => {
+      expect(
+        isScmIntegrationAuthFailure('OAuth app configuration updated'),
+      ).toBe(false);
     });
   });
 });

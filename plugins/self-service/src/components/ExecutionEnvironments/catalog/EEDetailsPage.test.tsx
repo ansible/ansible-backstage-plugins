@@ -18,6 +18,7 @@ import { eeBuildApiRef } from '../../../apis';
 import { NotificationProvider, notificationStore } from '../../notifications';
 import { ThemeProvider, createMuiTheme } from '@material-ui/core/styles';
 import { MemoryRouter } from 'react-router-dom';
+import { SCM_INTEGRATION_AUTH_FAILED_CODE } from '@ansible/backstage-rhaap-common/constants';
 
 // Component under test (named export)
 import { EEDetailsPage } from './EEDetailsPage';
@@ -754,5 +755,67 @@ describe('EEDetailsPage', () => {
     expect(
       screen.getByRole('menuitem', { name: /Edit definition/i }),
     ).toBeInTheDocument();
+  });
+
+  test('shows SCM integration auth error when default readme fetch returns integration_auth', async () => {
+    const mockFetchApi = {
+      fetch: jest.fn().mockResolvedValue({
+        ok: false,
+        status: 401,
+        text: async () =>
+          JSON.stringify({
+            code: SCM_INTEGRATION_AUTH_FAILED_CODE,
+            error: 'Bad credentials',
+          }),
+      }),
+    };
+
+    renderWithCatalogApi(() => Promise.resolve({ items: [entityNoReadme] }), {
+      fetchImpl: mockFetchApi,
+    });
+
+    await waitFor(() => {
+      expect(
+        screen.getByText('SCM integration unavailable'),
+      ).toBeInTheDocument();
+    });
+    expect(
+      screen.getByText(
+        /This execution environment could not be loaded from the source repository/i,
+      ),
+    ).toBeInTheDocument();
+  });
+
+  test('shows SCM integration auth error when EE definition fetch returns integration_auth', async () => {
+    const entityReadmeNoDefinition = {
+      ...entityFull,
+      spec: { ...entityFull.spec },
+    };
+    delete (entityReadmeNoDefinition.spec as { definition?: string })
+      .definition;
+
+    const mockFetchApi = {
+      fetch: jest.fn().mockResolvedValue({
+        ok: false,
+        status: 401,
+        text: async () =>
+          JSON.stringify({
+            code: SCM_INTEGRATION_AUTH_FAILED_CODE,
+            error: 'Bad credentials',
+          }),
+      }),
+    };
+
+    renderWithCatalogApi(
+      () => Promise.resolve({ items: [entityReadmeNoDefinition] }),
+      { fetchImpl: mockFetchApi },
+    );
+
+    await waitFor(() => {
+      expect(
+        screen.getByText('SCM integration unavailable'),
+      ).toBeInTheDocument();
+    });
+    expect(mockFetchApi.fetch).toHaveBeenCalled();
   });
 });

@@ -73,6 +73,7 @@ import { AuthorizeResult } from '@backstage/plugin-permission-common';
 import { CatalogClient } from '@backstage/catalog-client';
 import type { AnsibleGitContentsProvider } from './providers/AnsibleGitContentsProvider';
 import { ConfigReader } from '@backstage/config';
+import { SCM_INTEGRATION_AUTH_FAILED_CODE } from '@ansible/backstage-rhaap-common/constants';
 
 function createMockGitContentsProvider(
   overrides: {
@@ -3030,6 +3031,41 @@ describe('createRouter', () => {
       expect(mockLogger.warn).toHaveBeenCalledWith(
         'Failed to fetch README: not found',
       );
+    });
+
+    it('should return 401 with INTEGRATION_AUTH_FAILED when getFileContent throws auth error', async () => {
+      const { ScmClientFactory } = require('@ansible/backstage-rhaap-common');
+      ScmClientFactory.mockImplementationOnce(() => ({
+        createClient: jest.fn().mockResolvedValue({
+          getFileContent: jest
+            .fn()
+            .mockRejectedValue(new Error('Bad credentials')),
+        }),
+      }));
+
+      const router = await createRouter({
+        logger: mockLogger,
+        config: mockConfig,
+        aapEntityProvider: mockAAPEntityProvider,
+        jobTemplateProvider: mockJobTemplateProvider,
+        eeEntityProvider: mockEEEntityProvider,
+        pahCollectionProviders: [],
+        httpAuth: mockHttpAuth,
+        userInfo: mockUserInfo,
+        auth: mockAuth,
+        catalogClient: mockCatalogClient,
+        permissions: mockPermissions,
+        ansibleGitContentsProviders: [],
+      });
+      const testApp = express().use(router);
+
+      const response = await request(testApp).get(
+        '/ansible/git/file-content?scmProvider=github&host=github.com&owner=myorg&repo=myrepo&filePath=README.md&ref=main',
+      );
+
+      expect(response.status).toBe(401);
+      expect(response.body.code).toBe(SCM_INTEGRATION_AUTH_FAILED_CODE);
+      expect(response.body.error).toContain('Bad credentials');
     });
 
     it('should return 500 and log warn when getFileContent throws other error', async () => {

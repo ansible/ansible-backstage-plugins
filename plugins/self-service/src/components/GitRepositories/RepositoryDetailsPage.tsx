@@ -24,7 +24,11 @@ import { CollectionsListPage } from '../CollectionsCatalog/CollectionsListPage';
 import { useCollectionsStyles } from '../CollectionsCatalog/styles';
 import { getSourceUrl } from '../CollectionsCatalog/utils';
 import { rootRouteRef } from '../../routes';
-import { EmptyState, fetchReadmeFromBackend } from '../common';
+import {
+  EmptyState,
+  fetchGitFileContentFromBackend,
+  ScmIntegrationAuthError,
+} from '../common';
 
 const RepositoryDetailsPageInner = () => {
   const classes = useCollectionsStyles();
@@ -40,6 +44,7 @@ const RepositoryDetailsPageInner = () => {
   const [readmeContent, setReadmeContent] = useState('');
   const [readmeLoading, setReadmeLoading] = useState(false);
   const [tab, setTab] = useState(0);
+  const [scmIntegrationAuthError, setScmIntegrationAuthError] = useState(false);
 
   const fetchEntity = useCallback(() => {
     if (!repositoryName) return;
@@ -73,6 +78,10 @@ const RepositoryDetailsPageInner = () => {
   }, [fetchEntity]);
 
   useEffect(() => {
+    setScmIntegrationAuthError(false);
+  }, [repositoryName]);
+
+  useEffect(() => {
     if (!entity) return;
 
     const annotations = entity.metadata?.annotations || {};
@@ -96,7 +105,7 @@ const RepositoryDetailsPageInner = () => {
     setReadmeLoading(true);
 
     if (canUseBackend) {
-      fetchReadmeFromBackend(discoveryApi, fetchApi, {
+      fetchGitFileContentFromBackend(discoveryApi, fetchApi, {
         scmProvider,
         scmHost: String(scmHost),
         scmOrg: String(scmOrg),
@@ -104,7 +113,15 @@ const RepositoryDetailsPageInner = () => {
         filePath,
         gitRef: defaultBranch,
       })
-        .then(setReadmeContent)
+        .then(outcome => {
+          if (outcome.ok) {
+            setReadmeContent(outcome.data);
+          } else if (outcome.reason === 'integration_auth') {
+            setScmIntegrationAuthError(true);
+          } else {
+            setReadmeContent('');
+          }
+        })
         .catch(() => setReadmeContent(''))
         .finally(() => setReadmeLoading(false));
       return;
@@ -188,6 +205,18 @@ const RepositoryDetailsPageInner = () => {
           onNavigateToCatalog={handleNavigateToCatalog}
         />
         <EmptyState />
+      </Box>
+    );
+  }
+
+  if (scmIntegrationAuthError) {
+    return (
+      <Box className={classes.detailsContainer}>
+        <RepositoryBreadcrumbs
+          repositoryName={displayName}
+          onNavigateToCatalog={handleNavigateToCatalog}
+        />
+        <ScmIntegrationAuthError resourceLabel="repository" />
       </Box>
     );
   }

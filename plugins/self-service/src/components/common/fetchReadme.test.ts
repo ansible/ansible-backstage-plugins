@@ -1,4 +1,8 @@
-import { fetchReadmeFromBackend } from './fetchReadme';
+import { SCM_INTEGRATION_AUTH_FAILED_CODE } from '@ansible/backstage-rhaap-common/constants';
+import {
+  fetchReadmeFromBackend,
+  fetchGitFileContentFromBackend,
+} from './fetchReadme';
 
 describe('fetchReadmeFromBackend', () => {
   const mockDiscoveryApi = {
@@ -71,6 +75,7 @@ describe('fetchReadmeFromBackend', () => {
     mockFetchApi.fetch.mockResolvedValue({
       ok: false,
       status: 404,
+      text: () => Promise.resolve('{"error":"not found"}'),
     });
 
     const result = await fetchReadmeFromBackend(
@@ -87,6 +92,35 @@ describe('fetchReadmeFromBackend', () => {
     );
 
     expect(result).toBe('');
+  });
+
+  it('fetchGitFileContentFromBackend returns integration_auth when API returns code', async () => {
+    mockFetchApi.fetch.mockResolvedValue({
+      ok: false,
+      status: 401,
+      text: () =>
+        Promise.resolve(
+          JSON.stringify({
+            code: SCM_INTEGRATION_AUTH_FAILED_CODE,
+            error: 'bad token',
+          }),
+        ),
+    });
+
+    const outcome = await fetchGitFileContentFromBackend(
+      mockDiscoveryApi as any,
+      mockFetchApi as any,
+      {
+        scmProvider: 'github',
+        scmHost: 'github.com',
+        scmOrg: 'org',
+        scmRepo: 'repo',
+        filePath: 'README.md',
+        gitRef: 'main',
+      },
+    );
+
+    expect(outcome).toEqual({ ok: false, reason: 'integration_auth' });
   });
 
   it('handles GitLab provider', async () => {

@@ -1301,3 +1301,39 @@ export function createPermissionCheckMiddleware(
     }
   };
 }
+
+/**
+ * Detects SCM upstream auth failures from error messages thrown by
+ * Backstage integrations / Octokit / GitLab clients when the app-config token is bad.
+ */
+export function isScmIntegrationAuthFailure(message: string): boolean {
+  const m = message.toLowerCase();
+
+  // Upstream APIs typically surface invalid/expired integration tokens as 401.
+  if (/\b401\b/.test(m)) {
+    return true;
+  }
+
+  const hints = [
+    'bad credentials',
+    'bad token',
+    'invalid token',
+    'expired token',
+    'token expired',
+    'not authenticated',
+    'could not authenticate',
+    'failed to authenticate',
+    'must be authenticated',
+    'authentication failed',
+    'incorrect authentication',
+    'oauth token',
+    'revoked',
+    'requires authentication',
+    'could not resolve github token',
+    'could not resolve gitlab token',
+    'unable to authenticate',
+    'permission denied',
+  ];
+
+  return hints.some(h => m.includes(h));
+}

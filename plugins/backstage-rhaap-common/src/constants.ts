@@ -1,3 +1,5 @@
+export const SCM_INTEGRATION_AUTH_FAILED_CODE = 'INTEGRATION_AUTH_FAILED';
+
 const data = [
   '0 (Normal)',
   '1 (Verbose)',

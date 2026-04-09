@@ -57,9 +57,11 @@ import {
   isKnownEeBuildError,
   resolveEntityAndRepo,
   dispatchEeBuild,
+  isScmIntegrationAuthFailure,
 } from './helpers';
-import { EEEntityProvider } from './providers/EEEntityProvider';
+import { SCM_INTEGRATION_AUTH_FAILED_CODE } from '@ansible/backstage-rhaap-common/constants';
 import { ScmClientFactory } from '@ansible/backstage-rhaap-common';
+import { EEEntityProvider } from './providers/EEEntityProvider';
 
 export async function createRouter(options: {
   logger: LoggerService;
@@ -742,8 +744,22 @@ export async function createRouter(options: {
         error instanceof Error ? error.message : String(error);
       logger.warn(`Failed to fetch README: ${errorMessage}`);
 
-      const status = errorMessage.includes('not found') ? 404 : 500;
-      response.status(status).json({
+      if (errorMessage.toLowerCase().includes('not found')) {
+        response.status(404).json({
+          error: `Failed to fetch README: ${errorMessage}`,
+        });
+        return;
+      }
+
+      if (isScmIntegrationAuthFailure(errorMessage)) {
+        response.status(401).json({
+          code: SCM_INTEGRATION_AUTH_FAILED_CODE,
+          error: `SCM integration authentication failed: ${errorMessage}`,
+        });
+        return;
+      }
+
+      response.status(500).json({
         error: `Failed to fetch README: ${errorMessage}`,
       });
     }
