@@ -287,6 +287,10 @@ function parseOptionalRegistryType(val: unknown): string | undefined {
   return trimmed;
 }
 
+function trimIfString(val: unknown): string | undefined {
+  return typeof val === 'string' ? val.trim() || undefined : undefined;
+}
+
 /**
  * Validates POST /ansible/ee/build JSON body.
  * @throws Error with a message suitable for HTTP 400 responses.
@@ -299,11 +303,10 @@ export function parseEeBuildRequestBody(
   }
   const o = body as Record<string, unknown>;
 
-  const entityRefStr =
-    typeof o.entityRef === 'string' ? o.entityRef.trim() : undefined;
-  const ownerStr = typeof o.owner === 'string' ? o.owner.trim() : undefined;
-  const repoStr = typeof o.repo === 'string' ? o.repo.trim() : undefined;
-  const hostStr = typeof o.host === 'string' ? o.host.trim() : undefined;
+  const entityRefStr = trimIfString(o.entityRef);
+  const ownerStr = trimIfString(o.owner);
+  const repoStr = trimIfString(o.repo);
+  const hostStr = trimIfString(o.host);
 
   const hasEntityRef = !!entityRefStr;
   const hasOwnerRepo = !!ownerStr && !!repoStr;
@@ -312,21 +315,15 @@ export function parseEeBuildRequestBody(
     throw new Error('Either entityRef or both owner and repo are required');
   }
 
-  if (entityRefStr) {
-    assertNoControlChars(entityRefStr, 'entityRef');
-    validateStringLength(entityRefStr, 'entityRef', 512);
-  }
-  if (ownerStr) {
-    assertNoControlChars(ownerStr, 'owner');
-    validateStringLength(ownerStr, 'owner', 256);
-  }
-  if (repoStr) {
-    assertNoControlChars(repoStr, 'repo');
-    validateStringLength(repoStr, 'repo', 256);
-  }
-  if (hostStr) {
-    assertNoControlChars(hostStr, 'host');
-    validateStringLength(hostStr, 'host', 256);
+  for (const [val, name, max] of [
+    [entityRefStr, 'entityRef', 512],
+    [ownerStr, 'owner', 256],
+    [repoStr, 'repo', 256],
+    [hostStr, 'host', 256],
+  ] as const) {
+    if (val) {
+      validateStringLength(val, name, max);
+    }
   }
 
   const registryStr = requireString(o.customRegistryUrl, 'customRegistryUrl');
