@@ -40,10 +40,10 @@ export function downloadEntityAsTarArchive(entity: Entity): boolean {
 
   try {
     const name = entity.metadata?.name ?? 'execution-environment';
-    const eeFileName = `${name}.yaml`;
+    const eeFileName = `${name}.yml`;
     const readmeFileName = `README-${name}.md`;
     const archiveName = `${name}.tar`;
-    const templateFileName = `${name}-template.yaml`;
+    const templateFileName = `${name}-template.yml`;
 
     const rawdata: Array<{ name: string; content: string }> = [
       { name: eeFileName, content: String(entity.spec.definition) },

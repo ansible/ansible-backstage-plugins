@@ -153,9 +153,7 @@ export function prepareForPublishAction(options: { rootConfig: Config }) {
         if (!createNewRepo) {
           const title = `[AAP] Adds/updates files for Execution Environment ${eeFileName}`;
           const description = `This ${
-            sourceControlProvider === 'Gitlab'
-              ? 'Merge Request'
-              : 'Pull Request'
+            scmProvider === 'gitlab' ? 'Merge Request' : 'Pull Request'
           } adds Execution Environment files generated from Ansible Portal.`;
 
           ctx.output('generatedTitle', title);
@@ -165,12 +163,16 @@ export function prepareForPublishAction(options: { rootConfig: Config }) {
 
         let catalogInfoUrl = '';
         let fullRepoUrl = '';
-        if (sourceControlProvider === 'Github') {
+        if (scmProvider === 'github') {
           catalogInfoUrl = `https://${host}/${repositoryOwner}/${repositoryName}/blob/main/${contextDirName}/catalog-info.yaml`;
           fullRepoUrl = `https://${host}/${repositoryOwner}/${repositoryName}/blob/main/${contextDirName}/`;
-        } else if (sourceControlProvider === 'Gitlab') {
+        } else if (scmProvider === 'gitlab') {
           catalogInfoUrl = `https://${host}/${repositoryOwner}/${repositoryName}/-/blob/main/${contextDirName}/catalog-info.yaml`;
           fullRepoUrl = `https://${host}/${repositoryOwner}/${repositoryName}/-/blob/main/${contextDirName}/`;
+        } else {
+          throw new Error(
+            `Unsupported SCM provider '${scmProvider}' for repository ${repositoryOwner}/${repositoryName}/${contextDirName}`,
+          );
         }
         logger.info(`Generated repository contents URL: ${catalogInfoUrl}`);
         ctx.output('generatedCatalogInfoUrl', catalogInfoUrl);

@@ -245,6 +245,33 @@ describe('CollectionsListPage', () => {
     ).toBeInTheDocument();
   });
 
+  it('keeps search and filters visible when search matches no collections', async () => {
+    renderListPage();
+
+    await waitFor(() => {
+      expect(screen.getByText('ns.collection')).toBeInTheDocument();
+    });
+
+    const searchInput = screen.getByPlaceholderText('Search');
+    fireEvent.change(searchInput, {
+      target: { value: 'does-not-exist-xyz' },
+    });
+
+    await waitFor(() => {
+      expect(searchInput).toHaveValue('does-not-exist-xyz');
+    });
+
+    expect(screen.queryByText('No Collections Found')).not.toBeInTheDocument();
+    expect(
+      screen.getByText('No collections match your search or filters.'),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(/Ansible Collections \(0 of 1\)/),
+    ).toBeInTheDocument();
+    expect(screen.getByPlaceholderText('Search')).not.toBeDisabled();
+    expect(screen.getByTestId('catalog-filters')).toBeInTheDocument();
+  });
+
   it('filters by search query matching entity tag', async () => {
     const entityWithTag = {
       ...mockEntity,

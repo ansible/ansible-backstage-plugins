@@ -20,6 +20,7 @@ export interface UsePaginatedCollectionsOptions {
 
 export interface UsePaginatedCollectionsResult {
   entities: Entity[];
+  loadedEntityCount: number;
   totalCount: number;
   initialLoading: boolean;
   loadingMore: boolean;
@@ -302,6 +303,7 @@ export function usePaginatedCollections({
 
   return {
     entities: paginatedEntities,
+    loadedEntityCount: allEntities.length,
     totalCount,
     initialLoading,
     loadingMore,

@@ -58,10 +58,25 @@ function buildSyncCompletedMessage(
   return `${baseMessage} (${deltaText}).`;
 }
 
+function providerFinishedRunSinceLastPoll(
+  prev: { lastSyncTime: string | null; syncInProgress: boolean } | undefined,
+  curr: { lastSyncTime: string | null; syncInProgress: boolean },
+): boolean {
+  if (curr.syncInProgress || !prev) {
+    return false;
+  }
+  return curr.lastSyncTime !== prev.lastSyncTime || prev.syncInProgress;
+}
+
 class SyncPollingService {
   private discoveryApi: DiscoveryApi | null = null;
   private fetchApi: FetchApi | null = null;
   private readonly trackedSyncs: Map<string, TrackedSync> = new Map();
+  private providerSyncSnapshot = new Map<
+    string,
+    { lastSyncTime: string | null; syncInProgress: boolean }
+  >();
+  private providerSyncBaselineCaptured = false;
   private pollTimer: NodeJS.Timeout | null = null;
   private pollLoopStarted = false;
   private pollGeneration = 0;
@@ -129,6 +144,120 @@ class SyncPollingService {
     }
   }
 
+  private updateInProgressFromProviders(providers: ProviderStatus[]): boolean {
+    const anyProviderInProgress = providers.some(p => p.syncInProgress);
+    const effectiveInProgress =
+      anyProviderInProgress || this.trackedSyncs.size > 0;
+
+    if (this.isSyncInProgress !== effectiveInProgress) {
+      this.isSyncInProgress = effectiveInProgress;
+      this.notifyListeners();
+    }
+    return anyProviderInProgress;
+  }
+
+  private showTrackedSyncOutcome(
+    provider: ProviderStatus,
+    tracked: TrackedSync,
+  ): void {
+    if (provider.lastSyncStatus === 'success') {
+      const isFirstSync = tracked.lastSyncTimeAtStart === null;
+      const message = buildSyncCompletedMessage(
+        tracked.displayName,
+        provider.collectionsFound,
+        provider.collectionsDelta,
+        isFirstSync,
+      );
+      notificationStore.showNotification({
+        title: 'Sync completed',
+        description: message,
+        severity: 'success',
+        category: SYNC_COMPLETED_CATEGORY,
+        dismissCategories: [SYNC_STARTED_CATEGORY],
+      });
+      return;
+    }
+    if (provider.lastSyncStatus === 'failure') {
+      notificationStore.showNotification({
+        title: 'Sync failed',
+        description: `Failed to sync content from ${tracked.displayName}.`,
+        severity: 'error',
+        category: SYNC_FAILED_CATEGORY,
+        dismissCategories: [SYNC_STARTED_CATEGORY],
+        autoHideDuration: 0,
+      });
+    }
+  }
+
+  private processTrackedSyncCompletions(
+    providers: ProviderStatus[],
+    now: number,
+  ): void {
+    let anyTrackedSyncCompleted = false;
+
+    for (const [sourceId, tracked] of this.trackedSyncs.entries()) {
+      const provider = providers.find(p => p.sourceId === sourceId);
+
+      if (!provider) {
+        this.trackedSyncs.delete(sourceId);
+        continue;
+      }
+
+      const prevSnapshot = this.providerSyncSnapshot.get(sourceId);
+      const syncCompleted =
+        !provider.syncInProgress &&
+        (provider.lastSyncTime !== tracked.lastSyncTimeAtStart ||
+          providerFinishedRunSinceLastPoll(prevSnapshot, provider));
+
+      const trackingTimedOut = now - tracked.startedAt > TRACKING_TIMEOUT_MS;
+
+      if (syncCompleted) {
+        anyTrackedSyncCompleted = true;
+        this.showTrackedSyncOutcome(provider, tracked);
+        this.trackedSyncs.delete(sourceId);
+      } else if (trackingTimedOut) {
+        this.trackedSyncs.delete(sourceId);
+      }
+    }
+
+    if (anyTrackedSyncCompleted) {
+      collectionsCache.invalidateFetchedData();
+    }
+  }
+
+  private checkUntrackedProviderFinishedRuns(
+    providers: ProviderStatus[],
+    trackedProvidersAtStart: Set<string>,
+  ): void {
+    if (!this.providerSyncBaselineCaptured) {
+      this.providerSyncBaselineCaptured = true;
+      return;
+    }
+
+    for (const p of providers) {
+      if (trackedProvidersAtStart.has(p.sourceId)) {
+        continue;
+      }
+      const prev = this.providerSyncSnapshot.get(p.sourceId);
+      if (!prev) {
+        continue;
+      }
+      if (providerFinishedRunSinceLastPoll(prev, p)) {
+        collectionsCache.invalidateFetchedData();
+        break;
+      }
+    }
+  }
+
+  private replaceProviderSnapshot(providers: ProviderStatus[]): void {
+    this.providerSyncSnapshot = new Map(
+      providers.map(p => [
+        p.sourceId,
+        { lastSyncTime: p.lastSyncTime, syncInProgress: p.syncInProgress },
+      ]),
+    );
+  }
+
   private async checkSyncStatus(): Promise<boolean> {
     if (this.isChecking) {
       return this.isSyncInProgress;
@@ -145,66 +274,18 @@ class SyncPollingService {
         return this.isSyncInProgress || this.trackedSyncs.size > 0;
       }
 
-      const anyProviderInProgress = providers.some(p => p.syncInProgress);
-      const effectiveInProgress =
-        anyProviderInProgress || this.trackedSyncs.size > 0;
+      const trackedProvidersAtStart = new Set(this.trackedSyncs.keys());
+      this.processTrackedSyncCompletions(providers, Date.now());
+      this.checkUntrackedProviderFinishedRuns(
+        providers,
+        trackedProvidersAtStart,
+      );
+      this.replaceProviderSnapshot(providers);
 
-      if (this.isSyncInProgress !== effectiveInProgress) {
-        this.isSyncInProgress = effectiveInProgress;
-        this.notifyListeners();
-      }
-
-      const now = Date.now();
-
-      for (const [sourceId, tracked] of this.trackedSyncs.entries()) {
-        const provider = providers.find(p => p.sourceId === sourceId);
-
-        if (!provider) {
-          this.trackedSyncs.delete(sourceId);
-          continue;
-        }
-
-        const syncCompleted =
-          !provider.syncInProgress &&
-          provider.lastSyncTime !== tracked.lastSyncTimeAtStart;
-
-        const trackingTimedOut = now - tracked.startedAt > TRACKING_TIMEOUT_MS;
-
-        if (syncCompleted) {
-          collectionsCache.invalidateFetchedData();
-
-          if (provider.lastSyncStatus === 'success') {
-            const isFirstSync = tracked.lastSyncTimeAtStart === null;
-
-            const message = buildSyncCompletedMessage(
-              tracked.displayName,
-              provider.collectionsFound,
-              provider.collectionsDelta,
-              isFirstSync,
-            );
-
-            notificationStore.showNotification({
-              title: 'Sync completed',
-              description: message,
-              severity: 'success',
-              category: SYNC_COMPLETED_CATEGORY,
-              dismissCategories: [SYNC_STARTED_CATEGORY],
-            });
-          } else if (provider.lastSyncStatus === 'failure') {
-            notificationStore.showNotification({
-              title: 'Sync failed',
-              description: `Failed to sync content from ${tracked.displayName}.`,
-              severity: 'error',
-              category: SYNC_FAILED_CATEGORY,
-              dismissCategories: [SYNC_STARTED_CATEGORY],
-              autoHideDuration: 0,
-            });
-          }
-          this.trackedSyncs.delete(sourceId);
-        } else if (trackingTimedOut) {
-          this.trackedSyncs.delete(sourceId);
-        }
-      }
+      // Recompute after tracked-sync cleanup so isSyncInProgress matches
+      // providers.any(syncInProgress) or trackedSyncs.size (not stale size).
+      const anyProviderInProgress =
+        this.updateInProgressFromProviders(providers);
 
       return anyProviderInProgress || this.trackedSyncs.size > 0;
     } finally {
@@ -278,6 +359,8 @@ class SyncPollingService {
     }
     this.pollLoopStarted = false;
     this.trackedSyncs.clear();
+    this.providerSyncSnapshot.clear();
+    this.providerSyncBaselineCaptured = false;
     this.isSyncInProgress = false;
     this.listeners.clear();
     this.discoveryApi = null;

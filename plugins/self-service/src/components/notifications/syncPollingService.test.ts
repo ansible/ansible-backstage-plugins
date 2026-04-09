@@ -12,7 +12,19 @@ jest.mock('./notificationStore', () => ({
   },
 }));
 
+jest.mock('../CollectionsCatalog/collectionsCache', () => ({
+  collectionsCache: {
+    invalidateFetchedData: jest.fn(),
+  },
+}));
+
+import { collectionsCache } from '../CollectionsCatalog/collectionsCache';
+
 const mockShowNotification = notificationStore.showNotification as jest.Mock;
+const mockInvalidateFetchedData =
+  collectionsCache.invalidateFetchedData as jest.MockedFunction<
+    typeof collectionsCache.invalidateFetchedData
+  >;
 
 describe('syncPollingService', () => {
   let mockDiscoveryApi: { getBaseUrl: jest.Mock };
@@ -21,6 +33,7 @@ describe('syncPollingService', () => {
   beforeEach(() => {
     jest.useFakeTimers();
     jest.clearAllMocks();
+    mockInvalidateFetchedData.mockClear();
     syncPollingService.clear();
 
     mockDiscoveryApi = {
@@ -296,6 +309,7 @@ describe('syncPollingService', () => {
       // Advance timer to trigger next poll
       await jest.advanceTimersByTimeAsync(FAST_POLL_INTERVAL_MS);
 
+      expect(mockInvalidateFetchedData).toHaveBeenCalled();
       expect(mockShowNotification).toHaveBeenCalledWith(
         expect.objectContaining({
           title: 'Sync completed',
@@ -303,6 +317,69 @@ describe('syncPollingService', () => {
           description: expect.stringContaining('5 collections synced'),
         }),
       );
+    });
+
+    it('sets isSyncInProgress to false in the same poll when the last tracked sync completes', async () => {
+      let callCount = 0;
+      mockFetchApi.fetch.mockImplementation(() => {
+        callCount++;
+        if (callCount <= 2) {
+          return Promise.resolve({
+            ok: true,
+            json: () =>
+              Promise.resolve({
+                content: {
+                  providers: [
+                    {
+                      sourceId: 'src-1',
+                      syncInProgress: true,
+                      lastSyncTime: null,
+                    },
+                  ],
+                },
+              }),
+          });
+        }
+        return Promise.resolve({
+          ok: true,
+          json: () =>
+            Promise.resolve({
+              content: {
+                providers: [
+                  {
+                    sourceId: 'src-1',
+                    syncInProgress: false,
+                    lastSyncTime: '2024-01-01T12:00:00Z',
+                    lastSyncStatus: 'success',
+                    collectionsFound: 1,
+                    collectionsDelta: 0,
+                  },
+                ],
+              },
+            }),
+        });
+      });
+
+      syncPollingService.initialize(
+        mockDiscoveryApi as any,
+        mockFetchApi as any,
+      );
+      await jest.advanceTimersByTimeAsync(0);
+
+      const listener = jest.fn();
+      syncPollingService.subscribe(listener);
+      listener.mockClear();
+
+      syncPollingService.startTracking([
+        { sourceId: 'src-1', displayName: 'Source 1', lastSyncTime: null },
+      ]);
+      await jest.advanceTimersByTimeAsync(0);
+      expect(syncPollingService.getIsSyncInProgress()).toBe(true);
+
+      await jest.advanceTimersByTimeAsync(FAST_POLL_INTERVAL_MS);
+
+      expect(syncPollingService.getIsSyncInProgress()).toBe(false);
+      expect(listener).toHaveBeenCalledWith(false);
     });
 
     it('shows failure notification when sync fails', async () => {
@@ -358,12 +435,98 @@ describe('syncPollingService', () => {
 
       await jest.advanceTimersByTimeAsync(FAST_POLL_INTERVAL_MS);
 
+      expect(mockInvalidateFetchedData).toHaveBeenCalled();
       expect(mockShowNotification).toHaveBeenCalledWith(
         expect.objectContaining({
           title: 'Sync failed',
           severity: 'error',
           description: 'Failed to sync content from Source 1.',
           autoHideDuration: 0,
+        }),
+      );
+    });
+
+    it('shows tracked failure and invalidates when lastSyncTime is unchanged', async () => {
+      const t0 = '2024-01-01T10:00:00Z';
+      let callCount = 0;
+      mockFetchApi.fetch.mockImplementation(() => {
+        callCount++;
+        if (callCount === 1) {
+          return Promise.resolve({
+            ok: true,
+            json: () =>
+              Promise.resolve({
+                content: {
+                  providers: [
+                    {
+                      sourceId: 'src-1',
+                      syncInProgress: false,
+                      lastSyncTime: t0,
+                    },
+                  ],
+                },
+              }),
+          });
+        }
+        if (callCount === 2) {
+          return Promise.resolve({
+            ok: true,
+            json: () =>
+              Promise.resolve({
+                content: {
+                  providers: [
+                    {
+                      sourceId: 'src-1',
+                      syncInProgress: true,
+                      lastSyncTime: t0,
+                    },
+                  ],
+                },
+              }),
+          });
+        }
+        return Promise.resolve({
+          ok: true,
+          json: () =>
+            Promise.resolve({
+              content: {
+                providers: [
+                  {
+                    sourceId: 'src-1',
+                    syncInProgress: false,
+                    lastSyncTime: t0,
+                    lastSyncStatus: 'failure',
+                    collectionsFound: 0,
+                    collectionsDelta: 0,
+                  },
+                ],
+              },
+            }),
+        });
+      });
+
+      syncPollingService.initialize(
+        mockDiscoveryApi as any,
+        mockFetchApi as any,
+      );
+      await jest.advanceTimersByTimeAsync(0);
+
+      syncPollingService.startTracking([
+        {
+          sourceId: 'src-1',
+          displayName: 'Source 1',
+          lastSyncTime: t0,
+        },
+      ]);
+      await jest.advanceTimersByTimeAsync(0);
+
+      await jest.advanceTimersByTimeAsync(FAST_POLL_INTERVAL_MS);
+
+      expect(mockInvalidateFetchedData).toHaveBeenCalled();
+      expect(mockShowNotification).toHaveBeenCalledWith(
+        expect.objectContaining({
+          title: 'Sync failed',
+          severity: 'error',
         }),
       );
     });
@@ -618,6 +781,280 @@ describe('syncPollingService', () => {
           description: expect.stringContaining('1 collection synced'),
         }),
       );
+    });
+
+    it('invalidates collections cache once when two tracked providers complete in the same poll', async () => {
+      let callCount = 0;
+      mockFetchApi.fetch.mockImplementation(() => {
+        callCount++;
+        if (callCount <= 2) {
+          return Promise.resolve({
+            ok: true,
+            json: () =>
+              Promise.resolve({
+                content: {
+                  providers: [
+                    {
+                      sourceId: 'src-1',
+                      syncInProgress: true,
+                      lastSyncTime: null,
+                    },
+                    {
+                      sourceId: 'src-2',
+                      syncInProgress: true,
+                      lastSyncTime: null,
+                    },
+                  ],
+                },
+              }),
+          });
+        }
+        return Promise.resolve({
+          ok: true,
+          json: () =>
+            Promise.resolve({
+              content: {
+                providers: [
+                  {
+                    sourceId: 'src-1',
+                    syncInProgress: false,
+                    lastSyncTime: '2024-01-01T12:00:00Z',
+                    lastSyncStatus: 'success',
+                    collectionsFound: 2,
+                    collectionsDelta: 0,
+                  },
+                  {
+                    sourceId: 'src-2',
+                    syncInProgress: false,
+                    lastSyncTime: '2024-01-01T12:01:00Z',
+                    lastSyncStatus: 'success',
+                    collectionsFound: 3,
+                    collectionsDelta: 0,
+                  },
+                ],
+              },
+            }),
+        });
+      });
+
+      syncPollingService.initialize(
+        mockDiscoveryApi as any,
+        mockFetchApi as any,
+      );
+      await jest.advanceTimersByTimeAsync(0);
+
+      syncPollingService.startTracking([
+        { sourceId: 'src-1', displayName: 'Source 1', lastSyncTime: null },
+        { sourceId: 'src-2', displayName: 'Source 2', lastSyncTime: null },
+      ]);
+      await jest.advanceTimersByTimeAsync(0);
+
+      mockInvalidateFetchedData.mockClear();
+      mockShowNotification.mockClear();
+
+      await jest.advanceTimersByTimeAsync(FAST_POLL_INTERVAL_MS);
+
+      expect(mockInvalidateFetchedData).toHaveBeenCalledTimes(1);
+      expect(mockShowNotification).toHaveBeenCalledTimes(2);
+      expect(mockShowNotification).toHaveBeenCalledWith(
+        expect.objectContaining({
+          title: 'Sync completed',
+          severity: 'success',
+          description: expect.stringContaining('Source 1'),
+        }),
+      );
+      expect(mockShowNotification).toHaveBeenCalledWith(
+        expect.objectContaining({
+          title: 'Sync completed',
+          severity: 'success',
+          description: expect.stringContaining('Source 2'),
+        }),
+      );
+    });
+  });
+
+  describe('scheduled (untracked) sync and collections cache', () => {
+    it('does not invalidate on the first status poll (baseline only)', async () => {
+      mockFetchApi.fetch.mockResolvedValue({
+        ok: true,
+        json: () =>
+          Promise.resolve({
+            content: {
+              providers: [
+                {
+                  sourceId: 'src-sched',
+                  syncInProgress: false,
+                  lastSyncTime: '2024-01-01T10:00:00Z',
+                },
+              ],
+            },
+          }),
+      });
+
+      syncPollingService.initialize(
+        mockDiscoveryApi as any,
+        mockFetchApi as any,
+      );
+      await jest.advanceTimersByTimeAsync(0);
+
+      expect(mockInvalidateFetchedData).not.toHaveBeenCalled();
+    });
+
+    it('invalidates collections cache when an untracked provider lastSyncTime advances', async () => {
+      let callCount = 0;
+      mockFetchApi.fetch.mockImplementation(() => {
+        callCount++;
+        if (callCount === 1) {
+          return Promise.resolve({
+            ok: true,
+            json: () =>
+              Promise.resolve({
+                content: {
+                  providers: [
+                    {
+                      sourceId: 'src-sched',
+                      syncInProgress: false,
+                      lastSyncTime: '2024-01-01T10:00:00Z',
+                    },
+                  ],
+                },
+              }),
+          });
+        }
+        return Promise.resolve({
+          ok: true,
+          json: () =>
+            Promise.resolve({
+              content: {
+                providers: [
+                  {
+                    sourceId: 'src-sched',
+                    syncInProgress: false,
+                    lastSyncTime: '2024-01-01T11:00:00Z',
+                  },
+                ],
+              },
+            }),
+        });
+      });
+
+      syncPollingService.initialize(
+        mockDiscoveryApi as any,
+        mockFetchApi as any,
+      );
+      await jest.advanceTimersByTimeAsync(0);
+      expect(mockInvalidateFetchedData).not.toHaveBeenCalled();
+
+      await jest.advanceTimersByTimeAsync(SLOW_POLL_INTERVAL_MS);
+      expect(mockInvalidateFetchedData).toHaveBeenCalledTimes(1);
+    });
+
+    it('invalidates when an untracked sync ends with same lastSyncTime (in-progress transition)', async () => {
+      let callCount = 0;
+      mockFetchApi.fetch.mockImplementation(() => {
+        callCount++;
+        if (callCount === 1) {
+          return Promise.resolve({
+            ok: true,
+            json: () =>
+              Promise.resolve({
+                content: {
+                  providers: [
+                    {
+                      sourceId: 'src-sched',
+                      syncInProgress: true,
+                      lastSyncTime: '2024-01-01T10:00:00Z',
+                    },
+                  ],
+                },
+              }),
+          });
+        }
+        return Promise.resolve({
+          ok: true,
+          json: () =>
+            Promise.resolve({
+              content: {
+                providers: [
+                  {
+                    sourceId: 'src-sched',
+                    syncInProgress: false,
+                    lastSyncTime: '2024-01-01T10:00:00Z',
+                    lastSyncStatus: 'failure',
+                  },
+                ],
+              },
+            }),
+        });
+      });
+
+      syncPollingService.initialize(
+        mockDiscoveryApi as any,
+        mockFetchApi as any,
+      );
+      await jest.advanceTimersByTimeAsync(0);
+      expect(mockInvalidateFetchedData).not.toHaveBeenCalled();
+
+      await jest.advanceTimersByTimeAsync(FAST_POLL_INTERVAL_MS);
+      expect(mockInvalidateFetchedData).toHaveBeenCalledTimes(1);
+    });
+
+    it('invalidates only once when sync completes via startTracking (scheduled path skipped for that source)', async () => {
+      let callCount = 0;
+      mockFetchApi.fetch.mockImplementation(() => {
+        callCount++;
+        if (callCount <= 2) {
+          return Promise.resolve({
+            ok: true,
+            json: () =>
+              Promise.resolve({
+                content: {
+                  providers: [
+                    {
+                      sourceId: 'src-1',
+                      syncInProgress: true,
+                      lastSyncTime: null,
+                    },
+                  ],
+                },
+              }),
+          });
+        }
+        return Promise.resolve({
+          ok: true,
+          json: () =>
+            Promise.resolve({
+              content: {
+                providers: [
+                  {
+                    sourceId: 'src-1',
+                    syncInProgress: false,
+                    lastSyncTime: '2024-01-01T12:00:00Z',
+                    lastSyncStatus: 'success',
+                    collectionsFound: 3,
+                    collectionsDelta: 0,
+                  },
+                ],
+              },
+            }),
+        });
+      });
+
+      syncPollingService.initialize(
+        mockDiscoveryApi as any,
+        mockFetchApi as any,
+      );
+      await jest.advanceTimersByTimeAsync(0);
+
+      syncPollingService.startTracking([
+        { sourceId: 'src-1', displayName: 'Source 1', lastSyncTime: null },
+      ]);
+      await jest.advanceTimersByTimeAsync(0);
+
+      mockInvalidateFetchedData.mockClear();
+      await jest.advanceTimersByTimeAsync(FAST_POLL_INTERVAL_MS);
+
+      expect(mockInvalidateFetchedData).toHaveBeenCalledTimes(1);
     });
   });
 
