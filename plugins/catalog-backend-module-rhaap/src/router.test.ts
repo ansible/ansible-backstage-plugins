@@ -1473,7 +1473,9 @@ describe('createRouter', () => {
         .send(validBuildBody)
         .expect(500);
 
-      expect(response.body.error).toContain('network timeout');
+      expect(response.body.error).toBe(
+        'Internal error during EE build dispatch',
+      );
       mockFetch.mockRestore();
     });
 
@@ -3230,72 +3232,6 @@ describe('createRouter', () => {
         '/ansible/git/file-content?scmProvider=github&host=github.com&owner=myorg&repo=myrepo&filePath=README.md&ref=main',
       );
       expect(response.status).toBe(200);
-    });
-  });
-
-  describe('POST /ansible/git/build-ee', () => {
-    it('should return 403 when user lacks ee view permission', async () => {
-      mockPermissions.authorize.mockResolvedValueOnce([
-        { result: AuthorizeResult.DENY },
-      ] as any);
-      mockPermissions.authorizeConditional.mockResolvedValueOnce([
-        { result: AuthorizeResult.ALLOW },
-      ] as any);
-
-      const response = await request(app)
-        .post('/ansible/git/build-ee')
-        .send({});
-      expect(response.status).toBe(403);
-      expect(response.body.error).toBe('Forbidden: insufficient permissions');
-    });
-
-    it('should return 403 when user lacks catalog entity read permission', async () => {
-      mockPermissions.authorize.mockResolvedValueOnce([
-        { result: AuthorizeResult.ALLOW },
-      ] as any);
-      mockPermissions.authorizeConditional.mockResolvedValueOnce([
-        { result: AuthorizeResult.DENY },
-      ] as any);
-
-      const response = await request(app)
-        .post('/ansible/git/build-ee')
-        .send({});
-      expect(response.status).toBe(403);
-      expect(response.body.error).toBe('Forbidden: insufficient permissions');
-    });
-
-    it('should return 501 when permissions pass (not yet implemented)', async () => {
-      mockPermissions.authorize.mockResolvedValueOnce([
-        { result: AuthorizeResult.ALLOW },
-      ] as any);
-      mockPermissions.authorizeConditional.mockResolvedValueOnce([
-        { result: AuthorizeResult.ALLOW },
-      ] as any);
-
-      const response = await request(app)
-        .post('/ansible/git/build-ee')
-        .send({});
-      expect(response.status).toBe(501);
-      expect(response.body.error).toBe('Not implemented');
-    });
-
-    it('should allow access when catalog entity read returns CONDITIONAL', async () => {
-      mockPermissions.authorize.mockResolvedValueOnce([
-        { result: AuthorizeResult.ALLOW },
-      ] as any);
-      mockPermissions.authorizeConditional.mockResolvedValueOnce([
-        {
-          result: AuthorizeResult.CONDITIONAL,
-          pluginId: 'catalog',
-          resourceType: 'catalog-entity',
-          conditions: { rule: 'IS_ENTITY_OWNER', params: {} },
-        },
-      ] as any);
-
-      const response = await request(app)
-        .post('/ansible/git/build-ee')
-        .send({});
-      expect(response.status).toBe(501);
     });
   });
 

@@ -377,7 +377,7 @@ export async function createRouter(options: {
       }
 
       try {
-        await dispatchEeBuild(
+        await dispatchEeBuild({
           response,
           logger,
           config,
@@ -386,7 +386,7 @@ export async function createRouter(options: {
           eeFileName,
           githubToken,
           parsedBody,
-        );
+        });
       } catch (error) {
         const msg = error instanceof Error ? error.message : String(error);
         if (isKnownEeBuildError(msg)) {
@@ -395,7 +395,9 @@ export async function createRouter(options: {
           return;
         }
         logger.error(`[ansible/ee/build] ${msg}`);
-        response.status(500).json({ error: msg });
+        response
+          .status(500)
+          .json({ error: 'Internal error during EE build dispatch' });
       }
     },
   );
@@ -808,39 +810,6 @@ export async function createRouter(options: {
       await handleGitLabCIActivity(ciActivityDeps, request, response, perPage);
     }
   });
-
-  router.post(
-    '/ansible/git/build-ee',
-    express.json(),
-    async (request, response) => {
-      const credentials = await httpAuth.credentials(request as any);
-
-      const [[eeDecision], [catalogReadDecision]] = await Promise.all([
-        permissions.authorize(
-          [{ permission: executionEnvironmentsViewPermission }],
-          { credentials },
-        ),
-        permissions.authorizeConditional(
-          [{ permission: catalogEntityReadPermission }],
-          { credentials },
-        ),
-      ]);
-
-      const hasEEView = eeDecision.result === AuthorizeResult.ALLOW;
-      const hasCatalogRead =
-        catalogReadDecision.result !== AuthorizeResult.DENY;
-
-      if (!hasEEView || !hasCatalogRead) {
-        response
-          .status(403)
-          .json({ error: 'Forbidden: insufficient permissions' });
-        return;
-      }
-
-      // TODO: implement build-ee logic
-      response.status(501).json({ error: 'Not implemented' });
-    },
-  );
 
   return router;
 }

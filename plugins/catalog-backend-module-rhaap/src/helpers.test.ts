@@ -1742,6 +1742,86 @@ describe('helpers', () => {
     it('returns null for completely invalid URL', () => {
       expect(parseGitHubRepoFromSourceUrl('not-a-url-at-all')).toBeNull();
     });
+
+    it('parses multi-segment ref release/2.5', () => {
+      const result = parseGitHubRepoFromSourceUrl(
+        'https://github.com/acme/repo/blob/release/2.5/ee/file.yml',
+      );
+      expect(result).toEqual({
+        host: 'github.com',
+        owner: 'acme',
+        repo: 'repo',
+        defaultRef: 'release/2.5',
+        filePath: 'ee/file.yml',
+      });
+    });
+
+    it('treats plain-name segments before file as directories (ambiguous multi-segment ref)', () => {
+      // feature/foo/bar is ambiguous: foo, bar have no version markers so
+      // the heuristic cannot distinguish them from directory names.
+      // Use gitRefOverride to supply the correct ref in these cases.
+      const result = parseGitHubRepoFromSourceUrl(
+        'https://github.com/acme/repo/blob/feature/foo/bar/ee.yml',
+      );
+      expect(result).toEqual({
+        host: 'github.com',
+        owner: 'acme',
+        repo: 'repo',
+        defaultRef: 'feature',
+        filePath: 'foo/bar/ee.yml',
+      });
+    });
+
+    it('preserves single-segment ref with nested path', () => {
+      const result = parseGitHubRepoFromSourceUrl(
+        'https://github.com/acme/repo/blob/main/ee/file.yml',
+      );
+      expect(result).toEqual({
+        host: 'github.com',
+        owner: 'acme',
+        repo: 'repo',
+        defaultRef: 'main',
+        filePath: 'ee/file.yml',
+      });
+    });
+
+    it('treats all segments as ref when no file extension found', () => {
+      const result = parseGitHubRepoFromSourceUrl(
+        'https://github.com/acme/repo/tree/release/2.5',
+      );
+      expect(result).toEqual({
+        host: 'github.com',
+        owner: 'acme',
+        repo: 'repo',
+        defaultRef: 'release/2.5',
+      });
+    });
+
+    it('parses tag-like ref with file', () => {
+      const result = parseGitHubRepoFromSourceUrl(
+        'https://github.com/acme/repo/blob/v1.0.0/dir/file.yaml',
+      );
+      expect(result).toEqual({
+        host: 'github.com',
+        owner: 'acme',
+        repo: 'repo',
+        defaultRef: 'v1.0.0',
+        filePath: 'dir/file.yaml',
+      });
+    });
+
+    it('parses multi-segment ref with deeply nested file path', () => {
+      const result = parseGitHubRepoFromSourceUrl(
+        'https://github.com/org/repo/blob/release/v3/envs/prod/my-ee.yml',
+      );
+      expect(result).toEqual({
+        host: 'github.com',
+        owner: 'org',
+        repo: 'repo',
+        defaultRef: 'release/v3',
+        filePath: 'envs/prod/my-ee.yml',
+      });
+    });
   });
 
   describe('assertSafeRepoRelativeEeDir', () => {
@@ -2944,16 +3024,16 @@ describe('helpers', () => {
       });
 
       const { res, status, json } = makeRes();
-      await dispatchEeBuild(
-        res,
-        mockLogger,
-        ghConfig,
+      await dispatchEeBuild({
+        response: res,
+        logger: mockLogger,
+        config: ghConfig,
         gh,
-        'ee',
-        'ee.yml',
-        'gh-tok',
+        eeDir: 'ee',
+        eeFileName: 'ee.yml',
+        githubToken: 'gh-tok',
         parsedBody,
-      );
+      });
 
       expect(status).toHaveBeenCalledWith(202);
       expect(json).toHaveBeenCalledWith(
@@ -2972,16 +3052,16 @@ describe('helpers', () => {
       });
 
       const { res, status, json } = makeRes();
-      await dispatchEeBuild(
-        res,
-        mockLogger,
-        ghConfig,
+      await dispatchEeBuild({
+        response: res,
+        logger: mockLogger,
+        config: ghConfig,
         gh,
-        'ee',
-        'ee.yml',
-        'gh-tok',
+        eeDir: 'ee',
+        eeFileName: 'ee.yml',
+        githubToken: 'gh-tok',
         parsedBody,
-      );
+      });
 
       expect(status).toHaveBeenCalledWith(202);
       expect(json).toHaveBeenCalledWith({ message: 'Build started' });
@@ -2996,16 +3076,16 @@ describe('helpers', () => {
       });
 
       const { res, status, json } = makeRes();
-      await dispatchEeBuild(
-        res,
-        mockLogger,
-        ghConfig,
+      await dispatchEeBuild({
+        response: res,
+        logger: mockLogger,
+        config: ghConfig,
         gh,
-        'ee',
-        'ee.yml',
-        'gh-tok',
+        eeDir: 'ee',
+        eeFileName: 'ee.yml',
+        githubToken: 'gh-tok',
         parsedBody,
-      );
+      });
 
       expect(status).toHaveBeenCalledWith(422);
       expect(json).toHaveBeenCalledWith(
@@ -3024,16 +3104,16 @@ describe('helpers', () => {
       });
 
       const { res, status, json } = makeRes();
-      await dispatchEeBuild(
-        res,
-        mockLogger,
-        ghConfig,
+      await dispatchEeBuild({
+        response: res,
+        logger: mockLogger,
+        config: ghConfig,
         gh,
-        'ee',
-        'ee.yml',
-        'gh-tok',
+        eeDir: 'ee',
+        eeFileName: 'ee.yml',
+        githubToken: 'gh-tok',
         parsedBody,
-      );
+      });
 
       expect(status).toHaveBeenCalledWith(502);
       expect(json).toHaveBeenCalledWith(
@@ -3047,16 +3127,16 @@ describe('helpers', () => {
       mockDispatchActionsWorkflow.mockResolvedValue({ ok: true, status: 200 });
 
       const { res } = makeRes();
-      await dispatchEeBuild(
-        res,
-        mockLogger,
-        ghConfig,
+      await dispatchEeBuild({
+        response: res,
+        logger: mockLogger,
+        config: ghConfig,
         gh,
-        'my/ee',
-        'ee.yml',
-        'gh-tok',
+        eeDir: 'my/ee',
+        eeFileName: 'ee.yml',
+        githubToken: 'gh-tok',
         parsedBody,
-      );
+      });
 
       expect(mockDispatchActionsWorkflow).toHaveBeenCalledWith(
         'acme',

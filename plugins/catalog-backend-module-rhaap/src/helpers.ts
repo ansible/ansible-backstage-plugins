@@ -121,6 +121,8 @@ export interface ParsedGitHubRepoFromSource {
   filePath?: string;
 }
 
+const KNOWN_FILE_EXT_RE = /\.(ya?ml|json|md|txt|cfg|ini|toml)$/i;
+
 /**
  * Parses `https://{host}/{owner}/{repo}/blob/{ref}/...` or `/tree/{ref}/...`.
  * Also accepts `https://{host}/{owner}/{repo}` with default ref `main`.
@@ -143,13 +145,14 @@ export function parseGitHubRepoFromSourceUrl(
       parts.length >= 4 &&
       (parts[2] === 'blob' || parts[2] === 'tree' || parts[2] === 'edit')
     ) {
-      const remaining = parts.slice(4).join('/');
+      const afterAction = parts.slice(3);
+      const { ref, filePath } = splitRefAndPath(afterAction);
       return {
         host,
         owner: parts[0],
         repo: parts[1],
-        defaultRef: parts[3],
-        ...(remaining ? { filePath: remaining } : {}),
+        defaultRef: ref,
+        ...(filePath ? { filePath } : {}),
       };
     }
     if (parts.length === 2) {
@@ -164,6 +167,51 @@ export function parseGitHubRepoFromSourceUrl(
   } catch {
     return null;
   }
+}
+
+function looksLikeRefSegment(seg: string): boolean {
+  if (seg.includes('.')) return true;
+  if (/^v\d/i.test(seg)) return true;
+  if (/^\d+$/.test(seg)) return true;
+  return false;
+}
+
+/**
+ * Splits URL segments after the action keyword into ref and file path.
+ * Uses a file-extension heuristic to handle multi-segment refs.
+ */
+function splitRefAndPath(segments: string[]): {
+  ref: string;
+  filePath: string | undefined;
+} {
+  if (segments.length === 0) {
+    return { ref: 'main', filePath: undefined };
+  }
+  if (segments.length === 1) {
+    return { ref: segments[0], filePath: undefined };
+  }
+
+  let fileIdx = -1;
+  for (let i = segments.length - 1; i >= 0; i--) {
+    if (KNOWN_FILE_EXT_RE.test(segments[i])) {
+      fileIdx = i;
+      break;
+    }
+  }
+
+  if (fileIdx < 0) {
+    return { ref: segments.join('/'), filePath: undefined };
+  }
+
+  let pathStart = fileIdx;
+  while (pathStart > 1 && !looksLikeRefSegment(segments[pathStart - 1])) {
+    pathStart--;
+  }
+  pathStart = Math.max(pathStart, 1);
+
+  const ref = segments.slice(0, pathStart).join('/');
+  const filePath = segments.slice(pathStart).join('/');
+  return { ref, filePath: filePath || undefined };
 }
 
 export interface EeBuildRequestValidated {
@@ -251,16 +299,34 @@ export function parseEeBuildRequestBody(
   }
   const o = body as Record<string, unknown>;
 
-  const hasEntityRef =
-    typeof o.entityRef === 'string' && o.entityRef.trim().length > 0;
-  const hasOwnerRepo =
-    typeof o.owner === 'string' &&
-    o.owner.trim().length > 0 &&
-    typeof o.repo === 'string' &&
-    o.repo.trim().length > 0;
+  const entityRefStr =
+    typeof o.entityRef === 'string' ? o.entityRef.trim() : undefined;
+  const ownerStr = typeof o.owner === 'string' ? o.owner.trim() : undefined;
+  const repoStr = typeof o.repo === 'string' ? o.repo.trim() : undefined;
+  const hostStr = typeof o.host === 'string' ? o.host.trim() : undefined;
+
+  const hasEntityRef = !!entityRefStr;
+  const hasOwnerRepo = !!ownerStr && !!repoStr;
 
   if (!hasEntityRef && !hasOwnerRepo) {
     throw new Error('Either entityRef or both owner and repo are required');
+  }
+
+  if (entityRefStr) {
+    assertNoControlChars(entityRefStr, 'entityRef');
+    validateStringLength(entityRefStr, 'entityRef', 512);
+  }
+  if (ownerStr) {
+    assertNoControlChars(ownerStr, 'owner');
+    validateStringLength(ownerStr, 'owner', 256);
+  }
+  if (repoStr) {
+    assertNoControlChars(repoStr, 'repo');
+    validateStringLength(repoStr, 'repo', 256);
+  }
+  if (hostStr) {
+    assertNoControlChars(hostStr, 'host');
+    validateStringLength(hostStr, 'host', 256);
   }
 
   const registryStr = requireString(o.customRegistryUrl, 'customRegistryUrl');
@@ -278,14 +344,12 @@ export function parseEeBuildRequestBody(
   const registryTypeStr = parseOptionalRegistryType(o.registryType);
 
   return {
-    ...(hasEntityRef ? { entityRef: String(o.entityRef).trim() } : {}),
+    ...(hasEntityRef ? { entityRef: entityRefStr } : {}),
     ...(hasOwnerRepo
       ? {
-          owner: String(o.owner).trim(),
-          repo: String(o.repo).trim(),
-          ...(typeof o.host === 'string' && o.host.trim()
-            ? { host: o.host.trim() }
-            : {}),
+          owner: ownerStr,
+          repo: repoStr,
+          ...(hostStr ? { host: hostStr } : {}),
         }
       : {}),
     customRegistryUrl: registryStr,
@@ -329,6 +393,10 @@ function deriveEeDirAndFile(
   }
   if (eeFileName === 'catalog-info.yaml') {
     eeFileName = entityName ? `${entityName}.yml` : undefined;
+  }
+  assertSafeRepoRelativeEeDir(eeDir);
+  if (eeFileName) {
+    assertSafeEeFileName(eeFileName);
   }
   return { eeDir, eeFileName };
 }
@@ -466,21 +534,35 @@ export async function resolveEntityAndRepo(
   }
 }
 
-export async function dispatchEeBuild(
-  response: Response,
-  logger: LoggerService,
-  config: Config,
-  gh: { host: string; owner: string; repo: string; ref: string },
-  eeDir: string,
-  eeFileName: string,
-  githubToken: string,
+export interface DispatchEeBuildOptions {
+  response: Response;
+  logger: LoggerService;
+  config: Config;
+  gh: { host: string; owner: string; repo: string; ref: string };
+  eeDir: string;
+  eeFileName: string;
+  githubToken: string;
   parsedBody: {
     customRegistryUrl: string;
     imageName: string;
     imageTag: string;
     verifyTls: boolean;
-  },
+  };
+}
+
+export async function dispatchEeBuild(
+  opts: DispatchEeBuildOptions,
 ): Promise<void> {
+  const {
+    response,
+    logger,
+    config,
+    gh,
+    eeDir,
+    eeFileName,
+    githubToken,
+    parsedBody,
+  } = opts;
   const { apiBaseUrl } = getGitHubIntegrationForHost(config, gh.host);
   const githubClient = createGithubClientForWorkflowDispatch({
     logger,
