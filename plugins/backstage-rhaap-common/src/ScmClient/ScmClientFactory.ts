@@ -164,7 +164,7 @@ export class ScmClientFactory {
         organization,
         repository,
       });
-    } catch (err) {
+    } catch {
       if (hasProvidedToken) {
         this.logger.warn(
           `[ScmClientFactory] GitHub credential resolution failed for host: ${host}, but using provided token`,
