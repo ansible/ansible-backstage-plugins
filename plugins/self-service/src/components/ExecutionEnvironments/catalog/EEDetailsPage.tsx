@@ -261,12 +261,18 @@ export const EEDetailsPage: React.FC = () => {
             },
           );
           if (outcome.ok) {
+            setScmIntegrationAuthError(false);
             setDefaultReadme(outcome.data);
           } else if (outcome.reason === 'integration_auth') {
+            setDefaultReadme('');
             setScmIntegrationAuthError(true);
+          } else {
+            setDefaultReadme('');
+            setScmIntegrationAuthError(false);
           }
         } catch {
-          // Silently ignore errors
+          setDefaultReadme('');
+          setScmIntegrationAuthError(false);
         }
       }
     };
@@ -297,12 +303,18 @@ export const EEDetailsPage: React.FC = () => {
             },
           );
           if (outcome.ok) {
+            setScmIntegrationAuthError(false);
             setFetchedDefinition(outcome.data);
           } else if (outcome.reason === 'integration_auth') {
+            setFetchedDefinition(null);
             setScmIntegrationAuthError(true);
+          } else {
+            setFetchedDefinition(null);
+            setScmIntegrationAuthError(false);
           }
         } catch {
-          // Silently ignore errors
+          setFetchedDefinition(null);
+          setScmIntegrationAuthError(false);
         }
       }
     };

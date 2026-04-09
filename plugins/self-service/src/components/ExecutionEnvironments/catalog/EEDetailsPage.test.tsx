@@ -161,6 +161,14 @@ const entityGitLabNoTree = {
 };
 delete (entityGitLabNoTree.spec as any).readme;
 
+/** No in-spec readme or definition — triggers backend fetches for both. */
+const entityNoReadmeNoDefinition = {
+  ...entityFull,
+  spec: { ...entityFull.spec },
+};
+delete (entityNoReadmeNoDefinition.spec as any).readme;
+delete (entityNoReadmeNoDefinition.spec as any).definition;
+
 const theme = createMuiTheme();
 
 const mockConfigApi = {
@@ -817,5 +825,131 @@ describe('EEDetailsPage', () => {
       ).toBeInTheDocument();
     });
     expect(mockFetchApi.fetch).toHaveBeenCalled();
+  });
+
+  test('readme fetch rejection clears state and does not show SCM integration error', async () => {
+    const mockFetchApi = {
+      fetch: jest.fn().mockRejectedValue(new Error('network error')),
+    };
+
+    renderWithCatalogApi(() => Promise.resolve({ items: [entityNoReadme] }), {
+      fetchImpl: mockFetchApi,
+    });
+
+    await screen.findByTestId('favorite-entity');
+    await waitFor(() => expect(mockFetchApi.fetch).toHaveBeenCalled());
+    expect(
+      screen.queryByText('SCM integration unavailable'),
+    ).not.toBeInTheDocument();
+  });
+
+  test('fetched definition success clears scm error and surfaces parsed base image', async () => {
+    const entityReadmeNoDefinition = {
+      ...entityFull,
+      spec: { ...entityFull.spec },
+    };
+    delete (entityReadmeNoDefinition.spec as { definition?: string })
+      .definition;
+
+    const yamlDef = `images:
+  base_image:
+    name: quay.io/fetched/from-repo/ee-base
+`;
+    const mockFetchApi = {
+      fetch: jest.fn().mockResolvedValue({
+        ok: true,
+        text: async () => yamlDef,
+      }),
+    };
+
+    renderWithCatalogApi(
+      () => Promise.resolve({ items: [entityReadmeNoDefinition] }),
+      { fetchImpl: mockFetchApi },
+    );
+
+    await screen.findByTestId('favorite-entity');
+    await waitFor(() =>
+      expect(
+        screen.getByText('quay.io/fetched/from-repo/ee-base'),
+      ).toBeInTheDocument(),
+    );
+    expect(
+      screen.queryByText('SCM integration unavailable'),
+    ).not.toBeInTheDocument();
+  });
+
+  test('definition fetch non-integration failure clears state without SCM error', async () => {
+    const entityReadmeNoDefinition = {
+      ...entityFull,
+      spec: { ...entityFull.spec },
+    };
+    delete (entityReadmeNoDefinition.spec as { definition?: string })
+      .definition;
+
+    const mockFetchApi = {
+      fetch: jest.fn().mockResolvedValue({
+        ok: false,
+        status: 404,
+        text: async () => '{"error":"file not found"}',
+      }),
+    };
+
+    renderWithCatalogApi(
+      () => Promise.resolve({ items: [entityReadmeNoDefinition] }),
+      { fetchImpl: mockFetchApi },
+    );
+
+    await screen.findByTestId('favorite-entity');
+    await waitFor(() => expect(mockFetchApi.fetch).toHaveBeenCalled());
+    expect(
+      screen.queryByText('SCM integration unavailable'),
+    ).not.toBeInTheDocument();
+  });
+
+  test('definition fetch rejection clears state without SCM error', async () => {
+    const entityReadmeNoDefinition = {
+      ...entityFull,
+      spec: { ...entityFull.spec },
+    };
+    delete (entityReadmeNoDefinition.spec as { definition?: string })
+      .definition;
+
+    const mockFetchApi = {
+      fetch: jest.fn().mockRejectedValue(new Error('definition fetch failed')),
+    };
+
+    renderWithCatalogApi(
+      () => Promise.resolve({ items: [entityReadmeNoDefinition] }),
+      { fetchImpl: mockFetchApi },
+    );
+
+    await screen.findByTestId('favorite-entity');
+    await waitFor(() => expect(mockFetchApi.fetch).toHaveBeenCalled());
+    expect(
+      screen.queryByText('SCM integration unavailable'),
+    ).not.toBeInTheDocument();
+  });
+
+  test('readme and definition fetches with non-auth failures clear without SCM error', async () => {
+    const mockFetchApi = {
+      fetch: jest.fn().mockResolvedValue({
+        ok: false,
+        status: 500,
+        text: async () => '{"error":"upstream"}',
+      }),
+    };
+
+    renderWithCatalogApi(
+      () => Promise.resolve({ items: [entityNoReadmeNoDefinition] }),
+      { fetchImpl: mockFetchApi },
+    );
+
+    await screen.findByTestId('favorite-entity');
+    await waitFor(() =>
+      expect(mockFetchApi.fetch.mock.calls.length).toBeGreaterThanOrEqual(2),
+    );
+    expect(
+      screen.queryByText('SCM integration unavailable'),
+    ).not.toBeInTheDocument();
   });
 });
