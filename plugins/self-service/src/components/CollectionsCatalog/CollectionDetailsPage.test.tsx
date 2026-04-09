@@ -467,6 +467,59 @@ describe('CollectionDetailsPage', () => {
     ).toBeInTheDocument();
   });
 
+  it('does not show SCM auth error when backend returns a non-auth readme failure', async () => {
+    const entityWithScmReadme: Entity = {
+      ...mockEntity,
+      metadata: {
+        ...mockEntity.metadata,
+        annotations: {
+          ...mockEntity.metadata.annotations,
+          'ansible.io/collection-source': 'scm',
+          'ansible.io/scm-provider': 'github',
+          'ansible.io/scm-host': 'github.com',
+          'ansible.io/scm-organization': 'myorg',
+          'ansible.io/scm-repository': 'myrepo',
+          'ansible.io/ref': 'main',
+        },
+      },
+      spec: {
+        ...mockEntity.spec,
+        collection_readme_url:
+          'https://github.com/myorg/myrepo/blob/main/README.md',
+      } as any,
+    };
+    mockCatalogApi.getEntities.mockResolvedValue({
+      items: [entityWithScmReadme],
+    });
+    mockFetchApi.fetch.mockImplementation((url: string) => {
+      if (url.includes('ansible/sync/status')) {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({
+            content: { providers: [{ sourceId: 'src-1', lastSyncTime: null }] },
+          }),
+        });
+      }
+      if (url.includes('ansible/git/file-content')) {
+        return Promise.resolve({
+          ok: false,
+          status: 404,
+          text: () => Promise.resolve('{"error":"not found"}'),
+        });
+      }
+      return Promise.resolve({ ok: false });
+    });
+
+    renderWithRouter('my-namespace-my-collection');
+
+    await waitFor(() => {
+      expect(screen.getByText('About')).toBeInTheDocument();
+    });
+    expect(
+      screen.queryByText('SCM integration unavailable'),
+    ).not.toBeInTheDocument();
+  });
+
   it('fetches readme via backend when SCM annotations and blob readme URL are present', async () => {
     const entityWithScmReadme: Entity = {
       ...mockEntity,

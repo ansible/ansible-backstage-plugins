@@ -952,4 +952,42 @@ describe('EEDetailsPage', () => {
       screen.queryByText('SCM integration unavailable'),
     ).not.toBeInTheDocument();
   });
+
+  test('shows SCM integration auth error when readme fetch is integration_auth but definition fetch succeeds', async () => {
+    const mockFetchApi = {
+      fetch: jest.fn().mockImplementation((url: string) => {
+        if (url.includes('README.md')) {
+          return Promise.resolve({
+            ok: false,
+            status: 401,
+            text: async () =>
+              JSON.stringify({
+                code: SCM_INTEGRATION_AUTH_FAILED_CODE,
+                error: 'Bad credentials',
+              }),
+          });
+        }
+        return Promise.resolve({
+          ok: true,
+          text: async () =>
+            `images:
+  base_image:
+    name: quay.io/ok/from-def
+`,
+        });
+      }),
+    };
+
+    renderWithCatalogApi(
+      () => Promise.resolve({ items: [entityNoReadmeNoDefinition] }),
+      { fetchImpl: mockFetchApi },
+    );
+
+    await waitFor(() => {
+      expect(
+        screen.getByText('SCM integration unavailable'),
+      ).toBeInTheDocument();
+    });
+    expect(mockFetchApi.fetch.mock.calls.length).toBeGreaterThanOrEqual(2);
+  });
 });

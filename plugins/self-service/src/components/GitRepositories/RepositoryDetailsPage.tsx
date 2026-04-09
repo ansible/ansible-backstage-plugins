@@ -116,16 +116,23 @@ const RepositoryDetailsPageInner = () => {
         .then(outcome => {
           if (outcome.ok) {
             setReadmeContent(outcome.data);
+            setScmIntegrationAuthError(false);
           } else if (outcome.reason === 'integration_auth') {
             setScmIntegrationAuthError(true);
           } else {
             setReadmeContent('');
+            setScmIntegrationAuthError(false);
           }
         })
-        .catch(() => setReadmeContent(''))
+        .catch(() => {
+          setReadmeContent('');
+          setScmIntegrationAuthError(false);
+        })
         .finally(() => setReadmeLoading(false));
       return;
     }
+
+    setScmIntegrationAuthError(false);
 
     const sourceUrl = getSourceUrl(entity);
     if (!sourceUrl) {

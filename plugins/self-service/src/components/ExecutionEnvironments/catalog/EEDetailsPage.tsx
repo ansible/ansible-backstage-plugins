@@ -47,6 +47,7 @@ import { useEEBuildFlow } from './useEEBuildFlow';
 import {
   fetchGitFileContentFromBackend,
   ScmIntegrationAuthError,
+  type FetchGitFileOutcome,
 } from '../../common';
 import { parseEEDefinition } from '../../../utils/eeDefinitionUtils';
 import { rootRouteRef } from '../../../routes';
@@ -103,6 +104,43 @@ const usePageStyles = makeStyles(theme => ({
     minWidth: 0,
   },
 }));
+
+/** Merge parallel readme + EE definition fetch outcomes; auth error if either is integration_auth. */
+function applyParallelGitFileOutcomes(
+  readmeOutcome: FetchGitFileOutcome | null,
+  defOutcome: FetchGitFileOutcome | null,
+  setters: {
+    setDefaultReadme: (v: string) => void;
+    setFetchedDefinition: (v: string | null) => void;
+    setScmIntegrationAuthError: (v: boolean) => void;
+  },
+): void {
+  let integrationAuth = false;
+
+  if (readmeOutcome !== null) {
+    if (readmeOutcome.ok) {
+      setters.setDefaultReadme(readmeOutcome.data);
+    } else {
+      setters.setDefaultReadme('');
+      if (readmeOutcome.reason === 'integration_auth') {
+        integrationAuth = true;
+      }
+    }
+  }
+
+  if (defOutcome !== null) {
+    if (defOutcome.ok) {
+      setters.setFetchedDefinition(defOutcome.data);
+    } else {
+      setters.setFetchedDefinition(null);
+      if (defOutcome.reason === 'integration_auth') {
+        integrationAuth = true;
+      }
+    }
+  }
+
+  setters.setScmIntegrationAuthError(integrationAuth);
+}
 
 export const EEDetailsPage: React.FC = () => {
   const actionsMenuClasses = useActionsMenuStyles();
@@ -241,84 +279,67 @@ export const EEDetailsPage: React.FC = () => {
     return { scmProvider, host, owner, repo, subdir, filePath, ref };
   }, [entity]);
 
+  /** Single effect so parallel readme + definition fetches cannot clobber scmIntegrationAuthError. */
   useEffect(() => {
-    const fetchDefaultReadme = async () => {
-      if (!entity?.spec?.readme) {
-        const params = parseSourceLocationParams();
-        if (!params) return;
+    let cancelled = false;
 
-        try {
-          const outcome = await fetchGitFileContentFromBackend(
-            discoveryApi,
-            fetchApi,
-            {
-              scmProvider: params.scmProvider,
-              scmHost: params.host,
-              scmOrg: params.owner,
-              scmRepo: params.repo,
-              filePath: params.filePath,
-              gitRef: params.ref,
-            },
-          );
-          if (outcome.ok) {
-            setScmIntegrationAuthError(false);
-            setDefaultReadme(outcome.data);
-          } else if (outcome.reason === 'integration_auth') {
-            setDefaultReadme('');
-            setScmIntegrationAuthError(true);
-          } else {
-            setDefaultReadme('');
-            setScmIntegrationAuthError(false);
-          }
-        } catch {
-          setDefaultReadme('');
-          setScmIntegrationAuthError(false);
-        }
-      }
+    const catchAsOther = (): FetchGitFileOutcome => ({
+      ok: false,
+      reason: 'other',
+    });
+
+    const run = async () => {
+      const params = parseSourceLocationParams();
+      if (!params) return;
+
+      const needReadme = !entity?.spec?.readme;
+      const needDefinition = !!entity && !entity?.spec?.definition;
+      if (!needReadme && !needDefinition) return;
+
+      const readmePromise: Promise<FetchGitFileOutcome | null> = needReadme
+        ? fetchGitFileContentFromBackend(discoveryApi, fetchApi, {
+            scmProvider: params.scmProvider,
+            scmHost: params.host,
+            scmOrg: params.owner,
+            scmRepo: params.repo,
+            filePath: params.filePath,
+            gitRef: params.ref,
+          }).catch(catchAsOther)
+        : Promise.resolve(null);
+
+      const definitionFilePath = params.subdir
+        ? `${params.subdir}/${entity?.metadata?.name ?? 'execution-environment'}.yml`
+        : `${entity?.metadata?.name ?? 'execution-environment'}.yml`;
+
+      const defPromise: Promise<FetchGitFileOutcome | null> = needDefinition
+        ? fetchGitFileContentFromBackend(discoveryApi, fetchApi, {
+            scmProvider: params.scmProvider,
+            scmHost: params.host,
+            scmOrg: params.owner,
+            scmRepo: params.repo,
+            filePath: definitionFilePath,
+            gitRef: params.ref,
+          }).catch(catchAsOther)
+        : Promise.resolve(null);
+
+      const [readmeOutcome, defOutcome] = await Promise.all([
+        readmePromise,
+        defPromise,
+      ]);
+
+      if (cancelled) return;
+
+      applyParallelGitFileOutcomes(readmeOutcome, defOutcome, {
+        setDefaultReadme,
+        setFetchedDefinition,
+        setScmIntegrationAuthError,
+      });
     };
-    fetchDefaultReadme();
-  }, [entity, discoveryApi, parseSourceLocationParams, fetchApi]);
 
-  useEffect(() => {
-    const fetchEEDefinition = async () => {
-      if (entity && !entity?.spec?.definition) {
-        const params = parseSourceLocationParams();
-        if (!params) return;
-
-        const definitionFilePath = params.subdir
-          ? `${params.subdir}/${entity?.metadata?.name ?? 'execution-environment'}.yml`
-          : `${entity?.metadata?.name ?? 'execution-environment'}.yml`;
-
-        try {
-          const outcome = await fetchGitFileContentFromBackend(
-            discoveryApi,
-            fetchApi,
-            {
-              scmProvider: params.scmProvider,
-              scmHost: params.host,
-              scmOrg: params.owner,
-              scmRepo: params.repo,
-              filePath: definitionFilePath,
-              gitRef: params.ref,
-            },
-          );
-          if (outcome.ok) {
-            setScmIntegrationAuthError(false);
-            setFetchedDefinition(outcome.data);
-          } else if (outcome.reason === 'integration_auth') {
-            setFetchedDefinition(null);
-            setScmIntegrationAuthError(true);
-          } else {
-            setFetchedDefinition(null);
-            setScmIntegrationAuthError(false);
-          }
-        } catch {
-          setFetchedDefinition(null);
-          setScmIntegrationAuthError(false);
-        }
-      }
+    void run();
+    return () => {
+      cancelled = true;
     };
-    fetchEEDefinition();
   }, [entity, discoveryApi, parseSourceLocationParams, fetchApi]);
 
   useEffect(() => {

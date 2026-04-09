@@ -311,6 +311,23 @@ describe('RepositoryDetailsPage', () => {
     ).toBeInTheDocument();
   });
 
+  it('does not show SCM auth error when backend returns a non-auth readme failure', async () => {
+    mockFetchApi.fetch.mockResolvedValue({
+      ok: false,
+      status: 404,
+      text: () => Promise.resolve('{"error":"not found"}'),
+    });
+
+    await renderPage();
+
+    await waitFor(() => {
+      expect(screen.getByText('README')).toBeInTheDocument();
+    });
+    expect(
+      screen.queryByText('SCM integration unavailable'),
+    ).not.toBeInTheDocument();
+  });
+
   it('handles catalog API errors gracefully', async () => {
     mockCatalogApi.getEntities.mockRejectedValue(new Error('API Error'));
 

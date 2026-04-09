@@ -144,6 +144,7 @@ const CollectionDetailsPageInner = () => {
       setReadmeContent(htmlReadme);
       setIsHtmlReadme(true);
       setReadmeLoading(false);
+      setScmIntegrationAuthError(false);
       return;
     }
 
@@ -155,6 +156,7 @@ const CollectionDetailsPageInner = () => {
 
     if (!readmeUrl) {
       setReadmeContent('');
+      setScmIntegrationAuthError(false);
       return;
     }
 
@@ -182,16 +184,23 @@ const CollectionDetailsPageInner = () => {
         .then(outcome => {
           if (outcome.ok) {
             setReadmeContent(outcome.data);
+            setScmIntegrationAuthError(false);
           } else if (outcome.reason === 'integration_auth') {
             setScmIntegrationAuthError(true);
           } else {
             setReadmeContent('');
+            setScmIntegrationAuthError(false);
           }
         })
-        .catch(() => setReadmeContent(''))
+        .catch(() => {
+          setReadmeContent('');
+          setScmIntegrationAuthError(false);
+        })
         .finally(() => setReadmeLoading(false));
       return;
     }
+
+    setScmIntegrationAuthError(false);
 
     let fetchUrl = readmeUrl;
     if (
