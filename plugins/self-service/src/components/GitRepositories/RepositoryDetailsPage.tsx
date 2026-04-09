@@ -12,6 +12,8 @@ import {
   useRouteRef,
   discoveryApiRef,
   fetchApiRef,
+  type DiscoveryApi,
+  type FetchApi,
 } from '@backstage/core-plugin-api';
 import { RequirePermission } from '@backstage/plugin-permission-react';
 import { gitRepositoriesViewPermission } from '@ansible/backstage-rhaap-common/permissions';
@@ -24,19 +26,157 @@ import { CollectionsListPage } from '../CollectionsCatalog/CollectionsListPage';
 import { useCollectionsStyles } from '../CollectionsCatalog/styles';
 import { getSourceUrl } from '../CollectionsCatalog/utils';
 import { rootRouteRef } from '../../routes';
+import { buildRawReadmeFetchUrl } from './scmUtils';
 import {
   EmptyState,
   fetchGitFileContentFromBackend,
   ScmIntegrationAuthError,
 } from '../common';
 
+type ReadmeStateSetters = {
+  setReadmeContent: (value: string) => void;
+  setReadmeLoading: (value: boolean) => void;
+  setScmIntegrationAuthError: (value: boolean) => void;
+};
+
+type BackendReadmePlan = {
+  kind: 'backend';
+  scmProvider: string;
+  scmHost: string;
+  scmOrg: string;
+  scmRepo: string;
+  filePath: string;
+  gitRef: string;
+};
+
+type DirectReadmePlan = {
+  kind: 'direct';
+  defaultBranch: string;
+  filePath: string;
+};
+
+function resolveReadmeLoadPlan(
+  entity: Entity,
+): BackendReadmePlan | DirectReadmePlan {
+  const annotations = entity.metadata?.annotations || {};
+  const spec = (entity.spec || {}) as { repository_default_branch?: string };
+  const scmProvider = (annotations['ansible.io/scm-provider'] ?? '')
+    .toString()
+    .toLowerCase();
+  const scmHost = annotations['ansible.io/scm-host'];
+  const scmOrg = annotations['ansible.io/scm-organization'];
+  const scmRepo = annotations['ansible.io/scm-repository'];
+  const defaultBranch = spec.repository_default_branch || 'main';
+  const filePath = 'README.md';
+
+  const canUseBackend =
+    ['github', 'gitlab'].includes(scmProvider) &&
+    scmHost &&
+    scmOrg &&
+    scmRepo &&
+    defaultBranch;
+
+  if (canUseBackend) {
+    return {
+      kind: 'backend',
+      scmProvider,
+      scmHost: String(scmHost),
+      scmOrg: String(scmOrg),
+      scmRepo: String(scmRepo),
+      filePath,
+      gitRef: defaultBranch,
+    };
+  }
+  return { kind: 'direct', defaultBranch, filePath };
+}
+
+function startBackendReadmeFetch(
+  plan: BackendReadmePlan,
+  discoveryApi: DiscoveryApi,
+  fetchApi: FetchApi,
+  isCancelled: () => boolean,
+  setters: ReadmeStateSetters,
+): void {
+  const { setReadmeContent, setReadmeLoading, setScmIntegrationAuthError } =
+    setters;
+
+  fetchGitFileContentFromBackend(discoveryApi, fetchApi, {
+    scmProvider: plan.scmProvider,
+    scmHost: plan.scmHost,
+    scmOrg: plan.scmOrg,
+    scmRepo: plan.scmRepo,
+    filePath: plan.filePath,
+    gitRef: plan.gitRef,
+  })
+    .then(outcome => {
+      if (isCancelled()) return;
+      if (outcome.ok) {
+        setReadmeContent(outcome.data);
+        setScmIntegrationAuthError(false);
+      } else if (outcome.reason === 'integration_auth') {
+        setScmIntegrationAuthError(true);
+      } else {
+        setReadmeContent('');
+        setScmIntegrationAuthError(false);
+      }
+    })
+    .catch(() => {
+      if (isCancelled()) return;
+      setReadmeContent('');
+      setScmIntegrationAuthError(false);
+    })
+    .finally(() => {
+      if (!isCancelled()) setReadmeLoading(false);
+    });
+}
+
+function startDirectReadmeFetch(
+  entity: Entity,
+  plan: DirectReadmePlan,
+  isCancelled: () => boolean,
+  setters: ReadmeStateSetters,
+): void {
+  const { setReadmeContent, setReadmeLoading, setScmIntegrationAuthError } =
+    setters;
+
+  setScmIntegrationAuthError(false);
+
+  const sourceUrl = getSourceUrl(entity);
+  if (sourceUrl) {
+    const fetchUrl = buildRawReadmeFetchUrl(
+      sourceUrl,
+      plan.defaultBranch,
+      plan.filePath,
+    );
+    if (fetchUrl) {
+      fetch(fetchUrl)
+        .then(response => (response.ok ? response.text() : ''))
+        .then(text => {
+          if (!isCancelled()) setReadmeContent(text);
+        })
+        .catch(() => {
+          if (!isCancelled()) setReadmeContent('');
+        })
+        .finally(() => {
+          if (!isCancelled()) setReadmeLoading(false);
+        });
+      return;
+    }
+    setReadmeContent('');
+    setReadmeLoading(false);
+    return;
+  }
+  setReadmeContent('');
+  setReadmeLoading(false);
+}
+
 const RepositoryDetailsPageInner = () => {
   const classes = useCollectionsStyles();
   const navigate = useNavigate();
   const { repositoryName } = useParams<{ repositoryName: string }>();
   const catalogApi = useApi(catalogApiRef);
-  const discoveryApi = useApi(discoveryApiRef);
-  const fetchApi = useApi(fetchApiRef);
+  const discoveryApi = useApi<DiscoveryApi>(discoveryApiRef);
+  const fetchApi = useApi<FetchApi>(fetchApiRef);
   const rootLink = useRouteRef(rootRouteRef);
 
   const [entity, setEntity] = useState<Entity | null>(null);
@@ -92,101 +232,27 @@ const RepositoryDetailsPageInner = () => {
     }
 
     let cancelled = false;
+    const isCancelled = () => cancelled;
 
-    const annotations = entity.metadata?.annotations || {};
-    const spec = (entity.spec || {}) as { repository_default_branch?: string };
-    const scmProvider = (annotations['ansible.io/scm-provider'] ?? '')
-      .toString()
-      .toLowerCase();
-    const scmHost = annotations['ansible.io/scm-host'];
-    const scmOrg = annotations['ansible.io/scm-organization'];
-    const scmRepo = annotations['ansible.io/scm-repository'];
-    const defaultBranch = spec.repository_default_branch || 'main';
-    const filePath = 'README.md';
-
-    const canUseBackend =
-      ['github', 'gitlab'].includes(scmProvider) &&
-      scmHost &&
-      scmOrg &&
-      scmRepo &&
-      defaultBranch;
-
+    const plan = resolveReadmeLoadPlan(entity);
     setReadmeLoading(true);
 
-    if (canUseBackend) {
-      fetchGitFileContentFromBackend(discoveryApi, fetchApi, {
-        scmProvider,
-        scmHost: String(scmHost),
-        scmOrg: String(scmOrg),
-        scmRepo: String(scmRepo),
-        filePath,
-        gitRef: defaultBranch,
-      })
-        .then(outcome => {
-          if (cancelled) return;
-          if (outcome.ok) {
-            setReadmeContent(outcome.data);
-            setScmIntegrationAuthError(false);
-          } else if (outcome.reason === 'integration_auth') {
-            setScmIntegrationAuthError(true);
-          } else {
-            setReadmeContent('');
-            setScmIntegrationAuthError(false);
-          }
-        })
-        .catch(() => {
-          if (cancelled) return;
-          setReadmeContent('');
-          setScmIntegrationAuthError(false);
-        })
-        .finally(() => {
-          if (!cancelled) setReadmeLoading(false);
-        });
+    const setters: ReadmeStateSetters = {
+      setReadmeContent,
+      setReadmeLoading,
+      setScmIntegrationAuthError,
+    };
+
+    if (plan.kind === 'backend') {
+      startBackendReadmeFetch(
+        plan,
+        discoveryApi,
+        fetchApi,
+        isCancelled,
+        setters,
+      );
     } else {
-      setScmIntegrationAuthError(false);
-
-      const sourceUrl = getSourceUrl(entity);
-      if (sourceUrl) {
-        let fetchUrl: string | null = null;
-        try {
-          const url = new URL(sourceUrl);
-          const host = url.hostname;
-          const pathParts = url.pathname
-            .replace(/^\/+/, '')
-            .split('/')
-            .filter(Boolean);
-          const owner = pathParts[0] ?? '';
-          const repo = (pathParts[1] ?? '').replace(/\.git$/, '');
-
-          if (host.includes('github')) {
-            fetchUrl = `https://raw.githubusercontent.com/${owner}/${repo}/${defaultBranch}/${filePath}`;
-          } else if (host.includes('gitlab')) {
-            fetchUrl = `${url.origin}/${owner}/${repo}/-/raw/${defaultBranch}/${filePath}`;
-          }
-        } catch {
-          // ignore
-        }
-
-        if (fetchUrl) {
-          fetch(fetchUrl)
-            .then(response => (response.ok ? response.text() : ''))
-            .then(text => {
-              if (!cancelled) setReadmeContent(text);
-            })
-            .catch(() => {
-              if (!cancelled) setReadmeContent('');
-            })
-            .finally(() => {
-              if (!cancelled) setReadmeLoading(false);
-            });
-        } else {
-          setReadmeContent('');
-          setReadmeLoading(false);
-        }
-      } else {
-        setReadmeContent('');
-        setReadmeLoading(false);
-      }
+      startDirectReadmeFetch(entity, plan, isCancelled, setters);
     }
 
     return () => {

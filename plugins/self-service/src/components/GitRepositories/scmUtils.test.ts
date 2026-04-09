@@ -1,5 +1,6 @@
 import { Entity } from '@backstage/catalog-model';
 import {
+  buildRawReadmeFetchUrl,
   getGitHubOwnerRepo,
   getGitLabProjectPath,
   getProjectDisplayName,
@@ -288,6 +289,55 @@ describe('scmUtils', () => {
       };
 
       expect(getProjectDisplayName(entity)).toBe('Entity Title');
+    });
+  });
+
+  describe('buildRawReadmeFetchUrl', () => {
+    const branch = 'main';
+    const file = 'README.md';
+
+    it('builds GitHub raw URL from org/repo', () => {
+      expect(
+        buildRawReadmeFetchUrl('https://github.com/acme/widgets', branch, file),
+      ).toBe('https://raw.githubusercontent.com/acme/widgets/main/README.md');
+    });
+
+    it('builds GitLab raw URL for two-segment project path', () => {
+      expect(
+        buildRawReadmeFetchUrl('https://gitlab.com/org/repo', branch, file),
+      ).toBe('https://gitlab.com/org/repo/-/raw/main/README.md');
+    });
+
+    it('builds GitLab raw URL for nested group / subgroup project path', () => {
+      expect(
+        buildRawReadmeFetchUrl(
+          'https://gitlab.com/my-group/my-subgroup/my-project',
+          branch,
+          file,
+        ),
+      ).toBe(
+        'https://gitlab.com/my-group/my-subgroup/my-project/-/raw/main/README.md',
+      );
+    });
+
+    it('derives GitLab project path from blob URL (strips /-/blob/...)', () => {
+      expect(
+        buildRawReadmeFetchUrl(
+          'https://gitlab.com/g1/g2/g3/proj/-/blob/main/README.md',
+          branch,
+          file,
+        ),
+      ).toBe('https://gitlab.com/g1/g2/g3/proj/-/raw/main/README.md');
+    });
+
+    it('supports self-hosted GitLab hostnames containing gitlab', () => {
+      expect(
+        buildRawReadmeFetchUrl(
+          'https://gitlab.example.com/ns/subns/app',
+          branch,
+          file,
+        ),
+      ).toBe('https://gitlab.example.com/ns/subns/app/-/raw/main/README.md');
     });
   });
 });
