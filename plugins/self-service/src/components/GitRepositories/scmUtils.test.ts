@@ -339,5 +339,21 @@ describe('scmUtils', () => {
         ),
       ).toBe('https://gitlab.example.com/ns/subns/app/-/raw/main/README.md');
     });
+
+    it('returns null for hosts that only contain github as a substring', () => {
+      expect(
+        buildRawReadmeFetchUrl(
+          'https://notgithub.com/acme/widgets',
+          branch,
+          file,
+        ),
+      ).toBeNull();
+    });
+
+    it('returns null for hosts that only contain gitlab as a substring', () => {
+      expect(
+        buildRawReadmeFetchUrl('https://notgitlab.com/org/repo', branch, file),
+      ).toBeNull();
+    });
   });
 });

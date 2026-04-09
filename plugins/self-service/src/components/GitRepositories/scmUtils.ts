@@ -43,6 +43,17 @@ function gitlabProjectPathFromPathname(pathname: string): string | null {
   return trimmed;
 }
 
+function isGitHubHostname(hostname: string): boolean {
+  return hostname === 'github.com' || hostname.endsWith('.github.com');
+}
+
+function isGitLabHostname(hostname: string): boolean {
+  if (hostname === 'gitlab.com' || hostname.endsWith('.gitlab.com')) {
+    return true;
+  }
+  return hostname.startsWith('gitlab.');
+}
+
 /**
  * Builds a browser-fetchable raw README URL from a source-location–style URL.
  * GitHub uses owner/repo (first two segments). GitLab uses the full group/project path
@@ -63,13 +74,13 @@ export function buildRawReadmeFetchUrl(
     const owner = pathParts[0] ?? '';
     const repo = (pathParts[1] ?? '').replace(/\.git$/, '');
 
-    if (host.includes('github')) {
+    if (isGitHubHostname(host)) {
       if (!owner || !repo) {
         return null;
       }
       return `https://raw.githubusercontent.com/${owner}/${repo}/${defaultBranch}/${filePath}`;
     }
-    if (host.includes('gitlab')) {
+    if (isGitLabHostname(host)) {
       const projectPath = gitlabProjectPathFromPathname(url.pathname);
       if (!projectPath) {
         return null;
