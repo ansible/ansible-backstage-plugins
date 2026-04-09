@@ -192,7 +192,7 @@ export const EEDetailsPage: React.FC = () => {
   }, [getOwnerName]);
 
   const callApi = useCallback(() => {
-    catalogApi
+    return catalogApi
       .getEntities({
         filter: [
           {
@@ -203,7 +203,6 @@ export const EEDetailsPage: React.FC = () => {
         ],
       })
       .then(entities => {
-        // entities might be an array or { items: [] }
         const items = Array.isArray(entities)
           ? entities
           : entities?.items || [];
@@ -217,7 +216,7 @@ export const EEDetailsPage: React.FC = () => {
 
   useEffect(() => {
     callApi();
-  }, [callApi, isRefreshing]);
+  }, [callApi]);
 
   useEffect(() => {
     setScmIntegrationAuthError(false);
@@ -404,8 +403,12 @@ export const EEDetailsPage: React.FC = () => {
   };
 
   const handleRefresh = () => {
-    setIsRefreshing(!isRefreshing);
+    setIsRefreshing(true);
     setDefaultReadme('');
+    setFetchedDefinition(null);
+    callApi().finally(() => {
+      setIsRefreshing(false);
+    });
   };
 
   const handleUnregisterConfirm = () => {
