@@ -231,18 +231,26 @@ export const CollectionsPickerExtension = ({
           list.push(d);
           byVersion.set(key, list);
         }
-        setAvailableVersions(
-          stringsForSource.flatMap((v: string) => {
-            const matches = byVersion.get(v);
-            if (matches?.length) {
-              return matches.map((d: SourceVersionDetail) => ({
+        const detailKey = (d: SourceVersionDetail) =>
+          [d.ref, d.version ?? '', d.label].join('\x1e');
+        const usedDetailKeys = new Set<string>();
+        const merged = stringsForSource.flatMap((v: string) => {
+          const matches = byVersion.get(v);
+          if (matches?.length) {
+            return matches.map((d: SourceVersionDetail) => {
+              usedDetailKeys.add(detailKey(d));
+              return {
                 name: d.label,
                 version: d.version,
-              }));
-            }
-            return [{ name: v, version: v }];
-          }),
-        );
+              };
+            });
+          }
+          return [{ name: v, version: v }];
+        });
+        const extras = detailsForSource
+          .filter(d => !usedDetailKeys.has(detailKey(d)))
+          .map(d => ({ name: d.label, version: d.version }));
+        setAvailableVersions([...merged, ...extras]);
       } else if (stringsForSource?.length) {
         const sourceVersions = foundCollection.sourceVersions[sourceId] || [];
         setAvailableVersions(
