@@ -56,7 +56,6 @@ const tabs = [
 
 const getTabIndexFromPath = (pathname: string): number => {
   if (pathname.includes('/ee/create')) return 1;
-  if (pathname.includes('/ee/docs')) return 2;
   return 0;
 };
 

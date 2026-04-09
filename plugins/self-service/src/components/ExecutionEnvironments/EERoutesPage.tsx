@@ -34,7 +34,6 @@ const EERoutesContent = () => {
         <Route index element={<Navigate to="catalog" replace />} />
         <Route path="catalog" element={<EETabs />} />
         <Route path="create" element={<EETabs />} />
-        <Route path="docs" element={<EETabs />} />
         <Route path="*" element={<Navigate to="catalog" replace />} />
       </Routes>
       <NotificationStack
