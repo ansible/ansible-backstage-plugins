@@ -31,7 +31,7 @@ const useStyles = makeStyles(theme => ({
     textOverflow: 'ellipsis',
   },
   rotate: {
-    animation: '$spin 1s linear',
+    animation: '$spin 1s linear infinite',
   },
   '@keyframes spin': {
     '0%': { transform: 'rotate(0deg)' },
@@ -158,6 +158,7 @@ export const AboutCard: React.FC<AboutCardProps> = ({
                   size="small"
                   onClick={onRefresh}
                   disabled={isRefreshing}
+                  aria-label="Refresh"
                 >
                   <AutorenewIcon
                     className={isRefreshing ? classes.rotate : ''}
