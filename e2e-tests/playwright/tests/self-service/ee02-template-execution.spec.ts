@@ -61,7 +61,7 @@ async function handleGitHubOAuthDialog(page: Page): Promise<boolean> {
   if (!popup) {
     console.log('[EE Test] No popup opened — using redirect flow');
     // enableExperimentalRedirectFlow causes a full-page redirect instead of popup
-    if (page.url().includes('github.com')) {
+    if (new URL(page.url()).hostname === 'github.com') {
       await handleGitHubLoginOnPage(page);
     }
     // After redirect flow, page may be on handler/frame or an error page.
@@ -155,7 +155,7 @@ async function handleGitHubLoginOnPage(page: Page): Promise<void> {
     // The handler/frame endpoint processes the OAuth code and redirects to
     // the original page. Wait for the URL to leave github.com.
     await page
-      .waitForURL(url => !url.hostname.includes('github.com'), {
+      .waitForURL(url => url.hostname !== 'github.com', {
         timeout: 30000,
       })
       .catch(() => {});
