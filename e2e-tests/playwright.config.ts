@@ -48,7 +48,7 @@ export default defineConfig({
     // Trace on failure - better than Cypress video
     trace: 'on-first-retry',
     screenshot: 'only-on-failure',
-    video: 'retain-on-failure',
+    video: process.env.CI ? 'off' : 'retain-on-failure',
 
     // Viewport (matching Cypress config)
     viewport: { width: 1920, height: 1080 },
