@@ -957,6 +957,56 @@ describe('CollectionsPickerExtension', () => {
       expect(await screen.findByText('v1.0.1 / null')).toBeInTheDocument();
     });
 
+    it('appends ref-only version rows when sourceVersions lists semvers but details include version null (merge path)', async () => {
+      const scmSource = 'Github / github.com / myorg / myrepo';
+      const mockCollections = [
+        {
+          name: 'community.general',
+          id: 'community.general',
+          sources: [scmSource],
+          sourceVersions: {
+            [scmSource]: ['1.0.0'],
+          },
+          versions: [
+            {
+              ref: 'main',
+              version: '1.0.0',
+              label: 'main / 1.0.0',
+              source: scmSource,
+            },
+            {
+              ref: 'topic-branch',
+              version: null,
+              label: 'null',
+              source: scmSource,
+            },
+          ],
+        },
+      ];
+      mockScaffolderApi.autocomplete.mockResolvedValue({
+        results: mockCollections,
+      });
+
+      render(<CollectionsPickerExtension {...createMockProps()} />);
+
+      await waitFor(() => {
+        expect(mockScaffolderApi.autocomplete).toHaveBeenCalled();
+      });
+
+      fireEvent.mouseDown(screen.getByLabelText('Collection'));
+      fireEvent.click(await screen.findByText('community.general'));
+
+      const sourceInput = screen.getByLabelText('Source');
+      fireEvent.mouseDown(sourceInput);
+      fireEvent.click(await screen.findByText(scmSource));
+
+      const versionInput = screen.getByLabelText('Version');
+      fireEvent.mouseDown(versionInput);
+
+      expect(await screen.findByText('main / 1.0.0')).toBeInTheDocument();
+      expect(await screen.findByText('null')).toBeInTheDocument();
+    });
+
     it('fetches versions from collection data when source is selected', async () => {
       const mockCollections = [
         {

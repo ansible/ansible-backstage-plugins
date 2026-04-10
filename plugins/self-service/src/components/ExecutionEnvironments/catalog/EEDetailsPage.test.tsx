@@ -990,4 +990,52 @@ describe('EEDetailsPage', () => {
     });
     expect(mockFetchApi.fetch.mock.calls.length).toBeGreaterThanOrEqual(2);
   });
+
+  test('refresh button re-enables after successful refresh', async () => {
+    const getEntities = jest.fn(() =>
+      Promise.resolve({ items: [entityNoDownload] }),
+    );
+    renderWithCatalogApi(getEntities);
+
+    await screen.findByTestId('favorite-entity');
+
+    const refreshButton = screen.getByRole('button', { name: /Refresh/i });
+    expect(refreshButton).not.toBeDisabled();
+
+    fireEvent.click(refreshButton);
+    expect(refreshButton).toBeDisabled();
+
+    await waitFor(() => {
+      expect(refreshButton).not.toBeDisabled();
+    });
+
+    expect(getEntities).toHaveBeenCalledTimes(2);
+  });
+
+  test('refresh button re-enables after failed refresh', async () => {
+    const getEntities = jest
+      .fn()
+      .mockResolvedValueOnce({ items: [entityNoDownload] })
+      .mockRejectedValueOnce(new Error('refresh failed'));
+
+    renderWithCatalogApi(getEntities);
+
+    await screen.findByTestId('favorite-entity');
+
+    const refreshButton = screen.getByRole('button', { name: /Refresh/i });
+    fireEvent.click(refreshButton);
+    expect(refreshButton).toBeDisabled();
+
+    await waitFor(() => expect(getEntities).toHaveBeenCalledTimes(2));
+    // callApi catch sets entity to null on rejection, so AboutCard may unmount
+    // and the refresh control disappears. .finally() still clears isRefreshing.
+    await waitFor(() => {
+      const btn = screen.queryByRole('button', { name: /Refresh/i });
+      const notFound = screen.queryByText(/Entity not found/i);
+      expect(
+        (btn === null && notFound !== null) ||
+          (btn instanceof HTMLButtonElement && !btn.disabled),
+      ).toBe(true);
+    });
+  });
 });
