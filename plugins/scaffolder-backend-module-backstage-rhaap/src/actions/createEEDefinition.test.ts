@@ -20,6 +20,7 @@ jest.mock('@backstage/plugin-scaffolder-node', () => ({
 }));
 
 jest.mock('./utils/utils', () => ({
+  ...jest.requireActual('./utils/utils'),
   parseUploadedFileContent: jest.fn().mockReturnValue(''),
 }));
 
@@ -56,8 +57,12 @@ describe('createEEDefinition', () => {
   const mockWorkspacePath = '/tmp/test-workspace';
 
   function makeCtx(values: Record<string, any>) {
+    const valuesWithDefaults = {
+      eeDescription: 'Execution Environment',
+      ...values,
+    };
     return {
-      input: { values },
+      input: { values: valuesWithDefaults },
       logger,
       workspacePath: mockWorkspacePath,
       output: jest.fn(),

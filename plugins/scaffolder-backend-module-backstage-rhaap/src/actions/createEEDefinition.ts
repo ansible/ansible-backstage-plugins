@@ -5,7 +5,10 @@ import {
 import * as fs from 'fs/promises';
 import * as path from 'path';
 import semver from 'semver';
-import { parseUploadedFileContent } from './utils/utils';
+import {
+  convertUploadToDataUrl,
+  parseUploadedFileContent,
+} from './utils/utils';
 import {
   AuthService,
   DiscoveryService,
@@ -25,6 +28,7 @@ import {
 } from './types';
 import { generateReadme } from './templates/readmeTemplate';
 import { generateEETemplate } from './templates/eeTemplate';
+import { eeDefinitionInputSchema } from './schemas/rhaapActionSchemas';
 
 const PAH_SOURCE_PREFIX = 'Private Automation Hub';
 
@@ -65,7 +69,7 @@ export function createEEDefinitionAction(options: {
     description: 'Creates Ansible Execution Environment definition files',
     schema: {
       input: {
-        values: z => z.custom<EEDefinitionInput>(),
+        values: () => eeDefinitionInputSchema,
       },
       output: {
         contextDirName: z => z.string().optional(),
@@ -81,9 +85,13 @@ export function createEEDefinitionAction(options: {
       const baseImage = values.baseImage || values.customBaseImage || '';
       const collections = values.collections || [];
       const pythonRequirements = values.pythonRequirements || [];
-      const pythonRequirementsFile = values.pythonRequirementsFile || '';
+      const pythonRequirementsFile = convertUploadToDataUrl(
+        values.pythonRequirementsFile,
+      );
       const systemPackages = values.systemPackages || [];
-      const systemPackagesFile = values.systemPackagesFile || '';
+      const systemPackagesFile = convertUploadToDataUrl(
+        values.systemPackagesFile,
+      );
       const additionalBuildSteps = values.additionalBuildSteps || [];
       const eeFileNameSlug = canonicalizeEEDefinitionName(
         values.eeFileName || 'execution-environment',

@@ -1,8 +1,9 @@
 import { createTemplateAction } from '@backstage/plugin-scaffolder-node';
+import { IAAPService } from '@ansible/backstage-rhaap-common';
 import {
-  IAAPService,
-  LaunchJobTemplate,
-} from '@ansible/backstage-rhaap-common';
+  aapApiRecordOutputSchema,
+  launchJobTemplateInputSchema,
+} from './schemas/rhaapActionSchemas';
 
 export const launchJobTemplate = (ansibleServiceRef: IAAPService) => {
   return createTemplateAction({
@@ -10,10 +11,10 @@ export const launchJobTemplate = (ansibleServiceRef: IAAPService) => {
     schema: {
       input: {
         token: z => z.string({ description: 'Authorization token' }),
-        values: z => z.custom<LaunchJobTemplate>(),
+        values: () => launchJobTemplateInputSchema,
       },
       output: {
-        data: z => z.any(),
+        data: () => aapApiRecordOutputSchema,
       },
     },
     async handler(ctx) {

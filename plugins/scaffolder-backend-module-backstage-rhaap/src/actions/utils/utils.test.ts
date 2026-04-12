@@ -14,7 +14,25 @@
  * limitations under the License.
  */
 
-import { parseUploadedFileContent } from './utils';
+import { convertUploadToDataUrl, parseUploadedFileContent } from './utils';
+
+describe('convertUploadToDataUrl', () => {
+  it('returns empty string for nullish', () => {
+    expect(convertUploadToDataUrl(undefined)).toBe('');
+    expect(convertUploadToDataUrl(null)).toBe('');
+  });
+
+  it('passes through data URL strings', () => {
+    const s = 'data:text/plain;base64,QQ==';
+    expect(convertUploadToDataUrl(s)).toBe(s);
+  });
+
+  it('reads string from object.data', () => {
+    expect(
+      convertUploadToDataUrl({ data: 'data:text/plain;base64,QQ==' }),
+    ).toBe('data:text/plain;base64,QQ==');
+  });
+});
 
 describe('parseUploadedFileContent', () => {
   it('should parse valid base64 data URL with text/plain content type', () => {

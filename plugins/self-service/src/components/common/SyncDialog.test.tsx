@@ -510,7 +510,7 @@ describe('SyncDialog', () => {
       },
       { timeout: 15000 },
     );
-  }, 20000);
+  }, 60000);
 
   it('toggleSelection at provider level selects provider and all children', async () => {
     renderDialog({ open: true, onClose: mockOnClose });

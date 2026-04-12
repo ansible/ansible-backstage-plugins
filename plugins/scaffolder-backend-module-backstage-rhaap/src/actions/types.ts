@@ -28,9 +28,9 @@ export interface EEDefinitionInput {
   eeFileName: string;
   eeDescription: string;
   customBaseImage?: string;
-  tags: string[];
+  tags?: string[];
   publishToSCM: boolean;
-  baseImage: string;
+  baseImage?: string;
   collections?: Collection[];
   pythonRequirements?: string[];
   pythonRequirementsFile?: string;
@@ -39,6 +39,7 @@ export interface EEDefinitionInput {
   additionalBuildSteps?: AdditionalBuildStep[];
   buildRegistry?: string;
   buildImageName?: string;
+  buildImageTag?: string;
   registryTlsVerify?: boolean;
   owner?: string;
 }

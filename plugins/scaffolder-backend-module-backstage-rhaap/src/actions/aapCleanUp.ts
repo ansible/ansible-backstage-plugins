@@ -1,5 +1,6 @@
 import { createTemplateAction } from '@backstage/plugin-scaffolder-node';
-import { IAAPService, CleanUp } from '@ansible/backstage-rhaap-common';
+import { CleanUp, IAAPService } from '@ansible/backstage-rhaap-common';
+import { cleanUpInputSchema } from './schemas/rhaapActionSchemas';
 
 export const cleanUp = (ansibleServiceRef: IAAPService) => {
   return createTemplateAction({
@@ -7,7 +8,7 @@ export const cleanUp = (ansibleServiceRef: IAAPService) => {
     schema: {
       input: {
         token: z => z.string({ description: 'Oauth2 token' }),
-        values: z => z.custom<CleanUp>(),
+        values: () => cleanUpInputSchema,
       },
       output: {
         cleanUp: z => z.string(),
@@ -24,14 +25,7 @@ export const cleanUp = (ansibleServiceRef: IAAPService) => {
 
       ansibleServiceRef.setLogger(logger);
       try {
-        await ansibleServiceRef.cleanUp(
-          {
-            project: input.values.project,
-            executionEnvironment: input.values.executionEnvironment,
-            template: input.values.template,
-          },
-          input.token,
-        );
+        await ansibleServiceRef.cleanUp(input.values as CleanUp, input.token);
       } catch (e: any) {
         const message = e?.message ?? 'Something went wrong.';
         const error = new Error(message);

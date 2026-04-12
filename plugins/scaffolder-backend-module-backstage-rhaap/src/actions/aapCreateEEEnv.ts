@@ -1,8 +1,9 @@
 import { createTemplateAction } from '@backstage/plugin-scaffolder-node';
+import { IAAPService } from '@ansible/backstage-rhaap-common';
 import {
-  IAAPService,
-  ExecutionEnvironment,
-} from '@ansible/backstage-rhaap-common';
+  aapApiRecordOutputSchema,
+  executionEnvironmentInputSchema,
+} from './schemas/rhaapActionSchemas';
 
 export const createExecutionEnvironment = (ansibleServiceRef: IAAPService) => {
   return createTemplateAction({
@@ -12,10 +13,10 @@ export const createExecutionEnvironment = (ansibleServiceRef: IAAPService) => {
         token: z => z.string({ description: 'Oauth2 token' }),
         deleteIfExist: z =>
           z.boolean({ description: 'Delete project if exist' }),
-        values: z => z.custom<ExecutionEnvironment>(),
+        values: () => executionEnvironmentInputSchema,
       },
       output: {
-        executionEnvironment: z => z.any(),
+        executionEnvironment: () => aapApiRecordOutputSchema,
       },
     },
     async handler(ctx) {
