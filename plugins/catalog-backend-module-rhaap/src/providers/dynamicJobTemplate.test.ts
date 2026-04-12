@@ -804,7 +804,7 @@ describe('dynamicJobTemplate', () => {
       // Test extra variables
       expect(extraVariables).toEqual({
         text_var: '${{ parameters.text_var }}',
-        password_var: '${{ parameters.password_var }}',
+        password_var: '${{ secrets.password_var }}',
         textarea_var: '${{ parameters.textarea_var }}',
         choice_var: '${{ parameters.choice_var }}',
         multiselect_var: '${{ parameters.multiselect_var }}',
@@ -1135,7 +1135,7 @@ describe('dynamicJobTemplate', () => {
         'rhaap:launch-job-template',
       );
       expect((result.spec as any).steps[0].input.token).toBe(
-        '${{ parameters.token }}',
+        '${{ secrets.aapToken }}',
       );
       expect((result.spec as any).steps[0].input.values.template).toEqual(
         'Test Job Template',
@@ -1148,6 +1148,25 @@ describe('dynamicJobTemplate', () => {
         'Test Job Template template executed successfully',
       );
       expect((result.spec as any).output.links).not.toBeDefined();
+    });
+
+    it('should not produce double slashes when baseUrl has a trailing slash', () => {
+      const options = {
+        baseUrl: 'https://ansible.example.com/',
+        nameSpace: 'default',
+        job: mockJob,
+        survey: null,
+        instanceGroup: [],
+      };
+
+      const result = generateTemplate(options);
+
+      expect(result.metadata.annotations).toEqual({
+        [ANNOTATION_LOCATION]:
+          'url:https://ansible.example.com/execution/templates/job-template/123/details',
+        [ANNOTATION_ORIGIN_LOCATION]:
+          'url:https://ansible.example.com/execution/templates/job-template/123/details',
+      });
     });
 
     it('should generate template with survey', () => {
