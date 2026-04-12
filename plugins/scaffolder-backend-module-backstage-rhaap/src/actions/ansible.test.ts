@@ -101,4 +101,64 @@ describe('ansible:content:create', () => {
       generateRepoUrl('github.com', 'testOwner', 'testRepo'),
     );
   });
+
+  it('uses empty string defaults when optional input fields are omitted', async () => {
+    const ctxMinimal = createMockActionContext({
+      input: {},
+    });
+    // @ts-ignore
+    await action.handler(ctxMinimal);
+
+    expect(ansibleCreatorRun).toHaveBeenCalledWith(
+      ctxMinimal.workspacePath,
+      '',
+      ctxMinimal.logger,
+      '',
+      '',
+      '',
+      getServiceUrlFromAnsibleConfig(config),
+    );
+    expect(ctxMinimal.output).toHaveBeenCalledWith(
+      'repoUrl',
+      generateRepoUrl('', '', ''),
+    );
+  });
+
+  it('treats null applicationType as empty string', async () => {
+    const ctxNullType = createMockActionContext({
+      input: {
+        applicationType: null as any,
+      },
+    });
+    // @ts-ignore
+    await action.handler(ctxNullType);
+
+    expect(ansibleCreatorRun).toHaveBeenCalledWith(
+      ctxNullType.workspacePath,
+      '',
+      ctxNullType.logger,
+      '',
+      '',
+      '',
+      getServiceUrlFromAnsibleConfig(config),
+    );
+  });
+
+  it('logs and rethrows when ansibleCreatorRun fails', async () => {
+    const err = new Error('creator failed');
+    (ansibleCreatorRun as jest.Mock).mockRejectedValueOnce(err);
+    const errorSpy = jest
+      .spyOn(mockContext.logger, 'error')
+      .mockImplementation(() => {});
+
+    await expect(
+      // @ts-ignore — mock context matches handler contract
+      action.handler(mockContext),
+    ).rejects.toThrow('creator failed');
+
+    expect(errorSpy).toHaveBeenCalledWith(
+      expect.stringContaining('Error occured:'),
+    );
+    errorSpy.mockRestore();
+  });
 });

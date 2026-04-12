@@ -9,7 +9,7 @@ export function convertUploadToDataUrl(value: unknown): string {
   if (typeof value === 'string') {
     return value;
   }
-  if (typeof value === 'object' && value !== null) {
+  if (typeof value === 'object') {
     const o = value as Record<string, unknown>;
     if (typeof o.data === 'string') {
       return o.data;
