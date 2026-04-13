@@ -733,7 +733,7 @@ describe('dynamicJobTemplate', () => {
             variable: 'multiselect_var',
             type: 'multiselect',
             required: false,
-            default: ['option1'],
+            default: ['option1', 'option2'],
             choices: ['option1', 'option2', 'option3'],
             min: 0,
             max: 100,
@@ -805,7 +805,7 @@ describe('dynamicJobTemplate', () => {
           enum: ['option1', 'option2', 'option3'],
           type: 'string',
         },
-        default: ['option1'],
+        default: ['option1', 'option2'],
       });
 
       // Test extra variables
@@ -902,6 +902,120 @@ describe('dynamicJobTemplate', () => {
         maximum: 100,
       });
       expect(extraVariables.root_float).toBe('${{ parameters["root_float"] }}');
+    });
+
+    it('emits minimum and maximum independently for integer/float surveys', () => {
+      const mockSurvey: ISurvey = {
+        name: 'Bounds',
+        description: '',
+        spec: [
+          {
+            question_name: 'Min only',
+            question_description: '',
+            variable: 'int_min_only',
+            type: 'integer',
+            required: false,
+            default: '',
+            choices: [],
+            min: 3,
+            new_question: false,
+          },
+          {
+            question_name: 'Max only',
+            question_description: '',
+            variable: 'float_max_only',
+            type: 'float',
+            required: false,
+            default: '',
+            choices: [],
+            max: 99.5,
+            new_question: false,
+          },
+        ] as ISpec[],
+      };
+
+      const [surveyForm] = getSurveyDetails({}, mockSurvey);
+
+      expect((surveyForm.properties as JsonObject).int_min_only).toEqual({
+        title: 'Min only',
+        description: '',
+        type: 'integer',
+        minimum: 3,
+      });
+      expect((surveyForm.properties as JsonObject).float_max_only).toEqual({
+        title: 'Max only',
+        description: '',
+        type: 'number',
+        maximum: 99.5,
+      });
+    });
+
+    it('does not emit a multiselect default for empty string (avoids [""])', () => {
+      const mockSurvey: ISurvey = {
+        name: 'Multiselect empty default',
+        description: '',
+        spec: [
+          {
+            question_name: 'Pick many',
+            question_description: '',
+            variable: 'ms_empty',
+            type: 'multiselect',
+            required: false,
+            default: '',
+            choices: ['a', 'b'],
+            min: 0,
+            max: 100,
+            new_question: false,
+          },
+        ] as ISpec[],
+      };
+
+      const [surveyForm] = getSurveyDetails({}, mockSurvey);
+
+      expect((surveyForm.properties as JsonObject).ms_empty).toEqual({
+        title: 'Pick many',
+        description: '',
+        type: 'array',
+        'ui:widget': 'select',
+        uniqueItems: true,
+        items: {
+          enum: ['a', 'b'],
+          type: 'string',
+        },
+      });
+      expect(
+        Object.prototype.hasOwnProperty.call(
+          (surveyForm.properties as JsonObject).ms_empty,
+          'default',
+        ),
+      ).toBe(false);
+    });
+
+    it('normalizes multiselect newline-separated string defaults', () => {
+      const mockSurvey: ISurvey = {
+        name: 'Multiselect newline default',
+        description: '',
+        spec: [
+          {
+            question_name: 'Pick',
+            question_description: '',
+            variable: 'ms_nl',
+            type: 'multiselect',
+            required: false,
+            default: 'a\nb',
+            choices: ['a', 'b', 'c'],
+            min: 0,
+            max: 100,
+            new_question: false,
+          },
+        ] as ISpec[],
+      };
+
+      const [surveyForm] = getSurveyDetails({}, mockSurvey);
+
+      expect((surveyForm.properties as JsonObject).ms_nl).toMatchObject({
+        default: ['a', 'b'],
+      });
     });
   });
 

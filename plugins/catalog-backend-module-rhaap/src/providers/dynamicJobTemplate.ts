@@ -23,6 +23,26 @@ function scaffolderSecretsRef(key: string): string {
   return `\${{ secrets[${JSON.stringify(key)}] }}`;
 }
 
+function normalizeMultiselectSurveyDefault(defaultValue: unknown): string[] | null {
+  if (defaultValue === undefined || defaultValue === null || defaultValue === '') {
+    return null;
+  }
+  if (Array.isArray(defaultValue)) {
+    const arr = defaultValue
+      .map(v => (v === null || v === undefined ? '' : String(v)).trim())
+      .filter(s => s.length > 0);
+    return arr.length > 0 ? arr : null;
+  }
+  if (typeof defaultValue === 'string') {
+    const arr = defaultValue
+      .split('\n')
+      .map(s => s.trim())
+      .filter(s => s.length > 0);
+    return arr.length > 0 ? arr : null;
+  }
+  return null;
+}
+
 export const getPromptForm = () => {
   return {
     title: 'Please enter the following details',
@@ -356,12 +376,20 @@ export const getSurveyDetails = (
     const paramVar = item.variable;
     if (!promptForm.properties) promptForm.properties = {} as JsonObject;
 
-    const numericBounds =
-      (item.type === 'integer' || item.type === 'float') &&
-      typeof item.min === 'number' &&
-      typeof item.max === 'number'
-        ? { minimum: item.min, maximum: item.max }
-        : {};
+    const numericBounds: { minimum?: number; maximum?: number } = {};
+    if (item.type === 'integer' || item.type === 'float') {
+      if (typeof item.min === 'number') {
+        numericBounds.minimum = item.min;
+      }
+      if (typeof item.max === 'number') {
+        numericBounds.maximum = item.max;
+      }
+    }
+
+    const multiselectDefault =
+      item.type === 'multiselect'
+        ? normalizeMultiselectSurveyDefault(item.default)
+        : null;
 
     const includeDefault =
       item.type !== 'password' &&
@@ -370,7 +398,8 @@ export const getSurveyDetails = (
       !(
         (item.type === 'integer' || item.type === 'float') &&
         item.default === ''
-      );
+      ) &&
+      (item.type !== 'multiselect' || multiselectDefault !== null);
 
     (promptForm.properties as JsonObject)[paramVar] = {
       title: item.question_name,
@@ -404,9 +433,7 @@ export const getSurveyDetails = (
       }),
       ...(includeDefault && {
         default:
-          item.type === 'multiselect'
-            ? item.default.toString().split('\n')
-            : item.default,
+          multiselectDefault !== null ? multiselectDefault : item.default,
       }),
     };
 
