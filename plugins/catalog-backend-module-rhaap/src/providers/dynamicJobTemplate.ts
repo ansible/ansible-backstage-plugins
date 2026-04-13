@@ -23,8 +23,14 @@ function scaffolderSecretsRef(key: string): string {
   return `\${{ secrets[${JSON.stringify(key)}] }}`;
 }
 
-function normalizeMultiselectSurveyDefault(defaultValue: unknown): string[] | null {
-  if (defaultValue === undefined || defaultValue === null || defaultValue === '') {
+function normalizeMultiselectSurveyDefault(
+  defaultValue: unknown,
+): string[] | null {
+  if (
+    defaultValue === undefined ||
+    defaultValue === null ||
+    defaultValue === ''
+  ) {
     return null;
   }
   if (Array.isArray(defaultValue)) {
