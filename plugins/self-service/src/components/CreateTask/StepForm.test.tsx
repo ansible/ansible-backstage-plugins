@@ -111,7 +111,10 @@ describe('StepForm', () => {
             testField: 'test-value',
             token: 'mock-token',
           }),
-          { USER_OAUTH_TOKEN: 'mock-oauth-token' },
+          {
+            USER_OAUTH_TOKEN: 'mock-oauth-token',
+            aapToken: 'mock-token',
+          },
         );
       });
     });
@@ -214,7 +217,7 @@ describe('StepForm', () => {
           expect.objectContaining({
             token: 'mock-token',
           }),
-          undefined, // Auto-execute doesn't have access to secrets context
+          { aapToken: 'mock-token' },
         );
       });
     });

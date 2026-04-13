@@ -208,6 +208,51 @@ describe('AAPResourcePicker', () => {
       });
     });
 
+    it('should read resource from ui:options.autocomplete.resource when schema.resource is absent', async () => {
+      renderComponent({
+        schema: {
+          title: 'Organization',
+          description: 'Select organization',
+          type: 'object',
+          properties: { id: { type: 'number' }, name: { type: 'string' } },
+        },
+        uiSchema: {
+          'ui:options': {
+            autocomplete: { resource: 'organizations' },
+          },
+        },
+      });
+
+      await waitFor(() => {
+        expect(mockScaffolderApi.autocomplete).toHaveBeenCalledWith({
+          token: 'test-token',
+          resource: 'organizations',
+          provider: 'aap-api-cloud',
+          context: {},
+        });
+      });
+    });
+
+    it('does not call token or autocomplete when resource is missing', async () => {
+      renderComponent({
+        schema: {
+          title: 'Picker',
+          description: 'Select something',
+          type: 'object',
+          idKey: 'id',
+          nameKey: 'name',
+        },
+        uiSchema: {},
+      });
+
+      await waitFor(() => {
+        expect(screen.getByText(/Missing AAP resource/)).toBeInTheDocument();
+      });
+
+      expect(mockRhAapAuthApi.getAccessToken).not.toHaveBeenCalled();
+      expect(mockScaffolderApi.autocomplete).not.toHaveBeenCalled();
+    });
+
     it('should handle API errors gracefully', async () => {
       mockScaffolderApi.autocomplete.mockRejectedValue(new Error('API Error'));
 

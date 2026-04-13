@@ -21,6 +21,7 @@ import {
   ANNOTATION_LOCATION,
   ANNOTATION_ORIGIN_LOCATION,
 } from '@backstage/catalog-model';
+import { JsonObject } from '@backstage/types';
 
 describe('dynamicJobTemplate', () => {
   beforeEach(() => {
@@ -627,23 +628,29 @@ describe('dynamicJobTemplate', () => {
       expect((promptForm.properties as any).timeout).toBeDefined();
       expect((promptForm.properties as any).diff_mode).toBeDefined();
 
-      expect((inputVars as any).job_type).toBe('${{ parameters.job_type }}');
-      expect((inputVars as any).inventory).toBe('${{ parameters.inventory }}');
+      expect((inputVars as any).job_type).toBe('${{ parameters["job_type"] }}');
+      expect((inputVars as any).inventory).toBe(
+        '${{ parameters["inventory"] }}',
+      );
       expect((inputVars as any).execution_environment).toBe(
-        '${{ parameters.execution_environment }}',
+        '${{ parameters["execution_environment"] }}',
       );
       expect((inputVars as any).credentials).toBe(
-        '${{ parameters.credentials }}',
+        '${{ parameters["credentials"] }}',
       );
-      expect((inputVars as any).labels).toBe('${{ parameters.labels }}');
-      expect((inputVars as any).forks).toBe('${{ parameters.forks }}');
-      expect((inputVars as any).limit).toBe('${{ parameters.limit }}');
-      expect((inputVars as any).verbosity).toBe('${{ parameters.verbosity }}');
+      expect((inputVars as any).labels).toBe('${{ parameters["labels"] }}');
+      expect((inputVars as any).forks).toBe('${{ parameters["forks"] }}');
+      expect((inputVars as any).limit).toBe('${{ parameters["limit"] }}');
+      expect((inputVars as any).verbosity).toBe(
+        '${{ parameters["verbosity"] }}',
+      );
       expect((inputVars as any).job_slice_count).toBe(
-        '${{ parameters.job_slice_count }}',
+        '${{ parameters["job_slice_count"] }}',
       );
-      expect((inputVars as any).timeout).toBe('${{ parameters.timeout }}');
-      expect((inputVars as any).diff_mode).toBe('${{ parameters.diff_mode }}');
+      expect((inputVars as any).timeout).toBe('${{ parameters["timeout"] }}');
+      expect((inputVars as any).diff_mode).toBe(
+        '${{ parameters["diff_mode"] }}',
+      );
     });
 
     it('should return minimal prompt form for job with no ask_on_launch flags', () => {
@@ -803,12 +810,52 @@ describe('dynamicJobTemplate', () => {
 
       // Test extra variables
       expect(extraVariables).toEqual({
-        text_var: '${{ parameters.text_var }}',
-        password_var: '${{ secrets.password_var }}',
-        textarea_var: '${{ parameters.textarea_var }}',
-        choice_var: '${{ parameters.choice_var }}',
-        multiselect_var: '${{ parameters.multiselect_var }}',
+        text_var: '${{ parameters["text_var"] }}',
+        password_var: '${{ secrets["password_var"] }}',
+        textarea_var: '${{ parameters["textarea_var"] }}',
+        choice_var: '${{ parameters["choice_var"] }}',
+        multiselect_var: '${{ parameters["multiselect_var"] }}',
       });
+    });
+
+    it('uses bracket notation for survey variable names with hyphens (Nunjucks)', () => {
+      const mockSurvey: ISurvey = {
+        name: 'Hyphen survey',
+        description: '',
+        spec: [
+          {
+            question_name: 'Text',
+            question_description: '',
+            variable: 'text-ques',
+            type: 'text',
+            required: true,
+            default: '',
+            choices: [],
+            min: 0,
+            max: 100,
+            new_question: false,
+          },
+          {
+            question_name: 'Secret',
+            question_description: '',
+            variable: 'api-key',
+            type: 'password',
+            required: false,
+            default: '',
+            choices: [],
+            min: 0,
+            max: 100,
+            new_question: false,
+          },
+        ] as ISpec[],
+      };
+
+      const [, extraVariables] = getSurveyDetails({}, mockSurvey);
+
+      expect(extraVariables['text-ques']).toBe(
+        '${{ parameters["text-ques"] }}',
+      );
+      expect(extraVariables['api-key']).toBe('${{ secrets["api-key"] }}');
     });
 
     it('should handle survey with empty spec', () => {
@@ -823,6 +870,38 @@ describe('dynamicJobTemplate', () => {
       expect(surveyForm.required).toEqual([]);
       expect(surveyForm.properties).toBeUndefined();
       expect(extraVariables).toEqual({});
+    });
+
+    it('maps AAP survey float questions to JSON Schema number (RJSF)', () => {
+      const mockSurvey: ISurvey = {
+        name: 'Float survey',
+        description: '',
+        spec: [
+          {
+            question_name: 'Float?',
+            question_description: '',
+            variable: 'root_float',
+            type: 'float',
+            required: false,
+            default: '',
+            choices: [],
+            min: 0,
+            max: 100,
+            new_question: false,
+          },
+        ] as ISpec[],
+      };
+
+      const [surveyForm, extraVariables] = getSurveyDetails({}, mockSurvey);
+
+      expect((surveyForm.properties as JsonObject).root_float).toEqual({
+        title: 'Float?',
+        description: '',
+        type: 'number',
+        minimum: 0,
+        maximum: 100,
+      });
+      expect(extraVariables.root_float).toBe('${{ parameters["root_float"] }}');
     });
   });
 
@@ -1190,7 +1269,7 @@ describe('dynamicJobTemplate', () => {
 
       expect(
         (result.spec as any).steps[0].input.values.extraVariables.env_var,
-      ).toBe('${{ parameters.env_var }}');
+      ).toBe('${{ parameters["env_var"] }}');
     });
 
     it('should generate template with job that has ask_on_launch flags', () => {
@@ -1215,10 +1294,10 @@ describe('dynamicJobTemplate', () => {
       ).toBeDefined();
       expect((result.spec as any).parameters[0].properties.forks).toBeDefined();
       expect((result.spec as any).steps[0].input.values.inventory).toBe(
-        '${{ parameters.inventory }}',
+        '${{ parameters["inventory"] }}',
       );
       expect((result.spec as any).steps[0].input.values.forks).toBe(
-        '${{ parameters.forks }}',
+        '${{ parameters["forks"] }}',
       );
     });
 

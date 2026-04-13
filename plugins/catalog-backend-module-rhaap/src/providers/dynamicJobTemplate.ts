@@ -15,6 +15,14 @@ import { JsonArray, JsonObject } from '@backstage/types';
 import { formatNameSpace } from '../helpers';
 import { normalizeBaseUrl } from './helpers';
 
+function scaffolderParametersRef(key: string): string {
+  return `\${{ parameters[${JSON.stringify(key)}] }}`;
+}
+
+function scaffolderSecretsRef(key: string): string {
+  return `\${{ secrets[${JSON.stringify(key)}] }}`;
+}
+
 export const getPromptForm = () => {
   return {
     title: 'Please enter the following details',
@@ -315,7 +323,7 @@ export const getPromptFormDetails = (
 
   const inputVars: JsonObject = {};
   for (const e of Object.keys(properties)) {
-    inputVars[e] = `\${{ parameters.${e} }}`;
+    inputVars[e] = scaffolderParametersRef(e);
   }
 
   promptForm.properties = { ...promptForm.properties, ...properties };
@@ -342,13 +350,33 @@ export const getSurveyDetails = (
       inputType = 'array';
     } else if (item.type === 'integer') {
       inputType = 'integer';
+    } else if (item.type === 'float') {
+      inputType = 'number';
     }
     const paramVar = item.variable;
     if (!promptForm.properties) promptForm.properties = {} as JsonObject;
+
+    const numericBounds =
+      (item.type === 'integer' || item.type === 'float') &&
+      typeof item.min === 'number' &&
+      typeof item.max === 'number'
+        ? { minimum: item.min, maximum: item.max }
+        : {};
+
+    const includeDefault =
+      item.type !== 'password' &&
+      item.default !== undefined &&
+      item.default !== null &&
+      !(
+        (item.type === 'integer' || item.type === 'float') &&
+        item.default === ''
+      );
+
     (promptForm.properties as JsonObject)[paramVar] = {
       title: item.question_name,
       description: item.question_description,
       ...(inputType && { type: inputType }),
+      ...numericBounds,
       ...(item.type === 'textarea' && {
         'ui:widget': 'textarea',
         'ui:placeholder': `${item.question_description}...`,
@@ -374,20 +402,18 @@ export const getSurveyDetails = (
         'ui:widget': 'select',
         uniqueItems: true,
       }),
-      ...(item.type !== 'password' &&
-        item.default !== undefined &&
-        item.default !== null && {
-          default:
-            item.type === 'multiselect'
-              ? item.default.toString().split('\n')
-              : item.default,
-        }),
+      ...(includeDefault && {
+        default:
+          item.type === 'multiselect'
+            ? item.default.toString().split('\n')
+            : item.default,
+      }),
     };
 
     extraVariables[paramVar] =
       item.type === 'password'
-        ? `\${{ secrets.${paramVar} }}`
-        : `\${{ parameters.${paramVar} }}`;
+        ? scaffolderSecretsRef(paramVar)
+        : scaffolderParametersRef(paramVar);
   });
 
   promptForm.required = [

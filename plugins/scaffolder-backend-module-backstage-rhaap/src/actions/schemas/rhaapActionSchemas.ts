@@ -18,7 +18,7 @@ import { z } from 'zod';
 
 export const aapApiRecordOutputSchema = z.record(z.string(), z.unknown());
 
-const organizationSchema = z.object({
+export const organizationSchema = z.object({
   id: z.number(),
   name: z.string(),
   namespace: z.string().optional(),
@@ -94,7 +94,7 @@ const verbositySchema = z.object({
   name: z.string(),
 });
 
-export const launchJobTemplateInputSchema = z.object({
+export const launchJobTemplateFieldsSchema = z.object({
   template: z.string().min(1),
   jobType: z.enum(['run', 'check']).optional(),
   inventory: inventorySchema.optional(),
@@ -112,6 +112,14 @@ export const launchJobTemplateInputSchema = z.object({
   jobTags: z.string().optional(),
   skipTags: z.string().optional(),
 });
+
+export const launchJobTemplateValuesLooseSchema = z.record(
+  z.string(),
+  z.unknown(),
+);
+
+export const aapActionInputValuesLooseSchema =
+  launchJobTemplateValuesLooseSchema;
 
 export const cleanUpInputSchema = z.object({
   project: projectInputSchema.partial().optional(),

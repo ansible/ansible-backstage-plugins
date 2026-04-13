@@ -30,6 +30,19 @@ describe('ansible-aap:cleanUp:launch', () => {
     jest.clearAllMocks();
   });
 
+  it('throws when authorization token is missing', async () => {
+    const ctx = createMockActionContext({
+      input: {
+        token: '',
+        values: cleanUpData,
+      },
+    });
+    await expect(action.handler(ctx as any)).rejects.toThrow(
+      'Authorization token not provided.',
+    );
+    expect(mockAnsibleService.cleanUp).not.toHaveBeenCalled();
+  });
+
   it('should clean up', async () => {
     mockAnsibleService.cleanUp.mockResolvedValue(undefined);
 

@@ -396,11 +396,14 @@ export const StepForm = ({
   }, [formDataStorageKey, activeStepStorageKey]);
 
   const handleFinalSubmit = useCallback(
-    async (secrets?: Record<string, string>) => {
+    async (secretsArg?: Record<string, string>) => {
       try {
         const authToken = await aapAuth.getAccessToken();
         const finalData = { ...formData, token: authToken };
-        await submitFunction(finalData, secrets);
+        await submitFunction(finalData, {
+          ...secretsArg,
+          aapToken: authToken,
+        });
         clearPersistedFormData();
       } catch (error) {
         console.error('Error during final submission:', error); // eslint-disable-line no-console
@@ -486,7 +489,7 @@ export const StepForm = ({
           property.allOf,
         );
         if (Object.keys(nestedUi).length > 0) {
-          uiSchema[key] = { ...(uiSchema[key] || {}), ...nestedUi };
+          uiSchema[key] = { ...uiSchema[key], ...nestedUi };
         }
       }
     }

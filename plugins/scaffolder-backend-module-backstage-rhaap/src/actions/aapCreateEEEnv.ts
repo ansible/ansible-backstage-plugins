@@ -1,6 +1,12 @@
 import { createTemplateAction } from '@backstage/plugin-scaffolder-node';
 import { IAAPService } from '@ansible/backstage-rhaap-common';
 import {
+  parseAapActionValues,
+  rethrowPreservingInputError,
+} from './utils/parseAapActionValues';
+import { normalizeExecutionEnvironmentInputValues } from './schemas/rhaapActionPayloadUtils';
+import {
+  aapActionInputValuesLooseSchema,
   aapApiRecordOutputSchema,
   executionEnvironmentInputSchema,
 } from './schemas/rhaapActionSchemas';
@@ -13,7 +19,7 @@ export const createExecutionEnvironment = (ansibleServiceRef: IAAPService) => {
         token: z => z.string({ description: 'Oauth2 token' }),
         deleteIfExist: z =>
           z.boolean({ description: 'Delete project if exist' }),
-        values: () => executionEnvironmentInputSchema,
+        values: () => aapActionInputValuesLooseSchema,
       },
       output: {
         executionEnvironment: () => aapApiRecordOutputSchema,
@@ -31,16 +37,21 @@ export const createExecutionEnvironment = (ansibleServiceRef: IAAPService) => {
       ansibleServiceRef.setLogger(logger);
       let eeData;
       try {
-        eeData = await ansibleServiceRef.createExecutionEnvironment(
+        const normalized = normalizeExecutionEnvironmentInputValues(
           input.values,
+        );
+        const parsedData = parseAapActionValues(
+          executionEnvironmentInputSchema,
+          normalized,
+          'rhaap:create-execution-environment',
+        );
+        eeData = await ansibleServiceRef.createExecutionEnvironment(
+          parsedData,
           input.token,
           input.deleteIfExist,
         );
-      } catch (e: any) {
-        const message = e?.message ?? 'Something went wrong.';
-        const error = new Error(message);
-        error.stack = '';
-        throw error;
+      } catch (e: unknown) {
+        rethrowPreservingInputError(e);
       }
       ctx.output('executionEnvironment', eeData);
     },

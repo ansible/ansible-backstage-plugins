@@ -51,10 +51,31 @@ export const AAPResourcePicker = (props: ScaffolderRJSFFieldProps) => {
     help,
     required,
     disabled,
-    schema: { description, title, resource, type, idKey, nameKey },
+    schema: schemaProp,
+    uiSchema,
     formData,
     onChange,
   } = props;
+
+  const schema = schemaProp as {
+    description?: string;
+    title?: string;
+    resource?: string;
+    type?: string;
+    idKey?: string;
+    nameKey?: string;
+  };
+
+  const { description, title, type, idKey, nameKey } = schema;
+
+  const resource =
+    schema.resource ??
+    (
+      uiSchema as
+        | { 'ui:options'?: { autocomplete?: { resource?: string } } }
+        | undefined
+    )?.['ui:options']?.autocomplete?.resource ??
+    '';
   const _idKey: string = idKey ?? 'id';
   const _nameKey: string = nameKey ?? 'name';
   const multiple = type === 'array';
@@ -103,6 +124,11 @@ export const AAPResourcePicker = (props: ScaffolderRJSFFieldProps) => {
   };
 
   const updateAvailableResources = useCallback(() => {
+    if (!resource) {
+      setAvailableResources([]);
+      setLoading(false);
+      return;
+    }
     aapAuth.getAccessToken().then((token: string) => {
       if (scaffolderApi.autocomplete) {
         setLoading(true);
@@ -250,6 +276,12 @@ export const AAPResourcePicker = (props: ScaffolderRJSFFieldProps) => {
       {errors}
       <FormHelperText>{description}</FormHelperText>
       <FormHelperText>{help}</FormHelperText>
+      {!resource && (
+        <FormHelperText error>
+          Missing AAP resource: set `resource` on the property schema, or
+          `ui:options.autocomplete.resource` (e.g. organizations, inventories).
+        </FormHelperText>
+      )}
     </FormControl>
   );
 };
