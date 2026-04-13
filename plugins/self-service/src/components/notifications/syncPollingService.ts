@@ -274,7 +274,7 @@ class SyncPollingService {
   }
 
   private checkSyncStatus(): Promise<boolean> {
-    if (this.checkSyncStatusInFlight) {
+    if (this.checkSyncStatusInFlight !== null) {
       return this.checkSyncStatusInFlight;
     }
 
