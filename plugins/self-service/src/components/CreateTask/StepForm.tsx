@@ -725,7 +725,13 @@ export const StepForm = ({
             .replace(/([A-Z])/g, ' $1')
             .replace(/^./, str => str.toUpperCase())
             .trim();
-          const formattedValue = formatValueForDisplay(v);
+          const formattedValue =
+            typeof v === 'object' &&
+            v !== null &&
+            !Array.isArray(v) &&
+            !(v as { name?: unknown }).name
+              ? renderNestedObject(v as Record<string, unknown>)
+              : formatValueForDisplay(v);
 
           return (
             <div key={k}>
