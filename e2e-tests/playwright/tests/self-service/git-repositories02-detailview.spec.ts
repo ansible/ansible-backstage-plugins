@@ -68,7 +68,9 @@ test.describe.serial('git-repositories02-detail', () => {
       await expect(page).toHaveURL(/\/self-service\/repositories\/.+/, {
         timeout: 60000,
       });
-      await expect(page).not.toHaveURL(/\/repositories\/(catalog|ci-activity)$/);
+      await expect(page).not.toHaveURL(
+        /\/repositories\/(catalog|ci-activity)$/,
+      );
 
       await expect(page.getByRole('tab', { name: 'Overview' })).toBeVisible({
         timeout: 60000,
