@@ -79,7 +79,7 @@ function getSelectionFromFieldValue(
   if (multiple && Array.isArray(fd)) {
     return fd.map((item: { [x: string]: any }) => item[_idKey]);
   }
-  if (typeof fd === 'object' && fd !== null && !Array.isArray(fd)) {
+  if (typeof fd === 'object' && !Array.isArray(fd)) {
     return (fd as Record<string, unknown>)[_idKey] as number;
   }
   return '';
@@ -97,7 +97,7 @@ function stableSelectionFingerprint(
   if (multiple && Array.isArray(fd)) {
     return fd.map((item: any) => item[_idKey]).join(',');
   }
-  if (typeof fd === 'object' && fd !== null && !Array.isArray(fd)) {
+  if (typeof fd === 'object' && !Array.isArray(fd)) {
     return primitiveFieldToString((fd as Record<string, unknown>)[_idKey]);
   }
   return '';
