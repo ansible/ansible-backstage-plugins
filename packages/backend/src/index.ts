@@ -38,12 +38,8 @@ backend.add(
 // See https://backstage.io/docs/features/software-catalog/configuration#subscribing-to-catalog-errors
 backend.add(import('@backstage/plugin-catalog-backend-module-logs'));
 
-// See https://backstage.io/docs/permissions/getting-started for how to create your own permission policy
-// backend.add(
-//   import('@backstage/plugin-permission-backend-module-allow-all-policy'),
-// );
-// permission plugin
-// backend.add(import('@backstage/plugin-permission-backend'));
+// RBAC supplies the policy; permission-backend still mounts the /api/permission routes (required by catalog).
+backend.add(import('@backstage/plugin-permission-backend'));
 backend.add(import('@backstage-community/plugin-rbac-backend'));
 
 // search plugin

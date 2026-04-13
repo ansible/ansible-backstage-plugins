@@ -13,6 +13,7 @@ import {
 } from '@backstage/catalog-model';
 import { JsonArray, JsonObject } from '@backstage/types';
 import { formatNameSpace } from '../helpers';
+import { normalizeBaseUrl } from './helpers';
 
 export const getPromptForm = () => {
   return {
@@ -373,15 +374,20 @@ export const getSurveyDetails = (
         'ui:widget': 'select',
         uniqueItems: true,
       }),
-      ...(item.default && {
-        default:
-          item.type === 'multiselect'
-            ? item.default.toString().split('\n')
-            : item.default,
-      }),
+      ...(item.type !== 'password' &&
+        item.default !== undefined &&
+        item.default !== null && {
+          default:
+            item.type === 'multiselect'
+              ? item.default.toString().split('\n')
+              : item.default,
+        }),
     };
 
-    extraVariables[paramVar] = `\${{ parameters.${paramVar} }}`;
+    extraVariables[paramVar] =
+      item.type === 'password'
+        ? `\${{ secrets.${paramVar} }}`
+        : `\${{ parameters.${paramVar} }}`;
   });
 
   promptForm.required = [
@@ -402,6 +408,7 @@ export const generateTemplate = (options: {
   instanceGroup: InstanceGroup[];
 }): Entity => {
   const { baseUrl, nameSpace, job, survey, instanceGroup } = options;
+  const normalizedBaseUrl = normalizeBaseUrl(baseUrl);
   const [promptForm, inputVars] = getPromptFormDetails(job, instanceGroup);
   const [finalPromptForm, extraVariables] = getSurveyDetails(
     promptForm,
@@ -424,8 +431,8 @@ export const generateTemplate = (options: {
           .replace(/^(-|-$)/g, ''),
       ),
       annotations: {
-        [ANNOTATION_LOCATION]: `url:${baseUrl}/execution/templates/job-template/${job.id}/details`,
-        [ANNOTATION_ORIGIN_LOCATION]: `url:${baseUrl}/execution/templates/job-template/${job.id}/details`,
+        [ANNOTATION_LOCATION]: `url:${normalizedBaseUrl}/execution/templates/job-template/${job.id}/details`,
+        [ANNOTATION_ORIGIN_LOCATION]: `url:${normalizedBaseUrl}/execution/templates/job-template/${job.id}/details`,
       },
     },
     spec: {
@@ -437,7 +444,7 @@ export const generateTemplate = (options: {
           name: job.name,
           action: 'rhaap:launch-job-template',
           input: {
-            token: '${{ parameters.token }}',
+            token: '${{ secrets.aapToken }}',
             values: {
               template: job.name,
               ...Object.fromEntries(
