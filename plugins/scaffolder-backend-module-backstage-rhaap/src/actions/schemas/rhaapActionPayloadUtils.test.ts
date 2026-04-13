@@ -682,10 +682,12 @@ describe('launchJobTemplateInputSchema', () => {
       job_type: 'check',
       inventory: { id: 1, name: 'Inv' },
     });
-    expect(result.success).toBe(true);
-    if (result.success) {
-      expect(result.data.template).toBe('My template');
-      expect(result.data.jobType).toBe('check');
-    }
+    expect(result).toMatchObject({
+      success: true,
+      data: expect.objectContaining({
+        template: 'My template',
+        jobType: 'check',
+      }),
+    });
   });
 });
