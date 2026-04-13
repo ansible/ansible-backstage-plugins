@@ -28,10 +28,17 @@ p, role:default/aap-admins, policy.entity, update, allow
 p, role:default/aap-admins, policy.entity, delete, allow
 # Grant named permission for policy.entity.create (Option B - bypass transformation)
 p, role:default/aap-admins, policy.entity.create, create, allow
+# Grant Ansible-specific view permissions
+p, role:default/aap-admins, ansible.execution-environments.view, use, allow
+p, role:default/aap-admins, ansible.git-repositories.view, use, allow
+p, role:default/aap-admins, ansible.collections.view, use, allow
 # Assign the 'aap-admins' role to all AAP admins users
 g, group:default/aap-admins, role:default/aap-admins
 
 p, role:default/portal-users, catalog-entity, read, allow
+p, role:default/portal-users, ansible.execution-environments.view, use, allow
+p, role:default/portal-users, ansible.collections.view, use, allow
+p, role:default/portal-users, ansible.git-repositories.view, use, allow
 p, role:default/portal-users, scaffolder.template.parameter.read, read, allow
 p, role:default/portal-users, scaffolder.template.step.read, read, allow
 p, role:default/portal-users, scaffolder.action.execute, use, allow
