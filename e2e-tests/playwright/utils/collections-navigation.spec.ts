@@ -9,7 +9,9 @@ function signInPicker(page: Page) {
 }
 
 async function reloadCollectionsIndex(page: Page): Promise<void> {
-  await page.goto('/self-service/collections', { waitUntil: 'domcontentloaded' });
+  await page.goto('/self-service/collections', {
+    waitUntil: 'domcontentloaded',
+  });
   await page.locator('main').waitFor({ state: 'visible', timeout: 15000 });
 }
 
@@ -22,7 +24,11 @@ async function reloadCollectionsIndex(page: Page): Promise<void> {
 export async function navigateToCollectionsPage(page: Page): Promise<void> {
   for (let attempt = 0; attempt < 3; attempt++) {
     await reloadCollectionsIndex(page);
-    if (await signInPicker(page).isVisible().catch(() => false)) {
+    if (
+      await signInPicker(page)
+        .isVisible()
+        .catch(() => false)
+    ) {
       await loginAAP(page);
       continue;
     }
@@ -44,8 +50,15 @@ export async function navigateToCollectionDetailPath(
   const path = `/self-service/collections/${slug}`;
   for (let attempt = 0; attempt < 3; attempt++) {
     await page.goto(path, { waitUntil: 'domcontentloaded' });
-    await page.locator('main').waitFor({ state: 'visible', timeout: 15000 }).catch(() => {});
-    if (await signInPicker(page).isVisible().catch(() => false)) {
+    await page
+      .locator('main')
+      .waitFor({ state: 'visible', timeout: 15000 })
+      .catch(() => {});
+    if (
+      await signInPicker(page)
+        .isVisible()
+        .catch(() => false)
+    ) {
       await loginAAP(page);
       continue;
     }
@@ -77,8 +90,14 @@ export async function clickCollectionsBreadcrumbToCatalog(
     .catch(() => {});
 }
 
-export async function waitForCatalogDataOrEmptyState(page: Page): Promise<void> {
-  if (await signInPicker(page).isVisible().catch(() => false)) {
+export async function waitForCatalogDataOrEmptyState(
+  page: Page,
+): Promise<void> {
+  if (
+    await signInPicker(page)
+      .isVisible()
+      .catch(() => false)
+  ) {
     await loginAAP(page);
     await reloadCollectionsIndex(page);
   }
@@ -98,9 +117,7 @@ export async function waitForCatalogDataOrEmptyState(page: Page): Promise<void> 
       if (/\bAnsible Collections\s*\(\d+\)/.test(body)) {
         return true;
       }
-      const search = document.querySelector(
-        'main input[placeholder="Search"]',
-      );
+      const search = document.querySelector('main input[placeholder="Search"]');
       if (search instanceof HTMLInputElement && !search.disabled) {
         return true;
       }

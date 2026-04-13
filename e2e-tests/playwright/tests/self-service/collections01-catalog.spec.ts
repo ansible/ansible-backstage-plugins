@@ -157,7 +157,9 @@ test.describe.serial('collections01-catalog', () => {
         for (let j = 0; j < btnCount; j++) {
           const b2 = buttons.nth(j);
           const t2 = ((await b2.textContent()) ?? '').toLowerCase();
-          const a2 = ((await b2.getAttribute('aria-label')) ?? '').toLowerCase();
+          const a2 = (
+            (await b2.getAttribute('aria-label')) ?? ''
+          ).toLowerCase();
           if (t2.includes('all') || a2.includes('all')) {
             await b2.click({ force: true });
             return;
@@ -244,4 +246,3 @@ test.describe('Collections sidebar link and viewport', () => {
     await page.setViewportSize({ width: 1920, height: 1080 });
   });
 });
-

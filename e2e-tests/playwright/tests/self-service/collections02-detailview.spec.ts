@@ -56,7 +56,9 @@ test.describe.serial('collections02-detail', () => {
       await expect(page).toHaveURL(/\/self-service\/collections\/.+/, {
         timeout: 60000,
       });
-      await expect(page.getByText('About', { exact: false }).first()).toBeVisible({
+      await expect(
+        page.getByText('About', { exact: false }).first(),
+      ).toBeVisible({
         timeout: 120000,
       });
 
@@ -110,7 +112,9 @@ test.describe.serial('collections02-detail', () => {
             .filter({ hasText: 'Resources' })
             .first();
           const link = card.locator('a[href^="http"]').nth(i);
-          await link.evaluate((el: HTMLElement) => el.removeAttribute('target'));
+          await link.evaluate((el: HTMLElement) =>
+            el.removeAttribute('target'),
+          );
           await link.click({ force: true });
           await page.waitForTimeout(1000);
           const url = page.url();
@@ -160,7 +164,9 @@ test.describe.serial('collections02-detail', () => {
         .filter({ hasText: 'README' })
         .first();
       await expect(readmeCard).toBeVisible({ timeout: 30000 });
-      const readmeSpinner = readmeCard.locator('.MuiCircularProgress-root').first();
+      const readmeSpinner = readmeCard
+        .locator('.MuiCircularProgress-root')
+        .first();
       if ((await readmeSpinner.count()) > 0) {
         await readmeSpinner.waitFor({ state: 'hidden', timeout: 90000 });
       }
@@ -192,7 +198,10 @@ test.describe.serial('collections02-detail', () => {
     test('Unknown slug: empty state, breadcrumb to catalog', async ({
       page,
     }) => {
-      await navigateToCollectionDetailPath(page, 'e2e-nonexistent-collection-slug');
+      await navigateToCollectionDetailPath(
+        page,
+        'e2e-nonexistent-collection-slug',
+      );
       await page.waitForTimeout(2000);
 
       await expect(page).toHaveURL(
@@ -202,7 +211,9 @@ test.describe.serial('collections02-detail', () => {
       await expect(
         page.getByRole('heading', { name: 'No Collections Found' }),
       ).toBeVisible({ timeout: 20000 });
-      await expect(page.getByText('Collections', { exact: false }).first()).toBeVisible();
+      await expect(
+        page.getByText('Collections', { exact: false }).first(),
+      ).toBeVisible();
 
       await clickCollectionsBreadcrumbToCatalog(page);
       await expect(page).toHaveURL(/\/self-service\/collections\/?(\?.*)?$/, {
