@@ -1,4 +1,4 @@
-import { test as base, chromium, BrowserContext } from '@playwright/test';
+import { test as base, BrowserContext } from '@playwright/test';
 import { loginAAP } from '../utils/auth';
 
 // Shared context that persists across all tests in the worker
@@ -66,7 +66,8 @@ export const test = base.extend<{ authenticatedContext: BrowserContext }>({
       await use(sharedContext);
       // Don't close context - keep it alive for all tests
     },
-    { scope: 'worker' },
+    // Cast: worker scope is valid at runtime; Playwright's extend() generics only type test-scoped options.
+    { scope: 'worker' } as never,
   ],
 
   // Override page to use the authenticated context
