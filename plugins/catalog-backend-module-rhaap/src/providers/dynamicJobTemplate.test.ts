@@ -34,25 +34,8 @@ describe('dynamicJobTemplate', () => {
 
       expect(result).toEqual({
         title: 'Please enter the following details',
-        required: ['token'],
-        properties: {
-          token: {
-            title: 'Token',
-            type: 'string',
-            description: 'Oauth2 token',
-            'ui:field': 'AAPTokenField',
-            'ui:widget': 'hidden',
-            'ui:backstage': {
-              review: {
-                show: false,
-              },
-            },
-            'ui:options': {
-              disabled: true,
-              hidden: true,
-            },
-          },
-        },
+        required: [],
+        properties: {},
       });
     });
   });
@@ -612,8 +595,8 @@ describe('dynamicJobTemplate', () => {
       const [promptForm, inputVars] = getPromptFormDetails(jobWithAllFlags, []);
 
       expect(promptForm.title).toBe('Please enter the following details');
-      expect(promptForm.required).toEqual(['token', 'job_type', 'inventory']);
-      expect((promptForm.properties as any).token).toBeDefined();
+      expect(promptForm.required).toEqual(['job_type', 'inventory']);
+      expect((promptForm.properties as any).token).toBeUndefined();
       expect((promptForm.properties as any).job_type).toBeDefined();
       expect((promptForm.properties as any).inventory).toBeDefined();
       expect(
@@ -657,8 +640,8 @@ describe('dynamicJobTemplate', () => {
       const [promptForm, inputVars] = getPromptFormDetails(mockJob, []);
 
       expect(promptForm.title).toBe('Please enter the following details');
-      expect(promptForm.required).toEqual(['token']);
-      expect((promptForm.properties as any).token).toBeDefined();
+      expect(promptForm.required).toEqual([]);
+      expect((promptForm.properties as any).token).toBeUndefined();
       expect((promptForm.properties as any).job_type).toBeUndefined();
       expect((promptForm.properties as any).inventory).toBeUndefined();
 

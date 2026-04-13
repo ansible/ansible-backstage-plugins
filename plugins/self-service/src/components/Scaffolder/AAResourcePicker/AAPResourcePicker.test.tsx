@@ -208,6 +208,58 @@ describe('AAPResourcePicker', () => {
       });
     });
 
+    it('does not revert selection to schema default when autocomplete resolves after formData was updated', async () => {
+      let resolveAutocomplete!: (v: { results: typeof mockResources }) => void;
+      const autocompleteDeferred = new Promise<{
+        results: typeof mockResources;
+      }>(resolve => {
+        resolveAutocomplete = resolve;
+      });
+      mockScaffolderApi.autocomplete.mockReturnValue(autocompleteDeferred);
+
+      const { rerender } = render(
+        <TestApiProvider
+          apis={[
+            [rhAapAuthApiRef, mockRhAapAuthApi],
+            [scaffolderApiRef, mockScaffolderApi],
+          ]}
+        >
+          <AAPResourcePicker
+            {...defaultProps}
+            formData={mockResources[0]}
+            onChange={jest.fn()}
+          />
+        </TestApiProvider>,
+      );
+
+      await waitFor(() => {
+        expect(mockScaffolderApi.autocomplete).toHaveBeenCalled();
+      });
+
+      rerender(
+        <TestApiProvider
+          apis={[
+            [rhAapAuthApiRef, mockRhAapAuthApi],
+            [scaffolderApiRef, mockScaffolderApi],
+          ]}
+        >
+          <AAPResourcePicker
+            {...defaultProps}
+            formData={mockResources[1]}
+            onChange={jest.fn()}
+          />
+        </TestApiProvider>,
+      );
+
+      await act(async () => {
+        resolveAutocomplete({ results: mockResources });
+      });
+
+      await waitFor(() => {
+        expect(screen.getByDisplayValue('2')).toBeInTheDocument();
+      });
+    });
+
     it('should read resource from ui:options.autocomplete.resource when schema.resource is absent', async () => {
       renderComponent({
         schema: {

@@ -169,7 +169,7 @@ export class AnsibleApiClient implements AnsibleApi {
     const baseUrl = await this.discoveryApi.getBaseUrl('catalog');
     try {
       const response = await this.fetchApi.fetch(
-        `${baseUrl}/aap/sync_job_templates`,
+        `${baseUrl}/ansible/sync/from-aap/job_templates`,
       );
       const data = await response.json();
       return data;
@@ -182,7 +182,7 @@ export class AnsibleApiClient implements AnsibleApi {
     const baseUrl = await this.discoveryApi.getBaseUrl('catalog');
     try {
       const response = await this.fetchApi.fetch(
-        `${baseUrl}/aap/sync_orgs_users_teams`,
+        `${baseUrl}/ansible/sync/from-aap/orgs_users_teams`,
       );
       const data = await response.json();
       return data;

@@ -52,25 +52,8 @@ function normalizeMultiselectSurveyDefault(
 export const getPromptForm = () => {
   return {
     title: 'Please enter the following details',
-    required: ['token'],
-    properties: {
-      token: {
-        title: 'Token',
-        type: 'string',
-        description: 'Oauth2 token',
-        'ui:field': 'AAPTokenField',
-        'ui:widget': 'hidden',
-        'ui:backstage': {
-          review: {
-            show: false,
-          },
-        },
-        'ui:options': {
-          disabled: true,
-          hidden: true,
-        },
-      },
-    },
+    required: [] as string[],
+    properties: {},
   };
 };
 
