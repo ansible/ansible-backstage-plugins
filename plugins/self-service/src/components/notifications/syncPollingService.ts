@@ -280,7 +280,10 @@ class SyncPollingService {
 
     const genAtStart = this.pollGeneration;
 
-    this.checkSyncStatusInFlight = (async (): Promise<boolean> => {
+    const inFlightRef: { promise: Promise<boolean> | null } = {
+      promise: null,
+    };
+    inFlightRef.promise = (async (): Promise<boolean> => {
       try {
         const fetched = await this.fetchSyncStatus();
         if (!this.isCurrentGeneration(genAtStart)) {
@@ -307,11 +310,14 @@ class SyncPollingService {
 
         return anyInProgress || this.trackedSyncs.size > 0;
       } finally {
-        this.checkSyncStatusInFlight = null;
+        if (this.checkSyncStatusInFlight === inFlightRef.promise) {
+          this.checkSyncStatusInFlight = null;
+        }
       }
     })();
 
-    return this.checkSyncStatusInFlight;
+    this.checkSyncStatusInFlight = inFlightRef.promise;
+    return inFlightRef.promise;
   }
 
   private scheduleNextPoll(anyInProgress: boolean): void {
