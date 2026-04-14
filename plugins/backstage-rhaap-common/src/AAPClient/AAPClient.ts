@@ -398,7 +398,7 @@ export class AAPClient implements IAAPService {
       throw new Error(`Failed to create project`);
     }
     this.logger.info(`The project is ready.`);
-    projectData.url = `${this.ansibleConfig.rhaap?.baseUrl}/execution/projects/${projectData.id}/details`;
+    projectData.url = `${this.getBaseUrl()}/execution/projects/${projectData.id}/details`;
     return projectData;
   }
 
@@ -456,7 +456,7 @@ export class AAPClient implements IAAPService {
       `End creating execution environment ${payload.environmentName}.`,
     );
     const eeData = (await response.json()) as ExecutionEnvironment;
-    eeData.url = `${this.ansibleConfig.rhaap?.baseUrl}/execution/infrastructure/execution-environments/${eeData.id}/details`;
+    eeData.url = `${this.getBaseUrl()}/execution/infrastructure/execution-environments/${eeData.id}/details`;
     return eeData;
   }
 
@@ -563,7 +563,7 @@ export class AAPClient implements IAAPService {
     const response = await this.executePostRequest(endPoint, token, data);
     const jobTemplate = (await response.json()) as JobTemplate;
     this.logger.info(`End creating job template ${payload.templateName}.`);
-    jobTemplate.url = `${this.ansibleConfig.rhaap?.baseUrl}/execution/templates/job-template/${jobTemplate.id}/details`;
+    jobTemplate.url = `${this.getBaseUrl()}/execution/templates/job-template/${jobTemplate.id}/details`;
     return jobTemplate;
   }
 
@@ -774,7 +774,7 @@ export class AAPClient implements IAAPService {
       id: jobID,
       status: result.jobData.status,
       events: result.jobEvents,
-      url: `${this.ansibleConfig.rhaap?.baseUrl}/execution/jobs/playbook/${jobID}/output`,
+      url: `${this.getBaseUrl()}/execution/jobs/playbook/${jobID}/output`,
     };
   }
 

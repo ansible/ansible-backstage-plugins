@@ -45,13 +45,23 @@ export function collectSensitiveTemplateKeysFromSteps(
   return keys;
 }
 
+/**
+ * Per-field cap for `data:` URLs when persisting to sessionStorage. Above this, the value is
+ * dropped so the overall JSON stays under typical ~5MB origin limits (other fields + overhead).
+ * `blob:` URLs are never persisted — they are invalid after a full page reload.
+ */
+export const MAX_SESSION_STORAGE_DATA_URL_LENGTH = 2_097_152;
+
 function sanitizeValue(value: unknown): unknown {
   if (value === null || value === undefined) {
     return value;
   }
   if (typeof value === 'string') {
-    if (/^data:/i.test(value) || /^blob:/i.test(value)) {
+    if (/^blob:/i.test(value)) {
       return '';
+    }
+    if (/^data:/i.test(value)) {
+      return value.length > MAX_SESSION_STORAGE_DATA_URL_LENGTH ? '' : value;
     }
     return value;
   }
@@ -76,9 +86,10 @@ export interface SanitizeFormDataForSessionStorageOptions {
 
 /**
  * Produces a JSON-serializable clone of form data safe for sessionStorage.
- * Large `data:` and `blob:` URL strings (e.g. uploaded files encoded as data URLs)
- * are replaced with empty strings so other fields can still be persisted for OAuth
- * reload without exceeding browser storage quota.
+ * `blob:` URL strings are cleared (they cannot be restored after a full reload).
+ * Very large `data:` URL strings (e.g. huge uploads) may be cleared to stay under
+ * sessionStorage quota; typical file uploads as `data:` URLs are kept so OAuth reload
+ * can restore them.
  *
  * Use {@link collectSensitiveTemplateKeysFromSteps} with `omitKeys` to avoid storing
  * passwords and tokens in web storage.

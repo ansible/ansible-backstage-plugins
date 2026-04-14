@@ -133,7 +133,7 @@ export async function createRouter(options: {
   });
 
   router.get(
-    '/aap/sync_orgs_users_teams',
+    '/ansible/sync/from-aap/orgs_users_teams',
     requireSuperuserMiddleware,
     async (_, response) => {
       logger.info('Starting orgs, users and teams sync');
@@ -143,7 +143,7 @@ export async function createRouter(options: {
   );
 
   router.get(
-    '/aap/sync_job_templates',
+    '/ansible/sync/from-aap/job_templates',
     requireSuperuserMiddleware,
     async (_, response) => {
       logger.info('Starting job templates sync');

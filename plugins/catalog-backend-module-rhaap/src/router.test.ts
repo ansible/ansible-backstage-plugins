@@ -250,11 +250,13 @@ describe('createRouter', () => {
     });
   });
 
-  describe('GET /aap/sync_orgs_users_teams', () => {
+  describe('GET /ansible/sync/from-aap/orgs_users_teams', () => {
     it('should call aapEntityProvider.run and return 200 when successful', async () => {
       mockAAPEntityProvider.run.mockResolvedValue(true);
 
-      const response = await request(app).get('/aap/sync_orgs_users_teams');
+      const response = await request(app).get(
+        '/ansible/sync/from-aap/orgs_users_teams',
+      );
 
       expect(response.status).toBe(200);
       expect(response.body).toBe(true);
@@ -268,7 +270,9 @@ describe('createRouter', () => {
       const mockError = new Error('Sync failed');
       mockAAPEntityProvider.run.mockRejectedValue(mockError);
 
-      const response = await request(app).get('/aap/sync_orgs_users_teams');
+      const response = await request(app).get(
+        '/ansible/sync/from-aap/orgs_users_teams',
+      );
 
       expect(response.status).toBe(500);
       expect(mockLogger.info).toHaveBeenCalledWith(
@@ -280,7 +284,9 @@ describe('createRouter', () => {
     it('should handle boolean return value from aapEntityProvider.run', async () => {
       mockAAPEntityProvider.run.mockResolvedValue(true);
 
-      const response = await request(app).get('/aap/sync_orgs_users_teams');
+      const response = await request(app).get(
+        '/ansible/sync/from-aap/orgs_users_teams',
+      );
 
       expect(response.status).toBe(200);
       expect(response.body).toBe(true);
@@ -290,7 +296,9 @@ describe('createRouter', () => {
     it('should handle false return value from aapEntityProvider.run', async () => {
       mockAAPEntityProvider.run.mockResolvedValue(false);
 
-      const response = await request(app).get('/aap/sync_orgs_users_teams');
+      const response = await request(app).get(
+        '/ansible/sync/from-aap/orgs_users_teams',
+      );
 
       expect(response.status).toBe(200);
       expect(response.body).toBe(false);
@@ -298,11 +306,13 @@ describe('createRouter', () => {
     });
   });
 
-  describe('GET /aap/sync_job_templates', () => {
+  describe('GET /ansible/sync/from-aap/job_templates', () => {
     it('should call jobTemplateProvider.run and return 200 when successful', async () => {
       mockJobTemplateProvider.run.mockResolvedValue(true);
 
-      const response = await request(app).get('/aap/sync_job_templates');
+      const response = await request(app).get(
+        '/ansible/sync/from-aap/job_templates',
+      );
 
       expect(response.status).toBe(200);
       expect(response.body).toBe(true);
@@ -316,7 +326,9 @@ describe('createRouter', () => {
       const mockError = new Error('Job template sync failed');
       mockJobTemplateProvider.run.mockRejectedValue(mockError);
 
-      const response = await request(app).get('/aap/sync_job_templates');
+      const response = await request(app).get(
+        '/ansible/sync/from-aap/job_templates',
+      );
 
       expect(response.status).toBe(500);
       expect(mockLogger.info).toHaveBeenCalledWith(
@@ -328,7 +340,9 @@ describe('createRouter', () => {
     it('should handle boolean return value from jobTemplateProvider.run', async () => {
       mockJobTemplateProvider.run.mockResolvedValue(true);
 
-      const response = await request(app).get('/aap/sync_job_templates');
+      const response = await request(app).get(
+        '/ansible/sync/from-aap/job_templates',
+      );
 
       expect(response.status).toBe(200);
       expect(response.body).toBe(true);
@@ -338,7 +352,9 @@ describe('createRouter', () => {
     it('should handle false return value from jobTemplateProvider.run', async () => {
       mockJobTemplateProvider.run.mockResolvedValue(false);
 
-      const response = await request(app).get('/aap/sync_job_templates');
+      const response = await request(app).get(
+        '/ansible/sync/from-aap/job_templates',
+      );
 
       expect(response.status).toBe(200);
       expect(response.body).toBe(false);
@@ -3279,7 +3295,7 @@ describe('createRouter', () => {
   describe('Router setup', () => {
     it('should use express.json() middleware', async () => {
       const response = await request(app)
-        .post('/aap/sync_orgs_users_teams')
+        .post('/ansible/sync/from-aap/orgs_users_teams')
         .send({ test: 'data' });
 
       // Should return 404 for POST request, but won't fail on JSON parsing
@@ -3361,7 +3377,9 @@ describe('createRouter', () => {
       const testApp = express().use(routerWithInvalidProvider);
 
       // The sync endpoint should fail when aapEntityProvider is undefined
-      const response = await request(testApp).get('/aap/sync_orgs_users_teams');
+      const response = await request(testApp).get(
+        '/ansible/sync/from-aap/orgs_users_teams',
+      );
       expect(response.status).toBe(500);
     });
 
@@ -3384,7 +3402,9 @@ describe('createRouter', () => {
       const testApp = express().use(routerWithInvalidProvider);
 
       // The sync endpoint should fail when jobTemplateProvider is undefined
-      const response = await request(testApp).get('/aap/sync_job_templates');
+      const response = await request(testApp).get(
+        '/ansible/sync/from-aap/job_templates',
+      );
       expect(response.status).toBe(500);
     });
   });

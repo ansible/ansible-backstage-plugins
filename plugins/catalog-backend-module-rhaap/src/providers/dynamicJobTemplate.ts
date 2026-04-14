@@ -15,28 +15,173 @@ import { JsonArray, JsonObject } from '@backstage/types';
 import { formatNameSpace } from '../helpers';
 import { normalizeBaseUrl } from './helpers';
 
+function scaffolderParametersRef(key: string): string {
+  return `\${{ parameters[${JSON.stringify(key)}] }}`;
+}
+
+function scaffolderSecretsRef(key: string): string {
+  return `\${{ secrets[${JSON.stringify(key)}] }}`;
+}
+
+function normalizeMultiselectSurveyDefault(
+  defaultValue: unknown,
+): string[] | null {
+  if (
+    defaultValue === undefined ||
+    defaultValue === null ||
+    defaultValue === ''
+  ) {
+    return null;
+  }
+  if (Array.isArray(defaultValue)) {
+    const arr = defaultValue
+      .map(v => (v === null || v === undefined ? '' : String(v)).trim())
+      .filter(s => s.length > 0);
+    return arr.length > 0 ? arr : null;
+  }
+  if (typeof defaultValue === 'string') {
+    const arr = defaultValue
+      .split('\n')
+      .map(s => s.trim())
+      .filter(s => s.length > 0);
+    return arr.length > 0 ? arr : null;
+  }
+  return null;
+}
+
+const SURVEY_ITEM_JSON_TYPE: Partial<
+  Record<ISpec['type'], 'string' | 'array' | 'integer' | 'number'>
+> = {
+  text: 'string',
+  textarea: 'string',
+  multiplechoice: 'string',
+  password: 'string',
+  multiselect: 'array',
+  integer: 'integer',
+  float: 'number',
+};
+
+function resolveSurveyJsonType(item: ISpec): string | null {
+  return SURVEY_ITEM_JSON_TYPE[item.type] ?? null;
+}
+
+function getNumericBoundsForSurveyItem(item: ISpec): {
+  minimum?: number;
+  maximum?: number;
+} {
+  if (item.type !== 'integer' && item.type !== 'float') {
+    return {};
+  }
+  const bounds: { minimum?: number; maximum?: number } = {};
+  if (typeof item.min === 'number') {
+    bounds.minimum = item.min;
+  }
+  if (typeof item.max === 'number') {
+    bounds.maximum = item.max;
+  }
+  return bounds;
+}
+
+function shouldEmitSurveyDefault(
+  item: ISpec,
+  multiselectDefault: string[] | null,
+): boolean {
+  if (item.type === 'password') {
+    return false;
+  }
+  if (item.default === undefined || item.default === null) {
+    return false;
+  }
+  if (
+    (item.type === 'integer' || item.type === 'float') &&
+    item.default === ''
+  ) {
+    return false;
+  }
+  if (item.type === 'multiselect' && multiselectDefault === null) {
+    return false;
+  }
+  return true;
+}
+
+function normalizeSurveyChoices(choices: string | string[]): string[] {
+  if (Array.isArray(choices)) {
+    return choices;
+  }
+  if (typeof choices !== 'string') {
+    return [];
+  }
+  const trimmed = choices.trim();
+  if (trimmed === '') {
+    return [];
+  }
+  return trimmed
+    .split('\n')
+    .map(s => s.trim())
+    .filter(s => s.length > 0);
+}
+
+function getSurveyFieldExtensions(item: ISpec): JsonObject {
+  const ex: JsonObject = {};
+  if (item.type === 'textarea') {
+    ex['ui:widget'] = 'textarea';
+    ex['ui:placeholder'] = `${item.question_description}...`;
+    ex['ui:options'] = {
+      rows: 5,
+    };
+  }
+  if (item.type === 'password') {
+    ex['ui:placeholder'] = `${item.question_description}...`;
+    ex['ui:field'] = 'Secret';
+    ex['ui:backstage'] = {
+      review: {
+        show: false,
+      },
+    };
+  }
+  if (item.type === 'multiplechoice') {
+    ex.enum = normalizeSurveyChoices(item.choices);
+  }
+  if (item.type === 'multiselect') {
+    ex.items = {
+      type: 'string',
+      enum: normalizeSurveyChoices(item.choices),
+    };
+    ex['ui:widget'] = 'select';
+    ex.uniqueItems = true;
+  }
+  return ex;
+}
+
+function buildSurveySpecProperty(item: ISpec): JsonObject {
+  const inputType = resolveSurveyJsonType(item);
+  const numericBounds = getNumericBoundsForSurveyItem(item);
+  const multiselectDefault =
+    item.type === 'multiselect'
+      ? normalizeMultiselectSurveyDefault(item.default)
+      : null;
+  const includeDefault = shouldEmitSurveyDefault(item, multiselectDefault);
+
+  const prop: JsonObject = {
+    title: item.question_name,
+    description: item.question_description,
+  };
+  if (inputType) {
+    prop.type = inputType;
+  }
+  Object.assign(prop, numericBounds);
+  Object.assign(prop, getSurveyFieldExtensions(item));
+  if (includeDefault) {
+    prop.default = multiselectDefault ?? item.default;
+  }
+  return prop;
+}
+
 export const getPromptForm = () => {
   return {
     title: 'Please enter the following details',
-    required: ['token'],
-    properties: {
-      token: {
-        title: 'Token',
-        type: 'string',
-        description: 'Oauth2 token',
-        'ui:field': 'AAPTokenField',
-        'ui:widget': 'hidden',
-        'ui:backstage': {
-          review: {
-            show: false,
-          },
-        },
-        'ui:options': {
-          disabled: true,
-          hidden: true,
-        },
-      },
-    },
+    required: [] as string[],
+    properties: {},
   };
 };
 
@@ -315,7 +460,7 @@ export const getPromptFormDetails = (
 
   const inputVars: JsonObject = {};
   for (const e of Object.keys(properties)) {
-    inputVars[e] = `\${{ parameters.${e} }}`;
+    inputVars[e] = scaffolderParametersRef(e);
   }
 
   promptForm.properties = { ...promptForm.properties, ...properties };
@@ -328,73 +473,27 @@ export const getSurveyDetails = (
   survey: ISurvey | null,
 ) => {
   const extraVariables: any = {};
-  if (!survey) return [promptForm, extraVariables];
-  (survey.spec ?? []).forEach((item: ISpec) => {
-    let inputType: string | null = null;
-    if (
-      item.type === 'text' ||
-      item.type === 'textarea' ||
-      item.type === 'multiplechoice' ||
-      item.type === 'password'
-    ) {
-      inputType = 'string';
-    } else if (item.type === 'multiselect') {
-      inputType = 'array';
-    } else if (item.type === 'integer') {
-      inputType = 'integer';
+  if (!survey) {
+    return [promptForm, extraVariables];
+  }
+  for (const item of survey.spec ?? []) {
+    if (!promptForm.properties) {
+      promptForm.properties = {} as JsonObject;
     }
     const paramVar = item.variable;
-    if (!promptForm.properties) promptForm.properties = {} as JsonObject;
-    (promptForm.properties as JsonObject)[paramVar] = {
-      title: item.question_name,
-      description: item.question_description,
-      ...(inputType && { type: inputType }),
-      ...(item.type === 'textarea' && {
-        'ui:widget': 'textarea',
-        'ui:placeholder': `${item.question_description}...`,
-        'ui:options': {
-          rows: 5,
-        },
-      }),
-      ...(item.type === 'password' && {
-        'ui:placeholder': `${item.question_description}...`,
-        'ui:field': 'Secret',
-        'ui:backstage': {
-          review: {
-            show: false,
-          },
-        },
-      }),
-      ...(item.type === 'multiplechoice' && { enum: item.choices }),
-      ...(item.type === 'multiselect' && {
-        items: {
-          type: 'string',
-          enum: item.choices,
-        },
-        'ui:widget': 'select',
-        uniqueItems: true,
-      }),
-      ...(item.type !== 'password' &&
-        item.default !== undefined &&
-        item.default !== null && {
-          default:
-            item.type === 'multiselect'
-              ? item.default.toString().split('\n')
-              : item.default,
-        }),
-    };
-
+    (promptForm.properties as JsonObject)[paramVar] =
+      buildSurveySpecProperty(item);
     extraVariables[paramVar] =
       item.type === 'password'
-        ? `\${{ secrets.${paramVar} }}`
-        : `\${{ parameters.${paramVar} }}`;
-  });
+        ? scaffolderSecretsRef(paramVar)
+        : scaffolderParametersRef(paramVar);
+  }
 
   promptForm.required = [
     ...((promptForm.required as string[]) || []),
     ...(survey.spec || [])
-      .filter(item => item.required)
-      .map(item => item.variable),
+      .filter(specItem => specItem.required)
+      .map(specItem => specItem.variable),
   ];
 
   return [promptForm, extraVariables];
