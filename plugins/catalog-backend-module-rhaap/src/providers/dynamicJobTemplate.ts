@@ -104,6 +104,23 @@ function shouldEmitSurveyDefault(
   return true;
 }
 
+function normalizeSurveyChoices(choices: string | string[]): string[] {
+  if (Array.isArray(choices)) {
+    return choices;
+  }
+  if (typeof choices !== 'string') {
+    return [];
+  }
+  const trimmed = choices.trim();
+  if (trimmed === '') {
+    return [];
+  }
+  return trimmed
+    .split('\n')
+    .map(s => s.trim())
+    .filter(s => s.length > 0);
+}
+
 function getSurveyFieldExtensions(item: ISpec): JsonObject {
   const ex: JsonObject = {};
   if (item.type === 'textarea') {
@@ -123,12 +140,12 @@ function getSurveyFieldExtensions(item: ISpec): JsonObject {
     };
   }
   if (item.type === 'multiplechoice') {
-    ex.enum = item.choices;
+    ex.enum = normalizeSurveyChoices(item.choices);
   }
   if (item.type === 'multiselect') {
     ex.items = {
       type: 'string',
-      enum: item.choices,
+      enum: normalizeSurveyChoices(item.choices),
     };
     ex['ui:widget'] = 'select';
     ex.uniqueItems = true;

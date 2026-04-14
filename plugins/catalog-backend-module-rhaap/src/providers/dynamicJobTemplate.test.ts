@@ -801,6 +801,51 @@ describe('dynamicJobTemplate', () => {
       });
     });
 
+    it('normalizes string choices to enum arrays for multiplechoice and multiselect', () => {
+      const mockSurvey: ISurvey = {
+        name: 'Choices string survey',
+        description: '',
+        spec: [
+          {
+            question_name: 'Pick one',
+            question_description: '',
+            variable: 'mc',
+            type: 'multiplechoice',
+            required: true,
+            default: 'a',
+            choices: 'a\nb\nc',
+            min: 0,
+            max: 1,
+            new_question: false,
+          },
+          {
+            question_name: 'Pick many',
+            question_description: '',
+            variable: 'ms',
+            type: 'multiselect',
+            required: false,
+            default: [],
+            choices: '',
+            min: 0,
+            max: 1,
+            new_question: false,
+          },
+        ] as ISpec[],
+      };
+
+      const [surveyForm] = getSurveyDetails({}, mockSurvey);
+
+      expect(surveyForm.properties!.mc).toMatchObject({
+        enum: ['a', 'b', 'c'],
+      });
+      expect(surveyForm.properties!.ms).toMatchObject({
+        items: {
+          type: 'string',
+          enum: [],
+        },
+      });
+    });
+
     it('uses bracket notation for survey variable names with hyphens (Nunjucks)', () => {
       const mockSurvey: ISurvey = {
         name: 'Hyphen survey',
