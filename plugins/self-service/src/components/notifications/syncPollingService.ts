@@ -80,7 +80,7 @@ class SyncPollingService {
   private pollTimer: NodeJS.Timeout | null = null;
   private pollLoopStarted = false;
   private pollGeneration = 0;
-  private isChecking = false;
+  private checkSyncStatusInFlight: Promise<boolean> | null = null;
   private isSyncInProgress = false;
   private readonly listeners: Set<SyncStatusListener> = new Set();
 
@@ -122,7 +122,10 @@ class SyncPollingService {
     return this.isSyncInProgress;
   }
 
-  private async fetchSyncStatus(): Promise<ProviderStatus[] | null> {
+  private async fetchSyncStatus(): Promise<{
+    providers: ProviderStatus[];
+    contentSyncInProgress?: boolean;
+  } | null> {
     if (!this.discoveryApi || !this.fetchApi) {
       return null;
     }
@@ -138,22 +141,34 @@ class SyncPollingService {
       }
 
       const data = await response.json();
-      return data.content?.providers ?? [];
+      const providers = (data.content?.providers ?? []) as ProviderStatus[];
+      const contentSyncInProgress =
+        typeof data.content?.syncInProgress === 'boolean'
+          ? data.content.syncInProgress
+          : undefined;
+      return { providers, contentSyncInProgress };
     } catch {
       return null;
     }
   }
 
-  private updateInProgressFromProviders(providers: ProviderStatus[]): boolean {
+  private updateInProgressFromProviders(
+    providers: ProviderStatus[],
+    contentSyncInProgress?: boolean,
+  ): boolean {
     const anyProviderInProgress = providers.some(p => p.syncInProgress);
+    const aggregateInProgress =
+      typeof contentSyncInProgress === 'boolean'
+        ? contentSyncInProgress || anyProviderInProgress
+        : anyProviderInProgress;
     const effectiveInProgress =
-      anyProviderInProgress || this.trackedSyncs.size > 0;
+      aggregateInProgress || this.trackedSyncs.size > 0;
 
     if (this.isSyncInProgress !== effectiveInProgress) {
       this.isSyncInProgress = effectiveInProgress;
       this.notifyListeners();
     }
-    return anyProviderInProgress;
+    return aggregateInProgress;
   }
 
   private showTrackedSyncOutcome(
@@ -258,39 +273,51 @@ class SyncPollingService {
     );
   }
 
-  private async checkSyncStatus(): Promise<boolean> {
-    if (this.isChecking) {
-      return this.isSyncInProgress;
+  private checkSyncStatus(): Promise<boolean> {
+    if (this.checkSyncStatusInFlight !== null) {
+      return this.checkSyncStatusInFlight;
     }
+
     const genAtStart = this.pollGeneration;
-    this.isChecking = true;
 
-    try {
-      const providers = await this.fetchSyncStatus();
-      if (!this.isCurrentGeneration(genAtStart)) {
-        return this.isSyncInProgress;
+    const inFlightRef: { promise: Promise<boolean> | null } = {
+      promise: null,
+    };
+    inFlightRef.promise = (async (): Promise<boolean> => {
+      try {
+        const fetched = await this.fetchSyncStatus();
+        if (!this.isCurrentGeneration(genAtStart)) {
+          return this.isSyncInProgress;
+        }
+        if (fetched === null) {
+          return this.isSyncInProgress || this.trackedSyncs.size > 0;
+        }
+
+        const { providers, contentSyncInProgress } = fetched;
+
+        const trackedProvidersAtStart = new Set(this.trackedSyncs.keys());
+        this.processTrackedSyncCompletions(providers, Date.now());
+        this.checkUntrackedProviderFinishedRuns(
+          providers,
+          trackedProvidersAtStart,
+        );
+        this.replaceProviderSnapshot(providers);
+
+        const anyInProgress = this.updateInProgressFromProviders(
+          providers,
+          contentSyncInProgress,
+        );
+
+        return anyInProgress || this.trackedSyncs.size > 0;
+      } finally {
+        if (this.checkSyncStatusInFlight === inFlightRef.promise) {
+          this.checkSyncStatusInFlight = null;
+        }
       }
-      if (providers === null) {
-        return this.isSyncInProgress || this.trackedSyncs.size > 0;
-      }
+    })();
 
-      const trackedProvidersAtStart = new Set(this.trackedSyncs.keys());
-      this.processTrackedSyncCompletions(providers, Date.now());
-      this.checkUntrackedProviderFinishedRuns(
-        providers,
-        trackedProvidersAtStart,
-      );
-      this.replaceProviderSnapshot(providers);
-
-      // Recompute after tracked-sync cleanup so isSyncInProgress matches
-      // providers.any(syncInProgress) or trackedSyncs.size (not stale size).
-      const anyProviderInProgress =
-        this.updateInProgressFromProviders(providers);
-
-      return anyProviderInProgress || this.trackedSyncs.size > 0;
-    } finally {
-      this.isChecking = false;
-    }
+    this.checkSyncStatusInFlight = inFlightRef.promise;
+    return inFlightRef.promise;
   }
 
   private scheduleNextPoll(anyInProgress: boolean): void {
@@ -361,6 +388,7 @@ class SyncPollingService {
     this.trackedSyncs.clear();
     this.providerSyncSnapshot.clear();
     this.providerSyncBaselineCaptured = false;
+    this.checkSyncStatusInFlight = null;
     this.isSyncInProgress = false;
     this.listeners.clear();
     this.discoveryApi = null;
