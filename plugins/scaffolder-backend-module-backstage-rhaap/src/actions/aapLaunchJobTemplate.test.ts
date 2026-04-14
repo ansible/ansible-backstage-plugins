@@ -122,7 +122,6 @@ describe('ansible-aap:jobTemplate:launch', () => {
         credentials: [
           expect.objectContaining({
             id: 3,
-            credential_type: 0,
             summary_fields: {
               credential_type: { id: 0, name: 'aws' },
             },

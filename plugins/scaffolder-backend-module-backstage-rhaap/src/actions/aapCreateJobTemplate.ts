@@ -6,7 +6,7 @@ import {
 } from './utils/parseAapActionValues';
 import { normalizeJobTemplateInputValues } from './schemas/rhaapActionPayloadUtils';
 import {
-  aapActionInputValuesLooseSchema,
+  launchJobTemplateValuesLooseSchema,
   aapApiRecordOutputSchema,
   jobTemplateInputSchema,
 } from './schemas/rhaapActionSchemas';
@@ -19,7 +19,7 @@ export const createJobTemplate = (ansibleServiceRef: IAAPService) => {
         token: z => z.string({ description: 'Oauth2 token' }),
         deleteIfExist: z =>
           z.boolean({ description: 'Delete project if exist' }),
-        values: () => aapActionInputValuesLooseSchema,
+        values: () => launchJobTemplateValuesLooseSchema,
       },
       output: {
         template: () => aapApiRecordOutputSchema,

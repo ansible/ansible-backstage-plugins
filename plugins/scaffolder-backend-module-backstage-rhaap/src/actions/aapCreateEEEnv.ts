@@ -6,7 +6,7 @@ import {
 } from './utils/parseAapActionValues';
 import { normalizeExecutionEnvironmentInputValues } from './schemas/rhaapActionPayloadUtils';
 import {
-  aapActionInputValuesLooseSchema,
+  launchJobTemplateValuesLooseSchema,
   aapApiRecordOutputSchema,
   executionEnvironmentInputSchema,
 } from './schemas/rhaapActionSchemas';
@@ -19,7 +19,7 @@ export const createExecutionEnvironment = (ansibleServiceRef: IAAPService) => {
         token: z => z.string({ description: 'Oauth2 token' }),
         deleteIfExist: z =>
           z.boolean({ description: 'Delete project if exist' }),
-        values: () => aapActionInputValuesLooseSchema,
+        values: () => launchJobTemplateValuesLooseSchema,
       },
       output: {
         executionEnvironment: () => aapApiRecordOutputSchema,

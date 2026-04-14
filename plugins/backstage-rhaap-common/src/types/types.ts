@@ -79,7 +79,7 @@ export type LaunchJobTemplate = {
   credentials?: {
     id: number;
     type: string;
-    credential_type: number;
+    credential_type?: number;
     name: string;
     summary_fields: Record<string, { id: number; name: string }>;
   }[];

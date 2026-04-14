@@ -6,7 +6,7 @@ import {
 } from './utils/parseAapActionValues';
 import { normalizeCleanUpValues } from './schemas/rhaapActionPayloadUtils';
 import {
-  aapActionInputValuesLooseSchema,
+  launchJobTemplateValuesLooseSchema,
   cleanUpInputSchema,
 } from './schemas/rhaapActionSchemas';
 
@@ -16,7 +16,7 @@ export const cleanUp = (ansibleServiceRef: IAAPService) => {
     schema: {
       input: {
         token: z => z.string({ description: 'Oauth2 token' }),
-        values: () => aapActionInputValuesLooseSchema,
+        values: () => launchJobTemplateValuesLooseSchema,
       },
       output: {
         cleanUp: z => z.string(),

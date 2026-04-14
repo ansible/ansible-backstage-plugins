@@ -657,6 +657,7 @@ describe('normalizeTemplateLaunchValues', () => {
     const creds = out.credentials as Record<string, unknown>[];
     expect(creds[0]).toBeNull();
     expect(creds[1].credential_type).toBe(5);
+    expect(creds[2]).not.toHaveProperty('credential_type');
     expect(creds[2].summary_fields).toEqual({});
     expect(creds[3].summary_fields).toEqual({});
     expect(creds[4].credential_type).toBe(7);

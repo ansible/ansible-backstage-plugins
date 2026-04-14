@@ -81,7 +81,7 @@ export const jobTemplateInputSchema = z.object({
 const launchCredentialSchema = z.object({
   id: z.number(),
   type: z.string(),
-  credential_type: z.number(),
+  credential_type: z.number().optional(),
   name: z.string(),
   summary_fields: z.record(
     z.string(),
@@ -113,13 +113,11 @@ export const launchJobTemplateFieldsSchema = z.object({
   skipTags: z.string().optional(),
 });
 
+/** Loose scaffolder `values` record — shared by every `rhaap:*` action input. */
 export const launchJobTemplateValuesLooseSchema = z.record(
   z.string(),
   z.unknown(),
 );
-
-export const aapActionInputValuesLooseSchema =
-  launchJobTemplateValuesLooseSchema;
 
 export const cleanUpInputSchema = z.object({
   project: projectInputSchema.partial().optional(),

@@ -192,7 +192,7 @@ function pickLaunchCredential(c: unknown): unknown {
     return c;
   }
 
-  let credential_type = 0;
+  let credential_type: number | undefined;
   if (typeof o.credential_type === 'number') {
     credential_type = o.credential_type;
   } else if (
@@ -203,17 +203,23 @@ function pickLaunchCredential(c: unknown): unknown {
     const ct = (o.summary_fields as Record<string, unknown>).credential_type;
     if (ct && typeof ct === 'object' && !Array.isArray(ct)) {
       const cid = (ct as { id?: unknown }).id;
-      credential_type = typeof cid === 'number' ? cid : 0;
+      if (typeof cid === 'number') {
+        credential_type = cid;
+      }
     }
   }
 
-  return {
+  const base = {
     id: o.id,
     type: typeof o.type === 'string' ? o.type : 'credential',
-    credential_type,
     name: typeof o.name === 'string' ? o.name : '',
     summary_fields: pickLaunchSummaryFields(o.summary_fields),
   };
+
+  if (credential_type === undefined) {
+    return base;
+  }
+  return { ...base, credential_type };
 }
 
 function pickLaunchCredentials(creds: unknown): unknown {
