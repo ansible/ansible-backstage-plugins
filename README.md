@@ -23,6 +23,7 @@ Welcome to the Ansible plugins for Backstage project! This repository provides p
   - [Plugin Development](#plugin-development)
 - [Troubleshooting](#troubleshooting)
 - [Documentation](#documentation)
+- [Changelog](#changelog)
 - [Contributing](#contributing)
 - [Security](#security)
 - [License](#license)
@@ -506,6 +507,7 @@ If you encounter issues:
 
 - **[Installation Guide](./docs/installation.md)**: Deployment instructions
 - **[Features Overview](./docs/index.md)**: Comprehensive feature documentation
+- **[Changelog](./CHANGELOG.md)**: Release notes, breaking changes, and upgrade hints
 
 ### Plugin Documentation
 
@@ -524,6 +526,10 @@ If you encounter issues:
 ### Additional Resources
 
 - [Backstage Documentation](https://backstage.io/docs/)
+
+## Changelog
+
+See **[CHANGELOG.md](./CHANGELOG.md)** for version history, **breaking changes** (for example catalog sync route renames), and upgrade guidance for templates and integrations.
 
 ## Contributing
 

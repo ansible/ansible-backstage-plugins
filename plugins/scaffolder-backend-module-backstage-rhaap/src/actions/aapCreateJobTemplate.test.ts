@@ -37,6 +37,19 @@ describe('ansible-aap:jobTemplate:create', () => {
     jest.clearAllMocks();
   });
 
+  it('throws when authorization token is missing', async () => {
+    const ctx = createMockActionContext({
+      input: {
+        token: '',
+        values: jobTemplateData,
+      },
+    });
+    await expect(action.handler(ctx as any)).rejects.toThrow(
+      'Authorization token not provided.',
+    );
+    expect(mockAnsibleService.createJobTemplate).not.toHaveBeenCalled();
+  });
+
   it('should create job template', async () => {
     const expectedTemplate = {
       ...jobTemplateData,

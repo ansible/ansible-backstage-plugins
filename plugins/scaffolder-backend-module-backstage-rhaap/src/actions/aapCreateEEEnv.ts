@@ -1,6 +1,15 @@
 import { createTemplateAction } from '@backstage/plugin-scaffolder-node';
-import { IAAPService } from '@ansible/backstage-rhaap-common';
 import {
+  type ExecutionEnvironment,
+  IAAPService,
+} from '@ansible/backstage-rhaap-common';
+import {
+  parseAapActionValues,
+  rethrowPreservingInputError,
+} from './utils/parseAapActionValues';
+import { normalizeExecutionEnvironmentInputValues } from './schemas/rhaapActionPayloadUtils';
+import {
+  launchJobTemplateValuesLooseSchema,
   aapApiRecordOutputSchema,
   executionEnvironmentInputSchema,
 } from './schemas/rhaapActionSchemas';
@@ -13,7 +22,7 @@ export const createExecutionEnvironment = (ansibleServiceRef: IAAPService) => {
         token: z => z.string({ description: 'Oauth2 token' }),
         deleteIfExist: z =>
           z.boolean({ description: 'Delete project if exist' }),
-        values: () => executionEnvironmentInputSchema,
+        values: () => launchJobTemplateValuesLooseSchema,
       },
       output: {
         executionEnvironment: () => aapApiRecordOutputSchema,
@@ -29,19 +38,22 @@ export const createExecutionEnvironment = (ansibleServiceRef: IAAPService) => {
       }
 
       ansibleServiceRef.setLogger(logger);
-      let eeData;
+      const normalized = normalizeExecutionEnvironmentInputValues(input.values);
+      let parsedData: ExecutionEnvironment;
       try {
-        eeData = await ansibleServiceRef.createExecutionEnvironment(
-          input.values,
-          input.token,
-          input.deleteIfExist,
+        parsedData = parseAapActionValues(
+          executionEnvironmentInputSchema,
+          normalized,
+          'rhaap:create-execution-environment',
         );
-      } catch (e: any) {
-        const message = e?.message ?? 'Something went wrong.';
-        const error = new Error(message);
-        error.stack = '';
-        throw error;
+      } catch (e: unknown) {
+        rethrowPreservingInputError(e);
       }
+      const eeData = await ansibleServiceRef.createExecutionEnvironment(
+        parsedData,
+        input.token,
+        input.deleteIfExist,
+      );
       ctx.output('executionEnvironment', eeData);
     },
   });

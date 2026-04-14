@@ -1,9 +1,18 @@
 import { createTemplateAction } from '@backstage/plugin-scaffolder-node';
-import { IAAPService } from '@ansible/backstage-rhaap-common';
+import {
+  IAAPService,
+  LaunchJobTemplate,
+} from '@ansible/backstage-rhaap-common';
+import {
+  parseAapActionValues,
+  rethrowPreservingInputError,
+} from './utils/parseAapActionValues';
 import {
   aapApiRecordOutputSchema,
-  launchJobTemplateInputSchema,
+  launchJobTemplateFieldsSchema,
+  launchJobTemplateValuesLooseSchema,
 } from './schemas/rhaapActionSchemas';
+import { normalizeTemplateLaunchValues } from './schemas/rhaapActionPayloadUtils';
 
 export const launchJobTemplate = (ansibleServiceRef: IAAPService) => {
   return createTemplateAction({
@@ -11,7 +20,7 @@ export const launchJobTemplate = (ansibleServiceRef: IAAPService) => {
     schema: {
       input: {
         token: z => z.string({ description: 'Authorization token' }),
-        values: () => launchJobTemplateInputSchema,
+        values: () => launchJobTemplateValuesLooseSchema,
       },
       output: {
         data: () => aapApiRecordOutputSchema,
@@ -30,12 +39,18 @@ export const launchJobTemplate = (ansibleServiceRef: IAAPService) => {
       ansibleServiceRef.setLogger(logger);
       let jobResult;
       try {
-        jobResult = await ansibleServiceRef.launchJobTemplate(values, token);
-      } catch (e: any) {
-        const message = e?.message ?? 'Something went wrong.';
-        const error = new Error(message);
-        error.stack = '';
-        throw error;
+        const normalized = normalizeTemplateLaunchValues(values);
+        const launchPayload = parseAapActionValues(
+          launchJobTemplateFieldsSchema.passthrough(),
+          normalized,
+          'rhaap:launch-job-template',
+        ) as LaunchJobTemplate;
+        jobResult = await ansibleServiceRef.launchJobTemplate(
+          launchPayload,
+          token,
+        );
+      } catch (e: unknown) {
+        rethrowPreservingInputError(e);
       }
       ctx.output('data', jobResult);
     },

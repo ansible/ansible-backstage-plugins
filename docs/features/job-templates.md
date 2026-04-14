@@ -409,6 +409,29 @@ interface JobTemplateConfig {
 
 ## Migration Guide
 
+### Catalog sync HTTP routes (operators and integrations)
+
+If you call the catalog backend **manually** to trigger AAP sync (for example from a script or external dashboard), use:
+
+- `GET <catalog-base>/ansible/sync/from-aap/orgs_users_teams`
+- `GET <catalog-base>/ansible/sync/from-aap/job_templates`
+
+These replace the previous `/aap/sync_orgs_users_teams` and `/aap/sync_job_templates` paths. The bundled Ansible Self-Service UI uses the new routes automatically.
+
+### AAP OAuth token in templates (Create Task)
+
+When users run job templates from **Self-Service → Create Task**, the portal passes the AAP OAuth token to the scaffolder in **`secrets`** (for example `aapToken`). Template steps that invoke `rhaap:*` actions should pass the token from secrets, for example:
+
+{% raw %}
+
+```yaml
+token: ${{ secrets.aapToken }}
+```
+
+{% endraw %}
+
+Do not rely on a `token` field in plain template **parameters** / **values** for that credential. See the [project CHANGELOG](https://github.com/ansible/ansible-backstage-plugins/blob/main/CHANGELOG.md) for rationale.
+
 ### From Manual Job Template Management
 
 If you're currently managing job templates manually in Backstage:

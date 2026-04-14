@@ -1,6 +1,12 @@
 import { createTemplateAction } from '@backstage/plugin-scaffolder-node';
 import { IAAPService } from '@ansible/backstage-rhaap-common';
 import {
+  parseAapActionValues,
+  rethrowPreservingInputError,
+} from './utils/parseAapActionValues';
+import { normalizeProjectInputValues } from './schemas/rhaapActionPayloadUtils';
+import {
+  launchJobTemplateValuesLooseSchema,
   aapApiRecordOutputSchema,
   projectInputSchema,
 } from './schemas/rhaapActionSchemas';
@@ -13,7 +19,7 @@ export const createProjectAction = (ansibleServiceRef: IAAPService) => {
         token: z => z.string({ description: 'Oauth2 token' }),
         deleteIfExist: z =>
           z.boolean({ description: 'Delete project if exist' }),
-        values: () => projectInputSchema,
+        values: () => launchJobTemplateValuesLooseSchema,
       },
       output: {
         project: () => aapApiRecordOutputSchema,
@@ -30,16 +36,19 @@ export const createProjectAction = (ansibleServiceRef: IAAPService) => {
       ansibleServiceRef.setLogger(logger);
       let projectData;
       try {
+        const normalized = normalizeProjectInputValues(input.values);
+        const parsedData = parseAapActionValues(
+          projectInputSchema,
+          normalized,
+          'rhaap:create-project',
+        );
         projectData = await ansibleServiceRef.createProject(
-          input.values,
+          parsedData,
           input.deleteIfExist,
           input.token,
         );
-      } catch (e: any) {
-        const message = e?.message ?? 'Something went wrong.';
-        const error = new Error(message);
-        error.stack = '';
-        throw error;
+      } catch (e: unknown) {
+        rethrowPreservingInputError(e);
       }
       ctx.output('project', projectData);
     },

@@ -1,6 +1,14 @@
 import { createTemplateAction } from '@backstage/plugin-scaffolder-node';
 import { CleanUp, IAAPService } from '@ansible/backstage-rhaap-common';
-import { cleanUpInputSchema } from './schemas/rhaapActionSchemas';
+import {
+  parseAapActionValues,
+  rethrowPreservingInputError,
+} from './utils/parseAapActionValues';
+import { normalizeCleanUpValues } from './schemas/rhaapActionPayloadUtils';
+import {
+  launchJobTemplateValuesLooseSchema,
+  cleanUpInputSchema,
+} from './schemas/rhaapActionSchemas';
 
 export const cleanUp = (ansibleServiceRef: IAAPService) => {
   return createTemplateAction({
@@ -8,7 +16,7 @@ export const cleanUp = (ansibleServiceRef: IAAPService) => {
     schema: {
       input: {
         token: z => z.string({ description: 'Oauth2 token' }),
-        values: () => cleanUpInputSchema,
+        values: () => launchJobTemplateValuesLooseSchema,
       },
       output: {
         cleanUp: z => z.string(),
@@ -25,12 +33,15 @@ export const cleanUp = (ansibleServiceRef: IAAPService) => {
 
       ansibleServiceRef.setLogger(logger);
       try {
-        await ansibleServiceRef.cleanUp(input.values as CleanUp, input.token);
-      } catch (e: any) {
-        const message = e?.message ?? 'Something went wrong.';
-        const error = new Error(message);
-        error.stack = '';
-        throw error;
+        const normalized = normalizeCleanUpValues(input.values);
+        const parsedData = parseAapActionValues(
+          cleanUpInputSchema,
+          normalized,
+          'rhaap:clean-up',
+        );
+        await ansibleServiceRef.cleanUp(parsedData as CleanUp, input.token);
+      } catch (e: unknown) {
+        rethrowPreservingInputError(e);
       }
 
       ctx.output('cleanUp', 'Successfully removed data from RH AAP.');

@@ -1,3 +1,9 @@
+/*
+ * Copyright 2024 The Ansible plugin Authors
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ */
+
 import type { ZodError } from 'zod';
 import { eeDefinitionInputSchema } from './rhaapActionSchemas';
 
