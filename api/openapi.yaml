@@ -234,11 +234,13 @@ paths:
                       - ok
                 additionalProperties: false
 
-  /aap/sync_orgs_users_teams:
+  /ansible/sync/from-aap/orgs_users_teams:
     get:
       operationId: syncOrgsUsersTeams
       summary: Trigger AAP organizations, users, and teams sync
-      description: Initiates a full synchronization of organizations, users, and teams from Ansible Automation Platform into the Backstage catalog.
+      description: |
+        Initiates a full synchronization of organizations, users, and teams from Ansible Automation Platform into the Backstage catalog.
+        **Permissions**: Requires superuser access (`aap.platform/is_superuser` annotation) or an allowed external-access service principal.
       tags:
         - AAP Sync
       security:
@@ -251,12 +253,20 @@ paths:
               schema:
                 type: object
                 description: Sync result from the AAP entity provider
+        '403':
+          description: Forbidden - superuser access required
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
 
-  /aap/sync_job_templates:
+  /ansible/sync/from-aap/job_templates:
     get:
       operationId: syncJobTemplates
       summary: Trigger AAP job templates sync
-      description: Initiates synchronization of job templates from Ansible Automation Platform into the Backstage catalog.
+      description: |
+        Initiates synchronization of job templates from Ansible Automation Platform into the Backstage catalog.
+        **Permissions**: Requires superuser access (`aap.platform/is_superuser` annotation) or an allowed external-access service principal.
       tags:
         - AAP Sync
       security:
@@ -269,6 +279,12 @@ paths:
               schema:
                 type: object
                 description: Sync result from the job template provider
+        '403':
+          description: Forbidden - superuser access required
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
 
   /aap/create_user:
     post:
@@ -814,6 +830,24 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: SCM integration authentication failure
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - code
+                  - error
+                properties:
+                  code:
+                    type: string
+                    enum:
+                      - INTEGRATION_AUTH_FAILED
+                    description: Machine-readable error code
+                  error:
+                    type: string
+                additionalProperties: false
         '403':
           description: Forbidden - insufficient permissions
           content:
@@ -955,25 +989,113 @@ paths:
   /ansible/ee/build:
     post:
       operationId: buildExecutionEnvironment
-      summary: Build an execution environment (not implemented)
+      summary: Dispatch an execution environment build via GitHub Actions
       description: |
-        Placeholder endpoint for building execution environments.
-        Currently returns 501 Not Implemented.
+        Triggers the `ee-build.yml` GitHub Actions workflow via workflow_dispatch to build
+        an execution environment image. The EE entity is resolved from the catalog to
+        determine the repository, ee_dir, and ee_file_name from its annotations.
         **Permissions**: Requires `ansible.execution-environments.view` and `catalog.entity.read`.
         Also accepts external-access service principals (filtered by allowlist).
       tags:
         - Execution Environments
       security:
         - JWT: []
+      parameters:
+        - name: X-Github-Token
+          in: header
+          required: true
+          schema:
+            type: string
+          description: GitHub personal access token with workflow dispatch permissions
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - entityRef
+                - customRegistryUrl
+                - imageName
+                - imageTag
+                - verifyTls
+              properties:
+                entityRef:
+                  type: string
+                  maxLength: 512
+                  description: Backstage entity reference (e.g. resource:default/my-ee)
+                owner:
+                  type: string
+                  maxLength: 256
+                  description: GitHub repository owner (optional override; derived from entity annotations when omitted)
+                repo:
+                  type: string
+                  maxLength: 256
+                  description: GitHub repository name (optional override; derived from entity annotations when omitted)
+                host:
+                  type: string
+                  maxLength: 256
+                  description: GitHub hostname (optional override; derived from entity annotations when omitted)
+                customRegistryUrl:
+                  type: string
+                  maxLength: 1024
+                  description: Container registry URL for the built image
+                imageName:
+                  type: string
+                  maxLength: 1024
+                  description: Target image name
+                imageTag:
+                  type: string
+                  maxLength: 256
+                  description: Image tag for the build
+                verifyTls:
+                  type: boolean
+                  description: Whether to verify TLS when pushing to the registry
+                registryType:
+                  type: string
+                  description: Registry type (optional)
+              additionalProperties: false
       responses:
+        '202':
+          description: Build dispatched successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - message
+                properties:
+                  message:
+                    type: string
+                    enum:
+                      - Build started
+                  workflow_id:
+                    type: integer
+                    description: GitHub Actions workflow run ID (when available)
+                  workflow_url:
+                    type: string
+                    description: GitHub Actions workflow run URL (when available)
+                additionalProperties: false
+        '400':
+          description: Invalid request body or missing required fields
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
         '403':
           description: Forbidden - insufficient permissions
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
-        '501':
-          description: Not implemented
+        '500':
+          description: Internal error during EE build dispatch
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '502':
+          description: GitHub workflow_dispatch call failed
           content:
             application/json:
               schema:
