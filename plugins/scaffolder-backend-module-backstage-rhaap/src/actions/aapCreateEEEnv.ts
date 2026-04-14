@@ -1,5 +1,8 @@
 import { createTemplateAction } from '@backstage/plugin-scaffolder-node';
-import { IAAPService } from '@ansible/backstage-rhaap-common';
+import {
+  type ExecutionEnvironment,
+  IAAPService,
+} from '@ansible/backstage-rhaap-common';
 import {
   parseAapActionValues,
   rethrowPreservingInputError,
@@ -35,24 +38,22 @@ export const createExecutionEnvironment = (ansibleServiceRef: IAAPService) => {
       }
 
       ansibleServiceRef.setLogger(logger);
-      let eeData;
+      const normalized = normalizeExecutionEnvironmentInputValues(input.values);
+      let parsedData: ExecutionEnvironment;
       try {
-        const normalized = normalizeExecutionEnvironmentInputValues(
-          input.values,
-        );
-        const parsedData = parseAapActionValues(
+        parsedData = parseAapActionValues(
           executionEnvironmentInputSchema,
           normalized,
           'rhaap:create-execution-environment',
         );
-        eeData = await ansibleServiceRef.createExecutionEnvironment(
-          parsedData,
-          input.token,
-          input.deleteIfExist,
-        );
       } catch (e: unknown) {
         rethrowPreservingInputError(e);
       }
+      const eeData = await ansibleServiceRef.createExecutionEnvironment(
+        parsedData,
+        input.token,
+        input.deleteIfExist,
+      );
       ctx.output('executionEnvironment', eeData);
     },
   });

@@ -475,8 +475,8 @@ export const StepForm = ({
         const authToken = await aapAuth.getAccessToken();
         // Keep the AAP OAuth token only in scaffolder secrets (not in `values`) so it is not
         // duplicated in persisted task parameters / template context.
-        const { token: _omitToken, ...valuesForScaffold } = formData;
-        void _omitToken;
+        const valuesForScaffold = { ...formData };
+        delete valuesForScaffold.token;
         await submitFunction(valuesForScaffold, {
           ...secretsArg,
           aapToken: authToken,
