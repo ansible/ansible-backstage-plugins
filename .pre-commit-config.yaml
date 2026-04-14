@@ -4,9 +4,9 @@ exclude: >
     .github\/.*|
     .yarn\/.*|
     .yarnrc.yml|
-    .*.yaml|
-    .*.yml|
-    .*.map
+    (?!api/openapi\.yaml$).*\.yaml|
+    (?!api/openapi\.yaml$).*\.yml|
+    .*\.map
   )$
 repos:
   - repo: https://github.com/Lucas-C/pre-commit-hooks
@@ -31,6 +31,7 @@ repos:
     hooks:
       - id: yamllint
         files: \.(yaml|yml)$
+        exclude: ^api/
         types: [file, yaml]
         entry: yamllint --strict
 
@@ -49,3 +50,22 @@ repos:
     rev: v8.30.0
     hooks:
       - id: gitleaks
+
+  - repo: local
+    hooks:
+      - id: openapi-lint
+        name: OpenAPI Spectral Lint
+        entry: yarn openapi:lint
+        language: system
+        files: ^api/openapi\.yaml$
+        types:
+          - file
+        pass_filenames: false
+      - id: openapi-drift
+        name: OpenAPI Drift Check
+        entry: yarn openapi:check-drift
+        language: system
+        files: (^api/openapi\.yaml$|^plugins/.*/router\.ts$)
+        types:
+          - file
+        pass_filenames: false

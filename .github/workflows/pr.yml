@@ -67,6 +67,12 @@ jobs:
         with:
             cache-prefix: ${{ github.ref_name }}-${{ runner.os }}-${{ matrix.node-version }}
   
+      - name: Lint OpenAPI spec
+        run: yarn openapi:lint
+
+      - name: Check OpenAPI spec drift against router
+        run: yarn openapi:check-drift
+
       - name: Run TSC
         run: yarn tsc
 

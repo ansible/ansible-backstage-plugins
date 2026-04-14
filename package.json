@@ -25,7 +25,9 @@
     "lint:all": "backstage-cli repo lint",
     "lint-staged": "lint-staged -p 10",
     "prettier:check": "prettier --check .",
-    "new": "backstage-cli new"
+    "new": "backstage-cli new",
+    "openapi:lint": "spectral lint api/openapi.yaml --ruleset api/.spectral.yaml",
+    "openapi:check-drift": "node api/scripts/check-drift.mjs"
   },
   "workspaces": {
     "packages": [
@@ -43,6 +45,7 @@
     "@playwright/test": "^1.32.3",
     "@red-hat-developer-hub/cli": "^1.10.2",
     "@spotify/prettier-config": "^12.0.0",
+    "@stoplight/spectral-cli": "^6.15.0",
     "@types/jest": "^30.0.0",
     "@types/node": "^22.13.4",
     "@types/webpack-env": "^1.18.8",

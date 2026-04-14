@@ -261,6 +261,10 @@ Normal startup logs include:
 
 ```
 ansible-backstage-plugins/
+├── api/                       # OpenAPI spec and testing docs
+│   ├── openapi.yaml          # API specification (source of truth)
+│   └── README.md             # Swagger UI setup and testing guide
+│
 ├── packages/                  # Core Backstage application
 │   ├── app/                  # Frontend React application
 │   └── backend/              # Backend Node.js service
@@ -508,6 +512,10 @@ If you encounter issues:
 - **[Installation Guide](./docs/installation.md)**: Deployment instructions
 - **[Features Overview](./docs/index.md)**: Comprehensive feature documentation
 - **[Changelog](./CHANGELOG.md)**: Release notes, breaking changes, and upgrade hints
+
+### API Reference
+
+- **[OpenAPI Specification](./api/README.md)**: Backend API spec, Swagger UI setup, and testing guide
 
 ### Plugin Documentation
 
