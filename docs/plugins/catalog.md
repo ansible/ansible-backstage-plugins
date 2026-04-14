@@ -81,4 +81,4 @@ The catalog backend module exposes HTTP routes on the **catalog** service (paths
 | `GET`  | `/ansible/sync/from-aap/job_templates`    | Sync job templates into catalog templates                                                |
 | `GET`  | `/ansible/sync/status`                    | Query sync status (supports query parameters such as `aap_entities`, `ansible_contents`) |
 
-**Migration:** Older releases used paths under `/aap/sync_*`. Those were replaced by the `/ansible/sync/from-aap/...` routes above. Update any custom automation or bookmarks accordingly. See [CHANGELOG.md](../../CHANGELOG.md) for details.
+**Migration:** Older releases used paths under `/aap/sync_*`. Those were replaced by the `/ansible/sync/from-aap/...` routes above. Update any custom automation or bookmarks accordingly. See the [project CHANGELOG](https://github.com/ansible/ansible-backstage-plugins/blob/main/CHANGELOG.md) for details.

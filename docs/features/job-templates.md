@@ -422,11 +422,15 @@ These replace the previous `/aap/sync_orgs_users_teams` and `/aap/sync_job_templ
 
 When users run job templates from **Self-Service → Create Task**, the portal passes the AAP OAuth token to the scaffolder in **`secrets`** (for example `aapToken`). Template steps that invoke `rhaap:*` actions should pass the token from secrets, for example:
 
+{% raw %}
+
 ```yaml
 token: ${{ secrets.aapToken }}
 ```
 
-Do not rely on a `token` field in plain template **parameters** / **values** for that credential. See [CHANGELOG.md](../../CHANGELOG.md) for rationale.
+{% endraw %}
+
+Do not rely on a `token` field in plain template **parameters** / **values** for that credential. See the [project CHANGELOG](https://github.com/ansible/ansible-backstage-plugins/blob/main/CHANGELOG.md) for rationale.
 
 ### From Manual Job Template Management
 

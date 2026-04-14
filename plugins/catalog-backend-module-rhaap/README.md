@@ -78,4 +78,4 @@ On-demand sync triggers exposed by this module use:
 - `GET .../ansible/sync/from-aap/orgs_users_teams`
 - `GET .../ansible/sync/from-aap/job_templates`
 
-Older path names under `/aap/sync_*` are **removed**; update custom clients. See the root [CHANGELOG.md](../../CHANGELOG.md).
+Older path names under `/aap/sync_*` are **removed**; update custom clients. See the [CHANGELOG](https://github.com/ansible/ansible-backstage-plugins/blob/main/CHANGELOG.md).
