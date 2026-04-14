@@ -323,7 +323,7 @@ export const StepForm = ({
 
   // always persist form data to sessionStorage for oAuth reload. write on every change,
   // including when the form is cleared, so we do not leave a stale non-empty snapshot.
-  // omit data:/blob: URL payloads (e.g. uploaded files) to stay under quota
+  // blob: URLs are omitted (invalid after reload); oversized data: URLs may be omitted for quota
   useEffect(() => {
     if (!formDataStorageKey) {
       return;

@@ -1,4 +1,12 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type Dispatch,
+  type SetStateAction,
+} from 'react';
 import { useApi } from '@backstage/core-plugin-api';
 import {
   scaffolderApiRef,
@@ -18,6 +26,8 @@ import {
   Typography,
 } from '@material-ui/core';
 import { rhAapAuthApiRef } from '../../../apis';
+
+type AapResourcePickerSelection = string | number | string[] | number[];
 
 const useStyles = makeStyles(theme => ({
   formControl: {
@@ -67,11 +77,18 @@ function primitiveFieldToString(value: unknown): string {
   return '';
 }
 
+function resourceIdsEqual(a: unknown, b: unknown): boolean {
+  if (a === undefined || a === null || b === undefined || b === null) {
+    return false;
+  }
+  return primitiveFieldToString(a) === primitiveFieldToString(b);
+}
+
 function getSelectionFromFieldValue(
   fd: unknown,
   multiple: boolean,
   _idKey: string,
-): string | number | string[] | number[] {
+): AapResourcePickerSelection {
   if (!fd) return multiple ? [] : '';
   if (typeof fd === 'string' || typeof fd === 'number') {
     return fd;
@@ -83,6 +100,69 @@ function getSelectionFromFieldValue(
     return (fd as Record<string, unknown>)[_idKey] as number;
   }
   return '';
+}
+
+function resourcesMatchingSelectedKeys(
+  rows: Record<string, unknown>[],
+  selectedArray: unknown[],
+  lookupKey: string,
+): Record<string, unknown>[] {
+  return rows.filter(row => selectedArray.includes(row[lookupKey] as never));
+}
+
+function extractIdsFromRows(
+  rows: Record<string, unknown>[],
+  idKey: string,
+): (string | number)[] {
+  return rows.map(row => row[idKey]) as (string | number)[];
+}
+
+function applyInitialSelectionAfterAutocomplete(options: {
+  results: unknown[];
+  formData: unknown;
+  multiple: boolean;
+  idKey: string;
+  nameKey: string;
+  setSelected: Dispatch<SetStateAction<AapResourcePickerSelection>>;
+}): void {
+  const records = options.results as Record<string, unknown>[];
+  const currentInit = getSelectionFromFieldValue(
+    options.formData,
+    options.multiple,
+    options.idKey,
+  );
+  const lookupKey =
+    typeof currentInit === 'string' ? options.nameKey : options.idKey;
+  const selectedArray = Array.isArray(currentInit)
+    ? currentInit
+    : [currentInit];
+  const matched = resourcesMatchingSelectedKeys(
+    records,
+    selectedArray,
+    lookupKey,
+  );
+  const ids = extractIdsFromRows(matched, options.idKey);
+  options.setSelected(
+    options.multiple ? (ids as string[] | number[]) : (ids[0] ?? ''),
+  );
+}
+
+function filterResourcesMatchingAnyIdValue(
+  resources: Record<string, unknown>[],
+  rawValues: unknown[],
+  idKey: string,
+): Record<string, unknown>[] {
+  return resources.filter(item =>
+    rawValues.some(v => resourceIdsEqual(v, item[idKey])),
+  );
+}
+
+function filterResourcesMatchingNames(
+  resources: Record<string, unknown>[],
+  values: unknown[],
+  nameKey: string,
+): Record<string, unknown>[] {
+  return resources.filter(e => values.includes(e[nameKey]));
 }
 
 function stableSelectionFingerprint(
@@ -157,17 +237,17 @@ export const AAPResourcePicker = (props: ScaffolderRJSFFieldProps) => {
 
   const aapAuth = useApi(rhAapAuthApiRef);
   const scaffolderApi = useApi(scaffolderApiRef);
-  const [availableResources, setAvailableResources] = useState<Array<Object>>(
-    [],
-  );
+  const [availableResources, setAvailableResources] = useState<
+    Record<string, unknown>[]
+  >([]);
 
   // Store the initial formData for rendering chips before API loads
   const [initialFormData, setInitialFormData] = useState<any>(formData);
 
-  const [selected, setSelected] = useState<
-    string | number | string[] | number[]
+  const [selected, setSelected] = useState<AapResourcePickerSelection>(
     // @ts-ignore
-  >(() => getSelectionFromFieldValue(formData, multiple, _idKey));
+    () => getSelectionFromFieldValue(formData, multiple, _idKey),
+  );
   const [loading, setLoading] = useState<boolean>(false);
   const classes = useStyles();
 
@@ -211,23 +291,16 @@ export const AAPResourcePicker = (props: ScaffolderRJSFFieldProps) => {
           })
           .then(({ results }) => {
             if (initialFormData) {
-              const currentInit = getSelectionFromFieldValue(
-                formDataRef.current,
+              applyInitialSelectionAfterAutocomplete({
+                results,
+                formData: formDataRef.current,
                 multiple,
-                _idKey,
-              );
-              const key = typeof currentInit === 'string' ? _nameKey : _idKey;
-              const selectedArray = Array.isArray(currentInit)
-                ? currentInit
-                : [currentInit];
-              const selectedIDs = results
-                .filter((item: any) =>
-                  selectedArray.includes(item[key] as never),
-                )
-                .map(item => item.id);
-              setSelected(selectedIDs);
+                idKey: _idKey,
+                nameKey: _nameKey,
+                setSelected,
+              });
             }
-            setAvailableResources(results);
+            setAvailableResources(results as Record<string, unknown>[]);
             setLoading(false);
             // Clear initial form data since we now have resources loaded
             setInitialFormData(null);
@@ -245,16 +318,11 @@ export const AAPResourcePicker = (props: ScaffolderRJSFFieldProps) => {
   }, [aapAuth, resource, scaffolderApi]);
   useEffect(updateAvailableResources, [updateAvailableResources]);
 
-  const idMatches = (a: unknown, b: unknown) =>
-    a !== undefined &&
-    a !== null &&
-    b !== undefined &&
-    b !== null &&
-    String(a) === String(b);
-
   const resourceHasId = useCallback(
     (id: unknown) =>
-      availableResources.some((r: any) => idMatches(r[_idKey], id)),
+      availableResources.some((r: Record<string, unknown>) =>
+        resourceIdsEqual(r[_idKey], id),
+      ),
     [availableResources, _idKey],
   );
 
@@ -310,15 +378,17 @@ export const AAPResourcePicker = (props: ScaffolderRJSFFieldProps) => {
     let endValue: Object | Array<Object> | undefined;
     if (multiple) {
       value = value.map((e: any) => (e instanceof Object ? e[_idKey] : e));
-      endValue = availableResources.filter((item: any) =>
-        value.some((v: any) => idMatches(v, item[_idKey])),
+      endValue = filterResourcesMatchingAnyIdValue(
+        availableResources,
+        value,
+        _idKey,
       );
     } else {
       if (value === '' || value === undefined) {
         return;
       }
       endValue = availableResources.find((res: any) =>
-        idMatches(res[_idKey], value),
+        resourceIdsEqual(res[_idKey], value),
       );
       if (!endValue) {
         return;
@@ -335,12 +405,16 @@ export const AAPResourcePicker = (props: ScaffolderRJSFFieldProps) => {
     }
     let items: any[] = [];
     if (typeof values[0] === 'number') {
-      items = availableResources.filter((e: any) =>
-        values.some((v: any) => idMatches(v, e[_idKey])),
+      items = filterResourcesMatchingAnyIdValue(
+        availableResources,
+        values,
+        _idKey,
       );
     } else {
-      items = availableResources.filter((e: any) =>
-        values.includes(e[_nameKey]),
+      items = filterResourcesMatchingNames(
+        availableResources,
+        values,
+        _nameKey,
       );
     }
 
@@ -360,7 +434,7 @@ export const AAPResourcePicker = (props: ScaffolderRJSFFieldProps) => {
 
   const renderSingleValue = (value: any) => {
     const item = availableResources.find((e: any) =>
-      idMatches(e[_idKey], value),
+      resourceIdsEqual(e[_idKey], value),
     );
     return item ? String((item as any)[_nameKey]) : '';
   };
@@ -374,7 +448,7 @@ export const AAPResourcePicker = (props: ScaffolderRJSFFieldProps) => {
     }
     const fd = formDataRef.current;
     if (fd && typeof fd === 'object' && !Array.isArray(fd) && fd[_nameKey]) {
-      return String((fd as Record<string, unknown>)[_nameKey]);
+      return primitiveFieldToString((fd as Record<string, unknown>)[_nameKey]);
     }
     if (typeof fd === 'string' || typeof fd === 'number') {
       return String(fd);
@@ -412,25 +486,22 @@ export const AAPResourcePicker = (props: ScaffolderRJSFFieldProps) => {
           availableResources.map(item => {
             const credentialType = getCredentialType(item);
             return (
-              // @ts-ignore
               <MenuItem
-                key={String((item as any)[_idKey])}
-                value={(item as any)[_idKey]}
+                key={String(item[_idKey])}
+                value={item[_idKey] as string | number}
               >
                 {credentialType ? (
                   <div className={classes.menuItemContent}>
                     <Typography>
                       <span style={{ fontWeight: 450 }}>
-                        {/* @ts-ignore */}
-                        {item[_nameKey]}
+                        {primitiveFieldToString(item[_nameKey])}
                       </span>{' '}
                       |{' '}
                       <span style={{ fontWeight: 400 }}>{credentialType}</span>
                     </Typography>
                   </div>
                 ) : (
-                  // @ts-ignore
-                  item[_nameKey]
+                  primitiveFieldToString(item[_nameKey])
                 )}
               </MenuItem>
             );
