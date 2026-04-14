@@ -33,7 +33,7 @@ describe('Ansible API module', () => {
 
     expect(mockDiscovery.getBaseUrl).toHaveBeenCalledWith('catalog');
     expect(mockFetch.fetch).toHaveBeenCalledWith(
-      'http://example.com/aap/sync_job_templates',
+      'http://example.com/ansible/sync/from-aap/job_templates',
     );
     expect(result).toBe(true);
   });
@@ -55,7 +55,7 @@ describe('Ansible API module', () => {
 
     expect(mockDiscovery.getBaseUrl).toHaveBeenCalledWith('catalog');
     expect(mockFetch.fetch).toHaveBeenCalledWith(
-      'http://example.com/aap/sync_job_templates',
+      'http://example.com/ansible/sync/from-aap/job_templates',
     );
     expect(result).toBe(false);
   });
@@ -79,7 +79,7 @@ describe('Ansible API module', () => {
 
     expect(mockDiscovery.getBaseUrl).toHaveBeenCalledWith('catalog');
     expect(mockFetch.fetch).toHaveBeenCalledWith(
-      'http://example.com/aap/sync_orgs_users_teams',
+      'http://example.com/ansible/sync/from-aap/orgs_users_teams',
     );
     expect(result).toBe(true);
   });
@@ -101,7 +101,7 @@ describe('Ansible API module', () => {
 
     expect(mockDiscovery.getBaseUrl).toHaveBeenCalledWith('catalog');
     expect(mockFetch.fetch).toHaveBeenCalledWith(
-      'http://example.com/aap/sync_orgs_users_teams',
+      'http://example.com/ansible/sync/from-aap/orgs_users_teams',
     );
     expect(result).toBe(false);
   });

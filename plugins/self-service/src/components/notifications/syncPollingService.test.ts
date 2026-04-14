@@ -1396,7 +1396,7 @@ describe('syncPollingService', () => {
       expect(mockFetchApi.fetch).toHaveBeenCalledTimes(1);
 
       // While first fetch is still pending, startTracking triggers another
-      // checkSyncStatus; it must return early (isChecking) and not call fetch again.
+      // checkSyncStatus; it must await the same in-flight request (no second fetch).
       syncPollingService.startTracking([
         { sourceId: 'src-1', displayName: 'Source 1', lastSyncTime: null },
       ]);
@@ -1406,6 +1406,57 @@ describe('syncPollingService', () => {
 
       resolveFirst();
       await jest.advanceTimersByTimeAsync(0);
+    });
+
+    it('does not leave sync state stale false when startTracking runs during first poll', async () => {
+      let resolveFirst!: () => void;
+      const firstFetchPromise = new Promise<void>(resolve => {
+        resolveFirst = resolve;
+      });
+
+      mockFetchApi.fetch.mockImplementation(() =>
+        firstFetchPromise.then(() => ({
+          ok: true,
+          json: () =>
+            Promise.resolve({
+              content: {
+                syncInProgress: true,
+                providers: [
+                  {
+                    sourceId: 'rh-certified',
+                    providerName: 'rh-certified',
+                    syncInProgress: true,
+                    lastSyncTime: null,
+                    lastSyncStatus: null,
+                    collectionsFound: 0,
+                    collectionsDelta: 0,
+                  },
+                ],
+              },
+            }),
+        })),
+      );
+
+      syncPollingService.initialize(
+        mockDiscoveryApi as any,
+        mockFetchApi as any,
+      );
+      await jest.advanceTimersByTimeAsync(0);
+      expect(mockFetchApi.fetch).toHaveBeenCalledTimes(1);
+
+      syncPollingService.startTracking([
+        {
+          sourceId: 'other',
+          displayName: 'Other',
+          lastSyncTime: null,
+        },
+      ]);
+      expect(mockFetchApi.fetch).toHaveBeenCalledTimes(1);
+
+      resolveFirst();
+      await jest.advanceTimersByTimeAsync(0);
+
+      expect(syncPollingService.getIsSyncInProgress()).toBe(true);
     });
   });
 });

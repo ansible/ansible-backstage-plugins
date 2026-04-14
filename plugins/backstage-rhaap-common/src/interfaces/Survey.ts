@@ -10,9 +10,9 @@ export interface ISpec {
   required: boolean;
   type: string;
   variable: string;
-  min: number;
-  max: number;
-  default: string | number;
+  min?: number;
+  max?: number;
+  default: string | number | string[];
   choices: string[] | string;
   new_question: boolean;
 }

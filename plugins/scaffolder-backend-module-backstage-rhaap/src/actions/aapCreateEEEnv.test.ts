@@ -27,6 +27,21 @@ describe('ansible-aap:eEnv:create', () => {
     jest.clearAllMocks();
   });
 
+  it('throws when authorization token is missing', async () => {
+    const ctx = createMockActionContext({
+      input: {
+        token: '',
+        values: eEnvData,
+      },
+    });
+    await expect(action.handler(ctx as any)).rejects.toThrow(
+      'Authorization token not provided.',
+    );
+    expect(
+      mockAnsibleService.createExecutionEnvironment,
+    ).not.toHaveBeenCalled();
+  });
+
   it('should create execution environment', async () => {
     const expectedResponse = {
       ...eEnvData,

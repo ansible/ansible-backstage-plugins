@@ -1,5 +1,6 @@
 import { useMemo, useState, useEffect, useCallback, useRef } from 'react';
 import { IChangeEvent } from '@rjsf/core';
+import { getDefaultFormState } from '@rjsf/utils';
 import validator from '@rjsf/validator-ajv8';
 import { EntityPickerFieldExtension } from '@backstage/plugin-scaffolder';
 import {
@@ -30,6 +31,40 @@ import {
   sanitizeFormDataForSessionStorage,
 } from './sanitizeFormDataForSessionStorage';
 import { ScaffolderForm } from './ScaffolderFormWrapper';
+
+function stripSchemaDefaultsDeep<T>(node: T): T {
+  if (node === null || typeof node !== 'object') {
+    return node;
+  }
+  if (Array.isArray(node)) {
+    return node.map(stripSchemaDefaultsDeep) as unknown as T;
+  }
+  const obj = node as Record<string, unknown>;
+  const result: Record<string, unknown> = {};
+  for (const key of Object.keys(obj)) {
+    if (key === 'default') {
+      continue;
+    }
+    result[key] = stripSchemaDefaultsDeep(obj[key]);
+  }
+  return result as T;
+}
+
+function computeMergedDefaultsFromSteps(
+  stepList: Array<{ schema?: Record<string, any> }>,
+): Record<string, any> {
+  const merged: Record<string, any> = {};
+  for (const step of stepList) {
+    if (!step.schema) {
+      continue;
+    }
+    const partial = getDefaultFormState(validator, step.schema as any);
+    if (partial && typeof partial === 'object' && !Array.isArray(partial)) {
+      Object.assign(merged, partial);
+    }
+  }
+  return merged;
+}
 
 interface StepFormProps {
   steps: Array<{
@@ -154,17 +189,42 @@ function getAllProperties(step: any): StepSchemaPropertyMap {
   return allProperties;
 }
 
-/** Drop this step's keys then apply RJSF payload so oneOf/branch changes do not leave stale fields. */
-function mergeStepFormDataIntoState(
+function schemaPropertyUsesUiField(property: unknown): boolean {
+  if (!property || typeof property !== 'object') {
+    return false;
+  }
+  const p = property as Record<string, unknown>;
+  const hasUiField =
+    typeof p['ui:field'] === 'string' && p['ui:field'].length > 0;
+  if (hasUiField) {
+    return true;
+  }
+  const ui =
+    p.ui && typeof p.ui === 'object' ? (p.ui as Record<string, unknown>) : null;
+  if (ui === null) {
+    return false;
+  }
+  return typeof ui.field === 'string' && ui.field.length > 0;
+}
+
+function mergeStepFormDataHybrid(
   prev: Record<string, any>,
   step: { schema?: Record<string, any> },
   patch: Record<string, any>,
 ): Record<string, any> {
-  const next = { ...prev };
-  for (const k of Object.keys(getAllProperties(step))) {
-    delete next[k];
+  const stepPropsMap = getAllProperties(step);
+  const stepKeys = Object.keys(stepPropsMap);
+  const next: Record<string, any> = { ...prev, ...patch };
+
+  if (Object.keys(patch).length > 0) {
+    for (const k of stepKeys) {
+      if (!(k in patch) && !schemaPropertyUsesUiField(stepPropsMap[k])) {
+        delete next[k];
+      }
+    }
   }
-  return { ...next, ...patch };
+
+  return next;
 }
 
 export const StepForm = ({
@@ -187,6 +247,11 @@ export const StepForm = ({
       return true;
     });
   }, [steps]);
+
+  const strippedSchemasForForms = useMemo(
+    () => filteredSteps.map(step => stripSchemaDefaultsDeep(step.schema)),
+    [filteredSteps],
+  );
 
   const sessionStorageOmitKeys = useMemo(
     () => collectSensitiveTemplateKeysFromSteps(steps),
@@ -218,21 +283,6 @@ export const StepForm = ({
   }
   const isOAuthRestore = isOAuthRestoreRef.current;
 
-  // restore form data from sessionStorage after OAuth window reload
-  const getInitialFormData = useCallback((): Record<string, any> => {
-    if (isOAuthRestore && formDataStorageKey) {
-      try {
-        const saved = sessionStorage.getItem(formDataStorageKey);
-        if (saved) {
-          return JSON.parse(saved);
-        }
-      } catch {
-        // silently ignore parsing errors
-      }
-    }
-    return initialFormData || {};
-  }, [formDataStorageKey, initialFormData, isOAuthRestore]);
-
   // restore active step from sessionStorage after oAuth window reload
   const getInitialActiveStep = useCallback((): number => {
     if (isOAuthRestore && activeStepStorageKey) {
@@ -252,13 +302,28 @@ export const StepForm = ({
   }, [activeStepStorageKey, filteredSteps.length, isOAuthRestore]);
 
   const [activeStep, setActiveStep] = useState(getInitialActiveStep);
-  const [formData, setFormData] =
-    useState<Record<string, any>>(getInitialFormData);
+  const [formData, setFormData] = useState<Record<string, any>>(() => {
+    const schemaDefaults = computeMergedDefaultsFromSteps(filteredSteps);
+    if (isOAuthRestore && formDataStorageKey) {
+      try {
+        const saved = sessionStorage.getItem(formDataStorageKey);
+        if (saved) {
+          return { ...schemaDefaults, ...JSON.parse(saved) };
+        }
+      } catch {
+        // silently ignore parsing errors
+      }
+    }
+    if (initialFormData) {
+      return { ...schemaDefaults, ...initialFormData };
+    }
+    return { ...schemaDefaults };
+  });
   const [isAutoExecuting, setIsAutoExecuting] = useState(false);
 
   // always persist form data to sessionStorage for oAuth reload. write on every change,
   // including when the form is cleared, so we do not leave a stale non-empty snapshot.
-  // omit data:/blob: URL payloads (e.g. uploaded files) to stay under quota
+  // blob: URLs are omitted (invalid after reload); oversized data: URLs may be omitted for quota
   useEffect(() => {
     if (!formDataStorageKey) {
       return;
@@ -344,8 +409,9 @@ export const StepForm = ({
     setActiveStep(prevActiveStep => prevActiveStep - 1);
   };
 
-  // Replace each step's slice in formData (not shallow-merge) so dependency/oneOf branch
-  // changes and removed fields do not leave stale keys in state or in final submit.
+  // Hybrid merge: shallow-apply RJSF payloads, then remove step keys missing from the patch so
+  // dependency/oneOf branches do not leave stale fields — except keys backed by `ui:field`, which
+  // RJSF may omit from change events and must be retained (see mergeStepFormDataHybrid).
   const handleFormChange = useCallback(
     (stepIndex: number, data: IChangeEvent<any>) => {
       if (!data.formData) {
@@ -356,7 +422,11 @@ export const StepForm = ({
         return;
       }
       setFormData(prev =>
-        mergeStepFormDataIntoState(prev, step, data.formData),
+        mergeStepFormDataHybrid(
+          prev,
+          step,
+          data.formData as Record<string, any>,
+        ),
       );
     },
     [filteredSteps],
@@ -368,7 +438,11 @@ export const StepForm = ({
         const step = filteredSteps[stepIndex];
         if (step) {
           setFormData(prev =>
-            mergeStepFormDataIntoState(prev, step, data.formData),
+            mergeStepFormDataHybrid(
+              prev,
+              step,
+              data.formData as Record<string, any>,
+            ),
           );
         }
       }
@@ -396,11 +470,17 @@ export const StepForm = ({
   }, [formDataStorageKey, activeStepStorageKey]);
 
   const handleFinalSubmit = useCallback(
-    async (secrets?: Record<string, string>) => {
+    async (secretsArg?: Record<string, string>) => {
       try {
         const authToken = await aapAuth.getAccessToken();
-        const finalData = { ...formData, token: authToken };
-        await submitFunction(finalData, secrets);
+        // Keep the AAP OAuth token only in scaffolder secrets (not in `values`) so it is not
+        // duplicated in persisted task parameters / template context.
+        const valuesForScaffold = { ...formData };
+        delete valuesForScaffold.token;
+        await submitFunction(valuesForScaffold, {
+          ...secretsArg,
+          aapToken: authToken,
+        });
         clearPersistedFormData();
       } catch (error) {
         console.error('Error during final submission:', error); // eslint-disable-line no-console
@@ -486,7 +566,7 @@ export const StepForm = ({
           property.allOf,
         );
         if (Object.keys(nestedUi).length > 0) {
-          uiSchema[key] = { ...(uiSchema[key] || {}), ...nestedUi };
+          uiSchema[key] = { ...uiSchema[key], ...nestedUi };
         }
       }
     }
@@ -648,7 +728,13 @@ export const StepForm = ({
             .replace(/([A-Z])/g, ' $1')
             .replace(/^./, str => str.toUpperCase())
             .trim();
-          const formattedValue = formatValueForDisplay(v);
+          const formattedValue =
+            typeof v === 'object' &&
+            v !== null &&
+            !Array.isArray(v) &&
+            !(v as { name?: unknown }).name
+              ? renderNestedObject(v as Record<string, unknown>)
+              : formatValueForDisplay(v);
 
           return (
             <div key={k}>
@@ -698,45 +784,49 @@ export const StepForm = ({
       <SecretsContextProvider>
         <Stepper activeStep={activeStep} orientation="vertical">
           {filteredSteps.map((step, index) => (
-            <Step key={index}>
+            <Step key={index} completed={activeStep > index}>
               <StepLabel>{step.title}</StepLabel>
               <StepContent>
-                <ScaffolderForm
-                  schema={{
-                    ...step.schema,
-                    title: '',
-                  }}
-                  uiSchema={extractProperties(step)}
-                  formData={formData}
-                  fields={fields}
-                  onChange={(data: IChangeEvent<any>) =>
-                    handleFormChange(index, data)
-                  }
-                  onSubmit={(data: IChangeEvent<any>) =>
-                    handleFormSubmit(index, data)
-                  }
-                  validator={validator}
-                >
-                  <ScaffolderFieldExtensions>
-                    <EntityPickerFieldExtension />
-                  </ScaffolderFieldExtensions>
-                  <div style={{ marginTop: '25px' }}>
-                    {index > 0 && (
-                      <Button
-                        onClick={handleBack}
-                        style={{ marginRight: '10px' }}
-                        variant="outlined"
-                      >
-                        Back
-                      </Button>
-                    )}
-                    {index < filteredSteps.length && (
+                {activeStep === index ? (
+                  <ScaffolderForm
+                    schema={{
+                      ...strippedSchemasForForms[index],
+                      title: '',
+                    }}
+                    uiSchema={extractProperties(step)}
+                    formData={formData}
+                    fields={fields}
+                    onChange={(data: IChangeEvent<any>) =>
+                      handleFormChange(index, data)
+                    }
+                    onSubmit={(data: IChangeEvent<any>) =>
+                      handleFormSubmit(index, data)
+                    }
+                    validator={validator}
+                    experimental_defaultFormStateBehavior={{
+                      allOf: 'populateDefaults',
+                      mergeDefaultsIntoFormData: 'useFormDataIfPresent',
+                    }}
+                  >
+                    <ScaffolderFieldExtensions>
+                      <EntityPickerFieldExtension />
+                    </ScaffolderFieldExtensions>
+                    <div style={{ marginTop: '25px' }}>
+                      {index > 0 && (
+                        <Button
+                          onClick={handleBack}
+                          style={{ marginRight: '10px' }}
+                          variant="outlined"
+                        >
+                          Back
+                        </Button>
+                      )}
                       <Button type="submit" variant="contained" color="primary">
                         Next
                       </Button>
-                    )}
-                  </div>
-                </ScaffolderForm>
+                    </div>
+                  </ScaffolderForm>
+                ) : null}
               </StepContent>
             </Step>
           ))}

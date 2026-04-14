@@ -109,9 +109,11 @@ describe('StepForm', () => {
         expect(submitFunction).toHaveBeenCalledWith(
           expect.objectContaining({
             testField: 'test-value',
-            token: 'mock-token',
           }),
-          { USER_OAUTH_TOKEN: 'mock-oauth-token' },
+          {
+            USER_OAUTH_TOKEN: 'mock-oauth-token',
+            aapToken: 'mock-token',
+          },
         );
       });
     });
@@ -210,13 +212,12 @@ describe('StepForm', () => {
       render(<StepForm steps={steps} submitFunction={submitFunction} />);
 
       await waitFor(() => {
-        expect(submitFunction).toHaveBeenCalledWith(
-          expect.objectContaining({
-            token: 'mock-token',
-          }),
-          undefined, // Auto-execute doesn't have access to secrets context
-        );
+        expect(submitFunction).toHaveBeenCalled();
       });
+      const [values, secrets] =
+        submitFunction.mock.calls[submitFunction.mock.calls.length - 1];
+      expect(values).not.toHaveProperty('token');
+      expect(secrets).toEqual({ aapToken: 'mock-token' });
     });
 
     it('does not auto-execute when there are displayable fields with defaults', async () => {

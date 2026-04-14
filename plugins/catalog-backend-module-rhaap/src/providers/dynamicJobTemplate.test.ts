@@ -21,6 +21,7 @@ import {
   ANNOTATION_LOCATION,
   ANNOTATION_ORIGIN_LOCATION,
 } from '@backstage/catalog-model';
+import { JsonObject } from '@backstage/types';
 
 describe('dynamicJobTemplate', () => {
   beforeEach(() => {
@@ -33,25 +34,8 @@ describe('dynamicJobTemplate', () => {
 
       expect(result).toEqual({
         title: 'Please enter the following details',
-        required: ['token'],
-        properties: {
-          token: {
-            title: 'Token',
-            type: 'string',
-            description: 'Oauth2 token',
-            'ui:field': 'AAPTokenField',
-            'ui:widget': 'hidden',
-            'ui:backstage': {
-              review: {
-                show: false,
-              },
-            },
-            'ui:options': {
-              disabled: true,
-              hidden: true,
-            },
-          },
-        },
+        required: [],
+        properties: {},
       });
     });
   });
@@ -611,8 +595,8 @@ describe('dynamicJobTemplate', () => {
       const [promptForm, inputVars] = getPromptFormDetails(jobWithAllFlags, []);
 
       expect(promptForm.title).toBe('Please enter the following details');
-      expect(promptForm.required).toEqual(['token', 'job_type', 'inventory']);
-      expect((promptForm.properties as any).token).toBeDefined();
+      expect(promptForm.required).toEqual(['job_type', 'inventory']);
+      expect((promptForm.properties as any).token).toBeUndefined();
       expect((promptForm.properties as any).job_type).toBeDefined();
       expect((promptForm.properties as any).inventory).toBeDefined();
       expect(
@@ -627,31 +611,37 @@ describe('dynamicJobTemplate', () => {
       expect((promptForm.properties as any).timeout).toBeDefined();
       expect((promptForm.properties as any).diff_mode).toBeDefined();
 
-      expect((inputVars as any).job_type).toBe('${{ parameters.job_type }}');
-      expect((inputVars as any).inventory).toBe('${{ parameters.inventory }}');
+      expect((inputVars as any).job_type).toBe('${{ parameters["job_type"] }}');
+      expect((inputVars as any).inventory).toBe(
+        '${{ parameters["inventory"] }}',
+      );
       expect((inputVars as any).execution_environment).toBe(
-        '${{ parameters.execution_environment }}',
+        '${{ parameters["execution_environment"] }}',
       );
       expect((inputVars as any).credentials).toBe(
-        '${{ parameters.credentials }}',
+        '${{ parameters["credentials"] }}',
       );
-      expect((inputVars as any).labels).toBe('${{ parameters.labels }}');
-      expect((inputVars as any).forks).toBe('${{ parameters.forks }}');
-      expect((inputVars as any).limit).toBe('${{ parameters.limit }}');
-      expect((inputVars as any).verbosity).toBe('${{ parameters.verbosity }}');
+      expect((inputVars as any).labels).toBe('${{ parameters["labels"] }}');
+      expect((inputVars as any).forks).toBe('${{ parameters["forks"] }}');
+      expect((inputVars as any).limit).toBe('${{ parameters["limit"] }}');
+      expect((inputVars as any).verbosity).toBe(
+        '${{ parameters["verbosity"] }}',
+      );
       expect((inputVars as any).job_slice_count).toBe(
-        '${{ parameters.job_slice_count }}',
+        '${{ parameters["job_slice_count"] }}',
       );
-      expect((inputVars as any).timeout).toBe('${{ parameters.timeout }}');
-      expect((inputVars as any).diff_mode).toBe('${{ parameters.diff_mode }}');
+      expect((inputVars as any).timeout).toBe('${{ parameters["timeout"] }}');
+      expect((inputVars as any).diff_mode).toBe(
+        '${{ parameters["diff_mode"] }}',
+      );
     });
 
     it('should return minimal prompt form for job with no ask_on_launch flags', () => {
       const [promptForm, inputVars] = getPromptFormDetails(mockJob, []);
 
       expect(promptForm.title).toBe('Please enter the following details');
-      expect(promptForm.required).toEqual(['token']);
-      expect((promptForm.properties as any).token).toBeDefined();
+      expect(promptForm.required).toEqual([]);
+      expect((promptForm.properties as any).token).toBeUndefined();
       expect((promptForm.properties as any).job_type).toBeUndefined();
       expect((promptForm.properties as any).inventory).toBeUndefined();
 
@@ -726,7 +716,7 @@ describe('dynamicJobTemplate', () => {
             variable: 'multiselect_var',
             type: 'multiselect',
             required: false,
-            default: ['option1'],
+            default: ['option1', 'option2'],
             choices: ['option1', 'option2', 'option3'],
             min: 0,
             max: 100,
@@ -798,17 +788,102 @@ describe('dynamicJobTemplate', () => {
           enum: ['option1', 'option2', 'option3'],
           type: 'string',
         },
-        default: ['option1'],
+        default: ['option1', 'option2'],
       });
 
       // Test extra variables
       expect(extraVariables).toEqual({
-        text_var: '${{ parameters.text_var }}',
-        password_var: '${{ secrets.password_var }}',
-        textarea_var: '${{ parameters.textarea_var }}',
-        choice_var: '${{ parameters.choice_var }}',
-        multiselect_var: '${{ parameters.multiselect_var }}',
+        text_var: '${{ parameters["text_var"] }}',
+        password_var: '${{ secrets["password_var"] }}',
+        textarea_var: '${{ parameters["textarea_var"] }}',
+        choice_var: '${{ parameters["choice_var"] }}',
+        multiselect_var: '${{ parameters["multiselect_var"] }}',
       });
+    });
+
+    it('normalizes string choices to enum arrays for multiplechoice and multiselect', () => {
+      const mockSurvey: ISurvey = {
+        name: 'Choices string survey',
+        description: '',
+        spec: [
+          {
+            question_name: 'Pick one',
+            question_description: '',
+            variable: 'mc',
+            type: 'multiplechoice',
+            required: true,
+            default: 'a',
+            choices: 'a\nb\nc',
+            min: 0,
+            max: 1,
+            new_question: false,
+          },
+          {
+            question_name: 'Pick many',
+            question_description: '',
+            variable: 'ms',
+            type: 'multiselect',
+            required: false,
+            default: [],
+            choices: '',
+            min: 0,
+            max: 1,
+            new_question: false,
+          },
+        ] as ISpec[],
+      };
+
+      const [surveyForm] = getSurveyDetails({}, mockSurvey);
+
+      expect(surveyForm.properties!.mc).toMatchObject({
+        enum: ['a', 'b', 'c'],
+      });
+      expect(surveyForm.properties!.ms).toMatchObject({
+        items: {
+          type: 'string',
+          enum: [],
+        },
+      });
+    });
+
+    it('uses bracket notation for survey variable names with hyphens (Nunjucks)', () => {
+      const mockSurvey: ISurvey = {
+        name: 'Hyphen survey',
+        description: '',
+        spec: [
+          {
+            question_name: 'Text',
+            question_description: '',
+            variable: 'text-ques',
+            type: 'text',
+            required: true,
+            default: '',
+            choices: [],
+            min: 0,
+            max: 100,
+            new_question: false,
+          },
+          {
+            question_name: 'Secret',
+            question_description: '',
+            variable: 'api-key',
+            type: 'password',
+            required: false,
+            default: '',
+            choices: [],
+            min: 0,
+            max: 100,
+            new_question: false,
+          },
+        ] as ISpec[],
+      };
+
+      const [, extraVariables] = getSurveyDetails({}, mockSurvey);
+
+      expect(extraVariables['text-ques']).toBe(
+        '${{ parameters["text-ques"] }}',
+      );
+      expect(extraVariables['api-key']).toBe('${{ secrets["api-key"] }}');
     });
 
     it('should handle survey with empty spec', () => {
@@ -823,6 +898,152 @@ describe('dynamicJobTemplate', () => {
       expect(surveyForm.required).toEqual([]);
       expect(surveyForm.properties).toBeUndefined();
       expect(extraVariables).toEqual({});
+    });
+
+    it('maps AAP survey float questions to JSON Schema number (RJSF)', () => {
+      const mockSurvey: ISurvey = {
+        name: 'Float survey',
+        description: '',
+        spec: [
+          {
+            question_name: 'Float?',
+            question_description: '',
+            variable: 'root_float',
+            type: 'float',
+            required: false,
+            default: '',
+            choices: [],
+            min: 0,
+            max: 100,
+            new_question: false,
+          },
+        ] as ISpec[],
+      };
+
+      const [surveyForm, extraVariables] = getSurveyDetails({}, mockSurvey);
+
+      expect((surveyForm.properties as JsonObject).root_float).toEqual({
+        title: 'Float?',
+        description: '',
+        type: 'number',
+        minimum: 0,
+        maximum: 100,
+      });
+      expect(extraVariables.root_float).toBe('${{ parameters["root_float"] }}');
+    });
+
+    it('emits minimum and maximum independently for integer/float surveys', () => {
+      const mockSurvey: ISurvey = {
+        name: 'Bounds',
+        description: '',
+        spec: [
+          {
+            question_name: 'Min only',
+            question_description: '',
+            variable: 'int_min_only',
+            type: 'integer',
+            required: false,
+            default: '',
+            choices: [],
+            min: 3,
+            new_question: false,
+          },
+          {
+            question_name: 'Max only',
+            question_description: '',
+            variable: 'float_max_only',
+            type: 'float',
+            required: false,
+            default: '',
+            choices: [],
+            max: 99.5,
+            new_question: false,
+          },
+        ] as ISpec[],
+      };
+
+      const [surveyForm] = getSurveyDetails({}, mockSurvey);
+
+      expect((surveyForm.properties as JsonObject).int_min_only).toEqual({
+        title: 'Min only',
+        description: '',
+        type: 'integer',
+        minimum: 3,
+      });
+      expect((surveyForm.properties as JsonObject).float_max_only).toEqual({
+        title: 'Max only',
+        description: '',
+        type: 'number',
+        maximum: 99.5,
+      });
+    });
+
+    it('does not emit a multiselect default for empty string (avoids [""])', () => {
+      const mockSurvey: ISurvey = {
+        name: 'Multiselect empty default',
+        description: '',
+        spec: [
+          {
+            question_name: 'Pick many',
+            question_description: '',
+            variable: 'ms_empty',
+            type: 'multiselect',
+            required: false,
+            default: '',
+            choices: ['a', 'b'],
+            min: 0,
+            max: 100,
+            new_question: false,
+          },
+        ] as ISpec[],
+      };
+
+      const [surveyForm] = getSurveyDetails({}, mockSurvey);
+
+      expect((surveyForm.properties as JsonObject).ms_empty).toEqual({
+        title: 'Pick many',
+        description: '',
+        type: 'array',
+        'ui:widget': 'select',
+        uniqueItems: true,
+        items: {
+          enum: ['a', 'b'],
+          type: 'string',
+        },
+      });
+      expect(
+        Object.prototype.hasOwnProperty.call(
+          (surveyForm.properties as JsonObject).ms_empty,
+          'default',
+        ),
+      ).toBe(false);
+    });
+
+    it('normalizes multiselect newline-separated string defaults', () => {
+      const mockSurvey: ISurvey = {
+        name: 'Multiselect newline default',
+        description: '',
+        spec: [
+          {
+            question_name: 'Pick',
+            question_description: '',
+            variable: 'ms_nl',
+            type: 'multiselect',
+            required: false,
+            default: 'a\nb',
+            choices: ['a', 'b', 'c'],
+            min: 0,
+            max: 100,
+            new_question: false,
+          },
+        ] as ISpec[],
+      };
+
+      const [surveyForm] = getSurveyDetails({}, mockSurvey);
+
+      expect((surveyForm.properties as JsonObject).ms_nl).toMatchObject({
+        default: ['a', 'b'],
+      });
     });
   });
 
@@ -1190,7 +1411,7 @@ describe('dynamicJobTemplate', () => {
 
       expect(
         (result.spec as any).steps[0].input.values.extraVariables.env_var,
-      ).toBe('${{ parameters.env_var }}');
+      ).toBe('${{ parameters["env_var"] }}');
     });
 
     it('should generate template with job that has ask_on_launch flags', () => {
@@ -1215,10 +1436,10 @@ describe('dynamicJobTemplate', () => {
       ).toBeDefined();
       expect((result.spec as any).parameters[0].properties.forks).toBeDefined();
       expect((result.spec as any).steps[0].input.values.inventory).toBe(
-        '${{ parameters.inventory }}',
+        '${{ parameters["inventory"] }}',
       );
       expect((result.spec as any).steps[0].input.values.forks).toBe(
-        '${{ parameters.forks }}',
+        '${{ parameters["forks"] }}',
       );
     });
 

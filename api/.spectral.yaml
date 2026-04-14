@@ -1,0 +1,21 @@
+extends:
+  - spectral:oas
+
+rules:
+  # Require descriptions on all operations
+  operation-description: error
+
+  # Require operationId on all operations
+  operation-operationId: error
+
+  # Require tags on all operations
+  operation-tags: error
+
+  # Require descriptions on tags
+  openapi-tags: error
+
+  # Allow info.contact to be empty (not applicable for internal API)
+  contact-properties: off
+
+  # Allow servers to use relative URLs
+  oas3-server-trailing-slash: warn
