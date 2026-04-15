@@ -222,15 +222,18 @@ test.describe('Collections sidebar link and viewport', () => {
   test('Desktop: open Collections from global sidebar link', async ({
     page,
   }) => {
+    // Pin desktop layout so we don't get drawer + sidebar duplicates or collapsed nav.
+    await page.setViewportSize({ width: 1920, height: 1080 });
     await page.goto('/', { waitUntil: 'domcontentloaded' });
     await page.locator('main').waitFor({ state: 'visible', timeout: 30000 });
-    await page
-      .getByRole('link', { name: 'Collections' })
-      .first()
-      .scrollIntoViewIfNeeded();
-    await page.getByRole('link', { name: 'Collections' }).first().click({
-      force: true,
-    });
+
+    // Prefer href + aria-label over getByRole(...).first() to avoid a hidden duplicate match in CI.
+    const collectionsLink = page
+      .locator('a[href$="/self-service/collections"][aria-label="Collections"]')
+      .first();
+    await expect(collectionsLink).toBeVisible({ timeout: 60000 });
+    await collectionsLink.click({ force: true });
+
     await expect(page).toHaveURL(/\/self-service\/collections/);
     await expect(page.locator('main')).toBeVisible({ timeout: 15000 });
   });
