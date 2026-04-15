@@ -38,7 +38,7 @@
     "@backstage/plugin-catalog-import": "^0.13.7",
     "@backstage/plugin-scaffolder": "^1.34.3",
     "@backstage/plugin-scaffolder-backend": "^3.3.0",
-    "@backstage/plugin-scaffolder-node": "^0.12.1",
+    "@backstage/plugin-scaffolder-node": ">=0.11.0 <0.13.0",
     "@backstage/types": "^1.2.2",
     "@octokit/core": "^5.0.0",
     "express": "^5.1.0",
