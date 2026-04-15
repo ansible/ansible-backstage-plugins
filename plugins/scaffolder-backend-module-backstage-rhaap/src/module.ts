@@ -18,7 +18,9 @@ import {
   coreServices,
   createBackendModule,
 } from '@backstage/backend-plugin-api';
-import { scaffolderActionsExtensionPoint } from '@backstage/plugin-scaffolder-node';
+import type { ExtensionPoint } from '@backstage/backend-plugin-api';
+import type { ScaffolderActionsExtensionPoint } from '@backstage/plugin-scaffolder-node';
+import * as scaffolderNode from '@backstage/plugin-scaffolder-node';
 import {
   scaffolderAutocompleteExtensionPoint,
   scaffolderTemplatingExtensionPoint,
@@ -27,6 +29,7 @@ import {
   ansibleServiceRef,
   getAnsibleConfig,
 } from '@ansible/backstage-rhaap-common';
+import * as scaffolderNodeAlpha from '@backstage/plugin-scaffolder-node/alpha';
 import {
   createAnsibleContentAction,
   cleanUp,
@@ -47,6 +50,12 @@ import {
 import { handleAutocompleteRequest } from './autocomplete';
 
 import { createRouter } from './router';
+
+const scaffolderActionsExtensionPoint = ((
+  scaffolderNode as Record<string, unknown>
+).scaffolderActionsExtensionPoint ??
+  (scaffolderNodeAlpha as Record<string, unknown>)
+    .scaffolderActionsExtensionPoint) as ExtensionPoint<ScaffolderActionsExtensionPoint>;
 
 /**
  * @public

@@ -249,7 +249,7 @@ __metadata:
     "@backstage/plugin-catalog-import": "npm:^0.13.7"
     "@backstage/plugin-scaffolder": "npm:^1.34.3"
     "@backstage/plugin-scaffolder-backend": "npm:^3.3.0"
-    "@backstage/plugin-scaffolder-node": "npm:^0.12.1"
+    "@backstage/plugin-scaffolder-node": "npm:>=0.11.0 <0.13.0"
     "@backstage/plugin-scaffolder-node-test-utils": "npm:^0.3.5"
     "@backstage/test-utils": "npm:^1.7.13"
     "@backstage/types": "npm:^1.2.2"
@@ -6147,7 +6147,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@backstage/plugin-scaffolder-node@npm:^0.12.1, @backstage/plugin-scaffolder-node@npm:^0.12.5":
+"@backstage/plugin-scaffolder-node@npm:>=0.11.0 <0.13.0, @backstage/plugin-scaffolder-node@npm:^0.12.1, @backstage/plugin-scaffolder-node@npm:^0.12.5":
   version: 0.12.5
   resolution: "@backstage/plugin-scaffolder-node@npm:0.12.5"
   dependencies:
@@ -19741,12 +19741,12 @@ __metadata:
   linkType: hard
 
 "cleye@npm:^2.3.0":
-  version: 2.3.0
-  resolution: "cleye@npm:2.3.0"
+  version: 2.5.0
+  resolution: "cleye@npm:2.5.0"
   dependencies:
     terminal-columns: "npm:^2.0.0"
     type-flag: "npm:^4.1.0"
-  checksum: 10c0/8a652d7c11f07c289aa84cd919225b16279041cdf2a3d3c5a96f62dbf78ed52dfd9d8820045e7ef72c0d1628c938ce578afb1411eb3d9e674c0293342f271925
+  checksum: 10c0/826c48b989c01cb87cb77a93046a8cd2101ab66f561f17a1409fc76bd5f7a5959c641d4685cf9baa20d00399a3aca8b525f3beed9ee9af67a511f3f3d3169d96
   languageName: node
   linkType: hard
 
