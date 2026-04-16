@@ -45,7 +45,7 @@ __metadata:
     msw: "npm:2.4.9"
     passport-oauth2: "npm:^1.8.0"
     supertest: "npm:6.3.4"
-    undici: "npm:6.23.0"
+    undici: "npm:7.24.0"
   languageName: unknown
   linkType: soft
 
@@ -76,7 +76,7 @@ __metadata:
     express: "npm:^5.1.0"
     express-promise-router: "npm:^4.1.1"
     supertest: "npm:^7.1.1"
-    undici: "npm:6.23.0"
+    undici: "npm:7.24.0"
     yaml: "npm:^2.4.5"
     zod: "npm:^3.23.8"
   languageName: unknown
@@ -102,7 +102,7 @@ __metadata:
     "@types/lodash.uniqby": "npm:^4"
     cross-fetch: "npm:^4.1.0"
     lodash.uniqby: "npm:^4.7.0"
-    undici: "npm:6.23.0"
+    undici: "npm:7.24.0"
     web-streams-polyfill: "npm:^4.1.0"
     yaml: "npm:^2.0.0"
   languageName: unknown
@@ -234,7 +234,7 @@ __metadata:
     node-fetch: "npm:^2.6.7"
     semver: "npm:^7.7.3"
     supertest: "npm:^7.1.4"
-    undici: "npm:6.23.0"
+    undici: "npm:7.24.0"
     yaml: "npm:^2.0.0"
     zod: "npm:^3.25.76"
   peerDependencies:
@@ -39756,10 +39756,10 @@ __metadata:
   languageName: node
   linkType: hard
 
-"undici@npm:6.23.0":
-  version: 6.23.0
-  resolution: "undici@npm:6.23.0"
-  checksum: 10c0/d846b3fdfd05aa6081ba1eab5db6bbc21b283042c7a43722b86d1ee2bf749d7c990ceac0c809f9a07ffd88b1b0f4c0f548a8362c035088cb1997d63abdda499c
+"undici@npm:7.24.0":
+  version: 7.24.0
+  resolution: "undici@npm:7.24.0"
+  checksum: 10c0/ccb2f3407ae35fec66183b80fff696dcc56c308bf568277c0c022d5dffa09e3ab35734ea4d99c77e837522c9c83fd284932816dec2cfc9023fcee4e02686514e
   languageName: node
   linkType: hard
 
