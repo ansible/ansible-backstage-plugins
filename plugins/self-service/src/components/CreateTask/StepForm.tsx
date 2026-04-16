@@ -285,10 +285,10 @@ export function stripSchemaDefaultsForUiFieldProps(
       if (!thenProps || typeof thenProps !== 'object') {
         return condition;
       }
+      // prettier-ignore
       return {
         ...condition,
-        // NOSONAR — JSON Schema `if`/`then` keyword, not a Promise
-        then: {
+        then: { // NOSONAR — JSON Schema `if`/`then` keyword, not a Promise
           ...condition.then,
           properties: stripUiFieldDefaultsInPropertyMap({ ...thenProps }),
         },
