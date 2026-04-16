@@ -32,23 +32,15 @@ import {
 } from './sanitizeFormDataForSessionStorage';
 import { ScaffolderForm } from './ScaffolderFormWrapper';
 
-function stripSchemaDefaultsDeep<T>(node: T): T {
-  if (node === null || typeof node !== 'object') {
-    return node;
-  }
-  if (Array.isArray(node)) {
-    return node.map(stripSchemaDefaultsDeep) as unknown as T;
-  }
-  const obj = node as Record<string, unknown>;
-  const result: Record<string, unknown> = {};
-  for (const key of Object.keys(obj)) {
-    if (key === 'default') {
-      continue;
-    }
-    result[key] = stripSchemaDefaultsDeep(obj[key]);
-  }
-  return result as T;
-}
+const MERGE_DEFAULTS_BEHAVIOR = {
+  allOf: 'populateDefaults' as const,
+  mergeDefaultsIntoFormData: 'useFormDataIfPresent' as const,
+};
+
+const INITIAL_DEFAULTS_BEHAVIOR = {
+  allOf: 'skipDefaults' as const,
+  mergeDefaultsIntoFormData: 'useFormDataIfPresent' as const,
+};
 
 function computeMergedDefaultsFromSteps(
   stepList: Array<{ schema?: Record<string, any> }>,
@@ -58,7 +50,14 @@ function computeMergedDefaultsFromSteps(
     if (!step.schema) {
       continue;
     }
-    const partial = getDefaultFormState(validator, step.schema as any);
+    const partial = getDefaultFormState(
+      validator,
+      step.schema as any,
+      undefined,
+      undefined,
+      false,
+      INITIAL_DEFAULTS_BEHAVIOR,
+    );
     if (partial && typeof partial === 'object' && !Array.isArray(partial)) {
       Object.assign(merged, partial);
     }
@@ -207,6 +206,50 @@ function schemaPropertyUsesUiField(property: unknown): boolean {
   return typeof ui.field === 'string' && ui.field.length > 0;
 }
 
+export function stripSchemaDefaultsForUiFieldProps(
+  schema: Record<string, any>,
+): Record<string, any> {
+  if (!schema?.properties || typeof schema.properties !== 'object') {
+    return schema;
+  }
+  const properties = { ...schema.properties } as Record<string, any>;
+  for (const key of Object.keys(properties)) {
+    const prop = properties[key];
+    if (
+      prop &&
+      typeof prop === 'object' &&
+      !Array.isArray(prop) &&
+      schemaPropertyUsesUiField(prop) &&
+      Object.hasOwn(prop, 'default')
+    ) {
+      const { default: _removed, ...rest } = prop;
+      properties[key] = rest;
+    }
+  }
+  return { ...schema, properties };
+}
+
+function isPlainObject(value: unknown): value is Record<string, any> {
+  return value !== null && typeof value === 'object' && !Array.isArray(value);
+}
+
+export function deepMergePlainObjects(
+  base: Record<string, any>,
+  patch: Record<string, any>,
+): Record<string, any> {
+  const out: Record<string, any> = { ...base };
+  for (const key of Object.keys(patch)) {
+    const b = base[key];
+    const p = patch[key];
+    if (isPlainObject(b) && isPlainObject(p)) {
+      out[key] = deepMergePlainObjects(b, p);
+    } else {
+      out[key] = p;
+    }
+  }
+  return out;
+}
+
 function mergeStepFormDataHybrid(
   prev: Record<string, any>,
   step: { schema?: Record<string, any> },
@@ -214,7 +257,15 @@ function mergeStepFormDataHybrid(
 ): Record<string, any> {
   const stepPropsMap = getAllProperties(step);
   const stepKeys = Object.keys(stepPropsMap);
-  const next: Record<string, any> = { ...prev, ...patch };
+  const next: Record<string, any> = { ...prev };
+  for (const key of Object.keys(patch)) {
+    const prevVal = prev[key];
+    const patchVal = patch[key];
+    next[key] =
+      isPlainObject(prevVal) && isPlainObject(patchVal)
+        ? deepMergePlainObjects(prevVal, patchVal)
+        : patchVal;
+  }
 
   if (Object.keys(patch).length > 0) {
     for (const k of stepKeys) {
@@ -247,11 +298,6 @@ export const StepForm = ({
       return true;
     });
   }, [steps]);
-
-  const strippedSchemasForForms = useMemo(
-    () => filteredSteps.map(step => stripSchemaDefaultsDeep(step.schema)),
-    [filteredSteps],
-  );
 
   const sessionStorageOmitKeys = useMemo(
     () => collectSensitiveTemplateKeysFromSteps(steps),
@@ -790,7 +836,9 @@ export const StepForm = ({
                 {activeStep === index ? (
                   <ScaffolderForm
                     schema={{
-                      ...strippedSchemasForForms[index],
+                      ...stripSchemaDefaultsForUiFieldProps(
+                        filteredSteps[index].schema,
+                      ),
                       title: '',
                     }}
                     uiSchema={extractProperties(step)}
@@ -803,10 +851,9 @@ export const StepForm = ({
                       handleFormSubmit(index, data)
                     }
                     validator={validator}
-                    experimental_defaultFormStateBehavior={{
-                      allOf: 'populateDefaults',
-                      mergeDefaultsIntoFormData: 'useFormDataIfPresent',
-                    }}
+                    experimental_defaultFormStateBehavior={
+                      MERGE_DEFAULTS_BEHAVIOR
+                    }
                   >
                     <ScaffolderFieldExtensions>
                       <EntityPickerFieldExtension />
