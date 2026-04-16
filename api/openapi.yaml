@@ -359,7 +359,7 @@ paths:
       description: |
         Returns the current synchronization status for AAP entities and/or Ansible content providers.
         If neither query parameter is provided, both sections are returned.
-        **Permissions**: Requires superuser access (`aap.platform/is_superuser` annotation) or an allowed external-access service principal.
+        **Permissions**: Requires the Backstage catalog **entity read** permission (`catalog.entity.read`), evaluated via the permission framework.
       tags:
         - Ansible Content Sync
       security:
@@ -428,7 +428,7 @@ paths:
                     additionalProperties: false
                 additionalProperties: false
         '403':
-          description: Forbidden - superuser access required
+          description: Forbidden - caller lacks catalog entity read permission
           content:
             application/json:
               schema:
