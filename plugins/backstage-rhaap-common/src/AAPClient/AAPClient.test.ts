@@ -3219,6 +3219,62 @@ describe('AAPClient', () => {
       });
     });
 
+    describe('rhAAPRevokeToken', () => {
+      it('should revoke token successfully', async () => {
+        const mockResponse = { ok: true };
+        mockFetch.mockResolvedValue(mockResponse);
+
+        await client.rhAAPRevokeToken({
+          clientId: 'test-client-id',
+          clientSecret: 'test-client-secret',
+          token: 'test-refresh-token',
+        });
+
+        expect(mockFetch).toHaveBeenCalledWith(
+          expect.stringContaining('o/revoke_token/'),
+          expect.objectContaining({
+            method: 'POST',
+          }),
+        );
+      });
+
+      it('should propagate error on revocation failure', async () => {
+        const mockResponse = {
+          ok: false,
+          status: 400,
+          statusText: 'Bad Request',
+          json: jest.fn().mockResolvedValue({ error: 'invalid_token' }),
+        };
+        mockFetch.mockResolvedValue(mockResponse);
+
+        await expect(
+          client.rhAAPRevokeToken({
+            clientId: 'test-client-id',
+            clientSecret: 'test-client-secret',
+            token: 'test-token',
+          }),
+        ).rejects.toThrow();
+      });
+
+      it('should send correct form data', async () => {
+        const mockResponse = { ok: true };
+        mockFetch.mockResolvedValue(mockResponse);
+
+        await client.rhAAPRevokeToken({
+          clientId: 'my-client-id',
+          clientSecret: 'my-client-secret',
+          token: 'my-token',
+        });
+
+        const callArgs = mockFetch.mock.calls[0];
+        const body = callArgs[1]?.body;
+        expect(body).toBeInstanceOf(URLSearchParams);
+        expect(body.get('token')).toBe('my-token');
+        expect(body.get('client_id')).toBe('my-client-id');
+        expect(body.get('client_secret')).toBe('my-client-secret');
+      });
+    });
+
     describe('fetchProfile', () => {
       it('should fetch user profile successfully', async () => {
         const mockResponse = {
