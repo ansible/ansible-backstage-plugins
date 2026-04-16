@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router';
 import {
   Button,
@@ -50,6 +50,24 @@ const headerStyles = makeStyles(theme => ({
   },
 }));
 
+/** When the first post sync AAP list matches pre sync, a second fetch may still be stale, wait before retrying. */
+const JOB_TEMPLATE_LIST_STALE_RETRY_MS = 450;
+
+/** Used to detect AAP job template list changes after sync. */
+const serializeJobTemplateKey = (t: { id: number; name: string }) =>
+  `${t.id}:${t.name}`;
+
+const jobTemplateListsDiffer = (
+  prev: { id: number; name: string }[],
+  next: { id: number; name: string }[],
+): boolean => {
+  if (prev.length !== next.length) {
+    return true;
+  }
+  const prevKeys = new Set(prev.map(serializeJobTemplateKey));
+  return next.some(t => !prevKeys.has(serializeJobTemplateKey(t)));
+};
+
 const isHomePageTemplate = (
   entity: TemplateEntityV1beta3,
   jobTemplates: { id: number; name: string }[],
@@ -57,11 +75,10 @@ const isHomePageTemplate = (
   if (entity.spec?.type?.includes('execution-environment')) {
     return false;
   }
-  return jobTemplates.some(({ id }) =>
-    entity.metadata.aapJobTemplateId
-      ? id === entity.metadata.aapJobTemplateId
-      : true,
-  );
+  if (!entity.metadata.aapJobTemplateId) {
+    return true;
+  }
+  return jobTemplates.some(({ id }) => id === entity.metadata.aapJobTemplateId);
 };
 
 const HomeTagPicker = ({
@@ -167,6 +184,7 @@ export const HomeComponent = () => {
     { id: number; name: string }[]
   >([]);
   const [loading, setLoading] = useState<boolean>(true);
+  const [syncKey, setSyncKey] = useState(0);
   const [syncStatus, setSyncStatus] = useState<{
     orgsUsersTeams: { lastSync: string | null };
     jobTemplates: { lastSync: string | null };
@@ -174,6 +192,10 @@ export const HomeComponent = () => {
     orgsUsersTeams: { lastSync: null },
     jobTemplates: { lastSync: null },
   });
+
+  const fetchRequestIdRef = useRef(0);
+  const jobTemplatesRef = useRef(jobTemplates);
+  jobTemplatesRef.current = jobTemplates;
 
   const fetchSyncStatus = useCallback(async () => {
     try {
@@ -189,6 +211,40 @@ export const HomeComponent = () => {
     fetchSyncStatus();
     setOpen(true);
   };
+
+  const fetchJobTemplates = useCallback(async (): Promise<
+    { id: number; name: string }[] | undefined
+  > => {
+    const requestId = ++fetchRequestIdRef.current;
+    try {
+      const token = await rhAapAuthApi.getAccessToken();
+      if (!scaffolderApi.autocomplete) {
+        return undefined;
+      }
+      const { results } = await scaffolderApi.autocomplete({
+        token,
+        resource: 'job_templates',
+        provider: 'aap-api-cloud',
+        context: {},
+      });
+      const newTemplates = results.map(result => ({
+        id: parseInt(result.id, 10),
+        name: result.title as string,
+      }));
+      if (requestId === fetchRequestIdRef.current) {
+        setJobTemplates(newTemplates);
+      }
+      return newTemplates;
+    } catch (error) {
+      // eslint-disable-next-line no-console
+      console.error('Failed to fetch job templates:', error);
+      return undefined;
+    } finally {
+      if (requestId === fetchRequestIdRef.current) {
+        setLoading(false);
+      }
+    }
+  }, [scaffolderApi, rhAapAuthApi]);
 
   const handleSync = useCallback(async () => {
     let result = false;
@@ -208,15 +264,34 @@ export const HomeComponent = () => {
       result = await ansibleApi.syncTemplates();
       setShowSnackbar(false);
       if (result) {
-        setSnackbarMsg('Templates synced successfully');
         fetchSyncStatus();
+        setSnackbarMsg('Fetching updated templates...');
+        setShowSnackbar(true);
+        const preSyncTemplates = jobTemplatesRef.current;
+        let newTemplates = await fetchJobTemplates();
+        // delayed re-fetch to aligns the allow-list with the provider
+        const listUnchanged =
+          newTemplates &&
+          !jobTemplateListsDiffer(preSyncTemplates, newTemplates);
+        if (listUnchanged) {
+          await new Promise(resolve =>
+            setTimeout(resolve, JOB_TEMPLATE_LIST_STALE_RETRY_MS),
+          );
+          newTemplates = await fetchJobTemplates();
+        }
+        setSyncKey(prev => prev + 1);
+        setSnackbarMsg(
+          newTemplates
+            ? 'Templates synced successfully'
+            : 'Templates synced, but refreshing the list failed. Please reload the page.',
+        );
       } else {
         setSnackbarMsg('Templates sync failed');
       }
       setShowSnackbar(true);
     }
     setSyncOptions([]);
-  }, [ansibleApi, syncOptions, fetchSyncStatus]);
+  }, [ansibleApi, syncOptions, fetchSyncStatus, fetchJobTemplates]);
 
   const handleClose = (newSyncOptions?: string[]) => {
     setOpen(false);
@@ -227,27 +302,22 @@ export const HomeComponent = () => {
   };
 
   useEffect(() => {
-    rhAapAuthApi.getAccessToken().then(token => {
-      if (scaffolderApi.autocomplete) {
-        scaffolderApi
-          .autocomplete({
-            token,
-            resource: 'job_templates',
-            provider: 'aap-api-cloud',
-            context: {},
-          })
-          .then(({ results }) =>
-            setJobTemplates(
-              results.map(result => ({
-                id: parseInt(result.id, 10),
-                name: result.title as string,
-              })),
-            ),
-          )
-          .finally(() => setLoading(false));
-      }
-    });
-  }, [scaffolderApi, rhAapAuthApi]);
+    fetchJobTemplates();
+  }, [fetchJobTemplates]);
+
+  // After fetchJobTemplates completes, schedule a catalog refresh so that
+  // recently imported templates (via "Add Template") have time to be
+  // processed by the catalog backend before we re-query.
+  useEffect(() => {
+    if (loading) return undefined;
+    const CATALOG_SETTLE_MS = 750;
+    const timerId = setTimeout(() => {
+      setSyncKey(prev => prev + 1);
+      setSnackbarMsg('Templates refreshed');
+      setShowSnackbar(true);
+    }, CATALOG_SETTLE_MS);
+    return () => clearTimeout(timerId);
+  }, [loading]);
 
   useEffect(() => {
     if (syncOptions.length > 0) {
@@ -339,7 +409,7 @@ export const HomeComponent = () => {
         )}
       </Header>
       <Content>
-        <EntityListProvider>
+        <EntityListProvider key={syncKey}>
           <CatalogFilterLayout>
             <CatalogFilterLayout.Filters>
               <div data-testid="search-bar-container">
@@ -379,20 +449,8 @@ export const HomeComponent = () => {
                   <TemplateGroups
                     groups={[
                       {
-                        filter: (entity: TemplateEntityV1beta3) => {
-                          const hasExecutionEnvironmentType =
-                            entity.spec?.type?.includes(
-                              'execution-environment',
-                            ) ?? false;
-                          if (hasExecutionEnvironmentType) {
-                            return false;
-                          }
-                          return jobTemplates.some(({ id }) =>
-                            entity.metadata.aapJobTemplateId
-                              ? id === entity.metadata.aapJobTemplateId
-                              : true,
-                          );
-                        },
+                        filter: (entity: TemplateEntityV1beta3) =>
+                          isHomePageTemplate(entity, jobTemplates),
                       },
                     ]}
                     TemplateCardComponent={WizardCard}

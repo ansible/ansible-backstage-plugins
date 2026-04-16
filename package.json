@@ -9,7 +9,7 @@
   "author": "Red Hat <ansible-devtools@redhat.com>",
   "scripts": {
     "prepare": "husky install",
-    "start": "NODE_OPTIONS=\"${NODE_OPTIONS:-} --no-node-snapshot\" backstage-cli repo start",
+    "start": "dotenv -- bash scripts/start.sh",
     "build:backend": "yarn workspace backend build",
     "build:all": "backstage-cli repo build --all",
     "build": "tsc && backstage-cli repo build",
@@ -49,6 +49,7 @@
     "@types/jest": "^30.0.0",
     "@types/node": "^22.13.4",
     "@types/webpack-env": "^1.18.8",
+    "dotenv-cli": "^11.0.0",
     "eslint-plugin-jest": "^29.0.1",
     "husky": "8.0.3",
     "jest-environment-node": "^29.7.0",

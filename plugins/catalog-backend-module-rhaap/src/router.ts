@@ -154,8 +154,18 @@ export async function createRouter(options: {
 
   router.get(
     '/ansible/sync/status',
-    requireSuperuserMiddleware,
+    createPermissionCheckMiddleware({ httpAuth, permissions }, [
+      catalogEntityReadPermission,
+    ]),
     async (request, response) => {
+      const perms = response.locals.permissions as Record<string, boolean>;
+      if (!perms[catalogEntityReadPermission.name]) {
+        response
+          .status(403)
+          .json({ error: 'Forbidden: insufficient permissions' });
+        return;
+      }
+
       logger.info('Getting sync status');
       const aapEntities = request.query.aap_entities === 'true';
       const ansibleContents = request.query.ansible_contents === 'true';

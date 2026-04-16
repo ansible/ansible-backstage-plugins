@@ -128,97 +128,48 @@ yarn workspaces list
 
 ### Configuration
 
-#### 1. Create Local Configuration File
+#### 1. Create Environment File
 
-For local development, create a local configuration file that won't be committed:
+All secrets are managed via a `.env` file. It is loaded automatically by `yarn start` via `dotenv-cli`.
+
+```bash
+cp .env.example .env
+```
+
+Edit `.env` and fill in the required values:
+
+| Variable                    | Required             | Description                                                                        |
+| --------------------------- | -------------------- | ---------------------------------------------------------------------------------- |
+| `BACKEND_SECRET`            | No                   | Auto-generated on each `yarn start` if left empty                                  |
+| `AUTH_SIGNING_KEY`          | No                   | Auto-generated on each `yarn start` if left empty                                  |
+| `GITHUB_INTEGRATION_TOKEN`  | Yes                  | GitHub PAT for SCM integration ([create here](https://github.com/settings/tokens)) |
+| `GITLAB_INTEGRATION_TOKEN`  | If using GitLab      | GitLab PAT for SCM integration                                                     |
+| `AUTH_GITHUB_CLIENT_ID`     | If using GitHub auth | GitHub OAuth App client ID ([create here](https://github.com/settings/developers)) |
+| `AUTH_GITHUB_CLIENT_SECRET` | If using GitHub auth | GitHub OAuth App client secret                                                     |
+| `AUTH_GITLAB_CLIENT_ID`     | If using GitLab auth | GitLab OAuth App client ID                                                         |
+| `AUTH_GITLAB_CLIENT_SECRET` | If using GitLab auth | GitLab OAuth App client secret                                                     |
+| `AAP_HOST`                  | Yes                  | AAP controller URL (e.g. `https://aap.example.com`)                                |
+| `AAP_AUTH_CLIENT_ID`        | Yes                  | AAP OAuth client ID                                                                |
+| `AAP_AUTH_CLIENT_SECRET`    | Yes                  | AAP OAuth client secret                                                            |
+| `AAP_API_TOKEN`             | Yes                  | AAP API token for catalog sync                                                     |
+
+**Note:** `BACKEND_SECRET` and `AUTH_SIGNING_KEY` are auto-generated if left empty. Set them explicitly if you need persistent sessions across restarts.
+
+#### 2. Create Local Configuration File (Optional)
+
+For local overrides (non-secret settings like schedule intervals, enabled features, etc.):
 
 ```bash
 cp app-config.yaml app-config.local.yaml
 ```
 
-#### 2. Configure Required Settings
-
-Edit `app-config.local.yaml` and update the following fields marked as `changeme`:
-
-##### Backend Secret (Required)
-
-```yaml
-backend:
-  auth:
-    keys:
-      # Generate a secret with: openssl rand -base64 32
-      - secret: YOUR_SECRET_HERE
-```
-
-##### GitHub Integration (Required)
-
-```yaml
-integrations:
-  github:
-    - host: github.com
-      # Create a token at: https://github.com/settings/tokens
-      # Required scopes: repo (for private repos) or public_repo (for public only)
-      token: ${GITHUB_TOKEN} # Or paste token directly
-```
-
-##### AAP Integration (Optional but Recommended)
-
-```yaml
-aap:
-  # Your Ansible Automation Platform instance URL
-  baseUrl: https://your-aap-instance.example.com
-
-  # AAP API token
-  # Create at: AAP UI → Users → Tokens → Add
-  token: ${AAP_TOKEN} # Or paste token directly
-
-  # SSL verification (set to true in production)
-  checkSSL: false
-```
-
-#### 3. Set Environment Variables (Alternative)
-
-Instead of editing the config file, you can set environment variables:
-
-```bash
-# Create a .env file (this file is gitignored)
-cat > .env << EOF
-# Backend
-BACKEND_SECRET=$(openssl rand -base64 32)
-
-# GitHub Integration
-GITHUB_TOKEN=ghp_your_token_here
-
-# AAP Integration
-AAP_BASE_URL=https://your-aap-instance.example.com
-AAP_TOKEN=your-aap-token-here
-AAP_CHECK_SSL=false
-
-# Auth (for production)
-AUTH_SIGNING_KEY=$(openssl rand -base64 32)
-EOF
-```
-
-#### 4. Additional Configuration Options
-
-<details>
-<summary><b>Authentication Providers</b></summary>
-
-```yaml
-auth:
-  environment: development # Set to 'production' for production
-  providers:
-    github:
-      development:
-        clientId: ${AUTH_GITHUB_CLIENT_ID}
-        clientSecret: ${AUTH_GITHUB_CLIENT_SECRET}
-```
-
-</details>
+Edit `app-config.local.yaml` to customize settings for your local environment. This file is gitignored.
 
 ### Running Locally
 
 #### Start the Development Server
+
+Make sure you have created a `.env` file (see [Configuration](#configuration) above), then:
 
 ```bash
 yarn start
@@ -226,6 +177,8 @@ yarn start
 
 This will:
 
+- Load environment variables from `.env` via `dotenv-cli`
+- Auto-generate `BACKEND_SECRET` and `AUTH_SIGNING_KEY` if not set
 - Start the backend on `http://localhost:7007`
 - Start the frontend on `http://localhost:3000`
 - Enable hot module reloading for development
