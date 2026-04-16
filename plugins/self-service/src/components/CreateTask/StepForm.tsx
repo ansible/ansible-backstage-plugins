@@ -206,27 +206,97 @@ function schemaPropertyUsesUiField(property: unknown): boolean {
   return typeof ui.field === 'string' && ui.field.length > 0;
 }
 
+function stripUiFieldDefaultFromPropertyDef(
+  prop: Record<string, any>,
+): Record<string, any> {
+  if (
+    prop &&
+    typeof prop === 'object' &&
+    !Array.isArray(prop) &&
+    schemaPropertyUsesUiField(prop) &&
+    Object.hasOwn(prop, 'default')
+  ) {
+    const { default: _removed, ...rest } = prop;
+    return rest;
+  }
+  return prop;
+}
+
+function stripUiFieldDefaultsInPropertyMap(
+  properties: Record<string, any>,
+): Record<string, any> {
+  const out = { ...properties };
+  for (const key of Object.keys(out)) {
+    const prop = out[key];
+    if (prop && typeof prop === 'object' && !Array.isArray(prop)) {
+      out[key] = stripUiFieldDefaultFromPropertyDef(prop);
+    }
+  }
+  return out;
+}
+
 export function stripSchemaDefaultsForUiFieldProps(
   schema: Record<string, any>,
 ): Record<string, any> {
   if (!schema?.properties || typeof schema.properties !== 'object') {
     return schema;
   }
-  const properties = { ...schema.properties } as Record<string, any>;
-  for (const key of Object.keys(properties)) {
-    const prop = properties[key];
-    if (
-      prop &&
-      typeof prop === 'object' &&
-      !Array.isArray(prop) &&
-      schemaPropertyUsesUiField(prop) &&
-      Object.hasOwn(prop, 'default')
-    ) {
-      const { default: _removed, ...rest } = prop;
-      properties[key] = rest;
+  const next: Record<string, any> = { ...schema };
+  next.properties = stripUiFieldDefaultsInPropertyMap({ ...schema.properties });
+
+  const dependencies = schema.dependencies;
+  if (
+    dependencies &&
+    typeof dependencies === 'object' &&
+    !Array.isArray(dependencies)
+  ) {
+    const nextDeps: Record<string, any> = { ...dependencies };
+    for (const depKey of Object.keys(nextDeps)) {
+      const dep = nextDeps[depKey];
+      if (!dep || typeof dep !== 'object' || Array.isArray(dep)) {
+        continue;
+      }
+      const oneOf = dep.oneOf;
+      if (!Array.isArray(oneOf)) {
+        continue;
+      }
+      nextDeps[depKey] = {
+        ...dep,
+        oneOf: oneOf.map((branch: Record<string, any>) => {
+          if (!branch?.properties || typeof branch.properties !== 'object') {
+            return branch;
+          }
+          return {
+            ...branch,
+            properties: stripUiFieldDefaultsInPropertyMap({
+              ...branch.properties,
+            }),
+          };
+        }),
+      };
     }
+    next.dependencies = nextDeps;
   }
-  return { ...schema, properties };
+
+  const allOf = schema.allOf;
+  if (Array.isArray(allOf)) {
+    next.allOf = allOf.map((condition: Record<string, any>) => {
+      const thenProps = condition?.then?.properties;
+      if (!thenProps || typeof thenProps !== 'object') {
+        return condition;
+      }
+      return {
+        ...condition,
+        // NOSONAR — JSON Schema `if`/`then` keyword, not a Promise
+        then: {
+          ...condition.then,
+          properties: stripUiFieldDefaultsInPropertyMap({ ...thenProps }),
+        },
+      };
+    });
+  }
+
+  return next;
 }
 
 function isPlainObject(value: unknown): value is Record<string, any> {

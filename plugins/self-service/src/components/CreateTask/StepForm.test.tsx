@@ -1772,5 +1772,57 @@ describe('StepForm', () => {
       const out = stripSchemaDefaultsForUiFieldProps(schema);
       expect(out.properties.inv).toEqual(schema.properties.inv);
     });
+
+    it('strips default in dependencies.oneOf branch properties with ui:field', () => {
+      const schema = {
+        type: 'object',
+        properties: { mode: { type: 'string' } },
+        dependencies: {
+          mode: {
+            oneOf: [
+              {
+                properties: {
+                  mode: { enum: ['aap'] },
+                  inventory: {
+                    'ui:field': 'AAPResourcePicker',
+                    default: { id: 1, name: 'JT default' },
+                  },
+                },
+              },
+            ],
+          },
+        },
+      };
+      const out = stripSchemaDefaultsForUiFieldProps(schema);
+      expect(
+        out.dependencies.mode.oneOf[0].properties.inventory,
+      ).not.toHaveProperty('default');
+      expect(out.properties.mode).toEqual(schema.properties.mode);
+    });
+
+    it('strips default in allOf.then.properties with ui:field', () => {
+      const schema = {
+        type: 'object',
+        properties: { x: { type: 'boolean' } },
+        allOf: [
+          {
+            if: { properties: { x: { const: true } } },
+            then: {
+              properties: {
+                credentials: {
+                  type: 'array',
+                  'ui:field': 'AAPResourcePicker',
+                  default: [{ id: 1, name: 'c' }],
+                },
+              },
+            },
+          },
+        ],
+      };
+      const out = stripSchemaDefaultsForUiFieldProps(schema);
+      expect(out.allOf[0].then.properties.credentials).not.toHaveProperty(
+        'default',
+      );
+    });
   });
 });
