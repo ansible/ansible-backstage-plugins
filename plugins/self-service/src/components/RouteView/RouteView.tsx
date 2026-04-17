@@ -1,5 +1,5 @@
 import { useEffect } from 'react';
-import { Route, Routes, Navigate, Outlet } from 'react-router-dom';
+import { Route, Routes, Navigate, Outlet, useLocation } from 'react-router-dom';
 import { RequirePermission } from '@backstage/plugin-permission-react';
 import { catalogEntityCreatePermission } from '@backstage/plugin-catalog-common/alpha';
 import { taskReadPermission } from '@backstage/plugin-scaffolder-common/alpha';
@@ -36,6 +36,7 @@ import {
 
 const RouteViewContent = () => {
   const { notifications, removeNotification } = useNotifications();
+  const location = useLocation();
   const discoveryApi = useApi(discoveryApiRef);
   const fetchApi = useApi(fetchApiRef);
 
@@ -47,7 +48,7 @@ const RouteViewContent = () => {
   return (
     <>
       <Routes>
-        <Route path="catalog" element={<HomeComponent />} />
+        <Route path="catalog" element={<HomeComponent key={location.key} />} />
         <Route
           path="catalog/:namespace/:templateName"
           element={<CatalogItemsDetails />}

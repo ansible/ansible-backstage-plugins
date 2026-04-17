@@ -24,11 +24,11 @@ organization:
 backend:
   auth:
     keys:
-      - secret: ${BACKEND_SECRET:-development-secret-change-in-production}
+      - secret: ${BACKEND_SECRET}
     sessions:
       # Persistent signing key prevents JWT token invalidation on backend restarts
       # This is essential for dynamic RBAC automation and service-to-service authentication
-      signingKey: ${AUTH_SIGNING_KEY:-myPersistentSigningKey123456789012345678901234567890}
+      signingKey: ${AUTH_SIGNING_KEY}
   baseUrl: http://localhost:7007
   listen:
     port: 7007
@@ -63,10 +63,10 @@ backend:
 integrations:
   github:
     - host: github.com
-      token: <YOUR_GITHUB_PAT>
+      token: ${GITHUB_INTEGRATION_TOKEN}
   gitlab:
     - host: gitlab.com
-      token: <YOUR_GITLAB_PAT>
+      token: ${GITLAB_INTEGRATION_TOKEN}
 proxy: null
 techdocs:
   builder: local
@@ -84,18 +84,18 @@ auth:
   providers:
     github:
       development:
-        clientId: <changeme>
-        clientSecret: <changeme>
+        clientId: ${AUTH_GITHUB_CLIENT_ID}
+        clientSecret: ${AUTH_GITHUB_CLIENT_SECRET}
     gitlab:
       development:
-        clientId: <changeme>
-        clientSecret: <changeme>
+        clientId: ${AUTH_GITLAB_CLIENT_ID}
+        clientSecret: ${AUTH_GITLAB_CLIENT_SECRET}
     rhaap:
       development:
-        host: <changeme>
+        host: ${AAP_HOST}
         checkSSL: false
-        clientId: <changeme>
-        clientSecret: <changeme>
+        clientId: ${AAP_AUTH_CLIENT_ID}
+        clientSecret: ${AAP_AUTH_CLIENT_SECRET}
         signIn:
           resolvers:
             - resolver: allowNewAAPUserSignIn
@@ -195,8 +195,8 @@ ansible:
     baseUrl: https://example.com
   rhaap:
     # Ansible Automation Platform connection settings
-    baseUrl: <changeme>    # AAP controller URL
-    token: <changeme>      # AAP API token with appropriate permissions
+    baseUrl: ${AAP_HOST}
+    token: ${AAP_API_TOKEN}
     checkSSL: false        # Set to true in production
   creatorService:
     baseUrl: localhost

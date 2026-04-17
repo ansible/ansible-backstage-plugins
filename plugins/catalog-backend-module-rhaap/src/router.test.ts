@@ -2534,6 +2534,17 @@ describe('createRouter', () => {
   });
 
   describe('GET /ansible/sync/status', () => {
+    it('should return 403 when user lacks catalog entity read permission', async () => {
+      mockPermissions.authorizeConditional.mockResolvedValueOnce([
+        { result: AuthorizeResult.DENY },
+      ]);
+
+      const response = await request(app).get('/ansible/sync/status');
+
+      expect(response.status).toBe(403);
+      expect(response.body.error).toBe('Forbidden: insufficient permissions');
+    });
+
     it('should return both aap and content status when no query params', async () => {
       mockAAPEntityProvider.getLastSyncTime.mockReturnValue(
         '2024-01-15T10:00:00Z',

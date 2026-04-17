@@ -108,4 +108,15 @@ export const aapAuthAuthenticator = (aapService: IAAPService) =>
       );
       return { ...result, fullProfile };
     },
+
+    async logout(input, { clientId, clientSecret }) {
+      const token = input.refreshToken ?? input.accessToken;
+      if (token) {
+        await aapService.rhAAPRevokeToken({
+          clientId,
+          clientSecret,
+          token,
+        });
+      }
+    },
   });

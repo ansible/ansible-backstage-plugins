@@ -25,6 +25,7 @@ const mockAAPService = {
     email: 'someEmail@domain.com',
     displayName: 'userFirstName userLastName',
   }),
+  rhAAPRevokeToken: jest.fn().mockResolvedValue(undefined),
 };
 
 jest.mock('undici', () => ({
@@ -83,5 +84,105 @@ describe('authenticator', () => {
         displayName: 'userFirstName userLastName',
       },
     });
+  });
+
+  it('logout revokes refresh token when available', async () => {
+    const aapAuthAuthenticator = createAuthenticator(mockAAPService as any);
+    aapAuthAuthenticator.initialize({
+      callbackUrl: '',
+      config: mockServices.rootConfig({
+        data: {
+          clientId: CLIENT_ID,
+          clientSecret: CLIENT_SECRET,
+          host: DEFAULT_HOST,
+          checkSSL: CHECK_SSL,
+          callbackUrl: 'http://localhost',
+        },
+      }),
+    });
+
+    await aapAuthAuthenticator.logout!(
+      // @ts-ignore
+      { refreshToken: 'myRefreshToken', accessToken: 'myAccessToken' },
+      {
+        host: DEFAULT_HOST,
+        clientId: CLIENT_ID,
+        clientSecret: CLIENT_SECRET,
+        callbackURL: 'http://localhost',
+        checkSSL: CHECK_SSL,
+      },
+    );
+
+    expect(mockAAPService.rhAAPRevokeToken).toHaveBeenCalledWith({
+      clientId: CLIENT_ID,
+      clientSecret: CLIENT_SECRET,
+      token: 'myRefreshToken',
+    });
+  });
+
+  it('logout revokes access token when no refresh token', async () => {
+    const aapAuthAuthenticator = createAuthenticator(mockAAPService as any);
+    aapAuthAuthenticator.initialize({
+      callbackUrl: '',
+      config: mockServices.rootConfig({
+        data: {
+          clientId: CLIENT_ID,
+          clientSecret: CLIENT_SECRET,
+          host: DEFAULT_HOST,
+          checkSSL: CHECK_SSL,
+          callbackUrl: 'http://localhost',
+        },
+      }),
+    });
+
+    await aapAuthAuthenticator.logout!(
+      // @ts-ignore
+      { accessToken: 'myAccessToken' },
+      {
+        host: DEFAULT_HOST,
+        clientId: CLIENT_ID,
+        clientSecret: CLIENT_SECRET,
+        callbackURL: 'http://localhost',
+        checkSSL: CHECK_SSL,
+      },
+    );
+
+    expect(mockAAPService.rhAAPRevokeToken).toHaveBeenCalledWith({
+      clientId: CLIENT_ID,
+      clientSecret: CLIENT_SECRET,
+      token: 'myAccessToken',
+    });
+  });
+
+  it('logout does nothing when no tokens available', async () => {
+    const aapAuthAuthenticator = createAuthenticator(mockAAPService as any);
+    aapAuthAuthenticator.initialize({
+      callbackUrl: '',
+      config: mockServices.rootConfig({
+        data: {
+          clientId: CLIENT_ID,
+          clientSecret: CLIENT_SECRET,
+          host: DEFAULT_HOST,
+          checkSSL: CHECK_SSL,
+          callbackUrl: 'http://localhost',
+        },
+      }),
+    });
+
+    mockAAPService.rhAAPRevokeToken.mockClear();
+
+    await aapAuthAuthenticator.logout!(
+      // @ts-ignore
+      {},
+      {
+        host: DEFAULT_HOST,
+        clientId: CLIENT_ID,
+        clientSecret: CLIENT_SECRET,
+        callbackURL: 'http://localhost',
+        checkSSL: CHECK_SSL,
+      },
+    );
+
+    expect(mockAAPService.rhAAPRevokeToken).not.toHaveBeenCalled();
   });
 });
