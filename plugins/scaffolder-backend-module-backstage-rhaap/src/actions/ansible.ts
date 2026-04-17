@@ -15,9 +15,7 @@
  */
 
 import { createTemplateAction } from '@backstage/plugin-scaffolder-node';
-import {
-  ansibleCreatorRun,
-} from './ansibleContentCreate';
+import { ansibleCreatorRun } from './ansibleContentCreate';
 import {
   validateAnsibleConfig,
   getServiceUrlFromAnsibleConfig,

@@ -12,15 +12,8 @@ import {
   convertUploadToDataUrl,
   parseUploadedFileContent,
 } from './utils/utils';
-import {
-  AuthService,
-  DiscoveryService,
-} from '@backstage/backend-plugin-api';
-import {
-  Collection,
-  AdditionalBuildStep,
-  EEDefinitionInput,
-} from './types';
+import { AuthService, DiscoveryService } from '@backstage/backend-plugin-api';
+import { Collection, AdditionalBuildStep, EEDefinitionInput } from './types';
 import { eeDefinitionInputSchema } from './schemas/rhaapActionSchemas';
 
 const MCPSERVER_VARS = [
@@ -346,7 +339,9 @@ function generateEEDefinition(values: EEDefinitionInput): string {
   let overridePythonInterpreter = false;
 
   if (
-    values.baseImage?.toString().includes(
+    values.baseImage
+      ?.toString()
+      .includes(
         'registry.redhat.io/ansible-automation-platform/ee-minimal-rhel',
       )
   ) {
@@ -1345,7 +1340,10 @@ function parseCollectionsFile(decodedCollectionsContent: string): Collection[] {
     if (err instanceof z.ZodError) {
       throw new Error(
         `Invalid collections file structure:\n${err.issues
-          .map((issue: z.ZodIssue) => `- ${issue.path.join('.')}: ${issue.message}`)
+          .map(
+            (issue: z.ZodIssue) =>
+              `- ${issue.path.join('.')}: ${issue.message}`,
+          )
           .join('\n')}`,
       );
     }
@@ -1501,7 +1499,9 @@ function validateEEDefinition(eeDefinition: string): boolean {
   } catch (e: unknown) {
     if (e instanceof z.ZodError) {
       const formatted = e.issues
-        .map((issue: z.ZodIssue) => `- ${issue.path.join('.')}: ${issue.message}`)
+        .map(
+          (issue: z.ZodIssue) => `- ${issue.path.join('.')}: ${issue.message}`,
+        )
         .join('\n');
 
       throw new Error(

@@ -39,23 +39,17 @@ export async function createRouter(options: {
     response.json({ status: 'ok' });
   });
 
-  router.get(
-    '/ansible/sync/from-aap/orgs_users_teams',
-    async (_, response) => {
-      logger.info('Starting orgs, users and teams sync');
-      const res = await aapEntityProvider.run();
-      response.status(200).json(res);
-    },
-  );
+  router.get('/ansible/sync/from-aap/orgs_users_teams', async (_, response) => {
+    logger.info('Starting orgs, users and teams sync');
+    const res = await aapEntityProvider.run();
+    response.status(200).json(res);
+  });
 
-  router.get(
-    '/ansible/sync/from-aap/job_templates',
-    async (_, response) => {
-      logger.info('Starting job templates sync');
-      const res = await jobTemplateProvider.run();
-      response.status(200).json(res);
-    },
-  );
+  router.get('/ansible/sync/from-aap/job_templates', async (_, response) => {
+    logger.info('Starting job templates sync');
+    const res = await jobTemplateProvider.run();
+    response.status(200).json(res);
+  });
 
   router.get('/aap/sync_status', async (_, response) => {
     logger.info('Getting sync status');

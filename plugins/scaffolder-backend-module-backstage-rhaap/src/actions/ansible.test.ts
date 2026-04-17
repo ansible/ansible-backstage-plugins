@@ -22,9 +22,7 @@ jest.mock('./ansibleContentCreate', () => {
 });
 
 import { createAnsibleContentAction } from './ansible';
-import {
-  ansibleCreatorRun,
-} from './ansibleContentCreate';
+import { ansibleCreatorRun } from './ansibleContentCreate';
 import {
   getDevspacesUrlFromAnsibleConfig,
   generateRepoUrl,

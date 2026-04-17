@@ -241,9 +241,7 @@ describe('EEListPage (unit — internals stubbed)', () => {
 describe('fetchOwnerNames and getOwnerName', () => {
   beforeEach(async () => {
     jest.clearAllMocks();
-    renderWithCatalogApi(() =>
-      Promise.resolve({ items: [entityA, entityB] }),
-    );
+    renderWithCatalogApi(() => Promise.resolve({ items: [entityA, entityB] }));
 
     await waitFor(() =>
       expect(screen.getByTestId('stubbed-table-title')).toBeInTheDocument(),
