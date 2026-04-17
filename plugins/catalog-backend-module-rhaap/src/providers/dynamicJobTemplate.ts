@@ -373,15 +373,20 @@ export const getSurveyDetails = (
         'ui:widget': 'select',
         uniqueItems: true,
       }),
-      ...(item.default && {
-        default:
-          item.type === 'multiselect'
-            ? item.default.toString().split('\n')
-            : item.default,
-      }),
+      ...(item.type !== 'password' &&
+        item.default !== undefined &&
+        item.default !== null && {
+          default:
+            item.type === 'multiselect'
+              ? item.default.toString().split('\n')
+              : item.default,
+        }),
     };
 
-    extraVariables[paramVar] = `\${{ parameters.${paramVar} }}`;
+    extraVariables[paramVar] =
+      item.type === 'password'
+        ? `\${{ secrets.${paramVar} }}`
+        : `\${{ parameters.${paramVar} }}`;
   });
 
   promptForm.required = [
@@ -437,7 +442,7 @@ export const generateTemplate = (options: {
           name: job.name,
           action: 'rhaap:launch-job-template',
           input: {
-            token: '${{ parameters.token }}',
+            token: '${{ secrets.aapToken }}',
             values: {
               template: job.name,
               ...Object.fromEntries(

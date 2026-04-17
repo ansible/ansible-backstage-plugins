@@ -804,7 +804,7 @@ describe('dynamicJobTemplate', () => {
       // Test extra variables
       expect(extraVariables).toEqual({
         text_var: '${{ parameters.text_var }}',
-        password_var: '${{ parameters.password_var }}',
+        password_var: '${{ secrets.password_var }}',
         textarea_var: '${{ parameters.textarea_var }}',
         choice_var: '${{ parameters.choice_var }}',
         multiselect_var: '${{ parameters.multiselect_var }}',
@@ -1135,7 +1135,7 @@ describe('dynamicJobTemplate', () => {
         'rhaap:launch-job-template',
       );
       expect((result.spec as any).steps[0].input.token).toBe(
-        '${{ parameters.token }}',
+        '${{ secrets.aapToken }}',
       );
       expect((result.spec as any).steps[0].input.values.template).toEqual(
         'Test Job Template',
