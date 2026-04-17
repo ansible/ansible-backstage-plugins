@@ -1,24 +1,27 @@
 import { createTemplateAction } from '@backstage/plugin-scaffolder-node';
 import * as fs from 'fs/promises';
 import * as path from 'path';
+import { z } from 'zod';
 import yaml from 'js-yaml';
 import semver from 'semver';
-import { z } from 'zod';
 import {
   CollectionRequirementsSchema,
   EEDefinitionSchema,
 } from './helpers/schemas';
-import { parseUploadedFileContent } from './utils/utils';
-import { AuthService } from '@backstage/backend-plugin-api';
-import { DiscoveryService } from '@backstage/backend-plugin-api';
-
-interface Collection {
-  name: string;
-  version?: string;
-  signatures?: string[];
-  source?: string;
-  type?: string;
-}
+import {
+  convertUploadToDataUrl,
+  parseUploadedFileContent,
+} from './utils/utils';
+import {
+  AuthService,
+  DiscoveryService,
+} from '@backstage/backend-plugin-api';
+import {
+  Collection,
+  AdditionalBuildStep,
+  EEDefinitionInput,
+} from './types';
+import { eeDefinitionInputSchema } from './schemas/rhaapActionSchemas';
 
 const MCPSERVER_VARS = [
   {
@@ -74,38 +77,6 @@ const MCPSERVER_VARS = [
   },
 ];
 
-interface AdditionalBuildStep {
-  stepType:
-    | 'prepend_base'
-    | 'append_base'
-    | 'prepend_galaxy'
-    | 'append_galaxy'
-    | 'prepend_builder'
-    | 'append_builder'
-    | 'prepend_final'
-    | 'append_final';
-  commands: string[];
-}
-
-interface EEDefinitionInput {
-  eeFileName: string;
-  eeDescription: string;
-  customBaseImage?: string;
-  tags: string[];
-  publishToSCM: boolean;
-  baseImage: string;
-  collections?: Collection[];
-  popularCollections?: string[];
-  collectionsFile?: string;
-  pythonRequirements?: string[];
-  pythonRequirementsFile?: string;
-  systemPackages?: string[];
-  systemPackagesFile?: string;
-  mcpServers?: string[];
-  additionalBuildSteps?: AdditionalBuildStep[];
-  owner?: string;
-}
-
 export function createEEDefinitionAction(options: {
   frontendUrl: string;
   auth: AuthService;
@@ -117,196 +88,16 @@ export function createEEDefinitionAction(options: {
     description: 'Creates Ansible Execution Environment definition files',
     schema: {
       input: {
-        type: 'object',
-        required: ['values'],
-        properties: {
-          values: {
-            type: 'object',
-            required: [
-              'baseImage',
-              'eeFileName',
-              'eeDescription',
-              'publishToSCM',
-            ],
-            properties: {
-              eeFileName: {
-                title: 'Execution Environment File Name',
-                description: 'Name of the execution environment file',
-                type: 'string',
-              },
-              eeDescription: {
-                title: 'Execution Environment Description',
-                description: 'Description for the saved Execution Environment',
-                type: 'string',
-              },
-              tags: {
-                title: 'Tags',
-                description:
-                  'Tags to be included in the execution environment definition file',
-                type: 'array',
-                items: { type: 'string' },
-              },
-              publishToSCM: {
-                title: 'Publish to a SCM repository',
-                description:
-                  'Publish the Execution Environment definition and template to a SCM repository',
-                type: 'boolean',
-              },
-              customBaseImage: {
-                title: 'Custom Base Image',
-                description: 'Custom base image for the execution environment',
-                type: 'string',
-              },
-              collections: {
-                title: 'Ansible Collections',
-                description: 'List of Ansible collections to include',
-                type: 'array',
-                items: {
-                  type: 'object',
-                  properties: {
-                    name: {
-                      type: 'string',
-                      description: 'Collection name (e.g., community.general)',
-                    },
-                    version: {
-                      type: 'string',
-                      description: 'Collection version (optional)',
-                    },
-                    source: {
-                      type: 'string',
-                      description: 'Collection source (optional)',
-                    },
-                    type: {
-                      type: 'string',
-                      description: 'Collection type (optional)',
-                    },
-                    signatures: {
-                      type: 'array',
-                      description: 'Collection signatures (optional)',
-                      items: {
-                        type: 'string',
-                      },
-                    },
-                  },
-                  required: ['name'],
-                },
-              },
-              popularCollections: {
-                title: 'Popular Collections',
-                description: 'List of popular collection names to include',
-                type: 'array',
-                items: {
-                  type: 'string',
-                },
-              },
-              collectionsFile: {
-                title: 'Collections File Content',
-                description: 'Content of uploaded requirements.yml file',
-                type: 'data-url',
-              },
-              pythonRequirements: {
-                title: 'Python Requirements',
-                description: 'List of Python package requirements',
-                type: 'array',
-                items: {
-                  type: 'string',
-                },
-              },
-              pythonRequirementsFile: {
-                title: 'Python Requirements File Content',
-                description: 'Content of uploaded requirements.txt file',
-                type: 'data-url',
-              },
-              systemPackages: {
-                title: 'System Packages',
-                description: 'List of system packages to install',
-                type: 'array',
-                items: {
-                  type: 'string',
-                },
-              },
-              systemPackagesFile: {
-                title: 'System Packages File Content',
-                description: 'Content of uploaded bindep.txt file',
-                type: 'data-url',
-              },
-              mcpServers: {
-                title: 'MCP Servers',
-                description: 'List of MCP servers to install',
-                type: 'array',
-                items: {
-                  type: 'string',
-                },
-              },
-              additionalBuildSteps: {
-                title: 'Additional Build Steps',
-                description: 'Custom build steps for the execution environment',
-                type: 'array',
-                default: [],
-                items: {
-                  type: 'object',
-                  properties: {
-                    stepType: {
-                      type: 'string',
-                      enum: [
-                        'prepend_base',
-                        'append_base',
-                        'prepend_galaxy',
-                        'append_galaxy',
-                        'prepend_builder',
-                        'append_builder',
-                        'prepend_final',
-                        'append_final',
-                      ],
-                    },
-                    commands: {
-                      type: 'array',
-                      items: {
-                        type: 'string',
-                      },
-                    },
-                  },
-                  required: ['stepType', 'commands'],
-                },
-              },
-            },
-          },
-        },
+        values: () => eeDefinitionInputSchema,
       },
       output: {
-        type: 'object',
-        properties: {
-          contextDirName: {
-            title: 'Directory in the workspace where the files will created',
-            type: 'string',
-          },
-          eeDefinitionContent: {
-            title: 'EE Definition Content',
-            type: 'string',
-          },
-          generatedEntityRef: {
-            title:
-              'Generated entity reference (for dynamically registered catalog entities ONLY)',
-            type: 'string',
-          },
-          owner: {
-            title: 'Owner of the execution environment',
-            type: 'string',
-          },
-          readmeContent: {
-            title: 'README Content',
-            type: 'string',
-          },
-          mcpVarsContent: {
-            title: 'MCP Vars Content',
-            type: 'string',
-          },
-          catalogInfoPath: {
-            title:
-              'Relative path for the catalog-info.yaml file (for SCM publishing only)',
-            type: 'string',
-          },
-        },
+        contextDirName: z => z.string().optional(),
+        generatedEntityRef: z => z.string().optional(),
+        owner: z => z.string().optional(),
+        catalogInfoPath: z => z.string().optional(),
+        readmeContent: z => z.string().optional(),
+        eeDefinitionContent: z => z.string().optional(),
+        mcpVarsContent: z => z.string().optional(),
       },
     },
     async handler(ctx) {
@@ -317,9 +108,13 @@ export function createEEDefinitionAction(options: {
       const popularCollections = values.popularCollections || [];
       const collectionsFile = values.collectionsFile || '';
       const pythonRequirements = values.pythonRequirements || [];
-      const pythonRequirementsFile = values.pythonRequirementsFile || '';
+      const pythonRequirementsFile = convertUploadToDataUrl(
+        values.pythonRequirementsFile,
+      );
       const systemPackages = values.systemPackages || [];
-      const systemPackagesFile = values.systemPackagesFile || '';
+      const systemPackagesFile = convertUploadToDataUrl(
+        values.systemPackagesFile,
+      );
       const mcpServers = values.mcpServers || [];
       const additionalBuildSteps = values.additionalBuildSteps || [];
       const eeFileName = values.eeFileName || 'execution-environment';
@@ -551,9 +346,7 @@ function generateEEDefinition(values: EEDefinitionInput): string {
   let overridePythonInterpreter = false;
 
   if (
-    values.baseImage
-      .toString()
-      .includes(
+    values.baseImage?.toString().includes(
         'registry.redhat.io/ansible-automation-platform/ee-minimal-rhel',
       )
   ) {
@@ -1551,7 +1344,9 @@ function parseCollectionsFile(decodedCollectionsContent: string): Collection[] {
     // this will result from the content not conforming to the schema defined above
     if (err instanceof z.ZodError) {
       throw new Error(
-        `Invalid collections file structure:\n${err.issues.map(e => `- ${e.path.join('.')}: ${e.message}`).join('\n')}`,
+        `Invalid collections file structure:\n${err.issues
+          .map((issue: z.ZodIssue) => `- ${issue.path.join('.')}: ${issue.message}`)
+          .join('\n')}`,
       );
     }
 
@@ -1703,10 +1498,10 @@ function validateEEDefinition(eeDefinition: string): boolean {
   try {
     EEDefinitionSchema.parse(parsed);
     return true;
-  } catch (e: any) {
+  } catch (e: unknown) {
     if (e instanceof z.ZodError) {
       const formatted = e.issues
-        .map(err => `- ${err.path.join('.')}: ${err.message}`)
+        .map((issue: z.ZodIssue) => `- ${issue.path.join('.')}: ${issue.message}`)
         .join('\n');
 
       throw new Error(
@@ -1714,8 +1509,9 @@ function validateEEDefinition(eeDefinition: string): boolean {
       );
     }
 
+    const message = e instanceof Error ? e.message : String(e);
     throw new Error(
-      `Unknown error validating the generated EE definition: ${e.message}`,
+      `Unknown error validating the generated EE definition: ${message}`,
     );
   }
 }

@@ -43,7 +43,8 @@ jest.mock('./helpers/schemas', () => ({
 }));
 
 jest.mock('./utils/utils', () => ({
-  parseUploadedFileContent: jest.fn(),
+  ...jest.requireActual('./utils/utils'),
+  parseUploadedFileContent: jest.fn().mockReturnValue(''),
 }));
 
 // Mock global fetch

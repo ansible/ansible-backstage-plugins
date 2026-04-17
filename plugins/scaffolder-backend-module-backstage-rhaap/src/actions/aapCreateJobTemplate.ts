@@ -1,182 +1,22 @@
 import { createTemplateAction } from '@backstage/plugin-scaffolder-node';
-import { IAAPService, JobTemplate } from '@ansible/backstage-rhaap-common';
+import { IAAPService } from '@ansible/backstage-rhaap-common';
+import {
+  aapApiRecordOutputSchema,
+  jobTemplateInputSchema,
+} from './schemas/rhaapActionSchemas';
 
 export const createJobTemplate = (ansibleServiceRef: IAAPService) => {
-  return createTemplateAction<{
-    token: string;
-    deleteIfExist: boolean;
-    values: JobTemplate;
-  }>({
+  return createTemplateAction({
     id: 'rhaap:create-job-template',
     schema: {
       input: {
-        type: 'object',
-        required: ['token', 'values'],
-        properties: {
-          token: {
-            type: 'string',
-            description: 'Oauth2 token',
-          },
-          deleteIfExist: {
-            type: 'boolean',
-            description: 'Delete project if exist',
-          },
-          values: {
-            type: 'object',
-            required: ['templateName', 'project', 'jobInventory', 'playbook'],
-            properties: {
-              templateName: {
-                title: 'Name',
-                type: 'string',
-                description: 'Job template name',
-              },
-              templateDescription: {
-                title: 'Description',
-                type: 'string',
-                description: 'Job template description',
-              },
-              scmType: {
-                title: 'Source control type',
-                description:
-                  'The source control source type. For example, “Github”.',
-                type: 'string',
-              },
-              project: {
-                title: 'Project',
-                type: 'object',
-                description: 'Project data',
-                required: ['id'],
-                properties: {
-                  id: {
-                    type: 'number',
-                    description: 'ID of the project',
-                  },
-                  name: {
-                    type: 'string',
-                    description: 'Name of the project',
-                  },
-                },
-              },
-              organization: {
-                title: 'Organization',
-                type: 'object',
-                description: 'Organization',
-                required: ['id'],
-                properties: {
-                  id: {
-                    type: 'number',
-                    description: 'Organization id',
-                  },
-                  name: {
-                    type: 'string',
-                    description: 'Organization name',
-                  },
-                },
-              },
-              credentials: {
-                title: 'Credentials',
-                type: 'object',
-                description: 'Credentials',
-                required: ['id'],
-                properties: {
-                  id: {
-                    type: 'number',
-                    description: 'Credential id',
-                  },
-                  name: {
-                    type: 'string',
-                    description: 'Credential name',
-                  },
-                  kind: {
-                    type: 'string',
-                    description: 'Credential Type',
-                  },
-                  inputs: {
-                    type: 'object',
-                    description: 'Credential Inputs',
-                    required: ['username'],
-                    properties: {
-                      username: {
-                        type: 'string',
-                        description: 'SCM User',
-                      },
-                    },
-                  },
-                },
-              },
-              jobInventory: {
-                title: 'Inventory',
-                type: 'object',
-                description:
-                  'Select the inventory containing the playbook you want this job to execute.',
-                required: ['id'],
-                properties: {
-                  id: {
-                    type: 'number',
-                    description: 'Inventory id',
-                  },
-                  name: {
-                    type: 'string',
-                    description: 'Inventory name',
-                  },
-                },
-              },
-              playbook: {
-                title: 'Playbook',
-                type: 'string',
-                description: 'Select the playbook to be executed by this job.',
-              },
-              executionEnvironment: {
-                title: 'Execution environment',
-                type: 'object',
-                description: 'Select execution environment',
-                required: ['id'],
-                properties: {
-                  id: {
-                    type: 'number',
-                    description: 'Execution environment id',
-                  },
-                  name: {
-                    type: 'string',
-                    description: 'Execution environment name',
-                  },
-                },
-              },
-              extraVariables: {
-                title: 'Extra variables',
-                type: 'object',
-                description:
-                  'Optional extra variables to be applied to job template.',
-              },
-            },
-          },
-        },
+        token: z => z.string({ description: 'Oauth2 token' }),
+        deleteIfExist: z =>
+          z.boolean({ description: 'Delete project if exist' }),
+        values: () => jobTemplateInputSchema,
       },
       output: {
-        type: 'object',
-        properties: {
-          template: {
-            type: 'object',
-            properties: {
-              id: {
-                title: 'Job template id',
-                type: 'number',
-              },
-              name: {
-                title: 'Job template name',
-                type: 'string',
-              },
-              description: {
-                title: 'Job template description',
-                type: 'string',
-              },
-              url: {
-                title: 'Job template url',
-                type: 'string',
-              },
-            },
-          },
-        },
+        template: () => aapApiRecordOutputSchema,
       },
     },
     async handler(ctx) {

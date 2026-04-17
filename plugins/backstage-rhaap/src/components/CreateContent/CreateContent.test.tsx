@@ -18,6 +18,34 @@ jest.mock('@backstage/plugin-catalog-react', () => ({
   useEntityList: jest.fn(),
 }));
 
+jest.mock('@backstage/plugin-scaffolder-react/alpha', () => {
+  const React = require('react');
+  const actual = jest.requireActual('@backstage/plugin-scaffolder-react/alpha');
+  return {
+    ...actual,
+    TemplateGroups: () => {
+      const { useEntityList } = require('@backstage/plugin-catalog-react');
+      const { loading, error, entities } = useEntityList();
+      if (loading) {
+        return React.createElement('div', { 'data-testid': 'tg-progress' });
+      }
+      if (error) {
+        return null;
+      }
+      if (!entities || !entities.length) {
+        return React.createElement(
+          'a',
+          {
+            href: 'https://backstage.io/docs/features/software-templates/adding-templates',
+          },
+          'adding templates',
+        );
+      }
+      return React.createElement('div', { 'data-testid': 'tg-templates' });
+    },
+  };
+});
+
 import { EntityCreateContent } from './CreateContent';
 import { TestApiProvider, renderInTestApp } from '@backstage/test-utils';
 import { configApiRef, errorApiRef } from '@backstage/core-plugin-api';
@@ -97,9 +125,14 @@ describe('Create Content', () => {
       filters: { tags: ['ansible'] },
     });
 
-    const { findByText } = await render(<EntityCreateContent />);
+    const { findByRole } = await render(<EntityCreateContent />);
 
-    expect(await findByText(/No templates found/)).toBeInTheDocument();
+    expect(
+      await findByRole('link', { name: /adding templates/i }),
+    ).toHaveAttribute(
+      'href',
+      'https://backstage.io/docs/features/software-templates/adding-templates',
+    );
   });
 
   it('should return a no templates message if entities has no values in it', async () => {
@@ -110,8 +143,13 @@ describe('Create Content', () => {
       filters: { tags: ['ansible'] },
     });
 
-    const { findByText } = await render(<EntityCreateContent />);
+    const { findByRole } = await render(<EntityCreateContent />);
 
-    expect(await findByText(/No templates found/)).toBeInTheDocument();
+    expect(
+      await findByRole('link', { name: /adding templates/i }),
+    ).toHaveAttribute(
+      'href',
+      'https://backstage.io/docs/features/software-templates/adding-templates',
+    );
   });
 });

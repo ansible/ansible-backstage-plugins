@@ -1,66 +1,21 @@
 import { createTemplateAction } from '@backstage/plugin-scaffolder-node';
 import { UseCaseMaker } from './helpers';
-import {
-  IAAPService,
-  AnsibleConfig,
-  Organization,
-  UseCase,
-} from '@ansible/backstage-rhaap-common';
+import { IAAPService, AnsibleConfig } from '@ansible/backstage-rhaap-common';
+import { createShowCasesValuesSchema } from './schemas/rhaapActionSchemas';
 
 export const createShowCases = (
   ansibleServiceRef: IAAPService,
   ansibleConfig: AnsibleConfig,
 ) => {
-  return createTemplateAction<{
-    token: string;
-    values: {
-      organization: Organization;
-      scmType: string;
-      useCases: UseCase[];
-    };
-  }>({
+  return createTemplateAction({
     id: 'rhaap:create-show-cases',
     schema: {
       input: {
-        type: 'object',
-        required: ['token', 'values'],
-        properties: {
-          token: {
-            type: 'string',
-            description: 'Oauth2 token',
-          },
-          values: {
-            type: 'object',
-            properties: {
-              scmType: {
-                title: 'Source control type',
-                description:
-                  'The source control source type. For example, “Github”.',
-                type: 'string',
-              },
-              organization: {
-                title: 'Organization',
-                type: 'object',
-                description: 'Organization ID',
-                required: ['id'],
-                properties: {
-                  id: {
-                    type: 'number',
-                    description: 'Organization id',
-                  },
-                  name: {
-                    type: 'string',
-                    description: 'Organization name',
-                  },
-                },
-              },
-              templateNames: {
-                type: 'array',
-                description: 'Execution environment id',
-              },
-            },
-          },
-        },
+        token: z => z.string({ description: 'Oauth2 token' }),
+        values: () => createShowCasesValuesSchema,
+      },
+      output: {
+        showCase: z => z.string(),
       },
     },
     async handler(ctx) {

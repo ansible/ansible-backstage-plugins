@@ -1,69 +1,17 @@
 import { createTemplateAction } from '@backstage/plugin-scaffolder-node';
-import { IAAPService, CleanUp } from '@ansible/backstage-rhaap-common';
+import { CleanUp, IAAPService } from '@ansible/backstage-rhaap-common';
+import { cleanUpInputSchema } from './schemas/rhaapActionSchemas';
 
 export const cleanUp = (ansibleServiceRef: IAAPService) => {
-  return createTemplateAction<{ token: string; values: CleanUp }>({
+  return createTemplateAction({
     id: 'rhaap:clean-up',
     schema: {
       input: {
-        type: 'object',
-        required: ['token', 'values'],
-        properties: {
-          token: {
-            type: 'string',
-            description: 'Oauth2 token',
-          },
-          values: {
-            type: 'object',
-            properties: {
-              project: {
-                type: 'object',
-                description: 'Project',
-                required: ['id'],
-                properties: {
-                  id: {
-                    type: 'number',
-                    description: 'Project id',
-                  },
-                  name: {
-                    type: 'string',
-                    description: 'Project name',
-                  },
-                },
-              },
-              executionEnvironment: {
-                type: 'object',
-                description: 'Execution environment',
-                required: ['id'],
-                properties: {
-                  id: {
-                    type: 'number',
-                    description: 'Execution environment id',
-                  },
-                  name: {
-                    type: 'string',
-                    description: 'Execution environment name',
-                  },
-                },
-              },
-              template: {
-                type: 'object',
-                description: 'Job template',
-                required: ['id'],
-                properties: {
-                  id: {
-                    type: 'number',
-                    description: 'Job template id',
-                  },
-                  name: {
-                    type: 'string',
-                    description: 'Job template name',
-                  },
-                },
-              },
-            },
-          },
-        },
+        token: z => z.string({ description: 'Oauth2 token' }),
+        values: () => cleanUpInputSchema,
+      },
+      output: {
+        cleanUp: z => z.string(),
       },
     },
     async handler(ctx) {
@@ -77,14 +25,7 @@ export const cleanUp = (ansibleServiceRef: IAAPService) => {
 
       ansibleServiceRef.setLogger(logger);
       try {
-        await ansibleServiceRef.cleanUp(
-          {
-            project: input.values.project,
-            executionEnvironment: input.values.executionEnvironment,
-            template: input.values.template,
-          },
-          input.token,
-        );
+        await ansibleServiceRef.cleanUp(input.values as CleanUp, input.token);
       } catch (e: any) {
         const message = e?.message ?? 'Something went wrong.';
         const error = new Error(message);

@@ -1,6 +1,6 @@
 import { render, screen } from '@testing-library/react';
 import { EntityNotFound } from './EntityNotFound';
-import { ThemeProvider, createMuiTheme } from '@material-ui/core/styles';
+import { ThemeProvider, createTheme } from '@material-ui/core/styles';
 
 // Mock Backstage core components
 jest.mock('@backstage/core-components', () => ({
@@ -17,7 +17,7 @@ jest.mock('@backstage/core-components', () => ({
   ),
 }));
 
-const theme = createMuiTheme();
+const theme = createTheme();
 
 const renderWithTheme = (component: React.ReactElement) => {
   return render(<ThemeProvider theme={theme}>{component}</ThemeProvider>);

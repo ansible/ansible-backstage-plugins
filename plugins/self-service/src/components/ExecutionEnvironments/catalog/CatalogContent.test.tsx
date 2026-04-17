@@ -239,8 +239,18 @@ describe('EEListPage (unit — internals stubbed)', () => {
 
 // ------------------ Tests for fetchOwnerNames and getOwnerName ------------------
 describe('fetchOwnerNames and getOwnerName', () => {
-  beforeEach(() => {
+  beforeEach(async () => {
     jest.clearAllMocks();
+    renderWithCatalogApi(() =>
+      Promise.resolve({ items: [entityA, entityB] }),
+    );
+
+    await waitFor(() =>
+      expect(screen.getByTestId('stubbed-table-title')).toBeInTheDocument(),
+    );
+
+    expect(screen.getByText('ee-one')).toBeInTheDocument();
+    expect(screen.getByText('ee-two')).toBeInTheDocument();
   });
 
   test('getOwnerName returns title when available', async () => {

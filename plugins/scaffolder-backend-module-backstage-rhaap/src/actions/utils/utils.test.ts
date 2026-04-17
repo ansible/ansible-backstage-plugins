@@ -14,7 +14,60 @@
  * limitations under the License.
  */
 
-import { parseUploadedFileContent } from './utils';
+import { convertUploadToDataUrl, parseUploadedFileContent } from './utils';
+
+describe('convertUploadToDataUrl', () => {
+  it('returns empty string for nullish', () => {
+    expect(convertUploadToDataUrl(undefined)).toBe('');
+    expect(convertUploadToDataUrl(null)).toBe('');
+  });
+
+  it('passes through data URL strings', () => {
+    const s = 'data:text/plain;base64,QQ==';
+    expect(convertUploadToDataUrl(s)).toBe(s);
+  });
+
+  it('reads string from object.data', () => {
+    expect(
+      convertUploadToDataUrl({ data: 'data:text/plain;base64,QQ==' }),
+    ).toBe('data:text/plain;base64,QQ==');
+  });
+
+  it('reads string from object.content when data is absent or not a string', () => {
+    const dataUrl = 'data:text/plain;base64,QQ==';
+    expect(convertUploadToDataUrl({ content: dataUrl })).toBe(dataUrl);
+    expect(
+      convertUploadToDataUrl({
+        data: undefined,
+        content: dataUrl,
+      }),
+    ).toBe(dataUrl);
+    expect(
+      convertUploadToDataUrl({
+        data: 123,
+        content: dataUrl,
+      }),
+    ).toBe(dataUrl);
+  });
+
+  it('prefers object.data over object.content when both are strings', () => {
+    expect(
+      convertUploadToDataUrl({
+        data: 'first',
+        content: 'second',
+      }),
+    ).toBe('first');
+  });
+
+  it('returns empty string for empty input string', () => {
+    expect(convertUploadToDataUrl('')).toBe('');
+  });
+
+  it('returns empty string for object without string data or content', () => {
+    expect(convertUploadToDataUrl({})).toBe('');
+    expect(convertUploadToDataUrl({ data: 1, content: true })).toBe('');
+  });
+});
 
 describe('parseUploadedFileContent', () => {
   it('should parse valid base64 data URL with text/plain content type', () => {

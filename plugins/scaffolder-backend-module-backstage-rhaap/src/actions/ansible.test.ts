@@ -21,13 +21,9 @@ jest.mock('./ansibleContentCreate', () => {
   };
 });
 
-import * as fs from 'fs';
-import * as path from 'path';
-import { mockServices } from '@backstage/backend-test-utils';
 import { createAnsibleContentAction } from './ansible';
 import {
   ansibleCreatorRun,
-  handleDevfileProject,
 } from './ansibleContentCreate';
 import {
   getDevspacesUrlFromAnsibleConfig,
@@ -36,7 +32,6 @@ import {
 } from './utils/config';
 import { ConfigReader } from '@backstage/config';
 import { createMockActionContext } from '@backstage/plugin-scaffolder-node-test-utils';
-import { AnsibleConfig } from '@ansible/backstage-rhaap-common';
 import { appType } from './constants';
 
 describe('ansible:content:create', () => {
@@ -52,36 +47,7 @@ describe('ansible:content:create', () => {
     },
   });
 
-  const logger = mockServices.logger.mock();
-
-  const ansibleConfig: AnsibleConfig = {
-    rhaap: {
-      baseUrl: 'https://test.ansible.com/',
-      checkSSL: true,
-      showCaseLocation: {
-        type: 'url',
-        target: 'https://showcase.example.com',
-        gitBranch: 'main',
-        gitUser: 'dummyUser',
-        gitEmail: 'dummyuser@example.com',
-      },
-    },
-    githubIntegration: {
-      host: 'github.com',
-      apiBaseUrl: 'https://api.github.com',
-      rawBaseUrl: 'https://raw.githubusercontent.com',
-      token: 'dummy-personal-access-token',
-      apps: [],
-    },
-    gitlabIntegration: {
-      host: 'gitlab.com',
-      apiBaseUrl: 'https://api.gitlab.com',
-      baseUrl: 'https://raw.gitlabusercontent.com',
-      token: 'dummy-personal-access-token',
-    },
-  };
-
-  const action = createAnsibleContentAction(config, ansibleConfig);
+  const action = createAnsibleContentAction(config);
 
   const mockContext = createMockActionContext({
     input: {
@@ -138,36 +104,63 @@ describe('ansible:content:create', () => {
     );
   });
 
-  it('should run tests for devfileHandler with invalid repo URL', async () => {
+  it('uses empty string defaults when optional input fields are omitted', async () => {
+    const ctxMinimal = createMockActionContext({
+      input: {},
+    });
     // @ts-ignore
-    await action.handler(mockContext);
-    const devfilePath = path.join(mockContext.workspacePath, 'devfile.yaml');
-    if (!fs.existsSync(mockContext.workspacePath)) {
-      fs.mkdirSync(mockContext.workspacePath, { recursive: true });
-    }
-    fs.writeFileSync(
-      devfilePath,
-      'schemaVersion: 2.1.0\nmetadata:\n  name: test-devfile',
-      'utf8',
+    await action.handler(ctxMinimal);
+
+    expect(ansibleCreatorRun).toHaveBeenCalledWith(
+      ctxMinimal.workspacePath,
+      '',
+      ctxMinimal.logger,
+      '',
+      '',
+      '',
+      getServiceUrlFromAnsibleConfig(config),
     );
+    expect(ctxMinimal.output).toHaveBeenCalledWith(
+      'repoUrl',
+      generateRepoUrl('', '', ''),
+    );
+  });
+
+  it('treats null applicationType as empty string', async () => {
+    const ctxNullType = createMockActionContext({
+      input: {
+        applicationType: null as any,
+      },
+    });
+    // @ts-ignore
+    await action.handler(ctxNullType);
+
+    expect(ansibleCreatorRun).toHaveBeenCalledWith(
+      ctxNullType.workspacePath,
+      '',
+      ctxNullType.logger,
+      '',
+      '',
+      '',
+      getServiceUrlFromAnsibleConfig(config),
+    );
+  });
+
+  it('logs and rethrows when ansibleCreatorRun fails', async () => {
+    const err = new Error('creator failed');
+    (ansibleCreatorRun as jest.Mock).mockRejectedValueOnce(err);
+    const errorSpy = jest
+      .spyOn(mockContext.logger, 'error')
+      .mockImplementation(() => {});
+
     await expect(
-      handleDevfileProject(
-        ansibleConfig,
-        logger,
-        'gitlab.com',
-        'https://gitlab.com/inValidUrl',
-        mockContext.workspacePath,
-      ),
-    ).rejects.toThrow('Invalid repository URL');
-    // For github
-    await expect(
-      handleDevfileProject(
-        ansibleConfig,
-        logger,
-        'github.com',
-        'https://github.com/inValidUrl',
-        mockContext.workspacePath,
-      ),
-    ).rejects.toThrow('Invalid repository URL');
+      // @ts-ignore — mock context matches handler contract
+      action.handler(mockContext),
+    ).rejects.toThrow('creator failed');
+
+    expect(errorSpy).toHaveBeenCalledWith(
+      expect.stringContaining('Error occured:'),
+    );
+    errorSpy.mockRestore();
   });
 });

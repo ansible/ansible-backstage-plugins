@@ -18,8 +18,8 @@ import {
   coreServices,
   createBackendModule,
 } from '@backstage/backend-plugin-api';
+import { scaffolderActionsExtensionPoint } from '@backstage/plugin-scaffolder-node';
 import {
-  scaffolderActionsExtensionPoint,
   scaffolderAutocompleteExtensionPoint,
   scaffolderTemplatingExtensionPoint,
 } from '@backstage/plugin-scaffolder-node/alpha';
@@ -82,7 +82,7 @@ export const scaffolderModuleAnsible = createBackendModule({
         const ansibleConfig = getAnsibleConfig(config);
         const frontendUrl = config.getString('app.baseUrl');
         scaffolder.addActions(
-          createAnsibleContentAction(config, ansibleConfig),
+          createAnsibleContentAction(config),
           createProjectAction(ansibleService),
           createExecutionEnvironment(ansibleService),
           createJobTemplate(ansibleService),
