@@ -127,7 +127,7 @@ describe('Ansible API module', () => {
 
     expect(mockDiscovery.getBaseUrl).toHaveBeenCalledWith('catalog');
     expect(mockFetch.fetch).toHaveBeenCalledWith(
-      'http://example.com/aap/sync_status',
+      'http://example.com/ansible/sync/status',
     );
     expect(result).toEqual({
       orgsUsersTeams: { lastSync: '2024-01-15T10:00:00Z' },
@@ -152,7 +152,7 @@ describe('Ansible API module', () => {
 
     expect(mockDiscovery.getBaseUrl).toHaveBeenCalledWith('catalog');
     expect(mockFetch.fetch).toHaveBeenCalledWith(
-      'http://example.com/aap/sync_status',
+      'http://example.com/ansible/sync/status',
     );
     expect(result).toEqual({
       orgsUsersTeams: { lastSync: null },

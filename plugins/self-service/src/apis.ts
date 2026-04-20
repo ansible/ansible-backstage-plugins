@@ -93,7 +93,9 @@ export class AnsibleApiClient implements AnsibleApi {
   }> {
     const baseUrl = await this.discoveryApi.getBaseUrl('catalog');
     try {
-      const response = await this.fetchApi.fetch(`${baseUrl}/aap/sync_status`);
+      const response = await this.fetchApi.fetch(
+        `${baseUrl}/ansible/sync/status`,
+      );
       const data = await response.json();
       return data;
     } catch {

@@ -51,7 +51,7 @@ export async function createRouter(options: {
     response.status(200).json(res);
   });
 
-  router.get('/aap/sync_status', async (_, response) => {
+  router.get('/ansible/sync/status', async (_, response) => {
     logger.info('Getting sync status');
     try {
       const orgsUsersTeamsLastSync = aapEntityProvider.getLastSyncTime();
