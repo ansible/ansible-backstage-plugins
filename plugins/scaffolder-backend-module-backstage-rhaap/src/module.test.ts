@@ -11,6 +11,7 @@ jest.mock('./actions', () => ({
   createExecutionEnvironment: jest.fn(() => 'action3'),
   createJobTemplate: jest.fn(() => 'action4'),
   launchJobTemplate: jest.fn(() => 'action5'),
+  launchWorkflowJobTemplate: jest.fn(() => 'action5b'),
   cleanUp: jest.fn(() => 'action6'),
   createEEDefinitionAction: jest.fn(() => 'action7'),
   createEETemplateAction: jest.fn(() => 'action8'),
@@ -90,6 +91,7 @@ describe('scaffolderModuleAnsible', () => {
     expect(actions).toContain('action3');
     expect(actions).toContain('action4');
     expect(actions).toContain('action5');
+    expect(actions).toContain('action5b');
     expect(actions).toContain('action6');
 
     // --- Verify template filters ---

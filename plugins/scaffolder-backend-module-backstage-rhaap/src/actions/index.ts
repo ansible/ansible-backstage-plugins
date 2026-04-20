@@ -19,6 +19,7 @@ export { createProjectAction } from './aapCreateProject';
 export { createExecutionEnvironment } from './aapCreateEEEnv';
 export { createJobTemplate } from './aapCreateJobTemplate';
 export { launchJobTemplate } from './aapLaunchJobTemplate';
+export { launchWorkflowJobTemplate } from './aapLaunchWorkflowJobTemplate';
 export { cleanUp } from './aapCleanUp';
 export { createEEDefinitionAction } from './createEEDefinition';
 export { prepareForPublishAction } from './prepareForPublish';

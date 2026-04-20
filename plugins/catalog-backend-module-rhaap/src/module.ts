@@ -11,6 +11,7 @@ import {
   catalogProcessingExtensionPoint,
 } from '@backstage/plugin-catalog-node/alpha';
 import { AAPJobTemplateProvider } from './providers/AAPJobTemplateProvider';
+import { AAPWorkflowJobTemplateProvider } from './providers/AAPWorkflowJobTemplateProvider';
 import { AAPEntityProvider } from './providers/AAPEntityProvider';
 import { makeValidator } from '@backstage/catalog-model';
 import { EEEntityProvider } from './providers/EEEntityProvider';
@@ -83,6 +84,11 @@ export const catalogModuleRhaap = createBackendModule({
             scheduler,
           },
         );
+        const workflowJobTemplateProviders =
+          AAPWorkflowJobTemplateProvider.fromConfig(config, ansibleService, {
+            logger,
+            scheduler,
+          });
         const pahCollectionProviders: PAHCollectionProvider[] =
           PAHCollectionProvider.fromConfig(config, ansibleService, {
             logger,
@@ -103,6 +109,7 @@ export const catalogModuleRhaap = createBackendModule({
           jobTemplateProvider,
           eeEntityProvider,
           ...pahCollectionProviders,
+          ...workflowJobTemplateProviders,
           ansibleGitContentsProviders,
         );
 
@@ -126,6 +133,8 @@ export const catalogModuleRhaap = createBackendModule({
             config,
             aapEntityProvider: aapEntityProvider[0],
             jobTemplateProvider: jobTemplateProvider[0],
+            workflowJobTemplateProvider:
+              workflowJobTemplateProviders[0] ?? undefined,
             eeEntityProvider: eeEntityProvider,
             pahCollectionProviders: pahCollectionProviders,
             httpAuth: httpAuth,
@@ -138,6 +147,7 @@ export const catalogModuleRhaap = createBackendModule({
               allowedExternalAccessSubjects.length > 0
                 ? allowedExternalAccessSubjects
                 : undefined,
+            ansibleService,
           })) as any,
         );
       },

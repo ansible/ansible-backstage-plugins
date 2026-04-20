@@ -113,6 +113,20 @@ export const launchJobTemplateFieldsSchema = z.object({
   skipTags: z.string().optional(),
 });
 
+export const launchWorkflowJobTemplateFieldsSchema = z.object({
+  template: z.string().min(1),
+  inventory: inventorySchema.optional(),
+  limit: z.string().optional(),
+  scmBranch: z.string().optional(),
+  scm_branch: z.string().optional(),
+  extraVariables: z
+    .union([z.string(), z.record(z.string(), z.unknown())])
+    .optional(),
+  /** 0 = launch only (no gate). Omit for default: wait up to 24h for workflow success (portal still gets live graph via launch log line). */
+  maxWaitSeconds: z.coerce.number().optional(),
+  pollIntervalSeconds: z.coerce.number().optional(),
+});
+
 /** Loose scaffolder `values` record — shared by every `rhaap:*` action input. */
 export const launchJobTemplateValuesLooseSchema = z.record(
   z.string(),

@@ -43,6 +43,7 @@ import { AnsiblePage } from '@ansible/plugin-backstage-rhaap';
 import { DelayingComponentFieldExtension } from './components/scaffolder/customScaffolderExtensions';
 import {
   AAPTokenFieldExtension,
+  AnsibleAugmentedTaskPage,
   AAPResourcePickerExtension,
   BaseImagePickerFieldExtension,
   CollectionsPickerFieldExtension,
@@ -51,6 +52,7 @@ import {
   PackagesPickerFieldExtension,
   MCPServersPickerFieldExtension,
   AdditionalBuildStepsPickerFieldExtension,
+  LocationListener,
   SelfServicePage,
   ScmSelectorFieldExtension,
 } from '@ansible/plugin-backstage-self-service';
@@ -108,7 +110,14 @@ const routes = (
         <ReportIssue />
       </TechDocsAddons>
     </Route>
-    <Route path="/create" element={<ScaffolderPage />}>
+    <Route
+      path="/create"
+      element={
+        <ScaffolderPage
+          components={{ TaskPageComponent: AnsibleAugmentedTaskPage }}
+        />
+      }
+    >
       <ScaffolderFieldExtensions>
         <DelayingComponentFieldExtension />
         <AAPTokenFieldExtension />
@@ -148,6 +157,7 @@ export default app.createRoot(
     <AlertDisplay />
     <OAuthRequestDialog />
     <AppRouter>
+      <LocationListener />
       <GlobalHeader />
       <Root>{routes}</Root>
     </AppRouter>

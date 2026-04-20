@@ -35,6 +35,7 @@ import {
   resolveEeFileNameFromParameters,
   resolvePublishToScmFromParameters,
 } from './runTaskParameters';
+import { WorkflowJobTaskSection } from './WorkflowJobTaskSection';
 
 const headerStyles = makeStyles(theme => ({
   header_title_color: {
@@ -501,6 +502,7 @@ export const RunTask = () => {
           isComplete={completed}
           isError={Boolean(error)}
         />
+        <WorkflowJobTaskSection />
         <Box
           display="flex"
           flexDirection="column"
@@ -647,6 +649,7 @@ export const RunTask = () => {
                 </Button>
               )}
               <Button
+                title="Scaffolder backend step logs"
                 onClick={() => {
                   const newShowLogs = !showLogs;
                   setShowLogs(newShowLogs);
@@ -656,7 +659,7 @@ export const RunTask = () => {
                 }}
                 variant="contained"
               >
-                {showLogs ? 'Hide Logs' : 'Show Logs'}
+                {showLogs ? 'Hide scaffolder logs' : 'Show scaffolder logs'}
               </Button>
               {showStartOver && (
                 <Button

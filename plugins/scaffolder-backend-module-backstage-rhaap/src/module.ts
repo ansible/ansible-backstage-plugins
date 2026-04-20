@@ -34,6 +34,7 @@ import {
   createJobTemplate,
   createProjectAction,
   launchJobTemplate,
+  launchWorkflowJobTemplate,
   createEEDefinitionAction,
   prepareForPublishAction,
 } from './actions';
@@ -88,6 +89,7 @@ export const scaffolderModuleAnsible = createBackendModule({
           createExecutionEnvironment(ansibleService),
           createJobTemplate(ansibleService),
           launchJobTemplate(ansibleService),
+          launchWorkflowJobTemplate(ansibleService),
           cleanUp(ansibleService),
           createEEDefinitionAction({
             frontendUrl,

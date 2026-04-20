@@ -15,6 +15,8 @@ import {
   ExecutionEnvironment,
   JobTemplate,
   LaunchJobTemplate,
+  LaunchWorkflowJobTemplate,
+  WorkflowJobLaunchResult,
   Organization,
   Project,
   AnsibleConfig,
@@ -29,6 +31,7 @@ import {
 } from '../types';
 import {
   IJobTemplate,
+  IWorkflowJobTemplate,
   Collection,
   ISurvey,
   InstanceGroup,
@@ -74,6 +77,12 @@ export interface IAAPService extends Pick<
   | 'getTeamsByUserId'
   | 'getUserRoleAssignments'
   | 'syncJobTemplates'
+  | 'syncWorkflowJobTemplates'
+  | 'launchWorkflowJobTemplate'
+  | 'getWorkflowJobDetail'
+  | 'listWorkflowJobNodes'
+  | 'listWorkflowJobTemplateNodes'
+  | 'getJobStdoutText'
   | 'getOrgsByUserId'
   | 'getUserInfoById'
   | 'isValidPAHRepository'
@@ -1379,6 +1388,342 @@ export class AAPClient implements IAAPService {
       );
       throw new Error(`Error retrieving job templates from ${endPoint}.`);
     }
+  }
+
+  /**
+   * Lists workflow job templates for the catalog, with optional survey specs.
+   * Same org / label filters as {@link syncJobTemplates}.
+   */
+  async syncWorkflowJobTemplates(
+    surveyEnabled: boolean | undefined,
+    labels: string[],
+    excludeLabels: string[] = [],
+  ): Promise<
+    {
+      workflow: IWorkflowJobTemplate;
+      survey: ISurvey | null;
+    }[]
+  > {
+    const endPoint = '/api/controller/v2/workflow_job_templates';
+    const urlSearchParams = new URLSearchParams();
+    urlSearchParams.set('page_size', '100');
+    if (this.catalogConfig.organizations.length === 1) {
+      urlSearchParams.set(
+        'organization__name__iexact',
+        this.catalogConfig.organizations.toString(),
+      );
+    } else if (this.catalogConfig.organizations.length > 1) {
+      this.catalogConfig.organizations.forEach(orgName => {
+        urlSearchParams.append(`or__organization__name__iexact`, orgName);
+      });
+    }
+
+    if (surveyEnabled !== undefined) {
+      urlSearchParams.set('survey_enabled', surveyEnabled.toString());
+    }
+
+    if (labels.length > 0) {
+      urlSearchParams.set('labels__name__in', labels.join(','));
+    }
+
+    if (excludeLabels.length > 0) {
+      urlSearchParams.set('not__labels__name__in', excludeLabels.join(','));
+    }
+
+    this.logger.info(`Fetching workflow job templates from RH AAP.`);
+    try {
+      const token = this.ansibleConfig.rhaap?.token ?? null;
+      const templates = (await this.executeCatalogRequest(
+        `${endPoint}?${decodeURIComponent(urlSearchParams.toString())}`,
+        token,
+      )) as IWorkflowJobTemplate[];
+
+      const results = await Promise.all(
+        templates.map(async (template: IWorkflowJobTemplate) => {
+          let survey: ISurvey | null = null;
+          if (template.survey_enabled && template.related?.survey_spec) {
+            const response = await this.executeGetRequest(
+              template.related.survey_spec,
+              token,
+            );
+            survey = (await response.json()) as ISurvey;
+          }
+          return { workflow: template, survey };
+        }),
+      );
+
+      return results;
+    } catch (err) {
+      this.logger.error(
+        `Error retrieving workflow job templates from ${endPoint}. ${JSON.stringify(err)}`,
+      );
+      throw new Error(
+        `Error retrieving workflow job templates from ${endPoint}.`,
+      );
+    }
+  }
+
+  /**
+   * Polls `/workflow_jobs/{id}/` until terminal status or timeout.
+   */
+  private async waitForWorkflowJobTerminalState(
+    workflowJobId: number,
+    token: string,
+    options: { maxWaitMs: number; pollIntervalMs: number },
+  ): Promise<{ status: string; detail: Record<string, unknown> }> {
+    const endpoint = `api/controller/v2/workflow_jobs/${workflowJobId}/`;
+    const deadline = Date.now() + options.maxWaitMs;
+    let lastDetail: Record<string, unknown> = {};
+    let lastStatus = '';
+    let previousLogged = '';
+
+    const isTerminal = (s: string) =>
+      ['successful', 'failed', 'error', 'canceled'].includes(s.toLowerCase());
+
+    while (Date.now() < deadline) {
+      const resp = await this.executeGetRequest(endpoint, token);
+      lastDetail = (await resp.json()) as Record<string, unknown>;
+      lastStatus = String(lastDetail.status ?? '').trim();
+      if (lastStatus !== previousLogged) {
+        this.logger.info(
+          `Workflow job ${workflowJobId} status: ${lastStatus || '(pending)'}`,
+        );
+        previousLogged = lastStatus;
+      }
+      if (lastStatus && isTerminal(lastStatus)) {
+        return { status: lastStatus, detail: lastDetail };
+      }
+      await this.sleep(options.pollIntervalMs);
+    }
+
+    const inspectUrl = `${this.getBaseUrl()}/execution/workflows/${workflowJobId}/output`;
+    throw new Error(
+      `Workflow job ${workflowJobId} did not reach a terminal state within ${Math.round(
+        options.maxWaitMs / 1000,
+      )}s. Last status: "${lastStatus}". Inspect: ${inspectUrl}`,
+    );
+  }
+
+  /**
+   * Launches a workflow job template by name, then optionally waits for a terminal workflow job status.
+   * {@link onLaunched} runs immediately after Controller returns a workflow job id (before polling), so callers can log/stream the id while the workflow still runs.
+   */
+  public async launchWorkflowJobTemplate(
+    payload: LaunchWorkflowJobTemplate,
+    token: string,
+    onLaunched?: (info: { id: number; url: string }) => void,
+  ): Promise<WorkflowJobLaunchResult> {
+    const data: Record<string, unknown> = {};
+    if (
+      payload.extraVariables !== undefined &&
+      payload.extraVariables !== '' &&
+      payload.extraVariables !== null
+    ) {
+      data.extra_vars = payload.extraVariables;
+    }
+    if (payload.inventory?.id) {
+      data.inventory = payload.inventory.id;
+    }
+    if (payload.limit) {
+      data.limit = payload.limit;
+    }
+    if (payload.scmBranch) {
+      data.scm_branch = payload.scmBranch;
+    }
+
+    const urlSearchParams = new URLSearchParams();
+    urlSearchParams.set('name', payload.template);
+    const templateIdEndpoint = `api/controller/v2/workflow_job_templates/?${decodeURIComponent(urlSearchParams.toString())}`;
+    let templateID: number;
+    try {
+      const templateResponse = await this.executeGetRequest(
+        templateIdEndpoint,
+        token,
+      );
+      const templateJsonResp = await templateResponse.json();
+
+      if (!templateJsonResp.results || templateJsonResp.results.length === 0) {
+        this.logger.error(
+          `No workflow job template found with name: ${payload.template}. Please check the template name and access.`,
+        );
+        throw new Error(
+          `No workflow job template found with name: ${payload.template}`,
+        );
+      }
+      templateID = templateJsonResp.results[0].id;
+    } catch (e) {
+      this.logger.error(
+        `Failed to fetch workflow job template ${payload.template}. Please make sure that the template name is correct and template is available on AAP. ${e}`,
+      );
+      throw e;
+    }
+
+    const launchEndpoint = `api/controller/v2/workflow_job_templates/${templateID}/launch/`;
+    this.logger.info(`Launching workflow job template id ${templateID}.`);
+    const response = await this.executePostRequest(launchEndpoint, token, data);
+    const jobResponseJson = (await response.json()) as {
+      workflow_job?: number;
+      id?: number;
+    };
+    const wfJobId = jobResponseJson.workflow_job ?? jobResponseJson.id;
+    if (wfJobId === undefined || wfJobId === null) {
+      throw new Error(
+        'Workflow launch response did not include a workflow job id.',
+      );
+    }
+    const id = typeof wfJobId === 'number' ? wfJobId : Number(wfJobId);
+    const url = `${this.getBaseUrl()}/execution/workflows/${id}/output`;
+
+    onLaunched?.({ id, url });
+
+    /** Omit for default gate on workflow completion (24h cap). Use 0 for launch-only / fire-and-forget. */
+    const DEFAULT_MAX_WAIT_SECONDS = 86400;
+    const DEFAULT_POLL_SECONDS = 15;
+    const MIN_POLL_SECONDS = 5;
+    const MAX_POLL_SECONDS = 120;
+
+    let maxWaitRaw =
+      payload.maxWaitSeconds === undefined || payload.maxWaitSeconds === null
+        ? DEFAULT_MAX_WAIT_SECONDS
+        : Number(payload.maxWaitSeconds);
+
+    if (!Number.isFinite(maxWaitRaw)) {
+      maxWaitRaw = DEFAULT_MAX_WAIT_SECONDS;
+    }
+
+    if (maxWaitRaw <= 0) {
+      this.logger.info(
+        `Skipping workflow job wait for ${id} (maxWaitSeconds=${maxWaitRaw}).`,
+      );
+      return { id, url, waitSkipped: true };
+    }
+
+    const effectiveMaxSeconds = Math.max(1, Math.floor(maxWaitRaw));
+
+    let pollSeconds =
+      payload.pollIntervalSeconds === undefined ||
+      payload.pollIntervalSeconds === null
+        ? DEFAULT_POLL_SECONDS
+        : Number(payload.pollIntervalSeconds);
+    if (!Number.isFinite(pollSeconds)) {
+      pollSeconds = DEFAULT_POLL_SECONDS;
+    }
+    pollSeconds = Math.round(pollSeconds);
+    pollSeconds = Math.min(
+      MAX_POLL_SECONDS,
+      Math.max(MIN_POLL_SECONDS, pollSeconds),
+    );
+    const pollIntervalMs = pollSeconds * 1000;
+    const maxWaitMs = effectiveMaxSeconds * 1000;
+
+    const { status } = await this.waitForWorkflowJobTerminalState(id, token, {
+      maxWaitMs,
+      pollIntervalMs,
+    });
+
+    const normalized = status.toLowerCase();
+    if (normalized !== 'successful') {
+      throw new Error(
+        `Workflow job ${id} finished with status "${status}". Open: ${url}`,
+      );
+    }
+
+    return {
+      id,
+      url,
+      status,
+    };
+  }
+
+  /**
+   * Controller paginates list endpoints with `next` as an absolute URL; normalize to a path + query
+   * relative to {@link getBaseUrl} for {@link executeGetRequest}.
+   */
+  private normalizeControllerPaginationNext(next: string): string {
+    try {
+      const u = new URL(next);
+      return `${u.pathname.replace(/^\//, '')}${u.search}`;
+    } catch {
+      return next.replace(/^\//, '');
+    }
+  }
+
+  /** Single workflow job record (`GET …/workflow_jobs/{id}/`). */
+  public async getWorkflowJobDetail(
+    workflowJobId: number,
+    token: string,
+  ): Promise<Record<string, unknown>> {
+    const resp = await this.executeGetRequest(
+      `api/controller/v2/workflow_jobs/${workflowJobId}/`,
+      token,
+    );
+    return (await resp.json()) as Record<string, unknown>;
+  }
+
+  /** All workflow job nodes for a run (`GET …/workflow_jobs/{id}/workflow_nodes/`), paginated. */
+  public async listWorkflowJobNodes(
+    workflowJobId: number,
+    token: string,
+  ): Promise<Record<string, unknown>[]> {
+    const pageSize = 100;
+    const initialPath = `api/controller/v2/workflow_jobs/${workflowJobId}/workflow_nodes/?page_size=${pageSize}`;
+    const acc: Record<string, unknown>[] = [];
+    let nextPath: string | null = initialPath;
+
+    while (nextPath) {
+      const resp = await this.executeGetRequest(nextPath, token);
+      const json = (await resp.json()) as {
+        results?: Record<string, unknown>[];
+        next?: string | null;
+      };
+      if (json.results?.length) {
+        acc.push(...json.results);
+      }
+      nextPath = json.next
+        ? this.normalizeControllerPaginationNext(json.next)
+        : null;
+    }
+
+    return acc;
+  }
+
+  /**
+   * Workflow job **template** graph (`GET …/workflow_job_templates/{id}/workflow_nodes/`),
+   * paginated — available before/alongside runtime run nodes for early UI skeleton.
+   */
+  public async listWorkflowJobTemplateNodes(
+    workflowJobTemplateId: number,
+    token: string,
+  ): Promise<Record<string, unknown>[]> {
+    const pageSize = 100;
+    const initialPath = `api/controller/v2/workflow_job_templates/${workflowJobTemplateId}/workflow_nodes/?page_size=${pageSize}`;
+    const acc: Record<string, unknown>[] = [];
+    let nextPath: string | null = initialPath;
+
+    while (nextPath) {
+      const resp = await this.executeGetRequest(nextPath, token);
+      const json = (await resp.json()) as {
+        results?: Record<string, unknown>[];
+        next?: string | null;
+      };
+      if (json.results?.length) {
+        acc.push(...json.results);
+      }
+      nextPath = json.next
+        ? this.normalizeControllerPaginationNext(json.next)
+        : null;
+    }
+
+    return acc;
+  }
+
+  /** Plain-text stdout for a playbook job spawned under a workflow node. */
+  public async getJobStdoutText(jobId: number, token: string): Promise<string> {
+    const resp = await this.executeGetRequest(
+      `api/controller/v2/jobs/${jobId}/stdout/?format=txt`,
+      token,
+    );
+    return await resp.text();
   }
 
   public async isValidPAHRepository(repositoryName: string): Promise<boolean> {

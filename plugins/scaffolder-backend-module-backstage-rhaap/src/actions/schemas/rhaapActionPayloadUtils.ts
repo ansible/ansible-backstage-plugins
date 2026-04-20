@@ -16,7 +16,10 @@
 
 import { z } from 'zod';
 
-import { launchJobTemplateFieldsSchema } from './rhaapActionSchemas';
+import {
+  launchJobTemplateFieldsSchema,
+  launchWorkflowJobTemplateFieldsSchema,
+} from './rhaapActionSchemas';
 
 function isPlainObject(val: unknown): val is Record<string, unknown> {
   return val !== null && typeof val === 'object' && !Array.isArray(val);
@@ -496,4 +499,44 @@ export function normalizeTemplateLaunchValues(input: unknown): unknown {
 export const launchJobTemplateInputSchema = z.preprocess(
   normalizeTemplateLaunchValues,
   launchJobTemplateFieldsSchema.passthrough(),
+);
+
+export function normalizeWorkflowTemplateLaunchValues(input: unknown): unknown {
+  if (input === null || typeof input !== 'object' || Array.isArray(input)) {
+    return input;
+  }
+  const result = { ...(input as Record<string, unknown>) };
+
+  const alias = (camel: string, snake: string) => {
+    if (result[camel] === undefined && result[snake] !== undefined) {
+      result[camel] = result[snake];
+    }
+    if (Object.hasOwn(result, snake)) {
+      delete result[snake];
+    }
+  };
+
+  alias('extraVariables', 'extra_vars');
+  alias('scmBranch', 'scm_branch');
+  alias('maxWaitSeconds', 'max_wait_seconds');
+  alias('pollIntervalSeconds', 'poll_interval_seconds');
+
+  if (
+    result.extraVariables === undefined &&
+    result.extra_vars_raw !== undefined
+  ) {
+    result.extraVariables = result.extra_vars_raw;
+  }
+  if (Object.hasOwn(result, 'extra_vars_raw')) {
+    delete result.extra_vars_raw;
+  }
+
+  result.inventory = pickLaunchInventory(result.inventory);
+
+  return result;
+}
+
+export const launchWorkflowJobTemplateInputSchema = z.preprocess(
+  normalizeWorkflowTemplateLaunchValues,
+  launchWorkflowJobTemplateFieldsSchema.passthrough(),
 );

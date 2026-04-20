@@ -20,6 +20,8 @@ export type AapConfig = {
   surveyEnabled?: boolean | undefined;
   jobTemplateLabels?: string[];
   jobTemplateExcludeLabels?: string[];
+  workflowJobTemplateLabels?: string[];
+  workflowJobTemplateExcludeLabels?: string[];
   /** When set, this config is for a PAH collection sync for the given repository name. */
   pahRepositories?: PAHRepositoryConfig[];
 };

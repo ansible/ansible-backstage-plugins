@@ -47,6 +47,77 @@ export interface ISummaryFieldCredential {
   summary_fields: Record<string, { id: number; name: string }>;
 }
 
+/** Ansible Automation Platform workflow job template (DAG orchestration). */
+export type IWorkflowJobTemplate = {
+  id: number;
+  name: string;
+  description: string;
+  type: 'workflow_job_template';
+  url: string;
+  survey_enabled: boolean;
+  extra_vars?: string;
+  inventory?: number | null;
+  limit?: string;
+  scm_branch?: string;
+  organization?: number | null;
+  ask_inventory_on_launch?: boolean;
+  ask_limit_on_launch?: boolean;
+  ask_scm_branch_on_launch?: boolean;
+  ask_variables_on_launch?: boolean;
+  related: {
+    survey_spec?: string;
+    workflow_nodes?: string;
+    labels?: string;
+    launch?: string;
+    organization?: string;
+    created_by?: string;
+    modified_by?: string;
+    notification_templates_started?: string;
+    notification_templates_success?: string;
+    notification_templates_error?: string;
+    schedules?: string;
+    webhook_key?: string;
+    copy?: string;
+  };
+  summary_fields: {
+    organization?: {
+      id: number;
+      name: string;
+      description?: string;
+    };
+    inventory?: {
+      id: number;
+      name: string;
+      description?: string;
+      kind?: string;
+      organization_id?: number;
+    };
+    labels?: {
+      count: number;
+      results: ILabel[];
+    };
+    created_by?: {
+      id: number;
+      username: string;
+      first_name: string;
+      last_name: string;
+    };
+    modified_by?: {
+      id: number;
+      username: string;
+      first_name: string;
+      last_name: string;
+    };
+    user_capabilities?: {
+      edit?: boolean;
+      delete?: boolean;
+      start?: boolean;
+      schedule?: boolean;
+      copy?: boolean;
+    };
+  };
+};
+
 // JOB TEMPLATE
 
 export type IJobTemplate = {

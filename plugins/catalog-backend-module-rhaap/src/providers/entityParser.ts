@@ -12,6 +12,7 @@ import {
 import {
   Collection,
   IJobTemplate,
+  IWorkflowJobTemplate,
   Organization,
   ISurvey,
   Team,
@@ -19,6 +20,7 @@ import {
   InstanceGroup,
 } from '@ansible/backstage-rhaap-common';
 import { generateTemplate } from './dynamicJobTemplate';
+import { generateWorkflowJobTemplateEntity } from './dynamicWorkflowJobTemplate';
 import {
   generateSourceId,
   generateRepositoryEntityName,
@@ -169,6 +171,15 @@ export const aapJobTemplateParser = (options: {
   instanceGroup: InstanceGroup[];
 }): Entity => {
   return generateTemplate(options);
+};
+
+export const aapWorkflowJobTemplateParser = (options: {
+  baseUrl: string;
+  nameSpace: string;
+  workflow: IWorkflowJobTemplate;
+  survey: ISurvey | null;
+}): Entity => {
+  return generateWorkflowJobTemplateEntity(options);
 };
 
 export const pahCollectionParser = (options: {

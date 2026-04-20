@@ -12,6 +12,7 @@ import {
   normalizeJobTemplateInputValues,
   normalizeProjectInputValues,
   normalizeTemplateLaunchValues,
+  normalizeWorkflowTemplateLaunchValues,
   pickCredentialForProject,
   pickLaunchExecutionEnvironment,
   pickOrganization,
@@ -673,6 +674,21 @@ describe('normalizeTemplateLaunchValues', () => {
       credentials: [{ name: 'x' }],
     }) as Record<string, unknown>;
     expect((out.credentials as unknown[])[0]).toEqual({ name: 'x' });
+  });
+});
+
+describe('normalizeWorkflowTemplateLaunchValues', () => {
+  it('aliases max_wait_seconds and poll_interval_seconds and drops snake_case keys', () => {
+    const out = normalizeWorkflowTemplateLaunchValues({
+      template: 'wf',
+      max_wait_seconds: 120,
+      poll_interval_seconds: 45,
+    }) as Record<string, unknown>;
+    expect(out).toEqual({
+      template: 'wf',
+      maxWaitSeconds: 120,
+      pollIntervalSeconds: 45,
+    });
   });
 });
 

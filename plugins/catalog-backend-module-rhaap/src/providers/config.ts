@@ -20,12 +20,19 @@ export function readAapApiEntityConfigs(
     .keys()
     .map(id => {
       const catalogConfig = providerConfigs.getConfig(id);
+      if (!catalogConfig.has(`sync.${syncEntity}`)) {
+        return null;
+      }
       if (
         catalogConfig.has(`sync.${syncEntity}.enabled`) &&
         !catalogConfig.getBoolean(`sync.${syncEntity}.enabled`)
       )
         return null;
-      return readAapApiEntityConfig(id, config, catalogConfig, syncEntity);
+      const cfg = readAapApiEntityConfig(id, config, catalogConfig, syncEntity);
+      if (syncEntity === 'workflowJobTemplates' && !cfg.schedule) {
+        return null;
+      }
+      return cfg;
     })
     .filter(c => !!c);
 }
@@ -59,6 +66,8 @@ function readAapApiEntityConfig(
   let surveyEnabled: boolean | undefined = undefined;
   let jobTemplateLabels: string[] = [];
   let jobTemplateExcludeLabels: string[] = [];
+  let workflowJobTemplateLabels: string[] = [];
+  let workflowJobTemplateExcludeLabels: string[] = [];
 
   if (syncEntity === 'jobTemplates') {
     if (catalogConfig.has(`sync.${syncEntity}.surveyEnabled`)) {
@@ -72,6 +81,24 @@ function readAapApiEntityConfig(
     }
     if (catalogConfig.has(`sync.${syncEntity}.excludeLabels`)) {
       jobTemplateExcludeLabels =
+        catalogConfig.getOptionalStringArray(
+          `sync.${syncEntity}.excludeLabels`,
+        ) ?? [];
+    }
+  }
+
+  if (syncEntity === 'workflowJobTemplates') {
+    if (catalogConfig.has(`sync.${syncEntity}.surveyEnabled`)) {
+      surveyEnabled = catalogConfig.getOptionalBoolean(
+        `sync.${syncEntity}.surveyEnabled`,
+      );
+    }
+    if (catalogConfig.has(`sync.${syncEntity}.labels`)) {
+      workflowJobTemplateLabels =
+        catalogConfig.getOptionalStringArray(`sync.${syncEntity}.labels`) ?? [];
+    }
+    if (catalogConfig.has(`sync.${syncEntity}.excludeLabels`)) {
+      workflowJobTemplateExcludeLabels =
         catalogConfig.getOptionalStringArray(
           `sync.${syncEntity}.excludeLabels`,
         ) ?? [];
@@ -107,6 +134,8 @@ function readAapApiEntityConfig(
     surveyEnabled,
     jobTemplateLabels,
     jobTemplateExcludeLabels,
+    workflowJobTemplateLabels,
+    workflowJobTemplateExcludeLabels,
     pahRepositories,
   };
 }
