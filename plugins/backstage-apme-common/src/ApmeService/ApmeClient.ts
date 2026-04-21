@@ -255,7 +255,7 @@ export class ApmeClient {
   }
 
   async createPullRequest(
-    projectId: string,
+    _projectId: string,
     activityId: string,
     scmToken?: string,
   ): Promise<{ pr_url: string }> {

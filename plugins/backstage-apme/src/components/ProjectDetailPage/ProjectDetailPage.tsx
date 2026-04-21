@@ -55,7 +55,6 @@ import RefreshIcon from '@material-ui/icons/Refresh';
 import BuildIcon from '@material-ui/icons/Build';
 import GitHubIcon from '@material-ui/icons/GitHub';
 import LinkIcon from '@material-ui/icons/Link';
-import CheckCircleIcon from '@material-ui/icons/CheckCircle';
 import { Activity, Violation } from '@ansible/backstage-apme-common';
 import { apmeApiRef } from '../../api';
 
@@ -293,7 +292,9 @@ export const ProjectDetailPage = () => {
         <Chip
           size="small"
           label={row.level}
-          className={`${classes.levelChip} ${(classes as Record<string, string>)[row.level] || ''}`}
+          className={`${classes.levelChip} ${
+            (classes as Record<string, string>)[row.level] || ''
+          }`}
         />
       ),
     },
@@ -389,7 +390,7 @@ export const ProjectDetailPage = () => {
 
         {scanProgress && (
           <Paper className={classes.scanProgress}>
-            <Box display="flex" alignItems="center" gap={2}>
+            <Box display="flex" alignItems="center" style={{ gap: 16 }}>
               <CircularProgress size={20} />
               <Typography>{scanProgress}</Typography>
             </Box>
@@ -406,7 +407,9 @@ export const ProjectDetailPage = () => {
                   Health Score
                 </Typography>
                 <Typography
-                  className={`${classes.statValue} ${getScoreClass(project.health_score)}`}
+                  className={`${classes.statValue} ${getScoreClass(
+                    project.health_score,
+                  )}`}
                 >
                   {project.health_score}%
                 </Typography>
