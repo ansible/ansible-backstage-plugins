@@ -17,14 +17,23 @@
 import {
   createPlugin,
   createComponentExtension,
+  createRoutableExtension,
+  createRouteRef,
   createApiFactory,
   discoveryApiRef,
   fetchApiRef,
 } from '@backstage/core-plugin-api';
 import { apmeApiRef, ApmeApiClient } from './api';
 
+export const rootRouteRef = createRouteRef({
+  id: 'apme',
+});
+
 export const apmePlugin = createPlugin({
   id: 'apme',
+  routes: {
+    root: rootRouteRef,
+  },
   apis: [
     createApiFactory({
       api: apmeApiRef,
@@ -37,6 +46,15 @@ export const apmePlugin = createPlugin({
     }),
   ],
 });
+
+export const ApmePage = apmePlugin.provide(
+  createRoutableExtension({
+    name: 'ApmePage',
+    component: () =>
+      import('./components/ApmePage').then(m => m.ApmePage),
+    mountPoint: rootRouteRef,
+  }),
+);
 
 export const ApmeHealthCard = apmePlugin.provide(
   createComponentExtension({

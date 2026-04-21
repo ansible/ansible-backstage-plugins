@@ -14,13 +14,4 @@
  * limitations under the License.
  */
 
-export {
-  apmePlugin,
-  ApmePage,
-  ApmeHealthCard,
-  ApmeViolationsTable,
-  ApmeEntityTab,
-  rootRouteRef as apmeRouteRef,
-} from './plugin';
-export { apmeApiRef, ApmeApiClient } from './api';
-export type { ApmeApi } from './api';
+export { ApmePage } from './ApmePage';
