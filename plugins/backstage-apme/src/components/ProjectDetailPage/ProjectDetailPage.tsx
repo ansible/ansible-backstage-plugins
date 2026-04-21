@@ -45,6 +45,11 @@ import {
   Paper,
   IconButton,
   Tooltip,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+  TextField,
 } from '@material-ui/core';
 import RefreshIcon from '@material-ui/icons/Refresh';
 import BuildIcon from '@material-ui/icons/Build';
@@ -118,6 +123,9 @@ export const ProjectDetailPage = () => {
   const [scanning, setScanning] = useState(false);
   const [remediating, setRemediating] = useState(false);
   const [scanProgress, setScanProgress] = useState<string | null>(null);
+  const [scmTokenDialog, setScmTokenDialog] = useState<{ open: boolean; activityId: string | null; error: string | null }>({ open: false, activityId: null, error: null });
+  const [scmToken, setScmToken] = useState('');
+  const [creatingPR, setCreatingPR] = useState(false);
 
   const {
     value: data,
@@ -175,17 +183,51 @@ export const ProjectDetailPage = () => {
     }
   }, [projectId, apmeApi]);
 
-  const handleCreatePR = useCallback(async (activityId: string) => {
+  const handleCreatePR = useCallback(async (activityId: string, token?: string) => {
+    setCreatingPR(true);
+    setScmTokenDialog(prev => ({ ...prev, error: null }));
     try {
-      const result = await apmeApi.createPullRequest(projectId!, activityId);
+      const result = await apmeApi.createPullRequest(projectId!, activityId, token);
       if (result.pr_url) {
         window.open(result.pr_url, '_blank');
       }
+      setScmTokenDialog({ open: false, activityId: null, error: null });
+      setScmToken('');
       retry();
-    } catch (err) {
-      // Handle error
+    } catch (err: any) {
+      const errorMessage = err?.message || '';
+      if (errorMessage.includes('422') && errorMessage.includes('SCM token')) {
+        setScmTokenDialog({ open: true, activityId, error: null });
+      } else if (scmTokenDialog.open) {
+        // Show error in the dialog if it's open
+        let friendlyError = 'Failed to create pull request.';
+        if (errorMessage.includes('401') || errorMessage.includes('403') || errorMessage.includes('Bad credentials') || errorMessage.includes('Unauthorized')) {
+          friendlyError = 'Invalid or expired token. Please check your GitHub token has the correct permissions.';
+        } else if (errorMessage.includes('502')) {
+          // APME returns 502 when GitHub rejects the request - usually auth issues
+          friendlyError = 'Invalid or expired token. Please check your GitHub token has repo access.';
+        } else if (errorMessage.includes('404')) {
+          friendlyError = 'Repository not found. Check the token has access to this repository.';
+        } else if (errorMessage.includes('connect') || errorMessage.includes('ECONNREFUSED')) {
+          friendlyError = 'Failed to connect to GitHub. Please try again.';
+        }
+        setScmTokenDialog(prev => ({ ...prev, error: friendlyError }));
+      }
+    } finally {
+      setCreatingPR(false);
     }
-  }, [projectId, apmeApi, retry]);
+  }, [projectId, apmeApi, retry, scmTokenDialog.open]);
+
+  const handleScmTokenSubmit = useCallback(() => {
+    if (scmTokenDialog.activityId && scmToken) {
+      handleCreatePR(scmTokenDialog.activityId, scmToken);
+    }
+  }, [scmTokenDialog.activityId, scmToken, handleCreatePR]);
+
+  const handleScmTokenDialogClose = useCallback(() => {
+    setScmTokenDialog({ open: false, activityId: null, error: null });
+    setScmToken('');
+  }, []);
 
   if (loading) {
     return (
@@ -405,6 +447,47 @@ export const ProjectDetailPage = () => {
           columns={activityColumns}
           data={activity}
         />
+
+        {/* SCM Token Dialog */}
+        <Dialog open={scmTokenDialog.open} onClose={handleScmTokenDialogClose} maxWidth="sm" fullWidth>
+          <DialogTitle>GitHub Token Required</DialogTitle>
+          <DialogContent>
+            <Typography variant="body2" color="textSecondary" style={{ marginBottom: 16 }}>
+              A GitHub personal access token is required to create a pull request.
+              The token needs <strong>repo</strong> scope for private repositories
+              or <strong>public_repo</strong> for public repositories.
+            </Typography>
+            {scmTokenDialog.error && (
+              <Typography variant="body2" color="error" style={{ marginBottom: 16 }}>
+                {scmTokenDialog.error}
+              </Typography>
+            )}
+            <TextField
+              autoFocus
+              fullWidth
+              label="GitHub Token"
+              type="password"
+              value={scmToken}
+              onChange={(e) => setScmToken(e.target.value)}
+              placeholder="ghp_xxxxxxxxxxxx"
+              variant="outlined"
+              error={!!scmTokenDialog.error}
+              helperText="Your token will be used only for this PR creation and won't be stored."
+              disabled={creatingPR}
+            />
+          </DialogContent>
+          <DialogActions>
+            <Button onClick={handleScmTokenDialogClose} disabled={creatingPR}>Cancel</Button>
+            <Button
+              onClick={handleScmTokenSubmit}
+              color="primary"
+              variant="contained"
+              disabled={!scmToken || creatingPR}
+            >
+              {creatingPR ? 'Creating...' : 'Create PR'}
+            </Button>
+          </DialogActions>
+        </Dialog>
       </Content>
     </Page>
   );

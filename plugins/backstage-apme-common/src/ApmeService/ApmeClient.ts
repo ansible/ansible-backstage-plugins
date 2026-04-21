@@ -243,11 +243,16 @@ export class ApmeClient {
     );
   }
 
-  async createPullRequest(projectId: string, activityId: string): Promise<{ pr_url: string }> {
+  async createPullRequest(projectId: string, activityId: string, scmToken?: string): Promise<{ pr_url: string }> {
+    const body: Record<string, string> = {};
+    if (scmToken) {
+      body.scm_token = scmToken;
+    }
     return this.executeRequest<{ pr_url: string }>(
       `/api/v1/activity/${activityId}/pull-request`,
       {
         method: 'POST',
+        body: Object.keys(body).length > 0 ? JSON.stringify(body) : undefined,
       },
     );
   }
