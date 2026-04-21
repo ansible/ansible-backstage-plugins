@@ -29,10 +29,16 @@ export const rootRouteRef = createRouteRef({
   id: 'apme',
 });
 
+export const projectRouteRef = createRouteRef({
+  id: 'apme-project',
+  params: ['projectId'],
+});
+
 export const apmePlugin = createPlugin({
   id: 'apme',
   routes: {
     root: rootRouteRef,
+    project: projectRouteRef,
   },
   apis: [
     createApiFactory({
@@ -53,6 +59,15 @@ export const ApmePage = apmePlugin.provide(
     component: () =>
       import('./components/ApmePage').then(m => m.ApmePage),
     mountPoint: rootRouteRef,
+  }),
+);
+
+export const ApmeProjectPage = apmePlugin.provide(
+  createRoutableExtension({
+    name: 'ApmeProjectPage',
+    component: () =>
+      import('./components/ProjectDetailPage').then(m => m.ProjectDetailPage),
+    mountPoint: projectRouteRef,
   }),
 );
 

@@ -98,3 +98,54 @@ export interface ApmeConfig {
   baseUrl: string;
   checkSSL: boolean;
 }
+
+export interface CreateProjectRequest {
+  name: string;
+  repo_url: string;
+  branch?: string;
+}
+
+export interface Activity {
+  scan_id: string;
+  session_id: string;
+  project_path: string;
+  source: string;
+  created_at: string;
+  scan_type: 'check' | 'remediate';
+  total_violations: number;
+  fixable: number;
+  ai_candidate: number;
+  ai_proposed: number;
+  ai_declined: number;
+  ai_accepted: number;
+  manual_review: number;
+  remediated_count: number;
+  pr_url?: string | null;
+}
+
+export interface Proposal {
+  id: string;
+  violation_id: number;
+  rule_id: string;
+  file: string;
+  line: number;
+  original_yaml: string;
+  fixed_yaml: string;
+  status: 'pending' | 'accepted' | 'declined';
+  ai_reason?: string;
+}
+
+export interface OperationState {
+  operation_id: string;
+  project_id: string;
+  status: string;
+  phase?: string;
+  progress_pct: number;
+  latest_message?: string;
+  proposals?: Proposal[];
+  result?: {
+    total_violations: number;
+    fixable: number;
+    remediated: number;
+  };
+}

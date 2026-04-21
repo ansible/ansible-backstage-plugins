@@ -24,6 +24,9 @@ import {
   ScanResult,
   HealthStatus,
   ApmeConfig,
+  CreateProjectRequest,
+  Activity,
+  OperationState,
 } from '../types';
 
 export interface ApmeClientOptions {
@@ -176,6 +179,73 @@ export class ApmeClient {
       `/api/v1/projects/${projectId}/scans/${scanId}`,
     );
   }
+
+  async createProject(request: CreateProjectRequest): Promise<Project> {
+    return this.executeRequest<Project>('/api/v1/projects', {
+      method: 'POST',
+      body: JSON.stringify(request),
+    });
+  }
+
+  async deleteProject(projectId: string): Promise<void> {
+    await this.executeRequest<void>(`/api/v1/projects/${projectId}`, {
+      method: 'DELETE',
+    });
+  }
+
+  async getActivity(projectId: string): Promise<Activity[]> {
+    const response = await this.executeRequest<{ items: Activity[] }>(
+      `/api/v1/projects/${projectId}/activity`,
+    );
+    return response.items || [];
+  }
+
+  async getOperationState(projectId: string): Promise<OperationState | null> {
+    try {
+      return await this.executeRequest<OperationState>(
+        `/api/v1/projects/${projectId}/operation`,
+      );
+    } catch (error) {
+      if (error instanceof NotFoundError) {
+        return null;
+      }
+      throw error;
+    }
+  }
+
+  async triggerRemediate(projectId: string): Promise<ScanResult> {
+    const response = await this.executeRequest<{ operation_id: string }>(
+      `/api/v1/projects/${projectId}/operation`,
+      {
+        method: 'POST',
+        body: JSON.stringify({ action: 'remediate', options: {} }),
+      },
+    );
+    return {
+      scanId: response.operation_id,
+      projectId,
+      status: 'running',
+    };
+  }
+
+  async approveProposals(projectId: string, proposalIds: string[]): Promise<void> {
+    await this.executeRequest<void>(
+      `/api/v1/projects/${projectId}/operation/approve`,
+      {
+        method: 'POST',
+        body: JSON.stringify({ approved_ids: proposalIds }),
+      },
+    );
+  }
+
+  async createPullRequest(projectId: string, activityId: string): Promise<{ pr_url: string }> {
+    return this.executeRequest<{ pr_url: string }>(
+      `/api/v1/activity/${activityId}/pull-request`,
+      {
+        method: 'POST',
+      },
+    );
+  }
 }
 
 export type IApmeService = Pick<
@@ -188,4 +258,11 @@ export type IApmeService = Pick<
   | 'getRules'
   | 'triggerScan'
   | 'getScanStatus'
+  | 'createProject'
+  | 'deleteProject'
+  | 'getActivity'
+  | 'getOperationState'
+  | 'triggerRemediate'
+  | 'approveProposals'
+  | 'createPullRequest'
 >;
