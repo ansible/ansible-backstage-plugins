@@ -1109,6 +1109,7 @@ paths:
     get:
       operationId: getApmeHealth
       summary: Get APME service health status
+      description: Returns the health status of the APME backend service including component availability.
       tags:
         - APME
       responses:
@@ -1123,6 +1124,7 @@ paths:
     get:
       operationId: getApmeProjects
       summary: List all APME projects
+      description: Returns all Ansible content projects registered with APME for policy analysis and modernization.
       tags:
         - APME
       responses:
@@ -1135,6 +1137,7 @@ paths:
     post:
       operationId: createApmeProject
       summary: Create a new APME project
+      description: Registers a new Ansible content repository with APME for policy analysis and modernization tracking.
       tags:
         - APME
       requestBody:
@@ -1154,6 +1157,7 @@ paths:
     get:
       operationId: getApmeProject
       summary: Get a specific APME project
+      description: Returns details of a specific APME project including health score, violation counts, and scan history.
       tags:
         - APME
       parameters:
@@ -1172,6 +1176,7 @@ paths:
     delete:
       operationId: deleteApmeProject
       summary: Delete an APME project
+      description: Removes a project from APME tracking. This does not delete the underlying repository.
       tags:
         - APME
       parameters:
@@ -1188,6 +1193,7 @@ paths:
     get:
       operationId: getApmeViolations
       summary: Get violations for a project
+      description: Returns all policy violations detected in the project from the most recent scan, including severity levels and file locations.
       tags:
         - APME
       parameters:
@@ -1210,6 +1216,7 @@ paths:
     post:
       operationId: triggerApmeOperation
       summary: Trigger a scan operation
+      description: Initiates a new policy scan on the project. Returns an operation ID for tracking progress.
       tags:
         - APME
       parameters:
@@ -1230,6 +1237,7 @@ paths:
     get:
       operationId: getApmeOperationState
       summary: Get current operation state
+      description: Returns the current state of an in-progress operation including phase and progress details.
       tags:
         - APME
       parameters:
@@ -1252,6 +1260,7 @@ paths:
     post:
       operationId: approveApmeProposals
       summary: Approve remediation proposals
+      description: Approves selected remediation proposals from the current operation to be applied to the codebase.
       tags:
         - APME
       parameters:
@@ -1277,6 +1286,7 @@ paths:
     post:
       operationId: triggerApmeRemediation
       summary: Trigger remediation
+      description: Initiates automated remediation of detected violations using AI-assisted code fixes.
       tags:
         - APME
       parameters:
@@ -1297,6 +1307,7 @@ paths:
     get:
       operationId: getApmeActivity
       summary: Get project scan history
+      description: Returns the history of scans and remediation operations performed on the project.
       tags:
         - APME
       parameters:
@@ -1319,6 +1330,7 @@ paths:
     get:
       operationId: getApmeRules
       summary: List all APME rules
+      description: Returns the catalog of all policy rules available in APME including rule IDs, descriptions, and severity levels.
       tags:
         - APME
       responses:
@@ -1333,6 +1345,7 @@ paths:
     get:
       operationId: lookupApmeProject
       summary: Lookup project by repo URL
+      description: Finds an APME project by its repository URL. Used to check if a repository is already registered.
       tags:
         - APME
       parameters:
@@ -1355,6 +1368,7 @@ paths:
     post:
       operationId: createApmePullRequest
       summary: Create a PR from remediation activity
+      description: Creates a GitHub pull request containing the remediation changes from a completed remediation activity.
       tags:
         - APME
       parameters:
