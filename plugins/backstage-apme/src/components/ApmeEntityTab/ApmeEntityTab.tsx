@@ -102,7 +102,7 @@ export const ApmeEntityTab = () => {
   const [scanning, setScanning] = useState(false);
   const [scanError, setScanError] = useState<Error | null>(null);
   const [scanProgress, setScanProgress] = useState<ScanProgress | null>(null);
-  const [operationId, setOperationId] = useState<string | null>(null);
+  const [_operationId, setOperationId] = useState<string | null>(null);
   const [refreshKey, setRefreshKey] = useState(0);
 
   const repoUrl =

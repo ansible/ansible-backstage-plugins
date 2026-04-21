@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-import { useState, useCallback, useMemo } from 'react';
+import { useState, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAsyncRetry } from 'react-use';
 import { useApi } from '@backstage/core-plugin-api';
@@ -25,7 +25,6 @@ import {
   HeaderLabel,
   Page,
   Progress,
-  ResponseErrorPanel,
   Table,
   TableColumn,
   SupportButton,
@@ -464,7 +463,6 @@ export const ApmePage = () => {
             pageSize: 10,
             pageSizeOptions: [10, 25, 50],
             sorting: true,
-            idSynonym: 'id',
           }}
           columns={columns}
           data={projects.map(p => ({ ...p, id: p.id || p.repo_url }))}
