@@ -171,15 +171,18 @@ export const ApmePage = () => {
     return { health, projects };
   }, []);
 
-  const handleDelete = useCallback(async (event: React.MouseEvent, projectId: string) => {
-    event.stopPropagation();
-    try {
-      await apmeApi.deleteProject(projectId);
-      retry();
-    } catch (err) {
-      // Error handled silently - project may already be deleted
-    }
-  }, [apmeApi, retry]);
+  const handleDelete = useCallback(
+    async (event: React.MouseEvent, projectId: string) => {
+      event.stopPropagation();
+      try {
+        await apmeApi.deleteProject(projectId);
+        retry();
+      } catch (err) {
+        // Error handled silently - project may already be deleted
+      }
+    },
+    [apmeApi, retry],
+  );
 
   if (loading) {
     return (
@@ -195,9 +198,10 @@ export const ApmePage = () => {
   }
 
   if (error) {
-    const isConnectionError = error.message?.includes('fetch failed') ||
-                               error.message?.includes('Failed to connect') ||
-                               error.message?.includes('ECONNREFUSED');
+    const isConnectionError =
+      error.message?.includes('fetch failed') ||
+      error.message?.includes('Failed to connect') ||
+      error.message?.includes('ECONNREFUSED');
     return (
       <Page themeId="tool">
         <Header title="APME" subtitle="Ansible Policy & Modernization Engine">
@@ -206,12 +210,26 @@ export const ApmePage = () => {
         <Content>
           <Card>
             <CardContent>
-              <Box display="flex" flexDirection="column" alignItems="center" padding={4}>
-                <ErrorIcon style={{ fontSize: 64, color: '#f44336', marginBottom: 16 }} />
+              <Box
+                display="flex"
+                flexDirection="column"
+                alignItems="center"
+                padding={4}
+              >
+                <ErrorIcon
+                  style={{ fontSize: 64, color: '#f44336', marginBottom: 16 }}
+                />
                 <Typography variant="h5" gutterBottom>
-                  {isConnectionError ? 'APME Service Unavailable' : 'Error Loading APME'}
+                  {isConnectionError
+                    ? 'APME Service Unavailable'
+                    : 'Error Loading APME'}
                 </Typography>
-                <Typography variant="body1" color="textSecondary" align="center" style={{ marginBottom: 24 }}>
+                <Typography
+                  variant="body1"
+                  color="textSecondary"
+                  align="center"
+                  style={{ marginBottom: 24 }}
+                >
                   {isConnectionError
                     ? 'Unable to connect to the APME backend service. Please check that the service is running and try again.'
                     : error.message}
@@ -234,11 +252,18 @@ export const ApmePage = () => {
 
   const { health, projects } = data || { health: null, projects: [] };
 
-  const totalViolations = projects.reduce((sum, p) => sum + (p.total_violations || 0), 0);
+  const totalViolations = projects.reduce(
+    (sum, p) => sum + (p.total_violations || 0),
+    0,
+  );
   const totalScans = projects.reduce((sum, p) => sum + (p.scan_count || 0), 0);
-  const avgScore = projects.length > 0
-    ? Math.round(projects.reduce((sum, p) => sum + (p.health_score || 0), 0) / projects.length)
-    : 0;
+  const avgScore =
+    projects.length > 0
+      ? Math.round(
+          projects.reduce((sum, p) => sum + (p.health_score || 0), 0) /
+            projects.length,
+        )
+      : 0;
 
   const getScoreClass = (score: number): string => {
     if (score >= 80) return classes.highScore;
@@ -263,7 +288,12 @@ export const ApmePage = () => {
       case 'improving':
         return <TrendingUpIcon className={classes.trendUp} />;
       case 'declining':
-        return <TrendingUpIcon className={classes.trendDown} style={{ transform: 'rotate(180deg)' }} />;
+        return (
+          <TrendingUpIcon
+            className={classes.trendDown}
+            style={{ transform: 'rotate(180deg)' }}
+          />
+        );
       default:
         return <span className={classes.trendStable}>―</span>;
     }
@@ -277,11 +307,7 @@ export const ApmePage = () => {
     {
       title: 'Project',
       field: 'name',
-      render: row => (
-        <Link to={`/apme/project/${row.id}`}>
-          {row.name}
-        </Link>
-      ),
+      render: row => <Link to={`/apme/project/${row.id}`}>{row.name}</Link>,
     },
     {
       title: 'Health Score',
@@ -332,10 +358,7 @@ export const ApmePage = () => {
       width: '80px',
       render: row => (
         <Tooltip title="Remove from APME">
-          <IconButton
-            size="small"
-            onClick={(e) => handleDelete(e, row.id)}
-          >
+          <IconButton size="small" onClick={e => handleDelete(e, row.id)}>
             <DeleteIcon fontSize="small" />
           </IconButton>
         </Tooltip>
@@ -360,8 +383,8 @@ export const ApmePage = () => {
             Add Project
           </Button>
           <SupportButton>
-            APME analyzes Ansible content for policy compliance, security issues,
-            and modernization opportunities.
+            APME analyzes Ansible content for policy compliance, security
+            issues, and modernization opportunities.
           </SupportButton>
         </ContentHeader>
 
@@ -415,13 +438,11 @@ export const ApmePage = () => {
                 Service Health
               </Typography>
               <Grid container spacing={2}>
-                {health.components?.map((component) => (
+                {health.components?.map(component => (
                   <Grid item xs={12} sm={6} md={4} key={component.name}>
                     <Box className={classes.componentStatus}>
                       {getHealthIcon(component.status)}
-                      <Typography variant="body2">
-                        {component.name}
-                      </Typography>
+                      <Typography variant="body2">{component.name}</Typography>
                       <Typography variant="caption" color="textSecondary">
                         ({component.address})
                       </Typography>

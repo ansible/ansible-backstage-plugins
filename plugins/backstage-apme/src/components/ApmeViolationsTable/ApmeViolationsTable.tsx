@@ -151,7 +151,9 @@ export const ApmeViolationsTable = () => {
 
   const filteredViolations = violations
     .filter(v => levelFilter === 'all' || v.level === levelFilter)
-    .filter(v => validatorFilter === 'all' || v.validator_source === validatorFilter)
+    .filter(
+      v => validatorFilter === 'all' || v.validator_source === validatorFilter,
+    )
     .sort((a, b) => (levelOrder[a.level] ?? 99) - (levelOrder[b.level] ?? 99));
 
   const getLevelClass = (level: string): string => {
@@ -212,7 +214,11 @@ export const ApmeViolationsTable = () => {
   return (
     <>
       <Box className={classes.filterContainer}>
-        <FormControl className={classes.formControl} variant="outlined" size="small">
+        <FormControl
+          className={classes.formControl}
+          variant="outlined"
+          size="small"
+        >
           <InputLabel>Level</InputLabel>
           <Select
             value={levelFilter}
@@ -228,7 +234,11 @@ export const ApmeViolationsTable = () => {
             <MenuItem value="info">Info</MenuItem>
           </Select>
         </FormControl>
-        <FormControl className={classes.formControl} variant="outlined" size="small">
+        <FormControl
+          className={classes.formControl}
+          variant="outlined"
+          size="small"
+        >
           <InputLabel>Validator</InputLabel>
           <Select
             value={validatorFilter}

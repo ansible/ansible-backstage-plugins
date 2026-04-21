@@ -99,7 +99,11 @@ export const ApmeHealthCard = () => {
     entity.metadata.annotations?.['backstage.io/source-location'] ||
     entity.metadata.annotations?.['github.com/project-slug'];
 
-  const { value: project, loading, error } = useAsync(async () => {
+  const {
+    value: project,
+    loading,
+    error,
+  } = useAsync(async () => {
     if (!repoUrl) return null;
     return apmeApi.getProjectByRepoUrl(repoUrl);
   }, [repoUrl]);

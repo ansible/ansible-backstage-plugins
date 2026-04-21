@@ -144,7 +144,8 @@ export const ApmeEntityTab = () => {
 
         if (updatedProject) {
           // Check if active_operation is null (scan finished) AND last_scanned_at changed
-          const scanFinished = updatedProject.active_operation === null &&
+          const scanFinished =
+            updatedProject.active_operation === null &&
             updatedProject.last_scanned_at !== initialScanTime;
 
           if (scanFinished) {
@@ -172,7 +173,8 @@ export const ApmeEntityTab = () => {
         clearInterval(pollInterval);
         setScanProgress({
           status: 'timeout',
-          message: 'Scan is taking longer than expected. Check APME UI for status.',
+          message:
+            'Scan is taking longer than expected. Check APME UI for status.',
           progress: 90,
         });
         setScanning(false);
@@ -207,11 +209,16 @@ export const ApmeEntityTab = () => {
     }
   }, [project, apmeApi]);
 
-  const getStatusColor = (status: string): 'default' | 'primary' | 'secondary' => {
+  const getStatusColor = (
+    status: string,
+  ): 'default' | 'primary' | 'secondary' => {
     switch (status) {
-      case 'completed': return 'primary';
-      case 'failed': return 'secondary';
-      default: return 'default';
+      case 'completed':
+        return 'primary';
+      case 'failed':
+        return 'secondary';
+      default:
+        return 'default';
     }
   };
 
@@ -262,7 +269,9 @@ export const ApmeEntityTab = () => {
           className={classes.scanButton}
           variant="contained"
           color="primary"
-          startIcon={scanning ? <CircularProgress size={20} /> : <RefreshIcon />}
+          startIcon={
+            scanning ? <CircularProgress size={20} /> : <RefreshIcon />
+          }
           onClick={handleScan}
           disabled={scanning}
         >
@@ -294,13 +303,14 @@ export const ApmeEntityTab = () => {
             )}
           </div>
 
-          {scanProgress?.progress !== undefined && scanProgress.progress < 100 && (
-            <LinearProgress
-              variant="determinate"
-              value={scanProgress.progress}
-              className={classes.progressBar}
-            />
-          )}
+          {scanProgress?.progress !== undefined &&
+            scanProgress.progress < 100 && (
+              <LinearProgress
+                variant="determinate"
+                value={scanProgress.progress}
+                className={classes.progressBar}
+              />
+            )}
 
           <div className={classes.progressText}>
             <Typography variant="body2" color="textSecondary">
@@ -308,16 +318,18 @@ export const ApmeEntityTab = () => {
             </Typography>
             {scanProgress?.violationsFound !== undefined && (
               <Typography variant="body2">
-                Violations found: <strong>{scanProgress.violationsFound}</strong>
+                Violations found:{' '}
+                <strong>{scanProgress.violationsFound}</strong>
               </Typography>
             )}
           </div>
 
-          {scanProgress?.filesScanned !== undefined && scanProgress?.totalFiles !== undefined && (
-            <Typography variant="caption" color="textSecondary">
-              Files: {scanProgress.filesScanned} / {scanProgress.totalFiles}
-            </Typography>
-          )}
+          {scanProgress?.filesScanned !== undefined &&
+            scanProgress?.totalFiles !== undefined && (
+              <Typography variant="caption" color="textSecondary">
+                Files: {scanProgress.filesScanned} / {scanProgress.totalFiles}
+              </Typography>
+            )}
         </Paper>
       )}
 
