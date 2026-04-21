@@ -283,13 +283,15 @@ export const ApmeEntityTab = () => {
       {(scanning || scanProgress) && (
         <Paper className={classes.scanStatus} elevation={1}>
           <div className={classes.scanStatusHeader}>
-            {scanProgress?.status === 'completed' ? (
-              <CheckCircleIcon className={classes.successIcon} />
-            ) : scanProgress?.status === 'failed' ? (
-              <ErrorIcon className={classes.errorIcon} />
-            ) : (
-              <CircularProgress size={20} />
-            )}
+            {(() => {
+              if (scanProgress?.status === 'completed') {
+                return <CheckCircleIcon className={classes.successIcon} />;
+              }
+              if (scanProgress?.status === 'failed') {
+                return <ErrorIcon className={classes.errorIcon} />;
+              }
+              return <CircularProgress size={20} />;
+            })()}
             <Typography variant="subtitle1">
               <strong>Scanning:</strong> {project.name}
             </Typography>

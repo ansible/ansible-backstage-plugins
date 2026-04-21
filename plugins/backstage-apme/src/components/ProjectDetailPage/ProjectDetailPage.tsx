@@ -146,7 +146,7 @@ export const ProjectDetailPage = () => {
 
   // Poll for scan completion
   useEffect(() => {
-    if (!scanning && !remediating) return;
+    if (!scanning && !remediating) return undefined;
 
     const pollInterval = setInterval(async () => {
       const project = await apmeApi.getProject(projectId!);
@@ -329,23 +329,28 @@ export const ProjectDetailPage = () => {
       title: 'PR',
       field: 'pr_url',
       width: '100px',
-      render: row =>
-        row.pr_url ? (
-          <Link to={row.pr_url} target="_blank">
-            <LinkIcon fontSize="small" />
-          </Link>
-        ) : row.remediated_count > 0 ? (
-          <Tooltip title="Create Pull Request">
-            <IconButton
-              size="small"
-              onClick={() => handleCreatePR(row.scan_id)}
-            >
-              <GitHubIcon fontSize="small" />
-            </IconButton>
-          </Tooltip>
-        ) : (
-          '—'
-        ),
+      render: row => {
+        if (row.pr_url) {
+          return (
+            <Link to={row.pr_url} target="_blank">
+              <LinkIcon fontSize="small" />
+            </Link>
+          );
+        }
+        if (row.remediated_count > 0) {
+          return (
+            <Tooltip title="Create Pull Request">
+              <IconButton
+                size="small"
+                onClick={() => handleCreatePR(row.scan_id)}
+              >
+                <GitHubIcon fontSize="small" />
+              </IconButton>
+            </Tooltip>
+          );
+        }
+        return '—';
+      },
     },
   ];
 
@@ -513,7 +518,6 @@ export const ProjectDetailPage = () => {
               </Typography>
             )}
             <TextField
-              autoFocus
               fullWidth
               label="GitHub Token"
               type="password"
