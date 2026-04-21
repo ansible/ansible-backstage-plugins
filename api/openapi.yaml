@@ -25,6 +25,8 @@ tags:
     description: Execution environment registration and build
   - name: Git Content
     description: Fetch file content and CI activity from GitHub/GitLab
+  - name: APME
+    description: Ansible Policy & Modernization Engine - static analysis and remediation
 
 components:
   securitySchemes:
@@ -1100,3 +1102,279 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
+
+  # ── APME (Ansible Policy & Modernization Engine) ──────────────────────
+
+  /apme/health:
+    get:
+      operationId: getApmeHealth
+      summary: Get APME service health status
+      tags:
+        - APME
+      responses:
+        '200':
+          description: Health status
+          content:
+            application/json:
+              schema:
+                type: object
+
+  /apme/projects:
+    get:
+      operationId: getApmeProjects
+      summary: List all APME projects
+      tags:
+        - APME
+      responses:
+        '200':
+          description: List of projects
+          content:
+            application/json:
+              schema:
+                type: object
+    post:
+      operationId: createApmeProject
+      summary: Create a new APME project
+      tags:
+        - APME
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+      responses:
+        '201':
+          description: Project created
+          content:
+            application/json:
+              schema:
+                type: object
+
+  /apme/projects/{projectId}:
+    get:
+      operationId: getApmeProject
+      summary: Get a specific APME project
+      tags:
+        - APME
+      parameters:
+        - name: projectId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Project details
+          content:
+            application/json:
+              schema:
+                type: object
+    delete:
+      operationId: deleteApmeProject
+      summary: Delete an APME project
+      tags:
+        - APME
+      parameters:
+        - name: projectId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '204':
+          description: Project deleted
+
+  /apme/projects/{projectId}/violations:
+    get:
+      operationId: getApmeViolations
+      summary: Get violations for a project
+      tags:
+        - APME
+      parameters:
+        - name: projectId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: List of violations
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+
+  /apme/projects/{projectId}/operation:
+    post:
+      operationId: triggerApmeOperation
+      summary: Trigger a scan operation
+      tags:
+        - APME
+      parameters:
+        - name: projectId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '201':
+          description: Operation started
+          content:
+            application/json:
+              schema:
+                type: object
+
+  /apme/projects/{projectId}/operation/state:
+    get:
+      operationId: getApmeOperationState
+      summary: Get current operation state
+      tags:
+        - APME
+      parameters:
+        - name: projectId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Operation state
+          content:
+            application/json:
+              schema:
+                type: object
+        '404':
+          description: No active operation
+
+  /apme/projects/{projectId}/operation/approve:
+    post:
+      operationId: approveApmeProposals
+      summary: Approve remediation proposals
+      tags:
+        - APME
+      parameters:
+        - name: projectId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+      responses:
+        '200':
+          description: Proposals approved
+          content:
+            application/json:
+              schema:
+                type: object
+
+  /apme/projects/{projectId}/remediate:
+    post:
+      operationId: triggerApmeRemediation
+      summary: Trigger remediation
+      tags:
+        - APME
+      parameters:
+        - name: projectId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '201':
+          description: Remediation started
+          content:
+            application/json:
+              schema:
+                type: object
+
+  /apme/projects/{projectId}/activity:
+    get:
+      operationId: getApmeActivity
+      summary: Get project scan history
+      tags:
+        - APME
+      parameters:
+        - name: projectId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Activity history
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+
+  /apme/rules:
+    get:
+      operationId: getApmeRules
+      summary: List all APME rules
+      tags:
+        - APME
+      responses:
+        '200':
+          description: List of rules
+          content:
+            application/json:
+              schema:
+                type: object
+
+  /apme/lookup:
+    get:
+      operationId: lookupApmeProject
+      summary: Lookup project by repo URL
+      tags:
+        - APME
+      parameters:
+        - name: repo_url
+          in: query
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Project found
+          content:
+            application/json:
+              schema:
+                type: object
+        '404':
+          description: Project not found
+
+  /apme/activity/{activityId}/pull-request:
+    post:
+      operationId: createApmePullRequest
+      summary: Create a PR from remediation activity
+      tags:
+        - APME
+      parameters:
+        - name: activityId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+      responses:
+        '201':
+          description: PR created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  pr_url:
+                    type: string
