@@ -19,6 +19,19 @@
 app:
   title: Ansible RHDH / Self-Service
   baseUrl: http://localhost:3000
+  support:
+    url: https://github.com/ansible/ansible-backstage-plugins/issues
+    items:
+      - title: GitHub Issues
+        icon: github
+        links:
+          - url: https://github.com/ansible/ansible-backstage-plugins/issues
+            title: Report an issue
+      - title: Documentation
+        icon: docs
+        links:
+          - url: https://github.com/ansible/ansible-backstage-plugins#readme
+            title: Plugin documentation
 organization:
   name: Ansible RHDH
 backend:
