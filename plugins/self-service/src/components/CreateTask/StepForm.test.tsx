@@ -56,7 +56,11 @@ jest.mock('./ScaffolderFormWrapper', () => ({
 }));
 
 // ✅ 2. Import StepForm AFTER mocks
-import { StepForm } from './StepForm';
+import {
+  StepForm,
+  deepMergePlainObjects,
+  stripSchemaDefaultsForUiFieldProps,
+} from './StepForm';
 
 const createScaffolderFormMock = (formData: any) => {
   return ({ onSubmit }: any) => (
@@ -1663,6 +1667,162 @@ describe('StepForm', () => {
       await waitFor(() => {
         expect(screen.getByText('just-a-regular-string')).toBeInTheDocument();
       });
+    });
+  });
+
+  describe('deepMergePlainObjects', () => {
+    it('merges nested plain objects without dropping sibling keys from base', () => {
+      const base = {
+        publishAndBuild: { registryTlsVerify: true, other: 'keep' },
+      };
+      const patch = { publishAndBuild: { registryTlsVerify: false } };
+      expect(deepMergePlainObjects(base, patch)).toEqual({
+        publishAndBuild: { registryTlsVerify: false, other: 'keep' },
+      });
+    });
+
+    it('overwrites scalars and replaces arrays (arrays are not deep-merged)', () => {
+      const base = { a: 1, tags: ['a', 'b'] };
+      const patch = { a: 2, tags: ['c'] };
+      expect(deepMergePlainObjects(base, patch)).toEqual({
+        a: 2,
+        tags: ['c'],
+      });
+    });
+
+    it('recurses for multiple levels of nested plain objects', () => {
+      const base = { outer: { inner: { x: 1, y: 2 } } };
+      const patch = { outer: { inner: { x: 9 } } };
+      expect(deepMergePlainObjects(base, patch)).toEqual({
+        outer: { inner: { x: 9, y: 2 } },
+      });
+    });
+  });
+
+  describe('stripSchemaDefaultsForUiFieldProps', () => {
+    it('returns the same schema reference when properties is missing', () => {
+      const schema = { type: 'object' } as Record<string, unknown>;
+      expect(stripSchemaDefaultsForUiFieldProps(schema)).toBe(schema);
+    });
+
+    it('returns the same schema reference when properties is null', () => {
+      const schema = { properties: null } as Record<string, unknown>;
+      expect(stripSchemaDefaultsForUiFieldProps(schema as any)).toBe(schema);
+    });
+
+    it('returns the same schema reference when properties is not a plain object', () => {
+      const schema = { properties: 'invalid' } as Record<string, unknown>;
+      expect(stripSchemaDefaultsForUiFieldProps(schema as any)).toBe(schema);
+    });
+
+    it('removes default only from properties that use ui:field and have default', () => {
+      const schema = {
+        type: 'object',
+        properties: {
+          inventory: {
+            title: 'Inventory',
+            'ui:field': 'AAPResourcePicker',
+            resource: 'inventories',
+            default: { id: 1, name: 'From JT' },
+          },
+          limit: {
+            type: 'string',
+            title: 'Limit',
+            default: 'all',
+          },
+        },
+      };
+      const out = stripSchemaDefaultsForUiFieldProps(schema);
+      expect(out.properties.inventory).not.toHaveProperty('default');
+      expect(out.properties.inventory['ui:field']).toBe('AAPResourcePicker');
+      expect(out.properties.limit.default).toBe('all');
+    });
+
+    it('removes default when ui field is set via property.ui.field', () => {
+      const schema = {
+        properties: {
+          secretish: {
+            type: 'string',
+            ui: { field: 'Secret' },
+            default: 'fallback',
+          },
+        },
+      };
+      const out = stripSchemaDefaultsForUiFieldProps(schema);
+      expect(out.properties.secretish).not.toHaveProperty('default');
+      expect(out.properties.secretish.ui.field).toBe('Secret');
+    });
+
+    it('does not strip default when there is no ui field', () => {
+      const schema = {
+        properties: {
+          name: { type: 'string', default: 'hello' },
+        },
+      };
+      const out = stripSchemaDefaultsForUiFieldProps(schema);
+      expect(out.properties.name.default).toBe('hello');
+    });
+
+    it('does not strip when ui:field is set but default is absent', () => {
+      const schema = {
+        properties: {
+          inv: { 'ui:field': 'AAPResourcePicker', title: 'X' },
+        },
+      };
+      const out = stripSchemaDefaultsForUiFieldProps(schema);
+      expect(out.properties.inv).toEqual(schema.properties.inv);
+    });
+
+    it('strips default in dependencies.oneOf branch properties with ui:field', () => {
+      const schema = {
+        type: 'object',
+        properties: { mode: { type: 'string' } },
+        dependencies: {
+          mode: {
+            oneOf: [
+              {
+                properties: {
+                  mode: { enum: ['aap'] },
+                  inventory: {
+                    'ui:field': 'AAPResourcePicker',
+                    default: { id: 1, name: 'JT default' },
+                  },
+                },
+              },
+            ],
+          },
+        },
+      };
+      const out = stripSchemaDefaultsForUiFieldProps(schema);
+      expect(
+        out.dependencies.mode.oneOf[0].properties.inventory,
+      ).not.toHaveProperty('default');
+      expect(out.properties.mode).toEqual(schema.properties.mode);
+    });
+
+    it('strips default in allOf.then.properties with ui:field', () => {
+      const schema = {
+        type: 'object',
+        properties: { x: { type: 'boolean' } },
+        allOf: [
+          {
+            if: { properties: { x: { const: true } } },
+            then: {
+              properties: {
+                credentials: {
+                  type: 'array',
+                  'ui:field': 'AAPResourcePicker',
+                  default: [{ id: 1, name: 'c' }],
+                },
+              },
+            },
+          },
+        ],
+      };
+      const out = stripSchemaDefaultsForUiFieldProps(schema);
+      expect(out.allOf[0].then.properties.credentials).not.toHaveProperty(
+        'default',
+      );
     });
   });
 });
