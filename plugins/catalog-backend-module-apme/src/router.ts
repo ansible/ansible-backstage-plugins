@@ -133,9 +133,9 @@ export async function createRouter(options: RouterOptions): Promise<Router> {
 
   router.post('/apme/activity/:activityId/pull-request', async (req, res) => {
     const { activityId } = req.params;
-    const { projectId } = req.body;
+    const { projectId, scm_token } = req.body;
     logger.info(`APME create PR for activity ${activityId}`);
-    const result = await apmeService.createPullRequest(projectId, activityId);
+    const result = await apmeService.createPullRequest(projectId, activityId, scm_token);
     res.status(201).json(result);
   });
 
