@@ -123,7 +123,11 @@ export const ProjectDetailPage = () => {
   const [scanning, setScanning] = useState(false);
   const [remediating, setRemediating] = useState(false);
   const [scanProgress, setScanProgress] = useState<string | null>(null);
-  const [scmTokenDialog, setScmTokenDialog] = useState<{ open: boolean; activityId: string | null; error: string | null }>({ open: false, activityId: null, error: null });
+  const [scmTokenDialog, setScmTokenDialog] = useState<{
+    open: boolean;
+    activityId: string | null;
+    error: string | null;
+  }>({ open: false, activityId: null, error: null });
   const [scmToken, setScmToken] = useState('');
   const [creatingPR, setCreatingPR] = useState(false);
 
@@ -183,40 +187,61 @@ export const ProjectDetailPage = () => {
     }
   }, [projectId, apmeApi]);
 
-  const handleCreatePR = useCallback(async (activityId: string, token?: string) => {
-    setCreatingPR(true);
-    setScmTokenDialog(prev => ({ ...prev, error: null }));
-    try {
-      const result = await apmeApi.createPullRequest(projectId!, activityId, token);
-      if (result.pr_url) {
-        window.open(result.pr_url, '_blank');
-      }
-      setScmTokenDialog({ open: false, activityId: null, error: null });
-      setScmToken('');
-      retry();
-    } catch (err: any) {
-      const errorMessage = err?.message || '';
-      if (errorMessage.includes('422') && errorMessage.includes('SCM token')) {
-        setScmTokenDialog({ open: true, activityId, error: null });
-      } else if (scmTokenDialog.open) {
-        // Show error in the dialog if it's open
-        let friendlyError = 'Failed to create pull request.';
-        if (errorMessage.includes('401') || errorMessage.includes('403') || errorMessage.includes('Bad credentials') || errorMessage.includes('Unauthorized')) {
-          friendlyError = 'Invalid or expired token. Please check your GitHub token has the correct permissions.';
-        } else if (errorMessage.includes('502')) {
-          // APME returns 502 when GitHub rejects the request - usually auth issues
-          friendlyError = 'Invalid or expired token. Please check your GitHub token has repo access.';
-        } else if (errorMessage.includes('404')) {
-          friendlyError = 'Repository not found. Check the token has access to this repository.';
-        } else if (errorMessage.includes('connect') || errorMessage.includes('ECONNREFUSED')) {
-          friendlyError = 'Failed to connect to GitHub. Please try again.';
+  const handleCreatePR = useCallback(
+    async (activityId: string, token?: string) => {
+      setCreatingPR(true);
+      setScmTokenDialog(prev => ({ ...prev, error: null }));
+      try {
+        const result = await apmeApi.createPullRequest(
+          projectId!,
+          activityId,
+          token,
+        );
+        if (result.pr_url) {
+          window.open(result.pr_url, '_blank');
         }
-        setScmTokenDialog(prev => ({ ...prev, error: friendlyError }));
+        setScmTokenDialog({ open: false, activityId: null, error: null });
+        setScmToken('');
+        retry();
+      } catch (err: any) {
+        const errorMessage = err?.message || '';
+        if (
+          errorMessage.includes('422') &&
+          errorMessage.includes('SCM token')
+        ) {
+          setScmTokenDialog({ open: true, activityId, error: null });
+        } else if (scmTokenDialog.open) {
+          // Show error in the dialog if it's open
+          let friendlyError = 'Failed to create pull request.';
+          if (
+            errorMessage.includes('401') ||
+            errorMessage.includes('403') ||
+            errorMessage.includes('Bad credentials') ||
+            errorMessage.includes('Unauthorized')
+          ) {
+            friendlyError =
+              'Invalid or expired token. Please check your GitHub token has the correct permissions.';
+          } else if (errorMessage.includes('502')) {
+            // APME returns 502 when GitHub rejects the request - usually auth issues
+            friendlyError =
+              'Invalid or expired token. Please check your GitHub token has repo access.';
+          } else if (errorMessage.includes('404')) {
+            friendlyError =
+              'Repository not found. Check the token has access to this repository.';
+          } else if (
+            errorMessage.includes('connect') ||
+            errorMessage.includes('ECONNREFUSED')
+          ) {
+            friendlyError = 'Failed to connect to GitHub. Please try again.';
+          }
+          setScmTokenDialog(prev => ({ ...prev, error: friendlyError }));
+        }
+      } finally {
+        setCreatingPR(false);
       }
-    } finally {
-      setCreatingPR(false);
-    }
-  }, [projectId, apmeApi, retry, scmTokenDialog.open]);
+    },
+    [projectId, apmeApi, retry, scmTokenDialog.open],
+  );
 
   const handleScmTokenSubmit = useCallback(() => {
     if (scmTokenDialog.activityId && scmToken) {
@@ -327,7 +352,10 @@ export const ProjectDetailPage = () => {
     <Page themeId="tool">
       <Header title={project.name} subtitle={project.repo_url}>
         <HeaderLabel label="Health" value={`${project.health_score}%`} />
-        <HeaderLabel label="Violations" value={String(project.total_violations)} />
+        <HeaderLabel
+          label="Violations"
+          value={String(project.total_violations)}
+        />
       </Header>
       <Content>
         <Breadcrumbs>
@@ -350,7 +378,9 @@ export const ProjectDetailPage = () => {
               color="primary"
               startIcon={<BuildIcon />}
               onClick={handleRemediate}
-              disabled={scanning || remediating || project.total_violations === 0}
+              disabled={
+                scanning || remediating || project.total_violations === 0
+              }
             >
               {remediating ? 'Remediating...' : 'Remediate'}
             </Button>
@@ -375,7 +405,9 @@ export const ProjectDetailPage = () => {
                 <Typography color="textSecondary" gutterBottom>
                   Health Score
                 </Typography>
-                <Typography className={`${classes.statValue} ${getScoreClass(project.health_score)}`}>
+                <Typography
+                  className={`${classes.statValue} ${getScoreClass(project.health_score)}`}
+                >
                   {project.health_score}%
                 </Typography>
               </CardContent>
@@ -414,7 +446,8 @@ export const ProjectDetailPage = () => {
                 <Typography variant="h6">{project.branch}</Typography>
                 {project.last_scanned_at && (
                   <Typography variant="caption" color="textSecondary">
-                    Last scan: {new Date(project.last_scanned_at).toLocaleDateString()}
+                    Last scan:{' '}
+                    {new Date(project.last_scanned_at).toLocaleDateString()}
                   </Typography>
                 )}
               </CardContent>
@@ -449,16 +482,30 @@ export const ProjectDetailPage = () => {
         />
 
         {/* SCM Token Dialog */}
-        <Dialog open={scmTokenDialog.open} onClose={handleScmTokenDialogClose} maxWidth="sm" fullWidth>
+        <Dialog
+          open={scmTokenDialog.open}
+          onClose={handleScmTokenDialogClose}
+          maxWidth="sm"
+          fullWidth
+        >
           <DialogTitle>GitHub Token Required</DialogTitle>
           <DialogContent>
-            <Typography variant="body2" color="textSecondary" style={{ marginBottom: 16 }}>
-              A GitHub personal access token is required to create a pull request.
-              The token needs <strong>repo</strong> scope for private repositories
-              or <strong>public_repo</strong> for public repositories.
+            <Typography
+              variant="body2"
+              color="textSecondary"
+              style={{ marginBottom: 16 }}
+            >
+              A GitHub personal access token is required to create a pull
+              request. The token needs <strong>repo</strong> scope for private
+              repositories or <strong>public_repo</strong> for public
+              repositories.
             </Typography>
             {scmTokenDialog.error && (
-              <Typography variant="body2" color="error" style={{ marginBottom: 16 }}>
+              <Typography
+                variant="body2"
+                color="error"
+                style={{ marginBottom: 16 }}
+              >
                 {scmTokenDialog.error}
               </Typography>
             )}
@@ -468,7 +515,7 @@ export const ProjectDetailPage = () => {
               label="GitHub Token"
               type="password"
               value={scmToken}
-              onChange={(e) => setScmToken(e.target.value)}
+              onChange={e => setScmToken(e.target.value)}
               placeholder="ghp_xxxxxxxxxxxx"
               variant="outlined"
               error={!!scmTokenDialog.error}
@@ -477,7 +524,9 @@ export const ProjectDetailPage = () => {
             />
           </DialogContent>
           <DialogActions>
-            <Button onClick={handleScmTokenDialogClose} disabled={creatingPR}>Cancel</Button>
+            <Button onClick={handleScmTokenDialogClose} disabled={creatingPR}>
+              Cancel
+            </Button>
             <Button
               onClick={handleScmTokenSubmit}
               color="primary"
