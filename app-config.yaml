@@ -146,6 +146,14 @@ catalog:
             schedule:
               frequency: { minutes: 60 }
               timeout: { minutes: 15 }
+          workflowJobTemplates:
+            enabled: true
+            # surveyEnabled?: true | false  # optional filter
+            # labels?: []
+            # excludeLabels?: []
+            schedule:
+              frequency: { minutes: 60 }
+              timeout: { minutes: 15 }
           # Ansible content discovery from SCM orgs
           ansibleGitContents:
             enabled: false  # optional, defaults to true - enables/disables the whole provider
