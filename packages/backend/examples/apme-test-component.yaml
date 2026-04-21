@@ -1,0 +1,11 @@
+apiVersion: backstage.io/v1alpha1
+kind: Component
+metadata:
+  name: apme-test-playbook
+  description: Test Ansible playbook for APME integration
+  annotations:
+    backstage.io/source-location: url:https://github.com/ansible/ansible-examples
+spec:
+  type: service
+  lifecycle: experimental
+  owner: guests
