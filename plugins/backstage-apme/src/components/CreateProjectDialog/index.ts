@@ -14,16 +14,4 @@
  * limitations under the License.
  */
 
-export {
-  apmePlugin,
-  ApmePage,
-  ApmeProjectPage,
-  ApmeHealthCard,
-  ApmeViolationsTable,
-  ApmeEntityTab,
-  rootRouteRef as apmeRouteRef,
-  projectRouteRef as apmeProjectRouteRef,
-} from './plugin';
-export { CreateProjectDialog } from './components/CreateProjectDialog';
-export { apmeApiRef, ApmeApiClient } from './api';
-export type { ApmeApi } from './api';
+export { CreateProjectDialog } from './CreateProjectDialog';

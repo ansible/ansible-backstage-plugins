@@ -15,7 +15,8 @@
  */
 
 import { useState } from 'react';
-import { useAsync } from 'react-use';
+import { useNavigate } from 'react-router-dom';
+import { useAsyncRetry } from 'react-use';
 import { useApi } from '@backstage/core-plugin-api';
 import {
   Content,
@@ -38,7 +39,7 @@ import {
   Chip,
   makeStyles,
   Box,
-  LinearProgress,
+  Button,
 } from '@material-ui/core';
 import CheckCircleIcon from '@material-ui/icons/CheckCircle';
 import WarningIcon from '@material-ui/icons/Warning';
@@ -46,8 +47,10 @@ import ErrorIcon from '@material-ui/icons/Error';
 import StorageIcon from '@material-ui/icons/Storage';
 import BugReportIcon from '@material-ui/icons/BugReport';
 import TrendingUpIcon from '@material-ui/icons/TrendingUp';
-import { Project, HealthStatus } from '@ansible/backstage-apme-common';
+import AddIcon from '@material-ui/icons/Add';
+import { Project } from '@ansible/backstage-apme-common';
 import { apmeApiRef } from '../../api';
+import { CreateProjectDialog } from '../CreateProjectDialog';
 
 const useStyles = makeStyles(theme => ({
   statsCard: {
@@ -147,14 +150,16 @@ const StatCard = ({ title, value, icon, subtitle }: StatCardProps) => {
 
 export const ApmePage = () => {
   const classes = useStyles();
+  const navigate = useNavigate();
   const apmeApi = useApi(apmeApiRef);
-  const [selectedProject, setSelectedProject] = useState<Project | null>(null);
+  const [createDialogOpen, setCreateDialogOpen] = useState(false);
 
   const {
     value: data,
     loading,
     error,
-  } = useAsync(async () => {
+    retry,
+  } = useAsyncRetry(async () => {
     const [health, projects] = await Promise.all([
       apmeApi.getHealth(),
       apmeApi.getProjects(),
@@ -225,12 +230,16 @@ export const ApmePage = () => {
     }
   };
 
+  const handleRowClick = (project: Project) => {
+    navigate(`/apme/project/${project.id}`);
+  };
+
   const columns: TableColumn<Project>[] = [
     {
       title: 'Project',
       field: 'name',
       render: row => (
-        <Link to={row.repo_url} target="_blank">
+        <Link to={`/apme/project/${row.id}`}>
           {row.name}
         </Link>
       ),
@@ -288,11 +297,25 @@ export const ApmePage = () => {
       </Header>
       <Content>
         <ContentHeader title="Overview">
+          <Button
+            variant="contained"
+            color="primary"
+            startIcon={<AddIcon />}
+            onClick={() => setCreateDialogOpen(true)}
+          >
+            Add Project
+          </Button>
           <SupportButton>
             APME analyzes Ansible content for policy compliance, security issues,
             and modernization opportunities.
           </SupportButton>
         </ContentHeader>
+
+        <CreateProjectDialog
+          open={createDialogOpen}
+          onClose={() => setCreateDialogOpen(false)}
+          onCreated={retry}
+        />
 
         {/* Stats Cards */}
         <Grid container spacing={3} style={{ marginBottom: 24 }}>
@@ -368,7 +391,7 @@ export const ApmePage = () => {
           }}
           columns={columns}
           data={projects}
-          onRowClick={(_, rowData) => setSelectedProject(rowData || null)}
+          onRowClick={(_, rowData) => rowData && handleRowClick(rowData)}
         />
       </Content>
     </Page>

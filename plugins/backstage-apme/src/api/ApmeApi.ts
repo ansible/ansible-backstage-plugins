@@ -21,6 +21,9 @@ import {
   Rule,
   ScanResult,
   HealthStatus,
+  CreateProjectRequest,
+  Activity,
+  OperationState,
 } from '@ansible/backstage-apme-common';
 
 export interface ApmeApi {
@@ -31,6 +34,13 @@ export interface ApmeApi {
   getViolations(projectId: string): Promise<Violation[]>;
   getRules(): Promise<Rule[]>;
   triggerScan(projectId: string): Promise<ScanResult>;
+  createProject(request: CreateProjectRequest): Promise<Project>;
+  deleteProject(projectId: string): Promise<void>;
+  getActivity(projectId: string): Promise<Activity[]>;
+  getOperationState(projectId: string): Promise<OperationState | null>;
+  triggerRemediate(projectId: string): Promise<ScanResult>;
+  approveProposals(projectId: string, proposalIds: string[]): Promise<void>;
+  createPullRequest(projectId: string, activityId: string): Promise<{ pr_url: string }>;
 }
 
 export const apmeApiRef = createApiRef<ApmeApi>({
@@ -124,5 +134,56 @@ export class ApmeApiClient implements ApmeApi {
       projectId,
       status: 'running',
     };
+  }
+
+  async createProject(request: CreateProjectRequest): Promise<Project> {
+    return this.fetch<Project>('/projects', {
+      method: 'POST',
+      body: JSON.stringify(request),
+    });
+  }
+
+  async deleteProject(projectId: string): Promise<void> {
+    await this.fetch<void>(`/projects/${projectId}`, {
+      method: 'DELETE',
+    });
+  }
+
+  async getActivity(projectId: string): Promise<Activity[]> {
+    return this.fetch<Activity[]>(`/projects/${projectId}/activity`);
+  }
+
+  async getOperationState(projectId: string): Promise<OperationState | null> {
+    try {
+      return await this.fetch<OperationState>(`/projects/${projectId}/operation/state`);
+    } catch {
+      return null;
+    }
+  }
+
+  async triggerRemediate(projectId: string): Promise<ScanResult> {
+    const response = await this.fetch<{ operation_id: string }>(
+      `/projects/${projectId}/remediate`,
+      { method: 'POST' },
+    );
+    return {
+      scanId: response.operation_id,
+      projectId,
+      status: 'running',
+    };
+  }
+
+  async approveProposals(projectId: string, proposalIds: string[]): Promise<void> {
+    await this.fetch<void>(`/projects/${projectId}/operation/approve`, {
+      method: 'POST',
+      body: JSON.stringify({ approved_ids: proposalIds }),
+    });
+  }
+
+  async createPullRequest(projectId: string, activityId: string): Promise<{ pr_url: string }> {
+    return this.fetch<{ pr_url: string }>(`/activity/${activityId}/pull-request`, {
+      method: 'POST',
+      body: JSON.stringify({ projectId }),
+    });
   }
 }

@@ -1,0 +1,23 @@
+# RHDH Dynamic Plugin Configuration for APME
+# This file configures how the APME plugin is loaded in Red Hat Developer Hub
+
+dynamicPlugins:
+  frontend:
+    ansible.plugin-backstage-apme:
+      appIcons:
+        - name: apmeIcon
+          importName: SecurityIcon
+          module: '@material-ui/icons'
+      dynamicRoutes:
+        - path: /apme
+          importName: ApmePage
+          menuItem:
+            icon: apmeIcon
+            text: APME
+        - path: /apme/project/:projectId
+          importName: ApmeProjectPage
+      entityTabs:
+        - path: /apme
+          title: APME
+          mountPoint: entity.page.apme
+          importName: ApmeEntityTab
