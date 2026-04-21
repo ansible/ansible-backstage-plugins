@@ -18,7 +18,9 @@ import { ApmeApiClient } from './ApmeApi';
 
 describe('ApmeApiClient', () => {
   const mockDiscoveryApi = {
-    getBaseUrl: jest.fn().mockResolvedValue('http://localhost:7007/api/catalog'),
+    getBaseUrl: jest
+      .fn()
+      .mockResolvedValue('http://localhost:7007/api/catalog'),
   };
 
   const mockFetchApi = {
@@ -40,7 +42,9 @@ describe('ApmeApiClient', () => {
       const mockHealth = {
         status: 'ok',
         database: 'ok',
-        components: [{ name: 'Primary', status: 'ok', address: '127.0.0.1:50051' }],
+        components: [
+          { name: 'Primary', status: 'ok', address: '127.0.0.1:50051' },
+        ],
       };
 
       mockFetchApi.fetch.mockResolvedValueOnce({
@@ -96,14 +100,20 @@ describe('ApmeApiClient', () => {
 
   describe('getProjectByRepoUrl', () => {
     it('should find project by repo URL', async () => {
-      const mockProject = { id: '1', name: 'Project 1', repo_url: 'https://github.com/test/1' };
+      const mockProject = {
+        id: '1',
+        name: 'Project 1',
+        repo_url: 'https://github.com/test/1',
+      };
 
       mockFetchApi.fetch.mockResolvedValueOnce({
         ok: true,
         json: () => Promise.resolve(mockProject),
       });
 
-      const result = await client.getProjectByRepoUrl('https://github.com/test/1');
+      const result = await client.getProjectByRepoUrl(
+        'https://github.com/test/1',
+      );
 
       expect(mockFetchApi.fetch).toHaveBeenCalledWith(
         expect.stringContaining('lookup?repo_url='),
@@ -119,7 +129,9 @@ describe('ApmeApiClient', () => {
         text: () => Promise.resolve('Not found'),
       });
 
-      const result = await client.getProjectByRepoUrl('https://github.com/nonexistent');
+      const result = await client.getProjectByRepoUrl(
+        'https://github.com/nonexistent',
+      );
       expect(result).toBeNull();
     });
   });

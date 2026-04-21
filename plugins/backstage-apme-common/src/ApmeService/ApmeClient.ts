@@ -81,7 +81,9 @@ export class ApmeClient {
       }
 
       if (response.status === 409) {
-        throw new ConflictError('A scan is already in progress for this project');
+        throw new ConflictError(
+          'A scan is already in progress for this project',
+        );
       }
 
       if (!response.ok) {
@@ -98,11 +100,17 @@ export class ApmeClient {
 
       return response.json() as Promise<T>;
     } catch (error) {
-      if (error instanceof NotFoundError || error instanceof InputError || error instanceof ConflictError) {
+      if (
+        error instanceof NotFoundError ||
+        error instanceof InputError ||
+        error instanceof ConflictError
+      ) {
         throw error;
       }
       this.logger.error(`APME request failed: ${endpoint}`, error as Error);
-      throw new InputError(`Failed to connect to APME: ${(error as Error).message}`);
+      throw new InputError(
+        `Failed to connect to APME: ${(error as Error).message}`,
+      );
     }
   }
 
@@ -233,7 +241,10 @@ export class ApmeClient {
     };
   }
 
-  async approveProposals(projectId: string, proposalIds: string[]): Promise<void> {
+  async approveProposals(
+    projectId: string,
+    proposalIds: string[],
+  ): Promise<void> {
     await this.executeRequest<void>(
       `/api/v1/projects/${projectId}/operation/approve`,
       {
@@ -243,7 +254,11 @@ export class ApmeClient {
     );
   }
 
-  async createPullRequest(projectId: string, activityId: string, scmToken?: string): Promise<{ pr_url: string }> {
+  async createPullRequest(
+    projectId: string,
+    activityId: string,
+    scmToken?: string,
+  ): Promise<{ pr_url: string }> {
     const body: Record<string, string> = {};
     if (scmToken) {
       body.scm_token = scmToken;
