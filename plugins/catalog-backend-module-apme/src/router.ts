@@ -123,19 +123,26 @@ export async function createRouter(options: RouterOptions): Promise<Router> {
     res.status(201).json(result);
   });
 
-  router.post('/apme/projects/:projectId/operation/approve', async (req, res) => {
-    const { projectId } = req.params;
-    const { approved_ids } = req.body;
-    logger.info(`APME approve proposals for project ${projectId}`);
-    await apmeService.approveProposals(projectId, approved_ids || []);
-    res.status(200).json({ success: true });
-  });
+  router.post(
+    '/apme/projects/:projectId/operation/approve',
+    async (req, res) => {
+      const { projectId } = req.params;
+      const { approved_ids } = req.body;
+      logger.info(`APME approve proposals for project ${projectId}`);
+      await apmeService.approveProposals(projectId, approved_ids || []);
+      res.status(200).json({ success: true });
+    },
+  );
 
   router.post('/apme/activity/:activityId/pull-request', async (req, res) => {
     const { activityId } = req.params;
     const { projectId, scm_token } = req.body;
     logger.info(`APME create PR for activity ${activityId}`);
-    const result = await apmeService.createPullRequest(projectId, activityId, scm_token);
+    const result = await apmeService.createPullRequest(
+      projectId,
+      activityId,
+      scm_token,
+    );
     res.status(201).json(result);
   });
 

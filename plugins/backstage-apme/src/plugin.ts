@@ -56,8 +56,7 @@ export const apmePlugin = createPlugin({
 export const ApmePage = apmePlugin.provide(
   createRoutableExtension({
     name: 'ApmePage',
-    component: () =>
-      import('./components/ApmePage').then(m => m.ApmePage),
+    component: () => import('./components/ApmePage').then(m => m.ApmePage),
     mountPoint: rootRouteRef,
   }),
 );

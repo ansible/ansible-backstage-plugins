@@ -14,14 +14,20 @@
  * limitations under the License.
  */
 
-export type Severity = 'blocker' | 'critical' | 'high' | 'medium' | 'low' | 'info';
+export type Severity =
+  | 'blocker'
+  | 'critical'
+  | 'high'
+  | 'medium'
+  | 'low'
+  | 'info';
 
 export type RemediationClass = 1 | 2 | 3 | 9; // 1=auto, 2=assisted, 3=manual, 9=none
 
 export interface Violation {
   id: number;
   rule_id: string;
-  level: string;  // 'blocker', 'critical', 'high', 'medium', 'low', 'info'
+  level: string; // 'blocker', 'critical', 'high', 'medium', 'low', 'info'
   message: string;
   file: string;
   line: number;
@@ -29,7 +35,7 @@ export interface Violation {
   remediation_class: RemediationClass;
   remediation_resolution?: number;
   scope?: number;
-  validator_source: string;  // 'native', 'opa', 'ansible', 'gitleaks'
+  validator_source: string; // 'native', 'opa', 'ansible', 'gitleaks'
   original_yaml?: string;
   fixed_yaml?: string;
   co_fixes?: string[];

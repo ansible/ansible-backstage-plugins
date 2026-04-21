@@ -14,7 +14,11 @@
  * limitations under the License.
  */
 
-import { createApiRef, DiscoveryApi, FetchApi } from '@backstage/core-plugin-api';
+import {
+  createApiRef,
+  DiscoveryApi,
+  FetchApi,
+} from '@backstage/core-plugin-api';
 import {
   Project,
   Violation,
@@ -40,7 +44,11 @@ export interface ApmeApi {
   getOperationState(projectId: string): Promise<OperationState | null>;
   triggerRemediate(projectId: string): Promise<ScanResult>;
   approveProposals(projectId: string, proposalIds: string[]): Promise<void>;
-  createPullRequest(projectId: string, activityId: string, scmToken?: string): Promise<{ pr_url: string }>;
+  createPullRequest(
+    projectId: string,
+    activityId: string,
+    scmToken?: string,
+  ): Promise<{ pr_url: string }>;
 }
 
 export const apmeApiRef = createApiRef<ApmeApi>({
@@ -160,7 +168,9 @@ export class ApmeApiClient implements ApmeApi {
 
   async getOperationState(projectId: string): Promise<OperationState | null> {
     try {
-      return await this.fetch<OperationState>(`/projects/${projectId}/operation/state`);
+      return await this.fetch<OperationState>(
+        `/projects/${projectId}/operation/state`,
+      );
     } catch {
       return null;
     }
@@ -178,17 +188,27 @@ export class ApmeApiClient implements ApmeApi {
     };
   }
 
-  async approveProposals(projectId: string, proposalIds: string[]): Promise<void> {
+  async approveProposals(
+    projectId: string,
+    proposalIds: string[],
+  ): Promise<void> {
     await this.fetch<void>(`/projects/${projectId}/operation/approve`, {
       method: 'POST',
       body: JSON.stringify({ approved_ids: proposalIds }),
     });
   }
 
-  async createPullRequest(projectId: string, activityId: string, scmToken?: string): Promise<{ pr_url: string }> {
-    return this.fetch<{ pr_url: string }>(`/activity/${activityId}/pull-request`, {
-      method: 'POST',
-      body: JSON.stringify({ projectId, scm_token: scmToken }),
-    });
+  async createPullRequest(
+    projectId: string,
+    activityId: string,
+    scmToken?: string,
+  ): Promise<{ pr_url: string }> {
+    return this.fetch<{ pr_url: string }>(
+      `/activity/${activityId}/pull-request`,
+      {
+        method: 'POST',
+        body: JSON.stringify({ projectId, scm_token: scmToken }),
+      },
+    );
   }
 }
