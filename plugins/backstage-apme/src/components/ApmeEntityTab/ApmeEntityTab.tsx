@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-import { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useAsyncRetry } from 'react-use';
 import { useApi } from '@backstage/core-plugin-api';
 import { useEntity } from '@backstage/plugin-catalog-react';
@@ -121,7 +121,7 @@ export const ApmeEntityTab = () => {
 
   // Poll for scan completion (SSE would need backend proxy for CORS)
   useEffect(() => {
-    if (!scanning || !project) return;
+    if (!scanning || !project) return undefined;
 
     let pollCount = 0;
     const maxPolls = 60; // 2 minutes max
