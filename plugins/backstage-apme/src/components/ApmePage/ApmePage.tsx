@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-import { useState } from 'react';
+import { useState, useCallback, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAsyncRetry } from 'react-use';
 import { useApi } from '@backstage/core-plugin-api';
@@ -40,6 +40,8 @@ import {
   makeStyles,
   Box,
   Button,
+  IconButton,
+  Tooltip,
 } from '@material-ui/core';
 import CheckCircleIcon from '@material-ui/icons/CheckCircle';
 import WarningIcon from '@material-ui/icons/Warning';
@@ -48,6 +50,8 @@ import StorageIcon from '@material-ui/icons/Storage';
 import BugReportIcon from '@material-ui/icons/BugReport';
 import TrendingUpIcon from '@material-ui/icons/TrendingUp';
 import AddIcon from '@material-ui/icons/Add';
+import DeleteIcon from '@material-ui/icons/Delete';
+import RefreshIcon from '@material-ui/icons/Refresh';
 import { Project } from '@ansible/backstage-apme-common';
 import { apmeApiRef } from '../../api';
 import { CreateProjectDialog } from '../CreateProjectDialog';
@@ -167,6 +171,16 @@ export const ApmePage = () => {
     return { health, projects };
   }, []);
 
+  const handleDelete = useCallback(async (event: React.MouseEvent, projectId: string) => {
+    event.stopPropagation();
+    try {
+      await apmeApi.deleteProject(projectId);
+      retry();
+    } catch (err) {
+      // Error handled silently - project may already be deleted
+    }
+  }, [apmeApi, retry]);
+
   if (loading) {
     return (
       <Page themeId="tool">
@@ -181,13 +195,38 @@ export const ApmePage = () => {
   }
 
   if (error) {
+    const isConnectionError = error.message?.includes('fetch failed') ||
+                               error.message?.includes('Failed to connect') ||
+                               error.message?.includes('ECONNREFUSED');
     return (
       <Page themeId="tool">
         <Header title="APME" subtitle="Ansible Policy & Modernization Engine">
-          <HeaderLabel label="Status" value="Error" />
+          <HeaderLabel label="Status" value="Unavailable" />
         </Header>
         <Content>
-          <ResponseErrorPanel error={error} />
+          <Card>
+            <CardContent>
+              <Box display="flex" flexDirection="column" alignItems="center" padding={4}>
+                <ErrorIcon style={{ fontSize: 64, color: '#f44336', marginBottom: 16 }} />
+                <Typography variant="h5" gutterBottom>
+                  {isConnectionError ? 'APME Service Unavailable' : 'Error Loading APME'}
+                </Typography>
+                <Typography variant="body1" color="textSecondary" align="center" style={{ marginBottom: 24 }}>
+                  {isConnectionError
+                    ? 'Unable to connect to the APME backend service. Please check that the service is running and try again.'
+                    : error.message}
+                </Typography>
+                <Button
+                  variant="outlined"
+                  onClick={retry}
+                  style={{ marginTop: 16 }}
+                  startIcon={<RefreshIcon />}
+                >
+                  Retry
+                </Button>
+              </Box>
+            </CardContent>
+          </Card>
         </Content>
       </Page>
     );
@@ -287,6 +326,21 @@ export const ApmePage = () => {
       field: 'branch',
       width: '100px',
     },
+    {
+      title: 'Actions',
+      field: 'actions',
+      width: '80px',
+      render: row => (
+        <Tooltip title="Remove from APME">
+          <IconButton
+            size="small"
+            onClick={(e) => handleDelete(e, row.id)}
+          >
+            <DeleteIcon fontSize="small" />
+          </IconButton>
+        </Tooltip>
+      ),
+    },
   ];
 
   return (
@@ -381,6 +435,7 @@ export const ApmePage = () => {
 
         {/* Projects Table */}
         <Table
+          key={`projects-${projects.map(p => p.id || p.repo_url).join(',')}`}
           title="Projects"
           options={{
             search: true,
@@ -388,9 +443,10 @@ export const ApmePage = () => {
             pageSize: 10,
             pageSizeOptions: [10, 25, 50],
             sorting: true,
+            idSynonym: 'id',
           }}
           columns={columns}
-          data={projects}
+          data={projects.map(p => ({ ...p, id: p.id || p.repo_url }))}
           onRowClick={(_, rowData) => rowData && handleRowClick(rowData)}
         />
       </Content>

@@ -91,6 +91,11 @@ export class ApmeClient {
         );
       }
 
+      // Handle 204 No Content responses
+      if (response.status === 204) {
+        return undefined as T;
+      }
+
       return response.json() as Promise<T>;
     } catch (error) {
       if (error instanceof NotFoundError || error instanceof InputError || error instanceof ConflictError) {
