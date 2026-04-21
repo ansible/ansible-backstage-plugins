@@ -1,0 +1,45 @@
+{
+  "name": "@ansible/backstage-apme-common",
+  "version": "0.1.0",
+  "description": "Common library for APME Backstage plugin - shared types and service client",
+  "backstage": {
+    "role": "common-library"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "license": "Apache-2.0",
+  "main": "src/index.ts",
+  "types": "src/index.ts",
+  "exports": {
+    ".": "./src/index.ts",
+    "./types": "./src/types/index.ts"
+  },
+  "typesVersions": {
+    "*": {
+      "types": [
+        "src/types/index.ts"
+      ]
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "backstage-cli package build",
+    "clean": "backstage-cli package clean",
+    "lint": "backstage-cli package lint",
+    "test": "backstage-cli package test",
+    "prepack": "backstage-cli package prepack",
+    "postpack": "backstage-cli package postpack"
+  },
+  "dependencies": {
+    "@backstage/backend-plugin-api": "^1.0.0",
+    "@backstage/config": "^1.2.0",
+    "@backstage/errors": "^1.2.4"
+  },
+  "devDependencies": {
+    "@backstage/cli": "^0.27.0",
+    "typescript": "^5.0.0"
+  }
+}

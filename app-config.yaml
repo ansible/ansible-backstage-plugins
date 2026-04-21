@@ -128,6 +128,9 @@ catalog:
         - Users
   # Note: No static locations needed - aap-admins group is dynamically managed by AAPEntityProvider
   useUrlReadersSearch: true
+  locations:
+    - type: file
+      target: ./examples/apme-test-component.yaml
   providers:
     rhaap:
       development:
