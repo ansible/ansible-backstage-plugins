@@ -284,15 +284,16 @@ export async function loginAAPWithSession(page: Page) {
 export async function loginGitHub(page: Page) {
   await page.goto('https://github.com/login');
 
-  // Wait for sign in form
-  await page.getByText('Sign in').waitFor();
+  // Wait for the login form to be ready (avoid strict-mode text matches).
+  await page.locator('#login_field').waitFor({ state: 'visible' });
+  await page.locator('#password').waitFor({ state: 'visible' });
 
   // Fill credentials
   await page.locator('#login_field').fill(process.env.GH_USER_ID!);
   await page.locator('#password').fill(process.env.GH_USER_PASS!);
 
   // Click sign in
-  await page.getByRole('button', { name: 'Sign in' }).click();
+  await page.locator('input[type="submit"][value="Sign in"]').click();
 
   // Handle 2FA if required
   const totpFieldVisible = await page
