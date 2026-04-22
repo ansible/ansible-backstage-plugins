@@ -68,6 +68,10 @@ integrations:
     - host: gitlab.com
       token: ${GITLAB_INTEGRATION_TOKEN}
 proxy: null
+
+apme:
+  gateway:
+    baseUrl: ${APME_GATEWAY_URL:-http://localhost:8080}
 techdocs:
   builder: local
   generator:

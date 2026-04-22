@@ -60,4 +60,8 @@ backend.add(import('@ansible/backstage-plugin-catalog-backend-module-rhaap'));
 backend.add(
   import('@ansible/plugin-scaffolder-backend-module-backstage-rhaap'),
 );
+
+// APME plugin — proxies to the APME Gateway
+backend.add(import('@ansible/plugin-apme-backend'));
+
 backend.start();

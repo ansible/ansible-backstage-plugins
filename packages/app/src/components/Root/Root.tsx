@@ -30,6 +30,7 @@ import SearchIcon from '@material-ui/icons/Search';
 import { MyGroupsSidebarItem } from '@backstage/plugin-org';
 import GroupIcon from '@material-ui/icons/People';
 import { AnsibleLogo } from '@ansible/plugin-backstage-rhaap';
+import { ApmeLogo } from '@ansible/plugin-apme';
 import { Administration } from '@backstage-community/plugin-rbac';
 
 const useSidebarLogoStyles = makeStyles({
@@ -107,6 +108,12 @@ export const Root = ({ children }: PropsWithChildren<{}>) => (
             icon={CodeIcon}
             to="/self-service/repositories/catalog"
             text="Git Repositories"
+          />
+          <SidebarDivider />
+          <SidebarItem
+            icon={ApmeLogo}
+            to="apme"
+            text="APME"
           />
         </SidebarScrollWrapper>
       </SidebarGroup>
