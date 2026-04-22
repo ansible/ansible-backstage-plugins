@@ -58,6 +58,7 @@ export const CreateProjectDialog = ({
   const [name, setName] = useState('');
   const [repoUrl, setRepoUrl] = useState('');
   const [branch, setBranch] = useState('main');
+  const [scmToken, setScmToken] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -75,10 +76,12 @@ export const CreateProjectDialog = ({
         name: name.trim(),
         repo_url: repoUrl.trim(),
         branch: branch.trim() || 'main',
+        scm_token: scmToken.trim() || undefined,
       });
       setName('');
       setRepoUrl('');
       setBranch('main');
+      setScmToken('');
       onCreated();
       onClose();
     } catch (err) {
@@ -93,6 +96,7 @@ export const CreateProjectDialog = ({
       setName('');
       setRepoUrl('');
       setBranch('main');
+      setScmToken('');
       setError(null);
       onClose();
     }
@@ -143,6 +147,17 @@ export const CreateProjectDialog = ({
             disabled={loading}
             placeholder="main"
             helperText="Default branch to analyze"
+          />
+          <TextField
+            label="SCM Token (optional)"
+            value={scmToken}
+            onChange={e => setScmToken(e.target.value)}
+            variant="outlined"
+            fullWidth
+            disabled={loading}
+            type="password"
+            placeholder="ghp_xxxxxxxxxxxx"
+            helperText="GitHub token for private repositories (repo scope required)"
           />
         </div>
       </DialogContent>
