@@ -20,6 +20,13 @@ export interface ResolveGithubTokenOptions {
  *  1. GitHub App installation token via {@link DefaultGithubCredentialsProvider}
  *  2. Integration PAT from `integrations.github[].token`
  *
+ * @remarks
+ * Callers (e.g. per-request `getToken` on `ScmClientConfig`) may invoke this
+ * often. For App-based auth, `DefaultGithubCredentialsProvider`
+ * delegates to an in-memory cache in `@backstage/integration` (
+ * tokens are not re-minted from GitHub on every `getCredentials` call with the
+ * same URL; see `SingleInstanceGithubCredentialsProvider` in that package).
+ *
  * Throws when no integration is configured for the host or no token can be
  * resolved from either path. {@link ScmClientFactory} catches this to allow
  * token-optional (public repository) access for configured hosts.

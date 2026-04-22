@@ -47,6 +47,10 @@ export class GithubClient extends BaseScmClient {
   /**
    * Resolves the Bearer token for this request: prefers {@link ScmClientConfig.getToken}
    * when configured (fresh GitHub App installation tokens), else static `config.token`.
+   *
+   * If `getToken` is set and it throws, we return `undefined` and do not fall back to
+   * `config.token` (it may be a stale snapshot). If `getToken` resolves to a falsy
+   * value, we use `config.token` when set (e.g. PAT only).
    */
   private async resolveBearerToken(): Promise<string | undefined> {
     if (this.config.getToken) {
@@ -56,12 +60,14 @@ export class GithubClient extends BaseScmClient {
           return t;
         }
       } catch (err) {
-        this.logger.debug(
-          `[GithubClient] getToken failed: ${
+        this.logger.warn(
+          `[GithubClient] getToken failed, not using static config.token: ${
             err instanceof Error ? err.message : String(err)
           }`,
         );
+        return undefined;
       }
+      return this.config.token;
     }
     return this.config.token;
   }

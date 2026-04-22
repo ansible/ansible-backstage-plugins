@@ -174,6 +174,43 @@ describe('GithubClient', () => {
         });
       }
     });
+
+    it('does not use static token when getToken throws (warns and omits Authorization)', async () => {
+      const getToken = jest
+        .fn()
+        .mockRejectedValue(new Error('credentials provider down'));
+      const config: ScmClientConfig = {
+        scmProvider: 'github',
+        organization: 'test-org',
+        token: 'stale-snapshot',
+        getToken,
+      };
+      const ghClient = new GithubClient({ config, logger: mockLogger });
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        json: () =>
+          Promise.resolve({
+            data: {
+              organization: {
+                repositories: {
+                  pageInfo: { hasNextPage: false, endCursor: null },
+                  nodes: [],
+                },
+              },
+            },
+          }),
+      });
+
+      await ghClient.getRepositories();
+
+      expect(mockLogger.warn).toHaveBeenCalledWith(
+        expect.stringContaining(
+          'getToken failed, not using static config.token: credentials provider down',
+        ),
+      );
+      const [, init] = mockFetch.mock.calls[0];
+      expect((init as RequestInit).headers).not.toHaveProperty('Authorization');
+    });
   });
 
   describe('getRepositories', () => {
