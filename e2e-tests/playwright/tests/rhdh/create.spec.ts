@@ -18,7 +18,9 @@ test.describe('RHDH Ansible plugin Create flow', () => {
     await expect(page.locator('main')).toBeVisible({ timeout: 15000 });
   });
 
-  test('Visits Create tab and runs Ansible Project template', async ({ page }) => {
+  test('Visits Create tab and runs Ansible Project template', async ({
+    page,
+  }) => {
     // Cypress: cy.get('[data-testid="header-tab-2"]').click();
     const createTab = page.locator('[data-testid="header-tab-2"]');
     await expect(createTab).toBeVisible();
@@ -71,4 +73,3 @@ test.describe('RHDH Ansible plugin Create flow', () => {
     }
   });
 });
-
