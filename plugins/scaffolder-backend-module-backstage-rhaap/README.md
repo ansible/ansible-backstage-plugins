@@ -306,3 +306,7 @@ ansible:
     baseUrl: { $AAP_URL }
     checkSSL: false
 ```
+
+## Changelog and upgrades
+
+Repository-level release notes, breaking changes for `rhaap:*` actions (including payload normalization and template `token` / `secrets` usage), and migration hints are in the **[CHANGELOG](https://github.com/ansible/ansible-backstage-plugins/blob/main/CHANGELOG.md)**.

@@ -1,119 +1,28 @@
 import { createTemplateAction } from '@backstage/plugin-scaffolder-node';
-import { IAAPService, Project } from '@ansible/backstage-rhaap-common';
+import { IAAPService } from '@ansible/backstage-rhaap-common';
+import {
+  parseAapActionValues,
+  rethrowPreservingInputError,
+} from './utils/parseAapActionValues';
+import { normalizeProjectInputValues } from './schemas/rhaapActionPayloadUtils';
+import {
+  launchJobTemplateValuesLooseSchema,
+  aapApiRecordOutputSchema,
+  projectInputSchema,
+} from './schemas/rhaapActionSchemas';
 
 export const createProjectAction = (ansibleServiceRef: IAAPService) => {
-  return createTemplateAction<{
-    token: string;
-    deleteIfExist: boolean;
-    values: Project;
-  }>({
+  return createTemplateAction({
     id: 'rhaap:create-project',
     schema: {
       input: {
-        type: 'object',
-        required: ['token', 'values'],
-        properties: {
-          token: {
-            type: 'string',
-            description: 'Oauth2 token',
-          },
-          deleteIfExist: {
-            type: 'boolean',
-            description: 'Delete project if exist',
-          },
-          values: {
-            type: 'object',
-            required: ['projectName', 'organization', 'scmUrl'],
-            properties: {
-              projectName: {
-                title: 'Name',
-                type: 'string',
-              },
-              projectDescription: {
-                title: 'Description',
-                type: 'string',
-              },
-              organization: {
-                title: 'Organization',
-                type: 'object',
-                description: 'Organization ID',
-                required: ['id'],
-                properties: {
-                  id: {
-                    type: 'number',
-                    description: 'Organization id',
-                  },
-                  name: {
-                    type: 'string',
-                    description: 'Organization name',
-                  },
-                },
-              },
-              credentials: {
-                title: 'Credential',
-                type: 'object',
-                description: 'Credential ID',
-                required: ['id'],
-                properties: {
-                  id: {
-                    type: 'number',
-                    description: 'Credential id',
-                  },
-                  name: {
-                    type: 'string',
-                    description: 'Credential name',
-                  },
-                  kind: {
-                    type: 'string',
-                    description: 'Credential type',
-                  },
-                },
-              },
-              scmUrl: {
-                title: 'Source control URL',
-                type: 'string',
-                description: 'Source control URL',
-              },
-              scmBranch: {
-                title: 'Source control branch/tag/commit',
-                type: 'string',
-                description: 'Source control branch/tag/commit',
-              },
-              scmUpdateOnLaunch: {
-                title: 'Update revision on launch',
-                type: 'boolean',
-                description:
-                  'Each time a job runs using this project, update the revision of the project prior to starting the job.',
-              },
-            },
-          },
-        },
+        token: z => z.string({ description: 'Oauth2 token' }),
+        deleteIfExist: z =>
+          z.boolean({ description: 'Delete project if exist' }),
+        values: () => launchJobTemplateValuesLooseSchema,
       },
       output: {
-        type: 'object',
-        properties: {
-          project: {
-            type: 'object',
-            properties: {
-              id: {
-                title: 'Project id',
-                type: 'number',
-              },
-              name: {
-                title: 'Project name',
-                type: 'string',
-              },
-              description: {
-                title: 'Project description',
-                type: 'string',
-              },
-              url: {
-                title: 'Project url',
-                type: 'string',
-              },
-            },
-          },
-        },
+        project: () => aapApiRecordOutputSchema,
       },
     },
     async handler(ctx) {
@@ -127,16 +36,19 @@ export const createProjectAction = (ansibleServiceRef: IAAPService) => {
       ansibleServiceRef.setLogger(logger);
       let projectData;
       try {
+        const normalized = normalizeProjectInputValues(input.values);
+        const parsedData = parseAapActionValues(
+          projectInputSchema,
+          normalized,
+          'rhaap:create-project',
+        );
         projectData = await ansibleServiceRef.createProject(
-          input.values,
+          parsedData,
           input.deleteIfExist,
           input.token,
         );
-      } catch (e: any) {
-        const message = e?.message ?? 'Something went wrong.';
-        const error = new Error(message);
-        error.stack = '';
-        throw error;
+      } catch (e: unknown) {
+        rethrowPreservingInputError(e);
       }
       ctx.output('project', projectData);
     },

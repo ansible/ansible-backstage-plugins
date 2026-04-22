@@ -15,10 +15,7 @@
  */
 
 import { createTemplateAction } from '@backstage/plugin-scaffolder-node';
-import {
-  ansibleCreatorRun,
-  handleDevfileProject,
-} from './ansibleContentCreate';
+import { ansibleCreatorRun } from './ansibleContentCreate';
 import {
   validateAnsibleConfig,
   getServiceUrlFromAnsibleConfig,
@@ -28,110 +25,75 @@ import {
 import { Config } from '@backstage/config';
 import { BackendServiceAPI } from './utils/api';
 import { ScaffolderLogger } from './utils/logger';
-import { AnsibleConfig } from '@ansible/backstage-rhaap-common';
 import { appType } from './constants';
 
-export function createAnsibleContentAction(
-  config: Config,
-  ansibleConfig: AnsibleConfig,
-) {
-  return createTemplateAction<{
-    sourceControl: string;
-    repoOwner: string;
-    repoName: string;
-    repositoryUrl: string;
-    description: string;
-    collectionGroup: string;
-    collectionName: string;
-    applicationType: string;
-  }>({
+export function createAnsibleContentAction(config: Config) {
+  return createTemplateAction({
     id: 'ansible:content:create',
     description: 'Runs Ansible creator to scaffold Ansible content',
     schema: {
       input: {
-        type: 'object',
-        required: [],
-        properties: {
-          sourceControl: {
-            title: 'Source control options',
-            description:
-              'The source control source name. For example, “github.com”.',
-            type: 'string',
-          },
-          repoOwner: {
-            title: ' Source code repository organization name or username',
-            description:
-              'The organization name or username of your source code repository. For example, “my-github-username”.',
-            type: 'string',
-          },
-          repoName: {
-            title: 'Repository Name',
-            description:
-              'The name of the new playbook project repository. For example, “my-new-playbook-repo”.',
-            type: 'string',
-          },
-          repositoryUrl: {
-            title: 'Source code repository URL',
-            description:
-              'The repository URL where the devfile needs to be scaffolded.',
-            type: 'string',
-          },
-          collectionGroup: {
-            title: 'Collection Namespace',
-            description:
-              'The collection namespace in your new playbook repository. For example, “my-new-collection-namespace”.',
-            type: 'string',
-          },
-          collectionName: {
-            title: 'Collection Name',
-            description:
-              'The collection name in your new playbook repository. For example, “my-new-collection-name”.',
-            type: 'string',
-          },
-          description: {
-            title: 'Description',
-            description:
-              'Describe the playbook or collection and its purpose to help other users understand what to use it for.',
-            type: 'string',
-          },
-          applicationType: {
-            title: 'Application type',
-            description: 'The Application type.',
-            type: 'string',
-          },
-        },
+        sourceControl: z =>
+          z
+            .string({
+              description:
+                'The source control source name. For example, “github.com”.',
+            })
+            .optional(),
+        repoOwner: z =>
+          z
+            .string({
+              description:
+                'The organization name or username of your source code repository. For example, “my-github-username”.',
+            })
+            .optional(),
+        repoName: z =>
+          z
+            .string({
+              description:
+                'The name of the new playbook project repository. For example, “my-new-playbook-repo”.',
+            })
+            .optional(),
+        collectionGroup: z =>
+          z
+            .string({
+              description:
+                'The collection namespace in your new playbook repository. For example, “my-new-collection-namespace”.',
+            })
+            .optional(),
+        collectionName: z =>
+          z
+            .string({
+              description:
+                'The collection name in your new playbook repository. For example, “my-new-collection-name”.',
+            })
+            .optional(),
+        description: z =>
+          z
+            .string({
+              description:
+                'Describe the playbook or collection and its purpose to help other users understand what to use it for.',
+            })
+            .optional(),
+        applicationType: z =>
+          z.string({ description: 'The Application type.' }).optional(),
       },
       output: {
-        type: 'object',
-        required: [
-          'sourceControl',
-          'repoOwner',
-          'repoName',
-          'repositoryUrl',
-          'collectionGroup',
-          'collectionName',
-        ],
-        properties: {
-          devSpacesBaseUrl: {
-            type: 'string',
-          },
-          repoUrl: {
-            type: 'string',
-          },
-        },
+        devSpacesBaseUrl: z => z.string().optional(),
+        repoUrl: z => z.string().optional(),
       },
     },
     async handler(ctx) {
       const { input, logger } = ctx;
       const {
-        sourceControl,
-        repoOwner,
-        repoName,
-        repositoryUrl,
-        description,
-        collectionGroup,
-        collectionName,
+        sourceControl = '',
+        repoOwner = '',
+        repoName = '',
+        description = '',
+        collectionGroup = '',
+        collectionName = '',
       } = input;
+      const applicationType = input.applicationType ?? '';
 
       const log = new ScaffolderLogger(BackendServiceAPI.pluginLogName, logger);
       try {
@@ -145,7 +107,7 @@ export function createAnsibleContentAction(
 
         await ansibleCreatorRun(
           ctx.workspacePath,
-          ctx.input.applicationType,
+          applicationType,
           logger,
           description,
           collectionGroup,
@@ -153,17 +115,7 @@ export function createAnsibleContentAction(
           getServiceUrlFromAnsibleConfig(config),
         );
         log.info(`ansibleCreatorRun completed successfully`);
-        if (ctx.input.applicationType === appType.DEVFILE) {
-          log.info(`RepoURL ${repositoryUrl}`);
-          const prLink = await handleDevfileProject(
-            ansibleConfig,
-            logger,
-            sourceControl,
-            ctx.input.repositoryUrl,
-            ctx.workspacePath,
-          );
-          ctx.output('prUrl', prLink);
-        } else {
+        if (applicationType !== appType.DEVFILE) {
           ctx.output(
             'devSpacesBaseUrl',
             getDevspacesUrlFromAnsibleConfig(

@@ -18,8 +18,10 @@ import {
   coreServices,
   createBackendModule,
 } from '@backstage/backend-plugin-api';
+import type { ExtensionPoint } from '@backstage/backend-plugin-api';
+import type { ScaffolderActionsExtensionPoint } from '@backstage/plugin-scaffolder-node';
+import * as scaffolderNode from '@backstage/plugin-scaffolder-node';
 import {
-  scaffolderActionsExtensionPoint,
   scaffolderAutocompleteExtensionPoint,
   scaffolderTemplatingExtensionPoint,
 } from '@backstage/plugin-scaffolder-node/alpha';
@@ -27,6 +29,7 @@ import {
   ansibleServiceRef,
   getAnsibleConfig,
 } from '@ansible/backstage-rhaap-common';
+import * as scaffolderNodeAlpha from '@backstage/plugin-scaffolder-node/alpha';
 import {
   createAnsibleContentAction,
   cleanUp,
@@ -47,6 +50,12 @@ import {
 import { handleAutocompleteRequest } from './autocomplete';
 
 import { createRouter } from './router';
+
+const scaffolderActionsExtensionPoint = ((
+  scaffolderNode as Record<string, unknown>
+).scaffolderActionsExtensionPoint ??
+  (scaffolderNodeAlpha as Record<string, unknown>)
+    .scaffolderActionsExtensionPoint) as ExtensionPoint<ScaffolderActionsExtensionPoint>;
 
 /**
  * @public
@@ -82,7 +91,7 @@ export const scaffolderModuleAnsible = createBackendModule({
         const ansibleConfig = getAnsibleConfig(config);
         const frontendUrl = config.getString('app.baseUrl');
         scaffolder.addActions(
-          createAnsibleContentAction(config, ansibleConfig),
+          createAnsibleContentAction(config),
           createProjectAction(ansibleService),
           createExecutionEnvironment(ansibleService),
           createJobTemplate(ansibleService),

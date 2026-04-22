@@ -70,3 +70,15 @@ For detailed configuration and usage of user, team, and organization synchroniza
 - Provides filtering by organization, labels, and survey status
 
 For detailed configuration and usage of job template synchronization, see the [Job Template Documentation](../features/job-templates.md).
+
+## Superuser REST routes (manual sync)
+
+The catalog backend module exposes HTTP routes on the **catalog** service (paths are relative to the catalog plugin base URL, for example `/api/catalog` in development). These **superuser-only** endpoints trigger on-demand sync from AAP:
+
+| Method | Path                                      | Purpose                                                                                  |
+| ------ | ----------------------------------------- | ---------------------------------------------------------------------------------------- |
+| `GET`  | `/ansible/sync/from-aap/orgs_users_teams` | Sync organizations, users, and teams                                                     |
+| `GET`  | `/ansible/sync/from-aap/job_templates`    | Sync job templates into catalog templates                                                |
+| `GET`  | `/ansible/sync/status`                    | Query sync status (supports query parameters such as `aap_entities`, `ansible_contents`) |
+
+**Migration:** Older releases used paths under `/aap/sync_*`. Those were replaced by the `/ansible/sync/from-aap/...` routes above. Update any custom automation or bookmarks accordingly. See the [project CHANGELOG](https://github.com/ansible/ansible-backstage-plugins/blob/main/CHANGELOG.md) for details.

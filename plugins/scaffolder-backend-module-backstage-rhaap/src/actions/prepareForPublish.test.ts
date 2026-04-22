@@ -20,6 +20,7 @@ jest.mock('./helpers', () => ({
 }));
 
 jest.mock('crypto', () => ({
+  ...jest.requireActual<typeof import('crypto')>('crypto'),
   randomBytes: jest.fn(),
 }));
 

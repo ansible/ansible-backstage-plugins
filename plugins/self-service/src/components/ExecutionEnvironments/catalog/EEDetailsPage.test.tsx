@@ -309,18 +309,17 @@ describe('EEDetailsPage', () => {
     openSpy.mockRestore();
   });
 
-  test('Edit action opens edit URL from annotation (if present)', async () => {
+  test('Edit control is absent or clickable when markup provides it', async () => {
     renderWithCatalogApi(() => Promise.resolve({ items: [entityNoDownload] }));
 
-    await screen.findByTestId('favorite-entity');
+    const favorite = await screen.findByTestId('favorite-entity');
+    expect(favorite).toBeInTheDocument();
 
     const editLink =
       screen.queryByRole('link', { name: /edit/i }) ||
       screen.queryByText(/Edit/i);
     if (editLink) {
       fireEvent.click(editLink);
-      // link has target _blank in the markup — ensure href contains the edit url
-      //   expect((editLink as HTMLAnchorElement).href).toContain('http://edit/ee-one');
     }
   });
 

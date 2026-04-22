@@ -5,7 +5,6 @@ import { createShowCases } from './aapCreateShowCases';
 import { UseCaseMaker } from './helpers';
 import { mockAnsibleService } from './mockIAAPService';
 import { getAnsibleConfig } from '@ansible/backstage-rhaap-common';
-import { ActionContext } from '@backstage/plugin-scaffolder-node';
 
 describe('ansible-aap:showCases:create', () => {
   const config = new ConfigReader(MOCK_CONFIG.data);
@@ -14,6 +13,7 @@ describe('ansible-aap:showCases:create', () => {
 
   const createShowCasesData = {
     organization: MOCK_ORGANIZATION,
+    scmType: 'Github',
     useCases: [
       { name: 'Use case 1', version: 'main', url: 'https://useCase1.test' },
       { name: 'Use case 2', version: 'dev', url: 'https://useCase2.test' },
@@ -43,7 +43,7 @@ describe('ansible-aap:showCases:create', () => {
         return Promise.resolve();
       });
 
-    await action.handler(mockContext as ActionContext<any>);
+    await action.handler(mockContext);
     expect(mockContext.output).toHaveBeenCalledWith(
       'showCase',
       'Successfully created RH AAP show case templates.',
@@ -58,7 +58,7 @@ describe('ansible-aap:showCases:create', () => {
       });
     let error;
     try {
-      await action.handler(mockContext as ActionContext<any>);
+      await action.handler(mockContext);
     } catch (e: any) {
       error = e;
     }
@@ -73,7 +73,7 @@ describe('ansible-aap:showCases:create', () => {
       });
     let error;
     try {
-      await action.handler(mockContext as ActionContext<any>);
+      await action.handler(mockContext);
     } catch (e: any) {
       error = e;
     }

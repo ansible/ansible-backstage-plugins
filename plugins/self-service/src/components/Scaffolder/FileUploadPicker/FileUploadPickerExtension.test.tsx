@@ -36,11 +36,11 @@ Object.defineProperty(globalThis, 'sessionStorage', {
 const fileContentMap = new WeakMap<File, string>();
 
 const OriginalFile = globalThis.File;
-(globalThis as any).File = function (
+function MockFileConstructor(
   fileBits: BlobPart[],
   fileName: string,
   options?: FilePropertyBag,
-) {
+): File {
   const file = new OriginalFile(fileBits, fileName, options);
   const content = fileBits
     .map((bit: BlobPart) => {
@@ -53,7 +53,8 @@ const OriginalFile = globalThis.File;
     .join('');
   fileContentMap.set(file, content);
   return file;
-} as any;
+}
+(globalThis as any).File = MockFileConstructor as any;
 Object.setPrototypeOf((globalThis as any).File, OriginalFile);
 Object.assign((globalThis as any).File, OriginalFile);
 

@@ -1,98 +1,31 @@
 import { createTemplateAction } from '@backstage/plugin-scaffolder-node';
 import {
+  type ExecutionEnvironment,
   IAAPService,
-  ExecutionEnvironment,
 } from '@ansible/backstage-rhaap-common';
+import {
+  parseAapActionValues,
+  rethrowPreservingInputError,
+} from './utils/parseAapActionValues';
+import { normalizeExecutionEnvironmentInputValues } from './schemas/rhaapActionPayloadUtils';
+import {
+  launchJobTemplateValuesLooseSchema,
+  aapApiRecordOutputSchema,
+  executionEnvironmentInputSchema,
+} from './schemas/rhaapActionSchemas';
 
 export const createExecutionEnvironment = (ansibleServiceRef: IAAPService) => {
-  return createTemplateAction<{
-    token: string;
-    deleteIfExist: boolean;
-    values: ExecutionEnvironment;
-  }>({
+  return createTemplateAction({
     id: 'rhaap:create-execution-environment',
     schema: {
       input: {
-        type: 'object',
-        required: ['token', 'values'],
-        properties: {
-          token: {
-            type: 'string',
-            description: 'Oauth2 token',
-          },
-          deleteIfExist: {
-            type: 'boolean',
-            description: 'Delete project if exist',
-          },
-          values: {
-            type: 'object',
-            required: ['environmentName', 'image', 'organization'],
-            environmentName: {
-              title: 'Name',
-              type: 'string',
-              description: 'Execution environment name',
-            },
-            environmentDescription: {
-              title: 'Description',
-              type: 'string',
-              description: 'Execution environment description',
-            },
-            organization: {
-              title: 'Organization',
-              type: 'object',
-              description: 'Organization',
-              properties: {
-                id: {
-                  type: 'number',
-                  description: 'Organization id',
-                },
-                name: {
-                  type: 'string',
-                  description: 'Organization name',
-                },
-              },
-            },
-            image: {
-              title: 'Image',
-              type: 'string',
-              description:
-                'The full image location, including the container registry, image name, and version tag.',
-            },
-            pull: {
-              title: 'Image pull policy',
-              type: 'string',
-              description:
-                'Image pull policy. Allowed values: "always", "missing", "never".',
-              default: 'missing',
-            },
-          },
-        },
+        token: z => z.string({ description: 'Oauth2 token' }),
+        deleteIfExist: z =>
+          z.boolean({ description: 'Delete project if exist' }),
+        values: () => launchJobTemplateValuesLooseSchema,
       },
       output: {
-        type: 'object',
-        properties: {
-          executionEnvironment: {
-            type: 'object',
-            properties: {
-              id: {
-                title: 'Execution environment id',
-                type: 'number',
-              },
-              name: {
-                title: 'Execution environment name',
-                type: 'string',
-              },
-              description: {
-                title: 'Execution environment description',
-                type: 'string',
-              },
-              url: {
-                title: 'Execution environment url',
-                type: 'string',
-              },
-            },
-          },
-        },
+        executionEnvironment: () => aapApiRecordOutputSchema,
       },
     },
     async handler(ctx) {
@@ -105,19 +38,22 @@ export const createExecutionEnvironment = (ansibleServiceRef: IAAPService) => {
       }
 
       ansibleServiceRef.setLogger(logger);
-      let eeData;
+      const normalized = normalizeExecutionEnvironmentInputValues(input.values);
+      let parsedData: ExecutionEnvironment;
       try {
-        eeData = await ansibleServiceRef.createExecutionEnvironment(
-          input.values,
-          input.token,
-          input.deleteIfExist,
+        parsedData = parseAapActionValues(
+          executionEnvironmentInputSchema,
+          normalized,
+          'rhaap:create-execution-environment',
         );
-      } catch (e: any) {
-        const message = e?.message ?? 'Something went wrong.';
-        const error = new Error(message);
-        error.stack = '';
-        throw error;
+      } catch (e: unknown) {
+        rethrowPreservingInputError(e);
       }
+      const eeData = await ansibleServiceRef.createExecutionEnvironment(
+        parsedData,
+        input.token,
+        input.deleteIfExist,
+      );
       ctx.output('executionEnvironment', eeData);
     },
   });

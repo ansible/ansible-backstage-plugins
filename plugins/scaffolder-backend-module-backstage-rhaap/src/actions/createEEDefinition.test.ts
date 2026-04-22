@@ -29,9 +29,13 @@ jest.mock('js-yaml', () => ({
   },
 }));
 
-jest.mock('semver', () => ({
-  gt: jest.fn(),
-}));
+jest.mock('semver', () => {
+  const actual = jest.requireActual<typeof import('semver')>('semver');
+  return {
+    ...actual,
+    gt: jest.fn(),
+  };
+});
 
 jest.mock('./helpers/schemas', () => ({
   CollectionRequirementsSchema: {
@@ -43,7 +47,8 @@ jest.mock('./helpers/schemas', () => ({
 }));
 
 jest.mock('./utils/utils', () => ({
-  parseUploadedFileContent: jest.fn(),
+  ...jest.requireActual('./utils/utils'),
+  parseUploadedFileContent: jest.fn().mockReturnValue(''),
 }));
 
 // Mock global fetch

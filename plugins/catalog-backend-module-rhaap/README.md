@@ -70,3 +70,12 @@ For detailed configuration and usage of user, team, and organization synchroniza
 - Provides filtering by organization, labels, and survey status
 
 For detailed configuration and usage of job template synchronization, see the [Job Template Documentation](../../docs/features/job-templates.md).
+
+## Superuser sync routes (HTTP)
+
+On-demand sync triggers exposed by this module use:
+
+- `GET .../ansible/sync/from-aap/orgs_users_teams`
+- `GET .../ansible/sync/from-aap/job_templates`
+
+Older path names under `/aap/sync_*` are **removed**; update custom clients. See the [CHANGELOG](https://github.com/ansible/ansible-backstage-plugins/blob/main/CHANGELOG.md).
