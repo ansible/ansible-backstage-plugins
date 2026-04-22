@@ -104,6 +104,19 @@ export class ScmClientFactory {
         host: resolvedHost,
         organization,
         token,
+        ...(providedToken
+          ? {}
+          : {
+              getToken: async (): Promise<string | undefined> => {
+                const { token: fresh } = await this.resolveGithubCredentials(
+                  resolvedHost,
+                  organization,
+                  repository,
+                  false,
+                );
+                return fresh || undefined;
+              },
+            }),
         apiBaseUrl,
         checkSSL,
       };

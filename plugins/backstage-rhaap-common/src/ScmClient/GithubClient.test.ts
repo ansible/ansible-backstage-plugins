@@ -135,6 +135,47 @@ describe('GithubClient', () => {
     });
   });
 
+  describe('getToken', () => {
+    it('prefers getToken over static token for Authorization on each request', async () => {
+      const getToken = jest.fn().mockResolvedValue('fresh-from-provider');
+      const config: ScmClientConfig = {
+        scmProvider: 'github',
+        organization: 'test-org',
+        token: 'stale-token',
+        getToken,
+      };
+      const ghClient = new GithubClient({ config, logger: mockLogger });
+      const mockResponse = {
+        data: {
+          organization: {
+            repositories: {
+              pageInfo: { hasNextPage: false, endCursor: null },
+              nodes: [],
+            },
+          },
+        },
+      };
+      const graphqlOk = {
+        ok: true,
+        json: () => Promise.resolve(mockResponse),
+      };
+      mockFetch
+        .mockResolvedValueOnce(graphqlOk)
+        .mockResolvedValueOnce(graphqlOk);
+
+      await ghClient.getRepositories();
+      await ghClient.getRepositories();
+
+      expect(getToken).toHaveBeenCalledTimes(2);
+      for (const call of mockFetch.mock.calls) {
+        const [, init] = call;
+        expect((init as RequestInit).headers).toMatchObject({
+          Authorization: 'Bearer fresh-from-provider',
+        });
+      }
+    });
+  });
+
   describe('getRepositories', () => {
     it('should fetch repositories using GraphQL and return repository info', async () => {
       const mockResponse = {

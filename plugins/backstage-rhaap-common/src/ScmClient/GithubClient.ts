@@ -1,6 +1,11 @@
 import { fetch as undiciFetch, Agent } from 'undici';
 import { BaseScmClient, ScmClientOptions } from './ScmClient';
-import type { RepositoryInfo, DirectoryEntry, UrlBuildOptions } from './types';
+import type {
+  RepositoryInfo,
+  DirectoryEntry,
+  UrlBuildOptions,
+  ScmClientConfig,
+} from './types';
 
 /**
  * Github client implementation using GraphQL and REST APIs
@@ -39,16 +44,41 @@ export class GithubClient extends BaseScmClient {
     return 'github.com';
   }
 
-  private getFetchOptions(init?: RequestInit): RequestInit & {
-    dispatcher?: Agent;
-  } {
+  /**
+   * Resolves the Bearer token for this request: prefers {@link ScmClientConfig.getToken}
+   * when configured (fresh GitHub App installation tokens), else static `config.token`.
+   */
+  private async resolveBearerToken(): Promise<string | undefined> {
+    if (this.config.getToken) {
+      try {
+        const t = await this.config.getToken();
+        if (t) {
+          return t;
+        }
+      } catch (err) {
+        this.logger.debug(
+          `[GithubClient] getToken failed: ${
+            err instanceof Error ? err.message : String(err)
+          }`,
+        );
+      }
+    }
+    return this.config.token;
+  }
+
+  private async getFetchOptions(init?: RequestInit): Promise<
+    RequestInit & {
+      dispatcher?: Agent;
+    }
+  > {
     const headers: Record<string, string> = {
       Accept: 'application/vnd.github.v3+json',
       'X-GitHub-Api-Version': '2022-11-28',
       ...(init?.headers as Record<string, string>),
     };
-    if (this.config.token) {
-      headers.Authorization = `Bearer ${this.config.token}`;
+    const token = await this.resolveBearerToken();
+    if (token) {
+      headers.Authorization = `Bearer ${token}`;
     }
     if (!this.checkSSL) {
       return {
@@ -63,7 +93,7 @@ export class GithubClient extends BaseScmClient {
   }
 
   private async doFetch(url: string, init?: RequestInit): Promise<Response> {
-    const opts = this.getFetchOptions(init);
+    const opts = await this.getFetchOptions(init);
     return this.checkSSL
       ? fetch(url, opts)
       : (undiciFetch(
