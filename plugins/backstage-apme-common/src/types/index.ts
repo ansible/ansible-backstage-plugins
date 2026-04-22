@@ -109,6 +109,7 @@ export interface CreateProjectRequest {
   name: string;
   repo_url: string;
   branch?: string;
+  scm_token?: string;
 }
 
 export interface Activity {
