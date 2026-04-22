@@ -18,11 +18,23 @@ import {
   coreServices,
   createBackendModule,
 } from '@backstage/backend-plugin-api';
-import { scaffolderActionsExtensionPoint } from '@backstage/plugin-scaffolder-node';
+import type { ExtensionPoint } from '@backstage/backend-plugin-api';
+import type { ScaffolderActionsExtensionPoint } from '@backstage/plugin-scaffolder-node';
 import {
   scaffolderAutocompleteExtensionPoint,
   scaffolderTemplatingExtensionPoint,
 } from '@backstage/plugin-scaffolder-node/alpha';
+
+// scaffolderActionsExtensionPoint moved from /alpha to the main export in
+// @backstage/plugin-scaffolder-node 0.11.0 (RHDH 1.9). Use require() so the
+// same built plugin works on both RHDH 1.8 (/alpha) and 1.9 (main).
+/* eslint-disable @typescript-eslint/no-require-imports */
+const scaffolderActionsExtensionPoint: ExtensionPoint<ScaffolderActionsExtensionPoint> =
+  require('@backstage/plugin-scaffolder-node')
+    .scaffolderActionsExtensionPoint ??
+  require('@backstage/plugin-scaffolder-node/alpha')
+    .scaffolderActionsExtensionPoint;
+/* eslint-enable @typescript-eslint/no-require-imports */
 import {
   ansibleServiceRef,
   getAnsibleConfig,
