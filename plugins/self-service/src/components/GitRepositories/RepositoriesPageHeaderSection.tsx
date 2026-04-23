@@ -5,12 +5,14 @@ interface RepositoriesPageHeaderSectionProps {
   onSyncClick: () => void;
   syncDisabled?: boolean;
   syncDisabledReason?: string;
+  syncInProgress?: boolean;
 }
 
 export const RepositoriesPageHeaderSection = ({
   onSyncClick,
   syncDisabled = false,
   syncDisabledReason,
+  syncInProgress = false,
 }: RepositoriesPageHeaderSectionProps) => (
   <PageHeaderSection
     title="Git Repositories"
@@ -19,5 +21,6 @@ export const RepositoriesPageHeaderSection = ({
     onSyncClick={onSyncClick}
     syncDisabled={syncDisabled}
     syncDisabledReason={syncDisabledReason}
+    syncInProgress={syncInProgress}
   />
 );

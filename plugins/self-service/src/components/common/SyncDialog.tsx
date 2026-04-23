@@ -38,7 +38,75 @@ import {
 import { useSharedStyles } from './styles';
 import { GitLabIcon, RedHatIcon } from './icons';
 import { useNotifications } from '../notifications';
-import { SYNC_STARTED_CATEGORY } from './constants';
+import { SYNC_FAILED_CATEGORY, SYNC_STARTED_CATEGORY } from './constants';
+
+type AnsibleSyncPostResult = {
+  status: string;
+  error?: { message?: string; code?: string };
+  repositoryName?: string;
+  scmProvider?: string;
+  hostName?: string;
+  organization?: string;
+};
+
+function labelForSyncPostResult(r: AnsibleSyncPostResult): string {
+  if (typeof r.repositoryName === 'string' && r.repositoryName.length > 0) {
+    return `PAH/${r.repositoryName}`;
+  }
+  const parts = [r.scmProvider, r.hostName, r.organization].filter(
+    (p): p is string => typeof p === 'string' && p.length > 0,
+  );
+  return parts.length > 0 ? parts.join('/') : 'Unknown source';
+}
+
+function formatSyncPostFailureDetail(
+  problems: AnsibleSyncPostResult[],
+): string {
+  return problems
+    .map(p => `${labelForSyncPostResult(p)}: ${p.error?.message ?? p.status}`)
+    .join('; ');
+}
+
+/** Throws when HTTP fails or the sync API reports failed/invalid results (including 2xx mixed bodies). */
+async function ensureSyncPostSucceeded(response: Response): Promise<void> {
+  let parsed: unknown;
+  try {
+    parsed = await response.json();
+  } catch {
+    parsed = undefined;
+  }
+
+  const body = parsed as Record<string, unknown> | undefined;
+
+  if (!response.ok) {
+    const fromErrorField =
+      typeof body?.error === 'string'
+        ? body.error
+        : body?.error &&
+            typeof (body.error as { message?: unknown }).message === 'string'
+          ? String((body.error as { message: string }).message)
+          : null;
+    const fromMessage = typeof body?.message === 'string' ? body.message : null;
+    throw new Error(
+      fromErrorField ||
+        fromMessage ||
+        response.statusText ||
+        `Request failed with status ${response.status}`,
+    );
+  }
+
+  if (!body || !Array.isArray(body.results)) {
+    return;
+  }
+
+  const results = body.results as AnsibleSyncPostResult[];
+  const problems = results.filter(
+    r => r.status === 'failed' || r.status === 'invalid',
+  );
+  if (problems.length > 0) {
+    throw new Error(formatSyncPostFailureDetail(problems));
+  }
+}
 
 interface ProviderInfo {
   sourceId: string;
@@ -441,24 +509,32 @@ export const SyncDialog = ({
     baseUrl: string,
     filter: SyncFilter,
   ): Promise<void> => {
-    await fetchApi.fetch(`${baseUrl}/ansible/sync/from-scm/content`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ filters: [filter] }),
-    });
+    const response = await fetchApi.fetch(
+      `${baseUrl}/ansible/sync/from-scm/content`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ filters: [filter] }),
+      },
+    );
+    await ensureSyncPostSucceeded(response);
   };
 
   const syncPahSource = async (
     baseUrl: string,
     repositoryName: string,
   ): Promise<void> => {
-    await fetchApi.fetch(`${baseUrl}/ansible/sync/from-aap/content`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        filters: [{ repository_name: repositoryName }],
-      }),
-    });
+    const response = await fetchApi.fetch(
+      `${baseUrl}/ansible/sync/from-aap/content`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          filters: [{ repository_name: repositoryName }],
+        }),
+      },
+    );
+    await ensureSyncPostSucceeded(response);
   };
 
   const findProviderForSelection = (
@@ -562,7 +638,24 @@ export const SyncDialog = ({
       syncPromises.push(syncScmSource(baseUrl, filter));
     });
 
-    await Promise.allSettled(syncPromises);
+    const settled = await Promise.allSettled(syncPromises);
+    const failures = settled
+      .filter((r): r is PromiseRejectedResult => r.status === 'rejected')
+      .map(r =>
+        r.reason instanceof Error ? r.reason.message : String(r.reason),
+      );
+
+    if (failures.length > 0) {
+      showNotification({
+        title:
+          failures.length === 1 ? 'Sync failed' : 'Some sync requests failed',
+        description: failures.join('\n'),
+        severity: 'error',
+        category: SYNC_FAILED_CATEGORY,
+        dismissCategories: [SYNC_STARTED_CATEGORY],
+        autoHideDuration: 0,
+      });
+    }
   };
 
   const hasSelections = selectedItems.size > 0;

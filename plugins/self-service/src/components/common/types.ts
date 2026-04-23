@@ -31,4 +31,5 @@ export interface EmptyStateProps {
   repositoryFilter?: boolean;
   syncDisabled?: boolean;
   syncDisabledReason?: string;
+  syncInProgress?: boolean;
 }

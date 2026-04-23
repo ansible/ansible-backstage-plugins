@@ -154,4 +154,15 @@ describe('PageHeaderSection', () => {
     const syncButton = screen.getByRole('button', { name: /Sync Now/i });
     expect(syncButton).toBeDisabled();
   });
+
+  it('applies spinning animation class to sync icon when syncInProgress', () => {
+    renderWithTheme(
+      <PageHeaderSection {...defaultProps} syncDisabled syncInProgress />,
+    );
+
+    const syncButton = screen.getByRole('button', { name: /Sync Now/i });
+    const icon = syncButton.querySelector('svg');
+    expect(icon).toBeTruthy();
+    expect(icon?.getAttribute('class')).toMatch(/syncIconSpinning/);
+  });
 });

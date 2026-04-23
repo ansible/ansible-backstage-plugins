@@ -92,18 +92,27 @@ class SyncPollingService {
     this.discoveryApi = discoveryApi;
     this.fetchApi = fetchApi;
 
-    if (this.pollLoopStarted) {
+    const startPollChain = () => {
+      const gen = this.pollGeneration;
+      this.checkSyncStatus().then(anyInProgress => {
+        if (!this.isCurrentGeneration(gen)) {
+          return;
+        }
+        this.scheduleNextPoll(anyInProgress);
+      });
+    };
+
+    if (!this.pollLoopStarted) {
+      this.pollLoopStarted = true;
+      startPollChain();
       return;
     }
-    this.pollLoopStarted = true;
 
-    const gen = this.pollGeneration;
-    this.checkSyncStatus().then(anyInProgress => {
-      if (!this.isCurrentGeneration(gen)) {
-        return;
-      }
-      this.scheduleNextPoll(anyInProgress);
-    });
+    // Re-enter (e.g. new RouteView after navigation): loop should already be
+    // running. If the timer chain stopped while pollLoopStarted is true, restart.
+    if (this.pollTimer === null && this.checkSyncStatusInFlight === null) {
+      startPollChain();
+    }
   }
 
   subscribe(listener: SyncStatusListener): () => void {
@@ -201,6 +210,27 @@ class SyncPollingService {
         dismissCategories: [SYNC_STARTED_CATEGORY],
         autoHideDuration: 0,
       });
+      return;
+    }
+    notificationStore.showNotification({
+      title: 'Sync finished',
+      description: `Catalog did not report a clear success or failure for ${tracked.displayName}.`,
+      severity: 'warning',
+      dismissCategories: [SYNC_STARTED_CATEGORY],
+      autoHideDuration: 20000,
+    });
+  }
+
+  /**
+   * When provider payloads are unavailable (fetch failed or non-2xx), still
+   * remove entries past {@link TRACKING_TIMEOUT_MS} so isSyncInProgress
+   * cannot stay true indefinitely from stale local tracking.
+   */
+  private evictTimedOutTrackedSyncs(now: number): void {
+    for (const [sourceId, tracked] of this.trackedSyncs.entries()) {
+      if (now - tracked.startedAt > TRACKING_TIMEOUT_MS) {
+        this.trackedSyncs.delete(sourceId);
+      }
     }
   }
 
@@ -214,15 +244,27 @@ class SyncPollingService {
       const provider = providers.find(p => p.sourceId === sourceId);
 
       if (!provider) {
+        notificationStore.showNotification({
+          title: 'Sync failed',
+          description: `Source is no longer available in the catalog for ${tracked.displayName}.`,
+          severity: 'error',
+          category: SYNC_FAILED_CATEGORY,
+          dismissCategories: [SYNC_STARTED_CATEGORY],
+          autoHideDuration: 0,
+        });
         this.trackedSyncs.delete(sourceId);
+        anyTrackedSyncCompleted = true;
         continue;
       }
 
       const prevSnapshot = this.providerSyncSnapshot.get(sourceId);
+      const terminalFailure =
+        !provider.syncInProgress && provider.lastSyncStatus === 'failure';
       const syncCompleted =
-        !provider.syncInProgress &&
-        (provider.lastSyncTime !== tracked.lastSyncTimeAtStart ||
-          providerFinishedRunSinceLastPoll(prevSnapshot, provider));
+        terminalFailure ||
+        (!provider.syncInProgress &&
+          (provider.lastSyncTime !== tracked.lastSyncTimeAtStart ||
+            providerFinishedRunSinceLastPoll(prevSnapshot, provider)));
 
       const trackingTimedOut = now - tracked.startedAt > TRACKING_TIMEOUT_MS;
 
@@ -231,7 +273,16 @@ class SyncPollingService {
         this.showTrackedSyncOutcome(provider, tracked);
         this.trackedSyncs.delete(sourceId);
       } else if (trackingTimedOut) {
+        notificationStore.showNotification({
+          title: 'Sync failed',
+          description: `Could not confirm sync completion for ${tracked.displayName} within the expected time.`,
+          severity: 'error',
+          category: SYNC_FAILED_CATEGORY,
+          dismissCategories: [SYNC_STARTED_CATEGORY],
+          autoHideDuration: 0,
+        });
         this.trackedSyncs.delete(sourceId);
+        anyTrackedSyncCompleted = true;
       }
     }
 
@@ -290,6 +341,11 @@ class SyncPollingService {
           return this.isSyncInProgress;
         }
         if (fetched === null) {
+          const sizeBefore = this.trackedSyncs.size;
+          this.evictTimedOutTrackedSyncs(Date.now());
+          if (sizeBefore !== this.trackedSyncs.size) {
+            this.updateInProgressFromProviders([], undefined);
+          }
           return this.isSyncInProgress || this.trackedSyncs.size > 0;
         }
 

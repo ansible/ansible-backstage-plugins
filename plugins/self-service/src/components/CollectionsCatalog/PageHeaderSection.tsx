@@ -13,6 +13,7 @@ export const PageHeaderSection = ({
   onSyncClick,
   syncDisabled = false,
   syncDisabledReason,
+  syncInProgress = false,
 }: PageHeaderSectionProps) => (
   <GenericPageHeaderSection
     title="Collections"
@@ -21,5 +22,6 @@ export const PageHeaderSection = ({
     onSyncClick={onSyncClick}
     syncDisabled={syncDisabled}
     syncDisabledReason={syncDisabledReason}
+    syncInProgress={syncInProgress}
   />
 );

@@ -446,6 +446,119 @@ describe('syncPollingService', () => {
       );
     });
 
+    it('shows warning when sync completes with unknown lastSyncStatus', async () => {
+      let callCount = 0;
+      mockFetchApi.fetch.mockImplementation(() => {
+        callCount++;
+        if (callCount === 1) {
+          return Promise.resolve({
+            ok: true,
+            json: () =>
+              Promise.resolve({
+                content: {
+                  providers: [
+                    {
+                      sourceId: 'src-1',
+                      syncInProgress: true,
+                      lastSyncTime: null,
+                    },
+                  ],
+                },
+              }),
+          });
+        }
+        return Promise.resolve({
+          ok: true,
+          json: () =>
+            Promise.resolve({
+              content: {
+                providers: [
+                  {
+                    sourceId: 'src-1',
+                    syncInProgress: false,
+                    lastSyncTime: '2024-01-01T12:00:00Z',
+                    lastSyncStatus: null,
+                    collectionsFound: 0,
+                    collectionsDelta: 0,
+                  },
+                ],
+              },
+            }),
+        });
+      });
+
+      syncPollingService.initialize(
+        mockDiscoveryApi as any,
+        mockFetchApi as any,
+      );
+      await jest.advanceTimersByTimeAsync(0);
+
+      syncPollingService.startTracking([
+        { sourceId: 'src-1', displayName: 'Source 1', lastSyncTime: null },
+      ]);
+
+      await jest.advanceTimersByTimeAsync(FAST_POLL_INTERVAL_MS);
+
+      expect(mockShowNotification).toHaveBeenCalledWith(
+        expect.objectContaining({
+          title: 'Sync finished',
+          severity: 'warning',
+        }),
+      );
+    });
+
+    it('treats terminal failure as completion even when lastSyncTime is unchanged', async () => {
+      const t0 = '2024-01-01T10:00:00Z';
+      mockFetchApi.fetch.mockResolvedValue({
+        ok: true,
+        json: () =>
+          Promise.resolve({
+            content: {
+              providers: [
+                {
+                  sourceId: 'src-1',
+                  syncInProgress: false,
+                  lastSyncTime: t0,
+                  lastSyncStatus: 'failure',
+                  collectionsFound: 0,
+                  collectionsDelta: 0,
+                },
+              ],
+            },
+          }),
+      });
+
+      syncPollingService.initialize(
+        mockDiscoveryApi as any,
+        mockFetchApi as any,
+      );
+      await jest.advanceTimersByTimeAsync(0);
+
+      const listener = jest.fn();
+      syncPollingService.subscribe(listener);
+      listener.mockClear();
+
+      syncPollingService.startTracking([
+        {
+          sourceId: 'src-1',
+          displayName: 'Source 1',
+          lastSyncTime: t0,
+        },
+      ]);
+
+      await jest.advanceTimersByTimeAsync(0);
+
+      expect(syncPollingService.getIsSyncInProgress()).toBe(false);
+      expect(listener).toHaveBeenCalledWith(false);
+      expect(mockShowNotification).toHaveBeenCalledWith(
+        expect.objectContaining({
+          title: 'Sync failed',
+          severity: 'error',
+          description: 'Failed to sync content from Source 1.',
+        }),
+      );
+    });
+
     it('shows tracked failure and invalidates when lastSyncTime is unchanged', async () => {
       const t0 = '2024-01-01T10:00:00Z';
       let callCount = 0;
@@ -1095,8 +1208,13 @@ describe('syncPollingService', () => {
 
       await jest.advanceTimersByTimeAsync(FAST_POLL_INTERVAL_MS);
 
-      // Should not show notification since it timed out (not completed)
-      expect(mockShowNotification).not.toHaveBeenCalled();
+      expect(mockShowNotification).toHaveBeenCalledWith(
+        expect.objectContaining({
+          title: 'Sync failed',
+          severity: 'error',
+          category: 'sync-failed',
+        }),
+      );
 
       dateNowSpy.mockRestore();
     });
@@ -1237,6 +1355,54 @@ describe('syncPollingService', () => {
       expect(mockShowNotification).not.toHaveBeenCalled();
     });
 
+    it('clears in-progress from stale tracking when fetches keep failing and tracking has timed out', async () => {
+      const dateNowSpy = jest.spyOn(Date, 'now');
+      let currentTime = 2000000;
+      dateNowSpy.mockImplementation(() => currentTime);
+
+      mockFetchApi.fetch.mockResolvedValue({
+        ok: true,
+        json: () =>
+          Promise.resolve({
+            content: {
+              providers: [
+                {
+                  sourceId: 'src-1',
+                  syncInProgress: true,
+                  lastSyncTime: null,
+                },
+              ],
+            },
+          }),
+      });
+
+      syncPollingService.initialize(
+        mockDiscoveryApi as any,
+        mockFetchApi as any,
+      );
+      await jest.advanceTimersByTimeAsync(0);
+
+      const listener = jest.fn();
+      syncPollingService.subscribe(listener);
+      listener.mockClear();
+
+      syncPollingService.startTracking([
+        { sourceId: 'src-1', displayName: 'Source 1', lastSyncTime: null },
+      ]);
+      await jest.advanceTimersByTimeAsync(0);
+      expect(syncPollingService.getIsSyncInProgress()).toBe(true);
+
+      mockFetchApi.fetch.mockResolvedValue({ ok: false, status: 500 });
+
+      currentTime = 2000000 + TRACKING_TIMEOUT_MS + 1000;
+      await jest.advanceTimersByTimeAsync(FAST_POLL_INTERVAL_MS);
+
+      expect(syncPollingService.getIsSyncInProgress()).toBe(false);
+      expect(listener).toHaveBeenCalledWith(false);
+
+      dateNowSpy.mockRestore();
+    });
+
     it('returns false when not initialized', () => {
       // Don't initialize - just check status
       expect(syncPollingService.getIsSyncInProgress()).toBe(false);
@@ -1368,8 +1534,13 @@ describe('syncPollingService', () => {
 
       await jest.advanceTimersByTimeAsync(FAST_POLL_INTERVAL_MS);
 
-      // Should not show notification since provider disappeared
-      expect(mockShowNotification).not.toHaveBeenCalled();
+      expect(mockShowNotification).toHaveBeenCalledWith(
+        expect.objectContaining({
+          title: 'Sync failed',
+          severity: 'error',
+          category: 'sync-failed',
+        }),
+      );
     });
   });
 
