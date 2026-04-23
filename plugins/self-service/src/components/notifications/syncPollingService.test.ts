@@ -1548,6 +1548,7 @@ describe('syncPollingService', () => {
           description: expect.stringContaining('Source 1'),
         }),
       );
+      expect(mockInvalidateFetchedData).toHaveBeenCalled();
 
       dateNowSpy.mockRestore();
     });
