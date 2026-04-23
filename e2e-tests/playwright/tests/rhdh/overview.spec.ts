@@ -55,7 +55,9 @@ test.describe('RHDH Ansible plugin Overview tab tests', () => {
     // Look for Start Learning Path
     const startLearningPathText = page.getByText('Start Learning Path');
     if (
-      await startLearningPathText.isVisible({ timeout: 5000 }).catch(() => false)
+      await startLearningPathText
+        .isVisible({ timeout: 5000 })
+        .catch(() => false)
     ) {
       // Navigate to Learn tab manually instead of clicking Start Learning Path
       const learnTab = page.getByText('Learn', { exact: true });
@@ -67,9 +69,7 @@ test.describe('RHDH Ansible plugin Overview tab tests', () => {
     // Look for the Discover panel
     const discoverPanel = page.locator('[id^=panelDiscover]');
     if (await discoverPanel.isVisible({ timeout: 5000 }).catch(() => false)) {
-      await discoverPanel
-        .getByText('2. DISCOVER EXISTING COLLECTIONS')
-        .click();
+      await discoverPanel.getByText('2. DISCOVER EXISTING COLLECTIONS').click();
     } else {
       const discoverText = page.getByText('2. DISCOVER EXISTING COLLECTIONS');
       if (await discoverText.isVisible({ timeout: 5000 }).catch(() => false)) {
@@ -195,9 +195,7 @@ test.describe('RHDH Ansible plugin Overview tab tests', () => {
     const definitionsLink = page.getByRole('link', {
       name: 'Ansible definitions',
     });
-    if (
-      await definitionsLink.isVisible({ timeout: 5000 }).catch(() => false)
-    ) {
+    if (await definitionsLink.isVisible({ timeout: 5000 }).catch(() => false)) {
       const href = await definitionsLink.getAttribute('href');
       expect(href).toBeTruthy();
     }
