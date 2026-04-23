@@ -79,13 +79,15 @@ async function ensureSyncPostSucceeded(response: Response): Promise<void> {
   const body = parsed as Record<string, unknown> | undefined;
 
   if (!response.ok) {
-    const fromErrorField =
-      typeof body?.error === 'string'
-        ? body.error
-        : body?.error &&
-            typeof (body.error as { message?: unknown }).message === 'string'
-          ? String((body.error as { message: string }).message)
-          : null;
+    let fromErrorField: string | null = null;
+    if (typeof body?.error === 'string') {
+      fromErrorField = body.error;
+    } else if (
+      body?.error &&
+      typeof (body.error as { message?: unknown }).message === 'string'
+    ) {
+      fromErrorField = String((body.error as { message: string }).message);
+    }
     const fromMessage = typeof body?.message === 'string' ? body.message : null;
     throw new Error(
       fromErrorField ||
