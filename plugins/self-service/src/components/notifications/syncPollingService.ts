@@ -231,13 +231,31 @@ class SyncPollingService {
    * When provider payloads are unavailable (fetch failed or non-2xx), still
    * remove entries past {@link TRACKING_TIMEOUT_MS} so isSyncInProgress
    * cannot stay true indefinitely from stale local tracking.
+   *
+   * Shows the same timeout failure toast as the normal timeout path in
+   * {@link processTrackedSyncCompletions} so users are not left with a silently
+   * dismissed progress indicator.
+   *
+   * @returns `true` if at least one entry was evicted (caller should invalidate
+   * the collections cache).
    */
-  private evictTimedOutTrackedSyncs(now: number): void {
+  private evictTimedOutTrackedSyncs(now: number): boolean {
+    let anyEvicted = false;
     for (const [sourceId, tracked] of this.trackedSyncs.entries()) {
       if (now - tracked.startedAt > TRACKING_TIMEOUT_MS) {
+        notificationStore.showNotification({
+          title: 'Sync failed',
+          description: `Could not confirm sync completion for ${tracked.displayName} within the expected time.`,
+          severity: 'error',
+          category: SYNC_FAILED_CATEGORY,
+          dismissCategories: [SYNC_STARTED_CATEGORY],
+          autoHideDuration: 0,
+        });
         this.trackedSyncs.delete(sourceId);
+        anyEvicted = true;
       }
     }
+    return anyEvicted;
   }
 
   private processTrackedSyncCompletions(
@@ -355,9 +373,9 @@ class SyncPollingService {
           return this.isSyncInProgress;
         }
         if (fetched === null) {
-          const sizeBefore = this.trackedSyncs.size;
-          this.evictTimedOutTrackedSyncs(Date.now());
-          if (sizeBefore !== this.trackedSyncs.size) {
+          const anyEvicted = this.evictTimedOutTrackedSyncs(Date.now());
+          if (anyEvicted) {
+            collectionsCache.invalidateFetchedData();
             this.updateInProgressFromProviders([], undefined);
           }
           return this.isSyncInProgress || this.trackedSyncs.size > 0;

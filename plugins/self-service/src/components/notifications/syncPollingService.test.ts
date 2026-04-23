@@ -1540,6 +1540,14 @@ describe('syncPollingService', () => {
 
       expect(syncPollingService.getIsSyncInProgress()).toBe(false);
       expect(listener).toHaveBeenCalledWith(false);
+      expect(mockShowNotification).toHaveBeenCalledWith(
+        expect.objectContaining({
+          title: 'Sync failed',
+          severity: 'error',
+          category: 'sync-failed',
+          description: expect.stringContaining('Source 1'),
+        }),
+      );
 
       dateNowSpy.mockRestore();
     });
