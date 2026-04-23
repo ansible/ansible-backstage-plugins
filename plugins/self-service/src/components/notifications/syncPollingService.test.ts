@@ -210,7 +210,13 @@ describe('syncPollingService', () => {
       listener.mockClear();
 
       syncPollingService.startTracking([
-        { sourceId: 'src-1', displayName: 'Source 1', lastSyncTime: null },
+        {
+          sourceId: 'src-1',
+          displayName: 'Source 1',
+          lastSyncTime: null,
+          lastSyncStatus: null,
+          lastFailedSyncTime: null,
+        },
       ]);
 
       expect(listener).toHaveBeenCalledWith(true);
@@ -244,7 +250,13 @@ describe('syncPollingService', () => {
       listener.mockClear();
 
       syncPollingService.startTracking([
-        { sourceId: 'src-2', displayName: 'Source 2', lastSyncTime: null },
+        {
+          sourceId: 'src-2',
+          displayName: 'Source 2',
+          lastSyncTime: null,
+          lastSyncStatus: null,
+          lastFailedSyncTime: null,
+        },
       ]);
 
       // Since already in progress, startTracking should not notify again
@@ -303,7 +315,13 @@ describe('syncPollingService', () => {
       await jest.advanceTimersByTimeAsync(0);
 
       syncPollingService.startTracking([
-        { sourceId: 'src-1', displayName: 'Source 1', lastSyncTime: null },
+        {
+          sourceId: 'src-1',
+          displayName: 'Source 1',
+          lastSyncTime: null,
+          lastSyncStatus: null,
+          lastFailedSyncTime: null,
+        },
       ]);
 
       // Advance timer to trigger next poll
@@ -371,7 +389,13 @@ describe('syncPollingService', () => {
       listener.mockClear();
 
       syncPollingService.startTracking([
-        { sourceId: 'src-1', displayName: 'Source 1', lastSyncTime: null },
+        {
+          sourceId: 'src-1',
+          displayName: 'Source 1',
+          lastSyncTime: null,
+          lastSyncStatus: null,
+          lastFailedSyncTime: null,
+        },
       ]);
       await jest.advanceTimersByTimeAsync(0);
       expect(syncPollingService.getIsSyncInProgress()).toBe(true);
@@ -430,7 +454,13 @@ describe('syncPollingService', () => {
       await jest.advanceTimersByTimeAsync(0);
 
       syncPollingService.startTracking([
-        { sourceId: 'src-1', displayName: 'Source 1', lastSyncTime: null },
+        {
+          sourceId: 'src-1',
+          displayName: 'Source 1',
+          lastSyncTime: null,
+          lastSyncStatus: null,
+          lastFailedSyncTime: null,
+        },
       ]);
 
       await jest.advanceTimersByTimeAsync(FAST_POLL_INTERVAL_MS);
@@ -494,7 +524,13 @@ describe('syncPollingService', () => {
       await jest.advanceTimersByTimeAsync(0);
 
       syncPollingService.startTracking([
-        { sourceId: 'src-1', displayName: 'Source 1', lastSyncTime: null },
+        {
+          sourceId: 'src-1',
+          displayName: 'Source 1',
+          lastSyncTime: null,
+          lastSyncStatus: null,
+          lastFailedSyncTime: null,
+        },
       ]);
 
       await jest.advanceTimersByTimeAsync(FAST_POLL_INTERVAL_MS);
@@ -684,6 +720,8 @@ describe('syncPollingService', () => {
           sourceId: 'src-1',
           displayName: 'Source 1',
           lastSyncTime: t0,
+          lastSyncStatus: null,
+          lastFailedSyncTime: null,
         },
       ]);
       await jest.advanceTimersByTimeAsync(0);
@@ -751,6 +789,8 @@ describe('syncPollingService', () => {
           sourceId: 'src-1',
           displayName: 'Source 1',
           lastSyncTime: '2024-01-01T10:00:00Z',
+          lastSyncStatus: null,
+          lastFailedSyncTime: null,
         },
       ]);
 
@@ -815,6 +855,8 @@ describe('syncPollingService', () => {
           sourceId: 'src-1',
           displayName: 'Source 1',
           lastSyncTime: '2024-01-01T10:00:00Z',
+          lastSyncStatus: null,
+          lastFailedSyncTime: null,
         },
       ]);
 
@@ -879,6 +921,8 @@ describe('syncPollingService', () => {
           sourceId: 'src-1',
           displayName: 'Source 1',
           lastSyncTime: '2024-01-01T10:00:00Z',
+          lastSyncStatus: null,
+          lastFailedSyncTime: null,
         },
       ]);
 
@@ -939,7 +983,13 @@ describe('syncPollingService', () => {
       await jest.advanceTimersByTimeAsync(0);
 
       syncPollingService.startTracking([
-        { sourceId: 'src-1', displayName: 'Source 1', lastSyncTime: null },
+        {
+          sourceId: 'src-1',
+          displayName: 'Source 1',
+          lastSyncTime: null,
+          lastSyncStatus: null,
+          lastFailedSyncTime: null,
+        },
       ]);
 
       await jest.advanceTimersByTimeAsync(FAST_POLL_INTERVAL_MS);
@@ -1012,8 +1062,20 @@ describe('syncPollingService', () => {
       await jest.advanceTimersByTimeAsync(0);
 
       syncPollingService.startTracking([
-        { sourceId: 'src-1', displayName: 'Source 1', lastSyncTime: null },
-        { sourceId: 'src-2', displayName: 'Source 2', lastSyncTime: null },
+        {
+          sourceId: 'src-1',
+          displayName: 'Source 1',
+          lastSyncTime: null,
+          lastSyncStatus: null,
+          lastFailedSyncTime: null,
+        },
+        {
+          sourceId: 'src-2',
+          displayName: 'Source 2',
+          lastSyncTime: null,
+          lastSyncStatus: null,
+          lastFailedSyncTime: null,
+        },
       ]);
       await jest.advanceTimersByTimeAsync(0);
 
@@ -1215,7 +1277,13 @@ describe('syncPollingService', () => {
       await jest.advanceTimersByTimeAsync(0);
 
       syncPollingService.startTracking([
-        { sourceId: 'src-1', displayName: 'Source 1', lastSyncTime: null },
+        {
+          sourceId: 'src-1',
+          displayName: 'Source 1',
+          lastSyncTime: null,
+          lastSyncStatus: null,
+          lastFailedSyncTime: null,
+        },
       ]);
       await jest.advanceTimersByTimeAsync(0);
 
@@ -1255,7 +1323,13 @@ describe('syncPollingService', () => {
       await jest.advanceTimersByTimeAsync(0);
 
       syncPollingService.startTracking([
-        { sourceId: 'src-1', displayName: 'Source 1', lastSyncTime: null },
+        {
+          sourceId: 'src-1',
+          displayName: 'Source 1',
+          lastSyncTime: null,
+          lastSyncStatus: null,
+          lastFailedSyncTime: null,
+        },
       ]);
 
       // Advance time past timeout
@@ -1395,7 +1469,13 @@ describe('syncPollingService', () => {
       expect(syncPollingService.getIsSyncInProgress()).toBe(true);
 
       syncPollingService.startTracking([
-        { sourceId: 'src-1', displayName: 'Source 1', lastSyncTime: null },
+        {
+          sourceId: 'src-1',
+          displayName: 'Source 1',
+          lastSyncTime: null,
+          lastSyncStatus: null,
+          lastFailedSyncTime: null,
+        },
       ]);
 
       await jest.advanceTimersByTimeAsync(0);
@@ -1442,7 +1522,13 @@ describe('syncPollingService', () => {
       listener.mockClear();
 
       syncPollingService.startTracking([
-        { sourceId: 'src-1', displayName: 'Source 1', lastSyncTime: null },
+        {
+          sourceId: 'src-1',
+          displayName: 'Source 1',
+          lastSyncTime: null,
+          lastSyncStatus: null,
+          lastFailedSyncTime: null,
+        },
       ]);
       await jest.advanceTimersByTimeAsync(0);
       expect(syncPollingService.getIsSyncInProgress()).toBe(true);
@@ -1518,7 +1604,13 @@ describe('syncPollingService', () => {
         mockFetchApi as any,
       );
       syncPollingService.startTracking([
-        { sourceId: 'src-1', displayName: 'Source 1', lastSyncTime: null },
+        {
+          sourceId: 'src-1',
+          displayName: 'Source 1',
+          lastSyncTime: null,
+          lastSyncStatus: null,
+          lastFailedSyncTime: null,
+        },
       ]);
 
       syncPollingService.clear();
@@ -1537,7 +1629,13 @@ describe('syncPollingService', () => {
         mockFetchApi as any,
       );
       syncPollingService.startTracking([
-        { sourceId: 'src-1', displayName: 'Source 1', lastSyncTime: null },
+        {
+          sourceId: 'src-1',
+          displayName: 'Source 1',
+          lastSyncTime: null,
+          lastSyncStatus: null,
+          lastFailedSyncTime: null,
+        },
       ]);
 
       // Listener should not be called since it was cleared
@@ -1584,7 +1682,13 @@ describe('syncPollingService', () => {
       await jest.advanceTimersByTimeAsync(0);
 
       syncPollingService.startTracking([
-        { sourceId: 'src-1', displayName: 'Source 1', lastSyncTime: null },
+        {
+          sourceId: 'src-1',
+          displayName: 'Source 1',
+          lastSyncTime: null,
+          lastSyncStatus: null,
+          lastFailedSyncTime: null,
+        },
       ]);
 
       await jest.advanceTimersByTimeAsync(FAST_POLL_INTERVAL_MS);
@@ -1624,7 +1728,13 @@ describe('syncPollingService', () => {
       // While first fetch is still pending, startTracking triggers another
       // checkSyncStatus; it must await the same in-flight request (no second fetch).
       syncPollingService.startTracking([
-        { sourceId: 'src-1', displayName: 'Source 1', lastSyncTime: null },
+        {
+          sourceId: 'src-1',
+          displayName: 'Source 1',
+          lastSyncTime: null,
+          lastSyncStatus: null,
+          lastFailedSyncTime: null,
+        },
       ]);
 
       expect(mockFetchApi.fetch).toHaveBeenCalledTimes(1);
@@ -1675,6 +1785,8 @@ describe('syncPollingService', () => {
           sourceId: 'other',
           displayName: 'Other',
           lastSyncTime: null,
+          lastSyncStatus: null,
+          lastFailedSyncTime: null,
         },
       ]);
       expect(mockFetchApi.fetch).toHaveBeenCalledTimes(1);

@@ -383,7 +383,9 @@ describe('SyncDialog', () => {
     const failCall = mockShowNotification.mock.calls.find(
       (c: [{ title?: string }]) => c[0]?.title === 'Sync failed',
     );
-    expect(failCall?.[0].description).toContain('catalog sync unavailable');
+    expect(failCall?.[0].description).toContain(
+      'github.com/myorg: catalog sync unavailable',
+    );
     expect(mockOnSyncsStarted).not.toHaveBeenCalled();
     expect(mockOnClose).not.toHaveBeenCalled();
   });
@@ -450,7 +452,81 @@ describe('SyncDialog', () => {
         }),
       );
     });
+    const failCall = mockShowNotification.mock.calls.find(
+      (c: [{ title?: string }]) => c[0]?.title === 'Sync failed',
+    );
+    expect(failCall?.[0].description).toContain(
+      'github/github.com/myorg: could not start',
+    );
     expect(mockOnSyncsStarted).not.toHaveBeenCalled();
+    expect(mockOnClose).not.toHaveBeenCalled();
+  });
+
+  it('calls onSyncsStarted only for sources whose POST succeeded when another fails', async () => {
+    const mockOnSyncsStarted = jest.fn();
+    mockFetchApi.fetch
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          content: {
+            providers: [
+              {
+                sourceId: 'src-1',
+                scmProvider: 'github',
+                hostName: 'github.com',
+                organization: 'org1',
+                lastSyncTime: null,
+              },
+              {
+                sourceId: 'src-2',
+                scmProvider: 'github',
+                hostName: 'github.com',
+                organization: 'org2',
+                lastSyncTime: null,
+              },
+            ],
+          },
+        }),
+      })
+      .mockResolvedValueOnce(okSyncPostResponse)
+      .mockRejectedValueOnce(new Error('second org POST failed'));
+
+    renderDialog({
+      open: true,
+      onClose: mockOnClose,
+      onSyncsStarted: mockOnSyncsStarted,
+    });
+
+    await waitFor(() => {
+      expect(screen.getByText('org1')).toBeInTheDocument();
+    });
+    fireEvent.click(screen.getByText('org1'));
+    fireEvent.click(screen.getByText('org2'));
+    await waitFor(() => {
+      expect(
+        screen.getByRole('button', { name: /Sync Selected/i }),
+      ).not.toBeDisabled();
+    });
+    fireEvent.click(screen.getByRole('button', { name: /Sync Selected/i }));
+
+    await waitFor(() => {
+      expect(mockShowNotification).toHaveBeenCalledWith(
+        expect.objectContaining({
+          title: 'Sync failed',
+          category: 'sync-failed',
+          description: expect.stringContaining(
+            'github.com/org2: second org POST failed',
+          ),
+        }),
+      );
+    });
+    expect(mockOnSyncsStarted).toHaveBeenCalledTimes(1);
+    expect(mockOnSyncsStarted).toHaveBeenCalledWith([
+      expect.objectContaining({
+        sourceId: 'src-1',
+        displayName: 'github.com/org1',
+      }),
+    ]);
     expect(mockOnClose).not.toHaveBeenCalled();
   });
 

@@ -571,6 +571,19 @@ export const SyncDialog = ({
     return 'Unknown source';
   };
 
+  const startedSyncInfoFromCatalogProvider = (
+    p: ProviderInfo,
+  ): StartedSyncInfo => ({
+    sourceId: p.sourceId,
+    displayName:
+      p.hostName && p.organization
+        ? `${p.hostName}/${p.organization}`
+        : (p.hostName ?? p.repository ?? p.scmProvider ?? p.sourceId),
+    lastSyncTime: p.lastSyncTime ?? null,
+    lastSyncStatus: p.lastSyncStatus ?? null,
+    lastFailedSyncTime: p.lastFailedSyncTime ?? null,
+  });
+
   const handleSync = async () => {
     const filters = buildFilters();
     if (filters.length === 0) {
@@ -590,63 +603,89 @@ export const SyncDialog = ({
       autoHideDuration: 30000,
     });
 
-    const startedSyncs: StartedSyncInfo[] = [];
     const pahFilters = filters.filter(f => f.scmProvider === 'pah');
     const scmFilters = filters.filter(f => f.scmProvider !== 'pah');
 
-    pahFilters.forEach(filter => {
-      if (filter.organization) {
-        const provider = findProviderForSelection('pah', filter.organization);
-        if (provider) {
-          startedSyncs.push({
-            sourceId: provider.sourceId,
-            displayName: `PAH/${filter.organization}`,
-            lastSyncTime: provider.lastSyncTime,
-            lastSyncStatus: provider.lastSyncStatus ?? null,
-            lastFailedSyncTime: provider.lastFailedSyncTime ?? null,
-          });
-        }
-      }
-    });
-
-    scmFilters.forEach(filter => {
-      if (filter.scmProvider && filter.hostName) {
-        const provider = findProviderForSelection(
-          filter.scmProvider,
-          filter.hostName,
-          filter.organization,
-        );
-        if (provider) {
-          startedSyncs.push({
-            sourceId: provider.sourceId,
-            displayName: getFilterDisplayName(filter),
-            lastSyncTime: provider.lastSyncTime,
-            lastSyncStatus: provider.lastSyncStatus ?? null,
-            lastFailedSyncTime: provider.lastFailedSyncTime ?? null,
-          });
-        }
-      }
-    });
-
     const baseUrl = await discoveryApi.getBaseUrl('catalog');
-    const syncPromises: Promise<void>[] = [];
+
+    const syncJobs: Array<{
+      displayName: string;
+      tracking: StartedSyncInfo[];
+      run: () => Promise<void>;
+    }> = [];
 
     pahFilters.forEach(filter => {
-      if (filter.organization) {
-        syncPromises.push(syncPahSource(baseUrl, filter.organization));
+      const repositoryName = filter.organization;
+      if (repositoryName) {
+        const provider = findProviderForSelection('pah', repositoryName);
+        syncJobs.push({
+          displayName: `PAH/${repositoryName}`,
+          tracking: provider
+            ? [
+                {
+                  sourceId: provider.sourceId,
+                  displayName: `PAH/${repositoryName}`,
+                  lastSyncTime: provider.lastSyncTime,
+                  lastSyncStatus: provider.lastSyncStatus ?? null,
+                  lastFailedSyncTime: provider.lastFailedSyncTime ?? null,
+                },
+              ]
+            : [],
+          run: () => syncPahSource(baseUrl, repositoryName),
+        });
       }
     });
 
     scmFilters.forEach(filter => {
-      syncPromises.push(syncScmSource(baseUrl, filter));
+      if (!filter.scmProvider) {
+        return;
+      }
+      if (!filter.hostName) {
+        const tracking = providers
+          .filter(p => p.scmProvider === filter.scmProvider)
+          .map(startedSyncInfoFromCatalogProvider);
+        syncJobs.push({
+          displayName: filter.scmProvider,
+          tracking,
+          run: () => syncScmSource(baseUrl, filter),
+        });
+        return;
+      }
+      const provider = findProviderForSelection(
+        filter.scmProvider,
+        filter.hostName,
+        filter.organization,
+      );
+      const displayName = getFilterDisplayName(filter);
+      syncJobs.push({
+        displayName,
+        tracking: provider
+          ? [
+              {
+                sourceId: provider.sourceId,
+                displayName,
+                lastSyncTime: provider.lastSyncTime,
+                lastSyncStatus: provider.lastSyncStatus ?? null,
+                lastFailedSyncTime: provider.lastFailedSyncTime ?? null,
+              },
+            ]
+          : [],
+        run: () => syncScmSource(baseUrl, filter),
+      });
     });
 
-    const settled = await Promise.allSettled(syncPromises);
-    const failures = settled
-      .filter((r): r is PromiseRejectedResult => r.status === 'rejected')
-      .map(r =>
-        r.reason instanceof Error ? r.reason.message : String(r.reason),
-      );
+    const settled = await Promise.allSettled(syncJobs.map(j => j.run()));
+    const failures = settled.flatMap((r, i) => {
+      if (r.status !== 'rejected') return [];
+      const name = syncJobs[i]?.displayName;
+      const reason =
+        r.reason instanceof Error ? r.reason.message : String(r.reason);
+      return [name ? `${name}: ${reason}` : reason];
+    });
+
+    const succeededTracking = syncJobs.flatMap((job, i) =>
+      settled[i]?.status === 'fulfilled' ? job.tracking : [],
+    );
 
     if (failures.length > 0) {
       showNotification({
@@ -658,11 +697,15 @@ export const SyncDialog = ({
         dismissCategories: [SYNC_STARTED_CATEGORY],
         autoHideDuration: 0,
       });
+      if (onSyncsStarted && succeededTracking.length > 0) {
+        onSyncsStarted(succeededTracking);
+      }
       return;
     }
 
-    if (onSyncsStarted && startedSyncs.length > 0) {
-      onSyncsStarted(startedSyncs);
+    const allTracking = syncJobs.flatMap(j => j.tracking);
+    if (onSyncsStarted && allTracking.length > 0) {
+      onSyncsStarted(allTracking);
     }
 
     handleClose();

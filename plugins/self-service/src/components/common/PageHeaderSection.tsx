@@ -4,6 +4,7 @@ import SyncIcon from '@material-ui/icons/Sync';
 
 import { useIsSuperuser } from '../../hooks';
 import { useCollectionsStyles } from '../CollectionsCatalog/styles';
+import { useSharedStyles } from './styles';
 
 export interface PageHeaderSectionProps {
   title: string;
@@ -26,6 +27,7 @@ export const PageHeaderSection = ({
   syncInProgress = false,
 }: PageHeaderSectionProps) => {
   const classes = useCollectionsStyles();
+  const sharedClasses = useSharedStyles();
   const { isSuperuser: allowed, loading: checkingPermission } =
     useIsSuperuser();
 
@@ -63,7 +65,9 @@ export const PageHeaderSection = ({
                 startIcon={
                   <SyncIcon
                     className={
-                      syncInProgress ? classes.syncIconSpinning : undefined
+                      syncInProgress
+                        ? sharedClasses.syncIconSpinning
+                        : undefined
                     }
                   />
                 }

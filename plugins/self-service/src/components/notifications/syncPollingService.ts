@@ -9,6 +9,7 @@ import {
   SLOW_POLL_INTERVAL_MS,
   TRACKING_TIMEOUT_MS,
 } from '../common/constants';
+import type { StartedSyncInfo } from '../common/types';
 import { collectionsCache } from '../CollectionsCatalog/collectionsCache';
 
 interface ProviderStatus {
@@ -411,15 +412,7 @@ class SyncPollingService {
     }, interval);
   }
 
-  startTracking(
-    syncs: Array<{
-      sourceId: string;
-      displayName: string;
-      lastSyncTime: string | null;
-      lastSyncStatus?: 'success' | 'failure' | null;
-      lastFailedSyncTime?: string | null;
-    }>,
-  ): void {
+  startTracking(syncs: StartedSyncInfo[]): void {
     if (syncs.length === 0) {
       return;
     }
