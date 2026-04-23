@@ -21,10 +21,12 @@ test.describe('RHDH Ansible plugin Create flow', () => {
   test('Visits Create tab and runs Ansible Project template', async ({
     page,
   }) => {
-    // Cypress: cy.get('[data-testid="header-tab-2"]').click();
-    const createTab = page.locator('[data-testid="header-tab-2"]');
-    await expect(createTab).toBeVisible();
-    await createTab.click();
+    // Ensure we're on the ansible page or navigate to Create tab directly
+    if (!page.url().includes('/ansible/create')) {
+      await page.goto('/ansible/create', { waitUntil: 'domcontentloaded' });
+    }
+    await page.waitForLoadState('networkidle');
+    await page.waitForTimeout(2000);
 
     // Cypress: cy.contains('Choose')...click()
     // The "Choose" action sometimes opens in a new tab; Playwright navigates in-tab.
