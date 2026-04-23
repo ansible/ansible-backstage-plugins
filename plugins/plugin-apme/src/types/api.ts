@@ -79,6 +79,13 @@ export interface SessionDetail extends SessionSummary {
   scans: ActivitySummary[];
 }
 
+export interface StartOperationOptions {
+  ansible_version?: string;
+  collection_specs?: string[];
+  enable_ai?: boolean;
+  ai_model?: string;
+}
+
 export interface TopViolation {
   rule_id: string;
   count: number;
@@ -132,6 +139,17 @@ export interface AiModelInfo {
 
 export interface ActiveOperationSummary {
   operation_id: string;
+  status: string;
+  scan_type: string;
+  started_at: string;
+}
+
+/** Dashboard active operations (includes project name). */
+export interface ActiveOperation {
+  operation_id: string;
+  project_id: string;
+  project_name: string;
+  scan_id: string;
   status: string;
   scan_type: string;
   started_at: string;

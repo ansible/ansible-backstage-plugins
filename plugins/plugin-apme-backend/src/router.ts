@@ -47,8 +47,7 @@ export async function createRouter(
     target: gatewayBaseUrl,
     changeOrigin: true,
     ws: true,
-    // Keep the path as-is (the Gateway expects /api/v1/...).
-    pathRewrite: undefined,
+    pathRewrite: { '^/': '/api/v1/' },
     on: {
       proxyReq: (proxyReq, req) => {
         // Forward Backstage user identity to the Gateway.
@@ -68,11 +67,13 @@ export async function createRouter(
   const proxy = createProxyMiddleware(proxyOptions);
 
   // Middleware to resolve Backstage user identity and attach to request
-  // before the proxy sends it upstream.
+  // before the proxy sends it upstream.  Auth is best-effort so SSE and
+  // other streaming endpoints still work when cookies aren't forwarded.
   router.use('/api/v1', async (req, _res, next) => {
     try {
-      const credentials = await options.httpAuth.credentials(req, {
-        allow: ['user'],
+      const credentials = await options.httpAuth.credentials(req as any, {
+        allow: ['user', 'service'],
+        allowLimitedAccess: true,
       });
       const info = await options.userInfo.getUserInfo(credentials);
       (req as any).__backstageUserRef = info.userEntityRef;

@@ -1,6 +1,7 @@
 import { DiscoveryApi, FetchApi } from '@backstage/core-plugin-api';
 import type { ApmeApi } from './ApmeApi';
 import type {
+  ActiveOperation,
   ActivityDetail,
   ActivitySummary,
   AiAcceptanceEntry,
@@ -30,6 +31,7 @@ import type {
   RuleStats,
   SessionDetail,
   SessionSummary,
+  StartOperationOptions,
   TopViolation,
   TrendPoint,
   UpdateGalaxyServerRequest,
@@ -86,7 +88,10 @@ export class ApmeApiClient implements ApmeApi {
   }
 
   // Sessions
-  async listSessions(limit = 50, offset = 0): Promise<PaginatedResponse<SessionSummary>> {
+  async listSessions(
+    limit = 50,
+    offset = 0,
+  ): Promise<PaginatedResponse<SessionSummary>> {
     return this.request(`/sessions?limit=${limit}&offset=${offset}`);
   }
   async getSession(sessionId: string): Promise<SessionDetail> {
@@ -97,7 +102,11 @@ export class ApmeApiClient implements ApmeApi {
   }
 
   // Activity
-  async listActivity(limit = 50, offset = 0, sessionId?: string): Promise<PaginatedResponse<ActivitySummary>> {
+  async listActivity(
+    limit = 50,
+    offset = 0,
+    sessionId?: string,
+  ): Promise<PaginatedResponse<ActivitySummary>> {
     let url = `/activity?limit=${limit}&offset=${offset}`;
     if (sessionId) url += `&session_id=${sessionId}`;
     return this.request(url);
@@ -108,16 +117,22 @@ export class ApmeApiClient implements ApmeApi {
   async deleteActivity(scanId: string): Promise<void> {
     return this.requestVoid(`/activity/${scanId}`, { method: 'DELETE' });
   }
-  async createPullRequest(scanId: string, body: CreatePullRequestRequest): Promise<CreatePullRequestResponse> {
-    return this.request(`/activity/${scanId}/pull-request`, this.jsonBody(body));
+  async createPullRequest(
+    scanId: string,
+    body: CreatePullRequestRequest,
+  ): Promise<CreatePullRequestResponse> {
+    return this.request(
+      `/activity/${scanId}/pull-request`,
+      this.jsonBody(body),
+    );
   }
 
   // Stats
-  async getTopViolations(): Promise<TopViolation[]> {
-    return this.request('/violations/top');
+  async getTopViolations(limit = 20): Promise<TopViolation[]> {
+    return this.request(`/violations/top?limit=${limit}`);
   }
-  async getRemediationRates(): Promise<RemediationRateEntry[]> {
-    return this.request('/stats/remediation-rates');
+  async getRemediationRates(limit = 20): Promise<RemediationRateEntry[]> {
+    return this.request(`/stats/remediation-rates?limit=${limit}`);
   }
   async getAiAcceptance(): Promise<AiAcceptanceEntry[]> {
     return this.request('/stats/ai-acceptance');
@@ -127,8 +142,15 @@ export class ApmeApiClient implements ApmeApi {
   }
 
   // Projects
-  async listProjects(): Promise<ProjectSummary[]> {
-    return this.request('/projects');
+  async listProjects(
+    limit = 50,
+    offset = 0,
+    sortBy = 'created_at',
+    order = 'desc',
+  ): Promise<PaginatedResponse<ProjectSummary>> {
+    return this.request(
+      `/projects?limit=${limit}&offset=${offset}&sort_by=${sortBy}&order=${order}`,
+    );
   }
   async getProject(id: string): Promise<ProjectDetail> {
     return this.request(`/projects/${id}`);
@@ -136,17 +158,30 @@ export class ApmeApiClient implements ApmeApi {
   async createProject(body: CreateProjectRequest): Promise<ProjectDetail> {
     return this.request('/projects', this.jsonBody(body));
   }
-  async updateProject(id: string, body: UpdateProjectRequest): Promise<ProjectDetail> {
-    return this.request(`/projects/${id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+  async updateProject(
+    id: string,
+    body: UpdateProjectRequest,
+  ): Promise<ProjectDetail> {
+    return this.request(`/projects/${id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    });
   }
   async deleteProject(id: string): Promise<void> {
     return this.requestVoid(`/projects/${id}`, { method: 'DELETE' });
   }
   async getProjectActivity(id: string): Promise<ActivitySummary[]> {
-    return this.request(`/projects/${id}/activity`);
+    const res = await this.request<
+      { items: ActivitySummary[] } | ActivitySummary[]
+    >(`/projects/${id}/activity`);
+    return Array.isArray(res) ? res : res.items;
   }
   async getProjectViolations(id: string): Promise<ViolationDetail[]> {
-    return this.request(`/projects/${id}/violations`);
+    const res = await this.request<
+      { items: ViolationDetail[] } | ViolationDetail[]
+    >(`/projects/${id}/violations`);
+    return Array.isArray(res) ? res : res.items;
   }
   async getProjectTrend(id: string): Promise<TrendPoint[]> {
     return this.request(`/projects/${id}/trend`);
@@ -162,9 +197,12 @@ export class ApmeApiClient implements ApmeApi {
   }
   async getProjectSbom(id: string): Promise<Blob> {
     const base = await this.baseUrl();
-    const res = await this.fetchApi.fetch(`${base}/api/v1/projects/${id}/sbom`, {
-      headers: { Accept: 'application/vnd.cyclonedx+json' },
-    });
+    const res = await this.fetchApi.fetch(
+      `${base}/api/v1/projects/${id}/sbom`,
+      {
+        headers: { Accept: 'application/vnd.cyclonedx+json' },
+      },
+    );
     if (!res.ok) {
       const text = await res.text();
       throw new Error(`APME API ${res.status}: ${text}`);
@@ -175,20 +213,35 @@ export class ApmeApiClient implements ApmeApi {
     return this.request(`/projects/${id}/operation`);
   }
   async createPR(projectId: string): Promise<{ pr_url: string }> {
-    return this.request(`/projects/${projectId}/operation/create-pr`, { method: 'POST' });
+    return this.request(`/projects/${projectId}/operation/create-pr`, {
+      method: 'POST',
+    });
   }
 
   // Dashboard
   async getDashboardSummary(): Promise<DashboardSummary> {
     return this.request('/dashboard/summary');
   }
-  async getDashboardRankings(): Promise<ProjectRanking[]> {
-    return this.request('/dashboard/rankings');
+  async getDashboardRankings(
+    sortBy = 'health_score',
+    order = 'desc',
+    limit = 10,
+  ): Promise<ProjectRanking[]> {
+    return this.request(
+      `/dashboard/rankings?sort_by=${sortBy}&order=${order}&limit=${limit}`,
+    );
+  }
+
+  async getActiveOperations(): Promise<ActiveOperation[]> {
+    return this.request('/operations/active');
   }
 
   // Collections
   async listCollections(): Promise<CollectionSummary[]> {
-    return this.request('/collections');
+    const res = await this.request<
+      { items: CollectionSummary[] } | CollectionSummary[]
+    >('/collections');
+    return Array.isArray(res) ? res : res.items;
   }
   async getCollection(fqcn: string): Promise<CollectionDetail> {
     return this.request(`/collections/${fqcn}`);
@@ -196,7 +249,10 @@ export class ApmeApiClient implements ApmeApi {
 
   // Python packages
   async listPythonPackages(): Promise<PythonPackageSummary[]> {
-    return this.request('/python-packages');
+    const res = await this.request<
+      { items: PythonPackageSummary[] } | PythonPackageSummary[]
+    >('/python-packages');
+    return Array.isArray(res) ? res : res.items;
   }
   async getPythonPackage(name: string): Promise<PythonPackageDetail> {
     return this.request(`/python-packages/${name}`);
@@ -206,15 +262,25 @@ export class ApmeApiClient implements ApmeApi {
   async getDepHealth(): Promise<DepHealthSummary> {
     return this.request('/dep-health');
   }
+  async getDepHealthSummary(): Promise<DepHealthSummary> {
+    return this.request('/dep-health');
+  }
 
   // Rules
-  async listRules(params?: { category?: string; source?: string; enabled_only?: boolean }): Promise<RuleDetail[]> {
+  async listRules(params?: {
+    category?: string;
+    source?: string;
+    enabled_only?: boolean;
+  }): Promise<RuleDetail[]> {
     const qs = new URLSearchParams();
     if (params?.category) qs.set('category', params.category);
     if (params?.source) qs.set('source', params.source);
     if (params?.enabled_only) qs.set('enabled_only', 'true');
     const q = qs.toString();
-    return this.request(`/rules${q ? `?${q}` : ''}`);
+    const res = await this.request<{ items: RuleDetail[] } | RuleDetail[]>(
+      `/rules${q ? `?${q}` : ''}`,
+    );
+    return Array.isArray(res) ? res : res.items;
   }
   async getRule(ruleId: string): Promise<RuleDetail> {
     return this.request(`/rules/${ruleId}`);
@@ -222,8 +288,15 @@ export class ApmeApiClient implements ApmeApi {
   async getRuleStats(): Promise<RuleStats> {
     return this.request('/rules/stats');
   }
-  async updateRuleConfig(ruleId: string, body: RuleOverrideRequest): Promise<RuleDetail> {
-    return this.request(`/rules/${ruleId}/config`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+  async updateRuleConfig(
+    ruleId: string,
+    body: RuleOverrideRequest,
+  ): Promise<RuleDetail> {
+    return this.request(`/rules/${ruleId}/config`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    });
   }
   async deleteRuleConfig(ruleId: string): Promise<void> {
     return this.requestVoid(`/rules/${ruleId}/config`, { method: 'DELETE' });
@@ -233,19 +306,33 @@ export class ApmeApiClient implements ApmeApi {
   async listGalaxyServers(): Promise<GalaxyServer[]> {
     return this.request('/settings/galaxy-servers');
   }
-  async createGalaxyServer(body: CreateGalaxyServerRequest): Promise<GalaxyServer> {
+  async createGalaxyServer(
+    body: CreateGalaxyServerRequest,
+  ): Promise<GalaxyServer> {
     return this.request('/settings/galaxy-servers', this.jsonBody(body));
   }
-  async updateGalaxyServer(id: number, body: UpdateGalaxyServerRequest): Promise<GalaxyServer> {
-    return this.request(`/settings/galaxy-servers/${id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+  async updateGalaxyServer(
+    id: number,
+    body: UpdateGalaxyServerRequest,
+  ): Promise<GalaxyServer> {
+    return this.request(`/settings/galaxy-servers/${id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    });
   }
   async deleteGalaxyServer(id: number): Promise<void> {
-    return this.requestVoid(`/settings/galaxy-servers/${id}`, { method: 'DELETE' });
+    return this.requestVoid(`/settings/galaxy-servers/${id}`, {
+      method: 'DELETE',
+    });
   }
 
   // Notifications
   async listNotifications(): Promise<NotificationItem[]> {
-    return this.request('/notifications');
+    const res = await this.request<
+      { items: NotificationItem[] } | NotificationItem[]
+    >('/notifications');
+    return Array.isArray(res) ? res : res.items;
   }
   async markNotificationRead(id: number): Promise<void> {
     return this.requestVoid(`/notifications/${id}/read`, { method: 'PATCH' });
@@ -258,14 +345,28 @@ export class ApmeApiClient implements ApmeApi {
   }
 
   // Operations
-  async startOperation(projectId: string, body: { scan_type: string; options?: Record<string, unknown> }): Promise<unknown> {
-    return this.request(`/projects/${projectId}/operation`, this.jsonBody(body));
+  async startOperation(
+    projectId: string,
+    body: { action: 'check' | 'remediate'; options?: StartOperationOptions },
+  ): Promise<unknown> {
+    return this.request(
+      `/projects/${projectId}/operation`,
+      this.jsonBody(body),
+    );
   }
   async cancelOperation(projectId: string): Promise<void> {
-    return this.requestVoid(`/projects/${projectId}/operation/cancel`, { method: 'POST' });
+    return this.requestVoid(`/projects/${projectId}/operation/cancel`, {
+      method: 'POST',
+    });
   }
-  async approveOperation(projectId: string): Promise<void> {
-    return this.requestVoid(`/projects/${projectId}/operation/approve`, { method: 'POST' });
+  async approveOperation(
+    projectId: string,
+    approvedIds: string[],
+  ): Promise<void> {
+    return this.requestVoid(
+      `/projects/${projectId}/operation/approve`,
+      this.jsonBody({ approved_ids: approvedIds }),
+    );
   }
 
   // Feedback

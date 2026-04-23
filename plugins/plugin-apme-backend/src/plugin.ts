@@ -23,11 +23,21 @@ export const apmePlugin = createBackendPlugin({
         logger.info(`APME backend plugin proxying to ${gatewayBaseUrl}`);
 
         httpRouter.use(
-          await createRouter({ logger, gatewayBaseUrl, httpAuth, userInfo }),
+          (await createRouter({
+            logger,
+            gatewayBaseUrl,
+            httpAuth,
+            userInfo,
+          })) as any,
         );
 
         httpRouter.addAuthPolicy({
           path: '/health',
+          allow: 'unauthenticated',
+        });
+
+        httpRouter.addAuthPolicy({
+          path: '/api/v1',
           allow: 'unauthenticated',
         });
       },

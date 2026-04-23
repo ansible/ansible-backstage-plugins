@@ -1,5 +1,6 @@
 import { createApiRef } from '@backstage/core-plugin-api';
 import type {
+  ActiveOperation,
   ActivityDetail,
   ActivitySummary,
   AiAcceptanceEntry,
@@ -29,6 +30,7 @@ import type {
   RuleStats,
   SessionDetail,
   SessionSummary,
+  StartOperationOptions,
   TopViolation,
   TrendPoint,
   UpdateGalaxyServerRequest,
@@ -40,24 +42,39 @@ export interface ApmeApi {
   getHealth(): Promise<HealthStatus>;
 
   // Sessions
-  listSessions(limit?: number, offset?: number): Promise<PaginatedResponse<SessionSummary>>;
+  listSessions(
+    limit?: number,
+    offset?: number,
+  ): Promise<PaginatedResponse<SessionSummary>>;
   getSession(sessionId: string): Promise<SessionDetail>;
   getSessionTrend(sessionId: string): Promise<TrendPoint[]>;
 
   // Activity
-  listActivity(limit?: number, offset?: number, sessionId?: string): Promise<PaginatedResponse<ActivitySummary>>;
+  listActivity(
+    limit?: number,
+    offset?: number,
+    sessionId?: string,
+  ): Promise<PaginatedResponse<ActivitySummary>>;
   getActivity(scanId: string): Promise<ActivityDetail>;
   deleteActivity(scanId: string): Promise<void>;
-  createPullRequest(scanId: string, body: CreatePullRequestRequest): Promise<CreatePullRequestResponse>;
+  createPullRequest(
+    scanId: string,
+    body: CreatePullRequestRequest,
+  ): Promise<CreatePullRequestResponse>;
 
   // Stats
-  getTopViolations(): Promise<TopViolation[]>;
-  getRemediationRates(): Promise<RemediationRateEntry[]>;
+  getTopViolations(limit?: number): Promise<TopViolation[]>;
+  getRemediationRates(limit?: number): Promise<RemediationRateEntry[]>;
   getAiAcceptance(): Promise<AiAcceptanceEntry[]>;
   listAiModels(): Promise<AiModelInfo[]>;
 
   // Projects
-  listProjects(): Promise<ProjectSummary[]>;
+  listProjects(
+    limit?: number,
+    offset?: number,
+    sortBy?: string,
+    order?: string,
+  ): Promise<PaginatedResponse<ProjectSummary>>;
   getProject(id: string): Promise<ProjectDetail>;
   createProject(body: CreateProjectRequest): Promise<ProjectDetail>;
   updateProject(id: string, body: UpdateProjectRequest): Promise<ProjectDetail>;
@@ -74,7 +91,12 @@ export interface ApmeApi {
 
   // Dashboard
   getDashboardSummary(): Promise<DashboardSummary>;
-  getDashboardRankings(): Promise<ProjectRanking[]>;
+  getDashboardRankings(
+    sortBy?: string,
+    order?: string,
+    limit?: number,
+  ): Promise<ProjectRanking[]>;
+  getActiveOperations(): Promise<ActiveOperation[]>;
 
   // Collections
   listCollections(): Promise<CollectionSummary[]>;
@@ -86,18 +108,29 @@ export interface ApmeApi {
 
   // Dep health
   getDepHealth(): Promise<DepHealthSummary>;
+  getDepHealthSummary(): Promise<DepHealthSummary>;
 
   // Rules
-  listRules(params?: { category?: string; source?: string; enabled_only?: boolean }): Promise<RuleDetail[]>;
+  listRules(params?: {
+    category?: string;
+    source?: string;
+    enabled_only?: boolean;
+  }): Promise<RuleDetail[]>;
   getRule(ruleId: string): Promise<RuleDetail>;
   getRuleStats(): Promise<RuleStats>;
-  updateRuleConfig(ruleId: string, body: RuleOverrideRequest): Promise<RuleDetail>;
+  updateRuleConfig(
+    ruleId: string,
+    body: RuleOverrideRequest,
+  ): Promise<RuleDetail>;
   deleteRuleConfig(ruleId: string): Promise<void>;
 
   // Galaxy servers (settings)
   listGalaxyServers(): Promise<GalaxyServer[]>;
   createGalaxyServer(body: CreateGalaxyServerRequest): Promise<GalaxyServer>;
-  updateGalaxyServer(id: number, body: UpdateGalaxyServerRequest): Promise<GalaxyServer>;
+  updateGalaxyServer(
+    id: number,
+    body: UpdateGalaxyServerRequest,
+  ): Promise<GalaxyServer>;
   deleteGalaxyServer(id: number): Promise<void>;
 
   // Notifications
@@ -107,9 +140,12 @@ export interface ApmeApi {
   deleteNotification(id: number): Promise<void>;
 
   // Operations (project-scoped check/remediate)
-  startOperation(projectId: string, body: { scan_type: string; options?: Record<string, unknown> }): Promise<unknown>;
+  startOperation(
+    projectId: string,
+    body: { action: 'check' | 'remediate'; options?: StartOperationOptions },
+  ): Promise<unknown>;
   cancelOperation(projectId: string): Promise<void>;
-  approveOperation(projectId: string): Promise<void>;
+  approveOperation(projectId: string, approvedIds: string[]): Promise<void>;
 
   // Feedback
   getFeedbackEnabled(): Promise<{ enabled: boolean }>;
