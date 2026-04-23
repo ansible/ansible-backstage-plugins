@@ -1,0 +1,7 @@
+
+# Playwright
+/playwright-report/
+/playwright-results/
+/playwright/.auth/
+/test-results/
+.env
