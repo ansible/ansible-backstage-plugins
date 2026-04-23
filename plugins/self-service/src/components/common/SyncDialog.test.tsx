@@ -384,9 +384,12 @@ describe('SyncDialog', () => {
       (c: [{ title?: string }]) => c[0]?.title === 'Sync failed',
     );
     expect(failCall?.[0].description).toContain('catalog sync unavailable');
+    expect(mockOnSyncsStarted).not.toHaveBeenCalled();
+    expect(mockOnClose).not.toHaveBeenCalled();
   });
 
   it('shows failure toast when sync POST is 207 with failed results', async () => {
+    const mockOnSyncsStarted = jest.fn();
     mockFetchApi.fetch
       .mockResolvedValueOnce({
         ok: true,
@@ -422,7 +425,11 @@ describe('SyncDialog', () => {
         }),
       });
 
-    renderDialog({ open: true, onClose: mockOnClose });
+    renderDialog({
+      open: true,
+      onClose: mockOnClose,
+      onSyncsStarted: mockOnSyncsStarted,
+    });
 
     await waitFor(() => {
       expect(screen.getByText('myorg')).toBeInTheDocument();
@@ -443,6 +450,8 @@ describe('SyncDialog', () => {
         }),
       );
     });
+    expect(mockOnSyncsStarted).not.toHaveBeenCalled();
+    expect(mockOnClose).not.toHaveBeenCalled();
   });
 
   it('handleSync closes dialog and fires sync requests (fire-and-forget)', async () => {

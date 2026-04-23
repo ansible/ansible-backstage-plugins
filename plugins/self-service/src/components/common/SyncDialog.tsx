@@ -117,6 +117,8 @@ interface ProviderInfo {
   hostName?: string;
   organization?: string;
   lastSyncTime: string | null;
+  lastSyncStatus?: 'success' | 'failure' | null;
+  lastFailedSyncTime?: string | null;
 }
 
 export const SyncDialog = ({
@@ -600,6 +602,8 @@ export const SyncDialog = ({
             sourceId: provider.sourceId,
             displayName: `PAH/${filter.organization}`,
             lastSyncTime: provider.lastSyncTime,
+            lastSyncStatus: provider.lastSyncStatus ?? null,
+            lastFailedSyncTime: provider.lastFailedSyncTime ?? null,
           });
         }
       }
@@ -617,16 +621,13 @@ export const SyncDialog = ({
             sourceId: provider.sourceId,
             displayName: getFilterDisplayName(filter),
             lastSyncTime: provider.lastSyncTime,
+            lastSyncStatus: provider.lastSyncStatus ?? null,
+            lastFailedSyncTime: provider.lastFailedSyncTime ?? null,
           });
         }
       }
     });
 
-    if (onSyncsStarted && startedSyncs.length > 0) {
-      onSyncsStarted(startedSyncs);
-    }
-
-    handleClose();
     const baseUrl = await discoveryApi.getBaseUrl('catalog');
     const syncPromises: Promise<void>[] = [];
 
@@ -657,7 +658,14 @@ export const SyncDialog = ({
         dismissCategories: [SYNC_STARTED_CATEGORY],
         autoHideDuration: 0,
       });
+      return;
     }
+
+    if (onSyncsStarted && startedSyncs.length > 0) {
+      onSyncsStarted(startedSyncs);
+    }
+
+    handleClose();
   };
 
   const hasSelections = selectedItems.size > 0;

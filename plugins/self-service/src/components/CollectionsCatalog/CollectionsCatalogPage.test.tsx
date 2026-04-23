@@ -46,6 +46,8 @@ jest.mock('../common/SyncDialog', () => ({
                 sourceId: 'src-1',
                 displayName: 'github.com/org1',
                 lastSyncTime: null,
+                lastSyncStatus: null,
+                lastFailedSyncTime: null,
               },
             ])
           }
@@ -195,6 +197,8 @@ describe('CollectionsCatalogPage', () => {
         sourceId: 'src-1',
         displayName: 'github.com/org1',
         lastSyncTime: null,
+        lastSyncStatus: null,
+        lastFailedSyncTime: null,
       },
     ]);
   });

@@ -57,6 +57,8 @@ function TestConsumer() {
               sourceId: 'src-1',
               displayName: 'github.com/org1',
               lastSyncTime: null,
+              lastSyncStatus: null,
+              lastFailedSyncTime: null,
             },
           ])
         }
@@ -129,6 +131,8 @@ describe('useSyncStatusPolling', () => {
           sourceId: 'src-1',
           displayName: 'github.com/org1',
           lastSyncTime: null,
+          lastSyncStatus: null,
+          lastFailedSyncTime: null,
         },
       ]);
     });

@@ -5,6 +5,7 @@ import {
   fetchApiRef,
 } from '@backstage/core-plugin-api';
 import { syncPollingService } from '../components/notifications/syncPollingService';
+import type { StartedSyncInfo } from '../components/common';
 
 /**
  * Hook that provides sync status polling functionality.
@@ -35,18 +36,9 @@ export function useSyncStatusPolling() {
     return unsubscribe;
   }, []);
 
-  const startTracking = useCallback(
-    (
-      syncs: Array<{
-        sourceId: string;
-        displayName: string;
-        lastSyncTime: string | null;
-      }>,
-    ) => {
-      syncPollingService.startTracking(syncs);
-    },
-    [],
-  );
+  const startTracking = useCallback((syncs: StartedSyncInfo[]) => {
+    syncPollingService.startTracking(syncs);
+  }, []);
 
   return {
     isSyncInProgress,

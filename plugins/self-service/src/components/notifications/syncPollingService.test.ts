@@ -509,6 +509,7 @@ describe('syncPollingService', () => {
 
     it('treats terminal failure as completion even when lastSyncTime is unchanged', async () => {
       const t0 = '2024-01-01T10:00:00Z';
+      const failedAt = '2024-01-01T11:00:00Z';
       mockFetchApi.fetch.mockResolvedValue({
         ok: true,
         json: () =>
@@ -520,6 +521,7 @@ describe('syncPollingService', () => {
                   syncInProgress: false,
                   lastSyncTime: t0,
                   lastSyncStatus: 'failure',
+                  lastFailedSyncTime: failedAt,
                   collectionsFound: 0,
                   collectionsDelta: 0,
                 },
@@ -543,6 +545,8 @@ describe('syncPollingService', () => {
           sourceId: 'src-1',
           displayName: 'Source 1',
           lastSyncTime: t0,
+          lastSyncStatus: 'success',
+          lastFailedSyncTime: null,
         },
       ]);
 
@@ -557,6 +561,57 @@ describe('syncPollingService', () => {
           description: 'Failed to sync content from Source 1.',
         }),
       );
+    });
+
+    it('does not treat unchanged prior failure as completion when retrying sync', async () => {
+      const t0 = '2024-01-01T10:00:00Z';
+      const f0 = '2024-01-01T10:05:00Z';
+      mockFetchApi.fetch.mockResolvedValue({
+        ok: true,
+        json: () =>
+          Promise.resolve({
+            content: {
+              providers: [
+                {
+                  sourceId: 'src-1',
+                  syncInProgress: false,
+                  lastSyncTime: t0,
+                  lastSyncStatus: 'failure',
+                  lastFailedSyncTime: f0,
+                  collectionsFound: 0,
+                  collectionsDelta: 0,
+                },
+              ],
+            },
+          }),
+      });
+
+      syncPollingService.initialize(
+        mockDiscoveryApi as any,
+        mockFetchApi as any,
+      );
+      await jest.advanceTimersByTimeAsync(0);
+
+      mockShowNotification.mockClear();
+
+      syncPollingService.startTracking([
+        {
+          sourceId: 'src-1',
+          displayName: 'Source 1',
+          lastSyncTime: t0,
+          lastSyncStatus: 'failure',
+          lastFailedSyncTime: f0,
+        },
+      ]);
+
+      await jest.advanceTimersByTimeAsync(0);
+
+      expect(syncPollingService.getIsSyncInProgress()).toBe(true);
+      expect(
+        mockShowNotification.mock.calls.some(
+          c => c[0]?.title === 'Sync failed',
+        ),
+      ).toBe(false);
     });
 
     it('shows tracked failure and invalidates when lastSyncTime is unchanged', async () => {

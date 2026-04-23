@@ -2,11 +2,12 @@ import { DiscoveryApi, FetchApi } from '@backstage/core-plugin-api';
 import { notificationStore } from './notificationStore';
 import {
   SYNC_COMPLETED_CATEGORY,
-  SYNC_STARTED_CATEGORY,
   SYNC_FAILED_CATEGORY,
-  TRACKING_TIMEOUT_MS,
+  SYNC_FINISHED_CATEGORY,
+  SYNC_STARTED_CATEGORY,
   FAST_POLL_INTERVAL_MS,
   SLOW_POLL_INTERVAL_MS,
+  TRACKING_TIMEOUT_MS,
 } from '../common/constants';
 import { collectionsCache } from '../CollectionsCatalog/collectionsCache';
 
@@ -20,6 +21,7 @@ interface ProviderStatus {
   syncInProgress: boolean;
   lastSyncTime: string | null;
   lastSyncStatus: 'success' | 'failure' | null;
+  lastFailedSyncTime?: string | null;
   collectionsFound: number;
   collectionsDelta: number;
 }
@@ -29,6 +31,8 @@ interface TrackedSync {
   displayName: string;
   startedAt: number;
   lastSyncTimeAtStart: string | null;
+  lastSyncStatusAtStart: 'success' | 'failure' | null;
+  lastFailedSyncTimeAtStart: string | null;
 }
 
 type SyncStatusListener = (isSyncInProgress: boolean) => void;
@@ -216,6 +220,7 @@ class SyncPollingService {
       title: 'Sync finished',
       description: `Catalog did not report a clear success or failure for ${tracked.displayName}.`,
       severity: 'warning',
+      category: SYNC_FINISHED_CATEGORY,
       dismissCategories: [SYNC_STARTED_CATEGORY],
       autoHideDuration: 20000,
     });
@@ -258,11 +263,19 @@ class SyncPollingService {
       }
 
       const prevSnapshot = this.providerSyncSnapshot.get(sourceId);
+      const providerFailedTime = provider.lastFailedSyncTime ?? null;
+      const catalogAdvancedSinceTrackingStart =
+        provider.lastSyncTime !== tracked.lastSyncTimeAtStart ||
+        (provider.lastSyncStatus ?? null) !== tracked.lastSyncStatusAtStart ||
+        providerFailedTime !== tracked.lastFailedSyncTimeAtStart;
       const terminalFailure =
-        !provider.syncInProgress && provider.lastSyncStatus === 'failure';
+        !provider.syncInProgress &&
+        provider.lastSyncStatus === 'failure' &&
+        catalogAdvancedSinceTrackingStart;
       const syncCompleted =
         terminalFailure ||
         (!provider.syncInProgress &&
+          provider.lastSyncStatus !== 'failure' &&
           (provider.lastSyncTime !== tracked.lastSyncTimeAtStart ||
             providerFinishedRunSinceLastPoll(prevSnapshot, provider)));
 
@@ -403,6 +416,8 @@ class SyncPollingService {
       sourceId: string;
       displayName: string;
       lastSyncTime: string | null;
+      lastSyncStatus?: 'success' | 'failure' | null;
+      lastFailedSyncTime?: string | null;
     }>,
   ): void {
     if (syncs.length === 0) {
@@ -417,6 +432,8 @@ class SyncPollingService {
         displayName: sync.displayName,
         startedAt: now,
         lastSyncTimeAtStart: sync.lastSyncTime,
+        lastSyncStatusAtStart: sync.lastSyncStatus ?? null,
+        lastFailedSyncTimeAtStart: sync.lastFailedSyncTime ?? null,
       });
     }
 
