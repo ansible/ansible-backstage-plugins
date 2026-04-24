@@ -39,31 +39,14 @@ import {
 const SubmitButton = () => {
   const { hasErrors, notifySubmitAttempted } = useFieldValidation();
   return (
-    <span style={{ position: 'relative', display: 'inline-block' }}>
-      <Button
-        type="submit"
-        variant="contained"
-        color="primary"
-        disabled={hasErrors}
-      >
-        Next
-      </Button>
-      {hasErrors && (
-        <span
-          onClick={notifySubmitAttempted}
-          style={{
-            position: 'absolute',
-            top: 0,
-            left: 0,
-            right: 0,
-            bottom: 0,
-            cursor: 'not-allowed',
-            zIndex: 1,
-          }}
-          aria-hidden="true"
-        />
-      )}
-    </span>
+    <Button
+      type={hasErrors ? 'button' : 'submit'}
+      variant="contained"
+      color="primary"
+      onClick={hasErrors ? notifySubmitAttempted : undefined}
+    >
+      Next
+    </Button>
   );
 };
 
