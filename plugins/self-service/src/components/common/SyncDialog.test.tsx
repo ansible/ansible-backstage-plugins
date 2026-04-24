@@ -456,7 +456,7 @@ describe('SyncDialog', () => {
       (c: [{ title?: string }]) => c[0]?.title === 'Sync failed',
     );
     expect(failCall?.[0].description).toContain(
-      'github/github.com:myorg: could not start',
+      'github:github.com:myorg: could not start',
     );
     expect(mockOnSyncsStarted).not.toHaveBeenCalled();
     expect(mockOnClose).not.toHaveBeenCalled();
