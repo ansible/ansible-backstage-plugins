@@ -15,6 +15,7 @@ export const EmptyState = ({
   repositoryFilter,
   syncDisabled = false,
   syncDisabledReason,
+  syncInProgress = false,
 }: EmptyStateProps) => {
   const classes = useSharedStyles();
   const { isSuperuser: allowed } = useIsSuperuser();
@@ -80,7 +81,13 @@ export const EmptyState = ({
             <Button
               variant="outlined"
               color="primary"
-              startIcon={<SyncIcon />}
+              startIcon={
+                <SyncIcon
+                  className={
+                    syncInProgress ? classes.syncIconSpinning : undefined
+                  }
+                />
+              }
               onClick={onSyncClick}
               disabled={syncDisabled}
               className={classes.syncButton}
