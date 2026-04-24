@@ -1,10 +1,70 @@
 import { Box, Button, Tooltip, Typography } from '@material-ui/core';
 import HelpOutlineIcon from '@material-ui/icons/HelpOutline';
 import SyncIcon from '@material-ui/icons/Sync';
+import { makeStyles } from '@material-ui/core/styles';
 
 import { useIsSuperuser } from '../../hooks';
 import { useCollectionsStyles } from '../CollectionsCatalog/styles';
 import { useSharedStyles } from './styles';
+import { SyncProgressPopover } from './SyncProgressPopover';
+import type { SyncProgressEntry } from './types';
+
+/* Sync status dash bar — restore when needed (also re-add dotsClasses below):
+const OUTCOME_COLORS: Record<string, string> = {
+  success: '#4caf50',
+  failure: '#f44336',
+  ambiguous: '#ffb74d',
+};
+
+const useDotsStyles = makeStyles(theme => ({
+  dashRow: {
+    display: 'flex',
+    width: '100%',
+    gap: 3,
+    marginTop: theme.spacing(0.75),
+  },
+  dash: {
+    flex: 1,
+    height: 4,
+    borderRadius: 2,
+    transition: 'background-color 0.3s ease',
+  },
+  dashPending: {
+    backgroundColor: theme.palette.primary.main,
+    animation: '$pulse 1.4s ease-in-out infinite',
+  },
+  '@keyframes pulse': {
+    '0%, 100%': { opacity: 1 },
+    '50%': { opacity: 0.35 },
+  },
+}));
+*/
+
+const useTooltipStyles = makeStyles(theme => ({
+  tooltip: {
+    maxWidth: 'none',
+    padding: 0,
+    backgroundColor: theme.palette.background.paper,
+    borderRadius: 12,
+    boxShadow: '0 4px 24px rgba(0,0,0,0.55)',
+    border: `1px solid ${
+      theme.palette.type === 'dark'
+        ? 'rgba(255,255,255,0.08)'
+        : 'rgba(0,0,0,0.12)'
+    }`,
+  },
+  arrow: {
+    color: theme.palette.background.paper,
+    fontSize: '1.2rem',
+    '&::before': {
+      border: `1px solid ${
+        theme.palette.type === 'dark'
+          ? 'rgba(255,255,255,0.08)'
+          : 'rgba(0,0,0,0.12)'
+      }`,
+    },
+  },
+}));
 
 export interface PageHeaderSectionProps {
   title: string;
@@ -15,6 +75,8 @@ export interface PageHeaderSectionProps {
   syncDisabledReason?: string;
   /** When true, the sync icon animates (e.g. catalog sync in progress). */
   syncInProgress?: boolean;
+  /** Per-source progress entries surfaced from syncPollingService. */
+  syncProgress?: SyncProgressEntry[];
 }
 
 export const PageHeaderSection = ({
@@ -25,14 +87,19 @@ export const PageHeaderSection = ({
   syncDisabled = false,
   syncDisabledReason,
   syncInProgress = false,
+  syncProgress = [],
 }: PageHeaderSectionProps) => {
   const classes = useCollectionsStyles();
   const sharedClasses = useSharedStyles();
+  const tooltipClasses = useTooltipStyles();
+  // const dotsClasses = useDotsStyles(); // restore with dash bar
   const { isSuperuser: allowed, loading: checkingPermission } =
     useIsSuperuser();
 
   const showSyncButton = checkingPermission || allowed;
   const isButtonDisabled = checkingPermission || syncDisabled;
+
+  const showProgressPopover = syncInProgress && syncProgress.length > 0;
 
   const getButtonTooltip = () => {
     if (checkingPermission) return 'Checking permissions...';
@@ -57,28 +124,69 @@ export const PageHeaderSection = ({
           </Tooltip>
         </Box>
         {showSyncButton && (
-          <Tooltip title={buttonTooltip} arrow>
-            <span>
-              <Button
-                variant="outlined"
-                color="primary"
-                startIcon={
-                  <SyncIcon
-                    className={
-                      syncInProgress
-                        ? sharedClasses.syncIconSpinning
+          <Box
+            style={{
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'flex-end',
+            }}
+          >
+            <Tooltip
+              title={
+                showProgressPopover ? (
+                  <SyncProgressPopover entries={syncProgress} />
+                ) : (
+                  buttonTooltip
+                )
+              }
+              classes={showProgressPopover ? tooltipClasses : undefined}
+              interactive={showProgressPopover}
+              arrow
+              placement="bottom-end"
+            >
+              <span>
+                <Button
+                  variant="outlined"
+                  color="primary"
+                  startIcon={
+                    <SyncIcon
+                      className={
+                        syncInProgress
+                          ? sharedClasses.syncIconSpinning
+                          : undefined
+                      }
+                    />
+                  }
+                  onClick={onSyncClick}
+                  className={classes.syncButton}
+                  disabled={isButtonDisabled}
+                >
+                  Sync Now
+                </Button>
+              </span>
+            </Tooltip>
+
+            {/* Sync status dash bar — restore when needed:
+            {syncProgress.length > 0 && (
+              <Box className={dotsClasses.dashRow}>
+                {syncProgress.map(entry => (
+                  <span
+                    key={entry.sourceId}
+                    className={`${dotsClasses.dash} ${
+                      entry.outcome === 'pending' ? dotsClasses.dashPending : ''
+                    }`}
+                    style={
+                      entry.outcome !== 'pending'
+                        ? { backgroundColor: OUTCOME_COLORS[entry.outcome] ?? '#9e9e9e' }
                         : undefined
                     }
+                    title={entry.displayName}
                   />
-                }
-                onClick={onSyncClick}
-                className={classes.syncButton}
-                disabled={isButtonDisabled}
-              >
-                Sync Now
-              </Button>
-            </span>
-          </Tooltip>
+                ))}
+              </Box>
+            )}
+            */}
+          </Box>
         )}
       </Box>
       <Typography variant="body1" className={classes.description}>

@@ -1,4 +1,4 @@
-import { render, screen, fireEvent } from '@testing-library/react';
+import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { ThemeProvider, createTheme } from '@material-ui/core/styles';
 import { PageHeaderSection } from './PageHeaderSection';
 
@@ -164,5 +164,39 @@ describe('PageHeaderSection', () => {
     const icon = syncButton.querySelector('svg');
     expect(icon).toBeTruthy();
     expect(icon?.getAttribute('class')).toMatch(/syncIconSpinning/);
+  });
+
+  it('shows sync progress popover content when syncInProgress and syncProgress entries are provided', async () => {
+    renderWithTheme(
+      <PageHeaderSection
+        {...defaultProps}
+        syncDisabled
+        syncInProgress
+        syncProgress={[
+          {
+            sourceId: 'src-1',
+            displayName: 'github.com:org1',
+            outcome: 'success',
+          },
+          {
+            sourceId: 'src-2',
+            displayName: 'github.com:org2',
+            outcome: 'pending',
+          },
+        ]}
+      />,
+    );
+
+    const syncButton = screen.getByRole('button', { name: /Sync Now/i });
+    fireEvent.mouseOver(syncButton);
+
+    await waitFor(() => {
+      expect(screen.getByText('github.com:org1')).toBeInTheDocument();
+      expect(screen.getByText('github.com:org2')).toBeInTheDocument();
+      expect(screen.getByText('50%')).toBeInTheDocument();
+      expect(screen.getByText('1 of 2 tasks completed')).toBeInTheDocument();
+      expect(screen.getByText('Completed')).toBeInTheDocument();
+      expect(screen.getByText('In progress')).toBeInTheDocument();
+    });
   });
 });

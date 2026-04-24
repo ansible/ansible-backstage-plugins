@@ -22,6 +22,15 @@ export interface StartedSyncInfo {
   lastFailedSyncTime: string | null;
 }
 
+/** Per-source outcome within an active or recently completed sync batch. */
+export type SyncOutcome = 'pending' | 'success' | 'failure' | 'ambiguous';
+
+export interface SyncProgressEntry {
+  sourceId: string;
+  displayName: string;
+  outcome: SyncOutcome;
+}
+
 export interface SyncDialogProps {
   open: boolean;
   onClose: () => void;

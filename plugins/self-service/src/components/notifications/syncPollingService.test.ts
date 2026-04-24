@@ -1420,6 +1420,178 @@ describe('syncPollingService', () => {
       expect(mockInvalidateFetchedData).toHaveBeenCalledTimes(1);
     });
 
+    it('does not fire a second notification when a tracked provider also appears as untracked due to sourceId mismatch', async () => {
+      // Simulates the scenario where the dialog tracked the source using a short
+      // sourceId ('short-id') but the polling API returns the same logical source
+      // under a full Backstage entity reference sourceId
+      // ('development:gitlab:gitlab-public:test-portal').
+      // trackedProvidersAtStart will NOT block the untracked path (different IDs),
+      // so notifiedDisplayNames is the guard that prevents the duplicate toast.
+      let callCount = 0;
+      mockFetchApi.fetch.mockImplementation(() => {
+        callCount++;
+        if (callCount === 1) {
+          return Promise.resolve({
+            ok: true,
+            json: () =>
+              Promise.resolve({
+                content: {
+                  providers: [
+                    {
+                      sourceId: 'short-id',
+                      syncInProgress: true,
+                      lastSyncTime: null,
+                      hostName: 'gitlab-public',
+                      organization: 'test-portal',
+                    },
+                    {
+                      sourceId: 'development:gitlab:gitlab-public:test-portal',
+                      syncInProgress: true,
+                      lastSyncTime: null,
+                      hostName: 'gitlab-public',
+                      organization: 'test-portal',
+                    },
+                  ],
+                },
+              }),
+          });
+        }
+        return Promise.resolve({
+          ok: true,
+          json: () =>
+            Promise.resolve({
+              content: {
+                providers: [
+                  {
+                    sourceId: 'short-id',
+                    syncInProgress: false,
+                    lastSyncTime: '2024-01-01T12:00:00Z',
+                    lastSyncStatus: 'success',
+                    collectionsFound: 3,
+                    collectionsDelta: 0,
+                    hostName: 'gitlab-public',
+                    organization: 'test-portal',
+                  },
+                  {
+                    sourceId: 'development:gitlab:gitlab-public:test-portal',
+                    syncInProgress: false,
+                    lastSyncTime: '2024-01-01T12:00:00Z',
+                    lastSyncStatus: 'success',
+                    collectionsFound: 3,
+                    collectionsDelta: 0,
+                    hostName: 'gitlab-public',
+                    organization: 'test-portal',
+                  },
+                ],
+              },
+            }),
+        });
+      });
+
+      syncPollingService.initialize(
+        mockDiscoveryApi as any,
+        mockFetchApi as any,
+      );
+      await jest.advanceTimersByTimeAsync(0);
+
+      // Dialog tracked with a SHORT sourceId; polling API uses the full entity
+      // reference. trackedProvidersAtStart won't match, so notifiedDisplayNames
+      // is what prevents the second notification.
+      syncPollingService.startTracking([
+        {
+          sourceId: 'short-id',
+          displayName: 'gitlab-public:test-portal',
+          lastSyncTime: null,
+          lastSyncStatus: null,
+          lastFailedSyncTime: null,
+        },
+      ]);
+
+      await jest.advanceTimersByTimeAsync(FAST_POLL_INTERVAL_MS);
+
+      const completionCalls = mockShowNotification.mock.calls.filter(
+        (c: [{ title?: string }]) => c[0]?.title === 'Sync completed',
+      );
+      expect(completionCalls).toHaveLength(1);
+    });
+
+    it('backfills syncProgress with pending entry for in-progress provider after page refresh', async () => {
+      let callCount = 0;
+      mockFetchApi.fetch.mockImplementation(() => {
+        callCount++;
+        if (callCount === 1) {
+          return Promise.resolve({
+            ok: true,
+            json: () =>
+              Promise.resolve({
+                content: {
+                  providers: [
+                    {
+                      sourceId: 'src-refresh',
+                      syncInProgress: true,
+                      lastSyncTime: null,
+                      hostName: 'github.com',
+                      organization: 'my-org',
+                    },
+                  ],
+                },
+              }),
+          });
+        }
+        return Promise.resolve({
+          ok: true,
+          json: () =>
+            Promise.resolve({
+              content: {
+                providers: [
+                  {
+                    sourceId: 'src-refresh',
+                    syncInProgress: false,
+                    lastSyncTime: '2024-01-01T12:00:00Z',
+                    lastSyncStatus: 'success',
+                    collectionsFound: 3,
+                    collectionsDelta: 1,
+                  },
+                ],
+              },
+            }),
+        });
+      });
+
+      const progressListener = jest.fn();
+
+      syncPollingService.initialize(
+        mockDiscoveryApi as any,
+        mockFetchApi as any,
+      );
+      await jest.advanceTimersByTimeAsync(0);
+
+      syncPollingService.subscribeProgress(progressListener);
+      progressListener.mockClear();
+
+      // After first poll, backfill should have added a pending entry
+      const initialProgress = syncPollingService.getSyncProgress();
+      expect(initialProgress).toHaveLength(1);
+      expect(initialProgress[0]).toMatchObject({
+        sourceId: 'src-refresh',
+        displayName: 'github.com:my-org',
+        outcome: 'pending',
+      });
+
+      // After second poll, outcome should update to success
+      await jest.advanceTimersByTimeAsync(FAST_POLL_INTERVAL_MS);
+
+      expect(mockShowNotification).toHaveBeenCalledWith(
+        expect.objectContaining({
+          title: 'Sync completed',
+          severity: 'success',
+        }),
+      );
+
+      const finalProgress = syncPollingService.getSyncProgress();
+      expect(finalProgress[0].outcome).toBe('success');
+    });
+
     it('invalidates only once when sync completes via startTracking (scheduled path skipped for that source)', async () => {
       let callCount = 0;
       mockFetchApi.fetch.mockImplementation(() => {
