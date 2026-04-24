@@ -51,12 +51,14 @@ export const CollectionsCatalogPage = () => {
           onSyncClick={handleSyncClick}
           syncDisabled={syncDisabled}
           syncDisabledReason={syncDisabledReason}
+          syncInProgress={isSyncInProgress}
         />
         <CollectionsContent
           onSyncClick={handleSyncClick}
           onSourcesStatusChange={handleSourcesStatusChange}
           syncDisabled={syncDisabled}
           syncDisabledReason={syncDisabledReason}
+          syncInProgress={isSyncInProgress}
         />
         <SyncDialog
           open={syncDialogOpen}

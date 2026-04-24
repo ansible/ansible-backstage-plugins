@@ -15,6 +15,21 @@ const theme = createTheme();
 
 const mockShowNotification = jest.fn();
 
+/** POST /ansible/sync/* returns this shape so SyncDialog can parse results. */
+const okSyncPostResponse = {
+  ok: true,
+  json: async () => ({
+    summary: {
+      total: 1,
+      sync_started: 1,
+      failed: 0,
+      already_syncing: 0,
+      invalid: 0,
+    },
+    results: [{ status: 'sync_started' as const }],
+  }),
+};
+
 jest.mock('../notifications', () => ({
   useNotifications: () => ({
     showNotification: mockShowNotification,
@@ -252,7 +267,7 @@ describe('SyncDialog', () => {
           },
         }),
       })
-      .mockResolvedValueOnce({ ok: true });
+      .mockResolvedValueOnce(okSyncPostResponse);
 
     renderDialog({
       open: true,
@@ -312,6 +327,209 @@ describe('SyncDialog', () => {
     );
   });
 
+  it('shows failure toast when sync POST returns HTTP error', async () => {
+    const mockOnSyncsStarted = jest.fn();
+    mockFetchApi.fetch
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          content: {
+            providers: [
+              {
+                sourceId: 'src-myorg',
+                scmProvider: 'github',
+                hostName: 'github.com',
+                organization: 'myorg',
+                lastSyncTime: null,
+              },
+            ],
+          },
+        }),
+      })
+      .mockResolvedValueOnce({
+        ok: false,
+        status: 500,
+        statusText: 'Internal Server Error',
+        json: async () => ({ error: 'catalog sync unavailable' }),
+      });
+
+    renderDialog({
+      open: true,
+      onClose: mockOnClose,
+      onSyncsStarted: mockOnSyncsStarted,
+    });
+
+    await waitFor(() => {
+      expect(screen.getByText('myorg')).toBeInTheDocument();
+    });
+    fireEvent.click(screen.getByText('myorg'));
+    await waitFor(() => {
+      expect(
+        screen.getByRole('button', { name: /Sync Selected/i }),
+      ).not.toBeDisabled();
+    });
+    fireEvent.click(screen.getByRole('button', { name: /Sync Selected/i }));
+
+    await waitFor(() => {
+      expect(mockShowNotification).toHaveBeenCalledWith(
+        expect.objectContaining({
+          title: 'Sync failed',
+          severity: 'error',
+          category: 'sync-failed',
+          dismissCategories: ['sync-started'],
+        }),
+      );
+    });
+    const failCall = mockShowNotification.mock.calls.find(
+      (c: [{ title?: string }]) => c[0]?.title === 'Sync failed',
+    );
+    expect(failCall?.[0].description).toContain(
+      'github.com/myorg: catalog sync unavailable',
+    );
+    expect(mockOnSyncsStarted).not.toHaveBeenCalled();
+    expect(mockOnClose).not.toHaveBeenCalled();
+  });
+
+  it('shows failure toast when sync POST is 207 with failed results', async () => {
+    const mockOnSyncsStarted = jest.fn();
+    mockFetchApi.fetch
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          content: {
+            providers: [
+              {
+                sourceId: 'src-myorg',
+                scmProvider: 'github',
+                hostName: 'github.com',
+                organization: 'myorg',
+                lastSyncTime: null,
+              },
+            ],
+          },
+        }),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        status: 207,
+        statusText: 'Multi-Status',
+        json: async () => ({
+          summary: { total: 1, failed: 1, sync_started: 0 },
+          results: [
+            {
+              status: 'failed',
+              scmProvider: 'github',
+              hostName: 'github.com',
+              organization: 'myorg',
+              error: { message: 'could not start' },
+            },
+          ],
+        }),
+      });
+
+    renderDialog({
+      open: true,
+      onClose: mockOnClose,
+      onSyncsStarted: mockOnSyncsStarted,
+    });
+
+    await waitFor(() => {
+      expect(screen.getByText('myorg')).toBeInTheDocument();
+    });
+    fireEvent.click(screen.getByText('myorg'));
+    await waitFor(() => {
+      expect(
+        screen.getByRole('button', { name: /Sync Selected/i }),
+      ).not.toBeDisabled();
+    });
+    fireEvent.click(screen.getByRole('button', { name: /Sync Selected/i }));
+
+    await waitFor(() => {
+      expect(mockShowNotification).toHaveBeenCalledWith(
+        expect.objectContaining({
+          title: 'Sync failed',
+          category: 'sync-failed',
+        }),
+      );
+    });
+    const failCall = mockShowNotification.mock.calls.find(
+      (c: [{ title?: string }]) => c[0]?.title === 'Sync failed',
+    );
+    expect(failCall?.[0].description).toContain(
+      'github/github.com/myorg: could not start',
+    );
+    expect(mockOnSyncsStarted).not.toHaveBeenCalled();
+    expect(mockOnClose).not.toHaveBeenCalled();
+  });
+
+  it('calls onSyncsStarted only for sources whose POST succeeded when another fails', async () => {
+    const mockOnSyncsStarted = jest.fn();
+    mockFetchApi.fetch
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          content: {
+            providers: [
+              {
+                sourceId: 'src-1',
+                scmProvider: 'github',
+                hostName: 'github.com',
+                organization: 'org1',
+                lastSyncTime: null,
+              },
+              {
+                sourceId: 'src-2',
+                scmProvider: 'github',
+                hostName: 'github.com',
+                organization: 'org2',
+                lastSyncTime: null,
+              },
+            ],
+          },
+        }),
+      })
+      .mockResolvedValueOnce(okSyncPostResponse)
+      .mockRejectedValueOnce(new Error('second org POST failed'));
+
+    renderDialog({
+      open: true,
+      onClose: mockOnClose,
+      onSyncsStarted: mockOnSyncsStarted,
+    });
+
+    await waitFor(() => {
+      expect(screen.getByText('org1')).toBeInTheDocument();
+    });
+    fireEvent.click(screen.getByText('org1'));
+    fireEvent.click(screen.getByText('org2'));
+    await waitFor(() => {
+      expect(
+        screen.getByRole('button', { name: /Sync Selected/i }),
+      ).not.toBeDisabled();
+    });
+    fireEvent.click(screen.getByRole('button', { name: /Sync Selected/i }));
+
+    await waitFor(() => {
+      expect(mockShowNotification).toHaveBeenCalledWith(
+        expect.objectContaining({
+          title: 'Sync failed',
+          category: 'sync-failed',
+          description: expect.stringContaining(
+            'github.com/org2: second org POST failed',
+          ),
+        }),
+      );
+    });
+    expect(mockOnSyncsStarted).toHaveBeenCalledTimes(1);
+    expect(mockOnSyncsStarted).toHaveBeenCalledWith([
+      expect.objectContaining({
+        sourceId: 'src-1',
+        displayName: 'github.com/org1',
+      }),
+    ]);
+    expect(mockOnClose).not.toHaveBeenCalled();
+  });
+
   it('handleSync closes dialog and fires sync requests (fire-and-forget)', async () => {
     mockFetchApi.fetch
       .mockResolvedValueOnce({
@@ -330,7 +548,7 @@ describe('SyncDialog', () => {
           },
         }),
       })
-      .mockResolvedValue({ ok: true });
+      .mockResolvedValue(okSyncPostResponse);
 
     renderDialog({ open: true, onClose: mockOnClose });
 
@@ -371,7 +589,7 @@ describe('SyncDialog', () => {
           },
         }),
       })
-      .mockResolvedValue({ ok: true });
+      .mockResolvedValue(okSyncPostResponse);
 
     const mockOnSyncsStarted = jest.fn();
     renderDialog({
@@ -564,7 +782,7 @@ describe('SyncDialog', () => {
           },
         }),
       })
-      .mockResolvedValue({ ok: true });
+      .mockResolvedValue(okSyncPostResponse);
 
     renderDialog({
       open: true,
@@ -630,7 +848,7 @@ describe('SyncDialog', () => {
           },
         }),
       })
-      .mockResolvedValue({ ok: true });
+      .mockResolvedValue(okSyncPostResponse);
 
     renderDialog({ open: true, onClose: mockOnClose });
 
@@ -800,7 +1018,7 @@ describe('SyncDialog', () => {
           },
         }),
       })
-      .mockResolvedValue({ ok: true });
+      .mockResolvedValue(okSyncPostResponse);
 
     renderDialog({ open: true, onClose: mockOnClose });
 
@@ -868,7 +1086,7 @@ describe('SyncDialog', () => {
           },
         }),
       })
-      .mockResolvedValue({ ok: true });
+      .mockResolvedValue(okSyncPostResponse);
 
     renderDialog({ open: true, onClose: mockOnClose });
 

@@ -179,6 +179,7 @@ export const GitRepositoriesPage = () => {
           onSyncClick={handleSyncClick}
           syncDisabled={syncDisabled}
           syncDisabledReason={syncDisabledReason}
+          syncInProgress={isSyncInProgress}
         />
         <Box className={classes.tabsSection}>
           <HeaderTabs

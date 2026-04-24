@@ -4,6 +4,8 @@ export const CONFIGURATION_DOCS_URL = '#';
 export const SYNC_STARTED_CATEGORY = 'sync-started';
 export const SYNC_COMPLETED_CATEGORY = 'sync-completed';
 export const SYNC_FAILED_CATEGORY = 'sync-failed';
+/** Tracked sync ended without a clear success/failure from the catalog. */
+export const SYNC_FINISHED_CATEGORY = 'sync-finished';
 
 export const FAST_POLL_INTERVAL_MS = 3000;
 export const SLOW_POLL_INTERVAL_MS = 15000;
