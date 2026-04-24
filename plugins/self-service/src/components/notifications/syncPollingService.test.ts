@@ -1229,6 +1229,197 @@ describe('syncPollingService', () => {
       expect(mockInvalidateFetchedData).toHaveBeenCalledTimes(1);
     });
 
+    it('shows Sync completed toast for untracked provider that finishes with success (page-refresh scenario)', async () => {
+      let callCount = 0;
+      mockFetchApi.fetch.mockImplementation(() => {
+        callCount++;
+        if (callCount === 1) {
+          return Promise.resolve({
+            ok: true,
+            json: () =>
+              Promise.resolve({
+                content: {
+                  providers: [
+                    {
+                      sourceId: 'src-1',
+                      syncInProgress: true,
+                      lastSyncTime: null,
+                    },
+                  ],
+                },
+              }),
+          });
+        }
+        return Promise.resolve({
+          ok: true,
+          json: () =>
+            Promise.resolve({
+              content: {
+                providers: [
+                  {
+                    sourceId: 'src-1',
+                    syncInProgress: false,
+                    lastSyncTime: '2024-01-01T12:00:00Z',
+                    lastSyncStatus: 'success',
+                    collectionsFound: 5,
+                    collectionsDelta: 2,
+                  },
+                ],
+              },
+            }),
+        });
+      });
+
+      syncPollingService.initialize(
+        mockDiscoveryApi as any,
+        mockFetchApi as any,
+      );
+      await jest.advanceTimersByTimeAsync(0);
+      expect(mockShowNotification).not.toHaveBeenCalled();
+
+      await jest.advanceTimersByTimeAsync(FAST_POLL_INTERVAL_MS);
+
+      expect(mockShowNotification).toHaveBeenCalledWith(
+        expect.objectContaining({
+          title: 'Sync completed',
+          severity: 'success',
+          category: 'sync-completed',
+        }),
+      );
+      expect(mockInvalidateFetchedData).toHaveBeenCalledTimes(1);
+    });
+
+    it('shows Sync failed toast for untracked provider that finishes with failure (page-refresh scenario)', async () => {
+      let callCount = 0;
+      mockFetchApi.fetch.mockImplementation(() => {
+        callCount++;
+        if (callCount === 1) {
+          return Promise.resolve({
+            ok: true,
+            json: () =>
+              Promise.resolve({
+                content: {
+                  providers: [
+                    {
+                      sourceId: 'src-1',
+                      syncInProgress: true,
+                      lastSyncTime: '2024-01-01T10:00:00Z',
+                    },
+                  ],
+                },
+              }),
+          });
+        }
+        return Promise.resolve({
+          ok: true,
+          json: () =>
+            Promise.resolve({
+              content: {
+                providers: [
+                  {
+                    sourceId: 'src-1',
+                    syncInProgress: false,
+                    lastSyncTime: '2024-01-01T10:00:00Z',
+                    lastSyncStatus: 'failure',
+                    collectionsFound: 0,
+                    collectionsDelta: 0,
+                  },
+                ],
+              },
+            }),
+        });
+      });
+
+      syncPollingService.initialize(
+        mockDiscoveryApi as any,
+        mockFetchApi as any,
+      );
+      await jest.advanceTimersByTimeAsync(0);
+      expect(mockShowNotification).not.toHaveBeenCalled();
+
+      await jest.advanceTimersByTimeAsync(FAST_POLL_INTERVAL_MS);
+
+      expect(mockShowNotification).toHaveBeenCalledWith(
+        expect.objectContaining({
+          title: 'Sync failed',
+          severity: 'error',
+          category: 'sync-failed',
+          description: expect.stringContaining('src-1'),
+        }),
+      );
+      expect(mockInvalidateFetchedData).toHaveBeenCalledTimes(1);
+    });
+
+    it('shows notifications for all untracked providers that finish in the same poll', async () => {
+      let callCount = 0;
+      mockFetchApi.fetch.mockImplementation(() => {
+        callCount++;
+        if (callCount === 1) {
+          return Promise.resolve({
+            ok: true,
+            json: () =>
+              Promise.resolve({
+                content: {
+                  providers: [
+                    {
+                      sourceId: 'src-a',
+                      syncInProgress: true,
+                      lastSyncTime: null,
+                    },
+                    {
+                      sourceId: 'src-b',
+                      syncInProgress: true,
+                      lastSyncTime: null,
+                    },
+                  ],
+                },
+              }),
+          });
+        }
+        return Promise.resolve({
+          ok: true,
+          json: () =>
+            Promise.resolve({
+              content: {
+                providers: [
+                  {
+                    sourceId: 'src-a',
+                    syncInProgress: false,
+                    lastSyncTime: '2024-01-01T12:00:00Z',
+                    lastSyncStatus: 'success',
+                    collectionsFound: 3,
+                    collectionsDelta: 1,
+                  },
+                  {
+                    sourceId: 'src-b',
+                    syncInProgress: false,
+                    lastSyncTime: '2024-01-01T12:00:00Z',
+                    lastSyncStatus: 'failure',
+                    collectionsFound: 0,
+                    collectionsDelta: 0,
+                  },
+                ],
+              },
+            }),
+        });
+      });
+
+      syncPollingService.initialize(
+        mockDiscoveryApi as any,
+        mockFetchApi as any,
+      );
+      await jest.advanceTimersByTimeAsync(0);
+
+      await jest.advanceTimersByTimeAsync(FAST_POLL_INTERVAL_MS);
+
+      const titles = mockShowNotification.mock.calls.map(
+        (c: [{ title?: string }]) => c[0]?.title,
+      );
+      expect(titles).toContain('Sync completed');
+      expect(titles).toContain('Sync failed');
+      expect(mockInvalidateFetchedData).toHaveBeenCalledTimes(1);
+    });
+
     it('invalidates only once when sync completes via startTracking (scheduled path skipped for that source)', async () => {
       let callCount = 0;
       mockFetchApi.fetch.mockImplementation(() => {

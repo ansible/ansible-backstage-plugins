@@ -185,21 +185,20 @@ class SyncPollingService {
     return aggregateInProgress;
   }
 
-  private showTrackedSyncOutcome(
+  private showSyncOutcome(
     provider: ProviderStatus,
-    tracked: TrackedSync,
+    displayName: string,
+    isFirstSync: boolean,
   ): void {
     if (provider.lastSyncStatus === 'success') {
-      const isFirstSync = tracked.lastSyncTimeAtStart === null;
-      const message = buildSyncCompletedMessage(
-        tracked.displayName,
-        provider.collectionsFound,
-        provider.collectionsDelta,
-        isFirstSync,
-      );
       notificationStore.showNotification({
         title: 'Sync completed',
-        description: message,
+        description: buildSyncCompletedMessage(
+          displayName,
+          provider.collectionsFound,
+          provider.collectionsDelta,
+          isFirstSync,
+        ),
         severity: 'success',
         category: SYNC_COMPLETED_CATEGORY,
         dismissCategories: [SYNC_STARTED_CATEGORY],
@@ -209,7 +208,7 @@ class SyncPollingService {
     if (provider.lastSyncStatus === 'failure') {
       notificationStore.showNotification({
         title: 'Sync failed',
-        description: `Failed to sync content from ${tracked.displayName}.`,
+        description: `Failed to sync content from ${displayName}.`,
         severity: 'error',
         category: SYNC_FAILED_CATEGORY,
         dismissCategories: [SYNC_STARTED_CATEGORY],
@@ -219,12 +218,23 @@ class SyncPollingService {
     }
     notificationStore.showNotification({
       title: 'Sync finished',
-      description: `Catalog did not report a clear success or failure for ${tracked.displayName}.`,
+      description: `Catalog did not report a clear success or failure for ${displayName}.`,
       severity: 'warning',
       category: SYNC_FINISHED_CATEGORY,
       dismissCategories: [SYNC_STARTED_CATEGORY],
       autoHideDuration: 20000,
     });
+  }
+
+  private showTrackedSyncOutcome(
+    provider: ProviderStatus,
+    tracked: TrackedSync,
+  ): void {
+    this.showSyncOutcome(
+      provider,
+      tracked.displayName,
+      tracked.lastSyncTimeAtStart === null,
+    );
   }
 
   /**
@@ -332,6 +342,7 @@ class SyncPollingService {
       return;
     }
 
+    let anyFinished = false;
     for (const p of providers) {
       if (trackedProvidersAtStart.has(p.sourceId)) {
         continue;
@@ -341,9 +352,12 @@ class SyncPollingService {
         continue;
       }
       if (providerFinishedRunSinceLastPoll(prev, p)) {
-        collectionsCache.invalidateFetchedData();
-        break;
+        this.showSyncOutcome(p, p.sourceId, false);
+        anyFinished = true;
       }
+    }
+    if (anyFinished) {
+      collectionsCache.invalidateFetchedData();
     }
   }
 
