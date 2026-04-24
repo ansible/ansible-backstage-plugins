@@ -61,6 +61,7 @@ interface EmptyStateWrapperProps {
   hasConfiguredSources?: boolean | null;
   syncDisabled?: boolean;
   syncDisabledReason?: string;
+  syncInProgress?: boolean;
 }
 
 const EmptyStateWrapper = ({
@@ -69,6 +70,7 @@ const EmptyStateWrapper = ({
   hasConfiguredSources,
   syncDisabled,
   syncDisabledReason,
+  syncInProgress,
 }: EmptyStateWrapperProps) => {
   const classes = useCollectionsStyles();
   const emptyState = (
@@ -77,6 +79,7 @@ const EmptyStateWrapper = ({
       hasConfiguredSources={hasConfiguredSources}
       syncDisabled={syncDisabled}
       syncDisabledReason={syncDisabledReason}
+      syncInProgress={syncInProgress}
       {...(filterByRepositoryEntity && { repositoryFilter: true })}
     />
   );
@@ -92,6 +95,7 @@ interface CollectionsListPageProps {
   filterByRepositoryEntity?: Entity | null;
   syncDisabled?: boolean;
   syncDisabledReason?: string;
+  syncInProgress?: boolean;
 }
 
 function collectionsTitleCountSuffix(
@@ -116,6 +120,7 @@ export const CollectionsListPage = ({
   filterByRepositoryEntity,
   syncDisabled,
   syncDisabledReason,
+  syncInProgress,
 }: CollectionsListPageProps) => {
   const classes = useCollectionsStyles();
   const catalogApi = useApi(catalogApiRef);
@@ -245,6 +250,7 @@ export const CollectionsListPage = ({
           hasConfiguredSources={hasConfiguredSources}
           syncDisabled={syncDisabled}
           syncDisabledReason={syncDisabledReason}
+          syncInProgress={syncInProgress}
         />
       ) : (
         <Box
@@ -434,6 +440,7 @@ interface CollectionsContentProps {
   onSourcesStatusChange?: (hasConfiguredSources: boolean | null) => void;
   syncDisabled?: boolean;
   syncDisabledReason?: string;
+  syncInProgress?: boolean;
 }
 
 export const CollectionsContent = ({
@@ -441,6 +448,7 @@ export const CollectionsContent = ({
   onSourcesStatusChange,
   syncDisabled,
   syncDisabledReason,
+  syncInProgress,
 }: CollectionsContentProps) => {
   const classes = useCollectionsStyles();
 
@@ -453,6 +461,7 @@ export const CollectionsContent = ({
             onSourcesStatusChange={onSourcesStatusChange}
             syncDisabled={syncDisabled}
             syncDisabledReason={syncDisabledReason}
+            syncInProgress={syncInProgress}
           />
         </EntityListProvider>
       </Box>

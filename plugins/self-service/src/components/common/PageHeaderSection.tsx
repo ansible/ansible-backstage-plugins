@@ -4,6 +4,7 @@ import SyncIcon from '@material-ui/icons/Sync';
 
 import { useIsSuperuser } from '../../hooks';
 import { useCollectionsStyles } from '../CollectionsCatalog/styles';
+import { useSharedStyles } from './styles';
 
 export interface PageHeaderSectionProps {
   title: string;
@@ -12,6 +13,8 @@ export interface PageHeaderSectionProps {
   onSyncClick: () => void;
   syncDisabled?: boolean;
   syncDisabledReason?: string;
+  /** When true, the sync icon animates (e.g. catalog sync in progress). */
+  syncInProgress?: boolean;
 }
 
 export const PageHeaderSection = ({
@@ -21,8 +24,10 @@ export const PageHeaderSection = ({
   onSyncClick,
   syncDisabled = false,
   syncDisabledReason,
+  syncInProgress = false,
 }: PageHeaderSectionProps) => {
   const classes = useCollectionsStyles();
+  const sharedClasses = useSharedStyles();
   const { isSuperuser: allowed, loading: checkingPermission } =
     useIsSuperuser();
 
@@ -57,7 +62,15 @@ export const PageHeaderSection = ({
               <Button
                 variant="outlined"
                 color="primary"
-                startIcon={<SyncIcon />}
+                startIcon={
+                  <SyncIcon
+                    className={
+                      syncInProgress
+                        ? sharedClasses.syncIconSpinning
+                        : undefined
+                    }
+                  />
+                }
                 onClick={onSyncClick}
                 className={classes.syncButton}
                 disabled={isButtonDisabled}
