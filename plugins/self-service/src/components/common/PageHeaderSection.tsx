@@ -9,37 +9,6 @@ import { useSharedStyles } from './styles';
 import { SyncProgressPopover } from './SyncProgressPopover';
 import type { SyncProgressEntry } from './types';
 
-/* Sync status dash bar — restore when needed (also re-add dotsClasses below):
-const OUTCOME_COLORS: Record<string, string> = {
-  success: '#4caf50',
-  failure: '#f44336',
-  ambiguous: '#ffb74d',
-};
-
-const useDotsStyles = makeStyles(theme => ({
-  dashRow: {
-    display: 'flex',
-    width: '100%',
-    gap: 3,
-    marginTop: theme.spacing(0.75),
-  },
-  dash: {
-    flex: 1,
-    height: 4,
-    borderRadius: 2,
-    transition: 'background-color 0.3s ease',
-  },
-  dashPending: {
-    backgroundColor: theme.palette.primary.main,
-    animation: '$pulse 1.4s ease-in-out infinite',
-  },
-  '@keyframes pulse': {
-    '0%, 100%': { opacity: 1 },
-    '50%': { opacity: 0.35 },
-  },
-}));
-*/
-
 const useTooltipStyles = makeStyles(theme => ({
   tooltip: {
     maxWidth: 'none',
@@ -92,7 +61,6 @@ export const PageHeaderSection = ({
   const classes = useCollectionsStyles();
   const sharedClasses = useSharedStyles();
   const tooltipClasses = useTooltipStyles();
-  // const dotsClasses = useDotsStyles(); // restore with dash bar
   const { isSuperuser: allowed, loading: checkingPermission } =
     useIsSuperuser();
 
@@ -165,27 +133,6 @@ export const PageHeaderSection = ({
                 </Button>
               </span>
             </Tooltip>
-
-            {/* Sync status dash bar — restore when needed:
-            {syncProgress.length > 0 && (
-              <Box className={dotsClasses.dashRow}>
-                {syncProgress.map(entry => (
-                  <span
-                    key={entry.sourceId}
-                    className={`${dotsClasses.dash} ${
-                      entry.outcome === 'pending' ? dotsClasses.dashPending : ''
-                    }`}
-                    style={
-                      entry.outcome !== 'pending'
-                        ? { backgroundColor: OUTCOME_COLORS[entry.outcome] ?? '#9e9e9e' }
-                        : undefined
-                    }
-                    title={entry.displayName}
-                  />
-                ))}
-              </Box>
-            )}
-            */}
           </Box>
         )}
       </Box>
