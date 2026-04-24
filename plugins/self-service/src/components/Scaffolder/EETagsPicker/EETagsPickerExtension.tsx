@@ -1,5 +1,6 @@
 import { useState, useEffect, useMemo } from 'react';
 import { FieldExtensionComponentProps } from '@backstage/plugin-scaffolder-react';
+import { useFieldValidation } from '../../CreateTask/FieldValidationContext';
 import { TextField, Typography, Box, IconButton } from '@material-ui/core';
 import { Alert } from '@material-ui/lab';
 import { makeStyles } from '@material-ui/core/styles';
@@ -140,6 +141,7 @@ export const EETagsPickerExtension = ({
   rawErrors = [],
   schema,
   formData,
+  idSchema,
 }: FieldExtensionComponentProps<string[]>) => {
   const classes = useStyles();
   const requiredField = required ? required : true;
@@ -151,6 +153,17 @@ export const EETagsPickerExtension = ({
   const customDescription = schema?.description;
   const tags = formData ?? [];
   const [tagErrors, setTagErrors] = useState<Record<number, string>>({});
+
+  const { setFieldError } = useFieldValidation();
+  const fieldId = idSchema.$id;
+
+  useEffect(() => {
+    const hasTagError = Object.keys(tagErrors).length > 0;
+    setFieldError(fieldId, hasTagError);
+    return () => {
+      setFieldError(fieldId, false);
+    };
+  }, [fieldId, tagErrors, setFieldError]);
 
   const validateTag = (tag: string, index: number): boolean => {
     const validation = isValidTag(tag);

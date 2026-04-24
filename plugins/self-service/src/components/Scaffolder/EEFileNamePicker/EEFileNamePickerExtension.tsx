@@ -9,6 +9,7 @@ import {
 import { Alert } from '@material-ui/lab';
 import { makeStyles } from '@material-ui/core/styles';
 import { useApi } from '@backstage/core-plugin-api';
+import { useFieldValidation } from '../../CreateTask/FieldValidationContext';
 import { catalogApiRef } from '@backstage/plugin-catalog-react';
 import { Entity } from '@backstage/catalog-model';
 import WarningIcon from '@material-ui/icons/Warning';
@@ -106,6 +107,7 @@ export const EEFileNamePickerExtension = ({
   rawErrors = [],
   schema,
   formData,
+  idSchema,
 }: FieldExtensionComponentProps<string>) => {
   const classes = useStyles();
   const catalogApi = useApi(catalogApiRef);
@@ -113,6 +115,16 @@ export const EEFileNamePickerExtension = ({
   const [isChecking, setIsChecking] = useState(false);
   const [checkError, setCheckError] = useState<string | null>(null);
   const [formatError, setFormatError] = useState<string | null>(null);
+
+  const { setFieldError } = useFieldValidation();
+  const fieldId = idSchema.$id;
+
+  useEffect(() => {
+    setFieldError(fieldId, formatError !== null);
+    return () => {
+      setFieldError(fieldId, false);
+    };
+  }, [fieldId, formatError, setFieldError]);
 
   const checkEntityExists = useCallback(
     async (fileName: string) => {
