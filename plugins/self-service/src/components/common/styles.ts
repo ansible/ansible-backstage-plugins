@@ -131,4 +131,11 @@ export const useSharedStyles = makeStyles(theme => ({
     textTransform: 'none',
     fontWeight: 500,
   },
+  '@keyframes syncIconSpin': {
+    '0%': { transform: 'rotate(0deg)' },
+    '100%': { transform: 'rotate(360deg)' },
+  },
+  syncIconSpinning: {
+    animation: '$syncIconSpin 1s linear infinite',
+  },
 }));

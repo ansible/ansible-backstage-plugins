@@ -2,12 +2,14 @@ import { DiscoveryApi, FetchApi } from '@backstage/core-plugin-api';
 import { notificationStore } from './notificationStore';
 import {
   SYNC_COMPLETED_CATEGORY,
-  SYNC_STARTED_CATEGORY,
   SYNC_FAILED_CATEGORY,
-  TRACKING_TIMEOUT_MS,
+  SYNC_FINISHED_CATEGORY,
+  SYNC_STARTED_CATEGORY,
   FAST_POLL_INTERVAL_MS,
   SLOW_POLL_INTERVAL_MS,
+  TRACKING_TIMEOUT_MS,
 } from '../common/constants';
+import type { StartedSyncInfo } from '../common/types';
 import { collectionsCache } from '../CollectionsCatalog/collectionsCache';
 
 interface ProviderStatus {
@@ -20,6 +22,7 @@ interface ProviderStatus {
   syncInProgress: boolean;
   lastSyncTime: string | null;
   lastSyncStatus: 'success' | 'failure' | null;
+  lastFailedSyncTime?: string | null;
   collectionsFound: number;
   collectionsDelta: number;
 }
@@ -29,6 +32,8 @@ interface TrackedSync {
   displayName: string;
   startedAt: number;
   lastSyncTimeAtStart: string | null;
+  lastSyncStatusAtStart: 'success' | 'failure' | null;
+  lastFailedSyncTimeAtStart: string | null;
 }
 
 type SyncStatusListener = (isSyncInProgress: boolean) => void;
@@ -92,18 +97,27 @@ class SyncPollingService {
     this.discoveryApi = discoveryApi;
     this.fetchApi = fetchApi;
 
-    if (this.pollLoopStarted) {
+    const startPollChain = () => {
+      const gen = this.pollGeneration;
+      this.checkSyncStatus().then(anyInProgress => {
+        if (!this.isCurrentGeneration(gen)) {
+          return;
+        }
+        this.scheduleNextPoll(anyInProgress);
+      });
+    };
+
+    if (!this.pollLoopStarted) {
+      this.pollLoopStarted = true;
+      startPollChain();
       return;
     }
-    this.pollLoopStarted = true;
 
-    const gen = this.pollGeneration;
-    this.checkSyncStatus().then(anyInProgress => {
-      if (!this.isCurrentGeneration(gen)) {
-        return;
-      }
-      this.scheduleNextPoll(anyInProgress);
-    });
+    // Re-enter (e.g. new RouteView after navigation): loop should already be
+    // running. If the timer chain stopped while pollLoopStarted is true, restart.
+    if (this.pollTimer === null && this.checkSyncStatusInFlight === null) {
+      startPollChain();
+    }
   }
 
   subscribe(listener: SyncStatusListener): () => void {
@@ -171,21 +185,20 @@ class SyncPollingService {
     return aggregateInProgress;
   }
 
-  private showTrackedSyncOutcome(
+  private showSyncOutcome(
     provider: ProviderStatus,
-    tracked: TrackedSync,
+    displayName: string,
+    isFirstSync: boolean,
   ): void {
     if (provider.lastSyncStatus === 'success') {
-      const isFirstSync = tracked.lastSyncTimeAtStart === null;
-      const message = buildSyncCompletedMessage(
-        tracked.displayName,
-        provider.collectionsFound,
-        provider.collectionsDelta,
-        isFirstSync,
-      );
       notificationStore.showNotification({
         title: 'Sync completed',
-        description: message,
+        description: buildSyncCompletedMessage(
+          displayName,
+          provider.collectionsFound,
+          provider.collectionsDelta,
+          isFirstSync,
+        ),
         severity: 'success',
         category: SYNC_COMPLETED_CATEGORY,
         dismissCategories: [SYNC_STARTED_CATEGORY],
@@ -195,13 +208,64 @@ class SyncPollingService {
     if (provider.lastSyncStatus === 'failure') {
       notificationStore.showNotification({
         title: 'Sync failed',
-        description: `Failed to sync content from ${tracked.displayName}.`,
+        description: `Failed to sync content from ${displayName}.`,
         severity: 'error',
         category: SYNC_FAILED_CATEGORY,
         dismissCategories: [SYNC_STARTED_CATEGORY],
         autoHideDuration: 0,
       });
+      return;
     }
+    notificationStore.showNotification({
+      title: 'Sync finished',
+      description: `Catalog did not report a clear success or failure for ${displayName}.`,
+      severity: 'warning',
+      category: SYNC_FINISHED_CATEGORY,
+      dismissCategories: [SYNC_STARTED_CATEGORY],
+      autoHideDuration: 20000,
+    });
+  }
+
+  private showTrackedSyncOutcome(
+    provider: ProviderStatus,
+    tracked: TrackedSync,
+  ): void {
+    this.showSyncOutcome(
+      provider,
+      tracked.displayName,
+      tracked.lastSyncTimeAtStart === null,
+    );
+  }
+
+  /**
+   * When provider payloads are unavailable (fetch failed or non-2xx), still
+   * remove entries past {@link TRACKING_TIMEOUT_MS} so isSyncInProgress
+   * cannot stay true indefinitely from stale local tracking.
+   *
+   * Shows the same timeout failure toast as the normal timeout path in
+   * {@link processTrackedSyncCompletions} so users are not left with a silently
+   * dismissed progress indicator.
+   *
+   * @returns `true` if at least one entry was evicted (caller should invalidate
+   * the collections cache).
+   */
+  private evictTimedOutTrackedSyncs(now: number): boolean {
+    let anyEvicted = false;
+    for (const [sourceId, tracked] of this.trackedSyncs.entries()) {
+      if (now - tracked.startedAt > TRACKING_TIMEOUT_MS) {
+        notificationStore.showNotification({
+          title: 'Sync failed',
+          description: `Could not confirm sync completion for ${tracked.displayName} within the expected time.`,
+          severity: 'error',
+          category: SYNC_FAILED_CATEGORY,
+          dismissCategories: [SYNC_STARTED_CATEGORY],
+          autoHideDuration: 0,
+        });
+        this.trackedSyncs.delete(sourceId);
+        anyEvicted = true;
+      }
+    }
+    return anyEvicted;
   }
 
   private processTrackedSyncCompletions(
@@ -214,15 +278,35 @@ class SyncPollingService {
       const provider = providers.find(p => p.sourceId === sourceId);
 
       if (!provider) {
+        notificationStore.showNotification({
+          title: 'Sync failed',
+          description: `Source is no longer available in the catalog for ${tracked.displayName}.`,
+          severity: 'error',
+          category: SYNC_FAILED_CATEGORY,
+          dismissCategories: [SYNC_STARTED_CATEGORY],
+          autoHideDuration: 0,
+        });
         this.trackedSyncs.delete(sourceId);
+        anyTrackedSyncCompleted = true;
         continue;
       }
 
       const prevSnapshot = this.providerSyncSnapshot.get(sourceId);
-      const syncCompleted =
+      const providerFailedTime = provider.lastFailedSyncTime ?? null;
+      const catalogAdvancedSinceTrackingStart =
+        provider.lastSyncTime !== tracked.lastSyncTimeAtStart ||
+        (provider.lastSyncStatus ?? null) !== tracked.lastSyncStatusAtStart ||
+        providerFailedTime !== tracked.lastFailedSyncTimeAtStart;
+      const terminalFailure =
         !provider.syncInProgress &&
-        (provider.lastSyncTime !== tracked.lastSyncTimeAtStart ||
-          providerFinishedRunSinceLastPoll(prevSnapshot, provider));
+        provider.lastSyncStatus === 'failure' &&
+        catalogAdvancedSinceTrackingStart;
+      const syncCompleted =
+        terminalFailure ||
+        (!provider.syncInProgress &&
+          provider.lastSyncStatus !== 'failure' &&
+          (provider.lastSyncTime !== tracked.lastSyncTimeAtStart ||
+            providerFinishedRunSinceLastPoll(prevSnapshot, provider)));
 
       const trackingTimedOut = now - tracked.startedAt > TRACKING_TIMEOUT_MS;
 
@@ -231,7 +315,16 @@ class SyncPollingService {
         this.showTrackedSyncOutcome(provider, tracked);
         this.trackedSyncs.delete(sourceId);
       } else if (trackingTimedOut) {
+        notificationStore.showNotification({
+          title: 'Sync failed',
+          description: `Could not confirm sync completion for ${tracked.displayName} within the expected time.`,
+          severity: 'error',
+          category: SYNC_FAILED_CATEGORY,
+          dismissCategories: [SYNC_STARTED_CATEGORY],
+          autoHideDuration: 0,
+        });
         this.trackedSyncs.delete(sourceId);
+        anyTrackedSyncCompleted = true;
       }
     }
 
@@ -249,6 +342,7 @@ class SyncPollingService {
       return;
     }
 
+    let anyFinished = false;
     for (const p of providers) {
       if (trackedProvidersAtStart.has(p.sourceId)) {
         continue;
@@ -258,9 +352,12 @@ class SyncPollingService {
         continue;
       }
       if (providerFinishedRunSinceLastPoll(prev, p)) {
-        collectionsCache.invalidateFetchedData();
-        break;
+        this.showSyncOutcome(p, p.sourceId, false);
+        anyFinished = true;
       }
+    }
+    if (anyFinished) {
+      collectionsCache.invalidateFetchedData();
     }
   }
 
@@ -290,6 +387,11 @@ class SyncPollingService {
           return this.isSyncInProgress;
         }
         if (fetched === null) {
+          const anyEvicted = this.evictTimedOutTrackedSyncs(Date.now());
+          if (anyEvicted) {
+            collectionsCache.invalidateFetchedData();
+            this.updateInProgressFromProviders([], undefined);
+          }
           return this.isSyncInProgress || this.trackedSyncs.size > 0;
         }
 
@@ -342,13 +444,7 @@ class SyncPollingService {
     }, interval);
   }
 
-  startTracking(
-    syncs: Array<{
-      sourceId: string;
-      displayName: string;
-      lastSyncTime: string | null;
-    }>,
-  ): void {
+  startTracking(syncs: StartedSyncInfo[]): void {
     if (syncs.length === 0) {
       return;
     }
@@ -361,6 +457,8 @@ class SyncPollingService {
         displayName: sync.displayName,
         startedAt: now,
         lastSyncTimeAtStart: sync.lastSyncTime,
+        lastSyncStatusAtStart: sync.lastSyncStatus ?? null,
+        lastFailedSyncTimeAtStart: sync.lastFailedSyncTime ?? null,
       });
     }
 

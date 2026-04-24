@@ -17,6 +17,9 @@ export interface StartedSyncInfo {
   sourceId: string;
   displayName: string;
   lastSyncTime: string | null;
+  /** From `/ansible/sync/status` when sync starts; used to ignore stale catalog failure rows. */
+  lastSyncStatus: 'success' | 'failure' | null;
+  lastFailedSyncTime: string | null;
 }
 
 export interface SyncDialogProps {
@@ -31,4 +34,5 @@ export interface EmptyStateProps {
   repositoryFilter?: boolean;
   syncDisabled?: boolean;
   syncDisabledReason?: string;
+  syncInProgress?: boolean;
 }
