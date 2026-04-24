@@ -539,7 +539,7 @@ describe('PAH Helpers', () => {
       expect(collections[0].name).toBe('posix');
       expect(collections[0].repository_name).toBe('validated');
       expect(mockExecuteGetRequest).toHaveBeenCalledWith(
-        '/pulp/api/v3/content/ansible/collection_versions/1/',
+        '/pulp/api/v3/content/ansible/collection_versions/1/?fields=docs_blob&fields=authors',
         null,
       );
     });
