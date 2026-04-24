@@ -338,7 +338,7 @@ export const CollectionsPickerExtension = ({
   }, [selectedCollection, selectedSource, fetchVersions]);
 
   const handleAddCollection = () => {
-    if (!selectedCollection?.trim()) {
+    if (!selectedCollection?.trim() || !selectedSource?.trim()) {
       return;
     }
 
@@ -392,7 +392,8 @@ export const CollectionsPickerExtension = ({
     setEditingIndex(index);
   };
 
-  const isAddButtonDisabled = !selectedCollection?.trim() || disabled;
+  const isAddButtonDisabled =
+    !selectedCollection?.trim() || !selectedSource?.trim() || disabled;
 
   const versionAutocompleteValue = useMemo(():
     | VersionOption
