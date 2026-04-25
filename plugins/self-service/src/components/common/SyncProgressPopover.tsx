@@ -126,7 +126,9 @@ export const SyncProgressPopover = ({ entries }: SyncProgressPopoverProps) => {
 
   let titleText = 'Syncing\u2026';
   if (allDone) {
-    titleText = hasFailures ? 'Completed with errors' : 'Sync completed';
+    titleText = hasFailures
+      ? 'Last sync completed with errors'
+      : 'Sync completed';
   }
 
   return (

@@ -1515,6 +1515,74 @@ describe('syncPollingService', () => {
       expect(completionCalls).toHaveLength(1);
     });
 
+    it('notifyTrackedFailure dedupe guard suppresses second notification for same display name', async () => {
+      // Two tracked sources share the same displayName. The first timeout fires a
+      // notification and adds the name to notifiedDisplayNames. The second should
+      // be suppressed by the guard inside notifyTrackedFailure.
+      const dateNowSpy = jest.spyOn(Date, 'now');
+      let currentTime = 3000000;
+      dateNowSpy.mockImplementation(() => currentTime);
+
+      mockFetchApi.fetch.mockResolvedValue({
+        ok: true,
+        json: () =>
+          Promise.resolve({
+            content: {
+              providers: [
+                {
+                  sourceId: 'src-a',
+                  syncInProgress: true,
+                  lastSyncTime: null,
+                },
+                {
+                  sourceId: 'src-b',
+                  syncInProgress: true,
+                  lastSyncTime: null,
+                },
+              ],
+            },
+          }),
+      });
+
+      syncPollingService.initialize(
+        mockDiscoveryApi as any,
+        mockFetchApi as any,
+      );
+      await jest.advanceTimersByTimeAsync(0);
+
+      // Both share the same displayName deliberately
+      syncPollingService.startTracking([
+        {
+          sourceId: 'src-a',
+          displayName: 'shared-display-name',
+          lastSyncTime: null,
+          lastSyncStatus: null,
+          lastFailedSyncTime: null,
+        },
+        {
+          sourceId: 'src-b',
+          displayName: 'shared-display-name',
+          lastSyncTime: null,
+          lastSyncStatus: null,
+          lastFailedSyncTime: null,
+        },
+      ]);
+      await jest.advanceTimersByTimeAsync(0);
+
+      mockShowNotification.mockClear();
+
+      currentTime = 3000000 + TRACKING_TIMEOUT_MS + 1;
+      await jest.advanceTimersByTimeAsync(FAST_POLL_INTERVAL_MS);
+
+      const failCalls = mockShowNotification.mock.calls.filter(
+        (c: [{ title?: string }]) => c[0]?.title === 'Sync failed',
+      );
+      // Only one notification despite two timeouts with the same displayName
+      expect(failCalls).toHaveLength(1);
+
+      dateNowSpy.mockRestore();
+    });
+
     it('backfills syncProgress with pending entry for in-progress provider after page refresh', async () => {
       let callCount = 0;
       mockFetchApi.fetch.mockImplementation(() => {
