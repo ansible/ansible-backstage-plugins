@@ -229,6 +229,26 @@ class SyncPollingService {
     return aggregateInProgress;
   }
 
+  private notifyTrackedFailure(
+    sourceId: string,
+    displayName: string,
+    description: string,
+  ): void {
+    this.setSyncProgressOutcome(sourceId, 'failure');
+    this.notifyProgressListeners();
+    if (!this.notifiedDisplayNames.has(displayName)) {
+      this.notifiedDisplayNames.add(displayName);
+      notificationStore.showNotification({
+        title: 'Sync failed',
+        description,
+        severity: 'error',
+        category: SYNC_FAILED_CATEGORY,
+        dismissCategories: [SYNC_STARTED_CATEGORY],
+        autoHideDuration: 0,
+      });
+    }
+  }
+
   private showSyncOutcome(
     provider: ProviderStatus,
     displayName: string,
@@ -311,24 +331,14 @@ class SyncPollingService {
     let anyEvicted = false;
     for (const [sourceId, tracked] of this.trackedSyncs.entries()) {
       if (now - tracked.startedAt > TRACKING_TIMEOUT_MS) {
-        this.setSyncProgressOutcome(sourceId, 'failure');
-        if (!this.notifiedDisplayNames.has(tracked.displayName)) {
-          this.notifiedDisplayNames.add(tracked.displayName);
-          notificationStore.showNotification({
-            title: 'Sync failed',
-            description: `Could not confirm sync completion for ${tracked.displayName} within the expected time.`,
-            severity: 'error',
-            category: SYNC_FAILED_CATEGORY,
-            dismissCategories: [SYNC_STARTED_CATEGORY],
-            autoHideDuration: 0,
-          });
-        }
+        this.notifyTrackedFailure(
+          sourceId,
+          tracked.displayName,
+          `Could not confirm sync completion for ${tracked.displayName} within the expected time.`,
+        );
         this.trackedSyncs.delete(sourceId);
         anyEvicted = true;
       }
-    }
-    if (anyEvicted) {
-      this.notifyProgressListeners();
     }
     return anyEvicted;
   }
@@ -343,19 +353,11 @@ class SyncPollingService {
       const provider = providers.find(p => p.sourceId === sourceId);
 
       if (!provider) {
-        this.setSyncProgressOutcome(sourceId, 'failure');
-        this.notifyProgressListeners();
-        if (!this.notifiedDisplayNames.has(tracked.displayName)) {
-          this.notifiedDisplayNames.add(tracked.displayName);
-          notificationStore.showNotification({
-            title: 'Sync failed',
-            description: `Source is no longer available in the catalog for ${tracked.displayName}.`,
-            severity: 'error',
-            category: SYNC_FAILED_CATEGORY,
-            dismissCategories: [SYNC_STARTED_CATEGORY],
-            autoHideDuration: 0,
-          });
-        }
+        this.notifyTrackedFailure(
+          sourceId,
+          tracked.displayName,
+          `Source is no longer available in the catalog for ${tracked.displayName}.`,
+        );
         this.trackedSyncs.delete(sourceId);
         anyTrackedSyncCompleted = true;
         continue;
@@ -385,19 +387,11 @@ class SyncPollingService {
         this.showTrackedSyncOutcome(provider, tracked);
         this.trackedSyncs.delete(sourceId);
       } else if (trackingTimedOut) {
-        this.setSyncProgressOutcome(sourceId, 'failure');
-        this.notifyProgressListeners();
-        if (!this.notifiedDisplayNames.has(tracked.displayName)) {
-          this.notifiedDisplayNames.add(tracked.displayName);
-          notificationStore.showNotification({
-            title: 'Sync failed',
-            description: `Could not confirm sync completion for ${tracked.displayName} within the expected time.`,
-            severity: 'error',
-            category: SYNC_FAILED_CATEGORY,
-            dismissCategories: [SYNC_STARTED_CATEGORY],
-            autoHideDuration: 0,
-          });
-        }
+        this.notifyTrackedFailure(
+          sourceId,
+          tracked.displayName,
+          `Could not confirm sync completion for ${tracked.displayName} within the expected time.`,
+        );
         this.trackedSyncs.delete(sourceId);
         anyTrackedSyncCompleted = true;
       }

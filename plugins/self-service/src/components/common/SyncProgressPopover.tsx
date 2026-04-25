@@ -68,10 +68,10 @@ const useStyles = makeStyles(theme => ({
     fontSize: '1.15rem',
     flexShrink: 0,
   },
-  successIcon: { color: '#4caf50' },
-  failureIcon: { color: '#f44336' },
+  successIcon: { color: theme.palette.success.main },
+  failureIcon: { color: theme.palette.error.main },
   pendingIcon: { color: theme.palette.primary.main },
-  ambiguousIcon: { color: '#ffb74d' },
+  ambiguousIcon: { color: theme.palette.warning.main },
   sourceName: {
     flex: 1,
     minWidth: 0,
@@ -87,9 +87,9 @@ const useStyles = makeStyles(theme => ({
     flexShrink: 0,
   },
   statusCompleted: { color: theme.palette.text.secondary },
-  statusFailed: { color: '#f44336' },
+  statusFailed: { color: theme.palette.error.main },
   statusInProgress: { color: theme.palette.primary.main },
-  statusAmbiguous: { color: '#ffb74d' },
+  statusAmbiguous: { color: theme.palette.warning.main },
 }));
 
 function getStatusClass(
