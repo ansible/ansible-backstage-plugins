@@ -168,6 +168,40 @@ describe('PAH Helpers', () => {
       expect(result.authors).toEqual(['Author1', 'Author2']);
     });
 
+    it('should append ?fields=docs_blob&fields=authors to pulp_href', async () => {
+      mockExecuteGetRequest.mockResolvedValue({
+        json: jest.fn().mockResolvedValue({}),
+      });
+
+      await fetchCollectionDetails(
+        '/pulp/api/v3/content/123/',
+        'tok',
+        mockContext,
+      );
+
+      expect(mockExecuteGetRequest).toHaveBeenCalledWith(
+        '/pulp/api/v3/content/123/?fields=docs_blob&fields=authors',
+        'tok',
+      );
+    });
+
+    it('should use & separator when pulp_href already contains query params', async () => {
+      mockExecuteGetRequest.mockResolvedValue({
+        json: jest.fn().mockResolvedValue({}),
+      });
+
+      await fetchCollectionDetails(
+        '/pulp/content/1/?existing=true',
+        'tok',
+        mockContext,
+      );
+
+      expect(mockExecuteGetRequest).toHaveBeenCalledWith(
+        '/pulp/content/1/?existing=true&fields=docs_blob&fields=authors',
+        'tok',
+      );
+    });
+
     it('should return nulls when docs_blob is missing', async () => {
       const mockResponse = {
         json: jest.fn().mockResolvedValue({}),
@@ -215,6 +249,32 @@ describe('PAH Helpers', () => {
       );
 
       expect(result.authors).toBeNull();
+    });
+
+    it('should return nulls when response is falsy', async () => {
+      mockExecuteGetRequest.mockResolvedValue(null);
+
+      const result = await fetchCollectionDetails(
+        '/pulp/href',
+        'tok',
+        mockContext,
+      );
+
+      expect(result.docsBlob).toBeNull();
+      expect(result.authors).toBeNull();
+    });
+
+    it('should pass null token through to executeGetRequest', async () => {
+      mockExecuteGetRequest.mockResolvedValue({
+        json: jest.fn().mockResolvedValue({}),
+      });
+
+      await fetchCollectionDetails('/pulp/href', null, mockContext);
+
+      expect(mockExecuteGetRequest).toHaveBeenCalledWith(
+        '/pulp/href?fields=docs_blob&fields=authors',
+        null,
+      );
     });
   });
 
@@ -539,9 +599,86 @@ describe('PAH Helpers', () => {
       expect(collections[0].name).toBe('posix');
       expect(collections[0].repository_name).toBe('validated');
       expect(mockExecuteGetRequest).toHaveBeenCalledWith(
-        '/pulp/api/v3/content/ansible/collection_versions/1/',
+        '/pulp/api/v3/content/ansible/collection_versions/1/?fields=docs_blob&fields=authors',
         null,
       );
+    });
+
+    it('should use fields query params when fetching details for each item', async () => {
+      const collections: any[] = [];
+      mockExecuteGetRequest.mockResolvedValue({
+        json: jest.fn().mockResolvedValue({
+          docs_blob: { collection_readme: { html: '<p>hi</p>' } },
+          authors: ['A'],
+        }),
+      });
+
+      await appendCollectionsFromPage(
+        {
+          data: [
+            {
+              collection_version: {
+                namespace: 'ns1',
+                name: 'col1',
+                version: '1.0.0',
+                pulp_href:
+                  '/pulp/api/v3/content/ansible/collection_versions/aaa/',
+              },
+              repository: { name: 'repo' },
+            },
+            {
+              collection_version: {
+                namespace: 'ns2',
+                name: 'col2',
+                version: '2.0.0',
+                pulp_href:
+                  '/pulp/api/v3/content/ansible/collection_versions/bbb/',
+              },
+              repository: { name: 'repo' },
+            },
+          ],
+        },
+        collections,
+        'tok',
+        mockContext,
+      );
+
+      expect(collections).toHaveLength(2);
+      expect(mockExecuteGetRequest).toHaveBeenCalledWith(
+        '/pulp/api/v3/content/ansible/collection_versions/aaa/?fields=docs_blob&fields=authors',
+        'tok',
+      );
+      expect(mockExecuteGetRequest).toHaveBeenCalledWith(
+        '/pulp/api/v3/content/ansible/collection_versions/bbb/?fields=docs_blob&fields=authors',
+        'tok',
+      );
+    });
+
+    it('should not append fields query params when pulp_href is missing', async () => {
+      const collections: any[] = [];
+
+      await appendCollectionsFromPage(
+        {
+          data: [
+            {
+              collection_version: {
+                namespace: 'ns',
+                name: 'col',
+                version: '1.0.0',
+              },
+              repository: { name: 'repo' },
+            },
+          ],
+        },
+        collections,
+        null,
+        mockContext,
+      );
+
+      expect(collections).toHaveLength(1);
+      expect(collections[0].collection_readme_html).toBeNull();
+      expect(collections[0].authors).toBeNull();
+      expect(mockExecuteGetRequest).not.toHaveBeenCalled();
     });
   });
 });
