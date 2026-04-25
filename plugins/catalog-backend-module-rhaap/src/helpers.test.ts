@@ -2087,14 +2087,17 @@ describe('helpers', () => {
       const res: any = {
         statusCode: 0,
         body: undefined,
-        status: jest.fn().mockImplementation(function (
+        status: jest.fn().mockImplementation(function setStatus(
           this: any,
           code: number,
         ) {
           this.statusCode = code;
           return this;
         }),
-        json: jest.fn().mockImplementation(function (this: any, data: any) {
+        json: jest.fn().mockImplementation(function setJson(
+          this: any,
+          data: any,
+        ) {
           this.body = data;
           return this;
         }),
@@ -2356,14 +2359,17 @@ describe('helpers', () => {
       const res: any = {
         statusCode: 0,
         body: undefined,
-        status: jest.fn().mockImplementation(function (
+        status: jest.fn().mockImplementation(function setStatus(
           this: any,
           code: number,
         ) {
           this.statusCode = code;
           return this;
         }),
-        json: jest.fn().mockImplementation(function (this: any, data: any) {
+        json: jest.fn().mockImplementation(function setJson(
+          this: any,
+          data: any,
+        ) {
           this.body = data;
           return this;
         }),
