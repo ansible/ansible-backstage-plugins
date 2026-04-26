@@ -154,4 +154,20 @@ describe('EmptyState', () => {
 
     expect(screen.getByTitle('Custom reason')).toBeInTheDocument();
   });
+
+  it('applies spinning animation class to sync icon when syncInProgress', () => {
+    renderWithTheme(
+      <EmptyState
+        hasConfiguredSources
+        onSyncClick={mockOnSyncClick}
+        syncDisabled
+        syncInProgress
+      />,
+    );
+
+    const syncButton = screen.getByRole('button', { name: /Sync Now/i });
+    const icon = syncButton.querySelector('svg');
+    expect(icon).toBeTruthy();
+    expect(icon?.getAttribute('class')).toMatch(/syncIconSpinning/);
+  });
 });
