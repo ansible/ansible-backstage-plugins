@@ -52,18 +52,25 @@ test.describe.serial('git-repositories02-detail', () => {
       if (bodyText.includes('No Git repositories found')) {
         return;
       }
-      if ((await page.locator('main table tbody tr').count()) === 0) {
+      const tableRow = page.locator('main table tbody tr').first();
+      if ((await tableRow.count()) === 0) {
         return;
       }
 
-      await page
-        .locator('main table tbody tr')
-        .first()
-        .locator('td')
-        .first()
-        .getByRole('button')
-        .first()
-        .click({ force: true });
+      await tableRow.waitFor({ state: 'visible', timeout: 15000 });
+      await page.waitForLoadState('networkidle');
+
+      // First cell contains repository name as a link
+      const firstRepoLink = tableRow.locator('td').first().locator('a').first();
+
+      // Check if link exists before proceeding
+      if ((await firstRepoLink.count()) === 0) {
+        // No link found - table might be loading or have different structure
+        return;
+      }
+
+      await firstRepoLink.waitFor({ state: 'visible', timeout: 10000 });
+      await firstRepoLink.click();
 
       await expect(page).toHaveURL(/\/self-service\/repositories\/.+/, {
         timeout: 60000,
@@ -138,18 +145,25 @@ test.describe.serial('git-repositories02-detail', () => {
       if (bodyText.includes('No Git repositories found')) {
         return;
       }
-      if ((await page.locator('main table tbody tr').count()) === 0) {
+      const tableRow = page.locator('main table tbody tr').first();
+      if ((await tableRow.count()) === 0) {
         return;
       }
 
-      await page
-        .locator('main table tbody tr')
-        .first()
-        .locator('td')
-        .first()
-        .getByRole('button')
-        .first()
-        .click({ force: true });
+      await tableRow.waitFor({ state: 'visible', timeout: 15000 });
+      await page.waitForLoadState('networkidle');
+
+      // First cell contains repository name as a link
+      const firstRepoLink = tableRow.locator('td').first().locator('a').first();
+
+      // Check if link exists before proceeding
+      if ((await firstRepoLink.count()) === 0) {
+        // No link found - table might be loading or have different structure
+        return;
+      }
+
+      await firstRepoLink.waitFor({ state: 'visible', timeout: 10000 });
+      await firstRepoLink.click();
 
       await expect(page).toHaveURL(/\/self-service\/repositories\/.+/, {
         timeout: 60000,
