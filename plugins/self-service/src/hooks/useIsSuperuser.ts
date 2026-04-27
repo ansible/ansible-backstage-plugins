@@ -5,6 +5,8 @@ import { Entity, parseEntityRef } from '@backstage/catalog-model';
 
 const SUPERUSER_ANNOTATION = 'aap.platform/is_superuser';
 const CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes
+const RETRY_DELAY_MS = 3000;
+const MAX_ATTEMPTS = 2;
 
 // module level cache for superuser status
 interface SuperuserCache {
@@ -86,12 +88,17 @@ export function useIsSuperuser(): UseIsSuperuserResult {
       }
     };
 
+    const attemptFetch = async (
+      userEntityRef: string,
+    ): Promise<Entity | undefined> => {
+      return fetchUserEntity(catalogApi, userEntityRef);
+    };
+
     const checkSuperuserStatus = async () => {
       try {
         const identity = await identityApi.getBackstageIdentity();
         const userEntityRef = identity.userEntityRef;
 
-        // use cached value if valid
         if (isCacheValid(userEntityRef) && superuserCache) {
           updateState(superuserCache.isSuperuser, false);
           return;
@@ -100,14 +107,60 @@ export function useIsSuperuser(): UseIsSuperuserResult {
         setLoading(true);
         setError(null);
 
-        // no user entity ref -> not a superuser
         if (!userEntityRef) {
           updateCache(false, null);
           updateState(false, false);
           return;
         }
 
-        const userEntity = await fetchUserEntity(catalogApi, userEntityRef);
+        let userEntity: Entity | undefined;
+        let lastError: Error | undefined;
+
+        for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
+          try {
+            userEntity = await attemptFetch(userEntityRef);
+            lastError = undefined;
+            break;
+          } catch (err) {
+            lastError =
+              err instanceof Error
+                ? err
+                : new Error('Failed to check superuser status');
+            if (attempt < MAX_ATTEMPTS && mounted) {
+              // eslint-disable-next-line no-console
+              console.warn(
+                `[useIsSuperuser] Attempt ${attempt} failed, retrying in ${RETRY_DELAY_MS}ms...`,
+                lastError.message,
+              );
+              await new Promise(resolve =>
+                setTimeout(resolve, RETRY_DELAY_MS),
+              );
+            }
+          }
+        }
+
+        if (!mounted) return;
+
+        if (lastError) {
+          // eslint-disable-next-line no-console
+          console.warn(
+            '[useIsSuperuser] Failed to check superuser status after retry. ' +
+              'The user may lack catalog.entity.read permission or the catalog entity may not exist yet.',
+            lastError.message,
+          );
+          setError(lastError);
+          setIsSuperuser(false);
+          setLoading(false);
+          return;
+        }
+
+        if (!userEntity) {
+          // eslint-disable-next-line no-console
+          console.warn(
+            `[useIsSuperuser] User entity ${userEntityRef} not found in catalog. ` +
+              'This may indicate catalog sync has not completed yet.',
+          );
+        }
         const isSuperuserValue = checkSuperuserAnnotation(userEntity);
 
         updateCache(isSuperuserValue, userEntityRef);
@@ -118,6 +171,12 @@ export function useIsSuperuser(): UseIsSuperuserResult {
             err instanceof Error
               ? err
               : new Error('Failed to check superuser status');
+          // eslint-disable-next-line no-console
+          console.warn(
+            '[useIsSuperuser] Failed to check superuser status. ' +
+              'The user may lack catalog.entity.read permission or the catalog entity may not exist yet.',
+            errorObj.message,
+          );
           setError(errorObj);
           setIsSuperuser(false);
           setLoading(false);

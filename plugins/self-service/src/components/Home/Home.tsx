@@ -9,6 +9,8 @@ import {
 } from '@material-ui/core';
 import { Content, Header, HeaderLabel, Page } from '@backstage/core-components';
 import { useApi, useRouteRef } from '@backstage/core-plugin-api';
+import { usePermission } from '@backstage/plugin-permission-react';
+import { catalogEntityCreatePermission } from '@backstage/plugin-catalog-common/alpha';
 import {
   CatalogFilterLayout,
   EntityKindPicker,
@@ -175,7 +177,15 @@ export const HomeComponent = () => {
   const ansibleApi = useApi(ansibleApiRef);
   const rhAapAuthApi = useApi(rhAapAuthApiRef);
   const scaffolderApi = useApi(scaffolderApiRef);
-  const { isSuperuser: allowed } = useIsSuperuser();
+  const { isSuperuser: isSuperuser, loading: checkingSuperuser } =
+    useIsSuperuser();
+  const showSyncControls = checkingSuperuser || isSuperuser;
+  const syncControlsDisabled = checkingSuperuser;
+
+  const { loading: checkingCatalogCreate, allowed: canCreateCatalogEntity } =
+    usePermission({ permission: catalogEntityCreatePermission });
+  const showAddTemplate = checkingCatalogCreate || canCreateCatalogEntity;
+  const addTemplateDisabled = checkingCatalogCreate;
   const [open, setOpen] = useState(false);
   const [syncOptions, setSyncOptions] = useState<string[]>([]);
   const [showSnackbar, setShowSnackbar] = useState<boolean>(false);
@@ -367,29 +377,48 @@ export const HomeComponent = () => {
             >
               Learn more <OpenInNew fontSize="small" />
             </Typography>
-            {allowed && (
+            {showSyncControls && (
               <HeaderLabel
                 label=""
                 value={
-                  <Typography
-                    component="a"
-                    onClick={ShowSyncConfirmationDialog}
-                    style={{ cursor: 'pointer', color: 'inherit' }}
+                  <Tooltip
+                    title={
+                      syncControlsDisabled ? 'Checking permissions...' : ''
+                    }
                   >
-                    <span
+                    <Typography
+                      component="a"
+                      onClick={
+                        syncControlsDisabled
+                          ? undefined
+                          : ShowSyncConfirmationDialog
+                      }
                       style={{
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: '4px',
-                        textDecoration: 'underline',
+                        cursor: syncControlsDisabled
+                          ? 'default'
+                          : 'pointer',
+                        color: 'inherit',
+                        opacity: syncControlsDisabled ? 0.5 : 1,
                       }}
                     >
-                      Sync now <Sync fontSize="small" />
-                      <Tooltip title="Sync AAP Job Templates, Organizations, Users, and Teams from AAP to automation portal.">
-                        <Info fontSize="small" style={{ marginLeft: '4px' }} />
-                      </Tooltip>
-                    </span>
-                  </Typography>
+                      <span
+                        style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '4px',
+                          textDecoration: 'underline',
+                        }}
+                      >
+                        Sync now <Sync fontSize="small" />
+                        <Tooltip title="Sync AAP Job Templates, Organizations, Users, and Teams from AAP to automation portal.">
+                          <Info
+                            fontSize="small"
+                            style={{ marginLeft: '4px' }}
+                          />
+                        </Tooltip>
+                      </span>
+                    </Typography>
+                  </Tooltip>
                 }
                 contentTypograpyRootComponent="span"
               />
@@ -398,14 +427,21 @@ export const HomeComponent = () => {
         }
         style={{ background: 'inherit' }}
       >
-        {allowed && (
-          <Button
-            data-testid="add-template-button"
-            onClick={() => navigate(`${rootLink()}/catalog-import`)}
-            variant="contained"
+        {showAddTemplate && (
+          <Tooltip
+            title={addTemplateDisabled ? 'Checking permissions...' : ''}
           >
-            Add Template
-          </Button>
+            <span>
+              <Button
+                data-testid="add-template-button"
+                onClick={() => navigate(`${rootLink()}/catalog-import`)}
+                variant="contained"
+                disabled={addTemplateDisabled}
+              >
+                Add Template
+              </Button>
+            </span>
+          </Tooltip>
         )}
       </Header>
       <Content>
