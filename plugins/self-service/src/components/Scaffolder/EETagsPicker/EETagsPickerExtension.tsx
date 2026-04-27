@@ -158,7 +158,7 @@ export const EETagsPickerExtension = ({
   const fieldId = idSchema.$id;
 
   useEffect(() => {
-    const hasTagError = Object.keys(tagErrors).length > 0;
+    const hasTagError = Object.values(tagErrors).some(Boolean);
     setFieldError(fieldId, hasTagError);
     return () => {
       setFieldError(fieldId, false);
@@ -187,7 +187,11 @@ export const EETagsPickerExtension = ({
 
   const handleTagChange = (index: number, value: string) => {
     if (value.length === 0) {
-      setTagErrors(prev => ({ ...prev, [index]: '' }));
+      setTagErrors(prev => {
+        const next = { ...prev };
+        delete next[index];
+        return next;
+      });
     } else {
       validateTag(value, index);
     }
