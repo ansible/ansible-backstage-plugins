@@ -10,12 +10,11 @@ import {
 } from '@material-ui/core';
 import { Content, Header, HeaderLabel, Page } from '@backstage/core-components';
 import { useApi, useRouteRef } from '@backstage/core-plugin-api';
-<<<<<<< fix/use-is-superuser-silent-failure
-import { usePermission } from '@backstage/plugin-permission-react';
+import {
+  usePermission,
+  RequirePermission,
+} from '@backstage/plugin-permission-react';
 import { catalogEntityCreatePermission } from '@backstage/plugin-catalog-common/alpha';
-=======
-import { RequirePermission } from '@backstage/plugin-permission-react';
->>>>>>> main
 import {
   CatalogFilterLayout,
   EntityKindPicker,
