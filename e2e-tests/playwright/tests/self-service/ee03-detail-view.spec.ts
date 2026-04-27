@@ -8,12 +8,17 @@ import { test, expect } from '../../fixtures/auth-context';
 test.describe('Execution Environment Catalog and Detail View Tests', () => {
   test.beforeEach(async ({ page }) => {
     await page.waitForTimeout(500);
-    await page.goto('/self-service/ee', { waitUntil: 'domcontentloaded' });
+    await page.goto('/self-service/ee', { waitUntil: 'networkidle' });
     await expect(page).toHaveURL(/\/self-service\/ee/);
     await expect(page.locator('main')).toBeVisible({ timeout: 15000 });
     if ((await page.locator('body').innerText()).includes('Catalog')) {
       await page.getByText('Catalog').first().click({ force: true });
-      await page.waitForTimeout(1500);
+      await page.waitForLoadState('networkidle');
+    }
+    const table = page.locator('table').first();
+    if ((await table.count()) > 0) {
+      await table.waitFor({ state: 'attached', timeout: 15000 });
+      await page.waitForLoadState('networkidle');
     }
   });
 
@@ -99,22 +104,15 @@ test.describe('Execution Environment Catalog and Detail View Tests', () => {
     if ((await row.count()) === 0) {
       return;
     }
-    const buttons = row.locator('button');
-    const bn = await buttons.count();
-    for (let i = 0; i < bn; i++) {
-      const b = buttons.nth(i);
-      const aria = ((await b.getAttribute('aria-label')) || '').toLowerCase();
-      const title = ((await b.getAttribute('title')) || '').toLowerCase();
-      if (
-        aria.includes('favorite') ||
-        aria.includes('star') ||
-        title.includes('star')
-      ) {
-        await b.click({ force: true });
-        await page.waitForTimeout(1200);
-        await b.click({ force: true }).catch(() => {});
-        break;
-      }
+    await row.waitFor({ state: 'visible', timeout: 15000 });
+    const starButton = row.locator(
+      'button[aria-label*="favorite" i], button[aria-label*="star" i], button[title*="star" i]',
+    );
+    if ((await starButton.count()) > 0) {
+      await starButton.first().waitFor({ state: 'visible', timeout: 10000 });
+      await starButton.first().click();
+      await page.waitForTimeout(1200);
+      await starButton.first().click().catch(() => {});
     }
   });
 
@@ -145,10 +143,12 @@ test.describe('Execution Environment Catalog and Detail View Tests', () => {
     if ((await row.count()) === 0) {
       return;
     }
+    await row.waitFor({ state: 'visible', timeout: 15000 });
     const nameEl = row.locator('a, button, [role="link"]').first();
     if ((await nameEl.count()) > 0) {
-      await nameEl.click({ force: true });
-      await page.waitForTimeout(2000);
+      await nameEl.waitFor({ state: 'visible', timeout: 10000 });
+      await nameEl.click();
+      await page.waitForLoadState('networkidle');
       const url = page.url();
       if (url.includes('/catalog/') || url.includes('/self-service/catalog/')) {
         await expect(page.locator('body')).toBeVisible({ timeout: 15000 });
