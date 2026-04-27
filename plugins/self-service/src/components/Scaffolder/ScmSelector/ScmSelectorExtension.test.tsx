@@ -907,6 +907,83 @@ describe('ScmSelectorExtension', () => {
     });
   });
 
+  describe('auth error field validation', () => {
+    const HasErrorsDisplay = () => {
+      const { hasErrors } = useFieldValidation();
+      return (
+        <span data-testid="has-errors">{hasErrors ? 'true' : 'false'}</span>
+      );
+    };
+
+    const renderWithHasErrors = (props = {}) =>
+      render(
+        <TestApiProvider apis={[[scmAuthApiRef, mockScmAuthApi]]}>
+          <FieldValidationProvider>
+            <ScmSelectorExtension {...defaultProps} {...props} />
+            <HasErrorsDisplay />
+          </FieldValidationProvider>
+        </TestApiProvider>,
+      );
+
+    it('registers a field error when authentication is rejected so the next button is blocked', async () => {
+      mockScmAuthApi.getCredentials.mockRejectedValue(
+        new Error('Login failed, rejected by user'),
+      );
+      renderWithHasErrors();
+
+      const select = screen.getByRole('button', { name: /Source Control/i });
+      fireEvent.mouseDown(select);
+      const githubOption = await screen.findByText('Github');
+      fireEvent.click(githubOption);
+
+      await waitFor(() => {
+        expect(
+          screen.getByText('Login failed, rejected by user'),
+        ).toBeInTheDocument();
+      });
+
+      expect(screen.getByTestId('has-errors')).toHaveTextContent('true');
+    });
+
+    it('registers a field error when no token is received so the next button is blocked', async () => {
+      mockScmAuthApi.getCredentials.mockResolvedValue({ token: null });
+      renderWithHasErrors();
+
+      const select = screen.getByRole('button', { name: /Source Control/i });
+      fireEvent.mouseDown(select);
+      const githubOption = await screen.findByText('Github');
+      fireEvent.click(githubOption);
+
+      await waitFor(() => {
+        expect(
+          screen.getByText('No token received from authentication'),
+        ).toBeInTheDocument();
+      });
+
+      expect(screen.getByTestId('has-errors')).toHaveTextContent('true');
+    });
+
+    it('clears the field error after a successful authentication', async () => {
+      renderWithHasErrors({
+        formData: {
+          provider: 'github',
+          providerLabel: 'Github',
+          org: '',
+          repoName: '',
+          repoExists: false,
+        },
+      });
+
+      await waitFor(() => {
+        expect(mockScmAuthApi.getCredentials).toHaveBeenCalled();
+      });
+
+      await waitFor(() => {
+        expect(screen.getByTestId('has-errors')).toHaveTextContent('false');
+      });
+    });
+  });
+
   describe('getApiBaseUrl', () => {
     it('uses explicit apiBaseUrl when provided', async () => {
       const uiSchema = {

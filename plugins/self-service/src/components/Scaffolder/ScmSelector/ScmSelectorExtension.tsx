@@ -548,6 +548,7 @@ export const ScmSelectorExtension = ({
   ]);
 
   useEffect(() => {
+    const authErrorId = `${fieldId}-auth`;
     const orgId = `${fieldId}-org`;
     const repoId = `${fieldId}-repo`;
     const orgFieldVisible =
@@ -557,15 +558,18 @@ export const ScmSelectorExtension = ({
     const repoFieldVisible =
       isAuthenticated && !!selectedProvider && !!selectedOrg;
 
+    setFieldError(authErrorId, !!authError);
     setFieldError(orgId, orgFieldVisible && !selectedOrg);
     setFieldError(repoId, repoFieldVisible && !repoName.trim());
 
     return () => {
+      setFieldError(authErrorId, false);
       setFieldError(orgId, false);
       setFieldError(repoId, false);
     };
   }, [
     fieldId,
+    authError,
     isAuthenticated,
     selectedProvider,
     isFetchingOrgs,
