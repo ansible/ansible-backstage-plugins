@@ -344,11 +344,8 @@ export const CollectionsPickerExtension = ({
 
     const collectionToAdd: CollectionItem = {
       name: selectedCollection.trim(),
+      source: selectedSource,
     };
-
-    if (selectedSource) {
-      collectionToAdd.source = selectedSource;
-    }
 
     if (selectedVersion) {
       collectionToAdd.version = selectedVersion;
@@ -490,6 +487,7 @@ export const CollectionsPickerExtension = ({
                 label="Source"
                 placeholder="Select source"
                 variant="outlined"
+                required
                 className={classes.inputField}
                 InputProps={{
                   ...params.InputProps,

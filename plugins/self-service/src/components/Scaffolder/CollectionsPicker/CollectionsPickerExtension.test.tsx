@@ -14,7 +14,7 @@ jest.mock('@backstage/core-plugin-api', () => ({
 const mockUseApi = useApi as jest.MockedFunction<typeof useApi>;
 
 // Helper function to get input element from TextField
-const getInputElement = (label: string): HTMLInputElement | null => {
+const getInputElement = (label: string | RegExp): HTMLInputElement | null => {
   const textFields = screen.getAllByLabelText(label);
   const textField = textFields[0];
   const input = textField
@@ -110,15 +110,15 @@ describe('CollectionsPickerExtension', () => {
         screen.getByRole('button', { name: 'Add collection' }),
       ).toBeInTheDocument();
       expect(screen.getAllByLabelText('Collection')[0]).toBeInTheDocument();
-      expect(screen.getAllByLabelText('Source')[0]).toBeInTheDocument();
+      expect(screen.getAllByLabelText(/^Source/)[0]).toBeInTheDocument();
       expect(screen.getAllByLabelText('Version')[0]).toBeInTheDocument();
     });
 
     it('renders collections from formData', () => {
       mockScaffolderApi.autocomplete.mockResolvedValue({ results: [] });
       const formData: CollectionItem[] = [
-        { name: 'community.general', version: '7.2.1' },
-        { name: 'ansible.builtin' },
+        { name: 'community.general', source: 'Source 1', version: '7.2.1' },
+        { name: 'ansible.builtin', source: 'Source 1' },
       ];
       const props = createMockProps({ formData });
       render(<CollectionsPickerExtension {...props} />);
@@ -429,7 +429,7 @@ describe('CollectionsPickerExtension', () => {
         expect(mockScaffolderApi.autocomplete).toHaveBeenCalled();
       });
 
-      const sourceInput = screen.getAllByLabelText('Source')[0];
+      const sourceInput = screen.getAllByLabelText(/^Source/)[0];
       expect(sourceInput).toBeDisabled();
     });
 
@@ -522,7 +522,7 @@ describe('CollectionsPickerExtension', () => {
         expect(mockScaffolderApi.autocomplete).toHaveBeenCalledTimes(2),
       );
 
-      const sourceInput = screen.getByLabelText('Source');
+      const sourceInput = screen.getByLabelText(/^Source/);
       fireEvent.mouseDown(sourceInput);
 
       const sourceOption = await screen.findByText('Source 1');
@@ -567,7 +567,7 @@ describe('CollectionsPickerExtension', () => {
         expect(mockScaffolderApi.autocomplete).toHaveBeenCalledTimes(2),
       );
 
-      const sourceInput = screen.getByLabelText('Source');
+      const sourceInput = screen.getByLabelText(/^Source/);
       fireEvent.mouseDown(sourceInput);
 
       const sourceOption = await screen.findByText('Source 1');
@@ -653,7 +653,7 @@ describe('CollectionsPickerExtension', () => {
 
       await waitFor(
         () => {
-          const sourceInput = screen.getAllByLabelText('Source')[0];
+          const sourceInput = screen.getAllByLabelText(/^Source/)[0];
           expect(sourceInput).toBeInTheDocument();
         },
         { timeout: 2000 },
@@ -679,11 +679,11 @@ describe('CollectionsPickerExtension', () => {
         expect(mockScaffolderApi.autocomplete).toHaveBeenCalled();
       });
 
-      const sourceInput = getInputElement('Source');
+      const sourceInput = getInputElement(/^Source/);
       if (sourceInput) {
         fireEvent.change(sourceInput, { target: { value: 'Source 1' } });
       }
-      expect(screen.getAllByLabelText('Source')[0]).toBeInTheDocument();
+      expect(screen.getAllByLabelText(/^Source/)[0]).toBeInTheDocument();
     });
 
     it('handles object with name property in source onChange', async () => {
@@ -705,7 +705,7 @@ describe('CollectionsPickerExtension', () => {
         expect(mockScaffolderApi.autocomplete).toHaveBeenCalled();
       });
 
-      expect(screen.getAllByLabelText('Source')[0]).toBeInTheDocument();
+      expect(screen.getAllByLabelText(/^Source/)[0]).toBeInTheDocument();
     });
 
     it('handles object with id property in source onChange', async () => {
@@ -727,7 +727,7 @@ describe('CollectionsPickerExtension', () => {
         expect(mockScaffolderApi.autocomplete).toHaveBeenCalled();
       });
 
-      expect(screen.getAllByLabelText('Source')[0]).toBeInTheDocument();
+      expect(screen.getAllByLabelText(/^Source/)[0]).toBeInTheDocument();
     });
 
     it('handles null value in source onChange', async () => {
@@ -749,7 +749,7 @@ describe('CollectionsPickerExtension', () => {
         expect(mockScaffolderApi.autocomplete).toHaveBeenCalled();
       });
 
-      expect(screen.getAllByLabelText('Source')[0]).toBeInTheDocument();
+      expect(screen.getAllByLabelText(/^Source/)[0]).toBeInTheDocument();
     });
 
     it('does not fetch sources when collectionName is empty', async () => {
@@ -770,7 +770,7 @@ describe('CollectionsPickerExtension', () => {
         expect(mockScaffolderApi.autocomplete).toHaveBeenCalled();
       });
 
-      const sourceInput = screen.getAllByLabelText('Source')[0];
+      const sourceInput = screen.getAllByLabelText(/^Source/)[0];
       expect(sourceInput).toBeDisabled();
     });
 
@@ -841,7 +841,7 @@ describe('CollectionsPickerExtension', () => {
       // The error is caught and sources are set to empty array
       await waitFor(
         () => {
-          const sourceInput = screen.getAllByLabelText('Source')[0];
+          const sourceInput = screen.getAllByLabelText(/^Source/)[0];
           expect(sourceInput).toBeInTheDocument();
         },
         { timeout: 2000 },
@@ -963,7 +963,7 @@ describe('CollectionsPickerExtension', () => {
       const collectionOption = await screen.findByText('community.general');
       fireEvent.click(collectionOption);
 
-      const sourceInput = screen.getByLabelText('Source');
+      const sourceInput = screen.getByLabelText(/^Source/);
       fireEvent.mouseDown(sourceInput);
       const sourceOption = await screen.findByText(
         'Github / github.com / myorg / myrepo',
@@ -1016,7 +1016,7 @@ describe('CollectionsPickerExtension', () => {
       fireEvent.mouseDown(screen.getByLabelText('Collection'));
       fireEvent.click(await screen.findByText('community.general'));
 
-      const sourceInput = screen.getByLabelText('Source');
+      const sourceInput = screen.getByLabelText(/^Source/);
       fireEvent.mouseDown(sourceInput);
       fireEvent.click(await screen.findByText(scmSource));
 
@@ -1415,7 +1415,7 @@ describe('CollectionsPickerExtension', () => {
       );
 
       // ---- SELECT SOURCE ----
-      const sourceInput = screen.getByLabelText('Source');
+      const sourceInput = screen.getByLabelText(/^Source/);
 
       fireEvent.mouseDown(sourceInput);
 
@@ -1469,7 +1469,7 @@ describe('CollectionsPickerExtension', () => {
       );
 
       // Select source
-      const sourceInput = screen.getByLabelText('Source');
+      const sourceInput = screen.getByLabelText(/^Source/);
       fireEvent.mouseDown(sourceInput);
       const sourceOption = await screen.findByText('Source 1');
       fireEvent.click(sourceOption);
@@ -1513,7 +1513,7 @@ describe('CollectionsPickerExtension', () => {
       fireEvent.click(collectionOption);
 
       // ---- SELECT SOURCE ----
-      const sourceInput = screen.getByLabelText('Source');
+      const sourceInput = screen.getByLabelText(/^Source/);
 
       fireEvent.mouseDown(sourceInput);
       const sourceOption = await screen.findByText('Source 1');
@@ -1549,7 +1549,7 @@ describe('CollectionsPickerExtension', () => {
       fireEvent.click(await screen.findByText('demo.ns'));
 
       await waitFor(() => {
-        expect(screen.getByLabelText('Source')).toBeInTheDocument();
+        expect(screen.getByLabelText(/^Source/)).toBeInTheDocument();
       });
     });
 
@@ -1575,7 +1575,7 @@ describe('CollectionsPickerExtension', () => {
       fireEvent.click(await screen.findByText('demo.ns'));
 
       await waitFor(() => {
-        expect(screen.getByLabelText('Source')).toBeInTheDocument();
+        expect(screen.getByLabelText(/^Source/)).toBeInTheDocument();
       });
     });
 
@@ -1604,7 +1604,7 @@ describe('CollectionsPickerExtension', () => {
       fireEvent.mouseDown(screen.getByLabelText('Collection'));
       fireEvent.click(await screen.findByText('demo.ns'));
 
-      fireEvent.mouseDown(screen.getByLabelText('Source'));
+      fireEvent.mouseDown(screen.getByLabelText(/^Source/));
       fireEvent.click(await screen.findByText('Src'));
 
       await waitFor(() => {
@@ -1638,7 +1638,7 @@ describe('CollectionsPickerExtension', () => {
       fireEvent.mouseDown(screen.getByLabelText('Collection'));
       fireEvent.click(await screen.findByText('demo.ns'));
 
-      fireEvent.mouseDown(screen.getByLabelText('Source'));
+      fireEvent.mouseDown(screen.getByLabelText(/^Source/));
       fireEvent.click(await screen.findByText('Src'));
 
       await waitFor(() => {
@@ -1672,7 +1672,7 @@ describe('CollectionsPickerExtension', () => {
       fireEvent.mouseDown(screen.getByLabelText('Collection'));
       fireEvent.click(await screen.findByText('demo.ns'));
 
-      fireEvent.mouseDown(screen.getByLabelText('Source'));
+      fireEvent.mouseDown(screen.getByLabelText(/^Source/));
       fireEvent.click(await screen.findByText('Src'));
 
       await waitFor(() => {
@@ -1710,7 +1710,7 @@ describe('CollectionsPickerExtension', () => {
       fireEvent.mouseDown(screen.getByLabelText('Collection'));
       fireEvent.click(await screen.findByText('demo.ns'));
 
-      fireEvent.mouseDown(screen.getByLabelText('Source'));
+      fireEvent.mouseDown(screen.getByLabelText(/^Source/));
       fireEvent.click(await screen.findByText('Src'));
 
       await waitFor(() => {
@@ -1788,7 +1788,7 @@ describe('CollectionsPickerExtension', () => {
       }
 
       await waitFor(() => {
-        const sourceInput = screen.getAllByLabelText('Source')[0];
+        const sourceInput = screen.getAllByLabelText(/^Source/)[0];
         expect(sourceInput).toBeInTheDocument();
       });
     });
@@ -1910,7 +1910,7 @@ describe('CollectionsPickerExtension', () => {
         screen.getByRole('button', { name: 'Add collection' }),
       ).toBeDisabled();
 
-      const sourceInput = screen.getByLabelText('Source');
+      const sourceInput = screen.getByLabelText(/^Source/);
       fireEvent.mouseDown(sourceInput);
 
       const sourceOption = await screen.findByText('Source 1');
@@ -1959,7 +1959,9 @@ describe('CollectionsPickerExtension', () => {
       mockScaffolderApi.autocomplete.mockResolvedValue({
         results: mockCollections,
       });
-      const formData: CollectionItem[] = [{ name: 'community.general' }];
+      const formData: CollectionItem[] = [
+        { name: 'community.general', source: 'Source 1' },
+      ];
       const props = createMockProps({ formData });
       render(<CollectionsPickerExtension {...props} />);
 
@@ -2105,7 +2107,7 @@ describe('CollectionsPickerExtension', () => {
         screen.getByRole('button', { name: 'Add collection' }),
       ).toBeDisabled();
 
-      const sourceInput = screen.getByLabelText('Source');
+      const sourceInput = screen.getByLabelText(/^Source/);
       fireEvent.mouseDown(sourceInput);
 
       const sourceOption = await screen.findByText('Source 1');
@@ -2152,7 +2154,7 @@ describe('CollectionsPickerExtension', () => {
       }
 
       await waitFor(() => {
-        const sourceInput = getInputElement('Source');
+        const sourceInput = getInputElement(/^Source/);
         if (sourceInput) {
           fireEvent.change(sourceInput, {
             target: { value: 'Source 1' },
@@ -2240,7 +2242,7 @@ describe('CollectionsPickerExtension', () => {
       fireEvent.click(dropdownOption);
 
       // Select a source (required before Add is enabled)
-      const sourceInput = screen.getByLabelText('Source');
+      const sourceInput = screen.getByLabelText(/^Source/);
       fireEvent.mouseDown(sourceInput);
 
       const sourceOption = await screen.findByText('Source 1');
@@ -2261,8 +2263,8 @@ describe('CollectionsPickerExtension', () => {
     it('removes collection when delete icon is clicked', async () => {
       mockScaffolderApi.autocomplete.mockResolvedValue({ results: [] });
       const formData: CollectionItem[] = [
-        { name: 'community.general' },
-        { name: 'ansible.builtin' },
+        { name: 'community.general', source: 'Source 1' },
+        { name: 'ansible.builtin', source: 'Source 1' },
       ];
       const props = createMockProps({ formData });
       render(<CollectionsPickerExtension {...props} />);
@@ -2285,7 +2287,9 @@ describe('CollectionsPickerExtension', () => {
 
     it('does not remove collection when disabled', async () => {
       mockScaffolderApi.autocomplete.mockResolvedValue({ results: [] });
-      const formData: CollectionItem[] = [{ name: 'community.general' }];
+      const formData: CollectionItem[] = [
+        { name: 'community.general', source: 'Source 1' },
+      ];
       const props = createMockProps({ formData, disabled: true });
       render(<CollectionsPickerExtension {...props} />);
 
@@ -2301,7 +2305,9 @@ describe('CollectionsPickerExtension', () => {
 
     it('removes last collection correctly', async () => {
       mockScaffolderApi.autocomplete.mockResolvedValue({ results: [] });
-      const formData: CollectionItem[] = [{ name: 'community.general' }];
+      const formData: CollectionItem[] = [
+        { name: 'community.general', source: 'Source 1' },
+      ];
       const props = createMockProps({ formData });
       render(<CollectionsPickerExtension {...props} />);
 
@@ -2321,8 +2327,8 @@ describe('CollectionsPickerExtension', () => {
       mockScaffolderApi.autocomplete.mockResolvedValue({ results: [] });
 
       const formData = [
-        { name: 'community.general' },
-        { name: 'ansible.builtin' },
+        { name: 'community.general', source: 'Source 1' },
+        { name: 'ansible.builtin', source: 'Source 1' },
       ];
 
       const props = createMockProps({ formData });
@@ -2343,14 +2349,14 @@ describe('CollectionsPickerExtension', () => {
       fireEvent.click(deleteIcon!);
 
       expect(props.onChange).toHaveBeenCalledWith([
-        { name: 'ansible.builtin' },
+        { name: 'ansible.builtin', source: 'Source 1' },
       ]);
     });
 
     it('removes last collection correctly and returns empty array', async () => {
       mockScaffolderApi.autocomplete.mockResolvedValue({ results: [] });
 
-      const formData = [{ name: 'community.general' }];
+      const formData = [{ name: 'community.general', source: 'Source 1' }];
 
       const props = createMockProps({ formData });
 
@@ -2377,7 +2383,7 @@ describe('CollectionsPickerExtension', () => {
     it('covers collections.length === 0 render branch after removal', async () => {
       mockScaffolderApi.autocomplete.mockResolvedValue({ results: [] });
 
-      const formData = [{ name: 'community.general' }];
+      const formData = [{ name: 'community.general', source: 'Source 1' }];
 
       const props = createMockProps({ formData });
 
@@ -2425,7 +2431,9 @@ describe('CollectionsPickerExtension', () => {
 
     it('updates collection when edited and saved', async () => {
       mockScaffolderApi.autocomplete.mockResolvedValue({ results: [] });
-      const formData: CollectionItem[] = [{ name: 'community.general' }];
+      const formData: CollectionItem[] = [
+        { name: 'community.general', source: 'Source 1' },
+      ];
       const props = createMockProps({ formData });
       render(<CollectionsPickerExtension {...props} />);
 
@@ -2448,7 +2456,9 @@ describe('CollectionsPickerExtension', () => {
 
     it('does not allow editing when disabled', async () => {
       mockScaffolderApi.autocomplete.mockResolvedValue({ results: [] });
-      const formData: CollectionItem[] = [{ name: 'community.general' }];
+      const formData: CollectionItem[] = [
+        { name: 'community.general', source: 'Source 1' },
+      ];
       const props = createMockProps({ formData, disabled: true });
       render(<CollectionsPickerExtension {...props} />);
 
@@ -2467,7 +2477,9 @@ describe('CollectionsPickerExtension', () => {
 
     it('handles editing collection with null name', async () => {
       mockScaffolderApi.autocomplete.mockResolvedValue({ results: [] });
-      const formData: CollectionItem[] = [{ name: null as any }];
+      const formData: CollectionItem[] = [
+        { name: null as any, source: 'Source 1' },
+      ];
       const props = createMockProps({ formData });
       render(<CollectionsPickerExtension {...props} />);
 
@@ -2486,7 +2498,9 @@ describe('CollectionsPickerExtension', () => {
 
     it('handles editing collection with undefined name', async () => {
       mockScaffolderApi.autocomplete.mockResolvedValue({ results: [] });
-      const formData: CollectionItem[] = [{ name: undefined as any }];
+      const formData: CollectionItem[] = [
+        { name: undefined as any, source: 'Source 1' },
+      ];
       const props = createMockProps({ formData });
       render(<CollectionsPickerExtension {...props} />);
 
@@ -2589,7 +2603,9 @@ describe('CollectionsPickerExtension', () => {
         expect(mockScaffolderApi.autocomplete).toHaveBeenCalled();
       });
 
-      const newFormData: CollectionItem[] = [{ name: 'community.general' }];
+      const newFormData: CollectionItem[] = [
+        { name: 'community.general', source: 'Source 1' },
+      ];
       rerender(
         <CollectionsPickerExtension {...props} formData={newFormData} />,
       );
@@ -2599,7 +2615,9 @@ describe('CollectionsPickerExtension', () => {
 
     it('handles formData change to undefined', async () => {
       mockScaffolderApi.autocomplete.mockResolvedValue({ results: [] });
-      const props = createMockProps({ formData: [{ name: 'test' }] });
+      const props = createMockProps({
+        formData: [{ name: 'test', source: 'Source 1' }],
+      });
       const { rerender } = render(<CollectionsPickerExtension {...props} />);
 
       await waitFor(() => {
@@ -2623,7 +2641,9 @@ describe('CollectionsPickerExtension', () => {
         expect(mockScaffolderApi.autocomplete).toHaveBeenCalled();
       });
 
-      const newFormData: CollectionItem[] = [{ name: 'community.general' }];
+      const newFormData: CollectionItem[] = [
+        { name: 'community.general', source: 'Source 1' },
+      ];
       rerender(
         <CollectionsPickerExtension {...props} formData={newFormData} />,
       );
@@ -2675,7 +2695,7 @@ describe('CollectionsPickerExtension', () => {
       });
 
       await waitFor(() => {
-        const sourceInput = screen.getAllByLabelText('Source')[0];
+        const sourceInput = screen.getAllByLabelText(/^Source/)[0];
         expect(sourceInput).toBeInTheDocument();
       });
 
@@ -2782,7 +2802,9 @@ describe('CollectionsPickerExtension', () => {
 
     it('handles collection with null name', () => {
       mockScaffolderApi.autocomplete.mockResolvedValue({ results: [] });
-      const formData: CollectionItem[] = [{ name: null as any }];
+      const formData: CollectionItem[] = [
+        { name: null as any, source: 'Source 1' },
+      ];
       const props = createMockProps({ formData });
       render(<CollectionsPickerExtension {...props} />);
 
@@ -2910,7 +2932,7 @@ describe('CollectionsPickerExtension', () => {
         expect(mockScaffolderApi.autocomplete).toHaveBeenCalled();
       });
 
-      const sourceInput = screen.getAllByLabelText('Source')[0];
+      const sourceInput = screen.getAllByLabelText(/^Source/)[0];
       expect(sourceInput).toBeDisabled();
     });
   });
@@ -2955,7 +2977,7 @@ describe('CollectionsPickerExtension', () => {
 
       await waitFor(
         () => {
-          const sourceInput = screen.getAllByLabelText('Source')[0];
+          const sourceInput = screen.getAllByLabelText(/^Source/)[0];
           expect(sourceInput).toBeInTheDocument();
         },
         { timeout: 2000 },
@@ -2999,7 +3021,7 @@ describe('CollectionsPickerExtension', () => {
         expect(mockScaffolderApi.autocomplete).toHaveBeenCalled();
       });
 
-      const sourceInput = screen.getAllByLabelText('Source')[0];
+      const sourceInput = screen.getAllByLabelText(/^Source/)[0];
       expect(sourceInput).toBeDisabled();
     });
 
@@ -3031,9 +3053,9 @@ describe('CollectionsPickerExtension', () => {
     it('displays selected collections count correctly', () => {
       mockScaffolderApi.autocomplete.mockResolvedValue({ results: [] });
       const formData: CollectionItem[] = [
-        { name: 'collection1' },
-        { name: 'collection2' },
-        { name: 'collection3' },
+        { name: 'collection1', source: 'Source 1' },
+        { name: 'collection2', source: 'Source 1' },
+        { name: 'collection3', source: 'Source 1' },
       ];
       const props = createMockProps({ formData });
       render(<CollectionsPickerExtension {...props} />);
@@ -3050,15 +3072,6 @@ describe('CollectionsPickerExtension', () => {
       const formData: CollectionItem[] = [
         { name: 'community.general', source: 'Source 1', version: '1.0.0' },
       ];
-      const props = createMockProps({ formData });
-      render(<CollectionsPickerExtension {...props} />);
-
-      expect(screen.getByText('community.general')).toBeInTheDocument();
-    });
-
-    it('handles collection with only name', () => {
-      mockScaffolderApi.autocomplete.mockResolvedValue({ results: [] });
-      const formData: CollectionItem[] = [{ name: 'community.general' }];
       const props = createMockProps({ formData });
       render(<CollectionsPickerExtension {...props} />);
 
@@ -3196,7 +3209,7 @@ describe('CollectionsPickerExtension', () => {
         expect(mockScaffolderApi.autocomplete).toHaveBeenCalled(),
       );
 
-      const sourceInput = screen.getAllByLabelText('Source')[0];
+      const sourceInput = screen.getAllByLabelText(/^Source/)[0];
 
       expect(sourceInput).toBeDisabled();
     });
@@ -3392,7 +3405,7 @@ describe('CollectionsPickerExtension', () => {
         results: mockCollections,
       });
 
-      const formData = [{ name: 'community.general' }];
+      const formData = [{ name: 'community.general', source: 'Source 1' }];
 
       const props = createMockProps({ formData });
 
