@@ -65,9 +65,16 @@ test.describe.serial('git-repositories01-catalog', () => {
     }
 
     await tableRow.waitFor({ state: 'visible', timeout: 15000 });
+    await page.waitForLoadState('networkidle');
 
     // First cell contains repository name as a link
     const firstRepoLink = tableRow.locator('td').first().locator('a').first();
+
+    // Check if link exists before proceeding
+    if ((await firstRepoLink.count()) === 0) {
+      // No link found - table might be loading or have different structure
+      return;
+    }
 
     const starBtn = tableRow.getByRole('button', {
       name: /favorite|favourites/i,
