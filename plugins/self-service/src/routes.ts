@@ -16,6 +16,14 @@ export const gitRepositoriesRouteRef = createRouteRef({
   id: 'self-service/repositories',
 });
 
+export const templatesRouteRef = createRouteRef({
+  id: 'self-service/templates',
+});
+
+export const historyRouteRef = createRouteRef({
+  id: 'self-service/history',
+});
+
 export const catalogImportRouteRef = createSubRouteRef({
   id: 'self-service/catalog-import',
   parent: rootRouteRef,

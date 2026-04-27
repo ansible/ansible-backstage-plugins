@@ -1,1 +1,1 @@
-export { TaskList } from './TaskList';
+export { TaskList, HistoryRoutesPage } from './TaskList';
