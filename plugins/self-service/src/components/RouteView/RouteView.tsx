@@ -2,7 +2,6 @@ import { useEffect } from 'react';
 import { Route, Routes, Navigate, Outlet, useLocation } from 'react-router-dom';
 import { RequirePermission } from '@backstage/plugin-permission-react';
 import { catalogEntityCreatePermission } from '@backstage/plugin-catalog-common/alpha';
-import { taskReadPermission } from '@backstage/plugin-scaffolder-common/alpha';
 import {
   useApi,
   discoveryApiRef,
@@ -12,6 +11,8 @@ import {
   executionEnvironmentsViewPermission,
   collectionsViewPermission,
   gitRepositoriesViewPermission,
+  templatesViewPermission,
+  historyViewPermission,
 } from '@ansible/backstage-rhaap-common/permissions';
 
 import { HomeComponent } from '../Home';
@@ -48,10 +49,21 @@ const RouteViewContent = () => {
   return (
     <>
       <Routes>
-        <Route path="catalog" element={<HomeComponent key={location.key} />} />
+        <Route
+          path="catalog"
+          element={
+            <RequirePermission permission={templatesViewPermission}>
+              <HomeComponent key={location.key} />
+            </RequirePermission>
+          }
+        />
         <Route
           path="catalog/:namespace/:templateName"
-          element={<CatalogItemsDetails />}
+          element={
+            <RequirePermission permission={templatesViewPermission}>
+              <CatalogItemsDetails />
+            </RequirePermission>
+          }
         />
         <Route
           path="catalog-import"
@@ -64,15 +76,16 @@ const RouteViewContent = () => {
         <Route path="create">
           <Route
             path="templates/:namespace/:templateName"
-            element={<CreateTask />}
+            element={
+              <RequirePermission permission={templatesViewPermission}>
+                <CreateTask />
+              </RequirePermission>
+            }
           />
           <Route
             path="tasks"
             element={
-              <RequirePermission
-                permission={taskReadPermission}
-                resourceRef="scaffolder-task"
-              >
+              <RequirePermission permission={historyViewPermission}>
                 <TaskList />
               </RequirePermission>
             }
@@ -80,10 +93,7 @@ const RouteViewContent = () => {
           <Route
             path="tasks/:taskId"
             element={
-              <RequirePermission
-                permission={taskReadPermission}
-                resourceRef="scaffolder-task"
-              >
+              <RequirePermission permission={historyViewPermission}>
                 <RunTask />
               </RequirePermission>
             }

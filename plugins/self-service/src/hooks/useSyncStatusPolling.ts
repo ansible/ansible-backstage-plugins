@@ -1,18 +1,32 @@
 import { useEffect, useState, useCallback } from 'react';
+import {
+  useApi,
+  discoveryApiRef,
+  fetchApiRef,
+} from '@backstage/core-plugin-api';
 import { syncPollingService } from '../components/notifications/syncPollingService';
+import type { StartedSyncInfo } from '../components/common';
 
 /**
  * Hook that provides sync status polling functionality.
  * Uses the global syncPollingService to ensure polling continues
  * even when navigating between pages.
  *
- * Initialization (`initialize` with discovery/fetch APIs) is owned by the app shell
- * (e.g. RouteView) so only one poll loop starts. This hook only subscribes to status.
+ * Calls `syncPollingService.initialize` on each mount (idempotent) so a dead
+ * poll loop can re-arm when the self-service shell (RouteView) effect does
+ * not re-run after in-app navigation.
  */
 export function useSyncStatusPolling() {
+  const discoveryApi = useApi(discoveryApiRef);
+  const fetchApi = useApi(fetchApiRef);
+
   const [isSyncInProgress, setIsSyncInProgress] = useState(
     syncPollingService.getIsSyncInProgress(),
   );
+
+  useEffect(() => {
+    syncPollingService.initialize(discoveryApi, fetchApi);
+  }, [discoveryApi, fetchApi]);
 
   useEffect(() => {
     const unsubscribe = syncPollingService.subscribe(inProgress => {
@@ -22,18 +36,9 @@ export function useSyncStatusPolling() {
     return unsubscribe;
   }, []);
 
-  const startTracking = useCallback(
-    (
-      syncs: Array<{
-        sourceId: string;
-        displayName: string;
-        lastSyncTime: string | null;
-      }>,
-    ) => {
-      syncPollingService.startTracking(syncs);
-    },
-    [],
-  );
+  const startTracking = useCallback((syncs: StartedSyncInfo[]) => {
+    syncPollingService.startTracking(syncs);
+  }, []);
 
   return {
     isSyncInProgress,

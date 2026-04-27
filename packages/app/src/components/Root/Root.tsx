@@ -24,6 +24,7 @@ import {
   useSidebarOpenState,
   Link,
 } from '@backstage/core-components';
+import HistoryIcon from '@material-ui/icons/History';
 import MenuIcon from '@material-ui/icons/Menu';
 import CodeIcon from '@material-ui/icons/Code';
 import SearchIcon from '@material-ui/icons/Search';
@@ -89,9 +90,14 @@ export const Root = ({ children }: PropsWithChildren<{}>) => (
             text="Ansible"
           />
           <SidebarItem
-            icon={AnsibleLogo}
-            to="self-service"
-            text="Self Service"
+            icon={HomeIcon}
+            to="/self-service/catalog"
+            text="Templates"
+          />
+          <SidebarItem
+            icon={HistoryIcon}
+            to="/self-service/create/tasks"
+            text="History"
           />
           <SidebarItem
             icon={MenuIcon}

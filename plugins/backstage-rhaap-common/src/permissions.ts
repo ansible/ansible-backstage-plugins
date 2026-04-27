@@ -18,8 +18,22 @@ export const collectionsViewPermission: BasicPermission = {
   attributes: {},
 };
 
+export const templatesViewPermission: BasicPermission = {
+  type: 'basic',
+  name: 'ansible.templates.view',
+  attributes: {},
+};
+
+export const historyViewPermission: BasicPermission = {
+  type: 'basic',
+  name: 'ansible.history.view',
+  attributes: {},
+};
+
 export const ansiblePermissions = [
   executionEnvironmentsViewPermission,
   gitRepositoriesViewPermission,
   collectionsViewPermission,
+  templatesViewPermission,
+  historyViewPermission,
 ];

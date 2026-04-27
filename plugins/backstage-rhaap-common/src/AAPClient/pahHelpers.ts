@@ -76,7 +76,9 @@ export async function fetchCollectionDetails(
   let authors: string[] | null = null;
 
   try {
-    const detailResponse = await context.executeGetRequest(pulpHref, token);
+    const separator = pulpHref.includes('?') ? '&' : '?';
+    const url = `${pulpHref}${separator}fields=docs_blob&fields=authors`;
+    const detailResponse = await context.executeGetRequest(url, token);
     if (detailResponse) {
       const detailData = await detailResponse.json();
       if (detailData) {

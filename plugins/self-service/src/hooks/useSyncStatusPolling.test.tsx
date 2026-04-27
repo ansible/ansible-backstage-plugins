@@ -57,6 +57,8 @@ function TestConsumer() {
               sourceId: 'src-1',
               displayName: 'github.com/org1',
               lastSyncTime: null,
+              lastSyncStatus: null,
+              lastFailedSyncTime: null,
             },
           ])
         }
@@ -88,14 +90,21 @@ describe('useSyncStatusPolling', () => {
     (syncPollingService as any)._reset();
   });
 
-  it('subscribes on mount and does not call initialize (owned by app shell)', async () => {
+  it('subscribes on mount and calls initialize with catalog discovery and fetch', async () => {
     renderHook();
 
     await waitFor(() => {
       expect(syncPollingService.subscribe).toHaveBeenCalled();
     });
 
-    expect(syncPollingService.initialize).not.toHaveBeenCalled();
+    expect(syncPollingService.initialize).toHaveBeenCalledWith(
+      expect.objectContaining({
+        getBaseUrl: expect.any(Function),
+      }),
+      expect.objectContaining({
+        fetch: expect.any(Function),
+      }),
+    );
   });
 
   it('returns isSyncInProgress from syncPollingService', async () => {
@@ -122,6 +131,8 @@ describe('useSyncStatusPolling', () => {
           sourceId: 'src-1',
           displayName: 'github.com/org1',
           lastSyncTime: null,
+          lastSyncStatus: null,
+          lastFailedSyncTime: null,
         },
       ]);
     });
