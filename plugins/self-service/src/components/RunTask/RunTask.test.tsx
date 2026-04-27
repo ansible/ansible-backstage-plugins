@@ -2915,6 +2915,98 @@ describe('RunTask', () => {
     }, 15000);
   });
 
+  describe('Button alignment and spacer', () => {
+    it('should render the spacer Box and use flex-start alignment when there is exactly one output link', async () => {
+      const useTaskEventStreamMock =
+        require('@backstage/plugin-scaffolder-react').useTaskEventStream;
+
+      const originalImplementation =
+        useTaskEventStreamMock.getMockImplementation();
+
+      useTaskEventStreamMock.mockImplementation(() => ({
+        task: {
+          spec: {
+            templateInfo: {
+              entity: {
+                metadata: { title: 'Test Template' },
+              },
+            },
+            steps: [{ id: 'step1', name: 'Step 1' }],
+          },
+        },
+        completed: true,
+        loading: false,
+        error: undefined,
+        output: {
+          links: [{ title: 'Only Link', url: 'https://example.com/only' }],
+        },
+        steps: { step1: { status: 'completed' } },
+        stepLogs: {},
+      }));
+
+      await render(<RunTask />);
+
+      await waitFor(() => {
+        expect(screen.getByText('Only Link')).toBeInTheDocument();
+      });
+
+      expect(screen.getByTestId('single-button-spacer')).toBeInTheDocument();
+      expect(screen.getByTestId('button-row')).toHaveStyle({
+        justifyContent: 'flex-start',
+      });
+
+      useTaskEventStreamMock.mockImplementation(originalImplementation);
+    }, 15000);
+
+    it('should not render the spacer Box and should use center alignment when there are multiple output links', async () => {
+      const useTaskEventStreamMock =
+        require('@backstage/plugin-scaffolder-react').useTaskEventStream;
+
+      const originalImplementation =
+        useTaskEventStreamMock.getMockImplementation();
+
+      useTaskEventStreamMock.mockImplementation(() => ({
+        task: {
+          spec: {
+            templateInfo: {
+              entity: {
+                metadata: { title: 'Test Template' },
+              },
+            },
+            steps: [{ id: 'step1', name: 'Step 1' }],
+          },
+        },
+        completed: true,
+        loading: false,
+        error: undefined,
+        output: {
+          links: [
+            { title: 'Link A', url: 'https://example.com/a' },
+            { title: 'Link B', url: 'https://example.com/b' },
+          ],
+        },
+        steps: { step1: { status: 'completed' } },
+        stepLogs: {},
+      }));
+
+      await render(<RunTask />);
+
+      await waitFor(() => {
+        expect(screen.getByText('Link A')).toBeInTheDocument();
+        expect(screen.getByText('Link B')).toBeInTheDocument();
+      });
+
+      expect(
+        screen.queryByTestId('single-button-spacer'),
+      ).not.toBeInTheDocument();
+      expect(screen.getByTestId('button-row')).toHaveStyle({
+        justifyContent: 'center',
+      });
+
+      useTaskEventStreamMock.mockImplementation(originalImplementation);
+    }, 15000);
+  });
+
   describe('Show download button edge cases', () => {
     it('should not show download button when task is not completed', async () => {
       const useTaskEventStreamMock =
