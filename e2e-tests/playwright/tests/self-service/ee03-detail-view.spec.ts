@@ -112,7 +112,10 @@ test.describe('Execution Environment Catalog and Detail View Tests', () => {
       await starButton.first().waitFor({ state: 'visible', timeout: 10000 });
       await starButton.first().click();
       await page.waitForTimeout(1200);
-      await starButton.first().click().catch(() => {});
+      await starButton
+        .first()
+        .click()
+        .catch(() => {});
     }
   });
 
