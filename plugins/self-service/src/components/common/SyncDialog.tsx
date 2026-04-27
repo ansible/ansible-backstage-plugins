@@ -614,7 +614,7 @@ export const SyncDialog = ({
       run: () => Promise<void>;
     }> = [];
 
-    pahFilters.forEach(filter => {
+    for (const filter of pahFilters) {
       const repositoryName = filter.organization;
       if (repositoryName) {
         // Individual PAH repository selected.
@@ -637,26 +637,24 @@ export const SyncDialog = ({
       } else {
         // PAH provider-level selected: sync every repository individually since
         // the PAH POST endpoint requires an explicit repository_name per request.
-        providers
-          .filter(p => p.repository)
-          .forEach(p => {
-            const repoName = p.repository!;
-            syncJobs.push({
-              displayName: `PAH:${repoName}`,
-              tracking: [
-                {
-                  sourceId: p.sourceId,
-                  displayName: `PAH:${repoName}`,
-                  lastSyncTime: p.lastSyncTime,
-                  lastSyncStatus: p.lastSyncStatus ?? null,
-                  lastFailedSyncTime: p.lastFailedSyncTime ?? null,
-                },
-              ],
-              run: () => syncPahSource(baseUrl, repoName),
-            });
+        for (const p of providers.filter(prov => prov.repository)) {
+          const repoName = p.repository!;
+          syncJobs.push({
+            displayName: `PAH:${repoName}`,
+            tracking: [
+              {
+                sourceId: p.sourceId,
+                displayName: `PAH:${repoName}`,
+                lastSyncTime: p.lastSyncTime,
+                lastSyncStatus: p.lastSyncStatus ?? null,
+                lastFailedSyncTime: p.lastFailedSyncTime ?? null,
+              },
+            ],
+            run: () => syncPahSource(baseUrl, repoName),
           });
+        }
       }
-    });
+    }
 
     scmFilters.forEach(filter => {
       if (!filter.scmProvider) {
