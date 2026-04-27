@@ -1,4 +1,4 @@
-import { Page } from '@playwright/test';
+import { expect, Page } from '@playwright/test';
 import { authenticator } from 'otplib';
 
 /**
@@ -284,15 +284,16 @@ export async function loginAAPWithSession(page: Page) {
 export async function loginGitHub(page: Page) {
   await page.goto('https://github.com/login');
 
-  // Wait for sign in form
-  await page.getByText('Sign in').waitFor();
+  // Wait for the login form to be ready (avoid strict-mode text matches).
+  await page.locator('#login_field').waitFor({ state: 'visible' });
+  await page.locator('#password').waitFor({ state: 'visible' });
 
   // Fill credentials
   await page.locator('#login_field').fill(process.env.GH_USER_ID!);
   await page.locator('#password').fill(process.env.GH_USER_PASS!);
 
   // Click sign in
-  await page.getByRole('button', { name: 'Sign in' }).click();
+  await page.locator('input[type="submit"][value="Sign in"]').click();
 
   // Handle 2FA if required
   const totpFieldVisible = await page
@@ -302,46 +303,106 @@ export async function loginGitHub(page: Page) {
     .catch(() => false);
 
   if (totpFieldVisible) {
-    const totp = authenticator.generate(process.env.AUTHENTICATOR_SECRET!);
+    const secret = process.env.AUTHENTICATOR_SECRET;
+    if (!secret) {
+      throw new Error(
+        'AUTHENTICATOR_SECRET is required when GitHub prompts for TOTP (#app_totp)',
+      );
+    }
+    const totp = authenticator.generate(secret);
     await page.locator('#app_totp').fill(totp);
+    await page
+      .getByRole('button', { name: /Verify|Continue/i })
+      .first()
+      .click()
+      .catch(() => page.keyboard.press('Enter'));
+    await page.waitForLoadState('domcontentloaded');
   }
+}
+
+/** Portal shell: user must pick Guest / GitHub / RH AAP (matches self-service login tests). */
+function portalSignInMethodHeading(page: Page) {
+  return page.getByRole('heading', { name: /select a sign-in method/i });
 }
 
 /**
  * Sign in to RHDH using GitHub authentication
  * Migrated from Cypress Common.SignIntoRHDHusingGithub()
+ *
+ * Handles multi-provider "Select a sign-in method" by clicking **GitHub**'s Sign In
+ * (avoids strict-mode ambiguity with RH AAP's Sign In button).
  */
 export async function signInRHDHWithGitHub(page: Page) {
-  // First login to GitHub
   await loginGitHub(page);
 
-  // Navigate to RHDH home
-  await page.goto('/');
+  await page.goto('/', { waitUntil: 'domcontentloaded' });
 
-  // Check if sign in is needed
-  const signInVisible = await page
-    .getByRole('button', { name: 'Sign In' })
-    .isVisible()
+  const signInGate = portalSignInMethodHeading(page);
+  const gateVisible = await signInGate
+    .isVisible({ timeout: 12000 })
     .catch(() => false);
 
-  if (signInVisible) {
-    await page.getByRole('button', { name: 'Sign In' }).click();
+  if (gateVisible) {
+    // Unique copy on the GitHub provider card (avoids matching RH AAP row).
+    const githubRow = page
+      .getByRole('listitem')
+      .filter({ hasText: /Sign In using GitHub/i });
+    await githubRow.getByRole('button', { name: /^Sign In$/i }).click();
 
-    // Handle GitHub authorization if prompted
-    const authorizeVisible = await page
-      .getByRole('button', { name: 'Authorize' })
-      .waitFor({ state: 'visible', timeout: 10000 })
-      .then(() => true)
-      .catch(() => false);
+    await page.waitForLoadState('domcontentloaded');
 
-    if (authorizeVisible) {
-      await page.getByRole('button', { name: 'Authorize' }).click();
+    // GitHub OAuth + Backstage may each show an Authorize button.
+    for (let i = 0; i < 4; i++) {
+      const authorize = page
+        .getByRole('button', { name: /^Authorize$/i })
+        .first();
+      if (!(await authorize.isVisible({ timeout: 8000 }).catch(() => false))) {
+        break;
+      }
+      await authorize.click();
+      await page.waitForLoadState('domcontentloaded');
     }
 
-    // Click Ansible link
-    await page.getByText('Ansible').click();
+    await expect(signInGate).toBeHidden({ timeout: 120000 });
+  } else {
+    const genericSignIn = page
+      .getByRole('button', { name: /^Sign In$/i })
+      .first();
+    if (await genericSignIn.isVisible({ timeout: 5000 }).catch(() => false)) {
+      await genericSignIn.click();
 
-    // Verify navigation to /ansible
-    await page.waitForURL(/\/ansible/);
+      const authorizeVisible = await page
+        .getByRole('button', { name: /^Authorize$/i })
+        .first()
+        .waitFor({ state: 'visible', timeout: 15000 })
+        .then(() => true)
+        .catch(() => false);
+
+      if (authorizeVisible) {
+        await page
+          .getByRole('button', { name: /^Authorize$/i })
+          .first()
+          .click();
+      }
+
+      const ansible = page
+        .getByRole('link', { name: /^Ansible$/i })
+        .or(page.getByText('Ansible', { exact: true }))
+        .first();
+      if (await ansible.isVisible({ timeout: 8000 }).catch(() => false)) {
+        await ansible.click();
+        await page.waitForURL(/\/ansible/, { timeout: 30000 });
+      }
+    }
+  }
+
+  if (!page.url().includes('/ansible')) {
+    await page.goto('/ansible', { waitUntil: 'domcontentloaded' });
+  }
+
+  if (await signInGate.isVisible({ timeout: 3000 }).catch(() => false)) {
+    throw new Error(
+      'Still on portal sign-in picker after GitHub flow; check OAuth app / credentials.',
+    );
   }
 }
