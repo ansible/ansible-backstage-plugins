@@ -66,11 +66,8 @@ test.describe.serial('git-repositories01-catalog', () => {
 
     await tableRow.waitFor({ state: 'visible', timeout: 15000 });
 
-    const firstRepoBtn = tableRow
-      .locator('td')
-      .first()
-      .getByRole('button')
-      .first();
+    // First cell contains repository name as a link
+    const firstRepoLink = tableRow.locator('td').first().locator('a').first();
 
     const starBtn = tableRow.getByRole('button', {
       name: /favorite|favourites/i,
@@ -109,8 +106,8 @@ test.describe.serial('git-repositories01-catalog', () => {
       }
     }
 
-    await firstRepoBtn.waitFor({ state: 'visible', timeout: 10000 });
-    await firstRepoBtn.click();
+    await firstRepoLink.waitFor({ state: 'visible', timeout: 10000 });
+    await firstRepoLink.click();
     await page.waitForLoadState('networkidle');
     await expect(page).toHaveURL(/\/self-service\/repositories\/.+/, {
       timeout: 20000,
