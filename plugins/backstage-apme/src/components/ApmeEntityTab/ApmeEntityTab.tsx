@@ -37,6 +37,7 @@ import {
 import RefreshIcon from '@material-ui/icons/Refresh';
 import CheckCircleIcon from '@material-ui/icons/CheckCircle';
 import ErrorIcon from '@material-ui/icons/Error';
+import AddIcon from '@material-ui/icons/Add';
 import { apmeApiRef } from '../../api';
 import { ApmeHealthCard } from '../ApmeHealthCard';
 import { ApmeViolationsTable } from '../ApmeViolationsTable';
@@ -105,9 +106,16 @@ export const ApmeEntityTab = () => {
   const [_operationId, setOperationId] = useState<string | null>(null);
   const [refreshKey, setRefreshKey] = useState(0);
 
-  const repoUrl =
+  const [registering, setRegistering] = useState(false);
+  const [registerError, setRegisterError] = useState<Error | null>(null);
+
+  const rawRepoAnnotation =
     entity.metadata.annotations?.['backstage.io/source-location'] ||
     entity.metadata.annotations?.['github.com/project-slug'];
+
+  const repoUrl = rawRepoAnnotation?.startsWith('url:')
+    ? rawRepoAnnotation.slice(4)
+    : rawRepoAnnotation;
 
   const {
     value: project,
@@ -209,6 +217,31 @@ export const ApmeEntityTab = () => {
     }
   }, [project, apmeApi]);
 
+  const handleRegister = useCallback(async () => {
+    if (!repoUrl) return;
+    setRegistering(true);
+    setRegisterError(null);
+
+    try {
+      const specAny = entity.spec as Record<string, unknown> | undefined;
+      const branch =
+        (specAny?.repository_default_branch as string | undefined) || 'main';
+      const name = entity.metadata.title || entity.metadata.name;
+
+      const newProject = await apmeApi.createProject({
+        name,
+        repo_url: repoUrl,
+        branch,
+      });
+      await apmeApi.triggerScan(newProject.id);
+      retry();
+    } catch (err) {
+      setRegisterError(err as Error);
+    } finally {
+      setRegistering(false);
+    }
+  }, [apmeApi, entity, repoUrl, retry]);
+
   const getStatusColor = (
     status: string,
   ): 'default' | 'primary' | 'secondary' => {
@@ -244,10 +277,14 @@ export const ApmeEntityTab = () => {
         <InfoCard title="APME - Ansible Policy & Modernization">
           <div className={classes.noData}>
             <Typography variant="h6" gutterBottom>
-              No APME scan data available
+              Not yet tracked in APME
             </Typography>
-            <Typography variant="body2" color="textSecondary">
-              This repository has not been scanned by APME yet.
+            <Typography
+              variant="body2"
+              color="textSecondary"
+              style={{ marginBottom: 16 }}
+            >
+              This repository has not been registered with APME for analysis.
               {repoUrl && (
                 <>
                   <br />
@@ -255,6 +292,28 @@ export const ApmeEntityTab = () => {
                 </>
               )}
             </Typography>
+            {registerError && (
+              <div style={{ marginBottom: 16 }}>
+                <ResponseErrorPanel error={registerError} />
+              </div>
+            )}
+            {repoUrl && (
+              <Button
+                variant="contained"
+                color="primary"
+                onClick={handleRegister}
+                disabled={registering}
+                startIcon={
+                  registering ? (
+                    <CircularProgress size={16} />
+                  ) : (
+                    <AddIcon />
+                  )
+                }
+              >
+                {registering ? 'Registering...' : 'Register in APME'}
+              </Button>
+            )}
           </div>
         </InfoCard>
       </Content>

@@ -141,6 +141,7 @@ __metadata:
   resolution: "@ansible/plugin-backstage-apme@workspace:plugins/backstage-apme"
   dependencies:
     "@ansible/backstage-apme-common": "workspace:^"
+    "@backstage/catalog-model": "npm:^1.8.0"
     "@backstage/cli": "npm:^0.27.0"
     "@backstage/core-components": "npm:^0.14.0"
     "@backstage/core-plugin-api": "npm:^1.9.0"

@@ -51,9 +51,11 @@ import TrendingUpIcon from '@material-ui/icons/TrendingUp';
 import AddIcon from '@material-ui/icons/Add';
 import DeleteIcon from '@material-ui/icons/Delete';
 import RefreshIcon from '@material-ui/icons/Refresh';
+import SyncIcon from '@material-ui/icons/Sync';
 import { Project } from '@ansible/backstage-apme-common';
 import { apmeApiRef } from '../../api';
 import { CreateProjectDialog } from '../CreateProjectDialog';
+import { SyncFromCatalogDialog } from '../SyncFromCatalogDialog';
 
 const useStyles = makeStyles(theme => ({
   statsCard: {
@@ -156,6 +158,7 @@ export const ApmePage = () => {
   const navigate = useNavigate();
   const apmeApi = useApi(apmeApiRef);
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
+  const [syncDialogOpen, setSyncDialogOpen] = useState(false);
 
   const {
     value: data,
@@ -374,6 +377,15 @@ export const ApmePage = () => {
       <Content>
         <ContentHeader title="Overview">
           <Button
+            variant="outlined"
+            color="primary"
+            startIcon={<SyncIcon />}
+            onClick={() => setSyncDialogOpen(true)}
+            style={{ marginRight: 8 }}
+          >
+            Sync from Catalog
+          </Button>
+          <Button
             variant="contained"
             color="primary"
             startIcon={<AddIcon />}
@@ -391,6 +403,15 @@ export const ApmePage = () => {
           open={createDialogOpen}
           onClose={() => setCreateDialogOpen(false)}
           onCreated={retry}
+        />
+
+        <SyncFromCatalogDialog
+          open={syncDialogOpen}
+          onClose={() => setSyncDialogOpen(false)}
+          onSynced={() => {
+            setSyncDialogOpen(false);
+            retry();
+          }}
         />
 
         {/* Stats Cards */}
