@@ -57,4 +57,5 @@ export interface EmptyStateProps {
   syncDisabled?: boolean;
   syncDisabledReason?: string;
   syncInProgress?: boolean;
+  syncProgress?: SyncProgressEntry[];
 }

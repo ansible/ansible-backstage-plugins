@@ -1,39 +1,11 @@
 import { Box, Button, Tooltip, Typography } from '@material-ui/core';
 import HelpOutlineIcon from '@material-ui/icons/HelpOutline';
 import SyncIcon from '@material-ui/icons/Sync';
-import { makeStyles } from '@material-ui/core/styles';
-
 import { useIsSuperuser } from '../../hooks';
 import { useCollectionsStyles } from '../CollectionsCatalog/styles';
-import { useSharedStyles } from './styles';
+import { useSharedStyles, useProgressTooltipStyles } from './styles';
 import { SyncProgressPopover } from './SyncProgressPopover';
 import type { SyncProgressEntry } from './types';
-
-const useTooltipStyles = makeStyles(theme => ({
-  tooltip: {
-    maxWidth: 'none',
-    padding: 0,
-    backgroundColor: theme.palette.background.paper,
-    borderRadius: 12,
-    boxShadow: '0 4px 24px rgba(0,0,0,0.55)',
-    border: `1px solid ${
-      theme.palette.type === 'dark'
-        ? 'rgba(255,255,255,0.08)'
-        : 'rgba(0,0,0,0.12)'
-    }`,
-  },
-  arrow: {
-    color: theme.palette.background.paper,
-    fontSize: '1.2rem',
-    '&::before': {
-      border: `1px solid ${
-        theme.palette.type === 'dark'
-          ? 'rgba(255,255,255,0.08)'
-          : 'rgba(0,0,0,0.12)'
-      }`,
-    },
-  },
-}));
 
 export interface PageHeaderSectionProps {
   title: string;
@@ -60,7 +32,7 @@ export const PageHeaderSection = ({
 }: PageHeaderSectionProps) => {
   const classes = useCollectionsStyles();
   const sharedClasses = useSharedStyles();
-  const tooltipClasses = useTooltipStyles();
+  const tooltipClasses = useProgressTooltipStyles();
   const { isSuperuser: allowed, loading: checkingPermission } =
     useIsSuperuser();
 

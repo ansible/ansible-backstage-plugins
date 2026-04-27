@@ -61,6 +61,7 @@ export const CollectionsCatalogPage = () => {
           syncDisabled={syncDisabled}
           syncDisabledReason={syncDisabledReason}
           syncInProgress={isSyncInProgress}
+          syncProgress={syncProgress}
         />
         <SyncDialog
           open={syncDialogOpen}
