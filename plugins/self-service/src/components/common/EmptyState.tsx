@@ -28,6 +28,13 @@ export const EmptyState = ({
   const showProgressPopover =
     (syncInProgress || hasFailureOrAmbiguous) && syncProgress.length > 0;
 
+  let tooltipTitle: JSX.Element | string = '';
+  if (showProgressPopover) {
+    tooltipTitle = <SyncProgressPopover entries={syncProgress} />;
+  } else if (syncDisabled && syncDisabledReason) {
+    tooltipTitle = syncDisabledReason;
+  }
+
   if (repositoryFilter) {
     return (
       <Box className={classes.emptyState}>
@@ -83,15 +90,7 @@ export const EmptyState = ({
       </Typography>
       {allowed && onSyncClick && (
         <Tooltip
-          title={
-            showProgressPopover ? (
-              <SyncProgressPopover entries={syncProgress} />
-            ) : syncDisabled && syncDisabledReason ? (
-              syncDisabledReason
-            ) : (
-              ''
-            )
-          }
+          title={tooltipTitle}
           classes={showProgressPopover ? tooltipClasses : undefined}
           interactive={showProgressPopover}
           arrow
