@@ -536,6 +536,7 @@ export const RunTask = () => {
             <Box flex={1} />
 
             <Box
+              data-testid="button-row"
               display="flex"
               flexWrap="wrap"
               justifyContent={totalButtonCount === 1 ? 'flex-start' : 'center'}
@@ -548,19 +549,28 @@ export const RunTask = () => {
                 marginRight: '50px',
               }}
             >
-              {totalButtonCount === 1 && <Box style={{ flex: '0 0 8.333%' }} />}
+              {/* 8.333% = 100%/12: one column in a 12-column grid, used to nudge the single button away from the far left */}
+              {totalButtonCount === 1 && (
+                <Box
+                  data-testid="single-button-spacer"
+                  style={{ flex: '0 0 8.333%' }}
+                />
+              )}
               {filteredLinks.map((link, index) => {
+                const sharedButtonProps = {
+                  variant: 'contained' as const,
+                  style: {
+                    flex: '0 0 calc(33.333% - 6px)',
+                    maxWidth: 'calc(33.333% - 6px)',
+                  },
+                };
                 if ('entityRef' in link && link.entityRef) {
                   const entityRef = link.entityRef;
                   return (
                     <Button
                       key={entityRef || link.title || `link-${index}`}
                       onClick={() => handleEntityLinkClick(entityRef)}
-                      variant="contained"
-                      style={{
-                        flex: '0 0 calc(33.333% - 6px)',
-                        maxWidth: 'calc(33.333% - 6px)',
-                      }}
+                      {...sharedButtonProps}
                     >
                       {link.title}
                     </Button>
@@ -572,11 +582,7 @@ export const RunTask = () => {
                     href={link.url ?? '#'}
                     target="_blank"
                     rel="noopener noreferrer"
-                    variant="contained"
-                    style={{
-                      flex: '0 0 calc(33.333% - 6px)',
-                      maxWidth: 'calc(33.333% - 6px)',
-                    }}
+                    {...sharedButtonProps}
                   >
                     {link.title}
                   </Button>
