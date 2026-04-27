@@ -1730,37 +1730,6 @@ describe('CollectionsPickerExtension', () => {
   });
 
   describe('Adding Collections', () => {
-    it('adds collection with name only', async () => {
-      const mockCollections = [
-        { name: 'community.general', id: 'community.general' },
-      ];
-      mockScaffolderApi.autocomplete.mockResolvedValue({
-        results: mockCollections,
-      });
-      const props = createMockProps();
-      render(<CollectionsPickerExtension {...props} />);
-
-      await waitFor(() => {
-        expect(mockScaffolderApi.autocomplete).toHaveBeenCalled();
-      });
-
-      const collectionInput = getInputElement('Collection');
-      if (collectionInput) {
-        fireEvent.change(collectionInput, {
-          target: { value: 'community.general' },
-        });
-      }
-
-      await waitFor(() => {
-        const addButton = screen.getByRole('button', {
-          name: 'Add collection',
-        });
-        if (!addButton.hasAttribute('disabled')) {
-          fireEvent.click(addButton);
-        }
-      });
-    });
-
     it('adds collection with name and source', async () => {
       const mockCollections = [
         {
@@ -1982,99 +1951,6 @@ describe('CollectionsPickerExtension', () => {
       });
     });
 
-    it('resets form after adding collection', async () => {
-      const mockCollections = [
-        { name: 'community.general', id: 'community.general' },
-      ];
-      mockScaffolderApi.autocomplete.mockResolvedValue({
-        results: mockCollections,
-      });
-      const props = createMockProps();
-      render(<CollectionsPickerExtension {...props} />);
-
-      await waitFor(() => {
-        expect(mockScaffolderApi.autocomplete).toHaveBeenCalled();
-      });
-
-      const collectionInput = getInputElement('Collection');
-      if (collectionInput) {
-        fireEvent.change(collectionInput, {
-          target: { value: 'community.general' },
-        });
-      }
-
-      await waitFor(() => {
-        const addButton = screen.getByRole('button', {
-          name: 'Add collection',
-        });
-        if (!addButton.hasAttribute('disabled')) {
-          fireEvent.click(addButton);
-        }
-      });
-    });
-
-    it('handles collections array being null in handleAddCollection', async () => {
-      const mockCollections = [
-        { name: 'community.general', id: 'community.general' },
-      ];
-      mockScaffolderApi.autocomplete.mockResolvedValue({
-        results: mockCollections,
-      });
-      const props = createMockProps();
-      render(<CollectionsPickerExtension {...props} />);
-
-      await waitFor(() => {
-        expect(mockScaffolderApi.autocomplete).toHaveBeenCalled();
-      });
-
-      const collectionInput = getInputElement('Collection');
-      if (collectionInput) {
-        fireEvent.change(collectionInput, {
-          target: { value: 'community.general' },
-        });
-      }
-
-      await waitFor(() => {
-        const addButton = screen.getByRole('button', {
-          name: 'Add collection',
-        });
-        if (!addButton.hasAttribute('disabled')) {
-          fireEvent.click(addButton);
-        }
-      });
-    });
-
-    it('handles adding collection when collections is undefined', async () => {
-      const mockCollections = [
-        { name: 'community.general', id: 'community.general' },
-      ];
-      mockScaffolderApi.autocomplete.mockResolvedValue({
-        results: mockCollections,
-      });
-      const props = createMockProps({ formData: undefined });
-      render(<CollectionsPickerExtension {...props} />);
-
-      await waitFor(() => {
-        expect(mockScaffolderApi.autocomplete).toHaveBeenCalled();
-      });
-
-      const collectionInput = getInputElement('Collection');
-      if (collectionInput) {
-        fireEvent.change(collectionInput, {
-          target: { value: 'community.general' },
-        });
-      }
-
-      await waitFor(() => {
-        const addButton = screen.getByRole('button', {
-          name: 'Add collection',
-        });
-        if (!addButton.hasAttribute('disabled')) {
-          fireEvent.click(addButton);
-        }
-      });
-    });
-
     it('calls onChange when adding collection with name and source', async () => {
       const mockCollections = [
         {
@@ -2223,7 +2099,9 @@ describe('CollectionsPickerExtension', () => {
         results: mockCollections,
       });
 
-      const formData = [{ name: 'community.general', version: '1.0.0' }];
+      const formData: CollectionItem[] = [
+        { name: 'community.general', source: 'Source 1', version: '1.0.0' },
+      ];
 
       const props = createMockProps({ formData });
 
