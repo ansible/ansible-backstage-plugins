@@ -20,7 +20,7 @@ const mockUseIsSuperuser = jest.fn(() => ({
 }));
 
 jest.mock('../../hooks', () => ({
-  useIsSuperuser: (...args: unknown[]) => mockUseIsSuperuser(...args),
+  useIsSuperuser: () => mockUseIsSuperuser(),
 }));
 
 const mockUsePermission = jest.fn(() => ({
@@ -30,7 +30,8 @@ const mockUsePermission = jest.fn(() => ({
 
 jest.mock('@backstage/plugin-permission-react', () => ({
   ...jest.requireActual('@backstage/plugin-permission-react'),
-  usePermission: (...args: unknown[]) => mockUsePermission(...args),
+  usePermission: (...args: unknown[]) =>
+    mockUsePermission(...(args as Parameters<typeof mockUsePermission>)),
 }));
 
 const mockRemoveNotification = jest.fn();
