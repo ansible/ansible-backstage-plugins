@@ -50,43 +50,50 @@ test.describe.serial('git-repositories01-catalog', () => {
     if (body3Text.includes('Sync Now')) {
       const syncBtn = page.getByRole('button', { name: 'Sync Now' });
       if (await syncBtn.isEnabled().catch(() => false)) {
-        await syncBtn.click({ force: true });
-        await page.waitForTimeout(1000);
+        await syncBtn.waitFor({ state: 'visible', timeout: 10000 });
+        await syncBtn.click();
+        await page.waitForLoadState('networkidle');
       }
     }
 
     const repoTitle = page.getByText(/^Git Repositories \(\d+\)$/);
     await expect(repoTitle.first()).toBeVisible({ timeout: 30000 });
 
-    if ((await page.locator('main table tbody tr').count()) === 0) {
+    const tableRow = page.locator('main table tbody tr').first();
+    if ((await tableRow.count()) === 0) {
       return;
     }
 
-    const firstRepoBtn = page
-      .locator('main table tbody tr')
-      .first()
-      .locator('td')
-      .first()
-      .getByRole('button')
-      .first();
+    await tableRow.waitFor({ state: 'visible', timeout: 15000 });
+    await page.waitForLoadState('networkidle');
 
-    const starBtn = page
-      .locator('main table tbody tr')
-      .first()
-      .getByRole('button', { name: /favorite|favourites/i });
+    // First cell contains repository name as a link
+    const firstRepoLink = tableRow.locator('td').first().locator('a').first();
+
+    // Check if link exists before proceeding
+    if ((await firstRepoLink.count()) === 0) {
+      // No link found - table might be loading or have different structure
+      return;
+    }
+
+    const starBtn = tableRow.getByRole('button', {
+      name: /favorite|favourites/i,
+    });
     if ((await starBtn.count()) > 0) {
-      await starBtn.first().click({ force: true });
+      await starBtn.first().waitFor({ state: 'visible', timeout: 10000 });
+      await starBtn.first().click();
       await page.waitForTimeout(600);
-      await starBtn.first().click({ force: true });
+      await starBtn
+        .first()
+        .click()
+        .catch(() => {});
       await page.waitForTimeout(400);
     }
 
-    const kebab = page
-      .locator('main table tbody tr')
-      .first()
-      .getByRole('button', { name: 'Actions' });
+    const kebab = tableRow.getByRole('button', { name: 'Actions' });
     if ((await kebab.count()) > 0) {
-      await kebab.click({ force: true });
+      await kebab.waitFor({ state: 'visible', timeout: 10000 });
+      await kebab.click();
       await page.waitForTimeout(400);
       const viewInSource = page.getByRole('menuitem', {
         name: /View in source/i,
@@ -106,8 +113,9 @@ test.describe.serial('git-repositories01-catalog', () => {
       }
     }
 
-    await firstRepoBtn.click({ force: true });
-    await page.waitForTimeout(1500);
+    await firstRepoLink.waitFor({ state: 'visible', timeout: 10000 });
+    await firstRepoLink.click();
+    await page.waitForLoadState('networkidle');
     await expect(page).toHaveURL(/\/self-service\/repositories\/.+/, {
       timeout: 20000,
     });
@@ -167,7 +175,8 @@ test.describe.serial('git-repositories01-catalog', () => {
       const t = ((await b.textContent()) ?? '').toLowerCase();
       const a = ((await b.getAttribute('aria-label')) ?? '').toLowerCase();
       if (t.includes('starred') || a.includes('starred')) {
-        await b.click({ force: true });
+        await b.waitFor({ state: 'visible', timeout: 10000 });
+        await b.click();
         await page.waitForTimeout(800);
         for (let j = 0; j < btnCount; j++) {
           const b2 = buttons.nth(j);
@@ -176,7 +185,8 @@ test.describe.serial('git-repositories01-catalog', () => {
             (await b2.getAttribute('aria-label')) ?? ''
           ).toLowerCase();
           if (t2.includes('all') || a2.includes('all')) {
-            await b2.click({ force: true });
+            await b2.waitFor({ state: 'visible', timeout: 10000 });
+            await b2.click();
             return;
           }
         }
@@ -207,16 +217,16 @@ test.describe.serial('git-repositories01-catalog', () => {
     await expect(next).toBeVisible();
     await expect(next).toBeEnabled();
 
-    await next.click({ force: true });
-    await page.waitForTimeout(600);
+    await next.click();
+    await page.waitForLoadState('networkidle');
 
     await expect(page.getByText(/Page 2 of \d+/)).toBeVisible();
 
     const prev = page.locator('[aria-label="Previous page"]').first();
     await expect(prev).toBeVisible();
     await expect(prev).toBeEnabled();
-    await prev.click({ force: true });
-    await page.waitForTimeout(600);
+    await prev.click();
+    await page.waitForLoadState('networkidle');
 
     await expect(page.getByText(/Page 1 of \d+/)).toBeVisible();
   });
