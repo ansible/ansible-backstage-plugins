@@ -1,1 +1,1 @@
-export { HomeComponent } from './Home';
+export { HomeComponent, TemplatesRoutesPage } from './Home';

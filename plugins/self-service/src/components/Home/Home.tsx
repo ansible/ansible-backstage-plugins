@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router';
+import { Route, Routes, Navigate } from 'react-router-dom';
 import {
   Button,
   makeStyles,
@@ -9,6 +10,7 @@ import {
 } from '@material-ui/core';
 import { Content, Header, HeaderLabel, Page } from '@backstage/core-components';
 import { useApi, useRouteRef } from '@backstage/core-plugin-api';
+import { RequirePermission } from '@backstage/plugin-permission-react';
 import {
   CatalogFilterLayout,
   EntityKindPicker,
@@ -21,6 +23,7 @@ import {
   useEntityList,
 } from '@backstage/plugin-catalog-react';
 import { TemplateGroups } from '@backstage/plugin-scaffolder-react/alpha';
+import { templatesViewPermission } from '@ansible/backstage-rhaap-common/permissions';
 
 import { WizardCard } from './TemplateCard';
 import { useIsSuperuser } from '../../hooks';
@@ -34,6 +37,13 @@ import { TemplateEntityV1beta3 } from '@backstage/plugin-scaffolder-common';
 import { SkeletonLoader } from './SkeletonLoader';
 import { scaffolderApiRef } from '@backstage/plugin-scaffolder-react';
 import { TagFilterPicker } from '../utils/TagFilterPicker';
+import { CatalogItemsDetails } from '../CatalogItemDetails';
+import { CreateTask } from '../CreateTask';
+import {
+  NotificationProvider,
+  NotificationStack,
+  useNotifications,
+} from '../notifications';
 
 const headerStyles = makeStyles(theme => ({
   header_title_color: {
@@ -470,5 +480,48 @@ export const HomeComponent = () => {
         style={{ zIndex: 10000, marginTop: '70px' }}
       />
     </Page>
+  );
+};
+
+// Inner content component that uses the notification context
+const TemplatesRoutesContent = () => {
+  const { notifications, removeNotification } = useNotifications();
+
+  return (
+    <>
+      <Routes>
+        <Route path="catalog" element={<HomeComponent />} />
+        <Route
+          path="catalog/:namespace/:templateName"
+          element={<CatalogItemsDetails />}
+        />
+        <Route
+          path="create/templates/:namespace/:templateName"
+          element={<CreateTask />}
+        />
+        <Route path="*" element={<Navigate to="catalog" replace />} />
+      </Routes>
+      <NotificationStack
+        notifications={notifications}
+        onClose={removeNotification}
+      />
+    </>
+  );
+};
+
+/**
+ * Standalone route wrapper used by the dynamic plugin mount at /self-service.
+ * Handles all routes gated by ansible.templates.view:
+ *   /self-service/catalog                                    — template catalog
+ *   /self-service/catalog/:namespace/:templateName            — template detail
+ *   /self-service/create/templates/:namespace/:templateName   — run template
+ */
+export const TemplatesRoutesPage = () => {
+  return (
+    <RequirePermission permission={templatesViewPermission}>
+      <NotificationProvider>
+        <TemplatesRoutesContent />
+      </NotificationProvider>
+    </RequirePermission>
   );
 };

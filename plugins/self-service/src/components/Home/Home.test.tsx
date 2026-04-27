@@ -21,7 +21,43 @@ jest.mock('../../hooks', () => ({
   }),
 }));
 
-import { HomeComponent } from './Home';
+const mockRemoveNotification = jest.fn();
+const mockNotifications = [
+  {
+    id: 'n1',
+    title: 'Test notification',
+    severity: 'success' as const,
+    timestamp: new Date(),
+  },
+];
+
+jest.mock('../notifications', () => ({
+  NotificationProvider: ({ children }: any) => <>{children}</>,
+  NotificationStack: ({
+    notifications,
+    onClose,
+  }: {
+    notifications: Array<{ id: string; title: string }>;
+    onClose: (id: string) => void;
+  }) => (
+    <div data-testid="notification-stack">
+      {notifications.map((n: any) => (
+        <div key={n.id} data-testid={`notification-${n.id}`}>
+          {n.title}
+          <button onClick={() => onClose(n.id)}>Dismiss</button>
+        </div>
+      ))}
+    </div>
+  ),
+  useNotifications: () => ({
+    notifications: mockNotifications,
+    removeNotification: mockRemoveNotification,
+    showNotification: jest.fn(),
+    clearAll: jest.fn(),
+  }),
+}));
+
+import { HomeComponent, TemplatesRoutesPage } from './Home';
 import { rootRouteRef } from '../../routes';
 import { ansibleApiRef, rhAapAuthApiRef } from '../../apis';
 import { mockCatalogApi } from '../../tests/catalogApi_utils';
@@ -767,5 +803,85 @@ describe('self-service', () => {
         expect(categoriesInput).toBeInTheDocument();
       });
     });
+  });
+});
+
+describe('TemplatesRoutesPage notifications', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+    mockRhAapAuthApi.getAccessToken.mockResolvedValue('mock-token');
+    mockAnsibleApi.getSyncStatus.mockResolvedValue({
+      aap: {
+        orgsUsersTeams: { lastSync: null },
+        jobTemplates: { lastSync: null },
+      },
+    });
+    if (!mockScaffolderApi.autocomplete) {
+      mockScaffolderApi.autocomplete = jest.fn().mockResolvedValue({
+        results: [
+          { id: '1', title: 'Template 1' },
+          { id: '2', title: 'Template 2' },
+        ],
+      }) as jest.MockedFunction<any>;
+    } else {
+      (
+        mockScaffolderApi.autocomplete as jest.MockedFunction<any>
+      ).mockResolvedValue({
+        results: [
+          { id: '1', title: 'Template 1' },
+          { id: '2', title: 'Template 2' },
+        ],
+      });
+    }
+  });
+
+  const renderPage = () => {
+    mockCatalogApi.getEntityFacets.mockResolvedValue({
+      facets: {
+        'relations.ownedBy': [{ count: 1, value: 'component:default/e1' }],
+        'metadata.tags': [{ value: 'tag1', count: 0 }],
+      },
+    });
+
+    return renderInTestApp(
+      <TestApiProvider
+        apis={[
+          [catalogApiRef, mockCatalogApi],
+          [ansibleApiRef, mockAnsibleApi],
+          [rhAapAuthApiRef, mockRhAapAuthApi],
+          [scaffolderApiRef, mockScaffolderApi],
+          [starredEntitiesApiRef, new MockStarredEntitiesApi()],
+          [permissionApiRef, mockApis.permission()],
+        ]}
+      >
+        <TemplatesRoutesPage />
+      </TestApiProvider>,
+      {
+        mountedRoutes: {
+          '/self-service': rootRouteRef,
+        },
+      },
+    );
+  };
+
+  it('renders NotificationStack with notifications', async () => {
+    await renderPage();
+
+    await waitFor(() => {
+      expect(screen.getByTestId('notification-stack')).toBeInTheDocument();
+    });
+    expect(screen.getByTestId('notification-n1')).toBeInTheDocument();
+    expect(screen.getByText('Test notification')).toBeInTheDocument();
+  });
+
+  it('calls removeNotification when dismiss is clicked', async () => {
+    await renderPage();
+
+    await waitFor(() => {
+      expect(screen.getByTestId('notification-stack')).toBeInTheDocument();
+    });
+
+    fireEvent.click(screen.getByText('Dismiss'));
+    expect(mockRemoveNotification).toHaveBeenCalledWith('n1');
   });
 });
