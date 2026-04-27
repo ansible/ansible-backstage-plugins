@@ -406,9 +406,7 @@ export const HomeComponent = () => {
                           : ShowSyncConfirmationDialog
                       }
                       style={{
-                        cursor: syncControlsDisabled
-                          ? 'default'
-                          : 'pointer',
+                        cursor: syncControlsDisabled ? 'default' : 'pointer',
                         color: 'inherit',
                         opacity: syncControlsDisabled ? 0.5 : 1,
                       }}
@@ -440,9 +438,7 @@ export const HomeComponent = () => {
         style={{ background: 'inherit' }}
       >
         {showAddTemplate && (
-          <Tooltip
-            title={addTemplateDisabled ? 'Checking permissions...' : ''}
-          >
+          <Tooltip title={addTemplateDisabled ? 'Checking permissions...' : ''}>
             <span>
               <Button
                 data-testid="add-template-button"

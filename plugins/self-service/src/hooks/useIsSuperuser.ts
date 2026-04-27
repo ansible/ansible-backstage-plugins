@@ -132,9 +132,7 @@ export function useIsSuperuser(): UseIsSuperuserResult {
                 `[useIsSuperuser] Attempt ${attempt} failed, retrying in ${RETRY_DELAY_MS}ms...`,
                 lastError.message,
               );
-              await new Promise(resolve =>
-                setTimeout(resolve, RETRY_DELAY_MS),
-              );
+              await new Promise(resolve => setTimeout(resolve, RETRY_DELAY_MS));
             }
           }
         }
