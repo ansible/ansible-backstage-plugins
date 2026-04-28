@@ -391,6 +391,45 @@ describe('createEEDefinition', () => {
     });
   });
 
+  it('omits additional_build_steps from eeConfig when all steps have empty commands', async () => {
+    const action = makeAction();
+    const ctx = makeCtx({
+      eeFileName: 'test-ee',
+      baseImage: 'img:latest',
+      publishToSCM: true,
+      additionalBuildSteps: [
+        { stepType: 'prepend_base', commands: [] },
+        { stepType: 'prepend_final', commands: [] },
+        { stepType: 'append_galaxy', commands: ['', '   '] },
+      ],
+    });
+
+    await action.handler(ctx);
+
+    const eeConfig = mockDownloadEEScaffold.mock.calls[0][3];
+    expect(eeConfig.additional_build_steps).toBeUndefined();
+  });
+
+  it('filters blank commands and omits empty step types from eeConfig', async () => {
+    const action = makeAction();
+    const ctx = makeCtx({
+      eeFileName: 'test-ee',
+      baseImage: 'img:latest',
+      publishToSCM: true,
+      additionalBuildSteps: [
+        { stepType: 'prepend_base', commands: ['RUN echo hello', '', '   '] },
+        { stepType: 'prepend_final', commands: [] },
+      ],
+    });
+
+    await action.handler(ctx);
+
+    const eeConfig = mockDownloadEEScaffold.mock.calls[0][3];
+    expect(eeConfig.additional_build_steps).toEqual({
+      prepend_base: ['RUN echo hello'],
+    });
+  });
+
   it('builds eeConfig with registry and image name', async () => {
     const action = makeAction();
     const ctx = makeCtx({
