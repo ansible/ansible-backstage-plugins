@@ -196,10 +196,6 @@ export function createEEDefinitionAction(options: {
         const api = new BackendServiceAPI();
         const tarName = 'ee-scaffold.tar';
 
-        logger.info(
-          `[ansible:create:ee-definition] calling creator service at ${creatorServiceUrl}`,
-        );
-
         // Download and extract the scaffold to a temp dir first, then
         // distribute files: repo-root items (.github, .gitignore, …) stay at
         // workspacePath; EE-specific files go into eeDir (contextDirName/).
