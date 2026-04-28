@@ -97,6 +97,34 @@ export type LaunchJobTemplate = {
   skipTags?: string;
 };
 
+/** Payload for launching a workflow job template (after optional prompts). */
+export type LaunchWorkflowJobTemplate = {
+  template: string;
+  inventory?: Inventory;
+  limit?: string;
+  scmBranch?: string;
+  extraVariables?: string | object;
+  /**
+   * Max time to poll `/workflow_jobs/{id}/` for a terminal status.
+   * Use `0` to return immediately after launch (no wait). Default: 24 hours.
+   */
+  maxWaitSeconds?: number;
+  /**
+   * Seconds between polls while waiting. Clamped between 5 and 120. Default: 15.
+   */
+  pollIntervalSeconds?: number;
+};
+
+/** Result of launching a workflow job template (includes post-launch wait when enabled). */
+export type WorkflowJobLaunchResult = {
+  id: number;
+  url: string;
+  /** Terminal status from Controller after wait (e.g. `successful`). */
+  status?: string;
+  /** True when `maxWaitSeconds === 0` and no polling was performed. */
+  waitSkipped?: boolean;
+};
+
 export type UseCase = {
   name: string;
   version: string;

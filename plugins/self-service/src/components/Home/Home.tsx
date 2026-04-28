@@ -198,9 +198,11 @@ export const HomeComponent = () => {
   const [syncStatus, setSyncStatus] = useState<{
     orgsUsersTeams: { lastSync: string | null };
     jobTemplates: { lastSync: string | null };
+    workflowJobTemplates?: { lastSync: string | null };
   }>({
     orgsUsersTeams: { lastSync: null },
     jobTemplates: { lastSync: null },
+    workflowJobTemplates: { lastSync: null },
   });
 
   const fetchRequestIdRef = useRef(0);
@@ -300,6 +302,19 @@ export const HomeComponent = () => {
       }
       setShowSnackbar(true);
     }
+    if (syncOptions.includes('workflowJobTemplates')) {
+      result = await ansibleApi.syncWorkflowJobTemplates();
+      if (result) {
+        setSnackbarMsg('Workflow job templates synced successfully');
+        fetchSyncStatus();
+        setSyncKey(prev => prev + 1);
+      } else {
+        setSnackbarMsg(
+          'Workflow job templates sync failed or is not configured on the catalog backend.',
+        );
+      }
+      setShowSnackbar(true);
+    }
     setSyncOptions([]);
   }, [ansibleApi, syncOptions, fetchSyncStatus, fetchJobTemplates]);
 
@@ -395,7 +410,7 @@ export const HomeComponent = () => {
                       }}
                     >
                       Sync now <Sync fontSize="small" />
-                      <Tooltip title="Sync AAP Job Templates, Organizations, Users, and Teams from AAP to automation portal.">
+                      <Tooltip title="Sync AAP job templates, workflow job templates, organizations, users, and teams from AAP into the portal catalog.">
                         <Info fontSize="small" style={{ marginLeft: '4px' }} />
                       </Tooltip>
                     </span>

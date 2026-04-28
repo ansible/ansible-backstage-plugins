@@ -108,3 +108,26 @@ export function resolveEeFileNameFromParameters(
   }
   return undefined;
 }
+
+/** Controller OAuth/PAT passed into scaffolder templates (several naming conventions). */
+export function pickAapTokenFromParameters(
+  parameters: Record<string, unknown> | undefined | null,
+): string | undefined {
+  if (!parameters) {
+    return undefined;
+  }
+  for (const key of ['token', 'aapToken', 'aap_token'] as const) {
+    const v = parameters[key];
+    if (typeof v === 'string' && v.trim()) {
+      return v.trim();
+    }
+  }
+  // Parameter groups nest fields; secrets are not persisted on the task record.
+  for (const key of ['aapToken', 'aap_token'] as const) {
+    const nested = findNestedNonEmptyString(parameters, key);
+    if (nested) {
+      return nested.trim();
+    }
+  }
+  return undefined;
+}

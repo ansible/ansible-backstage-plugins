@@ -1,6 +1,7 @@
 import {
   findNestedBooleanTrue,
   findNestedNonEmptyString,
+  pickAapTokenFromParameters,
   resolveEeFileNameFromParameters,
   resolvePublishToScmFromParameters,
 } from './runTaskParameters';
@@ -49,6 +50,21 @@ describe('findNestedBooleanTrue / findNestedNonEmptyString', () => {
     expect(
       findNestedNonEmptyString({ a: { b: { customName: 'x' } } }, 'customName'),
     ).toBe('x');
+  });
+});
+
+describe('pickAapTokenFromParameters', () => {
+  it('reads top-level keys', () => {
+    expect(pickAapTokenFromParameters({ aapToken: 'abc' })).toBe('abc');
+    expect(pickAapTokenFromParameters({ token: ' t ' })).toBe('t');
+  });
+
+  it('reads nested aapToken', () => {
+    expect(
+      pickAapTokenFromParameters({
+        aapConnection: { aapToken: 'nested' },
+      }),
+    ).toBe('nested');
   });
 });
 

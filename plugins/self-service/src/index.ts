@@ -1,5 +1,6 @@
 export * from './plugin';
 
+export { AnsibleAugmentedTaskPage } from './components/Scaffolder/AnsibleAugmentedTaskPage';
 export { SignInPage } from './components/SignInPage';
 export { LandingPage } from './components/LandingPage';
 export { TaskList } from './components/TaskList';

@@ -116,6 +116,9 @@ describe('Ansible API module', () => {
           aap: {
             orgsUsersTeams: { lastSync: '2024-01-15T10:00:00Z' },
             jobTemplates: { lastSync: '2024-01-15T11:00:00Z' },
+            workflowJobTemplates: {
+              lastSync: '2024-01-15T12:00:00Z',
+            },
           },
         }),
       }),
@@ -136,8 +139,54 @@ describe('Ansible API module', () => {
       aap: {
         orgsUsersTeams: { lastSync: '2024-01-15T10:00:00Z' },
         jobTemplates: { lastSync: '2024-01-15T11:00:00Z' },
+        workflowJobTemplates: {
+          lastSync: '2024-01-15T12:00:00Z',
+        },
       },
     });
+  });
+
+  it('AnsibleApiClient.syncWorkflowJobTemplates returns true when fetch ok and json truthy', async () => {
+    const mockDiscovery = {
+      getBaseUrl: jest.fn().mockResolvedValue('http://example.com'),
+    };
+    const mockFetch = {
+      fetch: jest.fn().mockResolvedValue({
+        ok: true,
+        json: jest.fn().mockResolvedValue(true),
+      }),
+    };
+
+    const client = new AnsibleApiClient({
+      discoveryApi: mockDiscovery as any,
+      fetchApi: mockFetch as any,
+    });
+
+    const result = await client.syncWorkflowJobTemplates();
+
+    expect(mockFetch.fetch).toHaveBeenCalledWith(
+      'http://example.com/ansible/sync/from-aap/workflow_job_templates',
+    );
+    expect(result).toBe(true);
+  });
+
+  it('AnsibleApiClient.syncWorkflowJobTemplates returns false when response not ok', async () => {
+    const mockDiscovery = {
+      getBaseUrl: jest.fn().mockResolvedValue('http://example.com'),
+    };
+    const mockFetch = {
+      fetch: jest.fn().mockResolvedValue({
+        ok: false,
+        status: 404,
+      }),
+    };
+
+    const client = new AnsibleApiClient({
+      discoveryApi: mockDiscovery as any,
+      fetchApi: mockFetch as any,
+    });
+
+    expect(await client.syncWorkflowJobTemplates()).toBe(false);
   });
 
   it('AnsibleApiClient.getSyncStatus returns default values when fetch throws', async () => {
@@ -163,6 +212,7 @@ describe('Ansible API module', () => {
       aap: {
         orgsUsersTeams: { lastSync: null },
         jobTemplates: { lastSync: null },
+        workflowJobTemplates: { lastSync: null },
       },
     });
   });

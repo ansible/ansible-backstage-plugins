@@ -28,10 +28,12 @@ type CustomAuthApiRefType = OAuthApi &
 export interface AnsibleApi {
   syncTemplates(): Promise<boolean>;
   syncOrgsUsersTeam(): Promise<boolean>;
+  syncWorkflowJobTemplates(): Promise<boolean>;
   getSyncStatus(): Promise<{
     aap: {
       orgsUsersTeams: { lastSync: string | null };
       jobTemplates: { lastSync: string | null };
+      workflowJobTemplates?: { lastSync: string | null };
     };
   }>;
 }
@@ -191,10 +193,27 @@ export class AnsibleApiClient implements AnsibleApi {
     }
   }
 
+  async syncWorkflowJobTemplates(): Promise<boolean> {
+    const baseUrl = await this.discoveryApi.getBaseUrl('catalog');
+    try {
+      const response = await this.fetchApi.fetch(
+        `${baseUrl}/ansible/sync/from-aap/workflow_job_templates`,
+      );
+      if (!response.ok) {
+        return false;
+      }
+      const data = await response.json();
+      return Boolean(data);
+    } catch {
+      return false;
+    }
+  }
+
   async getSyncStatus(): Promise<{
     aap: {
       orgsUsersTeams: { lastSync: string | null };
       jobTemplates: { lastSync: string | null };
+      workflowJobTemplates?: { lastSync: string | null };
     };
   }> {
     const baseUrl = await this.discoveryApi.getBaseUrl('catalog');
@@ -202,13 +221,30 @@ export class AnsibleApiClient implements AnsibleApi {
       const response = await this.fetchApi.fetch(
         `${baseUrl}/ansible/sync/status?aap_entities=true`,
       );
-      const data = await response.json();
-      return data;
+      const data = (await response.json()) as {
+        aap?: {
+          orgsUsersTeams?: { lastSync: string | null };
+          jobTemplates?: { lastSync: string | null };
+          workflowJobTemplates?: { lastSync: string | null };
+        };
+      };
+      return {
+        aap: {
+          orgsUsersTeams: data.aap?.orgsUsersTeams ?? {
+            lastSync: null,
+          },
+          jobTemplates: data.aap?.jobTemplates ?? { lastSync: null },
+          workflowJobTemplates: data.aap?.workflowJobTemplates ?? {
+            lastSync: null,
+          },
+        },
+      };
     } catch {
       return {
         aap: {
           orgsUsersTeams: { lastSync: null },
           jobTemplates: { lastSync: null },
+          workflowJobTemplates: { lastSync: null },
         },
       };
     }

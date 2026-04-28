@@ -18,6 +18,7 @@ import Router from 'express-promise-router';
 import type { Config } from '@backstage/config';
 
 import { AAPJobTemplateProvider } from './providers/AAPJobTemplateProvider';
+import { AAPWorkflowJobTemplateProvider } from './providers/AAPWorkflowJobTemplateProvider';
 import { AAPEntityProvider } from './providers/AAPEntityProvider';
 import {
   LoggerService,
@@ -60,7 +61,10 @@ import {
   isScmIntegrationAuthFailure,
 } from './helpers';
 import { SCM_INTEGRATION_AUTH_FAILED_CODE } from '@ansible/backstage-rhaap-common/constants';
-import { ScmClientFactory } from '@ansible/backstage-rhaap-common';
+import {
+  ScmClientFactory,
+  type IAAPService,
+} from '@ansible/backstage-rhaap-common';
 import { EEEntityProvider } from './providers/EEEntityProvider';
 
 export async function createRouter(options: {
@@ -68,6 +72,7 @@ export async function createRouter(options: {
   config: Config;
   aapEntityProvider: AAPEntityProvider;
   jobTemplateProvider: AAPJobTemplateProvider;
+  workflowJobTemplateProvider?: AAPWorkflowJobTemplateProvider;
   eeEntityProvider: EEEntityProvider;
   pahCollectionProviders: PAHCollectionProvider[];
   httpAuth: HttpAuthService;
@@ -77,12 +82,15 @@ export async function createRouter(options: {
   permissions: PermissionsService;
   ansibleGitContentsProviders?: AnsibleGitContentsProvider[];
   allowedExternalAccessSubjects?: string[];
+  /** Required for Phase 3 workflow task proxy routes (`/ansible/aap/…`). */
+  ansibleService?: IAAPService;
 }): Promise<express.Router> {
   const {
     logger,
     config,
     aapEntityProvider,
     jobTemplateProvider,
+    workflowJobTemplateProvider,
     eeEntityProvider,
     pahCollectionProviders,
     httpAuth,
@@ -92,6 +100,7 @@ export async function createRouter(options: {
     permissions,
     ansibleGitContentsProviders = [],
     allowedExternalAccessSubjects,
+    ansibleService,
   } = options;
   const router = Router();
   const scmClientFactory = new ScmClientFactory({ rootConfig: config, logger });
@@ -153,6 +162,23 @@ export async function createRouter(options: {
   );
 
   router.get(
+    '/ansible/sync/from-aap/workflow_job_templates',
+    requireSuperuserMiddleware,
+    async (_, response) => {
+      if (!workflowJobTemplateProvider) {
+        response.status(404).json({
+          error:
+            'Workflow job template sync is not configured (catalog.providers.rhaap.*.sync.workflowJobTemplates).',
+        });
+        return;
+      }
+      logger.info('Starting workflow job templates sync');
+      const res = await workflowJobTemplateProvider.run();
+      response.status(200).json(res);
+    },
+  );
+
+  router.get(
     '/ansible/sync/status',
     createPermissionCheckMiddleware({ httpAuth, permissions }, [
       catalogEntityReadPermission,
@@ -208,6 +234,11 @@ export async function createRouter(options: {
             jobTemplates: {
               lastSync: jobTemplateProvider.getLastSyncTime(),
             },
+            ...(workflowJobTemplateProvider && {
+              workflowJobTemplates: {
+                lastSync: workflowJobTemplateProvider.getLastSyncTime(),
+              },
+            }),
           };
         }
 
@@ -837,6 +868,175 @@ export async function createRouter(options: {
       await handleGitLabCIActivity(ciActivityDeps, request, response, perPage);
     }
   });
+
+  /**
+   * Proxy selected Controller GET APIs using the **user-supplied** AAP bearer token
+   * (same token the scaffolder passes to launch). Requires Backstage catalog read plus
+   * header `X-AAP-Bearer-Token: <oauth or PAT>`.
+   */
+  if (ansibleService) {
+    const readAapToken = (req: express.Request): string | undefined => {
+      const raw = req.headers['x-aap-bearer-token'];
+      if (typeof raw === 'string' && raw.trim()) {
+        return raw.trim();
+      }
+      return undefined;
+    };
+
+    const catalogReadJson = async (
+      req: express.Request,
+      res: express.Response,
+    ): Promise<boolean> => {
+      const credentials = await httpAuth.credentials(req as any);
+      const [catalogReadDecision] = await permissions.authorizeConditional(
+        [{ permission: catalogEntityReadPermission }],
+        { credentials },
+      );
+      if (catalogReadDecision.result === AuthorizeResult.DENY) {
+        res.status(403).json({ error: 'Forbidden: insufficient permissions' });
+        return false;
+      }
+      return true;
+    };
+
+    router.get(
+      '/ansible/aap/workflow-jobs/:workflowJobId',
+      async (request, response) => {
+        if (!(await catalogReadJson(request, response))) return;
+
+        const token = readAapToken(request);
+        if (!token) {
+          response.status(400).json({
+            error: 'Missing AAP token (header X-AAP-Bearer-Token).',
+          });
+          return;
+        }
+
+        const workflowJobId = Number(request.params.workflowJobId);
+        if (!Number.isFinite(workflowJobId)) {
+          response.status(400).json({ error: 'Invalid workflow job id.' });
+          return;
+        }
+
+        try {
+          const body = await ansibleService.getWorkflowJobDetail(
+            workflowJobId,
+            token,
+          );
+          response.json(body);
+        } catch (err: unknown) {
+          const msg = err instanceof Error ? err.message : String(err);
+          logger.warn(`Ansible workflow job detail proxy failed: ${msg}`);
+          response.status(502).json({
+            error: `Failed to fetch workflow job ${workflowJobId}: ${msg}`,
+          });
+        }
+      },
+    );
+
+    router.get(
+      '/ansible/aap/workflow-jobs/:workflowJobId/workflow_nodes',
+      async (request, response) => {
+        if (!(await catalogReadJson(request, response))) return;
+
+        const token = readAapToken(request);
+        if (!token) {
+          response.status(400).json({
+            error: 'Missing AAP token (header X-AAP-Bearer-Token).',
+          });
+          return;
+        }
+
+        const workflowJobId = Number(request.params.workflowJobId);
+        if (!Number.isFinite(workflowJobId)) {
+          response.status(400).json({ error: 'Invalid workflow job id.' });
+          return;
+        }
+
+        try {
+          const results = await ansibleService.listWorkflowJobNodes(
+            workflowJobId,
+            token,
+          );
+          response.json({ results });
+        } catch (err: unknown) {
+          const msg = err instanceof Error ? err.message : String(err);
+          logger.warn(`Ansible workflow job nodes proxy failed: ${msg}`);
+          response.status(502).json({
+            error: `Failed to fetch workflow_nodes for ${workflowJobId}: ${msg}`,
+          });
+        }
+      },
+    );
+
+    router.get(
+      '/ansible/aap/workflow-job-templates/:workflowJobTemplateId/workflow_nodes',
+      async (request, response) => {
+        if (!(await catalogReadJson(request, response))) return;
+
+        const token = readAapToken(request);
+        if (!token) {
+          response.status(400).json({
+            error: 'Missing AAP token (header X-AAP-Bearer-Token).',
+          });
+          return;
+        }
+
+        const workflowJobTemplateId = Number(
+          request.params.workflowJobTemplateId,
+        );
+        if (!Number.isFinite(workflowJobTemplateId)) {
+          response
+            .status(400)
+            .json({ error: 'Invalid workflow job template id.' });
+          return;
+        }
+
+        try {
+          const results = await ansibleService.listWorkflowJobTemplateNodes(
+            workflowJobTemplateId,
+            token,
+          );
+          response.json({ results });
+        } catch (err: unknown) {
+          const msg = err instanceof Error ? err.message : String(err);
+          logger.warn(`Ansible WFJT workflow_nodes proxy failed: ${msg}`);
+          response.status(502).json({
+            error: `Failed to fetch workflow_job_templates/${workflowJobTemplateId}/workflow_nodes: ${msg}`,
+          });
+        }
+      },
+    );
+
+    router.get('/ansible/aap/jobs/:jobId/stdout', async (request, response) => {
+      if (!(await catalogReadJson(request, response))) return;
+
+      const token = readAapToken(request);
+      if (!token) {
+        response.status(400).json({
+          error: 'Missing AAP token (header X-AAP-Bearer-Token).',
+        });
+        return;
+      }
+
+      const jobId = Number(request.params.jobId);
+      if (!Number.isFinite(jobId)) {
+        response.status(400).json({ error: 'Invalid job id.' });
+        return;
+      }
+
+      try {
+        const stdout = await ansibleService.getJobStdoutText(jobId, token);
+        response.type('text/plain').send(stdout);
+      } catch (err: unknown) {
+        const msg = err instanceof Error ? err.message : String(err);
+        logger.warn(`Ansible job stdout proxy failed: ${msg}`);
+        response.status(502).json({
+          error: `Failed to fetch stdout for job ${jobId}: ${msg}`,
+        });
+      }
+    });
+  }
 
   return router;
 }

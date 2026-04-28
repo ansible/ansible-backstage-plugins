@@ -4160,5 +4160,195 @@ describe('AAPClient', () => {
         );
       });
     });
+
+    describe('launchWorkflowJobTemplate', () => {
+      beforeEach(() => {
+        jest.useRealTimers();
+      });
+      afterEach(() => {
+        jest.useFakeTimers();
+      });
+
+      it('waits until workflow job is successful', async () => {
+        jest.spyOn(client as any, 'sleep').mockResolvedValue(undefined);
+
+        jest
+          .spyOn(client, 'executeGetRequest')
+          .mockImplementation(async (path: string) => {
+            if (path.includes('workflow_job_templates/?')) {
+              return {
+                ok: true,
+                json: jest.fn().mockResolvedValue({
+                  results: [{ id: 99, name: 'wf' }],
+                }),
+              };
+            }
+            if (path.includes('/workflow_jobs/')) {
+              return {
+                ok: true,
+                json: jest
+                  .fn()
+                  .mockResolvedValue({ status: 'successful', id: 42 }),
+              };
+            }
+            throw new Error(`unexpected GET ${path}`);
+          });
+
+        jest.spyOn(client, 'executePostRequest').mockResolvedValue({
+          ok: true,
+          json: jest.fn().mockResolvedValue({ workflow_job: 42 }),
+        } as any);
+
+        const result = await client.launchWorkflowJobTemplate(
+          { template: 'wf', maxWaitSeconds: 3600 },
+          'token',
+        );
+
+        expect(result).toMatchObject({
+          id: 42,
+          status: 'successful',
+        });
+        expect(result.waitSkipped).toBeUndefined();
+      });
+
+      it('skips wait when maxWaitSeconds is 0', async () => {
+        jest.spyOn(client as any, 'sleep').mockResolvedValue(undefined);
+
+        jest.spyOn(client, 'executeGetRequest').mockResolvedValueOnce({
+          ok: true,
+          json: jest.fn().mockResolvedValue({
+            results: [{ id: 99, name: 'wf' }],
+          }),
+        } as any);
+
+        jest.spyOn(client, 'executePostRequest').mockResolvedValue({
+          ok: true,
+          json: jest.fn().mockResolvedValue({ workflow_job: 42 }),
+        } as any);
+
+        const result = await client.launchWorkflowJobTemplate(
+          { template: 'wf', maxWaitSeconds: 0 },
+          'token',
+        );
+
+        expect(result.waitSkipped).toBe(true);
+        expect(result.status).toBeUndefined();
+      });
+
+      it('throws when workflow finishes failed', async () => {
+        jest.spyOn(client as any, 'sleep').mockResolvedValue(undefined);
+
+        jest
+          .spyOn(client, 'executeGetRequest')
+          .mockImplementation(async (path: string) => {
+            if (path.includes('workflow_job_templates/?')) {
+              return {
+                ok: true,
+                json: jest.fn().mockResolvedValue({
+                  results: [{ id: 99, name: 'wf' }],
+                }),
+              };
+            }
+            return {
+              ok: true,
+              json: jest.fn().mockResolvedValue({ status: 'failed', id: 42 }),
+            };
+          });
+
+        jest.spyOn(client, 'executePostRequest').mockResolvedValue({
+          ok: true,
+          json: jest.fn().mockResolvedValue({ workflow_job: 42 }),
+        } as any);
+
+        await expect(
+          client.launchWorkflowJobTemplate(
+            { template: 'wf', maxWaitSeconds: 3600 },
+            'token',
+          ),
+        ).rejects.toThrow(/finished with status "failed"/);
+      });
+
+      it('defaults to waiting for success when maxWaitSeconds is omitted', async () => {
+        jest.spyOn(client as any, 'sleep').mockResolvedValue(undefined);
+
+        jest
+          .spyOn(client, 'executeGetRequest')
+          .mockImplementation(async (path: string) => {
+            if (path.includes('workflow_job_templates/?')) {
+              return {
+                ok: true,
+                json: jest.fn().mockResolvedValue({
+                  results: [{ id: 99, name: 'wf' }],
+                }),
+              };
+            }
+            if (path.includes('/workflow_jobs/')) {
+              return {
+                ok: true,
+                json: jest
+                  .fn()
+                  .mockResolvedValue({ status: 'successful', id: 42 }),
+              };
+            }
+            throw new Error(`unexpected GET ${path}`);
+          });
+
+        jest.spyOn(client, 'executePostRequest').mockResolvedValue({
+          ok: true,
+          json: jest.fn().mockResolvedValue({ workflow_job: 42 }),
+        } as any);
+
+        const result = await client.launchWorkflowJobTemplate(
+          { template: 'wf' },
+          'token',
+        );
+
+        expect(result.status).toBe('successful');
+        expect(result.id).toBe(42);
+      });
+
+      it('invokes onLaunched before wait completes', async () => {
+        const onLaunched = jest.fn();
+        jest.spyOn(client as any, 'sleep').mockResolvedValue(undefined);
+
+        jest
+          .spyOn(client, 'executeGetRequest')
+          .mockImplementation(async (path: string) => {
+            if (path.includes('workflow_job_templates/?')) {
+              return {
+                ok: true,
+                json: jest.fn().mockResolvedValue({
+                  results: [{ id: 99, name: 'wf' }],
+                }),
+              };
+            }
+            if (path.includes('/workflow_jobs/')) {
+              return {
+                ok: true,
+                json: jest
+                  .fn()
+                  .mockResolvedValue({ status: 'successful', id: 42 }),
+              };
+            }
+            throw new Error(`unexpected GET ${path}`);
+          });
+
+        jest.spyOn(client, 'executePostRequest').mockResolvedValue({
+          ok: true,
+          json: jest.fn().mockResolvedValue({ workflow_job: 42 }),
+        } as any);
+
+        await client.launchWorkflowJobTemplate(
+          { template: 'wf', maxWaitSeconds: 3600 },
+          'token',
+          onLaunched,
+        );
+
+        expect(onLaunched).toHaveBeenCalledWith({
+          id: 42,
+          url: expect.stringContaining('/execution/workflows/42'),
+        });
+      });
+    });
   });
 });

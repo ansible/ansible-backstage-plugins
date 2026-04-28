@@ -73,6 +73,7 @@ describe('self-service', () => {
       aap: {
         orgsUsersTeams: { lastSync: null },
         jobTemplates: { lastSync: null },
+        workflowJobTemplates: { lastSync: null },
       },
     });
 
@@ -166,6 +167,7 @@ describe('self-service', () => {
       aap: {
         orgsUsersTeams: { lastSync: null },
         jobTemplates: { lastSync: null },
+        workflowJobTemplates: { lastSync: null },
       },
     });
 
@@ -201,6 +203,7 @@ describe('self-service', () => {
       aap: {
         orgsUsersTeams: { lastSync: null },
         jobTemplates: { lastSync: null },
+        workflowJobTemplates: { lastSync: null },
       },
     });
 
@@ -251,6 +254,7 @@ describe('self-service', () => {
       aap: {
         orgsUsersTeams: { lastSync: null },
         jobTemplates: { lastSync: null },
+        workflowJobTemplates: { lastSync: null },
       },
     });
 
@@ -300,6 +304,7 @@ describe('self-service', () => {
       aap: {
         orgsUsersTeams: { lastSync: null },
         jobTemplates: { lastSync: null },
+        workflowJobTemplates: { lastSync: null },
       },
     });
 
@@ -346,6 +351,7 @@ describe('self-service', () => {
       aap: {
         orgsUsersTeams: { lastSync: null },
         jobTemplates: { lastSync: null },
+        workflowJobTemplates: { lastSync: null },
       },
     });
 
@@ -400,6 +406,7 @@ describe('self-service', () => {
       aap: {
         orgsUsersTeams: { lastSync: null },
         jobTemplates: { lastSync: null },
+        workflowJobTemplates: { lastSync: null },
       },
     });
 

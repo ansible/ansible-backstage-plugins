@@ -3926,4 +3926,118 @@ describe('createRouter', () => {
       expect(response.body.results).toHaveLength(2);
     });
   });
+
+  describe('Ansible AAP workflow proxy', () => {
+    let ansibleApp: express.Express;
+    let mockAnsibleService: {
+      getWorkflowJobDetail: jest.Mock;
+      listWorkflowJobNodes: jest.Mock;
+      listWorkflowJobTemplateNodes: jest.Mock;
+      getJobStdoutText: jest.Mock;
+    };
+
+    beforeEach(async () => {
+      mockAnsibleService = {
+        getWorkflowJobDetail: jest
+          .fn()
+          .mockResolvedValue({ id: 42, status: 'running' }),
+        listWorkflowJobNodes: jest.fn().mockResolvedValue([
+          {
+            id: 1,
+            success_nodes: [],
+            summary_fields: {
+              unified_job_template: { name: 'Ping' },
+            },
+          },
+        ]),
+        listWorkflowJobTemplateNodes: jest.fn().mockResolvedValue([
+          {
+            id: 10,
+            success_nodes: [],
+            summary_fields: {
+              unified_job_template: { name: 'Template ping' },
+            },
+          },
+        ]),
+        getJobStdoutText: jest.fn().mockResolvedValue('line1\n'),
+      };
+
+      const router = await createRouter({
+        logger: mockLogger,
+        config: mockConfig,
+        aapEntityProvider: mockAAPEntityProvider,
+        jobTemplateProvider: mockJobTemplateProvider,
+        eeEntityProvider: mockEEEntityProvider,
+        pahCollectionProviders: [mockPAHCollectionProvider],
+        httpAuth: mockHttpAuth,
+        userInfo: mockUserInfo,
+        auth: mockAuth,
+        catalogClient: mockCatalogClient,
+        permissions: mockPermissions,
+        ansibleGitContentsProviders: [],
+        ansibleService: mockAnsibleService as any,
+      });
+      ansibleApp = express().use(router);
+    });
+
+    it('proxies workflow job detail', async () => {
+      const res = await request(ansibleApp)
+        .get('/ansible/aap/workflow-jobs/42')
+        .set('X-AAP-Bearer-Token', 'tok');
+
+      expect(res.status).toBe(200);
+      expect(res.body).toMatchObject({ id: 42 });
+      expect(mockAnsibleService.getWorkflowJobDetail).toHaveBeenCalledWith(
+        42,
+        'tok',
+      );
+    });
+
+    it('returns 400 without AAP token header', async () => {
+      const res = await request(ansibleApp).get(
+        '/ansible/aap/workflow-jobs/42',
+      );
+
+      expect(res.status).toBe(400);
+      expect(mockAnsibleService.getWorkflowJobDetail).not.toHaveBeenCalled();
+    });
+
+    it('proxies workflow_nodes list', async () => {
+      const res = await request(ansibleApp)
+        .get('/ansible/aap/workflow-jobs/42/workflow_nodes')
+        .set('X-AAP-Bearer-Token', 'tok');
+
+      expect(res.status).toBe(200);
+      expect(res.body.results).toHaveLength(1);
+      expect(mockAnsibleService.listWorkflowJobNodes).toHaveBeenCalledWith(
+        42,
+        'tok',
+      );
+    });
+
+    it('proxies WFJT workflow_nodes list', async () => {
+      const res = await request(ansibleApp)
+        .get('/ansible/aap/workflow-job-templates/7/workflow_nodes')
+        .set('X-AAP-Bearer-Token', 'tok');
+
+      expect(res.status).toBe(200);
+      expect(res.body.results).toHaveLength(1);
+      expect(
+        mockAnsibleService.listWorkflowJobTemplateNodes,
+      ).toHaveBeenCalledWith(7, 'tok');
+    });
+
+    it('proxies job stdout as text', async () => {
+      const res = await request(ansibleApp)
+        .get('/ansible/aap/jobs/99/stdout')
+        .set('X-AAP-Bearer-Token', 'tok');
+
+      expect(res.status).toBe(200);
+      expect(res.text).toBe('line1\n');
+      expect(mockAnsibleService.getJobStdoutText).toHaveBeenCalledWith(
+        99,
+        'tok',
+      );
+    });
+  });
 });

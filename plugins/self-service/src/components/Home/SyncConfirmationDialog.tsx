@@ -18,6 +18,10 @@ const options = [
     label: 'Job Templates',
     value: 'templates',
   },
+  {
+    label: 'Workflow job templates',
+    value: 'workflowJobTemplates',
+  },
 ];
 
 export interface SyncConfirmationDialogProps {
@@ -28,6 +32,7 @@ export interface SyncConfirmationDialogProps {
   syncStatus?: {
     orgsUsersTeams: { lastSync: string | null };
     jobTemplates: { lastSync: string | null };
+    workflowJobTemplates?: { lastSync: string | null };
   };
   onClose: (value?: string[]) => void;
 }
@@ -64,7 +69,9 @@ export const SyncConfirmationDialog = (props: SyncConfirmationDialogProps) => {
           const lastSync =
             option.value === 'orgsUsersTeams'
               ? syncStatus?.orgsUsersTeams.lastSync
-              : syncStatus?.jobTemplates.lastSync;
+              : option.value === 'templates'
+                ? syncStatus?.jobTemplates.lastSync
+                : (syncStatus?.workflowJobTemplates?.lastSync ?? null);
 
           return (
             <div
