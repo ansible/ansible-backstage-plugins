@@ -78,7 +78,7 @@ describe('AAPEntityProvider', () => {
       kind: 'Group',
       metadata: {
         namespace: 'default',
-        name: 'default',
+        name: 'aap-default',
         title: 'Default',
         annotations: {
           'backstage.io/managed-by-location':
@@ -847,6 +847,454 @@ describe('AAPEntityProvider', () => {
         ],
         removed: [],
       });
+    });
+  });
+
+  describe('multi-org support', () => {
+    const MULTI_ORG_CONFIG = {
+      data: {
+        catalog: {
+          providers: {
+            rhaap: {
+              development: {
+                orgs: 'Default, Engineering',
+                sync: {
+                  orgsUsersTeams: {
+                    schedule: {
+                      frequency: 'P1M',
+                      timeout: 'PT3M',
+                    },
+                  },
+                },
+              },
+            },
+          },
+        },
+        ansible: {
+          rhaap: {
+            baseUrl: 'https://rhaap.test',
+            token: 'testtoken',
+            checkSSL: false,
+          },
+        },
+      },
+    };
+
+    const NO_ORG_CONFIG = {
+      data: {
+        catalog: {
+          providers: {
+            rhaap: {
+              development: {
+                sync: {
+                  orgsUsersTeams: {
+                    schedule: {
+                      frequency: 'P1M',
+                      timeout: 'PT3M',
+                    },
+                  },
+                },
+              },
+            },
+          },
+        },
+        ansible: {
+          rhaap: {
+            baseUrl: 'https://rhaap.test',
+            token: 'testtoken',
+            checkSSL: false,
+          },
+        },
+      },
+    };
+
+    it('should skip sync and log warning when no orgs are configured', async () => {
+      const config = new ConfigReader(NO_ORG_CONFIG.data);
+      const logger = mockServices.logger.mock();
+      const schedule = new PersistingTaskRunner();
+
+      const provider = AAPEntityProvider.fromConfig(
+        config,
+        mockAnsibleService,
+        { schedule, logger },
+      )[0];
+
+      const entityProviderConnection: EntityProviderConnection = {
+        applyMutation: jest.fn(),
+        refresh: jest.fn(),
+      };
+
+      await provider.connect(entityProviderConnection);
+      const taskDef = schedule.getTasks()[0];
+      await (taskDef.fn as () => Promise<void>)();
+
+      expect(entityProviderConnection.applyMutation).not.toHaveBeenCalled();
+      expect(mockAnsibleService.getOrganizations).not.toHaveBeenCalled();
+    });
+
+    it('should filter to only configured organizations', async () => {
+      const config = new ConfigReader(MULTI_ORG_CONFIG.data);
+      const logger = mockServices.logger.mock();
+      const schedule = new PersistingTaskRunner();
+
+      mockAnsibleService.getOrganizations.mockResolvedValue([
+        {
+          organization: { id: 1, name: 'Default' },
+          teams: [],
+          users: [],
+        },
+        {
+          organization: { id: 2, name: 'Engineering' },
+          teams: [],
+          users: [],
+        },
+        {
+          organization: { id: 3, name: 'Finance' },
+          teams: [],
+          users: [],
+        },
+      ] as any);
+      mockAnsibleService.getUserRoleAssignments.mockResolvedValue({});
+      mockAnsibleService.listSystemUsers.mockResolvedValue([]);
+
+      const provider = AAPEntityProvider.fromConfig(
+        config,
+        mockAnsibleService,
+        { schedule, logger },
+      )[0];
+
+      const entityProviderConnection: EntityProviderConnection = {
+        applyMutation: jest.fn(),
+        refresh: jest.fn(),
+      };
+
+      await provider.connect(entityProviderConnection);
+      const taskDef = schedule.getTasks()[0];
+      await (taskDef.fn as () => Promise<void>)();
+
+      expect(entityProviderConnection.applyMutation).toHaveBeenCalledWith(
+        expect.objectContaining({
+          type: 'full',
+          entities: expect.arrayContaining([
+            expect.objectContaining({
+              entity: expect.objectContaining({
+                kind: 'Group',
+                metadata: expect.objectContaining({
+                  name: 'aap-default',
+                  title: 'Default',
+                }),
+              }),
+            }),
+            expect.objectContaining({
+              entity: expect.objectContaining({
+                kind: 'Group',
+                metadata: expect.objectContaining({
+                  name: 'engineering',
+                  title: 'Engineering',
+                }),
+              }),
+            }),
+          ]),
+        }),
+      );
+
+      // Finance org should NOT be in the entities
+      const call = (entityProviderConnection.applyMutation as jest.Mock).mock
+        .calls[0][0];
+      const entityNames = call.entities.map(
+        (e: any) => e.entity.metadata?.name,
+      );
+      expect(entityNames).not.toContain('finance');
+    });
+
+    it('should use org-specific namespaces in multi-org mode', async () => {
+      const config = new ConfigReader(MULTI_ORG_CONFIG.data);
+      const logger = mockServices.logger.mock();
+      const schedule = new PersistingTaskRunner();
+
+      mockAnsibleService.getOrganizations.mockResolvedValue([
+        {
+          organization: { id: 1, name: 'Default' },
+          teams: [
+            {
+              id: 10,
+              organization: 1,
+              name: 'Team Alpha',
+              groupName: 'team-alpha',
+              description: '',
+            },
+          ],
+          users: [],
+        },
+        {
+          organization: { id: 2, name: 'Engineering' },
+          teams: [
+            {
+              id: 20,
+              organization: 2,
+              name: 'Team Beta',
+              groupName: 'team-beta',
+              description: '',
+            },
+          ],
+          users: [],
+        },
+      ] as any);
+      mockAnsibleService.getUserRoleAssignments.mockResolvedValue({});
+      mockAnsibleService.listSystemUsers.mockResolvedValue([]);
+
+      const provider = AAPEntityProvider.fromConfig(
+        config,
+        mockAnsibleService,
+        { schedule, logger },
+      )[0];
+
+      const entityProviderConnection: EntityProviderConnection = {
+        applyMutation: jest.fn(),
+        refresh: jest.fn(),
+      };
+
+      await provider.connect(entityProviderConnection);
+      const taskDef = schedule.getTasks()[0];
+      await (taskDef.fn as () => Promise<void>)();
+
+      const call = (entityProviderConnection.applyMutation as jest.Mock).mock
+        .calls[0][0];
+      const groups = call.entities
+        .filter((e: any) => e.entity.kind === 'Group' && e.entity.spec?.type !== 'team')
+        .map((e: any) => ({
+          name: e.entity.metadata.name,
+          namespace: e.entity.metadata.namespace,
+        }));
+
+      // Default org → aap-default namespace, Engineering org → engineering namespace
+      expect(groups).toContainEqual({
+        name: 'aap-default',
+        namespace: 'aap-default',
+      });
+      expect(groups).toContainEqual({
+        name: 'engineering',
+        namespace: 'engineering',
+      });
+
+      // Teams should be in their org's namespace
+      const teams = call.entities
+        .filter((e: any) => e.entity.spec?.type === 'team' && e.entity.metadata.name !== 'aap-admins')
+        .map((e: any) => ({
+          name: e.entity.metadata.name,
+          namespace: e.entity.metadata.namespace,
+        }));
+
+      expect(teams).toContainEqual({
+        name: 'team-alpha',
+        namespace: 'aap-default',
+      });
+      expect(teams).toContainEqual({
+        name: 'team-beta',
+        namespace: 'engineering',
+      });
+    });
+
+    it('should add org annotation and display name suffix in multi-org mode', async () => {
+      const config = new ConfigReader(MULTI_ORG_CONFIG.data);
+      const logger = mockServices.logger.mock();
+      const schedule = new PersistingTaskRunner();
+
+      mockAnsibleService.getOrganizations.mockResolvedValue([
+        {
+          organization: { id: 1, name: 'Default' },
+          teams: [
+            {
+              id: 10,
+              organization: 1,
+              name: 'Team Alpha',
+              groupName: 'team-alpha',
+              description: '',
+            },
+          ],
+          users: [],
+        },
+        {
+          organization: { id: 2, name: 'Engineering' },
+          teams: [],
+          users: [],
+        },
+      ] as any);
+      mockAnsibleService.getUserRoleAssignments.mockResolvedValue({});
+      mockAnsibleService.listSystemUsers.mockResolvedValue([]);
+
+      const provider = AAPEntityProvider.fromConfig(
+        config,
+        mockAnsibleService,
+        { schedule, logger },
+      )[0];
+
+      const entityProviderConnection: EntityProviderConnection = {
+        applyMutation: jest.fn(),
+        refresh: jest.fn(),
+      };
+
+      await provider.connect(entityProviderConnection);
+      const taskDef = schedule.getTasks()[0];
+      await (taskDef.fn as () => Promise<void>)();
+
+      const call = (entityProviderConnection.applyMutation as jest.Mock).mock
+        .calls[0][0];
+
+      // Team should have org annotation and [OrgName] suffix
+      const teamAlpha = call.entities.find(
+        (e: any) => e.entity.metadata?.name === 'team-alpha',
+      );
+      expect(teamAlpha.entity.metadata.annotations).toHaveProperty(
+        ['ansible.com/organization'],
+        'Default',
+      );
+      expect(teamAlpha.entity.metadata.title).toBe('Team Alpha [Default]');
+
+      // Org group should have org annotation
+      const engOrg = call.entities.find(
+        (e: any) => e.entity.metadata?.name === 'engineering',
+      );
+      expect(engOrg.entity.metadata.annotations).toHaveProperty(
+        ['ansible.com/organization'],
+        'Engineering',
+      );
+    });
+
+    it('should use full entity refs for cross-namespace user membership', async () => {
+      const config = new ConfigReader(MULTI_ORG_CONFIG.data);
+      const logger = mockServices.logger.mock();
+      const schedule = new PersistingTaskRunner();
+
+      mockAnsibleService.getOrganizations.mockResolvedValue([
+        {
+          organization: { id: 1, name: 'Default' },
+          teams: [
+            {
+              id: 10,
+              organization: 1,
+              name: 'Team Alpha',
+              groupName: 'team-alpha',
+              description: '',
+            },
+          ],
+          users: [
+            {
+              id: 100,
+              username: 'alice',
+              first_name: 'Alice',
+              last_name: 'Smith',
+              email: 'alice@test.com',
+              is_superuser: false,
+            },
+          ],
+        },
+        {
+          organization: { id: 2, name: 'Engineering' },
+          teams: [
+            {
+              id: 20,
+              organization: 2,
+              name: 'Team Beta',
+              groupName: 'team-beta',
+              description: '',
+            },
+          ],
+          users: [],
+        },
+      ] as any);
+      mockAnsibleService.getUserRoleAssignments.mockResolvedValue({});
+      mockAnsibleService.listSystemUsers.mockResolvedValue([]);
+
+      // Alice is in team-alpha (Default org)
+      mockAnsibleService.getTeamsByUserId.mockResolvedValue([
+        { id: 10, name: 'Team Alpha', groupName: 'team-alpha', orgId: 1, orgName: 'Default' },
+      ] as any);
+
+      const provider = AAPEntityProvider.fromConfig(
+        config,
+        mockAnsibleService,
+        { schedule, logger },
+      )[0];
+
+      const entityProviderConnection: EntityProviderConnection = {
+        applyMutation: jest.fn(),
+        refresh: jest.fn(),
+      };
+
+      await provider.connect(entityProviderConnection);
+      const taskDef = schedule.getTasks()[0];
+      await (taskDef.fn as () => Promise<void>)();
+
+      const call = (entityProviderConnection.applyMutation as jest.Mock).mock
+        .calls[0][0];
+
+      // User stays in default namespace
+      const alice = call.entities.find(
+        (e: any) =>
+          e.entity.kind === 'User' && e.entity.metadata?.name === 'alice',
+      );
+      expect(alice.entity.metadata.namespace).toBe('default');
+
+      // Membership refs use full entity refs (cross-namespace)
+      expect(alice.entity.spec.memberOf).toContain(
+        'group:aap-default/team-alpha',
+      );
+    });
+
+    it('should use full user refs in org member lists in multi-org mode', async () => {
+      const config = new ConfigReader(MULTI_ORG_CONFIG.data);
+      const logger = mockServices.logger.mock();
+      const schedule = new PersistingTaskRunner();
+
+      mockAnsibleService.getOrganizations.mockResolvedValue([
+        {
+          organization: { id: 1, name: 'Default' },
+          teams: [],
+          users: [
+            {
+              id: 100,
+              username: 'alice',
+              first_name: 'Alice',
+              last_name: 'Smith',
+              email: 'alice@test.com',
+              is_superuser: false,
+            },
+          ],
+        },
+        {
+          organization: { id: 2, name: 'Engineering' },
+          teams: [],
+          users: [],
+        },
+      ] as any);
+      mockAnsibleService.getUserRoleAssignments.mockResolvedValue({});
+      mockAnsibleService.listSystemUsers.mockResolvedValue([]);
+      mockAnsibleService.getTeamsByUserId.mockResolvedValue([]);
+
+      const provider = AAPEntityProvider.fromConfig(
+        config,
+        mockAnsibleService,
+        { schedule, logger },
+      )[0];
+
+      const entityProviderConnection: EntityProviderConnection = {
+        applyMutation: jest.fn(),
+        refresh: jest.fn(),
+      };
+
+      await provider.connect(entityProviderConnection);
+      const taskDef = schedule.getTasks()[0];
+      await (taskDef.fn as () => Promise<void>)();
+
+      const call = (entityProviderConnection.applyMutation as jest.Mock).mock
+        .calls[0][0];
+
+      // Org members should use full entity refs since users are in default namespace
+      const defaultOrg = call.entities.find(
+        (e: any) => e.entity.metadata?.name === 'aap-default',
+      );
+      expect(defaultOrg.entity.spec.members).toContain('user:default/alice');
     });
   });
 });

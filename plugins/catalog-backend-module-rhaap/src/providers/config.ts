@@ -50,11 +50,11 @@ function readAapApiEntityConfig(
       organizations = catalogConfig
         .getString('orgs')
         .split(',')
-        .map(o => o.toLocaleLowerCase());
+        .map(o => o.trim().toLocaleLowerCase());
   } catch (error) {
     organizations = catalogConfig
       .getStringArray('orgs')
-      .map(o => o.toLocaleLowerCase());
+      .map(o => o.trim().toLocaleLowerCase());
   }
   let surveyEnabled: boolean | undefined = undefined;
   let jobTemplateLabels: string[] = [];

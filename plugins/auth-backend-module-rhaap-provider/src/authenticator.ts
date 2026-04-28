@@ -6,6 +6,7 @@ import {
   PassportProfile,
 } from '@backstage/plugin-auth-node';
 import { IAAPService } from '@ansible/backstage-rhaap-common';
+import { AuthenticationError } from '@backstage/errors';
 
 /** @public */
 export interface AAPAuthenticatorContext {
@@ -103,9 +104,23 @@ export const aapAuthAuthenticator = (aapService: IAAPService) =>
         refreshToken: input.refreshToken,
       });
 
-      const fullProfile = await aapService.fetchProfile(
-        result.session.accessToken,
-      );
+      // Validate AAP session: if the user has been logged out of AAP
+      // (token revoked, user deactivated), fetchProfile will fail with
+      // a 401 from /api/gateway/v1/me/ — triggering Portal logout.
+      let fullProfile;
+      try {
+        fullProfile = await aapService.fetchProfile(
+          result.session.accessToken,
+        );
+      } catch (error) {
+        if (error instanceof AuthenticationError) {
+          throw new AuthenticationError(
+            'AAP session is no longer valid. The user may have been logged out ' +
+              'of AAP or the token was revoked. Portal session will be terminated.',
+          );
+        }
+        throw error;
+      }
       return { ...result, fullProfile };
     },
 
