@@ -62,7 +62,7 @@ function warnFailure(message: string, errorMessage: string): void {
 }
 
 interface FetchWithRetryResult {
-  userEntity?: Entity | undefined;
+  userEntity?: Entity;
   lastError?: Error;
 }
 
