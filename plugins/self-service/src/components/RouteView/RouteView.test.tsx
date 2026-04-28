@@ -107,6 +107,10 @@ jest.mock('../notifications', () => ({
   },
 }));
 
+jest.mock('../../hooks', () => ({
+  useIsSuperuser: () => ({ isSuperuser: true, loading: false, error: null }),
+}));
+
 jest.mock('@backstage/core-plugin-api', () => ({
   ...jest.requireActual('@backstage/core-plugin-api'),
   useApi: () => ({
