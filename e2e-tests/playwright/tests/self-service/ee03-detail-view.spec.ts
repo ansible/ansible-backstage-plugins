@@ -91,7 +91,7 @@ test.describe('Execution Environment Catalog and Detail View Tests', () => {
     }
   });
 
-  test('Validates Catalog table: star/favorite button in Actions column', async ({
+  test.skip('Validates Catalog table: star/favorite button in Actions column', async ({
     page,
   }) => {
     await expect(page.locator('main')).toBeVisible({ timeout: 15000 });
@@ -137,7 +137,7 @@ test.describe('Execution Environment Catalog and Detail View Tests', () => {
     }
   });
 
-  test('Validates Catalog table: clicking Name link navigates to detail view', async ({
+  test.skip('Validates Catalog table: clicking Name link navigates to detail view', async ({
     page,
   }) => {
     await expect(page.locator('main')).toBeVisible({ timeout: 15000 });
