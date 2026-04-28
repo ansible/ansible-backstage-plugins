@@ -1139,8 +1139,21 @@ async function patchWorkflowEeDir(
     `$1"${contextDirName}"`,
   );
 
-  if (patched !== content) {
-    await fs.writeFile(workflowPath, patched);
+  // Avoid a greedy `.*` before `||` (super-linear backtracking risk): split
+  // into lines, identify the EE_DIR line with a simple anchored test, then do
+  // a narrow literal substitution only on that line.
+  const patchedWithEeDir = patched
+    .split('\n')
+    .map(line => {
+      if (!/^\s+EE_DIR:\s/.test(line)) {
+        return line;
+      }
+      return line.replace(/'\.'\s*(\}\})/, `'${contextDirName}' $1`);
+    })
+    .join('\n');
+
+  if (patchedWithEeDir !== content) {
+    await fs.writeFile(workflowPath, patchedWithEeDir);
   }
 }
 
