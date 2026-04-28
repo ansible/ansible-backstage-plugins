@@ -466,6 +466,24 @@ export const RunTask = () => {
     );
   }
 
+  const filteredLinks =
+    output?.links?.filter(link => {
+      if ('if' in link && link.if === false) return false;
+      if ('entityRef' in link)
+        return !!link.entityRef && link.entityRef.trim() !== '';
+      if ('url' in link) {
+        const url = link.url;
+        return !!url && url !== '#' && url.trim() !== '';
+      }
+      return false;
+    }) ?? [];
+  const textButtonCount =
+    completed && !error && output?.text && output.text.length > 0
+      ? output.text.length
+      : 0;
+  const totalButtonCount =
+    filteredLinks.length + (showDownloadButton ? 1 : 0) + textButtonCount;
+
   return (
     <Page themeId="tool">
       <Header
@@ -518,9 +536,10 @@ export const RunTask = () => {
             <Box flex={1} />
 
             <Box
+              data-testid="button-row"
               display="flex"
               flexWrap="wrap"
-              justifyContent="flex-start"
+              justifyContent={totalButtonCount === 1 ? 'flex-start' : 'center'}
               style={{
                 gap: '8px',
                 flexShrink: 1,
@@ -530,53 +549,45 @@ export const RunTask = () => {
                 marginRight: '50px',
               }}
             >
-              {output?.links
-                ?.filter(link => {
-                  if ('if' in link && link.if === false) {
-                    return false;
-                  }
-                  if ('entityRef' in link) {
-                    return !!link.entityRef && link.entityRef.trim() !== '';
-                  }
-                  if ('url' in link) {
-                    const url = link.url;
-                    return !!url && url !== '#' && url.trim() !== '';
-                  }
-                  return false;
-                })
-                ?.map((link, index) => {
-                  if ('entityRef' in link && link.entityRef) {
-                    const entityRef = link.entityRef;
-                    return (
-                      <Button
-                        key={entityRef || link.title || `link-${index}`}
-                        onClick={() => handleEntityLinkClick(entityRef)}
-                        variant="contained"
-                        style={{
-                          flex: '0 0 calc(33.333% - 6px)',
-                          maxWidth: 'calc(33.333% - 6px)',
-                        }}
-                      >
-                        {link.title}
-                      </Button>
-                    );
-                  }
+              {/* 8.333% = 100%/12: one column in a 12-column grid, used to nudge the single button away from the far left */}
+              {totalButtonCount === 1 && (
+                <Box
+                  data-testid="single-button-spacer"
+                  style={{ flex: '0 0 8.333%' }}
+                />
+              )}
+              {filteredLinks.map((link, index) => {
+                const sharedButtonProps = {
+                  variant: 'contained' as const,
+                  style: {
+                    flex: '0 0 calc(33.333% - 6px)',
+                    maxWidth: 'calc(33.333% - 6px)',
+                  },
+                };
+                if ('entityRef' in link && link.entityRef) {
+                  const entityRef = link.entityRef;
                   return (
                     <Button
-                      key={link.url || link.title || `link-${index}`}
-                      href={link.url ?? '#'}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      variant="contained"
-                      style={{
-                        flex: '0 0 calc(33.333% - 6px)',
-                        maxWidth: 'calc(33.333% - 6px)',
-                      }}
+                      key={entityRef || link.title || `link-${index}`}
+                      onClick={() => handleEntityLinkClick(entityRef)}
+                      {...sharedButtonProps}
                     >
                       {link.title}
                     </Button>
                   );
-                })}
+                }
+                return (
+                  <Button
+                    key={link.url || link.title || `link-${index}`}
+                    href={link.url ?? '#'}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    {...sharedButtonProps}
+                  >
+                    {link.title}
+                  </Button>
+                );
+              })}
               {showDownloadButton && (
                 <Button
                   onClick={handleDownloadArchive}
