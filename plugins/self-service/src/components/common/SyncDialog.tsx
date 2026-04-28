@@ -51,12 +51,12 @@ type AnsibleSyncPostResult = {
 
 function labelForSyncPostResult(r: AnsibleSyncPostResult): string {
   if (typeof r.repositoryName === 'string' && r.repositoryName.length > 0) {
-    return `PAH/${r.repositoryName}`;
+    return `PAH:${r.repositoryName}`;
   }
   const parts = [r.scmProvider, r.hostName, r.organization].filter(
     (p): p is string => typeof p === 'string' && p.length > 0,
   );
-  return parts.length > 0 ? parts.join('/') : 'Unknown source';
+  return parts.length > 0 ? parts.join(':') : 'Unknown source';
 }
 
 function formatSyncPostFailureDetail(
@@ -473,7 +473,7 @@ export const SyncDialog = ({
   };
 
   const getHostDisplayName = (provider: string, host: string): string => {
-    return provider === 'pah' ? `PAH/${host}` : host;
+    return provider === 'pah' ? `PAH:${host}` : host;
   };
 
   const collectSelectedNamesForHost = (
@@ -493,7 +493,7 @@ export const SyncDialog = ({
 
     for (const org of orgs) {
       if (selectedItems.has(`${provider}:${host}:${org}`)) {
-        names.push(`${host}/${org}`);
+        names.push(`${host}:${org}`);
       }
     }
     return names;
@@ -560,7 +560,7 @@ export const SyncDialog = ({
 
   const getFilterDisplayName = (filter: SyncFilter): string => {
     if (filter.organization && filter.hostName) {
-      return `${filter.hostName}/${filter.organization}`;
+      return `${filter.hostName}:${filter.organization}`;
     }
     if (filter.hostName) {
       return filter.hostName;
@@ -577,7 +577,7 @@ export const SyncDialog = ({
     sourceId: p.sourceId,
     displayName:
       p.hostName && p.organization
-        ? `${p.hostName}/${p.organization}`
+        ? `${p.hostName}:${p.organization}`
         : (p.hostName ?? p.repository ?? p.scmProvider ?? p.sourceId),
     lastSyncTime: p.lastSyncTime ?? null,
     lastSyncStatus: p.lastSyncStatus ?? null,
@@ -614,17 +614,18 @@ export const SyncDialog = ({
       run: () => Promise<void>;
     }> = [];
 
-    pahFilters.forEach(filter => {
+    for (const filter of pahFilters) {
       const repositoryName = filter.organization;
       if (repositoryName) {
+        // Individual PAH repository selected.
         const provider = findProviderForSelection('pah', repositoryName);
         syncJobs.push({
-          displayName: `PAH/${repositoryName}`,
+          displayName: `PAH:${repositoryName}`,
           tracking: provider
             ? [
                 {
                   sourceId: provider.sourceId,
-                  displayName: `PAH/${repositoryName}`,
+                  displayName: `PAH:${repositoryName}`,
                   lastSyncTime: provider.lastSyncTime,
                   lastSyncStatus: provider.lastSyncStatus ?? null,
                   lastFailedSyncTime: provider.lastFailedSyncTime ?? null,
@@ -633,14 +634,35 @@ export const SyncDialog = ({
             : [],
           run: () => syncPahSource(baseUrl, repositoryName),
         });
+      } else {
+        // PAH provider-level selected: sync every repository individually since
+        // the PAH POST endpoint requires an explicit repository_name per request.
+        for (const p of providers.filter(prov => prov.repository)) {
+          const repoName = p.repository!;
+          syncJobs.push({
+            displayName: `PAH:${repoName}`,
+            tracking: [
+              {
+                sourceId: p.sourceId,
+                displayName: `PAH:${repoName}`,
+                lastSyncTime: p.lastSyncTime,
+                lastSyncStatus: p.lastSyncStatus ?? null,
+                lastFailedSyncTime: p.lastFailedSyncTime ?? null,
+              },
+            ],
+            run: () => syncPahSource(baseUrl, repoName),
+          });
+        }
       }
-    });
+    }
 
     scmFilters.forEach(filter => {
       if (!filter.scmProvider) {
         return;
       }
       if (!filter.hostName) {
+        // Provider-only selection: one POST, one tracking entry per org under
+        // this provider.
         const tracking = providers
           .filter(p => p.scmProvider === filter.scmProvider)
           .map(startedSyncInfoFromCatalogProvider);
@@ -651,6 +673,25 @@ export const SyncDialog = ({
         });
         return;
       }
+      if (!filter.organization) {
+        // Host-level selection: one POST covers all orgs under this host, but
+        // each org gets its own tracking entry so the popover and toasts report
+        // per-source outcomes (e.g. "github-public/org1", "github-public/org2").
+        const tracking = providers
+          .filter(
+            p =>
+              p.scmProvider === filter.scmProvider &&
+              p.hostName === filter.hostName,
+          )
+          .map(startedSyncInfoFromCatalogProvider);
+        syncJobs.push({
+          displayName: filter.hostName,
+          tracking,
+          run: () => syncScmSource(baseUrl, filter),
+        });
+        return;
+      }
+      // Leaf-org selection: one POST, one tracking entry for the specific org.
       const provider = findProviderForSelection(
         filter.scmProvider,
         filter.hostName,

@@ -65,7 +65,7 @@ jest.mock('../common', () => ({
             onSyncsStarted?.([
               {
                 sourceId: 'src-1',
-                displayName: 'github.com/org1',
+                displayName: 'github.com:org1',
                 lastSyncTime: null,
                 lastSyncStatus: null,
                 lastFailedSyncTime: null,
@@ -282,7 +282,7 @@ describe('GitRepositoriesPage', () => {
     expect(mockStartTracking).toHaveBeenCalledWith([
       {
         sourceId: 'src-1',
-        displayName: 'github.com/org1',
+        displayName: 'github.com:org1',
         lastSyncTime: null,
         lastSyncStatus: null,
         lastFailedSyncTime: null,
