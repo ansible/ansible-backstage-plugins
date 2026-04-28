@@ -338,17 +338,14 @@ export const CollectionsPickerExtension = ({
   }, [selectedCollection, selectedSource, fetchVersions]);
 
   const handleAddCollection = () => {
-    if (!selectedCollection?.trim()) {
+    if (!selectedCollection?.trim() || !selectedSource?.trim()) {
       return;
     }
 
     const collectionToAdd: CollectionItem = {
       name: selectedCollection.trim(),
+      source: selectedSource,
     };
-
-    if (selectedSource) {
-      collectionToAdd.source = selectedSource;
-    }
 
     if (selectedVersion) {
       collectionToAdd.version = selectedVersion;
@@ -392,7 +389,8 @@ export const CollectionsPickerExtension = ({
     setEditingIndex(index);
   };
 
-  const isAddButtonDisabled = !selectedCollection?.trim() || disabled;
+  const isAddButtonDisabled =
+    !selectedCollection?.trim() || !selectedSource?.trim() || disabled;
 
   const versionAutocompleteValue = useMemo(():
     | VersionOption
@@ -489,6 +487,7 @@ export const CollectionsPickerExtension = ({
                 label="Source"
                 placeholder="Select source"
                 variant="outlined"
+                required
                 className={classes.inputField}
                 InputProps={{
                   ...params.InputProps,
