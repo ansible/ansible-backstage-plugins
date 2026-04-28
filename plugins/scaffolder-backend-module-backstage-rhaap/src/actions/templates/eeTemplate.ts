@@ -92,12 +92,12 @@ spec:
             specifyRequirements:
               title: Customize additional Python requirements and System packages
               type: boolean
-              default: false
+              default: ${!!((values.pythonRequirements && values.pythonRequirements.length > 0) || (values.systemPackages && values.systemPackages.length > 0))}
               ui:help: "Check this box to define additional Python or system dependencies to include in your EE."
             addBuildSteps:
               title: "Include additional build steps"
               type: boolean
-              default: false
+              default: ${!!(values.additionalBuildSteps && values.additionalBuildSteps.length > 0)}
               ui:help: "Check this box to add custom build steps that will be executed at specific points during the build process. These map to ansible-builder's additional_build_steps configuration (optional step)."
           dependencies:
             specifyRequirements:
