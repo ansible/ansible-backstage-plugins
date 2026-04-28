@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import React, { useEffect } from 'react';
 import { Route, Routes, Navigate, Outlet, useLocation } from 'react-router-dom';
 import { RequirePermission } from '@backstage/plugin-permission-react';
 import { catalogEntityCreatePermission } from '@backstage/plugin-catalog-common/alpha';
@@ -17,6 +17,7 @@ import {
 
 import { HomeComponent } from '../Home';
 import { CatalogImport } from '../CatalogImport';
+import { useIsSuperuser } from '../../hooks';
 import { CreateTask } from '../CreateTask';
 import { RunTask } from '../RunTask';
 import { FeedbackFooter } from '../feedback/FeedbackFooter';
@@ -34,6 +35,13 @@ import {
   useNotifications,
   syncPollingService,
 } from '../notifications';
+
+const RequireSuperuser = ({ children }: { children: React.ReactNode }) => {
+  const { isSuperuser, loading } = useIsSuperuser();
+  if (loading) return null;
+  if (!isSuperuser) return <Navigate to="/self-service/catalog" replace />;
+  return <>{children}</>;
+};
 
 const RouteViewContent = () => {
   const { notifications, removeNotification } = useNotifications();
@@ -69,7 +77,9 @@ const RouteViewContent = () => {
           path="catalog-import"
           element={
             <RequirePermission permission={catalogEntityCreatePermission}>
-              <CatalogImport />
+              <RequireSuperuser>
+                <CatalogImport />
+              </RequireSuperuser>
             </RequirePermission>
           }
         />

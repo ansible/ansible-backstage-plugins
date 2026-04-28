@@ -195,8 +195,10 @@ export const HomeComponent = () => {
 
   const { loading: checkingCatalogCreate, allowed: canCreateCatalogEntity } =
     usePermission({ permission: catalogEntityCreatePermission });
-  const showAddTemplate = checkingCatalogCreate || canCreateCatalogEntity;
-  const addTemplateDisabled = checkingCatalogCreate;
+  const addTemplateAllowed = isSuperuser && canCreateCatalogEntity;
+  const checkingAddTemplate = checkingSuperuser || checkingCatalogCreate;
+  const showAddTemplate = checkingAddTemplate || addTemplateAllowed;
+  const addTemplateDisabled = checkingAddTemplate;
   const [open, setOpen] = useState(false);
   const [syncOptions, setSyncOptions] = useState<string[]>([]);
   const [showSnackbar, setShowSnackbar] = useState<boolean>(false);
