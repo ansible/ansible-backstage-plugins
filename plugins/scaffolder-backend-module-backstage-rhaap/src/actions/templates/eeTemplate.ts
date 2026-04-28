@@ -92,7 +92,7 @@ spec:
             specifyRequirements:
               title: Customize additional Python requirements and System packages
               type: boolean
-              default: ${(values.pythonRequirements && values.pythonRequirements.length > 0) || (values.systemPackages && values.systemPackages.length > 0)}
+              default: ${!!((values.pythonRequirements && values.pythonRequirements.length > 0) || (values.systemPackages && values.systemPackages.length > 0))}
               ui:help: "Check this box to define additional Python or system dependencies to include in your EE."
             addBuildSteps:
               title: "Include additional build steps"
