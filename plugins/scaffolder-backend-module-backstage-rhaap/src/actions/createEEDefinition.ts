@@ -1139,8 +1139,13 @@ async function patchWorkflowEeDir(
     `$1"${contextDirName}"`,
   );
 
-  if (patched !== content) {
-    await fs.writeFile(workflowPath, patched);
+  const patchedWithEeDir = patched.replace(
+    /^(\s+EE_DIR:.*\|\|\s*)'\.'\s*(\}\})\s*$/m,
+    `$1'${contextDirName}' $2`,
+  );
+
+  if (patchedWithEeDir !== content) {
+    await fs.writeFile(workflowPath, patchedWithEeDir);
   }
 }
 
