@@ -31,6 +31,24 @@ import {
   sanitizeFormDataForSessionStorage,
 } from './sanitizeFormDataForSessionStorage';
 import { ScaffolderForm } from './ScaffolderFormWrapper';
+import {
+  FieldValidationProvider,
+  useFieldValidation,
+} from './FieldValidationContext';
+
+const SubmitButton = () => {
+  const { hasErrors, notifySubmitAttempted } = useFieldValidation();
+  return (
+    <Button
+      type={hasErrors ? 'button' : 'submit'}
+      variant="contained"
+      color="primary"
+      onClick={hasErrors ? notifySubmitAttempted : undefined}
+    >
+      Next
+    </Button>
+  );
+};
 
 const MERGE_DEFAULTS_BEHAVIOR = {
   allOf: 'populateDefaults' as const,
@@ -904,45 +922,45 @@ export const StepForm = ({
               <StepLabel>{step.title}</StepLabel>
               <StepContent>
                 {activeStep === index ? (
-                  <ScaffolderForm
-                    schema={{
-                      ...stripSchemaDefaultsForUiFieldProps(
-                        filteredSteps[index].schema,
-                      ),
-                      title: '',
-                    }}
-                    uiSchema={extractProperties(step)}
-                    formData={formData}
-                    fields={fields}
-                    onChange={(data: IChangeEvent<any>) =>
-                      handleFormChange(index, data)
-                    }
-                    onSubmit={(data: IChangeEvent<any>) =>
-                      handleFormSubmit(index, data)
-                    }
-                    validator={validator}
-                    experimental_defaultFormStateBehavior={
-                      MERGE_DEFAULTS_BEHAVIOR
-                    }
-                  >
-                    <ScaffolderFieldExtensions>
-                      <EntityPickerFieldExtension />
-                    </ScaffolderFieldExtensions>
-                    <div style={{ marginTop: '25px' }}>
-                      {index > 0 && (
-                        <Button
-                          onClick={handleBack}
-                          style={{ marginRight: '10px' }}
-                          variant="outlined"
-                        >
-                          Back
-                        </Button>
-                      )}
-                      <Button type="submit" variant="contained" color="primary">
-                        Next
-                      </Button>
-                    </div>
-                  </ScaffolderForm>
+                  <FieldValidationProvider>
+                    <ScaffolderForm
+                      schema={{
+                        ...stripSchemaDefaultsForUiFieldProps(
+                          filteredSteps[index].schema,
+                        ),
+                        title: '',
+                      }}
+                      uiSchema={extractProperties(step)}
+                      formData={formData}
+                      fields={fields}
+                      onChange={(data: IChangeEvent<any>) =>
+                        handleFormChange(index, data)
+                      }
+                      onSubmit={(data: IChangeEvent<any>) =>
+                        handleFormSubmit(index, data)
+                      }
+                      validator={validator}
+                      experimental_defaultFormStateBehavior={
+                        MERGE_DEFAULTS_BEHAVIOR
+                      }
+                    >
+                      <ScaffolderFieldExtensions>
+                        <EntityPickerFieldExtension />
+                      </ScaffolderFieldExtensions>
+                      <div style={{ marginTop: '25px' }}>
+                        {index > 0 && (
+                          <Button
+                            onClick={handleBack}
+                            style={{ marginRight: '10px' }}
+                            variant="outlined"
+                          >
+                            Back
+                          </Button>
+                        )}
+                        <SubmitButton />
+                      </div>
+                    </ScaffolderForm>
+                  </FieldValidationProvider>
                 ) : null}
               </StepContent>
             </Step>
