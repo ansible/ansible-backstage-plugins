@@ -287,6 +287,32 @@ describe('createEEDefinition', () => {
     );
   });
 
+  it('patches ee-build.yml EE_DIR env var fallback default', async () => {
+    const action = makeAction();
+    const ctx = makeCtx({
+      eeFileName: 'my-ee',
+      baseImage: 'img:latest',
+      publishToSCM: true,
+    });
+
+    mockReadFile.mockImplementation(async (filePath: any) => {
+      if (filePath.toString().endsWith('ee-build.yml')) {
+        return "  EE_DIR: ${{ inputs.ee_dir || vars.EE_DIR || '.' }}\n" as any;
+      }
+      return '' as any;
+    });
+
+    await action.handler(ctx);
+
+    const call = mockWriteFile.mock.calls.find((c: any[]) =>
+      c[0].toString().includes('ee-build.yml'),
+    );
+    expect(call?.[1]).toContain(
+      "EE_DIR: ${{ inputs.ee_dir || vars.EE_DIR || 'my-ee' }}",
+    );
+    expect(call?.[1]).not.toContain("|| '.' }}");
+  });
+
   it('throws when downloadEEScaffold fails', async () => {
     const action = makeAction();
     const ctx = makeCtx({

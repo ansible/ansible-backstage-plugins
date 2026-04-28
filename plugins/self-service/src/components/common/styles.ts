@@ -139,3 +139,31 @@ export const useSharedStyles = makeStyles(theme => ({
     animation: '$syncIconSpin 1s linear infinite',
   },
 }));
+
+/** Shared tooltip styles for the sync progress popover. Used by both
+ *  PageHeaderSection and EmptyState so both popovers look identical. */
+export const useProgressTooltipStyles = makeStyles(theme => ({
+  tooltip: {
+    maxWidth: 'none',
+    padding: 0,
+    backgroundColor: theme.palette.background.paper,
+    borderRadius: 12,
+    boxShadow: '0 4px 24px rgba(0,0,0,0.55)',
+    border: `1px solid ${
+      theme.palette.type === 'dark'
+        ? 'rgba(255,255,255,0.08)'
+        : 'rgba(0,0,0,0.12)'
+    }`,
+  },
+  arrow: {
+    color: theme.palette.background.paper,
+    fontSize: '1.2rem',
+    '&::before': {
+      border: `1px solid ${
+        theme.palette.type === 'dark'
+          ? 'rgba(255,255,255,0.08)'
+          : 'rgba(0,0,0,0.12)'
+      }`,
+    },
+  },
+}));

@@ -78,7 +78,8 @@ export const GitRepositoriesPage = () => {
   const discoveryApi = useApi(discoveryApiRef);
   const fetchApi = useApi(fetchApiRef);
   const rootLink = useRouteRef(rootRouteRef);
-  const { isSyncInProgress, startTracking } = useSyncStatusPolling();
+  const { isSyncInProgress, syncProgress, startTracking } =
+    useSyncStatusPolling();
 
   const [syncDialogOpen, setSyncDialogOpen] = useState(false);
   const [hasConfiguredSources, setHasConfiguredSources] = useState<
@@ -180,6 +181,7 @@ export const GitRepositoriesPage = () => {
           syncDisabled={syncDisabled}
           syncDisabledReason={syncDisabledReason}
           syncInProgress={isSyncInProgress}
+          syncProgress={syncProgress}
         />
         <Box className={classes.tabsSection}>
           <HeaderTabs
