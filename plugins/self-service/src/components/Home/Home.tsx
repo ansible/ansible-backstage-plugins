@@ -189,8 +189,7 @@ export const HomeComponent = () => {
   const ansibleApi = useApi(ansibleApiRef);
   const rhAapAuthApi = useApi(rhAapAuthApiRef);
   const scaffolderApi = useApi(scaffolderApiRef);
-  const { isSuperuser: isSuperuser, loading: checkingSuperuser } =
-    useIsSuperuser();
+  const { isSuperuser, loading: checkingSuperuser } = useIsSuperuser();
   const showSyncControls = checkingSuperuser || isSuperuser;
   const syncControlsDisabled = checkingSuperuser;
 

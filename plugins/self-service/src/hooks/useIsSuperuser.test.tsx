@@ -211,7 +211,7 @@ describe('useIsSuperuser', () => {
     // Final failure warning after retry
     await waitFor(() => {
       expect(consoleWarnSpy).toHaveBeenCalledWith(
-        expect.stringContaining('Failed to check superuser status after retry'),
+        expect.stringContaining('Failed to check superuser status'),
         'Catalog fetch failed',
       );
     });
@@ -224,6 +224,8 @@ describe('useIsSuperuser', () => {
     mockCatalogApi.getEntityByRef.mockResolvedValue(undefined);
 
     const { result } = renderHook(() => useIsSuperuser(), { wrapper });
+
+    jest.advanceTimersByTime(0);
 
     await waitFor(() => {
       expect(result.current.loading).toBe(false);
