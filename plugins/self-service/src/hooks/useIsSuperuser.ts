@@ -75,9 +75,21 @@ async function fetchWithRetry(
   let lastError: Error | undefined;
 
   for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
+    if (!isMounted()) {
+      return {};
+    }
+
     try {
       userEntity = await fetchUserEntity(catalogApi, userEntityRef);
-      return { userEntity };
+      if (userEntity || attempt === MAX_ATTEMPTS) {
+        return { userEntity };
+      }
+
+      warnFailure(
+        `[useIsSuperuser] User entity ${userEntityRef} not found, retrying in ${RETRY_DELAY_MS}ms...`,
+        'Entity not found',
+      );
+      await new Promise(resolve => setTimeout(resolve, RETRY_DELAY_MS));
     } catch (err) {
       lastError = toError(err);
       if (attempt < MAX_ATTEMPTS && isMounted()) {

@@ -120,10 +120,19 @@ describe('useIsSuperuser', () => {
 
     const { result } = renderHook(() => useIsSuperuser(), { wrapper });
 
+    jest.advanceTimersByTime(0);
+
+    await waitFor(() => {
+      expect(mockCatalogApi.getEntityByRef).toHaveBeenCalledTimes(1);
+    });
+
+    jest.advanceTimersByTime(3000);
+
     await waitFor(() => {
       expect(result.current.loading).toBe(false);
     });
 
+    expect(mockCatalogApi.getEntityByRef).toHaveBeenCalledTimes(2);
     expect(result.current.isSuperuser).toBe(false);
     expect(result.current.error).toBeNull();
   });
@@ -226,6 +235,17 @@ describe('useIsSuperuser', () => {
     const { result } = renderHook(() => useIsSuperuser(), { wrapper });
 
     jest.advanceTimersByTime(0);
+
+    await waitFor(() => {
+      expect(mockCatalogApi.getEntityByRef).toHaveBeenCalledTimes(1);
+    });
+
+    expect(consoleWarnSpy).toHaveBeenCalledWith(
+      expect.stringContaining('not found, retrying'),
+      'Entity not found',
+    );
+
+    jest.advanceTimersByTime(3000);
 
     await waitFor(() => {
       expect(result.current.loading).toBe(false);
