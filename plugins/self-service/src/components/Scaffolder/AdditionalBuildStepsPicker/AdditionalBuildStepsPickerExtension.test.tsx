@@ -99,10 +99,12 @@ describe('AdditionalBuildStepsPickerExtension', () => {
       expect(screen.getByText('Schema Title')).toBeInTheDocument();
     });
 
-    it('renders "Add Build Step" button', () => {
+    it('renders "Add Build Step" button with step count', () => {
       const props = createMockProps();
       render(<AdditionalBuildStepsPickerExtension {...props} />);
-      expect(screen.getByText('Add Build Step')).toBeInTheDocument();
+      expect(
+        screen.getByRole('button', { name: /Add Build Step \(0\/8\)/i }),
+      ).toBeInTheDocument();
     });
 
     it('renders no steps when formData is empty', () => {
@@ -165,7 +167,9 @@ describe('AdditionalBuildStepsPickerExtension', () => {
       const props = createMockProps({ formData: [] });
       render(<AdditionalBuildStepsPickerExtension {...props} />);
 
-      const addButton = screen.getByText('Add Build Step');
+      const addButton = screen.getByRole('button', {
+        name: /Add Build Step/i,
+      });
       fireEvent.click(addButton);
 
       expect(props.onChange).toHaveBeenCalledWith([
@@ -182,7 +186,7 @@ describe('AdditionalBuildStepsPickerExtension', () => {
       const props = createMockProps({ formData });
       render(<AdditionalBuildStepsPickerExtension {...props} />);
 
-      const addButton = screen.getByText('Add Build Step');
+      const addButton = screen.getByRole('button', { name: /Add Build Step/i });
       fireEvent.click(addButton);
 
       expect(props.onChange).toHaveBeenCalledWith([
@@ -191,7 +195,7 @@ describe('AdditionalBuildStepsPickerExtension', () => {
       ]);
     });
 
-    it('assigns default step type when all types are selected', () => {
+    it('disables the add button when all step types are used', () => {
       const formData: BuildStep[] = mockStepTypeEnum.map(type => ({
         stepType: type,
         commands: [],
@@ -199,13 +203,13 @@ describe('AdditionalBuildStepsPickerExtension', () => {
       const props = createMockProps({ formData });
       render(<AdditionalBuildStepsPickerExtension {...props} />);
 
-      const addButton = screen.getByText('Add Build Step');
-      fireEvent.click(addButton);
+      const addButton = screen.getByRole('button', {
+        name: /Add Build Step \(8\/8\)/i,
+      });
+      expect(addButton).toBeDisabled();
 
-      expect(props.onChange).toHaveBeenCalledWith([
-        ...formData,
-        { stepType: 'prepend_base', commands: [] },
-      ]);
+      fireEvent.click(addButton);
+      expect(props.onChange).not.toHaveBeenCalled();
     });
 
     it('collapses all other steps when adding a new step', () => {
@@ -219,7 +223,7 @@ describe('AdditionalBuildStepsPickerExtension', () => {
 
       expandAccordion(container, 0);
 
-      const addButton = screen.getByText('Add Build Step');
+      const addButton = screen.getByRole('button', { name: /Add Build Step/i });
       fireEvent.click(addButton);
 
       const accordions = container.querySelectorAll('.MuiAccordion-root');
@@ -234,7 +238,7 @@ describe('AdditionalBuildStepsPickerExtension', () => {
       const props = createMockProps({ formData });
       render(<AdditionalBuildStepsPickerExtension {...props} />);
 
-      const addButton = screen.getByText('Add Build Step');
+      const addButton = screen.getByRole('button', { name: /Add Build Step/i });
       fireEvent.click(addButton);
 
       expect(props.onChange).toHaveBeenCalledWith([
@@ -315,7 +319,9 @@ describe('AdditionalBuildStepsPickerExtension', () => {
       const props = createMockProps({ formData: [] });
       render(<AdditionalBuildStepsPickerExtension {...props} />);
 
-      expect(screen.getByText('Add Build Step')).toBeInTheDocument();
+      expect(
+        screen.getByRole('button', { name: /Add Build Step/i }),
+      ).toBeInTheDocument();
     });
   });
 
@@ -662,7 +668,7 @@ describe('AdditionalBuildStepsPickerExtension', () => {
       const props = createMockProps({ formData: [] });
       render(<AdditionalBuildStepsPickerExtension {...props} />);
 
-      const addButton = screen.getByText('Add Build Step');
+      const addButton = screen.getByRole('button', { name: /Add Build Step/i });
       fireEvent.click(addButton);
 
       expect(props.onChange).toHaveBeenCalledWith([
@@ -855,7 +861,9 @@ describe('AdditionalBuildStepsPickerExtension', () => {
       const props = createMockProps({ formData: undefined });
       render(<AdditionalBuildStepsPickerExtension {...props} />);
 
-      expect(screen.getByText('Add Build Step')).toBeInTheDocument();
+      expect(
+        screen.getByRole('button', { name: /Add Build Step/i }),
+      ).toBeInTheDocument();
       expect(screen.queryByText(/^Build Step \d+$/)).not.toBeInTheDocument();
     });
 
@@ -897,7 +905,7 @@ describe('AdditionalBuildStepsPickerExtension', () => {
       });
       render(<AdditionalBuildStepsPickerExtension {...props} />);
 
-      const addButton = screen.getByText('Add Build Step');
+      const addButton = screen.getByRole('button', { name: /Add Build Step/i });
       fireEvent.click(addButton);
 
       expect(props.onChange).toHaveBeenCalledWith([
@@ -940,14 +948,16 @@ describe('AdditionalBuildStepsPickerExtension', () => {
       });
       render(<AdditionalBuildStepsPickerExtension {...props} />);
 
-      expect(screen.getByText('Add Build Step')).toBeInTheDocument();
+      expect(
+        screen.getByRole('button', { name: /Add Build Step/i }),
+      ).toBeInTheDocument();
     });
 
     it('handles multiple rapid additions and removals', () => {
       const props = createMockProps({ formData: [] });
       render(<AdditionalBuildStepsPickerExtension {...props} />);
 
-      const addButton = screen.getByText('Add Build Step');
+      const addButton = screen.getByRole('button', { name: /Add Build Step/i });
       fireEvent.click(addButton);
       fireEvent.click(addButton);
       fireEvent.click(addButton);
@@ -1031,7 +1041,9 @@ describe('AdditionalBuildStepsPickerExtension', () => {
 
       expect(screen.queryByText(/^Build Step \d+$/)).not.toBeInTheDocument();
 
-      expect(screen.getByText('Add Build Step')).toBeInTheDocument();
+      expect(
+        screen.getByRole('button', { name: /Add Build Step/i }),
+      ).toBeInTheDocument();
     });
   });
 
@@ -1075,6 +1087,85 @@ describe('AdditionalBuildStepsPickerExtension', () => {
     });
   });
 
+  describe('Max Steps Limit', () => {
+    it('shows step count in the button label', () => {
+      const formData: BuildStep[] = [
+        { stepType: 'prepend_base', commands: [] },
+        { stepType: 'append_base', commands: [] },
+      ];
+      const props = createMockProps({ formData });
+      render(<AdditionalBuildStepsPickerExtension {...props} />);
+
+      expect(
+        screen.getByRole('button', { name: /Add Build Step \(2\/8\)/i }),
+      ).toBeInTheDocument();
+    });
+
+    it('button is enabled and shows count when below the limit', () => {
+      const formData: BuildStep[] = mockStepTypeEnum.slice(0, 7).map(type => ({
+        stepType: type,
+        commands: [],
+      }));
+      const props = createMockProps({ formData });
+      render(<AdditionalBuildStepsPickerExtension {...props} />);
+
+      const addButton = screen.getByRole('button', {
+        name: /Add Build Step \(7\/8\)/i,
+      });
+      expect(addButton).not.toBeDisabled();
+    });
+
+    it('button is disabled when all 8 step types are present', () => {
+      const formData: BuildStep[] = mockStepTypeEnum.map(type => ({
+        stepType: type,
+        commands: [],
+      }));
+      const props = createMockProps({ formData });
+      render(<AdditionalBuildStepsPickerExtension {...props} />);
+
+      expect(
+        screen.getByRole('button', { name: /Add Build Step \(8\/8\)/i }),
+      ).toBeDisabled();
+    });
+
+    it('does not call onChange when the add button is clicked at max capacity', () => {
+      const formData: BuildStep[] = mockStepTypeEnum.map(type => ({
+        stepType: type,
+        commands: [],
+      }));
+      const props = createMockProps({ formData });
+      render(<AdditionalBuildStepsPickerExtension {...props} />);
+
+      const addButton = screen.getByRole('button', {
+        name: /Add Build Step \(8\/8\)/i,
+      });
+      fireEvent.click(addButton);
+
+      expect(props.onChange).not.toHaveBeenCalled();
+      expect(screen.getAllByText(/Build Step \d+/).length).toBe(8);
+    });
+
+    it('re-enables the add button after a step is removed from a full list', () => {
+      const formData: BuildStep[] = mockStepTypeEnum.map(type => ({
+        stepType: type,
+        commands: [],
+      }));
+      const props = createMockProps({ formData });
+      render(<AdditionalBuildStepsPickerExtension {...props} />);
+
+      expect(
+        screen.getByRole('button', { name: /Add Build Step \(8\/8\)/i }),
+      ).toBeDisabled();
+
+      const deleteButtons = screen.getAllByLabelText('Remove Build Step');
+      fireEvent.click(deleteButtons[0]);
+
+      expect(
+        screen.getByRole('button', { name: /Add Build Step \(7\/8\)/i }),
+      ).not.toBeDisabled();
+    });
+  });
+
   describe('Integration Scenarios', () => {
     it('handles complete workflow: add, expand, edit, collapse, remove', () => {
       const props = createMockProps({ formData: [] });
@@ -1082,7 +1173,7 @@ describe('AdditionalBuildStepsPickerExtension', () => {
         <AdditionalBuildStepsPickerExtension {...props} />,
       );
 
-      const addButton = screen.getByText('Add Build Step');
+      const addButton = screen.getByRole('button', { name: /Add Build Step/i });
       fireEvent.click(addButton);
       expect(screen.getByText('Build Step 1')).toBeInTheDocument();
 
@@ -1122,11 +1213,11 @@ describe('AdditionalBuildStepsPickerExtension', () => {
         <AdditionalBuildStepsPickerExtension {...props} />,
       );
 
-      fireEvent.click(screen.getByText('Add Build Step'));
+      fireEvent.click(screen.getByRole('button', { name: /Add Build Step/i }));
 
-      fireEvent.click(screen.getByText('Add Build Step'));
+      fireEvent.click(screen.getByRole('button', { name: /Add Build Step/i }));
 
-      fireEvent.click(screen.getByText('Add Build Step'));
+      fireEvent.click(screen.getByRole('button', { name: /Add Build Step/i }));
 
       expandAccordion(container, 0);
       const selects = container.querySelectorAll('.MuiSelect-root');

@@ -185,7 +185,14 @@ export const AdditionalBuildStepsPickerExtension = ({
     onChange(updatedSteps);
   };
 
+  const maxSteps = stepTypeEnum.length || 8;
+  const atMaxSteps = steps.length >= maxSteps;
+
   const handleAddStep = () => {
+    if (atMaxSteps) {
+      return;
+    }
+
     const selectedStepTypes = new Set<string>();
     for (const step of steps) {
       const stepType = step.stepType || defaultStepType;
@@ -386,10 +393,10 @@ export const AdditionalBuildStepsPickerExtension = ({
         variant="outlined"
         startIcon={<AddIcon />}
         onClick={handleAddStep}
-        disabled={disabled}
+        disabled={disabled || atMaxSteps}
         className={classes.addButton}
       >
-        Add Build Step
+        {`Add Build Step (${steps.length}/${maxSteps})`}
       </Button>
 
       {rawErrors.length > 0 && (
