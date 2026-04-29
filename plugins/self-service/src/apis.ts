@@ -306,3 +306,122 @@ export const AapAuthApi: AAPAuthApiFactoryType = createApiFactory({
       defaultScopes: ['read', 'write'],
     }),
 });
+
+// =====================================================
+// Platform Operations API
+// =====================================================
+
+import type {
+  PlatformTask,
+  TaskExecution,
+  CertificateReport,
+} from '@ansible/backstage-rhaap-common';
+
+export interface PlatformOpsApi {
+  getTasks(): Promise<{ tasks: PlatformTask[] }>;
+  executeTask(
+    taskId: string,
+    token: string,
+    extraVars?: Record<string, unknown>,
+  ): Promise<{ execution: TaskExecution }>;
+  getJobStatus(
+    jobId: number,
+    token: string,
+  ): Promise<{ status: string; started: string; finished: string }>;
+}
+
+export const platformOpsApiRef = createApiRef<PlatformOpsApi>({
+  id: 'plugin.self-service.platform-ops',
+});
+
+export class PlatformOpsApiClient implements PlatformOpsApi {
+  private readonly discoveryApi: DiscoveryApi;
+  private readonly fetchApi: FetchApi;
+
+  constructor(options: { discoveryApi: DiscoveryApi; fetchApi: FetchApi }) {
+    this.discoveryApi = options.discoveryApi;
+    this.fetchApi = options.fetchApi;
+  }
+
+  async getTasks(): Promise<{ tasks: PlatformTask[] }> {
+    const baseUrl = await this.discoveryApi.getBaseUrl('catalog');
+    const response = await this.fetchApi.fetch(
+      `${baseUrl}/ansible/platform-ops/tasks`,
+    );
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({}));
+      throw new Error(
+        (error as { error?: string }).error ||
+          `Failed to fetch tasks: ${response.statusText}`,
+      );
+    }
+    return response.json();
+  }
+
+  async executeTask(
+    taskId: string,
+    _token: string, // Token not needed - backend uses service token
+    extraVars?: Record<string, unknown>,
+  ): Promise<{ execution: TaskExecution }> {
+    const baseUrl = await this.discoveryApi.getBaseUrl('catalog');
+    const response = await this.fetchApi.fetch(
+      `${baseUrl}/ansible/platform-ops/tasks/${taskId}/execute`,
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ extraVars }),
+      },
+    );
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({}));
+      throw new Error(
+        (error as { error?: string }).error ||
+          `Failed to execute task: ${response.statusText}`,
+      );
+    }
+    return response.json();
+  }
+
+  async getJobStatus(
+    jobId: number,
+    _token: string, // Token not needed - backend uses service token
+  ): Promise<{ status: string; started: string; finished: string }> {
+    const baseUrl = await this.discoveryApi.getBaseUrl('catalog');
+    const response = await this.fetchApi.fetch(
+      `${baseUrl}/ansible/platform-ops/jobs/${jobId}/status`,
+    );
+    if (!response.ok) {
+      throw new Error(`Failed to get job status: ${response.statusText}`);
+    }
+    return response.json();
+  }
+}
+
+export const PlatformOpsApis: ApiFactory<
+  PlatformOpsApi,
+  PlatformOpsApiClient,
+  { discoveryApi: DiscoveryApi; fetchApi: FetchApi }
+> = createApiFactory({
+  api: platformOpsApiRef,
+  deps: { discoveryApi: discoveryApiRef, fetchApi: fetchApiRef },
+  factory: ({ discoveryApi, fetchApi }) =>
+    new PlatformOpsApiClient({ discoveryApi, fetchApi }),
+});
+
+/**
+ * Helper to extract certificate report from task execution output.
+ */
+export function extractCertificateReport(
+  execution: TaskExecution,
+): CertificateReport | null {
+  if (!execution.output || typeof execution.output !== 'object') {
+    return null;
+  }
+  const output = execution.output as Record<string, unknown>;
+  if ('certificates' in output && 'summary' in output) {
+    return output as unknown as CertificateReport;
+  }
+  return null;
+}

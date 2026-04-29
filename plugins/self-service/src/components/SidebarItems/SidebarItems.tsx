@@ -5,6 +5,7 @@ import { SidebarItem } from '@backstage/core-components';
 import BuildIcon from '@material-ui/icons/Build';
 import ExtensionIcon from '@material-ui/icons/Extension';
 import GitHubIcon from '@material-ui/icons/GitHub';
+import SecurityIcon from '@material-ui/icons/Security';
 import {
   executionEnvironmentsViewPermission,
   collectionsViewPermission,
@@ -77,6 +78,18 @@ export const GitRepositoriesSidebarItem = () => {
       icon={GitHubIcon}
       to={`${rootLink()}/repositories`}
       text="Git Repositories"
+    />
+  );
+};
+
+export const PlatformOpsSidebarItem = () => {
+  const rootLink = useRouteRef(rootRouteRef);
+
+  return (
+    <SidebarItem
+      icon={SecurityIcon}
+      to={`${rootLink()}/platform-ops`}
+      text="Platform Operations"
     />
   );
 };

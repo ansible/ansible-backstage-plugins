@@ -3,4 +3,5 @@ export {
   EEBuilderSidebarItem,
   CollectionsSidebarItem,
   GitRepositoriesSidebarItem,
+  PlatformOpsSidebarItem,
 } from './SidebarItems';

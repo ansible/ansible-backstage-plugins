@@ -62,6 +62,10 @@ export interface IAAPService extends Pick<
   | 'fetchEvents'
   | 'fetchResult'
   | 'launchJobTemplate'
+  | 'launchJobTemplateById'
+  | 'getJobTemplateById'
+  | 'getJobStatus'
+  | 'getJobStdout'
   | 'cleanUp'
   | 'getResourceData'
   | 'getJobTemplatesByName'
@@ -776,6 +780,99 @@ export class AAPClient implements IAAPService {
       status: result.jobData.status,
       events: result.jobEvents,
       url: `${this.getBaseUrl()}/execution/jobs/playbook/${jobID}/output`,
+    };
+  }
+
+  /**
+   * Gets a job template by its numeric ID.
+   *
+   * @param templateId - The job template ID.
+   * @param token - The OAuth access token.
+   * @returns The job template details.
+   */
+  public async getJobTemplateById(
+    templateId: number,
+    token: string,
+  ): Promise<IJobTemplate> {
+    const endPoint = `api/controller/v2/job_templates/${templateId}/`;
+    this.logger.info(
+      `[${this.pluginLogName}]: Fetching job template ID: ${templateId}.`,
+    );
+    const response = await this.executeGetRequest(endPoint, token);
+    return (await response.json()) as IJobTemplate;
+  }
+
+  /**
+   * Gets the current status of a job.
+   *
+   * @param jobId - The job ID.
+   * @param token - The OAuth access token.
+   * @returns The job status details.
+   */
+  public async getJobStatus(
+    jobId: number,
+    token: string,
+  ): Promise<{ id: number; status: string; started: string; finished: string }> {
+    const endPoint = `api/controller/v2/jobs/${jobId}/`;
+    const response = await this.executeGetRequest(endPoint, token);
+    const data = await response.json();
+    return {
+      id: data.id,
+      status: data.status,
+      started: data.started,
+      finished: data.finished,
+    };
+  }
+
+  /**
+   * Gets the raw stdout output from a completed job.
+   *
+   * @param jobId - The job ID.
+   * @param token - The OAuth access token.
+   * @param format - Output format: 'txt', 'json', or 'ansi'. Defaults to 'txt'.
+   * @returns The stdout output as a string.
+   */
+  public async getJobStdout(
+    jobId: number,
+    token: string,
+    format: 'txt' | 'json' | 'ansi' = 'txt',
+  ): Promise<string> {
+    const endPoint = `api/controller/v2/jobs/${jobId}/stdout/?format=${format}`;
+    this.logger.info(
+      `[${this.pluginLogName}]: Fetching stdout for job ID: ${jobId}.`,
+    );
+    const response = await this.executeGetRequest(endPoint, token);
+    return await response.text();
+  }
+
+  /**
+   * Launches a job template by its numeric ID.
+   * This is more direct than launchJobTemplate which looks up by name.
+   *
+   * @param templateId - The job template ID.
+   * @param token - The OAuth access token.
+   * @param extraVars - Optional extra variables to pass to the job.
+   * @returns The launched job details including job ID and URL.
+   */
+  public async launchJobTemplateById(
+    templateId: number,
+    token: string,
+    extraVars?: Record<string, unknown>,
+  ): Promise<{ jobId: number; url: string; status: string }> {
+    const endPoint = `api/controller/v2/job_templates/${templateId}/launch/`;
+    const data = extraVars ? { extra_vars: extraVars } : {};
+
+    this.logger.info(
+      `[${this.pluginLogName}]: Launching job template ID: ${templateId}.`,
+    );
+
+    const response = await this.executePostRequest(endPoint, token, data);
+    const jobResponse = await response.json();
+
+    return {
+      jobId: jobResponse.job,
+      url: `${this.getBaseUrl()}/execution/jobs/playbook/${jobResponse.job}/output`,
+      status: jobResponse.status || 'pending',
     };
   }
 

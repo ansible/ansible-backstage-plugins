@@ -33,6 +33,7 @@ import {
   executionEnvironmentsViewPermission,
   collectionsViewPermission,
 } from '@ansible/backstage-rhaap-common/permissions';
+import { IAAPService } from '@ansible/backstage-rhaap-common';
 import { CatalogClient } from '@backstage/catalog-client';
 import { PAHCollectionProvider } from './providers/PAHCollectionProvider';
 import { AnsibleGitContentsProvider } from './providers/AnsibleGitContentsProvider';
@@ -62,6 +63,10 @@ import {
 import { SCM_INTEGRATION_AUTH_FAILED_CODE } from '@ansible/backstage-rhaap-common/constants';
 import { ScmClientFactory } from '@ansible/backstage-rhaap-common';
 import { EEEntityProvider } from './providers/EEEntityProvider';
+import {
+  getDefaultTasks,
+  executeTask,
+} from './platformOps';
 
 export async function createRouter(options: {
   logger: LoggerService;
@@ -76,6 +81,7 @@ export async function createRouter(options: {
   catalogClient: CatalogClient;
   permissions: PermissionsService;
   ansibleGitContentsProviders?: AnsibleGitContentsProvider[];
+  ansibleService?: IAAPService;
   allowedExternalAccessSubjects?: string[];
 }): Promise<express.Router> {
   const {
@@ -91,6 +97,7 @@ export async function createRouter(options: {
     catalogClient,
     permissions,
     ansibleGitContentsProviders = [],
+    ansibleService,
     allowedExternalAccessSubjects,
   } = options;
   const router = Router();
@@ -837,6 +844,140 @@ export async function createRouter(options: {
       await handleGitLabCIActivity(ciActivityDeps, request, response, perPage);
     }
   });
+
+  // =====================================================
+  // Platform Operations Routes
+  // =====================================================
+
+  // Helper to get tasks with config
+  const getPlatformTasks = () => {
+    const tasks = getDefaultTasks();
+    const platformOpsConfig = config.getOptionalConfig('ansible.platformOps');
+    if (platformOpsConfig) {
+      const certCheckTemplateId = platformOpsConfig.getOptionalNumber(
+        'defaultTasks.certCheck.templateId',
+      );
+      if (certCheckTemplateId) {
+        const certTask = tasks.find(t => t.id === 'cert-check');
+        if (certTask) {
+          certTask.templateId = certCheckTemplateId;
+        }
+      }
+    }
+    return tasks;
+  };
+
+  // Helper to get AAP service token from config
+  const getAapServiceToken = (): string | undefined => {
+    return config.getOptionalString('ansible.rhaap.token');
+  };
+
+  // Get available platform tasks (requires Backstage user auth)
+  router.get(
+    '/ansible/platform-ops/tasks',
+    createPermissionCheckMiddleware({ httpAuth, permissions }, [
+      catalogEntityReadPermission,
+    ]),
+    async (_request, response) => {
+      logger.info('[platformOps] Fetching available tasks');
+      const tasks = getPlatformTasks();
+      response.json({ tasks });
+    },
+  );
+
+  // Execute a platform task (requires Backstage user auth, uses service token for AAP)
+  router.post(
+    '/ansible/platform-ops/tasks/:taskId/execute',
+    express.json(),
+    createPermissionCheckMiddleware({ httpAuth, permissions }, [
+      catalogEntityReadPermission,
+    ]),
+    async (request, response) => {
+      const { taskId } = request.params;
+      const extraVars = request.body?.extraVars;
+
+      logger.info(`[platformOps] Executing task: ${taskId}`);
+
+      // Use the service token from config for AAP API calls
+      const token = getAapServiceToken();
+      if (!token) {
+        response.status(500).json({
+          error: 'AAP service token not configured. Set ansible.rhaap.token in app-config.yaml',
+        });
+        return;
+      }
+
+      if (!ansibleService) {
+        response.status(500).json({ error: 'Ansible service not configured' });
+        return;
+      }
+
+      const tasks = getPlatformTasks();
+      const task = tasks.find(t => t.id === taskId);
+      if (!task) {
+        response.status(404).json({ error: `Task not found: ${taskId}` });
+        return;
+      }
+
+      if (!task.templateId) {
+        response.status(400).json({
+          error: `Task "${task.name}" has no configured job template ID. Configure it in app-config.yaml under ansible.platformOps.defaultTasks.certCheck.templateId`,
+        });
+        return;
+      }
+
+      try {
+        const execution = await executeTask(
+          { logger, aapClient: ansibleService },
+          task,
+          token,
+          extraVars,
+        );
+
+        response.json({ execution });
+      } catch (error) {
+        const errorMessage = error instanceof Error ? error.message : String(error);
+        logger.error(`[platformOps] Task execution failed: ${errorMessage}`);
+        response.status(500).json({ error: errorMessage });
+      }
+    },
+  );
+
+  // Get job status (requires Backstage user auth)
+  router.get(
+    '/ansible/platform-ops/jobs/:jobId/status',
+    createPermissionCheckMiddleware({ httpAuth, permissions }, [
+      catalogEntityReadPermission,
+    ]),
+    async (request, response) => {
+      const jobId = parseInt(request.params.jobId, 10);
+
+      if (isNaN(jobId)) {
+        response.status(400).json({ error: 'Invalid job ID' });
+        return;
+      }
+
+      const token = getAapServiceToken();
+      if (!token) {
+        response.status(500).json({ error: 'AAP service token not configured' });
+        return;
+      }
+
+      if (!ansibleService) {
+        response.status(500).json({ error: 'Ansible service not configured' });
+        return;
+      }
+
+      try {
+        const status = await ansibleService.getJobStatus(jobId, token);
+        response.json(status);
+      } catch (error) {
+        const errorMessage = error instanceof Error ? error.message : String(error);
+        logger.error(`[platformOps] Failed to get job status: ${errorMessage}`);
+        response.status(500).json({ error: errorMessage });
+      }
+    },
+  );
 
   return router;
 }

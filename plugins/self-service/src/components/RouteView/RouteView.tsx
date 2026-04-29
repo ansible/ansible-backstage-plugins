@@ -27,6 +27,7 @@ import { CollectionsCatalogPage } from '../CollectionsCatalog';
 import { CollectionDetailsPage } from '../CollectionsCatalog/CollectionDetailsPage';
 import { GitRepositoriesPage } from '../GitRepositories';
 import { RepositoryDetailsPage } from '../GitRepositories/RepositoryDetailsPage';
+import { PlatformOpsPage } from '../PlatformOperations';
 import {
   NotificationProvider,
   NotificationStack,
@@ -138,6 +139,13 @@ const RouteViewContent = () => {
           <Route path="catalog" element={<GitRepositoriesPage />} />
           <Route path="ci-activity" element={<GitRepositoriesPage />} />
           <Route path=":repositoryName" element={<RepositoryDetailsPage />} />
+        </Route>
+        {/* Platform Operations */}
+        <Route path="platform-ops" element={<Outlet />}>
+          <Route index element={<Navigate to="certificates" replace />} />
+          <Route path="certificates" element={<PlatformOpsPage />} />
+          <Route path="tasks" element={<PlatformOpsPage />} />
+          <Route path="history" element={<PlatformOpsPage />} />
         </Route>
         {/* Default redirects */}
         <Route

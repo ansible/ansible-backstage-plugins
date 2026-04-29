@@ -109,6 +109,11 @@ export const Root = ({ children }: PropsWithChildren<{}>) => (
             to="/self-service/repositories/catalog"
             text="Git Repositories"
           />
+          <SidebarItem
+            icon={SecurityIcon}
+            to="/self-service/platform-ops"
+            text="Platform Operations"
+          />
           <SidebarItem icon={SecurityIcon} to="/apme" text="APME" />
         </SidebarScrollWrapper>
       </SidebarGroup>

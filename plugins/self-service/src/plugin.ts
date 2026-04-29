@@ -9,17 +9,19 @@ import {
   eeRouteRef,
   collectionsRouteRef,
   gitRepositoriesRouteRef,
+  platformOpsRouteRef,
 } from './routes';
-import { AAPApis, AapAuthApi, EEBuildApis } from './apis';
+import { AAPApis, AapAuthApi, EEBuildApis, PlatformOpsApis } from './apis';
 
 export const selfServicePlugin = createPlugin({
   id: 'self-service',
-  apis: [AAPApis, AapAuthApi, EEBuildApis],
+  apis: [AAPApis, AapAuthApi, EEBuildApis, PlatformOpsApis],
   routes: {
     root: rootRouteRef,
     ee: eeRouteRef,
     collections: collectionsRouteRef,
     gitRepositories: gitRepositoriesRouteRef,
+    platformOps: platformOpsRouteRef,
   },
 });
 
@@ -155,6 +157,38 @@ export const GitRepositoriesSidebarItem = selfServicePlugin.provide(
         import('./components/SidebarItems').then(
           m => m.GitRepositoriesSidebarItem,
         ),
+    },
+  }),
+);
+
+/**
+ * Platform Operations page component for mounting at /self-service/platform-ops
+ * Contains routing for Platform Operations (certificates, tasks, history).
+ *
+ * @public
+ */
+export const PlatformOpsPage = selfServicePlugin.provide(
+  createRoutableExtension({
+    name: 'PlatformOpsPage',
+    component: () =>
+      import('./components/PlatformOperations').then(
+        m => m.PlatformOpsRoutesPage,
+      ),
+    mountPoint: platformOpsRouteRef,
+  }),
+);
+
+/**
+ * A sidebar item for Platform Operations.
+ *
+ * @public
+ */
+export const PlatformOpsSidebarItem = selfServicePlugin.provide(
+  createComponentExtension({
+    name: 'PlatformOpsSidebarItem',
+    component: {
+      lazy: () =>
+        import('./components/SidebarItems').then(m => m.PlatformOpsSidebarItem),
     },
   }),
 );

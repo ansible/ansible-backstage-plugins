@@ -7,6 +7,7 @@ export {
   EEBuilderSidebarItem,
   CollectionsSidebarItem,
   GitRepositoriesSidebarItem,
+  PlatformOpsSidebarItem,
 } from './components/SidebarItems';
 export { AAPTokenFieldExtension } from './components/Scaffolder/AAPTokenField/extensions';
 export { AAPResourcePickerExtension } from './components/Scaffolder/AAResourcePicker';

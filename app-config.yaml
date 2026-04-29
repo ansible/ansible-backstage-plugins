@@ -219,6 +219,12 @@ ansible:
     port: '8000'
   feedback:
     enabled: false
+  # Platform Operations - run platform management tasks via AAP Job Templates
+  platformOps:
+    enabled: true
+    defaultTasks:
+      certCheck:
+        templateId: 12
 kubernetes: null
 
 permission:
