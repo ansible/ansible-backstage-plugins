@@ -253,9 +253,7 @@ describe('useIsSuperuser', () => {
 
     expect(result.current.isSuperuser).toBe(false);
     expect(consoleWarnSpy).toHaveBeenCalledWith(
-      expect.stringContaining(
-        'User entity user:default/testuser not found in catalog',
-      ),
+      expect.stringContaining('User entity not found in catalog'),
     );
   });
 

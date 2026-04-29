@@ -90,7 +90,7 @@ async function attemptFetch(
       return { userEntity, done: true };
     }
     warnFailure(
-      `[useIsSuperuser] User entity ${userEntityRef} not found, retrying in ${RETRY_DELAY_MS}ms...`,
+      `[useIsSuperuser] User entity not found, retrying in ${RETRY_DELAY_MS}ms...`,
       'Entity not found',
     );
     const stillMounted = await delayIfMounted(isMounted);
@@ -202,7 +202,7 @@ export function useIsSuperuser(): UseIsSuperuserResult {
 
         if (!userEntity) {
           warnFailure(
-            `[useIsSuperuser] User entity ${userEntityRef} not found in catalog. ` +
+            `[useIsSuperuser] User entity not found in catalog. ` +
               'This may indicate catalog sync has not completed yet.',
           );
         }
