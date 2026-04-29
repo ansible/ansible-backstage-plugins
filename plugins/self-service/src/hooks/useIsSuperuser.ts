@@ -5,6 +5,8 @@ import { Entity, parseEntityRef } from '@backstage/catalog-model';
 
 const SUPERUSER_ANNOTATION = 'aap.platform/is_superuser';
 const CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes
+const RETRY_DELAY_MS = 3000;
+const MAX_ATTEMPTS = 2;
 
 // module level cache for superuser status
 interface SuperuserCache {
@@ -48,6 +50,90 @@ function checkSuperuserAnnotation(userEntity: Entity | undefined): boolean {
   return annotation === 'true';
 }
 
+function toError(err: unknown): Error {
+  return err instanceof Error
+    ? err
+    : new Error('Failed to check superuser status');
+}
+
+function sanitizeForLog(message: string): string {
+  return message.replaceAll(/https?:\/\/[^\s]+/g, '[redacted-url]');
+}
+
+function warnFailure(message: string, errorMessage?: string): void {
+  // eslint-disable-next-line no-console
+  console.warn(
+    message,
+    ...(errorMessage ? [sanitizeForLog(errorMessage)] : []),
+  );
+}
+
+interface FetchWithRetryResult {
+  userEntity?: Entity;
+  lastError?: Error;
+}
+
+async function delayIfMounted(isMounted: () => boolean): Promise<boolean> {
+  await new Promise(resolve => setTimeout(resolve, RETRY_DELAY_MS));
+  return isMounted();
+}
+
+async function attemptFetch(
+  catalogApi: CatalogApi,
+  userEntityRef: string,
+  attempt: number,
+  isMounted: () => boolean,
+): Promise<{ userEntity?: Entity; error?: Error; done: boolean }> {
+  try {
+    const userEntity = await fetchUserEntity(catalogApi, userEntityRef);
+    if (userEntity || attempt === MAX_ATTEMPTS) {
+      return { userEntity, done: true };
+    }
+    warnFailure(
+      `[useIsSuperuser] User entity not found, retrying in ${RETRY_DELAY_MS}ms...`,
+      'Entity not found',
+    );
+    const stillMounted = await delayIfMounted(isMounted);
+    return { done: !stillMounted };
+  } catch (err) {
+    const error = toError(err);
+    if (attempt < MAX_ATTEMPTS && isMounted()) {
+      warnFailure(
+        `[useIsSuperuser] Attempt ${attempt} failed, retrying in ${RETRY_DELAY_MS}ms...`,
+        error.message,
+      );
+      const stillMounted = await delayIfMounted(isMounted);
+      if (!stillMounted) return { done: true };
+    }
+    return { error, done: attempt === MAX_ATTEMPTS };
+  }
+}
+
+async function fetchWithRetry(
+  catalogApi: CatalogApi,
+  userEntityRef: string,
+  isMounted: () => boolean,
+): Promise<FetchWithRetryResult> {
+  let lastError: Error | undefined;
+
+  for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
+    if (!isMounted()) return {};
+
+    const result = await attemptFetch(
+      catalogApi,
+      userEntityRef,
+      attempt,
+      isMounted,
+    );
+    if (result.userEntity !== undefined)
+      return { userEntity: result.userEntity };
+    if (result.error) lastError = result.error;
+    if (result.done) break;
+  }
+
+  return { lastError };
+}
+
 export interface UseIsSuperuserResult {
   isSuperuser: boolean;
   loading: boolean;
@@ -58,32 +144,22 @@ export function useIsSuperuser(): UseIsSuperuserResult {
   const identityApi = useApi(identityApiRef);
   const catalogApi = useApi(catalogApiRef);
 
-  // initialize from cache if valid
-  const [isSuperuser, setIsSuperuser] = useState(() => {
-    if (
-      superuserCache &&
-      Date.now() - superuserCache.timestamp < CACHE_TTL_MS
-    ) {
-      return superuserCache.isSuperuser;
-    }
-    return false;
-  });
-  const [loading, setLoading] = useState(() => {
-    // not loading if we have valid cache
-    return !(
-      superuserCache && Date.now() - superuserCache.timestamp < CACHE_TTL_MS
-    );
-  });
+  const [isSuperuser, setIsSuperuser] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [error, setError] = useState<Error | null>(null);
 
   useEffect(() => {
     let mounted = true;
 
-    const updateState = (value: boolean, loadingState: boolean) => {
-      if (mounted) {
-        setIsSuperuser(value);
-        setLoading(loadingState);
-      }
+    const handleFailure = (err: Error) => {
+      warnFailure(
+        '[useIsSuperuser] Failed to check superuser status. ' +
+          'The user may lack catalog.entity.read permission or the catalog entity may not exist yet.',
+        err.message,
+      );
+      setError(err);
+      setIsSuperuser(false);
+      setLoading(false);
     };
 
     const checkSuperuserStatus = async () => {
@@ -91,36 +167,55 @@ export function useIsSuperuser(): UseIsSuperuserResult {
         const identity = await identityApi.getBackstageIdentity();
         const userEntityRef = identity.userEntityRef;
 
-        // use cached value if valid
+        if (!mounted) return;
+
         if (isCacheValid(userEntityRef) && superuserCache) {
-          updateState(superuserCache.isSuperuser, false);
+          setIsSuperuser(superuserCache.isSuperuser);
+          setLoading(false);
           return;
         }
 
         setLoading(true);
         setError(null);
 
-        // no user entity ref -> not a superuser
         if (!userEntityRef) {
           updateCache(false, null);
-          updateState(false, false);
+          if (mounted) {
+            setIsSuperuser(false);
+            setLoading(false);
+          }
           return;
         }
 
-        const userEntity = await fetchUserEntity(catalogApi, userEntityRef);
+        const { userEntity, lastError } = await fetchWithRetry(
+          catalogApi,
+          userEntityRef,
+          () => mounted,
+        );
+
+        if (!mounted) return;
+
+        if (lastError) {
+          handleFailure(lastError);
+          return;
+        }
+
+        if (!userEntity) {
+          warnFailure(
+            `[useIsSuperuser] User entity not found in catalog. ` +
+              'This may indicate catalog sync has not completed yet.',
+          );
+        }
         const isSuperuserValue = checkSuperuserAnnotation(userEntity);
 
         updateCache(isSuperuserValue, userEntityRef);
-        updateState(isSuperuserValue, false);
+        if (mounted) {
+          setIsSuperuser(isSuperuserValue);
+          setLoading(false);
+        }
       } catch (err) {
         if (mounted) {
-          const errorObj =
-            err instanceof Error
-              ? err
-              : new Error('Failed to check superuser status');
-          setError(errorObj);
-          setIsSuperuser(false);
-          setLoading(false);
+          handleFailure(toError(err));
         }
       }
     };
