@@ -338,4 +338,85 @@ test.describe('Execution Environment Catalog and Detail View Tests', () => {
     await page.keyboard.press('Escape');
     await page.waitForTimeout(500);
   });
+
+  // EE Build Process Tests - Jira [e2e UI] Add Comprehensive Tests for EE build process
+  test('Validates Catalog table: Build option triggers build process from kebab menu', async ({
+    page,
+  }) => {
+    await expect(page.locator('main')).toBeVisible({ timeout: 15000 });
+    const row = page.locator('table tbody tr').first();
+    if ((await row.count()) === 0) {
+      return;
+    }
+
+    // Find and click kebab menu button
+    const buttons = row.locator('button');
+    const buttonCount = await buttons.count();
+    if (buttonCount === 0) {
+      return;
+    }
+
+    const kebabBtn = buttons.last();
+    await kebabBtn.click({ force: true });
+    await page.waitForTimeout(800);
+
+    // Check if Build option exists in menu
+    const menuText = await page.locator('body').innerText();
+    if (!menuText.includes('Build')) {
+      // Close menu and skip if Build not available for this EE
+      await page.keyboard.press('Escape');
+      return;
+    }
+
+    // Click Build option
+    const buildMenuItem = page.getByText('Build', { exact: false }).first();
+    await expect(buildMenuItem).toBeAttached();
+    await buildMenuItem.click({ force: true });
+    await page.waitForTimeout(1500);
+
+    // Wait for build modal/dialog to appear
+    const modal = page.locator(
+      '[role="dialog"], .MuiDialog-root, [class*="modal" i]',
+    );
+    await expect(modal.first()).toBeVisible({ timeout: 10000 });
+
+    // Verify modal contains build-related content
+    const modalText = await modal.first().innerText();
+    expect(
+      modalText.toLowerCase().includes('build') ||
+        modalText.toLowerCase().includes('execution environment'),
+    ).toBeTruthy();
+
+    // Fill build form fields
+    // Field 1: Registry - prefilled, skip
+    // Field 2: Image name - required field to fill
+    const imageNameInput = modal.locator(
+      'input[name*="image" i], input[placeholder*="image" i], input[label*="image name" i]',
+    );
+    if ((await imageNameInput.count()) > 0) {
+      await imageNameInput.first().fill(`test-ee-image-${Date.now()}`);
+      await page.waitForTimeout(500);
+    }
+    // Field 3: Image tag - prefilled, skip
+
+    // Click Build button in modal
+    const buildButton = modal
+      .getByRole('button', { name: /build/i })
+      .or(modal.locator('button').filter({ hasText: /build/i }));
+
+    if ((await buildButton.count()) > 0) {
+      await buildButton.first().click({ force: true });
+      await page.waitForTimeout(2000);
+
+      // Validate toast notification appears with "Build triggered" message
+      const toast = page.locator(
+        '[role="alert"], .MuiSnackbar-root, [class*="toast" i], [class*="notification" i]',
+      );
+      await expect(toast.first()).toBeVisible({ timeout: 10000 });
+
+      // Verify toast contains "Build triggered" message
+      const toastText = await toast.first().innerText();
+      expect(toastText).toContain('Build triggered');
+    }
+  });
 });
