@@ -57,7 +57,7 @@ function toError(err: unknown): Error {
 }
 
 function sanitizeForLog(message: string): string {
-  return message.replace(/https?:\/\/[^\s]+/g, '[redacted-url]');
+  return message.replaceAll(/https?:\/\/[^\s]+/g, '[redacted-url]');
 }
 
 function warnFailure(message: string, errorMessage?: string): void {
@@ -73,42 +73,62 @@ interface FetchWithRetryResult {
   lastError?: Error;
 }
 
+async function delayIfMounted(isMounted: () => boolean): Promise<boolean> {
+  await new Promise(resolve => setTimeout(resolve, RETRY_DELAY_MS));
+  return isMounted();
+}
+
+async function attemptFetch(
+  catalogApi: CatalogApi,
+  userEntityRef: string,
+  attempt: number,
+  isMounted: () => boolean,
+): Promise<{ userEntity?: Entity; error?: Error; done: boolean }> {
+  try {
+    const userEntity = await fetchUserEntity(catalogApi, userEntityRef);
+    if (userEntity || attempt === MAX_ATTEMPTS) {
+      return { userEntity, done: true };
+    }
+    warnFailure(
+      `[useIsSuperuser] User entity ${userEntityRef} not found, retrying in ${RETRY_DELAY_MS}ms...`,
+      'Entity not found',
+    );
+    const stillMounted = await delayIfMounted(isMounted);
+    return { done: !stillMounted };
+  } catch (err) {
+    const error = toError(err);
+    if (attempt < MAX_ATTEMPTS && isMounted()) {
+      warnFailure(
+        `[useIsSuperuser] Attempt ${attempt} failed, retrying in ${RETRY_DELAY_MS}ms...`,
+        error.message,
+      );
+      const stillMounted = await delayIfMounted(isMounted);
+      if (!stillMounted) return { done: true };
+    }
+    return { error, done: attempt === MAX_ATTEMPTS };
+  }
+}
+
 async function fetchWithRetry(
   catalogApi: CatalogApi,
   userEntityRef: string,
   isMounted: () => boolean,
 ): Promise<FetchWithRetryResult> {
-  let userEntity: Entity | undefined;
   let lastError: Error | undefined;
 
   for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
-    if (!isMounted()) {
-      return {};
-    }
+    if (!isMounted()) return {};
 
-    try {
-      userEntity = await fetchUserEntity(catalogApi, userEntityRef);
-      if (userEntity || attempt === MAX_ATTEMPTS) {
-        return { userEntity };
-      }
-
-      warnFailure(
-        `[useIsSuperuser] User entity ${userEntityRef} not found, retrying in ${RETRY_DELAY_MS}ms...`,
-        'Entity not found',
-      );
-      await new Promise(resolve => setTimeout(resolve, RETRY_DELAY_MS));
-      if (!isMounted()) return {};
-    } catch (err) {
-      lastError = toError(err);
-      if (attempt < MAX_ATTEMPTS && isMounted()) {
-        warnFailure(
-          `[useIsSuperuser] Attempt ${attempt} failed, retrying in ${RETRY_DELAY_MS}ms...`,
-          lastError.message,
-        );
-        await new Promise(resolve => setTimeout(resolve, RETRY_DELAY_MS));
-        if (!isMounted()) return {};
-      }
-    }
+    const result = await attemptFetch(
+      catalogApi,
+      userEntityRef,
+      attempt,
+      isMounted,
+    );
+    if (result.userEntity !== undefined)
+      return { userEntity: result.userEntity };
+    if (result.error) lastError = result.error;
+    if (result.done) break;
   }
 
   return { lastError };
