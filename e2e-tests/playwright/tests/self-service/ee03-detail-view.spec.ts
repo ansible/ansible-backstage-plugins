@@ -419,5 +419,4 @@ test.describe('Execution Environment Catalog and Detail View Tests', () => {
       expect(toastText).toContain('Build triggered');
     }
   });
-
 });
