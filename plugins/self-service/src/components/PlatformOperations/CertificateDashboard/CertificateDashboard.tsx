@@ -25,8 +25,8 @@ import {
   Chip,
   TextField,
   makeStyles,
-  Divider,
   Paper,
+  CardActionArea,
 } from '@material-ui/core';
 import {
   Table,
@@ -39,8 +39,8 @@ import CheckCircleIcon from '@material-ui/icons/CheckCircle';
 import WarningIcon from '@material-ui/icons/Warning';
 import ErrorIcon from '@material-ui/icons/Error';
 import SecurityIcon from '@material-ui/icons/Security';
-import ScheduleIcon from '@material-ui/icons/Schedule';
 import ErrorOutlineIcon from '@material-ui/icons/ErrorOutline';
+import ClearIcon from '@material-ui/icons/Clear';
 
 import type {
   CertificateInfo,
@@ -52,6 +52,8 @@ import {
   platformOpsApiRef,
   extractCertificateReport,
 } from '../../../apis';
+
+type FilterType = 'total' | 'ok' | 'warning' | 'critical' | 'expired' | 'missing' | null;
 
 const useStyles = makeStyles(theme => ({
   headerCard: {
@@ -93,10 +95,15 @@ const useStyles = makeStyles(theme => ({
     height: '100%',
     textAlign: 'center',
     transition: 'transform 0.2s, box-shadow 0.2s',
+    cursor: 'pointer',
     '&:hover': {
       transform: 'translateY(-2px)',
       boxShadow: theme.shadows[4],
     },
+  },
+  summaryCardSelected: {
+    boxShadow: `0 0 0 3px ${theme.palette.primary.main}`,
+    transform: 'translateY(-2px)',
   },
   summaryValue: {
     fontSize: '3rem',
@@ -120,38 +127,6 @@ const useStyles = makeStyles(theme => ({
   },
   statusExpired: {
     color: '#9c27b0',
-  },
-  actionSection: {
-    marginBottom: theme.spacing(3),
-  },
-  actionCard: {
-    borderLeft: '4px solid',
-    marginBottom: theme.spacing(1),
-  },
-  actionCardExpired: {
-    borderLeftColor: '#9c27b0',
-    backgroundColor: 'rgba(156, 39, 176, 0.05)',
-  },
-  actionCardCritical: {
-    borderLeftColor: '#d32f2f',
-    backgroundColor: 'rgba(211, 47, 47, 0.05)',
-  },
-  actionCardWarning: {
-    borderLeftColor: '#ed6c02',
-    backgroundColor: 'rgba(237, 108, 2, 0.05)',
-  },
-  actionCardContent: {
-    display: 'flex',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    padding: theme.spacing(1.5, 2),
-  },
-  actionCertName: {
-    fontWeight: 600,
-  },
-  actionDays: {
-    fontWeight: 700,
-    fontSize: '1.1rem',
   },
   chipOk: {
     backgroundColor: '#e8f5e9',
@@ -182,6 +157,14 @@ const useStyles = makeStyles(theme => ({
     alignItems: 'center',
     padding: theme.spacing(2),
     borderBottom: `1px solid ${theme.palette.divider}`,
+  },
+  tableHeaderLeft: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: theme.spacing(2),
+  },
+  filterChip: {
+    marginLeft: theme.spacing(1),
   },
   controlsContainer: {
     display: 'flex',
@@ -222,12 +205,6 @@ const useStyles = makeStyles(theme => ({
     border: '1px solid #ef9a9a',
     borderRadius: theme.shape.borderRadius,
     padding: theme.spacing(2),
-    marginBottom: theme.spacing(2),
-  },
-  sectionTitle: {
-    display: 'flex',
-    alignItems: 'center',
-    gap: theme.spacing(1),
     marginBottom: theme.spacing(2),
   },
 }));
@@ -292,69 +269,28 @@ const SummaryCard: React.FC<{
   value: number;
   colorClass?: string;
   icon?: React.ReactNode;
-}> = ({ title, value, colorClass, icon }) => {
+  selected?: boolean;
+  onClick?: () => void;
+}> = ({ title, value, colorClass, icon, selected, onClick }) => {
   const classes = useStyles();
   return (
-    <Card className={classes.summaryCard} elevation={1}>
-      <CardContent>
-        {icon && <Box mb={1}>{icon}</Box>}
-        <Typography className={`${classes.summaryValue} ${colorClass || ''}`}>
-          {value}
-        </Typography>
-        <Typography className={classes.summaryLabel} color="textSecondary">
-          {title}
-        </Typography>
-      </CardContent>
+    <Card
+      className={`${classes.summaryCard} ${selected ? classes.summaryCardSelected : ''}`}
+      elevation={selected ? 4 : 1}
+      onClick={onClick}
+    >
+      <CardActionArea style={{ height: '100%' }}>
+        <CardContent>
+          {icon && <Box mb={1}>{icon}</Box>}
+          <Typography className={`${classes.summaryValue} ${colorClass || ''}`}>
+            {value}
+          </Typography>
+          <Typography className={classes.summaryLabel} color="textSecondary">
+            {title}
+          </Typography>
+        </CardContent>
+      </CardActionArea>
     </Card>
-  );
-};
-
-const ActionRequiredCard: React.FC<{
-  cert: CertificateInfo;
-  type: 'expired' | 'critical' | 'warning';
-}> = ({ cert, type }) => {
-  const classes = useStyles();
-
-  const cardClass =
-    type === 'expired'
-      ? classes.actionCardExpired
-      : type === 'critical'
-        ? classes.actionCardCritical
-        : classes.actionCardWarning;
-
-  const daysClass =
-    type === 'expired'
-      ? classes.statusExpired
-      : type === 'critical'
-        ? classes.statusCritical
-        : classes.statusWarning;
-
-  const daysText =
-    type === 'expired'
-      ? `Expired ${Math.abs(cert.daysRemaining)} days ago`
-      : `${cert.daysRemaining} days remaining`;
-
-  return (
-    <Paper className={`${classes.actionCard} ${cardClass}`} elevation={0}>
-      <Box className={classes.actionCardContent}>
-        <Box>
-          <Typography className={classes.actionCertName}>
-            {cert.name}
-          </Typography>
-          <Typography variant="caption" color="textSecondary">
-            {cert.source} &bull; {cert.host}
-          </Typography>
-        </Box>
-        <Box textAlign="right">
-          <Typography className={`${classes.actionDays} ${daysClass}`}>
-            {daysText}
-          </Typography>
-          <Typography variant="caption" color="textSecondary">
-            {cert.expiryDate}
-          </Typography>
-        </Box>
-      </Box>
-    </Paper>
   );
 };
 
@@ -369,18 +305,28 @@ export const CertificateDashboard: React.FC = () => {
   const [thresholds, setThresholds] = useState<CertificateThresholds | null>(null);
   const [summary, setSummary] = useState<CertificateSummary>(emptySummary);
   const [certificates, setCertificates] = useState<CertificateInfo[]>([]);
+  const [filter, setFilter] = useState<FilterType>(null);
 
   const [criticalDays, setCriticalDays] = useState<number>(5);
   const [warningDays, setWarningDays] = useState<number>(47);
 
-  const expiredCerts = certificates.filter(c => c.status === 'expired');
-  const criticalCerts = certificates.filter(c => c.status === 'critical');
-  const warningCerts = certificates.filter(c => c.status === 'warning');
-  const hasActionRequired = expiredCerts.length > 0 || criticalCerts.length > 0 || warningCerts.length > 0;
+  const handleFilterClick = (filterType: FilterType) => {
+    setFilter(current => (current === filterType ? null : filterType));
+  };
+
+  const filteredCertificates = filter && filter !== 'total'
+    ? certificates.filter(c => c.status === filter)
+    : certificates;
+
+  const getFilterLabel = () => {
+    if (!filter || filter === 'total') return 'All Certificates';
+    return `${filter.charAt(0).toUpperCase() + filter.slice(1)} Certificates`;
+  };
 
   const handleRunCheck = async () => {
     setIsRunning(true);
     setError(null);
+    setFilter(null);
 
     try {
       const result = await platformOpsApi.executeTask('cert-check', '', {
@@ -565,12 +511,20 @@ export const CertificateDashboard: React.FC = () => {
         </Box>
       )}
 
-      {/* Summary Cards */}
+      {/* Summary Cards - Clickable */}
       {certificates.length > 0 && (
         <>
+          <Typography variant="body2" color="textSecondary" style={{ marginBottom: 8 }}>
+            Click a card to filter certificates
+          </Typography>
           <Grid container spacing={2} className={classes.summaryContainer}>
             <Grid item xs={6} sm={4} md={2}>
-              <SummaryCard title="Total" value={summary.total} />
+              <SummaryCard
+                title="Total"
+                value={summary.total}
+                selected={filter === 'total'}
+                onClick={() => handleFilterClick('total')}
+              />
             </Grid>
             <Grid item xs={6} sm={4} md={2}>
               <SummaryCard
@@ -578,6 +532,8 @@ export const CertificateDashboard: React.FC = () => {
                 value={summary.ok}
                 colorClass={classes.statusOk}
                 icon={<CheckCircleIcon style={{ color: '#2e7d32', fontSize: 28 }} />}
+                selected={filter === 'ok'}
+                onClick={() => handleFilterClick('ok')}
               />
             </Grid>
             <Grid item xs={6} sm={4} md={2}>
@@ -586,6 +542,8 @@ export const CertificateDashboard: React.FC = () => {
                 value={summary.warning}
                 colorClass={classes.statusWarning}
                 icon={<WarningIcon style={{ color: '#ed6c02', fontSize: 28 }} />}
+                selected={filter === 'warning'}
+                onClick={() => handleFilterClick('warning')}
               />
             </Grid>
             <Grid item xs={6} sm={4} md={2}>
@@ -594,6 +552,8 @@ export const CertificateDashboard: React.FC = () => {
                 value={summary.critical}
                 colorClass={classes.statusCritical}
                 icon={<ErrorIcon style={{ color: '#d32f2f', fontSize: 28 }} />}
+                selected={filter === 'critical'}
+                onClick={() => handleFilterClick('critical')}
               />
             </Grid>
             <Grid item xs={6} sm={4} md={2}>
@@ -602,6 +562,8 @@ export const CertificateDashboard: React.FC = () => {
                 value={summary.expired}
                 colorClass={classes.statusExpired}
                 icon={<ErrorOutlineIcon style={{ color: '#9c27b0', fontSize: 28 }} />}
+                selected={filter === 'expired'}
+                onClick={() => handleFilterClick('expired')}
               />
             </Grid>
             <Grid item xs={6} sm={4} md={2}>
@@ -609,70 +571,34 @@ export const CertificateDashboard: React.FC = () => {
                 title="Missing"
                 value={summary.missing}
                 colorClass={classes.statusCritical}
+                selected={filter === 'missing'}
+                onClick={() => handleFilterClick('missing')}
               />
             </Grid>
           </Grid>
 
-          {/* Action Required Section */}
-          {hasActionRequired && (
-            <Box className={classes.actionSection}>
-              {expiredCerts.length > 0 && (
-                <Box mb={3}>
-                  <Box className={classes.sectionTitle}>
-                    <ErrorOutlineIcon style={{ color: '#9c27b0' }} />
-                    <Typography variant="h6" style={{ color: '#9c27b0' }}>
-                      Expired Certificates - Immediate Action Required
-                    </Typography>
-                  </Box>
-                  {expiredCerts.map(cert => (
-                    <ActionRequiredCard key={cert.name} cert={cert} type="expired" />
-                  ))}
-                </Box>
-              )}
-
-              {criticalCerts.length > 0 && (
-                <Box mb={3}>
-                  <Box className={classes.sectionTitle}>
-                    <ErrorIcon style={{ color: '#d32f2f' }} />
-                    <Typography variant="h6" style={{ color: '#d32f2f' }}>
-                      Critical - Expiring within {criticalDays} days
-                    </Typography>
-                  </Box>
-                  {criticalCerts.map(cert => (
-                    <ActionRequiredCard key={cert.name} cert={cert} type="critical" />
-                  ))}
-                </Box>
-              )}
-
-              {warningCerts.length > 0 && (
-                <Box mb={3}>
-                  <Box className={classes.sectionTitle}>
-                    <ScheduleIcon style={{ color: '#ed6c02' }} />
-                    <Typography variant="h6" style={{ color: '#ed6c02' }}>
-                      Warning - Expiring within {warningDays} days
-                    </Typography>
-                  </Box>
-                  {warningCerts.map(cert => (
-                    <ActionRequiredCard key={cert.name} cert={cert} type="warning" />
-                  ))}
-                </Box>
-              )}
-
-              <Divider style={{ margin: '24px 0' }} />
-            </Box>
-          )}
-
           {/* Certificate Table */}
           <Paper className={classes.tableCard}>
             <Box className={classes.tableHeader}>
-              <Typography variant="h6">All Certificates</Typography>
+              <Box className={classes.tableHeaderLeft}>
+                <Typography variant="h6">{getFilterLabel()}</Typography>
+                {filter && filter !== 'total' && (
+                  <Chip
+                    size="small"
+                    label="Clear filter"
+                    icon={<ClearIcon style={{ fontSize: 16 }} />}
+                    onClick={() => setFilter(null)}
+                    className={classes.filterChip}
+                  />
+                )}
+              </Box>
               <Typography variant="body2" color="textSecondary">
-                Sorted by days remaining (most urgent first)
+                {filteredCertificates.length} certificate{filteredCertificates.length !== 1 ? 's' : ''}
               </Typography>
             </Box>
             <Table
               columns={columns}
-              data={certificates}
+              data={filteredCertificates}
               options={{
                 search: true,
                 paging: true,
