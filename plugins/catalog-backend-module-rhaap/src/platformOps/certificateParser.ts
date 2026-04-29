@@ -55,11 +55,11 @@ export function parseCertificateOutput(
   const parseErrors: string[] = [];
 
   // The playbook outputs in Ansible debug format:
-  // "msg": "CERT_REPORT_JSON:{\"host\": \"value\", ...}]}"
+  // "msg": "CERT_REPORT_JSON:{\"host\": \"value\", ...}}"
   // The JSON is escaped because it's inside a JSON string value
-  // Match from CERT_REPORT_JSON:{ to the last }]}" which ends the certificates array and object
+  // Structure ends with: ...]}} (warning array, actionRequired obj, main obj)
 
-  const msgJsonMatch = stdout.match(/CERT_REPORT_JSON:(\{.*\}\]\})/);
+  const msgJsonMatch = stdout.match(/CERT_REPORT_JSON:(\{.*\]\}\})/);
 
   if (msgJsonMatch) {
     try {
