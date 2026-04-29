@@ -21,7 +21,7 @@ import {
   CatalogFilterLayout,
   EntityKindFilter,
   EntityListProvider,
-  EntityTagFilter,
+  EntityTypeFilter,
   UserListPicker,
   catalogApiRef,
   useEntityList,
@@ -145,7 +145,7 @@ const ExecutionEnvironmentTypeFilter = () => {
       updateFilters(prev => ({
         ...prev,
         kind: new EntityKindFilter('Component', 'Component'),
-        tags: new EntityTagFilter(['execution-environment']),
+        type: new EntityTypeFilter(['execution-environment']),
       }));
     }
   }, [type, updateFilters]);
@@ -213,7 +213,7 @@ export const EEListPage = ({
   const [entityToUnregister, setEntityToUnregister] = useState<Entity | null>(
     null,
   );
-  const { filters, updateFilters } = useEntityList();
+  const { filters } = useEntityList();
   const {
     startBuildFlow,
     authBusy,
@@ -371,7 +371,6 @@ export const EEListPage = ({
 
   useEffect(() => {
     isMountedRef.current = true;
-    updateFilters({ ...filters, tags: new EntityTagFilter(['ansible']) });
     callApi();
 
     return () => {
@@ -462,10 +461,10 @@ export const EEListPage = ({
       id: 'tags',
       render: (entity: any) => (
         <div className={classes.tagsContainer}>
-          {entity.metadata.tags.slice(0, 3).map((t: string) => (
+          {(entity.metadata.tags ?? []).slice(0, 3).map((t: string) => (
             <Chip key={t} label={t} size="small" />
           ))}
-          {entity.metadata.tags.length > 3 && (
+          {(entity.metadata.tags?.length ?? 0) > 3 && (
             <Chip label={`+${entity.metadata.tags.length - 3}`} size="small" />
           )}
         </div>
