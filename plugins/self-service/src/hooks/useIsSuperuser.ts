@@ -56,9 +56,16 @@ function toError(err: unknown): Error {
     : new Error('Failed to check superuser status');
 }
 
-function warnFailure(message: string, errorMessage: string): void {
+function sanitizeForLog(message: string): string {
+  return message.replace(/https?:\/\/[^\s]+/g, '[redacted-url]');
+}
+
+function warnFailure(message: string, errorMessage?: string): void {
   // eslint-disable-next-line no-console
-  console.warn(message, errorMessage);
+  console.warn(
+    message,
+    ...(errorMessage ? [sanitizeForLog(errorMessage)] : []),
+  );
 }
 
 interface FetchWithRetryResult {
@@ -90,6 +97,7 @@ async function fetchWithRetry(
         'Entity not found',
       );
       await new Promise(resolve => setTimeout(resolve, RETRY_DELAY_MS));
+      if (!isMounted()) return {};
     } catch (err) {
       lastError = toError(err);
       if (attempt < MAX_ATTEMPTS && isMounted()) {
@@ -98,6 +106,7 @@ async function fetchWithRetry(
           lastError.message,
         );
         await new Promise(resolve => setTimeout(resolve, RETRY_DELAY_MS));
+        if (!isMounted()) return {};
       }
     }
   }
@@ -115,22 +124,8 @@ export function useIsSuperuser(): UseIsSuperuserResult {
   const identityApi = useApi(identityApiRef);
   const catalogApi = useApi(catalogApiRef);
 
-  // initialize from cache if valid
-  const [isSuperuser, setIsSuperuser] = useState(() => {
-    if (
-      superuserCache &&
-      Date.now() - superuserCache.timestamp < CACHE_TTL_MS
-    ) {
-      return superuserCache.isSuperuser;
-    }
-    return false;
-  });
-  const [loading, setLoading] = useState(() => {
-    // not loading if we have valid cache
-    return !(
-      superuserCache && Date.now() - superuserCache.timestamp < CACHE_TTL_MS
-    );
-  });
+  const [isSuperuser, setIsSuperuser] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [error, setError] = useState<Error | null>(null);
 
   useEffect(() => {
@@ -152,11 +147,11 @@ export function useIsSuperuser(): UseIsSuperuserResult {
         const identity = await identityApi.getBackstageIdentity();
         const userEntityRef = identity.userEntityRef;
 
+        if (!mounted) return;
+
         if (isCacheValid(userEntityRef) && superuserCache) {
-          if (mounted) {
-            setIsSuperuser(superuserCache.isSuperuser);
-            setLoading(false);
-          }
+          setIsSuperuser(superuserCache.isSuperuser);
+          setLoading(false);
           return;
         }
 
@@ -186,8 +181,7 @@ export function useIsSuperuser(): UseIsSuperuserResult {
         }
 
         if (!userEntity) {
-          // eslint-disable-next-line no-console
-          console.warn(
+          warnFailure(
             `[useIsSuperuser] User entity ${userEntityRef} not found in catalog. ` +
               'This may indicate catalog sync has not completed yet.',
           );

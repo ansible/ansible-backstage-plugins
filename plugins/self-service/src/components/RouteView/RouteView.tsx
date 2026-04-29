@@ -1,5 +1,6 @@
 import React, { useEffect } from 'react';
 import { Route, Routes, Navigate, Outlet, useLocation } from 'react-router-dom';
+import { CircularProgress } from '@material-ui/core';
 import { RequirePermission } from '@backstage/plugin-permission-react';
 import { catalogEntityCreatePermission } from '@backstage/plugin-catalog-common/alpha';
 import {
@@ -37,9 +38,20 @@ import {
 } from '../notifications';
 
 const RequireSuperuser = ({ children }: { children: React.ReactNode }) => {
-  const { isSuperuser, loading } = useIsSuperuser();
-  if (loading) return null;
-  if (!isSuperuser) return <Navigate to="/self-service/catalog" replace />;
+  const { isSuperuser, loading, error } = useIsSuperuser();
+  if (loading) {
+    return (
+      <div
+        data-testid="superuser-loading"
+        style={{ display: 'flex', justifyContent: 'center', padding: '2rem' }}
+      >
+        <CircularProgress />
+      </div>
+    );
+  }
+  if (error || !isSuperuser) {
+    return <Navigate to="/self-service/catalog" replace />;
+  }
   return <>{children}</>;
 };
 
