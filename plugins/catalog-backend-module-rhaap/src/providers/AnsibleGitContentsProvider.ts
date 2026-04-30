@@ -153,30 +153,35 @@ export class AnsibleGitContentsProvider implements EntityProvider {
   ): () => Promise<void> {
     return async () => {
       const taskId = `${this.getProviderName()}:run`;
-      this.taskId = taskId;
       this.logger.info(
         `[${AnsibleGitContentsProvider.pluginLogName}]: Creating schedule for ${this.sourceId}`,
       );
 
-      return taskRunner.run({
-        id: taskId,
-        fn: async (signal?: AbortSignal) => {
-          try {
-            await this.run(signal);
-          } catch (error) {
-            if (isError(error)) {
-              this.logger.error(
-                `[${AnsibleGitContentsProvider.pluginLogName}]: Error syncing collections from ${this.sourceId}`,
-                {
-                  name: error.name,
-                  message: error.message,
-                  stack: error.stack,
-                },
-              );
+      try {
+        await taskRunner.run({
+          id: taskId,
+          fn: async (signal?: AbortSignal) => {
+            try {
+              await this.run(signal);
+            } catch (error) {
+              if (isError(error)) {
+                this.logger.error(
+                  `[${AnsibleGitContentsProvider.pluginLogName}]: Error syncing collections from ${this.sourceId}`,
+                  {
+                    name: error.name,
+                    message: error.message,
+                    stack: error.stack,
+                  },
+                );
+              }
             }
-          }
-        },
-      });
+          },
+        });
+        this.taskId = taskId;
+      } catch (error) {
+        this.taskId = undefined;
+        throw error;
+      }
     };
   }
 

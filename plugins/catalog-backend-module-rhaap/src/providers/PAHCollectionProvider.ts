@@ -189,7 +189,6 @@ export class PAHCollectionProvider implements EntityProvider {
   ): () => Promise<void> {
     return async () => {
       const taskId = `${this.getProviderName()}:run`;
-      this.taskId = taskId;
       this.logger.info(
         `[${
           PAHCollectionProvider.pluginLogName
@@ -197,28 +196,34 @@ export class PAHCollectionProvider implements EntityProvider {
           this.baseUrl
         }`,
       );
-      return taskRunner.run({
-        id: taskId,
-        fn: async (signal: AbortSignal) => {
-          try {
-            await this.run(signal);
-          } catch (error) {
-            if (isError(error)) {
-              // Ensure that we don't log any sensitive internal data
-              this.logger.error(
-                `Error while syncing PAH collections for ${this.getProviderName()}`,
-                {
-                  name: error.name,
-                  message: error.message,
-                  stack: error.stack,
-                  // Additional status code if available:
-                  status: (error.response as { status?: string })?.status,
-                },
-              );
+      try {
+        await taskRunner.run({
+          id: taskId,
+          fn: async (signal: AbortSignal) => {
+            try {
+              await this.run(signal);
+            } catch (error) {
+              if (isError(error)) {
+                // Ensure that we don't log any sensitive internal data
+                this.logger.error(
+                  `Error while syncing PAH collections for ${this.getProviderName()}`,
+                  {
+                    name: error.name,
+                    message: error.message,
+                    stack: error.stack,
+                    // Additional status code if available:
+                    status: (error.response as { status?: string })?.status,
+                  },
+                );
+              }
             }
-          }
-        },
-      });
+          },
+        });
+        this.taskId = taskId;
+      } catch (error) {
+        this.taskId = undefined;
+        throw error;
+      }
     };
   }
 
