@@ -32,6 +32,7 @@ export class PAHCollectionProvider implements EntityProvider {
   private previousCollectionsCount: number = 0;
   private isSyncing: boolean = false;
   private readonly enabled: boolean = true;
+  private taskId: string | undefined;
 
   static readonly pluginLogName = 'plugin-catalog-rh-aap';
   static readonly syncEntity = 'pahCollections';
@@ -120,6 +121,10 @@ export class PAHCollectionProvider implements EntityProvider {
     return `PAHCollectionProvider:${this.env}:${this.pahRepositoryName}`;
   }
 
+  getTaskId(): string | undefined {
+    return this.taskId;
+  }
+
   getPahRepositoryName(): string {
     return this.pahRepositoryName;
   }
@@ -184,6 +189,7 @@ export class PAHCollectionProvider implements EntityProvider {
   ): () => Promise<void> {
     return async () => {
       const taskId = `${this.getProviderName()}:run`;
+      this.taskId = taskId;
       this.logger.info(
         `[${
           PAHCollectionProvider.pluginLogName
