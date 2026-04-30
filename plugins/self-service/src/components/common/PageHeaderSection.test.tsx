@@ -1,4 +1,4 @@
-import { render, screen, fireEvent } from '@testing-library/react';
+import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { ThemeProvider, createTheme } from '@material-ui/core/styles';
 import { PageHeaderSection } from './PageHeaderSection';
 
@@ -164,5 +164,115 @@ describe('PageHeaderSection', () => {
     const icon = syncButton.querySelector('svg');
     expect(icon).toBeTruthy();
     expect(icon?.getAttribute('class')).toMatch(/syncIconSpinning/);
+  });
+
+  it('shows popover after sync completes when a source has failed (sticky behavior)', async () => {
+    renderWithTheme(
+      <PageHeaderSection
+        {...defaultProps}
+        syncInProgress={false}
+        syncProgress={[
+          {
+            sourceId: 'src-1',
+            displayName: 'github.com:org1',
+            outcome: 'failure',
+          },
+          {
+            sourceId: 'src-2',
+            displayName: 'github.com:org2',
+            outcome: 'success',
+          },
+        ]}
+      />,
+    );
+
+    const syncButton = screen.getByRole('button', { name: /Sync Now/i });
+    fireEvent.mouseOver(syncButton);
+
+    await waitFor(() => {
+      expect(screen.getByText('github.com:org1')).toBeInTheDocument();
+      expect(screen.getByText('github.com:org2')).toBeInTheDocument();
+      expect(
+        screen.getByText('Last sync completed with errors'),
+      ).toBeInTheDocument();
+    });
+  });
+
+  it('shows popover after sync completes when a source has an ambiguous outcome (sticky behavior)', async () => {
+    renderWithTheme(
+      <PageHeaderSection
+        {...defaultProps}
+        syncInProgress={false}
+        syncProgress={[
+          {
+            sourceId: 'src-1',
+            displayName: 'github.com:org1',
+            outcome: 'ambiguous',
+          },
+        ]}
+      />,
+    );
+
+    const syncButton = screen.getByRole('button', { name: /Sync Now/i });
+    fireEvent.mouseOver(syncButton);
+
+    await waitFor(() => {
+      expect(screen.getByText('github.com:org1')).toBeInTheDocument();
+      expect(screen.getByText('Finished')).toBeInTheDocument();
+    });
+  });
+
+  it('does not show popover when sync is not in progress and all entries succeeded', () => {
+    renderWithTheme(
+      <PageHeaderSection
+        {...defaultProps}
+        syncInProgress={false}
+        syncProgress={[
+          {
+            sourceId: 'src-1',
+            displayName: 'github.com:org1',
+            outcome: 'success',
+          },
+        ]}
+      />,
+    );
+
+    // popover should NOT be interactive — button tooltip would be empty string
+    const syncButton = screen.getByRole('button', { name: /Sync Now/i });
+    expect(syncButton).not.toBeDisabled();
+  });
+
+  it('shows sync progress popover content when syncInProgress and syncProgress entries are provided', async () => {
+    renderWithTheme(
+      <PageHeaderSection
+        {...defaultProps}
+        syncDisabled
+        syncInProgress
+        syncProgress={[
+          {
+            sourceId: 'src-1',
+            displayName: 'github.com:org1',
+            outcome: 'success',
+          },
+          {
+            sourceId: 'src-2',
+            displayName: 'github.com:org2',
+            outcome: 'pending',
+          },
+        ]}
+      />,
+    );
+
+    const syncButton = screen.getByRole('button', { name: /Sync Now/i });
+    fireEvent.mouseOver(syncButton);
+
+    await waitFor(() => {
+      expect(screen.getByText('github.com:org1')).toBeInTheDocument();
+      expect(screen.getByText('github.com:org2')).toBeInTheDocument();
+      expect(screen.getByText('50%')).toBeInTheDocument();
+      expect(screen.getByText('1 of 2 tasks completed')).toBeInTheDocument();
+      expect(screen.getByText('Completed')).toBeInTheDocument();
+      expect(screen.getByText('In progress')).toBeInTheDocument();
+    });
   });
 });

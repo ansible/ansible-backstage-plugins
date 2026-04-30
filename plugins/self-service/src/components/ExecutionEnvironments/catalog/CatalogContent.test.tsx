@@ -2,7 +2,11 @@ import { render, screen, waitFor, fireEvent } from '@testing-library/react';
 import { TestApiProvider } from '@backstage/test-utils';
 import { configApiRef } from '@backstage/core-plugin-api';
 import { scmAuthApiRef } from '@backstage/integration-react';
-import { catalogApiRef } from '@backstage/plugin-catalog-react';
+import {
+  catalogApiRef,
+  EntityKindFilter,
+  EntityTypeFilter,
+} from '@backstage/plugin-catalog-react';
 import { eeBuildApiRef } from '../../../apis';
 import { NotificationProvider, notificationStore } from '../../notifications';
 import { EE_BUILD_PENDING_SESSION_KEY } from './eeBuildSession';
@@ -1473,31 +1477,15 @@ describe('EEListPage', () => {
         spec: { type: 'execution-environment' },
       };
 
-      // This will cause an error in the component, but we can test error handling
-      const consoleError = jest
-        .spyOn(console, 'error')
-        .mockImplementation(() => {});
+      // After the null-safety fix (entity.metadata.tags ?? []), missing tags
+      // are treated as an empty array and the component renders cleanly.
+      renderWithCatalogApi(() =>
+        Promise.resolve({ items: [entityWithMissingTags] }),
+      );
 
-      try {
-        renderWithCatalogApi(() =>
-          Promise.resolve({ items: [entityWithMissingTags] }),
-        );
-
-        // The component will error when trying to render tags, but we can verify
-        // that the error doesn't crash the entire component
-        await waitFor(
-          () => {
-            // Component should still render something, even if there's an error
-            const table = screen.queryByTestId('stubbed-table-title');
-            const error = screen.queryByText(/Error/i);
-            // Either table renders or error is shown
-            expect(table !== null || error !== null).toBeTruthy();
-          },
-          { timeout: 2000 },
-        );
-      } finally {
-        consoleError.mockRestore();
-      }
+      await waitFor(() =>
+        expect(screen.getByTestId('stubbed-table-title')).toBeInTheDocument(),
+      );
     });
 
     test('handles entities with missing spec', async () => {
@@ -1829,6 +1817,11 @@ describe('EEListPage', () => {
       await waitFor(() => {
         expect(mockUpdateFilters).toHaveBeenCalled();
       });
+
+      const updateFiltersCallArg = mockUpdateFilters.mock.calls[0][0];
+      const result = updateFiltersCallArg({});
+      expect(result.type).toBeInstanceOf(EntityTypeFilter);
+      expect(result.kind).toBeInstanceOf(EntityKindFilter);
 
       useEntityListSpy.mockRestore();
     });

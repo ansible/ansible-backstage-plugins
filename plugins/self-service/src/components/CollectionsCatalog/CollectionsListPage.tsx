@@ -35,6 +35,7 @@ import { Entity } from '@backstage/catalog-model';
 import { useNavigate } from 'react-router-dom';
 
 import { EmptyState } from '../common';
+import type { SyncProgressEntry } from '../common';
 import { useCollectionsStyles } from './styles';
 import { PAGE_SIZE } from './constants';
 import { filterLatestVersions, sortEntities } from './utils';
@@ -62,6 +63,7 @@ interface EmptyStateWrapperProps {
   syncDisabled?: boolean;
   syncDisabledReason?: string;
   syncInProgress?: boolean;
+  syncProgress?: SyncProgressEntry[];
 }
 
 const EmptyStateWrapper = ({
@@ -71,6 +73,7 @@ const EmptyStateWrapper = ({
   syncDisabled,
   syncDisabledReason,
   syncInProgress,
+  syncProgress,
 }: EmptyStateWrapperProps) => {
   const classes = useCollectionsStyles();
   const emptyState = (
@@ -80,6 +83,7 @@ const EmptyStateWrapper = ({
       syncDisabled={syncDisabled}
       syncDisabledReason={syncDisabledReason}
       syncInProgress={syncInProgress}
+      syncProgress={syncProgress}
       {...(filterByRepositoryEntity && { repositoryFilter: true })}
     />
   );
@@ -96,6 +100,7 @@ interface CollectionsListPageProps {
   syncDisabled?: boolean;
   syncDisabledReason?: string;
   syncInProgress?: boolean;
+  syncProgress?: SyncProgressEntry[];
 }
 
 function collectionsTitleCountSuffix(
@@ -121,6 +126,7 @@ export const CollectionsListPage = ({
   syncDisabled,
   syncDisabledReason,
   syncInProgress,
+  syncProgress,
 }: CollectionsListPageProps) => {
   const classes = useCollectionsStyles();
   const catalogApi = useApi(catalogApiRef);
@@ -251,6 +257,7 @@ export const CollectionsListPage = ({
           syncDisabled={syncDisabled}
           syncDisabledReason={syncDisabledReason}
           syncInProgress={syncInProgress}
+          syncProgress={syncProgress}
         />
       ) : (
         <Box
@@ -441,6 +448,7 @@ interface CollectionsContentProps {
   syncDisabled?: boolean;
   syncDisabledReason?: string;
   syncInProgress?: boolean;
+  syncProgress?: SyncProgressEntry[];
 }
 
 export const CollectionsContent = ({
@@ -449,6 +457,7 @@ export const CollectionsContent = ({
   syncDisabled,
   syncDisabledReason,
   syncInProgress,
+  syncProgress,
 }: CollectionsContentProps) => {
   const classes = useCollectionsStyles();
 
@@ -462,6 +471,7 @@ export const CollectionsContent = ({
             syncDisabled={syncDisabled}
             syncDisabledReason={syncDisabledReason}
             syncInProgress={syncInProgress}
+            syncProgress={syncProgress}
           />
         </EntityListProvider>
       </Box>

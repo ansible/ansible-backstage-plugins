@@ -196,10 +196,6 @@ export function createEEDefinitionAction(options: {
         const api = new BackendServiceAPI();
         const tarName = 'ee-scaffold.tar';
 
-        logger.info(
-          `[ansible:create:ee-definition] calling creator service at ${creatorServiceUrl}`,
-        );
-
         // Download and extract the scaffold to a temp dir first, then
         // distribute files: repo-root items (.github, .gitignore, …) stay at
         // workspacePath; EE-specific files go into eeDir (contextDirName/).
@@ -940,9 +936,12 @@ function buildEEConfig(params: {
     eeConfig.system_packages = params.systemPackages;
   }
   if (params.additionalBuildSteps.length > 0) {
-    eeConfig.additional_build_steps = buildStepsToObject(
+    const additionalBuildStepsObj = buildStepsToObject(
       params.additionalBuildSteps,
     );
+    if (Object.keys(additionalBuildStepsObj).length > 0) {
+      eeConfig.additional_build_steps = additionalBuildStepsObj;
+    }
   }
   if (params.galaxyServers.length > 0) {
     eeConfig.galaxy_servers = params.galaxyServers;
@@ -977,19 +976,27 @@ function buildEEConfig(params: {
  * Multiple steps with the same `stepType` are merged by concatenating their
  * command arrays in encounter order.
  *
+ * Steps with no non-blank commands are silently skipped — passing an empty
+ * or null-valued phase key to `ansible-builder` triggers a jsonschema
+ * ValidationError because the schema requires `string | string[]`, not `null`.
+ *
  * @param steps - Flat list of build step objects from the UI.
  * @returns An object keyed by step type (e.g. `prepend_base`) whose values
- *   are the concatenated command arrays for that phase.
+ *   are the concatenated, non-blank command arrays for that phase.
  */
 function buildStepsToObject(
   steps: AdditionalBuildStep[],
 ): Record<string, string[]> {
   const result: Record<string, string[]> = {};
   for (const step of steps) {
+    const nonBlankCommands = step.commands.filter(cmd => cmd.trim() !== '');
+    if (nonBlankCommands.length === 0) {
+      continue;
+    }
     if (!result[step.stepType]) {
       result[step.stepType] = [];
     }
-    result[step.stepType].push(...step.commands);
+    result[step.stepType].push(...nonBlankCommands);
   }
   return result;
 }
@@ -1139,8 +1146,21 @@ async function patchWorkflowEeDir(
     `$1"${contextDirName}"`,
   );
 
-  if (patched !== content) {
-    await fs.writeFile(workflowPath, patched);
+  // Avoid a greedy `.*` before `||` (super-linear backtracking risk): split
+  // into lines, identify the EE_DIR line with a simple anchored test, then do
+  // a narrow literal substitution only on that line.
+  const patchedWithEeDir = patched
+    .split('\n')
+    .map(line => {
+      if (!/^\s+EE_DIR:\s/.test(line)) {
+        return line;
+      }
+      return line.replace(/'\.'\s*(\}\})/, `'${contextDirName}' $1`);
+    })
+    .join('\n');
+
+  if (patchedWithEeDir !== content) {
+    await fs.writeFile(workflowPath, patchedWithEeDir);
   }
 }
 

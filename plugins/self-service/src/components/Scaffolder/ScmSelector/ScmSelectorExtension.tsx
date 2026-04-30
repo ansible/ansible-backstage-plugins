@@ -21,6 +21,7 @@ import { makeStyles } from '@material-ui/core/styles';
 import { Alert } from '@material-ui/lab';
 import CheckCircleIcon from '@material-ui/icons/CheckCircle';
 import ErrorIcon from '@material-ui/icons/Error';
+import { useFieldValidation } from '../../CreateTask/FieldValidationContext';
 
 type ProviderType = 'github' | 'gitlab';
 
@@ -99,6 +100,56 @@ const useStyles = makeStyles(theme => ({
   flexGrow: {
     flex: 1,
   },
+  validationTooltip: {
+    position: 'relative',
+    display: 'flex',
+    alignItems: 'center',
+    gap: theme.spacing(1),
+    width: 'fit-content',
+    marginLeft: 'auto',
+    marginRight: 'auto',
+    marginTop: theme.spacing(1),
+    backgroundColor: '#fff',
+    border: '1px solid #e0e0e0',
+    borderRadius: theme.shape.borderRadius,
+    boxShadow: theme.shadows[3],
+    padding: theme.spacing(0.75, 1.5),
+    '&::before': {
+      content: '""',
+      position: 'absolute',
+      top: -9,
+      left: 14,
+      borderLeft: '7px solid transparent',
+      borderRight: '7px solid transparent',
+      borderBottom: '9px solid #e0e0e0',
+    },
+    '&::after': {
+      content: '""',
+      position: 'absolute',
+      top: -7,
+      left: 15,
+      borderLeft: '6px solid transparent',
+      borderRight: '6px solid transparent',
+      borderBottom: '8px solid #fff',
+    },
+  },
+  validationIconBox: {
+    backgroundColor: '#f57c00',
+    color: '#fff',
+    borderRadius: '3px',
+    width: 22,
+    height: 22,
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    fontWeight: 'bold',
+    fontSize: '0.85rem',
+    flexShrink: 0,
+  },
+  validationTooltipText: {
+    fontSize: '0.875rem',
+    color: 'rgba(0, 0, 0, 0.87)',
+  },
 }));
 
 export const ScmSelectorExtension = ({
@@ -109,6 +160,7 @@ export const ScmSelectorExtension = ({
   schema,
   uiSchema,
   formData,
+  idSchema,
 }: FieldExtensionComponentProps<ScmSelectorData>) => {
   const classes = useStyles();
   const scmAuthApi = useApi(scmAuthApiRef);
@@ -134,6 +186,10 @@ export const ScmSelectorExtension = ({
   const providerLabel = formData?.providerLabel ?? '';
   const selectedOrg = formData?.org ?? '';
   const repoName = formData?.repoName ?? '';
+
+  const { setFieldError, submitAttempted, resetSubmitAttempted } =
+    useFieldValidation();
+  const fieldId = idSchema.$id;
 
   const title = schema?.title || 'Source Control Provider';
   const description = schema?.description;
@@ -376,8 +432,9 @@ export const ScmSelectorExtension = ({
         repoExists: false,
       });
       setRepoStatus(null);
+      resetSubmitAttempted();
     },
-    [onChange, selectedProvider, providerLabel],
+    [onChange, selectedProvider, providerLabel, resetSubmitAttempted],
   );
 
   const handleRepoNameChange = useCallback(
@@ -490,6 +547,38 @@ export const ScmSelectorExtension = ({
     getApiBaseUrl,
   ]);
 
+  useEffect(() => {
+    const authErrorId = `${fieldId}-auth`;
+    const orgId = `${fieldId}-org`;
+    const repoId = `${fieldId}-repo`;
+    const orgFieldVisible =
+      isAuthenticated &&
+      !!selectedProvider &&
+      (isFetchingOrgs || organizations.length > 0);
+    const repoFieldVisible =
+      isAuthenticated && !!selectedProvider && !!selectedOrg;
+
+    setFieldError(authErrorId, !!authError);
+    setFieldError(orgId, orgFieldVisible && !selectedOrg);
+    setFieldError(repoId, repoFieldVisible && !repoName.trim());
+
+    return () => {
+      setFieldError(authErrorId, false);
+      setFieldError(orgId, false);
+      setFieldError(repoId, false);
+    };
+  }, [
+    fieldId,
+    authError,
+    isAuthenticated,
+    selectedProvider,
+    isFetchingOrgs,
+    organizations,
+    selectedOrg,
+    repoName,
+    setFieldError,
+  ]);
+
   const renderAuthStatus = () => {
     if (!requestUserCredentials) {
       return null;
@@ -577,31 +666,43 @@ export const ScmSelectorExtension = ({
       {isAuthenticated &&
         selectedProvider &&
         (isFetchingOrgs || organizations.length > 0) && (
-          <FormControl
-            className={`${classes.formControl} ${classes.sectionSpacing}`}
-            disabled={isFetchingOrgs}
-            variant="outlined"
-          >
-            <InputLabel id="scm-org-picker-label" shrink={!!selectedOrg}>
-              Namespace
-            </InputLabel>
-            <Box className={classes.selectContainer}>
-              <Select
-                labelId="scm-org-picker-label"
-                label="Namespace"
-                value={selectedOrg}
-                onChange={handleOrgChange}
-                className={classes.flexGrow}
-              >
-                {organizations.map(org => (
-                  <MenuItem key={org.id} value={org.name}>
-                    {org.displayName}
-                  </MenuItem>
-                ))}
-              </Select>
-              {isFetchingOrgs && <CircularProgress size={20} />}
-            </Box>
-          </FormControl>
+          <>
+            <FormControl
+              className={`${classes.formControl} ${classes.sectionSpacing}`}
+              disabled={isFetchingOrgs}
+              variant="outlined"
+            >
+              <InputLabel id="scm-org-picker-label" shrink={!!selectedOrg}>
+                Namespace
+              </InputLabel>
+              <Box className={classes.selectContainer}>
+                <Select
+                  labelId="scm-org-picker-label"
+                  label="Namespace"
+                  value={selectedOrg}
+                  onChange={handleOrgChange}
+                  className={classes.flexGrow}
+                >
+                  {organizations.map(org => (
+                    <MenuItem key={org.id} value={org.name}>
+                      {org.displayName}
+                    </MenuItem>
+                  ))}
+                </Select>
+                {isFetchingOrgs && <CircularProgress size={20} />}
+              </Box>
+            </FormControl>
+            {submitAttempted && !selectedOrg && !isFetchingOrgs && (
+              <Box className={classes.validationTooltip}>
+                <Box component="span" className={classes.validationIconBox}>
+                  !
+                </Box>
+                <Typography className={classes.validationTooltipText}>
+                  Please fill in this field.
+                </Typography>
+              </Box>
+            )}
+          </>
         )}
       {isAuthenticated && selectedProvider && selectedOrg && (
         <Box className={classes.sectionSpacing}>
@@ -618,6 +719,16 @@ export const ScmSelectorExtension = ({
                 ) : undefined,
             }}
           />
+          {submitAttempted && !repoName.trim() && (
+            <Box className={classes.validationTooltip}>
+              <Box component="span" className={classes.validationIconBox}>
+                !
+              </Box>
+              <Typography className={classes.validationTooltipText}>
+                Please fill in this field.
+              </Typography>
+            </Box>
+          )}
           {repoStatus === 'available' && (
             <Box className={classes.authStatus}>
               <CheckCircleIcon className={classes.successIcon} />

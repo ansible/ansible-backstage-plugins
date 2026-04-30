@@ -107,6 +107,11 @@ jest.mock('../notifications', () => ({
   },
 }));
 
+const mockUseIsSuperuser = jest.fn();
+jest.mock('../../hooks', () => ({
+  useIsSuperuser: () => mockUseIsSuperuser(),
+}));
+
 jest.mock('@backstage/core-plugin-api', () => ({
   ...jest.requireActual('@backstage/core-plugin-api'),
   useApi: () => ({
@@ -123,6 +128,11 @@ describe('RouteView', () => {
     mockRequirePermission.mockImplementation(({ children }: any) => (
       <>{children}</>
     ));
+    mockUseIsSuperuser.mockReturnValue({
+      isSuperuser: true,
+      loading: false,
+      error: null,
+    });
   });
 
   it('renders default routes without crashing', () => {
@@ -282,5 +292,72 @@ describe('RouteView', () => {
 
     // Since Navigate is not rendered to DOM, we can just check FeedbackFooter renders
     expect(screen.getByTestId('feedback-footer')).toBeInTheDocument();
+  });
+
+  describe('RequireSuperuser on /catalog-import', () => {
+    it('shows loading indicator while superuser check is in progress', () => {
+      mockUseIsSuperuser.mockReturnValue({
+        isSuperuser: false,
+        loading: true,
+        error: null,
+      });
+
+      render(
+        <MemoryRouter initialEntries={['/catalog-import']}>
+          <RouteView />
+        </MemoryRouter>,
+      );
+
+      expect(screen.getByTestId('superuser-loading')).toBeInTheDocument();
+      expect(screen.queryByTestId('catalog-import')).not.toBeInTheDocument();
+    });
+
+    it('redirects non-superuser away from catalog-import', () => {
+      mockUseIsSuperuser.mockReturnValue({
+        isSuperuser: false,
+        loading: false,
+        error: null,
+      });
+
+      render(
+        <MemoryRouter initialEntries={['/catalog-import']}>
+          <RouteView />
+        </MemoryRouter>,
+      );
+
+      expect(screen.queryByTestId('catalog-import')).not.toBeInTheDocument();
+    });
+
+    it('redirects on hook error', () => {
+      mockUseIsSuperuser.mockReturnValue({
+        isSuperuser: false,
+        loading: false,
+        error: new Error('Hook failed'),
+      });
+
+      render(
+        <MemoryRouter initialEntries={['/catalog-import']}>
+          <RouteView />
+        </MemoryRouter>,
+      );
+
+      expect(screen.queryByTestId('catalog-import')).not.toBeInTheDocument();
+    });
+
+    it('renders catalog-import for superuser', () => {
+      mockUseIsSuperuser.mockReturnValue({
+        isSuperuser: true,
+        loading: false,
+        error: null,
+      });
+
+      render(
+        <MemoryRouter initialEntries={['/catalog-import']}>
+          <RouteView />
+        </MemoryRouter>,
+      );
+
+      expect(screen.getByTestId('catalog-import')).toBeInTheDocument();
+    });
   });
 });

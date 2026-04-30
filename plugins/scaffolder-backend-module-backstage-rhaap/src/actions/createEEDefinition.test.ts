@@ -287,6 +287,32 @@ describe('createEEDefinition', () => {
     );
   });
 
+  it('patches ee-build.yml EE_DIR env var fallback default', async () => {
+    const action = makeAction();
+    const ctx = makeCtx({
+      eeFileName: 'my-ee',
+      baseImage: 'img:latest',
+      publishToSCM: true,
+    });
+
+    mockReadFile.mockImplementation(async (filePath: any) => {
+      if (filePath.toString().endsWith('ee-build.yml')) {
+        return "  EE_DIR: ${{ inputs.ee_dir || vars.EE_DIR || '.' }}\n" as any;
+      }
+      return '' as any;
+    });
+
+    await action.handler(ctx);
+
+    const call = mockWriteFile.mock.calls.find((c: any[]) =>
+      c[0].toString().includes('ee-build.yml'),
+    );
+    expect(call?.[1]).toContain(
+      "EE_DIR: ${{ inputs.ee_dir || vars.EE_DIR || 'my-ee' }}",
+    );
+    expect(call?.[1]).not.toContain("|| '.' }}");
+  });
+
   it('throws when downloadEEScaffold fails', async () => {
     const action = makeAction();
     const ctx = makeCtx({
@@ -362,6 +388,45 @@ describe('createEEDefinition', () => {
     const eeConfig = mockDownloadEEScaffold.mock.calls[0][3];
     expect(eeConfig.additional_build_steps).toEqual({
       prepend_base: ['RUN whoami', 'RUN pwd'],
+    });
+  });
+
+  it('omits additional_build_steps from eeConfig when all steps have empty commands', async () => {
+    const action = makeAction();
+    const ctx = makeCtx({
+      eeFileName: 'test-ee',
+      baseImage: 'img:latest',
+      publishToSCM: true,
+      additionalBuildSteps: [
+        { stepType: 'prepend_base', commands: [] },
+        { stepType: 'prepend_final', commands: [] },
+        { stepType: 'append_galaxy', commands: ['', '   '] },
+      ],
+    });
+
+    await action.handler(ctx);
+
+    const eeConfig = mockDownloadEEScaffold.mock.calls[0][3];
+    expect(eeConfig.additional_build_steps).toBeUndefined();
+  });
+
+  it('filters blank commands and omits empty step types from eeConfig', async () => {
+    const action = makeAction();
+    const ctx = makeCtx({
+      eeFileName: 'test-ee',
+      baseImage: 'img:latest',
+      publishToSCM: true,
+      additionalBuildSteps: [
+        { stepType: 'prepend_base', commands: ['RUN echo hello', '', '   '] },
+        { stepType: 'prepend_final', commands: [] },
+      ],
+    });
+
+    await action.handler(ctx);
+
+    const eeConfig = mockDownloadEEScaffold.mock.calls[0][3];
+    expect(eeConfig.additional_build_steps).toEqual({
+      prepend_base: ['RUN echo hello'],
     });
   });
 

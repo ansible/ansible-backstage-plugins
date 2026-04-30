@@ -13,12 +13,25 @@ import { MockEntityListContextProvider } from '@backstage/plugin-catalog-react/t
 import { permissionApiRef } from '@backstage/plugin-permission-react';
 import { scaffolderApiRef } from '@backstage/plugin-scaffolder-react';
 
+const mockUseIsSuperuser = jest.fn(() => ({
+  isSuperuser: true,
+  loading: false,
+  error: null,
+}));
+
 jest.mock('../../hooks', () => ({
-  useIsSuperuser: () => ({
-    isSuperuser: true,
-    loading: false,
-    error: null,
-  }),
+  useIsSuperuser: () => mockUseIsSuperuser(),
+}));
+
+const mockUsePermission = jest.fn(() => ({
+  loading: false,
+  allowed: true,
+}));
+
+jest.mock('@backstage/plugin-permission-react', () => ({
+  ...jest.requireActual('@backstage/plugin-permission-react'),
+  usePermission: (...args: unknown[]) =>
+    mockUsePermission(...(args as Parameters<typeof mockUsePermission>)),
 }));
 
 const mockRemoveNotification = jest.fn();
@@ -67,7 +80,15 @@ import { mockScaffolderApi } from '../../tests/scaffolderApi_utils';
 describe('self-service', () => {
   beforeEach(() => {
     jest.clearAllMocks();
-    // Reset mock implementations
+    mockUseIsSuperuser.mockReturnValue({
+      isSuperuser: true,
+      loading: false,
+      error: null,
+    });
+    mockUsePermission.mockReturnValue({
+      loading: false,
+      allowed: true,
+    });
     mockRhAapAuthApi.getAccessToken.mockResolvedValue('mock-token');
     mockAnsibleApi.getSyncStatus.mockResolvedValue({
       aap: {
@@ -757,6 +778,156 @@ describe('self-service', () => {
         const tagsInputs = screen.getAllByPlaceholderText('Tags');
         expect(tagsInputs.length).toBeGreaterThan(0);
       });
+    });
+  });
+
+  describe('permission gating', () => {
+    it('should show Sync now disabled while superuser check is loading', async () => {
+      mockUseIsSuperuser.mockReturnValue({
+        isSuperuser: false,
+        loading: true,
+        error: null,
+      });
+
+      const entityRefs = ['component:default/e1'];
+      const tags = ['tag1'];
+      mockCatalogApi.getEntityFacets.mockResolvedValue(
+        facetsFromEntityRefs(entityRefs, tags),
+      );
+
+      await render(<HomeComponent />);
+
+      expect(screen.getByText('Sync now')).toBeInTheDocument();
+    });
+
+    it('should hide Sync now when user is not a superuser', async () => {
+      mockUseIsSuperuser.mockReturnValue({
+        isSuperuser: false,
+        loading: false,
+        error: null,
+      });
+
+      const entityRefs = ['component:default/e1'];
+      const tags = ['tag1'];
+      mockCatalogApi.getEntityFacets.mockResolvedValue(
+        facetsFromEntityRefs(entityRefs, tags),
+      );
+
+      await render(<HomeComponent />);
+
+      expect(screen.queryByText('Sync now')).toBeNull();
+    });
+
+    it('should show Add Template when user is superuser and has catalog create permission', async () => {
+      mockUseIsSuperuser.mockReturnValue({
+        isSuperuser: true,
+        loading: false,
+        error: null,
+      });
+      mockUsePermission.mockReturnValue({
+        loading: false,
+        allowed: true,
+      });
+
+      const entityRefs = ['component:default/e1'];
+      const tags = ['tag1'];
+      mockCatalogApi.getEntityFacets.mockResolvedValue(
+        facetsFromEntityRefs(entityRefs, tags),
+      );
+
+      await render(<HomeComponent />);
+
+      expect(screen.getByTestId('add-template-button')).toBeInTheDocument();
+      expect(screen.getByTestId('add-template-button')).not.toBeDisabled();
+    });
+
+    it('should hide Add Template when user has catalog create permission but is not superuser', async () => {
+      mockUseIsSuperuser.mockReturnValue({
+        isSuperuser: false,
+        loading: false,
+        error: null,
+      });
+      mockUsePermission.mockReturnValue({
+        loading: false,
+        allowed: true,
+      });
+
+      const entityRefs = ['component:default/e1'];
+      const tags = ['tag1'];
+      mockCatalogApi.getEntityFacets.mockResolvedValue(
+        facetsFromEntityRefs(entityRefs, tags),
+      );
+
+      await render(<HomeComponent />);
+
+      expect(screen.queryByTestId('add-template-button')).toBeNull();
+    });
+
+    it('should hide Add Template when user is superuser but lacks catalog create permission', async () => {
+      mockUseIsSuperuser.mockReturnValue({
+        isSuperuser: true,
+        loading: false,
+        error: null,
+      });
+      mockUsePermission.mockReturnValue({
+        loading: false,
+        allowed: false,
+      });
+
+      const entityRefs = ['component:default/e1'];
+      const tags = ['tag1'];
+      mockCatalogApi.getEntityFacets.mockResolvedValue(
+        facetsFromEntityRefs(entityRefs, tags),
+      );
+
+      await render(<HomeComponent />);
+
+      expect(screen.queryByTestId('add-template-button')).toBeNull();
+    });
+
+    it('should hide Add Template when user lacks both superuser and catalog create permission', async () => {
+      mockUseIsSuperuser.mockReturnValue({
+        isSuperuser: false,
+        loading: false,
+        error: null,
+      });
+      mockUsePermission.mockReturnValue({
+        loading: false,
+        allowed: false,
+      });
+
+      const entityRefs = ['component:default/e1'];
+      const tags = ['tag1'];
+      mockCatalogApi.getEntityFacets.mockResolvedValue(
+        facetsFromEntityRefs(entityRefs, tags),
+      );
+
+      await render(<HomeComponent />);
+
+      expect(screen.queryByTestId('add-template-button')).toBeNull();
+    });
+
+    it('should show Add Template disabled while permission check is loading', async () => {
+      mockUseIsSuperuser.mockReturnValue({
+        isSuperuser: true,
+        loading: false,
+        error: null,
+      });
+      mockUsePermission.mockReturnValue({
+        loading: true,
+        allowed: false,
+      });
+
+      const entityRefs = ['component:default/e1'];
+      const tags = ['tag1'];
+      mockCatalogApi.getEntityFacets.mockResolvedValue(
+        facetsFromEntityRefs(entityRefs, tags),
+      );
+
+      await render(<HomeComponent />);
+
+      const addButton = screen.getByTestId('add-template-button');
+      expect(addButton).toBeDisabled();
     });
   });
 

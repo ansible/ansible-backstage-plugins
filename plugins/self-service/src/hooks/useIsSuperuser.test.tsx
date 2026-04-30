@@ -25,9 +25,18 @@ const wrapper = ({ children }: { children: ReactNode }) => (
 );
 
 describe('useIsSuperuser', () => {
+  let consoleWarnSpy: jest.SpyInstance;
+
   beforeEach(() => {
     jest.clearAllMocks();
+    jest.useFakeTimers();
     clearSuperuserCache();
+    consoleWarnSpy = jest.spyOn(console, 'warn').mockImplementation(() => {});
+  });
+
+  afterEach(() => {
+    jest.useRealTimers();
+    consoleWarnSpy.mockRestore();
   });
 
   it('returns isSuperuser true when user has superuser annotation', async () => {
@@ -111,10 +120,19 @@ describe('useIsSuperuser', () => {
 
     const { result } = renderHook(() => useIsSuperuser(), { wrapper });
 
+    jest.advanceTimersByTime(0);
+
+    await waitFor(() => {
+      expect(mockCatalogApi.getEntityByRef).toHaveBeenCalledTimes(1);
+    });
+
+    jest.advanceTimersByTime(3000);
+
     await waitFor(() => {
       expect(result.current.loading).toBe(false);
     });
 
+    expect(mockCatalogApi.getEntityByRef).toHaveBeenCalledTimes(2);
     expect(result.current.isSuperuser).toBe(false);
     expect(result.current.error).toBeNull();
   });
@@ -149,7 +167,7 @@ describe('useIsSuperuser', () => {
     expect(result.current.error).toEqual(new Error('Identity fetch failed'));
   });
 
-  it('returns error when catalog fetch fails', async () => {
+  it('returns error when catalog fetch fails after retry', async () => {
     mockIdentityApi.getBackstageIdentity.mockResolvedValue({
       userEntityRef: 'user:default/testuser',
     });
@@ -159,12 +177,120 @@ describe('useIsSuperuser', () => {
 
     const { result } = renderHook(() => useIsSuperuser(), { wrapper });
 
+    // First attempt fails, triggers retry timer
+    await waitFor(() => {
+      expect(mockCatalogApi.getEntityByRef).toHaveBeenCalledTimes(1);
+    });
+
+    // Advance past the retry delay
+    jest.advanceTimersByTime(3000);
+
     await waitFor(() => {
       expect(result.current.loading).toBe(false);
     });
 
     expect(result.current.isSuperuser).toBe(false);
     expect(result.current.error).toEqual(new Error('Catalog fetch failed'));
+    expect(mockCatalogApi.getEntityByRef).toHaveBeenCalledTimes(2);
+  });
+
+  it('logs a warning when catalog fetch fails', async () => {
+    mockIdentityApi.getBackstageIdentity.mockResolvedValue({
+      userEntityRef: 'user:default/testuser',
+    });
+    mockCatalogApi.getEntityByRef.mockRejectedValue(
+      new Error('Catalog fetch failed'),
+    );
+
+    renderHook(() => useIsSuperuser(), { wrapper });
+
+    // First attempt
+    await waitFor(() => {
+      expect(mockCatalogApi.getEntityByRef).toHaveBeenCalledTimes(1);
+    });
+
+    // Retry warning after first attempt
+    expect(consoleWarnSpy).toHaveBeenCalledWith(
+      expect.stringContaining('Attempt 1 failed, retrying'),
+      'Catalog fetch failed',
+    );
+
+    jest.advanceTimersByTime(3000);
+
+    // Final failure warning after retry
+    await waitFor(() => {
+      expect(consoleWarnSpy).toHaveBeenCalledWith(
+        expect.stringContaining('Failed to check superuser status'),
+        'Catalog fetch failed',
+      );
+    });
+  });
+
+  it('logs a warning when user entity is not found in catalog', async () => {
+    mockIdentityApi.getBackstageIdentity.mockResolvedValue({
+      userEntityRef: 'user:default/testuser',
+    });
+    mockCatalogApi.getEntityByRef.mockResolvedValue(undefined);
+
+    const { result } = renderHook(() => useIsSuperuser(), { wrapper });
+
+    jest.advanceTimersByTime(0);
+
+    await waitFor(() => {
+      expect(mockCatalogApi.getEntityByRef).toHaveBeenCalledTimes(1);
+    });
+
+    expect(consoleWarnSpy).toHaveBeenCalledWith(
+      expect.stringContaining('not found, retrying'),
+      'Entity not found',
+    );
+
+    jest.advanceTimersByTime(3000);
+
+    await waitFor(() => {
+      expect(result.current.loading).toBe(false);
+    });
+
+    expect(result.current.isSuperuser).toBe(false);
+    expect(consoleWarnSpy).toHaveBeenCalledWith(
+      expect.stringContaining('User entity not found in catalog'),
+    );
+  });
+
+  it('succeeds on retry when first attempt fails', async () => {
+    mockIdentityApi.getBackstageIdentity.mockResolvedValue({
+      userEntityRef: 'user:default/testuser',
+    });
+    mockCatalogApi.getEntityByRef
+      .mockRejectedValueOnce(new Error('Temporary failure'))
+      .mockResolvedValueOnce({
+        apiVersion: 'backstage.io/v1alpha1',
+        kind: 'User',
+        metadata: {
+          name: 'testuser',
+          annotations: {
+            'aap.platform/is_superuser': 'true',
+          },
+        },
+      });
+
+    const { result } = renderHook(() => useIsSuperuser(), { wrapper });
+
+    // First attempt fails
+    await waitFor(() => {
+      expect(mockCatalogApi.getEntityByRef).toHaveBeenCalledTimes(1);
+    });
+
+    // Advance past the retry delay
+    jest.advanceTimersByTime(3000);
+
+    await waitFor(() => {
+      expect(result.current.loading).toBe(false);
+    });
+
+    expect(result.current.isSuperuser).toBe(true);
+    expect(result.current.error).toBeNull();
+    expect(mockCatalogApi.getEntityByRef).toHaveBeenCalledTimes(2);
   });
 
   it('starts with loading true', () => {
