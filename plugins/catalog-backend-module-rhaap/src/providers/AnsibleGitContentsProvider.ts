@@ -27,7 +27,7 @@ import {
 import { scmCollectionParser, repositoryParser } from './entityParser';
 import { readAnsibleGitContentsConfigs } from './config';
 
-const DEFAULT_CRAWL_DEPTH = 5;
+const DEFAULT_CRAWL_DEPTH = 1;
 const DEFAULT_BATCH_SIZE = 20;
 
 export class AnsibleGitContentsProvider implements EntityProvider {
