@@ -1024,7 +1024,8 @@ function canonicalizeEEDefinitionName(value: string): string {
     .toLowerCase()
     .replaceAll(/[^a-z0-9\-_.]/g, '-')
     .replaceAll(/-+/g, '-')
-    .replaceAll(/(?:^[-_.]+)|(?:[-_.]+$)/g, '');
+    .replace(/^[-_.]+/, '')
+    .replace(/[-_.]+$/, '');
 
   if (!canonicalSlug) {
     throw new Error(
