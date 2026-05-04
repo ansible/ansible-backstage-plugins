@@ -59,5 +59,77 @@ describe('rhaapActionSchemas', () => {
       });
       expect(result.success).toBe(true);
     });
+
+    describe('eeFileName validation', () => {
+      const base = {
+        eeDescription: 'desc',
+        publishToSCM: false,
+        baseImage: 'img:latest',
+      };
+
+      it('rejects eeFileName longer than 63 characters', () => {
+        const result = eeDefinitionInputSchema.safeParse({
+          ...base,
+          eeFileName: 'a'.repeat(64),
+        });
+        expect(result.success).toBe(false);
+      });
+
+      it('rejects eeFileName starting with a separator', () => {
+        const result = eeDefinitionInputSchema.safeParse({
+          ...base,
+          eeFileName: '-invalid',
+        });
+        expect(result.success).toBe(false);
+      });
+
+      it('rejects eeFileName ending with a separator', () => {
+        const result = eeDefinitionInputSchema.safeParse({
+          ...base,
+          eeFileName: 'invalid-',
+        });
+        expect(result.success).toBe(false);
+      });
+
+      it('rejects eeFileName ending with .yml', () => {
+        const result = eeDefinitionInputSchema.safeParse({
+          ...base,
+          eeFileName: 'my-ee.yml',
+        });
+        expect(result.success).toBe(false);
+      });
+
+      it('rejects eeFileName ending with .yaml', () => {
+        const result = eeDefinitionInputSchema.safeParse({
+          ...base,
+          eeFileName: 'my-ee.yaml',
+        });
+        expect(result.success).toBe(false);
+      });
+
+      it('rejects eeFileName ending with .YML (case-insensitive)', () => {
+        const result = eeDefinitionInputSchema.safeParse({
+          ...base,
+          eeFileName: 'my-ee.YML',
+        });
+        expect(result.success).toBe(false);
+      });
+
+      it('accepts eeFileName with an internal dot', () => {
+        const result = eeDefinitionInputSchema.safeParse({
+          ...base,
+          eeFileName: 'my-ee.1',
+        });
+        expect(result.success).toBe(true);
+      });
+
+      it('accepts eeFileName of exactly 63 characters', () => {
+        const result = eeDefinitionInputSchema.safeParse({
+          ...base,
+          eeFileName: 'a'.repeat(63),
+        });
+        expect(result.success).toBe(true);
+      });
+    });
   });
 });
