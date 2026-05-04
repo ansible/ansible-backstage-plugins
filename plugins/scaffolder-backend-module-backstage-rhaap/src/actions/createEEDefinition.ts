@@ -1022,9 +1022,10 @@ function canonicalizeEEDefinitionName(value: string): string {
   const withoutExtension = baseName.replace(/\.ya?ml$/i, '');
   const canonicalSlug = withoutExtension
     .toLowerCase()
-    .replaceAll(/[^a-z0-9-_]/g, '-')
+    .replaceAll(/[^a-z0-9\-_.]/g, '-')
     .replaceAll(/-+/g, '-')
-    .replaceAll(/(?:^-)|(?:-$)/g, '');
+    .replace(/^[-_.]+/, '')
+    .replace(/[-_.]+$/, '');
 
   if (!canonicalSlug) {
     throw new Error(
