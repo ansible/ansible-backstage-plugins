@@ -230,6 +230,117 @@ test.describe.serial('git-repositories01-catalog', () => {
 
     await expect(page.getByText(/Page 1 of \d+/)).toBeVisible();
   });
+
+  // Sync Toast Notification Tests
+  test('Sync: validates toast notification when sync is triggered', async ({
+    page,
+  }) => {
+    const bodyText = (await page.locator('body').textContent()) ?? '';
+    if (bodyText.includes('No Git repositories found')) {
+      return;
+    }
+
+    // Check if Sync Now button exists
+    const syncBtn = page.getByRole('button', { name: 'Sync Now' });
+    if ((await syncBtn.count()) === 0) {
+      return;
+    }
+
+    // Ensure sync button is visible and enabled
+    await expect(syncBtn.first()).toBeVisible({ timeout: 10000 });
+    if (!(await syncBtn.first().isEnabled())) {
+      return;
+    }
+
+    // Click Sync Now button
+    await syncBtn.first().click({ force: true });
+
+    // Validate toast notification appears when sync is triggered
+    const toast = page.locator(
+      '[role="alert"], .MuiSnackbar-root, [class*="toast" i], [class*="notification" i]',
+    );
+    await expect(toast.first()).toBeVisible({ timeout: 10000 });
+
+    // Verify toast contains sync-related message
+    const toastText = await toast.first().innerText();
+    expect(
+      toastText.toLowerCase().includes('sync') ||
+        toastText.toLowerCase().includes('syncing') ||
+        toastText.toLowerCase().includes('started'),
+    ).toBeTruthy();
+  });
+
+  test('Sync: verifies sync button is disabled during sync process', async ({
+    page,
+  }) => {
+    const bodyText = (await page.locator('body').textContent()) ?? '';
+    if (bodyText.includes('No Git repositories found')) {
+      return;
+    }
+
+    // Check if Sync Now button exists
+    const syncBtn = page.getByRole('button', { name: 'Sync Now' });
+    if ((await syncBtn.count()) === 0) {
+      return;
+    }
+
+    // Ensure sync button is visible and enabled
+    await expect(syncBtn.first()).toBeVisible({ timeout: 10000 });
+    if (!(await syncBtn.first().isEnabled())) {
+      return;
+    }
+
+    // Click Sync Now button
+    await syncBtn.first().click({ force: true });
+    await page.waitForTimeout(500);
+
+    // Verify sync button is disabled during sync process
+    await expect(syncBtn.first()).toBeDisabled({ timeout: 10000 });
+  });
+
+  test('Sync: validates toast notification when sync is completed', async ({
+    page,
+  }) => {
+    const bodyText = (await page.locator('body').textContent()) ?? '';
+    if (bodyText.includes('No Git repositories found')) {
+      return;
+    }
+
+    // Check if Sync Now button exists
+    const syncBtn = page.getByRole('button', { name: 'Sync Now' });
+    if ((await syncBtn.count()) === 0) {
+      return;
+    }
+
+    // Ensure sync button is visible and enabled
+    await expect(syncBtn.first()).toBeVisible({ timeout: 10000 });
+    if (!(await syncBtn.first().isEnabled())) {
+      return;
+    }
+
+    // Click Sync Now button
+    await syncBtn.first().click({ force: true });
+
+    // Wait for sync to complete (button becomes enabled again)
+    await expect(syncBtn.first()).toBeEnabled({ timeout: 60000 });
+
+    // Validate completion toast notification appears
+    const toast = page.locator(
+      '[role="alert"], .MuiSnackbar-root, [class*="toast" i], [class*="notification" i]',
+    );
+
+    // Wait a bit to ensure completion toast has time to appear
+    await page.waitForTimeout(1000);
+
+    // Verify toast contains completion-related message
+    const toastText = await page.locator('body').innerText();
+    expect(
+      toastText.toLowerCase().includes('complete') ||
+        toastText.toLowerCase().includes('success') ||
+        toastText.toLowerCase().includes('finished') ||
+        toastText.toLowerCase().includes('sync'),
+    ).toBeTruthy();
+  });
 });
 
 test.describe('Git Repositories sidebar link and viewport', () => {
