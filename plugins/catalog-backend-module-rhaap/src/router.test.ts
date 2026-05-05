@@ -70,6 +70,7 @@ import {
   PermissionsService,
   SchedulerService,
 } from '@backstage/backend-plugin-api';
+import { ConflictError } from '@backstage/errors';
 import { AuthorizeResult } from '@backstage/plugin-permission-common';
 import { CatalogClient } from '@backstage/catalog-client';
 import type { AnsibleGitContentsProvider } from './providers/AnsibleGitContentsProvider';
@@ -2940,7 +2941,6 @@ describe('createRouter', () => {
     });
 
     it('should return already_syncing when task is already running', async () => {
-      const { ConflictError } = await import('@backstage/errors');
       const mockProvider = createMockGitContentsProvider({
         sourceId: 'dev:gitlab:gitlab.com:mygroup',
       });
@@ -3026,6 +3026,41 @@ describe('createRouter', () => {
         sync_started: 2,
       });
       expect(mockScheduler.triggerTask).toHaveBeenCalledTimes(2);
+    });
+
+    it('should return 207 when one provider triggers and one is already syncing', async () => {
+      const provider1 = createMockGitContentsProvider({
+        sourceId: 'dev:github:github.com:one',
+      });
+      const provider2 = createMockGitContentsProvider({
+        sourceId: 'dev:github:github.com:two',
+      });
+      mockScheduler.triggerTask
+        .mockResolvedValueOnce(undefined)
+        .mockRejectedValueOnce(new ConflictError('Task already running'));
+
+      const testApp = await createAppWithSyncProviders([provider1, provider2]);
+
+      const response = await request(testApp)
+        .post('/ansible/sync/from-scm/content')
+        .send({});
+
+      expect(response.status).toBe(207);
+      expect(response.body.summary).toMatchObject({
+        total: 2,
+        sync_started: 1,
+        already_syncing: 1,
+      });
+      expect(
+        response.body.results.some(
+          (r: { status: string }) => r.status === 'sync_started',
+        ),
+      ).toBe(true);
+      expect(
+        response.body.results.some(
+          (r: { status: string }) => r.status === 'already_syncing',
+        ),
+      ).toBe(true);
     });
   });
 
@@ -3575,7 +3610,6 @@ describe('createRouter', () => {
     });
 
     it('should return already_syncing when task is already running', async () => {
-      const { ConflictError } = await import('@backstage/errors');
       mockScheduler.triggerTask.mockRejectedValue(
         new ConflictError('Task already running'),
       );
@@ -3758,7 +3792,6 @@ describe('createRouter', () => {
     });
 
     it('should return 200 when all providers are already syncing', async () => {
-      const { ConflictError } = await import('@backstage/errors');
       mockScheduler.triggerTask.mockRejectedValue(
         new ConflictError('Task already running'),
       );
@@ -3773,7 +3806,6 @@ describe('createRouter', () => {
     });
 
     it('should return 207 when one succeeds and one is already syncing', async () => {
-      const { ConflictError } = await import('@backstage/errors');
       mockScheduler.triggerTask
         .mockResolvedValueOnce(undefined)
         .mockRejectedValueOnce(new ConflictError('Task already running'));
