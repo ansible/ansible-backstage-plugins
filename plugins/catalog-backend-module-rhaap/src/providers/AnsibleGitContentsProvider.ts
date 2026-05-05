@@ -520,7 +520,7 @@ export class AnsibleGitContentsProvider implements EntityProvider {
     } else if (typeof e === 'object' && e !== null) {
       errorMessage = JSON.stringify(e);
     } else {
-      errorMessage = String(e);
+      errorMessage = String(e); // NOSONAR - skip stringification
     }
     const isAbort = errorMessage.startsWith('SCM sync aborted');
 
