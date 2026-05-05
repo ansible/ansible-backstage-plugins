@@ -215,7 +215,7 @@ test.describe.serial('collections01-catalog', () => {
     ).toBeVisible();
   });
 
-  // Sync Toast Notification Tests 
+  // Sync Toast Notification Tests
   test('Sync: validates toast notification when sync is triggered', async ({
     page,
   }) => {
