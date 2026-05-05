@@ -358,7 +358,7 @@ describe('config', () => {
       });
     });
 
-    it('should use default crawlDepth of 5 when not provided', () => {
+    it('should use default crawlDepth of 1 when not provided', () => {
       const config = new ConfigReader({
         catalog: {
           providers: {
@@ -393,7 +393,7 @@ describe('config', () => {
 
       const result = readAnsibleGitContentsConfigs(config);
 
-      expect(result[0].crawlDepth).toBe(5);
+      expect(result[0].crawlDepth).toBe(1);
     });
 
     it('should skip hosts with no orgs configured', () => {
