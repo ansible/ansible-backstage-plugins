@@ -242,17 +242,61 @@ test.describe.serial('collections01-catalog', () => {
     // Click Sync Now button
     await syncBtn.first().click({ force: true });
 
-    // Validate toast notification appears when sync is triggered
+    // Wait for "Sync sources" modal to appear
+    const modal = page.locator(
+      '[role="dialog"], .MuiDialog-root, [class*="modal" i]',
+    );
+    await expect(modal.first()).toBeVisible({ timeout: 10000 });
+
+    // Verify modal contains "Sync sources" title
+    const modalText = await modal.first().innerText();
+    expect(
+      modalText.toLowerCase().includes('sync sources') ||
+        modalText.toLowerCase().includes('sync'),
+    ).toBeTruthy();
+
+    // Ensure at least one checkbox is checked (GitHub, GitLab, or Private Automation Hub)
+    const checkboxes = modal.locator('input[type="checkbox"]');
+    const checkboxCount = await checkboxes.count();
+
+    if (checkboxCount > 0) {
+      // Check if any checkbox is already checked
+      let anyChecked = false;
+      for (let i = 0; i < checkboxCount; i++) {
+        if (await checkboxes.nth(i).isChecked()) {
+          anyChecked = true;
+          break;
+        }
+      }
+
+      // If none are checked, check the first one
+      if (!anyChecked) {
+        await checkboxes.first().check({ force: true });
+        await page.waitForTimeout(500);
+      }
+    }
+
+    // Click "Sync Selected" button in modal
+    const syncSelectedBtn = modal.getByRole('button', {
+      name: /Sync Selected/i,
+    });
+    await expect(syncSelectedBtn.first()).toBeVisible({ timeout: 5000 });
+    await syncSelectedBtn.first().click({ force: true });
+
+    // Wait a bit for sync to start and toast to appear
+    await page.waitForTimeout(1000);
+
+    // Validate toast notification appears with "Sync started" message
     const toast = page.locator(
       '[role="alert"], .MuiSnackbar-root, [class*="toast" i], [class*="notification" i]',
     );
     await expect(toast.first()).toBeVisible({ timeout: 10000 });
 
-    // Verify toast contains sync-related message
+    // Verify toast contains "Sync started" message
     const toastText = await toast.first().innerText();
     expect(
-      toastText.toLowerCase().includes('sync') ||
-        toastText.toLowerCase().includes('syncing') ||
+      toastText.toLowerCase().includes('sync started') ||
+        toastText.toLowerCase().includes('sync') ||
         toastText.toLowerCase().includes('started'),
     ).toBeTruthy();
   });
@@ -282,7 +326,37 @@ test.describe.serial('collections01-catalog', () => {
 
     // Click Sync Now button
     await syncBtn.first().click({ force: true });
-    await page.waitForTimeout(500);
+
+    // Wait for "Sync sources" modal to appear
+    const modal = page.locator(
+      '[role="dialog"], .MuiDialog-root, [class*="modal" i]',
+    );
+    await expect(modal.first()).toBeVisible({ timeout: 10000 });
+
+    // Ensure at least one checkbox is checked
+    const checkboxes = modal.locator('input[type="checkbox"]');
+    const checkboxCount = await checkboxes.count();
+
+    if (checkboxCount > 0) {
+      let anyChecked = false;
+      for (let i = 0; i < checkboxCount; i++) {
+        if (await checkboxes.nth(i).isChecked()) {
+          anyChecked = true;
+          break;
+        }
+      }
+      if (!anyChecked) {
+        await checkboxes.first().check({ force: true });
+        await page.waitForTimeout(500);
+      }
+    }
+
+    // Click "Sync Selected" button
+    const syncSelectedBtn = modal.getByRole('button', {
+      name: /Sync Selected/i,
+    });
+    await syncSelectedBtn.first().click({ force: true });
+    await page.waitForTimeout(1000);
 
     // Verify sync button is disabled during sync process
     await expect(syncBtn.first()).toBeDisabled({ timeout: 10000 });
@@ -313,6 +387,36 @@ test.describe.serial('collections01-catalog', () => {
 
     // Click Sync Now button
     await syncBtn.first().click({ force: true });
+
+    // Wait for "Sync sources" modal to appear
+    const modal = page.locator(
+      '[role="dialog"], .MuiDialog-root, [class*="modal" i]',
+    );
+    await expect(modal.first()).toBeVisible({ timeout: 10000 });
+
+    // Ensure at least one checkbox is checked
+    const checkboxes = modal.locator('input[type="checkbox"]');
+    const checkboxCount = await checkboxes.count();
+
+    if (checkboxCount > 0) {
+      let anyChecked = false;
+      for (let i = 0; i < checkboxCount; i++) {
+        if (await checkboxes.nth(i).isChecked()) {
+          anyChecked = true;
+          break;
+        }
+      }
+      if (!anyChecked) {
+        await checkboxes.first().check({ force: true });
+        await page.waitForTimeout(500);
+      }
+    }
+
+    // Click "Sync Selected" button
+    const syncSelectedBtn = modal.getByRole('button', {
+      name: /Sync Selected/i,
+    });
+    await syncSelectedBtn.first().click({ force: true });
 
     // Wait for sync to complete (button becomes enabled again)
     await expect(syncBtn.first()).toBeEnabled({ timeout: 60000 });
