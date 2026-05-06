@@ -25,6 +25,7 @@ import {
   UserInfoService,
   AuthService,
   PermissionsService,
+  SchedulerService,
 } from '@backstage/backend-plugin-api';
 import { AuthorizeResult } from '@backstage/plugin-permission-common';
 import { catalogEntityReadPermission } from '@backstage/plugin-catalog-common/alpha';
@@ -59,6 +60,7 @@ import {
   dispatchEeBuild,
   isScmIntegrationAuthFailure,
 } from './helpers';
+import { ConflictError } from '@backstage/errors';
 import { SCM_INTEGRATION_AUTH_FAILED_CODE } from '@ansible/backstage-rhaap-common/constants';
 import { ScmClientFactory } from '@ansible/backstage-rhaap-common';
 import { EEEntityProvider } from './providers/EEEntityProvider';
@@ -66,6 +68,7 @@ import { EEEntityProvider } from './providers/EEEntityProvider';
 export async function createRouter(options: {
   logger: LoggerService;
   config: Config;
+  scheduler: SchedulerService;
   aapEntityProvider: AAPEntityProvider;
   jobTemplateProvider: AAPJobTemplateProvider;
   eeEntityProvider: EEEntityProvider;
@@ -81,6 +84,7 @@ export async function createRouter(options: {
   const {
     logger,
     config,
+    scheduler,
     aapEntityProvider,
     jobTemplateProvider,
     eeEntityProvider,
@@ -460,46 +464,50 @@ export async function createRouter(options: {
         error?: { code: string; message: string };
       }
 
-      const results: PAHSyncResult[] = providersToRun.map(provider => {
-        const repositoryName = provider.getPahRepositoryName();
-        const providerName = provider.getProviderName();
+      const results: PAHSyncResult[] = await Promise.all(
+        providersToRun.map(async provider => {
+          const repositoryName = provider.getPahRepositoryName();
+          const providerName = provider.getProviderName();
+          const taskId = provider.getTaskId();
 
-        const { started, skipped, error } = provider.startSync();
+          if (!taskId) {
+            logger.error(
+              `Cannot trigger sync for ${repositoryName}: provider not yet initialized`,
+            );
+            return {
+              repositoryName,
+              providerName,
+              status: 'failed' as SyncResultStatus,
+              error: {
+                code: 'SYNC_START_FAILED',
+                message: 'Provider not yet initialized. Retry after startup.',
+              },
+            };
+          }
 
-        if (skipped) {
-          logger.info(
-            `Skipping sync for ${repositoryName}: sync already in progress`,
-          );
+          try {
+            await scheduler.triggerTask(taskId);
+          } catch (err) {
+            if (err instanceof ConflictError) {
+              logger.info(
+                `Skipping sync for ${repositoryName}: sync already in progress`,
+              );
+              return {
+                repositoryName,
+                providerName,
+                status: 'already_syncing' as SyncResultStatus,
+              };
+            }
+            throw err;
+          }
+          logger.info(`Triggered sync for ${repositoryName} via scheduler`);
           return {
             repositoryName,
             providerName,
-            status: 'already_syncing' as SyncResultStatus,
+            status: 'sync_started' as SyncResultStatus,
           };
-        }
-
-        if (!started) {
-          logger.error(
-            `Failed to start sync for ${repositoryName}: ${
-              error ?? 'unknown error'
-            }`,
-          );
-          return {
-            repositoryName,
-            providerName,
-            status: 'failed' as SyncResultStatus,
-            error: {
-              code: 'SYNC_START_FAILED',
-              message: error ?? 'Failed to initiate sync for provider',
-            },
-          };
-        }
-
-        return {
-          repositoryName,
-          providerName,
-          status: 'sync_started' as SyncResultStatus,
-        };
-      });
+        }),
+      );
 
       results.push(...buildInvalidRepositoryResults(invalidRepositories));
 
@@ -570,51 +578,58 @@ export async function createRouter(options: {
         }`,
       );
 
-      const results: SCMSyncResult[] = providersToSync.map(provider => {
-        const sourceId = provider.getSourceId();
-        const providerName = provider.getProviderName();
-        const { scmProvider, hostName, organization } = parseSourceId(sourceId);
+      const results: SCMSyncResult[] = await Promise.all(
+        providersToSync.map(async provider => {
+          const sourceId = provider.getSourceId();
+          const providerName = provider.getProviderName();
+          const { scmProvider, hostName, organization } =
+            parseSourceId(sourceId);
+          const taskId = provider.getTaskId();
 
-        const { started, skipped, error } = provider.startSync();
+          if (!taskId) {
+            logger.error(
+              `Cannot trigger sync for ${sourceId}: provider not yet initialized`,
+            );
+            return {
+              scmProvider,
+              hostName,
+              organization,
+              providerName,
+              status: 'failed' as SyncResultStatus,
+              error: {
+                code: 'SYNC_START_FAILED',
+                message: 'Provider not yet initialized. Retry after startup.',
+              },
+            };
+          }
 
-        if (skipped) {
-          logger.info(
-            `Skipping sync for ${sourceId}: sync already in progress`,
-          );
+          try {
+            await scheduler.triggerTask(taskId);
+          } catch (err) {
+            if (err instanceof ConflictError) {
+              logger.info(
+                `Skipping sync for ${sourceId}: sync already in progress`,
+              );
+              return {
+                scmProvider,
+                hostName,
+                organization,
+                providerName,
+                status: 'already_syncing' as SyncResultStatus,
+              };
+            }
+            throw err;
+          }
+          logger.info(`Triggered sync for ${sourceId} via scheduler`);
           return {
             scmProvider,
             hostName,
             organization,
             providerName,
-            status: 'already_syncing' as SyncResultStatus,
+            status: 'sync_started' as SyncResultStatus,
           };
-        }
-
-        if (!started) {
-          logger.error(
-            `Failed to start sync for ${sourceId}: ${error ?? 'unknown error'}`,
-          );
-          return {
-            scmProvider,
-            hostName,
-            organization,
-            providerName,
-            status: 'failed' as SyncResultStatus,
-            error: {
-              code: 'SYNC_START_FAILED',
-              message: error ?? 'Failed to initiate sync for provider',
-            },
-          };
-        }
-
-        return {
-          scmProvider,
-          hostName,
-          organization,
-          providerName,
-          status: 'sync_started' as SyncResultStatus,
-        };
-      });
+        }),
+      );
 
       for (const { filter, error } of invalidFilters) {
         results.push({
