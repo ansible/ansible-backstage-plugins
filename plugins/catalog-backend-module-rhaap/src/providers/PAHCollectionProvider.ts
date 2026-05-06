@@ -32,6 +32,7 @@ export class PAHCollectionProvider implements EntityProvider {
   private previousCollectionsCount: number = 0;
   private isSyncing: boolean = false;
   private readonly enabled: boolean = true;
+  private taskId: string | undefined;
 
   static readonly pluginLogName = 'plugin-catalog-rh-aap';
   static readonly syncEntity = 'pahCollections';
@@ -120,6 +121,10 @@ export class PAHCollectionProvider implements EntityProvider {
     return `PAHCollectionProvider:${this.env}:${this.pahRepositoryName}`;
   }
 
+  getTaskId(): string | undefined {
+    return this.taskId;
+  }
+
   getPahRepositoryName(): string {
     return this.pahRepositoryName;
   }
@@ -191,28 +196,34 @@ export class PAHCollectionProvider implements EntityProvider {
           this.baseUrl
         }`,
       );
-      return taskRunner.run({
-        id: taskId,
-        fn: async (signal: AbortSignal) => {
-          try {
-            await this.run(signal);
-          } catch (error) {
-            if (isError(error)) {
-              // Ensure that we don't log any sensitive internal data
-              this.logger.error(
-                `Error while syncing PAH collections for ${this.getProviderName()}`,
-                {
-                  name: error.name,
-                  message: error.message,
-                  stack: error.stack,
-                  // Additional status code if available:
-                  status: (error.response as { status?: string })?.status,
-                },
-              );
+      try {
+        await taskRunner.run({
+          id: taskId,
+          fn: async (signal: AbortSignal) => {
+            try {
+              await this.run(signal);
+            } catch (error) {
+              if (isError(error)) {
+                // Ensure that we don't log any sensitive internal data
+                this.logger.error(
+                  `Error while syncing PAH collections for ${this.getProviderName()}`,
+                  {
+                    name: error.name,
+                    message: error.message,
+                    stack: error.stack,
+                    // Additional status code if available:
+                    status: (error.response as { status?: string })?.status,
+                  },
+                );
+              }
             }
-          }
-        },
-      });
+          },
+        });
+        this.taskId = taskId;
+      } catch (error) {
+        this.taskId = undefined;
+        throw error;
+      }
     };
   }
 
