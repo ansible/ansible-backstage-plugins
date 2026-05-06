@@ -255,9 +255,9 @@ test.describe.serial('git-repositories01-catalog', () => {
     // Click Sync Now button
     await syncBtn.first().click({ force: true });
 
-    // Wait for "Sync sources" modal to appear
+    // Wait for "Sync sources" modal to appear (exclude hidden menus)
     const modal = page.locator(
-      '[role="dialog"], .MuiDialog-root, [class*="modal" i]',
+      '[role="dialog"]:not([aria-hidden="true"]), .MuiDialog-root:not(.v5-MuiModal-hidden)',
     );
     await expect(modal.first()).toBeVisible({ timeout: 10000 });
 
@@ -300,18 +300,9 @@ test.describe.serial('git-repositories01-catalog', () => {
     await page.waitForTimeout(1000);
 
     // Validate toast notification appears with "Sync started" message
-    const toast = page.locator(
-      '[role="alert"], .MuiSnackbar-root, [class*="toast" i], [class*="notification" i]',
-    );
-    await expect(toast.first()).toBeVisible({ timeout: 10000 });
-
-    // Verify toast contains "Sync started" message
-    const toastText = await toast.first().innerText();
-    expect(
-      toastText.toLowerCase().includes('sync started') ||
-        toastText.toLowerCase().includes('sync') ||
-        toastText.toLowerCase().includes('started'),
-    ).toBeTruthy();
+    await expect(page.getByText(/Sync started/i)).toBeVisible({
+      timeout: 10000,
+    });
   });
 
   test('Sync: verifies sync button is disabled during sync process', async ({
@@ -337,9 +328,9 @@ test.describe.serial('git-repositories01-catalog', () => {
     // Click Sync Now button
     await syncBtn.first().click({ force: true });
 
-    // Wait for "Sync sources" modal to appear
+    // Wait for "Sync sources" modal to appear (exclude hidden menus)
     const modal = page.locator(
-      '[role="dialog"], .MuiDialog-root, [class*="modal" i]',
+      '[role="dialog"]:not([aria-hidden="true"]), .MuiDialog-root:not(.v5-MuiModal-hidden)',
     );
     await expect(modal.first()).toBeVisible({ timeout: 10000 });
 
@@ -395,9 +386,9 @@ test.describe.serial('git-repositories01-catalog', () => {
     // Click Sync Now button
     await syncBtn.first().click({ force: true });
 
-    // Wait for "Sync sources" modal to appear
+    // Wait for "Sync sources" modal to appear (exclude hidden menus)
     const modal = page.locator(
-      '[role="dialog"], .MuiDialog-root, [class*="modal" i]',
+      '[role="dialog"]:not([aria-hidden="true"]), .MuiDialog-root:not(.v5-MuiModal-hidden)',
     );
     await expect(modal.first()).toBeVisible({ timeout: 10000 });
 
@@ -428,21 +419,16 @@ test.describe.serial('git-repositories01-catalog', () => {
     // Wait for sync to complete (button becomes enabled again)
     await expect(syncBtn.first()).toBeEnabled({ timeout: 60000 });
 
-    // Validate completion toast notification appears
-    const toast = page.locator(
-      '[role="alert"], .MuiSnackbar-root, [class*="toast" i], [class*="notification" i]',
-    );
-
     // Wait a bit to ensure completion toast has time to appear
-    await page.waitForTimeout(1000);
+    await page.waitForTimeout(2000);
 
-    // Verify toast contains completion-related message
-    const toastText = await page.locator('body').innerText();
+    // Validate completion toast notification appears
+    const completionText = await page.locator('body').innerText();
     expect(
-      toastText.toLowerCase().includes('complete') ||
-        toastText.toLowerCase().includes('success') ||
-        toastText.toLowerCase().includes('finished') ||
-        toastText.toLowerCase().includes('sync'),
+      completionText.toLowerCase().includes('complete') ||
+        completionText.toLowerCase().includes('success') ||
+        completionText.toLowerCase().includes('finished') ||
+        completionText.includes('Sync started'), // Sync might still show "started" toast
     ).toBeTruthy();
   });
 });
