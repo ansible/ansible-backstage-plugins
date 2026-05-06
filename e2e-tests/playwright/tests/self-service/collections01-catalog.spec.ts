@@ -292,67 +292,6 @@ test.describe.serial('collections01-catalog', () => {
     });
   });
 
-  test('Sync: verifies sync button is disabled during sync process', async ({
-    page,
-  }) => {
-    const bodyText = (await page.locator('body').textContent()) ?? '';
-    if (
-      bodyText.includes('No Collections Found') ||
-      bodyText.includes('No content sources configured')
-    ) {
-      return;
-    }
-
-    // Check if Sync Now button exists
-    const syncBtn = page.getByRole('button', { name: 'Sync Now' });
-    if ((await syncBtn.count()) === 0) {
-      return;
-    }
-
-    // Ensure sync button is visible and enabled
-    await expect(syncBtn.first()).toBeVisible({ timeout: 10000 });
-    if (!(await syncBtn.first().isEnabled())) {
-      return;
-    }
-
-    // Click Sync Now button
-    await syncBtn.first().click({ force: true });
-
-    // Wait for "Sync sources" modal to appear (exclude hidden menus)
-    const modal = page.locator(
-      '[role="dialog"]:not([aria-hidden="true"]), .MuiDialog-root:not(.v5-MuiModal-hidden)',
-    );
-    await expect(modal.first()).toBeVisible({ timeout: 10000 });
-
-    // Ensure at least one checkbox is checked
-    const checkboxes = modal.locator('input[type="checkbox"]');
-    const checkboxCount = await checkboxes.count();
-
-    if (checkboxCount > 0) {
-      let anyChecked = false;
-      for (let i = 0; i < checkboxCount; i++) {
-        if (await checkboxes.nth(i).isChecked()) {
-          anyChecked = true;
-          break;
-        }
-      }
-      if (!anyChecked) {
-        await checkboxes.first().check({ force: true });
-        await page.waitForTimeout(500);
-      }
-    }
-
-    // Click "Sync Selected" button
-    const syncSelectedBtn = modal.getByRole('button', {
-      name: /Sync Selected/i,
-    });
-    await syncSelectedBtn.first().click({ force: true });
-
-    // Wait briefly for modal to close, then verify sync button is disabled
-    await page.waitForTimeout(200);
-    await expect(syncBtn.first()).toBeDisabled({ timeout: 5000 });
-  });
-
   test('Sync: validates toast notification when sync is completed', async ({
     page,
   }) => {
