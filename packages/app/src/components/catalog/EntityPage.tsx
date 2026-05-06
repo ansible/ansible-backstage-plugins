@@ -57,6 +57,7 @@ import {
   EntityKubernetesContent,
   isKubernetesAvailable,
 } from '@backstage/plugin-kubernetes';
+import { ApmeEntityTab } from '@ansible/plugin-backstage-apme';
 
 const techdocsContent = (
   <EntityTechdocsContent>
@@ -187,6 +188,10 @@ const serviceEntityPage = (
     <EntityLayout.Route path="/docs" title="Docs">
       {techdocsContent}
     </EntityLayout.Route>
+
+    <EntityLayout.Route path="/apme" title="APME">
+      <ApmeEntityTab />
+    </EntityLayout.Route>
   </EntityLayout>
 );
 
@@ -222,6 +227,10 @@ const websiteEntityPage = (
     <EntityLayout.Route path="/docs" title="Docs">
       {techdocsContent}
     </EntityLayout.Route>
+
+    <EntityLayout.Route path="/apme" title="APME">
+      <ApmeEntityTab />
+    </EntityLayout.Route>
   </EntityLayout>
 );
 
@@ -240,6 +249,10 @@ const defaultEntityPage = (
 
     <EntityLayout.Route path="/docs" title="Docs">
       {techdocsContent}
+    </EntityLayout.Route>
+
+    <EntityLayout.Route path="/apme" title="APME">
+      <ApmeEntityTab />
     </EntityLayout.Route>
   </EntityLayout>
 );
