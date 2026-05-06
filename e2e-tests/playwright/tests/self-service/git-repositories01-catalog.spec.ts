@@ -296,8 +296,8 @@ test.describe.serial('git-repositories01-catalog', () => {
     await expect(syncSelectedBtn.first()).toBeVisible({ timeout: 5000 });
     await syncSelectedBtn.first().click({ force: true });
 
-    // Wait a bit for sync to start and toast to appear
-    await page.waitForTimeout(1000);
+    // Wait for sync to start and toast to appear
+    await page.waitForTimeout(2000);
 
     // Validate toast notification appears with "Sync started" message
     await expect(page.getByText(/Sync started/i)).toBeVisible({
@@ -357,10 +357,10 @@ test.describe.serial('git-repositories01-catalog', () => {
       name: /Sync Selected/i,
     });
     await syncSelectedBtn.first().click({ force: true });
-    await page.waitForTimeout(1000);
 
-    // Verify sync button is disabled during sync process
-    await expect(syncBtn.first()).toBeDisabled({ timeout: 10000 });
+    // Wait briefly for modal to close, then verify sync button is disabled
+    await page.waitForTimeout(200);
+    await expect(syncBtn.first()).toBeDisabled({ timeout: 5000 });
   });
 
   test('Sync: validates toast notification when sync is completed', async ({
