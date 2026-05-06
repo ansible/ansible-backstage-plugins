@@ -437,7 +437,7 @@ describe('createEEDefinition', () => {
       baseImage: 'img:latest',
       publishToSCM: true,
       buildRegistry: 'ghcr.io',
-      buildImageName: 'my-org/my-ee',
+      buildImageName: 'my-org/my-ee   ',
     });
 
     await action.handler(ctx);
