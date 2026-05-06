@@ -90,11 +90,28 @@ describe('createEEDefinition', () => {
     mockParseUploadedFileContent.mockReturnValue('');
     mockDownloadEEScaffold.mockResolvedValue(undefined);
     discovery.getBaseUrl.mockResolvedValue('http://localhost:7007/api/catalog');
-    mockFetch.mockResolvedValue({
-      ok: true,
-      status: 200,
-      text: jest.fn().mockResolvedValue(''),
-    } as any);
+    mockFetch.mockImplementation((url: RequestInfo | URL) => {
+      const u = typeof url === 'string' ? url : url.toString();
+      if (u.includes('/entities/by-name/')) {
+        return Promise.resolve({
+          ok: true,
+          status: 200,
+          json: async () => ({
+            spec: {
+              profile: {
+                displayName: 'Test User',
+                email: 'testuser@example.com',
+              },
+            },
+          }),
+        } as any);
+      }
+      return Promise.resolve({
+        ok: true,
+        status: 200,
+        text: jest.fn().mockResolvedValue(''),
+      } as any);
+    });
     auth.getOwnServiceCredentials.mockResolvedValue({
       token: 'service-token',
     } as any);
@@ -121,6 +138,10 @@ describe('createEEDefinition', () => {
     expect(ctx.output).toHaveBeenCalledWith(
       'readmeContent',
       expect.stringContaining('Execution Environment'),
+    );
+    expect(ctx.output).toHaveBeenCalledWith(
+      'readmeContent',
+      expect.stringContaining('Test User (testuser@example.com)'),
     );
     expect(ctx.output).toHaveBeenCalledWith(
       'catalogInfoPath',
@@ -230,10 +251,23 @@ describe('createEEDefinition', () => {
       baseImage: 'img:latest',
       publishToSCM: false,
     });
-    mockFetch.mockResolvedValue({
-      ok: false,
-      text: jest.fn().mockResolvedValue('Server error'),
-    } as any);
+    mockFetch
+      .mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        json: async () => ({
+          spec: {
+            profile: {
+              displayName: 'Test User',
+              email: 'testuser@example.com',
+            },
+          },
+        }),
+      } as any)
+      .mockResolvedValueOnce({
+        ok: false,
+        text: jest.fn().mockResolvedValue('Server error'),
+      } as any);
 
     await expect(action.handler(ctx)).rejects.toThrow(
       'Failed to register EE definition',
@@ -1003,8 +1037,12 @@ describe('createEEDefinition', () => {
 
     await action.handler(ctx);
 
-    const [, fetchOptions] = (mockFetch as jest.Mock).mock.calls[0];
-    const body = JSON.parse(fetchOptions.body);
+    const postCall = mockFetch.mock.calls.find(
+      c => typeof c[0] === 'string' && String(c[0]).includes('/ansible/ee'),
+    );
+    expect(postCall).toBeDefined();
+    const [, fetchOptions] = postCall!;
+    const body = JSON.parse((fetchOptions as { body: string }).body);
     expect(body.entity).toMatchObject({
       kind: 'Component',
       metadata: {
@@ -1036,6 +1074,38 @@ describe('createEEDefinition', () => {
     await action.handler(ctx);
 
     expect(ctx.output).toHaveBeenCalledWith('owner', 'group:default/platform');
+  });
+
+  it('falls back to username when catalog user lookup fails', async () => {
+    const action = makeAction();
+    const ctx = makeCtx({
+      eeFileName: 'test-ee',
+      baseImage: 'img:latest',
+      publishToSCM: true,
+    });
+
+    mockFetch.mockImplementation((url: RequestInfo | URL) => {
+      const u = typeof url === 'string' ? url : url.toString();
+      if (u.includes('/entities/by-name/')) {
+        return Promise.resolve({
+          ok: false,
+          status: 404,
+        } as any);
+      }
+      return Promise.resolve({
+        ok: true,
+        status: 200,
+        text: jest.fn().mockResolvedValue(''),
+      } as any);
+    });
+
+    await action.handler(ctx);
+
+    expect(ctx.output).toHaveBeenCalledWith('owner', 'user:default/testuser');
+    expect(ctx.output).toHaveBeenCalledWith(
+      'readmeContent',
+      expect.stringContaining('**Created by:** testuser'),
+    );
   });
 
   it('falls back to customBaseImage when baseImage is empty', async () => {
@@ -1472,8 +1542,9 @@ describe('createEEDefinition', () => {
     );
     const readme = readmeCall![1] as string;
     expect(readme).toContain(
-      'collection-source token configuration steps are omitted',
+      'To use this EE, build and push it to your container registry first',
     );
+    expect(readme).not.toContain('update the token settings in `ansible.cfg`');
     expect(readme).not.toContain('Configure Automation Hub access');
   });
 

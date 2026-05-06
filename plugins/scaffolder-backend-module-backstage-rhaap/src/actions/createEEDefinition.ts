@@ -29,8 +29,87 @@ import {
 import { generateReadme } from './templates/readmeTemplate';
 import { generateEETemplate } from './templates/eeTemplate';
 import { eeDefinitionInputSchema } from './schemas/rhaapActionSchemas';
+import { parseEntityRef } from '@backstage/catalog-model';
 
 const PAH_SOURCE_PREFIX = 'Private Automation Hub';
+
+/**
+ * Resolves a Backstage user entity reference to a human-readable owner line for
+ * README output (`displayName (email)`), using the catalog API profile fields.
+ * Non-`user` entity refs are returned unchanged. Lookup failures fall back to
+ * the user name segment of the ref (e.g. `jsmith` for `user:default/jsmith`).
+ */
+async function resolveOwnerDisplayForReadme(options: {
+  ownerRef: string;
+  discovery: DiscoveryService;
+  auth: AuthService;
+  logger: LoggerService;
+}): Promise<string> {
+  const { ownerRef, discovery, auth, logger } = options;
+  if (!ownerRef) {
+    return '';
+  }
+
+  let parsed: ReturnType<typeof parseEntityRef>;
+  try {
+    parsed = parseEntityRef(ownerRef);
+  } catch {
+    return ownerRef;
+  }
+
+  if (parsed.kind.toLowerCase() !== 'user') {
+    return ownerRef;
+  }
+
+  const fallbackName = parsed.name;
+
+  try {
+    const baseUrl = (await discovery.getBaseUrl('catalog')).replace(/\/$/, '');
+    const { token } = await auth.getPluginRequestToken({
+      onBehalfOf: await auth.getOwnServiceCredentials(),
+      targetPluginId: 'catalog',
+    });
+
+    const url = `${baseUrl}/entities/by-name/user/${encodeURIComponent(
+      parsed.namespace,
+    )}/${encodeURIComponent(parsed.name)}`;
+
+    const response = await fetch(url, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+
+    if (!response.ok) {
+      logger.warn(
+        `[ansible:create:ee-definition] catalog user lookup failed (${response.status}) for ${ownerRef}`,
+      );
+      return fallbackName;
+    }
+
+    const entity = (await response.json()) as {
+      spec?: { profile?: { displayName?: string; email?: string } };
+    };
+    const profile = entity?.spec?.profile ?? {};
+    const displayName =
+      typeof profile.displayName === 'string' ? profile.displayName.trim() : '';
+    const email = typeof profile.email === 'string' ? profile.email.trim() : '';
+
+    if (displayName && email) {
+      return `${displayName} (${email})`;
+    }
+    if (displayName) {
+      return displayName;
+    }
+    if (email) {
+      return email;
+    }
+    return fallbackName;
+  } catch (error: any) {
+    logger.warn(
+      `[ansible:create:ee-definition] catalog user lookup error: ${error?.message}`,
+    );
+    return fallbackName;
+  }
+}
 
 /**
  * Creates the `ansible:create:ee-definition` scaffolder action.
@@ -99,12 +178,14 @@ export function createEEDefinitionAction(options: {
       const eeFileName = validateSafeEEDefinitionName(eeFileNameSlug);
       const eeDescription = values.eeDescription || 'Execution Environment';
       const tags = values.tags || [];
-      const owner = values.owner || ctx.user?.ref || '';
+      const ownerRef = values.owner || ctx.user?.ref || '';
       const buildRegistry = values.buildRegistry || '';
       const buildImageName = values.buildImageName?.trim() || '';
       const registryTlsVerify = values.registryTlsVerify ?? true;
 
-      ctx.output('owner', owner);
+      // Keep entity ref for scaffolder consumers (e.g. catalog-info `spec.owner`
+      // in the saved EE template). Human-readable line is only for README via mergedValues.owner.
+      ctx.output('owner', ownerRef);
 
       const contextDirName = eeFileName;
 
@@ -136,10 +217,17 @@ export function createEEDefinitionAction(options: {
       );
 
       try {
+        const ownerDisplay = await resolveOwnerDisplayForReadme({
+          ownerRef,
+          discovery,
+          auth,
+          logger,
+        });
         const { scmCollections, nonScmCollections } =
           partitionCollectionsBySourceType(collections);
+        const mergedNonScmCollections = mergeCollections(nonScmCollections);
         const allCollections = normalizeCollectionSources(
-          mergeCollections(nonScmCollections),
+          mergedNonScmCollections,
         );
         const { collections: transformedScmCollections, scmServers } =
           transformScmCollections(scmCollections, config);
@@ -263,7 +351,12 @@ export function createEEDefinitionAction(options: {
         const mergedValues = {
           ...values,
           eeFileName,
-          collections: templateCollections,
+          // collections: templateCollections,
+          owner: ownerDisplay,
+          pahBaseUrl,
+          // Keep user-facing collection sources for README/template defaults.
+          // Normalized sources are only needed for the creator service payload.
+          collections: [...mergedNonScmCollections, ...scmCollections],
           pythonRequirements: allRequirements,
           systemPackages: allPackages,
           additionalBuildSteps,
@@ -302,15 +395,16 @@ export function createEEDefinitionAction(options: {
 
         const eeTemplateContent = generateEETemplate(mergedValues);
 
+        const templatePath = resolvePathWithinDirectory(
+          eeDir,
+          `${eeFileName}-template.yml`,
+        );
+        await fs.writeFile(templatePath, eeTemplateContent);
+        logger.info(
+          `[ansible:create:ee-definition] created EE template.yml at ${templatePath}`,
+        );
+
         if (values.publishToSCM) {
-          const templatePath = resolvePathWithinDirectory(
-            eeDir,
-            `${eeFileName}-template.yml`,
-          );
-          await fs.writeFile(templatePath, eeTemplateContent);
-          logger.info(
-            `[ansible:create:ee-definition] created EE template.yml at ${templatePath}`,
-          );
           const catalogInfoPath = path.join(
             contextDirName,
             'catalog-info.yaml',
@@ -327,7 +421,7 @@ export function createEEDefinitionAction(options: {
             eeFileName,
             eeDescription,
             tags,
-            owner,
+            ownerRef,
             eeDefinition,
             readmeContent,
             ansibleConfigContent,
