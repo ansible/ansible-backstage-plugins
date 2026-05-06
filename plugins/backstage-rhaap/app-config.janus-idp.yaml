@@ -5,6 +5,9 @@ dynamicPlugins:
       appIcons:
         - name: AnsibleLogo
           importName: AnsibleLogo
+      mountPoints:
+        - mountPoint: application/listener
+          importName: AppThemeFixer
       dynamicRoutes:
         - path: /ansible
           importName: AnsiblePage
