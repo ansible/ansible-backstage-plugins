@@ -101,7 +101,7 @@ export function createEEDefinitionAction(options: {
       const tags = values.tags || [];
       const owner = values.owner || ctx.user?.ref || '';
       const buildRegistry = values.buildRegistry || '';
-      const buildImageName = values.buildImageName || '';
+      const buildImageName = values.buildImageName?.trim() || '';
       const registryTlsVerify = values.registryTlsVerify ?? true;
 
       ctx.output('owner', owner);
