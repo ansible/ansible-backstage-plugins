@@ -124,6 +124,7 @@ export const catalogModuleRhaap = createBackendModule({
           (await createRouter({
             logger,
             config,
+            scheduler,
             aapEntityProvider: aapEntityProvider[0],
             jobTemplateProvider: jobTemplateProvider[0],
             eeEntityProvider: eeEntityProvider,

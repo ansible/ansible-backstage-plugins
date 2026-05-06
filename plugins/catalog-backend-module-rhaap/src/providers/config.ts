@@ -266,7 +266,7 @@ function readOrgConfig(
     const branches = config.getOptionalStringArray('branches');
     const tags = config.getOptionalStringArray('tags');
     const galaxyFilePaths = config.getOptionalStringArray('galaxyFilePaths');
-    const crawlDepth = config.getOptionalNumber('crawlDepth') ?? 5;
+    const crawlDepth = config.getOptionalNumber('crawlDepth') ?? 1;
 
     let schedule: ScheduleDefinition;
     if (config.has('schedule')) {
