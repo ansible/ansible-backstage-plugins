@@ -419,4 +419,69 @@ test.describe('Execution Environment Catalog and Detail View Tests', () => {
       expect(toastText).toContain('Build triggered');
     }
   });
+
+  // Pagination Tests - Jira AAP-73524
+  test('Validates Catalog table: pagination controls and navigation', async ({
+    page,
+  }) => {
+    await expect(page.locator('main')).toBeVisible({ timeout: 15000 });
+    const text = await page.locator('body').innerText();
+
+    // Skip if no data or empty state
+    if (text.includes('No Execution Environment definition files, yet')) {
+      return;
+    }
+
+    // Check if pagination controls exist
+    const nextAll = page.locator('[aria-label="Next page"]');
+    if ((await nextAll.count()) === 0) {
+      return;
+    }
+
+    const next = nextAll.first();
+
+    // Skip if only one page (Next button disabled)
+    if (await next.isDisabled()) {
+      return;
+    }
+
+    // Verify initial state - Page 1
+    await expect(page.getByText(/Page 1 of \d+/)).toBeVisible();
+
+    // Verify pagination controls are displayed
+    await next.scrollIntoViewIfNeeded();
+    await expect(next).toBeVisible();
+    await expect(next).toBeEnabled();
+
+    // Count items on first page
+    const rowsPage1 = await page.locator('table tbody tr').count();
+    expect(rowsPage1).toBeGreaterThan(0);
+
+    // Navigate to page 2
+    await next.click({ force: true });
+    await page.waitForTimeout(600);
+
+    // Verify page state updated to page 2
+    await expect(page.getByText(/Page 2 of \d+/)).toBeVisible();
+
+    // Verify Previous button is now visible and enabled
+    const prev = page.locator('[aria-label="Previous page"]').first();
+    await expect(prev).toBeVisible();
+    await expect(prev).toBeEnabled();
+
+    // Count items on second page
+    const rowsPage2 = await page.locator('table tbody tr').count();
+    expect(rowsPage2).toBeGreaterThan(0);
+
+    // Navigate back to page 1
+    await prev.click({ force: true });
+    await page.waitForTimeout(600);
+
+    // Verify page state maintained correctly - back to page 1
+    await expect(page.getByText(/Page 1 of \d+/)).toBeVisible();
+
+    // Verify correct number of items displayed
+    const rowsBackToPage1 = await page.locator('table tbody tr').count();
+    expect(rowsBackToPage1).toBe(rowsPage1);
+  });
 });
