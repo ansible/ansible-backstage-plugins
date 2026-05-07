@@ -9,7 +9,7 @@ import {
 test.describe.serial('git-repositories01-catalog', () => {
   test.describe.configure({
     timeout: 180000,
-    retries: 1  // Auto-retry flaky tests once (notification system needs initialization on cold start)
+    retries: 1, // Auto-retry flaky tests once (notification system needs initialization on cold start)
   });
 
   test.beforeEach(async ({ page }) => {
