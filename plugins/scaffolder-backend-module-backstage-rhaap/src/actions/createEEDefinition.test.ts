@@ -1548,6 +1548,85 @@ describe('createEEDefinition', () => {
     expect(readme).not.toContain('Configure Automation Hub access');
   });
 
+  it('escapes backslashes and pipes in README collection table cells', async () => {
+    const action = makeAction();
+    const ctx = makeCtx({
+      eeFileName: 'test-ee',
+      baseImage: 'img:latest',
+      publishToSCM: true,
+      collections: [
+        {
+          name: String.raw`my\collection|name`,
+          version: String.raw`v1\|2`,
+          source: String.raw`Automation Hub\mirror|primary`,
+          type: 'galaxy',
+        },
+      ],
+    });
+
+    await action.handler(ctx);
+
+    const readmeCall = mockWriteFile.mock.calls.find((call: any[]) =>
+      call[0].toString().endsWith('README.md'),
+    );
+    const readme = readmeCall![1] as string;
+    // Backslashes should be doubled, and pipes escaped as \|
+    expect(readme).toContain(
+      String.raw`| my\\collection\|name | v1\\\|2 | Automation Hub\\mirror\|primary |`,
+    );
+  });
+
+  it('renders PAH registry hostname in README login/pull instructions', async () => {
+    const pahConfig = new ConfigReader({
+      ansible: {
+        creatorService: { baseUrl: 'localhost', port: '8000' },
+        devSpaces: { baseUrl: 'https://devspaces.example.com' },
+        rhaap: { baseUrl: 'https://pah.example.com' },
+      },
+    });
+    const action = makeAction(pahConfig);
+    const ctx = makeCtx({
+      eeFileName: 'test-ee',
+      baseImage: 'img:latest',
+      publishToSCM: true,
+      buildRegistry: 'Private Automation Hub (PAH)',
+      buildImageName: 'my-org/my-ee',
+      buildImageTag: 'v1',
+    });
+
+    await action.handler(ctx);
+
+    const readmeCall = mockWriteFile.mock.calls.find((call: any[]) =>
+      call[0].toString().endsWith('README.md'),
+    );
+    const readme = readmeCall![1] as string;
+    expect(readme).toContain('podman login pah.example.com');
+    expect(readme).toContain('podman pull pah.example.com/my-org/my-ee:v1');
+  });
+
+  it('renders AAP usage step without backticks when imageRef is empty', async () => {
+    const action = makeAction();
+    const ctx = makeCtx({
+      eeFileName: 'test-ee',
+      baseImage: 'img:latest',
+      publishToSCM: true,
+      // No buildRegistry/buildImageName => empty imageRef
+    });
+
+    await action.handler(ctx);
+
+    const readmeCall = mockWriteFile.mock.calls.find((call: any[]) =>
+      call[0].toString().endsWith('README.md'),
+    );
+    const readme = readmeCall![1] as string;
+    expect(readme).toContain(
+      '2. Click **Create execution environment** and enter the image URL.',
+    );
+    expect(readme).not.toContain(
+      '2. Click **Create execution environment** and enter the image URL: ``',
+    );
+  });
+
   it('does not patch ansible.cfg when [galaxy] section is absent', async () => {
     const action = makeAction();
     const ctx = makeCtx({

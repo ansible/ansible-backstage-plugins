@@ -126,10 +126,14 @@ ${systemPackages.map(pkg => `- \`${pkg}\``).join('\n')}`
   const detailsSourceRepoLine =
     publishToSCM && repoUrl ? `- **Source repository:** ${repoUrl}` : '';
 
+  const aapImageUrlStep = imageRef
+    ? `2. Click **Create execution environment** and enter the image URL: \`${imageRef}\``
+    : '2. Click **Create execution environment** and enter the image URL.';
+
   const aapUsageSteps = `To use it in Ansible Automation Platform:
 
 1. Go to **Automation Execution** > **Infrastructure** > **Execution Environments**.
-2. Click **Create execution environment** and enter the image URL: \`${imageRef}\`
+${aapImageUrlStep}
 3. Select this execution environment in your job templates.`;
 
   const useThisEeSection = (() => {
