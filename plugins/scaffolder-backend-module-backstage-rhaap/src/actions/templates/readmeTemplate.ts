@@ -94,11 +94,6 @@ export function generateReadme(
       ? `${registryHost}/${buildImageName}:${buildImageTag}`
       : '';
 
-  // `repoUrl` isn't part of EEDefinitionInput, but the input schema allows
-  // additional keys via `catchall()`. If present (SCM publishing path), we
-  // include it.
-  const repoUrl = (values as any).repoUrl ?? '';
-
   const collections = values.collections || [];
   const pythonRequirements = values.pythonRequirements || [];
   const systemPackages = values.systemPackages || [];
@@ -135,11 +130,11 @@ export function generateReadme(
     // Render as "Provider (canonical-name)", e.g. Github (github-public).
     const segments = source.split('/').map(s => s.trim()).filter(Boolean);
     if (segments.length >= SCM_SOURCE_SEGMENT_COUNT) {
-      const providerKey = segments[0].toLowerCase();
+      const providerKey = segments[0].toLocaleLowerCase('en-US');
       const canonical = segments[1];
       const providerLabel =
         providerKey.length > 0
-          ? providerKey.charAt(0).toUpperCase() + providerKey.slice(1)
+          ? providerKey[0].toLocaleUpperCase('en-US') + providerKey.slice(1)
           : canonical;
       return `${providerLabel} (${canonical})`;
     }
@@ -188,12 +183,9 @@ export function generateReadme(
     rawBuildRegistry && buildImageName
       ? `- **Image registry:** \`${imageRef}\``
       : '';
-  const detailsSourceRepoLine =
-    publishToSCM && repoUrl ? `- **Source repository:** ${repoUrl}` : '';
-  const detailsExtraLines = [detailsImageRegistryLine, detailsSourceRepoLine]
-    .filter(Boolean)
-    .map(line => `\n${line}`)
-    .join('');
+  const detailsExtraLines = detailsImageRegistryLine
+    ? `\n${detailsImageRegistryLine}`
+    : '';
 
   const useThisEeSection = buildUseThisEeSection({
     publishToSCM,
