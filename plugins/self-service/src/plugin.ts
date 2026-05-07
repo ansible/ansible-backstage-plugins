@@ -35,3 +35,13 @@ export const LocationListener = selfServicePlugin.provide(
     },
   }),
 );
+
+export const AppThemeFixer = selfServicePlugin.provide(
+  createComponentExtension({
+    name: 'AppThemeFixer',
+    component: {
+      lazy: () =>
+        import('./components/AppThemeFixer').then(m => m.AppThemeFixer),
+    },
+  }),
+);

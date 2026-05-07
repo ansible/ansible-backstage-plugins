@@ -23,7 +23,7 @@ import {
 
 import { AnsibleSegmentAnalytics } from './apis/implementations/AnalyticsApi';
 
-export { ansiblePlugin, AnsiblePage } from './plugin';
+export { ansiblePlugin, AnsiblePage, AppThemeFixer } from './plugin';
 export { AnsibleLogo } from './components/AnsibleLogo';
 
 export * from './apis/implementations/AnalyticsApi';
