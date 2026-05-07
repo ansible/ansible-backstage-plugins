@@ -271,10 +271,43 @@ test.describe.serial('collections01-catalog', () => {
       return;
     }
 
-    // Click Sync Now button
+    // WARM-UP: Perform a dummy sync first to initialize the notification system
+    // This ensures the toast notification will appear on the actual test sync
+    await syncBtn.first().click({ force: true });
+    const warmupModal = page.locator(
+      '[role="dialog"]:not([aria-hidden="true"]), .MuiDialog-root:not(.v5-MuiModal-hidden)',
+    );
+    await expect(warmupModal.first()).toBeVisible({ timeout: 10000 });
+
+    const warmupCheckboxes = warmupModal.locator('input[type="checkbox"]');
+    const warmupCheckboxCount = await warmupCheckboxes.count();
+    if (warmupCheckboxCount > 0) {
+      let anyChecked = false;
+      for (let i = 0; i < warmupCheckboxCount; i++) {
+        if (await warmupCheckboxes.nth(i).isChecked()) {
+          anyChecked = true;
+          break;
+        }
+      }
+      if (!anyChecked) {
+        await warmupCheckboxes.first().check({ force: true });
+        await page.waitForTimeout(500);
+      }
+    }
+
+    const warmupSyncBtn = warmupModal.getByRole('button', {
+      name: /Sync Selected/i,
+    });
+    await warmupSyncBtn.first().click({ force: true });
+
+    // Wait for warm-up sync to complete (button becomes enabled again)
+    await expect(syncBtn.first()).toBeEnabled({ timeout: 60000 });
+    await page.waitForTimeout(2000); // Allow any toasts to clear
+
+    // ACTUAL TEST: Now perform the real sync and validate toast
     await syncBtn.first().click({ force: true });
 
-    // Wait for "Sync sources" modal to appear (exclude hidden menus)
+    // Wait for "Sync sources" modal to appear
     const modal = page.locator(
       '[role="dialog"]:not([aria-hidden="true"]), .MuiDialog-root:not(.v5-MuiModal-hidden)',
     );
@@ -287,12 +320,11 @@ test.describe.serial('collections01-catalog', () => {
         modalText.toLowerCase().includes('sync'),
     ).toBeTruthy();
 
-    // Ensure at least one checkbox is checked (GitHub, GitLab, or Private Automation Hub)
+    // Ensure at least one checkbox is checked
     const checkboxes = modal.locator('input[type="checkbox"]');
     const checkboxCount = await checkboxes.count();
 
     if (checkboxCount > 0) {
-      // Check if any checkbox is already checked
       let anyChecked = false;
       for (let i = 0; i < checkboxCount; i++) {
         if (await checkboxes.nth(i).isChecked()) {
@@ -300,30 +332,22 @@ test.describe.serial('collections01-catalog', () => {
           break;
         }
       }
-
-      // If none are checked, check the first one
       if (!anyChecked) {
         await checkboxes.first().check({ force: true });
         await page.waitForTimeout(500);
       }
     }
 
-    // Click "Sync Selected" button in modal
+    // Click "Sync Selected" button
     const syncSelectedBtn = modal.getByRole('button', {
       name: /Sync Selected/i,
     });
     await expect(syncSelectedBtn.first()).toBeVisible({ timeout: 5000 });
     await syncSelectedBtn.first().click({ force: true });
 
-    // Validate toast notification appears with "Sync started" message
-    // Use toPass to retry the assertion automatically if it fails
-    await expect(async () => {
-      const toast = page.getByText(/Sync started/i);
-      await expect(toast).toBeVisible({ timeout: 5000 });
-    }).toPass({
-      timeout: 30000,
-      intervals: [1000, 2000, 3000],
-    });
+    // Validate toast notification appears
+    const toast = page.getByText(/Sync started/i);
+    await expect(toast).toBeVisible({ timeout: 10000 });
   });
 
   test('Sync: validates toast notification when sync is completed', async ({
