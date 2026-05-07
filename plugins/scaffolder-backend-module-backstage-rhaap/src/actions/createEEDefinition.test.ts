@@ -251,6 +251,9 @@ describe('createEEDefinition', () => {
       baseImage: 'img:latest',
       publishToSCM: false,
     });
+    // The handler calls `fetch` twice in this flow:
+    // 1) catalog user lookup used by `resolveOwnerDisplayForReadme` (returns profile/displayName/email)
+    // 2) failing POST `/ansible/ee` registration (ok: false, text: 'Server error')
     mockFetch
       .mockResolvedValueOnce({
         ok: true,

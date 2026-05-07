@@ -51,11 +51,11 @@ ${aapUsageSteps}`;
     const ansibleCfgNote = params.hasAnsibleCfg
       ? 'If your EE uses collections from private sources (Automation Hub, private automation hub), update the token settings in `ansible.cfg` before building.'
       : '';
+    const ansibleCfgNoteBlock = ansibleCfgNote ? `${ansibleCfgNote}\n\n` : '';
 
     return `## Use this execution environment
 
-${ansibleCfgNote}
-
+${ansibleCfgNoteBlock}
 Log in to the registry and pull the image:
 
 \`\`\`bash

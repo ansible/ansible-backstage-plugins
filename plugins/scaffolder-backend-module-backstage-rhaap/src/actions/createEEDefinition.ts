@@ -76,6 +76,7 @@ async function resolveOwnerDisplayForReadme(options: {
 
     const response = await fetch(url, {
       headers: { Authorization: `Bearer ${token}` },
+      signal: AbortSignal.timeout(5000),
     });
 
     if (!response.ok) {
