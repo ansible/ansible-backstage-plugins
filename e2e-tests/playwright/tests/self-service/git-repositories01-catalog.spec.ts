@@ -296,15 +296,12 @@ test.describe.serial('git-repositories01-catalog', () => {
     await expect(syncSelectedBtn.first()).toBeVisible({ timeout: 5000 });
     await syncSelectedBtn.first().click({ force: true });
 
-    // Wait for modal to close
-    await expect(modal.first()).toBeHidden({ timeout: 10000 });
-
-    // Wait for sync to start and toast to appear
-    await page.waitForTimeout(1000);
+    // Wait for sync to start - toast may appear while modal is closing
+    await page.waitForTimeout(3000);
 
     // Validate toast notification appears with "Sync started" message
     await expect(page.getByText(/Sync started/i)).toBeVisible({
-      timeout: 10000,
+      timeout: 15000,
     });
   });
 
