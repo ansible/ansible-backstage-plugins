@@ -283,12 +283,12 @@ test.describe.serial('collections01-catalog', () => {
     await expect(syncSelectedBtn.first()).toBeVisible({ timeout: 5000 });
     await syncSelectedBtn.first().click({ force: true });
 
-    // Wait for sync to start - toast may appear while modal is closing
-    await page.waitForTimeout(3000);
+    // Wait for network requests to complete (sync API call triggers toast)
+    await page.waitForLoadState('networkidle', { timeout: 15000 });
 
     // Validate toast notification appears with "Sync started" message
     await expect(page.getByText(/Sync started/i)).toBeVisible({
-      timeout: 15000,
+      timeout: 10000,
     });
   });
 
