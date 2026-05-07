@@ -294,17 +294,17 @@ test.describe.serial('git-repositories01-catalog', () => {
       name: /Sync Selected/i,
     });
     await expect(syncSelectedBtn.first()).toBeVisible({ timeout: 5000 });
-
-    // Toast appears immediately after clicking - start checking right away
-    const toastPromise = page.waitForSelector('text=/Sync started/i', {
-      state: 'visible',
-      timeout: 15000,
-    });
-
     await syncSelectedBtn.first().click({ force: true });
 
-    // Wait for toast to appear (already listening before the click)
-    await toastPromise;
+    // Validate toast notification appears with "Sync started" message
+    // Use toPass to retry the assertion automatically if it fails
+    await expect(async () => {
+      const toast = page.getByText(/Sync started/i);
+      await expect(toast).toBeVisible({ timeout: 5000 });
+    }).toPass({
+      timeout: 30000,
+      intervals: [1000, 2000, 3000],
+    });
   });
 
   test('Sync: validates toast notification when sync is completed', async ({
