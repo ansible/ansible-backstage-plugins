@@ -264,7 +264,6 @@ export function createEEDefinitionAction(options: {
         const mergedValues = {
           ...values,
           eeFileName,
-          // collections: templateCollections,
           pahBaseUrl,
           // Keep user-facing collection sources for README/template defaults.
           // Normalized sources are only needed for the creator service payload.
