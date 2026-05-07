@@ -46,7 +46,8 @@ export function generateReadme(
   const pythonRequirements = values.pythonRequirements || [];
   const systemPackages = values.systemPackages || [];
 
-  const escapeTableCell = (value: string) => value.replace(/\|/g, '\\|');
+  const escapeTableCell = (value: string) =>
+    value.replace(/\\/g, '\\\\').replace(/\|/g, '\\|');
   const getCollectionSourceDisplay = (source?: string, type?: string) => {
     if (!source) {
       return type ?? '-';
@@ -190,7 +191,7 @@ ${useThisEeSection}
 
 - **Base image:** \`${baseImage}\`
 - **Definition file:** \`${eeFileName}.yml\`
-- **Template file:** \`${eeFileName}-template.yml\` — import this into Ansible automation portal to let others create EEs from the same starting point.
+- **Template file:** \`${eeFileName}-template.yml\` - import this into Ansible automation portal to let others create EEs from the same starting point.
 
 To make changes, use this EE's template in Ansible automation portal or rebuild manually with \`ansible-builder\` and the definition file.
 `;
