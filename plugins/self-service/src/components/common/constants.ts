@@ -1,5 +1,5 @@
 // TO-DO: Replace with actual documentation URL
-export const CONFIGURATION_DOCS_URL = '#';
+export const CONFIGURATION_DOCS_URL = 'https://red.ht/self-service-config-docs';
 
 export const SYNC_STARTED_CATEGORY = 'sync-started';
 export const SYNC_COMPLETED_CATEGORY = 'sync-completed';
