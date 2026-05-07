@@ -47,7 +47,7 @@ To use this EE, build and push it to your container registry first, then add it 
 ${aapUsageSteps}`;
   }
 
-  if (params.rawBuildRegistry && params.buildImageName) {
+  if (params.rawBuildRegistry && params.buildImageName && params.imageRef) {
     const ansibleCfgNote = params.hasAnsibleCfg
       ? 'If your EE uses collections from private sources (Automation Hub, private automation hub), update the token settings in `ansible.cfg` before building.'
       : '';

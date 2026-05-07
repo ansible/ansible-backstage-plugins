@@ -333,7 +333,7 @@ export function createEEDefinitionAction(options: {
             eeFileName,
             eeDescription,
             tags,
-            ownerRef,
+            owner,
             eeDefinition,
             readmeContent,
             ansibleConfigContent,
