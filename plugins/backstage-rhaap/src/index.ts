@@ -14,5 +14,5 @@
  * limitations under the License.
  */
 
-export { ansiblePlugin, AnsiblePage } from './plugin';
+export { ansiblePlugin, AnsiblePage, AppThemeFixer } from './plugin';
 export { AnsibleLogo } from './components/AnsibleLogo';
