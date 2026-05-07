@@ -294,15 +294,17 @@ test.describe.serial('git-repositories01-catalog', () => {
       name: /Sync Selected/i,
     });
     await expect(syncSelectedBtn.first()).toBeVisible({ timeout: 5000 });
+
+    // Toast appears immediately after clicking - start checking right away
+    const toastPromise = page.waitForSelector('text=/Sync started/i', {
+      state: 'visible',
+      timeout: 15000,
+    });
+
     await syncSelectedBtn.first().click({ force: true });
 
-    // Wait for network requests to complete (sync API call triggers toast)
-    await page.waitForLoadState('networkidle', { timeout: 15000 });
-
-    // Validate toast notification appears with "Sync started" message
-    await expect(page.getByText(/Sync started/i)).toBeVisible({
-      timeout: 10000,
-    });
+    // Wait for toast to appear (already listening before the click)
+    await toastPromise;
   });
 
   test('Sync: validates toast notification when sync is completed', async ({
