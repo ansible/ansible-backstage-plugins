@@ -99,14 +99,12 @@ export function createEEDefinitionAction(options: {
       const eeFileName = validateSafeEEDefinitionName(eeFileNameSlug);
       const eeDescription = values.eeDescription || 'Execution Environment';
       const tags = values.tags || [];
-      const ownerRef = values.owner || ctx.user?.ref || '';
+      const owner = values.owner || ctx.user?.ref || '';
       const buildRegistry = values.buildRegistry || '';
       const buildImageName = values.buildImageName?.trim() || '';
       const registryTlsVerify = values.registryTlsVerify ?? true;
 
-      // Keep entity ref for scaffolder consumers (e.g. catalog-info `spec.owner`
-      // in the saved EE template). Human-readable line is only for README via mergedValues.owner.
-      ctx.output('owner', ownerRef);
+      ctx.output('owner', owner);
 
       const contextDirName = eeFileName;
 
