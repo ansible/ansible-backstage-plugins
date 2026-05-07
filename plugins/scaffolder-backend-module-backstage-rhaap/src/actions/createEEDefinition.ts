@@ -251,11 +251,19 @@ export function createEEDefinitionAction(options: {
         // defaults to the EE subdirectory instead of the repo root (".").
         await patchWorkflowEeDir(workspacePath, contextDirName);
 
-        // Create merged values for template generation
+        // Create merged values for template generation.
+        // Use pre-normalization collections so the saved template stores the
+        // original UI-facing source strings (e.g. "Private Automation Hub / repo")
+        // rather than the internal identifiers (e.g. "private_hub_repo") that
+        // the CollectionsPicker cannot match against API-returned options.
+        const templateCollections = [
+          ...mergeCollections(nonScmCollections),
+          ...scmCollections,
+        ];
         const mergedValues = {
           ...values,
           eeFileName,
-          collections: [...allCollections, ...scmCollections],
+          collections: templateCollections,
           pythonRequirements: allRequirements,
           systemPackages: allPackages,
           additionalBuildSteps,
