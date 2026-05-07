@@ -17,6 +17,64 @@ function registryHostForReadme(buildRegistry: string, pahBaseUrl: string): strin
   return reg;
 }
 
+function buildAapUsageSteps(params: { imageRef: string }): string {
+  const aapImageUrlStep = params.imageRef
+    ? `2. Click **Create execution environment** and enter the image URL: \`${params.imageRef}\``
+    : '2. Click **Create execution environment** and enter the image URL.';
+
+  return `To use it in Ansible Automation Platform:
+
+1. Go to **Automation Execution** > **Infrastructure** > **Execution Environments**.
+${aapImageUrlStep}
+3. Select this execution environment in your job templates.`;
+}
+
+function buildUseThisEeSection(params: {
+  publishToSCM: boolean;
+  hasAnsibleCfg: boolean;
+  rawBuildRegistry: string;
+  buildImageName: string;
+  registryHost: string;
+  imageRef: string;
+}): string {
+  const aapUsageSteps = buildAapUsageSteps({ imageRef: params.imageRef });
+
+  if (!params.publishToSCM) {
+    return `## Use this execution environment
+
+To use this EE, build and push it to your container registry first, then add it in Ansible Automation Platform. If your EE uses collections from private sources, update the token settings in \`ansible.cfg\` before building.
+
+${aapUsageSteps}`;
+  }
+
+  if (params.rawBuildRegistry && params.buildImageName) {
+    const ansibleCfgNote = params.hasAnsibleCfg
+      ? 'If your EE uses collections from private sources (Automation Hub, private automation hub), update the token settings in `ansible.cfg` before building.'
+      : '';
+
+    return `## Use this execution environment
+
+${ansibleCfgNote}
+
+Log in to the registry and pull the image:
+
+\`\`\`bash
+podman login ${params.registryHost}
+podman pull ${params.imageRef}
+\`\`\`
+
+If the registry uses a self-signed certificate, you may need to append \`--tls-verify=false\` to each \`podman\` command.
+
+${aapUsageSteps}`;
+  }
+
+  return `## Use this execution environment
+
+To use this EE, build and push it to your container registry first, then add it in Ansible Automation Platform under Automation Execution > Infrastructure > Execution Environments.
+
+${aapUsageSteps}`;
+}
+
 export function generateReadme(
   values: EEDefinitionInput,
   publishToSCM: boolean,
@@ -46,8 +104,14 @@ export function generateReadme(
   const pythonRequirements = values.pythonRequirements || [];
   const systemPackages = values.systemPackages || [];
 
+  const BACKSLASH = String.fromCharCode(92);
+  const ESCAPED_BACKSLASH = String.raw`\\`;
+  const ESCAPED_PIPE = String.raw`\|`;
+
   const escapeTableCell = (value: string) =>
-    value.replace(/\\/g, '\\\\').replace(/\|/g, '\\|');
+    value
+      .replaceAll(BACKSLASH, ESCAPED_BACKSLASH)
+      .replaceAll('|', ESCAPED_PIPE);
   const getCollectionSourceDisplay = (source?: string, type?: string) => {
     if (!source) {
       return type ?? '-';
@@ -84,32 +148,34 @@ export function generateReadme(
     return source;
   };
 
+  const collectionsRows = collections
+    .map(c => {
+      const name = escapeTableCell(c.name ?? '');
+      const version = escapeTableCell(c.version ?? '-');
+      const source = escapeTableCell(getCollectionSourceDisplay(c.source, c.type));
+      return `| ${name} | ${version} | ${source} |`;
+    })
+    .join('\n');
+
   const collectionsSection =
     collections.length > 0
-      ? `| Collection | Version | Source |
-|---|---|---|
-${collections
-  .map(c => {
-    const name = escapeTableCell(c.name ?? '');
-    const version = escapeTableCell(c.version ?? '-');
-    const source = escapeTableCell(getCollectionSourceDisplay(c.source, c.type));
-    return `| ${name} | ${version} | ${source} |`;
-  })
-  .join('\n')}`
+      ? ['| Collection | Version | Source |', '|---|---|---|', collectionsRows].join(
+          '\n',
+        )
       : 'No additional collections. This EE uses only what the base image provides.';
 
+  const pythonPackagesList = pythonRequirements
+    .map(req => `- \`${req}\``)
+    .join('\n');
   const pythonPackagesSection =
     pythonRequirements.length > 0
-      ? `### Python packages
-
-${pythonRequirements.map(req => `- \`${req}\``).join('\n')}`
+      ? ['### Python packages', '', pythonPackagesList].join('\n')
       : '';
 
+  const systemPackagesList = systemPackages.map(pkg => `- \`${pkg}\``).join('\n');
   const systemPackagesSection =
     systemPackages.length > 0
-      ? `### System packages
-
-${systemPackages.map(pkg => `- \`${pkg}\``).join('\n')}`
+      ? ['### System packages', '', systemPackagesList].join('\n')
       : '';
 
   const tagsText =
@@ -125,51 +191,19 @@ ${systemPackages.map(pkg => `- \`${pkg}\``).join('\n')}`
       : '';
   const detailsSourceRepoLine =
     publishToSCM && repoUrl ? `- **Source repository:** ${repoUrl}` : '';
+  const detailsExtraLines = [detailsImageRegistryLine, detailsSourceRepoLine]
+    .filter(Boolean)
+    .map(line => `\n${line}`)
+    .join('');
 
-  const aapImageUrlStep = imageRef
-    ? `2. Click **Create execution environment** and enter the image URL: \`${imageRef}\``
-    : '2. Click **Create execution environment** and enter the image URL.';
-
-  const aapUsageSteps = `To use it in Ansible Automation Platform:
-
-1. Go to **Automation Execution** > **Infrastructure** > **Execution Environments**.
-${aapImageUrlStep}
-3. Select this execution environment in your job templates.`;
-
-  const useThisEeSection = (() => {
-    if (!publishToSCM) {
-      return `## Use this execution environment
-
-To use this EE, build and push it to your container registry first, then add it in Ansible Automation Platform. If your EE uses collections from private sources, update the token settings in \`ansible.cfg\` before building.
-
-${aapUsageSteps}`;
-    }
-
-    if (rawBuildRegistry && buildImageName) {
-      return `## Use this execution environment
-
-${hasAnsibleCfg
-  ? 'If your EE uses collections from private sources (Automation Hub, private automation hub), update the token settings in `ansible.cfg` before building.'
-  : ''}
-
-Log in to the registry and pull the image:
-
-\`\`\`bash
-podman login ${registryHost}
-podman pull ${imageRef}
-\`\`\`
-
-If the registry uses a self-signed certificate, you may need to append \`--tls-verify=false\` to each \`podman\` command.
-
-${aapUsageSteps}`;
-    }
-
-    return `## Use this execution environment
-
-To use this EE, build and push it to your container registry first, then add it in Ansible Automation Platform under Automation Execution > Infrastructure > Execution Environments.
-
-${aapUsageSteps}`;
-  })();
+  const useThisEeSection = buildUseThisEeSection({
+    publishToSCM,
+    hasAnsibleCfg,
+    rawBuildRegistry,
+    buildImageName,
+    registryHost,
+    imageRef,
+  });
 
   return `# ${eeFileName}
 
@@ -187,7 +221,7 @@ ${pythonPackagesSection}${pythonPackagesSection && systemPackagesSection ? '\n\n
 
 - **Created by:** ${owner}
 - **Tags:** ${tagsText}
-${detailsImageRegistryLine ? `\n${detailsImageRegistryLine}` : ''}${detailsSourceRepoLine ? `\n${detailsSourceRepoLine}` : ''}
+${detailsExtraLines}
 
 ${useThisEeSection}
 
