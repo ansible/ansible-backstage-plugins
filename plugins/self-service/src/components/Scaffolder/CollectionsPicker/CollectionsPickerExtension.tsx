@@ -319,9 +319,6 @@ export const CollectionsPickerExtension = ({
   useEffect(() => {
     if (selectedCollection) {
       fetchSources(selectedCollection);
-      setSelectedSource(null);
-      setSelectedVersion(null);
-      setAvailableVersions([]);
     } else {
       setAvailableSources([]);
       setAvailableVersions([]);
@@ -331,7 +328,6 @@ export const CollectionsPickerExtension = ({
   useEffect(() => {
     if (selectedCollection && selectedSource) {
       fetchVersions(selectedCollection, selectedSource);
-      setSelectedVersion(null);
     } else {
       setAvailableVersions([]);
     }
@@ -477,6 +473,7 @@ export const CollectionsPickerExtension = ({
                   ? newValue
                   : newValue?.name || newValue?.label || newValue?.id || null;
               setSelectedSource(value);
+              setSelectedVersion(null);
             }}
             loading={loadingSources}
             disabled={disabled || !selectedCollection}
