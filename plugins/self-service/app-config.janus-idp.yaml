@@ -31,4 +31,6 @@ dynamicPlugins:
           to: /self-service/ee
       mountPoints:
         - mountPoint: application/listener
+          importName: AppThemeFixer
+        - mountPoint: application/listener
           importName: LocationListener

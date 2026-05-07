@@ -22,6 +22,7 @@ describe('self-service plugin module', () => {
   let createRoutableExtensionMock: jest.Mock;
   let createComponentExtensionMock: jest.Mock;
   let SelfServicePage: any;
+  let AppThemeFixer: any;
   let LocationListener: any;
 
   beforeEach(() => {
@@ -50,6 +51,7 @@ describe('self-service plugin module', () => {
     jest.isolateModules(() => {
       const mod = require('./plugin');
       SelfServicePage = mod.SelfServicePage;
+      AppThemeFixer = mod.AppThemeFixer;
       LocationListener = mod.LocationListener;
     });
   });
@@ -82,12 +84,29 @@ describe('self-service plugin module', () => {
   });
 
   it('exports LocationListener as the value returned by createComponentExtension', () => {
-    expect(createComponentExtensionMock).toHaveBeenCalledTimes(1);
+    expect(createComponentExtensionMock).toHaveBeenCalledTimes(2);
     const created = createComponentExtensionMock.mock.results[0].value;
     expect(LocationListener).toBe(created);
     const calledWith = createComponentExtensionMock.mock.calls[0][0];
     expect(calledWith).toHaveProperty('name', 'LocationListener');
     expect(calledWith.component).toHaveProperty('lazy');
     expect(typeof calledWith.component.lazy).toBe('function');
+  });
+
+  it('exports AppThemeFixer as the value returned by createComponentExtension', async () => {
+    const MockAppThemeFixerComponent = () => null;
+    jest.doMock('./components/AppThemeFixer', () => ({
+      AppThemeFixer: MockAppThemeFixerComponent,
+    }));
+
+    expect(createComponentExtensionMock).toHaveBeenCalledTimes(2);
+    const created = createComponentExtensionMock.mock.results[1].value;
+    expect(AppThemeFixer).toBe(created);
+    const calledWith = createComponentExtensionMock.mock.calls[1][0];
+    expect(calledWith).toHaveProperty('name', 'AppThemeFixer');
+    expect(calledWith.component).toHaveProperty('lazy');
+    expect(typeof calledWith.component.lazy).toBe('function');
+    const component = await calledWith.component.lazy();
+    expect(component).toBe(MockAppThemeFixerComponent);
   });
 });
