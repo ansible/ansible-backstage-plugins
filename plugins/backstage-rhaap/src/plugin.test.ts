@@ -84,7 +84,12 @@ describe('ansible plugin module', () => {
     expect(calledWith).toHaveProperty('mountPoint', mockRootRouteRef);
   });
 
-  it('exports AppThemeFixer as the value returned by createComponentExtension', () => {
+  it('exports AppThemeFixer as the value returned by createComponentExtension', async () => {
+    const MockAppThemeFixerComponent = () => null;
+    jest.doMock('./components/AppThemeFixer', () => ({
+      AppThemeFixer: MockAppThemeFixerComponent,
+    }));
+
     expect(createComponentExtensionMock).toHaveBeenCalledTimes(1);
     const created = createComponentExtensionMock.mock.results[0].value;
     expect(AppThemeFixer).toBe(created);
@@ -92,5 +97,7 @@ describe('ansible plugin module', () => {
     expect(calledWith).toHaveProperty('name', 'AppThemeFixer');
     expect(calledWith.component).toHaveProperty('lazy');
     expect(typeof calledWith.component.lazy).toBe('function');
+    const component = await calledWith.component.lazy();
+    expect(component).toBe(MockAppThemeFixerComponent);
   });
 });

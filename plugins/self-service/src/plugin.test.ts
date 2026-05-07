@@ -190,7 +190,12 @@ describe('self-service plugin module', () => {
     expect(typeof calledWith.component.lazy).toBe('function');
   });
 
-  it('exports AppThemeFixer as the value returned by createComponentExtension', () => {
+  it('exports AppThemeFixer as the value returned by createComponentExtension', async () => {
+    const MockAppThemeFixerComponent = () => null;
+    jest.doMock('./components/AppThemeFixer', () => ({
+      AppThemeFixer: MockAppThemeFixerComponent,
+    }));
+
     expect(createComponentExtensionMock).toHaveBeenCalledTimes(8);
     const created = createComponentExtensionMock.mock.results[1].value;
     expect(AppThemeFixer).toBe(created);
@@ -198,6 +203,8 @@ describe('self-service plugin module', () => {
     expect(calledWith).toHaveProperty('name', 'AppThemeFixer');
     expect(calledWith.component).toHaveProperty('lazy');
     expect(typeof calledWith.component.lazy).toBe('function');
+    const component = await calledWith.component.lazy();
+    expect(component).toBe(MockAppThemeFixerComponent);
   });
 
   it('exports AAPLogoutButton as the value returned by createComponentExtension', () => {
