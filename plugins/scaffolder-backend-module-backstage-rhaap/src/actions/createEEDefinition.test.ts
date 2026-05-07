@@ -140,10 +140,6 @@ describe('createEEDefinition', () => {
       expect.stringContaining('Execution Environment'),
     );
     expect(ctx.output).toHaveBeenCalledWith(
-      'readmeContent',
-      expect.stringContaining('Test User (testuser@example.com)'),
-    );
-    expect(ctx.output).toHaveBeenCalledWith(
       'catalogInfoPath',
       'my-ee/catalog-info.yaml',
     );
@@ -251,26 +247,12 @@ describe('createEEDefinition', () => {
       baseImage: 'img:latest',
       publishToSCM: false,
     });
-    // The handler calls `fetch` twice in this flow:
-    // 1) catalog user lookup used by `resolveOwnerDisplayForReadme` (returns profile/displayName/email)
-    // 2) failing POST `/ansible/ee` registration (ok: false, text: 'Server error')
-    mockFetch
-      .mockResolvedValueOnce({
-        ok: true,
-        status: 200,
-        json: async () => ({
-          spec: {
-            profile: {
-              displayName: 'Test User',
-              email: 'testuser@example.com',
-            },
-          },
-        }),
-      } as any)
-      .mockResolvedValueOnce({
-        ok: false,
-        text: jest.fn().mockResolvedValue('Server error'),
-      } as any);
+    // The handler calls `fetch` for the failing POST `/ansible/ee` registration
+    // (ok: false, text: 'Server error').
+    mockFetch.mockResolvedValueOnce({
+      ok: false,
+      text: jest.fn().mockResolvedValue('Server error'),
+    } as any);
 
     await expect(action.handler(ctx)).rejects.toThrow(
       'Failed to register EE definition',
@@ -1077,38 +1059,6 @@ describe('createEEDefinition', () => {
     await action.handler(ctx);
 
     expect(ctx.output).toHaveBeenCalledWith('owner', 'group:default/platform');
-  });
-
-  it('falls back to username when catalog user lookup fails', async () => {
-    const action = makeAction();
-    const ctx = makeCtx({
-      eeFileName: 'test-ee',
-      baseImage: 'img:latest',
-      publishToSCM: true,
-    });
-
-    mockFetch.mockImplementation((url: RequestInfo | URL) => {
-      const u = typeof url === 'string' ? url : url.toString();
-      if (u.includes('/entities/by-name/')) {
-        return Promise.resolve({
-          ok: false,
-          status: 404,
-        } as any);
-      }
-      return Promise.resolve({
-        ok: true,
-        status: 200,
-        text: jest.fn().mockResolvedValue(''),
-      } as any);
-    });
-
-    await action.handler(ctx);
-
-    expect(ctx.output).toHaveBeenCalledWith('owner', 'user:default/testuser');
-    expect(ctx.output).toHaveBeenCalledWith(
-      'readmeContent',
-      expect.stringContaining('**Created by:** testuser'),
-    );
   });
 
   it('falls back to customBaseImage when baseImage is empty', async () => {

@@ -29,88 +29,8 @@ import {
 import { generateReadme } from './templates/readmeTemplate';
 import { generateEETemplate } from './templates/eeTemplate';
 import { eeDefinitionInputSchema } from './schemas/rhaapActionSchemas';
-import { parseEntityRef } from '@backstage/catalog-model';
 
 const PAH_SOURCE_PREFIX = 'Private Automation Hub';
-
-/**
- * Resolves a Backstage user entity reference to a human-readable owner line for
- * README output (`displayName (email)`), using the catalog API profile fields.
- * Non-`user` entity refs are returned unchanged. Lookup failures fall back to
- * the user name segment of the ref (e.g. `jsmith` for `user:default/jsmith`).
- */
-async function resolveOwnerDisplayForReadme(options: {
-  ownerRef: string;
-  discovery: DiscoveryService;
-  auth: AuthService;
-  logger: LoggerService;
-}): Promise<string> {
-  const { ownerRef, discovery, auth, logger } = options;
-  if (!ownerRef) {
-    return '';
-  }
-
-  let parsed: ReturnType<typeof parseEntityRef>;
-  try {
-    parsed = parseEntityRef(ownerRef);
-  } catch {
-    return ownerRef;
-  }
-
-  if (parsed.kind.toLowerCase() !== 'user') {
-    return ownerRef;
-  }
-
-  const fallbackName = parsed.name;
-
-  try {
-    const baseUrl = (await discovery.getBaseUrl('catalog')).replace(/\/$/, '');
-    const { token } = await auth.getPluginRequestToken({
-      onBehalfOf: await auth.getOwnServiceCredentials(),
-      targetPluginId: 'catalog',
-    });
-
-    const url = `${baseUrl}/entities/by-name/user/${encodeURIComponent(
-      parsed.namespace,
-    )}/${encodeURIComponent(parsed.name)}`;
-
-    const response = await fetch(url, {
-      headers: { Authorization: `Bearer ${token}` },
-      signal: AbortSignal.timeout(5000),
-    });
-
-    if (!response.ok) {
-      logger.warn(
-        `[ansible:create:ee-definition] catalog user lookup failed (${response.status}) for ${ownerRef}`,
-      );
-      return fallbackName;
-    }
-
-    const entity = (await response.json()) as {
-      spec?: { profile?: { displayName?: string; email?: string } };
-    };
-    const profile = entity?.spec?.profile ?? {};
-    const displayName =
-      typeof profile.displayName === 'string' ? profile.displayName.trim() : '';
-    const email = typeof profile.email === 'string' ? profile.email.trim() : '';
-
-    if (displayName && email) {
-      return `${displayName} (${email})`;
-    }
-    if (displayName) {
-      return displayName;
-    }
-    if (email) {
-      return email;
-    }
-    return fallbackName;
-  } catch (error: any) {
-    logger.warn(
-      `[ansible:create:ee-definition] catalog user lookup error: ${error?.message}`,
-    );
-    return fallbackName;
-  }
-}
 
 /**
  * Creates the `ansible:create:ee-definition` scaffolder action.
@@ -218,12 +138,6 @@ export function createEEDefinitionAction(options: {
       );
 
       try {
-        const ownerDisplay = await resolveOwnerDisplayForReadme({
-          ownerRef,
-          discovery,
-          auth,
-          logger,
-        });
         const { scmCollections, nonScmCollections } =
           partitionCollectionsBySourceType(collections);
         const mergedNonScmCollections = mergeCollections(nonScmCollections);
@@ -346,18 +260,17 @@ export function createEEDefinitionAction(options: {
         // rather than the internal identifiers (e.g. "private_hub_repo") that
         // the CollectionsPicker cannot match against API-returned options.
         const templateCollections = [
-          ...mergeCollections(nonScmCollections),
+          ...mergedNonScmCollections,
           ...scmCollections,
         ];
         const mergedValues = {
           ...values,
           eeFileName,
           // collections: templateCollections,
-          owner: ownerDisplay,
           pahBaseUrl,
           // Keep user-facing collection sources for README/template defaults.
           // Normalized sources are only needed for the creator service payload.
-          collections: [...mergedNonScmCollections, ...scmCollections],
+          collections: templateCollections,
           pythonRequirements: allRequirements,
           systemPackages: allPackages,
           additionalBuildSteps,

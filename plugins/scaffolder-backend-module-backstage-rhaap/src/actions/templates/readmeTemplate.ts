@@ -82,7 +82,6 @@ export function generateReadme(
 ): string {
   const eeFileName = values.eeFileName || 'execution-environment';
   const eeDescription = values.eeDescription || '';
-  const owner = values.owner || '';
   const tags = values.tags || [];
   const baseImage = values.customBaseImage || values.baseImage || '';
   const rawBuildRegistry = values.buildRegistry || '';
@@ -219,7 +218,6 @@ ${pythonPackagesSection}${pythonPackagesSection && systemPackagesSection ? '\n\n
 
 ## Details
 
-- **Created by:** ${owner}
 - **Tags:** ${tagsText}
 ${detailsExtraLines}
 
