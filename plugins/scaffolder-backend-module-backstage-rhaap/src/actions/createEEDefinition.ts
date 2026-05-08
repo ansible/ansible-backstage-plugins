@@ -138,8 +138,9 @@ export function createEEDefinitionAction(options: {
       try {
         const { scmCollections, nonScmCollections } =
           partitionCollectionsBySourceType(collections);
+        const mergedNonScmCollections = mergeCollections(nonScmCollections);
         const allCollections = normalizeCollectionSources(
-          mergeCollections(nonScmCollections),
+          mergedNonScmCollections,
         );
         const { collections: transformedScmCollections, scmServers } =
           transformScmCollections(scmCollections, config);
@@ -257,12 +258,15 @@ export function createEEDefinitionAction(options: {
         // rather than the internal identifiers (e.g. "private_hub_repo") that
         // the CollectionsPicker cannot match against API-returned options.
         const templateCollections = [
-          ...mergeCollections(nonScmCollections),
+          ...mergedNonScmCollections,
           ...scmCollections,
         ];
         const mergedValues = {
           ...values,
           eeFileName,
+          pahBaseUrl,
+          // Keep user-facing collection sources for README/template defaults.
+          // Normalized sources are only needed for the creator service payload.
           collections: templateCollections,
           pythonRequirements: allRequirements,
           systemPackages: allPackages,
@@ -302,15 +306,16 @@ export function createEEDefinitionAction(options: {
 
         const eeTemplateContent = generateEETemplate(mergedValues);
 
+        const templatePath = resolvePathWithinDirectory(
+          eeDir,
+          `${eeFileName}-template.yml`,
+        );
+        await fs.writeFile(templatePath, eeTemplateContent);
+        logger.info(
+          `[ansible:create:ee-definition] created EE template.yml at ${templatePath}`,
+        );
+
         if (values.publishToSCM) {
-          const templatePath = resolvePathWithinDirectory(
-            eeDir,
-            `${eeFileName}-template.yml`,
-          );
-          await fs.writeFile(templatePath, eeTemplateContent);
-          logger.info(
-            `[ansible:create:ee-definition] created EE template.yml at ${templatePath}`,
-          );
           const catalogInfoPath = path.join(
             contextDirName,
             'catalog-info.yaml',
