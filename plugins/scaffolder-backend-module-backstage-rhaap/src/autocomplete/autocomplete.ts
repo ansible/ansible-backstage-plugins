@@ -9,7 +9,11 @@ import {
   getAnsibleConfig,
   getVerbosityLevels,
 } from '@ansible/backstage-rhaap-common';
-import { ServiceUnavailableError } from '@backstage/errors';
+import {
+  InputError,
+  NotAllowedError,
+  ServiceUnavailableError,
+} from '@backstage/errors';
 import { getCollections } from './utils';
 
 export async function handleAutocompleteRequest({
@@ -56,14 +60,29 @@ export async function handleAutocompleteRequest({
 
   await ansibleService.setLogger(logger);
 
-  const isControllerAvailable =
-    await ansibleService.checkControllerAvailability(token);
-  if (!isControllerAvailable) {
-    throw new ServiceUnavailableError(
-      'Controller service is absent in provided AAP instance',
-    );
-  }
+  try {
+    const isControllerAvailable =
+      await ansibleService.checkControllerAvailability(token);
+    if (!isControllerAvailable) {
+      throw new ServiceUnavailableError(
+        'Controller service is absent in provided AAP instance',
+      );
+    }
 
-  const data = await ansibleService.getResourceData(resource, token);
-  return { results: data.results };
+    const data = await ansibleService.getResourceData(resource, token);
+    return { results: data.results };
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+
+    if (message.includes('Insufficient privileges')) {
+      throw new NotAllowedError(message);
+    }
+    if (
+      message.includes('Controller') ||
+      message.includes('Failed to send fetch')
+    ) {
+      throw new ServiceUnavailableError(message);
+    }
+    throw new InputError(message);
+  }
 }

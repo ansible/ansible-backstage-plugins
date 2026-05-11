@@ -4,6 +4,11 @@ import { clearCollectionsCache } from './utils';
 import { mockAnsibleService } from '../actions/mockIAAPService';
 import { mockServices } from '@backstage/backend-test-utils';
 import { MOCK_TOKEN } from '../mock';
+import {
+  InputError,
+  NotAllowedError,
+  ServiceUnavailableError,
+} from '@backstage/errors';
 
 const mockFetch = jest.fn();
 
@@ -437,6 +442,120 @@ describe('ansible-aap:autocomplete', () => {
       });
 
       expect(response).toEqual(mockJobTemplates);
+    });
+
+    it('should throw ServiceUnavailableError when getResourceData fails with "Failed to send fetch"', async () => {
+      mockAnsibleService.getResourceData.mockRejectedValue(
+        new Error('Failed to send fetch request to controller'),
+      );
+
+      await expect(
+        handleAutocompleteRequest({
+          resource: 'job_templates',
+          token: 'token',
+          config,
+          logger,
+          ansibleService: mockAnsibleService,
+          auth: mockAuthService,
+          discovery: mockDiscoveryService,
+        }),
+      ).rejects.toThrow(ServiceUnavailableError);
+    });
+
+    it('should throw InputError for generic errors from getResourceData', async () => {
+      mockAnsibleService.getResourceData.mockRejectedValue(
+        new Error('Something unexpected happened'),
+      );
+
+      await expect(
+        handleAutocompleteRequest({
+          resource: 'job_templates',
+          token: 'token',
+          config,
+          logger,
+          ansibleService: mockAnsibleService,
+          auth: mockAuthService,
+          discovery: mockDiscoveryService,
+        }),
+      ).rejects.toThrow(InputError);
+    });
+
+    it('should convert non-Error thrown values to string and throw InputError', async () => {
+      mockAnsibleService.getResourceData.mockRejectedValue(
+        'raw string rejection',
+      );
+
+      await expect(
+        handleAutocompleteRequest({
+          resource: 'job_templates',
+          token: 'token',
+          config,
+          logger,
+          ansibleService: mockAnsibleService,
+          auth: mockAuthService,
+          discovery: mockDiscoveryService,
+        }),
+      ).rejects.toThrow(InputError);
+
+      await expect(
+        handleAutocompleteRequest({
+          resource: 'job_templates',
+          token: 'token',
+          config,
+          logger,
+          ansibleService: mockAnsibleService,
+          auth: mockAuthService,
+          discovery: mockDiscoveryService,
+        }),
+      ).rejects.toThrow('raw string rejection');
+    });
+
+    it('should throw ServiceUnavailableError when checkControllerAvailability throws a Controller error', async () => {
+      mockAnsibleService.checkControllerAvailability.mockRejectedValue(
+        new Error('Controller connection timed out'),
+      );
+
+      await expect(
+        handleAutocompleteRequest({
+          resource: 'job_templates',
+          token: 'token',
+          config,
+          logger,
+          ansibleService: mockAnsibleService,
+          auth: mockAuthService,
+          discovery: mockDiscoveryService,
+        }),
+      ).rejects.toThrow(ServiceUnavailableError);
+
+      await expect(
+        handleAutocompleteRequest({
+          resource: 'job_templates',
+          token: 'token',
+          config,
+          logger,
+          ansibleService: mockAnsibleService,
+          auth: mockAuthService,
+          discovery: mockDiscoveryService,
+        }),
+      ).rejects.toThrow('Controller connection timed out');
+    });
+
+    it('should throw NotAllowedError for insufficient privileges from getResourceData', async () => {
+      mockAnsibleService.getResourceData.mockRejectedValue(
+        new Error('Insufficient privileges to access this resource'),
+      );
+
+      await expect(
+        handleAutocompleteRequest({
+          resource: 'job_templates',
+          token: 'token',
+          config,
+          logger,
+          ansibleService: mockAnsibleService,
+          auth: mockAuthService,
+          discovery: mockDiscoveryService,
+        }),
+      ).rejects.toThrow(NotAllowedError);
     });
   });
 });

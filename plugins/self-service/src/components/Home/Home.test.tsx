@@ -1048,6 +1048,132 @@ describe('self-service', () => {
 
       jest.useRealTimers();
     });
+
+    it('should close error Alert when close button is clicked', async () => {
+      const entityRefs = ['component:default/e1'];
+      const tags = ['tag1'];
+      mockCatalogApi.getEntityFacets.mockResolvedValue(
+        facetsFromEntityRefs(entityRefs, tags),
+      );
+
+      const mockError = Object.assign(
+        new Error('Request failed with 503 Service Unavailable'),
+        {
+          body: {
+            error: {
+              message: 'Controller service is absent in provided AAP instance',
+            },
+          },
+        },
+      );
+      (mockScaffolderApi.autocomplete as jest.Mock).mockRejectedValue(
+        mockError,
+      );
+
+      await render(<HomeComponent />);
+
+      await waitFor(() => {
+        expect(
+          screen.getByText(
+            'Controller service is absent in provided AAP instance',
+          ),
+        ).toBeInTheDocument();
+      });
+
+      const alert = screen.getByRole('alert');
+      const closeButton = within(alert).getByRole('button');
+      fireEvent.click(closeButton);
+
+      await waitFor(() => {
+        expect(
+          screen.queryByText(
+            'Controller service is absent in provided AAP instance',
+          ),
+        ).toBeNull();
+      });
+    });
+
+    it('should keep error Alert open on clickaway', async () => {
+      const entityRefs = ['component:default/e1'];
+      const tags = ['tag1'];
+      mockCatalogApi.getEntityFacets.mockResolvedValue(
+        facetsFromEntityRefs(entityRefs, tags),
+      );
+
+      const mockError = Object.assign(
+        new Error('Request failed with 503 Service Unavailable'),
+        {
+          body: {
+            error: {
+              message: 'Controller service is absent in provided AAP instance',
+            },
+          },
+        },
+      );
+      (mockScaffolderApi.autocomplete as jest.Mock).mockRejectedValue(
+        mockError,
+      );
+
+      await render(<HomeComponent />);
+
+      await waitFor(() => {
+        expect(
+          screen.getByText(
+            'Controller service is absent in provided AAP instance',
+          ),
+        ).toBeInTheDocument();
+      });
+
+      const alert = screen.getByRole('alert');
+      const snackbar = alert.closest('[class*="MuiSnackbar"]');
+      expect(snackbar).toBeTruthy();
+
+      fireEvent.click(document.body);
+
+      expect(
+        screen.getByText(
+          'Controller service is absent in provided AAP instance',
+        ),
+      ).toBeInTheDocument();
+    });
+
+    it('should show error.message when body.error.message is absent', async () => {
+      const entityRefs = ['component:default/e1'];
+      const tags = ['tag1'];
+      mockCatalogApi.getEntityFacets.mockResolvedValue(
+        facetsFromEntityRefs(entityRefs, tags),
+      );
+
+      (mockScaffolderApi.autocomplete as jest.Mock).mockRejectedValue(
+        new Error('Network connection failed'),
+      );
+
+      await render(<HomeComponent />);
+
+      await waitFor(() => {
+        expect(
+          screen.getByText('Network connection failed'),
+        ).toBeInTheDocument();
+      });
+    });
+
+    it('should handle non-Error rejection in fetchJobTemplates', async () => {
+      const entityRefs = ['component:default/e1'];
+      const tags = ['tag1'];
+      mockCatalogApi.getEntityFacets.mockResolvedValue(
+        facetsFromEntityRefs(entityRefs, tags),
+      );
+
+      (mockScaffolderApi.autocomplete as jest.Mock).mockRejectedValue(
+        'plain string error',
+      );
+
+      await render(<HomeComponent />);
+
+      await waitFor(() => {
+        expect(screen.getByText('plain string error')).toBeInTheDocument();
+      });
+    });
   });
 });
 
