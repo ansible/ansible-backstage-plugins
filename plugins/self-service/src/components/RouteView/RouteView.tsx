@@ -36,8 +36,8 @@ import {
 } from '../notifications';
 
 const RouteViewContent = () => {
-  const location = useLocation();
   const { notifications, removeNotification } = useNotifications();
+  const location = useLocation();
   const discoveryApi = useApi(discoveryApiRef);
   const fetchApi = useApi(fetchApiRef);
 
