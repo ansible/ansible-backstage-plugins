@@ -9,7 +9,7 @@ import {
   ScaffolderTask,
 } from '@backstage/plugin-scaffolder-react';
 import { TablePaginationActionsProps } from '@material-ui/core/TablePagination/TablePaginationActions';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Route, Routes, Navigate } from 'react-router-dom';
 import { Content, Header, Page } from '@backstage/core-components';
 import {
   Box,
@@ -35,8 +35,16 @@ import CheckCircleOutlineIcon from '@material-ui/icons/CheckCircleOutline';
 import PlayCircleOutlineIcon from '@material-ui/icons/PlayCircleOutline';
 import AddCircleOutlineIcon from '@material-ui/icons/AddCircleOutline';
 import BlockIcon from '@material-ui/icons/Block';
+import { RequirePermission } from '@backstage/plugin-permission-react';
+import { historyViewPermission } from '@ansible/backstage-rhaap-common/permissions';
 import { rootRouteRef } from '../../routes';
 import { useAsync } from 'react-use';
+import { RunTask } from '../RunTask';
+import {
+  NotificationProvider,
+  NotificationStack,
+  useNotifications,
+} from '../notifications';
 
 const headerStyles = makeStyles(theme => ({
   header_title_color: {
@@ -370,5 +378,38 @@ export const TaskList = () => {
         </Grid>
       </Content>
     </Page>
+  );
+};
+
+// Inner content component that uses the notification context
+const HistoryRoutesContent = () => {
+  const { notifications, removeNotification } = useNotifications();
+
+  return (
+    <>
+      <Routes>
+        <Route index element={<TaskList />} />
+        <Route path=":taskId" element={<RunTask />} />
+        <Route path="*" element={<Navigate to="." replace />} />
+      </Routes>
+      <NotificationStack
+        notifications={notifications}
+        onClose={removeNotification}
+      />
+    </>
+  );
+};
+
+/**
+ * Standalone route wrapper used by the dynamic plugin mount at /self-service/create/tasks
+ * so detail URLs like /self-service/create/tasks/:taskId resolve correctly.
+ */
+export const HistoryRoutesPage = () => {
+  return (
+    <RequirePermission permission={historyViewPermission}>
+      <NotificationProvider>
+        <HistoryRoutesContent />
+      </NotificationProvider>
+    </RequirePermission>
   );
 };

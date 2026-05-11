@@ -6,6 +6,8 @@ import {
   EEBuilderSidebarItem,
   CollectionsSidebarItem,
   GitRepositoriesSidebarItem,
+  TemplatesSidebarItem,
+  HistorySidebarItem,
 } from './SidebarItems';
 
 jest.mock('@backstage/core-plugin-api', () => ({
@@ -436,6 +438,200 @@ describe('GitRepositoriesSidebarItem', () => {
     expect(mockUsePermission).toHaveBeenCalledWith({
       permission: expect.objectContaining({
         name: 'ansible.git-repositories.view',
+        type: 'basic',
+      }),
+    });
+  });
+});
+
+describe('TemplatesSidebarItem', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+  });
+
+  it('renders sidebar item when permission framework is disabled', async () => {
+    mockUsePermission.mockReturnValue({
+      loading: false,
+      allowed: false,
+    });
+
+    await renderInTestApp(
+      <TestApiProvider apis={[[configApiRef, createMockConfigApi(false)]]}>
+        <TemplatesSidebarItem />
+      </TestApiProvider>,
+    );
+
+    const link = screen.getByRole('link', { name: /Templates/i });
+    expect(link).toBeInTheDocument();
+    expect(link).toHaveAttribute('href', '/self-service/catalog');
+  });
+
+  it('renders sidebar item when permission.enabled is undefined (framework off)', async () => {
+    mockUsePermission.mockReturnValue({ loading: false, allowed: false });
+
+    await renderInTestApp(
+      <TestApiProvider apis={[[configApiRef, createMockConfigApi(undefined)]]}>
+        <TemplatesSidebarItem />
+      </TestApiProvider>,
+    );
+
+    expect(
+      screen.getByRole('link', { name: /Templates/i }),
+    ).toBeInTheDocument();
+  });
+
+  it('returns null when permission framework enabled and loading', async () => {
+    mockUsePermission.mockReturnValue({ loading: true, allowed: false });
+
+    const { container } = await renderInTestApp(
+      <TestApiProvider apis={[[configApiRef, createMockConfigApi(true)]]}>
+        <TemplatesSidebarItem />
+      </TestApiProvider>,
+    );
+
+    expect(
+      screen.queryByRole('link', { name: /Templates/i }),
+    ).not.toBeInTheDocument();
+    expect(container.firstChild).toBeNull();
+  });
+
+  it('returns null when permission framework enabled and not allowed', async () => {
+    mockUsePermission.mockReturnValue({ loading: false, allowed: false });
+
+    const { container } = await renderInTestApp(
+      <TestApiProvider apis={[[configApiRef, createMockConfigApi(true)]]}>
+        <TemplatesSidebarItem />
+      </TestApiProvider>,
+    );
+
+    expect(
+      screen.queryByRole('link', { name: /Templates/i }),
+    ).not.toBeInTheDocument();
+    expect(container.firstChild).toBeNull();
+  });
+
+  it('renders sidebar item when permission framework enabled and allowed', async () => {
+    mockUsePermission.mockReturnValue({ loading: false, allowed: true });
+
+    await renderInTestApp(
+      <TestApiProvider apis={[[configApiRef, createMockConfigApi(true)]]}>
+        <TemplatesSidebarItem />
+      </TestApiProvider>,
+    );
+
+    const link = screen.getByRole('link', { name: /Templates/i });
+    expect(link).toBeInTheDocument();
+    expect(link).toHaveAttribute('href', '/self-service/catalog');
+  });
+
+  it('calls usePermission with templates view permission', async () => {
+    mockUsePermission.mockReturnValue({ loading: false, allowed: true });
+
+    await renderInTestApp(
+      <TestApiProvider apis={[[configApiRef, createMockConfigApi(true)]]}>
+        <TemplatesSidebarItem />
+      </TestApiProvider>,
+    );
+
+    expect(mockUsePermission).toHaveBeenCalledWith({
+      permission: expect.objectContaining({
+        name: 'ansible.templates.view',
+        type: 'basic',
+      }),
+    });
+  });
+});
+
+describe('HistorySidebarItem', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+  });
+
+  it('renders sidebar item when permission framework is disabled', async () => {
+    mockUsePermission.mockReturnValue({
+      loading: false,
+      allowed: false,
+    });
+
+    await renderInTestApp(
+      <TestApiProvider apis={[[configApiRef, createMockConfigApi(false)]]}>
+        <HistorySidebarItem />
+      </TestApiProvider>,
+    );
+
+    const link = screen.getByRole('link', { name: /History/i });
+    expect(link).toBeInTheDocument();
+    expect(link).toHaveAttribute('href', '/self-service/create/tasks');
+  });
+
+  it('renders sidebar item when permission.enabled is undefined (framework off)', async () => {
+    mockUsePermission.mockReturnValue({ loading: false, allowed: false });
+
+    await renderInTestApp(
+      <TestApiProvider apis={[[configApiRef, createMockConfigApi(undefined)]]}>
+        <HistorySidebarItem />
+      </TestApiProvider>,
+    );
+
+    expect(screen.getByRole('link', { name: /History/i })).toBeInTheDocument();
+  });
+
+  it('returns null when permission framework enabled and loading', async () => {
+    mockUsePermission.mockReturnValue({ loading: true, allowed: false });
+
+    const { container } = await renderInTestApp(
+      <TestApiProvider apis={[[configApiRef, createMockConfigApi(true)]]}>
+        <HistorySidebarItem />
+      </TestApiProvider>,
+    );
+
+    expect(
+      screen.queryByRole('link', { name: /History/i }),
+    ).not.toBeInTheDocument();
+    expect(container.firstChild).toBeNull();
+  });
+
+  it('returns null when permission framework enabled and not allowed', async () => {
+    mockUsePermission.mockReturnValue({ loading: false, allowed: false });
+
+    const { container } = await renderInTestApp(
+      <TestApiProvider apis={[[configApiRef, createMockConfigApi(true)]]}>
+        <HistorySidebarItem />
+      </TestApiProvider>,
+    );
+
+    expect(
+      screen.queryByRole('link', { name: /History/i }),
+    ).not.toBeInTheDocument();
+    expect(container.firstChild).toBeNull();
+  });
+
+  it('renders sidebar item when permission framework enabled and allowed', async () => {
+    mockUsePermission.mockReturnValue({ loading: false, allowed: true });
+
+    await renderInTestApp(
+      <TestApiProvider apis={[[configApiRef, createMockConfigApi(true)]]}>
+        <HistorySidebarItem />
+      </TestApiProvider>,
+    );
+
+    const link = screen.getByRole('link', { name: /History/i });
+    expect(link).toBeInTheDocument();
+    expect(link).toHaveAttribute('href', '/self-service/create/tasks');
+  });
+
+  it('calls usePermission with history view permission', async () => {
+    mockUsePermission.mockReturnValue({ loading: false, allowed: true });
+
+    await renderInTestApp(
+      <TestApiProvider apis={[[configApiRef, createMockConfigApi(true)]]}>
+        <HistorySidebarItem />
+      </TestApiProvider>,
+    );
+
+    expect(mockUsePermission).toHaveBeenCalledWith({
+      permission: expect.objectContaining({
+        name: 'ansible.history.view',
         type: 'basic',
       }),
     });

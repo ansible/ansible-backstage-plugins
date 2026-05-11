@@ -3,12 +3,16 @@ import { usePermission } from '@backstage/plugin-permission-react';
 import { configApiRef, useApi, useRouteRef } from '@backstage/core-plugin-api';
 import { SidebarItem } from '@backstage/core-components';
 import BuildIcon from '@material-ui/icons/Build';
+import HomeIcon from '@material-ui/icons/Home';
 import ExtensionIcon from '@material-ui/icons/Extension';
 import GitHubIcon from '@material-ui/icons/GitHub';
+import HistoryIcon from '@material-ui/icons/History';
 import {
   executionEnvironmentsViewPermission,
   collectionsViewPermission,
   gitRepositoriesViewPermission,
+  templatesViewPermission,
+  historyViewPermission,
 } from '@ansible/backstage-rhaap-common/permissions';
 
 import { rootRouteRef } from '../../routes';
@@ -77,6 +81,32 @@ export const GitRepositoriesSidebarItem = () => {
       icon={GitHubIcon}
       to={`${rootLink()}/repositories`}
       text="Git Repositories"
+    />
+  );
+};
+
+export const TemplatesSidebarItem = () => {
+  const rootLink = useRouteRef(rootRouteRef);
+
+  return (
+    <PermissionGatedSidebarItem
+      permission={templatesViewPermission}
+      icon={HomeIcon}
+      to={`${rootLink()}/catalog`}
+      text="Templates"
+    />
+  );
+};
+
+export const HistorySidebarItem = () => {
+  const rootLink = useRouteRef(rootRouteRef);
+
+  return (
+    <PermissionGatedSidebarItem
+      permission={historyViewPermission}
+      icon={HistoryIcon}
+      to={`${rootLink()}/create/tasks`}
+      text="History"
     />
   );
 };

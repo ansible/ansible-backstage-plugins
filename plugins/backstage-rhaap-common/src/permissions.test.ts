@@ -2,6 +2,8 @@ import {
   executionEnvironmentsViewPermission,
   gitRepositoriesViewPermission,
   collectionsViewPermission,
+  templatesViewPermission,
+  historyViewPermission,
   ansiblePermissions,
 } from './permissions';
 
@@ -30,11 +32,29 @@ describe('permissions', () => {
     });
   });
 
-  it('ansiblePermissions contains all three permissions', () => {
-    expect(ansiblePermissions).toHaveLength(3);
+  it('exports templatesViewPermission with correct shape', () => {
+    expect(templatesViewPermission).toEqual({
+      type: 'basic',
+      name: 'ansible.templates.view',
+      attributes: {},
+    });
+  });
+
+  it('exports historyViewPermission with correct shape', () => {
+    expect(historyViewPermission).toEqual({
+      type: 'basic',
+      name: 'ansible.history.view',
+      attributes: {},
+    });
+  });
+
+  it('ansiblePermissions contains all five permissions', () => {
+    expect(ansiblePermissions).toHaveLength(5);
     expect(ansiblePermissions).toContain(executionEnvironmentsViewPermission);
     expect(ansiblePermissions).toContain(gitRepositoriesViewPermission);
     expect(ansiblePermissions).toContain(collectionsViewPermission);
+    expect(ansiblePermissions).toContain(templatesViewPermission);
+    expect(ansiblePermissions).toContain(historyViewPermission);
   });
 
   it('each permission has type basic and attributes object', () => {

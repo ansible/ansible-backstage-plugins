@@ -69,6 +69,16 @@ jest.mock('@ansible/backstage-rhaap-common/permissions', () => ({
     name: 'repos.view',
     attributes: {},
   },
+  templatesViewPermission: {
+    type: 'basic',
+    name: 'templates.view',
+    attributes: {},
+  },
+  historyViewPermission: {
+    type: 'basic',
+    name: 'history.view',
+    attributes: {},
+  },
 }));
 
 // Track every permission passed to RequirePermission.
@@ -170,6 +180,26 @@ describe('RouteView', () => {
   describe('when permission is allowed', () => {
     it.each([
       {
+        path: '/catalog',
+        childTestId: 'home',
+        permissionName: 'templates.view',
+      },
+      {
+        path: '/catalog/ns/my-template',
+        childTestId: 'catalog-details',
+        permissionName: 'templates.view',
+      },
+      {
+        path: '/create/tasks',
+        childTestId: 'task-list',
+        permissionName: 'history.view',
+      },
+      {
+        path: '/create/tasks/123',
+        childTestId: 'run-task',
+        permissionName: 'history.view',
+      },
+      {
         path: '/ee/catalog',
         childTestId: 'ee-tabs',
         permissionName: 'ee.view',
@@ -225,6 +255,8 @@ describe('RouteView', () => {
     });
 
     it.each([
+      { path: '/catalog', childTestId: 'home' },
+      { path: '/create/tasks', childTestId: 'task-list' },
       { path: '/ee/catalog', childTestId: 'ee-tabs' },
       { path: '/collections', childTestId: 'collections-catalog' },
       { path: '/repositories/catalog', childTestId: 'git-repositories' },
