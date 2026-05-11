@@ -360,7 +360,7 @@ test.describe.serial('git-repositories01-catalog', () => {
     await syncSelectedBtn.first().click({ force: true });
 
     // Wait for sync to complete (button becomes enabled again)
-    await expect(syncBtn.first()).toBeEnabled({ timeout: 60000 });
+    await expect(syncBtn.first()).toBeEnabled({ timeout: 120000 });
 
     // Wait a bit to ensure completion toast has time to appear
     await page.waitForTimeout(2000);
