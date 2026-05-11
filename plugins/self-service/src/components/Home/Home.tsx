@@ -38,6 +38,7 @@ import Sync from '@material-ui/icons/Sync';
 import Info from '@material-ui/icons/Info';
 import OpenInNew from '@material-ui/icons/OpenInNew';
 import { TemplateEntityV1beta3 } from '@backstage/plugin-scaffolder-common';
+import Alert from '@material-ui/lab/Alert';
 import { SkeletonLoader } from './SkeletonLoader';
 import { scaffolderApiRef } from '@backstage/plugin-scaffolder-react';
 import { TagFilterPicker } from '../utils/TagFilterPicker';
@@ -204,6 +205,10 @@ export const HomeComponent = () => {
   const [syncOptions, setSyncOptions] = useState<string[]>([]);
   const [showSnackbar, setShowSnackbar] = useState<boolean>(false);
   const [snackbarMsg, setSnackbarMsg] = useState<string>('Sync failed');
+  const [controllerWarning, setControllerWarning] = useState('');
+  const [controllerWarningOpen, setControllerWarningOpen] = useState(false);
+  const controllerWarningOpenRef = useRef(controllerWarningOpen);
+  controllerWarningOpenRef.current = controllerWarningOpen;
   const [jobTemplates, setJobTemplates] = useState<
     { id: number; name: string }[]
   >([]);
@@ -260,8 +265,13 @@ export const HomeComponent = () => {
       }
       return newTemplates;
     } catch (error) {
+      const message =
+        (error as any)?.body?.error?.message ??
+        (error instanceof Error ? error.message : String(error));
       // eslint-disable-next-line no-console
       console.error('Failed to fetch job templates:', error);
+      setControllerWarning(message);
+      setControllerWarningOpen(true);
       return undefined;
     } finally {
       if (requestId === fetchRequestIdRef.current) {
@@ -337,8 +347,10 @@ export const HomeComponent = () => {
     const CATALOG_SETTLE_MS = 750;
     const timerId = setTimeout(() => {
       setSyncKey(prev => prev + 1);
-      setSnackbarMsg('Templates refreshed');
-      setShowSnackbar(true);
+      if (!controllerWarningOpenRef.current) {
+        setSnackbarMsg('Templates refreshed');
+        setShowSnackbar(true);
+      }
     }, CATALOG_SETTLE_MS);
     return () => clearTimeout(timerId);
   }, [loading]);
@@ -454,6 +466,19 @@ export const HomeComponent = () => {
           </Tooltip>
         )}
       </Header>
+      <Snackbar
+        anchorOrigin={{ vertical: 'top', horizontal: 'center' }}
+        open={controllerWarningOpen}
+        onClose={(_event, reason) => {
+          if (reason === 'clickaway') return;
+          setControllerWarningOpen(false);
+        }}
+        style={{ zIndex: 10000, marginTop: '70px' }}
+      >
+        <Alert severity="error" onClose={() => setControllerWarningOpen(false)}>
+          {controllerWarning}
+        </Alert>
+      </Snackbar>
       <Content>
         <EntityListProvider key={syncKey}>
           <CatalogFilterLayout>
@@ -508,12 +533,12 @@ export const HomeComponent = () => {
         </EntityListProvider>
       </Content>
       <Snackbar
-        anchorOrigin={{ vertical: 'top', horizontal: 'right' }}
+        anchorOrigin={{ vertical: 'top', horizontal: 'center' }}
         open={showSnackbar}
         onClose={() => setShowSnackbar(false)}
         autoHideDuration={3000}
         message={snackbarMsg}
-        style={{ zIndex: 10000, marginTop: '70px' }}
+        style={{ zIndex: 10000 }}
       />
     </Page>
   );

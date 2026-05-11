@@ -9,6 +9,7 @@ import {
   getAnsibleConfig,
   getVerbosityLevels,
 } from '@ansible/backstage-rhaap-common';
+import { ServiceUnavailableError } from '@backstage/errors';
 import { getCollections } from './utils';
 
 export async function handleAutocompleteRequest({
@@ -54,6 +55,15 @@ export async function handleAutocompleteRequest({
   }
 
   await ansibleService.setLogger(logger);
+
+  const isControllerAvailable =
+    await ansibleService.checkControllerAvailability(token);
+  if (!isControllerAvailable) {
+    throw new ServiceUnavailableError(
+      'Controller service is absent in provided AAP instance',
+    );
+  }
+
   const data = await ansibleService.getResourceData(resource, token);
   return { results: data.results };
 }

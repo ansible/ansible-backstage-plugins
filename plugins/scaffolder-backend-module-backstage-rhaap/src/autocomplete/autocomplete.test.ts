@@ -50,6 +50,7 @@ describe('ansible-aap:autocomplete', () => {
     mockDiscoveryService.getBaseUrl.mockResolvedValue(
       'http://catalog.example.com',
     );
+    mockAnsibleService.checkControllerAvailability.mockResolvedValue(true);
   });
 
   it('should return verbosity', async () => {
@@ -371,5 +372,71 @@ describe('ansible-aap:autocomplete', () => {
       call[0]?.includes('Autocomplete context'),
     );
     expect(contextCalls.length).toBe(0);
+  });
+
+  describe('controller availability check', () => {
+    it('should throw ServiceUnavailableError when controller is absent', async () => {
+      mockAnsibleService.checkControllerAvailability.mockResolvedValue(false);
+
+      await expect(
+        handleAutocompleteRequest({
+          resource: 'job_templates',
+          token: 'token',
+          config,
+          logger,
+          ansibleService: mockAnsibleService,
+          auth: mockAuthService,
+          discovery: mockDiscoveryService,
+        }),
+      ).rejects.toThrow(
+        'Controller service is absent in provided AAP instance',
+      );
+    });
+
+    it('should propagate errors from checkControllerAvailability', async () => {
+      mockAnsibleService.checkControllerAvailability.mockRejectedValue(
+        new Error(
+          'Insufficient privileges. Please contact your administrator.',
+        ),
+      );
+
+      await expect(
+        handleAutocompleteRequest({
+          resource: 'job_templates',
+          token: 'token',
+          config,
+          logger,
+          ansibleService: mockAnsibleService,
+          auth: mockAuthService,
+          discovery: mockDiscoveryService,
+        }),
+      ).rejects.toThrow(
+        'Insufficient privileges. Please contact your administrator.',
+      );
+    });
+
+    it('should return resource data when controller is available', async () => {
+      const mockJobTemplates = {
+        results: [
+          { id: 1, name: 'Job Template 1' },
+          { id: 2, name: 'Job Template 2' },
+        ],
+      };
+
+      mockAnsibleService.checkControllerAvailability.mockResolvedValue(true);
+      mockAnsibleService.getResourceData.mockResolvedValue(mockJobTemplates);
+
+      const response = await handleAutocompleteRequest({
+        resource: 'job_templates',
+        token: 'token',
+        config,
+        logger,
+        ansibleService: mockAnsibleService,
+        auth: mockAuthService,
+        discovery: mockDiscoveryService,
+      });
+
+      expect(response).toEqual(mockJobTemplates);
+    });
   });
 });

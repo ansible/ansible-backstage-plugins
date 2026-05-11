@@ -975,6 +975,80 @@ describe('self-service', () => {
       });
     });
   });
+
+  describe('controller warning alert', () => {
+    it('should show error Alert when autocomplete fails', async () => {
+      const entityRefs = ['component:default/e1'];
+      const tags = ['tag1'];
+      mockCatalogApi.getEntityFacets.mockResolvedValue(
+        facetsFromEntityRefs(entityRefs, tags),
+      );
+
+      const mockError = Object.assign(
+        new Error('Request failed with 503 Service Unavailable'),
+        {
+          body: {
+            error: {
+              message: 'Controller service is absent in provided AAP instance',
+            },
+          },
+        },
+      );
+      (mockScaffolderApi.autocomplete as jest.Mock).mockRejectedValue(
+        mockError,
+      );
+
+      await render(<HomeComponent />);
+
+      await waitFor(() => {
+        expect(
+          screen.getByText(
+            'Controller service is absent in provided AAP instance',
+          ),
+        ).toBeInTheDocument();
+      });
+    });
+
+    it('should not show "Templates refreshed" snackbar when there is an error', async () => {
+      jest.useFakeTimers();
+
+      const entityRefs = ['component:default/e1'];
+      const tags = ['tag1'];
+      mockCatalogApi.getEntityFacets.mockResolvedValue(
+        facetsFromEntityRefs(entityRefs, tags),
+      );
+
+      const mockError = Object.assign(
+        new Error('Request failed with 503 Service Unavailable'),
+        {
+          body: {
+            error: {
+              message: 'Controller service is absent in provided AAP instance',
+            },
+          },
+        },
+      );
+      (mockScaffolderApi.autocomplete as jest.Mock).mockRejectedValue(
+        mockError,
+      );
+
+      await render(<HomeComponent />);
+
+      await waitFor(() => {
+        expect(
+          screen.getByText(
+            'Controller service is absent in provided AAP instance',
+          ),
+        ).toBeInTheDocument();
+      });
+
+      jest.advanceTimersByTime(1000);
+
+      expect(screen.queryByText('Templates refreshed')).toBeNull();
+
+      jest.useRealTimers();
+    });
+  });
 });
 
 describe('TemplatesRoutesPage notifications', () => {
