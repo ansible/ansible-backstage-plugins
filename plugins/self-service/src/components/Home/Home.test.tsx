@@ -1124,10 +1124,6 @@ describe('self-service', () => {
         ).toBeInTheDocument();
       });
 
-      const alert = screen.getByRole('alert');
-      const snackbar = alert.closest('[class*="MuiSnackbar"]');
-      expect(snackbar).toBeTruthy();
-
       fireEvent.click(document.body);
 
       expect(

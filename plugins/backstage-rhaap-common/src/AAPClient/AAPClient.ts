@@ -804,7 +804,12 @@ export class AAPClient implements IAAPService {
     const endPoint = 'api/gateway/v1/services/?api_slug=controller';
     const response = await this.executeGetRequest(endPoint, token);
     const data = await response.json();
-    return data.count > 0;
+    if (typeof data?.count === 'number') {
+      return data.count > 0;
+    }
+    throw new Error(
+      'Controller availability check returned an unexpected payload',
+    );
   }
 
   public async getResourceData(resource: string, token: string): Promise<any> {

@@ -527,6 +527,26 @@ describe('AAPClient', () => {
           'Insufficient privileges. Please contact your administrator.',
         );
       });
+
+      it('should reject when controller availability payload is malformed (empty object)', async () => {
+        jest.spyOn(client as any, 'executeGetRequest').mockResolvedValueOnce({
+          json: jest.fn().mockResolvedValue({}),
+        });
+
+        await expect(
+          client.checkControllerAvailability('test-token'),
+        ).rejects.toThrow('unexpected payload');
+      });
+
+      it('should reject when controller availability payload has non-numeric count', async () => {
+        jest.spyOn(client as any, 'executeGetRequest').mockResolvedValueOnce({
+          json: jest.fn().mockResolvedValue({ count: '1' }),
+        });
+
+        await expect(
+          client.checkControllerAvailability('test-token'),
+        ).rejects.toThrow('unexpected payload');
+      });
     });
 
     describe('executeDeleteRequest', () => {

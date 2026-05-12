@@ -398,16 +398,39 @@ describe('ansible-aap:autocomplete', () => {
       );
     });
 
-    it('should propagate errors from checkControllerAvailability', async () => {
+    it('should map permission errors from checkControllerAvailability to NotAllowedError', async () => {
       mockAnsibleService.checkControllerAvailability.mockRejectedValue(
         new Error(
           'Insufficient privileges. Please contact your administrator.',
         ),
       );
 
+      const request = handleAutocompleteRequest({
+        resource: 'job_templates',
+        token: 'token',
+        config,
+        logger,
+        ansibleService: mockAnsibleService,
+        auth: mockAuthService,
+        discovery: mockDiscoveryService,
+      });
+
+      await expect(request).rejects.toThrow(NotAllowedError);
+      await expect(request).rejects.toThrow(
+        'Insufficient privileges. Please contact your administrator.',
+      );
+    });
+
+    it('should not gate collections on controller availability', async () => {
+      mockAnsibleService.checkControllerAvailability.mockResolvedValue(false);
+      mockFetch.mockResolvedValue({
+        ok: true,
+        json: async () => [],
+      });
+
       await expect(
         handleAutocompleteRequest({
-          resource: 'job_templates',
+          resource: 'collections',
           token: 'token',
           config,
           logger,
@@ -415,9 +438,11 @@ describe('ansible-aap:autocomplete', () => {
           auth: mockAuthService,
           discovery: mockDiscoveryService,
         }),
-      ).rejects.toThrow(
-        'Insufficient privileges. Please contact your administrator.',
-      );
+      ).resolves.toEqual({ results: [] });
+
+      expect(
+        mockAnsibleService.checkControllerAvailability,
+      ).not.toHaveBeenCalled();
     });
 
     it('should return resource data when controller is available', async () => {
