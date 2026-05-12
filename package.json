@@ -64,8 +64,8 @@
     "@types/react": "^18",
     "@types/react-dom": "^18",
     "@rjsf/utils": "=5.24.0",
-    "axios": "^1.15.1",
-    "basic-ftp": "^5.2.1",
+    "axios": "^1.15.2",
+    "basic-ftp": "^5.3.1",
     "bfj": "7.0.2",
     "dompurify": "^3.4.0",
     "follow-redirects": "^1.16.0",
@@ -79,7 +79,11 @@
     "svgo": "^2.8.1",
     "koa": "^3.1.2",
     "multer": "^2.1.1",
-    "@stoplight/spectral-core/minimatch": "3.1.4"
+    "@stoplight/spectral-core/minimatch": "3.1.4",
+    "fast-uri": "^3.1.2",
+    "@babel/plugin-transform-modules-systemjs": "^7.29.4",
+    "postcss": "^8.5.10",
+    "vm2": "^3.11.2"
   },
   "prettier": "@spotify/prettier-config",
   "lint-staged": {
