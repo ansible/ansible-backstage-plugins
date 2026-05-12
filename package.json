@@ -78,7 +78,8 @@
     "rollup": "^4.59.0",
     "svgo": "^2.8.1",
     "koa": "^3.1.2",
-    "multer": "^2.1.1"
+    "multer": "^2.1.1",
+    "@stoplight/spectral-core/minimatch": "3.1.4"
   },
   "prettier": "@spotify/prettier-config",
   "lint-staged": {
