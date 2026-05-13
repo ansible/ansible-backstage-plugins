@@ -41,7 +41,11 @@ export const AAPLogoutHandler = () => {
           // Ignore — user may not have an active AAP session
         }
 
-        originalSignOut().catch(() => {});
+        try {
+          await originalSignOut();
+        } catch {
+          // continue with AAP gateway logout regardless
+        }
 
         window.location.href = `${aapHost}/api/gateway/v1/logout/`;
       } else {

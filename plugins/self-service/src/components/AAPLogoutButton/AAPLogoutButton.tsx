@@ -16,13 +16,13 @@ class SafeBoundary extends Component<
   PropsWithChildren<{}>,
   { hasError: boolean }
 > {
+  static getDerivedStateFromError(): { hasError: boolean } {
+    return { hasError: true };
+  }
+
   constructor(props: PropsWithChildren<{}>) {
     super(props);
     this.state = { hasError: false };
-  }
-
-  static getDerivedStateFromError(): { hasError: boolean } {
-    return { hasError: true };
   }
 
   render(): ReactNode {
@@ -44,7 +44,11 @@ const AAPLogoutButtonInner = () => {
       // Ignore if not logged into AAP
     }
 
-    identityApi.signOut().catch(error => errorApi.post(error));
+    try {
+      await identityApi.signOut();
+    } catch (error) {
+      errorApi.post(error);
+    }
 
     const aapHost = config
       .getOptionalString('ansible.rhaap.baseUrl')

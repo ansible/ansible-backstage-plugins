@@ -9,27 +9,32 @@ import { Page } from '@playwright/test';
 export async function getBackstageToken(page: Page): Promise<string> {
   // Approach 1: Use page.evaluate to call the auth refresh endpoint
   // from within the browser context (which has the session cookies).
-  const token = await page.evaluate(async () => {
-    try {
-      const res = await fetch(
-        '/api/auth/rhaap/refresh?scope=read%20write&env=production',
-        { credentials: 'include' },
-      );
-      if (!res.ok) return null;
-      const data = await res.json();
-      return data?.backstageIdentity?.token ?? null;
-    } catch {
-      return null;
-    }
-  });
+  const authProvider = process.env.BACKSTAGE_AUTH_PROVIDER ?? 'rhaap';
+  const authEnv = process.env.BACKSTAGE_AUTH_ENV ?? 'production';
+
+  const token = await page.evaluate(
+    async ({ provider, env }) => {
+      try {
+        const res = await fetch(
+          `/api/auth/${provider}/refresh?scope=read%20write&env=${env}`,
+          { credentials: 'include' },
+        );
+        if (!res.ok) return null;
+        const data = await res.json();
+        return data?.backstageIdentity?.token ?? null;
+      } catch {
+        return null;
+      }
+    },
+    { provider: authProvider, env: authEnv },
+  );
 
   if (token) return token;
 
   // Approach 2: Intercept the browser's auth refresh during page load
   const responsePromise = page.waitForResponse(
     res =>
-      res.url().includes('/api/auth/') &&
-      res.url().includes('refresh') &&
+      res.url().includes(`/api/auth/${authProvider}/refresh`) &&
       res.status() === 200,
     { timeout: 15000 },
   );
@@ -81,11 +86,7 @@ export async function catalogFetch(
 /**
  * Helper using page.request (kept for backward compat but may not include cookies).
  */
-export async function catalogRequest(
-  page: Page,
-  path: string,
-  token: string,
-) {
+export async function catalogRequest(page: Page, path: string, token: string) {
   return page.request.get(`/api/catalog${path}`, {
     headers: { Authorization: `Bearer ${token}` },
   });

@@ -1,5 +1,6 @@
 import { Config } from '@backstage/config';
 import { LoggerService } from '@backstage/backend-plugin-api';
+import { AuthenticationError } from '@backstage/errors';
 import { AAPClient } from './AAPClient';
 import { fetch } from 'undici';
 import { AnsibleConfig } from '../types';
@@ -3322,6 +3323,9 @@ describe('AAPClient', () => {
 
         await expect(client.fetchProfile('test-token')).rejects.toThrow(
           'AAP session expired or token revoked',
+        );
+        await expect(client.fetchProfile('test-token')).rejects.toBeInstanceOf(
+          AuthenticationError,
         );
       });
 
