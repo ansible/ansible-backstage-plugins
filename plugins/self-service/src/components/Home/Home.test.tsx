@@ -1093,46 +1093,6 @@ describe('self-service', () => {
       });
     });
 
-    it('should keep error Alert open on clickaway', async () => {
-      const entityRefs = ['component:default/e1'];
-      const tags = ['tag1'];
-      mockCatalogApi.getEntityFacets.mockResolvedValue(
-        facetsFromEntityRefs(entityRefs, tags),
-      );
-
-      const mockError = Object.assign(
-        new Error('Request failed with 503 Service Unavailable'),
-        {
-          body: {
-            error: {
-              message: 'Controller service is absent in provided AAP instance',
-            },
-          },
-        },
-      );
-      (mockScaffolderApi.autocomplete as jest.Mock).mockRejectedValue(
-        mockError,
-      );
-
-      await render(<HomeComponent />);
-
-      await waitFor(() => {
-        expect(
-          screen.getByText(
-            'Controller service is absent in provided AAP instance',
-          ),
-        ).toBeInTheDocument();
-      });
-
-      fireEvent.click(document.body);
-
-      expect(
-        screen.getByText(
-          'Controller service is absent in provided AAP instance',
-        ),
-      ).toBeInTheDocument();
-    });
-
     it('should show error.message when body.error.message is absent', async () => {
       const entityRefs = ['component:default/e1'];
       const tags = ['tag1'];

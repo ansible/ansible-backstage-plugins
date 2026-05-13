@@ -205,10 +205,9 @@ export const HomeComponent = () => {
   const [syncOptions, setSyncOptions] = useState<string[]>([]);
   const [showSnackbar, setShowSnackbar] = useState<boolean>(false);
   const [snackbarMsg, setSnackbarMsg] = useState<string>('Sync failed');
-  const [controllerWarning, setControllerWarning] = useState('');
-  const [controllerWarningOpen, setControllerWarningOpen] = useState(false);
-  const controllerWarningOpenRef = useRef(controllerWarningOpen);
-  controllerWarningOpenRef.current = controllerWarningOpen;
+  const [controllerSnackbar, setControllerSnackbar] = useState<
+    { status: 'idle' } | { status: 'error'; message: string }
+  >({ status: 'idle' });
   const [jobTemplates, setJobTemplates] = useState<
     { id: number; name: string }[]
   >([]);
@@ -270,8 +269,7 @@ export const HomeComponent = () => {
         (error instanceof Error ? error.message : String(error));
       // eslint-disable-next-line no-console
       console.error('Failed to fetch job templates:', error);
-      setControllerWarning(message);
-      setControllerWarningOpen(true);
+      setControllerSnackbar({ status: 'error', message });
       return undefined;
     } finally {
       if (requestId === fetchRequestIdRef.current) {
@@ -347,10 +345,13 @@ export const HomeComponent = () => {
     const CATALOG_SETTLE_MS = 750;
     const timerId = setTimeout(() => {
       setSyncKey(prev => prev + 1);
-      if (!controllerWarningOpenRef.current) {
-        setSnackbarMsg('Templates refreshed');
-        setShowSnackbar(true);
-      }
+      setControllerSnackbar(prev => {
+        if (prev.status !== 'error') {
+          setSnackbarMsg('Templates refreshed');
+          setShowSnackbar(true);
+        }
+        return prev;
+      });
     }, CATALOG_SETTLE_MS);
     return () => clearTimeout(timerId);
   }, [loading]);
@@ -468,15 +469,16 @@ export const HomeComponent = () => {
       </Header>
       <Snackbar
         anchorOrigin={{ vertical: 'top', horizontal: 'center' }}
-        open={controllerWarningOpen}
-        onClose={(_event, reason) => {
-          if (reason === 'clickaway') return;
-          setControllerWarningOpen(false);
-        }}
+        open={controllerSnackbar.status === 'error'}
         style={{ zIndex: 10000, marginTop: '70px' }}
       >
-        <Alert severity="error" onClose={() => setControllerWarningOpen(false)}>
-          {controllerWarning}
+        <Alert
+          severity="error"
+          onClose={() => setControllerSnackbar({ status: 'idle' })}
+        >
+          {controllerSnackbar.status === 'error'
+            ? controllerSnackbar.message
+            : ''}
         </Alert>
       </Snackbar>
       <Content>
@@ -533,12 +535,12 @@ export const HomeComponent = () => {
         </EntityListProvider>
       </Content>
       <Snackbar
-        anchorOrigin={{ vertical: 'top', horizontal: 'center' }}
+        anchorOrigin={{ vertical: 'top', horizontal: 'right' }}
         open={showSnackbar}
         onClose={() => setShowSnackbar(false)}
         autoHideDuration={3000}
         message={snackbarMsg}
-        style={{ zIndex: 10000 }}
+        style={{ zIndex: 10000, marginTop: '70px' }}
       />
     </Page>
   );
