@@ -3308,11 +3308,11 @@ describe('AAPClient', () => {
         mockFetch.mockRejectedValue(new Error('Network error'));
 
         await expect(client.fetchProfile('test-token')).rejects.toThrow(
-          'Failed to retrieve profile data from RH AAP',
+          'Network error while fetching profile from RH AAP',
         );
       });
 
-      it('should handle unsuccessful response', async () => {
+      it('should throw AuthenticationError on 401 response', async () => {
         const mockResponse = {
           ok: false,
           status: 401,
@@ -3321,7 +3321,20 @@ describe('AAPClient', () => {
         mockFetch.mockResolvedValue(mockResponse);
 
         await expect(client.fetchProfile('test-token')).rejects.toThrow(
-          'Failed to retrieve profile data from RH AAP',
+          'AAP session expired or token revoked',
+        );
+      });
+
+      it('should throw Error on non-401 HTTP failure', async () => {
+        const mockResponse = {
+          ok: false,
+          status: 503,
+          statusText: 'Service Unavailable',
+        };
+        mockFetch.mockResolvedValue(mockResponse);
+
+        await expect(client.fetchProfile('test-token')).rejects.toThrow(
+          'Unexpected HTTP 503 from RH AAP',
         );
       });
 

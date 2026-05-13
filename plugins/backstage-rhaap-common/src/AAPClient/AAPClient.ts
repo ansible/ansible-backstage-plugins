@@ -982,24 +982,37 @@ export class AAPClient implements IAAPService {
    * @param token - The OAuth2 access token used for authenticating the request.
    * @returns A promise that resolves to a {@link PassportProfile} object containing the user's
    *          provider, username, email, and display name.
-   * @throws {AuthenticationError} If the profile data cannot be retrieved or is in an unexpected format.
+   * @throws {AuthenticationError} If AAP returns 401 (session expired / token revoked).
+   * @throws {Error} If the request fails due to network issues or non-401 HTTP errors.
    */
   public async fetchProfile(token: string): Promise<PassportProfile> {
     this.logger.info(
       `[${this.pluginLogName}]: Fetching profile data from RH AAP.`,
     );
+    const url = `${this.getBaseUrl()}/api/gateway/v1/me/`;
     let response;
     try {
-      const endPoint = 'api/gateway/v1/me/';
-      response = await this.executeGetRequest(endPoint, token);
+      response = await fetch(url, {
+        method: 'GET',
+        dispatcher: this.proxyAgent,
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+      });
     } catch (e) {
+      throw new Error(
+        `Network error while fetching profile from RH AAP: ${e instanceof Error ? e.message : String(e)}`,
+      );
+    }
+    if (response.status === 401) {
       throw new AuthenticationError(
-        'Failed to retrieve profile data from RH AAP.',
+        'AAP session expired or token revoked (401 from /api/gateway/v1/me/).',
       );
     }
     if (!response.ok) {
-      throw new AuthenticationError(
-        'Failed to retrieve profile data from RH AAP.',
+      throw new Error(
+        `Unexpected HTTP ${response.status} from RH AAP /api/gateway/v1/me/.`,
       );
     }
     const userDataJson = (await response.json()) as {

@@ -1,3 +1,4 @@
+import { Component, type PropsWithChildren, type ReactNode } from 'react';
 import {
   identityApiRef,
   configApiRef,
@@ -5,9 +6,32 @@ import {
   useApi,
 } from '@backstage/core-plugin-api';
 import { rhAapAuthApiRef } from '../../apis';
-import MenuItem from '@material-ui/core/MenuItem';
+import MenuItem from '@mui/material/MenuItem';
+import Divider from '@mui/material/Divider';
+import Box from '@mui/material/Box';
+import Typography from '@mui/material/Typography';
+import LogoutIcon from '@mui/icons-material/Logout';
 
-export const AAPLogoutButton = () => {
+class SafeBoundary extends Component<
+  PropsWithChildren<{}>,
+  { hasError: boolean }
+> {
+  constructor(props: PropsWithChildren<{}>) {
+    super(props);
+    this.state = { hasError: false };
+  }
+
+  static getDerivedStateFromError(): { hasError: boolean } {
+    return { hasError: true };
+  }
+
+  render(): ReactNode {
+    if (this.state.hasError) return null;
+    return this.props.children;
+  }
+}
+
+const AAPLogoutButtonInner = () => {
   const identityApi = useApi(identityApiRef);
   const errorApi = useApi(errorApiRef);
   const rhAapAuthApi = useApi(rhAapAuthApiRef);
@@ -15,19 +39,13 @@ export const AAPLogoutButton = () => {
 
   const handleLogout = async () => {
     try {
-      // Revoke AAP OAuth token via backend /api/auth/rhaap/logout
       await rhAapAuthApi.signOut();
     } catch {
       // Ignore if not logged into AAP
     }
 
-    // Sign out from primary identity provider
-    // This clears the local Backstage session state
     identityApi.signOut().catch(error => errorApi.post(error));
 
-    // Redirect to AAP logout to end the AAP browser session.
-    // This must be a top-level navigation so the browser sends the
-    // gateway_sessionid cookie (SameSite=Lax).
     const aapHost = config
       .getOptionalString('ansible.rhaap.baseUrl')
       ?.replace(/\/$/, '');
@@ -36,5 +54,66 @@ export const AAPLogoutButton = () => {
     }
   };
 
-  return <MenuItem onClick={handleLogout}>Sign out</MenuItem>;
+  return (
+    <>
+      <Divider />
+      <MenuItem
+        onClick={handleLogout}
+        sx={{
+          cursor: 'pointer',
+          width: '100%',
+          color: 'inherit',
+        }}
+      >
+        <Box
+          sx={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            margin: '8px 0',
+            color: 'inherit',
+            width: '100%',
+          }}
+        >
+          <Box sx={{ display: 'flex', alignItems: 'center' }}>
+            <Box
+              sx={{
+                display: 'flex',
+                alignItems: 'center',
+                marginRight: '0.5rem',
+                flexShrink: 0,
+                color: 'inherit',
+              }}
+            >
+              <LogoutIcon fontSize="small" />
+            </Box>
+            <Box
+              sx={{
+                display: 'flex',
+                flexDirection: 'column',
+                justifyContent: 'center',
+              }}
+            >
+              <Typography variant="body2" sx={{ color: 'inherit' }}>
+                Sign out
+              </Typography>
+            </Box>
+          </Box>
+        </Box>
+      </MenuItem>
+    </>
+  );
 };
+
+/**
+ * Logout button for the RHDH global-header profile dropdown.
+ *
+ * Wrapped in an error boundary so a missing API (e.g. rhAapAuthApiRef
+ * not yet registered in a dynamic-plugin context) cannot crash the
+ * host ProfileDropdown / global header.
+ */
+export const AAPLogoutButton = () => (
+  <SafeBoundary>
+    <AAPLogoutButtonInner />
+  </SafeBoundary>
+);
