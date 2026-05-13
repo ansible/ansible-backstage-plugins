@@ -25,18 +25,14 @@ test('Multi-Org Catalog API: superuser entity structure', async ({ page }) => {
     `/entities/by-name/user/default/${ADMIN_USERNAME}`,
     token,
   );
-  expect(userResult.ok, 'Admin user entity should exist in catalog').toBe(
-    true,
-  );
+  expect(userResult.ok, 'Admin user entity should exist in catalog').toBe(true);
   const user = userResult.body;
 
   expect(user.kind).toBe('User');
   expect(user.metadata.name).toBe(ADMIN_USERNAME);
 
   // Superuser annotation
-  expect(user.metadata.annotations?.['aap.platform/is_superuser']).toBe(
-    'true',
-  );
+  expect(user.metadata.annotations?.['aap.platform/is_superuser']).toBe('true');
 
   // aap-admins group membership
   const memberOf: string[] = user.spec?.memberOf ?? [];
@@ -49,7 +45,9 @@ test('Multi-Org Catalog API: superuser entity structure', async ({ page }) => {
   const in11Org = memberOf.some(m => m.includes('11org/'));
   expect(
     inDefaultOrg,
-    `Admin should have team in aap-default. memberOf: ${JSON.stringify(memberOf)}`,
+    `Admin should have team in aap-default. memberOf: ${JSON.stringify(
+      memberOf,
+    )}`,
   ).toBe(true);
   expect(
     in11Org,
