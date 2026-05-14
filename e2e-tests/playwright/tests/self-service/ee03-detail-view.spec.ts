@@ -127,9 +127,15 @@ test.describe('Execution Environment Catalog and Detail View Tests', () => {
     if ((await row.count()) === 0) {
       return;
     }
+    // Wait for row to be stable before interacting
+    await row.waitFor({ state: 'visible', timeout: 15000 });
+    await page.waitForLoadState('networkidle');
+
     const editBtn = row.locator('button').filter({ hasText: /edit/i }).first();
     if ((await editBtn.count()) > 0) {
-      await editBtn.click({ force: true });
+      // Wait for button to be stable and clickable (removed force: true to let Playwright's actionability checks work)
+      await editBtn.waitFor({ state: 'visible', timeout: 10000 });
+      await editBtn.click(); // Let Playwright wait for element to be stable
       await page.waitForTimeout(1500);
       if (page.url().includes('/edit')) {
         await page.goBack();
