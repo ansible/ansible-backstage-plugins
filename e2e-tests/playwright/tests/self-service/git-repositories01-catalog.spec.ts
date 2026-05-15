@@ -234,33 +234,27 @@ test.describe.serial('git-repositories01-catalog', () => {
     await expect(page.getByText(/Page 1 of \d+/)).toBeVisible();
   });
 
-  // Sync Toast Notification Tests
-  // NOTE: Toast timeout increased to 30s to handle notification system initialization on cold start.
-  // The test is configured with retries=1 as additional safety for flaky CI environments.
-  test('Sync: validates toast notification when sync is triggered', async ({
-    page,
-  }) => {
+  // Helper function to open sync modal and submit sync
+  async function openAndSubmitSyncModal(page) {
     const bodyText = (await page.locator('body').textContent()) ?? '';
     if (bodyText.includes('No Git repositories found')) {
-      return;
+      return null;
     }
 
     // Check if Sync Now button exists
     const syncBtn = page.getByRole('button', { name: 'Sync Now' });
     if ((await syncBtn.count()) === 0) {
-      return;
+      return null;
     }
 
     // Ensure sync button is visible and enabled
     await expect(syncBtn.first()).toBeVisible({ timeout: 10000 });
     if (!(await syncBtn.first().isEnabled())) {
-      return;
+      return null;
     }
 
-    // Click Sync Now button - wait for it to be ready
-    await page.waitForLoadState('networkidle');
-    await syncBtn.first().click(); // Let Playwright's actionability checks work
-    await page.waitForLoadState('networkidle');
+    // Click Sync Now button - Playwright's actionability checks ensure it's ready
+    await syncBtn.first().click();
 
     // Wait for "Sync sources" modal to appear (exclude hidden menus)
     const modal = page.locator(
@@ -292,19 +286,32 @@ test.describe.serial('git-repositories01-catalog', () => {
       // If none are checked, check the first one
       if (!anyChecked) {
         await checkboxes.first().waitFor({ state: 'visible', timeout: 5000 });
-        await checkboxes.first().check(); // Let Playwright's actionability checks work
+        await checkboxes.first().check();
         await page.waitForTimeout(500);
       }
     }
 
-    // Click "Sync Selected" button in modal - wait for it to be enabled
+    // Click "Sync Selected" button in modal
     const syncSelectedBtn = modal.getByRole('button', {
       name: /Sync Selected/i,
     });
     await expect(syncSelectedBtn.first()).toBeVisible({ timeout: 5000 });
     await expect(syncSelectedBtn.first()).toBeEnabled({ timeout: 5000 });
-    await syncSelectedBtn.first().click(); // Let Playwright's actionability checks work
-    await page.waitForLoadState('networkidle');
+    await syncSelectedBtn.first().click();
+
+    return syncBtn;
+  }
+
+  // Sync Toast Notification Tests
+  // NOTE: Toast timeout increased to 30s to handle notification system initialization on cold start.
+  // The test is configured with retries=1 as additional safety for flaky CI environments.
+  test('Sync: validates toast notification when sync is triggered', async ({
+    page,
+  }) => {
+    const syncBtn = await openAndSubmitSyncModal(page);
+    if (!syncBtn) {
+      return;
+    }
 
     // Validate toast notification appears with "Sync started" message
     // Increased timeout to 30s to handle notification system initialization on cold start
@@ -315,61 +322,10 @@ test.describe.serial('git-repositories01-catalog', () => {
   test('Sync: validates toast notification when sync is completed', async ({
     page,
   }) => {
-    const bodyText = (await page.locator('body').textContent()) ?? '';
-    if (bodyText.includes('No Git repositories found')) {
+    const syncBtn = await openAndSubmitSyncModal(page);
+    if (!syncBtn) {
       return;
     }
-
-    // Check if Sync Now button exists
-    const syncBtn = page.getByRole('button', { name: 'Sync Now' });
-    if ((await syncBtn.count()) === 0) {
-      return;
-    }
-
-    // Ensure sync button is visible and enabled
-    await expect(syncBtn.first()).toBeVisible({ timeout: 10000 });
-    if (!(await syncBtn.first().isEnabled())) {
-      return;
-    }
-
-    // Click Sync Now button - wait for it to be ready
-    await page.waitForLoadState('networkidle');
-    await syncBtn.first().click(); // Let Playwright's actionability checks work
-    await page.waitForLoadState('networkidle');
-
-    // Wait for "Sync sources" modal to appear (exclude hidden menus)
-    const modal = page.locator(
-      '[role="dialog"]:not([aria-hidden="true"]), .MuiDialog-root:not(.v5-MuiModal-hidden)',
-    );
-    await expect(modal.first()).toBeVisible({ timeout: 10000 });
-
-    // Ensure at least one checkbox is checked
-    const checkboxes = modal.locator('input[type="checkbox"]');
-    const checkboxCount = await checkboxes.count();
-
-    if (checkboxCount > 0) {
-      let anyChecked = false;
-      for (let i = 0; i < checkboxCount; i++) {
-        if (await checkboxes.nth(i).isChecked()) {
-          anyChecked = true;
-          break;
-        }
-      }
-      if (!anyChecked) {
-        await checkboxes.first().waitFor({ state: 'visible', timeout: 5000 });
-        await checkboxes.first().check(); // Let Playwright's actionability checks work
-        await page.waitForTimeout(500);
-      }
-    }
-
-    // Click "Sync Selected" button - wait for it to be enabled
-    const syncSelectedBtn = modal.getByRole('button', {
-      name: /Sync Selected/i,
-    });
-    await expect(syncSelectedBtn.first()).toBeVisible({ timeout: 5000 });
-    await expect(syncSelectedBtn.first()).toBeEnabled({ timeout: 5000 });
-    await syncSelectedBtn.first().click(); // Let Playwright's actionability checks work
-    await page.waitForLoadState('networkidle');
 
     // Wait for sync to complete (button becomes enabled again)
     await expect(syncBtn.first()).toBeEnabled({ timeout: 120000 });

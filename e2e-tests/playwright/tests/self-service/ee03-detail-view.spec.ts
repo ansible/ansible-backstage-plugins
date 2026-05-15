@@ -357,7 +357,6 @@ test.describe('Execution Environment Catalog and Detail View Tests', () => {
 
     // Wait for row to be stable before interacting
     await row.waitFor({ state: 'visible', timeout: 15000 });
-    await page.waitForLoadState('networkidle');
 
     // Find and click kebab menu button
     const buttons = row.locator('button');
@@ -369,8 +368,7 @@ test.describe('Execution Environment Catalog and Detail View Tests', () => {
     // Wait for kebab button to be stable and clickable
     const kebabBtn = buttons.last();
     await kebabBtn.waitFor({ state: 'visible', timeout: 10000 });
-    await kebabBtn.click(); // Let Playwright's actionability checks work
-    await page.waitForLoadState('networkidle');
+    await kebabBtn.click();
 
     // Wait for menu to be visible (not the hidden modal)
     const menu = page.locator('[role="menu"]:not([aria-hidden="true"])');
@@ -387,8 +385,7 @@ test.describe('Execution Environment Catalog and Detail View Tests', () => {
     // Click Build option - wait for it to be visible and clickable
     const buildMenuItem = menu.getByText('Build', { exact: false }).first();
     await expect(buildMenuItem).toBeVisible({ timeout: 5000 });
-    await buildMenuItem.click(); // Let Playwright's actionability checks work
-    await page.waitForLoadState('networkidle');
+    await buildMenuItem.click();
 
     // Wait for build modal/dialog to appear (exclude hidden menus and modals)
     const modal = page.locator(
@@ -424,8 +421,7 @@ test.describe('Execution Environment Catalog and Detail View Tests', () => {
     if ((await buildButton.count()) > 0) {
       await buildButton.first().waitFor({ state: 'visible', timeout: 10000 });
       await expect(buildButton.first()).toBeEnabled({ timeout: 5000 });
-      await buildButton.first().click(); // Let Playwright's actionability checks work
-      await page.waitForLoadState('networkidle');
+      await buildButton.first().click();
 
       // Validate toast notification appears with "Build triggered" message
       const toast = page.locator(
@@ -476,10 +472,8 @@ test.describe('Execution Environment Catalog and Detail View Tests', () => {
     const rowsPage1 = await page.locator('table tbody tr').count();
     expect(rowsPage1).toBeGreaterThan(0);
 
-    // Navigate to page 2 - wait for table to be stable
-    await page.waitForLoadState('networkidle');
-    await next.click(); // Let Playwright's actionability checks work
-    await page.waitForLoadState('networkidle');
+    // Navigate to page 2
+    await next.click();
 
     // Verify page state updated to page 2
     await expect(page.getByText(/Page 2 of \d+/)).toBeVisible();
@@ -493,10 +487,8 @@ test.describe('Execution Environment Catalog and Detail View Tests', () => {
     const rowsPage2 = await page.locator('table tbody tr').count();
     expect(rowsPage2).toBeGreaterThan(0);
 
-    // Navigate back to page 1 - wait for table to be stable
-    await page.waitForLoadState('networkidle');
-    await prev.click(); // Let Playwright's actionability checks work
-    await page.waitForLoadState('networkidle');
+    // Navigate back to page 1
+    await prev.click();
 
     // Verify page state maintained correctly - back to page 1
     await expect(page.getByText(/Page 1 of \d+/)).toBeVisible();
