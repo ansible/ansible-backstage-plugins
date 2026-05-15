@@ -309,9 +309,10 @@ test.describe.serial('git-repositories01-catalog', () => {
     page,
   }) => {
     const syncBtn = await openAndSubmitSyncModal(page);
-    if (!syncBtn) {
-      return;
-    }
+    test.skip(
+      !syncBtn,
+      'Sync prerequisites unavailable (no repositories or Sync button not actionable).',
+    );
 
     // Validate toast notification appears with "Sync started" message
     // Increased timeout to 30s to handle notification system initialization on cold start
@@ -323,9 +324,10 @@ test.describe.serial('git-repositories01-catalog', () => {
     page,
   }) => {
     const syncBtn = await openAndSubmitSyncModal(page);
-    if (!syncBtn) {
-      return;
-    }
+    test.skip(
+      !syncBtn,
+      'Sync prerequisites unavailable (no repositories or Sync button not actionable).',
+    );
 
     // Wait for sync to complete (button becomes enabled again)
     await expect(syncBtn.first()).toBeEnabled({ timeout: 120000 });
