@@ -45,7 +45,7 @@
     "@backstage/types": "^1.2.2",
     "express": "^5.1.0",
     "express-promise-router": "^4.1.1",
-    "undici": "6.23.0"
+    "undici": "^6.24.0"
   },
   "devDependencies": {
     "@backstage/backend-test-utils": "^1.10.0",
