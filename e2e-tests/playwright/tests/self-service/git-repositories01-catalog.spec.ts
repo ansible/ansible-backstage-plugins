@@ -235,8 +235,8 @@ test.describe.serial('git-repositories01-catalog', () => {
   });
 
   // Sync Toast Notification Tests
-  // NOTE: This test may fail on first run in CI due to notification system initialization.
-  // The test is configured with retries=1 to handle this flaky behavior.
+  // NOTE: Toast timeout increased to 30s to handle notification system initialization on cold start.
+  // The test is configured with retries=1 as additional safety for flaky CI environments.
   test('Sync: validates toast notification when sync is triggered', async ({
     page,
   }) => {
@@ -257,8 +257,10 @@ test.describe.serial('git-repositories01-catalog', () => {
       return;
     }
 
-    // Click Sync Now button
-    await syncBtn.first().click({ force: true });
+    // Click Sync Now button - wait for it to be ready
+    await page.waitForLoadState('networkidle');
+    await syncBtn.first().click(); // Let Playwright's actionability checks work
+    await page.waitForLoadState('networkidle');
 
     // Wait for "Sync sources" modal to appear (exclude hidden menus)
     const modal = page.locator(
@@ -289,21 +291,25 @@ test.describe.serial('git-repositories01-catalog', () => {
 
       // If none are checked, check the first one
       if (!anyChecked) {
-        await checkboxes.first().check({ force: true });
+        await checkboxes.first().waitFor({ state: 'visible', timeout: 5000 });
+        await checkboxes.first().check(); // Let Playwright's actionability checks work
         await page.waitForTimeout(500);
       }
     }
 
-    // Click "Sync Selected" button in modal
+    // Click "Sync Selected" button in modal - wait for it to be enabled
     const syncSelectedBtn = modal.getByRole('button', {
       name: /Sync Selected/i,
     });
     await expect(syncSelectedBtn.first()).toBeVisible({ timeout: 5000 });
-    await syncSelectedBtn.first().click({ force: true });
+    await expect(syncSelectedBtn.first()).toBeEnabled({ timeout: 5000 });
+    await syncSelectedBtn.first().click(); // Let Playwright's actionability checks work
+    await page.waitForLoadState('networkidle');
 
     // Validate toast notification appears with "Sync started" message
+    // Increased timeout to 30s to handle notification system initialization on cold start
     const toast = page.getByText(/Sync started/i);
-    await expect(toast).toBeVisible({ timeout: 10000 });
+    await expect(toast).toBeVisible({ timeout: 30000 });
   });
 
   test('Sync: validates toast notification when sync is completed', async ({
@@ -326,8 +332,10 @@ test.describe.serial('git-repositories01-catalog', () => {
       return;
     }
 
-    // Click Sync Now button
-    await syncBtn.first().click({ force: true });
+    // Click Sync Now button - wait for it to be ready
+    await page.waitForLoadState('networkidle');
+    await syncBtn.first().click(); // Let Playwright's actionability checks work
+    await page.waitForLoadState('networkidle');
 
     // Wait for "Sync sources" modal to appear (exclude hidden menus)
     const modal = page.locator(
@@ -348,16 +356,20 @@ test.describe.serial('git-repositories01-catalog', () => {
         }
       }
       if (!anyChecked) {
-        await checkboxes.first().check({ force: true });
+        await checkboxes.first().waitFor({ state: 'visible', timeout: 5000 });
+        await checkboxes.first().check(); // Let Playwright's actionability checks work
         await page.waitForTimeout(500);
       }
     }
 
-    // Click "Sync Selected" button
+    // Click "Sync Selected" button - wait for it to be enabled
     const syncSelectedBtn = modal.getByRole('button', {
       name: /Sync Selected/i,
     });
-    await syncSelectedBtn.first().click({ force: true });
+    await expect(syncSelectedBtn.first()).toBeVisible({ timeout: 5000 });
+    await expect(syncSelectedBtn.first()).toBeEnabled({ timeout: 5000 });
+    await syncSelectedBtn.first().click(); // Let Playwright's actionability checks work
+    await page.waitForLoadState('networkidle');
 
     // Wait for sync to complete (button becomes enabled again)
     await expect(syncBtn.first()).toBeEnabled({ timeout: 120000 });

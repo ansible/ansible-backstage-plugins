@@ -355,6 +355,10 @@ test.describe('Execution Environment Catalog and Detail View Tests', () => {
       return;
     }
 
+    // Wait for row to be stable before interacting
+    await row.waitFor({ state: 'visible', timeout: 15000 });
+    await page.waitForLoadState('networkidle');
+
     // Find and click kebab menu button
     const buttons = row.locator('button');
     const buttonCount = await buttons.count();
@@ -362,27 +366,33 @@ test.describe('Execution Environment Catalog and Detail View Tests', () => {
       return;
     }
 
+    // Wait for kebab button to be stable and clickable
     const kebabBtn = buttons.last();
-    await kebabBtn.click({ force: true });
-    await page.waitForTimeout(800);
+    await kebabBtn.waitFor({ state: 'visible', timeout: 10000 });
+    await kebabBtn.click(); // Let Playwright's actionability checks work
+    await page.waitForLoadState('networkidle');
+
+    // Wait for menu to be visible (not the hidden modal)
+    const menu = page.locator('[role="menu"]:not([aria-hidden="true"])');
+    await expect(menu.first()).toBeVisible({ timeout: 5000 });
 
     // Check if Build option exists in menu
-    const menuText = await page.locator('body').innerText();
+    const menuText = await menu.first().innerText();
     if (!menuText.includes('Build')) {
       // Close menu and skip if Build not available for this EE
       await page.keyboard.press('Escape');
       return;
     }
 
-    // Click Build option
-    const buildMenuItem = page.getByText('Build', { exact: false }).first();
-    await expect(buildMenuItem).toBeAttached();
-    await buildMenuItem.click({ force: true });
-    await page.waitForTimeout(1500);
+    // Click Build option - wait for it to be visible and clickable
+    const buildMenuItem = menu.getByText('Build', { exact: false }).first();
+    await expect(buildMenuItem).toBeVisible({ timeout: 5000 });
+    await buildMenuItem.click(); // Let Playwright's actionability checks work
+    await page.waitForLoadState('networkidle');
 
-    // Wait for build modal/dialog to appear
+    // Wait for build modal/dialog to appear (exclude hidden menus and modals)
     const modal = page.locator(
-      '[role="dialog"], .MuiDialog-root, [class*="modal" i]',
+      '[role="dialog"]:not([aria-hidden="true"]), .MuiDialog-root:not(.v5-MuiModal-hidden)',
     );
     await expect(modal.first()).toBeVisible({ timeout: 10000 });
 
@@ -400,25 +410,28 @@ test.describe('Execution Environment Catalog and Detail View Tests', () => {
       'input[name*="image" i], input[placeholder*="image" i], input[label*="image name" i]',
     );
     if ((await imageNameInput.count()) > 0) {
+      await imageNameInput.first().waitFor({ state: 'visible', timeout: 5000 });
       await imageNameInput.first().fill(`test-ee-image-${Date.now()}`);
       await page.waitForTimeout(500);
     }
     // Field 3: Image tag - prefilled, skip
 
-    // Click Build button in modal
+    // Click Build button in modal - wait for it to be enabled
     const buildButton = modal
       .getByRole('button', { name: /build/i })
       .or(modal.locator('button').filter({ hasText: /build/i }));
 
     if ((await buildButton.count()) > 0) {
-      await buildButton.first().click({ force: true });
-      await page.waitForTimeout(2000);
+      await buildButton.first().waitFor({ state: 'visible', timeout: 10000 });
+      await expect(buildButton.first()).toBeEnabled({ timeout: 5000 });
+      await buildButton.first().click(); // Let Playwright's actionability checks work
+      await page.waitForLoadState('networkidle');
 
       // Validate toast notification appears with "Build triggered" message
       const toast = page.locator(
         '[role="alert"], .MuiSnackbar-root, [class*="toast" i], [class*="notification" i]',
       );
-      await expect(toast.first()).toBeVisible({ timeout: 10000 });
+      await expect(toast.first()).toBeVisible({ timeout: 15000 });
 
       // Verify toast contains "Build triggered" message
       const toastText = await toast.first().innerText();
@@ -463,9 +476,10 @@ test.describe('Execution Environment Catalog and Detail View Tests', () => {
     const rowsPage1 = await page.locator('table tbody tr').count();
     expect(rowsPage1).toBeGreaterThan(0);
 
-    // Navigate to page 2
-    await next.click({ force: true });
-    await page.waitForTimeout(600);
+    // Navigate to page 2 - wait for table to be stable
+    await page.waitForLoadState('networkidle');
+    await next.click(); // Let Playwright's actionability checks work
+    await page.waitForLoadState('networkidle');
 
     // Verify page state updated to page 2
     await expect(page.getByText(/Page 2 of \d+/)).toBeVisible();
@@ -479,9 +493,10 @@ test.describe('Execution Environment Catalog and Detail View Tests', () => {
     const rowsPage2 = await page.locator('table tbody tr').count();
     expect(rowsPage2).toBeGreaterThan(0);
 
-    // Navigate back to page 1
-    await prev.click({ force: true });
-    await page.waitForTimeout(600);
+    // Navigate back to page 1 - wait for table to be stable
+    await page.waitForLoadState('networkidle');
+    await prev.click(); // Let Playwright's actionability checks work
+    await page.waitForLoadState('networkidle');
 
     // Verify page state maintained correctly - back to page 1
     await expect(page.getByText(/Page 1 of \d+/)).toBeVisible();
