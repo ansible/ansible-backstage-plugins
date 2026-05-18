@@ -275,8 +275,7 @@ export const EEListPage = ({
     );
   }
 
-  if (error)
-    return <div>Error: {error ?? 'Unable to retrieve data'}</div>;
+  if (error) return <div>Error: {error}</div>;
 
   const startIndex = (currentPage - 1) * PAGE_SIZE;
   const endIndex = Math.min(startIndex + PAGE_SIZE, totalCount);
@@ -474,7 +473,7 @@ export const EEListPage = ({
               columns={columns}
               data={displayedEntities}
             />
-            {!initialLoading && totalPages > 1 && (
+            {totalPages > 1 && (
               <Box className={classes.paginationContainer}>
                 <Typography className={classes.paginationInfo}>
                   Showing {startIndex + 1}-{endIndex} of {totalCount}{' '}

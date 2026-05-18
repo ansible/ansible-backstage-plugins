@@ -450,7 +450,7 @@ const RepositoriesTableInner = ({
               columns={columns}
               data={displayedRepos}
             />
-            {!initialLoading && totalPages > 1 && (
+            {totalPages > 1 && (
               <Box
                 display="flex"
                 alignItems="center"
