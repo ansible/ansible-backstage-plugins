@@ -1166,6 +1166,31 @@ export async function fetchGitHubCIActivityData(
   }
 }
 
+function createGitLabPipelineClient(opts: {
+  config: Config;
+  logger: LoggerService;
+  host: string;
+  token: string;
+  apiBaseUrl?: string;
+}): InstanceType<typeof GitlabClient> {
+  const hostLower = opts.host.toLowerCase();
+  const skipTlsVerify = getSkipTlsVerifyHosts(opts.config)
+    .filter(isSafeHostname)
+    .some(h => h.toLowerCase() === hostLower);
+
+  return new GitlabClient({
+    config: {
+      scmProvider: 'gitlab',
+      host: opts.host,
+      organization: '',
+      token: opts.token,
+      apiBaseUrl: opts.apiBaseUrl,
+      checkSSL: !skipTlsVerify,
+    },
+    logger: opts.logger,
+  });
+}
+
 export async function fetchGitLabCIActivityData(
   deps: CIActivityDeps,
   params: { projectPath: string; host: string; perPage: number },
@@ -1201,21 +1226,12 @@ export async function fetchGitLabCIActivityData(
     return { status: 400, error: 'Missing GitLab authorization' };
   }
 
-  const hostLower = host.toLowerCase();
-  const skipTlsVerify = getSkipTlsVerifyHosts(config)
-    .filter(isSafeHostname)
-    .some(h => h.toLowerCase() === hostLower);
-
-  const client = new GitlabClient({
-    config: {
-      scmProvider: 'gitlab',
-      host,
-      organization: '',
-      token,
-      apiBaseUrl: apiBaseFromConfig,
-      checkSSL: !skipTlsVerify,
-    },
+  const client = createGitLabPipelineClient({
+    config,
     logger,
+    host,
+    token,
+    apiBaseUrl: apiBaseFromConfig,
   });
 
   try {
@@ -1391,21 +1407,12 @@ export async function handleGitLabCIActivity(
     return;
   }
 
-  const hostLower = host.toLowerCase();
-  const skipTlsVerify = getSkipTlsVerifyHosts(config)
-    .filter(isSafeHostname)
-    .some(h => h.toLowerCase() === hostLower);
-
-  const client = new GitlabClient({
-    config: {
-      scmProvider: 'gitlab',
-      host,
-      organization: '',
-      token,
-      apiBaseUrl: apiBaseFromConfig,
-      checkSSL: !skipTlsVerify,
-    },
+  const client = createGitLabPipelineClient({
+    config,
     logger,
+    host,
+    token,
+    apiBaseUrl: apiBaseFromConfig,
   });
 
   try {
