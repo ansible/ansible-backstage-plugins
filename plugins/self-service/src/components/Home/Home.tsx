@@ -222,6 +222,7 @@ export const HomeComponent = () => {
   });
 
   const fetchRequestIdRef = useRef(0);
+  const fetchSucceededRef = useRef(false);
   const jobTemplatesRef = useRef(jobTemplates);
   jobTemplatesRef.current = jobTemplates;
 
@@ -261,6 +262,7 @@ export const HomeComponent = () => {
       }));
       if (requestId === fetchRequestIdRef.current) {
         setJobTemplates(newTemplates);
+        fetchSucceededRef.current = true;
       }
       return newTemplates;
     } catch (error) {
@@ -270,6 +272,9 @@ export const HomeComponent = () => {
       // eslint-disable-next-line no-console
       console.error('Failed to fetch job templates:', error);
       setControllerSnackbar({ status: 'error', message });
+      if (requestId === fetchRequestIdRef.current) {
+        fetchSucceededRef.current = false;
+      }
       return undefined;
     } finally {
       if (requestId === fetchRequestIdRef.current) {
@@ -345,13 +350,10 @@ export const HomeComponent = () => {
     const CATALOG_SETTLE_MS = 750;
     const timerId = setTimeout(() => {
       setSyncKey(prev => prev + 1);
-      setControllerSnackbar(prev => {
-        if (prev.status !== 'error') {
-          setSnackbarMsg('Templates refreshed');
-          setShowSnackbar(true);
-        }
-        return prev;
-      });
+      if (fetchSucceededRef.current) {
+        setSnackbarMsg('Templates refreshed');
+        setShowSnackbar(true);
+      }
     }, CATALOG_SETTLE_MS);
     return () => clearTimeout(timerId);
   }, [loading]);
