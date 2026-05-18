@@ -15,3 +15,5 @@ export const COLUMN_CONTAINS_TOOLTIP =
 
 export const COLUMN_LAST_SYNC_TOOLTIP =
   "When this repository's content source was last synced.";
+
+export const PAGE_SIZE = 12;

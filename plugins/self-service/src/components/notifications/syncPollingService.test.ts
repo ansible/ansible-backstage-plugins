@@ -18,6 +18,12 @@ jest.mock('../CollectionsCatalog/collectionsCache', () => ({
   },
 }));
 
+jest.mock('../GitRepositories/gitRepositoriesCache', () => ({
+  gitRepositoriesCache: {
+    invalidateFetchedData: jest.fn(),
+  },
+}));
+
 import { collectionsCache } from '../CollectionsCatalog/collectionsCache';
 
 const mockShowNotification = notificationStore.showNotification as jest.Mock;

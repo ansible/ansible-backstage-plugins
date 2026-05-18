@@ -15,6 +15,12 @@ import type {
   SyncProgressEntry,
 } from '../common/types';
 import { collectionsCache } from '../CollectionsCatalog/collectionsCache';
+import { gitRepositoriesCache } from '../GitRepositories/gitRepositoriesCache';
+
+function invalidateCatalogCaches(): void {
+  collectionsCache.invalidateFetchedData();
+  gitRepositoriesCache.invalidateFetchedData();
+}
 
 interface ProviderStatus {
   sourceId: string;
@@ -398,7 +404,7 @@ class SyncPollingService {
     }
 
     if (anyTrackedSyncCompleted) {
-      collectionsCache.invalidateFetchedData();
+      invalidateCatalogCaches();
     }
   }
 
@@ -426,7 +432,7 @@ class SyncPollingService {
       }
     }
     if (anyFinished) {
-      collectionsCache.invalidateFetchedData();
+      invalidateCatalogCaches();
     }
   }
 
@@ -486,7 +492,7 @@ class SyncPollingService {
         if (fetched === null) {
           const anyEvicted = this.evictTimedOutTrackedSyncs(Date.now());
           if (anyEvicted) {
-            collectionsCache.invalidateFetchedData();
+            invalidateCatalogCaches();
             this.updateInProgressFromProviders([], undefined);
           }
           return this.isSyncInProgress || this.trackedSyncs.size > 0;

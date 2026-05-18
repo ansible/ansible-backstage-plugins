@@ -107,12 +107,13 @@ jest.mock('@backstage/plugin-catalog-react', () => {
   };
 });
 
+import { gitRepositoriesCache } from './gitRepositoriesCache';
 import { RepositoriesTable } from './RepositoriesTable';
 
 const theme = createTheme();
 
 const mockCatalogApi = {
-  getEntities: jest.fn(),
+  queryEntities: jest.fn(),
 };
 
 const mockDiscoveryApi = {
@@ -165,18 +166,21 @@ const defaultSyncStatusMap: Record<
 describe('RepositoriesTable', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    gitRepositoriesCache.clear();
     jest.useFakeTimers();
     jest.setSystemTime(new Date('2024-06-15T12:00:00Z'));
-    mockCatalogApi.getEntities.mockResolvedValue({
+    mockCatalogApi.queryEntities.mockResolvedValue({
       items: [
         createMockEntity('repo-1'),
         createMockEntity('repo-2'),
         createMockEntity('gitlab-repo', 'gitlab'),
       ],
+      totalItems: 3,
     });
   });
 
   afterEach(() => {
+    gitRepositoriesCache.clear();
     jest.useRealTimers();
   });
 
@@ -209,7 +213,9 @@ describe('RepositoriesTable', () => {
   };
 
   it('renders loading state initially', () => {
-    mockCatalogApi.getEntities.mockImplementation(() => new Promise(() => {}));
+    mockCatalogApi.queryEntities.mockImplementation(
+      () => new Promise(() => {}),
+    );
 
     renderTable();
 
@@ -229,7 +235,7 @@ describe('RepositoriesTable', () => {
   });
 
   it('renders empty state when no repositories', async () => {
-    mockCatalogApi.getEntities.mockResolvedValue({ items: [] });
+    mockCatalogApi.queryEntities.mockResolvedValue({ items: [] });
 
     renderTable();
 
@@ -255,7 +261,7 @@ describe('RepositoriesTable', () => {
   });
 
   it('calls onSourcesStatusChange with null when no repos exist', async () => {
-    mockCatalogApi.getEntities.mockResolvedValue({ items: [] });
+    mockCatalogApi.queryEntities.mockResolvedValue({ items: [] });
     const onSourcesStatusChange = jest.fn();
 
     renderTable(defaultSyncStatusMap, onSourcesStatusChange);
@@ -277,7 +283,7 @@ describe('RepositoriesTable', () => {
   });
 
   it('handles catalog API errors gracefully', async () => {
-    mockCatalogApi.getEntities.mockRejectedValue(new Error('API Error'));
+    mockCatalogApi.queryEntities.mockRejectedValue(new Error('API Error'));
     const onSourcesStatusChange = jest.fn();
 
     renderTable(defaultSyncStatusMap, onSourcesStatusChange);
@@ -304,8 +310,9 @@ describe('RepositoriesTable', () => {
     renderTable();
 
     await waitFor(() => {
-      expect(mockCatalogApi.getEntities).toHaveBeenCalledWith({
-        filter: [{ kind: 'Component', 'spec.type': 'git-repository' }],
+      expect(mockCatalogApi.queryEntities).toHaveBeenCalledWith({
+        filter: { kind: 'Component', 'spec.type': 'git-repository' },
+        limit: 50,
       });
     });
   });
@@ -314,9 +321,7 @@ describe('RepositoriesTable', () => {
     renderTable();
 
     await waitFor(() => {
-      expect(screen.getByTestId('table-title')).toHaveTextContent(
-        'Git Repositories (3)',
-      );
+      expect(screen.getByText('Git Repositories (3)')).toBeInTheDocument();
     });
   });
 
@@ -338,7 +343,7 @@ describe('RepositoriesTable', () => {
       spec: { type: 'git-repository' },
     };
 
-    mockCatalogApi.getEntities.mockResolvedValue({
+    mockCatalogApi.queryEntities.mockResolvedValue({
       items: [entityWithUrlHost],
     });
 
@@ -366,7 +371,7 @@ describe('RepositoriesTable', () => {
       spec: { type: 'git-repository' },
     };
 
-    mockCatalogApi.getEntities.mockResolvedValue({
+    mockCatalogApi.queryEntities.mockResolvedValue({
       items: [entityNoHost],
     });
 
@@ -396,7 +401,7 @@ describe('RepositoriesTable', () => {
       spec: { type: 'git-repository' },
     };
 
-    mockCatalogApi.getEntities.mockResolvedValue({
+    mockCatalogApi.queryEntities.mockResolvedValue({
       items: [entityGitlab],
     });
 
@@ -424,7 +429,7 @@ describe('RepositoriesTable', () => {
       spec: { type: 'git-repository' },
     };
 
-    mockCatalogApi.getEntities.mockResolvedValue({
+    mockCatalogApi.queryEntities.mockResolvedValue({
       items: [entityUnknown],
     });
 
@@ -452,7 +457,7 @@ describe('RepositoriesTable', () => {
       spec: { type: 'git-repository' },
     };
 
-    mockCatalogApi.getEntities.mockResolvedValue({
+    mockCatalogApi.queryEntities.mockResolvedValue({
       items: [entityPah],
     });
 
@@ -477,7 +482,7 @@ describe('RepositoriesTable', () => {
       spec: { type: 'git-repository' },
     };
 
-    mockCatalogApi.getEntities.mockResolvedValue({
+    mockCatalogApi.queryEntities.mockResolvedValue({
       items: [entityNoProvider],
     });
 
@@ -510,7 +515,7 @@ describe('RepositoriesTable', () => {
       },
     };
 
-    mockCatalogApi.getEntities.mockResolvedValue({
+    mockCatalogApi.queryEntities.mockResolvedValue({
       items: [entityWithCounts],
     });
 
@@ -542,7 +547,7 @@ describe('RepositoriesTable', () => {
       },
     };
 
-    mockCatalogApi.getEntities.mockResolvedValue({
+    mockCatalogApi.queryEntities.mockResolvedValue({
       items: [entitySingular],
     });
 
@@ -574,7 +579,7 @@ describe('RepositoriesTable', () => {
       },
     };
 
-    mockCatalogApi.getEntities.mockResolvedValue({
+    mockCatalogApi.queryEntities.mockResolvedValue({
       items: [entityNoCounts],
     });
 
@@ -603,7 +608,7 @@ describe('RepositoriesTable', () => {
       spec: { type: 'git-repository' },
     };
 
-    mockCatalogApi.getEntities.mockResolvedValue({
+    mockCatalogApi.queryEntities.mockResolvedValue({
       items: [entityNoSync],
     });
 
@@ -637,7 +642,7 @@ describe('RepositoriesTable', () => {
       spec: { type: 'git-repository' },
     };
 
-    mockCatalogApi.getEntities.mockResolvedValue({
+    mockCatalogApi.queryEntities.mockResolvedValue({
       items: [entityNoSourceId],
     });
 
@@ -786,7 +791,7 @@ describe('RepositoriesTable', () => {
   });
 
   it('handles source filter change', async () => {
-    mockCatalogApi.getEntities.mockResolvedValue({
+    mockCatalogApi.queryEntities.mockResolvedValue({
       items: [
         createMockEntity('repo-1', 'github'),
         createMockEntity('repo-2', 'gitlab'),
@@ -805,7 +810,7 @@ describe('RepositoriesTable', () => {
   });
 
   it('filters by source when source is selected', async () => {
-    mockCatalogApi.getEntities.mockResolvedValue({
+    mockCatalogApi.queryEntities.mockResolvedValue({
       items: [
         createMockEntity('github-repo', 'github'),
         createMockEntity('gitlab-repo', 'gitlab'),
@@ -826,13 +831,11 @@ describe('RepositoriesTable', () => {
       fireEvent.click(githubOption);
     });
 
-    expect(screen.getByTestId('table-title')).toHaveTextContent(
-      'Git Repositories (1)',
-    );
+    expect(screen.getByText('Git Repositories (1)')).toBeInTheDocument();
   });
 
   it('clears source filter when All is selected', async () => {
-    mockCatalogApi.getEntities.mockResolvedValue({
+    mockCatalogApi.queryEntities.mockResolvedValue({
       items: [
         createMockEntity('github-repo', 'github'),
         createMockEntity('gitlab-repo', 'gitlab'),
@@ -853,8 +856,6 @@ describe('RepositoriesTable', () => {
       fireEvent.click(allOption);
     });
 
-    expect(screen.getByTestId('table-title')).toHaveTextContent(
-      'Git Repositories (2)',
-    );
+    expect(screen.getByText('Git Repositories (2)')).toBeInTheDocument();
   });
 });

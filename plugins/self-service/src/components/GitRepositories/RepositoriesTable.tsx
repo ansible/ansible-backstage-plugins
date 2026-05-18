@@ -1,7 +1,9 @@
-import { useCallback, useEffect, useState, useMemo } from 'react';
+import { useEffect, useState } from 'react';
 import {
   Box,
+  CircularProgress,
   IconButton,
+  InputAdornment,
   Link,
   Menu,
   MenuItem,
@@ -13,6 +15,10 @@ import {
 import Autocomplete from '@material-ui/lab/Autocomplete';
 import MoreVertIcon from '@material-ui/icons/MoreVert';
 import OpenInNewIcon from '@material-ui/icons/OpenInNew';
+import NavigateBeforeIcon from '@material-ui/icons/NavigateBefore';
+import NavigateNextIcon from '@material-ui/icons/NavigateNext';
+import SearchIcon from '@material-ui/icons/Search';
+import ClearIcon from '@material-ui/icons/Clear';
 import Star from '@material-ui/icons/Star';
 import StarBorder from '@material-ui/icons/StarBorder';
 import { Entity } from '@backstage/catalog-model';
@@ -44,6 +50,9 @@ import {
   COLUMN_LAST_SYNC_TOOLTIP,
 } from './constants';
 import { rootRouteRef } from '../../routes';
+import { PAGE_SIZE } from './constants';
+import { usePaginatedGitRepositories } from './usePaginatedGitRepositories';
+import { getRepoHost } from './repositoryUtils';
 import { useLatestCIActivity } from './useLatestCIActivity';
 
 const StarredIcon = () => <Star style={{ color: '#ffb74d' }} />;
@@ -84,33 +93,6 @@ interface RepositoriesTableProps {
   onSourcesStatusChange?: (hasSources: boolean | null) => void;
 }
 
-const getRepoHost = (entity: Entity): string => {
-  const annotations = entity.metadata?.annotations || {};
-  let host = annotations['ansible.io/scm-host'];
-  if (typeof host === 'string' && host) {
-    host = host.trim();
-    if (host.startsWith('http://') || host.startsWith('https://')) {
-      try {
-        host = new URL(host).hostname;
-      } catch {
-        // leave as-is if URL parse fails
-      }
-    }
-    return host;
-  }
-  const provider = (annotations['ansible.io/scm-provider'] ?? '').toLowerCase();
-  if (provider === 'github') return 'github.com';
-  if (provider === 'gitlab') return 'gitlab.com';
-  return provider || '';
-};
-
-const getRepoHostName = (entity: Entity): string => {
-  const annotations = entity.metadata?.annotations || {};
-  const name = annotations['ansible.io/scm-host-name'];
-  if (typeof name === 'string' && name.trim()) return name.trim();
-  return getRepoHost(entity);
-};
-
 const RepositoriesTableInner = ({
   syncStatusMap,
   onSourcesStatusChange,
@@ -121,13 +103,33 @@ const RepositoriesTableInner = ({
   const rootLink = useRouteRef(rootRouteRef);
   const { isStarredEntity, toggleStarredEntity } = useStarredEntities();
   const { filters } = useEntityList();
+  const starredFilterActive = filters.user?.value === 'starred';
 
-  const [loading, setLoading] = useState(true);
-  const [allRepos, setAllRepos] = useState<Entity[]>([]);
-  const [sourceFilter, setSourceFilter] = useState<string>('All');
-  const [allSources, setAllSources] = useState<
-    Array<{ value: string; label: string }>
-  >([{ value: 'All', label: 'All' }]);
+  const {
+    entities: repos,
+    allEntities,
+    loadedEntityCount,
+    totalCount,
+    initialLoading,
+    loadingMore,
+    error,
+    currentPage,
+    totalPages,
+    hasNextPage,
+    hasPrevPage,
+    nextPage,
+    prevPage,
+    allSources,
+    sourceFilter,
+    setSourceFilter,
+    searchQuery,
+    setSearchQuery,
+  } = usePaginatedGitRepositories({
+    catalogApi,
+    isStarredEntity,
+    starredFilterActive,
+  });
+
   const [menuAnchor, setMenuAnchor] = useState<{
     left: number;
     top: number;
@@ -135,61 +137,16 @@ const RepositoriesTableInner = ({
   const [selectedEntity, setSelectedEntity] = useState<Entity | null>(null);
 
   const { lastActivityMap, loading: lastActivityLoading } =
-    useLatestCIActivity(allRepos);
-
-  const fetchRepos = useCallback(() => {
-    setLoading(true);
-    catalogApi
-      .getEntities({
-        filter: [{ kind: 'Component', 'spec.type': 'git-repository' }],
-      })
-      .then(response => {
-        const items = Array.isArray(response) ? response : response.items || [];
-        setAllRepos(items);
-        if (items.length > 0) {
-          const hostToLabel = new Map<string, string>();
-          for (const entity of items) {
-            const host = getRepoHost(entity);
-            if (host && !hostToLabel.has(host)) {
-              hostToLabel.set(host, getRepoHostName(entity));
-            }
-          }
-          const sources = [
-            { value: 'All', label: 'All' },
-            ...Array.from(hostToLabel.entries())
-              .sort((a, b) =>
-                a[1].localeCompare(b[1], undefined, { sensitivity: 'base' }),
-              )
-              .map(([value, label]) => ({ value, label })),
-          ];
-          setAllSources(sources);
-        }
-        onSourcesStatusChange?.(items.length > 0 ? true : null);
-      })
-      .catch(() => {
-        setAllRepos([]);
-        onSourcesStatusChange?.(null);
-      })
-      .finally(() => setLoading(false));
-  }, [catalogApi, onSourcesStatusChange]);
+    useLatestCIActivity(allEntities);
 
   useEffect(() => {
-    fetchRepos();
-  }, [fetchRepos]);
-
-  const repos = useMemo(() => {
-    let list = allRepos;
-    if (filters.user?.value === 'starred') {
-      list = list.filter(e => isStarredEntity(e));
+    if (!initialLoading && !loadingMore) {
+      onSourcesStatusChange?.(loadedEntityCount > 0 ? true : null);
     }
-    const sourceMatch = (e: Entity) =>
-      sourceFilter === 'All' || getRepoHost(e) === sourceFilter;
-    return list.filter(sourceMatch).sort((a, b) => {
-      const nameA = (a.metadata?.title ?? a.metadata?.name ?? '').toLowerCase();
-      const nameB = (b.metadata?.title ?? b.metadata?.name ?? '').toLowerCase();
-      return nameA.localeCompare(nameB);
-    });
-  }, [allRepos, filters.user?.value, isStarredEntity, sourceFilter]);
+  }, [initialLoading, loadingMore, loadedEntityCount, onSourcesStatusChange]);
+
+  const startIndex = (currentPage - 1) * PAGE_SIZE;
+  const endIndex = Math.min(startIndex + PAGE_SIZE, totalCount);
 
   const handleKebabOpen = (
     event: React.MouseEvent<HTMLElement>,
@@ -426,11 +383,20 @@ const RepositoriesTableInner = ({
     },
   ];
 
-  if (loading) {
+  if (error !== null) {
+    return <div>Error: {error}</div>;
+  }
+
+  if (initialLoading) {
     return <Progress />;
   }
 
-  if (allRepos.length === 0) {
+  const showCatalogEmptyState = !loadingMore && loadedEntityCount === 0;
+
+  const showNoFilterMatches =
+    !loadingMore && loadedEntityCount > 0 && totalCount === 0;
+
+  if (showCatalogEmptyState) {
     return (
       <Box className={classes.emptyState}>
         <Typography className={classes.emptyStateTitle}>
@@ -449,6 +415,33 @@ const RepositoriesTableInner = ({
       <GitRepositoriesTypeFilter />
       <CatalogFilterLayout>
         <CatalogFilterLayout.Filters>
+          <TextField
+            className={classes.searchInput}
+            placeholder="Search"
+            variant="standard"
+            fullWidth
+            value={searchQuery}
+            onChange={e => setSearchQuery(e.target.value)}
+            disabled={initialLoading}
+            InputProps={{
+              startAdornment: (
+                <InputAdornment position="start">
+                  <SearchIcon color="disabled" />
+                </InputAdornment>
+              ),
+              endAdornment: searchQuery ? (
+                <InputAdornment position="end">
+                  <IconButton
+                    size="small"
+                    onClick={() => setSearchQuery('')}
+                    aria-label="Clear search"
+                  >
+                    <ClearIcon fontSize="small" />
+                  </IconButton>
+                </InputAdornment>
+              ) : null,
+            }}
+          />
           <UserListPicker availableFilters={['starred', 'all']} />
           <Box className={tableWrapperClasses.filterGroup}>
             <Typography
@@ -492,17 +485,65 @@ const RepositoriesTableInner = ({
         </CatalogFilterLayout.Filters>
         <CatalogFilterLayout.Content>
           <Box className={tableWrapperClasses.tableWrapper}>
-            <Table
-              title={`Git Repositories (${repos.length})`}
-              options={{
-                search: true,
-                rowStyle: { cursor: 'default' },
-                pageSize: 10,
-                pageSizeOptions: [10, 20, 50],
-              }}
-              columns={columns}
-              data={repos}
-            />
+            {showNoFilterMatches ? (
+              <Typography variant="body1" color="textSecondary" component="p">
+                No repositories match your search or filters.
+              </Typography>
+            ) : (
+              <>
+                <Box className={classes.contentHeader}>
+                  <Typography variant="h6" className={classes.contentTitle}>
+                    Git Repositories ({totalCount})
+                    {(initialLoading || loadingMore) && (
+                      <CircularProgress
+                        size={16}
+                        style={{ marginLeft: 8, verticalAlign: 'middle' }}
+                      />
+                    )}
+                  </Typography>
+                </Box>
+                <Table
+                  title=""
+                  options={{
+                    search: false,
+                    paging: false,
+                    toolbar: false,
+                    rowStyle: { cursor: 'default' },
+                  }}
+                  columns={columns}
+                  data={repos}
+                />
+                {!initialLoading && totalPages > 1 && (
+                  <Box className={classes.paginationContainer}>
+                    <Typography className={classes.paginationInfo}>
+                      Showing {startIndex + 1}-{endIndex} of {totalCount}{' '}
+                      repositories
+                    </Typography>
+                    <Box className={classes.paginationControls}>
+                      <IconButton
+                        size="small"
+                        disabled={!hasPrevPage}
+                        onClick={prevPage}
+                        aria-label="Previous page"
+                      >
+                        <NavigateBeforeIcon />
+                      </IconButton>
+                      <Typography variant="body2">
+                        Page {currentPage} of {totalPages}
+                      </Typography>
+                      <IconButton
+                        size="small"
+                        disabled={!hasNextPage}
+                        onClick={nextPage}
+                        aria-label="Next page"
+                      >
+                        <NavigateNextIcon />
+                      </IconButton>
+                    </Box>
+                  </Box>
+                )}
+              </>
+            )}
           </Box>
         </CatalogFilterLayout.Content>
       </CatalogFilterLayout>
