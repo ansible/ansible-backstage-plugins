@@ -11,4 +11,7 @@ export type {
   UseCacheSubscriptionResult,
 } from './useCacheSubscription';
 export { usePagination } from './usePagination';
-export type { UsePaginationOptions, UsePaginationResult } from './usePagination';
+export type {
+  UsePaginationOptions,
+  UsePaginationResult,
+} from './usePagination';

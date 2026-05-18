@@ -99,9 +99,7 @@ export function useCacheSubscription<TState extends BaseCacheState>({
       setInitialLoading(false);
     } catch (err) {
       if (!isMountedRef.current) return;
-      setError(
-        err instanceof Error ? err.message : fallbackErrorMessage,
-      );
+      setError(err instanceof Error ? err.message : fallbackErrorMessage);
       setInitialLoading(false);
     }
   }, [cache, catalogApi, fallbackErrorMessage]);

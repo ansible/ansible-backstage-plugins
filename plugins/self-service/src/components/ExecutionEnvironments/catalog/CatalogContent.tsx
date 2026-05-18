@@ -476,8 +476,8 @@ export const EEListPage = ({
             {totalPages > 1 && (
               <Box className={classes.paginationContainer}>
                 <Typography className={classes.paginationInfo}>
-                  Showing {startIndex + 1}-{endIndex} of {totalCount}{' '}
-                  execution environments
+                  Showing {startIndex + 1}-{endIndex} of {totalCount} execution
+                  environments
                 </Typography>
                 <Box className={classes.paginationControls}>
                   <IconButton

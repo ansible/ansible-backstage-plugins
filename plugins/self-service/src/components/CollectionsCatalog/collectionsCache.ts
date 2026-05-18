@@ -45,7 +45,11 @@ class CollectionsCache extends PaginatedEntityCache<
   ): void {
     const current = this.getInternalState();
     if (current) {
-      this.setInternalState({ ...current, syncStatusMap, hasConfiguredSources });
+      this.setInternalState({
+        ...current,
+        syncStatusMap,
+        hasConfiguredSources,
+      });
     } else {
       this.setInternalState({
         entities: [],

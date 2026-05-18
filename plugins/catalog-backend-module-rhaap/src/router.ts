@@ -814,10 +814,9 @@ export async function createRouter(options: {
       const credentials = await httpAuth.credentials(request as any);
 
       const [[gitRepoDecision], [catalogReadDecision]] = await Promise.all([
-        permissions.authorize(
-          [{ permission: gitRepositoriesViewPermission }],
-          { credentials },
-        ),
+        permissions.authorize([{ permission: gitRepositoriesViewPermission }], {
+          credentials,
+        }),
         permissions.authorizeConditional(
           [{ permission: catalogEntityReadPermission }],
           { credentials },

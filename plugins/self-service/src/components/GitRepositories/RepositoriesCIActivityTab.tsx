@@ -237,10 +237,7 @@ export const RepositoriesCIActivityTab = ({
           const projectUrl = baseUrl ? `${baseUrl}/-/pipelines` : undefined;
 
           for (const pipeline of pipelines) {
-            const trigger = (pipeline.source ?? 'unknown').replaceAll(
-              '_',
-              ' ',
-            );
+            const trigger = (pipeline.source ?? 'unknown').replaceAll('_', ' ');
             allRows.push({
               id: `gl-${key}-${pipeline.id}`,
               status: normalizeGitLabStatus(pipeline.status),

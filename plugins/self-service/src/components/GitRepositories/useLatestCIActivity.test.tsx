@@ -85,10 +85,7 @@ const createGitLabEntity = (name: string): Entity => ({
 });
 
 function mockBatchResponse(
-  results: Record<
-    string,
-    { status: number; data: any } | { error: string }
-  >,
+  results: Record<string, { status: number; data: any } | { error: string }>,
 ) {
   mockFetchApi.fetch.mockResolvedValue({
     ok: true,
@@ -563,7 +560,16 @@ describe('useLatestCIActivity', () => {
     mockBatchResponse({
       'repo-1': {
         status: 200,
-        data: { workflow_runs: [{ id: 1, run_number: 1, name: 'CI', created_at: '2024-06-15T11:00:00Z' }] },
+        data: {
+          workflow_runs: [
+            {
+              id: 1,
+              run_number: 1,
+              name: 'CI',
+              created_at: '2024-06-15T11:00:00Z',
+            },
+          ],
+        },
       },
       'repo-2': {
         status: 200,

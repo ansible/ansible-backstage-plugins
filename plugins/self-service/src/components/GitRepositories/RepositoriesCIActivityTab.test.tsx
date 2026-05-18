@@ -121,10 +121,7 @@ type GitHubWorkflowRun = {
 };
 
 function mockBatchResponse(
-  results: Record<
-    string,
-    { status: number; data: any } | { error: string }
-  >,
+  results: Record<string, { status: number; data: any } | { error: string }>,
 ) {
   mockFetchApi.fetch.mockResolvedValue({
     ok: true,

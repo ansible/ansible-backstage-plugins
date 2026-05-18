@@ -6,7 +6,11 @@ import {
   fetchApiRef,
 } from '@backstage/core-plugin-api';
 import { formatTimeAgo } from '../CollectionsCatalog/utils';
-import { getGitHubOwnerRepo, getGitLabProjectPath, getRepoHost } from './scmUtils';
+import {
+  getGitHubOwnerRepo,
+  getGitLabProjectPath,
+  getRepoHost,
+} from './scmUtils';
 
 const NO_ACTIVITY = 'N/A';
 const MAX_RETRIES = 2;
@@ -156,8 +160,7 @@ export function useLatestCIActivity(entities: Entity[]): {
           const body: {
             results: Record<
               string,
-              | { status: number; data: any }
-              | { error: string }
+              { status: number; data: any } | { error: string }
             >;
           } = await res.json();
 
@@ -183,16 +186,12 @@ export function useLatestCIActivity(entities: Entity[]): {
                 };
               }
             } else if (item?.provider === 'gitlab') {
-              const pipelines = Array.isArray(result.data)
-                ? result.data
-                : [];
+              const pipelines = Array.isArray(result.data) ? result.data : [];
               const pipeline = pipelines[0];
               if (!pipeline) {
                 map[key] = { text: NO_ACTIVITY };
               } else {
-                const timeAgo = formatTimeAgo(
-                  pipeline.created_at ?? undefined,
-                );
+                const timeAgo = formatTimeAgo(pipeline.created_at ?? undefined);
                 map[key] = {
                   text: `Pipeline #${pipeline.id} • ${timeAgo}`,
                   url: pipeline.web_url ?? undefined,

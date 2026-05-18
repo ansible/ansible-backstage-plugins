@@ -70,13 +70,19 @@ export function usePaginatedCollections({
     setAllTags(state.allTags);
   }, []);
 
-  const { allEntities, initialLoading, loadingMore, error, isMountedRef, fetchInitial } =
-    useCacheSubscription<CollectionsCacheState>({
-      cache: collectionsCache,
-      catalogApi,
-      onCacheUpdate,
-      fallbackErrorMessage: 'Failed to fetch collections',
-    });
+  const {
+    allEntities,
+    initialLoading,
+    loadingMore,
+    error,
+    isMountedRef,
+    fetchInitial,
+  } = useCacheSubscription<CollectionsCacheState>({
+    cache: collectionsCache,
+    catalogApi,
+    onCacheUpdate,
+    fallbackErrorMessage: 'Failed to fetch collections',
+  });
 
   const fetchSyncStatus = useCallback(async () => {
     try {

@@ -50,9 +50,7 @@ export function usePaginatedGitRepos({
 
   const onInitialData = useCallback((state: GitReposCacheState) => {
     setAllSources(state.allSources);
-    onSourcesStatusChangeRef.current?.(
-      state.entities.length > 0 ? true : null,
-    );
+    onSourcesStatusChangeRef.current?.(state.entities.length > 0 ? true : null);
   }, []);
 
   const { allEntities, initialLoading, loadingMore, error, fetchInitial } =
