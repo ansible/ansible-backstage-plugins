@@ -1,3 +1,4 @@
+import { Entity } from '@backstage/catalog-model';
 import { CatalogApi } from '@backstage/plugin-catalog-react';
 import { BaseCacheState, CacheUpdateListener, CacheConfig } from './types';
 
@@ -74,8 +75,6 @@ export class PaginatedEntityCache<
     this.fetchEpoch++;
     this.state = null;
     this.loadingPromise = null;
-    const empty = this.config.createEmptyState();
-    this.listeners.forEach(listener => listener(empty));
     if (this.catalogApi) {
       void this.startLoading(this.catalogApi);
     }
@@ -179,76 +178,93 @@ export class PaginatedEntityCache<
       return;
     }
 
-    const loadPromise = (async () => {
-      const epoch = this.fetchEpoch;
-      if (!this.catalogApi || !this.state) return;
-
-      let allItems = [...this.state.entities];
-      let offset = this.state.loadedOffset;
-      const total = this.state.totalServerItems;
-
-      try {
-        while (offset < total) {
-          if (epoch !== this.fetchEpoch) break;
-
-          const response = await this.catalogApi.queryEntities({
-            filter: this.config.entityFilter,
-            limit: BACKGROUND_FETCH_LIMIT,
-            offset,
-          });
-
-          if (epoch !== this.fetchEpoch) break;
-
-          const newItems = response?.items || [];
-          if (newItems.length === 0) break;
-
-          allItems = [...allItems, ...newItems];
-          offset += newItems.length;
-
-          const filters = this.config.extractFilters(allItems);
-          this.state = this.config.buildState(
-            {
-              ...this.state,
-              entities: allItems,
-              loadedOffset: offset,
-              isFullyLoaded: offset >= total,
-              lastUpdated: Date.now(),
-            },
-            filters,
-            this.state,
-          );
-
-          this.notifyListeners();
-        }
-
-        if (epoch === this.fetchEpoch && this.state) {
-          this.state = {
-            ...this.state,
-            isFullyLoaded: true,
-            lastUpdated: Date.now(),
-          };
-          this.notifyListeners();
-        }
-      } catch (err) {
-        if (epoch === this.fetchEpoch && this.state) {
-          const errorMessage =
-            err instanceof Error && err.message
-              ? err.message
-              : 'Failed to load remaining entities';
-          this.state = {
-            ...this.state,
-            error: errorMessage,
-            lastUpdated: Date.now(),
-          };
-          this.notifyListeners();
-        }
-      } finally {
-        this.clearLoadingPromiseIfCurrent(epoch);
-      }
-    })();
-
+    const loadPromise = this.fetchRemainingPages();
     this.loadingPromise = loadPromise;
     await loadPromise;
+  }
+
+  private async fetchRemainingPages(): Promise<void> {
+    const epoch = this.fetchEpoch;
+    if (!this.catalogApi || !this.state) return;
+
+    let allItems = [...this.state.entities];
+    let offset = this.state.loadedOffset;
+    const total = this.state.totalServerItems;
+
+    try {
+      while (offset < total && epoch === this.fetchEpoch) {
+        const response = await this.catalogApi.queryEntities({
+          filter: this.config.entityFilter,
+          limit: BACKGROUND_FETCH_LIMIT,
+          offset,
+        });
+
+        if (epoch !== this.fetchEpoch) break;
+
+        const newItems = response?.items || [];
+        if (newItems.length === 0) break;
+
+        allItems = [...allItems, ...newItems];
+        offset += newItems.length;
+
+        this.updateStateWithItems(allItems, offset, total, epoch);
+      }
+
+      this.markFullyLoaded(epoch);
+    } catch (err) {
+      this.handleBackgroundError(err, epoch);
+    } finally {
+      this.clearLoadingPromiseIfCurrent(epoch);
+    }
+  }
+
+  private updateStateWithItems(
+    allItems: Entity[],
+    offset: number,
+    total: number,
+    epoch: number,
+  ): void {
+    if (epoch !== this.fetchEpoch || !this.state) return;
+
+    const filters = this.config.extractFilters(allItems);
+    this.state = this.config.buildState(
+      {
+        ...this.state,
+        entities: allItems,
+        loadedOffset: offset,
+        isFullyLoaded: offset >= total,
+        lastUpdated: Date.now(),
+      },
+      filters,
+      this.state,
+    );
+    this.notifyListeners();
+  }
+
+  private markFullyLoaded(epoch: number): void {
+    if (epoch !== this.fetchEpoch || !this.state) return;
+
+    this.state = {
+      ...this.state,
+      isFullyLoaded: true,
+      lastUpdated: Date.now(),
+    };
+    this.notifyListeners();
+  }
+
+  private handleBackgroundError(err: unknown, epoch: number): void {
+    if (epoch !== this.fetchEpoch || !this.state) return;
+
+    const errorMessage =
+      err instanceof Error && err.message
+        ? err.message
+        : 'Failed to load remaining entities';
+    this.state = {
+      ...this.state,
+      error: errorMessage,
+      lastUpdated: Date.now(),
+    };
+    this.notifyListeners();
   }
 
   clear(): void {

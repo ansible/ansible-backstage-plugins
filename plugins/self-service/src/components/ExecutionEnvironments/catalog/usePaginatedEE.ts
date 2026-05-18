@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect, useMemo } from 'react';
+import { useState, useCallback, useEffect, useMemo, useRef } from 'react';
 import { Entity } from '@backstage/catalog-model';
 import { CatalogApi } from '@backstage/plugin-catalog-react';
 import { useCacheSubscription, usePagination } from '../../common/cache';
@@ -61,25 +61,21 @@ export function usePaginatedEE({
   const [ownerFilter, setOwnerFilter] = useState('All');
   const [tagFilter, setTagFilter] = useState('All');
   const [ownerNames, setOwnerNames] = useState<Map<string, string>>(new Map());
+  const ownerNamesRef = useRef(ownerNames);
+  ownerNamesRef.current = ownerNames;
 
   const onCacheUpdate = useCallback((state: EECacheState) => {
     setAllOwners(state.allOwners);
     setAllTags(state.allTags);
   }, []);
 
-  const {
-    allEntities,
-    initialLoading,
-    loadingMore,
-    error,
-    isMountedRef,
-    fetchInitial,
-  } = useCacheSubscription<EECacheState>({
-    cache: eeCache,
-    catalogApi,
-    onCacheUpdate,
-    fallbackErrorMessage: 'Failed to fetch execution environments',
-  });
+  const { allEntities, initialLoading, loadingMore, error, isMountedRef } =
+    useCacheSubscription<EECacheState>({
+      cache: eeCache,
+      catalogApi,
+      onCacheUpdate,
+      fallbackErrorMessage: 'Failed to fetch execution environments',
+    });
 
   const resolveOwnerNames = useCallback(
     async (entities: Entity[]) => {
@@ -91,7 +87,9 @@ export function usePaginatedEE({
         ),
       );
 
-      const unresolvedRefs = allOwnerRefs.filter(ref => !ownerNames.has(ref));
+      const unresolvedRefs = allOwnerRefs.filter(
+        ref => !ownerNamesRef.current.has(ref),
+      );
       if (unresolvedRefs.length === 0) return;
 
       try {
@@ -125,7 +123,7 @@ export function usePaginatedEE({
         });
       }
     },
-    [catalogApi, isMountedRef, ownerNames],
+    [catalogApi, isMountedRef],
   );
 
   useEffect(() => {
@@ -158,12 +156,11 @@ export function usePaginatedEE({
   );
 
   const refresh = useCallback(() => {
-    eeCache.clear();
     setAllOwners(['All']);
     setAllTags(['All']);
     setOwnerNames(new Map());
-    fetchInitial();
-  }, [fetchInitial]);
+    eeCache.invalidateFetchedData();
+  }, []);
 
   return {
     entities: paginatedEntities,

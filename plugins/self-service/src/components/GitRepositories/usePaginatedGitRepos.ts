@@ -55,7 +55,7 @@ export function usePaginatedGitRepos({
     onSourcesStatusChangeRef.current?.(state.entities.length > 0 ? true : null);
   }, []);
 
-  const { allEntities, initialLoading, loadingMore, error, fetchInitial } =
+  const { allEntities, initialLoading, loadingMore, error } =
     useCacheSubscription<GitReposCacheState>({
       cache: gitReposCache,
       catalogApi,
@@ -99,10 +99,9 @@ export function usePaginatedGitRepos({
   );
 
   const refresh = useCallback(() => {
-    gitReposCache.clear();
     setAllSources([{ value: 'All', label: 'All' }]);
-    fetchInitial();
-  }, [fetchInitial]);
+    gitReposCache.invalidateFetchedData();
+  }, []);
 
   return {
     entities: paginatedEntities,

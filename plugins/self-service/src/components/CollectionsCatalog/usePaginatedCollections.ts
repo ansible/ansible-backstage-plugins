@@ -65,34 +65,21 @@ export function usePaginatedCollections({
     boolean | null
   >(null);
 
-  const onCacheUpdate = useCallback((state: CollectionsCacheState) => {
+  const hydrateFromCache = useCallback((state: CollectionsCacheState) => {
     setAllSources(state.allSources);
     setAllTags(state.allTags);
     setSyncStatusMap(state.syncStatusMap);
     setHasConfiguredSources(state.hasConfiguredSources);
   }, []);
 
-  const onInitialData = useCallback((state: CollectionsCacheState) => {
-    setAllSources(state.allSources);
-    setAllTags(state.allTags);
-    setSyncStatusMap(state.syncStatusMap);
-    setHasConfiguredSources(state.hasConfiguredSources);
-  }, []);
-
-  const {
-    allEntities,
-    initialLoading,
-    loadingMore,
-    error,
-    isMountedRef,
-    fetchInitial,
-  } = useCacheSubscription<CollectionsCacheState>({
-    cache: collectionsCache,
-    catalogApi,
-    onCacheUpdate,
-    onInitialData,
-    fallbackErrorMessage: 'Failed to fetch collections',
-  });
+  const { allEntities, initialLoading, loadingMore, error, isMountedRef } =
+    useCacheSubscription<CollectionsCacheState>({
+      cache: collectionsCache,
+      catalogApi,
+      onCacheUpdate: hydrateFromCache,
+      onInitialData: hydrateFromCache,
+      fallbackErrorMessage: 'Failed to fetch collections',
+    });
 
   const fetchSyncStatus = useCallback(async () => {
     try {
@@ -213,12 +200,11 @@ export function usePaginatedCollections({
   );
 
   const refresh = useCallback(() => {
-    collectionsCache.clear();
     setAllSources(['All']);
     setAllTags(['All']);
-    fetchInitial();
+    collectionsCache.invalidateFetchedData();
     fetchSyncStatus();
-  }, [fetchInitial, fetchSyncStatus]);
+  }, [fetchSyncStatus]);
 
   return {
     entities: paginatedEntities,

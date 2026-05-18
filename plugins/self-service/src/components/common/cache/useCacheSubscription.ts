@@ -54,8 +54,8 @@ export function useCacheSubscription<TState extends BaseCacheState>({
         setAllEntities(state.entities);
         setCacheState(state);
         setLoadingMore(!state.isFullyLoaded && cache.isLoading());
+        setError(state.error);
         if (state.error) {
-          setError(state.error);
           setInitialLoading(false);
         }
         onCacheUpdateRef.current?.(state);
