@@ -471,14 +471,13 @@ export const HomeComponent = () => {
         anchorOrigin={{ vertical: 'top', horizontal: 'center' }}
         open={controllerSnackbar.status === 'error'}
         style={{ zIndex: 10000, marginTop: '70px' }}
+        TransitionProps={{ exit: false }}
       >
         <Alert
           severity="error"
           onClose={() => setControllerSnackbar({ status: 'idle' })}
         >
-          {controllerSnackbar.status === 'error'
-            ? controllerSnackbar.message
-            : ''}
+          {controllerSnackbar.status === 'error' && controllerSnackbar.message}
         </Alert>
       </Snackbar>
       <Content>
