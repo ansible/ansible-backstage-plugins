@@ -1028,6 +1028,216 @@ export interface CIActivityDeps {
   githubCredentialsProvider: DefaultGithubCredentialsProvider;
 }
 
+const CI_CACHE_TTL_MS = 60_000;
+const ciActivityCache = new Map<
+  string,
+  { data: JsonValue; status: number; timestamp: number }
+>();
+
+function getCIActivityCacheKey(
+  provider: string,
+  params: Record<string, string | number>,
+): string {
+  return `${provider}:${JSON.stringify(params)}`;
+}
+
+function getCachedCIActivity(
+  key: string,
+): { data: JsonValue; status: number } | null {
+  const entry = ciActivityCache.get(key);
+  if (!entry) return null;
+  if (Date.now() - entry.timestamp > CI_CACHE_TTL_MS) {
+    ciActivityCache.delete(key);
+    return null;
+  }
+  return { data: entry.data, status: entry.status };
+}
+
+function setCachedCIActivity(
+  key: string,
+  data: JsonValue,
+  status: number,
+): void {
+  ciActivityCache.set(key, { data, status, timestamp: Date.now() });
+}
+
+export interface CIActivityResult {
+  status: number;
+  data: JsonValue;
+}
+
+export interface CIActivityError {
+  status: number;
+  error: string;
+}
+
+export async function fetchGitHubCIActivityData(
+  deps: CIActivityDeps,
+  params: { owner: string; repo: string; host: string; perPage: number },
+): Promise<CIActivityResult | CIActivityError> {
+  const { config, logger, scmIntegrations, githubCredentialsProvider } = deps;
+  const { owner, repo, host, perPage } = params;
+
+  if (!owner || !repo) {
+    return {
+      status: 400,
+      error: 'Missing required parameters for GitHub: owner, repo',
+    };
+  }
+
+  if (!isSafeHostname(host)) {
+    return { status: 400, error: 'Invalid host' };
+  }
+
+  if (!isGitHubHostAllowedForProxy(config, host)) {
+    return { status: 400, error: `Host '${host}' is not allowed` };
+  }
+
+  const cacheKey = getCIActivityCacheKey('github', {
+    owner,
+    repo,
+    host,
+    perPage,
+  });
+  const cached = getCachedCIActivity(cacheKey);
+  if (cached) return { status: cached.status, data: cached.data };
+
+  let token: string | undefined;
+  let apiBase: string | undefined;
+  try {
+    const resolved = await resolveGithubToken({
+      integrations: scmIntegrations,
+      credentialsProvider: githubCredentialsProvider,
+      logger,
+      host,
+      organization: owner,
+      repository: repo,
+    });
+    token = resolved.token;
+    apiBase = resolved.apiBaseUrl;
+  } catch {
+    token = undefined;
+  }
+
+  if (!token) {
+    return { status: 400, error: 'Missing GitHub authorization' };
+  }
+
+  if (!apiBase) {
+    apiBase =
+      host === 'github.com'
+        ? 'https://api.github.com'
+        : `https://${host}/api/v3`;
+  }
+  const apiUrl = `${apiBase}/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/actions/runs?per_page=${perPage}`;
+
+  try {
+    const fetchResponse = await fetch(apiUrl, {
+      headers: {
+        Authorization: `Bearer ${token}`,
+        Accept: 'application/vnd.github+json',
+        'X-GitHub-Api-Version': '2022-11-28',
+      },
+    });
+
+    const data = (await fetchResponse.json()) as JsonValue;
+
+    if (!fetchResponse.ok) {
+      logger.warn('[CI Activity] GitHub API returned non-OK', {
+        status: fetchResponse.status,
+        owner,
+        repo,
+        host,
+      });
+    }
+
+    setCachedCIActivity(cacheKey, data, fetchResponse.status);
+    return { status: fetchResponse.status, data };
+  } catch (err) {
+    logger.warn(
+      'CI Activity (GitHub) failed',
+      err instanceof Error ? err : undefined,
+    );
+    return { status: 502, error: 'Failed to fetch GitHub workflow runs' };
+  }
+}
+
+export async function fetchGitLabCIActivityData(
+  deps: CIActivityDeps,
+  params: { projectPath: string; host: string; perPage: number },
+): Promise<CIActivityResult | CIActivityError> {
+  const { config, logger } = deps;
+  const { projectPath, host, perPage } = params;
+
+  if (!projectPath) {
+    return { status: 400, error: 'Missing required parameter: projectPath' };
+  }
+
+  if (!isSafeHostname(host)) {
+    return { status: 400, error: 'Invalid host' };
+  }
+
+  if (!isGitLabHostAllowedForProxy(config, host)) {
+    return { status: 400, error: `Host '${host}' is not allowed` };
+  }
+
+  const cacheKey = getCIActivityCacheKey('gitlab', {
+    projectPath,
+    host,
+    perPage,
+  });
+  const cached = getCachedCIActivity(cacheKey);
+  if (cached) return { status: cached.status, data: cached.data };
+
+  const { token: tokenFromConfig, apiBaseUrl: apiBaseFromConfig } =
+    getGitLabIntegrationForHost(config, host);
+  const token = tokenFromConfig;
+
+  if (!token) {
+    return { status: 400, error: 'Missing GitLab authorization' };
+  }
+
+  const hostLower = host.toLowerCase();
+  const skipTlsVerify = getSkipTlsVerifyHosts(config)
+    .filter(isSafeHostname)
+    .some(h => h.toLowerCase() === hostLower);
+
+  const client = new GitlabClient({
+    config: {
+      scmProvider: 'gitlab',
+      host,
+      organization: '',
+      token,
+      apiBaseUrl: apiBaseFromConfig,
+      checkSSL: !skipTlsVerify,
+    },
+    logger,
+  });
+
+  try {
+    const { ok, status, data } = await client.getPipelines(projectPath, {
+      perPage,
+    });
+
+    if (!ok) {
+      logger.warn('[CI Activity] GitLab API returned non-OK', {
+        status,
+        projectPath,
+        host,
+      });
+    }
+
+    setCachedCIActivity(cacheKey, data as JsonValue, status);
+    return { status, data: data as JsonValue };
+  } catch (err) {
+    logger.warn(
+      'CI Activity (GitLab) failed',
+      err instanceof Error ? err : undefined,
+    );
+    return { status: 502, error: 'Failed to fetch GitLab pipelines' };
+  }
+}
+
 export async function handleGitHubCIActivity(
   deps: CIActivityDeps,
   request: Request,

@@ -120,30 +120,21 @@ type GitHubWorkflowRun = {
   html_url?: string;
 };
 
-type GitLabPipeline = {
-  id: number;
-  status?: string;
-  source?: string;
-  created_at?: string;
-  web_url?: string;
-};
-
-function setupFetchMock(
-  githubRuns: GitHubWorkflowRun[] = [],
-  gitlabPipelines: GitLabPipeline[] = [],
+function mockBatchResponse(
+  results: Record<
+    string,
+    { status: number; data: any } | { error: string }
+  >,
 ) {
-  mockFetchApi.fetch.mockImplementation((url: string) => {
-    if (url.includes('provider=github')) {
-      return Promise.resolve({
-        ok: true,
-        json: () => Promise.resolve({ workflow_runs: githubRuns }),
-      });
-    }
-    // GitLab pipelines
-    return Promise.resolve({
-      ok: true,
-      json: () => Promise.resolve(gitlabPipelines),
-    });
+  mockFetchApi.fetch.mockResolvedValue({
+    ok: true,
+    json: () => Promise.resolve({ results }),
+  });
+}
+
+function mockGitHubRuns(entityName: string, runs: GitHubWorkflowRun[]) {
+  mockBatchResponse({
+    [entityName]: { status: 200, data: { workflow_runs: runs } },
   });
 }
 
@@ -189,44 +180,25 @@ describe('RepositoriesCIActivityTab', () => {
       items: [createGitHubEntity('github-repo')],
     });
 
-    // Mock fetch to handle both GitHub and GitLab API calls
-    mockFetchApi.fetch.mockImplementation((url: string) => {
-      if (url.includes('provider=github')) {
-        return Promise.resolve({
-          ok: true,
-          json: () =>
-            Promise.resolve({
-              workflow_runs: [
-                {
-                  id: 123,
-                  run_number: 42,
-                  name: 'CI Build',
-                  status: 'completed',
-                  conclusion: 'success',
-                  event: 'push',
-                  created_at: '2024-06-15T11:00:00Z',
-                  html_url:
-                    'https://github.com/test-org/github-repo/actions/runs/123',
-                },
-              ],
-            }),
-        });
-      }
-      // GitLab pipelines
-      return Promise.resolve({
-        ok: true,
-        json: () =>
-          Promise.resolve([
+    mockBatchResponse({
+      'github-repo': {
+        status: 200,
+        data: {
+          workflow_runs: [
             {
-              id: 456,
-              status: 'success',
-              source: 'push',
-              created_at: '2024-06-15T10:00:00Z',
-              web_url:
-                'https://gitlab.com/test-group/gitlab-repo/-/pipelines/456',
+              id: 123,
+              run_number: 42,
+              name: 'CI Build',
+              status: 'completed',
+              conclusion: 'success',
+              event: 'push',
+              created_at: '2024-06-15T11:00:00Z',
+              html_url:
+                'https://github.com/test-org/github-repo/actions/runs/123',
             },
-          ]),
-      });
+          ],
+        },
+      },
     });
   });
 
@@ -274,7 +246,7 @@ describe('RepositoriesCIActivityTab', () => {
   });
 
   it('renders empty state when no CI activity', async () => {
-    setupFetchMock([], []);
+    mockBatchResponse({});
     mockCatalogApi.getEntities.mockResolvedValue({ items: [] });
 
     renderTab();
@@ -292,7 +264,7 @@ describe('RepositoriesCIActivityTab', () => {
 
   it('renders empty state for filtered entity with no activity', async () => {
     const entity = createGitHubEntity('empty-repo');
-    setupFetchMock([], []);
+    mockGitHubRuns('empty-repo', []);
 
     renderTab(entity);
 
@@ -324,6 +296,21 @@ describe('RepositoriesCIActivityTab', () => {
   it('renders GitLab pipelines', async () => {
     mockCatalogApi.getEntities.mockResolvedValue({
       items: [createGitLabEntity('gitlab-repo')],
+    });
+    mockBatchResponse({
+      'gitlab-repo': {
+        status: 200,
+        data: [
+          {
+            id: 456,
+            status: 'success',
+            source: 'push',
+            created_at: '2024-06-15T10:00:00Z',
+            web_url:
+              'https://gitlab.com/test-group/gitlab-repo/-/pipelines/456',
+          },
+        ],
+      },
     });
 
     renderTab();
@@ -375,13 +362,27 @@ describe('RepositoriesCIActivityTab', () => {
 
   it('fetches only filtered entity when provided', async () => {
     const entity = createGitHubEntity('specific-repo');
+    mockGitHubRuns('specific-repo', [
+      {
+        id: 999,
+        run_number: 1,
+        name: 'CI',
+        status: 'completed',
+        conclusion: 'success',
+        event: 'push',
+        created_at: '2024-06-15T11:00:00Z',
+      },
+    ]);
 
     renderTab(entity);
 
     await waitFor(() => {
       expect(mockFetchApi.fetch).toHaveBeenCalledWith(
-        expect.stringContaining('/ansible/git/ci-activity?provider=github'),
-        expect.any(Object),
+        expect.stringContaining('/ansible/git/ci-activity'),
+        expect.objectContaining({
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+        }),
       );
     });
 
@@ -395,6 +396,39 @@ describe('RepositoriesCIActivityTab', () => {
         createGitLabEntity('gitlab-repo'),
       ],
     });
+    mockBatchResponse({
+      'github-repo': {
+        status: 200,
+        data: {
+          workflow_runs: [
+            {
+              id: 123,
+              run_number: 42,
+              name: 'CI Build',
+              status: 'completed',
+              conclusion: 'success',
+              event: 'push',
+              created_at: '2024-06-15T11:00:00Z',
+              html_url:
+                'https://github.com/test-org/github-repo/actions/runs/123',
+            },
+          ],
+        },
+      },
+      'gitlab-repo': {
+        status: 200,
+        data: [
+          {
+            id: 456,
+            status: 'success',
+            source: 'push',
+            created_at: '2024-06-15T10:00:00Z',
+            web_url:
+              'https://gitlab.com/test-group/gitlab-repo/-/pipelines/456',
+          },
+        ],
+      },
+    });
 
     renderTab();
 
@@ -407,7 +441,7 @@ describe('RepositoriesCIActivityTab', () => {
   });
 
   it('renders failure status correctly', async () => {
-    setupFetchMock([
+    mockGitHubRuns('github-repo', [
       {
         id: 124,
         run_number: 43,
@@ -428,7 +462,7 @@ describe('RepositoriesCIActivityTab', () => {
   });
 
   it('renders in_progress status correctly', async () => {
-    setupFetchMock([
+    mockGitHubRuns('github-repo', [
       {
         id: 125,
         run_number: 44,
@@ -490,6 +524,9 @@ describe('RepositoriesCIActivityTab', () => {
     mockCatalogApi.getEntities.mockResolvedValue({
       items: [invalidGitLabEntity],
     });
+    mockBatchResponse({
+      'invalid-gitlab-repo': { status: 200, data: [] },
+    });
 
     renderTab();
 
@@ -499,7 +536,7 @@ describe('RepositoriesCIActivityTab', () => {
   });
 
   it('sorts status options alphabetically', async () => {
-    setupFetchMock([
+    mockGitHubRuns('github-repo', [
       {
         id: 1,
         run_number: 1,
@@ -533,7 +570,7 @@ describe('RepositoriesCIActivityTab', () => {
   });
 
   it('sorts trigger options alphabetically', async () => {
-    setupFetchMock([
+    mockGitHubRuns('github-repo', [
       {
         id: 1,
         run_number: 1,
@@ -567,7 +604,7 @@ describe('RepositoriesCIActivityTab', () => {
   });
 
   it('renders cancelled status', async () => {
-    setupFetchMock([
+    mockGitHubRuns('github-repo', [
       {
         id: 126,
         run_number: 45,
@@ -588,7 +625,7 @@ describe('RepositoriesCIActivityTab', () => {
   });
 
   it('renders queued status', async () => {
-    setupFetchMock([
+    mockGitHubRuns('github-repo', [
       {
         id: 127,
         run_number: 46,
@@ -609,7 +646,7 @@ describe('RepositoriesCIActivityTab', () => {
   });
 
   it('renders skipped status', async () => {
-    setupFetchMock([
+    mockGitHubRuns('github-repo', [
       {
         id: 128,
         run_number: 47,
@@ -630,7 +667,7 @@ describe('RepositoriesCIActivityTab', () => {
   });
 
   it('renders unknown status for unrecognized values', async () => {
-    setupFetchMock([
+    mockGitHubRuns('github-repo', [
       {
         id: 129,
         run_number: 48,
@@ -669,6 +706,18 @@ describe('RepositoriesCIActivityTab', () => {
     mockCatalogApi.getEntities.mockResolvedValue({
       items: [entityWithoutSourceLocation],
     });
+    mockGitHubRuns('no-source-repo', [
+      {
+        id: 300,
+        run_number: 50,
+        name: 'CI',
+        status: 'completed',
+        conclusion: 'success',
+        event: 'push',
+        created_at: '2024-06-15T11:00:00Z',
+        html_url: 'https://github.com/test-org/no-source-repo/actions/runs/300',
+      },
+    ]);
 
     renderTab();
 
@@ -678,7 +727,7 @@ describe('RepositoriesCIActivityTab', () => {
   });
 
   it('renders row without run URL', async () => {
-    setupFetchMock([
+    mockGitHubRuns('github-repo', [
       {
         id: 130,
         run_number: 49,
@@ -700,7 +749,7 @@ describe('RepositoriesCIActivityTab', () => {
   });
 
   it('renders project link when projectUrl is available', async () => {
-    setupFetchMock([
+    mockGitHubRuns('github-repo', [
       {
         id: 200,
         run_number: 100,
@@ -723,7 +772,7 @@ describe('RepositoriesCIActivityTab', () => {
   });
 
   it('renders run link when runUrl is available', async () => {
-    setupFetchMock([
+    mockGitHubRuns('github-repo', [
       {
         id: 201,
         run_number: 101,
@@ -746,7 +795,7 @@ describe('RepositoriesCIActivityTab', () => {
   });
 
   it('renders status icon based on status value', async () => {
-    setupFetchMock([
+    mockGitHubRuns('github-repo', [
       {
         id: 202,
         run_number: 102,
@@ -768,7 +817,7 @@ describe('RepositoriesCIActivityTab', () => {
   });
 
   it('handles status filter selection', async () => {
-    setupFetchMock([
+    mockGitHubRuns('github-repo', [
       {
         id: 1,
         run_number: 1,
@@ -800,7 +849,7 @@ describe('RepositoriesCIActivityTab', () => {
   });
 
   it('handles trigger filter selection', async () => {
-    setupFetchMock([
+    mockGitHubRuns('github-repo', [
       {
         id: 1,
         run_number: 1,

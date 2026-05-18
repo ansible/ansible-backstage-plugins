@@ -51,8 +51,8 @@ import {
   createRequireSuperuserMiddleware,
   createRequireUserOrExternalAccessMiddleware,
   createPermissionCheckMiddleware,
-  handleGitHubCIActivity,
-  handleGitLabCIActivity,
+  fetchGitHubCIActivityData,
+  fetchGitLabCIActivityData,
   parseEeBuildRequestBody,
   validateGitHubHost,
   isKnownEeBuildError,
@@ -799,59 +799,133 @@ export async function createRouter(options: {
     }
   });
 
-  // Unified CI activity proxy for GitHub and GitLab
-  // Query params:
+  // Batch CI activity proxy for GitHub Actions and GitLab Pipelines.
+  // POST body: { items: [{ key, provider, owner?, repo?, host?, projectPath?, per_page? }] }
   //   - provider: 'github' | 'gitlab' (required)
-  //   - host: hostname (optional, defaults based on provider)
-  //   - per_page: number of results (optional)
+  //   - host: SCM hostname (optional, defaults to github.com / gitlab.com)
+  //   - per_page: max results per repo (optional, default 15, max 100)
   //   GitHub-specific: owner, repo
   //   GitLab-specific: projectPath
-  router.get('/ansible/git/ci-activity', async (request, response) => {
-    const credentials = await httpAuth.credentials(request as any);
+  // Response: { results: { [key]: { status, data } | { error } } }
+  router.post(
+    '/ansible/git/ci-activity',
+    express.json(),
+    async (request, response) => {
+      const credentials = await httpAuth.credentials(request as any);
 
-    const [[gitRepoDecision], [catalogReadDecision]] = await Promise.all([
-      permissions.authorize([{ permission: gitRepositoriesViewPermission }], {
-        credentials,
-      }),
-      permissions.authorizeConditional(
-        [{ permission: catalogEntityReadPermission }],
-        { credentials },
-      ),
-    ]);
+      const [[gitRepoDecision], [catalogReadDecision]] = await Promise.all([
+        permissions.authorize(
+          [{ permission: gitRepositoriesViewPermission }],
+          { credentials },
+        ),
+        permissions.authorizeConditional(
+          [{ permission: catalogEntityReadPermission }],
+          { credentials },
+        ),
+      ]);
 
-    const hasGitRepoView = gitRepoDecision.result === AuthorizeResult.ALLOW;
-    const hasCatalogRead = catalogReadDecision.result !== AuthorizeResult.DENY;
+      const hasGitRepoView = gitRepoDecision.result === AuthorizeResult.ALLOW;
+      const hasCatalogRead =
+        catalogReadDecision.result !== AuthorizeResult.DENY;
 
-    if (!hasGitRepoView || !hasCatalogRead) {
-      response
-        .status(403)
-        .json({ error: 'Forbidden: insufficient permissions' });
-      return;
-    }
+      if (!hasGitRepoView || !hasCatalogRead) {
+        response
+          .status(403)
+          .json({ error: 'Forbidden: insufficient permissions' });
+        return;
+      }
 
-    const provider = (request.query.provider as string)?.toLowerCase();
-    const perPage = Math.min(Number(request.query.per_page) || 15, 100);
-    const ciActivityDeps = {
-      config,
-      logger,
-      scmIntegrations: scmClientFactory.integrations,
-      githubCredentialsProvider: scmClientFactory.githubCredentialsProvider,
-    };
+      const { items } = request.body as {
+        items?: Array<{
+          key: string;
+          provider: string;
+          owner?: string;
+          repo?: string;
+          host?: string;
+          projectPath?: string;
+          per_page?: number;
+        }>;
+      };
 
-    if (!provider || !['github', 'gitlab'].includes(provider)) {
-      response.status(400).json({
-        error:
-          "Missing or invalid 'provider' query parameter. Must be 'github' or 'gitlab'.",
-      });
-      return;
-    }
+      if (!Array.isArray(items) || items.length === 0) {
+        response
+          .status(400)
+          .json({ error: "'items' must be a non-empty array" });
+        return;
+      }
 
-    if (provider === 'github') {
-      await handleGitHubCIActivity(ciActivityDeps, request, response, perPage);
-    } else {
-      await handleGitLabCIActivity(ciActivityDeps, request, response, perPage);
-    }
-  });
+      if (items.length > 100) {
+        response
+          .status(400)
+          .json({ error: 'Maximum 100 items per batch request' });
+        return;
+      }
+
+      const ciActivityDeps = {
+        config,
+        logger,
+        scmIntegrations: scmClientFactory.integrations,
+        githubCredentialsProvider: scmClientFactory.githubCredentialsProvider,
+      };
+
+      const CONCURRENCY_LIMIT = 5;
+      const results: Record<
+        string,
+        { status: number; data: any } | { error: string }
+      > = {};
+
+      // Process items with concurrency limit
+      let index = 0;
+      const processNext = async (): Promise<void> => {
+        while (index < items.length) {
+          const currentIndex = index++;
+          const item = items[currentIndex];
+          const prov = item.provider?.toLowerCase();
+          const perPage = Math.min(Number(item.per_page) || 15, 100);
+
+          try {
+            if (prov === 'github') {
+              const result = await fetchGitHubCIActivityData(ciActivityDeps, {
+                owner: item.owner ?? '',
+                repo: item.repo ?? '',
+                host: item.host ?? 'github.com',
+                perPage,
+              });
+              results[item.key] =
+                'error' in result
+                  ? { error: result.error }
+                  : { status: result.status, data: result.data };
+            } else if (prov === 'gitlab') {
+              const result = await fetchGitLabCIActivityData(ciActivityDeps, {
+                projectPath: item.projectPath ?? '',
+                host: item.host ?? 'gitlab.com',
+                perPage,
+              });
+              results[item.key] =
+                'error' in result
+                  ? { error: result.error }
+                  : { status: result.status, data: result.data };
+            } else {
+              results[item.key] = { error: `Unknown provider: ${prov}` };
+            }
+          } catch (err) {
+            results[item.key] = {
+              error:
+                err instanceof Error ? err.message : 'Unknown error occurred',
+            };
+          }
+        }
+      };
+
+      const workers = Array.from(
+        { length: Math.min(CONCURRENCY_LIMIT, items.length) },
+        () => processNext(),
+      );
+      await Promise.all(workers);
+
+      response.status(200).json({ results });
+    },
+  );
 
   return router;
 }
