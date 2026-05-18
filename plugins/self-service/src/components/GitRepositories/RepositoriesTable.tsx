@@ -17,7 +17,7 @@ import Star from '@material-ui/icons/Star';
 import StarBorder from '@material-ui/icons/StarBorder';
 import NavigateBeforeIcon from '@material-ui/icons/NavigateBefore';
 import NavigateNextIcon from '@material-ui/icons/NavigateNext';
-import { Entity } from '@backstage/catalog-model';
+import { Entity, stringifyEntityRef } from '@backstage/catalog-model';
 import {
   CatalogFilterLayout,
   EntityKindFilter,
@@ -99,6 +99,11 @@ const RepositoriesTableInner = ({
   const { isStarredEntity, toggleStarredEntity } = useStarredEntities();
   const { filters } = useEntityList();
 
+  const starredFilter = useMemo(() => {
+    if (filters.user?.value !== 'starred') return undefined;
+    return (entity: Entity) => isStarredEntity(entity);
+  }, [filters.user?.value, isStarredEntity]);
+
   const {
     entities: paginatedEntities,
     loadedEntityCount,
@@ -114,7 +119,11 @@ const RepositoriesTableInner = ({
     allSources,
     sourceFilter,
     setSourceFilter,
-  } = usePaginatedGitRepos({ catalogApi, onSourcesStatusChange });
+  } = usePaginatedGitRepos({
+    catalogApi,
+    onSourcesStatusChange,
+    entityFilter: starredFilter,
+  });
 
   const [menuAnchor, setMenuAnchor] = useState<{
     left: number;
@@ -124,13 +133,6 @@ const RepositoriesTableInner = ({
 
   const { lastActivityMap, loading: lastActivityLoading } =
     useLatestCIActivity(paginatedEntities);
-
-  const displayedRepos = useMemo(() => {
-    if (filters.user?.value === 'starred') {
-      return paginatedEntities.filter(e => isStarredEntity(e));
-    }
-    return paginatedEntities;
-  }, [paginatedEntities, filters.user?.value, isStarredEntity]);
 
   const handleKebabOpen = (
     event: React.MouseEvent<HTMLElement>,
@@ -285,8 +287,7 @@ const RepositoriesTableInner = ({
       ) as unknown as string,
       id: 'lastActivity',
       render: (entity: Entity) => {
-        const name = entity.metadata?.name ?? '';
-        const entry = lastActivityMap[name];
+        const entry = lastActivityMap[stringifyEntityRef(entity)];
         const text = lastActivityLoading ? '—' : (entry?.text ?? 'N/A');
         const url = entry?.url;
         return (
@@ -448,7 +449,7 @@ const RepositoriesTableInner = ({
                 rowStyle: { cursor: 'default' },
               }}
               columns={columns}
-              data={displayedRepos}
+              data={paginatedEntities}
             />
             {totalPages > 1 && (
               <Box

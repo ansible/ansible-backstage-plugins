@@ -9,6 +9,7 @@ import { getRepoHost } from './scmUtils';
 export interface UsePaginatedGitReposOptions {
   catalogApi: CatalogApi;
   onSourcesStatusChange?: (hasSources: boolean | null) => void;
+  entityFilter?: (entity: Entity) => boolean;
 }
 
 export interface UsePaginatedGitReposResult {
@@ -35,6 +36,7 @@ export interface UsePaginatedGitReposResult {
 export function usePaginatedGitRepos({
   catalogApi,
   onSourcesStatusChange,
+  entityFilter,
 }: UsePaginatedGitReposOptions): UsePaginatedGitReposResult {
   const [allSources, setAllSources] = useState<
     Array<{ value: string; label: string }>
@@ -65,7 +67,10 @@ export function usePaginatedGitRepos({
   const filteredEntities = useMemo(() => {
     return allEntities
       .filter(entity => {
-        return sourceFilter === 'All' || getRepoHost(entity) === sourceFilter;
+        const matchesSource =
+          sourceFilter === 'All' || getRepoHost(entity) === sourceFilter;
+        const matchesEntityFilter = !entityFilter || entityFilter(entity);
+        return matchesSource && matchesEntityFilter;
       })
       .sort((a, b) => {
         const nameA = (
@@ -80,12 +85,12 @@ export function usePaginatedGitRepos({
         ).toLowerCase();
         return nameA.localeCompare(nameB);
       });
-  }, [sourceFilter, allEntities]);
+  }, [sourceFilter, allEntities, entityFilter]);
 
   const pagination = usePagination({
     totalItems: filteredEntities.length,
     pageSize: PAGE_SIZE,
-    resetDeps: [sourceFilter],
+    resetDeps: [sourceFilter, entityFilter],
   });
 
   const paginatedEntities = useMemo(

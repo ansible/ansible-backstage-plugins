@@ -129,9 +129,13 @@ function mockBatchResponse(
   });
 }
 
-function mockGitHubRuns(entityName: string, runs: GitHubWorkflowRun[]) {
+function entityRef(name: string): string {
+  return `component:default/${name}`;
+}
+
+function mockGitHubRuns(name: string, runs: GitHubWorkflowRun[]) {
   mockBatchResponse({
-    [entityName]: { status: 200, data: { workflow_runs: runs } },
+    [entityRef(name)]: { status: 200, data: { workflow_runs: runs } },
   });
 }
 
@@ -178,7 +182,7 @@ describe('RepositoriesCIActivityTab', () => {
     });
 
     mockBatchResponse({
-      'github-repo': {
+      [entityRef('github-repo')]: {
         status: 200,
         data: {
           workflow_runs: [
@@ -295,7 +299,7 @@ describe('RepositoriesCIActivityTab', () => {
       items: [createGitLabEntity('gitlab-repo')],
     });
     mockBatchResponse({
-      'gitlab-repo': {
+      [entityRef('gitlab-repo')]: {
         status: 200,
         data: [
           {
@@ -394,7 +398,7 @@ describe('RepositoriesCIActivityTab', () => {
       ],
     });
     mockBatchResponse({
-      'github-repo': {
+      [entityRef('github-repo')]: {
         status: 200,
         data: {
           workflow_runs: [
@@ -412,7 +416,7 @@ describe('RepositoriesCIActivityTab', () => {
           ],
         },
       },
-      'gitlab-repo': {
+      [entityRef('gitlab-repo')]: {
         status: 200,
         data: [
           {
@@ -522,7 +526,7 @@ describe('RepositoriesCIActivityTab', () => {
       items: [invalidGitLabEntity],
     });
     mockBatchResponse({
-      'invalid-gitlab-repo': { status: 200, data: [] },
+      [entityRef('invalid-gitlab-repo')]: { status: 200, data: [] },
     });
 
     renderTab();

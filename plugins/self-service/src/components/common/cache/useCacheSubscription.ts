@@ -76,7 +76,10 @@ export function useCacheSubscription<TState extends BaseCacheState>({
       onInitialDataRef.current?.(cached);
 
       if (!cached.isFullyLoaded) {
-        cache.startLoading(catalogApi);
+        void cache.startLoading(catalogApi).catch(err => {
+          if (!isMountedRef.current) return;
+          setError(err instanceof Error ? err.message : fallbackErrorMessage);
+        });
       }
       return;
     }

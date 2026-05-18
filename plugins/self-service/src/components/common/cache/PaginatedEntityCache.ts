@@ -20,12 +20,18 @@ export class PaginatedEntityCache<
     this.config = config;
   }
 
+  private expireData(): void {
+    this.fetchEpoch++;
+    this.state = null;
+    this.loadingPromise = null;
+  }
+
   getState(): TState | null {
     if (!this.state) return null;
 
     const now = Date.now();
     if (now - this.state.lastUpdated > CACHE_TTL_MS) {
-      this.clear();
+      this.expireData();
       return null;
     }
 
@@ -224,9 +230,17 @@ export class PaginatedEntityCache<
           this.notifyListeners();
         }
       } catch (err) {
-        if (process.env.NODE_ENV === 'development') {
-          // eslint-disable-next-line no-console
-          console.error('Error loading remaining entities:', err);
+        if (epoch === this.fetchEpoch && this.state) {
+          const errorMessage =
+            err instanceof Error && err.message
+              ? err.message
+              : 'Failed to load remaining entities';
+          this.state = {
+            ...this.state,
+            error: errorMessage,
+            lastUpdated: Date.now(),
+          };
+          this.notifyListeners();
         }
       } finally {
         this.clearLoadingPromiseIfCurrent(epoch);

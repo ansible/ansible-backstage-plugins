@@ -1,5 +1,5 @@
 import { useEffect, useState, useRef, useMemo } from 'react';
-import { Entity } from '@backstage/catalog-model';
+import { Entity, stringifyEntityRef } from '@backstage/catalog-model';
 import {
   useApi,
   discoveryApiRef,
@@ -68,13 +68,13 @@ interface BatchItem {
 function buildBatchItems(entities: Entity[]): BatchItem[] {
   const items: BatchItem[] = [];
   for (const entity of entities) {
-    const name = entity.metadata?.name ?? '';
+    const ref = stringifyEntityRef(entity);
     const gh = getGitHubOwnerRepo(entity);
     const gl = getGitLabProjectPath(entity);
 
     if (gh) {
       items.push({
-        key: name,
+        key: ref,
         provider: 'github',
         owner: gh.owner,
         repo: gh.repo,
@@ -83,7 +83,7 @@ function buildBatchItems(entities: Entity[]): BatchItem[] {
       });
     } else if (gl) {
       items.push({
-        key: name,
+        key: ref,
         provider: 'gitlab',
         projectPath: gl,
         host: getRepoHost(entity) || 'gitlab.com',
@@ -146,7 +146,7 @@ function buildFallbackMap(
 ): Record<string, LatestActivityEntry> {
   const map: Record<string, LatestActivityEntry> = {};
   entities.forEach(e => {
-    map[e.metadata?.name ?? ''] = { text: NO_ACTIVITY };
+    map[stringifyEntityRef(e)] = { text: NO_ACTIVITY };
   });
   return map;
 }
@@ -165,7 +165,7 @@ export function useLatestCIActivity(entities: Entity[]): {
   const requestIdRef = useRef(0);
 
   const entitiesKey = useMemo(
-    () => entities.map(e => e.metadata?.name ?? '').join('\0'),
+    () => entities.map(e => stringifyEntityRef(e)).join('\0'),
     [entities],
   );
 
@@ -218,8 +218,8 @@ export function useLatestCIActivity(entities: Entity[]): {
         }
 
         entities.forEach(e => {
-          const name = e.metadata?.name ?? '';
-          if (!(name in map)) map[name] = { text: NO_ACTIVITY };
+          const ref = stringifyEntityRef(e);
+          if (!(ref in map)) map[ref] = { text: NO_ACTIVITY };
         });
 
         if (!isCancelled()) {

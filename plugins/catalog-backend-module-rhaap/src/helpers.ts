@@ -1029,6 +1029,7 @@ export interface CIActivityDeps {
 }
 
 const CI_CACHE_TTL_MS = 60_000;
+const CI_CACHE_MAX_ENTRIES = 500;
 const ciActivityCache = new Map<
   string,
   { data: JsonValue; status: number; timestamp: number }
@@ -1058,6 +1059,10 @@ function setCachedCIActivity(
   data: JsonValue,
   status: number,
 ): void {
+  if (ciActivityCache.size >= CI_CACHE_MAX_ENTRIES) {
+    const oldest = ciActivityCache.keys().next().value;
+    if (oldest !== undefined) ciActivityCache.delete(oldest);
+  }
   ciActivityCache.set(key, { data, status, timestamp: Date.now() });
 }
 

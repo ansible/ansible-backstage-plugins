@@ -2,11 +2,8 @@ import { render, screen, waitFor } from '@testing-library/react';
 import { ThemeProvider, createTheme } from '@material-ui/core/styles';
 import { TestApiProvider } from '@backstage/test-utils';
 import { discoveryApiRef, fetchApiRef } from '@backstage/core-plugin-api';
-import { Entity } from '@backstage/catalog-model';
-import {
-  useLatestCIActivity,
-  LatestActivityEntry,
-} from './useLatestCIActivity';
+import { Entity, stringifyEntityRef } from '@backstage/catalog-model';
+import { useLatestCIActivity } from './useLatestCIActivity';
 
 const theme = createTheme();
 
@@ -28,13 +25,16 @@ function TestConsumer({ entities }: TestConsumerProps) {
     <div>
       <span data-testid="loading">{String(loading)}</span>
       <span data-testid="map">{JSON.stringify(lastActivityMap)}</span>
-      {Object.entries(lastActivityMap).map(
-        ([name, entry]: [string, LatestActivityEntry]) => (
-          <div key={name} data-testid={`activity-${name}`}>
+      {entities.map(entity => {
+        const ref = stringifyEntityRef(entity);
+        const entry = lastActivityMap[ref];
+        const name = entity.metadata?.name ?? '';
+        return entry ? (
+          <div key={ref} data-testid={`activity-${name}`}>
             {entry.text}
           </div>
-        ),
-      )}
+        ) : null;
+      })}
     </div>
   );
 }
@@ -116,7 +116,7 @@ describe('useLatestCIActivity', () => {
 
   it('fetches GitHub Actions workflow runs via batch endpoint', async () => {
     mockBatchResponse({
-      'test-repo': {
+      'component:default/test-repo': {
         status: 200,
         data: {
           workflow_runs: [
@@ -154,7 +154,7 @@ describe('useLatestCIActivity', () => {
 
   it('returns N/A when GitHub has no workflow runs', async () => {
     mockBatchResponse({
-      'empty-repo': {
+      'component:default/empty-repo': {
         status: 200,
         data: { workflow_runs: [] },
       },
@@ -171,7 +171,7 @@ describe('useLatestCIActivity', () => {
 
   it('handles batch result errors gracefully', async () => {
     mockBatchResponse({
-      'error-repo': { error: 'GitHub API error' },
+      'component:default/error-repo': { error: 'GitHub API error' },
     });
 
     renderTestConsumer([createGitHubEntity('error-repo')]);
@@ -202,7 +202,7 @@ describe('useLatestCIActivity', () => {
 
   it('fetches GitLab pipelines via batch endpoint', async () => {
     mockBatchResponse({
-      'gitlab-repo': {
+      'component:default/gitlab-repo': {
         status: 200,
         data: [
           {
@@ -232,7 +232,7 @@ describe('useLatestCIActivity', () => {
 
   it('returns N/A when GitLab has no pipelines', async () => {
     mockBatchResponse({
-      'empty-gitlab': { status: 200, data: [] },
+      'component:default/empty-gitlab': { status: 200, data: [] },
     });
 
     renderTestConsumer([createGitLabEntity('empty-gitlab')]);
@@ -270,7 +270,7 @@ describe('useLatestCIActivity', () => {
 
   it('handles mixed GitHub and GitLab entities in single batch', async () => {
     mockBatchResponse({
-      'github-repo': {
+      'component:default/github-repo': {
         status: 200,
         data: {
           workflow_runs: [
@@ -284,7 +284,7 @@ describe('useLatestCIActivity', () => {
           ],
         },
       },
-      'gitlab-repo': {
+      'component:default/gitlab-repo': {
         status: 200,
         data: [
           {
@@ -312,7 +312,7 @@ describe('useLatestCIActivity', () => {
 
   it('uses default workflow name when not provided', async () => {
     mockBatchResponse({
-      'no-name-repo': {
+      'component:default/no-name-repo': {
         status: 200,
         data: {
           workflow_runs: [
@@ -369,7 +369,7 @@ describe('useLatestCIActivity', () => {
     };
 
     mockBatchResponse({
-      'gitlab-no-url': {
+      'component:default/gitlab-no-url': {
         status: 200,
         data: [
           {
@@ -394,7 +394,7 @@ describe('useLatestCIActivity', () => {
 
   it('uses id as run number fallback for GitHub workflow', async () => {
     mockBatchResponse({
-      'id-fallback-repo': {
+      'component:default/id-fallback-repo': {
         status: 200,
         data: {
           workflow_runs: [
@@ -432,7 +432,7 @@ describe('useLatestCIActivity', () => {
         json: () =>
           Promise.resolve({
             results: {
-              'retry-success-repo': {
+              'component:default/retry-success-repo': {
                 status: 200,
                 data: [
                   {
@@ -491,7 +491,7 @@ describe('useLatestCIActivity', () => {
               json: () =>
                 Promise.resolve({
                   results: {
-                    'cancel-repo': { status: 200, data: [] },
+                    'component:default/cancel-repo': { status: 200, data: [] },
                   },
                 }),
             }),
@@ -545,7 +545,7 @@ describe('useLatestCIActivity', () => {
       json: () =>
         Promise.resolve({
           results: {
-            'late-cancel': {
+            'component:default/late-cancel': {
               status: 200,
               data: [{ id: 123, created_at: '2024-06-15T11:00:00Z' }],
             },
@@ -560,7 +560,7 @@ describe('useLatestCIActivity', () => {
 
   it('sends single batch request for all entities', async () => {
     mockBatchResponse({
-      'repo-1': {
+      'component:default/repo-1': {
         status: 200,
         data: {
           workflow_runs: [
@@ -573,7 +573,7 @@ describe('useLatestCIActivity', () => {
           ],
         },
       },
-      'repo-2': {
+      'component:default/repo-2': {
         status: 200,
         data: [{ id: 2, created_at: '2024-06-15T11:00:00Z' }],
       },

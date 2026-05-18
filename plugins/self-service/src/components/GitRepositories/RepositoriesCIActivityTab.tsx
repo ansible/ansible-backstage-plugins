@@ -19,7 +19,7 @@ import {
   catalogApiRef,
   CatalogFilterLayout,
 } from '@backstage/plugin-catalog-react';
-import { Entity } from '@backstage/catalog-model';
+import { Entity, stringifyEntityRef } from '@backstage/catalog-model';
 import { Progress, Table, TableColumn } from '@backstage/core-components';
 import {
   useCollectionsStyles,
@@ -99,29 +99,29 @@ function buildCIBatchItems(
   const entityMap = new Map<string, { entity: Entity; provider: string }>();
 
   for (const entity of entities) {
-    const name = entity.metadata?.name ?? '';
+    const ref = stringifyEntityRef(entity);
     const gh = getGitHubOwnerRepo(entity);
     const gl = getGitLabProjectPath(entity);
 
     if (gh) {
       items.push({
-        key: name,
+        key: ref,
         provider: 'github',
         owner: gh.owner,
         repo: gh.repo,
         host: getRepoHost(entity) || 'github.com',
         per_page: perPage,
       });
-      entityMap.set(name, { entity, provider: 'github' });
+      entityMap.set(ref, { entity, provider: 'github' });
     } else if (gl) {
       items.push({
-        key: name,
+        key: ref,
         provider: 'gitlab',
         projectPath: gl,
         host: getRepoHost(entity) || 'gitlab.com',
         per_page: perPage,
       });
-      entityMap.set(name, { entity, provider: 'gitlab' });
+      entityMap.set(ref, { entity, provider: 'gitlab' });
     }
   }
 

@@ -68,6 +68,15 @@ export function usePaginatedCollections({
   const onCacheUpdate = useCallback((state: CollectionsCacheState) => {
     setAllSources(state.allSources);
     setAllTags(state.allTags);
+    setSyncStatusMap(state.syncStatusMap);
+    setHasConfiguredSources(state.hasConfiguredSources);
+  }, []);
+
+  const onInitialData = useCallback((state: CollectionsCacheState) => {
+    setAllSources(state.allSources);
+    setAllTags(state.allTags);
+    setSyncStatusMap(state.syncStatusMap);
+    setHasConfiguredSources(state.hasConfiguredSources);
   }, []);
 
   const {
@@ -81,6 +90,7 @@ export function usePaginatedCollections({
     cache: collectionsCache,
     catalogApi,
     onCacheUpdate,
+    onInitialData,
     fallbackErrorMessage: 'Failed to fetch collections',
   });
 

@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useMemo } from 'react';
 import { Progress, Table, TableColumn } from '@backstage/core-components';
 import {
   Backdrop,
@@ -182,6 +182,12 @@ export const EEListPage = ({
   const theme = useTheme();
   const catalogApi = useApi(catalogApiRef);
   const { isStarredEntity } = useStarredEntities();
+  const { filters } = useEntityList();
+
+  const starredFilter = useMemo(() => {
+    if (filters.user?.value !== 'starred') return undefined;
+    return (entity: Entity) => isStarredEntity(entity);
+  }, [filters.user?.value, isStarredEntity]);
 
   const {
     entities: paginatedEntities,
@@ -204,7 +210,7 @@ export const EEListPage = ({
     setTagFilter,
     ownerNames,
     refresh,
-  } = usePaginatedEE({ catalogApi });
+  } = usePaginatedEE({ catalogApi, entityFilter: starredFilter });
 
   const [actionsMenuAnchor, setActionsMenuAnchor] =
     useState<null | HTMLElement>(null);
@@ -219,7 +225,6 @@ export const EEListPage = ({
   const [entityToUnregister, setEntityToUnregister] = useState<Entity | null>(
     null,
   );
-  const { filters } = useEntityList();
   const {
     startBuildFlow,
     authBusy,
@@ -228,17 +233,6 @@ export const EEListPage = ({
     githubToken,
     closeDialog,
   } = useEEBuildFlow();
-
-  const [displayedEntities, setDisplayedEntities] =
-    useState<Entity[]>(paginatedEntities);
-
-  useEffect(() => {
-    if (filters.user?.value === 'starred') {
-      setDisplayedEntities(paginatedEntities.filter(e => isStarredEntity(e)));
-    } else {
-      setDisplayedEntities(paginatedEntities);
-    }
-  }, [filters.user, paginatedEntities, isStarredEntity]);
 
   const handleActionsMenuOpen = (
     event: React.MouseEvent<HTMLElement>,
@@ -471,7 +465,7 @@ export const EEListPage = ({
                 rowStyle: { cursor: 'default' },
               }}
               columns={columns}
-              data={displayedEntities}
+              data={paginatedEntities}
             />
             {totalPages > 1 && (
               <Box className={classes.paginationContainer}>

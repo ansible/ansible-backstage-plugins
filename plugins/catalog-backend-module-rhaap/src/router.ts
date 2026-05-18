@@ -860,6 +860,21 @@ export async function createRouter(options: {
         return;
       }
 
+      const seenKeys = new Set<string>();
+      for (const item of items) {
+        if (!item.key || typeof item.key !== 'string') {
+          response
+            .status(400)
+            .json({ error: "Each item must have a non-empty 'key'" });
+          return;
+        }
+        if (seenKeys.has(item.key)) {
+          response.status(400).json({ error: `Duplicate key: '${item.key}'` });
+          return;
+        }
+        seenKeys.add(item.key);
+      }
+
       const ciActivityDeps = {
         config,
         logger,

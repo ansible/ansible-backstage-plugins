@@ -7,6 +7,7 @@ import { eeCache, EECacheState } from './eeCache';
 
 export interface UsePaginatedEEOptions {
   catalogApi: CatalogApi;
+  entityFilter?: (entity: Entity) => boolean;
 }
 
 export interface UsePaginatedEEResult {
@@ -53,6 +54,7 @@ function sortByMetadataNameAsc(entities: Entity[]): Entity[] {
 
 export function usePaginatedEE({
   catalogApi,
+  entityFilter,
 }: UsePaginatedEEOptions): UsePaginatedEEResult {
   const [allOwners, setAllOwners] = useState<string[]>(['All']);
   const [allTags, setAllTags] = useState<string[]>(['All']);
@@ -81,7 +83,7 @@ export function usePaginatedEE({
 
   const resolveOwnerNames = useCallback(
     async (entities: Entity[]) => {
-      const ownerRefs = Array.from(
+      const allOwnerRefs = Array.from(
         new Set(
           entities
             .map(e => e.spec?.owner)
@@ -89,17 +91,18 @@ export function usePaginatedEE({
         ),
       );
 
-      if (ownerRefs.length === 0) return;
+      const unresolvedRefs = allOwnerRefs.filter(ref => !ownerNames.has(ref));
+      if (unresolvedRefs.length === 0) return;
 
       try {
         const response = await catalogApi.getEntitiesByRefs({
-          entityRefs: ownerRefs,
+          entityRefs: unresolvedRefs,
         });
 
         if (!isMountedRef.current) return;
 
         const nameMap = new Map<string, string>();
-        ownerRefs.forEach((ref, index) => {
+        unresolvedRefs.forEach((ref, index) => {
           const entity = response.items[index];
           const displayName =
             entity?.metadata?.title ?? entity?.metadata?.name ?? ref;
@@ -113,16 +116,16 @@ export function usePaginatedEE({
         });
       } catch {
         if (!isMountedRef.current) return;
-        const fallback = new Map<string, string>();
-        ownerRefs.forEach(ref => fallback.set(ref, ref));
         setOwnerNames(prev => {
           const updated = new Map(prev);
-          fallback.forEach((name, ref) => updated.set(ref, name));
+          unresolvedRefs.forEach(ref => {
+            if (!updated.has(ref)) updated.set(ref, ref);
+          });
           return updated;
         });
       }
     },
-    [catalogApi, isMountedRef],
+    [catalogApi, isMountedRef, ownerNames],
   );
 
   useEffect(() => {
@@ -137,15 +140,16 @@ export function usePaginatedEE({
         ownerFilter === 'All' || entity.spec?.owner === ownerFilter;
       const matchesTag =
         tagFilter === 'All' || entity.metadata?.tags?.includes(tagFilter);
-      return matchesOwner && matchesTag;
+      const matchesEntityFilter = !entityFilter || entityFilter(entity);
+      return matchesOwner && matchesTag && matchesEntityFilter;
     });
     return sortByMetadataNameAsc(filtered);
-  }, [ownerFilter, tagFilter, allEntities]);
+  }, [ownerFilter, tagFilter, allEntities, entityFilter]);
 
   const pagination = usePagination({
     totalItems: filteredEntities.length,
     pageSize: PAGE_SIZE,
-    resetDeps: [ownerFilter, tagFilter],
+    resetDeps: [ownerFilter, tagFilter, entityFilter],
   });
 
   const paginatedEntities = useMemo(
