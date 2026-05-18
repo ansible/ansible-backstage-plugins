@@ -554,6 +554,8 @@ describe('useLatestCIActivity', () => {
     });
 
     await jest.advanceTimersByTimeAsync(100);
+
+    expect(mockFetchApi.fetch).toHaveBeenCalledTimes(1);
   });
 
   it('sends single batch request for all entities', async () => {

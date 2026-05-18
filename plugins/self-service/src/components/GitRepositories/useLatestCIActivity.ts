@@ -65,6 +65,92 @@ interface BatchItem {
   per_page?: number;
 }
 
+function buildBatchItems(entities: Entity[]): BatchItem[] {
+  const items: BatchItem[] = [];
+  for (const entity of entities) {
+    const name = entity.metadata?.name ?? '';
+    const gh = getGitHubOwnerRepo(entity);
+    const gl = getGitLabProjectPath(entity);
+
+    if (gh) {
+      items.push({
+        key: name,
+        provider: 'github',
+        owner: gh.owner,
+        repo: gh.repo,
+        host: getRepoHost(entity) || 'github.com',
+        per_page: 1,
+      });
+    } else if (gl) {
+      items.push({
+        key: name,
+        provider: 'gitlab',
+        projectPath: gl,
+        host: getRepoHost(entity) || 'gitlab.com',
+        per_page: 1,
+      });
+    }
+  }
+  return items;
+}
+
+function parseGitHubActivity(run: any): LatestActivityEntry {
+  if (!run) return { text: NO_ACTIVITY };
+  const eventName = run.name ?? 'Workflow';
+  const runNum = run.run_number ?? run.id;
+  const timeAgo = formatTimeAgo(run.created_at ?? undefined);
+  return {
+    text: `${eventName} #${runNum} • ${timeAgo}`,
+    url: run.html_url ?? undefined,
+  };
+}
+
+function parseGitLabActivity(pipeline: any): LatestActivityEntry {
+  if (!pipeline) return { text: NO_ACTIVITY };
+  const timeAgo = formatTimeAgo(pipeline.created_at ?? undefined);
+  return {
+    text: `Pipeline #${pipeline.id} • ${timeAgo}`,
+    url: pipeline.web_url ?? undefined,
+  };
+}
+
+function buildActivityMap(
+  batchItems: BatchItem[],
+  results: Record<string, { status: number; data: any } | { error: string }>,
+): Record<string, LatestActivityEntry> {
+  const map: Record<string, LatestActivityEntry> = {};
+
+  for (const [key, result] of Object.entries(results)) {
+    if ('error' in result) {
+      map[key] = { text: NO_ACTIVITY };
+      continue;
+    }
+
+    const item = batchItems.find(i => i.key === key);
+    if (item?.provider === 'github') {
+      const run = (result.data?.workflow_runs ?? [])[0];
+      map[key] = parseGitHubActivity(run);
+    } else if (item?.provider === 'gitlab') {
+      const pipeline = (Array.isArray(result.data) ? result.data : [])[0];
+      map[key] = parseGitLabActivity(pipeline);
+    } else {
+      map[key] = { text: NO_ACTIVITY };
+    }
+  }
+
+  return map;
+}
+
+function buildFallbackMap(
+  entities: Entity[],
+): Record<string, LatestActivityEntry> {
+  const map: Record<string, LatestActivityEntry> = {};
+  entities.forEach(e => {
+    map[e.metadata?.name ?? ''] = { text: NO_ACTIVITY };
+  });
+  return map;
+}
+
 export function useLatestCIActivity(entities: Entity[]): {
   lastActivityMap: Record<string, LatestActivityEntry>;
   loading: boolean;
@@ -98,40 +184,10 @@ export function useLatestCIActivity(entities: Entity[]): {
       const isCancelled = () =>
         cancelled || requestIdRef.current !== currentRequestId;
 
-      const batchItems: BatchItem[] = [];
-      for (const entity of entities) {
-        const name = entity.metadata?.name ?? '';
-        const gh = getGitHubOwnerRepo(entity);
-        const gl = getGitLabProjectPath(entity);
-
-        if (gh) {
-          const host = getRepoHost(entity) || 'github.com';
-          batchItems.push({
-            key: name,
-            provider: 'github',
-            owner: gh.owner,
-            repo: gh.repo,
-            host,
-            per_page: 1,
-          });
-        } else if (gl) {
-          const host = getRepoHost(entity) || 'gitlab.com';
-          batchItems.push({
-            key: name,
-            provider: 'gitlab',
-            projectPath: gl,
-            host,
-            per_page: 1,
-          });
-        }
-      }
+      const batchItems = buildBatchItems(entities);
 
       if (batchItems.length === 0) {
-        const map: Record<string, LatestActivityEntry> = {};
-        entities.forEach(e => {
-          map[e.metadata?.name ?? ''] = { text: NO_ACTIVITY };
-        });
-        setLastActivityMap(map);
+        setLastActivityMap(buildFallbackMap(entities));
         setLoading(false);
         return;
       }
@@ -154,53 +210,11 @@ export function useLatestCIActivity(entities: Entity[]): {
 
         if (isCancelled()) return;
 
-        const map: Record<string, LatestActivityEntry> = {};
+        let map: Record<string, LatestActivityEntry> = {};
 
         if (res?.ok) {
-          const body: {
-            results: Record<
-              string,
-              { status: number; data: any } | { error: string }
-            >;
-          } = await res.json();
-
-          for (const [key, result] of Object.entries(body.results)) {
-            if ('error' in result) {
-              map[key] = { text: NO_ACTIVITY };
-              continue;
-            }
-
-            const item = batchItems.find(i => i.key === key);
-            if (item?.provider === 'github') {
-              const runs = result.data?.workflow_runs ?? [];
-              const run = runs[0];
-              if (!run) {
-                map[key] = { text: NO_ACTIVITY };
-              } else {
-                const eventName = run.name ?? 'Workflow';
-                const runNum = run.run_number ?? run.id;
-                const timeAgo = formatTimeAgo(run.created_at ?? undefined);
-                map[key] = {
-                  text: `${eventName} #${runNum} • ${timeAgo}`,
-                  url: run.html_url ?? undefined,
-                };
-              }
-            } else if (item?.provider === 'gitlab') {
-              const pipelines = Array.isArray(result.data) ? result.data : [];
-              const pipeline = pipelines[0];
-              if (!pipeline) {
-                map[key] = { text: NO_ACTIVITY };
-              } else {
-                const timeAgo = formatTimeAgo(pipeline.created_at ?? undefined);
-                map[key] = {
-                  text: `Pipeline #${pipeline.id} • ${timeAgo}`,
-                  url: pipeline.web_url ?? undefined,
-                };
-              }
-            } else {
-              map[key] = { text: NO_ACTIVITY };
-            }
-          }
+          const body = await res.json();
+          map = buildActivityMap(batchItems, body.results);
         }
 
         entities.forEach(e => {
@@ -214,11 +228,7 @@ export function useLatestCIActivity(entities: Entity[]): {
         }
       } catch {
         if (!isCancelled()) {
-          const fallback: Record<string, LatestActivityEntry> = {};
-          entities.forEach(e => {
-            fallback[e.metadata?.name ?? ''] = { text: NO_ACTIVITY };
-          });
-          setLastActivityMap(fallback);
+          setLastActivityMap(buildFallbackMap(entities));
           setLoading(false);
         }
       }

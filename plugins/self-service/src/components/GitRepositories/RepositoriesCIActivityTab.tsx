@@ -78,6 +78,143 @@ const STATUS_LABELS: Record<CIActivityRow['status'], string> = {
   unknown: 'Unknown',
 };
 
+interface BatchItem {
+  key: string;
+  provider: string;
+  owner?: string;
+  repo?: string;
+  host?: string;
+  projectPath?: string;
+  per_page: number;
+}
+
+function buildCIBatchItems(
+  entities: Entity[],
+  perPage: number,
+): {
+  items: BatchItem[];
+  entityMap: Map<string, { entity: Entity; provider: string }>;
+} {
+  const items: BatchItem[] = [];
+  const entityMap = new Map<string, { entity: Entity; provider: string }>();
+
+  for (const entity of entities) {
+    const name = entity.metadata?.name ?? '';
+    const gh = getGitHubOwnerRepo(entity);
+    const gl = getGitLabProjectPath(entity);
+
+    if (gh) {
+      items.push({
+        key: name,
+        provider: 'github',
+        owner: gh.owner,
+        repo: gh.repo,
+        host: getRepoHost(entity) || 'github.com',
+        per_page: perPage,
+      });
+      entityMap.set(name, { entity, provider: 'github' });
+    } else if (gl) {
+      items.push({
+        key: name,
+        provider: 'gitlab',
+        projectPath: gl,
+        host: getRepoHost(entity) || 'gitlab.com',
+        per_page: perPage,
+      });
+      entityMap.set(name, { entity, provider: 'gitlab' });
+    }
+  }
+
+  return { items, entityMap };
+}
+
+function normalizeGitHubStatus(raw: string): CIActivityRow['status'] {
+  const valid: CIActivityRow['status'][] = [
+    'success',
+    'failure',
+    'cancelled',
+    'in_progress',
+    'queued',
+    'skipped',
+  ];
+  const s = raw.toLowerCase();
+  return valid.includes(s as CIActivityRow['status'])
+    ? (s as CIActivityRow['status'])
+    : 'unknown';
+}
+
+function parseGitHubRuns(
+  key: string,
+  data: any,
+  entity: Entity,
+): CIActivityRow[] {
+  const runs = data?.workflow_runs ?? [];
+  const repoUrl = getSourceUrl(entity);
+  const baseUrl = (repoUrl ?? '').replace(/\.git$/i, '');
+  const projectUrl = baseUrl ? `${baseUrl}/actions` : undefined;
+  const projectName = getProjectDisplayName(entity);
+
+  return runs.map((run: any) => ({
+    id: `gh-${key}-${run.id}`,
+    status: normalizeGitHubStatus(run.conclusion ?? run.status ?? 'unknown'),
+    project: projectName,
+    projectUrl,
+    event: run.name ?? 'Workflow',
+    eventDisplay: `${run.name ?? 'Workflow'} #${run.run_number ?? run.id}`,
+    trigger: (run.event ?? 'unknown').replaceAll('_', ' '),
+    time: run.created_at ?? '',
+    runUrl: run.html_url ?? undefined,
+  }));
+}
+
+function parseGitLabPipelines(
+  key: string,
+  data: any,
+  entity: Entity,
+): CIActivityRow[] {
+  const pipelines = Array.isArray(data) ? data : [];
+  const repoUrl = getSourceUrl(entity);
+  const baseUrl = (repoUrl ?? '').replace(/\.git$/i, '');
+  const projectUrl = baseUrl ? `${baseUrl}/-/pipelines` : undefined;
+  const projectName = getProjectDisplayName(entity);
+
+  return pipelines.map((pipeline: any) => ({
+    id: `gl-${key}-${pipeline.id}`,
+    status: normalizeGitLabStatus(pipeline.status),
+    project: projectName,
+    projectUrl,
+    event: 'Pipeline',
+    eventDisplay: `Pipeline #${pipeline.id}`,
+    trigger: (pipeline.source ?? 'unknown').replaceAll('_', ' '),
+    time: pipeline.created_at ?? '',
+    runUrl: pipeline.web_url ?? undefined,
+  }));
+}
+
+function buildRowsFromResults(
+  results: Record<string, { status: number; data: any } | { error: string }>,
+  entityMap: Map<string, { entity: Entity; provider: string }>,
+): CIActivityRow[] {
+  const allRows: CIActivityRow[] = [];
+
+  for (const [key, result] of Object.entries(results)) {
+    if ('error' in result) continue;
+    const entry = entityMap.get(key);
+    if (!entry) continue;
+
+    if (entry.provider === 'github') {
+      allRows.push(...parseGitHubRuns(key, result.data, entry.entity));
+    } else if (entry.provider === 'gitlab') {
+      allRows.push(...parseGitLabPipelines(key, result.data, entry.entity));
+    }
+  }
+
+  allRows.sort(
+    (a, b) => new Date(b.time).getTime() - new Date(a.time).getTime(),
+  );
+  return allRows.slice(0, 150);
+}
+
 export interface RepositoriesCIActivityTabProps {
   filterByEntity?: Entity | null;
 }
@@ -114,48 +251,7 @@ export const RepositoriesCIActivityTab = ({
         entities = Array.isArray(response) ? response : (response?.items ?? []);
       }
 
-      const runsPerRepo = 15;
-
-      const batchItems: Array<{
-        key: string;
-        provider: string;
-        owner?: string;
-        repo?: string;
-        host?: string;
-        projectPath?: string;
-        per_page: number;
-      }> = [];
-
-      const entityMap = new Map<string, { entity: Entity; provider: string }>();
-
-      for (const entity of entities) {
-        const name = entity.metadata?.name ?? '';
-        const gh = getGitHubOwnerRepo(entity);
-        const gl = getGitLabProjectPath(entity);
-
-        if (gh) {
-          const host = getRepoHost(entity) || 'github.com';
-          batchItems.push({
-            key: name,
-            provider: 'github',
-            owner: gh.owner,
-            repo: gh.repo,
-            host,
-            per_page: runsPerRepo,
-          });
-          entityMap.set(name, { entity, provider: 'github' });
-        } else if (gl) {
-          const host = getRepoHost(entity) || 'gitlab.com';
-          batchItems.push({
-            key: name,
-            provider: 'gitlab',
-            projectPath: gl,
-            host,
-            per_page: runsPerRepo,
-          });
-          entityMap.set(name, { entity, provider: 'gitlab' });
-        }
-      }
+      const { items: batchItems, entityMap } = buildCIBatchItems(entities, 15);
 
       if (batchItems.length === 0) {
         setRows([]);
@@ -177,86 +273,8 @@ export const RepositoriesCIActivityTab = ({
         throw new Error(`Batch CI activity request failed: ${res.status}`);
       }
 
-      const body: {
-        results: Record<
-          string,
-          { status: number; data: any } | { error: string }
-        >;
-      } = await res.json();
-
-      const allRows: CIActivityRow[] = [];
-
-      for (const [key, result] of Object.entries(body.results)) {
-        if ('error' in result) continue;
-
-        const entry = entityMap.get(key);
-        if (!entry) continue;
-
-        const { entity, provider } = entry;
-        const projectName = getProjectDisplayName(entity);
-        const repoUrl = getSourceUrl(entity);
-
-        if (provider === 'github') {
-          const runs = result.data?.workflow_runs ?? [];
-          const baseUrl = (repoUrl ?? '').replace(/\.git$/i, '');
-          const projectUrl = baseUrl ? `${baseUrl}/actions` : undefined;
-
-          for (const run of runs) {
-            const status = (
-              run.conclusion ??
-              run.status ??
-              'unknown'
-            ).toLowerCase();
-            const trigger = (run.event ?? 'unknown').replaceAll('_', ' ');
-            const eventName = run.name ?? 'Workflow';
-            const runNum = run.run_number ?? run.id;
-            allRows.push({
-              id: `gh-${key}-${run.id}`,
-              status: ([
-                'success',
-                'failure',
-                'cancelled',
-                'in_progress',
-                'queued',
-                'skipped',
-              ].includes(status)
-                ? status
-                : 'unknown') as CIActivityRow['status'],
-              project: projectName,
-              projectUrl,
-              event: eventName,
-              eventDisplay: `${eventName} #${runNum}`,
-              trigger,
-              time: run.created_at ?? '',
-              runUrl: run.html_url ?? undefined,
-            });
-          }
-        } else if (provider === 'gitlab') {
-          const pipelines = Array.isArray(result.data) ? result.data : [];
-          const baseUrl = (repoUrl ?? '').replace(/\.git$/i, '');
-          const projectUrl = baseUrl ? `${baseUrl}/-/pipelines` : undefined;
-
-          for (const pipeline of pipelines) {
-            const trigger = (pipeline.source ?? 'unknown').replaceAll('_', ' ');
-            allRows.push({
-              id: `gl-${key}-${pipeline.id}`,
-              status: normalizeGitLabStatus(pipeline.status),
-              project: projectName,
-              projectUrl,
-              event: 'Pipeline',
-              eventDisplay: `Pipeline #${pipeline.id}`,
-              trigger,
-              time: pipeline.created_at ?? '',
-              runUrl: pipeline.web_url ?? undefined,
-            });
-          }
-        }
-      }
-
-      allRows.sort(
-        (a, b) => new Date(b.time).getTime() - new Date(a.time).getTime(),
-      );
-      setRows(allRows.slice(0, 150));
+      const body = await res.json();
+      setRows(buildRowsFromResults(body.results, entityMap));
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Failed to load CI activity');
     } finally {

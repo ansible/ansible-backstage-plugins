@@ -873,40 +873,43 @@ export async function createRouter(options: {
         { status: number; data: any } | { error: string }
       > = {};
 
-      // Process items with concurrency limit
+      const processItem = async (
+        item: (typeof items)[number],
+      ): Promise<{ status: number; data: any } | { error: string }> => {
+        const prov = item.provider?.toLowerCase();
+        const perPage = Math.min(Number(item.per_page) || 15, 100);
+
+        if (prov === 'github') {
+          const result = await fetchGitHubCIActivityData(ciActivityDeps, {
+            owner: item.owner ?? '',
+            repo: item.repo ?? '',
+            host: item.host ?? 'github.com',
+            perPage,
+          });
+          return 'error' in result
+            ? { error: result.error }
+            : { status: result.status, data: result.data };
+        }
+        if (prov === 'gitlab') {
+          const result = await fetchGitLabCIActivityData(ciActivityDeps, {
+            projectPath: item.projectPath ?? '',
+            host: item.host ?? 'gitlab.com',
+            perPage,
+          });
+          return 'error' in result
+            ? { error: result.error }
+            : { status: result.status, data: result.data };
+        }
+        return { error: `Unknown provider: ${prov}` };
+      };
+
       let index = 0;
       const processNext = async (): Promise<void> => {
         while (index < items.length) {
           const currentIndex = index++;
           const item = items[currentIndex];
-          const prov = item.provider?.toLowerCase();
-          const perPage = Math.min(Number(item.per_page) || 15, 100);
-
           try {
-            if (prov === 'github') {
-              const result = await fetchGitHubCIActivityData(ciActivityDeps, {
-                owner: item.owner ?? '',
-                repo: item.repo ?? '',
-                host: item.host ?? 'github.com',
-                perPage,
-              });
-              results[item.key] =
-                'error' in result
-                  ? { error: result.error }
-                  : { status: result.status, data: result.data };
-            } else if (prov === 'gitlab') {
-              const result = await fetchGitLabCIActivityData(ciActivityDeps, {
-                projectPath: item.projectPath ?? '',
-                host: item.host ?? 'gitlab.com',
-                perPage,
-              });
-              results[item.key] =
-                'error' in result
-                  ? { error: result.error }
-                  : { status: result.status, data: result.data };
-            } else {
-              results[item.key] = { error: `Unknown provider: ${prov}` };
-            }
+            results[item.key] = await processItem(item);
           } catch (err) {
             results[item.key] = {
               error:

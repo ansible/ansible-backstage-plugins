@@ -31,14 +31,16 @@ import {
 
 import { AnsibleGitContentsProvider } from './providers/AnsibleGitContentsProvider';
 
-export function getGitLabIntegrationForHost(
+function getIntegrationForHost(
   config: Config,
+  provider: 'github' | 'gitlab',
   host: string,
 ): { token?: string; apiBaseUrl?: string } {
-  const arr = config.getOptionalConfigArray('integrations.gitlab');
+  const defaultHost = provider === 'github' ? 'github.com' : 'gitlab.com';
+  const arr = config.getOptionalConfigArray(`integrations.${provider}`);
   if (!arr?.length) return {};
   for (const c of arr) {
-    const h = c.getOptionalString('host') ?? 'gitlab.com';
+    const h = c.getOptionalString('host') ?? defaultHost;
     if (h !== host) continue;
     const token = c.getOptionalString('token');
     const apiBaseUrl = c.getOptionalString('apiBaseUrl')?.replace(/\/$/, '');
@@ -47,20 +49,18 @@ export function getGitLabIntegrationForHost(
   return {};
 }
 
+export function getGitLabIntegrationForHost(
+  config: Config,
+  host: string,
+): { token?: string; apiBaseUrl?: string } {
+  return getIntegrationForHost(config, 'gitlab', host);
+}
+
 export function getGitHubIntegrationForHost(
   config: Config,
   host: string,
 ): { token?: string; apiBaseUrl?: string } {
-  const arr = config.getOptionalConfigArray('integrations.github');
-  if (!arr?.length) return {};
-  for (const c of arr) {
-    const h = c.getOptionalString('host') ?? 'github.com';
-    if (h !== host) continue;
-    const token = c.getOptionalString('token');
-    const apiBaseUrl = c.getOptionalString('apiBaseUrl')?.replace(/\/$/, '');
-    return { token, apiBaseUrl };
-  }
-  return {};
+  return getIntegrationForHost(config, 'github', host);
 }
 
 export function isGitHubHostAllowedForProxy(
