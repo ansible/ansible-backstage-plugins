@@ -977,6 +977,10 @@ describe('self-service', () => {
   });
 
   describe('controller warning alert', () => {
+    afterEach(() => {
+      jest.useRealTimers();
+    });
+
     it('should show error Alert when autocomplete fails', async () => {
       const entityRefs = ['component:default/e1'];
       const tags = ['tag1'];
@@ -1045,8 +1049,6 @@ describe('self-service', () => {
       jest.advanceTimersByTime(1000);
 
       expect(screen.queryByText('Templates refreshed')).toBeNull();
-
-      jest.useRealTimers();
     });
 
     it('should show "Templates refreshed" snackbar after successful fetch', async () => {
@@ -1069,8 +1071,6 @@ describe('self-service', () => {
       await waitFor(() => {
         expect(screen.getByText('Templates refreshed')).toBeInTheDocument();
       });
-
-      jest.useRealTimers();
     });
 
     it('should not show "Templates refreshed" after dismissing error before timer fires', async () => {
@@ -1121,8 +1121,6 @@ describe('self-service', () => {
       jest.advanceTimersByTime(1000);
 
       expect(screen.queryByText('Templates refreshed')).toBeNull();
-
-      jest.useRealTimers();
     });
 
     it('should close error Alert when close button is clicked', async () => {
