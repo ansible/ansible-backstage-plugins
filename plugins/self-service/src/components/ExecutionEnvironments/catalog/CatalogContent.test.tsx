@@ -267,13 +267,26 @@ const renderWithCatalogApi = (
       },
     });
 
+  const getEntityByRefFn = getEntityByRefImpl || defaultGetEntityByRef;
   const mockCatalogApi = {
     getEntities: getEntitiesImpl,
-    getEntityByRef: getEntityByRefImpl || defaultGetEntityByRef,
+    getEntityByRef: getEntityByRefFn,
+    getEntitiesByRefs: async ({ entityRefs }: { entityRefs: string[] }) => {
+      const items = await Promise.all(
+        entityRefs.map(async (ref: string) => {
+          try {
+            return await getEntityByRefFn(ref);
+          } catch {
+            return undefined;
+          }
+        }),
+      );
+      return { items };
+    },
     queryEntities: async (...args: unknown[]) => {
       const result = await getEntitiesImpl(...args);
       const items = Array.isArray(result) ? result : (result?.items ?? []);
-      return { items, totalItems: items.length };
+      return { items, totalItems: items.length, pageInfo: {} };
     },
   };
   return render(
@@ -1784,7 +1797,12 @@ describe('EEListPage', () => {
               [configApiRef, mockConfigApi],
               [
                 catalogApiRef,
-                { getEntities: () => Promise.resolve({ items: [] }) },
+                {
+                  getEntities: () => Promise.resolve({ items: [] }),
+                  queryEntities: () =>
+                    Promise.resolve({ items: [], totalItems: 0, pageInfo: {} }),
+                  getEntitiesByRefs: () => Promise.resolve({ items: [] }),
+                },
               ],
               [scmAuthApiRef, mockScmAuthApi],
               [eeBuildApiRef, mockEeBuildApi],
@@ -1898,7 +1916,12 @@ describe('EEListPage', () => {
               [configApiRef, mockConfigApi],
               [
                 catalogApiRef,
-                { getEntities: () => Promise.resolve({ items: [] }) },
+                {
+                  getEntities: () => Promise.resolve({ items: [] }),
+                  queryEntities: () =>
+                    Promise.resolve({ items: [], totalItems: 0, pageInfo: {} }),
+                  getEntitiesByRefs: () => Promise.resolve({ items: [] }),
+                },
               ],
               [scmAuthApiRef, mockScmAuthApi],
               [eeBuildApiRef, mockEeBuildApi],
