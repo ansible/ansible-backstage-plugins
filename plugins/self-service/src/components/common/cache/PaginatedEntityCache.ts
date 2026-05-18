@@ -136,7 +136,9 @@ export class PaginatedEntityCache<
       if (epoch !== this.fetchEpoch) return;
 
       const errorMessage =
-        err instanceof Error ? err.message : 'Failed to fetch entities';
+        err instanceof Error && err.message
+          ? err.message
+          : 'Failed to fetch entities';
 
       const filters = this.config.extractFilters([]);
       this.state = this.config.buildState(

@@ -1061,6 +1061,10 @@ function setCachedCIActivity(
   ciActivityCache.set(key, { data, status, timestamp: Date.now() });
 }
 
+export function clearCIActivityCache(): void {
+  ciActivityCache.clear();
+}
+
 export interface CIActivityResult {
   status: number;
   data: JsonValue;
