@@ -57,7 +57,7 @@ function parseGitHubActivity(
 ): LatestActivityEntry {
   if (!run) return { text: NO_ACTIVITY };
   const eventName = typeof run.name === 'string' ? run.name : 'Workflow';
-  const runNum = run.run_number ?? run.id;
+  const runNum = String(run.run_number ?? run.id ?? '');
   const timeAgo = formatTimeAgo(
     typeof run.created_at === 'string' ? run.created_at : undefined,
   );
@@ -75,7 +75,7 @@ function parseGitLabActivity(
     typeof pipeline.created_at === 'string' ? pipeline.created_at : undefined,
   );
   return {
-    text: `Pipeline #${pipeline.id} • ${timeAgo}`,
+    text: `Pipeline #${String(pipeline.id ?? '')} • ${timeAgo}`,
     url: typeof pipeline.web_url === 'string' ? pipeline.web_url : undefined,
   };
 }
