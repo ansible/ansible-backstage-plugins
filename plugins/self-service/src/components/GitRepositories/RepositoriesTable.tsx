@@ -1,6 +1,7 @@
 import { useEffect, useState, useMemo } from 'react';
 import {
   Box,
+  CircularProgress,
   IconButton,
   Link,
   Menu,
@@ -109,6 +110,7 @@ const RepositoriesTableInner = ({
     loadedEntityCount,
     totalCount,
     initialLoading,
+    loadingMore,
     error,
     currentPage,
     totalPages,
@@ -442,7 +444,17 @@ const RepositoriesTableInner = ({
         <CatalogFilterLayout.Content>
           <Box className={tableWrapperClasses.tableWrapper}>
             <Table
-              title={`Git Repositories (${totalCount})`}
+              title={
+                <>
+                  {`Git Repositories (${totalCount})`}
+                  {loadingMore && (
+                    <CircularProgress
+                      size={16}
+                      style={{ marginLeft: 8, verticalAlign: 'middle' }}
+                    />
+                  )}
+                </>
+              }
               options={{
                 search: true,
                 paging: false,

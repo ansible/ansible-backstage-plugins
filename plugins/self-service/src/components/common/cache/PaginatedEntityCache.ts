@@ -22,9 +22,7 @@ export class PaginatedEntityCache<
   }
 
   private expireData(): void {
-    this.fetchEpoch++;
-    this.state = null;
-    this.loadingPromise = null;
+    this.markStale();
   }
 
   getState(): TState | null {
@@ -72,12 +70,16 @@ export class PaginatedEntityCache<
   }
 
   invalidateFetchedData(): void {
-    this.fetchEpoch++;
-    this.state = null;
-    this.loadingPromise = null;
+    this.markStale();
     if (this.catalogApi) {
       void this.startLoading(this.catalogApi);
     }
+  }
+
+  markStale(): void {
+    this.fetchEpoch++;
+    this.state = null;
+    this.loadingPromise = null;
   }
 
   async startLoading(catalogApi: CatalogApi): Promise<void> {
@@ -232,7 +234,7 @@ export class PaginatedEntityCache<
     this.state = this.config.buildState(
       {
         ...this.state,
-        entities: allItems,
+        entities: [...allItems],
         loadedOffset: offset,
         isFullyLoaded: offset >= total,
         lastUpdated: Date.now(),

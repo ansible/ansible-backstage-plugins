@@ -16,6 +16,7 @@ const NO_ACTIVITY = 'N/A';
 const MAX_RETRIES = 2;
 const INITIAL_RETRY_DELAY_MS = 300;
 const RETRYABLE_STATUS_CODES = new Set([502, 503, 504]);
+const BATCH_CHUNK_SIZE = 100;
 
 export type LatestActivityEntry = { text: string; url?: string };
 
@@ -207,25 +208,30 @@ export function useLatestCIActivity(entities: Entity[]): {
         const catalogBase = await discoveryApi.getBaseUrl('catalog');
         const batchUrl = `${catalogBase}/ansible/git/ci-activity`;
 
-        const res = await fetchWithRetry(
-          fetchApi.fetch,
-          batchUrl,
-          {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            credentials: 'include',
-            body: JSON.stringify({ items: batchItems }),
-          },
-          isCancelled,
-        );
+        const map: Record<string, LatestActivityEntry> = {};
 
-        if (isCancelled()) return;
+        for (let i = 0; i < batchItems.length; i += BATCH_CHUNK_SIZE) {
+          if (isCancelled()) return;
 
-        let map: Record<string, LatestActivityEntry> = {};
+          const chunk = batchItems.slice(i, i + BATCH_CHUNK_SIZE);
+          const res = await fetchWithRetry(
+            fetchApi.fetch,
+            batchUrl,
+            {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              credentials: 'include',
+              body: JSON.stringify({ items: chunk }),
+            },
+            isCancelled,
+          );
 
-        if (res?.ok) {
-          const body = await res.json();
-          map = buildActivityMap(batchItems, body.results);
+          if (isCancelled()) return;
+
+          if (res?.ok) {
+            const body = await res.json();
+            Object.assign(map, buildActivityMap(chunk, body.results));
+          }
         }
 
         entities.forEach(e => {

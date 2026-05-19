@@ -261,20 +261,30 @@ export const RepositoriesCIActivityTab = ({
 
       const catalogBase = await discoveryApi.getBaseUrl('catalog');
       const batchUrl = `${catalogBase}/ansible/git/ci-activity`;
+      const CHUNK_SIZE = 100;
+      const allResults: Record<
+        string,
+        { status: number; data: unknown } | { error: string }
+      > = {};
 
-      const res = await fetchApi.fetch(batchUrl, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
-        body: JSON.stringify({ items: batchItems }),
-      });
+      for (let i = 0; i < batchItems.length; i += CHUNK_SIZE) {
+        const chunk = batchItems.slice(i, i + CHUNK_SIZE);
+        const res = await fetchApi.fetch(batchUrl, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'include',
+          body: JSON.stringify({ items: chunk }),
+        });
 
-      if (!res.ok) {
-        throw new Error(`Batch CI activity request failed: ${res.status}`);
+        if (!res.ok) {
+          throw new Error(`Batch CI activity request failed: ${res.status}`);
+        }
+
+        const body = await res.json();
+        Object.assign(allResults, body.results);
       }
 
-      const body = await res.json();
-      setRows(buildRowsFromResults(body.results, entityMap));
+      setRows(buildRowsFromResults(allResults, entityMap));
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Failed to load CI activity');
     } finally {

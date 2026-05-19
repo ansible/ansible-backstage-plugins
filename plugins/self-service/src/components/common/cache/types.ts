@@ -32,6 +32,7 @@ export interface CachePublicApi<TState extends BaseCacheState> {
   isLoading(): boolean;
   subscribe(listener: CacheUpdateListener<TState>): () => void;
   invalidateFetchedData(): void;
+  markStale(): void;
   startLoading(catalogApi: CatalogApi): Promise<void>;
   clear(): void;
 }
