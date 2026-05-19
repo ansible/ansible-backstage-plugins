@@ -3,6 +3,7 @@ import { Box, Link, Paper, Typography } from '@material-ui/core';
 import { useTheme } from '@material-ui/core/styles';
 import Autocomplete from '@material-ui/lab/Autocomplete';
 import TextField from '@material-ui/core/TextField';
+import CircularProgress from '@material-ui/core/CircularProgress';
 import CheckCircleOutline from '@material-ui/icons/CheckCircleOutline';
 import CancelOutlined from '@material-ui/icons/CancelOutlined';
 import NotInterestedOutlined from '@material-ui/icons/NotInterestedOutlined';
@@ -230,6 +231,7 @@ export const RepositoriesCIActivityTab = ({
   const fetchApi = useApi(fetchApiRef);
 
   const [loading, setLoading] = useState(true);
+  const [fetchingMore, setFetchingMore] = useState(false);
   const [rows, setRows] = useState<CIActivityRow[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [statusFilter, setStatusFilter] = useState<string>('All');
@@ -237,6 +239,7 @@ export const RepositoriesCIActivityTab = ({
 
   const fetchActivity = useCallback(async () => {
     setLoading(true);
+    setFetchingMore(false);
     setError(null);
     setRows([]);
 
@@ -292,13 +295,18 @@ export const RepositoriesCIActivityTab = ({
         const batch = chunks.slice(i, i + PARALLEL_LIMIT);
         const results = await Promise.all(batch.map(fetchChunk));
         results.forEach(body => Object.assign(allResults, body.results));
+        setRows(buildRowsFromResults(allResults, entityMap));
+        if (i === 0) {
+          setLoading(false);
+          if (i + PARALLEL_LIMIT < chunks.length) setFetchingMore(true);
+        }
       }
-
-      setRows(buildRowsFromResults(allResults, entityMap));
+      setFetchingMore(false);
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Failed to load CI activity');
     } finally {
       setLoading(false);
+      setFetchingMore(false);
     }
   }, [catalogApi, discoveryApi, fetchApi, filterByEntity]);
 
@@ -357,7 +365,7 @@ export const RepositoriesCIActivityTab = ({
     );
   }
 
-  if (rows.length === 0) {
+  if (rows.length === 0 && !fetchingMore) {
     return (
       <Box className={classes.emptyStateContainer}>
         <Box className={classes.emptyState}>
@@ -583,7 +591,17 @@ export const RepositoriesCIActivityTab = ({
         <CatalogFilterLayout.Content>
           <Box className={tableWrapperClasses.tableWrapper}>
             <Table
-              title={`CI Activity (${filteredRows.length})`}
+              title={
+                <>
+                  {`CI Activity (${filteredRows.length})`}
+                  {fetchingMore && (
+                    <CircularProgress
+                      size={16}
+                      style={{ marginLeft: 8, verticalAlign: 'middle' }}
+                    />
+                  )}
+                </>
+              }
               options={{
                 search: true,
                 paging: true,
