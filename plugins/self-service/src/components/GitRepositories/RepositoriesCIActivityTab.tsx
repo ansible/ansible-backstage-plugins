@@ -218,10 +218,12 @@ function buildRowsFromResults(
 
 export interface RepositoriesCIActivityTabProps {
   filterByEntity?: Entity | null;
+  cachedEntities?: Entity[];
 }
 
 export const RepositoriesCIActivityTab = ({
   filterByEntity,
+  cachedEntities,
 }: RepositoriesCIActivityTabProps = {}) => {
   const theme = useTheme();
   const classes = useCollectionsStyles();
@@ -247,6 +249,8 @@ export const RepositoriesCIActivityTab = ({
       let entities: Entity[];
       if (filterByEntity) {
         entities = [filterByEntity];
+      } else if (cachedEntities && cachedEntities.length > 0) {
+        entities = cachedEntities;
       } else {
         const response = await catalogApi.getEntities({
           filter: [{ kind: 'Component', 'spec.type': 'git-repository' }],
@@ -291,15 +295,14 @@ export const RepositoriesCIActivityTab = ({
         return res.json();
       };
 
+      setLoading(false);
+      setFetchingMore(true);
+
       for (let i = 0; i < chunks.length; i += PARALLEL_LIMIT) {
         const batch = chunks.slice(i, i + PARALLEL_LIMIT);
         const results = await Promise.all(batch.map(fetchChunk));
         results.forEach(body => Object.assign(allResults, body.results));
         setRows(buildRowsFromResults(allResults, entityMap));
-        if (i === 0) {
-          setLoading(false);
-          if (i + PARALLEL_LIMIT < chunks.length) setFetchingMore(true);
-        }
       }
       setFetchingMore(false);
     } catch (e) {
@@ -308,7 +311,7 @@ export const RepositoriesCIActivityTab = ({
       setLoading(false);
       setFetchingMore(false);
     }
-  }, [catalogApi, discoveryApi, fetchApi, filterByEntity]);
+  }, [catalogApi, discoveryApi, fetchApi, filterByEntity, cachedEntities]);
 
   useEffect(() => {
     fetchActivity();
