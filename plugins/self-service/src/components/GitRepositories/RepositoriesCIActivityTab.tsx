@@ -20,19 +20,16 @@ import {
   catalogApiRef,
   CatalogFilterLayout,
 } from '@backstage/plugin-catalog-react';
-import { Entity, stringifyEntityRef } from '@backstage/catalog-model';
+import { Entity } from '@backstage/catalog-model';
 import { Progress, Table, TableColumn } from '@backstage/core-components';
 import {
   useCollectionsStyles,
   useTableWrapperStyles,
 } from '../CollectionsCatalog/styles';
 import { formatTimeAgo, getSourceUrl } from '../CollectionsCatalog/utils';
-import {
-  getGitHubOwnerRepo,
-  getGitLabProjectPath,
-  getProjectDisplayName,
-  getRepoHost,
-} from './scmUtils';
+import { getProjectDisplayName } from './scmUtils';
+import { BatchItem, buildBatchItems } from './ciBatchUtils';
+import { CI_BATCH_CHUNK_SIZE, CI_PARALLEL_LIMIT } from './constants';
 
 export type CIActivityRow = {
   id: string;
@@ -79,56 +76,6 @@ const STATUS_LABELS: Record<CIActivityRow['status'], string> = {
   unknown: 'Unknown',
 };
 
-interface BatchItem {
-  key: string;
-  provider: string;
-  owner?: string;
-  repo?: string;
-  host?: string;
-  projectPath?: string;
-  per_page: number;
-}
-
-function buildCIBatchItems(
-  entities: Entity[],
-  perPage: number,
-): {
-  items: BatchItem[];
-  entityMap: Map<string, { entity: Entity; provider: string }>;
-} {
-  const items: BatchItem[] = [];
-  const entityMap = new Map<string, { entity: Entity; provider: string }>();
-
-  for (const entity of entities) {
-    const ref = stringifyEntityRef(entity);
-    const gh = getGitHubOwnerRepo(entity);
-    const gl = getGitLabProjectPath(entity);
-
-    if (gh) {
-      items.push({
-        key: ref,
-        provider: 'github',
-        owner: gh.owner,
-        repo: gh.repo,
-        host: getRepoHost(entity) || 'github.com',
-        per_page: perPage,
-      });
-      entityMap.set(ref, { entity, provider: 'github' });
-    } else if (gl) {
-      items.push({
-        key: ref,
-        provider: 'gitlab',
-        projectPath: gl,
-        host: getRepoHost(entity) || 'gitlab.com',
-        per_page: perPage,
-      });
-      entityMap.set(ref, { entity, provider: 'gitlab' });
-    }
-  }
-
-  return { items, entityMap };
-}
-
 function normalizeGitHubStatus(raw: string): CIActivityRow['status'] {
   const valid: CIActivityRow['status'][] = [
     'success',
@@ -146,54 +93,75 @@ function normalizeGitHubStatus(raw: string): CIActivityRow['status'] {
 
 function parseGitHubRuns(
   key: string,
-  data: any,
+  data: unknown,
   entity: Entity,
 ): CIActivityRow[] {
-  const runs = data?.workflow_runs ?? [];
+  const ghData = data as Record<string, unknown> | undefined;
+  const runs = (
+    Array.isArray(ghData?.workflow_runs) ? ghData.workflow_runs : []
+  ) as Record<string, unknown>[];
   const repoUrl = getSourceUrl(entity);
   const baseUrl = (repoUrl ?? '').replace(/\.git$/i, '');
   const projectUrl = baseUrl ? `${baseUrl}/actions` : undefined;
   const projectName = getProjectDisplayName(entity);
 
-  return runs.map((run: any) => ({
-    id: `gh-${key}-${run.id}`,
-    status: normalizeGitHubStatus(run.conclusion ?? run.status ?? 'unknown'),
-    project: projectName,
-    projectUrl,
-    event: run.name ?? 'Workflow',
-    eventDisplay: `${run.name ?? 'Workflow'} #${run.run_number ?? run.id}`,
-    trigger: (run.event ?? 'unknown').replaceAll('_', ' '),
-    time: run.created_at ?? '',
-    runUrl: run.html_url ?? undefined,
-  }));
+  return runs.map((r: Record<string, unknown>) => {
+    const run = r as Record<string, string | number | undefined>;
+    return {
+      id: `gh-${key}-${run.id}`,
+      status: normalizeGitHubStatus(
+        String(run.conclusion ?? run.status ?? 'unknown'),
+      ),
+      project: projectName,
+      projectUrl,
+      event: String(run.name ?? 'Workflow'),
+      eventDisplay: `${run.name ?? 'Workflow'} #${run.run_number ?? run.id}`,
+      trigger: String(run.event ?? 'unknown').replaceAll('_', ' '),
+      time: String(run.created_at ?? ''),
+      runUrl: run.html_url ? String(run.html_url) : undefined,
+    };
+  });
 }
 
 function parseGitLabPipelines(
   key: string,
-  data: any,
+  data: unknown,
   entity: Entity,
 ): CIActivityRow[] {
-  const pipelines = Array.isArray(data) ? data : [];
+  const pipelines = (Array.isArray(data) ? data : []) as Record<
+    string,
+    unknown
+  >[];
   const repoUrl = getSourceUrl(entity);
   const baseUrl = (repoUrl ?? '').replace(/\.git$/i, '');
   const projectUrl = baseUrl ? `${baseUrl}/-/pipelines` : undefined;
   const projectName = getProjectDisplayName(entity);
 
-  return pipelines.map((pipeline: any) => ({
-    id: `gl-${key}-${pipeline.id}`,
-    status: normalizeGitLabStatus(pipeline.status),
-    project: projectName,
-    projectUrl,
-    event: 'Pipeline',
-    eventDisplay: `Pipeline #${pipeline.id}`,
-    trigger: (pipeline.source ?? 'unknown').replaceAll('_', ' '),
-    time: pipeline.created_at ?? '',
-    runUrl: pipeline.web_url ?? undefined,
-  }));
+  return pipelines.map((p: Record<string, unknown>) => {
+    const pipeline = p as Record<string, string | number | undefined>;
+    return {
+      id: `gl-${key}-${pipeline.id}`,
+      status: normalizeGitLabStatus(
+        pipeline.status !== null && pipeline.status !== undefined
+          ? String(pipeline.status)
+          : undefined,
+      ),
+      project: projectName,
+      projectUrl,
+      event: 'Pipeline',
+      eventDisplay: `Pipeline #${pipeline.id}`,
+      trigger: String(pipeline.source ?? 'unknown').replaceAll('_', ' '),
+      time: String(pipeline.created_at ?? ''),
+      runUrl: pipeline.web_url ? String(pipeline.web_url) : undefined,
+    };
+  });
 }
 
 function buildRowsFromResults(
-  results: Record<string, { status: number; data: any } | { error: string }>,
+  results: Record<
+    string,
+    { status: number; data: unknown } | { error: string }
+  >,
   entityMap: Map<string, { entity: Entity; provider: string }>,
 ): CIActivityRow[] {
   const allRows: CIActivityRow[] = [];
@@ -258,7 +226,7 @@ export const RepositoriesCIActivityTab = ({
         entities = Array.isArray(response) ? response : (response?.items ?? []);
       }
 
-      const { items: batchItems, entityMap } = buildCIBatchItems(entities, 15);
+      const { items: batchItems, entityMap } = buildBatchItems(entities, 15);
 
       if (batchItems.length === 0) {
         setRows([]);
@@ -268,16 +236,14 @@ export const RepositoriesCIActivityTab = ({
 
       const catalogBase = await discoveryApi.getBaseUrl('catalog');
       const batchUrl = `${catalogBase}/ansible/git/ci-activity`;
-      const CHUNK_SIZE = 100;
-      const PARALLEL_LIMIT = 5;
       const allResults: Record<
         string,
         { status: number; data: unknown } | { error: string }
       > = {};
 
       const chunks: BatchItem[][] = [];
-      for (let i = 0; i < batchItems.length; i += CHUNK_SIZE) {
-        chunks.push(batchItems.slice(i, i + CHUNK_SIZE));
+      for (let i = 0; i < batchItems.length; i += CI_BATCH_CHUNK_SIZE) {
+        chunks.push(batchItems.slice(i, i + CI_BATCH_CHUNK_SIZE));
       }
 
       const fetchChunk = async (chunk: BatchItem[]) => {
@@ -298,8 +264,8 @@ export const RepositoriesCIActivityTab = ({
       setLoading(false);
       setFetchingMore(true);
 
-      for (let i = 0; i < chunks.length; i += PARALLEL_LIMIT) {
-        const batch = chunks.slice(i, i + PARALLEL_LIMIT);
+      for (let i = 0; i < chunks.length; i += CI_PARALLEL_LIMIT) {
+        const batch = chunks.slice(i, i + CI_PARALLEL_LIMIT);
         const results = await Promise.all(batch.map(fetchChunk));
         results.forEach(body => Object.assign(allResults, body.results));
         setRows(buildRowsFromResults(allResults, entityMap));

@@ -6,17 +6,13 @@ import {
   fetchApiRef,
 } from '@backstage/core-plugin-api';
 import { formatTimeAgo } from '../CollectionsCatalog/utils';
-import {
-  getGitHubOwnerRepo,
-  getGitLabProjectPath,
-  getRepoHost,
-} from './scmUtils';
+import { BatchItem, buildBatchItems } from './ciBatchUtils';
+import { CI_BATCH_CHUNK_SIZE, CI_PARALLEL_LIMIT } from './constants';
 
 const NO_ACTIVITY = 'N/A';
 const MAX_RETRIES = 2;
 const INITIAL_RETRY_DELAY_MS = 300;
 const RETRYABLE_STATUS_CODES = new Set([502, 503, 504]);
-const BATCH_CHUNK_SIZE = 100;
 
 export type LatestActivityEntry = { text: string; url?: string };
 
@@ -56,62 +52,31 @@ async function fetchWithRetry(
   return null;
 }
 
-interface BatchItem {
-  key: string;
-  provider: string;
-  owner?: string;
-  repo?: string;
-  host?: string;
-  projectPath?: string;
-  per_page?: number;
-}
-
-function buildBatchItems(entities: Entity[]): BatchItem[] {
-  const items: BatchItem[] = [];
-  for (const entity of entities) {
-    const ref = stringifyEntityRef(entity);
-    const gh = getGitHubOwnerRepo(entity);
-    const gl = getGitLabProjectPath(entity);
-
-    if (gh) {
-      items.push({
-        key: ref,
-        provider: 'github',
-        owner: gh.owner,
-        repo: gh.repo,
-        host: getRepoHost(entity) || 'github.com',
-        per_page: 1,
-      });
-    } else if (gl) {
-      items.push({
-        key: ref,
-        provider: 'gitlab',
-        projectPath: gl,
-        host: getRepoHost(entity) || 'gitlab.com',
-        per_page: 1,
-      });
-    }
-  }
-  return items;
-}
-
-function parseGitHubActivity(run: any): LatestActivityEntry {
+function parseGitHubActivity(
+  run: Record<string, unknown> | undefined,
+): LatestActivityEntry {
   if (!run) return { text: NO_ACTIVITY };
-  const eventName = run.name ?? 'Workflow';
+  const eventName = typeof run.name === 'string' ? run.name : 'Workflow';
   const runNum = run.run_number ?? run.id;
-  const timeAgo = formatTimeAgo(run.created_at ?? undefined);
+  const timeAgo = formatTimeAgo(
+    typeof run.created_at === 'string' ? run.created_at : undefined,
+  );
   return {
     text: `${eventName} #${runNum} • ${timeAgo}`,
-    url: run.html_url ?? undefined,
+    url: typeof run.html_url === 'string' ? run.html_url : undefined,
   };
 }
 
-function parseGitLabActivity(pipeline: any): LatestActivityEntry {
+function parseGitLabActivity(
+  pipeline: Record<string, unknown> | undefined,
+): LatestActivityEntry {
   if (!pipeline) return { text: NO_ACTIVITY };
-  const timeAgo = formatTimeAgo(pipeline.created_at ?? undefined);
+  const timeAgo = formatTimeAgo(
+    typeof pipeline.created_at === 'string' ? pipeline.created_at : undefined,
+  );
   return {
     text: `Pipeline #${pipeline.id} • ${timeAgo}`,
-    url: pipeline.web_url ?? undefined,
+    url: typeof pipeline.web_url === 'string' ? pipeline.web_url : undefined,
   };
 }
 
@@ -169,12 +134,11 @@ async function fetchAllChunks(
   batchUrl: string,
   isCancelled: () => boolean,
 ): Promise<Record<string, LatestActivityEntry> | null> {
-  const PARALLEL_LIMIT = 5;
   const map: Record<string, LatestActivityEntry> = {};
 
   const chunks: BatchItem[][] = [];
-  for (let i = 0; i < batchItems.length; i += BATCH_CHUNK_SIZE) {
-    chunks.push(batchItems.slice(i, i + BATCH_CHUNK_SIZE));
+  for (let i = 0; i < batchItems.length; i += CI_BATCH_CHUNK_SIZE) {
+    chunks.push(batchItems.slice(i, i + CI_BATCH_CHUNK_SIZE));
   }
 
   const fetchChunk = async (chunk: BatchItem[]) => {
@@ -196,9 +160,9 @@ async function fetchAllChunks(
     return null;
   };
 
-  for (let i = 0; i < chunks.length; i += PARALLEL_LIMIT) {
+  for (let i = 0; i < chunks.length; i += CI_PARALLEL_LIMIT) {
     if (isCancelled()) return null;
-    const batch = chunks.slice(i, i + PARALLEL_LIMIT);
+    const batch = chunks.slice(i, i + CI_PARALLEL_LIMIT);
     const results = await Promise.all(batch.map(fetchChunk));
     if (isCancelled()) return null;
     for (const result of results) {
@@ -244,7 +208,7 @@ export function useLatestCIActivity(entities: Entity[]): {
       const isCancelled = () =>
         cancelled || requestIdRef.current !== currentRequestId;
 
-      const batchItems = buildBatchItems(entities);
+      const { items: batchItems } = buildBatchItems(entities, 1);
 
       if (batchItems.length === 0) {
         setLastActivityMap(buildFallbackMap(entities));
