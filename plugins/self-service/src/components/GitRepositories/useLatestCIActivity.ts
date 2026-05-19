@@ -116,9 +116,13 @@ function parseGitLabActivity(pipeline: any): LatestActivityEntry {
 
 function buildActivityMap(
   batchItems: BatchItem[],
-  results: Record<string, { status: number; data: any } | { error: string }>,
+  results: Record<
+    string,
+    { status: number; data: unknown } | { error: string }
+  >,
 ): Record<string, LatestActivityEntry> {
   const map: Record<string, LatestActivityEntry> = {};
+  const itemsByKey = new Map(batchItems.map(i => [i.key, i]));
 
   for (const [key, result] of Object.entries(results)) {
     if ('error' in result) {
@@ -126,12 +130,19 @@ function buildActivityMap(
       continue;
     }
 
-    const item = batchItems.find(i => i.key === key);
+    const item = itemsByKey.get(key);
     if (item?.provider === 'github') {
-      const run = (result.data?.workflow_runs ?? [])[0];
+      const ghData = result.data as Record<string, unknown> | undefined;
+      const run = (
+        (Array.isArray(ghData?.workflow_runs)
+          ? ghData.workflow_runs
+          : []) as Record<string, unknown>[]
+      )[0];
       map[key] = parseGitHubActivity(run);
     } else if (item?.provider === 'gitlab') {
-      const pipeline = (Array.isArray(result.data) ? result.data : [])[0];
+      const pipeline = (Array.isArray(result.data) ? result.data : [])[0] as
+        | Record<string, unknown>
+        | undefined;
       map[key] = parseGitLabActivity(pipeline);
     } else {
       map[key] = { text: NO_ACTIVITY };

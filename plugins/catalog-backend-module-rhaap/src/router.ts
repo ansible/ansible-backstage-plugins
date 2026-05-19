@@ -875,6 +875,8 @@ export async function createRouter(options: {
         seenKeys.add(item.key);
       }
 
+      logger.info(`[ci-activity] Batch request: ${items.length} items`);
+
       const ciActivityDeps = {
         config,
         logger,
@@ -885,12 +887,12 @@ export async function createRouter(options: {
       const CONCURRENCY_LIMIT = 5;
       const results: Record<
         string,
-        { status: number; data: any } | { error: string }
+        { status: number; data: unknown } | { error: string }
       > = {};
 
       const processItem = async (
         item: (typeof items)[number],
-      ): Promise<{ status: number; data: any } | { error: string }> => {
+      ): Promise<{ status: number; data: unknown } | { error: string }> => {
         const prov = item.provider?.toLowerCase();
         const perPage = Math.min(Number(item.per_page) || 15, 100);
 
@@ -921,15 +923,16 @@ export async function createRouter(options: {
       let index = 0;
       const processNext = async (): Promise<void> => {
         while (index < items.length) {
+          // safe: single-threaded JS, ++ completes before await
           const currentIndex = index++;
           const item = items[currentIndex];
           try {
             results[item.key] = await processItem(item);
           } catch (err) {
-            results[item.key] = {
-              error:
-                err instanceof Error ? err.message : 'Unknown error occurred',
-            };
+            const msg =
+              err instanceof Error ? err.message : 'Unknown error occurred';
+            logger.warn(`[ci-activity] Item '${item.key}' failed: ${msg}`);
+            results[item.key] = { error: msg };
           }
         }
       };
@@ -939,6 +942,13 @@ export async function createRouter(options: {
         () => processNext(),
       );
       await Promise.all(workers);
+
+      const errorCount = Object.values(results).filter(
+        r => 'error' in r,
+      ).length;
+      if (errorCount > 0) {
+        logger.warn(`[ci-activity] ${errorCount}/${items.length} items failed`);
+      }
 
       response.status(200).json({ results });
     },

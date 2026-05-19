@@ -178,6 +178,7 @@ describe('collectionsCache', () => {
       expect(mockCatalogApi.queryEntities).toHaveBeenCalledWith({
         filter: { kind: 'Component', 'spec.type': 'ansible-collection' },
         limit: 50,
+        orderFields: [{ field: 'metadata.uid', order: 'asc' }],
       });
 
       const state = collectionsCache.getState();

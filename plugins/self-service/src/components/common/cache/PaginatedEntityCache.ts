@@ -109,6 +109,7 @@ export class PaginatedEntityCache<
       const response = await this.catalogApi.queryEntities({
         filter: this.config.entityFilter,
         limit: INITIAL_FETCH_LIMIT,
+        orderFields: [{ field: 'metadata.uid', order: 'asc' }],
       });
 
       if (epoch !== this.fetchEpoch) return;
@@ -187,7 +188,7 @@ export class PaginatedEntityCache<
     const epoch = this.fetchEpoch;
     if (!this.catalogApi || !this.state) return;
 
-    let allItems = [...this.state.entities];
+    const allItems = [...this.state.entities];
     let offset = this.state.loadedOffset;
     const total = this.state.totalServerItems;
 
@@ -197,6 +198,7 @@ export class PaginatedEntityCache<
           filter: this.config.entityFilter,
           limit: BACKGROUND_FETCH_LIMIT,
           offset,
+          orderFields: [{ field: 'metadata.uid', order: 'asc' }],
         });
 
         if (epoch !== this.fetchEpoch) break;
@@ -204,7 +206,7 @@ export class PaginatedEntityCache<
         const newItems = response?.items || [];
         if (newItems.length === 0) break;
 
-        allItems = [...allItems, ...newItems];
+        allItems.push(...newItems);
         offset += newItems.length;
 
         this.updateStateWithItems(allItems, offset, total, epoch);

@@ -16,6 +16,7 @@ import type {
 } from '../common/types';
 import { collectionsCache } from '../CollectionsCatalog/collectionsCache';
 import { gitReposCache } from '../GitRepositories/gitReposCache';
+import { eeCache } from '../ExecutionEnvironments/catalog/eeCache';
 
 interface ProviderStatus {
   sourceId: string;
@@ -117,6 +118,7 @@ class SyncPollingService {
   private invalidateAllCaches(): void {
     collectionsCache.invalidateFetchedData();
     gitReposCache.invalidateFetchedData();
+    eeCache.invalidateFetchedData();
   }
 
   initialize(discoveryApi: DiscoveryApi, fetchApi: FetchApi): void {
