@@ -207,13 +207,16 @@ export function useLatestCIActivity(entities: Entity[]): {
       try {
         const catalogBase = await discoveryApi.getBaseUrl('catalog');
         const batchUrl = `${catalogBase}/ansible/git/ci-activity`;
+        const PARALLEL_LIMIT = 5;
 
         const map: Record<string, LatestActivityEntry> = {};
 
+        const chunks: BatchItem[][] = [];
         for (let i = 0; i < batchItems.length; i += BATCH_CHUNK_SIZE) {
-          if (isCancelled()) return;
+          chunks.push(batchItems.slice(i, i + BATCH_CHUNK_SIZE));
+        }
 
-          const chunk = batchItems.slice(i, i + BATCH_CHUNK_SIZE);
+        const fetchChunk = async (chunk: BatchItem[]) => {
           const res = await fetchWithRetry(
             fetchApi.fetch,
             batchUrl,
@@ -225,12 +228,25 @@ export function useLatestCIActivity(entities: Entity[]): {
             },
             isCancelled,
           );
-
-          if (isCancelled()) return;
-
           if (res?.ok) {
             const body = await res.json();
-            Object.assign(map, buildActivityMap(chunk, body.results));
+            return { chunk, results: body.results };
+          }
+          return null;
+        };
+
+        for (let i = 0; i < chunks.length; i += PARALLEL_LIMIT) {
+          if (isCancelled()) return;
+          const batch = chunks.slice(i, i + PARALLEL_LIMIT);
+          const results = await Promise.all(batch.map(fetchChunk));
+          if (isCancelled()) return;
+          for (const result of results) {
+            if (result) {
+              Object.assign(
+                map,
+                buildActivityMap(result.chunk, result.results),
+              );
+            }
           }
         }
 

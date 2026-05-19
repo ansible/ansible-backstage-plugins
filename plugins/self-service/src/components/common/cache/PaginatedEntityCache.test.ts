@@ -3,6 +3,9 @@ import { CatalogApi } from '@backstage/plugin-catalog-react';
 import { PaginatedEntityCache } from './PaginatedEntityCache';
 import { BaseCacheState, CacheConfig } from './types';
 
+const flushPromises = () =>
+  new Promise<void>(resolve => process.nextTick(resolve));
+
 interface TestState extends BaseCacheState {
   tagSet: string[];
 }
@@ -220,7 +223,7 @@ describe('PaginatedEntityCache', () => {
 
       resolveFirst({ items: [makeEntity('stale-1')], totalItems: 1 });
       await loadPromise;
-      await new Promise(resolve => setTimeout(resolve, 50));
+      await flushPromises();
 
       const state = cache.getState();
       expect(state?.entities[0].metadata.uid).toBe('fresh-1');
@@ -238,7 +241,7 @@ describe('PaginatedEntityCache', () => {
       expect(callsBefore).toBeGreaterThan(0);
 
       cache.invalidateFetchedData();
-      await new Promise(resolve => setTimeout(resolve, 50));
+      await flushPromises();
 
       expect(listener.mock.calls.length).toBeGreaterThan(callsBefore);
 
@@ -258,12 +261,14 @@ describe('PaginatedEntityCache', () => {
 
       expect(cache.getState()).not.toBeNull();
 
-      const originalDateNow = Date.now;
-      Date.now = jest.fn(() => originalDateNow() + 6 * 60 * 1000);
-
-      expect(cache.getState()).toBeNull();
-
-      Date.now = originalDateNow;
+      const nowSpy = jest
+        .spyOn(Date, 'now')
+        .mockReturnValue(Date.now() + 6 * 60 * 1000);
+      try {
+        expect(cache.getState()).toBeNull();
+      } finally {
+        nowSpy.mockRestore();
+      }
     });
   });
 

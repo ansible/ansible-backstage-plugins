@@ -262,13 +262,18 @@ export const RepositoriesCIActivityTab = ({
       const catalogBase = await discoveryApi.getBaseUrl('catalog');
       const batchUrl = `${catalogBase}/ansible/git/ci-activity`;
       const CHUNK_SIZE = 100;
+      const PARALLEL_LIMIT = 5;
       const allResults: Record<
         string,
         { status: number; data: unknown } | { error: string }
       > = {};
 
+      const chunks: BatchItem[][] = [];
       for (let i = 0; i < batchItems.length; i += CHUNK_SIZE) {
-        const chunk = batchItems.slice(i, i + CHUNK_SIZE);
+        chunks.push(batchItems.slice(i, i + CHUNK_SIZE));
+      }
+
+      const fetchChunk = async (chunk: BatchItem[]) => {
         const res = await fetchApi.fetch(batchUrl, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -280,8 +285,13 @@ export const RepositoriesCIActivityTab = ({
           throw new Error(`Batch CI activity request failed: ${res.status}`);
         }
 
-        const body = await res.json();
-        Object.assign(allResults, body.results);
+        return res.json();
+      };
+
+      for (let i = 0; i < chunks.length; i += PARALLEL_LIMIT) {
+        const batch = chunks.slice(i, i + PARALLEL_LIMIT);
+        const results = await Promise.all(batch.map(fetchChunk));
+        results.forEach(body => Object.assign(allResults, body.results));
       }
 
       setRows(buildRowsFromResults(allResults, entityMap));

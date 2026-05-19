@@ -321,38 +321,48 @@ export const RunTask = () => {
       return undefined;
     }
 
-    const fetchEntity = async () => {
+    const eeFileName = resolveEeFileNameFromParameters(
+      task?.spec?.parameters as Record<string, unknown> | undefined,
+    );
+    if (!eeFileName) {
+      console.warn('EE file name not found in task parameters'); // eslint-disable-line no-console
+      return undefined;
+    }
+
+    const entityRef = `Component:default/${eeFileName.trim()}`;
+    const RETRY_DELAYS_MS = [2000, 4000, 6000, 8000, 10000];
+    let attempt = 0;
+    let pendingTimeout: ReturnType<typeof setTimeout> | null = null;
+
+    const attemptFetch = async () => {
       try {
-        const eeFileName = resolveEeFileNameFromParameters(
-          task?.spec?.parameters as Record<string, unknown> | undefined,
-        );
-        if (!eeFileName) {
-          console.warn('EE file name not found in task parameters'); // eslint-disable-line no-console
-          return;
-        }
-
-        const entityRef = `Component:default/${eeFileName.trim()}`;
         const foundEntity = await catalogApi.getEntityByRef(entityRef);
-
         if (
           foundEntity?.kind === 'Component' &&
           foundEntity?.spec?.type === 'execution-environment'
         ) {
           setMatchingEntity(foundEntity);
-        } else {
-          // eslint-disable-next-line no-console
-          console.warn(
-            `Could not find registered EE component for ${eeFileName}`,
-          );
+          return;
         }
-      } catch (err) {
-        console.error('Failed to fetch entity from catalog:', err); // eslint-disable-line no-console
+      } catch {
+        // fall through to retry
+      }
+
+      attempt++;
+      if (attempt < RETRY_DELAYS_MS.length) {
+        pendingTimeout = setTimeout(attemptFetch, RETRY_DELAYS_MS[attempt]);
+      } else {
+        // eslint-disable-next-line no-console
+        console.warn(
+          `Could not find registered EE component after ${RETRY_DELAYS_MS.length} attempts`,
+        );
       }
     };
-    const timeoutId = setTimeout(() => {
-      fetchEntity();
-    }, 2000);
-    return () => clearTimeout(timeoutId);
+
+    pendingTimeout = setTimeout(attemptFetch, RETRY_DELAYS_MS[0]);
+    return () => {
+      if (pendingTimeout !== null) clearTimeout(pendingTimeout);
+    };
   }, [matchingEntity, completed, task, allSteps, catalogApi]);
 
   useEffect(() => {

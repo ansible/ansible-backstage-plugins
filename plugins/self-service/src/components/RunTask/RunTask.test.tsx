@@ -1,7 +1,7 @@
 import { RunTask } from './RunTask';
 import { rest } from 'msw';
 import { setupServer } from 'msw/node';
-import { screen, waitFor } from '@testing-library/react';
+import { act, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import {
   mockApis,
@@ -1866,6 +1866,10 @@ describe('RunTask', () => {
       mockCatalogApi.getEntityByRef.mockClear();
     });
 
+    afterEach(() => {
+      jest.useRealTimers();
+    });
+
     it('should fetch entity from catalog when task is completed', async () => {
       const useTaskEventStreamMock =
         require('@backstage/plugin-scaffolder-react').useTaskEventStream;
@@ -1936,6 +1940,7 @@ describe('RunTask', () => {
     }, 15000);
 
     it('should log warning when entity is not found', async () => {
+      jest.useFakeTimers();
       const consoleWarnSpy = jest
         .spyOn(console, 'warn')
         .mockImplementation(() => {});
@@ -1979,24 +1984,31 @@ describe('RunTask', () => {
 
       mockCatalogApi.getEntityByRef.mockResolvedValue(null);
 
-      await render(<RunTask />);
+      await act(async () => {
+        render(<RunTask />);
+      });
 
-      await waitFor(
-        () => {
-          expect(consoleWarnSpy).toHaveBeenCalledWith(
-            'Could not find registered EE component for test-ee',
-          );
-        },
-        { timeout: 10000 },
+      for (let i = 0; i < 5; i++) {
+        await act(async () => {
+          jest.advanceTimersByTime(10000);
+        });
+        await act(async () => {
+          await Promise.resolve();
+        });
+      }
+
+      expect(consoleWarnSpy).toHaveBeenCalledWith(
+        'Could not find registered EE component after 5 attempts',
       );
 
       consoleWarnSpy.mockRestore();
       useTaskEventStreamMock.mockImplementation(originalImplementation);
-    }, 15000);
+    });
 
     it('should handle entity fetch error', async () => {
-      const consoleErrorSpy = jest
-        .spyOn(console, 'error')
+      jest.useFakeTimers();
+      const consoleWarnSpy = jest
+        .spyOn(console, 'warn')
         .mockImplementation(() => {});
 
       const useTaskEventStreamMock =
@@ -2040,21 +2052,26 @@ describe('RunTask', () => {
         new Error('Failed to fetch entity'),
       );
 
-      await render(<RunTask />);
+      await act(async () => {
+        render(<RunTask />);
+      });
 
-      await waitFor(
-        () => {
-          expect(consoleErrorSpy).toHaveBeenCalledWith(
-            'Failed to fetch entity from catalog:',
-            expect.any(Error),
-          );
-        },
-        { timeout: 5000 },
+      for (let i = 0; i < 5; i++) {
+        await act(async () => {
+          jest.advanceTimersByTime(10000);
+        });
+        await act(async () => {
+          await Promise.resolve();
+        });
+      }
+
+      expect(consoleWarnSpy).toHaveBeenCalledWith(
+        'Could not find registered EE component after 5 attempts',
       );
 
-      consoleErrorSpy.mockRestore();
+      consoleWarnSpy.mockRestore();
       useTaskEventStreamMock.mockImplementation(originalImplementation);
-    }, 15000);
+    });
   });
 
   describe('getMatchingEntity edge cases', () => {
