@@ -330,13 +330,15 @@ export const RunTask = () => {
     }
 
     const entityRef = `Component:default/${eeFileName.trim()}`;
-    const RETRY_DELAYS_MS = [2000, 4000, 6000, 8000, 10000];
+    const RETRY_DELAYS_MS = [2000, 4000, 8000, 12000, 16000];
     let attempt = 0;
     let pendingTimeout: ReturnType<typeof setTimeout> | null = null;
+    let disposed = false;
 
     const attemptFetch = async () => {
       try {
         const foundEntity = await catalogApi.getEntityByRef(entityRef);
+        if (disposed) return;
         if (
           foundEntity?.kind === 'Component' &&
           foundEntity?.spec?.type === 'execution-environment'
@@ -345,7 +347,7 @@ export const RunTask = () => {
           return;
         }
       } catch {
-        // fall through to retry
+        if (disposed) return;
       }
 
       attempt++;
@@ -361,6 +363,7 @@ export const RunTask = () => {
 
     pendingTimeout = setTimeout(attemptFetch, RETRY_DELAYS_MS[0]);
     return () => {
+      disposed = true;
       if (pendingTimeout !== null) clearTimeout(pendingTimeout);
     };
   }, [matchingEntity, completed, task, allSteps, catalogApi]);

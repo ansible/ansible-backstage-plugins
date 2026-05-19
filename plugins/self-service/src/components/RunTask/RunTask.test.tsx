@@ -1990,7 +1990,7 @@ describe('RunTask', () => {
 
       for (let i = 0; i < 5; i++) {
         await act(async () => {
-          jest.advanceTimersByTime(10000);
+          jest.advanceTimersByTime(16000);
         });
         await act(async () => {
           await Promise.resolve();
@@ -2058,7 +2058,7 @@ describe('RunTask', () => {
 
       for (let i = 0; i < 5; i++) {
         await act(async () => {
-          jest.advanceTimersByTime(10000);
+          jest.advanceTimersByTime(16000);
         });
         await act(async () => {
           await Promise.resolve();

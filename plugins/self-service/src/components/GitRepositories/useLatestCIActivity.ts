@@ -163,6 +163,54 @@ function buildFallbackMap(
   return map;
 }
 
+async function fetchAllChunks(
+  batchItems: BatchItem[],
+  fetchFn: FetchFn,
+  batchUrl: string,
+  isCancelled: () => boolean,
+): Promise<Record<string, LatestActivityEntry> | null> {
+  const PARALLEL_LIMIT = 5;
+  const map: Record<string, LatestActivityEntry> = {};
+
+  const chunks: BatchItem[][] = [];
+  for (let i = 0; i < batchItems.length; i += BATCH_CHUNK_SIZE) {
+    chunks.push(batchItems.slice(i, i + BATCH_CHUNK_SIZE));
+  }
+
+  const fetchChunk = async (chunk: BatchItem[]) => {
+    const res = await fetchWithRetry(
+      fetchFn,
+      batchUrl,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ items: chunk }),
+      },
+      isCancelled,
+    );
+    if (res?.ok) {
+      const body = await res.json();
+      return { chunk, results: body.results };
+    }
+    return null;
+  };
+
+  for (let i = 0; i < chunks.length; i += PARALLEL_LIMIT) {
+    if (isCancelled()) return null;
+    const batch = chunks.slice(i, i + PARALLEL_LIMIT);
+    const results = await Promise.all(batch.map(fetchChunk));
+    if (isCancelled()) return null;
+    for (const result of results) {
+      if (result) {
+        Object.assign(map, buildActivityMap(result.chunk, result.results));
+      }
+    }
+  }
+
+  return map;
+}
+
 export function useLatestCIActivity(entities: Entity[]): {
   lastActivityMap: Record<string, LatestActivityEntry>;
   loading: boolean;
@@ -207,58 +255,23 @@ export function useLatestCIActivity(entities: Entity[]): {
       try {
         const catalogBase = await discoveryApi.getBaseUrl('catalog');
         const batchUrl = `${catalogBase}/ansible/git/ci-activity`;
-        const PARALLEL_LIMIT = 5;
 
-        const map: Record<string, LatestActivityEntry> = {};
+        const map = await fetchAllChunks(
+          batchItems,
+          fetchApi.fetch,
+          batchUrl,
+          isCancelled,
+        );
 
-        const chunks: BatchItem[][] = [];
-        for (let i = 0; i < batchItems.length; i += BATCH_CHUNK_SIZE) {
-          chunks.push(batchItems.slice(i, i + BATCH_CHUNK_SIZE));
-        }
-
-        const fetchChunk = async (chunk: BatchItem[]) => {
-          const res = await fetchWithRetry(
-            fetchApi.fetch,
-            batchUrl,
-            {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              credentials: 'include',
-              body: JSON.stringify({ items: chunk }),
-            },
-            isCancelled,
-          );
-          if (res?.ok) {
-            const body = await res.json();
-            return { chunk, results: body.results };
-          }
-          return null;
-        };
-
-        for (let i = 0; i < chunks.length; i += PARALLEL_LIMIT) {
-          if (isCancelled()) return;
-          const batch = chunks.slice(i, i + PARALLEL_LIMIT);
-          const results = await Promise.all(batch.map(fetchChunk));
-          if (isCancelled()) return;
-          for (const result of results) {
-            if (result) {
-              Object.assign(
-                map,
-                buildActivityMap(result.chunk, result.results),
-              );
-            }
-          }
-        }
+        if (!map || isCancelled()) return;
 
         entities.forEach(e => {
           const ref = stringifyEntityRef(e);
           if (!(ref in map)) map[ref] = { text: NO_ACTIVITY };
         });
 
-        if (!isCancelled()) {
-          setLastActivityMap(map);
-          setLoading(false);
-        }
+        setLastActivityMap(map);
+        setLoading(false);
       } catch {
         if (!isCancelled()) {
           setLastActivityMap(buildFallbackMap(entities));
