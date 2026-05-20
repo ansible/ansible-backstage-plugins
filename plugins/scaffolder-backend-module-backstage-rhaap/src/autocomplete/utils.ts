@@ -16,13 +16,11 @@ let collectionsCache: {
   timestamp: number;
 } | null = null;
 
-let inflightRequest: Promise<{ results: Collections[] }> | null = null;
-let inflightFilter: string | null = null;
+const inflightRequests = new Map<string, Promise<{ results: Collections[] }>>();
 
 export function clearCollectionsCache(): void {
   collectionsCache = null;
-  inflightRequest = null;
-  inflightFilter = null;
+  inflightRequests.clear();
 }
 
 function formatSource(annotations: Record<string, string>): string | null {
@@ -176,7 +174,9 @@ export async function getCollections(options: {
   searchQuery?: string;
 }): Promise<{ results: Collections[] }> {
   const { auth, discovery, logger, searchQuery } = options;
-  const filter = searchQuery ?? 'spec.type=ansible-collection';
+  const trimmed = searchQuery?.trim();
+  const filter =
+    trimmed && trimmed.length > 0 ? trimmed : 'spec.type=ansible-collection';
 
   if (
     collectionsCache?.filter === filter &&
@@ -185,8 +185,8 @@ export async function getCollections(options: {
     return collectionsCache.result;
   }
 
-  if (inflightRequest && inflightFilter === filter) {
-    return inflightRequest;
+  if (inflightRequests.has(filter)) {
+    return inflightRequests.get(filter)!;
   }
 
   const fetchPromise = (async () => {
@@ -223,15 +223,13 @@ export async function getCollections(options: {
     return result;
   })();
 
-  inflightRequest = fetchPromise;
-  inflightFilter = filter;
+  inflightRequests.set(filter, fetchPromise);
 
   try {
     return await fetchPromise;
   } finally {
-    if (inflightRequest === fetchPromise) {
-      inflightRequest = null;
-      inflightFilter = null;
+    if (inflightRequests.get(filter) === fetchPromise) {
+      inflightRequests.delete(filter);
     }
   }
 }
