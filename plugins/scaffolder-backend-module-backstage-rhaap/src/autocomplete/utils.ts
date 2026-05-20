@@ -8,6 +8,23 @@ import type {
   SourceVersionDetail,
 } from '@ansible/backstage-rhaap-common';
 
+const COLLECTIONS_CACHE_TTL_MS = 60_000;
+
+let collectionsCache: {
+  result: { results: Collections[] };
+  filter: string;
+  timestamp: number;
+} | null = null;
+
+let inflightRequest: Promise<{ results: Collections[] }> | null = null;
+let inflightFilter: string | null = null;
+
+export function clearCollectionsCache(): void {
+  collectionsCache = null;
+  inflightRequest = null;
+  inflightFilter = null;
+}
+
 function formatSource(annotations: Record<string, string>): string | null {
   const scmProvider = annotations['ansible.io/scm-provider'];
   const hostName = annotations['ansible.io/scm-host-name'];
@@ -159,29 +176,62 @@ export async function getCollections(options: {
   searchQuery?: string;
 }): Promise<{ results: Collections[] }> {
   const { auth, discovery, logger, searchQuery } = options;
-  const baseUrl = await discovery.getBaseUrl('catalog');
-  const { token: catalogToken } = await auth.getPluginRequestToken({
-    onBehalfOf: await auth.getOwnServiceCredentials(),
-    targetPluginId: 'catalog',
-  });
-  const filter = encodeURIComponent(
-    searchQuery ?? 'spec.type=ansible-collection',
-  );
-  const response = await fetch(`${baseUrl}/entities?filter=${filter}`, {
-    method: 'GET',
-    headers: {
-      'Content-Type': 'application/json',
-      Authorization: `Bearer ${catalogToken}`,
-    },
-  });
-  if (!response.ok) {
-    logger.warn(
-      `Catalog entities request failed: ${response.status} ${response.statusText}`,
-    );
-    return { results: [] };
+  const filter = searchQuery ?? 'spec.type=ansible-collection';
+
+  if (
+    collectionsCache?.filter === filter &&
+    Date.now() - collectionsCache.timestamp < COLLECTIONS_CACHE_TTL_MS
+  ) {
+    return collectionsCache.result;
   }
-  const body = await response.json();
-  const entities = Array.isArray(body) ? body : (body?.items ?? []);
-  const results = buildCollectionsFromCatalogEntities(entities);
-  return { results };
+
+  if (inflightRequest && inflightFilter === filter) {
+    return inflightRequest;
+  }
+
+  const fetchPromise = (async () => {
+    const baseUrl = await discovery.getBaseUrl('catalog');
+    const { token: catalogToken } = await auth.getPluginRequestToken({
+      onBehalfOf: await auth.getOwnServiceCredentials(),
+      targetPluginId: 'catalog',
+    });
+    const encodedFilter = encodeURIComponent(filter);
+    const response = await fetch(
+      `${baseUrl}/entities?filter=${encodedFilter}`,
+      {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${catalogToken}`,
+        },
+      },
+    );
+    if (!response.ok) {
+      logger.warn(
+        `Catalog entities request failed: ${response.status} ${response.statusText}`,
+      );
+      return { results: [] as Collections[] };
+    }
+    const body = await response.json();
+    const entities = Array.isArray(body) ? body : (body?.items ?? []);
+    const result = {
+      results: buildCollectionsFromCatalogEntities(entities),
+    };
+
+    collectionsCache = { result, filter, timestamp: Date.now() };
+
+    return result;
+  })();
+
+  inflightRequest = fetchPromise;
+  inflightFilter = filter;
+
+  try {
+    return await fetchPromise;
+  } finally {
+    if (inflightRequest === fetchPromise) {
+      inflightRequest = null;
+      inflightFilter = null;
+    }
+  }
 }
