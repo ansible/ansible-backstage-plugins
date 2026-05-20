@@ -91,6 +91,11 @@ jest.mock('@backstage/plugin-catalog-react', () => {
 
 import { RepositoriesCIActivityTab } from './RepositoriesCIActivityTab';
 import { ciActivityCache } from './ciActivityCache';
+import {
+  parseGitHubRuns,
+  parseGitLabPipelines,
+  buildRowsFromResults,
+} from './ciActivityUtils';
 
 const theme = createTheme();
 
@@ -881,5 +886,181 @@ describe('RepositoriesCIActivityTab', () => {
 
     const triggerLabels = screen.getAllByText('Trigger');
     expect(triggerLabels.length).toBeGreaterThan(0);
+  });
+
+  it('uses cachedEntities when provided', async () => {
+    const entities = [createGitHubEntity('cached-repo')];
+    mockGitHubRuns('cached-repo', [
+      {
+        id: 500,
+        run_number: 1,
+        name: 'Build',
+        status: 'completed',
+        conclusion: 'success',
+        event: 'push',
+        created_at: '2024-06-15T11:00:00Z',
+      },
+    ]);
+
+    render(
+      <TestApiProvider
+        apis={[
+          [catalogApiRef, mockCatalogApi],
+          [discoveryApiRef, mockDiscoveryApi],
+          [fetchApiRef, mockFetchApi],
+          [identityApiRef, mockIdentityApi],
+          [starredEntitiesApiRef, new MockStarredEntitiesApi()],
+          [permissionApiRef, mockApis.permission()],
+        ]}
+      >
+        <MemoryRouter>
+          <ThemeProvider theme={theme}>
+            <RepositoriesCIActivityTab cachedEntities={entities} />
+          </ThemeProvider>
+        </MemoryRouter>
+      </TestApiProvider>,
+    );
+
+    await waitFor(() => {
+      expect(screen.getByText('Build #1')).toBeInTheDocument();
+    });
+
+    expect(mockCatalogApi.getEntities).not.toHaveBeenCalled();
+  });
+
+  it('handles batch fetch failure', async () => {
+    mockFetchApi.fetch.mockResolvedValue({
+      ok: false,
+      status: 502,
+    });
+
+    renderTab();
+
+    await waitFor(() => {
+      expect(
+        screen.getByText('Unable to load CI activity'),
+      ).toBeInTheDocument();
+    });
+
+    expect(
+      screen.getByText('Batch CI activity request failed: 502'),
+    ).toBeInTheDocument();
+  });
+});
+
+describe('ciActivityCache', () => {
+  beforeEach(() => {
+    ciActivityCache.clear();
+  });
+
+  it('returns null after TTL expires', async () => {
+    const discoveryApi = {
+      getBaseUrl: jest
+        .fn()
+        .mockResolvedValue('http://localhost:7007/api/catalog'),
+    };
+    const fetchApi = {
+      fetch: jest.fn().mockResolvedValue({
+        ok: true,
+        json: () => Promise.resolve({ results: {} }),
+      }),
+    };
+
+    const entity = createGitHubEntity('test-repo');
+    ciActivityCache.startLoading([entity], discoveryApi, fetchApi);
+
+    await new Promise(process.nextTick);
+    await new Promise(process.nextTick);
+
+    expect(ciActivityCache.getState()).not.toBeNull();
+
+    const now = Date.now();
+    jest.spyOn(Date, 'now').mockReturnValue(now + 4 * 60 * 1000);
+
+    expect(ciActivityCache.getState()).toBeNull();
+
+    jest.restoreAllMocks();
+  });
+
+  it('invalidate clears state and prevents stale writes', () => {
+    ciActivityCache.invalidate();
+    expect(ciActivityCache.getState()).toBeNull();
+  });
+});
+
+describe('ciActivityUtils', () => {
+  it('parseGitHubRuns handles non-array workflow_runs', () => {
+    const entity = createGitHubEntity('test-repo');
+    const result = parseGitHubRuns(
+      'key',
+      { workflow_runs: 'not-an-array' },
+      entity,
+    );
+    expect(result).toEqual([]);
+  });
+
+  it('parseGitHubRuns handles undefined data', () => {
+    const entity = createGitHubEntity('test-repo');
+    const result = parseGitHubRuns('key', undefined, entity);
+    expect(result).toEqual([]);
+  });
+
+  it('parseGitLabPipelines handles non-array data', () => {
+    const entity = createGitLabEntity('test-repo');
+    const result = parseGitLabPipelines('key', 'not-an-array', entity);
+    expect(result).toEqual([]);
+  });
+
+  it('parseGitLabPipelines handles null pipeline status', () => {
+    const entity = createGitLabEntity('test-repo');
+    const result = parseGitLabPipelines(
+      'key',
+      [{ id: 1, status: null, source: 'push', created_at: '' }],
+      entity,
+    );
+    expect(result).toHaveLength(1);
+    expect(result[0].status).toBe('unknown');
+  });
+
+  it('buildRowsFromResults skips entries with errors', () => {
+    const entity = createGitHubEntity('test-repo');
+    const entityMap = new Map([['key1', { entity, provider: 'github' }]]);
+    const results = {
+      key1: { error: 'some error' },
+    };
+    const rows = buildRowsFromResults(results, entityMap);
+    expect(rows).toEqual([]);
+  });
+
+  it('buildRowsFromResults skips unknown entity keys', () => {
+    const results = {
+      'unknown-key': { status: 200, data: { workflow_runs: [] } },
+    };
+    const entityMap = new Map<string, { entity: Entity; provider: string }>();
+    const rows = buildRowsFromResults(results, entityMap);
+    expect(rows).toEqual([]);
+  });
+
+  it('buildRowsFromResults sorts by time descending and limits to 150', () => {
+    const entity = createGitHubEntity('test-repo');
+    const entityMap = new Map([['key1', { entity, provider: 'github' }]]);
+    const runs = Array.from({ length: 160 }, (_, i) => ({
+      id: i,
+      run_number: i,
+      name: 'Build',
+      status: 'completed',
+      conclusion: 'success',
+      event: 'push',
+      created_at: new Date(2024, 0, 1, 0, i).toISOString(),
+      html_url: `https://github.com/test-org/test-repo/actions/runs/${i}`,
+    }));
+    const results = {
+      key1: { status: 200, data: { workflow_runs: runs } },
+    };
+    const rows = buildRowsFromResults(results, entityMap);
+    expect(rows).toHaveLength(150);
+    expect(new Date(rows[0].time).getTime()).toBeGreaterThan(
+      new Date(rows[1].time).getTime(),
+    );
   });
 });
