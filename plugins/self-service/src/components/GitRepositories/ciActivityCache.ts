@@ -18,6 +18,7 @@ type Listener = (state: CIActivityCacheState) => void;
 
 let state: CIActivityCacheState | null = null;
 let fetchPromise: Promise<void> | null = null;
+let generation = 0;
 const listeners = new Set<Listener>();
 
 function notify(): void {
@@ -52,7 +53,7 @@ async function startLoading(
   discoveryApi: DiscoveryApi,
   fetchApi: FetchApi,
 ): Promise<void> {
-  if (fetchPromise) return;
+  if (fetchPromise !== null) return;
 
   const cached = getState();
   if (cached && !cached.loading && !cached.fetchingMore) return;
@@ -80,6 +81,8 @@ async function startLoading(
   };
   notify();
 
+  const runGeneration = generation;
+
   const promise = (async () => {
     const allResults: Record<
       string,
@@ -96,6 +99,8 @@ async function startLoading(
       }
 
       for (let i = 0; i < chunks.length; i += CI_PARALLEL_LIMIT) {
+        if (runGeneration !== generation) return;
+
         const batch = chunks.slice(i, i + CI_PARALLEL_LIMIT);
         const results = await Promise.all(
           batch.map(async chunk => {
@@ -113,6 +118,8 @@ async function startLoading(
             return res.json();
           }),
         );
+
+        if (runGeneration !== generation) return;
 
         results.forEach(
           (body: {
@@ -133,6 +140,8 @@ async function startLoading(
         notify();
       }
 
+      if (runGeneration !== generation) return;
+
       state = {
         rows: buildRowsFromResults(allResults, entityMap),
         loading: false,
@@ -142,6 +151,8 @@ async function startLoading(
       };
       notify();
     } catch (e) {
+      if (runGeneration !== generation) return;
+
       state = {
         rows: state?.rows ?? [],
         loading: false,
@@ -151,7 +162,9 @@ async function startLoading(
       };
       notify();
     } finally {
-      fetchPromise = null;
+      if (runGeneration === generation) {
+        fetchPromise = null;
+      }
     }
   })();
 
@@ -170,11 +183,13 @@ function setError(message: string): void {
 }
 
 function invalidate(): void {
+  generation += 1;
   state = null;
   fetchPromise = null;
 }
 
 function clear(): void {
+  generation += 1;
   state = null;
   fetchPromise = null;
   listeners.clear();
