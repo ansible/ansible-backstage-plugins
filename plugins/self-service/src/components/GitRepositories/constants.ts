@@ -15,3 +15,8 @@ export const COLUMN_CONTAINS_TOOLTIP =
 
 export const COLUMN_LAST_SYNC_TOOLTIP =
   "When this repository's content source was last synced.";
+
+export const PAGE_SIZE = 10;
+
+export const CI_BATCH_CHUNK_SIZE = 100;
+export const CI_PARALLEL_LIMIT = 5;

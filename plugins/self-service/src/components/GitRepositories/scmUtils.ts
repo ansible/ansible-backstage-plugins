@@ -1,5 +1,32 @@
 import { Entity } from '@backstage/catalog-model';
 
+export const getRepoHost = (entity: Entity): string => {
+  const annotations = entity.metadata?.annotations || {};
+  let host = annotations['ansible.io/scm-host'];
+  if (typeof host === 'string' && host) {
+    host = host.trim();
+    if (host.startsWith('http://') || host.startsWith('https://')) {
+      try {
+        host = new URL(host).hostname;
+      } catch {
+        // leave as-is if URL parse fails
+      }
+    }
+    return host;
+  }
+  const provider = (annotations['ansible.io/scm-provider'] ?? '').toLowerCase();
+  if (provider === 'github') return 'github.com';
+  if (provider === 'gitlab') return 'gitlab.com';
+  return provider || '';
+};
+
+export const getRepoHostName = (entity: Entity): string => {
+  const annotations = entity.metadata?.annotations || {};
+  const name = annotations['ansible.io/scm-host-name'];
+  if (typeof name === 'string' && name.trim()) return name.trim();
+  return getRepoHost(entity);
+};
+
 export function getGitHubOwnerRepo(
   entity: Entity,
 ): { owner: string; repo: string } | null {

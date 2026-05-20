@@ -108,11 +108,13 @@ jest.mock('@backstage/plugin-catalog-react', () => {
 });
 
 import { RepositoriesTable } from './RepositoriesTable';
+import { gitReposCache } from './gitReposCache';
 
 const theme = createTheme();
 
 const mockCatalogApi = {
   getEntities: jest.fn(),
+  queryEntities: jest.fn(),
 };
 
 const mockDiscoveryApi = {
@@ -122,7 +124,7 @@ const mockDiscoveryApi = {
 const mockFetchApi = {
   fetch: jest.fn().mockResolvedValue({
     ok: true,
-    json: () => Promise.resolve({ workflow_runs: [] }),
+    json: () => Promise.resolve({ results: {} }),
   }),
 };
 
@@ -167,12 +169,17 @@ describe('RepositoriesTable', () => {
     jest.clearAllMocks();
     jest.useFakeTimers();
     jest.setSystemTime(new Date('2024-06-15T12:00:00Z'));
+    gitReposCache.clear();
     mockCatalogApi.getEntities.mockResolvedValue({
       items: [
         createMockEntity('repo-1'),
         createMockEntity('repo-2'),
         createMockEntity('gitlab-repo', 'gitlab'),
       ],
+    });
+    mockCatalogApi.queryEntities.mockImplementation(async () => {
+      const result = await mockCatalogApi.getEntities();
+      return { ...result, totalItems: result.items.length };
     });
   });
 
@@ -304,9 +311,11 @@ describe('RepositoriesTable', () => {
     renderTable();
 
     await waitFor(() => {
-      expect(mockCatalogApi.getEntities).toHaveBeenCalledWith({
-        filter: [{ kind: 'Component', 'spec.type': 'git-repository' }],
-      });
+      expect(mockCatalogApi.queryEntities).toHaveBeenCalledWith(
+        expect.objectContaining({
+          filter: { kind: 'Component', 'spec.type': 'git-repository' },
+        }),
+      );
     });
   });
 

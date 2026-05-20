@@ -2,11 +2,8 @@ import { render, screen, waitFor } from '@testing-library/react';
 import { ThemeProvider, createTheme } from '@material-ui/core/styles';
 import { TestApiProvider } from '@backstage/test-utils';
 import { discoveryApiRef, fetchApiRef } from '@backstage/core-plugin-api';
-import { Entity } from '@backstage/catalog-model';
-import {
-  useLatestCIActivity,
-  LatestActivityEntry,
-} from './useLatestCIActivity';
+import { Entity, stringifyEntityRef } from '@backstage/catalog-model';
+import { useLatestCIActivity } from './useLatestCIActivity';
 
 const theme = createTheme();
 
@@ -28,13 +25,16 @@ function TestConsumer({ entities }: TestConsumerProps) {
     <div>
       <span data-testid="loading">{String(loading)}</span>
       <span data-testid="map">{JSON.stringify(lastActivityMap)}</span>
-      {Object.entries(lastActivityMap).map(
-        ([name, entry]: [string, LatestActivityEntry]) => (
-          <div key={name} data-testid={`activity-${name}`}>
+      {entities.map(entity => {
+        const ref = stringifyEntityRef(entity);
+        const entry = lastActivityMap[ref];
+        const name = entity.metadata?.name ?? '';
+        return entry ? (
+          <div key={ref} data-testid={`activity-${name}`}>
             {entry.text}
           </div>
-        ),
-      )}
+        ) : null;
+      })}
     </div>
   );
 }
@@ -84,6 +84,15 @@ const createGitLabEntity = (name: string): Entity => ({
   spec: {},
 });
 
+function mockBatchResponse(
+  results: Record<string, { status: number; data: any } | { error: string }>,
+) {
+  mockFetchApi.fetch.mockResolvedValue({
+    ok: true,
+    json: () => Promise.resolve({ results }),
+  });
+}
+
 describe('useLatestCIActivity', () => {
   beforeEach(() => {
     jest.clearAllMocks();
@@ -105,11 +114,11 @@ describe('useLatestCIActivity', () => {
     expect(screen.getByTestId('map')).toHaveTextContent('{}');
   });
 
-  it('fetches GitHub Actions workflow runs for GitHub entities', async () => {
-    mockFetchApi.fetch.mockResolvedValue({
-      ok: true,
-      json: () =>
-        Promise.resolve({
+  it('fetches GitHub Actions workflow runs via batch endpoint', async () => {
+    mockBatchResponse({
+      'component:default/test-repo': {
+        status: 200,
+        data: {
           workflow_runs: [
             {
               run_number: 42,
@@ -119,7 +128,8 @@ describe('useLatestCIActivity', () => {
               html_url: 'https://github.com/my-org/my-repo/actions/runs/123',
             },
           ],
-        }),
+        },
+      },
     });
 
     renderTestConsumer([createGitHubEntity('test-repo')]);
@@ -129,8 +139,12 @@ describe('useLatestCIActivity', () => {
     });
 
     expect(mockFetchApi.fetch).toHaveBeenCalledWith(
-      expect.stringContaining('/ansible/git/ci-activity?provider=github'),
-      expect.objectContaining({ credentials: 'include' }),
+      expect.stringContaining('/ansible/git/ci-activity'),
+      expect.objectContaining({
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+      }),
     );
 
     expect(screen.getByTestId('activity-test-repo')).toHaveTextContent(
@@ -139,9 +153,11 @@ describe('useLatestCIActivity', () => {
   });
 
   it('returns N/A when GitHub has no workflow runs', async () => {
-    mockFetchApi.fetch.mockResolvedValue({
-      ok: true,
-      json: () => Promise.resolve({ workflow_runs: [] }),
+    mockBatchResponse({
+      'component:default/empty-repo': {
+        status: 200,
+        data: { workflow_runs: [] },
+      },
     });
 
     renderTestConsumer([createGitHubEntity('empty-repo')]);
@@ -153,10 +169,9 @@ describe('useLatestCIActivity', () => {
     expect(screen.getByTestId('activity-empty-repo')).toHaveTextContent('N/A');
   });
 
-  it('handles GitHub API errors gracefully', async () => {
-    mockFetchApi.fetch.mockResolvedValue({
-      ok: false,
-      status: 500,
+  it('handles batch result errors gracefully', async () => {
+    mockBatchResponse({
+      'component:default/error-repo': { error: 'GitHub API error' },
     });
 
     renderTestConsumer([createGitHubEntity('error-repo')]);
@@ -168,17 +183,35 @@ describe('useLatestCIActivity', () => {
     expect(screen.getByTestId('activity-error-repo')).toHaveTextContent('N/A');
   });
 
-  it('fetches GitLab pipelines for GitLab entities', async () => {
+  it('handles batch endpoint returning non-ok response', async () => {
     mockFetchApi.fetch.mockResolvedValue({
-      ok: true,
-      json: () =>
-        Promise.resolve([
+      ok: false,
+      status: 500,
+    });
+
+    renderTestConsumer([createGitHubEntity('server-error-repo')]);
+
+    await waitFor(() => {
+      expect(screen.getByTestId('loading')).toHaveTextContent('false');
+    });
+
+    expect(screen.getByTestId('activity-server-error-repo')).toHaveTextContent(
+      'N/A',
+    );
+  });
+
+  it('fetches GitLab pipelines via batch endpoint', async () => {
+    mockBatchResponse({
+      'component:default/gitlab-repo': {
+        status: 200,
+        data: [
           {
             id: 99,
             created_at: '2024-06-15T10:00:00Z',
             web_url: 'https://gitlab.com/my-group/my-project/pipelines/99',
           },
-        ]),
+        ],
+      },
     });
 
     renderTestConsumer([createGitLabEntity('gitlab-repo')]);
@@ -188,8 +221,8 @@ describe('useLatestCIActivity', () => {
     });
 
     expect(mockFetchApi.fetch).toHaveBeenCalledWith(
-      expect.stringContaining('/ansible/git/ci-activity?provider=gitlab'),
-      expect.objectContaining({ credentials: 'include' }),
+      expect.stringContaining('/ansible/git/ci-activity'),
+      expect.objectContaining({ method: 'POST' }),
     );
 
     expect(screen.getByTestId('activity-gitlab-repo')).toHaveTextContent(
@@ -198,9 +231,8 @@ describe('useLatestCIActivity', () => {
   });
 
   it('returns N/A when GitLab has no pipelines', async () => {
-    mockFetchApi.fetch.mockResolvedValue({
-      ok: true,
-      json: () => Promise.resolve([]),
+    mockBatchResponse({
+      'component:default/empty-gitlab': { status: 200, data: [] },
     });
 
     renderTestConsumer([createGitLabEntity('empty-gitlab')]);
@@ -210,23 +242,6 @@ describe('useLatestCIActivity', () => {
     });
 
     expect(screen.getByTestId('activity-empty-gitlab')).toHaveTextContent(
-      'N/A',
-    );
-  });
-
-  it('handles GitLab API errors gracefully', async () => {
-    mockFetchApi.fetch.mockResolvedValue({
-      ok: false,
-      status: 500,
-    });
-
-    renderTestConsumer([createGitLabEntity('error-gitlab')]);
-
-    await waitFor(() => {
-      expect(screen.getByTestId('loading')).toHaveTextContent('false');
-    });
-
-    expect(screen.getByTestId('activity-error-gitlab')).toHaveTextContent(
       'N/A',
     );
   });
@@ -253,43 +268,32 @@ describe('useLatestCIActivity', () => {
     expect(screen.getByTestId('activity-other-repo')).toHaveTextContent('N/A');
   });
 
-  it('handles mixed GitHub and GitLab entities', async () => {
-    mockFetchApi.fetch.mockImplementation((url: string) => {
-      if (url.includes('provider=github')) {
-        return Promise.resolve({
-          ok: true,
-          json: () =>
-            Promise.resolve({
-              workflow_runs: [
-                {
-                  run_number: 10,
-                  id: 100,
-                  name: 'Test',
-                  created_at: '2024-06-15T11:00:00Z',
-                  html_url: 'https://github.com/org/repo/actions/runs/100',
-                },
-              ],
-            }),
-        });
-      }
-      if (url.includes('provider=gitlab')) {
-        return Promise.resolve({
-          ok: true,
-          json: () =>
-            Promise.resolve([
-              {
-                id: 20,
-                created_at: '2024-06-15T11:00:00Z',
-                web_url: 'https://gitlab.com/group/project/pipelines/20',
-              },
-            ]),
-        });
-      }
-      return Promise.resolve({
-        ok: false,
-        status: 404,
-        json: () => Promise.resolve({}),
-      });
+  it('handles mixed GitHub and GitLab entities in single batch', async () => {
+    mockBatchResponse({
+      'component:default/github-repo': {
+        status: 200,
+        data: {
+          workflow_runs: [
+            {
+              run_number: 10,
+              id: 100,
+              name: 'Test',
+              created_at: '2024-06-15T11:00:00Z',
+              html_url: 'https://github.com/org/repo/actions/runs/100',
+            },
+          ],
+        },
+      },
+      'component:default/gitlab-repo': {
+        status: 200,
+        data: [
+          {
+            id: 20,
+            created_at: '2024-06-15T11:00:00Z',
+            web_url: 'https://gitlab.com/group/project/pipelines/20',
+          },
+        ],
+      },
     });
 
     renderTestConsumer([
@@ -303,13 +307,14 @@ describe('useLatestCIActivity', () => {
 
     expect(screen.getByTestId('activity-github-repo')).toBeInTheDocument();
     expect(screen.getByTestId('activity-gitlab-repo')).toBeInTheDocument();
+    expect(mockFetchApi.fetch).toHaveBeenCalledTimes(1);
   });
 
   it('uses default workflow name when not provided', async () => {
-    mockFetchApi.fetch.mockResolvedValue({
-      ok: true,
-      json: () =>
-        Promise.resolve({
+    mockBatchResponse({
+      'component:default/no-name-repo': {
+        status: 200,
+        data: {
           workflow_runs: [
             {
               run_number: 5,
@@ -319,7 +324,8 @@ describe('useLatestCIActivity', () => {
               html_url: null,
             },
           ],
-        }),
+        },
+      },
     });
 
     renderTestConsumer([createGitHubEntity('no-name-repo')]);
@@ -333,7 +339,7 @@ describe('useLatestCIActivity', () => {
     );
   });
 
-  it('handles GitLab fetch throwing an exception', async () => {
+  it('handles fetch throwing an exception', async () => {
     mockFetchApi.fetch.mockRejectedValue(new Error('Network error'));
 
     renderTestConsumer([createGitLabEntity('fetch-error-gitlab')]);
@@ -362,16 +368,17 @@ describe('useLatestCIActivity', () => {
       spec: {},
     };
 
-    mockFetchApi.fetch.mockResolvedValue({
-      ok: true,
-      json: () =>
-        Promise.resolve([
+    mockBatchResponse({
+      'component:default/gitlab-no-url': {
+        status: 200,
+        data: [
           {
             id: 77,
             created_at: '2024-06-15T11:00:00Z',
             web_url: 'https://gitlab.com/my-group/my-project/pipelines/77',
           },
-        ]),
+        ],
+      },
     });
 
     renderTestConsumer([gitlabEntityNoUrl]);
@@ -386,10 +393,10 @@ describe('useLatestCIActivity', () => {
   });
 
   it('uses id as run number fallback for GitHub workflow', async () => {
-    mockFetchApi.fetch.mockResolvedValue({
-      ok: true,
-      json: () =>
-        Promise.resolve({
+    mockBatchResponse({
+      'component:default/id-fallback-repo': {
+        status: 200,
+        data: {
           workflow_runs: [
             {
               id: 999,
@@ -398,7 +405,8 @@ describe('useLatestCIActivity', () => {
               html_url: 'https://github.com/org/repo/actions/runs/999',
             },
           ],
-        }),
+        },
+      },
     });
 
     renderTestConsumer([createGitHubEntity('id-fallback-repo')]);
@@ -422,13 +430,20 @@ describe('useLatestCIActivity', () => {
       return Promise.resolve({
         ok: true,
         json: () =>
-          Promise.resolve([
-            {
-              id: 42,
-              created_at: '2024-06-15T11:00:00Z',
-              web_url: 'https://gitlab.com/group/project/pipelines/42',
+          Promise.resolve({
+            results: {
+              'component:default/retry-success-repo': {
+                status: 200,
+                data: [
+                  {
+                    id: 42,
+                    created_at: '2024-06-15T11:00:00Z',
+                    web_url: 'https://gitlab.com/group/project/pipelines/42',
+                  },
+                ],
+              },
             },
-          ]),
+          }),
       });
     });
 
@@ -464,7 +479,7 @@ describe('useLatestCIActivity', () => {
     ).toHaveTextContent('N/A');
   });
 
-  it('returns null from fetchWithRetry when cancelled before fetch (lines 31-32)', async () => {
+  it('cancels pending request on unmount', async () => {
     let fetchCallCount = 0;
     mockFetchApi.fetch.mockImplementation(() => {
       fetchCallCount++;
@@ -473,7 +488,12 @@ describe('useLatestCIActivity', () => {
           () =>
             resolve({
               ok: true,
-              json: () => Promise.resolve([{ id: 1 }]),
+              json: () =>
+                Promise.resolve({
+                  results: {
+                    'component:default/cancel-repo': { status: 200, data: [] },
+                  },
+                }),
             }),
           500,
         );
@@ -489,7 +509,7 @@ describe('useLatestCIActivity', () => {
     expect(fetchCallCount).toBeLessThanOrEqual(1);
   });
 
-  it('handles catch block in fetchGitLabActivity (lines 175-176)', async () => {
+  it('handles JSON parse error from batch response', async () => {
     mockFetchApi.fetch.mockResolvedValue({
       ok: true,
       json: () => Promise.reject(new Error('JSON parse error')),
@@ -506,80 +526,7 @@ describe('useLatestCIActivity', () => {
     );
   });
 
-  it('exits early when cancelled during batch processing (lines 183-184)', async () => {
-    let fetchCallCount = 0;
-    mockFetchApi.fetch.mockImplementation(() => {
-      fetchCallCount++;
-      return new Promise(resolve => {
-        setTimeout(
-          () =>
-            resolve({
-              ok: true,
-              json: () => Promise.resolve([{ id: fetchCallCount }]),
-            }),
-          100,
-        );
-      });
-    });
-
-    const entities = [
-      createGitLabEntity('batch-repo-1'),
-      createGitLabEntity('batch-repo-2'),
-      createGitLabEntity('batch-repo-3'),
-      createGitLabEntity('batch-repo-4'),
-    ];
-
-    const { unmount } = renderTestConsumer(entities);
-
-    await jest.advanceTimersByTimeAsync(150);
-
-    unmount();
-
-    const callsBeforeUnmount = fetchCallCount;
-
-    await jest.advanceTimersByTimeAsync(500);
-
-    expect(fetchCallCount).toBe(callsBeforeUnmount);
-  });
-
-  it('adds delay between batches when processing multiple GitLab entities (lines 188-190)', async () => {
-    const fetchTimes: number[] = [];
-    const startTime = Date.now();
-
-    mockFetchApi.fetch.mockImplementation(() => {
-      fetchTimes.push(Date.now() - startTime);
-      return Promise.resolve({
-        ok: true,
-        json: () =>
-          Promise.resolve([
-            {
-              id: fetchTimes.length,
-              created_at: '2024-06-15T11:00:00Z',
-            },
-          ]),
-      });
-    });
-
-    const entities = [
-      createGitLabEntity('delay-repo-1'),
-      createGitLabEntity('delay-repo-2'),
-      createGitLabEntity('delay-repo-3'),
-    ];
-
-    renderTestConsumer(entities);
-
-    await jest.advanceTimersByTimeAsync(50);
-
-    expect(mockFetchApi.fetch).toHaveBeenCalledTimes(2);
-
-    await jest.advanceTimersByTimeAsync(200);
-
-    await waitFor(() => {
-      expect(mockFetchApi.fetch).toHaveBeenCalledTimes(3);
-    });
-  });
-
-  it('does not update state when cancelled after fetches complete (lines 195-196)', async () => {
+  it('does not update state when cancelled after fetch completes', async () => {
     let resolvePromise: (value: unknown) => void;
     const fetchPromise = new Promise(resolve => {
       resolvePromise = resolve;
@@ -596,9 +543,58 @@ describe('useLatestCIActivity', () => {
     resolvePromise!({
       ok: true,
       json: () =>
-        Promise.resolve([{ id: 123, created_at: '2024-06-15T11:00:00Z' }]),
+        Promise.resolve({
+          results: {
+            'component:default/late-cancel': {
+              status: 200,
+              data: [{ id: 123, created_at: '2024-06-15T11:00:00Z' }],
+            },
+          },
+        }),
     });
 
     await jest.advanceTimersByTimeAsync(100);
+
+    expect(mockFetchApi.fetch).toHaveBeenCalledTimes(1);
+  });
+
+  it('sends single batch request for all entities', async () => {
+    mockBatchResponse({
+      'component:default/repo-1': {
+        status: 200,
+        data: {
+          workflow_runs: [
+            {
+              id: 1,
+              run_number: 1,
+              name: 'CI',
+              created_at: '2024-06-15T11:00:00Z',
+            },
+          ],
+        },
+      },
+      'component:default/repo-2': {
+        status: 200,
+        data: [{ id: 2, created_at: '2024-06-15T11:00:00Z' }],
+      },
+    });
+
+    renderTestConsumer([
+      createGitHubEntity('repo-1'),
+      createGitLabEntity('repo-2'),
+    ]);
+
+    await waitFor(() => {
+      expect(screen.getByTestId('loading')).toHaveTextContent('false');
+    });
+
+    expect(mockFetchApi.fetch).toHaveBeenCalledTimes(1);
+
+    const body = JSON.parse(
+      (mockFetchApi.fetch.mock.calls[0][1] as RequestInit).body as string,
+    );
+    expect(body.items).toHaveLength(2);
+    expect(body.items[0].provider).toBe('github');
+    expect(body.items[1].provider).toBe('gitlab');
   });
 });

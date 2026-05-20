@@ -31,6 +31,7 @@ import GetAppIcon from '@material-ui/icons/GetApp';
 import ArrowBack from '@material-ui/icons/ArrowBack';
 import { rootRouteRef, selectedTemplateRouteRef } from '../../routes';
 import { createTarArchive } from '../utils/tarArchiveUtils';
+import { eeCache } from '../ExecutionEnvironments/catalog/eeCache';
 import {
   resolveEeFileNameFromParameters,
   resolvePublishToScmFromParameters,
@@ -320,39 +321,62 @@ export const RunTask = () => {
       return undefined;
     }
 
-    const fetchEntity = async () => {
+    const eeFileName = resolveEeFileNameFromParameters(
+      task?.spec?.parameters as Record<string, unknown> | undefined,
+    );
+    if (!eeFileName) {
+      console.warn('EE file name not found in task parameters'); // eslint-disable-line no-console
+      return undefined;
+    }
+
+    const entityRef = `Component:default/${eeFileName.trim()}`;
+    const RETRY_DELAYS_MS = [2000, 4000, 8000, 12000, 16000];
+    let attempt = 0;
+    let pendingTimeout: ReturnType<typeof setTimeout> | null = null;
+    let disposed = false;
+
+    const attemptFetch = async () => {
       try {
-        const eeFileName = resolveEeFileNameFromParameters(
-          task?.spec?.parameters as Record<string, unknown> | undefined,
-        );
-        if (!eeFileName) {
-          console.warn('EE file name not found in task parameters'); // eslint-disable-line no-console
-          return;
-        }
-
-        const entityRef = `Component:default/${eeFileName.trim()}`;
         const foundEntity = await catalogApi.getEntityByRef(entityRef);
-
+        if (disposed) return;
         if (
           foundEntity?.kind === 'Component' &&
           foundEntity?.spec?.type === 'execution-environment'
         ) {
           setMatchingEntity(foundEntity);
-        } else {
-          // eslint-disable-next-line no-console
-          console.warn(
-            `Could not find registered EE component for ${eeFileName}`,
-          );
+          return;
         }
-      } catch (err) {
-        console.error('Failed to fetch entity from catalog:', err); // eslint-disable-line no-console
+      } catch {
+        if (disposed) return;
+      }
+
+      attempt++;
+      if (attempt < RETRY_DELAYS_MS.length) {
+        pendingTimeout = setTimeout(attemptFetch, RETRY_DELAYS_MS[attempt]);
+      } else {
+        // eslint-disable-next-line no-console
+        console.warn(
+          `Could not find registered EE component after ${RETRY_DELAYS_MS.length} attempts`,
+        );
       }
     };
-    const timeoutId = setTimeout(() => {
-      fetchEntity();
-    }, 2000);
-    return () => clearTimeout(timeoutId);
+
+    pendingTimeout = setTimeout(attemptFetch, RETRY_DELAYS_MS[0]);
+    return () => {
+      disposed = true;
+      if (pendingTimeout !== null) clearTimeout(pendingTimeout);
+    };
   }, [matchingEntity, completed, task, allSteps, catalogApi]);
+
+  useEffect(() => {
+    if (
+      completed &&
+      !error &&
+      templateEntity?.spec?.type === 'execution-environment'
+    ) {
+      eeCache.markStale();
+    }
+  }, [completed, error, templateEntity]);
 
   const getMatchingEntity = useCallback(async (): Promise<any | null> => {
     let entity = matchingEntity;

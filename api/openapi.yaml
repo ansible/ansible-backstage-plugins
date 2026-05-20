@@ -868,119 +868,95 @@ paths:
                 $ref: '#/components/schemas/ErrorResponse'
 
   /ansible/git/ci-activity:
-    get:
-      operationId: getCIActivity
-      summary: Get CI/CD activity from GitHub or GitLab
+    post:
+      operationId: batchCIActivity
+      summary: Batch fetch CI/CD activity from GitHub Actions and GitLab Pipelines
       description: |
-        Proxies CI/CD activity data from GitHub Actions or GitLab Pipelines.
+        Accepts multiple repositories in a single request and returns CI/CD activity
+        for each. Supports GitHub Actions workflow runs and GitLab pipeline data.
         **Permissions**: Requires `ansible.git-repositories.view` and `catalog.entity.read`.
       tags:
         - Git Content
       security:
         - JWT: []
-      parameters:
-        - name: provider
-          in: query
-          required: true
-          schema:
-            type: string
-            enum:
-              - github
-              - gitlab
-          description: CI/CD provider
-        - name: host
-          in: query
-          required: false
-          schema:
-            type: string
-          description: SCM hostname. Defaults to github.com or gitlab.com based on provider.
-        - name: per_page
-          in: query
-          required: false
-          schema:
-            type: integer
-            minimum: 1
-            maximum: 100
-            default: 15
-          description: Number of results to return (max 100)
-        - name: owner
-          in: query
-          required: false
-          schema:
-            type: string
-          description: Repository owner (required for GitHub)
-        - name: repo
-          in: query
-          required: false
-          schema:
-            type: string
-          description: Repository name (required for GitHub)
-        - name: projectPath
-          in: query
-          required: false
-          schema:
-            type: string
-          description: Project path (required for GitLab, e.g. group/project)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - items
+              properties:
+                items:
+                  type: array
+                  minItems: 1
+                  maxItems: 100
+                  items:
+                    type: object
+                    required:
+                      - key
+                      - provider
+                    properties:
+                      key:
+                        type: string
+                        description: Unique key to identify this item in the response
+                      provider:
+                        type: string
+                        enum:
+                          - github
+                          - gitlab
+                        description: CI/CD provider
+                      host:
+                        type: string
+                        description: SCM hostname (defaults to github.com or gitlab.com)
+                      per_page:
+                        type: integer
+                        minimum: 1
+                        maximum: 100
+                        default: 15
+                        description: Number of results per repo (max 100)
+                      owner:
+                        type: string
+                        description: Repository owner (required for GitHub)
+                      repo:
+                        type: string
+                        description: Repository name (required for GitHub)
+                      projectPath:
+                        type: string
+                        description: Project path (required for GitLab, e.g. group/project)
       responses:
         '200':
-          description: CI activity retrieved successfully
+          description: Batch CI activity results
           content:
             application/json:
               schema:
-                oneOf:
-                  - type: object
-                    description: GitHub Actions response
-                    properties:
-                      workflow_runs:
-                        type: array
-                        items:
-                          type: object
+                type: object
+                properties:
+                  results:
+                    type: object
+                    additionalProperties:
+                      oneOf:
+                        - type: object
+                          description: Successful result
                           properties:
-                            run_number:
+                            status:
                               type: integer
-                            id:
-                              type: integer
-                            name:
-                              type:
-                                - string
-                                - 'null'
-                            created_at:
-                              type:
-                                - string
-                                - 'null'
-                            html_url:
-                              type:
-                                - string
-                                - 'null'
-                  - type: array
-                    description: GitLab Pipelines response
-                    items:
-                      type: object
-                      properties:
-                        id:
-                          type: integer
-                        created_at:
-                          type:
-                            - string
-                            - 'null'
-                        web_url:
-                          type:
-                            - string
-                            - 'null'
+                            data:
+                              description: GitHub workflow_runs object or GitLab pipelines array
+                        - type: object
+                          description: Error result
+                          properties:
+                            error:
+                              type: string
         '400':
-          description: Missing or invalid parameters
+          description: Invalid request body
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
         '403':
           description: Forbidden - insufficient permissions
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '502':
-          description: Failed to fetch from upstream CI provider
           content:
             application/json:
               schema:
