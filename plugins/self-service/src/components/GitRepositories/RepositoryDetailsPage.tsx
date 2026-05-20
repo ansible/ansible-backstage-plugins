@@ -340,6 +340,7 @@ const RepositoryDetailsPageInner = () => {
             endIcon={<OpenInNewIcon />}
             onClick={handleViewSource}
             className={classes.syncButton}
+            style={{ whiteSpace: 'nowrap', flexShrink: 0, marginLeft: 24 }}
           >
             View in source
           </Button>

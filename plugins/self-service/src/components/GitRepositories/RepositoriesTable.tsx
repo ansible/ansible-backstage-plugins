@@ -474,7 +474,7 @@ const RepositoriesTableInner = ({
                 <Typography
                   variant="body2"
                   color="textSecondary"
-                  style={{ fontSize: '0.875rem' }}
+                  style={{ fontSize: '0.875rem', paddingLeft: 16 }}
                 >
                   Showing {startIndex + 1}-{endIndex} of {totalCount}{' '}
                   repositories
