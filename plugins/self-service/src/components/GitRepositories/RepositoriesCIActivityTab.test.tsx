@@ -90,6 +90,7 @@ jest.mock('@backstage/plugin-catalog-react', () => {
 });
 
 import { RepositoriesCIActivityTab } from './RepositoriesCIActivityTab';
+import { ciActivityCache } from './ciActivityCache';
 
 const theme = createTheme();
 
@@ -174,6 +175,7 @@ const createGitLabEntity = (name: string): Entity => ({
 describe('RepositoriesCIActivityTab', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    ciActivityCache.clear();
     jest.useFakeTimers();
     jest.setSystemTime(new Date('2024-06-15T12:00:00Z'));
 
