@@ -38,7 +38,7 @@ describe('ResourcesCard', () => {
     });
     expect(docLink).toHaveAttribute(
       'href',
-      'https://docs.redhat.com/en/documentation/red_hat_ansible_automation_platform/2.6/html-single/using_self-service_automation_portal/index#self-service-create-ee-definitions_aap-self-service-using',
+      'https://red.ht/self-service-create-ee-definitions',
     );
     expect(docLink).toHaveAttribute('target', '_blank');
 

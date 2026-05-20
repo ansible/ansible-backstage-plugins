@@ -375,7 +375,7 @@ export const HomeComponent = () => {
             </div>
             <Typography
               component="a"
-              href="https://docs.redhat.com/en/documentation/red_hat_ansible_automation_platform/2.6/html/using_self-service_automation_portal/self-service-working-templates_aap-self-service-using#self-service-launch-template_self-service-working-templates"
+              href="https://red.ht/self-service-launch-template"
               target="_blank"
               rel="noopener noreferrer"
               style={{
