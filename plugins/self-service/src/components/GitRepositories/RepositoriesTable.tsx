@@ -1,6 +1,7 @@
-import { useCallback, useEffect, useState, useMemo } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import {
   Box,
+  CircularProgress,
   IconButton,
   Link,
   Menu,
@@ -15,7 +16,9 @@ import MoreVertIcon from '@material-ui/icons/MoreVert';
 import OpenInNewIcon from '@material-ui/icons/OpenInNew';
 import Star from '@material-ui/icons/Star';
 import StarBorder from '@material-ui/icons/StarBorder';
-import { Entity } from '@backstage/catalog-model';
+import NavigateBeforeIcon from '@material-ui/icons/NavigateBefore';
+import NavigateNextIcon from '@material-ui/icons/NavigateNext';
+import { Entity, stringifyEntityRef } from '@backstage/catalog-model';
 import {
   CatalogFilterLayout,
   EntityKindFilter,
@@ -42,9 +45,11 @@ import {
   COLUMN_CONTAINS_TOOLTIP,
   COLUMN_LAST_ACTIVITY_TOOLTIP,
   COLUMN_LAST_SYNC_TOOLTIP,
+  PAGE_SIZE,
 } from './constants';
 import { rootRouteRef } from '../../routes';
 import { useLatestCIActivity } from './useLatestCIActivity';
+import { usePaginatedGitRepos } from './usePaginatedGitRepos';
 
 const StarredIcon = () => <Star style={{ color: '#ffb74d' }} />;
 
@@ -84,33 +89,6 @@ interface RepositoriesTableProps {
   onSourcesStatusChange?: (hasSources: boolean | null) => void;
 }
 
-const getRepoHost = (entity: Entity): string => {
-  const annotations = entity.metadata?.annotations || {};
-  let host = annotations['ansible.io/scm-host'];
-  if (typeof host === 'string' && host) {
-    host = host.trim();
-    if (host.startsWith('http://') || host.startsWith('https://')) {
-      try {
-        host = new URL(host).hostname;
-      } catch {
-        // leave as-is if URL parse fails
-      }
-    }
-    return host;
-  }
-  const provider = (annotations['ansible.io/scm-provider'] ?? '').toLowerCase();
-  if (provider === 'github') return 'github.com';
-  if (provider === 'gitlab') return 'gitlab.com';
-  return provider || '';
-};
-
-const getRepoHostName = (entity: Entity): string => {
-  const annotations = entity.metadata?.annotations || {};
-  const name = annotations['ansible.io/scm-host-name'];
-  if (typeof name === 'string' && name.trim()) return name.trim();
-  return getRepoHost(entity);
-};
-
 const RepositoriesTableInner = ({
   syncStatusMap,
   onSourcesStatusChange,
@@ -122,12 +100,33 @@ const RepositoriesTableInner = ({
   const { isStarredEntity, toggleStarredEntity } = useStarredEntities();
   const { filters } = useEntityList();
 
-  const [loading, setLoading] = useState(true);
-  const [allRepos, setAllRepos] = useState<Entity[]>([]);
-  const [sourceFilter, setSourceFilter] = useState<string>('All');
-  const [allSources, setAllSources] = useState<
-    Array<{ value: string; label: string }>
-  >([{ value: 'All', label: 'All' }]);
+  const starredFilter = useMemo(() => {
+    if (filters.user?.value !== 'starred') return undefined;
+    return (entity: Entity) => isStarredEntity(entity);
+  }, [filters.user?.value, isStarredEntity]);
+
+  const {
+    entities: paginatedEntities,
+    loadedEntityCount,
+    totalCount,
+    initialLoading,
+    loadingMore,
+    error,
+    currentPage,
+    totalPages,
+    hasNextPage,
+    hasPrevPage,
+    nextPage,
+    prevPage,
+    allSources,
+    sourceFilter,
+    setSourceFilter,
+  } = usePaginatedGitRepos({
+    catalogApi,
+    onSourcesStatusChange,
+    entityFilter: starredFilter,
+  });
+
   const [menuAnchor, setMenuAnchor] = useState<{
     left: number;
     top: number;
@@ -135,61 +134,7 @@ const RepositoriesTableInner = ({
   const [selectedEntity, setSelectedEntity] = useState<Entity | null>(null);
 
   const { lastActivityMap, loading: lastActivityLoading } =
-    useLatestCIActivity(allRepos);
-
-  const fetchRepos = useCallback(() => {
-    setLoading(true);
-    catalogApi
-      .getEntities({
-        filter: [{ kind: 'Component', 'spec.type': 'git-repository' }],
-      })
-      .then(response => {
-        const items = Array.isArray(response) ? response : response.items || [];
-        setAllRepos(items);
-        if (items.length > 0) {
-          const hostToLabel = new Map<string, string>();
-          for (const entity of items) {
-            const host = getRepoHost(entity);
-            if (host && !hostToLabel.has(host)) {
-              hostToLabel.set(host, getRepoHostName(entity));
-            }
-          }
-          const sources = [
-            { value: 'All', label: 'All' },
-            ...Array.from(hostToLabel.entries())
-              .sort((a, b) =>
-                a[1].localeCompare(b[1], undefined, { sensitivity: 'base' }),
-              )
-              .map(([value, label]) => ({ value, label })),
-          ];
-          setAllSources(sources);
-        }
-        onSourcesStatusChange?.(items.length > 0 ? true : null);
-      })
-      .catch(() => {
-        setAllRepos([]);
-        onSourcesStatusChange?.(null);
-      })
-      .finally(() => setLoading(false));
-  }, [catalogApi, onSourcesStatusChange]);
-
-  useEffect(() => {
-    fetchRepos();
-  }, [fetchRepos]);
-
-  const repos = useMemo(() => {
-    let list = allRepos;
-    if (filters.user?.value === 'starred') {
-      list = list.filter(e => isStarredEntity(e));
-    }
-    const sourceMatch = (e: Entity) =>
-      sourceFilter === 'All' || getRepoHost(e) === sourceFilter;
-    return list.filter(sourceMatch).sort((a, b) => {
-      const nameA = (a.metadata?.title ?? a.metadata?.name ?? '').toLowerCase();
-      const nameB = (b.metadata?.title ?? b.metadata?.name ?? '').toLowerCase();
-      return nameA.localeCompare(nameB);
-    });
-  }, [allRepos, filters.user?.value, isStarredEntity, sourceFilter]);
+    useLatestCIActivity(paginatedEntities);
 
   const handleKebabOpen = (
     event: React.MouseEvent<HTMLElement>,
@@ -344,8 +289,7 @@ const RepositoriesTableInner = ({
       ) as unknown as string,
       id: 'lastActivity',
       render: (entity: Entity) => {
-        const name = entity.metadata?.name ?? '';
-        const entry = lastActivityMap[name];
+        const entry = lastActivityMap[stringifyEntityRef(entity)];
         const text = lastActivityLoading ? '—' : (entry?.text ?? 'N/A');
         const url = entry?.url;
         return (
@@ -426,11 +370,15 @@ const RepositoriesTableInner = ({
     },
   ];
 
-  if (loading) {
+  if (initialLoading) {
     return <Progress />;
   }
 
-  if (allRepos.length === 0) {
+  if (error) {
+    return <div>Error: {error}</div>;
+  }
+
+  if (loadedEntityCount === 0) {
     return (
       <Box className={classes.emptyState}>
         <Typography className={classes.emptyStateTitle}>
@@ -443,6 +391,9 @@ const RepositoriesTableInner = ({
       </Box>
     );
   }
+
+  const startIndex = (currentPage - 1) * PAGE_SIZE;
+  const endIndex = Math.min(startIndex + PAGE_SIZE, totalCount);
 
   return (
     <div style={{ flexDirection: 'column', width: '100%' }}>
@@ -493,16 +444,64 @@ const RepositoriesTableInner = ({
         <CatalogFilterLayout.Content>
           <Box className={tableWrapperClasses.tableWrapper}>
             <Table
-              title={`Git Repositories (${repos.length})`}
+              title={
+                <>
+                  {`Git Repositories (${totalCount})`}
+                  {loadingMore && (
+                    <CircularProgress
+                      size={16}
+                      style={{ marginLeft: 8, verticalAlign: 'middle' }}
+                    />
+                  )}
+                </>
+              }
               options={{
                 search: true,
+                paging: false,
                 rowStyle: { cursor: 'default' },
-                pageSize: 10,
-                pageSizeOptions: [10, 20, 50],
               }}
               columns={columns}
-              data={repos}
+              data={paginatedEntities}
             />
+            {totalPages > 1 && (
+              <Box
+                display="flex"
+                alignItems="center"
+                justifyContent="space-between"
+                mt={3}
+                py={1}
+              >
+                <Typography
+                  variant="body2"
+                  color="textSecondary"
+                  style={{ fontSize: '0.875rem' }}
+                >
+                  Showing {startIndex + 1}-{endIndex} of {totalCount}{' '}
+                  repositories
+                </Typography>
+                <Box display="flex" alignItems="center" style={{ gap: 8 }}>
+                  <IconButton
+                    size="small"
+                    disabled={!hasPrevPage}
+                    onClick={prevPage}
+                    aria-label="Previous page"
+                  >
+                    <NavigateBeforeIcon />
+                  </IconButton>
+                  <Typography variant="body2">
+                    Page {currentPage} of {totalPages}
+                  </Typography>
+                  <IconButton
+                    size="small"
+                    disabled={!hasNextPage}
+                    onClick={nextPage}
+                    aria-label="Next page"
+                  >
+                    <NavigateNextIcon />
+                  </IconButton>
+                </Box>
+              </Box>
+            )}
           </Box>
         </CatalogFilterLayout.Content>
       </CatalogFilterLayout>

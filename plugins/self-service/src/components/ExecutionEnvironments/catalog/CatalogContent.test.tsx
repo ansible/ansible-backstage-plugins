@@ -14,6 +14,7 @@ import { MemoryRouter } from 'react-router-dom';
 import { EEListPage } from './CatalogContent';
 import { ThemeProvider, createMuiTheme } from '@material-ui/core/styles';
 import { Entity } from '@backstage/catalog-model';
+import { eeCache } from './eeCache';
 
 // ------------------ STUB: core components (Table, Link) ------------------
 jest.mock('@backstage/core-components', () => {
@@ -266,9 +267,27 @@ const renderWithCatalogApi = (
       },
     });
 
+  const getEntityByRefFn = getEntityByRefImpl || defaultGetEntityByRef;
   const mockCatalogApi = {
     getEntities: getEntitiesImpl,
-    getEntityByRef: getEntityByRefImpl || defaultGetEntityByRef,
+    getEntityByRef: getEntityByRefFn,
+    getEntitiesByRefs: async ({ entityRefs }: { entityRefs: string[] }) => {
+      const items = await Promise.all(
+        entityRefs.map(async (ref: string) => {
+          try {
+            return await getEntityByRefFn(ref);
+          } catch {
+            return undefined;
+          }
+        }),
+      );
+      return { items };
+    },
+    queryEntities: async (...args: unknown[]) => {
+      const result = await getEntitiesImpl(...args);
+      const items = Array.isArray(result) ? result : (result?.items ?? []);
+      return { items, totalItems: items.length, pageInfo: {} };
+    },
   };
   return render(
     <MemoryRouter initialEntries={['/']}>
@@ -297,6 +316,7 @@ describe('EEListPage', () => {
     mockNavigate.mockClear();
     sessionStorage.clear();
     notificationStore.clearAll();
+    eeCache.clear();
   });
 
   describe('Basic rendering', () => {
@@ -1777,7 +1797,12 @@ describe('EEListPage', () => {
               [configApiRef, mockConfigApi],
               [
                 catalogApiRef,
-                { getEntities: () => Promise.resolve({ items: [] }) },
+                {
+                  getEntities: () => Promise.resolve({ items: [] }),
+                  queryEntities: () =>
+                    Promise.resolve({ items: [], totalItems: 0, pageInfo: {} }),
+                  getEntitiesByRefs: () => Promise.resolve({ items: [] }),
+                },
               ],
               [scmAuthApiRef, mockScmAuthApi],
               [eeBuildApiRef, mockEeBuildApi],
@@ -1891,7 +1916,12 @@ describe('EEListPage', () => {
               [configApiRef, mockConfigApi],
               [
                 catalogApiRef,
-                { getEntities: () => Promise.resolve({ items: [] }) },
+                {
+                  getEntities: () => Promise.resolve({ items: [] }),
+                  queryEntities: () =>
+                    Promise.resolve({ items: [], totalItems: 0, pageInfo: {} }),
+                  getEntitiesByRefs: () => Promise.resolve({ items: [] }),
+                },
               ],
               [scmAuthApiRef, mockScmAuthApi],
               [eeBuildApiRef, mockEeBuildApi],
