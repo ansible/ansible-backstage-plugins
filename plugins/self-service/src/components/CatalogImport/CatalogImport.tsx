@@ -50,9 +50,7 @@ export const CatalogImport = () => {
                 automation portal. Please remember that managing these custom
                 templates will require automation portal RBAC rules.{' '}
                 <a
-                  href="https://docs.redhat.com/en/documentation/red_hat_ansible_automation_platform/latest/html/using_self-service_automation_portal/self-service-working-templates_aap-self-service-using#self-service-add-template_self-service-working-templates
-
-"
+                  href="https://red.ht/self-service-add-template_self-service-working-tem"
                   target="_blank"
                   rel="noopener noreferrer"
                   style={{ color: '#1976d2', textDecoration: 'underline' }}
