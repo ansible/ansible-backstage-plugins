@@ -4,6 +4,11 @@ import { clearCollectionsCache } from './utils';
 import { mockAnsibleService } from '../actions/mockIAAPService';
 import { mockServices } from '@backstage/backend-test-utils';
 import { MOCK_TOKEN } from '../mock';
+import {
+  InputError,
+  NotAllowedError,
+  ServiceUnavailableError,
+} from '@backstage/errors';
 
 const mockFetch = jest.fn();
 
@@ -50,6 +55,7 @@ describe('ansible-aap:autocomplete', () => {
     mockDiscoveryService.getBaseUrl.mockResolvedValue(
       'http://catalog.example.com',
     );
+    mockAnsibleService.checkControllerAvailability.mockResolvedValue(true);
   });
 
   it('should return verbosity', async () => {
@@ -371,5 +377,210 @@ describe('ansible-aap:autocomplete', () => {
       call[0]?.includes('Autocomplete context'),
     );
     expect(contextCalls.length).toBe(0);
+  });
+
+  describe('controller availability check', () => {
+    it('should throw ServiceUnavailableError when controller is absent', async () => {
+      mockAnsibleService.checkControllerAvailability.mockResolvedValue(false);
+
+      await expect(
+        handleAutocompleteRequest({
+          resource: 'job_templates',
+          token: 'token',
+          config,
+          logger,
+          ansibleService: mockAnsibleService,
+          auth: mockAuthService,
+          discovery: mockDiscoveryService,
+        }),
+      ).rejects.toThrow(
+        'Controller service is absent in provided AAP instance',
+      );
+    });
+
+    it('should map permission errors from checkControllerAvailability to NotAllowedError', async () => {
+      mockAnsibleService.checkControllerAvailability.mockRejectedValue(
+        new Error(
+          'Insufficient privileges. Please contact your administrator.',
+        ),
+      );
+
+      const request = handleAutocompleteRequest({
+        resource: 'job_templates',
+        token: 'token',
+        config,
+        logger,
+        ansibleService: mockAnsibleService,
+        auth: mockAuthService,
+        discovery: mockDiscoveryService,
+      });
+
+      await expect(request).rejects.toThrow(NotAllowedError);
+      await expect(request).rejects.toThrow(
+        'Insufficient privileges. Please contact your administrator.',
+      );
+    });
+
+    it('should not gate collections on controller availability', async () => {
+      mockAnsibleService.checkControllerAvailability.mockResolvedValue(false);
+      mockFetch.mockResolvedValue({
+        ok: true,
+        json: async () => [],
+      });
+
+      await expect(
+        handleAutocompleteRequest({
+          resource: 'collections',
+          token: 'token',
+          config,
+          logger,
+          ansibleService: mockAnsibleService,
+          auth: mockAuthService,
+          discovery: mockDiscoveryService,
+        }),
+      ).resolves.toEqual({ results: [] });
+
+      expect(
+        mockAnsibleService.checkControllerAvailability,
+      ).not.toHaveBeenCalled();
+    });
+
+    it('should return resource data when controller is available', async () => {
+      const mockJobTemplates = {
+        results: [
+          { id: 1, name: 'Job Template 1' },
+          { id: 2, name: 'Job Template 2' },
+        ],
+      };
+
+      mockAnsibleService.checkControllerAvailability.mockResolvedValue(true);
+      mockAnsibleService.getResourceData.mockResolvedValue(mockJobTemplates);
+
+      const response = await handleAutocompleteRequest({
+        resource: 'job_templates',
+        token: 'token',
+        config,
+        logger,
+        ansibleService: mockAnsibleService,
+        auth: mockAuthService,
+        discovery: mockDiscoveryService,
+      });
+
+      expect(response).toEqual(mockJobTemplates);
+    });
+
+    it('should throw ServiceUnavailableError when getResourceData fails with "Failed to send fetch"', async () => {
+      mockAnsibleService.getResourceData.mockRejectedValue(
+        new Error('Failed to send fetch request to controller'),
+      );
+
+      await expect(
+        handleAutocompleteRequest({
+          resource: 'job_templates',
+          token: 'token',
+          config,
+          logger,
+          ansibleService: mockAnsibleService,
+          auth: mockAuthService,
+          discovery: mockDiscoveryService,
+        }),
+      ).rejects.toThrow(ServiceUnavailableError);
+    });
+
+    it('should throw InputError for generic errors from getResourceData', async () => {
+      mockAnsibleService.getResourceData.mockRejectedValue(
+        new Error('Something unexpected happened'),
+      );
+
+      await expect(
+        handleAutocompleteRequest({
+          resource: 'job_templates',
+          token: 'token',
+          config,
+          logger,
+          ansibleService: mockAnsibleService,
+          auth: mockAuthService,
+          discovery: mockDiscoveryService,
+        }),
+      ).rejects.toThrow(InputError);
+    });
+
+    it('should convert non-Error thrown values to string and throw InputError', async () => {
+      mockAnsibleService.getResourceData.mockRejectedValue(
+        'raw string rejection',
+      );
+
+      await expect(
+        handleAutocompleteRequest({
+          resource: 'job_templates',
+          token: 'token',
+          config,
+          logger,
+          ansibleService: mockAnsibleService,
+          auth: mockAuthService,
+          discovery: mockDiscoveryService,
+        }),
+      ).rejects.toThrow(InputError);
+
+      await expect(
+        handleAutocompleteRequest({
+          resource: 'job_templates',
+          token: 'token',
+          config,
+          logger,
+          ansibleService: mockAnsibleService,
+          auth: mockAuthService,
+          discovery: mockDiscoveryService,
+        }),
+      ).rejects.toThrow('raw string rejection');
+    });
+
+    it('should throw ServiceUnavailableError when checkControllerAvailability throws a Controller error', async () => {
+      mockAnsibleService.checkControllerAvailability.mockRejectedValue(
+        new Error('Controller connection timed out'),
+      );
+
+      await expect(
+        handleAutocompleteRequest({
+          resource: 'job_templates',
+          token: 'token',
+          config,
+          logger,
+          ansibleService: mockAnsibleService,
+          auth: mockAuthService,
+          discovery: mockDiscoveryService,
+        }),
+      ).rejects.toThrow(ServiceUnavailableError);
+
+      await expect(
+        handleAutocompleteRequest({
+          resource: 'job_templates',
+          token: 'token',
+          config,
+          logger,
+          ansibleService: mockAnsibleService,
+          auth: mockAuthService,
+          discovery: mockDiscoveryService,
+        }),
+      ).rejects.toThrow('Controller connection timed out');
+    });
+
+    it('should throw NotAllowedError for insufficient privileges from getResourceData', async () => {
+      mockAnsibleService.getResourceData.mockRejectedValue(
+        new Error('Insufficient privileges to access this resource'),
+      );
+
+      await expect(
+        handleAutocompleteRequest({
+          resource: 'job_templates',
+          token: 'token',
+          config,
+          logger,
+          ansibleService: mockAnsibleService,
+          auth: mockAuthService,
+          discovery: mockDiscoveryService,
+        }),
+      ).rejects.toThrow(NotAllowedError);
+    });
   });
 });
