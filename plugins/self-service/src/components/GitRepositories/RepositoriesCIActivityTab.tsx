@@ -55,6 +55,7 @@ export const RepositoriesCIActivityTab = ({
   const [triggerFilter, setTriggerFilter] = useState<string>('All');
 
   useEffect(() => {
+    let cancelled = false;
     const unsubscribe = ciActivityCache.subscribe(setCacheState);
 
     if (filterByEntity) {
@@ -67,19 +68,24 @@ export const RepositoriesCIActivityTab = ({
           filter: [{ kind: 'Component', 'spec.type': 'git-repository' }],
         })
         .then(response => {
+          if (cancelled) return;
           const items = Array.isArray(response)
             ? response
             : (response?.items ?? []);
           ciActivityCache.startLoading(items, discoveryApi, fetchApi);
         })
         .catch(e => {
+          if (cancelled) return;
           ciActivityCache.setError(
             e instanceof Error ? e.message : 'Failed to load entities',
           );
         });
     }
 
-    return unsubscribe;
+    return () => {
+      cancelled = true;
+      unsubscribe();
+    };
   }, [discoveryApi, fetchApi, catalogApi, filterByEntity, cachedEntities]);
 
   const rows = useMemo(() => cacheState?.rows ?? [], [cacheState?.rows]);
