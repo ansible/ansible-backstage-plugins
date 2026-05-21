@@ -1,0 +1,46 @@
+{
+  "name": "@ansible/plugin-apme-backend",
+  "description": "Backend proxy module for APME Gateway integration.",
+  "version": "0.1.0",
+  "main": "src/index.ts",
+  "types": "src/index.ts",
+  "license": "Apache-2.0",
+  "private": true,
+  "publishConfig": {
+    "access": "public",
+    "main": "dist/index.cjs.js",
+    "types": "dist/index.d.ts"
+  },
+  "backstage": {
+    "role": "backend-plugin",
+    "pluginId": "apme"
+  },
+  "scripts": {
+    "start": "backstage-cli package start",
+    "build": "backstage-cli package build",
+    "lint": "backstage-cli package lint",
+    "test": "backstage-cli package test",
+    "clean": "backstage-cli package clean",
+    "prepack": "backstage-cli package prepack",
+    "postpack": "backstage-cli package postpack",
+    "export-dynamic": "rhdh-cli plugin export"
+  },
+  "dependencies": {
+    "@backstage/backend-defaults": "^0.16.0",
+    "@backstage/backend-plugin-api": "^1.5.0",
+    "@backstage/config": "^1.3.6",
+    "express": "^5.1.0",
+    "http-proxy-middleware": "^3.0.3"
+  },
+  "devDependencies": {
+    "@backstage/cli": "^0.34.5",
+    "@types/express": "^5.0.3"
+  },
+  "files": [
+    "dist",
+    "dist-dynamic/*.*",
+    "dist-dynamic/dist/**",
+    "config.d.ts"
+  ],
+  "configSchema": "config.d.ts"
+}

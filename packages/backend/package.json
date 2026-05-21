@@ -16,6 +16,7 @@
     "build-image": "docker build ../.. -f Dockerfile --tag backstage"
   },
   "dependencies": {
+    "@ansible/plugin-apme-backend": "workspace:^",
     "@ansible/backstage-plugin-auth-backend-module-rhaap-provider": "workspace:^",
     "@ansible/backstage-plugin-catalog-backend-module-rhaap": "workspace:^",
     "@ansible/backstage-rhaap-common": "workspace:^",
