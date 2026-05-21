@@ -1,4 +1,4 @@
-import { Entity } from '@backstage/catalog-model';
+import { Entity, stringifyEntityRef } from '@backstage/catalog-model';
 import type { DiscoveryApi, FetchApi } from '@backstage/core-plugin-api';
 import { CIActivityRow, buildRowsFromResults } from './ciActivityUtils';
 import { BatchItem, buildBatchItems } from './ciBatchUtils';
@@ -17,9 +17,17 @@ export type CIActivityCacheState = {
 type Listener = (state: CIActivityCacheState) => void;
 
 let state: CIActivityCacheState | null = null;
+let entityKey: string | null = null;
 let fetchPromise: Promise<void> | null = null;
 let generation = 0;
 const listeners = new Set<Listener>();
+
+function buildEntityKey(entities: Entity[]): string {
+  return entities
+    .map(e => stringifyEntityRef(e))
+    .sort((a, b) => a.localeCompare(b))
+    .join('\0');
+}
 
 function notify(): void {
   if (state) {
@@ -53,10 +61,19 @@ async function startLoading(
   discoveryApi: DiscoveryApi,
   fetchApi: FetchApi,
 ): Promise<void> {
-  if (fetchPromise !== null) return;
+  const key = buildEntityKey(entities);
 
-  const cached = getState();
-  if (cached && !cached.loading && !cached.fetchingMore) return;
+  if (key === entityKey) {
+    if (fetchPromise !== null) return;
+
+    const cached = getState();
+    if (cached && !cached.loading && !cached.fetchingMore) return;
+  } else {
+    generation += 1;
+    state = null;
+    fetchPromise = null;
+    entityKey = key;
+  }
 
   const { items: batchItems, entityMap } = buildBatchItems(entities, 15);
 
@@ -185,12 +202,14 @@ function setError(message: string): void {
 function invalidate(): void {
   generation += 1;
   state = null;
+  entityKey = null;
   fetchPromise = null;
 }
 
 function clear(): void {
   generation += 1;
   state = null;
+  entityKey = null;
   fetchPromise = null;
   listeners.clear();
 }
