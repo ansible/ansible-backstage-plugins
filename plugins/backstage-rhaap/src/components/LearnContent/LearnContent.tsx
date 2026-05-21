@@ -147,98 +147,93 @@ const EntityLearnIntroCard = () => {
   }, [term]);
 
   return (
-    <>
-      <Grid container spacing={3} data-testid="learn-content">
-        <Grid item xs={2}>
-          <SearchBar
-            debounceTime={100}
-            className="MuiInput-underline"
-            clearButton={false}
-            placeholder="Search"
-          />
-          <SearchFilter.Checkbox
-            name="types"
-            values={['Learning Paths']}
-            defaultValue={['Learning Paths']}
-          />
+    <Grid container spacing={3} data-testid="learn-content">
+      <Grid item xs={2}>
+        <SearchBar
+          debounceTime={100}
+          className="MuiInput-underline"
+          clearButton={false}
+          placeholder="Search"
+        />
+        <SearchFilter.Checkbox
+          name="types"
+          values={['Learning Paths']}
+          defaultValue={['Learning Paths']}
+        />
 
-          <Typography style={{ marginTop: '32px' }} component="div">
-            Useful links:
-            <br />
-            <Typography
-              style={{ marginTop: '16px', fontSize: '14px' }}
-              component="div"
-            >
-              <Link to="https://red.ht/aap-rhd-learning-paths">
-                Ansible learning paths on <br /> Red Hat Developer website
-                <OpenInNew
-                  fontSize="small"
-                  style={{ marginLeft: '5px', fontSize: '14px' }}
-                />
-              </Link>
-            </Typography>
-            <Typography
-              style={{ marginTop: '16px', fontSize: '14px' }}
-              component="div"
-            >
-              <Link to="https://red.ht/rhdh-rh-learning-subscription">
-                Red Hat Learning Subscription
-                <OpenInNew
-                  fontSize="small"
-                  style={{ marginLeft: '5px', fontSize: '14px' }}
-                />
-              </Link>
-            </Typography>
-            <Typography
-              style={{ marginTop: '16px', fontSize: '14px' }}
-              component="div"
-            >
-              <Link to="https://docs.ansible.com/ansible/latest/reference_appendices/glossary.html">
-                Ansible definitions
-                <OpenInNew
-                  fontSize="small"
-                  style={{ marginLeft: '5px', fontSize: '14px' }}
-                />
-              </Link>
-            </Typography>
-            <Typography
-              style={{ marginTop: '16px', fontSize: '14px' }}
-              component="div"
-            >
-              <Link to="http://red.ht/aap-lp-getting-started-rhaap-plugin">
-                User Guide
-                <OpenInNew
-                  fontSize="small"
-                  style={{ marginLeft: '5px', fontSize: '14px' }}
-                />
-              </Link>
-            </Typography>
+        <Typography style={{ marginTop: '32px' }} component="div">
+          Useful links:
+          <br />
+          <Typography
+            style={{ marginTop: '16px', fontSize: '14px' }}
+            component="div"
+          >
+            <Link to="https://red.ht/aap-rhd-learning-paths">
+              Ansible learning paths on <br /> Red Hat Developer website
+              <OpenInNew
+                fontSize="small"
+                style={{ marginLeft: '5px', fontSize: '14px' }}
+              />
+            </Link>
           </Typography>
-        </Grid>
-        <Grid item xs={10}>
-          {Array.isArray(filters?.types) &&
-            filters?.types?.includes('Learning Paths') &&
-            filteredData.learningPaths.length > 0 && (
-              <div
-                style={{ marginBottom: '35px' }}
-                data-testid="learning-paths"
-              >
-                <Typography paragraph>
-                  <Typography component="span">
-                    LEARNING PATHS <br />{' '}
-                  </Typography>
-                  <Typography component="span" className={classes.fontSize14}>
-                    Step-by-step enablement curated by Red Hat Ansible.
-                  </Typography>
-                </Typography>
-                <ItemCardGrid>
-                  <RenderCourses data={filteredData.learningPaths} />
-                </ItemCardGrid>
-              </div>
-            )}
-        </Grid>
+          <Typography
+            style={{ marginTop: '16px', fontSize: '14px' }}
+            component="div"
+          >
+            <Link to="https://red.ht/rhdh-rh-learning-subscription">
+              Red Hat Learning Subscription
+              <OpenInNew
+                fontSize="small"
+                style={{ marginLeft: '5px', fontSize: '14px' }}
+              />
+            </Link>
+          </Typography>
+          <Typography
+            style={{ marginTop: '16px', fontSize: '14px' }}
+            component="div"
+          >
+            <Link to="https://docs.ansible.com/ansible/latest/reference_appendices/glossary.html">
+              Ansible definitions
+              <OpenInNew
+                fontSize="small"
+                style={{ marginLeft: '5px', fontSize: '14px' }}
+              />
+            </Link>
+          </Typography>
+          <Typography
+            style={{ marginTop: '16px', fontSize: '14px' }}
+            component="div"
+          >
+            <Link to="http://red.ht/aap-lp-getting-started-rhaap-plugin">
+              User Guide
+              <OpenInNew
+                fontSize="small"
+                style={{ marginLeft: '5px', fontSize: '14px' }}
+              />
+            </Link>
+          </Typography>
+        </Typography>
       </Grid>
-    </>
+      <Grid item xs={10}>
+        {Array.isArray(filters?.types) &&
+          filters?.types?.includes('Learning Paths') &&
+          filteredData.learningPaths.length > 0 && (
+            <div style={{ marginBottom: '35px' }} data-testid="learning-paths">
+              <Typography paragraph>
+                <Typography component="span">
+                  LEARNING PATHS <br />{' '}
+                </Typography>
+                <Typography component="span" className={classes.fontSize14}>
+                  Step-by-step enablement curated by Red Hat Ansible.
+                </Typography>
+              </Typography>
+              <ItemCardGrid>
+                <RenderCourses data={filteredData.learningPaths} />
+              </ItemCardGrid>
+            </div>
+          )}
+      </Grid>
+    </Grid>
   );
 };
 

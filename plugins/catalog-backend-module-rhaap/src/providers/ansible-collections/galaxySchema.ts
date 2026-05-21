@@ -107,7 +107,7 @@ export function validateGalaxyContent(
   if (result.success) {
     return {
       success: true,
-      data: result.data as GalaxyMetadata,
+      data: result.data,
     };
   }
 

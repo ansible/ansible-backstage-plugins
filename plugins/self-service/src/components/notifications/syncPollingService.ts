@@ -495,7 +495,7 @@ class SyncPollingService {
           const anyEvicted = this.evictTimedOutTrackedSyncs(Date.now());
           if (anyEvicted) {
             this.invalidateAllCaches();
-            this.updateInProgressFromProviders([], undefined);
+            this.updateInProgressFromProviders([]);
           }
           return this.isSyncInProgress || this.trackedSyncs.size > 0;
         }

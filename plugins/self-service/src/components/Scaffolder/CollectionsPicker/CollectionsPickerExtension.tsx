@@ -103,8 +103,8 @@ export const CollectionsPickerExtension = ({
   const [collections, setCollections] = useState<CollectionItem[] | any[]>(
     formData || [],
   );
-  const setEditingIndex = useState<number | null>(null)[1];
-  const setFieldErrors = useState<Record<string, string>>({})[1];
+  const [, setEditingIndex] = useState<number | null>(null);
+  const [, setFieldErrors] = useState<Record<string, string>>({});
 
   // Autocomplete states
   const [availableCollections, setAvailableCollections] = useState<any[]>([]);
@@ -589,7 +589,7 @@ export const CollectionsPickerExtension = ({
                   key={chipKey}
                   onClick={() => !disabled && handleEditCollection(index)}
                   className={
-                    !disabled ? classes.collectionChipWrapper : undefined
+                    disabled ? undefined : classes.collectionChipWrapper
                   }
                   style={{ display: 'inline-block' }}
                 >

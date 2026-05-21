@@ -252,7 +252,7 @@ export const HomeComponent = () => {
         context: {},
       });
       const newTemplates = results.map(result => ({
-        id: parseInt(result.id, 10),
+        id: Number.parseInt(result.id, 10),
         name: result.title as string,
       }));
       if (requestId === fetchRequestIdRef.current) {
@@ -486,8 +486,8 @@ export const HomeComponent = () => {
                     gap: '10px',
                   }}
                 >
-                  {Array.from({ length: 3 }).map((_, index) => (
-                    <SkeletonLoader key={`skeleton-${index}`} />
+                  {[1, 2, 3].map(n => (
+                    <SkeletonLoader key={`skeleton-${n}`} />
                   ))}
                 </div>
               ) : (

@@ -73,78 +73,97 @@ function compareSourceVersionDetailsDescending(
   return compareVersionsDescending(a.version ?? '', b.version ?? '');
 }
 
-export function buildCollectionsFromCatalogEntities(
-  entities: any[],
-): Collections[] {
-  const map = new Map<string, Collections>();
+function parseEntityFields(item: any): {
+  name: string;
+  version: string | null;
+  source: string | null;
+  ref: string;
+} | null {
+  const name =
+    item.spec?.collection_full_name ??
+    `${item.spec?.collection_namespace}.${item.spec?.collection_name}`;
+  if (!name) return null;
 
-  for (const item of entities) {
-    const name =
-      item.spec?.collection_full_name ??
-      `${item.spec?.collection_namespace}.${item.spec?.collection_name}`;
+  const specVersion = item.spec?.collection_version;
+  const version: string | null =
+    specVersion === undefined || specVersion === null
+      ? null
+      : String(specVersion);
+  const annotations = item.metadata?.annotations || {};
+  const source = formatSource(annotations);
+  const refRaw = annotations['ansible.io/ref'];
+  const ref = refRaw === undefined || refRaw === null ? '' : String(refRaw);
 
-    if (!name) continue;
+  return { name, version, source, ref };
+}
 
-    const specVersion = item.spec?.collection_version;
-    const version: string | null =
-      specVersion === undefined || specVersion === null
-        ? null
-        : String(specVersion);
-    const annotations = item.metadata?.annotations || {};
-    const source = formatSource(annotations);
-    const refRaw = annotations['ansible.io/ref'];
-    const ref = refRaw === undefined || refRaw === null ? '' : String(refRaw);
+function pushVersionDetail(
+  versions: SourceVersionDetail[],
+  version: string | null,
+  ref: string,
+  source: string | null,
+): void {
+  const hasDetail = (version !== null && version !== '') || ref !== '';
+  if (!hasDetail) return;
 
-    if (!map.has(name)) {
-      map.set(name, {
-        name,
-        versions: [],
-        sources: [],
-        sourceVersions: {},
-      });
-    }
+  const detail: SourceVersionDetail = {
+    ref,
+    version,
+    label: ref && version ? `${ref} / ${version}` : `${version}`,
+    ...(source ? { source } : {}),
+  };
+  const isDuplicate = versions.some(
+    v =>
+      v.ref === detail.ref &&
+      v.version === detail.version &&
+      v.source === detail.source,
+  );
+  if (!isDuplicate) {
+    versions.push(detail);
+  }
+}
 
-    const collection = map.get(name)!;
-    const versions = collection.versions ?? (collection.versions = []);
-    const sources = collection.sources ?? (collection.sources = []);
-    const sourceVersions =
-      collection.sourceVersions ?? (collection.sourceVersions = {});
+function trackSource(
+  sourceVersions: Record<string, string[]>,
+  sources: string[],
+  source: string,
+  version: string | null,
+): void {
+  if (!sourceVersions[source]) {
+    sourceVersions[source] = [];
+  }
+  if (version && !sourceVersions[source].includes(version)) {
+    sourceVersions[source].push(version);
+  }
+  if (!sources.includes(source)) {
+    sources.push(source);
+  }
+}
 
-    const shouldPushDetail = (version !== null && version !== '') || ref !== '';
+function processEntityItem(item: any, map: Map<string, Collections>): void {
+  const fields = parseEntityFields(item);
+  if (!fields) return;
 
-    if (shouldPushDetail) {
-      const detail: SourceVersionDetail = {
-        ref,
-        version,
-        label: ref && version ? `${ref} / ${version}` : `${version}`,
-        ...(source ? { source } : {}),
-      };
-      const isDuplicate = versions.some(
-        v =>
-          v.ref === detail.ref &&
-          v.version === detail.version &&
-          v.source === detail.source,
-      );
-      if (!isDuplicate) {
-        versions.push(detail);
-      }
-    }
+  const { name, version, source, ref } = fields;
 
-    if (source) {
-      if (!sourceVersions[source]) {
-        sourceVersions[source] = [];
-      }
-      if (version && !sourceVersions[source].includes(version)) {
-        sourceVersions[source].push(version);
-      }
-      if (!sources.includes(source)) {
-        sources.push(source);
-      }
-    }
+  if (!map.has(name)) {
+    map.set(name, { name, versions: [], sources: [], sourceVersions: {} });
   }
 
-  const collections = Array.from(map.values());
+  const collection = map.get(name)!;
+  const versions = collection.versions ?? (collection.versions = []);
+  const sources = collection.sources ?? (collection.sources = []);
+  const sourceVersions =
+    collection.sourceVersions ?? (collection.sourceVersions = {});
 
+  pushVersionDetail(versions, version, ref, source);
+
+  if (source) {
+    trackSource(sourceVersions, sources, source, version);
+  }
+}
+
+function sortCollectionFields(collections: Collections[]): void {
   for (const collection of collections) {
     if (collection.versions?.length) {
       collection.versions.sort(compareSourceVersionDetailsDescending);
@@ -153,14 +172,26 @@ export function buildCollectionsFromCatalogEntities(
       for (const source of Object.keys(collection.sourceVersions)) {
         const vers = collection.sourceVersions[source];
         if (vers?.length) {
-          collection.sourceVersions[source] = vers.sort(
+          collection.sourceVersions[source] = [...vers].sort(
             compareVersionsDescending,
           );
         }
       }
     }
   }
+}
 
+export function buildCollectionsFromCatalogEntities(
+  entities: any[],
+): Collections[] {
+  const map = new Map<string, Collections>();
+
+  for (const item of entities) {
+    processEntityItem(item, map);
+  }
+
+  const collections = Array.from(map.values());
+  sortCollectionFields(collections);
   collections.sort((a, b) =>
     a.name.localeCompare(b.name, undefined, { sensitivity: 'base' }),
   );

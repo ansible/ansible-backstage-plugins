@@ -636,7 +636,7 @@ export async function createRouter(options: {
           scmProvider: filter.scmProvider || '',
           hostName: filter.hostName || '',
           organization: filter.organization || '',
-          status: 'invalid' as SyncResultStatus,
+          status: 'invalid',
           error: {
             code: 'INVALID_FILTER',
             message: error,

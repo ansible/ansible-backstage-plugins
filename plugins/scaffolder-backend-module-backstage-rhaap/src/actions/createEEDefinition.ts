@@ -328,16 +328,16 @@ export function createEEDefinitionAction(options: {
             targetPluginId: 'catalog',
           });
 
-          const entity = generateEECatalogEntity(
-            eeFileName,
-            eeDescription,
+          const entity = generateEECatalogEntity({
+            componentName: eeFileName,
+            description: eeDescription,
             tags,
             owner,
-            eeDefinition,
+            eeDefinitionContent: eeDefinition,
             readmeContent,
             ansibleConfigContent,
             eeTemplateContent,
-          );
+          });
           const response = await fetch(`${baseUrl}/ansible/ee`, {
             method: 'POST',
             headers: {
@@ -382,26 +382,37 @@ export function createEEDefinitionAction(options: {
  * template as spec fields so the catalog can serve them without an external
  * repository.
  *
- * @param componentName - Unique entity name (also used as the display title).
- * @param description - Human-readable description shown in the catalog.
- * @param tags - Discovery tags (e.g. `['execution-environment']`).
- * @param owner - Entity reference of the owning user or group.
- * @param eeDefinitionContent - Raw YAML content of the EE definition file.
- * @param readmeContent - Generated README markdown.
- * @param ansibleConfigContent - Contents of `ansible.cfg` (may be empty).
- * @param eeTemplateContent - Re-importable Backstage template YAML.
+ * @param params - Entity fields.
+ * @param params.componentName - Unique entity name (also used as the display title).
+ * @param params.description - Human-readable description shown in the catalog.
+ * @param params.tags - Discovery tags (e.g. `['execution-environment']`).
+ * @param params.owner - Entity reference of the owning user or group.
+ * @param params.eeDefinitionContent - Raw YAML content of the EE definition file.
+ * @param params.readmeContent - Generated README markdown.
+ * @param params.ansibleConfigContent - Contents of `ansible.cfg` (may be empty).
+ * @param params.eeTemplateContent - Re-importable Backstage template YAML.
  * @returns A plain object conforming to the Backstage Component entity schema.
  */
-function generateEECatalogEntity(
-  componentName: string,
-  description: string,
-  tags: string[],
-  owner: string,
-  eeDefinitionContent: string,
-  readmeContent: string,
-  ansibleConfigContent: string,
-  eeTemplateContent: string,
-) {
+function generateEECatalogEntity(params: {
+  componentName: string;
+  description: string;
+  tags: string[];
+  owner: string;
+  eeDefinitionContent: string;
+  readmeContent: string;
+  ansibleConfigContent: string;
+  eeTemplateContent: string;
+}) {
+  const {
+    componentName,
+    description,
+    tags,
+    owner,
+    eeDefinitionContent,
+    readmeContent,
+    ansibleConfigContent,
+    eeTemplateContent,
+  } = params;
   return {
     apiVersion: 'backstage.io/v1alpha1',
     kind: 'Component',
@@ -504,7 +515,7 @@ function normalizeCollectionSources(collections: Collection[]): Collection[] {
     const repo = normalizePahRepoIdentifier(parts[1] ?? '');
     if (!repo) {
       const { source: _, ...rest } = c;
-      return rest as Collection;
+      return rest;
     }
     return { ...c, source: `private_hub_${repo}` };
   });
@@ -900,6 +911,37 @@ function normalizePahRepoIdentifier(repo: string): string {
  * @param params.pahBaseUrl - PAH base URL used to resolve PAH registry entries.
  * @returns A plain object conforming to the creator service's EE config schema.
  */
+function buildCollectionsConfig(
+  collections: Collection[],
+  scmCollections: Collection[],
+): Record<string, any>[] | undefined {
+  const result: Record<string, any>[] = [];
+  for (const c of collections) {
+    const col: Record<string, any> = { name: c.name };
+    if (c.version) col.version = c.version;
+    if (c.source) col.source = c.source;
+    if (c.type) col.type = c.type;
+    result.push(col);
+  }
+  for (const c of scmCollections) {
+    const col: Record<string, any> = { name: c.name, type: 'git' };
+    if (c.version) col.version = c.version;
+    result.push(col);
+  }
+  return result.length > 0 ? result : undefined;
+}
+
+function resolveRegistry(
+  buildRegistry: string,
+  pahBaseUrl: string,
+): string | undefined {
+  if (!buildRegistry) return undefined;
+  if (buildRegistry.startsWith('Private Automation Hub') && pahBaseUrl) {
+    return new URL(pahBaseUrl).host;
+  }
+  return buildRegistry;
+}
+
 function buildEEConfig(params: {
   baseImage: string;
   eeFileName: string;
@@ -920,27 +962,12 @@ function buildEEConfig(params: {
     ee_file_name: `${params.eeFileName}.yml`,
   };
 
-  // EE content and build steps configuration
-  if (params.collections.length > 0) {
-    eeConfig.collections = params.collections.map(c => {
-      const col: Record<string, any> = { name: c.name };
-      if (c.version) col.version = c.version;
-      if (c.source) col.source = c.source;
-      if (c.type) col.type = c.type;
-      return col;
-    });
-  }
-  if (params.scmCollections.length > 0) {
-    if (!eeConfig.collections) {
-      eeConfig.collections = [];
-    }
-    eeConfig.collections.push(
-      ...params.scmCollections.map(c => {
-        const col: Record<string, any> = { name: c.name, type: 'git' };
-        if (c.version) col.version = c.version;
-        return col;
-      }),
-    );
+  const collections = buildCollectionsConfig(
+    params.collections,
+    params.scmCollections,
+  );
+  if (collections) {
+    eeConfig.collections = collections;
   }
   if (params.pythonDeps.length > 0) {
     eeConfig.python_deps = params.pythonDeps;
@@ -963,16 +990,9 @@ function buildEEConfig(params: {
     eeConfig.scm_servers = params.scmServers;
   }
 
-  // EE build and publish configuration
-  if (params.buildRegistry) {
-    if (
-      params.buildRegistry.startsWith('Private Automation Hub') &&
-      params.pahBaseUrl
-    ) {
-      eeConfig.registry = new URL(params.pahBaseUrl).host;
-    } else {
-      eeConfig.registry = params.buildRegistry;
-    }
+  const registry = resolveRegistry(params.buildRegistry, params.pahBaseUrl);
+  if (registry) {
+    eeConfig.registry = registry;
   }
   if (params.buildImageName) {
     eeConfig.image_name = params.buildImageName;
@@ -1085,7 +1105,7 @@ function validateSafeEEDefinitionName(value: string): string {
       '[ansible:create:ee-definition] Invalid eeFileName: path separators are not allowed',
     );
   }
-  const normalized = path.posix.normalize(trimmed.replaceAll(/\\/g, '/'));
+  const normalized = path.posix.normalize(trimmed.replaceAll('\\', '/'));
   if (
     normalized === '.' ||
     normalized === '..' ||

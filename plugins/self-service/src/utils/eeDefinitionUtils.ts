@@ -76,6 +76,34 @@ function extractCollections(
 /** Max length for definition YAML to bound parse time. */
 const MAX_DEFINITION_LENGTH = 100_000;
 
+function parseDependencies(
+  deps: Record<string, unknown>,
+  result: ParsedEEDefinition,
+): void {
+  const python = deps.python;
+  if (Array.isArray(python)) {
+    result.pythonPackages = extractStringList(python);
+  } else if (typeof python === 'string' && /\.(?:txt|in)$/.test(python)) {
+    result.pythonFileRef = python.trim();
+  }
+
+  const system = deps.system;
+  if (Array.isArray(system)) {
+    result.systemPackages = extractStringList(system);
+  } else if (isRecord(system) && Array.isArray(system.packages)) {
+    result.systemPackages = extractStringList(system.packages);
+  } else if (typeof system === 'string' && /\.(?:txt|in)$/.test(system)) {
+    result.systemFileRef = system.trim();
+  }
+
+  const galaxy = deps.galaxy;
+  if (isRecord(galaxy)) {
+    result.collections = extractCollections(galaxy);
+  } else if (typeof galaxy === 'string' && /\.ya?ml$/.test(galaxy)) {
+    result.collectionsFileRef = galaxy.trim();
+  }
+}
+
 /**
  * Parse EE definition YAML content.
  * Returns null if definition is empty or invalid.
@@ -107,32 +135,7 @@ export function parseEEDefinition(
     if (!isRecord(deps)) return result;
 
     result.pythonPath = extractPythonPath(deps);
-
-    // dependencies.python: inline list or file reference
-    const python = deps.python;
-    if (Array.isArray(python)) {
-      result.pythonPackages = extractStringList(python);
-    } else if (typeof python === 'string' && /\.(?:txt|in)$/.test(python)) {
-      result.pythonFileRef = python.trim();
-    }
-
-    // dependencies.system: inline list, object with packages array, or file reference
-    const system = deps.system;
-    if (Array.isArray(system)) {
-      result.systemPackages = extractStringList(system);
-    } else if (isRecord(system) && Array.isArray(system.packages)) {
-      result.systemPackages = extractStringList(system.packages);
-    } else if (typeof system === 'string' && /\.(?:txt|in)$/.test(system)) {
-      result.systemFileRef = system.trim();
-    }
-
-    // dependencies.galaxy: inline collections or file reference
-    const galaxy = deps.galaxy;
-    if (isRecord(galaxy)) {
-      result.collections = extractCollections(galaxy);
-    } else if (typeof galaxy === 'string' && /\.ya?ml$/.test(galaxy)) {
-      result.collectionsFileRef = galaxy.trim();
-    }
+    parseDependencies(deps, result);
 
     return result;
   } catch {

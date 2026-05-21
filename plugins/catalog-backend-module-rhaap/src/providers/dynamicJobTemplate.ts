@@ -245,7 +245,7 @@ export const getCredentialsProps = (selectedCredentials: JsonArray) => {
               ? summaryFieldsObj.credential_type
               : {
                   id: cred.credential_type,
-                  name: (cred.kind as string) || 'Unknown',
+                  name: cred.kind || 'Unknown',
                 },
         },
       };
@@ -478,7 +478,7 @@ export const getSurveyDetails = (
   }
   for (const item of survey.spec ?? []) {
     if (!promptForm.properties) {
-      promptForm.properties = {} as JsonObject;
+      promptForm.properties = {};
     }
     const paramVar = item.variable;
     (promptForm.properties as JsonObject)[paramVar] =

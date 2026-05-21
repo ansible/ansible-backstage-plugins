@@ -1434,7 +1434,7 @@ export async function handleGitLabCIActivity(
       });
     }
 
-    response.status(status).json(data as JsonValue);
+    response.status(status).json(data);
   } catch (err) {
     logger.warn(
       'CI Activity proxy (GitLab) failed',

@@ -612,25 +612,11 @@ export class AAPClient implements IAAPService {
     };
   }
 
-  public async launchJobTemplate(
+  private buildLaunchPayloadData(
     payload: Omit<LaunchJobTemplate, 'token'>,
-    token: string,
-  ): Promise<any> {
-    const data = { extra_vars: payload?.extraVariables ?? '' } as {
-      inventory?: number;
-      job_type?: string;
-      executionEnvironment?: number;
-      execution_environment?: number;
-      forks?: number;
-      limit?: string;
-      verbosity?: number;
-      job_slice_count?: number;
-      timeout?: number;
-      diff_mode?: boolean;
-      job_tags?: string;
-      skip_tags?: string;
-      extra_vars?: object | string;
-      credentials?: number[];
+  ): Record<string, unknown> {
+    const data: Record<string, unknown> = {
+      extra_vars: payload?.extraVariables ?? '',
     };
     if (payload?.inventory?.id) {
       data.inventory = payload.inventory.id;
@@ -665,37 +651,51 @@ export class AAPClient implements IAAPService {
     if (payload?.skipTags) {
       data.skip_tags = payload.skipTags;
     }
+    return data;
+  }
+
+  private validateCredentials(
+    credentials: NonNullable<LaunchJobTemplate['credentials']>,
+  ): number[] {
+    const seen = new Set();
+    const duplicates: string[] = [];
+    credentials.some(currentObject => {
+      if (!currentObject.credential_type) {
+        return false;
+      }
+      if (seen.size === seen.add(currentObject.credential_type).size) {
+        const credentialTypeName =
+          currentObject.summary_fields?.credential_type?.name ||
+          currentObject.name ||
+          'Unknown';
+        duplicates.push(credentialTypeName);
+        return true;
+      }
+      return false;
+    });
+    if (duplicates.length) {
+      this.logger.error(
+        `Cannot assign multiple credentials of the same type. Duplicated credential types are: ${duplicates.join(', ')}`,
+      );
+      throw new Error(
+        `Cannot assign multiple credentials of the same type. Duplicated credential types are: ${duplicates.join(
+          ', ',
+        )}`,
+      );
+    }
+    return credentials
+      .filter(c => c.id !== undefined && c.id !== null)
+      .map(c => c.id);
+  }
+
+  public async launchJobTemplate(
+    payload: Omit<LaunchJobTemplate, 'token'>,
+    token: string,
+  ): Promise<any> {
+    const data = this.buildLaunchPayloadData(payload);
 
     if (payload?.credentials?.length) {
-      const seen = new Set();
-      const duplicates: string[] = [];
-      payload.credentials.some(currentObject => {
-        if (!currentObject.credential_type) {
-          return false;
-        }
-        if (seen.size === seen.add(currentObject.credential_type).size) {
-          const credentialTypeName =
-            currentObject.summary_fields?.credential_type?.name ||
-            currentObject.name ||
-            'Unknown';
-          duplicates.push(credentialTypeName);
-          return true;
-        }
-        return false;
-      });
-      if (duplicates.length) {
-        this.logger.error(
-          `Cannot assign multiple credentials of the same type. Duplicated credential types are: ${duplicates.join(', ')}`,
-        );
-        throw new Error(
-          `Cannot assign multiple credentials of the same type. Duplicated credential types are: ${duplicates.join(
-            ', ',
-          )}`,
-        );
-      }
-      data.credentials = payload.credentials
-        .filter(c => c.id !== undefined && c.id !== null)
-        .map(c => c.id);
+      data.credentials = this.validateCredentials(payload.credentials);
     }
 
     let templateID;

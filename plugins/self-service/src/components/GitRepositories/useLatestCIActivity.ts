@@ -57,7 +57,11 @@ function parseGitHubActivity(
 ): LatestActivityEntry {
   if (!run) return { text: NO_ACTIVITY };
   const eventName = typeof run.name === 'string' ? run.name : 'Workflow';
-  const runNum = String(run.run_number ?? run.id ?? '');
+  const rawRunNum = run.run_number ?? run.id;
+  const runNum =
+    typeof rawRunNum === 'string' || typeof rawRunNum === 'number'
+      ? String(rawRunNum)
+      : '';
   const timeAgo = formatTimeAgo(
     typeof run.created_at === 'string' ? run.created_at : undefined,
   );
@@ -75,7 +79,7 @@ function parseGitLabActivity(
     typeof pipeline.created_at === 'string' ? pipeline.created_at : undefined,
   );
   return {
-    text: `Pipeline #${String(pipeline.id ?? '')} • ${timeAgo}`,
+    text: `Pipeline #${typeof pipeline.id === 'string' || typeof pipeline.id === 'number' ? String(pipeline.id) : ''} • ${timeAgo}`,
     url: typeof pipeline.web_url === 'string' ? pipeline.web_url : undefined,
   };
 }

@@ -677,6 +677,45 @@ export const StepForm = ({
     return hasUiProperties ? ui : null;
   };
 
+  const extractUiFromDependencies = (
+    dependencies: Record<string, any>,
+  ): Record<string, any> => {
+    const uiSchema: Record<string, any> = {};
+    for (const depKey of Object.keys(dependencies)) {
+      const dependency = dependencies[depKey];
+      if (dependency.oneOf && Array.isArray(dependency.oneOf)) {
+        for (const branch of dependency.oneOf) {
+          if (branch.properties) {
+            for (const key of Object.keys(branch.properties)) {
+              if (key !== depKey) {
+                const ui = extractUiFromProperty(branch.properties[key]);
+                if (ui) {
+                  uiSchema[key] = ui;
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+    return uiSchema;
+  };
+
+  const extractUiFromAllOf = (allOf: any[]): Record<string, any> => {
+    const uiSchema: Record<string, any> = {};
+    for (const condition of allOf) {
+      if (condition.then?.properties) {
+        for (const key of Object.keys(condition.then.properties)) {
+          const ui = extractUiFromProperty(condition.then.properties[key]);
+          if (ui) {
+            uiSchema[key] = ui;
+          }
+        }
+      }
+    }
+    return uiSchema;
+  };
+
   const extractUiSchema = (
     properties: Record<string, any>,
     dependencies?: Record<string, any>,
@@ -706,36 +745,11 @@ export const StepForm = ({
     }
 
     if (dependencies) {
-      for (const depKey of Object.keys(dependencies)) {
-        const dependency = dependencies[depKey];
-        if (dependency.oneOf && Array.isArray(dependency.oneOf)) {
-          for (const branch of dependency.oneOf) {
-            if (branch.properties) {
-              for (const key of Object.keys(branch.properties)) {
-                if (key !== depKey) {
-                  const ui = extractUiFromProperty(branch.properties[key]);
-                  if (ui) {
-                    uiSchema[key] = ui;
-                  }
-                }
-              }
-            }
-          }
-        }
-      }
+      Object.assign(uiSchema, extractUiFromDependencies(dependencies));
     }
 
     if (allOf && Array.isArray(allOf)) {
-      for (const condition of allOf) {
-        if (condition.then?.properties) {
-          for (const key of Object.keys(condition.then.properties)) {
-            const ui = extractUiFromProperty(condition.then.properties[key]);
-            if (ui) {
-              uiSchema[key] = ui;
-            }
-          }
-        }
-      }
+      Object.assign(uiSchema, extractUiFromAllOf(allOf));
     }
 
     return uiSchema;
@@ -779,34 +793,38 @@ export const StepForm = ({
     return null;
   };
 
+  const renderBase64Content = (val: string): JSX.Element | null => {
+    const decodedContent = decodeBase64FileContent(val);
+    if (!decodedContent) return null;
+    return (
+      <pre
+        style={{
+          fontFamily: 'monospace',
+          fontSize: '0.875rem',
+          whiteSpace: 'pre-wrap',
+          wordBreak: 'break-word',
+          margin: 0,
+          padding: '8px',
+          backgroundColor: 'rgba(128, 128, 128, 0.1)',
+          border: '1px solid rgba(128, 128, 128, 0.4)',
+          borderRadius: '4px',
+          maxHeight: '200px',
+          overflow: 'auto',
+        }}
+      >
+        {decodedContent}
+      </pre>
+    );
+  };
+
   const formatValueForDisplay = (val: any): string | JSX.Element => {
     if (val === undefined || val === null || val === '') {
       return '';
     }
 
     if (typeof val === 'string' && val.startsWith('data:text/plain;base64,')) {
-      const decodedContent = decodeBase64FileContent(val);
-      if (decodedContent) {
-        return (
-          <pre
-            style={{
-              fontFamily: 'monospace',
-              fontSize: '0.875rem',
-              whiteSpace: 'pre-wrap',
-              wordBreak: 'break-word',
-              margin: 0,
-              padding: '8px',
-              backgroundColor: 'rgba(128, 128, 128, 0.1)',
-              border: '1px solid rgba(128, 128, 128, 0.4)',
-              borderRadius: '4px',
-              maxHeight: '200px',
-              overflow: 'auto',
-            }}
-          >
-            {decodedContent}
-          </pre>
-        );
-      }
+      const rendered = renderBase64Content(val);
+      if (rendered) return rendered;
     }
 
     if (Array.isArray(val)) {
@@ -918,7 +936,7 @@ export const StepForm = ({
       <SecretsContextProvider>
         <Stepper activeStep={activeStep} orientation="vertical">
           {filteredSteps.map((step, index) => (
-            <Step key={index} completed={activeStep > index}>
+            <Step key={step.title ?? index} completed={activeStep > index}>
               <StepLabel>{step.title}</StepLabel>
               <StepContent>
                 {activeStep === index ? (
@@ -1009,7 +1027,7 @@ export const StepForm = ({
                       const hasNoValues = propertyRows.length === 0;
 
                       return [
-                        <TableRow key={`${stepIndex}-title`}>
+                        <TableRow key={`${step.title}-title`}>
                           <TableCell style={{ border: 0 }}>
                             <strong>{step.title}</strong>
                           </TableCell>

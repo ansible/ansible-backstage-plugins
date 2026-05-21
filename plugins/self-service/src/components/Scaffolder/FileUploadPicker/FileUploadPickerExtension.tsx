@@ -176,49 +176,56 @@ export const FileUploadPickerExtension = ({
       return;
     }
 
-    if (formData && formData.startsWith('data:text/plain;base64,')) {
+    const resolveFileName = (): {
+      fileName: string;
+      source: 'input' | 'file';
+    } => {
+      const fallback = schema?.title
+        ? `${schema.title.toLowerCase().replaceAll(/\s+/g, '-')}.txt`
+        : 'uploaded-file.txt';
       try {
-        const base64Content = formData.split(',')[1];
-        if (!base64Content) {
-          setUploadedFile(null);
-          setIsDataSource('none');
-          return;
+        const stored = sessionStorage.getItem(storageKey);
+        if (stored) {
+          return {
+            fileName: stored,
+            source: stored === 'input-data' ? 'input' : 'file',
+          };
         }
-        const content = atob(base64Content);
+      } catch {
+        // sessionStorage may be unavailable
+      }
+      return { fileName: fallback, source: 'file' };
+    };
 
-        let fileName: string;
-        try {
-          const storedFilename = sessionStorage.getItem(storageKey);
-          if (storedFilename) {
-            fileName = storedFilename;
-            if (fileName === 'input-data') {
-              setIsDataSource('input');
-              setTextInput(content);
-            } else {
-              setIsDataSource('file');
-              setTextInput('');
-            }
-          } else {
-            fileName = schema?.title
-              ? `${schema.title.toLowerCase().replaceAll(/\s+/g, '-')}.txt`
-              : 'uploaded-file.txt';
-            setIsDataSource('file');
-            setTextInput('');
-          }
-        } catch {
-          fileName = schema?.title
-            ? `${schema.title.toLowerCase().replaceAll(/\s+/g, '-')}.txt`
-            : 'uploaded-file.txt';
-          setIsDataSource('file');
-          setTextInput('');
+    const processBase64 = (data: string) => {
+      const base64Content = data.split(',')[1];
+      if (!base64Content) {
+        setUploadedFile(null);
+        setIsDataSource('none');
+        return;
+      }
+      const content = atob(base64Content);
+      const { fileName, source } = resolveFileName();
+
+      if (source === 'input') {
+        setIsDataSource('input');
+        setTextInput(content);
+      } else {
+        setIsDataSource('file');
+        setTextInput('');
+      }
+
+      setUploadedFile(prev => {
+        if (prev?.content === content && prev?.name === fileName) {
+          return prev;
         }
+        return { name: fileName, content };
+      });
+    };
 
-        setUploadedFile(prev => {
-          if (prev?.content === content && prev?.name === fileName) {
-            return prev;
-          }
-          return { name: fileName, content };
-        });
+    if (formData?.startsWith('data:text/plain;base64,')) {
+      try {
+        processBase64(formData);
       } catch {
         setTextInput('');
         setUploadedFile(null);

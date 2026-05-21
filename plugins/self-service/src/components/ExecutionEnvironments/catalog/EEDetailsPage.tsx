@@ -163,7 +163,7 @@ export const EEDetailsPage: React.FC = () => {
     githubToken,
     closeDialog,
   } = useEEBuildFlow();
-  const [entity, setEntity] = useState<any | null>(false);
+  const [entity, setEntity] = useState<Entity | null>(null);
   const [menuid, setMenuId] = useState<string>('');
   const [defaultReadme, setDefaultReadme] = useState<string>('');
   const [fetchedDefinition, setFetchedDefinition] = useState<string | null>(
@@ -175,14 +175,16 @@ export const EEDetailsPage: React.FC = () => {
   const [ownerName, setOwnerName] = useState<string | null>(null);
   const [scmIntegrationAuthError, setScmIntegrationAuthError] = useState(false);
 
-  const getOwnerName = useCallback(async () => {
+  const getOwnerName = useCallback(async (): Promise<string> => {
     if (!entity?.spec?.owner) return 'Unknown';
-    const ownerEntity = await catalogApi.getEntityByRef(entity?.spec?.owner);
+    const ownerEntity = await catalogApi.getEntityByRef(
+      entity?.spec?.owner as string,
+    );
     // precedence: title >> name >> user reference >> unknown
     return (
       ownerEntity?.metadata?.title ??
       ownerEntity?.metadata?.name ??
-      entity?.spec?.owner ??
+      (entity?.spec?.owner as string) ??
       'Unknown'
     );
   }, [entity, catalogApi]);
@@ -385,7 +387,9 @@ export const EEDetailsPage: React.FC = () => {
   };
 
   const parsedDefinition = useMemo(() => {
-    const fromSpec = parseEEDefinition(entity?.spec?.definition);
+    const fromSpec = parseEEDefinition(
+      entity?.spec?.definition as string | undefined,
+    );
     if (fromSpec) return fromSpec;
     return fetchedDefinition ? parseEEDefinition(fetchedDefinition) : null;
   }, [entity?.spec?.definition, fetchedDefinition]);
@@ -399,7 +403,7 @@ export const EEDetailsPage: React.FC = () => {
     : null;
 
   const handleDownloadArchive = () => {
-    downloadEntityAsTarArchive(entity);
+    downloadEntityAsTarArchive(entity!);
   };
 
   const handleRefresh = () => {
@@ -421,10 +425,7 @@ export const EEDetailsPage: React.FC = () => {
   };
 
   const isDownloadExperience =
-    entity &&
-    entity.metadata &&
-    entity.metadata.annotations &&
-    entity.metadata.annotations['ansible.io/download-experience']
+    entity?.metadata?.annotations?.['ansible.io/download-experience']
       ?.toString()
       .toLowerCase()
       .trim() === 'true';
@@ -564,7 +565,9 @@ export const EEDetailsPage: React.FC = () => {
                     {/* Left Column - README (stacks first on narrow) */}
                     <Box className={pageClasses.readmeWrapper}>
                       <ReadmeCard
-                        readmeContent={entity?.spec.readme || defaultReadme}
+                        readmeContent={
+                          (entity?.spec?.readme as string) || defaultReadme
+                        }
                       />
                     </Box>
 
