@@ -58,6 +58,7 @@ jest.mock('@ansible/backstage-rhaap-common', () => {
 import express from 'express';
 import request from 'supertest';
 import { createRouter } from './router';
+import { clearCIActivityCache } from './helpers';
 import { AAPEntityProvider } from './providers/AAPEntityProvider';
 import { AAPJobTemplateProvider } from './providers/AAPJobTemplateProvider';
 import { EEEntityProvider } from './providers/EEEntityProvider';
@@ -1587,22 +1588,31 @@ describe('createRouter', () => {
     });
   });
 
-  describe('GET /ansible/git/ci-activity (GitLab)', () => {
-    it('should return 400 when host is not a safe hostname', async () => {
-      const response = await request(app)
-        .get('/ansible/git/ci-activity')
-        .query({
-          provider: 'gitlab',
-          projectPath: 'group/project',
-          host: 'https://evil.com',
-        })
-        .set('Authorization', 'Bearer token');
-
-      expect(response.status).toBe(400);
-      expect(response.body.error).toContain('Invalid host');
+  describe('POST /ansible/git/ci-activity (GitLab)', () => {
+    beforeEach(() => {
+      clearCIActivityCache();
+      jest.clearAllMocks();
     });
 
-    it('should return 400 when host is not allowed (SSRF mitigation)', async () => {
+    it('should return error in results when host is not a safe hostname', async () => {
+      const response = await request(app)
+        .post('/ansible/git/ci-activity')
+        .send({
+          items: [
+            {
+              key: 'test',
+              provider: 'gitlab',
+              projectPath: 'group/project',
+              host: 'https://evil.com',
+            },
+          ],
+        });
+
+      expect(response.status).toBe(200);
+      expect(response.body.results.test.error).toContain('Invalid host');
+    });
+
+    it('should return error in results when host is not allowed (SSRF mitigation)', async () => {
       const configNoGitlab = new ConfigReader({});
       const routerNoGitlab = await createRouter({
         logger: mockLogger,
@@ -1621,31 +1631,34 @@ describe('createRouter', () => {
       const appNoGitlab = express().use(routerNoGitlab);
 
       const response = await request(appNoGitlab)
-        .get('/ansible/git/ci-activity')
-        .query({
-          provider: 'gitlab',
-          projectPath: 'group/project',
-          host: '169.254.169.254',
-        })
-        .set('Authorization', 'Bearer token');
+        .post('/ansible/git/ci-activity')
+        .send({
+          items: [
+            {
+              key: 'test',
+              provider: 'gitlab',
+              projectPath: 'group/project',
+              host: '169.254.169.254',
+            },
+          ],
+        });
 
-      expect(response.status).toBe(400);
-      expect(response.body.error).toContain(
-        'not allowed for GitLab CI activity',
-      );
-      expect(response.body.error).toContain('integrations.gitlab');
+      expect(response.status).toBe(200);
+      expect(response.body.results.test.error).toContain('not allowed');
     });
 
-    it('should return 400 when projectPath is missing', async () => {
+    it('should return error in results when projectPath is missing', async () => {
       const response = await request(app)
-        .get('/ansible/git/ci-activity')
-        .query({ provider: 'gitlab', host: 'gitlab.com' });
+        .post('/ansible/git/ci-activity')
+        .send({
+          items: [{ key: 'test', provider: 'gitlab', host: 'gitlab.com' }],
+        });
 
-      expect(response.status).toBe(400);
-      expect(response.body.error).toContain('projectPath');
+      expect(response.status).toBe(200);
+      expect(response.body.results.test.error).toContain('projectPath');
     });
 
-    it('should return 400 when host is not declared in integrations.gitlab', async () => {
+    it('should return error in results when host is not declared in integrations.gitlab', async () => {
       const configWithoutToken = new ConfigReader({});
       const routerWithoutToken = await createRouter({
         logger: mockLogger,
@@ -1664,19 +1677,20 @@ describe('createRouter', () => {
       const appWithoutToken = express().use(routerWithoutToken);
 
       const response = await request(appWithoutToken)
-        .get('/ansible/git/ci-activity')
-        .query({
-          provider: 'gitlab',
-          projectPath: 'group/project',
-          host: 'gitlab.unknown.com',
-        })
-        .set('Authorization', 'Bearer some-token');
+        .post('/ansible/git/ci-activity')
+        .send({
+          items: [
+            {
+              key: 'test',
+              provider: 'gitlab',
+              projectPath: 'group/project',
+              host: 'gitlab.unknown.com',
+            },
+          ],
+        });
 
-      expect(response.status).toBe(400);
-      expect(response.body.error).toContain(
-        'not allowed for GitLab CI activity',
-      );
-      expect(response.body.error).toContain('integrations.gitlab');
+      expect(response.status).toBe(200);
+      expect(response.body.results.test.error).toContain('not allowed');
     });
 
     it('should use token from config for matching host', async () => {
@@ -1687,53 +1701,43 @@ describe('createRouter', () => {
       });
 
       const response = await request(app)
-        .get('/ansible/git/ci-activity')
-        .query({
-          provider: 'gitlab',
-          projectPath: 'group/project',
-          host: 'gitlab.com',
+        .post('/ansible/git/ci-activity')
+        .send({
+          items: [
+            {
+              key: 'test',
+              provider: 'gitlab',
+              projectPath: 'group/config-token-test',
+              host: 'gitlab.com',
+            },
+          ],
         });
 
       expect(response.status).toBe(200);
-      expect(response.body).toEqual([{ id: 1, status: 'success' }]);
+      expect(response.body.results.test).toEqual({
+        status: 200,
+        data: [{ id: 1, status: 'success' }],
+      });
     });
 
-    it('should use token from Authorization header when not in config', async () => {
-      mockGetPipelines.mockResolvedValue({
-        ok: true,
-        status: 200,
-        data: [],
-      });
-
+    it('should return error when host has no token in config', async () => {
       const response = await request(app)
-        .get('/ansible/git/ci-activity')
-        .query({
-          provider: 'gitlab',
-          projectPath: 'group/project',
-          host: 'gitlab.other.com',
-        })
-        .set('Authorization', 'Bearer request-token');
+        .post('/ansible/git/ci-activity')
+        .send({
+          items: [
+            {
+              key: 'test',
+              provider: 'gitlab',
+              projectPath: 'group/other-host-test',
+              host: 'gitlab.other.com',
+            },
+          ],
+        });
 
       expect(response.status).toBe(200);
-    });
-
-    it('should use token from PRIVATE-TOKEN header', async () => {
-      mockGetPipelines.mockResolvedValue({
-        ok: true,
-        status: 200,
-        data: [],
-      });
-
-      const response = await request(app)
-        .get('/ansible/git/ci-activity')
-        .query({
-          provider: 'gitlab',
-          projectPath: 'group/project',
-          host: 'gitlab.other.com',
-        })
-        .set('PRIVATE-TOKEN', 'private-token');
-
-      expect(response.status).toBe(200);
+      expect(response.body.results.test.error).toContain(
+        'Missing GitLab authorization',
+      );
     });
 
     it('should return pipelines data on success', async () => {
@@ -1749,18 +1753,26 @@ describe('createRouter', () => {
       });
 
       const response = await request(app)
-        .get('/ansible/git/ci-activity')
-        .query({
-          provider: 'gitlab',
-          projectPath: 'group/project',
-          host: 'gitlab.com',
+        .post('/ansible/git/ci-activity')
+        .send({
+          items: [
+            {
+              key: 'test',
+              provider: 'gitlab',
+              projectPath: 'group/pipelines-test',
+              host: 'gitlab.com',
+            },
+          ],
         });
 
       expect(response.status).toBe(200);
-      expect(response.body).toEqual(pipelines);
+      expect(response.body.results.test).toEqual({
+        status: 200,
+        data: pipelines,
+      });
     });
 
-    it('should return GitLab error status when API returns non-OK', async () => {
+    it('should return GitLab error status in results when API returns non-OK', async () => {
       mockGetPipelines.mockResolvedValue({
         ok: false,
         status: 404,
@@ -1768,30 +1780,46 @@ describe('createRouter', () => {
       });
 
       const response = await request(app)
-        .get('/ansible/git/ci-activity')
-        .query({
-          provider: 'gitlab',
-          projectPath: 'group/nonexistent',
-          host: 'gitlab.com',
+        .post('/ansible/git/ci-activity')
+        .send({
+          items: [
+            {
+              key: 'test',
+              provider: 'gitlab',
+              projectPath: 'group/nonexistent',
+              host: 'gitlab.com',
+            },
+          ],
         });
 
-      expect(response.status).toBe(404);
+      expect(response.status).toBe(200);
+      expect(response.body.results.test).toEqual({
+        status: 404,
+        data: { message: 'Project not found' },
+      });
       expect(mockLogger.warn).toHaveBeenCalled();
     });
 
-    it('should return 502 when GitLab client throws error', async () => {
+    it('should return error in results when GitLab client throws error', async () => {
       mockGetPipelines.mockRejectedValue(new Error('Network error'));
 
       const response = await request(app)
-        .get('/ansible/git/ci-activity')
-        .query({
-          provider: 'gitlab',
-          projectPath: 'group/project',
-          host: 'gitlab.com',
+        .post('/ansible/git/ci-activity')
+        .send({
+          items: [
+            {
+              key: 'test',
+              provider: 'gitlab',
+              projectPath: 'group/network-error-test',
+              host: 'gitlab.com',
+            },
+          ],
         });
 
-      expect(response.status).toBe(502);
-      expect(response.body.error).toBe('Failed to fetch GitLab pipelines');
+      expect(response.status).toBe(200);
+      expect(response.body.results.test.error).toBe(
+        'Failed to fetch GitLab pipelines',
+      );
     });
 
     it('should default host to gitlab.com when not provided', async () => {
@@ -1802,27 +1830,46 @@ describe('createRouter', () => {
       });
 
       const response = await request(app)
-        .get('/ansible/git/ci-activity')
-        .query({ provider: 'gitlab', projectPath: 'group/project' });
+        .post('/ansible/git/ci-activity')
+        .send({
+          items: [
+            {
+              key: 'test',
+              provider: 'gitlab',
+              projectPath: 'group/default-host-test',
+            },
+          ],
+        });
 
       expect(response.status).toBe(200);
+      expect(response.body.results.test).toEqual({
+        status: 200,
+        data: [],
+      });
     });
 
-    it('should respect per_page query parameter', async () => {
+    it('should respect per_page parameter', async () => {
       mockGetPipelines.mockResolvedValue({
         ok: true,
         status: 200,
         data: [],
       });
 
-      await request(app).get('/ansible/git/ci-activity').query({
-        provider: 'gitlab',
-        projectPath: 'group/project',
-        host: 'gitlab.com',
-        per_page: 50,
-      });
+      await request(app)
+        .post('/ansible/git/ci-activity')
+        .send({
+          items: [
+            {
+              key: 'test',
+              provider: 'gitlab',
+              projectPath: 'group/per-page-50-test',
+              host: 'gitlab.com',
+              per_page: 50,
+            },
+          ],
+        });
 
-      expect(mockGetPipelines).toHaveBeenCalledWith('group/project', {
+      expect(mockGetPipelines).toHaveBeenCalledWith('group/per-page-50-test', {
         perPage: 50,
       });
     });
@@ -1834,14 +1881,21 @@ describe('createRouter', () => {
         data: [],
       });
 
-      await request(app).get('/ansible/git/ci-activity').query({
-        provider: 'gitlab',
-        projectPath: 'group/project',
-        host: 'gitlab.com',
-        per_page: 200,
-      });
+      await request(app)
+        .post('/ansible/git/ci-activity')
+        .send({
+          items: [
+            {
+              key: 'test',
+              provider: 'gitlab',
+              projectPath: 'group/per-page-cap-test',
+              host: 'gitlab.com',
+              per_page: 200,
+            },
+          ],
+        });
 
-      expect(mockGetPipelines).toHaveBeenCalledWith('group/project', {
+      expect(mockGetPipelines).toHaveBeenCalledWith('group/per-page-cap-test', {
         perPage: 100,
       });
     });
@@ -1853,15 +1907,23 @@ describe('createRouter', () => {
         data: [],
       });
 
-      await request(app).get('/ansible/git/ci-activity').query({
-        provider: 'gitlab',
-        projectPath: 'group/project',
-        host: 'gitlab.com',
-      });
+      await request(app)
+        .post('/ansible/git/ci-activity')
+        .send({
+          items: [
+            {
+              key: 'test',
+              provider: 'gitlab',
+              projectPath: 'group/per-page-default-test',
+              host: 'gitlab.com',
+            },
+          ],
+        });
 
-      expect(mockGetPipelines).toHaveBeenCalledWith('group/project', {
-        perPage: 15,
-      });
+      expect(mockGetPipelines).toHaveBeenCalledWith(
+        'group/per-page-default-test',
+        { perPage: 15 },
+      );
     });
 
     it('should disable SSL verification for hosts in skipTlsVerifyForHosts', async () => {
@@ -1905,13 +1967,17 @@ describe('createRouter', () => {
       const { GitlabClient } = require('@ansible/backstage-rhaap-common');
 
       await request(appWithSkipTls)
-        .get('/ansible/git/ci-activity')
-        .query({
-          provider: 'gitlab',
-          projectPath: 'group/project',
-          host: 'gitlab.insecure.com',
-        })
-        .set('PRIVATE-TOKEN', 'token');
+        .post('/ansible/git/ci-activity')
+        .send({
+          items: [
+            {
+              key: 'test',
+              provider: 'gitlab',
+              projectPath: 'group/ssl-skip-test',
+              host: 'gitlab.insecure.com',
+            },
+          ],
+        });
 
       expect(GitlabClient).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -1931,11 +1997,18 @@ describe('createRouter', () => {
 
       const { GitlabClient } = require('@ansible/backstage-rhaap-common');
 
-      await request(app).get('/ansible/git/ci-activity').query({
-        provider: 'gitlab',
-        projectPath: 'group/project',
-        host: 'gitlab.com',
-      });
+      await request(app)
+        .post('/ansible/git/ci-activity')
+        .send({
+          items: [
+            {
+              key: 'test',
+              provider: 'gitlab',
+              projectPath: 'group/ssl-enabled-test',
+              host: 'gitlab.com',
+            },
+          ],
+        });
 
       expect(GitlabClient).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -1984,11 +2057,18 @@ describe('createRouter', () => {
 
       const { GitlabClient } = require('@ansible/backstage-rhaap-common');
 
-      await request(appWithApiBase).get('/ansible/git/ci-activity').query({
-        provider: 'gitlab',
-        projectPath: 'group/project',
-        host: 'gitlab.internal.com',
-      });
+      await request(appWithApiBase)
+        .post('/ansible/git/ci-activity')
+        .send({
+          items: [
+            {
+              key: 'test',
+              provider: 'gitlab',
+              projectPath: 'group/api-base-test',
+              host: 'gitlab.internal.com',
+            },
+          ],
+        });
 
       expect(GitlabClient).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -2009,13 +2089,17 @@ describe('createRouter', () => {
       const { GitlabClient } = require('@ansible/backstage-rhaap-common');
 
       await request(app)
-        .get('/ansible/git/ci-activity')
-        .query({
-          provider: 'gitlab',
-          projectPath: 'group/project',
-          host: 'gitlab.com',
-        })
-        .set('Authorization', 'Bearer request-token');
+        .post('/ansible/git/ci-activity')
+        .send({
+          items: [
+            {
+              key: 'test',
+              provider: 'gitlab',
+              projectPath: 'group/config-pref-test',
+              host: 'gitlab.com',
+            },
+          ],
+        });
 
       expect(GitlabClient).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -2027,7 +2111,12 @@ describe('createRouter', () => {
     });
   });
 
-  describe('GET /ansible/git/ci-activity (permissions)', () => {
+  describe('POST /ansible/git/ci-activity (permissions)', () => {
+    beforeEach(() => {
+      clearCIActivityCache();
+      jest.clearAllMocks();
+    });
+
     it('should return 403 when user lacks git-repositories view permission', async () => {
       mockPermissions.authorize.mockResolvedValueOnce([
         { result: AuthorizeResult.DENY },
@@ -2037,8 +2126,10 @@ describe('createRouter', () => {
       ] as any);
 
       const response = await request(app)
-        .get('/ansible/git/ci-activity')
-        .query({ provider: 'github', owner: 'o', repo: 'r' });
+        .post('/ansible/git/ci-activity')
+        .send({
+          items: [{ key: 'test', provider: 'github', owner: 'o', repo: 'r' }],
+        });
       expect(response.status).toBe(403);
       expect(response.body.error).toBe('Forbidden: insufficient permissions');
     });
@@ -2052,8 +2143,10 @@ describe('createRouter', () => {
       ] as any);
 
       const response = await request(app)
-        .get('/ansible/git/ci-activity')
-        .query({ provider: 'github', owner: 'o', repo: 'r' });
+        .post('/ansible/git/ci-activity')
+        .send({
+          items: [{ key: 'test', provider: 'github', owner: 'o', repo: 'r' }],
+        });
       expect(response.status).toBe(403);
       expect(response.body.error).toBe('Forbidden: insufficient permissions');
     });
@@ -2067,12 +2160,17 @@ describe('createRouter', () => {
       ] as any);
 
       const response = await request(app)
-        .get('/ansible/git/ci-activity')
-        .query({
-          provider: 'github',
-          owner: 'myorg',
-          repo: 'myrepo',
-          host: 'github.com',
+        .post('/ansible/git/ci-activity')
+        .send({
+          items: [
+            {
+              key: 'test',
+              provider: 'github',
+              owner: 'myorg',
+              repo: 'myrepo',
+              host: 'github.com',
+            },
+          ],
         });
       expect(response.status).not.toBe(403);
     });
@@ -2091,81 +2189,113 @@ describe('createRouter', () => {
       ] as any);
 
       const response = await request(app)
-        .get('/ansible/git/ci-activity')
-        .query({
-          provider: 'github',
-          owner: 'myorg',
-          repo: 'myrepo',
-          host: 'github.com',
+        .post('/ansible/git/ci-activity')
+        .send({
+          items: [
+            {
+              key: 'test',
+              provider: 'github',
+              owner: 'myorg',
+              repo: 'myrepo',
+              host: 'github.com',
+            },
+          ],
         });
       expect(response.status).not.toBe(403);
     });
   });
 
-  describe('GET /ansible/git/ci-activity (provider validation)', () => {
-    it('should return 400 when provider is missing', async () => {
+  describe('POST /ansible/git/ci-activity (batch validation)', () => {
+    it('should return 400 when items array is missing', async () => {
       const response = await request(app)
-        .get('/ansible/git/ci-activity')
-        .query({ projectPath: 'group/project' });
+        .post('/ansible/git/ci-activity')
+        .send({});
 
       expect(response.status).toBe(400);
-      expect(response.body.error).toContain(
-        "Missing or invalid 'provider' query parameter",
-      );
+      expect(response.body.error).toContain('non-empty array');
     });
 
-    it('should return 400 when provider is invalid', async () => {
+    it('should return 400 when items array is empty', async () => {
       const response = await request(app)
-        .get('/ansible/git/ci-activity')
-        .query({ provider: 'bitbucket', projectPath: 'group/project' });
+        .post('/ansible/git/ci-activity')
+        .send({ items: [] });
 
       expect(response.status).toBe(400);
-      expect(response.body.error).toContain("Must be 'github' or 'gitlab'");
+      expect(response.body.error).toContain('non-empty array');
+    });
+
+    it('should return error in results when provider is invalid', async () => {
+      const response = await request(app)
+        .post('/ansible/git/ci-activity')
+        .send({
+          items: [
+            {
+              key: 'test',
+              provider: 'bitbucket',
+              projectPath: 'group/project',
+            },
+          ],
+        });
+
+      expect(response.status).toBe(200);
+      expect(response.body.results.test.error).toContain(
+        'Unknown provider: bitbucket',
+      );
     });
   });
 
-  describe('GET /ansible/git/ci-activity (GitHub)', () => {
+  describe('POST /ansible/git/ci-activity (GitHub)', () => {
     beforeEach(() => {
+      clearCIActivityCache();
       jest.clearAllMocks();
     });
 
-    it('should return 400 when owner is missing', async () => {
+    it('should return error in results when owner is missing', async () => {
       const response = await request(app)
-        .get('/ansible/git/ci-activity')
-        .query({ provider: 'github', repo: 'my-repo' });
-
-      expect(response.status).toBe(400);
-      expect(response.body.error).toContain(
-        'Missing required query parameters for GitHub: owner, repo',
-      );
-    });
-
-    it('should return 400 when repo is missing', async () => {
-      const response = await request(app)
-        .get('/ansible/git/ci-activity')
-        .query({ provider: 'github', owner: 'my-owner' });
-
-      expect(response.status).toBe(400);
-      expect(response.body.error).toContain(
-        'Missing required query parameters for GitHub: owner, repo',
-      );
-    });
-
-    it('should return 400 when host is not a safe hostname', async () => {
-      const response = await request(app)
-        .get('/ansible/git/ci-activity')
-        .query({
-          provider: 'github',
-          owner: 'my-owner',
-          repo: 'my-repo',
-          host: 'https://evil.com',
+        .post('/ansible/git/ci-activity')
+        .send({
+          items: [{ key: 'test', provider: 'github', repo: 'my-repo' }],
         });
 
-      expect(response.status).toBe(400);
-      expect(response.body.error).toContain('Invalid host');
+      expect(response.status).toBe(200);
+      expect(response.body.results.test.error).toContain(
+        'Missing required parameters for GitHub: owner, repo',
+      );
     });
 
-    it('should return 400 when host is not allowed (SSRF mitigation)', async () => {
+    it('should return error in results when repo is missing', async () => {
+      const response = await request(app)
+        .post('/ansible/git/ci-activity')
+        .send({
+          items: [{ key: 'test', provider: 'github', owner: 'my-owner' }],
+        });
+
+      expect(response.status).toBe(200);
+      expect(response.body.results.test.error).toContain(
+        'Missing required parameters for GitHub: owner, repo',
+      );
+    });
+
+    it('should return error in results when host is not a safe hostname', async () => {
+      const response = await request(app)
+        .post('/ansible/git/ci-activity')
+        .send({
+          items: [
+            {
+              key: 'test',
+              provider: 'github',
+              owner: 'my-owner',
+              repo: 'my-repo',
+              host: 'https://evil.com',
+            },
+          ],
+        });
+
+      expect(response.status).toBe(200);
+      expect(response.body.results.test.error).toContain('Invalid host');
+    });
+
+    it('should return error in results when host is not allowed (SSRF mitigation)', async () => {
       const configNoGithub = new ConfigReader({});
       const routerNoGithub = await createRouter({
         logger: mockLogger,
@@ -2184,23 +2314,24 @@ describe('createRouter', () => {
       const appNoGithub = express().use(routerNoGithub);
 
       const response = await request(appNoGithub)
-        .get('/ansible/git/ci-activity')
-        .query({
-          provider: 'github',
-          owner: 'my-owner',
-          repo: 'my-repo',
-          host: '169.254.169.254',
-        })
-        .set('Authorization', 'Bearer token');
+        .post('/ansible/git/ci-activity')
+        .send({
+          items: [
+            {
+              key: 'test',
+              provider: 'github',
+              owner: 'my-owner',
+              repo: 'my-repo',
+              host: '169.254.169.254',
+            },
+          ],
+        });
 
-      expect(response.status).toBe(400);
-      expect(response.body.error).toContain(
-        'not allowed for GitHub CI activity',
-      );
-      expect(response.body.error).toContain('integrations.github');
+      expect(response.status).toBe(200);
+      expect(response.body.results.test.error).toContain('not allowed');
     });
 
-    it('should return 400 when token is missing', async () => {
+    it('should return error in results when token is missing', async () => {
       const configWithoutToken = new ConfigReader({});
       const routerWithoutToken = await createRouter({
         logger: mockLogger,
@@ -2219,15 +2350,22 @@ describe('createRouter', () => {
       const appWithoutToken = express().use(routerWithoutToken);
 
       const response = await request(appWithoutToken)
-        .get('/ansible/git/ci-activity')
-        .query({
-          provider: 'github',
-          owner: 'my-owner',
-          repo: 'my-repo',
+        .post('/ansible/git/ci-activity')
+        .send({
+          items: [
+            {
+              key: 'test',
+              provider: 'github',
+              owner: 'my-owner',
+              repo: 'my-repo',
+            },
+          ],
         });
 
-      expect(response.status).toBe(400);
-      expect(response.body.error).toContain('Missing authorization');
+      expect(response.status).toBe(200);
+      expect(response.body.results.test.error).toContain(
+        'Missing GitHub authorization',
+      );
     });
 
     it('should use token from config for matching host', async () => {
@@ -2263,72 +2401,26 @@ describe('createRouter', () => {
       } as Response);
 
       const response = await request(appWithGitHub)
-        .get('/ansible/git/ci-activity')
-        .query({
-          provider: 'github',
-          owner: 'my-owner',
-          repo: 'my-repo',
-          host: 'github.com',
+        .post('/ansible/git/ci-activity')
+        .send({
+          items: [
+            {
+              key: 'test',
+              provider: 'github',
+              owner: 'my-owner',
+              repo: 'config-token-test',
+              host: 'github.com',
+            },
+          ],
         });
 
       expect(response.status).toBe(200);
+      expect(response.body.results.test.status).toBe(200);
       expect(mockFetch).toHaveBeenCalledWith(
         expect.stringContaining('api.github.com'),
         expect.objectContaining({
           headers: expect.objectContaining({
             Authorization: 'Bearer github-test-token',
-          }),
-        }),
-      );
-
-      mockFetch.mockRestore();
-    });
-
-    it('should use token from Authorization header when not in config', async () => {
-      const configWithoutGitHub = new ConfigReader({
-        integrations: {
-          gitlab: [{ host: 'gitlab.com', token: 'test-token' }],
-        },
-      });
-
-      const routerWithoutGitHub = await createRouter({
-        logger: mockLogger,
-        config: configWithoutGitHub,
-        aapEntityProvider: mockAAPEntityProvider,
-        jobTemplateProvider: mockJobTemplateProvider,
-        eeEntityProvider: mockEEEntityProvider,
-        pahCollectionProviders: [],
-        httpAuth: mockHttpAuth,
-        userInfo: mockUserInfo,
-        auth: mockAuth,
-        catalogClient: mockCatalogClient,
-        scheduler: mockScheduler,
-        permissions: mockPermissions,
-      });
-
-      const appWithoutGitHub = express().use(routerWithoutGitHub);
-
-      const mockFetch = jest.spyOn(global, 'fetch').mockResolvedValue({
-        ok: true,
-        status: 200,
-        json: async () => ({ workflow_runs: [] }),
-      } as Response);
-
-      const response = await request(appWithoutGitHub)
-        .get('/ansible/git/ci-activity')
-        .query({
-          provider: 'github',
-          owner: 'my-owner',
-          repo: 'my-repo',
-        })
-        .set('Authorization', 'Bearer header-token');
-
-      expect(response.status).toBe(200);
-      expect(mockFetch).toHaveBeenCalledWith(
-        expect.any(String),
-        expect.objectContaining({
-          headers: expect.objectContaining({
-            Authorization: 'Bearer header-token',
           }),
         }),
       );
@@ -2375,20 +2467,28 @@ describe('createRouter', () => {
       } as Response);
 
       const response = await request(appWithGitHub)
-        .get('/ansible/git/ci-activity')
-        .query({
-          provider: 'github',
-          owner: 'my-owner',
-          repo: 'my-repo',
+        .post('/ansible/git/ci-activity')
+        .send({
+          items: [
+            {
+              key: 'test',
+              provider: 'github',
+              owner: 'my-owner',
+              repo: 'workflow-runs-test',
+            },
+          ],
         });
 
       expect(response.status).toBe(200);
-      expect(response.body).toEqual(workflowRuns);
+      expect(response.body.results.test).toEqual({
+        status: 200,
+        data: workflowRuns,
+      });
 
       mockFetch.mockRestore();
     });
 
-    it('should return 502 when GitHub API throws error', async () => {
+    it('should return error in results when GitHub API throws error', async () => {
       const configWithGitHub = new ConfigReader({
         integrations: {
           github: [{ host: 'github.com', token: 'github-test-token' }],
@@ -2417,20 +2517,27 @@ describe('createRouter', () => {
         .mockRejectedValue(new Error('Network error'));
 
       const response = await request(appWithGitHub)
-        .get('/ansible/git/ci-activity')
-        .query({
-          provider: 'github',
-          owner: 'my-owner',
-          repo: 'my-repo',
+        .post('/ansible/git/ci-activity')
+        .send({
+          items: [
+            {
+              key: 'test',
+              provider: 'github',
+              owner: 'my-owner',
+              repo: 'network-error-test',
+            },
+          ],
         });
 
-      expect(response.status).toBe(502);
-      expect(response.body.error).toBe('Failed to fetch GitHub workflow runs');
+      expect(response.status).toBe(200);
+      expect(response.body.results.test.error).toBe(
+        'Failed to fetch GitHub workflow runs',
+      );
 
       mockFetch.mockRestore();
     });
 
-    it('should respect per_page query parameter', async () => {
+    it('should respect per_page parameter', async () => {
       const configWithGitHub = new ConfigReader({
         integrations: {
           github: [{ host: 'github.com', token: 'github-test-token' }],
@@ -2460,12 +2567,19 @@ describe('createRouter', () => {
         json: async () => ({ workflow_runs: [] }),
       } as Response);
 
-      await request(appWithGitHub).get('/ansible/git/ci-activity').query({
-        provider: 'github',
-        owner: 'my-owner',
-        repo: 'my-repo',
-        per_page: 50,
-      });
+      await request(appWithGitHub)
+        .post('/ansible/git/ci-activity')
+        .send({
+          items: [
+            {
+              key: 'test',
+              provider: 'github',
+              owner: 'my-owner',
+              repo: 'per-page-50-test',
+              per_page: 50,
+            },
+          ],
+        });
 
       expect(mockFetch).toHaveBeenCalledWith(
         expect.stringContaining('per_page=50'),
@@ -2505,12 +2619,19 @@ describe('createRouter', () => {
         json: async () => ({ workflow_runs: [] }),
       } as Response);
 
-      await request(appWithGitHub).get('/ansible/git/ci-activity').query({
-        provider: 'github',
-        owner: 'my-owner',
-        repo: 'my-repo',
-        per_page: 200,
-      });
+      await request(appWithGitHub)
+        .post('/ansible/git/ci-activity')
+        .send({
+          items: [
+            {
+              key: 'test',
+              provider: 'github',
+              owner: 'my-owner',
+              repo: 'per-page-cap-test',
+              per_page: 200,
+            },
+          ],
+        });
 
       expect(mockFetch).toHaveBeenCalledWith(
         expect.stringContaining('per_page=100'),
@@ -2556,12 +2677,19 @@ describe('createRouter', () => {
         json: async () => ({ workflow_runs: [] }),
       } as Response);
 
-      await request(appWithGHE).get('/ansible/git/ci-activity').query({
-        provider: 'github',
-        owner: 'my-owner',
-        repo: 'my-repo',
-        host: 'github.enterprise.com',
-      });
+      await request(appWithGHE)
+        .post('/ansible/git/ci-activity')
+        .send({
+          items: [
+            {
+              key: 'test',
+              provider: 'github',
+              owner: 'my-owner',
+              repo: 'ghe-test',
+              host: 'github.enterprise.com',
+            },
+          ],
+        });
 
       expect(mockFetch).toHaveBeenCalledWith(
         expect.stringContaining('github.enterprise.com/api/v3'),

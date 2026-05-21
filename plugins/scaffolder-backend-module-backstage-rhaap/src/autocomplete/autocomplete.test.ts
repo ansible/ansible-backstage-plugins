@@ -1,5 +1,6 @@
 import { ConfigReader } from '@backstage/config';
 import { handleAutocompleteRequest } from './autocomplete';
+import { clearCollectionsCache } from './utils';
 import { mockAnsibleService } from '../actions/mockIAAPService';
 import { mockServices } from '@backstage/backend-test-utils';
 import { MOCK_TOKEN } from '../mock';
@@ -40,6 +41,7 @@ describe('ansible-aap:autocomplete', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
+    clearCollectionsCache();
     (global as any).fetch = mockFetch;
     mockAuthService.getOwnServiceCredentials.mockResolvedValue({} as any);
     mockAuthService.getPluginRequestToken.mockResolvedValue({
