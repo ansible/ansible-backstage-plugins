@@ -1247,9 +1247,7 @@ describe('AAPJobTemplateProvider', () => {
         ['ansible.com/organization'],
         'Default',
       );
-      expect(defaultTemplate.entity.metadata.title).toBe(
-        'Test Job Template [Default]',
-      );
+      expect(defaultTemplate.entity.metadata.title).toBe('Test Job Template');
 
       const engTemplate = call.entities.find(
         (e: any) => e.entity.metadata?.name === 'deploy-service',
@@ -1258,9 +1256,7 @@ describe('AAPJobTemplateProvider', () => {
         ['ansible.com/organization'],
         'Engineering',
       );
-      expect(engTemplate.entity.metadata.title).toBe(
-        'Deploy Service [Engineering]',
-      );
+      expect(engTemplate.entity.metadata.title).toBe('Deploy Service');
     });
   });
 });
