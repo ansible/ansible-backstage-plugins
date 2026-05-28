@@ -545,7 +545,9 @@ test.describe('Execution Environment Template Execution Tests', () => {
       const nextBtn = page.getByRole('button', { name: /^Next$/i }).first();
       const nextBtnCount = await nextBtn.count();
       if (nextBtnCount === 0) {
-        console.log('[EE Test] WARNING: Next button not found on page after filling form');
+        console.log(
+          '[EE Test] WARNING: Next button not found on page after filling form',
+        );
         console.log('[EE Test] Current URL:', page.url());
         // Try to recover by waiting longer
         await page.waitForTimeout(3000);
