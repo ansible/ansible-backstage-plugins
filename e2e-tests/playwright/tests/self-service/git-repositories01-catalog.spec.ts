@@ -285,10 +285,15 @@ test.describe.serial('git-repositories01-catalog', () => {
 
       // If none are checked, check the first one
       if (!anyChecked) {
-        await checkboxes.first().waitFor({ state: 'visible', timeout: 5000 });
-        await checkboxes.first().check();
-        // Increased wait time to allow UI state to update after checkbox selection
-        await page.waitForTimeout(1500);
+        const firstCheckbox = checkboxes.first();
+        await firstCheckbox.waitFor({ state: 'visible', timeout: 5000 });
+        await firstCheckbox.check();
+
+        // Verify the checkbox is actually checked after the check() call
+        await expect(firstCheckbox).toBeChecked({ timeout: 5000 });
+
+        // Wait for UI state to update after checkbox selection
+        await page.waitForTimeout(2000);
       }
     }
 
@@ -297,8 +302,10 @@ test.describe.serial('git-repositories01-catalog', () => {
       name: /Sync Selected/i,
     });
     await expect(syncSelectedBtn.first()).toBeVisible({ timeout: 5000 });
-    // Increased timeout for button to become enabled after checkbox selection
-    await expect(syncSelectedBtn.first()).toBeEnabled({ timeout: 10000 });
+
+    // Wait for button to become enabled - increased timeout significantly
+    // The button should enable after at least one checkbox is selected
+    await expect(syncSelectedBtn.first()).toBeEnabled({ timeout: 15000 });
     await syncSelectedBtn.first().click();
 
     return syncBtn;

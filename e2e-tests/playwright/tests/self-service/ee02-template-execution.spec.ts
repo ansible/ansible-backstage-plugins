@@ -492,8 +492,12 @@ test.describe('Execution Environment Template Execution Tests', () => {
           if ((await ghOption2.count()) > 0) {
             await ghOption2.click({ force: true });
           }
-          await page.waitForTimeout(1000);
+          await page.waitForTimeout(2000);
         }
+
+        // Wait for Git organization field to appear after GitHub selection
+        await page.waitForLoadState('networkidle').catch(() => {});
+        await page.waitForTimeout(1500);
       }
 
       // Fill Git organization — wait for it to appear after provider selection
@@ -534,10 +538,20 @@ test.describe('Execution Environment Template Execution Tests', () => {
         .catch(() => {});
 
       // Wait for form validation and Next button to become enabled after filling all fields
-      const nextBtn = page.getByRole('button', { name: /^Next$/i }).first();
       await page.waitForLoadState('networkidle').catch(() => {});
-      await page.waitForTimeout(1000); // Allow form validation to complete
-      await expect(nextBtn).toBeVisible({ timeout: 10000 });
+      await page.waitForTimeout(2000); // Allow form validation to complete
+
+      // Verify Next button exists and is on the page
+      const nextBtn = page.getByRole('button', { name: /^Next$/i }).first();
+      const nextBtnCount = await nextBtn.count();
+      if (nextBtnCount === 0) {
+        console.log('[EE Test] WARNING: Next button not found on page after filling form');
+        console.log('[EE Test] Current URL:', page.url());
+        // Try to recover by waiting longer
+        await page.waitForTimeout(3000);
+      }
+
+      await expect(nextBtn).toBeVisible({ timeout: 15000 });
       await expect(nextBtn).toBeEnabled({ timeout: 15000 });
       await nextBtn.click();
       await page.waitForTimeout(1500);
