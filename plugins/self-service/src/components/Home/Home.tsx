@@ -38,6 +38,7 @@ import Sync from '@material-ui/icons/Sync';
 import Info from '@material-ui/icons/Info';
 import OpenInNew from '@material-ui/icons/OpenInNew';
 import { TemplateEntityV1beta3 } from '@backstage/plugin-scaffolder-common';
+import Alert from '@material-ui/lab/Alert';
 import { SkeletonLoader } from './SkeletonLoader';
 import { scaffolderApiRef } from '@backstage/plugin-scaffolder-react';
 import { TagFilterPicker } from '../utils/TagFilterPicker';
@@ -204,6 +205,9 @@ export const HomeComponent = () => {
   const [syncOptions, setSyncOptions] = useState<string[]>([]);
   const [showSnackbar, setShowSnackbar] = useState<boolean>(false);
   const [snackbarMsg, setSnackbarMsg] = useState<string>('Sync failed');
+  const [controllerSnackbar, setControllerSnackbar] = useState<
+    { status: 'idle' } | { status: 'error'; message: string }
+  >({ status: 'idle' });
   const [jobTemplates, setJobTemplates] = useState<
     { id: number; name: string }[]
   >([]);
@@ -218,6 +222,7 @@ export const HomeComponent = () => {
   });
 
   const fetchRequestIdRef = useRef(0);
+  const fetchSucceededRef = useRef(false);
   const jobTemplatesRef = useRef(jobTemplates);
   jobTemplatesRef.current = jobTemplates;
 
@@ -257,11 +262,19 @@ export const HomeComponent = () => {
       }));
       if (requestId === fetchRequestIdRef.current) {
         setJobTemplates(newTemplates);
+        fetchSucceededRef.current = true;
       }
       return newTemplates;
     } catch (error) {
+      const message =
+        (error as any)?.body?.error?.message ??
+        (error instanceof Error ? error.message : String(error));
       // eslint-disable-next-line no-console
       console.error('Failed to fetch job templates:', error);
+      setControllerSnackbar({ status: 'error', message });
+      if (requestId === fetchRequestIdRef.current) {
+        fetchSucceededRef.current = false;
+      }
       return undefined;
     } finally {
       if (requestId === fetchRequestIdRef.current) {
@@ -337,8 +350,10 @@ export const HomeComponent = () => {
     const CATALOG_SETTLE_MS = 750;
     const timerId = setTimeout(() => {
       setSyncKey(prev => prev + 1);
-      setSnackbarMsg('Templates refreshed');
-      setShowSnackbar(true);
+      if (fetchSucceededRef.current) {
+        setSnackbarMsg('Templates refreshed');
+        setShowSnackbar(true);
+      }
     }, CATALOG_SETTLE_MS);
     return () => clearTimeout(timerId);
   }, [loading]);
@@ -454,6 +469,19 @@ export const HomeComponent = () => {
           </Tooltip>
         )}
       </Header>
+      <Snackbar
+        anchorOrigin={{ vertical: 'top', horizontal: 'center' }}
+        open={controllerSnackbar.status === 'error'}
+        style={{ zIndex: 10000, marginTop: '70px' }}
+        TransitionProps={{ exit: false }}
+      >
+        <Alert
+          severity="error"
+          onClose={() => setControllerSnackbar({ status: 'idle' })}
+        >
+          {controllerSnackbar.status === 'error' && controllerSnackbar.message}
+        </Alert>
+      </Snackbar>
       <Content>
         <EntityListProvider key={syncKey}>
           <CatalogFilterLayout>

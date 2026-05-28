@@ -18,6 +18,7 @@ export const mockAnsibleService: jest.Mocked<IAAPService> = {
   fetchResult: jest.fn(),
   launchJobTemplate: jest.fn(),
   cleanUp: jest.fn(),
+  checkControllerAvailability: jest.fn(),
   getResourceData: jest.fn(),
   getJobTemplatesByName: jest.fn(),
   setLogger: jest.fn(),

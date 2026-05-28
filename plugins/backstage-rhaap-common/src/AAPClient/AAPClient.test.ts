@@ -482,6 +482,74 @@ describe('AAPClient', () => {
       });
     });
 
+    describe('checkControllerAvailability', () => {
+      it('should return true when controller service count > 0', async () => {
+        jest.spyOn(client as any, 'executeGetRequest').mockResolvedValueOnce({
+          json: jest.fn().mockResolvedValue({ count: 1, results: [{}] }),
+        });
+
+        const result = await client.checkControllerAvailability('test-token');
+        expect(result).toBe(true);
+      });
+
+      it('should return false when controller service count is 0', async () => {
+        jest.spyOn(client as any, 'executeGetRequest').mockResolvedValueOnce({
+          json: jest.fn().mockResolvedValue({ count: 0, results: [] }),
+        });
+
+        const result = await client.checkControllerAvailability('test-token');
+        expect(result).toBe(false);
+      });
+
+      it('should propagate network errors from executeGetRequest', async () => {
+        jest
+          .spyOn(client as any, 'executeGetRequest')
+          .mockRejectedValueOnce(
+            new Error('Failed to send fetch data: Network error'),
+          );
+
+        await expect(
+          client.checkControllerAvailability('test-token'),
+        ).rejects.toThrow('Failed to send fetch data: Network error');
+      });
+
+      it('should propagate 403 errors from executeGetRequest', async () => {
+        jest
+          .spyOn(client as any, 'executeGetRequest')
+          .mockRejectedValueOnce(
+            new Error(
+              'Insufficient privileges. Please contact your administrator.',
+            ),
+          );
+
+        await expect(
+          client.checkControllerAvailability('test-token'),
+        ).rejects.toThrow(
+          'Insufficient privileges. Please contact your administrator.',
+        );
+      });
+
+      it('should reject when controller availability payload is malformed (empty object)', async () => {
+        jest.spyOn(client as any, 'executeGetRequest').mockResolvedValueOnce({
+          json: jest.fn().mockResolvedValue({}),
+        });
+
+        await expect(
+          client.checkControllerAvailability('test-token'),
+        ).rejects.toThrow('unexpected payload');
+      });
+
+      it('should reject when controller availability payload has non-numeric count', async () => {
+        jest.spyOn(client as any, 'executeGetRequest').mockResolvedValueOnce({
+          json: jest.fn().mockResolvedValue({ count: '1' }),
+        });
+
+        await expect(
+          client.checkControllerAvailability('test-token'),
+        ).rejects.toThrow('unexpected payload');
+      });
+    });
+
     describe('executeDeleteRequest', () => {
       it('should successfully execute a DELETE request', async () => {
         const mockResponse = {
