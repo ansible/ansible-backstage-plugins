@@ -497,9 +497,13 @@ test.describe('Execution Environment Template Execution Tests', () => {
 
         // After selecting GitHub, click Next to advance to Git repository fields step
         await page.waitForLoadState('networkidle').catch(() => {});
-        const nextAfterScm = page.getByRole('button', { name: /^Next$/i }).first();
+        const nextAfterScm = page
+          .getByRole('button', { name: /^Next$/i })
+          .first();
         if ((await nextAfterScm.count()) > 0) {
-          console.log('[EE Test] Clicking Next after re-selecting GitHub SCM provider');
+          console.log(
+            '[EE Test] Clicking Next after re-selecting GitHub SCM provider',
+          );
           await expect(nextAfterScm).toBeVisible({ timeout: 10000 });
           await expect(nextAfterScm).toBeEnabled({ timeout: 10000 });
           await nextAfterScm.click();
