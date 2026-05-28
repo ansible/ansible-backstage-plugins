@@ -539,7 +539,7 @@ test.describe('Execution Environment Template Execution Tests', () => {
       await page.waitForTimeout(1000); // Allow form validation to complete
       await expect(nextBtn).toBeVisible({ timeout: 10000 });
       await expect(nextBtn).toBeEnabled({ timeout: 15000 });
-      await nextBtn.click({ force: true });
+      await nextBtn.click();
       await page.waitForTimeout(1500);
       await page
         .getByRole('button', { name: /create/i })
