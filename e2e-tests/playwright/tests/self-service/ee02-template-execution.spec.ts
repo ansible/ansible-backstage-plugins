@@ -382,7 +382,7 @@ test.describe('Execution Environment Template Execution Tests', () => {
         if ((await ghOption.count()) > 0) {
           await ghOption.click({ force: true });
         }
-        await page.waitForTimeout(1000);
+        await page.waitForTimeout(1500);
       }
 
       // Handle GitHub OAuth dialog triggered by selecting GitHub as SCM provider.
@@ -495,9 +495,32 @@ test.describe('Execution Environment Template Execution Tests', () => {
           await page.waitForTimeout(2000);
         }
 
-        // Wait for Git organization field to appear after GitHub selection
+        // After selecting GitHub, click Next to advance to Git repository fields step
         await page.waitForLoadState('networkidle').catch(() => {});
-        await page.waitForTimeout(1500);
+        const nextAfterScm = page.getByRole('button', { name: /^Next$/i }).first();
+        if ((await nextAfterScm.count()) > 0) {
+          console.log('[EE Test] Clicking Next after re-selecting GitHub SCM provider');
+          await expect(nextAfterScm).toBeVisible({ timeout: 10000 });
+          await expect(nextAfterScm).toBeEnabled({ timeout: 10000 });
+          await nextAfterScm.click();
+          await page.waitForTimeout(1500);
+        }
+      } else {
+        // OAuth didn't redirect - wizard is still on the same page
+        // Click Next to advance to Git repository fields step
+        await page.waitForLoadState('networkidle').catch(() => {});
+        const nextAfterFirstGitHub = page
+          .getByRole('button', { name: /^Next$/i })
+          .first();
+        if ((await nextAfterFirstGitHub.count()) > 0) {
+          console.log(
+            '[EE Test] No OAuth redirect - clicking Next after first GitHub selection',
+          );
+          await expect(nextAfterFirstGitHub).toBeVisible({ timeout: 10000 });
+          await expect(nextAfterFirstGitHub).toBeEnabled({ timeout: 10000 });
+          await nextAfterFirstGitHub.click();
+          await page.waitForTimeout(1500);
+        }
       }
 
       // Fill Git organization — wait for it to appear after provider selection
