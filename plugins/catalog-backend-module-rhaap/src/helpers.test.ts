@@ -18,6 +18,8 @@ import { ANNOTATION_EDIT_URL } from '@backstage/catalog-model';
 import { ConfigReader } from '@backstage/config';
 import {
   formatNameSpace,
+  getEffectiveNamespace,
+  validateNamespace,
   buildFileUrl,
   getDirectoryFromPath,
   validateSyncFilter,
@@ -95,7 +97,65 @@ describe('helpers', () => {
 
     it('should handle multiple spaces', () => {
       expect(formatNameSpace('test   multiple   spaces')).toEqual(
-        'test---multiple---spaces',
+        'test-multiple-spaces',
+      );
+    });
+
+    it('should map "Default" to "aap-default" to avoid namespace collision', () => {
+      expect(formatNameSpace('Default')).toEqual('aap-default');
+    });
+  });
+
+  describe('getEffectiveNamespace', () => {
+    it('should return "default" for single-org configs', () => {
+      expect(getEffectiveNamespace('Engineering', ['engineering'])).toEqual(
+        'default',
+      );
+    });
+
+    it('should return "default" for single org named Default', () => {
+      expect(getEffectiveNamespace('Default', ['default'])).toEqual('default');
+    });
+
+    it('should return formatted org name for multi-org configs', () => {
+      const allOrgs = ['engineering', 'platform-ops'];
+      expect(getEffectiveNamespace('Engineering', allOrgs)).toEqual(
+        'engineering',
+      );
+      expect(getEffectiveNamespace('Platform Ops', allOrgs)).toEqual(
+        'platform-ops',
+      );
+    });
+
+    it('should return "aap-default" for Default org in multi-org mode', () => {
+      const allOrgs = ['default', 'engineering'];
+      expect(getEffectiveNamespace('Default', allOrgs)).toEqual('aap-default');
+    });
+  });
+
+  describe('validateNamespace', () => {
+    it('should pass for valid namespaces', () => {
+      expect(() => validateNamespace('engineering', 'Engineering')).not.toThrow();
+      expect(() => validateNamespace('default', 'Default')).not.toThrow();
+      expect(() => validateNamespace('aap-default', 'Default')).not.toThrow();
+      expect(() => validateNamespace('platform-ops', 'Platform Ops')).not.toThrow();
+    });
+
+    it('should throw for empty namespace', () => {
+      expect(() => validateNamespace('', 'Empty Org')).toThrow(
+        'produces invalid Backstage namespace',
+      );
+    });
+
+    it('should throw for namespace with invalid characters', () => {
+      expect(() => validateNamespace('ORG_NAME', 'ORG_NAME')).toThrow(
+        'produces invalid Backstage namespace',
+      );
+    });
+
+    it('should throw for namespace starting with hyphen', () => {
+      expect(() => validateNamespace('-bad-name', '-Bad Name')).toThrow(
+        'produces invalid Backstage namespace',
       );
     });
   });

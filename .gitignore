@@ -50,6 +50,9 @@ site
 # Local configuration files
 *.local.yaml
 
+# SQLite database files (dev environment persistence)
+sqlite-data/
+
 # Sensitive credentials
 *-credentials.yaml
 

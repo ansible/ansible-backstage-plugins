@@ -621,11 +621,33 @@ export function getSkipTlsVerifyHosts(config: Config): string[] {
   );
 }
 
+const BACKSTAGE_NAMESPACE_REGEX = /^[a-z0-9]([a-z0-9-]*[a-z0-9])?$/;
+
 export function formatNameSpace(name: string): string {
-  return name
+  const sanitized = name
     .toLowerCase()
     .replaceAll(/[^\w\s]/gi, '')
-    .replaceAll(/\s/g, '-');
+    .replaceAll(/\s/g, '-')
+    .replaceAll(/-+/g, '-')
+    .replaceAll(/^-|-$/g, '');
+  return sanitized === 'default' ? 'aap-default' : sanitized;
+}
+
+export function getEffectiveNamespace(
+  orgName: string,
+  allOrgs: string[],
+): string {
+  if (allOrgs.length <= 1) return 'default';
+  return formatNameSpace(orgName);
+}
+
+export function validateNamespace(namespace: string, orgName: string): void {
+  if (!namespace || !BACKSTAGE_NAMESPACE_REGEX.test(namespace)) {
+    throw new Error(
+      `Organization name "${orgName}" produces invalid Backstage namespace "${namespace}". ` +
+        `Namespaces must match ${BACKSTAGE_NAMESPACE_REGEX}.`,
+    );
+  }
 }
 
 export function buildFileUrl(

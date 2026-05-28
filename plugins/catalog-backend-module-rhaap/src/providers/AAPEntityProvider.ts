@@ -23,6 +23,7 @@ import {
 import { readAapApiEntityConfigs } from './config';
 import { organizationParser, teamParser, userParser } from './entityParser';
 import { AapConfig } from './types';
+import { getEffectiveNamespace, validateNamespace } from '../helpers';
 
 export class AAPEntityProvider implements EntityProvider {
   private readonly env: string;
@@ -145,6 +146,21 @@ export class AAPEntityProvider implements EntityProvider {
     if (!this.connection) {
       throw new NotFoundError('Not initialized');
     }
+
+    if (!this.orgs || this.orgs.length === 0) {
+      this.logger.warn(
+        `[${AAPEntityProvider.pluginLogName}]: No orgs configured in catalog.providers.rhaap.<env>.orgs — skipping sync. ` +
+          'Add org names to enable catalog population (e.g., orgs: [Default]).',
+      );
+      return true;
+    }
+
+    // Validate all org namespaces at sync start
+    for (const orgName of this.orgs) {
+      const ns = getEffectiveNamespace(orgName, this.orgs);
+      validateNamespace(ns, orgName);
+    }
+
     let groupCount = 0;
     let usersCount = 0;
     let userRoleAssignments: RoleAssignments;
@@ -158,11 +174,21 @@ export class AAPEntityProvider implements EntityProvider {
 
     let error = false;
     try {
-      orgsDetails = await this.ansibleServiceRef.getOrganizations(true);
+      const allOrgsDetails = await this.ansibleServiceRef.getOrganizations(
+        true,
+      );
       this.logger.info(
-        `[${AAPEntityProvider.pluginLogName}]: Fetched ${
-          Object.keys(orgsDetails).length
-        } organizations.`,
+        `[${AAPEntityProvider.pluginLogName}]: Fetched ${allOrgsDetails.length} organizations from AAP.`,
+      );
+
+      // Filter to only configured organizations
+      orgsDetails = allOrgsDetails.filter(org =>
+        this.orgs.includes(org.organization.name.toLowerCase()),
+      );
+      this.logger.info(
+        `[${AAPEntityProvider.pluginLogName}]: Matched ${
+          orgsDetails.length
+        } configured organizations (configured: ${this.orgs.join(', ')}).`,
       );
     } catch (e: any) {
       this.logger.error(
@@ -205,7 +231,11 @@ export class AAPEntityProvider implements EntityProvider {
     }
 
     if (!error) {
+      const isMultiOrg = this.orgs.length > 1;
+
       for (const org of Object.values(orgsDetails)) {
+        const orgName = org.organization.name;
+        const ns = getEffectiveNamespace(orgName, this.orgs);
         const orgTeams = org.teams
           ? Object.values(org.teams).map(team => team.groupName)
           : [];
@@ -220,34 +250,45 @@ export class AAPEntityProvider implements EntityProvider {
               .filter(user => !!user) as string[])
           : [];
 
+        // In multi-org mode, users live in 'default' namespace — use full refs
+        const orgMemberRefs = isMultiOrg
+          ? orgUsers.map(u => `user:default/${u}`)
+          : orgUsers;
+
         entities.push(
           organizationParser({
             baseUrl: this.baseUrl,
-            nameSpace: 'default',
+            nameSpace: ns,
             org: org.organization,
-            orgMembers: orgUsers,
+            orgMembers: orgMemberRefs,
             teams: orgTeams,
+            orgName: isMultiOrg ? orgName : undefined,
           }),
         );
         groupCount += 1;
-      }
 
-      for (const team of Object.values(orgsDetails).flatMap(org =>
-        Object.values(org.teams || {}),
-      )) {
-        entities.push(
-          teamParser({
-            baseUrl: this.baseUrl,
-            nameSpace: 'default',
-            team: team as unknown as Team,
-            teamMembers: [],
-          }),
-        );
-        groupCount += 1;
+        // Teams belong to their org's namespace
+        for (const team of Object.values(org.teams || {})) {
+          entities.push(
+            teamParser({
+              baseUrl: this.baseUrl,
+              nameSpace: ns,
+              team: team as unknown as Team,
+              teamMembers: [],
+              orgName: isMultiOrg ? orgName : undefined,
+            }),
+          );
+          groupCount += 1;
+        }
       }
 
       // Process users in batches to avoid overwhelming the AAP server
-      const allUsers = orgsDetails.flatMap(org => org.users || []);
+      // Deduplicate across orgs — the same user can belong to multiple orgs
+      const allUsers = [
+        ...new Map(
+          orgsDetails.flatMap(org => org.users || []).map(u => [u.id, u]),
+        ).values(),
+      ];
       const batchSize = 100; // Process 100 users at a time
       this.logger.info(
         `[${AAPEntityProvider.pluginLogName}]: Processing ${allUsers.length} users in batches of ${batchSize}`,
@@ -256,7 +297,9 @@ export class AAPEntityProvider implements EntityProvider {
       for (let i = 0; i < allUsers.length; i += batchSize) {
         const batch = allUsers.slice(i, i + batchSize);
         this.logger.debug(
-          `[${AAPEntityProvider.pluginLogName}]: Processing batch ${Math.floor(i / batchSize) + 1}/${Math.ceil(allUsers.length / batchSize)}`,
+          `[${AAPEntityProvider.pluginLogName}]: Processing batch ${
+            Math.floor(i / batchSize) + 1
+          }/${Math.ceil(allUsers.length / batchSize)}`,
         );
 
         const batchResults = await Promise.allSettled(
@@ -271,7 +314,15 @@ export class AAPEntityProvider implements EntityProvider {
                 for (const org of orgsDetails) {
                   const matchingTeam = org.teams.find(t => t.id === team.id);
                   if (matchingTeam) {
-                    userMembers.push(matchingTeam.groupName);
+                    const memberNs = getEffectiveNamespace(
+                      org.organization.name,
+                      this.orgs,
+                    );
+                    userMembers.push(
+                      memberNs === 'default'
+                        ? matchingTeam.groupName
+                        : `group:${memberNs}/${matchingTeam.groupName}`,
+                    );
                     matched = true;
                     break;
                   }
@@ -288,11 +339,18 @@ export class AAPEntityProvider implements EntityProvider {
                   }
                 }
               }
+
+              // Collect org names for user annotations
+              const userOrgNames = orgsDetails
+                .filter(o => o.users?.some(u => u.id === user.id))
+                .map(o => o.organization.name);
+
               const userEntity = userParser({
                 baseUrl: this.baseUrl,
                 nameSpace: 'default',
                 user: user as User,
                 groupMemberships: userMembers,
+                orgNames: isMultiOrg ? userOrgNames : undefined,
               });
               entities.push(userEntity);
               return { success: true, user };
@@ -336,16 +394,30 @@ export class AAPEntityProvider implements EntityProvider {
                 for (const org of orgsDetails) {
                   const matchingTeam = org.teams.find(t => t.id === team.id);
                   if (matchingTeam) {
-                    userMembers.push(matchingTeam.groupName);
+                    const sysNs = getEffectiveNamespace(
+                      org.organization.name,
+                      this.orgs,
+                    );
+                    userMembers.push(
+                      sysNs === 'default'
+                        ? matchingTeam.groupName
+                        : `group:${sysNs}/${matchingTeam.groupName}`,
+                    );
                     break;
                   }
                 }
               }
+
+              const sysUserOrgNames = orgsDetails
+                .filter(o => o.users?.some(u => u.id === user.id))
+                .map(o => o.organization.name);
+
               const userEntity = userParser({
                 baseUrl: this.baseUrl,
                 nameSpace: 'default',
                 user: user as User,
                 groupMemberships: userMembers,
+                orgNames: isMultiOrg ? sysUserOrgNames : undefined,
               });
               entities.push(userEntity);
               return { success: true, user };
@@ -451,13 +523,22 @@ export class AAPEntityProvider implements EntityProvider {
 
       // Process user organizations and teams
       const userOrgNames = userOrgs.map(org => org.name.toLowerCase());
+      const isMultiOrg = this.orgs.length > 1;
       const matchingOrgs = userOrgs
         .filter(org => this.orgs.includes(org.name.toLowerCase()))
-        .map(org => org.groupName);
+        .map(org => {
+          const ns = getEffectiveNamespace(org.name, this.orgs);
+          return ns === 'default'
+            ? org.groupName
+            : `group:${ns}/${org.groupName}`;
+        });
 
       const teamsInConfiguredOrgs = userTeams
         .filter(team => this.orgs.includes(team.orgName.toLowerCase()))
-        .map(team => team.name);
+        .map(team => {
+          const ns = getEffectiveNamespace(team.orgName, this.orgs);
+          return ns === 'default' ? team.name : `group:${ns}/${team.name}`;
+        });
 
       const hasDirectOrgAccess = matchingOrgs.length > 0;
       const hasTeamAccess = teamsInConfiguredOrgs.length > 0;
@@ -478,7 +559,9 @@ export class AAPEntityProvider implements EntityProvider {
       // Log access type and superuser status
       if (hasDirectOrgAccess) {
         this.logger.info(
-          `User ${username} found in organizations: ${userOrgNames.filter(orgName => this.orgs.includes(orgName)).join(', ')}`,
+          `User ${username} found in organizations: ${userOrgNames
+            .filter(orgName => this.orgs.includes(orgName))
+            .join(', ')}`,
         );
       } else if (hasTeamAccess) {
         this.logger.info(
@@ -498,11 +581,16 @@ export class AAPEntityProvider implements EntityProvider {
         );
       }
 
+      const matchedOrgNames = userOrgs
+        .filter(org => this.orgs.includes(org.name.toLowerCase()))
+        .map(org => org.name);
+
       const userEntity = userParser({
         baseUrl: this.baseUrl,
         nameSpace: 'default',
         user: foundUser,
         groupMemberships: userMembers,
+        orgNames: isMultiOrg ? matchedOrgNames : undefined,
       });
 
       const entitiesToAdd = [
@@ -573,12 +661,16 @@ export class AAPEntityProvider implements EntityProvider {
       const superusers = await this.getSuperusers();
       const aapAdminsGroup = this.createAapAdminsGroup(superusers);
       this.logger.info(
-        `Updated aap-admins group ${context}${username ? ` for ${username}` : ''}`,
+        `Updated aap-admins group ${context}${
+          username ? ` for ${username}` : ''
+        }`,
       );
       return aapAdminsGroup;
     } catch (groupError) {
       this.logger.warn(
-        `Failed to update aap-admins group ${context}${username ? ` for ${username}` : ''}: ${groupError}`,
+        `Failed to update aap-admins group ${context}${
+          username ? ` for ${username}` : ''
+        }: ${groupError}`,
       );
       return null;
     }
@@ -598,7 +690,9 @@ export class AAPEntityProvider implements EntityProvider {
     );
 
     this.logger.info(
-      `🚀 Creating aap-admins group with ${memberNames.length} current superusers: ${memberNames.join(', ')}`,
+      `🚀 Creating aap-admins group with ${
+        memberNames.length
+      } current superusers: ${memberNames.join(', ')}`,
     );
 
     // Create group entity with dynamic member list
@@ -611,8 +705,12 @@ export class AAPEntityProvider implements EntityProvider {
         description:
           'Ansible Automation Platform Superusers - Dynamically managed',
         annotations: {
-          'backstage.io/managed-by-location': `${this.getProviderName()}:${this.env}`,
-          'backstage.io/managed-by-origin-location': `${this.getProviderName()}:${this.env}`,
+          'backstage.io/managed-by-location': `${this.getProviderName()}:${
+            this.env
+          }`,
+          'backstage.io/managed-by-origin-location': `${this.getProviderName()}:${
+            this.env
+          }`,
           'aap.platform/managed': 'true',
           'aap.platform/last-sync': new Date().toISOString(),
         },
