@@ -287,7 +287,8 @@ test.describe.serial('git-repositories01-catalog', () => {
       if (!anyChecked) {
         await checkboxes.first().waitFor({ state: 'visible', timeout: 5000 });
         await checkboxes.first().check();
-        await page.waitForTimeout(500);
+        // Increased wait time to allow UI state to update after checkbox selection
+        await page.waitForTimeout(1500);
       }
     }
 
@@ -296,7 +297,8 @@ test.describe.serial('git-repositories01-catalog', () => {
       name: /Sync Selected/i,
     });
     await expect(syncSelectedBtn.first()).toBeVisible({ timeout: 5000 });
-    await expect(syncSelectedBtn.first()).toBeEnabled({ timeout: 5000 });
+    // Increased timeout for button to become enabled after checkbox selection
+    await expect(syncSelectedBtn.first()).toBeEnabled({ timeout: 10000 });
     await syncSelectedBtn.first().click();
 
     return syncBtn;

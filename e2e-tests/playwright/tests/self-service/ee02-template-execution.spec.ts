@@ -533,10 +533,13 @@ test.describe('Execution Environment Template Execution Tests', () => {
         .click({ force: true })
         .catch(() => {});
 
-      await page
-        .getByRole('button', { name: /^Next$/i })
-        .first()
-        .click({ force: true });
+      // Wait for form validation and Next button to become enabled after filling all fields
+      const nextBtn = page.getByRole('button', { name: /^Next$/i }).first();
+      await page.waitForLoadState('networkidle').catch(() => {});
+      await page.waitForTimeout(1000); // Allow form validation to complete
+      await expect(nextBtn).toBeVisible({ timeout: 10000 });
+      await expect(nextBtn).toBeEnabled({ timeout: 15000 });
+      await nextBtn.click({ force: true });
       await page.waitForTimeout(1500);
       await page
         .getByRole('button', { name: /create/i })
