@@ -1201,10 +1201,15 @@ async function patchGitLabCiEeDir(
     return;
   }
 
-  const patched = content.replace(
-    /^(\s+EE_DIR:\s*)"\."\s*$/m,
-    `$1"${contextDirName}"`,
-  );
+  const patched = content
+    .split('\n')
+    .map(line => {
+      if (!/^\s+EE_DIR:\s/.test(line)) {
+        return line;
+      }
+      return line.replace('"."', `"${contextDirName}"`);
+    })
+    .join('\n');
 
   if (patched !== content) {
     await fs.writeFile(ciPath, patched);
