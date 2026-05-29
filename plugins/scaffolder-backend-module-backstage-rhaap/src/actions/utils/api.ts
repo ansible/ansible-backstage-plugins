@@ -185,12 +185,17 @@ export class BackendServiceAPI {
     creatorServiceUrl: string,
     eeConfig: Record<string, any>,
     tarName: string,
+    scmProvider?: string,
   ) {
     try {
       const scaffoldUrl = 'v2/creator/scaffold';
+      const params: Record<string, any> = { ee_config: eeConfig };
+      if (scmProvider) {
+        params.scm_provider = scmProvider;
+      }
       const postData = {
         command_path: ['init', 'execution_env'],
-        params: { ee_config: eeConfig },
+        params,
       };
 
       logger.info(

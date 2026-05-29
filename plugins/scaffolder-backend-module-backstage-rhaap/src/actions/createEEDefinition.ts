@@ -106,6 +106,7 @@ export function createEEDefinitionAction(options: {
       const buildRegistry = values.buildRegistry || '';
       const buildImageName = values.buildImageName?.trim() || '';
       const registryTlsVerify = values.registryTlsVerify ?? true;
+      const scmProvider = values.scmProvider || 'github';
 
       ctx.output('owner', owner);
 
@@ -212,6 +213,7 @@ export function createEEDefinitionAction(options: {
           creatorServiceUrl,
           eeConfig,
           tarName,
+          scmProvider,
         );
         await executeShellCommand({
           command: 'tar',
@@ -1143,6 +1145,14 @@ async function patchWorkflowEeDir(
   workspacePath: string,
   contextDirName: string,
 ): Promise<void> {
+  await patchGitHubWorkflowEeDir(workspacePath, contextDirName);
+  await patchGitLabCiEeDir(workspacePath, contextDirName);
+}
+
+async function patchGitHubWorkflowEeDir(
+  workspacePath: string,
+  contextDirName: string,
+): Promise<void> {
   const workflowPath = path.join(
     workspacePath,
     '.github',
@@ -1178,6 +1188,29 @@ async function patchWorkflowEeDir(
 
   if (patchedWithEeDir !== content) {
     await fs.writeFile(workflowPath, patchedWithEeDir);
+  }
+}
+
+async function patchGitLabCiEeDir(
+  workspacePath: string,
+  contextDirName: string,
+): Promise<void> {
+  const ciPath = path.join(workspacePath, '.gitlab-ci.yml');
+
+  let content: string;
+  try {
+    content = await fs.readFile(ciPath, 'utf-8');
+  } catch {
+    return;
+  }
+
+  const patched = content.replace(
+    /^(\s+EE_DIR:\s*)"\."\s*$/m,
+    `$1"${contextDirName}"`,
+  );
+
+  if (patched !== content) {
+    await fs.writeFile(ciPath, patched);
   }
 }
 
