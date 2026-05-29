@@ -539,9 +539,12 @@ test.describe('Execution Environment Template Execution Tests', () => {
             .first(),
         )
         .first();
-      if ((await orgInput.count()) > 0) {
-        await orgInput.fill('test-rhaap-1');
-      }
+
+      // Wait for Git org field to be visible and fill it
+      await expect(orgInput).toBeVisible({ timeout: 10000 });
+      await orgInput.fill('test-rhaap-1');
+      await expect(orgInput).toHaveValue('test-rhaap-1', { timeout: 5000 });
+      console.log('[EE Test] Filled Git organization field: test-rhaap-1');
 
       // Fill Repository Name
       const repoInput = page
@@ -555,33 +558,44 @@ test.describe('Execution Environment Template Execution Tests', () => {
             .first(),
         )
         .first();
-      if ((await repoInput.count()) > 0) {
-        await repoInput.fill(REPO_NAME);
+
+      // Wait for repo name field to be visible and fill it
+      await expect(repoInput).toBeVisible({ timeout: 10000 });
+      await repoInput.fill(REPO_NAME);
+      await expect(repoInput).toHaveValue(REPO_NAME, { timeout: 5000 });
+      console.log(`[EE Test] Filled repository name field: ${REPO_NAME}`);
+
+      // Click "Create new repository" checkbox/radio
+      const createNewRepo = page.getByText(/Create new repository/i);
+      if ((await createNewRepo.count()) > 0) {
+        await createNewRepo.click({ force: true });
+        console.log('[EE Test] Clicked "Create new repository"');
       }
 
-      await page
-        .getByText(/Create new repository/i)
-        .click({ force: true })
-        .catch(() => {});
-
       // Wait for form validation and Next button to become enabled after filling all fields
+      console.log('[EE Test] Waiting for form validation to complete...');
       await page.waitForLoadState('networkidle').catch(() => {});
-      await page.waitForTimeout(2000); // Allow form validation to complete
+      await page.waitForTimeout(3000); // Allow form validation to complete
 
       // Verify Next button exists and is on the page
       const nextBtn = page.getByRole('button', { name: /^Next$/i }).first();
       const nextBtnCount = await nextBtn.count();
+
       if (nextBtnCount === 0) {
         console.log(
           '[EE Test] WARNING: Next button not found on page after filling form',
         );
         console.log('[EE Test] Current URL:', page.url());
+        console.log('[EE Test] All buttons on page:', await page.locator('button').count());
         // Try to recover by waiting longer
-        await page.waitForTimeout(3000);
+        await page.waitForTimeout(5000);
+      } else {
+        console.log('[EE Test] Next button found, waiting for it to be enabled...');
       }
 
-      await expect(nextBtn).toBeVisible({ timeout: 15000 });
-      await expect(nextBtn).toBeEnabled({ timeout: 15000 });
+      await expect(nextBtn).toBeVisible({ timeout: 20000 });
+      await expect(nextBtn).toBeEnabled({ timeout: 20000 });
+      console.log('[EE Test] Next button is enabled, clicking...');
       await nextBtn.click();
       await page.waitForTimeout(1500);
       await page
