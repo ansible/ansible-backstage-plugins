@@ -64,18 +64,26 @@ async function handleGitHubOAuthDialog(page: Page): Promise<boolean> {
     if (new URL(page.url()).hostname === 'github.com') {
       await handleGitHubLoginOnPage(page);
     }
-    // After redirect flow, Backstage should automatically redirect back to the wizard
-    // Wait for the redirect back to the template wizard URL
-    console.log('[EE Test] Waiting for OAuth redirect back to wizard...');
-    await page
-      .waitForURL(/\/self-service\/create\/templates\//, {
-        timeout: 30000,
-        waitUntil: 'domcontentloaded',
-      })
-      .catch(() => {
-        console.log('[EE Test] Warning: Did not redirect back to wizard URL');
-      });
-    await page.waitForTimeout(3000); // Allow wizard to re-initialize
+    // After OAuth, we're at /api/auth/github/start with redirectUrl in query params
+    // Extract the redirectUrl and navigate to it manually
+    console.log('[EE Test] OAuth complete, current URL:', page.url());
+    const currentUrl = new URL(page.url());
+
+    // Check if we're still on the auth page
+    if (currentUrl.pathname.includes('/api/auth/github')) {
+      const redirectUrl = currentUrl.searchParams.get('redirectUrl');
+      if (redirectUrl) {
+        console.log(
+          '[EE Test] Navigating to wizard URL from redirectUrl param...',
+        );
+        await page.goto(redirectUrl, {
+          waitUntil: 'domcontentloaded',
+          timeout: 30000,
+        });
+        await page.waitForTimeout(3000); // Allow wizard to initialize
+      }
+    }
+
     console.log(
       '[EE Test] GitHub OAuth redirect flow complete, URL:',
       page.url(),
