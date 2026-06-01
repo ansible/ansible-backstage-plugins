@@ -64,23 +64,18 @@ async function handleGitHubOAuthDialog(page: Page): Promise<boolean> {
     if (new URL(page.url()).hostname === 'github.com') {
       await handleGitHubLoginOnPage(page);
     }
-    // After redirect flow, page may be on handler/frame or an error page.
-    // Navigate back to portal to recover.
-    const currentUrl = page.url();
-    const baseUrl = process.env.BASE_URL || 'http://localhost:7007';
-    if (
-      !currentUrl.startsWith(baseUrl) ||
-      currentUrl.includes('handler/frame')
-    ) {
-      console.log('[EE Test] Navigating back to portal after redirect flow...');
-      await page
-        .goto('/self-service/ee', {
-          waitUntil: 'domcontentloaded',
-          timeout: 15000,
-        })
-        .catch(() => {});
-      await page.waitForTimeout(2000);
-    }
+    // After redirect flow, Backstage should automatically redirect back to the wizard
+    // Wait for the redirect back to the template wizard URL
+    console.log('[EE Test] Waiting for OAuth redirect back to wizard...');
+    await page
+      .waitForURL(/\/self-service\/create\/templates\//, {
+        timeout: 30000,
+        waitUntil: 'domcontentloaded',
+      })
+      .catch(() => {
+        console.log('[EE Test] Warning: Did not redirect back to wizard URL');
+      });
+    await page.waitForTimeout(3000); // Allow wizard to re-initialize
     console.log(
       '[EE Test] GitHub OAuth redirect flow complete, URL:',
       page.url(),
@@ -391,140 +386,28 @@ test.describe('Execution Environment Template Execution Tests', () => {
       const didGitHubRedirect = await handleGitHubOAuthDialog(page);
 
       if (didGitHubRedirect) {
-        // Wizard state is lost after redirect — restart the wizard
+        // After OAuth redirect, Backstage should have brought us back to the wizard
+        // The wizard should remember our state (Backstage scaffolder persists form state)
         console.log(
-          '[EE Test] Re-opening wizard after GitHub OAuth redirect...',
+          '[EE Test] Wizard restored after OAuth redirect, GitHub is now authenticated',
         );
-        await page.goto('/self-service/ee', { waitUntil: 'domcontentloaded' });
-        await page.waitForTimeout(1500);
-        await page.getByText('Create').first().click({ force: true });
-        await page.waitForTimeout(1500);
-        await expect(page.locator('main')).toBeVisible({ timeout: 15000 });
+        // GitHub is now authenticated - the wizard should show it as selected
+        // No need to re-fill or re-select anything - just wait for page to be ready
+        await page.waitForLoadState('networkidle').catch(() => {});
+      }
 
-        const card = page
-          .locator('.MuiCard-root, article, [data-testid*="template"]')
-          .filter({ hasText: EE_TEMPLATE_TITLE })
-          .first();
-        const startBtn = card
-          .locator('button, [role="button"]')
-          .filter({ hasText: /start/i })
-          .first();
-        if ((await startBtn.count()) > 0) {
-          await startBtn.click({ force: true });
-          await page.waitForTimeout(2500);
-        }
+      // Click Next to advance to the Git repository fields step
+      await page.waitForLoadState('networkidle').catch(() => {});
+      const nextBtn = page.getByRole('button', { name: /^Next$/i }).first();
 
-        // Navigate through wizard steps again
-        for (let i = 0; i < 2; i++) {
-          const next = page.getByRole('button', { name: /^Next$/i });
-          if ((await next.count()) > 0) {
-            await next.first().click({ force: true });
-            await page.waitForTimeout(700);
-          }
-        }
-
-        const ghMcp = page
-          .locator('body')
-          .getByText(/^github$/i)
-          .first();
-        if ((await ghMcp.count()) > 0) {
-          await ghMcp.click({ force: true }).catch(() => {});
-          await page.waitForTimeout(400);
-        }
-
-        for (let i = 0; i < 3; i++) {
-          const n = page.getByRole('button', { name: /^Next$/i });
-          if ((await n.count()) > 0) {
-            await n.first().click({ force: true });
-            await page.waitForTimeout(700);
-          }
-        }
-
-        // Re-fill EE definition fields
-        await page
-          .getByLabel(/EE Definition Name/i)
-          .or(
-            page
-              .locator('label')
-              .filter({ hasText: /^EE Definition Name/i })
-              .locator('..')
-              .locator('input, textarea')
-              .first(),
-          )
-          .first()
-          .fill(EE_FILE_NAME);
-
-        await page
-          .getByLabel(/^Description/i)
-          .or(
-            page
-              .locator('label')
-              .filter({ hasText: /^Description/i })
-              .locator('..')
-              .locator('input, textarea')
-              .first(),
-          )
-          .first()
-          .fill('execution environment');
-
-        // Re-select GitHub as SCM provider (already authenticated, no OAuth dialog)
-        const providerHeading2 = page.locator(
-          'text=Select source control provider',
+      if ((await nextBtn.count()) > 0) {
+        console.log(
+          '[EE Test] Clicking Next to advance to Git repository fields...',
         );
-        if ((await providerHeading2.count()) > 0) {
-          const selectContainer2 = providerHeading2
-            .locator(
-              'xpath=ancestor::fieldset[1] | ancestor::div[contains(@class,"MuiFormControl")]',
-            )
-            .first();
-          const muiSelect2 = selectContainer2
-            .locator('[role="combobox"], [role="button"], select')
-            .first();
-          if ((await muiSelect2.count()) > 0) {
-            await muiSelect2.click({ force: true });
-          }
-          await page.waitForTimeout(500);
-
-          const ghOption2 = page
-            .getByRole('option', { name: /github/i })
-            .or(page.locator('[role="option"]').filter({ hasText: /github/i }))
-            .first();
-          if ((await ghOption2.count()) > 0) {
-            await ghOption2.click({ force: true });
-          }
-          await page.waitForTimeout(2000);
-        }
-
-        // After selecting GitHub, click Next to advance to Git repository fields step
-        await page.waitForLoadState('networkidle').catch(() => {});
-        const nextAfterScm = page
-          .getByRole('button', { name: /^Next$/i })
-          .first();
-        if ((await nextAfterScm.count()) > 0) {
-          console.log(
-            '[EE Test] Clicking Next after re-selecting GitHub SCM provider',
-          );
-          await expect(nextAfterScm).toBeVisible({ timeout: 10000 });
-          await expect(nextAfterScm).toBeEnabled({ timeout: 10000 });
-          await nextAfterScm.click();
-          await page.waitForTimeout(1500);
-        }
-      } else {
-        // OAuth didn't redirect - wizard is still on the same page
-        // Click Next to advance to Git repository fields step
-        await page.waitForLoadState('networkidle').catch(() => {});
-        const nextAfterFirstGitHub = page
-          .getByRole('button', { name: /^Next$/i })
-          .first();
-        if ((await nextAfterFirstGitHub.count()) > 0) {
-          console.log(
-            '[EE Test] No OAuth redirect - clicking Next after first GitHub selection',
-          );
-          await expect(nextAfterFirstGitHub).toBeVisible({ timeout: 10000 });
-          await expect(nextAfterFirstGitHub).toBeEnabled({ timeout: 10000 });
-          await nextAfterFirstGitHub.click();
-          await page.waitForTimeout(1500);
-        }
+        await expect(nextBtn).toBeVisible({ timeout: 15000 });
+        await expect(nextBtn).toBeEnabled({ timeout: 15000 });
+        await nextBtn.click();
+        await page.waitForTimeout(2000);
       }
 
       // Fill Git organization — wait for it to appear after provider selection
@@ -586,11 +469,16 @@ test.describe('Execution Environment Template Execution Tests', () => {
           '[EE Test] WARNING: Next button not found on page after filling form',
         );
         console.log('[EE Test] Current URL:', page.url());
-        console.log('[EE Test] All buttons on page:', await page.locator('button').count());
+        console.log(
+          '[EE Test] All buttons on page:',
+          await page.locator('button').count(),
+        );
         // Try to recover by waiting longer
         await page.waitForTimeout(5000);
       } else {
-        console.log('[EE Test] Next button found, waiting for it to be enabled...');
+        console.log(
+          '[EE Test] Next button found, waiting for it to be enabled...',
+        );
       }
 
       await expect(nextBtn).toBeVisible({ timeout: 20000 });
