@@ -399,40 +399,77 @@ test.describe('Execution Environment Template Execution Tests', () => {
           '[EE Test] Wizard reloaded after OAuth, re-navigating to Git fields step...',
         );
 
-        // Wait for wizard to be ready
+        // Wait for wizard to be ready - wait for Next button to appear
         await page.waitForLoadState('networkidle').catch(() => {});
-        await page.waitForTimeout(2000);
+        await page.waitForTimeout(3000);
+
+        // Ensure wizard main content is loaded
+        await expect(page.locator('main')).toBeVisible({ timeout: 15000 });
+        const nextBtnCheck = page
+          .getByRole('button', { name: /^Next$/i })
+          .first();
+        await expect(nextBtnCheck).toBeVisible({ timeout: 15000 });
+
+        // Check what's on the page to understand wizard state
+        const bodyText = await page.locator('body').innerText();
+        console.log('[EE Test] Wizard loaded. Checking for key elements...');
+        console.log(
+          '[EE Test] Has "EE Definition Name"?',
+          bodyText.includes('EE Definition Name'),
+        );
+        console.log(
+          '[EE Test] Has "Select source control provider"?',
+          bodyText.includes('Select source control provider'),
+        );
+        console.log(
+          '[EE Test] Has "Git repository organization"?',
+          bodyText.includes('Git repository organization'),
+        );
+
+        console.log('[EE Test] Wizard UI is ready, starting navigation...');
 
         // Navigate through wizard steps (same as before OAuth)
         // Step 1-2: Click Next twice
+        console.log('[EE Test] Step 1: Clicking Next 2 times...');
         for (let i = 0; i < 2; i++) {
           const next = page.getByRole('button', { name: /^Next$/i }).first();
-          if ((await next.count()) > 0) {
+          const count = await next.count();
+          console.log(`[EE Test] Next button count: ${count}`);
+          if (count > 0) {
             await next.click({ force: true });
             await page.waitForTimeout(700);
           }
         }
 
         // Select GitHub MCP
+        console.log('[EE Test] Step 2: Selecting GitHub MCP...');
         const ghMcp = page
           .locator('body')
           .getByText(/^github$/i)
           .first();
-        if ((await ghMcp.count()) > 0) {
+        const ghMcpCount = await ghMcp.count();
+        console.log(`[EE Test] GitHub MCP count: ${ghMcpCount}`);
+        if (ghMcpCount > 0) {
           await ghMcp.click({ force: true }).catch(() => {});
           await page.waitForTimeout(400);
         }
 
         // Click Next 3 more times
+        console.log('[EE Test] Step 3: Clicking Next 3 more times...');
         for (let i = 0; i < 3; i++) {
           const next = page.getByRole('button', { name: /^Next$/i }).first();
-          if ((await next.count()) > 0) {
+          const count = await next.count();
+          console.log(
+            `[EE Test] Next button count (iteration ${i + 1}): ${count}`,
+          );
+          if (count > 0) {
             await next.click({ force: true });
             await page.waitForTimeout(700);
           }
         }
 
         // Re-fill EE Definition fields
+        console.log('[EE Test] Step 4: Filling EE Definition fields...');
         const eeNameField = page
           .getByLabel(/EE Definition Name/i)
           .or(
@@ -444,7 +481,9 @@ test.describe('Execution Environment Template Execution Tests', () => {
               .first(),
           )
           .first();
-        if ((await eeNameField.count()) > 0) {
+        const eeNameCount = await eeNameField.count();
+        console.log(`[EE Test] EE Name field count: ${eeNameCount}`);
+        if (eeNameCount > 0) {
           await eeNameField.fill(EE_FILE_NAME);
         }
 
@@ -459,7 +498,9 @@ test.describe('Execution Environment Template Execution Tests', () => {
               .first(),
           )
           .first();
-        if ((await descField.count()) > 0) {
+        const descFieldCount = await descField.count();
+        console.log(`[EE Test] Description field count: ${descFieldCount}`);
+        if (descFieldCount > 0) {
           await descField.fill('execution environment');
         }
 
