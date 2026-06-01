@@ -394,28 +394,119 @@ test.describe('Execution Environment Template Execution Tests', () => {
       const didGitHubRedirect = await handleGitHubOAuthDialog(page);
 
       if (didGitHubRedirect) {
-        // After OAuth redirect, Backstage should have brought us back to the wizard
-        // The wizard should remember our state (Backstage scaffolder persists form state)
+        // After OAuth, wizard state is lost - we must navigate through wizard steps again
         console.log(
-          '[EE Test] Wizard restored after OAuth redirect, GitHub is now authenticated',
+          '[EE Test] Wizard reloaded after OAuth, re-navigating to Git fields step...',
         );
-        // GitHub is now authenticated - the wizard should show it as selected
-        // No need to re-fill or re-select anything - just wait for page to be ready
+
+        // Wait for wizard to be ready
         await page.waitForLoadState('networkidle').catch(() => {});
-      }
-
-      // Click Next to advance to the Git repository fields step
-      await page.waitForLoadState('networkidle').catch(() => {});
-      const nextBtn = page.getByRole('button', { name: /^Next$/i }).first();
-
-      if ((await nextBtn.count()) > 0) {
-        console.log(
-          '[EE Test] Clicking Next to advance to Git repository fields...',
-        );
-        await expect(nextBtn).toBeVisible({ timeout: 15000 });
-        await expect(nextBtn).toBeEnabled({ timeout: 15000 });
-        await nextBtn.click();
         await page.waitForTimeout(2000);
+
+        // Navigate through wizard steps (same as before OAuth)
+        // Step 1-2: Click Next twice
+        for (let i = 0; i < 2; i++) {
+          const next = page.getByRole('button', { name: /^Next$/i }).first();
+          if ((await next.count()) > 0) {
+            await next.click({ force: true });
+            await page.waitForTimeout(700);
+          }
+        }
+
+        // Select GitHub MCP
+        const ghMcp = page
+          .locator('body')
+          .getByText(/^github$/i)
+          .first();
+        if ((await ghMcp.count()) > 0) {
+          await ghMcp.click({ force: true }).catch(() => {});
+          await page.waitForTimeout(400);
+        }
+
+        // Click Next 3 more times
+        for (let i = 0; i < 3; i++) {
+          const next = page.getByRole('button', { name: /^Next$/i }).first();
+          if ((await next.count()) > 0) {
+            await next.click({ force: true });
+            await page.waitForTimeout(700);
+          }
+        }
+
+        // Re-fill EE Definition fields
+        const eeNameField = page
+          .getByLabel(/EE Definition Name/i)
+          .or(
+            page
+              .locator('label')
+              .filter({ hasText: /^EE Definition Name/i })
+              .locator('..')
+              .locator('input, textarea')
+              .first(),
+          )
+          .first();
+        if ((await eeNameField.count()) > 0) {
+          await eeNameField.fill(EE_FILE_NAME);
+        }
+
+        const descField = page
+          .getByLabel(/^Description/i)
+          .or(
+            page
+              .locator('label')
+              .filter({ hasText: /^Description/i })
+              .locator('..')
+              .locator('input, textarea')
+              .first(),
+          )
+          .first();
+        if ((await descField.count()) > 0) {
+          await descField.fill('execution environment');
+        }
+
+        // Re-select GitHub SCM provider (already authenticated, no OAuth dialog)
+        const providerHeading = page.locator(
+          'text=Select source control provider',
+        );
+        if ((await providerHeading.count()) > 0) {
+          const selectContainer = providerHeading
+            .locator(
+              'xpath=ancestor::fieldset[1] | ancestor::div[contains(@class,"MuiFormControl")]',
+            )
+            .first();
+          const muiSelect = selectContainer
+            .locator('[role="combobox"], [role="button"], select')
+            .first();
+          if ((await muiSelect.count()) > 0) {
+            await muiSelect.click({ force: true });
+            await page.waitForTimeout(500);
+
+            const ghOption = page
+              .getByRole('option', { name: /github/i })
+              .or(
+                page.locator('[role="option"]').filter({ hasText: /github/i }),
+              )
+              .first();
+            if ((await ghOption.count()) > 0) {
+              await ghOption.click({ force: true });
+            }
+          }
+        }
+
+        // Now click Next to advance to Git repository fields
+        await page.waitForLoadState('networkidle').catch(() => {});
+        await page.waitForTimeout(2000);
+        const nextAfterScm = page
+          .getByRole('button', { name: /^Next$/i })
+          .first();
+        if ((await nextAfterScm.count()) > 0) {
+          console.log(
+            '[EE Test] Clicking Next to reach Git repository fields...',
+          );
+          await expect(nextAfterScm).toBeVisible({ timeout: 15000 });
+          await expect(nextAfterScm).toBeEnabled({ timeout: 15000 });
+          await nextAfterScm.click();
+          await page.waitForTimeout(2000);
+        }
       }
 
       // Fill Git organization — wait for it to appear after provider selection
