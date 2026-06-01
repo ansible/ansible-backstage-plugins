@@ -461,8 +461,10 @@ test.describe('Execution Environment Template Execution Tests', () => {
       await page.waitForTimeout(3000); // Allow form validation to complete
 
       // Verify Next button exists and is on the page
-      const nextBtn = page.getByRole('button', { name: /^Next$/i }).first();
-      const nextBtnCount = await nextBtn.count();
+      const nextBtnAfterFields = page
+        .getByRole('button', { name: /^Next$/i })
+        .first();
+      const nextBtnCount = await nextBtnAfterFields.count();
 
       if (nextBtnCount === 0) {
         console.log(
@@ -481,10 +483,10 @@ test.describe('Execution Environment Template Execution Tests', () => {
         );
       }
 
-      await expect(nextBtn).toBeVisible({ timeout: 20000 });
-      await expect(nextBtn).toBeEnabled({ timeout: 20000 });
+      await expect(nextBtnAfterFields).toBeVisible({ timeout: 20000 });
+      await expect(nextBtnAfterFields).toBeEnabled({ timeout: 20000 });
       console.log('[EE Test] Next button is enabled, clicking...');
-      await nextBtn.click();
+      await nextBtnAfterFields.click();
       await page.waitForTimeout(1500);
       await page
         .getByRole('button', { name: /create/i })
