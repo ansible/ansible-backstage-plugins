@@ -10,7 +10,7 @@ import {
 } from '@backstage/plugin-catalog-node';
 import type { Config } from '@backstage/config';
 
-import { InputError, isError, NotFoundError } from '@backstage/errors';
+import { InputError, NotFoundError } from '@backstage/errors';
 import { Entity } from '@backstage/catalog-model';
 import {
   IAAPService,
@@ -22,6 +22,7 @@ import {
 } from '@ansible/backstage-rhaap-common';
 import { readAapApiEntityConfigs } from './config';
 import { organizationParser, teamParser, userParser } from './entityParser';
+import { SyncStateTracker } from './SyncStateTracker';
 import { AapConfig } from './types';
 
 export class AAPEntityProvider implements EntityProvider {
@@ -32,11 +33,7 @@ export class AAPEntityProvider implements EntityProvider {
   private readonly ansibleServiceRef: IAAPService;
   private readonly scheduleFn: () => Promise<void>;
   private connection?: EntityProviderConnection;
-  private lastSyncTime: string | null = null;
-  private lastFailedSyncTime: string | null = null;
-  private lastSyncStatus: 'success' | 'failure' | null = null;
-  private isSyncing = false;
-  private taskId: string | undefined;
+  private readonly syncState = new SyncStateTracker();
 
   static pluginLogName = 'plugin-catalog-rhaap';
   static syncEntity = 'orgsUsersTeams';
@@ -108,36 +105,14 @@ export class AAPEntityProvider implements EntityProvider {
   createScheduleFn(
     taskRunner: SchedulerServiceTaskRunner,
   ): () => Promise<void> {
-    return async () => {
-      const taskId = `${this.getProviderName()}:run`;
-      this.logger.info('[${this.pluginLogName}]:Creating Schedule function.');
-      try {
-        await taskRunner.run({
-          id: taskId,
-          fn: async () => {
-            try {
-              await this.run();
-            } catch (error) {
-              if (isError(error)) {
-                this.logger.error(
-                  `Error while syncing resources from AAP ${this.baseUrl}`,
-                  {
-                    name: error.name,
-                    message: error.message,
-                    stack: error.stack,
-                    status: (error.response as { status?: string })?.status,
-                  },
-                );
-              }
-            }
-          },
-        });
-        this.taskId = taskId;
-      } catch (error) {
-        this.taskId = undefined;
-        throw error;
-      }
-    };
+    this.logger.info('[${this.pluginLogName}]:Creating Schedule function.');
+    return this.syncState.createScheduleFn(
+      taskRunner,
+      this.getProviderName(),
+      () => this.run(),
+      this.logger,
+      `AAP ${this.baseUrl}`,
+    );
   }
 
   getProviderName(): string {
@@ -145,30 +120,30 @@ export class AAPEntityProvider implements EntityProvider {
   }
 
   getLastSyncTime(): string | null {
-    return this.lastSyncTime;
+    return this.syncState.getLastSyncTime();
   }
 
   getLastFailedSyncTime(): string | null {
-    return this.lastFailedSyncTime;
+    return this.syncState.getLastFailedSyncTime();
   }
 
   getLastSyncStatus(): 'success' | 'failure' | null {
-    return this.lastSyncStatus;
+    return this.syncState.getLastSyncStatus();
   }
 
   getIsSyncing(): boolean {
-    return this.isSyncing;
+    return this.syncState.getIsSyncing();
   }
 
   getTaskId(): string | undefined {
-    return this.taskId;
+    return this.syncState.getTaskId();
   }
 
   async run(): Promise<boolean> {
     if (!this.connection) {
       throw new NotFoundError('Not initialized');
     }
-    this.isSyncing = true;
+    this.syncState.markSyncStarted();
     let groupCount = 0;
     let usersCount = 0;
     let userRoleAssignments: RoleAssignments;
@@ -417,14 +392,10 @@ export class AAPEntityProvider implements EntityProvider {
         }]: Refreshed ${this.getProviderName()}: ${usersCount} users added.`,
       );
 
-      this.lastSyncTime = new Date().toISOString();
-      this.lastSyncStatus = 'success';
+      this.syncState.markSyncSucceeded();
+    } else {
+      this.syncState.markSyncFailed();
     }
-    if (error) {
-      this.lastFailedSyncTime = new Date().toISOString();
-      this.lastSyncStatus = 'failure';
-    }
-    this.isSyncing = false;
     return !error;
   }
 

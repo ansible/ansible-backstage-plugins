@@ -136,12 +136,12 @@ export async function createRouter(options: {
     response.json({ status: 'ok' });
   });
 
-  router.post(
-    '/ansible/sync/from-aap/orgs_users_teams',
-    express.json(),
-    requireSuperuserMiddleware,
-    async (_, response) => {
-      const taskId = aapEntityProvider.getTaskId();
+  const createAsyncSyncHandler = (
+    provider: { getTaskId(): string | undefined },
+    label: string,
+  ) => {
+    return async (_: express.Request, response: express.Response) => {
+      const taskId = provider.getTaskId();
       if (!taskId) {
         response.status(500).json({
           status: 'failed',
@@ -151,47 +151,31 @@ export async function createRouter(options: {
       }
       try {
         await scheduler.triggerTask(taskId);
-        logger.info('Triggered orgs, users and teams sync via scheduler');
+        logger.info(`Triggered ${label} sync via scheduler`);
         response.status(202).json({ status: 'sync_started' });
       } catch (err) {
         if (err instanceof ConflictError) {
-          logger.info(
-            'Skipping orgs, users and teams sync: already in progress',
-          );
+          logger.info(`Skipping ${label} sync: already in progress`);
           response.status(200).json({ status: 'already_syncing' });
           return;
         }
         throw err;
       }
-    },
+    };
+  };
+
+  router.post(
+    '/ansible/sync/from-aap/orgs_users_teams',
+    express.json(),
+    requireSuperuserMiddleware,
+    createAsyncSyncHandler(aapEntityProvider, 'orgs, users and teams'),
   );
 
   router.post(
     '/ansible/sync/from-aap/job_templates',
     express.json(),
     requireSuperuserMiddleware,
-    async (_, response) => {
-      const taskId = jobTemplateProvider.getTaskId();
-      if (!taskId) {
-        response.status(500).json({
-          status: 'failed',
-          error: 'Provider not yet initialized. Retry after startup.',
-        });
-        return;
-      }
-      try {
-        await scheduler.triggerTask(taskId);
-        logger.info('Triggered job templates sync via scheduler');
-        response.status(202).json({ status: 'sync_started' });
-      } catch (err) {
-        if (err instanceof ConflictError) {
-          logger.info('Skipping job templates sync: already in progress');
-          response.status(200).json({ status: 'already_syncing' });
-          return;
-        }
-        throw err;
-      }
-    },
+    createAsyncSyncHandler(jobTemplateProvider, 'job templates'),
   );
 
   router.get(

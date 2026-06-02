@@ -606,6 +606,89 @@ describe('AAPJobTemplateProvider', () => {
       // Try to run without connecting first
       await expect(provider.run()).rejects.toThrow('Not initialized');
     });
+
+    it('should track sync state on successful run', async () => {
+      const config = new ConfigReader(MOCK_JOB_TEMPLATE_CONFIG);
+      const logger = mockServices.logger.mock();
+      const schedule = new PersistingTaskRunner();
+
+      mockAnsibleService.syncJobTemplates.mockResolvedValue([
+        { job: MOCK_JOB_TEMPLATE, survey: null, instanceGroup: [] },
+      ]);
+
+      const provider = AAPJobTemplateProvider.fromConfig(
+        config,
+        mockAnsibleService,
+        { logger, schedule },
+      )[0];
+
+      await provider.connect({
+        applyMutation: jest.fn(),
+        refresh: jest.fn(),
+      });
+
+      expect(provider.getIsSyncing()).toBe(false);
+      expect(provider.getLastSyncStatus()).toBeNull();
+
+      const result = await provider.run();
+
+      expect(result).toBe(true);
+      expect(provider.getIsSyncing()).toBe(false);
+      expect(provider.getLastSyncStatus()).toBe('success');
+      expect(provider.getLastSyncTime()).not.toBeNull();
+      expect(provider.getLastFailedSyncTime()).toBeNull();
+    });
+
+    it('should track sync state on failed run', async () => {
+      const config = new ConfigReader(MOCK_JOB_TEMPLATE_CONFIG);
+      const logger = mockServices.logger.mock();
+      const schedule = new PersistingTaskRunner();
+
+      mockAnsibleService.syncJobTemplates.mockRejectedValue(
+        new Error('API error'),
+      );
+
+      const provider = AAPJobTemplateProvider.fromConfig(
+        config,
+        mockAnsibleService,
+        { logger, schedule },
+      )[0];
+
+      await provider.connect({
+        applyMutation: jest.fn(),
+        refresh: jest.fn(),
+      });
+
+      const result = await provider.run();
+
+      expect(result).toBe(false);
+      expect(provider.getIsSyncing()).toBe(false);
+      expect(provider.getLastSyncStatus()).toBe('failure');
+      expect(provider.getLastFailedSyncTime()).not.toBeNull();
+    });
+
+    it('should expose taskId after connect', async () => {
+      const config = new ConfigReader(MOCK_JOB_TEMPLATE_CONFIG);
+      const logger = mockServices.logger.mock();
+      const schedule = new PersistingTaskRunner();
+
+      const provider = AAPJobTemplateProvider.fromConfig(
+        config,
+        mockAnsibleService,
+        { logger, schedule },
+      )[0];
+
+      expect(provider.getTaskId()).toBeUndefined();
+
+      await provider.connect({
+        applyMutation: jest.fn(),
+        refresh: jest.fn(),
+      });
+
+      expect(provider.getTaskId()).toBe(
+        'AAPJobTemplateProvider:development:run',
+      );
+    });
   });
 
   describe('connect', () => {
