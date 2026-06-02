@@ -86,7 +86,8 @@ export class AAPJobTemplateProvider implements EntityProvider {
     this.scheduleFn = this.createScheduleFn(taskRunner);
   }
 
-  createScheduleFn( // NOSONAR - trivial delegates to SyncStateTracker, not logic duplication
+  // NOSONAR - trivial delegates to SyncStateTracker, not logic duplication
+  createScheduleFn(
     taskRunner: SchedulerServiceTaskRunner,
   ): () => Promise<void> {
     this.logger.info('[${this.pluginLogName}]:Creating Schedule function.');
@@ -162,31 +163,31 @@ export class AAPJobTemplateProvider implements EntityProvider {
       }
 
       for (const { job, survey, instanceGroup } of aapJobTemplates) {
-          entities.push(
-            aapJobTemplateParser({
-              baseUrl: this.baseUrl,
-              nameSpace: 'default',
-              job,
-              survey,
-              instanceGroup,
-            }),
-          );
-          jobTemplateCount++;
-        }
-
-        await this.connection.applyMutation({
-          type: 'full',
-          entities: entities.map(entity => ({
-            entity,
-            locationKey: this.getProviderName(),
-          })),
-        });
-
-        this.logger.info(
-          `[${
-            AAPJobTemplateProvider.pluginLogName
-          }]: Refreshed ${this.getProviderName()}: ${jobTemplateCount} job templates added.`,
+        entities.push(
+          aapJobTemplateParser({
+            baseUrl: this.baseUrl,
+            nameSpace: 'default',
+            job,
+            survey,
+            instanceGroup,
+          }),
         );
+        jobTemplateCount++;
+      }
+
+      await this.connection.applyMutation({
+        type: 'full',
+        entities: entities.map(entity => ({
+          entity,
+          locationKey: this.getProviderName(),
+        })),
+      });
+
+      this.logger.info(
+        `[${
+          AAPJobTemplateProvider.pluginLogName
+        }]: Refreshed ${this.getProviderName()}: ${jobTemplateCount} job templates added.`,
+      );
 
       this.syncState.markSyncSucceeded();
       return true;
