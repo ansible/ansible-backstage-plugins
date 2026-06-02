@@ -1,4 +1,3 @@
-/* NOSONAR: duplication with AAPEntityProvider is structural (shared SyncStateTracker delegates) */
 import type {
   LoggerService,
   SchedulerService,
