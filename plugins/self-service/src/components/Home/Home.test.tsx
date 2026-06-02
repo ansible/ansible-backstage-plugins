@@ -1402,6 +1402,21 @@ describe('HomeCategoryPicker EE exclusion', () => {
         }),
       );
     });
+
+    // Verify queryEntities is called with non-EE types only
+    await waitFor(() => {
+      const calls = mockCatalogApi.queryEntities.mock.calls;
+      const hasTypeFilter = calls.some((call: any[]) => {
+        const types = call[0]?.filter?.['spec.type'];
+        return (
+          Array.isArray(types) &&
+          types.includes('service') &&
+          types.includes('workflow') &&
+          !types.includes('execution-environment')
+        );
+      });
+      expect(hasTypeFilter).toBe(true);
+    });
   });
 
   it('should handle getEntityFacets failure gracefully', async () => {
