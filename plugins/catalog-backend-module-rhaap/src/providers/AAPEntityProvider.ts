@@ -86,7 +86,7 @@ export class AAPEntityProvider implements EntityProvider {
     this.scheduleFn = this.createScheduleFn(taskRunner);
   }
 
-  createScheduleFn(
+  createScheduleFn( // NOSONAR - trivial delegates to SyncStateTracker, not logic duplication
     taskRunner: SchedulerServiceTaskRunner,
   ): () => Promise<void> {
     this.logger.info('[${this.pluginLogName}]:Creating Schedule function.');
@@ -188,8 +188,12 @@ export class AAPEntityProvider implements EntityProvider {
         error = true;
       }
 
-      if (!error) {
-        for (const org of Object.values(orgsDetails)) {
+      if (error) {
+        this.syncState.markSyncFailed();
+        return false;
+      }
+
+      for (const org of Object.values(orgsDetails)) {
           const orgTeams = org.teams
             ? Object.values(org.teams).map(team => team.groupName)
             : [];
@@ -377,11 +381,8 @@ export class AAPEntityProvider implements EntityProvider {
           }]: Refreshed ${this.getProviderName()}: ${usersCount} users added.`,
         );
 
-        this.syncState.markSyncSucceeded();
-      } else {
-        this.syncState.markSyncFailed();
-      }
-      return !error;
+      this.syncState.markSyncSucceeded();
+      return true;
     } catch (e) {
       this.syncState.markSyncFailed();
       throw e;

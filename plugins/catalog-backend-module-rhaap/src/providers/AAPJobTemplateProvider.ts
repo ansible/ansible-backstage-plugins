@@ -86,7 +86,7 @@ export class AAPJobTemplateProvider implements EntityProvider {
     this.scheduleFn = this.createScheduleFn(taskRunner);
   }
 
-  createScheduleFn(
+  createScheduleFn( // NOSONAR - trivial delegates to SyncStateTracker, not logic duplication
     taskRunner: SchedulerServiceTaskRunner,
   ): () => Promise<void> {
     this.logger.info('[${this.pluginLogName}]:Creating Schedule function.');
@@ -156,8 +156,12 @@ export class AAPJobTemplateProvider implements EntityProvider {
         error = true;
       }
 
-      if (!error) {
-        for (const { job, survey, instanceGroup } of aapJobTemplates) {
+      if (error) {
+        this.syncState.markSyncFailed();
+        return false;
+      }
+
+      for (const { job, survey, instanceGroup } of aapJobTemplates) {
           entities.push(
             aapJobTemplateParser({
               baseUrl: this.baseUrl,
@@ -184,11 +188,8 @@ export class AAPJobTemplateProvider implements EntityProvider {
           }]: Refreshed ${this.getProviderName()}: ${jobTemplateCount} job templates added.`,
         );
 
-        this.syncState.markSyncSucceeded();
-      } else {
-        this.syncState.markSyncFailed();
-      }
-      return !error;
+      this.syncState.markSyncSucceeded();
+      return true;
     } catch (e) {
       this.syncState.markSyncFailed();
       throw e;
