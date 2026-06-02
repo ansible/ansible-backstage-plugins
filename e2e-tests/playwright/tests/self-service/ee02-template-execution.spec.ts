@@ -47,47 +47,79 @@ async function handleGitHubOAuthDialog(page: Page): Promise<boolean> {
   }
 
   // Backstage SCM auth can open a popup OR use redirect flow
-  // Listen for popup but with short timeout (redirect happens quickly if enabled)
-  console.log('[EE Test] Clicking Log in — checking for popup or redirect...');
+  console.log('[EE Test] Clicking Log in button...');
+  console.log('[EE Test] URL before click:', page.url());
+
   const context = page.context();
-  const [popup] = await Promise.all([
+
+  // Click and wait for either popup or navigation
+  const [popup, navigationOrNull] = await Promise.all([
     context.waitForEvent('page', { timeout: 3000 }).catch(() => null),
+    page.waitForNavigation({ timeout: 3000 }).catch(() => null),
     logInBtn.click(),
   ]);
 
-  // Give redirect flow a moment to start if no popup
-  if (!popup) {
-    await page.waitForTimeout(1000);
-  }
+  console.log(
+    '[EE Test] After click - popup:',
+    !!popup,
+    'navigation:',
+    !!navigationOrNull,
+  );
+  console.log('[EE Test] Current URL after click:', page.url());
 
   if (!popup) {
     console.log('[EE Test] No popup opened — using redirect flow');
-    console.log('[EE Test] Current URL immediately after click:', page.url());
 
-    // Wait for the dialog to close (click is async)
-    await page.waitForTimeout(500);
+    // If navigation didn't happen immediately, wait a bit longer
+    if (!navigationOrNull) {
+      console.log(
+        '[EE Test] No immediate navigation, waiting for dialog to close and redirect to start...',
+      );
+      await page.waitForTimeout(2000);
+      console.log('[EE Test] URL after 2s wait:', page.url());
 
-    // Check current URL
+      // Check if navigation is happening now
+      const urlNow = new URL(page.url());
+      console.log('[EE Test] Hostname now:', urlNow.hostname);
+
+      if (
+        urlNow.hostname !== 'github.com' &&
+        !urlNow.pathname.includes('/api/auth')
+      ) {
+        console.log(
+          '[EE Test] Still on original page - checking for any pending navigation...',
+        );
+        await page
+          .waitForLoadState('networkidle', { timeout: 5000 })
+          .catch(() => {
+            console.log('[EE Test] Network did not settle');
+          });
+        console.log('[EE Test] URL after networkidle:', page.url());
+      }
+    }
+
+    // Now wait for GitHub
     const currentUrl = new URL(page.url());
-    console.log('[EE Test] URL after dialog close:', page.url());
-    console.log('[EE Test] Hostname:', currentUrl.hostname);
-
-    // If already on GitHub, proceed to login
     if (currentUrl.hostname === 'github.com') {
-      console.log('[EE Test] Already redirected to GitHub');
+      console.log('[EE Test] Already on GitHub');
     } else {
-      // Wait for redirect to GitHub (could go through backend auth endpoint first)
       console.log('[EE Test] Waiting for redirect to GitHub...');
+      console.log('[EE Test] Current hostname:', currentUrl.hostname);
       await page
         .waitForURL(url => url.hostname === 'github.com', { timeout: 20000 })
         .catch(async () => {
-          console.log('[EE Test] Timeout waiting for GitHub redirect');
-          console.log('[EE Test] Current URL:', page.url());
+          console.log('[EE Test] TIMEOUT waiting for GitHub redirect');
+          console.log('[EE Test] Final URL:', page.url());
           console.log('[EE Test] Page title:', await page.title());
+          const bodyText = await page
+            .locator('body')
+            .innerText()
+            .catch(() => 'Could not read body');
+          console.log('[EE Test] Body preview:', bodyText.substring(0, 200));
           throw new Error('Failed to redirect to GitHub after OAuth login');
         });
     }
-    console.log('[EE Test] On GitHub, URL:', page.url());
+    console.log('[EE Test] Successfully on GitHub, URL:', page.url());
 
     // Handle GitHub login on the main page
     await handleGitHubLoginOnPage(page);
