@@ -64,30 +64,22 @@ async function handleGitHubOAuthDialog(page: Page): Promise<boolean> {
     if (new URL(page.url()).hostname === 'github.com') {
       await handleGitHubLoginOnPage(page);
     }
-    // After OAuth, we're at /api/auth/github/start with redirectUrl in query params
-    // Extract the redirectUrl and navigate to it manually
-    console.log('[EE Test] OAuth complete, current URL:', page.url());
-    const currentUrl = new URL(page.url());
 
-    // Check if we're still on the auth page
-    if (currentUrl.pathname.includes('/api/auth/github')) {
-      const redirectUrl = currentUrl.searchParams.get('redirectUrl');
-      if (redirectUrl) {
-        console.log(
-          '[EE Test] Navigating to wizard URL from redirectUrl param...',
-        );
-        await page.goto(redirectUrl, {
-          waitUntil: 'networkidle',
-          timeout: 30000,
-        });
-        await page.waitForTimeout(5000); // Allow wizard React components to mount
-      }
-    }
-
-    console.log(
-      '[EE Test] GitHub OAuth redirect flow complete, URL:',
-      page.url(),
+    // Wait for automatic OAuth redirect back to wizard
+    // The wizard will restore state from sessionStorage automatically
+    console.log('[EE Test] Waiting for OAuth redirect back to wizard...');
+    await page.waitForURL(
+      url => url.pathname.includes('/self-service/create/templates/'),
+      { timeout: 30000 },
     );
+
+    console.log('[EE Test] OAuth redirect complete, URL:', page.url());
+
+    // Wait for wizard to restore state from sessionStorage and render
+    await page.waitForLoadState('networkidle');
+    await page.waitForTimeout(2000); // Allow React components to mount and restore
+
+    console.log('[EE Test] Wizard restored state from sessionStorage');
     return true;
   }
 
@@ -411,203 +403,43 @@ test.describe('Execution Environment Template Execution Tests', () => {
       const didGitHubRedirect = await handleGitHubOAuthDialog(page);
 
       if (didGitHubRedirect) {
-        // After OAuth, wizard state is lost - we must navigate through wizard steps again
+        // Wizard has restored state from sessionStorage - we should already be on the Git fields step
         console.log(
-          '[EE Test] Wizard reloaded after OAuth, re-navigating to Git fields step...',
+          '[EE Test] After OAuth redirect - wizard restored state, now on Git fields step',
         );
 
-        // Wait for wizard to be ready - check for wizard-specific elements
+        // Wait for wizard UI to be fully ready
         await page.waitForLoadState('networkidle').catch(() => {});
 
-        // Wait for wizard form/stepper to appear (more specific than just 'main')
-        console.log('[EE Test] Waiting for wizard UI to render...');
-        const wizardContainer = page
-          .locator('form, [role="dialog"], main')
-          .first();
-        const wizardVisible = await wizardContainer
-          .isVisible({ timeout: 20000 })
-          .catch(() => false);
-
-        if (!wizardVisible) {
-          console.log(
-            '[EE Test] ERROR: Wizard container not visible! URL:',
-            page.url(),
-          );
-          const bodyText = await page
-            .locator('body')
-            .innerText()
-            .catch(() => 'Could not read body');
-          console.log(
-            '[EE Test] Page body preview:',
-            bodyText.substring(0, 300),
-          );
-          throw new Error('Wizard failed to load after OAuth redirect');
-        }
-
-        // Ensure Next button exists (confirms we're on a wizard step)
-        const nextBtnCheck = page
-          .getByRole('button', { name: /^Next$/i })
-          .first();
-        await expect(nextBtnCheck).toBeVisible({ timeout: 20000 });
-
-        // Check what's on the page to understand wizard state
-        const bodyText = await page.locator('body').innerText();
-        console.log('[EE Test] Wizard loaded. Checking for key elements...');
+        // Verify wizard is on the Git fields step
         console.log(
-          '[EE Test] Has "EE Definition Name"?',
-          bodyText.includes('EE Definition Name'),
+          '[EE Test] Waiting for Git organization field to appear...',
         );
-        console.log(
-          '[EE Test] Has "Select source control provider"?',
-          bodyText.includes('Select source control provider'),
-        );
-        console.log(
-          '[EE Test] Has "Git repository organization"?',
-          bodyText.includes('Git repository organization'),
-        );
-
-        console.log('[EE Test] Wizard UI is ready, starting navigation...');
-
-        // Navigate through wizard steps (same as before OAuth)
-        // Step 1-2: Click Next twice
-        console.log('[EE Test] Step 1: Clicking Next 2 times...');
-        for (let i = 0; i < 2; i++) {
-          const next = page.getByRole('button', { name: /^Next$/i }).first();
-          const count = await next.count();
-          console.log(`[EE Test] Next button count: ${count}`);
-          if (count > 0) {
-            await next.click({ force: true });
-            await page.waitForTimeout(700);
-          }
-        }
-
-        // Select GitHub MCP
-        console.log('[EE Test] Step 2: Selecting GitHub MCP...');
-        const ghMcp = page
-          .locator('body')
-          .getByText(/^github$/i)
-          .first();
-        const ghMcpCount = await ghMcp.count();
-        console.log(`[EE Test] GitHub MCP count: ${ghMcpCount}`);
-        if (ghMcpCount > 0) {
-          await ghMcp.click({ force: true }).catch(() => {});
-          await page.waitForTimeout(400);
-        }
-
-        // Click Next 3 more times
-        console.log('[EE Test] Step 3: Clicking Next 3 more times...');
-        for (let i = 0; i < 3; i++) {
-          const next = page.getByRole('button', { name: /^Next$/i }).first();
-          const count = await next.count();
-          console.log(
-            `[EE Test] Next button count (iteration ${i + 1}): ${count}`,
-          );
-          if (count > 0) {
-            await next.click({ force: true });
-            await page.waitForTimeout(700);
-          }
-        }
-
-        // Re-fill EE Definition fields
-        console.log('[EE Test] Step 4: Filling EE Definition fields...');
-        const eeNameField = page
-          .getByLabel(/EE Definition Name/i)
-          .or(
-            page
-              .locator('label')
-              .filter({ hasText: /^EE Definition Name/i })
-              .locator('..')
-              .locator('input, textarea')
-              .first(),
-          )
-          .first();
-        const eeNameCount = await eeNameField.count();
-        console.log(`[EE Test] EE Name field count: ${eeNameCount}`);
-        if (eeNameCount > 0) {
-          await eeNameField.fill(EE_FILE_NAME);
-        }
-
-        const descField = page
-          .getByLabel(/^Description/i)
-          .or(
-            page
-              .locator('label')
-              .filter({ hasText: /^Description/i })
-              .locator('..')
-              .locator('input, textarea')
-              .first(),
-          )
-          .first();
-        const descFieldCount = await descField.count();
-        console.log(`[EE Test] Description field count: ${descFieldCount}`);
-        if (descFieldCount > 0) {
-          await descField.fill('execution environment');
-        }
-
-        // Re-select GitHub SCM provider (already authenticated, no OAuth dialog)
-        const providerHeading = page.locator(
-          'text=Select source control provider',
-        );
-        if ((await providerHeading.count()) > 0) {
-          const selectContainer = providerHeading
-            .locator(
-              'xpath=ancestor::fieldset[1] | ancestor::div[contains(@class,"MuiFormControl")]',
-            )
-            .first();
-          const muiSelect = selectContainer
-            .locator('[role="combobox"], [role="button"], select')
-            .first();
-          if ((await muiSelect.count()) > 0) {
-            await muiSelect.click({ force: true });
-            await page.waitForTimeout(500);
-
-            const ghOption = page
-              .getByRole('option', { name: /github/i })
-              .or(
-                page.locator('[role="option"]').filter({ hasText: /github/i }),
-              )
-              .first();
-            if ((await ghOption.count()) > 0) {
-              await ghOption.click({ force: true });
-            }
-          }
-        }
-
-        // Now click Next to advance to Git repository fields
-        await page.waitForLoadState('networkidle').catch(() => {});
-        await page.waitForTimeout(2000);
-        const nextAfterScm = page
-          .getByRole('button', { name: /^Next$/i })
-          .first();
-        if ((await nextAfterScm.count()) > 0) {
-          console.log(
-            '[EE Test] Clicking Next to reach Git repository fields...',
-          );
-          await expect(nextAfterScm).toBeVisible({ timeout: 15000 });
-          await expect(nextAfterScm).toBeEnabled({ timeout: 15000 });
-          await nextAfterScm.click();
-          await page.waitForTimeout(2000);
-        }
       }
 
-      // Fill Git organization — wait for it to appear after provider selection
-      const orgInput = page
-        .getByLabel(/Git repository organization or username/i)
-        .or(
-          page
-            .locator('label')
-            .filter({ hasText: /Git repository organization/i })
-            .locator('..')
-            .locator('input')
-            .first(),
-        )
+      // Select Git organization from Namespace dropdown
+      console.log('[EE Test] Waiting for Namespace dropdown to appear...');
+      const namespaceLabel = page.getByText('Namespace');
+      await expect(namespaceLabel).toBeVisible({ timeout: 15000 });
+
+      // Find the Namespace dropdown (Material-UI Select)
+      const namespaceSelect = page
+        .locator('label:has-text("Namespace")')
+        .locator('..')
+        .locator('[role="combobox"], [role="button"]')
         .first();
 
-      // Wait for Git org field to be visible and fill it
-      await expect(orgInput).toBeVisible({ timeout: 10000 });
-      await orgInput.fill('test-rhaap-1');
-      await expect(orgInput).toHaveValue('test-rhaap-1', { timeout: 5000 });
-      console.log('[EE Test] Filled Git organization field: test-rhaap-1');
+      console.log('[EE Test] Clicking Namespace dropdown...');
+      await namespaceSelect.click();
+      await page.waitForTimeout(500);
+
+      // Select the first organization from the dropdown
+      console.log('[EE Test] Selecting organization from dropdown...');
+      const firstOrg = page.getByRole('option').first();
+      await expect(firstOrg).toBeVisible({ timeout: 5000 });
+      await firstOrg.click();
+      await page.waitForTimeout(500);
+      console.log('[EE Test] Selected organization from Namespace dropdown');
 
       // Fill Repository Name
       const repoInput = page
@@ -627,13 +459,6 @@ test.describe('Execution Environment Template Execution Tests', () => {
       await repoInput.fill(REPO_NAME);
       await expect(repoInput).toHaveValue(REPO_NAME, { timeout: 5000 });
       console.log(`[EE Test] Filled repository name field: ${REPO_NAME}`);
-
-      // Click "Create new repository" checkbox/radio
-      const createNewRepo = page.getByText(/Create new repository/i);
-      if ((await createNewRepo.count()) > 0) {
-        await createNewRepo.click({ force: true });
-        console.log('[EE Test] Clicked "Create new repository"');
-      }
 
       // Wait for form validation and Next button to become enabled after filling all fields
       console.log('[EE Test] Waiting for form validation to complete...');
