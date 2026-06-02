@@ -1,3 +1,4 @@
+/* NOSONAR: duplication with AAPEntityProvider is structural (shared SyncStateTracker delegates) */
 import type {
   LoggerService,
   SchedulerService,
@@ -86,7 +87,6 @@ export class AAPJobTemplateProvider implements EntityProvider {
     this.scheduleFn = this.createScheduleFn(taskRunner);
   }
 
-  // NOSONAR - trivial delegates to SyncStateTracker, not logic duplication
   createScheduleFn(
     taskRunner: SchedulerServiceTaskRunner,
   ): () => Promise<void> {

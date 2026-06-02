@@ -17,9 +17,9 @@ export function resolveTaskRunner(
 ): SchedulerServiceTaskRunner {
   const { logger } = options;
   let taskRunner: SchedulerServiceTaskRunner | undefined;
-  if ('scheduler' in options && schedule) {
-    taskRunner = options.scheduler!.createScheduledTaskRunner(schedule);
-  } else if ('schedule' in options) {
+  if (options.scheduler && schedule) {
+    taskRunner = options.scheduler.createScheduledTaskRunner(schedule);
+  } else if (options.schedule) {
     taskRunner = options.schedule;
   }
   if (!taskRunner) {

@@ -148,8 +148,8 @@ describe('createRouter', () => {
       getProviderName: jest.fn().mockReturnValue('AapEntityProvider:test'),
       connect: jest.fn(),
       getLastSyncTime: jest.fn(),
-      getLastFailedSyncTime: jest.fn(),
-      getLastSyncStatus: jest.fn(),
+      getLastFailedSyncTime: jest.fn().mockReturnValue(null),
+      getLastSyncStatus: jest.fn().mockReturnValue(null),
       getIsSyncing: jest.fn().mockReturnValue(false),
       getTaskId: jest.fn().mockReturnValue('AapEntityProvider:test:run'),
     } as unknown as jest.Mocked<AAPEntityProvider>;
@@ -159,8 +159,8 @@ describe('createRouter', () => {
       getProviderName: jest.fn().mockReturnValue('AAPJobTemplateProvider:test'),
       connect: jest.fn(),
       getLastSyncTime: jest.fn(),
-      getLastFailedSyncTime: jest.fn(),
-      getLastSyncStatus: jest.fn(),
+      getLastFailedSyncTime: jest.fn().mockReturnValue(null),
+      getLastSyncStatus: jest.fn().mockReturnValue(null),
       getIsSyncing: jest.fn().mockReturnValue(false),
       getTaskId: jest.fn().mockReturnValue('AAPJobTemplateProvider:test:run'),
     } as unknown as jest.Mocked<AAPJobTemplateProvider>;
@@ -2708,14 +2708,14 @@ describe('createRouter', () => {
           orgsUsersTeams: {
             lastSync: '2024-01-15T10:00:00Z',
             syncInProgress: false,
-            lastFailedSyncTime: undefined,
-            lastSyncStatus: undefined,
+            lastFailedSyncTime: null,
+            lastSyncStatus: null,
           },
           jobTemplates: {
             lastSync: '2024-01-15T11:00:00Z',
             syncInProgress: false,
-            lastFailedSyncTime: undefined,
-            lastSyncStatus: undefined,
+            lastFailedSyncTime: null,
+            lastSyncStatus: null,
           },
         },
         content: {
@@ -2757,14 +2757,14 @@ describe('createRouter', () => {
           orgsUsersTeams: {
             lastSync: '2024-01-15T10:00:00Z',
             syncInProgress: false,
-            lastFailedSyncTime: undefined,
-            lastSyncStatus: undefined,
+            lastFailedSyncTime: null,
+            lastSyncStatus: null,
           },
           jobTemplates: {
             lastSync: '2024-01-15T11:00:00Z',
             syncInProgress: false,
-            lastFailedSyncTime: undefined,
-            lastSyncStatus: undefined,
+            lastFailedSyncTime: null,
+            lastSyncStatus: null,
           },
         },
       });
@@ -2834,14 +2834,14 @@ describe('createRouter', () => {
           orgsUsersTeams: {
             lastSync: '2024-01-15T10:00:00Z',
             syncInProgress: false,
-            lastFailedSyncTime: undefined,
-            lastSyncStatus: undefined,
+            lastFailedSyncTime: null,
+            lastSyncStatus: null,
           },
           jobTemplates: {
             lastSync: '2024-01-15T11:00:00Z',
             syncInProgress: false,
-            lastFailedSyncTime: undefined,
-            lastSyncStatus: undefined,
+            lastFailedSyncTime: null,
+            lastSyncStatus: null,
           },
         },
         content: {
