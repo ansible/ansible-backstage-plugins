@@ -10,7 +10,7 @@ import {
 } from '@backstage/plugin-catalog-node';
 import type { Config } from '@backstage/config';
 
-import { InputError, NotFoundError } from '@backstage/errors';
+import { NotFoundError } from '@backstage/errors';
 import { Entity } from '@backstage/catalog-model';
 import {
   IAAPService,
@@ -22,6 +22,7 @@ import {
 } from '@ansible/backstage-rhaap-common';
 import { readAapApiEntityConfigs } from './config';
 import { organizationParser, teamParser, userParser } from './entityParser';
+import { resolveTaskRunner } from './helpers';
 import { SyncStateTracker } from './SyncStateTracker';
 import { AapConfig } from './types';
 
@@ -51,29 +52,12 @@ export class AAPEntityProvider implements EntityProvider {
     const providerConfigs = readAapApiEntityConfigs(config, this.syncEntity);
     logger.info(`Init AAP entity provider from config.`);
     return providerConfigs.map(providerConfig => {
-      let taskRunner;
-      if ('scheduler' in options && providerConfig.schedule) {
-        taskRunner = options.scheduler!.createScheduledTaskRunner(
-          providerConfig.schedule,
-        );
-      } else if ('schedule' in options) {
-        taskRunner = options.schedule;
-      } else {
-        logger.info(
-          `[${this.pluginLogName}]:No schedule provided via config for AAP Resource Entity Provider:${providerConfig.id}.`,
-        );
-        throw new InputError(
-          `No schedule provided via config for AapResourceEntityProvider:${providerConfig.id}.`,
-        );
-      }
-      if (!taskRunner) {
-        logger.info(
-          `[${this.pluginLogName}]:No schedule provided via config for AAP Resource Entity Provider:${providerConfig.id}.`,
-        );
-        throw new InputError(
-          `No schedule provided via config for AapResourceEntityProvider:${providerConfig.id}.`,
-        );
-      }
+      const taskRunner = resolveTaskRunner(
+        options,
+        providerConfig.schedule,
+        this.pluginLogName,
+        providerConfig.id,
+      );
       return new AAPEntityProvider(
         providerConfig,
         config,
@@ -144,259 +128,264 @@ export class AAPEntityProvider implements EntityProvider {
       throw new NotFoundError('Not initialized');
     }
     this.syncState.markSyncStarted();
-    let groupCount = 0;
-    let usersCount = 0;
-    let userRoleAssignments: RoleAssignments;
-    let systemUsers = [] as Users;
-    const entities: Entity[] = [];
-    let orgsDetails: Array<{
-      organization: Organization;
-      teams: Team[];
-      users: User[];
-    }> = [];
-
-    let error = false;
     try {
-      orgsDetails = await this.ansibleServiceRef.getOrganizations(true);
-      this.logger.info(
-        `[${AAPEntityProvider.pluginLogName}]: Fetched ${
-          Object.keys(orgsDetails).length
-        } organizations.`,
-      );
-    } catch (e: any) {
-      this.logger.error(
-        `[${
-          AAPEntityProvider.pluginLogName
-        }]: Error while fetching organizations. ${e?.message ?? ''}`,
-      );
-      error = true;
-    }
+      let groupCount = 0;
+      let usersCount = 0;
+      let userRoleAssignments: RoleAssignments;
+      let systemUsers = [] as Users;
+      const entities: Entity[] = [];
+      let orgsDetails: Array<{
+        organization: Organization;
+        teams: Team[];
+        users: User[];
+      }> = [];
 
-    try {
-      userRoleAssignments =
-        await this.ansibleServiceRef.getUserRoleAssignments();
-      this.logger.info(
-        `[${AAPEntityProvider.pluginLogName}]: Fetched ${
-          Object.keys(userRoleAssignments).length
-        } user role assignments.`,
-      );
-    } catch (e: any) {
-      this.logger.error(
-        `[${AAPEntityProvider.pluginLogName}]: Error while fetching users. ${
-          e?.message ?? ''
-        }`,
-      );
-      error = true;
-    }
-
-    try {
-      systemUsers = await this.ansibleServiceRef.listSystemUsers();
-      this.logger.info(
-        `[${AAPEntityProvider.pluginLogName}]: Fetched ${systemUsers.length} system users.`,
-      );
-    } catch (e: any) {
-      this.logger.error(
-        `[${
-          AAPEntityProvider.pluginLogName
-        }]: Error while fetching system users. ${e?.message ?? ''}`,
-      );
-      error = true;
-    }
-
-    if (!error) {
-      for (const org of Object.values(orgsDetails)) {
-        const orgTeams = org.teams
-          ? Object.values(org.teams).map(team => team.groupName)
-          : [];
-        const orgUsers = org.users
-          ? (Object.values(org.users)
-              .map(user => {
-                if (user.is_orguser && !user.is_orguser) {
-                  return null;
-                }
-                return user.username;
-              })
-              .filter(user => !!user) as string[])
-          : [];
-
-        entities.push(
-          organizationParser({
-            baseUrl: this.baseUrl,
-            nameSpace: 'default',
-            org: org.organization,
-            orgMembers: orgUsers,
-            teams: orgTeams,
-          }),
+      let error = false;
+      try {
+        orgsDetails = await this.ansibleServiceRef.getOrganizations(true);
+        this.logger.info(
+          `[${AAPEntityProvider.pluginLogName}]: Fetched ${
+            Object.keys(orgsDetails).length
+          } organizations.`,
         );
-        groupCount += 1;
+      } catch (e: any) {
+        this.logger.error(
+          `[${
+            AAPEntityProvider.pluginLogName
+          }]: Error while fetching organizations. ${e?.message ?? ''}`,
+        );
+        error = true;
       }
 
-      for (const team of Object.values(orgsDetails).flatMap(org =>
-        Object.values(org.teams || {}),
-      )) {
-        entities.push(
-          teamParser({
-            baseUrl: this.baseUrl,
-            nameSpace: 'default',
-            team: team as unknown as Team,
-            teamMembers: [],
-          }),
+      try {
+        userRoleAssignments =
+          await this.ansibleServiceRef.getUserRoleAssignments();
+        this.logger.info(
+          `[${AAPEntityProvider.pluginLogName}]: Fetched ${
+            Object.keys(userRoleAssignments).length
+          } user role assignments.`,
         );
-        groupCount += 1;
+      } catch (e: any) {
+        this.logger.error(
+          `[${AAPEntityProvider.pluginLogName}]: Error while fetching users. ${
+            e?.message ?? ''
+          }`,
+        );
+        error = true;
       }
 
-      // Process users in batches to avoid overwhelming the AAP server
-      const allUsers = orgsDetails.flatMap(org => org.users || []);
-      const batchSize = 100; // Process 100 users at a time
-      this.logger.info(
-        `[${AAPEntityProvider.pluginLogName}]: Processing ${allUsers.length} users in batches of ${batchSize}`,
-      );
+      try {
+        systemUsers = await this.ansibleServiceRef.listSystemUsers();
+        this.logger.info(
+          `[${AAPEntityProvider.pluginLogName}]: Fetched ${systemUsers.length} system users.`,
+        );
+      } catch (e: any) {
+        this.logger.error(
+          `[${
+            AAPEntityProvider.pluginLogName
+          }]: Error while fetching system users. ${e?.message ?? ''}`,
+        );
+        error = true;
+      }
 
-      for (let i = 0; i < allUsers.length; i += batchSize) {
-        const batch = allUsers.slice(i, i + batchSize);
-        this.logger.debug(
-          `[${AAPEntityProvider.pluginLogName}]: Processing batch ${Math.floor(i / batchSize) + 1}/${Math.ceil(allUsers.length / batchSize)}`,
+      if (!error) {
+        for (const org of Object.values(orgsDetails)) {
+          const orgTeams = org.teams
+            ? Object.values(org.teams).map(team => team.groupName)
+            : [];
+          const orgUsers = org.users
+            ? (Object.values(org.users)
+                .map(user => {
+                  if (user.is_orguser && !user.is_orguser) {
+                    return null;
+                  }
+                  return user.username;
+                })
+                .filter(user => !!user) as string[])
+            : [];
+
+          entities.push(
+            organizationParser({
+              baseUrl: this.baseUrl,
+              nameSpace: 'default',
+              org: org.organization,
+              orgMembers: orgUsers,
+              teams: orgTeams,
+            }),
+          );
+          groupCount += 1;
+        }
+
+        for (const team of Object.values(orgsDetails).flatMap(org =>
+          Object.values(org.teams || {}),
+        )) {
+          entities.push(
+            teamParser({
+              baseUrl: this.baseUrl,
+              nameSpace: 'default',
+              team: team as unknown as Team,
+              teamMembers: [],
+            }),
+          );
+          groupCount += 1;
+        }
+
+        // Process users in batches to avoid overwhelming the AAP server
+        const allUsers = orgsDetails.flatMap(org => org.users || []);
+        const batchSize = 100; // Process 100 users at a time
+        this.logger.info(
+          `[${AAPEntityProvider.pluginLogName}]: Processing ${allUsers.length} users in batches of ${batchSize}`,
         );
 
-        const batchResults = await Promise.allSettled(
-          batch.map(async (user: User) => {
-            try {
-              const userTeams = await this.ansibleServiceRef.getTeamsByUserId(
-                user.id,
-              );
-              const userMembers: string[] = [];
-              for (const team of userTeams) {
-                let matched = false;
-                for (const org of orgsDetails) {
-                  const matchingTeam = org.teams.find(t => t.id === team.id);
-                  if (matchingTeam) {
-                    userMembers.push(matchingTeam.groupName);
-                    matched = true;
-                    break;
+        for (let i = 0; i < allUsers.length; i += batchSize) {
+          const batch = allUsers.slice(i, i + batchSize);
+          this.logger.debug(
+            `[${AAPEntityProvider.pluginLogName}]: Processing batch ${Math.floor(i / batchSize) + 1}/${Math.ceil(allUsers.length / batchSize)}`,
+          );
+
+          const batchResults = await Promise.allSettled(
+            batch.map(async (user: User) => {
+              try {
+                const userTeams = await this.ansibleServiceRef.getTeamsByUserId(
+                  user.id,
+                );
+                const userMembers: string[] = [];
+                for (const team of userTeams) {
+                  let matched = false;
+                  for (const org of orgsDetails) {
+                    const matchingTeam = org.teams.find(t => t.id === team.id);
+                    if (matchingTeam) {
+                      userMembers.push(matchingTeam.groupName);
+                      matched = true;
+                      break;
+                    }
+                  }
+
+                  if (!matched) {
+                    for (const org of orgsDetails) {
+                      if (org.organization.id === team.orgId) {
+                        if (org.organization.namespace) {
+                          userMembers.push(org.organization.namespace);
+                        }
+                        break;
+                      }
+                    }
                   }
                 }
+                const userEntity = userParser({
+                  baseUrl: this.baseUrl,
+                  nameSpace: 'default',
+                  user: user as User,
+                  groupMemberships: userMembers,
+                });
+                entities.push(userEntity);
+                return { success: true, user };
+              } catch (userError) {
+                this.logger.warn(
+                  `[${AAPEntityProvider.pluginLogName}]: Failed to process user ${user.username} (ID: ${user.id}): ${userError}`,
+                );
+                return { success: false, user, error: userError };
+              }
+            }),
+          );
 
-                if (!matched) {
+          // Count successful users from this batch
+          const successfulUsers = batchResults.filter(
+            result => result.status === 'fulfilled' && result.value.success,
+          ).length;
+          usersCount += successfulUsers;
+
+          // Small delay between batches to avoid overwhelming the server
+          if (i + batchSize < allUsers.length) {
+            await new Promise(resolve => setTimeout(resolve, 100));
+          }
+        }
+
+        // Process system users with the same batched approach
+        this.logger.info(
+          `[${AAPEntityProvider.pluginLogName}]: Processing ${systemUsers.length} system users in batches of ${batchSize}`,
+        );
+
+        for (let i = 0; i < systemUsers.length; i += batchSize) {
+          const batch = systemUsers.slice(i, i + batchSize);
+
+          const batchResults = await Promise.allSettled(
+            batch.map(async (user: User) => {
+              try {
+                const userTeams = await this.ansibleServiceRef.getTeamsByUserId(
+                  user.id,
+                );
+                const userMembers: string[] = [];
+                for (const team of userTeams) {
                   for (const org of orgsDetails) {
-                    if (org.organization.id === team.orgId) {
-                      if (org.organization.namespace) {
-                        userMembers.push(org.organization.namespace);
-                      }
+                    const matchingTeam = org.teams.find(t => t.id === team.id);
+                    if (matchingTeam) {
+                      userMembers.push(matchingTeam.groupName);
                       break;
                     }
                   }
                 }
+                const userEntity = userParser({
+                  baseUrl: this.baseUrl,
+                  nameSpace: 'default',
+                  user: user as User,
+                  groupMemberships: userMembers,
+                });
+                entities.push(userEntity);
+                return { success: true, user };
+              } catch (systemUserError) {
+                this.logger.warn(
+                  `[${AAPEntityProvider.pluginLogName}]: Failed to process system user ${user.username} (ID: ${user.id}): ${systemUserError}`,
+                );
+                return { success: false, user, error: systemUserError };
               }
-              const userEntity = userParser({
-                baseUrl: this.baseUrl,
-                nameSpace: 'default',
-                user: user as User,
-                groupMemberships: userMembers,
-              });
-              entities.push(userEntity);
-              return { success: true, user };
-            } catch (userError) {
-              this.logger.warn(
-                `[${AAPEntityProvider.pluginLogName}]: Failed to process user ${user.username} (ID: ${user.id}): ${userError}`,
-              );
-              return { success: false, user, error: userError };
-            }
-          }),
+            }),
+          );
+
+          // Count successful system users from this batch
+          const successfulSystemUsers = batchResults.filter(
+            result => result.status === 'fulfilled' && result.value.success,
+          ).length;
+          usersCount += successfulSystemUsers;
+
+          // Small delay between batches
+          if (i + batchSize < systemUsers.length) {
+            await new Promise(resolve => setTimeout(resolve, 100));
+          }
+        }
+
+        // 🚀 DYNAMIC RBAC: Create aap-admins group with current superusers as members
+        const aapAdminsGroup = this.createAapAdminsGroup(systemUsers);
+        entities.push(aapAdminsGroup);
+
+        await this.connection.applyMutation({
+          type: 'full',
+          entities: entities.map(entity => ({
+            entity,
+            locationKey: this.getProviderName(),
+          })),
+        });
+
+        this.logger.info(
+          `[${
+            AAPEntityProvider.pluginLogName
+          }]: Refreshed ${this.getProviderName()}: ${groupCount} groups added.`,
+        );
+        this.logger.info(
+          `[${
+            AAPEntityProvider.pluginLogName
+          }]: Refreshed ${this.getProviderName()}: ${usersCount} users added.`,
         );
 
-        // Count successful users from this batch
-        const successfulUsers = batchResults.filter(
-          result => result.status === 'fulfilled' && result.value.success,
-        ).length;
-        usersCount += successfulUsers;
-
-        // Small delay between batches to avoid overwhelming the server
-        if (i + batchSize < allUsers.length) {
-          await new Promise(resolve => setTimeout(resolve, 100));
-        }
+        this.syncState.markSyncSucceeded();
+      } else {
+        this.syncState.markSyncFailed();
       }
-
-      // Process system users with the same batched approach
-      this.logger.info(
-        `[${AAPEntityProvider.pluginLogName}]: Processing ${systemUsers.length} system users in batches of ${batchSize}`,
-      );
-
-      for (let i = 0; i < systemUsers.length; i += batchSize) {
-        const batch = systemUsers.slice(i, i + batchSize);
-
-        const batchResults = await Promise.allSettled(
-          batch.map(async (user: User) => {
-            try {
-              const userTeams = await this.ansibleServiceRef.getTeamsByUserId(
-                user.id,
-              );
-              const userMembers: string[] = [];
-              for (const team of userTeams) {
-                for (const org of orgsDetails) {
-                  const matchingTeam = org.teams.find(t => t.id === team.id);
-                  if (matchingTeam) {
-                    userMembers.push(matchingTeam.groupName);
-                    break;
-                  }
-                }
-              }
-              const userEntity = userParser({
-                baseUrl: this.baseUrl,
-                nameSpace: 'default',
-                user: user as User,
-                groupMemberships: userMembers,
-              });
-              entities.push(userEntity);
-              return { success: true, user };
-            } catch (systemUserError) {
-              this.logger.warn(
-                `[${AAPEntityProvider.pluginLogName}]: Failed to process system user ${user.username} (ID: ${user.id}): ${systemUserError}`,
-              );
-              return { success: false, user, error: systemUserError };
-            }
-          }),
-        );
-
-        // Count successful system users from this batch
-        const successfulSystemUsers = batchResults.filter(
-          result => result.status === 'fulfilled' && result.value.success,
-        ).length;
-        usersCount += successfulSystemUsers;
-
-        // Small delay between batches
-        if (i + batchSize < systemUsers.length) {
-          await new Promise(resolve => setTimeout(resolve, 100));
-        }
-      }
-
-      // 🚀 DYNAMIC RBAC: Create aap-admins group with current superusers as members
-      const aapAdminsGroup = this.createAapAdminsGroup(systemUsers);
-      entities.push(aapAdminsGroup);
-
-      await this.connection.applyMutation({
-        type: 'full',
-        entities: entities.map(entity => ({
-          entity,
-          locationKey: this.getProviderName(),
-        })),
-      });
-
-      this.logger.info(
-        `[${
-          AAPEntityProvider.pluginLogName
-        }]: Refreshed ${this.getProviderName()}: ${groupCount} groups added.`,
-      );
-      this.logger.info(
-        `[${
-          AAPEntityProvider.pluginLogName
-        }]: Refreshed ${this.getProviderName()}: ${usersCount} users added.`,
-      );
-
-      this.syncState.markSyncSucceeded();
-    } else {
+      return !error;
+    } catch (e) {
       this.syncState.markSyncFailed();
+      throw e;
     }
-    return !error;
   }
 
   async connect(connection: EntityProviderConnection): Promise<void> {

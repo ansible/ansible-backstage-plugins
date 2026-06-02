@@ -64,6 +64,7 @@ import { ConflictError } from '@backstage/errors';
 import { SCM_INTEGRATION_AUTH_FAILED_CODE } from '@ansible/backstage-rhaap-common/constants';
 import { ScmClientFactory } from '@ansible/backstage-rhaap-common';
 import { EEEntityProvider } from './providers/EEEntityProvider';
+import type { SyncStatus as ProviderSyncStatus } from './providers/SyncStateTracker';
 
 export async function createRouter(options: {
   logger: LoggerService;
@@ -206,13 +207,13 @@ export async function createRouter(options: {
               lastSync: string | null;
               syncInProgress: boolean;
               lastFailedSyncTime: string | null;
-              lastSyncStatus: 'success' | 'failure' | null;
+              lastSyncStatus: ProviderSyncStatus;
             };
             jobTemplates: {
               lastSync: string | null;
               syncInProgress: boolean;
               lastFailedSyncTime: string | null;
-              lastSyncStatus: 'success' | 'failure' | null;
+              lastSyncStatus: ProviderSyncStatus;
             };
           };
           content?: {
@@ -228,7 +229,7 @@ export async function createRouter(options: {
               syncInProgress: boolean;
               lastSyncTime: string | null;
               lastFailedSyncTime: string | null;
-              lastSyncStatus: 'success' | 'failure' | null;
+              lastSyncStatus: ProviderSyncStatus;
               collectionsFound: number;
               collectionsDelta: number;
             }>;
