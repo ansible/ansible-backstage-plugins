@@ -97,6 +97,13 @@ describe('self-service', () => {
       },
     });
 
+    // Mock queryEntities for server-side pagination (EntityListProvider uses
+    // queryEntities instead of getEntities when pagination is enabled)
+    mockCatalogApi.queryEntities.mockImplementation(async () => {
+      const { items } = await mockCatalogApi.getEntities();
+      return { items, totalItems: items.length, pageInfo: {} };
+    });
+
     // Restore autocomplete if it was deleted
     if (!mockScaffolderApi.autocomplete) {
       mockScaffolderApi.autocomplete = jest.fn().mockResolvedValue({
@@ -140,10 +147,15 @@ describe('self-service', () => {
       },
     );
   };
-  const facetsFromEntityRefs = (entityRefs: string[], tags: string[]) => ({
+  const facetsFromEntityRefs = (
+    entityRefs: string[],
+    tags: string[],
+    types: string[] = ['service'],
+  ) => ({
     facets: {
       'relations.ownedBy': entityRefs.map(value => ({ count: 1, value })),
       'metadata.tags': tags.map((value, idx) => ({ value, count: idx })),
+      'spec.type': types.map(value => ({ value, count: 1 })),
     },
   });
 
@@ -163,8 +175,10 @@ describe('self-service', () => {
     expect(screen.getByText('Categories')).toBeInTheDocument();
     expect(screen.getByText('Tags')).toBeInTheDocument();
     expect(screen.getByText('Owner')).toBeInTheDocument();
-    // load wizard card
-    expect(screen.getByText('service')).toBeInTheDocument();
+    // load wizard card (wait for facets + queryEntities to settle)
+    await waitFor(() => {
+      expect(screen.getByText('service')).toBeInTheDocument();
+    });
     expect(screen.getByText('Create wizard use cases')).toBeInTheDocument();
     expect(
       screen.getByText(
