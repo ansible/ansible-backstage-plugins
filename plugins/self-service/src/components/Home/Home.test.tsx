@@ -99,9 +99,23 @@ describe('self-service', () => {
 
     // Mock queryEntities for server-side pagination (EntityListProvider uses
     // queryEntities instead of getEntities when pagination is enabled)
-    mockCatalogApi.queryEntities.mockImplementation(async () => {
+    mockCatalogApi.queryEntities.mockImplementation(async (request: any) => {
       const { items } = await mockCatalogApi.getEntities();
-      return { items, totalItems: items.length, pageInfo: {} };
+      const queryLimit = request?.limit ?? items.length;
+      const queryOffset = request?.offset ?? 0;
+      const sliced = items.slice(queryOffset, queryOffset + queryLimit);
+      return {
+        items: sliced,
+        totalItems: items.length,
+        pageInfo: {
+          ...(queryOffset + queryLimit < items.length
+            ? { nextCursor: `next:${queryOffset + queryLimit}` }
+            : {}),
+          ...(queryOffset > 0
+            ? { prevCursor: `prev:${Math.max(0, queryOffset - queryLimit)}` }
+            : {}),
+        },
+      };
     });
 
     // Restore autocomplete if it was deleted

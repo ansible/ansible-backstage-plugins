@@ -140,6 +140,9 @@ const HomeTagPicker = ({ syncKey }: { syncKey: number }) => {
           .map(f => f.value)
           .sort((a, b) => a.localeCompare(b));
         setAvailableTags(tags);
+      })
+      .catch(() => {
+        setAvailableTags([]);
       });
   }, [catalogApi, syncKey]);
 
@@ -190,6 +193,10 @@ const HomeCategoryPicker = ({ syncKey }: { syncKey: number }) => {
             type: nonEE.length > 0 ? new EntityTypeFilter(nonEE) : undefined,
           });
         }
+      })
+      .catch(() => {
+        setAllCategories([]);
+        setAllNonEETypes([]);
       });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [catalogApi, syncKey]);
@@ -232,10 +239,10 @@ const TemplateContent = ({
     entities,
     loading: catalogLoading,
     totalItems,
-    offset,
-    setOffset,
+    pageInfo,
     limit,
   } = useEntityList();
+  const [currentPage, setCurrentPage] = useState(1);
 
   const isLoading = externalLoading || catalogLoading;
 
@@ -247,10 +254,9 @@ const TemplateContent = ({
     [entities, jobTemplates],
   );
 
-  const currentPage = Math.floor((offset ?? 0) / limit) + 1;
   const totalPages = Math.max(1, Math.ceil((totalItems ?? 0) / limit));
-  const showStart = (offset ?? 0) + 1;
-  const showEnd = Math.min((offset ?? 0) + limit, totalItems ?? 0);
+  const showStart = (currentPage - 1) * limit + 1;
+  const showEnd = (currentPage - 1) * limit + filteredEntities.length;
 
   if (isLoading) {
     return (
@@ -286,8 +292,11 @@ const TemplateContent = ({
           <Box className={classes.paginationControls}>
             <IconButton
               size="small"
-              disabled={currentPage <= 1}
-              onClick={() => setOffset?.((currentPage - 2) * limit)}
+              disabled={!pageInfo?.prev}
+              onClick={() => {
+                pageInfo?.prev?.();
+                setCurrentPage(p => Math.max(1, p - 1));
+              }}
               aria-label="Previous page"
             >
               <NavigateBeforeIcon />
@@ -297,8 +306,11 @@ const TemplateContent = ({
             </Typography>
             <IconButton
               size="small"
-              disabled={currentPage >= totalPages}
-              onClick={() => setOffset?.(currentPage * limit)}
+              disabled={!pageInfo?.next}
+              onClick={() => {
+                pageInfo?.next?.();
+                setCurrentPage(p => p + 1);
+              }}
               aria-label="Next page"
             >
               <NavigateNextIcon />
@@ -612,7 +624,7 @@ export const HomeComponent = () => {
       <Content>
         <EntityListProvider
           key={syncKey}
-          pagination={{ mode: 'offset', limit: PAGE_SIZE }}
+          pagination={{ mode: 'cursor', limit: PAGE_SIZE }}
         >
           <CatalogFilterLayout>
             <CatalogFilterLayout.Filters>
