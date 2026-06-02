@@ -1314,3 +1314,106 @@ describe('TemplatesRoutesPage notifications', () => {
     expect(mockRemoveNotification).toHaveBeenCalledWith('n1');
   });
 });
+
+describe('HomeCategoryPicker EE exclusion', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+    mockUseIsSuperuser.mockReturnValue({
+      isSuperuser: true,
+      loading: false,
+      error: null,
+    });
+    mockUsePermission.mockReturnValue({ loading: false, allowed: true });
+    mockRhAapAuthApi.getAccessToken.mockResolvedValue('mock-token');
+    mockAnsibleApi.getSyncStatus.mockResolvedValue({
+      aap: {
+        orgsUsersTeams: { lastSync: null },
+        jobTemplates: { lastSync: null },
+      },
+    });
+    if (!mockScaffolderApi.autocomplete) {
+      mockScaffolderApi.autocomplete = jest.fn().mockResolvedValue({
+        results: [{ id: '1', title: 'Template 1' }],
+      }) as jest.MockedFunction<any>;
+    } else {
+      (
+        mockScaffolderApi.autocomplete as jest.MockedFunction<any>
+      ).mockResolvedValue({
+        results: [{ id: '1', title: 'Template 1' }],
+      });
+    }
+    mockCatalogApi.queryEntities.mockImplementation(async (request: any) => {
+      const { items } = await mockCatalogApi.getEntities();
+      const queryLimit = request?.limit ?? items.length;
+      const queryOffset = request?.offset ?? 0;
+      const sliced = items.slice(queryOffset, queryOffset + queryLimit);
+      return {
+        items: sliced,
+        totalItems: items.length,
+        pageInfo: {},
+      };
+    });
+  });
+
+  const render = (children: JSX.Element) => {
+    return renderInTestApp(
+      <TestApiProvider
+        apis={[
+          [catalogApiRef, mockCatalogApi],
+          [ansibleApiRef, mockAnsibleApi],
+          [rhAapAuthApiRef, mockRhAapAuthApi],
+          [scaffolderApiRef, mockScaffolderApi],
+          [starredEntitiesApiRef, new MockStarredEntitiesApi()],
+          [permissionApiRef, mockApis.permission()],
+        ]}
+      >
+        <MockEntityListContextProvider>
+          {children}
+        </MockEntityListContextProvider>
+      </TestApiProvider>,
+      {
+        mountedRoutes: {
+          '/self-service': rootRouteRef,
+        },
+      },
+    );
+  };
+
+  it('should exclude execution-environment types from category facets', async () => {
+    mockCatalogApi.getEntityFacets.mockResolvedValue({
+      facets: {
+        'spec.type': [
+          { value: 'service', count: 10 },
+          { value: 'execution-environment', count: 5 },
+          { value: 'workflow', count: 3 },
+        ],
+        'metadata.tags': [{ value: 'tag1', count: 1 }],
+        'relations.ownedBy': [],
+      },
+    });
+
+    await render(<HomeComponent />);
+
+    await waitFor(() => {
+      expect(mockCatalogApi.getEntityFacets).toHaveBeenCalledWith(
+        expect.objectContaining({
+          filter: { kind: 'Template' },
+          facets: ['spec.type'],
+        }),
+      );
+    });
+  });
+
+  it('should handle getEntityFacets failure gracefully', async () => {
+    mockCatalogApi.getEntityFacets.mockRejectedValue(
+      new Error('Network error'),
+    );
+
+    await render(<HomeComponent />);
+
+    await waitFor(() => {
+      expect(screen.getByText('Categories')).toBeInTheDocument();
+    });
+    expect(screen.getByText('Tags')).toBeInTheDocument();
+  });
+});
