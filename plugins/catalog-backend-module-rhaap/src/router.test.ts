@@ -2705,12 +2705,18 @@ describe('createRouter', () => {
       expect(response.status).toBe(200);
       expect(response.body).toEqual({
         aap: {
-          orgsUsersTeams: expect.objectContaining({
+          orgsUsersTeams: {
             lastSync: '2024-01-15T10:00:00Z',
-          }),
-          jobTemplates: expect.objectContaining({
+            syncInProgress: false,
+            lastFailedSyncTime: undefined,
+            lastSyncStatus: undefined,
+          },
+          jobTemplates: {
             lastSync: '2024-01-15T11:00:00Z',
-          }),
+            syncInProgress: false,
+            lastFailedSyncTime: undefined,
+            lastSyncStatus: undefined,
+          },
         },
         content: {
           syncInProgress: false,
@@ -2748,12 +2754,18 @@ describe('createRouter', () => {
       expect(response.status).toBe(200);
       expect(response.body).toEqual({
         aap: {
-          orgsUsersTeams: expect.objectContaining({
+          orgsUsersTeams: {
             lastSync: '2024-01-15T10:00:00Z',
-          }),
-          jobTemplates: expect.objectContaining({
+            syncInProgress: false,
+            lastFailedSyncTime: undefined,
+            lastSyncStatus: undefined,
+          },
+          jobTemplates: {
             lastSync: '2024-01-15T11:00:00Z',
-          }),
+            syncInProgress: false,
+            lastFailedSyncTime: undefined,
+            lastSyncStatus: undefined,
+          },
         },
       });
     });
@@ -2819,12 +2831,18 @@ describe('createRouter', () => {
       expect(response.status).toBe(200);
       expect(response.body).toEqual({
         aap: {
-          orgsUsersTeams: expect.objectContaining({
+          orgsUsersTeams: {
             lastSync: '2024-01-15T10:00:00Z',
-          }),
-          jobTemplates: expect.objectContaining({
+            syncInProgress: false,
+            lastFailedSyncTime: undefined,
+            lastSyncStatus: undefined,
+          },
+          jobTemplates: {
             lastSync: '2024-01-15T11:00:00Z',
-          }),
+            syncInProgress: false,
+            lastFailedSyncTime: undefined,
+            lastSyncStatus: undefined,
+          },
         },
         content: {
           syncInProgress: false,
@@ -3494,8 +3512,9 @@ describe('createRouter', () => {
         .post('/ansible/sync/from-aap/orgs_users_teams')
         .send({ test: 'data' });
 
-      // POST route exists and accepts JSON — should not fail on JSON parsing
-      expect(response.status).not.toBe(400);
+      expect(response.status).toBe(202);
+      expect(response.headers['content-type']).toMatch(/json/);
+      expect(response.body).toEqual({ status: 'sync_started' });
     });
 
     it('should handle undefined routes', async () => {

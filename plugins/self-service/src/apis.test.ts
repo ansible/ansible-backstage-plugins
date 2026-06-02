@@ -81,6 +81,25 @@ describe('Ansible API module', () => {
     expect(result).toBe(false);
   });
 
+  it('AnsibleApiClient.syncTemplates returns false when status is failed', async () => {
+    const mockDiscovery = {
+      getBaseUrl: jest.fn().mockResolvedValue('http://example.com'),
+    };
+    const mockFetch = {
+      fetch: jest.fn().mockResolvedValue({
+        json: jest.fn().mockResolvedValue({ status: 'failed' }),
+      }),
+    };
+
+    const client = new AnsibleApiClient({
+      discoveryApi: mockDiscovery as any,
+      fetchApi: mockFetch as any,
+    });
+
+    const result = await client.syncTemplates();
+    expect(result).toBe(false);
+  });
+
   it('AnsibleApiClient.syncOrgsUsersTeam returns true when sync starts', async () => {
     const mockDiscovery = {
       getBaseUrl: jest.fn().mockResolvedValue('http://example.com'),
