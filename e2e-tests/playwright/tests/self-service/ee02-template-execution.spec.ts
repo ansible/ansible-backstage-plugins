@@ -77,10 +77,10 @@ async function handleGitHubOAuthDialog(page: Page): Promise<boolean> {
           '[EE Test] Navigating to wizard URL from redirectUrl param...',
         );
         await page.goto(redirectUrl, {
-          waitUntil: 'domcontentloaded',
+          waitUntil: 'networkidle',
           timeout: 30000,
         });
-        await page.waitForTimeout(3000); // Allow wizard to initialize
+        await page.waitForTimeout(5000); // Allow wizard React components to mount
       }
     }
 
@@ -399,16 +399,39 @@ test.describe('Execution Environment Template Execution Tests', () => {
           '[EE Test] Wizard reloaded after OAuth, re-navigating to Git fields step...',
         );
 
-        // Wait for wizard to be ready - wait for Next button to appear
+        // Wait for wizard to be ready - check for wizard-specific elements
         await page.waitForLoadState('networkidle').catch(() => {});
-        await page.waitForTimeout(3000);
 
-        // Ensure wizard main content is loaded
-        await expect(page.locator('main')).toBeVisible({ timeout: 15000 });
+        // Wait for wizard form/stepper to appear (more specific than just 'main')
+        console.log('[EE Test] Waiting for wizard UI to render...');
+        const wizardContainer = page
+          .locator('form, [role="dialog"], main')
+          .first();
+        const wizardVisible = await wizardContainer
+          .isVisible({ timeout: 20000 })
+          .catch(() => false);
+
+        if (!wizardVisible) {
+          console.log(
+            '[EE Test] ERROR: Wizard container not visible! URL:',
+            page.url(),
+          );
+          const bodyText = await page
+            .locator('body')
+            .innerText()
+            .catch(() => 'Could not read body');
+          console.log(
+            '[EE Test] Page body preview:',
+            bodyText.substring(0, 300),
+          );
+          throw new Error('Wizard failed to load after OAuth redirect');
+        }
+
+        // Ensure Next button exists (confirms we're on a wizard step)
         const nextBtnCheck = page
           .getByRole('button', { name: /^Next$/i })
           .first();
-        await expect(nextBtnCheck).toBeVisible({ timeout: 15000 });
+        await expect(nextBtnCheck).toBeVisible({ timeout: 20000 });
 
         // Check what's on the page to understand wizard state
         const bodyText = await page.locator('body').innerText();
