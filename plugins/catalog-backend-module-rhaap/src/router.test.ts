@@ -3494,8 +3494,8 @@ describe('createRouter', () => {
         .post('/ansible/sync/from-aap/orgs_users_teams')
         .send({ test: 'data' });
 
-      // Should return 404 for POST request, but won't fail on JSON parsing
-      expect(response.status).toBe(404);
+      // POST route exists and accepts JSON — should not fail on JSON parsing
+      expect(response.status).not.toBe(400);
     });
 
     it('should handle undefined routes', async () => {
@@ -3576,9 +3576,9 @@ describe('createRouter', () => {
       const testApp = express().use(routerWithInvalidProvider);
 
       // The sync endpoint should fail when aapEntityProvider is undefined
-      const response = await request(testApp).get(
-        '/ansible/sync/from-aap/orgs_users_teams',
-      );
+      const response = await request(testApp)
+        .post('/ansible/sync/from-aap/orgs_users_teams')
+        .send();
       expect(response.status).toBe(500);
     });
 
@@ -3602,9 +3602,9 @@ describe('createRouter', () => {
       const testApp = express().use(routerWithInvalidProvider);
 
       // The sync endpoint should fail when jobTemplateProvider is undefined
-      const response = await request(testApp).get(
-        '/ansible/sync/from-aap/job_templates',
-      );
+      const response = await request(testApp)
+        .post('/ansible/sync/from-aap/job_templates')
+        .send();
       expect(response.status).toBe(500);
     });
   });

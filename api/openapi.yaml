@@ -61,6 +61,38 @@ components:
           description: Error message when status is failed
       additionalProperties: false
 
+    AAPProviderSyncStatus:
+      type: object
+      required:
+        - lastSync
+        - syncInProgress
+        - lastFailedSyncTime
+        - lastSyncStatus
+      properties:
+        lastSync:
+          type:
+            - string
+            - 'null'
+          description: ISO timestamp of the last successful sync
+        syncInProgress:
+          type: boolean
+          description: Whether a sync is currently running
+        lastFailedSyncTime:
+          type:
+            - string
+            - 'null'
+          description: ISO timestamp of the last failed sync
+        lastSyncStatus:
+          type:
+            - string
+            - 'null'
+          enum:
+            - success
+            - failure
+            - null
+          description: Status of the last sync attempt
+      additionalProperties: false
+
     SyncResultStatus:
       type: string
       enum:
@@ -434,25 +466,9 @@ paths:
                     type: object
                     properties:
                       orgsUsersTeams:
-                        type: object
-                        required:
-                          - lastSync
-                        properties:
-                          lastSync:
-                            type:
-                              - string
-                              - 'null'
-                        additionalProperties: false
+                        $ref: '#/components/schemas/AAPProviderSyncStatus'
                       jobTemplates:
-                        type: object
-                        required:
-                          - lastSync
-                        properties:
-                          lastSync:
-                            type:
-                              - string
-                              - 'null'
-                        additionalProperties: false
+                        $ref: '#/components/schemas/AAPProviderSyncStatus'
                     additionalProperties: false
                   content:
                     type: object
