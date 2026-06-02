@@ -136,23 +136,61 @@ export async function createRouter(options: {
     response.json({ status: 'ok' });
   });
 
-  router.get(
+  router.post(
     '/ansible/sync/from-aap/orgs_users_teams',
+    express.json(),
     requireSuperuserMiddleware,
     async (_, response) => {
-      logger.info('Starting orgs, users and teams sync');
-      const res = await aapEntityProvider.run();
-      response.status(200).json(res);
+      const taskId = aapEntityProvider.getTaskId();
+      if (!taskId) {
+        response.status(500).json({
+          status: 'failed',
+          error: 'Provider not yet initialized. Retry after startup.',
+        });
+        return;
+      }
+      try {
+        await scheduler.triggerTask(taskId);
+        logger.info('Triggered orgs, users and teams sync via scheduler');
+        response.status(202).json({ status: 'sync_started' });
+      } catch (err) {
+        if (err instanceof ConflictError) {
+          logger.info(
+            'Skipping orgs, users and teams sync: already in progress',
+          );
+          response.status(200).json({ status: 'already_syncing' });
+          return;
+        }
+        throw err;
+      }
     },
   );
 
-  router.get(
+  router.post(
     '/ansible/sync/from-aap/job_templates',
+    express.json(),
     requireSuperuserMiddleware,
     async (_, response) => {
-      logger.info('Starting job templates sync');
-      const res = await jobTemplateProvider.run();
-      response.status(200).json(res);
+      const taskId = jobTemplateProvider.getTaskId();
+      if (!taskId) {
+        response.status(500).json({
+          status: 'failed',
+          error: 'Provider not yet initialized. Retry after startup.',
+        });
+        return;
+      }
+      try {
+        await scheduler.triggerTask(taskId);
+        logger.info('Triggered job templates sync via scheduler');
+        response.status(202).json({ status: 'sync_started' });
+      } catch (err) {
+        if (err instanceof ConflictError) {
+          logger.info('Skipping job templates sync: already in progress');
+          response.status(200).json({ status: 'already_syncing' });
+          return;
+        }
+        throw err;
+      }
     },
   );
 
@@ -180,8 +218,18 @@ export async function createRouter(options: {
       try {
         const result: {
           aap?: {
-            orgsUsersTeams: { lastSync: string | null };
-            jobTemplates: { lastSync: string | null };
+            orgsUsersTeams: {
+              lastSync: string | null;
+              syncInProgress: boolean;
+              lastFailedSyncTime: string | null;
+              lastSyncStatus: 'success' | 'failure' | null;
+            };
+            jobTemplates: {
+              lastSync: string | null;
+              syncInProgress: boolean;
+              lastFailedSyncTime: string | null;
+              lastSyncStatus: 'success' | 'failure' | null;
+            };
           };
           content?: {
             syncInProgress: boolean;
@@ -208,9 +256,15 @@ export async function createRouter(options: {
           result.aap = {
             orgsUsersTeams: {
               lastSync: aapEntityProvider.getLastSyncTime(),
+              syncInProgress: aapEntityProvider.getIsSyncing(),
+              lastFailedSyncTime: aapEntityProvider.getLastFailedSyncTime(),
+              lastSyncStatus: aapEntityProvider.getLastSyncStatus(),
             },
             jobTemplates: {
               lastSync: jobTemplateProvider.getLastSyncTime(),
+              syncInProgress: jobTemplateProvider.getIsSyncing(),
+              lastFailedSyncTime: jobTemplateProvider.getLastFailedSyncTime(),
+              lastSyncStatus: jobTemplateProvider.getLastSyncStatus(),
             },
           };
         }

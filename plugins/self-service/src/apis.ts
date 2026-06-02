@@ -170,9 +170,12 @@ export class AnsibleApiClient implements AnsibleApi {
     try {
       const response = await this.fetchApi.fetch(
         `${baseUrl}/ansible/sync/from-aap/job_templates`,
+        { method: 'POST', headers: { 'Content-Type': 'application/json' } },
       );
       const data = await response.json();
-      return data;
+      return (
+        data.status === 'sync_started' || data.status === 'already_syncing'
+      );
     } catch {
       return false;
     }
@@ -183,9 +186,12 @@ export class AnsibleApiClient implements AnsibleApi {
     try {
       const response = await this.fetchApi.fetch(
         `${baseUrl}/ansible/sync/from-aap/orgs_users_teams`,
+        { method: 'POST', headers: { 'Content-Type': 'application/json' } },
       );
       const data = await response.json();
-      return data;
+      return (
+        data.status === 'sync_started' || data.status === 'already_syncing'
+      );
     } catch {
       return false;
     }

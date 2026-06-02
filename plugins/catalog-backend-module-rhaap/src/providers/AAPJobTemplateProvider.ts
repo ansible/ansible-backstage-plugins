@@ -33,6 +33,10 @@ export class AAPJobTemplateProvider implements EntityProvider {
   private readonly scheduleFn: () => Promise<void>;
   private connection?: EntityProviderConnection;
   private lastSyncTime: string | null = null;
+  private lastFailedSyncTime: string | null = null;
+  private lastSyncStatus: 'success' | 'failure' | null = null;
+  private isSyncing = false;
+  private taskId: string | undefined;
 
   static pluginLogName = 'plugin-catalog-rh-aap';
   static syncEntity = 'jobTemplates';
@@ -107,29 +111,32 @@ export class AAPJobTemplateProvider implements EntityProvider {
     return async () => {
       const taskId = `${this.getProviderName()}:run`;
       this.logger.info('[${this.pluginLogName}]:Creating Schedule function.');
-      return taskRunner.run({
-        id: taskId,
-        fn: async () => {
-          try {
-            await this.run();
-          } catch (error) {
-            if (isError(error)) {
-              // Ensure that we don't log any sensitive internal data:
-              this.logger.error(
-                `Error while syncing resources from AAP ${this.baseUrl}`,
-                {
-                  // Default Error properties:
-                  name: error.name,
-                  message: error.message,
-                  stack: error.stack,
-                  // Additional status code if available:
-                  status: (error.response as { status?: string })?.status,
-                },
-              );
+      try {
+        await taskRunner.run({
+          id: taskId,
+          fn: async () => {
+            try {
+              await this.run();
+            } catch (error) {
+              if (isError(error)) {
+                this.logger.error(
+                  `Error while syncing resources from AAP ${this.baseUrl}`,
+                  {
+                    name: error.name,
+                    message: error.message,
+                    stack: error.stack,
+                    status: (error.response as { status?: string })?.status,
+                  },
+                );
+              }
             }
-          }
-        },
-      });
+          },
+        });
+        this.taskId = taskId;
+      } catch (error) {
+        this.taskId = undefined;
+        throw error;
+      }
     };
   }
 
@@ -141,10 +148,27 @@ export class AAPJobTemplateProvider implements EntityProvider {
     return this.lastSyncTime;
   }
 
+  getLastFailedSyncTime(): string | null {
+    return this.lastFailedSyncTime;
+  }
+
+  getLastSyncStatus(): 'success' | 'failure' | null {
+    return this.lastSyncStatus;
+  }
+
+  getIsSyncing(): boolean {
+    return this.isSyncing;
+  }
+
+  getTaskId(): string | undefined {
+    return this.taskId;
+  }
+
   async run(): Promise<boolean> {
     if (!this.connection) {
       throw new NotFoundError('Not initialized');
     }
+    this.isSyncing = true;
     let jobTemplateCount = 0;
     const entities: Entity[] = [];
     let aapJobTemplates: Array<{
@@ -201,7 +225,13 @@ export class AAPJobTemplateProvider implements EntityProvider {
       );
 
       this.lastSyncTime = new Date().toISOString();
+      this.lastSyncStatus = 'success';
     }
+    if (error) {
+      this.lastFailedSyncTime = new Date().toISOString();
+      this.lastSyncStatus = 'failure';
+    }
+    this.isSyncing = false;
     return !error;
   }
 
