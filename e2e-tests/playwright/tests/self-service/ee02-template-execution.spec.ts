@@ -46,27 +46,48 @@ async function handleGitHubOAuthDialog(page: Page): Promise<boolean> {
     return false;
   }
 
-  // Backstage SCM auth opens a popup via window.open(). Listen on the
-  // browser context for the popup event (not the page — page.waitForEvent
-  // only catches popups opened by that specific page's JS context).
-  console.log(
-    '[EE Test] Clicking Log in — expecting popup for GitHub OAuth...',
-  );
+  // Backstage SCM auth can open a popup OR use redirect flow
+  // Listen for popup but with short timeout (redirect happens quickly if enabled)
+  console.log('[EE Test] Clicking Log in — checking for popup or redirect...');
   const context = page.context();
   const [popup] = await Promise.all([
-    context.waitForEvent('page', { timeout: 15000 }).catch(() => null),
+    context.waitForEvent('page', { timeout: 3000 }).catch(() => null),
     logInBtn.click(),
   ]);
 
+  // Give redirect flow a moment to start if no popup
+  if (!popup) {
+    await page.waitForTimeout(1000);
+  }
+
   if (!popup) {
     console.log('[EE Test] No popup opened — using redirect flow');
+    console.log('[EE Test] Current URL immediately after click:', page.url());
 
-    // Wait for redirect to GitHub login page
-    console.log('[EE Test] Waiting for redirect to GitHub...');
-    await page.waitForURL(url => url.hostname === 'github.com', {
-      timeout: 15000,
-    });
-    console.log('[EE Test] Redirected to GitHub, URL:', page.url());
+    // Wait for the dialog to close (click is async)
+    await page.waitForTimeout(500);
+
+    // Check current URL
+    const currentUrl = new URL(page.url());
+    console.log('[EE Test] URL after dialog close:', page.url());
+    console.log('[EE Test] Hostname:', currentUrl.hostname);
+
+    // If already on GitHub, proceed to login
+    if (currentUrl.hostname === 'github.com') {
+      console.log('[EE Test] Already redirected to GitHub');
+    } else {
+      // Wait for redirect to GitHub (could go through backend auth endpoint first)
+      console.log('[EE Test] Waiting for redirect to GitHub...');
+      await page
+        .waitForURL(url => url.hostname === 'github.com', { timeout: 20000 })
+        .catch(async () => {
+          console.log('[EE Test] Timeout waiting for GitHub redirect');
+          console.log('[EE Test] Current URL:', page.url());
+          console.log('[EE Test] Page title:', await page.title());
+          throw new Error('Failed to redirect to GitHub after OAuth login');
+        });
+    }
+    console.log('[EE Test] On GitHub, URL:', page.url());
 
     // Handle GitHub login on the main page
     await handleGitHubLoginOnPage(page);
