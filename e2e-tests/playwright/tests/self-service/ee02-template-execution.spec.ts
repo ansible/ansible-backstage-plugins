@@ -202,9 +202,26 @@ test.describe('Execution Environment Template Execution Tests', () => {
       }
     });
 
-    if (
-      (await page.locator('[data-testid="kebab-menu-button"]').count()) === 0
-    ) {
+    // Wait for Create tab content to load before checking for kebab menu
+    await page.waitForLoadState('networkidle').catch(() => {});
+    await page.waitForTimeout(2000);
+
+    const kebabCount = await page
+      .locator('[data-testid="kebab-menu-button"]')
+      .count();
+    console.log('[EE Test] Kebab menu button count:', kebabCount);
+    console.log('[EE Test] Current URL:', page.url());
+
+    if (kebabCount === 0) {
+      console.log('[EE Test] Kebab menu not found - test will skip');
+      console.log(
+        '[EE Test] Page body contains "Create"?',
+        (await page.locator('body').innerText()).includes('Create'),
+      );
+      console.log(
+        '[EE Test] Page body contains "Import Template"?',
+        (await page.locator('body').innerText()).includes('Import Template'),
+      );
       test.skip();
     }
 
