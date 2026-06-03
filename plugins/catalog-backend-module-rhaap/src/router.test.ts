@@ -3592,7 +3592,7 @@ describe('createRouter', () => {
       ]);
     });
 
-    it('should return job status for valid job ID', async () => {
+    it('should return job status for valid job ID with taskId', async () => {
       mockAnsibleService.getJobStatus.mockResolvedValue({
         id: 123,
         status: 'successful',
@@ -3601,7 +3601,9 @@ describe('createRouter', () => {
         finishedAt: '2024-01-01T10:00:00Z',
       });
 
-      const response = await request(app).get('/ansible/jobs/123');
+      const response = await request(app).get(
+        '/ansible/jobs/123?taskId=test-task-123',
+      );
 
       expect(response.status).toBe(200);
       expect(response.body).toEqual({
@@ -3614,8 +3616,20 @@ describe('createRouter', () => {
       expect(mockAnsibleService.getJobStatus).toHaveBeenCalledWith(123);
     });
 
+    it('should return 400 for missing taskId', async () => {
+      const response = await request(app).get('/ansible/jobs/123');
+
+      expect(response.status).toBe(400);
+      expect(response.body).toMatchObject({
+        error: expect.stringContaining('taskId'),
+      });
+      expect(mockAnsibleService.getJobStatus).not.toHaveBeenCalled();
+    });
+
     it('should return 400 for invalid job ID', async () => {
-      const response = await request(app).get('/ansible/jobs/invalid');
+      const response = await request(app).get(
+        '/ansible/jobs/invalid?taskId=test-task',
+      );
 
       expect(response.status).toBe(400);
       expect(response.body).toEqual({ error: 'Invalid job ID' });
@@ -3627,7 +3641,9 @@ describe('createRouter', () => {
         { result: AuthorizeResult.DENY },
       ]);
 
-      const response = await request(app).get('/ansible/jobs/123');
+      const response = await request(app).get(
+        '/ansible/jobs/123?taskId=test-task-123',
+      );
 
       expect(response.status).toBe(403);
       expect(response.body).toEqual({
@@ -3640,7 +3656,9 @@ describe('createRouter', () => {
         new Error('Response code 403'),
       );
 
-      const response = await request(app).get('/ansible/jobs/999');
+      const response = await request(app).get(
+        '/ansible/jobs/999?taskId=test-task-999',
+      );
 
       expect(response.status).toBe(404);
       expect(response.body).toMatchObject({
@@ -3655,7 +3673,9 @@ describe('createRouter', () => {
         new Error('AAP service account token not configured'),
       );
 
-      const response = await request(app).get('/ansible/jobs/123');
+      const response = await request(app).get(
+        '/ansible/jobs/123?taskId=test-task-123',
+      );
 
       expect(response.status).toBe(503);
       expect(response.body).toEqual({
@@ -3668,7 +3688,9 @@ describe('createRouter', () => {
         new Error('Network timeout'),
       );
 
-      const response = await request(app).get('/ansible/jobs/123');
+      const response = await request(app).get(
+        '/ansible/jobs/123?taskId=test-task-123',
+      );
 
       expect(response.status).toBe(500);
       expect(response.body).toMatchObject({
@@ -3710,7 +3732,12 @@ describe('createRouter', () => {
 
       const response = await request(app)
         .post('/ansible/jobs/batch')
-        .send({ jobIds: [100, 200] });
+        .send({
+          jobs: [
+            { taskId: 'task-1', jobId: 100 },
+            { taskId: 'task-2', jobId: 200 },
+          ],
+        });
 
       expect(response.status).toBe(200);
       expect(response.body).toEqual({
@@ -3732,39 +3759,44 @@ describe('createRouter', () => {
       ]);
     });
 
-    it('should return 400 when jobIds is not an array', async () => {
+    it('should return 400 when jobs is not an array', async () => {
       const response = await request(app)
         .post('/ansible/jobs/batch')
-        .send({ jobIds: 'not-an-array' });
+        .send({ jobs: 'not-an-array' });
 
       expect(response.status).toBe(400);
-      expect(response.body).toEqual({ error: 'jobIds must be an array' });
+      expect(response.body).toEqual({ error: 'jobs must be an array' });
     });
 
-    it('should return 400 when jobIds is missing', async () => {
+    it('should return 400 when jobs is missing', async () => {
       const response = await request(app).post('/ansible/jobs/batch').send({});
 
       expect(response.status).toBe(400);
-      expect(response.body).toEqual({ error: 'jobIds must be an array' });
+      expect(response.body).toEqual({ error: 'jobs must be an array' });
     });
 
-    it('should filter out invalid job IDs', async () => {
-      mockAnsibleService.getJobStatusBatch.mockResolvedValue(new Map());
-
+    it('should reject invalid entries with 400', async () => {
       const response = await request(app)
         .post('/ansible/jobs/batch')
-        .send({ jobIds: [100, 'invalid', null, 200, NaN] });
+        .send({
+          jobs: [
+            { taskId: 'task-1', jobId: 100 },
+            { taskId: 'task-2', jobId: 'invalid' },
+            { jobId: 200 }, // missing taskId
+          ],
+        });
 
-      expect(response.status).toBe(200);
-      expect(mockAnsibleService.getJobStatusBatch).toHaveBeenCalledWith([
-        100, 200,
-      ]);
+      expect(response.status).toBe(400);
+      expect(response.body).toMatchObject({
+        error: expect.stringContaining('taskId'),
+      });
+      expect(mockAnsibleService.getJobStatusBatch).not.toHaveBeenCalled();
     });
 
     it('should return empty object for empty array', async () => {
       const response = await request(app)
         .post('/ansible/jobs/batch')
-        .send({ jobIds: [] });
+        .send({ jobs: [] });
 
       expect(response.status).toBe(200);
       expect(response.body).toEqual({ jobs: {} });
@@ -3778,7 +3810,7 @@ describe('createRouter', () => {
 
       const response = await request(app)
         .post('/ansible/jobs/batch')
-        .send({ jobIds: [123] });
+        .send({ jobs: [{ taskId: 'task-1', jobId: 123 }] });
 
       expect(response.status).toBe(403);
       expect(response.body).toEqual({
@@ -3793,7 +3825,12 @@ describe('createRouter', () => {
 
       const response = await request(app)
         .post('/ansible/jobs/batch')
-        .send({ jobIds: [100, 200] });
+        .send({
+          jobs: [
+            { taskId: 'task-1', jobId: 100 },
+            { taskId: 'task-2', jobId: 200 },
+          ],
+        });
 
       expect(response.status).toBe(500);
       expect(response.body).toMatchObject({

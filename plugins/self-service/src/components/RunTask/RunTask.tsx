@@ -168,11 +168,14 @@ export const RunTask = () => {
     const fetchAapStatus = async () => {
       try {
         const baseUrl = await discoveryApi.getBaseUrl('catalog');
-        const response = await fetch(`${baseUrl}/ansible/jobs/${aapJobId}`, {
-          headers: {
-            'Content-Type': 'application/json',
+        const response = await fetch(
+          `${baseUrl}/ansible/jobs/${aapJobId}?taskId=${encodeURIComponent(taskId)}`,
+          {
+            headers: {
+              'Content-Type': 'application/json',
+            },
           },
-        });
+        );
 
         if (!response.ok) {
           const errorData = await response.json();

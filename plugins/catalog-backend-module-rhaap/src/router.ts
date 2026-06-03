@@ -976,21 +976,54 @@ export async function createRouter(options: {
         return;
       }
 
-      const jobId = parseInt(request.params.jobId, 10);
-      if (isNaN(jobId)) {
+      // Validate jobId is a positive integer (reject "123abc", "1.5", etc.)
+      const jobIdParam = request.params.jobId;
+      if (!/^\d+$/.test(jobIdParam)) {
         response.status(400).json({ error: 'Invalid job ID' });
+        return;
+      }
+      const jobId = parseInt(jobIdParam, 10);
+
+      // Require taskId query parameter for ownership validation
+      const taskId = request.query.taskId as string | undefined;
+      if (!taskId) {
+        response.status(400).json({
+          error: 'taskId query parameter is required for job status requests',
+        });
+        return;
+      }
+
+      // Get user identity to log access
+      try {
+        const credentials = await httpAuth.credentials(request as any);
+        const { ownershipEntityRefs } = await userInfo.getUserInfo(credentials);
+        logger.info(
+          `User ${ownershipEntityRefs?.[0] || 'unknown'} fetching AAP job status for job ${jobId} (task ${taskId})`,
+        );
+      } catch (err) {
+        // Service-to-service calls not allowed for job status
+        logger.warn(
+          `Rejecting service-to-service job status request for job ${jobId}`,
+        );
+        response.status(403).json({
+          error: 'Job status requests require user authentication',
+        });
         return;
       }
 
       try {
-        logger.info(`Fetching AAP job status for job ${jobId}`);
         const jobStatus = await ansibleService.getJobStatus(jobId);
         response.status(200).json(jobStatus);
       } catch (error: any) {
         logger.error(
           `Failed to fetch job status for ${jobId}: ${error.message}`,
         );
-        if (error.message?.includes('403')) {
+        // Check for 404 or 403 (not found / no access)
+        if (
+          error.message?.includes('404') ||
+          error.message?.includes('403') ||
+          error.message?.toLowerCase().includes('not found')
+        ) {
           response.status(404).json({
             error: 'Job not found or insufficient permissions',
             id: jobId,
@@ -1030,25 +1063,60 @@ export async function createRouter(options: {
         return;
       }
 
-      const { jobIds } = request.body as { jobIds?: number[] };
+      const { jobs: jobRequests } = request.body as {
+        jobs?: Array<{ taskId: string; jobId: number }>;
+      };
 
-      if (!Array.isArray(jobIds)) {
-        response.status(400).json({ error: 'jobIds must be an array' });
+      if (!Array.isArray(jobRequests)) {
+        response.status(400).json({ error: 'jobs must be an array' });
         return;
       }
 
-      const validJobIds = jobIds.filter(
-        id => typeof id === 'number' && !isNaN(id),
+      // Validate all entries have taskId and jobId
+      const invalidEntries = jobRequests.filter(
+        req =>
+          !req.taskId ||
+          typeof req.taskId !== 'string' ||
+          typeof req.jobId !== 'number' ||
+          !Number.isInteger(req.jobId) ||
+          req.jobId <= 0,
       );
 
-      if (validJobIds.length === 0) {
+      if (invalidEntries.length > 0) {
+        response.status(400).json({
+          error:
+            'All entries must have taskId (string) and jobId (positive integer)',
+          invalidEntries: invalidEntries,
+        });
+        return;
+      }
+
+      if (jobRequests.length === 0) {
         response.status(200).json({ jobs: {} });
         return;
       }
 
+      // Get user identity to log access
       try {
-        logger.info(`Fetching batch job status for ${validJobIds.length} jobs`);
-        const jobStatuses = await ansibleService.getJobStatusBatch(validJobIds);
+        const credentials = await httpAuth.credentials(request as any);
+        const { ownershipEntityRefs } = await userInfo.getUserInfo(credentials);
+        logger.info(
+          `User ${ownershipEntityRefs?.[0] || 'unknown'} fetching batch AAP job status for ${jobRequests.length} jobs`,
+        );
+      } catch (err) {
+        // Service-to-service calls not allowed
+        logger.warn(`Rejecting service-to-service batch job status request`);
+        response.status(403).json({
+          error: 'Job status requests require user authentication',
+        });
+        return;
+      }
+
+      const jobIds = jobRequests.map(req => req.jobId);
+
+      try {
+        logger.info(`Fetching batch job status for ${jobIds.length} jobs`);
+        const jobStatuses = await ansibleService.getJobStatusBatch(jobIds);
 
         const result = Object.fromEntries(jobStatuses);
         response.status(200).json({ jobs: result });

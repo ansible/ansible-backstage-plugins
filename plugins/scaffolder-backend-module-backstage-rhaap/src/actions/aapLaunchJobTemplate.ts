@@ -21,6 +21,13 @@ export const launchJobTemplate = (ansibleServiceRef: IAAPService) => {
       input: {
         token: z => z.string({ description: 'Authorization token' }),
         values: () => launchJobTemplateValuesLooseSchema,
+        waitForCompletion: z =>
+          z
+            .boolean({
+              description: 'Wait for job to complete (default: true)',
+            })
+            .optional()
+            .default(true),
       },
       output: {
         data: () => aapApiRecordOutputSchema,
@@ -28,7 +35,7 @@ export const launchJobTemplate = (ansibleServiceRef: IAAPService) => {
     },
     async handler(ctx) {
       const {
-        input: { token, values },
+        input: { token, values, waitForCompletion = true },
         logger,
       } = ctx;
       if (!token?.length) {
@@ -45,10 +52,21 @@ export const launchJobTemplate = (ansibleServiceRef: IAAPService) => {
           normalized,
           'rhaap:launch-job-template',
         ) as LaunchJobTemplate;
-        jobResult = await ansibleServiceRef.launchJobTemplateNoWait(
-          launchPayload,
-          token,
-        );
+
+        // Use blocking or non-blocking based on input flag
+        if (waitForCompletion) {
+          // Default: blocking behavior (backward compatible)
+          jobResult = await ansibleServiceRef.launchJobTemplate(
+            launchPayload,
+            token,
+          );
+        } else {
+          // Opt-in: non-blocking behavior (returns immediately with job ID)
+          jobResult = await ansibleServiceRef.launchJobTemplateNoWait(
+            launchPayload,
+            token,
+          );
+        }
       } catch (e: unknown) {
         rethrowPreservingInputError(e);
       }

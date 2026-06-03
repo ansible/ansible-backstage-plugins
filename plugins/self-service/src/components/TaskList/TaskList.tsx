@@ -214,16 +214,26 @@ export const TaskList = () => {
 
   useEffect(() => {
     if (loading || !tasks || tasks.length === 0) {
-      return;
+      return undefined;
     }
 
-    const jobIds = tasks
-      .map(task => (task as any).output?.data?.id)
-      .filter((id): id is number => typeof id === 'number');
+    // Build array of {taskId, jobId} for ownership validation
+    const jobRequests = tasks
+      .filter(task => {
+        const jobId = (task as any).output?.data?.id;
+        return typeof jobId === 'number';
+      })
+      .map(task => ({
+        taskId: task.id,
+        jobId: (task as any).output.data.id,
+      }));
 
-    if (jobIds.length === 0) {
-      return;
+    if (jobRequests.length === 0) {
+      return undefined;
     }
+
+    // Use AbortController to cancel stale requests
+    const abortController = new AbortController();
 
     const fetchAapStatuses = async () => {
       try {
@@ -233,7 +243,8 @@ export const TaskList = () => {
           headers: {
             'Content-Type': 'application/json',
           },
-          body: JSON.stringify({ jobIds }),
+          body: JSON.stringify({ jobs: jobRequests }),
+          signal: abortController.signal,
         });
 
         if (!response.ok) {
@@ -249,12 +260,20 @@ export const TaskList = () => {
           ]),
         );
         setAapJobStatuses(statusMap);
-      } catch (err) {
-        // Silently fail - AAP status is optional enhancement
+      } catch (err: any) {
+        // Ignore abort errors - they're expected during cleanup
+        if (err.name !== 'AbortError') {
+          // Silently fail - AAP status is optional enhancement
+        }
       }
     };
 
     fetchAapStatuses();
+
+    // Cleanup: abort pending request when component unmounts or tasks change
+    return () => {
+      abortController.abort();
+    };
   }, [tasks, loading, discoveryApi]);
 
   const handlePageChange = (_: unknown, newPage: number) => {
@@ -401,10 +420,14 @@ export const TaskList = () => {
                                 ? aapJobStatuses.get(aapJobId)
                                 : null;
 
-                              const displayStatus =
-                                aapStatus && task.status === 'failed'
-                                  ? aapStatus.status
-                                  : task.status;
+                              // Prefer AAP status when available (AAP is source of truth)
+                              const displayStatus = aapStatus
+                                ? aapStatus.status
+                                : task.status;
+
+                              // Show AAP indicator when AAP status differs from scaffolder status
+                              const showAapIndicator =
+                                aapStatus && aapStatus.status !== task.status;
 
                               return (
                                 <>
@@ -418,7 +441,7 @@ export const TaskList = () => {
                                     {getStatusIcon(displayStatus)}
                                   </Box>
                                   {displayStatus}
-                                  {aapStatus && task.status === 'failed' && (
+                                  {showAapIndicator && (
                                     <Typography
                                       variant="caption"
                                       style={{

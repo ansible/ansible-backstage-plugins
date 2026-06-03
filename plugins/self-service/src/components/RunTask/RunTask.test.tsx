@@ -195,12 +195,14 @@ describe('RunTask', () => {
   });
 
   const render = async (children: JSX.Element) => {
+    const { discoveryApiRef } = require('@backstage/core-plugin-api');
     const result = await renderInTestApp(
       <TestApiProvider
         apis={[
           [scaffolderApiRef, mockScaffolderApi],
           [permissionApiRef, mockApis.permission()],
           [catalogApiRef, mockCatalogApi],
+          [discoveryApiRef, mockDiscoveryApi],
         ]}
       >
         <>{children}</>
@@ -219,6 +221,7 @@ describe('RunTask', () => {
             [scaffolderApiRef, mockScaffolderApi],
             [permissionApiRef, mockApis.permission()],
             [catalogApiRef, mockCatalogApi],
+            [discoveryApiRef, mockDiscoveryApi],
           ]}
         >
           <>{newChildren}</>
