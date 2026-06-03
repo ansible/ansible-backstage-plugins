@@ -213,7 +213,7 @@ export const RunTask = () => {
         clearInterval(intervalId);
       }
     };
-  }, [task, completed, aapJobStatus?.status, discoveryApi]);
+  }, [task, completed, aapJobStatus?.status, discoveryApi, taskId]);
 
   const canStartOver = canRead && canCreateTask;
   const showStartOver = canStartOver;
