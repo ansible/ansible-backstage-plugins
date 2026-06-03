@@ -3,6 +3,7 @@ import {
   identityApiRef,
   useApi,
   useRouteRef,
+  discoveryApiRef,
 } from '@backstage/core-plugin-api';
 import {
   scaffolderApiRef,
@@ -139,6 +140,7 @@ export const TaskList = () => {
   const classes = headerStyles();
   const scaffolderApi = useApi(scaffolderApiRef);
   const identityApi = useApi(identityApiRef);
+  const discoveryApi = useApi(discoveryApiRef);
 
   const { value: isAdmin, loading: adminLoading } = useAsync(async () => {
     const identity = await identityApi.getBackstageIdentity();
@@ -164,6 +166,15 @@ export const TaskList = () => {
   const [page, setPage] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(10);
   const rootLink = useRouteRef(rootRouteRef);
+  const [aapJobStatuses, setAapJobStatuses] = useState<
+    Map<
+      number,
+      {
+        status: string;
+        url: string;
+      }
+    >
+  >(new Map());
 
   const fetchTasks = useCallback(async () => {
     if (!scaffolderApi?.listTasks) {
@@ -200,6 +211,51 @@ export const TaskList = () => {
       setPage(0);
     }
   }, [adminLoading, isAdmin]);
+
+  useEffect(() => {
+    if (loading || !tasks || tasks.length === 0) {
+      return;
+    }
+
+    const jobIds = tasks
+      .map(task => (task as any).output?.data?.id)
+      .filter((id): id is number => typeof id === 'number');
+
+    if (jobIds.length === 0) {
+      return;
+    }
+
+    const fetchAapStatuses = async () => {
+      try {
+        const baseUrl = await discoveryApi.getBaseUrl('catalog');
+        const response = await fetch(`${baseUrl}/ansible/jobs/batch`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ jobIds }),
+        });
+
+        if (!response.ok) {
+          // Silently fail - AAP status is optional enhancement
+          return;
+        }
+
+        const data = await response.json();
+        const statusMap = new Map(
+          Object.entries(data.jobs).map(([id, status]) => [
+            parseInt(id, 10),
+            status as any,
+          ]),
+        );
+        setAapJobStatuses(statusMap);
+      } catch (err) {
+        // Silently fail - AAP status is optional enhancement
+      }
+    };
+
+    fetchAapStatuses();
+  }, [tasks, loading, discoveryApi]);
 
   const handlePageChange = (_: unknown, newPage: number) => {
     setPage(newPage);
@@ -339,16 +395,43 @@ export const TaskList = () => {
                               alignItems: 'center',
                             }}
                           >
-                            <Box
-                              sx={{
-                                marginRight: 1,
-                                display: 'flex',
-                                alignItems: 'center',
-                              }}
-                            >
-                              {getStatusIcon(task.status)}
-                            </Box>{' '}
-                            {task.status}
+                            {(() => {
+                              const aapJobId = (task as any).output?.data?.id;
+                              const aapStatus = aapJobId
+                                ? aapJobStatuses.get(aapJobId)
+                                : null;
+
+                              const displayStatus =
+                                aapStatus && task.status === 'failed'
+                                  ? aapStatus.status
+                                  : task.status;
+
+                              return (
+                                <>
+                                  <Box
+                                    sx={{
+                                      marginRight: 1,
+                                      display: 'flex',
+                                      alignItems: 'center',
+                                    }}
+                                  >
+                                    {getStatusIcon(displayStatus)}
+                                  </Box>
+                                  {displayStatus}
+                                  {aapStatus && task.status === 'failed' && (
+                                    <Typography
+                                      variant="caption"
+                                      style={{
+                                        marginLeft: '8px',
+                                        opacity: 0.7,
+                                      }}
+                                    >
+                                      (AAP)
+                                    </Typography>
+                                  )}
+                                </>
+                              );
+                            })()}
                           </TableCell>
                         </TableRow>
                       ))}

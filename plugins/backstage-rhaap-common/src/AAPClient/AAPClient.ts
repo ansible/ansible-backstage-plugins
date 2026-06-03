@@ -62,6 +62,9 @@ export interface IAAPService extends Pick<
   | 'fetchEvents'
   | 'fetchResult'
   | 'launchJobTemplate'
+  | 'launchJobTemplateNoWait'
+  | 'getJobStatus'
+  | 'getJobStatusBatch'
   | 'cleanUp'
   | 'checkControllerAvailability'
   | 'getResourceData'
@@ -778,6 +781,225 @@ export class AAPClient implements IAAPService {
       events: result.jobEvents,
       url: `${this.getBaseUrl()}/execution/jobs/playbook/${jobID}/output`,
     };
+  }
+
+  /**
+   * Launches a job template without polling for completion.
+   * Returns immediately with job ID for async tracking.
+   */
+  public async launchJobTemplateNoWait(
+    payload: Omit<LaunchJobTemplate, 'token'>,
+    token: string,
+  ): Promise<{ id: number; status: string; url: string; launchedAt: string }> {
+    const data = { extra_vars: payload?.extraVariables ?? '' } as {
+      inventory?: number;
+      job_type?: string;
+      executionEnvironment?: number;
+      execution_environment?: number;
+      forks?: number;
+      limit?: string;
+      verbosity?: number;
+      job_slice_count?: number;
+      timeout?: number;
+      diff_mode?: boolean;
+      job_tags?: string;
+      skip_tags?: string;
+      extra_vars?: object | string;
+      credentials?: number[];
+    };
+    if (payload?.inventory?.id) {
+      data.inventory = payload.inventory.id;
+    }
+    if (payload?.jobType) {
+      data.job_type = payload.jobType;
+    }
+    if (payload?.executionEnvironment?.id) {
+      data.execution_environment = payload.executionEnvironment.id;
+    }
+    if (payload?.forks || payload.forks === 0) {
+      data.forks = payload.forks;
+    }
+    if (payload?.limit) {
+      data.limit = payload.limit;
+    }
+    if (payload?.verbosity?.id !== undefined) {
+      data.verbosity = payload.verbosity.id;
+    }
+    if (payload?.jobSliceCount || payload.jobSliceCount === 0) {
+      data.job_slice_count = payload.jobSliceCount;
+    }
+    if (payload?.timeout || payload.timeout === 0) {
+      data.timeout = payload.timeout;
+    }
+    if (payload?.diffMode || payload.diffMode === false) {
+      data.diff_mode = payload.diffMode;
+    }
+    if (payload?.jobTags) {
+      data.job_tags = payload.jobTags;
+    }
+    if (payload?.skipTags) {
+      data.skip_tags = payload.skipTags;
+    }
+
+    if (payload?.credentials?.length) {
+      const seen = new Set();
+      const duplicates: string[] = [];
+      payload.credentials.some(currentObject => {
+        if (!currentObject.credential_type) {
+          return false;
+        }
+        if (seen.size === seen.add(currentObject.credential_type).size) {
+          const credentialTypeName =
+            currentObject.summary_fields?.credential_type?.name ||
+            currentObject.name ||
+            'Unknown';
+          duplicates.push(credentialTypeName);
+          return true;
+        }
+        return false;
+      });
+      if (duplicates.length) {
+        this.logger.error(
+          `Cannot assign multiple credentials of the same type. Duplicated credential types are: ${duplicates.join(', ')}`,
+        );
+        throw new Error(
+          `Cannot assign multiple credentials of the same type. Duplicated credential types are: ${duplicates.join(
+            ', ',
+          )}`,
+        );
+      }
+      data.credentials = payload.credentials
+        .filter(c => c.id !== undefined && c.id !== null)
+        .map(c => c.id);
+    }
+
+    let templateID;
+    const urlSearchParams = new URLSearchParams();
+    urlSearchParams.set('name', payload.template);
+    const templateIdEndpoint = `api/controller/v2/job_templates/?${decodeURIComponent(urlSearchParams.toString())}`;
+    try {
+      const templateResponse = await this.executeGetRequest(
+        templateIdEndpoint,
+        token,
+      );
+      const templateJsonResp = await templateResponse.json();
+
+      if (!templateJsonResp.results || templateJsonResp.results.length === 0) {
+        this.logger.error(
+          `No job template found with name: ${payload.template}. Please check the template name and access.`,
+        );
+        throw new Error(`No job template found with name: ${payload.template}`);
+      }
+      templateID = templateJsonResp.results[0].id;
+    } catch (e) {
+      this.logger.error(
+        `Failed to fetch job template ${payload.template}. Please make sure that the template name is correct and template is available on AAP. ${e}`,
+      );
+      throw e;
+    }
+
+    const endPoint = `api/controller/v2/job_templates/${templateID}/launch/`;
+
+    this.logger.info(`Launching job template without waiting for completion.`);
+    const response = await this.executePostRequest(endPoint, token, data);
+    const jobResponseJson = await response.json();
+    const jobID = jobResponseJson.job;
+
+    return {
+      id: jobID,
+      status: 'pending',
+      url: `${this.getBaseUrl()}/execution/jobs/playbook/${jobID}/output`,
+      launchedAt: new Date().toISOString(),
+    };
+  }
+
+  /**
+   * Fetches current job status and events for a given job ID.
+   * Uses service account token from config instead of user token.
+   */
+  public async getJobStatus(jobID: number): Promise<{
+    id: number;
+    status: string;
+    events?: any[];
+    url: string;
+    finishedAt?: string;
+  }> {
+    const token = this.ansibleConfig.rhaap?.token;
+    if (!token) {
+      throw new Error('AAP service account token not configured');
+    }
+
+    const endPoint = `api/controller/v2/jobs/${jobID}/`;
+    const jobDetailResponse = await this.executeGetRequest(endPoint, token);
+    const jobData = await jobDetailResponse.json();
+
+    const result: any = {
+      id: jobID,
+      status: jobData.status,
+      url: `${this.getBaseUrl()}/execution/jobs/playbook/${jobID}/output`,
+    };
+
+    if (
+      ['successful', 'failed', 'error', 'canceled'].includes(
+        jobData.status?.toLowerCase(),
+      )
+    ) {
+      result.events = await this.fetchEvents(jobID, token);
+      result.finishedAt = jobData.finished;
+    }
+
+    return result;
+  }
+
+  /**
+   * Batch fetch job statuses for multiple job IDs.
+   * Optimized for task list display.
+   */
+  public async getJobStatusBatch(jobIDs: number[]): Promise<
+    Map<
+      number,
+      {
+        id: number;
+        status: string;
+        url: string;
+      }
+    >
+  > {
+    const token = this.ansibleConfig.rhaap?.token;
+    if (!token) {
+      throw new Error('AAP service account token not configured');
+    }
+
+    const results = new Map();
+
+    const BATCH_SIZE = 10;
+    for (let i = 0; i < jobIDs.length; i += BATCH_SIZE) {
+      const batch = jobIDs.slice(i, i + BATCH_SIZE);
+      const promises = batch.map(async jobID => {
+        try {
+          const endPoint = `api/controller/v2/jobs/${jobID}/`;
+          const response = await this.executeGetRequest(endPoint, token);
+          const jobData = await response.json();
+          return {
+            id: jobID,
+            status: jobData.status,
+            url: `${this.getBaseUrl()}/execution/jobs/playbook/${jobID}/output`,
+          };
+        } catch (error) {
+          this.logger.warn(`Failed to fetch job ${jobID}: ${error}`);
+          return {
+            id: jobID,
+            status: 'unknown',
+            url: `${this.getBaseUrl()}/execution/jobs/playbook/${jobID}/output`,
+          };
+        }
+      });
+
+      const batchResults = await Promise.all(promises);
+      batchResults.forEach(r => results.set(r.id, r));
+    }
+
+    return results;
   }
 
   public async cleanUp(payload: CleanUp, token: string): Promise<void> {

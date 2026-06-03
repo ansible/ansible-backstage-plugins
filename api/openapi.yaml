@@ -210,6 +210,44 @@ components:
           type: integer
       additionalProperties: false
 
+    AAPJobStatus:
+      type: object
+      required:
+        - id
+        - status
+        - url
+      properties:
+        id:
+          type: integer
+          description: AAP job ID
+        status:
+          type: string
+          description: AAP job status (e.g. pending, running, successful, failed, error, canceled)
+        url:
+          type: string
+          description: URL to view job in AAP console
+        events:
+          type: array
+          description: Job events (only present for completed jobs)
+          items:
+            type: object
+        finishedAt:
+          type: string
+          description: ISO timestamp when job finished (only for completed jobs)
+      additionalProperties: false
+
+    AAPJobStatusBatchResponse:
+      type: object
+      required:
+        - jobs
+      properties:
+        jobs:
+          type: object
+          description: Map of job IDs to their status
+          additionalProperties:
+            $ref: '#/components/schemas/AAPJobStatus'
+      additionalProperties: false
+
 paths:
   /health:
     get:
@@ -351,6 +389,138 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
+
+  /ansible/jobs/{jobId}:
+    get:
+      operationId: getJobStatus
+      summary: Get AAP job status by job ID
+      description: |
+        Fetches the current status of an AAP job using its job ID.
+        Uses the service account token from configuration, not the user's OAuth token.
+        **Permissions**: Requires the Backstage catalog **entity read** permission (`catalog.entity.read`).
+      tags:
+        - AAP Sync
+      security:
+        - JWT: []
+      parameters:
+        - name: jobId
+          in: path
+          required: true
+          schema:
+            type: integer
+          description: AAP job ID
+      responses:
+        '200':
+          description: Job status retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AAPJobStatus'
+        '400':
+          description: Invalid job ID
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Forbidden - insufficient permissions
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Job not found or insufficient AAP permissions
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ErrorResponse'
+                  - type: object
+                    required:
+                      - id
+                      - status
+                    properties:
+                      id:
+                        type: integer
+                      status:
+                        type: string
+                        enum:
+                          - unknown
+        '500':
+          description: Failed to fetch job status
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ErrorResponse'
+                  - type: object
+                    properties:
+                      details:
+                        type: string
+        '503':
+          description: AAP service account not configured
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /ansible/jobs/batch:
+    post:
+      operationId: getJobStatusBatch
+      summary: Batch fetch AAP job statuses
+      description: |
+        Fetches status for multiple AAP jobs in a single request.
+        Optimized for task list display. Uses service account token from configuration.
+        **Permissions**: Requires the Backstage catalog **entity read** permission (`catalog.entity.read`).
+      tags:
+        - AAP Sync
+      security:
+        - JWT: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - jobIds
+              properties:
+                jobIds:
+                  type: array
+                  items:
+                    type: integer
+                  description: Array of AAP job IDs to fetch status for
+              additionalProperties: false
+      responses:
+        '200':
+          description: Job statuses retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AAPJobStatusBatchResponse'
+        '400':
+          description: Invalid request body (jobIds must be an array)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Forbidden - insufficient permissions
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Failed to fetch job statuses
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ErrorResponse'
+                  - type: object
+                    properties:
+                      details:
+                        type: string
 
   /ansible/sync/status:
     get:

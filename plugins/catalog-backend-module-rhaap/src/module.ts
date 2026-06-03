@@ -139,6 +139,7 @@ export const catalogModuleRhaap = createBackendModule({
               allowedExternalAccessSubjects.length > 0
                 ? allowedExternalAccessSubjects
                 : undefined,
+            ansibleService: ansibleService,
           })) as any,
         );
       },

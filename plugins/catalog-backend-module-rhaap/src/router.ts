@@ -37,6 +37,7 @@ import {
 import { CatalogClient } from '@backstage/catalog-client';
 import { PAHCollectionProvider } from './providers/PAHCollectionProvider';
 import { AnsibleGitContentsProvider } from './providers/AnsibleGitContentsProvider';
+import { IAAPService } from '@ansible/backstage-rhaap-common';
 import {
   SyncFilter,
   parseSourceId,
@@ -80,6 +81,7 @@ export async function createRouter(options: {
   permissions: PermissionsService;
   ansibleGitContentsProviders?: AnsibleGitContentsProvider[];
   allowedExternalAccessSubjects?: string[];
+  ansibleService: IAAPService;
 }): Promise<express.Router> {
   const {
     logger,
@@ -96,6 +98,7 @@ export async function createRouter(options: {
     permissions,
     ansibleGitContentsProviders = [],
     allowedExternalAccessSubjects,
+    ansibleService,
   } = options;
   const router = Router();
   const scmClientFactory = new ScmClientFactory({ rootConfig: config, logger });
@@ -951,6 +954,111 @@ export async function createRouter(options: {
       }
 
       response.status(200).json({ results });
+    },
+  );
+
+  /**
+   * GET /ansible/jobs/:jobId
+   * Fetch AAP job status by job ID
+   * Uses service account token from config
+   */
+  router.get(
+    '/ansible/jobs/:jobId',
+    createPermissionCheckMiddleware({ httpAuth, permissions }, [
+      catalogEntityReadPermission,
+    ]),
+    async (request, response) => {
+      const perms = response.locals.permissions as Record<string, boolean>;
+      if (!perms[catalogEntityReadPermission.name]) {
+        response
+          .status(403)
+          .json({ error: 'Forbidden: insufficient permissions' });
+        return;
+      }
+
+      const jobId = parseInt(request.params.jobId, 10);
+      if (isNaN(jobId)) {
+        response.status(400).json({ error: 'Invalid job ID' });
+        return;
+      }
+
+      try {
+        logger.info(`Fetching AAP job status for job ${jobId}`);
+        const jobStatus = await ansibleService.getJobStatus(jobId);
+        response.status(200).json(jobStatus);
+      } catch (error: any) {
+        logger.error(
+          `Failed to fetch job status for ${jobId}: ${error.message}`,
+        );
+        if (error.message?.includes('403')) {
+          response.status(404).json({
+            error: 'Job not found or insufficient permissions',
+            id: jobId,
+            status: 'unknown',
+          });
+        } else if (error.message?.includes('not configured')) {
+          response.status(503).json({
+            error: 'AAP service account not configured',
+          });
+        } else {
+          response.status(500).json({
+            error: 'Failed to fetch job status',
+            details: error.message,
+          });
+        }
+      }
+    },
+  );
+
+  /**
+   * POST /ansible/jobs/batch
+   * Fetch multiple job statuses (for task list)
+   * Body: { jobIds: number[] }
+   */
+  router.post(
+    '/ansible/jobs/batch',
+    express.json(),
+    createPermissionCheckMiddleware({ httpAuth, permissions }, [
+      catalogEntityReadPermission,
+    ]),
+    async (request, response) => {
+      const perms = response.locals.permissions as Record<string, boolean>;
+      if (!perms[catalogEntityReadPermission.name]) {
+        response
+          .status(403)
+          .json({ error: 'Forbidden: insufficient permissions' });
+        return;
+      }
+
+      const { jobIds } = request.body as { jobIds?: number[] };
+
+      if (!Array.isArray(jobIds)) {
+        response.status(400).json({ error: 'jobIds must be an array' });
+        return;
+      }
+
+      const validJobIds = jobIds.filter(
+        id => typeof id === 'number' && !isNaN(id),
+      );
+
+      if (validJobIds.length === 0) {
+        response.status(200).json({ jobs: {} });
+        return;
+      }
+
+      try {
+        logger.info(`Fetching batch job status for ${validJobIds.length} jobs`);
+        const jobStatuses = await ansibleService.getJobStatusBatch(validJobIds);
+
+        const result = Object.fromEntries(jobStatuses);
+        response.status(200).json({ jobs: result });
+      } catch (error: any) {
+        logger.error(`Failed to fetch batch job statuses: ${error.message}`);
+        response.status(500).json({
+          error: 'Failed to fetch job statuses',
+          details: error.message,
+        });
+      }
     },
   );
 

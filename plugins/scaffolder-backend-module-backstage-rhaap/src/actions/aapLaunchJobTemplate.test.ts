@@ -34,18 +34,20 @@ describe('ansible-aap:jobTemplate:launch', () => {
     await expect(action.handler(ctx as any)).rejects.toThrow(
       'Authorization token not provided.',
     );
-    expect(mockAnsibleService.launchJobTemplate).not.toHaveBeenCalled();
+    expect(mockAnsibleService.launchJobTemplateNoWait).not.toHaveBeenCalled();
   });
 
   it('should launch job template', async () => {
     const expectedResponse = {
       id: 1,
-      status: 'success',
-      events: [],
+      status: 'pending',
       url: `https//test.com/execution/jobs/playbook/1/output`,
+      launchedAt: '2024-01-01T00:00:00.000Z',
     };
 
-    mockAnsibleService.launchJobTemplate.mockResolvedValue(expectedResponse);
+    mockAnsibleService.launchJobTemplateNoWait.mockResolvedValue(
+      expectedResponse,
+    );
 
     // @ts-ignore
     await action.handler({ ...mockContext });
@@ -53,7 +55,7 @@ describe('ansible-aap:jobTemplate:launch', () => {
   });
 
   it('should fail with message', async () => {
-    mockAnsibleService.launchJobTemplate.mockRejectedValue(
+    mockAnsibleService.launchJobTemplateNoWait.mockRejectedValue(
       new Error('Test error message.'),
     );
 
@@ -68,7 +70,7 @@ describe('ansible-aap:jobTemplate:launch', () => {
   });
 
   it('should fail without message', async () => {
-    mockAnsibleService.launchJobTemplate.mockRejectedValue(
+    mockAnsibleService.launchJobTemplateNoWait.mockRejectedValue(
       new Error('Something went wrong.'),
     );
     let error;
@@ -82,7 +84,12 @@ describe('ansible-aap:jobTemplate:launch', () => {
   });
 
   it('strips full AAP inventory and normalizes credentials before launch', async () => {
-    mockAnsibleService.launchJobTemplate.mockResolvedValue({ id: 1 });
+    mockAnsibleService.launchJobTemplateNoWait.mockResolvedValue({
+      id: 1,
+      status: 'pending',
+      url: 'https://test.com/execution/jobs/playbook/1/output',
+      launchedAt: '2024-01-01T00:00:00.000Z',
+    });
 
     const fullInventory = {
       id: 2,
@@ -115,7 +122,7 @@ describe('ansible-aap:jobTemplate:launch', () => {
 
     await action.handler(ctx as any);
 
-    expect(mockAnsibleService.launchJobTemplate).toHaveBeenCalledWith(
+    expect(mockAnsibleService.launchJobTemplateNoWait).toHaveBeenCalledWith(
       expect.objectContaining({
         template: 'Test job template',
         inventory: { id: 2, name: 'AWS Inventory' },

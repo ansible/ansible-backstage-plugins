@@ -10,6 +10,11 @@ import {
 import { scaffolderApiRef } from '@backstage/plugin-scaffolder-react';
 import { mockScaffolderApi } from '../../tests/scaffolderApi_utils';
 import { rootRouteRef } from '../../routes';
+import { discoveryApiRef } from '@backstage/core-plugin-api';
+
+const mockDiscoveryApi = {
+  getBaseUrl: jest.fn().mockResolvedValue('http://localhost:7007/api/catalog'),
+};
 
 jest.mock('@backstage/plugin-permission-react', () => ({
   RequirePermission: (props: any) => props.children,
@@ -65,7 +70,12 @@ describe('My items', () => {
 
   const render = (children: JSX.Element) => {
     return renderInTestApp(
-      <TestApiProvider apis={[[scaffolderApiRef, mockScaffolderApi]]}>
+      <TestApiProvider
+        apis={[
+          [scaffolderApiRef, mockScaffolderApi],
+          [discoveryApiRef, mockDiscoveryApi],
+        ]}
+      >
         <>{children}</>
       </TestApiProvider>,
       {
@@ -115,7 +125,12 @@ describe('HistoryRoutesPage notifications', () => {
 
   const renderPage = () => {
     return renderInTestApp(
-      <TestApiProvider apis={[[scaffolderApiRef, mockScaffolderApi]]}>
+      <TestApiProvider
+        apis={[
+          [scaffolderApiRef, mockScaffolderApi],
+          [discoveryApiRef, mockDiscoveryApi],
+        ]}
+      >
         <HistoryRoutesPage />
       </TestApiProvider>,
       {

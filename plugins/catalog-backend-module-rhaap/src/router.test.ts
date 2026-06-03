@@ -77,6 +77,7 @@ import { CatalogClient } from '@backstage/catalog-client';
 import type { AnsibleGitContentsProvider } from './providers/AnsibleGitContentsProvider';
 import { ConfigReader } from '@backstage/config';
 import { SCM_INTEGRATION_AUTH_FAILED_CODE } from '@ansible/backstage-rhaap-common/constants';
+import { mockAnsibleService } from './mock/mockIAAPService';
 
 function createMockGitContentsProvider(
   overrides: {
@@ -243,6 +244,7 @@ describe('createRouter', () => {
       catalogClient: mockCatalogClient,
       permissions: mockPermissions,
       ansibleGitContentsProviders: [],
+        ansibleService: mockAnsibleService,
     });
 
     app = express().use(router);
@@ -399,6 +401,7 @@ describe('createRouter', () => {
           scheduler: mockScheduler,
           permissions: mockPermissions,
           ansibleGitContentsProviders: [],
+        ansibleService: mockAnsibleService,
         }),
       );
 
@@ -438,6 +441,7 @@ describe('createRouter', () => {
           scheduler: mockScheduler,
           permissions: mockPermissions,
           ansibleGitContentsProviders: [],
+        ansibleService: mockAnsibleService,
         }),
       );
 
@@ -475,6 +479,7 @@ describe('createRouter', () => {
           scheduler: mockScheduler,
           permissions: mockPermissions,
           ansibleGitContentsProviders: [],
+        ansibleService: mockAnsibleService,
         }),
       );
 
@@ -512,6 +517,7 @@ describe('createRouter', () => {
           scheduler: mockScheduler,
           permissions: mockPermissions,
           ansibleGitContentsProviders: [],
+        ansibleService: mockAnsibleService,
         }),
       );
 
@@ -552,6 +558,7 @@ describe('createRouter', () => {
           scheduler: mockScheduler,
           permissions: mockPermissions,
           ansibleGitContentsProviders: [],
+        ansibleService: mockAnsibleService,
         }),
       );
 
@@ -593,6 +600,7 @@ describe('createRouter', () => {
           scheduler: mockScheduler,
           permissions: mockPermissions,
           ansibleGitContentsProviders: [],
+        ansibleService: mockAnsibleService,
         }),
       );
 
@@ -634,6 +642,7 @@ describe('createRouter', () => {
           scheduler: mockScheduler,
           permissions: mockPermissions,
           ansibleGitContentsProviders: [],
+        ansibleService: mockAnsibleService,
         }),
       );
 
@@ -671,6 +680,7 @@ describe('createRouter', () => {
           scheduler: mockScheduler,
           permissions: mockPermissions,
           ansibleGitContentsProviders: [],
+        ansibleService: mockAnsibleService,
         }),
       );
 
@@ -710,6 +720,7 @@ describe('createRouter', () => {
           scheduler: mockScheduler,
           permissions: mockPermissions,
           ansibleGitContentsProviders: [],
+        ansibleService: mockAnsibleService,
         }),
       );
 
@@ -747,6 +758,7 @@ describe('createRouter', () => {
           scheduler: mockScheduler,
           permissions: mockPermissions,
           ansibleGitContentsProviders: [],
+        ansibleService: mockAnsibleService,
         }),
       );
 
@@ -809,6 +821,7 @@ describe('createRouter', () => {
           scheduler: mockScheduler,
           permissions: mockPermissions,
           ansibleGitContentsProviders: [],
+        ansibleService: mockAnsibleService,
         }),
       );
 
@@ -846,6 +859,7 @@ describe('createRouter', () => {
           scheduler: mockScheduler,
           permissions: mockPermissions,
           ansibleGitContentsProviders: [],
+        ansibleService: mockAnsibleService,
         }),
       );
 
@@ -889,6 +903,7 @@ describe('createRouter', () => {
           scheduler: mockScheduler,
           permissions: mockPermissions,
           ansibleGitContentsProviders: [],
+        ansibleService: mockAnsibleService,
         }),
       );
 
@@ -940,6 +955,7 @@ describe('createRouter', () => {
           scheduler: mockScheduler,
           permissions: mockPermissions,
           ansibleGitContentsProviders: [],
+        ansibleService: mockAnsibleService,
         }),
       );
 
@@ -996,6 +1012,7 @@ describe('createRouter', () => {
           scheduler: mockScheduler,
           permissions: mockPermissions,
           ansibleGitContentsProviders: [],
+        ansibleService: mockAnsibleService,
           allowedExternalAccessSubjects: options.allowedExternalAccessSubjects,
         }),
       );
@@ -1627,6 +1644,7 @@ describe('createRouter', () => {
         catalogClient: mockCatalogClient,
         scheduler: mockScheduler,
         permissions: mockPermissions,
+        ansibleService: mockAnsibleService,
       });
       const appNoGitlab = express().use(routerNoGitlab);
 
@@ -1673,6 +1691,7 @@ describe('createRouter', () => {
         catalogClient: mockCatalogClient,
         scheduler: mockScheduler,
         permissions: mockPermissions,
+        ansibleService: mockAnsibleService,
       });
       const appWithoutToken = express().use(routerWithoutToken);
 
@@ -1954,6 +1973,7 @@ describe('createRouter', () => {
         catalogClient: mockCatalogClient,
         scheduler: mockScheduler,
         permissions: mockPermissions,
+        ansibleService: mockAnsibleService,
       });
 
       const appWithSkipTls = express().use(routerWithSkipTls);
@@ -2045,6 +2065,7 @@ describe('createRouter', () => {
         catalogClient: mockCatalogClient,
         scheduler: mockScheduler,
         permissions: mockPermissions,
+        ansibleService: mockAnsibleService,
       });
 
       const appWithApiBase = express().use(routerWithApiBase);
@@ -2310,6 +2331,7 @@ describe('createRouter', () => {
         catalogClient: mockCatalogClient,
         scheduler: mockScheduler,
         permissions: mockPermissions,
+        ansibleService: mockAnsibleService,
       });
       const appNoGithub = express().use(routerNoGithub);
 
@@ -2346,6 +2368,7 @@ describe('createRouter', () => {
         catalogClient: mockCatalogClient,
         scheduler: mockScheduler,
         permissions: mockPermissions,
+        ansibleService: mockAnsibleService,
       });
       const appWithoutToken = express().use(routerWithoutToken);
 
@@ -2388,6 +2411,7 @@ describe('createRouter', () => {
         catalogClient: mockCatalogClient,
         scheduler: mockScheduler,
         permissions: mockPermissions,
+        ansibleService: mockAnsibleService,
       });
 
       const appWithGitHub = express().use(routerWithGitHub);
@@ -2448,6 +2472,7 @@ describe('createRouter', () => {
         catalogClient: mockCatalogClient,
         scheduler: mockScheduler,
         permissions: mockPermissions,
+        ansibleService: mockAnsibleService,
       });
 
       const appWithGitHub = express().use(routerWithGitHub);
@@ -2508,6 +2533,7 @@ describe('createRouter', () => {
         catalogClient: mockCatalogClient,
         scheduler: mockScheduler,
         permissions: mockPermissions,
+        ansibleService: mockAnsibleService,
       });
 
       const appWithGitHub = express().use(routerWithGitHub);
@@ -2557,6 +2583,7 @@ describe('createRouter', () => {
         catalogClient: mockCatalogClient,
         scheduler: mockScheduler,
         permissions: mockPermissions,
+        ansibleService: mockAnsibleService,
       });
 
       const appWithGitHub = express().use(routerWithGitHub);
@@ -2609,6 +2636,7 @@ describe('createRouter', () => {
         catalogClient: mockCatalogClient,
         scheduler: mockScheduler,
         permissions: mockPermissions,
+        ansibleService: mockAnsibleService,
       });
 
       const appWithGitHub = express().use(routerWithGitHub);
@@ -2667,6 +2695,7 @@ describe('createRouter', () => {
         catalogClient: mockCatalogClient,
         scheduler: mockScheduler,
         permissions: mockPermissions,
+        ansibleService: mockAnsibleService,
       });
 
       const appWithGHE = express().use(routerWithGHE);
@@ -2950,6 +2979,7 @@ describe('createRouter', () => {
           scheduler: mockScheduler,
           permissions: mockPermissions,
           ansibleGitContentsProviders: [mockGitProvider],
+        ansibleService: mockAnsibleService,
         }),
       );
 
@@ -2992,6 +3022,7 @@ describe('createRouter', () => {
           scheduler: mockScheduler,
           permissions: mockPermissions,
           ansibleGitContentsProviders: [mockGitProvider],
+        ansibleService: mockAnsibleService,
         }),
       );
 
@@ -3021,6 +3052,7 @@ describe('createRouter', () => {
       scheduler: mockScheduler,
       permissions: mockPermissions,
       ansibleGitContentsProviders: providers,
+        ansibleService: mockAnsibleService,
     });
     return express().use(express.json()).use(router);
   }
@@ -3244,6 +3276,7 @@ describe('createRouter', () => {
         scheduler: mockScheduler,
         permissions: mockPermissions,
         ansibleGitContentsProviders: [],
+        ansibleService: mockAnsibleService,
       });
       const testApp = express().use(router);
 
@@ -3282,6 +3315,7 @@ describe('createRouter', () => {
         scheduler: mockScheduler,
         permissions: mockPermissions,
         ansibleGitContentsProviders: [],
+        ansibleService: mockAnsibleService,
       });
       const testApp = express().use(router);
 
@@ -3323,6 +3357,7 @@ describe('createRouter', () => {
         scheduler: mockScheduler,
         permissions: mockPermissions,
         ansibleGitContentsProviders: [],
+        ansibleService: mockAnsibleService,
       });
       const testApp = express().use(router);
 
@@ -3374,6 +3409,7 @@ describe('createRouter', () => {
         scheduler: mockScheduler,
         permissions: mockPermissions,
         ansibleGitContentsProviders: [],
+        ansibleService: mockAnsibleService,
       });
       const testApp = express().use(router);
       const response = await request(testApp).get(
@@ -3535,6 +3571,7 @@ describe('createRouter', () => {
         scheduler: mockScheduler,
         permissions: mockPermissions,
         ansibleGitContentsProviders: [] as AnsibleGitContentsProvider[],
+        ansibleService: mockAnsibleService,
       };
       const { ansibleGitContentsProviders: _omit, ...rest } = opts;
       const router = await createRouter(
@@ -3563,6 +3600,7 @@ describe('createRouter', () => {
         scheduler: mockScheduler,
         permissions: mockPermissions,
         ansibleGitContentsProviders: [],
+        ansibleService: mockAnsibleService,
       });
 
       const testApp = express().use(routerWithInvalidLogger);
@@ -3587,6 +3625,7 @@ describe('createRouter', () => {
         scheduler: mockScheduler,
         permissions: mockPermissions,
         ansibleGitContentsProviders: [],
+        ansibleService: mockAnsibleService,
       });
 
       const testApp = express().use(routerWithInvalidProvider);
@@ -3613,6 +3652,7 @@ describe('createRouter', () => {
         scheduler: mockScheduler,
         permissions: mockPermissions,
         ansibleGitContentsProviders: [],
+        ansibleService: mockAnsibleService,
       });
 
       const testApp = express().use(routerWithInvalidProvider);
@@ -3807,6 +3847,7 @@ describe('createRouter', () => {
         scheduler: mockScheduler,
         permissions: mockPermissions,
         ansibleGitContentsProviders: [],
+        ansibleService: mockAnsibleService,
       });
       const appWithNoProviders = express().use(routerWithNoProviders);
 
@@ -3903,6 +3944,7 @@ describe('createRouter', () => {
         scheduler: mockScheduler,
         permissions: mockPermissions,
         ansibleGitContentsProviders: [],
+        ansibleService: mockAnsibleService,
       });
 
       appWithMultipleProviders = express().use(router);

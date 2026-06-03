@@ -45,7 +45,7 @@ export const launchJobTemplate = (ansibleServiceRef: IAAPService) => {
           normalized,
           'rhaap:launch-job-template',
         ) as LaunchJobTemplate;
-        jobResult = await ansibleServiceRef.launchJobTemplate(
+        jobResult = await ansibleServiceRef.launchJobTemplateNoWait(
           launchPayload,
           token,
         );
