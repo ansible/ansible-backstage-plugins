@@ -14,7 +14,7 @@ export type CIActivityCacheState = {
   timestamp: number;
 };
 
-type Listener = (state: CIActivityCacheState) => void;
+type Listener = (state: CIActivityCacheState | null) => void;
 
 let state: CIActivityCacheState | null = null;
 let entityKey: string | null = null;
@@ -30,10 +30,8 @@ function buildEntityKey(entities: Entity[]): string {
 }
 
 function notify(): void {
-  if (state) {
-    for (const listener of listeners) {
-      listener(state);
-    }
+  for (const listener of listeners) {
+    listener(state);
   }
 }
 
@@ -91,8 +89,8 @@ async function startLoading(
 
   state = {
     rows: [],
-    loading: false,
-    fetchingMore: true,
+    loading: true,
+    fetchingMore: false,
     error: null,
     timestamp: Date.now(),
   };
@@ -149,7 +147,7 @@ async function startLoading(
 
         state = {
           rows: buildRowsFromResults(allResults, entityMap),
-          loading: false,
+          loading: false, // first chunk arrived
           fetchingMore: true,
           error: null,
           timestamp: Date.now(),
@@ -204,8 +202,10 @@ function invalidate(): void {
   state = null;
   entityKey = null;
   fetchPromise = null;
+  notify();
 }
 
+/** @internal — test use only */
 function clear(): void {
   generation += 1;
   state = null;

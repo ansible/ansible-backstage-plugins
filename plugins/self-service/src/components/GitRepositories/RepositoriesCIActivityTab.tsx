@@ -49,7 +49,7 @@ export const RepositoriesCIActivityTab = ({
   const fetchApi = useApi(fetchApiRef);
 
   const [cacheState, setCacheState] = useState<CIActivityCacheState | null>(
-    ciActivityCache.getState(),
+    () => ciActivityCache.getState(),
   );
   const [statusFilter, setStatusFilter] = useState<string>('All');
   const [triggerFilter, setTriggerFilter] = useState<string>('All');
@@ -89,7 +89,7 @@ export const RepositoriesCIActivityTab = ({
   }, [discoveryApi, fetchApi, catalogApi, filterByEntity, cachedEntities]);
 
   const rows = useMemo(() => cacheState?.rows ?? [], [cacheState?.rows]);
-  const loading = !cacheState;
+  const loading = cacheState?.loading ?? !cacheState;
   const fetchingMore = cacheState?.fetchingMore ?? false;
   const error = cacheState?.error ?? null;
 
