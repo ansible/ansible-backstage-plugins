@@ -4229,4 +4229,468 @@ describe('AAPClient', () => {
       });
     });
   });
+
+  describe('launchJobTemplateNoWait', () => {
+    beforeEach(() => {
+      mockFetch = fetch as jest.Mock;
+    });
+
+    it('should launch job template without polling and return immediately', async () => {
+      const templateResponse = {
+        ok: true,
+        status: 200,
+        json: jest.fn().mockResolvedValue({
+          results: [{ id: 123, name: 'Test Template' }],
+        }),
+      };
+
+      const launchResponse = {
+        ok: true,
+        status: 201,
+        json: jest.fn().mockResolvedValue({
+          job: 456,
+        }),
+      };
+
+      mockFetch
+        .mockResolvedValueOnce(templateResponse)
+        .mockResolvedValueOnce(launchResponse);
+
+      const result = await client.launchJobTemplateNoWait(
+        {
+          template: 'Test Template',
+          jobType: 'run',
+        },
+        'test-token',
+      );
+
+      expect(result).toEqual({
+        id: 456,
+        status: 'pending',
+        url: 'https://test.example.com/execution/jobs/playbook/456/output',
+        launchedAt: expect.any(String),
+      });
+
+      // Verify it only called launch, not fetchResult or fetchEvents
+      expect(mockFetch).toHaveBeenCalledTimes(2);
+      expect(mockFetch).toHaveBeenCalledWith(
+        expect.stringContaining('/job_templates/'),
+        expect.any(Object),
+      );
+      expect(mockFetch).toHaveBeenCalledWith(
+        expect.stringContaining('/launch/'),
+        expect.any(Object),
+      );
+    });
+
+    it('should handle template not found error', async () => {
+      mockFetch.mockResolvedValue({
+        ok: true,
+        status: 200,
+        json: jest.fn().mockResolvedValue({
+          results: [],
+        }),
+      });
+
+      await expect(
+        client.launchJobTemplateNoWait(
+          {
+            template: 'Nonexistent Template',
+            jobType: 'run',
+          },
+          'test-token',
+        ),
+      ).rejects.toThrow(
+        'No job template found with name: Nonexistent Template',
+      );
+    });
+
+    it('should normalize inventory and credentials', async () => {
+      const templateResponse = {
+        ok: true,
+        status: 200,
+        json: jest.fn().mockResolvedValue({
+          results: [{ id: 123 }],
+        }),
+      };
+
+      const launchResponse = {
+        ok: true,
+        status: 201,
+        json: jest.fn().mockResolvedValue({
+          job: 789,
+        }),
+      };
+
+      mockFetch
+        .mockResolvedValueOnce(templateResponse)
+        .mockResolvedValueOnce(launchResponse);
+
+      await client.launchJobTemplateNoWait(
+        {
+          template: 'Test',
+          jobType: 'run',
+          inventory: { id: 5, name: 'Test Inventory' },
+          credentials: [
+            {
+              id: 10,
+              name: 'Cred1',
+              credential_type: 1,
+              summary_fields: { credential_type: { name: 'ssh' } },
+            },
+          ],
+        },
+        'test-token',
+      );
+
+      const launchCall = mockFetch.mock.calls[1];
+      const launchBody = JSON.parse(launchCall[1].body);
+
+      expect(launchBody.inventory).toBe(5);
+      expect(launchBody.credentials).toEqual([10]);
+    });
+  });
+
+  describe('getJobStatus', () => {
+    beforeEach(() => {
+      mockFetch = fetch as jest.Mock;
+    });
+
+    it('should fetch job status using service account token', async () => {
+      const jobResponse = {
+        ok: true,
+        status: 200,
+        json: jest.fn().mockResolvedValue({
+          id: 456,
+          status: 'running',
+          started: '2024-01-01T10:00:00Z',
+        }),
+      };
+
+      mockFetch.mockResolvedValue(jobResponse);
+
+      const result = await client.getJobStatus(456);
+
+      expect(result).toEqual({
+        id: 456,
+        status: 'running',
+        url: 'https://test.example.com/execution/jobs/playbook/456/output',
+      });
+
+      // Verify it used service account token
+      expect(mockFetch).toHaveBeenCalledWith(
+        expect.stringContaining('/jobs/456/'),
+        expect.objectContaining({
+          headers: expect.objectContaining({
+            Authorization: 'Bearer test-token',
+          }),
+        }),
+      );
+
+      // Should not fetch events for incomplete job
+      expect(mockFetch).toHaveBeenCalledTimes(1);
+    });
+
+    it('should fetch events for completed job', async () => {
+      const jobResponse = {
+        ok: true,
+        status: 200,
+        json: jest.fn().mockResolvedValue({
+          id: 456,
+          status: 'successful',
+          finished: '2024-01-01T10:30:00Z',
+        }),
+      };
+
+      const eventsResponse = {
+        ok: true,
+        status: 200,
+        json: jest.fn().mockResolvedValue({
+          results: [
+            { event_data: { msg: 'Task completed' } },
+            { event_data: { msg: 'All done' } },
+          ],
+          next: null,
+        }),
+      };
+
+      mockFetch
+        .mockResolvedValueOnce(jobResponse)
+        .mockResolvedValueOnce(eventsResponse);
+
+      const result = await client.getJobStatus(456);
+
+      expect(result).toEqual({
+        id: 456,
+        status: 'successful',
+        url: 'https://test.example.com/execution/jobs/playbook/456/output',
+        events: [
+          { event_data: { msg: 'Task completed' } },
+          { event_data: { msg: 'All done' } },
+        ],
+        finishedAt: '2024-01-01T10:30:00Z',
+      });
+
+      expect(mockFetch).toHaveBeenCalledTimes(2);
+    });
+
+    it('should handle all terminal statuses', async () => {
+      const statuses = ['successful', 'failed', 'error', 'canceled'];
+
+      for (const status of statuses) {
+        jest.clearAllMocks();
+
+        mockFetch
+          .mockResolvedValueOnce({
+            ok: true,
+            status: 200,
+            json: jest.fn().mockResolvedValue({
+              id: 123,
+              status,
+              finished: '2024-01-01T11:00:00Z',
+            }),
+          })
+          .mockResolvedValueOnce({
+            ok: true,
+            status: 200,
+            json: jest.fn().mockResolvedValue({
+              results: [],
+              next: null,
+            }),
+          });
+
+        const result = await client.getJobStatus(123);
+
+        expect(result.events).toBeDefined();
+        expect(result.finishedAt).toBe('2024-01-01T11:00:00Z');
+      }
+    });
+
+    it('should throw error when service account token not configured', async () => {
+      const mockCatalogRhaapConfigLocal = {
+        keys: jest.fn().mockReturnValue([]),
+        getConfig: jest.fn().mockReturnValue(undefined),
+      };
+
+      const mockConfigNoToken = {
+        getOptionalConfig: jest.fn().mockImplementation((path: string) => {
+          if (path === 'catalog.providers.rhaap') {
+            return mockCatalogRhaapConfigLocal;
+          }
+          return undefined;
+        }),
+        getConfig: jest.fn().mockImplementation((key: string) => {
+          if (key === 'ansible') {
+            return {
+              getOptionalString: jest
+                .fn()
+                .mockImplementation((path: string) => {
+                  const paths: Record<string, string | undefined> = {
+                    'rhaap.baseUrl': 'https://test.example.com',
+                    'rhaap.token': undefined, // No service account token
+                  };
+                  return paths[path];
+                }),
+              getOptionalBoolean: jest.fn().mockReturnValue(true),
+              has: jest.fn().mockReturnValue(false),
+              getConfig: jest.fn().mockImplementation((nestedKey: string) => {
+                if (nestedKey === 'rhaap') {
+                  return {
+                    getString: jest
+                      .fn()
+                      .mockReturnValue('https://test.example.com'),
+                    getOptionalString: jest.fn().mockReturnValue(undefined),
+                    getOptionalBoolean: jest.fn().mockReturnValue(true),
+                  };
+                }
+                throw new Error(`Config not found: ${nestedKey}`);
+              }),
+            };
+          }
+          return mockConfig.getConfig(key);
+        }),
+      } as any;
+
+      const clientNoToken = new AAPClient({
+        rootConfig: mockConfigNoToken,
+        logger: mockLogger,
+      });
+
+      await expect(clientNoToken.getJobStatus(123)).rejects.toThrow(
+        'AAP service account token not configured',
+      );
+    });
+  });
+
+  describe('getJobStatusBatch', () => {
+    beforeEach(() => {
+      mockFetch = fetch as jest.Mock;
+    });
+
+    it('should fetch multiple job statuses in parallel', async () => {
+      const jobIds = [100, 200, 300];
+
+      mockFetch
+        .mockResolvedValueOnce({
+          ok: true,
+          status: 200,
+          json: jest.fn().mockResolvedValue({
+            id: 100,
+            status: 'successful',
+          }),
+        })
+        .mockResolvedValueOnce({
+          ok: true,
+          status: 200,
+          json: jest.fn().mockResolvedValue({
+            id: 200,
+            status: 'running',
+          }),
+        })
+        .mockResolvedValueOnce({
+          ok: true,
+          status: 200,
+          json: jest.fn().mockResolvedValue({
+            id: 300,
+            status: 'failed',
+          }),
+        });
+
+      const result = await client.getJobStatusBatch(jobIds);
+
+      expect(result.size).toBe(3);
+      expect(result.get(100)).toEqual({
+        id: 100,
+        status: 'successful',
+        url: 'https://test.example.com/execution/jobs/playbook/100/output',
+      });
+      expect(result.get(200)).toEqual({
+        id: 200,
+        status: 'running',
+        url: 'https://test.example.com/execution/jobs/playbook/200/output',
+      });
+      expect(result.get(300)).toEqual({
+        id: 300,
+        status: 'failed',
+        url: 'https://test.example.com/execution/jobs/playbook/300/output',
+      });
+    });
+
+    it('should batch requests in groups of 10', async () => {
+      const jobIds = Array.from({ length: 25 }, (_, i) => i + 1);
+
+      mockFetch.mockImplementation(() =>
+        Promise.resolve({
+          ok: true,
+          status: 200,
+          json: jest.fn().mockResolvedValue({
+            id: 1,
+            status: 'successful',
+          }),
+        }),
+      );
+
+      await client.getJobStatusBatch(jobIds);
+
+      // Should make 25 calls total, but in 3 batches (10 + 10 + 5)
+      expect(mockFetch).toHaveBeenCalledTimes(25);
+    });
+
+    it('should handle individual job fetch failures gracefully', async () => {
+      const jobIds = [100, 200, 300];
+
+      mockFetch
+        .mockResolvedValueOnce({
+          ok: true,
+          status: 200,
+          json: jest.fn().mockResolvedValue({
+            id: 100,
+            status: 'successful',
+          }),
+        })
+        .mockRejectedValueOnce(new Error('Network error'))
+        .mockResolvedValueOnce({
+          ok: true,
+          status: 200,
+          json: jest.fn().mockResolvedValue({
+            id: 300,
+            status: 'running',
+          }),
+        });
+
+      const result = await client.getJobStatusBatch(jobIds);
+
+      expect(result.size).toBe(3);
+      expect(result.get(100)?.status).toBe('successful');
+      expect(result.get(200)?.status).toBe('unknown'); // Failed fetch
+      expect(result.get(300)?.status).toBe('running');
+
+      // Logger should warn about the failure
+      expect(mockLogger.warn).toHaveBeenCalledWith(
+        expect.stringContaining('Failed to fetch job 200'),
+      );
+    });
+
+    it('should throw error when service account token not configured', async () => {
+      const mockCatalogRhaapConfigLocal = {
+        keys: jest.fn().mockReturnValue([]),
+        getConfig: jest.fn().mockReturnValue(undefined),
+      };
+
+      const mockConfigNoToken = {
+        getOptionalConfig: jest.fn().mockImplementation((path: string) => {
+          if (path === 'catalog.providers.rhaap') {
+            return mockCatalogRhaapConfigLocal;
+          }
+          return undefined;
+        }),
+        getConfig: jest.fn().mockImplementation((key: string) => {
+          if (key === 'ansible') {
+            return {
+              getOptionalString: jest
+                .fn()
+                .mockImplementation((path: string) => {
+                  const paths: Record<string, string | undefined> = {
+                    'rhaap.baseUrl': 'https://test.example.com',
+                    'rhaap.token': undefined, // No service account token
+                  };
+                  return paths[path];
+                }),
+              getOptionalBoolean: jest.fn().mockReturnValue(true),
+              has: jest.fn().mockReturnValue(false),
+              getConfig: jest.fn().mockImplementation((nestedKey: string) => {
+                if (nestedKey === 'rhaap') {
+                  return {
+                    getString: jest
+                      .fn()
+                      .mockReturnValue('https://test.example.com'),
+                    getOptionalString: jest.fn().mockReturnValue(undefined),
+                    getOptionalBoolean: jest.fn().mockReturnValue(true),
+                  };
+                }
+                throw new Error(`Config not found: ${nestedKey}`);
+              }),
+            };
+          }
+          return mockConfig.getConfig(key);
+        }),
+      } as any;
+
+      const clientNoToken = new AAPClient({
+        rootConfig: mockConfigNoToken,
+        logger: mockLogger,
+      });
+
+      await expect(clientNoToken.getJobStatusBatch([123])).rejects.toThrow(
+        'AAP service account token not configured',
+      );
+    });
+
+    it('should handle empty job ID array', async () => {
+      const result = await client.getJobStatusBatch([]);
+
+      expect(result.size).toBe(0);
+      expect(mockFetch).not.toHaveBeenCalled();
+    });
+  });
 });

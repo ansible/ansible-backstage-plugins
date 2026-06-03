@@ -3584,6 +3584,225 @@ describe('createRouter', () => {
     });
   });
 
+  describe('GET /ansible/jobs/:jobId', () => {
+    beforeEach(() => {
+      mockHttpAuth.credentials.mockResolvedValue({} as any);
+      mockPermissions.authorizeConditional.mockResolvedValue([
+        { result: AuthorizeResult.ALLOW },
+      ]);
+    });
+
+    it('should return job status for valid job ID', async () => {
+      mockAnsibleService.getJobStatus.mockResolvedValue({
+        id: 123,
+        status: 'successful',
+        url: 'https://test.example.com/execution/jobs/playbook/123/output',
+        events: [{ event_data: { msg: 'Done' } }],
+        finishedAt: '2024-01-01T10:00:00Z',
+      });
+
+      const response = await request(app).get('/ansible/jobs/123');
+
+      expect(response.status).toBe(200);
+      expect(response.body).toEqual({
+        id: 123,
+        status: 'successful',
+        url: 'https://test.example.com/execution/jobs/playbook/123/output',
+        events: [{ event_data: { msg: 'Done' } }],
+        finishedAt: '2024-01-01T10:00:00Z',
+      });
+      expect(mockAnsibleService.getJobStatus).toHaveBeenCalledWith(123);
+    });
+
+    it('should return 400 for invalid job ID', async () => {
+      const response = await request(app).get('/ansible/jobs/invalid');
+
+      expect(response.status).toBe(400);
+      expect(response.body).toEqual({ error: 'Invalid job ID' });
+      expect(mockAnsibleService.getJobStatus).not.toHaveBeenCalled();
+    });
+
+    it('should return 403 when user lacks permissions', async () => {
+      mockPermissions.authorizeConditional.mockResolvedValueOnce([
+        { result: AuthorizeResult.DENY },
+      ]);
+
+      const response = await request(app).get('/ansible/jobs/123');
+
+      expect(response.status).toBe(403);
+      expect(response.body).toEqual({
+        error: 'Forbidden: insufficient permissions',
+      });
+    });
+
+    it('should return 404 when job not found', async () => {
+      mockAnsibleService.getJobStatus.mockRejectedValue(
+        new Error('Response code 403'),
+      );
+
+      const response = await request(app).get('/ansible/jobs/999');
+
+      expect(response.status).toBe(404);
+      expect(response.body).toMatchObject({
+        error: 'Job not found or insufficient permissions',
+        id: 999,
+        status: 'unknown',
+      });
+    });
+
+    it('should return 503 when service account not configured', async () => {
+      mockAnsibleService.getJobStatus.mockRejectedValue(
+        new Error('AAP service account token not configured'),
+      );
+
+      const response = await request(app).get('/ansible/jobs/123');
+
+      expect(response.status).toBe(503);
+      expect(response.body).toEqual({
+        error: 'AAP service account not configured',
+      });
+    });
+
+    it('should return 500 for other errors', async () => {
+      mockAnsibleService.getJobStatus.mockRejectedValue(
+        new Error('Network timeout'),
+      );
+
+      const response = await request(app).get('/ansible/jobs/123');
+
+      expect(response.status).toBe(500);
+      expect(response.body).toMatchObject({
+        error: 'Failed to fetch job status',
+        details: 'Network timeout',
+      });
+    });
+  });
+
+  describe('POST /ansible/jobs/batch', () => {
+    beforeEach(() => {
+      mockHttpAuth.credentials.mockResolvedValue({} as any);
+      mockPermissions.authorizeConditional.mockResolvedValue([
+        { result: AuthorizeResult.ALLOW },
+      ]);
+    });
+
+    it('should return statuses for multiple jobs', async () => {
+      const jobStatuses = new Map([
+        [
+          100,
+          {
+            id: 100,
+            status: 'successful',
+            url: 'https://test.example.com/execution/jobs/playbook/100/output',
+          },
+        ],
+        [
+          200,
+          {
+            id: 200,
+            status: 'running',
+            url: 'https://test.example.com/execution/jobs/playbook/200/output',
+          },
+        ],
+      ]);
+
+      mockAnsibleService.getJobStatusBatch.mockResolvedValue(jobStatuses);
+
+      const response = await request(app)
+        .post('/ansible/jobs/batch')
+        .send({ jobIds: [100, 200] });
+
+      expect(response.status).toBe(200);
+      expect(response.body).toEqual({
+        jobs: {
+          '100': {
+            id: 100,
+            status: 'successful',
+            url: 'https://test.example.com/execution/jobs/playbook/100/output',
+          },
+          '200': {
+            id: 200,
+            status: 'running',
+            url: 'https://test.example.com/execution/jobs/playbook/200/output',
+          },
+        },
+      });
+      expect(mockAnsibleService.getJobStatusBatch).toHaveBeenCalledWith([
+        100, 200,
+      ]);
+    });
+
+    it('should return 400 when jobIds is not an array', async () => {
+      const response = await request(app)
+        .post('/ansible/jobs/batch')
+        .send({ jobIds: 'not-an-array' });
+
+      expect(response.status).toBe(400);
+      expect(response.body).toEqual({ error: 'jobIds must be an array' });
+    });
+
+    it('should return 400 when jobIds is missing', async () => {
+      const response = await request(app).post('/ansible/jobs/batch').send({});
+
+      expect(response.status).toBe(400);
+      expect(response.body).toEqual({ error: 'jobIds must be an array' });
+    });
+
+    it('should filter out invalid job IDs', async () => {
+      mockAnsibleService.getJobStatusBatch.mockResolvedValue(new Map());
+
+      const response = await request(app)
+        .post('/ansible/jobs/batch')
+        .send({ jobIds: [100, 'invalid', null, 200, NaN] });
+
+      expect(response.status).toBe(200);
+      expect(mockAnsibleService.getJobStatusBatch).toHaveBeenCalledWith([
+        100, 200,
+      ]);
+    });
+
+    it('should return empty object for empty array', async () => {
+      const response = await request(app)
+        .post('/ansible/jobs/batch')
+        .send({ jobIds: [] });
+
+      expect(response.status).toBe(200);
+      expect(response.body).toEqual({ jobs: {} });
+      expect(mockAnsibleService.getJobStatusBatch).not.toHaveBeenCalled();
+    });
+
+    it('should return 403 when user lacks permissions', async () => {
+      mockPermissions.authorizeConditional.mockResolvedValueOnce([
+        { result: AuthorizeResult.DENY },
+      ]);
+
+      const response = await request(app)
+        .post('/ansible/jobs/batch')
+        .send({ jobIds: [123] });
+
+      expect(response.status).toBe(403);
+      expect(response.body).toEqual({
+        error: 'Forbidden: insufficient permissions',
+      });
+    });
+
+    it('should return 500 when service fails', async () => {
+      mockAnsibleService.getJobStatusBatch.mockRejectedValue(
+        new Error('Database error'),
+      );
+
+      const response = await request(app)
+        .post('/ansible/jobs/batch')
+        .send({ jobIds: [100, 200] });
+
+      expect(response.status).toBe(500);
+      expect(response.body).toMatchObject({
+        error: 'Failed to fetch job statuses',
+        details: 'Database error',
+      });
+    });
+  });
+
   describe('Error handling with invalid dependencies', () => {
     it('should handle error when logger is not provided', async () => {
       const routerWithInvalidLogger = await createRouter({
