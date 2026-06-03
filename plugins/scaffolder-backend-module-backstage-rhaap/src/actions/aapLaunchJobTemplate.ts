@@ -19,8 +19,8 @@ export const launchJobTemplate = (ansibleServiceRef: IAAPService) => {
     id: 'rhaap:launch-job-template',
     schema: {
       input: {
-        token: z => z.string({ description: 'Authorization token' }),
-        values: () => launchJobTemplateValuesLooseSchema,
+        token: (z: any) => z.string({ description: 'Authorization token' }),
+        values: (_z: any) => launchJobTemplateValuesLooseSchema as any,
       },
       output: {
         data: () => aapApiRecordOutputSchema,

@@ -69,14 +69,14 @@ export function createEEDefinitionAction(options: {
     description: 'Creates Ansible Execution Environment definition files',
     schema: {
       input: {
-        values: () => eeDefinitionInputSchema,
+        values: (_z: any) => eeDefinitionInputSchema as any,
       },
       output: {
-        contextDirName: z => z.string().optional(),
-        generatedEntityRef: z => z.string().optional(),
-        owner: z => z.string().optional(),
-        catalogInfoPath: z => z.string().optional(),
-        readmeContent: z => z.string().optional(),
+        contextDirName: (z: any) => z.string().optional(),
+        generatedEntityRef: (z: any) => z.string().optional(),
+        owner: (z: any) => z.string().optional(),
+        catalogInfoPath: (z: any) => z.string().optional(),
+        readmeContent: (z: any) => z.string().optional(),
       },
     },
     async handler(ctx) {

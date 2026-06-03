@@ -15,11 +15,11 @@ export const cleanUp = (ansibleServiceRef: IAAPService) => {
     id: 'rhaap:clean-up',
     schema: {
       input: {
-        token: z => z.string({ description: 'Oauth2 token' }),
-        values: () => launchJobTemplateValuesLooseSchema,
+        token: (z: any) => z.string({ description: 'Oauth2 token' }),
+        values: (_z: any) => launchJobTemplateValuesLooseSchema as any,
       },
       output: {
-        cleanUp: z => z.string(),
+        cleanUp: (z: any) => z.string(),
       },
     },
     async handler(ctx) {
