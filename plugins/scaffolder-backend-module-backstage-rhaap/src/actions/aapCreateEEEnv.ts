@@ -25,7 +25,7 @@ export const createExecutionEnvironment = (ansibleServiceRef: IAAPService) => {
         values: (_z: any) => launchJobTemplateValuesLooseSchema as any,
       },
       output: {
-        executionEnvironment: () => aapApiRecordOutputSchema,
+        executionEnvironment: (_z: any) => aapApiRecordOutputSchema as any,
       },
     },
     async handler(ctx) {

@@ -23,7 +23,7 @@ export const launchJobTemplate = (ansibleServiceRef: IAAPService) => {
         values: (_z: any) => launchJobTemplateValuesLooseSchema as any,
       },
       output: {
-        data: () => aapApiRecordOutputSchema,
+        data: (_z: any) => aapApiRecordOutputSchema as any,
       },
     },
     async handler(ctx) {
