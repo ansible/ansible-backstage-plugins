@@ -4334,9 +4334,10 @@ describe('AAPClient', () => {
           credentials: [
             {
               id: 10,
+              type: 'credential',
               name: 'Cred1',
               credential_type: 1,
-              summary_fields: { credential_type: { name: 'ssh' } },
+              summary_fields: { credential_type: { id: 1, name: 'ssh' } },
             },
           ],
         },
