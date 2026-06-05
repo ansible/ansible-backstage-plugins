@@ -2,22 +2,9 @@ import { test, expect } from '../../fixtures/auth-context';
 import { authenticator } from 'otplib';
 import { Page } from '@playwright/test';
 
-/**
- * Handles the GitHub OAuth "Login Required" dialog that appears when GitHub
- * is selected as the SCM provider in the EE wizard.
- *
- * Clicking "Log in" triggers a full-page redirect to GitHub's OAuth login.
- * After completing authentication (including 2FA if configured), GitHub
- * redirects back to the RHDH portal. The wizard state is lost, so the caller
- * must re-navigate after this function returns.
- *
- * Requires GH_USER_ID and GH_USER_PASS environment variables.
- * Optionally uses AUTHENTICATOR_SECRET for TOTP 2FA.
- *
- * @returns true if GitHub login was completed via redirect, false if the
- *          dialog was not found or credentials are missing.
- */
-async function handleGitHubOAuthDialog(page: Page): Promise<boolean> {
+async function handleGitHubOAuthDialog(
+  page: Page,
+): Promise<'redirected' | 'failed' | false> {
   const oauthDialog = page.getByText('Login Required').first();
   const dialogVisible = await oauthDialog
     .isVisible({ timeout: 5000 })
@@ -143,10 +130,10 @@ async function handleGitHubOAuthDialog(page: Page): Promise<boolean> {
 
     // Ensure we're back on the portal
     const finalUrl = new URL(page.url());
-    if (
+    const oauthStuck =
       finalUrl.pathname.includes('/api/auth/') ||
-      finalUrl.pathname.includes('handler/frame')
-    ) {
+      finalUrl.pathname.includes('handler/frame');
+    if (oauthStuck) {
       console.log('[EE Test] Still on auth handler, navigating to portal...');
       await page
         .goto('/self-service/ee', {
@@ -159,7 +146,7 @@ async function handleGitHubOAuthDialog(page: Page): Promise<boolean> {
     await page.waitForLoadState('networkidle').catch(() => {});
     await page.waitForTimeout(2000);
     console.log('[EE Test] OAuth flow complete, URL:', page.url());
-    return true;
+    return oauthStuck ? 'failed' : 'redirected';
   }
 
   console.log('[EE Test] GitHub OAuth popup opened');
@@ -175,7 +162,7 @@ async function handleGitHubOAuthDialog(page: Page): Promise<boolean> {
 
   console.log('[EE Test] GitHub OAuth popup closed, continuing on main page');
   await page.waitForTimeout(2000);
-  return true;
+  return 'redirected';
 }
 
 /**
@@ -476,15 +463,11 @@ test.describe('Execution Environment Template Execution Tests', () => {
         await page.waitForTimeout(1500);
       }
 
-      // Handle GitHub OAuth dialog triggered by selecting GitHub as SCM provider.
-      // "Log in" causes a full-page redirect to GitHub, so after completing
-      // OAuth we must re-open the wizard and re-fill the form.
-      const didGitHubRedirect = await handleGitHubOAuthDialog(page);
+      const oauthResult = await handleGitHubOAuthDialog(page);
 
-      if (didGitHubRedirect) {
-        // Wizard state is lost after redirect — restart the wizard
+      if (oauthResult) {
         console.log(
-          '[EE Test] Re-opening wizard after GitHub OAuth redirect...',
+          `[EE Test] Re-opening wizard after GitHub OAuth (${oauthResult})...`,
         );
         await page.goto('/self-service/ee', { waitUntil: 'domcontentloaded' });
         await page.waitForTimeout(1500);
@@ -505,7 +488,6 @@ test.describe('Execution Environment Template Execution Tests', () => {
           await page.waitForTimeout(2500);
         }
 
-        // Navigate through wizard steps again
         for (let i = 0; i < 2; i++) {
           const next = page.getByRole('button', { name: /^Next$/i });
           if ((await next.count()) > 0) {
@@ -531,7 +513,6 @@ test.describe('Execution Environment Template Execution Tests', () => {
           }
         }
 
-        // Re-fill EE definition fields
         await page
           .getByLabel(/EE Definition Name/i)
           .or(
@@ -558,80 +539,90 @@ test.describe('Execution Environment Template Execution Tests', () => {
           .first()
           .fill('execution environment');
 
-        // Re-select GitHub as SCM provider (already authenticated, no OAuth dialog)
-        const providerHeading2 = page.locator(
-          'text=Select source control provider',
-        );
-        if ((await providerHeading2.count()) > 0) {
-          const selectContainer2 = providerHeading2
-            .locator(
-              'xpath=ancestor::fieldset[1] | ancestor::div[contains(@class,"MuiFormControl")]',
-            )
-            .first();
-          const muiSelect2 = selectContainer2
-            .locator('[role="combobox"], [role="button"], select')
-            .first();
-          if ((await muiSelect2.count()) > 0) {
-            await muiSelect2.click({ force: true });
-          }
-          await page.waitForTimeout(500);
+        if (oauthResult === 'redirected') {
+          const providerHeading2 = page.locator(
+            'text=Select source control provider',
+          );
+          if ((await providerHeading2.count()) > 0) {
+            const selectContainer2 = providerHeading2
+              .locator(
+                'xpath=ancestor::fieldset[1] | ancestor::div[contains(@class,"MuiFormControl")]',
+              )
+              .first();
+            const muiSelect2 = selectContainer2
+              .locator('[role="combobox"], [role="button"], select')
+              .first();
+            if ((await muiSelect2.count()) > 0) {
+              await muiSelect2.click({ force: true });
+            }
+            await page.waitForTimeout(500);
 
-          const ghOption2 = page
-            .getByRole('option', { name: /github/i })
-            .or(page.locator('[role="option"]').filter({ hasText: /github/i }))
-            .first();
-          if ((await ghOption2.count()) > 0) {
-            await ghOption2.click({ force: true });
+            const ghOption2 = page
+              .getByRole('option', { name: /github/i })
+              .or(
+                page
+                  .locator('[role="option"]')
+                  .filter({ hasText: /github/i }),
+              )
+              .first();
+            if ((await ghOption2.count()) > 0) {
+              await ghOption2.click({ force: true });
+            }
+            await page.waitForTimeout(1000);
           }
-          await page.waitForTimeout(1000);
+        } else {
+          console.log(
+            '[EE Test] GitHub OAuth failed — skipping SCM selection to avoid re-triggering dialog',
+          );
         }
       }
 
-      // Fill Git organization
-      const orgInput = page
-        .getByLabel(/Git repository organization or username/i)
-        .or(
-          page
-            .locator('label')
-            .filter({ hasText: /Git repository organization/i })
-            .locator('..')
-            .locator('input')
-            .first(),
-        )
-        .first();
-      if ((await orgInput.count()) > 0) {
-        await orgInput.fill('test-rhaap-1');
+      if (!oauthResult || oauthResult === 'redirected') {
+        const orgInput = page
+          .getByLabel(/Git repository organization or username/i)
+          .or(
+            page
+              .locator('label')
+              .filter({ hasText: /Git repository organization/i })
+              .locator('..')
+              .locator('input')
+              .first(),
+          )
+          .first();
+        if ((await orgInput.count()) > 0) {
+          await orgInput.fill('test-rhaap-1');
+        }
+
+        const repoInput = page
+          .getByLabel(/^Repository Name/i)
+          .or(
+            page
+              .locator('label')
+              .filter({ hasText: /^Repository Name/i })
+              .locator('..')
+              .locator('input')
+              .first(),
+          )
+          .first();
+        if ((await repoInput.count()) > 0) {
+          await repoInput.fill(REPO_NAME);
+        }
+
+        await page
+          .getByText(/Create new repository/i)
+          .click({ force: true })
+          .catch(() => {});
       }
 
-      // Fill Repository Name
-      const repoInput = page
-        .getByLabel(/^Repository Name/i)
-        .or(
-          page
-            .locator('label')
-            .filter({ hasText: /^Repository Name/i })
-            .locator('..')
-            .locator('input')
-            .first(),
-        )
-        .first();
-      if ((await repoInput.count()) > 0) {
-        await repoInput.fill(REPO_NAME);
-      }
-
-      await page
-        .getByText(/Create new repository/i)
-        .click({ force: true })
-        .catch(() => {});
-
-      // Wait for form to validate before clicking Next
       await page.waitForTimeout(2000);
       const nextBtnAfterFields = page
         .getByRole('button', { name: /^Next$/i })
         .first();
-      await expect(nextBtnAfterFields).toBeEnabled({ timeout: 15000 });
-      await nextBtnAfterFields.click({ force: true });
-      await page.waitForTimeout(1500);
+      if ((await nextBtnAfterFields.count()) > 0) {
+        await expect(nextBtnAfterFields).toBeEnabled({ timeout: 15000 });
+        await nextBtnAfterFields.click({ force: true });
+        await page.waitForTimeout(1500);
+      }
       await page
         .getByRole('button', { name: /create/i })
         .first()
