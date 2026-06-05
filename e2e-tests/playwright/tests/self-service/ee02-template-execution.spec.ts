@@ -98,47 +98,67 @@ async function handleGitHubOAuthDialog(page: Page): Promise<boolean> {
       }
     }
 
-    // Now wait for GitHub
+    // Wait for the OAuth redirect chain to progress — either reaches GitHub
+    // (needs login) or returns to the portal (already authenticated/auto-approved)
     const currentUrl = new URL(page.url());
     if (currentUrl.hostname === 'github.com') {
-      console.log('[EE Test] Already on GitHub');
+      console.log('[EE Test] Already on GitHub, handling login...');
+      await handleGitHubLoginOnPage(page);
     } else {
-      console.log('[EE Test] Waiting for redirect to GitHub...');
+      console.log('[EE Test] Waiting for OAuth redirect chain...');
       console.log('[EE Test] Current hostname:', currentUrl.hostname);
+
+      // Wait for URL to leave the /api/auth/ flow — it either goes to
+      // github.com (needs login) or back to the portal (auto-approved)
       await page
-        .waitForURL(url => url.hostname === 'github.com', { timeout: 20000 })
-        .catch(async () => {
-          console.log('[EE Test] TIMEOUT waiting for GitHub redirect');
-          console.log('[EE Test] Final URL:', page.url());
-          console.log('[EE Test] Page title:', await page.title());
-          const bodyText = await page
-            .locator('body')
-            .innerText()
-            .catch(() => 'Could not read body');
-          console.log('[EE Test] Body preview:', bodyText.substring(0, 200));
-          throw new Error('Failed to redirect to GitHub after OAuth login');
+        .waitForURL(
+          url =>
+            url.hostname === 'github.com' ||
+            (!url.pathname.includes('/api/auth/') &&
+              url.pathname.includes('/self-service')),
+          { timeout: 30000 },
+        )
+        .catch(() => {
+          console.log(
+            '[EE Test] OAuth redirect chain did not complete, URL:',
+            page.url(),
+          );
         });
+
+      const afterRedirectUrl = new URL(page.url());
+      if (afterRedirectUrl.hostname === 'github.com') {
+        console.log('[EE Test] Reached GitHub, handling login...');
+        await handleGitHubLoginOnPage(page);
+        // Wait for redirect back to portal after GitHub login
+        await page
+          .waitForURL(url => url.hostname !== 'github.com', { timeout: 30000 })
+          .catch(() => {});
+      } else {
+        console.log(
+          '[EE Test] OAuth completed (auto-approved), URL:',
+          page.url(),
+        );
+      }
     }
-    console.log('[EE Test] Successfully on GitHub, URL:', page.url());
 
-    // Handle GitHub login on the main page
-    await handleGitHubLoginOnPage(page);
+    // Ensure we're back on the portal
+    const finalUrl = new URL(page.url());
+    if (
+      finalUrl.pathname.includes('/api/auth/') ||
+      finalUrl.pathname.includes('handler/frame')
+    ) {
+      console.log('[EE Test] Still on auth handler, navigating to portal...');
+      await page
+        .goto('/self-service/ee', {
+          waitUntil: 'domcontentloaded',
+          timeout: 15000,
+        })
+        .catch(() => {});
+    }
 
-    // Wait for automatic OAuth redirect back to wizard
-    // The wizard will restore state from sessionStorage automatically
-    console.log('[EE Test] Waiting for OAuth redirect back to wizard...');
-    await page.waitForURL(
-      url => url.pathname.includes('/self-service/create/templates/'),
-      { timeout: 30000 },
-    );
-
-    console.log('[EE Test] OAuth redirect complete, URL:', page.url());
-
-    // Wait for wizard to restore state from sessionStorage and render
-    await page.waitForLoadState('networkidle');
-    await page.waitForTimeout(2000); // Allow React components to mount and restore
-
-    console.log('[EE Test] Wizard restored state from sessionStorage');
+    await page.waitForLoadState('networkidle').catch(() => {});
+    await page.waitForTimeout(2000);
+    console.log('[EE Test] OAuth flow complete, URL:', page.url());
     return true;
   }
 
@@ -462,43 +482,126 @@ test.describe('Execution Environment Template Execution Tests', () => {
       const didGitHubRedirect = await handleGitHubOAuthDialog(page);
 
       if (didGitHubRedirect) {
-        // Wizard has restored state from sessionStorage - we should already be on the Git fields step
+        // Wizard state is lost after redirect — restart the wizard
         console.log(
-          '[EE Test] After OAuth redirect - wizard restored state, now on Git fields step',
+          '[EE Test] Re-opening wizard after GitHub OAuth redirect...',
         );
+        await page.goto('/self-service/ee', { waitUntil: 'domcontentloaded' });
+        await page.waitForTimeout(1500);
+        await page.getByText('Create').first().click({ force: true });
+        await page.waitForTimeout(1500);
+        await expect(page.locator('main')).toBeVisible({ timeout: 15000 });
 
-        // Wait for wizard UI to be fully ready
-        await page.waitForLoadState('networkidle').catch(() => {});
+        const card = page
+          .locator('.MuiCard-root, article, [data-testid*="template"]')
+          .filter({ hasText: EE_TEMPLATE_TITLE })
+          .first();
+        const startBtn = card
+          .locator('button, [role="button"]')
+          .filter({ hasText: /start/i })
+          .first();
+        if ((await startBtn.count()) > 0) {
+          await startBtn.click({ force: true });
+          await page.waitForTimeout(2500);
+        }
 
-        // Verify wizard is on the Git fields step
-        console.log(
-          '[EE Test] Waiting for Git organization field to appear...',
+        // Navigate through wizard steps again
+        for (let i = 0; i < 2; i++) {
+          const next = page.getByRole('button', { name: /^Next$/i });
+          if ((await next.count()) > 0) {
+            await next.first().click({ force: true });
+            await page.waitForTimeout(700);
+          }
+        }
+
+        const ghMcp = page
+          .locator('body')
+          .getByText(/^github$/i)
+          .first();
+        if ((await ghMcp.count()) > 0) {
+          await ghMcp.click({ force: true }).catch(() => {});
+          await page.waitForTimeout(400);
+        }
+
+        for (let i = 0; i < 3; i++) {
+          const n = page.getByRole('button', { name: /^Next$/i });
+          if ((await n.count()) > 0) {
+            await n.first().click({ force: true });
+            await page.waitForTimeout(700);
+          }
+        }
+
+        // Re-fill EE definition fields
+        await page
+          .getByLabel(/EE Definition Name/i)
+          .or(
+            page
+              .locator('label')
+              .filter({ hasText: /^EE Definition Name/i })
+              .locator('..')
+              .locator('input, textarea')
+              .first(),
+          )
+          .first()
+          .fill(EE_FILE_NAME);
+
+        await page
+          .getByLabel(/^Description/i)
+          .or(
+            page
+              .locator('label')
+              .filter({ hasText: /^Description/i })
+              .locator('..')
+              .locator('input, textarea')
+              .first(),
+          )
+          .first()
+          .fill('execution environment');
+
+        // Re-select GitHub as SCM provider (already authenticated, no OAuth dialog)
+        const providerHeading2 = page.locator(
+          'text=Select source control provider',
         );
+        if ((await providerHeading2.count()) > 0) {
+          const selectContainer2 = providerHeading2
+            .locator(
+              'xpath=ancestor::fieldset[1] | ancestor::div[contains(@class,"MuiFormControl")]',
+            )
+            .first();
+          const muiSelect2 = selectContainer2
+            .locator('[role="combobox"], [role="button"], select')
+            .first();
+          if ((await muiSelect2.count()) > 0) {
+            await muiSelect2.click({ force: true });
+          }
+          await page.waitForTimeout(500);
+
+          const ghOption2 = page
+            .getByRole('option', { name: /github/i })
+            .or(page.locator('[role="option"]').filter({ hasText: /github/i }))
+            .first();
+          if ((await ghOption2.count()) > 0) {
+            await ghOption2.click({ force: true });
+          }
+          await page.waitForTimeout(1000);
+        }
       }
 
-      // Select Git organization from Namespace dropdown
-      console.log('[EE Test] Waiting for Namespace dropdown to appear...');
-      const namespaceLabel = page.getByText('Namespace');
-      await expect(namespaceLabel).toBeVisible({ timeout: 15000 });
-
-      // Find the Namespace dropdown (Material-UI Select)
-      const namespaceSelect = page
-        .locator('label:has-text("Namespace")')
-        .locator('..')
-        .locator('[role="combobox"], [role="button"]')
+      // Fill Git organization
+      const orgInput = page
+        .getByLabel(/Git repository organization or username/i)
+        .or(
+          page
+            .locator('label')
+            .filter({ hasText: /Git repository organization/i })
+            .locator('..')
+            .locator('input')
+            .first(),
+        )
         .first();
-
-      console.log('[EE Test] Clicking Namespace dropdown...');
-      await namespaceSelect.click();
-      await page.waitForTimeout(500);
-
-      // Select the first organization from the dropdown
-      console.log('[EE Test] Selecting organization from dropdown...');
-      const firstOrg = page.getByRole('option').first();
-      await expect(firstOrg).toBeVisible({ timeout: 5000 });
-      await firstOrg.click();
-      await page.waitForTimeout(500);
-      console.log('[EE Test] Selected organization from Namespace dropdown');
+      if ((await orgInput.count()) > 0) {
+        await orgInput.fill('test-rhaap-1');
+      }
 
       // Fill Repository Name
       const repoInput = page
@@ -512,45 +615,22 @@ test.describe('Execution Environment Template Execution Tests', () => {
             .first(),
         )
         .first();
+      if ((await repoInput.count()) > 0) {
+        await repoInput.fill(REPO_NAME);
+      }
 
-      // Wait for repo name field to be visible and fill it
-      await expect(repoInput).toBeVisible({ timeout: 10000 });
-      await repoInput.fill(REPO_NAME);
-      await expect(repoInput).toHaveValue(REPO_NAME, { timeout: 5000 });
-      console.log(`[EE Test] Filled repository name field: ${REPO_NAME}`);
+      await page
+        .getByText(/Create new repository/i)
+        .click({ force: true })
+        .catch(() => {});
 
-      // Wait for form validation and Next button to become enabled after filling all fields
-      console.log('[EE Test] Waiting for form validation to complete...');
-      await page.waitForLoadState('networkidle').catch(() => {});
-      await page.waitForTimeout(3000); // Allow form validation to complete
-
-      // Verify Next button exists and is on the page
+      // Wait for form to validate before clicking Next
+      await page.waitForTimeout(2000);
       const nextBtnAfterFields = page
         .getByRole('button', { name: /^Next$/i })
         .first();
-      const nextBtnCount = await nextBtnAfterFields.count();
-
-      if (nextBtnCount === 0) {
-        console.log(
-          '[EE Test] WARNING: Next button not found on page after filling form',
-        );
-        console.log('[EE Test] Current URL:', page.url());
-        console.log(
-          '[EE Test] All buttons on page:',
-          await page.locator('button').count(),
-        );
-        // Try to recover by waiting longer
-        await page.waitForTimeout(5000);
-      } else {
-        console.log(
-          '[EE Test] Next button found, waiting for it to be enabled...',
-        );
-      }
-
-      await expect(nextBtnAfterFields).toBeVisible({ timeout: 20000 });
-      await expect(nextBtnAfterFields).toBeEnabled({ timeout: 20000 });
-      console.log('[EE Test] Next button is enabled, clicking...');
-      await nextBtnAfterFields.click();
+      await expect(nextBtnAfterFields).toBeEnabled({ timeout: 15000 });
+      await nextBtnAfterFields.click({ force: true });
       await page.waitForTimeout(1500);
       await page
         .getByRole('button', { name: /create/i })

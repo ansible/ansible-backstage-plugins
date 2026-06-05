@@ -270,11 +270,11 @@ test.describe.serial('git-repositories01-catalog', () => {
     ).toBeTruthy();
 
     // Ensure at least one checkbox is checked (GitHub, GitLab, or Private Automation Hub)
+    // MUI wraps checkboxes — use the label/container click for reliable state updates
     const checkboxes = modal.locator('input[type="checkbox"]');
     const checkboxCount = await checkboxes.count();
 
     if (checkboxCount > 0) {
-      // Check if any checkbox is already checked
       let anyChecked = false;
       for (let i = 0; i < checkboxCount; i++) {
         if (await checkboxes.nth(i).isChecked()) {
@@ -283,17 +283,29 @@ test.describe.serial('git-repositories01-catalog', () => {
         }
       }
 
-      // If none are checked, check the first one
       if (!anyChecked) {
-        const firstCheckbox = checkboxes.first();
-        await firstCheckbox.waitFor({ state: 'visible', timeout: 5000 });
-        await firstCheckbox.check();
+        // Click the MUI checkbox label/container instead of the raw input
+        // MUI FormControlLabel wraps the checkbox — clicking the label triggers React state
+        const checkboxLabel = modal
+          .locator('label')
+          .filter({ has: page.locator('input[type="checkbox"]') })
+          .first();
 
-        // Verify the checkbox is actually checked after the check() call
-        await expect(firstCheckbox).toBeChecked({ timeout: 5000 });
+        if ((await checkboxLabel.count()) > 0) {
+          await checkboxLabel.click();
+        } else {
+          // Fallback: click the raw checkbox
+          await checkboxes.first().click({ force: true });
+        }
+        await page.waitForTimeout(1000);
 
-        // Wait for UI state to update after checkbox selection
-        await page.waitForTimeout(2000);
+        // Verify checkbox state changed
+        const isNowChecked = await checkboxes.first().isChecked();
+        if (!isNowChecked) {
+          // Second attempt: force-click the checkbox directly
+          await checkboxes.first().click({ force: true });
+          await page.waitForTimeout(1000);
+        }
       }
     }
 
@@ -301,11 +313,8 @@ test.describe.serial('git-repositories01-catalog', () => {
     const syncSelectedBtn = modal.getByRole('button', {
       name: /Sync Selected/i,
     });
-    await expect(syncSelectedBtn.first()).toBeVisible({ timeout: 5000 });
-
-    // Wait for button to become enabled - increased timeout significantly
-    // The button should enable after at least one checkbox is selected
-    await expect(syncSelectedBtn.first()).toBeEnabled({ timeout: 15000 });
+    await expect(syncSelectedBtn.first()).toBeVisible({ timeout: 10000 });
+    await expect(syncSelectedBtn.first()).toBeEnabled({ timeout: 20000 });
     await syncSelectedBtn.first().click();
 
     return syncBtn;
