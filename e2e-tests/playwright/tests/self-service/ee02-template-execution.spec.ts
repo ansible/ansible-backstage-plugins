@@ -466,8 +466,9 @@ test.describe('Execution Environment Template Execution Tests', () => {
       const oauthResult = await handleGitHubOAuthDialog(page);
 
       if (oauthResult) {
+        const oauthStatus = oauthResult === 'redirected' ? 'redirected' : 'failed';
         console.log(
-          `[EE Test] Re-opening wizard after GitHub OAuth (${oauthResult})...`,
+          `[EE Test] Re-opening wizard after GitHub OAuth (${oauthStatus})...`,
         );
         await page.goto('/self-service/ee', { waitUntil: 'domcontentloaded' });
         await page.waitForTimeout(1500);
