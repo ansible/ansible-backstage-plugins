@@ -465,15 +465,19 @@ test.describe('Execution Environment Template Execution Tests', () => {
 
       const oauthResult = await handleGitHubOAuthDialog(page);
 
-      if (oauthResult) {
-        const oauthStatus = oauthResult === 'redirected' ? 'redirected' : 'failed';
+      if (oauthResult === 'failed') {
         console.log(
-          `[EE Test] Re-opening wizard after GitHub OAuth (${oauthStatus})...`,
+          '[EE Test] GitHub OAuth failed — skipping entire Git publish flow, deferring to non-Git run',
         );
-        await page.goto('/self-service/ee', { waitUntil: 'domcontentloaded' });
-        await page.waitForTimeout(1500);
-        await page.getByText('Create').first().click({ force: true });
-        await page.waitForTimeout(1500);
+      } else if (oauthResult === 'redirected') {
+        console.log(
+          '[EE Test] Re-opening wizard after GitHub OAuth redirect...',
+        );
+        await page.goto(
+          '/self-service/ee/create?filters%5Btype%5D=execution-environment&filters%5Bkind%5D=template&filters%5Buser%5D=all',
+          { waitUntil: 'domcontentloaded' },
+        );
+        await page.waitForTimeout(2000);
         await expect(page.locator('main')).toBeVisible({ timeout: 15000 });
 
         const card = page
@@ -540,45 +544,33 @@ test.describe('Execution Environment Template Execution Tests', () => {
           .first()
           .fill('execution environment');
 
-        if (oauthResult === 'redirected') {
-          const providerHeading2 = page.locator(
-            'text=Select source control provider',
-          );
-          if ((await providerHeading2.count()) > 0) {
-            const selectContainer2 = providerHeading2
-              .locator(
-                'xpath=ancestor::fieldset[1] | ancestor::div[contains(@class,"MuiFormControl")]',
-              )
-              .first();
-            const muiSelect2 = selectContainer2
-              .locator('[role="combobox"], [role="button"], select')
-              .first();
-            if ((await muiSelect2.count()) > 0) {
-              await muiSelect2.click({ force: true });
-            }
-            await page.waitForTimeout(500);
-
-            const ghOption2 = page
-              .getByRole('option', { name: /github/i })
-              .or(
-                page
-                  .locator('[role="option"]')
-                  .filter({ hasText: /github/i }),
-              )
-              .first();
-            if ((await ghOption2.count()) > 0) {
-              await ghOption2.click({ force: true });
-            }
-            await page.waitForTimeout(1000);
+        const providerHeading2 = page.locator(
+          'text=Select source control provider',
+        );
+        if ((await providerHeading2.count()) > 0) {
+          const selectContainer2 = providerHeading2
+            .locator(
+              'xpath=ancestor::fieldset[1] | ancestor::div[contains(@class,"MuiFormControl")]',
+            )
+            .first();
+          const muiSelect2 = selectContainer2
+            .locator('[role="combobox"], [role="button"], select')
+            .first();
+          if ((await muiSelect2.count()) > 0) {
+            await muiSelect2.click({ force: true });
           }
-        } else {
-          console.log(
-            '[EE Test] GitHub OAuth failed — skipping SCM selection to avoid re-triggering dialog',
-          );
-        }
-      }
+          await page.waitForTimeout(500);
 
-      if (!oauthResult || oauthResult === 'redirected') {
+          const ghOption2 = page
+            .getByRole('option', { name: /github/i })
+            .or(page.locator('[role="option"]').filter({ hasText: /github/i }))
+            .first();
+          if ((await ghOption2.count()) > 0) {
+            await ghOption2.click({ force: true });
+          }
+          await page.waitForTimeout(1000);
+        }
+
         const orgInput = page
           .getByLabel(/Git repository organization or username/i)
           .or(
@@ -629,20 +621,18 @@ test.describe('Execution Environment Template Execution Tests', () => {
           .click({ force: true });
         await page.waitForTimeout(5000);
         await expect(page.locator('body')).toBeVisible({ timeout: 30000 });
-      } else {
-        console.log(
-          '[EE Test] OAuth failed — skipping Git publish wizard steps, deferring to non-Git run',
-        );
       }
     });
 
     await test.step('Second run: Start template, wizard without Git publish', async () => {
       if (!wizardOpened) return;
 
-      await page.goto('/self-service/ee', { waitUntil: 'domcontentloaded' });
-      await page.waitForTimeout(1500);
-      await page.getByText('Create').first().click({ force: true });
-      await page.waitForTimeout(1500);
+      await page.goto(
+        '/self-service/ee/create?filters%5Btype%5D=execution-environment&filters%5Bkind%5D=template&filters%5Buser%5D=all',
+        { waitUntil: 'domcontentloaded' },
+      );
+      await page.waitForTimeout(2000);
+      await expect(page.locator('main')).toBeVisible({ timeout: 15000 });
 
       if (
         !(await page.locator('body').innerText()).includes(EE_TEMPLATE_TITLE)
@@ -712,37 +702,46 @@ test.describe('Execution Environment Template Execution Tests', () => {
         .first()
         .fill('execution environment');
 
-      // Uncheck "Publish to a Git repository" — locate by label text
-      const publishLabel = page
-        .getByText(/Publish to a Git repository/i)
+      // Uncheck "Publish to a Git repository" — click the visible MUI checkbox element
+      const publishCheckbox = page
+        .locator('input[type="checkbox"]#root_publishAndBuild_publishToSCM')
         .first();
-      if ((await publishLabel.count()) > 0) {
-        const publishCheckbox = page
-          .locator('label, div, span')
-          .filter({ hasText: /Publish to a Git repository/i })
-          .locator('input[type="checkbox"]')
+      if (
+        (await publishCheckbox.count()) > 0 &&
+        (await publishCheckbox.isChecked())
+      ) {
+        const muiCheckbox = page
+          .locator(
+            'label[for="root_publishAndBuild_publishToSCM"], ' +
+              'span:has(> input#root_publishAndBuild_publishToSCM)',
+          )
           .first();
-        if (
-          (await publishCheckbox.count()) > 0 &&
-          (await publishCheckbox.isChecked())
-        ) {
-          await publishCheckbox.uncheck({ force: true });
-          console.log('[EE Test] Unchecked "Publish to a Git repository"');
+        if ((await muiCheckbox.count()) > 0) {
+          await muiCheckbox.click({ force: true });
+        } else {
+          await publishCheckbox.evaluate((el: HTMLInputElement) => {
+            el.click();
+            el.dispatchEvent(new Event('change', { bubbles: true }));
+          });
         }
+        await page.waitForTimeout(500);
+        if (await publishCheckbox.isChecked()) {
+          await publishCheckbox.evaluate((el: HTMLInputElement) => {
+            el.checked = false;
+            el.dispatchEvent(new Event('change', { bubbles: true }));
+          });
+        }
+        console.log('[EE Test] Unchecked "Publish to a Git repository"');
       }
       await page.waitForTimeout(500);
 
-      const nextBtn2 = page
-        .getByRole('button', { name: /^Next$/i })
-        .first();
+      const nextBtn2 = page.getByRole('button', { name: /^Next$/i }).first();
       if ((await nextBtn2.count()) > 0) {
         await expect(nextBtn2).toBeEnabled({ timeout: 15000 });
         await nextBtn2.click({ force: true });
         await page.waitForTimeout(1500);
       }
-      const createBtn2 = page
-        .getByRole('button', { name: /create/i })
-        .first();
+      const createBtn2 = page.getByRole('button', { name: /create/i }).first();
       if ((await createBtn2.count()) > 0) {
         await createBtn2.click({ force: true });
         await page.waitForTimeout(5000);
