@@ -294,17 +294,12 @@ test.describe.serial('git-repositories01-catalog', () => {
         if ((await checkboxLabel.count()) > 0) {
           await checkboxLabel.click();
         } else {
-          // Fallback: click the raw checkbox
           await checkboxes.first().click({ force: true });
         }
-        await page.waitForTimeout(1000);
-
-        // Verify checkbox state changed
-        const isNowChecked = await checkboxes.first().isChecked();
+        let isNowChecked = await checkboxes.first().isChecked();
         if (!isNowChecked) {
-          // Second attempt: force-click the checkbox directly
           await checkboxes.first().click({ force: true });
-          await page.waitForTimeout(1000);
+          await expect(checkboxes.first()).toBeChecked({ timeout: 10000 });
         }
       }
     }
