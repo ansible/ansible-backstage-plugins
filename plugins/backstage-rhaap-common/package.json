@@ -42,13 +42,13 @@
     "fix": "backstage-cli repo fix --publish"
   },
   "dependencies": {
-    "@backstage/backend-dynamic-feature-service": "^0.7.6",
+    "@backstage/backend-dynamic-feature-service": "^0.8.0",
     "@backstage/backend-plugin-api": "^1.5.0",
     "@backstage/config": "^1.3.6",
     "@backstage/core-plugin-api": "^1.12.0",
     "@backstage/errors": "^1.2.7",
     "@backstage/integration": "^1.18.2",
-    "@backstage/plugin-auth-node": "^0.6.9",
+    "@backstage/plugin-auth-node": "^0.7.0",
     "@backstage/plugin-permission-common": "^0.9.3",
     "lodash.uniqby": "^4.7.0",
     "undici": "^6.24.0",
@@ -56,7 +56,7 @@
   },
   "devDependencies": {
     "@backstage/backend-test-utils": "^1.10.0",
-    "@backstage/cli": "^0.34.5",
+    "@backstage/cli": "^0.36.0",
     "@backstage/test-utils": "^1.7.13",
     "@jest/globals": "^30.1.2",
     "@testing-library/jest-dom": "^6.6.3",
