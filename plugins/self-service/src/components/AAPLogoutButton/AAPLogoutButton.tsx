@@ -5,6 +5,7 @@ import {
   useApi,
 } from '@backstage/core-plugin-api';
 import { rhAapAuthApiRef } from '../../apis';
+import { navigateTo } from '../../utils/navigation';
 import MenuItem from '@material-ui/core/MenuItem';
 
 export const AAPLogoutButton = () => {
@@ -32,7 +33,7 @@ export const AAPLogoutButton = () => {
       .getOptionalString('ansible.rhaap.baseUrl')
       ?.replace(/\/$/, '');
     if (aapHost) {
-      window.location.href = `${aapHost}/api/gateway/v1/logout/`;
+      navigateTo(`${aapHost}/api/gateway/v1/logout/`);
     }
   };
 

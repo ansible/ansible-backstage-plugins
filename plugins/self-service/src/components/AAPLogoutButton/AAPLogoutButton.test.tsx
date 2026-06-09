@@ -8,6 +8,13 @@ import {
 } from '@backstage/core-plugin-api';
 import { rhAapAuthApiRef } from '../../apis';
 import { AAPLogoutButton } from './AAPLogoutButton';
+import { navigateTo } from '../../utils/navigation';
+
+jest.mock('../../utils/navigation', () => ({
+  navigateTo: jest.fn(),
+}));
+
+const mockNavigateTo = navigateTo as jest.MockedFunction<typeof navigateTo>;
 
 describe('AAPLogoutButton', () => {
   const mockIdentityApi = {
@@ -69,8 +76,6 @@ describe('AAPLogoutButton', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
-    delete (window as any).location;
-    (window as any).location = { href: '', origin: 'http://localhost:3000' };
   });
 
   it('should render sign out menu item', async () => {
@@ -121,7 +126,7 @@ describe('AAPLogoutButton', () => {
     await userEvent.click(screen.getByText('Sign out'));
 
     await waitFor(() => {
-      expect(window.location.href).toBe(
+      expect(mockNavigateTo).toHaveBeenCalledWith(
         'https://aap.example.com/api/gateway/v1/logout/',
       );
     });
@@ -137,6 +142,6 @@ describe('AAPLogoutButton', () => {
     await waitFor(() => {
       expect(mockIdentityApi.signOut).toHaveBeenCalled();
     });
-    expect(window.location.href).toBe('');
+    expect(mockNavigateTo).not.toHaveBeenCalled();
   });
 });
