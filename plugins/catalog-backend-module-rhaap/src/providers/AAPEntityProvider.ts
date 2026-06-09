@@ -10,7 +10,7 @@ import {
 } from '@backstage/plugin-catalog-node';
 import type { Config } from '@backstage/config';
 
-import { InputError, isError, NotFoundError } from '@backstage/errors';
+import { NotFoundError } from '@backstage/errors';
 import { Entity } from '@backstage/catalog-model';
 import {
   IAAPService,
@@ -22,6 +22,8 @@ import {
 } from '@ansible/backstage-rhaap-common';
 import { readAapApiEntityConfigs } from './config';
 import { organizationParser, teamParser, userParser } from './entityParser';
+import { resolveTaskRunner } from './helpers';
+import { SyncStateTracker } from './SyncStateTracker';
 import { AapConfig } from './types';
 
 export class AAPEntityProvider implements EntityProvider {
@@ -32,7 +34,7 @@ export class AAPEntityProvider implements EntityProvider {
   private readonly ansibleServiceRef: IAAPService;
   private readonly scheduleFn: () => Promise<void>;
   private connection?: EntityProviderConnection;
-  private lastSyncTime: string | null = null;
+  private readonly syncState = new SyncStateTracker();
 
   static pluginLogName = 'plugin-catalog-rhaap';
   static syncEntity = 'orgsUsersTeams';
@@ -50,29 +52,12 @@ export class AAPEntityProvider implements EntityProvider {
     const providerConfigs = readAapApiEntityConfigs(config, this.syncEntity);
     logger.info(`Init AAP entity provider from config.`);
     return providerConfigs.map(providerConfig => {
-      let taskRunner;
-      if ('scheduler' in options && providerConfig.schedule) {
-        taskRunner = options.scheduler!.createScheduledTaskRunner(
-          providerConfig.schedule,
-        );
-      } else if ('schedule' in options) {
-        taskRunner = options.schedule;
-      } else {
-        logger.info(
-          `[${this.pluginLogName}]:No schedule provided via config for AAP Resource Entity Provider:${providerConfig.id}.`,
-        );
-        throw new InputError(
-          `No schedule provided via config for AapResourceEntityProvider:${providerConfig.id}.`,
-        );
-      }
-      if (!taskRunner) {
-        logger.info(
-          `[${this.pluginLogName}]:No schedule provided via config for AAP Resource Entity Provider:${providerConfig.id}.`,
-        );
-        throw new InputError(
-          `No schedule provided via config for AapResourceEntityProvider:${providerConfig.id}.`,
-        );
-      }
+      const taskRunner = resolveTaskRunner(
+        options,
+        providerConfig.schedule,
+        this.pluginLogName,
+        providerConfig.id,
+      );
       return new AAPEntityProvider(
         providerConfig,
         config,
@@ -104,33 +89,14 @@ export class AAPEntityProvider implements EntityProvider {
   createScheduleFn(
     taskRunner: SchedulerServiceTaskRunner,
   ): () => Promise<void> {
-    return async () => {
-      const taskId = `${this.getProviderName()}:run`;
-      this.logger.info('[${this.pluginLogName}]:Creating Schedule function.');
-      return taskRunner.run({
-        id: taskId,
-        fn: async () => {
-          try {
-            await this.run();
-          } catch (error) {
-            if (isError(error)) {
-              // Ensure that we don't log any sensitive internal data:
-              this.logger.error(
-                `Error while syncing resources from AAP ${this.baseUrl}`,
-                {
-                  // Default Error properties:
-                  name: error.name,
-                  message: error.message,
-                  stack: error.stack,
-                  // Additional status code if available:
-                  status: (error.response as { status?: string })?.status,
-                },
-              );
-            }
-          }
-        },
-      });
-    };
+    this.logger.info('[${this.pluginLogName}]:Creating Schedule function.');
+    return this.syncState.createScheduleFn(
+      taskRunner,
+      this.getProviderName(),
+      () => this.run(),
+      this.logger,
+      `AAP ${this.baseUrl}`,
+    );
   }
 
   getProviderName(): string {
@@ -138,73 +104,95 @@ export class AAPEntityProvider implements EntityProvider {
   }
 
   getLastSyncTime(): string | null {
-    return this.lastSyncTime;
+    return this.syncState.getLastSyncTime();
+  }
+
+  getLastFailedSyncTime(): string | null {
+    return this.syncState.getLastFailedSyncTime();
+  }
+
+  getLastSyncStatus(): 'success' | 'failure' | null {
+    return this.syncState.getLastSyncStatus();
+  }
+
+  getIsSyncing(): boolean {
+    return this.syncState.getIsSyncing();
+  }
+
+  getTaskId(): string | undefined {
+    return this.syncState.getTaskId();
   }
 
   async run(): Promise<boolean> {
     if (!this.connection) {
       throw new NotFoundError('Not initialized');
     }
-    let groupCount = 0;
-    let usersCount = 0;
-    let userRoleAssignments: RoleAssignments;
-    let systemUsers = [] as Users;
-    const entities: Entity[] = [];
-    let orgsDetails: Array<{
-      organization: Organization;
-      teams: Team[];
-      users: User[];
-    }> = [];
-
-    let error = false;
+    this.syncState.markSyncStarted();
     try {
-      orgsDetails = await this.ansibleServiceRef.getOrganizations(true);
-      this.logger.info(
-        `[${AAPEntityProvider.pluginLogName}]: Fetched ${
-          Object.keys(orgsDetails).length
-        } organizations.`,
-      );
-    } catch (e: any) {
-      this.logger.error(
-        `[${
-          AAPEntityProvider.pluginLogName
-        }]: Error while fetching organizations. ${e?.message ?? ''}`,
-      );
-      error = true;
-    }
+      let groupCount = 0;
+      let usersCount = 0;
+      let userRoleAssignments: RoleAssignments;
+      let systemUsers = [] as Users;
+      const entities: Entity[] = [];
+      let orgsDetails: Array<{
+        organization: Organization;
+        teams: Team[];
+        users: User[];
+      }> = [];
 
-    try {
-      userRoleAssignments =
-        await this.ansibleServiceRef.getUserRoleAssignments();
-      this.logger.info(
-        `[${AAPEntityProvider.pluginLogName}]: Fetched ${
-          Object.keys(userRoleAssignments).length
-        } user role assignments.`,
-      );
-    } catch (e: any) {
-      this.logger.error(
-        `[${AAPEntityProvider.pluginLogName}]: Error while fetching users. ${
-          e?.message ?? ''
-        }`,
-      );
-      error = true;
-    }
+      let error = false;
+      try {
+        orgsDetails = await this.ansibleServiceRef.getOrganizations(true);
+        this.logger.info(
+          `[${AAPEntityProvider.pluginLogName}]: Fetched ${
+            Object.keys(orgsDetails).length
+          } organizations.`,
+        );
+      } catch (e: any) {
+        this.logger.error(
+          `[${
+            AAPEntityProvider.pluginLogName
+          }]: Error while fetching organizations. ${e?.message ?? ''}`,
+        );
+        error = true;
+      }
 
-    try {
-      systemUsers = await this.ansibleServiceRef.listSystemUsers();
-      this.logger.info(
-        `[${AAPEntityProvider.pluginLogName}]: Fetched ${systemUsers.length} system users.`,
-      );
-    } catch (e: any) {
-      this.logger.error(
-        `[${
-          AAPEntityProvider.pluginLogName
-        }]: Error while fetching system users. ${e?.message ?? ''}`,
-      );
-      error = true;
-    }
+      try {
+        userRoleAssignments =
+          await this.ansibleServiceRef.getUserRoleAssignments();
+        this.logger.info(
+          `[${AAPEntityProvider.pluginLogName}]: Fetched ${
+            Object.keys(userRoleAssignments).length
+          } user role assignments.`,
+        );
+      } catch (e: any) {
+        this.logger.error(
+          `[${AAPEntityProvider.pluginLogName}]: Error while fetching users. ${
+            e?.message ?? ''
+          }`,
+        );
+        error = true;
+      }
 
-    if (!error) {
+      try {
+        systemUsers = await this.ansibleServiceRef.listSystemUsers();
+        this.logger.info(
+          `[${AAPEntityProvider.pluginLogName}]: Fetched ${systemUsers.length} system users.`,
+        );
+      } catch (e: any) {
+        this.logger.error(
+          `[${
+            AAPEntityProvider.pluginLogName
+          }]: Error while fetching system users. ${e?.message ?? ''}`,
+        );
+        error = true;
+      }
+
+      if (error) {
+        this.syncState.markSyncFailed();
+        return false;
+      }
+
       for (const org of Object.values(orgsDetails)) {
         const orgTeams = org.teams
           ? Object.values(org.teams).map(team => team.groupName)
@@ -393,9 +381,12 @@ export class AAPEntityProvider implements EntityProvider {
         }]: Refreshed ${this.getProviderName()}: ${usersCount} users added.`,
       );
 
-      this.lastSyncTime = new Date().toISOString();
+      this.syncState.markSyncSucceeded();
+      return true;
+    } catch (e) {
+      this.syncState.markSyncFailed();
+      throw e;
     }
-    return !error;
   }
 
   async connect(connection: EntityProviderConnection): Promise<void> {

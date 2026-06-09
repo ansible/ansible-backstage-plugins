@@ -14,13 +14,13 @@ describe('Ansible API module', () => {
     jest.clearAllMocks();
   });
 
-  it('AnsibleApiClient.syncTemplates returns true when fetch returns truthy json', async () => {
+  it('AnsibleApiClient.syncTemplates returns true when sync starts', async () => {
     const mockDiscovery = {
       getBaseUrl: jest.fn().mockResolvedValue('http://example.com'),
     };
     const mockFetch = {
       fetch: jest.fn().mockResolvedValue({
-        json: jest.fn().mockResolvedValue(true),
+        json: jest.fn().mockResolvedValue({ status: 'sync_started' }),
       }),
     };
 
@@ -34,7 +34,27 @@ describe('Ansible API module', () => {
     expect(mockDiscovery.getBaseUrl).toHaveBeenCalledWith('catalog');
     expect(mockFetch.fetch).toHaveBeenCalledWith(
       'http://example.com/ansible/sync/from-aap/job_templates',
+      { method: 'POST', headers: { 'Content-Type': 'application/json' } },
     );
+    expect(result).toBe(true);
+  });
+
+  it('AnsibleApiClient.syncTemplates returns true when already syncing', async () => {
+    const mockDiscovery = {
+      getBaseUrl: jest.fn().mockResolvedValue('http://example.com'),
+    };
+    const mockFetch = {
+      fetch: jest.fn().mockResolvedValue({
+        json: jest.fn().mockResolvedValue({ status: 'already_syncing' }),
+      }),
+    };
+
+    const client = new AnsibleApiClient({
+      discoveryApi: mockDiscovery as any,
+      fetchApi: mockFetch as any,
+    });
+
+    const result = await client.syncTemplates();
     expect(result).toBe(true);
   });
 
@@ -56,17 +76,37 @@ describe('Ansible API module', () => {
     expect(mockDiscovery.getBaseUrl).toHaveBeenCalledWith('catalog');
     expect(mockFetch.fetch).toHaveBeenCalledWith(
       'http://example.com/ansible/sync/from-aap/job_templates',
+      { method: 'POST', headers: { 'Content-Type': 'application/json' } },
     );
     expect(result).toBe(false);
   });
 
-  it('AnsibleApiClient.syncOrgsUsersTeam returns true when fetch returns truthy json', async () => {
+  it('AnsibleApiClient.syncTemplates returns false when status is failed', async () => {
     const mockDiscovery = {
       getBaseUrl: jest.fn().mockResolvedValue('http://example.com'),
     };
     const mockFetch = {
       fetch: jest.fn().mockResolvedValue({
-        json: jest.fn().mockResolvedValue(true),
+        json: jest.fn().mockResolvedValue({ status: 'failed' }),
+      }),
+    };
+
+    const client = new AnsibleApiClient({
+      discoveryApi: mockDiscovery as any,
+      fetchApi: mockFetch as any,
+    });
+
+    const result = await client.syncTemplates();
+    expect(result).toBe(false);
+  });
+
+  it('AnsibleApiClient.syncOrgsUsersTeam returns true when sync starts', async () => {
+    const mockDiscovery = {
+      getBaseUrl: jest.fn().mockResolvedValue('http://example.com'),
+    };
+    const mockFetch = {
+      fetch: jest.fn().mockResolvedValue({
+        json: jest.fn().mockResolvedValue({ status: 'sync_started' }),
       }),
     };
 
@@ -80,6 +120,7 @@ describe('Ansible API module', () => {
     expect(mockDiscovery.getBaseUrl).toHaveBeenCalledWith('catalog');
     expect(mockFetch.fetch).toHaveBeenCalledWith(
       'http://example.com/ansible/sync/from-aap/orgs_users_teams',
+      { method: 'POST', headers: { 'Content-Type': 'application/json' } },
     );
     expect(result).toBe(true);
   });
@@ -102,6 +143,7 @@ describe('Ansible API module', () => {
     expect(mockDiscovery.getBaseUrl).toHaveBeenCalledWith('catalog');
     expect(mockFetch.fetch).toHaveBeenCalledWith(
       'http://example.com/ansible/sync/from-aap/orgs_users_teams',
+      { method: 'POST', headers: { 'Content-Type': 'application/json' } },
     );
     expect(result).toBe(false);
   });
@@ -181,9 +223,9 @@ describe('Ansible API module', () => {
     expect(instance).toBeInstanceOf(AnsibleApiClient);
 
     // the created instance should call through to provided discovery/fetch when used:
-    // stub fetch.json to return true for syncTemplates
+    // stub fetch.json to return sync_started for syncTemplates
     (mockFetch.fetch as jest.Mock).mockResolvedValue({
-      json: jest.fn().mockResolvedValue(true),
+      json: jest.fn().mockResolvedValue({ status: 'sync_started' }),
     });
     return instance.syncTemplates().then(result => {
       expect(result).toBe(true);

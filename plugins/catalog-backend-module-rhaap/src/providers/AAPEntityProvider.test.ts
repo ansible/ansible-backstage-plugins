@@ -420,6 +420,84 @@ describe('AAPEntityProvider', () => {
     expect(result).toBe(true);
   });
 
+  describe('sync state tracking', () => {
+    it('should track sync state on successful run', async () => {
+      const config = new ConfigReader(MOCK_CONFIG.data);
+      const logger = mockServices.logger.mock();
+      const schedule = new PersistingTaskRunner();
+      const syncProvider = AAPEntityProvider.fromConfig(
+        config,
+        mockAnsibleService,
+        { logger, schedule },
+      )[0];
+
+      await syncProvider.connect({
+        applyMutation: jest.fn(),
+        refresh: jest.fn(),
+      });
+
+      expect(syncProvider.getIsSyncing()).toBe(false);
+      expect(syncProvider.getLastSyncStatus()).toBeNull();
+
+      const result = await syncProvider.run();
+
+      expect(result).toBe(true);
+      expect(syncProvider.getIsSyncing()).toBe(false);
+      expect(syncProvider.getLastSyncStatus()).toBe('success');
+      expect(syncProvider.getLastSyncTime()).not.toBeNull();
+      expect(syncProvider.getLastFailedSyncTime()).toBeNull();
+    });
+
+    it('should track sync state on failed run', async () => {
+      mockAnsibleService.getOrganizations.mockRejectedValue(
+        new Error('API error'),
+      );
+
+      const config = new ConfigReader(MOCK_CONFIG.data);
+      const logger = mockServices.logger.mock();
+      const schedule = new PersistingTaskRunner();
+      const failProvider = AAPEntityProvider.fromConfig(
+        config,
+        mockAnsibleService,
+        { logger, schedule },
+      )[0];
+
+      await failProvider.connect({
+        applyMutation: jest.fn(),
+        refresh: jest.fn(),
+      });
+
+      const result = await failProvider.run();
+
+      expect(result).toBe(false);
+      expect(failProvider.getIsSyncing()).toBe(false);
+      expect(failProvider.getLastSyncStatus()).toBe('failure');
+      expect(failProvider.getLastFailedSyncTime()).not.toBeNull();
+    });
+
+    it('should expose taskId after connect', async () => {
+      const config = new ConfigReader(MOCK_CONFIG.data);
+      const logger = mockServices.logger.mock();
+      const schedule = new PersistingTaskRunner();
+      const taskProvider = AAPEntityProvider.fromConfig(
+        config,
+        mockAnsibleService,
+        { logger, schedule },
+      )[0];
+
+      expect(taskProvider.getTaskId()).toBeUndefined();
+
+      await taskProvider.connect({
+        applyMutation: jest.fn(),
+        refresh: jest.fn(),
+      });
+
+      expect(taskProvider.getTaskId()).toBe(
+        'AapEntityProvider:development:run',
+      );
+    });
+  });
+
   describe('createSingleUser', () => {
     let provider: AAPEntityProvider;
     let mockConnection: EntityProviderConnection;
