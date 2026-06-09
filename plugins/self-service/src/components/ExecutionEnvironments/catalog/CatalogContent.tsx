@@ -24,11 +24,9 @@ import {
   EntityOwnerFilter,
   EntityTagFilter,
   EntityTypeFilter,
-  EntityUserFilter,
   UserListPicker,
   catalogApiRef,
   useEntityList,
-  useStarredEntities,
   UnregisterEntityDialog,
   FavoriteEntity,
 } from '@backstage/plugin-catalog-react';
@@ -166,7 +164,6 @@ export const EEListPage = ({
   const theme = useTheme();
   const catalogApi = useApi(catalogApiRef);
   const {
-    filters,
     entities: rawEntities,
     loading: catalogLoading,
     error,
@@ -178,24 +175,10 @@ export const EEListPage = ({
     updateFilters,
   } = useEntityList();
   const entities = useMemo(() => rawEntities ?? [], [rawEntities]);
-  const { starredEntities = new Set<string>() } = useStarredEntities();
-  const prevStarredSizeRef = useRef(starredEntities.size);
-  const hasEverHadEntitiesRef = useRef(false);
 
-  useEffect(() => {
-    if (filters.user?.value === 'starred') {
-      if (starredEntities.size > 0) {
-        updateFilters({
-          user: EntityUserFilter.starred(Array.from(starredEntities)),
-        });
-      } else if (prevStarredSizeRef.current > 0) {
-        updateFilters({ user: EntityUserFilter.all() });
-      }
-    }
-    prevStarredSizeRef.current = starredEntities.size;
-  }, [starredEntities, filters.user?.value, updateFilters]);
-
-  const page = offset && limit ? Math.floor(offset / limit) : 0;
+  const [page, setPage] = useState(
+    offset && limit ? Math.floor(offset / limit) : 0,
+  );
   const [ownerFilter, setOwnerFilter] = useState('All');
   const [tagFilter, setTagFilter] = useState('All');
   const [allOwners, setAllOwners] = useState<string[]>(['All']);
@@ -212,6 +195,14 @@ export const EEListPage = ({
     };
   }, []);
 
+  useEffect(() => {
+    if (totalItems && page * limit >= totalItems) {
+      setOffset?.(Math.max(0, totalItems - limit));
+    } else {
+      setOffset?.(Math.max(0, page * limit));
+    }
+  }, [setOffset, page, limit, totalItems]);
+
   // Fetch facets for filter dropdowns
   useEffect(() => {
     catalogApi
@@ -219,20 +210,14 @@ export const EEListPage = ({
         filter: { kind: 'Component', 'spec.type': 'execution-environment' },
         facets: ['spec.owner', 'metadata.tags'],
       })
-      .then(
-        (response: { facets: Record<string, Array<{ value: string }>> }) => {
-          const owners = (response.facets['spec.owner'] ?? []).map(
-            f => f.value,
-          );
-          const tags = (response.facets['metadata.tags'] ?? []).map(
-            f => f.value,
-          );
-          owners.sort((a, b) => a.localeCompare(b));
-          tags.sort((a, b) => a.localeCompare(b));
-          setAllOwners(['All', ...owners]);
-          setAllTags(['All', ...tags]);
-        },
-      )
+      .then(response => {
+        const owners = (response.facets['spec.owner'] ?? []).map(f => f.value);
+        const tags = (response.facets['metadata.tags'] ?? []).map(f => f.value);
+        owners.sort((a, b) => a.localeCompare(b));
+        tags.sort((a, b) => a.localeCompare(b));
+        setAllOwners(['All', ...owners]);
+        setAllTags(['All', ...tags]);
+      })
       .catch(() => {
         setAllOwners(['All']);
         setAllTags(['All']);
@@ -243,6 +228,7 @@ export const EEListPage = ({
   const handleOwnerFilterChange = useCallback(
     (value: string) => {
       setOwnerFilter(value);
+      setPage(0);
       updateFilters({
         owners: value === 'All' ? undefined : new EntityOwnerFilter([value]),
       });
@@ -254,6 +240,7 @@ export const EEListPage = ({
   const handleTagFilterChange = useCallback(
     (value: string) => {
       setTagFilter(value);
+      setPage(0);
       updateFilters({
         tags: value === 'All' ? undefined : new EntityTagFilter([value]),
       });
@@ -309,6 +296,7 @@ export const EEListPage = ({
     setOwnerFilter('All');
     setTagFilter('All');
     setOwnerNames(new Map());
+    setPage(0);
     updateFilters({
       owners: undefined,
       tags: undefined,
@@ -489,10 +477,7 @@ export const EEListPage = ({
     },
   ];
 
-  if (totalCount > 0 || entities.length > 0) {
-    hasEverHadEntitiesRef.current = true;
-  }
-  const hasEntities = hasEverHadEntitiesRef.current;
+  const hasEntities = totalCount > 0 || entities.length > 0;
 
   return (
     <div style={{ flexDirection: 'column', width: '100%' }}>
@@ -567,11 +552,8 @@ export const EEListPage = ({
               columns={columns}
               data={entities}
               page={page}
-              onPageChange={p => setOffset?.(p * limit)}
-              onRowsPerPageChange={newLimit => {
-                setOffset?.(0);
-                setLimit?.(newLimit);
-              }}
+              onPageChange={setPage}
+              onRowsPerPageChange={setLimit}
               totalCount={totalCount}
             />
             <Menu
