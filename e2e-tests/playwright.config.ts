@@ -46,7 +46,7 @@ export default defineConfig({
     baseURL: process.env.BASE_URL || 'http://localhost:7071',
 
     // Trace on failure - better than Cypress video
-    trace: 'on-first-retry',
+    trace: 'retain-on-failure', // Always capture trace on failure for debugging
     screenshot: 'only-on-failure',
     video: process.env.CI ? 'off' : 'retain-on-failure',
 
