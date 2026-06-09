@@ -2141,8 +2141,8 @@ describe('EEListPage', () => {
     });
   });
 
-  describe('Coverage: pagination offset clamp', () => {
-    test('clamps offset when page exceeds totalItems', async () => {
+  describe('Coverage: page derived from offset', () => {
+    test('derives page from offset and limit without calling setOffset', async () => {
       const mockSetOffset = jest.fn();
       const { useEntityList: mockHook } = jest.requireMock(
         '@backstage/plugin-catalog-react',
@@ -2153,7 +2153,7 @@ describe('EEListPage', () => {
         filters: { user: { value: 'all' } },
         updateFilters: jest.fn(),
         loading: false,
-        totalItems: 5,
+        totalItems: 25,
         limit: 10,
         offset: 10,
         setLimit: jest.fn(),
@@ -2187,7 +2187,12 @@ describe('EEListPage', () => {
         </MemoryRouter>,
       );
 
-      await waitFor(() => expect(mockSetOffset).toHaveBeenCalledWith(0));
+      await waitFor(() =>
+        expect(screen.getByTestId('stubbed-table-title')).toHaveTextContent(
+          'Execution Environments definition files (25)',
+        ),
+      );
+      expect(mockSetOffset).not.toHaveBeenCalled();
     });
   });
 

@@ -176,9 +176,7 @@ export const EEListPage = ({
   } = useEntityList();
   const entities = useMemo(() => rawEntities ?? [], [rawEntities]);
 
-  const [page, setPage] = useState(
-    offset && limit ? Math.floor(offset / limit) : 0,
-  );
+  const page = offset && limit ? Math.floor(offset / limit) : 0;
   const [ownerFilter, setOwnerFilter] = useState('All');
   const [tagFilter, setTagFilter] = useState('All');
   const [allOwners, setAllOwners] = useState<string[]>(['All']);
@@ -195,14 +193,6 @@ export const EEListPage = ({
     };
   }, []);
 
-  useEffect(() => {
-    if (totalItems && page * limit >= totalItems) {
-      setOffset?.(Math.max(0, totalItems - limit));
-    } else {
-      setOffset?.(Math.max(0, page * limit));
-    }
-  }, [setOffset, page, limit, totalItems]);
-
   // Fetch facets for filter dropdowns
   useEffect(() => {
     catalogApi
@@ -210,14 +200,20 @@ export const EEListPage = ({
         filter: { kind: 'Component', 'spec.type': 'execution-environment' },
         facets: ['spec.owner', 'metadata.tags'],
       })
-      .then(response => {
-        const owners = (response.facets['spec.owner'] ?? []).map(f => f.value);
-        const tags = (response.facets['metadata.tags'] ?? []).map(f => f.value);
-        owners.sort((a, b) => a.localeCompare(b));
-        tags.sort((a, b) => a.localeCompare(b));
-        setAllOwners(['All', ...owners]);
-        setAllTags(['All', ...tags]);
-      })
+      .then(
+        (response: { facets: Record<string, Array<{ value: string }>> }) => {
+          const owners = (response.facets['spec.owner'] ?? []).map(
+            f => f.value,
+          );
+          const tags = (response.facets['metadata.tags'] ?? []).map(
+            f => f.value,
+          );
+          owners.sort((a, b) => a.localeCompare(b));
+          tags.sort((a, b) => a.localeCompare(b));
+          setAllOwners(['All', ...owners]);
+          setAllTags(['All', ...tags]);
+        },
+      )
       .catch(() => {
         setAllOwners(['All']);
         setAllTags(['All']);
@@ -228,7 +224,6 @@ export const EEListPage = ({
   const handleOwnerFilterChange = useCallback(
     (value: string) => {
       setOwnerFilter(value);
-      setPage(0);
       updateFilters({
         owners: value === 'All' ? undefined : new EntityOwnerFilter([value]),
       });
@@ -240,7 +235,6 @@ export const EEListPage = ({
   const handleTagFilterChange = useCallback(
     (value: string) => {
       setTagFilter(value);
-      setPage(0);
       updateFilters({
         tags: value === 'All' ? undefined : new EntityTagFilter([value]),
       });
@@ -296,7 +290,6 @@ export const EEListPage = ({
     setOwnerFilter('All');
     setTagFilter('All');
     setOwnerNames(new Map());
-    setPage(0);
     updateFilters({
       owners: undefined,
       tags: undefined,
@@ -552,7 +545,7 @@ export const EEListPage = ({
               columns={columns}
               data={entities}
               page={page}
-              onPageChange={setPage}
+              onPageChange={p => setOffset?.(p * limit)}
               onRowsPerPageChange={setLimit}
               totalCount={totalCount}
             />

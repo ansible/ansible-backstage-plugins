@@ -135,12 +135,14 @@ const HomeTagPicker = ({ syncKey }: { syncKey: number }) => {
         filter: { kind: 'Template' },
         facets: ['metadata.tags'],
       })
-      .then(response => {
-        const tags = (response.facets['metadata.tags'] ?? [])
-          .map(f => f.value)
-          .sort((a, b) => a.localeCompare(b));
-        setAvailableTags(tags);
-      })
+      .then(
+        (response: { facets: Record<string, Array<{ value: string }>> }) => {
+          const tags = (response.facets['metadata.tags'] ?? [])
+            .map(f => f.value)
+            .sort((a, b) => a.localeCompare(b));
+          setAvailableTags(tags);
+        },
+      )
       .catch(() => {
         setAvailableTags([]);
       });
@@ -148,7 +150,6 @@ const HomeTagPicker = ({ syncKey }: { syncKey: number }) => {
 
   const handleTagChange = (newValue: string[]) => {
     updateFilters({
-      ...filters,
       tags: newValue.length > 0 ? new EntityTagFilter(newValue) : undefined,
     });
   };
@@ -170,10 +171,7 @@ const HomeCategoryPicker = ({ syncKey }: { syncKey: number }) => {
   const catalogApi = useApi(catalogApiRef);
   const { filters, updateFilters } = useEntityList();
   const [allCategories, setAllCategories] = useState<string[]>([]);
-  const [allNonEETypes, setAllNonEETypes] = useState<string[]>([]);
-
-  const selectedCategories =
-    (filters.type as EntityTypeFilter)?.getTypes() ?? [];
+  const [userSelection, setUserSelection] = useState<string[]>([]);
 
   useEffect(() => {
     catalogApi
@@ -181,30 +179,29 @@ const HomeCategoryPicker = ({ syncKey }: { syncKey: number }) => {
         filter: { kind: 'Template' },
         facets: ['spec.type'],
       })
-      .then(response => {
-        const types = (response.facets['spec.type'] ?? []).map(f => f.value);
-        const nonEE = types.filter(t => !isEEType(t));
-        const sorted = [...nonEE].sort((a, b) => a.localeCompare(b));
-        setAllCategories(sorted);
-        setAllNonEETypes(nonEE);
-        if (!filters.type || filters.type.getTypes().length === 0) {
-          updateFilters({
-            ...filters,
-            type: nonEE.length > 0 ? new EntityTypeFilter(nonEE) : undefined,
-          });
-        }
-      })
+      .then(
+        (response: { facets: Record<string, Array<{ value: string }>> }) => {
+          const types = (response.facets['spec.type'] ?? []).map(f => f.value);
+          const nonEE = types.filter(t => !isEEType(t));
+          const sorted = [...nonEE].sort((a, b) => a.localeCompare(b));
+          setAllCategories(sorted);
+          if (!filters.type || filters.type.getTypes().length === 0) {
+            updateFilters({
+              type: nonEE.length > 0 ? new EntityTypeFilter(nonEE) : undefined,
+            });
+          }
+        },
+      )
       .catch(() => {
         setAllCategories([]);
-        setAllNonEETypes([]);
       });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [catalogApi, syncKey]);
 
   const handleCategoryChange = (newValue: string[]) => {
-    const typesToFilter = newValue.length > 0 ? newValue : allNonEETypes;
+    setUserSelection(newValue);
+    const typesToFilter = newValue.length > 0 ? newValue : allCategories;
     updateFilters({
-      ...filters,
       type:
         typesToFilter.length > 0
           ? new EntityTypeFilter(typesToFilter)
@@ -216,11 +213,7 @@ const HomeCategoryPicker = ({ syncKey }: { syncKey: number }) => {
     <TagFilterPicker
       label="Categories"
       options={allCategories}
-      value={
-        selectedCategories.length === allNonEETypes.length
-          ? []
-          : selectedCategories
-      }
+      value={userSelection}
       onChange={handleCategoryChange}
       noOptionsText="No categories available"
     />
@@ -244,6 +237,12 @@ const TemplateContent = ({
   } = useEntityList();
   const [currentPage, setCurrentPage] = useState(1);
 
+  useEffect(() => {
+    if (!pageInfo?.prev) {
+      setCurrentPage(1);
+    }
+  }, [pageInfo?.prev]);
+
   const isLoading = externalLoading || catalogLoading;
 
   const filteredEntities = useMemo(
@@ -254,9 +253,13 @@ const TemplateContent = ({
     [entities, jobTemplates],
   );
 
-  const totalPages = Math.max(1, Math.ceil((totalItems ?? 0) / limit));
-  const showStart = (currentPage - 1) * limit + 1;
-  const showEnd = (currentPage - 1) * limit + filteredEntities.length;
+  const totalCount = totalItems ?? 0;
+  const totalPages = Math.max(1, Math.ceil(totalCount / limit));
+  const showStart = Math.min((currentPage - 1) * limit + 1, totalCount);
+  const showEnd = Math.min(
+    (currentPage - 1) * limit + filteredEntities.length,
+    totalCount,
+  );
 
   if (isLoading) {
     return (
@@ -284,38 +287,40 @@ const TemplateContent = ({
           <WizardCard key={template.metadata.uid} template={template} />
         ))}
       </ItemCardGrid>
-      {totalPages > 1 && (
+      {totalCount > 0 && (
         <Box className={classes.paginationContainer}>
           <Typography className={classes.paginationInfo}>
-            Showing {showStart}-{showEnd} of {totalItems} templates
+            Showing {showStart}-{showEnd} of {totalCount} templates
           </Typography>
-          <Box className={classes.paginationControls}>
-            <IconButton
-              size="small"
-              disabled={!pageInfo?.prev}
-              onClick={() => {
-                pageInfo?.prev?.();
-                setCurrentPage(p => Math.max(1, p - 1));
-              }}
-              aria-label="Previous page"
-            >
-              <NavigateBeforeIcon />
-            </IconButton>
-            <Typography variant="body2">
-              Page {currentPage} of {totalPages}
-            </Typography>
-            <IconButton
-              size="small"
-              disabled={!pageInfo?.next}
-              onClick={() => {
-                pageInfo?.next?.();
-                setCurrentPage(p => p + 1);
-              }}
-              aria-label="Next page"
-            >
-              <NavigateNextIcon />
-            </IconButton>
-          </Box>
+          {totalPages > 1 && (
+            <Box className={classes.paginationControls}>
+              <IconButton
+                size="small"
+                disabled={!pageInfo?.prev}
+                onClick={() => {
+                  pageInfo?.prev?.();
+                  setCurrentPage(p => Math.max(1, p - 1));
+                }}
+                aria-label="Previous page"
+              >
+                <NavigateBeforeIcon />
+              </IconButton>
+              <Typography variant="body2">
+                Page {currentPage} of {totalPages}
+              </Typography>
+              <IconButton
+                size="small"
+                disabled={!pageInfo?.next}
+                onClick={() => {
+                  pageInfo?.next?.();
+                  setCurrentPage(p => p + 1);
+                }}
+                aria-label="Next page"
+              >
+                <NavigateNextIcon />
+              </IconButton>
+            </Box>
+          )}
         </Box>
       )}
     </div>
@@ -395,10 +400,12 @@ export const HomeComponent = () => {
         provider: 'aap-api-cloud',
         context: {},
       });
-      const newTemplates = results.map(result => ({
-        id: parseInt(result.id, 10),
-        name: result.title as string,
-      }));
+      const newTemplates = results.map(
+        (result: { id: string; title?: string }) => ({
+          id: parseInt(result.id, 10),
+          name: result.title as string,
+        }),
+      );
       if (requestId === fetchRequestIdRef.current) {
         setJobTemplates(newTemplates);
         fetchSucceededRef.current = true;
