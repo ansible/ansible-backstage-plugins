@@ -11,7 +11,7 @@ import {
 import type { Config } from '@backstage/config';
 
 import { readAapApiEntityConfigs } from './config';
-import { InputError, isError, NotFoundError } from '@backstage/errors';
+import { NotFoundError } from '@backstage/errors';
 import { AapConfig } from './types';
 import {
   IAAPService,
@@ -21,6 +21,8 @@ import {
 } from '@ansible/backstage-rhaap-common';
 import { Entity } from '@backstage/catalog-model';
 import { aapJobTemplateParser } from './entityParser';
+import { resolveTaskRunner } from './helpers';
+import { SyncStateTracker } from './SyncStateTracker';
 
 export class AAPJobTemplateProvider implements EntityProvider {
   private readonly env: string;
@@ -32,7 +34,7 @@ export class AAPJobTemplateProvider implements EntityProvider {
   private readonly ansibleServiceRef: IAAPService;
   private readonly scheduleFn: () => Promise<void>;
   private connection?: EntityProviderConnection;
-  private lastSyncTime: string | null = null;
+  private readonly syncState = new SyncStateTracker();
 
   static pluginLogName = 'plugin-catalog-rh-aap';
   static syncEntity = 'jobTemplates';
@@ -50,29 +52,12 @@ export class AAPJobTemplateProvider implements EntityProvider {
     const providerConfigs = readAapApiEntityConfigs(config, this.syncEntity);
     logger.info(`Init AAP entity provider from config.`);
     return providerConfigs.map(providerConfig => {
-      let taskRunner;
-      if ('scheduler' in options && providerConfig.schedule) {
-        taskRunner = options.scheduler!.createScheduledTaskRunner(
-          providerConfig.schedule,
-        );
-      } else if ('schedule' in options) {
-        taskRunner = options.schedule;
-      } else {
-        logger.info(
-          `[${this.pluginLogName}]:No schedule provided via config for AAP Resource Entity Provider:${providerConfig.id}.`,
-        );
-        throw new InputError(
-          `No schedule provided via config for AapResourceEntityProvider:${providerConfig.id}.`,
-        );
-      }
-      if (!taskRunner) {
-        logger.info(
-          `[${this.pluginLogName}]:No schedule provided via config for AAP Resource Entity Provider:${providerConfig.id}.`,
-        );
-        throw new InputError(
-          `No schedule provided via config for AapResourceEntityProvider:${providerConfig.id}.`,
-        );
-      }
+      const taskRunner = resolveTaskRunner(
+        options,
+        providerConfig.schedule,
+        this.pluginLogName,
+        providerConfig.id,
+      );
       return new AAPJobTemplateProvider(
         providerConfig,
         logger,
@@ -104,33 +89,14 @@ export class AAPJobTemplateProvider implements EntityProvider {
   createScheduleFn(
     taskRunner: SchedulerServiceTaskRunner,
   ): () => Promise<void> {
-    return async () => {
-      const taskId = `${this.getProviderName()}:run`;
-      this.logger.info('[${this.pluginLogName}]:Creating Schedule function.');
-      return taskRunner.run({
-        id: taskId,
-        fn: async () => {
-          try {
-            await this.run();
-          } catch (error) {
-            if (isError(error)) {
-              // Ensure that we don't log any sensitive internal data:
-              this.logger.error(
-                `Error while syncing resources from AAP ${this.baseUrl}`,
-                {
-                  // Default Error properties:
-                  name: error.name,
-                  message: error.message,
-                  stack: error.stack,
-                  // Additional status code if available:
-                  status: (error.response as { status?: string })?.status,
-                },
-              );
-            }
-          }
-        },
-      });
-    };
+    this.logger.info('[${this.pluginLogName}]:Creating Schedule function.');
+    return this.syncState.createScheduleFn(
+      taskRunner,
+      this.getProviderName(),
+      () => this.run(),
+      this.logger,
+      `AAP ${this.baseUrl}`,
+    );
   }
 
   getProviderName(): string {
@@ -138,41 +104,63 @@ export class AAPJobTemplateProvider implements EntityProvider {
   }
 
   getLastSyncTime(): string | null {
-    return this.lastSyncTime;
+    return this.syncState.getLastSyncTime();
+  }
+
+  getLastFailedSyncTime(): string | null {
+    return this.syncState.getLastFailedSyncTime();
+  }
+
+  getLastSyncStatus(): 'success' | 'failure' | null {
+    return this.syncState.getLastSyncStatus();
+  }
+
+  getIsSyncing(): boolean {
+    return this.syncState.getIsSyncing();
+  }
+
+  getTaskId(): string | undefined {
+    return this.syncState.getTaskId();
   }
 
   async run(): Promise<boolean> {
     if (!this.connection) {
       throw new NotFoundError('Not initialized');
     }
-    let jobTemplateCount = 0;
-    const entities: Entity[] = [];
-    let aapJobTemplates: Array<{
-      job: IJobTemplate;
-      survey: ISurvey | null;
-      instanceGroup: InstanceGroup[];
-    }> = [];
-
-    let error = false;
+    this.syncState.markSyncStarted();
     try {
-      aapJobTemplates = await this.ansibleServiceRef.syncJobTemplates(
-        this.surveyEnabled,
-        this.jobTemplateLabels,
-        this.jobTemplateExcludeLabels,
-      );
-      this.logger.info(
-        `[${AAPJobTemplateProvider.pluginLogName}]: Fetched ${aapJobTemplates.length} job templates.`,
-      );
-    } catch (e: any) {
-      this.logger.error(
-        `[${
-          AAPJobTemplateProvider.pluginLogName
-        }]: Error while fetching job templates. ${e?.message ?? ''}`,
-      );
-      error = true;
-    }
+      let jobTemplateCount = 0;
+      const entities: Entity[] = [];
+      let aapJobTemplates: Array<{
+        job: IJobTemplate;
+        survey: ISurvey | null;
+        instanceGroup: InstanceGroup[];
+      }> = [];
 
-    if (!error) {
+      let error = false;
+      try {
+        aapJobTemplates = await this.ansibleServiceRef.syncJobTemplates(
+          this.surveyEnabled,
+          this.jobTemplateLabels,
+          this.jobTemplateExcludeLabels,
+        );
+        this.logger.info(
+          `[${AAPJobTemplateProvider.pluginLogName}]: Fetched ${aapJobTemplates.length} job templates.`,
+        );
+      } catch (e: any) {
+        this.logger.error(
+          `[${
+            AAPJobTemplateProvider.pluginLogName
+          }]: Error while fetching job templates. ${e?.message ?? ''}`,
+        );
+        error = true;
+      }
+
+      if (error) {
+        this.syncState.markSyncFailed();
+        return false;
+      }
+
       for (const { job, survey, instanceGroup } of aapJobTemplates) {
         entities.push(
           aapJobTemplateParser({
@@ -200,9 +188,12 @@ export class AAPJobTemplateProvider implements EntityProvider {
         }]: Refreshed ${this.getProviderName()}: ${jobTemplateCount} job templates added.`,
       );
 
-      this.lastSyncTime = new Date().toISOString();
+      this.syncState.markSyncSucceeded();
+      return true;
+    } catch (e) {
+      this.syncState.markSyncFailed();
+      throw e;
     }
-    return !error;
   }
 
   async connect(connection: EntityProviderConnection): Promise<void> {
