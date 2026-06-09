@@ -117,6 +117,28 @@ export async function createRouter(options: {
     _GIT_CONTENTS_PROVIDERS.set(provider.getSourceId(), provider);
   }
 
+  /**
+   * Helper to get user's AAP OAuth token from request.
+   * Token should be passed from frontend in Authorization header or request body.
+   * Respects AAP RBAC by using user's token instead of service account.
+   */
+  async function getUserAAPToken(request: express.Request): Promise<string> {
+    // First check Authorization header
+    const authHeader = request.headers.authorization;
+    if (authHeader && authHeader.startsWith('Bearer ')) {
+      const token = authHeader.substring(7);
+      if (token) return token;
+    }
+
+    // Check request body for token (for POST requests)
+    const bodyToken = (request.body as any)?.token;
+    if (bodyToken) return bodyToken;
+
+    throw new Error(
+      'AAP OAuth token required. Please include token in Authorization header or request body.',
+    );
+  }
+
   const requireSuperuserMiddleware = createRequireSuperuserMiddleware({
     httpAuth,
     userInfo,
@@ -1012,7 +1034,9 @@ export async function createRouter(options: {
       }
 
       try {
-        const jobStatus = await ansibleService.getJobStatus(jobId);
+        // Get user's AAP OAuth token from Authorization header
+        const aapToken = await getUserAAPToken(request);
+        const jobStatus = await ansibleService.getJobStatus(jobId, aapToken);
         response.status(200).json(jobStatus);
       } catch (error: any) {
         logger.error(
@@ -1115,8 +1139,13 @@ export async function createRouter(options: {
       const jobIds = jobRequests.map(req => req.jobId);
 
       try {
+        // Get user's AAP OAuth token from Authorization header
+        const aapToken = await getUserAAPToken(request);
         logger.info(`Fetching batch job status for ${jobIds.length} jobs`);
-        const jobStatuses = await ansibleService.getJobStatusBatch(jobIds);
+        const jobStatuses = await ansibleService.getJobStatusBatch(
+          jobIds,
+          aapToken,
+        );
 
         const result = Object.fromEntries(jobStatuses);
         response.status(200).json({ jobs: result });

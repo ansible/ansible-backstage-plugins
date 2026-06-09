@@ -3601,9 +3601,9 @@ describe('createRouter', () => {
         finishedAt: '2024-01-01T10:00:00Z',
       });
 
-      const response = await request(app).get(
-        '/ansible/jobs/123?taskId=test-task-123',
-      );
+      const response = await request(app)
+        .get('/ansible/jobs/123?taskId=test-task-123')
+        .set('Authorization', 'Bearer test-aap-token');
 
       expect(response.status).toBe(200);
       expect(response.body).toEqual({
@@ -3613,7 +3613,10 @@ describe('createRouter', () => {
         events: [{ event_data: { msg: 'Done' } }],
         finishedAt: '2024-01-01T10:00:00Z',
       });
-      expect(mockAnsibleService.getJobStatus).toHaveBeenCalledWith(123);
+      expect(mockAnsibleService.getJobStatus).toHaveBeenCalledWith(
+        123,
+        'test-aap-token',
+      );
     });
 
     it('should return 400 for missing taskId', async () => {
@@ -3641,9 +3644,9 @@ describe('createRouter', () => {
         { result: AuthorizeResult.DENY },
       ]);
 
-      const response = await request(app).get(
-        '/ansible/jobs/123?taskId=test-task-123',
-      );
+      const response = await request(app)
+        .get('/ansible/jobs/123?taskId=test-task-123')
+        .set('Authorization', 'Bearer test-aap-token');
 
       expect(response.status).toBe(403);
       expect(response.body).toEqual({
@@ -3656,9 +3659,9 @@ describe('createRouter', () => {
         new Error('Response code 403'),
       );
 
-      const response = await request(app).get(
-        '/ansible/jobs/999?taskId=test-task-999',
-      );
+      const response = await request(app)
+        .get('/ansible/jobs/999?taskId=test-task-999')
+        .set('Authorization', 'Bearer test-aap-token');
 
       expect(response.status).toBe(404);
       expect(response.body).toMatchObject({
@@ -3673,9 +3676,9 @@ describe('createRouter', () => {
         new Error('AAP service account token not configured'),
       );
 
-      const response = await request(app).get(
-        '/ansible/jobs/123?taskId=test-task-123',
-      );
+      const response = await request(app)
+        .get('/ansible/jobs/123?taskId=test-task-123')
+        .set('Authorization', 'Bearer test-aap-token');
 
       expect(response.status).toBe(503);
       expect(response.body).toEqual({
@@ -3688,9 +3691,9 @@ describe('createRouter', () => {
         new Error('Network timeout'),
       );
 
-      const response = await request(app).get(
-        '/ansible/jobs/123?taskId=test-task-123',
-      );
+      const response = await request(app)
+        .get('/ansible/jobs/123?taskId=test-task-123')
+        .set('Authorization', 'Bearer test-aap-token');
 
       expect(response.status).toBe(500);
       expect(response.body).toMatchObject({
@@ -3732,6 +3735,7 @@ describe('createRouter', () => {
 
       const response = await request(app)
         .post('/ansible/jobs/batch')
+        .set('Authorization', 'Bearer test-aap-token')
         .send({
           jobs: [
             { taskId: 'task-1', jobId: 100 },
@@ -3754,14 +3758,16 @@ describe('createRouter', () => {
           },
         },
       });
-      expect(mockAnsibleService.getJobStatusBatch).toHaveBeenCalledWith([
-        100, 200,
-      ]);
+      expect(mockAnsibleService.getJobStatusBatch).toHaveBeenCalledWith(
+        [100, 200],
+        'test-aap-token',
+      );
     });
 
     it('should return 400 when jobs is not an array', async () => {
       const response = await request(app)
         .post('/ansible/jobs/batch')
+        .set('Authorization', 'Bearer test-aap-token')
         .send({ jobs: 'not-an-array' });
 
       expect(response.status).toBe(400);
@@ -3769,7 +3775,10 @@ describe('createRouter', () => {
     });
 
     it('should return 400 when jobs is missing', async () => {
-      const response = await request(app).post('/ansible/jobs/batch').send({});
+      const response = await request(app)
+        .post('/ansible/jobs/batch')
+        .set('Authorization', 'Bearer test-aap-token')
+        .send({});
 
       expect(response.status).toBe(400);
       expect(response.body).toEqual({ error: 'jobs must be an array' });
@@ -3778,6 +3787,7 @@ describe('createRouter', () => {
     it('should reject invalid entries with 400', async () => {
       const response = await request(app)
         .post('/ansible/jobs/batch')
+        .set('Authorization', 'Bearer test-aap-token')
         .send({
           jobs: [
             { taskId: 'task-1', jobId: 100 },
@@ -3796,6 +3806,7 @@ describe('createRouter', () => {
     it('should return empty object for empty array', async () => {
       const response = await request(app)
         .post('/ansible/jobs/batch')
+        .set('Authorization', 'Bearer test-aap-token')
         .send({ jobs: [] });
 
       expect(response.status).toBe(200);
@@ -3810,6 +3821,7 @@ describe('createRouter', () => {
 
       const response = await request(app)
         .post('/ansible/jobs/batch')
+        .set('Authorization', 'Bearer test-aap-token')
         .send({ jobs: [{ taskId: 'task-1', jobId: 123 }] });
 
       expect(response.status).toBe(403);
@@ -3825,6 +3837,7 @@ describe('createRouter', () => {
 
       const response = await request(app)
         .post('/ansible/jobs/batch')
+        .set('Authorization', 'Bearer test-aap-token')
         .send({
           jobs: [
             { taskId: 'task-1', jobId: 100 },

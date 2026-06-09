@@ -4410,7 +4410,7 @@ describe('AAPClient', () => {
 
       mockFetch.mockResolvedValue(jobResponse);
 
-      const result = await client.getJobStatus(456);
+      const result = await client.getJobStatus(456, 'test-token');
 
       expect(result).toEqual({
         id: 456,
@@ -4459,7 +4459,7 @@ describe('AAPClient', () => {
         .mockResolvedValueOnce(jobResponse)
         .mockResolvedValueOnce(eventsResponse);
 
-      const result = await client.getJobStatus(456);
+      const result = await client.getJobStatus(456, 'test-token');
 
       expect(result).toEqual({
         id: 456,
@@ -4500,7 +4500,7 @@ describe('AAPClient', () => {
             }),
           });
 
-        const result = await client.getJobStatus(123);
+        const result = await client.getJobStatus(123, 'test-token');
 
         expect(result.events).toBeDefined();
         expect(result.finishedAt).toBe('2024-01-01T11:00:00Z');
@@ -4557,8 +4557,8 @@ describe('AAPClient', () => {
         logger: mockLogger,
       });
 
-      await expect(clientNoToken.getJobStatus(123)).rejects.toThrow(
-        'AAP service account token not configured',
+      await expect(clientNoToken.getJobStatus(123, '')).rejects.toThrow(
+        'User OAuth token is required for job status',
       );
     });
   });
@@ -4597,7 +4597,7 @@ describe('AAPClient', () => {
           }),
         });
 
-      const result = await client.getJobStatusBatch(jobIds);
+      const result = await client.getJobStatusBatch(jobIds, 'test-token');
 
       expect(result.size).toBe(3);
       expect(result.get(100)).toEqual({
@@ -4631,7 +4631,7 @@ describe('AAPClient', () => {
         }),
       );
 
-      await client.getJobStatusBatch(jobIds);
+      await client.getJobStatusBatch(jobIds, 'test-token');
 
       // Should make 25 calls total, but in 3 batches (10 + 10 + 5)
       expect(mockFetch).toHaveBeenCalledTimes(25);
@@ -4659,7 +4659,7 @@ describe('AAPClient', () => {
           }),
         });
 
-      const result = await client.getJobStatusBatch(jobIds);
+      const result = await client.getJobStatusBatch(jobIds, 'test-token');
 
       expect(result.size).toBe(3);
       expect(result.get(100)?.status).toBe('successful');
@@ -4722,13 +4722,13 @@ describe('AAPClient', () => {
         logger: mockLogger,
       });
 
-      await expect(clientNoToken.getJobStatusBatch([123])).rejects.toThrow(
-        'AAP service account token not configured',
+      await expect(clientNoToken.getJobStatusBatch([123], '')).rejects.toThrow(
+        'User OAuth token is required for job status',
       );
     });
 
     it('should handle empty job ID array', async () => {
-      const result = await client.getJobStatusBatch([]);
+      const result = await client.getJobStatusBatch([], 'test-token');
 
       expect(result.size).toBe(0);
       expect(mockFetch).not.toHaveBeenCalled();

@@ -11,6 +11,7 @@ import {
   useRouteRef,
   discoveryApiRef,
 } from '@backstage/core-plugin-api';
+import { rhAapAuthApiRef } from '../../apis';
 import {
   useTaskEventStream,
   scaffolderApiRef,
@@ -94,6 +95,7 @@ export const RunTask = () => {
   const scaffolderApi = useApi(scaffolderApiRef);
   const catalogApi = useApi(catalogApiRef);
   const discoveryApi = useApi(discoveryApiRef);
+  const aapAuth = useApi(rhAapAuthApiRef);
   const navigate = useNavigate();
   const rootLink = useRouteRef(rootRouteRef);
   const templateRouteRef = useRouteRef(selectedTemplateRouteRef);
@@ -167,12 +169,15 @@ export const RunTask = () => {
     let cancelled = false;
     const fetchAapStatus = async () => {
       try {
+        // Get user's AAP OAuth token (handles refresh automatically)
+        const aapToken = await aapAuth.getAccessToken();
         const baseUrl = await discoveryApi.getBaseUrl('catalog');
         const response = await fetch(
           `${baseUrl}/ansible/jobs/${aapJobId}?taskId=${encodeURIComponent(taskId)}`,
           {
             headers: {
               'Content-Type': 'application/json',
+              Authorization: `Bearer ${aapToken}`,
             },
           },
         );
@@ -213,7 +218,7 @@ export const RunTask = () => {
         clearInterval(intervalId);
       }
     };
-  }, [task, completed, aapJobStatus?.status, discoveryApi, taskId]);
+  }, [task, completed, aapJobStatus?.status, discoveryApi, taskId, aapAuth]);
 
   const canStartOver = canRead && canCreateTask;
   const showStartOver = canStartOver;

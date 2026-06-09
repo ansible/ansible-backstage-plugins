@@ -915,18 +915,20 @@ export class AAPClient implements IAAPService {
 
   /**
    * Fetches current job status and events for a given job ID.
-   * Uses service account token from config instead of user token.
+   * Uses user's OAuth token to respect AAP RBAC permissions.
    */
-  public async getJobStatus(jobID: number): Promise<{
+  public async getJobStatus(
+    jobID: number,
+    token: string,
+  ): Promise<{
     id: number;
     status: string;
     events?: any[];
     url: string;
     finishedAt?: string;
   }> {
-    const token = this.ansibleConfig.rhaap?.token;
     if (!token) {
-      throw new Error('AAP service account token not configured');
+      throw new Error('User OAuth token is required for job status');
     }
 
     const endPoint = `api/controller/v2/jobs/${jobID}/`;
@@ -953,9 +955,12 @@ export class AAPClient implements IAAPService {
 
   /**
    * Batch fetch job statuses for multiple job IDs.
-   * Optimized for task list display.
+   * Uses user's OAuth token to respect AAP RBAC permissions.
    */
-  public async getJobStatusBatch(jobIDs: number[]): Promise<
+  public async getJobStatusBatch(
+    jobIDs: number[],
+    token: string,
+  ): Promise<
     Map<
       number,
       {
@@ -965,9 +970,8 @@ export class AAPClient implements IAAPService {
       }
     >
   > {
-    const token = this.ansibleConfig.rhaap?.token;
     if (!token) {
-      throw new Error('AAP service account token not configured');
+      throw new Error('User OAuth token is required for job status');
     }
 
     const results = new Map();
