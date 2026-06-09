@@ -367,7 +367,6 @@ export const RunTask = () => {
     };
   }, [matchingEntity, completed, task, allSteps, catalogApi]);
 
-
   const getMatchingEntity = useCallback(async (): Promise<any | null> => {
     let entity = matchingEntity;
 
