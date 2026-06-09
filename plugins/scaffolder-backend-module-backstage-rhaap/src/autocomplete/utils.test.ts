@@ -15,7 +15,11 @@
  */
 
 import { mockServices } from '@backstage/backend-test-utils';
-import { buildCollectionsFromCatalogEntities, getCollections } from './utils';
+import {
+  buildCollectionsFromCatalogEntities,
+  getCollections,
+  clearCollectionsCache,
+} from './utils';
 
 const mockFetch = jest.fn();
 
@@ -26,6 +30,7 @@ describe('autocomplete utils', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
+    clearCollectionsCache();
     (global as any).fetch = mockFetch;
     mockAuthService.getOwnServiceCredentials.mockResolvedValue({} as any);
     mockAuthService.getPluginRequestToken.mockResolvedValue({
@@ -484,6 +489,90 @@ describe('autocomplete utils', () => {
       expect(mockAuthService.getPluginRequestToken).toHaveBeenCalledWith(
         expect.objectContaining({ targetPluginId: 'catalog' }),
       );
+    });
+
+    it('returns cached result on second call within TTL', async () => {
+      const catalogEntities = [
+        {
+          spec: {
+            collection_full_name: 'community.general',
+            collection_version: '1.0.0',
+          },
+          metadata: { annotations: {} },
+        },
+      ];
+      mockFetch.mockResolvedValue({
+        ok: true,
+        json: async () => catalogEntities,
+      });
+
+      const opts = {
+        auth: mockAuthService,
+        discovery: mockDiscoveryService,
+        logger,
+      };
+
+      const first = await getCollections(opts);
+      const second = await getCollections(opts);
+
+      expect(first).toBe(second);
+      expect(mockFetch).toHaveBeenCalledTimes(1);
+    });
+
+    it('fetches again after cache expires', async () => {
+      mockFetch.mockResolvedValue({
+        ok: true,
+        json: async () => [],
+      });
+
+      const opts = {
+        auth: mockAuthService,
+        discovery: mockDiscoveryService,
+        logger,
+      };
+
+      await getCollections(opts);
+      expect(mockFetch).toHaveBeenCalledTimes(1);
+
+      const nowSpy = jest
+        .spyOn(Date, 'now')
+        .mockReturnValue(Date.now() + 61_000);
+      try {
+        await getCollections(opts);
+        expect(mockFetch).toHaveBeenCalledTimes(2);
+      } finally {
+        nowSpy.mockRestore();
+      }
+    });
+
+    it('deduplicates concurrent requests for the same filter', async () => {
+      const catalogEntities = [
+        {
+          spec: {
+            collection_full_name: 'ansible.builtin',
+            collection_version: '2.14.0',
+          },
+          metadata: { annotations: {} },
+        },
+      ];
+      mockFetch.mockResolvedValue({
+        ok: true,
+        json: async () => catalogEntities,
+      });
+
+      const opts = {
+        auth: mockAuthService,
+        discovery: mockDiscoveryService,
+        logger,
+      };
+
+      const [first, second] = await Promise.all([
+        getCollections(opts),
+        getCollections(opts),
+      ]);
+
+      expect(first).toBe(second);
+      expect(mockFetch).toHaveBeenCalledTimes(1);
     });
   });
 });
