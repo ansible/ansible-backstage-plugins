@@ -367,15 +367,6 @@ export const RunTask = () => {
     };
   }, [matchingEntity, completed, task, allSteps, catalogApi]);
 
-  useEffect(() => {
-    if (
-      completed &&
-      !error &&
-      templateEntity?.spec?.type === 'execution-environment'
-    ) {
-      // EE cache invalidation no longer needed — server-side pagination re-fetches on page visit
-    }
-  }, [completed, error, templateEntity]);
 
   const getMatchingEntity = useCallback(async (): Promise<any | null> => {
     let entity = matchingEntity;
