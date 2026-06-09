@@ -148,6 +148,10 @@ describe('createRouter', () => {
       getProviderName: jest.fn().mockReturnValue('AapEntityProvider:test'),
       connect: jest.fn(),
       getLastSyncTime: jest.fn(),
+      getLastFailedSyncTime: jest.fn().mockReturnValue(null),
+      getLastSyncStatus: jest.fn().mockReturnValue(null),
+      getIsSyncing: jest.fn().mockReturnValue(false),
+      getTaskId: jest.fn().mockReturnValue('AapEntityProvider:test:run'),
     } as unknown as jest.Mocked<AAPEntityProvider>;
 
     mockJobTemplateProvider = {
@@ -155,6 +159,10 @@ describe('createRouter', () => {
       getProviderName: jest.fn().mockReturnValue('AAPJobTemplateProvider:test'),
       connect: jest.fn(),
       getLastSyncTime: jest.fn(),
+      getLastFailedSyncTime: jest.fn().mockReturnValue(null),
+      getLastSyncStatus: jest.fn().mockReturnValue(null),
+      getIsSyncing: jest.fn().mockReturnValue(false),
+      getTaskId: jest.fn().mockReturnValue('AAPJobTemplateProvider:test:run'),
     } as unknown as jest.Mocked<AAPJobTemplateProvider>;
 
     mockEEEntityProvider = {
@@ -262,115 +270,79 @@ describe('createRouter', () => {
     });
   });
 
-  describe('GET /ansible/sync/from-aap/orgs_users_teams', () => {
-    it('should call aapEntityProvider.run and return 200 when successful', async () => {
-      mockAAPEntityProvider.run.mockResolvedValue(true);
+  describe('POST /ansible/sync/from-aap/orgs_users_teams', () => {
+    it('should trigger sync via scheduler and return 202', async () => {
+      const response = await request(app)
+        .post('/ansible/sync/from-aap/orgs_users_teams')
+        .send();
 
-      const response = await request(app).get(
-        '/ansible/sync/from-aap/orgs_users_teams',
+      expect(response.status).toBe(202);
+      expect(response.body).toEqual({ status: 'sync_started' });
+      expect(mockScheduler.triggerTask).toHaveBeenCalledWith(
+        'AapEntityProvider:test:run',
       );
-
-      expect(response.status).toBe(200);
-      expect(response.body).toBe(true);
-      expect(mockLogger.info).toHaveBeenCalledWith(
-        'Starting orgs, users and teams sync',
-      );
-      expect(mockAAPEntityProvider.run).toHaveBeenCalledTimes(1);
     });
 
-    it('should handle errors when aapEntityProvider.run throws', async () => {
-      const mockError = new Error('Sync failed');
-      mockAAPEntityProvider.run.mockRejectedValue(mockError);
-
-      const response = await request(app).get(
-        '/ansible/sync/from-aap/orgs_users_teams',
+    it('should return 200 when sync is already in progress', async () => {
+      mockScheduler.triggerTask.mockRejectedValueOnce(
+        new ConflictError('Already running'),
       );
+
+      const response = await request(app)
+        .post('/ansible/sync/from-aap/orgs_users_teams')
+        .send();
+
+      expect(response.status).toBe(200);
+      expect(response.body).toEqual({ status: 'already_syncing' });
+    });
+
+    it('should return 500 when provider is not initialized', async () => {
+      mockAAPEntityProvider.getTaskId.mockReturnValueOnce(undefined);
+
+      const response = await request(app)
+        .post('/ansible/sync/from-aap/orgs_users_teams')
+        .send();
 
       expect(response.status).toBe(500);
-      expect(mockLogger.info).toHaveBeenCalledWith(
-        'Starting orgs, users and teams sync',
-      );
-      expect(mockAAPEntityProvider.run).toHaveBeenCalledTimes(1);
-    });
-
-    it('should handle boolean return value from aapEntityProvider.run', async () => {
-      mockAAPEntityProvider.run.mockResolvedValue(true);
-
-      const response = await request(app).get(
-        '/ansible/sync/from-aap/orgs_users_teams',
-      );
-
-      expect(response.status).toBe(200);
-      expect(response.body).toBe(true);
-      expect(mockAAPEntityProvider.run).toHaveBeenCalledTimes(1);
-    });
-
-    it('should handle false return value from aapEntityProvider.run', async () => {
-      mockAAPEntityProvider.run.mockResolvedValue(false);
-
-      const response = await request(app).get(
-        '/ansible/sync/from-aap/orgs_users_teams',
-      );
-
-      expect(response.status).toBe(200);
-      expect(response.body).toBe(false);
-      expect(mockAAPEntityProvider.run).toHaveBeenCalledTimes(1);
+      expect(response.body.status).toBe('failed');
     });
   });
 
-  describe('GET /ansible/sync/from-aap/job_templates', () => {
-    it('should call jobTemplateProvider.run and return 200 when successful', async () => {
-      mockJobTemplateProvider.run.mockResolvedValue(true);
+  describe('POST /ansible/sync/from-aap/job_templates', () => {
+    it('should trigger sync via scheduler and return 202', async () => {
+      const response = await request(app)
+        .post('/ansible/sync/from-aap/job_templates')
+        .send();
 
-      const response = await request(app).get(
-        '/ansible/sync/from-aap/job_templates',
+      expect(response.status).toBe(202);
+      expect(response.body).toEqual({ status: 'sync_started' });
+      expect(mockScheduler.triggerTask).toHaveBeenCalledWith(
+        'AAPJobTemplateProvider:test:run',
       );
-
-      expect(response.status).toBe(200);
-      expect(response.body).toBe(true);
-      expect(mockLogger.info).toHaveBeenCalledWith(
-        'Starting job templates sync',
-      );
-      expect(mockJobTemplateProvider.run).toHaveBeenCalledTimes(1);
     });
 
-    it('should handle errors when jobTemplateProvider.run throws', async () => {
-      const mockError = new Error('Job template sync failed');
-      mockJobTemplateProvider.run.mockRejectedValue(mockError);
-
-      const response = await request(app).get(
-        '/ansible/sync/from-aap/job_templates',
+    it('should return 200 when sync is already in progress', async () => {
+      mockScheduler.triggerTask.mockRejectedValueOnce(
+        new ConflictError('Already running'),
       );
+
+      const response = await request(app)
+        .post('/ansible/sync/from-aap/job_templates')
+        .send();
+
+      expect(response.status).toBe(200);
+      expect(response.body).toEqual({ status: 'already_syncing' });
+    });
+
+    it('should return 500 when provider is not initialized', async () => {
+      mockJobTemplateProvider.getTaskId.mockReturnValueOnce(undefined);
+
+      const response = await request(app)
+        .post('/ansible/sync/from-aap/job_templates')
+        .send();
 
       expect(response.status).toBe(500);
-      expect(mockLogger.info).toHaveBeenCalledWith(
-        'Starting job templates sync',
-      );
-      expect(mockJobTemplateProvider.run).toHaveBeenCalledTimes(1);
-    });
-
-    it('should handle boolean return value from jobTemplateProvider.run', async () => {
-      mockJobTemplateProvider.run.mockResolvedValue(true);
-
-      const response = await request(app).get(
-        '/ansible/sync/from-aap/job_templates',
-      );
-
-      expect(response.status).toBe(200);
-      expect(response.body).toBe(true);
-      expect(mockJobTemplateProvider.run).toHaveBeenCalledTimes(1);
-    });
-
-    it('should handle false return value from jobTemplateProvider.run', async () => {
-      mockJobTemplateProvider.run.mockResolvedValue(false);
-
-      const response = await request(app).get(
-        '/ansible/sync/from-aap/job_templates',
-      );
-
-      expect(response.status).toBe(200);
-      expect(response.body).toBe(false);
-      expect(mockJobTemplateProvider.run).toHaveBeenCalledTimes(1);
+      expect(response.body.status).toBe('failed');
     });
   });
 
@@ -2733,8 +2705,18 @@ describe('createRouter', () => {
       expect(response.status).toBe(200);
       expect(response.body).toEqual({
         aap: {
-          orgsUsersTeams: { lastSync: '2024-01-15T10:00:00Z' },
-          jobTemplates: { lastSync: '2024-01-15T11:00:00Z' },
+          orgsUsersTeams: {
+            lastSync: '2024-01-15T10:00:00Z',
+            syncInProgress: false,
+            lastFailedSyncTime: null,
+            lastSyncStatus: null,
+          },
+          jobTemplates: {
+            lastSync: '2024-01-15T11:00:00Z',
+            syncInProgress: false,
+            lastFailedSyncTime: null,
+            lastSyncStatus: null,
+          },
         },
         content: {
           syncInProgress: false,
@@ -2772,8 +2754,18 @@ describe('createRouter', () => {
       expect(response.status).toBe(200);
       expect(response.body).toEqual({
         aap: {
-          orgsUsersTeams: { lastSync: '2024-01-15T10:00:00Z' },
-          jobTemplates: { lastSync: '2024-01-15T11:00:00Z' },
+          orgsUsersTeams: {
+            lastSync: '2024-01-15T10:00:00Z',
+            syncInProgress: false,
+            lastFailedSyncTime: null,
+            lastSyncStatus: null,
+          },
+          jobTemplates: {
+            lastSync: '2024-01-15T11:00:00Z',
+            syncInProgress: false,
+            lastFailedSyncTime: null,
+            lastSyncStatus: null,
+          },
         },
       });
     });
@@ -2839,8 +2831,18 @@ describe('createRouter', () => {
       expect(response.status).toBe(200);
       expect(response.body).toEqual({
         aap: {
-          orgsUsersTeams: { lastSync: '2024-01-15T10:00:00Z' },
-          jobTemplates: { lastSync: '2024-01-15T11:00:00Z' },
+          orgsUsersTeams: {
+            lastSync: '2024-01-15T10:00:00Z',
+            syncInProgress: false,
+            lastFailedSyncTime: null,
+            lastSyncStatus: null,
+          },
+          jobTemplates: {
+            lastSync: '2024-01-15T11:00:00Z',
+            syncInProgress: false,
+            lastFailedSyncTime: null,
+            lastSyncStatus: null,
+          },
         },
         content: {
           syncInProgress: false,
@@ -3510,8 +3512,9 @@ describe('createRouter', () => {
         .post('/ansible/sync/from-aap/orgs_users_teams')
         .send({ test: 'data' });
 
-      // Should return 404 for POST request, but won't fail on JSON parsing
-      expect(response.status).toBe(404);
+      expect(response.status).toBe(202);
+      expect(response.headers['content-type']).toMatch(/json/);
+      expect(response.body).toEqual({ status: 'sync_started' });
     });
 
     it('should handle undefined routes', async () => {
@@ -3592,9 +3595,9 @@ describe('createRouter', () => {
       const testApp = express().use(routerWithInvalidProvider);
 
       // The sync endpoint should fail when aapEntityProvider is undefined
-      const response = await request(testApp).get(
-        '/ansible/sync/from-aap/orgs_users_teams',
-      );
+      const response = await request(testApp)
+        .post('/ansible/sync/from-aap/orgs_users_teams')
+        .send();
       expect(response.status).toBe(500);
     });
 
@@ -3618,9 +3621,9 @@ describe('createRouter', () => {
       const testApp = express().use(routerWithInvalidProvider);
 
       // The sync endpoint should fail when jobTemplateProvider is undefined
-      const response = await request(testApp).get(
-        '/ansible/sync/from-aap/job_templates',
-      );
+      const response = await request(testApp)
+        .post('/ansible/sync/from-aap/job_templates')
+        .send();
       expect(response.status).toBe(500);
     });
   });
