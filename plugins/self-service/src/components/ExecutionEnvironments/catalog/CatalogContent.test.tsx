@@ -8,6 +8,7 @@ import {
   EntityOwnerFilter,
   EntityTagFilter,
   EntityTypeFilter,
+  EntityUserFilter,
 } from '@backstage/plugin-catalog-react';
 import { eeBuildApiRef } from '../../../apis';
 import { NotificationProvider, notificationStore } from '../../notifications';
@@ -94,6 +95,9 @@ jest.mock('@backstage/core-components', () => {
 });
 
 // ------------------ STUB: UnregisterEntityDialog for coverage ------------------
+const toggleStarredEntityMock = jest.fn();
+const isStarredEntityMock = jest.fn(() => false);
+
 jest.mock('@backstage/plugin-catalog-react', () => {
   const actual = jest.requireActual('@backstage/plugin-catalog-react');
 
@@ -152,12 +156,11 @@ jest.mock('@backstage/plugin-catalog-react', () => {
     queryParameters: {},
   }));
 
-  const toggleStarredEntityMock = jest.fn();
-  const isStarredEntityMock = jest.fn(() => false);
-  const useStarredEntities = () => ({
+  const useStarredEntities = jest.fn(() => ({
     isStarredEntity: isStarredEntityMock,
     toggleStarredEntity: toggleStarredEntityMock,
-  });
+    starredEntities: new Set<string>(),
+  }));
 
   const FavoriteEntityStub = ({ entity }: any) =>
     entity ? (
@@ -2273,6 +2276,234 @@ describe('EEListPage', () => {
 
       expect(mockSetOffset).toHaveBeenCalledWith(0);
       expect(mockSetLimit).toHaveBeenCalledWith(50);
+    });
+  });
+
+  describe('Coverage: starred filter', () => {
+    test('re-applies starred filter when starredEntities changes', async () => {
+      const mockUpdateFilters = jest.fn();
+      const { useEntityList: mockHook, useStarredEntities: mockStarred } =
+        jest.requireMock('@backstage/plugin-catalog-react');
+
+      const starred = new Set(['component:default/ee-one']);
+      mockStarred.mockReturnValue({
+        isStarredEntity: isStarredEntityMock,
+        toggleStarredEntity: toggleStarredEntityMock,
+        starredEntities: starred,
+      });
+
+      mockHook.mockReturnValue({
+        entities: [entityA],
+        backendEntities: [entityA],
+        filters: { user: { value: 'starred' } },
+        updateFilters: mockUpdateFilters,
+        loading: false,
+        totalItems: 1,
+        limit: 10,
+        offset: 0,
+        setLimit: jest.fn(),
+        setOffset: jest.fn(),
+        paginationMode: 'offset',
+        queryParameters: {},
+      });
+
+      render(
+        <MemoryRouter initialEntries={['/']}>
+          <TestApiProvider
+            apis={[
+              [configApiRef, mockConfigApi],
+              [
+                catalogApiRef,
+                {
+                  getEntityFacets: () => Promise.resolve({ facets: {} }),
+                  getEntitiesByRefs: () => Promise.resolve({ items: [] }),
+                },
+              ],
+              [scmAuthApiRef, mockScmAuthApi],
+              [eeBuildApiRef, mockEeBuildApi],
+            ]}
+          >
+            <NotificationProvider>
+              <ThemeProvider theme={theme}>
+                <EEListPage onTabSwitch={jest.fn()} />
+              </ThemeProvider>
+            </NotificationProvider>
+          </TestApiProvider>
+        </MemoryRouter>,
+      );
+
+      await waitFor(() =>
+        expect(mockUpdateFilters).toHaveBeenCalledWith({
+          user: EntityUserFilter.starred(Array.from(starred)),
+        }),
+      );
+    });
+
+    test('switches to all filter when last starred entity is removed', async () => {
+      const mockUpdateFilters = jest.fn();
+      const { useEntityList: mockHook, useStarredEntities: mockStarred } =
+        jest.requireMock('@backstage/plugin-catalog-react');
+
+      // First render: one starred entity
+      const initialStarred = new Set(['component:default/ee-one']);
+      mockStarred.mockReturnValue({
+        isStarredEntity: isStarredEntityMock,
+        toggleStarredEntity: toggleStarredEntityMock,
+        starredEntities: initialStarred,
+      });
+
+      mockHook.mockReturnValue({
+        entities: [entityA],
+        backendEntities: [entityA],
+        filters: { user: { value: 'starred' } },
+        updateFilters: mockUpdateFilters,
+        loading: false,
+        totalItems: 1,
+        limit: 10,
+        offset: 0,
+        setLimit: jest.fn(),
+        setOffset: jest.fn(),
+        paginationMode: 'offset',
+        queryParameters: {},
+      });
+
+      const { rerender } = render(
+        <MemoryRouter initialEntries={['/']}>
+          <TestApiProvider
+            apis={[
+              [configApiRef, mockConfigApi],
+              [
+                catalogApiRef,
+                {
+                  getEntityFacets: () => Promise.resolve({ facets: {} }),
+                  getEntitiesByRefs: () => Promise.resolve({ items: [] }),
+                },
+              ],
+              [scmAuthApiRef, mockScmAuthApi],
+              [eeBuildApiRef, mockEeBuildApi],
+            ]}
+          >
+            <NotificationProvider>
+              <ThemeProvider theme={theme}>
+                <EEListPage onTabSwitch={jest.fn()} />
+              </ThemeProvider>
+            </NotificationProvider>
+          </TestApiProvider>
+        </MemoryRouter>,
+      );
+
+      await waitFor(() => expect(mockUpdateFilters).toHaveBeenCalled());
+      mockUpdateFilters.mockClear();
+
+      // Second render: starred set is now empty
+      const emptyStarred = new Set<string>();
+      mockStarred.mockReturnValue({
+        isStarredEntity: isStarredEntityMock,
+        toggleStarredEntity: toggleStarredEntityMock,
+        starredEntities: emptyStarred,
+      });
+
+      mockHook.mockReturnValue({
+        entities: [],
+        backendEntities: [],
+        filters: { user: { value: 'starred' } },
+        updateFilters: mockUpdateFilters,
+        loading: false,
+        totalItems: 0,
+        limit: 10,
+        offset: 0,
+        setLimit: jest.fn(),
+        setOffset: jest.fn(),
+        paginationMode: 'offset',
+        queryParameters: {},
+      });
+
+      rerender(
+        <MemoryRouter initialEntries={['/']}>
+          <TestApiProvider
+            apis={[
+              [configApiRef, mockConfigApi],
+              [
+                catalogApiRef,
+                {
+                  getEntityFacets: () => Promise.resolve({ facets: {} }),
+                  getEntitiesByRefs: () => Promise.resolve({ items: [] }),
+                },
+              ],
+              [scmAuthApiRef, mockScmAuthApi],
+              [eeBuildApiRef, mockEeBuildApi],
+            ]}
+          >
+            <NotificationProvider>
+              <ThemeProvider theme={theme}>
+                <EEListPage onTabSwitch={jest.fn()} />
+              </ThemeProvider>
+            </NotificationProvider>
+          </TestApiProvider>
+        </MemoryRouter>,
+      );
+
+      await waitFor(() =>
+        expect(mockUpdateFilters).toHaveBeenCalledWith({
+          user: EntityUserFilter.all(),
+        }),
+      );
+    });
+  });
+
+  describe('Coverage: onPageChange', () => {
+    test('calls setOffset when page changes', async () => {
+      const mockSetOffset = jest.fn();
+      const { useEntityList: mockHook } = jest.requireMock(
+        '@backstage/plugin-catalog-react',
+      );
+      mockHook.mockReturnValue({
+        entities: [entityA, entityB],
+        backendEntities: [entityA, entityB],
+        filters: { user: { value: 'all' } },
+        updateFilters: jest.fn(),
+        loading: false,
+        totalItems: 25,
+        limit: 10,
+        offset: 0,
+        setLimit: jest.fn(),
+        setOffset: mockSetOffset,
+        paginationMode: 'offset',
+        queryParameters: {},
+      });
+
+      render(
+        <MemoryRouter initialEntries={['/']}>
+          <TestApiProvider
+            apis={[
+              [configApiRef, mockConfigApi],
+              [
+                catalogApiRef,
+                {
+                  getEntityFacets: () => Promise.resolve({ facets: {} }),
+                  getEntitiesByRefs: () => Promise.resolve({ items: [] }),
+                },
+              ],
+              [scmAuthApiRef, mockScmAuthApi],
+              [eeBuildApiRef, mockEeBuildApi],
+            ]}
+          >
+            <NotificationProvider>
+              <ThemeProvider theme={theme}>
+                <EEListPage onTabSwitch={jest.fn()} />
+              </ThemeProvider>
+            </NotificationProvider>
+          </TestApiProvider>
+        </MemoryRouter>,
+      );
+
+      await waitFor(() =>
+        expect(screen.getByTestId('stubbed-table-page')).toHaveTextContent('0'),
+      );
+
+      fireEvent.click(screen.getByTestId('stubbed-table-next-page'));
+
+      expect(mockSetOffset).toHaveBeenCalledWith(10);
     });
   });
 
