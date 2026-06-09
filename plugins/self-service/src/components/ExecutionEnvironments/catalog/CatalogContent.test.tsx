@@ -22,9 +22,35 @@ jest.mock('@backstage/core-components', () => {
   const actual = jest.requireActual('@backstage/core-components');
   return {
     ...actual,
-    Table: ({ title, data = [], columns = [] }: any) => (
+    Table: ({
+      title,
+      data = [],
+      columns = [],
+      page,
+      totalCount,
+      onPageChange,
+      onRowsPerPageChange,
+      options,
+    }: any) => (
       <div data-testid="stubbed-table">
         <div data-testid="stubbed-table-title">{title}</div>
+        <div data-testid="stubbed-table-page">{page ?? ''}</div>
+        <div data-testid="stubbed-table-total">{totalCount ?? ''}</div>
+        <div data-testid="stubbed-table-pagesize">
+          {options?.pageSize ?? ''}
+        </div>
+        {onPageChange && (
+          <button
+            data-testid="stubbed-table-next-page"
+            onClick={() => onPageChange((page ?? 0) + 1)}
+          />
+        )}
+        {onRowsPerPageChange && (
+          <button
+            data-testid="stubbed-table-change-rows"
+            onClick={() => onRowsPerPageChange(50)}
+          />
+        )}
         <div data-testid="stubbed-table-rows">
           {Array.isArray(data)
             ? data.map((entity: any, rowIndex: number) => (
@@ -36,7 +62,6 @@ jest.mock('@backstage/core-components', () => {
                       try {
                         cellContent = col.render(entity);
                       } catch (error) {
-                        // Handle errors in render function gracefully
                         cellContent = null;
                       }
                     } else if (col.field) {
@@ -2141,8 +2166,8 @@ describe('EEListPage', () => {
     });
   });
 
-  describe('Coverage: pagination offset clamp', () => {
-    test('clamps offset when page exceeds totalItems', async () => {
+  describe('Coverage: pagination', () => {
+    test('derives page from offset and limit and passes to Table', async () => {
       const mockSetOffset = jest.fn();
       const { useEntityList: mockHook } = jest.requireMock(
         '@backstage/plugin-catalog-react',
@@ -2153,7 +2178,7 @@ describe('EEListPage', () => {
         filters: { user: { value: 'all' } },
         updateFilters: jest.fn(),
         loading: false,
-        totalItems: 5,
+        totalItems: 25,
         limit: 10,
         offset: 10,
         setLimit: jest.fn(),
@@ -2187,7 +2212,67 @@ describe('EEListPage', () => {
         </MemoryRouter>,
       );
 
-      await waitFor(() => expect(mockSetOffset).toHaveBeenCalledWith(0));
+      await waitFor(() =>
+        expect(screen.getByTestId('stubbed-table-page')).toHaveTextContent('1'),
+      );
+      expect(screen.getByTestId('stubbed-table-total')).toHaveTextContent('25');
+      expect(mockSetOffset).not.toHaveBeenCalled();
+    });
+
+    test('resets offset to 0 when rows per page changes', async () => {
+      const mockSetOffset = jest.fn();
+      const mockSetLimit = jest.fn();
+      const { useEntityList: mockHook } = jest.requireMock(
+        '@backstage/plugin-catalog-react',
+      );
+      mockHook.mockReturnValue({
+        entities: [entityA],
+        backendEntities: [entityA],
+        filters: { user: { value: 'all' } },
+        updateFilters: jest.fn(),
+        loading: false,
+        totalItems: 25,
+        limit: 10,
+        offset: 20,
+        setLimit: mockSetLimit,
+        setOffset: mockSetOffset,
+        paginationMode: 'offset',
+        queryParameters: {},
+      });
+
+      render(
+        <MemoryRouter initialEntries={['/']}>
+          <TestApiProvider
+            apis={[
+              [configApiRef, mockConfigApi],
+              [
+                catalogApiRef,
+                {
+                  getEntityFacets: () => Promise.resolve({ facets: {} }),
+                  getEntitiesByRefs: () => Promise.resolve({ items: [] }),
+                },
+              ],
+              [scmAuthApiRef, mockScmAuthApi],
+              [eeBuildApiRef, mockEeBuildApi],
+            ]}
+          >
+            <NotificationProvider>
+              <ThemeProvider theme={theme}>
+                <EEListPage onTabSwitch={jest.fn()} />
+              </ThemeProvider>
+            </NotificationProvider>
+          </TestApiProvider>
+        </MemoryRouter>,
+      );
+
+      await waitFor(() =>
+        expect(screen.getByTestId('stubbed-table-page')).toHaveTextContent('2'),
+      );
+
+      fireEvent.click(screen.getByTestId('stubbed-table-change-rows'));
+
+      expect(mockSetOffset).toHaveBeenCalledWith(0);
+      expect(mockSetLimit).toHaveBeenCalledWith(50);
     });
   });
 
