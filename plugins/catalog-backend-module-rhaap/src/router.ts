@@ -123,19 +123,16 @@ export async function createRouter(options: {
    * Respects AAP RBAC by using user's token instead of service account.
    */
   async function getUserAAPToken(request: express.Request): Promise<string> {
-    // First check Authorization header
-    const authHeader = request.headers.authorization;
-    if (authHeader && authHeader.startsWith('Bearer ')) {
-      const token = authHeader.substring(7);
-      if (token) return token;
-    }
+    // Check custom AAP-Token header
+    const aapToken = request.headers['aap-token'] as string;
+    if (aapToken) return aapToken;
 
     // Check request body for token (for POST requests)
     const bodyToken = (request.body as any)?.token;
     if (bodyToken) return bodyToken;
 
     throw new Error(
-      'AAP OAuth token required. Please include token in Authorization header or request body.',
+      'AAP OAuth token required. Please include AAP-Token header or token in request body.',
     );
   }
 

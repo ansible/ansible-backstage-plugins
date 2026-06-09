@@ -177,7 +177,7 @@ export const RunTask = () => {
           {
             headers: {
               'Content-Type': 'application/json',
-              Authorization: `Bearer ${aapToken}`,
+              'AAP-Token': aapToken,
             },
           },
         );
