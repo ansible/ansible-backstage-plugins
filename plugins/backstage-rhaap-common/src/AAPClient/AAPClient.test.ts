@@ -2995,6 +2995,7 @@ describe('AAPClient', () => {
           {
             ...mockJobTemplateResponse[0],
             survey_enabled: false,
+            ask_instance_groups_on_launch: true,
             related: {
               ...mockJobTemplateResponse[0].related,
               instance_groups:
@@ -3079,11 +3080,50 @@ describe('AAPClient', () => {
         expect(executeGetRequestSpy).not.toHaveBeenCalled();
       });
 
+      it('should skip instance groups fetch when ask_instance_groups_on_launch is false', async () => {
+        const mockJobTemplateNotAskingInstanceGroups = [
+          {
+            ...mockJobTemplateResponse[0],
+            survey_enabled: false,
+            ask_instance_groups_on_launch: false,
+            related: {
+              ...mockJobTemplateResponse[0].related,
+              instance_groups:
+                '/api/controller/v2/job_templates/1/instance_groups/',
+            },
+          },
+        ];
+
+        jest.clearAllMocks();
+
+        jest
+          .spyOn(client as any, 'executeCatalogRequest')
+          .mockResolvedValueOnce(mockJobTemplateNotAskingInstanceGroups);
+
+        const executeGetRequestSpy = jest.spyOn(
+          client as any,
+          'executeGetRequest',
+        );
+
+        const result = await client.syncJobTemplates(false, []);
+
+        expect(result).toEqual([
+          {
+            job: mockJobTemplateNotAskingInstanceGroups[0],
+            survey: null,
+            instanceGroup: [],
+          },
+        ]);
+
+        expect(executeGetRequestSpy).not.toHaveBeenCalled();
+      });
+
       it('should fetch job templates with both survey and instance groups', async () => {
         const mockJobTemplateWithBoth = [
           {
             ...mockJobTemplateResponse[0],
             survey_enabled: true,
+            ask_instance_groups_on_launch: true,
             related: {
               ...mockJobTemplateResponse[0].related,
               instance_groups:

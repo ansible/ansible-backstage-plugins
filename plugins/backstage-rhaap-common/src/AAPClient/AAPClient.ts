@@ -1356,7 +1356,10 @@ export class AAPClient implements IAAPService {
             survey = (await response.json()) as ISurvey;
           }
 
-          if (template.related?.instance_groups) {
+          if (
+            template.related?.instance_groups &&
+            template.ask_instance_groups_on_launch
+          ) {
             const instanceGroupResults = (await this.executeCatalogRequest(
               template.related?.instance_groups,
               token,
