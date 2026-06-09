@@ -31,7 +31,6 @@ import GetAppIcon from '@material-ui/icons/GetApp';
 import ArrowBack from '@material-ui/icons/ArrowBack';
 import { rootRouteRef, selectedTemplateRouteRef } from '../../routes';
 import { createTarArchive } from '../utils/tarArchiveUtils';
-import { eeCache } from '../ExecutionEnvironments/catalog/eeCache';
 import {
   resolveEeFileNameFromParameters,
   resolvePublishToScmFromParameters,
@@ -374,7 +373,7 @@ export const RunTask = () => {
       !error &&
       templateEntity?.spec?.type === 'execution-environment'
     ) {
-      eeCache.markStale();
+      // EE cache invalidation no longer needed — server-side pagination re-fetches on page visit
     }
   }, [completed, error, templateEntity]);
 

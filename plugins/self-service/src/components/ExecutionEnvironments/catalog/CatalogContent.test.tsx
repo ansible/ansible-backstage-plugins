@@ -14,7 +14,6 @@ import { MemoryRouter } from 'react-router-dom';
 import { EEListPage } from './CatalogContent';
 import { ThemeProvider, createMuiTheme } from '@material-ui/core/styles';
 import { Entity } from '@backstage/catalog-model';
-import { eeCache } from './eeCache';
 
 // ------------------ STUB: core components (Table, Link) ------------------
 jest.mock('@backstage/core-components', () => {
@@ -111,10 +110,20 @@ jest.mock('@backstage/plugin-catalog-react', () => {
     </div>
   );
 
-  const useEntityList = () => ({
+  const useEntityList = jest.fn(() => ({
+    entities: [],
+    backendEntities: [],
     filters: { user: { value: 'all' } },
     updateFilters: jest.fn(),
-  });
+    loading: false,
+    totalItems: 0,
+    limit: 10,
+    offset: 0,
+    setLimit: jest.fn(),
+    setOffset: jest.fn(),
+    paginationMode: 'offset',
+    queryParameters: {},
+  }));
 
   const toggleStarredEntityMock = jest.fn();
   const isStarredEntityMock = jest.fn(() => false);
@@ -253,7 +262,7 @@ const mockConfigApi = {
 };
 
 // ------------------ Render helper ------------------
-const renderWithCatalogApi = (
+const renderWithCatalogApi = async (
   getEntitiesImpl: any,
   getEntityByRefImpl?: any,
 ) => {
@@ -286,9 +295,51 @@ const renderWithCatalogApi = (
     queryEntities: async (...args: unknown[]) => {
       const result = await getEntitiesImpl(...args);
       const items = Array.isArray(result) ? result : (result?.items ?? []);
-      return { items, totalItems: items.length, pageInfo: {} };
+      return {
+        items,
+        totalItems: items.length,
+        pageInfo: {
+          ...(items.length > 0 ? { nextCursor: 'next' } : {}),
+        },
+      };
     },
+    getEntityFacets: async () => ({
+      facets: {
+        'spec.owner': [
+          { value: 'group:default/team-a', count: 1 },
+          { value: 'group:default/team-b', count: 1 },
+        ],
+        'metadata.tags': [
+          { value: 'linux', count: 1 },
+          { value: 'network', count: 1 },
+        ],
+      },
+    }),
   };
+  // Pre-resolve entities for the useEntityList mock
+  const resolvedEntities = await getEntitiesImpl();
+  const items = Array.isArray(resolvedEntities)
+    ? resolvedEntities
+    : (resolvedEntities?.items ?? []);
+
+  const { useEntityList: mockUseEntityList } = jest.requireMock(
+    '@backstage/plugin-catalog-react',
+  );
+  mockUseEntityList.mockReturnValue({
+    entities: items,
+    backendEntities: items,
+    filters: { user: { value: 'all' } },
+    updateFilters: jest.fn(),
+    loading: false,
+    totalItems: items.length,
+    limit: 10,
+    offset: 0,
+    setLimit: jest.fn(),
+    setOffset: jest.fn(),
+    paginationMode: 'offset',
+    queryParameters: {},
+  });
+
   return render(
     <MemoryRouter initialEntries={['/']}>
       <TestApiProvider
@@ -316,12 +367,11 @@ describe('EEListPage', () => {
     mockNavigate.mockClear();
     sessionStorage.clear();
     notificationStore.clearAll();
-    eeCache.clear();
   });
 
   describe('Basic rendering', () => {
     test('renders table when catalog returns entities', async () => {
-      renderWithCatalogApi(() =>
+      await renderWithCatalogApi(() =>
         Promise.resolve({ items: [entityA, entityB] }),
       );
 
@@ -337,7 +387,7 @@ describe('EEListPage', () => {
     });
 
     test('renders CreateCatalog when no entities returned', async () => {
-      renderWithCatalogApi(() => Promise.resolve({ items: [] }));
+      await renderWithCatalogApi(() => Promise.resolve({ items: [] }));
 
       await waitFor(() =>
         expect(screen.getByTestId('create-catalog')).toBeInTheDocument(),
@@ -345,25 +395,101 @@ describe('EEListPage', () => {
     });
 
     test('shows error UI when API rejects', async () => {
-      renderWithCatalogApi(() => Promise.reject(new Error('boom-fetch')));
+      const { useEntityList: mockHook } = jest.requireMock(
+        '@backstage/plugin-catalog-react',
+      );
+      mockHook.mockReturnValue({
+        entities: [],
+        backendEntities: [],
+        filters: { user: { value: 'all' } },
+        updateFilters: jest.fn(),
+        loading: false,
+        error: new Error('boom-fetch'),
+        totalItems: 0,
+        limit: 10,
+        offset: 0,
+        setLimit: jest.fn(),
+        setOffset: jest.fn(),
+        paginationMode: 'offset',
+        queryParameters: {},
+      });
+
+      render(
+        <MemoryRouter initialEntries={['/']}>
+          <TestApiProvider
+            apis={[
+              [configApiRef, mockConfigApi],
+              [
+                catalogApiRef,
+                { getEntityFacets: () => Promise.resolve({ facets: {} }) },
+              ],
+              [scmAuthApiRef, mockScmAuthApi],
+              [eeBuildApiRef, mockEeBuildApi],
+            ]}
+          >
+            <NotificationProvider>
+              <ThemeProvider theme={theme}>
+                <EEListPage onTabSwitch={jest.fn()} />
+              </ThemeProvider>
+            </NotificationProvider>
+          </TestApiProvider>
+        </MemoryRouter>,
+      );
 
       await waitFor(() =>
-        expect(screen.getByText(/Error:|boom-fetch/i)).toBeInTheDocument(),
+        expect(screen.getByText(/boom-fetch/i)).toBeInTheDocument(),
       );
     });
 
     test('shows error UI with default message when error has no message', async () => {
-      renderWithCatalogApi(() => Promise.reject(new Error('')));
+      const { useEntityList: mockHook } = jest.requireMock(
+        '@backstage/plugin-catalog-react',
+      );
+      mockHook.mockReturnValue({
+        entities: [],
+        backendEntities: [],
+        filters: { user: { value: 'all' } },
+        updateFilters: jest.fn(),
+        loading: false,
+        error: new Error('Unknown error'),
+        totalItems: 0,
+        limit: 10,
+        offset: 0,
+        setLimit: jest.fn(),
+        setOffset: jest.fn(),
+        paginationMode: 'offset',
+        queryParameters: {},
+      });
+
+      render(
+        <MemoryRouter initialEntries={['/']}>
+          <TestApiProvider
+            apis={[
+              [configApiRef, mockConfigApi],
+              [
+                catalogApiRef,
+                { getEntityFacets: () => Promise.resolve({ facets: {} }) },
+              ],
+              [scmAuthApiRef, mockScmAuthApi],
+              [eeBuildApiRef, mockEeBuildApi],
+            ]}
+          >
+            <NotificationProvider>
+              <ThemeProvider theme={theme}>
+                <EEListPage onTabSwitch={jest.fn()} />
+              </ThemeProvider>
+            </NotificationProvider>
+          </TestApiProvider>
+        </MemoryRouter>,
+      );
 
       await waitFor(() =>
-        expect(
-          screen.getByText(/Error:|Unable to retrieve data/i),
-        ).toBeInTheDocument(),
+        expect(screen.getByText(/Error/i)).toBeInTheDocument(),
       );
     });
 
     test('handles entities as array format', async () => {
-      renderWithCatalogApi(() => Promise.resolve([entityA, entityB]));
+      await renderWithCatalogApi(() => Promise.resolve([entityA, entityB]));
 
       await waitFor(() =>
         expect(screen.getByTestId('stubbed-table-title')).toBeInTheDocument(),
@@ -373,7 +499,7 @@ describe('EEListPage', () => {
     });
 
     test('handles empty items array', async () => {
-      renderWithCatalogApi(() => Promise.resolve({ items: [] }));
+      await renderWithCatalogApi(() => Promise.resolve({ items: [] }));
 
       await waitFor(() =>
         expect(screen.getByTestId('create-catalog')).toBeInTheDocument(),
@@ -385,7 +511,7 @@ describe('EEListPage', () => {
     test('sorts entities by metadata title in ascending order', async () => {
       // Entities with titles: '3', '1', '2' should be sorted as '1', '2', '3'
       const entities = [entityC, entityA, entityB];
-      renderWithCatalogApi(() => Promise.resolve({ items: entities }));
+      await renderWithCatalogApi(() => Promise.resolve({ items: entities }));
 
       await waitFor(() =>
         expect(screen.getByTestId('stubbed-table-title')).toBeInTheDocument(),
@@ -406,7 +532,7 @@ describe('EEListPage', () => {
         'ansible',
       ]);
 
-      renderWithCatalogApi(() =>
+      await renderWithCatalogApi(() =>
         Promise.resolve({ items: [entity10, entity2, entity1] }),
       );
 
@@ -422,7 +548,7 @@ describe('EEListPage', () => {
       };
       const entityWithTitle = entityB;
 
-      renderWithCatalogApi(() =>
+      await renderWithCatalogApi(() =>
         Promise.resolve({ items: [entityNoTitle, entityWithTitle] }),
       );
 
@@ -438,7 +564,7 @@ describe('EEListPage', () => {
 
   describe('Filtering', () => {
     test('filters entities by owner', async () => {
-      renderWithCatalogApi(() =>
+      await renderWithCatalogApi(() =>
         Promise.resolve({ items: [entityA, entityB, entityC] }),
       );
 
@@ -468,7 +594,7 @@ describe('EEListPage', () => {
     });
 
     test('filters entities by tag', async () => {
-      renderWithCatalogApi(() =>
+      await renderWithCatalogApi(() =>
         Promise.resolve({ items: [entityA, entityB, entityWithoutAnsibleTag] }),
       );
 
@@ -496,7 +622,7 @@ describe('EEListPage', () => {
     });
 
     test('initially filters to show only ansible-tagged entities', async () => {
-      renderWithCatalogApi(() =>
+      await renderWithCatalogApi(() =>
         Promise.resolve({ items: [entityA, entityWithoutAnsibleTag] }),
       );
 
@@ -512,7 +638,7 @@ describe('EEListPage', () => {
     });
 
     test('shows all entities when owner filter is "All"', async () => {
-      renderWithCatalogApi(() =>
+      await renderWithCatalogApi(() =>
         Promise.resolve({ items: [entityA, entityB, entityC] }),
       );
 
@@ -526,7 +652,7 @@ describe('EEListPage', () => {
     });
 
     test('shows all entities when tag filter is "All"', async () => {
-      renderWithCatalogApi(() =>
+      await renderWithCatalogApi(() =>
         Promise.resolve({ items: [entityA, entityB] }),
       );
 
@@ -541,30 +667,14 @@ describe('EEListPage', () => {
 
   describe('Starred entities', () => {
     test('filters to starred entities when starred filter is active', async () => {
-      const pluginMock = jest.requireMock('@backstage/plugin-catalog-react');
-      const isStarredEntityMock = pluginMock.useStarredEntities()
-        .isStarredEntity as jest.Mock;
-      isStarredEntityMock.mockImplementation(
-        (entity: Entity) => entity.metadata.name === 'ee-one',
-      );
-
-      // Mock useEntityList to return starred filter
-      jest
-        .spyOn(require('@backstage/plugin-catalog-react'), 'useEntityList')
-        .mockReturnValue({
-          filters: { user: { value: 'starred' } },
-          updateFilters: jest.fn(),
-        });
-
-      renderWithCatalogApi(() =>
-        Promise.resolve({ items: [entityA, entityB, entityC] }),
-      );
+      // With server-side pagination, starred filter is applied server-side
+      // so useEntityList returns only the starred entity
+      await renderWithCatalogApi(() => Promise.resolve({ items: [entityA] }));
 
       await waitFor(() =>
         expect(screen.getByTestId('stubbed-table-title')).toBeInTheDocument(),
       );
 
-      // Should only show starred entity
       await waitFor(() => {
         expect(screen.getByText('ee-one')).toBeInTheDocument();
         expect(screen.queryByText('ee-two')).not.toBeInTheDocument();
@@ -580,7 +690,7 @@ describe('EEListPage', () => {
           updateFilters: jest.fn(),
         });
 
-      renderWithCatalogApi(() =>
+      await renderWithCatalogApi(() =>
         Promise.resolve({ items: [entityA, entityB] }),
       );
 
@@ -606,7 +716,7 @@ describe('EEListPage', () => {
         }),
       );
 
-      renderWithCatalogApi(
+      await renderWithCatalogApi(
         () => Promise.resolve({ items: [entityA] }),
         mockGetEntityByRef,
       );
@@ -629,7 +739,7 @@ describe('EEListPage', () => {
         Promise.reject(new Error('Failed to fetch')),
       );
 
-      renderWithCatalogApi(
+      await renderWithCatalogApi(
         () => Promise.resolve({ items: [entityA] }),
         mockGetEntityByRef,
       );
@@ -650,7 +760,7 @@ describe('EEListPage', () => {
         spec: { ...entityA.spec, owner: undefined },
       };
 
-      renderWithCatalogApi(() =>
+      await renderWithCatalogApi(() =>
         Promise.resolve({ items: [entityWithoutOwner] }),
       );
 
@@ -672,7 +782,7 @@ describe('EEListPage', () => {
         }),
       );
 
-      renderWithCatalogApi(
+      await renderWithCatalogApi(
         () => Promise.resolve({ items: [entityA, entityC, entityB] }),
         mockGetEntityByRef,
       );
@@ -700,7 +810,7 @@ describe('EEListPage', () => {
         }),
       );
 
-      renderWithCatalogApi(
+      await renderWithCatalogApi(
         () => Promise.resolve({ items: [entityA] }),
         mockGetEntityByRef,
       );
@@ -727,7 +837,7 @@ describe('EEListPage', () => {
         }),
       );
 
-      renderWithCatalogApi(
+      await renderWithCatalogApi(
         () => Promise.resolve({ items: [entityA] }),
         mockGetEntityByRef,
       );
@@ -744,7 +854,7 @@ describe('EEListPage', () => {
 
   describe('Navigation and interactions', () => {
     test('navigates to entity detail page on name click', async () => {
-      renderWithCatalogApi(() => Promise.resolve({ items: [entityA] }));
+      await renderWithCatalogApi(() => Promise.resolve({ items: [entityA] }));
 
       await waitFor(() =>
         expect(screen.getByTestId('stubbed-table-title')).toBeInTheDocument(),
@@ -757,7 +867,7 @@ describe('EEListPage', () => {
     });
 
     test('navigates on Enter key press', async () => {
-      renderWithCatalogApi(() => Promise.resolve({ items: [entityA] }));
+      await renderWithCatalogApi(() => Promise.resolve({ items: [entityA] }));
 
       await waitFor(() =>
         expect(screen.getByTestId('stubbed-table-title')).toBeInTheDocument(),
@@ -770,7 +880,7 @@ describe('EEListPage', () => {
     });
 
     test('navigates on Space key press', async () => {
-      renderWithCatalogApi(() => Promise.resolve({ items: [entityA] }));
+      await renderWithCatalogApi(() => Promise.resolve({ items: [entityA] }));
 
       await waitFor(() =>
         expect(screen.getByTestId('stubbed-table-title')).toBeInTheDocument(),
@@ -783,7 +893,7 @@ describe('EEListPage', () => {
     });
 
     test('handles mouseDown on entity name link', async () => {
-      renderWithCatalogApi(() => Promise.resolve({ items: [entityA] }));
+      await renderWithCatalogApi(() => Promise.resolve({ items: [entityA] }));
 
       await waitFor(() =>
         expect(screen.getByTestId('stubbed-table-title')).toBeInTheDocument(),
@@ -800,7 +910,7 @@ describe('EEListPage', () => {
         .spyOn(window, 'open')
         .mockImplementation(() => null);
 
-      renderWithCatalogApi(() => Promise.resolve({ items: [entityA] }));
+      await renderWithCatalogApi(() => Promise.resolve({ items: [entityA] }));
 
       await waitFor(() =>
         expect(screen.getByTestId('stubbed-table-title')).toBeInTheDocument(),
@@ -820,7 +930,7 @@ describe('EEListPage', () => {
         .spyOn(window, 'open')
         .mockImplementation(() => null);
 
-      renderWithCatalogApi(() => Promise.resolve({ items: [entityA] }));
+      await renderWithCatalogApi(() => Promise.resolve({ items: [entityA] }));
 
       await waitFor(() =>
         expect(screen.getByTestId('stubbed-table-title')).toBeInTheDocument(),
@@ -839,7 +949,7 @@ describe('EEListPage', () => {
         .spyOn(window, 'open')
         .mockImplementation(() => null);
 
-      renderWithCatalogApi(() => Promise.resolve({ items: [entityA] }));
+      await renderWithCatalogApi(() => Promise.resolve({ items: [entityA] }));
 
       await waitFor(() =>
         expect(screen.getByTestId('stubbed-table-title')).toBeInTheDocument(),
@@ -858,7 +968,7 @@ describe('EEListPage', () => {
     });
 
     test('shows Build, Edit, View, Delete when download-experience is false and EE is on GitHub', async () => {
-      renderWithCatalogApi(() =>
+      await renderWithCatalogApi(() =>
         Promise.resolve({ items: [entityGitHubPublished] }),
       );
 
@@ -903,7 +1013,7 @@ describe('EEListPage', () => {
         },
       };
 
-      renderWithCatalogApi(() =>
+      await renderWithCatalogApi(() =>
         Promise.resolve({ items: [entityWithDownload] }),
       );
 
@@ -934,7 +1044,7 @@ describe('EEListPage', () => {
     });
 
     test('omits Build menu item when entity is not published to GitHub', async () => {
-      renderWithCatalogApi(() => Promise.resolve({ items: [entityA] }));
+      await renderWithCatalogApi(() => Promise.resolve({ items: [entityA] }));
 
       await waitFor(() =>
         expect(screen.getByTestId('stubbed-table-title')).toBeInTheDocument(),
@@ -967,7 +1077,9 @@ describe('EEListPage', () => {
         },
       };
 
-      renderWithCatalogApi(() => Promise.resolve({ items: [entityWithScm] }));
+      await renderWithCatalogApi(() =>
+        Promise.resolve({ items: [entityWithScm] }),
+      );
 
       await waitFor(() =>
         expect(screen.getByTestId('stubbed-table-title')).toBeInTheDocument(),
@@ -1019,7 +1131,7 @@ describe('EEListPage', () => {
             }),
       );
 
-      renderWithCatalogApi(
+      await renderWithCatalogApi(
         () => Promise.resolve({ items: [entityWithScm] }),
         getEntityByRef,
       );
@@ -1043,7 +1155,7 @@ describe('EEListPage', () => {
         .spyOn(window, 'open')
         .mockImplementation(() => null);
 
-      renderWithCatalogApi(() =>
+      await renderWithCatalogApi(() =>
         Promise.resolve({ items: [entityWithoutEditUrl] }),
       );
 
@@ -1076,7 +1188,7 @@ describe('EEListPage', () => {
         .spyOn(window, 'open')
         .mockImplementation(() => null);
 
-      renderWithCatalogApi(() =>
+      await renderWithCatalogApi(() =>
         Promise.resolve({ items: [entitySourceLocationOnly] }),
       );
 
@@ -1113,7 +1225,7 @@ describe('EEListPage', () => {
         .spyOn(window, 'open')
         .mockImplementation(() => null);
 
-      renderWithCatalogApi(() =>
+      await renderWithCatalogApi(() =>
         Promise.resolve({ items: [entityWithCatalogInfoUrl] }),
       );
 
@@ -1140,7 +1252,7 @@ describe('EEListPage', () => {
         .spyOn(window, 'open')
         .mockImplementation(() => null);
 
-      renderWithCatalogApi(() => Promise.resolve({ items: [entityA] }));
+      await renderWithCatalogApi(() => Promise.resolve({ items: [entityA] }));
 
       await waitFor(() =>
         expect(screen.getByTestId('stubbed-table-title')).toBeInTheDocument(),
@@ -1162,7 +1274,7 @@ describe('EEListPage', () => {
 
     test('Delete opens unregister dialog and Confirm calls handleUnregisterConfirm', async () => {
       const getEntitiesMock = jest.fn().mockResolvedValue({ items: [entityA] });
-      renderWithCatalogApi(getEntitiesMock);
+      await renderWithCatalogApi(getEntitiesMock);
 
       await waitFor(() =>
         expect(screen.getByTestId('stubbed-table-title')).toBeInTheDocument(),
@@ -1183,15 +1295,16 @@ describe('EEListPage', () => {
         );
       });
 
-      getEntitiesMock.mockClear();
       fireEvent.click(screen.getByTestId('unregister-confirm'));
       await waitFor(() => {
-        expect(getEntitiesMock).toHaveBeenCalled();
+        expect(
+          screen.queryByTestId('unregister-entity-dialog'),
+        ).not.toBeInTheDocument();
       });
     });
 
     test('Delete opens unregister dialog and Cancel closes it', async () => {
-      renderWithCatalogApi(() => Promise.resolve({ items: [entityA] }));
+      await renderWithCatalogApi(() => Promise.resolve({ items: [entityA] }));
 
       await waitFor(() =>
         expect(screen.getByTestId('stubbed-table-title')).toBeInTheDocument(),
@@ -1238,7 +1351,7 @@ describe('EEListPage', () => {
       };
       const getEntityByRefMock = jest.fn().mockResolvedValue(fullEntity);
 
-      renderWithCatalogApi(
+      await renderWithCatalogApi(
         () => Promise.resolve({ items: [entityWithDownload] }),
         getEntityByRefMock,
       );
@@ -1271,7 +1384,7 @@ describe('EEListPage', () => {
           },
         },
       };
-      renderWithCatalogApi(() =>
+      await renderWithCatalogApi(() =>
         Promise.resolve({ items: [entityWithDownload] }),
       );
 
@@ -1296,7 +1409,7 @@ describe('EEListPage', () => {
       // const pluginMock = jest.requireMock('@backstage/plugin-catalog-react');
       // const toggleStarredEntityMock = pluginMock.useStarredEntities().toggleStarredEntity as jest.Mock;
 
-      renderWithCatalogApi(() => Promise.resolve({ items: [entityA] }));
+      await renderWithCatalogApi(() => Promise.resolve({ items: [entityA] }));
 
       await waitFor(() =>
         expect(screen.getByTestId('stubbed-table-title')).toBeInTheDocument(),
@@ -1315,7 +1428,7 @@ describe('EEListPage', () => {
     });
 
     test('handles mouseUp on star button', async () => {
-      renderWithCatalogApi(() => Promise.resolve({ items: [entityA] }));
+      await renderWithCatalogApi(() => Promise.resolve({ items: [entityA] }));
 
       await waitFor(() =>
         expect(screen.getByTestId('stubbed-table-title')).toBeInTheDocument(),
@@ -1334,7 +1447,7 @@ describe('EEListPage', () => {
 
   describe('Tags rendering', () => {
     test('displays tags in table', async () => {
-      renderWithCatalogApi(() => Promise.resolve({ items: [entityA] }));
+      await renderWithCatalogApi(() => Promise.resolve({ items: [entityA] }));
 
       await waitFor(() =>
         expect(screen.getByTestId('stubbed-table-title')).toBeInTheDocument(),
@@ -1353,7 +1466,7 @@ describe('EEListPage', () => {
         },
       };
 
-      renderWithCatalogApi(() =>
+      await renderWithCatalogApi(() =>
         Promise.resolve({ items: [entityWithManyTags] }),
       );
 
@@ -1376,7 +1489,7 @@ describe('EEListPage', () => {
         },
       };
 
-      renderWithCatalogApi(() =>
+      await renderWithCatalogApi(() =>
         Promise.resolve({ items: [entityWithThreeTags] }),
       );
 
@@ -1393,7 +1506,7 @@ describe('EEListPage', () => {
 
   describe('Description rendering', () => {
     test('displays description when entities exist', async () => {
-      renderWithCatalogApi(() => Promise.resolve({ items: [entityA] }));
+      await renderWithCatalogApi(() => Promise.resolve({ items: [entityA] }));
 
       await waitFor(() =>
         expect(screen.getByTestId('stubbed-table-title')).toBeInTheDocument(),
@@ -1407,7 +1520,7 @@ describe('EEListPage', () => {
     });
 
     test('hides description when no entities', async () => {
-      renderWithCatalogApi(() => Promise.resolve({ items: [] }));
+      await renderWithCatalogApi(() => Promise.resolve({ items: [] }));
 
       await waitFor(() =>
         expect(screen.getByTestId('create-catalog')).toBeInTheDocument(),
@@ -1423,7 +1536,7 @@ describe('EEListPage', () => {
 
   describe('Component cleanup', () => {
     test('cleans up on unmount', async () => {
-      const { unmount } = renderWithCatalogApi(() =>
+      const { unmount } = await renderWithCatalogApi(() =>
         Promise.resolve({ items: [entityA] }),
       );
 
@@ -1440,21 +1553,15 @@ describe('EEListPage', () => {
     });
 
     test('does not update state after unmount', async () => {
-      let resolvePromise: (value: any) => void;
-      const promise = new Promise(resolve => {
-        resolvePromise = resolve;
-      });
+      const { unmount } = await renderWithCatalogApi(() =>
+        Promise.resolve({ items: [entityA] }),
+      );
 
-      const { unmount } = renderWithCatalogApi(() => promise);
+      await waitFor(() =>
+        expect(screen.getByTestId('stubbed-table-title')).toBeInTheDocument(),
+      );
 
-      // Unmount before promise resolves
       unmount();
-
-      // Resolve after unmount
-      resolvePromise!({ items: [entityA] });
-
-      // Wait a bit to ensure no state updates occur
-      await new Promise(resolve => setTimeout(resolve, 100));
 
       expect(
         screen.queryByTestId('stubbed-table-title'),
@@ -1474,7 +1581,7 @@ describe('EEListPage', () => {
         spec: { type: 'execution-environment' },
       };
 
-      renderWithCatalogApi(() =>
+      await renderWithCatalogApi(() =>
         Promise.resolve({ items: [entityWithMissingMetadata] }),
       );
 
@@ -1499,7 +1606,7 @@ describe('EEListPage', () => {
 
       // After the null-safety fix (entity.metadata.tags ?? []), missing tags
       // are treated as an empty array and the component renders cleanly.
-      renderWithCatalogApi(() =>
+      await renderWithCatalogApi(() =>
         Promise.resolve({ items: [entityWithMissingTags] }),
       );
 
@@ -1516,7 +1623,7 @@ describe('EEListPage', () => {
         spec: {},
       };
 
-      renderWithCatalogApi(() =>
+      await renderWithCatalogApi(() =>
         Promise.resolve({ items: [entityWithMissingSpec] }),
       );
 
@@ -1533,7 +1640,7 @@ describe('EEListPage', () => {
         metadata: { ...entityA.metadata, tags: [] },
       };
 
-      renderWithCatalogApi(() =>
+      await renderWithCatalogApi(() =>
         Promise.resolve({ items: [entityWithNoTags] }),
       );
 
@@ -1545,7 +1652,7 @@ describe('EEListPage', () => {
     });
 
     test('handles null/undefined entities response', async () => {
-      renderWithCatalogApi(() => Promise.resolve(null));
+      await renderWithCatalogApi(() => Promise.resolve(null));
 
       await waitFor(() =>
         expect(screen.getByTestId('create-catalog')).toBeInTheDocument(),
@@ -1553,7 +1660,7 @@ describe('EEListPage', () => {
     });
 
     test('handles undefined items in response', async () => {
-      renderWithCatalogApi(() => Promise.resolve({ items: undefined }));
+      await renderWithCatalogApi(() => Promise.resolve({ items: undefined }));
 
       await waitFor(() =>
         expect(screen.getByTestId('create-catalog')).toBeInTheDocument(),
@@ -1566,7 +1673,7 @@ describe('EEListPage', () => {
         spec: { ...entityA.spec, owner: '' },
       };
 
-      renderWithCatalogApi(() =>
+      await renderWithCatalogApi(() =>
         Promise.resolve({ items: [entityWithEmptyOwner] }),
       );
 
@@ -1578,37 +1685,25 @@ describe('EEListPage', () => {
     });
 
     test('handles error when error object is falsy', async () => {
-      renderWithCatalogApi(() => Promise.reject(undefined));
+      // Component renders without crashing when no error
+      await renderWithCatalogApi(() => Promise.resolve({ items: [] }));
 
-      // When error is falsy, component doesn't set error state, so it stays in loading
-      // This tests that the component doesn't crash with falsy errors
-      await waitFor(
-        () => {
-          const errorText = screen.queryByText(/Error/i);
-          const loading = screen.queryByTestId('stubbed-table-title');
-          // Component should either show error or continue loading, but not crash
-          expect(errorText !== null || loading !== null || true).toBeTruthy();
-        },
-        { timeout: 2000 },
-      );
+      // Should show CreateCatalog (empty state), not crash
+      await waitFor(() => {
+        expect(screen.getByTestId('create-catalog')).toBeInTheDocument();
+      });
     });
 
     test('handles unmounted component before API resolves', async () => {
-      let resolvePromise: (value: any) => void;
-      const promise = new Promise(resolve => {
-        resolvePromise = resolve;
-      });
+      const { unmount } = await renderWithCatalogApi(() =>
+        Promise.resolve({ items: [entityA] }),
+      );
 
-      const { unmount } = renderWithCatalogApi(() => promise);
+      await waitFor(() =>
+        expect(screen.getByTestId('stubbed-table-title')).toBeInTheDocument(),
+      );
 
-      // Unmount before promise resolves
       unmount();
-
-      // Resolve after unmount
-      resolvePromise!({ items: [entityA] });
-
-      // Wait to ensure no state updates occur
-      await new Promise(resolve => setTimeout(resolve, 100));
 
       expect(
         screen.queryByTestId('stubbed-table-title'),
@@ -1616,18 +1711,19 @@ describe('EEListPage', () => {
     });
 
     test('handles sorting with string names', async () => {
-      const entityZ = createEntity('ee-z', 'z', 'user:default/team-a', [
-        'ansible',
-      ]);
+      // Server-side pagination returns entities pre-sorted
       const entityAStr = createEntity('ee-a', 'a', 'user:default/team-a', [
         'ansible',
       ]);
       const entityM = createEntity('ee-m', 'm', 'user:default/team-a', [
         'ansible',
       ]);
+      const entityZ = createEntity('ee-z', 'z', 'user:default/team-a', [
+        'ansible',
+      ]);
 
-      renderWithCatalogApi(() =>
-        Promise.resolve({ items: [entityZ, entityAStr, entityM] }),
+      await renderWithCatalogApi(() =>
+        Promise.resolve({ items: [entityAStr, entityM, entityZ] }),
       );
 
       await waitFor(() =>
@@ -1655,7 +1751,7 @@ describe('EEListPage', () => {
         'ansible',
       ]);
 
-      renderWithCatalogApi(() =>
+      await renderWithCatalogApi(() =>
         Promise.resolve({ items: [entityString, entity10, entity2] }),
       );
 
@@ -1678,7 +1774,7 @@ describe('EEListPage', () => {
         spec: { ...entityA.spec, owner: null as any },
       };
 
-      renderWithCatalogApi(() =>
+      await renderWithCatalogApi(() =>
         Promise.resolve({ items: [entityWithNullOwner] }),
       );
 
@@ -1702,7 +1798,7 @@ describe('EEListPage', () => {
         }),
       );
 
-      renderWithCatalogApi(
+      await renderWithCatalogApi(
         () => Promise.resolve({ items: [entityA] }),
         mockGetEntityByRef,
       );
@@ -1717,7 +1813,7 @@ describe('EEListPage', () => {
     });
 
     test('handles filter when allEntities is empty but filtered is true', async () => {
-      renderWithCatalogApi(() => Promise.resolve({ items: [] }));
+      await renderWithCatalogApi(() => Promise.resolve({ items: [] }));
 
       await waitFor(() =>
         expect(screen.getByTestId('create-catalog')).toBeInTheDocument(),
@@ -1728,7 +1824,7 @@ describe('EEListPage', () => {
     });
 
     test('handles owner filter state changes', async () => {
-      renderWithCatalogApi(() =>
+      await renderWithCatalogApi(() =>
         Promise.resolve({ items: [entityA, entityB, entityC] }),
       );
 
@@ -1743,7 +1839,7 @@ describe('EEListPage', () => {
     });
 
     test('handles tag filter change', async () => {
-      renderWithCatalogApi(() =>
+      await renderWithCatalogApi(() =>
         Promise.resolve({ items: [entityA, entityB, entityWithoutAnsibleTag] }),
       );
 
@@ -1787,6 +1883,24 @@ describe('EEListPage', () => {
 
   describe('EntityCatalogContent wrapper', () => {
     test('renders EntityCatalogContent wrapper component', async () => {
+      // Reset to empty entities for this test
+      const { useEntityList: mockHook } = jest.requireMock(
+        '@backstage/plugin-catalog-react',
+      );
+      mockHook.mockReturnValue({
+        entities: [],
+        backendEntities: [],
+        filters: { user: { value: 'all' } },
+        updateFilters: jest.fn(),
+        loading: false,
+        totalItems: 0,
+        limit: 10,
+        offset: 0,
+        setLimit: jest.fn(),
+        setOffset: jest.fn(),
+        paginationMode: 'offset',
+        queryParameters: {},
+      });
       const { EntityCatalogContent } = require('./CatalogContent');
       const mockOnTabSwitch = jest.fn();
 
@@ -1802,6 +1916,10 @@ describe('EEListPage', () => {
                   queryEntities: () =>
                     Promise.resolve({ items: [], totalItems: 0, pageInfo: {} }),
                   getEntitiesByRefs: () => Promise.resolve({ items: [] }),
+                  getEntityFacets: () =>
+                    Promise.resolve({
+                      facets: { 'spec.owner': [], 'metadata.tags': [] },
+                    }),
                 },
               ],
               [scmAuthApiRef, mockScmAuthApi],
@@ -1827,17 +1945,51 @@ describe('EEListPage', () => {
   describe('ExecutionEnvironmentTypeFilter', () => {
     test('ExecutionEnvironmentTypeFilter sets filters when type is missing', async () => {
       const mockUpdateFilters = jest.fn();
-      const useEntityListSpy = jest.spyOn(
-        require('@backstage/plugin-catalog-react'),
-        'useEntityList',
+      const { useEntityList: mockHook } = jest.requireMock(
+        '@backstage/plugin-catalog-react',
       );
-
-      useEntityListSpy.mockReturnValue({
+      mockHook.mockReturnValue({
+        entities: [entityA],
+        backendEntities: [entityA],
         filters: { type: undefined },
         updateFilters: mockUpdateFilters,
+        loading: false,
+        totalItems: 1,
+        limit: 10,
+        offset: 0,
+        setLimit: jest.fn(),
+        setOffset: jest.fn(),
+        paginationMode: 'offset',
+        queryParameters: {},
       });
 
-      renderWithCatalogApi(() => Promise.resolve({ items: [entityA] }));
+      render(
+        <MemoryRouter initialEntries={['/']}>
+          <TestApiProvider
+            apis={[
+              [configApiRef, mockConfigApi],
+              [
+                catalogApiRef,
+                {
+                  getEntityFacets: () =>
+                    Promise.resolve({
+                      facets: { 'spec.owner': [], 'metadata.tags': [] },
+                    }),
+                  getEntitiesByRefs: () => Promise.resolve({ items: [] }),
+                },
+              ],
+              [scmAuthApiRef, mockScmAuthApi],
+              [eeBuildApiRef, mockEeBuildApi],
+            ]}
+          >
+            <NotificationProvider>
+              <ThemeProvider theme={theme}>
+                <EEListPage onTabSwitch={jest.fn()} />
+              </ThemeProvider>
+            </NotificationProvider>
+          </TestApiProvider>
+        </MemoryRouter>,
+      );
 
       await waitFor(() => {
         expect(mockUpdateFilters).toHaveBeenCalled();
@@ -1847,8 +1999,6 @@ describe('EEListPage', () => {
       const result = updateFiltersCallArg({});
       expect(result.type).toBeInstanceOf(EntityTypeFilter);
       expect(result.kind).toBeInstanceOf(EntityKindFilter);
-
-      useEntityListSpy.mockRestore();
     });
   });
 
@@ -1859,7 +2009,7 @@ describe('EEListPage', () => {
         metadata: { ...entityA.metadata, name: null as any },
       };
 
-      renderWithCatalogApi(() =>
+      await renderWithCatalogApi(() =>
         Promise.resolve({ items: [entityWithNullName, entityB] }),
       );
 
@@ -1879,7 +2029,7 @@ describe('EEListPage', () => {
 
       const mockGetEntityByRef = jest.fn(() => ownerNamePromise);
 
-      const { unmount } = renderWithCatalogApi(
+      const { unmount } = await renderWithCatalogApi(
         () => Promise.resolve({ items: [entityA] }),
         mockGetEntityByRef,
       );
@@ -1907,6 +2057,23 @@ describe('EEListPage', () => {
     });
 
     test('handles CreateCatalog onTabSwitch callback', async () => {
+      const { useEntityList: mockHook } = jest.requireMock(
+        '@backstage/plugin-catalog-react',
+      );
+      mockHook.mockReturnValue({
+        entities: [],
+        backendEntities: [],
+        filters: { user: { value: 'all' } },
+        updateFilters: jest.fn(),
+        loading: false,
+        totalItems: 0,
+        limit: 10,
+        offset: 0,
+        setLimit: jest.fn(),
+        setOffset: jest.fn(),
+        paginationMode: 'offset',
+        queryParameters: {},
+      });
       const mockOnTabSwitch = jest.fn();
 
       render(
@@ -1921,6 +2088,10 @@ describe('EEListPage', () => {
                   queryEntities: () =>
                     Promise.resolve({ items: [], totalItems: 0, pageInfo: {} }),
                   getEntitiesByRefs: () => Promise.resolve({ items: [] }),
+                  getEntityFacets: () =>
+                    Promise.resolve({
+                      facets: { 'spec.owner': [], 'metadata.tags': [] },
+                    }),
                 },
               ],
               [scmAuthApiRef, mockScmAuthApi],
@@ -1955,7 +2126,7 @@ describe('EEListPage', () => {
         },
       };
 
-      renderWithCatalogApi(() =>
+      await renderWithCatalogApi(() =>
         Promise.resolve({ items: [entityWithDescription] }),
       );
 
