@@ -35,6 +35,7 @@ import {
 } from '../interfaces';
 
 import { getAnsibleConfig, getCatalogConfig } from './utils/config';
+import { buildLaunchPayload } from './utils/jobTemplateHelpers';
 import {
   PAHHelperContext,
   sanitizePAHLimit,
@@ -620,87 +621,7 @@ export class AAPClient implements IAAPService {
     payload: Omit<LaunchJobTemplate, 'token'>,
     token: string,
   ): Promise<any> {
-    const data = { extra_vars: payload?.extraVariables ?? '' } as {
-      inventory?: number;
-      job_type?: string;
-      executionEnvironment?: number;
-      execution_environment?: number;
-      forks?: number;
-      limit?: string;
-      verbosity?: number;
-      job_slice_count?: number;
-      timeout?: number;
-      diff_mode?: boolean;
-      job_tags?: string;
-      skip_tags?: string;
-      extra_vars?: object | string;
-      credentials?: number[];
-    };
-    if (payload?.inventory?.id) {
-      data.inventory = payload.inventory.id;
-    }
-    if (payload?.jobType) {
-      data.job_type = payload.jobType;
-    }
-    if (payload?.executionEnvironment?.id) {
-      data.execution_environment = payload.executionEnvironment.id;
-    }
-    if (payload?.forks || payload.forks === 0) {
-      data.forks = payload.forks;
-    }
-    if (payload?.limit) {
-      data.limit = payload.limit;
-    }
-    if (payload?.verbosity?.id !== undefined) {
-      data.verbosity = payload.verbosity.id;
-    }
-    if (payload?.jobSliceCount || payload.jobSliceCount === 0) {
-      data.job_slice_count = payload.jobSliceCount;
-    }
-    if (payload?.timeout || payload.timeout === 0) {
-      data.timeout = payload.timeout;
-    }
-    if (payload?.diffMode || payload.diffMode === false) {
-      data.diff_mode = payload.diffMode;
-    }
-    if (payload?.jobTags) {
-      data.job_tags = payload.jobTags;
-    }
-    if (payload?.skipTags) {
-      data.skip_tags = payload.skipTags;
-    }
-
-    if (payload?.credentials?.length) {
-      const seen = new Set();
-      const duplicates: string[] = [];
-      payload.credentials.some(currentObject => {
-        if (!currentObject.credential_type) {
-          return false;
-        }
-        if (seen.size === seen.add(currentObject.credential_type).size) {
-          const credentialTypeName =
-            currentObject.summary_fields?.credential_type?.name ||
-            currentObject.name ||
-            'Unknown';
-          duplicates.push(credentialTypeName);
-          return true;
-        }
-        return false;
-      });
-      if (duplicates.length) {
-        this.logger.error(
-          `Cannot assign multiple credentials of the same type. Duplicated credential types are: ${duplicates.join(', ')}`,
-        );
-        throw new Error(
-          `Cannot assign multiple credentials of the same type. Duplicated credential types are: ${duplicates.join(
-            ', ',
-          )}`,
-        );
-      }
-      data.credentials = payload.credentials
-        .filter(c => c.id !== undefined && c.id !== null)
-        .map(c => c.id);
-    }
+    const data = buildLaunchPayload(payload, this.logger);
 
     let templateID;
     const urlSearchParams = new URLSearchParams();
@@ -791,87 +712,7 @@ export class AAPClient implements IAAPService {
     payload: Omit<LaunchJobTemplate, 'token'>,
     token: string,
   ): Promise<{ id: number; status: string; url: string; launchedAt: string }> {
-    const data = { extra_vars: payload?.extraVariables ?? '' } as {
-      inventory?: number;
-      job_type?: string;
-      executionEnvironment?: number;
-      execution_environment?: number;
-      forks?: number;
-      limit?: string;
-      verbosity?: number;
-      job_slice_count?: number;
-      timeout?: number;
-      diff_mode?: boolean;
-      job_tags?: string;
-      skip_tags?: string;
-      extra_vars?: object | string;
-      credentials?: number[];
-    };
-    if (payload?.inventory?.id) {
-      data.inventory = payload.inventory.id;
-    }
-    if (payload?.jobType) {
-      data.job_type = payload.jobType;
-    }
-    if (payload?.executionEnvironment?.id) {
-      data.execution_environment = payload.executionEnvironment.id;
-    }
-    if (payload?.forks || payload.forks === 0) {
-      data.forks = payload.forks;
-    }
-    if (payload?.limit) {
-      data.limit = payload.limit;
-    }
-    if (payload?.verbosity?.id !== undefined) {
-      data.verbosity = payload.verbosity.id;
-    }
-    if (payload?.jobSliceCount || payload.jobSliceCount === 0) {
-      data.job_slice_count = payload.jobSliceCount;
-    }
-    if (payload?.timeout || payload.timeout === 0) {
-      data.timeout = payload.timeout;
-    }
-    if (payload?.diffMode || payload.diffMode === false) {
-      data.diff_mode = payload.diffMode;
-    }
-    if (payload?.jobTags) {
-      data.job_tags = payload.jobTags;
-    }
-    if (payload?.skipTags) {
-      data.skip_tags = payload.skipTags;
-    }
-
-    if (payload?.credentials?.length) {
-      const seen = new Set();
-      const duplicates: string[] = [];
-      payload.credentials.some(currentObject => {
-        if (!currentObject.credential_type) {
-          return false;
-        }
-        if (seen.size === seen.add(currentObject.credential_type).size) {
-          const credentialTypeName =
-            currentObject.summary_fields?.credential_type?.name ||
-            currentObject.name ||
-            'Unknown';
-          duplicates.push(credentialTypeName);
-          return true;
-        }
-        return false;
-      });
-      if (duplicates.length) {
-        this.logger.error(
-          `Cannot assign multiple credentials of the same type. Duplicated credential types are: ${duplicates.join(', ')}`,
-        );
-        throw new Error(
-          `Cannot assign multiple credentials of the same type. Duplicated credential types are: ${duplicates.join(
-            ', ',
-          )}`,
-        );
-      }
-      data.credentials = payload.credentials
-        .filter(c => c.id !== undefined && c.id !== null)
-        .map(c => c.id);
-    }
+    const data = buildLaunchPayload(payload, this.logger);
 
     let templateID;
     const urlSearchParams = new URLSearchParams();
