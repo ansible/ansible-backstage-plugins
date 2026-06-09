@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState, useEffect } from 'react';
+import { useCallback, useMemo, useState, useEffect, useRef } from 'react';
 import {
   Page,
   Header,
@@ -155,6 +155,8 @@ export const RunTask = () => {
     }
   }, [task, catalogApi, templateEntity]);
 
+  const statusRef = useRef<string | null>(null);
+
   useEffect(() => {
     if (!task || !completed) {
       return undefined;
@@ -166,6 +168,8 @@ export const RunTask = () => {
     }
 
     let cancelled = false;
+    const interval = { id: undefined as NodeJS.Timeout | undefined };
+
     const fetchAapStatus = async () => {
       try {
         // Get user's AAP OAuth token (handles refresh automatically)
@@ -188,8 +192,20 @@ export const RunTask = () => {
 
         const jobStatus = await response.json();
         if (!cancelled) {
+          statusRef.current = jobStatus.status;
           setAapJobStatus(jobStatus);
           setAapJobError(null);
+
+          // Stop polling when terminal status is reached
+          if (
+            jobStatus.status &&
+            ['successful', 'failed', 'error', 'canceled'].includes(
+              jobStatus.status.toLowerCase(),
+            ) &&
+            interval.id
+          ) {
+            clearInterval(interval.id);
+          }
         }
       } catch (err: any) {
         if (!cancelled) {
@@ -198,26 +214,19 @@ export const RunTask = () => {
       }
     };
 
+    // Initial fetch
     fetchAapStatus();
 
-    const isPending =
-      !aapJobStatus?.status ||
-      !['successful', 'failed', 'error', 'canceled'].includes(
-        aapJobStatus.status.toLowerCase(),
-      );
-
-    let intervalId: NodeJS.Timeout | undefined;
-    if (isPending) {
-      intervalId = setInterval(fetchAapStatus, 5000);
-    }
+    // Start polling interval
+    interval.id = setInterval(fetchAapStatus, 5000);
 
     return () => {
       cancelled = true;
-      if (intervalId) {
-        clearInterval(intervalId);
+      if (interval.id) {
+        clearInterval(interval.id);
       }
     };
-  }, [task, completed, aapJobStatus?.status, discoveryApi, taskId, aapAuth]);
+  }, [task, completed, discoveryApi, taskId, aapAuth]);
 
   const canStartOver = canRead && canCreateTask;
   const showStartOver = canStartOver;

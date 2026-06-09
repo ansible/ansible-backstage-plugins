@@ -4397,7 +4397,7 @@ describe('AAPClient', () => {
       mockFetch = fetch as jest.Mock;
     });
 
-    it('should fetch job status using service account token', async () => {
+    it('should fetch job status using user OAuth token', async () => {
       const jobResponse = {
         ok: true,
         status: 200,
@@ -4418,7 +4418,7 @@ describe('AAPClient', () => {
         url: 'https://test.example.com/execution/jobs/playbook/456/output',
       });
 
-      // Verify it used service account token
+      // Verify it used user OAuth token
       expect(mockFetch).toHaveBeenCalledWith(
         expect.stringContaining('/jobs/456/'),
         expect.objectContaining({
@@ -4507,7 +4507,7 @@ describe('AAPClient', () => {
       }
     });
 
-    it('should throw error when service account token not configured', async () => {
+    it('should throw error when user OAuth token not provided', async () => {
       const mockCatalogRhaapConfigLocal = {
         keys: jest.fn().mockReturnValue([]),
         getConfig: jest.fn().mockReturnValue(undefined),
@@ -4528,7 +4528,7 @@ describe('AAPClient', () => {
                 .mockImplementation((path: string) => {
                   const paths: Record<string, string | undefined> = {
                     'rhaap.baseUrl': 'https://test.example.com',
-                    'rhaap.token': undefined, // No service account token
+                    'rhaap.token': undefined, // No token configured
                   };
                   return paths[path];
                 }),
@@ -4672,7 +4672,7 @@ describe('AAPClient', () => {
       );
     });
 
-    it('should throw error when service account token not configured', async () => {
+    it('should throw error when user OAuth token not provided', async () => {
       const mockCatalogRhaapConfigLocal = {
         keys: jest.fn().mockReturnValue([]),
         getConfig: jest.fn().mockReturnValue(undefined),
@@ -4693,7 +4693,7 @@ describe('AAPClient', () => {
                 .mockImplementation((path: string) => {
                   const paths: Record<string, string | undefined> = {
                     'rhaap.baseUrl': 'https://test.example.com',
-                    'rhaap.token': undefined, // No service account token
+                    'rhaap.token': undefined, // No token configured
                   };
                   return paths[path];
                 }),

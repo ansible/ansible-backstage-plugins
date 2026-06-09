@@ -1018,7 +1018,7 @@ export async function createRouter(options: {
   /**
    * GET /ansible/jobs/:jobId
    * Fetch AAP job status by job ID
-   * Uses service account token from config
+   * Uses user's AAP OAuth token from AAP-Token header
    */
   router.get(
     '/ansible/jobs/:jobId',
@@ -1078,25 +1078,50 @@ export async function createRouter(options: {
         logger.error(
           `Failed to fetch job status for ${jobId}: ${error.message}`,
         );
-        // Check for 404 or 403 (not found / no access)
+
+        // Match specific error messages from AAPClient
+        // NOTE: This is a limitation - ideally AAPClient would throw typed errors
+        // with status codes, but modifying core AAP methods is out of scope.
+        const errorMessage = error.message || '';
+
+        // Check exact error messages from AAPClient first (most reliable)
         if (
-          error.message?.includes('404') ||
-          error.message?.includes('403') ||
-          error.message?.toLowerCase().includes('not found')
+          errorMessage ===
+          'Insufficient privileges. Please contact your administrator.'
         ) {
           response.status(404).json({
             error: 'Job not found or insufficient permissions',
             id: jobId,
             status: 'unknown',
           });
-        } else if (error.message?.includes('not configured')) {
+        } else if (errorMessage === 'Failed to fetch data.') {
+          response.status(404).json({
+            error: 'Job not found or insufficient permissions',
+            id: jobId,
+            status: 'unknown',
+          });
+        } else if (
+          errorMessage.startsWith('User OAuth token is required') ||
+          errorMessage.includes('token not configured') ||
+          errorMessage.includes('AAP service account')
+        ) {
           response.status(503).json({
             error: 'AAP service account not configured',
+          });
+        } else if (
+          errorMessage.startsWith('Response code 403') ||
+          errorMessage.startsWith('Response code 404')
+        ) {
+          // Legacy error format - matching exact prefix to avoid false positives
+          response.status(404).json({
+            error: 'Job not found or insufficient permissions',
+            id: jobId,
+            status: 'unknown',
           });
         } else {
           response.status(500).json({
             error: 'Failed to fetch job status',
-            details: error.message,
+            details: errorMessage,
           });
         }
       }
@@ -1106,7 +1131,8 @@ export async function createRouter(options: {
   /**
    * POST /ansible/jobs/batch
    * Fetch multiple job statuses (for task list)
-   * Body: { jobIds: number[] }
+   * Uses user's AAP OAuth token from AAP-Token header
+   * Body: { jobs: Array<{taskId: string, jobId: number}> }
    */
   router.post(
     '/ansible/jobs/batch',
