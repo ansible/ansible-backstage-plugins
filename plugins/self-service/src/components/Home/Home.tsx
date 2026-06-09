@@ -123,6 +123,8 @@ const isHomePageTemplate = (
   return jobTemplates.some(({ id }) => id === entity.metadata.aapJobTemplateId);
 };
 
+const isEEType = (type: string) => type.includes('execution-environment');
+
 const HomeTagPicker = ({ syncKey }: { syncKey: number }) => {
   const catalogApi = useApi(catalogApiRef);
   const { filters, updateFilters } = useEntityList();
@@ -133,8 +135,22 @@ const HomeTagPicker = ({ syncKey }: { syncKey: number }) => {
     catalogApi
       .getEntityFacets({
         filter: { kind: 'Template' },
-        facets: ['metadata.tags'],
+        facets: ['spec.type'],
       })
+      .then(
+        (response: { facets: Record<string, Array<{ value: string }>> }) => {
+          const nonEETypes = (response.facets['spec.type'] ?? [])
+            .map(f => f.value)
+            .filter(t => !isEEType(t));
+          return catalogApi.getEntityFacets({
+            filter: {
+              kind: 'Template',
+              ...(nonEETypes.length > 0 && { 'spec.type': nonEETypes }),
+            },
+            facets: ['metadata.tags'],
+          });
+        },
+      )
       .then(
         (response: { facets: Record<string, Array<{ value: string }>> }) => {
           const tags = (response.facets['metadata.tags'] ?? [])
@@ -164,8 +180,6 @@ const HomeTagPicker = ({ syncKey }: { syncKey: number }) => {
     />
   );
 };
-
-const isEEType = (type: string) => type.includes('execution-environment');
 
 const HomeCategoryPicker = ({ syncKey }: { syncKey: number }) => {
   const catalogApi = useApi(catalogApiRef);
@@ -253,11 +267,12 @@ const TemplateContent = ({
     [entities, jobTemplates],
   );
 
+  const displayCount = filteredEntities.length;
   const totalCount = totalItems ?? 0;
   const totalPages = Math.max(1, Math.ceil(totalCount / limit));
-  const showStart = Math.min((currentPage - 1) * limit + 1, totalCount);
+  const showStart = displayCount > 0 ? (currentPage - 1) * limit + 1 : 0;
   const showEnd = Math.min(
-    (currentPage - 1) * limit + filteredEntities.length,
+    (currentPage - 1) * limit + displayCount,
     totalCount,
   );
 
