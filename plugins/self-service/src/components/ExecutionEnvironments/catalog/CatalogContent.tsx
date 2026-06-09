@@ -24,9 +24,11 @@ import {
   EntityOwnerFilter,
   EntityTagFilter,
   EntityTypeFilter,
+  EntityUserFilter,
   UserListPicker,
   catalogApiRef,
   useEntityList,
+  useStarredEntities,
   UnregisterEntityDialog,
   FavoriteEntity,
 } from '@backstage/plugin-catalog-react';
@@ -164,6 +166,7 @@ export const EEListPage = ({
   const theme = useTheme();
   const catalogApi = useApi(catalogApiRef);
   const {
+    filters,
     entities: rawEntities,
     loading: catalogLoading,
     error,
@@ -175,6 +178,22 @@ export const EEListPage = ({
     updateFilters,
   } = useEntityList();
   const entities = useMemo(() => rawEntities ?? [], [rawEntities]);
+  const { starredEntities = new Set<string>() } = useStarredEntities();
+  const prevStarredSizeRef = useRef(starredEntities.size);
+  const hasEverHadEntitiesRef = useRef(false);
+
+  useEffect(() => {
+    if (filters.user?.value === 'starred') {
+      if (starredEntities.size > 0) {
+        updateFilters({
+          user: EntityUserFilter.starred(Array.from(starredEntities)),
+        });
+      } else if (prevStarredSizeRef.current > 0) {
+        updateFilters({ user: EntityUserFilter.all() });
+      }
+    }
+    prevStarredSizeRef.current = starredEntities.size;
+  }, [starredEntities, filters.user?.value, updateFilters]);
 
   const page = offset && limit ? Math.floor(offset / limit) : 0;
   const [ownerFilter, setOwnerFilter] = useState('All');
@@ -470,7 +489,10 @@ export const EEListPage = ({
     },
   ];
 
-  const hasEntities = totalCount > 0 || entities.length > 0;
+  if (totalCount > 0 || entities.length > 0) {
+    hasEverHadEntitiesRef.current = true;
+  }
+  const hasEntities = hasEverHadEntitiesRef.current;
 
   return (
     <div style={{ flexDirection: 'column', width: '100%' }}>
