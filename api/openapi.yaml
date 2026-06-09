@@ -44,6 +44,55 @@ components:
           description: Human-readable error message
       additionalProperties: false
 
+    AAPSyncResponse:
+      type: object
+      required:
+        - status
+      properties:
+        status:
+          type: string
+          enum:
+            - sync_started
+            - already_syncing
+            - failed
+          description: Result of the sync trigger request
+        error:
+          type: string
+          description: Error message when status is failed
+      additionalProperties: false
+
+    AAPProviderSyncStatus:
+      type: object
+      required:
+        - lastSync
+        - syncInProgress
+        - lastFailedSyncTime
+        - lastSyncStatus
+      properties:
+        lastSync:
+          type:
+            - string
+            - 'null'
+          description: ISO timestamp of the last successful sync
+        syncInProgress:
+          type: boolean
+          description: Whether a sync is currently running
+        lastFailedSyncTime:
+          type:
+            - string
+            - 'null'
+          description: ISO timestamp of the last failed sync
+        lastSyncStatus:
+          type:
+            - string
+            - 'null'
+          enum:
+            - success
+            - failure
+            - null
+          description: Status of the last sync attempt
+      additionalProperties: false
+
     SyncResultStatus:
       type: string
       enum:
@@ -273,11 +322,12 @@ paths:
                 additionalProperties: false
 
   /ansible/sync/from-aap/orgs_users_teams:
-    get:
+    post:
       operationId: syncOrgsUsersTeams
       summary: Trigger AAP organizations, users, and teams sync
       description: |
-        Initiates a full synchronization of organizations, users, and teams from Ansible Automation Platform into the Backstage catalog.
+        Triggers a background synchronization of organizations, users, and teams from Ansible Automation Platform into the Backstage catalog.
+        The endpoint returns immediately — the sync runs asynchronously via the scheduler.
         **Permissions**: Requires superuser access (`aap.platform/is_superuser` annotation) or an allowed external-access service principal.
       tags:
         - AAP Sync
@@ -285,25 +335,37 @@ paths:
         - JWT: []
       responses:
         '200':
-          description: Sync completed successfully
+          description: Sync already in progress (request skipped)
           content:
             application/json:
               schema:
-                type: object
-                description: Sync result from the AAP entity provider
+                $ref: '#/components/schemas/AAPSyncResponse'
+        '202':
+          description: Sync triggered successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AAPSyncResponse'
         '403':
           description: Forbidden - superuser access required
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Provider not initialized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AAPSyncResponse'
 
   /ansible/sync/from-aap/job_templates:
-    get:
+    post:
       operationId: syncJobTemplates
       summary: Trigger AAP job templates sync
       description: |
-        Initiates synchronization of job templates from Ansible Automation Platform into the Backstage catalog.
+        Triggers a background synchronization of job templates from Ansible Automation Platform into the Backstage catalog.
+        The endpoint returns immediately — the sync runs asynchronously via the scheduler.
         **Permissions**: Requires superuser access (`aap.platform/is_superuser` annotation) or an allowed external-access service principal.
       tags:
         - AAP Sync
@@ -311,18 +373,29 @@ paths:
         - JWT: []
       responses:
         '200':
-          description: Sync completed successfully
+          description: Sync already in progress (request skipped)
           content:
             application/json:
               schema:
-                type: object
-                description: Sync result from the job template provider
+                $ref: '#/components/schemas/AAPSyncResponse'
+        '202':
+          description: Sync triggered successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AAPSyncResponse'
         '403':
           description: Forbidden - superuser access required
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Provider not initialized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AAPSyncResponse'
 
   /aap/create_user:
     post:
@@ -563,25 +636,9 @@ paths:
                     type: object
                     properties:
                       orgsUsersTeams:
-                        type: object
-                        required:
-                          - lastSync
-                        properties:
-                          lastSync:
-                            type:
-                              - string
-                              - 'null'
-                        additionalProperties: false
+                        $ref: '#/components/schemas/AAPProviderSyncStatus'
                       jobTemplates:
-                        type: object
-                        required:
-                          - lastSync
-                        properties:
-                          lastSync:
-                            type:
-                              - string
-                              - 'null'
-                        additionalProperties: false
+                        $ref: '#/components/schemas/AAPProviderSyncStatus'
                     additionalProperties: false
                   content:
                     type: object
