@@ -11,7 +11,6 @@ export function buildLaunchPayload(
 ): {
   inventory?: number;
   job_type?: string;
-  executionEnvironment?: number;
   execution_environment?: number;
   forks?: number;
   limit?: string;
@@ -27,7 +26,6 @@ export function buildLaunchPayload(
   const data = { extra_vars: payload?.extraVariables ?? '' } as {
     inventory?: number;
     job_type?: string;
-    executionEnvironment?: number;
     execution_environment?: number;
     forks?: number;
     limit?: string;
