@@ -1,3 +1,38 @@
+import type {
+  LoggerService,
+  SchedulerService,
+  SchedulerServiceTaskRunner,
+} from '@backstage/backend-plugin-api';
+import { InputError } from '@backstage/errors';
+
+export function resolveTaskRunner(
+  options: {
+    logger: LoggerService;
+    schedule?: SchedulerServiceTaskRunner;
+    scheduler?: SchedulerService;
+  },
+  schedule: { frequency: object; timeout: object } | undefined,
+  pluginLogName: string,
+  providerId: string,
+): SchedulerServiceTaskRunner {
+  const { logger } = options;
+  let taskRunner: SchedulerServiceTaskRunner | undefined;
+  if (options.scheduler && schedule) {
+    taskRunner = options.scheduler.createScheduledTaskRunner(schedule);
+  } else if (options.schedule) {
+    taskRunner = options.schedule;
+  }
+  if (!taskRunner) {
+    logger.info(
+      `[${pluginLogName}]:No schedule provided via config for AAP Resource Entity Provider:${providerId}.`,
+    );
+    throw new InputError(
+      `No schedule provided via config for AapResourceEntityProvider:${providerId}.`,
+    );
+  }
+  return taskRunner;
+}
+
 export function normalizeTags(tags: string[]): string[] {
   return tags.map(tag =>
     tag
