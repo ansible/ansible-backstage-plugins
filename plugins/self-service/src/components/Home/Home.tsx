@@ -403,7 +403,7 @@ export const HomeComponent = () => {
       const newTemplates = results.map(
         (result: { id: string; title?: string }) => ({
           id: parseInt(result.id, 10),
-          name: result.title as string,
+          name: result.title ?? result.id,
         }),
       );
       if (requestId === fetchRequestIdRef.current) {

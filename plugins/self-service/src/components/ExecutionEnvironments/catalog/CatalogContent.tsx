@@ -546,7 +546,10 @@ export const EEListPage = ({
               data={entities}
               page={page}
               onPageChange={p => setOffset?.(p * limit)}
-              onRowsPerPageChange={setLimit}
+              onRowsPerPageChange={newLimit => {
+                setOffset?.(0);
+                setLimit?.(newLimit);
+              }}
               totalCount={totalCount}
             />
             <Menu
