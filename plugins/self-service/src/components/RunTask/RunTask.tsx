@@ -36,7 +36,6 @@ import GetAppIcon from '@material-ui/icons/GetApp';
 import ArrowBack from '@material-ui/icons/ArrowBack';
 import { rootRouteRef, selectedTemplateRouteRef } from '../../routes';
 import { createTarArchive } from '../utils/tarArchiveUtils';
-import { eeCache } from '../ExecutionEnvironments/catalog/eeCache';
 import {
   resolveEeFileNameFromParameters,
   resolvePublishToScmFromParameters,
@@ -446,16 +445,6 @@ export const RunTask = () => {
       if (pendingTimeout !== null) clearTimeout(pendingTimeout);
     };
   }, [matchingEntity, completed, task, allSteps, catalogApi]);
-
-  useEffect(() => {
-    if (
-      completed &&
-      !error &&
-      templateEntity?.spec?.type === 'execution-environment'
-    ) {
-      eeCache.markStale();
-    }
-  }, [completed, error, templateEntity]);
 
   const getMatchingEntity = useCallback(async (): Promise<any | null> => {
     let entity = matchingEntity;
