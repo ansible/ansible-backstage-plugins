@@ -5,6 +5,8 @@ import { scmAuthApiRef } from '@backstage/integration-react';
 import {
   catalogApiRef,
   EntityKindFilter,
+  EntityOwnerFilter,
+  EntityTagFilter,
   EntityTypeFilter,
 } from '@backstage/plugin-catalog-react';
 import { eeBuildApiRef } from '../../../apis';
@@ -2238,6 +2240,13 @@ describe('EEListPage', () => {
       await waitFor(() =>
         expect(screen.getByTestId('stubbed-table-title')).toBeInTheDocument(),
       );
+
+      // Verify filter dropdowns fell back to only "All"
+      const filterSection = screen.getByTestId('catalog-filters');
+      const selectButtons = filterSection.querySelectorAll('[role="button"]');
+      for (const btn of selectButtons) {
+        expect(btn.textContent).toBe('All');
+      }
     });
   });
 
@@ -2291,6 +2300,11 @@ describe('EEListPage', () => {
         expect(screen.getByTestId('stubbed-table-title')).toBeInTheDocument(),
       );
       expect(screen.getByText('ee-one')).toBeInTheDocument();
+
+      // Verify owner cell falls back to the raw ownerRef
+      await waitFor(() =>
+        expect(screen.getByText('user:default/team-a')).toBeInTheDocument(),
+      );
     });
   });
 
@@ -2353,6 +2367,9 @@ describe('EEListPage', () => {
         expect(screen.getByTestId('stubbed-table-title')).toBeInTheDocument(),
       );
 
+      // Clear calls from ExecutionEnvironmentTypeFilter's mount-time updateFilters
+      mockUpdateFilters.mockClear();
+
       // Find the owner select (first select in filters) and change it
       const selects = screen
         .getByTestId('catalog-filters')
@@ -2363,7 +2380,13 @@ describe('EEListPage', () => {
       const teamAOption = options.find(o => o.textContent?.includes('team-a'));
       expect(teamAOption).toBeDefined();
       fireEvent.click(teamAOption!);
-      await waitFor(() => expect(mockUpdateFilters).toHaveBeenCalled());
+      await waitFor(() =>
+        expect(mockUpdateFilters).toHaveBeenCalledWith(
+          expect.objectContaining({
+            owners: expect.any(EntityOwnerFilter),
+          }),
+        ),
+      );
     });
 
     test('tag select onChange calls handleTagFilterChange', async () => {
@@ -2424,6 +2447,9 @@ describe('EEListPage', () => {
         expect(screen.getByTestId('stubbed-table-title')).toBeInTheDocument(),
       );
 
+      // Clear calls from ExecutionEnvironmentTypeFilter's mount-time updateFilters
+      mockUpdateFilters.mockClear();
+
       // Find tag select (second select in filters) and change it
       const selects = screen
         .getByTestId('catalog-filters')
@@ -2434,12 +2460,18 @@ describe('EEListPage', () => {
       const linuxOption = options.find(o => o.textContent?.includes('linux'));
       expect(linuxOption).toBeDefined();
       fireEvent.click(linuxOption!);
-      await waitFor(() => expect(mockUpdateFilters).toHaveBeenCalled());
+      await waitFor(() =>
+        expect(mockUpdateFilters).toHaveBeenCalledWith(
+          expect.objectContaining({
+            tags: expect.any(EntityTagFilter),
+          }),
+        ),
+      );
     });
   });
 
   describe('Coverage: actions button onMouseDown', () => {
-    test('onMouseDown prevents default and stops propagation', async () => {
+    test('onMouseDown handler fires without errors', async () => {
       await renderWithCatalogApi(() => Promise.resolve({ items: [entityA] }));
 
       await waitFor(() =>
@@ -2447,15 +2479,13 @@ describe('EEListPage', () => {
       );
 
       const actionsButton = screen.getByRole('button', { name: /actions/i });
-      const preventDefaultSpy = jest.fn();
-      const stopPropagationSpy = jest.fn();
 
-      fireEvent.mouseDown(actionsButton, {
-        preventDefault: preventDefaultSpy,
-        stopPropagation: stopPropagationSpy,
-      });
+      // fireEvent creates a real DOM event — we can't inject spies for
+      // preventDefault/stopPropagation. This test exercises the handler
+      // path for coverage; the handler calls e.preventDefault() and
+      // e.stopPropagation() to prevent row-click navigation.
+      fireEvent.mouseDown(actionsButton);
 
-      // The handler calls preventDefault and stopPropagation on the event
       expect(actionsButton).toBeInTheDocument();
     });
   });
