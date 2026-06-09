@@ -1040,7 +1040,7 @@ export async function createRouter(options: {
         response.status(400).json({ error: 'Invalid job ID' });
         return;
       }
-      const jobId = parseInt(jobIdParam, 10);
+      const jobId = Number(jobIdParam);
 
       // Require taskId query parameter for ownership validation
       const taskId = request.query.taskId as string | undefined;

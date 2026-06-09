@@ -469,19 +469,31 @@ paths:
       summary: Get AAP job status by job ID
       description: |
         Fetches the current status of an AAP job using its job ID.
-        Uses the service account token from configuration, not the user's OAuth token.
+        Requires the user's AAP OAuth token via the `AAP-Token` header to respect AAP RBAC permissions.
         **Permissions**: Requires the Backstage catalog **entity read** permission (`catalog.entity.read`).
       tags:
         - AAP Sync
       security:
         - JWT: []
       parameters:
+        - name: AAP-Token
+          in: header
+          required: true
+          schema:
+            type: string
+          description: User's AAP OAuth token (obtained from AAP auth provider)
         - name: jobId
           in: path
           required: true
           schema:
             type: integer
           description: AAP job ID
+        - name: taskId
+          in: query
+          required: true
+          schema:
+            type: string
+          description: Scaffolder task ID (for ownership validation)
       responses:
         '200':
           description: Job status retrieved successfully
@@ -543,12 +555,19 @@ paths:
       summary: Batch fetch AAP job statuses
       description: |
         Fetches status for multiple AAP jobs in a single request.
-        Optimized for task list display. Uses service account token from configuration.
+        Optimized for task list display. Requires the user's AAP OAuth token via the `AAP-Token` header to respect AAP RBAC permissions.
         **Permissions**: Requires the Backstage catalog **entity read** permission (`catalog.entity.read`).
       tags:
         - AAP Sync
       security:
         - JWT: []
+      parameters:
+        - name: AAP-Token
+          in: header
+          required: true
+          schema:
+            type: string
+          description: User's AAP OAuth token (obtained from AAP auth provider)
       requestBody:
         required: true
         content:
@@ -556,13 +575,23 @@ paths:
             schema:
               type: object
               required:
-                - jobIds
+                - jobs
               properties:
-                jobIds:
+                jobs:
                   type: array
                   items:
-                    type: integer
-                  description: Array of AAP job IDs to fetch status for
+                    type: object
+                    required:
+                      - taskId
+                      - jobId
+                    properties:
+                      taskId:
+                        type: string
+                        description: Scaffolder task ID
+                      jobId:
+                        type: integer
+                        description: AAP job ID
+                  description: Array of job requests with task IDs for ownership validation
               additionalProperties: false
       responses:
         '200':
@@ -572,7 +601,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/AAPJobStatusBatchResponse'
         '400':
-          description: Invalid request body (jobIds must be an array)
+          description: Invalid request body (jobs must be an array with taskId and jobId)
           content:
             application/json:
               schema:
