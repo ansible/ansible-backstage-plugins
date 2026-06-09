@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback, useMemo } from 'react';
+import { useEffect, useState, useCallback, useMemo, useRef } from 'react';
 import { Progress, Table, TableColumn } from '@backstage/core-components';
 import {
   Backdrop,
@@ -21,18 +21,17 @@ import {
   CatalogFilterLayout,
   EntityKindFilter,
   EntityListProvider,
+  EntityOwnerFilter,
+  EntityTagFilter,
   EntityTypeFilter,
   UserListPicker,
   catalogApiRef,
   useEntityList,
-  useStarredEntities,
   UnregisterEntityDialog,
   FavoriteEntity,
 } from '@backstage/plugin-catalog-react';
 import MoreVert from '@material-ui/icons/MoreVert';
 import OpenInNew from '@material-ui/icons/OpenInNew';
-import NavigateBeforeIcon from '@material-ui/icons/NavigateBefore';
-import NavigateNextIcon from '@material-ui/icons/NavigateNext';
 import { ANNOTATION_EDIT_URL, Entity } from '@backstage/catalog-model';
 import { useApi } from '@backstage/core-plugin-api';
 import { CreateCatalog } from './CreateCatalog';
@@ -44,7 +43,6 @@ import {
 } from './helpers';
 import { useEEBuildFlow } from './useEEBuildFlow';
 import { EntityLinkButton } from '../../common';
-import { usePaginatedEE } from './usePaginatedEE';
 import { PAGE_SIZE } from './constants';
 
 const DESCRIPTION_TRUNCATE_LENGTH = 30;
@@ -138,22 +136,6 @@ const useStyles = makeStyles(theme => ({
     padding: theme.spacing(1, 0),
     minWidth: 180,
   },
-  paginationContainer: {
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginTop: theme.spacing(3),
-    padding: theme.spacing(1, 0),
-  },
-  paginationInfo: {
-    color: theme.palette.text.secondary,
-    fontSize: '0.875rem',
-  },
-  paginationControls: {
-    display: 'flex',
-    alignItems: 'center',
-    gap: theme.spacing(1),
-  },
 }));
 
 const ExecutionEnvironmentTypeFilter = () => {
@@ -181,36 +163,145 @@ export const EEListPage = ({
   const classes = useStyles();
   const theme = useTheme();
   const catalogApi = useApi(catalogApiRef);
-  const { isStarredEntity } = useStarredEntities();
-  const { filters } = useEntityList();
-
-  const starredFilter = useMemo(() => {
-    if (filters.user?.value !== 'starred') return undefined;
-    return (entity: Entity) => isStarredEntity(entity);
-  }, [filters.user?.value, isStarredEntity]);
-
   const {
-    entities: paginatedEntities,
-    loadedEntityCount,
-    totalCount,
-    initialLoading,
-    loadingMore,
+    entities: rawEntities,
+    loading: catalogLoading,
     error,
-    currentPage,
-    totalPages,
-    hasNextPage,
-    hasPrevPage,
-    nextPage,
-    prevPage,
-    allOwners,
-    allTags,
-    ownerFilter,
-    setOwnerFilter,
-    tagFilter,
-    setTagFilter,
-    ownerNames,
-    refresh,
-  } = usePaginatedEE({ catalogApi, entityFilter: starredFilter });
+    totalItems,
+    limit,
+    offset,
+    setLimit,
+    setOffset,
+    updateFilters,
+  } = useEntityList();
+  const entities = useMemo(() => rawEntities ?? [], [rawEntities]);
+
+  const [page, setPage] = useState(
+    offset && limit ? Math.floor(offset / limit) : 0,
+  );
+  const [ownerFilter, setOwnerFilter] = useState('All');
+  const [tagFilter, setTagFilter] = useState('All');
+  const [allOwners, setAllOwners] = useState<string[]>(['All']);
+  const [allTags, setAllTags] = useState<string[]>(['All']);
+  const [ownerNames, setOwnerNames] = useState<Map<string, string>>(new Map());
+  const ownerNamesRef = useRef(ownerNames);
+  ownerNamesRef.current = ownerNames;
+  const isMountedRef = useRef(true);
+
+  useEffect(() => {
+    isMountedRef.current = true;
+    return () => {
+      isMountedRef.current = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    if (totalItems && page * limit >= totalItems) {
+      setOffset?.(Math.max(0, totalItems - limit));
+    } else {
+      setOffset?.(Math.max(0, page * limit));
+    }
+  }, [setOffset, page, limit, totalItems]);
+
+  // Fetch facets for filter dropdowns
+  useEffect(() => {
+    catalogApi
+      .getEntityFacets({
+        filter: { kind: 'Component', 'spec.type': 'execution-environment' },
+        facets: ['spec.owner', 'metadata.tags'],
+      })
+      .then(response => {
+        const owners = (response.facets['spec.owner'] ?? []).map(f => f.value);
+        const tags = (response.facets['metadata.tags'] ?? []).map(f => f.value);
+        owners.sort((a, b) => a.localeCompare(b));
+        tags.sort((a, b) => a.localeCompare(b));
+        setAllOwners(['All', ...owners]);
+        setAllTags(['All', ...tags]);
+      })
+      .catch(() => {
+        setAllOwners(['All']);
+        setAllTags(['All']);
+      });
+  }, [catalogApi]);
+
+  // Apply owner filter server-side
+  const handleOwnerFilterChange = useCallback(
+    (value: string) => {
+      setOwnerFilter(value);
+      setPage(0);
+      updateFilters({
+        owners: value === 'All' ? undefined : new EntityOwnerFilter([value]),
+      });
+    },
+    [updateFilters],
+  );
+
+  // Apply tag filter server-side
+  const handleTagFilterChange = useCallback(
+    (value: string) => {
+      setTagFilter(value);
+      setPage(0);
+      updateFilters({
+        tags: value === 'All' ? undefined : new EntityTagFilter([value]),
+      });
+    },
+    [updateFilters],
+  );
+
+  // Resolve owner display names for current page entities
+  useEffect(() => {
+    if (entities.length === 0) return;
+
+    const allOwnerRefs = Array.from(
+      new Set(
+        entities
+          .map(e => e.spec?.owner)
+          .filter((owner): owner is string => Boolean(owner)),
+      ),
+    );
+    const unresolvedRefs = allOwnerRefs.filter(
+      ref => !ownerNamesRef.current.has(ref),
+    );
+    if (unresolvedRefs.length === 0) return;
+
+    const resolveOwners = async () => {
+      try {
+        const response = await catalogApi.getEntitiesByRefs({
+          entityRefs: unresolvedRefs,
+        });
+        if (!isMountedRef.current) return;
+        const nameMap = new Map<string, string>();
+        for (const [index, ref] of unresolvedRefs.entries()) {
+          const entity = response.items[index];
+          const displayName =
+            entity?.metadata?.title ?? entity?.metadata?.name ?? ref;
+          nameMap.set(ref, displayName);
+        }
+        setOwnerNames(prev => new Map([...prev, ...nameMap]));
+      } catch {
+        if (!isMountedRef.current) return;
+        const fallback = new Map(
+          unresolvedRefs.map(ref => [ref, ref] as const),
+        );
+        setOwnerNames(prev => new Map([...prev, ...fallback]));
+      }
+    };
+    resolveOwners();
+  }, [entities, catalogApi]);
+
+  const initialLoading = catalogLoading;
+  const totalCount = totalItems ?? 0;
+
+  const refresh = useCallback(() => {
+    setOwnerFilter('All');
+    setTagFilter('All');
+    setOwnerNames(new Map());
+    setPage(0);
+    updateFilters({
+      owners: undefined,
+      tags: undefined,
+    });
+  }, [updateFilters]);
 
   const [actionsMenuAnchor, setActionsMenuAnchor] =
     useState<null | HTMLElement>(null);
@@ -269,10 +360,7 @@ export const EEListPage = ({
     );
   }
 
-  if (error) return <div>Error: {error}</div>;
-
-  const startIndex = (currentPage - 1) * PAGE_SIZE;
-  const endIndex = Math.min(startIndex + PAGE_SIZE, totalCount);
+  if (error) return <div>Error: {error.toString()}</div>;
 
   const columns: TableColumn[] = [
     {
@@ -389,10 +477,11 @@ export const EEListPage = ({
     },
   ];
 
-  const hasEntities = loadedEntityCount > 0;
+  const hasEntities = totalCount > 0 || entities.length > 0;
 
   return (
     <div style={{ flexDirection: 'column', width: '100%' }}>
+      <ExecutionEnvironmentTypeFilter />
       {hasEntities ? (
         <Typography variant="body1" className={classes.description}>
           Create an Execution Environment (EE) definition to ensure your
@@ -403,7 +492,6 @@ export const EEListPage = ({
       ) : null}
       {hasEntities ? (
         <CatalogFilterLayout>
-          <ExecutionEnvironmentTypeFilter />
           <CatalogFilterLayout.Filters>
             <UserListPicker availableFilters={['starred', 'all']} />
             <Typography>Owner</Typography>
@@ -412,7 +500,9 @@ export const EEListPage = ({
               <FormControl fullWidth>
                 <Select
                   value={ownerFilter}
-                  onChange={e => setOwnerFilter(e.target.value as string)}
+                  onChange={e =>
+                    handleOwnerFilterChange(e.target.value as string)
+                  }
                   displayEmpty
                   input={<Input disableUnderline />}
                 >
@@ -430,7 +520,9 @@ export const EEListPage = ({
               <FormControl fullWidth variant="outlined">
                 <Select
                   value={tagFilter}
-                  onChange={e => setTagFilter(e.target.value as string)}
+                  onChange={e =>
+                    handleTagFilterChange(e.target.value as string)
+                  }
                   input={<Input disableUnderline />}
                   MenuProps={{
                     getContentAnchorEl: null,
@@ -448,54 +540,22 @@ export const EEListPage = ({
           </CatalogFilterLayout.Filters>
           <CatalogFilterLayout.Content>
             <Table
-              title={
-                <>
-                  {`Execution Environments definition files (${totalCount})`}
-                  {loadingMore && (
-                    <CircularProgress
-                      size={16}
-                      style={{ marginLeft: 8, verticalAlign: 'middle' }}
-                    />
-                  )}
-                </>
-              }
+              title={`Execution Environments definition files (${totalCount})`}
               options={{
                 search: true,
-                paging: false,
+                paging: true,
+                pageSize: limit,
+                pageSizeOptions: [10, 20, 50, 100],
+                emptyRowsWhenPaging: false,
                 rowStyle: { cursor: 'default' },
               }}
               columns={columns}
-              data={paginatedEntities}
+              data={entities}
+              page={page}
+              onPageChange={setPage}
+              onRowsPerPageChange={setLimit}
+              totalCount={totalCount}
             />
-            {totalPages > 1 && (
-              <Box className={classes.paginationContainer}>
-                <Typography className={classes.paginationInfo}>
-                  Showing {startIndex + 1}-{endIndex} of {totalCount} execution
-                  environments
-                </Typography>
-                <Box className={classes.paginationControls}>
-                  <IconButton
-                    size="small"
-                    disabled={!hasPrevPage}
-                    onClick={prevPage}
-                    aria-label="Previous page"
-                  >
-                    <NavigateBeforeIcon />
-                  </IconButton>
-                  <Typography variant="body2">
-                    Page {currentPage} of {totalPages}
-                  </Typography>
-                  <IconButton
-                    size="small"
-                    disabled={!hasNextPage}
-                    onClick={nextPage}
-                    aria-label="Next page"
-                  >
-                    <NavigateNextIcon />
-                  </IconButton>
-                </Box>
-              </Box>
-            )}
             <Menu
               id="ee-actions-menu"
               anchorEl={actionsMenuAnchor}
@@ -704,7 +764,7 @@ export const EntityCatalogContent = ({
   return (
     <Grid container spacing={2} justifyContent="space-between">
       <Grid item xs={12} className={classes.flex}>
-        <EntityListProvider>
+        <EntityListProvider pagination={{ mode: 'offset', limit: PAGE_SIZE }}>
           <EEListPage onTabSwitch={onTabSwitch} />
         </EntityListProvider>
       </Grid>
