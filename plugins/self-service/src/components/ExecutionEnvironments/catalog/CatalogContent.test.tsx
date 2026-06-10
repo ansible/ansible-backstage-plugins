@@ -8,6 +8,7 @@ import {
   EntityOwnerFilter,
   EntityTagFilter,
   EntityTypeFilter,
+  EntityUserFilter,
 } from '@backstage/plugin-catalog-react';
 import { eeBuildApiRef } from '../../../apis';
 import { NotificationProvider, notificationStore } from '../../notifications';
@@ -22,9 +23,35 @@ jest.mock('@backstage/core-components', () => {
   const actual = jest.requireActual('@backstage/core-components');
   return {
     ...actual,
-    Table: ({ title, data = [], columns = [] }: any) => (
+    Table: ({
+      title,
+      data = [],
+      columns = [],
+      page,
+      totalCount,
+      onPageChange,
+      onRowsPerPageChange,
+      options,
+    }: any) => (
       <div data-testid="stubbed-table">
         <div data-testid="stubbed-table-title">{title}</div>
+        <div data-testid="stubbed-table-page">{page ?? ''}</div>
+        <div data-testid="stubbed-table-total">{totalCount ?? ''}</div>
+        <div data-testid="stubbed-table-pagesize">
+          {options?.pageSize ?? ''}
+        </div>
+        {onPageChange && (
+          <button
+            data-testid="stubbed-table-next-page"
+            onClick={() => onPageChange((page ?? 0) + 1)}
+          />
+        )}
+        {onRowsPerPageChange && (
+          <button
+            data-testid="stubbed-table-change-rows"
+            onClick={() => onRowsPerPageChange(50)}
+          />
+        )}
         <div data-testid="stubbed-table-rows">
           {Array.isArray(data)
             ? data.map((entity: any, rowIndex: number) => (
@@ -36,7 +63,6 @@ jest.mock('@backstage/core-components', () => {
                       try {
                         cellContent = col.render(entity);
                       } catch (error) {
-                        // Handle errors in render function gracefully
                         cellContent = null;
                       }
                     } else if (col.field) {
@@ -69,6 +95,9 @@ jest.mock('@backstage/core-components', () => {
 });
 
 // ------------------ STUB: UnregisterEntityDialog for coverage ------------------
+const toggleStarredEntityMock = jest.fn();
+const isStarredEntityMock = jest.fn(() => false);
+
 jest.mock('@backstage/plugin-catalog-react', () => {
   const actual = jest.requireActual('@backstage/plugin-catalog-react');
 
@@ -127,12 +156,11 @@ jest.mock('@backstage/plugin-catalog-react', () => {
     queryParameters: {},
   }));
 
-  const toggleStarredEntityMock = jest.fn();
-  const isStarredEntityMock = jest.fn(() => false);
-  const useStarredEntities = () => ({
+  const useStarredEntities = jest.fn(() => ({
     isStarredEntity: isStarredEntityMock,
     toggleStarredEntity: toggleStarredEntityMock,
-  });
+    starredEntities: new Set<string>(),
+  }));
 
   const FavoriteEntityStub = ({ entity }: any) =>
     entity ? (
@@ -2141,8 +2169,8 @@ describe('EEListPage', () => {
     });
   });
 
-  describe('Coverage: pagination offset clamp', () => {
-    test('clamps offset when page exceeds totalItems', async () => {
+  describe('Coverage: pagination', () => {
+    test('derives page from offset and limit and passes to Table', async () => {
       const mockSetOffset = jest.fn();
       const { useEntityList: mockHook } = jest.requireMock(
         '@backstage/plugin-catalog-react',
@@ -2153,7 +2181,7 @@ describe('EEListPage', () => {
         filters: { user: { value: 'all' } },
         updateFilters: jest.fn(),
         loading: false,
-        totalItems: 5,
+        totalItems: 25,
         limit: 10,
         offset: 10,
         setLimit: jest.fn(),
@@ -2187,7 +2215,295 @@ describe('EEListPage', () => {
         </MemoryRouter>,
       );
 
-      await waitFor(() => expect(mockSetOffset).toHaveBeenCalledWith(0));
+      await waitFor(() =>
+        expect(screen.getByTestId('stubbed-table-page')).toHaveTextContent('1'),
+      );
+      expect(screen.getByTestId('stubbed-table-total')).toHaveTextContent('25');
+      expect(mockSetOffset).not.toHaveBeenCalled();
+    });
+
+    test('resets offset to 0 when rows per page changes', async () => {
+      const mockSetOffset = jest.fn();
+      const mockSetLimit = jest.fn();
+      const { useEntityList: mockHook } = jest.requireMock(
+        '@backstage/plugin-catalog-react',
+      );
+      mockHook.mockReturnValue({
+        entities: [entityA],
+        backendEntities: [entityA],
+        filters: { user: { value: 'all' } },
+        updateFilters: jest.fn(),
+        loading: false,
+        totalItems: 25,
+        limit: 10,
+        offset: 20,
+        setLimit: mockSetLimit,
+        setOffset: mockSetOffset,
+        paginationMode: 'offset',
+        queryParameters: {},
+      });
+
+      render(
+        <MemoryRouter initialEntries={['/']}>
+          <TestApiProvider
+            apis={[
+              [configApiRef, mockConfigApi],
+              [
+                catalogApiRef,
+                {
+                  getEntityFacets: () => Promise.resolve({ facets: {} }),
+                  getEntitiesByRefs: () => Promise.resolve({ items: [] }),
+                },
+              ],
+              [scmAuthApiRef, mockScmAuthApi],
+              [eeBuildApiRef, mockEeBuildApi],
+            ]}
+          >
+            <NotificationProvider>
+              <ThemeProvider theme={theme}>
+                <EEListPage onTabSwitch={jest.fn()} />
+              </ThemeProvider>
+            </NotificationProvider>
+          </TestApiProvider>
+        </MemoryRouter>,
+      );
+
+      await waitFor(() =>
+        expect(screen.getByTestId('stubbed-table-page')).toHaveTextContent('2'),
+      );
+
+      fireEvent.click(screen.getByTestId('stubbed-table-change-rows'));
+
+      expect(mockSetOffset).toHaveBeenCalledWith(0);
+      expect(mockSetLimit).toHaveBeenCalledWith(50);
+    });
+  });
+
+  describe('Coverage: starred filter', () => {
+    test('re-applies starred filter when starredEntities changes', async () => {
+      const mockUpdateFilters = jest.fn();
+      const { useEntityList: mockHook, useStarredEntities: mockStarred } =
+        jest.requireMock('@backstage/plugin-catalog-react');
+
+      const starred = new Set(['component:default/ee-one']);
+      mockStarred.mockReturnValue({
+        isStarredEntity: isStarredEntityMock,
+        toggleStarredEntity: toggleStarredEntityMock,
+        starredEntities: starred,
+      });
+
+      mockHook.mockReturnValue({
+        entities: [entityA],
+        backendEntities: [entityA],
+        filters: { user: { value: 'starred' } },
+        updateFilters: mockUpdateFilters,
+        loading: false,
+        totalItems: 1,
+        limit: 10,
+        offset: 0,
+        setLimit: jest.fn(),
+        setOffset: jest.fn(),
+        paginationMode: 'offset',
+        queryParameters: {},
+      });
+
+      render(
+        <MemoryRouter initialEntries={['/']}>
+          <TestApiProvider
+            apis={[
+              [configApiRef, mockConfigApi],
+              [
+                catalogApiRef,
+                {
+                  getEntityFacets: () => Promise.resolve({ facets: {} }),
+                  getEntitiesByRefs: () => Promise.resolve({ items: [] }),
+                },
+              ],
+              [scmAuthApiRef, mockScmAuthApi],
+              [eeBuildApiRef, mockEeBuildApi],
+            ]}
+          >
+            <NotificationProvider>
+              <ThemeProvider theme={theme}>
+                <EEListPage onTabSwitch={jest.fn()} />
+              </ThemeProvider>
+            </NotificationProvider>
+          </TestApiProvider>
+        </MemoryRouter>,
+      );
+
+      await waitFor(() =>
+        expect(mockUpdateFilters).toHaveBeenCalledWith({
+          user: EntityUserFilter.starred(Array.from(starred)),
+        }),
+      );
+    });
+
+    test('switches to all filter when last starred entity is removed', async () => {
+      const mockUpdateFilters = jest.fn();
+      const { useEntityList: mockHook, useStarredEntities: mockStarred } =
+        jest.requireMock('@backstage/plugin-catalog-react');
+
+      // First render: one starred entity
+      const initialStarred = new Set(['component:default/ee-one']);
+      mockStarred.mockReturnValue({
+        isStarredEntity: isStarredEntityMock,
+        toggleStarredEntity: toggleStarredEntityMock,
+        starredEntities: initialStarred,
+      });
+
+      mockHook.mockReturnValue({
+        entities: [entityA],
+        backendEntities: [entityA],
+        filters: { user: { value: 'starred' } },
+        updateFilters: mockUpdateFilters,
+        loading: false,
+        totalItems: 1,
+        limit: 10,
+        offset: 0,
+        setLimit: jest.fn(),
+        setOffset: jest.fn(),
+        paginationMode: 'offset',
+        queryParameters: {},
+      });
+
+      const { rerender } = render(
+        <MemoryRouter initialEntries={['/']}>
+          <TestApiProvider
+            apis={[
+              [configApiRef, mockConfigApi],
+              [
+                catalogApiRef,
+                {
+                  getEntityFacets: () => Promise.resolve({ facets: {} }),
+                  getEntitiesByRefs: () => Promise.resolve({ items: [] }),
+                },
+              ],
+              [scmAuthApiRef, mockScmAuthApi],
+              [eeBuildApiRef, mockEeBuildApi],
+            ]}
+          >
+            <NotificationProvider>
+              <ThemeProvider theme={theme}>
+                <EEListPage onTabSwitch={jest.fn()} />
+              </ThemeProvider>
+            </NotificationProvider>
+          </TestApiProvider>
+        </MemoryRouter>,
+      );
+
+      await waitFor(() => expect(mockUpdateFilters).toHaveBeenCalled());
+      mockUpdateFilters.mockClear();
+
+      // Second render: starred set is now empty
+      const emptyStarred = new Set<string>();
+      mockStarred.mockReturnValue({
+        isStarredEntity: isStarredEntityMock,
+        toggleStarredEntity: toggleStarredEntityMock,
+        starredEntities: emptyStarred,
+      });
+
+      mockHook.mockReturnValue({
+        entities: [],
+        backendEntities: [],
+        filters: { user: { value: 'starred' } },
+        updateFilters: mockUpdateFilters,
+        loading: false,
+        totalItems: 0,
+        limit: 10,
+        offset: 0,
+        setLimit: jest.fn(),
+        setOffset: jest.fn(),
+        paginationMode: 'offset',
+        queryParameters: {},
+      });
+
+      rerender(
+        <MemoryRouter initialEntries={['/']}>
+          <TestApiProvider
+            apis={[
+              [configApiRef, mockConfigApi],
+              [
+                catalogApiRef,
+                {
+                  getEntityFacets: () => Promise.resolve({ facets: {} }),
+                  getEntitiesByRefs: () => Promise.resolve({ items: [] }),
+                },
+              ],
+              [scmAuthApiRef, mockScmAuthApi],
+              [eeBuildApiRef, mockEeBuildApi],
+            ]}
+          >
+            <NotificationProvider>
+              <ThemeProvider theme={theme}>
+                <EEListPage onTabSwitch={jest.fn()} />
+              </ThemeProvider>
+            </NotificationProvider>
+          </TestApiProvider>
+        </MemoryRouter>,
+      );
+
+      await waitFor(() =>
+        expect(mockUpdateFilters).toHaveBeenCalledWith({
+          user: EntityUserFilter.all(),
+        }),
+      );
+    });
+  });
+
+  describe('Coverage: onPageChange', () => {
+    test('calls setOffset when page changes', async () => {
+      const mockSetOffset = jest.fn();
+      const { useEntityList: mockHook } = jest.requireMock(
+        '@backstage/plugin-catalog-react',
+      );
+      mockHook.mockReturnValue({
+        entities: [entityA, entityB],
+        backendEntities: [entityA, entityB],
+        filters: { user: { value: 'all' } },
+        updateFilters: jest.fn(),
+        loading: false,
+        totalItems: 25,
+        limit: 10,
+        offset: 0,
+        setLimit: jest.fn(),
+        setOffset: mockSetOffset,
+        paginationMode: 'offset',
+        queryParameters: {},
+      });
+
+      render(
+        <MemoryRouter initialEntries={['/']}>
+          <TestApiProvider
+            apis={[
+              [configApiRef, mockConfigApi],
+              [
+                catalogApiRef,
+                {
+                  getEntityFacets: () => Promise.resolve({ facets: {} }),
+                  getEntitiesByRefs: () => Promise.resolve({ items: [] }),
+                },
+              ],
+              [scmAuthApiRef, mockScmAuthApi],
+              [eeBuildApiRef, mockEeBuildApi],
+            ]}
+          >
+            <NotificationProvider>
+              <ThemeProvider theme={theme}>
+                <EEListPage onTabSwitch={jest.fn()} />
+              </ThemeProvider>
+            </NotificationProvider>
+          </TestApiProvider>
+        </MemoryRouter>,
+      );
+
+      await waitFor(() =>
+        expect(screen.getByTestId('stubbed-table-page')).toHaveTextContent('0'),
+      );
+
+      fireEvent.click(screen.getByTestId('stubbed-table-next-page'));
+
+      expect(mockSetOffset).toHaveBeenCalledWith(10);
     });
   });
 
