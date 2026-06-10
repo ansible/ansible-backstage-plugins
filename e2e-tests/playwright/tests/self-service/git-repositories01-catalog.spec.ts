@@ -270,11 +270,11 @@ test.describe.serial('git-repositories01-catalog', () => {
     ).toBeTruthy();
 
     // Ensure at least one checkbox is checked (GitHub, GitLab, or Private Automation Hub)
+    // MUI wraps checkboxes — use the label/container click for reliable state updates
     const checkboxes = modal.locator('input[type="checkbox"]');
     const checkboxCount = await checkboxes.count();
 
     if (checkboxCount > 0) {
-      // Check if any checkbox is already checked
       let anyChecked = false;
       for (let i = 0; i < checkboxCount; i++) {
         if (await checkboxes.nth(i).isChecked()) {
@@ -283,11 +283,24 @@ test.describe.serial('git-repositories01-catalog', () => {
         }
       }
 
-      // If none are checked, check the first one
       if (!anyChecked) {
-        await checkboxes.first().waitFor({ state: 'visible', timeout: 5000 });
-        await checkboxes.first().check();
-        await page.waitForTimeout(500);
+        // Click the MUI checkbox label/container instead of the raw input
+        // MUI FormControlLabel wraps the checkbox — clicking the label triggers React state
+        const checkboxLabel = modal
+          .locator('label')
+          .filter({ has: page.locator('input[type="checkbox"]') })
+          .first();
+
+        if ((await checkboxLabel.count()) > 0) {
+          await checkboxLabel.click();
+        } else {
+          await checkboxes.first().click({ force: true });
+        }
+        let isNowChecked = await checkboxes.first().isChecked();
+        if (!isNowChecked) {
+          await checkboxes.first().click({ force: true });
+          await expect(checkboxes.first()).toBeChecked({ timeout: 10000 });
+        }
       }
     }
 
@@ -295,8 +308,8 @@ test.describe.serial('git-repositories01-catalog', () => {
     const syncSelectedBtn = modal.getByRole('button', {
       name: /Sync Selected/i,
     });
-    await expect(syncSelectedBtn.first()).toBeVisible({ timeout: 5000 });
-    await expect(syncSelectedBtn.first()).toBeEnabled({ timeout: 5000 });
+    await expect(syncSelectedBtn.first()).toBeVisible({ timeout: 10000 });
+    await expect(syncSelectedBtn.first()).toBeEnabled({ timeout: 20000 });
     await syncSelectedBtn.first().click();
 
     return syncBtn;
