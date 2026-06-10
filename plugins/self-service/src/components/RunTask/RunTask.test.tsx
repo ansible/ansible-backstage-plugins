@@ -31,22 +31,11 @@ const mockRouteRefFn = jest.fn((params: any) => {
 
 const mockRootLinkFn = jest.fn(() => '/self-service');
 
-const mockDiscoveryApi = {
-  getBaseUrl: jest.fn().mockResolvedValue('http://localhost:7007/api/catalog'),
-};
-
 jest.mock('@backstage/core-plugin-api', () => ({
   ...jest.requireActual('@backstage/core-plugin-api'),
   useRouteRef: (ref: { id?: string }) => {
     if (ref?.id === 'self-service') return mockRootLinkFn;
     return mockRouteRefFn;
-  },
-  useApi: (apiRef: any) => {
-    const actual = jest.requireActual('@backstage/core-plugin-api');
-    if (apiRef === actual.discoveryApiRef) {
-      return mockDiscoveryApi;
-    }
-    return jest.requireActual('@backstage/core-plugin-api').useApi(apiRef);
   },
 }));
 
@@ -195,14 +184,12 @@ describe('RunTask', () => {
   });
 
   const render = async (children: JSX.Element) => {
-    const { discoveryApiRef } = require('@backstage/core-plugin-api');
     const result = await renderInTestApp(
       <TestApiProvider
         apis={[
           [scaffolderApiRef, mockScaffolderApi],
           [permissionApiRef, mockApis.permission()],
           [catalogApiRef, mockCatalogApi],
-          [discoveryApiRef, mockDiscoveryApi],
         ]}
       >
         <>{children}</>
@@ -221,7 +208,6 @@ describe('RunTask', () => {
             [scaffolderApiRef, mockScaffolderApi],
             [permissionApiRef, mockApis.permission()],
             [catalogApiRef, mockCatalogApi],
-            [discoveryApiRef, mockDiscoveryApi],
           ]}
         >
           <>{newChildren}</>

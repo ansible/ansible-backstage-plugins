@@ -744,7 +744,6 @@ export class AAPClient implements IAAPService {
     const response = await this.executePostRequest(endPoint, token, data);
     const jobResponseJson = await response.json();
     const jobID = jobResponseJson.job;
-    this.logger.info(`Waiting for result of the executed job template.`);
 
     return {
       id: jobID,
@@ -769,29 +768,37 @@ export class AAPClient implements IAAPService {
     finishedAt?: string;
   }> {
     if (!token) {
+      this.logger.error('Token not provided for job status check');
       throw new Error('User OAuth token is required for job status');
     }
 
     const endPoint = `api/controller/v2/jobs/${jobID}/`;
-    const jobDetailResponse = await this.executeGetRequest(endPoint, token);
-    const jobData = await jobDetailResponse.json();
+    try {
+      const jobDetailResponse = await this.executeGetRequest(endPoint, token);
+      const jobData = await jobDetailResponse.json();
 
-    const result: any = {
-      id: jobID,
-      status: jobData.status,
-      url: `${this.getBaseUrl()}/execution/jobs/playbook/${jobID}/output`,
-    };
+      const result: any = {
+        id: jobID,
+        status: jobData.status,
+        url: `${this.getBaseUrl()}/execution/jobs/playbook/${jobID}/output`,
+      };
 
-    if (
-      ['successful', 'failed', 'error', 'canceled'].includes(
-        jobData.status?.toLowerCase(),
-      )
-    ) {
-      result.events = await this.fetchEvents(jobID, token);
-      result.finishedAt = jobData.finished;
+      if (
+        ['successful', 'failed', 'error', 'canceled'].includes(
+          jobData.status?.toLowerCase(),
+        )
+      ) {
+        result.events = await this.fetchEvents(jobID, token);
+        result.finishedAt = jobData.finished;
+      }
+
+      return result;
+    } catch (error) {
+      this.logger.error(
+        `Failed to fetch job status for job ${jobID}: ${error}`,
+      );
+      throw error;
     }
-
-    return result;
   }
 
   public async cleanUp(payload: CleanUp, token: string): Promise<void> {

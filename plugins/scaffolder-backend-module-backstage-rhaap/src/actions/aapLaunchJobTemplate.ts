@@ -67,12 +67,21 @@ export const launchJobTemplate = (
             token,
           );
 
+          logger.info('Waiting for result of the executed job template.');
+
           // Poll with service token (doesn't expire) instead of user token
           const pollingToken = serviceToken || token;
+          if (!serviceToken) {
+            logger.warn(
+              'ansible.rhaap.token not configured - falling back to user token for polling. Long-running jobs may fail due to token expiry.',
+            );
+          }
           logger.debug(
             `Polling job ${jobResult.id} with ${serviceToken ? 'service' : 'user'} token`,
           );
 
+          const MAX_POLLS = 720; // 720 * 5s = 1 hour max
+          let pollCount = 0;
           let currentStatus = jobResult.status?.toLowerCase();
           while (
             currentStatus &&
@@ -80,7 +89,16 @@ export const launchJobTemplate = (
               currentStatus,
             )
           ) {
+            if (pollCount >= MAX_POLLS) {
+              const error = new Error(
+                `Job ${jobResult.id} polling timeout after ${MAX_POLLS * 5} seconds. Last status: ${currentStatus}`,
+              );
+              logger.error(error.message);
+              throw error;
+            }
+
             await new Promise(resolve => setTimeout(resolve, 5000));
+            pollCount++;
 
             const statusUpdate = await ansibleServiceRef.getJobStatus(
               jobResult.id,
@@ -93,7 +111,7 @@ export const launchJobTemplate = (
           }
 
           logger.debug(
-            `Job ${jobResult.id} polling complete with status: ${jobResult.status}`,
+            `Job ${jobResult.id} polling complete with status: ${jobResult.status} after ${pollCount} polls`,
           );
 
           // Output final result

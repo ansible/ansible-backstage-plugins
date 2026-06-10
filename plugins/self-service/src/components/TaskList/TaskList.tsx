@@ -3,7 +3,6 @@ import {
   identityApiRef,
   useApi,
   useRouteRef,
-  discoveryApiRef,
 } from '@backstage/core-plugin-api';
 import {
   scaffolderApiRef,
@@ -75,14 +74,6 @@ type Filters = {
   owner: 'all' | 'owned' | undefined;
 };
 
-type TaskWithAAPJob = ScaffolderTask & {
-  output?: {
-    data?: {
-      id?: number;
-    };
-  };
-};
-
 function TablePaginationActions(props: TablePaginationActionsProps) {
   const { count, page, rowsPerPage, onPageChange } = props;
 
@@ -148,7 +139,6 @@ export const TaskList = () => {
   const classes = headerStyles();
   const scaffolderApi = useApi(scaffolderApiRef);
   const identityApi = useApi(identityApiRef);
-  const discoveryApi = useApi(discoveryApiRef);
 
   const { value: isAdmin, loading: adminLoading } = useAsync(async () => {
     const identity = await identityApi.getBackstageIdentity();
@@ -164,7 +154,7 @@ export const TaskList = () => {
       adminGroups.includes(ref.toLowerCase()),
     );
   }, []);
-  const [tasks, setTasks] = useState<TaskWithAAPJob[]>([]);
+  const [tasks, setTasks] = useState<ScaffolderTask[]>([]);
   const [totalTasks, setTotalTasks] = useState<number>(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<Error | undefined>();
@@ -174,15 +164,6 @@ export const TaskList = () => {
   const [page, setPage] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(10);
   const rootLink = useRouteRef(rootRouteRef);
-  const [aapJobStatuses, setAapJobStatuses] = useState<
-    Map<
-      number,
-      {
-        status: string;
-        url: string;
-      }
-    >
-  >(new Map());
 
   const fetchTasks = useCallback(async () => {
     if (!scaffolderApi?.listTasks) {
@@ -221,71 +202,6 @@ export const TaskList = () => {
       setPage(0);
     }
   }, [adminLoading, isAdmin]);
-
-  useEffect(() => {
-    if (loading || !tasks || tasks.length === 0) {
-      return undefined;
-    }
-
-    // Build array of {taskId, jobId} for ownership validation
-    const jobRequests = tasks
-      .filter(task => {
-        const jobId = task.output?.data?.id;
-        return typeof jobId === 'number';
-      })
-      .map(task => ({
-        taskId: task.id,
-        jobId: task.output!.data!.id as number,
-      }));
-
-    if (jobRequests.length === 0) {
-      return undefined;
-    }
-
-    // Use AbortController to cancel stale requests
-    const abortController = new AbortController();
-
-    const fetchAapStatuses = async () => {
-      try {
-        // Backend uses service account token + task ownership validation
-        const baseUrl = await discoveryApi.getBaseUrl('catalog');
-        const response = await fetch(`${baseUrl}/ansible/jobs/batch`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({ jobs: jobRequests }),
-          signal: abortController.signal,
-        });
-
-        if (!response.ok) {
-          // Silently fail - AAP status is optional enhancement
-          return;
-        }
-
-        const data = await response.json();
-        const statusMap = new Map(
-          Object.entries(data.jobs).map(([id, status]) => [
-            Number.parseInt(id, 10),
-            status as any,
-          ]),
-        );
-        setAapJobStatuses(statusMap);
-      } catch (err: any) {
-        // Ignore abort errors - they're expected during cleanup
-        if (err.name !== 'AbortError') {
-          // Silently fail - AAP status is optional enhancement
-        }
-      }
-    };
-
-    fetchAapStatuses();
-
-    // Cleanup: abort pending request when component unmounts or tasks change
-    return () => {
-      abortController.abort();
-    };
-  }, [tasks, loading, discoveryApi]);
 
   const handlePageChange = (_: unknown, newPage: number) => {
     setPage(newPage);
@@ -425,49 +341,16 @@ export const TaskList = () => {
                               alignItems: 'center',
                             }}
                           >
-                            {(() => {
-                              const aapJobId = task.output?.data?.id as
-                                | number
-                                | undefined;
-                              const aapStatus = aapJobId
-                                ? aapJobStatuses.get(aapJobId)
-                                : null;
-
-                              // Prefer AAP status when available (AAP is source of truth)
-                              const displayStatus = aapStatus
-                                ? aapStatus.status
-                                : task.status;
-
-                              // Show AAP indicator when AAP status differs from scaffolder status
-                              const showAapIndicator =
-                                aapStatus && aapStatus.status !== task.status;
-
-                              return (
-                                <>
-                                  <Box
-                                    sx={{
-                                      marginRight: 1,
-                                      display: 'flex',
-                                      alignItems: 'center',
-                                    }}
-                                  >
-                                    {getStatusIcon(displayStatus)}
-                                  </Box>
-                                  {displayStatus}
-                                  {showAapIndicator && (
-                                    <Typography
-                                      variant="caption"
-                                      style={{
-                                        marginLeft: '8px',
-                                        opacity: 0.7,
-                                      }}
-                                    >
-                                      (AAP)
-                                    </Typography>
-                                  )}
-                                </>
-                              );
-                            })()}
+                            <Box
+                              sx={{
+                                marginRight: 1,
+                                display: 'flex',
+                                alignItems: 'center',
+                              }}
+                            >
+                              {getStatusIcon(task.status)}
+                            </Box>
+                            {task.status}
                           </TableCell>
                         </TableRow>
                       ))}
