@@ -33,7 +33,6 @@ import {
   gitRepositoriesViewPermission,
   executionEnvironmentsViewPermission,
   collectionsViewPermission,
-  IAAPService,
   ScmClientFactory,
   SCM_INTEGRATION_AUTH_FAILED_CODE,
 } from '@ansible/backstage-rhaap-common';
@@ -82,7 +81,6 @@ export async function createRouter(options: {
   permissions: PermissionsService;
   ansibleGitContentsProviders?: AnsibleGitContentsProvider[];
   allowedExternalAccessSubjects?: string[];
-  ansibleService: IAAPService;
 }): Promise<express.Router> {
   const {
     logger,
@@ -99,7 +97,6 @@ export async function createRouter(options: {
     permissions,
     ansibleGitContentsProviders = [],
     allowedExternalAccessSubjects,
-    ansibleService,
   } = options;
   const router = Router();
   const scmClientFactory = new ScmClientFactory({ rootConfig: config, logger });
@@ -116,38 +113,6 @@ export async function createRouter(options: {
   const _GIT_CONTENTS_PROVIDERS = new Map<string, AnsibleGitContentsProvider>();
   for (const provider of ansibleGitContentsProviders) {
     _GIT_CONTENTS_PROVIDERS.set(provider.getSourceId(), provider);
-  }
-
-  /**
-   * Validates that the requesting user owns the scaffolder task.
-   * Enforces authorization at the Backstage layer instead of relying on AAP RBAC.
-   */
-  async function validateTaskOwnership(
-    request: express.Request,
-    taskId: string,
-  ): Promise<void> {
-    try {
-      const credentials = await httpAuth.credentials(request as any);
-      const userEntityRef = (credentials.principal as any)?.userEntityRef;
-
-      // TODO: Query scaffolder task store to verify task.createdBy === userEntityRef
-      // For now, we log the validation intent and trust the taskId parameter
-      logger.info(
-        `Task ownership validation: user=${userEntityRef || 'unknown'}, taskId=${taskId} (validation placeholder - TODO: implement actual task store query)`,
-      );
-
-      // Placeholder: In production, query the scaffolder task store:
-      // const task = await scaffolderApi.getTask(taskId);
-      // if (task.createdBy !== userEntityRef) {
-      //   throw new Error('User does not own this task');
-      // }
-    } catch (error) {
-      // If we can't get credentials, we can't validate - for now just log
-      // In production, this should fail closed (reject the request)
-      logger.warn(
-        `Could not validate task ownership for taskId=${taskId}: ${error}`,
-      );
-    }
   }
 
   const requireSuperuserMiddleware = createRequireSuperuserMiddleware({
@@ -1025,245 +990,6 @@ export async function createRouter(options: {
       }
 
       response.status(200).json({ results });
-    },
-  );
-
-  /**
-   * GET /ansible/jobs/:jobId
-   * Fetch AAP job status by job ID
-   * Uses service account token and validates task ownership at Backstage layer
-   */
-  router.get(
-    '/ansible/jobs/:jobId',
-    createPermissionCheckMiddleware({ httpAuth, permissions }, [
-      catalogEntityReadPermission,
-    ]),
-    async (request, response) => {
-      const perms = response.locals.permissions as Record<string, boolean>;
-      if (!perms[catalogEntityReadPermission.name]) {
-        response
-          .status(403)
-          .json({ error: 'Forbidden: insufficient permissions' });
-        return;
-      }
-
-      // Validate jobId is a positive integer (reject "123abc", "1.5", etc.)
-      const jobIdParam = request.params.jobId;
-      if (!/^\d+$/.test(jobIdParam)) {
-        response.status(400).json({ error: 'Invalid job ID' });
-        return;
-      }
-      const jobId = Number(jobIdParam);
-
-      // Require taskId query parameter for ownership validation
-      const taskId = request.query.taskId as string | undefined;
-      if (!taskId) {
-        response.status(400).json({
-          error: 'taskId query parameter is required for job status requests',
-        });
-        return;
-      }
-
-      // Validate task ownership - user must own the task that launched this job
-      await validateTaskOwnership(request, taskId);
-
-      // Get user identity to log access
-      let userRef: string;
-      try {
-        const credentials = await httpAuth.credentials(request as any);
-        const { ownershipEntityRefs } = await userInfo.getUserInfo(credentials);
-        userRef = ownershipEntityRefs?.[0] || 'unknown';
-        logger.info(
-          `User ${userRef} fetching AAP job status for job ${jobId} (task ${taskId})`,
-        );
-      } catch (err) {
-        // Service-to-service calls not allowed for job status
-        const errorMessage = err instanceof Error ? err.message : String(err);
-        logger.warn(
-          `Rejecting service-to-service job status request for job ${jobId}: ${errorMessage}`,
-        );
-        response.status(403).json({
-          error: 'Job status requests require user authentication',
-        });
-        return;
-      }
-
-      try {
-        // Use service account token from config - solves token expiry issue
-        const serviceToken = config.getOptionalString('ansible.rhaap.token');
-        if (!serviceToken) {
-          response.status(503).json({
-            error: 'AAP service account not configured',
-          });
-          return;
-        }
-
-        const jobStatus = await ansibleService.getJobStatus(
-          jobId,
-          serviceToken,
-        );
-        response.status(200).json(jobStatus);
-      } catch (error: any) {
-        logger.error(
-          `Failed to fetch job status for ${jobId}: ${error.message}`,
-        );
-
-        // Match specific error messages from AAPClient
-        // NOTE: This is a limitation - ideally AAPClient would throw typed errors
-        // with status codes, but modifying core AAP methods is out of scope.
-        const errorMessage = error.message || '';
-
-        // Check exact error messages from AAPClient first (most reliable)
-        if (
-          errorMessage ===
-            'Insufficient privileges. Please contact your administrator.' ||
-          errorMessage === 'Failed to fetch data.' ||
-          errorMessage.startsWith('Response code 403') ||
-          errorMessage.startsWith('Response code 404')
-        ) {
-          // 404 for permission/not found errors (includes legacy error format)
-          response.status(404).json({
-            error: 'Job not found or insufficient permissions',
-            id: jobId,
-            status: 'unknown',
-          });
-        } else if (
-          errorMessage.startsWith('User OAuth token is required') ||
-          errorMessage.includes('token not configured') ||
-          errorMessage.includes('AAP service account')
-        ) {
-          response.status(503).json({
-            error: 'AAP service account not configured',
-          });
-        } else {
-          response.status(500).json({
-            error: 'Failed to fetch job status',
-            details: errorMessage,
-          });
-        }
-      }
-    },
-  );
-
-  /**
-   * POST /ansible/jobs/batch
-   * Fetch multiple job statuses (for task list)
-   * Uses service account token and validates task ownership at Backstage layer
-   * Body: { jobs: Array<{taskId: string, jobId: number}> }
-   */
-  router.post(
-    '/ansible/jobs/batch',
-    express.json(),
-    createPermissionCheckMiddleware({ httpAuth, permissions }, [
-      catalogEntityReadPermission,
-    ]),
-    async (request, response) => {
-      const perms = response.locals.permissions as Record<string, boolean>;
-      if (!perms[catalogEntityReadPermission.name]) {
-        response
-          .status(403)
-          .json({ error: 'Forbidden: insufficient permissions' });
-        return;
-      }
-
-      const { jobs: jobRequests } = request.body as {
-        jobs?: Array<{ taskId: string; jobId: number }>;
-      };
-
-      if (!Array.isArray(jobRequests)) {
-        response.status(400).json({ error: 'jobs must be an array' });
-        return;
-      }
-
-      // Enforce batch size limit to prevent resource exhaustion
-      const BATCH_SIZE_LIMIT = 100;
-      if (jobRequests.length > BATCH_SIZE_LIMIT) {
-        response.status(400).json({
-          error: `Batch size exceeds limit of ${BATCH_SIZE_LIMIT}`,
-          requested: jobRequests.length,
-          limit: BATCH_SIZE_LIMIT,
-        });
-        return;
-      }
-
-      // Validate all entries have taskId and jobId
-      const invalidEntries = jobRequests.filter(
-        req =>
-          !req.taskId ||
-          typeof req.taskId !== 'string' ||
-          typeof req.jobId !== 'number' ||
-          !Number.isInteger(req.jobId) ||
-          req.jobId <= 0,
-      );
-
-      if (invalidEntries.length > 0) {
-        response.status(400).json({
-          error:
-            'All entries must have taskId (string) and jobId (positive integer)',
-          invalidEntries: invalidEntries,
-        });
-        return;
-      }
-
-      if (jobRequests.length === 0) {
-        response.status(200).json({ jobs: {} });
-        return;
-      }
-
-      // Validate task ownership for all tasks
-      // TODO: Batch validate all taskIds in one query for performance
-      for (const req of jobRequests) {
-        await validateTaskOwnership(request, req.taskId);
-      }
-
-      // Get user identity to log access
-      let userRef: string;
-      try {
-        const credentials = await httpAuth.credentials(request as any);
-        const { ownershipEntityRefs } = await userInfo.getUserInfo(credentials);
-        userRef = ownershipEntityRefs?.[0] || 'unknown';
-        logger.info(
-          `User ${userRef} fetching batch AAP job status for ${jobRequests.length} jobs`,
-        );
-      } catch (err) {
-        // Service-to-service calls not allowed - require user authentication
-        const errorMessage = err instanceof Error ? err.message : String(err);
-        logger.warn(
-          `Rejecting service-to-service batch job status request: ${errorMessage}`,
-        );
-        response.status(403).json({
-          error: 'Job status requests require user authentication',
-        });
-        return;
-      }
-
-      const jobIds = jobRequests.map(req => req.jobId);
-
-      try {
-        // Use service account token from config - solves token expiry issue
-        const serviceToken = config.getOptionalString('ansible.rhaap.token');
-        if (!serviceToken) {
-          response.status(503).json({
-            error: 'AAP service account not configured',
-          });
-          return;
-        }
-
-        logger.info(`Fetching batch job status for ${jobIds.length} jobs`);
-        const jobStatuses = await ansibleService.getJobStatusBatch(
-          jobIds,
-          serviceToken,
-        );
-
-        const result = Object.fromEntries(jobStatuses);
-        response.status(200).json({ jobs: result });
-      } catch (error: any) {
-        logger.error(`Failed to fetch batch job statuses: ${error.message}`);
-        response.status(500).json({
-          error: 'Failed to fetch job statuses',
-          details: error.message,
-        });
-      }
     },
   );
 

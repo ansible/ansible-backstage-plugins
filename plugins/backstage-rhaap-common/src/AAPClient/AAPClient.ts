@@ -65,7 +65,6 @@ export interface IAAPService extends Pick<
   | 'launchJobTemplate'
   | 'launchJobTemplateNoWait'
   | 'getJobStatus'
-  | 'getJobStatusBatch'
   | 'cleanUp'
   | 'checkControllerAvailability'
   | 'getResourceData'
@@ -792,59 +791,6 @@ export class AAPClient implements IAAPService {
     }
 
     return result;
-  }
-
-  /**
-   * Batch fetch job statuses for multiple job IDs.
-   * Uses user's OAuth token to respect AAP RBAC permissions.
-   */
-  public async getJobStatusBatch(
-    jobIDs: number[],
-    token: string,
-  ): Promise<
-    Map<
-      number,
-      {
-        id: number;
-        status: string;
-        url: string;
-      }
-    >
-  > {
-    if (!token) {
-      throw new Error('User OAuth token is required for job status');
-    }
-
-    const results = new Map();
-
-    const BATCH_SIZE = 10;
-    for (let i = 0; i < jobIDs.length; i += BATCH_SIZE) {
-      const batch = jobIDs.slice(i, i + BATCH_SIZE);
-      const promises = batch.map(async jobID => {
-        try {
-          const endPoint = `api/controller/v2/jobs/${jobID}/`;
-          const response = await this.executeGetRequest(endPoint, token);
-          const jobData = await response.json();
-          return {
-            id: jobID,
-            status: jobData.status,
-            url: `${this.getBaseUrl()}/execution/jobs/playbook/${jobID}/output`,
-          };
-        } catch (error) {
-          this.logger.warn(`Failed to fetch job ${jobID}: ${error}`);
-          return {
-            id: jobID,
-            status: 'unknown',
-            url: `${this.getBaseUrl()}/execution/jobs/playbook/${jobID}/output`,
-          };
-        }
-      });
-
-      const batchResults = await Promise.all(promises);
-      batchResults.forEach(r => results.set(r.id, r));
-    }
-
-    return results;
   }
 
   public async cleanUp(payload: CleanUp, token: string): Promise<void> {

@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState, useEffect, useRef } from 'react';
+import { useCallback, useMemo, useState, useEffect } from 'react';
 import {
   Page,
   Header,
@@ -6,11 +6,7 @@ import {
   MarkdownContent,
 } from '@backstage/core-components';
 import { useParams, useNavigate } from 'react-router-dom';
-import {
-  useApi,
-  useRouteRef,
-  discoveryApiRef,
-} from '@backstage/core-plugin-api';
+import { useApi, useRouteRef } from '@backstage/core-plugin-api';
 import {
   useTaskEventStream,
   scaffolderApiRef,
@@ -92,18 +88,9 @@ export const RunTask = () => {
   } | null>(null);
   const scaffolderApi = useApi(scaffolderApiRef);
   const catalogApi = useApi(catalogApiRef);
-  const discoveryApi = useApi(discoveryApiRef);
   const navigate = useNavigate();
   const rootLink = useRouteRef(rootRouteRef);
   const templateRouteRef = useRouteRef(selectedTemplateRouteRef);
-
-  const [aapJobStatus, setAapJobStatus] = useState<{
-    id: number;
-    status: string;
-    url: string;
-    events?: any[];
-  } | null>(null);
-  const [aapJobError, setAapJobError] = useState<string | null>(null);
 
   const { allowed: canCancel } = usePermission({
     permission: taskCancelPermission,
@@ -152,77 +139,6 @@ export const RunTask = () => {
       fetchTemplateEntity();
     }
   }, [task, catalogApi, templateEntity]);
-
-  const statusRef = useRef<string | null>(null);
-
-  useEffect(() => {
-    if (!task || !completed) {
-      return undefined;
-    }
-
-    const aapJobId = (task as any).output?.data?.id;
-    if (!aapJobId || typeof aapJobId !== 'number') {
-      return undefined;
-    }
-
-    let cancelled = false;
-    const interval = { id: undefined as NodeJS.Timeout | undefined };
-
-    const fetchAapStatus = async () => {
-      try {
-        // Backend uses service account token + task ownership validation
-        const baseUrl = await discoveryApi.getBaseUrl('catalog');
-        const response = await fetch(
-          `${baseUrl}/ansible/jobs/${aapJobId}?taskId=${encodeURIComponent(taskId)}`,
-          {
-            headers: {
-              'Content-Type': 'application/json',
-            },
-          },
-        );
-
-        if (!response.ok) {
-          const errorData = await response.json();
-          throw new Error(errorData.error || 'Failed to fetch AAP job status');
-        }
-
-        const jobStatus = await response.json();
-        if (!cancelled) {
-          statusRef.current = jobStatus.status;
-          setAapJobStatus(jobStatus);
-          setAapJobError(null);
-
-          // Stop polling when terminal status is reached
-          if (
-            jobStatus.status &&
-            ['successful', 'failed', 'error', 'canceled'].includes(
-              jobStatus.status.toLowerCase(),
-            ) &&
-            interval.id
-          ) {
-            clearInterval(interval.id);
-          }
-        }
-      } catch (err: any) {
-        if (!cancelled) {
-          setAapJobError(err.message);
-        }
-      }
-    };
-
-    // Initial fetch
-    fetchAapStatus();
-
-    // Start polling interval
-    interval.id = setInterval(fetchAapStatus, 5000);
-
-    return () => {
-      cancelled = true;
-      if (interval.id) {
-        clearInterval(interval.id);
-      }
-    };
-  }, [task, completed, discoveryApi, taskId]);
 
   const canStartOver = canRead && canCreateTask;
   const showStartOver = canStartOver;
@@ -616,42 +532,6 @@ export const RunTask = () => {
           isComplete={completed}
           isError={Boolean(error)}
         />
-        {aapJobStatus && (
-          <Box
-            marginTop="16px"
-            padding="16px"
-            bgcolor="background.paper"
-            borderRadius="4px"
-          >
-            <Typography variant="h6">AAP Job Status</Typography>
-            <Typography variant="body2">
-              Job ID: {aapJobStatus.id} | Status: {aapJobStatus.status}
-            </Typography>
-            <Button
-              href={aapJobStatus.url}
-              target="_blank"
-              rel="noopener noreferrer"
-              variant="outlined"
-              size="small"
-              style={{ marginTop: '8px' }}
-            >
-              View in AAP Console
-            </Button>
-          </Box>
-        )}
-        {aapJobError && error && (
-          <Box
-            marginTop="16px"
-            padding="16px"
-            bgcolor="error.light"
-            borderRadius="4px"
-          >
-            <Typography variant="body2" color="error">
-              Note: Scaffolder task failed but AAP job may have succeeded.
-              Unable to fetch AAP status: {aapJobError}
-            </Typography>
-          </Box>
-        )}
         <Box
           display="flex"
           flexDirection="column"

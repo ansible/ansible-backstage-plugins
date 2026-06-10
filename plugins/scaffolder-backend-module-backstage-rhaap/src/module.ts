@@ -87,7 +87,7 @@ export const scaffolderModuleAnsible = createBackendModule({
           createProjectAction(ansibleService),
           createExecutionEnvironment(ansibleService),
           createJobTemplate(ansibleService),
-          launchJobTemplate(ansibleService),
+          launchJobTemplate(ansibleService, config),
           cleanUp(ansibleService),
           createEEDefinitionAction({
             frontendUrl,

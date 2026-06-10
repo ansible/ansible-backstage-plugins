@@ -4,8 +4,12 @@ import { LaunchJobTemplate } from '@ansible/backstage-rhaap-common';
 import { launchJobTemplate } from './aapLaunchJobTemplate';
 import { mockAnsibleService } from './mockIAAPService';
 
+const mockConfig = {
+  getOptionalString: jest.fn().mockReturnValue('mock-service-token'),
+};
+
 describe('ansible-aap:jobTemplate:launch', () => {
-  const action = launchJobTemplate(mockAnsibleService);
+  const action = launchJobTemplate(mockAnsibleService, mockConfig);
 
   const projectData: LaunchJobTemplate = {
     template: 'Test job template',
@@ -38,21 +42,60 @@ describe('ansible-aap:jobTemplate:launch', () => {
   });
 
   it('should launch job template (default: blocking)', async () => {
-    const expectedResponse = {
+    // Mock launch to return terminal status (fast job that completes immediately)
+    const launchResponse = {
+      id: 1,
+      status: 'successful',
+      url: `https//test.com/execution/jobs/playbook/1/output`,
+      launchedAt: '2024-01-01T00:00:00.000Z',
+    };
+
+    mockAnsibleService.launchJobTemplateNoWait.mockResolvedValue(
+      launchResponse,
+    );
+
+    // @ts-ignore
+    await action.handler({ ...mockContext });
+    expect(mockContext.output).toHaveBeenCalledWith('data', launchResponse);
+    expect(mockAnsibleService.launchJobTemplateNoWait).toHaveBeenCalled();
+    // getJobStatus should NOT be called if job already completed
+    expect(mockAnsibleService.getJobStatus).not.toHaveBeenCalled();
+  });
+
+  it('should poll for job completion using service token', async () => {
+    const launchResponse = {
+      id: 1,
+      status: 'pending',
+      url: `https//test.com/execution/jobs/playbook/1/output`,
+      launchedAt: '2024-01-01T00:00:00.000Z',
+    };
+
+    const finalResponse = {
       id: 1,
       status: 'successful',
       url: `https//test.com/execution/jobs/playbook/1/output`,
       events: [],
     };
 
-    mockAnsibleService.launchJobTemplate.mockResolvedValue(expectedResponse);
+    mockAnsibleService.launchJobTemplateNoWait.mockResolvedValue(
+      launchResponse,
+    );
+    mockAnsibleService.getJobStatus.mockResolvedValue(finalResponse);
 
     // @ts-ignore
     await action.handler({ ...mockContext });
-    expect(mockContext.output).toHaveBeenCalledWith('data', expectedResponse);
-    expect(mockAnsibleService.launchJobTemplate).toHaveBeenCalled();
-    expect(mockAnsibleService.launchJobTemplateNoWait).not.toHaveBeenCalled();
-  });
+
+    // Final output is merged: launchResponse + getJobStatus response
+    const expectedOutput = {
+      ...launchResponse,
+      ...finalResponse,
+    };
+    expect(mockContext.output).toHaveBeenCalledWith('data', expectedOutput);
+    expect(mockAnsibleService.getJobStatus).toHaveBeenCalledWith(
+      1,
+      'mock-service-token',
+    );
+  }, 10000);
 
   it('should launch job template (non-blocking when opt-in)', async () => {
     const expectedResponse = {
@@ -82,7 +125,7 @@ describe('ansible-aap:jobTemplate:launch', () => {
   });
 
   it('should fail with message', async () => {
-    mockAnsibleService.launchJobTemplate.mockRejectedValue(
+    mockAnsibleService.launchJobTemplateNoWait.mockRejectedValue(
       new Error('Test error message.'),
     );
 
@@ -97,7 +140,7 @@ describe('ansible-aap:jobTemplate:launch', () => {
   });
 
   it('should fail without message', async () => {
-    mockAnsibleService.launchJobTemplate.mockRejectedValue(
+    mockAnsibleService.launchJobTemplateNoWait.mockRejectedValue(
       new Error('Something went wrong.'),
     );
     let error;
@@ -111,12 +154,16 @@ describe('ansible-aap:jobTemplate:launch', () => {
   });
 
   it('strips full AAP inventory and normalizes credentials before launch', async () => {
-    mockAnsibleService.launchJobTemplate.mockResolvedValue({
+    const launchResponse = {
       id: 1,
-      status: 'successful',
+      status: 'successful', // Terminal status to avoid polling
       url: 'https://test.com/execution/jobs/playbook/1/output',
-      events: [],
-    });
+      launchedAt: '2024-01-01T00:00:00.000Z',
+    };
+
+    mockAnsibleService.launchJobTemplateNoWait.mockResolvedValue(
+      launchResponse,
+    );
 
     const fullInventory = {
       id: 2,
@@ -149,7 +196,7 @@ describe('ansible-aap:jobTemplate:launch', () => {
 
     await action.handler(ctx as any);
 
-    expect(mockAnsibleService.launchJobTemplate).toHaveBeenCalledWith(
+    expect(mockAnsibleService.launchJobTemplateNoWait).toHaveBeenCalledWith(
       expect.objectContaining({
         template: 'Test job template',
         inventory: { id: 2, name: 'AWS Inventory' },
