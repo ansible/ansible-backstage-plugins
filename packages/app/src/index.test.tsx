@@ -6,7 +6,7 @@ beforeEach(() => {
 
 // Mock side-effect-only modules (assets/CSS)
 jest.mock('@backstage/cli/asset-types', () => ({}), { virtual: true });
-jest.mock('@backstage/canon/css/styles.css', () => ({}), { virtual: true });
+jest.mock('@backstage/ui/css/styles.css', () => ({}), { virtual: true });
 
 // Prepare spies for the root and createRoot
 const mockRender = jest.fn();

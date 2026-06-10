@@ -69,7 +69,7 @@ export function createEEDefinitionAction(options: {
     description: 'Creates Ansible Execution Environment definition files',
     schema: {
       input: {
-        values: () => eeDefinitionInputSchema,
+        values: () => eeDefinitionInputSchema as any,
       },
       output: {
         contextDirName: z => z.string().optional(),

@@ -7,11 +7,7 @@ import {
   parseAapActionValues,
   rethrowPreservingInputError,
 } from './utils/parseAapActionValues';
-import {
-  aapApiRecordOutputSchema,
-  launchJobTemplateFieldsSchema,
-  launchJobTemplateValuesLooseSchema,
-} from './schemas/rhaapActionSchemas';
+import { launchJobTemplateFieldsSchema } from './schemas/rhaapActionSchemas';
 import { normalizeTemplateLaunchValues } from './schemas/rhaapActionPayloadUtils';
 
 export const launchJobTemplate = (ansibleServiceRef: IAAPService) => {
@@ -20,10 +16,10 @@ export const launchJobTemplate = (ansibleServiceRef: IAAPService) => {
     schema: {
       input: {
         token: z => z.string({ description: 'Authorization token' }),
-        values: () => launchJobTemplateValuesLooseSchema,
+        values: z => z.record(z.string(), z.unknown()),
       },
       output: {
-        data: () => aapApiRecordOutputSchema,
+        data: z => z.record(z.string(), z.unknown()),
       },
     },
     async handler(ctx) {
