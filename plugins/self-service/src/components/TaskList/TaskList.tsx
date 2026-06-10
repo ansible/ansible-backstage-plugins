@@ -9,7 +9,6 @@ import {
   scaffolderApiRef,
   ScaffolderTask,
 } from '@backstage/plugin-scaffolder-react';
-import { rhAapAuthApiRef } from '../../apis';
 import { TablePaginationActionsProps } from '@material-ui/core/TablePagination/TablePaginationActions';
 import { useNavigate, Route, Routes, Navigate } from 'react-router-dom';
 import { Content, Header, Page } from '@backstage/core-components';
@@ -142,7 +141,6 @@ export const TaskList = () => {
   const scaffolderApi = useApi(scaffolderApiRef);
   const identityApi = useApi(identityApiRef);
   const discoveryApi = useApi(discoveryApiRef);
-  const aapAuth = useApi(rhAapAuthApiRef);
 
   const { value: isAdmin, loading: adminLoading } = useAsync(async () => {
     const identity = await identityApi.getBackstageIdentity();
@@ -239,14 +237,12 @@ export const TaskList = () => {
 
     const fetchAapStatuses = async () => {
       try {
-        // Get user's AAP OAuth token (handles refresh automatically)
-        const aapToken = await aapAuth.getAccessToken();
+        // Backend uses service account token + task ownership validation
         const baseUrl = await discoveryApi.getBaseUrl('catalog');
         const response = await fetch(`${baseUrl}/ansible/jobs/batch`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
-            'AAP-Token': aapToken,
           },
           body: JSON.stringify({ jobs: jobRequests }),
           signal: abortController.signal,
@@ -279,7 +275,7 @@ export const TaskList = () => {
     return () => {
       abortController.abort();
     };
-  }, [tasks, loading, discoveryApi, aapAuth]);
+  }, [tasks, loading, discoveryApi]);
 
   const handlePageChange = (_: unknown, newPage: number) => {
     setPage(newPage);

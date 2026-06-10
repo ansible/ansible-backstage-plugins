@@ -35,10 +35,6 @@ const mockDiscoveryApi = {
   getBaseUrl: jest.fn().mockResolvedValue('http://localhost:7007/api/catalog'),
 };
 
-const mockAapAuthApi = {
-  getAccessToken: jest.fn().mockResolvedValue('test-aap-oauth-token'),
-};
-
 jest.mock('@backstage/core-plugin-api', () => ({
   ...jest.requireActual('@backstage/core-plugin-api'),
   useRouteRef: (ref: { id?: string }) => {
@@ -200,7 +196,6 @@ describe('RunTask', () => {
 
   const render = async (children: JSX.Element) => {
     const { discoveryApiRef } = require('@backstage/core-plugin-api');
-    const { rhAapAuthApiRef } = require('../../apis');
     const result = await renderInTestApp(
       <TestApiProvider
         apis={[
@@ -208,7 +203,6 @@ describe('RunTask', () => {
           [permissionApiRef, mockApis.permission()],
           [catalogApiRef, mockCatalogApi],
           [discoveryApiRef, mockDiscoveryApi],
-          [rhAapAuthApiRef, mockAapAuthApi],
         ]}
       >
         <>{children}</>
@@ -228,7 +222,6 @@ describe('RunTask', () => {
             [permissionApiRef, mockApis.permission()],
             [catalogApiRef, mockCatalogApi],
             [discoveryApiRef, mockDiscoveryApi],
-            [rhAapAuthApiRef, mockAapAuthApi],
           ]}
         >
           <>{newChildren}</>

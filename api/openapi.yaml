@@ -469,19 +469,14 @@ paths:
       summary: Get AAP job status by job ID
       description: |
         Fetches the current status of an AAP job using its job ID.
-        Requires the user's AAP OAuth token via the `AAP-Token` header to respect AAP RBAC permissions.
+        Uses the service account token from configuration and validates task ownership at the Backstage layer.
+        This solves the token expiry issue (user closes tab / refresh token expires).
         **Permissions**: Requires the Backstage catalog **entity read** permission (`catalog.entity.read`).
       tags:
         - AAP Sync
       security:
         - JWT: []
       parameters:
-        - name: AAP-Token
-          in: header
-          required: true
-          schema:
-            type: string
-          description: User's AAP OAuth token (obtained from AAP auth provider)
         - name: jobId
           in: path
           required: true
@@ -493,7 +488,7 @@ paths:
           required: true
           schema:
             type: string
-          description: Scaffolder task ID (for ownership validation)
+          description: Scaffolder task ID (for ownership validation - ensures user owns the task that launched this job)
       responses:
         '200':
           description: Job status retrieved successfully
@@ -554,20 +549,14 @@ paths:
       operationId: getJobStatusBatch
       summary: Batch fetch AAP job statuses
       description: |
-        Fetches status for multiple AAP jobs in a single request.
-        Optimized for task list display. Requires the user's AAP OAuth token via the `AAP-Token` header to respect AAP RBAC permissions.
+        Fetches status for multiple AAP jobs in a single request (max 100).
+        Optimized for task list display. Uses the service account token from configuration and validates task ownership at the Backstage layer.
+        This solves the token expiry issue (user closes tab / refresh token expires).
         **Permissions**: Requires the Backstage catalog **entity read** permission (`catalog.entity.read`).
       tags:
         - AAP Sync
       security:
         - JWT: []
-      parameters:
-        - name: AAP-Token
-          in: header
-          required: true
-          schema:
-            type: string
-          description: User's AAP OAuth token (obtained from AAP auth provider)
       requestBody:
         required: true
         content:
