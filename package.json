@@ -4,7 +4,7 @@
   "private": true,
   "repository": "https://github.com/ansible/ansible-backstage-plugins",
   "engines": {
-    "node": "20 || 22"
+    "node": "20 || 22 || 24"
   },
   "author": "Red Hat <ansible-devtools@redhat.com>",
   "scripts": {
@@ -69,7 +69,6 @@
     "bfj": "7.0.2",
     "dompurify": "^3.4.0",
     "follow-redirects": "^1.16.0",
-    "isolated-vm": "5.0.4",
     "lodash": "^4.18.0",
     "protobufjs": "7.5.5",
     "undici": "^6.24.0",
