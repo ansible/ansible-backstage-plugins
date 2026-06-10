@@ -97,6 +97,27 @@ describe('self-service', () => {
       },
     });
 
+    // Mock queryEntities for server-side pagination (EntityListProvider uses
+    // queryEntities instead of getEntities when pagination is enabled)
+    mockCatalogApi.queryEntities.mockImplementation(async (request: any) => {
+      const { items } = await mockCatalogApi.getEntities();
+      const queryLimit = request?.limit ?? items.length;
+      const queryOffset = request?.offset ?? 0;
+      const sliced = items.slice(queryOffset, queryOffset + queryLimit);
+      return {
+        items: sliced,
+        totalItems: items.length,
+        pageInfo: {
+          ...(queryOffset + queryLimit < items.length
+            ? { nextCursor: `next:${queryOffset + queryLimit}` }
+            : {}),
+          ...(queryOffset > 0
+            ? { prevCursor: `prev:${Math.max(0, queryOffset - queryLimit)}` }
+            : {}),
+        },
+      };
+    });
+
     // Restore autocomplete if it was deleted
     if (!mockScaffolderApi.autocomplete) {
       mockScaffolderApi.autocomplete = jest.fn().mockResolvedValue({
@@ -140,10 +161,15 @@ describe('self-service', () => {
       },
     );
   };
-  const facetsFromEntityRefs = (entityRefs: string[], tags: string[]) => ({
+  const facetsFromEntityRefs = (
+    entityRefs: string[],
+    tags: string[],
+    types: string[] = ['service'],
+  ) => ({
     facets: {
       'relations.ownedBy': entityRefs.map(value => ({ count: 1, value })),
       'metadata.tags': tags.map((value, idx) => ({ value, count: idx })),
+      'spec.type': types.map(value => ({ value, count: 1 })),
     },
   });
 
@@ -163,8 +189,10 @@ describe('self-service', () => {
     expect(screen.getByText('Categories')).toBeInTheDocument();
     expect(screen.getByText('Tags')).toBeInTheDocument();
     expect(screen.getByText('Owner')).toBeInTheDocument();
-    // load wizard card
-    expect(screen.getByText('service')).toBeInTheDocument();
+    // load wizard card (wait for facets + queryEntities to settle)
+    await waitFor(() => {
+      expect(screen.getByText('service')).toBeInTheDocument();
+    });
     expect(screen.getByText('Create wizard use cases')).toBeInTheDocument();
     expect(
       screen.getByText(
@@ -1054,5 +1082,123 @@ describe('TemplatesRoutesPage notifications', () => {
 
     fireEvent.click(screen.getByText('Dismiss'));
     expect(mockRemoveNotification).toHaveBeenCalledWith('n1');
+  });
+});
+
+describe('HomeCategoryPicker EE exclusion', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+    mockUseIsSuperuser.mockReturnValue({
+      isSuperuser: true,
+      loading: false,
+      error: null,
+    });
+    mockUsePermission.mockReturnValue({ loading: false, allowed: true });
+    mockRhAapAuthApi.getAccessToken.mockResolvedValue('mock-token');
+    mockAnsibleApi.getSyncStatus.mockResolvedValue({
+      aap: {
+        orgsUsersTeams: { lastSync: null },
+        jobTemplates: { lastSync: null },
+      },
+    });
+    if (!mockScaffolderApi.autocomplete) {
+      mockScaffolderApi.autocomplete = jest.fn().mockResolvedValue({
+        results: [{ id: '1', title: 'Template 1' }],
+      }) as jest.MockedFunction<any>;
+    } else {
+      (
+        mockScaffolderApi.autocomplete as jest.MockedFunction<any>
+      ).mockResolvedValue({
+        results: [{ id: '1', title: 'Template 1' }],
+      });
+    }
+    mockCatalogApi.queryEntities.mockImplementation(async (request: any) => {
+      const { items } = await mockCatalogApi.getEntities();
+      const queryLimit = request?.limit ?? items.length;
+      const queryOffset = request?.offset ?? 0;
+      const sliced = items.slice(queryOffset, queryOffset + queryLimit);
+      return {
+        items: sliced,
+        totalItems: items.length,
+        pageInfo: {},
+      };
+    });
+  });
+
+  const render = (children: JSX.Element) => {
+    return renderInTestApp(
+      <TestApiProvider
+        apis={[
+          [catalogApiRef, mockCatalogApi],
+          [ansibleApiRef, mockAnsibleApi],
+          [rhAapAuthApiRef, mockRhAapAuthApi],
+          [scaffolderApiRef, mockScaffolderApi],
+          [starredEntitiesApiRef, new MockStarredEntitiesApi()],
+          [permissionApiRef, mockApis.permission()],
+        ]}
+      >
+        <MockEntityListContextProvider>
+          {children}
+        </MockEntityListContextProvider>
+      </TestApiProvider>,
+      {
+        mountedRoutes: {
+          '/self-service': rootRouteRef,
+        },
+      },
+    );
+  };
+
+  it('should exclude execution-environment types from category facets', async () => {
+    mockCatalogApi.getEntityFacets.mockResolvedValue({
+      facets: {
+        'spec.type': [
+          { value: 'service', count: 10 },
+          { value: 'execution-environment', count: 5 },
+          { value: 'workflow', count: 3 },
+        ],
+        'metadata.tags': [{ value: 'tag1', count: 1 }],
+        'relations.ownedBy': [],
+      },
+    });
+
+    await render(<HomeComponent />);
+
+    await waitFor(() => {
+      expect(mockCatalogApi.getEntityFacets).toHaveBeenCalledWith(
+        expect.objectContaining({
+          filter: { kind: 'Template' },
+          facets: ['spec.type'],
+        }),
+      );
+    });
+
+    // Verify queryEntities is called with non-EE types only
+    await waitFor(() => {
+      const calls = mockCatalogApi.queryEntities.mock.calls;
+      const hasTypeFilter = calls.some((call: any[]) => {
+        const types = call[0]?.filter?.['spec.type'];
+        return (
+          Array.isArray(types) &&
+          types.includes('service') &&
+          types.includes('workflow') &&
+          !types.includes('execution-environment')
+        );
+      });
+      expect(hasTypeFilter).toBe(true);
+    });
+  });
+
+  it('should handle getEntityFacets failure gracefully', async () => {
+    mockCatalogApi.getEntityFacets.mockRejectedValue(
+      new Error('Network error'),
+    );
+
+    await render(<HomeComponent />);
+
+    await waitFor(() => {
+      expect(screen.getByText('Categories')).toBeInTheDocument();
+    });
+    expect(screen.getByText('Tags')).toBeInTheDocument();
   });
 });
