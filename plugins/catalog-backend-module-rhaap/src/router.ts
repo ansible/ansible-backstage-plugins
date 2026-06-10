@@ -33,11 +33,13 @@ import {
   gitRepositoriesViewPermission,
   executionEnvironmentsViewPermission,
   collectionsViewPermission,
-} from '@ansible/backstage-rhaap-common/permissions';
+  IAAPService,
+  ScmClientFactory,
+  SCM_INTEGRATION_AUTH_FAILED_CODE,
+} from '@ansible/backstage-rhaap-common';
 import { CatalogClient } from '@backstage/catalog-client';
 import { PAHCollectionProvider } from './providers/PAHCollectionProvider';
 import { AnsibleGitContentsProvider } from './providers/AnsibleGitContentsProvider';
-import { IAAPService } from '@ansible/backstage-rhaap-common';
 import {
   SyncFilter,
   parseSourceId,
@@ -62,8 +64,6 @@ import {
   isScmIntegrationAuthFailure,
 } from './helpers';
 import { ConflictError } from '@backstage/errors';
-import { SCM_INTEGRATION_AUTH_FAILED_CODE } from '@ansible/backstage-rhaap-common/constants';
-import { ScmClientFactory } from '@ansible/backstage-rhaap-common';
 import { EEEntityProvider } from './providers/EEEntityProvider';
 import type { SyncStatus as ProviderSyncStatus } from './providers/SyncStateTracker';
 
@@ -1068,16 +1068,19 @@ export async function createRouter(options: {
       await validateTaskOwnership(request, taskId);
 
       // Get user identity to log access
+      let userRef: string;
       try {
         const credentials = await httpAuth.credentials(request as any);
         const { ownershipEntityRefs } = await userInfo.getUserInfo(credentials);
+        userRef = ownershipEntityRefs?.[0] || 'unknown';
         logger.info(
-          `User ${ownershipEntityRefs?.[0] || 'unknown'} fetching AAP job status for job ${jobId} (task ${taskId})`,
+          `User ${userRef} fetching AAP job status for job ${jobId} (task ${taskId})`,
         );
       } catch (err) {
         // Service-to-service calls not allowed for job status
+        const errorMessage = err instanceof Error ? err.message : String(err);
         logger.warn(
-          `Rejecting service-to-service job status request for job ${jobId}`,
+          `Rejecting service-to-service job status request for job ${jobId}: ${errorMessage}`,
         );
         response.status(403).json({
           error: 'Job status requests require user authentication',
@@ -1113,14 +1116,9 @@ export async function createRouter(options: {
         // Check exact error messages from AAPClient first (most reliable)
         if (
           errorMessage ===
-          'Insufficient privileges. Please contact your administrator.'
+            'Insufficient privileges. Please contact your administrator.' ||
+          errorMessage === 'Failed to fetch data.'
         ) {
-          response.status(404).json({
-            error: 'Job not found or insufficient permissions',
-            id: jobId,
-            status: 'unknown',
-          });
-        } else if (errorMessage === 'Failed to fetch data.') {
           response.status(404).json({
             error: 'Job not found or insufficient permissions',
             id: jobId,
@@ -1226,15 +1224,20 @@ export async function createRouter(options: {
       }
 
       // Get user identity to log access
+      let userRef: string;
       try {
         const credentials = await httpAuth.credentials(request as any);
         const { ownershipEntityRefs } = await userInfo.getUserInfo(credentials);
+        userRef = ownershipEntityRefs?.[0] || 'unknown';
         logger.info(
-          `User ${ownershipEntityRefs?.[0] || 'unknown'} fetching batch AAP job status for ${jobRequests.length} jobs`,
+          `User ${userRef} fetching batch AAP job status for ${jobRequests.length} jobs`,
         );
       } catch (err) {
-        // Service-to-service calls not allowed
-        logger.warn(`Rejecting service-to-service batch job status request`);
+        // Service-to-service calls not allowed - require user authentication
+        const errorMessage = err instanceof Error ? err.message : String(err);
+        logger.warn(
+          `Rejecting service-to-service batch job status request: ${errorMessage}`,
+        );
         response.status(403).json({
           error: 'Job status requests require user authentication',
         });

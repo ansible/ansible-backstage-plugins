@@ -75,6 +75,14 @@ type Filters = {
   owner: 'all' | 'owned' | undefined;
 };
 
+type TaskWithAAPJob = ScaffolderTask & {
+  output?: {
+    data?: {
+      id?: number;
+    };
+  };
+};
+
 function TablePaginationActions(props: TablePaginationActionsProps) {
   const { count, page, rowsPerPage, onPageChange } = props;
 
@@ -156,7 +164,7 @@ export const TaskList = () => {
       adminGroups.includes(ref.toLowerCase()),
     );
   }, []);
-  const [tasks, setTasks] = useState<ScaffolderTask[]>([]);
+  const [tasks, setTasks] = useState<TaskWithAAPJob[]>([]);
   const [totalTasks, setTotalTasks] = useState<number>(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<Error | undefined>();
@@ -179,6 +187,7 @@ export const TaskList = () => {
   const fetchTasks = useCallback(async () => {
     if (!scaffolderApi?.listTasks) {
       setError(new Error('listTasks method is not available on scaffolderApi'));
+      setLoading(false);
       return;
     }
     setLoading(true);
@@ -204,10 +213,11 @@ export const TaskList = () => {
 
   useEffect(() => {
     if (!adminLoading) {
-      setFilters(prevFilters => ({
-        ...prevFilters,
-        owner: isAdmin ? 'all' : 'owned',
-      }));
+      const newOwner = isAdmin ? 'all' : 'owned';
+      setFilters(prevFilters => {
+        if (prevFilters.owner === newOwner) return prevFilters;
+        return { ...prevFilters, owner: newOwner };
+      });
       setPage(0);
     }
   }, [adminLoading, isAdmin]);
@@ -220,12 +230,12 @@ export const TaskList = () => {
     // Build array of {taskId, jobId} for ownership validation
     const jobRequests = tasks
       .filter(task => {
-        const jobId = (task as any).output?.data?.id;
+        const jobId = task.output?.data?.id;
         return typeof jobId === 'number';
       })
       .map(task => ({
         taskId: task.id,
-        jobId: (task as any).output.data.id,
+        jobId: task.output!.data!.id as number,
       }));
 
     if (jobRequests.length === 0) {
@@ -256,7 +266,7 @@ export const TaskList = () => {
         const data = await response.json();
         const statusMap = new Map(
           Object.entries(data.jobs).map(([id, status]) => [
-            parseInt(id, 10),
+            Number.parseInt(id, 10),
             status as any,
           ]),
         );
@@ -416,7 +426,9 @@ export const TaskList = () => {
                             }}
                           >
                             {(() => {
-                              const aapJobId = (task as any).output?.data?.id;
+                              const aapJobId = task.output?.data?.id as
+                                | number
+                                | undefined;
                               const aapStatus = aapJobId
                                 ? aapJobStatuses.get(aapJobId)
                                 : null;
