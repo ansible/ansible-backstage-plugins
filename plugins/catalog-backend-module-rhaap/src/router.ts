@@ -1117,8 +1117,11 @@ export async function createRouter(options: {
         if (
           errorMessage ===
             'Insufficient privileges. Please contact your administrator.' ||
-          errorMessage === 'Failed to fetch data.'
+          errorMessage === 'Failed to fetch data.' ||
+          errorMessage.startsWith('Response code 403') ||
+          errorMessage.startsWith('Response code 404')
         ) {
+          // 404 for permission/not found errors (includes legacy error format)
           response.status(404).json({
             error: 'Job not found or insufficient permissions',
             id: jobId,
@@ -1131,16 +1134,6 @@ export async function createRouter(options: {
         ) {
           response.status(503).json({
             error: 'AAP service account not configured',
-          });
-        } else if (
-          errorMessage.startsWith('Response code 403') ||
-          errorMessage.startsWith('Response code 404')
-        ) {
-          // Legacy error format - matching exact prefix to avoid false positives
-          response.status(404).json({
-            error: 'Job not found or insufficient permissions',
-            id: jobId,
-            status: 'unknown',
           });
         } else {
           response.status(500).json({
