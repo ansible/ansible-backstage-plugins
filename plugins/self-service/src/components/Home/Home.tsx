@@ -2,13 +2,23 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router';
 import { Route, Routes, Navigate } from 'react-router-dom';
 import {
+  Box,
   Button,
+  IconButton,
   makeStyles,
   Snackbar,
   Tooltip,
   Typography,
 } from '@material-ui/core';
-import { Content, Header, HeaderLabel, Page } from '@backstage/core-components';
+import NavigateBeforeIcon from '@material-ui/icons/NavigateBefore';
+import NavigateNextIcon from '@material-ui/icons/NavigateNext';
+import {
+  Content,
+  Header,
+  HeaderLabel,
+  ItemCardGrid,
+  Page,
+} from '@backstage/core-components';
 import { useApi, useRouteRef } from '@backstage/core-plugin-api';
 import {
   usePermission,
@@ -16,6 +26,7 @@ import {
 } from '@backstage/plugin-permission-react';
 import { catalogEntityCreatePermission } from '@backstage/plugin-catalog-common/alpha';
 import {
+  catalogApiRef,
   CatalogFilterLayout,
   EntityKindPicker,
   EntityListProvider,
@@ -26,8 +37,8 @@ import {
   UserListPicker,
   useEntityList,
 } from '@backstage/plugin-catalog-react';
-import { TemplateGroups } from '@backstage/plugin-scaffolder-react/alpha';
 import { templatesViewPermission } from '@ansible/backstage-rhaap-common/permissions';
+import { PAGE_SIZE } from './constants';
 
 import { WizardCard } from './TemplateCard';
 import { useIsSuperuser } from '../../hooks';
@@ -62,6 +73,22 @@ const headerStyles = makeStyles(theme => ({
     fontWeight: 500,
     lineHeight: 1.57,
   },
+  paginationContainer: {
+    display: 'flex',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginTop: theme.spacing(2),
+    padding: theme.spacing(0, 1),
+  },
+  paginationInfo: {
+    color: theme.palette.text.secondary,
+    fontSize: '0.875rem',
+  },
+  paginationControls: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: theme.spacing(1),
+  },
 }));
 
 /** When the first post sync AAP list matches pre sync, a second fetch may still be stale, wait before retrying. */
@@ -95,30 +122,49 @@ const isHomePageTemplate = (
   return jobTemplates.some(({ id }) => id === entity.metadata.aapJobTemplateId);
 };
 
-const HomeTagPicker = ({
-  jobTemplates,
-}: {
-  jobTemplates: { id: number; name: string }[];
-}) => {
-  const { backendEntities, filters, updateFilters } = useEntityList();
-  const selectedTags = (filters.tags as EntityTagFilter)?.values ?? [];
+const isEEType = (type: string) => type.includes('execution-environment');
 
-  const availableTags = useMemo(() => {
-    const tagSet = new Set<string>();
-    for (const entity of backendEntities) {
-      const templateEntity = entity as TemplateEntityV1beta3;
-      if (isHomePageTemplate(templateEntity, jobTemplates)) {
-        for (const tag of entity.metadata?.tags || []) {
-          tagSet.add(tag);
-        }
-      }
-    }
-    return Array.from(tagSet).sort((a, b) => a.localeCompare(b));
-  }, [backendEntities, jobTemplates]);
+const HomeTagPicker = ({ syncKey }: { syncKey: number }) => {
+  const catalogApi = useApi(catalogApiRef);
+  const { filters, updateFilters } = useEntityList();
+  const selectedTags = (filters.tags as EntityTagFilter)?.values ?? [];
+  const [availableTags, setAvailableTags] = useState<string[]>([]);
+
+  useEffect(() => {
+    catalogApi
+      .getEntityFacets({
+        filter: { kind: 'Template' },
+        facets: ['spec.type'],
+      })
+      .then(
+        (response: { facets: Record<string, Array<{ value: string }>> }) => {
+          const nonEETypes = (response.facets['spec.type'] ?? [])
+            .map(f => f.value)
+            .filter(t => !isEEType(t));
+          return catalogApi.getEntityFacets({
+            filter: {
+              kind: 'Template',
+              ...(nonEETypes.length > 0 && { 'spec.type': nonEETypes }),
+            },
+            facets: ['metadata.tags'],
+          });
+        },
+      )
+      .then(
+        (response: { facets: Record<string, Array<{ value: string }>> }) => {
+          const tags = (response.facets['metadata.tags'] ?? [])
+            .map(f => f.value)
+            .sort((a, b) => a.localeCompare(b));
+          setAvailableTags(tags);
+        },
+      )
+      .catch(() => {
+        setAvailableTags([]);
+      });
+  }, [catalogApi, syncKey]);
 
   const handleTagChange = (newValue: string[]) => {
     updateFilters({
-      ...filters,
       tags: newValue.length > 0 ? new EntityTagFilter(newValue) : undefined,
     });
   };
@@ -134,40 +180,45 @@ const HomeTagPicker = ({
   );
 };
 
-const HomeCategoryPicker = ({
-  jobTemplates,
-}: {
-  jobTemplates: { id: number; name: string }[];
-}) => {
-  const { backendEntities, filters, updateFilters } = useEntityList();
+const HomeCategoryPicker = ({ syncKey }: { syncKey: number }) => {
+  const catalogApi = useApi(catalogApiRef);
+  const { filters, updateFilters } = useEntityList();
   const [allCategories, setAllCategories] = useState<string[]>([]);
-
-  const selectedCategories =
-    (filters.type as EntityTypeFilter)?.getTypes() ?? [];
+  const [userSelection, setUserSelection] = useState<string[]>([]);
 
   useEffect(() => {
-    const categorySet = new Set<string>(allCategories);
-    for (const entity of backendEntities) {
-      const templateEntity = entity as TemplateEntityV1beta3;
-      if (isHomePageTemplate(templateEntity, jobTemplates)) {
-        const type = templateEntity.spec?.type;
-        if (type) {
-          categorySet.add(type);
-        }
-      }
-    }
-    const newCategories = Array.from(categorySet).sort((a, b) =>
-      a.localeCompare(b),
-    );
-    if (newCategories.length !== allCategories.length) {
-      setAllCategories(newCategories);
-    }
-  }, [backendEntities, jobTemplates, allCategories]);
+    catalogApi
+      .getEntityFacets({
+        filter: { kind: 'Template' },
+        facets: ['spec.type'],
+      })
+      .then(
+        (response: { facets: Record<string, Array<{ value: string }>> }) => {
+          const types = (response.facets['spec.type'] ?? []).map(f => f.value);
+          const nonEE = types.filter(t => !isEEType(t));
+          const sorted = [...nonEE].sort((a, b) => a.localeCompare(b));
+          setAllCategories(sorted);
+          if (!filters.type || filters.type.getTypes().length === 0) {
+            updateFilters({
+              type: nonEE.length > 0 ? new EntityTypeFilter(nonEE) : undefined,
+            });
+          }
+        },
+      )
+      .catch(() => {
+        setAllCategories([]);
+      });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [catalogApi, syncKey]);
 
   const handleCategoryChange = (newValue: string[]) => {
+    setUserSelection(newValue);
+    const typesToFilter = newValue.length > 0 ? newValue : allCategories;
     updateFilters({
-      ...filters,
-      type: newValue.length > 0 ? new EntityTypeFilter(newValue) : undefined,
+      type:
+        typesToFilter.length > 0
+          ? new EntityTypeFilter(typesToFilter)
+          : undefined,
     });
   };
 
@@ -175,10 +226,118 @@ const HomeCategoryPicker = ({
     <TagFilterPicker
       label="Categories"
       options={allCategories}
-      value={selectedCategories}
+      value={userSelection}
       onChange={handleCategoryChange}
       noOptionsText="No categories available"
     />
+  );
+};
+
+const TemplateContent = ({
+  loading: externalLoading,
+  jobTemplates,
+}: {
+  loading: boolean;
+  jobTemplates: { id: number; name: string }[];
+}) => {
+  const classes = headerStyles();
+  const {
+    entities,
+    loading: catalogLoading,
+    totalItems,
+    pageInfo,
+    limit,
+  } = useEntityList();
+  const [currentPage, setCurrentPage] = useState(1);
+
+  useEffect(() => {
+    if (!pageInfo?.prev) {
+      setCurrentPage(1);
+    }
+  }, [pageInfo?.prev]);
+
+  const isLoading = externalLoading || catalogLoading;
+
+  const filteredEntities = useMemo(
+    () =>
+      (entities as TemplateEntityV1beta3[]).filter(entity =>
+        isHomePageTemplate(entity, jobTemplates),
+      ),
+    [entities, jobTemplates],
+  );
+
+  const displayCount = filteredEntities.length;
+  const totalCount = totalItems ?? 0;
+  const totalPages = Math.max(1, Math.ceil(totalCount / limit));
+  const showStart = displayCount > 0 ? (currentPage - 1) * limit + 1 : 0;
+  const showEnd = Math.min(
+    (currentPage - 1) * limit + displayCount,
+    totalCount,
+  );
+
+  if (isLoading) {
+    return (
+      <div
+        data-testid="loading-templates"
+        style={{
+          display: 'flex',
+          justifyContent: 'center',
+          alignItems: 'center',
+          width: '100%',
+          gap: '10px',
+        }}
+      >
+        {[1, 2, 3].map(id => (
+          <SkeletonLoader key={`skeleton-${id}`} />
+        ))}
+      </div>
+    );
+  }
+
+  return (
+    <div data-testid="templates-container">
+      <ItemCardGrid>
+        {filteredEntities.map(template => (
+          <WizardCard key={template.metadata.uid} template={template} />
+        ))}
+      </ItemCardGrid>
+      {totalCount > 0 && (
+        <Box className={classes.paginationContainer}>
+          <Typography className={classes.paginationInfo}>
+            Showing {showStart}-{showEnd} of {totalCount} templates
+          </Typography>
+          {totalPages > 1 && (
+            <Box className={classes.paginationControls}>
+              <IconButton
+                size="small"
+                disabled={!pageInfo?.prev}
+                onClick={() => {
+                  pageInfo?.prev?.();
+                  setCurrentPage(p => Math.max(1, p - 1));
+                }}
+                aria-label="Previous page"
+              >
+                <NavigateBeforeIcon />
+              </IconButton>
+              <Typography variant="body2">
+                Page {currentPage} of {totalPages}
+              </Typography>
+              <IconButton
+                size="small"
+                disabled={!pageInfo?.next}
+                onClick={() => {
+                  pageInfo?.next?.();
+                  setCurrentPage(p => p + 1);
+                }}
+                aria-label="Next page"
+              >
+                <NavigateNextIcon />
+              </IconButton>
+            </Box>
+          )}
+        </Box>
+      )}
+    </div>
   );
 };
 
@@ -251,10 +410,12 @@ export const HomeComponent = () => {
         provider: 'aap-api-cloud',
         context: {},
       });
-      const newTemplates = results.map(result => ({
-        id: parseInt(result.id, 10),
-        name: result.title as string,
-      }));
+      const newTemplates = results.map(
+        (result: { id: string; title?: string }) => ({
+          id: parseInt(result.id, 10),
+          name: result.title ?? result.id,
+        }),
+      );
       if (requestId === fetchRequestIdRef.current) {
         setJobTemplates(newTemplates);
       }
@@ -455,7 +616,10 @@ export const HomeComponent = () => {
         )}
       </Header>
       <Content>
-        <EntityListProvider key={syncKey}>
+        <EntityListProvider
+          key={syncKey}
+          pagination={{ mode: 'cursor', limit: PAGE_SIZE }}
+        >
           <CatalogFilterLayout>
             <CatalogFilterLayout.Filters>
               <div data-testid="search-bar-container">
@@ -469,40 +633,13 @@ export const HomeComponent = () => {
                 />
               </div>
               <div data-testid="categories-picker">
-                <HomeCategoryPicker jobTemplates={jobTemplates} />
+                <HomeCategoryPicker syncKey={syncKey} />
               </div>
-              <HomeTagPicker jobTemplates={jobTemplates} />
+              <HomeTagPicker syncKey={syncKey} />
               <EntityOwnerPicker />
             </CatalogFilterLayout.Filters>
             <CatalogFilterLayout.Content>
-              {loading ? (
-                <div
-                  data-testid="loading-templates"
-                  style={{
-                    display: 'flex',
-                    justifyContent: 'center',
-                    alignItems: 'center',
-                    width: '100%',
-                    gap: '10px',
-                  }}
-                >
-                  {Array.from({ length: 3 }).map((_, index) => (
-                    <SkeletonLoader key={`skeleton-${index}`} />
-                  ))}
-                </div>
-              ) : (
-                <div data-testid="templates-container">
-                  <TemplateGroups
-                    groups={[
-                      {
-                        filter: (entity: TemplateEntityV1beta3) =>
-                          isHomePageTemplate(entity, jobTemplates),
-                      },
-                    ]}
-                    TemplateCardComponent={WizardCard}
-                  />
-                </div>
-              )}
+              <TemplateContent loading={loading} jobTemplates={jobTemplates} />
             </CatalogFilterLayout.Content>
           </CatalogFilterLayout>
         </EntityListProvider>
