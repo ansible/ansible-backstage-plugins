@@ -63,6 +63,7 @@ export interface IAAPService extends Pick<
   | 'fetchResult'
   | 'launchJobTemplate'
   | 'cleanUp'
+  | 'checkControllerAvailability'
   | 'getResourceData'
   | 'getJobTemplatesByName'
   | 'setLogger'
@@ -797,6 +798,18 @@ export class AAPClient implements IAAPService {
         token,
       );
     }
+  }
+
+  public async checkControllerAvailability(token: string): Promise<boolean> {
+    const endPoint = 'api/gateway/v1/services/?api_slug=controller';
+    const response = await this.executeGetRequest(endPoint, token);
+    const data = await response.json();
+    if (typeof data?.count === 'number') {
+      return data.count > 0;
+    }
+    throw new Error(
+      'Controller availability check returned an unexpected payload',
+    );
   }
 
   public async getResourceData(resource: string, token: string): Promise<any> {
