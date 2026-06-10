@@ -67,9 +67,6 @@ export const launchJobTemplate = (
             token,
           );
 
-          // Output job ID immediately so frontend can start polling
-          ctx.output('data', jobResult);
-
           // Poll with service token (doesn't expire) instead of user token
           const pollingToken = serviceToken || token;
 
@@ -91,7 +88,7 @@ export const launchJobTemplate = (
             jobResult = { ...jobResult, ...statusUpdate };
           }
 
-          // Update output with final result
+          // Output final result
           ctx.output('data', jobResult);
         } else {
           // Opt-in: non-blocking behavior (returns immediately with job ID)

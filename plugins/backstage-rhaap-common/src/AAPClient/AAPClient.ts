@@ -740,10 +740,11 @@ export class AAPClient implements IAAPService {
 
     const endPoint = `api/controller/v2/job_templates/${templateID}/launch/`;
 
-    this.logger.info(`Launching job template without waiting for completion.`);
+    this.logger.info(`Start executing job template.`);
     const response = await this.executePostRequest(endPoint, token, data);
     const jobResponseJson = await response.json();
     const jobID = jobResponseJson.job;
+    this.logger.info(`Waiting for result of the executed job template.`);
 
     return {
       id: jobID,
