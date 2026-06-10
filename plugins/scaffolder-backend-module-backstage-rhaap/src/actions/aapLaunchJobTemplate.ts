@@ -69,6 +69,9 @@ export const launchJobTemplate = (
 
           // Poll with service token (doesn't expire) instead of user token
           const pollingToken = serviceToken || token;
+          logger.debug(
+            `Polling job ${jobResult.id} with ${serviceToken ? 'service' : 'user'} token`,
+          );
 
           let currentStatus = jobResult.status?.toLowerCase();
           while (
@@ -85,8 +88,13 @@ export const launchJobTemplate = (
             );
 
             currentStatus = statusUpdate.status?.toLowerCase();
+            logger.debug(`Job ${jobResult.id} status: ${currentStatus}`);
             jobResult = { ...jobResult, ...statusUpdate };
           }
+
+          logger.debug(
+            `Job ${jobResult.id} polling complete with status: ${jobResult.status}`,
+          );
 
           // Output final result
           ctx.output('data', jobResult);
