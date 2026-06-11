@@ -259,6 +259,7 @@ components:
           type: integer
       additionalProperties: false
 
+
 paths:
   /health:
     get:
@@ -424,6 +425,7 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
+
 
   /ansible/sync/status:
     get:
