@@ -19,10 +19,14 @@ import {
   DEFAULT_NAMESPACE,
   stringifyEntityRef,
 } from '@backstage/catalog-model';
-import { githubAuthenticator } from '@backstage/plugin-auth-backend-module-github-provider';
+import {
+  githubAuthenticator,
+  type GithubProfile,
+} from '@backstage/plugin-auth-backend-module-github-provider';
 import {
   authProvidersExtensionPoint,
   createOAuthProviderFactory,
+  type OAuthAuthenticator,
 } from '@backstage/plugin-auth-node';
 
 export default createBackendModule({
@@ -35,9 +39,12 @@ export default createBackendModule({
         providers.registerProvider({
           providerId: 'github',
           factory: createOAuthProviderFactory({
-            authenticator: githubAuthenticator as any,
+            authenticator: githubAuthenticator as unknown as OAuthAuthenticator<
+              unknown,
+              GithubProfile
+            >,
             async signInResolver({ result: { fullProfile } }, ctx) {
-              const userId = (fullProfile as { username?: string }).username;
+              const userId = fullProfile.username;
               if (!userId) {
                 throw new Error(
                   `GitHub user profile does not contain a username`,
