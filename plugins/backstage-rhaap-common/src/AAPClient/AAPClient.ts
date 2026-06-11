@@ -616,10 +616,10 @@ export class AAPClient implements IAAPService {
     };
   }
 
-  public async launchJobTemplate(
+  private async launchJobTemplateInternal(
     payload: Omit<LaunchJobTemplate, 'token'>,
     token: string,
-  ): Promise<any> {
+  ): Promise<number> {
     const data = buildLaunchPayload(payload, this.logger);
 
     let templateID;
@@ -653,6 +653,16 @@ export class AAPClient implements IAAPService {
     const response = await this.executePostRequest(endPoint, token, data);
     const jobResponseJson = await response.json();
     const jobID = jobResponseJson.job;
+    this.logger.info(`Job launched with ID: ${jobID}`);
+
+    return jobID;
+  }
+
+  public async launchJobTemplate(
+    payload: Omit<LaunchJobTemplate, 'token'>,
+    token: string,
+  ): Promise<any> {
+    const jobID = await this.launchJobTemplateInternal(payload, token);
     this.logger.info(`Waiting for result of the executed job template.`);
 
     let lastEvent;
@@ -711,39 +721,7 @@ export class AAPClient implements IAAPService {
     payload: Omit<LaunchJobTemplate, 'token'>,
     token: string,
   ): Promise<{ id: number; status: string; url: string; launchedAt: string }> {
-    const data = buildLaunchPayload(payload, this.logger);
-
-    let templateID;
-    const urlSearchParams = new URLSearchParams();
-    urlSearchParams.set('name', payload.template);
-    const templateIdEndpoint = `api/controller/v2/job_templates/?${decodeURIComponent(urlSearchParams.toString())}`;
-    try {
-      const templateResponse = await this.executeGetRequest(
-        templateIdEndpoint,
-        token,
-      );
-      const templateJsonResp = await templateResponse.json();
-
-      if (!templateJsonResp.results || templateJsonResp.results.length === 0) {
-        this.logger.error(
-          `No job template found with name: ${payload.template}. Please check the template name and access.`,
-        );
-        throw new Error(`No job template found with name: ${payload.template}`);
-      }
-      templateID = templateJsonResp.results[0].id;
-    } catch (e) {
-      this.logger.error(
-        `Failed to fetch job template ${payload.template}. Please make sure that the template name is correct and template is available on AAP. ${e}`,
-      );
-      throw e;
-    }
-
-    const endPoint = `api/controller/v2/job_templates/${templateID}/launch/`;
-
-    this.logger.info(`Start executing job template.`);
-    const response = await this.executePostRequest(endPoint, token, data);
-    const jobResponseJson = await response.json();
-    const jobID = jobResponseJson.job;
+    const jobID = await this.launchJobTemplateInternal(payload, token);
 
     return {
       id: jobID,

@@ -67,7 +67,9 @@ export const launchJobTemplate = (
             token,
           );
 
-          logger.info('Waiting for result of the executed job template.');
+          logger.info(
+            `Waiting for result of the executed job template (job ID: ${jobResult.id}).`,
+          );
 
           // Poll with service token (doesn't expire) instead of user token
           const pollingToken = serviceToken || token;
@@ -80,6 +82,7 @@ export const launchJobTemplate = (
             `Polling job ${jobResult.id} with ${serviceToken ? 'service' : 'user'} token`,
           );
 
+          const POLL_INTERVAL_MS = 5000; // 5 seconds
           const MAX_POLLS = 720; // 720 * 5s = 1 hour max
           let pollCount = 0;
           let currentStatus = jobResult.status?.toLowerCase();
@@ -91,13 +94,13 @@ export const launchJobTemplate = (
           ) {
             if (pollCount >= MAX_POLLS) {
               const error = new Error(
-                `Job ${jobResult.id} polling timeout after ${MAX_POLLS * 5} seconds. Last status: ${currentStatus}`,
+                `Job ${jobResult.id} polling timeout after ${MAX_POLLS * (POLL_INTERVAL_MS / 1000)} seconds. Last status: ${currentStatus}`,
               );
               logger.error(error.message);
               throw error;
             }
 
-            await new Promise(resolve => setTimeout(resolve, 5000));
+            await new Promise(resolve => setTimeout(resolve, POLL_INTERVAL_MS));
             pollCount++;
 
             const statusUpdate = await ansibleServiceRef.getJobStatus(
@@ -110,8 +113,11 @@ export const launchJobTemplate = (
             jobResult = { ...jobResult, ...statusUpdate };
           }
 
+          logger.info(
+            `Job ${jobResult.id} completed with status: ${jobResult.status}`,
+          );
           logger.debug(
-            `Job ${jobResult.id} polling complete with status: ${jobResult.status} after ${pollCount} polls`,
+            `Polling completed after ${pollCount} polls (${pollCount * (POLL_INTERVAL_MS / 1000)}s)`,
           );
 
           // Output final result
