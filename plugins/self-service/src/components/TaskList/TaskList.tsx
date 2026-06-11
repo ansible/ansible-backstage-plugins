@@ -168,6 +168,7 @@ export const TaskList = () => {
   const fetchTasks = useCallback(async () => {
     if (!scaffolderApi?.listTasks) {
       setError(new Error('listTasks method is not available on scaffolderApi'));
+      setLoading(false);
       return;
     }
     setLoading(true);
@@ -193,10 +194,11 @@ export const TaskList = () => {
 
   useEffect(() => {
     if (!adminLoading) {
-      setFilters(prevFilters => ({
-        ...prevFilters,
-        owner: isAdmin ? 'all' : 'owned',
-      }));
+      const newOwner = isAdmin ? 'all' : 'owned';
+      setFilters(prevFilters => {
+        if (prevFilters.owner === newOwner) return prevFilters;
+        return { ...prevFilters, owner: newOwner };
+      });
       setPage(0);
     }
   }, [adminLoading, isAdmin]);
@@ -347,7 +349,7 @@ export const TaskList = () => {
                               }}
                             >
                               {getStatusIcon(task.status)}
-                            </Box>{' '}
+                            </Box>
                             {task.status}
                           </TableCell>
                         </TableRow>
