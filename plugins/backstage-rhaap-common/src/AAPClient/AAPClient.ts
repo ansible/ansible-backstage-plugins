@@ -35,6 +35,7 @@ import {
 } from '../interfaces';
 
 import { getAnsibleConfig, getCatalogConfig } from './utils/config';
+import { buildLaunchPayload } from './utils/jobTemplateHelpers';
 import {
   PAHHelperContext,
   sanitizePAHLimit,
@@ -62,6 +63,8 @@ export interface IAAPService extends Pick<
   | 'fetchEvents'
   | 'fetchResult'
   | 'launchJobTemplate'
+  | 'launchJobTemplateNoWait'
+  | 'getJobStatus'
   | 'cleanUp'
   | 'checkControllerAvailability'
   | 'getResourceData'
@@ -613,91 +616,11 @@ export class AAPClient implements IAAPService {
     };
   }
 
-  public async launchJobTemplate(
+  private async launchJobTemplateInternal(
     payload: Omit<LaunchJobTemplate, 'token'>,
     token: string,
-  ): Promise<any> {
-    const data = { extra_vars: payload?.extraVariables ?? '' } as {
-      inventory?: number;
-      job_type?: string;
-      executionEnvironment?: number;
-      execution_environment?: number;
-      forks?: number;
-      limit?: string;
-      verbosity?: number;
-      job_slice_count?: number;
-      timeout?: number;
-      diff_mode?: boolean;
-      job_tags?: string;
-      skip_tags?: string;
-      extra_vars?: object | string;
-      credentials?: number[];
-    };
-    if (payload?.inventory?.id) {
-      data.inventory = payload.inventory.id;
-    }
-    if (payload?.jobType) {
-      data.job_type = payload.jobType;
-    }
-    if (payload?.executionEnvironment?.id) {
-      data.execution_environment = payload.executionEnvironment.id;
-    }
-    if (payload?.forks || payload.forks === 0) {
-      data.forks = payload.forks;
-    }
-    if (payload?.limit) {
-      data.limit = payload.limit;
-    }
-    if (payload?.verbosity?.id !== undefined) {
-      data.verbosity = payload.verbosity.id;
-    }
-    if (payload?.jobSliceCount || payload.jobSliceCount === 0) {
-      data.job_slice_count = payload.jobSliceCount;
-    }
-    if (payload?.timeout || payload.timeout === 0) {
-      data.timeout = payload.timeout;
-    }
-    if (payload?.diffMode || payload.diffMode === false) {
-      data.diff_mode = payload.diffMode;
-    }
-    if (payload?.jobTags) {
-      data.job_tags = payload.jobTags;
-    }
-    if (payload?.skipTags) {
-      data.skip_tags = payload.skipTags;
-    }
-
-    if (payload?.credentials?.length) {
-      const seen = new Set();
-      const duplicates: string[] = [];
-      payload.credentials.some(currentObject => {
-        if (!currentObject.credential_type) {
-          return false;
-        }
-        if (seen.size === seen.add(currentObject.credential_type).size) {
-          const credentialTypeName =
-            currentObject.summary_fields?.credential_type?.name ||
-            currentObject.name ||
-            'Unknown';
-          duplicates.push(credentialTypeName);
-          return true;
-        }
-        return false;
-      });
-      if (duplicates.length) {
-        this.logger.error(
-          `Cannot assign multiple credentials of the same type. Duplicated credential types are: ${duplicates.join(', ')}`,
-        );
-        throw new Error(
-          `Cannot assign multiple credentials of the same type. Duplicated credential types are: ${duplicates.join(
-            ', ',
-          )}`,
-        );
-      }
-      data.credentials = payload.credentials
-        .filter(c => c.id !== undefined && c.id !== null)
-        .map(c => c.id);
-    }
+  ): Promise<number> {
+    const data = buildLaunchPayload(payload, this.logger);
 
     let templateID;
     const urlSearchParams = new URLSearchParams();
@@ -730,6 +653,16 @@ export class AAPClient implements IAAPService {
     const response = await this.executePostRequest(endPoint, token, data);
     const jobResponseJson = await response.json();
     const jobID = jobResponseJson.job;
+    this.logger.info(`Job launched with ID: ${jobID}`);
+
+    return jobID;
+  }
+
+  public async launchJobTemplate(
+    payload: Omit<LaunchJobTemplate, 'token'>,
+    token: string,
+  ): Promise<any> {
+    const jobID = await this.launchJobTemplateInternal(payload, token);
     this.logger.info(`Waiting for result of the executed job template.`);
 
     let lastEvent;
@@ -778,6 +711,72 @@ export class AAPClient implements IAAPService {
       events: result.jobEvents,
       url: `${this.getBaseUrl()}/execution/jobs/playbook/${jobID}/output`,
     };
+  }
+
+  /**
+   * Launches a job template without polling for completion.
+   * Returns immediately with job ID for async tracking.
+   */
+  public async launchJobTemplateNoWait(
+    payload: Omit<LaunchJobTemplate, 'token'>,
+    token: string,
+  ): Promise<{ id: number; status: string; url: string; launchedAt: string }> {
+    const jobID = await this.launchJobTemplateInternal(payload, token);
+
+    return {
+      id: jobID,
+      status: 'pending',
+      url: `${this.getBaseUrl()}/execution/jobs/playbook/${jobID}/output`,
+      launchedAt: new Date().toISOString(),
+    };
+  }
+
+  /**
+   * Fetches current job status and events for a given job ID.
+   * Uses user's OAuth token to respect AAP RBAC permissions.
+   */
+  public async getJobStatus(
+    jobID: number,
+    token: string,
+  ): Promise<{
+    id: number;
+    status: string;
+    events?: any[];
+    url: string;
+    finishedAt?: string;
+  }> {
+    if (!token) {
+      this.logger.error('Token not provided for job status check');
+      throw new Error('User OAuth token is required for job status');
+    }
+
+    const endPoint = `api/controller/v2/jobs/${jobID}/`;
+    try {
+      const jobDetailResponse = await this.executeGetRequest(endPoint, token);
+      const jobData = await jobDetailResponse.json();
+
+      const result: any = {
+        id: jobID,
+        status: jobData.status,
+        url: `${this.getBaseUrl()}/execution/jobs/playbook/${jobID}/output`,
+      };
+
+      if (
+        ['successful', 'failed', 'error', 'canceled'].includes(
+          jobData.status?.toLowerCase(),
+        )
+      ) {
+        result.events = await this.fetchEvents(jobID, token);
+        result.finishedAt = jobData.finished;
+      }
+
+      return result;
+    } catch (error) {
+      this.logger.error(
+        `Failed to fetch job status for job ${jobID}: ${error}`,
+      );
+      throw error;
+    }
   }
 
   public async cleanUp(payload: CleanUp, token: string): Promise<void> {

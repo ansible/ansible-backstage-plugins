@@ -126,6 +126,11 @@ describe('createRouter', () => {
         { host: 'gitlab.other.com' },
       ],
     },
+    ansible: {
+      rhaap: {
+        token: 'test-service-account-token',
+      },
+    },
   });
 
   beforeEach(async () => {
