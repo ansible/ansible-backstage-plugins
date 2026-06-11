@@ -4,7 +4,7 @@
   "private": true,
   "repository": "https://github.com/ansible/ansible-backstage-plugins",
   "engines": {
-    "node": "20 || 22 || 24"
+    "node": "22 || 24"
   },
   "author": "Red Hat <ansible-devtools@redhat.com>",
   "scripts": {
