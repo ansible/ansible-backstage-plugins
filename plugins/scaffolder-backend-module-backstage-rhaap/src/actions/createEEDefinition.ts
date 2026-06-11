@@ -596,7 +596,7 @@ function transformScmCollections(
   const seenServers = new Map<string, ScmServer>();
 
   const transformed = collections.map(c => {
-    const parts = c.source!.split('/').map(s => s.trim());
+    const parts = (c.source ?? '').split('/').map(s => s.trim());
     const provider = parts[0];
     const canonicalName = parts[1];
     const org = parts[2];
