@@ -33,7 +33,9 @@ import {
   gitRepositoriesViewPermission,
   executionEnvironmentsViewPermission,
   collectionsViewPermission,
-} from '@ansible/backstage-rhaap-common/permissions';
+  ScmClientFactory,
+  SCM_INTEGRATION_AUTH_FAILED_CODE,
+} from '@ansible/backstage-rhaap-common';
 import { CatalogClient } from '@backstage/catalog-client';
 import { PAHCollectionProvider } from './providers/PAHCollectionProvider';
 import { AnsibleGitContentsProvider } from './providers/AnsibleGitContentsProvider';
@@ -61,8 +63,6 @@ import {
   isScmIntegrationAuthFailure,
 } from './helpers';
 import { ConflictError } from '@backstage/errors';
-import { SCM_INTEGRATION_AUTH_FAILED_CODE } from '@ansible/backstage-rhaap-common/constants';
-import { ScmClientFactory } from '@ansible/backstage-rhaap-common';
 import { EEEntityProvider } from './providers/EEEntityProvider';
 import type { SyncStatus as ProviderSyncStatus } from './providers/SyncStateTracker';
 

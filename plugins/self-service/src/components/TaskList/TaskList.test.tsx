@@ -10,6 +10,20 @@ import {
 import { scaffolderApiRef } from '@backstage/plugin-scaffolder-react';
 import { mockScaffolderApi } from '../../tests/scaffolderApi_utils';
 import { rootRouteRef } from '../../routes';
+import { identityApiRef } from '@backstage/core-plugin-api';
+
+const mockIdentityApi = {
+  getBackstageIdentity: jest.fn().mockResolvedValue({
+    type: 'user',
+    userEntityRef: 'user:default/test-user',
+    ownershipEntityRefs: ['user:default/test-user'],
+  }),
+  getCredentials: jest.fn().mockResolvedValue({ token: 'test-token' }),
+  getProfileInfo: jest.fn().mockResolvedValue({
+    email: 'test@example.com',
+    displayName: 'Test User',
+  }),
+};
 
 jest.mock('@backstage/plugin-permission-react', () => ({
   RequirePermission: (props: any) => props.children,
@@ -65,7 +79,12 @@ describe('My items', () => {
 
   const render = (children: JSX.Element) => {
     return renderInTestApp(
-      <TestApiProvider apis={[[scaffolderApiRef, mockScaffolderApi]]}>
+      <TestApiProvider
+        apis={[
+          [scaffolderApiRef, mockScaffolderApi],
+          [identityApiRef, mockIdentityApi],
+        ]}
+      >
         <>{children}</>
       </TestApiProvider>,
       {
