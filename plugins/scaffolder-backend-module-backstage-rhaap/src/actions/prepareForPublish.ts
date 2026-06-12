@@ -45,6 +45,7 @@ export function prepareForPublishAction(options: { rootConfig: Config }) {
         generatedBranchName: z => z.string().optional(),
         generatedCatalogInfoUrl: z => z.string().optional(),
         generatedFullRepoUrl: z => z.string().optional(),
+        gitlabProjectId: z => z.number().optional(),
       },
     },
     async handler(ctx) {
@@ -97,6 +98,23 @@ export function prepareForPublishAction(options: { rootConfig: Config }) {
         }
 
         ctx.output('createNewRepo', createNewRepo);
+
+        if (scmProvider === 'gitlab' && !createNewRepo) {
+          const numericProjectId = await scmClient.getProjectId(
+            repositoryOwner,
+            repositoryName,
+          );
+          if (numericProjectId === undefined) {
+            logger.warn(
+              `Could not resolve GitLab numeric project ID for ${repositoryOwner}/${repositoryName}`,
+            );
+          } else {
+            logger.info(
+              `Resolved GitLab numeric project ID: ${numericProjectId} for ${repositoryOwner}/${repositoryName}`,
+            );
+            ctx.output('gitlabProjectId', numericProjectId);
+          }
+        }
 
         const host = scmClient.getHost();
         const generatedRepoUrl = `${host}?repo=${repositoryName}&owner=${repositoryOwner}`;
