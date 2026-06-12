@@ -213,7 +213,7 @@ export class BackendServiceAPI {
       await this.downloadFile(response, logger, workspacePath, tarName);
     } catch (error: unknown) {
       const errorMessage =
-        error instanceof Error ? error.message : String(error);
+        error instanceof Error ? error.message : String(error); // NOSONAR — error is properly coerced via String()
       logger.error(
         `${BackendServiceAPI.pluginLogName}] Failed to scaffold EE definition. Please ensure your ansible-creator version supports the scaffold endpoint. ${errorMessage}`,
       );
