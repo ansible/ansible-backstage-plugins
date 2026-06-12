@@ -3,6 +3,9 @@ import {
   getEntityEEDefinitionUrl,
   getScmRepoUrlForAuth,
   isEntityPublishedToGithub,
+  isEntityPublishedToGitlab,
+  isEntityBuildable,
+  getEntityScmProvider,
   downloadEntityAsTarArchive,
   normalizePahRegistryUrlForBuild,
   messageFromUnknownError,
@@ -475,6 +478,193 @@ describe('catalog helpers', () => {
         'Unexpected function thrown as error',
       );
       expect(messageFromUnknownError(undefined)).toBe('Unknown error');
+    });
+  });
+
+  describe('isEntityPublishedToGitlab', () => {
+    it('returns true for gitlab entity with valid source URL', () => {
+      expect(
+        isEntityPublishedToGitlab({
+          metadata: {
+            name: 'ee1',
+            annotations: {
+              'backstage.io/source-location':
+                'url:https://gitlab.com/org/repo/-/tree/main/ee/',
+              'ansible.io/scm-provider': 'gitlab',
+            },
+          },
+        } as unknown as Entity),
+      ).toBe(true);
+    });
+
+    it('returns false when scm-provider is github', () => {
+      expect(
+        isEntityPublishedToGitlab({
+          metadata: {
+            name: 'ee1',
+            annotations: {
+              'backstage.io/source-location':
+                'url:https://github.com/acme/repo/tree/main/ee/',
+              'ansible.io/scm-provider': 'github',
+            },
+          },
+        } as unknown as Entity),
+      ).toBe(false);
+    });
+
+    it('returns false when scm-provider is missing', () => {
+      expect(
+        isEntityPublishedToGitlab({
+          metadata: {
+            name: 'ee1',
+            annotations: {
+              'backstage.io/source-location':
+                'url:https://gitlab.com/org/repo/-/tree/main/ee/',
+            },
+          },
+        } as unknown as Entity),
+      ).toBe(false);
+    });
+
+    it('returns false when source URL is missing', () => {
+      expect(
+        isEntityPublishedToGitlab({
+          metadata: {
+            name: 'ee1',
+            annotations: {
+              'ansible.io/scm-provider': 'gitlab',
+            },
+          },
+        } as unknown as Entity),
+      ).toBe(false);
+    });
+  });
+
+  describe('isEntityBuildable', () => {
+    it('returns true for GitHub entity', () => {
+      expect(
+        isEntityBuildable({
+          metadata: {
+            name: 'ee1',
+            annotations: {
+              'backstage.io/source-location':
+                'url:https://github.com/acme/repo/tree/main/ee/',
+              'ansible.io/scm-provider': 'github',
+            },
+          },
+        } as unknown as Entity),
+      ).toBe(true);
+    });
+
+    it('returns true for GitLab entity', () => {
+      expect(
+        isEntityBuildable({
+          metadata: {
+            name: 'ee1',
+            annotations: {
+              'backstage.io/source-location':
+                'url:https://gitlab.com/org/repo/-/tree/main/ee/',
+              'ansible.io/scm-provider': 'gitlab',
+            },
+          },
+        } as unknown as Entity),
+      ).toBe(true);
+    });
+
+    it('returns false for entity with no SCM provider', () => {
+      expect(
+        isEntityBuildable({
+          metadata: { name: 'ee1', annotations: {} },
+        } as unknown as Entity),
+      ).toBe(false);
+    });
+
+    it('returns false for unsupported provider', () => {
+      expect(
+        isEntityBuildable({
+          metadata: {
+            name: 'ee1',
+            annotations: {
+              'backstage.io/source-location':
+                'url:https://bitbucket.org/a/b/src/main/',
+              'ansible.io/scm-provider': 'bitbucket',
+            },
+          },
+        } as unknown as Entity),
+      ).toBe(false);
+    });
+  });
+
+  describe('getEntityScmProvider', () => {
+    it('returns github for github annotation', () => {
+      expect(
+        getEntityScmProvider({
+          metadata: {
+            name: 'ee1',
+            annotations: { 'ansible.io/scm-provider': 'github' },
+          },
+        } as unknown as Entity),
+      ).toBe('github');
+    });
+
+    it('returns gitlab for gitlab annotation', () => {
+      expect(
+        getEntityScmProvider({
+          metadata: {
+            name: 'ee1',
+            annotations: { 'ansible.io/scm-provider': 'gitlab' },
+          },
+        } as unknown as Entity),
+      ).toBe('gitlab');
+    });
+
+    it('handles case-insensitive match', () => {
+      expect(
+        getEntityScmProvider({
+          metadata: {
+            name: 'ee1',
+            annotations: { 'ansible.io/scm-provider': 'GitHub' },
+          },
+        } as unknown as Entity),
+      ).toBe('github');
+      expect(
+        getEntityScmProvider({
+          metadata: {
+            name: 'ee1',
+            annotations: { 'ansible.io/scm-provider': 'GitLab' },
+          },
+        } as unknown as Entity),
+      ).toBe('gitlab');
+    });
+
+    it('returns null for missing annotation', () => {
+      expect(
+        getEntityScmProvider({
+          metadata: { name: 'ee1', annotations: {} },
+        } as unknown as Entity),
+      ).toBeNull();
+    });
+
+    it('returns null for empty annotation', () => {
+      expect(
+        getEntityScmProvider({
+          metadata: {
+            name: 'ee1',
+            annotations: { 'ansible.io/scm-provider': '' },
+          },
+        } as unknown as Entity),
+      ).toBeNull();
+    });
+
+    it('returns null for unsupported provider', () => {
+      expect(
+        getEntityScmProvider({
+          metadata: {
+            name: 'ee1',
+            annotations: { 'ansible.io/scm-provider': 'bitbucket' },
+          },
+        } as unknown as Entity),
+      ).toBeNull();
     });
   });
 });

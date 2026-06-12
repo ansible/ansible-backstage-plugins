@@ -539,19 +539,10 @@ function deriveEeFromParsedGitLabUrl(
     };
   }
 
-  const refSegments = parsed.defaultRef.split('/');
-  if (refSegments.length <= 1) {
-    return { ref: (gitRefOverride ?? parsed.defaultRef).trim() };
-  }
-
-  const ref = gitRefOverride ?? refSegments[0];
-  const eeDir = refSegments.slice(1).join('/');
-  assertSafeRepoRelativeEeDir(eeDir);
-  const eeFileName = entityName ? `${entityName}.yml` : undefined;
-  if (eeFileName) {
-    assertSafeEeFileName(eeFileName);
-  }
-  return { ref: ref.trim(), eeDir, ...(eeFileName ? { eeFileName } : {}) };
+  // Without a filePath we cannot distinguish a slashed branch name
+  // (e.g. "release/2.5") from "ref + eeDir". Treat the entire
+  // defaultRef as the ref to avoid mis-parsing.
+  return { ref: (gitRefOverride ?? parsed.defaultRef).trim() };
 }
 
 export function resolveGitlabRepoForEeBuild(
