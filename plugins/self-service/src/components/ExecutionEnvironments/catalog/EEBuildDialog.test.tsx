@@ -71,7 +71,8 @@ function renderDialog(
             <EEBuildDialog
               open
               entity={testEntity}
-              githubToken="gh-mock-token"
+              scmToken="gh-mock-token"
+              scmProvider="github"
               onClose={mockOnClose}
               {...props}
             />
@@ -238,7 +239,7 @@ describe('EEBuildDialog', () => {
           imageTag: '2.0',
           verifyTls: true,
         }),
-        { githubToken: 'gh-mock-token' },
+        { scmToken: 'gh-mock-token', scmProvider: 'github' },
       );
     });
 
@@ -426,15 +427,15 @@ describe('EEBuildDialog', () => {
           registryType: 'custom',
           customRegistryUrl: 'https://registry.custom.example',
         }),
-        { githubToken: 'gh-mock-token' },
+        { scmToken: 'gh-mock-token', scmProvider: 'github' },
       );
     });
   });
 
-  it('shows warning when githubToken is missing', async () => {
+  it('shows warning when scmToken is missing', async () => {
     const showSpy = jest.spyOn(notificationStore, 'showNotification');
     const user = userEvent.setup();
-    renderDialog({ githubToken: null });
+    renderDialog({ scmToken: null });
 
     await user.type(screen.getByTestId('ee-build-image-name'), 'ns/ee');
     await user.click(screen.getByRole('button', { name: /^Build$/i }));

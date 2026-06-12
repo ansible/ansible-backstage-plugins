@@ -95,7 +95,7 @@ describe('useEEBuildFlow', () => {
     expect(sessionStorage.getItem(EE_BUILD_PENDING_SESSION_KEY)).toBeNull();
     expect(result.current.dialogOpen).toBe(true);
     expect(result.current.buildEntity).toEqual(entityWithGithub);
-    expect(result.current.githubToken).toBe('t');
+    expect(result.current.scmToken).toBe('t');
     expect(result.current.authBusy).toBe(false);
   });
 
@@ -156,7 +156,7 @@ describe('useEEBuildFlow', () => {
       url: 'https://github.com/acme/repo',
     });
     expect(result.current.buildEntity).toEqual(resolvedEntity);
-    expect(result.current.githubToken).toBe('t');
+    expect(result.current.scmToken).toBe('t');
     expect(sessionStorage.getItem(EE_BUILD_PENDING_SESSION_KEY)).toBeNull();
   });
 
@@ -233,7 +233,7 @@ describe('useEEBuildFlow', () => {
 
     expect(result.current.dialogOpen).toBe(false);
     expect(result.current.buildEntity).toBeNull();
-    expect(result.current.githubToken).toBeNull();
+    expect(result.current.scmToken).toBeNull();
   });
 
   it('shows notification and does not open dialog when getCredentials returns an empty token', async () => {
@@ -252,7 +252,7 @@ describe('useEEBuildFlow', () => {
       }),
     );
     expect(result.current.dialogOpen).toBe(false);
-    expect(result.current.githubToken).toBeNull();
+    expect(result.current.scmToken).toBeNull();
     showSpy.mockRestore();
   });
 });

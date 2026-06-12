@@ -2905,8 +2905,10 @@ describe('helpers', () => {
         'component:default/my-ee',
       );
       expect(result).toBeDefined();
-      expect(result!.gh.owner).toBe('acme');
-      expect(result!.gh.repo).toBe('repo');
+      expect(result!.provider).toBe('github');
+      const ghResult = result as Extract<typeof result, { provider: 'github' }>;
+      expect(ghResult.gh.owner).toBe('acme');
+      expect(ghResult.gh.repo).toBe('repo');
     });
 
     it('returns 403 when catalog throws ResponseError 403', async () => {
