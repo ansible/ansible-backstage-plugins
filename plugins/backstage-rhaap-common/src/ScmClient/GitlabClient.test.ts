@@ -1048,4 +1048,168 @@ describe('GitlabClient', () => {
       );
     });
   });
+
+  describe('triggerPipeline', () => {
+    it('returns ok:true with pipelineId and pipelineUrl on success', async () => {
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        status: 201,
+        statusText: 'Created',
+        text: () =>
+          Promise.resolve(
+            JSON.stringify({
+              id: 42,
+              web_url: 'https://gitlab.com/org/repo/-/pipelines/42',
+            }),
+          ),
+      });
+
+      const result = await client.triggerPipeline('org/repo', 'main', [
+        { key: 'VAR1', value: 'val1' },
+      ]);
+
+      expect(result.ok).toBe(true);
+      expect(result.status).toBe(201);
+      expect(result.pipelineId).toBe(42);
+      expect(result.pipelineUrl).toBe(
+        'https://gitlab.com/org/repo/-/pipelines/42',
+      );
+    });
+
+    it('returns ok:true without pipelineId when response has no id', async () => {
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        status: 201,
+        statusText: 'Created',
+        text: () => Promise.resolve(JSON.stringify({})),
+      });
+
+      const result = await client.triggerPipeline('org/repo', 'main', []);
+
+      expect(result.ok).toBe(true);
+      expect(result.pipelineId).toBeUndefined();
+      expect(result.pipelineUrl).toBeUndefined();
+    });
+
+    it('returns ok:false on error status code', async () => {
+      mockFetch.mockResolvedValueOnce({
+        ok: false,
+        status: 422,
+        statusText: 'Unprocessable Entity',
+        text: () =>
+          Promise.resolve(JSON.stringify({ message: 'bad variables' })),
+      });
+
+      const result = await client.triggerPipeline('org/repo', 'main', []);
+
+      expect(result.ok).toBe(false);
+      expect(result.status).toBe(422);
+      expect(result.statusText).toBe('Unprocessable Entity');
+      expect(result.bodyText).toContain('bad variables');
+    });
+
+    it('handles non-JSON response body', async () => {
+      mockFetch.mockResolvedValueOnce({
+        ok: false,
+        status: 500,
+        statusText: 'Internal Server Error',
+        text: () => Promise.resolve('<html>Server Error</html>'),
+      });
+
+      const result = await client.triggerPipeline('org/repo', 'main', []);
+
+      expect(result.ok).toBe(false);
+      expect(result.bodyText).toBe('<html>Server Error</html>');
+      expect(result.pipelineId).toBeUndefined();
+    });
+
+    it('URL-encodes projectPath in endpoint', async () => {
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        status: 201,
+        statusText: 'Created',
+        text: () => Promise.resolve(JSON.stringify({ id: 1 })),
+      });
+
+      await client.triggerPipeline('group/sub/project', 'main', []);
+
+      expect(mockFetch).toHaveBeenCalledWith(
+        expect.stringContaining(
+          `/projects/${encodeURIComponent('group/sub/project')}/pipeline`,
+        ),
+        expect.any(Object),
+      );
+    });
+
+    it('passes ref and variables in POST body', async () => {
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        status: 201,
+        statusText: 'Created',
+        text: () => Promise.resolve(JSON.stringify({})),
+      });
+
+      const variables = [
+        { key: 'EE_DIR', value: 'ee' },
+        { key: 'EE_FILE_NAME', value: 'ee.yml' },
+      ];
+      await client.triggerPipeline('org/repo', 'develop', variables);
+
+      const callArgs = mockFetch.mock.calls[0];
+      const body = JSON.parse(callArgs[1].body);
+      expect(body).toEqual({ ref: 'develop', variables });
+    });
+
+    it('sends Bearer auth when gitlabUseBearerAuth is true', async () => {
+      const oauthClient = new GitlabClient({
+        config: { ...mockConfig, gitlabUseBearerAuth: true },
+        logger: mockLogger,
+      });
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        status: 201,
+        statusText: 'Created',
+        text: () => Promise.resolve(JSON.stringify({})),
+      });
+
+      await oauthClient.triggerPipeline('org/repo', 'main', []);
+
+      const callHeaders = mockFetch.mock.calls[0][1].headers;
+      expect(callHeaders).toHaveProperty('Authorization', 'Bearer test-token');
+      expect(callHeaders).not.toHaveProperty('PRIVATE-TOKEN');
+    });
+
+    it('sends PRIVATE-TOKEN by default', async () => {
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        status: 201,
+        statusText: 'Created',
+        text: () => Promise.resolve(JSON.stringify({})),
+      });
+
+      await client.triggerPipeline('org/repo', 'main', []);
+
+      const callHeaders = mockFetch.mock.calls[0][1].headers;
+      expect(callHeaders).toHaveProperty('PRIVATE-TOKEN', 'test-token');
+      expect(callHeaders).not.toHaveProperty('Authorization');
+    });
+
+    it('uses undici fetch when checkSSL is false', async () => {
+      const unsafeClient = new GitlabClient({
+        config: { ...mockConfig, checkSSL: false },
+        logger: mockLogger,
+      });
+      (undici.fetch as jest.Mock).mockResolvedValueOnce({
+        ok: true,
+        status: 201,
+        statusText: 'Created',
+        text: () => Promise.resolve(JSON.stringify({})),
+      });
+
+      await unsafeClient.triggerPipeline('org/repo', 'main', []);
+
+      expect(undici.fetch).toHaveBeenCalled();
+      expect(mockFetch).not.toHaveBeenCalled();
+    });
+  });
 });

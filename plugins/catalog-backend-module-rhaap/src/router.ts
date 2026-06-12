@@ -56,10 +56,9 @@ import {
   fetchGitHubCIActivityData,
   fetchGitLabCIActivityData,
   parseEeBuildRequestBody,
-  validateGitHubHost,
   isKnownEeBuildError,
   resolveEntityAndRepo,
-  dispatchEeBuild,
+  handleEeBuildDispatch,
   isScmIntegrationAuthFailure,
 } from './helpers';
 import { ConflictError } from '@backstage/errors';
@@ -406,40 +405,14 @@ export async function createRouter(options: {
         parsedBody.entityRef,
       );
       if (!resolved) return;
-      const { gh, eeDir, eeFileName } = resolved;
-
-      if (!eeDir || !eeFileName) {
-        response.status(400).json({
-          error:
-            'Could not determine ee_dir/ee_file_name from entity annotations.',
-        });
-        return;
-      }
-
-      const hostErr = validateGitHubHost(config, gh.host);
-      if (hostErr) {
-        response.status(400).json({ error: hostErr });
-        return;
-      }
-
-      const githubToken = request.headers['x-github-token'] as string;
-      if (!githubToken) {
-        response.status(400).json({
-          error:
-            'No GitHub token available to dispatch the workflow. Send X-Github-Token header.',
-        });
-        return;
-      }
 
       try {
-        await dispatchEeBuild({
+        await handleEeBuildDispatch({
+          request,
           response,
           logger,
           config,
-          gh,
-          eeDir,
-          eeFileName,
-          githubToken,
+          resolved,
           parsedBody,
         });
       } catch (error) {

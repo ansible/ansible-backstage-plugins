@@ -214,6 +214,60 @@ function splitRefAndPath(segments: string[]): {
   return { ref, filePath: filePath || undefined };
 }
 
+export interface ParsedGitLabRepoFromSource {
+  host: string;
+  projectPath: string;
+  defaultRef: string;
+  filePath?: string;
+}
+
+export function parseGitLabRepoFromSourceUrl(
+  raw: string | undefined,
+): ParsedGitLabRepoFromSource | null {
+  if (!raw?.trim()) {
+    return null;
+  }
+  try {
+    const url = raw.replace(/^url:/i, '').trim();
+    const u = new URL(url);
+    if (u.protocol !== 'http:' && u.protocol !== 'https:') {
+      return null;
+    }
+    const host = u.hostname;
+    const parts = u.pathname.split('/').filter(Boolean);
+    if (parts.length < 2) {
+      return null;
+    }
+
+    const dashIdx = parts.indexOf('-');
+    if (
+      dashIdx >= 2 &&
+      dashIdx < parts.length - 1 &&
+      (parts[dashIdx + 1] === 'blob' ||
+        parts[dashIdx + 1] === 'tree' ||
+        parts[dashIdx + 1] === 'edit')
+    ) {
+      const projectPath = parts.slice(0, dashIdx).join('/');
+      const afterAction = parts.slice(dashIdx + 2);
+      const { ref, filePath } = splitRefAndPath(afterAction);
+      return {
+        host,
+        projectPath,
+        defaultRef: ref,
+        ...(filePath ? { filePath } : {}),
+      };
+    }
+
+    return {
+      host,
+      projectPath: parts.join('/'),
+      defaultRef: 'main',
+    };
+  } catch {
+    return null;
+  }
+}
+
 export interface EeBuildRequestValidated {
   entityRef: string;
   /** Optional override; when omitted, owner is derived from entity annotations. */
@@ -463,11 +517,98 @@ export function validateGitHubHost(
   return undefined;
 }
 
+export interface EeGitlabDispatchContext {
+  host: string;
+  projectPath: string;
+  ref: string;
+  eeDir?: string;
+  eeFileName?: string;
+}
+
+function deriveEeFromParsedGitLabUrl(
+  parsed: ParsedGitLabRepoFromSource,
+  entityName: string,
+  gitRefOverride?: string,
+): { ref: string; eeDir?: string; eeFileName?: string } {
+  if (parsed.filePath) {
+    const ee = deriveEeDirAndFile(parsed.filePath, entityName);
+    return {
+      ref: (gitRefOverride ?? parsed.defaultRef).trim(),
+      ...(ee.eeDir ? { eeDir: ee.eeDir } : {}),
+      ...(ee.eeFileName ? { eeFileName: ee.eeFileName } : {}),
+    };
+  }
+
+  // Without a filePath we cannot distinguish a slashed branch name
+  // (e.g. "release/2.5") from "ref + eeDir". Treat the entire
+  // defaultRef as the ref to avoid mis-parsing.
+  return { ref: (gitRefOverride ?? parsed.defaultRef).trim() };
+}
+
+export function resolveGitlabRepoForEeBuild(
+  entity: Entity,
+  gitRefOverride?: string,
+): EeGitlabDispatchContext {
+  if (entity.kind !== 'Component') {
+    throw new Error('Execution Environment build requires a Component entity');
+  }
+  if (entity.spec?.type !== 'execution-environment') {
+    throw new Error('Entity spec.type must be execution-environment');
+  }
+  const ann = entity.metadata?.annotations ?? {};
+  const candidates = [
+    getAnnotationString(ann, ANNOTATION_EDIT_URL),
+    getAnnotationString(ann, 'backstage.io/source-location'),
+  ].filter(Boolean);
+
+  if (candidates.length === 0) {
+    throw new Error(
+      'Execution Environment is missing a Git source annotation (backstage.io/source-location or edit URL)',
+    );
+  }
+
+  const parsed = candidates
+    .map(c => parseGitLabRepoFromSourceUrl(c.replace(/^url:/i, '').trim()))
+    .find(Boolean);
+
+  if (!parsed) {
+    throw new Error(
+      'Execution Environment source URL is not a GitLab repository URL',
+    );
+  }
+
+  const derived = deriveEeFromParsedGitLabUrl(
+    parsed,
+    entity.metadata?.name ?? '',
+    gitRefOverride,
+  );
+
+  return {
+    host: parsed.host,
+    projectPath: parsed.projectPath,
+    ...derived,
+  };
+}
+
+export function validateGitLabHost(
+  config: Config,
+  host: string,
+): string | undefined {
+  if (!isSafeHostname(host)) {
+    return 'Invalid GitLab host in entity URL';
+  }
+  if (!isGitLabHostAllowedForProxy(config, host)) {
+    return `Host '${host}' is not allowed. Configure it under integrations.gitlab.`;
+  }
+  return undefined;
+}
+
 /** Returns `true` when the error message looks like a client/validation issue from EE build. */
 export function isKnownEeBuildError(msg: string): boolean {
   return (
     msg.includes('execution-environment') ||
     msg.includes('GitHub') ||
+    msg.includes('GitLab') ||
     msg.includes('source') ||
     msg.includes('Component')
   );
@@ -477,11 +618,19 @@ export function isKnownEeBuildError(msg: string): boolean {
 export const EE_BUILD_CATALOG_CREDENTIALS_LOCALS_KEY =
   'rhaapEeBuildCatalogCredentials' as const;
 
-export interface ResolvedEeEntity {
-  gh: { host: string; owner: string; repo: string; ref: string };
-  eeDir: string | undefined;
-  eeFileName: string | undefined;
-}
+export type ResolvedEeEntity =
+  | {
+      provider: 'github';
+      gh: { host: string; owner: string; repo: string; ref: string };
+      eeDir: string | undefined;
+      eeFileName: string | undefined;
+    }
+  | {
+      provider: 'gitlab';
+      gl: EeGitlabDispatchContext;
+      eeDir: string | undefined;
+      eeFileName: string | undefined;
+    };
 
 export async function resolveEntityAndRepo(
   response: Response,
@@ -515,8 +664,22 @@ export async function resolveEntityAndRepo(
       return undefined;
     }
 
+    const scmProvider =
+      entity.metadata?.annotations?.['ansible.io/scm-provider'] ?? '';
+
+    if (scmProvider === 'gitlab') {
+      const resolved = resolveGitlabRepoForEeBuild(entity);
+      return {
+        provider: 'gitlab',
+        gl: resolved,
+        eeDir: resolved.eeDir,
+        eeFileName: resolved.eeFileName,
+      };
+    }
+
     const resolved = resolveGithubRepoForEeBuild(entity);
     return {
+      provider: 'github',
       gh: resolved,
       eeDir: resolved.eeDir,
       eeFileName: resolved.eeFileName,
@@ -612,6 +775,152 @@ export async function dispatchEeBuild(
     ...(ghResp.workflowRunUrl && {
       workflow_url: ghResp.workflowRunUrl,
     }),
+  });
+}
+
+export interface DispatchEeBuildGitlabOptions {
+  response: Response;
+  logger: LoggerService;
+  config: Config;
+  gl: EeGitlabDispatchContext;
+  eeDir: string;
+  eeFileName: string;
+  gitlabToken: string;
+  parsedBody: {
+    customRegistryUrl: string;
+    imageName: string;
+    imageTag: string;
+    verifyTls: boolean;
+  };
+}
+
+export async function dispatchEeBuildGitlab(
+  opts: DispatchEeBuildGitlabOptions,
+): Promise<void> {
+  const {
+    response,
+    logger,
+    config,
+    gl,
+    eeDir,
+    eeFileName,
+    gitlabToken,
+    parsedBody,
+  } = opts;
+  const { apiBaseUrl } = getGitLabIntegrationForHost(config, gl.host);
+  const gitlabClient = createGitLabPipelineClient({
+    config,
+    logger,
+    host: gl.host,
+    token: gitlabToken,
+    apiBaseUrl,
+    gitlabUseBearerAuth: true,
+  });
+
+  const glResp = await gitlabClient.triggerPipeline(gl.projectPath, gl.ref, [
+    { key: 'EE_DIR', value: eeDir },
+    { key: 'EE_FILE_NAME', value: eeFileName },
+    { key: 'EE_REGISTRY', value: parsedBody.customRegistryUrl },
+    { key: 'EE_IMAGE_NAME', value: parsedBody.imageName },
+    { key: 'IMAGE_BUILD_TAG', value: parsedBody.imageTag },
+    { key: 'REGISTRY_TLS_VERIFY', value: String(parsedBody.verifyTls) },
+  ]);
+
+  if (!glResp.ok) {
+    logger.warn('[ansible/ee/build] GitLab pipeline trigger failed', {
+      status: glResp.status,
+      projectPath: gl.projectPath,
+      body: glResp.bodyText,
+    });
+    const clientErr = glResp.status >= 400 && glResp.status < 500;
+    response.status(clientErr ? glResp.status : 502).json({
+      error: `GitLab pipeline trigger failed: ${glResp.bodyText || glResp.statusText}`,
+    });
+    return;
+  }
+
+  logger.info(
+    `[ansible/ee/build] Triggered pipeline for ${gl.projectPath}@${gl.ref}`,
+  );
+
+  response.status(202).json({
+    message: 'Build started',
+    ...(glResp.pipelineId && { pipeline_id: glResp.pipelineId }),
+    ...(glResp.pipelineUrl && { pipeline_url: glResp.pipelineUrl }),
+  });
+}
+
+export interface HandleEeBuildDispatchOptions {
+  request: { headers: Record<string, string | string[] | undefined> };
+  response: Response;
+  logger: LoggerService;
+  config: Config;
+  resolved: ResolvedEeEntity;
+  parsedBody: EeBuildRequestValidated;
+}
+
+export async function handleEeBuildDispatch(
+  opts: HandleEeBuildDispatchOptions,
+): Promise<void> {
+  const { request, response, logger, config, resolved, parsedBody } = opts;
+  const { eeDir, eeFileName } = resolved;
+
+  if (!eeDir || !eeFileName) {
+    response.status(400).json({
+      error: 'Could not determine ee_dir/ee_file_name from entity annotations.',
+    });
+    return;
+  }
+
+  if (resolved.provider === 'gitlab') {
+    const hostErr = validateGitLabHost(config, resolved.gl.host);
+    if (hostErr) {
+      response.status(400).json({ error: hostErr });
+      return;
+    }
+    const gitlabToken = request.headers['x-gitlab-token'] as string;
+    if (!gitlabToken) {
+      response.status(400).json({
+        error:
+          'No GitLab token available to trigger the pipeline. Send X-Gitlab-Token header.',
+      });
+      return;
+    }
+    await dispatchEeBuildGitlab({
+      response,
+      logger,
+      config,
+      gl: resolved.gl,
+      eeDir,
+      eeFileName,
+      gitlabToken,
+      parsedBody,
+    });
+    return;
+  }
+
+  const hostErr = validateGitHubHost(config, resolved.gh.host);
+  if (hostErr) {
+    response.status(400).json({ error: hostErr });
+    return;
+  }
+  const githubToken = request.headers['x-github-token'] as string;
+  if (!githubToken) {
+    response.status(400).json({
+      error:
+        'No GitHub token available to dispatch the workflow. Send X-Github-Token header.',
+    });
+    return;
+  }
+  await dispatchEeBuild({
+    response,
+    logger,
+    config,
+    gh: resolved.gh,
+    eeDir,
+    eeFileName,
+    githubToken,
+    parsedBody,
   });
 }
 
@@ -1177,6 +1486,7 @@ function createGitLabPipelineClient(opts: {
   host: string;
   token: string;
   apiBaseUrl?: string;
+  gitlabUseBearerAuth?: boolean;
 }): InstanceType<typeof GitlabClient> {
   const hostLower = opts.host.toLowerCase();
   const skipTlsVerify = getSkipTlsVerifyHosts(opts.config)
@@ -1191,6 +1501,7 @@ function createGitLabPipelineClient(opts: {
       token: opts.token,
       apiBaseUrl: opts.apiBaseUrl,
       checkSSL: !skipTlsVerify,
+      gitlabUseBearerAuth: opts.gitlabUseBearerAuth,
     },
     logger: opts.logger,
   });

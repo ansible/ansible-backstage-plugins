@@ -59,15 +59,18 @@ const useStyles = makeStyles(theme => ({
 export type EEBuildDialogProps = Readonly<{
   open: boolean;
   entity: Entity | null;
-  /** GitHub (or GHE) token from ScmAuth; required for catalog `workflow_dispatch`. */
-  githubToken: string | null;
+  /** SCM OAuth token from ScmAuth; required for dispatching builds. */
+  scmToken: string | null;
+  /** SCM provider for the entity (determines which token header to send). */
+  scmProvider: 'github' | 'gitlab' | null;
   onClose: () => void;
 }>;
 
 export function EEBuildDialog({
   open,
   entity,
-  githubToken,
+  scmToken,
+  scmProvider,
   onClose,
 }: EEBuildDialogProps) {
   const classes = useStyles();
@@ -134,8 +137,8 @@ export function EEBuildDialog({
       return;
     }
 
-    const scmTok = githubToken?.trim();
-    if (!scmTok) {
+    const scmTok = scmToken?.trim();
+    if (!scmTok || !scmProvider) {
       showNotification({
         title: 'Cannot build',
         description:
@@ -162,12 +165,14 @@ export function EEBuildDialog({
           imageTag: trimmedTag,
           verifyTls,
         },
-        { githubToken: scmTok },
+        { scmToken: scmTok, scmProvider },
       );
       if (result.accepted) {
         showNotification({
           title: 'Build triggered',
-          description: buildTriggeredDescriptionNode(result.workflowUrl),
+          description: buildTriggeredDescriptionNode(
+            result.workflowUrl ?? result.pipelineUrl,
+          ),
           severity: 'success',
         });
         onClose();
