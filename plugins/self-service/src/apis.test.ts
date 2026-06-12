@@ -301,13 +301,15 @@ describe('EEBuildApiClient', () => {
         imageTag: '1',
         verifyTls: true,
       },
-      { githubToken: 'ghp_test_token' },
+      { scmToken: 'ghp_test_token', scmProvider: 'github' as const },
     );
 
     expect(result).toEqual({
       accepted: true,
       workflowId: 'run-123',
       workflowUrl: undefined,
+      pipelineId: undefined,
+      pipelineUrl: undefined,
       message: 'queued',
     });
     expect(mockFetch.fetch).toHaveBeenCalledWith(
@@ -345,13 +347,15 @@ describe('EEBuildApiClient', () => {
         imageTag: '1',
         verifyTls: true,
       },
-      { githubToken: 'tok' },
+      { scmToken: 'tok', scmProvider: 'github' as const },
     );
 
     expect(result).toEqual({
       accepted: true,
       workflowId: '999',
       workflowUrl: undefined,
+      pipelineId: undefined,
+      pipelineUrl: undefined,
       message: undefined,
     });
   });
@@ -382,13 +386,15 @@ describe('EEBuildApiClient', () => {
         imageTag: '1',
         verifyTls: true,
       },
-      { githubToken: 'tok' },
+      { scmToken: 'tok', scmProvider: 'github' as const },
     );
 
     expect(result).toEqual({
       accepted: true,
       workflowId: '42',
       workflowUrl: 'https://github.com/acme/repo/actions/runs/42',
+      pipelineId: undefined,
+      pipelineUrl: undefined,
       message: 'Build started',
     });
   });
@@ -415,13 +421,15 @@ describe('EEBuildApiClient', () => {
         imageTag: '1',
         verifyTls: true,
       },
-      { githubToken: 'tok' },
+      { scmToken: 'tok', scmProvider: 'github' as const },
     );
 
     expect(result).toEqual({
       accepted: true,
       workflowId: undefined,
       workflowUrl: undefined,
+      pipelineId: undefined,
+      pipelineUrl: undefined,
       message: 'ok',
     });
   });
@@ -447,13 +455,15 @@ describe('EEBuildApiClient', () => {
         imageTag: '1',
         verifyTls: true,
       },
-      { githubToken: 'tok' },
+      { scmToken: 'tok', scmProvider: 'github' as const },
     );
 
     expect(result).toEqual({
       accepted: true,
       workflowId: undefined,
       workflowUrl: undefined,
+      pipelineId: undefined,
+      pipelineUrl: undefined,
       message: undefined,
     });
   });
@@ -483,7 +493,7 @@ describe('EEBuildApiClient', () => {
         imageTag: '1',
         verifyTls: true,
       },
-      { githubToken: 'tok' },
+      { scmToken: 'tok', scmProvider: 'github' as const },
     );
 
     expect(result).toEqual({
