@@ -501,4 +501,136 @@ describe('EEBuildApiClient', () => {
       message: 'GitHub workflow_dispatch failed: invalid inputs',
     });
   });
+
+  it('sends X-Gitlab-Token header when scmProvider is gitlab', async () => {
+    const mockFetch = {
+      fetch: jest.fn().mockResolvedValue({
+        ok: true,
+        text: async () =>
+          JSON.stringify({
+            message: 'Build started',
+            pipeline_id: 77,
+            pipeline_url: 'https://gitlab.com/org/repo/-/pipelines/77',
+          }),
+      }),
+    };
+    const client = new EEBuildApiClient({
+      discoveryApi: mockDiscovery as any,
+      fetchApi: mockFetch as any,
+    });
+
+    const result = await client.triggerBuild(
+      {
+        entityRef: 'component:default/ee1',
+        registryType: 'pah',
+        customRegistryUrl: 'https://r.example',
+        imageName: 'ns/ee',
+        imageTag: '1',
+        verifyTls: true,
+      },
+      { scmToken: 'gl-tok', scmProvider: 'gitlab' as const },
+    );
+
+    expect(result).toEqual({
+      accepted: true,
+      workflowId: undefined,
+      workflowUrl: undefined,
+      pipelineId: '77',
+      pipelineUrl: 'https://gitlab.com/org/repo/-/pipelines/77',
+      message: 'Build started',
+    });
+    const callHeaders = mockFetch.fetch.mock.calls[0][1].headers;
+    expect(callHeaders).toHaveProperty('X-Gitlab-Token', 'gl-tok');
+    expect(callHeaders).not.toHaveProperty('X-Github-Token');
+  });
+
+  it('does not send X-Gitlab-Token when scmProvider is github', async () => {
+    const mockFetch = {
+      fetch: jest.fn().mockResolvedValue({
+        ok: true,
+        text: async () => JSON.stringify({ message: 'Build started' }),
+      }),
+    };
+    const client = new EEBuildApiClient({
+      discoveryApi: mockDiscovery as any,
+      fetchApi: mockFetch as any,
+    });
+
+    await client.triggerBuild(
+      {
+        entityRef: 'component:default/ee1',
+        registryType: 'pah',
+        customRegistryUrl: 'https://r.example',
+        imageName: 'ns/ee',
+        imageTag: '1',
+        verifyTls: true,
+      },
+      { scmToken: 'gh-tok', scmProvider: 'github' as const },
+    );
+
+    const callHeaders = mockFetch.fetch.mock.calls[0][1].headers;
+    expect(callHeaders).toHaveProperty('X-Github-Token', 'gh-tok');
+    expect(callHeaders).not.toHaveProperty('X-Gitlab-Token');
+  });
+
+  it('returns accepted:false with message on GitLab error response', async () => {
+    const mockFetch = {
+      fetch: jest.fn().mockResolvedValue({
+        ok: false,
+        status: 422,
+        text: async () =>
+          JSON.stringify({
+            error: 'GitLab pipeline trigger failed: bad variables',
+          }),
+      }),
+    };
+    const client = new EEBuildApiClient({
+      discoveryApi: mockDiscovery as any,
+      fetchApi: mockFetch as any,
+    });
+
+    const result = await client.triggerBuild(
+      {
+        entityRef: 'component:default/ee1',
+        registryType: 'pah',
+        customRegistryUrl: 'https://r.example',
+        imageName: 'ns/ee',
+        imageTag: '1',
+        verifyTls: true,
+      },
+      { scmToken: 'gl-tok', scmProvider: 'gitlab' as const },
+    );
+
+    expect(result).toEqual({
+      accepted: false,
+      message: 'GitLab pipeline trigger failed: bad variables',
+    });
+  });
+
+  it('returns accepted:false when fetch throws for gitlab', async () => {
+    const mockFetch = {
+      fetch: jest.fn().mockRejectedValue(new Error('Network error')),
+    };
+    const client = new EEBuildApiClient({
+      discoveryApi: mockDiscovery as any,
+      fetchApi: mockFetch as any,
+    });
+
+    const result = await client.triggerBuild(
+      {
+        entityRef: 'component:default/ee1',
+        registryType: 'pah',
+        customRegistryUrl: 'https://r.example',
+        imageName: 'ns/ee',
+        imageTag: '1',
+        verifyTls: true,
+      },
+      { scmToken: 'gl-tok', scmProvider: 'gitlab' as const },
+    );
+
+    expect(result).toEqual({
+      accepted: false,
+      message: 'Error: Network error',
+    });
+  });
 });
