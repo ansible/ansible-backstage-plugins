@@ -968,4 +968,84 @@ describe('GitlabClient', () => {
       );
     });
   });
+
+  describe('getProjectId', () => {
+    const projectResponse = (id: number) => ({
+      ok: true,
+      status: 200,
+      json: () => Promise.resolve({ id }),
+      text: () => Promise.resolve(JSON.stringify({ id })),
+    });
+
+    it('should return numeric project ID for existing project', async () => {
+      (fetch as jest.Mock).mockResolvedValueOnce(projectResponse(42));
+
+      const projectId = await client.getProjectId('test-owner', 'test-repo');
+
+      expect(projectId).toBe(42);
+      expect(fetch).toHaveBeenCalledWith(
+        'https://gitlab.com/api/v4/projects/test-owner%2Ftest-repo',
+        expect.objectContaining({
+          headers: expect.objectContaining({
+            'PRIVATE-TOKEN': 'test-token',
+          }),
+        }),
+      );
+    });
+
+    it('should return undefined when project does not exist', async () => {
+      (fetch as jest.Mock).mockResolvedValueOnce({
+        ok: false,
+        status: 404,
+        text: () => Promise.resolve('Not Found'),
+      });
+
+      const projectId = await client.getProjectId('test-owner', 'nonexistent');
+
+      expect(projectId).toBeUndefined();
+      expect(mockLogger.debug).toHaveBeenCalledWith(
+        expect.stringContaining(
+          '[GitlabClient] Failed to resolve numeric project ID for test-owner/nonexistent',
+        ),
+      );
+    });
+
+    it('should return undefined when fetch throws', async () => {
+      (fetch as jest.Mock).mockRejectedValueOnce(new Error('Network error'));
+
+      const projectId = await client.getProjectId('test-owner', 'test-repo');
+
+      expect(projectId).toBeUndefined();
+    });
+
+    it('should encode project path correctly', async () => {
+      (fetch as jest.Mock).mockResolvedValueOnce(projectResponse(99));
+
+      await client.getProjectId('group/subgroup', 'project');
+
+      expect(fetch).toHaveBeenCalledWith(
+        'https://gitlab.com/api/v4/projects/group%2Fsubgroup%2Fproject',
+        expect.any(Object),
+      );
+    });
+
+    it('should use Bearer auth when gitlabUseBearerAuth is set', async () => {
+      const oauthClient = new GitlabClient({
+        config: { ...mockConfig, gitlabUseBearerAuth: true },
+        logger: mockLogger,
+      });
+      (fetch as jest.Mock).mockResolvedValueOnce(projectResponse(42));
+
+      await oauthClient.getProjectId('test-owner', 'test-repo');
+
+      expect(fetch).toHaveBeenCalledWith(
+        expect.any(String),
+        expect.objectContaining({
+          headers: expect.objectContaining({
+            Authorization: 'Bearer test-token',
+          }),
+        }),
+      );
+    });
+  });
 });
