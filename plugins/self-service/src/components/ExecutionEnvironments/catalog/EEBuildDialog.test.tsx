@@ -470,9 +470,10 @@ describe('EEBuildDialog', () => {
 
   it('shows pipeline URL in success notification for GitLab', async () => {
     const showSpy = jest.spyOn(notificationStore, 'showNotification');
+    const pipelineUrl = 'https://gitlab.com/org/repo/-/pipelines/42';
     mockTriggerBuild.mockResolvedValueOnce({
       accepted: true,
-      pipelineUrl: 'https://gitlab.com/org/repo/-/pipelines/42',
+      pipelineUrl,
     });
     const user = userEvent.setup();
     renderDialog({ scmToken: 'gl-tok', scmProvider: 'gitlab' });
@@ -488,6 +489,9 @@ describe('EEBuildDialog', () => {
         }),
       );
     });
+    const runLink = screen.getByRole('link', { name: pipelineUrl });
+    expect(runLink).toHaveAttribute('href', pipelineUrl);
+    expect(runLink).toHaveAttribute('target', '_blank');
     showSpy.mockRestore();
   });
 });

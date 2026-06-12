@@ -62,8 +62,8 @@ import {
   validateGitLabHost,
   dispatchEeBuildGitlab,
   handleEeBuildDispatch,
-  ResolvedEeEntity,
 } from './helpers';
+import type { ResolvedEeEntity } from './helpers';
 import { AuthorizeResult } from '@backstage/plugin-permission-common';
 import type { AnsibleGitContentsProvider } from './providers/AnsibleGitContentsProvider';
 
@@ -3815,6 +3815,8 @@ describe('helpers', () => {
         resolved,
         parsedBody,
       });
+      expect(mockTriggerPipeline).toHaveBeenCalled();
+      expect(mockDispatchActionsWorkflow).not.toHaveBeenCalled();
       expect(status).toHaveBeenCalledWith(202);
       expect(json).toHaveBeenCalledWith(
         expect.objectContaining({ message: 'Build started', pipeline_id: 99 }),
@@ -3883,6 +3885,8 @@ describe('helpers', () => {
         resolved,
         parsedBody,
       });
+      expect(mockDispatchActionsWorkflow).toHaveBeenCalled();
+      expect(mockTriggerPipeline).not.toHaveBeenCalled();
       expect(status).toHaveBeenCalledWith(202);
       expect(json).toHaveBeenCalledWith(
         expect.objectContaining({
