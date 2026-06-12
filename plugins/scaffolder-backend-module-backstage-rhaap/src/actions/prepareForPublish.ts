@@ -13,6 +13,20 @@ interface CheckRepositoryExistsInput {
   token?: string;
 }
 
+function buildScmUrls(
+  scmProvider: 'github' | 'gitlab',
+  host: string,
+  owner: string,
+  repo: string,
+  contextDir: string,
+): { catalogInfoUrl: string; fullRepoUrl: string } {
+  const blobSegment = scmProvider === 'gitlab' ? '/-/blob' : '/blob';
+  return {
+    catalogInfoUrl: `https://${host}/${owner}/${repo}${blobSegment}/main/${contextDir}/catalog-info.yaml`,
+    fullRepoUrl: `https://${host}/${owner}/${repo}${blobSegment}/main/${contextDir}/`,
+  };
+}
+
 export function prepareForPublishAction(options: { rootConfig: Config }) {
   const { rootConfig } = options;
 
@@ -84,13 +98,12 @@ export function prepareForPublishAction(options: { rootConfig: Config }) {
           `${sourceControlProvider} Repository ${repositoryOwner}/${repositoryName} exists: ${exists}`,
         );
 
-        if (!exists && !createNewRepository) {
-          throw new Error(
-            `${sourceControlProvider} Repository ${repositoryOwner}/${repositoryName} does not exist and creating a new repository was not enabled.`,
-          );
-        }
-
-        if (!exists && createNewRepository) {
+        if (!exists) {
+          if (!createNewRepository) {
+            throw new Error(
+              `${sourceControlProvider} Repository ${repositoryOwner}/${repositoryName} does not exist and creating a new repository was not enabled.`,
+            );
+          }
           logger.info(
             `A new ${sourceControlProvider} repository ${repositoryOwner}/${repositoryName} will be created.`,
           );
@@ -125,35 +138,29 @@ export function prepareForPublishAction(options: { rootConfig: Config }) {
         logger.info(`Normalized repository URL: ${normalizedRepoUrl}`);
         ctx.output('normalizedRepoUrl', normalizedRepoUrl);
 
-        // TO-DO: make the default branch name configurable
-        const branchName = createNewRepo
-          ? 'main'
-          : `${eeFileName.toLowerCase()}-${randomBytes(2).toString('hex')}`;
-
         if (!createNewRepo) {
-          const title = `[AAP] Adds/updates files for Execution Environment ${eeFileName}`;
-          const description = `This ${
-            scmProvider === 'gitlab' ? 'Merge Request' : 'Pull Request'
-          } adds Execution Environment files generated from Ansible Portal.`;
+          const branchName = `${eeFileName.toLowerCase()}-${randomBytes(2).toString('hex')}`;
+          const prType =
+            scmProvider === 'gitlab' ? 'Merge Request' : 'Pull Request';
 
-          ctx.output('generatedTitle', title);
-          ctx.output('generatedDescription', description);
+          ctx.output(
+            'generatedTitle',
+            `[AAP] Adds/updates files for Execution Environment ${eeFileName}`,
+          );
+          ctx.output(
+            'generatedDescription',
+            `This ${prType} adds Execution Environment files generated from Ansible Portal.`,
+          );
           ctx.output('generatedBranchName', branchName);
         }
 
-        let catalogInfoUrl = '';
-        let fullRepoUrl = '';
-        if (scmProvider === 'github') {
-          catalogInfoUrl = `https://${host}/${repositoryOwner}/${repositoryName}/blob/main/${contextDirName}/catalog-info.yaml`;
-          fullRepoUrl = `https://${host}/${repositoryOwner}/${repositoryName}/blob/main/${contextDirName}/`;
-        } else if (scmProvider === 'gitlab') {
-          catalogInfoUrl = `https://${host}/${repositoryOwner}/${repositoryName}/-/blob/main/${contextDirName}/catalog-info.yaml`;
-          fullRepoUrl = `https://${host}/${repositoryOwner}/${repositoryName}/-/blob/main/${contextDirName}/`;
-        } else {
-          throw new Error(
-            `Unsupported SCM provider '${scmProvider}' for repository ${repositoryOwner}/${repositoryName}/${contextDirName}`,
-          );
-        }
+        const { catalogInfoUrl, fullRepoUrl } = buildScmUrls(
+          scmProvider,
+          host,
+          repositoryOwner,
+          repositoryName,
+          contextDirName,
+        );
         logger.info(`Generated repository contents URL: ${catalogInfoUrl}`);
         ctx.output('generatedCatalogInfoUrl', catalogInfoUrl);
         if (createNewRepo) {
