@@ -5,11 +5,7 @@ import {
   rethrowPreservingInputError,
 } from './utils/parseAapActionValues';
 import { normalizeProjectInputValues } from './schemas/rhaapActionPayloadUtils';
-import {
-  launchJobTemplateValuesLooseSchema,
-  aapApiRecordOutputSchema,
-  projectInputSchema,
-} from './schemas/rhaapActionSchemas';
+import { projectInputSchema } from './schemas/rhaapActionSchemas';
 
 export const createProjectAction = (ansibleServiceRef: IAAPService) => {
   return createTemplateAction({
@@ -19,10 +15,10 @@ export const createProjectAction = (ansibleServiceRef: IAAPService) => {
         token: z => z.string({ description: 'Oauth2 token' }),
         deleteIfExist: z =>
           z.boolean({ description: 'Delete project if exist' }),
-        values: () => launchJobTemplateValuesLooseSchema,
+        values: z => z.record(z.string(), z.unknown()),
       },
       output: {
-        project: () => aapApiRecordOutputSchema,
+        project: z => z.record(z.string(), z.unknown()),
       },
     },
     async handler(ctx) {
