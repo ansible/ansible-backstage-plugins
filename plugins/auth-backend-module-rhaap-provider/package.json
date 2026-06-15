@@ -34,7 +34,7 @@
     "@backstage/catalog-model": "^1.7.6",
     "@backstage/config-loader": "^1.10.6",
     "@backstage/errors": "^1.2.7",
-    "@backstage/plugin-auth-backend": "^0.25.6",
+    "@backstage/plugin-auth-backend": "^0.27.0",
     "@backstage/plugin-auth-node": "^0.6.9",
     "passport-oauth2": "^1.8.0",
     "undici": "^6.24.0"
