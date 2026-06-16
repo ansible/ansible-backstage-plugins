@@ -30,7 +30,7 @@ the Ansible self-service automation portal.
 // packages/app/src/App.tsx
 import { ApmePage } from '@ansible/plugin-apme';
 
-<Route path="/apme" element={<ApmePage />} />
+<Route path="/apme" element={<ApmePage />} />;
 ```
 
 ## Configuration

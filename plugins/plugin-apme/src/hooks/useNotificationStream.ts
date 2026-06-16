@@ -29,15 +29,21 @@ export function useNotificationStream(options?: UseNotificationStreamOptions) {
         const base = await api.getProxyBaseUrl();
         if (cancelled) return;
         es = new EventSource(`${base}/notifications/stream`);
-        es.onmessage = (event) => {
+        es.onmessage = event => {
           if (!mountedRef.current) return;
           try {
             const item = JSON.parse(event.data as string) as NotificationItem;
             onNotificationRef.current?.(item);
-          } catch { /* ignore parse errors */ }
+          } catch {
+            /* ignore parse errors */
+          }
         };
-        es.onerror = () => { /* EventSource auto-reconnects */ };
-      } catch { /* base URL resolution failed; retry handled by caller */ }
+        es.onerror = () => {
+          /* EventSource auto-reconnects */
+        };
+      } catch {
+        /* base URL resolution failed; retry handled by caller */
+      }
     };
 
     void connect();
