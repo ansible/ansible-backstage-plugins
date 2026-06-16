@@ -98,7 +98,7 @@ export const SCOPE_LABELS: Record<number, string> = {
 };
 
 export function scopeLabel(scope: number | undefined): string {
-  return scope != null ? SCOPE_LABELS[scope] || '' : '';
+  return scope !== undefined ? SCOPE_LABELS[scope] || '' : '';
 }
 
 export const FIX_LABELS: Record<number, string> = {
@@ -109,7 +109,7 @@ export const FIX_LABELS: Record<number, string> = {
 };
 
 export function fixLabel(rc: number | undefined): string {
-  return rc != null ? FIX_LABELS[rc] || '' : '';
+  return rc !== undefined ? FIX_LABELS[rc] || '' : '';
 }
 
 export function bareRuleId(ruleId: string): string {

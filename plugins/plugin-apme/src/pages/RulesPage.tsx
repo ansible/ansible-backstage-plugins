@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useAsync, useAsyncRetry } from 'react-use';
 import { useApi } from '@backstage/core-plugin-api';
 import {
@@ -56,7 +56,7 @@ export const RulesPage = () => {
   }, [api, filterCategory, filterSource]);
 
   const stats = value?.stats;
-  const rules = value?.rules ?? [];
+  const rules = useMemo(() => value?.rules ?? [], [value?.rules]);
 
   const categoryOptions = useMemo(
     () => Object.keys(stats?.by_category ?? {}).sort(),

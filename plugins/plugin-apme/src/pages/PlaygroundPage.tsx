@@ -102,7 +102,7 @@ export const PlaygroundPage = () => {
       collections: colls.length ? colls : undefined,
       enableAi,
       aiModel: enableAi
-        ? localStorage.getItem(AI_MODEL_STORAGE_KEY) ?? undefined
+        ? (localStorage.getItem(AI_MODEL_STORAGE_KEY) ?? undefined)
         : undefined,
     });
   }, [files, ansibleVersion, collections, enableAi, startSession]);
@@ -315,10 +315,10 @@ export const PlaygroundPage = () => {
                 {rawStatus === 'connecting'
                   ? 'Connecting...'
                   : rawStatus === 'uploading'
-                  ? 'Uploading files...'
-                  : rawStatus === 'checking'
-                  ? 'Checking...'
-                  : 'Applying...'}
+                    ? 'Uploading files...'
+                    : rawStatus === 'checking'
+                      ? 'Checking...'
+                      : 'Applying...'}
               </Typography>
               <Button size="small" onClick={cancel}>
                 Cancel

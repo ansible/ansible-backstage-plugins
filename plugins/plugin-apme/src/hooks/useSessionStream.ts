@@ -287,6 +287,8 @@ export function useSessionStream() {
             )
               updateStatus('complete');
             break;
+          default:
+            break;
         }
       };
 

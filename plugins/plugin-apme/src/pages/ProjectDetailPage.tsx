@@ -367,9 +367,13 @@ export const ProjectDetailPage = () => {
   if (!project) return <WarningPanel title="Project not found" />;
 
   const isRunning =
-    opState != null &&
+    opState !== null &&
+    opState !== undefined &&
     ['queued', 'cloning', 'scanning', 'applying'].includes(opState.status);
-  const hasOperation = opState != null && opState.status !== 'cancelled';
+  const hasOperation =
+    opState !== null &&
+    opState !== undefined &&
+    opState.status !== 'cancelled';
   const trendData: TrendPoint[] = trend ?? [];
   const breakdown = project.severity_breakdown || {};
 
@@ -699,7 +703,9 @@ export const ProjectDetailPage = () => {
                         </TableCell>
                         <TableCell>
                           {v.file}
-                          {v.line != null ? `:${v.line}` : ''}
+                          {v.line !== null && v.line !== undefined
+                            ? `:${v.line}`
+                            : ''}
                         </TableCell>
                         <TableCell>{v.message}</TableCell>
                       </TableRow>
@@ -975,7 +981,10 @@ function OperationBanner({
     'cancelled',
   ].includes(state.status);
   const awaiting = state.status === 'awaiting_approval';
-  const proposals = state.proposals ?? [];
+  const proposals = useMemo(
+    () => state.proposals ?? [],
+    [state.proposals],
+  );
   const [selected, setSelected] = useState<Record<string, boolean>>({});
 
   useEffect(() => {
@@ -1009,8 +1018,8 @@ function OperationBanner({
             state.status === 'failed'
               ? '#f44336'
               : isDone
-              ? '#4caf50'
-              : '#1976d2'
+                ? '#4caf50'
+                : '#1976d2'
           }`,
         }}
       >

@@ -1,4 +1,3 @@
-import React from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { useAsync } from 'react-use';
 import { useApi } from '@backstage/core-plugin-api';

@@ -1,4 +1,3 @@
-import React from 'react';
 import SvgIcon from '@material-ui/core/SvgIcon';
 
 export const ApmeLogo = (props: React.ComponentProps<typeof SvgIcon>) => (

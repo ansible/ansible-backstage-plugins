@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { useAsync } from 'react-use';
 import { useApi } from '@backstage/core-plugin-api';
 import {
@@ -65,7 +65,9 @@ function projectLinkName(row: ProjectRanking) {
 function healthCell(row: ProjectRanking) {
   return (
     <span style={{ color: healthColor(row.health_score) }}>
-      {row.health_score != null && !Number.isNaN(Number(row.health_score))
+      {row.health_score !== null &&
+      row.health_score !== undefined &&
+      !Number.isNaN(Number(row.health_score))
         ? Number(row.health_score).toFixed(1)
         : '—'}
     </span>
@@ -156,7 +158,8 @@ export const DashboardPage = () => {
       title: 'Days since last scan',
       field: 'days_since_last_scan',
       render: (row: any) =>
-        row.days_since_last_scan != null &&
+        row.days_since_last_scan !== null &&
+        row.days_since_last_scan !== undefined &&
         !Number.isNaN(row.days_since_last_scan)
           ? String(row.days_since_last_scan)
           : '—',
@@ -242,12 +245,16 @@ export const DashboardPage = () => {
           <SummaryMetric
             label="Avg Health"
             value={
-              avgHealth != null && !Number.isNaN(avgHealth)
+              avgHealth !== null &&
+              avgHealth !== undefined &&
+              !Number.isNaN(avgHealth)
                 ? avgHealth.toFixed(1)
                 : '—'
             }
             valueColor={
-              avgHealth != null && !Number.isNaN(avgHealth)
+              avgHealth !== null &&
+              avgHealth !== undefined &&
+              !Number.isNaN(avgHealth)
                 ? healthColor(avgHealth)
                 : undefined
             }

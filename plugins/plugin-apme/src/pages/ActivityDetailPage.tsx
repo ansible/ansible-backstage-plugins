@@ -409,9 +409,14 @@ export const ActivityDetailPage = () => {
           {filteredViolations.map(v => {
             const color = severityColor(v.level, v.rule_id);
             const label = severityLabel(v.level, v.rule_id);
-            const hasYaml = v.original_yaml != null || v.fixed_yaml != null;
+            const hasYaml =
+              (v.original_yaml !== null && v.original_yaml !== undefined) ||
+              (v.fixed_yaml !== null && v.fixed_yaml !== undefined);
             const hasAi = Boolean(v.ai_reason || v.ai_suggestion);
-            const fileLine = v.line != null ? `${v.file}:${v.line}` : v.file;
+            const fileLine =
+              v.line !== null && v.line !== undefined
+                ? `${v.file}:${v.line}`
+                : v.file;
 
             return (
               <Accordion key={v.id}>

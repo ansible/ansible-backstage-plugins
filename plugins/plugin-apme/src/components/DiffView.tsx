@@ -1,5 +1,3 @@
-import React from 'react';
-
 interface DiffViewProps {
   diff: string;
   className?: string;
