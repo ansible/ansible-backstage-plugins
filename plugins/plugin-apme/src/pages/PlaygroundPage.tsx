@@ -1,10 +1,4 @@
-import React, {
-  useCallback,
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-} from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ContentHeader } from '@backstage/core-components';
 import {
   Box,
@@ -108,7 +102,7 @@ export const PlaygroundPage = () => {
       collections: colls.length ? colls : undefined,
       enableAi,
       aiModel: enableAi
-        ? (localStorage.getItem(AI_MODEL_STORAGE_KEY) ?? undefined)
+        ? localStorage.getItem(AI_MODEL_STORAGE_KEY) ?? undefined
         : undefined,
     });
   }, [files, ansibleVersion, collections, enableAi, startSession]);
@@ -210,13 +204,12 @@ export const PlaygroundPage = () => {
               >
                 Select Directory
               </Button>
-              {/* @ts-expect-error webkitdirectory is non-standard */}
               <input
                 ref={dirInputRef}
                 type="file"
-                webkitdirectory=""
                 style={{ display: 'none' }}
                 onChange={handleFileSelect}
+                {...({ webkitdirectory: '' } as Record<string, string>)}
               />
             </Box>
             {files.length > 0 && (
@@ -322,10 +315,10 @@ export const PlaygroundPage = () => {
                 {rawStatus === 'connecting'
                   ? 'Connecting...'
                   : rawStatus === 'uploading'
-                    ? 'Uploading files...'
-                    : rawStatus === 'checking'
-                      ? 'Checking...'
-                      : 'Applying...'}
+                  ? 'Uploading files...'
+                  : rawStatus === 'checking'
+                  ? 'Checking...'
+                  : 'Applying...'}
               </Typography>
               <Button size="small" onClick={cancel}>
                 Cancel

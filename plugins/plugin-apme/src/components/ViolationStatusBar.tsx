@@ -1,4 +1,3 @@
-import React from 'react';
 import { Box, Typography } from '@material-ui/core';
 import type { ViolationDetail } from '../types/api';
 import { severityClass, SEVERITY_COLORS } from './severity';

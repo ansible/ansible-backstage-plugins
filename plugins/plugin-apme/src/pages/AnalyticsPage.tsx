@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react';
+import { useMemo } from 'react';
 import { useAsync } from 'react-use';
 import { useApi } from '@backstage/core-plugin-api';
 import {
@@ -10,12 +10,7 @@ import {
 } from '@backstage/core-components';
 import { Box, Typography } from '@material-ui/core';
 import { apmeApiRef } from '../api/ApmeApi';
-import type {
-  AiAcceptanceEntry,
-  RemediationRateEntry,
-  RuleDetail,
-  TopViolation,
-} from '../types/api';
+import type { AiAcceptanceEntry, RuleDetail } from '../types/api';
 import { severityColor } from '../components/severity';
 
 const LIMIT = 20;

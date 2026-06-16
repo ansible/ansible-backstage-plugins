@@ -1,4 +1,3 @@
-import React from 'react';
 import { Box, Card, CardContent, Chip, Typography } from '@material-ui/core';
 import type { DepHealthSummary } from '../types/api';
 import { SEVERITY_COLORS } from './severity';

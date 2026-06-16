@@ -1,10 +1,4 @@
-import React, {
-  useCallback,
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-} from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   useParams,
   useNavigate,
@@ -1015,8 +1009,8 @@ function OperationBanner({
             state.status === 'failed'
               ? '#f44336'
               : isDone
-                ? '#4caf50'
-                : '#1976d2'
+              ? '#4caf50'
+              : '#1976d2'
           }`,
         }}
       >

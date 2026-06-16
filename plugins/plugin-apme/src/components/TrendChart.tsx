@@ -1,4 +1,3 @@
-import React from 'react';
 import { Card, CardContent, Typography } from '@material-ui/core';
 import type { TrendPoint } from '../types/api';
 

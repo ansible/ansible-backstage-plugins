@@ -96,7 +96,9 @@ export const SessionDetailPage = () => {
     <>
       <ContentHeader
         title={session.project_path}
-        description={`Session ${session.session_id.slice(0, 12)}${session.session_id.length > 12 ? '…' : ''}`}
+        description={`Session ${session.session_id.slice(0, 12)}${
+          session.session_id.length > 12 ? '…' : ''
+        }`}
       />
 
       <Box mb={2}>
