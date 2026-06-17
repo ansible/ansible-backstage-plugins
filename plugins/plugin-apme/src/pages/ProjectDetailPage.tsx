@@ -371,9 +371,7 @@ export const ProjectDetailPage = () => {
     opState !== undefined &&
     ['queued', 'cloning', 'scanning', 'applying'].includes(opState.status);
   const hasOperation =
-    opState !== null &&
-    opState !== undefined &&
-    opState.status !== 'cancelled';
+    opState !== null && opState !== undefined && opState.status !== 'cancelled';
   const trendData: TrendPoint[] = trend ?? [];
   const breakdown = project.severity_breakdown || {};
 
@@ -981,10 +979,7 @@ function OperationBanner({
     'cancelled',
   ].includes(state.status);
   const awaiting = state.status === 'awaiting_approval';
-  const proposals = useMemo(
-    () => state.proposals ?? [],
-    [state.proposals],
-  );
+  const proposals = useMemo(() => state.proposals ?? [], [state.proposals]);
   const [selected, setSelected] = useState<Record<string, boolean>>({});
 
   useEffect(() => {

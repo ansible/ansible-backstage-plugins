@@ -124,9 +124,9 @@ export const GraphVisualization = ({ data }: { data: GraphData }) => {
       const nt = (dd.node_type as string) || 'task';
       const rawName = (dd.name as string) || n.id.split('/').pop() || n.id;
       const label =
-        rawName.length > 40 ? `${rawName.slice(0, 38)  }\u2026` : rawName;
+        rawName.length > 40 ? `${rawName.slice(0, 38)}\u2026` : rawName;
       const mod = (dd.module as string) || '';
-      const modLabel = mod.length > 35 ? `${mod.slice(0, 33)  }\u2026` : mod;
+      const modLabel = mod.length > 35 ? `${mod.slice(0, 33)}\u2026` : mod;
       const w = Math.max(
         textWidth(label, 11),
         modLabel ? textWidth(modLabel, 9) : 0,
@@ -155,7 +155,7 @@ export const GraphVisualization = ({ data }: { data: GraphData }) => {
       e => nodeSet.has(e.source) && nodeSet.has(e.target),
     );
     execEdges.forEach((e, i) =>
-      g.setEdge(e.source, e.target, { minlen: 1 }, `exec_${  i}`),
+      g.setEdge(e.source, e.target, { minlen: 1 }, `exec_${i}`),
     );
     dagre.layout(g);
 
@@ -171,7 +171,7 @@ export const GraphVisualization = ({ data }: { data: GraphData }) => {
     Object.entries(MARKER_COLORS).forEach(([type, color]) => {
       defs
         .append('marker')
-        .attr('id', `arr-${  type}`)
+        .attr('id', `arr-${type}`)
         .attr('viewBox', '0 -4 8 8')
         .attr('refX', 8)
         .attr('refY', 0)
@@ -191,17 +191,17 @@ export const GraphVisualization = ({ data }: { data: GraphData }) => {
       const nm = nodeMap[nodeId];
       if (!dn || !nm) return null;
       const cx = dn.x;
-        const cy = dn.y;
-        const hw = nm.w / 2;
-        const hh = nm.h / 2;
+      const cy = dn.y;
+      const hw = nm.w / 2;
+      const hh = nm.h / 2;
       const dx = toX - cx;
-        const dy = toY - cy;
+      const dy = toY - cy;
       if (dx === 0 && dy === 0) return { x: cx, y: cy + hh, nx: 0, ny: 1 };
       const sx = Math.abs(dx) > 0.001 ? hw / Math.abs(dx) : 1e6;
       const sy = Math.abs(dy) > 0.001 ? hh / Math.abs(dy) : 1e6;
       const s = Math.min(sx, sy);
       let nx = 0;
-        let ny = 0;
+      let ny = 0;
       if (s === sx) nx = dx > 0 ? 1 : -1;
       else ny = dy > 0 ? 1 : -1;
       return { x: cx + dx * s, y: cy + dy * s, nx, ny };
@@ -218,14 +218,14 @@ export const GraphVisualization = ({ data }: { data: GraphData }) => {
       const cp = Math.min(dist * 0.4, 60);
       group
         .append('path')
-        .attr('class', `graph-edge ${  cls}`)
+        .attr('class', `graph-edge ${cls}`)
         .attr(
           'd',
           `M${p1.x},${p1.y} C${p1.x + p1.nx * cp},${p1.y + p1.ny * cp} ${
             p2.x + p2.nx * cp
           },${p2.y + p2.ny * cp} ${p2.x},${p2.y}`,
         )
-        .attr('marker-end', `url(#arr-${  cls.split(' ')[0]  })`);
+        .attr('marker-end', `url(#arr-${cls.split(' ')[0]})`);
     }
 
     const flowGroup = container.append('g');
@@ -242,14 +242,14 @@ export const GraphVisualization = ({ data }: { data: GraphData }) => {
       const dn = g.node(n.id);
       if (!dn) return;
       const x = dn.x - n.w / 2;
-        const y = dn.y - n.h / 2;
+      const y = dn.y - n.h / 2;
       const color = NODE_COLORS[n.type] || '#484f58';
       const grp = nodeGroup
         .append('g')
         .attr('transform', `translate(${x},${y})`);
       grp
         .append('rect')
-        .attr('class', `graph-node ${  n.scope}`)
+        .attr('class', `graph-node ${n.scope}`)
         .attr('width', n.w)
         .attr('height', n.h)
         .attr('fill', color)
@@ -300,18 +300,18 @@ export const GraphVisualization = ({ data }: { data: GraphData }) => {
         .on('mousemove', (ev: any) => {
           const rect = containerRef.current!.getBoundingClientRect();
           tooltip
-            .style('left', `${ev.clientX - rect.left + 14  }px`)
-            .style('top', `${ev.clientY - rect.top - 14  }px`);
+            .style('left', `${ev.clientX - rect.left + 14}px`)
+            .style('top', `${ev.clientY - rect.top - 14}px`);
         })
         .on('mouseout', () => tooltip.style('display', 'none'));
     });
 
     const gInfo = g.graph();
     const gw = gInfo.width || 800;
-      const gh = gInfo.height || 600;
+    const gh = gInfo.height || 600;
     const scale = Math.min(W / (gw + 80), H / (gh + 80), 1.5) * 0.9;
     const tx = (W - gw * scale) / 2;
-      const ty = (H - gh * scale) / 2;
+    const ty = (H - gh * scale) / 2;
     svg
       .transition()
       .duration(500)
@@ -336,13 +336,13 @@ export const GraphVisualization = ({ data }: { data: GraphData }) => {
     const d3 = await import('d3');
     const svg = d3.select(svgRef.current);
     const W = containerRef.current.clientWidth;
-      const H = containerRef.current.clientHeight;
+    const H = containerRef.current.clientHeight;
     const gInfo = graphRef.current.graph();
     const gw = gInfo.width || 800;
-      const gh = gInfo.height || 600;
+    const gh = gInfo.height || 600;
     const scale = Math.min(W / (gw + 80), H / (gh + 80), 1.5) * 0.9;
     const tx = (W - gw * scale) / 2;
-      const ty = (H - gh * scale) / 2;
+    const ty = (H - gh * scale) / 2;
     svg
       .transition()
       .duration(500)

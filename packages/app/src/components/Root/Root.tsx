@@ -110,11 +110,7 @@ export const Root = ({ children }: PropsWithChildren<{}>) => (
             text="Git Repositories"
           />
           <SidebarDivider />
-          <SidebarItem
-            icon={ApmeLogo}
-            to="apme"
-            text="APME"
-          />
+          <SidebarItem icon={ApmeLogo} to="apme" text="APME" />
         </SidebarScrollWrapper>
       </SidebarGroup>
       <SidebarSpace />
