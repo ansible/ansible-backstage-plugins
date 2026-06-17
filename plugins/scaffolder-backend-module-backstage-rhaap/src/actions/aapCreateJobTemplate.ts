@@ -15,10 +15,10 @@ export const createJobTemplate = (ansibleServiceRef: IAAPService) => {
         token: z => z.string({ description: 'Oauth2 token' }),
         deleteIfExist: z =>
           z.boolean({ description: 'Delete project if exist' }),
-        values: z => z.record(z.string(), z.unknown()),
+        values: () => jobTemplateInputSchema.passthrough(),
       },
       output: {
-        template: z => z.record(z.string(), z.unknown()),
+        template: () => jobTemplateInputSchema.passthrough(),
       },
     },
     async handler(ctx) {

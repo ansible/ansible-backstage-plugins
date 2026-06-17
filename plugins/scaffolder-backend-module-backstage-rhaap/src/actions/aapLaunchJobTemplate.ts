@@ -19,7 +19,7 @@ export const launchJobTemplate = (
     schema: {
       input: {
         token: z => z.string({ description: 'Authorization token' }),
-        values: z => z.record(z.string(), z.unknown()),
+        values: () => launchJobTemplateFieldsSchema.passthrough(),
         waitForCompletion: z =>
           z
             .boolean({
@@ -29,7 +29,7 @@ export const launchJobTemplate = (
             .default(true),
       },
       output: {
-        data: z => z.record(z.string(), z.unknown()),
+        data: () => launchJobTemplateFieldsSchema.passthrough(),
       },
     },
     async handler(ctx) {

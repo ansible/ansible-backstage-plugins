@@ -18,10 +18,11 @@ export const createExecutionEnvironment = (ansibleServiceRef: IAAPService) => {
         token: z => z.string({ description: 'Oauth2 token' }),
         deleteIfExist: z =>
           z.boolean({ description: 'Delete project if exist' }),
-        values: z => z.record(z.string(), z.unknown()),
+        values: () => executionEnvironmentInputSchema.passthrough(),
       },
       output: {
-        executionEnvironment: z => z.record(z.string(), z.unknown()),
+        executionEnvironment: () =>
+          executionEnvironmentInputSchema.passthrough(),
       },
     },
     async handler(ctx) {

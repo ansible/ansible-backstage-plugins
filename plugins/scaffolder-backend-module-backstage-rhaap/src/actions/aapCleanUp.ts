@@ -13,7 +13,7 @@ export const cleanUp = (ansibleServiceRef: IAAPService) => {
     schema: {
       input: {
         token: z => z.string({ description: 'Oauth2 token' }),
-        values: z => z.record(z.string(), z.unknown()),
+        values: () => cleanUpInputSchema.passthrough(),
       },
       output: {
         cleanUp: z => z.string(),
