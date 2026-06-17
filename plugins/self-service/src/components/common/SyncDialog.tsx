@@ -38,7 +38,77 @@ import {
 import { useSharedStyles } from './styles';
 import { GitLabIcon, RedHatIcon } from './icons';
 import { useNotifications } from '../notifications';
-import { SYNC_STARTED_CATEGORY } from './constants';
+import { SYNC_FAILED_CATEGORY, SYNC_STARTED_CATEGORY } from './constants';
+
+type AnsibleSyncPostResult = {
+  status: string;
+  error?: { message?: string; code?: string };
+  repositoryName?: string;
+  scmProvider?: string;
+  hostName?: string;
+  organization?: string;
+};
+
+function labelForSyncPostResult(r: AnsibleSyncPostResult): string {
+  if (typeof r.repositoryName === 'string' && r.repositoryName.length > 0) {
+    return `PAH:${r.repositoryName}`;
+  }
+  const parts = [r.scmProvider, r.hostName, r.organization].filter(
+    (p): p is string => typeof p === 'string' && p.length > 0,
+  );
+  return parts.length > 0 ? parts.join(':') : 'Unknown source';
+}
+
+function formatSyncPostFailureDetail(
+  problems: AnsibleSyncPostResult[],
+): string {
+  return problems
+    .map(p => `${labelForSyncPostResult(p)}: ${p.error?.message ?? p.status}`)
+    .join('; ');
+}
+
+/** Throws when HTTP fails or the sync API reports failed/invalid results (including 2xx mixed bodies). */
+async function ensureSyncPostSucceeded(response: Response): Promise<void> {
+  let parsed: unknown;
+  try {
+    parsed = await response.json();
+  } catch {
+    parsed = undefined;
+  }
+
+  const body = parsed as Record<string, unknown> | undefined;
+
+  if (!response.ok) {
+    let fromErrorField: string | null = null;
+    if (typeof body?.error === 'string') {
+      fromErrorField = body.error;
+    } else if (
+      body?.error &&
+      typeof (body.error as { message?: unknown }).message === 'string'
+    ) {
+      fromErrorField = String((body.error as { message: string }).message);
+    }
+    const fromMessage = typeof body?.message === 'string' ? body.message : null;
+    throw new Error(
+      fromErrorField ||
+        fromMessage ||
+        response.statusText ||
+        `Request failed with status ${response.status}`,
+    );
+  }
+
+  if (!body || !Array.isArray(body.results)) {
+    return;
+  }
+
+  const results = body.results as AnsibleSyncPostResult[];
+  const problems = results.filter(
+    r => r.status === 'failed' || r.status === 'invalid',
+  );
+  if (problems.length > 0) {
+    throw new Error(formatSyncPostFailureDetail(problems));
+  }
+}
 
 interface ProviderInfo {
   sourceId: string;
@@ -47,6 +117,8 @@ interface ProviderInfo {
   hostName?: string;
   organization?: string;
   lastSyncTime: string | null;
+  lastSyncStatus?: 'success' | 'failure' | null;
+  lastFailedSyncTime?: string | null;
 }
 
 export const SyncDialog = ({
@@ -401,7 +473,7 @@ export const SyncDialog = ({
   };
 
   const getHostDisplayName = (provider: string, host: string): string => {
-    return provider === 'pah' ? `PAH/${host}` : host;
+    return provider === 'pah' ? `PAH:${host}` : host;
   };
 
   const collectSelectedNamesForHost = (
@@ -421,7 +493,7 @@ export const SyncDialog = ({
 
     for (const org of orgs) {
       if (selectedItems.has(`${provider}:${host}:${org}`)) {
-        names.push(`${host}/${org}`);
+        names.push(`${host}:${org}`);
       }
     }
     return names;
@@ -441,24 +513,32 @@ export const SyncDialog = ({
     baseUrl: string,
     filter: SyncFilter,
   ): Promise<void> => {
-    await fetchApi.fetch(`${baseUrl}/ansible/sync/from-scm/content`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ filters: [filter] }),
-    });
+    const response = await fetchApi.fetch(
+      `${baseUrl}/ansible/sync/from-scm/content`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ filters: [filter] }),
+      },
+    );
+    await ensureSyncPostSucceeded(response);
   };
 
   const syncPahSource = async (
     baseUrl: string,
     repositoryName: string,
   ): Promise<void> => {
-    await fetchApi.fetch(`${baseUrl}/ansible/sync/from-aap/content`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        filters: [{ repository_name: repositoryName }],
-      }),
-    });
+    const response = await fetchApi.fetch(
+      `${baseUrl}/ansible/sync/from-aap/content`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          filters: [{ repository_name: repositoryName }],
+        }),
+      },
+    );
+    await ensureSyncPostSucceeded(response);
   };
 
   const findProviderForSelection = (
@@ -480,7 +560,7 @@ export const SyncDialog = ({
 
   const getFilterDisplayName = (filter: SyncFilter): string => {
     if (filter.organization && filter.hostName) {
-      return `${filter.hostName}/${filter.organization}`;
+      return `${filter.hostName}:${filter.organization}`;
     }
     if (filter.hostName) {
       return filter.hostName;
@@ -490,6 +570,19 @@ export const SyncDialog = ({
     }
     return 'Unknown source';
   };
+
+  const startedSyncInfoFromCatalogProvider = (
+    p: ProviderInfo,
+  ): StartedSyncInfo => ({
+    sourceId: p.sourceId,
+    displayName:
+      p.hostName && p.organization
+        ? `${p.hostName}:${p.organization}`
+        : (p.hostName ?? p.repository ?? p.scmProvider ?? p.sourceId),
+    lastSyncTime: p.lastSyncTime ?? null,
+    lastSyncStatus: p.lastSyncStatus ?? null,
+    lastFailedSyncTime: p.lastFailedSyncTime ?? null,
+  });
 
   const handleSync = async () => {
     const filters = buildFilters();
@@ -510,59 +603,153 @@ export const SyncDialog = ({
       autoHideDuration: 30000,
     });
 
-    const startedSyncs: StartedSyncInfo[] = [];
     const pahFilters = filters.filter(f => f.scmProvider === 'pah');
     const scmFilters = filters.filter(f => f.scmProvider !== 'pah');
 
-    pahFilters.forEach(filter => {
-      if (filter.organization) {
-        const provider = findProviderForSelection('pah', filter.organization);
-        if (provider) {
-          startedSyncs.push({
-            sourceId: provider.sourceId,
-            displayName: `PAH/${filter.organization}`,
-            lastSyncTime: provider.lastSyncTime,
+    const baseUrl = await discoveryApi.getBaseUrl('catalog');
+
+    const syncJobs: Array<{
+      displayName: string;
+      tracking: StartedSyncInfo[];
+      run: () => Promise<void>;
+    }> = [];
+
+    for (const filter of pahFilters) {
+      const repositoryName = filter.organization;
+      if (repositoryName) {
+        // Individual PAH repository selected.
+        const provider = findProviderForSelection('pah', repositoryName);
+        syncJobs.push({
+          displayName: `PAH:${repositoryName}`,
+          tracking: provider
+            ? [
+                {
+                  sourceId: provider.sourceId,
+                  displayName: `PAH:${repositoryName}`,
+                  lastSyncTime: provider.lastSyncTime,
+                  lastSyncStatus: provider.lastSyncStatus ?? null,
+                  lastFailedSyncTime: provider.lastFailedSyncTime ?? null,
+                },
+              ]
+            : [],
+          run: () => syncPahSource(baseUrl, repositoryName),
+        });
+      } else {
+        // PAH provider-level selected: sync every repository individually since
+        // the PAH POST endpoint requires an explicit repository_name per request.
+        for (const p of providers.filter(prov => prov.repository)) {
+          const repoName = p.repository!;
+          syncJobs.push({
+            displayName: `PAH:${repoName}`,
+            tracking: [
+              {
+                sourceId: p.sourceId,
+                displayName: `PAH:${repoName}`,
+                lastSyncTime: p.lastSyncTime,
+                lastSyncStatus: p.lastSyncStatus ?? null,
+                lastFailedSyncTime: p.lastFailedSyncTime ?? null,
+              },
+            ],
+            run: () => syncPahSource(baseUrl, repoName),
           });
         }
       }
-    });
+    }
 
     scmFilters.forEach(filter => {
-      if (filter.scmProvider && filter.hostName) {
-        const provider = findProviderForSelection(
-          filter.scmProvider,
-          filter.hostName,
-          filter.organization,
-        );
-        if (provider) {
-          startedSyncs.push({
-            sourceId: provider.sourceId,
-            displayName: getFilterDisplayName(filter),
-            lastSyncTime: provider.lastSyncTime,
-          });
-        }
+      if (!filter.scmProvider) {
+        return;
       }
+      if (!filter.hostName) {
+        // Provider-only selection: one POST, one tracking entry per org under
+        // this provider.
+        const tracking = providers
+          .filter(p => p.scmProvider === filter.scmProvider)
+          .map(startedSyncInfoFromCatalogProvider);
+        syncJobs.push({
+          displayName: filter.scmProvider,
+          tracking,
+          run: () => syncScmSource(baseUrl, filter),
+        });
+        return;
+      }
+      if (!filter.organization) {
+        // Host-level selection: one POST covers all orgs under this host, but
+        // each org gets its own tracking entry so the popover and toasts report
+        // per-source outcomes (e.g. "github-public/org1", "github-public/org2").
+        const tracking = providers
+          .filter(
+            p =>
+              p.scmProvider === filter.scmProvider &&
+              p.hostName === filter.hostName,
+          )
+          .map(startedSyncInfoFromCatalogProvider);
+        syncJobs.push({
+          displayName: filter.hostName,
+          tracking,
+          run: () => syncScmSource(baseUrl, filter),
+        });
+        return;
+      }
+      // Leaf-org selection: one POST, one tracking entry for the specific org.
+      const provider = findProviderForSelection(
+        filter.scmProvider,
+        filter.hostName,
+        filter.organization,
+      );
+      const displayName = getFilterDisplayName(filter);
+      syncJobs.push({
+        displayName,
+        tracking: provider
+          ? [
+              {
+                sourceId: provider.sourceId,
+                displayName,
+                lastSyncTime: provider.lastSyncTime,
+                lastSyncStatus: provider.lastSyncStatus ?? null,
+                lastFailedSyncTime: provider.lastFailedSyncTime ?? null,
+              },
+            ]
+          : [],
+        run: () => syncScmSource(baseUrl, filter),
+      });
     });
 
-    if (onSyncsStarted && startedSyncs.length > 0) {
-      onSyncsStarted(startedSyncs);
+    const settled = await Promise.allSettled(syncJobs.map(j => j.run()));
+    const failures = settled.flatMap((r, i) => {
+      if (r.status !== 'rejected') return [];
+      const name = syncJobs[i]?.displayName;
+      const reason =
+        r.reason instanceof Error ? r.reason.message : String(r.reason);
+      return [name ? `${name}: ${reason}` : reason];
+    });
+
+    const succeededTracking = syncJobs.flatMap((job, i) =>
+      settled[i]?.status === 'fulfilled' ? job.tracking : [],
+    );
+
+    if (failures.length > 0) {
+      showNotification({
+        title:
+          failures.length === 1 ? 'Sync failed' : 'Some sync requests failed',
+        description: failures.join('\n'),
+        severity: 'error',
+        category: SYNC_FAILED_CATEGORY,
+        dismissCategories: [SYNC_STARTED_CATEGORY],
+        autoHideDuration: 0,
+      });
+      if (onSyncsStarted && succeededTracking.length > 0) {
+        onSyncsStarted(succeededTracking);
+      }
+      return;
+    }
+
+    const allTracking = syncJobs.flatMap(j => j.tracking);
+    if (onSyncsStarted && allTracking.length > 0) {
+      onSyncsStarted(allTracking);
     }
 
     handleClose();
-    const baseUrl = await discoveryApi.getBaseUrl('catalog');
-    const syncPromises: Promise<void>[] = [];
-
-    pahFilters.forEach(filter => {
-      if (filter.organization) {
-        syncPromises.push(syncPahSource(baseUrl, filter.organization));
-      }
-    });
-
-    scmFilters.forEach(filter => {
-      syncPromises.push(syncScmSource(baseUrl, filter));
-    });
-
-    await Promise.allSettled(syncPromises);
   };
 
   const hasSelections = selectedItems.size > 0;

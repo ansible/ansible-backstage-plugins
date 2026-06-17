@@ -25,6 +25,7 @@ import {
   UserInfoService,
   AuthService,
   PermissionsService,
+  SchedulerService,
 } from '@backstage/backend-plugin-api';
 import { AuthorizeResult } from '@backstage/plugin-permission-common';
 import { catalogEntityReadPermission } from '@backstage/plugin-catalog-common/alpha';
@@ -32,7 +33,9 @@ import {
   gitRepositoriesViewPermission,
   executionEnvironmentsViewPermission,
   collectionsViewPermission,
-} from '@ansible/backstage-rhaap-common/permissions';
+  ScmClientFactory,
+  SCM_INTEGRATION_AUTH_FAILED_CODE,
+} from '@ansible/backstage-rhaap-common';
 import { CatalogClient } from '@backstage/catalog-client';
 import { PAHCollectionProvider } from './providers/PAHCollectionProvider';
 import { AnsibleGitContentsProvider } from './providers/AnsibleGitContentsProvider';
@@ -50,8 +53,8 @@ import {
   createRequireSuperuserMiddleware,
   createRequireUserOrExternalAccessMiddleware,
   createPermissionCheckMiddleware,
-  handleGitHubCIActivity,
-  handleGitLabCIActivity,
+  fetchGitHubCIActivityData,
+  fetchGitLabCIActivityData,
   parseEeBuildRequestBody,
   validateGitHubHost,
   isKnownEeBuildError,
@@ -59,13 +62,14 @@ import {
   dispatchEeBuild,
   isScmIntegrationAuthFailure,
 } from './helpers';
-import { SCM_INTEGRATION_AUTH_FAILED_CODE } from '@ansible/backstage-rhaap-common/constants';
-import { ScmClientFactory } from '@ansible/backstage-rhaap-common';
+import { ConflictError } from '@backstage/errors';
 import { EEEntityProvider } from './providers/EEEntityProvider';
+import type { SyncStatus as ProviderSyncStatus } from './providers/SyncStateTracker';
 
 export async function createRouter(options: {
   logger: LoggerService;
   config: Config;
+  scheduler: SchedulerService;
   aapEntityProvider: AAPEntityProvider;
   jobTemplateProvider: AAPJobTemplateProvider;
   eeEntityProvider: EEEntityProvider;
@@ -81,6 +85,7 @@ export async function createRouter(options: {
   const {
     logger,
     config,
+    scheduler,
     aapEntityProvider,
     jobTemplateProvider,
     eeEntityProvider,
@@ -132,24 +137,46 @@ export async function createRouter(options: {
     response.json({ status: 'ok' });
   });
 
-  router.get(
+  const createAsyncSyncHandler = (
+    provider: { getTaskId(): string | undefined },
+    label: string,
+  ) => {
+    return async (_: express.Request, response: express.Response) => {
+      const taskId = provider.getTaskId();
+      if (!taskId) {
+        response.status(500).json({
+          status: 'failed',
+          error: 'Provider not yet initialized. Retry after startup.',
+        });
+        return;
+      }
+      try {
+        await scheduler.triggerTask(taskId);
+        logger.info(`Triggered ${label} sync via scheduler`);
+        response.status(202).json({ status: 'sync_started' });
+      } catch (err) {
+        if (err instanceof ConflictError) {
+          logger.info(`Skipping ${label} sync: already in progress`);
+          response.status(200).json({ status: 'already_syncing' });
+          return;
+        }
+        throw err;
+      }
+    };
+  };
+
+  router.post(
     '/ansible/sync/from-aap/orgs_users_teams',
+    express.json(),
     requireSuperuserMiddleware,
-    async (_, response) => {
-      logger.info('Starting orgs, users and teams sync');
-      const res = await aapEntityProvider.run();
-      response.status(200).json(res);
-    },
+    createAsyncSyncHandler(aapEntityProvider, 'orgs, users and teams'),
   );
 
-  router.get(
+  router.post(
     '/ansible/sync/from-aap/job_templates',
+    express.json(),
     requireSuperuserMiddleware,
-    async (_, response) => {
-      logger.info('Starting job templates sync');
-      const res = await jobTemplateProvider.run();
-      response.status(200).json(res);
-    },
+    createAsyncSyncHandler(jobTemplateProvider, 'job templates'),
   );
 
   router.get(
@@ -176,8 +203,18 @@ export async function createRouter(options: {
       try {
         const result: {
           aap?: {
-            orgsUsersTeams: { lastSync: string | null };
-            jobTemplates: { lastSync: string | null };
+            orgsUsersTeams: {
+              lastSync: string | null;
+              syncInProgress: boolean;
+              lastFailedSyncTime: string | null;
+              lastSyncStatus: ProviderSyncStatus;
+            };
+            jobTemplates: {
+              lastSync: string | null;
+              syncInProgress: boolean;
+              lastFailedSyncTime: string | null;
+              lastSyncStatus: ProviderSyncStatus;
+            };
           };
           content?: {
             syncInProgress: boolean;
@@ -192,7 +229,7 @@ export async function createRouter(options: {
               syncInProgress: boolean;
               lastSyncTime: string | null;
               lastFailedSyncTime: string | null;
-              lastSyncStatus: 'success' | 'failure' | null;
+              lastSyncStatus: ProviderSyncStatus;
               collectionsFound: number;
               collectionsDelta: number;
             }>;
@@ -204,9 +241,15 @@ export async function createRouter(options: {
           result.aap = {
             orgsUsersTeams: {
               lastSync: aapEntityProvider.getLastSyncTime(),
+              syncInProgress: aapEntityProvider.getIsSyncing(),
+              lastFailedSyncTime: aapEntityProvider.getLastFailedSyncTime(),
+              lastSyncStatus: aapEntityProvider.getLastSyncStatus(),
             },
             jobTemplates: {
               lastSync: jobTemplateProvider.getLastSyncTime(),
+              syncInProgress: jobTemplateProvider.getIsSyncing(),
+              lastFailedSyncTime: jobTemplateProvider.getLastFailedSyncTime(),
+              lastSyncStatus: jobTemplateProvider.getLastSyncStatus(),
             },
           };
         }
@@ -460,46 +503,50 @@ export async function createRouter(options: {
         error?: { code: string; message: string };
       }
 
-      const results: PAHSyncResult[] = providersToRun.map(provider => {
-        const repositoryName = provider.getPahRepositoryName();
-        const providerName = provider.getProviderName();
+      const results: PAHSyncResult[] = await Promise.all(
+        providersToRun.map(async provider => {
+          const repositoryName = provider.getPahRepositoryName();
+          const providerName = provider.getProviderName();
+          const taskId = provider.getTaskId();
 
-        const { started, skipped, error } = provider.startSync();
+          if (!taskId) {
+            logger.error(
+              `Cannot trigger sync for ${repositoryName}: provider not yet initialized`,
+            );
+            return {
+              repositoryName,
+              providerName,
+              status: 'failed' as SyncResultStatus,
+              error: {
+                code: 'SYNC_START_FAILED',
+                message: 'Provider not yet initialized. Retry after startup.',
+              },
+            };
+          }
 
-        if (skipped) {
-          logger.info(
-            `Skipping sync for ${repositoryName}: sync already in progress`,
-          );
+          try {
+            await scheduler.triggerTask(taskId);
+          } catch (err) {
+            if (err instanceof ConflictError) {
+              logger.info(
+                `Skipping sync for ${repositoryName}: sync already in progress`,
+              );
+              return {
+                repositoryName,
+                providerName,
+                status: 'already_syncing' as SyncResultStatus,
+              };
+            }
+            throw err;
+          }
+          logger.info(`Triggered sync for ${repositoryName} via scheduler`);
           return {
             repositoryName,
             providerName,
-            status: 'already_syncing' as SyncResultStatus,
+            status: 'sync_started' as SyncResultStatus,
           };
-        }
-
-        if (!started) {
-          logger.error(
-            `Failed to start sync for ${repositoryName}: ${
-              error ?? 'unknown error'
-            }`,
-          );
-          return {
-            repositoryName,
-            providerName,
-            status: 'failed' as SyncResultStatus,
-            error: {
-              code: 'SYNC_START_FAILED',
-              message: error ?? 'Failed to initiate sync for provider',
-            },
-          };
-        }
-
-        return {
-          repositoryName,
-          providerName,
-          status: 'sync_started' as SyncResultStatus,
-        };
-      });
+        }),
+      );
 
       results.push(...buildInvalidRepositoryResults(invalidRepositories));
 
@@ -570,51 +617,58 @@ export async function createRouter(options: {
         }`,
       );
 
-      const results: SCMSyncResult[] = providersToSync.map(provider => {
-        const sourceId = provider.getSourceId();
-        const providerName = provider.getProviderName();
-        const { scmProvider, hostName, organization } = parseSourceId(sourceId);
+      const results: SCMSyncResult[] = await Promise.all(
+        providersToSync.map(async provider => {
+          const sourceId = provider.getSourceId();
+          const providerName = provider.getProviderName();
+          const { scmProvider, hostName, organization } =
+            parseSourceId(sourceId);
+          const taskId = provider.getTaskId();
 
-        const { started, skipped, error } = provider.startSync();
+          if (!taskId) {
+            logger.error(
+              `Cannot trigger sync for ${sourceId}: provider not yet initialized`,
+            );
+            return {
+              scmProvider,
+              hostName,
+              organization,
+              providerName,
+              status: 'failed' as SyncResultStatus,
+              error: {
+                code: 'SYNC_START_FAILED',
+                message: 'Provider not yet initialized. Retry after startup.',
+              },
+            };
+          }
 
-        if (skipped) {
-          logger.info(
-            `Skipping sync for ${sourceId}: sync already in progress`,
-          );
+          try {
+            await scheduler.triggerTask(taskId);
+          } catch (err) {
+            if (err instanceof ConflictError) {
+              logger.info(
+                `Skipping sync for ${sourceId}: sync already in progress`,
+              );
+              return {
+                scmProvider,
+                hostName,
+                organization,
+                providerName,
+                status: 'already_syncing' as SyncResultStatus,
+              };
+            }
+            throw err;
+          }
+          logger.info(`Triggered sync for ${sourceId} via scheduler`);
           return {
             scmProvider,
             hostName,
             organization,
             providerName,
-            status: 'already_syncing' as SyncResultStatus,
+            status: 'sync_started' as SyncResultStatus,
           };
-        }
-
-        if (!started) {
-          logger.error(
-            `Failed to start sync for ${sourceId}: ${error ?? 'unknown error'}`,
-          );
-          return {
-            scmProvider,
-            hostName,
-            organization,
-            providerName,
-            status: 'failed' as SyncResultStatus,
-            error: {
-              code: 'SYNC_START_FAILED',
-              message: error ?? 'Failed to initiate sync for provider',
-            },
-          };
-        }
-
-        return {
-          scmProvider,
-          hostName,
-          organization,
-          providerName,
-          status: 'sync_started' as SyncResultStatus,
-        };
-      });
+        }),
+      );
 
       for (const { filter, error } of invalidFilters) {
         results.push({
@@ -784,59 +838,160 @@ export async function createRouter(options: {
     }
   });
 
-  // Unified CI activity proxy for GitHub and GitLab
-  // Query params:
+  // Batch CI activity proxy for GitHub Actions and GitLab Pipelines.
+  // POST body: { items: [{ key, provider, owner?, repo?, host?, projectPath?, per_page? }] }
   //   - provider: 'github' | 'gitlab' (required)
-  //   - host: hostname (optional, defaults based on provider)
-  //   - per_page: number of results (optional)
+  //   - host: SCM hostname (optional, defaults to github.com / gitlab.com)
+  //   - per_page: max results per repo (optional, default 15, max 100)
   //   GitHub-specific: owner, repo
   //   GitLab-specific: projectPath
-  router.get('/ansible/git/ci-activity', async (request, response) => {
-    const credentials = await httpAuth.credentials(request as any);
+  // Response: { results: { [key]: { status, data } | { error } } }
+  router.post(
+    '/ansible/git/ci-activity',
+    express.json(),
+    async (request, response) => {
+      const credentials = await httpAuth.credentials(request as any);
 
-    const [[gitRepoDecision], [catalogReadDecision]] = await Promise.all([
-      permissions.authorize([{ permission: gitRepositoriesViewPermission }], {
-        credentials,
-      }),
-      permissions.authorizeConditional(
-        [{ permission: catalogEntityReadPermission }],
-        { credentials },
-      ),
-    ]);
+      const [[gitRepoDecision], [catalogReadDecision]] = await Promise.all([
+        permissions.authorize([{ permission: gitRepositoriesViewPermission }], {
+          credentials,
+        }),
+        permissions.authorizeConditional(
+          [{ permission: catalogEntityReadPermission }],
+          { credentials },
+        ),
+      ]);
 
-    const hasGitRepoView = gitRepoDecision.result === AuthorizeResult.ALLOW;
-    const hasCatalogRead = catalogReadDecision.result !== AuthorizeResult.DENY;
+      const hasGitRepoView = gitRepoDecision.result === AuthorizeResult.ALLOW;
+      const hasCatalogRead =
+        catalogReadDecision.result !== AuthorizeResult.DENY;
 
-    if (!hasGitRepoView || !hasCatalogRead) {
-      response
-        .status(403)
-        .json({ error: 'Forbidden: insufficient permissions' });
-      return;
-    }
+      if (!hasGitRepoView || !hasCatalogRead) {
+        response
+          .status(403)
+          .json({ error: 'Forbidden: insufficient permissions' });
+        return;
+      }
 
-    const provider = (request.query.provider as string)?.toLowerCase();
-    const perPage = Math.min(Number(request.query.per_page) || 15, 100);
-    const ciActivityDeps = {
-      config,
-      logger,
-      scmIntegrations: scmClientFactory.integrations,
-      githubCredentialsProvider: scmClientFactory.githubCredentialsProvider,
-    };
+      const { items } = request.body as {
+        items?: Array<{
+          key: string;
+          provider: string;
+          owner?: string;
+          repo?: string;
+          host?: string;
+          projectPath?: string;
+          per_page?: number;
+        }>;
+      };
 
-    if (!provider || !['github', 'gitlab'].includes(provider)) {
-      response.status(400).json({
-        error:
-          "Missing or invalid 'provider' query parameter. Must be 'github' or 'gitlab'.",
-      });
-      return;
-    }
+      if (!Array.isArray(items) || items.length === 0) {
+        response
+          .status(400)
+          .json({ error: "'items' must be a non-empty array" });
+        return;
+      }
 
-    if (provider === 'github') {
-      await handleGitHubCIActivity(ciActivityDeps, request, response, perPage);
-    } else {
-      await handleGitLabCIActivity(ciActivityDeps, request, response, perPage);
-    }
-  });
+      if (items.length > 100) {
+        response
+          .status(400)
+          .json({ error: 'Maximum 100 items per batch request' });
+        return;
+      }
+
+      const seenKeys = new Set<string>();
+      for (const item of items) {
+        if (!item.key || typeof item.key !== 'string') {
+          response
+            .status(400)
+            .json({ error: "Each item must have a non-empty 'key'" });
+          return;
+        }
+        if (seenKeys.has(item.key)) {
+          response.status(400).json({ error: `Duplicate key: '${item.key}'` });
+          return;
+        }
+        seenKeys.add(item.key);
+      }
+
+      logger.info(`[ci-activity] Batch request: ${items.length} items`);
+
+      const ciActivityDeps = {
+        config,
+        logger,
+        scmIntegrations: scmClientFactory.integrations,
+        githubCredentialsProvider: scmClientFactory.githubCredentialsProvider,
+      };
+
+      const CONCURRENCY_LIMIT = 5;
+      const results: Record<
+        string,
+        { status: number; data: unknown } | { error: string }
+      > = {};
+
+      const processItem = async (
+        item: (typeof items)[number],
+      ): Promise<{ status: number; data: unknown } | { error: string }> => {
+        const prov = item.provider?.toLowerCase();
+        const perPage = Math.min(Number(item.per_page) || 15, 100);
+
+        if (prov === 'github') {
+          const result = await fetchGitHubCIActivityData(ciActivityDeps, {
+            owner: item.owner ?? '',
+            repo: item.repo ?? '',
+            host: item.host ?? 'github.com',
+            perPage,
+          });
+          return 'error' in result
+            ? { error: result.error }
+            : { status: result.status, data: result.data };
+        }
+        if (prov === 'gitlab') {
+          const result = await fetchGitLabCIActivityData(ciActivityDeps, {
+            projectPath: item.projectPath ?? '',
+            host: item.host ?? 'gitlab.com',
+            perPage,
+          });
+          return 'error' in result
+            ? { error: result.error }
+            : { status: result.status, data: result.data };
+        }
+        return { error: `Unknown provider: ${prov}` };
+      };
+
+      let index = 0;
+      const processNext = async (): Promise<void> => {
+        while (index < items.length) {
+          // safe: single-threaded JS, ++ completes before await
+          const currentIndex = index++;
+          const item = items[currentIndex];
+          try {
+            results[item.key] = await processItem(item);
+          } catch (err) {
+            const msg =
+              err instanceof Error ? err.message : 'Unknown error occurred';
+            logger.warn(`[ci-activity] Item '${item.key}' failed: ${msg}`);
+            results[item.key] = { error: msg };
+          }
+        }
+      };
+
+      const workers = Array.from(
+        { length: Math.min(CONCURRENCY_LIMIT, items.length) },
+        () => processNext(),
+      );
+      await Promise.all(workers);
+
+      const errorCount = Object.values(results).filter(
+        r => 'error' in r,
+      ).length;
+      if (errorCount > 0) {
+        logger.warn(`[ci-activity] ${errorCount}/${items.length} items failed`);
+      }
+
+      response.status(200).json({ results });
+    },
+  );
 
   return router;
 }

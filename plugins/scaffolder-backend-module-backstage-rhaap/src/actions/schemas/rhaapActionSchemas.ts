@@ -16,9 +16,7 @@
 
 import { z } from 'zod';
 
-export const aapApiRecordOutputSchema = z.record(z.string(), z.unknown());
-
-export const organizationSchema = z.object({
+const organizationSchema = z.object({
   id: z.number(),
   name: z.string(),
   namespace: z.string().optional(),
@@ -113,12 +111,6 @@ export const launchJobTemplateFieldsSchema = z.object({
   skipTags: z.string().optional(),
 });
 
-/** Loose scaffolder `values` record — shared by every `rhaap:*` action input. */
-export const launchJobTemplateValuesLooseSchema = z.record(
-  z.string(),
-  z.unknown(),
-);
-
 export const cleanUpInputSchema = z.object({
   project: projectInputSchema.partial().optional(),
   executionEnvironment: executionEnvironmentInputSchema.partial().optional(),
@@ -148,7 +140,21 @@ const additionalBuildStepSchema = z.object({
 
 export const eeDefinitionInputSchema = z
   .object({
-    eeFileName: z.string().min(1),
+    eeFileName: z
+      .string()
+      .min(1)
+      .max(
+        63,
+        'EE file name must not exceed 63 characters (Backstage catalog entity name limit)',
+      )
+      .regex(
+        /^[a-zA-Z0-9]([a-zA-Z0-9\-_.]*[a-zA-Z0-9])?$/,
+        'EE file name must consist of alphanumeric characters (a-z, A-Z, 0-9) optionally separated by hyphens, underscores, or dots, and must not start or end with a separator',
+      )
+      .refine(
+        val => !/\.ya?ml$/i.test(val),
+        'EE file name must not include a .yml or .yaml extension; provide the base name only',
+      ),
     eeDescription: z.string().min(1),
     publishToSCM: z.boolean(),
     customBaseImage: z.string().optional(),

@@ -20,7 +20,8 @@ export const CollectionsCatalogPage = () => {
   const [hasConfiguredSources, setHasConfiguredSources] = useState<
     boolean | null
   >(null);
-  const { isSyncInProgress, startTracking } = useSyncStatusPolling();
+  const { isSyncInProgress, syncProgress, startTracking } =
+    useSyncStatusPolling();
 
   const handleSyncClick = () => setSyncDialogOpen(true);
 
@@ -51,12 +52,16 @@ export const CollectionsCatalogPage = () => {
           onSyncClick={handleSyncClick}
           syncDisabled={syncDisabled}
           syncDisabledReason={syncDisabledReason}
+          syncInProgress={isSyncInProgress}
+          syncProgress={syncProgress}
         />
         <CollectionsContent
           onSyncClick={handleSyncClick}
           onSourcesStatusChange={handleSourcesStatusChange}
           syncDisabled={syncDisabled}
           syncDisabledReason={syncDisabledReason}
+          syncInProgress={isSyncInProgress}
+          syncProgress={syncProgress}
         />
         <SyncDialog
           open={syncDialogOpen}

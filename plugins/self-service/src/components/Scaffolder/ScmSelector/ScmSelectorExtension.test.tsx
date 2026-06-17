@@ -8,6 +8,10 @@ import {
 import { TestApiProvider } from '@backstage/test-utils';
 import { scmAuthApiRef } from '@backstage/integration-react';
 import { ScmSelectorExtension } from './ScmSelectorExtension';
+import {
+  FieldValidationProvider,
+  useFieldValidation,
+} from '../../CreateTask/FieldValidationContext';
 
 const mockSetSecrets = jest.fn();
 jest.mock('@backstage/plugin-scaffolder-react', () => ({
@@ -128,7 +132,7 @@ const defaultProps = {
   },
   formContext: {},
   registry: {} as any,
-  idSchema: {} as any,
+  idSchema: { $id: 'root' } as any,
   name: 'sourceControlProvider',
 };
 
@@ -136,6 +140,26 @@ const renderComponent = (props = {}) => {
   return render(
     <TestApiProvider apis={[[scmAuthApiRef, mockScmAuthApi]]}>
       <ScmSelectorExtension {...defaultProps} {...props} />
+    </TestApiProvider>,
+  );
+};
+
+const SubmitAttemptTrigger = () => {
+  const { notifySubmitAttempted } = useFieldValidation();
+  return (
+    <button onClick={notifySubmitAttempted} data-testid="trigger-submit">
+      Trigger Submit
+    </button>
+  );
+};
+
+const renderWithValidation = (props = {}) => {
+  return render(
+    <TestApiProvider apis={[[scmAuthApiRef, mockScmAuthApi]]}>
+      <FieldValidationProvider>
+        <ScmSelectorExtension {...defaultProps} {...props} />
+        <SubmitAttemptTrigger />
+      </FieldValidationProvider>
     </TestApiProvider>,
   );
 };
@@ -710,6 +734,252 @@ describe('ScmSelectorExtension', () => {
 
       await waitFor(() => {
         expect(screen.getByText(/merge request/i)).toBeInTheDocument();
+      });
+    });
+  });
+
+  describe('required field validation', () => {
+    it('shows "Please fill in this field." for namespace after submit attempted without org', async () => {
+      mockGlobalFetch(makeGithubFetchMock({ orgs: [{ login: 'my-org' }] }));
+
+      renderWithValidation({
+        formData: {
+          provider: 'github',
+          providerLabel: 'Github',
+          org: '',
+          repoName: '',
+          repoExists: false,
+        },
+      });
+
+      await waitFor(() => {
+        expect(screen.getByLabelText('Namespace')).toBeInTheDocument();
+      });
+
+      fireEvent.click(screen.getByTestId('trigger-submit'));
+
+      await waitFor(() => {
+        expect(
+          screen.getByText('Please fill in this field.'),
+        ).toBeInTheDocument();
+      });
+    });
+
+    it('does not show namespace error before submit is attempted', async () => {
+      mockGlobalFetch(makeGithubFetchMock({ orgs: [{ login: 'my-org' }] }));
+
+      renderWithValidation({
+        formData: {
+          provider: 'github',
+          providerLabel: 'Github',
+          org: '',
+          repoName: '',
+          repoExists: false,
+        },
+      });
+
+      await waitFor(() => {
+        expect(screen.getByLabelText('Namespace')).toBeInTheDocument();
+      });
+
+      expect(
+        screen.queryByText('Please fill in this field.'),
+      ).not.toBeInTheDocument();
+    });
+
+    it('hides namespace error once org is selected', async () => {
+      mockGlobalFetch(makeGithubFetchMock({ orgs: [{ login: 'my-org' }] }));
+
+      const onChange = jest.fn();
+      renderWithValidation({
+        onChange,
+        formData: {
+          provider: 'github',
+          providerLabel: 'Github',
+          org: '',
+          repoName: '',
+          repoExists: false,
+        },
+      });
+
+      await waitFor(() => {
+        expect(screen.getByLabelText('Namespace')).toBeInTheDocument();
+      });
+
+      fireEvent.click(screen.getByTestId('trigger-submit'));
+
+      await waitFor(() => {
+        expect(
+          screen.getByText('Please fill in this field.'),
+        ).toBeInTheDocument();
+      });
+
+      fireEvent.mouseDown(screen.getByLabelText('Namespace'));
+      const orgOption = await screen.findByRole('option', { name: 'my-org' });
+      fireEvent.click(orgOption);
+
+      expect(onChange).toHaveBeenCalledWith(
+        expect.objectContaining({ org: 'my-org' }),
+      );
+    });
+
+    it('shows "Please fill in this field." for repository name after submit attempted without repo', async () => {
+      mockGlobalFetch(makeGithubFetchMock());
+
+      renderWithValidation({
+        formData: {
+          provider: 'github',
+          providerLabel: 'Github',
+          org: 'my-org',
+          repoName: '',
+          repoExists: false,
+        },
+      });
+
+      await act(async () => {});
+
+      // repo field is the only textbox when org is already selected
+      expect(screen.getByRole('textbox')).toBeInTheDocument();
+
+      fireEvent.click(screen.getByTestId('trigger-submit'));
+
+      await waitFor(() => {
+        expect(
+          screen.getByText('Please fill in this field.'),
+        ).toBeInTheDocument();
+      });
+    });
+
+    it('does not show repo error before submit is attempted', async () => {
+      mockGlobalFetch(makeGithubFetchMock());
+
+      renderWithValidation({
+        formData: {
+          provider: 'github',
+          providerLabel: 'Github',
+          org: 'my-org',
+          repoName: '',
+          repoExists: false,
+        },
+      });
+
+      await act(async () => {});
+
+      expect(screen.getByRole('textbox')).toBeInTheDocument();
+      expect(
+        screen.queryByText('Please fill in this field.'),
+      ).not.toBeInTheDocument();
+    });
+
+    it('hides repo error once repository name is entered', async () => {
+      mockGlobalFetch(makeGithubFetchMock());
+
+      const onChange = jest.fn();
+      renderWithValidation({
+        onChange,
+        formData: {
+          provider: 'github',
+          providerLabel: 'Github',
+          org: 'my-org',
+          repoName: '',
+          repoExists: false,
+        },
+      });
+
+      await act(async () => {});
+
+      fireEvent.click(screen.getByTestId('trigger-submit'));
+
+      await waitFor(() => {
+        expect(
+          screen.getByText('Please fill in this field.'),
+        ).toBeInTheDocument();
+      });
+
+      // repo name is the only textbox visible when org is already selected
+      fireEvent.change(screen.getByRole('textbox'), {
+        target: { value: 'new-repo' },
+      });
+
+      expect(onChange).toHaveBeenCalledWith(
+        expect.objectContaining({ repoName: 'new-repo' }),
+      );
+    });
+  });
+
+  describe('auth error field validation', () => {
+    const HasErrorsDisplay = () => {
+      const { hasErrors } = useFieldValidation();
+      return (
+        <span data-testid="has-errors">{hasErrors ? 'true' : 'false'}</span>
+      );
+    };
+
+    const renderWithHasErrors = (props = {}) =>
+      render(
+        <TestApiProvider apis={[[scmAuthApiRef, mockScmAuthApi]]}>
+          <FieldValidationProvider>
+            <ScmSelectorExtension {...defaultProps} {...props} />
+            <HasErrorsDisplay />
+          </FieldValidationProvider>
+        </TestApiProvider>,
+      );
+
+    it('registers a field error when authentication is rejected so the next button is blocked', async () => {
+      mockScmAuthApi.getCredentials.mockRejectedValue(
+        new Error('Login failed, rejected by user'),
+      );
+      renderWithHasErrors();
+
+      const select = screen.getByRole('button', { name: /Source Control/i });
+      fireEvent.mouseDown(select);
+      const githubOption = await screen.findByText('Github');
+      fireEvent.click(githubOption);
+
+      await waitFor(() => {
+        expect(
+          screen.getByText('Login failed, rejected by user'),
+        ).toBeInTheDocument();
+      });
+
+      expect(screen.getByTestId('has-errors')).toHaveTextContent('true');
+    });
+
+    it('registers a field error when no token is received so the next button is blocked', async () => {
+      mockScmAuthApi.getCredentials.mockResolvedValue({ token: null });
+      renderWithHasErrors();
+
+      const select = screen.getByRole('button', { name: /Source Control/i });
+      fireEvent.mouseDown(select);
+      const githubOption = await screen.findByText('Github');
+      fireEvent.click(githubOption);
+
+      await waitFor(() => {
+        expect(
+          screen.getByText('No token received from authentication'),
+        ).toBeInTheDocument();
+      });
+
+      expect(screen.getByTestId('has-errors')).toHaveTextContent('true');
+    });
+
+    it('clears the field error after a successful authentication', async () => {
+      renderWithHasErrors({
+        formData: {
+          provider: 'github',
+          providerLabel: 'Github',
+          org: '',
+          repoName: '',
+          repoExists: false,
+        },
+      });
+
+      await waitFor(() => {
+        expect(mockScmAuthApi.getCredentials).toHaveBeenCalled();
+      });
+
+      await waitFor(() => {
+        expect(screen.getByTestId('has-errors')).toHaveTextContent('false');
       });
     });
   });

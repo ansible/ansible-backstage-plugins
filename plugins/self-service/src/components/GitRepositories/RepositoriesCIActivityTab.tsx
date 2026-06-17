@@ -1,8 +1,9 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Box, Link, Paper, Typography } from '@material-ui/core';
 import { useTheme } from '@material-ui/core/styles';
 import Autocomplete from '@material-ui/lab/Autocomplete';
 import TextField from '@material-ui/core/TextField';
+import CircularProgress from '@material-ui/core/CircularProgress';
 import CheckCircleOutline from '@material-ui/icons/CheckCircleOutline';
 import CancelOutlined from '@material-ui/icons/CancelOutlined';
 import NotInterestedOutlined from '@material-ui/icons/NotInterestedOutlined';
@@ -14,7 +15,6 @@ import {
   useApi,
   discoveryApiRef,
   fetchApiRef,
-  identityApiRef,
 } from '@backstage/core-plugin-api';
 import {
   catalogApiRef,
@@ -26,64 +26,20 @@ import {
   useCollectionsStyles,
   useTableWrapperStyles,
 } from '../CollectionsCatalog/styles';
-import { formatTimeAgo, getSourceUrl } from '../CollectionsCatalog/utils';
-import {
-  getGitHubOwnerRepo,
-  getGitLabProjectPath,
-  getProjectDisplayName,
-} from './scmUtils';
+import { formatTimeAgo } from '../CollectionsCatalog/utils';
+import { CIActivityRow, STATUS_LABELS } from './ciActivityUtils';
+import { ciActivityCache, CIActivityCacheState } from './ciActivityCache';
 
-export type CIActivityRow = {
-  id: string;
-  status:
-    | 'success'
-    | 'failure'
-    | 'cancelled'
-    | 'in_progress'
-    | 'queued'
-    | 'skipped'
-    | 'unknown';
-  project: string;
-  projectUrl?: string;
-  event: string;
-  eventDisplay: string;
-  trigger: string;
-  time: string;
-  runUrl?: string;
-};
-
-function normalizeGitLabStatus(
-  s: string | undefined | null,
-): CIActivityRow['status'] {
-  const status = (s ?? 'unknown').toLowerCase();
-  const map: Record<string, CIActivityRow['status']> = {
-    success: 'success',
-    failed: 'failure',
-    canceled: 'cancelled',
-    cancelled: 'cancelled',
-    running: 'in_progress',
-    pending: 'in_progress',
-    skipped: 'skipped',
-  };
-  return map[status] ?? 'unknown';
-}
-
-const STATUS_LABELS: Record<CIActivityRow['status'], string> = {
-  success: 'Success',
-  failure: 'Failure',
-  cancelled: 'Cancelled',
-  in_progress: 'In Progress',
-  queued: 'Queued',
-  skipped: 'Skipped',
-  unknown: 'Unknown',
-};
+export type { CIActivityRow };
 
 export interface RepositoriesCIActivityTabProps {
   filterByEntity?: Entity | null;
+  cachedEntities?: Entity[];
 }
 
 export const RepositoriesCIActivityTab = ({
   filterByEntity,
+  cachedEntities,
 }: RepositoriesCIActivityTabProps = {}) => {
   const theme = useTheme();
   const classes = useCollectionsStyles();
@@ -91,193 +47,51 @@ export const RepositoriesCIActivityTab = ({
   const catalogApi = useApi(catalogApiRef);
   const discoveryApi = useApi(discoveryApiRef);
   const fetchApi = useApi(fetchApiRef);
-  const identityApi = useApi(identityApiRef);
 
-  const [loading, setLoading] = useState(true);
-  const [rows, setRows] = useState<CIActivityRow[]>([]);
-  const [error, setError] = useState<string | null>(null);
+  const [cacheState, setCacheState] = useState<CIActivityCacheState | null>(
+    () => ciActivityCache.getState(),
+  );
   const [statusFilter, setStatusFilter] = useState<string>('All');
   const [triggerFilter, setTriggerFilter] = useState<string>('All');
 
-  const fetchActivity = useCallback(async () => {
-    setLoading(true);
-    setError(null);
-    setRows([]);
-
-    try {
-      let entities: Entity[];
-      if (filterByEntity) {
-        entities = [filterByEntity];
-      } else {
-        const response = await catalogApi.getEntities({
-          filter: [{ kind: 'Component', 'spec.type': 'git-repository' }],
-        });
-        entities = Array.isArray(response) ? response : (response?.items ?? []);
-      }
-      const githubEntities = entities.filter(
-        (e): e is Entity => getGitHubOwnerRepo(e) !== null,
-      );
-      const gitlabEntities = entities.filter(
-        (e): e is Entity => getGitLabProjectPath(e) !== null,
-      );
-
-      const allRows: CIActivityRow[] = [];
-      const runsPerRepo = 15;
-
-      const backstageCreds = await identityApi
-        .getCredentials()
-        .catch(() => ({ token: undefined }));
-
-      await Promise.all(
-        githubEntities.map(async entity => {
-          const gh = getGitHubOwnerRepo(entity);
-          const projectName = getProjectDisplayName(entity);
-          if (!gh) return;
-          const repoUrl = getSourceUrl(entity);
-          let host = 'github.com';
-          if (repoUrl) {
-            try {
-              host = new URL(repoUrl).hostname;
-            } catch {
-              // keep github.com
-            }
-          }
-          try {
-            const catalogBase = await discoveryApi.getBaseUrl('catalog');
-            const proxyUrl = `${catalogBase}/ansible/git/ci-activity?provider=github&owner=${encodeURIComponent(gh.owner)}&repo=${encodeURIComponent(gh.repo)}&host=${encodeURIComponent(host)}&per_page=${runsPerRepo}`;
-            const headers: Record<string, string> = {};
-            if (backstageCreds?.token) {
-              headers.Authorization = `Bearer ${backstageCreds.token}`;
-            }
-            const res = await fetchApi.fetch(proxyUrl, {
-              headers,
-              credentials: 'include',
-            });
-            if (!res.ok) return;
-            const data: {
-              workflow_runs?: Array<{
-                id: number;
-                run_number?: number;
-                name?: string | null;
-                status?: string | null;
-                conclusion?: string | null;
-                event?: string | null;
-                created_at?: string | null;
-                html_url?: string | null;
-              }>;
-            } = await res.json();
-            const runs = data.workflow_runs ?? [];
-            const baseUrl = (repoUrl ?? '').replace(/\.git$/i, '');
-            const projectUrl = baseUrl ? `${baseUrl}/actions` : undefined;
-            runs.forEach(run => {
-              const status = (
-                run.conclusion ??
-                run.status ??
-                'unknown'
-              ).toLowerCase();
-              const trigger = (run.event ?? 'unknown').replaceAll('_', ' ');
-              const eventName = run.name ?? 'Workflow';
-              const runNum = run.run_number ?? run.id;
-              allRows.push({
-                id: `gh-${entity.metadata?.name ?? ''}-${run.id}`,
-                status: ([
-                  'success',
-                  'failure',
-                  'cancelled',
-                  'in_progress',
-                  'queued',
-                  'skipped',
-                ].includes(status)
-                  ? status
-                  : 'unknown') as CIActivityRow['status'],
-                project: projectName,
-                projectUrl,
-                event: eventName,
-                eventDisplay: `${eventName} #${runNum}`,
-                trigger,
-                time: run.created_at ?? '',
-                runUrl: run.html_url ?? undefined,
-              });
-            });
-          } catch {
-            // Per-repo errors (e.g. 404, auth) skip that repo
-            // silently fail
-          }
-        }),
-      );
-
-      await Promise.all(
-        gitlabEntities.map(async entity => {
-          const path = getGitLabProjectPath(entity);
-          const projectName = getProjectDisplayName(entity);
-          const repoUrl = getSourceUrl(entity);
-          if (!path || !repoUrl) return;
-          try {
-            const baseUrl = repoUrl.replace(/\.git$/i, '');
-            const projectUrl = `${baseUrl}/-/pipelines`;
-            let host: string;
-            try {
-              const url = new URL(repoUrl);
-              host = url.hostname;
-            } catch {
-              return;
-            }
-            const catalogBase = await discoveryApi.getBaseUrl('catalog');
-            const proxyUrl = `${catalogBase}/ansible/git/ci-activity?provider=gitlab&projectPath=${encodeURIComponent(path)}&host=${encodeURIComponent(host)}&per_page=${runsPerRepo}`;
-            const headers: Record<string, string> = {};
-            if (backstageCreds?.token) {
-              headers.Authorization = `Bearer ${backstageCreds.token}`;
-            }
-            const res = await fetchApi.fetch(proxyUrl, {
-              headers,
-              credentials: 'include',
-            });
-            if (!res.ok) return;
-            const pipelines: Array<{
-              id: number;
-              status?: string | null;
-              source?: string | null;
-              created_at?: string | null;
-              web_url?: string | null;
-              ref?: string | null;
-            }> = await res.json();
-            pipelines.forEach(pipeline => {
-              const trigger = (pipeline.source ?? 'unknown').replaceAll(
-                '_',
-                ' ',
-              );
-              allRows.push({
-                id: `gl-${entity.metadata?.name ?? ''}-${pipeline.id}`,
-                status: normalizeGitLabStatus(pipeline.status),
-                project: projectName,
-                projectUrl,
-                event: 'Pipeline',
-                eventDisplay: `Pipeline #${pipeline.id}`,
-                trigger,
-                time: pipeline.created_at ?? '',
-                runUrl: pipeline.web_url ?? undefined,
-              });
-            });
-          } catch {
-            // Per-repo errors (e.g. 404, auth) skip that repo
-          }
-        }),
-      );
-
-      allRows.sort(
-        (a, b) => new Date(b.time).getTime() - new Date(a.time).getTime(),
-      );
-      setRows(allRows.slice(0, 150));
-    } catch (e) {
-      setError(e instanceof Error ? e.message : 'Failed to load CI activity');
-    } finally {
-      setLoading(false);
-    }
-  }, [catalogApi, discoveryApi, fetchApi, identityApi, filterByEntity]);
-
   useEffect(() => {
-    fetchActivity();
-  }, [fetchActivity]);
+    let cancelled = false;
+    const unsubscribe = ciActivityCache.subscribe(setCacheState);
+
+    if (filterByEntity) {
+      ciActivityCache.startLoading([filterByEntity], discoveryApi, fetchApi);
+    } else if (cachedEntities && cachedEntities.length > 0) {
+      ciActivityCache.startLoading(cachedEntities, discoveryApi, fetchApi);
+    } else {
+      catalogApi
+        .getEntities({
+          filter: [{ kind: 'Component', 'spec.type': 'git-repository' }],
+        })
+        .then(response => {
+          if (cancelled) return;
+          const items = Array.isArray(response)
+            ? response
+            : (response?.items ?? []);
+          ciActivityCache.startLoading(items, discoveryApi, fetchApi);
+        })
+        .catch(e => {
+          if (cancelled) return;
+          ciActivityCache.setError(
+            e instanceof Error ? e.message : 'Failed to load entities',
+          );
+        });
+    }
+
+    return () => {
+      cancelled = true;
+      unsubscribe();
+    };
+  }, [discoveryApi, fetchApi, catalogApi, filterByEntity, cachedEntities]);
+
+  const rows = useMemo(() => cacheState?.rows ?? [], [cacheState?.rows]);
+  const loading = cacheState?.loading ?? !cacheState;
+  const fetchingMore = cacheState?.fetchingMore ?? false;
+  const error = cacheState?.error ?? null;
 
   const statusOptions = useMemo(() => {
     const statuses = Array.from(new Set(rows.map(r => r.status))).sort((a, b) =>
@@ -330,7 +144,7 @@ export const RepositoriesCIActivityTab = ({
     );
   }
 
-  if (rows.length === 0) {
+  if (rows.length === 0 && !fetchingMore) {
     return (
       <Box className={classes.emptyStateContainer}>
         <Box className={classes.emptyState}>
@@ -556,7 +370,17 @@ export const RepositoriesCIActivityTab = ({
         <CatalogFilterLayout.Content>
           <Box className={tableWrapperClasses.tableWrapper}>
             <Table
-              title={`CI Activity (${filteredRows.length})`}
+              title={
+                <>
+                  {`CI Activity (${filteredRows.length})`}
+                  {fetchingMore && (
+                    <CircularProgress
+                      size={16}
+                      style={{ marginLeft: 8, verticalAlign: 'middle' }}
+                    />
+                  )}
+                </>
+              }
               options={{
                 search: true,
                 paging: true,

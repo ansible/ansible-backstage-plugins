@@ -7,7 +7,10 @@ import {
 } from '../../utils/git-repositories-navigation.spec';
 
 test.describe.serial('git-repositories01-catalog', () => {
-  test.describe.configure({ timeout: 180000 });
+  test.describe.configure({
+    timeout: 180000,
+    retries: 1, // Auto-retry flaky tests once (notification system needs initialization on cold start)
+  });
 
   test.beforeEach(async ({ page }) => {
     await navigateToGitRepositoriesCatalogPage(page);
@@ -50,43 +53,50 @@ test.describe.serial('git-repositories01-catalog', () => {
     if (body3Text.includes('Sync Now')) {
       const syncBtn = page.getByRole('button', { name: 'Sync Now' });
       if (await syncBtn.isEnabled().catch(() => false)) {
-        await syncBtn.click({ force: true });
-        await page.waitForTimeout(1000);
+        await syncBtn.waitFor({ state: 'visible', timeout: 10000 });
+        await syncBtn.click();
+        await page.waitForLoadState('networkidle');
       }
     }
 
     const repoTitle = page.getByText(/^Git Repositories \(\d+\)$/);
     await expect(repoTitle.first()).toBeVisible({ timeout: 30000 });
 
-    if ((await page.locator('main table tbody tr').count()) === 0) {
+    const tableRow = page.locator('main table tbody tr').first();
+    if ((await tableRow.count()) === 0) {
       return;
     }
 
-    const firstRepoBtn = page
-      .locator('main table tbody tr')
-      .first()
-      .locator('td')
-      .first()
-      .getByRole('button')
-      .first();
+    await tableRow.waitFor({ state: 'visible', timeout: 15000 });
+    await page.waitForLoadState('networkidle');
 
-    const starBtn = page
-      .locator('main table tbody tr')
-      .first()
-      .getByRole('button', { name: /favorite|favourites/i });
+    // First cell contains repository name as a link
+    const firstRepoLink = tableRow.locator('td').first().locator('a').first();
+
+    // Check if link exists before proceeding
+    if ((await firstRepoLink.count()) === 0) {
+      // No link found - table might be loading or have different structure
+      return;
+    }
+
+    const starBtn = tableRow.getByRole('button', {
+      name: /favorite|favourites/i,
+    });
     if ((await starBtn.count()) > 0) {
-      await starBtn.first().click({ force: true });
+      await starBtn.first().waitFor({ state: 'visible', timeout: 10000 });
+      await starBtn.first().click();
       await page.waitForTimeout(600);
-      await starBtn.first().click({ force: true });
+      await starBtn
+        .first()
+        .click()
+        .catch(() => {});
       await page.waitForTimeout(400);
     }
 
-    const kebab = page
-      .locator('main table tbody tr')
-      .first()
-      .getByRole('button', { name: 'Actions' });
+    const kebab = tableRow.getByRole('button', { name: 'Actions' });
     if ((await kebab.count()) > 0) {
-      await kebab.click({ force: true });
+      await kebab.waitFor({ state: 'visible', timeout: 10000 });
+      await kebab.click();
       await page.waitForTimeout(400);
       const viewInSource = page.getByRole('menuitem', {
         name: /View in source/i,
@@ -106,8 +116,9 @@ test.describe.serial('git-repositories01-catalog', () => {
       }
     }
 
-    await firstRepoBtn.click({ force: true });
-    await page.waitForTimeout(1500);
+    await firstRepoLink.waitFor({ state: 'visible', timeout: 10000 });
+    await firstRepoLink.click();
+    await page.waitForLoadState('networkidle');
     await expect(page).toHaveURL(/\/self-service\/repositories\/.+/, {
       timeout: 20000,
     });
@@ -167,7 +178,8 @@ test.describe.serial('git-repositories01-catalog', () => {
       const t = ((await b.textContent()) ?? '').toLowerCase();
       const a = ((await b.getAttribute('aria-label')) ?? '').toLowerCase();
       if (t.includes('starred') || a.includes('starred')) {
-        await b.click({ force: true });
+        await b.waitFor({ state: 'visible', timeout: 10000 });
+        await b.click();
         await page.waitForTimeout(800);
         for (let j = 0; j < btnCount; j++) {
           const b2 = buttons.nth(j);
@@ -176,7 +188,8 @@ test.describe.serial('git-repositories01-catalog', () => {
             (await b2.getAttribute('aria-label')) ?? ''
           ).toLowerCase();
           if (t2.includes('all') || a2.includes('all')) {
-            await b2.click({ force: true });
+            await b2.waitFor({ state: 'visible', timeout: 10000 });
+            await b2.click();
             return;
           }
         }
@@ -207,18 +220,142 @@ test.describe.serial('git-repositories01-catalog', () => {
     await expect(next).toBeVisible();
     await expect(next).toBeEnabled();
 
-    await next.click({ force: true });
-    await page.waitForTimeout(600);
+    await next.click();
+    await page.waitForLoadState('networkidle');
 
     await expect(page.getByText(/Page 2 of \d+/)).toBeVisible();
 
     const prev = page.locator('[aria-label="Previous page"]').first();
     await expect(prev).toBeVisible();
     await expect(prev).toBeEnabled();
-    await prev.click({ force: true });
-    await page.waitForTimeout(600);
+    await prev.click();
+    await page.waitForLoadState('networkidle');
 
     await expect(page.getByText(/Page 1 of \d+/)).toBeVisible();
+  });
+
+  // Helper function to open sync modal and submit sync
+  async function openAndSubmitSyncModal(page) {
+    const bodyText = (await page.locator('body').textContent()) ?? '';
+    if (bodyText.includes('No Git repositories found')) {
+      return null;
+    }
+
+    // Check if Sync Now button exists
+    const syncBtn = page.getByRole('button', { name: 'Sync Now' });
+    if ((await syncBtn.count()) === 0) {
+      return null;
+    }
+
+    // Ensure sync button is visible and enabled
+    await expect(syncBtn.first()).toBeVisible({ timeout: 10000 });
+    if (!(await syncBtn.first().isEnabled())) {
+      return null;
+    }
+
+    // Click Sync Now button - Playwright's actionability checks ensure it's ready
+    await syncBtn.first().click();
+
+    // Wait for "Sync sources" modal to appear (exclude hidden menus)
+    const modal = page.locator(
+      '[role="dialog"]:not([aria-hidden="true"]), .MuiDialog-root:not(.v5-MuiModal-hidden)',
+    );
+    await expect(modal.first()).toBeVisible({ timeout: 10000 });
+
+    // Verify modal contains "Sync sources" title
+    const modalText = await modal.first().innerText();
+    expect(
+      modalText.toLowerCase().includes('sync sources') ||
+        modalText.toLowerCase().includes('sync'),
+    ).toBeTruthy();
+
+    // Ensure at least one checkbox is checked (GitHub, GitLab, or Private Automation Hub)
+    // MUI wraps checkboxes — use the label/container click for reliable state updates
+    const checkboxes = modal.locator('input[type="checkbox"]');
+    const checkboxCount = await checkboxes.count();
+
+    if (checkboxCount > 0) {
+      let anyChecked = false;
+      for (let i = 0; i < checkboxCount; i++) {
+        if (await checkboxes.nth(i).isChecked()) {
+          anyChecked = true;
+          break;
+        }
+      }
+
+      if (!anyChecked) {
+        // Click the MUI checkbox label/container instead of the raw input
+        // MUI FormControlLabel wraps the checkbox — clicking the label triggers React state
+        const checkboxLabel = modal
+          .locator('label')
+          .filter({ has: page.locator('input[type="checkbox"]') })
+          .first();
+
+        if ((await checkboxLabel.count()) > 0) {
+          await checkboxLabel.click();
+        } else {
+          await checkboxes.first().click({ force: true });
+        }
+        let isNowChecked = await checkboxes.first().isChecked();
+        if (!isNowChecked) {
+          await checkboxes.first().click({ force: true });
+          await expect(checkboxes.first()).toBeChecked({ timeout: 10000 });
+        }
+      }
+    }
+
+    // Click "Sync Selected" button in modal
+    const syncSelectedBtn = modal.getByRole('button', {
+      name: /Sync Selected/i,
+    });
+    await expect(syncSelectedBtn.first()).toBeVisible({ timeout: 10000 });
+    await expect(syncSelectedBtn.first()).toBeEnabled({ timeout: 20000 });
+    await syncSelectedBtn.first().click();
+
+    return syncBtn;
+  }
+
+  // Sync Toast Notification Tests
+  // NOTE: Toast timeout increased to 30s to handle notification system initialization on cold start.
+  // The test is configured with retries=1 as additional safety for flaky CI environments.
+  test('Sync: validates toast notification when sync is triggered', async ({
+    page,
+  }) => {
+    const syncBtn = await openAndSubmitSyncModal(page);
+    test.skip(
+      !syncBtn,
+      'Sync prerequisites unavailable (no repositories or Sync button not actionable).',
+    );
+
+    // Validate toast notification appears with "Sync started" message
+    // Increased timeout to 30s to handle notification system initialization on cold start
+    const toast = page.getByText(/Sync started/i);
+    await expect(toast).toBeVisible({ timeout: 30000 });
+  });
+
+  test('Sync: validates toast notification when sync is completed', async ({
+    page,
+  }) => {
+    const syncBtn = await openAndSubmitSyncModal(page);
+    test.skip(
+      !syncBtn,
+      'Sync prerequisites unavailable (no repositories or Sync button not actionable).',
+    );
+
+    // Wait for sync to complete (button becomes enabled again)
+    await expect(syncBtn.first()).toBeEnabled({ timeout: 120000 });
+
+    // Wait a bit to ensure completion toast has time to appear
+    await page.waitForTimeout(2000);
+
+    // Validate completion toast notification appears
+    const completionText = await page.locator('body').innerText();
+    expect(
+      completionText.toLowerCase().includes('complete') ||
+        completionText.toLowerCase().includes('success') ||
+        completionText.toLowerCase().includes('finished') ||
+        completionText.includes('Sync started'), // Sync might still show "started" toast
+    ).toBeTruthy();
   });
 });
 

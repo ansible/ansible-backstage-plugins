@@ -27,7 +27,7 @@ import {
 import { scmCollectionParser, repositoryParser } from './entityParser';
 import { readAnsibleGitContentsConfigs } from './config';
 
-const DEFAULT_CRAWL_DEPTH = 5;
+const DEFAULT_CRAWL_DEPTH = 1;
 const DEFAULT_BATCH_SIZE = 20;
 
 export class AnsibleGitContentsProvider implements EntityProvider {
@@ -43,6 +43,7 @@ export class AnsibleGitContentsProvider implements EntityProvider {
   private lastSyncCollections: number = 0;
   private lastSyncNewCollections: number = 0;
   private isSyncing: boolean = false;
+  private taskId: string | undefined;
   static readonly pluginLogName = 'plugin-catalog-rhaap-git-contents';
 
   static async fromConfig(
@@ -116,7 +117,9 @@ export class AnsibleGitContentsProvider implements EntityProvider {
 
         providers.push(provider);
         logger.info(
-          `[${this.pluginLogName}]: Initialized provider for ${provider.getProviderName()}`,
+          `[${
+            this.pluginLogName
+          }]: Initialized provider for ${provider.getProviderName()}`,
         );
       } catch (error) {
         const sourceId = generateSourceId(sourceConfig);
@@ -154,30 +157,40 @@ export class AnsibleGitContentsProvider implements EntityProvider {
         `[${AnsibleGitContentsProvider.pluginLogName}]: Creating schedule for ${this.sourceId}`,
       );
 
-      return taskRunner.run({
-        id: taskId,
-        fn: async (signal?: AbortSignal) => {
-          try {
-            await this.run(signal);
-          } catch (error) {
-            if (isError(error)) {
-              this.logger.error(
-                `[${AnsibleGitContentsProvider.pluginLogName}]: Error syncing collections from ${this.sourceId}`,
-                {
-                  name: error.name,
-                  message: error.message,
-                  stack: error.stack,
-                },
-              );
+      try {
+        await taskRunner.run({
+          id: taskId,
+          fn: async (signal?: AbortSignal) => {
+            try {
+              await this.run(signal);
+            } catch (error) {
+              if (isError(error)) {
+                this.logger.error(
+                  `[${AnsibleGitContentsProvider.pluginLogName}]: Error syncing collections from ${this.sourceId}`,
+                  {
+                    name: error.name,
+                    message: error.message,
+                    stack: error.stack,
+                  },
+                );
+              }
             }
-          }
-        },
-      });
+          },
+        });
+        this.taskId = taskId;
+      } catch (error) {
+        this.taskId = undefined;
+        throw error;
+      }
     };
   }
 
   getProviderName(): string {
     return `AnsibleGitContentsProvider:${this.sourceId}`;
+  }
+
+  getTaskId(): string | undefined {
+    return this.taskId;
   }
 
   getSourceId(): string {
@@ -297,7 +310,11 @@ export class AnsibleGitContentsProvider implements EntityProvider {
       );
 
       this.logger.info(
-        `[${AnsibleGitContentsProvider.pluginLogName}]: Processing batch ${batchIndex + 1}/${totalBatches} (repos ${batchStart + 1}-${batchEnd} of ${repos.length})`,
+        `[${AnsibleGitContentsProvider.pluginLogName}]: Processing batch ${
+          batchIndex + 1
+        }/${totalBatches} (repos ${batchStart + 1}-${batchEnd} of ${
+          repos.length
+        })`,
       );
 
       await this.processBatch(
@@ -368,7 +385,13 @@ export class AnsibleGitContentsProvider implements EntityProvider {
     try {
       if (batchIndex === 0) {
         this.logger.info(
-          `[${AnsibleGitContentsProvider.pluginLogName}]: Discovery options: branches=${JSON.stringify(this.sourceConfig.branches)}, tags=${JSON.stringify(this.sourceConfig.tags)}, crawlDepth=${this.sourceConfig.crawlDepth || DEFAULT_CRAWL_DEPTH}`,
+          `[${
+            AnsibleGitContentsProvider.pluginLogName
+          }]: Discovery options: branches=${JSON.stringify(
+            this.sourceConfig.branches,
+          )}, tags=${JSON.stringify(this.sourceConfig.tags)}, crawlDepth=${
+            this.sourceConfig.crawlDepth || DEFAULT_CRAWL_DEPTH
+          }`,
         );
       }
 
@@ -400,7 +423,9 @@ export class AnsibleGitContentsProvider implements EntityProvider {
       const batchErrorMessage =
         batchError instanceof Error ? batchError.message : String(batchError);
       this.logger.warn(
-        `[${AnsibleGitContentsProvider.pluginLogName}]: Error processing batch ${batchIndex + 1}: ${batchErrorMessage}`,
+        `[${
+          AnsibleGitContentsProvider.pluginLogName
+        }]: Error processing batch ${batchIndex + 1}: ${batchErrorMessage}`,
       );
     }
   }
@@ -444,7 +469,9 @@ export class AnsibleGitContentsProvider implements EntityProvider {
   ): Promise<void> {
     if (uniqueInBatch.length === 0) {
       this.logger.info(
-        `[${AnsibleGitContentsProvider.pluginLogName}]: Batch ${batchIndex + 1} found no unique collections`,
+        `[${AnsibleGitContentsProvider.pluginLogName}]: Batch ${
+          batchIndex + 1
+        } found no unique collections`,
       );
       return;
     }
@@ -453,7 +480,11 @@ export class AnsibleGitContentsProvider implements EntityProvider {
     allEntities.push(...batchEntities);
 
     this.logger.info(
-      `[${AnsibleGitContentsProvider.pluginLogName}]: Batch ${batchIndex + 1} found ${totalGalaxyFiles} galaxy files, ${uniqueInBatch.length} unique collections`,
+      `[${AnsibleGitContentsProvider.pluginLogName}]: Batch ${
+        batchIndex + 1
+      } found ${totalGalaxyFiles} galaxy files, ${
+        uniqueInBatch.length
+      } unique collections`,
     );
 
     await this.connection!.applyMutation({
@@ -466,7 +497,9 @@ export class AnsibleGitContentsProvider implements EntityProvider {
     });
 
     this.logger.info(
-      `[${AnsibleGitContentsProvider.pluginLogName}]: Added ${batchEntities.length} collections from batch ${batchIndex + 1}`,
+      `[${AnsibleGitContentsProvider.pluginLogName}]: Added ${
+        batchEntities.length
+      } collections from batch ${batchIndex + 1}`,
     );
   }
 
@@ -475,7 +508,13 @@ export class AnsibleGitContentsProvider implements EntityProvider {
     repositoryCount: number,
   ): Promise<void> {
     this.logger.info(
-      `[${AnsibleGitContentsProvider.pluginLogName}]: Applying final reconciliation with ${allEntities.length} total entities (${allEntities.length - repositoryCount} collections + ${repositoryCount} repositories)`,
+      `[${
+        AnsibleGitContentsProvider.pluginLogName
+      }]: Applying final reconciliation with ${
+        allEntities.length
+      } total entities (${
+        allEntities.length - repositoryCount
+      } collections + ${repositoryCount} repositories)`,
     );
 
     await this.connection!.applyMutation({
@@ -520,7 +559,7 @@ export class AnsibleGitContentsProvider implements EntityProvider {
     } else if (typeof e === 'object' && e !== null) {
       errorMessage = JSON.stringify(e);
     } else {
-      errorMessage = String(e);
+      errorMessage = String(e); // NOSONAR - skip stringification
     }
     const isAbort = errorMessage.startsWith('SCM sync aborted');
 

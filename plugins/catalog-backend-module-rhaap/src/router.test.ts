@@ -58,6 +58,7 @@ jest.mock('@ansible/backstage-rhaap-common', () => {
 import express from 'express';
 import request from 'supertest';
 import { createRouter } from './router';
+import { clearCIActivityCache } from './helpers';
 import { AAPEntityProvider } from './providers/AAPEntityProvider';
 import { AAPJobTemplateProvider } from './providers/AAPJobTemplateProvider';
 import { EEEntityProvider } from './providers/EEEntityProvider';
@@ -68,7 +69,9 @@ import {
   UserInfoService,
   AuthService,
   PermissionsService,
+  SchedulerService,
 } from '@backstage/backend-plugin-api';
+import { ConflictError } from '@backstage/errors';
 import { AuthorizeResult } from '@backstage/plugin-permission-common';
 import { CatalogClient } from '@backstage/catalog-client';
 import type { AnsibleGitContentsProvider } from './providers/AnsibleGitContentsProvider';
@@ -78,13 +81,18 @@ import { SCM_INTEGRATION_AUTH_FAILED_CODE } from '@ansible/backstage-rhaap-commo
 function createMockGitContentsProvider(
   overrides: {
     sourceId?: string;
-    startSync?: () => { started: boolean; skipped?: boolean; error?: string };
+    taskId?: string | undefined;
   } = {},
 ): jest.Mocked<AnsibleGitContentsProvider> {
   const sourceId = overrides.sourceId ?? 'dev:github:github.com:my-org';
+  const taskId =
+    'taskId' in overrides
+      ? overrides.taskId
+      : `AnsibleGitContentsProvider:${sourceId}:run`;
   return {
     getSourceId: jest.fn().mockReturnValue(sourceId),
     getProviderName: jest.fn().mockReturnValue('Git Contents'),
+    getTaskId: jest.fn().mockReturnValue(taskId),
     getIsSyncing: jest.fn().mockReturnValue(false),
     getLastSyncTime: jest.fn().mockReturnValue(null),
     getLastFailedSyncTime: jest.fn().mockReturnValue(null),
@@ -92,18 +100,13 @@ function createMockGitContentsProvider(
     getCurrentCollectionsCount: jest.fn().mockReturnValue(0),
     getCollectionsDelta: jest.fn().mockReturnValue(0),
     isEnabled: jest.fn().mockReturnValue(true),
-    startSync: jest
-      .fn()
-      .mockReturnValue(
-        overrides.startSync?.() ?? { started: true, skipped: false },
-      ),
-    ...overrides,
   } as unknown as jest.Mocked<AnsibleGitContentsProvider>;
 }
 
 describe('createRouter', () => {
   let app: express.Express;
   let mockLogger: jest.Mocked<LoggerService>;
+  let mockScheduler: jest.Mocked<SchedulerService>;
   let mockAAPEntityProvider: jest.Mocked<AAPEntityProvider>;
   let mockJobTemplateProvider: jest.Mocked<AAPJobTemplateProvider>;
   let mockEEEntityProvider: jest.Mocked<EEEntityProvider>;
@@ -123,6 +126,11 @@ describe('createRouter', () => {
         { host: 'gitlab.other.com' },
       ],
     },
+    ansible: {
+      rhaap: {
+        token: 'test-service-account-token',
+      },
+    },
   });
 
   beforeEach(async () => {
@@ -134,11 +142,21 @@ describe('createRouter', () => {
       child: jest.fn().mockReturnThis(),
     } as unknown as jest.Mocked<LoggerService>;
 
+    mockScheduler = {
+      triggerTask: jest.fn().mockResolvedValue(undefined),
+      scheduleTask: jest.fn(),
+      createScheduledTaskRunner: jest.fn(),
+    } as unknown as jest.Mocked<SchedulerService>;
+
     mockAAPEntityProvider = {
       run: jest.fn(),
       getProviderName: jest.fn().mockReturnValue('AapEntityProvider:test'),
       connect: jest.fn(),
       getLastSyncTime: jest.fn(),
+      getLastFailedSyncTime: jest.fn().mockReturnValue(null),
+      getLastSyncStatus: jest.fn().mockReturnValue(null),
+      getIsSyncing: jest.fn().mockReturnValue(false),
+      getTaskId: jest.fn().mockReturnValue('AapEntityProvider:test:run'),
     } as unknown as jest.Mocked<AAPEntityProvider>;
 
     mockJobTemplateProvider = {
@@ -146,6 +164,10 @@ describe('createRouter', () => {
       getProviderName: jest.fn().mockReturnValue('AAPJobTemplateProvider:test'),
       connect: jest.fn(),
       getLastSyncTime: jest.fn(),
+      getLastFailedSyncTime: jest.fn().mockReturnValue(null),
+      getLastSyncStatus: jest.fn().mockReturnValue(null),
+      getIsSyncing: jest.fn().mockReturnValue(false),
+      getTaskId: jest.fn().mockReturnValue('AAPJobTemplateProvider:test:run'),
     } as unknown as jest.Mocked<AAPJobTemplateProvider>;
 
     mockEEEntityProvider = {
@@ -156,8 +178,10 @@ describe('createRouter', () => {
 
     mockPAHCollectionProvider = {
       run: jest.fn(),
-      startSync: jest.fn().mockReturnValue({ started: true, skipped: false }),
       getProviderName: jest.fn().mockReturnValue('PAHCollectionProvider:test'),
+      getTaskId: jest
+        .fn()
+        .mockReturnValue('PAHCollectionProvider:test:validated:run'),
       getPahRepositoryName: jest.fn().mockReturnValue('validated'),
       connect: jest.fn(),
       getLastSyncTime: jest.fn().mockReturnValue(null),
@@ -221,6 +245,7 @@ describe('createRouter', () => {
     const router = await createRouter({
       logger: mockLogger,
       config: mockConfig,
+      scheduler: mockScheduler,
       aapEntityProvider: mockAAPEntityProvider,
       jobTemplateProvider: mockJobTemplateProvider,
       eeEntityProvider: mockEEEntityProvider,
@@ -250,115 +275,79 @@ describe('createRouter', () => {
     });
   });
 
-  describe('GET /ansible/sync/from-aap/orgs_users_teams', () => {
-    it('should call aapEntityProvider.run and return 200 when successful', async () => {
-      mockAAPEntityProvider.run.mockResolvedValue(true);
+  describe('POST /ansible/sync/from-aap/orgs_users_teams', () => {
+    it('should trigger sync via scheduler and return 202', async () => {
+      const response = await request(app)
+        .post('/ansible/sync/from-aap/orgs_users_teams')
+        .send();
 
-      const response = await request(app).get(
-        '/ansible/sync/from-aap/orgs_users_teams',
+      expect(response.status).toBe(202);
+      expect(response.body).toEqual({ status: 'sync_started' });
+      expect(mockScheduler.triggerTask).toHaveBeenCalledWith(
+        'AapEntityProvider:test:run',
       );
-
-      expect(response.status).toBe(200);
-      expect(response.body).toBe(true);
-      expect(mockLogger.info).toHaveBeenCalledWith(
-        'Starting orgs, users and teams sync',
-      );
-      expect(mockAAPEntityProvider.run).toHaveBeenCalledTimes(1);
     });
 
-    it('should handle errors when aapEntityProvider.run throws', async () => {
-      const mockError = new Error('Sync failed');
-      mockAAPEntityProvider.run.mockRejectedValue(mockError);
-
-      const response = await request(app).get(
-        '/ansible/sync/from-aap/orgs_users_teams',
+    it('should return 200 when sync is already in progress', async () => {
+      mockScheduler.triggerTask.mockRejectedValueOnce(
+        new ConflictError('Already running'),
       );
+
+      const response = await request(app)
+        .post('/ansible/sync/from-aap/orgs_users_teams')
+        .send();
+
+      expect(response.status).toBe(200);
+      expect(response.body).toEqual({ status: 'already_syncing' });
+    });
+
+    it('should return 500 when provider is not initialized', async () => {
+      mockAAPEntityProvider.getTaskId.mockReturnValueOnce(undefined);
+
+      const response = await request(app)
+        .post('/ansible/sync/from-aap/orgs_users_teams')
+        .send();
 
       expect(response.status).toBe(500);
-      expect(mockLogger.info).toHaveBeenCalledWith(
-        'Starting orgs, users and teams sync',
-      );
-      expect(mockAAPEntityProvider.run).toHaveBeenCalledTimes(1);
-    });
-
-    it('should handle boolean return value from aapEntityProvider.run', async () => {
-      mockAAPEntityProvider.run.mockResolvedValue(true);
-
-      const response = await request(app).get(
-        '/ansible/sync/from-aap/orgs_users_teams',
-      );
-
-      expect(response.status).toBe(200);
-      expect(response.body).toBe(true);
-      expect(mockAAPEntityProvider.run).toHaveBeenCalledTimes(1);
-    });
-
-    it('should handle false return value from aapEntityProvider.run', async () => {
-      mockAAPEntityProvider.run.mockResolvedValue(false);
-
-      const response = await request(app).get(
-        '/ansible/sync/from-aap/orgs_users_teams',
-      );
-
-      expect(response.status).toBe(200);
-      expect(response.body).toBe(false);
-      expect(mockAAPEntityProvider.run).toHaveBeenCalledTimes(1);
+      expect(response.body.status).toBe('failed');
     });
   });
 
-  describe('GET /ansible/sync/from-aap/job_templates', () => {
-    it('should call jobTemplateProvider.run and return 200 when successful', async () => {
-      mockJobTemplateProvider.run.mockResolvedValue(true);
+  describe('POST /ansible/sync/from-aap/job_templates', () => {
+    it('should trigger sync via scheduler and return 202', async () => {
+      const response = await request(app)
+        .post('/ansible/sync/from-aap/job_templates')
+        .send();
 
-      const response = await request(app).get(
-        '/ansible/sync/from-aap/job_templates',
+      expect(response.status).toBe(202);
+      expect(response.body).toEqual({ status: 'sync_started' });
+      expect(mockScheduler.triggerTask).toHaveBeenCalledWith(
+        'AAPJobTemplateProvider:test:run',
       );
-
-      expect(response.status).toBe(200);
-      expect(response.body).toBe(true);
-      expect(mockLogger.info).toHaveBeenCalledWith(
-        'Starting job templates sync',
-      );
-      expect(mockJobTemplateProvider.run).toHaveBeenCalledTimes(1);
     });
 
-    it('should handle errors when jobTemplateProvider.run throws', async () => {
-      const mockError = new Error('Job template sync failed');
-      mockJobTemplateProvider.run.mockRejectedValue(mockError);
-
-      const response = await request(app).get(
-        '/ansible/sync/from-aap/job_templates',
+    it('should return 200 when sync is already in progress', async () => {
+      mockScheduler.triggerTask.mockRejectedValueOnce(
+        new ConflictError('Already running'),
       );
+
+      const response = await request(app)
+        .post('/ansible/sync/from-aap/job_templates')
+        .send();
+
+      expect(response.status).toBe(200);
+      expect(response.body).toEqual({ status: 'already_syncing' });
+    });
+
+    it('should return 500 when provider is not initialized', async () => {
+      mockJobTemplateProvider.getTaskId.mockReturnValueOnce(undefined);
+
+      const response = await request(app)
+        .post('/ansible/sync/from-aap/job_templates')
+        .send();
 
       expect(response.status).toBe(500);
-      expect(mockLogger.info).toHaveBeenCalledWith(
-        'Starting job templates sync',
-      );
-      expect(mockJobTemplateProvider.run).toHaveBeenCalledTimes(1);
-    });
-
-    it('should handle boolean return value from jobTemplateProvider.run', async () => {
-      mockJobTemplateProvider.run.mockResolvedValue(true);
-
-      const response = await request(app).get(
-        '/ansible/sync/from-aap/job_templates',
-      );
-
-      expect(response.status).toBe(200);
-      expect(response.body).toBe(true);
-      expect(mockJobTemplateProvider.run).toHaveBeenCalledTimes(1);
-    });
-
-    it('should handle false return value from jobTemplateProvider.run', async () => {
-      mockJobTemplateProvider.run.mockResolvedValue(false);
-
-      const response = await request(app).get(
-        '/ansible/sync/from-aap/job_templates',
-      );
-
-      expect(response.status).toBe(200);
-      expect(response.body).toBe(false);
-      expect(mockJobTemplateProvider.run).toHaveBeenCalledTimes(1);
+      expect(response.body.status).toBe('failed');
     });
   });
 
@@ -384,6 +373,7 @@ describe('createRouter', () => {
           userInfo: mockUserInfo,
           auth: mockAuth,
           catalogClient: mockCatalogClient,
+          scheduler: mockScheduler,
           permissions: mockPermissions,
           ansibleGitContentsProviders: [],
         }),
@@ -422,6 +412,7 @@ describe('createRouter', () => {
           userInfo: mockUserInfo,
           auth: mockAuth,
           catalogClient: mockCatalogClient,
+          scheduler: mockScheduler,
           permissions: mockPermissions,
           ansibleGitContentsProviders: [],
         }),
@@ -458,6 +449,7 @@ describe('createRouter', () => {
           userInfo: mockUserInfo,
           auth: mockAuth,
           catalogClient: mockCatalogClient,
+          scheduler: mockScheduler,
           permissions: mockPermissions,
           ansibleGitContentsProviders: [],
         }),
@@ -494,6 +486,7 @@ describe('createRouter', () => {
           userInfo: mockUserInfo,
           auth: mockAuth,
           catalogClient: mockCatalogClient,
+          scheduler: mockScheduler,
           permissions: mockPermissions,
           ansibleGitContentsProviders: [],
         }),
@@ -533,6 +526,7 @@ describe('createRouter', () => {
           userInfo: mockUserInfo,
           auth: mockAuth,
           catalogClient: mockCatalogClient,
+          scheduler: mockScheduler,
           permissions: mockPermissions,
           ansibleGitContentsProviders: [],
         }),
@@ -573,6 +567,7 @@ describe('createRouter', () => {
           userInfo: mockUserInfo,
           auth: mockAuth,
           catalogClient: mockCatalogClient,
+          scheduler: mockScheduler,
           permissions: mockPermissions,
           ansibleGitContentsProviders: [],
         }),
@@ -613,6 +608,7 @@ describe('createRouter', () => {
           userInfo: mockUserInfo,
           auth: mockAuth,
           catalogClient: mockCatalogClient,
+          scheduler: mockScheduler,
           permissions: mockPermissions,
           ansibleGitContentsProviders: [],
         }),
@@ -649,6 +645,7 @@ describe('createRouter', () => {
           userInfo: mockUserInfo,
           auth: mockAuth,
           catalogClient: mockCatalogClient,
+          scheduler: mockScheduler,
           permissions: mockPermissions,
           ansibleGitContentsProviders: [],
         }),
@@ -687,6 +684,7 @@ describe('createRouter', () => {
           userInfo: mockUserInfo,
           auth: mockAuth,
           catalogClient: mockCatalogClient,
+          scheduler: mockScheduler,
           permissions: mockPermissions,
           ansibleGitContentsProviders: [],
         }),
@@ -723,6 +721,7 @@ describe('createRouter', () => {
           userInfo: mockUserInfo,
           auth: mockAuth,
           catalogClient: mockCatalogClient,
+          scheduler: mockScheduler,
           permissions: mockPermissions,
           ansibleGitContentsProviders: [],
         }),
@@ -784,6 +783,7 @@ describe('createRouter', () => {
           userInfo: mockUserInfo,
           auth: mockAuth,
           catalogClient: mockCatalogClient,
+          scheduler: mockScheduler,
           permissions: mockPermissions,
           ansibleGitContentsProviders: [],
         }),
@@ -820,6 +820,7 @@ describe('createRouter', () => {
           userInfo: mockUserInfo,
           auth: mockAuth,
           catalogClient: mockCatalogClient,
+          scheduler: mockScheduler,
           permissions: mockPermissions,
           ansibleGitContentsProviders: [],
         }),
@@ -862,6 +863,7 @@ describe('createRouter', () => {
           userInfo: mockUserInfo,
           auth: mockAuth,
           catalogClient: mockCatalogClient,
+          scheduler: mockScheduler,
           permissions: mockPermissions,
           ansibleGitContentsProviders: [],
         }),
@@ -912,6 +914,7 @@ describe('createRouter', () => {
           userInfo: mockUserInfo,
           auth: mockAuth,
           catalogClient: mockCatalogClient,
+          scheduler: mockScheduler,
           permissions: mockPermissions,
           ansibleGitContentsProviders: [],
         }),
@@ -967,6 +970,7 @@ describe('createRouter', () => {
           userInfo: mockUserInfo,
           auth: mockAuth,
           catalogClient: mockCatalogClient,
+          scheduler: mockScheduler,
           permissions: mockPermissions,
           ansibleGitContentsProviders: [],
           allowedExternalAccessSubjects: options.allowedExternalAccessSubjects,
@@ -1561,22 +1565,31 @@ describe('createRouter', () => {
     });
   });
 
-  describe('GET /ansible/git/ci-activity (GitLab)', () => {
-    it('should return 400 when host is not a safe hostname', async () => {
-      const response = await request(app)
-        .get('/ansible/git/ci-activity')
-        .query({
-          provider: 'gitlab',
-          projectPath: 'group/project',
-          host: 'https://evil.com',
-        })
-        .set('Authorization', 'Bearer token');
-
-      expect(response.status).toBe(400);
-      expect(response.body.error).toContain('Invalid host');
+  describe('POST /ansible/git/ci-activity (GitLab)', () => {
+    beforeEach(() => {
+      clearCIActivityCache();
+      jest.clearAllMocks();
     });
 
-    it('should return 400 when host is not allowed (SSRF mitigation)', async () => {
+    it('should return error in results when host is not a safe hostname', async () => {
+      const response = await request(app)
+        .post('/ansible/git/ci-activity')
+        .send({
+          items: [
+            {
+              key: 'test',
+              provider: 'gitlab',
+              projectPath: 'group/project',
+              host: 'https://evil.com',
+            },
+          ],
+        });
+
+      expect(response.status).toBe(200);
+      expect(response.body.results.test.error).toContain('Invalid host');
+    });
+
+    it('should return error in results when host is not allowed (SSRF mitigation)', async () => {
       const configNoGitlab = new ConfigReader({});
       const routerNoGitlab = await createRouter({
         logger: mockLogger,
@@ -1589,36 +1602,40 @@ describe('createRouter', () => {
         userInfo: mockUserInfo,
         auth: mockAuth,
         catalogClient: mockCatalogClient,
+        scheduler: mockScheduler,
         permissions: mockPermissions,
       });
       const appNoGitlab = express().use(routerNoGitlab);
 
       const response = await request(appNoGitlab)
-        .get('/ansible/git/ci-activity')
-        .query({
-          provider: 'gitlab',
-          projectPath: 'group/project',
-          host: '169.254.169.254',
-        })
-        .set('Authorization', 'Bearer token');
+        .post('/ansible/git/ci-activity')
+        .send({
+          items: [
+            {
+              key: 'test',
+              provider: 'gitlab',
+              projectPath: 'group/project',
+              host: '169.254.169.254',
+            },
+          ],
+        });
 
-      expect(response.status).toBe(400);
-      expect(response.body.error).toContain(
-        'not allowed for GitLab CI activity',
-      );
-      expect(response.body.error).toContain('integrations.gitlab');
+      expect(response.status).toBe(200);
+      expect(response.body.results.test.error).toContain('not allowed');
     });
 
-    it('should return 400 when projectPath is missing', async () => {
+    it('should return error in results when projectPath is missing', async () => {
       const response = await request(app)
-        .get('/ansible/git/ci-activity')
-        .query({ provider: 'gitlab', host: 'gitlab.com' });
+        .post('/ansible/git/ci-activity')
+        .send({
+          items: [{ key: 'test', provider: 'gitlab', host: 'gitlab.com' }],
+        });
 
-      expect(response.status).toBe(400);
-      expect(response.body.error).toContain('projectPath');
+      expect(response.status).toBe(200);
+      expect(response.body.results.test.error).toContain('projectPath');
     });
 
-    it('should return 400 when host is not declared in integrations.gitlab', async () => {
+    it('should return error in results when host is not declared in integrations.gitlab', async () => {
       const configWithoutToken = new ConfigReader({});
       const routerWithoutToken = await createRouter({
         logger: mockLogger,
@@ -1631,24 +1648,26 @@ describe('createRouter', () => {
         userInfo: mockUserInfo,
         auth: mockAuth,
         catalogClient: mockCatalogClient,
+        scheduler: mockScheduler,
         permissions: mockPermissions,
       });
       const appWithoutToken = express().use(routerWithoutToken);
 
       const response = await request(appWithoutToken)
-        .get('/ansible/git/ci-activity')
-        .query({
-          provider: 'gitlab',
-          projectPath: 'group/project',
-          host: 'gitlab.unknown.com',
-        })
-        .set('Authorization', 'Bearer some-token');
+        .post('/ansible/git/ci-activity')
+        .send({
+          items: [
+            {
+              key: 'test',
+              provider: 'gitlab',
+              projectPath: 'group/project',
+              host: 'gitlab.unknown.com',
+            },
+          ],
+        });
 
-      expect(response.status).toBe(400);
-      expect(response.body.error).toContain(
-        'not allowed for GitLab CI activity',
-      );
-      expect(response.body.error).toContain('integrations.gitlab');
+      expect(response.status).toBe(200);
+      expect(response.body.results.test.error).toContain('not allowed');
     });
 
     it('should use token from config for matching host', async () => {
@@ -1659,53 +1678,43 @@ describe('createRouter', () => {
       });
 
       const response = await request(app)
-        .get('/ansible/git/ci-activity')
-        .query({
-          provider: 'gitlab',
-          projectPath: 'group/project',
-          host: 'gitlab.com',
+        .post('/ansible/git/ci-activity')
+        .send({
+          items: [
+            {
+              key: 'test',
+              provider: 'gitlab',
+              projectPath: 'group/config-token-test',
+              host: 'gitlab.com',
+            },
+          ],
         });
 
       expect(response.status).toBe(200);
-      expect(response.body).toEqual([{ id: 1, status: 'success' }]);
+      expect(response.body.results.test).toEqual({
+        status: 200,
+        data: [{ id: 1, status: 'success' }],
+      });
     });
 
-    it('should use token from Authorization header when not in config', async () => {
-      mockGetPipelines.mockResolvedValue({
-        ok: true,
-        status: 200,
-        data: [],
-      });
-
+    it('should return error when host has no token in config', async () => {
       const response = await request(app)
-        .get('/ansible/git/ci-activity')
-        .query({
-          provider: 'gitlab',
-          projectPath: 'group/project',
-          host: 'gitlab.other.com',
-        })
-        .set('Authorization', 'Bearer request-token');
+        .post('/ansible/git/ci-activity')
+        .send({
+          items: [
+            {
+              key: 'test',
+              provider: 'gitlab',
+              projectPath: 'group/other-host-test',
+              host: 'gitlab.other.com',
+            },
+          ],
+        });
 
       expect(response.status).toBe(200);
-    });
-
-    it('should use token from PRIVATE-TOKEN header', async () => {
-      mockGetPipelines.mockResolvedValue({
-        ok: true,
-        status: 200,
-        data: [],
-      });
-
-      const response = await request(app)
-        .get('/ansible/git/ci-activity')
-        .query({
-          provider: 'gitlab',
-          projectPath: 'group/project',
-          host: 'gitlab.other.com',
-        })
-        .set('PRIVATE-TOKEN', 'private-token');
-
-      expect(response.status).toBe(200);
+      expect(response.body.results.test.error).toContain(
+        'Missing GitLab authorization',
+      );
     });
 
     it('should return pipelines data on success', async () => {
@@ -1721,18 +1730,26 @@ describe('createRouter', () => {
       });
 
       const response = await request(app)
-        .get('/ansible/git/ci-activity')
-        .query({
-          provider: 'gitlab',
-          projectPath: 'group/project',
-          host: 'gitlab.com',
+        .post('/ansible/git/ci-activity')
+        .send({
+          items: [
+            {
+              key: 'test',
+              provider: 'gitlab',
+              projectPath: 'group/pipelines-test',
+              host: 'gitlab.com',
+            },
+          ],
         });
 
       expect(response.status).toBe(200);
-      expect(response.body).toEqual(pipelines);
+      expect(response.body.results.test).toEqual({
+        status: 200,
+        data: pipelines,
+      });
     });
 
-    it('should return GitLab error status when API returns non-OK', async () => {
+    it('should return GitLab error status in results when API returns non-OK', async () => {
       mockGetPipelines.mockResolvedValue({
         ok: false,
         status: 404,
@@ -1740,30 +1757,46 @@ describe('createRouter', () => {
       });
 
       const response = await request(app)
-        .get('/ansible/git/ci-activity')
-        .query({
-          provider: 'gitlab',
-          projectPath: 'group/nonexistent',
-          host: 'gitlab.com',
+        .post('/ansible/git/ci-activity')
+        .send({
+          items: [
+            {
+              key: 'test',
+              provider: 'gitlab',
+              projectPath: 'group/nonexistent',
+              host: 'gitlab.com',
+            },
+          ],
         });
 
-      expect(response.status).toBe(404);
+      expect(response.status).toBe(200);
+      expect(response.body.results.test).toEqual({
+        status: 404,
+        data: { message: 'Project not found' },
+      });
       expect(mockLogger.warn).toHaveBeenCalled();
     });
 
-    it('should return 502 when GitLab client throws error', async () => {
+    it('should return error in results when GitLab client throws error', async () => {
       mockGetPipelines.mockRejectedValue(new Error('Network error'));
 
       const response = await request(app)
-        .get('/ansible/git/ci-activity')
-        .query({
-          provider: 'gitlab',
-          projectPath: 'group/project',
-          host: 'gitlab.com',
+        .post('/ansible/git/ci-activity')
+        .send({
+          items: [
+            {
+              key: 'test',
+              provider: 'gitlab',
+              projectPath: 'group/network-error-test',
+              host: 'gitlab.com',
+            },
+          ],
         });
 
-      expect(response.status).toBe(502);
-      expect(response.body.error).toBe('Failed to fetch GitLab pipelines');
+      expect(response.status).toBe(200);
+      expect(response.body.results.test.error).toBe(
+        'Failed to fetch GitLab pipelines',
+      );
     });
 
     it('should default host to gitlab.com when not provided', async () => {
@@ -1774,27 +1807,46 @@ describe('createRouter', () => {
       });
 
       const response = await request(app)
-        .get('/ansible/git/ci-activity')
-        .query({ provider: 'gitlab', projectPath: 'group/project' });
+        .post('/ansible/git/ci-activity')
+        .send({
+          items: [
+            {
+              key: 'test',
+              provider: 'gitlab',
+              projectPath: 'group/default-host-test',
+            },
+          ],
+        });
 
       expect(response.status).toBe(200);
+      expect(response.body.results.test).toEqual({
+        status: 200,
+        data: [],
+      });
     });
 
-    it('should respect per_page query parameter', async () => {
+    it('should respect per_page parameter', async () => {
       mockGetPipelines.mockResolvedValue({
         ok: true,
         status: 200,
         data: [],
       });
 
-      await request(app).get('/ansible/git/ci-activity').query({
-        provider: 'gitlab',
-        projectPath: 'group/project',
-        host: 'gitlab.com',
-        per_page: 50,
-      });
+      await request(app)
+        .post('/ansible/git/ci-activity')
+        .send({
+          items: [
+            {
+              key: 'test',
+              provider: 'gitlab',
+              projectPath: 'group/per-page-50-test',
+              host: 'gitlab.com',
+              per_page: 50,
+            },
+          ],
+        });
 
-      expect(mockGetPipelines).toHaveBeenCalledWith('group/project', {
+      expect(mockGetPipelines).toHaveBeenCalledWith('group/per-page-50-test', {
         perPage: 50,
       });
     });
@@ -1806,14 +1858,21 @@ describe('createRouter', () => {
         data: [],
       });
 
-      await request(app).get('/ansible/git/ci-activity').query({
-        provider: 'gitlab',
-        projectPath: 'group/project',
-        host: 'gitlab.com',
-        per_page: 200,
-      });
+      await request(app)
+        .post('/ansible/git/ci-activity')
+        .send({
+          items: [
+            {
+              key: 'test',
+              provider: 'gitlab',
+              projectPath: 'group/per-page-cap-test',
+              host: 'gitlab.com',
+              per_page: 200,
+            },
+          ],
+        });
 
-      expect(mockGetPipelines).toHaveBeenCalledWith('group/project', {
+      expect(mockGetPipelines).toHaveBeenCalledWith('group/per-page-cap-test', {
         perPage: 100,
       });
     });
@@ -1825,15 +1884,23 @@ describe('createRouter', () => {
         data: [],
       });
 
-      await request(app).get('/ansible/git/ci-activity').query({
-        provider: 'gitlab',
-        projectPath: 'group/project',
-        host: 'gitlab.com',
-      });
+      await request(app)
+        .post('/ansible/git/ci-activity')
+        .send({
+          items: [
+            {
+              key: 'test',
+              provider: 'gitlab',
+              projectPath: 'group/per-page-default-test',
+              host: 'gitlab.com',
+            },
+          ],
+        });
 
-      expect(mockGetPipelines).toHaveBeenCalledWith('group/project', {
-        perPage: 15,
-      });
+      expect(mockGetPipelines).toHaveBeenCalledWith(
+        'group/per-page-default-test',
+        { perPage: 15 },
+      );
     });
 
     it('should disable SSL verification for hosts in skipTlsVerifyForHosts', async () => {
@@ -1862,6 +1929,7 @@ describe('createRouter', () => {
         userInfo: mockUserInfo,
         auth: mockAuth,
         catalogClient: mockCatalogClient,
+        scheduler: mockScheduler,
         permissions: mockPermissions,
       });
 
@@ -1876,13 +1944,17 @@ describe('createRouter', () => {
       const { GitlabClient } = require('@ansible/backstage-rhaap-common');
 
       await request(appWithSkipTls)
-        .get('/ansible/git/ci-activity')
-        .query({
-          provider: 'gitlab',
-          projectPath: 'group/project',
-          host: 'gitlab.insecure.com',
-        })
-        .set('PRIVATE-TOKEN', 'token');
+        .post('/ansible/git/ci-activity')
+        .send({
+          items: [
+            {
+              key: 'test',
+              provider: 'gitlab',
+              projectPath: 'group/ssl-skip-test',
+              host: 'gitlab.insecure.com',
+            },
+          ],
+        });
 
       expect(GitlabClient).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -1902,11 +1974,18 @@ describe('createRouter', () => {
 
       const { GitlabClient } = require('@ansible/backstage-rhaap-common');
 
-      await request(app).get('/ansible/git/ci-activity').query({
-        provider: 'gitlab',
-        projectPath: 'group/project',
-        host: 'gitlab.com',
-      });
+      await request(app)
+        .post('/ansible/git/ci-activity')
+        .send({
+          items: [
+            {
+              key: 'test',
+              provider: 'gitlab',
+              projectPath: 'group/ssl-enabled-test',
+              host: 'gitlab.com',
+            },
+          ],
+        });
 
       expect(GitlabClient).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -1941,6 +2020,7 @@ describe('createRouter', () => {
         userInfo: mockUserInfo,
         auth: mockAuth,
         catalogClient: mockCatalogClient,
+        scheduler: mockScheduler,
         permissions: mockPermissions,
       });
 
@@ -1954,11 +2034,18 @@ describe('createRouter', () => {
 
       const { GitlabClient } = require('@ansible/backstage-rhaap-common');
 
-      await request(appWithApiBase).get('/ansible/git/ci-activity').query({
-        provider: 'gitlab',
-        projectPath: 'group/project',
-        host: 'gitlab.internal.com',
-      });
+      await request(appWithApiBase)
+        .post('/ansible/git/ci-activity')
+        .send({
+          items: [
+            {
+              key: 'test',
+              provider: 'gitlab',
+              projectPath: 'group/api-base-test',
+              host: 'gitlab.internal.com',
+            },
+          ],
+        });
 
       expect(GitlabClient).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -1979,13 +2066,17 @@ describe('createRouter', () => {
       const { GitlabClient } = require('@ansible/backstage-rhaap-common');
 
       await request(app)
-        .get('/ansible/git/ci-activity')
-        .query({
-          provider: 'gitlab',
-          projectPath: 'group/project',
-          host: 'gitlab.com',
-        })
-        .set('Authorization', 'Bearer request-token');
+        .post('/ansible/git/ci-activity')
+        .send({
+          items: [
+            {
+              key: 'test',
+              provider: 'gitlab',
+              projectPath: 'group/config-pref-test',
+              host: 'gitlab.com',
+            },
+          ],
+        });
 
       expect(GitlabClient).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -1997,7 +2088,12 @@ describe('createRouter', () => {
     });
   });
 
-  describe('GET /ansible/git/ci-activity (permissions)', () => {
+  describe('POST /ansible/git/ci-activity (permissions)', () => {
+    beforeEach(() => {
+      clearCIActivityCache();
+      jest.clearAllMocks();
+    });
+
     it('should return 403 when user lacks git-repositories view permission', async () => {
       mockPermissions.authorize.mockResolvedValueOnce([
         { result: AuthorizeResult.DENY },
@@ -2007,8 +2103,10 @@ describe('createRouter', () => {
       ] as any);
 
       const response = await request(app)
-        .get('/ansible/git/ci-activity')
-        .query({ provider: 'github', owner: 'o', repo: 'r' });
+        .post('/ansible/git/ci-activity')
+        .send({
+          items: [{ key: 'test', provider: 'github', owner: 'o', repo: 'r' }],
+        });
       expect(response.status).toBe(403);
       expect(response.body.error).toBe('Forbidden: insufficient permissions');
     });
@@ -2022,8 +2120,10 @@ describe('createRouter', () => {
       ] as any);
 
       const response = await request(app)
-        .get('/ansible/git/ci-activity')
-        .query({ provider: 'github', owner: 'o', repo: 'r' });
+        .post('/ansible/git/ci-activity')
+        .send({
+          items: [{ key: 'test', provider: 'github', owner: 'o', repo: 'r' }],
+        });
       expect(response.status).toBe(403);
       expect(response.body.error).toBe('Forbidden: insufficient permissions');
     });
@@ -2037,12 +2137,17 @@ describe('createRouter', () => {
       ] as any);
 
       const response = await request(app)
-        .get('/ansible/git/ci-activity')
-        .query({
-          provider: 'github',
-          owner: 'myorg',
-          repo: 'myrepo',
-          host: 'github.com',
+        .post('/ansible/git/ci-activity')
+        .send({
+          items: [
+            {
+              key: 'test',
+              provider: 'github',
+              owner: 'myorg',
+              repo: 'myrepo',
+              host: 'github.com',
+            },
+          ],
         });
       expect(response.status).not.toBe(403);
     });
@@ -2061,81 +2166,113 @@ describe('createRouter', () => {
       ] as any);
 
       const response = await request(app)
-        .get('/ansible/git/ci-activity')
-        .query({
-          provider: 'github',
-          owner: 'myorg',
-          repo: 'myrepo',
-          host: 'github.com',
+        .post('/ansible/git/ci-activity')
+        .send({
+          items: [
+            {
+              key: 'test',
+              provider: 'github',
+              owner: 'myorg',
+              repo: 'myrepo',
+              host: 'github.com',
+            },
+          ],
         });
       expect(response.status).not.toBe(403);
     });
   });
 
-  describe('GET /ansible/git/ci-activity (provider validation)', () => {
-    it('should return 400 when provider is missing', async () => {
+  describe('POST /ansible/git/ci-activity (batch validation)', () => {
+    it('should return 400 when items array is missing', async () => {
       const response = await request(app)
-        .get('/ansible/git/ci-activity')
-        .query({ projectPath: 'group/project' });
+        .post('/ansible/git/ci-activity')
+        .send({});
 
       expect(response.status).toBe(400);
-      expect(response.body.error).toContain(
-        "Missing or invalid 'provider' query parameter",
-      );
+      expect(response.body.error).toContain('non-empty array');
     });
 
-    it('should return 400 when provider is invalid', async () => {
+    it('should return 400 when items array is empty', async () => {
       const response = await request(app)
-        .get('/ansible/git/ci-activity')
-        .query({ provider: 'bitbucket', projectPath: 'group/project' });
+        .post('/ansible/git/ci-activity')
+        .send({ items: [] });
 
       expect(response.status).toBe(400);
-      expect(response.body.error).toContain("Must be 'github' or 'gitlab'");
+      expect(response.body.error).toContain('non-empty array');
+    });
+
+    it('should return error in results when provider is invalid', async () => {
+      const response = await request(app)
+        .post('/ansible/git/ci-activity')
+        .send({
+          items: [
+            {
+              key: 'test',
+              provider: 'bitbucket',
+              projectPath: 'group/project',
+            },
+          ],
+        });
+
+      expect(response.status).toBe(200);
+      expect(response.body.results.test.error).toContain(
+        'Unknown provider: bitbucket',
+      );
     });
   });
 
-  describe('GET /ansible/git/ci-activity (GitHub)', () => {
+  describe('POST /ansible/git/ci-activity (GitHub)', () => {
     beforeEach(() => {
+      clearCIActivityCache();
       jest.clearAllMocks();
     });
 
-    it('should return 400 when owner is missing', async () => {
+    it('should return error in results when owner is missing', async () => {
       const response = await request(app)
-        .get('/ansible/git/ci-activity')
-        .query({ provider: 'github', repo: 'my-repo' });
-
-      expect(response.status).toBe(400);
-      expect(response.body.error).toContain(
-        'Missing required query parameters for GitHub: owner, repo',
-      );
-    });
-
-    it('should return 400 when repo is missing', async () => {
-      const response = await request(app)
-        .get('/ansible/git/ci-activity')
-        .query({ provider: 'github', owner: 'my-owner' });
-
-      expect(response.status).toBe(400);
-      expect(response.body.error).toContain(
-        'Missing required query parameters for GitHub: owner, repo',
-      );
-    });
-
-    it('should return 400 when host is not a safe hostname', async () => {
-      const response = await request(app)
-        .get('/ansible/git/ci-activity')
-        .query({
-          provider: 'github',
-          owner: 'my-owner',
-          repo: 'my-repo',
-          host: 'https://evil.com',
+        .post('/ansible/git/ci-activity')
+        .send({
+          items: [{ key: 'test', provider: 'github', repo: 'my-repo' }],
         });
 
-      expect(response.status).toBe(400);
-      expect(response.body.error).toContain('Invalid host');
+      expect(response.status).toBe(200);
+      expect(response.body.results.test.error).toContain(
+        'Missing required parameters for GitHub: owner, repo',
+      );
     });
 
-    it('should return 400 when host is not allowed (SSRF mitigation)', async () => {
+    it('should return error in results when repo is missing', async () => {
+      const response = await request(app)
+        .post('/ansible/git/ci-activity')
+        .send({
+          items: [{ key: 'test', provider: 'github', owner: 'my-owner' }],
+        });
+
+      expect(response.status).toBe(200);
+      expect(response.body.results.test.error).toContain(
+        'Missing required parameters for GitHub: owner, repo',
+      );
+    });
+
+    it('should return error in results when host is not a safe hostname', async () => {
+      const response = await request(app)
+        .post('/ansible/git/ci-activity')
+        .send({
+          items: [
+            {
+              key: 'test',
+              provider: 'github',
+              owner: 'my-owner',
+              repo: 'my-repo',
+              host: 'https://evil.com',
+            },
+          ],
+        });
+
+      expect(response.status).toBe(200);
+      expect(response.body.results.test.error).toContain('Invalid host');
+    });
+
+    it('should return error in results when host is not allowed (SSRF mitigation)', async () => {
       const configNoGithub = new ConfigReader({});
       const routerNoGithub = await createRouter({
         logger: mockLogger,
@@ -2148,28 +2285,30 @@ describe('createRouter', () => {
         userInfo: mockUserInfo,
         auth: mockAuth,
         catalogClient: mockCatalogClient,
+        scheduler: mockScheduler,
         permissions: mockPermissions,
       });
       const appNoGithub = express().use(routerNoGithub);
 
       const response = await request(appNoGithub)
-        .get('/ansible/git/ci-activity')
-        .query({
-          provider: 'github',
-          owner: 'my-owner',
-          repo: 'my-repo',
-          host: '169.254.169.254',
-        })
-        .set('Authorization', 'Bearer token');
+        .post('/ansible/git/ci-activity')
+        .send({
+          items: [
+            {
+              key: 'test',
+              provider: 'github',
+              owner: 'my-owner',
+              repo: 'my-repo',
+              host: '169.254.169.254',
+            },
+          ],
+        });
 
-      expect(response.status).toBe(400);
-      expect(response.body.error).toContain(
-        'not allowed for GitHub CI activity',
-      );
-      expect(response.body.error).toContain('integrations.github');
+      expect(response.status).toBe(200);
+      expect(response.body.results.test.error).toContain('not allowed');
     });
 
-    it('should return 400 when token is missing', async () => {
+    it('should return error in results when token is missing', async () => {
       const configWithoutToken = new ConfigReader({});
       const routerWithoutToken = await createRouter({
         logger: mockLogger,
@@ -2182,20 +2321,28 @@ describe('createRouter', () => {
         userInfo: mockUserInfo,
         auth: mockAuth,
         catalogClient: mockCatalogClient,
+        scheduler: mockScheduler,
         permissions: mockPermissions,
       });
       const appWithoutToken = express().use(routerWithoutToken);
 
       const response = await request(appWithoutToken)
-        .get('/ansible/git/ci-activity')
-        .query({
-          provider: 'github',
-          owner: 'my-owner',
-          repo: 'my-repo',
+        .post('/ansible/git/ci-activity')
+        .send({
+          items: [
+            {
+              key: 'test',
+              provider: 'github',
+              owner: 'my-owner',
+              repo: 'my-repo',
+            },
+          ],
         });
 
-      expect(response.status).toBe(400);
-      expect(response.body.error).toContain('Missing authorization');
+      expect(response.status).toBe(200);
+      expect(response.body.results.test.error).toContain(
+        'Missing GitHub authorization',
+      );
     });
 
     it('should use token from config for matching host', async () => {
@@ -2216,6 +2363,7 @@ describe('createRouter', () => {
         userInfo: mockUserInfo,
         auth: mockAuth,
         catalogClient: mockCatalogClient,
+        scheduler: mockScheduler,
         permissions: mockPermissions,
       });
 
@@ -2230,71 +2378,26 @@ describe('createRouter', () => {
       } as Response);
 
       const response = await request(appWithGitHub)
-        .get('/ansible/git/ci-activity')
-        .query({
-          provider: 'github',
-          owner: 'my-owner',
-          repo: 'my-repo',
-          host: 'github.com',
+        .post('/ansible/git/ci-activity')
+        .send({
+          items: [
+            {
+              key: 'test',
+              provider: 'github',
+              owner: 'my-owner',
+              repo: 'config-token-test',
+              host: 'github.com',
+            },
+          ],
         });
 
       expect(response.status).toBe(200);
+      expect(response.body.results.test.status).toBe(200);
       expect(mockFetch).toHaveBeenCalledWith(
         expect.stringContaining('api.github.com'),
         expect.objectContaining({
           headers: expect.objectContaining({
             Authorization: 'Bearer github-test-token',
-          }),
-        }),
-      );
-
-      mockFetch.mockRestore();
-    });
-
-    it('should use token from Authorization header when not in config', async () => {
-      const configWithoutGitHub = new ConfigReader({
-        integrations: {
-          gitlab: [{ host: 'gitlab.com', token: 'test-token' }],
-        },
-      });
-
-      const routerWithoutGitHub = await createRouter({
-        logger: mockLogger,
-        config: configWithoutGitHub,
-        aapEntityProvider: mockAAPEntityProvider,
-        jobTemplateProvider: mockJobTemplateProvider,
-        eeEntityProvider: mockEEEntityProvider,
-        pahCollectionProviders: [],
-        httpAuth: mockHttpAuth,
-        userInfo: mockUserInfo,
-        auth: mockAuth,
-        catalogClient: mockCatalogClient,
-        permissions: mockPermissions,
-      });
-
-      const appWithoutGitHub = express().use(routerWithoutGitHub);
-
-      const mockFetch = jest.spyOn(global, 'fetch').mockResolvedValue({
-        ok: true,
-        status: 200,
-        json: async () => ({ workflow_runs: [] }),
-      } as Response);
-
-      const response = await request(appWithoutGitHub)
-        .get('/ansible/git/ci-activity')
-        .query({
-          provider: 'github',
-          owner: 'my-owner',
-          repo: 'my-repo',
-        })
-        .set('Authorization', 'Bearer header-token');
-
-      expect(response.status).toBe(200);
-      expect(mockFetch).toHaveBeenCalledWith(
-        expect.any(String),
-        expect.objectContaining({
-          headers: expect.objectContaining({
-            Authorization: 'Bearer header-token',
           }),
         }),
       );
@@ -2320,6 +2423,7 @@ describe('createRouter', () => {
         userInfo: mockUserInfo,
         auth: mockAuth,
         catalogClient: mockCatalogClient,
+        scheduler: mockScheduler,
         permissions: mockPermissions,
       });
 
@@ -2340,20 +2444,28 @@ describe('createRouter', () => {
       } as Response);
 
       const response = await request(appWithGitHub)
-        .get('/ansible/git/ci-activity')
-        .query({
-          provider: 'github',
-          owner: 'my-owner',
-          repo: 'my-repo',
+        .post('/ansible/git/ci-activity')
+        .send({
+          items: [
+            {
+              key: 'test',
+              provider: 'github',
+              owner: 'my-owner',
+              repo: 'workflow-runs-test',
+            },
+          ],
         });
 
       expect(response.status).toBe(200);
-      expect(response.body).toEqual(workflowRuns);
+      expect(response.body.results.test).toEqual({
+        status: 200,
+        data: workflowRuns,
+      });
 
       mockFetch.mockRestore();
     });
 
-    it('should return 502 when GitHub API throws error', async () => {
+    it('should return error in results when GitHub API throws error', async () => {
       const configWithGitHub = new ConfigReader({
         integrations: {
           github: [{ host: 'github.com', token: 'github-test-token' }],
@@ -2371,6 +2483,7 @@ describe('createRouter', () => {
         userInfo: mockUserInfo,
         auth: mockAuth,
         catalogClient: mockCatalogClient,
+        scheduler: mockScheduler,
         permissions: mockPermissions,
       });
 
@@ -2381,20 +2494,27 @@ describe('createRouter', () => {
         .mockRejectedValue(new Error('Network error'));
 
       const response = await request(appWithGitHub)
-        .get('/ansible/git/ci-activity')
-        .query({
-          provider: 'github',
-          owner: 'my-owner',
-          repo: 'my-repo',
+        .post('/ansible/git/ci-activity')
+        .send({
+          items: [
+            {
+              key: 'test',
+              provider: 'github',
+              owner: 'my-owner',
+              repo: 'network-error-test',
+            },
+          ],
         });
 
-      expect(response.status).toBe(502);
-      expect(response.body.error).toBe('Failed to fetch GitHub workflow runs');
+      expect(response.status).toBe(200);
+      expect(response.body.results.test.error).toBe(
+        'Failed to fetch GitHub workflow runs',
+      );
 
       mockFetch.mockRestore();
     });
 
-    it('should respect per_page query parameter', async () => {
+    it('should respect per_page parameter', async () => {
       const configWithGitHub = new ConfigReader({
         integrations: {
           github: [{ host: 'github.com', token: 'github-test-token' }],
@@ -2412,6 +2532,7 @@ describe('createRouter', () => {
         userInfo: mockUserInfo,
         auth: mockAuth,
         catalogClient: mockCatalogClient,
+        scheduler: mockScheduler,
         permissions: mockPermissions,
       });
 
@@ -2423,12 +2544,19 @@ describe('createRouter', () => {
         json: async () => ({ workflow_runs: [] }),
       } as Response);
 
-      await request(appWithGitHub).get('/ansible/git/ci-activity').query({
-        provider: 'github',
-        owner: 'my-owner',
-        repo: 'my-repo',
-        per_page: 50,
-      });
+      await request(appWithGitHub)
+        .post('/ansible/git/ci-activity')
+        .send({
+          items: [
+            {
+              key: 'test',
+              provider: 'github',
+              owner: 'my-owner',
+              repo: 'per-page-50-test',
+              per_page: 50,
+            },
+          ],
+        });
 
       expect(mockFetch).toHaveBeenCalledWith(
         expect.stringContaining('per_page=50'),
@@ -2456,6 +2584,7 @@ describe('createRouter', () => {
         userInfo: mockUserInfo,
         auth: mockAuth,
         catalogClient: mockCatalogClient,
+        scheduler: mockScheduler,
         permissions: mockPermissions,
       });
 
@@ -2467,12 +2596,19 @@ describe('createRouter', () => {
         json: async () => ({ workflow_runs: [] }),
       } as Response);
 
-      await request(appWithGitHub).get('/ansible/git/ci-activity').query({
-        provider: 'github',
-        owner: 'my-owner',
-        repo: 'my-repo',
-        per_page: 200,
-      });
+      await request(appWithGitHub)
+        .post('/ansible/git/ci-activity')
+        .send({
+          items: [
+            {
+              key: 'test',
+              provider: 'github',
+              owner: 'my-owner',
+              repo: 'per-page-cap-test',
+              per_page: 200,
+            },
+          ],
+        });
 
       expect(mockFetch).toHaveBeenCalledWith(
         expect.stringContaining('per_page=100'),
@@ -2506,6 +2642,7 @@ describe('createRouter', () => {
         userInfo: mockUserInfo,
         auth: mockAuth,
         catalogClient: mockCatalogClient,
+        scheduler: mockScheduler,
         permissions: mockPermissions,
       });
 
@@ -2517,12 +2654,19 @@ describe('createRouter', () => {
         json: async () => ({ workflow_runs: [] }),
       } as Response);
 
-      await request(appWithGHE).get('/ansible/git/ci-activity').query({
-        provider: 'github',
-        owner: 'my-owner',
-        repo: 'my-repo',
-        host: 'github.enterprise.com',
-      });
+      await request(appWithGHE)
+        .post('/ansible/git/ci-activity')
+        .send({
+          items: [
+            {
+              key: 'test',
+              provider: 'github',
+              owner: 'my-owner',
+              repo: 'ghe-test',
+              host: 'github.enterprise.com',
+            },
+          ],
+        });
 
       expect(mockFetch).toHaveBeenCalledWith(
         expect.stringContaining('github.enterprise.com/api/v3'),
@@ -2566,8 +2710,18 @@ describe('createRouter', () => {
       expect(response.status).toBe(200);
       expect(response.body).toEqual({
         aap: {
-          orgsUsersTeams: { lastSync: '2024-01-15T10:00:00Z' },
-          jobTemplates: { lastSync: '2024-01-15T11:00:00Z' },
+          orgsUsersTeams: {
+            lastSync: '2024-01-15T10:00:00Z',
+            syncInProgress: false,
+            lastFailedSyncTime: null,
+            lastSyncStatus: null,
+          },
+          jobTemplates: {
+            lastSync: '2024-01-15T11:00:00Z',
+            syncInProgress: false,
+            lastFailedSyncTime: null,
+            lastSyncStatus: null,
+          },
         },
         content: {
           syncInProgress: false,
@@ -2605,8 +2759,18 @@ describe('createRouter', () => {
       expect(response.status).toBe(200);
       expect(response.body).toEqual({
         aap: {
-          orgsUsersTeams: { lastSync: '2024-01-15T10:00:00Z' },
-          jobTemplates: { lastSync: '2024-01-15T11:00:00Z' },
+          orgsUsersTeams: {
+            lastSync: '2024-01-15T10:00:00Z',
+            syncInProgress: false,
+            lastFailedSyncTime: null,
+            lastSyncStatus: null,
+          },
+          jobTemplates: {
+            lastSync: '2024-01-15T11:00:00Z',
+            syncInProgress: false,
+            lastFailedSyncTime: null,
+            lastSyncStatus: null,
+          },
         },
       });
     });
@@ -2672,8 +2836,18 @@ describe('createRouter', () => {
       expect(response.status).toBe(200);
       expect(response.body).toEqual({
         aap: {
-          orgsUsersTeams: { lastSync: '2024-01-15T10:00:00Z' },
-          jobTemplates: { lastSync: '2024-01-15T11:00:00Z' },
+          orgsUsersTeams: {
+            lastSync: '2024-01-15T10:00:00Z',
+            syncInProgress: false,
+            lastFailedSyncTime: null,
+            lastSyncStatus: null,
+          },
+          jobTemplates: {
+            lastSync: '2024-01-15T11:00:00Z',
+            syncInProgress: false,
+            lastFailedSyncTime: null,
+            lastSyncStatus: null,
+          },
         },
         content: {
           syncInProgress: false,
@@ -2780,6 +2954,7 @@ describe('createRouter', () => {
           userInfo: mockUserInfo,
           auth: mockAuth,
           catalogClient: mockCatalogClient,
+          scheduler: mockScheduler,
           permissions: mockPermissions,
           ansibleGitContentsProviders: [mockGitProvider],
         }),
@@ -2821,6 +2996,7 @@ describe('createRouter', () => {
           userInfo: mockUserInfo,
           auth: mockAuth,
           catalogClient: mockCatalogClient,
+          scheduler: mockScheduler,
           permissions: mockPermissions,
           ansibleGitContentsProviders: [mockGitProvider],
         }),
@@ -2849,6 +3025,7 @@ describe('createRouter', () => {
       userInfo: mockUserInfo,
       auth: mockAuth,
       catalogClient: mockCatalogClient,
+      scheduler: mockScheduler,
       permissions: mockPermissions,
       ansibleGitContentsProviders: providers,
     });
@@ -2873,11 +3050,10 @@ describe('createRouter', () => {
       expect(response.body.results[0].error?.code).toBe('INVALID_FILTER');
     });
 
-    it('should sync all providers when filters is empty and log provider ids', async () => {
+    it('should trigger all providers via scheduler when filters is empty', async () => {
       const mockProvider = createMockGitContentsProvider({
         sourceId: 'dev:github:github.com:acme',
       });
-      mockProvider.startSync.mockReturnValue({ started: true, skipped: false });
 
       const testApp = await createAppWithSyncProviders([mockProvider]);
 
@@ -2892,18 +3068,20 @@ describe('createRouter', () => {
       expect(mockLogger.info).toHaveBeenCalledWith(
         expect.stringContaining('dev:github:github.com:acme'),
       );
+      expect(mockScheduler.triggerTask).toHaveBeenCalledWith(
+        'AnsibleGitContentsProvider:dev:github:github.com:acme:run',
+      );
       expect(response.body.summary.sync_started).toBe(1);
       expect(response.body.results[0].status).toBe('sync_started');
     });
 
-    it('should return already_syncing when provider.startSync returns skipped', async () => {
+    it('should return already_syncing when task is already running', async () => {
       const mockProvider = createMockGitContentsProvider({
         sourceId: 'dev:gitlab:gitlab.com:mygroup',
       });
-      mockProvider.startSync.mockReturnValue({
-        started: false,
-        skipped: true,
-      });
+      mockScheduler.triggerTask.mockRejectedValue(
+        new ConflictError('Task already running'),
+      );
 
       const testApp = await createAppWithSyncProviders([mockProvider]);
 
@@ -2918,14 +3096,10 @@ describe('createRouter', () => {
       );
     });
 
-    it('should return failed when provider.startSync returns !started and log error', async () => {
+    it('should return failed when provider getTaskId returns undefined', async () => {
       const mockProvider = createMockGitContentsProvider({
         sourceId: 'dev:github:github.com:fail-org',
-      });
-      mockProvider.startSync.mockReturnValue({
-        started: false,
-        skipped: false,
-        error: 'Connection refused',
+        taskId: undefined,
       });
 
       const testApp = await createAppWithSyncProviders([mockProvider]);
@@ -2936,11 +3110,9 @@ describe('createRouter', () => {
 
       expect(response.status).toBe(500);
       expect(response.body.results[0].status).toBe('failed');
-      expect(response.body.results[0].error?.message).toBe(
-        'Connection refused',
-      );
+      expect(response.body.results[0].error?.code).toBe('SYNC_START_FAILED');
       expect(mockLogger.error).toHaveBeenCalledWith(
-        expect.stringContaining('Failed to start sync'),
+        expect.stringContaining('Cannot trigger sync'),
       );
     });
 
@@ -2948,7 +3120,6 @@ describe('createRouter', () => {
       const mockProvider = createMockGitContentsProvider({
         sourceId: 'dev:github:github.com:matched',
       });
-      mockProvider.startSync.mockReturnValue({ started: true, skipped: false });
 
       const testApp = await createAppWithSyncProviders([mockProvider]);
 
@@ -2970,17 +3141,40 @@ describe('createRouter', () => {
       expect(response.body.results[0].organization).toBe('matched');
     });
 
-    it('should return 207 when mixed results and include summary counts', async () => {
-      const started = createMockGitContentsProvider({
+    it('should return 202 when all providers trigger successfully', async () => {
+      const provider1 = createMockGitContentsProvider({
         sourceId: 'dev:github:github.com:org1',
       });
-      started.startSync.mockReturnValue({ started: true, skipped: false });
-      const skipped = createMockGitContentsProvider({
+      const provider2 = createMockGitContentsProvider({
         sourceId: 'dev:github:github.com:org2',
       });
-      skipped.startSync.mockReturnValue({ started: false, skipped: true });
 
-      const testApp = await createAppWithSyncProviders([started, skipped]);
+      const testApp = await createAppWithSyncProviders([provider1, provider2]);
+
+      const response = await request(testApp)
+        .post('/ansible/sync/from-scm/content')
+        .send({});
+
+      expect(response.status).toBe(202);
+      expect(response.body.summary).toMatchObject({
+        total: 2,
+        sync_started: 2,
+      });
+      expect(mockScheduler.triggerTask).toHaveBeenCalledTimes(2);
+    });
+
+    it('should return 207 when one provider triggers and one is already syncing', async () => {
+      const provider1 = createMockGitContentsProvider({
+        sourceId: 'dev:github:github.com:one',
+      });
+      const provider2 = createMockGitContentsProvider({
+        sourceId: 'dev:github:github.com:two',
+      });
+      mockScheduler.triggerTask
+        .mockResolvedValueOnce(undefined)
+        .mockRejectedValueOnce(new ConflictError('Task already running'));
+
+      const testApp = await createAppWithSyncProviders([provider1, provider2]);
 
       const response = await request(testApp)
         .post('/ansible/sync/from-scm/content')
@@ -2992,6 +3186,16 @@ describe('createRouter', () => {
         sync_started: 1,
         already_syncing: 1,
       });
+      expect(
+        response.body.results.some(
+          (r: { status: string }) => r.status === 'sync_started',
+        ),
+      ).toBe(true);
+      expect(
+        response.body.results.some(
+          (r: { status: string }) => r.status === 'already_syncing',
+        ),
+      ).toBe(true);
     });
   });
 
@@ -3044,6 +3248,7 @@ describe('createRouter', () => {
         userInfo: mockUserInfo,
         auth: mockAuth,
         catalogClient: mockCatalogClient,
+        scheduler: mockScheduler,
         permissions: mockPermissions,
         ansibleGitContentsProviders: [],
       });
@@ -3081,6 +3286,7 @@ describe('createRouter', () => {
         userInfo: mockUserInfo,
         auth: mockAuth,
         catalogClient: mockCatalogClient,
+        scheduler: mockScheduler,
         permissions: mockPermissions,
         ansibleGitContentsProviders: [],
       });
@@ -3121,6 +3327,7 @@ describe('createRouter', () => {
         userInfo: mockUserInfo,
         auth: mockAuth,
         catalogClient: mockCatalogClient,
+        scheduler: mockScheduler,
         permissions: mockPermissions,
         ansibleGitContentsProviders: [],
       });
@@ -3171,6 +3378,7 @@ describe('createRouter', () => {
         userInfo: mockUserInfo,
         auth: mockAuth,
         catalogClient: mockCatalogClient,
+        scheduler: mockScheduler,
         permissions: mockPermissions,
         ansibleGitContentsProviders: [],
       });
@@ -3309,8 +3517,9 @@ describe('createRouter', () => {
         .post('/ansible/sync/from-aap/orgs_users_teams')
         .send({ test: 'data' });
 
-      // Should return 404 for POST request, but won't fail on JSON parsing
-      expect(response.status).toBe(404);
+      expect(response.status).toBe(202);
+      expect(response.headers['content-type']).toMatch(/json/);
+      expect(response.body).toEqual({ status: 'sync_started' });
     });
 
     it('should handle undefined routes', async () => {
@@ -3331,6 +3540,7 @@ describe('createRouter', () => {
         userInfo: mockUserInfo,
         auth: mockAuth,
         catalogClient: mockCatalogClient,
+        scheduler: mockScheduler,
         permissions: mockPermissions,
         ansibleGitContentsProviders: [] as AnsibleGitContentsProvider[],
       };
@@ -3358,6 +3568,7 @@ describe('createRouter', () => {
         userInfo: mockUserInfo,
         auth: mockAuth,
         catalogClient: mockCatalogClient,
+        scheduler: mockScheduler,
         permissions: mockPermissions,
         ansibleGitContentsProviders: [],
       });
@@ -3381,6 +3592,7 @@ describe('createRouter', () => {
         userInfo: mockUserInfo,
         auth: mockAuth,
         catalogClient: mockCatalogClient,
+        scheduler: mockScheduler,
         permissions: mockPermissions,
         ansibleGitContentsProviders: [],
       });
@@ -3388,9 +3600,9 @@ describe('createRouter', () => {
       const testApp = express().use(routerWithInvalidProvider);
 
       // The sync endpoint should fail when aapEntityProvider is undefined
-      const response = await request(testApp).get(
-        '/ansible/sync/from-aap/orgs_users_teams',
-      );
+      const response = await request(testApp)
+        .post('/ansible/sync/from-aap/orgs_users_teams')
+        .send();
       expect(response.status).toBe(500);
     });
 
@@ -3406,6 +3618,7 @@ describe('createRouter', () => {
         userInfo: mockUserInfo,
         auth: mockAuth,
         catalogClient: mockCatalogClient,
+        scheduler: mockScheduler,
         permissions: mockPermissions,
         ansibleGitContentsProviders: [],
       });
@@ -3413,20 +3626,15 @@ describe('createRouter', () => {
       const testApp = express().use(routerWithInvalidProvider);
 
       // The sync endpoint should fail when jobTemplateProvider is undefined
-      const response = await request(testApp).get(
-        '/ansible/sync/from-aap/job_templates',
-      );
+      const response = await request(testApp)
+        .post('/ansible/sync/from-aap/job_templates')
+        .send();
       expect(response.status).toBe(500);
     });
   });
 
   describe('POST /ansible/sync/from-aap/content', () => {
-    it('should return 202 when sync starts for all providers', async () => {
-      mockPAHCollectionProvider.startSync.mockReturnValue({
-        started: true,
-        skipped: false,
-      });
-
+    it('should trigger sync via scheduler and return 202 for all providers', async () => {
       const response = await request(app)
         .post('/ansible/sync/from-aap/content')
         .send({});
@@ -3448,17 +3656,15 @@ describe('createRouter', () => {
           },
         ],
       });
+      expect(mockScheduler.triggerTask).toHaveBeenCalledWith(
+        'PAHCollectionProvider:test:validated:run',
+      );
       expect(mockLogger.info).toHaveBeenCalledWith(
         'Starting PAH collections sync for repository name(s): validated',
       );
     });
 
-    it('should return 202 when filters array is empty and all syncs start', async () => {
-      mockPAHCollectionProvider.startSync.mockReturnValue({
-        started: true,
-        skipped: false,
-      });
-
+    it('should trigger sync via scheduler when filters array is empty', async () => {
       const response = await request(app)
         .post('/ansible/sync/from-aap/content')
         .send({ filters: [] });
@@ -3466,38 +3672,18 @@ describe('createRouter', () => {
       expect(response.status).toBe(202);
       expect(response.body.summary.total).toBe(1);
       expect(response.body.summary.sync_started).toBe(1);
-      expect(response.body.results[0].status).toBe('sync_started');
+      expect(mockScheduler.triggerTask).toHaveBeenCalledTimes(1);
     });
 
-    it('should return 202 when sync starts for specific repository', async () => {
-      mockPAHCollectionProvider.startSync.mockReturnValue({
-        started: true,
-        skipped: false,
-      });
-
+    it('should trigger sync via scheduler for specific repository', async () => {
       const response = await request(app)
         .post('/ansible/sync/from-aap/content')
         .send({ filters: [{ repository_name: 'validated' }] });
 
       expect(response.status).toBe(202);
-      expect(response.body).toEqual({
-        summary: {
-          total: 1,
-          sync_started: 1,
-          already_syncing: 0,
-          failed: 0,
-          invalid: 0,
-        },
-        results: [
-          {
-            repositoryName: 'validated',
-            providerName: 'PAHCollectionProvider:test',
-            status: 'sync_started',
-          },
-        ],
-      });
-      expect(mockLogger.info).toHaveBeenCalledWith(
-        'Starting PAH collections sync for repository name(s): validated',
+      expect(response.body.summary.sync_started).toBe(1);
+      expect(mockScheduler.triggerTask).toHaveBeenCalledWith(
+        'PAHCollectionProvider:test:validated:run',
       );
     });
 
@@ -3529,12 +3715,8 @@ describe('createRouter', () => {
       });
     });
 
-    it('should return 500 when provider fails to start', async () => {
-      mockPAHCollectionProvider.startSync.mockReturnValue({
-        started: false,
-        skipped: false,
-        error: 'Provider not connected',
-      });
+    it('should return 500 when provider getTaskId returns undefined', async () => {
+      mockPAHCollectionProvider.getTaskId.mockReturnValue(undefined);
 
       const response = await request(app)
         .post('/ansible/sync/from-aap/content')
@@ -3543,19 +3725,11 @@ describe('createRouter', () => {
       expect(response.status).toBe(500);
       expect(response.body.summary.failed).toBe(1);
       expect(response.body.results[0].status).toBe('failed');
-      expect(response.body.results[0].error).toEqual({
-        code: 'SYNC_START_FAILED',
-        message: 'Provider not connected',
-      });
+      expect(response.body.results[0].error.code).toBe('SYNC_START_FAILED');
       expect(mockLogger.error).toHaveBeenCalled();
     });
 
-    it('should filter out invalid repository names from filters and return 202 when sync starts', async () => {
-      mockPAHCollectionProvider.startSync.mockReturnValue({
-        started: true,
-        skipped: false,
-      });
-
+    it('should filter out invalid repository names from filters and return 202', async () => {
       const response = await request(app)
         .post('/ansible/sync/from-aap/content')
         .send({
@@ -3571,45 +3745,24 @@ describe('createRouter', () => {
       expect(response.body.results[0].status).toBe('sync_started');
     });
 
-    it('should skip sync when already in progress', async () => {
-      mockPAHCollectionProvider.startSync.mockReturnValue({
-        started: false,
-        skipped: true,
-      });
+    it('should return already_syncing when task is already running', async () => {
+      mockScheduler.triggerTask.mockRejectedValue(
+        new ConflictError('Task already running'),
+      );
 
       const response = await request(app)
         .post('/ansible/sync/from-aap/content')
         .send({ filters: [{ repository_name: 'validated' }] });
 
       expect(response.status).toBe(200);
-      expect(response.body).toEqual({
-        summary: {
-          total: 1,
-          sync_started: 0,
-          already_syncing: 1,
-          failed: 0,
-          invalid: 0,
-        },
-        results: [
-          {
-            repositoryName: 'validated',
-            providerName: 'PAHCollectionProvider:test',
-            status: 'already_syncing',
-          },
-        ],
-      });
-      expect(mockPAHCollectionProvider.run).not.toHaveBeenCalled();
+      expect(response.body.summary.already_syncing).toBe(1);
+      expect(response.body.results[0].status).toBe('already_syncing');
       expect(mockLogger.info).toHaveBeenCalledWith(
         'Skipping sync for validated: sync already in progress',
       );
     });
 
     it('should return 207 with valid results and invalid repositories mixed', async () => {
-      mockPAHCollectionProvider.startSync.mockReturnValue({
-        started: true,
-        skipped: false,
-      });
-
       const response = await request(app)
         .post('/ansible/sync/from-aap/content')
         .send({
@@ -3659,6 +3812,7 @@ describe('createRouter', () => {
         userInfo: mockUserInfo,
         auth: mockAuth,
         catalogClient: mockCatalogClient,
+        scheduler: mockScheduler,
         permissions: mockPermissions,
         ansibleGitContentsProviders: [],
       });
@@ -3688,7 +3842,6 @@ describe('createRouter', () => {
     let mockProvider2: jest.Mocked<PAHCollectionProvider>;
 
     beforeEach(async () => {
-      // Re-apply superuser auth mocks so requireSuperuserMiddleware passes (shared mocks can be affected by test order)
       mockHttpAuth.credentials.mockResolvedValue({} as any);
       mockUserInfo.getUserInfo.mockResolvedValue({
         userEntityRef: 'user:default/test-user',
@@ -3706,10 +3859,12 @@ describe('createRouter', () => {
 
       mockProvider1 = {
         run: jest.fn(),
-        startSync: jest.fn(),
         getProviderName: jest
           .fn()
           .mockReturnValue('PAHCollectionProvider:test:repo1'),
+        getTaskId: jest
+          .fn()
+          .mockReturnValue('PAHCollectionProvider:test:repo1:run'),
         getPahRepositoryName: jest.fn().mockReturnValue('repo1'),
         connect: jest.fn(),
         getLastSyncTime: jest.fn().mockReturnValue(null),
@@ -3724,10 +3879,12 @@ describe('createRouter', () => {
 
       mockProvider2 = {
         run: jest.fn(),
-        startSync: jest.fn(),
         getProviderName: jest
           .fn()
           .mockReturnValue('PAHCollectionProvider:test:repo2'),
+        getTaskId: jest
+          .fn()
+          .mockReturnValue('PAHCollectionProvider:test:repo2:run'),
         getPahRepositoryName: jest.fn().mockReturnValue('repo2'),
         connect: jest.fn(),
         getLastSyncTime: jest.fn().mockReturnValue(null),
@@ -3751,6 +3908,7 @@ describe('createRouter', () => {
         userInfo: mockUserInfo,
         auth: mockAuth,
         catalogClient: mockCatalogClient,
+        scheduler: mockScheduler,
         permissions: mockPermissions,
         ansibleGitContentsProviders: [],
       });
@@ -3758,16 +3916,7 @@ describe('createRouter', () => {
       appWithMultipleProviders = express().use(router);
     });
 
-    it('should return 202 when all providers start sync successfully', async () => {
-      mockProvider1.startSync.mockReturnValue({
-        started: true,
-        skipped: false,
-      });
-      mockProvider2.startSync.mockReturnValue({
-        started: true,
-        skipped: false,
-      });
-
+    it('should trigger both providers via scheduler and return 202', async () => {
       const response = await request(appWithMultipleProviders)
         .post('/ansible/sync/from-aap/content')
         .send({});
@@ -3775,23 +3924,13 @@ describe('createRouter', () => {
       expect(response.status).toBe(202);
       expect(response.body.summary.total).toBe(2);
       expect(response.body.summary.sync_started).toBe(2);
-      expect(response.body.results).toHaveLength(2);
-      expect(
-        response.body.results.every(
-          (r: { status: string }) => r.status === 'sync_started',
-        ),
-      ).toBe(true);
+      expect(mockScheduler.triggerTask).toHaveBeenCalledTimes(2);
     });
 
     it('should return 200 when all providers are already syncing', async () => {
-      mockProvider1.startSync.mockReturnValue({
-        started: false,
-        skipped: true,
-      });
-      mockProvider2.startSync.mockReturnValue({
-        started: false,
-        skipped: true,
-      });
+      mockScheduler.triggerTask.mockRejectedValue(
+        new ConflictError('Task already running'),
+      );
 
       const response = await request(appWithMultipleProviders)
         .post('/ansible/sync/from-aap/content')
@@ -3800,95 +3939,36 @@ describe('createRouter', () => {
       expect(response.status).toBe(200);
       expect(response.body.summary.total).toBe(2);
       expect(response.body.summary.already_syncing).toBe(2);
-      expect(response.body.results).toHaveLength(2);
-      expect(
-        response.body.results.every(
-          (r: { status: string }) => r.status === 'already_syncing',
-        ),
-      ).toBe(true);
     });
 
-    it('should return 207 when some providers start and some are skipped', async () => {
-      mockProvider1.startSync.mockReturnValue({
-        started: true,
-        skipped: false,
-      });
-      mockProvider2.startSync.mockReturnValue({
-        started: false,
-        skipped: true,
-      });
+    it('should return 207 when one succeeds and one is already syncing', async () => {
+      mockScheduler.triggerTask
+        .mockResolvedValueOnce(undefined)
+        .mockRejectedValueOnce(new ConflictError('Task already running'));
 
       const response = await request(appWithMultipleProviders)
         .post('/ansible/sync/from-aap/content')
         .send({});
 
       expect(response.status).toBe(207);
-      expect(response.body.summary.total).toBe(2);
       expect(response.body.summary.sync_started).toBe(1);
       expect(response.body.summary.already_syncing).toBe(1);
-      expect(response.body.results).toHaveLength(2);
-      expect(response.body.results[0].status).toBe('sync_started');
-      expect(response.body.results[1].status).toBe('already_syncing');
     });
 
-    it('should return 207 when some providers start and some fail', async () => {
-      mockProvider1.startSync.mockReturnValue({
-        started: true,
-        skipped: false,
-      });
-      mockProvider2.startSync.mockReturnValue({
-        started: false,
-        skipped: false,
-        error: 'Provider not connected',
-      });
-
-      const response = await request(appWithMultipleProviders)
-        .post('/ansible/sync/from-aap/content')
-        .send({});
-
-      expect(response.status).toBe(207);
-      expect(response.body.summary.total).toBe(2);
-      expect(response.body.summary.sync_started).toBe(1);
-      expect(response.body.summary.failed).toBe(1);
-      expect(response.body.results).toHaveLength(2);
-      expect(response.body.results[0].status).toBe('sync_started');
-      expect(response.body.results[1].status).toBe('failed');
-      expect(response.body.results[1].error.code).toBe('SYNC_START_FAILED');
-    });
-
-    it('should return 500 when all providers fail to start', async () => {
-      mockProvider1.startSync.mockReturnValue({
-        started: false,
-        skipped: false,
-        error: 'Provider not connected',
-      });
-      mockProvider2.startSync.mockReturnValue({
-        started: false,
-        skipped: false,
-        error: 'Provider not connected',
-      });
+    it('should return 500 when all providers have no taskId', async () => {
+      mockProvider1.getTaskId.mockReturnValue(undefined);
+      mockProvider2.getTaskId.mockReturnValue(undefined);
 
       const response = await request(appWithMultipleProviders)
         .post('/ansible/sync/from-aap/content')
         .send({});
 
       expect(response.status).toBe(500);
-      expect(response.body.summary.total).toBe(2);
       expect(response.body.summary.failed).toBe(2);
-      expect(response.body.results).toHaveLength(2);
-      expect(
-        response.body.results.every(
-          (r: { status: string }) => r.status === 'failed',
-        ),
-      ).toBe(true);
     });
 
-    it('should return 400 when mix of failed and invalid with no sync started (client error precedence)', async () => {
-      mockProvider1.startSync.mockReturnValue({
-        started: false,
-        skipped: false,
-        error: 'Provider not connected',
-      });
+    it('should return 400 when mix of failed and invalid with no sync started', async () => {
+      mockProvider1.getTaskId.mockReturnValue(undefined);
 
       const response = await request(appWithMultipleProviders)
         .post('/ansible/sync/from-aap/content')
@@ -3902,15 +3982,9 @@ describe('createRouter', () => {
       expect(response.status).toBe(400);
       expect(response.body.summary.failed).toBe(1);
       expect(response.body.summary.invalid).toBe(1);
-      expect(response.body.results).toHaveLength(2);
     });
 
-    it('should return 207 when mix of already_syncing and invalid', async () => {
-      mockProvider1.startSync.mockReturnValue({
-        started: false,
-        skipped: true,
-      });
-
+    it('should return 207 when mix of sync_started and invalid', async () => {
       const response = await request(appWithMultipleProviders)
         .post('/ansible/sync/from-aap/content')
         .send({
@@ -3921,9 +3995,8 @@ describe('createRouter', () => {
         });
 
       expect(response.status).toBe(207);
-      expect(response.body.summary.already_syncing).toBe(1);
+      expect(response.body.summary.sync_started).toBe(1);
       expect(response.body.summary.invalid).toBe(1);
-      expect(response.body.results).toHaveLength(2);
     });
   });
 });

@@ -68,7 +68,7 @@ export const ResourcesCard: React.FC<ResourcesCardProps> = () => {
           <Box className={classes.linkRow}>
             <OpenInNewIcon fontSize="small" color="primary" />
             <Link
-              href="https://docs.redhat.com/en/documentation/red_hat_ansible_automation_platform/2.6/html/creating_and_using_execution_environments/assembly-intro-to-builder"
+              href="https://red.ht/ee_assembly-intro-to-builder"
               target="_blank"
               rel="noopener noreferrer"
               variant="body2"
@@ -81,7 +81,7 @@ export const ResourcesCard: React.FC<ResourcesCardProps> = () => {
           <Box className={classes.linkRow}>
             <OpenInNewIcon fontSize="small" color="primary" />
             <Link
-              href="https://docs.redhat.com/en/documentation/red_hat_ansible_automation_platform/2.6/html-single/using_self-service_automation_portal/index#self-service-create-ee-definitions_aap-self-service-using"
+              href="https://red.ht/self-service-create-ee-definitions"
               target="_blank"
               rel="noopener noreferrer"
               variant="body2"
@@ -95,7 +95,7 @@ export const ResourcesCard: React.FC<ResourcesCardProps> = () => {
           <Box className={classes.linkRow}>
             <OpenInNewIcon fontSize="small" color="primary" />
             <Link
-              href="https://docs.redhat.com/en/documentation/red_hat_ansible_automation_platform/2.6/html/creating_and_using_execution_environments/assembly-using-builder"
+              href="https://red.ht/ee_assembly-using-builder"
               target="_blank"
               rel="noopener noreferrer"
               variant="body2"

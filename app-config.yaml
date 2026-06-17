@@ -166,7 +166,7 @@ catalog:
                       branches: [main, master, dev] # optional, searches only the default branch if not specified
                       tags: ['v*']  # optional, supports glob patterns
                       galaxyFilePaths: []  # optional, specific paths to search
-                      crawlDepth: 5  # optional, max directory depth to search
+                      crawlDepth: 1  # optional, max directory depth to search
                       # Optional: org-level schedule overrides common schedule
                       schedule:
                         frequency: { minutes: 120 }

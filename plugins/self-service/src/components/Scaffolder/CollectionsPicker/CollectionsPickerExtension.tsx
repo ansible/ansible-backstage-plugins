@@ -319,9 +319,6 @@ export const CollectionsPickerExtension = ({
   useEffect(() => {
     if (selectedCollection) {
       fetchSources(selectedCollection);
-      setSelectedSource(null);
-      setSelectedVersion(null);
-      setAvailableVersions([]);
     } else {
       setAvailableSources([]);
       setAvailableVersions([]);
@@ -331,24 +328,20 @@ export const CollectionsPickerExtension = ({
   useEffect(() => {
     if (selectedCollection && selectedSource) {
       fetchVersions(selectedCollection, selectedSource);
-      setSelectedVersion(null);
     } else {
       setAvailableVersions([]);
     }
   }, [selectedCollection, selectedSource, fetchVersions]);
 
   const handleAddCollection = () => {
-    if (!selectedCollection?.trim()) {
+    if (!selectedCollection?.trim() || !selectedSource?.trim()) {
       return;
     }
 
     const collectionToAdd: CollectionItem = {
       name: selectedCollection.trim(),
+      source: selectedSource,
     };
-
-    if (selectedSource) {
-      collectionToAdd.source = selectedSource;
-    }
 
     if (selectedVersion) {
       collectionToAdd.version = selectedVersion;
@@ -392,7 +385,8 @@ export const CollectionsPickerExtension = ({
     setEditingIndex(index);
   };
 
-  const isAddButtonDisabled = !selectedCollection?.trim() || disabled;
+  const isAddButtonDisabled =
+    !selectedCollection?.trim() || !selectedSource?.trim() || disabled;
 
   const versionAutocompleteValue = useMemo(():
     | VersionOption
@@ -479,6 +473,7 @@ export const CollectionsPickerExtension = ({
                   ? newValue
                   : newValue?.name || newValue?.label || newValue?.id || null;
               setSelectedSource(value);
+              setSelectedVersion(null);
             }}
             loading={loadingSources}
             disabled={disabled || !selectedCollection}
@@ -489,6 +484,7 @@ export const CollectionsPickerExtension = ({
                 label="Source"
                 placeholder="Select source"
                 variant="outlined"
+                required
                 className={classes.inputField}
                 InputProps={{
                   ...params.InputProps,

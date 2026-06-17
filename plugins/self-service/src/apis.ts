@@ -165,30 +165,28 @@ export class AnsibleApiClient implements AnsibleApi {
     this.fetchApi = options.fetchApi;
   }
 
-  async syncTemplates(): Promise<boolean> {
+  private async triggerSync(endpoint: string): Promise<boolean> {
     const baseUrl = await this.discoveryApi.getBaseUrl('catalog');
     try {
-      const response = await this.fetchApi.fetch(
-        `${baseUrl}/ansible/sync/from-aap/job_templates`,
-      );
+      const response = await this.fetchApi.fetch(`${baseUrl}${endpoint}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+      });
       const data = await response.json();
-      return data;
+      return (
+        data.status === 'sync_started' || data.status === 'already_syncing'
+      );
     } catch {
       return false;
     }
   }
 
+  async syncTemplates(): Promise<boolean> {
+    return this.triggerSync('/ansible/sync/from-aap/job_templates');
+  }
+
   async syncOrgsUsersTeam(): Promise<boolean> {
-    const baseUrl = await this.discoveryApi.getBaseUrl('catalog');
-    try {
-      const response = await this.fetchApi.fetch(
-        `${baseUrl}/ansible/sync/from-aap/orgs_users_teams`,
-      );
-      const data = await response.json();
-      return data;
-    } catch {
-      return false;
-    }
+    return this.triggerSync('/ansible/sync/from-aap/orgs_users_teams');
   }
 
   async getSyncStatus(): Promise<{

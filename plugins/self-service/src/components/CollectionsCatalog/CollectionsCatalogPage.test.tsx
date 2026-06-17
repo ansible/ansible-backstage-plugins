@@ -44,8 +44,10 @@ jest.mock('../common/SyncDialog', () => ({
             onSyncsStarted?.([
               {
                 sourceId: 'src-1',
-                displayName: 'github.com/org1',
+                displayName: 'github.com:org1',
                 lastSyncTime: null,
+                lastSyncStatus: null,
+                lastFailedSyncTime: null,
               },
             ])
           }
@@ -193,8 +195,10 @@ describe('CollectionsCatalogPage', () => {
     expect(mockStartTracking).toHaveBeenCalledWith([
       {
         sourceId: 'src-1',
-        displayName: 'github.com/org1',
+        displayName: 'github.com:org1',
         lastSyncTime: null,
+        lastSyncStatus: null,
+        lastFailedSyncTime: null,
       },
     ]);
   });

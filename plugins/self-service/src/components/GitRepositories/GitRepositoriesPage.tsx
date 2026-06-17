@@ -33,6 +33,7 @@ import { RepositoriesPageHeaderSection } from './RepositoriesPageHeaderSection';
 import { RepositoriesTable } from './RepositoriesTable';
 import { RepositoriesCIActivityTab } from './RepositoriesCIActivityTab';
 import { RepositoryDetailsPage } from './RepositoryDetailsPage';
+import { gitReposCache } from './gitReposCache';
 
 const useStyles = makeStyles(theme => ({
   tabsSection: {
@@ -78,7 +79,8 @@ export const GitRepositoriesPage = () => {
   const discoveryApi = useApi(discoveryApiRef);
   const fetchApi = useApi(fetchApiRef);
   const rootLink = useRouteRef(rootRouteRef);
-  const { isSyncInProgress, startTracking } = useSyncStatusPolling();
+  const { isSyncInProgress, syncProgress, startTracking } =
+    useSyncStatusPolling();
 
   const [syncDialogOpen, setSyncDialogOpen] = useState(false);
   const [hasConfiguredSources, setHasConfiguredSources] = useState<
@@ -163,7 +165,10 @@ export const GitRepositoriesPage = () => {
 
   const content =
     selectedTab === 1 ? (
-      <RepositoriesCIActivityTab key="ci-activity" />
+      <RepositoriesCIActivityTab
+        key="ci-activity"
+        cachedEntities={gitReposCache.getState()?.entities}
+      />
     ) : (
       <RepositoriesTable
         key="catalog"
@@ -179,6 +184,8 @@ export const GitRepositoriesPage = () => {
           onSyncClick={handleSyncClick}
           syncDisabled={syncDisabled}
           syncDisabledReason={syncDisabledReason}
+          syncInProgress={isSyncInProgress}
+          syncProgress={syncProgress}
         />
         <Box className={classes.tabsSection}>
           <HeaderTabs

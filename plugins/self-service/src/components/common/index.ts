@@ -1,7 +1,9 @@
+export * from './cache';
 export { EntityLinkButton } from './EntityLinkButton';
 export { fetchReadmeFromBackend } from './fetchReadme';
 export type { FetchReadmeParams } from './fetchReadme';
 export { PageHeaderSection } from './PageHeaderSection';
+export { SyncProgressPopover } from './SyncProgressPopover';
 export type { PageHeaderSectionProps } from './PageHeaderSection';
 export { SyncDialog } from './SyncDialog';
 export { EmptyState } from './EmptyState';
@@ -16,6 +18,7 @@ export {
   SYNC_STARTED_CATEGORY,
   SYNC_COMPLETED_CATEGORY,
   SYNC_FAILED_CATEGORY,
+  SYNC_FINISHED_CATEGORY,
   FAST_POLL_INTERVAL_MS,
   SLOW_POLL_INTERVAL_MS,
   TRACKING_TIMEOUT_MS,
@@ -26,6 +29,8 @@ export type {
   SourcesTree,
   SyncFilter,
   StartedSyncInfo,
+  SyncOutcome,
+  SyncProgressEntry,
   SyncDialogProps,
   EmptyStateProps,
 } from './types';

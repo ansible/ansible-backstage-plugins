@@ -178,6 +178,7 @@ describe('collectionsCache', () => {
       expect(mockCatalogApi.queryEntities).toHaveBeenCalledWith({
         filter: { kind: 'Component', 'spec.type': 'ansible-collection' },
         limit: 50,
+        orderFields: [{ field: 'metadata.uid', order: 'asc' }],
       });
 
       const state = collectionsCache.getState();
@@ -462,7 +463,7 @@ describe('collectionsCache', () => {
   });
 
   describe('invalidateFetchedData', () => {
-    it('notifies subscribers with empty data then reloads without dropping listeners', async () => {
+    it('reloads data without emitting empty state and without dropping listeners', async () => {
       const listener = jest.fn();
       const mockCatalogApi = createMockCatalogApi();
       collectionsCache.subscribe(listener);
@@ -471,15 +472,13 @@ describe('collectionsCache', () => {
 
       collectionsCache.invalidateFetchedData();
 
-      expect(listener).toHaveBeenCalledWith(
-        expect.objectContaining({
-          entities: [],
-          totalServerItems: 0,
-          isFullyLoaded: false,
-        }),
+      const emptyCall = listener.mock.calls.find(
+        ([state]: [any]) =>
+          state.entities.length === 0 && state.totalServerItems === 0,
       );
+      expect(emptyCall).toBeUndefined();
 
-      await collectionsCache.startLoading(mockCatalogApi);
+      await new Promise(resolve => setTimeout(resolve, 50));
 
       expect(collectionsCache.getState()?.entities).toHaveLength(1);
       expect(listener.mock.calls.length).toBeGreaterThan(0);

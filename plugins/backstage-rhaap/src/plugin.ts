@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 import {
+  createComponentExtension,
   createPlugin,
   createRoutableExtension,
 } from '@backstage/core-plugin-api';
@@ -33,5 +34,15 @@ export const AnsiblePage = ansiblePlugin.provide(
     component: () =>
       import('./components/AnsiblePage').then(m => m.AnsiblePage),
     mountPoint: rootRouteRef,
+  }),
+);
+
+export const AppThemeFixer = ansiblePlugin.provide(
+  createComponentExtension({
+    name: 'AppThemeFixer',
+    component: {
+      lazy: () =>
+        import('./components/AppThemeFixer').then(m => m.AppThemeFixer),
+    },
   }),
 );

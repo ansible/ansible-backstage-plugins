@@ -5,10 +5,7 @@ import {
   rethrowPreservingInputError,
 } from './utils/parseAapActionValues';
 import { normalizeCleanUpValues } from './schemas/rhaapActionPayloadUtils';
-import {
-  launchJobTemplateValuesLooseSchema,
-  cleanUpInputSchema,
-} from './schemas/rhaapActionSchemas';
+import { cleanUpInputSchema } from './schemas/rhaapActionSchemas';
 
 export const cleanUp = (ansibleServiceRef: IAAPService) => {
   return createTemplateAction({
@@ -16,7 +13,7 @@ export const cleanUp = (ansibleServiceRef: IAAPService) => {
     schema: {
       input: {
         token: z => z.string({ description: 'Oauth2 token' }),
-        values: () => launchJobTemplateValuesLooseSchema,
+        values: z => z.record(z.string(), z.unknown()),
       },
       output: {
         cleanUp: z => z.string(),

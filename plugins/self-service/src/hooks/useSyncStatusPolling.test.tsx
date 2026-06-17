@@ -10,7 +10,9 @@ const theme = createTheme();
 // Mock the syncPollingService
 jest.mock('../components/notifications/syncPollingService', () => {
   const listeners = new Set<(inProgress: boolean) => void>();
+  const progressListeners = new Set<(entries: unknown[]) => void>();
   let currentSyncInProgress = false;
+  let currentProgress: unknown[] = [];
 
   return {
     syncPollingService: {
@@ -20,7 +22,13 @@ jest.mock('../components/notifications/syncPollingService', () => {
         listener(currentSyncInProgress);
         return () => listeners.delete(listener);
       }),
+      subscribeProgress: jest.fn((listener: (entries: unknown[]) => void) => {
+        progressListeners.add(listener);
+        listener(currentProgress);
+        return () => progressListeners.delete(listener);
+      }),
       getIsSyncInProgress: jest.fn(() => currentSyncInProgress),
+      getSyncProgress: jest.fn(() => currentProgress),
       startTracking: jest.fn(),
       clear: jest.fn(),
       // Test helpers
@@ -30,7 +38,9 @@ jest.mock('../components/notifications/syncPollingService', () => {
       },
       _reset: () => {
         currentSyncInProgress = false;
+        currentProgress = [];
         listeners.clear();
+        progressListeners.clear();
       },
     },
   };
@@ -45,18 +55,22 @@ const mockFetchApi = {
 };
 
 function TestConsumer() {
-  const { isSyncInProgress, startTracking } = useSyncStatusPolling();
+  const { isSyncInProgress, syncProgress, startTracking } =
+    useSyncStatusPolling();
   return (
     <div>
       <span data-testid="sync-in-progress">{String(isSyncInProgress)}</span>
+      <span data-testid="sync-progress-count">{syncProgress.length}</span>
       <button
         type="button"
         onClick={() =>
           startTracking([
             {
               sourceId: 'src-1',
-              displayName: 'github.com/org1',
+              displayName: 'github.com:org1',
               lastSyncTime: null,
+              lastSyncStatus: null,
+              lastFailedSyncTime: null,
             },
           ])
         }
@@ -88,14 +102,22 @@ describe('useSyncStatusPolling', () => {
     (syncPollingService as any)._reset();
   });
 
-  it('subscribes on mount and does not call initialize (owned by app shell)', async () => {
+  it('subscribes on mount and calls initialize with catalog discovery and fetch', async () => {
     renderHook();
 
     await waitFor(() => {
       expect(syncPollingService.subscribe).toHaveBeenCalled();
     });
 
-    expect(syncPollingService.initialize).not.toHaveBeenCalled();
+    expect(syncPollingService.subscribeProgress).toHaveBeenCalled();
+    expect(syncPollingService.initialize).toHaveBeenCalledWith(
+      expect.objectContaining({
+        getBaseUrl: expect.any(Function),
+      }),
+      expect.objectContaining({
+        fetch: expect.any(Function),
+      }),
+    );
   });
 
   it('returns isSyncInProgress from syncPollingService', async () => {
@@ -120,8 +142,10 @@ describe('useSyncStatusPolling', () => {
       expect(syncPollingService.startTracking).toHaveBeenCalledWith([
         {
           sourceId: 'src-1',
-          displayName: 'github.com/org1',
+          displayName: 'github.com:org1',
           lastSyncTime: null,
+          lastSyncStatus: null,
+          lastFailedSyncTime: null,
         },
       ]);
     });

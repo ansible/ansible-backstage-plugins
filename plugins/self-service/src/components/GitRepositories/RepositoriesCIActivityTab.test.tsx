@@ -90,6 +90,12 @@ jest.mock('@backstage/plugin-catalog-react', () => {
 });
 
 import { RepositoriesCIActivityTab } from './RepositoriesCIActivityTab';
+import { ciActivityCache } from './ciActivityCache';
+import {
+  parseGitHubRuns,
+  parseGitLabPipelines,
+  buildRowsFromResults,
+} from './ciActivityUtils';
 
 const theme = createTheme();
 
@@ -120,30 +126,22 @@ type GitHubWorkflowRun = {
   html_url?: string;
 };
 
-type GitLabPipeline = {
-  id: number;
-  status?: string;
-  source?: string;
-  created_at?: string;
-  web_url?: string;
-};
-
-function setupFetchMock(
-  githubRuns: GitHubWorkflowRun[] = [],
-  gitlabPipelines: GitLabPipeline[] = [],
+function mockBatchResponse(
+  results: Record<string, { status: number; data: any } | { error: string }>,
 ) {
-  mockFetchApi.fetch.mockImplementation((url: string) => {
-    if (url.includes('provider=github')) {
-      return Promise.resolve({
-        ok: true,
-        json: () => Promise.resolve({ workflow_runs: githubRuns }),
-      });
-    }
-    // GitLab pipelines
-    return Promise.resolve({
-      ok: true,
-      json: () => Promise.resolve(gitlabPipelines),
-    });
+  mockFetchApi.fetch.mockResolvedValue({
+    ok: true,
+    json: () => Promise.resolve({ results }),
+  });
+}
+
+function entityRef(name: string): string {
+  return `component:default/${name}`;
+}
+
+function mockGitHubRuns(name: string, runs: GitHubWorkflowRun[]) {
+  mockBatchResponse({
+    [entityRef(name)]: { status: 200, data: { workflow_runs: runs } },
   });
 }
 
@@ -182,6 +180,7 @@ const createGitLabEntity = (name: string): Entity => ({
 describe('RepositoriesCIActivityTab', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    ciActivityCache.clear();
     jest.useFakeTimers();
     jest.setSystemTime(new Date('2024-06-15T12:00:00Z'));
 
@@ -189,44 +188,25 @@ describe('RepositoriesCIActivityTab', () => {
       items: [createGitHubEntity('github-repo')],
     });
 
-    // Mock fetch to handle both GitHub and GitLab API calls
-    mockFetchApi.fetch.mockImplementation((url: string) => {
-      if (url.includes('provider=github')) {
-        return Promise.resolve({
-          ok: true,
-          json: () =>
-            Promise.resolve({
-              workflow_runs: [
-                {
-                  id: 123,
-                  run_number: 42,
-                  name: 'CI Build',
-                  status: 'completed',
-                  conclusion: 'success',
-                  event: 'push',
-                  created_at: '2024-06-15T11:00:00Z',
-                  html_url:
-                    'https://github.com/test-org/github-repo/actions/runs/123',
-                },
-              ],
-            }),
-        });
-      }
-      // GitLab pipelines
-      return Promise.resolve({
-        ok: true,
-        json: () =>
-          Promise.resolve([
+    mockBatchResponse({
+      [entityRef('github-repo')]: {
+        status: 200,
+        data: {
+          workflow_runs: [
             {
-              id: 456,
-              status: 'success',
-              source: 'push',
-              created_at: '2024-06-15T10:00:00Z',
-              web_url:
-                'https://gitlab.com/test-group/gitlab-repo/-/pipelines/456',
+              id: 123,
+              run_number: 42,
+              name: 'CI Build',
+              status: 'completed',
+              conclusion: 'success',
+              event: 'push',
+              created_at: '2024-06-15T11:00:00Z',
+              html_url:
+                'https://github.com/test-org/github-repo/actions/runs/123',
             },
-          ]),
-      });
+          ],
+        },
+      },
     });
   });
 
@@ -274,7 +254,7 @@ describe('RepositoriesCIActivityTab', () => {
   });
 
   it('renders empty state when no CI activity', async () => {
-    setupFetchMock([], []);
+    mockBatchResponse({});
     mockCatalogApi.getEntities.mockResolvedValue({ items: [] });
 
     renderTab();
@@ -292,7 +272,7 @@ describe('RepositoriesCIActivityTab', () => {
 
   it('renders empty state for filtered entity with no activity', async () => {
     const entity = createGitHubEntity('empty-repo');
-    setupFetchMock([], []);
+    mockGitHubRuns('empty-repo', []);
 
     renderTab(entity);
 
@@ -324,6 +304,21 @@ describe('RepositoriesCIActivityTab', () => {
   it('renders GitLab pipelines', async () => {
     mockCatalogApi.getEntities.mockResolvedValue({
       items: [createGitLabEntity('gitlab-repo')],
+    });
+    mockBatchResponse({
+      [entityRef('gitlab-repo')]: {
+        status: 200,
+        data: [
+          {
+            id: 456,
+            status: 'success',
+            source: 'push',
+            created_at: '2024-06-15T10:00:00Z',
+            web_url:
+              'https://gitlab.com/test-group/gitlab-repo/-/pipelines/456',
+          },
+        ],
+      },
     });
 
     renderTab();
@@ -375,13 +370,27 @@ describe('RepositoriesCIActivityTab', () => {
 
   it('fetches only filtered entity when provided', async () => {
     const entity = createGitHubEntity('specific-repo');
+    mockGitHubRuns('specific-repo', [
+      {
+        id: 999,
+        run_number: 1,
+        name: 'CI',
+        status: 'completed',
+        conclusion: 'success',
+        event: 'push',
+        created_at: '2024-06-15T11:00:00Z',
+      },
+    ]);
 
     renderTab(entity);
 
     await waitFor(() => {
       expect(mockFetchApi.fetch).toHaveBeenCalledWith(
-        expect.stringContaining('/ansible/git/ci-activity?provider=github'),
-        expect.any(Object),
+        expect.stringContaining('/ansible/git/ci-activity'),
+        expect.objectContaining({
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+        }),
       );
     });
 
@@ -395,6 +404,39 @@ describe('RepositoriesCIActivityTab', () => {
         createGitLabEntity('gitlab-repo'),
       ],
     });
+    mockBatchResponse({
+      [entityRef('github-repo')]: {
+        status: 200,
+        data: {
+          workflow_runs: [
+            {
+              id: 123,
+              run_number: 42,
+              name: 'CI Build',
+              status: 'completed',
+              conclusion: 'success',
+              event: 'push',
+              created_at: '2024-06-15T11:00:00Z',
+              html_url:
+                'https://github.com/test-org/github-repo/actions/runs/123',
+            },
+          ],
+        },
+      },
+      [entityRef('gitlab-repo')]: {
+        status: 200,
+        data: [
+          {
+            id: 456,
+            status: 'success',
+            source: 'push',
+            created_at: '2024-06-15T10:00:00Z',
+            web_url:
+              'https://gitlab.com/test-group/gitlab-repo/-/pipelines/456',
+          },
+        ],
+      },
+    });
 
     renderTab();
 
@@ -407,7 +449,7 @@ describe('RepositoriesCIActivityTab', () => {
   });
 
   it('renders failure status correctly', async () => {
-    setupFetchMock([
+    mockGitHubRuns('github-repo', [
       {
         id: 124,
         run_number: 43,
@@ -428,7 +470,7 @@ describe('RepositoriesCIActivityTab', () => {
   });
 
   it('renders in_progress status correctly', async () => {
-    setupFetchMock([
+    mockGitHubRuns('github-repo', [
       {
         id: 125,
         run_number: 44,
@@ -490,6 +532,9 @@ describe('RepositoriesCIActivityTab', () => {
     mockCatalogApi.getEntities.mockResolvedValue({
       items: [invalidGitLabEntity],
     });
+    mockBatchResponse({
+      [entityRef('invalid-gitlab-repo')]: { status: 200, data: [] },
+    });
 
     renderTab();
 
@@ -499,7 +544,7 @@ describe('RepositoriesCIActivityTab', () => {
   });
 
   it('sorts status options alphabetically', async () => {
-    setupFetchMock([
+    mockGitHubRuns('github-repo', [
       {
         id: 1,
         run_number: 1,
@@ -533,7 +578,7 @@ describe('RepositoriesCIActivityTab', () => {
   });
 
   it('sorts trigger options alphabetically', async () => {
-    setupFetchMock([
+    mockGitHubRuns('github-repo', [
       {
         id: 1,
         run_number: 1,
@@ -567,7 +612,7 @@ describe('RepositoriesCIActivityTab', () => {
   });
 
   it('renders cancelled status', async () => {
-    setupFetchMock([
+    mockGitHubRuns('github-repo', [
       {
         id: 126,
         run_number: 45,
@@ -588,7 +633,7 @@ describe('RepositoriesCIActivityTab', () => {
   });
 
   it('renders queued status', async () => {
-    setupFetchMock([
+    mockGitHubRuns('github-repo', [
       {
         id: 127,
         run_number: 46,
@@ -609,7 +654,7 @@ describe('RepositoriesCIActivityTab', () => {
   });
 
   it('renders skipped status', async () => {
-    setupFetchMock([
+    mockGitHubRuns('github-repo', [
       {
         id: 128,
         run_number: 47,
@@ -630,7 +675,7 @@ describe('RepositoriesCIActivityTab', () => {
   });
 
   it('renders unknown status for unrecognized values', async () => {
-    setupFetchMock([
+    mockGitHubRuns('github-repo', [
       {
         id: 129,
         run_number: 48,
@@ -669,6 +714,18 @@ describe('RepositoriesCIActivityTab', () => {
     mockCatalogApi.getEntities.mockResolvedValue({
       items: [entityWithoutSourceLocation],
     });
+    mockGitHubRuns('no-source-repo', [
+      {
+        id: 300,
+        run_number: 50,
+        name: 'CI',
+        status: 'completed',
+        conclusion: 'success',
+        event: 'push',
+        created_at: '2024-06-15T11:00:00Z',
+        html_url: 'https://github.com/test-org/no-source-repo/actions/runs/300',
+      },
+    ]);
 
     renderTab();
 
@@ -678,7 +735,7 @@ describe('RepositoriesCIActivityTab', () => {
   });
 
   it('renders row without run URL', async () => {
-    setupFetchMock([
+    mockGitHubRuns('github-repo', [
       {
         id: 130,
         run_number: 49,
@@ -700,7 +757,7 @@ describe('RepositoriesCIActivityTab', () => {
   });
 
   it('renders project link when projectUrl is available', async () => {
-    setupFetchMock([
+    mockGitHubRuns('github-repo', [
       {
         id: 200,
         run_number: 100,
@@ -723,7 +780,7 @@ describe('RepositoriesCIActivityTab', () => {
   });
 
   it('renders run link when runUrl is available', async () => {
-    setupFetchMock([
+    mockGitHubRuns('github-repo', [
       {
         id: 201,
         run_number: 101,
@@ -746,7 +803,7 @@ describe('RepositoriesCIActivityTab', () => {
   });
 
   it('renders status icon based on status value', async () => {
-    setupFetchMock([
+    mockGitHubRuns('github-repo', [
       {
         id: 202,
         run_number: 102,
@@ -768,7 +825,7 @@ describe('RepositoriesCIActivityTab', () => {
   });
 
   it('handles status filter selection', async () => {
-    setupFetchMock([
+    mockGitHubRuns('github-repo', [
       {
         id: 1,
         run_number: 1,
@@ -800,7 +857,7 @@ describe('RepositoriesCIActivityTab', () => {
   });
 
   it('handles trigger filter selection', async () => {
-    setupFetchMock([
+    mockGitHubRuns('github-repo', [
       {
         id: 1,
         run_number: 1,
@@ -829,5 +886,181 @@ describe('RepositoriesCIActivityTab', () => {
 
     const triggerLabels = screen.getAllByText('Trigger');
     expect(triggerLabels.length).toBeGreaterThan(0);
+  });
+
+  it('uses cachedEntities when provided', async () => {
+    const entities = [createGitHubEntity('cached-repo')];
+    mockGitHubRuns('cached-repo', [
+      {
+        id: 500,
+        run_number: 1,
+        name: 'Build',
+        status: 'completed',
+        conclusion: 'success',
+        event: 'push',
+        created_at: '2024-06-15T11:00:00Z',
+      },
+    ]);
+
+    render(
+      <TestApiProvider
+        apis={[
+          [catalogApiRef, mockCatalogApi],
+          [discoveryApiRef, mockDiscoveryApi],
+          [fetchApiRef, mockFetchApi],
+          [identityApiRef, mockIdentityApi],
+          [starredEntitiesApiRef, new MockStarredEntitiesApi()],
+          [permissionApiRef, mockApis.permission()],
+        ]}
+      >
+        <MemoryRouter>
+          <ThemeProvider theme={theme}>
+            <RepositoriesCIActivityTab cachedEntities={entities} />
+          </ThemeProvider>
+        </MemoryRouter>
+      </TestApiProvider>,
+    );
+
+    await waitFor(() => {
+      expect(screen.getByText('Build #1')).toBeInTheDocument();
+    });
+
+    expect(mockCatalogApi.getEntities).not.toHaveBeenCalled();
+  });
+
+  it('handles batch fetch failure', async () => {
+    mockFetchApi.fetch.mockResolvedValue({
+      ok: false,
+      status: 502,
+    });
+
+    renderTab();
+
+    await waitFor(() => {
+      expect(
+        screen.getByText('Unable to load CI activity'),
+      ).toBeInTheDocument();
+    });
+
+    expect(
+      screen.getByText('Batch CI activity request failed: 502'),
+    ).toBeInTheDocument();
+  });
+});
+
+describe('ciActivityCache', () => {
+  beforeEach(() => {
+    ciActivityCache.clear();
+  });
+
+  it('returns null after TTL expires', async () => {
+    const discoveryApi = {
+      getBaseUrl: jest
+        .fn()
+        .mockResolvedValue('http://localhost:7007/api/catalog'),
+    };
+    const fetchApi = {
+      fetch: jest.fn().mockResolvedValue({
+        ok: true,
+        json: () => Promise.resolve({ results: {} }),
+      }),
+    };
+
+    const entity = createGitHubEntity('test-repo');
+    ciActivityCache.startLoading([entity], discoveryApi, fetchApi);
+
+    await new Promise(process.nextTick);
+    await new Promise(process.nextTick);
+
+    expect(ciActivityCache.getState()).not.toBeNull();
+
+    const now = Date.now();
+    jest.spyOn(Date, 'now').mockReturnValue(now + 4 * 60 * 1000);
+
+    expect(ciActivityCache.getState()).toBeNull();
+
+    jest.restoreAllMocks();
+  });
+
+  it('invalidate clears state and prevents stale writes', () => {
+    ciActivityCache.invalidate();
+    expect(ciActivityCache.getState()).toBeNull();
+  });
+});
+
+describe('ciActivityUtils', () => {
+  it('parseGitHubRuns handles non-array workflow_runs', () => {
+    const entity = createGitHubEntity('test-repo');
+    const result = parseGitHubRuns(
+      'key',
+      { workflow_runs: 'not-an-array' },
+      entity,
+    );
+    expect(result).toEqual([]);
+  });
+
+  it('parseGitHubRuns handles undefined data', () => {
+    const entity = createGitHubEntity('test-repo');
+    const result = parseGitHubRuns('key', undefined, entity);
+    expect(result).toEqual([]);
+  });
+
+  it('parseGitLabPipelines handles non-array data', () => {
+    const entity = createGitLabEntity('test-repo');
+    const result = parseGitLabPipelines('key', 'not-an-array', entity);
+    expect(result).toEqual([]);
+  });
+
+  it('parseGitLabPipelines handles null pipeline status', () => {
+    const entity = createGitLabEntity('test-repo');
+    const result = parseGitLabPipelines(
+      'key',
+      [{ id: 1, status: null, source: 'push', created_at: '' }],
+      entity,
+    );
+    expect(result).toHaveLength(1);
+    expect(result[0].status).toBe('unknown');
+  });
+
+  it('buildRowsFromResults skips entries with errors', () => {
+    const entity = createGitHubEntity('test-repo');
+    const entityMap = new Map([['key1', { entity, provider: 'github' }]]);
+    const results = {
+      key1: { error: 'some error' },
+    };
+    const rows = buildRowsFromResults(results, entityMap);
+    expect(rows).toEqual([]);
+  });
+
+  it('buildRowsFromResults skips unknown entity keys', () => {
+    const results = {
+      'unknown-key': { status: 200, data: { workflow_runs: [] } },
+    };
+    const entityMap = new Map<string, { entity: Entity; provider: string }>();
+    const rows = buildRowsFromResults(results, entityMap);
+    expect(rows).toEqual([]);
+  });
+
+  it('buildRowsFromResults sorts by time descending and limits to 150', () => {
+    const entity = createGitHubEntity('test-repo');
+    const entityMap = new Map([['key1', { entity, provider: 'github' }]]);
+    const runs = Array.from({ length: 160 }, (_, i) => ({
+      id: i,
+      run_number: i,
+      name: 'Build',
+      status: 'completed',
+      conclusion: 'success',
+      event: 'push',
+      created_at: new Date(2024, 0, 1, 0, i).toISOString(),
+      html_url: `https://github.com/test-org/test-repo/actions/runs/${i}`,
+    }));
+    const results = {
+      key1: { status: 200, data: { workflow_runs: runs } },
+    };
+    const rows = buildRowsFromResults(results, entityMap);
+    expect(rows).toHaveLength(150);
+    expect(new Date(rows[0].time).getTime()).toBeGreaterThan(
+      new Date(rows[1].time).getTime(),
+    );
   });
 });

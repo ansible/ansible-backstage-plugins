@@ -1,8 +1,8 @@
-import { useEffect } from 'react';
+import React, { useEffect } from 'react';
 import { Route, Routes, Navigate, Outlet, useLocation } from 'react-router-dom';
+import { CircularProgress } from '@material-ui/core';
 import { RequirePermission } from '@backstage/plugin-permission-react';
 import { catalogEntityCreatePermission } from '@backstage/plugin-catalog-common/alpha';
-import { taskReadPermission } from '@backstage/plugin-scaffolder-common/alpha';
 import {
   useApi,
   discoveryApiRef,
@@ -12,10 +12,13 @@ import {
   executionEnvironmentsViewPermission,
   collectionsViewPermission,
   gitRepositoriesViewPermission,
+  templatesViewPermission,
+  historyViewPermission,
 } from '@ansible/backstage-rhaap-common/permissions';
 
 import { HomeComponent } from '../Home';
 import { CatalogImport } from '../CatalogImport';
+import { useIsSuperuser } from '../../hooks';
 import { CreateTask } from '../CreateTask';
 import { RunTask } from '../RunTask';
 import { FeedbackFooter } from '../feedback/FeedbackFooter';
@@ -34,6 +37,24 @@ import {
   syncPollingService,
 } from '../notifications';
 
+const RequireSuperuser = ({ children }: { children: React.ReactNode }) => {
+  const { isSuperuser, loading, error } = useIsSuperuser();
+  if (loading) {
+    return (
+      <div
+        data-testid="superuser-loading"
+        style={{ display: 'flex', justifyContent: 'center', padding: '2rem' }}
+      >
+        <CircularProgress />
+      </div>
+    );
+  }
+  if (error || !isSuperuser) {
+    return <Navigate to="/self-service/catalog" replace />;
+  }
+  return <>{children}</>;
+};
+
 const RouteViewContent = () => {
   const { notifications, removeNotification } = useNotifications();
   const location = useLocation();
@@ -48,31 +69,45 @@ const RouteViewContent = () => {
   return (
     <>
       <Routes>
-        <Route path="catalog" element={<HomeComponent key={location.key} />} />
+        <Route
+          path="catalog"
+          element={
+            <RequirePermission permission={templatesViewPermission}>
+              <HomeComponent key={location.key} />
+            </RequirePermission>
+          }
+        />
         <Route
           path="catalog/:namespace/:templateName"
-          element={<CatalogItemsDetails />}
+          element={
+            <RequirePermission permission={templatesViewPermission}>
+              <CatalogItemsDetails />
+            </RequirePermission>
+          }
         />
         <Route
           path="catalog-import"
           element={
             <RequirePermission permission={catalogEntityCreatePermission}>
-              <CatalogImport />
+              <RequireSuperuser>
+                <CatalogImport />
+              </RequireSuperuser>
             </RequirePermission>
           }
         />
         <Route path="create">
           <Route
             path="templates/:namespace/:templateName"
-            element={<CreateTask />}
+            element={
+              <RequirePermission permission={templatesViewPermission}>
+                <CreateTask />
+              </RequirePermission>
+            }
           />
           <Route
             path="tasks"
             element={
-              <RequirePermission
-                permission={taskReadPermission}
-                resourceRef="scaffolder-task"
-              >
+              <RequirePermission permission={historyViewPermission}>
                 <TaskList />
               </RequirePermission>
             }
@@ -80,10 +115,7 @@ const RouteViewContent = () => {
           <Route
             path="tasks/:taskId"
             element={
-              <RequirePermission
-                permission={taskReadPermission}
-                resourceRef="scaffolder-task"
-              >
+              <RequirePermission permission={historyViewPermission}>
                 <RunTask />
               </RequirePermission>
             }

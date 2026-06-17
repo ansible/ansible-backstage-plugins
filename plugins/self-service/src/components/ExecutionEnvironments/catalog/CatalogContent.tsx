@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback, useRef } from 'react';
+import { useEffect, useState, useCallback, useMemo, useRef } from 'react';
 import { Progress, Table, TableColumn } from '@backstage/core-components';
 import {
   Backdrop,
@@ -21,7 +21,10 @@ import {
   CatalogFilterLayout,
   EntityKindFilter,
   EntityListProvider,
+  EntityOwnerFilter,
   EntityTagFilter,
+  EntityTypeFilter,
+  EntityUserFilter,
   UserListPicker,
   catalogApiRef,
   useEntityList,
@@ -42,6 +45,7 @@ import {
 } from './helpers';
 import { useEEBuildFlow } from './useEEBuildFlow';
 import { EntityLinkButton } from '../../common';
+import { PAGE_SIZE } from './constants';
 
 const DESCRIPTION_TRUNCATE_LENGTH = 30;
 
@@ -106,7 +110,7 @@ const useStyles = makeStyles(theme => ({
     display: 'flex',
     alignItems: 'center',
     gap: 4,
-    maxWidth: 240, // ~30 characters visible
+    maxWidth: 240,
     minWidth: 0,
   },
   descriptionCellText: {
@@ -145,40 +149,13 @@ const ExecutionEnvironmentTypeFilter = () => {
       updateFilters(prev => ({
         ...prev,
         kind: new EntityKindFilter('Component', 'Component'),
-        tags: new EntityTagFilter(['execution-environment']),
+        type: new EntityTypeFilter(['execution-environment']),
       }));
     }
   }, [type, updateFilters]);
 
   return null;
 };
-
-function sortByMetadataTitleAsc<T extends { metadata?: { name?: string } }>(
-  data: T[],
-): T[] {
-  return [...data].sort((a, b) => {
-    const titleA = a.metadata?.name ?? '';
-    const titleB = b.metadata?.name ?? '';
-
-    const numA = Number(titleA);
-    const numB = Number(titleB);
-
-    const isNumA = !Number.isNaN(numA);
-    const isNumB = !Number.isNaN(numB);
-
-    // both numeric → numeric sort
-    if (isNumA && isNumB) {
-      return numA - numB;
-    }
-
-    // numeric before string
-    if (isNumA) return -1;
-    if (isNumB) return 1;
-
-    // both strings → string sort
-    return titleA.localeCompare(titleB, undefined, { sensitivity: 'base' });
-  });
-}
 
 export const EEListPage = ({
   onTabSwitch,
@@ -188,18 +165,156 @@ export const EEListPage = ({
   const classes = useStyles();
   const theme = useTheme();
   const catalogApi = useApi(catalogApiRef);
-  const { isStarredEntity } = useStarredEntities();
-  const [loading, setLoading] = useState<boolean>(true);
-  const [showError, setShowError] = useState<boolean>(false);
-  const [errorMessage, setErrorMessage] = useState<string>('');
-  const [allEntities, setAllEntities] = useState<Entity[]>([]);
-  const [ansibleComponents, setAnsibleComponents] = useState<Entity[]>([]);
-  const [ownerFilter, setOwnerFilter] = useState<string>('All');
-  const [tagFilter, setTagFilter] = useState<string>('All');
+  const {
+    filters,
+    entities: rawEntities,
+    loading: catalogLoading,
+    error,
+    totalItems,
+    limit,
+    offset,
+    setLimit,
+    setOffset,
+    updateFilters,
+  } = useEntityList();
+  const entities = useMemo(() => rawEntities ?? [], [rawEntities]);
+  const { starredEntities = new Set<string>() } = useStarredEntities();
+  const prevStarredSizeRef = useRef(starredEntities.size);
+  const hasEverHadEntitiesRef = useRef(false);
+
+  useEffect(() => {
+    if (filters.user?.value === 'starred') {
+      if (starredEntities.size > 0) {
+        updateFilters({
+          user: EntityUserFilter.starred(Array.from(starredEntities)),
+        });
+      } else if (prevStarredSizeRef.current > 0) {
+        updateFilters({ user: EntityUserFilter.all() });
+      }
+    }
+    prevStarredSizeRef.current = starredEntities.size;
+  }, [starredEntities, filters.user?.value, updateFilters]);
+
+  const page = offset && limit ? Math.floor(offset / limit) : 0;
+  const [ownerFilter, setOwnerFilter] = useState('All');
+  const [tagFilter, setTagFilter] = useState('All');
   const [allOwners, setAllOwners] = useState<string[]>(['All']);
   const [allTags, setAllTags] = useState<string[]>(['All']);
-  const [filtered, setFiltered] = useState<boolean>(true);
   const [ownerNames, setOwnerNames] = useState<Map<string, string>>(new Map());
+  const ownerNamesRef = useRef(ownerNames);
+  ownerNamesRef.current = ownerNames;
+  const isMountedRef = useRef(true);
+
+  useEffect(() => {
+    isMountedRef.current = true;
+    return () => {
+      isMountedRef.current = false;
+    };
+  }, []);
+
+  // Fetch facets for filter dropdowns
+  useEffect(() => {
+    catalogApi
+      .getEntityFacets({
+        filter: { kind: 'Component', 'spec.type': 'execution-environment' },
+        facets: ['spec.owner', 'metadata.tags'],
+      })
+      .then(
+        (response: { facets: Record<string, Array<{ value: string }>> }) => {
+          const owners = (response.facets['spec.owner'] ?? []).map(
+            f => f.value,
+          );
+          const tags = (response.facets['metadata.tags'] ?? []).map(
+            f => f.value,
+          );
+          owners.sort((a, b) => a.localeCompare(b));
+          tags.sort((a, b) => a.localeCompare(b));
+          setAllOwners(['All', ...owners]);
+          setAllTags(['All', ...tags]);
+        },
+      )
+      .catch(() => {
+        setAllOwners(['All']);
+        setAllTags(['All']);
+      });
+  }, [catalogApi]);
+
+  // Apply owner filter server-side
+  const handleOwnerFilterChange = useCallback(
+    (value: string) => {
+      setOwnerFilter(value);
+      updateFilters({
+        owners: value === 'All' ? undefined : new EntityOwnerFilter([value]),
+      });
+    },
+    [updateFilters],
+  );
+
+  // Apply tag filter server-side
+  const handleTagFilterChange = useCallback(
+    (value: string) => {
+      setTagFilter(value);
+      updateFilters({
+        tags: value === 'All' ? undefined : new EntityTagFilter([value]),
+      });
+    },
+    [updateFilters],
+  );
+
+  // Resolve owner display names for current page entities
+  useEffect(() => {
+    if (entities.length === 0) return;
+
+    const allOwnerRefs = Array.from(
+      new Set(
+        entities
+          .map(e => e.spec?.owner)
+          .filter((owner): owner is string => Boolean(owner)),
+      ),
+    );
+    const unresolvedRefs = allOwnerRefs.filter(
+      ref => !ownerNamesRef.current.has(ref),
+    );
+    if (unresolvedRefs.length === 0) return;
+
+    const resolveOwners = async () => {
+      try {
+        const response = await catalogApi.getEntitiesByRefs({
+          entityRefs: unresolvedRefs,
+        });
+        if (!isMountedRef.current) return;
+        const nameMap = new Map<string, string>();
+        for (const [index, ref] of unresolvedRefs.entries()) {
+          const entity = response.items[index];
+          const displayName =
+            entity?.metadata?.title ?? entity?.metadata?.name ?? ref;
+          nameMap.set(ref, displayName);
+        }
+        setOwnerNames(prev => new Map([...prev, ...nameMap]));
+      } catch {
+        if (!isMountedRef.current) return;
+        const fallback = new Map(
+          unresolvedRefs.map(ref => [ref, ref] as const),
+        );
+        setOwnerNames(prev => new Map([...prev, ...fallback]));
+      }
+    };
+    resolveOwners();
+  }, [entities, catalogApi]);
+
+  const initialLoading = catalogLoading;
+  const totalCount = totalItems ?? 0;
+
+  const refresh = useCallback(() => {
+    setOwnerFilter('All');
+    setTagFilter('All');
+    setOwnerNames(new Map());
+    updateFilters({
+      owners: undefined,
+      tags: undefined,
+    });
+  }, [updateFilters]);
+
   const [actionsMenuAnchor, setActionsMenuAnchor] =
     useState<null | HTMLElement>(null);
   const [menuAnchorPosition, setMenuAnchorPosition] = useState<
@@ -213,7 +328,6 @@ export const EEListPage = ({
   const [entityToUnregister, setEntityToUnregister] = useState<Entity | null>(
     null,
   );
-  const { filters, updateFilters } = useEntityList();
   const {
     startBuildFlow,
     authBusy,
@@ -222,8 +336,6 @@ export const EEListPage = ({
     githubToken,
     closeDialog,
   } = useEEBuildFlow();
-
-  const isMountedRef = useRef(true);
 
   const handleActionsMenuOpen = (
     event: React.MouseEvent<HTMLElement>,
@@ -246,147 +358,13 @@ export const EEListPage = ({
     setActionsMenuEntity(null);
   };
 
-  const getOwnerName = useCallback(
-    async (ownerRef: string | undefined): Promise<string> => {
-      if (!ownerRef) return 'Unknown';
-      try {
-        const ownerEntity = await catalogApi.getEntityByRef(ownerRef);
-        // precedence: title >> name >> user reference >> unknown
-        return (
-          ownerEntity?.metadata?.title ??
-          ownerEntity?.metadata?.name ??
-          ownerRef ??
-          'Unknown'
-        );
-      } catch {
-        // If API call fails, fallback to ownerRef
-        return ownerRef ?? 'Unknown';
-      }
-    },
-    [catalogApi],
-  );
-
-  const getUniqueOwnersAndTags = useCallback((entities: Entity[]) => {
-    const owners = Array.from(
-      new Set(
-        entities
-          .map(e => e.spec?.owner)
-          .filter((owner): owner is string => Boolean(owner)),
-      ),
-    );
-
-    const tags = Array.from(
-      new Set(
-        entities
-          .flatMap(e => e.metadata?.tags || [])
-          .filter((tag): tag is string => Boolean(tag)),
-      ),
-    );
-    return { owners, tags };
-  }, []);
-
-  const fetchOwnerNames = useCallback(
-    async (entities: Entity[]) => {
-      const ownerRefs = Array.from(
-        new Set(
-          entities
-            .map(e => e.spec?.owner)
-            .filter((owner): owner is string => Boolean(owner)),
-        ),
-      );
-
-      const namePromises = ownerRefs.map(async ownerRef => {
-        const name = await getOwnerName(ownerRef);
-        return [ownerRef, name] as [string, string];
-      });
-
-      const nameEntries = await Promise.all(namePromises);
-      if (isMountedRef.current) {
-        setOwnerNames(prev => {
-          const updated = new Map(prev);
-          nameEntries.forEach(([ref, name]) => updated.set(ref, name));
-          return updated;
-        });
-      }
-    },
-    [getOwnerName],
-  );
-
-  const callApi = useCallback(() => {
-    catalogApi
-      .getEntities({
-        filter: [{ kind: 'Component', 'spec.type': 'execution-environment' }],
-      })
-      .then(entities => {
-        if (!isMountedRef.current) return;
-
-        let items = Array.isArray(entities) ? entities : entities?.items || [];
-        const sortedData = sortByMetadataTitleAsc(items);
-        items = sortedData;
-        setAllEntities(items);
-        if (items && items.length > 0) {
-          setFiltered(true);
-          const { owners, tags } = getUniqueOwnersAndTags(items);
-          setAllOwners(['All', ...owners]);
-          setAllTags(['All', ...tags]);
-        } else {
-          setFiltered(false);
-        }
-        setAnsibleComponents(
-          items.filter(item => item.metadata.tags?.includes('ansible')),
-        );
-        fetchOwnerNames(items);
-        setLoading(false);
-        setShowError(false);
-      })
-
-      .catch(error => {
-        if (!isMountedRef.current) return;
-
-        if (error) {
-          setErrorMessage(error.message);
-          setShowError(true);
-          setLoading(false);
-        }
-      });
-  }, [catalogApi, getUniqueOwnersAndTags, fetchOwnerNames]);
-
   const handleUnregisterConfirm = useCallback(() => {
     setUnregisterDialogOpen(false);
     setEntityToUnregister(null);
-    callApi();
-  }, [callApi]);
+    refresh();
+  }, [refresh]);
 
-  useEffect(() => {
-    const filterData = allEntities.filter(d => {
-      const matchesOwner =
-        ownerFilter === 'All' || d?.spec?.owner === ownerFilter;
-      const matchesTag =
-        tagFilter === 'All' || d?.metadata?.tags?.includes(tagFilter);
-      return matchesOwner && matchesTag;
-    });
-    setFiltered(allEntities && allEntities.length > 0);
-    setAnsibleComponents(filterData);
-  }, [ownerFilter, tagFilter, allEntities]);
-
-  useEffect(() => {
-    isMountedRef.current = true;
-    updateFilters({ ...filters, tags: new EntityTagFilter(['ansible']) });
-    callApi();
-
-    return () => {
-      isMountedRef.current = false;
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  useEffect(() => {
-    if (allEntities && filters.user?.value === 'starred')
-      setAnsibleComponents(allEntities?.filter(e => isStarredEntity(e)));
-    else if (filters.user?.value === 'all') setAnsibleComponents(allEntities);
-  }, [filters.user, allEntities, isStarredEntity]);
-
-  if (loading) {
+  if (initialLoading) {
     return (
       <div>
         <Progress />
@@ -394,8 +372,8 @@ export const EEListPage = ({
     );
   }
 
-  if (showError)
-    return <div>Error: {errorMessage ?? 'Unable to retrieve data'}</div>;
+  if (error) return <div>Error: {error.toString()}</div>;
+
   const columns: TableColumn[] = [
     {
       title: 'Name',
@@ -462,10 +440,10 @@ export const EEListPage = ({
       id: 'tags',
       render: (entity: any) => (
         <div className={classes.tagsContainer}>
-          {entity.metadata.tags.slice(0, 3).map((t: string) => (
+          {(entity.metadata.tags ?? []).slice(0, 3).map((t: string) => (
             <Chip key={t} label={t} size="small" />
           ))}
-          {entity.metadata.tags.length > 3 && (
+          {(entity.metadata.tags?.length ?? 0) > 3 && (
             <Chip label={`+${entity.metadata.tags.length - 3}`} size="small" />
           )}
         </div>
@@ -511,9 +489,15 @@ export const EEListPage = ({
     },
   ];
 
+  if (totalCount > 0 || entities.length > 0) {
+    hasEverHadEntitiesRef.current = true;
+  }
+  const hasEntities = hasEverHadEntitiesRef.current;
+
   return (
     <div style={{ flexDirection: 'column', width: '100%' }}>
-      {filtered || (allEntities && allEntities.length > 0) ? (
+      <ExecutionEnvironmentTypeFilter />
+      {hasEntities ? (
         <Typography variant="body1" className={classes.description}>
           Create an Execution Environment (EE) definition to ensure your
           playbooks run the same way, every time. Choose a recommended preset or
@@ -521,9 +505,8 @@ export const EEListPage = ({
           follow our guide to create your EE image.
         </Typography>
       ) : null}
-      {filtered || (allEntities && allEntities.length > 0) ? (
+      {hasEntities ? (
         <CatalogFilterLayout>
-          <ExecutionEnvironmentTypeFilter />
           <CatalogFilterLayout.Filters>
             <UserListPicker availableFilters={['starred', 'all']} />
             <Typography>Owner</Typography>
@@ -532,7 +515,9 @@ export const EEListPage = ({
               <FormControl fullWidth>
                 <Select
                   value={ownerFilter}
-                  onChange={e => setOwnerFilter(e.target.value as string)}
+                  onChange={e =>
+                    handleOwnerFilterChange(e.target.value as string)
+                  }
                   displayEmpty
                   input={<Input disableUnderline />}
                 >
@@ -550,7 +535,9 @@ export const EEListPage = ({
               <FormControl fullWidth variant="outlined">
                 <Select
                   value={tagFilter}
-                  onChange={e => setTagFilter(e.target.value as string)}
+                  onChange={e =>
+                    handleTagFilterChange(e.target.value as string)
+                  }
                   input={<Input disableUnderline />}
                   MenuProps={{
                     getContentAnchorEl: null,
@@ -568,13 +555,24 @@ export const EEListPage = ({
           </CatalogFilterLayout.Filters>
           <CatalogFilterLayout.Content>
             <Table
-              title={`Execution Environments definition files (${ansibleComponents?.length})`}
+              title={`Execution Environments definition files (${totalCount})`}
               options={{
                 search: true,
+                paging: true,
+                pageSize: limit,
+                pageSizeOptions: [10, 20, 50, 100],
+                emptyRowsWhenPaging: false,
                 rowStyle: { cursor: 'default' },
               }}
               columns={columns}
-              data={ansibleComponents || []}
+              data={entities}
+              page={page}
+              onPageChange={p => setOffset?.(p * limit)}
+              onRowsPerPageChange={newLimit => {
+                setOffset?.(0);
+                setLimit?.(newLimit);
+              }}
+              totalCount={totalCount}
             />
             <Menu
               id="ee-actions-menu"
@@ -784,7 +782,7 @@ export const EntityCatalogContent = ({
   return (
     <Grid container spacing={2} justifyContent="space-between">
       <Grid item xs={12} className={classes.flex}>
-        <EntityListProvider>
+        <EntityListProvider pagination={{ mode: 'offset', limit: PAGE_SIZE }}>
           <EEListPage onTabSwitch={onTabSwitch} />
         </EntityListProvider>
       </Grid>

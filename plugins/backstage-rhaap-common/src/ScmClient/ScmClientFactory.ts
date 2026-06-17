@@ -85,13 +85,15 @@ export class ScmClientFactory {
           repository,
           !!providedToken,
         );
-      const token = providedToken || resolvedToken;
+      // When using per-request getToken, avoid storing the initial installation/PAT
+      // snapshot in config.token — it can go stale; getToken re-resolves each time.
+      const token = providedToken ? providedToken : undefined;
 
       if (providedToken) {
         this.logger.info(
           `[ScmClientFactory] Using provided OAuth token for GitHub host: ${resolvedHost}`,
         );
-      } else if (!token) {
+      } else if (!resolvedToken) {
         this.logger.warn(
           `[ScmClientFactory] No token for GitHub host: ${resolvedHost}; ` +
             `REST endpoints (branches, tags, contents) will work for public repos, ` +
@@ -104,6 +106,21 @@ export class ScmClientFactory {
         host: resolvedHost,
         organization,
         token,
+        ...(providedToken
+          ? {}
+          : {
+              // Per HTTP request; resolveGithubToken → getCredentials. App tokens
+              // are cached in @backstage/integration (not one GitHub mint per call).
+              getToken: async (): Promise<string | undefined> => {
+                const { token: fresh } = await this.resolveGithubCredentials(
+                  resolvedHost,
+                  organization,
+                  repository,
+                  false,
+                );
+                return fresh || undefined;
+              },
+            }),
         apiBaseUrl,
         checkSSL,
       };

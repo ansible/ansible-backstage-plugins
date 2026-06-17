@@ -13,15 +13,64 @@ import { MockEntityListContextProvider } from '@backstage/plugin-catalog-react/t
 import { permissionApiRef } from '@backstage/plugin-permission-react';
 import { scaffolderApiRef } from '@backstage/plugin-scaffolder-react';
 
+const mockUseIsSuperuser = jest.fn(() => ({
+  isSuperuser: true,
+  loading: false,
+  error: null,
+}));
+
 jest.mock('../../hooks', () => ({
-  useIsSuperuser: () => ({
-    isSuperuser: true,
-    loading: false,
-    error: null,
+  useIsSuperuser: () => mockUseIsSuperuser(),
+}));
+
+const mockUsePermission = jest.fn(() => ({
+  loading: false,
+  allowed: true,
+}));
+
+jest.mock('@backstage/plugin-permission-react', () => ({
+  ...jest.requireActual('@backstage/plugin-permission-react'),
+  usePermission: (...args: unknown[]) =>
+    mockUsePermission(...(args as Parameters<typeof mockUsePermission>)),
+}));
+
+const mockRemoveNotification = jest.fn();
+const mockNotifications = [
+  {
+    id: 'n1',
+    title: 'Test notification',
+    severity: 'success' as const,
+    timestamp: new Date(),
+  },
+];
+
+jest.mock('../notifications', () => ({
+  NotificationProvider: ({ children }: any) => <>{children}</>,
+  NotificationStack: ({
+    notifications,
+    onClose,
+  }: {
+    notifications: Array<{ id: string; title: string }>;
+    onClose: (id: string) => void;
+  }) => (
+    <div data-testid="notification-stack">
+      {notifications.map((n: any) => (
+        <div key={n.id} data-testid={`notification-${n.id}`}>
+          {n.title}
+          <button onClick={() => onClose(n.id)}>Dismiss</button>
+        </div>
+      ))}
+    </div>
+  ),
+  useNotifications: () => ({
+    notifications: mockNotifications,
+    removeNotification: mockRemoveNotification,
+    showNotification: jest.fn(),
+    clearAll: jest.fn(),
   }),
 }));
 
-import { HomeComponent } from './Home';
+import { HomeComponent, TemplatesRoutesPage } from './Home';
 import { rootRouteRef } from '../../routes';
 import { ansibleApiRef, rhAapAuthApiRef } from '../../apis';
 import { mockCatalogApi } from '../../tests/catalogApi_utils';
@@ -31,13 +80,42 @@ import { mockScaffolderApi } from '../../tests/scaffolderApi_utils';
 describe('self-service', () => {
   beforeEach(() => {
     jest.clearAllMocks();
-    // Reset mock implementations
+    mockUseIsSuperuser.mockReturnValue({
+      isSuperuser: true,
+      loading: false,
+      error: null,
+    });
+    mockUsePermission.mockReturnValue({
+      loading: false,
+      allowed: true,
+    });
     mockRhAapAuthApi.getAccessToken.mockResolvedValue('mock-token');
     mockAnsibleApi.getSyncStatus.mockResolvedValue({
       aap: {
         orgsUsersTeams: { lastSync: null },
         jobTemplates: { lastSync: null },
       },
+    });
+
+    // Mock queryEntities for server-side pagination (EntityListProvider uses
+    // queryEntities instead of getEntities when pagination is enabled)
+    mockCatalogApi.queryEntities.mockImplementation(async (request: any) => {
+      const { items } = await mockCatalogApi.getEntities();
+      const queryLimit = request?.limit ?? items.length;
+      const queryOffset = request?.offset ?? 0;
+      const sliced = items.slice(queryOffset, queryOffset + queryLimit);
+      return {
+        items: sliced,
+        totalItems: items.length,
+        pageInfo: {
+          ...(queryOffset + queryLimit < items.length
+            ? { nextCursor: `next:${queryOffset + queryLimit}` }
+            : {}),
+          ...(queryOffset > 0
+            ? { prevCursor: `prev:${Math.max(0, queryOffset - queryLimit)}` }
+            : {}),
+        },
+      };
     });
 
     // Restore autocomplete if it was deleted
@@ -83,10 +161,15 @@ describe('self-service', () => {
       },
     );
   };
-  const facetsFromEntityRefs = (entityRefs: string[], tags: string[]) => ({
+  const facetsFromEntityRefs = (
+    entityRefs: string[],
+    tags: string[],
+    types: string[] = ['service'],
+  ) => ({
     facets: {
       'relations.ownedBy': entityRefs.map(value => ({ count: 1, value })),
       'metadata.tags': tags.map((value, idx) => ({ value, count: idx })),
+      'spec.type': types.map(value => ({ value, count: 1 })),
     },
   });
 
@@ -106,8 +189,10 @@ describe('self-service', () => {
     expect(screen.getByText('Categories')).toBeInTheDocument();
     expect(screen.getByText('Tags')).toBeInTheDocument();
     expect(screen.getByText('Owner')).toBeInTheDocument();
-    // load wizard card
-    expect(screen.getByText('service')).toBeInTheDocument();
+    // load wizard card (wait for facets + queryEntities to settle)
+    await waitFor(() => {
+      expect(screen.getByText('service')).toBeInTheDocument();
+    });
     expect(screen.getByText('Create wizard use cases')).toBeInTheDocument();
     expect(
       screen.getByText(
@@ -724,6 +809,156 @@ describe('self-service', () => {
     });
   });
 
+  describe('permission gating', () => {
+    it('should show Sync now disabled while superuser check is loading', async () => {
+      mockUseIsSuperuser.mockReturnValue({
+        isSuperuser: false,
+        loading: true,
+        error: null,
+      });
+
+      const entityRefs = ['component:default/e1'];
+      const tags = ['tag1'];
+      mockCatalogApi.getEntityFacets.mockResolvedValue(
+        facetsFromEntityRefs(entityRefs, tags),
+      );
+
+      await render(<HomeComponent />);
+
+      expect(screen.getByText('Sync now')).toBeInTheDocument();
+    });
+
+    it('should hide Sync now when user is not a superuser', async () => {
+      mockUseIsSuperuser.mockReturnValue({
+        isSuperuser: false,
+        loading: false,
+        error: null,
+      });
+
+      const entityRefs = ['component:default/e1'];
+      const tags = ['tag1'];
+      mockCatalogApi.getEntityFacets.mockResolvedValue(
+        facetsFromEntityRefs(entityRefs, tags),
+      );
+
+      await render(<HomeComponent />);
+
+      expect(screen.queryByText('Sync now')).toBeNull();
+    });
+
+    it('should show Add Template when user is superuser and has catalog create permission', async () => {
+      mockUseIsSuperuser.mockReturnValue({
+        isSuperuser: true,
+        loading: false,
+        error: null,
+      });
+      mockUsePermission.mockReturnValue({
+        loading: false,
+        allowed: true,
+      });
+
+      const entityRefs = ['component:default/e1'];
+      const tags = ['tag1'];
+      mockCatalogApi.getEntityFacets.mockResolvedValue(
+        facetsFromEntityRefs(entityRefs, tags),
+      );
+
+      await render(<HomeComponent />);
+
+      expect(screen.getByTestId('add-template-button')).toBeInTheDocument();
+      expect(screen.getByTestId('add-template-button')).not.toBeDisabled();
+    });
+
+    it('should hide Add Template when user has catalog create permission but is not superuser', async () => {
+      mockUseIsSuperuser.mockReturnValue({
+        isSuperuser: false,
+        loading: false,
+        error: null,
+      });
+      mockUsePermission.mockReturnValue({
+        loading: false,
+        allowed: true,
+      });
+
+      const entityRefs = ['component:default/e1'];
+      const tags = ['tag1'];
+      mockCatalogApi.getEntityFacets.mockResolvedValue(
+        facetsFromEntityRefs(entityRefs, tags),
+      );
+
+      await render(<HomeComponent />);
+
+      expect(screen.queryByTestId('add-template-button')).toBeNull();
+    });
+
+    it('should hide Add Template when user is superuser but lacks catalog create permission', async () => {
+      mockUseIsSuperuser.mockReturnValue({
+        isSuperuser: true,
+        loading: false,
+        error: null,
+      });
+      mockUsePermission.mockReturnValue({
+        loading: false,
+        allowed: false,
+      });
+
+      const entityRefs = ['component:default/e1'];
+      const tags = ['tag1'];
+      mockCatalogApi.getEntityFacets.mockResolvedValue(
+        facetsFromEntityRefs(entityRefs, tags),
+      );
+
+      await render(<HomeComponent />);
+
+      expect(screen.queryByTestId('add-template-button')).toBeNull();
+    });
+
+    it('should hide Add Template when user lacks both superuser and catalog create permission', async () => {
+      mockUseIsSuperuser.mockReturnValue({
+        isSuperuser: false,
+        loading: false,
+        error: null,
+      });
+      mockUsePermission.mockReturnValue({
+        loading: false,
+        allowed: false,
+      });
+
+      const entityRefs = ['component:default/e1'];
+      const tags = ['tag1'];
+      mockCatalogApi.getEntityFacets.mockResolvedValue(
+        facetsFromEntityRefs(entityRefs, tags),
+      );
+
+      await render(<HomeComponent />);
+
+      expect(screen.queryByTestId('add-template-button')).toBeNull();
+    });
+
+    it('should show Add Template disabled while permission check is loading', async () => {
+      mockUseIsSuperuser.mockReturnValue({
+        isSuperuser: true,
+        loading: false,
+        error: null,
+      });
+      mockUsePermission.mockReturnValue({
+        loading: true,
+        allowed: false,
+      });
+
+      const entityRefs = ['component:default/e1'];
+      const tags = ['tag1'];
+      mockCatalogApi.getEntityFacets.mockResolvedValue(
+        facetsFromEntityRefs(entityRefs, tags),
+      );
+
+      await render(<HomeComponent />);
+
+      const addButton = screen.getByTestId('add-template-button');
+      expect(addButton).toBeDisabled();
+    });
+  });
+
   describe('HomeCategoryPicker', () => {
     it('should render Categories filter', async () => {
       const entityRefs = ['component:default/e1'];
@@ -767,5 +1002,433 @@ describe('self-service', () => {
         expect(categoriesInput).toBeInTheDocument();
       });
     });
+  });
+
+  describe('controller warning alert', () => {
+    afterEach(() => {
+      jest.useRealTimers();
+    });
+
+    it('should show error Alert when autocomplete fails', async () => {
+      const entityRefs = ['component:default/e1'];
+      const tags = ['tag1'];
+      mockCatalogApi.getEntityFacets.mockResolvedValue(
+        facetsFromEntityRefs(entityRefs, tags),
+      );
+
+      const mockError = Object.assign(
+        new Error('Request failed with 503 Service Unavailable'),
+        {
+          body: {
+            error: {
+              message: 'Controller service is absent in provided AAP instance',
+            },
+          },
+        },
+      );
+      (mockScaffolderApi.autocomplete as jest.Mock).mockRejectedValue(
+        mockError,
+      );
+
+      await render(<HomeComponent />);
+
+      await waitFor(() => {
+        expect(
+          screen.getByText(
+            'Controller service is absent in provided AAP instance',
+          ),
+        ).toBeInTheDocument();
+      });
+    });
+
+    it('should not show "Templates refreshed" snackbar when there is an error', async () => {
+      jest.useFakeTimers();
+
+      const entityRefs = ['component:default/e1'];
+      const tags = ['tag1'];
+      mockCatalogApi.getEntityFacets.mockResolvedValue(
+        facetsFromEntityRefs(entityRefs, tags),
+      );
+
+      const mockError = Object.assign(
+        new Error('Request failed with 503 Service Unavailable'),
+        {
+          body: {
+            error: {
+              message: 'Controller service is absent in provided AAP instance',
+            },
+          },
+        },
+      );
+      (mockScaffolderApi.autocomplete as jest.Mock).mockRejectedValue(
+        mockError,
+      );
+
+      await render(<HomeComponent />);
+
+      await waitFor(() => {
+        expect(
+          screen.getByText(
+            'Controller service is absent in provided AAP instance',
+          ),
+        ).toBeInTheDocument();
+      });
+
+      jest.advanceTimersByTime(1000);
+
+      expect(screen.queryByText('Templates refreshed')).toBeNull();
+    });
+
+    it('should show "Templates refreshed" snackbar after successful fetch', async () => {
+      jest.useFakeTimers();
+
+      const entityRefs = ['component:default/e1'];
+      const tags = ['tag1'];
+      mockCatalogApi.getEntityFacets.mockResolvedValue(
+        facetsFromEntityRefs(entityRefs, tags),
+      );
+
+      await render(<HomeComponent />);
+
+      await waitFor(() => {
+        expect(mockScaffolderApi.autocomplete).toHaveBeenCalled();
+      });
+
+      jest.advanceTimersByTime(1000);
+
+      await waitFor(() => {
+        expect(screen.getByText('Templates refreshed')).toBeInTheDocument();
+      });
+    });
+
+    it('should not show "Templates refreshed" after dismissing error before timer fires', async () => {
+      jest.useFakeTimers();
+
+      const entityRefs = ['component:default/e1'];
+      const tags = ['tag1'];
+      mockCatalogApi.getEntityFacets.mockResolvedValue(
+        facetsFromEntityRefs(entityRefs, tags),
+      );
+
+      const mockError = Object.assign(
+        new Error('Request failed with 503 Service Unavailable'),
+        {
+          body: {
+            error: {
+              message: 'Controller service is absent in provided AAP instance',
+            },
+          },
+        },
+      );
+      (mockScaffolderApi.autocomplete as jest.Mock).mockRejectedValue(
+        mockError,
+      );
+
+      await render(<HomeComponent />);
+
+      await waitFor(() => {
+        expect(
+          screen.getByText(
+            'Controller service is absent in provided AAP instance',
+          ),
+        ).toBeInTheDocument();
+      });
+
+      const alert = screen.getByRole('alert');
+      const closeButton = within(alert).getByRole('button');
+      fireEvent.click(closeButton);
+
+      await waitFor(() => {
+        expect(
+          screen.queryByText(
+            'Controller service is absent in provided AAP instance',
+          ),
+        ).toBeNull();
+      });
+
+      jest.advanceTimersByTime(1000);
+
+      expect(screen.queryByText('Templates refreshed')).toBeNull();
+    });
+
+    it('should close error Alert when close button is clicked', async () => {
+      const entityRefs = ['component:default/e1'];
+      const tags = ['tag1'];
+      mockCatalogApi.getEntityFacets.mockResolvedValue(
+        facetsFromEntityRefs(entityRefs, tags),
+      );
+
+      const mockError = Object.assign(
+        new Error('Request failed with 503 Service Unavailable'),
+        {
+          body: {
+            error: {
+              message: 'Controller service is absent in provided AAP instance',
+            },
+          },
+        },
+      );
+      (mockScaffolderApi.autocomplete as jest.Mock).mockRejectedValue(
+        mockError,
+      );
+
+      await render(<HomeComponent />);
+
+      await waitFor(() => {
+        expect(
+          screen.getByText(
+            'Controller service is absent in provided AAP instance',
+          ),
+        ).toBeInTheDocument();
+      });
+
+      const alert = screen.getByRole('alert');
+      const closeButton = within(alert).getByRole('button');
+      fireEvent.click(closeButton);
+
+      await waitFor(() => {
+        expect(
+          screen.queryByText(
+            'Controller service is absent in provided AAP instance',
+          ),
+        ).toBeNull();
+      });
+    });
+
+    it('should show error.message when body.error.message is absent', async () => {
+      const entityRefs = ['component:default/e1'];
+      const tags = ['tag1'];
+      mockCatalogApi.getEntityFacets.mockResolvedValue(
+        facetsFromEntityRefs(entityRefs, tags),
+      );
+
+      (mockScaffolderApi.autocomplete as jest.Mock).mockRejectedValue(
+        new Error('Network connection failed'),
+      );
+
+      await render(<HomeComponent />);
+
+      await waitFor(() => {
+        expect(
+          screen.getByText('Network connection failed'),
+        ).toBeInTheDocument();
+      });
+    });
+
+    it('should handle non-Error rejection in fetchJobTemplates', async () => {
+      const entityRefs = ['component:default/e1'];
+      const tags = ['tag1'];
+      mockCatalogApi.getEntityFacets.mockResolvedValue(
+        facetsFromEntityRefs(entityRefs, tags),
+      );
+
+      (mockScaffolderApi.autocomplete as jest.Mock).mockRejectedValue(
+        'plain string error',
+      );
+
+      await render(<HomeComponent />);
+
+      await waitFor(() => {
+        expect(screen.getByText('plain string error')).toBeInTheDocument();
+      });
+    });
+  });
+});
+
+describe('TemplatesRoutesPage notifications', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+    mockRhAapAuthApi.getAccessToken.mockResolvedValue('mock-token');
+    mockAnsibleApi.getSyncStatus.mockResolvedValue({
+      aap: {
+        orgsUsersTeams: { lastSync: null },
+        jobTemplates: { lastSync: null },
+      },
+    });
+    if (!mockScaffolderApi.autocomplete) {
+      mockScaffolderApi.autocomplete = jest.fn().mockResolvedValue({
+        results: [
+          { id: '1', title: 'Template 1' },
+          { id: '2', title: 'Template 2' },
+        ],
+      }) as jest.MockedFunction<any>;
+    } else {
+      (
+        mockScaffolderApi.autocomplete as jest.MockedFunction<any>
+      ).mockResolvedValue({
+        results: [
+          { id: '1', title: 'Template 1' },
+          { id: '2', title: 'Template 2' },
+        ],
+      });
+    }
+  });
+
+  const renderPage = () => {
+    mockCatalogApi.getEntityFacets.mockResolvedValue({
+      facets: {
+        'relations.ownedBy': [{ count: 1, value: 'component:default/e1' }],
+        'metadata.tags': [{ value: 'tag1', count: 0 }],
+      },
+    });
+
+    return renderInTestApp(
+      <TestApiProvider
+        apis={[
+          [catalogApiRef, mockCatalogApi],
+          [ansibleApiRef, mockAnsibleApi],
+          [rhAapAuthApiRef, mockRhAapAuthApi],
+          [scaffolderApiRef, mockScaffolderApi],
+          [starredEntitiesApiRef, new MockStarredEntitiesApi()],
+          [permissionApiRef, mockApis.permission()],
+        ]}
+      >
+        <TemplatesRoutesPage />
+      </TestApiProvider>,
+      {
+        mountedRoutes: {
+          '/self-service': rootRouteRef,
+        },
+      },
+    );
+  };
+
+  it('renders NotificationStack with notifications', async () => {
+    await renderPage();
+
+    await waitFor(() => {
+      expect(screen.getByTestId('notification-stack')).toBeInTheDocument();
+    });
+    expect(screen.getByTestId('notification-n1')).toBeInTheDocument();
+    expect(screen.getByText('Test notification')).toBeInTheDocument();
+  });
+
+  it('calls removeNotification when dismiss is clicked', async () => {
+    await renderPage();
+
+    await waitFor(() => {
+      expect(screen.getByTestId('notification-stack')).toBeInTheDocument();
+    });
+
+    fireEvent.click(screen.getByText('Dismiss'));
+    expect(mockRemoveNotification).toHaveBeenCalledWith('n1');
+  });
+});
+
+describe('HomeCategoryPicker EE exclusion', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+    mockUseIsSuperuser.mockReturnValue({
+      isSuperuser: true,
+      loading: false,
+      error: null,
+    });
+    mockUsePermission.mockReturnValue({ loading: false, allowed: true });
+    mockRhAapAuthApi.getAccessToken.mockResolvedValue('mock-token');
+    mockAnsibleApi.getSyncStatus.mockResolvedValue({
+      aap: {
+        orgsUsersTeams: { lastSync: null },
+        jobTemplates: { lastSync: null },
+      },
+    });
+    if (!mockScaffolderApi.autocomplete) {
+      mockScaffolderApi.autocomplete = jest.fn().mockResolvedValue({
+        results: [{ id: '1', title: 'Template 1' }],
+      }) as jest.MockedFunction<any>;
+    } else {
+      (
+        mockScaffolderApi.autocomplete as jest.MockedFunction<any>
+      ).mockResolvedValue({
+        results: [{ id: '1', title: 'Template 1' }],
+      });
+    }
+    mockCatalogApi.queryEntities.mockImplementation(async (request: any) => {
+      const { items } = await mockCatalogApi.getEntities();
+      const queryLimit = request?.limit ?? items.length;
+      const queryOffset = request?.offset ?? 0;
+      const sliced = items.slice(queryOffset, queryOffset + queryLimit);
+      return {
+        items: sliced,
+        totalItems: items.length,
+        pageInfo: {},
+      };
+    });
+  });
+
+  const render = (children: JSX.Element) => {
+    return renderInTestApp(
+      <TestApiProvider
+        apis={[
+          [catalogApiRef, mockCatalogApi],
+          [ansibleApiRef, mockAnsibleApi],
+          [rhAapAuthApiRef, mockRhAapAuthApi],
+          [scaffolderApiRef, mockScaffolderApi],
+          [starredEntitiesApiRef, new MockStarredEntitiesApi()],
+          [permissionApiRef, mockApis.permission()],
+        ]}
+      >
+        <MockEntityListContextProvider>
+          {children}
+        </MockEntityListContextProvider>
+      </TestApiProvider>,
+      {
+        mountedRoutes: {
+          '/self-service': rootRouteRef,
+        },
+      },
+    );
+  };
+
+  it('should exclude execution-environment types from category facets', async () => {
+    mockCatalogApi.getEntityFacets.mockResolvedValue({
+      facets: {
+        'spec.type': [
+          { value: 'service', count: 10 },
+          { value: 'execution-environment', count: 5 },
+          { value: 'workflow', count: 3 },
+        ],
+        'metadata.tags': [{ value: 'tag1', count: 1 }],
+        'relations.ownedBy': [],
+      },
+    });
+
+    await render(<HomeComponent />);
+
+    await waitFor(() => {
+      expect(mockCatalogApi.getEntityFacets).toHaveBeenCalledWith(
+        expect.objectContaining({
+          filter: { kind: 'Template' },
+          facets: ['spec.type'],
+        }),
+      );
+    });
+
+    // Verify queryEntities is called with non-EE types only
+    await waitFor(() => {
+      const calls = mockCatalogApi.queryEntities.mock.calls;
+      const hasTypeFilter = calls.some((call: any[]) => {
+        const types = call[0]?.filter?.['spec.type'];
+        return (
+          Array.isArray(types) &&
+          types.includes('service') &&
+          types.includes('workflow') &&
+          !types.includes('execution-environment')
+        );
+      });
+      expect(hasTypeFilter).toBe(true);
+    });
+  });
+
+  it('should handle getEntityFacets failure gracefully', async () => {
+    mockCatalogApi.getEntityFacets.mockRejectedValue(
+      new Error('Network error'),
+    );
+
+    await render(<HomeComponent />);
+
+    await waitFor(() => {
+      expect(screen.getByText('Categories')).toBeInTheDocument();
+    });
+    expect(screen.getByText('Tags')).toBeInTheDocument();
   });
 });

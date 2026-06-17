@@ -3,11 +3,11 @@ import SearchIcon from '@material-ui/icons/Search';
 import SyncIcon from '@material-ui/icons/Sync';
 import SettingsIcon from '@material-ui/icons/Settings';
 import OpenInNewIcon from '@material-ui/icons/OpenInNew';
-
-import { useSharedStyles } from './styles';
+import { useSharedStyles, useProgressTooltipStyles } from './styles';
 import { CONFIGURATION_DOCS_URL } from './constants';
 import { EmptyStateProps } from './types';
 import { useIsSuperuser } from '../../hooks';
+import { SyncProgressPopover } from './SyncProgressPopover';
 
 export const EmptyState = ({
   onSyncClick,
@@ -15,9 +15,25 @@ export const EmptyState = ({
   repositoryFilter,
   syncDisabled = false,
   syncDisabledReason,
+  syncInProgress = false,
+  syncProgress = [],
 }: EmptyStateProps) => {
   const classes = useSharedStyles();
+  const tooltipClasses = useProgressTooltipStyles();
   const { isSuperuser: allowed } = useIsSuperuser();
+
+  const hasFailureOrAmbiguous = syncProgress.some(
+    e => e.outcome === 'failure' || e.outcome === 'ambiguous',
+  );
+  const showProgressPopover =
+    (syncInProgress || hasFailureOrAmbiguous) && syncProgress.length > 0;
+
+  let tooltipTitle: JSX.Element | string = '';
+  if (showProgressPopover) {
+    tooltipTitle = <SyncProgressPopover entries={syncProgress} />;
+  } else if (syncDisabled && syncDisabledReason) {
+    tooltipTitle = syncDisabledReason;
+  }
 
   if (repositoryFilter) {
     return (
@@ -74,13 +90,23 @@ export const EmptyState = ({
       </Typography>
       {allowed && onSyncClick && (
         <Tooltip
-          title={syncDisabled && syncDisabledReason ? syncDisabledReason : ''}
+          title={tooltipTitle}
+          classes={showProgressPopover ? tooltipClasses : undefined}
+          interactive={showProgressPopover}
+          arrow
+          placement="bottom"
         >
           <span>
             <Button
               variant="outlined"
               color="primary"
-              startIcon={<SyncIcon />}
+              startIcon={
+                <SyncIcon
+                  className={
+                    syncInProgress ? classes.syncIconSpinning : undefined
+                  }
+                />
+              }
               onClick={onSyncClick}
               disabled={syncDisabled}
               className={classes.syncButton}

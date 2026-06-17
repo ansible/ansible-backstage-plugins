@@ -320,38 +320,51 @@ export const RunTask = () => {
       return undefined;
     }
 
-    const fetchEntity = async () => {
+    const eeFileName = resolveEeFileNameFromParameters(
+      task?.spec?.parameters as Record<string, unknown> | undefined,
+    );
+    if (!eeFileName) {
+      console.warn('EE file name not found in task parameters'); // eslint-disable-line no-console
+      return undefined;
+    }
+
+    const entityRef = `Component:default/${eeFileName.trim()}`;
+    const RETRY_DELAYS_MS = [2000, 4000, 8000, 12000, 16000];
+    let attempt = 0;
+    let pendingTimeout: ReturnType<typeof setTimeout> | null = null;
+    let disposed = false;
+
+    const attemptFetch = async () => {
       try {
-        const eeFileName = resolveEeFileNameFromParameters(
-          task?.spec?.parameters as Record<string, unknown> | undefined,
-        );
-        if (!eeFileName) {
-          console.warn('EE file name not found in task parameters'); // eslint-disable-line no-console
-          return;
-        }
-
-        const entityRef = `Component:default/${eeFileName.trim()}`;
         const foundEntity = await catalogApi.getEntityByRef(entityRef);
-
+        if (disposed) return;
         if (
           foundEntity?.kind === 'Component' &&
           foundEntity?.spec?.type === 'execution-environment'
         ) {
           setMatchingEntity(foundEntity);
-        } else {
-          // eslint-disable-next-line no-console
-          console.warn(
-            `Could not find registered EE component for ${eeFileName}`,
-          );
+          return;
         }
-      } catch (err) {
-        console.error('Failed to fetch entity from catalog:', err); // eslint-disable-line no-console
+      } catch {
+        if (disposed) return;
+      }
+
+      attempt++;
+      if (attempt < RETRY_DELAYS_MS.length) {
+        pendingTimeout = setTimeout(attemptFetch, RETRY_DELAYS_MS[attempt]);
+      } else {
+        // eslint-disable-next-line no-console
+        console.warn(
+          `Could not find registered EE component after ${RETRY_DELAYS_MS.length} attempts`,
+        );
       }
     };
-    const timeoutId = setTimeout(() => {
-      fetchEntity();
-    }, 2000);
-    return () => clearTimeout(timeoutId);
+
+    pendingTimeout = setTimeout(attemptFetch, RETRY_DELAYS_MS[0]);
+    return () => {
+      disposed = true;
+      if (pendingTimeout !== null) clearTimeout(pendingTimeout);
+    };
   }, [matchingEntity, completed, task, allSteps, catalogApi]);
 
   const getMatchingEntity = useCallback(async (): Promise<any | null> => {
@@ -466,6 +479,24 @@ export const RunTask = () => {
     );
   }
 
+  const filteredLinks =
+    output?.links?.filter(link => {
+      if ('if' in link && link.if === false) return false;
+      if ('entityRef' in link)
+        return !!link.entityRef && link.entityRef.trim() !== '';
+      if ('url' in link) {
+        const url = link.url;
+        return !!url && url !== '#' && url.trim() !== '';
+      }
+      return false;
+    }) ?? [];
+  const textButtonCount =
+    completed && !error && output?.text && output.text.length > 0
+      ? output.text.length
+      : 0;
+  const totalButtonCount =
+    filteredLinks.length + (showDownloadButton ? 1 : 0) + textButtonCount;
+
   return (
     <Page themeId="tool">
       <Header
@@ -518,9 +549,10 @@ export const RunTask = () => {
             <Box flex={1} />
 
             <Box
+              data-testid="button-row"
               display="flex"
               flexWrap="wrap"
-              justifyContent="flex-start"
+              justifyContent={totalButtonCount === 1 ? 'flex-start' : 'center'}
               style={{
                 gap: '8px',
                 flexShrink: 1,
@@ -530,53 +562,45 @@ export const RunTask = () => {
                 marginRight: '50px',
               }}
             >
-              {output?.links
-                ?.filter(link => {
-                  if ('if' in link && link.if === false) {
-                    return false;
-                  }
-                  if ('entityRef' in link) {
-                    return !!link.entityRef && link.entityRef.trim() !== '';
-                  }
-                  if ('url' in link) {
-                    const url = link.url;
-                    return !!url && url !== '#' && url.trim() !== '';
-                  }
-                  return false;
-                })
-                ?.map((link, index) => {
-                  if ('entityRef' in link && link.entityRef) {
-                    const entityRef = link.entityRef;
-                    return (
-                      <Button
-                        key={entityRef || link.title || `link-${index}`}
-                        onClick={() => handleEntityLinkClick(entityRef)}
-                        variant="contained"
-                        style={{
-                          flex: '0 0 calc(33.333% - 6px)',
-                          maxWidth: 'calc(33.333% - 6px)',
-                        }}
-                      >
-                        {link.title}
-                      </Button>
-                    );
-                  }
+              {/* 8.333% = 100%/12: one column in a 12-column grid, used to nudge the single button away from the far left */}
+              {totalButtonCount === 1 && (
+                <Box
+                  data-testid="single-button-spacer"
+                  style={{ flex: '0 0 8.333%' }}
+                />
+              )}
+              {filteredLinks.map((link, index) => {
+                const sharedButtonProps = {
+                  variant: 'contained' as const,
+                  style: {
+                    flex: '0 0 calc(33.333% - 6px)',
+                    maxWidth: 'calc(33.333% - 6px)',
+                  },
+                };
+                if ('entityRef' in link && link.entityRef) {
+                  const entityRef = link.entityRef;
                   return (
                     <Button
-                      key={link.url || link.title || `link-${index}`}
-                      href={link.url ?? '#'}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      variant="contained"
-                      style={{
-                        flex: '0 0 calc(33.333% - 6px)',
-                        maxWidth: 'calc(33.333% - 6px)',
-                      }}
+                      key={entityRef || link.title || `link-${index}`}
+                      onClick={() => handleEntityLinkClick(entityRef)}
+                      {...sharedButtonProps}
                     >
                       {link.title}
                     </Button>
                   );
-                })}
+                }
+                return (
+                  <Button
+                    key={link.url || link.title || `link-${index}`}
+                    href={link.url ?? '#'}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    {...sharedButtonProps}
+                  >
+                    {link.title}
+                  </Button>
+                );
+              })}
               {showDownloadButton && (
                 <Button
                   onClick={handleDownloadArchive}

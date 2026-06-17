@@ -8,6 +8,21 @@ import type {
   SourceVersionDetail,
 } from '@ansible/backstage-rhaap-common';
 
+const COLLECTIONS_CACHE_TTL_MS = 60_000;
+
+let collectionsCache: {
+  result: { results: Collections[] };
+  filter: string;
+  timestamp: number;
+} | null = null;
+
+const inflightRequests = new Map<string, Promise<{ results: Collections[] }>>();
+
+export function clearCollectionsCache(): void {
+  collectionsCache = null;
+  inflightRequests.clear();
+}
+
 function formatSource(annotations: Record<string, string>): string | null {
   const scmProvider = annotations['ansible.io/scm-provider'];
   const hostName = annotations['ansible.io/scm-host-name'];
@@ -159,29 +174,62 @@ export async function getCollections(options: {
   searchQuery?: string;
 }): Promise<{ results: Collections[] }> {
   const { auth, discovery, logger, searchQuery } = options;
-  const baseUrl = await discovery.getBaseUrl('catalog');
-  const { token: catalogToken } = await auth.getPluginRequestToken({
-    onBehalfOf: await auth.getOwnServiceCredentials(),
-    targetPluginId: 'catalog',
-  });
-  const filter = encodeURIComponent(
-    searchQuery ?? 'spec.type=ansible-collection',
-  );
-  const response = await fetch(`${baseUrl}/entities?filter=${filter}`, {
-    method: 'GET',
-    headers: {
-      'Content-Type': 'application/json',
-      Authorization: `Bearer ${catalogToken}`,
-    },
-  });
-  if (!response.ok) {
-    logger.warn(
-      `Catalog entities request failed: ${response.status} ${response.statusText}`,
-    );
-    return { results: [] };
+  const trimmed = searchQuery?.trim();
+  const filter =
+    trimmed && trimmed.length > 0 ? trimmed : 'spec.type=ansible-collection';
+
+  if (
+    collectionsCache?.filter === filter &&
+    Date.now() - collectionsCache.timestamp < COLLECTIONS_CACHE_TTL_MS
+  ) {
+    return collectionsCache.result;
   }
-  const body = await response.json();
-  const entities = Array.isArray(body) ? body : (body?.items ?? []);
-  const results = buildCollectionsFromCatalogEntities(entities);
-  return { results };
+
+  if (inflightRequests.has(filter)) {
+    return inflightRequests.get(filter)!;
+  }
+
+  const fetchPromise = (async () => {
+    const baseUrl = await discovery.getBaseUrl('catalog');
+    const { token: catalogToken } = await auth.getPluginRequestToken({
+      onBehalfOf: await auth.getOwnServiceCredentials(),
+      targetPluginId: 'catalog',
+    });
+    const encodedFilter = encodeURIComponent(filter);
+    const response = await fetch(
+      `${baseUrl}/entities?filter=${encodedFilter}`,
+      {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${catalogToken}`,
+        },
+      },
+    );
+    if (!response.ok) {
+      logger.warn(
+        `Catalog entities request failed: ${response.status} ${response.statusText}`,
+      );
+      return { results: [] as Collections[] };
+    }
+    const body = await response.json();
+    const entities = Array.isArray(body) ? body : (body?.items ?? []);
+    const result = {
+      results: buildCollectionsFromCatalogEntities(entities),
+    };
+
+    collectionsCache = { result, filter, timestamp: Date.now() };
+
+    return result;
+  })();
+
+  inflightRequests.set(filter, fetchPromise);
+
+  try {
+    return await fetchPromise;
+  } finally {
+    if (inflightRequests.get(filter) === fetchPromise) {
+      inflightRequests.delete(filter);
+    }
+  }
 }

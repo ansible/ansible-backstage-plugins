@@ -20,6 +20,11 @@ const specPath = resolve(repoRoot, 'api/openapi.yaml');
 const routeRegex =
   /router\.(get|post|put|delete|patch)\(\s*['"`]([^'"`]+)['"`]/g;
 
+// Normalize path parameters: convert Express :param to OpenAPI {param}
+function normalizePath(path) {
+  return path.replace(/:([a-zA-Z_][a-zA-Z0-9_]*)/g, '{$1}');
+}
+
 // Recursively find all router.ts files under plugins/
 function findRouterFiles(dir) {
   const results = [];
@@ -52,7 +57,7 @@ for (const filePath of routerFiles) {
   routeRegex.lastIndex = 0;
   while ((match = routeRegex.exec(source)) !== null) {
     const method = match[1].toUpperCase();
-    const path = match[2];
+    const path = normalizePath(match[2]); // Normalize Express :param to OpenAPI {param}
     const key = `${method} ${path}`;
     codeRoutes.set(key, { method, path, file: relPath });
   }

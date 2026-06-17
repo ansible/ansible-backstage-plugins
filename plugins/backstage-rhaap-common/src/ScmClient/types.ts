@@ -19,6 +19,13 @@ export interface ScmClientConfig {
   host?: string;
   organization: string;
   token?: string;
+  /**
+   * GitHub: when set, invoked before each HTTP request to obtain the current
+   * `Authorization: Bearer` value (e.g. refreshes GitHub App installation tokens).
+   * If it returns a non-empty string, that value is used; otherwise `token` is used.
+   * GitLab clients ignore this field.
+   */
+  getToken?: () => Promise<string | undefined>;
   /** API base URL (e.g. GitHub: https://api.github.com, GHE: https://ghe.company.com/api/v3, GitLab: https://gitlab.example.com/api/v4). When set, used instead of host-derived URL. */
   apiBaseUrl?: string;
   /** When false, TLS certificate verification is disabled (e.g. self-signed or internal CA). Default true. */

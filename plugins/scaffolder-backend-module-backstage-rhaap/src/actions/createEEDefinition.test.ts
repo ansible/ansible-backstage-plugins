@@ -90,11 +90,28 @@ describe('createEEDefinition', () => {
     mockParseUploadedFileContent.mockReturnValue('');
     mockDownloadEEScaffold.mockResolvedValue(undefined);
     discovery.getBaseUrl.mockResolvedValue('http://localhost:7007/api/catalog');
-    mockFetch.mockResolvedValue({
-      ok: true,
-      status: 200,
-      text: jest.fn().mockResolvedValue(''),
-    } as any);
+    mockFetch.mockImplementation((url: RequestInfo | URL) => {
+      const u = typeof url === 'string' ? url : url.toString();
+      if (u.includes('/entities/by-name/')) {
+        return Promise.resolve({
+          ok: true,
+          status: 200,
+          json: async () => ({
+            spec: {
+              profile: {
+                displayName: 'Test User',
+                email: 'testuser@example.com',
+              },
+            },
+          }),
+        } as any);
+      }
+      return Promise.resolve({
+        ok: true,
+        status: 200,
+        text: jest.fn().mockResolvedValue(''),
+      } as any);
+    });
     auth.getOwnServiceCredentials.mockResolvedValue({
       token: 'service-token',
     } as any);
@@ -230,7 +247,9 @@ describe('createEEDefinition', () => {
       baseImage: 'img:latest',
       publishToSCM: false,
     });
-    mockFetch.mockResolvedValue({
+    // The handler calls `fetch` for the failing POST `/ansible/ee` registration
+    // (ok: false, text: 'Server error').
+    mockFetch.mockResolvedValueOnce({
       ok: false,
       text: jest.fn().mockResolvedValue('Server error'),
     } as any);
@@ -285,6 +304,32 @@ describe('createEEDefinition', () => {
       '/tmp/test-workspace/.github/workflows/ee-build.yml',
       expect.stringContaining('default: "my-ee"'),
     );
+  });
+
+  it('patches ee-build.yml EE_DIR env var fallback default', async () => {
+    const action = makeAction();
+    const ctx = makeCtx({
+      eeFileName: 'my-ee',
+      baseImage: 'img:latest',
+      publishToSCM: true,
+    });
+
+    mockReadFile.mockImplementation(async (filePath: any) => {
+      if (filePath.toString().endsWith('ee-build.yml')) {
+        return "  EE_DIR: ${{ inputs.ee_dir || vars.EE_DIR || '.' }}\n" as any;
+      }
+      return '' as any;
+    });
+
+    await action.handler(ctx);
+
+    const call = mockWriteFile.mock.calls.find((c: any[]) =>
+      c[0].toString().includes('ee-build.yml'),
+    );
+    expect(call?.[1]).toContain(
+      "EE_DIR: ${{ inputs.ee_dir || vars.EE_DIR || 'my-ee' }}",
+    );
+    expect(call?.[1]).not.toContain("|| '.' }}");
   });
 
   it('throws when downloadEEScaffold fails', async () => {
@@ -365,6 +410,45 @@ describe('createEEDefinition', () => {
     });
   });
 
+  it('omits additional_build_steps from eeConfig when all steps have empty commands', async () => {
+    const action = makeAction();
+    const ctx = makeCtx({
+      eeFileName: 'test-ee',
+      baseImage: 'img:latest',
+      publishToSCM: true,
+      additionalBuildSteps: [
+        { stepType: 'prepend_base', commands: [] },
+        { stepType: 'prepend_final', commands: [] },
+        { stepType: 'append_galaxy', commands: ['', '   '] },
+      ],
+    });
+
+    await action.handler(ctx);
+
+    const eeConfig = mockDownloadEEScaffold.mock.calls[0][3];
+    expect(eeConfig.additional_build_steps).toBeUndefined();
+  });
+
+  it('filters blank commands and omits empty step types from eeConfig', async () => {
+    const action = makeAction();
+    const ctx = makeCtx({
+      eeFileName: 'test-ee',
+      baseImage: 'img:latest',
+      publishToSCM: true,
+      additionalBuildSteps: [
+        { stepType: 'prepend_base', commands: ['RUN echo hello', '', '   '] },
+        { stepType: 'prepend_final', commands: [] },
+      ],
+    });
+
+    await action.handler(ctx);
+
+    const eeConfig = mockDownloadEEScaffold.mock.calls[0][3];
+    expect(eeConfig.additional_build_steps).toEqual({
+      prepend_base: ['RUN echo hello'],
+    });
+  });
+
   it('builds eeConfig with registry and image name', async () => {
     const action = makeAction();
     const ctx = makeCtx({
@@ -372,7 +456,7 @@ describe('createEEDefinition', () => {
       baseImage: 'img:latest',
       publishToSCM: true,
       buildRegistry: 'ghcr.io',
-      buildImageName: 'my-org/my-ee',
+      buildImageName: '   my-org/my-ee   ',
     });
 
     await action.handler(ctx);
@@ -938,8 +1022,12 @@ describe('createEEDefinition', () => {
 
     await action.handler(ctx);
 
-    const [, fetchOptions] = (mockFetch as jest.Mock).mock.calls[0];
-    const body = JSON.parse(fetchOptions.body);
+    const postCall = mockFetch.mock.calls.find(
+      c => typeof c[0] === 'string' && String(c[0]).includes('/ansible/ee'),
+    );
+    expect(postCall).toBeDefined();
+    const [, fetchOptions] = postCall!;
+    const body = JSON.parse((fetchOptions as { body: string }).body);
     expect(body.entity).toMatchObject({
       kind: 'Component',
       metadata: {
@@ -1407,9 +1495,89 @@ describe('createEEDefinition', () => {
     );
     const readme = readmeCall![1] as string;
     expect(readme).toContain(
-      'collection-source token configuration steps are omitted',
+      'To use this EE, build and push it to your container registry first',
     );
+    expect(readme).not.toContain('update the token settings in `ansible.cfg`');
     expect(readme).not.toContain('Configure Automation Hub access');
+  });
+
+  it('escapes backslashes and pipes in README collection table cells', async () => {
+    const action = makeAction();
+    const ctx = makeCtx({
+      eeFileName: 'test-ee',
+      baseImage: 'img:latest',
+      publishToSCM: true,
+      collections: [
+        {
+          name: String.raw`my\collection|name`,
+          version: String.raw`v1\|2`,
+          source: String.raw`Automation Hub\mirror|primary`,
+          type: 'galaxy',
+        },
+      ],
+    });
+
+    await action.handler(ctx);
+
+    const readmeCall = mockWriteFile.mock.calls.find((call: any[]) =>
+      call[0].toString().endsWith('README.md'),
+    );
+    const readme = readmeCall![1] as string;
+    // Backslashes should be doubled, and pipes escaped as \|
+    expect(readme).toContain(
+      String.raw`| my\\collection\|name | v1\\\|2 | Automation Hub\\mirror\|primary |`,
+    );
+  });
+
+  it('renders PAH registry hostname in README login/pull instructions', async () => {
+    const pahConfig = new ConfigReader({
+      ansible: {
+        creatorService: { baseUrl: 'localhost', port: '8000' },
+        devSpaces: { baseUrl: 'https://devspaces.example.com' },
+        rhaap: { baseUrl: 'https://pah.example.com' },
+      },
+    });
+    const action = makeAction(pahConfig);
+    const ctx = makeCtx({
+      eeFileName: 'test-ee',
+      baseImage: 'img:latest',
+      publishToSCM: true,
+      buildRegistry: 'Private Automation Hub (PAH)',
+      buildImageName: 'my-org/my-ee',
+      buildImageTag: 'v1',
+    });
+
+    await action.handler(ctx);
+
+    const readmeCall = mockWriteFile.mock.calls.find((call: any[]) =>
+      call[0].toString().endsWith('README.md'),
+    );
+    const readme = readmeCall![1] as string;
+    expect(readme).toContain('podman login pah.example.com');
+    expect(readme).toContain('podman pull pah.example.com/my-org/my-ee:v1');
+  });
+
+  it('renders AAP usage step without backticks when imageRef is empty', async () => {
+    const action = makeAction();
+    const ctx = makeCtx({
+      eeFileName: 'test-ee',
+      baseImage: 'img:latest',
+      publishToSCM: true,
+      // No buildRegistry/buildImageName => empty imageRef
+    });
+
+    await action.handler(ctx);
+
+    const readmeCall = mockWriteFile.mock.calls.find((call: any[]) =>
+      call[0].toString().endsWith('README.md'),
+    );
+    const readme = readmeCall![1] as string;
+    expect(readme).toContain(
+      '2. Click **Create execution environment** and enter the image URL.',
+    );
+    expect(readme).not.toContain(
+      '2. Click **Create execution environment** and enter the image URL: ``',
+    );
   });
 
   it('does not patch ansible.cfg when [galaxy] section is absent', async () => {
