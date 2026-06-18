@@ -63,7 +63,7 @@
     "@types/react": "^18",
     "@types/react-dom": "^18",
     "@rjsf/utils": "=5.24.0",
-    "axios": "^1.15.2",
+    "axios": "^1.16.0",
     "basic-ftp": "^5.3.1",
     "bfj": "7.0.2",
     "dompurify": "^3.4.0",
@@ -71,7 +71,7 @@
     "isolated-vm": "5.0.4",
     "lodash": "^4.18.0",
     "protobufjs": "7.5.5",
-    "undici": "^6.24.0",
+    "undici": "^6.26.0",
     "fast-xml-parser": "^5.5.6",
     "immutable": "^3.8.3",
     "rollup": "^4.59.0",
@@ -84,7 +84,9 @@
     "postcss": "^8.5.10",
     "vm2": "^3.11.2",
     "@xmldom/xmldom": "^0.9.10",
-    "shell-quote": "^1.8.4"
+    "shell-quote": "^1.8.4",
+    "ws": "^8.21.0",
+    "ip-address": "^10.1.1"
   },
   "prettier": "@spotify/prettier-config",
   "lint-staged": {
