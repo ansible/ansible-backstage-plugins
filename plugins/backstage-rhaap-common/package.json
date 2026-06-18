@@ -35,7 +35,7 @@
     "@backstage/plugin-auth-node": "^0.6.9",
     "@backstage/plugin-permission-common": "^0.9.3",
     "lodash.uniqby": "^4.7.0",
-    "undici": "^6.24.0",
+    "undici": "^6.26.0",
     "yaml": "^2.0.0"
   },
   "devDependencies": {
