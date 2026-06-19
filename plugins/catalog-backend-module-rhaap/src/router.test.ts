@@ -1601,6 +1601,14 @@ describe('createRouter', () => {
       expect(response.body.pipeline_url).toBe(
         'https://gitlab.com/org/repo/-/pipelines/42',
       );
+      expect(mockTriggerPipeline).toHaveBeenCalledWith(
+        'org/repo',
+        'main',
+        expect.arrayContaining([
+          { key: 'EE_DIR', value: 'ee' },
+          { key: 'EE_FILE_NAME', value: 'my-ee.yml' },
+        ]),
+      );
     });
 
     it('returns 400 when X-Gitlab-Token is missing for GitLab entity', async () => {

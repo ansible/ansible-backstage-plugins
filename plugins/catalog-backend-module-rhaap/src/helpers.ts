@@ -667,7 +667,7 @@ export async function resolveEntityAndRepo(
     const scmProvider =
       entity.metadata?.annotations?.['ansible.io/scm-provider'] ?? '';
 
-    if (scmProvider === 'gitlab') {
+    if (scmProvider.toLowerCase() === 'gitlab') {
       const resolved = resolveGitlabRepoForEeBuild(entity);
       return {
         provider: 'gitlab',
@@ -814,7 +814,7 @@ export async function dispatchEeBuildGitlab(
     host: gl.host,
     token: gitlabToken,
     apiBaseUrl,
-    gitlabUseBearerAuth: true,
+    gitlabUseBearerAuth: true, // OAuth user tokens require Bearer auth, unlike server PATs
   });
 
   const glResp = await gitlabClient.triggerPipeline(gl.projectPath, gl.ref, [

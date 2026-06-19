@@ -367,7 +367,7 @@ export async function createRouter(options: {
   });
 
   /**
-   * Triggers GitHub Actions `ee-build.yml` via workflow_dispatch.
+   * Triggers an EE build via GitHub Actions workflow_dispatch or GitLab CI pipeline.
    * Authenticated Backstage user or allowlisted external-access (service) token; loads the EE entity
    * with that principal's catalog token so RBAC applies.
    */

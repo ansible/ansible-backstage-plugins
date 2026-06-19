@@ -34,6 +34,9 @@ function buildTriggeredDescriptionNode(
     return undefined;
   }
   const href = workflowUrl.trim();
+  if (!href.startsWith('http://') && !href.startsWith('https://')) {
+    return undefined;
+  }
   return (
     <>
       Link:{' '}

@@ -70,12 +70,13 @@ export class GitlabClient extends BaseScmClient {
     bodyText: string;
   }> {
     const url = `${this.apiUrl}${endpoint}`;
+    const baseOpts = this.getFetchOptions();
     const opts = {
-      ...this.getFetchOptions(),
+      ...baseOpts,
       method: 'POST' as const,
       body: JSON.stringify(body),
       headers: {
-        ...this.getFetchOptions().headers,
+        ...baseOpts.headers,
         'Content-Type': 'application/json',
       },
       signal,
