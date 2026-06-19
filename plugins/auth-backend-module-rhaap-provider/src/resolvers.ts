@@ -144,7 +144,7 @@ export namespace AAPAuthSignInResolvers {
             const { entity } = await ctx.findCatalogUser({
               entityRef: { name: username },
             });
-            return issueTokenWithOwnership(ctx, entity);
+            return await issueTokenWithOwnership(ctx, entity);
           } catch (e) {
             // Try to find the user again to provide better error information
             try {
