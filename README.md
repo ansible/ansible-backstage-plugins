@@ -341,20 +341,23 @@ yarn workspace @ansible/plugin-backstage-rhaap test --coverage
 
 #### E2E Tests
 
-End-to-end tests use Cypress and are located in `e2e-tests/`.
+End-to-end tests use Playwright and are located in `e2e-tests/`.
 
 ```bash
 # Install e2e dependencies
 cd e2e-tests && yarn install
 
+# Run all e2e tests
+yarn pw:test
+
 # Run e2e tests (self-service)
-yarn e2e:self-service
+yarn pw:test:self-service
 
 # Run e2e tests (RHDH)
-yarn e2e:rhdh
+yarn pw:test:rhdh
 
-# Generate test reports
-yarn report:generate
+# View test report
+yarn pw:show-report
 ```
 
 #### Viewing Coverage Reports
