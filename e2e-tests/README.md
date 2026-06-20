@@ -62,7 +62,7 @@ yarn pw:codegen
 
 ## Test Structure
 
-```
+```text
 e2e-tests/
   playwright.config.ts          # Main configuration
   playwright/
