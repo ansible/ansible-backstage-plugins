@@ -41,7 +41,7 @@ import { EEBuildDialog } from './EEBuildDialog';
 import {
   toEEDefinitionUrl,
   downloadEntityAsTarArchive,
-  isEntityPublishedToGithub,
+  isEntityBuildable,
 } from './helpers';
 import { useEEBuildFlow } from './useEEBuildFlow';
 import {
@@ -160,7 +160,8 @@ export const EEDetailsPage: React.FC = () => {
     authBusy,
     dialogOpen,
     buildEntity,
-    githubToken,
+    scmToken,
+    scmProvider,
     closeDialog,
   } = useEEBuildFlow();
   const [entity, setEntity] = useState<any | null>(false);
@@ -250,7 +251,7 @@ export const EEDetailsPage: React.FC = () => {
 
     const owner = parts[0];
     const repo = parts[1];
-    const scmProvider = scm.toLowerCase();
+    const entityScmProvider = scm.toLowerCase();
 
     let subdir = '';
     let ref = 'main';
@@ -275,7 +276,15 @@ export const EEDetailsPage: React.FC = () => {
 
     const filePath = subdir ? `${subdir}/README.md` : 'README.md';
 
-    return { scmProvider, host, owner, repo, subdir, filePath, ref };
+    return {
+      scmProvider: entityScmProvider,
+      host,
+      owner,
+      repo,
+      subdir,
+      filePath,
+      ref,
+    };
   }, [entity]);
 
   /** Single effect so parallel readme + definition fetches cannot clobber scmIntegrationAuthError. */
@@ -437,7 +446,8 @@ export const EEDetailsPage: React.FC = () => {
       <EEBuildDialog
         open={dialogOpen}
         entity={buildEntity}
-        githubToken={githubToken}
+        scmToken={scmToken}
+        scmProvider={scmProvider}
         onClose={closeDialog}
       />
       {entity && (
@@ -487,7 +497,7 @@ export const EEDetailsPage: React.FC = () => {
                   classes={{ paper: actionsMenuClasses.menuPaper }}
                   getContentAnchorEl={null}
                 >
-                  {isEntityPublishedToGithub(entity as Entity) && (
+                  {isEntityBuildable(entity as Entity) && (
                     <MenuItem
                       onClick={() => {
                         handleBuild();

@@ -44,6 +44,21 @@ const entityWithGithub: Entity = {
   spec: { type: 'execution-environment' },
 };
 
+const entityWithGitlab: Entity = {
+  apiVersion: 'backstage.io/v1alpha1',
+  kind: 'Component',
+  metadata: {
+    name: 'gl-ee',
+    namespace: 'default',
+    annotations: {
+      'backstage.io/source-location':
+        'url:https://gitlab.com/org/repo/-/tree/main/ee/',
+      'ansible.io/scm-provider': 'gitlab',
+    },
+  },
+  spec: { type: 'execution-environment' },
+};
+
 const entityNoScm: Entity = {
   apiVersion: 'backstage.io/v1alpha1',
   kind: 'Component',
@@ -95,7 +110,8 @@ describe('useEEBuildFlow', () => {
     expect(sessionStorage.getItem(EE_BUILD_PENDING_SESSION_KEY)).toBeNull();
     expect(result.current.dialogOpen).toBe(true);
     expect(result.current.buildEntity).toEqual(entityWithGithub);
-    expect(result.current.githubToken).toBe('t');
+    expect(result.current.scmToken).toBe('t');
+    expect(result.current.scmProvider).toBe('github');
     expect(result.current.authBusy).toBe(false);
   });
 
@@ -156,7 +172,8 @@ describe('useEEBuildFlow', () => {
       url: 'https://github.com/acme/repo',
     });
     expect(result.current.buildEntity).toEqual(resolvedEntity);
-    expect(result.current.githubToken).toBe('t');
+    expect(result.current.scmToken).toBe('t');
+    expect(result.current.scmProvider).toBe('github');
     expect(sessionStorage.getItem(EE_BUILD_PENDING_SESSION_KEY)).toBeNull();
   });
 
@@ -233,7 +250,8 @@ describe('useEEBuildFlow', () => {
 
     expect(result.current.dialogOpen).toBe(false);
     expect(result.current.buildEntity).toBeNull();
-    expect(result.current.githubToken).toBeNull();
+    expect(result.current.scmToken).toBeNull();
+    expect(result.current.scmProvider).toBeNull();
   });
 
   it('shows notification and does not open dialog when getCredentials returns an empty token', async () => {
@@ -252,7 +270,54 @@ describe('useEEBuildFlow', () => {
       }),
     );
     expect(result.current.dialogOpen).toBe(false);
-    expect(result.current.githubToken).toBeNull();
+    expect(result.current.scmToken).toBeNull();
     showSpy.mockRestore();
+  });
+
+  it('sets scmProvider to gitlab for GitLab entity', async () => {
+    const { result } = renderHook(() => useEEBuildFlow(), { wrapper });
+
+    await act(async () => {
+      await result.current.startBuildFlow(entityWithGitlab);
+    });
+
+    expect(result.current.scmProvider).toBe('gitlab');
+    expect(result.current.dialogOpen).toBe(true);
+    expect(result.current.scmToken).toBe('t');
+  });
+
+  it('sets scmProvider to github for GitHub entity', async () => {
+    const { result } = renderHook(() => useEEBuildFlow(), { wrapper });
+
+    await act(async () => {
+      await result.current.startBuildFlow(entityWithGithub);
+    });
+
+    expect(result.current.scmProvider).toBe('github');
+  });
+
+  it('calls getCredentials with additionalScope for GitLab entity', async () => {
+    const { result } = renderHook(() => useEEBuildFlow(), { wrapper });
+
+    await act(async () => {
+      await result.current.startBuildFlow(entityWithGitlab);
+    });
+
+    expect(mockGetCredentials).toHaveBeenCalledWith({
+      url: 'https://gitlab.com/org/repo',
+      additionalScope: { repoWrite: true },
+    });
+  });
+
+  it('calls getCredentials without additionalScope for GitHub entity', async () => {
+    const { result } = renderHook(() => useEEBuildFlow(), { wrapper });
+
+    await act(async () => {
+      await result.current.startBuildFlow(entityWithGithub);
+    });
+
+    expect(mockGetCredentials).toHaveBeenCalledWith({
+      url: 'https://github.com/acme/repo',
+    });
   });
 });
