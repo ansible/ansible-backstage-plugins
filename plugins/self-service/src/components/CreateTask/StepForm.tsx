@@ -918,7 +918,7 @@ export const StepForm = ({
       <SecretsContextProvider>
         <Stepper activeStep={activeStep} orientation="vertical">
           {filteredSteps.map((step, index) => (
-            <Step key={index} completed={activeStep > index}>
+            <Step key={step.title} completed={activeStep > index}>
               <StepLabel>{step.title}</StepLabel>
               <StepContent>
                 {activeStep === index ? (
@@ -997,7 +997,7 @@ export const StepForm = ({
                         }
                         const label = getLabel(key, stepIndex);
                         return (
-                          <TableRow key={`${stepIndex}-${key}`}>
+                          <TableRow key={`${step.title}-${key}`}>
                             <TableCell style={{ border: 0 }}>{label}</TableCell>
                             <TableCell style={{ border: 0 }}>
                               {getReviewValue(key, stepIndex)}
@@ -1009,7 +1009,7 @@ export const StepForm = ({
                       const hasNoValues = propertyRows.length === 0;
 
                       return [
-                        <TableRow key={`${stepIndex}-title`}>
+                        <TableRow key={`${step.title}-title`}>
                           <TableCell style={{ border: 0 }}>
                             <strong>{step.title}</strong>
                           </TableCell>

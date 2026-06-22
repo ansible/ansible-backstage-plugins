@@ -164,8 +164,8 @@ export const CatalogItemsDetails = () => {
                           <Typography variant="h6" gutterBottom>
                             Links
                           </Typography>
-                          {task.metadata.links.map((link, index) => (
-                            <Box key={index} sx={{ marginBottom: 1 }}>
+                          {task.metadata.links.map(link => (
+                            <Box key={link.url} sx={{ marginBottom: 1 }}>
                               <Link
                                 href={link.url}
                                 target="_blank"
@@ -269,12 +269,8 @@ export const CatalogItemsDetails = () => {
                             >
                               Tags
                             </Typography>
-                            {task?.metadata?.tags?.map((tag, index) => (
-                              <Chip
-                                label={tag}
-                                key={index}
-                                variant="outlined"
-                              />
+                            {task?.metadata?.tags?.map(tag => (
+                              <Chip label={tag} key={tag} variant="outlined" />
                             ))}
                           </Typography>
                         </Grid>
