@@ -751,7 +751,7 @@ describe('EEDetailsPage', () => {
     ).toBeInTheDocument();
   });
 
-  test('Actions menu: Build is hidden when EE is not published to GitHub', async () => {
+  test('Actions menu: Build is shown for GitLab-published EE entities', async () => {
     renderWithCatalogApi(() =>
       Promise.resolve({ items: [entityGitLabWithTree] }),
     );
@@ -761,8 +761,8 @@ describe('EEDetailsPage', () => {
     fireEvent.click(screen.getByRole('button', { name: /Actions/i }));
 
     expect(
-      screen.queryByRole('menuitem', { name: /^Build$/i }),
-    ).not.toBeInTheDocument();
+      screen.getByRole('menuitem', { name: /^Build$/i }),
+    ).toBeInTheDocument();
     expect(
       screen.getByRole('menuitem', { name: /Edit definition/i }),
     ).toBeInTheDocument();

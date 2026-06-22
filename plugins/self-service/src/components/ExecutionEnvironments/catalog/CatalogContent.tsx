@@ -41,7 +41,7 @@ import { EEBuildDialog } from './EEBuildDialog';
 import {
   toEEDefinitionUrl,
   downloadEntityAsTarArchive,
-  isEntityPublishedToGithub,
+  isEntityBuildable,
 } from './helpers';
 import { useEEBuildFlow } from './useEEBuildFlow';
 import { EntityLinkButton } from '../../common';
@@ -333,7 +333,8 @@ export const EEListPage = ({
     authBusy,
     dialogOpen,
     buildEntity,
-    githubToken,
+    scmToken,
+    scmProvider,
     closeDialog,
   } = useEEBuildFlow();
 
@@ -634,7 +635,7 @@ export const EEListPage = ({
                         </MenuItem>,
                       ]
                     : [
-                        ...(isEntityPublishedToGithub(actionsMenuEntity)
+                        ...(isEntityBuildable(actionsMenuEntity)
                           ? [
                               <MenuItem
                                 key="build"
@@ -760,7 +761,8 @@ export const EEListPage = ({
             <EEBuildDialog
               open={dialogOpen}
               entity={buildEntity}
-              githubToken={githubToken}
+              scmToken={scmToken}
+              scmProvider={scmProvider}
               onClose={closeDialog}
             />
           </CatalogFilterLayout.Content>

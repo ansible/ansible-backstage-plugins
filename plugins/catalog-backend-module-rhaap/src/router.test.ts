@@ -15,6 +15,7 @@
  */
 
 const mockGetPipelines = jest.fn();
+const mockTriggerPipeline = jest.fn();
 
 jest.mock('@ansible/backstage-rhaap-common', () => {
   const actual = jest.requireActual('@ansible/backstage-rhaap-common');
@@ -51,6 +52,7 @@ jest.mock('@ansible/backstage-rhaap-common', () => {
     }),
     GitlabClient: jest.fn().mockImplementation(() => ({
       getPipelines: mockGetPipelines,
+      triggerPipeline: mockTriggerPipeline,
     })),
   };
 });
@@ -1562,6 +1564,142 @@ describe('createRouter', () => {
         .expect(403);
 
       expect(response.body.error).toContain('Not allowed');
+    });
+
+    it('returns 202 and triggers GitLab pipeline for GitLab entity', async () => {
+      mockHttpAuth.credentials.mockResolvedValue({} as any);
+      mockCatalogClient.getEntityByRef.mockResolvedValueOnce({
+        apiVersion: 'backstage.io/v1alpha1',
+        kind: 'Component',
+        metadata: {
+          name: 'my-ee',
+          annotations: {
+            'ansible.io/scm-provider': 'gitlab',
+            'backstage.io/source-location':
+              'url:https://gitlab.com/org/repo/-/blob/main/ee/my-ee.yml',
+          },
+        },
+        spec: { type: 'execution-environment' },
+      });
+
+      mockTriggerPipeline.mockResolvedValueOnce({
+        ok: true,
+        status: 201,
+        pipelineId: 42,
+        pipelineUrl: 'https://gitlab.com/org/repo/-/pipelines/42',
+      });
+
+      const testApp = await createEeBuildTestApp();
+      const response = await request(testApp)
+        .post('/ansible/ee/build')
+        .set('X-Gitlab-Token', 'gl-tok')
+        .send(validBuildBody)
+        .expect(202);
+
+      expect(response.body.message).toBe('Build started');
+      expect(response.body.pipeline_id).toBe(42);
+      expect(response.body.pipeline_url).toBe(
+        'https://gitlab.com/org/repo/-/pipelines/42',
+      );
+      expect(mockTriggerPipeline).toHaveBeenCalledWith(
+        'org/repo',
+        'main',
+        expect.arrayContaining([
+          { key: 'EE_DIR', value: 'ee' },
+          { key: 'EE_FILE_NAME', value: 'my-ee.yml' },
+        ]),
+      );
+    });
+
+    it('returns 400 when X-Gitlab-Token is missing for GitLab entity', async () => {
+      mockHttpAuth.credentials.mockResolvedValue({} as any);
+      mockCatalogClient.getEntityByRef.mockResolvedValueOnce({
+        apiVersion: 'backstage.io/v1alpha1',
+        kind: 'Component',
+        metadata: {
+          name: 'my-ee',
+          annotations: {
+            'ansible.io/scm-provider': 'gitlab',
+            'backstage.io/source-location':
+              'url:https://gitlab.com/org/repo/-/blob/main/ee/my-ee.yml',
+          },
+        },
+        spec: { type: 'execution-environment' },
+      });
+
+      const testApp = await createEeBuildTestApp();
+      const response = await request(testApp)
+        .post('/ansible/ee/build')
+        .send(validBuildBody)
+        .expect(400);
+
+      expect(response.body.error).toContain('X-Gitlab-Token');
+    });
+
+    it('returns error status when GitLab pipeline trigger returns 422', async () => {
+      mockHttpAuth.credentials.mockResolvedValue({} as any);
+      mockCatalogClient.getEntityByRef.mockResolvedValueOnce({
+        apiVersion: 'backstage.io/v1alpha1',
+        kind: 'Component',
+        metadata: {
+          name: 'my-ee',
+          annotations: {
+            'ansible.io/scm-provider': 'gitlab',
+            'backstage.io/source-location':
+              'url:https://gitlab.com/org/repo/-/blob/main/ee/my-ee.yml',
+          },
+        },
+        spec: { type: 'execution-environment' },
+      });
+
+      mockTriggerPipeline.mockResolvedValueOnce({
+        ok: false,
+        status: 422,
+        statusText: 'Unprocessable Entity',
+        bodyText: '{"message":"bad variables"}',
+      });
+
+      const testApp = await createEeBuildTestApp();
+      const response = await request(testApp)
+        .post('/ansible/ee/build')
+        .set('X-Gitlab-Token', 'gl-tok')
+        .send(validBuildBody)
+        .expect(422);
+
+      expect(response.body.error).toContain('bad variables');
+    });
+
+    it('returns 502 when GitLab pipeline trigger returns 500', async () => {
+      mockHttpAuth.credentials.mockResolvedValue({} as any);
+      mockCatalogClient.getEntityByRef.mockResolvedValueOnce({
+        apiVersion: 'backstage.io/v1alpha1',
+        kind: 'Component',
+        metadata: {
+          name: 'my-ee',
+          annotations: {
+            'ansible.io/scm-provider': 'gitlab',
+            'backstage.io/source-location':
+              'url:https://gitlab.com/org/repo/-/blob/main/ee/my-ee.yml',
+          },
+        },
+        spec: { type: 'execution-environment' },
+      });
+
+      mockTriggerPipeline.mockResolvedValueOnce({
+        ok: false,
+        status: 500,
+        statusText: 'Internal Server Error',
+        bodyText: '',
+      });
+
+      const testApp = await createEeBuildTestApp();
+      const response = await request(testApp)
+        .post('/ansible/ee/build')
+        .set('X-Gitlab-Token', 'gl-tok')
+        .send(validBuildBody)
+        .expect(502);
+
+      expect(response.body.error).toContain('Internal Server Error');
     });
   });
 

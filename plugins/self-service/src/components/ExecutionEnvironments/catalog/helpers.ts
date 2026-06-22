@@ -103,6 +103,29 @@ export function isEntityPublishedToGithub(entity: Entity): boolean {
   return getScmRepoUrlForAuth(entity) !== null;
 }
 
+export function isEntityPublishedToGitlab(entity: Entity): boolean {
+  const scmRaw = entity?.metadata?.annotations?.[SCM_PROVIDER_ANNOTATION];
+  if (!scmRaw?.trim() || !scmRaw.toLowerCase().includes('gitlab')) {
+    return false;
+  }
+  return getScmRepoUrlForAuth(entity) !== null;
+}
+
+export function isEntityBuildable(entity: Entity): boolean {
+  return isEntityPublishedToGithub(entity) || isEntityPublishedToGitlab(entity);
+}
+
+export function getEntityScmProvider(
+  entity: Entity,
+): 'github' | 'gitlab' | null {
+  const scmRaw = entity?.metadata?.annotations?.[SCM_PROVIDER_ANNOTATION];
+  if (!scmRaw?.trim()) return null;
+  const lower = scmRaw.toLowerCase();
+  if (lower.includes('github')) return 'github';
+  if (lower.includes('gitlab')) return 'gitlab';
+  return null;
+}
+
 /**
  * Resolve Edit/View URL to the EE definition file when it points at catalog-info.yaml.
  */
