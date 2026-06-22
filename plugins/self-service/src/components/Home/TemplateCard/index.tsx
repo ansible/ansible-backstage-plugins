@@ -74,10 +74,10 @@ export function WizardCard({
         {(template?.metadata?.tags ?? []).length > 0 && (
           <div className="tags" data-testid="template--tags">
             <div style={{ marginTop: 8 }}>
-              {template?.metadata?.tags?.map((tag, index) => (
+              {template?.metadata?.tags?.map(tag => (
                 <Chip
                   label={tag}
-                  key={index}
+                  key={tag}
                   size="small"
                   data-testid={`template-tags--${tag}`}
                 />
