@@ -276,11 +276,7 @@ export const RunTask = () => {
       return false;
     }
 
-    if (
-      resolvePublishToScmFromParameters(
-        task?.spec?.parameters as Record<string, unknown> | undefined,
-      )
-    ) {
+    if (resolvePublishToScmFromParameters(task?.spec?.parameters)) {
       return false;
     }
 
@@ -304,11 +300,7 @@ export const RunTask = () => {
       return undefined;
     }
 
-    if (
-      resolvePublishToScmFromParameters(
-        task?.spec?.parameters as Record<string, unknown> | undefined,
-      )
-    ) {
+    if (resolvePublishToScmFromParameters(task?.spec?.parameters)) {
       return undefined;
     }
 
@@ -372,7 +364,7 @@ export const RunTask = () => {
 
     if (!entity) {
       const eeFileName = resolveEeFileNameFromParameters(
-        task?.spec?.parameters as Record<string, unknown> | undefined,
+        task?.spec?.parameters,
       );
       if (!eeFileName) {
         console.error('EE file name not found in task parameters'); // eslint-disable-line no-console

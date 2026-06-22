@@ -176,7 +176,7 @@ export const FileUploadPickerExtension = ({
       return;
     }
 
-    if (formData && formData.startsWith('data:text/plain;base64,')) {
+    if (formData?.startsWith('data:text/plain;base64,')) {
       try {
         const base64Content = formData.split(',')[1];
         if (!base64Content) {

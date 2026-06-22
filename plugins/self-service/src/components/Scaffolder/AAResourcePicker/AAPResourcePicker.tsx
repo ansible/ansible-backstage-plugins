@@ -300,7 +300,7 @@ export const AAPResourcePicker = (props: ScaffolderRJSFFieldProps) => {
                 setSelected,
               });
             }
-            setAvailableResources(results as Record<string, unknown>[]);
+            setAvailableResources(results);
             setLoading(false);
             // Clear initial form data since we now have resources loaded
             setInitialFormData(null);

@@ -430,10 +430,7 @@ export const EEDetailsPage: React.FC = () => {
   };
 
   const isDownloadExperience =
-    entity &&
-    entity.metadata &&
-    entity.metadata.annotations &&
-    entity.metadata.annotations['ansible.io/download-experience']
+    entity?.metadata?.annotations?.['ansible.io/download-experience']
       ?.toString()
       .toLowerCase()
       .trim() === 'true';

@@ -63,7 +63,7 @@ export function formatRelativeTime(timestamp: string | null): string {
     const date = new Date(timestamp);
     const now = new Date();
 
-    if (isNaN(date.getTime())) {
+    if (Number.isNaN(date.getTime())) {
       return 'Invalid timestamp';
     }
 
