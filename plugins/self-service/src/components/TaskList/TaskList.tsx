@@ -74,7 +74,7 @@ type Filters = {
   owner: 'all' | 'owned' | undefined;
 };
 
-function TablePaginationActions(props: TablePaginationActionsProps) {
+function TablePaginationActions(props: Readonly<TablePaginationActionsProps>) {
   const { count, page, rowsPerPage, onPageChange } = props;
 
   const handleFirstPageButtonClick = (

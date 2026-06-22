@@ -125,9 +125,9 @@ export const CreateTask = () => {
           if (entity) {
             setTemplateEntity(entity);
           }
-        } catch {
-          // Get back to home page if we can't fetch the entity
-          // fail silently
+        } catch (e) {
+          // eslint-disable-next-line no-console
+          console.debug('Optional catalog entity lookup failed:', e);
         }
       } catch (err) {
         setError('Failed to fetch entity');

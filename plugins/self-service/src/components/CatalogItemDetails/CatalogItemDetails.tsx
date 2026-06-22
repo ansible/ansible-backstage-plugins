@@ -229,7 +229,9 @@ export const CatalogItemsDetails = () => {
                             >
                               Owner
                             </Typography>{' '}
-                            {String(task?.spec?.owner) || '/'}
+                            {typeof task?.spec?.owner === 'string'
+                              ? task.spec.owner
+                              : '/'}
                           </Typography>
                         </Grid>
                         <Grid item xs={12} lg={6}>
@@ -247,7 +249,9 @@ export const CatalogItemsDetails = () => {
                               Type
                             </Typography>{' '}
                             <span style={{ textTransform: 'capitalize' }}>
-                              {String(task?.spec?.type) || '/'}
+                              {typeof task?.spec?.type === 'string'
+                                ? task.spec.type
+                                : '/'}
                             </span>
                           </Typography>
                         </Grid>
