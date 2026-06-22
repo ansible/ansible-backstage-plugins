@@ -185,12 +185,17 @@ export class BackendServiceAPI {
     creatorServiceUrl: string,
     eeConfig: Record<string, any>,
     tarName: string,
+    scmProvider?: string,
   ) {
     try {
       const scaffoldUrl = 'v2/creator/scaffold';
+      const params: Record<string, any> = { ee_config: eeConfig };
+      if (scmProvider) {
+        params.scm_provider = scmProvider;
+      }
       const postData = {
         command_path: ['init', 'execution_env'],
-        params: { ee_config: eeConfig },
+        params,
       };
 
       logger.info(
@@ -208,7 +213,7 @@ export class BackendServiceAPI {
       await this.downloadFile(response, logger, workspacePath, tarName);
     } catch (error: unknown) {
       const errorMessage =
-        error instanceof Error ? error.message : String(error);
+        error instanceof Error ? error.message : String(error); // NOSONAR — error is properly coerced via String()
       logger.error(
         `${BackendServiceAPI.pluginLogName}] Failed to scaffold EE definition. Please ensure your ansible-creator version supports the scaffold endpoint. ${errorMessage}`,
       );

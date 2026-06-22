@@ -290,4 +290,85 @@ describe('BackendServiceAPI', () => {
       {},
     );
   });
+
+  it('sends scm_provider in params when scmProvider is provided', async () => {
+    const api = new BackendServiceAPI();
+    const mockSendPost = jest.spyOn(
+      BackendServiceAPI.prototype as any,
+      'sendPostRequest',
+    );
+    mockSendPost.mockImplementation(() => {});
+    jest
+      .spyOn(BackendServiceAPI.prototype as any, 'downloadFile')
+      .mockImplementation(() => {});
+
+    const eeConfig = { base_image: 'img:latest', ee_file_name: 'ee.yml' };
+
+    await api.downloadEEScaffold(
+      '/tmp/ws',
+      mockLogger,
+      'http://localhost:8000/',
+      eeConfig,
+      'ee.tar',
+      'gitlab',
+    );
+
+    expect(mockSendPost).toHaveBeenCalledWith(
+      'http://localhost:8000/v2/creator/scaffold',
+      {
+        command_path: ['init', 'execution_env'],
+        params: { ee_config: eeConfig, scm_provider: 'gitlab' },
+      },
+    );
+  });
+
+  it('omits scm_provider from params when scmProvider is not provided', async () => {
+    const api = new BackendServiceAPI();
+    const mockSendPost = jest.spyOn(
+      BackendServiceAPI.prototype as any,
+      'sendPostRequest',
+    );
+    mockSendPost.mockImplementation(() => {});
+    jest
+      .spyOn(BackendServiceAPI.prototype as any, 'downloadFile')
+      .mockImplementation(() => {});
+
+    const eeConfig = { base_image: 'img:latest', ee_file_name: 'ee.yml' };
+
+    await api.downloadEEScaffold(
+      '/tmp/ws',
+      mockLogger,
+      'http://localhost:8000/',
+      eeConfig,
+      'ee.tar',
+    );
+
+    expect(mockSendPost).toHaveBeenCalledWith(
+      'http://localhost:8000/v2/creator/scaffold',
+      {
+        command_path: ['init', 'execution_env'],
+        params: { ee_config: eeConfig },
+      },
+    );
+  });
+
+  it('throws when downloadEEScaffold fails', async () => {
+    const api = new BackendServiceAPI();
+    jest
+      .spyOn(BackendServiceAPI.prototype as any, 'sendPostRequest')
+      .mockRejectedValue(new Error('scaffold failed'));
+    jest
+      .spyOn(BackendServiceAPI.prototype as any, 'downloadFile')
+      .mockImplementation(() => {});
+
+    await expect(
+      api.downloadEEScaffold(
+        '/tmp/ws',
+        mockLogger,
+        'http://localhost:8000/',
+        {},
+        'ee.tar',
+      ),
+    ).rejects.toThrow('Failed to scaffold EE definition');
+  });
 });

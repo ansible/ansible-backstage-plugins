@@ -171,6 +171,7 @@ export const eeDefinitionInputSchema = z
     buildImageTag: z.string().optional(),
     registryTlsVerify: z.boolean().optional(),
     owner: z.string().optional(),
+    scmProvider: z.enum(['github', 'gitlab']).optional(),
   })
   .catchall(z.unknown())
   .superRefine((data, ctx) => {
