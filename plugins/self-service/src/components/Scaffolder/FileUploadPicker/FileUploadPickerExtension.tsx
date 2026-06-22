@@ -118,7 +118,7 @@ export const FileUploadPickerExtension = ({
   const classes = useStyles();
 
   const [textInput, setTextInput] = useState<string>('');
-  const [dataSource, setIsDataSource] = useState<string>('none');
+  const [dataSource, setDataSource] = useState<string>('none');
   const [uploadedFile, setUploadedFile] = useState<{
     name: string;
     content: string;
@@ -171,7 +171,7 @@ export const FileUploadPickerExtension = ({
   useEffect(() => {
     if (!formData || formData === '') {
       setUploadedFile(null);
-      setIsDataSource('none');
+      setDataSource('none');
       setTextInput('');
       return;
     }
@@ -181,7 +181,7 @@ export const FileUploadPickerExtension = ({
         const base64Content = formData.split(',')[1];
         if (!base64Content) {
           setUploadedFile(null);
-          setIsDataSource('none');
+          setDataSource('none');
           return;
         }
         const content = atob(base64Content);
@@ -192,24 +192,24 @@ export const FileUploadPickerExtension = ({
           if (storedFilename) {
             fileName = storedFilename;
             if (fileName === 'input-data') {
-              setIsDataSource('input');
+              setDataSource('input');
               setTextInput(content);
             } else {
-              setIsDataSource('file');
+              setDataSource('file');
               setTextInput('');
             }
           } else {
             fileName = schema?.title
               ? `${schema.title.toLowerCase().replaceAll(/\s+/g, '-')}.txt`
               : 'uploaded-file.txt';
-            setIsDataSource('file');
+            setDataSource('file');
             setTextInput('');
           }
         } catch {
           fileName = schema?.title
             ? `${schema.title.toLowerCase().replaceAll(/\s+/g, '-')}.txt`
             : 'uploaded-file.txt';
-          setIsDataSource('file');
+          setDataSource('file');
           setTextInput('');
         }
 
@@ -222,19 +222,19 @@ export const FileUploadPickerExtension = ({
       } catch {
         setTextInput('');
         setUploadedFile(null);
-        setIsDataSource('none');
+        setDataSource('none');
       }
     } else if (formData && !formData.includes('data:')) {
       setTextInput(formData);
       setUploadedFile(null);
-      setIsDataSource('input');
+      setDataSource('input');
     }
   }, [formData, schema?.title, storageKey]);
 
   const handleTextChange = (event: ChangeEvent<HTMLInputElement>) => {
     const value = event.target.value;
     setTextInput(value);
-    setIsDataSource('input');
+    setDataSource('input');
 
     if (value.trim()) {
       setUploadedFile(null);
@@ -242,7 +242,7 @@ export const FileUploadPickerExtension = ({
       handleTextInput(value);
     } else {
       onChange(undefined as any);
-      setIsDataSource('none');
+      setDataSource('none');
     }
   };
 
@@ -253,7 +253,7 @@ export const FileUploadPickerExtension = ({
         const content = await file.text();
         setUploadedFile({ name: file.name, content });
         setTextInput('');
-        setIsDataSource('file');
+        setDataSource('file');
         sessionStorage.setItem(storageKey, file.name);
         const dataUrl = `data:text/plain;base64,${btoa(content)}`;
         onChange(dataUrl);
@@ -271,7 +271,7 @@ export const FileUploadPickerExtension = ({
 
   const clearFile = () => {
     setUploadedFile(null);
-    setIsDataSource('none');
+    setDataSource('none');
     setTextInput('');
     onChange(undefined as any);
     sessionStorage.removeItem(storageKey);

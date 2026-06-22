@@ -162,7 +162,7 @@ export const EEDetailsPage: React.FC = () => {
     scmProvider,
     closeDialog,
   } = useEEBuildFlow();
-  const [entity, setEntity] = useState<any | null>(false);
+  const [entity, setEntity] = useState<Entity | null | undefined>(undefined);
   const [menuid, setMenuId] = useState<string>('');
   const [defaultReadme, setDefaultReadme] = useState<string>('');
   const [fetchedDefinition, setFetchedDefinition] = useState<string | null>(
@@ -175,13 +175,13 @@ export const EEDetailsPage: React.FC = () => {
   const [scmIntegrationAuthError, setScmIntegrationAuthError] = useState(false);
 
   const getOwnerName = useCallback(async () => {
-    if (!entity?.spec?.owner) return 'Unknown';
-    const ownerEntity = await catalogApi.getEntityByRef(entity?.spec?.owner);
-    // precedence: title >> name >> user reference >> unknown
+    const owner = entity?.spec?.owner;
+    if (!owner || typeof owner !== 'string') return 'Unknown';
+    const ownerEntity = await catalogApi.getEntityByRef(owner);
     return (
       ownerEntity?.metadata?.title ??
       ownerEntity?.metadata?.name ??
-      entity?.spec?.owner ??
+      owner ??
       'Unknown'
     );
   }, [entity, catalogApi]);
@@ -393,7 +393,10 @@ export const EEDetailsPage: React.FC = () => {
   };
 
   const parsedDefinition = useMemo(() => {
-    const fromSpec = parseEEDefinition(entity?.spec?.definition);
+    const rawDef = entity?.spec?.definition;
+    const fromSpec = parseEEDefinition(
+      typeof rawDef === 'string' ? rawDef : undefined,
+    );
     if (fromSpec) return fromSpec;
     return fetchedDefinition ? parseEEDefinition(fetchedDefinition) : null;
   }, [entity?.spec?.definition, fetchedDefinition]);
@@ -407,7 +410,7 @@ export const EEDetailsPage: React.FC = () => {
     : null;
 
   const handleDownloadArchive = () => {
-    downloadEntityAsTarArchive(entity);
+    if (entity) downloadEntityAsTarArchive(entity);
   };
 
   const handleRefresh = () => {
@@ -570,7 +573,11 @@ export const EEDetailsPage: React.FC = () => {
                     {/* Left Column - README (stacks first on narrow) */}
                     <Box className={pageClasses.readmeWrapper}>
                       <ReadmeCard
-                        readmeContent={entity?.spec.readme || defaultReadme}
+                        readmeContent={
+                          typeof entity?.spec?.readme === 'string'
+                            ? entity.spec.readme
+                            : defaultReadme
+                        }
                       />
                     </Box>
 
@@ -601,7 +608,7 @@ export const EEDetailsPage: React.FC = () => {
                 )}
               </>
             ) : (
-              <> {entity !== false && <EntityNotFound />}</>
+              <> {entity !== undefined && <EntityNotFound />}</>
             )}
           </>
         </>
