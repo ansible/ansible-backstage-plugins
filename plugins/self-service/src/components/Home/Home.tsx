@@ -417,7 +417,7 @@ export const HomeComponent = () => {
       });
       const newTemplates = results.map(
         (result: { id: string; title?: string }) => ({
-          id: parseInt(result.id, 10),
+          id: Number.parseInt(result.id, 10),
           name: result.title ?? result.id,
         }),
       );

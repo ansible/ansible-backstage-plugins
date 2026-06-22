@@ -117,7 +117,7 @@ export const CreateTask = () => {
         }
         const response =
           await scaffolderApi.getTemplateParameterSchema(templateName);
-        setEntityTemplate(response as TemplateParameterSchema);
+        setEntityTemplate(response);
 
         try {
           const entityRef = `template:${namespace}/${templateName}`;

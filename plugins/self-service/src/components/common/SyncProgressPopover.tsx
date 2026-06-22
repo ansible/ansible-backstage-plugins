@@ -141,7 +141,7 @@ export const SyncProgressPopover = ({ entries }: SyncProgressPopoverProps) => {
 
       {/* Sub-header */}
       <Typography className={classes.subHeader}>
-        {resolved} of {total} task{total !== 1 ? 's' : ''} completed
+        {resolved} of {total} task{total === 1 ? '' : 's'} completed
       </Typography>
 
       {/* Progress bar */}

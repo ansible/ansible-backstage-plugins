@@ -587,7 +587,7 @@ export const CollectionsPickerExtension = ({
                   key={chipKey}
                   onClick={() => !disabled && handleEditCollection(index)}
                   className={
-                    !disabled ? classes.collectionChipWrapper : undefined
+                    disabled ? undefined : classes.collectionChipWrapper
                   }
                   style={{ display: 'inline-block' }}
                 >
