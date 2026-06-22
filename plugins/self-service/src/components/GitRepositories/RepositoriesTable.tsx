@@ -218,7 +218,7 @@ const RepositoriesTableInner = ({
           label="Source"
           tooltip={COLUMN_SOURCE_TOOLTIP}
         />
-      ) as unknown as string,
+      ),
       id: 'source',
       render: (entity: Entity) => {
         const url = getSourceUrl(entity);
@@ -256,7 +256,7 @@ const RepositoriesTableInner = ({
           label="Contains"
           tooltip={COLUMN_CONTAINS_TOOLTIP}
         />
-      ) as unknown as string,
+      ),
       id: 'contains',
       render: (entity: Entity) => {
         const spec = entity.spec as
@@ -286,7 +286,7 @@ const RepositoriesTableInner = ({
           label="Last Activity"
           tooltip={COLUMN_LAST_ACTIVITY_TOOLTIP}
         />
-      ) as unknown as string,
+      ),
       id: 'lastActivity',
       render: (entity: Entity) => {
         const entry = lastActivityMap[stringifyEntityRef(entity)];
@@ -317,7 +317,7 @@ const RepositoriesTableInner = ({
           label="Last Sync"
           tooltip={COLUMN_LAST_SYNC_TOOLTIP}
         />
-      ) as unknown as string,
+      ),
       id: 'lastSync',
       render: (entity: Entity) => (
         <Typography variant="body2">{getLastSyncForEntity(entity)}</Typography>

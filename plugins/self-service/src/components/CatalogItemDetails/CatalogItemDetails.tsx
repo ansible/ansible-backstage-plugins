@@ -135,7 +135,7 @@ export const CatalogItemsDetails = () => {
         </Header>
         <UnregisterEntityDialog
           open={confirmationDialogOpen}
-          entity={task!}
+          entity={task}
           onConfirm={cleanUpAfterRemoval}
           onClose={() => setConfirmationDialogOpen(false)}
         />
