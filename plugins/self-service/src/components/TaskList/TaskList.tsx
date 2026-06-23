@@ -144,14 +144,14 @@ export const TaskList = () => {
     const identity = await identityApi.getBackstageIdentity();
 
     // Check if user is member of admin groups
-    const adminGroups = [
+    const adminGroups = new Set([
       'group:default/admins',
       'group:default/rbac_admin',
       'group:default/portal-admins',
       'group:default/portal_admins',
-    ];
+    ]);
     return identity.ownershipEntityRefs.some(ref =>
-      adminGroups.includes(ref.toLowerCase()),
+      adminGroups.has(ref.toLowerCase()),
     );
   }, []);
   const [tasks, setTasks] = useState<ScaffolderTask[]>([]);
