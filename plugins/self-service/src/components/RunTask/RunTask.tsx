@@ -76,7 +76,19 @@ export const RunTask = () => {
 
   const { task, completed, loading, error, output, steps, stepLogs } =
     useTaskEventStream(taskId);
-  const taskMetadata = task?.spec?.templateInfo?.entity?.metadata;
+  const scaffolderApi = useApi(scaffolderApiRef);
+  const catalogApi = useApi(catalogApiRef);
+
+  const [prefetchedTask, setPrefetchedTask] = useState<any>(null);
+  useEffect(() => {
+    scaffolderApi
+      .getTask(taskId)
+      .then(setPrefetchedTask)
+      .catch(() => {});
+  }, [scaffolderApi, taskId]);
+
+  const effectiveTask = task ?? prefetchedTask;
+  const taskMetadata = effectiveTask?.spec?.templateInfo?.entity?.metadata;
   const [showLogs, setShowLogs] = useState(false);
   const [isCanceling, setIsCanceling] = useState(false);
   const [matchingEntity, setMatchingEntity] = useState<any | null>(null);
@@ -86,8 +98,6 @@ export const RunTask = () => {
   const [templateEntity, setTemplateEntity] = useState<{
     spec?: { type?: string };
   } | null>(null);
-  const scaffolderApi = useApi(scaffolderApiRef);
-  const catalogApi = useApi(catalogApiRef);
   const navigate = useNavigate();
   const rootLink = useRouteRef(rootRouteRef);
   const templateRouteRef = useRouteRef(selectedTemplateRouteRef);
@@ -105,14 +115,14 @@ export const RunTask = () => {
   });
 
   const taskStatus = useMemo(() => {
-    if (!task) return 'unknown';
+    if (!effectiveTask) return 'unknown';
     if (completed) {
       if (error) return 'failed';
       return 'completed';
     }
-    if (task.status === 'cancelled') return 'cancelled';
+    if (effectiveTask.status === 'cancelled') return 'cancelled';
     return 'processing';
-  }, [task, completed, error]);
+  }, [effectiveTask, completed, error]);
 
   useEffect(() => {
     if (taskStatus !== 'processing' && isCanceling) {
@@ -122,7 +132,7 @@ export const RunTask = () => {
 
   useEffect(() => {
     const fetchTemplateEntity = async () => {
-      const templateEntityRef = task?.spec?.templateInfo?.entityRef;
+      const templateEntityRef = effectiveTask?.spec?.templateInfo?.entityRef;
       if (templateEntityRef) {
         try {
           const entity = await catalogApi.getEntityByRef(templateEntityRef);
@@ -135,10 +145,10 @@ export const RunTask = () => {
       }
     };
 
-    if (task && !templateEntity) {
+    if (effectiveTask && !templateEntity) {
       fetchTemplateEntity();
     }
-  }, [task, catalogApi, templateEntity]);
+  }, [effectiveTask, catalogApi, templateEntity]);
 
   const canStartOver = canRead && canCreateTask;
   const showStartOver = canStartOver;
@@ -176,11 +186,11 @@ export const RunTask = () => {
 
   const allSteps = useMemo(
     () =>
-      task?.spec.steps.map(step => ({
+      effectiveTask?.spec.steps.map((step: any) => ({
         ...step,
         ...steps?.[step.id],
       })) ?? [],
-    [task, steps],
+    [effectiveTask, steps],
   );
 
   const activeStep = useMemo(() => {
@@ -206,18 +216,18 @@ export const RunTask = () => {
 
   const handleStartOver = useCallback(() => {
     if (
-      !task?.spec?.templateInfo?.entity?.metadata ||
+      !effectiveTask?.spec?.templateInfo?.entity?.metadata ||
       !canStartOver ||
       isStartOverDisabled
     )
       return;
 
     const namespace =
-      task.spec.templateInfo.entity.metadata.namespace || 'default';
-    const templateName = task.spec.templateInfo.entity.metadata.name;
+      effectiveTask.spec.templateInfo.entity.metadata.namespace || 'default';
+    const templateName = effectiveTask.spec.templateInfo.entity.metadata.name;
 
     if (namespace && templateName) {
-      const taskParameters = task.spec.parameters || {};
+      const taskParameters = effectiveTask.spec.parameters || {};
       const filteredParameters = Object.fromEntries(
         Object.entries(taskParameters).filter(([key]) => key !== 'token'),
       );
@@ -226,10 +236,19 @@ export const RunTask = () => {
         state: { initialFormData: filteredParameters },
       });
     }
-  }, [task, canStartOver, isStartOverDisabled, navigate, templateRouteRef]);
+  }, [
+    effectiveTask,
+    canStartOver,
+    isStartOverDisabled,
+    navigate,
+    templateRouteRef,
+  ]);
 
   const handleBack = useCallback(() => {
-    if (!task?.spec?.templateInfo?.entity?.metadata || !templateEntity) {
+    if (
+      !effectiveTask?.spec?.templateInfo?.entity?.metadata ||
+      !templateEntity
+    ) {
       navigate(-1);
       return;
     }
@@ -242,7 +261,7 @@ export const RunTask = () => {
     } else {
       navigate(`${rootLink()}/catalog`);
     }
-  }, [task, templateEntity, navigate, rootLink]);
+  }, [effectiveTask, templateEntity, navigate, rootLink]);
 
   const handleEntityLinkClick = useCallback(
     (entityRef: string) => {
@@ -272,13 +291,13 @@ export const RunTask = () => {
   );
 
   const showDownloadButton = useMemo(() => {
-    if (!task) {
+    if (!effectiveTask) {
       return false;
     }
 
     if (
       resolvePublishToScmFromParameters(
-        task?.spec?.parameters as Record<string, unknown> | undefined,
+        effectiveTask?.spec?.parameters as Record<string, unknown> | undefined,
       )
     ) {
       return false;
@@ -289,7 +308,7 @@ export const RunTask = () => {
     }
 
     const hasEEDefinitionStep = allSteps.some(
-      step => step.id === 'create-ee-definition',
+      (step: { id: string }) => step.id === 'create-ee-definition',
     );
 
     if (!hasEEDefinitionStep) {
@@ -297,23 +316,23 @@ export const RunTask = () => {
     }
 
     return !!matchingEntity;
-  }, [task, completed, error, taskStatus, allSteps, matchingEntity]);
+  }, [effectiveTask, completed, error, taskStatus, allSteps, matchingEntity]);
 
   useEffect(() => {
-    if (matchingEntity || !completed || !task) {
+    if (matchingEntity || !completed || !effectiveTask) {
       return undefined;
     }
 
     if (
       resolvePublishToScmFromParameters(
-        task?.spec?.parameters as Record<string, unknown> | undefined,
+        effectiveTask?.spec?.parameters as Record<string, unknown> | undefined,
       )
     ) {
       return undefined;
     }
 
     const hasEEDefinitionStep = allSteps.some(
-      step => step.id === 'create-ee-definition',
+      (step: { id: string }) => step.id === 'create-ee-definition',
     );
 
     if (!hasEEDefinitionStep) {
@@ -321,7 +340,7 @@ export const RunTask = () => {
     }
 
     const eeFileName = resolveEeFileNameFromParameters(
-      task?.spec?.parameters as Record<string, unknown> | undefined,
+      effectiveTask?.spec?.parameters as Record<string, unknown> | undefined,
     );
     if (!eeFileName) {
       console.warn('EE file name not found in task parameters'); // eslint-disable-line no-console
@@ -365,14 +384,14 @@ export const RunTask = () => {
       disposed = true;
       if (pendingTimeout !== null) clearTimeout(pendingTimeout);
     };
-  }, [matchingEntity, completed, task, allSteps, catalogApi]);
+  }, [matchingEntity, completed, effectiveTask, allSteps, catalogApi]);
 
   const getMatchingEntity = useCallback(async (): Promise<any | null> => {
     let entity = matchingEntity;
 
     if (!entity) {
       const eeFileName = resolveEeFileNameFromParameters(
-        task?.spec?.parameters as Record<string, unknown> | undefined,
+        effectiveTask?.spec?.parameters as Record<string, unknown> | undefined,
       );
       if (!eeFileName) {
         console.error('EE file name not found in task parameters'); // eslint-disable-line no-console
@@ -400,7 +419,7 @@ export const RunTask = () => {
     }
 
     return entity;
-  }, [matchingEntity, catalogApi, task]);
+  }, [matchingEntity, catalogApi, effectiveTask]);
 
   const handleDownloadArchive = useCallback(async () => {
     const entity = await getMatchingEntity();
@@ -458,7 +477,7 @@ export const RunTask = () => {
     }
   }, [getMatchingEntity]);
 
-  if (loading) {
+  if (loading && !prefetchedTask) {
     return (
       <Page themeId="tool">
         <Header title="Template in Progress" />

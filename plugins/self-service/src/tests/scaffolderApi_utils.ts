@@ -16,6 +16,7 @@
 import { ScaffolderApi } from '@backstage/plugin-scaffolder-react';
 
 export const mockScaffolderApi: jest.Mocked<ScaffolderApi> = {
+  getTask: jest.fn().mockResolvedValue(undefined),
   getTemplateParameterSchema: jest.fn().mockResolvedValue({
     title: 'Create wizard use cases',
     description: 'Use this template to create actual wizard use case templates',
