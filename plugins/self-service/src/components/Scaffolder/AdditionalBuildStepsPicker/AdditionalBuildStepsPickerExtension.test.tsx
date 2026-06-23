@@ -1142,7 +1142,7 @@ describe('AdditionalBuildStepsPickerExtension', () => {
       fireEvent.click(addButton);
 
       expect(props.onChange).not.toHaveBeenCalled();
-      expect(screen.getAllByText(/Build Step \d+/).length).toBe(8);
+      expect(screen.getAllByText(/Build Step \d+/)).toHaveLength(8);
     });
 
     it('re-enables the add button after a step is removed from a full list', () => {

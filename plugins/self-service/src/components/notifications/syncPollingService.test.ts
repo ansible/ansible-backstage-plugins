@@ -78,7 +78,7 @@ describe('syncPollingService', () => {
 
       await jest.advanceTimersByTimeAsync(0);
 
-      expect(mockFetchApi.fetch.mock.calls.length).toBe(1);
+      expect(mockFetchApi.fetch).toHaveBeenCalledTimes(1);
     });
 
     it('starts polling on first init', async () => {
@@ -2004,7 +2004,7 @@ describe('syncPollingService', () => {
 
       await jest.advanceTimersByTimeAsync(SLOW_POLL_INTERVAL_MS * 2);
 
-      expect(mockFetchApi.fetch.mock.calls.length).toBe(callsBefore);
+      expect(mockFetchApi.fetch).toHaveBeenCalledTimes(callsBefore);
     });
 
     it('does not reschedule polling when clear runs while fetch is in flight', async () => {
@@ -2035,7 +2035,7 @@ describe('syncPollingService', () => {
 
       await jest.advanceTimersByTimeAsync(SLOW_POLL_INTERVAL_MS * 2);
 
-      expect(mockFetchApi.fetch.mock.calls.length).toBe(1);
+      expect(mockFetchApi.fetch).toHaveBeenCalledTimes(1);
     });
 
     it('clears tracked syncs', () => {
