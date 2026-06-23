@@ -107,6 +107,27 @@ const useStyles = makeStyles(theme => ({
   },
 }));
 
+function resolveFileName(
+  storageKey: string,
+  schemaTitle?: string,
+): { fileName: string; dataSource: string } {
+  try {
+    const storedFilename = sessionStorage.getItem(storageKey);
+    if (storedFilename) {
+      return {
+        fileName: storedFilename,
+        dataSource: storedFilename === 'input-data' ? 'input' : 'file',
+      };
+    }
+  } catch {
+    // sessionStorage may be unavailable
+  }
+  const fileName = schemaTitle
+    ? `${schemaTitle.toLowerCase().replaceAll(/\s+/g, '-')}.txt`
+    : 'uploaded-file.txt';
+  return { fileName, dataSource: 'file' };
+}
+
 export const FileUploadPickerExtension = ({
   onChange,
   disabled,
@@ -185,39 +206,20 @@ export const FileUploadPickerExtension = ({
           return;
         }
         const content = atob(base64Content);
+        const resolved = resolveFileName(storageKey, schema?.title);
 
-        let fileName: string;
-        try {
-          const storedFilename = sessionStorage.getItem(storageKey);
-          if (storedFilename) {
-            fileName = storedFilename;
-            if (fileName === 'input-data') {
-              setDataSource('input');
-              setTextInput(content);
-            } else {
-              setDataSource('file');
-              setTextInput('');
-            }
-          } else {
-            fileName = schema?.title
-              ? `${schema.title.toLowerCase().replaceAll(/\s+/g, '-')}.txt`
-              : 'uploaded-file.txt';
-            setDataSource('file');
-            setTextInput('');
-          }
-        } catch {
-          fileName = schema?.title
-            ? `${schema.title.toLowerCase().replaceAll(/\s+/g, '-')}.txt`
-            : 'uploaded-file.txt';
-          setDataSource('file');
+        if (resolved.dataSource === 'input') {
+          setTextInput(content);
+        } else {
           setTextInput('');
         }
+        setDataSource(resolved.dataSource);
 
         setUploadedFile(prev => {
-          if (prev?.content === content && prev?.name === fileName) {
+          if (prev?.content === content && prev?.name === resolved.fileName) {
             return prev;
           }
-          return { name: fileName, content };
+          return { name: resolved.fileName, content };
         });
       } catch {
         setTextInput('');
