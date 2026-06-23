@@ -1,0 +1,35 @@
+/*
+ * Fix for @backstage/ui Dialog overlay and dialog box styling.
+ *
+ * Root cause: BUI Dialog overlay uses color-mix with --bui-bg-neutral-2 which
+ * is nearly transparent, and --bui-bg-app (dialog background) is undefined.
+ * Additionally, BUI dark theme activates on [data-theme="dark"] but Backstage
+ * sets [data-theme-mode="dark"] — so BUI components never get dark mode colors.
+ *
+ * Fix: set the overlay backdrop, define --bui-bg-app, and bridge the dark mode
+ * CSS variables so all BUI dialog components render correctly in both themes.
+ */
+[class*='bui-DialogOverlay'] {
+  background: rgba(0, 0, 0, 0.5) !important;
+}
+
+[class*='bui-DialogOverlay'] > [class*='bui-Dialog'] {
+  --bui-bg-app: #fff;
+  background: var(--bui-bg-app) !important;
+}
+
+body[data-theme-mode='dark'] [class*='bui-DialogOverlay'] > [class*='bui-Dialog'] {
+  --bui-bg-app: #292929;
+  --bui-fg-primary: #fff;
+  --bui-fg-secondary: #9e9e9e;
+  --bui-fg-link: #9cc9ff;
+  --bui-fg-link-hover: #7eb5f7;
+  --bui-fg-danger: #e22b2b;
+  --bui-border: #fff3;
+  --bui-border-1: #fff3;
+  --bui-bg-surface-1: #191919;
+  --bui-bg-surface-2: #242424;
+  background: var(--bui-bg-app) !important;
+  color: var(--bui-fg-primary);
+  border: 1px solid #555 !important;
+}
