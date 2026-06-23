@@ -1603,6 +1603,109 @@ describe('createEEDefinition', () => {
     expect(cfgContent).not.toContain('ignore_certs');
   });
 
+  it('defaults scmProvider to "github" and passes it to downloadEEScaffold', async () => {
+    const action = makeAction();
+    const ctx = makeCtx({
+      eeFileName: 'test-ee',
+      baseImage: 'img:latest',
+      publishToSCM: true,
+    });
+
+    await action.handler(ctx);
+
+    const scmProvider = mockDownloadEEScaffold.mock.calls[0][5];
+    expect(scmProvider).toBe('github');
+  });
+
+  it('passes scmProvider "gitlab" to downloadEEScaffold when specified', async () => {
+    const action = makeAction();
+    const ctx = makeCtx({
+      eeFileName: 'test-ee',
+      baseImage: 'img:latest',
+      publishToSCM: true,
+      scmProvider: 'gitlab',
+    });
+
+    await action.handler(ctx);
+
+    const scmProvider = mockDownloadEEScaffold.mock.calls[0][5];
+    expect(scmProvider).toBe('gitlab');
+  });
+
+  it('patches .gitlab-ci.yml EE_DIR variable', async () => {
+    const action = makeAction();
+    const ctx = makeCtx({
+      eeFileName: 'my-ee',
+      baseImage: 'img:latest',
+      publishToSCM: true,
+    });
+
+    mockReadFile.mockImplementation(async (filePath: any) => {
+      if (filePath.toString().endsWith('.gitlab-ci.yml')) {
+        return '  EE_DIR: "."\n' as any;
+      }
+      return '' as any;
+    });
+
+    await action.handler(ctx);
+
+    const ciWriteCall = mockWriteFile.mock.calls.find((call: any[]) =>
+      call[0].toString().includes('.gitlab-ci.yml'),
+    );
+    expect(ciWriteCall).toBeDefined();
+    expect(ciWriteCall![1]).toContain('EE_DIR: "my-ee"');
+    expect(ciWriteCall![1]).not.toContain('"."');
+  });
+
+  it('no-ops .gitlab-ci.yml patching when file is missing', async () => {
+    const action = makeAction();
+    const ctx = makeCtx({
+      eeFileName: 'test-ee',
+      baseImage: 'img:latest',
+      publishToSCM: true,
+    });
+    mockReadFile.mockImplementation(async (filePath: any) => {
+      if (
+        filePath.toString().endsWith('.gitlab-ci.yml') ||
+        filePath.toString().endsWith('ee-build.yml')
+      ) {
+        throw new Error('ENOENT');
+      }
+      return '' as any;
+    });
+
+    await action.handler(ctx);
+
+    const ciWriteCall = mockWriteFile.mock.calls.find((call: any[]) =>
+      call[0].toString().includes('.gitlab-ci.yml'),
+    );
+    expect(ciWriteCall).toBeUndefined();
+  });
+
+  it('no-ops .gitlab-ci.yml patching when EE_DIR line is absent', async () => {
+    const action = makeAction();
+    const ctx = makeCtx({
+      eeFileName: 'my-ee',
+      baseImage: 'img:latest',
+      publishToSCM: true,
+    });
+
+    const ciContent = '  REGISTRY: "quay.io"\n  IMAGE_NAME: "my-ee"\n';
+    mockReadFile.mockImplementation(async (filePath: any) => {
+      if (filePath.toString().endsWith('.gitlab-ci.yml')) {
+        return ciContent as any;
+      }
+      return '' as any;
+    });
+
+    await action.handler(ctx);
+
+    const ciWriteCall = mockWriteFile.mock.calls.find((call: any[]) =>
+      call[0].toString().includes('.gitlab-ci.yml'),
+    );
+    expect(ciWriteCall).toBeUndefined();
+  });
+
   it('passes non-PAH non-SCM collection sources through unchanged', async () => {
     const action = makeAction();
     const ctx = makeCtx({

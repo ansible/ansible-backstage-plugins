@@ -131,5 +131,43 @@ describe('rhaapActionSchemas', () => {
         expect(result.success).toBe(true);
       });
     });
+
+    describe('scmProvider validation', () => {
+      const base = {
+        eeFileName: 'my-ee',
+        eeDescription: 'desc',
+        publishToSCM: false,
+        baseImage: 'img:latest',
+      };
+
+      it('accepts scmProvider "github"', () => {
+        const result = eeDefinitionInputSchema.safeParse({
+          ...base,
+          scmProvider: 'github',
+        });
+        expect(result.success).toBe(true);
+      });
+
+      it('accepts scmProvider "gitlab"', () => {
+        const result = eeDefinitionInputSchema.safeParse({
+          ...base,
+          scmProvider: 'gitlab',
+        });
+        expect(result.success).toBe(true);
+      });
+
+      it('rejects invalid scmProvider value', () => {
+        const result = eeDefinitionInputSchema.safeParse({
+          ...base,
+          scmProvider: 'bitbucket',
+        });
+        expect(result.success).toBe(false);
+      });
+
+      it('accepts missing scmProvider (optional)', () => {
+        const result = eeDefinitionInputSchema.safeParse(base);
+        expect(result.success).toBe(true);
+      });
+    });
   });
 });
