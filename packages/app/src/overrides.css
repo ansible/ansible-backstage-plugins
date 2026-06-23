@@ -18,7 +18,9 @@
   background: var(--bui-bg-app) !important;
 }
 
-body[data-theme-mode='dark'] [class*='bui-DialogOverlay'] > [class*='bui-Dialog'] {
+body[data-theme-mode='dark']
+  [class*='bui-DialogOverlay']
+  > [class*='bui-Dialog'] {
   --bui-bg-app: #292929;
   --bui-fg-primary: #fff;
   --bui-fg-secondary: #9e9e9e;
