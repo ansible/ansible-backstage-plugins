@@ -31,7 +31,7 @@ export const AAPTokenField = ({
   const fieldName =
     (typeof customTitle === 'string' ? customTitle : schema?.title) ||
     'AAP Token';
-  const fieldId = `aap-token-field-${Math.random().toString(36).substr(2, 9)}`;
+  const fieldId = `aap-token-field-${Math.random().toString(36).substring(2, 11)}`;
 
   useEffect(() => {
     const fetchToken = async () => {
@@ -45,7 +45,7 @@ export const AAPTokenField = ({
         setSecrets({ aapToken: token });
 
         // Set masked value in form data for display
-        const maskedToken = Array(token.length).fill('*').join('');
+        const maskedToken = new Array(token.length).fill('*').join('');
         onChange(maskedToken);
 
         setTokenReceived(true);

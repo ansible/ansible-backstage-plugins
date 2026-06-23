@@ -917,54 +917,57 @@ export const StepForm = ({
     <div>
       <SecretsContextProvider>
         <Stepper activeStep={activeStep} orientation="vertical">
-          {filteredSteps.map((step, index) => (
-            <Step key={step.title} completed={activeStep > index}>
-              <StepLabel>{step.title}</StepLabel>
-              <StepContent>
-                {activeStep === index ? (
-                  <FieldValidationProvider>
-                    <ScaffolderForm
-                      schema={{
-                        ...stripSchemaDefaultsForUiFieldProps(
-                          filteredSteps[index].schema,
-                        ),
-                        title: '',
-                      }}
-                      uiSchema={extractProperties(step)}
-                      formData={formData}
-                      fields={fields}
-                      onChange={(data: IChangeEvent<any>) =>
-                        handleFormChange(index, data)
-                      }
-                      onSubmit={(data: IChangeEvent<any>) =>
-                        handleFormSubmit(index, data)
-                      }
-                      validator={validator}
-                      experimental_defaultFormStateBehavior={
-                        MERGE_DEFAULTS_BEHAVIOR
-                      }
-                    >
-                      <ScaffolderFieldExtensions>
-                        <EntityPickerFieldExtension />
-                      </ScaffolderFieldExtensions>
-                      <div style={{ marginTop: '25px' }}>
-                        {index > 0 && (
-                          <Button
-                            onClick={handleBack}
-                            style={{ marginRight: '10px' }}
-                            variant="outlined"
-                          >
-                            Back
-                          </Button>
-                        )}
-                        <SubmitButton />
-                      </div>
-                    </ScaffolderForm>
-                  </FieldValidationProvider>
-                ) : null}
-              </StepContent>
-            </Step>
-          ))}
+          {filteredSteps.map((step, index) => {
+            const stepKey = `${step.title}-${index}`;
+            return (
+              <Step key={stepKey} completed={activeStep > index}>
+                <StepLabel>{step.title}</StepLabel>
+                <StepContent>
+                  {activeStep === index ? (
+                    <FieldValidationProvider>
+                      <ScaffolderForm
+                        schema={{
+                          ...stripSchemaDefaultsForUiFieldProps(
+                            filteredSteps[index].schema,
+                          ),
+                          title: '',
+                        }}
+                        uiSchema={extractProperties(step)}
+                        formData={formData}
+                        fields={fields}
+                        onChange={(data: IChangeEvent<any>) =>
+                          handleFormChange(index, data)
+                        }
+                        onSubmit={(data: IChangeEvent<any>) =>
+                          handleFormSubmit(index, data)
+                        }
+                        validator={validator}
+                        experimental_defaultFormStateBehavior={
+                          MERGE_DEFAULTS_BEHAVIOR
+                        }
+                      >
+                        <ScaffolderFieldExtensions>
+                          <EntityPickerFieldExtension />
+                        </ScaffolderFieldExtensions>
+                        <div style={{ marginTop: '25px' }}>
+                          {index > 0 && (
+                            <Button
+                              onClick={handleBack}
+                              style={{ marginRight: '10px' }}
+                              variant="outlined"
+                            >
+                              Back
+                            </Button>
+                          )}
+                          <SubmitButton />
+                        </div>
+                      </ScaffolderForm>
+                    </FieldValidationProvider>
+                  ) : null}
+                </StepContent>
+              </Step>
+            );
+          })}
           {/* Review Step */}
           <Step>
             <StepLabel>Review</StepLabel>
@@ -977,6 +980,7 @@ export const StepForm = ({
                 <Table style={{ border: 0 }}>
                   <TableBody style={{ border: 0 }}>
                     {steps.flatMap((step, stepIndex) => {
+                      const reviewStepKey = `${step.title}-${stepIndex}`;
                       const allProperties = getAllProperties(step);
                       const propertyRows = Object.entries(
                         allProperties,
@@ -997,7 +1001,7 @@ export const StepForm = ({
                         }
                         const label = getLabel(key, stepIndex);
                         return (
-                          <TableRow key={`${step.title}-${key}`}>
+                          <TableRow key={`${reviewStepKey}-${key}`}>
                             <TableCell style={{ border: 0 }}>{label}</TableCell>
                             <TableCell style={{ border: 0 }}>
                               {getReviewValue(key, stepIndex)}
@@ -1009,7 +1013,7 @@ export const StepForm = ({
                       const hasNoValues = propertyRows.length === 0;
 
                       return [
-                        <TableRow key={`${step.title}-title`}>
+                        <TableRow key={`${reviewStepKey}-title`}>
                           <TableCell style={{ border: 0 }}>
                             <strong>{step.title}</strong>
                           </TableCell>

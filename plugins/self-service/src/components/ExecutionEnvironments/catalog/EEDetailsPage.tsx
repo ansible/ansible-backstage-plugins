@@ -179,13 +179,14 @@ export const EEDetailsPage: React.FC = () => {
   const getOwnerName = useCallback(async () => {
     const owner = entity?.spec?.owner;
     if (!owner || typeof owner !== 'string') return 'Unknown';
-    const ownerEntity = await catalogApi.getEntityByRef(owner);
-    return (
-      ownerEntity?.metadata?.title ??
-      ownerEntity?.metadata?.name ??
-      owner ??
-      'Unknown'
-    );
+    try {
+      const ownerEntity = await catalogApi.getEntityByRef(owner);
+      return (
+        ownerEntity?.metadata?.title ?? ownerEntity?.metadata?.name ?? owner
+      );
+    } catch {
+      return owner;
+    }
   }, [entity, catalogApi]);
 
   useEffect(() => {
@@ -575,7 +576,8 @@ export const EEDetailsPage: React.FC = () => {
                     <Box className={pageClasses.readmeWrapper}>
                       <ReadmeCard
                         readmeContent={
-                          typeof entity?.spec?.readme === 'string'
+                          typeof entity?.spec?.readme === 'string' &&
+                          entity.spec.readme.trim().length > 0
                             ? entity.spec.readme
                             : defaultReadme
                         }
