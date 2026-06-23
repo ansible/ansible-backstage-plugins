@@ -128,7 +128,7 @@ describe('tarArchiveUtils', () => {
       const result2 = createTarArchive(files);
 
       // Note: timestamps may differ, so we check length and structure
-      expect(result1.length).toBe(result2.length);
+      expect(result1).toHaveLength(result2.length);
       expect(result1).toBeInstanceOf(Uint8Array);
       expect(result2).toBeInstanceOf(Uint8Array);
     });
@@ -139,7 +139,7 @@ describe('tarArchiveUtils', () => {
 
       // Should still have end-of-archive markers (1024 bytes)
       expect(result).toBeInstanceOf(Uint8Array);
-      expect(result.length).toBe(1024);
+      expect(result).toHaveLength(1024);
     });
 
     it('sets file mode to 0644', () => {

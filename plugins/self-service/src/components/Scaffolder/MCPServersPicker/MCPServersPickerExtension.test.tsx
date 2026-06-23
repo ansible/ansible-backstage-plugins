@@ -266,7 +266,7 @@ describe('MCPServersPickerExtension', () => {
       const noteBoxes = screen.getAllByText(
         "Update the 'mcp-vars.yaml' file if you want to override the default variables for the MCP servers selected for installation.",
       );
-      expect(noteBoxes.length).toBe(1);
+      expect(noteBoxes).toHaveLength(1);
     });
 
     it('hides note box when all cards are deselected', () => {

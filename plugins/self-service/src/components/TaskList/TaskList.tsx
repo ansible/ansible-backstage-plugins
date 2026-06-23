@@ -4,10 +4,8 @@ import {
   useApi,
   useRouteRef,
 } from '@backstage/core-plugin-api';
-import {
-  scaffolderApiRef,
-  ScaffolderTask,
-} from '@backstage/plugin-scaffolder-react';
+import { scaffolderApiRef } from '@backstage/plugin-scaffolder-react';
+import type { ScaffolderTask } from '@backstage/plugin-scaffolder-common';
 import { TablePaginationActionsProps } from '@material-ui/core/TablePagination/TablePaginationActions';
 import { useNavigate, Route, Routes, Navigate } from 'react-router-dom';
 import { Content, Header, Page } from '@backstage/core-components';

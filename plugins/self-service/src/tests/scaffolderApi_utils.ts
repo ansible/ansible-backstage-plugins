@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-import { ScaffolderApi } from '@backstage/plugin-scaffolder-react';
+import type { ScaffolderApi } from '@backstage/plugin-scaffolder-common';
 
 const AAP_REDACTED = '$encrypted$'; // NOSONAR — AAP's placeholder for redacted credential values, not a real password
 

@@ -7,10 +7,8 @@ import {
 } from '@backstage/core-components';
 import { StepForm } from './StepForm';
 import { useApi, useRouteRef } from '@backstage/core-plugin-api';
-import {
-  scaffolderApiRef,
-  TemplateParameterSchema,
-} from '@backstage/plugin-scaffolder-react';
+import { scaffolderApiRef } from '@backstage/plugin-scaffolder-react';
+import type { TemplateParameterSchema } from '@backstage/plugin-scaffolder-common';
 import { catalogApiRef } from '@backstage/plugin-catalog-react';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import {
