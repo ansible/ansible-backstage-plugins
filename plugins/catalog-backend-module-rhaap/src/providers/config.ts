@@ -61,9 +61,17 @@ function readAapApiEntityConfig(
   }
 
   if (organizations.length > 1) {
+    const seen = new Map<string, string>();
     for (const org of organizations) {
       const ns = formatNameSpace(org);
       validateNamespace(ns, org);
+      const existing = seen.get(ns);
+      if (existing) {
+        throw new Error(
+          `Organization names "${existing}" and "${org}" both produce namespace "${ns}". Rename one to avoid collision.`,
+        );
+      }
+      seen.set(ns, org);
     }
   }
 
