@@ -229,8 +229,7 @@ describe('AnsibleComponents', () => {
     });
 
     it('should display generic error message when error has no message', async () => {
-      // Create an error object without a message to trigger the fallback
-      const errorWithoutMessage = new Error();
+      const errorWithoutMessage = new Error('');
       errorWithoutMessage.message = undefined as any;
       mockCatalogApi.getEntities.mockRejectedValue(errorWithoutMessage);
 
