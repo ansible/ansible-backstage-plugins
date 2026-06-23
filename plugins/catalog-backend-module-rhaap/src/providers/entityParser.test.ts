@@ -75,7 +75,7 @@ describe('entityParser', () => {
         teams: [],
       };
       const result = organizationParser(options);
-      expect(result.metadata.name).toBe('test-org-with-special_characters');
+      expect(result.metadata.name).toBe('test-org-with-special-characters');
       expect(result.metadata.title).toBe(
         'Test Org With Special!@#$%^&*()_+Characters',
       );
