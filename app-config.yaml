@@ -49,7 +49,8 @@ backend:
     credentials: true
   database:
     client: better-sqlite3
-    connection: ':memory:'
+    connection:
+      directory: ./sqlite-data
   # workingDirectory: /tmp # Use this to configure a working directory for the scaffolder, defaults to the OS temp-dir
   reading:
     allow:
@@ -224,3 +225,10 @@ permission:
       - catalog
       - scaffolder
       - permission
+    # Multi-org RBAC examples (uncomment when configuring 2+ orgs):
+    # Team groups use org-scoped namespaces; org groups stay in default.
+    #   g, group:engineering/deploy-team, role:default/deployer
+    #   g, group:aap-default/deploy-team, role:default/deployer
+    #   g, group:default/aap-default, role:default/portal-viewer
+    #   g, group:default/engineering, role:default/portal-viewer
+    # See prototypes/multi-org-support/migration-guide.md for full examples.
