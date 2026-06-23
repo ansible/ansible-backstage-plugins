@@ -9,9 +9,49 @@ import { AuthenticationError } from '@backstage/errors';
 import { ConfigSources } from '@backstage/config-loader';
 import {
   DEFAULT_NAMESPACE,
+  Entity,
+  RELATION_MEMBER_OF,
   stringifyEntityRef,
 } from '@backstage/catalog-model';
 import { DiscoveryService, AuthService } from '@backstage/backend-plugin-api';
+
+const AAP_ADMINS_GROUP = 'group:default/aap-admins';
+const SUPERUSER_ANNOTATION = 'aap.platform/is_superuser';
+
+/**
+ * Issues a sign-in token with ownership entity refs that include group
+ * memberships from catalog relations AND the aap-admins group for superusers.
+ *
+ * This bypasses a race condition where signInWithCatalogUser reads
+ * entity.relations before the catalog has stitched memberOf relations
+ * for newly created users.
+ */
+async function issueTokenWithOwnership(
+  ctx: AuthResolverContext,
+  entity: Entity,
+) {
+  const userRef = stringifyEntityRef(entity);
+
+  const memberOfRefs =
+    entity.relations
+      ?.filter(
+        r => r.type === RELATION_MEMBER_OF && r.targetRef.startsWith('group:'),
+      )
+      .map(r => r.targetRef) ?? [];
+
+  const ownershipRefs = new Set([userRef, ...memberOfRefs]);
+
+  if (entity.metadata?.annotations?.[SUPERUSER_ANNOTATION] === 'true') {
+    ownershipRefs.add(AAP_ADMINS_GROUP);
+  }
+
+  return ctx.issueToken({
+    claims: {
+      sub: userRef,
+      ent: Array.from(ownershipRefs),
+    },
+  });
+}
 
 export namespace AAPAuthSignInResolvers {
   // Sign in resolver that lets only catalog users log in if they exist.
@@ -30,10 +70,10 @@ export namespace AAPAuthSignInResolvers {
         }
 
         try {
-          const signedInUser = await ctx.signInWithCatalogUser({
+          const { entity } = await ctx.findCatalogUser({
             entityRef: { name: username },
           });
-          return Promise.resolve(signedInUser);
+          return issueTokenWithOwnership(ctx, entity);
         } catch (e) {
           const config = await ConfigSources.toConfig(
             ConfigSources.default({}),
@@ -101,17 +141,17 @@ export namespace AAPAuthSignInResolvers {
           await new Promise(resolve => setTimeout(resolve, 2000));
 
           try {
-            const signedInUser = await ctx.signInWithCatalogUser({
+            const { entity } = await ctx.findCatalogUser({
               entityRef: { name: username },
             });
-            return Promise.resolve(signedInUser);
+            return await issueTokenWithOwnership(ctx, entity);
           } catch (e) {
             // Try to find the user again to provide better error information
             try {
               await ctx.findCatalogUser({
                 entityRef: { name: username },
               });
-              // User exists but sign-in failed for another reason
+              // User exists but token issuance failed for another reason
               throw new AuthenticationError(
                 `Sign in failed: User ${username} exists in catalog but sign-in failed. Error: ${e}`,
               );
