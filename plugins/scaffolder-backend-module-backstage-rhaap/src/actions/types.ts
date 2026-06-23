@@ -42,4 +42,5 @@ export interface EEDefinitionInput {
   buildImageTag?: string;
   registryTlsVerify?: boolean;
   owner?: string;
+  scmProvider?: 'github' | 'gitlab';
 }

@@ -968,4 +968,248 @@ describe('GitlabClient', () => {
       );
     });
   });
+
+  describe('getProjectId', () => {
+    const projectResponse = (id: number) => ({
+      ok: true,
+      status: 200,
+      json: () => Promise.resolve({ id }),
+      text: () => Promise.resolve(JSON.stringify({ id })),
+    });
+
+    it('should return numeric project ID for existing project', async () => {
+      (fetch as jest.Mock).mockResolvedValueOnce(projectResponse(42));
+
+      const projectId = await client.getProjectId('test-owner', 'test-repo');
+
+      expect(projectId).toBe(42);
+      expect(fetch).toHaveBeenCalledWith(
+        'https://gitlab.com/api/v4/projects/test-owner%2Ftest-repo',
+        expect.objectContaining({
+          headers: expect.objectContaining({
+            'PRIVATE-TOKEN': 'test-token',
+          }),
+        }),
+      );
+    });
+
+    it('should return undefined when project does not exist', async () => {
+      (fetch as jest.Mock).mockResolvedValueOnce({
+        ok: false,
+        status: 404,
+        text: () => Promise.resolve('Not Found'),
+      });
+
+      const projectId = await client.getProjectId('test-owner', 'nonexistent');
+
+      expect(projectId).toBeUndefined();
+      expect(mockLogger.debug).toHaveBeenCalledWith(
+        expect.stringContaining(
+          '[GitlabClient] Failed to resolve numeric project ID for test-owner/nonexistent',
+        ),
+      );
+    });
+
+    it('should return undefined when fetch throws', async () => {
+      (fetch as jest.Mock).mockRejectedValueOnce(new Error('Network error'));
+
+      const projectId = await client.getProjectId('test-owner', 'test-repo');
+
+      expect(projectId).toBeUndefined();
+    });
+
+    it('should encode project path correctly', async () => {
+      (fetch as jest.Mock).mockResolvedValueOnce(projectResponse(99));
+
+      await client.getProjectId('group/subgroup', 'project');
+
+      expect(fetch).toHaveBeenCalledWith(
+        'https://gitlab.com/api/v4/projects/group%2Fsubgroup%2Fproject',
+        expect.any(Object),
+      );
+    });
+
+    it('should use Bearer auth when gitlabUseBearerAuth is set', async () => {
+      const oauthClient = new GitlabClient({
+        config: { ...mockConfig, gitlabUseBearerAuth: true },
+        logger: mockLogger,
+      });
+      (fetch as jest.Mock).mockResolvedValueOnce(projectResponse(42));
+
+      await oauthClient.getProjectId('test-owner', 'test-repo');
+
+      expect(fetch).toHaveBeenCalledWith(
+        expect.any(String),
+        expect.objectContaining({
+          headers: expect.objectContaining({
+            Authorization: 'Bearer test-token',
+          }),
+        }),
+      );
+    });
+  });
+
+  describe('triggerPipeline', () => {
+    it('returns ok:true with pipelineId and pipelineUrl on success', async () => {
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        status: 201,
+        statusText: 'Created',
+        text: () =>
+          Promise.resolve(
+            JSON.stringify({
+              id: 42,
+              web_url: 'https://gitlab.com/org/repo/-/pipelines/42',
+            }),
+          ),
+      });
+
+      const result = await client.triggerPipeline('org/repo', 'main', [
+        { key: 'VAR1', value: 'val1' },
+      ]);
+
+      expect(result.ok).toBe(true);
+      expect(result.status).toBe(201);
+      expect(result.pipelineId).toBe(42);
+      expect(result.pipelineUrl).toBe(
+        'https://gitlab.com/org/repo/-/pipelines/42',
+      );
+    });
+
+    it('returns ok:true without pipelineId when response has no id', async () => {
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        status: 201,
+        statusText: 'Created',
+        text: () => Promise.resolve(JSON.stringify({})),
+      });
+
+      const result = await client.triggerPipeline('org/repo', 'main', []);
+
+      expect(result.ok).toBe(true);
+      expect(result.pipelineId).toBeUndefined();
+      expect(result.pipelineUrl).toBeUndefined();
+    });
+
+    it('returns ok:false on error status code', async () => {
+      mockFetch.mockResolvedValueOnce({
+        ok: false,
+        status: 422,
+        statusText: 'Unprocessable Entity',
+        text: () =>
+          Promise.resolve(JSON.stringify({ message: 'bad variables' })),
+      });
+
+      const result = await client.triggerPipeline('org/repo', 'main', []);
+
+      expect(result.ok).toBe(false);
+      expect(result.status).toBe(422);
+      expect(result.statusText).toBe('Unprocessable Entity');
+      expect(result.bodyText).toContain('bad variables');
+    });
+
+    it('handles non-JSON response body', async () => {
+      mockFetch.mockResolvedValueOnce({
+        ok: false,
+        status: 500,
+        statusText: 'Internal Server Error',
+        text: () => Promise.resolve('<html>Server Error</html>'),
+      });
+
+      const result = await client.triggerPipeline('org/repo', 'main', []);
+
+      expect(result.ok).toBe(false);
+      expect(result.bodyText).toBe('<html>Server Error</html>');
+      expect(result.pipelineId).toBeUndefined();
+    });
+
+    it('URL-encodes projectPath in endpoint', async () => {
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        status: 201,
+        statusText: 'Created',
+        text: () => Promise.resolve(JSON.stringify({ id: 1 })),
+      });
+
+      await client.triggerPipeline('group/sub/project', 'main', []);
+
+      expect(mockFetch).toHaveBeenCalledWith(
+        expect.stringContaining(
+          `/projects/${encodeURIComponent('group/sub/project')}/pipeline`,
+        ),
+        expect.any(Object),
+      );
+    });
+
+    it('passes ref and variables in POST body', async () => {
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        status: 201,
+        statusText: 'Created',
+        text: () => Promise.resolve(JSON.stringify({})),
+      });
+
+      const variables = [
+        { key: 'EE_DIR', value: 'ee' },
+        { key: 'EE_FILE_NAME', value: 'ee.yml' },
+      ];
+      await client.triggerPipeline('org/repo', 'develop', variables);
+
+      const callArgs = mockFetch.mock.calls[0];
+      const body = JSON.parse(callArgs[1].body);
+      expect(body).toEqual({ ref: 'develop', variables });
+    });
+
+    it('sends Bearer auth when gitlabUseBearerAuth is true', async () => {
+      const oauthClient = new GitlabClient({
+        config: { ...mockConfig, gitlabUseBearerAuth: true },
+        logger: mockLogger,
+      });
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        status: 201,
+        statusText: 'Created',
+        text: () => Promise.resolve(JSON.stringify({})),
+      });
+
+      await oauthClient.triggerPipeline('org/repo', 'main', []);
+
+      const callHeaders = mockFetch.mock.calls[0][1].headers;
+      expect(callHeaders).toHaveProperty('Authorization', 'Bearer test-token');
+      expect(callHeaders).not.toHaveProperty('PRIVATE-TOKEN');
+    });
+
+    it('sends PRIVATE-TOKEN by default', async () => {
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        status: 201,
+        statusText: 'Created',
+        text: () => Promise.resolve(JSON.stringify({})),
+      });
+
+      await client.triggerPipeline('org/repo', 'main', []);
+
+      const callHeaders = mockFetch.mock.calls[0][1].headers;
+      expect(callHeaders).toHaveProperty('PRIVATE-TOKEN', 'test-token');
+      expect(callHeaders).not.toHaveProperty('Authorization');
+    });
+
+    it('uses undici fetch when checkSSL is false', async () => {
+      const unsafeClient = new GitlabClient({
+        config: { ...mockConfig, checkSSL: false },
+        logger: mockLogger,
+      });
+      (undici.fetch as jest.Mock).mockResolvedValueOnce({
+        ok: true,
+        status: 201,
+        statusText: 'Created',
+        text: () => Promise.resolve(JSON.stringify({})),
+      });
+
+      await unsafeClient.triggerPipeline('org/repo', 'main', []);
+
+      expect(undici.fetch).toHaveBeenCalled();
+      expect(mockFetch).not.toHaveBeenCalled();
+    });
+  });
 });

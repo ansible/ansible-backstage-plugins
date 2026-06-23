@@ -58,6 +58,48 @@ export class GitlabClient extends BaseScmClient {
     return response.json() as Promise<T>;
   }
 
+  private async postRest<T>(
+    endpoint: string,
+    body: unknown,
+    signal?: AbortSignal,
+  ): Promise<{
+    ok: boolean;
+    status: number;
+    statusText: string;
+    data?: T;
+    bodyText: string;
+  }> {
+    const url = `${this.apiUrl}${endpoint}`;
+    const baseOpts = this.getFetchOptions();
+    const opts = {
+      ...baseOpts,
+      method: 'POST' as const,
+      body: JSON.stringify(body),
+      headers: {
+        ...baseOpts.headers,
+        'Content-Type': 'application/json',
+      },
+      signal,
+    };
+    const response = this.checkSSL
+      ? await fetch(url, opts)
+      : await undiciFetch(url, opts);
+    const text = await response.text();
+    let data: T | undefined;
+    try {
+      data = JSON.parse(text) as T;
+    } catch {
+      /* response is not JSON */
+    }
+    return {
+      ok: response.ok,
+      status: response.status,
+      statusText: response.statusText,
+      data,
+      bodyText: text,
+    };
+  }
+
   async getPipelines(
     projectPath: string,
     options: { perPage?: number } = {},
@@ -72,6 +114,35 @@ export class GitlabClient extends BaseScmClient {
       : await undiciFetch(url, opts as Parameters<typeof undiciFetch>[1]);
     const data = await response.json().catch(() => ({}));
     return { ok: response.ok, status: response.status, data };
+  }
+
+  async triggerPipeline(
+    projectPath: string,
+    ref: string,
+    variables: Array<{ key: string; value: string }>,
+    signal?: AbortSignal,
+  ): Promise<{
+    ok: boolean;
+    status: number;
+    statusText: string;
+    bodyText: string;
+    pipelineId?: number;
+    pipelineUrl?: string;
+  }> {
+    const endpoint = `/projects/${encodeURIComponent(projectPath)}/pipeline`;
+    const result = await this.postRest<{ id?: number; web_url?: string }>(
+      endpoint,
+      { ref, variables },
+      signal,
+    );
+    return {
+      ok: result.ok,
+      status: result.status,
+      statusText: result.statusText,
+      bodyText: result.bodyText,
+      ...(result.data?.id ? { pipelineId: result.data.id } : {}),
+      ...(result.data?.web_url ? { pipelineUrl: result.data.web_url } : {}),
+    };
   }
 
   private async fetchRawFile(
@@ -367,6 +438,26 @@ export class GitlabClient extends BaseScmClient {
         `[GitlabClient] Repository ${owner}/${repo} check failed: ${error}`,
       );
       return false;
+    }
+  }
+
+  async getProjectId(
+    owner: string,
+    repo: string,
+    signal?: AbortSignal,
+  ): Promise<number | undefined> {
+    const projectPath = `${owner}/${repo}`;
+    try {
+      const data = await this.fetchRest<{ id: number }>(
+        `/projects/${encodeURIComponent(projectPath)}`,
+        signal,
+      );
+      return data.id;
+    } catch (error) {
+      this.logger.debug(
+        `[GitlabClient] Failed to resolve numeric project ID for ${projectPath}: ${error}`,
+      );
+      return undefined;
     }
   }
 
