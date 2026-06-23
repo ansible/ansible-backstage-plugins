@@ -108,21 +108,30 @@ const extractUiFromProperty = (property: any): Record<string, any> | null => {
   return hasUiProperties ? ui : null;
 };
 
+const extractUiFromBranch = (
+  branchProperties: Record<string, any>,
+  excludeKey: string,
+  uiSchema: Record<string, any>,
+): void => {
+  for (const key of Object.keys(branchProperties)) {
+    if (key === excludeKey) continue;
+    const ui = extractUiFromProperty(branchProperties[key]);
+    if (ui) {
+      uiSchema[key] = ui;
+    }
+  }
+};
+
 const extractUiFromDependencies = (
   dependencies: Record<string, any>,
   uiSchema: Record<string, any>,
 ): void => {
   for (const depKey of Object.keys(dependencies)) {
-    const dependency = dependencies[depKey];
-    if (!dependency.oneOf || !Array.isArray(dependency.oneOf)) continue;
-    for (const branch of dependency.oneOf) {
-      if (!branch.properties) continue;
-      for (const key of Object.keys(branch.properties)) {
-        if (key === depKey) continue;
-        const ui = extractUiFromProperty(branch.properties[key]);
-        if (ui) {
-          uiSchema[key] = ui;
-        }
+    const branches = dependencies[depKey]?.oneOf;
+    if (!Array.isArray(branches)) continue;
+    for (const branch of branches) {
+      if (branch.properties) {
+        extractUiFromBranch(branch.properties, depKey, uiSchema);
       }
     }
   }
