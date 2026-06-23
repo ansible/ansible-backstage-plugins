@@ -872,7 +872,10 @@ export class AAPClient implements IAAPService {
       // Adds support for multiple orgs with OR operator
       else if (this.catalogConfig.organizations.length > 1) {
         this.catalogConfig.organizations.forEach(orgName => {
-          urlSearchParams.append('or__organization__name__iexact', orgName);
+          urlSearchParams.append(
+            'or__organization__name__iexact',
+            orgName.trim(),
+          );
         });
       }
       if (this.catalogConfig.surveyEnabled !== undefined) {
@@ -1089,7 +1092,7 @@ export class AAPClient implements IAAPService {
     ) {
       userData = userDataJson.results[0];
     } else {
-      throw new AuthenticationError(
+      throw new Error(
         `Profile data from RH AAP is in an unexpected format. Please contact your system administrator`,
       );
     }
@@ -1147,7 +1150,7 @@ export class AAPClient implements IAAPService {
       // Adds support for multiple orgs with OR operator
       else if (this.catalogConfig.organizations.length > 1) {
         this.catalogConfig.organizations.forEach(orgName => {
-          urlSearchParams.append('or__name__iexact', orgName);
+          urlSearchParams.append('or__name__iexact', orgName.trim());
         });
       }
       const rawOrgs = await this.executeCatalogRequest(
@@ -1304,7 +1307,7 @@ export class AAPClient implements IAAPService {
     // Adds support for multiple orgs with OR operator
     else if (this.catalogConfig.organizations.length > 1) {
       this.catalogConfig.organizations.forEach(orgName => {
-        urlSearchParams.append('or__name__iexact', orgName);
+        urlSearchParams.append('or__name__iexact', orgName.trim());
       });
     }
     const orgs = await this.executeCatalogRequest(
@@ -1391,7 +1394,10 @@ export class AAPClient implements IAAPService {
     // Adds support for multiple orgs with OR operator
     else if (this.catalogConfig.organizations.length > 1) {
       this.catalogConfig.organizations.forEach(orgName => {
-        urlSearchParams.append(`or__organization__name__iexact`, orgName);
+        urlSearchParams.append(
+          `or__organization__name__iexact`,
+          orgName.trim(),
+        );
       });
     }
 

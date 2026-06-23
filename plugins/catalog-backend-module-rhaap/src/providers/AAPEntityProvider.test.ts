@@ -78,7 +78,7 @@ describe('AAPEntityProvider', () => {
       kind: 'Group',
       metadata: {
         namespace: 'default',
-        name: 'default',
+        name: 'aap-default',
         title: 'Default',
         annotations: {
           'backstage.io/managed-by-location':
