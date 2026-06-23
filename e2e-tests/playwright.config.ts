@@ -33,7 +33,7 @@ export default defineConfig({
       : 10000, // Default: 10s for assertions
   },
 
-  // Reporters - similar to Cypress multi-reporters setup
+  // Reporters
   reporter: [
     ['html', { outputFolder: 'playwright-report' }],
     ['junit', { outputFile: 'playwright-results/results.xml' }],
@@ -45,12 +45,12 @@ export default defineConfig({
     // Base URL from environment variable
     baseURL: process.env.BASE_URL || 'http://localhost:7071',
 
-    // Trace on failure - better than Cypress video
+    // Trace on failure
     trace: 'retain-on-failure', // Always capture trace on failure for debugging
     screenshot: 'only-on-failure',
     video: process.env.CI ? 'off' : 'retain-on-failure',
 
-    // Viewport (matching Cypress config)
+    // Viewport
     viewport: { width: 1920, height: 1080 },
 
     // Action timeout (default for click, fill, etc.) - configurable for CI
@@ -64,7 +64,7 @@ export default defineConfig({
       ? parseInt(process.env.PLAYWRIGHT_NAVIGATION_TIMEOUT)
       : 30000,
 
-    // Ignore HTTPS errors (matching Cypress chromeWebSecurity: false)
+    // Ignore HTTPS errors
     ignoreHTTPSErrors: true,
   },
 

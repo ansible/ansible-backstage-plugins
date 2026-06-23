@@ -8,7 +8,7 @@ This is a monorepo for Ansible plugins for Backstage/Red Hat Developer Hub (RHDH
 - **Language**: TypeScript 5.8+
 - **Runtime**: Node.js 20 || 22
 - **Package Manager**: Yarn 4.9.2 (workspaces)
-- **Testing**: Jest, Cypress (E2E)
+- **Testing**: Jest, Playwright (E2E)
 - **Build Tools**: Backstage CLI, Janus CLI
 - **UI Framework**: Material-UI v4, React 18.3+
 
@@ -23,7 +23,7 @@ ansible-backstage-plugins/
 │   ├── catalog-backend-module-rhaap/       # Catalog integration
 │   ├── scaffolder-backend-module-backstage-rhaap/ # Scaffolder actions
 │   └── self-service/                       # Self-service UI
-├── e2e-tests/         # Cypress E2E tests
+├── e2e-tests/         # Playwright E2E tests
 ├── docs/              # Documentation
 └── examples/          # Example configurations
 ```
@@ -72,10 +72,10 @@ import { MyComponent } from './MyComponent';
 ### Testing Standards
 - Unit tests with Jest for all business logic
 - React Testing Library for component tests
-- Cypress for E2E tests with multiple configurations:
-  - `cypress.config.ts` - Main configuration
-  - `cypress.self-service.config.ts` - Self-service plugin tests
-  - `cypress.rhdh.config.ts` - RHDH-specific tests
+- Playwright for E2E tests:
+  - `playwright.config.ts` - Main configuration
+  - `playwright/tests/self-service/` - Self-service plugin tests
+  - `playwright/tests/rhdh/` - RHDH-specific tests
 - Mock external dependencies (AAP API calls)
 - Test coverage should be maintained
 
