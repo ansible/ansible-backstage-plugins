@@ -1,25 +1,24 @@
-import {
-  render,
-  screen,
-  waitFor,
-  fireEvent,
-  cleanup,
-} from '@testing-library/react';
-import { TestApiProvider } from '@backstage/test-utils';
-import { catalogApiRef } from '@backstage/plugin-catalog-react';
+import { SCM_INTEGRATION_AUTH_FAILED_CODE } from '@ansible/backstage-rhaap-common/constants';
 import {
   configApiRef,
   discoveryApiRef,
-  identityApiRef,
   fetchApiRef,
+  identityApiRef,
 } from '@backstage/core-plugin-api';
 import { scmAuthApiRef } from '@backstage/integration-react';
+import { catalogApiRef } from '@backstage/plugin-catalog-react';
+import { TestApiProvider } from '@backstage/test-utils';
+import { createMuiTheme, ThemeProvider } from '@material-ui/core/styles';
+import {
+  cleanup,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+} from '@testing-library/react';
+import { MemoryRouter } from 'react-router-dom';
 import { eeBuildApiRef } from '../../../apis';
 import { NotificationProvider, notificationStore } from '../../notifications';
-import { ThemeProvider, createMuiTheme } from '@material-ui/core/styles';
-import { MemoryRouter } from 'react-router-dom';
-import { SCM_INTEGRATION_AUTH_FAILED_CODE } from '@ansible/backstage-rhaap-common/constants';
-
 // Component under test (named export)
 import { EEDetailsPage } from './EEDetailsPage';
 

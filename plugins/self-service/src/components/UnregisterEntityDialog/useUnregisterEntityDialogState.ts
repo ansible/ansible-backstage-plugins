@@ -1,12 +1,12 @@
-import { useCallback } from 'react';
 import {
   ANNOTATION_ORIGIN_LOCATION,
   getCompoundEntityRef,
-  type Entity,
   type CompoundEntityRef,
+  type Entity,
 } from '@backstage/catalog-model';
 import { useApi } from '@backstage/core-plugin-api';
 import { catalogApiRef } from '@backstage/plugin-catalog-react';
+import { useCallback } from 'react';
 import useAsync from 'react-use/esm/useAsync';
 
 export type DialogState =
@@ -29,12 +29,13 @@ export function useUnregisterEntityDialogState(entity: Entity): DialogState {
   const isBootstrap = locationRef === 'bootstrap:bootstrap';
 
   const prerequisites = useAsync(async () => {
-    const locationPromise = catalogApi.getLocationByRef(locationRef!);
+    let locationPromise: Promise<
+      Awaited<ReturnType<typeof catalogApi.getLocationByRef>> | undefined
+    >;
     let colocatedEntitiesPromise: Promise<Entity[]>;
 
-    if (!locationRef) {
-      colocatedEntitiesPromise = Promise.resolve([]);
-    } else {
+    if (locationRef) {
+      locationPromise = catalogApi.getLocationByRef(locationRef);
       const locationAnnotationFilter = `metadata.annotations.${ANNOTATION_ORIGIN_LOCATION}`;
       colocatedEntitiesPromise = catalogApi
         .getEntities({
@@ -47,6 +48,9 @@ export function useUnregisterEntityDialogState(entity: Entity): DialogState {
           ],
         })
         .then(response => response.items);
+    } else {
+      locationPromise = Promise.resolve(undefined);
+      colocatedEntitiesPromise = Promise.resolve([]);
     }
 
     return Promise.all([locationPromise, colocatedEntitiesPromise]).then(

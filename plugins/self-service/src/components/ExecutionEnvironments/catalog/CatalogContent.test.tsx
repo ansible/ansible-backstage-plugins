@@ -1,5 +1,4 @@
-import { render, screen, waitFor, fireEvent } from '@testing-library/react';
-import { TestApiProvider } from '@backstage/test-utils';
+import { Entity } from '@backstage/catalog-model';
 import { configApiRef } from '@backstage/core-plugin-api';
 import { scmAuthApiRef } from '@backstage/integration-react';
 import {
@@ -10,13 +9,14 @@ import {
   EntityTypeFilter,
   EntityUserFilter,
 } from '@backstage/plugin-catalog-react';
+import { TestApiProvider } from '@backstage/test-utils';
+import { createMuiTheme, ThemeProvider } from '@material-ui/core/styles';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { MemoryRouter } from 'react-router-dom';
 import { eeBuildApiRef } from '../../../apis';
 import { NotificationProvider, notificationStore } from '../../notifications';
-import { EE_BUILD_PENDING_SESSION_KEY } from './eeBuildSession';
-import { MemoryRouter } from 'react-router-dom';
 import { EEListPage } from './CatalogContent';
-import { ThemeProvider, createMuiTheme } from '@material-ui/core/styles';
-import { Entity } from '@backstage/catalog-model';
+import { EE_BUILD_PENDING_SESSION_KEY } from './eeBuildSession';
 
 // ------------------ STUB: core components (Table, Link) ------------------
 jest.mock('@backstage/core-components', () => {

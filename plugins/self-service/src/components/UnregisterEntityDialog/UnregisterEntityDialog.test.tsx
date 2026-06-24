@@ -1,10 +1,10 @@
+import type { Entity } from '@backstage/catalog-model';
+import { alertApiRef, configApiRef } from '@backstage/core-plugin-api';
+import { catalogApiRef } from '@backstage/plugin-catalog-react';
+import { TestApiProvider } from '@backstage/test-utils';
+import { createMuiTheme, ThemeProvider } from '@material-ui/core/styles';
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { TestApiProvider } from '@backstage/test-utils';
-import { configApiRef, alertApiRef } from '@backstage/core-plugin-api';
-import { catalogApiRef } from '@backstage/plugin-catalog-react';
-import { ThemeProvider, createMuiTheme } from '@material-ui/core/styles';
-import type { Entity } from '@backstage/catalog-model';
 import { UnregisterEntityDialog } from './UnregisterEntityDialog';
 
 jest.mock('@backstage/core-components', () => ({

@@ -1,38 +1,41 @@
-import { useState, useCallback } from 'react';
+import type { Entity } from '@backstage/catalog-model';
+import { Progress, ResponseErrorPanel } from '@backstage/core-components';
+import { alertApiRef, configApiRef, useApi } from '@backstage/core-plugin-api';
+import { EntityRefLink } from '@backstage/plugin-catalog-react';
 import {
+  Accordion,
+  AccordionDetails,
+  AccordionSummary,
   Button,
   CircularProgress,
   Dialog,
   DialogActions,
   DialogContent,
   DialogTitle,
-  Accordion,
-  AccordionSummary,
-  AccordionDetails,
   Typography,
 } from '@material-ui/core';
 import { makeStyles } from '@material-ui/core/styles';
 import ExpandMoreIcon from '@material-ui/icons/ExpandMore';
 import { Alert } from '@material-ui/lab';
-import type { Entity } from '@backstage/catalog-model';
-import { useApi, configApiRef, alertApiRef } from '@backstage/core-plugin-api';
-import { ResponseErrorPanel, Progress } from '@backstage/core-components';
-import { EntityRefLink } from '@backstage/plugin-catalog-react';
+import { useCallback, useState } from 'react';
 import {
   useUnregisterEntityDialogState,
   type DialogState,
 } from './useUnregisterEntityDialogState';
 
+type BusyAction = 'unregister' | 'delete' | null;
+
 function errorMessage(err: unknown): string {
-  return err instanceof Error ? err.message : String(err);
+  if (err instanceof Error) return err.message;
+  return typeof err === 'string' ? err : 'Unknown error';
 }
 
-export type UnregisterEntityDialogProps = {
+export type UnregisterEntityDialogProps = Readonly<{
   open: boolean;
   onConfirm: () => void;
   onClose: () => void;
   entity: Entity;
-};
+}>;
 
 const useStyles = makeStyles(theme => ({
   content: {
@@ -52,9 +55,7 @@ const useStyles = makeStyles(theme => ({
 function useDialogHandlers(entity: Entity, onConfirm: () => void) {
   const alertApi = useApi(alertApiRef);
   const state = useUnregisterEntityDialogState(entity);
-  const [busyAction, setBusyAction] = useState<'unregister' | 'delete' | null>(
-    null,
-  );
+  const [busyAction, setBusyAction] = useState<BusyAction>(null);
 
   const onUnregister = useCallback(async () => {
     if ('unregisterLocation' in state) {
@@ -98,12 +99,12 @@ function AdvancedDeleteSection({
   description,
   onDelete,
   busyAction,
-}: {
+}: Readonly<{
   triggerTitle: string;
   description: string;
   onDelete: () => void;
-  busyAction: 'unregister' | 'delete' | null;
-}) {
+  busyAction: BusyAction;
+}>) {
   const classes = useStyles();
 
   return (
@@ -139,12 +140,12 @@ function BootstrapBody({
   appTitle,
   onDelete,
   busyAction,
-}: {
+}: Readonly<{
   location: string;
   appTitle: string;
   onDelete: () => void;
-  busyAction: 'unregister' | 'delete' | null;
-}) {
+  busyAction: BusyAction;
+}>) {
   return (
     <>
       <Alert severity="info">
@@ -179,12 +180,12 @@ function UnregisterBody({
   appTitle,
   onDelete,
   busyAction,
-}: {
+}: Readonly<{
   state: Extract<DialogState, { type: 'unregister' }>;
   appTitle: string;
   onDelete: () => void;
-  busyAction: 'unregister' | 'delete' | null;
-}) {
+  busyAction: BusyAction;
+}>) {
   return (
     <>
       <Typography variant="body1">
@@ -225,7 +226,7 @@ function getDialogContent({
 }: {
   state: DialogState;
   appTitle: string;
-  busyAction: 'unregister' | 'delete' | null;
+  busyAction: BusyAction;
   onUnregister: () => void;
   onDelete: () => void;
 }) {
@@ -306,11 +307,11 @@ function DialogContents({
   entity,
   onConfirm,
   onClose,
-}: {
+}: Readonly<{
   entity: Entity;
   onConfirm: () => void;
   onClose: () => void;
-}) {
+}>) {
   const classes = useStyles();
   const configApi = useApi(configApiRef);
   const appTitle = configApi.getOptionalString('app.title') ?? 'Backstage';

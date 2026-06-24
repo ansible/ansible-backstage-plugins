@@ -1,10 +1,7 @@
-import { useState, useEffect, useCallback } from 'react';
-import { useApi, useRouteRef } from '@backstage/core-plugin-api';
-import { useNavigate, useParams } from 'react-router-dom';
-import { catalogApiRef, EntityProvider } from '@backstage/plugin-catalog-react';
-import { UnregisterEntityDialog } from '../UnregisterEntityDialog';
-import { Content, Header, Page } from '@backstage/core-components';
 import { Entity } from '@backstage/catalog-model';
+import { Content, Header, Page } from '@backstage/core-components';
+import { useApi, useRouteRef } from '@backstage/core-plugin-api';
+import { catalogApiRef, EntityProvider } from '@backstage/plugin-catalog-react';
 import {
   Box,
   Card,
@@ -16,7 +13,10 @@ import {
   Typography,
   useTheme,
 } from '@material-ui/core';
+import { useCallback, useEffect, useState } from 'react';
+import { useNavigate, useParams } from 'react-router-dom';
 import { rootRouteRef } from '../../routes';
+import { UnregisterEntityDialog } from '../UnregisterEntityDialog';
 import { TemplateActions } from './TemplateActions';
 
 const headerStyles = makeStyles(theme => ({

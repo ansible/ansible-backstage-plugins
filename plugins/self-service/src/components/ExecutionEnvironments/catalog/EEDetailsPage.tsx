@@ -1,54 +1,54 @@
-import {
-  Backdrop,
-  Box,
-  Tabs,
-  Tab,
-  Button,
-  CircularProgress,
-  Menu,
-  MenuItem,
-  ListItemIcon,
-  Typography,
-} from '@material-ui/core';
-import { makeStyles } from '@material-ui/core/styles';
-import ArrowDropDownIcon from '@material-ui/icons/ArrowDropDown';
-import BuildIcon from '@material-ui/icons/Build';
-import EditIcon from '@material-ui/icons/Edit';
-import OpenInNewIcon from '@material-ui/icons/OpenInNew';
-import DeleteIcon from '@material-ui/icons/Delete';
-import { useNavigate, useParams } from 'react-router-dom';
-import { useEffect, useState, useCallback, useMemo } from 'react';
-import { catalogApiRef } from '@backstage/plugin-catalog-react';
-import { UnregisterEntityDialog } from '../../UnregisterEntityDialog';
+import { ANNOTATION_EDIT_URL, type Entity } from '@backstage/catalog-model';
 import {
   discoveryApiRef,
   fetchApiRef,
   useApi,
   useRouteRef,
 } from '@backstage/core-plugin-api';
-import { ANNOTATION_EDIT_URL, type Entity } from '@backstage/catalog-model';
-import { Header } from './Header';
-import { BreadcrumbsNavigation } from './BreadcrumbsNavigation';
-import { LinksCard } from './LinksCard';
-import { AboutCard } from './AboutCard';
-import { ReadmeCard } from './ReadmeCard';
-import { DefinedContentCard } from './DefinedContentCard';
-import { ResourcesCard } from './ResourcesCard';
-import { EntityNotFound } from './EntityNotFound';
-import { EEBuildDialog } from './EEBuildDialog';
+import { catalogApiRef } from '@backstage/plugin-catalog-react';
 import {
-  toEEDefinitionUrl,
-  downloadEntityAsTarArchive,
-  isEntityBuildable,
-} from './helpers';
-import { useEEBuildFlow } from './useEEBuildFlow';
+  Backdrop,
+  Box,
+  Button,
+  CircularProgress,
+  ListItemIcon,
+  Menu,
+  MenuItem,
+  Tab,
+  Tabs,
+  Typography,
+} from '@material-ui/core';
+import { makeStyles } from '@material-ui/core/styles';
+import ArrowDropDownIcon from '@material-ui/icons/ArrowDropDown';
+import BuildIcon from '@material-ui/icons/Build';
+import DeleteIcon from '@material-ui/icons/Delete';
+import EditIcon from '@material-ui/icons/Edit';
+import OpenInNewIcon from '@material-ui/icons/OpenInNew';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useNavigate, useParams } from 'react-router-dom';
+import { rootRouteRef } from '../../../routes';
+import { parseEEDefinition } from '../../../utils/eeDefinitionUtils';
 import {
   fetchGitFileContentFromBackend,
   ScmIntegrationAuthError,
   type FetchGitFileOutcome,
 } from '../../common';
-import { parseEEDefinition } from '../../../utils/eeDefinitionUtils';
-import { rootRouteRef } from '../../../routes';
+import { UnregisterEntityDialog } from '../../UnregisterEntityDialog';
+import { AboutCard } from './AboutCard';
+import { BreadcrumbsNavigation } from './BreadcrumbsNavigation';
+import { DefinedContentCard } from './DefinedContentCard';
+import { EEBuildDialog } from './EEBuildDialog';
+import { EntityNotFound } from './EntityNotFound';
+import { Header } from './Header';
+import {
+  downloadEntityAsTarArchive,
+  isEntityBuildable,
+  toEEDefinitionUrl,
+} from './helpers';
+import { LinksCard } from './LinksCard';
+import { ReadmeCard } from './ReadmeCard';
+import { ResourcesCard } from './ResourcesCard';
+import { useEEBuildFlow } from './useEEBuildFlow';
 
 const useActionsMenuStyles = makeStyles(theme => ({
   actionsButton: {
