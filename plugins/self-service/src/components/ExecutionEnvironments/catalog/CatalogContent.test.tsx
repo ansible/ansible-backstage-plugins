@@ -320,7 +320,7 @@ const renderWithCatalogApi = async (
     },
     queryEntities: async (...args: unknown[]) => {
       const result = await getEntitiesImpl(...args);
-      const items = Array.isArray(result) ? result : result?.items ?? [];
+      const items = Array.isArray(result) ? result : (result?.items ?? []);
       return {
         items,
         totalItems: items.length,
@@ -346,7 +346,7 @@ const renderWithCatalogApi = async (
   const resolvedEntities = await getEntitiesImpl();
   const items = Array.isArray(resolvedEntities)
     ? resolvedEntities
-    : resolvedEntities?.items ?? [];
+    : (resolvedEntities?.items ?? []);
 
   const { useEntityList: mockUseEntityList } = jest.requireMock(
     '@backstage/plugin-catalog-react',
