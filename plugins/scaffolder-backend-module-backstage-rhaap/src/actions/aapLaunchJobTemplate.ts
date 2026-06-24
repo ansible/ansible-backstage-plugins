@@ -10,6 +10,34 @@ import {
 import { launchJobTemplateFieldsSchema } from './schemas/rhaapActionSchemas';
 import { normalizeTemplateLaunchValues } from './schemas/rhaapActionPayloadUtils';
 
+function sleepMs(ms: number, signal?: AbortSignal): Promise<void> {
+  return new Promise((resolve, reject) => {
+    if (signal?.aborted) {
+      reject(
+        Object.assign(new Error('The operation was aborted'), {
+          name: 'AbortError',
+        }),
+      );
+      return;
+    }
+    const timeoutRef: { id?: ReturnType<typeof setTimeout> } = {};
+    const onAbort = () => {
+      if (timeoutRef.id !== undefined) clearTimeout(timeoutRef.id);
+      signal?.removeEventListener('abort', onAbort);
+      reject(
+        Object.assign(new Error('The operation was aborted'), {
+          name: 'AbortError',
+        }),
+      );
+    };
+    timeoutRef.id = setTimeout(() => {
+      signal?.removeEventListener('abort', onAbort);
+      resolve();
+    }, ms);
+    signal?.addEventListener('abort', onAbort);
+  });
+}
+
 export const launchJobTemplate = (
   ansibleServiceRef: IAAPService,
   config: { getOptionalString: (key: string) => string | undefined },
@@ -36,6 +64,7 @@ export const launchJobTemplate = (
       const {
         input: { token, values, waitForCompletion = true },
         logger,
+        signal,
       } = ctx;
       if (!token?.length) {
         const error = new Error('Authorization token not provided.');
@@ -82,31 +111,54 @@ export const launchJobTemplate = (
           const MAX_POLLS = 720; // 720 * 5s = 1 hour max
           let pollCount = 0;
           let currentStatus = jobResult.status?.toLowerCase();
-          while (
-            currentStatus &&
-            !['successful', 'failed', 'error', 'canceled'].includes(
-              currentStatus,
-            )
-          ) {
-            if (pollCount >= MAX_POLLS) {
-              const error = new Error(
-                `Job ${jobResult.id} polling timeout after ${MAX_POLLS * (POLL_INTERVAL_MS / 1000)} seconds. Last status: ${currentStatus}`,
+          try {
+            while (
+              currentStatus &&
+              !['successful', 'failed', 'error', 'canceled'].includes(
+                currentStatus,
+              )
+            ) {
+              if (signal?.aborted) {
+                throw Object.assign(new Error('The operation was aborted'), {
+                  name: 'AbortError',
+                });
+              }
+
+              if (pollCount >= MAX_POLLS) {
+                const error = new Error(
+                  `Job ${jobResult.id} polling timeout after ${MAX_POLLS * (POLL_INTERVAL_MS / 1000)} seconds. Last status: ${currentStatus}`,
+                );
+                logger.error(error.message);
+                throw error;
+              }
+
+              await sleepMs(POLL_INTERVAL_MS, signal);
+              pollCount++;
+
+              const statusUpdate = await ansibleServiceRef.getJobStatus(
+                jobResult.id,
+                pollingToken,
               );
-              logger.error(error.message);
-              throw error;
+
+              currentStatus = statusUpdate.status?.toLowerCase();
+              logger.debug(`Job ${jobResult.id} status: ${currentStatus}`);
+              jobResult = { ...jobResult, ...statusUpdate };
             }
-
-            await new Promise(resolve => setTimeout(resolve, POLL_INTERVAL_MS));
-            pollCount++;
-
-            const statusUpdate = await ansibleServiceRef.getJobStatus(
-              jobResult.id,
-              pollingToken,
-            );
-
-            currentStatus = statusUpdate.status?.toLowerCase();
-            logger.debug(`Job ${jobResult.id} status: ${currentStatus}`);
-            jobResult = { ...jobResult, ...statusUpdate };
+          } catch (e: unknown) {
+            if (e instanceof Error && e.name === 'AbortError') {
+              logger.info(
+                `Task cancelled — sending cancel request to AAP for job ${jobResult.id}`,
+              );
+              try {
+                await ansibleServiceRef.cancelJob(jobResult.id, pollingToken);
+              } catch (cancelError) {
+                logger.warn(
+                  `Failed to cancel AAP job ${jobResult.id}: ${cancelError}`,
+                );
+              }
+              throw e;
+            }
+            throw e;
           }
 
           logger.info(
