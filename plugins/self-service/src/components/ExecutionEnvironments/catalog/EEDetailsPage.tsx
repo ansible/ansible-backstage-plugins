@@ -314,7 +314,9 @@ export const EEDetailsPage: React.FC = () => {
         : Promise.resolve(null);
 
       const definitionFilePath = params.subdir
-        ? `${params.subdir}/${entity?.metadata?.name ?? 'execution-environment'}.yml`
+        ? `${params.subdir}/${
+            entity?.metadata?.name ?? 'execution-environment'
+          }.yml`
         : `${entity?.metadata?.name ?? 'execution-environment'}.yml`;
 
       const defPromise: Promise<FetchGitFileOutcome | null> = needDefinition

@@ -24,8 +24,7 @@ export type DialogState =
 
 export function useUnregisterEntityDialogState(entity: Entity): DialogState {
   const catalogApi = useApi(catalogApiRef);
-  const locationRef =
-    entity.metadata.annotations?.[ANNOTATION_ORIGIN_LOCATION];
+  const locationRef = entity.metadata.annotations?.[ANNOTATION_ORIGIN_LOCATION];
   const uid = entity.metadata.uid;
   const isBootstrap = locationRef === 'bootstrap:bootstrap';
 

@@ -49,15 +49,12 @@ const useStyles = makeStyles(theme => ({
   },
 }));
 
-function useDialogHandlers(
-  entity: Entity,
-  onConfirm: () => void,
-) {
+function useDialogHandlers(entity: Entity, onConfirm: () => void) {
   const alertApi = useApi(alertApiRef);
   const state = useUnregisterEntityDialogState(entity);
-  const [busyAction, setBusyAction] = useState<
-    'unregister' | 'delete' | null
-  >(null);
+  const [busyAction, setBusyAction] = useState<'unregister' | 'delete' | null>(
+    null,
+  );
 
   const onUnregister = useCallback(async () => {
     if ('unregisterLocation' in state) {
@@ -78,8 +75,7 @@ function useDialogHandlers(
       setBusyAction('delete');
       try {
         await state.deleteEntity();
-        const entityName =
-          entity.metadata.title ?? entity.metadata.name;
+        const entityName = entity.metadata.title ?? entity.metadata.name;
         onConfirm();
         alertApi.post({
           message: `Removed entity ${entityName}`,
@@ -111,9 +107,7 @@ function AdvancedDeleteSection({
   const classes = useStyles();
 
   return (
-    <Accordion
-      className={classes.advancedAccordion}
-    >
+    <Accordion className={classes.advancedAccordion}>
       <AccordionSummary expandIcon={<ExpandMoreIcon />}>
         <Typography variant="subtitle2">{triggerTitle}</Typography>
       </AccordionSummary>
@@ -154,10 +148,12 @@ function BootstrapBody({
   return (
     <>
       <Alert severity="info">
-        You cannot unregister this entity, since it originates from a
-        protected Backstage configuration (location &quot;{location}
-        &quot;). If you believe this is in error, please contact the{' '}
-        {appTitle} integrator.
+        You cannot unregister this entity, since it originates from a protected
+        Backstage configuration (location &quot;{location}
+        &quot;). If you believe this is in error, please contact the {
+          appTitle
+        }{' '}
+        integrator.
       </Alert>
       <AdvancedDeleteSection
         triggerTitle="Advanced Options"
@@ -172,9 +168,8 @@ function BootstrapBody({
 function OnlyDeleteBody() {
   return (
     <Typography variant="body1">
-      This entity does not seem to originate from a registered
-      location. You therefore only have the option to delete it
-      outright from the catalog.
+      This entity does not seem to originate from a registered location. You
+      therefore only have the option to delete it outright from the catalog.
     </Typography>
   );
 }
@@ -301,9 +296,7 @@ function getDialogContent({
       };
     default:
       return {
-        body: (
-          <Alert severity="error">Internal error: Unknown state</Alert>
-        ),
+        body: <Alert severity="error">Internal error: Unknown state</Alert>,
         actionButton: null,
       };
   }
@@ -320,10 +313,11 @@ function DialogContents({
 }) {
   const classes = useStyles();
   const configApi = useApi(configApiRef);
-  const appTitle =
-    configApi.getOptionalString('app.title') ?? 'Backstage';
-  const { state, busyAction, onUnregister, onDelete } =
-    useDialogHandlers(entity, onConfirm);
+  const appTitle = configApi.getOptionalString('app.title') ?? 'Backstage';
+  const { state, busyAction, onUnregister, onDelete } = useDialogHandlers(
+    entity,
+    onConfirm,
+  );
   const { body, actionButton } = getDialogContent({
     state,
     appTitle,
@@ -337,9 +331,7 @@ function DialogContents({
       <DialogTitle>
         Are you sure you want to unregister this entity?
       </DialogTitle>
-      <DialogContent className={classes.content}>
-        {body}
-      </DialogContent>
+      <DialogContent className={classes.content}>{body}</DialogContent>
       <DialogActions>
         <Button onClick={onClose} color="primary">
           Cancel
@@ -357,12 +349,7 @@ export function UnregisterEntityDialog({
   entity,
 }: UnregisterEntityDialogProps) {
   return (
-    <Dialog
-      open={open}
-      onClose={onClose}
-      maxWidth="sm"
-      fullWidth
-    >
+    <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth>
       {open && (
         <DialogContents
           entity={entity}

@@ -95,23 +95,18 @@ describe('UnregisterEntityDialog', () => {
       mockCatalogApi.getLocationByRef.mockResolvedValue({
         id: 'loc-1',
         type: 'url',
-        target:
-          'https://github.com/org/repo/blob/main/catalog-info.yaml',
+        target: 'https://github.com/org/repo/blob/main/catalog-info.yaml',
       });
       mockCatalogApi.getEntities.mockResolvedValue({ items: [] });
 
       renderDialog(baseEntity, false);
       expect(
-        screen.queryByText(
-          'Are you sure you want to unregister this entity?',
-        ),
+        screen.queryByText('Are you sure you want to unregister this entity?'),
       ).not.toBeInTheDocument();
     });
 
     it('shows loading state while fetching prerequisites', () => {
-      mockCatalogApi.getLocationByRef.mockReturnValue(
-        new Promise(() => {}),
-      );
+      mockCatalogApi.getLocationByRef.mockReturnValue(new Promise(() => {}));
       mockCatalogApi.getEntities.mockReturnValue(new Promise(() => {}));
 
       renderDialog();
@@ -138,8 +133,7 @@ describe('UnregisterEntityDialog', () => {
       mockCatalogApi.getLocationByRef.mockResolvedValue({
         id: 'loc-1',
         type: 'url',
-        target:
-          'https://github.com/org/repo/blob/main/catalog-info.yaml',
+        target: 'https://github.com/org/repo/blob/main/catalog-info.yaml',
       });
       mockCatalogApi.getEntities.mockResolvedValue({
         items: [
@@ -159,9 +153,7 @@ describe('UnregisterEntityDialog', () => {
       renderDialog();
       await waitFor(() => {
         expect(
-          screen.getByText(
-            'Are you sure you want to unregister this entity?',
-          ),
+          screen.getByText('Are you sure you want to unregister this entity?'),
         ).toBeInTheDocument();
         expect(
           screen.getByText(
@@ -220,9 +212,7 @@ describe('UnregisterEntityDialog', () => {
         screen.getByRole('button', { name: /unregister location/i }),
       );
       await waitFor(() => {
-        expect(
-          mockCatalogApi.removeLocationById,
-        ).toHaveBeenCalledWith('loc-1');
+        expect(mockCatalogApi.removeLocationById).toHaveBeenCalledWith('loc-1');
         expect(mockOnConfirm).toHaveBeenCalled();
       });
     });
@@ -295,13 +285,11 @@ describe('UnregisterEntityDialog', () => {
         ).toBeInTheDocument();
       });
 
-      await user.click(
-        screen.getByRole('button', { name: /delete entity/i }),
-      );
+      await user.click(screen.getByRole('button', { name: /delete entity/i }));
       await waitFor(() => {
-        expect(
-          mockCatalogApi.removeEntityByUid,
-        ).toHaveBeenCalledWith('test-uid-123');
+        expect(mockCatalogApi.removeEntityByUid).toHaveBeenCalledWith(
+          'test-uid-123',
+        );
         expect(mockOnConfirm).toHaveBeenCalled();
         expect(mockAlertPost).toHaveBeenCalledWith({
           message: 'Removed entity test-ee',
@@ -319,8 +307,7 @@ describe('UnregisterEntityDialog', () => {
         metadata: {
           ...baseEntity.metadata,
           annotations: {
-            'backstage.io/managed-by-origin-location':
-              'bootstrap:bootstrap',
+            'backstage.io/managed-by-origin-location': 'bootstrap:bootstrap',
           },
         },
       };

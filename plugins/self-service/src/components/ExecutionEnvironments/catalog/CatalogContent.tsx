@@ -610,7 +610,9 @@ export const EEListPage = ({
                           key="download"
                           onClick={() => {
                             handleActionsMenuClose();
-                            const entityRef = `${actionsMenuEntity.kind}:${actionsMenuEntity.metadata?.namespace || 'default'}/${actionsMenuEntity.metadata?.name}`;
+                            const entityRef = `${actionsMenuEntity.kind}:${
+                              actionsMenuEntity.metadata?.namespace || 'default'
+                            }/${actionsMenuEntity.metadata?.name}`;
                             catalogApi
                               .getEntityByRef(entityRef)
                               .then((entity: Entity | undefined) => {
