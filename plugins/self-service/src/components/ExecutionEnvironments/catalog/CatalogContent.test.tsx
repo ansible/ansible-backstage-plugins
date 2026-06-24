@@ -94,14 +94,9 @@ jest.mock('@backstage/core-components', () => {
   };
 });
 
-// ------------------ STUB: UnregisterEntityDialog for coverage ------------------
-const toggleStarredEntityMock = jest.fn();
-const isStarredEntityMock = jest.fn(() => false);
-
-jest.mock('@backstage/plugin-catalog-react', () => {
-  const actual = jest.requireActual('@backstage/plugin-catalog-react');
-
-  const UnregisterEntityDialogStub = ({
+// ------------------ STUB: UnregisterEntityDialog (local component) ------------------
+jest.mock('../../UnregisterEntityDialog', () => ({
+  UnregisterEntityDialog: ({
     open,
     entity,
     onConfirm,
@@ -123,7 +118,14 @@ jest.mock('@backstage/plugin-catalog-react', () => {
           Cancel
         </button>
       </div>
-    ) : null;
+    ) : null,
+}));
+
+const toggleStarredEntityMock = jest.fn();
+const isStarredEntityMock = jest.fn(() => false);
+
+jest.mock('@backstage/plugin-catalog-react', () => {
+  const actual = jest.requireActual('@backstage/plugin-catalog-react');
 
   const CatalogFilterLayout = ({ children }: any) => (
     <div data-testid="catalog-filter-layout">{children}</div>
@@ -176,7 +178,6 @@ jest.mock('@backstage/plugin-catalog-react', () => {
     useEntityList,
     useStarredEntities,
     FavoriteEntity: FavoriteEntityStub,
-    UnregisterEntityDialog: UnregisterEntityDialogStub,
     catalogApiRef: actual.catalogApiRef,
   };
 });

@@ -29,9 +29,9 @@ import {
   catalogApiRef,
   useEntityList,
   useStarredEntities,
-  UnregisterEntityDialog,
   FavoriteEntity,
 } from '@backstage/plugin-catalog-react';
+import { UnregisterEntityDialog } from '../../UnregisterEntityDialog';
 import MoreVert from '@material-ui/icons/MoreVert';
 import OpenInNew from '@material-ui/icons/OpenInNew';
 import { ANNOTATION_EDIT_URL, Entity } from '@backstage/catalog-model';
