@@ -4562,4 +4562,66 @@ describe('AAPClient', () => {
       );
     });
   });
+
+  describe('cancelJob', () => {
+    beforeEach(() => {
+      mockFetch = fetch as jest.Mock;
+    });
+
+    it('should send POST to cancel endpoint', async () => {
+      const mockResponse = { ok: true, json: jest.fn().mockResolvedValue({}) };
+      mockFetch.mockResolvedValue(mockResponse);
+
+      await client.cancelJob(789, 'test-token');
+
+      expect(mockFetch).toHaveBeenCalledWith(
+        'https://test.example.com/api/controller/v2/jobs/789/cancel/',
+        expect.objectContaining({
+          method: 'POST',
+          headers: expect.objectContaining({
+            Authorization: 'Bearer test-token',
+          }),
+        }),
+      );
+    });
+
+    it('should log success after cancel request', async () => {
+      const mockResponse = { ok: true, json: jest.fn().mockResolvedValue({}) };
+      mockFetch.mockResolvedValue(mockResponse);
+
+      await client.cancelJob(789, 'test-token');
+
+      expect(mockLogger.info).toHaveBeenCalledWith(
+        'Job 789 cancel request sent successfully',
+      );
+    });
+
+    it('should throw and log error when cancel fails', async () => {
+      mockFetch.mockRejectedValue(new Error('Network error'));
+
+      await expect(client.cancelJob(789, 'test-token')).rejects.toThrow(
+        'Failed to send POST request: Network error',
+      );
+
+      expect(mockLogger.error).toHaveBeenCalledWith(
+        expect.stringContaining('Failed to cancel job 789'),
+      );
+    });
+
+    it('should throw on 403 forbidden', async () => {
+      const mockResponse = {
+        ok: false,
+        status: 403,
+        statusText: 'Forbidden',
+        json: jest.fn().mockResolvedValue({
+          detail: 'Insufficient privileges',
+        }),
+      };
+      mockFetch.mockResolvedValue(mockResponse);
+
+      await expect(client.cancelJob(789, 'test-token')).rejects.toThrow(
+        'Insufficient privileges',
+      );
+    });
+  });
 });

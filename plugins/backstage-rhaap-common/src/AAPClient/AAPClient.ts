@@ -65,6 +65,7 @@ export interface IAAPService extends Pick<
   | 'launchJobTemplate'
   | 'launchJobTemplateNoWait'
   | 'getJobStatus'
+  | 'cancelJob'
   | 'cleanUp'
   | 'checkControllerAvailability'
   | 'getResourceData'
@@ -775,6 +776,17 @@ export class AAPClient implements IAAPService {
       this.logger.error(
         `Failed to fetch job status for job ${jobID}: ${error}`,
       );
+      throw error;
+    }
+  }
+
+  public async cancelJob(jobID: number, token: string): Promise<void> {
+    const endPoint = `api/controller/v2/jobs/${jobID}/cancel/`;
+    try {
+      await this.executePostRequest(endPoint, token);
+      this.logger.info(`Job ${jobID} cancel request sent successfully`);
+    } catch (error) {
+      this.logger.error(`Failed to cancel job ${jobID}: ${error}`);
       throw error;
     }
   }
