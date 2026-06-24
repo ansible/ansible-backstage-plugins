@@ -781,10 +781,22 @@ export class AAPClient implements IAAPService {
   }
 
   public async cancelJob(jobID: number, token: string): Promise<void> {
+    const status = await this.getJobStatus(jobID, token);
+    if (
+      ['successful', 'failed', 'error', 'canceled'].includes(
+        status.status?.toLowerCase(),
+      )
+    ) {
+      this.logger.info(
+        `Job ${jobID} already in terminal state (${status.status}) on AAP - skipping cancel`,
+      );
+      return;
+    }
+
     const endPoint = `api/controller/v2/jobs/${jobID}/cancel/`;
     try {
       await this.executePostRequest(endPoint, token);
-      this.logger.info(`Job ${jobID} cancel request sent successfully`);
+      this.logger.info(`Job ${jobID} cancelled successfully on AAP`);
     } catch (error) {
       this.logger.error(`Failed to cancel job ${jobID}: ${error}`);
       throw error;

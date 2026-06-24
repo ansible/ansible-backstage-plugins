@@ -4568,9 +4568,19 @@ describe('AAPClient', () => {
       mockFetch = fetch as jest.Mock;
     });
 
+    const mockRunningStatusResponse = {
+      ok: true,
+      json: jest.fn().mockResolvedValue({ status: 'running' }),
+    };
+
     it('should send POST to cancel endpoint', async () => {
-      const mockResponse = { ok: true, json: jest.fn().mockResolvedValue({}) };
-      mockFetch.mockResolvedValue(mockResponse);
+      const mockCancelResponse = {
+        ok: true,
+        json: jest.fn().mockResolvedValue({}),
+      };
+      mockFetch
+        .mockResolvedValueOnce(mockRunningStatusResponse)
+        .mockResolvedValueOnce(mockCancelResponse);
 
       await client.cancelJob(789, 'test-token');
 
@@ -4586,18 +4596,52 @@ describe('AAPClient', () => {
     });
 
     it('should log success after cancel request', async () => {
-      const mockResponse = { ok: true, json: jest.fn().mockResolvedValue({}) };
-      mockFetch.mockResolvedValue(mockResponse);
+      const mockCancelResponse = {
+        ok: true,
+        json: jest.fn().mockResolvedValue({}),
+      };
+      mockFetch
+        .mockResolvedValueOnce(mockRunningStatusResponse)
+        .mockResolvedValueOnce(mockCancelResponse);
 
       await client.cancelJob(789, 'test-token');
 
       expect(mockLogger.info).toHaveBeenCalledWith(
-        'Job 789 cancel request sent successfully',
+        'Job 789 cancelled successfully on AAP',
+      );
+    });
+
+    it('should skip cancel when job is already in terminal state', async () => {
+      const mockSuccessfulResponse = {
+        ok: true,
+        json: jest.fn().mockResolvedValue({
+          status: 'successful',
+          finished: '2024-01-01T00:00:00Z',
+        }),
+      };
+      const mockEventsResponse = {
+        ok: true,
+        json: jest.fn().mockResolvedValue({ results: [] }),
+      };
+      mockFetch
+        .mockResolvedValueOnce(mockSuccessfulResponse)
+        .mockResolvedValueOnce(mockEventsResponse);
+
+      await client.cancelJob(789, 'test-token');
+
+      expect(mockLogger.info).toHaveBeenCalledWith(
+        'Job 789 already in terminal state (successful) on AAP - skipping cancel',
+      );
+      expect(mockFetch).not.toHaveBeenCalledWith(
+        expect.stringContaining('/cancel/'),
+        expect.anything(),
       );
     });
 
     it('should throw and log error when cancel fails', async () => {
-      mockFetch.mockRejectedValue(new Error('Network error'));
+      mockFetch
+        .mockResolvedValueOnce(mockRunningStatusResponse)
+        .mockRejectedValueOnce(new Error('Network error'));
 
       await expect(client.cancelJob(789, 'test-token')).rejects.toThrow(
         'Failed to send POST request: Network error',
@@ -4609,7 +4653,7 @@ describe('AAPClient', () => {
     });
 
     it('should throw on 403 forbidden', async () => {
-      const mockResponse = {
+      const mockForbiddenResponse = {
         ok: false,
         status: 403,
         statusText: 'Forbidden',
@@ -4617,7 +4661,9 @@ describe('AAPClient', () => {
           detail: 'Insufficient privileges',
         }),
       };
-      mockFetch.mockResolvedValue(mockResponse);
+      mockFetch
+        .mockResolvedValueOnce(mockRunningStatusResponse)
+        .mockResolvedValueOnce(mockForbiddenResponse);
 
       await expect(client.cancelJob(789, 'test-token')).rejects.toThrow(
         'Insufficient privileges',

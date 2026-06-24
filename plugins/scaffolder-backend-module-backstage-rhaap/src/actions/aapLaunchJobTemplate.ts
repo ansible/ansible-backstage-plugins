@@ -21,9 +21,11 @@ const TERMINAL_STATUSES = new Set([
 ]);
 
 function createAbortError(): Error {
-  return Object.assign(new Error('The operation was aborted'), {
+  const error = Object.assign(new Error('The operation was aborted'), {
     name: 'AbortError',
   });
+  error.stack = '';
+  return error;
 }
 
 function sleepMs(ms: number, signal?: AbortSignal): Promise<void> {
@@ -80,7 +82,7 @@ async function pollJobCompletion(
   } catch (e: unknown) {
     if (e instanceof Error && e.name === 'AbortError') {
       logger.info(
-        `Task cancelled — sending cancel request to AAP for job ${result.id}`,
+        `Task cancelled - sending cancel request to AAP for job ${result.id}`,
       );
       try {
         await service.cancelJob(result.id, token);
@@ -142,6 +144,10 @@ export const launchJobTemplate = (
           'rhaap:launch-job-template',
         ) as LaunchJobTemplate;
 
+        if (signal?.aborted) {
+          throw createAbortError();
+        }
+
         jobResult = await ansibleServiceRef.launchJobTemplateNoWait(
           launchPayload,
           token,
@@ -172,6 +178,9 @@ export const launchJobTemplate = (
           );
         }
       } catch (e: unknown) {
+        if (e instanceof Error && e.name === 'AbortError') {
+          throw e;
+        }
         rethrowPreservingInputError(e);
       }
 
