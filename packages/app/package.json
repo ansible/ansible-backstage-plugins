@@ -14,6 +14,7 @@
     "lint": "backstage-cli package lint"
   },
   "dependencies": {
+    "@ansible/plugin-apme": "workspace:^",
     "@ansible/plugin-backstage-rhaap": "workspace:^",
     "@ansible/plugin-backstage-self-service": "workspace:^",
     "@backstage-community/plugin-github-actions": "^0.11.1",
