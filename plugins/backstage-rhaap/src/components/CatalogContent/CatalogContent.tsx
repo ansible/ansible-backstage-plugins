@@ -15,8 +15,15 @@
  */
 
 import { useEffect, useState } from 'react';
-import { Progress } from '@backstage/core-components';
-import { Divider, Grid, Typography, makeStyles } from '@material-ui/core';
+import { Link, Progress, Table, TableColumn } from '@backstage/core-components';
+import {
+  Chip,
+  Divider,
+  Grid,
+  Tooltip,
+  Typography,
+  makeStyles,
+} from '@material-ui/core';
 import {
   CatalogFilterLayout,
   EntityKindPicker,
@@ -28,11 +35,7 @@ import {
   useEntityList,
   useStarredEntities,
 } from '@backstage/plugin-catalog-react';
-import { Table, TableColumn } from '@backstage/core-components';
-import { Chip } from '@material-ui/core';
 import Edit from '@material-ui/icons/Edit';
-import { Link } from '@backstage/core-components';
-import { Tooltip } from '@material-ui/core';
 import { ANNOTATION_EDIT_URL, Entity } from '@backstage/catalog-model';
 import { visuallyHidden } from '@mui/utils';
 import { YellowStar } from '../OverviewContent/Favourites';
@@ -129,8 +132,8 @@ export const AnsibleComponents = () => {
       field: 'metadata.tags',
       id: 'tags',
       render: (entity: any) =>
-        entity?.metadata?.tags?.map((tag: string, index: number) => (
-          <Chip key={index} label={tag} />
+        entity?.metadata?.tags?.map((tag: string) => (
+          <Chip key={tag} label={tag} />
         )),
       cellStyle: { padding: '16px 16px 0px 20px' },
     },
