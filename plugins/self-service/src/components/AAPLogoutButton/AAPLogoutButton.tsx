@@ -32,7 +32,7 @@ export const AAPLogoutButton = () => {
       .getOptionalString('ansible.rhaap.baseUrl')
       ?.replace(/\/$/, '');
     if (aapHost) {
-      window.location.href = `${aapHost}/api/gateway/v1/logout/`;
+      globalThis.location.href = `${aapHost}/api/gateway/v1/logout/`;
     }
   };
 

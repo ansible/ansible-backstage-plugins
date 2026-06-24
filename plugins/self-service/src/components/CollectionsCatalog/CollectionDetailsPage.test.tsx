@@ -286,7 +286,7 @@ describe('CollectionDetailsPage', () => {
     const syncStatusCalls = mockFetchApi.fetch.mock.calls.filter(
       (c: [string]) => String(c[0]).includes('ansible/sync/status'),
     );
-    expect(syncStatusCalls.length).toBe(0);
+    expect(syncStatusCalls).toHaveLength(0);
   });
 
   it('shows EmptyState and breadcrumbs when getEntities rejects', async () => {
