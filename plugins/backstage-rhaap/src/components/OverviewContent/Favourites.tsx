@@ -19,6 +19,7 @@ import {
   catalogApiRef,
   useStarredEntities,
 } from '@backstage/plugin-catalog-react';
+import { stringifyEntityRef } from '@backstage/catalog-model';
 import { Typography, makeStyles, withStyles } from '@material-ui/core';
 import Star from '@material-ui/icons/Star';
 import useAsync from 'react-use/esm/useAsync';
@@ -71,7 +72,7 @@ export const Favourites = () => {
 
   const getStarredList = () =>
     starredEntities?.map(entity => (
-      <li key={entity.metadata.name} style={{ marginBottom: '22px' }}>
+      <li key={stringifyEntityRef(entity)} style={{ marginBottom: '22px' }}>
         <Typography variant="body1" className={classes.flex}>
           <Typography component="span" className={classes.star_icon}>
             <YellowStar />
