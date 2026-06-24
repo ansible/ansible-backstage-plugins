@@ -728,6 +728,7 @@ describe('AAPJobTemplateProvider', () => {
           providers: {
             rhaap: {
               development: {
+                orgs: 'Default',
                 sync: {
                   jobTemplates: {
                     surveyEnabled: false,
@@ -1098,6 +1099,247 @@ describe('AAPJobTemplateProvider', () => {
         ['test-label', 'production'], // jobTemplateLabels
         [], // default empty jobTemplateExcludeLabels
       );
+    });
+  });
+
+  describe('multi-org support', () => {
+    const MULTI_ORG_JOB_CONFIG = {
+      catalog: {
+        providers: {
+          rhaap: {
+            development: {
+              orgs: 'Default, Engineering',
+              sync: {
+                jobTemplates: {
+                  enabled: true,
+                  surveyEnabled: true,
+                  schedule: {
+                    frequency: { minutes: 30 },
+                    timeout: { minutes: 3 },
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+      ansible: {
+        rhaap: {
+          baseUrl: 'https://rhaap.test',
+          token: 'testtoken',
+          checkSSL: false,
+        },
+      },
+    };
+
+    const NO_ORG_JOB_CONFIG = {
+      catalog: {
+        providers: {
+          rhaap: {
+            development: {
+              sync: {
+                jobTemplates: {
+                  enabled: true,
+                  surveyEnabled: true,
+                  schedule: {
+                    frequency: { minutes: 30 },
+                    timeout: { minutes: 3 },
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+      ansible: {
+        rhaap: {
+          baseUrl: 'https://rhaap.test',
+          token: 'testtoken',
+          checkSSL: false,
+        },
+      },
+    };
+
+    const createEngTemplate = (): IJobTemplate => ({
+      ...MOCK_JOB_TEMPLATE,
+      id: 2,
+      name: 'Deploy Service',
+      description: 'Deploy to engineering',
+      organization: 2,
+      summary_fields: {
+        ...MOCK_JOB_TEMPLATE.summary_fields,
+        organization: {
+          id: 2,
+          name: 'Engineering',
+          description: 'Engineering org',
+        },
+      },
+    });
+
+    const createFinanceTemplate = (): IJobTemplate => ({
+      ...MOCK_JOB_TEMPLATE,
+      id: 3,
+      name: 'Finance Report',
+      description: 'Finance reporting job',
+      organization: 3,
+      summary_fields: {
+        ...MOCK_JOB_TEMPLATE.summary_fields,
+        organization: {
+          id: 3,
+          name: 'Finance',
+          description: 'Finance org',
+        },
+      },
+    });
+
+    it('should skip sync and log warning when no orgs are configured', async () => {
+      const config = new ConfigReader(NO_ORG_JOB_CONFIG);
+      const logger = mockServices.logger.mock();
+      const schedule = new PersistingTaskRunner();
+
+      const provider = AAPJobTemplateProvider.fromConfig(
+        config,
+        mockAnsibleService,
+        { schedule, logger },
+      )[0];
+
+      const entityProviderConnection: EntityProviderConnection = {
+        applyMutation: jest.fn(),
+        refresh: jest.fn(),
+      };
+
+      await provider.connect(entityProviderConnection);
+      const taskDef = schedule.getTasks()[0];
+      await (taskDef.fn as () => Promise<void>)();
+
+      expect(entityProviderConnection.applyMutation).not.toHaveBeenCalled();
+      expect(mockAnsibleService.syncJobTemplates).not.toHaveBeenCalled();
+    });
+
+    it('should filter templates to only configured organizations', async () => {
+      const config = new ConfigReader(MULTI_ORG_JOB_CONFIG);
+      const logger = mockServices.logger.mock();
+      const schedule = new PersistingTaskRunner();
+
+      mockAnsibleService.syncJobTemplates.mockResolvedValue([
+        { job: MOCK_JOB_TEMPLATE, survey: null, instanceGroup: [] },
+        { job: createEngTemplate(), survey: null, instanceGroup: [] },
+        { job: createFinanceTemplate(), survey: null, instanceGroup: [] },
+      ]);
+
+      const provider = AAPJobTemplateProvider.fromConfig(
+        config,
+        mockAnsibleService,
+        { schedule, logger },
+      )[0];
+
+      const entityProviderConnection: EntityProviderConnection = {
+        applyMutation: jest.fn(),
+        refresh: jest.fn(),
+      };
+
+      await provider.connect(entityProviderConnection);
+      const taskDef = schedule.getTasks()[0];
+      await (taskDef.fn as () => Promise<void>)();
+
+      const call = (entityProviderConnection.applyMutation as jest.Mock).mock
+        .calls[0][0];
+      const templateNames = call.entities.map(
+        (e: any) => e.entity.metadata?.name,
+      );
+
+      // Default and Engineering templates should be present
+      expect(templateNames).toContain('test-job-template');
+      expect(templateNames).toContain('deploy-service');
+      // Finance template should be filtered out
+      expect(templateNames).not.toContain('finance-report');
+      expect(call.entities).toHaveLength(2);
+    });
+
+    it('should use org-specific namespaces in multi-org mode', async () => {
+      const config = new ConfigReader(MULTI_ORG_JOB_CONFIG);
+      const logger = mockServices.logger.mock();
+      const schedule = new PersistingTaskRunner();
+
+      mockAnsibleService.syncJobTemplates.mockResolvedValue([
+        { job: MOCK_JOB_TEMPLATE, survey: null, instanceGroup: [] },
+        { job: createEngTemplate(), survey: null, instanceGroup: [] },
+      ]);
+
+      const provider = AAPJobTemplateProvider.fromConfig(
+        config,
+        mockAnsibleService,
+        { schedule, logger },
+      )[0];
+
+      const entityProviderConnection: EntityProviderConnection = {
+        applyMutation: jest.fn(),
+        refresh: jest.fn(),
+      };
+
+      await provider.connect(entityProviderConnection);
+      const taskDef = schedule.getTasks()[0];
+      await (taskDef.fn as () => Promise<void>)();
+
+      const call = (entityProviderConnection.applyMutation as jest.Mock).mock
+        .calls[0][0];
+
+      const defaultTemplate = call.entities.find(
+        (e: any) => e.entity.metadata?.name === 'test-job-template',
+      );
+      expect(defaultTemplate.entity.metadata.namespace).toBe('aap-default');
+
+      const engTemplate = call.entities.find(
+        (e: any) => e.entity.metadata?.name === 'deploy-service',
+      );
+      expect(engTemplate.entity.metadata.namespace).toBe('engineering');
+    });
+
+    it('should add org annotation and display name suffix in multi-org mode', async () => {
+      const config = new ConfigReader(MULTI_ORG_JOB_CONFIG);
+      const logger = mockServices.logger.mock();
+      const schedule = new PersistingTaskRunner();
+
+      mockAnsibleService.syncJobTemplates.mockResolvedValue([
+        { job: MOCK_JOB_TEMPLATE, survey: null, instanceGroup: [] },
+        { job: createEngTemplate(), survey: null, instanceGroup: [] },
+      ]);
+
+      const provider = AAPJobTemplateProvider.fromConfig(
+        config,
+        mockAnsibleService,
+        { schedule, logger },
+      )[0];
+
+      const entityProviderConnection: EntityProviderConnection = {
+        applyMutation: jest.fn(),
+        refresh: jest.fn(),
+      };
+
+      await provider.connect(entityProviderConnection);
+      const taskDef = schedule.getTasks()[0];
+      await (taskDef.fn as () => Promise<void>)();
+
+      const call = (entityProviderConnection.applyMutation as jest.Mock).mock
+        .calls[0][0];
+
+      const defaultTemplate = call.entities.find(
+        (e: any) => e.entity.metadata?.name === 'test-job-template',
+      );
+      expect(defaultTemplate.entity.metadata.annotations).toHaveProperty(
+        ['ansible.com/organization'],
+        'Default',
+      );
+      expect(defaultTemplate.entity.metadata.title).toBe('Test Job Template');
+
+      const engTemplate = call.entities.find(
+        (e: any) => e.entity.metadata?.name === 'deploy-service',
+      );
+      expect(engTemplate.entity.metadata.annotations).toHaveProperty(
+        ['ansible.com/organization'],
+        'Engineering',
+      );
+      expect(engTemplate.entity.metadata.title).toBe('Deploy Service');
     });
   });
 });
