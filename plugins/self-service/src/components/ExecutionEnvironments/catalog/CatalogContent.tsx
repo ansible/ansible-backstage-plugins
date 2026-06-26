@@ -1,5 +1,20 @@
-import { useEffect, useState, useCallback, useMemo, useRef } from 'react';
+import { ANNOTATION_EDIT_URL, Entity } from '@backstage/catalog-model';
 import { Progress, Table, TableColumn } from '@backstage/core-components';
+import { useApi } from '@backstage/core-plugin-api';
+import {
+  catalogApiRef,
+  CatalogFilterLayout,
+  EntityKindFilter,
+  EntityListProvider,
+  EntityOwnerFilter,
+  EntityTagFilter,
+  EntityTypeFilter,
+  EntityUserFilter,
+  FavoriteEntity,
+  useEntityList,
+  UserListPicker,
+  useStarredEntities,
+} from '@backstage/plugin-catalog-react';
 import {
   Backdrop,
   Box,
@@ -17,35 +32,20 @@ import {
   Typography,
 } from '@material-ui/core';
 import { makeStyles, useTheme } from '@material-ui/core/styles';
-import {
-  CatalogFilterLayout,
-  EntityKindFilter,
-  EntityListProvider,
-  EntityOwnerFilter,
-  EntityTagFilter,
-  EntityTypeFilter,
-  EntityUserFilter,
-  UserListPicker,
-  catalogApiRef,
-  useEntityList,
-  useStarredEntities,
-  UnregisterEntityDialog,
-  FavoriteEntity,
-} from '@backstage/plugin-catalog-react';
 import MoreVert from '@material-ui/icons/MoreVert';
 import OpenInNew from '@material-ui/icons/OpenInNew';
-import { ANNOTATION_EDIT_URL, Entity } from '@backstage/catalog-model';
-import { useApi } from '@backstage/core-plugin-api';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { EntityLinkButton } from '../../common';
+import { UnregisterEntityDialog } from '../../UnregisterEntityDialog';
+import { PAGE_SIZE } from './constants';
 import { CreateCatalog } from './CreateCatalog';
 import { EEBuildDialog } from './EEBuildDialog';
 import {
-  toEEDefinitionUrl,
   downloadEntityAsTarArchive,
   isEntityBuildable,
+  toEEDefinitionUrl,
 } from './helpers';
 import { useEEBuildFlow } from './useEEBuildFlow';
-import { EntityLinkButton } from '../../common';
-import { PAGE_SIZE } from './constants';
 
 const DESCRIPTION_TRUNCATE_LENGTH = 30;
 
@@ -610,7 +610,9 @@ export const EEListPage = ({
                           key="download"
                           onClick={() => {
                             handleActionsMenuClose();
-                            const entityRef = `${actionsMenuEntity.kind}:${actionsMenuEntity.metadata?.namespace || 'default'}/${actionsMenuEntity.metadata?.name}`;
+                            const entityRef = `${actionsMenuEntity.kind}:${
+                              actionsMenuEntity.metadata?.namespace || 'default'
+                            }/${actionsMenuEntity.metadata?.name}`;
                             catalogApi
                               .getEntityByRef(entityRef)
                               .then((entity: Entity | undefined) => {
