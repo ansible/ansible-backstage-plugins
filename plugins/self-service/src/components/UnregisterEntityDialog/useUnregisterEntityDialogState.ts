@@ -9,6 +9,7 @@ import { catalogApiRef } from '@backstage/plugin-catalog-react';
 import { useCallback } from 'react';
 import useAsync from 'react-use/esm/useAsync';
 
+/** Discriminated union representing the resolved state of the unregister dialog. */
 export type DialogState =
   | { type: 'loading' }
   | { type: 'error'; error: Error }

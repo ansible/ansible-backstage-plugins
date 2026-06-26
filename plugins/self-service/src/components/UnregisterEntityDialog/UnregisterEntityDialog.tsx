@@ -30,6 +30,7 @@ function errorMessage(err: unknown): string {
   return typeof err === 'string' ? err : 'Unknown error';
 }
 
+/** Props for the local UnregisterEntityDialog that replaces the broken upstream BUI version. */
 export type UnregisterEntityDialogProps = Readonly<{
   open: boolean;
   onConfirm: () => void;

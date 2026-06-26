@@ -319,5 +319,44 @@ describe('UnregisterEntityDialog', () => {
         ).toBeInTheDocument();
       });
     });
+
+    it('deletes entity via Advanced Options in bootstrap state', async () => {
+      const user = userEvent.setup();
+      const bootstrapEntity: Entity = {
+        ...baseEntity,
+        metadata: {
+          ...baseEntity.metadata,
+          annotations: {
+            'backstage.io/managed-by-origin-location': 'bootstrap:bootstrap',
+          },
+        },
+      };
+      mockCatalogApi.removeEntityByUid.mockResolvedValue(undefined);
+
+      renderDialog(bootstrapEntity);
+      await waitFor(() => {
+        expect(screen.getByText('Advanced Options')).toBeInTheDocument();
+      });
+
+      await user.click(screen.getByText('Advanced Options'));
+      await waitFor(() => {
+        expect(
+          screen.getByRole('button', { name: /delete entity/i }),
+        ).toBeInTheDocument();
+      });
+
+      await user.click(screen.getByRole('button', { name: /delete entity/i }));
+      await waitFor(() => {
+        expect(mockCatalogApi.removeEntityByUid).toHaveBeenCalledWith(
+          'test-uid-123',
+        );
+        expect(mockOnConfirm).toHaveBeenCalled();
+        expect(mockAlertPost).toHaveBeenCalledWith({
+          message: 'Removed entity test-ee',
+          severity: 'success',
+          display: 'transient',
+        });
+      });
+    });
   });
 });
