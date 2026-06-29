@@ -61,8 +61,9 @@ export async function handleAutocompleteRequest({
   await ansibleService.setLogger(logger);
 
   try {
+    const serviceToken = ansibleConfig.rhaap?.token ?? null;
     const isControllerAvailable =
-      await ansibleService.checkControllerAvailability(token);
+      await ansibleService.checkControllerAvailability(serviceToken ?? token);
     if (!isControllerAvailable) {
       throw new ServiceUnavailableError(
         'Controller service is absent in provided AAP instance',
