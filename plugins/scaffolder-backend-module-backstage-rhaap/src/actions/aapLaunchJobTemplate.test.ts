@@ -258,7 +258,7 @@ describe('ansible-aap:jobTemplate:launch', () => {
     const mockSignal = {
       get aborted() {
         abortedAccessCount++;
-        // First access (line 121 guard) returns false; second (sleepMs line 15) returns true
+        // First access (handler pre-launch guard) returns false; second (sleepMs pre-abort check) returns true
         return abortedAccessCount > 1;
       },
       addEventListener: jest.fn(),

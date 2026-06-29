@@ -3,6 +3,7 @@ import { LoggerService } from '@backstage/backend-plugin-api';
 import { AAPClient } from './AAPClient';
 import { fetch } from 'undici';
 import { AnsibleConfig } from '../types';
+import { TERMINAL_JOB_STATUSES } from '../constants';
 import { mockJobTemplateResponse, mockSurveyResponse } from './mockData';
 
 jest.mock('undici', () => ({
@@ -4476,7 +4477,7 @@ describe('AAPClient', () => {
     });
 
     it('should handle all terminal statuses', async () => {
-      const statuses = ['successful', 'failed', 'error', 'canceled'];
+      const statuses = [...TERMINAL_JOB_STATUSES];
 
       for (const status of statuses) {
         jest.clearAllMocks();
@@ -4614,24 +4615,16 @@ describe('AAPClient', () => {
     it('should skip cancel when job is already in terminal state', async () => {
       const mockSuccessfulResponse = {
         ok: true,
-        json: jest.fn().mockResolvedValue({
-          status: 'successful',
-          finished: '2024-01-01T00:00:00Z',
-        }),
+        json: jest.fn().mockResolvedValue({ status: 'successful' }),
       };
-      const mockEventsResponse = {
-        ok: true,
-        json: jest.fn().mockResolvedValue({ results: [] }),
-      };
-      mockFetch
-        .mockResolvedValueOnce(mockSuccessfulResponse)
-        .mockResolvedValueOnce(mockEventsResponse);
+      mockFetch.mockResolvedValueOnce(mockSuccessfulResponse);
 
       await client.cancelJob(789, 'test-token');
 
       expect(mockLogger.info).toHaveBeenCalledWith(
         'Job 789 already in terminal state (successful) on AAP - skipping cancel',
       );
+      expect(mockFetch).toHaveBeenCalledTimes(1);
       expect(mockFetch).not.toHaveBeenCalledWith(
         expect.stringContaining('/cancel/'),
         expect.anything(),

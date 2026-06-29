@@ -3,6 +3,7 @@ import { LoggerService } from '@backstage/backend-plugin-api';
 import {
   IAAPService,
   LaunchJobTemplate,
+  TERMINAL_JOB_STATUSES,
 } from '@ansible/backstage-rhaap-common';
 import {
   parseAapActionValues,
@@ -13,12 +14,6 @@ import { normalizeTemplateLaunchValues } from './schemas/rhaapActionPayloadUtils
 
 const POLL_INTERVAL_MS = 5000;
 const MAX_POLLS = 720;
-const TERMINAL_STATUSES = new Set([
-  'successful',
-  'failed',
-  'error',
-  'canceled',
-]);
 
 function createAbortError(): Error {
   const error = Object.assign(new Error('The operation was aborted'), {
@@ -60,7 +55,7 @@ async function pollJobCompletion(
   let result = { ...initialResult };
 
   try {
-    while (currentStatus && !TERMINAL_STATUSES.has(currentStatus)) {
+    while (currentStatus && !TERMINAL_JOB_STATUSES.has(currentStatus)) {
       if (signal?.aborted) throw createAbortError();
 
       if (pollCount >= MAX_POLLS) {

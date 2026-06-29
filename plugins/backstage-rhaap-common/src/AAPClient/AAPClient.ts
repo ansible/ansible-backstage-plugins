@@ -34,6 +34,7 @@ import {
   InstanceGroup,
 } from '../interfaces';
 
+import { TERMINAL_JOB_STATUSES } from '../constants';
 import { getAnsibleConfig, getCatalogConfig } from './utils/config';
 import { buildLaunchPayload } from './utils/jobTemplateHelpers';
 import {
@@ -602,11 +603,7 @@ export class AAPClient implements IAAPService {
       const jobDetailResponse = await this.executeGetRequest(endPoint, token);
       jobDetailResponseData = await jobDetailResponse.json();
       const status = jobDetailResponseData.status;
-      if (
-        ['successful', 'failed', 'error', 'canceled'].includes(
-          status.toString().toLowerCase(),
-        )
-      ) {
+      if (TERMINAL_JOB_STATUSES.has(status.toString().toLowerCase())) {
         shouldWait = false;
         break;
       }
@@ -762,11 +759,7 @@ export class AAPClient implements IAAPService {
         url: `${this.getBaseUrl()}/execution/jobs/playbook/${jobID}/output`,
       };
 
-      if (
-        ['successful', 'failed', 'error', 'canceled'].includes(
-          jobData.status?.toLowerCase(),
-        )
-      ) {
+      if (TERMINAL_JOB_STATUSES.has(jobData.status?.toLowerCase())) {
         result.events = await this.fetchEvents(jobID, token);
         result.finishedAt = jobData.finished;
       }
@@ -780,15 +773,25 @@ export class AAPClient implements IAAPService {
     }
   }
 
+  private async isJobTerminal(
+    jobID: number,
+    token: string,
+  ): Promise<{ isTerminal: boolean; status: string }> {
+    const endPoint = `api/controller/v2/jobs/${jobID}/`;
+    const response = await this.executeGetRequest(endPoint, token);
+    const jobData = await response.json();
+    const status = jobData.status?.toLowerCase() ?? '';
+    return {
+      isTerminal: TERMINAL_JOB_STATUSES.has(status),
+      status: jobData.status,
+    };
+  }
+
   public async cancelJob(jobID: number, token: string): Promise<void> {
-    const status = await this.getJobStatus(jobID, token);
-    if (
-      ['successful', 'failed', 'error', 'canceled'].includes(
-        status.status?.toLowerCase(),
-      )
-    ) {
+    const { isTerminal, status } = await this.isJobTerminal(jobID, token);
+    if (isTerminal) {
       this.logger.info(
-        `Job ${jobID} already in terminal state (${status.status}) on AAP - skipping cancel`,
+        `Job ${jobID} already in terminal state (${status}) on AAP - skipping cancel`,
       );
       return;
     }
