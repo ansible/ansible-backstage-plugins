@@ -307,7 +307,7 @@ export const EETagsPickerExtension = ({
 
         <Box className={classes.tagsContainer}>
           {tags.map((tag, index) => (
-            <Box key={tag} className={classes.tagRow}>
+            <Box key={`${tag}-${index}`} className={classes.tagRow}>
               <Box className={classes.tagInputContainer}>
                 <TextField
                   label={`tags-${index}`}
