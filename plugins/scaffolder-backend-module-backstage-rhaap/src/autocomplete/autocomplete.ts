@@ -34,7 +34,7 @@ export async function handleAutocompleteRequest({
   ansibleService: IAAPService;
   auth: AuthService;
   discovery: DiscoveryService;
-}): Promise<{ results: any[] }> {
+}): Promise<{ results: any[]; count?: number }> {
   const ansibleConfig = getAnsibleConfig(config);
 
   if (context) {
@@ -71,7 +71,7 @@ export async function handleAutocompleteRequest({
     }
 
     const data = await ansibleService.getResourceData(resource, token);
-    return { results: data.results };
+    return { results: data.results, count: data.count };
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
 

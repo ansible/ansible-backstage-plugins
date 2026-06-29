@@ -237,9 +237,11 @@ const HomeCategoryPicker = ({ syncKey }: { syncKey: number }) => {
 const TemplateContent = ({
   loading: externalLoading,
   jobTemplates,
+  jobTemplateCount,
 }: {
   loading: boolean;
   jobTemplates: { id: number; name: string }[];
+  jobTemplateCount: number;
 }) => {
   const classes = headerStyles();
   const {
@@ -271,10 +273,7 @@ const TemplateContent = ({
   const totalCount = totalItems ?? 0;
   const totalPages = Math.max(1, Math.ceil(totalCount / limit));
   const showStart = displayCount > 0 ? (currentPage - 1) * limit + 1 : 0;
-  const showEnd = Math.min(
-    (currentPage - 1) * limit + displayCount,
-    totalCount,
-  );
+  const showEnd = (currentPage - 1) * limit + displayCount;
 
   if (isLoading) {
     return (
@@ -297,15 +296,24 @@ const TemplateContent = ({
 
   return (
     <div data-testid="templates-container">
-      <ItemCardGrid>
-        {filteredEntities.map(template => (
-          <WizardCard key={template.metadata.uid} template={template} />
-        ))}
-      </ItemCardGrid>
-      {totalCount > 0 && (
+      {displayCount === 0 && !isLoading ? (
+        <Typography
+          variant="body1"
+          style={{ textAlign: 'center', padding: '40px 0', opacity: 0.6 }}
+        >
+          No templates found
+        </Typography>
+      ) : (
+        <ItemCardGrid>
+          {filteredEntities.map(template => (
+            <WizardCard key={template.metadata.uid} template={template} />
+          ))}
+        </ItemCardGrid>
+      )}
+      {displayCount > 0 && (
         <Box className={classes.paginationContainer}>
           <Typography className={classes.paginationInfo}>
-            Showing {showStart}-{showEnd} of {totalCount} templates
+            Showing {showStart}-{showEnd} of {jobTemplateCount} templates
           </Typography>
           {totalPages > 1 && (
             <Box className={classes.paginationControls}>
@@ -370,6 +378,7 @@ export const HomeComponent = () => {
   const [jobTemplates, setJobTemplates] = useState<
     { id: number; name: string }[]
   >([]);
+  const [jobTemplateCount, setJobTemplateCount] = useState<number>(0);
   const [loading, setLoading] = useState<boolean>(true);
   const [syncKey, setSyncKey] = useState(0);
   const [syncStatus, setSyncStatus] = useState<{
@@ -409,12 +418,12 @@ export const HomeComponent = () => {
       if (!scaffolderApi.autocomplete) {
         return undefined;
       }
-      const { results } = await scaffolderApi.autocomplete({
+      const { results, count } = (await scaffolderApi.autocomplete({
         token,
         resource: 'job_templates',
         provider: 'aap-api-cloud',
         context: {},
-      });
+      })) as { results: any[]; count?: number };
       const newTemplates = results.map(
         (result: { id: string; title?: string }) => ({
           id: Number.parseInt(result.id, 10),
@@ -423,6 +432,7 @@ export const HomeComponent = () => {
       );
       if (requestId === fetchRequestIdRef.current) {
         setJobTemplates(newTemplates);
+        setJobTemplateCount(count ?? newTemplates.length);
         fetchSucceededRef.current = true;
       }
       return newTemplates;
@@ -667,7 +677,11 @@ export const HomeComponent = () => {
               <EntityOwnerPicker />
             </CatalogFilterLayout.Filters>
             <CatalogFilterLayout.Content>
-              <TemplateContent loading={loading} jobTemplates={jobTemplates} />
+              <TemplateContent
+                loading={loading}
+                jobTemplates={jobTemplates}
+                jobTemplateCount={jobTemplateCount}
+              />
             </CatalogFilterLayout.Content>
           </CatalogFilterLayout>
         </EntityListProvider>

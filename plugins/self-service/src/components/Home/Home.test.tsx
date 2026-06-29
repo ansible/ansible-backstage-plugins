@@ -1233,6 +1233,32 @@ describe('self-service', () => {
       });
     });
   });
+
+  it('should show "No templates found" when catalog returns no entities', async () => {
+    mockCatalogApi.getEntityFacets.mockResolvedValue({
+      facets: {
+        'relations.ownedBy': [],
+        'metadata.tags': [],
+        'spec.type': [],
+      },
+    });
+    mockCatalogApi.queryEntities.mockResolvedValue({
+      items: [],
+      totalItems: 0,
+      pageInfo: {},
+    });
+
+    await render(<HomeComponent />);
+
+    await waitFor(() => {
+      expect(screen.queryByTestId('loading-templates')).not.toBeInTheDocument();
+    });
+    await waitFor(() => {
+      expect(screen.getByText('No templates found')).toBeInTheDocument();
+    });
+    expect(screen.queryByText(/Showing/)).toBeNull();
+    expect(screen.queryByText(/Page/)).toBeNull();
+  });
 });
 
 describe('TemplatesRoutesPage notifications', () => {
