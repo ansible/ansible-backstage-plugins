@@ -5,8 +5,8 @@ import { useEffect, useState, useCallback } from 'react';
 import {
   catalogApiRef,
   InspectEntityDialog,
-  UnregisterEntityDialog,
 } from '@backstage/plugin-catalog-react';
+import { UnregisterEntityDialog } from '../../UnregisterEntityDialog';
 import {
   discoveryApiRef,
   identityApiRef,

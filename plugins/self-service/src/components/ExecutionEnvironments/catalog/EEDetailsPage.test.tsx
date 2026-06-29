@@ -15,6 +15,11 @@ import { MemoryRouter } from 'react-router-dom';
 import { EEDetailsPage } from './EEDetailsPage';
 
 // ----------------- Simple UI stubs -----------------
+jest.mock('../../UnregisterEntityDialog', () => ({
+  UnregisterEntityDialog: ({ open }: any) =>
+    open ? <div data-testid="unregister-dialog">unregister</div> : null,
+}));
+
 jest.mock('@backstage/plugin-catalog-react', () => {
   const actual = jest.requireActual('@backstage/plugin-catalog-react');
   return {
@@ -24,8 +29,6 @@ jest.mock('@backstage/plugin-catalog-react', () => {
     ),
     InspectEntityDialog: ({ open }: any) =>
       open ? <div data-testid="inspect-dialog">inspect</div> : null,
-    UnregisterEntityDialog: ({ open }: any) =>
-      open ? <div data-testid="unregister-dialog">unregister</div> : null,
     catalogApiRef: actual.catalogApiRef,
   };
 });
