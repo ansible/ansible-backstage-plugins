@@ -1060,10 +1060,7 @@ export interface SyncStatus {
 }
 
 export type SyncResultStatus =
-  | 'sync_started'
-  | 'already_syncing'
-  | 'failed'
-  | 'invalid';
+  'sync_started' | 'already_syncing' | 'failed' | 'invalid';
 
 export interface SCMSyncResult {
   scmProvider: string;

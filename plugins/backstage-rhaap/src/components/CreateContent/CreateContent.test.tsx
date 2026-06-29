@@ -32,7 +32,7 @@ jest.mock('@backstage/plugin-scaffolder-react/alpha', () => {
       if (error) {
         return null;
       }
-      if (!entities || !entities.length) {
+      if (!entities?.length) {
         return React.createElement(
           'a',
           {
