@@ -4631,10 +4631,11 @@ describe('AAPClient', () => {
       );
     });
 
-    it('should throw and log error when cancel fails', async () => {
+    it('should throw and log error when cancel fails and job is still running', async () => {
       mockFetch
         .mockResolvedValueOnce(mockRunningStatusResponse)
-        .mockRejectedValueOnce(new Error('Network error'));
+        .mockRejectedValueOnce(new Error('Network error'))
+        .mockResolvedValueOnce(mockRunningStatusResponse);
 
       await expect(client.cancelJob(789, 'test-token')).rejects.toThrow(
         'Failed to send POST request: Network error',
@@ -4642,6 +4643,31 @@ describe('AAPClient', () => {
 
       expect(mockLogger.error).toHaveBeenCalledWith(
         expect.stringContaining('Failed to cancel job 789'),
+      );
+    });
+
+    it('should succeed when job finishes between status check and cancel POST', async () => {
+      const mockMethodNotAllowed = {
+        ok: false,
+        status: 405,
+        statusText: 'Method Not Allowed',
+        json: jest.fn().mockResolvedValue({
+          detail: 'Method "POST" not allowed.',
+        }),
+      };
+      const mockCompletedResponse = {
+        ok: true,
+        json: jest.fn().mockResolvedValue({ status: 'successful' }),
+      };
+      mockFetch
+        .mockResolvedValueOnce(mockRunningStatusResponse)
+        .mockResolvedValueOnce(mockMethodNotAllowed)
+        .mockResolvedValueOnce(mockCompletedResponse);
+
+      await client.cancelJob(789, 'test-token');
+
+      expect(mockLogger.info).toHaveBeenCalledWith(
+        'Job 789 reached terminal state (successful) before cancel completed',
       );
     });
 
@@ -4656,7 +4682,8 @@ describe('AAPClient', () => {
       };
       mockFetch
         .mockResolvedValueOnce(mockRunningStatusResponse)
-        .mockResolvedValueOnce(mockForbiddenResponse);
+        .mockResolvedValueOnce(mockForbiddenResponse)
+        .mockResolvedValueOnce(mockRunningStatusResponse);
 
       await expect(client.cancelJob(789, 'test-token')).rejects.toThrow(
         'Insufficient privileges',

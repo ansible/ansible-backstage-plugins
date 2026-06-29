@@ -801,6 +801,15 @@ export class AAPClient implements IAAPService {
       await this.executePostRequest(endPoint, token);
       this.logger.info(`Job ${jobID} cancelled successfully on AAP`);
     } catch (error) {
+      const latestState = await this.isJobTerminal(jobID, token).catch(
+        () => undefined,
+      );
+      if (latestState?.isTerminal) {
+        this.logger.info(
+          `Job ${jobID} reached terminal state (${latestState.status}) before cancel completed`,
+        );
+        return;
+      }
       this.logger.error(`Failed to cancel job ${jobID}: ${error}`);
       throw error;
     }
