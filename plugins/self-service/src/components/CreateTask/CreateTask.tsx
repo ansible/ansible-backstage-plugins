@@ -115,8 +115,9 @@ export const CreateTask = () => {
         if (!templateName || !namespace) {
           throw new Error('Missing name or namespace in URL parameters');
         }
+        const templateRef = `template:${namespace}/${templateName}`;
         const response =
-          await scaffolderApi.getTemplateParameterSchema(templateName);
+          await scaffolderApi.getTemplateParameterSchema(templateRef);
         setEntityTemplate(response as TemplateParameterSchema);
 
         try {

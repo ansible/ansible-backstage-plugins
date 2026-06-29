@@ -6,7 +6,7 @@ export interface Config {
       /** @visibility frontend */
       rhaap?: {
         [authEnv: string]: {
-          orgs?: string;
+          orgs?: string | string[];
           sync?: {
             orgsUsersTeams?: {
               schedule: SchedulerServiceTaskScheduleDefinitionConfig;

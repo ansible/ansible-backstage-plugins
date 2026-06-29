@@ -403,7 +403,9 @@ export class AAPClient implements IAAPService {
       throw new Error(`Failed to create project`);
     }
     this.logger.info(`The project is ready.`);
-    projectData.url = `${this.getBaseUrl()}/execution/projects/${projectData.id}/details`;
+    projectData.url = `${this.getBaseUrl()}/execution/projects/${
+      projectData.id
+    }/details`;
     return projectData;
   }
 
@@ -461,7 +463,9 @@ export class AAPClient implements IAAPService {
       `End creating execution environment ${payload.environmentName}.`,
     );
     const eeData = (await response.json()) as ExecutionEnvironment;
-    eeData.url = `${this.getBaseUrl()}/execution/infrastructure/execution-environments/${eeData.id}/details`;
+    eeData.url = `${this.getBaseUrl()}/execution/infrastructure/execution-environments/${
+      eeData.id
+    }/details`;
     return eeData;
   }
 
@@ -568,7 +572,9 @@ export class AAPClient implements IAAPService {
     const response = await this.executePostRequest(endPoint, token, data);
     const jobTemplate = (await response.json()) as JobTemplate;
     this.logger.info(`End creating job template ${payload.templateName}.`);
-    jobTemplate.url = `${this.getBaseUrl()}/execution/templates/job-template/${jobTemplate.id}/details`;
+    jobTemplate.url = `${this.getBaseUrl()}/execution/templates/job-template/${
+      jobTemplate.id
+    }/details`;
     return jobTemplate;
   }
 
@@ -625,7 +631,9 @@ export class AAPClient implements IAAPService {
     let templateID;
     const urlSearchParams = new URLSearchParams();
     urlSearchParams.set('name', payload.template);
-    const templateIdEndpoint = `api/controller/v2/job_templates/?${decodeURIComponent(urlSearchParams.toString())}`;
+    const templateIdEndpoint = `api/controller/v2/job_templates/?${decodeURIComponent(
+      urlSearchParams.toString(),
+    )}`;
     try {
       const templateResponse = await this.executeGetRequest(
         templateIdEndpoint,
@@ -834,7 +842,10 @@ export class AAPClient implements IAAPService {
       // Adds support for multiple orgs with OR operator
       else if (this.catalogConfig.organizations.length > 1) {
         this.catalogConfig.organizations.forEach(orgName => {
-          urlSearchParams.append('or__organization__name__iexact', orgName);
+          urlSearchParams.append(
+            'or__organization__name__iexact',
+            orgName.trim(),
+          );
         });
       }
       if (this.catalogConfig.surveyEnabled !== undefined) {
@@ -859,7 +870,9 @@ export class AAPClient implements IAAPService {
       }
     }
 
-    const endPoint = `api/controller/v2/${aapResource}/?${decodeURIComponent(urlSearchParams.toString())}`;
+    const endPoint = `api/controller/v2/${aapResource}/?${decodeURIComponent(
+      urlSearchParams.toString(),
+    )}`;
     const response = await this.executeGetRequest(endPoint, token);
     return await response.json();
   }
@@ -994,24 +1007,39 @@ export class AAPClient implements IAAPService {
    * @param token - The OAuth2 access token used for authenticating the request.
    * @returns A promise that resolves to a {@link PassportProfile} object containing the user's
    *          provider, username, email, and display name.
-   * @throws {AuthenticationError} If the profile data cannot be retrieved or is in an unexpected format.
+   * @throws {AuthenticationError} If AAP returns 401 (session expired / token revoked).
+   * @throws {Error} If the request fails due to network issues or non-401 HTTP errors.
    */
   public async fetchProfile(token: string): Promise<PassportProfile> {
     this.logger.info(
       `[${this.pluginLogName}]: Fetching profile data from RH AAP.`,
     );
+    const url = `${this.getBaseUrl()}/api/gateway/v1/me/`;
     let response;
     try {
-      const endPoint = 'api/gateway/v1/me/';
-      response = await this.executeGetRequest(endPoint, token);
+      response = await fetch(url, {
+        method: 'GET',
+        dispatcher: this.proxyAgent,
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+      });
     } catch (e) {
+      throw new Error(
+        `Network error while fetching profile from RH AAP: ${
+          e instanceof Error ? e.message : String(e)
+        }`,
+      );
+    }
+    if (response.status === 401) {
       throw new AuthenticationError(
-        'Failed to retrieve profile data from RH AAP.',
+        'AAP session expired or token revoked (401 from /api/gateway/v1/me/).',
       );
     }
     if (!response.ok) {
-      throw new AuthenticationError(
-        'Failed to retrieve profile data from RH AAP.',
+      throw new Error(
+        `Unexpected HTTP ${response.status} from RH AAP /api/gateway/v1/me/.`,
       );
     }
     const userDataJson = (await response.json()) as {
@@ -1031,7 +1059,7 @@ export class AAPClient implements IAAPService {
     ) {
       userData = userDataJson.results[0];
     } else {
-      throw new AuthenticationError(
+      throw new Error(
         `Profile data from RH AAP is in an unexpected format. Please contact your system administrator`,
       );
     }
@@ -1040,7 +1068,9 @@ export class AAPClient implements IAAPService {
       id: userData.id ? userData.id.toString() : '',
       username: userData.username,
       email: userData.email,
-      displayName: `${userData?.first_name ? userData.first_name : ''} ${userData?.last_name ? userData.last_name : ''}`,
+      displayName: `${userData?.first_name ? userData.first_name : ''} ${
+        userData?.last_name ? userData.last_name : ''
+      }`,
     } as PassportProfile;
   }
 
@@ -1087,7 +1117,7 @@ export class AAPClient implements IAAPService {
       // Adds support for multiple orgs with OR operator
       else if (this.catalogConfig.organizations.length > 1) {
         this.catalogConfig.organizations.forEach(orgName => {
-          urlSearchParams.append('or__name__iexact', orgName);
+          urlSearchParams.append('or__name__iexact', orgName.trim());
         });
       }
       const rawOrgs = await this.executeCatalogRequest(
@@ -1115,13 +1145,17 @@ export class AAPClient implements IAAPService {
           const [rawTeams, users] = await Promise.all([
             teamsUrl
               ? this.executeCatalogRequest(
-                  `${teamsUrl}?${decodeURIComponent(urlSearchParams.toString())}`,
+                  `${teamsUrl}?${decodeURIComponent(
+                    urlSearchParams.toString(),
+                  )}`,
                   token,
                 )
               : [],
             (usersUrl
               ? this.executeCatalogRequest(
-                  `${usersUrl}?${decodeURIComponent(urlSearchParams.toString())}`,
+                  `${usersUrl}?${decodeURIComponent(
+                    urlSearchParams.toString(),
+                  )}`,
                   token,
                 )
               : []) as Users,
@@ -1138,7 +1172,9 @@ export class AAPClient implements IAAPService {
               if (!teamUsersUrl) {
                 return [];
               }
-              teamUsersUrl = `${teamUsersUrl}?${decodeURIComponent(batchUrlSearchParams.toString())}`;
+              teamUsersUrl = `${teamUsersUrl}?${decodeURIComponent(
+                batchUrlSearchParams.toString(),
+              )}`;
               const teamUsers = ((await this.executeCatalogRequest(
                 teamUsersUrl,
                 token,
@@ -1243,7 +1279,7 @@ export class AAPClient implements IAAPService {
     // Adds support for multiple orgs with OR operator
     else if (this.catalogConfig.organizations.length > 1) {
       this.catalogConfig.organizations.forEach(orgName => {
-        urlSearchParams.append('or__name__iexact', orgName);
+        urlSearchParams.append('or__name__iexact', orgName.trim());
       });
     }
     const orgs = await this.executeCatalogRequest(
@@ -1330,7 +1366,10 @@ export class AAPClient implements IAAPService {
     // Adds support for multiple orgs with OR operator
     else if (this.catalogConfig.organizations.length > 1) {
       this.catalogConfig.organizations.forEach(orgName => {
-        urlSearchParams.append(`or__organization__name__iexact`, orgName);
+        urlSearchParams.append(
+          `or__organization__name__iexact`,
+          orgName.trim(),
+        );
       });
     }
 
@@ -1390,14 +1429,18 @@ export class AAPClient implements IAAPService {
       return jobTemplatesData;
     } catch (err) {
       this.logger.error(
-        `Error retrieving job templates from ${endPoint}. ${JSON.stringify(err)}`,
+        `Error retrieving job templates from ${endPoint}. ${JSON.stringify(
+          err,
+        )}`,
       );
       throw new Error(`Error retrieving job templates from ${endPoint}.`);
     }
   }
 
   public async isValidPAHRepository(repositoryName: string): Promise<boolean> {
-    const endPoint = `api/galaxy/pulp/api/v3/repositories?name=${encodeURIComponent(repositoryName)}`;
+    const endPoint = `api/galaxy/pulp/api/v3/repositories?name=${encodeURIComponent(
+      repositoryName,
+    )}`;
     const token = this.ansibleConfig.rhaap?.token ?? null;
     const response = await this.executeGetRequest(endPoint, token);
     const data = await response.json();
