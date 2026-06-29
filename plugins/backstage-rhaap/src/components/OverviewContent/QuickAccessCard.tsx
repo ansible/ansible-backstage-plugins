@@ -104,7 +104,7 @@ const QuickAccessAccordion = ({
   const classes = useStyles();
   const navigate = useNavigate();
   let btnUrl = data.button?.url;
-  if (btnUrl && btnUrl.includes('app-config')) {
+  if (btnUrl?.includes('app-config')) {
     const configKey = btnUrl.split(':')[1];
     btnUrl = config.getOptionalString(configKey);
     if (!btnUrl) btnUrl = data.button?.fallbackUrl;
@@ -151,8 +151,8 @@ const QuickAccessAccordion = ({
           <div>
             {data.items && (
               <ul className={classes.link}>
-                {(data.items || []).map((item, idx) => (
-                  <li key={idx} className={classes.t_align_c}>
+                {(data.items || []).map(item => (
+                  <li key={item.url} className={classes.t_align_c}>
                     <a
                       href={item.url}
                       target="_blank"

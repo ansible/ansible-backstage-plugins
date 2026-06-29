@@ -72,7 +72,7 @@ export const learningPaths: ILearningPath[] = [
   },
   {
     label: 'Ansible plug-ins for Red Hat Developer Hub user guide',
-    url: 'http://red.ht/aap-lp-getting-started-rhaap-plugin',
+    url: 'https://red.ht/aap-lp-getting-started-rhaap-plugin',
     minutes: 30,
     level: 'Beginner',
     type: 'Learning path',
