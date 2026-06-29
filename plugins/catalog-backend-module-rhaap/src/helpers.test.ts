@@ -3644,10 +3644,10 @@ describe('helpers', () => {
       expect(mockTriggerPipeline).toHaveBeenCalledWith('org/repo', 'main', [
         { key: 'EE_DIR', value: 'my/ee' },
         { key: 'EE_FILE_NAME', value: 'ee.yml' },
-        { key: 'EE_REGISTRY', value: 'quay.io/org' },
-        { key: 'EE_IMAGE_NAME', value: 'my-img' },
+        { key: 'REGISTRY', value: 'quay.io/org' },
+        { key: 'IMAGE_NAME', value: 'my-img' },
         { key: 'IMAGE_BUILD_TAG', value: 'latest' },
-        { key: 'REGISTRY_TLS_VERIFY', value: 'true' },
+        { key: 'EE_REGISTRY_TLS_VERIFY', value: 'true' },
       ]);
     });
   });

@@ -820,10 +820,10 @@ export async function dispatchEeBuildGitlab(
   const glResp = await gitlabClient.triggerPipeline(gl.projectPath, gl.ref, [
     { key: 'EE_DIR', value: eeDir },
     { key: 'EE_FILE_NAME', value: eeFileName },
-    { key: 'EE_REGISTRY', value: parsedBody.customRegistryUrl },
-    { key: 'EE_IMAGE_NAME', value: parsedBody.imageName },
+    { key: 'REGISTRY', value: parsedBody.customRegistryUrl },
+    { key: 'IMAGE_NAME', value: parsedBody.imageName },
     { key: 'IMAGE_BUILD_TAG', value: parsedBody.imageTag },
-    { key: 'REGISTRY_TLS_VERIFY', value: String(parsedBody.verifyTls) },
+    { key: 'EE_REGISTRY_TLS_VERIFY', value: String(parsedBody.verifyTls) },
   ]);
 
   if (!glResp.ok) {
