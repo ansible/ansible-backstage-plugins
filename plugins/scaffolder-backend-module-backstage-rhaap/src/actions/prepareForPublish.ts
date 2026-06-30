@@ -81,7 +81,8 @@ export function prepareForPublishAction(options: { rootConfig: Config }) {
         });
 
         const scmProvider = sourceControlProvider.toLowerCase() as
-          'github' | 'gitlab';
+          | 'github'
+          | 'gitlab';
         const scmClient = await scmClientFactory.createClient({
           scmProvider,
           organization: repositoryOwner,

@@ -155,19 +155,29 @@ export function createEEDefinitionAction(options: {
         const allPackages = mergePackages(systemPackages, parsedSystemPackages);
 
         logger.debug(
-          `[ansible:create:ee-definition] collections: ${JSON.stringify(allCollections)}`,
+          `[ansible:create:ee-definition] collections: ${JSON.stringify(
+            allCollections,
+          )}`,
         );
         logger.debug(
-          `[ansible:create:ee-definition] scmCollections: ${JSON.stringify(transformedScmCollections)}`,
+          `[ansible:create:ee-definition] scmCollections: ${JSON.stringify(
+            transformedScmCollections,
+          )}`,
         );
         logger.debug(
-          `[ansible:create:ee-definition] pythonRequirements: ${JSON.stringify(allRequirements)}`,
+          `[ansible:create:ee-definition] pythonRequirements: ${JSON.stringify(
+            allRequirements,
+          )}`,
         );
         logger.debug(
-          `[ansible:create:ee-definition] systemPackages: ${JSON.stringify(allPackages)}`,
+          `[ansible:create:ee-definition] systemPackages: ${JSON.stringify(
+            allPackages,
+          )}`,
         );
         logger.debug(
-          `[ansible:create:ee-definition] additionalBuildSteps: ${JSON.stringify(additionalBuildSteps)}`,
+          `[ansible:create:ee-definition] additionalBuildSteps: ${JSON.stringify(
+            additionalBuildSteps,
+          )}`,
         );
 
         const pahBaseUrl =
@@ -611,7 +621,9 @@ function transformScmCollections(
       canonicalName,
     );
 
-    const tokenVar = `AAP_EE_BUILDER_${toEnvVarSegment(provider)}_${toEnvVarSegment(canonicalName)}_${toEnvVarSegment(org)}_TOKEN`;
+    const tokenVar = `AAP_EE_BUILDER_${toEnvVarSegment(
+      provider,
+    )}_${toEnvVarSegment(canonicalName)}_${toEnvVarSegment(org)}_TOKEN`;
     const gitUrl = `https://\${${tokenVar}}@${host}/${org}/${repo}`;
 
     if (!seenServers.has(tokenVar)) {
@@ -1091,7 +1103,7 @@ function validateSafeEEDefinitionName(value: string): string {
       '[ansible:create:ee-definition] Invalid eeFileName: path separators are not allowed',
     );
   }
-  const normalized = path.posix.normalize(trimmed.replaceAll(/\\/g, '/'));
+  const normalized = path.posix.normalize(trimmed.replaceAll('\\', '/'));
   if (
     normalized === '.' ||
     normalized === '..' ||
@@ -1170,8 +1182,7 @@ async function patchGitHubWorkflowEeDir(
 
   // Regex over YAML parse+dump to preserve comments, formatting, and anchors
   const patched = content.replace(
-    // NOSONAR — single-line YAML match, no ReDoS risk
-    /^(\s+default:\s*)"\."\s*$/m,
+    /^(\s+default:\s*)"\."\s*$/m, // NOSONAR — single-line YAML match, bounded input, no ReDoS risk
     `$1"${contextDirName}"`,
   );
 

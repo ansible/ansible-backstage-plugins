@@ -366,11 +366,13 @@ export class GitlabClient extends BaseScmClient {
         }
 
         allEntries.push(
-          ...data.map((item): DirectoryEntry => ({
-            name: item.name,
-            path: item.path,
-            type: item.type === 'tree' ? 'dir' : 'file',
-          })),
+          ...data.map(
+            (item): DirectoryEntry => ({
+              name: item.name,
+              path: item.path,
+              type: item.type === 'tree' ? 'dir' : 'file',
+            }),
+          ),
         );
 
         if (data.length < perPage) {

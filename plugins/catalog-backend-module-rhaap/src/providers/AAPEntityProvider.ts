@@ -244,7 +244,9 @@ export class AAPEntityProvider implements EntityProvider {
       for (let i = 0; i < allUsers.length; i += batchSize) {
         const batch = allUsers.slice(i, i + batchSize);
         this.logger.debug(
-          `[${AAPEntityProvider.pluginLogName}]: Processing batch ${Math.floor(i / batchSize) + 1}/${Math.ceil(allUsers.length / batchSize)}`,
+          `[${AAPEntityProvider.pluginLogName}]: Processing batch ${
+            Math.floor(i / batchSize) + 1
+          }/${Math.ceil(allUsers.length / batchSize)}`,
         );
 
         const batchResults = await Promise.allSettled(
@@ -469,7 +471,9 @@ export class AAPEntityProvider implements EntityProvider {
       // Log access type and superuser status
       if (hasDirectOrgAccess) {
         this.logger.info(
-          `User ${username} found in organizations: ${userOrgNames.filter(orgName => this.orgs.includes(orgName)).join(', ')}`,
+          `User ${username} found in organizations: ${userOrgNames
+            .filter(orgName => this.orgs.includes(orgName))
+            .join(', ')}`,
         );
       } else if (hasTeamAccess) {
         this.logger.info(
@@ -564,12 +568,16 @@ export class AAPEntityProvider implements EntityProvider {
       const superusers = await this.getSuperusers();
       const aapAdminsGroup = this.createAapAdminsGroup(superusers);
       this.logger.info(
-        `Updated aap-admins group ${context}${username ? ` for ${username}` : ''}`,
+        `Updated aap-admins group ${context}${
+          username ? ' for ' + username : ''
+        }`,
       );
       return aapAdminsGroup;
     } catch (groupError) {
       this.logger.warn(
-        `Failed to update aap-admins group ${context}${username ? ` for ${username}` : ''}: ${groupError}`,
+        `Failed to update aap-admins group ${context}${
+          username ? ' for ' + username : ''
+        }: ${groupError}`,
       );
       return null;
     }
@@ -589,7 +597,9 @@ export class AAPEntityProvider implements EntityProvider {
     );
 
     this.logger.info(
-      `🚀 Creating aap-admins group with ${memberNames.length} current superusers: ${memberNames.join(', ')}`,
+      `🚀 Creating aap-admins group with ${
+        memberNames.length
+      } current superusers: ${memberNames.join(', ')}`,
     );
 
     // Create group entity with dynamic member list
@@ -602,8 +612,12 @@ export class AAPEntityProvider implements EntityProvider {
         description:
           'Ansible Automation Platform Superusers - Dynamically managed',
         annotations: {
-          'backstage.io/managed-by-location': `${this.getProviderName()}:${this.env}`,
-          'backstage.io/managed-by-origin-location': `${this.getProviderName()}:${this.env}`,
+          'backstage.io/managed-by-location': `${this.getProviderName()}:${
+            this.env
+          }`,
+          'backstage.io/managed-by-origin-location': `${this.getProviderName()}:${
+            this.env
+          }`,
           'aap.platform/managed': 'true',
           'aap.platform/last-sync': new Date().toISOString(),
         },

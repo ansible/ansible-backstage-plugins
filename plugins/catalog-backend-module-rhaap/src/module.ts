@@ -61,7 +61,7 @@ export const catalogModuleRhaap = createBackendModule({
                 typeof value === 'string' &&
                 value.length >= 1 &&
                 value.length <= 63 &&
-                /^[\w@+._-]+$/i.test(value)
+                /^[\w@+.\-]+$/i.test(value)
               );
             },
           }),

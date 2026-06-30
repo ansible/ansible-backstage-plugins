@@ -162,7 +162,7 @@ export const EEDetailsPage: React.FC = () => {
     scmProvider,
     closeDialog,
   } = useEEBuildFlow();
-  const [entity, setEntity] = useState<Entity | null | undefined>(undefined);
+  const [entity, setEntity] = useState<Entity | null | undefined>(undefined); // NOSONAR — tri-state: undefined=loading, Entity=found, null=not found
   const [menuid, setMenuId] = useState<string>('');
   const [defaultReadme, setDefaultReadme] = useState<string>('');
   const [fetchedDefinition, setFetchedDefinition] = useState<string | null>(
@@ -370,7 +370,8 @@ export const EEDetailsPage: React.FC = () => {
   /** URL to edit the EE definition file (e.g. test-2.yml), not catalog-info.yaml */
   const getDefinitionEditUrl = useCallback(() => {
     const editUrl = entity?.metadata?.annotations?.[ANNOTATION_EDIT_URL] as
-      string | undefined;
+      | string
+      | undefined;
     if (!editUrl) return null;
     const eeName = entity?.metadata?.name;
     if (!eeName) {

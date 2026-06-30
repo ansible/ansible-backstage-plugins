@@ -198,17 +198,17 @@ async function createUserInCatalog(
         body: JSON.stringify({ username, userID }),
       });
 
-      if (!response.ok) {
+      if (response.ok) {
+        const responseData = await response.text();
+        console.log(
+          `[Auth Resolver] Successfully created user ${username}: ${responseData}`,
+        );
+      } else {
         const errorText = await response.text();
         console.error(
           `[Auth Resolver] Failed to create user ${username}: ${response.status} ${errorText}`,
         );
         throw new Error(`Failed to create user: ${errorText}`);
-      } else {
-        const responseData = await response.text();
-        console.log(
-          `[Auth Resolver] Successfully created user ${username}: ${responseData}`,
-        );
       }
     } catch (syncError) {
       console.error(
