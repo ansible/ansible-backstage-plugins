@@ -79,6 +79,11 @@ export default defineConfig({
     },
   ],
 
+  // Global teardown — clean up non-admin test user
+  globalTeardown: process.env.AAP_NONADMIN_USER_ID
+    ? require.resolve('./playwright/global-teardown')
+    : undefined,
+
   // Output directories
   outputDir: 'playwright-results/test-artifacts',
 });
