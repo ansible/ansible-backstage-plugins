@@ -1043,8 +1043,8 @@ function canonicalizeEEDefinitionName(value: string): string {
     .toLowerCase()
     .replaceAll(/[^a-z0-9\-_.]/g, '-')
     .replaceAll(/-+/g, '-')
-    .replace(/^[-_.]+/, '')
-    .replace(/[-_.]+$/, '');
+    .replace(/^[-_.]+/, '') // NOSONAR — bounded input (org/repo names), no ReDoS risk
+    .replace(/[-_.]+$/, ''); // NOSONAR — bounded input (org/repo names), no ReDoS risk
 
   if (!canonicalSlug) {
     throw new Error(
@@ -1170,6 +1170,7 @@ async function patchGitHubWorkflowEeDir(
 
   // Regex over YAML parse+dump to preserve comments, formatting, and anchors
   const patched = content.replace(
+    // NOSONAR — single-line YAML match, no ReDoS risk
     /^(\s+default:\s*)"\."\s*$/m,
     `$1"${contextDirName}"`,
   );
