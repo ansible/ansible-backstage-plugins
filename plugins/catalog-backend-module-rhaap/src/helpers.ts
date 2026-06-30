@@ -744,8 +744,8 @@ export async function dispatchEeBuild(
       ee_file_name: eeFileName,
       ee_registry: parsedBody.customRegistryUrl,
       ee_image_name: parsedBody.imageName,
-      image_build_tag: parsedBody.imageTag,
-      registry_tls_verify: String(parsedBody.verifyTls),
+      ee_image_build_tag: parsedBody.imageTag,
+      ee_registry_tls_verify: String(parsedBody.verifyTls),
     },
   );
 
@@ -822,8 +822,8 @@ export async function dispatchEeBuildGitlab(
     { key: 'EE_FILE_NAME', value: eeFileName },
     { key: 'EE_REGISTRY', value: parsedBody.customRegistryUrl },
     { key: 'EE_IMAGE_NAME', value: parsedBody.imageName },
-    { key: 'IMAGE_BUILD_TAG', value: parsedBody.imageTag },
-    { key: 'REGISTRY_TLS_VERIFY', value: String(parsedBody.verifyTls) },
+    { key: 'EE_IMAGE_BUILD_TAG', value: parsedBody.imageTag },
+    { key: 'EE_REGISTRY_TLS_VERIFY', value: String(parsedBody.verifyTls) },
   ]);
 
   if (!glResp.ok) {
