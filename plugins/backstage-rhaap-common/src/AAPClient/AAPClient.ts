@@ -34,6 +34,7 @@ import {
   InstanceGroup,
 } from '../interfaces';
 
+import { TERMINAL_JOB_STATUSES } from '../constants';
 import { getAnsibleConfig, getCatalogConfig } from './utils/config';
 import { buildLaunchPayload } from './utils/jobTemplateHelpers';
 import {
@@ -65,6 +66,7 @@ export interface IAAPService extends Pick<
   | 'launchJobTemplate'
   | 'launchJobTemplateNoWait'
   | 'getJobStatus'
+  | 'cancelJob'
   | 'cleanUp'
   | 'checkControllerAvailability'
   | 'getResourceData'
@@ -601,11 +603,7 @@ export class AAPClient implements IAAPService {
       const jobDetailResponse = await this.executeGetRequest(endPoint, token);
       jobDetailResponseData = await jobDetailResponse.json();
       const status = jobDetailResponseData.status;
-      if (
-        ['successful', 'failed', 'error', 'canceled'].includes(
-          status.toString().toLowerCase(),
-        )
-      ) {
+      if (TERMINAL_JOB_STATUSES.has(status.toString().toLowerCase())) {
         shouldWait = false;
         break;
       }
@@ -761,11 +759,7 @@ export class AAPClient implements IAAPService {
         url: `${this.getBaseUrl()}/execution/jobs/playbook/${jobID}/output`,
       };
 
-      if (
-        ['successful', 'failed', 'error', 'canceled'].includes(
-          jobData.status?.toLowerCase(),
-        )
-      ) {
+      if (TERMINAL_JOB_STATUSES.has(jobData.status?.toLowerCase())) {
         result.events = await this.fetchEvents(jobID, token);
         result.finishedAt = jobData.finished;
       }
@@ -775,6 +769,48 @@ export class AAPClient implements IAAPService {
       this.logger.error(
         `Failed to fetch job status for job ${jobID}: ${error}`,
       );
+      throw error;
+    }
+  }
+
+  private async isJobTerminal(
+    jobID: number,
+    token: string,
+  ): Promise<{ isTerminal: boolean; status: string }> {
+    const endPoint = `api/controller/v2/jobs/${jobID}/`;
+    const response = await this.executeGetRequest(endPoint, token);
+    const jobData = await response.json();
+    const status = jobData.status?.toLowerCase() ?? '';
+    return {
+      isTerminal: TERMINAL_JOB_STATUSES.has(status),
+      status: jobData.status,
+    };
+  }
+
+  public async cancelJob(jobID: number, token: string): Promise<void> {
+    const { isTerminal, status } = await this.isJobTerminal(jobID, token);
+    if (isTerminal) {
+      this.logger.info(
+        `Job ${jobID} already in terminal state (${status}) on AAP - skipping cancel`,
+      );
+      return;
+    }
+
+    const endPoint = `api/controller/v2/jobs/${jobID}/cancel/`;
+    try {
+      await this.executePostRequest(endPoint, token);
+      this.logger.info(`Job ${jobID} cancelled successfully on AAP`);
+    } catch (error) {
+      const latestState = await this.isJobTerminal(jobID, token).catch(
+        () => undefined,
+      );
+      if (latestState?.isTerminal) {
+        this.logger.info(
+          `Job ${jobID} reached terminal state (${latestState.status}) before cancel completed`,
+        );
+        return;
+      }
+      this.logger.error(`Failed to cancel job ${jobID}: ${error}`);
       throw error;
     }
   }

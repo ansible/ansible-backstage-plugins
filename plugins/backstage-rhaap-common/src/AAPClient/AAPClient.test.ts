@@ -3,6 +3,7 @@ import { LoggerService } from '@backstage/backend-plugin-api';
 import { AAPClient } from './AAPClient';
 import { fetch } from 'undici';
 import { AnsibleConfig } from '../types';
+import { TERMINAL_JOB_STATUSES } from '../constants';
 import { mockJobTemplateResponse, mockSurveyResponse } from './mockData';
 
 jest.mock('undici', () => ({
@@ -4476,7 +4477,7 @@ describe('AAPClient', () => {
     });
 
     it('should handle all terminal statuses', async () => {
-      const statuses = ['successful', 'failed', 'error', 'canceled'];
+      const statuses = [...TERMINAL_JOB_STATUSES];
 
       for (const status of statuses) {
         jest.clearAllMocks();
@@ -4559,6 +4560,133 @@ describe('AAPClient', () => {
 
       await expect(clientNoToken.getJobStatus(123, '')).rejects.toThrow(
         'User OAuth token is required for job status',
+      );
+    });
+  });
+
+  describe('cancelJob', () => {
+    beforeEach(() => {
+      mockFetch = fetch as jest.Mock;
+    });
+
+    const mockRunningStatusResponse = {
+      ok: true,
+      json: jest.fn().mockResolvedValue({ status: 'running' }),
+    };
+
+    it('should send POST to cancel endpoint', async () => {
+      const mockCancelResponse = {
+        ok: true,
+        json: jest.fn().mockResolvedValue({}),
+      };
+      mockFetch
+        .mockResolvedValueOnce(mockRunningStatusResponse)
+        .mockResolvedValueOnce(mockCancelResponse);
+
+      await client.cancelJob(789, 'test-token');
+
+      expect(mockFetch).toHaveBeenCalledWith(
+        'https://test.example.com/api/controller/v2/jobs/789/cancel/',
+        expect.objectContaining({
+          method: 'POST',
+          headers: expect.objectContaining({
+            Authorization: 'Bearer test-token',
+          }),
+        }),
+      );
+    });
+
+    it('should log success after cancel request', async () => {
+      const mockCancelResponse = {
+        ok: true,
+        json: jest.fn().mockResolvedValue({}),
+      };
+      mockFetch
+        .mockResolvedValueOnce(mockRunningStatusResponse)
+        .mockResolvedValueOnce(mockCancelResponse);
+
+      await client.cancelJob(789, 'test-token');
+
+      expect(mockLogger.info).toHaveBeenCalledWith(
+        'Job 789 cancelled successfully on AAP',
+      );
+    });
+
+    it('should skip cancel when job is already in terminal state', async () => {
+      const mockSuccessfulResponse = {
+        ok: true,
+        json: jest.fn().mockResolvedValue({ status: 'successful' }),
+      };
+      mockFetch.mockResolvedValueOnce(mockSuccessfulResponse);
+
+      await client.cancelJob(789, 'test-token');
+
+      expect(mockLogger.info).toHaveBeenCalledWith(
+        'Job 789 already in terminal state (successful) on AAP - skipping cancel',
+      );
+      expect(mockFetch).toHaveBeenCalledTimes(1);
+      expect(mockFetch).not.toHaveBeenCalledWith(
+        expect.stringContaining('/cancel/'),
+        expect.anything(),
+      );
+    });
+
+    it('should throw and log error when cancel fails and job is still running', async () => {
+      mockFetch
+        .mockResolvedValueOnce(mockRunningStatusResponse)
+        .mockRejectedValueOnce(new Error('Network error'))
+        .mockResolvedValueOnce(mockRunningStatusResponse);
+
+      await expect(client.cancelJob(789, 'test-token')).rejects.toThrow(
+        'Failed to send POST request: Network error',
+      );
+
+      expect(mockLogger.error).toHaveBeenCalledWith(
+        expect.stringContaining('Failed to cancel job 789'),
+      );
+    });
+
+    it('should succeed when job finishes between status check and cancel POST', async () => {
+      const mockMethodNotAllowed = {
+        ok: false,
+        status: 405,
+        statusText: 'Method Not Allowed',
+        json: jest.fn().mockResolvedValue({
+          detail: 'Method "POST" not allowed.',
+        }),
+      };
+      const mockCompletedResponse = {
+        ok: true,
+        json: jest.fn().mockResolvedValue({ status: 'successful' }),
+      };
+      mockFetch
+        .mockResolvedValueOnce(mockRunningStatusResponse)
+        .mockResolvedValueOnce(mockMethodNotAllowed)
+        .mockResolvedValueOnce(mockCompletedResponse);
+
+      await client.cancelJob(789, 'test-token');
+
+      expect(mockLogger.info).toHaveBeenCalledWith(
+        'Job 789 reached terminal state (successful) before cancel completed',
+      );
+    });
+
+    it('should throw on 403 forbidden', async () => {
+      const mockForbiddenResponse = {
+        ok: false,
+        status: 403,
+        statusText: 'Forbidden',
+        json: jest.fn().mockResolvedValue({
+          detail: 'Insufficient privileges',
+        }),
+      };
+      mockFetch
+        .mockResolvedValueOnce(mockRunningStatusResponse)
+        .mockResolvedValueOnce(mockForbiddenResponse)
+        .mockResolvedValueOnce(mockRunningStatusResponse);
+
+      await expect(client.cancelJob(789, 'test-token')).rejects.toThrow(
+        'Insufficient privileges',
       );
     });
   });
