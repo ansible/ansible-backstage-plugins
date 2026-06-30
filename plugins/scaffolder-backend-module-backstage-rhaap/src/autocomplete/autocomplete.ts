@@ -58,7 +58,7 @@ export async function handleAutocompleteRequest({
     });
   }
 
-  await ansibleService.setLogger(logger);
+  ansibleService.setLogger(logger);
 
   try {
     const serviceToken = ansibleConfig.rhaap?.token ?? null;
