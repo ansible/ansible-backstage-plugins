@@ -132,7 +132,7 @@ export const CatalogItemsDetails = () => {
         </Header>
         <UnregisterEntityDialog
           open={confirmationDialogOpen}
-          entity={task!}
+          entity={task}
           onConfirm={cleanUpAfterRemoval}
           onClose={() => setConfirmationDialogOpen(false)}
         />
@@ -161,8 +161,8 @@ export const CatalogItemsDetails = () => {
                           <Typography variant="h6" gutterBottom>
                             Links
                           </Typography>
-                          {task.metadata.links.map((link, index) => (
-                            <Box key={index} sx={{ marginBottom: 1 }}>
+                          {task.metadata.links.map(link => (
+                            <Box key={link.url} sx={{ marginBottom: 1 }}>
                               <Link
                                 href={link.url}
                                 target="_blank"
@@ -226,7 +226,9 @@ export const CatalogItemsDetails = () => {
                             >
                               Owner
                             </Typography>{' '}
-                            {String(task?.spec?.owner) || '/'}
+                            {typeof task?.spec?.owner === 'string'
+                              ? task.spec.owner
+                              : '/'}
                           </Typography>
                         </Grid>
                         <Grid item xs={12} lg={6}>
@@ -244,7 +246,9 @@ export const CatalogItemsDetails = () => {
                               Type
                             </Typography>{' '}
                             <span style={{ textTransform: 'capitalize' }}>
-                              {String(task?.spec?.type) || '/'}
+                              {typeof task?.spec?.type === 'string'
+                                ? task.spec.type
+                                : '/'}
                             </span>
                           </Typography>
                         </Grid>
@@ -262,12 +266,8 @@ export const CatalogItemsDetails = () => {
                             >
                               Tags
                             </Typography>
-                            {task?.metadata?.tags?.map((tag, index) => (
-                              <Chip
-                                label={tag}
-                                key={index}
-                                variant="outlined"
-                              />
+                            {task?.metadata?.tags?.map(tag => (
+                              <Chip label={tag} key={tag} variant="outlined" />
                             ))}
                           </Typography>
                         </Grid>

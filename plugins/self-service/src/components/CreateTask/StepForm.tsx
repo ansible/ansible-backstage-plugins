@@ -83,6 +83,131 @@ function computeMergedDefaultsFromSteps(
   return merged;
 }
 
+const extractUiFromProperty = (property: any): Record<string, any> | null => {
+  if (!property) return null;
+
+  const ui: Record<string, any> = {};
+  let hasUiProperties = false;
+
+  for (const key of Object.keys(property)) {
+    if (key.startsWith('ui:')) {
+      ui[key] = property[key];
+      hasUiProperties = true;
+    }
+  }
+
+  if (property.ui && typeof property.ui === 'object') {
+    for (const uiKey of Object.keys(property.ui)) {
+      const uiPropertyKey = `ui:${uiKey}`;
+      if (!ui[uiPropertyKey]) {
+        ui[uiPropertyKey] = property.ui[uiKey];
+        hasUiProperties = true;
+      }
+    }
+  }
+  return hasUiProperties ? ui : null;
+};
+
+const extractUiFromBranch = (
+  branchProperties: Record<string, any>,
+  excludeKey: string,
+  uiSchema: Record<string, any>,
+): void => {
+  for (const key of Object.keys(branchProperties)) {
+    if (key === excludeKey) continue;
+    const ui = extractUiFromProperty(branchProperties[key]);
+    if (ui) {
+      uiSchema[key] = ui;
+    }
+  }
+};
+
+const extractUiFromDependencies = (
+  dependencies: Record<string, any>,
+  uiSchema: Record<string, any>,
+): void => {
+  for (const depKey of Object.keys(dependencies)) {
+    const branches = dependencies[depKey]?.oneOf;
+    if (!Array.isArray(branches)) continue;
+    for (const branch of branches) {
+      if (branch.properties) {
+        extractUiFromBranch(branch.properties, depKey, uiSchema);
+      }
+    }
+  }
+};
+
+const extractUiFromAllOf = (
+  allOf: any[],
+  uiSchema: Record<string, any>,
+): void => {
+  for (const condition of allOf) {
+    if (!condition.then?.properties) continue;
+    for (const key of Object.keys(condition.then.properties)) {
+      const ui = extractUiFromProperty(condition.then.properties[key]);
+      if (ui) {
+        uiSchema[key] = ui;
+      }
+    }
+  }
+};
+
+const extractUiSchema = (
+  properties: Record<string, any>,
+  dependencies?: Record<string, any>,
+  allOf?: any[],
+): Record<string, any> => {
+  const uiSchema: Record<string, any> = {};
+
+  if (!properties) return uiSchema;
+
+  for (const key of Object.keys(properties)) {
+    const property = properties[key];
+    const ui = extractUiFromProperty(property);
+    if (ui) {
+      uiSchema[key] = ui;
+    }
+
+    if (property?.type === 'object' && property?.properties) {
+      const nestedUi = extractUiSchema(
+        property.properties,
+        property.dependencies,
+        property.allOf,
+      );
+      if (Object.keys(nestedUi).length > 0) {
+        uiSchema[key] = { ...uiSchema[key], ...nestedUi };
+      }
+    }
+  }
+
+  if (dependencies) {
+    extractUiFromDependencies(dependencies, uiSchema);
+  }
+
+  if (allOf && Array.isArray(allOf)) {
+    extractUiFromAllOf(allOf, uiSchema);
+  }
+
+  return uiSchema;
+};
+
+const formatArrayForDisplay = (val: any[]): string => {
+  if (val.length === 0) return '';
+  if (typeof val[0] === 'string') {
+    return val.join(', ');
+  }
+  if (typeof val[0] === 'object' && val[0]?.name) {
+    return val.map(el => el.name).join(', ');
+  }
+  return val
+    .map(el =>
+      typeof el === 'object' && el !== null
+        ? el.name || JSON.stringify(el)
+        : String(el),
+    )
+    .join(', ');
+};
+
 interface StepFormProps {
   steps: Array<{
     title: string;
@@ -652,95 +777,6 @@ export const StepForm = ({
 
   // Don't return early if no filtered steps - we still want to show the review step
 
-  const extractUiFromProperty = (property: any): Record<string, any> | null => {
-    if (!property) return null;
-
-    const ui: Record<string, any> = {};
-    let hasUiProperties = false;
-
-    for (const key of Object.keys(property)) {
-      if (key.startsWith('ui:')) {
-        ui[key] = property[key];
-        hasUiProperties = true;
-      }
-    }
-
-    if (property.ui && typeof property.ui === 'object') {
-      for (const uiKey of Object.keys(property.ui)) {
-        const uiPropertyKey = `ui:${uiKey}`;
-        if (!ui[uiPropertyKey]) {
-          ui[uiPropertyKey] = property.ui[uiKey];
-          hasUiProperties = true;
-        }
-      }
-    }
-    return hasUiProperties ? ui : null;
-  };
-
-  const extractUiSchema = (
-    properties: Record<string, any>,
-    dependencies?: Record<string, any>,
-    allOf?: any[],
-  ): Record<string, any> => {
-    const uiSchema: Record<string, any> = {};
-
-    if (!properties) return uiSchema;
-
-    for (const key of Object.keys(properties)) {
-      const property = properties[key];
-      const ui = extractUiFromProperty(property);
-      if (ui) {
-        uiSchema[key] = ui;
-      }
-
-      if (property?.type === 'object' && property?.properties) {
-        const nestedUi = extractUiSchema(
-          property.properties,
-          property.dependencies,
-          property.allOf,
-        );
-        if (Object.keys(nestedUi).length > 0) {
-          uiSchema[key] = { ...uiSchema[key], ...nestedUi };
-        }
-      }
-    }
-
-    if (dependencies) {
-      for (const depKey of Object.keys(dependencies)) {
-        const dependency = dependencies[depKey];
-        if (dependency.oneOf && Array.isArray(dependency.oneOf)) {
-          for (const branch of dependency.oneOf) {
-            if (branch.properties) {
-              for (const key of Object.keys(branch.properties)) {
-                if (key !== depKey) {
-                  const ui = extractUiFromProperty(branch.properties[key]);
-                  if (ui) {
-                    uiSchema[key] = ui;
-                  }
-                }
-              }
-            }
-          }
-        }
-      }
-    }
-
-    if (allOf && Array.isArray(allOf)) {
-      for (const condition of allOf) {
-        if (condition.then?.properties) {
-          for (const key of Object.keys(condition.then.properties)) {
-            const ui = extractUiFromProperty(condition.then.properties[key]);
-            if (ui) {
-              uiSchema[key] = ui;
-            }
-          }
-        }
-      }
-    }
-
-    return uiSchema;
-  };
-
   const extractProperties = (step: any) => {
     if (!step?.schema) {
       return {};
@@ -810,20 +846,7 @@ export const StepForm = ({
     }
 
     if (Array.isArray(val)) {
-      if (val.length === 0) return '';
-      if (typeof val[0] === 'string') {
-        return val.join(', ');
-      }
-      if (typeof val[0] === 'object' && val[0]?.name) {
-        return val.map(el => el.name).join(', ');
-      }
-      return val
-        .map(el =>
-          typeof el === 'object' && el !== null
-            ? el.name || JSON.stringify(el)
-            : String(el),
-        )
-        .join(', ');
+      return formatArrayForDisplay(val);
     }
 
     if (typeof val === 'boolean') {
@@ -917,54 +940,57 @@ export const StepForm = ({
     <div>
       <SecretsContextProvider>
         <Stepper activeStep={activeStep} orientation="vertical">
-          {filteredSteps.map((step, index) => (
-            <Step key={index} completed={activeStep > index}>
-              <StepLabel>{step.title}</StepLabel>
-              <StepContent>
-                {activeStep === index ? (
-                  <FieldValidationProvider>
-                    <ScaffolderForm
-                      schema={{
-                        ...stripSchemaDefaultsForUiFieldProps(
-                          filteredSteps[index].schema,
-                        ),
-                        title: '',
-                      }}
-                      uiSchema={extractProperties(step)}
-                      formData={formData}
-                      fields={fields}
-                      onChange={(data: IChangeEvent<any>) =>
-                        handleFormChange(index, data)
-                      }
-                      onSubmit={(data: IChangeEvent<any>) =>
-                        handleFormSubmit(index, data)
-                      }
-                      validator={validator}
-                      experimental_defaultFormStateBehavior={
-                        MERGE_DEFAULTS_BEHAVIOR
-                      }
-                    >
-                      <ScaffolderFieldExtensions>
-                        <EntityPickerFieldExtension />
-                      </ScaffolderFieldExtensions>
-                      <div style={{ marginTop: '25px' }}>
-                        {index > 0 && (
-                          <Button
-                            onClick={handleBack}
-                            style={{ marginRight: '10px' }}
-                            variant="outlined"
-                          >
-                            Back
-                          </Button>
-                        )}
-                        <SubmitButton />
-                      </div>
-                    </ScaffolderForm>
-                  </FieldValidationProvider>
-                ) : null}
-              </StepContent>
-            </Step>
-          ))}
+          {filteredSteps.map((step, index) => {
+            const stepKey = `${step.title}-${index}`;
+            return (
+              <Step key={stepKey} completed={activeStep > index}>
+                <StepLabel>{step.title}</StepLabel>
+                <StepContent>
+                  {activeStep === index ? (
+                    <FieldValidationProvider>
+                      <ScaffolderForm
+                        schema={{
+                          ...stripSchemaDefaultsForUiFieldProps(
+                            filteredSteps[index].schema,
+                          ),
+                          title: '',
+                        }}
+                        uiSchema={extractProperties(step)}
+                        formData={formData}
+                        fields={fields}
+                        onChange={(data: IChangeEvent<any>) =>
+                          handleFormChange(index, data)
+                        }
+                        onSubmit={(data: IChangeEvent<any>) =>
+                          handleFormSubmit(index, data)
+                        }
+                        validator={validator}
+                        experimental_defaultFormStateBehavior={
+                          MERGE_DEFAULTS_BEHAVIOR
+                        }
+                      >
+                        <ScaffolderFieldExtensions>
+                          <EntityPickerFieldExtension />
+                        </ScaffolderFieldExtensions>
+                        <div style={{ marginTop: '25px' }}>
+                          {index > 0 && (
+                            <Button
+                              onClick={handleBack}
+                              style={{ marginRight: '10px' }}
+                              variant="outlined"
+                            >
+                              Back
+                            </Button>
+                          )}
+                          <SubmitButton />
+                        </div>
+                      </ScaffolderForm>
+                    </FieldValidationProvider>
+                  ) : null}
+                </StepContent>
+              </Step>
+            );
+          })}
           {/* Review Step */}
           <Step>
             <StepLabel>Review</StepLabel>
@@ -977,6 +1003,7 @@ export const StepForm = ({
                 <Table style={{ border: 0 }}>
                   <TableBody style={{ border: 0 }}>
                     {steps.flatMap((step, stepIndex) => {
+                      const reviewStepKey = `${step.title}-${stepIndex}`;
                       const allProperties = getAllProperties(step);
                       const propertyRows = Object.entries(
                         allProperties,
@@ -997,7 +1024,7 @@ export const StepForm = ({
                         }
                         const label = getLabel(key, stepIndex);
                         return (
-                          <TableRow key={`${stepIndex}-${key}`}>
+                          <TableRow key={`${reviewStepKey}-${key}`}>
                             <TableCell style={{ border: 0 }}>{label}</TableCell>
                             <TableCell style={{ border: 0 }}>
                               {getReviewValue(key, stepIndex)}
@@ -1009,7 +1036,7 @@ export const StepForm = ({
                       const hasNoValues = propertyRows.length === 0;
 
                       return [
-                        <TableRow key={`${stepIndex}-title`}>
+                        <TableRow key={`${reviewStepKey}-title`}>
                           <TableCell style={{ border: 0 }}>
                             <strong>{step.title}</strong>
                           </TableCell>

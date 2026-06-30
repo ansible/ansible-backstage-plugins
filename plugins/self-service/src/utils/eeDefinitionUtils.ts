@@ -76,6 +76,51 @@ function extractCollections(
 /** Max length for definition YAML to bound parse time. */
 const MAX_DEFINITION_LENGTH = 100_000;
 
+function parsePythonDeps(
+  python: unknown,
+): Pick<ParsedEEDefinition, 'pythonPackages' | 'pythonFileRef'> {
+  if (Array.isArray(python)) {
+    return { pythonPackages: extractStringList(python), pythonFileRef: null };
+  }
+  if (typeof python === 'string' && /\.(?:txt|in)$/.test(python)) {
+    return { pythonPackages: null, pythonFileRef: python.trim() };
+  }
+  return { pythonPackages: null, pythonFileRef: null };
+}
+
+function parseSystemDeps(
+  system: unknown,
+): Pick<ParsedEEDefinition, 'systemPackages' | 'systemFileRef'> {
+  if (Array.isArray(system)) {
+    return { systemPackages: extractStringList(system), systemFileRef: null };
+  }
+  if (isRecord(system) && Array.isArray(system.packages)) {
+    return {
+      systemPackages: extractStringList(system.packages),
+      systemFileRef: null,
+    };
+  }
+  if (typeof system === 'string' && /\.(?:txt|in)$/.test(system)) {
+    return { systemPackages: null, systemFileRef: system.trim() };
+  }
+  return { systemPackages: null, systemFileRef: null };
+}
+
+function parseGalaxyDeps(
+  galaxy: unknown,
+): Pick<ParsedEEDefinition, 'collections' | 'collectionsFileRef'> {
+  if (isRecord(galaxy)) {
+    return {
+      collections: extractCollections(galaxy),
+      collectionsFileRef: null,
+    };
+  }
+  if (typeof galaxy === 'string' && /\.ya?ml$/.test(galaxy)) {
+    return { collections: [], collectionsFileRef: galaxy.trim() };
+  }
+  return { collections: [], collectionsFileRef: null };
+}
+
 /**
  * Parse EE definition YAML content.
  * Returns null if definition is empty or invalid.
@@ -90,51 +135,16 @@ export function parseEEDefinition(
     const doc = yaml.load(definitionYaml);
     if (!isRecord(doc)) return null;
 
-    const result: ParsedEEDefinition = {
-      baseImageName: null,
-      collections: [],
-      pythonPath: null,
-      pythonPackages: null,
-      pythonFileRef: null,
-      systemPackages: null,
-      systemFileRef: null,
-      collectionsFileRef: null,
-    };
-
-    result.baseImageName = extractBaseImageName(doc);
-
     const deps = doc.dependencies;
-    if (!isRecord(deps)) return result;
+    const depsRecord = isRecord(deps) ? deps : undefined;
 
-    result.pythonPath = extractPythonPath(deps);
-
-    // dependencies.python: inline list or file reference
-    const python = deps.python;
-    if (Array.isArray(python)) {
-      result.pythonPackages = extractStringList(python);
-    } else if (typeof python === 'string' && /\.(?:txt|in)$/.test(python)) {
-      result.pythonFileRef = python.trim();
-    }
-
-    // dependencies.system: inline list, object with packages array, or file reference
-    const system = deps.system;
-    if (Array.isArray(system)) {
-      result.systemPackages = extractStringList(system);
-    } else if (isRecord(system) && Array.isArray(system.packages)) {
-      result.systemPackages = extractStringList(system.packages);
-    } else if (typeof system === 'string' && /\.(?:txt|in)$/.test(system)) {
-      result.systemFileRef = system.trim();
-    }
-
-    // dependencies.galaxy: inline collections or file reference
-    const galaxy = deps.galaxy;
-    if (isRecord(galaxy)) {
-      result.collections = extractCollections(galaxy);
-    } else if (typeof galaxy === 'string' && /\.ya?ml$/.test(galaxy)) {
-      result.collectionsFileRef = galaxy.trim();
-    }
-
-    return result;
+    return {
+      baseImageName: extractBaseImageName(doc),
+      pythonPath: depsRecord ? extractPythonPath(depsRecord) : null,
+      ...parsePythonDeps(depsRecord?.python),
+      ...parseSystemDeps(depsRecord?.system),
+      ...parseGalaxyDeps(depsRecord?.galaxy),
+    };
   } catch {
     return null;
   }

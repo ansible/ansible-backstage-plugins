@@ -116,7 +116,7 @@ describe('FileUploadPickerExtension', () => {
       render(<FileUploadPickerExtension {...props} />);
       // "Upload File" appears in both title and button
       const uploadFileElements = screen.getAllByText('Upload File');
-      expect(uploadFileElements.length).toBe(2);
+      expect(uploadFileElements).toHaveLength(2);
       // Verify the title is present (first element should be the title)
       expect(uploadFileElements[0]).toBeInTheDocument();
     });
