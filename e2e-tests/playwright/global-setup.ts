@@ -11,9 +11,9 @@ async function globalSetup(config: FullConfig) {
   if (process.env.AAP_NONADMIN_USER_ID && process.env.AAP_TOKEN) {
     try {
       await createNonAdminTestUser();
-    } catch (err) {
+    } catch {
       console.log(
-        `[Global Setup] Non-admin user creation failed: ${err}. Tests using non-admin fixture will fail.`,
+        '[Global Setup] Non-admin user creation failed. Tests using non-admin fixture will fail.',
       );
     }
   }

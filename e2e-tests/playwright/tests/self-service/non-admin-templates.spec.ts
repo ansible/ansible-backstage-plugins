@@ -12,9 +12,7 @@ test.describe('Non-admin user: Templates page', () => {
   }) => {
     const bodyText = (await page.locator('body').textContent()) ?? '';
     expect(bodyText).not.toContain('Insufficient privileges');
-    expect(bodyText).not.toContain(
-      'Please contact your administrator',
-    );
+    expect(bodyText).not.toContain('Please contact your administrator');
   });
 
   test('Non-admin user can see template cards or empty state', async ({
@@ -22,8 +20,7 @@ test.describe('Non-admin user: Templates page', () => {
   }) => {
     const templateCardSelector =
       '[data-testid*="-"], .MuiCard-root, article, .template';
-    const hasCards =
-      (await page.locator(templateCardSelector).count()) > 0;
+    const hasCards = (await page.locator(templateCardSelector).count()) > 0;
     const hasEmptyState = await page
       .getByText(/No templates/i)
       .isVisible()
@@ -122,9 +119,7 @@ test.describe('Non-admin user: Templates page', () => {
   test('"Add Template" button is not visible for non-admin user', async ({
     page,
   }) => {
-    const addTemplateBtn = page.locator(
-      '[data-testid="add-template-button"]',
-    );
+    const addTemplateBtn = page.locator('[data-testid="add-template-button"]');
     await expect(addTemplateBtn).not.toBeVisible();
   });
 });

@@ -50,7 +50,9 @@ export const test = base.extend<{ authenticatedContext: BrowserContext }>({
               await loginPage.waitForTimeout(2000);
             } else {
               throw new Error(
-                `Failed to login as non-admin after ${maxAttempts} attempts: ${(error as Error).message}`,
+                `Failed to login as non-admin after ${maxAttempts} attempts: ${
+                  (error as Error).message
+                }`,
               );
             }
           }

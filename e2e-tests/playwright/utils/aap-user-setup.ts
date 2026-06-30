@@ -5,7 +5,8 @@
  * Requires AAP_URL and AAP_TOKEN (admin token) environment variables.
  */
 
-process.env.NODE_TLS_REJECT_UNAUTHORIZED = '0';
+// Allow self-signed certificates in test environments
+process.env.NODE_TLS_REJECT_UNAUTHORIZED = '0'; // CodeQL[js/disabling-certificate-validation] — test-only AAP instances use self-signed certs
 
 const AAP_API = process.env.AAP_URL?.replace(/\/+$/, '');
 const AAP_TOKEN = process.env.AAP_TOKEN;
@@ -54,7 +55,7 @@ export async function createNonAdminTestUser(): Promise<TestUser> {
     return { id: 0, username };
   }
 
-  console.log(`[AAP Setup] Creating non-admin user: ${username}`);
+  console.log('[AAP Setup] Creating non-admin test user...');
 
   // Check if user already exists
   const existingUsers = await aapGet(
@@ -62,7 +63,7 @@ export async function createNonAdminTestUser(): Promise<TestUser> {
   );
   if (existingUsers.count > 0) {
     const user = existingUsers.results[0];
-    console.log(`[AAP Setup] User '${username}' already exists (id: ${user.id})`);
+    console.log(`[AAP Setup] User already exists (id: ${user.id})`);
     await ensureOrgMembership(user.id);
     await ensureJobTemplatePermissions(user.id);
     return { id: user.id, username };
@@ -80,7 +81,7 @@ export async function createNonAdminTestUser(): Promise<TestUser> {
 
   if (status === 201 || status === 200) {
     const user = await res.json();
-    console.log(`[AAP Setup] Created user '${username}' (id: ${user.id})`);
+    console.log(`[AAP Setup] Created user (id: ${user.id})`);
     await ensureOrgMembership(user.id);
     await ensureJobTemplatePermissions(user.id);
     return { id: user.id, username };
@@ -89,18 +90,14 @@ export async function createNonAdminTestUser(): Promise<TestUser> {
   if (status === 400) {
     const err = await res.json();
     if (JSON.stringify(err).includes('already exists')) {
-      const users = await aapGet(
-        `api/gateway/v1/users/?username=${username}`,
-      );
+      const users = await aapGet(`api/gateway/v1/users/?username=${username}`);
       const user = users.results[0];
-      console.log(
-        `[AAP Setup] User '${username}' already exists (id: ${user.id})`,
-      );
+      console.log(`[AAP Setup] User already exists (id: ${user.id})`);
       await ensureOrgMembership(user.id);
       await ensureJobTemplatePermissions(user.id);
       return { id: user.id, username };
     }
-    throw new Error(`Failed to create user: ${JSON.stringify(err)}`);
+    throw new Error(`Failed to create user: HTTP 400`);
   }
 
   throw new Error(`Failed to create user: HTTP ${status}`);
@@ -128,9 +125,7 @@ async function ensureOrgMembership(userId: number): Promise<void> {
   );
 
   if (status === 204 || status === 200 || status === 201) {
-    console.log(
-      `[AAP Setup] Added user to org '${orgName}' (id: ${orgId})`,
-    );
+    console.log(`[AAP Setup] Added user to org '${orgName}' (id: ${orgId})`);
   } else if (status === 409 || status === 400) {
     console.log(`[AAP Setup] User already in org '${orgName}'`);
   } else {
@@ -142,9 +137,7 @@ async function ensureOrgMembership(userId: number): Promise<void> {
 
 async function ensureJobTemplatePermissions(userId: number): Promise<void> {
   // Get job templates to assign execute permission
-  const templates = await aapGet(
-    'api/gateway/v1/job_templates/?page_size=5',
-  );
+  const templates = await aapGet('api/gateway/v1/job_templates/?page_size=5');
   if (templates.count === 0) {
     console.log(
       '[AAP Setup] No job templates found, skipping permission assignment',
@@ -174,9 +167,9 @@ async function ensureJobTemplatePermissions(userId: number): Promise<void> {
           `[AAP Setup] Assigned '${executeRole.name}' on template '${template.name}': ${status}`,
         );
       }
-    } catch (err) {
+    } catch {
       console.log(
-        `[AAP Setup] Could not assign role on template '${template.name}': ${err}`,
+        `[AAP Setup] Could not assign role on template '${template.name}'`,
       );
     }
   }
@@ -187,20 +180,13 @@ export async function deleteNonAdminTestUser(): Promise<void> {
   if (!AAP_API || !AAP_TOKEN || !username) return;
 
   try {
-    const users = await aapGet(
-      `api/gateway/v1/users/?username=${username}`,
-    );
+    const users = await aapGet(`api/gateway/v1/users/?username=${username}`);
     if (users.count === 0) return;
 
     const userId = users.results[0].id;
-    const res = await aapRequest(
-      'DELETE',
-      `api/gateway/v1/users/${userId}/`,
-    );
-    console.log(
-      `[AAP Teardown] Deleted user '${username}': ${res.status}`,
-    );
-  } catch (err) {
-    console.log(`[AAP Teardown] Could not delete user '${username}': ${err}`);
+    const res = await aapRequest('DELETE', `api/gateway/v1/users/${userId}/`);
+    console.log(`[AAP Teardown] Deleted test user: ${res.status}`);
+  } catch {
+    console.log('[AAP Teardown] Could not delete test user');
   }
 }

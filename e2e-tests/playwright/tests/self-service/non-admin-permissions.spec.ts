@@ -32,9 +32,7 @@ test.describe('Non-admin user: Permission boundaries', () => {
     await page.goto('/self-service', { waitUntil: 'networkidle' });
     await page.locator('main').waitFor({ state: 'visible', timeout: 30000 });
 
-    const addTemplateBtn = page.locator(
-      '[data-testid="add-template-button"]',
-    );
+    const addTemplateBtn = page.locator('[data-testid="add-template-button"]');
     await expect(addTemplateBtn).not.toBeVisible();
   });
 
@@ -50,9 +48,7 @@ test.describe('Non-admin user: Permission boundaries', () => {
       await page.waitForTimeout(1000);
     }
 
-    const addTemplateBtn = page.locator(
-      '[data-testid="add-template-button"]',
-    );
+    const addTemplateBtn = page.locator('[data-testid="add-template-button"]');
     await expect(addTemplateBtn).not.toBeVisible();
   });
 
