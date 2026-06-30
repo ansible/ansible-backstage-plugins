@@ -1091,7 +1091,7 @@ function validateSafeEEDefinitionName(value: string): string {
       '[ansible:create:ee-definition] Invalid eeFileName: path separators are not allowed',
     );
   }
-  const normalized = path.posix.normalize(trimmed.replaceAll(/\\/g, '/'));
+  const normalized = path.posix.normalize(trimmed.replaceAll('\\', '/'));
   if (
     normalized === '.' ||
     normalized === '..' ||
