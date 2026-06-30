@@ -597,13 +597,14 @@ export class AAPClient implements IAAPService {
   public async fetchResult(jobID: number, token: string) {
     const endPoint = `api/controller/v2/jobs/${jobID}/`;
     let jobDetailResponseData;
-    while (true) {
+    let shouldWait = true;
+    while (shouldWait) {
       await this.sleep(2000);
       const jobDetailResponse = await this.executeGetRequest(endPoint, token);
       jobDetailResponseData = await jobDetailResponse.json();
       const status = jobDetailResponseData.status;
       if (TERMINAL_JOB_STATUSES.has(status.toString().toLowerCase())) {
-        break;
+        shouldWait = false;
       }
     }
     return {
