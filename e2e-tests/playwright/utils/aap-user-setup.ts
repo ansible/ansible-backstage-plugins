@@ -5,48 +5,48 @@
  * Requires AAP_URL and AAP_TOKEN (admin token) environment variables.
  */
 
-import https from 'node:https';
-import http from 'node:http';
+import { execSync } from 'node:child_process';
+import { writeFileSync, mkdtempSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import path from 'node:path';
 
 const AAP_API = process.env.AAP_URL?.replace(/\/+$/, '');
 const AAP_TOKEN = process.env.AAP_TOKEN;
 
-const insecureAgent = new https.Agent({ rejectUnauthorized: false });
+let certCleanupPath: string | undefined;
 
-function aapFetch(url: string, init: RequestInit): Promise<Response> {
-  return new Promise((resolve, reject) => {
-    const parsed = new URL(url);
-    const isHttps = parsed.protocol === 'https:';
-    const mod = isHttps ? https : http;
+function trustAAPCertificate(): void {
+  if (!AAP_API) return;
+  const parsed = new URL(AAP_API);
+  if (parsed.protocol !== 'https:') return;
+  if (process.env.NODE_EXTRA_CA_CERTS) return;
 
-    const reqOptions: https.RequestOptions = {
-      hostname: parsed.hostname,
-      port: parsed.port || (isHttps ? 443 : 80),
-      path: parsed.pathname + parsed.search,
-      method: init.method || 'GET',
-      headers: init.headers as Record<string, string>,
-      ...(isHttps ? { agent: insecureAgent } : {}),
-    };
+  try {
+    const port = parsed.port || '443';
+    const cert = execSync(
+      `echo | openssl s_client -connect ${parsed.hostname}:${port} -servername ${parsed.hostname} 2>/dev/null | openssl x509`,
+      { encoding: 'utf-8', timeout: 10000 },
+    );
+    if (!cert.includes('BEGIN CERTIFICATE')) return;
 
-    const req = mod.request(reqOptions, res => {
-      const chunks: Buffer[] = [];
-      res.on('data', (chunk: Buffer) => chunks.push(chunk));
-      res.on('end', () => {
-        const responseBody = Buffer.concat(chunks).toString();
-        resolve(
-          new Response(responseBody, {
-            status: res.statusCode ?? 500,
-            headers: res.headers as Record<string, string>,
-          }),
-        );
-      });
-    });
-
-    req.on('error', reject);
-    if (init.body) req.write(init.body);
-    req.end();
-  });
+    const tmpDir = mkdtempSync(path.join(tmpdir(), 'aap-cert-'));
+    const certPath = path.join(tmpDir, 'ca.pem');
+    writeFileSync(certPath, cert);
+    process.env.NODE_EXTRA_CA_CERTS = certPath;
+    certCleanupPath = tmpDir;
+  } catch {
+    console.log('[AAP Setup] Could not fetch AAP certificate for TLS trust');
+  }
 }
+
+export function cleanupCertificate(): void {
+  if (certCleanupPath) {
+    rmSync(certCleanupPath, { recursive: true, force: true });
+    certCleanupPath = undefined;
+  }
+}
+
+trustAAPCertificate();
 
 async function aapRequest(
   method: string,
@@ -54,7 +54,7 @@ async function aapRequest(
   body?: Record<string, unknown>,
 ): Promise<Response> {
   const url = `${AAP_API}/${endpoint.replace(/^\/+/, '')}`;
-  return aapFetch(url, {
+  const res = await fetch(url, {
     method,
     headers: {
       Authorization: `Bearer ${AAP_TOKEN}`,
@@ -62,6 +62,7 @@ async function aapRequest(
     },
     body: body ? JSON.stringify(body) : undefined,
   });
+  return res;
 }
 
 async function aapGet(endpoint: string) {

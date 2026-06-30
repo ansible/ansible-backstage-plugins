@@ -1,4 +1,7 @@
-import { deleteNonAdminTestUser } from './utils/aap-user-setup';
+import {
+  deleteNonAdminTestUser,
+  cleanupCertificate,
+} from './utils/aap-user-setup';
 
 async function globalTeardown() {
   if (
@@ -8,6 +11,7 @@ async function globalTeardown() {
   ) {
     await deleteNonAdminTestUser();
   }
+  cleanupCertificate();
 }
 
 export default globalTeardown;
