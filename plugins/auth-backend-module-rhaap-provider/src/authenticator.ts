@@ -29,7 +29,7 @@ export const aapAuthAuthenticator = (aapService: IAAPService) =>
       const clientId = config.getString('clientId');
       const clientSecret = config.getString('clientSecret');
       let host = config.getString('host');
-      host = host.slice(-1) === '/' ? host.slice(0, -1) : host;
+      host = host.endsWith('/') ? host.slice(0, -1) : host;
       const callbackURL =
         config.getOptionalString('callbackUrl') ?? callbackUrl;
       const checkSSL = config.getBoolean('checkSSL') ?? true;

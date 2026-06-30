@@ -182,7 +182,7 @@ export class MockAuthService implements AuthService {
       token: mockCredentials.limitedUser.token(
         credentials.principal.userEntityRef,
       ),
-      expiresAt: new Date(Date.now() + 3600_000),
+      expiresAt: new Date(Date.now() + 3_600_000),
     };
   }
 
