@@ -3159,8 +3159,8 @@ describe('helpers', () => {
           ee_file_name: 'ee.yml',
           ee_registry: 'quay.io/org',
           ee_image_name: 'my-img',
-          image_build_tag: 'latest',
-          registry_tls_verify: 'true',
+          ee_image_build_tag: 'latest',
+          ee_registry_tls_verify: 'true',
         },
       );
     });
@@ -3644,9 +3644,9 @@ describe('helpers', () => {
       expect(mockTriggerPipeline).toHaveBeenCalledWith('org/repo', 'main', [
         { key: 'EE_DIR', value: 'my/ee' },
         { key: 'EE_FILE_NAME', value: 'ee.yml' },
-        { key: 'REGISTRY', value: 'quay.io/org' },
-        { key: 'IMAGE_NAME', value: 'my-img' },
-        { key: 'IMAGE_BUILD_TAG', value: 'latest' },
+        { key: 'EE_REGISTRY', value: 'quay.io/org' },
+        { key: 'EE_IMAGE_NAME', value: 'my-img' },
+        { key: 'EE_IMAGE_BUILD_TAG', value: 'latest' },
         { key: 'EE_REGISTRY_TLS_VERIFY', value: 'true' },
       ]);
     });
