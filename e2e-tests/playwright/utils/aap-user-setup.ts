@@ -5,11 +5,48 @@
  * Requires AAP_URL and AAP_TOKEN (admin token) environment variables.
  */
 
-// Allow self-signed certificates in test environments
-process.env.NODE_TLS_REJECT_UNAUTHORIZED = '0'; // CodeQL[js/disabling-certificate-validation] — test-only AAP instances use self-signed certs
+import https from 'node:https';
+import http from 'node:http';
 
 const AAP_API = process.env.AAP_URL?.replace(/\/+$/, '');
 const AAP_TOKEN = process.env.AAP_TOKEN;
+
+const insecureAgent = new https.Agent({ rejectUnauthorized: false });
+
+function aapFetch(url: string, init: RequestInit): Promise<Response> {
+  return new Promise((resolve, reject) => {
+    const parsed = new URL(url);
+    const isHttps = parsed.protocol === 'https:';
+    const mod = isHttps ? https : http;
+
+    const reqOptions: https.RequestOptions = {
+      hostname: parsed.hostname,
+      port: parsed.port || (isHttps ? 443 : 80),
+      path: parsed.pathname + parsed.search,
+      method: init.method || 'GET',
+      headers: init.headers as Record<string, string>,
+      ...(isHttps ? { agent: insecureAgent } : {}),
+    };
+
+    const req = mod.request(reqOptions, res => {
+      const chunks: Buffer[] = [];
+      res.on('data', (chunk: Buffer) => chunks.push(chunk));
+      res.on('end', () => {
+        const responseBody = Buffer.concat(chunks).toString();
+        resolve(
+          new Response(responseBody, {
+            status: res.statusCode ?? 500,
+            headers: res.headers as Record<string, string>,
+          }),
+        );
+      });
+    });
+
+    req.on('error', reject);
+    if (init.body) req.write(init.body);
+    req.end();
+  });
+}
 
 async function aapRequest(
   method: string,
@@ -17,7 +54,7 @@ async function aapRequest(
   body?: Record<string, unknown>,
 ): Promise<Response> {
   const url = `${AAP_API}/${endpoint.replace(/^\/+/, '')}`;
-  const res = await fetch(url, {
+  return aapFetch(url, {
     method,
     headers: {
       Authorization: `Bearer ${AAP_TOKEN}`,
@@ -25,7 +62,6 @@ async function aapRequest(
     },
     body: body ? JSON.stringify(body) : undefined,
   });
-  return res;
 }
 
 async function aapGet(endpoint: string) {
