@@ -42,7 +42,7 @@ export const MOCK_SERVICE_TOKEN_PREFIX = 'mock-service-token:';
 export const MOCK_INVALID_SERVICE_TOKEN = 'mock-invalid-service-token';
 
 function validateUserEntityRef(ref: string) {
-  if (!ref.match(/^.+:.+\/.+$/)) {
+  if (!/^[^:]+:[^/]+\/.+$/.test(ref)) {
     throw new TypeError(
       `Invalid user entity reference '${ref}', expected <kind>:<namespace>/<name>`,
     );

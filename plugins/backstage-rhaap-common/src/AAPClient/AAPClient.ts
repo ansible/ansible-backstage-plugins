@@ -123,7 +123,7 @@ export class AAPClient implements IAAPService {
 
   private getBaseUrl() {
     // Normalize URL construction to avoid double slashes
-    return this.ansibleConfig.rhaap?.baseUrl?.replace(/\/+$/, '') || '';
+    return this.ansibleConfig.rhaap?.baseUrl?.replace(/\/+$/, '') || ''; // NOSONAR — URL normalization, bounded input
   }
 
   public async executePostRequest(

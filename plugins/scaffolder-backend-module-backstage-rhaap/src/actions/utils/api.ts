@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-import * as fs from 'fs';
+import * as fs from 'node:fs';
 import fetch, { Response } from 'node-fetch';
 import { LoggerService } from '@backstage/backend-plugin-api';
 
