@@ -7,10 +7,8 @@ import {
 } from '@backstage/core-components';
 import { StepForm } from './StepForm';
 import { useApi, useRouteRef } from '@backstage/core-plugin-api';
-import {
-  scaffolderApiRef,
-  TemplateParameterSchema,
-} from '@backstage/plugin-scaffolder-react';
+import { scaffolderApiRef } from '@backstage/plugin-scaffolder-react';
+import type { TemplateParameterSchema } from '@backstage/plugin-scaffolder-common';
 import { catalogApiRef } from '@backstage/plugin-catalog-react';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import {
@@ -117,7 +115,7 @@ export const CreateTask = () => {
         }
         const response =
           await scaffolderApi.getTemplateParameterSchema(templateName);
-        setEntityTemplate(response as TemplateParameterSchema);
+        setEntityTemplate(response);
 
         try {
           const entityRef = `template:${namespace}/${templateName}`;
@@ -125,9 +123,9 @@ export const CreateTask = () => {
           if (entity) {
             setTemplateEntity(entity);
           }
-        } catch {
-          // Get back to home page if we can't fetch the entity
-          // fail silently
+        } catch (e) {
+          // eslint-disable-next-line no-console
+          console.debug('Optional catalog entity lookup failed:', e);
         }
       } catch (err) {
         setError('Failed to fetch entity');

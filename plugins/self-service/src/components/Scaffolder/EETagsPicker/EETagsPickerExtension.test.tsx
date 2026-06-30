@@ -467,7 +467,7 @@ describe('EETagsPickerExtension', () => {
       );
 
       const inputs = screen.getAllByRole('textbox');
-      expect(inputs.length).toBe(2);
+      expect(inputs).toHaveLength(2);
       expect(inputs[1]).toHaveValue('');
     });
 

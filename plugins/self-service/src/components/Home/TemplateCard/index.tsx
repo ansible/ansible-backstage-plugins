@@ -19,7 +19,9 @@ import { usePermission } from '@backstage/plugin-permission-react';
 import { taskCreatePermission } from '@backstage/plugin-scaffolder-common/alpha';
 import { rootRouteRef } from '../../../routes';
 
-export function WizardCard({ template }: { template: TemplateEntityV1beta3 }) {
+export function WizardCard({
+  template,
+}: Readonly<{ template: TemplateEntityV1beta3 }>) {
   const theme = useTheme();
   const navigate = useNavigate();
   const rootLink = useRouteRef(rootRouteRef);
@@ -72,10 +74,10 @@ export function WizardCard({ template }: { template: TemplateEntityV1beta3 }) {
         {(template?.metadata?.tags ?? []).length > 0 && (
           <div className="tags" data-testid="template--tags">
             <div style={{ marginTop: 8 }}>
-              {template?.metadata?.tags?.map((tag, index) => (
+              {template?.metadata?.tags?.map(tag => (
                 <Chip
                   label={tag}
-                  key={index}
+                  key={tag}
                   size="small"
                   data-testid={`template-tags--${tag}`}
                 />

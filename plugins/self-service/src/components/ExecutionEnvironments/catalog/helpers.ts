@@ -170,23 +170,26 @@ export function downloadEntityAsTarArchive(entity: Entity): boolean {
     const archiveName = `${name}.tar`;
     const templateFileName = `${name}-template.yml`;
 
+    const specString = (val: unknown): string =>
+      typeof val === 'string' ? val : '';
+
     const rawdata: Array<{ name: string; content: string }> = [
-      { name: eeFileName, content: String(entity.spec.definition) },
-      { name: readmeFileName, content: String(entity.spec.readme) },
-      { name: templateFileName, content: String(entity.spec.template) },
+      { name: eeFileName, content: specString(entity.spec.definition) },
+      { name: readmeFileName, content: specString(entity.spec.readme) },
+      { name: templateFileName, content: specString(entity.spec.template) },
     ];
 
     if (entity.spec.ansible_cfg) {
       rawdata.push({
         name: 'ansible.cfg',
-        content: String(entity.spec.ansible_cfg),
+        content: specString(entity.spec.ansible_cfg),
       });
     }
 
     if (entity.spec.mcp_vars) {
       rawdata.push({
         name: 'mcp-vars.yaml',
-        content: String(entity.spec.mcp_vars),
+        content: specString(entity.spec.mcp_vars),
       });
     }
 

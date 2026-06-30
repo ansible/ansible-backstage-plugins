@@ -189,16 +189,16 @@ export const EEFileNamePickerExtension = ({
 
     if (formData) {
       const validation = isValidEntityName(formData);
-      if (!validation.valid) {
-        setFormatError(validation.error || null);
-        setExistingEntity(null);
-        setCheckError(null);
-        setIsChecking(false);
-      } else {
+      if (validation.valid) {
         setFormatError(null);
         timeoutId = setTimeout(() => {
           checkEntityExists(formData);
         }, 500);
+      } else {
+        setFormatError(validation.error || null);
+        setExistingEntity(null);
+        setCheckError(null);
+        setIsChecking(false);
       }
     } else {
       setFormatError(null);
