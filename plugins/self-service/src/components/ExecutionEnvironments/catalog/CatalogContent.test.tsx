@@ -544,7 +544,7 @@ describe('EEListPage', () => {
       );
 
       const rows = screen.getAllByTestId(/^row-\d+$/);
-      expect(rows.length).toBe(3);
+      expect(rows).toHaveLength(3);
     });
 
     test('sorts numeric titles correctly', async () => {
@@ -1787,7 +1787,7 @@ describe('EEListPage', () => {
 
       // Component sorts by name, so 'ee-10', 'ee-2', 'ee-string' (alphabetical)
       const rows = screen.getAllByTestId(/^row-\d+$/);
-      expect(rows.length).toBe(3);
+      expect(rows).toHaveLength(3);
       // Just verify all entities are rendered
       expect(screen.getByText('ee-2')).toBeInTheDocument();
       expect(screen.getByText('ee-10')).toBeInTheDocument();

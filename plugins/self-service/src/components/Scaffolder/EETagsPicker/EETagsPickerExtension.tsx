@@ -144,7 +144,7 @@ export const EETagsPickerExtension = ({
   idSchema,
 }: FieldExtensionComponentProps<string[]>) => {
   const classes = useStyles();
-  const requiredField = required ? required : true;
+  const requiredField = required ?? true;
   const defaultTags = useMemo(
     () => (schema?.default as string[]) || [],
     [schema?.default],
@@ -213,7 +213,7 @@ export const EETagsPickerExtension = ({
       delete newErrors[index];
       const reindexed: Record<number, string> = {};
       Object.keys(newErrors).forEach(key => {
-        const oldIndex = parseInt(key, 10);
+        const oldIndex = Number.parseInt(key, 10);
         if (oldIndex > index) {
           reindexed[oldIndex - 1] = newErrors[oldIndex];
         } else if (oldIndex < index) {
@@ -234,7 +234,7 @@ export const EETagsPickerExtension = ({
     setTagErrors(prev => {
       const updatedErrors: Record<number, string> = {};
       Object.keys(prev).forEach(key => {
-        const idx = parseInt(key, 10);
+        const idx = Number.parseInt(key, 10);
         if (idx === index) {
           updatedErrors[index - 1] = prev[index];
         } else if (idx === index - 1) {
@@ -258,7 +258,7 @@ export const EETagsPickerExtension = ({
     setTagErrors(prev => {
       const updatedErrors: Record<number, string> = {};
       Object.keys(prev).forEach(key => {
-        const idx = parseInt(key, 10);
+        const idx = Number.parseInt(key, 10);
         if (idx === index) {
           updatedErrors[index + 1] = prev[index];
         } else if (idx === index + 1) {
@@ -307,7 +307,7 @@ export const EETagsPickerExtension = ({
 
         <Box className={classes.tagsContainer}>
           {tags.map((tag, index) => (
-            <Box key={index} className={classes.tagRow}>
+            <Box key={`${tag}-${index}`} className={classes.tagRow}>
               <Box className={classes.tagInputContainer}>
                 <TextField
                   label={`tags-${index}`}

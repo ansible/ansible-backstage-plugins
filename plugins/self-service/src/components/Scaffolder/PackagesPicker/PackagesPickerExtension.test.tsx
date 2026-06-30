@@ -137,7 +137,7 @@ describe('PackagesPickerExtension', () => {
       });
       const { container } = render(<PackagesPickerExtension {...props} />);
       const descriptions = container.querySelectorAll('.description');
-      expect(descriptions.length).toBe(0);
+      expect(descriptions).toHaveLength(0);
     });
   });
 
@@ -804,7 +804,7 @@ describe('PackagesPickerExtension', () => {
       const { container } = render(<PackagesPickerExtension {...props} />);
 
       const chips = container.querySelectorAll('.MuiChip-root');
-      expect(chips.length).toBe(3);
+      expect(chips).toHaveLength(3);
       expect(screen.getByText('package1')).toBeInTheDocument();
       expect(screen.getByText('package2')).toBeInTheDocument();
       expect(screen.getByText('package3')).toBeInTheDocument();
@@ -816,7 +816,7 @@ describe('PackagesPickerExtension', () => {
       const { container } = render(<PackagesPickerExtension {...props} />);
 
       const chips = container.querySelectorAll('.MuiChip-root');
-      expect(chips.length).toBe(3);
+      expect(chips).toHaveLength(3);
     });
   });
 
