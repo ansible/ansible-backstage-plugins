@@ -1154,13 +1154,13 @@ export class AAPClient implements IAAPService {
                   `${teamsUrl}?${decodeURIComponent(urlSearchParams.toString())}`,
                   token,
                 )
-              : [],
-            (usersUrl
+              : Promise.resolve([]),
+            usersUrl
               ? this.executeCatalogRequest(
                   `${usersUrl}?${decodeURIComponent(urlSearchParams.toString())}`,
                   token,
                 )
-              : []) as Users,
+              : Promise.resolve([] as Users),
           ]);
 
           // Process team users in smaller batches to avoid API overload
@@ -1180,6 +1180,7 @@ export class AAPClient implements IAAPService {
                 token,
               )) ?? []) as Users;
               return teamUsers.map((user: User) => {
+                // NOSONAR
                 if (!users.some(orgUser => orgUser.id === user.id)) {
                   user.is_orguser = false;
                 }
