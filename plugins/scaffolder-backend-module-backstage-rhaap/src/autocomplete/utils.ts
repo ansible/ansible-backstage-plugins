@@ -153,9 +153,8 @@ export function buildCollectionsFromCatalogEntities(
       for (const source of Object.keys(collection.sourceVersions)) {
         const vers = collection.sourceVersions[source];
         if (vers?.length) {
-          collection.sourceVersions[source] = vers.sort(
-            compareVersionsDescending,
-          );
+          vers.sort(compareVersionsDescending);
+          collection.sourceVersions[source] = vers;
         }
       }
     }
