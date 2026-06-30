@@ -1,5 +1,12 @@
 export const SCM_INTEGRATION_AUTH_FAILED_CODE = 'INTEGRATION_AUTH_FAILED';
 
+export const TERMINAL_JOB_STATUSES = new Set([
+  'successful',
+  'failed',
+  'error',
+  'canceled',
+]);
+
 const data = [
   '0 (Normal)',
   '1 (Verbose)',
