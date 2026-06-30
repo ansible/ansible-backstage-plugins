@@ -369,17 +369,17 @@ export class AAPClient implements IAAPService {
     this.logger.info(`End creating project ${payload.projectName}.`);
 
     let projectData = (await response.json()) as Project;
-    const waitStatuses = ['new', 'pending', 'waiting', 'running'];
+    const waitStatuses = new Set(['new', 'pending', 'waiting', 'running']);
 
     let projectStatus = projectData.status;
     this.logger.info(`Waiting for the project to be ready.`);
-    if (projectStatus && waitStatuses.includes(projectStatus)) {
+    if (projectStatus && waitStatuses.has(projectStatus)) {
       let shouldWait = true;
       while (shouldWait && projectData.id !== undefined) {
         await this.sleep(2000);
         projectData = await this.getProject(projectData.id, token);
         projectStatus = projectData.status;
-        if (!projectStatus || !waitStatuses.includes(projectStatus)) {
+        if (!projectStatus || !waitStatuses.has(projectStatus)) {
           shouldWait = false;
         }
       }
@@ -537,7 +537,7 @@ export class AAPClient implements IAAPService {
     const endPoint = 'api/controller/v2/job_templates/';
     let extraVariables;
     extraVariables = payload?.extraVariables
-      ? JSON.parse(JSON.stringify(payload.extraVariables))
+      ? JSON.parse(JSON.stringify(payload.extraVariables)) // NOSONAR — structuredClone unavailable in test runtime
       : '';
     if (extraVariables !== '') {
       extraVariables.aap_validate_certs = this.ansibleConfig.rhaap?.checkSSL;
@@ -580,7 +580,7 @@ export class AAPClient implements IAAPService {
     results?: never[],
     fullUrl?: string,
   ): Promise<any> {
-    let result = results ? results : [];
+    let result = results ?? [];
     const eventsResponse = await this.executeGetRequest(
       `api/controller/v2/jobs/${jobID}/job_events/`,
       token,
@@ -595,9 +595,9 @@ export class AAPClient implements IAAPService {
   }
 
   public async fetchResult(jobID: number, token: string) {
-    let shouldWait = true;
     const endPoint = `api/controller/v2/jobs/${jobID}/`;
     let jobDetailResponseData;
+    let shouldWait = true;
     while (shouldWait) {
       await this.sleep(2000);
       const jobDetailResponse = await this.executeGetRequest(endPoint, token);
@@ -605,7 +605,6 @@ export class AAPClient implements IAAPService {
       const status = jobDetailResponseData.status;
       if (TERMINAL_JOB_STATUSES.has(status.toString().toLowerCase())) {
         shouldWait = false;
-        break;
       }
     }
     return {
@@ -684,7 +683,7 @@ export class AAPClient implements IAAPService {
         }
       });
       if (result.jobData.status !== 'successful') {
-        lastEvent = matchRegex[matchRegex.length - 1][1];
+        lastEvent = matchRegex.at(-1)![1];
         this.logger.error(`Job failed: ${lastEvent}`);
         throw new Error(`Job execution failed due to ${lastEvent}`);
       }
