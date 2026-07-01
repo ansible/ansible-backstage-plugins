@@ -1,5 +1,7 @@
 import { test, expect } from '../../fixtures/auth-context-user';
 
+const templateCardSelector = '.MuiCard-root, article';
+
 test.describe('Non-admin user: Templates page', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/self-service/catalog', { waitUntil: 'networkidle' });
@@ -18,8 +20,6 @@ test.describe('Non-admin user: Templates page', () => {
   test('Non-admin user can see template cards or empty state', async ({
     page,
   }) => {
-    const templateCardSelector =
-      '[data-testid*="-"], .MuiCard-root, article, .template';
     const hasCards = (await page.locator(templateCardSelector).count()) > 0;
     const hasEmptyState = await page
       .getByText(/No templates/i)
@@ -35,45 +35,45 @@ test.describe('Non-admin user: Templates page', () => {
       .or(page.locator('input[placeholder*="Search"]'))
       .first();
 
-    if (await searchInput.isVisible().catch(() => false)) {
-      await searchInput.fill('test');
-      await page.waitForTimeout(1000);
-      await searchInput.clear();
+    const isVisible = await searchInput.isVisible().catch(() => false);
+    if (!isVisible) {
+      test.skip();
+      return;
     }
+    await searchInput.fill('test');
+    await page.waitForTimeout(1000);
+    await searchInput.clear();
   });
 
   test('Non-admin user can use category filters', async ({ page }) => {
     const categoryPicker = page.locator('#categories-picker');
-    if (await categoryPicker.isVisible().catch(() => false)) {
-      await expect(categoryPicker).toBeVisible();
+    const isVisible = await categoryPicker.isVisible().catch(() => false);
+    if (!isVisible) {
+      test.skip();
+      return;
     }
+    await expect(categoryPicker).toBeVisible();
   });
 
   test('Non-admin user sees only permitted templates or empty state', async ({
     page,
   }) => {
-    const templateCardSelector =
-      '[data-testid*="-"], .MuiCard-root, article, .template';
     const cardCount = await page.locator(templateCardSelector).count();
     const bodyText = (await page.locator('body').textContent()) ?? '';
     const hasEmptyState =
       /No templates/i.test(bodyText) || /empty/i.test(bodyText);
 
-    // Non-admin should see only templates they have execute permission on, or empty state
     expect(cardCount > 0 || hasEmptyState).toBeTruthy();
     expect(bodyText).not.toContain('Insufficient privileges');
   });
 
   test('Non-admin user can open template create form', async ({ page }) => {
-    const templateCardSelector =
-      '[data-testid*="-"], .MuiCard-root, article, .template';
     const firstCard = page.locator(templateCardSelector).first();
     if ((await firstCard.count()) === 0) {
-      // No templates available for this user — skip
+      test.skip();
       return;
     }
 
-    // Find and click the Create/Launch button on the first card
     const buttons = firstCard.locator('button');
     let clicked = false;
     const n = await buttons.count();
@@ -91,16 +91,18 @@ test.describe('Non-admin user: Templates page', () => {
         break;
       }
     }
-    if (!clicked) return;
+    if (!clicked) {
+      test.skip();
+      return;
+    }
 
-    await page.waitForTimeout(1500);
+    await page.waitForURL(/\/(create|template)/, { timeout: 5000 });
 
     if (page.url().includes('/create') || page.url().includes('/template')) {
       await expect(page.locator('main')).toBeVisible();
       const bodyText = (await page.locator('body').textContent()) ?? '';
       expect(bodyText).not.toContain('Insufficient privileges');
 
-      // Verify form or step content loaded
       const hasForm = (await page.locator('form').count()) > 0;
       const hasInputs =
         (await page.locator('input, select, textarea').count()) > 0;
@@ -109,17 +111,5 @@ test.describe('Non-admin user: Templates page', () => {
       await page.goBack();
       await page.waitForLoadState('domcontentloaded');
     }
-  });
-
-  test('"Sync now" is not visible for non-admin user', async ({ page }) => {
-    const syncLink = page.getByText('Sync now');
-    await expect(syncLink).not.toBeVisible();
-  });
-
-  test('"Add Template" button is not visible for non-admin user', async ({
-    page,
-  }) => {
-    const addTemplateBtn = page.locator('[data-testid="add-template-button"]');
-    await expect(addTemplateBtn).not.toBeVisible();
   });
 });

@@ -9,15 +9,10 @@ test.describe('Non-admin user: Portal pages accessibility', () => {
       const catalogTab = page.getByRole('tab', { name: /^Catalog$/i });
       const createTab = page.getByRole('tab', { name: /^Create$/i });
 
-      const hasTabs =
-        (await catalogTab.isVisible().catch(() => false)) ||
-        (await createTab.isVisible().catch(() => false));
-      const hasContent = await page
-        .locator('main')
-        .isVisible()
-        .catch(() => false);
+      const hasCatalogTab = await catalogTab.isVisible().catch(() => false);
+      const hasCreateTab = await createTab.isVisible().catch(() => false);
 
-      expect(hasTabs || hasContent).toBeTruthy();
+      expect(hasCatalogTab || hasCreateTab).toBeTruthy();
 
       const bodyText = (await page.locator('body').textContent()) ?? '';
       expect(bodyText).not.toContain('Insufficient privileges');
@@ -28,11 +23,14 @@ test.describe('Non-admin user: Portal pages accessibility', () => {
       await page.locator('main').waitFor({ state: 'visible', timeout: 30000 });
 
       const createTab = page.getByRole('tab', { name: /^Create$/i });
-      if (await createTab.isVisible().catch(() => false)) {
-        await createTab.click();
-        await page.waitForTimeout(1000);
-        await expect(page.locator('main')).toBeVisible();
+      const isVisible = await createTab.isVisible().catch(() => false);
+      if (!isVisible) {
+        test.skip();
+        return;
       }
+      await createTab.click();
+      await page.waitForTimeout(1000);
+      await expect(page.locator('main')).toBeVisible();
     });
   });
 
@@ -69,14 +67,22 @@ test.describe('Non-admin user: Portal pages accessibility', () => {
       });
       await page.locator('main').waitFor({ state: 'visible', timeout: 30000 });
 
-      const hasContent = await page
+      const bodyText = (await page.locator('body').textContent()) ?? '';
+      expect(bodyText).not.toContain('Insufficient privileges');
+
+      const hasTable = await page
+        .locator('table')
+        .isVisible()
+        .catch(() => false);
+      const hasEmptyState = await page
+        .getByText(/No repositories|No content sources/i)
+        .isVisible()
+        .catch(() => false);
+      const mainVisible = await page
         .locator('main')
         .isVisible()
         .catch(() => false);
-      expect(hasContent).toBeTruthy();
-
-      const bodyText = (await page.locator('body').textContent()) ?? '';
-      expect(bodyText).not.toContain('Insufficient privileges');
+      expect(hasTable || hasEmptyState || mainVisible).toBeTruthy();
     });
   });
 
@@ -117,7 +123,6 @@ test.describe('Non-admin user: Portal pages accessibility', () => {
         .isVisible()
         .catch(() => false);
 
-      // Non-admin should see either their own tasks or empty state — not an error
       expect(hasEmptyState || hasTable).toBeTruthy();
       expect(bodyText).not.toContain('Insufficient privileges');
     });

@@ -5,7 +5,7 @@
  * Requires AAP_URL and AAP_TOKEN (admin token) environment variables.
  */
 
-import { execSync } from 'node:child_process';
+import { execFileSync } from 'node:child_process';
 import { writeFileSync, mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
@@ -22,16 +22,25 @@ function trustAAPCertificate(): void {
   if (process.env.NODE_EXTRA_CA_CERTS) return;
 
   try {
+    const hostname = parsed.hostname;
+    if (!/^[a-zA-Z0-9.-]+$/.test(hostname)) return;
     const port = parsed.port || '443';
-    const cert = execSync(
-      `echo | openssl s_client -connect ${parsed.hostname}:${port} -servername ${parsed.hostname} 2>/dev/null | openssl x509`,
-      { encoding: 'utf-8', timeout: 10000 },
+
+    const connectOut = execFileSync(
+      'openssl',
+      ['s_client', '-connect', `${hostname}:${port}`, '-servername', hostname],
+      { encoding: 'utf-8', timeout: 10000, input: '' },
     );
+    const cert = execFileSync('openssl', ['x509'], {
+      encoding: 'utf-8',
+      timeout: 10000,
+      input: connectOut,
+    });
     if (!cert.includes('BEGIN CERTIFICATE')) return;
 
     const tmpDir = mkdtempSync(path.join(tmpdir(), 'aap-cert-'));
     const certPath = path.join(tmpDir, 'ca.pem');
-    writeFileSync(certPath, cert);
+    writeFileSync(certPath, cert, { mode: 0o600 });
     process.env.NODE_EXTRA_CA_CERTS = certPath;
     certCleanupPath = tmpDir;
   } catch {
@@ -82,8 +91,14 @@ interface TestUser {
 }
 
 export async function createNonAdminTestUser(): Promise<TestUser> {
-  const username = process.env.AAP_NONADMIN_USER_ID!;
-  const password = process.env.AAP_NONADMIN_USER_PASS!;
+  const username = process.env.AAP_NONADMIN_USER_ID;
+  const password = process.env.AAP_NONADMIN_USER_PASS;
+
+  if (!username || !password) {
+    throw new Error(
+      'AAP_NONADMIN_USER_ID and AAP_NONADMIN_USER_PASS must be set',
+    );
+  }
 
   if (!AAP_API || !AAP_TOKEN) {
     console.log(
@@ -96,7 +111,7 @@ export async function createNonAdminTestUser(): Promise<TestUser> {
 
   // Check if user already exists
   const existingUsers = await aapGet(
-    `api/gateway/v1/users/?username=${username}`,
+    `api/gateway/v1/users/?username=${encodeURIComponent(username)}`,
   );
   if (existingUsers.count > 0) {
     const user = existingUsers.results[0];
@@ -127,7 +142,9 @@ export async function createNonAdminTestUser(): Promise<TestUser> {
   if (status === 400) {
     const err = await res.json();
     if (JSON.stringify(err).includes('already exists')) {
-      const users = await aapGet(`api/gateway/v1/users/?username=${username}`);
+      const users = await aapGet(
+        `api/gateway/v1/users/?username=${encodeURIComponent(username)}`,
+      );
       const user = users.results[0];
       console.log(`[AAP Setup] User already exists (id: ${user.id})`);
       await ensureOrgMembership(user.id);
@@ -142,11 +159,14 @@ export async function createNonAdminTestUser(): Promise<TestUser> {
 
 async function ensureOrgMembership(userId: number): Promise<void> {
   const configuredOrg = process.env.AAP_ORG_NAME;
-  const query = configuredOrg
-    ? `api/gateway/v1/organizations/?name=${configuredOrg}`
-    : 'api/gateway/v1/organizations/?page_size=1';
+  if (!configuredOrg) {
+    console.log('[AAP Setup] AAP_ORG_NAME not set, skipping org membership');
+    return;
+  }
 
-  const orgs = await aapGet(query);
+  const orgs = await aapGet(
+    `api/gateway/v1/organizations/?name=${encodeURIComponent(configuredOrg)}`,
+  );
   if (orgs.count === 0) {
     console.log('[AAP Setup] No organizations found, skipping org membership');
     return;
@@ -217,7 +237,9 @@ export async function deleteNonAdminTestUser(): Promise<void> {
   if (!AAP_API || !AAP_TOKEN || !username) return;
 
   try {
-    const users = await aapGet(`api/gateway/v1/users/?username=${username}`);
+    const users = await aapGet(
+      `api/gateway/v1/users/?username=${encodeURIComponent(username)}`,
+    );
     if (users.count === 0) return;
 
     const userId = users.results[0].id;
