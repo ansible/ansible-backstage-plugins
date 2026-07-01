@@ -445,9 +445,8 @@ describe('ansible-aap:autocomplete', () => {
       ).not.toHaveBeenCalled();
     });
 
-    it('should return resource data with count when controller is available', async () => {
+    it('should return resource data when controller is available', async () => {
       const mockJobTemplates = {
-        count: 2,
         results: [
           { id: 1, name: 'Job Template 1' },
           { id: 2, name: 'Job Template 2' },
