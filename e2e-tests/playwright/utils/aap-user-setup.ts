@@ -44,7 +44,10 @@ function trustAAPCertificate(): void {
     process.env.NODE_EXTRA_CA_CERTS = certPath;
     certCleanupPath = tmpDir;
   } catch {
-    console.log('[AAP Setup] Could not fetch AAP certificate for TLS trust');
+    process.env.NODE_TLS_REJECT_UNAUTHORIZED = '0';
+    console.log(
+      '[AAP Setup] Could not fetch AAP certificate, disabling TLS verification',
+    );
   }
 }
 
