@@ -237,21 +237,20 @@ const HomeCategoryPicker = ({ syncKey }: { syncKey: number }) => {
 const TemplateContent = ({
   loading: externalLoading,
   jobTemplates,
-  jobTemplateCount,
 }: {
   loading: boolean;
   jobTemplates: { id: number; name: string }[];
-  jobTemplateCount: number;
 }) => {
   const classes = headerStyles();
   const {
     entities,
     loading: catalogLoading,
-    totalItems,
     pageInfo,
     limit,
   } = useEntityList();
   const [currentPage, setCurrentPage] = useState(1);
+  const [nonAapCount, setNonAapCount] = useState(0);
+  const nonAapCounted = useRef(false);
 
   useEffect(() => {
     if (!pageInfo?.prev) {
@@ -260,6 +259,18 @@ const TemplateContent = ({
   }, [pageInfo?.prev]);
 
   const isLoading = externalLoading || catalogLoading;
+
+  useEffect(() => {
+    if (!nonAapCounted.current && !isLoading && entities.length > 0) {
+      const count = (entities as TemplateEntityV1beta3[]).filter(
+        entity =>
+          !entity.spec?.type?.includes('execution-environment') &&
+          !entity.metadata.aapJobTemplateId,
+      ).length;
+      setNonAapCount(count);
+      nonAapCounted.current = true;
+    }
+  }, [entities, isLoading]);
 
   const filteredEntities = useMemo(
     () =>
@@ -270,7 +281,7 @@ const TemplateContent = ({
   );
 
   const displayCount = filteredEntities.length;
-  const totalCount = totalItems ?? 0;
+  const totalCount = jobTemplates.length + nonAapCount;
   const totalPages = Math.max(1, Math.ceil(totalCount / limit));
   const showStart = displayCount > 0 ? (currentPage - 1) * limit + 1 : 0;
   const showEnd = (currentPage - 1) * limit + displayCount;
@@ -301,7 +312,7 @@ const TemplateContent = ({
           variant="body1"
           style={{ textAlign: 'center', padding: '40px 0', opacity: 0.6 }}
         >
-          No templates found
+          No templates found. Please contact your administrator.
         </Typography>
       ) : (
         <ItemCardGrid>
@@ -313,7 +324,7 @@ const TemplateContent = ({
       {displayCount > 0 && (
         <Box className={classes.paginationContainer}>
           <Typography className={classes.paginationInfo}>
-            Showing {showStart}-{showEnd} of {jobTemplateCount} templates
+            Showing {showStart}-{showEnd} of {totalCount} templates
           </Typography>
           {totalPages > 1 && (
             <Box className={classes.paginationControls}>
@@ -378,7 +389,6 @@ export const HomeComponent = () => {
   const [jobTemplates, setJobTemplates] = useState<
     { id: number; name: string }[]
   >([]);
-  const [jobTemplateCount, setJobTemplateCount] = useState<number>(0);
   const [loading, setLoading] = useState<boolean>(true);
   const [syncKey, setSyncKey] = useState(0);
   const [syncStatus, setSyncStatus] = useState<{
@@ -418,12 +428,12 @@ export const HomeComponent = () => {
       if (!scaffolderApi.autocomplete) {
         return undefined;
       }
-      const { results, count } = (await scaffolderApi.autocomplete({
+      const { results } = await scaffolderApi.autocomplete({
         token,
         resource: 'job_templates',
         provider: 'aap-api-cloud',
         context: {},
-      })) as { results: any[]; count?: number };
+      });
       const newTemplates = results.map(
         (result: { id: string; title?: string }) => ({
           id: Number.parseInt(result.id, 10),
@@ -432,7 +442,6 @@ export const HomeComponent = () => {
       );
       if (requestId === fetchRequestIdRef.current) {
         setJobTemplates(newTemplates);
-        setJobTemplateCount(count ?? newTemplates.length);
         fetchSucceededRef.current = true;
       }
       return newTemplates;
@@ -677,11 +686,7 @@ export const HomeComponent = () => {
               <EntityOwnerPicker />
             </CatalogFilterLayout.Filters>
             <CatalogFilterLayout.Content>
-              <TemplateContent
-                loading={loading}
-                jobTemplates={jobTemplates}
-                jobTemplateCount={jobTemplateCount}
-              />
+              <TemplateContent loading={loading} jobTemplates={jobTemplates} />
             </CatalogFilterLayout.Content>
           </CatalogFilterLayout>
         </EntityListProvider>
