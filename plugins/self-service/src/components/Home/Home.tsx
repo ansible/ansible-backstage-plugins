@@ -260,7 +260,7 @@ const TemplateContent = ({
           variant="body1"
           style={{ textAlign: 'center', padding: '40px 0', opacity: 0.6 }}
         >
-          No templates found. Please contact your administrator.
+          No templates found.
         </Typography>
       ) : (
         <ItemCardGrid>

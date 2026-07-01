@@ -1255,11 +1255,7 @@ describe('self-service', () => {
       expect(screen.queryByTestId('loading-templates')).not.toBeInTheDocument();
     });
     await waitFor(() => {
-      expect(
-        screen.getByText(
-          'No templates found. Please contact your administrator.',
-        ),
-      ).toBeInTheDocument();
+      expect(screen.getByText('No templates found.')).toBeInTheDocument();
     });
     expect(screen.queryByText(/Showing/)).toBeNull();
     expect(screen.queryByText(/Page/)).toBeNull();
