@@ -1242,6 +1242,7 @@ describe('self-service', () => {
         'spec.type': [],
       },
     });
+    mockCatalogApi.getEntities.mockResolvedValue({ items: [] });
     mockCatalogApi.queryEntities.mockResolvedValue({
       items: [],
       totalItems: 0,
