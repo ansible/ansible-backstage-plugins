@@ -208,8 +208,10 @@ kubernetes: null
 permission:
   enabled: true
   rbac:
-    policies-csv-file: ./default-rbac-policy.csv
-    policyFileReload: true
+    # if you want to use a csv file for rbac, uncomment the following lines.
+    # Refer default-rbac-policy.csv for the policy file.
+    # policies-csv-file: /Users/audgirka/src/ansible-backstage-plugins/default-rbac-policy.csv
+    # policyFileReload: true
     admin:
       users:
         - name: user:default/admin              # Bootstrap admin for initial setup
