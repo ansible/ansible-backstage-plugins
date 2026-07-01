@@ -33,6 +33,11 @@ jest.mock('../../../routes', () => ({
 }));
 
 // ----------------- Simple UI stubs -----------------
+jest.mock('../../UnregisterEntityDialog', () => ({
+  UnregisterEntityDialog: ({ open }: any) =>
+    open ? <div data-testid="unregister-dialog">unregister</div> : null,
+}));
+
 jest.mock('@backstage/plugin-catalog-react', () => {
   const actual = jest.requireActual('@backstage/plugin-catalog-react');
   return {
@@ -40,8 +45,6 @@ jest.mock('@backstage/plugin-catalog-react', () => {
     FavoriteEntity: ({ entity }: any) => (
       <span data-testid="favorite-entity">fav:{entity?.metadata?.name}</span>
     ),
-    UnregisterEntityDialog: ({ open }: any) =>
-      open ? <div data-testid="unregister-dialog">unregister</div> : null,
     catalogApiRef: actual.catalogApiRef,
   };
 });
