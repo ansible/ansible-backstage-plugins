@@ -1,17 +1,13 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState, useRef } from 'react';
 import { useNavigate } from 'react-router';
 import { Route, Routes, Navigate } from 'react-router-dom';
 import {
-  Box,
   Button,
-  IconButton,
   makeStyles,
   Snackbar,
   Tooltip,
   Typography,
 } from '@material-ui/core';
-import NavigateBeforeIcon from '@material-ui/icons/NavigateBefore';
-import NavigateNextIcon from '@material-ui/icons/NavigateNext';
 import {
   Content,
   Header,
@@ -38,7 +34,6 @@ import {
   useEntityList,
 } from '@backstage/plugin-catalog-react';
 import { templatesViewPermission } from '@ansible/backstage-rhaap-common/permissions';
-import { PAGE_SIZE } from './constants';
 
 import { WizardCard } from './TemplateCard';
 import { useIsSuperuser } from '../../hooks';
@@ -73,22 +68,6 @@ const headerStyles = makeStyles(theme => ({
     marginTop: '8px',
     fontWeight: 500,
     lineHeight: 1.57,
-  },
-  paginationContainer: {
-    display: 'flex',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginTop: theme.spacing(2),
-    padding: theme.spacing(0, 1),
-  },
-  paginationInfo: {
-    color: theme.palette.text.secondary,
-    fontSize: '0.875rem',
-  },
-  paginationControls: {
-    display: 'flex',
-    alignItems: 'center',
-    gap: theme.spacing(1),
   },
 }));
 
@@ -241,21 +220,7 @@ const TemplateContent = ({
   loading: boolean;
   jobTemplates: { id: number; name: string }[];
 }) => {
-  const classes = headerStyles();
-  const {
-    entities,
-    loading: catalogLoading,
-    totalItems,
-    pageInfo,
-    limit,
-  } = useEntityList();
-  const [currentPage, setCurrentPage] = useState(1);
-
-  useEffect(() => {
-    if (!pageInfo?.prev) {
-      setCurrentPage(1);
-    }
-  }, [pageInfo?.prev]);
+  const { entities, loading: catalogLoading } = useEntityList();
 
   const isLoading = externalLoading || catalogLoading;
 
@@ -267,14 +232,7 @@ const TemplateContent = ({
     [entities, jobTemplates],
   );
 
-  const displayCount = filteredEntities.length;
-  const totalCount = totalItems ?? 0;
-  const totalPages = Math.max(1, Math.ceil(totalCount / limit));
-  const showStart = displayCount > 0 ? (currentPage - 1) * limit + 1 : 0;
-  const showEnd = Math.min(
-    (currentPage - 1) * limit + displayCount,
-    totalCount,
-  );
+  const totalCount = filteredEntities.length;
 
   if (isLoading) {
     return (
@@ -297,46 +255,19 @@ const TemplateContent = ({
 
   return (
     <div data-testid="templates-container">
-      <ItemCardGrid>
-        {filteredEntities.map(template => (
-          <WizardCard key={template.metadata.uid} template={template} />
-        ))}
-      </ItemCardGrid>
-      {totalCount > 0 && (
-        <Box className={classes.paginationContainer}>
-          <Typography className={classes.paginationInfo}>
-            Showing {showStart}-{showEnd} of {totalCount} templates
-          </Typography>
-          {totalPages > 1 && (
-            <Box className={classes.paginationControls}>
-              <IconButton
-                size="small"
-                disabled={!pageInfo?.prev}
-                onClick={() => {
-                  pageInfo?.prev?.();
-                  setCurrentPage(p => Math.max(1, p - 1));
-                }}
-                aria-label="Previous page"
-              >
-                <NavigateBeforeIcon />
-              </IconButton>
-              <Typography variant="body2">
-                Page {currentPage} of {totalPages}
-              </Typography>
-              <IconButton
-                size="small"
-                disabled={!pageInfo?.next}
-                onClick={() => {
-                  pageInfo?.next?.();
-                  setCurrentPage(p => p + 1);
-                }}
-                aria-label="Next page"
-              >
-                <NavigateNextIcon />
-              </IconButton>
-            </Box>
-          )}
-        </Box>
+      {totalCount === 0 && !isLoading ? (
+        <Typography
+          variant="body1"
+          style={{ textAlign: 'center', padding: '40px 0', opacity: 0.6 }}
+        >
+          No templates found.
+        </Typography>
+      ) : (
+        <ItemCardGrid>
+          {filteredEntities.map(template => (
+            <WizardCard key={template.metadata.uid} template={template} />
+          ))}
+        </ItemCardGrid>
       )}
     </div>
   );
@@ -644,10 +575,7 @@ export const HomeComponent = () => {
         </Alert>
       </Snackbar>
       <Content>
-        <EntityListProvider
-          key={syncKey}
-          pagination={{ mode: 'cursor', limit: PAGE_SIZE }}
-        >
+        <EntityListProvider key={syncKey}>
           <CatalogFilterLayout>
             <CatalogFilterLayout.Filters>
               <div data-testid="search-bar-container">
