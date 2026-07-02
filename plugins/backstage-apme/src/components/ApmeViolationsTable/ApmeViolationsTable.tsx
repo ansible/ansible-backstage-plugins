@@ -42,6 +42,10 @@ import {
 import { useApmeAiEnabled } from '../../hooks/useApmeEnabled';
 import { DiffView } from '../DiffView';
 import { FixChipStyled, type FixChipStatus } from '../FixChipStyled';
+import {
+  formatViolationMessage,
+  yamlSnippetAroundLine,
+} from '../../utils/violationRemediation';
 
 type SortColumn = 'severity' | 'fixMethod' | 'rule' | 'file';
 
@@ -213,6 +217,28 @@ const useStyles = makeStyles(theme => ({
       theme.palette.type === 'dark' ? 'rgba(255,255,255,0.04)' : '#f5f5f5',
     borderBottom: `1px solid ${theme.palette.divider}`,
   },
+  snippetEllipsis: {
+    display: 'block',
+    padding: theme.spacing(0.5, 1.5),
+    fontSize: 11,
+    color: theme.palette.text.secondary,
+    fontFamily: 'monospace',
+  },
+  issuesList: {
+    margin: 0,
+    paddingLeft: theme.spacing(2.5),
+    fontSize: 13,
+    lineHeight: 1.5,
+    '& li': {
+      marginBottom: theme.spacing(0.75),
+    },
+  },
+  suggestionPanel: {
+    fontSize: 13,
+    lineHeight: 1.5,
+    whiteSpace: 'pre-wrap',
+    fontFamily: 'monospace',
+  },
   footerActions: {
     display: 'flex',
     gap: theme.spacing(1),
@@ -250,9 +276,11 @@ export interface ApmeViolationsTableFilterContext {
 function CodePreview({
   yaml,
   highlightLine,
+  startLine = 1,
 }: {
   yaml?: string;
   highlightLine: number;
+  startLine?: number;
 }) {
   const classes = useStyles();
   if (!yaml) return null;
@@ -260,11 +288,8 @@ function CodePreview({
   return (
     <div className={classes.codeBlock}>
       {lines.map((content, i) => {
-        const lineNum = i + 1;
-        const isHighlighted =
-          lineNum === highlightLine
-            ? true
-            : content.trim().length > 0 && i === 1;
+        const lineNum = startLine + i;
+        const isHighlighted = lineNum === highlightLine;
         return (
           <div
             key={i}
@@ -275,6 +300,81 @@ function CodePreview({
           </div>
         );
       })}
+    </div>
+  );
+}
+
+function IssuesList({ issues }: { issues: string[] }) {
+  const classes = useStyles();
+  if (issues.length === 0) {
+    return null;
+  }
+  return (
+    <ul className={classes.issuesList}>
+      {issues.map((issue, index) => (
+        <li key={`${index}-${issue}`}>{issue}</li>
+      ))}
+    </ul>
+  );
+}
+
+function CurrentYamlPanel({
+  yaml,
+  highlightLine,
+}: {
+  yaml: string;
+  highlightLine: number;
+}) {
+  const classes = useStyles();
+  const { snippet, startLine, truncatedAbove, truncatedBelow } =
+    yamlSnippetAroundLine(yaml, highlightLine);
+
+  return (
+    <>
+      {truncatedAbove && (
+        <Typography variant="caption" className={classes.snippetEllipsis}>
+          …
+        </Typography>
+      )}
+      <CodePreview
+        yaml={snippet}
+        highlightLine={highlightLine}
+        startLine={startLine}
+      />
+      {truncatedBelow && (
+        <Typography variant="caption" className={classes.snippetEllipsis}>
+          …
+        </Typography>
+      )}
+    </>
+  );
+}
+
+function TwoColumnRemediationPanel({
+  yaml,
+  highlightLine,
+  rightLabel,
+  rightContent,
+}: {
+  yaml: string;
+  highlightLine: number;
+  rightLabel: string;
+  rightContent: ReactNode;
+}) {
+  const classes = useStyles();
+
+  return (
+    <div className={classes.diffPanels}>
+      <div className={classes.diffPanel}>
+        <div className={classes.diffPanelLabel}>Current</div>
+        <Box padding={1}>
+          <CurrentYamlPanel yaml={yaml} highlightLine={highlightLine} />
+        </Box>
+      </div>
+      <div className={classes.diffPanel}>
+        <div className={classes.diffPanelLabel}>{rightLabel}</div>
+        <Box padding={1.5}>{rightContent}</Box>
+      </div>
     </div>
   );
 }
@@ -325,16 +425,38 @@ function ExpandedViolationDetail({
         title="Proposed fix"
       />
     );
-  } else if (v.ai_suggestion) {
+  } else if (v.original_yaml?.trim() && v.ai_suggestion?.trim()) {
     remediationBody = (
-      <Typography variant="body2" style={{ whiteSpace: 'pre-wrap' }}>
-        {v.ai_suggestion}
-      </Typography>
+      <TwoColumnRemediationPanel
+        yaml={v.original_yaml}
+        highlightLine={v.line}
+        rightLabel="Suggested change"
+        rightContent={
+          <Typography variant="body2" className={classes.suggestionPanel}>
+            {v.ai_suggestion}
+          </Typography>
+        }
+      />
     );
-  } else if (v.message) {
+  } else if (v.original_yaml?.trim() && v.message?.trim()) {
     remediationBody = (
-      <Typography variant="body2" style={{ whiteSpace: 'pre-wrap' }}>
-        {v.message}
+      <TwoColumnRemediationPanel
+        yaml={v.original_yaml}
+        highlightLine={v.line}
+        rightLabel="Issues found"
+        rightContent={
+          <IssuesList issues={formatViolationMessage(v.message)} />
+        }
+      />
+    );
+  } else if (v.message?.trim()) {
+    remediationBody = (
+      <IssuesList issues={formatViolationMessage(v.message)} />
+    );
+  } else if (v.ai_suggestion?.trim()) {
+    remediationBody = (
+      <Typography variant="body2" className={classes.suggestionPanel}>
+        {v.ai_suggestion}
       </Typography>
     );
   } else {
@@ -357,19 +479,6 @@ function ExpandedViolationDetail({
         Suggested remediation
       </Typography>
       {remediationBody}
-      {v.original_yaml && !rowDiff && !v.fixed_yaml && (
-        <Box marginTop={2}>
-          <Typography
-            variant="caption"
-            color="textSecondary"
-            display="block"
-            gutterBottom
-          >
-            Current content
-          </Typography>
-          <CodePreview yaml={v.original_yaml} highlightLine={v.line} />
-        </Box>
-      )}
       <div className={classes.footer}>
         <div className={classes.footerMeta}>
           <span>
