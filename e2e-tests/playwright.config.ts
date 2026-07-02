@@ -22,8 +22,8 @@ export default defineConfig({
   globalTimeout: process.env.PLAYWRIGHT_GLOBAL_TIMEOUT
     ? parseInt(process.env.PLAYWRIGHT_GLOBAL_TIMEOUT)
     : process.env.CI
-    ? 20 * 60 * 1000
-    : undefined,
+      ? 20 * 60 * 1000
+      : undefined,
 
   // Timeouts (configurable via environment variables for CI)
   // Recommended CI values: PLAYWRIGHT_TEST_TIMEOUT=90000 (90s)
