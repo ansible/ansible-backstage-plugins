@@ -132,7 +132,10 @@ describe('RepositoryDetailsPage', () => {
           [discoveryApiRef, mockDiscoveryApi],
           [fetchApiRef, mockFetchApi],
           [identityApiRef, mockIdentityApi],
-          [gitRepositoriesExtensionsApiRef, new DefaultGitRepositoriesExtensionsApi()],
+          [
+            gitRepositoriesExtensionsApiRef,
+            new DefaultGitRepositoriesExtensionsApi(),
+          ],
         ]}
       >
         <ThemeProvider theme={theme}>

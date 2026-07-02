@@ -203,7 +203,10 @@ describe('RepositoriesTable', () => {
           [fetchApiRef, mockFetchApi],
           [starredEntitiesApiRef, new MockStarredEntitiesApi()],
           [permissionApiRef, mockApis.permission()],
-          [gitRepositoriesExtensionsApiRef, new DefaultGitRepositoriesExtensionsApi()],
+          [
+            gitRepositoriesExtensionsApiRef,
+            new DefaultGitRepositoriesExtensionsApi(),
+          ],
         ]}
       >
         <MemoryRouter>
