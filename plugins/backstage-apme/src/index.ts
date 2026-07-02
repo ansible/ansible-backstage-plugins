@@ -23,7 +23,6 @@ export {
   ApmeEntityTab,
   ApmeRepoStatusChip,
   ApmeAdminCard,
-  ApmeEnabledEntityLayoutRoute,
   ApmeQualitySettingsTab,
   ApmeFleetQualityTab,
   rootRouteRef as apmeRouteRef,
@@ -37,7 +36,6 @@ export { FleetQualityTab as ApmeFleetQualityTabComponent } from './components/Fl
 export { EntityQualityTab as ApmeEntityQualityTabComponent } from './components/EntityQualityTab';
 export type { FleetQualityTabProps as ApmeFleetQualityTabProps } from './components/FleetQualityTab';
 export { PreviewChip as PreviewChipComponent } from './components/PreviewChip';
-export { ApmeEnabledEntityLayoutRoute as ApmeEnabledEntityLayoutRouteComponent } from './components/ApmeEnabledEntityLayoutRoute';
 export { apmeApiRef, ApmeApiClient } from './api';
 export type { ApmeApi } from './api';
 export {

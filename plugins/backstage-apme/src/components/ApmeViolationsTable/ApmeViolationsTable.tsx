@@ -40,7 +40,6 @@ import {
   categoryLabel,
 } from '@ansible/backstage-apme-common/severity';
 import { useApmeAiEnabled } from '../../hooks/useApmeEnabled';
-import { EditInDevSpacesButton } from '../EditInDevSpacesButton';
 import { DiffView } from '../DiffView';
 import { FixChipStyled, type FixChipStatus } from '../FixChipStyled';
 
@@ -280,25 +279,29 @@ function CodePreview({
   );
 }
 
+function hasSuggestedRemediation(v: Violation): boolean {
+  return Boolean(
+    v.fixed_yaml?.trim() ||
+      v.ai_suggestion?.trim() ||
+      v.message?.trim(),
+  );
+}
+
 function ExpandedViolationDetail({
   violation: v,
   rowDiff,
-  devSpacesUrl,
-  canSelect,
   onDismiss,
 }: {
   violation: Violation;
   rowDiff?: ViolationRowDiff;
-  devSpacesUrl?: string | null;
-  canSelect: boolean;
   onDismiss: () => void;
 }) {
   const classes = useStyles();
   const cat = v.category ? categoryLabel(v.category) : v.validator_source;
 
-  let detailBody: ReactNode;
+  let remediationBody: ReactNode;
   if (rowDiff?.before || rowDiff?.after) {
-    detailBody = (
+    remediationBody = (
       <div className={classes.diffPanels}>
         <div className={classes.diffPanel}>
           <div className={classes.diffPanelLabel}>Before</div>
@@ -315,16 +318,30 @@ function ExpandedViolationDetail({
       </div>
     );
   } else if (v.fixed_yaml) {
-    detailBody = (
+    remediationBody = (
       <DiffView
         before={v.original_yaml}
         after={v.fixed_yaml}
         title="Proposed fix"
       />
     );
+  } else if (v.ai_suggestion) {
+    remediationBody = (
+      <Typography variant="body2" style={{ whiteSpace: 'pre-wrap' }}>
+        {v.ai_suggestion}
+      </Typography>
+    );
+  } else if (v.message) {
+    remediationBody = (
+      <Typography variant="body2" style={{ whiteSpace: 'pre-wrap' }}>
+        {v.message}
+      </Typography>
+    );
   } else {
-    detailBody = (
-      <CodePreview yaml={v.original_yaml} highlightLine={v.line} />
+    remediationBody = (
+      <Typography variant="body2" color="textSecondary">
+        No automated suggestion for this rule — edit manually in your repo.
+      </Typography>
     );
   }
 
@@ -333,15 +350,26 @@ function ExpandedViolationDetail({
       <Typography variant="body2" className={classes.description}>
         {v.ai_reason || `Rule ${v.rule_id} detected in ${v.file}`}
       </Typography>
-      {v.ai_suggestion && (
-        <Typography
-          variant="body2"
-          style={{ marginTop: 8, fontStyle: 'italic' }}
-        >
-          Guidance: {v.ai_suggestion}
-        </Typography>
+      <Typography
+        variant="subtitle2"
+        style={{ marginTop: 12, marginBottom: 8, fontSize: 13 }}
+      >
+        Suggested remediation
+      </Typography>
+      {remediationBody}
+      {v.original_yaml && !rowDiff && !v.fixed_yaml && (
+        <Box marginTop={2}>
+          <Typography
+            variant="caption"
+            color="textSecondary"
+            display="block"
+            gutterBottom
+          >
+            Current content
+          </Typography>
+          <CodePreview yaml={v.original_yaml} highlightLine={v.line} />
+        </Box>
       )}
-      {detailBody}
       <div className={classes.footer}>
         <div className={classes.footerMeta}>
           <span>
@@ -357,9 +385,6 @@ function ExpandedViolationDetail({
           </span>
         </div>
         <div className={classes.footerActions}>
-          {!canSelect && devSpacesUrl && (
-            <EditInDevSpacesButton url={devSpacesUrl} label="Edit in Dev Spaces" />
-          )}
           <Tooltip title="Mark as reviewed — won't be included in fix suggestions.">
             <Button
               size="small"
@@ -405,7 +430,7 @@ export const ApmeViolationsTable = ({
   violations,
   selectedIds,
   onSelectionChange,
-  devSpacesUrl,
+  devSpacesUrl: _devSpacesUrl,
   toolbarActions,
   filterContext,
   showCheckboxes = true,
@@ -690,7 +715,9 @@ export const ApmeViolationsTable = ({
                       title={
                         canSelect
                           ? 'Include in fix generation when checked'
-                          : 'Manual only — edit in Dev Spaces'
+                          : hasSuggestedRemediation(v)
+                            ? 'Manual only — see suggested remediation below'
+                            : 'Manual only — no automated suggestion'
                       }
                     >
                       <span>
@@ -758,8 +785,6 @@ export const ApmeViolationsTable = ({
                       <ExpandedViolationDetail
                         violation={v}
                         rowDiff={rowDiff}
-                        devSpacesUrl={devSpacesUrl}
-                        canSelect={canSelect}
                         onDismiss={() => handleDismiss(v.id)}
                       />
                     </Collapse>

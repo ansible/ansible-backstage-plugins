@@ -124,6 +124,46 @@ export function latestOperationProgressMessage(
   return entries[entries.length - 1]?.message ?? null;
 }
 
+export function isCheckOperation(state: OperationState | null): boolean {
+  const scanType = state?.scan_type?.toLowerCase();
+  return !scanType || scanType === 'check';
+}
+
+export function isRemediateOperation(state: OperationState | null): boolean {
+  return state?.scan_type?.toLowerCase() === 'remediate';
+}
+
+/** User-facing scan progress — never surfaces remediate engine messages. */
+export function formatScanProgressMessage(
+  raw: string | null | undefined,
+): string {
+  if (!raw?.trim()) {
+    return 'Scanning…';
+  }
+  return raw;
+}
+
+/** User-facing generate progress — qualifies engine "fixed" as proposed. */
+export function formatGenerateProgressMessage(
+  raw: string | null | undefined,
+): string {
+  if (!raw?.trim()) {
+    return 'Generating fix proposals…';
+  }
+  if (/graph tier 1 converged/i.test(raw)) {
+    const fixedMatch = raw.match(/(\d+)\s+fixed/i);
+    if (fixedMatch?.[1]) {
+      return `${fixedMatch[1]} fixes proposed — review and include before pushing`;
+    }
+    return 'Generating fix proposals…';
+  }
+  const fixedMatch = raw.match(/(\d+)\s+fixed/i);
+  if (fixedMatch?.[1] && !/proposed/i.test(raw)) {
+    return `${fixedMatch[1]} fixes proposed — review and include before pushing`;
+  }
+  return raw;
+}
+
 export function latestOperationProgressPercent(
   state: OperationState | null,
 ): number | undefined {
