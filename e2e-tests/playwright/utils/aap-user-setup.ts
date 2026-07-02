@@ -44,9 +44,8 @@ function trustAAPCertificate(): void {
     process.env.NODE_EXTRA_CA_CERTS = certPath;
     certCleanupPath = tmpDir;
   } catch {
-    process.env.NODE_TLS_REJECT_UNAUTHORIZED = '0';
     console.log(
-      '[AAP Setup] Could not fetch AAP certificate, disabling TLS verification',
+      '[AAP Setup] Could not fetch AAP certificate for TLS trust, relying on NODE_TLS_REJECT_UNAUTHORIZED from environment',
     );
   }
 }
@@ -197,7 +196,9 @@ async function ensureOrgMembership(userId: number): Promise<void> {
 
 async function ensureJobTemplatePermissions(userId: number): Promise<void> {
   // Get job templates to assign execute permission
-  const templates = await aapGet('api/gateway/v1/job_templates/?page_size=5');
+  const templates = await aapGet(
+    'api/controller/v2/job_templates/?page_size=5',
+  );
   if (templates.count === 0) {
     console.log(
       '[AAP Setup] No job templates found, skipping permission assignment',
@@ -210,7 +211,7 @@ async function ensureJobTemplatePermissions(userId: number): Promise<void> {
     // Try to get the execute role for this template
     try {
       const roles = await aapGet(
-        `api/gateway/v1/job_templates/${template.id}/object_roles/`,
+        `api/controller/v2/job_templates/${template.id}/object_roles/`,
       );
       const executeRole = roles.results?.find(
         (r: { name: string }) =>
@@ -220,7 +221,7 @@ async function ensureJobTemplatePermissions(userId: number): Promise<void> {
 
       if (executeRole) {
         const { status } = await aapPost(
-          `api/gateway/v1/roles/${executeRole.id}/users/`,
+          `api/controller/v2/roles/${executeRole.id}/users/`,
           { id: userId },
         );
         console.log(
