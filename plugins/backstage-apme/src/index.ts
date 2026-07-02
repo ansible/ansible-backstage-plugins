@@ -26,13 +26,11 @@ export {
   ApmeEnabledEntityLayoutRoute,
   ApmeQualitySettingsTab,
   ApmeFleetQualityTab,
-  QualityTabExtension,
   rootRouteRef as apmeRouteRef,
   projectRouteRef as apmeProjectRouteRef,
 } from './plugin';
 export { CreateProjectDialog } from './components/CreateProjectDialog';
 export { ApmeRepoStatusChip as ApmeRepoStatusChipComponent } from './components/ApmeRepoStatusChip';
-export { QualityTab } from './components/QualityTab';
 export { ApmeAdminCard as ApmeAdminCardComponent } from './components/ApmeAdminCard';
 export { ApmeQualitySettingsTab as ApmeQualitySettingsTabComponent } from './components/ApmeQualitySettingsTab';
 export { FleetQualityTab as ApmeFleetQualityTabComponent } from './components/FleetQualityTab';

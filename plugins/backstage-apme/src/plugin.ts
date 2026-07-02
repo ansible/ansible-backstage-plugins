@@ -164,12 +164,3 @@ export const ApmeFleetQualityTab = apmePlugin.provide(
     },
   }),
 );
-
-export const QualityTabExtension = apmePlugin.provide(
-  createComponentExtension({
-    name: 'QualityTab',
-    component: {
-      lazy: () => import('./components/QualityTab').then(m => m.QualityTab),
-    },
-  }),
-);

@@ -20,7 +20,6 @@ import { useApi, configApiRef } from '@backstage/core-plugin-api';
 import { scmAuthApiRef } from '@backstage/integration-react';
 import { useEntity } from '@backstage/plugin-catalog-react';
 import {
-  Content,
   Progress,
   ResponseErrorPanel,
 } from '@backstage/core-components';
@@ -69,7 +68,6 @@ import {
   normalizeSeverity,
   effectiveFixType,
   isFixableViolation,
-  proposalNeedsManualApproval,
   categoryLabel,
   type SeverityLevel,
 } from '@ansible/backstage-apme-common/severity';
@@ -78,14 +76,52 @@ import { buildDevSpacesUrlFromRepoUrl } from '@ansible/backstage-rhaap-common/de
 import { apmeApiRef } from '../../api';
 import { useApmeAiEnabled, useApmeAiStatus } from '../../hooks/useApmeEnabled';
 import { ApmeViolationsTable } from '../ApmeViolationsTable';
+import type { ViolationRowDiff } from '../ApmeViolationsTable';
 import { EditInDevSpacesButton } from '../EditInDevSpacesButton';
 import { QualityWorkflowStepper } from '../QualityWorkflowStepper';
 import type { RemediationStep } from '../RemediationStepper';
+import type { FixChipStatus } from '../FixChipStyled';
 import { FixProgressBanner } from '../FixProgressBanner';
 import { DiffView } from '../DiffView';
 import { PrStatusBanner } from '../PrStatusBanner';
 
 const ENTITY_VIOLATIONS_LIMIT = 500;
+
+type QualityPageState =
+  | 'idle'
+  | 'in-progress'
+  | 'proposals-ready'
+  | 'creating-pr'
+  | 'pr-open';
+
+function violationKey(v: { rule_id: string; file: string }): string {
+  return `${v.rule_id}::${v.file}`;
+}
+
+function derivePageState(
+  remediationStep: RemediationStep,
+  fixProgress: { message: string; progress?: number } | null,
+  creatingPr: boolean,
+  prUrl: string | null,
+): QualityPageState {
+  if (prUrl) {
+    return 'pr-open';
+  }
+  if (creatingPr || remediationStep === 'push') {
+    return 'creating-pr';
+  }
+  if (remediationStep === 'generate' || fixProgress) {
+    return 'in-progress';
+  }
+  if (
+    remediationStep === 'review' ||
+    remediationStep === 'pr' ||
+    remediationStep === 'verify'
+  ) {
+    return 'proposals-ready';
+  }
+  return 'idle';
+}
 
 function sortAutoFixFirst(violations: Violation[]): Violation[] {
   return [...violations].sort((a, b) => {
@@ -250,6 +286,9 @@ const useStyles = makeStyles(theme => ({
     flexWrap: 'wrap',
   },
   dot: { color: theme.palette.text.disabled, margin: '0 4px' },
+  root: {
+    padding: theme.spacing(2, 3),
+  },
 }));
 
 function formatTimeAgo(isoString?: string): string {
@@ -439,8 +478,11 @@ export const ApmeEntityTab = ({
   const [remediationActivityId, setRemediationActivityId] = useState<
     string | null
   >(null);
-  const [prMerged, setPrMerged] = useState(false);
   const [remediationError, setRemediationError] = useState<Error | null>(null);
+  const [includedTier1Keys, setIncludedTier1Keys] = useState<Set<string>>(
+    new Set(),
+  );
+  const [showFullReview, setShowFullReview] = useState(false);
   const [tier1Result, setTier1Result] = useState<Tier1RemediationResult | null>(
     null,
   );
@@ -486,19 +528,6 @@ export const ApmeEntityTab = ({
       setFixTypeFilter('all');
     }
   }, [initialRuleFilter]);
-
-  // Auto-select all auto-fix violations when violations load
-  const autoSelectedRef = useRef(false);
-  useEffect(() => {
-    if (violations.length === 0 || autoSelectedRef.current) return;
-    const autoFixIds = new Set(
-      violations.filter(v => v.remediation_class === 1).map(v => v.id),
-    );
-    if (autoFixIds.size > 0) {
-      setSelectedIds(autoFixIds);
-      autoSelectedRef.current = true;
-    }
-  }, [violations]);
 
   useEffect(() => {
     if (autoFixCount === 0 && fixTypeFilter === 'auto') {
@@ -726,39 +755,70 @@ export const ApmeEntityTab = ({
     return active;
   }, [proposals, selectedFixableIds, declinedProposalIds]);
 
-  const autoApprovedRef = useRef<Set<string>>(new Set());
-
-  // Auto-approve deterministic auto-fix proposals when review starts
-  useEffect(() => {
-    if (
-      remediationStep !== 'review' ||
-      !project?.id ||
-      visibleProposals.length === 0
-    ) {
-      return;
+  const rowDiffs = useMemo(() => {
+    const map = new Map<number, ViolationRowDiff>();
+    for (const proposal of visibleProposals) {
+      map.set(proposal.violation_id, {
+        before: proposal.original_yaml,
+        after: proposal.fixed_yaml,
+      });
     }
-    const autoIds = visibleProposals
-      .filter(p => {
-        const v = violations.find(viol => viol.id === p.violation_id);
-        if (!v) {
-          return true;
+    if (tier1Result) {
+      for (const fv of tier1Result.fixedViolations) {
+        const violation = violations.find(
+          v => v.rule_id === fv.rule_id && v.file === fv.file,
+        );
+        if (violation) {
+          map.set(violation.id, {
+            before: violation.original_yaml,
+            after: violation.fixed_yaml,
+          });
         }
-        return !proposalNeedsManualApproval(v.remediation_class, enableAi);
-      })
-      .map(p => p.id)
-      .filter(id => !autoApprovedRef.current.has(id));
-    if (autoIds.length === 0) return;
-    autoIds.forEach(id => autoApprovedRef.current.add(id));
-    setApprovedProposalIds(prev => new Set([...prev, ...autoIds]));
-    void apmeApi.approveProposals(project.id, autoIds);
-  }, [
-    remediationStep,
-    project?.id,
-    visibleProposals,
-    violations,
-    apmeApi,
-    enableAi,
-  ]);
+      }
+    }
+    return map;
+  }, [visibleProposals, tier1Result, violations]);
+
+  const getFixStatus = useCallback(
+    (violationId: number): FixChipStatus => {
+      const proposal = proposals.find(p => p.violation_id === violationId);
+      if (proposal) {
+        if (declinedProposalIds.has(proposal.id)) {
+          return 'excluded';
+        }
+        if (prUrl) {
+          return 'in-pr';
+        }
+        if (approvedProposalIds.has(proposal.id)) {
+          return 'proposed';
+        }
+        return 'proposed';
+      }
+      const violation = violations.find(v => v.id === violationId);
+      if (violation && tier1Result) {
+        const key = violationKey(violation);
+        const inTier1 = tier1Result.fixedViolations.some(
+          fv => violationKey(fv) === key,
+        );
+        if (inTier1) {
+          if (prUrl) {
+            return 'in-pr';
+          }
+          return includedTier1Keys.has(key) ? 'proposed' : 'excluded';
+        }
+      }
+      return 'proposed';
+    },
+    [
+      proposals,
+      declinedProposalIds,
+      prUrl,
+      approvedProposalIds,
+      violations,
+      tier1Result,
+      includedTier1Keys,
+    ],
+  );
 
   const resolveScmToken = useCallback(async () => {
     if (!repoUrl) {
@@ -851,7 +911,8 @@ export const ApmeEntityTab = ({
     setProposals([]);
     setApprovedProposalIds(new Set());
     setDeclinedProposalIds(new Set());
-    autoApprovedRef.current = new Set();
+    setIncludedTier1Keys(new Set());
+    setShowFullReview(false);
     generatedViolationIdsRef.current = new Set(selectedFixableIds);
     setRemediationStep('generate');
     setFixProgress({ message: 'Starting fix generation…', progress: 0 });
@@ -890,6 +951,18 @@ export const ApmeEntityTab = ({
     setApprovedProposalIds(prev => {
       const next = new Set(prev);
       next.delete(proposalId);
+      return next;
+    });
+  }, []);
+
+  const handleIncludeTier1 = useCallback((key: string) => {
+    setIncludedTier1Keys(prev => new Set([...prev, key]));
+  }, []);
+
+  const handleExcludeTier1 = useCallback((key: string) => {
+    setIncludedTier1Keys(prev => {
+      const next = new Set(prev);
+      next.delete(key);
       return next;
     });
   }, []);
@@ -946,15 +1019,15 @@ export const ApmeEntityTab = ({
 
   if (loading)
     return (
-      <Content>
+      <Box className={classes.root}>
         <Progress />
-      </Content>
+      </Box>
     );
   if (error) {
     const message = (error as Error).message ?? '';
     if (isApmeConnectionError(message)) {
       return (
-        <Content>
+        <Box className={classes.root}>
           <ApmeUnavailable message={APME_GATEWAY_UNAVAILABLE_MESSAGE} />
           <Box display="flex" justifyContent="center" mt={2}>
             <Button
@@ -965,20 +1038,20 @@ export const ApmeEntityTab = ({
               Retry
             </Button>
           </Box>
-        </Content>
+        </Box>
       );
     }
     return (
-      <Content>
+      <Box className={classes.root}>
         <ResponseErrorPanel error={error} />
-      </Content>
+      </Box>
     );
   }
 
   // Unscanned state
   if (!project) {
     return (
-      <Content>
+      <Box className={classes.root}>
         <div className={classes.noData}>
           <Typography variant="h6" gutterBottom>
             No scan results yet
@@ -1017,7 +1090,7 @@ export const ApmeEntityTab = ({
             </Button>
           )}
         </div>
-      </Content>
+      </Box>
     );
   }
 
@@ -1136,26 +1209,28 @@ export const ApmeEntityTab = ({
       : null;
   const showDevSpacesForManual = Boolean(devSpacesUrl && manualAtScan > 0);
 
+  const pageState = derivePageState(
+    remediationStep,
+    fixProgress,
+    creatingPr,
+    prUrl,
+  );
+
+  const approvedProposalCount = visibleProposals.filter(p =>
+    approvedProposalIds.has(p.id),
+  ).length;
+
   const canPushBranch =
-    (visibleProposals.length > 0 &&
-      visibleProposals.every(p => {
-        const v = violations.find(viol => viol.id === p.violation_id);
-        if (!v) {
-          return true;
-        }
-        return (
-          !proposalNeedsManualApproval(v.remediation_class, enableAi) ||
-          approvedProposalIds.has(p.id)
-        );
-      })) ||
-    Boolean(
-      tier1Result &&
-      remediationActivityId &&
-      (tier1Result.patches.length > 0 || tier1Result.remediatedCount > 0),
-    );
+    remediationActivityId !== null &&
+    (approvedProposalCount > 0 ||
+      (tier1Result !== null && includedTier1Keys.size > 0));
+
+  const showCheckboxes =
+    pageState === 'idle' ||
+    (pageState === 'proposals-ready' && remediationStep === 'review');
 
   return (
-    <Content>
+    <Box className={classes.root}>
       {/* Summary line */}
       {violations.length > 0 && (
         <Box className={classes.summaryLine}>
@@ -1416,7 +1491,10 @@ export const ApmeEntityTab = ({
       )}
 
       {violations.length > 0 && (
-        <QualityWorkflowStepper activeStep={remediationStep} />
+        <QualityWorkflowStepper
+          activeStep={remediationStep}
+          creatingPr={creatingPr}
+        />
       )}
 
       {fixProgress && (
@@ -1431,102 +1509,106 @@ export const ApmeEntityTab = ({
         visibleProposals.length === 0 && (
           <Paper className={classes.reviewPanel} elevation={1}>
             <Typography variant="subtitle2" gutterBottom>
-              Auto-generated fixes ready
+              Review auto-generated fixes
             </Typography>
             <Typography variant="body2" color="textSecondary" paragraph>
-              {tier1Result.remediatedCount} finding
-              {tier1Result.remediatedCount !== 1 ? 's were' : ' was'}{' '}
-              transformed. Push the branch and open in Dev Spaces to review
-              changes and commit.
+              Include the fixes you want on the remediation branch. Nothing is
+              pushed until you approve and push.
             </Typography>
-            {tier1Result.fixedViolations.length > 0 && (
-              <Box mb={2}>
-                <Typography
-                  variant="body2"
-                  style={{ fontWeight: 600, marginBottom: 8 }}
-                >
-                  Findings addressed
-                </Typography>
-                {tier1Result.fixedViolations.map((fv, idx) => (
-                  <Typography
-                    key={`${fv.rule_id}-${fv.file}-${fv.line ?? idx}`}
-                    variant="body2"
+            {tier1Result.fixedViolations.map((fv, idx) => {
+              const key = violationKey(fv);
+              const included = includedTier1Keys.has(key);
+              return (
+                <Box key={`${key}-${idx}`} mb={2}>
+                  <Box
+                    display="flex"
+                    alignItems="center"
+                    mb={1}
+                    style={{ gap: 8, flexWrap: 'wrap' }}
                   >
-                    {fv.rule_id} · {fv.file}
-                    {typeof fv.line === 'number' ? `:${fv.line}` : ''}
-                    {fv.message ? ` — ${fv.message}` : ''}
-                  </Typography>
-                ))}
-              </Box>
-            )}
-            {tier1Result.patches.length > 0 && (
-              <Box>
-                <Typography
-                  variant="body2"
-                  style={{ fontWeight: 600, marginBottom: 8 }}
-                >
-                  File changes
-                </Typography>
-                {tier1Result.patches.map(patch => (
-                  <Box key={patch.file} mb={2}>
-                    <Typography
-                      variant="body2"
-                      style={{ fontFamily: 'monospace', marginBottom: 4 }}
-                    >
-                      {patch.file}
+                    <Typography variant="body2">
+                      {fv.rule_id} · {fv.file}
+                      {typeof fv.line === 'number' ? `:${fv.line}` : ''}
                     </Typography>
-                    <Box
-                      component="pre"
-                      style={{
-                        fontSize: 12,
-                        overflow: 'auto',
-                        backgroundColor: '#f5f5f5',
-                        padding: 12,
-                        borderRadius: 4,
-                        margin: 0,
-                      }}
-                    >
-                      {patch.diff}
+                    <Box className={classes.reviewActions}>
+                      {!included ? (
+                        <Button
+                          size="small"
+                          variant="contained"
+                          color="primary"
+                          onClick={() => handleIncludeTier1(key)}
+                        >
+                          Include
+                        </Button>
+                      ) : (
+                        <Button
+                          size="small"
+                          variant="outlined"
+                          onClick={() => handleExcludeTier1(key)}
+                        >
+                          Exclude
+                        </Button>
+                      )}
                     </Box>
                   </Box>
-                ))}
-              </Box>
-            )}
+                  {tier1Result.patches
+                    .filter(p => p.file === fv.file)
+                    .map(patch => (
+                      <Box
+                        key={patch.file}
+                        component="pre"
+                        mb={1}
+                        style={{
+                          fontSize: 12,
+                          overflow: 'auto',
+                          backgroundColor: '#f5f5f5',
+                          padding: 12,
+                          borderRadius: 4,
+                          margin: 0,
+                        }}
+                      >
+                        {patch.diff}
+                      </Box>
+                    ))}
+                </Box>
+              );
+            })}
           </Paper>
         )}
 
       {remediationStep === 'review' && visibleProposals.length > 0 && (
         <Paper className={classes.reviewPanel} elevation={1}>
-          <Typography variant="subtitle2" gutterBottom>
-            Review proposed fixes
-          </Typography>
-          {visibleProposals.map(proposal => {
-            const violation = violations.find(
-              v => v.id === proposal.violation_id,
-            );
-            const needsReview = violation
-              ? proposalNeedsManualApproval(
-                  violation.remediation_class,
-                  enableAi,
-                )
-              : false;
+          <Box
+            display="flex"
+            alignItems="center"
+            justifyContent="space-between"
+            mb={1}
+            style={{ gap: 8, flexWrap: 'wrap' }}
+          >
+            <Typography variant="subtitle2">Review proposed fixes</Typography>
+            <Button
+              size="small"
+              variant="outlined"
+              onClick={() => setShowFullReview(prev => !prev)}
+            >
+              {showFullReview ? 'Hide all changes' : 'Review all changes'}
+            </Button>
+          </Box>
+          {(showFullReview ? visibleProposals : visibleProposals).map(
+            proposal => {
             const approved = approvedProposalIds.has(proposal.id);
+            const declined = declinedProposalIds.has(proposal.id);
+            if (!showFullReview && declined) {
+              return null;
+            }
             return (
               <Box key={proposal.id} mb={2}>
                 <Box
                   display="flex"
                   alignItems="center"
                   mb={1}
-                  style={{ gap: 8 }}
+                  style={{ gap: 8, flexWrap: 'wrap' }}
                 >
-                  <Chip
-                    size="small"
-                    label={needsReview ? 'Review' : 'Fixed'}
-                    style={{
-                      backgroundColor: needsReview ? '#2196f3' : '#4caf50',
-                      color: '#fff',
-                    }}
-                  />
                   <Typography variant="body2">
                     {proposal.rule_id} · {proposal.file}:{proposal.line}
                   </Typography>
@@ -1540,7 +1622,7 @@ export const ApmeEntityTab = ({
                   before={proposal.original_yaml}
                   after={proposal.fixed_yaml}
                 />
-                {needsReview && !approved && (
+                {!approved && !declined && (
                   <Box className={classes.reviewActions}>
                     <Button
                       size="small"
@@ -1557,20 +1639,16 @@ export const ApmeEntityTab = ({
                     >
                       Decline
                     </Button>
-                    <Button
-                      size="small"
-                      variant="text"
-                      onClick={() =>
-                        navigator.clipboard.writeText(proposal.file)
-                      }
-                    >
-                      Copy file path
-                    </Button>
                   </Box>
                 )}
-                {!needsReview && (
+                {approved && (
                   <Typography variant="caption" color="textSecondary">
-                    Auto-fix applied — included in PR
+                    Approved — will be included when you push the branch
+                  </Typography>
+                )}
+                {declined && (
+                  <Typography variant="caption" color="textSecondary">
+                    Excluded from this remediation run
                   </Typography>
                 )}
               </Box>
@@ -1579,7 +1657,7 @@ export const ApmeEntityTab = ({
         </Paper>
       )}
 
-      {(prUrl || prError || pushError || branchPushed || prMerged) && (
+      {(prUrl || prError || pushError || branchPushed) && (
         <PrStatusBanner
           prUrl={prUrl ?? undefined}
           prNumber={prNumber}
@@ -1587,12 +1665,10 @@ export const ApmeEntityTab = ({
           error={prError ?? undefined}
           pushError={pushError ?? undefined}
           branchPushed={branchPushed && !prUrl}
-          merged={prMerged}
           devSpacesUrl={devSpacesUrl}
           creatingPr={creatingPr}
           onCreatePr={handleCreatePr}
           onScanAgain={() => {
-            setPrMerged(false);
             setPrUrl(null);
             setPrBranchName(undefined);
             setBranchPushed(false);
@@ -1600,6 +1676,7 @@ export const ApmeEntityTab = ({
             setPrError(null);
             setRemediationActivityId(null);
             setTier1Result(null);
+            setIncludedTier1Keys(new Set());
             setRemediationStep('select');
             setSelectedIds(new Set());
             setApprovedProposalIds(new Set());
@@ -1617,8 +1694,8 @@ export const ApmeEntityTab = ({
         >
           <Typography variant="body2">
             {tier1Result
-              ? `${tier1Result.remediatedCount} auto-generated change${tier1Result.remediatedCount !== 1 ? 's' : ''} ready to push`
-              : `${visibleProposals.length} fix${visibleProposals.length !== 1 ? 'es' : ''} ready to push`}
+              ? `${includedTier1Keys.size} included change${includedTier1Keys.size !== 1 ? 's' : ''} ready to push`
+              : `${approvedProposalCount} approved fix${approvedProposalCount !== 1 ? 'es' : ''} ready to push`}
           </Typography>
           <Button
             variant="contained"
@@ -1674,7 +1751,7 @@ export const ApmeEntityTab = ({
                       variant="contained"
                       color="primary"
                       onClick={handleGenerateFixes}
-                      disabled={autoFix === 0 || selectedFixableIds.size === 0}
+                      disabled={selectedFixableIds.size === 0}
                     >
                       Generate fixes
                     </Button>
@@ -1875,6 +1952,12 @@ export const ApmeEntityTab = ({
             selectedIds={selectedIds}
             onSelectionChange={setSelectedIds}
             devSpacesUrl={devSpacesUrl}
+            showCheckboxes={showCheckboxes}
+            fixChipMode={
+              remediationStep === 'review' ? 'status' : 'tier'
+            }
+            getFixStatus={getFixStatus}
+            rowDiffs={remediationStep === 'review' ? rowDiffs : undefined}
             filterContext={{
               totalViolationCount: violationTotal,
               activeFixTypeFilter: fixTypeFilter,
@@ -1904,6 +1987,6 @@ export const ApmeEntityTab = ({
           />
         </div>
       )}
-    </Content>
+    </Box>
   );
 };

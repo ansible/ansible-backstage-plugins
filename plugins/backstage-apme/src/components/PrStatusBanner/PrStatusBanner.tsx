@@ -48,7 +48,6 @@ export interface PrStatusBannerProps {
   error?: string;
   pushError?: string;
   branchPushed?: boolean;
-  merged?: boolean;
   devSpacesUrl?: string | null;
   creatingPr?: boolean;
   onCreatePr?: () => void;
@@ -62,7 +61,6 @@ export const PrStatusBanner = ({
   error,
   pushError,
   branchPushed,
-  merged,
   devSpacesUrl,
   creatingPr,
   onCreatePr,
@@ -116,24 +114,6 @@ export const PrStatusBanner = ({
     );
   }
 
-  if (merged) {
-    return (
-      <Paper className={`${classes.banner} ${classes.success}`} elevation={1}>
-        <Box display="flex" alignItems="center" style={{ gap: 8 }}>
-          <CheckCircleIcon style={{ color: '#2e7d32' }} />
-          <Typography variant="body2">
-            Violations resolved · PR #{prNumber} merged
-          </Typography>
-        </Box>
-        {onScanAgain && (
-          <Button size="small" variant="outlined" onClick={onScanAgain}>
-            Scan again
-          </Button>
-        )}
-      </Paper>
-    );
-  }
-
   if (prUrl) {
     return (
       <Paper className={`${classes.banner} ${classes.success}`} elevation={1}>
@@ -158,6 +138,11 @@ export const PrStatusBanner = ({
               rel="noopener noreferrer"
             >
               Edit in Dev Spaces
+            </Button>
+          )}
+          {onScanAgain && (
+            <Button size="small" variant="outlined" onClick={onScanAgain}>
+              Scan again
             </Button>
           )}
         </Box>

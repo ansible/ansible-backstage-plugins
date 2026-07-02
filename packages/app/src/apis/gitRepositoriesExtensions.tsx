@@ -201,12 +201,24 @@ function ApmeViolationsCell({ entity }: { entity: Entity }) {
   const detailPath = `${window.location.pathname.replace(/\/catalog$/, '')}/${entityName}?tab=quality`;
 
   return (
-    <Box>
-      <Typography
-        variant="body2"
-        style={{ color: style.background, fontWeight: 600 }}
+    <Box display="flex" alignItems="center" gridGap={6} flexWrap="wrap">
+      <span
+        style={{
+          display: 'inline-block',
+          padding: '2px 8px',
+          borderRadius: 3,
+          fontSize: 11,
+          fontWeight: 700,
+          textTransform: 'uppercase',
+          letterSpacing: '0.03em',
+          backgroundColor: style.background,
+          color: style.text,
+        }}
       >
-        {project.total_violations} ({worstCount} {worstLevel.toUpperCase()})
+        {worstCount} {style.label}
+      </span>
+      <Typography variant="body2" style={{ fontWeight: 600 }}>
+        {project.total_violations} total
       </Typography>
       <Typography
         variant="caption"

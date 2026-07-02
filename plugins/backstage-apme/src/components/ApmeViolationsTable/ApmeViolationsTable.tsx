@@ -19,7 +19,6 @@ import {
   Box,
   Button,
   Checkbox,
-  Chip,
   Collapse,
   IconButton,
   Menu,
@@ -37,14 +36,13 @@ import {
   SEVERITY_STYLES,
   normalizeSeverity,
   effectiveFixType,
-  fixMethodLabel,
-  fixMethodTooltip,
   isFixableViolation,
   categoryLabel,
 } from '@ansible/backstage-apme-common/severity';
 import { useApmeAiEnabled } from '../../hooks/useApmeEnabled';
 import { EditInDevSpacesButton } from '../EditInDevSpacesButton';
 import { DiffView } from '../DiffView';
+import { FixChipStyled, type FixChipStatus } from '../FixChipStyled';
 
 type SortColumn = 'severity' | 'fixMethod' | 'rule' | 'file';
 
@@ -192,6 +190,30 @@ const useStyles = makeStyles(theme => ({
     color: theme.palette.text.secondary,
     fontSize: 12,
   },
+  diffPanels: {
+    display: 'grid',
+    gridTemplateColumns: '1fr 1fr',
+    gap: theme.spacing(1.5),
+    marginTop: theme.spacing(1.5),
+    [theme.breakpoints.down('sm')]: {
+      gridTemplateColumns: '1fr',
+    },
+  },
+  diffPanel: {
+    border: `1px solid ${theme.palette.divider}`,
+    borderRadius: 4,
+    overflow: 'hidden',
+  },
+  diffPanelLabel: {
+    padding: theme.spacing(0.75, 1.5),
+    fontSize: 11,
+    fontWeight: 700,
+    textTransform: 'uppercase',
+    letterSpacing: '0.05em',
+    backgroundColor:
+      theme.palette.type === 'dark' ? 'rgba(255,255,255,0.04)' : '#f5f5f5',
+    borderBottom: `1px solid ${theme.palette.divider}`,
+  },
   footerActions: {
     display: 'flex',
     gap: theme.spacing(1),
@@ -212,68 +234,18 @@ const useStyles = makeStyles(theme => ({
   },
 }));
 
-function FixMethodDisplay({
-  remediationClass,
-  enableAi,
-}: {
-  remediationClass: number;
-  enableAi: boolean;
-}) {
-  const fixType = effectiveFixType(remediationClass, enableAi);
-  const label = fixMethodLabel(fixType);
-  const tooltip = fixMethodTooltip(fixType);
-  let chip;
-  if (fixType === 'auto') {
-    chip = (
-      <Chip
-        size="small"
-        label={label}
-        style={{
-          backgroundColor: '#4caf50',
-          color: '#fff',
-          fontWeight: 600,
-          fontSize: 11,
-          height: 22,
-          borderRadius: 3,
-        }}
-      />
-    );
-  } else if (fixType === 'ai') {
-    chip = (
-      <Chip
-        size="small"
-        label={label}
-        style={{
-          backgroundColor: '#2196f3',
-          color: '#fff',
-          fontWeight: 600,
-          fontSize: 11,
-          height: 22,
-          borderRadius: 3,
-        }}
-      />
-    );
-  } else {
-    chip = (
-      <Chip
-        size="small"
-        label={label}
-        variant="outlined"
-        style={{
-          fontSize: 11,
-          height: 22,
-          borderRadius: 3,
-          color: '#6a6e73',
-          borderColor: '#d2d2d2',
-        }}
-      />
-    );
-  }
-  return (
-    <Tooltip title={tooltip}>
-      <span>{chip}</span>
-    </Tooltip>
-  );
+export interface ViolationRowDiff {
+  before?: string;
+  after?: string;
+}
+
+export interface ApmeViolationsTableFilterContext {
+  totalViolationCount: number;
+  activeFixTypeFilter: string;
+  ruleFilter: string | null;
+  autoFixCount: number;
+  onClearFixTypeFilter?: () => void;
+  onClearRuleFilter?: () => void;
 }
 
 function CodePreview({
@@ -308,21 +280,108 @@ function CodePreview({
   );
 }
 
+function ExpandedViolationDetail({
+  violation: v,
+  rowDiff,
+  devSpacesUrl,
+  canSelect,
+  onDismiss,
+}: {
+  violation: Violation;
+  rowDiff?: ViolationRowDiff;
+  devSpacesUrl?: string | null;
+  canSelect: boolean;
+  onDismiss: () => void;
+}) {
+  const classes = useStyles();
+  const cat = v.category ? categoryLabel(v.category) : v.validator_source;
+
+  let detailBody: ReactNode;
+  if (rowDiff?.before || rowDiff?.after) {
+    detailBody = (
+      <div className={classes.diffPanels}>
+        <div className={classes.diffPanel}>
+          <div className={classes.diffPanelLabel}>Before</div>
+          <Box padding={1}>
+            <CodePreview yaml={rowDiff.before ?? ''} highlightLine={v.line} />
+          </Box>
+        </div>
+        <div className={classes.diffPanel}>
+          <div className={classes.diffPanelLabel}>After</div>
+          <Box padding={1}>
+            <CodePreview yaml={rowDiff.after ?? ''} highlightLine={v.line} />
+          </Box>
+        </div>
+      </div>
+    );
+  } else if (v.fixed_yaml) {
+    detailBody = (
+      <DiffView
+        before={v.original_yaml}
+        after={v.fixed_yaml}
+        title="Proposed fix"
+      />
+    );
+  } else {
+    detailBody = (
+      <CodePreview yaml={v.original_yaml} highlightLine={v.line} />
+    );
+  }
+
+  return (
+    <Box padding={2}>
+      <Typography variant="body2" className={classes.description}>
+        {v.ai_reason || `Rule ${v.rule_id} detected in ${v.file}`}
+      </Typography>
+      {v.ai_suggestion && (
+        <Typography
+          variant="body2"
+          style={{ marginTop: 8, fontStyle: 'italic' }}
+        >
+          Guidance: {v.ai_suggestion}
+        </Typography>
+      )}
+      {detailBody}
+      <div className={classes.footer}>
+        <div className={classes.footerMeta}>
+          <span>
+            Validator: <strong>{v.validator_source}</strong>
+          </span>
+          {v.scope && (
+            <span>
+              Scope: <strong>{v.scope}</strong>
+            </span>
+          )}
+          <span>
+            Category: <strong>{cat}</strong>
+          </span>
+        </div>
+        <div className={classes.footerActions}>
+          {!canSelect && devSpacesUrl && (
+            <EditInDevSpacesButton url={devSpacesUrl} label="Edit in Dev Spaces" />
+          )}
+          <Tooltip title="Mark as reviewed — won't be included in fix suggestions.">
+            <Button
+              size="small"
+              variant="text"
+              style={{ fontSize: 12, color: '#6a6e73' }}
+              onClick={onDismiss}
+            >
+              Dismiss
+            </Button>
+          </Tooltip>
+        </div>
+      </div>
+    </Box>
+  );
+}
+
 function fixMethodSortKey(remediationClass: number, enableAi: boolean): number {
   const ft = effectiveFixType(remediationClass, enableAi);
   if (ft === 'auto') return 0;
   if (ft === 'ai') return 1;
   if (ft === 'manual') return 2;
   return 3;
-}
-
-export interface ApmeViolationsTableFilterContext {
-  totalViolationCount: number;
-  activeFixTypeFilter: string;
-  ruleFilter: string | null;
-  autoFixCount: number;
-  onClearFixTypeFilter?: () => void;
-  onClearRuleFilter?: () => void;
 }
 
 export interface ApmeViolationsTableProps {
@@ -333,6 +392,13 @@ export interface ApmeViolationsTableProps {
   /** Dev Spaces factory URL for manual violations (repo or remediation branch). */
   devSpacesUrl?: string | null;
   filterContext?: ApmeViolationsTableFilterContext;
+  /** When false, hide row checkboxes (e.g. during push/PR). */
+  showCheckboxes?: boolean;
+  /** Use status chips (Proposed / Excluded / In PR) instead of tier chips. */
+  fixChipMode?: 'tier' | 'status';
+  getFixStatus?: (violationId: number) => FixChipStatus;
+  /** Per-violation before/after diffs for review step. */
+  rowDiffs?: Map<number, ViolationRowDiff>;
 }
 
 export const ApmeViolationsTable = ({
@@ -342,6 +408,10 @@ export const ApmeViolationsTable = ({
   devSpacesUrl,
   toolbarActions,
   filterContext,
+  showCheckboxes = true,
+  fixChipMode = 'tier',
+  getFixStatus,
+  rowDiffs,
 }: ApmeViolationsTableProps) => {
   const classes = useStyles();
   const enableAi = useApmeAiEnabled();
@@ -523,43 +593,45 @@ export const ApmeViolationsTable = ({
   return (
     <Box className={classes.wrapper}>
       <div className={classes.toolbar}>
-        <div className={classes.selectGroup}>
-          <Checkbox
-            size="small"
-            indeterminate={selected.size > 0 && !allSelected}
-            checked={allSelected}
-            onChange={handleSelectAll}
-            style={{ padding: 4 }}
-          />
-          <Button
-            size="small"
-            className={classes.selectMenuButton}
-            endIcon={<ArrowDropDownIcon style={{ fontSize: 18 }} />}
-            onClick={e => setSelectMenuAnchor(e.currentTarget)}
-          >
-            {selected.size > 0 ? `${selected.size} selected` : 'Select'}
-          </Button>
-          <Menu
-            anchorEl={selectMenuAnchor}
-            open={Boolean(selectMenuAnchor)}
-            onClose={() => setSelectMenuAnchor(null)}
-          >
-            <MenuItem onClick={() => selectByFilter('all')}>
-              All fixable
-            </MenuItem>
-            <MenuItem onClick={() => selectByFilter('auto')}>
-              Auto-fixes only
-            </MenuItem>
-            {enableAi && (
-              <MenuItem onClick={() => selectByFilter('ai')}>
-                AI-assisted only
+        {showCheckboxes && (
+          <div className={classes.selectGroup}>
+            <Checkbox
+              size="small"
+              indeterminate={selected.size > 0 && !allSelected}
+              checked={allSelected}
+              onChange={handleSelectAll}
+              style={{ padding: 4 }}
+            />
+            <Button
+              size="small"
+              className={classes.selectMenuButton}
+              endIcon={<ArrowDropDownIcon style={{ fontSize: 18 }} />}
+              onClick={e => setSelectMenuAnchor(e.currentTarget)}
+            >
+              {selected.size > 0 ? `${selected.size} selected` : 'Select'}
+            </Button>
+            <Menu
+              anchorEl={selectMenuAnchor}
+              open={Boolean(selectMenuAnchor)}
+              onClose={() => setSelectMenuAnchor(null)}
+            >
+              <MenuItem onClick={() => selectByFilter('all')}>
+                All fixable
               </MenuItem>
-            )}
-            <MenuItem onClick={() => selectByFilter('clear')}>
-              Clear selection
-            </MenuItem>
-          </Menu>
-        </div>
+              <MenuItem onClick={() => selectByFilter('auto')}>
+                Auto-fixes only
+              </MenuItem>
+              {enableAi && (
+                <MenuItem onClick={() => selectByFilter('ai')}>
+                  AI-assisted only
+                </MenuItem>
+              )}
+              <MenuItem onClick={() => selectByFilter('clear')}>
+                Clear selection
+              </MenuItem>
+            </Menu>
+          </div>
+        )}
         {toolbarActions}
       </div>
 
@@ -599,10 +671,9 @@ export const ApmeViolationsTable = ({
             const sev = normalizeSeverity(v.level);
             const style = SEVERITY_STYLES[sev];
             const canSelect = isFixableViolation(v.remediation_class, enableAi);
-            const cat = v.category
-              ? categoryLabel(v.category)
-              : v.validator_source;
             const isExpanded = isRowExpanded(v.id);
+            const rowDiff = rowDiffs?.get(v.id);
+            const fixStatus = getFixStatus?.(v.id) ?? 'proposed';
 
             return [
               <tr
@@ -614,23 +685,25 @@ export const ApmeViolationsTable = ({
                   onClick={e => e.stopPropagation()}
                   onKeyDown={e => e.stopPropagation()}
                 >
-                  <Tooltip
-                    title={
-                      canSelect
-                        ? 'Include in remediation when selected'
-                        : 'Manual review — edit in Dev Spaces or apply auto-generated fixes to other rows'
-                    }
-                  >
-                    <span>
-                      <Checkbox
-                        size="small"
-                        checked={selected.has(v.id)}
-                        disabled={!canSelect}
-                        onChange={() => handleSelect(v.id)}
-                        style={{ padding: 4 }}
-                      />
-                    </span>
-                  </Tooltip>
+                  {showCheckboxes ? (
+                    <Tooltip
+                      title={
+                        canSelect
+                          ? 'Include in fix generation when checked'
+                          : 'Manual only — edit in Dev Spaces'
+                      }
+                    >
+                      <span>
+                        <Checkbox
+                          size="small"
+                          checked={selected.has(v.id)}
+                          disabled={!canSelect}
+                          onChange={() => handleSelect(v.id)}
+                          style={{ padding: 4 }}
+                        />
+                      </span>
+                    </Tooltip>
+                  ) : null}
                 </td>
                 <td>
                   <span
@@ -644,9 +717,11 @@ export const ApmeViolationsTable = ({
                   </span>
                 </td>
                 <td onClick={e => e.stopPropagation()}>
-                  <FixMethodDisplay
+                  <FixChipStyled
                     remediationClass={v.remediation_class}
                     enableAi={enableAi}
+                    mode={fixChipMode}
+                    status={fixStatus}
                   />
                 </td>
                 <td>
@@ -680,68 +755,13 @@ export const ApmeViolationsTable = ({
                 <tr key={`${v.id}-detail`}>
                   <td colSpan={6} className={classes.expandedCell}>
                     <Collapse in={isExpanded}>
-                      <Box padding={2}>
-                        <Typography
-                          variant="body2"
-                          className={classes.description}
-                        >
-                          {v.ai_reason ||
-                            `Rule ${v.rule_id} detected in ${v.file}`}
-                        </Typography>
-                        {v.ai_suggestion && (
-                          <Typography
-                            variant="body2"
-                            style={{ marginTop: 8, fontStyle: 'italic' }}
-                          >
-                            Guidance: {v.ai_suggestion}
-                          </Typography>
-                        )}
-                        {v.fixed_yaml ? (
-                          <DiffView
-                            before={v.original_yaml}
-                            after={v.fixed_yaml}
-                            title="Proposed fix"
-                          />
-                        ) : (
-                          <CodePreview
-                            yaml={v.original_yaml}
-                            highlightLine={v.line}
-                          />
-                        )}
-                        <div className={classes.footer}>
-                          <div className={classes.footerMeta}>
-                            <span>
-                              Validator: <strong>{v.validator_source}</strong>
-                            </span>
-                            {v.scope && (
-                              <span>
-                                Scope: <strong>{v.scope}</strong>
-                              </span>
-                            )}
-                            <span>
-                              Category: <strong>{cat}</strong>
-                            </span>
-                          </div>
-                          <div className={classes.footerActions}>
-                            {!canSelect && devSpacesUrl && (
-                              <EditInDevSpacesButton
-                                url={devSpacesUrl}
-                                label="Edit in Dev Spaces"
-                              />
-                            )}
-                            <Tooltip title="Mark as reviewed — won't be included in fix suggestions.">
-                              <Button
-                                size="small"
-                                variant="text"
-                                style={{ fontSize: 12, color: '#6a6e73' }}
-                                onClick={() => handleDismiss(v.id)}
-                              >
-                                Dismiss
-                              </Button>
-                            </Tooltip>
-                          </div>
-                        </div>
-                      </Box>
+                      <ExpandedViolationDetail
+                        violation={v}
+                        rowDiff={rowDiff}
+                        devSpacesUrl={devSpacesUrl}
+                        canSelect={canSelect}
+                        onDismiss={() => handleDismiss(v.id)}
+                      />
                     </Collapse>
                   </td>
                 </tr>

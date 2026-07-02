@@ -15,3 +15,7 @@
  */
 
 export { ApmeViolationsTable } from './ApmeViolationsTable';
+export type {
+  ApmeViolationsTableProps,
+  ViolationRowDiff,
+} from './ApmeViolationsTable';
