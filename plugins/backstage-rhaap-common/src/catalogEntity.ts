@@ -111,6 +111,20 @@ export function defaultBranchFromEntity(entity: Entity): string {
   return spec?.repository_default_branch ?? 'main';
 }
 
+/** Stable key for mapping catalog entities to APME projects (repo URL + branch). */
+export function projectLookupKey(repoUrl: string, branch = 'main'): string {
+  return `${normalizeRepoUrl(repoUrl)}#${branch}`;
+}
+
+/** Project lookup key from a catalog git-repository entity. */
+export function projectLookupKeyFromEntity(entity: Entity): string | null {
+  const repoUrl = normalizeRepoUrlFromEntity(entity);
+  if (!repoUrl) {
+    return null;
+  }
+  return projectLookupKey(repoUrl, defaultBranchFromEntity(entity));
+}
+
 /** SCM organization annotation used for bulk sync scope filtering. */
 export function scmOrganizationFromEntity(entity: Entity): string | undefined {
   return entity.metadata.annotations?.['ansible.io/scm-organization'];

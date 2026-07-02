@@ -144,10 +144,17 @@ export class ApmeClient {
     return this.executeRequest<Project>(`/api/v1/projects/${projectId}`);
   }
 
-  async getProjectByRepoUrl(repoUrl: string): Promise<Project | null> {
+  async getProjectByRepoUrl(
+    repoUrl: string,
+    branch?: string,
+  ): Promise<Project | null> {
     try {
+      const branchQuery =
+        branch !== undefined && branch !== ''
+          ? `&branch=${encodeURIComponent(branch)}`
+          : '';
       const project = await this.executeRequest<Project>(
-        `/api/v1/projects/lookup?repo_url=${encodeURIComponent(repoUrl)}`,
+        `/api/v1/projects/lookup?repo_url=${encodeURIComponent(repoUrl)}${branchQuery}`,
       );
       return project;
     } catch (error) {

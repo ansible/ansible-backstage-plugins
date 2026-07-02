@@ -25,13 +25,18 @@ const useStyles = makeStyles(theme => ({
 export interface FixProgressBannerProps {
   message: string;
   progress?: number;
+  visible?: boolean;
 }
 
 export const FixProgressBanner = ({
   message,
   progress,
+  visible = true,
 }: FixProgressBannerProps) => {
   const classes = useStyles();
+  if (!visible || !message) {
+    return null;
+  }
   return (
     <Paper className={classes.banner} elevation={1}>
       <LinearProgress

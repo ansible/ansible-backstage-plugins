@@ -42,7 +42,10 @@ export interface ApmeApi {
   getHealth(): Promise<HealthStatus>;
   getProjects(): Promise<Project[]>;
   getProject(projectId: string): Promise<Project>;
-  getProjectByRepoUrl(repoUrl: string): Promise<Project | null>;
+  getProjectByRepoUrl(
+    repoUrl: string,
+    branch?: string,
+  ): Promise<Project | null>;
   getViolations(
     projectId: string,
     options?: ApmeViolationsOptions,

@@ -24,8 +24,9 @@ import {
   type GitRepositoryCatalogColumnDefinition,
 } from '@ansible/backstage-rhaap-common/gitRepositoriesExtensions';
 import {
-  normalizeRepoUrl,
   normalizeRepoUrlFromEntity,
+  defaultBranchFromEntity,
+  projectLookupKey,
 } from '@ansible/backstage-rhaap-common/catalogEntity';
 import type { Project } from '@ansible/backstage-apme-common/types';
 import { apmeApiRef } from '@ansible/backstage-apme-common/api';
@@ -71,7 +72,7 @@ let projectsFetchPromise: Promise<Map<string, Project>> | null = null;
 function buildProjectMap(projects: Project[]): Map<string, Project> {
   const map = new Map<string, Project>();
   for (const project of projects) {
-    map.set(normalizeRepoUrl(project.repo_url), project);
+    map.set(projectLookupKey(project.repo_url, project.branch), project);
   }
   return map;
 }
@@ -130,7 +131,10 @@ function ApmeViolationsCell({ entity }: { entity: Entity }) {
   }
 
   const repoUrl = normalizeRepoUrlFromEntity(entity);
-  const project = repoUrl ? projectMap.get(repoUrl) : undefined;
+  const branch = defaultBranchFromEntity(entity);
+  const project = repoUrl
+    ? projectMap.get(projectLookupKey(repoUrl, branch))
+    : undefined;
 
   if (!project) {
     return (
@@ -299,6 +303,7 @@ class ApmeGitRepositoriesExtensionsApi
             <Suspense fallback={null}>
               <LazyApmeRepoStatusChip
                 repoUrl={repoUrl}
+                branch={defaultBranchFromEntity(entity)}
                 projectDetailPath={projectDetailPath}
               />
             </Suspense>

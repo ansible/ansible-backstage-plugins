@@ -50,7 +50,10 @@ export interface ApmeApi {
   getAiStatus(): Promise<ApmeAiStatus>;
   getProjects(): Promise<Project[]>;
   getProject(projectId: string): Promise<Project>;
-  getProjectByRepoUrl(repoUrl: string): Promise<Project | null>;
+  getProjectByRepoUrl(
+    repoUrl: string,
+    branch?: string,
+  ): Promise<Project | null>;
   getViolations(
     projectId: string,
     options?: ApmeViolationsOptions,
@@ -154,9 +157,16 @@ export class ApmeApiClient implements ApmeApi {
     return this.fetch<Project>(`/projects/${projectId}`);
   }
 
-  async getProjectByRepoUrl(repoUrl: string): Promise<Project | null> {
+  async getProjectByRepoUrl(
+    repoUrl: string,
+    branch?: string,
+  ): Promise<Project | null> {
+    const branchQuery =
+      branch !== undefined && branch !== ''
+        ? `&branch=${encodeURIComponent(branch)}`
+        : '';
     return this.fetch<Project | null>(
-      `/lookup?repo_url=${encodeURIComponent(repoUrl)}`,
+      `/lookup?repo_url=${encodeURIComponent(repoUrl)}${branchQuery}`,
       undefined,
       { notFoundReturnsNull: true },
     );
