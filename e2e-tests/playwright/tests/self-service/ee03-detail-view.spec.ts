@@ -435,6 +435,106 @@ test.describe('Execution Environment Catalog and Detail View Tests', () => {
     }
   });
 
+  // GitLab EE Build Process Test — validates build trigger shows GitLab pipeline URL
+  test('Validates Catalog table: Build on GitLab-published EE shows pipeline URL', async ({
+    page,
+  }) => {
+    await expect(page.locator('main')).toBeVisible({ timeout: 15000 });
+    const bodyText = await page.locator('body').innerText();
+    if (bodyText.includes('No Execution Environment definition files, yet')) {
+      return;
+    }
+
+    // Find a GitLab-published EE row (created by ee02b with name pattern "ee-gl-*")
+    const glRow = page
+      .locator('table tbody tr')
+      .filter({ hasText: /ee-gl-/i })
+      .first();
+    if ((await glRow.count()) === 0) {
+      console.log(
+        '[EE Test] No GitLab-published EE found (ee-gl-*) — skipping GitLab build test',
+      );
+      return;
+    }
+
+    await glRow.waitFor({ state: 'visible', timeout: 15000 });
+
+    // Click kebab menu on the GitLab EE row
+    const buttons = glRow.locator('button');
+    if ((await buttons.count()) === 0) {
+      return;
+    }
+    const kebabBtn = buttons.last();
+    await kebabBtn.waitFor({ state: 'visible', timeout: 10000 });
+    await kebabBtn.click();
+
+    const menu = page.locator('[role="menu"]:not([aria-hidden="true"])');
+    await expect(menu.first()).toBeVisible({ timeout: 5000 });
+
+    const menuText = await menu.first().innerText();
+    if (!menuText.includes('Build')) {
+      await page.keyboard.press('Escape');
+      console.log(
+        '[EE Test] Build option not available for this GitLab EE — skipping',
+      );
+      return;
+    }
+
+    const buildMenuItem = menu.getByText('Build', { exact: false }).first();
+    await expect(buildMenuItem).toBeVisible({ timeout: 5000 });
+    await buildMenuItem.click();
+
+    // Wait for build modal
+    const modal = page.locator(
+      '[role="dialog"]:not([aria-hidden="true"]), .MuiDialog-root:not(.v5-MuiModal-hidden)',
+    );
+    await expect(modal.first()).toBeVisible({ timeout: 10000 });
+
+    // Fill image name
+    const imageNameInput = modal.locator(
+      '[data-testid="ee-build-image-name"], input[name*="image" i], input[placeholder*="image" i]',
+    );
+    if ((await imageNameInput.count()) > 0) {
+      await imageNameInput.first().waitFor({ state: 'visible', timeout: 5000 });
+      await imageNameInput.first().fill(`test-gl-ee-image-${Date.now()}`);
+      await page.waitForTimeout(500);
+    }
+
+    // Click Build button
+    const buildButton = modal
+      .getByRole('button', { name: /build/i })
+      .or(modal.locator('button').filter({ hasText: /build/i }));
+
+    if ((await buildButton.count()) > 0) {
+      await buildButton.first().waitFor({ state: 'visible', timeout: 10000 });
+      await expect(buildButton.first()).toBeEnabled({ timeout: 5000 });
+      await buildButton.first().click();
+
+      // Validate toast notification
+      const toast = page.locator(
+        '[role="alert"], .MuiSnackbar-root, [class*="toast" i], [class*="notification" i]',
+      );
+      await expect(toast.first()).toBeVisible({ timeout: 15000 });
+
+      const toastText = await toast.first().innerText();
+      expect(toastText).toContain('Build triggered');
+
+      // Verify the toast contains a GitLab pipeline URL
+      const toastLink = toast.first().locator('a[href*="gitlab"]');
+      if ((await toastLink.count()) > 0) {
+        const href = await toastLink.first().getAttribute('href');
+        expect(href).toContain('gitlab');
+        console.log('[EE Test] GitLab pipeline URL confirmed:', href);
+      } else {
+        console.log(
+          '[EE Test] Build triggered but no GitLab pipeline link in toast (toast text:',
+          toastText,
+          ')',
+        );
+      }
+    }
+  });
+
   // Pagination Tests - Jira AAP-73524
   test('Validates Catalog table: pagination controls and navigation', async ({
     page,

@@ -278,6 +278,119 @@ export async function loginAAPWithSession(page: Page) {
 }
 
 /**
+ * Login to GitLab with optional 2FA
+ */
+export async function loginGitLab(page: Page) {
+  await page.goto('https://gitlab.com/users/sign_in');
+
+  await page.locator('#user_login').waitFor({ state: 'visible' });
+  await page.locator('#user_password').waitFor({ state: 'visible' });
+
+  await page.locator('#user_login').fill(process.env.GL_USER_ID!);
+  await page.locator('#user_password').fill(process.env.GL_USER_PASS!);
+
+  await page
+    .locator('[data-testid="sign-in-button"], input[type="submit"][value="Sign in"], button[type="submit"]')
+    .first()
+    .click();
+
+  await page.waitForLoadState('domcontentloaded');
+
+  // Handle 2FA if required
+  if (process.env.GL_AUTHENTICATOR_SECRET) {
+    const totpField = page.locator('#user_otp_attempt');
+    const totpVisible = await totpField
+      .isVisible({ timeout: 5000 })
+      .catch(() => false);
+    if (totpVisible) {
+      const totp = authenticator.generate(process.env.GL_AUTHENTICATOR_SECRET!);
+      await totpField.fill(totp);
+      await page
+        .locator('input[type="submit"], button[type="submit"]')
+        .first()
+        .click();
+      await page.waitForLoadState('domcontentloaded');
+    }
+  }
+}
+
+/**
+ * Sign in to RHDH using GitLab authentication
+ */
+export async function signInRHDHWithGitLab(page: Page) {
+  await loginGitLab(page);
+
+  await page.goto('/', { waitUntil: 'domcontentloaded' });
+
+  const signInGate = portalSignInMethodHeading(page);
+  const gateVisible = await signInGate
+    .isVisible({ timeout: 12000 })
+    .catch(() => false);
+
+  if (gateVisible) {
+    const gitlabRow = page
+      .getByRole('listitem')
+      .filter({ hasText: /Sign In using GitLab/i });
+    await gitlabRow.getByRole('button', { name: /^Sign In$/i }).click();
+
+    await page.waitForLoadState('domcontentloaded');
+
+    for (let i = 0; i < 4; i++) {
+      const authorize = page
+        .getByRole('button', { name: /^Authorize$/i })
+        .first();
+      if (!(await authorize.isVisible({ timeout: 8000 }).catch(() => false))) {
+        break;
+      }
+      await authorize.click();
+      await page.waitForLoadState('domcontentloaded');
+    }
+
+    await expect(signInGate).toBeHidden({ timeout: 120000 });
+  } else {
+    const genericSignIn = page
+      .getByRole('button', { name: /^Sign In$/i })
+      .first();
+    if (await genericSignIn.isVisible({ timeout: 5000 }).catch(() => false)) {
+      await genericSignIn.click();
+
+      const authorizeVisible = await page
+        .getByRole('button', { name: /^Authorize$/i })
+        .first()
+        .waitFor({ state: 'visible', timeout: 15000 })
+        .then(() => true)
+        .catch(() => false);
+
+      if (authorizeVisible) {
+        await page
+          .getByRole('button', { name: /^Authorize$/i })
+          .first()
+          .click();
+      }
+
+      const ansible = page
+        .getByRole('link', { name: /^Ansible$/i })
+        .or(page.getByText('Ansible', { exact: true }))
+        .first();
+      if (await ansible.isVisible({ timeout: 8000 }).catch(() => false)) {
+        await ansible.click();
+        await page.waitForURL(/\/ansible/, { timeout: 30000 });
+      }
+    }
+  }
+
+  if (!page.url().includes('/ansible')) {
+    await page.goto('/ansible', { waitUntil: 'domcontentloaded' });
+  }
+
+  if (await signInGate.isVisible({ timeout: 3000 }).catch(() => false)) {
+    throw new Error(
+      'Still on portal sign-in picker after GitLab flow; check OAuth app / credentials.',
+    );
+  }
+}
+
+/**
  * Login to GitHub with 2FA
  * Migrated from Cypress Common.LogintoGithub()
  */
