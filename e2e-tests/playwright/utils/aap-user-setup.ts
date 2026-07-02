@@ -72,6 +72,7 @@ async function aapRequest(
       'Content-Type': 'application/json',
     },
     body: body ? JSON.stringify(body) : undefined,
+    signal: AbortSignal.timeout(30000),
   });
   return res;
 }

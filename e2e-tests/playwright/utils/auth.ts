@@ -260,7 +260,16 @@ export async function loginAAP(page: Page, credentials?: AAPCredentials) {
       .then(() => true)
       .catch(() => false);
 
-    if (!hasContent && !signInPromptVisible) {
+    const stillOnSignIn = await page
+      .getByText('Select a Sign-in method')
+      .isVisible()
+      .catch(() => false);
+    if (stillOnSignIn) {
+      throw new Error(
+        'Login verification failed: still on sign-in page after authentication',
+      );
+    }
+    if (!hasContent) {
       throw new Error(
         'Login verification failed: no navigation or content visible after authentication',
       );

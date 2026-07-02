@@ -19,11 +19,13 @@ export default defineConfig({
   retries: process.env.CI ? 1 : 0,
 
   // Global timeout prevents runaway CI builds
-  globalTimeout: process.env.PLAYWRIGHT_GLOBAL_TIMEOUT
-    ? parseInt(process.env.PLAYWRIGHT_GLOBAL_TIMEOUT)
-    : process.env.CI
-      ? 20 * 60 * 1000
-      : undefined,
+  globalTimeout:
+    process.env.PLAYWRIGHT_GLOBAL_TIMEOUT &&
+    !isNaN(parseInt(process.env.PLAYWRIGHT_GLOBAL_TIMEOUT))
+      ? parseInt(process.env.PLAYWRIGHT_GLOBAL_TIMEOUT)
+      : process.env.CI
+        ? 20 * 60 * 1000
+        : undefined,
 
   // Timeouts (configurable via environment variables for CI)
   // Recommended CI values: PLAYWRIGHT_TEST_TIMEOUT=90000 (90s)
