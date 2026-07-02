@@ -54,9 +54,12 @@ const useStyles = makeStyles(theme => ({
     transition: 'all 0.2s',
   },
   badgePending: {
-    backgroundColor: theme.palette.grey[200],
+    backgroundColor:
+      theme.palette.type === 'dark'
+        ? theme.palette.grey[800]
+        : theme.palette.grey[200],
     color: theme.palette.text.secondary,
-    border: `2px solid ${theme.palette.grey[300]}`,
+    border: `2px solid ${theme.palette.divider}`,
   },
   badgeActive: {
     backgroundColor: theme.palette.primary.main,
@@ -64,9 +67,9 @@ const useStyles = makeStyles(theme => ({
     border: `2px solid ${theme.palette.primary.main}`,
   },
   badgeComplete: {
-    backgroundColor: '#1a7f37',
-    color: '#fff',
-    border: '2px solid #1a7f37',
+    backgroundColor: theme.palette.success.main,
+    color: theme.palette.success.contrastText,
+    border: `2px solid ${theme.palette.success.main}`,
   },
   label: {
     fontSize: 13,

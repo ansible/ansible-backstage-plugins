@@ -90,22 +90,26 @@ const useStyles = makeStyles(theme => ({
   codeBlock: {
     fontFamily: 'monospace',
     fontSize: '0.85rem',
-    backgroundColor: theme.palette.grey[100],
+    backgroundColor:
+      theme.palette.type === 'dark'
+        ? theme.palette.grey[900]
+        : theme.palette.grey[100],
     padding: theme.spacing(1),
     borderRadius: theme.shape.borderRadius,
     whiteSpace: 'pre-wrap',
     overflowX: 'auto',
   },
   highlightLine: {
-    backgroundColor: '#ffebee',
+    backgroundColor:
+      theme.palette.type === 'dark' ? 'rgba(244, 67, 54, 0.15)' : '#ffebee',
   },
   fixAuto: {
-    backgroundColor: '#4caf50',
-    color: theme.palette.common.white,
+    backgroundColor: theme.palette.success.main,
+    color: theme.palette.success.contrastText,
   },
   fixAi: {
-    backgroundColor: '#2196f3',
-    color: theme.palette.common.white,
+    backgroundColor: theme.palette.info.main,
+    color: theme.palette.info.contrastText,
   },
   fixManual: {
     backgroundColor: theme.palette.grey[500],
@@ -159,6 +163,7 @@ function formatQualityLastChecked(project: Project, scanning: boolean): string {
 
 export interface QualityTabProps {
   repoUrl?: string | null;
+  branch?: string;
   projectId?: string;
   /** Pre-filter violations by rule (Inc 10 fleet drill-down). */
   initialRuleFilter?: string;
@@ -166,6 +171,7 @@ export interface QualityTabProps {
 
 export const QualityTab = ({
   repoUrl,
+  branch,
   projectId,
   initialRuleFilter,
 }: QualityTabProps) => {
@@ -203,14 +209,14 @@ export const QualityTab = ({
     if (projectId) {
       project = await apmeApi.getProject(projectId);
     } else if (repoUrl) {
-      project = await apmeApi.getProjectByRepoUrl(repoUrl);
+      project = await apmeApi.getProjectByRepoUrl(repoUrl, branch);
     }
     if (!project) {
       return { project: null, violations: [] as Violation[] };
     }
     const violations = await apmeApi.getViolations(project.id);
     return { project, violations };
-  }, [repoUrl, projectId, apmeApi]);
+  }, [repoUrl, branch, projectId, apmeApi]);
 
   const project = data?.project ?? null;
   const violations = useMemo(() => data?.violations ?? [], [data?.violations]);
@@ -280,8 +286,8 @@ export const QualityTab = ({
           clearInterval(pollInterval);
           setScanning(false);
           setExpectActiveScan(false);
+          setScanProgressMessage(null);
           if (state?.status === 'failed') {
-            setScanProgressMessage(null);
             setScanError(new Error(formatOperationError(state.error)));
           }
           retry();
@@ -290,6 +296,7 @@ export const QualityTab = ({
         clearInterval(pollInterval);
         setScanning(false);
         setExpectActiveScan(false);
+        setScanProgressMessage(null);
         setScanError(
           pollError instanceof Error
             ? pollError
@@ -301,6 +308,7 @@ export const QualityTab = ({
         clearInterval(pollInterval);
         setScanning(false);
         setExpectActiveScan(false);
+        setScanProgressMessage(null);
         setScanError(new Error('Scan timed out. Try again in a moment.'));
       }
     }, 2000);

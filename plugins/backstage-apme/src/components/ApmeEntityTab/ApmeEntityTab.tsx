@@ -73,7 +73,10 @@ import {
   categoryLabel,
   type SeverityLevel,
 } from '@ansible/backstage-apme-common/severity';
-import { normalizeRepoUrlFromEntity } from '@ansible/backstage-rhaap-common/catalogEntity';
+import {
+  normalizeRepoUrlFromEntity,
+  defaultBranchFromEntity,
+} from '@ansible/backstage-rhaap-common/catalogEntity';
 import { buildDevSpacesUrlFromRepoUrl } from '@ansible/backstage-rhaap-common/devSpaces';
 import { apmeApiRef } from '../../api';
 import { useApmeAiEnabled, useApmeAiStatus } from '../../hooks/useApmeEnabled';
@@ -447,6 +450,7 @@ export const ApmeEntityTab = ({
   const generatedViolationIdsRef = useRef<Set<number>>(new Set());
 
   const repoUrl = normalizeRepoUrlFromEntity(entity);
+  const branch = defaultBranchFromEntity(entity);
 
   const {
     value: project,
@@ -455,8 +459,8 @@ export const ApmeEntityTab = ({
     retry,
   } = useAsyncRetry(async () => {
     if (!repoUrl) return null;
-    return apmeApi.getProjectByRepoUrl(repoUrl);
-  }, [repoUrl, apmeApi]);
+    return apmeApi.getProjectByRepoUrl(repoUrl, branch);
+  }, [repoUrl, branch, apmeApi]);
 
   const { value: violations = [], loading: violationsLoading } =
     useAsyncRetry(async () => {
@@ -720,11 +724,14 @@ export const ApmeEntityTab = ({
     if (active.length === 0) {
       return [];
     }
+    if (remediationStep === 'review') {
+      return active;
+    }
     if (selectedFixableIds.size > 0) {
       return active.filter(p => selectedFixableIds.has(p.violation_id));
     }
     return active;
-  }, [proposals, selectedFixableIds, declinedProposalIds]);
+  }, [proposals, selectedFixableIds, declinedProposalIds, remediationStep]);
 
   const autoApprovedRef = useRef<Set<string>>(new Set());
 
@@ -1356,7 +1363,7 @@ export const ApmeEntityTab = ({
       )}
 
       {/* Scan progress */}
-      {(scanning || scanProgress) && !scanError && (
+      {scanning && scanProgress && !scanError && (
         <Paper className={classes.progressBanner} elevation={1}>
           <LinearProgress
             variant={

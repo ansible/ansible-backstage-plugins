@@ -140,12 +140,15 @@ export async function createRouter(options: RouterOptions): Promise<Router> {
 
   router.get('/apme/lookup', async (req, res) => {
     const repoUrl = req.query.repo_url as string;
+    const branch = req.query.branch as string | undefined;
     if (!repoUrl) {
       res.status(400).json({ error: 'repo_url query parameter is required' });
       return;
     }
-    logger.debug(`APME project lookup by repo URL: ${repoUrl}`);
-    const project = await apmeService.getProjectByRepoUrl(repoUrl);
+    logger.debug(
+      `APME project lookup by repo URL: ${repoUrl}${branch ? ` branch=${branch}` : ''}`,
+    );
+    const project = await apmeService.getProjectByRepoUrl(repoUrl, branch);
     if (!project) {
       res.status(404).json({ error: 'Project not found' });
       return;
