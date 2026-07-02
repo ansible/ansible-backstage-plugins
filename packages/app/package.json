@@ -14,6 +14,9 @@
     "lint": "backstage-cli package lint"
   },
   "dependencies": {
+    "@ansible/backstage-apme-common": "workspace:^",
+    "@ansible/backstage-rhaap-common": "workspace:^",
+    "@ansible/plugin-backstage-apme": "workspace:^",
     "@ansible/plugin-backstage-rhaap": "workspace:^",
     "@ansible/plugin-backstage-self-service": "workspace:^",
     "@backstage-community/plugin-github-actions": "^0.11.1",
@@ -21,6 +24,7 @@
     "@backstage/app-defaults": "^1.7.6",
     "@backstage/catalog-model": "^1.7.7",
     "@backstage/cli": "^0.36.0",
+    "@backstage/config": "^1.2.0",
     "@backstage/core-app-api": "^1.19.6",
     "@backstage/core-components": "^0.18.8",
     "@backstage/core-plugin-api": "^1.12.4",

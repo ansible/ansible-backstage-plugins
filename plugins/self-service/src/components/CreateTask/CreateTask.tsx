@@ -113,13 +113,13 @@ export const CreateTask = () => {
         if (!templateName || !namespace) {
           throw new Error('Missing name or namespace in URL parameters');
         }
+        const templateRef = `template:${namespace}/${templateName}`;
         const response =
-          await scaffolderApi.getTemplateParameterSchema(templateName);
-        setEntityTemplate(response);
+          await scaffolderApi.getTemplateParameterSchema(templateRef);
+        setEntityTemplate(response as TemplateParameterSchema);
 
         try {
-          const entityRef = `template:${namespace}/${templateName}`;
-          const entity = await catalogApi.getEntityByRef(entityRef);
+          const entity = await catalogApi.getEntityByRef(templateRef);
           if (entity) {
             setTemplateEntity(entity);
           }
@@ -128,7 +128,11 @@ export const CreateTask = () => {
           console.debug('Optional catalog entity lookup failed:', e);
         }
       } catch (err) {
-        setError('Failed to fetch entity');
+        const detail =
+          err instanceof Error ? err.message : 'Unknown scaffolder error';
+        setError(
+          `Failed to load template "${namespace}/${templateName}". ${detail} If you just added this template, restart the backend and wait for catalog processing.`,
+        );
       } finally {
         setLoading(false);
       }

@@ -1,0 +1,107 @@
+---
+# Static git-repository fixtures for local dev and prototype testing.
+# Repo URLs align with APME mock fixtures (MOCK_PROJECTS) when ansible.apme.mockMode: true.
+# SCM sync (ansibleGitContents) is not required for catalog/quality verification.
+apiVersion: backstage.io/v1alpha1
+kind: Component
+metadata:
+  name: amazon-aws-acme-scm-github-com
+  title: amazon.aws
+  description: Mock git repository — 20 violations in APME fixtures
+  annotations:
+    backstage.io/source-location: url:https://github.com/acme-scm/amazon.aws
+    backstage.io/view-url: https://github.com/acme-scm/amazon.aws
+    ansible.io/scm-provider: github
+    ansible.io/scm-host: github.com
+    ansible.io/scm-organization: acme-scm
+    ansible.io/scm-repository: amazon.aws
+    ansible.io/discovery-source-id: github:acme-scm
+  tags:
+    - git-repository
+    - github
+spec:
+  type: git-repository
+  lifecycle: experimental
+  owner: guests
+  repository_name: amazon.aws
+  repository_default_branch: main
+  repository_collection_count: 2
+  repository_ee_count: 0
+---
+apiVersion: backstage.io/v1alpha1
+kind: Component
+metadata:
+  name: network-firewall-ansible-demo-github-com
+  title: network-firewall
+  description: Mock git repository — 8 violations in APME fixtures
+  annotations:
+    backstage.io/source-location: url:https://github.com/ansible-demo/network-firewall
+    backstage.io/view-url: https://github.com/ansible-demo/network-firewall
+    ansible.io/scm-provider: github
+    ansible.io/scm-host: github.com
+    ansible.io/scm-organization: ansible-demo
+    ansible.io/scm-repository: network-firewall
+    ansible.io/discovery-source-id: github:ansible-demo
+  tags:
+    - git-repository
+    - github
+spec:
+  type: git-repository
+  lifecycle: experimental
+  owner: guests
+  repository_name: network-firewall
+  repository_default_branch: main
+  repository_collection_count: 1
+  repository_ee_count: 0
+---
+apiVersion: backstage.io/v1alpha1
+kind: Component
+metadata:
+  name: cloud-provisioner-ansible-demo-github-com
+  title: cloud-provisioner
+  description: Mock git repository — 3 violations in APME fixtures
+  annotations:
+    backstage.io/source-location: url:https://github.com/ansible-demo/cloud-provisioner
+    backstage.io/view-url: https://github.com/ansible-demo/cloud-provisioner
+    ansible.io/scm-provider: github
+    ansible.io/scm-host: github.com
+    ansible.io/scm-organization: ansible-demo
+    ansible.io/scm-repository: cloud-provisioner
+    ansible.io/discovery-source-id: github:ansible-demo
+  tags:
+    - git-repository
+    - github
+spec:
+  type: git-repository
+  lifecycle: experimental
+  owner: guests
+  repository_name: cloud-provisioner
+  repository_default_branch: main
+  repository_collection_count: 1
+  repository_ee_count: 0
+---
+apiVersion: backstage.io/v1alpha1
+kind: Component
+metadata:
+  name: ee-builder-ansible-demo-github-com
+  title: ee-builder
+  description: Mock git repository — clean (0 violations) in APME fixtures
+  annotations:
+    backstage.io/source-location: url:https://github.com/ansible-demo/ee-builder
+    backstage.io/view-url: https://github.com/ansible-demo/ee-builder
+    ansible.io/scm-provider: github
+    ansible.io/scm-host: github.com
+    ansible.io/scm-organization: ansible-demo
+    ansible.io/scm-repository: ee-builder
+    ansible.io/discovery-source-id: github:ansible-demo
+  tags:
+    - git-repository
+    - github
+spec:
+  type: git-repository
+  lifecycle: experimental
+  owner: guests
+  repository_name: ee-builder
+  repository_default_branch: main
+  repository_collection_count: 0
+  repository_ee_count: 1

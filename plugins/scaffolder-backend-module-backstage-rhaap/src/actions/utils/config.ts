@@ -15,6 +15,10 @@
  */
 
 import { Config } from '@backstage/config';
+import {
+  generateDevSpacesUrl,
+  getDevspacesUrlFromAnsibleConfig,
+} from '@ansible/backstage-rhaap-common/devSpaces';
 
 export type AnsibleDetails = {
   devSpacesBaseUrl: string;
@@ -26,14 +30,7 @@ function generateInitUrl(baseUrl: string, port: number): string {
   return `http://${baseUrl}:${port}/`;
 }
 
-function generateDevSpacesUrl(
-  devSpacesBaseUrl: string,
-  sourceControl: string,
-  repoOwner: string,
-  repoName: string,
-): string {
-  return `${devSpacesBaseUrl}#https://${sourceControl}/${repoOwner}/${repoName}`;
-}
+export { generateDevSpacesUrl, getDevspacesUrlFromAnsibleConfig };
 
 export function generateRepoUrl(
   sourceControl: string,
@@ -64,24 +61,6 @@ export const getServiceUrlFromAnsibleConfig = (config: Config): string => {
     config.getString('ansible.creatorService.baseUrl'),
     Number(config.getString('ansible.creatorService.port')),
   );
-};
-
-export const getDevspacesUrlFromAnsibleConfig = (
-  config: Config,
-  sourceControl: string,
-  repoOwner: string,
-  repoName: string,
-): string => {
-  try {
-    return generateDevSpacesUrl(
-      config.getString('ansible.devSpaces.baseUrl'),
-      sourceControl,
-      repoOwner,
-      repoName,
-    );
-  } catch (error) {
-    return '';
-  }
 };
 
 export const validateAnsibleConfig = (config: Config) => {

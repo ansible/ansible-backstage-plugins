@@ -64,6 +64,9 @@ export interface IAAPService extends Pick<
   | 'fetchEvents'
   | 'fetchResult'
   | 'launchJobTemplate'
+  | 'launchJobTemplateById'
+  | 'getJobTemplateById'
+  | 'getJobStdout'
   | 'launchJobTemplateNoWait'
   | 'getJobStatus'
   | 'cancelJob'
@@ -705,6 +708,62 @@ export class AAPClient implements IAAPService {
       status: result.jobData.status,
       events: result.jobEvents,
       url: `${this.getBaseUrl()}/execution/jobs/playbook/${jobID}/output`,
+    };
+  }
+
+  /**
+   * Gets a job template by its numeric ID.
+   */
+  public async getJobTemplateById(
+    templateId: number,
+    token: string,
+  ): Promise<IJobTemplate> {
+    const endPoint = `api/controller/v2/job_templates/${templateId}/`;
+    this.logger.info(
+      `[${this.pluginLogName}]: Fetching job template ID: ${templateId}.`,
+    );
+    const response = await this.executeGetRequest(endPoint, token);
+    return (await response.json()) as IJobTemplate;
+  }
+
+  /**
+   * Gets the raw stdout output from a completed job.
+   */
+  public async getJobStdout(
+    jobId: number,
+    token: string,
+    format: 'txt' | 'json' | 'ansi' = 'txt',
+  ): Promise<string> {
+    const endPoint = `api/controller/v2/jobs/${jobId}/stdout/?format=${format}`;
+    this.logger.info(
+      `[${this.pluginLogName}]: Fetching stdout for job ID: ${jobId}.`,
+    );
+    const response = await this.executeGetRequest(endPoint, token);
+    return await response.text();
+  }
+
+  /**
+   * Launches a job template by its numeric ID.
+   */
+  public async launchJobTemplateById(
+    templateId: number,
+    token: string,
+    extraVars?: Record<string, unknown>,
+  ): Promise<{ jobId: number; url: string; status: string }> {
+    const endPoint = `api/controller/v2/job_templates/${templateId}/launch/`;
+    const data = extraVars ? { extra_vars: extraVars } : {};
+
+    this.logger.info(
+      `[${this.pluginLogName}]: Launching job template ID: ${templateId}.`,
+    );
+
+    const response = await this.executePostRequest(endPoint, token, data);
+    const jobResponse = await response.json();
+
+    return {
+      jobId: jobResponse.job,
+      url: `${this.getBaseUrl()}/execution/jobs/playbook/${jobResponse.job}/output`,
+      status: jobResponse.status || 'pending',
     };
   }
 

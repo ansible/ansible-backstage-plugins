@@ -56,6 +56,7 @@ import {
   ScmSelectorFieldExtension,
 } from '@ansible/plugin-backstage-self-service';
 import { RbacPage } from '@backstage-community/plugin-rbac';
+import { ApmeRoutes } from './components/Apme/ApmeRoutes';
 
 const app = createApp({
   apis,
@@ -141,6 +142,7 @@ const routes = (
     <Route path="/catalog-graph" element={<CatalogGraphPage />} />
     <Route path="/ansible" element={<AnsiblePage />} />
     <Route path="/self-service" element={<SelfServicePage />} />
+    <ApmeRoutes />
   </FlatRoutes>
 );
 

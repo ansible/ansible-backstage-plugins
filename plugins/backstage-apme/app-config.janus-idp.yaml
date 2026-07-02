@@ -1,0 +1,23 @@
+# RHDH dynamic plugin wiring (legacy filename: app-config.janus-idp.yaml).
+# Merged at deploy time via portal dynamic-plugins.yaml pluginConfig → app-config.dynamic-plugins.yaml.
+
+dynamicPlugins:
+  frontend:
+    ansible.plugin-backstage-apme:
+      appIcons:
+        - name: apmeIcon
+          importName: SecurityIcon
+          module: '@material-ui/icons'
+      dynamicRoutes:
+        - path: /apme
+          importName: ApmePage
+          menuItem:
+            icon: apmeIcon
+            text: APME
+        - path: /apme/project/:projectId
+          importName: ApmeProjectPage
+      entityTabs:
+        - path: /apme
+          title: APME
+          mountPoint: entity.page.apme
+          importName: ApmeEntityTab
