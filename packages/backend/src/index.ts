@@ -60,4 +60,8 @@ backend.add(import('@ansible/backstage-plugin-catalog-backend-module-rhaap'));
 backend.add(
   import('@ansible/plugin-scaffolder-backend-module-backstage-rhaap'),
 );
+
+// APME - Ansible Policy & Modernization Engine
+backend.add(import('@ansible/backstage-plugin-catalog-backend-module-apme'));
+
 backend.start();

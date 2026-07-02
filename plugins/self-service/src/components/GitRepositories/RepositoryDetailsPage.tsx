@@ -1,5 +1,5 @@
-import { useCallback, useEffect, useState } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useCallback, useEffect, useState, useMemo, Suspense } from 'react';
+import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { Box, Button, Typography, Tab, Tabs } from '@material-ui/core';
 import OpenInNewIcon from '@material-ui/icons/OpenInNew';
 import { Entity } from '@backstage/catalog-model';
@@ -17,6 +17,9 @@ import {
 } from '@backstage/core-plugin-api';
 import { RequirePermission } from '@backstage/plugin-permission-react';
 import { gitRepositoriesViewPermission } from '@ansible/backstage-rhaap-common/permissions';
+import { gitRepositoriesExtensionsApiRef } from '@ansible/backstage-rhaap-common/gitRepositoriesExtensions';
+import type { GitRepositoryDetailTabDefinition } from '@ansible/backstage-rhaap-common/gitRepositoriesExtensions';
+import { normalizeRepoUrlFromEntity } from '@ansible/backstage-rhaap-common/catalogEntity';
 
 import { RepositoryBreadcrumbs } from './RepositoryBreadcrumbs';
 import { RepositoryAboutCard } from './RepositoryAboutCard';
@@ -32,6 +35,29 @@ import {
   fetchGitFileContentFromBackend,
   ScmIntegrationAuthError,
 } from '../common';
+
+type CoreDetailTab = {
+  id: string;
+  label: string;
+  order: number;
+  kind: 'overview' | 'ci-activity' | 'collections';
+};
+
+const CORE_DETAIL_TABS: CoreDetailTab[] = [
+  { id: 'overview', label: 'Overview', order: 0, kind: 'overview' },
+  { id: 'ci-activity', label: 'CI Activity', order: 20, kind: 'ci-activity' },
+  { id: 'collections', label: 'Collections', order: 30, kind: 'collections' },
+];
+
+type ResolvedDetailTab =
+  | CoreDetailTab
+  | {
+      id: string;
+      label: string;
+      order: number;
+      kind: 'extension';
+      render: GitRepositoryDetailTabDefinition['render'];
+    };
 
 type ReadmeStateSetters = {
   setReadmeContent: (value: string) => void;
@@ -178,6 +204,23 @@ const RepositoryDetailsPageInner = () => {
   const discoveryApi = useApi<DiscoveryApi>(discoveryApiRef);
   const fetchApi = useApi<FetchApi>(fetchApiRef);
   const rootLink = useRouteRef(rootRouteRef);
+  const extensionsApi = useApi(gitRepositoriesExtensionsApiRef);
+  const [searchParams] = useSearchParams();
+
+  const detailTabs = useMemo((): ResolvedDetailTab[] => {
+    const extensionTabs = extensionsApi.getDetailTabs().map(tab => ({
+      id: tab.id,
+      label: tab.label,
+      order: tab.order,
+      kind: 'extension' as const,
+      render: tab.render,
+    }));
+    return [...CORE_DETAIL_TABS, ...extensionTabs].sort(
+      (a, b) => a.order - b.order,
+    );
+  }, [extensionsApi]);
+
+  const collectionsTabIndex = detailTabs.findIndex(t => t.id === 'collections');
 
   const [entity, setEntity] = useState<Entity | null>(null);
   const [loading, setLoading] = useState(true);
@@ -216,6 +259,17 @@ const RepositoryDetailsPageInner = () => {
   useEffect(() => {
     fetchEntity();
   }, [fetchEntity]);
+
+  useEffect(() => {
+    const requested = searchParams.get('tab');
+    if (!requested) {
+      return;
+    }
+    const idx = detailTabs.findIndex(t => t.id === requested);
+    if (idx >= 0) {
+      setTab(idx);
+    }
+  }, [searchParams, detailTabs]);
 
   useEffect(() => {
     setScmIntegrationAuthError(false);
@@ -352,12 +406,12 @@ const RepositoryDetailsPageInner = () => {
         onChange={(_, v) => setTab(v)}
         className={classes.detailsTabs}
       >
-        <Tab label="Overview" />
-        <Tab label="CI Activity" />
-        <Tab label="Collections" />
+        {detailTabs.map(detailTab => (
+          <Tab key={detailTab.id} label={detailTab.label} />
+        ))}
       </Tabs>
 
-      {tab === 0 && (
+      {detailTabs[tab]?.kind === 'overview' && (
         <Box className={classes.detailsContent}>
           <Box className={classes.detailsLeftColumn}>
             <RepositoryReadmeCard
@@ -369,13 +423,36 @@ const RepositoryDetailsPageInner = () => {
             <RepositoryAboutCard
               entity={entity}
               onViewSource={handleViewSource}
-              onNavigateToCollections={() => setTab(2)}
+              onNavigateToCollections={() =>
+                collectionsTabIndex >= 0 && setTab(collectionsTabIndex)
+              }
             />
           </Box>
         </Box>
       )}
 
-      {tab === 1 && (
+      {(() => {
+        const activeDetailTab = detailTabs[tab];
+        if (activeDetailTab?.kind !== 'extension' || !entity) {
+          return null;
+        }
+        return (
+          <Box
+            className={classes.detailsContent}
+            style={{ width: '100%', flex: 1 }}
+          >
+            <Suspense fallback={<Typography>Loading…</Typography>}>
+              {activeDetailTab.render({
+                entity,
+                repoUrl: normalizeRepoUrlFromEntity(entity),
+                initialRuleFilter: searchParams.get('rule') ?? undefined,
+              })}
+            </Suspense>
+          </Box>
+        );
+      })()}
+
+      {detailTabs[tab]?.kind === 'ci-activity' && (
         <Box
           className={classes.detailsContent}
           style={{ width: '100%', flex: 1 }}
@@ -384,7 +461,7 @@ const RepositoryDetailsPageInner = () => {
         </Box>
       )}
 
-      {tab === 2 && (
+      {detailTabs[tab]?.kind === 'collections' && (
         <Box
           className={classes.detailsContent}
           style={{ width: '100%', flex: 1 }}

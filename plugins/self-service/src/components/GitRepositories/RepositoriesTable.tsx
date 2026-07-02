@@ -49,6 +49,7 @@ import {
 } from './constants';
 import { rootRouteRef } from '../../routes';
 import { useLatestCIActivity } from './useLatestCIActivity';
+import { gitRepositoriesExtensionsApiRef } from '@ansible/backstage-rhaap-common/gitRepositoriesExtensions';
 import { usePaginatedGitRepos } from './usePaginatedGitRepos';
 
 const StarredIcon = () => <Star style={{ color: '#ffb74d' }} />;
@@ -132,6 +133,8 @@ const RepositoriesTableInner = ({
     top: number;
   } | null>(null);
   const [selectedEntity, setSelectedEntity] = useState<Entity | null>(null);
+
+  const extensionsApi = useApi(gitRepositoriesExtensionsApiRef);
 
   const { lastActivityMap, loading: lastActivityLoading } =
     useLatestCIActivity(paginatedEntities);
@@ -280,6 +283,24 @@ const RepositoriesTableInner = ({
         );
       },
     },
+    ...extensionsApi
+      .getCatalogColumns()
+      .sort((a, b) => a.order - b.order)
+      .map(
+        col =>
+          ({
+            title: col.tooltip
+              ? ((
+                  <ColumnHeaderWithTooltip
+                    label={col.title}
+                    tooltip={col.tooltip}
+                  />
+                ) as unknown as string)
+              : col.title,
+            id: col.id,
+            render: (entity: Entity) => col.render(entity),
+          }) as TableColumn<Entity>,
+      ),
     {
       title: (
         <ColumnHeaderWithTooltip

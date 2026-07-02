@@ -105,3 +105,5 @@ screenshots/
 **/screenshots
 aap-logout.tar
 deploy/
+backstage-dev.sqlite3
+backstage-dev-db/

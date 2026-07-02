@@ -227,6 +227,8 @@ yarn test:all        # Run all tests with coverage
 
 ### Testing Requirements
 
+- **Prototype verification:** When building an additional plugin prototype via the portal Claude Code plugin, follow **Rule 0** in `/portal:build-prototype` (Prototype Verification section). Run `yarn tsc --noEmit` before commit. Prototype-specific browser acceptance criteria live in the prototype `plan.md`.
+
 - **Coverage**: Maintain >80% code coverage
 - **Test files**: Co-locate tests with source files
 - Write tests for:

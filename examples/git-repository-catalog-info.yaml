@@ -1,0 +1,36 @@
+# Copy this file to the root of your Ansible playbook / project repo as catalog-info.yaml,
+# then import the repo in the portal (Self-service → Catalog import).
+#
+# Replace placeholders:
+#   <org>              — SCM organization or GitHub owner
+#   <repo>             — repository name
+#   <backstage-owner>  — catalog owner (e.g. group:default/my-team or user:default/jdoe)
+#   <default-branch>   — default branch (usually main)
+#
+# GitLab: set ansible.io/scm-provider to gitlab, ansible.io/scm-host to your host,
+# and use gitlab.com/project-slug or source-location with your GitLab URL.
+---
+apiVersion: backstage.io/v1alpha1
+kind: Component
+metadata:
+  name: <repo>
+  title: <repo>
+  description: Ansible automation repository registered for content quality scanning
+  annotations:
+    backstage.io/source-location: url:https://github.com/<org>/<repo>
+    github.com/project-slug: <org>/<repo>
+    ansible.io/scm-provider: github
+    ansible.io/scm-host: github.com
+    ansible.io/scm-organization: <org>
+    ansible.io/scm-repository: <repo>
+  tags:
+    - git-repository
+    - github
+spec:
+  type: git-repository
+  lifecycle: production
+  owner: <backstage-owner>
+  repository_name: <repo>
+  repository_default_branch: <default-branch>
+  repository_collection_count: 0
+  repository_ee_count: 0

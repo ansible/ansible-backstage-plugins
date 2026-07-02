@@ -35,6 +35,7 @@ import {
   collectionsViewPermission,
   ScmClientFactory,
   SCM_INTEGRATION_AUTH_FAILED_CODE,
+  IAAPService,
 } from '@ansible/backstage-rhaap-common';
 import { CatalogClient } from '@backstage/catalog-client';
 import { PAHCollectionProvider } from './providers/PAHCollectionProvider';
@@ -79,6 +80,7 @@ export async function createRouter(options: {
   catalogClient: CatalogClient;
   permissions: PermissionsService;
   ansibleGitContentsProviders?: AnsibleGitContentsProvider[];
+  ansibleService?: IAAPService;
   allowedExternalAccessSubjects?: string[];
 }): Promise<express.Router> {
   const {

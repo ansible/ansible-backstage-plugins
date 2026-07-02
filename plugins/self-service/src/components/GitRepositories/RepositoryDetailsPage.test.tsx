@@ -9,6 +9,10 @@ import {
 import { catalogApiRef } from '@backstage/plugin-catalog-react';
 import { Entity } from '@backstage/catalog-model';
 import { SCM_INTEGRATION_AUTH_FAILED_CODE } from '@ansible/backstage-rhaap-common/constants';
+import {
+  DefaultGitRepositoriesExtensionsApi,
+  gitRepositoriesExtensionsApiRef,
+} from '@ansible/backstage-rhaap-common/gitRepositoriesExtensions';
 import { RepositoryDetailsPage } from './RepositoryDetailsPage';
 
 const mockNavigate = jest.fn();
@@ -128,6 +132,7 @@ describe('RepositoryDetailsPage', () => {
           [discoveryApiRef, mockDiscoveryApi],
           [fetchApiRef, mockFetchApi],
           [identityApiRef, mockIdentityApi],
+          [gitRepositoriesExtensionsApiRef, new DefaultGitRepositoriesExtensionsApi()],
         ]}
       >
         <ThemeProvider theme={theme}>

@@ -1,5 +1,6 @@
 import { render, screen, fireEvent } from '@testing-library/react';
 import { ThemeProvider, createTheme } from '@material-ui/core/styles';
+import { MemoryRouter } from 'react-router-dom';
 import { RepositoriesPageHeaderSection } from './RepositoriesPageHeaderSection';
 
 const mockUseIsSuperuser = jest.fn().mockReturnValue({
@@ -14,7 +15,11 @@ jest.mock('../../hooks', () => ({
 const theme = createTheme();
 
 const renderWithTheme = (ui: React.ReactElement) => {
-  return render(<ThemeProvider theme={theme}>{ui}</ThemeProvider>);
+  return render(
+    <MemoryRouter>
+      <ThemeProvider theme={theme}>{ui}</ThemeProvider>
+    </MemoryRouter>,
+  );
 };
 
 describe('RepositoriesPageHeaderSection', () => {
@@ -45,6 +50,19 @@ describe('RepositoriesPageHeaderSection', () => {
     expect(
       screen.getByText(/Browse Git repositories from your connected/),
     ).toBeInTheDocument();
+  });
+
+  it('renders Add repository button linking to scaffolder template', () => {
+    renderWithTheme(
+      <RepositoriesPageHeaderSection onSyncClick={mockOnSyncClick} />,
+    );
+
+    const addButton = screen.getByRole('button', { name: /Add repository/i });
+    expect(addButton).toBeInTheDocument();
+    expect(addButton).toHaveAttribute(
+      'href',
+      '/self-service/create/templates/default/apme-register-git-repository',
+    );
   });
 
   it('renders Sync Now button when user is superuser', () => {

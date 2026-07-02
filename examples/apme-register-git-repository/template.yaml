@@ -1,0 +1,95 @@
+apiVersion: scaffolder.backstage.io/v1beta3
+kind: Template
+metadata:
+  name: apme-register-git-repository
+  title: Register repo for Ansible Quality
+  description: >-
+    Opens a pull request adding catalog-info.yaml so your playbook or automation
+    project appears in Git Repos and can use the Quality tab (scan, remediate, PR).
+  tags:
+    - apme
+    - quality
+    - git-repository
+spec:
+  owner: user:guest
+  type: service
+
+  parameters:
+    - title: Repository
+      required:
+        - repoUrl
+        - defaultBranch
+        - owner
+      properties:
+        repoUrl:
+          title: Repository location
+          type: string
+          description: Existing GitHub repository to register for Quality scanning
+          ui:field: RepoUrlPicker
+          ui:options:
+            allowedHosts:
+              - github.com
+        defaultBranch:
+          title: Default branch
+          type: string
+          default: main
+          description: Branch catalog-info.yaml will target (usually main)
+        owner:
+          title: Catalog owner
+          type: string
+          description: Backstage owner entity ref (e.g. group:default/my-team)
+          default: user:guest
+
+  steps:
+    - id: fetch-base
+      name: Generate catalog-info.yaml
+      action: fetch:template
+      input:
+        url: ./content
+        values:
+          entityName: ${{ parameters.repoUrl | parseRepoUrl | pick('repo') }}
+          repoName: ${{ parameters.repoUrl | parseRepoUrl | pick('repo') }}
+          org: ${{ parameters.repoUrl | parseRepoUrl | pick('owner') }}
+          repoUrl: https://github.com/${{ parameters.repoUrl | parseRepoUrl | pick('owner') }}/${{ parameters.repoUrl | parseRepoUrl | pick('repo') }}
+          defaultBranch: ${{ parameters.defaultBranch }}
+          owner: ${{ parameters.owner }}
+
+    - id: publish-pr
+      name: Open pull request
+      action: publish:github:pull-request
+      input:
+        repoUrl: ${{ parameters.repoUrl }}
+        branchName: backstage-apme-catalog-info
+        title: Add catalog-info.yaml for Ansible Quality
+        description: |
+          Registers this repository in the automation portal catalog as a git-repository
+          so teams can run Ansible content quality scans and remediation from the Quality tab.
+
+          After merge, import or refresh the catalog entity, then open **Quality → Register and scan**.
+        token: ${{ secrets.USER_OAUTH_TOKEN }}
+
+    - id: register
+      name: Register in catalog (optional)
+      action: catalog:register
+      input:
+        repoContentsUrl: ${{ steps['publish-pr'].output.repoContentsUrl }}
+        catalogInfoPath: /catalog-info.yaml
+        optional: true
+
+  output:
+    links:
+      - title: Pull request
+        url: ${{ steps['publish-pr'].output.remoteUrl }}
+      - title: Go to Git Repositories
+        icon: catalog
+        url: /self-service/repositories/catalog
+      - title: Open in catalog
+        icon: catalog
+        entityRef: ${{ steps['register'].output.entityRef }}
+    text:
+      - title: Next steps
+        content: |
+          1. Review and merge the pull request.
+          2. If the entity is not visible yet, use **Self-service → Catalog import** with your repo URL.
+          3. Open the repo in **Git Repos → Quality → Register and scan**.
+          4. Run the remediation workflow (Select → Generate → Review → Push branch → Create PR).

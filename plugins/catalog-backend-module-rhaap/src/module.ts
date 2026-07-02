@@ -135,6 +135,7 @@ export const catalogModuleRhaap = createBackendModule({
             catalogClient: catalogClient,
             permissions: permissionsApi,
             ansibleGitContentsProviders,
+            ansibleService,
             allowedExternalAccessSubjects:
               allowedExternalAccessSubjects.length > 0
                 ? allowedExternalAccessSubjects
