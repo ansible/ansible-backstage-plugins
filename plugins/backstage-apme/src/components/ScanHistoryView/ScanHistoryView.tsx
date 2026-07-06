@@ -22,12 +22,41 @@ import AutorenewIcon from '@material-ui/icons/Autorenew';
 import CheckCircleIcon from '@material-ui/icons/CheckCircle';
 import CircularProgress from '@material-ui/core/CircularProgress';
 import type { Activity } from '@ansible/backstage-apme-common/types';
+import type { ReactNode } from 'react';
 
 const SOURCE_LABELS: Record<string, string> = {
   cli: 'CLI',
   ci: 'CI',
   gateway: 'Manual',
 };
+
+function renderViolationSummary(
+  scan: Activity,
+  remaining: number,
+  allResolved: boolean,
+): ReactNode {
+  if (allResolved) {
+    return (
+      <Box display="flex" alignItems="center" style={{ gap: 4 }}>
+        <CheckCircleIcon style={{ fontSize: 14, color: '#4caf50' }} />
+        <Typography
+          variant="body2"
+          style={{ color: '#4caf50', fontWeight: 500 }}
+        >
+          All resolved
+        </Typography>
+      </Box>
+    );
+  }
+  if (scan.remediated_count > 0) {
+    return (
+      <Typography variant="body2">
+        {remaining} unresolved / {scan.total_violations}
+      </Typography>
+    );
+  }
+  return <Typography variant="body2">{scan.total_violations} found</Typography>;
+}
 
 const useStyles = makeStyles(theme => ({
   root: {
@@ -181,31 +210,7 @@ export const ScanHistoryView = ({
                     </Typography>
                   </TableCell>
                   <TableCell>
-                    {allResolved ? (
-                      <Box
-                        display="flex"
-                        alignItems="center"
-                        style={{ gap: 4 }}
-                      >
-                        <CheckCircleIcon
-                          style={{ fontSize: 14, color: '#4caf50' }}
-                        />
-                        <Typography
-                          variant="body2"
-                          style={{ color: '#4caf50', fontWeight: 500 }}
-                        >
-                          All resolved
-                        </Typography>
-                      </Box>
-                    ) : scan.remediated_count > 0 ? (
-                      <Typography variant="body2">
-                        {remaining} unresolved / {scan.total_violations}
-                      </Typography>
-                    ) : (
-                      <Typography variant="body2">
-                        {scan.total_violations} found
-                      </Typography>
-                    )}
+                    {renderViolationSummary(scan, remaining, allResolved)}
                   </TableCell>
                   <TableCell>
                     <Typography variant="body2" color="textSecondary">

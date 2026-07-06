@@ -2,7 +2,13 @@
  * Copyright Red Hat
  */
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useState,
+  type ReactNode,
+} from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { useAsyncRetry } from 'react-use';
 import { useApi, configApiRef } from '@backstage/core-plugin-api';
@@ -263,6 +269,114 @@ export const ApmeQualitySettingsTab = () => {
   const connected =
     health?.status === 'healthy' || health?.status === 'degraded';
 
+  let rulesSection: ReactNode;
+  if (rulesLoading) {
+    rulesSection = <Progress />;
+  } else if (rules.length === 0) {
+    rulesSection = (
+      <Typography variant="body2" color="textSecondary">
+        No rules returned from the gateway. Check the APME connection on the
+        Overview tab, then use refresh above.
+      </Typography>
+    );
+  } else {
+    rulesSection = (
+      <Table
+        options={{
+          paging: true,
+          pageSize: 50,
+          pageSizeOptions: [20, 50, 100, 200],
+          search: false,
+        }}
+        columns={[
+          { title: 'Rule ID', field: 'id', width: '8%' },
+          { title: 'Description', field: 'description', width: '32%' },
+          { title: 'Source', field: 'source', width: '8%' },
+          { title: 'Category', field: 'category', width: '8%' },
+          {
+            title: 'Default',
+            width: '10%',
+            render: (row: Rule) => {
+              const sev = row.defaultSeverity ?? row.severity;
+              const s = SEVERITY_STYLES[normalizeSeverity(sev)];
+              return s ? (
+                <Chip
+                  size="small"
+                  label={s.label}
+                  style={{ backgroundColor: s.background, color: s.text }}
+                />
+              ) : (
+                sev
+              );
+            },
+          },
+          {
+            title: 'Effective',
+            width: '12%',
+            render: (row: Rule) => (
+              <Select
+                value={normalizeSeverity(row.severity)}
+                onChange={e =>
+                  void handleSeverityChange(row, e.target.value as string)
+                }
+                disabled={savingRuleId === row.id}
+                variant="outlined"
+                style={{ fontSize: 12, minWidth: 100 }}
+              >
+                {SEVERITY_OPTIONS.map(sev => (
+                  <MenuItem key={sev} value={sev}>
+                    {sev}
+                  </MenuItem>
+                ))}
+              </Select>
+            ),
+          },
+          {
+            title: 'Enabled',
+            width: '8%',
+            render: (row: Rule) => (
+              <Switch
+                size="small"
+                checked={row.enabled}
+                onChange={e => void handleEnabledChange(row, e.target.checked)}
+                disabled={savingRuleId === row.id}
+              />
+            ),
+          },
+          {
+            title: 'Enforced',
+            width: '8%',
+            render: (row: Rule) => (
+              <Switch
+                size="small"
+                checked={row.enforced ?? false}
+                onChange={e => void handleEnforcedChange(row, e.target.checked)}
+                disabled={savingRuleId === row.id || !row.enabled}
+              />
+            ),
+          },
+          {
+            title: '',
+            width: '6%',
+            render: (row: Rule) =>
+              row.hasOverride ? (
+                <Tooltip title="Reset to catalog default">
+                  <IconButton
+                    size="small"
+                    onClick={() => void handleResetOverride(row.id)}
+                    disabled={savingRuleId === row.id}
+                  >
+                    <UndoIcon fontSize="small" />
+                  </IconButton>
+                </Tooltip>
+              ) : null,
+          },
+        ]}
+        data={visibleRules}
+      />
+    );
+  }
+
   return (
     <Box>
       <Tabs
@@ -415,112 +529,7 @@ export const ApmeQualitySettingsTab = () => {
               {rulesError}
             </Typography>
           )}
-          {rulesLoading ? (
-            <Progress />
-          ) : rules.length === 0 ? (
-            <Typography variant="body2" color="textSecondary">
-              No rules returned from the gateway. Check the APME connection on
-              the Overview tab, then use refresh above.
-            </Typography>
-          ) : (
-            <Table
-              options={{
-                paging: true,
-                pageSize: 50,
-                pageSizeOptions: [20, 50, 100, 200],
-                search: false,
-              }}
-              columns={[
-                { title: 'Rule ID', field: 'id', width: '8%' },
-                { title: 'Description', field: 'description', width: '32%' },
-                { title: 'Source', field: 'source', width: '8%' },
-                { title: 'Category', field: 'category', width: '8%' },
-                {
-                  title: 'Default',
-                  width: '10%',
-                  render: (row: Rule) => {
-                    const sev = row.defaultSeverity ?? row.severity;
-                    const s = SEVERITY_STYLES[normalizeSeverity(sev)];
-                    return s ? (
-                      <Chip
-                        size="small"
-                        label={s.label}
-                        style={{ backgroundColor: s.background, color: s.text }}
-                      />
-                    ) : (
-                      sev
-                    );
-                  },
-                },
-                {
-                  title: 'Effective',
-                  width: '12%',
-                  render: (row: Rule) => (
-                    <Select
-                      value={normalizeSeverity(row.severity)}
-                      onChange={e =>
-                        void handleSeverityChange(row, e.target.value as string)
-                      }
-                      disabled={savingRuleId === row.id}
-                      variant="outlined"
-                      style={{ fontSize: 12, minWidth: 100 }}
-                    >
-                      {SEVERITY_OPTIONS.map(sev => (
-                        <MenuItem key={sev} value={sev}>
-                          {sev}
-                        </MenuItem>
-                      ))}
-                    </Select>
-                  ),
-                },
-                {
-                  title: 'Enabled',
-                  width: '8%',
-                  render: (row: Rule) => (
-                    <Switch
-                      size="small"
-                      checked={row.enabled}
-                      onChange={e =>
-                        void handleEnabledChange(row, e.target.checked)
-                      }
-                      disabled={savingRuleId === row.id}
-                    />
-                  ),
-                },
-                {
-                  title: 'Enforced',
-                  width: '8%',
-                  render: (row: Rule) => (
-                    <Switch
-                      size="small"
-                      checked={row.enforced ?? false}
-                      onChange={e =>
-                        void handleEnforcedChange(row, e.target.checked)
-                      }
-                      disabled={savingRuleId === row.id || !row.enabled}
-                    />
-                  ),
-                },
-                {
-                  title: '',
-                  width: '6%',
-                  render: (row: Rule) =>
-                    row.hasOverride ? (
-                      <Tooltip title="Reset to catalog default">
-                        <IconButton
-                          size="small"
-                          onClick={() => void handleResetOverride(row.id)}
-                          disabled={savingRuleId === row.id}
-                        >
-                          <UndoIcon fontSize="small" />
-                        </IconButton>
-                      </Tooltip>
-                    ) : null,
-                },
-              ]}
-              data={visibleRules}
-            />
-          )}
+          {rulesSection}
         </Box>
       )}
     </Box>

@@ -40,6 +40,12 @@ import {
 
 const delay = (ms: number) => new Promise(r => setTimeout(r, ms));
 
+function severityFromOverride(value: number): Rule['severity'] {
+  if (value >= 6) return 'critical';
+  if (value >= 4) return 'high';
+  return 'medium';
+}
+
 interface ScanState {
   operationId: string;
   startedAt: number;
@@ -187,15 +193,14 @@ export class MockApmeApiClient implements ApmeApi {
     await delay(150);
     const rule = MOCK_RULES.find(r => r.id === ruleId);
     if (!rule) throw new Error(`Rule ${ruleId} not found`);
-    if (body.enabled_override != null) rule.enabled = body.enabled_override;
-    if (body.enforced != null) rule.enforced = body.enforced;
-    if (body.severity_override != null) {
-      rule.severity =
-        body.severity_override >= 6
-          ? 'critical'
-          : body.severity_override >= 4
-            ? 'high'
-            : 'medium';
+    if (typeof body.enabled_override === 'boolean') {
+      rule.enabled = body.enabled_override;
+    }
+    if (typeof body.enforced === 'boolean') {
+      rule.enforced = body.enforced;
+    }
+    if (typeof body.severity_override === 'number') {
+      rule.severity = severityFromOverride(body.severity_override);
     }
     rule.hasOverride = true;
     return { ...rule };
