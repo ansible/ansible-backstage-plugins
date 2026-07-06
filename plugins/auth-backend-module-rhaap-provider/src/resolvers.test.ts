@@ -6,6 +6,30 @@ import {
 } from '@backstage/plugin-auth-node';
 import { AAPAuthSignInResolvers } from './resolvers';
 
+function mockUserEntity(
+  name: string,
+  opts?: {
+    isSuperuser?: boolean;
+    memberOfGroups?: string[];
+  },
+) {
+  const annotations: Record<string, string> = {};
+  if (opts?.isSuperuser !== undefined) {
+    annotations['aap.platform/is_superuser'] = String(opts.isSuperuser);
+  }
+  const relations = (opts?.memberOfGroups ?? []).map(g => ({
+    type: 'memberOf',
+    targetRef: `group:default/${g}`,
+  }));
+  return {
+    apiVersion: 'backstage.io/v1alpha1',
+    kind: 'User',
+    metadata: { name, namespace: 'default', annotations },
+    spec: {},
+    relations,
+  };
+}
+
 global.fetch = jest.fn();
 
 const mockDiscovery = {
@@ -76,13 +100,64 @@ describe('resolvers', () => {
         },
       };
 
+      const entity = mockUserEntity('tUser');
       const context = {
-        signInWithCatalogUser: jest.fn().mockResolvedValue(undefined),
+        findCatalogUser: jest.fn().mockResolvedValue({ entity }),
+        issueToken: jest.fn().mockResolvedValue({ token: 'test-token' }),
       } satisfies Partial<AuthResolverContext>;
 
       await resolver(info, context as any);
-      expect(context.signInWithCatalogUser).toHaveBeenCalledWith({
+      expect(context.findCatalogUser).toHaveBeenCalledWith({
         entityRef: { name: 'tUser' },
+      });
+      expect(context.issueToken).toHaveBeenCalledWith({
+        claims: {
+          sub: 'user:default/tuser',
+          ent: ['user:default/tuser'],
+        },
+      });
+    });
+
+    it('usernameMatchingUser should include aap-admins for superuser', async () => {
+      const resolverFactory = AAPAuthSignInResolvers.usernameMatchingUser;
+      const resolver = (resolverFactory as any)();
+
+      const info: SignInInfo<OAuthAuthenticatorResult<PassportProfile>> = {
+        profile: {
+          email: 'admin@test.com',
+          picture: undefined,
+          displayName: 'Admin User',
+        },
+        result: {
+          session: {
+            accessToken: 'accessToken',
+            tokenType: 'Bearer',
+            scope: 'read',
+            expiresInSeconds: 31536000000,
+            refreshToken: 'refreshToken',
+          },
+          fullProfile: {
+            id: 'superAdmin',
+            provider: 'AAP oauth2',
+            username: 'superAdmin',
+            email: 'admin@test.com',
+            displayName: 'Admin User',
+          },
+        },
+      };
+
+      const entity = mockUserEntity('superAdmin', { isSuperuser: true });
+      const context = {
+        findCatalogUser: jest.fn().mockResolvedValue({ entity }),
+        issueToken: jest.fn().mockResolvedValue({ token: 'admin-token' }),
+      } satisfies Partial<AuthResolverContext>;
+
+      await resolver(info, context as any);
+      expect(context.issueToken).toHaveBeenCalledWith({
+        claims: {
+          sub: 'user:default/superadmin',
+          ent: ['user:default/superadmin', 'group:default/aap-admins'],
+        },
       });
     });
 
@@ -113,9 +188,7 @@ describe('resolvers', () => {
         },
       };
 
-      const context = {
-        signInWithCatalogUser: jest.fn().mockResolvedValue(undefined),
-      } satisfies Partial<AuthResolverContext>;
+      const context = {} satisfies Partial<AuthResolverContext>;
       let error;
       try {
         await resolver(info, context as any);
@@ -160,13 +233,10 @@ describe('resolvers', () => {
         },
       };
 
+      const entity = mockUserEntity('existingUser');
       const context = {
-        findCatalogUser: jest
-          .fn()
-          .mockResolvedValue({ entityRef: { name: 'existingUser' } }),
-        signInWithCatalogUser: jest
-          .fn()
-          .mockResolvedValue({ token: 'user-token' }),
+        findCatalogUser: jest.fn().mockResolvedValue({ entity }),
+        issueToken: jest.fn().mockResolvedValue({ token: 'user-token' }),
       } satisfies Partial<AuthResolverContext>;
 
       const result = await resolver(info, context as any);
@@ -174,8 +244,11 @@ describe('resolvers', () => {
       expect(context.findCatalogUser).toHaveBeenCalledWith({
         entityRef: { name: 'existingUser' },
       });
-      expect(context.signInWithCatalogUser).toHaveBeenCalledWith({
-        entityRef: { name: 'existingUser' },
+      expect(context.issueToken).toHaveBeenCalledWith({
+        claims: {
+          sub: 'user:default/existinguser',
+          ent: ['user:default/existinguser'],
+        },
       });
       expect(result).toEqual({ token: 'user-token' });
       expect(global.fetch).not.toHaveBeenCalled();
@@ -212,13 +285,13 @@ describe('resolvers', () => {
         },
       };
 
+      const entity = mockUserEntity('newUser');
       const context = {
         findCatalogUser: jest
           .fn()
-          .mockRejectedValue(new Error('User not found')),
-        signInWithCatalogUser: jest
-          .fn()
-          .mockResolvedValue({ token: 'new-user-token' }),
+          .mockRejectedValueOnce(new Error('User not found'))
+          .mockResolvedValue({ entity }),
+        issueToken: jest.fn().mockResolvedValue({ token: 'new-user-token' }),
       } satisfies Partial<AuthResolverContext>;
 
       const result = await resolver(info, context as any);
@@ -237,8 +310,11 @@ describe('resolvers', () => {
           body: JSON.stringify({ username: 'newUser', userID: 456 }),
         },
       );
-      expect(context.signInWithCatalogUser).toHaveBeenCalledWith({
-        entityRef: { name: 'newUser' },
+      expect(context.issueToken).toHaveBeenCalledWith({
+        claims: {
+          sub: 'user:default/newuser',
+          ent: ['user:default/newuser'],
+        },
       });
       expect(result).toEqual({ token: 'new-user-token' });
     });
@@ -373,9 +449,7 @@ describe('resolvers', () => {
         findCatalogUser: jest
           .fn()
           .mockRejectedValue(new Error('User not found')),
-        signInWithCatalogUser: jest
-          .fn()
-          .mockResolvedValue({ token: 'new-user-token' }),
+        issueToken: jest.fn(),
       } satisfies Partial<AuthResolverContext>;
 
       let error;
@@ -423,9 +497,7 @@ describe('resolvers', () => {
         findCatalogUser: jest
           .fn()
           .mockRejectedValue(new Error('User not found')),
-        signInWithCatalogUser: jest
-          .fn()
-          .mockRejectedValue(new Error('Sign-in failed')),
+        issueToken: jest.fn(),
       } satisfies Partial<AuthResolverContext>;
 
       let error;
@@ -471,13 +543,10 @@ describe('resolvers', () => {
         },
       };
 
+      const entity = mockUserEntity('adminUser');
       const context = {
-        findCatalogUser: jest
-          .fn()
-          .mockResolvedValue({ entityRef: { name: 'adminUser' } }),
-        signInWithCatalogUser: jest
-          .fn()
-          .mockResolvedValue({ token: 'admin-token' }),
+        findCatalogUser: jest.fn().mockResolvedValue({ entity }),
+        issueToken: jest.fn().mockResolvedValue({ token: 'admin-token' }),
       } satisfies Partial<AuthResolverContext>;
 
       const result = await resolver(info, context as any);
@@ -486,6 +555,112 @@ describe('resolvers', () => {
         entityRef: { name: 'adminUser' },
       });
       expect(result).toEqual({ token: 'admin-token' });
+    });
+
+    it('should include aap-admins group for superuser on first login', async () => {
+      const resolverFactory = AAPAuthSignInResolvers.allowNewAAPUserSignIn({
+        discovery: mockDiscovery as any,
+        auth: mockAuth as any,
+      });
+      const resolver = (resolverFactory as any)();
+
+      const info: SignInInfo<OAuthAuthenticatorResult<PassportProfile>> = {
+        profile: {
+          email: 'super@test.com',
+          picture: undefined,
+          displayName: 'Super User',
+        },
+        result: {
+          session: {
+            accessToken: 'accessToken',
+            tokenType: 'Bearer',
+            scope: 'read',
+            expiresInSeconds: 31536000000,
+            refreshToken: 'refreshToken',
+          },
+          fullProfile: {
+            id: '999',
+            provider: 'AAP oauth2',
+            username: 'superUser',
+            email: 'super@test.com',
+            displayName: 'Super User',
+          },
+        },
+      };
+
+      // Superuser entity with annotation but WITHOUT stitched memberOf relations
+      // (simulates the race condition on first login)
+      const entity = mockUserEntity('superUser', { isSuperuser: true });
+      const context = {
+        findCatalogUser: jest
+          .fn()
+          .mockRejectedValueOnce(new Error('User not found'))
+          .mockResolvedValue({ entity }),
+        issueToken: jest.fn().mockResolvedValue({ token: 'superuser-token' }),
+      } satisfies Partial<AuthResolverContext>;
+
+      const result = await resolver(info, context as any);
+
+      expect(context.issueToken).toHaveBeenCalledWith({
+        claims: {
+          sub: 'user:default/superuser',
+          ent: ['user:default/superuser', 'group:default/aap-admins'],
+        },
+      });
+      expect(result).toEqual({ token: 'superuser-token' });
+    });
+
+    it('should include stitched group relations in token', async () => {
+      const resolverFactory = AAPAuthSignInResolvers.allowNewAAPUserSignIn({
+        discovery: mockDiscovery as any,
+        auth: mockAuth as any,
+      });
+      const resolver = (resolverFactory as any)();
+
+      const info: SignInInfo<OAuthAuthenticatorResult<PassportProfile>> = {
+        profile: {
+          email: 'member@test.com',
+          picture: undefined,
+          displayName: 'Team Member',
+        },
+        result: {
+          session: {
+            accessToken: 'accessToken',
+            tokenType: 'Bearer',
+            scope: 'read',
+            expiresInSeconds: 31536000000,
+            refreshToken: 'refreshToken',
+          },
+          fullProfile: {
+            id: '100',
+            provider: 'AAP oauth2',
+            username: 'teamMember',
+            email: 'member@test.com',
+            displayName: 'Team Member',
+          },
+        },
+      };
+
+      const entity = mockUserEntity('teamMember', {
+        memberOfGroups: ['engineering', 'default-org'],
+      });
+      const context = {
+        findCatalogUser: jest.fn().mockResolvedValue({ entity }),
+        issueToken: jest.fn().mockResolvedValue({ token: 'member-token' }),
+      } satisfies Partial<AuthResolverContext>;
+
+      await resolver(info, context as any);
+
+      expect(context.issueToken).toHaveBeenCalledWith({
+        claims: {
+          sub: 'user:default/teammember',
+          ent: [
+            'user:default/teammember',
+            'group:default/engineering',
+            'group:default/default-org',
+          ],
+        },
+      });
     });
   });
 });
