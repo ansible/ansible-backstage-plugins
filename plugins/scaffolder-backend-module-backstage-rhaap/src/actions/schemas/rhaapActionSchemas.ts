@@ -16,9 +16,7 @@
 
 import { z } from 'zod';
 
-export const aapApiRecordOutputSchema = z.record(z.string(), z.unknown());
-
-export const organizationSchema = z.object({
+const organizationSchema = z.object({
   id: z.number(),
   name: z.string(),
   namespace: z.string().optional(),
@@ -112,12 +110,6 @@ export const launchJobTemplateFieldsSchema = z.object({
   jobTags: z.string().optional(),
   skipTags: z.string().optional(),
 });
-
-/** Loose scaffolder `values` record — shared by every `rhaap:*` action input. */
-export const launchJobTemplateValuesLooseSchema = z.record(
-  z.string(),
-  z.unknown(),
-);
 
 export const cleanUpInputSchema = z.object({
   project: projectInputSchema.partial().optional(),

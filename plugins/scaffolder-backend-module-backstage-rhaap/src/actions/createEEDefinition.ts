@@ -29,7 +29,9 @@ import {
 import { generateReadme } from './templates/readmeTemplate';
 import { generateEETemplate } from './templates/eeTemplate';
 import { eeDefinitionInputSchema } from './schemas/rhaapActionSchemas';
+import type { ZodType } from 'zod';
 
+const eeInputSchema: ZodType = eeDefinitionInputSchema;
 const PAH_SOURCE_PREFIX = 'Private Automation Hub';
 
 /**
@@ -64,12 +66,13 @@ export function createEEDefinitionAction(options: {
   config: Config;
 }) {
   const { frontendUrl, auth, discovery, config } = options;
+  // @ts-expect-error TS2589: complex ZodEffects schema triggers deep type recursion
   return createTemplateAction({
     id: 'ansible:create:ee-definition',
     description: 'Creates Ansible Execution Environment definition files',
     schema: {
       input: {
-        values: () => eeDefinitionInputSchema,
+        values: _z => eeInputSchema,
       },
       output: {
         contextDirName: z => z.string().optional(),
@@ -593,7 +596,7 @@ function transformScmCollections(
   const seenServers = new Map<string, ScmServer>();
 
   const transformed = collections.map(c => {
-    const parts = c.source!.split('/').map(s => s.trim());
+    const parts = (c.source ?? '').split('/').map(s => s.trim());
     const provider = parts[0];
     const canonicalName = parts[1];
     const org = parts[2];
