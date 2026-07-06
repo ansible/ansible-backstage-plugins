@@ -71,7 +71,8 @@ function renderDialog(
             <EEBuildDialog
               open
               entity={testEntity}
-              githubToken="gh-mock-token"
+              scmToken="gh-mock-token"
+              scmProvider="github"
               onClose={mockOnClose}
               {...props}
             />
@@ -238,7 +239,7 @@ describe('EEBuildDialog', () => {
           imageTag: '2.0',
           verifyTls: true,
         }),
-        { githubToken: 'gh-mock-token' },
+        { scmToken: 'gh-mock-token', scmProvider: 'github' },
       );
     });
 
@@ -426,15 +427,15 @@ describe('EEBuildDialog', () => {
           registryType: 'custom',
           customRegistryUrl: 'https://registry.custom.example',
         }),
-        { githubToken: 'gh-mock-token' },
+        { scmToken: 'gh-mock-token', scmProvider: 'github' },
       );
     });
   });
 
-  it('shows warning when githubToken is missing', async () => {
+  it('shows warning when scmToken is missing', async () => {
     const showSpy = jest.spyOn(notificationStore, 'showNotification');
     const user = userEvent.setup();
-    renderDialog({ githubToken: null });
+    renderDialog({ scmToken: null });
 
     await user.type(screen.getByTestId('ee-build-image-name'), 'ns/ee');
     await user.click(screen.getByRole('button', { name: /^Build$/i }));
@@ -449,6 +450,48 @@ describe('EEBuildDialog', () => {
       );
     });
     expect(mockTriggerBuild).not.toHaveBeenCalled();
+    showSpy.mockRestore();
+  });
+
+  it('passes scmProvider gitlab and scmToken to triggerBuild', async () => {
+    const user = userEvent.setup();
+    renderDialog({ scmToken: 'gl-mock-token', scmProvider: 'gitlab' });
+
+    await user.type(screen.getByTestId('ee-build-image-name'), 'ns/ee');
+    await user.click(screen.getByRole('button', { name: /^Build$/i }));
+
+    await waitFor(() => {
+      expect(mockTriggerBuild).toHaveBeenCalledWith(expect.any(Object), {
+        scmToken: 'gl-mock-token',
+        scmProvider: 'gitlab',
+      });
+    });
+  });
+
+  it('shows pipeline URL in success notification for GitLab', async () => {
+    const showSpy = jest.spyOn(notificationStore, 'showNotification');
+    const pipelineUrl = 'https://gitlab.com/org/repo/-/pipelines/42';
+    mockTriggerBuild.mockResolvedValueOnce({
+      accepted: true,
+      pipelineUrl,
+    });
+    const user = userEvent.setup();
+    renderDialog({ scmToken: 'gl-tok', scmProvider: 'gitlab' });
+
+    await user.type(screen.getByTestId('ee-build-image-name'), 'ns/ee');
+    await user.click(screen.getByRole('button', { name: /^Build$/i }));
+
+    await waitFor(() => {
+      expect(showSpy).toHaveBeenCalledWith(
+        expect.objectContaining({
+          title: 'Build triggered',
+          severity: 'success',
+        }),
+      );
+    });
+    const runLink = screen.getByRole('link', { name: pipelineUrl });
+    expect(runLink).toHaveAttribute('href', pipelineUrl);
+    expect(runLink).toHaveAttribute('target', '_blank');
     showSpy.mockRestore();
   });
 });

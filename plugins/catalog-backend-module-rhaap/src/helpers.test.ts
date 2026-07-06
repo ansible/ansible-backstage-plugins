@@ -1,4 +1,5 @@
 const mockGetPipelines = jest.fn();
+const mockTriggerPipeline = jest.fn();
 const mockDispatchActionsWorkflow = jest.fn();
 
 jest.mock('@ansible/backstage-rhaap-common', () => {
@@ -7,6 +8,7 @@ jest.mock('@ansible/backstage-rhaap-common', () => {
     ...actual,
     GitlabClient: jest.fn().mockImplementation(() => ({
       getPipelines: mockGetPipelines,
+      triggerPipeline: mockTriggerPipeline,
     })),
     createGithubClientForWorkflowDispatch: jest.fn(() => ({
       dispatchActionsWorkflow: mockDispatchActionsWorkflow,
@@ -55,7 +57,13 @@ import {
   resolveEntityAndRepo,
   dispatchEeBuild,
   isScmIntegrationAuthFailure,
+  parseGitLabRepoFromSourceUrl,
+  resolveGitlabRepoForEeBuild,
+  validateGitLabHost,
+  dispatchEeBuildGitlab,
+  handleEeBuildDispatch,
 } from './helpers';
+import type { ResolvedEeEntity } from './helpers';
 import { AuthorizeResult } from '@backstage/plugin-permission-common';
 import type { AnsibleGitContentsProvider } from './providers/AnsibleGitContentsProvider';
 
@@ -2905,8 +2913,10 @@ describe('helpers', () => {
         'component:default/my-ee',
       );
       expect(result).toBeDefined();
-      expect(result!.gh.owner).toBe('acme');
-      expect(result!.gh.repo).toBe('repo');
+      expect(result!.provider).toBe('github');
+      const ghResult = result as Extract<typeof result, { provider: 'github' }>;
+      expect(ghResult.gh.owner).toBe('acme');
+      expect(ghResult.gh.repo).toBe('repo');
     });
 
     it('returns 403 when catalog throws ResponseError 403', async () => {
@@ -3189,6 +3199,753 @@ describe('helpers', () => {
       expect(
         isScmIntegrationAuthFailure('OAuth app configuration updated'),
       ).toBe(false);
+    });
+  });
+
+  describe('parseGitLabRepoFromSourceUrl', () => {
+    it('returns null for undefined', () => {
+      expect(parseGitLabRepoFromSourceUrl(undefined)).toBeNull();
+    });
+
+    it('returns null for empty string', () => {
+      expect(parseGitLabRepoFromSourceUrl('')).toBeNull();
+    });
+
+    it('returns null for whitespace', () => {
+      expect(parseGitLabRepoFromSourceUrl('   ')).toBeNull();
+    });
+
+    it('returns null for non-http protocol', () => {
+      expect(
+        parseGitLabRepoFromSourceUrl('ftp://gitlab.com/group/project'),
+      ).toBeNull();
+    });
+
+    it('returns null for path with fewer than 2 segments', () => {
+      expect(
+        parseGitLabRepoFromSourceUrl('https://gitlab.com/single'),
+      ).toBeNull();
+    });
+
+    it('parses /-/blob/ URL', () => {
+      const result = parseGitLabRepoFromSourceUrl(
+        'https://gitlab.com/group/project/-/blob/main/ee/ee.yml',
+      );
+      expect(result).toEqual({
+        host: 'gitlab.com',
+        projectPath: 'group/project',
+        defaultRef: 'main',
+        filePath: 'ee/ee.yml',
+      });
+    });
+
+    it('parses /-/tree/ URL', () => {
+      const result = parseGitLabRepoFromSourceUrl(
+        'https://gitlab.com/group/project/-/tree/develop/subdir',
+      );
+      expect(result).toEqual({
+        host: 'gitlab.com',
+        projectPath: 'group/project',
+        defaultRef: 'develop/subdir',
+      });
+    });
+
+    it('parses /-/edit/ URL', () => {
+      const result = parseGitLabRepoFromSourceUrl(
+        'https://gitlab.com/group/project/-/edit/main/ee/my-ee.yml',
+      );
+      expect(result).toEqual({
+        host: 'gitlab.com',
+        projectPath: 'group/project',
+        defaultRef: 'main',
+        filePath: 'ee/my-ee.yml',
+      });
+    });
+
+    it('parses subgroup project path', () => {
+      const result = parseGitLabRepoFromSourceUrl(
+        'https://gitlab.com/org/sub/repo/-/blob/v1/ee.yml',
+      );
+      expect(result).toEqual({
+        host: 'gitlab.com',
+        projectPath: 'org/sub/repo',
+        defaultRef: 'v1',
+        filePath: 'ee.yml',
+      });
+    });
+
+    it('parses URL without /-/ as simple project path', () => {
+      const result = parseGitLabRepoFromSourceUrl(
+        'https://gitlab.com/group/project',
+      );
+      expect(result).toEqual({
+        host: 'gitlab.com',
+        projectPath: 'group/project',
+        defaultRef: 'main',
+      });
+    });
+
+    it('strips url: prefix', () => {
+      const result = parseGitLabRepoFromSourceUrl(
+        'url:https://gitlab.com/g/p/-/blob/main/f.yml',
+      );
+      expect(result).toEqual({
+        host: 'gitlab.com',
+        projectPath: 'g/p',
+        defaultRef: 'main',
+        filePath: 'f.yml',
+      });
+    });
+
+    it('returns null for malformed URL', () => {
+      expect(parseGitLabRepoFromSourceUrl('not-a-url')).toBeNull();
+    });
+  });
+
+  describe('resolveGitlabRepoForEeBuild', () => {
+    it('throws when entity kind is not Component', () => {
+      expect(() =>
+        resolveGitlabRepoForEeBuild({
+          apiVersion: 'backstage.io/v1alpha1',
+          kind: 'Template',
+          metadata: { name: 'my-ee' },
+          spec: { type: 'execution-environment' },
+        }),
+      ).toThrow('Component entity');
+    });
+
+    it('throws when spec.type is not execution-environment', () => {
+      expect(() =>
+        resolveGitlabRepoForEeBuild({
+          apiVersion: 'backstage.io/v1alpha1',
+          kind: 'Component',
+          metadata: { name: 'my-ee' },
+          spec: { type: 'service' },
+        }),
+      ).toThrow('execution-environment');
+    });
+
+    it('throws when no source annotations exist', () => {
+      expect(() =>
+        resolveGitlabRepoForEeBuild({
+          apiVersion: 'backstage.io/v1alpha1',
+          kind: 'Component',
+          metadata: { name: 'my-ee', annotations: {} },
+          spec: { type: 'execution-environment' },
+        }),
+      ).toThrow('missing a Git source annotation');
+    });
+
+    it('throws when URL is not parseable', () => {
+      expect(() =>
+        resolveGitlabRepoForEeBuild({
+          apiVersion: 'backstage.io/v1alpha1',
+          kind: 'Component',
+          metadata: {
+            name: 'my-ee',
+            annotations: {
+              'backstage.io/source-location': 'url:ftp://internal/single',
+            },
+          },
+          spec: { type: 'execution-environment' },
+        }),
+      ).toThrow('not a GitLab repository URL');
+    });
+
+    it('resolves from source-location with blob URL', () => {
+      const result = resolveGitlabRepoForEeBuild({
+        apiVersion: 'backstage.io/v1alpha1',
+        kind: 'Component',
+        metadata: {
+          name: 'my-ee',
+          annotations: {
+            'backstage.io/source-location':
+              'url:https://gitlab.com/org/repo/-/blob/main/ee/my-ee.yml',
+          },
+        },
+        spec: { type: 'execution-environment' },
+      });
+      expect(result).toEqual({
+        host: 'gitlab.com',
+        projectPath: 'org/repo',
+        ref: 'main',
+        eeDir: 'ee',
+        eeFileName: 'my-ee.yml',
+      });
+    });
+
+    it('derives eeFileName from entity name when filePath is catalog-info.yaml', () => {
+      const result = resolveGitlabRepoForEeBuild({
+        apiVersion: 'backstage.io/v1alpha1',
+        kind: 'Component',
+        metadata: {
+          name: 'custom-ee',
+          annotations: {
+            'backstage.io/source-location':
+              'url:https://gitlab.com/org/repo/-/blob/main/ee/catalog-info.yaml',
+          },
+        },
+        spec: { type: 'execution-environment' },
+      });
+      expect(result.eeFileName).toBe('custom-ee.yml');
+      expect(result.eeDir).toBe('ee');
+    });
+
+    it('uses gitRefOverride when provided', () => {
+      const result = resolveGitlabRepoForEeBuild(
+        {
+          apiVersion: 'backstage.io/v1alpha1',
+          kind: 'Component',
+          metadata: {
+            name: 'my-ee',
+            annotations: {
+              'backstage.io/source-location':
+                'url:https://gitlab.com/org/repo/-/blob/main/ee/my-ee.yml',
+            },
+          },
+          spec: { type: 'execution-environment' },
+        },
+        'release-1.0',
+      );
+      expect(result.ref).toBe('release-1.0');
+    });
+
+    it('uses entire defaultRef as ref when filePath is absent (tree URL)', () => {
+      const result = resolveGitlabRepoForEeBuild({
+        apiVersion: 'backstage.io/v1alpha1',
+        kind: 'Component',
+        metadata: {
+          name: 'my-ee',
+          annotations: {
+            'backstage.io/source-location':
+              'url:https://gitlab.com/org/repo/-/tree/main/ee-dir',
+          },
+        },
+        spec: { type: 'execution-environment' },
+      });
+      expect(result.ref).toBe('main/ee-dir');
+      expect(result.eeDir).toBeUndefined();
+      expect(result.eeFileName).toBeUndefined();
+    });
+
+    it('does not misparse slashed branch names as ref + eeDir', () => {
+      const result = resolveGitlabRepoForEeBuild({
+        apiVersion: 'backstage.io/v1alpha1',
+        kind: 'Component',
+        metadata: {
+          name: 'my-ee',
+          annotations: {
+            'backstage.io/source-location':
+              'url:https://gitlab.com/org/repo/-/tree/release/2.5',
+          },
+        },
+        spec: { type: 'execution-environment' },
+      });
+      expect(result.ref).toBe('release/2.5');
+      expect(result.eeDir).toBeUndefined();
+    });
+  });
+
+  describe('validateGitLabHost', () => {
+    it('returns undefined for valid allowed host', () => {
+      const config = new ConfigReader({
+        integrations: {
+          gitlab: [{ host: 'gitlab.com', token: 'tok' }],
+        },
+      });
+      expect(validateGitLabHost(config, 'gitlab.com')).toBeUndefined();
+    });
+
+    it('returns error for unsafe hostname', () => {
+      const config = new ConfigReader({});
+      expect(validateGitLabHost(config, 'evil.com\x00')).toBe(
+        'Invalid GitLab host in entity URL',
+      );
+    });
+
+    it('returns error for host not in integrations config', () => {
+      const config = new ConfigReader({
+        integrations: {
+          gitlab: [{ host: 'gitlab.internal.com', token: 'tok' }],
+        },
+      });
+      const result = validateGitLabHost(config, 'other-gitlab.example.com');
+      expect(result).toContain('not allowed');
+    });
+  });
+
+  describe('dispatchEeBuildGitlab', () => {
+    const glConfig = new ConfigReader({
+      integrations: {
+        gitlab: [
+          {
+            host: 'gitlab.com',
+            token: 'tok',
+            apiBaseUrl: 'https://gitlab.com/api/v4',
+          },
+        ],
+      },
+    });
+    const mockLogger = {
+      info: jest.fn(),
+      warn: jest.fn(),
+      error: jest.fn(),
+      debug: jest.fn(),
+    } as any;
+    const gl = {
+      host: 'gitlab.com',
+      projectPath: 'org/repo',
+      ref: 'main',
+    };
+    const parsedBody = {
+      customRegistryUrl: 'quay.io/org',
+      imageName: 'my-img',
+      imageTag: 'latest',
+      verifyTls: true,
+    };
+
+    function makeRes() {
+      const json = jest.fn();
+      const status = jest.fn(() => ({ json }));
+      return {
+        res: { locals: {}, status, json } as any,
+        status,
+        json,
+      };
+    }
+
+    beforeEach(() => {
+      mockTriggerPipeline.mockReset();
+    });
+
+    it('sends 202 on successful dispatch with pipeline_id', async () => {
+      mockTriggerPipeline.mockResolvedValue({
+        ok: true,
+        status: 201,
+        pipelineId: 42,
+        pipelineUrl: 'https://gitlab.com/org/repo/-/pipelines/42',
+      });
+
+      const { res, status, json } = makeRes();
+      await dispatchEeBuildGitlab({
+        response: res,
+        logger: mockLogger,
+        config: glConfig,
+        gl,
+        eeDir: 'ee',
+        eeFileName: 'ee.yml',
+        gitlabToken: 'gl-tok',
+        parsedBody,
+      });
+
+      expect(status).toHaveBeenCalledWith(202);
+      expect(json).toHaveBeenCalledWith(
+        expect.objectContaining({
+          message: 'Build started',
+          pipeline_id: 42,
+          pipeline_url: 'https://gitlab.com/org/repo/-/pipelines/42',
+        }),
+      );
+    });
+
+    it('sends 202 without pipeline_id when not returned', async () => {
+      mockTriggerPipeline.mockResolvedValue({
+        ok: true,
+        status: 201,
+      });
+
+      const { res, status, json } = makeRes();
+      await dispatchEeBuildGitlab({
+        response: res,
+        logger: mockLogger,
+        config: glConfig,
+        gl,
+        eeDir: 'ee',
+        eeFileName: 'ee.yml',
+        gitlabToken: 'gl-tok',
+        parsedBody,
+      });
+
+      expect(status).toHaveBeenCalledWith(202);
+      expect(json).toHaveBeenCalledWith({ message: 'Build started' });
+    });
+
+    it('sends client error status on 4xx failure', async () => {
+      mockTriggerPipeline.mockResolvedValue({
+        ok: false,
+        status: 422,
+        statusText: 'Unprocessable Entity',
+        bodyText: '{"message":"bad variables"}',
+      });
+
+      const { res, status, json } = makeRes();
+      await dispatchEeBuildGitlab({
+        response: res,
+        logger: mockLogger,
+        config: glConfig,
+        gl,
+        eeDir: 'ee',
+        eeFileName: 'ee.yml',
+        gitlabToken: 'gl-tok',
+        parsedBody,
+      });
+
+      expect(status).toHaveBeenCalledWith(422);
+      expect(json).toHaveBeenCalledWith(
+        expect.objectContaining({
+          error: expect.stringContaining('bad variables'),
+        }),
+      );
+    });
+
+    it('sends 502 on 5xx failure', async () => {
+      mockTriggerPipeline.mockResolvedValue({
+        ok: false,
+        status: 500,
+        statusText: 'Internal Server Error',
+        bodyText: '',
+      });
+
+      const { res, status, json } = makeRes();
+      await dispatchEeBuildGitlab({
+        response: res,
+        logger: mockLogger,
+        config: glConfig,
+        gl,
+        eeDir: 'ee',
+        eeFileName: 'ee.yml',
+        gitlabToken: 'gl-tok',
+        parsedBody,
+      });
+
+      expect(status).toHaveBeenCalledWith(502);
+      expect(json).toHaveBeenCalledWith(
+        expect.objectContaining({
+          error: expect.stringContaining('Internal Server Error'),
+        }),
+      );
+    });
+
+    it('passes correct pipeline variables', async () => {
+      mockTriggerPipeline.mockResolvedValue({ ok: true, status: 201 });
+
+      const { res } = makeRes();
+      await dispatchEeBuildGitlab({
+        response: res,
+        logger: mockLogger,
+        config: glConfig,
+        gl,
+        eeDir: 'my/ee',
+        eeFileName: 'ee.yml',
+        gitlabToken: 'gl-tok',
+        parsedBody,
+      });
+
+      expect(mockTriggerPipeline).toHaveBeenCalledWith('org/repo', 'main', [
+        { key: 'EE_DIR', value: 'my/ee' },
+        { key: 'EE_FILE_NAME', value: 'ee.yml' },
+        { key: 'EE_REGISTRY', value: 'quay.io/org' },
+        { key: 'EE_IMAGE_NAME', value: 'my-img' },
+        { key: 'IMAGE_BUILD_TAG', value: 'latest' },
+        { key: 'REGISTRY_TLS_VERIFY', value: 'true' },
+      ]);
+    });
+  });
+
+  describe('handleEeBuildDispatch', () => {
+    const mockLogger = {
+      info: jest.fn(),
+      warn: jest.fn(),
+      error: jest.fn(),
+      debug: jest.fn(),
+    } as any;
+    const parsedBody = {
+      entityRef: 'component:default/my-ee',
+      customRegistryUrl: 'quay.io/org',
+      imageName: 'my-img',
+      imageTag: 'latest',
+      verifyTls: true,
+    };
+
+    function makeRes() {
+      const json = jest.fn();
+      const status = jest.fn(() => ({ json }));
+      return {
+        res: { locals: {}, status, json } as any,
+        status,
+        json,
+      };
+    }
+
+    it('returns 400 when eeDir is missing', async () => {
+      const { res, status, json } = makeRes();
+      const resolved: ResolvedEeEntity = {
+        provider: 'github',
+        gh: { host: 'github.com', owner: 'o', repo: 'r', ref: 'main' },
+        eeDir: undefined,
+        eeFileName: 'ee.yml',
+      };
+      await handleEeBuildDispatch({
+        request: { headers: {} },
+        response: res,
+        logger: mockLogger,
+        config: new ConfigReader({}),
+        resolved,
+        parsedBody,
+      });
+      expect(status).toHaveBeenCalledWith(400);
+      expect(json).toHaveBeenCalledWith(
+        expect.objectContaining({
+          error: expect.stringContaining('ee_dir/ee_file_name'),
+        }),
+      );
+    });
+
+    it('returns 400 when eeFileName is missing', async () => {
+      const { res, status, json } = makeRes();
+      const resolved: ResolvedEeEntity = {
+        provider: 'github',
+        gh: { host: 'github.com', owner: 'o', repo: 'r', ref: 'main' },
+        eeDir: 'ee',
+        eeFileName: undefined,
+      };
+      await handleEeBuildDispatch({
+        request: { headers: {} },
+        response: res,
+        logger: mockLogger,
+        config: new ConfigReader({}),
+        resolved,
+        parsedBody,
+      });
+      expect(status).toHaveBeenCalledWith(400);
+      expect(json).toHaveBeenCalledWith(
+        expect.objectContaining({
+          error: expect.stringContaining('ee_dir/ee_file_name'),
+        }),
+      );
+    });
+
+    it('returns 400 when GitLab host validation fails', async () => {
+      const { res, status, json } = makeRes();
+      const resolved: ResolvedEeEntity = {
+        provider: 'gitlab',
+        gl: {
+          host: 'evil.com\x00',
+          projectPath: 'org/repo',
+          ref: 'main',
+        },
+        eeDir: 'ee',
+        eeFileName: 'ee.yml',
+      };
+      await handleEeBuildDispatch({
+        request: { headers: {} },
+        response: res,
+        logger: mockLogger,
+        config: new ConfigReader({}),
+        resolved,
+        parsedBody,
+      });
+      expect(status).toHaveBeenCalledWith(400);
+      expect(json).toHaveBeenCalledWith(
+        expect.objectContaining({
+          error: expect.stringContaining('Invalid GitLab host'),
+        }),
+      );
+    });
+
+    it('returns 400 when X-Gitlab-Token is missing', async () => {
+      const config = new ConfigReader({
+        integrations: {
+          gitlab: [{ host: 'gitlab.com', token: 'tok' }],
+        },
+      });
+      const { res, status, json } = makeRes();
+      const resolved: ResolvedEeEntity = {
+        provider: 'gitlab',
+        gl: { host: 'gitlab.com', projectPath: 'org/repo', ref: 'main' },
+        eeDir: 'ee',
+        eeFileName: 'ee.yml',
+      };
+      await handleEeBuildDispatch({
+        request: { headers: {} },
+        response: res,
+        logger: mockLogger,
+        config,
+        resolved,
+        parsedBody,
+      });
+      expect(status).toHaveBeenCalledWith(400);
+      expect(json).toHaveBeenCalledWith(
+        expect.objectContaining({
+          error: expect.stringContaining('X-Gitlab-Token'),
+        }),
+      );
+    });
+
+    it('dispatches GitLab build on valid request', async () => {
+      mockTriggerPipeline.mockResolvedValue({
+        ok: true,
+        status: 201,
+        pipelineId: 99,
+        pipelineUrl: 'https://gitlab.com/org/repo/-/pipelines/99',
+      });
+      const config = new ConfigReader({
+        integrations: {
+          gitlab: [
+            {
+              host: 'gitlab.com',
+              token: 'tok',
+              apiBaseUrl: 'https://gitlab.com/api/v4',
+            },
+          ],
+        },
+      });
+      const { res, status, json } = makeRes();
+      const resolved: ResolvedEeEntity = {
+        provider: 'gitlab',
+        gl: { host: 'gitlab.com', projectPath: 'org/repo', ref: 'main' },
+        eeDir: 'ee',
+        eeFileName: 'ee.yml',
+      };
+      await handleEeBuildDispatch({
+        request: { headers: { 'x-gitlab-token': 'gl-tok' } },
+        response: res,
+        logger: mockLogger,
+        config,
+        resolved,
+        parsedBody,
+      });
+      expect(mockTriggerPipeline).toHaveBeenCalled();
+      expect(mockDispatchActionsWorkflow).not.toHaveBeenCalled();
+      expect(status).toHaveBeenCalledWith(202);
+      expect(json).toHaveBeenCalledWith(
+        expect.objectContaining({ message: 'Build started', pipeline_id: 99 }),
+      );
+    });
+
+    it('returns 400 when X-Github-Token is missing for GitHub provider', async () => {
+      const config = new ConfigReader({
+        integrations: {
+          github: [{ host: 'github.com', token: 'tok' }],
+        },
+      });
+      const { res, status, json } = makeRes();
+      const resolved: ResolvedEeEntity = {
+        provider: 'github',
+        gh: { host: 'github.com', owner: 'o', repo: 'r', ref: 'main' },
+        eeDir: 'ee',
+        eeFileName: 'ee.yml',
+      };
+      await handleEeBuildDispatch({
+        request: { headers: {} },
+        response: res,
+        logger: mockLogger,
+        config,
+        resolved,
+        parsedBody,
+      });
+      expect(status).toHaveBeenCalledWith(400);
+      expect(json).toHaveBeenCalledWith(
+        expect.objectContaining({
+          error: expect.stringContaining('X-Github-Token'),
+        }),
+      );
+    });
+
+    it('dispatches GitHub build on valid request', async () => {
+      mockDispatchActionsWorkflow.mockResolvedValue({
+        ok: true,
+        status: 200,
+        workflowRunId: '456',
+        workflowRunUrl: 'https://github.com/o/r/actions/runs/456',
+      });
+      const config = new ConfigReader({
+        integrations: {
+          github: [
+            {
+              host: 'github.com',
+              token: 'tok',
+              apiBaseUrl: 'https://api.github.com',
+            },
+          ],
+        },
+      });
+      const { res, status, json } = makeRes();
+      const resolved: ResolvedEeEntity = {
+        provider: 'github',
+        gh: { host: 'github.com', owner: 'o', repo: 'r', ref: 'main' },
+        eeDir: 'ee',
+        eeFileName: 'ee.yml',
+      };
+      await handleEeBuildDispatch({
+        request: { headers: { 'x-github-token': 'gh-tok' } },
+        response: res,
+        logger: mockLogger,
+        config,
+        resolved,
+        parsedBody,
+      });
+      expect(mockDispatchActionsWorkflow).toHaveBeenCalled();
+      expect(mockTriggerPipeline).not.toHaveBeenCalled();
+      expect(status).toHaveBeenCalledWith(202);
+      expect(json).toHaveBeenCalledWith(
+        expect.objectContaining({
+          message: 'Build started',
+          workflow_id: '456',
+        }),
+      );
+    });
+  });
+
+  describe('resolveEntityAndRepo (GitLab path)', () => {
+    const mockAuth = {
+      getPluginRequestToken: jest.fn(),
+    } as any;
+    const mockCatalog = {
+      getEntityByRef: jest.fn(),
+    } as any;
+
+    function makeRes() {
+      const json = jest.fn();
+      const status = jest.fn(() => ({ json }));
+      return {
+        res: { locals: {}, status, json } as any,
+        status,
+        json,
+      };
+    }
+
+    it('returns gitlab provider when entity has scm-provider: gitlab', async () => {
+      const { res } = makeRes();
+      res.locals[EE_BUILD_CATALOG_CREDENTIALS_LOCALS_KEY] = { token: 'tok' };
+      mockAuth.getPluginRequestToken.mockResolvedValue({ token: 'cat-tok' });
+      mockCatalog.getEntityByRef.mockResolvedValue({
+        apiVersion: 'backstage.io/v1alpha1',
+        kind: 'Component',
+        metadata: {
+          name: 'my-ee',
+          annotations: {
+            'ansible.io/scm-provider': 'gitlab',
+            'backstage.io/source-location':
+              'url:https://gitlab.com/org/repo/-/blob/main/ee/my-ee.yml',
+          },
+        },
+        spec: { type: 'execution-environment' },
+      });
+
+      const result = await resolveEntityAndRepo(
+        res,
+        mockAuth,
+        mockCatalog,
+        'component:default/my-ee',
+      );
+      expect(result).toBeDefined();
+      expect(result!.provider).toBe('gitlab');
+      const glResult = result as Extract<typeof result, { provider: 'gitlab' }>;
+      expect(glResult.gl.projectPath).toBe('org/repo');
+      expect(glResult.gl.ref).toBe('main');
+      expect(glResult.eeDir).toBe('ee');
+      expect(glResult.eeFileName).toBe('my-ee.yml');
     });
   });
 });

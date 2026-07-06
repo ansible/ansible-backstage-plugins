@@ -4,12 +4,26 @@ import { useApi } from '@backstage/core-plugin-api';
 import { catalogApiRef } from '@backstage/plugin-catalog-react';
 import { scmAuthApiRef } from '@backstage/integration-react';
 import { useNotifications } from '../../notifications';
-import { getScmRepoUrlForAuth, messageFromUnknownError } from './helpers';
+import {
+  getEntityScmProvider,
+  getScmRepoUrlForAuth,
+  messageFromUnknownError,
+} from './helpers';
 import {
   EE_BUILD_PENDING_MAX_AGE_MS,
   EE_BUILD_PENDING_SESSION_KEY,
   type EeBuildPendingPayload,
 } from './eeBuildSession';
+
+function buildScmCredentialOptions(
+  url: string,
+  provider: 'github' | 'gitlab' | null,
+) {
+  if (provider === 'gitlab') {
+    return { url, additionalScope: { repoWrite: true } };
+  }
+  return { url };
+}
 
 export function useEEBuildFlow() {
   const scmAuthApi = useApi(scmAuthApiRef);
@@ -17,15 +31,19 @@ export function useEEBuildFlow() {
   const { showNotification } = useNotifications();
   const [dialogOpen, setDialogOpen] = useState(false);
   const [buildEntity, setBuildEntity] = useState<Entity | null>(null);
-  /** SCM OAuth token for `POST /ansible/ee/build` (X-Github-Token). Cleared when the dialog closes. */
-  const [githubToken, setGithubToken] = useState<string | null>(null);
+  /** SCM OAuth token for `POST /ansible/ee/build`. Cleared when the dialog closes. */
+  const [scmToken, setScmToken] = useState<string | null>(null);
+  const [scmProvider, setScmProvider] = useState<'github' | 'gitlab' | null>(
+    null,
+  );
   const [authBusy, setAuthBusy] = useState(false);
   const authInFlight = useRef(false);
 
   const closeDialog = useCallback(() => {
     setDialogOpen(false);
     setBuildEntity(null);
-    setGithubToken(null);
+    setScmToken(null);
+    setScmProvider(null);
   }, []);
 
   /** After full-page SCM OAuth, reopen the build dialog for the pending entity. */
@@ -81,7 +99,10 @@ export function useEEBuildFlow() {
           return;
         }
         try {
-          const creds = await scmAuthApi.getCredentials({ url: repoUrl });
+          const provider = getEntityScmProvider(resolved);
+          const creds = await scmAuthApi.getCredentials(
+            buildScmCredentialOptions(repoUrl, provider),
+          );
           if (cancelled) {
             return;
           }
@@ -95,7 +116,8 @@ export function useEEBuildFlow() {
             });
             return;
           }
-          setGithubToken(tok);
+          setScmToken(tok);
+          setScmProvider(provider);
           setBuildEntity(resolved);
           setDialogOpen(true);
         } catch (e: unknown) {
@@ -156,19 +178,23 @@ export function useEEBuildFlow() {
             savedAt: Date.now(),
           } satisfies EeBuildPendingPayload),
         );
-        const creds = await scmAuthApi.getCredentials({ url: repoUrl });
+        const provider = getEntityScmProvider(entity);
+        const creds = await scmAuthApi.getCredentials(
+          buildScmCredentialOptions(repoUrl, provider),
+        );
         sessionStorage.removeItem(EE_BUILD_PENDING_SESSION_KEY);
         const tok = creds.token?.trim();
         if (!tok) {
           showNotification({
             title: 'Cannot start build',
             description:
-              'No Git token was returned after sign-in. Check GitHub (or GHE) authentication in Backstage.',
+              'No Git token was returned after sign-in. Check your Git host authentication in Backstage.',
             severity: 'error',
           });
           return;
         }
-        setGithubToken(tok);
+        setScmToken(tok);
+        setScmProvider(provider);
         setBuildEntity(entity);
         setDialogOpen(true);
       } catch (e: unknown) {
@@ -191,7 +217,8 @@ export function useEEBuildFlow() {
     authBusy,
     dialogOpen,
     buildEntity,
-    githubToken,
+    scmToken,
+    scmProvider,
     closeDialog,
   };
 }
