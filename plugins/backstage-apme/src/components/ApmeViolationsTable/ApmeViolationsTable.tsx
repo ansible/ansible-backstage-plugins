@@ -26,6 +26,7 @@ import {
   Tooltip,
   Typography,
   makeStyles,
+  useTheme,
 } from '@material-ui/core';
 import ArrowDropDownIcon from '@material-ui/icons/ArrowDropDown';
 import ExpandMoreIcon from '@material-ui/icons/ExpandMore';
@@ -131,7 +132,10 @@ const useStyles = makeStyles(theme => ({
   ruleId: {
     fontFamily: 'monospace',
     fontSize: 12,
-    backgroundColor: theme.palette.grey[100],
+    backgroundColor:
+      theme.palette.type === 'dark'
+        ? theme.palette.grey[800]
+        : theme.palette.grey[100],
     padding: '2px 6px',
     borderRadius: 3,
     display: 'inline-block',
@@ -165,10 +169,10 @@ const useStyles = makeStyles(theme => ({
     width: 36,
     textAlign: 'right',
     padding: '2px 8px',
-    color: '#6c7086',
+    color: theme.palette.text.disabled,
     userSelect: 'none',
     flexShrink: 0,
-    borderRight: '1px solid #313244',
+    borderRight: `1px solid ${theme.palette.divider}`,
   },
   codeLineContent: {
     padding: '2px 12px',

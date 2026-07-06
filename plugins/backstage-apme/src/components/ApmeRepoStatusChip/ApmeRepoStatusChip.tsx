@@ -54,12 +54,14 @@ function getHighestSeverity(
 
 export interface ApmeRepoStatusChipProps {
   repoUrl: string;
+  branch?: string;
   projectDetailPath?: string;
 }
 
 /** Violation status chip for Git Repository cards. */
 export const ApmeRepoStatusChip = ({
   repoUrl,
+  branch,
   projectDetailPath,
 }: ApmeRepoStatusChipProps) => {
   const classes = useStyles();
@@ -69,8 +71,8 @@ export const ApmeRepoStatusChip = ({
 
   const { value: project, loading } = useAsync(async () => {
     if (!enabled || !repoUrl) return null;
-    return apmeApi.getProjectByRepoUrl(repoUrl);
-  }, [enabled, repoUrl, apmeApi]);
+    return apmeApi.getProjectByRepoUrl(repoUrl, branch);
+  }, [enabled, repoUrl, branch, apmeApi]);
 
   if (!enabled) {
     return null;

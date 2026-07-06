@@ -47,16 +47,12 @@ const useStyles = makeStyles(theme => ({
   },
 }));
 
-function connectionStatusText(
+function connectionStatusLabel(
   healthLoading: boolean,
   connected: boolean,
 ): string {
-  if (healthLoading) {
-    return 'Checking connection…';
-  }
-  if (connected) {
-    return 'Connected';
-  }
+  if (healthLoading) return 'Checking connection…';
+  if (connected) return 'Connected';
   return 'Disconnected';
 }
 
@@ -130,7 +126,7 @@ export const ApmeQualitySettingsTab = () => {
               ) : (
                 <ErrorIcon className={classes.disconnected} fontSize="small" />
               )}
-              {connectionStatusText(healthLoading, connected)}
+              {connectionStatusLabel(healthLoading, connected)}
             </Typography>
             <Grid container spacing={2} style={{ marginTop: 8 }}>
               <Grid item xs={12} sm={6}>

@@ -99,15 +99,24 @@ export class MockApmeApiClient implements ApmeApi {
     return { ...project };
   }
 
-  async getProjectByRepoUrl(repoUrl: string): Promise<Project | null> {
+  async getProjectByRepoUrl(
+    repoUrl: string,
+    branch?: string,
+  ): Promise<Project | null> {
     await delay(150);
     const normalised = repoUrl.replace(/^url:/, '').replace(/\.git$/, '');
     const project = this.projects.find(p => {
       const projUrl = p.repo_url.replace(/\.git$/, '');
-      return (
+      const urlMatch =
         projUrl === normalised ||
-        projUrl.endsWith(normalised.split('/').slice(-2).join('/'))
-      );
+        projUrl.endsWith(normalised.split('/').slice(-2).join('/'));
+      if (!urlMatch) {
+        return false;
+      }
+      if (branch !== undefined && branch !== '') {
+        return p.branch === branch;
+      }
+      return true;
     });
     return project ? { ...project } : null;
   }
