@@ -213,7 +213,7 @@ async function handleGitLabLoginOnPage(page: Page): Promise<void> {
 
 const EE_TEMPLATE_URL =
   process.env.EE_IMPORT_REPO_URL ||
-  'https://github.com/ansible/ansible-rhdh-templates/blob/v1.0.2/templates/ee-start-from-scratch.yaml';
+  'https://github.com/ansible/ansible-rhdh-templates/blob/main/templates/ee-start-from-scratch.yaml';
 
 const EE_TEMPLATE_TITLE = process.env.EE_TEMPLATE_TITLE || 'Start from scratch';
 
