@@ -155,8 +155,21 @@ export async function createRouter(options: RouterOptions): Promise<Router> {
   router.put('/apme/rules/:ruleId/config', async (req, res) => {
     await ensureUser(req);
     const { ruleId } = req.params;
+    const body = req.body;
+    if (!body || typeof body !== 'object') {
+      throw new InputError('Request body must be an object');
+    }
+    const hasValidField =
+      'severity_override' in body ||
+      'enabled_override' in body ||
+      'enforced' in body;
+    if (!hasValidField) {
+      throw new InputError(
+        'At least one of severity_override, enabled_override, or enforced is required',
+      );
+    }
     logger.info(`APME rule config update for ${ruleId}`);
-    const rule = await apmeService.updateRuleConfig(ruleId, req.body);
+    const rule = await apmeService.updateRuleConfig(ruleId, body);
     res.json(rule);
   });
 
@@ -170,6 +183,13 @@ export async function createRouter(options: RouterOptions): Promise<Router> {
 
   router.post('/apme/suppressions', async (req, res) => {
     await ensureUser(req);
+    const { rule_id, scope } = req.body ?? {};
+    if (!rule_id || typeof rule_id !== 'string') {
+      throw new InputError('rule_id is required in request body');
+    }
+    if (!scope || typeof scope !== 'string') {
+      throw new InputError('scope is required in request body');
+    }
     logger.info('APME suppression create requested');
     const suppression = await apmeService.createSuppression(req.body);
     res.status(201).json(suppression);
@@ -214,6 +234,13 @@ export async function createRouter(options: RouterOptions): Promise<Router> {
 
   router.post('/apme/projects', async (req, res) => {
     await ensureUser(req);
+    const { name, repo_url } = req.body ?? {};
+    if (!name || typeof name !== 'string') {
+      throw new InputError('name is required in request body');
+    }
+    if (!repo_url || typeof repo_url !== 'string') {
+      throw new InputError('repo_url is required in request body');
+    }
     logger.info('APME create project requested');
     const project = await apmeService.createProject(req.body);
     res.status(201).json(project);

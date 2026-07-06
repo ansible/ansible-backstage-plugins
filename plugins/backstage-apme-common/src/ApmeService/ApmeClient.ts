@@ -60,7 +60,7 @@ export class ApmeClient {
     this.enableAi = config.enableAi;
     // Note: checkSSL config is available but not used yet (for future TLS verification)
     this.logger = options.logger.child({ service: 'ApmeClient' });
-    this.logger.info(`APME client initialized with baseUrl: ${this.baseUrl}`);
+    this.logger.debug(`APME client initialized with baseUrl: ${this.baseUrl}`);
   }
 
   private scanOperationOptions(): Record<string, boolean> {

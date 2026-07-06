@@ -605,13 +605,18 @@ export const ApmeEntityTab = ({
       return undefined;
     }
 
+    let cancelled = false;
     let pollCount = 0;
     const maxPolls = 180;
+    const projectId = project.id;
 
     const pollInterval = setInterval(async () => {
+      if (cancelled) return;
       pollCount += 1;
       try {
-        const state = await apmeApi.getOperationState(project.id);
+        const state = await apmeApi.getOperationState(projectId);
+        if (cancelled) return;
+
         const progressMessage = latestOperationProgressMessage(state);
         if (progressMessage) {
           setScanProgress({
@@ -642,6 +647,7 @@ export const ApmeEntityTab = ({
               violationsFound: state?.result?.total_violations,
             });
             setTimeout(() => {
+              if (cancelled) return;
               retry();
               setRefreshKey(k => k + 1);
               setScanProgress(null);
@@ -649,6 +655,7 @@ export const ApmeEntityTab = ({
           }
         }
       } catch {
+        if (cancelled) return;
         clearInterval(pollInterval);
         setScanning(false);
         setExpectActiveScan(false);
@@ -664,18 +671,25 @@ export const ApmeEntityTab = ({
       }
     }, 2000);
 
-    return () => clearInterval(pollInterval);
+    return () => {
+      cancelled = true;
+      clearInterval(pollInterval);
+    };
   }, [scanning, project?.id, apmeApi, retry, expectActiveScan]);
 
   // Poll remediation operation
   useEffect(() => {
     if (remediationStep !== 'generate' || !project?.id) return undefined;
+    let cancelled = false;
     let pollCount = 0;
     const maxPolls = 180;
+    const projectId = project.id;
     const pollInterval = setInterval(async () => {
+      if (cancelled) return;
       pollCount += 1;
       try {
-        const state = await apmeApi.getOperationState(project.id);
+        const state = await apmeApi.getOperationState(projectId);
+        if (cancelled) return;
         const progressMessage =
           latestOperationProgressMessage(state) ?? 'Generating fixes…';
         const progressPct = latestOperationProgressPercent(state);
@@ -711,7 +725,8 @@ export const ApmeEntityTab = ({
             setRemediationStep('review');
             setRemediationError(null);
             try {
-              const activity = await apmeApi.getActivity(project.id);
+              const activity = await apmeApi.getActivity(projectId);
+              if (cancelled) return;
               const latestId = activity[0]?.scan_id;
               if (latestId) setRemediationActivityId(latestId);
             } catch {
@@ -728,7 +743,8 @@ export const ApmeEntityTab = ({
             setRemediationStep('review');
             setRemediationError(null);
             try {
-              const activity = await apmeApi.getActivity(project.id);
+              const activity = await apmeApi.getActivity(projectId);
+              if (cancelled) return;
               const latestId = activity[0]?.scan_id;
               if (latestId) setRemediationActivityId(latestId);
             } catch {
@@ -745,13 +761,17 @@ export const ApmeEntityTab = ({
           }
         }
       } catch (err) {
+        if (cancelled) return;
         clearInterval(pollInterval);
         setFixProgress(null);
         setRemediationError(err as Error);
         setRemediationStep('select');
       }
     }, 2000);
-    return () => clearInterval(pollInterval);
+    return () => {
+      cancelled = true;
+      clearInterval(pollInterval);
+    };
   }, [remediationStep, project?.id, apmeApi, violations]);
 
   const selectedFixableIds = useMemo(() => {
