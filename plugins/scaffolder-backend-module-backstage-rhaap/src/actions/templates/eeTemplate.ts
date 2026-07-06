@@ -353,6 +353,79 @@ spec:
                               properties:
                                 provider:
                                   const: gitlab
+                            buildExecutionEnvironment:
+                              title: Build Execution Environment
+                              description: Trigger a build of the Execution Environment after publishing.
+                              type: boolean
+                              default: false
+                              ui:help: "If checked, the Execution Environment will be built and pushed to the selected container registry."
+                          dependencies:
+                            buildExecutionEnvironment:
+                              oneOf:
+                                - properties:
+                                    buildExecutionEnvironment:
+                                      const: true
+                                    buildRegistry:
+                                      title: Registry
+                                      description: Container registry to push the built EE image to.
+                                      type: string
+                                      default: 'Private Automation Hub (PAH)'
+                                      enum:
+                                        - 'Private Automation Hub (PAH)'
+                                        - 'Custom Registry'
+                                      ui:widget: select
+                                      ui:help: Select the container registry where the built image will be pushed.
+                                  required:
+                                    - buildRegistry
+                                    - buildImageName
+                                    - buildImageTag
+                                  dependencies:
+                                    buildRegistry:
+                                      oneOf:
+                                        - properties:
+                                            buildRegistry:
+                                              const: 'Private Automation Hub (PAH)'
+                                            buildImageName:
+                                              title: Image Name
+                                              type: string
+                                              description: Name for the built Execution Environment image in namespace/name format. For example, 'my-namespace/my-custom-ee'.
+                                            buildImageTag:
+                                              title: Image Tag
+                                              type: string
+                                              description: Tag for the built Execution Environment image.
+                                            registryTlsVerify:
+                                              title: Verify TLS certificates
+                                              type: boolean
+                                              default: true
+                                              description: Verify TLS certificates when interacting with container registries.
+                                              ui:help: "Uncheck to disable TLS verification for registries using self-signed or untrusted certificates."
+                                        - properties:
+                                            buildRegistry:
+                                              const: 'Custom Registry'
+                                            customRegistryUrl:
+                                              title: Custom Registry URL
+                                              type: string
+                                              description: URL of the custom container registry (e.g., quay.io, docker.io).
+                                              ui:help: "Provide the full URL of the container registry."
+                                            buildImageName:
+                                              title: Image Name
+                                              type: string
+                                              description: Name for the built Execution Environment image in namespace/name format. For example, 'my-namespace/my-custom-ee'.
+                                            buildImageTag:
+                                              title: Image Tag
+                                              type: string
+                                              description: Tag for the built Execution Environment image.
+                                            registryTlsVerify:
+                                              title: Verify TLS certificates
+                                              type: boolean
+                                              default: true
+                                              description: Verify TLS certificates when interacting with container registries.
+                                              ui:help: "Uncheck to disable TLS verification for registries using self-signed or untrusted certificates."
+                                          required:
+                                            - customRegistryUrl
+                                - properties:
+                                    buildExecutionEnvironment:
+                                      const: false
                 - properties:
                     publishToSCM:
                       const: false
@@ -383,6 +456,7 @@ spec:
           buildImageName: \${{ parameters.publishAndBuild.buildImageName or '' }}
           buildImageTag: \${{ parameters.publishAndBuild.buildImageTag or '' }}
           registryTlsVerify: \${{ parameters.publishAndBuild.registryTlsVerify }}
+          scmProvider: \${{ parameters.publishAndBuild.sourceControlProvider.provider or 'github' }}
 
     # Step 3: Validate the SCM repository (optional)
     - id: prepare-publish
@@ -478,15 +552,27 @@ spec:
     - id: dispatch-ee-build
       action: github:actions:dispatch
       name: Start EE Build Workflow
-      if: \${{ parameters.publishAndBuild.buildExecutionEnvironment }}
+      if: \${{ parameters.publishAndBuild.buildExecutionEnvironment and parameters.publishAndBuild.sourceControlProvider.provider == 'github' }}
       input:
         repoUrl: \${{ steps['prepare-publish'].output.generatedRepoUrl }}
         workflowId: ee-build.yml
         branchOrTagName: \${{ steps['prepare-publish'].output.generatedBranchName or 'main' }}
         workflowInputs:
-          image_build_tag: \${{ parameters.publishAndBuild.buildImageTag or '' }}
+          ee_image_build_tag: \${{ parameters.publishAndBuild.buildImageTag or '' }}
         token: \${{ secrets.USER_OAUTH_TOKEN }}
 
+    - id: dispatch-ee-build-gitlab
+      action: gitlab:pipeline:trigger
+      name: Start EE Build Pipeline
+      if: \${{ parameters.publishAndBuild.buildExecutionEnvironment and parameters.publishAndBuild.sourceControlProvider.provider == 'gitlab' }}
+      input:
+        repoUrl: \${{ steps['prepare-publish'].output.generatedRepoUrl }}
+        projectId: \${{ steps['publish-gitlab'].output.projectId or steps['prepare-publish'].output.gitlabProjectId }}
+        tokenDescription: "EE Build Pipeline Trigger"
+        branch: \${{ steps['prepare-publish'].output.generatedBranchName or 'main' }}
+        token: \${{ secrets.USER_OAUTH_TOKEN }}
+        variables:
+          EE_IMAGE_BUILD_TAG: \${{ parameters.publishAndBuild.buildImageTag or '' }}
 
   output:
     text:
@@ -507,8 +593,13 @@ spec:
 
       - title: \${{ parameters.publishAndBuild.sourceControlProvider.providerLabel }} EE Build Workflow Run
         url: "https://\${{ steps['prepare-publish'].output.normalizedRepoUrl }}/actions/workflows/ee-build.yml"
-        if: \${{ (parameters.publishAndBuild.buildExecutionEnvironment == true) }}
+        if: \${{ parameters.publishAndBuild.buildExecutionEnvironment == true and parameters.publishAndBuild.sourceControlProvider.provider == 'github' }}
         icon: github
+
+      - title: GitLab EE Build Pipeline Run
+        url: \${{ steps['dispatch-ee-build-gitlab'].output.pipelineUrl }}
+        if: \${{ parameters.publishAndBuild.buildExecutionEnvironment == true and parameters.publishAndBuild.sourceControlProvider.provider == 'gitlab' }}
+        icon: gitlab
 
       - title: GitLab Merge Request
         url: \${{ steps['publish-gitlab-merge-request'].output.mergeRequestUrl  }}
