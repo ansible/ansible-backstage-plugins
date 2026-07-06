@@ -290,7 +290,9 @@ export async function loginGitLab(page: Page) {
   await page.locator('#user_password').fill(process.env.GL_USER_PASS!);
 
   await page
-    .locator('[data-testid="sign-in-button"], input[type="submit"][value="Sign in"], button[type="submit"]')
+    .locator(
+      '[data-testid="sign-in-button"], input[type="submit"][value="Sign in"], button[type="submit"]',
+    )
     .first()
     .click();
 

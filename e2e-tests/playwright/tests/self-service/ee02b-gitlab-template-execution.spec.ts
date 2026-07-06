@@ -201,9 +201,7 @@ async function handleGitLabLoginOnPage(page: Page): Promise<void> {
       '[EE GitLab Test] GitLab authorize page detected, clicking Authorize...',
     );
     await authorizeBtn.click();
-    console.log(
-      '[EE GitLab Test] Authorize clicked, waiting for callback...',
-    );
+    console.log('[EE GitLab Test] Authorize clicked, waiting for callback...');
     await page
       .waitForURL(url => url.hostname !== 'gitlab.com', {
         timeout: 30000,
@@ -543,7 +541,9 @@ test.describe('Execution Environment GitLab Template Execution Tests', () => {
           .or(
             page
               .getByLabel(/namespace/i)
-              .locator('xpath=ancestor::div[contains(@class,"MuiFormControl")][1]')
+              .locator(
+                'xpath=ancestor::div[contains(@class,"MuiFormControl")][1]',
+              )
               .locator('[role="button"]'),
           )
           .or(page.locator('[aria-labelledby="scm-org-picker-label"]'))
@@ -615,7 +615,9 @@ test.describe('Execution Environment GitLab Template Execution Tests', () => {
           .or(
             page
               .getByLabel(/namespace/i)
-              .locator('xpath=ancestor::div[contains(@class,"MuiFormControl")][1]')
+              .locator(
+                'xpath=ancestor::div[contains(@class,"MuiFormControl")][1]',
+              )
               .locator('[role="button"]'),
           )
           .first();
@@ -655,9 +657,7 @@ test.describe('Execution Environment GitLab Template Execution Tests', () => {
         }
 
         await page.waitForTimeout(2000);
-        const nextBtn = page
-          .getByRole('button', { name: /^Next$/i })
-          .first();
+        const nextBtn = page.getByRole('button', { name: /^Next$/i }).first();
         if ((await nextBtn.count()) > 0) {
           await expect(nextBtn).toBeEnabled({ timeout: 15000 });
           await nextBtn.click({ force: true });
@@ -780,9 +780,7 @@ test.describe('Execution Environment GitLab Template Execution Tests', () => {
             el.dispatchEvent(new Event('change', { bubbles: true }));
           });
         }
-        console.log(
-          '[EE GitLab Test] Unchecked "Publish to a Git repository"',
-        );
+        console.log('[EE GitLab Test] Unchecked "Publish to a Git repository"');
       }
       await page.waitForTimeout(500);
 
