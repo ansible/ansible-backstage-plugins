@@ -153,6 +153,327 @@ describe('ansible-aap:jobTemplate:launch', () => {
     expect(error?.message).toBe('Something went wrong.');
   });
 
+  it('cancels AAP job when scaffolder signal is aborted during polling', async () => {
+    const launchResponse = {
+      id: 42,
+      status: 'pending',
+      url: 'https://test.com/execution/jobs/playbook/42/output',
+      launchedAt: '2024-01-01T00:00:00.000Z',
+    };
+
+    mockAnsibleService.launchJobTemplateNoWait.mockResolvedValue(
+      launchResponse,
+    );
+    mockAnsibleService.getJobStatus.mockResolvedValue({
+      id: 42,
+      status: 'running',
+      url: 'https://test.com/execution/jobs/playbook/42/output',
+    });
+    mockAnsibleService.cancelJob.mockResolvedValue(undefined);
+
+    const abortController = new AbortController();
+
+    const ctx = createMockActionContext({
+      input: {
+        token: MOCK_TOKEN,
+        values: projectData,
+        waitForCompletion: true,
+      },
+    });
+    (ctx as any).signal = abortController.signal;
+
+    // Abort after a short delay so the polling loop starts
+    setTimeout(() => abortController.abort(), 100);
+
+    await expect(action.handler(ctx as any)).rejects.toThrow(
+      'The operation was aborted',
+    );
+    expect(mockAnsibleService.cancelJob).toHaveBeenCalledWith(
+      42,
+      'mock-service-token',
+    );
+  }, 10000);
+
+  it('logs warning if cancelJob fails after abort', async () => {
+    const launchResponse = {
+      id: 42,
+      status: 'pending',
+      url: 'https://test.com/execution/jobs/playbook/42/output',
+      launchedAt: '2024-01-01T00:00:00.000Z',
+    };
+
+    mockAnsibleService.launchJobTemplateNoWait.mockResolvedValue(
+      launchResponse,
+    );
+    mockAnsibleService.getJobStatus.mockResolvedValue({
+      id: 42,
+      status: 'running',
+      url: 'https://test.com/execution/jobs/playbook/42/output',
+    });
+    mockAnsibleService.cancelJob.mockRejectedValue(
+      new Error('AAP cancel endpoint unreachable'),
+    );
+
+    const abortController = new AbortController();
+
+    const ctx = createMockActionContext({
+      input: {
+        token: MOCK_TOKEN,
+        values: projectData,
+        waitForCompletion: true,
+      },
+    });
+    (ctx as any).signal = abortController.signal;
+
+    setTimeout(() => abortController.abort(), 100);
+
+    await expect(action.handler(ctx as any)).rejects.toThrow(
+      'The operation was aborted',
+    );
+    expect(mockAnsibleService.cancelJob).toHaveBeenCalledWith(
+      42,
+      'mock-service-token',
+    );
+  }, 10000);
+
+  it('rejects immediately from sleepMs when signal is aborted between loop check and sleep', async () => {
+    jest.spyOn(global, 'setTimeout').mockImplementation((cb: any) => {
+      cb();
+      return {} as any;
+    });
+
+    const launchResponse = {
+      id: 60,
+      status: 'pending',
+      url: 'https://test.com/execution/jobs/playbook/60/output',
+      launchedAt: '2024-01-01T00:00:00.000Z',
+    };
+
+    mockAnsibleService.launchJobTemplateNoWait.mockResolvedValue(
+      launchResponse,
+    );
+    mockAnsibleService.cancelJob.mockResolvedValue(undefined);
+
+    let abortedAccessCount = 0;
+    const mockSignal = {
+      get aborted() {
+        abortedAccessCount++;
+        // First access (handler pre-launch guard) returns false; second (sleepMs pre-abort check) returns true
+        return abortedAccessCount > 1;
+      },
+      addEventListener: jest.fn(),
+      removeEventListener: jest.fn(),
+    };
+
+    const ctx = createMockActionContext({
+      input: {
+        token: MOCK_TOKEN,
+        values: projectData,
+        waitForCompletion: true,
+      },
+    });
+    (ctx as any).signal = mockSignal;
+
+    await expect(action.handler(ctx as any)).rejects.toThrow(
+      'The operation was aborted',
+    );
+    expect(mockAnsibleService.cancelJob).toHaveBeenCalledWith(
+      60,
+      'mock-service-token',
+    );
+    expect(mockAnsibleService.getJobStatus).not.toHaveBeenCalled();
+
+    jest.restoreAllMocks();
+  });
+
+  it('throws AbortError without launching job when signal is pre-aborted', async () => {
+    const abortController = new AbortController();
+    abortController.abort();
+
+    const ctx = createMockActionContext({
+      input: {
+        token: MOCK_TOKEN,
+        values: projectData,
+        waitForCompletion: true,
+      },
+    });
+    (ctx as any).signal = abortController.signal;
+
+    await expect(action.handler(ctx as any)).rejects.toThrow(
+      'The operation was aborted',
+    );
+    expect(mockAnsibleService.launchJobTemplateNoWait).not.toHaveBeenCalled();
+    expect(mockAnsibleService.cancelJob).not.toHaveBeenCalled();
+  });
+
+  it('preserves AbortError through rethrowPreservingInputError', async () => {
+    const launchResponse = {
+      id: 70,
+      status: 'pending',
+      url: 'https://test.com/execution/jobs/playbook/70/output',
+      launchedAt: '2024-01-01T00:00:00.000Z',
+    };
+
+    mockAnsibleService.launchJobTemplateNoWait.mockResolvedValue(
+      launchResponse,
+    );
+    mockAnsibleService.getJobStatus.mockResolvedValue({
+      id: 70,
+      status: 'running',
+      url: 'https://test.com/execution/jobs/playbook/70/output',
+    });
+    mockAnsibleService.cancelJob.mockResolvedValue(undefined);
+
+    const abortController = new AbortController();
+
+    const ctx = createMockActionContext({
+      input: {
+        token: MOCK_TOKEN,
+        values: projectData,
+        waitForCompletion: true,
+      },
+    });
+    (ctx as any).signal = abortController.signal;
+
+    setTimeout(() => abortController.abort(), 100);
+
+    let caughtError: any;
+    try {
+      await action.handler(ctx as any);
+    } catch (e) {
+      caughtError = e;
+    }
+
+    expect(caughtError).toBeDefined();
+    expect(caughtError.name).toBe('AbortError');
+    expect(caughtError.message).toBe('The operation was aborted');
+  }, 10000);
+
+  it('cancels AAP job when signal aborts after launch but before first poll', async () => {
+    jest.spyOn(global, 'setTimeout').mockImplementation((cb: any) => {
+      cb();
+      return {} as any;
+    });
+
+    const launchResponse = {
+      id: 50,
+      status: 'pending',
+      url: 'https://test.com/execution/jobs/playbook/50/output',
+      launchedAt: '2024-01-01T00:00:00.000Z',
+    };
+
+    mockAnsibleService.launchJobTemplateNoWait.mockResolvedValue(
+      launchResponse,
+    );
+    mockAnsibleService.cancelJob.mockResolvedValue(undefined);
+
+    let abortedAccessCount = 0;
+    const mockSignal = {
+      get aborted() {
+        abortedAccessCount++;
+        // First access (pre-launch guard) returns false
+        // Second access (pollJobCompletion loop check) returns true
+        return abortedAccessCount > 1;
+      },
+      addEventListener: jest.fn(),
+      removeEventListener: jest.fn(),
+    };
+
+    const ctx = createMockActionContext({
+      input: {
+        token: MOCK_TOKEN,
+        values: projectData,
+        waitForCompletion: true,
+      },
+    });
+    (ctx as any).signal = mockSignal;
+
+    await expect(action.handler(ctx as any)).rejects.toThrow(
+      'The operation was aborted',
+    );
+    expect(mockAnsibleService.cancelJob).toHaveBeenCalledWith(
+      50,
+      'mock-service-token',
+    );
+    expect(mockAnsibleService.getJobStatus).not.toHaveBeenCalled();
+
+    jest.restoreAllMocks();
+  });
+
+  it('re-throws non-AbortError from polling without calling cancelJob', async () => {
+    jest.spyOn(global, 'setTimeout').mockImplementation((cb: any) => {
+      cb();
+      return {} as any;
+    });
+
+    const launchResponse = {
+      id: 55,
+      status: 'pending',
+      url: 'https://test.com/execution/jobs/playbook/55/output',
+      launchedAt: '2024-01-01T00:00:00.000Z',
+    };
+
+    mockAnsibleService.launchJobTemplateNoWait.mockResolvedValue(
+      launchResponse,
+    );
+    mockAnsibleService.getJobStatus.mockRejectedValue(
+      new Error('Network connection lost'),
+    );
+
+    const ctx = createMockActionContext({
+      input: {
+        token: MOCK_TOKEN,
+        values: projectData,
+        waitForCompletion: true,
+      },
+    });
+
+    await expect(action.handler(ctx as any)).rejects.toThrow(
+      'Network connection lost',
+    );
+    expect(mockAnsibleService.cancelJob).not.toHaveBeenCalled();
+
+    jest.restoreAllMocks();
+  });
+
+  it('throws timeout error when MAX_POLLS is exceeded', async () => {
+    jest.spyOn(global, 'setTimeout').mockImplementation((cb: any) => {
+      cb();
+      return {} as any;
+    });
+
+    const launchResponse = {
+      id: 99,
+      status: 'pending',
+      url: 'https://test.com/execution/jobs/playbook/99/output',
+      launchedAt: '2024-01-01T00:00:00.000Z',
+    };
+
+    mockAnsibleService.launchJobTemplateNoWait.mockResolvedValue(
+      launchResponse,
+    );
+    mockAnsibleService.getJobStatus.mockResolvedValue({
+      id: 99,
+      status: 'running',
+      url: 'https://test.com/execution/jobs/playbook/99/output',
+    });
+
+    const ctx = createMockActionContext({
+      input: {
+        token: MOCK_TOKEN,
+        values: projectData,
+        waitForCompletion: true,
+      },
+    });
+
+    await expect(action.handler(ctx as any)).rejects.toThrow(
+      /polling timeout/i,
+    );
+    expect(mockAnsibleService.getJobStatus).toHaveBeenCalledTimes(720);
+
+    jest.restoreAllMocks();
+  }, 30000);
+
   it('strips full AAP inventory and normalizes credentials before launch', async () => {
     const launchResponse = {
       id: 1,

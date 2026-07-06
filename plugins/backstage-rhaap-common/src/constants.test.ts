@@ -1,4 +1,8 @@
-import { getVerbosityObject, getVerbosityLevels } from './constants';
+import {
+  getVerbosityObject,
+  getVerbosityLevels,
+  TERMINAL_JOB_STATUSES,
+} from './constants';
 
 describe('verbosity helpers', () => {
   it('getVerbosityObject returns correct object for valid level', () => {
@@ -25,5 +29,19 @@ describe('verbosity helpers', () => {
       expect(level.id).toBe(idx);
       expect(typeof level.name).toBe('string');
     });
+  });
+});
+
+describe('TERMINAL_JOB_STATUSES', () => {
+  it('contains expected terminal statuses', () => {
+    expect(TERMINAL_JOB_STATUSES).toEqual(
+      new Set(['successful', 'failed', 'error', 'canceled']),
+    );
+  });
+
+  it('does not match non-terminal statuses', () => {
+    expect(TERMINAL_JOB_STATUSES.has('running')).toBe(false);
+    expect(TERMINAL_JOB_STATUSES.has('pending')).toBe(false);
+    expect(TERMINAL_JOB_STATUSES.has('waiting')).toBe(false);
   });
 });
