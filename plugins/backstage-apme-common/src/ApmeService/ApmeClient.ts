@@ -18,6 +18,7 @@ import { Config } from '@backstage/config';
 import { LoggerService } from '@backstage/backend-plugin-api';
 import { ConflictError, InputError, NotFoundError } from '@backstage/errors';
 import { getApmeConfig } from '../config';
+import { normalizeGatewayRules, type GatewayRuleRow } from '../gatewayRules';
 import { normalizeRemediationClass } from '../severity';
 import {
   Project,
@@ -31,6 +32,7 @@ import {
   RemediationBundle,
   CreatePullRequestResult,
   RemediationClass,
+  ProjectDependencies,
 } from '../types';
 
 export interface ApmeClientOptions {
@@ -183,11 +185,19 @@ export class ApmeClient {
     }));
   }
 
+  async getProjectDependencies(
+    projectId: string,
+  ): Promise<ProjectDependencies> {
+    return this.executeRequest<ProjectDependencies>(
+      `/api/v1/projects/${projectId}/dependencies`,
+    );
+  }
+
   async getRules(): Promise<Rule[]> {
-    const response = await this.executeRequest<{ items: Rule[] }>(
+    const response = await this.executeRequest<{ items: GatewayRuleRow[] }>(
       '/api/v1/rules',
     );
-    return response.items || [];
+    return normalizeGatewayRules(response.items || []);
   }
 
   async triggerScan(
@@ -349,6 +359,7 @@ export type IApmeService = Pick<
   | 'getProject'
   | 'getProjectByRepoUrl'
   | 'getViolations'
+  | 'getProjectDependencies'
   | 'getRules'
   | 'triggerScan'
   | 'getScanStatus'

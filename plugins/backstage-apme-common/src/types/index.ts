@@ -196,6 +196,30 @@ export interface Activity {
   pr_url?: string | null;
 }
 
+export interface CollectionRef {
+  fqcn: string;
+  version: string;
+  source: string;
+  license?: string;
+  supplier?: string;
+}
+
+export interface PythonPackageRef {
+  name: string;
+  version: string;
+  license?: string;
+  supplier?: string;
+}
+
+/** Project dependency manifest from gateway GET /projects/{id}/dependencies (ADR-040). */
+export interface ProjectDependencies {
+  ansible_core_version: string;
+  collections: CollectionRef[];
+  python_packages: PythonPackageRef[];
+  requirements_files: string[];
+  dependency_tree: string;
+}
+
 export interface Proposal {
   id: string;
   violation_id: number;

@@ -14,6 +14,7 @@ describe('catalog-backend-module-apme router', () => {
     getProject: jest.fn(),
     getProjectByRepoUrl: jest.fn(),
     getViolations: jest.fn(),
+    getProjectDependencies: jest.fn(),
     getRules: jest.fn(),
     triggerScan: jest.fn(),
     createProject: jest.fn(),
@@ -83,5 +84,28 @@ describe('catalog-backend-module-apme router', () => {
 
     expect(response.status).toBe(404);
     expect(response.body).toEqual({ error: 'Project not found' });
+  });
+
+  it('returns project dependencies', async () => {
+    const deps = {
+      ansible_core_version: '2.16.0',
+      collections: [
+        { fqcn: 'ansible.posix', version: '1.5.4', source: 'specified' },
+      ],
+      python_packages: [{ name: 'cryptography', version: '41.0.0' }],
+      requirements_files: ['requirements.txt'],
+      dependency_tree: '',
+    };
+    mockApmeService.getProjectDependencies.mockResolvedValueOnce(deps);
+
+    const response = await request(app).get(
+      '/apme/projects/proj-1/dependencies',
+    );
+
+    expect(response.status).toBe(200);
+    expect(mockApmeService.getProjectDependencies).toHaveBeenCalledWith(
+      'proj-1',
+    );
+    expect(response.body).toEqual(deps);
   });
 });

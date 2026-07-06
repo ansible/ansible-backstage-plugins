@@ -88,6 +88,8 @@ import type { RemediationStep } from '../RemediationStepper';
 import { FixProgressBanner } from '../FixProgressBanner';
 import { DiffView } from '../DiffView';
 import { PrStatusBanner } from '../PrStatusBanner';
+import { buildRulesById } from '../../utils/gatewayRules';
+import { getViolationCategory } from '../../utils/violationAnalytics';
 
 const ENTITY_VIOLATIONS_LIMIT = 500;
 
@@ -145,14 +147,14 @@ const useStyles = makeStyles(theme => ({
     height: 6,
     borderRadius: 3,
     overflow: 'hidden',
-    marginBottom: theme.spacing(1),
+    marginBottom: theme.spacing(2),
     width: '100%',
     maxWidth: 480,
   },
   sevBar: {
     display: 'flex',
     gap: 12,
-    marginBottom: theme.spacing(2),
+    marginBottom: theme.spacing(1),
     flexWrap: 'wrap',
     alignItems: 'center',
   },
@@ -191,10 +193,14 @@ const useStyles = makeStyles(theme => ({
     gap: theme.spacing(2),
     padding: theme.spacing(1.5, 2),
     marginBottom: theme.spacing(2),
-    backgroundColor: '#e7f1fa',
-    border: '1px solid #b8daff',
+    backgroundColor:
+      theme.palette.type === 'dark' ? 'rgba(43, 154, 243, 0.08)' : '#e7f1fa',
+    border: `1px solid ${
+      theme.palette.type === 'dark' ? 'rgba(43, 154, 243, 0.25)' : '#b8daff'
+    }`,
     borderRadius: theme.shape.borderRadius,
     flexWrap: 'wrap',
+    color: theme.palette.text.primary,
   },
   progressBanner: {
     padding: theme.spacing(1.5, 2),
@@ -232,26 +238,34 @@ const useStyles = makeStyles(theme => ({
   infoBanner: {
     padding: theme.spacing(1.5, 2),
     marginBottom: theme.spacing(2),
-    backgroundColor: '#e7f1fa',
-    border: '1px solid #b8daff',
+    backgroundColor:
+      theme.palette.type === 'dark' ? 'rgba(43, 154, 243, 0.08)' : '#e7f1fa',
+    border: `1px solid ${
+      theme.palette.type === 'dark' ? 'rgba(43, 154, 243, 0.25)' : '#b8daff'
+    }`,
     borderRadius: theme.shape.borderRadius,
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'space-between',
     gap: theme.spacing(2),
     flexWrap: 'wrap',
+    color: theme.palette.text.primary,
   },
   remediationErrorBanner: {
     padding: theme.spacing(1.5, 2),
     marginBottom: theme.spacing(2),
-    backgroundColor: '#fdeaea',
-    border: '1px solid #f5c2c7',
+    backgroundColor:
+      theme.palette.type === 'dark' ? 'rgba(201, 25, 11, 0.12)' : '#fdeaea',
+    border: `1px solid ${
+      theme.palette.type === 'dark' ? 'rgba(201, 25, 11, 0.35)' : '#f5c2c7'
+    }`,
     borderRadius: theme.shape.borderRadius,
     display: 'flex',
     alignItems: 'flex-start',
     justifyContent: 'space-between',
     gap: theme.spacing(2),
     flexWrap: 'wrap',
+    color: theme.palette.text.primary,
   },
   dot: { color: theme.palette.text.disabled, margin: '0 4px' },
 }));
@@ -358,17 +372,6 @@ function filterTier1ByViolationIds(
   };
 }
 
-function getViolationCategory(v: Violation): string {
-  if (v.category) return v.category;
-  if (v.validator_source === 'gitleaks') return 'secrets';
-  if (
-    v.validator_source === 'dep_audit' ||
-    v.validator_source === 'collection_health'
-  )
-    return 'dependencies';
-  return 'lint';
-}
-
 const CATEGORIES = [
   'all',
   'lint',
@@ -387,10 +390,12 @@ const SEV_ORDER: SeverityLevel[] = [
 
 export interface ApmeEntityTabProps {
   initialRuleFilter?: string;
+  initialCategoryFilter?: string;
 }
 
 export const ApmeEntityTab = ({
   initialRuleFilter,
+  initialCategoryFilter,
 }: ApmeEntityTabProps = {}) => {
   const classes = useStyles();
   const theme = useTheme();
@@ -413,7 +418,9 @@ export const ApmeEntityTab = ({
   const [registering, setRegistering] = useState(false);
   const [registerError, setRegisterError] = useState<Error | null>(null);
   const [refreshKey, setRefreshKey] = useState(0);
-  const [activeCategory, setActiveCategory] = useState<string>('all');
+  const [activeCategory, setActiveCategory] = useState<string>(
+    initialCategoryFilter ?? 'all',
+  );
   const [categoryMenuAnchor, setCategoryMenuAnchor] =
     useState<null | HTMLElement>(null);
   const [ruleFilter, setRuleFilter] = useState<string | null>(
@@ -476,6 +483,13 @@ export const ApmeEntityTab = ({
       return sortAutoFixFirst(loaded);
     }, [project?.id, refreshKey, apmeApi]);
 
+  const { value: rules = [] } = useAsyncRetry(
+    async () => apmeApi.getRules(),
+    [apmeApi],
+  );
+
+  const rulesById = useMemo(() => buildRulesById(rules), [rules]);
+
   const autoFixCount = useMemo(
     () =>
       violations.filter(
@@ -495,6 +509,12 @@ export const ApmeEntityTab = ({
       setFixTypeFilter('all');
     }
   }, [initialRuleFilter]);
+
+  useEffect(() => {
+    if (initialCategoryFilter) {
+      setActiveCategory(initialCategoryFilter);
+    }
+  }, [initialCategoryFilter]);
 
   // Auto-select all auto-fix violations when violations load
   const autoSelectedRef = useRef(false);
@@ -1044,7 +1064,7 @@ export const ApmeEntityTab = ({
     if (ft === 'auto') autoFix++;
     else if (ft === 'ai') aiAssisted++;
     else manual++;
-    const cat = getViolationCategory(v);
+    const cat = getViolationCategory(v, rulesById);
     catCounts[cat] = (catCounts[cat] ?? 0) + 1;
   }
 
@@ -1077,7 +1097,8 @@ export const ApmeEntityTab = ({
     .filter(v => !ruleFilter || v.rule_id === ruleFilter)
     .filter(
       v =>
-        activeCategory === 'all' || getViolationCategory(v) === activeCategory,
+        activeCategory === 'all' ||
+        getViolationCategory(v, rulesById) === activeCategory,
     )
     .filter(
       v =>
@@ -1398,10 +1419,17 @@ export const ApmeEntityTab = ({
           elevation={0}
           variant="outlined"
           style={{
-            backgroundColor: '#fdeaea',
-            borderColor: '#f5c2c7',
+            backgroundColor:
+              theme.palette.type === 'dark'
+                ? 'rgba(201, 25, 11, 0.12)'
+                : '#fdeaea',
+            borderColor:
+              theme.palette.type === 'dark'
+                ? 'rgba(201, 25, 11, 0.35)'
+                : '#f5c2c7',
             padding: 16,
             marginBottom: 16,
+            color: theme.palette.text.primary,
           }}
         >
           <Typography
@@ -1731,27 +1759,6 @@ export const ApmeEntityTab = ({
             </Box>
           </div>
 
-          {violationTotal > 0 && (
-            <div className={classes.stackedBar}>
-              {SEV_ORDER.map(sev => {
-                const count = counts[sev];
-                if (count === 0) return null;
-                const pct = (count / violationTotal) * 100;
-                return (
-                  <Box
-                    key={sev}
-                    style={{
-                      width: `${pct}%`,
-                      backgroundColor: SEVERITY_STYLES[sev].background,
-                      minWidth: count > 0 ? 4 : 0,
-                    }}
-                    title={`${SEVERITY_STYLES[sev].label}: ${count}`}
-                  />
-                );
-              })}
-            </div>
-          )}
-
           <Box className={classes.sevBar}>
             {SEV_ORDER.map(sev => {
               const count = counts[sev];
@@ -1810,6 +1817,27 @@ export const ApmeEntityTab = ({
               </Button>
             )}
           </Box>
+
+          {violationTotal > 0 && (
+            <div className={classes.stackedBar}>
+              {SEV_ORDER.map(sev => {
+                const count = counts[sev];
+                if (count === 0) return null;
+                const pct = (count / violationTotal) * 100;
+                return (
+                  <Box
+                    key={sev}
+                    style={{
+                      width: `${pct}%`,
+                      backgroundColor: SEVERITY_STYLES[sev].background,
+                      minWidth: count > 0 ? 4 : 0,
+                    }}
+                    title={`${SEVERITY_STYLES[sev].label}: ${count}`}
+                  />
+                );
+              })}
+            </div>
+          )}
 
           <Box className={classes.fixTypeBar}>
             <FormControl

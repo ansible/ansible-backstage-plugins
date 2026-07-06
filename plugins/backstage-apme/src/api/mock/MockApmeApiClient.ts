@@ -24,6 +24,7 @@ import {
   Activity,
   OperationState,
   Proposal,
+  ProjectDependencies,
 } from '@ansible/backstage-apme-common/types';
 import { ApmeApi } from '../ApmeApi';
 import {
@@ -131,6 +132,37 @@ export class MockApmeApiClient implements ApmeApi {
       return rows.slice(0, options.limit);
     }
     return rows;
+  }
+
+  async getProjectDependencies(
+    projectId: string,
+  ): Promise<ProjectDependencies> {
+    await delay(200);
+    const violations = this.violations[projectId] ?? [];
+    const depViolations = violations.filter(v => v.category === 'dependencies');
+    const pythonNames = new Set<string>();
+    for (const v of depViolations) {
+      if (v.validator_source === 'dep_audit') {
+        const name = v.message.split(/\s+/)[0];
+        if (name) pythonNames.add(name);
+      }
+    }
+    return {
+      ansible_core_version: '2.16.0',
+      collections: [
+        {
+          fqcn: 'ansible.posix',
+          version: '1.5.4',
+          source: 'specified',
+        },
+      ],
+      python_packages: [...pythonNames].map(name => ({
+        name,
+        version: '0.0.0',
+      })),
+      requirements_files: ['requirements.txt'],
+      dependency_tree: '',
+    };
   }
 
   async getRules(): Promise<Rule[]> {
