@@ -15,9 +15,9 @@
  */
 
 import { Box, CircularProgress, makeStyles } from '@material-ui/core';
+import type { ReactNode } from 'react';
 import CheckIcon from '@material-ui/icons/Check';
 import type { RemediationStep } from '../RemediationStepper';
-import React from 'react';
 
 const STEPS: { id: RemediationStep; label: string }[] = [
   { id: 'select', label: 'Select' },
@@ -95,39 +95,36 @@ function stepIndex(step: RemediationStep): number {
   return STEPS.findIndex(s => s.id === step);
 }
 
-function badgeClassName(
-  classes: ReturnType<typeof useStyles>,
+function stepBadgeClassName(
+  base: string,
+  complete: string,
+  active: string,
+  pending: string,
   isComplete: boolean,
   isActive: boolean,
 ): string {
-  if (isComplete) {
-    return `${classes.badge} ${classes.badgeComplete}`;
-  }
-  if (isActive) {
-    return `${classes.badge} ${classes.badgeActive}`;
-  }
-  return `${classes.badge} ${classes.badgePending}`;
+  if (isComplete) return `${base} ${complete}`;
+  if (isActive) return `${base} ${active}`;
+  return `${base} ${pending}`;
 }
 
-function labelClassName(
-  classes: ReturnType<typeof useStyles>,
+function stepLabelClassName(
+  base: string,
+  active: string,
+  pending: string,
   isActive: boolean,
   isPending: boolean,
 ): string {
-  if (isActive) {
-    return `${classes.label} ${classes.labelActive}`;
-  }
-  if (isPending) {
-    return `${classes.label} ${classes.labelPending}`;
-  }
-  return classes.label;
+  if (isActive) return `${base} ${active}`;
+  if (isPending) return `${base} ${pending}`;
+  return base;
 }
 
-function renderBadgeContent(
+function stepBadgeContent(
   isComplete: boolean,
   isSpinning: boolean,
   index: number,
-): React.ReactNode {
+): ReactNode {
   if (isComplete) {
     return <CheckIcon style={{ fontSize: 16 }} />;
   }
@@ -168,10 +165,27 @@ export const QualityWorkflowStepper = ({
                 →
               </span>
             )}
-            <span className={badgeClassName(classes, isComplete, isActive)}>
-              {renderBadgeContent(isComplete, isSpinning, index)}
+            <span
+              className={stepBadgeClassName(
+                classes.badge,
+                classes.badgeComplete,
+                classes.badgeActive,
+                classes.badgePending,
+                isComplete,
+                isActive,
+              )}
+            >
+              {stepBadgeContent(isComplete, isSpinning, index)}
             </span>
-            <span className={labelClassName(classes, isActive, isPending)}>
+            <span
+              className={stepLabelClassName(
+                classes.label,
+                classes.labelActive,
+                classes.labelPending,
+                isActive,
+                isPending,
+              )}
+            >
               {step.label}
             </span>
           </Box>

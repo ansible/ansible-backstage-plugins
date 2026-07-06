@@ -70,9 +70,9 @@ export async function createRouter(options: RouterOptions): Promise<Router> {
   });
 
   router.get('/apme/settings', async (_req, res) => {
-    const { enableAi, publishViaGateway: gatewayPublishEnabled } =
+    const { enableAi, publishViaGateway: settingsPublishViaGateway } =
       getApmeConfig(rootConfig);
-    res.json({ enableAi, publishViaGateway: gatewayPublishEnabled });
+    res.json({ enableAi, publishViaGateway: settingsPublishViaGateway });
   });
 
   router.get('/apme/ai/status', async (_req, res) => {
@@ -193,7 +193,10 @@ export async function createRouter(options: RouterOptions): Promise<Router> {
     await ensureUser(req);
     const { projectId } = req.params;
     logger.info(`APME remediate triggered for project ${projectId}`);
-    const result = await apmeService.triggerRemediate(projectId);
+    const result = await apmeService.triggerRemediate(
+      projectId,
+      req.body?.violation_ids,
+    );
     res.status(201).json({ operation_id: result.scanId });
   });
 

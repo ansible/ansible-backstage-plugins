@@ -432,10 +432,8 @@ export const FleetQualityTab = ({
     'low',
     'info',
   ];
-  const sortArrow = (col: SortColumn) => {
-    if (sortCol !== col) {
-      return '';
-    }
+  const sortArrow = (col: SortColumn): string => {
+    if (sortCol !== col) return '';
     return sortAsc ? ' ↑' : ' ↓';
   };
 
