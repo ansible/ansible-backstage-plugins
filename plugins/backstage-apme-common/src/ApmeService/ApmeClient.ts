@@ -18,7 +18,11 @@ import { Config } from '@backstage/config';
 import { LoggerService } from '@backstage/backend-plugin-api';
 import { ConflictError, InputError, NotFoundError } from '@backstage/errors';
 import { getApmeConfig } from '../config';
-import { normalizeGatewayRules, type GatewayRuleRow } from '../gatewayRules';
+import {
+  normalizeGatewayRules,
+  normalizeGatewayRule,
+  type GatewayRuleRow,
+} from '../gatewayRules';
 import { normalizeRemediationClass } from '../severity';
 import {
   Project,
@@ -33,6 +37,9 @@ import {
   CreatePullRequestResult,
   RemediationClass,
   ProjectDependencies,
+  RuleConfigUpdate,
+  CreateSuppressionRequest,
+  Suppression,
 } from '../types';
 
 export interface ApmeClientOptions {
@@ -86,8 +93,14 @@ export class ApmeClient {
       }
 
       if (response.status === 409) {
+        const errorBody = await response.text();
+        if (endpoint.includes('/operation')) {
+          throw new ConflictError(
+            'A scan is already in progress for this project',
+          );
+        }
         throw new ConflictError(
-          'A scan is already in progress for this project',
+          errorBody || 'Request conflicted with existing state',
         );
       }
 
@@ -194,10 +207,55 @@ export class ApmeClient {
   }
 
   async getRules(): Promise<Rule[]> {
-    const response = await this.executeRequest<{ items: GatewayRuleRow[] }>(
-      '/api/v1/rules',
+    const response = await this.executeRequest<
+      { items: GatewayRuleRow[] } | GatewayRuleRow[]
+    >('/api/v1/rules');
+    const rows = Array.isArray(response) ? response : response.items || [];
+    return normalizeGatewayRules(rows);
+  }
+
+  async updateRuleConfig(
+    ruleId: string,
+    body: RuleConfigUpdate,
+  ): Promise<Rule> {
+    const response = await this.executeRequest<GatewayRuleRow>(
+      `/api/v1/rules/${encodeURIComponent(ruleId)}/config`,
+      {
+        method: 'PUT',
+        body: JSON.stringify(body),
+      },
     );
-    return normalizeGatewayRules(response.items || []);
+    return normalizeGatewayRule(response);
+  }
+
+  async deleteRuleConfig(ruleId: string): Promise<void> {
+    await this.executeRequest<void>(
+      `/api/v1/rules/${encodeURIComponent(ruleId)}/config`,
+      { method: 'DELETE' },
+    );
+  }
+
+  async createSuppression(
+    body: CreateSuppressionRequest,
+  ): Promise<Suppression> {
+    return this.executeRequest<Suppression>('/api/v1/suppressions', {
+      method: 'POST',
+      body: JSON.stringify(body),
+    });
+  }
+
+  async deleteSuppression(suppressionId: number): Promise<void> {
+    await this.executeRequest<void>(`/api/v1/suppressions/${suppressionId}`, {
+      method: 'DELETE',
+    });
+  }
+
+  async getSuppressions(scope?: string): Promise<Suppression[]> {
+    const query =
+      scope !== undefined && scope !== ''
+        ? `?scope=${encodeURIComponent(scope)}`
+        : '';
+    return this.executeRequest<Suppression[]>(`/api/v1/suppressions${query}`);
   }
 
   async triggerScan(
@@ -361,6 +419,11 @@ export type IApmeService = Pick<
   | 'getViolations'
   | 'getProjectDependencies'
   | 'getRules'
+  | 'updateRuleConfig'
+  | 'deleteRuleConfig'
+  | 'createSuppression'
+  | 'deleteSuppression'
+  | 'getSuppressions'
   | 'triggerScan'
   | 'getScanStatus'
   | 'createProject'

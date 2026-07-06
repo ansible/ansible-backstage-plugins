@@ -235,6 +235,11 @@ describe('RouteView', () => {
         permissionName: 'repos.view',
       },
       {
+        path: '/repositories/quality-settings',
+        childTestId: 'git-repositories',
+        permissionName: 'repos.view',
+      },
+      {
         path: '/repositories/my-repo',
         childTestId: 'repository-details',
         permissionName: 'repos.view',

@@ -212,3 +212,39 @@ export function fixTierShortLabel(remClass: number, enableAi: boolean): string {
 export function categoryLabel(apmeCategory: string): string {
   return APME_CATEGORY_MAP[apmeCategory] ?? apmeCategory;
 }
+
+/** Proto severity enum values from APME gateway (ADR-043). */
+const SEVERITY_LABEL_TO_PROTO: Record<string, number> = {
+  info: 1,
+  low: 2,
+  medium: 3,
+  high: 4,
+  error: 5,
+  critical: 6,
+  blocker: 6,
+};
+
+const SEVERITY_PROTO_TO_LABEL: SeverityLevel[] = [
+  'info',
+  'info',
+  'low',
+  'medium',
+  'high',
+  'high',
+  'critical',
+];
+
+/** Map portal severity label to gateway proto int for rule config overrides. */
+export function severityLabelToProto(label: string): number {
+  const normalized = label.toLowerCase();
+  return SEVERITY_LABEL_TO_PROTO[normalized] ?? 3;
+}
+
+/** Map gateway proto int to portal severity label. */
+export function severityProtoToLabel(value: number): SeverityLevel {
+  const index = Math.min(
+    Math.max(value, 0),
+    SEVERITY_PROTO_TO_LABEL.length - 1,
+  );
+  return SEVERITY_PROTO_TO_LABEL[index] ?? 'medium';
+}

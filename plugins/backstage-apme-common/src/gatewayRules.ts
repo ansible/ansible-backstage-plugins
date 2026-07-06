@@ -5,6 +5,7 @@
  */
 
 import type { RemediationClass, Rule, Severity } from './types';
+import { severityProtoToLabel } from './severity';
 
 /** Raw rule row from the APME gateway ``/rules`` API. */
 export interface GatewayRuleRow {
@@ -13,6 +14,7 @@ export interface GatewayRuleRow {
   name?: string;
   description?: string;
   category?: string;
+  source?: string;
   default_severity_label?: string;
   resolved_severity_label?: string;
   default_severity?: number;
@@ -21,6 +23,11 @@ export interface GatewayRuleRow {
   resolved_enabled?: boolean;
   remediation_class?: number;
   remediationClass?: number;
+  override?: {
+    severity_override?: number | null;
+    enabled_override?: boolean | null;
+    enforced?: boolean;
+  };
 }
 
 const SEVERITY_BY_INDEX: Severity[] = [
@@ -57,16 +64,34 @@ export function normalizeApmeCategory(category: string): string {
 
 export function normalizeGatewayRule(row: GatewayRuleRow): Rule {
   const id = row.rule_id ?? row.id ?? '';
+  const override = row.override;
+  const hasOverride =
+    !!override &&
+    (override.severity_override != null ||
+      override.enabled_override != null ||
+      override.enforced === true);
+  const defaultSeverity = row.default_severity_label
+    ? severityFromRow({
+        default_severity_label: row.default_severity_label,
+        default_severity: row.default_severity,
+      })
+    : row.default_severity != null
+      ? severityProtoToLabel(row.default_severity)
+      : undefined;
   return {
     id,
     name: row.name ?? id,
     description: row.description ?? '',
     severity: severityFromRow(row),
+    defaultSeverity,
     category: normalizeApmeCategory(row.category ?? 'lint'),
     remediationClass: (row.remediation_class ??
       row.remediationClass ??
       3) as RemediationClass,
     enabled: row.resolved_enabled ?? row.enabled ?? true,
+    source: row.source,
+    enforced: override?.enforced ?? false,
+    hasOverride,
   };
 }
 

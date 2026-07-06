@@ -99,13 +99,32 @@ type ResolvedGitRepoTab =
       render: GitRepositoriesPageTabDefinition['render'];
     };
 
+/** True when pathname selects this repositories page tab (exact segment match). */
+export function repositoryTabPathMatches(
+  pathname: string,
+  tabPath: string,
+): boolean {
+  const segment = `/repositories/${tabPath}`;
+  const index = pathname.indexOf(segment);
+  if (index === -1) {
+    return false;
+  }
+  const nextChar = pathname[index + segment.length];
+  return nextChar === undefined || nextChar === '/' || nextChar === '?';
+}
+
 const getTabIndexFromPath = (
   pathname: string,
   tabs: ResolvedGitRepoTab[],
 ): number => {
-  const matchIndex = tabs.findIndex(tab =>
-    pathname.includes(`/repositories/${tab.path}`),
+  const sorted = [...tabs].sort((a, b) => b.path.length - a.path.length);
+  const matched = sorted.find(tab =>
+    repositoryTabPathMatches(pathname, tab.path),
   );
+  if (!matched) {
+    return 0;
+  }
+  const matchIndex = tabs.findIndex(tab => tab.id === matched.id);
   return matchIndex >= 0 ? matchIndex : 0;
 };
 

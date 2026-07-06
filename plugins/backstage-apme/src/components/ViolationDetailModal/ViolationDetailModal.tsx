@@ -4,13 +4,17 @@
  * Licensed under the Apache License, Version 2.0 (the "License");
  */
 
+import { useLayoutEffect, useMemo, useRef } from 'react';
 import {
   Box,
+  Button,
   Dialog,
   IconButton,
+  Tooltip,
   Typography,
   makeStyles,
 } from '@material-ui/core';
+import CheckCircleOutlineIcon from '@material-ui/icons/CheckCircleOutline';
 import CloseIcon from '@material-ui/icons/Close';
 import type { Violation } from '@ansible/backstage-apme-common/types';
 import {
@@ -44,6 +48,9 @@ const useStyles = makeStyles(theme => ({
     borderBottom: `1px solid ${theme.palette.divider}`,
     '&:last-child': { borderBottom: 'none' },
   },
+  acknowledgedRow: {
+    opacity: 0.65,
+  },
   severityChip: {
     display: 'inline-block',
     padding: '2px 8px',
@@ -62,6 +69,14 @@ const useStyles = makeStyles(theme => ({
     padding: '1px 5px',
     borderRadius: 3,
   },
+  rowFooter: {
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginTop: 8,
+    gap: 8,
+    flexWrap: 'wrap',
+  },
 }));
 
 export interface ViolationDetailModalProps {
@@ -70,6 +85,10 @@ export interface ViolationDetailModalProps {
   subtitle?: string;
   violations: Violation[];
   onClose: () => void;
+  onAcknowledge?: (violation: Violation) => Promise<void>;
+  onUnacknowledge?: (violation: Violation) => Promise<void>;
+  acknowledgingId?: number | null;
+  isAcknowledged?: (violation: Violation) => boolean;
 }
 
 export const ViolationDetailModal = ({
@@ -78,8 +97,45 @@ export const ViolationDetailModal = ({
   subtitle,
   violations,
   onClose,
+  onAcknowledge,
+  onUnacknowledge,
+  acknowledgingId = null,
+  isAcknowledged: isAcknowledgedProp,
 }: ViolationDetailModalProps) => {
   const classes = useStyles();
+  const bodyRef = useRef<HTMLDivElement>(null);
+  const scrollAnchorIdRef = useRef<number | null>(null);
+  const canAcknowledge = Boolean(onAcknowledge || onUnacknowledge);
+  const isAcknowledged =
+    isAcknowledgedProp ?? ((v: Violation) => v.suppressed === true);
+
+  const displayViolations = useMemo(() => {
+    return [...violations].sort((a, b) => {
+      const aAck = isAcknowledged(a) ? 1 : 0;
+      const bAck = isAcknowledged(b) ? 1 : 0;
+      if (aAck !== bAck) return aAck - bAck;
+      return a.id - b.id;
+    });
+  }, [violations, isAcknowledged]);
+
+  useLayoutEffect(() => {
+    const anchorId = scrollAnchorIdRef.current;
+    if (anchorId == null || !bodyRef.current) return;
+    scrollAnchorIdRef.current = null;
+    const row = bodyRef.current.querySelector(
+      `[data-violation-id="${anchorId}"]`,
+    );
+    row?.scrollIntoView({ block: 'nearest' });
+  }, [displayViolations, acknowledgingId]);
+
+  const handleToggle = async (violation: Violation) => {
+    scrollAnchorIdRef.current = violation.id;
+    if (isAcknowledged(violation)) {
+      if (onUnacknowledge) await onUnacknowledge(violation);
+      return;
+    }
+    if (onAcknowledge) await onAcknowledge(violation);
+  };
 
   return (
     <Dialog
@@ -102,12 +158,17 @@ export const ViolationDetailModal = ({
           <CloseIcon />
         </IconButton>
       </Box>
-      <Box className={classes.body}>
-        {violations.map(v => {
+      <Box ref={bodyRef} className={classes.body}>
+        {displayViolations.map(v => {
           const sev = normalizeSeverity(v.level);
           const style = SEVERITY_STYLES[sev];
+          const isAcknowledgedRow = isAcknowledged(v);
           return (
-            <Box key={v.id} className={classes.violationRow}>
+            <Box
+              key={v.id}
+              data-violation-id={v.id}
+              className={`${classes.violationRow} ${isAcknowledgedRow ? classes.acknowledgedRow : ''}`}
+            >
               <Box
                 display="flex"
                 alignItems="center"
@@ -127,14 +188,44 @@ export const ViolationDetailModal = ({
                   {v.message}
                 </Typography>
               </Box>
-              <Typography
-                variant="caption"
-                color="textSecondary"
-                display="block"
-              >
-                {categoryLabel(getViolationCategory(v))} · {v.file}
-                {v.line ? `:${v.line}` : ''}
-              </Typography>
+              <Box className={classes.rowFooter}>
+                <Typography variant="caption" color="textSecondary">
+                  {categoryLabel(getViolationCategory(v))} · {v.file || '—'}
+                  {v.line ? `:${v.line}` : ''}
+                  {v.path && v.validator_source === 'collection_health'
+                    ? ` · ${v.path}`
+                    : ''}
+                </Typography>
+                {canAcknowledge && (
+                  <Tooltip
+                    title={
+                      isAcknowledgedRow
+                        ? 'Remove acknowledgment'
+                        : 'Acknowledge this finding'
+                    }
+                  >
+                    <Button
+                      size="small"
+                      variant="text"
+                      color={isAcknowledgedRow ? 'default' : 'primary'}
+                      style={{ fontSize: 12, minWidth: 0 }}
+                      startIcon={
+                        isAcknowledgedRow ? (
+                          <CheckCircleOutlineIcon style={{ fontSize: 14 }} />
+                        ) : undefined
+                      }
+                      disabled={acknowledgingId === v.id}
+                      onClick={() => void handleToggle(v)}
+                    >
+                      {acknowledgingId === v.id
+                        ? 'Saving…'
+                        : isAcknowledgedRow
+                          ? 'Acknowledged'
+                          : 'Acknowledge'}
+                    </Button>
+                  </Tooltip>
+                )}
+              </Box>
               {(v.original_yaml || v.fixed_yaml) && (
                 <Box mt={1}>
                   <DiffView
@@ -146,7 +237,7 @@ export const ViolationDetailModal = ({
             </Box>
           );
         })}
-        {violations.length === 0 && (
+        {displayViolations.length === 0 && (
           <Typography
             variant="body2"
             color="textSecondary"

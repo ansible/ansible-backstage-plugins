@@ -1,7 +1,18 @@
 import { useCallback, useEffect, useState, useMemo, Suspense } from 'react';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
-import { Box, Button, Typography, Tab, Tabs } from '@material-ui/core';
+import {
+  Box,
+  Button,
+  Typography,
+  Tab,
+  Tabs,
+  Menu,
+  MenuItem,
+  ListItemText,
+  ListItemIcon,
+} from '@material-ui/core';
 import OpenInNewIcon from '@material-ui/icons/OpenInNew';
+import ArrowDropDownIcon from '@material-ui/icons/ArrowDropDown';
 import { Entity } from '@backstage/catalog-model';
 import {
   catalogApiRef,
@@ -228,6 +239,15 @@ const RepositoryDetailsPageInner = () => {
   const [readmeLoading, setReadmeLoading] = useState(false);
   const [tab, setTab] = useState(0);
   const [scmIntegrationAuthError, setScmIntegrationAuthError] = useState(false);
+  const [actionsAnchor, setActionsAnchor] = useState<null | HTMLElement>(null);
+
+  const headerMenuItems = useMemo(
+    () =>
+      extensionsApi
+        .getDetailHeaderMenuItems()
+        .sort((a, b) => a.order - b.order),
+    [extensionsApi],
+  );
 
   const fetchEntity = useCallback(() => {
     if (!repositoryName) return;
@@ -388,16 +408,57 @@ const RepositoryDetailsPageInner = () => {
           )}
         </Box>
         {hasSourceUrl() && (
-          <Button
-            variant="outlined"
-            color="primary"
-            endIcon={<OpenInNewIcon />}
-            onClick={handleViewSource}
-            className={classes.syncButton}
-            style={{ whiteSpace: 'nowrap', flexShrink: 0, marginLeft: 24 }}
-          >
-            View in source
-          </Button>
+          <>
+            <Button
+              variant="contained"
+              color="primary"
+              endIcon={<ArrowDropDownIcon />}
+              onClick={e => setActionsAnchor(e.currentTarget)}
+              className={classes.syncButton}
+              style={{
+                whiteSpace: 'nowrap',
+                flexShrink: 0,
+                marginLeft: 24,
+                textTransform: 'none',
+              }}
+            >
+              Actions
+            </Button>
+            <Menu
+              anchorEl={actionsAnchor}
+              open={Boolean(actionsAnchor)}
+              onClose={() => setActionsAnchor(null)}
+              getContentAnchorEl={null}
+              anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
+              transformOrigin={{ vertical: 'top', horizontal: 'right' }}
+            >
+              <MenuItem
+                onClick={() => {
+                  setActionsAnchor(null);
+                  handleViewSource();
+                }}
+                style={{ justifyContent: 'space-between', gap: 16 }}
+              >
+                <ListItemText primary="View in source" />
+                <ListItemIcon style={{ minWidth: 0 }}>
+                  <OpenInNewIcon fontSize="small" style={{ opacity: 0.6 }} />
+                </ListItemIcon>
+              </MenuItem>
+              {entity &&
+                headerMenuItems.map(item => (
+                  <Suspense key={item.id} fallback={null}>
+                    {item.render({
+                      entity,
+                      repoUrl: normalizeRepoUrlFromEntity(entity),
+                      initialRuleFilter: searchParams.get('rule') ?? undefined,
+                      initialCategoryFilter:
+                        searchParams.get('category') ?? undefined,
+                      onCloseMenu: () => setActionsAnchor(null),
+                    })}
+                  </Suspense>
+                ))}
+            </Menu>
+          </>
         )}
       </Box>
 

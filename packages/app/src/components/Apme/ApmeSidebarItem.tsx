@@ -27,5 +27,11 @@ export const ApmeSidebarItem = () => {
     return null;
   }
 
-  return <SidebarItem icon={SecurityIcon} to="/apme" text="Content Quality" />;
+  return (
+    <SidebarItem
+      icon={SecurityIcon}
+      to="/self-service/repositories/quality"
+      text="Content Quality"
+    />
+  );
 };

@@ -4,7 +4,13 @@
  * Licensed under the Apache License, Version 2.0 (the "License");
  */
 
-import { useMemo, useState, type KeyboardEvent } from 'react';
+import {
+  useCallback,
+  useMemo,
+  useRef,
+  useState,
+  type KeyboardEvent,
+} from 'react';
 import { useSearchParams } from 'react-router-dom';
 import {
   Box,
@@ -31,6 +37,7 @@ import {
   violationsForCollection,
   violationsForPythonPackage,
 } from '../../utils/violationAnalytics';
+import { useViolationAcknowledge } from '../../hooks/useViolationAcknowledge';
 import { ViolationDetailModal } from '../ViolationDetailModal';
 
 function activateOnKey(e: KeyboardEvent, action: () => void): void {
@@ -113,7 +120,36 @@ export const DependenciesTab = ({ context }: DependenciesTabProps) => {
   const theme = useTheme();
   const [, setSearchParams] = useSearchParams();
   const [modalTarget, setModalTarget] = useState<ModalTarget>(null);
+  const pendingViolationsRefreshRef = useRef(false);
   const ctx = useApmeProjectContext(context.entity);
+
+  const handleAcknowledgeChanged = useCallback(() => {
+    if (modalTarget) {
+      pendingViolationsRefreshRef.current = true;
+      return;
+    }
+    ctx.refreshViolations();
+  }, [modalTarget, ctx.refreshViolations]);
+
+  const { acknowledge, unacknowledge, acknowledgingId, isAcknowledged } =
+    useViolationAcknowledge(
+      ctx.project?.id,
+      handleAcknowledgeChanged,
+      ctx.violations,
+    );
+
+  const handleCloseModal = useCallback(() => {
+    setModalTarget(null);
+    if (pendingViolationsRefreshRef.current) {
+      pendingViolationsRefreshRef.current = false;
+      ctx.refreshViolations();
+    }
+  }, [ctx.refreshViolations]);
+
+  const activeViolations = useMemo(
+    () => ctx.violations.filter(v => !isAcknowledged(v)),
+    [ctx.violations, isAcknowledged],
+  );
 
   const navigateToQuality = () => {
     const params = new URLSearchParams(window.location.search);
@@ -126,21 +162,25 @@ export const DependenciesTab = ({ context }: DependenciesTabProps) => {
     const rows = [...(ctx.dependencies?.collections ?? [])];
     return rows.sort(
       (a, b) =>
-        collectionViolationCount(ctx.violations, b) -
-        collectionViolationCount(ctx.violations, a),
+        collectionViolationCount(activeViolations, b, ctx.rulesById) -
+        collectionViolationCount(activeViolations, a, ctx.rulesById),
     );
-  }, [ctx.dependencies, ctx.violations]);
+  }, [ctx.dependencies, activeViolations, ctx.rulesById]);
 
   const pythonPkgs = useMemo(() => {
     const rows = [...(ctx.dependencies?.python_packages ?? [])];
     return rows.sort(
       (a, b) =>
-        pythonPackageViolationCount(ctx.violations, b.name) -
-        pythonPackageViolationCount(ctx.violations, a.name),
+        pythonPackageViolationCount(activeViolations, b.name, ctx.rulesById) -
+        pythonPackageViolationCount(activeViolations, a.name, ctx.rulesById),
     );
-  }, [ctx.dependencies, ctx.violations]);
+  }, [ctx.dependencies, activeViolations, ctx.rulesById]);
 
-  if (ctx.loading || ctx.dependenciesLoading || ctx.violationsLoading) {
+  if (
+    ctx.loading ||
+    ctx.dependenciesLoading ||
+    (ctx.violationsLoading && ctx.violations.length === 0)
+  ) {
     return (
       <Box className={classes.noData}>
         <CircularProgress size={24} />
@@ -259,7 +299,7 @@ export const DependenciesTab = ({ context }: DependenciesTabProps) => {
                 const srcStyle =
                   SOURCE_COLORS[c.source] ?? SOURCE_COLORS.specified;
                 const vCount = collectionViolationCount(
-                  ctx.violations,
+                  activeViolations,
                   c,
                   ctx.rulesById,
                 );
@@ -380,7 +420,7 @@ export const DependenciesTab = ({ context }: DependenciesTabProps) => {
             <tbody>
               {pythonPkgs.map(p => {
                 const vCount = pythonPackageViolationCount(
-                  ctx.violations,
+                  activeViolations,
                   p.name,
                   ctx.rulesById,
                 );
@@ -470,7 +510,11 @@ export const DependenciesTab = ({ context }: DependenciesTabProps) => {
           title={modalTarget.title}
           subtitle={modalTarget.subtitle}
           violations={modalTarget.violations}
-          onClose={() => setModalTarget(null)}
+          onClose={handleCloseModal}
+          onAcknowledge={acknowledge}
+          onUnacknowledge={unacknowledge}
+          acknowledgingId={acknowledgingId}
+          isAcknowledged={isAcknowledged}
         />
       )}
     </Box>

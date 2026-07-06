@@ -7,6 +7,7 @@ import {
   getViolationCategory,
   inferCategoryFromRuleId,
   categoryBreakdown,
+  violationsForCollection,
 } from './violationAnalytics';
 import type { Violation } from '@ansible/backstage-apme-common/types';
 import { buildRulesById } from './gatewayRules';
@@ -24,6 +25,59 @@ describe('violationAnalytics', () => {
       validator_source: 'dep_audit',
     };
     expect(getViolationCategory(v)).toBe('dependencies');
+  });
+
+  it('classifies collection_health findings as dependencies even with R-prefixed rule ids', () => {
+    const v: Violation = {
+      id: 2,
+      rule_id: 'R108',
+      level: 'medium',
+      message: 'Privilege escalation',
+      file: 'roles/foo/tasks/main.yml',
+      line: 3,
+      path: 'ansible.posix',
+      remediation_class: 3,
+      validator_source: 'collection_health',
+    };
+    expect(getViolationCategory(v)).toBe('dependencies');
+    expect(inferCategoryFromRuleId('R108')).toBe('risk');
+  });
+
+  it('classifies dep_audit R200 CVE findings as dependencies', () => {
+    const v: Violation = {
+      id: 3,
+      rule_id: 'R200',
+      level: 'medium',
+      message:
+        'cryptography==3.4.8 has known vulnerability CVE-2023-1234: example',
+      file: '',
+      line: 0,
+      remediation_class: 3,
+      validator_source: 'dep_audit',
+    };
+    expect(getViolationCategory(v)).toBe('dependencies');
+  });
+
+  it('matches collection_health violations by path fqcn', () => {
+    const violations: Violation[] = [
+      {
+        id: 1,
+        rule_id: 'R108',
+        level: 'medium',
+        message: 'become:true in dependency',
+        file: 'tasks/main.yml',
+        line: 1,
+        path: 'community.general',
+        remediation_class: 3,
+        validator_source: 'collection_health',
+      },
+    ];
+    expect(
+      violationsForCollection(violations, 'community.general'),
+    ).toHaveLength(1);
+    expect(violationsForCollection(violations, 'ansible.posix')).toHaveLength(
+      0,
+    );
   });
 
   it('infers modernize category from M-prefixed rule ids', () => {
