@@ -45,6 +45,7 @@ import {
   categoryLabel,
 } from '@ansible/backstage-apme-common/severity';
 import { useApmeAiEnabled } from '../../hooks/useApmeEnabled';
+import { acknowledgeButtonLabel } from '../../hooks/useViolationAcknowledge';
 import { EditInDevSpacesButton } from '../EditInDevSpacesButton';
 import { DiffView } from '../DiffView';
 
@@ -362,8 +363,10 @@ export const ApmeViolationsTable = ({
 }: ApmeViolationsTableProps) => {
   const classes = useStyles();
   const enableAi = useApmeAiEnabled();
-  const isAcknowledged =
-    isAcknowledgedProp ?? ((v: Violation) => v.suppressed === true);
+  const isAcknowledged = useMemo(
+    () => isAcknowledgedProp ?? ((v: Violation) => v.suppressed === true),
+    [isAcknowledgedProp],
+  );
   const [localSelected, setLocalSelected] = useState<Set<number>>(new Set());
   const [expandedIds, setExpandedIds] = useState<Set<number>>(new Set());
   const [collapsedIds, setCollapsedIds] = useState<Set<number>>(new Set());
@@ -785,11 +788,11 @@ export const ApmeViolationsTable = ({
                                     void handleAcknowledgeToggle(v)
                                   }
                                 >
-                                  {acknowledgingId === v.id
-                                    ? 'Saving…'
-                                    : isAcknowledged(v)
-                                      ? 'Acknowledged'
-                                      : 'Acknowledge'}
+                                  {acknowledgeButtonLabel(
+                                    acknowledgingId,
+                                    v.id,
+                                    isAcknowledged(v),
+                                  )}
                                 </Button>
                               </Tooltip>
                             )}

@@ -12,6 +12,16 @@ import type {
 } from '@ansible/backstage-apme-common/types';
 import { apmeApiRef } from '../api';
 
+export function acknowledgeButtonLabel(
+  acknowledgingId: number | null | undefined,
+  violationId: number,
+  isAcknowledged: boolean,
+): string {
+  if (acknowledgingId === violationId) return 'Saving…';
+  if (isAcknowledged) return 'Acknowledged';
+  return 'Acknowledge';
+}
+
 function isDuplicateSuppressionError(err: unknown): boolean {
   if (!(err instanceof Error)) return false;
   return (

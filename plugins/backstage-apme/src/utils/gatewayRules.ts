@@ -64,6 +64,19 @@ function severityFromRow(row: GatewayRuleRow): Severity {
   return SEVERITY_BY_INDEX[Math.min(Math.max(index, 0), 4)] ?? 'medium';
 }
 
+function defaultSeverityFromRow(row: GatewayRuleRow): Severity | undefined {
+  if (row.default_severity_label) {
+    return severityFromRow({
+      default_severity_label: row.default_severity_label,
+      default_severity: row.default_severity,
+    });
+  }
+  if (row.default_severity !== undefined && row.default_severity !== null) {
+    return severityProtoToLabel(row.default_severity);
+  }
+  return undefined;
+}
+
 /** Maps gateway category values to portal violation category keys. */
 export function normalizeApmeCategory(category: string): string {
   if (category === 'aap') return 'modernize';
@@ -75,17 +88,12 @@ export function normalizeGatewayRule(row: GatewayRuleRow): Rule {
   const override = row.override;
   const hasOverride =
     !!override &&
-    (override.severity_override != null ||
-      override.enabled_override != null ||
+    ((override.severity_override !== undefined &&
+      override.severity_override !== null) ||
+      (override.enabled_override !== undefined &&
+        override.enabled_override !== null) ||
       override.enforced === true);
-  const defaultSeverity = row.default_severity_label
-    ? severityFromRow({
-        default_severity_label: row.default_severity_label,
-        default_severity: row.default_severity,
-      })
-    : row.default_severity != null
-      ? severityProtoToLabel(row.default_severity)
-      : undefined;
+  const defaultSeverity = defaultSeverityFromRow(row);
   return {
     id,
     name: row.name ?? id,

@@ -23,6 +23,7 @@ import {
   categoryLabel,
 } from '@ansible/backstage-apme-common/severity';
 import { getViolationCategory } from '../../utils/violationAnalytics';
+import { acknowledgeButtonLabel } from '../../hooks/useViolationAcknowledge';
 import { DiffView } from '../DiffView';
 
 const useStyles = makeStyles(theme => ({
@@ -106,8 +107,10 @@ export const ViolationDetailModal = ({
   const bodyRef = useRef<HTMLDivElement>(null);
   const scrollAnchorIdRef = useRef<number | null>(null);
   const canAcknowledge = Boolean(onAcknowledge || onUnacknowledge);
-  const isAcknowledged =
-    isAcknowledgedProp ?? ((v: Violation) => v.suppressed === true);
+  const isAcknowledged = useMemo(
+    () => isAcknowledgedProp ?? ((v: Violation) => v.suppressed === true),
+    [isAcknowledgedProp],
+  );
 
   const displayViolations = useMemo(() => {
     return [...violations].sort((a, b) => {
@@ -120,7 +123,7 @@ export const ViolationDetailModal = ({
 
   useLayoutEffect(() => {
     const anchorId = scrollAnchorIdRef.current;
-    if (anchorId == null || !bodyRef.current) return;
+    if (anchorId === null || !bodyRef.current) return;
     scrollAnchorIdRef.current = null;
     const row = bodyRef.current.querySelector(
       `[data-violation-id="${anchorId}"]`,
@@ -217,11 +220,11 @@ export const ViolationDetailModal = ({
                       disabled={acknowledgingId === v.id}
                       onClick={() => void handleToggle(v)}
                     >
-                      {acknowledgingId === v.id
-                        ? 'Saving…'
-                        : isAcknowledgedRow
-                          ? 'Acknowledged'
-                          : 'Acknowledge'}
+                      {acknowledgeButtonLabel(
+                        acknowledgingId,
+                        v.id,
+                        isAcknowledgedRow,
+                      )}
                     </Button>
                   </Tooltip>
                 )}

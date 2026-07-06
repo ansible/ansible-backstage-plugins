@@ -129,7 +129,7 @@ export const DependenciesTab = ({ context }: DependenciesTabProps) => {
       return;
     }
     ctx.refreshViolations();
-  }, [modalTarget, ctx.refreshViolations]);
+  }, [modalTarget, ctx]);
 
   const { acknowledge, unacknowledge, acknowledgingId, isAcknowledged } =
     useViolationAcknowledge(
@@ -144,7 +144,7 @@ export const DependenciesTab = ({ context }: DependenciesTabProps) => {
       pendingViolationsRefreshRef.current = false;
       ctx.refreshViolations();
     }
-  }, [ctx.refreshViolations]);
+  }, [ctx]);
 
   const activeViolations = useMemo(
     () => ctx.violations.filter(v => !isAcknowledged(v)),
