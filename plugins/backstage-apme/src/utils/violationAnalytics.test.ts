@@ -125,7 +125,7 @@ describe('violationAnalytics', () => {
     const violations: Violation[] = [
       {
         id: 1,
-        rule_id: 'r1',
+        rule_id: 'L001',
         level: 'critical',
         message: 'a',
         file: 'f',
@@ -135,7 +135,7 @@ describe('violationAnalytics', () => {
       },
       {
         id: 2,
-        rule_id: 'r2',
+        rule_id: 'L002',
         level: 'high',
         message: 'b',
         file: 'f',
