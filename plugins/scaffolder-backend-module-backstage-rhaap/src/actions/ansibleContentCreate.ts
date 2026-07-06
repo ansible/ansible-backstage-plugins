@@ -33,7 +33,7 @@ export async function ansibleCreatorRun(
     `[${BackendServiceAPI.pluginLogName}] Running plugin operation for ${collectionGroup}.${collectionName}`,
   );
 
-  const scaffoldPath = workspacePath
+  const scaffoldPath = workspacePath // NOSONAR — empty string is a valid falsy case here
     ? workspacePath
     : `${os.homedir()}/.ansible/collections/ansible_collections`;
 

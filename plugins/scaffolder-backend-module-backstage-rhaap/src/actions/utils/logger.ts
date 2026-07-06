@@ -17,8 +17,8 @@
 import { LoggerService } from '@backstage/backend-plugin-api';
 
 export class ScaffolderLogger {
-  private pluginName: string;
-  private ctx: LoggerService;
+  private readonly pluginName: string;
+  private readonly ctx: LoggerService;
 
   constructor(pluginName: string, ctx: LoggerService) {
     this.pluginName = pluginName;
