@@ -56,8 +56,11 @@ export const Favourites = () => {
   );
 
   const getStarredList = () =>
-    starredEntities?.map((entity, index) => (
-      <li key={index} style={{ marginBottom: '22px' }}>
+    starredEntities?.map(entity => (
+      <li
+        key={entity.metadata.uid ?? entity.metadata.name}
+        style={{ marginBottom: '22px' }}
+      >
         <Typography variant="body1" className={classes.flex}>
           <Typography component="span" className={classes.star_icon}>
             <YellowStar />

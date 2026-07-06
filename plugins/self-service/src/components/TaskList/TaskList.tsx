@@ -4,10 +4,8 @@ import {
   useApi,
   useRouteRef,
 } from '@backstage/core-plugin-api';
-import {
-  scaffolderApiRef,
-  ScaffolderTask,
-} from '@backstage/plugin-scaffolder-react';
+import { scaffolderApiRef } from '@backstage/plugin-scaffolder-react';
+import type { ScaffolderTask } from '@backstage/plugin-scaffolder-common';
 import { TablePaginationActionsProps } from '@material-ui/core/TablePagination/TablePaginationActions';
 import { useNavigate, Route, Routes, Navigate } from 'react-router-dom';
 import { Content, Header, Page } from '@backstage/core-components';
@@ -74,7 +72,7 @@ type Filters = {
   owner: 'all' | 'owned' | undefined;
 };
 
-function TablePaginationActions(props: TablePaginationActionsProps) {
+function TablePaginationActions(props: Readonly<TablePaginationActionsProps>) {
   const { count, page, rowsPerPage, onPageChange } = props;
 
   const handleFirstPageButtonClick = (
@@ -144,14 +142,14 @@ export const TaskList = () => {
     const identity = await identityApi.getBackstageIdentity();
 
     // Check if user is member of admin groups
-    const adminGroups = [
+    const adminGroups = new Set([
       'group:default/admins',
       'group:default/rbac_admin',
       'group:default/portal-admins',
       'group:default/portal_admins',
-    ];
+    ]);
     return identity.ownershipEntityRefs.some(ref =>
-      adminGroups.includes(ref.toLowerCase()),
+      adminGroups.has(ref.toLowerCase()),
     );
   }, []);
   const [tasks, setTasks] = useState<ScaffolderTask[]>([]);
@@ -210,7 +208,7 @@ export const TaskList = () => {
   const handleRowsPerPageChange = (
     event: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>,
   ) => {
-    setRowsPerPage(parseInt(event.target.value, 10));
+    setRowsPerPage(Number.parseInt(event.target.value, 10));
     setPage(0);
   };
 

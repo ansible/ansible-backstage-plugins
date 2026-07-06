@@ -584,6 +584,108 @@ export const SyncDialog = ({
     lastFailedSyncTime: p.lastFailedSyncTime ?? null,
   });
 
+  type SyncJob = {
+    displayName: string;
+    tracking: StartedSyncInfo[];
+    run: () => Promise<void>;
+  };
+
+  const trackingFromProvider = (
+    provider: ProviderInfo | undefined,
+    displayName: string,
+  ): StartedSyncInfo[] =>
+    provider
+      ? [
+          {
+            sourceId: provider.sourceId,
+            displayName,
+            lastSyncTime: provider.lastSyncTime,
+            lastSyncStatus: provider.lastSyncStatus ?? null,
+            lastFailedSyncTime: provider.lastFailedSyncTime ?? null,
+          },
+        ]
+      : [];
+
+  const buildPahSyncJobs = (
+    pahFilters: SyncFilter[],
+    baseUrl: string,
+  ): SyncJob[] => {
+    const jobs: SyncJob[] = [];
+    for (const filter of pahFilters) {
+      const repositoryName = filter.organization;
+      if (repositoryName) {
+        const provider = findProviderForSelection('pah', repositoryName);
+        jobs.push({
+          displayName: `PAH:${repositoryName}`,
+          tracking: trackingFromProvider(provider, `PAH:${repositoryName}`),
+          run: () => syncPahSource(baseUrl, repositoryName),
+        });
+        continue;
+      }
+      for (const p of providers.filter(prov => prov.repository)) {
+        const repoName = p.repository!;
+        const displayName = `PAH:${repoName}`;
+        jobs.push({
+          displayName,
+          tracking: trackingFromProvider(p, displayName),
+          run: () => syncPahSource(baseUrl, repoName),
+        });
+      }
+    }
+    return jobs;
+  };
+
+  const buildScmSyncJobs = (
+    scmFilters: SyncFilter[],
+    baseUrl: string,
+  ): SyncJob[] => {
+    const jobs: SyncJob[] = [];
+    for (const filter of scmFilters) {
+      if (!filter.scmProvider) continue;
+
+      if (!filter.hostName) {
+        const tracking = providers
+          .filter(p => p.scmProvider === filter.scmProvider)
+          .map(startedSyncInfoFromCatalogProvider);
+        jobs.push({
+          displayName: filter.scmProvider,
+          tracking,
+          run: () => syncScmSource(baseUrl, filter),
+        });
+        continue;
+      }
+
+      if (!filter.organization) {
+        const tracking = providers
+          .filter(
+            p =>
+              p.scmProvider === filter.scmProvider &&
+              p.hostName === filter.hostName,
+          )
+          .map(startedSyncInfoFromCatalogProvider);
+        jobs.push({
+          displayName: filter.hostName,
+          tracking,
+          run: () => syncScmSource(baseUrl, filter),
+        });
+        continue;
+      }
+
+      const provider = findProviderForSelection(
+        filter.scmProvider,
+        filter.hostName,
+        filter.organization,
+      );
+      const displayName = getFilterDisplayName(filter);
+      jobs.push({
+        displayName,
+        tracking: trackingFromProvider(provider, displayName),
+        run: () => syncScmSource(baseUrl, filter),
+      });
+    }
+    return jobs;
+  };
+
   const handleSync = async () => {
     const filters = buildFilters();
     if (filters.length === 0) {
@@ -608,112 +710,10 @@ export const SyncDialog = ({
 
     const baseUrl = await discoveryApi.getBaseUrl('catalog');
 
-    const syncJobs: Array<{
-      displayName: string;
-      tracking: StartedSyncInfo[];
-      run: () => Promise<void>;
-    }> = [];
-
-    for (const filter of pahFilters) {
-      const repositoryName = filter.organization;
-      if (repositoryName) {
-        // Individual PAH repository selected.
-        const provider = findProviderForSelection('pah', repositoryName);
-        syncJobs.push({
-          displayName: `PAH:${repositoryName}`,
-          tracking: provider
-            ? [
-                {
-                  sourceId: provider.sourceId,
-                  displayName: `PAH:${repositoryName}`,
-                  lastSyncTime: provider.lastSyncTime,
-                  lastSyncStatus: provider.lastSyncStatus ?? null,
-                  lastFailedSyncTime: provider.lastFailedSyncTime ?? null,
-                },
-              ]
-            : [],
-          run: () => syncPahSource(baseUrl, repositoryName),
-        });
-      } else {
-        // PAH provider-level selected: sync every repository individually since
-        // the PAH POST endpoint requires an explicit repository_name per request.
-        for (const p of providers.filter(prov => prov.repository)) {
-          const repoName = p.repository!;
-          syncJobs.push({
-            displayName: `PAH:${repoName}`,
-            tracking: [
-              {
-                sourceId: p.sourceId,
-                displayName: `PAH:${repoName}`,
-                lastSyncTime: p.lastSyncTime,
-                lastSyncStatus: p.lastSyncStatus ?? null,
-                lastFailedSyncTime: p.lastFailedSyncTime ?? null,
-              },
-            ],
-            run: () => syncPahSource(baseUrl, repoName),
-          });
-        }
-      }
-    }
-
-    scmFilters.forEach(filter => {
-      if (!filter.scmProvider) {
-        return;
-      }
-      if (!filter.hostName) {
-        // Provider-only selection: one POST, one tracking entry per org under
-        // this provider.
-        const tracking = providers
-          .filter(p => p.scmProvider === filter.scmProvider)
-          .map(startedSyncInfoFromCatalogProvider);
-        syncJobs.push({
-          displayName: filter.scmProvider,
-          tracking,
-          run: () => syncScmSource(baseUrl, filter),
-        });
-        return;
-      }
-      if (!filter.organization) {
-        // Host-level selection: one POST covers all orgs under this host, but
-        // each org gets its own tracking entry so the popover and toasts report
-        // per-source outcomes (e.g. "github-public/org1", "github-public/org2").
-        const tracking = providers
-          .filter(
-            p =>
-              p.scmProvider === filter.scmProvider &&
-              p.hostName === filter.hostName,
-          )
-          .map(startedSyncInfoFromCatalogProvider);
-        syncJobs.push({
-          displayName: filter.hostName,
-          tracking,
-          run: () => syncScmSource(baseUrl, filter),
-        });
-        return;
-      }
-      // Leaf-org selection: one POST, one tracking entry for the specific org.
-      const provider = findProviderForSelection(
-        filter.scmProvider,
-        filter.hostName,
-        filter.organization,
-      );
-      const displayName = getFilterDisplayName(filter);
-      syncJobs.push({
-        displayName,
-        tracking: provider
-          ? [
-              {
-                sourceId: provider.sourceId,
-                displayName,
-                lastSyncTime: provider.lastSyncTime,
-                lastSyncStatus: provider.lastSyncStatus ?? null,
-                lastFailedSyncTime: provider.lastFailedSyncTime ?? null,
-              },
-            ]
-          : [],
-        run: () => syncScmSource(baseUrl, filter),
-      });
-    });
+    const syncJobs = [
+      ...buildPahSyncJobs(pahFilters, baseUrl),
+      ...buildScmSyncJobs(scmFilters, baseUrl),
+    ];
 
     const settled = await Promise.allSettled(syncJobs.map(j => j.run()));
     const failures = settled.flatMap((r, i) => {

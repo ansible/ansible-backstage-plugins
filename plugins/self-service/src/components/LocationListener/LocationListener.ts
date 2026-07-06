@@ -33,8 +33,8 @@ export const LocationListener = () => {
 
     // Redirect /create/templates/* to self-service equivalents
     // Match paths like /create/templates/default/my-template
-    const templateMatch = pathname.match(
-      /^\/create\/templates\/([^/]+)\/([^/]+)$/,
+    const templateMatch = /^\/create\/templates\/([^/]+)\/([^/]+)$/.exec(
+      pathname,
     );
     if (templateMatch) {
       const [, namespace, templateName] = templateMatch;
@@ -52,7 +52,7 @@ export const LocationListener = () => {
 
     // Redirect /create/tasks/:taskId to self-service task details
     // Match paths like /create/tasks/abc123
-    const taskMatch = pathname.match(/^\/create\/tasks\/([^/]+)$/);
+    const taskMatch = /^\/create\/tasks\/([^/]+)$/.exec(pathname);
     if (taskMatch) {
       const [, taskId] = taskMatch;
       navigate(`/self-service/create/tasks/${taskId}`, { replace: true });

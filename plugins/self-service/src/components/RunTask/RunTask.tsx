@@ -12,6 +12,7 @@ import {
   scaffolderApiRef,
 } from '@backstage/plugin-scaffolder-react';
 import { catalogApiRef } from '@backstage/plugin-catalog-react';
+import type { Entity } from '@backstage/catalog-model';
 import { TaskSteps } from '@backstage/plugin-scaffolder-react/alpha';
 import { usePermission } from '@backstage/plugin-permission-react';
 import {
@@ -79,7 +80,7 @@ export const RunTask = () => {
   const taskMetadata = task?.spec?.templateInfo?.entity?.metadata;
   const [showLogs, setShowLogs] = useState(false);
   const [isCanceling, setIsCanceling] = useState(false);
-  const [matchingEntity, setMatchingEntity] = useState<any | null>(null);
+  const [matchingEntity, setMatchingEntity] = useState<Entity | null>(null);
   const [expandedTextIndex, setExpandedTextIndex] = useState<number | null>(
     null,
   );
@@ -276,11 +277,7 @@ export const RunTask = () => {
       return false;
     }
 
-    if (
-      resolvePublishToScmFromParameters(
-        task?.spec?.parameters as Record<string, unknown> | undefined,
-      )
-    ) {
+    if (resolvePublishToScmFromParameters(task?.spec?.parameters)) {
       return false;
     }
 
@@ -304,11 +301,7 @@ export const RunTask = () => {
       return undefined;
     }
 
-    if (
-      resolvePublishToScmFromParameters(
-        task?.spec?.parameters as Record<string, unknown> | undefined,
-      )
-    ) {
+    if (resolvePublishToScmFromParameters(task?.spec?.parameters)) {
       return undefined;
     }
 
@@ -367,12 +360,12 @@ export const RunTask = () => {
     };
   }, [matchingEntity, completed, task, allSteps, catalogApi]);
 
-  const getMatchingEntity = useCallback(async (): Promise<any | null> => {
+  const getMatchingEntity = useCallback(async (): Promise<Entity | null> => {
     let entity = matchingEntity;
 
     if (!entity) {
       const eeFileName = resolveEeFileNameFromParameters(
-        task?.spec?.parameters as Record<string, unknown> | undefined,
+        task?.spec?.parameters,
       );
       if (!eeFileName) {
         console.error('EE file name not found in task parameters'); // eslint-disable-line no-console
@@ -422,19 +415,24 @@ export const RunTask = () => {
       const templateFileName = `${entityName}-template.yaml`;
       const archiveName = `${entityName}.tar`;
 
+      const specString = (val: unknown): string =>
+        typeof val === 'string' ? val : '';
+
       const archiveFiles: Array<{ name: string; content: string }> = [
-        { name: eeFileName, content: entity.spec.definition },
-        { name: readmeFileName, content: entity.spec.readme },
-        { name: ansibleCfgFileName, content: entity.spec.ansible_cfg },
-        { name: templateFileName, content: entity.spec.template },
+        { name: eeFileName, content: specString(entity.spec.definition) },
+        { name: readmeFileName, content: specString(entity.spec.readme) },
+        {
+          name: ansibleCfgFileName,
+          content: specString(entity.spec.ansible_cfg),
+        },
+        { name: templateFileName, content: specString(entity.spec.template) },
       ];
 
-      // only include mcp_vars if it exists
       if (entity.spec.mcp_vars) {
         const mcpVarsFileName = `mcp-vars.yaml`;
         archiveFiles.push({
           name: mcpVarsFileName,
-          content: entity.spec.mcp_vars,
+          content: specString(entity.spec.mcp_vars),
         });
       }
 
