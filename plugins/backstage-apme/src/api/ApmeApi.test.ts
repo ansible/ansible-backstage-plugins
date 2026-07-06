@@ -99,6 +99,35 @@ describe('ApmeApiClient', () => {
   });
 
   describe('getProjectByRepoUrl', () => {
+    it('should find project by repo URL with branch', async () => {
+      const mockProject = {
+        id: 'proj-backup',
+        name: 'terrible-playbook-backup',
+        repo_url: 'https://github.com/test/1',
+        branch: 'backup',
+      };
+
+      mockFetchApi.fetch.mockResolvedValueOnce({
+        ok: true,
+        json: () => Promise.resolve(mockProject),
+      });
+
+      const result = await client.getProjectByRepoUrl(
+        'https://github.com/test/1',
+        'backup',
+      );
+
+      expect(mockFetchApi.fetch).toHaveBeenCalledWith(
+        expect.stringContaining('lookup?repo_url='),
+        expect.any(Object),
+      );
+      expect(mockFetchApi.fetch).toHaveBeenCalledWith(
+        expect.stringContaining('&branch=backup'),
+        expect.any(Object),
+      );
+      expect(result).toEqual(mockProject);
+    });
+
     it('should find project by repo URL', async () => {
       const mockProject = {
         id: '1',

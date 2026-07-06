@@ -53,6 +53,7 @@ import HelpOutlineIcon from '@material-ui/icons/HelpOutline';
 import CloseIcon from '@material-ui/icons/Close';
 import WarningIcon from '@material-ui/icons/Warning';
 import type {
+  Project,
   Violation,
   Proposal,
   OperationState,
@@ -73,7 +74,10 @@ import {
   categoryLabel,
   type SeverityLevel,
 } from '@ansible/backstage-apme-common/severity';
-import { normalizeRepoUrlFromEntity } from '@ansible/backstage-rhaap-common/catalogEntity';
+import {
+  normalizeRepoUrlFromEntity,
+  defaultBranchFromEntity,
+} from '@ansible/backstage-rhaap-common/catalogEntity';
 import { buildDevSpacesUrlFromRepoUrl } from '@ansible/backstage-rhaap-common/devSpaces';
 import { apmeApiRef } from '../../api';
 import { useApmeAiEnabled, useApmeAiStatus } from '../../hooks/useApmeEnabled';
@@ -264,8 +268,8 @@ function formatTimeAgo(isoString?: string): string {
 }
 
 function formatEntityLastChecked(
-  project: { last_scanned_at?: string; active_operation?: unknown },
   scanning: boolean,
+  project: Project,
   scanError: Error | null,
 ): string {
   if (scanning || projectHasActiveOperation(project)) {
@@ -274,23 +278,27 @@ function formatEntityLastChecked(
   if (scanError && !project.last_scanned_at) {
     return 'Scan failed';
   }
-  return formatTimeAgo(project.last_scanned_at);
+  if (project.last_scanned_at) {
+    return formatTimeAgo(project.last_scanned_at);
+  }
+  return 'Never';
 }
 
 function generateFixesTooltip(
   autoFix: number,
-  branch: string | undefined,
-  selectedCount: number,
+  selectedFixableCount: number,
+  devSpacesBranch: string | undefined,
+  projectBranch: string,
 ): string {
   if (autoFix === 0) {
-    const branchSuffix = branch ? ` (${branch})` : '';
-    return `No auto-generated fixes available for this repo${branchSuffix}. Manual violations require hand-editing in your repository.`;
+    const branchLabel = devSpacesBranch ?? projectBranch;
+    const suffix = branchLabel ? ` (${branchLabel})` : '';
+    return `No auto-generated fixes available for this repo${suffix}. Manual violations require hand-editing in your repository.`;
   }
-  if (selectedCount === 0) {
+  if (selectedFixableCount === 0) {
     return 'Select auto-fix violations to generate fixes';
   }
-  const plural = selectedCount !== 1 ? 's' : '';
-  return `Generate fixes for ${selectedCount} selected violation${plural}`;
+  return `Generate fixes for ${selectedFixableCount} selected violation${selectedFixableCount !== 1 ? 's' : ''}`;
 }
 
 interface Tier1RemediationResult {
@@ -447,6 +455,7 @@ export const ApmeEntityTab = ({
   const generatedViolationIdsRef = useRef<Set<number>>(new Set());
 
   const repoUrl = normalizeRepoUrlFromEntity(entity);
+  const branch = defaultBranchFromEntity(entity);
 
   const {
     value: project,
@@ -455,8 +464,8 @@ export const ApmeEntityTab = ({
     retry,
   } = useAsyncRetry(async () => {
     if (!repoUrl) return null;
-    return apmeApi.getProjectByRepoUrl(repoUrl);
-  }, [repoUrl, apmeApi]);
+    return apmeApi.getProjectByRepoUrl(repoUrl, branch);
+  }, [repoUrl, branch, apmeApi]);
 
   const { value: violations = [], loading: violationsLoading } =
     useAsyncRetry(async () => {
@@ -700,7 +709,7 @@ export const ApmeEntityTab = ({
       }
     }, 2000);
     return () => clearInterval(pollInterval);
-  }, [remediationStep, project, apmeApi, violations]);
+  }, [remediationStep, project?.id, apmeApi, violations]);
 
   const selectedFixableIds = useMemo(() => {
     const ids = new Set<number>();
@@ -720,11 +729,14 @@ export const ApmeEntityTab = ({
     if (active.length === 0) {
       return [];
     }
+    if (remediationStep === 'review') {
+      return active;
+    }
     if (selectedFixableIds.size > 0) {
       return active.filter(p => selectedFixableIds.has(p.violation_id));
     }
     return active;
-  }, [proposals, selectedFixableIds, declinedProposalIds]);
+  }, [proposals, selectedFixableIds, declinedProposalIds, remediationStep]);
 
   const autoApprovedRef = useRef<Set<string>>(new Set());
 
@@ -924,9 +936,6 @@ export const ApmeEntityTab = ({
     setRegistering(true);
     setRegisterError(null);
     try {
-      const spec = entity.spec as Record<string, unknown> | undefined;
-      const branch =
-        (spec?.repository_default_branch as string | undefined) || 'main';
       const name = entity.metadata.title || entity.metadata.name;
       const newProject = await apmeApi.createProject({
         name,
@@ -942,7 +951,7 @@ export const ApmeEntityTab = ({
     } finally {
       setRegistering(false);
     }
-  }, [apmeApi, entity, repoUrl, retry]);
+  }, [apmeApi, entity, repoUrl, branch, retry]);
 
   if (loading)
     return (
@@ -1046,7 +1055,8 @@ export const ApmeEntityTab = ({
   const manualAtScan = project.latest_scan?.manual_review ?? manual;
   const scanTotalViolations = project.latest_scan?.total_violations;
   const violationsTruncated =
-    typeof scanTotalViolations === 'number' &&
+    scanTotalViolations !== undefined &&
+    scanTotalViolations !== null &&
     violations.length < scanTotalViolations;
   const aiCandidateCount =
     project.latest_scan?.ai_candidate ??
@@ -1058,7 +1068,7 @@ export const ApmeEntityTab = ({
     aiStatus !== undefined &&
     !aiStatus.connected;
 
-  const lastChecked = formatEntityLastChecked(project, scanning, scanError);
+  const lastChecked = formatEntityLastChecked(scanning, project, scanError);
   const hasAapIssues = (catCounts.modernize ?? 0) > 0;
   const aapCount = catCounts.modernize ?? 0;
 
@@ -1222,17 +1232,19 @@ export const ApmeEntityTab = ({
         </Box>
       )}
 
-      {violationsTruncated && typeof scanTotalViolations === 'number' && (
-        <Typography
-          variant="body2"
-          color="textSecondary"
-          style={{ marginBottom: 8 }}
-        >
-          Loaded {violations.length} of {scanTotalViolations} violations from
-          latest scan
-          {autoFix > 0 ? ' — auto-fix rows sorted first' : ''}.
-        </Typography>
-      )}
+      {violationsTruncated &&
+        scanTotalViolations !== undefined &&
+        scanTotalViolations !== null && (
+          <Typography
+            variant="body2"
+            color="textSecondary"
+            style={{ marginBottom: 8 }}
+          >
+            Loaded {violations.length} of {scanTotalViolations} violations from
+            latest scan
+            {autoFix > 0 ? ' — auto-fix rows sorted first' : ''}.
+          </Typography>
+        )}
 
       {gatewayAiDisconnected && (
         <Paper className={classes.infoBanner} elevation={0}>
@@ -1329,7 +1341,9 @@ export const ApmeEntityTab = ({
             </Typography>
             <Typography variant="caption" color="textSecondary">
               {filteredViolations.length} of {violationTotal} violations
-              {` · ${ruleAutoFixCount} auto-fix${enableAi && ruleAiCount > 0 ? ` · ${ruleAiCount} AI` : ''}${ruleManualCount > 0 ? ` · ${ruleManualCount} manual` : ''}`}
+              {ruleFilter
+                ? ` · ${ruleAutoFixCount} auto-fix${enableAi && ruleAiCount > 0 ? ` · ${ruleAiCount} AI` : ''}${ruleManualCount > 0 ? ` · ${ruleManualCount} manual` : ''}`
+                : ''}
             </Typography>
           </Box>
           <Box display="flex" style={{ gap: 8 }}>
@@ -1356,7 +1370,7 @@ export const ApmeEntityTab = ({
       )}
 
       {/* Scan progress */}
-      {(scanning || scanProgress) && !scanError && (
+      {scanning && scanProgress && !scanError && (
         <Paper className={classes.progressBanner} elevation={1}>
           <LinearProgress
             variant={
@@ -1453,7 +1467,9 @@ export const ApmeEntityTab = ({
                     variant="body2"
                   >
                     {fv.rule_id} · {fv.file}
-                    {typeof fv.line === 'number' ? `:${fv.line}` : ''}
+                    {fv.line !== undefined && fv.line !== null
+                      ? `:${fv.line}`
+                      : ''}
                     {fv.message ? ` — ${fv.message}` : ''}
                   </Typography>
                 ))}
@@ -1664,8 +1680,9 @@ export const ApmeEntityTab = ({
                 <Tooltip
                   title={generateFixesTooltip(
                     autoFix,
-                    devSpacesBranch ?? project.branch,
                     selectedFixableIds.size,
+                    devSpacesBranch,
+                    project.branch,
                   )}
                 >
                   <span>

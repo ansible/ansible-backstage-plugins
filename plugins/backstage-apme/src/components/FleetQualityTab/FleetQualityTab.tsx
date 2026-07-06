@@ -35,6 +35,7 @@ import {
   type SeverityLevel,
 } from '@ansible/backstage-apme-common/severity';
 import { apmeApiRef } from '../../api';
+import { projectLookupKey } from '@ansible/backstage-rhaap-common/catalogEntity';
 import { useApmeEnabled, useApmeAiEnabled } from '../../hooks/useApmeEnabled';
 import { PreviewChip } from '../PreviewChip';
 
@@ -150,20 +151,17 @@ type RuleAggregate = {
   totalCount: number;
 };
 
-function normalizeRepoKey(url: string): string {
-  return url
-    .replace(/^url:/, '')
-    .replace(/\.git$/, '')
-    .replace(/\/$/, '');
-}
-
-function entityRepoKey(entity: Entity): string | undefined {
+function entityProjectLookupKey(entity: Entity): string | undefined {
   const loc =
     entity.metadata?.annotations?.['backstage.io/source-location'] ??
     entity.metadata?.annotations?.['ansible.com/repository-url'];
   if (!loc) return undefined;
   const match = loc.match(/url:(https?:\/\/[^\s]+)/);
-  return match ? normalizeRepoKey(match[1]) : normalizeRepoKey(loc);
+  const repoUrl = match ? match[1] : loc.replace(/^url:/, '');
+  const spec = entity.spec as
+    { repository_default_branch?: string } | undefined;
+  const branch = spec?.repository_default_branch ?? 'main';
+  return projectLookupKey(repoUrl, branch);
 }
 
 function fixTierColor(
@@ -224,11 +222,11 @@ export const FleetQualityTab = ({
       ? catalogResponse
       : (catalogResponse.items ?? []);
 
-    const entityByRepo = new Map<string, string>();
+    const entityByProjectKey = new Map<string, string>();
     for (const entity of entities) {
-      const key = entityRepoKey(entity);
+      const key = entityProjectLookupKey(entity);
       if (key && entity.metadata?.name) {
-        entityByRepo.set(key, entity.metadata.name);
+        entityByProjectKey.set(key, entity.metadata.name);
       }
     }
 
@@ -251,9 +249,9 @@ export const FleetQualityTab = ({
     };
 
     for (const { project, violations } of violationsByProject) {
-      const repoKey = normalizeRepoKey(project.repo_url);
+      const projectKey = projectLookupKey(project.repo_url, project.branch);
       const entityName =
-        entityByRepo.get(repoKey) ??
+        entityByProjectKey.get(projectKey) ??
         project.name.replace(/[^a-zA-Z0-9-_]/g, '-').toLowerCase();
 
       for (const v of violations) {
@@ -434,10 +432,8 @@ export const FleetQualityTab = ({
     'low',
     'info',
   ];
-  const sortArrow = (col: SortColumn) => {
-    if (sortCol !== col) {
-      return '';
-    }
+  const sortArrow = (col: SortColumn): string => {
+    if (sortCol !== col) return '';
     return sortAsc ? ' ↑' : ' ↓';
   };
 

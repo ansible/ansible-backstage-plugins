@@ -84,6 +84,15 @@ const useStyles = makeStyles(theme => ({
   },
 }));
 
+function diffLineClassName(
+  classes: ReturnType<typeof useStyles>,
+  lineType: DiffLine['type'],
+): string {
+  if (lineType === 'added') return classes.added;
+  if (lineType === 'removed') return classes.removed;
+  return classes.context;
+}
+
 interface DiffLine {
   type: 'added' | 'removed' | 'context';
   content: string;
@@ -173,21 +182,14 @@ export const DiffView = ({ before, after, title }: DiffViewProps) => {
     return ' ';
   };
 
-  const lineClassName = (type: DiffLine['type']) => {
-    if (type === 'added') {
-      return `${classes.line} ${classes.added}`;
-    }
-    if (type === 'removed') {
-      return `${classes.line} ${classes.removed}`;
-    }
-    return `${classes.line} ${classes.context}`;
-  };
-
   return (
     <Box className={classes.root}>
       {title && <Typography className={classes.title}>{title}</Typography>}
       {lines.map((line, idx) => (
-        <div key={idx} className={lineClassName(line.type)}>
+        <div
+          key={idx}
+          className={`${classes.line} ${diffLineClassName(classes, line.type)}`}
+        >
           <span className={classes.lineNumber}>{line.oldNum ?? ''}</span>
           <span className={classes.lineNumber}>{line.newNum ?? ''}</span>
           <span className={classes.linePrefix}>{prefixChar(line.type)}</span>

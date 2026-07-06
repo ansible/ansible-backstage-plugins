@@ -102,7 +102,10 @@ export async function runApmeCatalogSyncBatch(
     }
 
     try {
-      let project = await apmeService.getProjectByRepoUrl(request.repo_url);
+      let project = await apmeService.getProjectByRepoUrl(
+        request.repo_url,
+        request.branch,
+      );
       if (!project) {
         project = await apmeService.createProject(request);
         summary.registered += 1;

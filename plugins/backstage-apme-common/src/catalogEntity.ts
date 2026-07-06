@@ -19,4 +19,6 @@ export {
   normalizeRepoUrlFromEntity,
   defaultBranchFromEntity,
   scmOrganizationFromEntity,
+  projectLookupKey,
+  projectLookupKeyFromEntity,
 } from '@ansible/backstage-rhaap-common/catalogEntity';

@@ -18,6 +18,10 @@ import { useAsync } from 'react-use';
 import { useApi } from '@backstage/core-plugin-api';
 import { useEntity } from '@backstage/plugin-catalog-react';
 import {
+  normalizeRepoUrlFromEntity,
+  defaultBranchFromEntity,
+} from '@ansible/backstage-rhaap-common/catalogEntity';
+import {
   InfoCard,
   Progress,
   ResponseErrorPanel,
@@ -83,9 +87,8 @@ export const ApmeHealthCard = () => {
   const apmeApi = useApi(apmeApiRef);
   const { entity } = useEntity();
 
-  const repoUrl =
-    entity.metadata.annotations?.['backstage.io/source-location'] ||
-    entity.metadata.annotations?.['github.com/project-slug'];
+  const repoUrl = normalizeRepoUrlFromEntity(entity);
+  const branch = defaultBranchFromEntity(entity);
 
   const {
     value: project,
@@ -93,8 +96,8 @@ export const ApmeHealthCard = () => {
     error,
   } = useAsync(async () => {
     if (!repoUrl) return null;
-    return apmeApi.getProjectByRepoUrl(repoUrl);
-  }, [repoUrl]);
+    return apmeApi.getProjectByRepoUrl(repoUrl, branch);
+  }, [repoUrl, branch, apmeApi]);
 
   if (loading) {
     return (
