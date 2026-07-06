@@ -29,7 +29,7 @@ test.describe('Non-admin user: Portal pages accessibility', () => {
         return;
       }
       await createTab.click();
-      await page.waitForTimeout(1000);
+      await page.waitForLoadState('networkidle');
       await expect(page.locator('main')).toBeVisible();
     });
   });

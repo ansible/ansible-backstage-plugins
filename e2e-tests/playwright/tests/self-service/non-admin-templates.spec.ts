@@ -41,7 +41,7 @@ test.describe('Non-admin user: Templates page', () => {
       return;
     }
     await searchInput.fill('test');
-    await page.waitForTimeout(1000);
+    await page.waitForLoadState('networkidle');
     await searchInput.clear();
   });
 

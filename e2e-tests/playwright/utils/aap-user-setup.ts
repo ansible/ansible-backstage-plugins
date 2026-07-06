@@ -43,9 +43,11 @@ function trustAAPCertificate(): void {
     writeFileSync(certPath, cert, { mode: 0o600 });
     process.env.NODE_EXTRA_CA_CERTS = certPath;
     certCleanupPath = tmpDir;
-  } catch {
-    console.log(
-      '[AAP Setup] Could not fetch AAP certificate for TLS trust, relying on NODE_TLS_REJECT_UNAUTHORIZED from environment',
+  } catch (e) {
+    throw new Error(
+      `[AAP Setup] Failed to extract AAP TLS certificate. ` +
+        `Set NODE_EXTRA_CA_CERTS to a valid CA bundle, or ensure the AAP endpoint is reachable. ` +
+        `Cause: ${e instanceof Error ? e.message : e}`,
     );
   }
 }

@@ -45,7 +45,7 @@ test.describe('Non-admin user: Permission boundaries', () => {
     const createTab = page.getByRole('tab', { name: /^Create$/i });
     if (await createTab.isVisible().catch(() => false)) {
       await createTab.click();
-      await page.waitForTimeout(1000);
+      await page.waitForLoadState('networkidle');
     }
 
     const addTemplateBtn = page.locator('[data-testid="add-template-button"]');
@@ -73,7 +73,7 @@ test.describe('Non-admin user: Permission boundaries', () => {
         '[Non-Admin] Administration link visible in sidebar — verifying content is restricted instead',
       );
       await adminLink.click();
-      await page.waitForTimeout(2000);
+      await page.waitForLoadState('networkidle');
       const bodyText = (await page.locator('body').textContent()) ?? '';
       const hasRbacContent =
         bodyText.includes('Role-Based Access Control') ||
