@@ -104,7 +104,7 @@ describe('RatingsFeedbackModal', () => {
 
   it('should clear timeout when feedback is submitted', async () => {
     jest.useFakeTimers();
-    const clearTimeoutSpy = jest.spyOn(global, 'clearTimeout');
+    const clearTimeoutSpy = jest.spyOn(globalThis, 'clearTimeout');
 
     render(<RatingsFeedbackModal handleClose={handleClose} />);
 

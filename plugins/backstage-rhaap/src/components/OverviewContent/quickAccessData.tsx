@@ -47,7 +47,7 @@ export const learn: IQuickAccessLinks = {
       practices.
       <br />
       Please visit the&nbsp;
-      <Link to="http://red.ht/aap-lp-getting-started-rhaap-plugin">
+      <Link to="https://red.ht/aap-lp-getting-started-rhaap-plugin">
         User Guide <OpenInNew fontSize="small" style={{ fontSize: '14px' }} />
       </Link>
       &nbsp;to get started with the Ansible plug-ins for Red Hat Developer Hub.

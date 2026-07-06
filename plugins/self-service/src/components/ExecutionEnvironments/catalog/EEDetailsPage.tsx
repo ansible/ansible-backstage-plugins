@@ -367,8 +367,7 @@ export const EEDetailsPage: React.FC = () => {
   /** URL to edit the EE definition file (e.g. test-2.yml), not catalog-info.yaml */
   const getDefinitionEditUrl = useCallback(() => {
     const editUrl = entity?.metadata?.annotations?.[ANNOTATION_EDIT_URL] as
-      | string
-      | undefined;
+      string | undefined;
     if (!editUrl) return null;
     const eeName = entity?.metadata?.name;
     if (!eeName) {

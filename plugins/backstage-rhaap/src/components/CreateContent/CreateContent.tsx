@@ -15,7 +15,12 @@
  */
 
 import { useEffect } from 'react';
-import { ContentHeader } from '@backstage/core-components';
+import {
+  Content,
+  ContentHeader,
+  Page,
+  Progress,
+} from '@backstage/core-components';
 import {
   CatalogFilterLayout,
   EntityKindPicker,
@@ -25,7 +30,6 @@ import {
   UserListPicker,
   useEntityList,
 } from '@backstage/plugin-catalog-react';
-import { Content, Page, Progress } from '@backstage/core-components';
 import { Entity } from '@backstage/catalog-model';
 import { TemplateGroups } from '@backstage/plugin-scaffolder-react/alpha';
 import { useNavigate } from 'react-router';
