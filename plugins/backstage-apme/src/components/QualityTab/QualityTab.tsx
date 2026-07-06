@@ -151,7 +151,7 @@ const fixTypeClass = (
   return classes.fixManual;
 };
 
-function formatQualityLastChecked(project: Project, scanning: boolean): string {
+function formatQualityLastChecked(scanning: boolean, project: Project): string {
   if (scanning || projectHasActiveOperation(project)) {
     return 'Scan in progress…';
   }
@@ -257,7 +257,7 @@ export const QualityTab = ({
     return () => {
       cancelled = true;
     };
-  }, [project, apmeApi, repoUrl]);
+  }, [project, apmeApi]);
 
   useEffect(() => {
     if (!scanning || !project?.id) {
@@ -492,7 +492,7 @@ export const QualityTab = ({
     );
   }
 
-  const lastChecked = formatQualityLastChecked(project, scanning);
+  const lastChecked = formatQualityLastChecked(scanning, project);
 
   return (
     <Box>
