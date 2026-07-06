@@ -370,6 +370,26 @@ export class GitlabClient extends BaseScmClient {
     }
   }
 
+  async getProjectId(
+    owner: string,
+    repo: string,
+    signal?: AbortSignal,
+  ): Promise<number | undefined> {
+    const projectPath = `${owner}/${repo}`;
+    try {
+      const data = await this.fetchRest<{ id: number }>(
+        `/projects/${encodeURIComponent(projectPath)}`,
+        signal,
+      );
+      return data.id;
+    } catch (error) {
+      this.logger.debug(
+        `[GitlabClient] Failed to resolve numeric project ID for ${projectPath}: ${error}`,
+      );
+      return undefined;
+    }
+  }
+
   buildUrl(options: UrlBuildOptions): string {
     const { repo, ref, path, type } = options;
     const urlType = type === 'file' ? 'blob' : 'tree';

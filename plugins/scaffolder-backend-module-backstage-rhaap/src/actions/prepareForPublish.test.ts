@@ -48,6 +48,7 @@ describe('prepareForPublish', () => {
   let mockScmClient: {
     repositoryExists: jest.Mock;
     getHost: jest.Mock;
+    getProjectId: jest.Mock;
   };
 
   beforeEach(() => {
@@ -57,6 +58,7 @@ describe('prepareForPublish', () => {
     mockScmClient = {
       repositoryExists: jest.fn(),
       getHost: jest.fn(),
+      getProjectId: jest.fn(),
     };
 
     MockScmClientFactory.mockImplementation(
@@ -610,6 +612,120 @@ describe('prepareForPublish', () => {
       } as any;
 
       await expect(action.handler(ctx)).rejects.toThrow('Unknown error');
+    });
+  });
+
+  describe('gitlabProjectId output', () => {
+    it('should output gitlabProjectId when GitLab repo exists', async () => {
+      mockScmClient.repositoryExists.mockResolvedValue(true);
+      mockScmClient.getHost.mockReturnValue('gitlab.com');
+      mockScmClient.getProjectId.mockResolvedValue(42);
+
+      const action = prepareForPublishAction({ rootConfig: mockConfig });
+      const ctx = {
+        input: {
+          sourceControlProvider: 'Gitlab',
+          repositoryOwner: 'test-owner',
+          repositoryName: 'test-repo',
+          createNewRepository: false,
+          eeFileName: 'test-ee',
+          contextDirName: 'test-ee',
+        },
+        logger,
+        workspacePath: mockWorkspacePath,
+        output: jest.fn(),
+      } as any;
+
+      await action.handler(ctx);
+
+      expect(mockScmClient.getProjectId).toHaveBeenCalledWith(
+        'test-owner',
+        'test-repo',
+      );
+      expect(ctx.output).toHaveBeenCalledWith('gitlabProjectId', 42);
+    });
+
+    it('should not call getProjectId when creating new GitLab repo', async () => {
+      mockScmClient.repositoryExists.mockResolvedValue(false);
+      mockScmClient.getHost.mockReturnValue('gitlab.com');
+
+      const action = prepareForPublishAction({ rootConfig: mockConfig });
+      const ctx = {
+        input: {
+          sourceControlProvider: 'Gitlab',
+          repositoryOwner: 'test-owner',
+          repositoryName: 'test-repo',
+          createNewRepository: true,
+          eeFileName: 'test-ee',
+          contextDirName: 'test-ee',
+        },
+        logger,
+        workspacePath: mockWorkspacePath,
+        output: jest.fn(),
+      } as any;
+
+      await action.handler(ctx);
+
+      expect(mockScmClient.getProjectId).not.toHaveBeenCalled();
+      expect(ctx.output).not.toHaveBeenCalledWith(
+        'gitlabProjectId',
+        expect.anything(),
+      );
+    });
+
+    it('should not call getProjectId for GitHub provider', async () => {
+      mockScmClient.repositoryExists.mockResolvedValue(true);
+      mockScmClient.getHost.mockReturnValue('github.com');
+
+      const action = prepareForPublishAction({ rootConfig: mockConfig });
+      const ctx = {
+        input: {
+          sourceControlProvider: 'Github',
+          repositoryOwner: 'test-owner',
+          repositoryName: 'test-repo',
+          createNewRepository: false,
+          eeFileName: 'test-ee',
+          contextDirName: 'test-ee',
+        },
+        logger,
+        workspacePath: mockWorkspacePath,
+        output: jest.fn(),
+      } as any;
+
+      await action.handler(ctx);
+
+      expect(mockScmClient.getProjectId).not.toHaveBeenCalled();
+    });
+
+    it('should handle getProjectId returning undefined gracefully', async () => {
+      mockScmClient.repositoryExists.mockResolvedValue(true);
+      mockScmClient.getHost.mockReturnValue('gitlab.com');
+      mockScmClient.getProjectId.mockResolvedValue(undefined);
+
+      const action = prepareForPublishAction({ rootConfig: mockConfig });
+      const ctx = {
+        input: {
+          sourceControlProvider: 'Gitlab',
+          repositoryOwner: 'test-owner',
+          repositoryName: 'test-repo',
+          createNewRepository: false,
+          eeFileName: 'test-ee',
+          contextDirName: 'test-ee',
+        },
+        logger,
+        workspacePath: mockWorkspacePath,
+        output: jest.fn(),
+      } as any;
+
+      await action.handler(ctx);
+
+      expect(ctx.output).not.toHaveBeenCalledWith(
+        'gitlabProjectId',
+        expect.anything(),
+      );
+      expect(logger.warn).toHaveBeenCalledWith(
+        'Could not resolve GitLab numeric project ID for test-owner/test-repo',
+      );
     });
   });
 
