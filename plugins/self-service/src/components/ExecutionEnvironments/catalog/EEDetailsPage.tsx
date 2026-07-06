@@ -18,10 +18,8 @@ import OpenInNewIcon from '@material-ui/icons/OpenInNew';
 import DeleteIcon from '@material-ui/icons/Delete';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useEffect, useState, useCallback, useMemo } from 'react';
-import {
-  catalogApiRef,
-  UnregisterEntityDialog,
-} from '@backstage/plugin-catalog-react';
+import { catalogApiRef } from '@backstage/plugin-catalog-react';
+import { UnregisterEntityDialog } from '../../UnregisterEntityDialog';
 import {
   discoveryApiRef,
   fetchApiRef,

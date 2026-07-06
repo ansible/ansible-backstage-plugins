@@ -4,8 +4,8 @@ import { useNavigate, useParams } from 'react-router-dom';
 import {
   catalogApiRef,
   EntityProvider,
-  UnregisterEntityDialog,
 } from '@backstage/plugin-catalog-react';
+import { UnregisterEntityDialog } from '../UnregisterEntityDialog';
 import { Content, Header, Page } from '@backstage/core-components';
 import { Entity } from '@backstage/catalog-model';
 import {
