@@ -109,13 +109,30 @@ export function useApmeProjectContext(entity: Entity): ApmeProjectContext {
     }
   }, [apmeApi, entity, repoUrl, branch, refresh]);
 
+  // Poll only the project record during active operations to avoid
+  // hammering violations/rules/deps endpoints every 3 seconds.
+  // Full data refresh happens once when the operation completes.
+  const [wasActive, setWasActive] = useState(false);
+
   useEffect(() => {
-    if (!project?.id || !projectHasActiveOperation(project)) {
-      return undefined;
+    if (!project?.id) return undefined;
+
+    const isActive = projectHasActiveOperation(project);
+
+    if (isActive) {
+      setWasActive(true);
+      const interval = setInterval(() => retryProject(), 3000);
+      return () => clearInterval(interval);
     }
-    const interval = setInterval(() => refresh(), 3000);
-    return () => clearInterval(interval);
-  }, [project, refresh]);
+
+    // Operation just finished — do one full refresh of violations/rules/deps
+    if (wasActive) {
+      setWasActive(false);
+      setRefreshKey(k => k + 1);
+    }
+
+    return undefined;
+  }, [project, retryProject, wasActive]);
 
   return {
     repoUrl,
