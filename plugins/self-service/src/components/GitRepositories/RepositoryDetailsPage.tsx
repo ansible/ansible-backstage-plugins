@@ -414,6 +414,24 @@ const RepositoryDetailsPageInner = () => {
       {detailTabs[tab]?.kind === 'overview' && (
         <Box className={classes.detailsContent}>
           <Box className={classes.detailsLeftColumn}>
+            {entity &&
+              extensionsApi
+                .getDetailOverviewSlots()
+                .sort((a, b) => a.order - b.order)
+                .map(slot => (
+                  <Suspense
+                    key={slot.id}
+                    fallback={<Typography>Loading…</Typography>}
+                  >
+                    {slot.render({
+                      entity,
+                      repoUrl: normalizeRepoUrlFromEntity(entity),
+                      initialRuleFilter: searchParams.get('rule') ?? undefined,
+                      initialCategoryFilter:
+                        searchParams.get('category') ?? undefined,
+                    })}
+                  </Suspense>
+                ))}
             <RepositoryReadmeCard
               readmeContent={readmeContent}
               isLoading={readmeLoading}
@@ -446,6 +464,8 @@ const RepositoryDetailsPageInner = () => {
                 entity,
                 repoUrl: normalizeRepoUrlFromEntity(entity),
                 initialRuleFilter: searchParams.get('rule') ?? undefined,
+                initialCategoryFilter:
+                  searchParams.get('category') ?? undefined,
               })}
             </Suspense>
           </Box>
@@ -461,14 +481,32 @@ const RepositoryDetailsPageInner = () => {
         </Box>
       )}
 
-      {detailTabs[tab]?.kind === 'collections' && (
+      {detailTabs[tab]?.kind === 'collections' && entity && (
         <Box
           className={classes.detailsContent}
           style={{ width: '100%', flex: 1 }}
         >
-          <EntityListProvider>
-            <CollectionsListPage filterByRepositoryEntity={entity} />
-          </EntityListProvider>
+          {(() => {
+            const tabContext = {
+              entity,
+              repoUrl: normalizeRepoUrlFromEntity(entity),
+              initialRuleFilter: searchParams.get('rule') ?? undefined,
+              initialCategoryFilter: searchParams.get('category') ?? undefined,
+            };
+            const override = extensionsApi.getCollectionsTabContent(tabContext);
+            if (override) {
+              return (
+                <Suspense fallback={<Typography>Loading…</Typography>}>
+                  {override}
+                </Suspense>
+              );
+            }
+            return (
+              <EntityListProvider>
+                <CollectionsListPage filterByRepositoryEntity={entity} />
+              </EntityListProvider>
+            );
+          })()}
         </Box>
       )}
     </Box>

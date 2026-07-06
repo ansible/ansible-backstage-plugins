@@ -1289,6 +1289,36 @@ paths:
                 items:
                   type: object
 
+  /apme/projects/{projectId}/dependencies:
+    get:
+      operationId: getApmeProjectDependencies
+      summary: Get project dependencies from latest scan
+      description: Returns Ansible collections and Python packages detected during the latest gateway scan for the project.
+      tags:
+        - APME
+      parameters:
+        - name: projectId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Collections and Python packages discovered in the latest scan
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  collections:
+                    type: array
+                    items:
+                      type: object
+                  python_packages:
+                    type: array
+                    items:
+                      type: object
+
   /apme/projects/{projectId}/operation:
     post:
       operationId: triggerApmeOperation

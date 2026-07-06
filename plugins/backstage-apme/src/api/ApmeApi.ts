@@ -33,7 +33,12 @@ import type {
   CreatePullRequestResult,
   ApmePortalSettings,
   ApmeAiStatus,
+  ProjectDependencies,
 } from '@ansible/backstage-apme-common/types';
+import {
+  normalizeGatewayRules,
+  type GatewayRuleRow,
+} from '../utils/gatewayRules';
 
 export interface ApmeScmRequestOptions {
   scmToken?: string;
@@ -58,6 +63,7 @@ export interface ApmeApi {
     projectId: string,
     options?: ApmeViolationsOptions,
   ): Promise<Violation[]>;
+  getProjectDependencies(projectId: string): Promise<ProjectDependencies>;
   getRules(): Promise<Rule[]>;
   triggerScan(projectId: string): Promise<ScanResult>;
   createProject(request: CreateProjectRequest): Promise<Project>;
@@ -184,9 +190,17 @@ export class ApmeApiClient implements ApmeApi {
     return response || [];
   }
 
+  async getProjectDependencies(
+    projectId: string,
+  ): Promise<ProjectDependencies> {
+    return this.fetch<ProjectDependencies>(
+      `/projects/${projectId}/dependencies`,
+    );
+  }
+
   async getRules(): Promise<Rule[]> {
-    const response = await this.fetch<{ items: Rule[] }>('/rules');
-    return response.items || [];
+    const response = await this.fetch<{ items: GatewayRuleRow[] }>('/rules');
+    return normalizeGatewayRules(response.items || []);
   }
 
   async triggerScan(projectId: string): Promise<ScanResult> {

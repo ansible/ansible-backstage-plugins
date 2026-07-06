@@ -21,14 +21,19 @@ import { ApmeEntityTab } from '../ApmeEntityTab';
 export interface EntityQualityTabProps {
   entity: Entity;
   initialRuleFilter?: string;
+  initialCategoryFilter?: string;
 }
 
 /** Git-repository Quality tab with catalog entity context (ADR-010 composition). */
 export const EntityQualityTab = ({
   entity,
   initialRuleFilter,
+  initialCategoryFilter,
 }: EntityQualityTabProps) => (
   <EntityProvider entity={entity}>
-    <ApmeEntityTab initialRuleFilter={initialRuleFilter} />
+    <ApmeEntityTab
+      initialRuleFilter={initialRuleFilter}
+      initialCategoryFilter={initialCategoryFilter}
+    />
   </EntityProvider>
 );

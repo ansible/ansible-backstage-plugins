@@ -28,6 +28,14 @@ export type GitRepositoryDetailTabContext = {
   entity: Entity;
   repoUrl: string | null;
   initialRuleFilter?: string;
+  initialCategoryFilter?: string;
+};
+
+/** Optional slot on the Overview tab (e.g. quality summary card). */
+export type GitRepositoryDetailOverviewSlotDefinition = {
+  id: string;
+  order: number;
+  render: (context: GitRepositoryDetailTabContext) => ReactNode;
 };
 
 /** Optional tab on a git-repository entity detail page. */
@@ -62,6 +70,10 @@ export type GitRepositoryCatalogColumnDefinition = {
 export interface GitRepositoriesExtensionsApi {
   getPageTabs(): GitRepositoriesPageTabDefinition[];
   getDetailTabs(): GitRepositoryDetailTabDefinition[];
+  getDetailOverviewSlots(): GitRepositoryDetailOverviewSlotDefinition[];
+  getCollectionsTabContent(
+    context: GitRepositoryDetailTabContext,
+  ): ReactNode | null;
   getCatalogRowSlots(): GitRepositoryCatalogRowSlotDefinition[];
   getCatalogColumns(): GitRepositoryCatalogColumnDefinition[];
 }
@@ -79,6 +91,16 @@ export class DefaultGitRepositoriesExtensionsApi implements GitRepositoriesExten
 
   getDetailTabs(): GitRepositoryDetailTabDefinition[] {
     return [];
+  }
+
+  getDetailOverviewSlots(): GitRepositoryDetailOverviewSlotDefinition[] {
+    return [];
+  }
+
+  getCollectionsTabContent(
+    _context: GitRepositoryDetailTabContext,
+  ): ReactNode | null {
+    return null;
   }
 
   getCatalogRowSlots(): GitRepositoryCatalogRowSlotDefinition[] {

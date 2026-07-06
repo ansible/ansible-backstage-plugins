@@ -20,6 +20,7 @@
     "./normalizeRepoUrl": "./src/normalizeRepoUrl.ts",
     "./catalogEntity": "./src/catalogEntity.ts",
     "./operationStatus": "./src/operationStatus.ts",
+    "./gatewayRules": "./src/gatewayRules.ts",
     "./package.json": "./package.json"
   },
   "typesVersions": {
@@ -44,6 +45,9 @@
       ],
       "operationStatus": [
         "src/operationStatus.ts"
+      ],
+      "gatewayRules": [
+        "src/gatewayRules.ts"
       ]
     }
   },

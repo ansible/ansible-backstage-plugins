@@ -124,6 +124,13 @@ export async function createRouter(options: RouterOptions): Promise<Router> {
     res.json(violations);
   });
 
+  router.get('/apme/projects/:projectId/dependencies', async (req, res) => {
+    const { projectId } = req.params;
+    logger.debug(`APME dependencies for project ${projectId} requested`);
+    const dependencies = await apmeService.getProjectDependencies(projectId);
+    res.json(dependencies);
+  });
+
   router.post('/apme/projects/:projectId/operation', async (req, res) => {
     await ensureUser(req);
     const { projectId } = req.params;
