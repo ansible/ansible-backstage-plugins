@@ -87,7 +87,7 @@ export class ScmClientFactory {
         );
       // When using per-request getToken, avoid storing the initial installation/PAT
       // snapshot in config.token — it can go stale; getToken re-resolves each time.
-      const token = providedToken ? providedToken : undefined;
+      const token = providedToken ?? undefined;
 
       if (providedToken) {
         this.logger.info(

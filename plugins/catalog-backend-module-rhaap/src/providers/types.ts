@@ -17,7 +17,7 @@ export type AapConfig = {
   checkSSL: boolean;
   schedule?: SchedulerServiceTaskScheduleDefinition;
   organizations: string[];
-  surveyEnabled?: boolean | undefined;
+  surveyEnabled?: boolean;
   jobTemplateLabels?: string[];
   jobTemplateExcludeLabels?: string[];
   /** When set, this config is for a PAH collection sync for the given repository name. */
