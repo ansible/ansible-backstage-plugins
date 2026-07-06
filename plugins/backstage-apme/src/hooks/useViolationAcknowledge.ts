@@ -130,13 +130,15 @@ export function useViolationAcknowledge(
             next.delete(violation.id);
             return next;
           });
-          setOptimisticAcknowledgedIds(prev => {
-            const next = new Set(prev);
-            next.delete(violation.id);
-            return next;
-          });
-          onChanged?.();
         }
+        // Always clear optimistic state — either the suppression was deleted
+        // successfully, or it was already removed by another user.
+        setOptimisticAcknowledgedIds(prev => {
+          const next = new Set(prev);
+          next.delete(violation.id);
+          return next;
+        });
+        onChanged?.();
       } finally {
         setAcknowledgingId(null);
       }

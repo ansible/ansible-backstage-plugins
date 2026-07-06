@@ -47,14 +47,28 @@ function activateOnKey(e: KeyboardEvent, action: () => void): void {
   }
 }
 
-const SOURCE_COLORS: Record<string, { bg: string; color: string }> = {
-  specified: { bg: '#e7f1fa', color: '#0066cc' },
-  dependency: { bg: '#f4f0e6', color: '#795600' },
-  learned: { bg: '#e9f5e9', color: '#3e8635' },
-  galaxy: { bg: '#e7f1fa', color: '#0066cc' },
-  local: { bg: '#f4f0e6', color: '#795600' },
-  git: { bg: '#e9f5e9', color: '#3e8635' },
-};
+function getSourceColors(
+  isDark: boolean,
+): Record<string, { bg: string; color: string }> {
+  if (isDark) {
+    return {
+      specified: { bg: 'rgba(43, 154, 243, 0.12)', color: '#6cb8f7' },
+      dependency: { bg: 'rgba(197, 140, 0, 0.12)', color: '#e6b800' },
+      learned: { bg: 'rgba(62, 134, 53, 0.12)', color: '#7cc576' },
+      galaxy: { bg: 'rgba(43, 154, 243, 0.12)', color: '#6cb8f7' },
+      local: { bg: 'rgba(197, 140, 0, 0.12)', color: '#e6b800' },
+      git: { bg: 'rgba(62, 134, 53, 0.12)', color: '#7cc576' },
+    };
+  }
+  return {
+    specified: { bg: '#e7f1fa', color: '#0066cc' },
+    dependency: { bg: '#f4f0e6', color: '#795600' },
+    learned: { bg: '#e9f5e9', color: '#3e8635' },
+    galaxy: { bg: '#e7f1fa', color: '#0066cc' },
+    local: { bg: '#f4f0e6', color: '#795600' },
+    git: { bg: '#e9f5e9', color: '#3e8635' },
+  };
+}
 
 const useStyles = makeStyles(theme => ({
   root: {
@@ -118,6 +132,10 @@ export interface DependenciesTabProps {
 export const DependenciesTab = ({ context }: DependenciesTabProps) => {
   const classes = useStyles();
   const theme = useTheme();
+  const sourceColors = useMemo(
+    () => getSourceColors(theme.palette.type === 'dark'),
+    [theme.palette.type],
+  );
   const [, setSearchParams] = useSearchParams();
   const [modalTarget, setModalTarget] = useState<ModalTarget>(null);
   const pendingViolationsRefreshRef = useRef(false);
@@ -297,7 +315,7 @@ export const DependenciesTab = ({ context }: DependenciesTabProps) => {
             <tbody>
               {collections.map(c => {
                 const srcStyle =
-                  SOURCE_COLORS[c.source] ?? SOURCE_COLORS.specified;
+                  sourceColors[c.source] ?? sourceColors.specified;
                 const vCount = collectionViolationCount(
                   activeViolations,
                   c,
