@@ -311,7 +311,7 @@ async function handleGitLabLoginOnPage(page: Page): Promise<void> {
   for (let round = 0; round < 5; round++) {
     console.log(`[EE GitLab Test] Login round ${round + 1}, URL:`, page.url());
 
-    if (!page.url().includes('gitlab.com')) {
+    if (new URL(page.url()).hostname !== 'gitlab.com') {
       console.log('[EE GitLab Test] Left GitLab, login complete');
       return;
     }
