@@ -17,11 +17,11 @@ import '@testing-library/jest-dom';
 import 'cross-fetch/polyfill';
 
 // eslint-disable-next-line no-restricted-imports
-import { TextEncoder, TextDecoder } from 'util';
+import { TextEncoder, TextDecoder } from 'node:util';
 import { ReadableStream, WritableStream } from 'web-streams-polyfill';
 
 // Mock browser crypto.subtle.digest method for sha-256 hashing.
-Object.defineProperty(global.self, 'crypto', {
+Object.defineProperty(globalThis.self, 'crypto', {
   value: {
     subtle: {
       digest: (_algo: string, data: Uint8Array): ArrayBuffer => data.buffer,
@@ -30,17 +30,17 @@ Object.defineProperty(global.self, 'crypto', {
 });
 
 // Also used in browser-based APIs for hashing.
-Object.defineProperty(global.self, 'TextEncoder', {
+Object.defineProperty(globalThis.self, 'TextEncoder', {
   value: TextEncoder,
 });
 
-Object.defineProperty(global.self, 'TextDecoder', {
+Object.defineProperty(globalThis.self, 'TextDecoder', {
   value: TextDecoder,
 });
 
-Object.defineProperty(global.self, 'ReadableStream', {
+Object.defineProperty(globalThis.self, 'ReadableStream', {
   value: ReadableStream,
 });
-Object.defineProperty(global.self, 'WritableStream', {
+Object.defineProperty(globalThis.self, 'WritableStream', {
   value: WritableStream,
 });

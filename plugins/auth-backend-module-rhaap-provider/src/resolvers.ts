@@ -122,7 +122,7 @@ export namespace AAPAuthSignInResolvers {
           const { result } = info;
           const username = result.fullProfile.username;
           const userID = Number(result.fullProfile.id);
-          if (!username || !result.fullProfile.id || isNaN(userID)) {
+          if (!username || !result.fullProfile.id || Number.isNaN(userID)) {
             throw new AuthenticationError(
               `Oauth2 user profile does not contain a username or user ID`,
             );

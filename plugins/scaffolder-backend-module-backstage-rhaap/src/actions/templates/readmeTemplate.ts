@@ -98,7 +98,7 @@ export function generateReadme(
   const pythonRequirements = values.pythonRequirements || [];
   const systemPackages = values.systemPackages || [];
 
-  const BACKSLASH = String.fromCharCode(92);
+  const BACKSLASH = String.fromCodePoint(92);
   const ESCAPED_BACKSLASH = String.raw`\\`;
   const ESCAPED_PIPE = String.raw`\|`;
 

@@ -26,7 +26,7 @@ export function parseUploadedFileContent(dataUrl: string): string {
   let decodedContent = '';
 
   if (typeof dataUrl === 'string' && dataUrl.includes('base64,')) {
-    const matches = dataUrl.match(/^data:(.*?);base64,(.*)$/);
+    const matches = /^data:(.*?);base64,(.*)$/.exec(dataUrl);
     if (!matches) {
       throw new Error('Invalid data URL format for the file uploaded');
     }
