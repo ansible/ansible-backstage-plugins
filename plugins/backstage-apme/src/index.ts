@@ -40,6 +40,7 @@ export { EntityQualityTab as ApmeEntityQualityTabComponent } from './components/
 export { ApmeRepositoryOverviewCard as ApmeRepositoryOverviewCardComponent } from './components/ApmeRepositoryOverviewCard/ApmeRepositoryOverviewCard';
 export { DependenciesTab as ApmeDependenciesTabComponent } from './components/DependenciesTab/DependenciesTab';
 export { ApmeRepositoryCollectionsTab as ApmeRepositoryCollectionsTabComponent } from './components/ApmeRepositoryCollectionsTab/ApmeRepositoryCollectionsTab';
+export { ApmeRepositoryHeaderActions as ApmeRepositoryHeaderActionsComponent } from './components/ApmeRepositoryHeaderActions/ApmeRepositoryHeaderActions';
 export type { FleetQualityTabProps as ApmeFleetQualityTabProps } from './components/FleetQualityTab';
 export { PreviewChip as PreviewChipComponent } from './components/PreviewChip';
 export { ApmeEnabledEntityLayoutRoute as ApmeEnabledEntityLayoutRouteComponent } from './components/ApmeEnabledEntityLayoutRoute';

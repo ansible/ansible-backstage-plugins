@@ -49,23 +49,27 @@ export function inferCategoryFromRuleId(ruleId: string): string | undefined {
   return undefined;
 }
 
+export function isDependencyHealthViolation(v: Violation): boolean {
+  return (
+    v.validator_source === 'dep_audit' ||
+    v.validator_source === 'collection_health'
+  );
+}
+
 export function getViolationCategory(
   v: Violation,
   rulesById?: RulesById,
 ): string {
   if (v.category) return normalizeApmeCategory(v.category);
+  // Dependency-health findings reuse lint/risk rule IDs (R108, R200, M005, …) but
+  // must classify as dependencies — match standalone APME UI (DependencyHealthOutput).
+  if (isDependencyHealthViolation(v)) return 'dependencies';
   const ruleId = normalizeRuleId(v.rule_id);
   const fromRule = rulesById?.get(ruleId) ?? rulesById?.get(v.rule_id);
   if (fromRule?.category) return normalizeApmeCategory(fromRule.category);
   const inferred = inferCategoryFromRuleId(v.rule_id);
   if (inferred) return inferred;
   if (v.validator_source === 'gitleaks') return 'secrets';
-  if (
-    v.validator_source === 'dep_audit' ||
-    v.validator_source === 'collection_health'
-  ) {
-    return 'dependencies';
-  }
   if (v.validator_source === 'opa') return 'policy';
   return 'lint';
 }
@@ -123,7 +127,9 @@ export function dependencyViolations(
   rulesById?: RulesById,
 ): Violation[] {
   return violations.filter(
-    v => getViolationCategory(v, rulesById) === 'dependencies',
+    v =>
+      isDependencyHealthViolation(v) ||
+      getViolationCategory(v, rulesById) === 'dependencies',
   );
 }
 
@@ -132,28 +138,36 @@ export function violationsForCollection(
   fqcn: string,
   rulesById?: RulesById,
 ): Violation[] {
-  const dep = dependencyViolations(violations, rulesById);
-  return dep.filter(
-    v =>
+  return violations.filter(v => {
+    if (v.validator_source === 'collection_health') {
+      return (v.path ?? '') === fqcn || (v.path?.includes(fqcn) ?? false);
+    }
+    if (!isDependencyHealthViolation(v)) {
+      if (getViolationCategory(v, rulesById) !== 'dependencies') return false;
+    }
+    return (
       v.message.includes(fqcn) ||
       v.file.includes(fqcn) ||
-      (v.path?.includes(fqcn) ?? false),
-  );
+      (v.path?.includes(fqcn) ?? false)
+    );
+  });
 }
 
 export function violationsForPythonPackage(
   violations: Violation[],
   packageName: string,
-  rulesById?: RulesById,
+  _rulesById?: RulesById,
 ): Violation[] {
-  const dep = dependencyViolations(violations, rulesById);
   const needle = packageName.toLowerCase();
-  return dep.filter(
-    v =>
-      v.validator_source === 'dep_audit' &&
-      (v.message.toLowerCase().includes(needle) ||
-        v.file.toLowerCase().includes(needle)),
-  );
+  return violations.filter(v => {
+    if (v.validator_source !== 'dep_audit') return false;
+    const msg = v.message.toLowerCase();
+    return (
+      msg.startsWith(`${needle}==`) ||
+      msg.includes(needle) ||
+      v.file.toLowerCase().includes(needle)
+    );
+  });
 }
 
 export function collectionViolationCount(

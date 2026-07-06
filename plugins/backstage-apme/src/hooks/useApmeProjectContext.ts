@@ -36,6 +36,8 @@ export interface ApmeProjectContext {
   dependenciesLoading: boolean;
   error: Error | undefined;
   refresh: () => void;
+  /** Refetch violations/rules/deps without re-loading the project record. */
+  refreshViolations: () => void;
   registerAndScan: () => Promise<void>;
   registering: boolean;
   registerError: Error | null;
@@ -78,10 +80,14 @@ export function useApmeProjectContext(entity: Entity): ApmeProjectContext {
       return apmeApi.getProjectDependencies(project.id);
     }, [project?.id, project?.scan_count, apmeApi, refreshKey]);
 
-  const refresh = useCallback(() => {
+  const refreshViolations = useCallback(() => {
     setRefreshKey(k => k + 1);
+  }, []);
+
+  const refresh = useCallback(() => {
+    refreshViolations();
     retryProject();
-  }, [retryProject]);
+  }, [refreshViolations, retryProject]);
 
   const registerAndScan = useCallback(async () => {
     if (!repoUrl) return;
@@ -123,6 +129,7 @@ export function useApmeProjectContext(entity: Entity): ApmeProjectContext {
     dependenciesLoading,
     error,
     refresh,
+    refreshViolations,
     registerAndScan,
     registering,
     registerError,

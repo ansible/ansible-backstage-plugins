@@ -20,6 +20,7 @@ import {
   type GitRepositoriesExtensionsApi,
   type GitRepositoryCatalogRowContext,
   type GitRepositoryDetailTabContext,
+  type GitRepositoryDetailHeaderMenuContext,
   type GitRepositoriesPageTabContext,
   type GitRepositoryCatalogColumnDefinition,
 } from '@ansible/backstage-rhaap-common/gitRepositoriesExtensions';
@@ -75,6 +76,12 @@ const LazyApmeRepositoryCollectionsTab = lazy(() =>
 const LazyApmeRepoStatusChip = lazy(() =>
   import('@ansible/plugin-backstage-apme').then(module => ({
     default: module.ApmeRepoStatusChipComponent,
+  })),
+);
+
+const LazyApmeRepositoryHeaderActions = lazy(() =>
+  import('@ansible/plugin-backstage-apme').then(module => ({
+    default: module.ApmeRepositoryHeaderActionsComponent,
   })),
 );
 
@@ -324,6 +331,23 @@ class ApmeGitRepositoriesExtensionsApi
         render: (ctx: GitRepositoryDetailTabContext) => (
           <Suspense fallback={null}>
             <LazyApmeRepositoryOverviewCard context={ctx} />
+          </Suspense>
+        ),
+      },
+    ];
+  }
+
+  getDetailHeaderMenuItems() {
+    return [
+      {
+        id: 'apme-header-actions',
+        order: 10,
+        render: (ctx: GitRepositoryDetailHeaderMenuContext) => (
+          <Suspense fallback={null}>
+            <LazyApmeRepositoryHeaderActions
+              context={ctx}
+              onCloseMenu={ctx.onCloseMenu}
+            />
           </Suspense>
         ),
       },

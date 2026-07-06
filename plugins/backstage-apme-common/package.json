@@ -21,6 +21,7 @@
     "./catalogEntity": "./src/catalogEntity.ts",
     "./operationStatus": "./src/operationStatus.ts",
     "./gatewayRules": "./src/gatewayRules.ts",
+    "./scanTargetDefaults": "./src/scanTargetDefaults.ts",
     "./package.json": "./package.json"
   },
   "typesVersions": {
@@ -48,6 +49,9 @@
       ],
       "gatewayRules": [
         "src/gatewayRules.ts"
+      ],
+      "scanTargetDefaults": [
+        "src/scanTargetDefaults.ts"
       ]
     }
   },

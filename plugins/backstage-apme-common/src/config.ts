@@ -16,6 +16,9 @@
 
 import { Config } from '@backstage/config';
 import { ApmeConfig } from './types';
+import { DEFAULT_APME_TARGET_ANSIBLE_CORE_VERSION } from './scanTargetDefaults';
+
+export { DEFAULT_APME_TARGET_ANSIBLE_CORE_VERSION } from './scanTargetDefaults';
 
 /** Reads APME config from `ansible.apme` (ADR-011). */
 export function getApmeConfig(config: Config): ApmeConfig {
@@ -28,6 +31,7 @@ export function getApmeConfig(config: Config): ApmeConfig {
       checkSSL: false,
       enableAi: false,
       publishViaGateway: false,
+      targetAnsibleCoreVersion: DEFAULT_APME_TARGET_ANSIBLE_CORE_VERSION,
     };
   }
 
@@ -38,6 +42,9 @@ export function getApmeConfig(config: Config): ApmeConfig {
     enableAi: apmeConfig.getOptionalBoolean('enableAi') ?? false,
     publishViaGateway:
       apmeConfig.getOptionalBoolean('publishViaGateway') ?? false,
+    targetAnsibleCoreVersion:
+      apmeConfig.getOptionalString('targetAnsibleCoreVersion') ??
+      DEFAULT_APME_TARGET_ANSIBLE_CORE_VERSION,
   };
 }
 

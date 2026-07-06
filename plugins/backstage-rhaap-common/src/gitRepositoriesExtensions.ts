@@ -31,6 +31,18 @@ export type GitRepositoryDetailTabContext = {
   initialCategoryFilter?: string;
 };
 
+/** Context for optional header action menu items on repository detail. */
+export type GitRepositoryDetailHeaderMenuContext =
+  GitRepositoryDetailTabContext & {
+    onCloseMenu: () => void;
+  };
+
+export type GitRepositoryDetailHeaderMenuItemDefinition = {
+  id: string;
+  order: number;
+  render: (context: GitRepositoryDetailHeaderMenuContext) => ReactNode;
+};
+
 /** Optional slot on the Overview tab (e.g. quality summary card). */
 export type GitRepositoryDetailOverviewSlotDefinition = {
   id: string;
@@ -71,6 +83,7 @@ export interface GitRepositoriesExtensionsApi {
   getPageTabs(): GitRepositoriesPageTabDefinition[];
   getDetailTabs(): GitRepositoryDetailTabDefinition[];
   getDetailOverviewSlots(): GitRepositoryDetailOverviewSlotDefinition[];
+  getDetailHeaderMenuItems(): GitRepositoryDetailHeaderMenuItemDefinition[];
   getCollectionsTabContent(
     context: GitRepositoryDetailTabContext,
   ): ReactNode | null;
@@ -94,6 +107,10 @@ export class DefaultGitRepositoriesExtensionsApi implements GitRepositoriesExten
   }
 
   getDetailOverviewSlots(): GitRepositoryDetailOverviewSlotDefinition[] {
+    return [];
+  }
+
+  getDetailHeaderMenuItems(): GitRepositoryDetailHeaderMenuItemDefinition[] {
     return [];
   }
 

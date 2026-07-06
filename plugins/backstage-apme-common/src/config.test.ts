@@ -28,6 +28,7 @@ describe('getApmeConfig', () => {
       checkSSL: false,
       enableAi: false,
       publishViaGateway: false,
+      targetAnsibleCoreVersion: '2.16',
     });
   });
 
@@ -55,6 +56,7 @@ describe('getApmeConfig', () => {
       checkSSL: false,
       enableAi: false,
       publishViaGateway: false,
+      targetAnsibleCoreVersion: '2.16',
     });
   });
 
