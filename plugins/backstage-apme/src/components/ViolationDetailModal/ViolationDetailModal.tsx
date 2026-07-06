@@ -158,7 +158,7 @@ export const ViolationDetailModal = ({
           <CloseIcon />
         </IconButton>
       </Box>
-      <Box ref={bodyRef} className={classes.body}>
+      <div ref={bodyRef} className={classes.body}>
         {displayViolations.map(v => {
           const sev = normalizeSeverity(v.level);
           const style = SEVERITY_STYLES[sev];
@@ -246,7 +246,7 @@ export const ViolationDetailModal = ({
             No violations to display.
           </Typography>
         )}
-      </Box>
+      </div>
     </Dialog>
   );
 };
