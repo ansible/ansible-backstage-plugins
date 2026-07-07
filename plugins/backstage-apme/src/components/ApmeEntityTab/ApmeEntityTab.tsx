@@ -81,6 +81,7 @@ import {
 import { buildDevSpacesUrlFromRepoUrl } from '@ansible/backstage-rhaap-common/devSpaces';
 import { apmeApiRef } from '../../api';
 import { useApmeAiEnabled, useApmeAiStatus } from '../../hooks/useApmeEnabled';
+import { useApmeScanTargetLabel } from '../../hooks/useApmeScanTargetLabel';
 import { ApmeViolationsTable } from '../ApmeViolationsTable';
 import { EditInDevSpacesButton } from '../EditInDevSpacesButton';
 import { QualityWorkflowStepper } from '../QualityWorkflowStepper';
@@ -88,6 +89,12 @@ import type { RemediationStep } from '../RemediationStepper';
 import { FixProgressBanner } from '../FixProgressBanner';
 import { DiffView } from '../DiffView';
 import { PrStatusBanner } from '../PrStatusBanner';
+import { buildRulesById } from '../../utils/gatewayRules';
+import { getViolationCategory } from '../../utils/violationAnalytics';
+import { ScanHistoryView } from '../ScanHistoryView';
+import type { Activity } from '@ansible/backstage-apme-common/types';
+import HistoryIcon from '@material-ui/icons/History';
+import { useViolationAcknowledge } from '../../hooks/useViolationAcknowledge';
 
 const ENTITY_VIOLATIONS_LIMIT = 500;
 
@@ -145,14 +152,14 @@ const useStyles = makeStyles(theme => ({
     height: 6,
     borderRadius: 3,
     overflow: 'hidden',
-    marginBottom: theme.spacing(1),
+    marginBottom: theme.spacing(2),
     width: '100%',
     maxWidth: 480,
   },
   sevBar: {
     display: 'flex',
     gap: 12,
-    marginBottom: theme.spacing(2),
+    marginBottom: theme.spacing(1),
     flexWrap: 'wrap',
     alignItems: 'center',
   },
@@ -191,10 +198,14 @@ const useStyles = makeStyles(theme => ({
     gap: theme.spacing(2),
     padding: theme.spacing(1.5, 2),
     marginBottom: theme.spacing(2),
-    backgroundColor: '#e7f1fa',
-    border: '1px solid #b8daff',
+    backgroundColor:
+      theme.palette.type === 'dark' ? 'rgba(43, 154, 243, 0.08)' : '#e7f1fa',
+    border: `1px solid ${
+      theme.palette.type === 'dark' ? 'rgba(43, 154, 243, 0.25)' : '#b8daff'
+    }`,
     borderRadius: theme.shape.borderRadius,
     flexWrap: 'wrap',
+    color: theme.palette.text.primary,
   },
   progressBanner: {
     padding: theme.spacing(1.5, 2),
@@ -232,26 +243,34 @@ const useStyles = makeStyles(theme => ({
   infoBanner: {
     padding: theme.spacing(1.5, 2),
     marginBottom: theme.spacing(2),
-    backgroundColor: '#e7f1fa',
-    border: '1px solid #b8daff',
+    backgroundColor:
+      theme.palette.type === 'dark' ? 'rgba(43, 154, 243, 0.08)' : '#e7f1fa',
+    border: `1px solid ${
+      theme.palette.type === 'dark' ? 'rgba(43, 154, 243, 0.25)' : '#b8daff'
+    }`,
     borderRadius: theme.shape.borderRadius,
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'space-between',
     gap: theme.spacing(2),
     flexWrap: 'wrap',
+    color: theme.palette.text.primary,
   },
   remediationErrorBanner: {
     padding: theme.spacing(1.5, 2),
     marginBottom: theme.spacing(2),
-    backgroundColor: '#fdeaea',
-    border: '1px solid #f5c2c7',
+    backgroundColor:
+      theme.palette.type === 'dark' ? 'rgba(201, 25, 11, 0.12)' : '#fdeaea',
+    border: `1px solid ${
+      theme.palette.type === 'dark' ? 'rgba(201, 25, 11, 0.35)' : '#f5c2c7'
+    }`,
     borderRadius: theme.shape.borderRadius,
     display: 'flex',
     alignItems: 'flex-start',
     justifyContent: 'space-between',
     gap: theme.spacing(2),
     flexWrap: 'wrap',
+    color: theme.palette.text.primary,
   },
   dot: { color: theme.palette.text.disabled, margin: '0 4px' },
 }));
@@ -358,17 +377,6 @@ function filterTier1ByViolationIds(
   };
 }
 
-function getViolationCategory(v: Violation): string {
-  if (v.category) return v.category;
-  if (v.validator_source === 'gitleaks') return 'secrets';
-  if (
-    v.validator_source === 'dep_audit' ||
-    v.validator_source === 'collection_health'
-  )
-    return 'dependencies';
-  return 'lint';
-}
-
 const CATEGORIES = [
   'all',
   'lint',
@@ -387,10 +395,12 @@ const SEV_ORDER: SeverityLevel[] = [
 
 export interface ApmeEntityTabProps {
   initialRuleFilter?: string;
+  initialCategoryFilter?: string;
 }
 
 export const ApmeEntityTab = ({
   initialRuleFilter,
+  initialCategoryFilter,
 }: ApmeEntityTabProps = {}) => {
   const classes = useStyles();
   const theme = useTheme();
@@ -413,7 +423,9 @@ export const ApmeEntityTab = ({
   const [registering, setRegistering] = useState(false);
   const [registerError, setRegisterError] = useState<Error | null>(null);
   const [refreshKey, setRefreshKey] = useState(0);
-  const [activeCategory, setActiveCategory] = useState<string>('all');
+  const [activeCategory, setActiveCategory] = useState<string>(
+    initialCategoryFilter ?? 'all',
+  );
   const [categoryMenuAnchor, setCategoryMenuAnchor] =
     useState<null | HTMLElement>(null);
   const [ruleFilter, setRuleFilter] = useState<string | null>(
@@ -452,6 +464,8 @@ export const ApmeEntityTab = ({
   const [tier1Result, setTier1Result] = useState<Tier1RemediationResult | null>(
     null,
   );
+  const [showScanHistory, setShowScanHistory] = useState(false);
+  const [showAcknowledgedOnly, setShowAcknowledgedOnly] = useState(false);
   const generatedViolationIdsRef = useRef<Set<number>>(new Set());
 
   const repoUrl = normalizeRepoUrlFromEntity(entity);
@@ -476,6 +490,29 @@ export const ApmeEntityTab = ({
       return sortAutoFixFirst(loaded);
     }, [project?.id, refreshKey, apmeApi]);
 
+  const { value: rules = [] } = useAsyncRetry(
+    async () => apmeApi.getRules(),
+    [apmeApi],
+  );
+
+  const { value: scanHistory = [] } = useAsyncRetry(async (): Promise<
+    Activity[]
+  > => {
+    if (!project?.id) return [];
+    return apmeApi.getActivity(project.id);
+  }, [project?.id, refreshKey, apmeApi]);
+
+  const { value: dependencies } = useAsyncRetry(async () => {
+    if (!project?.id) return null;
+    return apmeApi.getProjectDependencies(project.id);
+  }, [project?.id, refreshKey, apmeApi]);
+
+  const scanTargetLabel = useApmeScanTargetLabel(
+    dependencies?.ansible_core_version,
+  );
+
+  const rulesById = useMemo(() => buildRulesById(rules), [rules]);
+
   const autoFixCount = useMemo(
     () =>
       violations.filter(
@@ -495,6 +532,12 @@ export const ApmeEntityTab = ({
       setFixTypeFilter('all');
     }
   }, [initialRuleFilter]);
+
+  useEffect(() => {
+    if (initialCategoryFilter) {
+      setActiveCategory(initialCategoryFilter);
+    }
+  }, [initialCategoryFilter]);
 
   // Auto-select all auto-fix violations when violations load
   const autoSelectedRef = useRef(false);
@@ -562,13 +605,18 @@ export const ApmeEntityTab = ({
       return undefined;
     }
 
+    let cancelled = false;
     let pollCount = 0;
     const maxPolls = 180;
+    const projectId = project.id;
 
     const pollInterval = setInterval(async () => {
+      if (cancelled) return;
       pollCount += 1;
       try {
-        const state = await apmeApi.getOperationState(project.id);
+        const state = await apmeApi.getOperationState(projectId);
+        if (cancelled) return;
+
         const progressMessage = latestOperationProgressMessage(state);
         if (progressMessage) {
           setScanProgress({
@@ -599,6 +647,7 @@ export const ApmeEntityTab = ({
               violationsFound: state?.result?.total_violations,
             });
             setTimeout(() => {
+              if (cancelled) return;
               retry();
               setRefreshKey(k => k + 1);
               setScanProgress(null);
@@ -606,6 +655,7 @@ export const ApmeEntityTab = ({
           }
         }
       } catch {
+        if (cancelled) return;
         clearInterval(pollInterval);
         setScanning(false);
         setExpectActiveScan(false);
@@ -621,18 +671,25 @@ export const ApmeEntityTab = ({
       }
     }, 2000);
 
-    return () => clearInterval(pollInterval);
+    return () => {
+      cancelled = true;
+      clearInterval(pollInterval);
+    };
   }, [scanning, project?.id, apmeApi, retry, expectActiveScan]);
 
   // Poll remediation operation
   useEffect(() => {
     if (remediationStep !== 'generate' || !project?.id) return undefined;
+    let cancelled = false;
     let pollCount = 0;
     const maxPolls = 180;
+    const projectId = project.id;
     const pollInterval = setInterval(async () => {
+      if (cancelled) return;
       pollCount += 1;
       try {
-        const state = await apmeApi.getOperationState(project.id);
+        const state = await apmeApi.getOperationState(projectId);
+        if (cancelled) return;
         const progressMessage =
           latestOperationProgressMessage(state) ?? 'Generating fixes…';
         const progressPct = latestOperationProgressPercent(state);
@@ -668,7 +725,8 @@ export const ApmeEntityTab = ({
             setRemediationStep('review');
             setRemediationError(null);
             try {
-              const activity = await apmeApi.getActivity(project.id);
+              const activity = await apmeApi.getActivity(projectId);
+              if (cancelled) return;
               const latestId = activity[0]?.scan_id;
               if (latestId) setRemediationActivityId(latestId);
             } catch {
@@ -685,7 +743,8 @@ export const ApmeEntityTab = ({
             setRemediationStep('review');
             setRemediationError(null);
             try {
-              const activity = await apmeApi.getActivity(project.id);
+              const activity = await apmeApi.getActivity(projectId);
+              if (cancelled) return;
               const latestId = activity[0]?.scan_id;
               if (latestId) setRemediationActivityId(latestId);
             } catch {
@@ -702,13 +761,17 @@ export const ApmeEntityTab = ({
           }
         }
       } catch (err) {
+        if (cancelled) return;
         clearInterval(pollInterval);
         setFixProgress(null);
         setRemediationError(err as Error);
         setRemediationStep('select');
       }
     }, 2000);
-    return () => clearInterval(pollInterval);
+    return () => {
+      cancelled = true;
+      clearInterval(pollInterval);
+    };
   }, [remediationStep, project?.id, apmeApi, violations]);
 
   const selectedFixableIds = useMemo(() => {
@@ -953,6 +1016,22 @@ export const ApmeEntityTab = ({
     }
   }, [apmeApi, entity, repoUrl, branch, retry]);
 
+  const refreshViolations = useCallback(() => {
+    setRefreshKey(k => k + 1);
+  }, []);
+
+  const {
+    acknowledge: handleAcknowledge,
+    unacknowledge: handleUnacknowledge,
+    acknowledgingId,
+    isAcknowledged,
+  } = useViolationAcknowledge(project?.id, refreshViolations, violations);
+
+  const acknowledgedCount = useMemo(
+    () => violations.filter(v => isAcknowledged(v)).length,
+    [violations, isAcknowledged],
+  );
+
   if (loading)
     return (
       <Content>
@@ -1044,7 +1123,7 @@ export const ApmeEntityTab = ({
     if (ft === 'auto') autoFix++;
     else if (ft === 'ai') aiAssisted++;
     else manual++;
-    const cat = getViolationCategory(v);
+    const cat = getViolationCategory(v, rulesById);
     catCounts[cat] = (catCounts[cat] ?? 0) + 1;
   }
 
@@ -1077,7 +1156,8 @@ export const ApmeEntityTab = ({
     .filter(v => !ruleFilter || v.rule_id === ruleFilter)
     .filter(
       v =>
-        activeCategory === 'all' || getViolationCategory(v) === activeCategory,
+        activeCategory === 'all' ||
+        getViolationCategory(v, rulesById) === activeCategory,
     )
     .filter(
       v =>
@@ -1279,7 +1359,7 @@ export const ApmeEntityTab = ({
           <Box display="flex" alignItems="center" style={{ gap: 8 }}>
             <WarningIcon style={{ color: '#795600', fontSize: 18 }} />
             <Typography variant="body2" style={{ color: '#795600' }}>
-              Content found incompatible with AAP 2.7, on last quality scan
+              Content incompatible with {scanTargetLabel} on last quality scan
             </Typography>
           </Box>
           <Button
@@ -1298,628 +1378,702 @@ export const ApmeEntityTab = ({
       )}
 
       {/* Scan toolbar */}
-      <div className={classes.scanToolbar}>
-        <div className={classes.scanMeta}>
-          <Typography
-            variant="body2"
-            color="textSecondary"
-            style={{ fontSize: 12 }}
-          >
-            Last quality scan · {lastChecked}
-          </Typography>
-          <Tooltip title="Scans run automatically on push. Use Scan to trigger a manual check.">
-            <HelpOutlineIcon
-              style={{ fontSize: 16, color: '#6a6e73', cursor: 'help' }}
-            />
-          </Tooltip>
-        </div>
-        <div className={classes.scanActions}>
-          <Button
-            size="small"
-            variant="outlined"
-            className={classes.pillScan}
-            startIcon={scanning ? <CircularProgress size={14} /> : <ScanIcon />}
-            onClick={handleScan}
-            disabled={scanning}
-          >
-            {scanning ? 'Scanning…' : 'Scan'}
-          </Button>
-        </div>
-      </div>
-
-      {ruleFilter && (
-        <Paper className={classes.ruleBanner} elevation={0}>
-          <Box
-            display="flex"
-            alignItems="center"
-            style={{ gap: 8, flexWrap: 'wrap' }}
-          >
-            <Typography variant="body2" style={{ fontSize: 13 }}>
-              Showing violations for rule{' '}
-              <strong style={{ fontFamily: 'monospace' }}>{ruleFilter}</strong>
-              {initialRuleFilter ? ' (from Fleet)' : ''}
-            </Typography>
-            <Typography variant="caption" color="textSecondary">
-              {filteredViolations.length} of {violationTotal} violations
-              {ruleFilter
-                ? ` · ${ruleAutoFixCount} auto-fix${enableAi && ruleAiCount > 0 ? ` · ${ruleAiCount} AI` : ''}${ruleManualCount > 0 ? ` · ${ruleManualCount} manual` : ''}`
-                : ''}
-            </Typography>
-          </Box>
-          <Box display="flex" style={{ gap: 8 }}>
-            <Button
-              size="small"
-              variant="text"
-              startIcon={<CloseIcon style={{ fontSize: 16 }} />}
-              onClick={() => setRuleFilter(null)}
-            >
-              Clear filter
-            </Button>
-            {filteredViolations.length < violationTotal && (
+      {showScanHistory ? (
+        <ScanHistoryView
+          activity={scanHistory}
+          scanning={scanning}
+          onBack={() => setShowScanHistory(false)}
+          onScan={handleScan}
+        />
+      ) : (
+        <>
+          <div className={classes.scanToolbar}>
+            <div className={classes.scanMeta}>
+              <Typography
+                variant="body2"
+                color="textSecondary"
+                style={{ fontSize: 12 }}
+              >
+                Last quality scan · {lastChecked}
+              </Typography>
+              <Tooltip title="Scans run automatically on push. Use Scan to trigger a manual check.">
+                <HelpOutlineIcon
+                  style={{ fontSize: 16, color: '#6a6e73', cursor: 'help' }}
+                />
+              </Tooltip>
+              {scanHistory.length > 0 && (
+                <Button
+                  size="small"
+                  variant="text"
+                  startIcon={<HistoryIcon style={{ fontSize: 16 }} />}
+                  onClick={() => setShowScanHistory(true)}
+                  style={{ textTransform: 'none', fontSize: 12, marginLeft: 8 }}
+                >
+                  Scan history ({scanHistory.length})
+                </Button>
+              )}
+            </div>
+            <div className={classes.scanActions}>
               <Button
                 size="small"
                 variant="outlined"
-                color="primary"
-                onClick={() => setRuleFilter(null)}
+                className={classes.pillScan}
+                startIcon={
+                  scanning ? <CircularProgress size={14} /> : <ScanIcon />
+                }
+                onClick={handleScan}
+                disabled={scanning}
               >
-                View all {violationTotal} violations →
+                {scanning ? 'Scanning…' : 'Scan'}
               </Button>
-            )}
-          </Box>
-        </Paper>
-      )}
-
-      {/* Scan progress */}
-      {scanning && scanProgress && !scanError && (
-        <Paper className={classes.progressBanner} elevation={1}>
-          <LinearProgress
-            variant={
-              scanProgress?.progress !== undefined
-                ? 'determinate'
-                : 'indeterminate'
-            }
-            value={scanProgress?.progress}
-          />
-          <div className={classes.progressText}>
-            <Typography variant="caption" color="textSecondary">
-              {scanProgress?.message || 'Initializing…'}
-            </Typography>
-            {scanProgress?.violationsFound !== undefined && (
-              <Typography variant="caption">
-                {scanProgress.violationsFound} violations found
-              </Typography>
-            )}
+            </div>
           </div>
-        </Paper>
-      )}
 
-      {scanError && (
-        <Paper
-          elevation={0}
-          variant="outlined"
-          style={{
-            backgroundColor: '#fdeaea',
-            borderColor: '#f5c2c7',
-            padding: 16,
-            marginBottom: 16,
-          }}
-        >
-          <Typography
-            variant="subtitle2"
-            style={{ color: '#c9190b', marginBottom: 4 }}
-          >
-            Scan failed
-          </Typography>
-          <Typography variant="body2">
-            {isApmeConnectionError(scanError.message)
-              ? APME_GATEWAY_UNAVAILABLE_MESSAGE
-              : scanError.message}
-          </Typography>
-        </Paper>
-      )}
-      {remediationError && (
-        <Paper className={classes.remediationErrorBanner} elevation={0}>
-          <Typography
-            variant="subtitle2"
-            style={{ color: '#c9190b', marginBottom: 4 }}
-          >
-            No automated patches
-          </Typography>
-          <Typography variant="body2">{remediationError.message}</Typography>
-        </Paper>
-      )}
-
-      {violations.length > 0 && (
-        <QualityWorkflowStepper activeStep={remediationStep} />
-      )}
-
-      {fixProgress && (
-        <FixProgressBanner
-          message={fixProgress.message}
-          progress={fixProgress.progress}
-        />
-      )}
-
-      {remediationStep === 'review' &&
-        tier1Result &&
-        visibleProposals.length === 0 && (
-          <Paper className={classes.reviewPanel} elevation={1}>
-            <Typography variant="subtitle2" gutterBottom>
-              Auto-generated fixes ready
-            </Typography>
-            <Typography variant="body2" color="textSecondary" paragraph>
-              {tier1Result.remediatedCount} finding
-              {tier1Result.remediatedCount !== 1 ? 's were' : ' was'}{' '}
-              transformed. Push the branch and open in Dev Spaces to review
-              changes and commit.
-            </Typography>
-            {tier1Result.fixedViolations.length > 0 && (
-              <Box mb={2}>
-                <Typography
-                  variant="body2"
-                  style={{ fontWeight: 600, marginBottom: 8 }}
-                >
-                  Findings addressed
+          {ruleFilter && (
+            <Paper className={classes.ruleBanner} elevation={0}>
+              <Box
+                display="flex"
+                alignItems="center"
+                style={{ gap: 8, flexWrap: 'wrap' }}
+              >
+                <Typography variant="body2" style={{ fontSize: 13 }}>
+                  Showing violations for rule{' '}
+                  <strong style={{ fontFamily: 'monospace' }}>
+                    {ruleFilter}
+                  </strong>
+                  {initialRuleFilter ? ' (from Fleet)' : ''}
                 </Typography>
-                {tier1Result.fixedViolations.map((fv, idx) => (
-                  <Typography
-                    key={`${fv.rule_id}-${fv.file}-${fv.line ?? idx}`}
-                    variant="body2"
-                  >
-                    {fv.rule_id} · {fv.file}
-                    {fv.line !== undefined && fv.line !== null
-                      ? `:${fv.line}`
-                      : ''}
-                    {fv.message ? ` — ${fv.message}` : ''}
-                  </Typography>
-                ))}
+                <Typography variant="caption" color="textSecondary">
+                  {filteredViolations.length} of {violationTotal} violations
+                  {ruleFilter
+                    ? ` · ${ruleAutoFixCount} auto-fix${enableAi && ruleAiCount > 0 ? ` · ${ruleAiCount} AI` : ''}${ruleManualCount > 0 ? ` · ${ruleManualCount} manual` : ''}`
+                    : ''}
+                </Typography>
               </Box>
-            )}
-            {tier1Result.patches.length > 0 && (
-              <Box>
-                <Typography
-                  variant="body2"
-                  style={{ fontWeight: 600, marginBottom: 8 }}
+              <Box display="flex" style={{ gap: 8 }}>
+                <Button
+                  size="small"
+                  variant="text"
+                  startIcon={<CloseIcon style={{ fontSize: 16 }} />}
+                  onClick={() => setRuleFilter(null)}
                 >
-                  File changes
+                  Clear filter
+                </Button>
+                {filteredViolations.length < violationTotal && (
+                  <Button
+                    size="small"
+                    variant="outlined"
+                    color="primary"
+                    onClick={() => setRuleFilter(null)}
+                  >
+                    View all {violationTotal} violations →
+                  </Button>
+                )}
+              </Box>
+            </Paper>
+          )}
+
+          {/* Scan progress */}
+          {scanning && scanProgress && !scanError && (
+            <Paper className={classes.progressBanner} elevation={1}>
+              <LinearProgress
+                variant={
+                  scanProgress?.progress !== undefined
+                    ? 'determinate'
+                    : 'indeterminate'
+                }
+                value={scanProgress?.progress}
+              />
+              <div className={classes.progressText}>
+                <Typography variant="caption" color="textSecondary">
+                  {scanProgress?.message || 'Initializing…'}
                 </Typography>
-                {tier1Result.patches.map(patch => (
-                  <Box key={patch.file} mb={2}>
+                {scanProgress?.violationsFound !== undefined && (
+                  <Typography variant="caption">
+                    {scanProgress.violationsFound} violations found
+                  </Typography>
+                )}
+              </div>
+            </Paper>
+          )}
+
+          {scanError && (
+            <Paper
+              elevation={0}
+              variant="outlined"
+              style={{
+                backgroundColor:
+                  theme.palette.type === 'dark'
+                    ? 'rgba(201, 25, 11, 0.12)'
+                    : '#fdeaea',
+                borderColor:
+                  theme.palette.type === 'dark'
+                    ? 'rgba(201, 25, 11, 0.35)'
+                    : '#f5c2c7',
+                padding: 16,
+                marginBottom: 16,
+                color: theme.palette.text.primary,
+              }}
+            >
+              <Typography
+                variant="subtitle2"
+                style={{ color: '#c9190b', marginBottom: 4 }}
+              >
+                Scan failed
+              </Typography>
+              <Typography variant="body2">
+                {isApmeConnectionError(scanError.message)
+                  ? APME_GATEWAY_UNAVAILABLE_MESSAGE
+                  : scanError.message}
+              </Typography>
+            </Paper>
+          )}
+          {remediationError && (
+            <Paper className={classes.remediationErrorBanner} elevation={0}>
+              <Typography
+                variant="subtitle2"
+                style={{ color: '#c9190b', marginBottom: 4 }}
+              >
+                No automated patches
+              </Typography>
+              <Typography variant="body2">
+                {remediationError.message}
+              </Typography>
+            </Paper>
+          )}
+
+          {violations.length > 0 && (
+            <QualityWorkflowStepper activeStep={remediationStep} />
+          )}
+
+          {fixProgress && (
+            <FixProgressBanner
+              message={fixProgress.message}
+              progress={fixProgress.progress}
+            />
+          )}
+
+          {remediationStep === 'review' &&
+            tier1Result &&
+            visibleProposals.length === 0 && (
+              <Paper className={classes.reviewPanel} elevation={1}>
+                <Typography variant="subtitle2" gutterBottom>
+                  Auto-generated fixes ready
+                </Typography>
+                <Typography variant="body2" color="textSecondary" paragraph>
+                  {tier1Result.remediatedCount} finding
+                  {tier1Result.remediatedCount !== 1 ? 's were' : ' was'}{' '}
+                  transformed. Push the branch and open in Dev Spaces to review
+                  changes and commit.
+                </Typography>
+                {tier1Result.fixedViolations.length > 0 && (
+                  <Box mb={2}>
                     <Typography
                       variant="body2"
-                      style={{ fontFamily: 'monospace', marginBottom: 4 }}
+                      style={{ fontWeight: 600, marginBottom: 8 }}
                     >
-                      {patch.file}
+                      Findings addressed
                     </Typography>
-                    <Box
-                      component="pre"
-                      style={{
-                        fontSize: 12,
-                        overflow: 'auto',
-                        backgroundColor: '#f5f5f5',
-                        padding: 12,
-                        borderRadius: 4,
-                        margin: 0,
-                      }}
-                    >
-                      {patch.diff}
-                    </Box>
+                    {tier1Result.fixedViolations.map((fv, idx) => (
+                      <Typography
+                        key={`${fv.rule_id}-${fv.file}-${fv.line ?? idx}`}
+                        variant="body2"
+                      >
+                        {fv.rule_id} · {fv.file}
+                        {fv.line !== undefined && fv.line !== null
+                          ? `:${fv.line}`
+                          : ''}
+                        {fv.message ? ` — ${fv.message}` : ''}
+                      </Typography>
+                    ))}
                   </Box>
-                ))}
-              </Box>
+                )}
+                {tier1Result.patches.length > 0 && (
+                  <Box>
+                    <Typography
+                      variant="body2"
+                      style={{ fontWeight: 600, marginBottom: 8 }}
+                    >
+                      File changes
+                    </Typography>
+                    {tier1Result.patches.map(patch => (
+                      <Box key={patch.file} mb={2}>
+                        <Typography
+                          variant="body2"
+                          style={{ fontFamily: 'monospace', marginBottom: 4 }}
+                        >
+                          {patch.file}
+                        </Typography>
+                        <Box
+                          component="pre"
+                          style={{
+                            fontSize: 12,
+                            overflow: 'auto',
+                            backgroundColor: '#f5f5f5',
+                            padding: 12,
+                            borderRadius: 4,
+                            margin: 0,
+                          }}
+                        >
+                          {patch.diff}
+                        </Box>
+                      </Box>
+                    ))}
+                  </Box>
+                )}
+              </Paper>
             )}
-          </Paper>
-        )}
 
-      {remediationStep === 'review' && visibleProposals.length > 0 && (
-        <Paper className={classes.reviewPanel} elevation={1}>
-          <Typography variant="subtitle2" gutterBottom>
-            Review proposed fixes
-          </Typography>
-          {visibleProposals.map(proposal => {
-            const violation = violations.find(
-              v => v.id === proposal.violation_id,
-            );
-            const needsReview = violation
-              ? proposalNeedsManualApproval(
-                  violation.remediation_class,
-                  enableAi,
-                )
-              : false;
-            const approved = approvedProposalIds.has(proposal.id);
-            return (
-              <Box key={proposal.id} mb={2}>
-                <Box
-                  display="flex"
-                  alignItems="center"
-                  mb={1}
-                  style={{ gap: 8 }}
-                >
-                  <Chip
-                    size="small"
-                    label={needsReview ? 'Review' : 'Fixed'}
-                    style={{
-                      backgroundColor: needsReview ? '#2196f3' : '#4caf50',
-                      color: '#fff',
-                    }}
-                  />
-                  <Typography variant="body2">
-                    {proposal.rule_id} · {proposal.file}:{proposal.line}
-                  </Typography>
-                  {proposal.ai_reason && (
-                    <Typography variant="caption" color="textSecondary">
-                      {proposal.ai_reason}
-                    </Typography>
-                  )}
-                </Box>
-                <DiffView
-                  before={proposal.original_yaml}
-                  after={proposal.fixed_yaml}
-                />
-                {needsReview && !approved && (
-                  <Box className={classes.reviewActions}>
-                    <Button
-                      size="small"
-                      variant="contained"
-                      color="primary"
-                      onClick={() => handleApproveProposal(proposal)}
+          {remediationStep === 'review' && visibleProposals.length > 0 && (
+            <Paper className={classes.reviewPanel} elevation={1}>
+              <Typography variant="subtitle2" gutterBottom>
+                Review proposed fixes
+              </Typography>
+              {visibleProposals.map(proposal => {
+                const violation = violations.find(
+                  v => v.id === proposal.violation_id,
+                );
+                const needsReview = violation
+                  ? proposalNeedsManualApproval(
+                      violation.remediation_class,
+                      enableAi,
+                    )
+                  : false;
+                const approved = approvedProposalIds.has(proposal.id);
+                return (
+                  <Box key={proposal.id} mb={2}>
+                    <Box
+                      display="flex"
+                      alignItems="center"
+                      mb={1}
+                      style={{ gap: 8 }}
                     >
-                      Approve
-                    </Button>
-                    <Button
-                      size="small"
-                      variant="outlined"
-                      onClick={() => handleDeclineProposal(proposal.id)}
-                    >
-                      Decline
-                    </Button>
-                    <Button
-                      size="small"
-                      variant="text"
-                      onClick={() =>
-                        navigator.clipboard.writeText(proposal.file)
-                      }
-                    >
-                      Copy file path
-                    </Button>
+                      <Chip
+                        size="small"
+                        label={needsReview ? 'Review' : 'Fixed'}
+                        style={{
+                          backgroundColor: needsReview ? '#2196f3' : '#4caf50',
+                          color: '#fff',
+                        }}
+                      />
+                      <Typography variant="body2">
+                        {proposal.rule_id} · {proposal.file}:{proposal.line}
+                      </Typography>
+                      {proposal.ai_reason && (
+                        <Typography variant="caption" color="textSecondary">
+                          {proposal.ai_reason}
+                        </Typography>
+                      )}
+                    </Box>
+                    <DiffView
+                      before={proposal.original_yaml}
+                      after={proposal.fixed_yaml}
+                    />
+                    {needsReview && !approved && (
+                      <Box className={classes.reviewActions}>
+                        <Button
+                          size="small"
+                          variant="contained"
+                          color="primary"
+                          onClick={() => handleApproveProposal(proposal)}
+                        >
+                          Approve
+                        </Button>
+                        <Button
+                          size="small"
+                          variant="outlined"
+                          onClick={() => handleDeclineProposal(proposal.id)}
+                        >
+                          Decline
+                        </Button>
+                        <Button
+                          size="small"
+                          variant="text"
+                          onClick={() =>
+                            navigator.clipboard.writeText(proposal.file)
+                          }
+                        >
+                          Copy file path
+                        </Button>
+                      </Box>
+                    )}
+                    {!needsReview && (
+                      <Typography variant="caption" color="textSecondary">
+                        Auto-fix applied — included in PR
+                      </Typography>
+                    )}
                   </Box>
-                )}
-                {!needsReview && (
-                  <Typography variant="caption" color="textSecondary">
-                    Auto-fix applied — included in PR
-                  </Typography>
-                )}
-              </Box>
-            );
-          })}
-        </Paper>
-      )}
+                );
+              })}
+            </Paper>
+          )}
 
-      {(prUrl || prError || pushError || branchPushed || prMerged) && (
-        <PrStatusBanner
-          prUrl={prUrl ?? undefined}
-          prNumber={prNumber}
-          branchName={prBranchName}
-          error={prError ?? undefined}
-          pushError={pushError ?? undefined}
-          branchPushed={branchPushed && !prUrl}
-          merged={prMerged}
-          devSpacesUrl={devSpacesUrl}
-          creatingPr={creatingPr}
-          onCreatePr={handleCreatePr}
-          onScanAgain={() => {
-            setPrMerged(false);
-            setPrUrl(null);
-            setPrBranchName(undefined);
-            setBranchPushed(false);
-            setPushError(null);
-            setPrError(null);
-            setRemediationActivityId(null);
-            setTier1Result(null);
-            setRemediationStep('select');
-            setSelectedIds(new Set());
-            setApprovedProposalIds(new Set());
-            handleScan();
-          }}
-        />
-      )}
+          {(prUrl || prError || pushError || branchPushed || prMerged) && (
+            <PrStatusBanner
+              prUrl={prUrl ?? undefined}
+              prNumber={prNumber}
+              branchName={prBranchName}
+              error={prError ?? undefined}
+              pushError={pushError ?? undefined}
+              branchPushed={branchPushed && !prUrl}
+              merged={prMerged}
+              devSpacesUrl={devSpacesUrl}
+              creatingPr={creatingPr}
+              onCreatePr={handleCreatePr}
+              onScanAgain={() => {
+                setPrMerged(false);
+                setPrUrl(null);
+                setPrBranchName(undefined);
+                setBranchPushed(false);
+                setPushError(null);
+                setPrError(null);
+                setRemediationActivityId(null);
+                setTier1Result(null);
+                setRemediationStep('select');
+                setSelectedIds(new Set());
+                setApprovedProposalIds(new Set());
+                handleScan();
+              }}
+            />
+          )}
 
-      {remediationStep === 'review' && canPushBranch && !branchPushed && (
-        <Box
-          display="flex"
-          alignItems="center"
-          justifyContent="flex-end"
-          style={{ gap: 12, marginBottom: 16 }}
-        >
-          <Typography variant="body2">
-            {tier1Result
-              ? `${tier1Result.remediatedCount} auto-generated change${tier1Result.remediatedCount !== 1 ? 's' : ''} ready to push`
-              : `${visibleProposals.length} fix${visibleProposals.length !== 1 ? 'es' : ''} ready to push`}
-          </Typography>
-          <Button
-            variant="contained"
-            color="primary"
-            size="small"
-            onClick={handlePushBranch}
-          >
-            Push branch
-          </Button>
-        </Box>
-      )}
-
-      {/* Category + fix-type filters */}
-      {violations.length > 0 && (
-        <>
-          <div className={classes.filterToolbar}>
-            <Typography variant="body2" style={{ fontWeight: 600 }}>
-              {filteredViolations.length} violation
-              {filteredViolations.length !== 1 ? 's' : ''}
-            </Typography>
-            <Box display="flex" alignItems="center" style={{ gap: 8 }}>
-              {activeCategory !== 'all' && (
-                <Chip
-                  size="small"
-                  label={categoryLabel(activeCategory)}
-                  onDelete={() => setActiveCategory('all')}
-                  color="primary"
-                  variant="outlined"
-                />
-              )}
+          {remediationStep === 'review' && canPushBranch && !branchPushed && (
+            <Box
+              display="flex"
+              alignItems="center"
+              justifyContent="flex-end"
+              style={{ gap: 12, marginBottom: 16 }}
+            >
+              <Typography variant="body2">
+                {tier1Result
+                  ? `${tier1Result.remediatedCount} auto-generated change${tier1Result.remediatedCount !== 1 ? 's' : ''} ready to push`
+                  : `${visibleProposals.length} fix${visibleProposals.length !== 1 ? 'es' : ''} ready to push`}
+              </Typography>
               <Button
+                variant="contained"
+                color="primary"
                 size="small"
-                variant="outlined"
-                startIcon={<FilterListIcon />}
-                onClick={e => setCategoryMenuAnchor(e.currentTarget)}
+                onClick={handlePushBranch}
               >
-                Category
+                Push branch
               </Button>
-              {devSpacesUrl && (showDevSpacesForManual || remediationError) && (
-                <EditInDevSpacesButton url={devSpacesUrl} />
-              )}
-              {remediationStep === 'select' && (
-                <Tooltip
-                  title={generateFixesTooltip(
-                    autoFix,
-                    selectedFixableIds.size,
-                    devSpacesBranch,
-                    project.branch,
-                  )}
-                >
-                  <span>
-                    <Button
+            </Box>
+          )}
+
+          {/* Category + fix-type filters */}
+          {violations.length > 0 && (
+            <>
+              <div className={classes.filterToolbar}>
+                <Typography variant="body2" style={{ fontWeight: 600 }}>
+                  {filteredViolations.length} violation
+                  {filteredViolations.length !== 1 ? 's' : ''}
+                </Typography>
+                <Box display="flex" alignItems="center" style={{ gap: 8 }}>
+                  {activeCategory !== 'all' && (
+                    <Chip
                       size="small"
-                      variant="contained"
+                      label={categoryLabel(activeCategory)}
+                      onDelete={() => setActiveCategory('all')}
                       color="primary"
-                      onClick={handleGenerateFixes}
-                      disabled={autoFix === 0 || selectedFixableIds.size === 0}
+                      variant="outlined"
+                    />
+                  )}
+                  <Button
+                    size="small"
+                    variant="outlined"
+                    startIcon={<FilterListIcon />}
+                    onClick={e => setCategoryMenuAnchor(e.currentTarget)}
+                  >
+                    Category
+                  </Button>
+                  {devSpacesUrl &&
+                    (showDevSpacesForManual || remediationError) && (
+                      <EditInDevSpacesButton url={devSpacesUrl} />
+                    )}
+                  {remediationStep === 'select' && (
+                    <Tooltip
+                      title={generateFixesTooltip(
+                        autoFix,
+                        selectedFixableIds.size,
+                        devSpacesBranch,
+                        project.branch,
+                      )}
                     >
-                      Generate fixes
-                    </Button>
-                  </span>
-                </Tooltip>
-              )}
-              <Menu
-                anchorEl={categoryMenuAnchor}
-                open={Boolean(categoryMenuAnchor)}
-                onClose={() => setCategoryMenuAnchor(null)}
-              >
-                <MenuItem
-                  selected={activeCategory === 'all'}
-                  onClick={() => {
-                    setActiveCategory('all');
-                    setCategoryMenuAnchor(null);
-                  }}
-                >
-                  All ({violations.length})
-                </MenuItem>
-                {CATEGORIES.slice(1).map(cat => {
-                  const count = catCounts[cat];
-                  return count ? (
+                      <span>
+                        <Button
+                          size="small"
+                          variant="contained"
+                          color="primary"
+                          onClick={handleGenerateFixes}
+                          disabled={
+                            autoFix === 0 || selectedFixableIds.size === 0
+                          }
+                        >
+                          Generate fixes
+                        </Button>
+                      </span>
+                    </Tooltip>
+                  )}
+                  <Menu
+                    anchorEl={categoryMenuAnchor}
+                    open={Boolean(categoryMenuAnchor)}
+                    onClose={() => setCategoryMenuAnchor(null)}
+                  >
                     <MenuItem
-                      key={cat}
-                      selected={activeCategory === cat}
+                      selected={activeCategory === 'all'}
                       onClick={() => {
-                        setActiveCategory(cat);
+                        setActiveCategory('all');
                         setCategoryMenuAnchor(null);
                       }}
                     >
-                      {categoryLabel(cat)} ({count})
+                      All ({violations.length})
                     </MenuItem>
-                  ) : null;
-                })}
-              </Menu>
-            </Box>
-          </div>
-
-          {violationTotal > 0 && (
-            <div className={classes.stackedBar}>
-              {SEV_ORDER.map(sev => {
-                const count = counts[sev];
-                if (count === 0) return null;
-                const pct = (count / violationTotal) * 100;
-                return (
-                  <Box
-                    key={sev}
-                    style={{
-                      width: `${pct}%`,
-                      backgroundColor: SEVERITY_STYLES[sev].background,
-                      minWidth: count > 0 ? 4 : 0,
-                    }}
-                    title={`${SEVERITY_STYLES[sev].label}: ${count}`}
-                  />
-                );
-              })}
-            </div>
-          )}
-
-          <Box className={classes.sevBar}>
-            {SEV_ORDER.map(sev => {
-              const count = counts[sev];
-              if (count === 0) return null;
-              const isActive = severityFilters.has(sev);
-              const isDimmed = hasSeverityFilter && !isActive;
-              const color = SEVERITY_STYLES[sev].background;
-              return (
-                <Box
-                  key={sev}
-                  className={`${classes.sevItem} ${isActive ? classes.sevItemActive : ''}`}
-                  style={{
-                    backgroundColor: isActive ? `${color}12` : undefined,
-                    borderColor: isActive ? `${color}60` : undefined,
-                    opacity: isDimmed ? 0.45 : 1,
-                  }}
-                  onClick={() => toggleSeverity(sev)}
-                  role="button"
-                  tabIndex={0}
-                  onKeyDown={e => {
-                    if (e.key === 'Enter' || e.key === ' ') toggleSeverity(sev);
-                  }}
-                >
-                  <Box
-                    style={{
-                      width: 10,
-                      height: 10,
-                      borderRadius: 2,
-                      backgroundColor: color,
-                    }}
-                  />
-                  <Typography
-                    style={{
-                      fontSize: 12,
-                      textTransform: 'capitalize',
-                      color: isActive ? color : theme.palette.text.secondary,
-                      fontWeight: isActive ? 600 : 400,
-                    }}
-                  >
-                    {sev}
-                  </Typography>
-                  <Typography style={{ fontSize: 12, fontWeight: 700, color }}>
-                    {count}
-                  </Typography>
+                    {CATEGORIES.slice(1).map(cat => {
+                      const count = catCounts[cat];
+                      return count ? (
+                        <MenuItem
+                          key={cat}
+                          selected={activeCategory === cat}
+                          onClick={() => {
+                            setActiveCategory(cat);
+                            setCategoryMenuAnchor(null);
+                          }}
+                        >
+                          {categoryLabel(cat)} ({count})
+                        </MenuItem>
+                      ) : null;
+                    })}
+                  </Menu>
                 </Box>
-              );
-            })}
-            {hasSeverityFilter && (
-              <Button
-                size="small"
-                variant="text"
-                style={{ fontSize: 12, textTransform: 'none' }}
-                onClick={() => setSeverityFilters(new Set())}
-              >
-                Clear filters
-              </Button>
-            )}
-          </Box>
+              </div>
 
-          <Box className={classes.fixTypeBar}>
-            <FormControl
-              variant="outlined"
-              size="small"
-              className={classes.formControl}
-            >
-              <InputLabel>Fix type</InputLabel>
-              <Select
-                value={fixTypeFilter}
-                onChange={e => setFixTypeFilter(e.target.value as string)}
-                label="Fix type"
-              >
-                <MenuItem value="all">All fixable</MenuItem>
-                {autoFix > 0 && <MenuItem value="auto">Auto-fix only</MenuItem>}
-                {enableAi && <MenuItem value="ai">AI-assisted only</MenuItem>}
-                <MenuItem value="manual">Manual only</MenuItem>
-              </Select>
-            </FormControl>
-            <Chip
-              size="small"
-              label="All fixable"
-              onClick={() => setFixTypeFilter('all')}
-              color={fixTypeFilter === 'all' ? 'primary' : 'default'}
-              variant={fixTypeFilter === 'all' ? 'default' : 'outlined'}
-            />
-            {autoFix > 0 && (
-              <Chip
-                size="small"
-                label="Auto-fix only"
-                onClick={() => setFixTypeFilter('auto')}
-                color={fixTypeFilter === 'auto' ? 'primary' : 'default'}
-                variant={fixTypeFilter === 'auto' ? 'default' : 'outlined'}
-              />
-            )}
-            {enableAi && (
-              <Chip
-                size="small"
-                label="AI-assisted only"
-                onClick={() => setFixTypeFilter('ai')}
-                color={fixTypeFilter === 'ai' ? 'primary' : 'default'}
-                variant={fixTypeFilter === 'ai' ? 'default' : 'outlined'}
-              />
-            )}
-            {autoFix > 0 && (
-              <Typography variant="caption" color="textSecondary">
-                {autoFix} auto-fix
-              </Typography>
-            )}
-            {enableAi && aiAssisted > 0 && (
-              <Typography variant="caption" color="textSecondary">
-                {aiAssisted} AI-assisted
-              </Typography>
-            )}
-            {manual > 0 && (
-              <Typography variant="caption" color="textSecondary">
-                {manual} manual
-              </Typography>
-            )}
-          </Box>
-        </>
-      )}
-
-      {/* Violations table */}
-      {violationsLoading && <Progress />}
-      {!violationsLoading && violations.length === 0 && (
-        <div className={classes.noData}>
-          <Typography variant="body1" color="textSecondary">
-            {project.scan_count === 0
-              ? 'No scan results yet. Click Scan to analyze this repository.'
-              : 'No violations found. This repository is clean.'}
-          </Typography>
-        </div>
-      )}
-      {!violationsLoading && violations.length > 0 && (
-        <div id="apme-violations-table">
-          <ApmeViolationsTable
-            key={`violations-${refreshKey}-${activeCategory}-${[...severityFilters].join(',')}-${fixTypeFilter}-${ruleFilter ?? ''}`}
-            violations={filteredViolations}
-            selectedIds={selectedIds}
-            onSelectionChange={setSelectedIds}
-            devSpacesUrl={devSpacesUrl}
-            filterContext={{
-              totalViolationCount: violationTotal,
-              activeFixTypeFilter: fixTypeFilter,
-              ruleFilter,
-              autoFixCount: ruleFilter ? ruleAutoFixCount : autoFix,
-              onClearFixTypeFilter: () => setFixTypeFilter('all'),
-              onClearRuleFilter: () => setRuleFilter(null),
-            }}
-            toolbarActions={
-              <>
-                {selectedFixableIds.size > 0 &&
-                  remediationStep === 'select' && (
-                    <Box display="flex" alignItems="center" style={{ gap: 12 }}>
-                      <Typography variant="body2" style={{ fontSize: 12 }}>
-                        {selectedFixableIds.size} selected for PR scope
-                        {selectedAutoCount > 0
-                          ? ` · ${selectedAutoCount} auto`
-                          : ''}
-                        {enableAi && selectedAiCount > 0
-                          ? ` · ${selectedAiCount} AI`
-                          : ''}
+              <Box className={classes.sevBar}>
+                {SEV_ORDER.map(sev => {
+                  const count = counts[sev];
+                  if (count === 0) return null;
+                  const isActive = severityFilters.has(sev);
+                  const isDimmed = hasSeverityFilter && !isActive;
+                  const color = SEVERITY_STYLES[sev].background;
+                  return (
+                    <Box
+                      key={sev}
+                      className={`${classes.sevItem} ${isActive ? classes.sevItemActive : ''}`}
+                      style={{
+                        backgroundColor: isActive ? `${color}12` : undefined,
+                        borderColor: isActive ? `${color}60` : undefined,
+                        opacity: isDimmed ? 0.45 : 1,
+                      }}
+                      onClick={() => toggleSeverity(sev)}
+                      role="button"
+                      tabIndex={0}
+                      onKeyDown={e => {
+                        if (e.key === 'Enter' || e.key === ' ')
+                          toggleSeverity(sev);
+                      }}
+                    >
+                      <Box
+                        style={{
+                          width: 10,
+                          height: 10,
+                          borderRadius: 2,
+                          backgroundColor: color,
+                        }}
+                      />
+                      <Typography
+                        style={{
+                          fontSize: 12,
+                          textTransform: 'capitalize',
+                          color: isActive
+                            ? color
+                            : theme.palette.text.secondary,
+                          fontWeight: isActive ? 600 : 400,
+                        }}
+                      >
+                        {sev}
+                      </Typography>
+                      <Typography
+                        style={{ fontSize: 12, fontWeight: 700, color }}
+                      >
+                        {count}
                       </Typography>
                     </Box>
-                  )}
-              </>
-            }
-          />
-        </div>
+                  );
+                })}
+                {hasSeverityFilter && (
+                  <Button
+                    size="small"
+                    variant="text"
+                    style={{ fontSize: 12, textTransform: 'none' }}
+                    onClick={() => setSeverityFilters(new Set())}
+                  >
+                    Clear filters
+                  </Button>
+                )}
+              </Box>
+
+              {violationTotal > 0 && (
+                <div className={classes.stackedBar}>
+                  {SEV_ORDER.map(sev => {
+                    const count = counts[sev];
+                    if (count === 0) return null;
+                    const pct = (count / violationTotal) * 100;
+                    return (
+                      <Box
+                        key={sev}
+                        style={{
+                          width: `${pct}%`,
+                          backgroundColor: SEVERITY_STYLES[sev].background,
+                          minWidth: count > 0 ? 4 : 0,
+                        }}
+                        title={`${SEVERITY_STYLES[sev].label}: ${count}`}
+                      />
+                    );
+                  })}
+                </div>
+              )}
+
+              <Box className={classes.fixTypeBar}>
+                <FormControl
+                  variant="outlined"
+                  size="small"
+                  className={classes.formControl}
+                >
+                  <InputLabel>Fix type</InputLabel>
+                  <Select
+                    value={fixTypeFilter}
+                    onChange={e => setFixTypeFilter(e.target.value as string)}
+                    label="Fix type"
+                  >
+                    <MenuItem value="all">All fixable</MenuItem>
+                    {autoFix > 0 && (
+                      <MenuItem value="auto">Auto-fix only</MenuItem>
+                    )}
+                    {enableAi && (
+                      <MenuItem value="ai">AI-assisted only</MenuItem>
+                    )}
+                    <MenuItem value="manual">Manual only</MenuItem>
+                  </Select>
+                </FormControl>
+                <Chip
+                  size="small"
+                  label="All fixable"
+                  onClick={() => setFixTypeFilter('all')}
+                  color={fixTypeFilter === 'all' ? 'primary' : 'default'}
+                  variant={fixTypeFilter === 'all' ? 'default' : 'outlined'}
+                />
+                {autoFix > 0 && (
+                  <Chip
+                    size="small"
+                    label="Auto-fix only"
+                    onClick={() => setFixTypeFilter('auto')}
+                    color={fixTypeFilter === 'auto' ? 'primary' : 'default'}
+                    variant={fixTypeFilter === 'auto' ? 'default' : 'outlined'}
+                  />
+                )}
+                {enableAi && (
+                  <Chip
+                    size="small"
+                    label="AI-assisted only"
+                    onClick={() => setFixTypeFilter('ai')}
+                    color={fixTypeFilter === 'ai' ? 'primary' : 'default'}
+                    variant={fixTypeFilter === 'ai' ? 'default' : 'outlined'}
+                  />
+                )}
+                {autoFix > 0 && (
+                  <Typography variant="caption" color="textSecondary">
+                    {autoFix} auto-fix
+                  </Typography>
+                )}
+                {enableAi && aiAssisted > 0 && (
+                  <Typography variant="caption" color="textSecondary">
+                    {aiAssisted} AI-assisted
+                  </Typography>
+                )}
+                {manual > 0 && (
+                  <Typography variant="caption" color="textSecondary">
+                    {manual} manual
+                  </Typography>
+                )}
+              </Box>
+            </>
+          )}
+
+          {violations.length > 0 && (
+            <Box
+              display="flex"
+              alignItems="center"
+              style={{ gap: 8, marginBottom: 8 }}
+            >
+              {acknowledgedCount > 0 && (
+                <Chip
+                  size="small"
+                  label={`${acknowledgedCount} acknowledged`}
+                  onClick={() => setShowAcknowledgedOnly(prev => !prev)}
+                  color={showAcknowledgedOnly ? 'primary' : 'default'}
+                  variant={showAcknowledgedOnly ? 'default' : 'outlined'}
+                />
+              )}
+            </Box>
+          )}
+
+          {/* Violations table — keep visible while re-fetching after acknowledge */}
+          {violationsLoading && violations.length === 0 && <Progress />}
+          {violations.length === 0 && !violationsLoading && (
+            <div className={classes.noData}>
+              <Typography variant="body1" color="textSecondary">
+                {project.scan_count === 0
+                  ? 'No scan results yet. Click Scan to analyze this repository.'
+                  : 'No violations found. This repository is clean.'}
+              </Typography>
+            </div>
+          )}
+          {violations.length > 0 && (
+            <div id="apme-violations-table">
+              <ApmeViolationsTable
+                key={`violations-${activeCategory}-${[...severityFilters].join(',')}-${fixTypeFilter}-${ruleFilter ?? ''}-${showAcknowledgedOnly}`}
+                violations={filteredViolations}
+                selectedIds={selectedIds}
+                onSelectionChange={setSelectedIds}
+                devSpacesUrl={devSpacesUrl}
+                showAcknowledgedOnly={showAcknowledgedOnly}
+                onAcknowledge={handleAcknowledge}
+                onUnacknowledge={handleUnacknowledge}
+                acknowledgingId={acknowledgingId}
+                isAcknowledged={isAcknowledged}
+                filterContext={{
+                  totalViolationCount: violationTotal,
+                  activeFixTypeFilter: fixTypeFilter,
+                  ruleFilter,
+                  autoFixCount: ruleFilter ? ruleAutoFixCount : autoFix,
+                  onClearFixTypeFilter: () => setFixTypeFilter('all'),
+                  onClearRuleFilter: () => setRuleFilter(null),
+                }}
+                toolbarActions={
+                  <>
+                    {selectedFixableIds.size > 0 &&
+                      remediationStep === 'select' && (
+                        <Box
+                          display="flex"
+                          alignItems="center"
+                          style={{ gap: 12 }}
+                        >
+                          <Typography variant="body2" style={{ fontSize: 12 }}>
+                            {selectedFixableIds.size} selected for PR scope
+                            {selectedAutoCount > 0
+                              ? ` · ${selectedAutoCount} auto`
+                              : ''}
+                            {enableAi && selectedAiCount > 0
+                              ? ` · ${selectedAiCount} AI`
+                              : ''}
+                          </Typography>
+                        </Box>
+                      )}
+                  </>
+                }
+              />
+            </div>
+          )}
+        </>
       )}
     </Content>
   );

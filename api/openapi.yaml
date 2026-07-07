@@ -1289,6 +1289,36 @@ paths:
                 items:
                   type: object
 
+  /apme/projects/{projectId}/dependencies:
+    get:
+      operationId: getApmeProjectDependencies
+      summary: Get project dependencies from latest scan
+      description: Returns Ansible collections and Python packages detected during the latest gateway scan for the project.
+      tags:
+        - APME
+      parameters:
+        - name: projectId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Collections and Python packages discovered in the latest scan
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  collections:
+                    type: array
+                    items:
+                      type: object
+                  python_packages:
+                    type: array
+                    items:
+                      type: object
+
   /apme/projects/{projectId}/operation:
     post:
       operationId: triggerApmeOperation
@@ -1417,6 +1447,90 @@ paths:
             application/json:
               schema:
                 type: object
+
+  /apme/rules/{ruleId}/config:
+    put:
+      operationId: updateApmeRuleConfig
+      summary: Update rule override config
+      description: Applies portal-side overrides for rule severity, enabled state, or enforcement.
+      tags:
+        - APME
+      parameters:
+        - name: ruleId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+      responses:
+        '200':
+          description: Updated rule
+    delete:
+      operationId: deleteApmeRuleConfig
+      summary: Reset rule override config
+      description: Clears portal overrides so the rule reverts to gateway catalog defaults.
+      tags:
+        - APME
+      parameters:
+        - name: ruleId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '204':
+          description: Override removed
+
+  /apme/suppressions:
+    get:
+      operationId: listApmeSuppressions
+      summary: List violation suppressions
+      description: Returns acknowledged violations for the portal, optionally filtered by scope.
+      tags:
+        - APME
+      parameters:
+        - name: scope
+          in: query
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Suppression list
+    post:
+      operationId: createApmeSuppression
+      summary: Acknowledge/suppress a violation
+      description: Creates a suppression so matching violations are hidden from quality views.
+      tags:
+        - APME
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+      responses:
+        '201':
+          description: Created suppression
+
+  /apme/suppressions/{suppressionId}:
+    delete:
+      operationId: deleteApmeSuppression
+      summary: Remove a suppression
+      description: Deletes a suppression so the violation can appear in quality results again.
+      tags:
+        - APME
+      parameters:
+        - name: suppressionId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '204':
+          description: Deleted
 
   /apme/lookup:
     get:

@@ -29,6 +29,7 @@ import CheckCircleIcon from '@material-ui/icons/CheckCircle';
 import ErrorIcon from '@material-ui/icons/Error';
 import { apmeApiRef } from '../../api';
 import { useApmeEnabled } from '../../hooks/useApmeEnabled';
+import { useApmeScanTargetLabel } from '../../hooks/useApmeScanTargetLabel';
 
 const useStyles = makeStyles(theme => ({
   connected: {
@@ -66,6 +67,7 @@ export const ApmeAdminCard = () => {
   const configApi = useApi(configApiRef);
   const enabled = useApmeEnabled();
   const baseUrl = configApi.getOptionalString('apme.baseUrl') ?? '—';
+  const scanTargetLabel = useApmeScanTargetLabel();
 
   const { value: health, loading: healthLoading } = useAsync(async () => {
     if (!enabled) return null;
@@ -108,9 +110,9 @@ export const ApmeAdminCard = () => {
           </Grid>
           <Grid item xs={12} sm={6}>
             <Typography variant="caption" color="textSecondary">
-              Target AAP version
+              Scan target
             </Typography>
-            <Typography variant="body2">2.7 (ansible-core 2.17)</Typography>
+            <Typography variant="body2">{scanTargetLabel}</Typography>
           </Grid>
           <Grid item xs={12} sm={6}>
             <Typography variant="caption" color="textSecondary">

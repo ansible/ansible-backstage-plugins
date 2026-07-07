@@ -20,6 +20,7 @@ import {
   type GitRepositoriesExtensionsApi,
   type GitRepositoryCatalogRowContext,
   type GitRepositoryDetailTabContext,
+  type GitRepositoryDetailHeaderMenuContext,
   type GitRepositoriesPageTabContext,
   type GitRepositoryCatalogColumnDefinition,
 } from '@ansible/backstage-rhaap-common/gitRepositoriesExtensions';
@@ -54,9 +55,33 @@ const LazyEntityQualityTab = lazy(() =>
   })),
 );
 
+const LazyApmeRepositoryOverviewCard = lazy(() =>
+  import('@ansible/plugin-backstage-apme').then(module => ({
+    default: module.ApmeRepositoryOverviewCardComponent,
+  })),
+);
+
+const LazyDependenciesTab = lazy(() =>
+  import('@ansible/plugin-backstage-apme').then(module => ({
+    default: module.ApmeDependenciesTabComponent,
+  })),
+);
+
+const LazyApmeRepositoryCollectionsTab = lazy(() =>
+  import('@ansible/plugin-backstage-apme').then(module => ({
+    default: module.ApmeRepositoryCollectionsTabComponent,
+  })),
+);
+
 const LazyApmeRepoStatusChip = lazy(() =>
   import('@ansible/plugin-backstage-apme').then(module => ({
     default: module.ApmeRepoStatusChipComponent,
+  })),
+);
+
+const LazyApmeRepositoryHeaderActions = lazy(() =>
+  import('@ansible/plugin-backstage-apme').then(module => ({
+    default: module.ApmeRepositoryHeaderActionsComponent,
   })),
 );
 
@@ -274,16 +299,67 @@ class ApmeGitRepositoriesExtensionsApi
         render: ({
           entity,
           initialRuleFilter,
+          initialCategoryFilter,
         }: GitRepositoryDetailTabContext) => (
           <Suspense fallback={null}>
             <LazyEntityQualityTab
               entity={entity}
               initialRuleFilter={initialRuleFilter}
+              initialCategoryFilter={initialCategoryFilter}
+            />
+          </Suspense>
+        ),
+      },
+      {
+        id: 'dependencies',
+        label: 'Dependencies',
+        order: 15,
+        render: (ctx: GitRepositoryDetailTabContext) => (
+          <Suspense fallback={null}>
+            <LazyDependenciesTab context={ctx} />
+          </Suspense>
+        ),
+      },
+    ];
+  }
+
+  getDetailOverviewSlots() {
+    return [
+      {
+        id: 'apme-quality-overview',
+        order: 10,
+        render: (ctx: GitRepositoryDetailTabContext) => (
+          <Suspense fallback={null}>
+            <LazyApmeRepositoryOverviewCard context={ctx} />
+          </Suspense>
+        ),
+      },
+    ];
+  }
+
+  getDetailHeaderMenuItems() {
+    return [
+      {
+        id: 'apme-header-actions',
+        order: 10,
+        render: (ctx: GitRepositoryDetailHeaderMenuContext) => (
+          <Suspense fallback={null}>
+            <LazyApmeRepositoryHeaderActions
+              context={ctx}
+              onCloseMenu={ctx.onCloseMenu}
             />
           </Suspense>
         ),
       },
     ];
+  }
+
+  getCollectionsTabContent(context: GitRepositoryDetailTabContext) {
+    return (
+      <Suspense fallback={null}>
+        <LazyApmeRepositoryCollectionsTab context={context} />
+      </Suspense>
+    );
   }
 
   getCatalogRowSlots() {

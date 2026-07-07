@@ -55,6 +55,7 @@ import {
 } from '@ansible/backstage-apme-common/operationStatus';
 import { effectiveFixType } from '@ansible/backstage-apme-common/severity';
 import { useApmeAiEnabled } from '../../hooks/useApmeEnabled';
+import { useApmeScanTargetLabel } from '../../hooks/useApmeScanTargetLabel';
 import { apmeApiRef } from '../../api';
 import { ApmeUnavailable } from '../ApmeUnavailable';
 import {
@@ -220,6 +221,15 @@ export const QualityTab = ({
 
   const project = data?.project ?? null;
   const violations = useMemo(() => data?.violations ?? [], [data?.violations]);
+
+  const { value: dependencies } = useAsyncRetry(async () => {
+    if (!project?.id) return null;
+    return apmeApi.getProjectDependencies(project.id);
+  }, [project?.id, apmeApi]);
+
+  const scanTargetLabel = useApmeScanTargetLabel(
+    dependencies?.ansible_core_version,
+  );
 
   useEffect(() => {
     if (!project?.id) {
@@ -501,7 +511,7 @@ export const QualityTab = ({
         · Last checked {lastChecked}
       </Typography>
       <Typography variant="body2" color="textSecondary" gutterBottom>
-        Scanning against: <strong>AAP 2.7</strong> (ansible-core 2.17)
+        Scanning against: <strong>{scanTargetLabel}</strong>
       </Typography>
 
       {ruleFilter && (

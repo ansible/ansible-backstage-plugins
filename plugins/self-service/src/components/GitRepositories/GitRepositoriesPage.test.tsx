@@ -6,7 +6,10 @@ import {
   DefaultGitRepositoriesExtensionsApi,
   gitRepositoriesExtensionsApiRef,
 } from '@ansible/backstage-rhaap-common/gitRepositoriesExtensions';
-import { GitRepositoriesPage } from './GitRepositoriesPage';
+import {
+  GitRepositoriesPage,
+  repositoryTabPathMatches,
+} from './GitRepositoriesPage';
 
 jest.mock('@backstage/plugin-permission-react', () => ({
   usePermission: () => ({ allowed: true }),
@@ -410,5 +413,31 @@ describe('GitRepositoriesPage', () => {
     fireEvent.click(ciActivityTab);
 
     expect(screen.getByTestId('ci-activity-tab')).toBeInTheDocument();
+  });
+});
+
+describe('repositoryTabPathMatches', () => {
+  it('matches quality-settings without matching quality', () => {
+    expect(
+      repositoryTabPathMatches(
+        '/self-service/repositories/quality-settings',
+        'quality-settings',
+      ),
+    ).toBe(true);
+    expect(
+      repositoryTabPathMatches(
+        '/self-service/repositories/quality-settings?section=rules',
+        'quality-settings',
+      ),
+    ).toBe(true);
+    expect(
+      repositoryTabPathMatches(
+        '/self-service/repositories/quality-settings',
+        'quality',
+      ),
+    ).toBe(false);
+    expect(
+      repositoryTabPathMatches('/self-service/repositories/quality', 'quality'),
+    ).toBe(true);
   });
 });

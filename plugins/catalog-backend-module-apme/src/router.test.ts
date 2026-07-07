@@ -14,7 +14,13 @@ describe('catalog-backend-module-apme router', () => {
     getProject: jest.fn(),
     getProjectByRepoUrl: jest.fn(),
     getViolations: jest.fn(),
+    getProjectDependencies: jest.fn(),
     getRules: jest.fn(),
+    updateRuleConfig: jest.fn(),
+    deleteRuleConfig: jest.fn(),
+    createSuppression: jest.fn(),
+    deleteSuppression: jest.fn(),
+    getSuppressions: jest.fn(),
     triggerScan: jest.fn(),
     createProject: jest.fn(),
     deleteProject: jest.fn(),
@@ -83,5 +89,60 @@ describe('catalog-backend-module-apme router', () => {
 
     expect(response.status).toBe(404);
     expect(response.body).toEqual({ error: 'Project not found' });
+  });
+
+  it('returns project dependencies', async () => {
+    const deps = {
+      ansible_core_version: '2.16.0',
+      collections: [
+        { fqcn: 'ansible.posix', version: '1.5.4', source: 'specified' },
+      ],
+      python_packages: [{ name: 'cryptography', version: '41.0.0' }],
+      requirements_files: ['requirements.txt'],
+      dependency_tree: '',
+    };
+    mockApmeService.getProjectDependencies.mockResolvedValueOnce(deps);
+
+    const response = await request(app).get(
+      '/apme/projects/proj-1/dependencies',
+    );
+
+    expect(response.status).toBe(200);
+    expect(mockApmeService.getProjectDependencies).toHaveBeenCalledWith(
+      'proj-1',
+    );
+    expect(response.body).toEqual(deps);
+  });
+
+  it('creates a suppression', async () => {
+    const suppression = {
+      id: 1,
+      fingerprint_hash: 'abc',
+      fingerprint_mode: 'rule_only',
+      rule_id: 'R200',
+      scope: 'project:proj-1',
+      reason: 'Acknowledged from portal',
+      created_by: '',
+      created_at: '2026-07-06T00:00:00Z',
+    };
+    mockApmeService.createSuppression.mockResolvedValueOnce(suppression);
+
+    const response = await request(app).post('/apme/suppressions').send({
+      rule_id: 'R200',
+      fingerprint_mode: 'rule_only',
+      original_yaml: '',
+      scope: 'project:proj-1',
+      reason: 'Acknowledged from portal',
+    });
+
+    expect(response.status).toBe(201);
+    expect(mockApmeService.createSuppression).toHaveBeenCalledWith({
+      rule_id: 'R200',
+      fingerprint_mode: 'rule_only',
+      original_yaml: '',
+      scope: 'project:proj-1',
+      reason: 'Acknowledged from portal',
+    });
+    expect(response.body).toEqual(suppression);
   });
 });

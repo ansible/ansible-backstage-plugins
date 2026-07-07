@@ -32,6 +32,7 @@ import {
 import ArrowDropDownIcon from '@material-ui/icons/ArrowDropDown';
 import ExpandMoreIcon from '@material-ui/icons/ExpandMore';
 import ExpandLessIcon from '@material-ui/icons/ExpandLess';
+import CheckCircleOutlineIcon from '@material-ui/icons/CheckCircleOutline';
 import OpenInNewIcon from '@material-ui/icons/OpenInNew';
 import type { Violation } from '@ansible/backstage-apme-common/types';
 import {
@@ -44,6 +45,7 @@ import {
   categoryLabel,
 } from '@ansible/backstage-apme-common/severity';
 import { useApmeAiEnabled } from '../../hooks/useApmeEnabled';
+import { acknowledgeButtonLabel } from '../../hooks/useViolationAcknowledge';
 import { EditInDevSpacesButton } from '../EditInDevSpacesButton';
 import { DiffView } from '../DiffView';
 
@@ -338,6 +340,12 @@ export interface ApmeViolationsTableProps {
   /** Dev Spaces factory URL for manual violations (repo or remediation branch). */
   devSpacesUrl?: string | null;
   filterContext?: ApmeViolationsTableFilterContext;
+  /** When set, acknowledged violations are hidden unless showAcknowledgedOnly. */
+  showAcknowledgedOnly?: boolean;
+  onAcknowledge?: (violation: Violation) => Promise<void>;
+  onUnacknowledge?: (violation: Violation) => Promise<void>;
+  acknowledgingId?: number | null;
+  isAcknowledged?: (violation: Violation) => boolean;
 }
 
 export const ApmeViolationsTable = ({
@@ -347,10 +355,18 @@ export const ApmeViolationsTable = ({
   devSpacesUrl,
   toolbarActions,
   filterContext,
+  showAcknowledgedOnly = false,
+  onAcknowledge,
+  onUnacknowledge,
+  acknowledgingId = null,
+  isAcknowledged: isAcknowledgedProp,
 }: ApmeViolationsTableProps) => {
   const classes = useStyles();
   const enableAi = useApmeAiEnabled();
-  const [dismissed, setDismissed] = useState<Set<number>>(new Set());
+  const isAcknowledged = useMemo(
+    () => isAcknowledgedProp ?? ((v: Violation) => v.suppressed === true),
+    [isAcknowledgedProp],
+  );
   const [localSelected, setLocalSelected] = useState<Set<number>>(new Set());
   const [expandedIds, setExpandedIds] = useState<Set<number>>(new Set());
   const [collapsedIds, setCollapsedIds] = useState<Set<number>>(new Set());
@@ -363,10 +379,13 @@ export const ApmeViolationsTable = ({
   const selected = selectedIds ?? localSelected;
   const setSelected = onSelectionChange ?? setLocalSelected;
 
-  const visible = useMemo(
-    () => violations.filter(v => !dismissed.has(v.id)),
-    [violations, dismissed],
-  );
+  const visible = useMemo(() => {
+    return violations.filter(v => {
+      const acknowledged = isAcknowledged(v);
+      if (showAcknowledgedOnly) return acknowledged;
+      return !acknowledged;
+    });
+  }, [violations, showAcknowledgedOnly, isAcknowledged]);
 
   const sorted = useMemo(() => {
     const list = [...visible];
@@ -449,10 +468,18 @@ export const ApmeViolationsTable = ({
     setSelected(next);
   };
 
-  const handleDismiss = (id: number) => {
-    setDismissed(prev => new Set([...prev, id]));
+  const handleAcknowledgeToggle = async (violation: Violation) => {
+    if (isAcknowledged(violation)) {
+      if (onUnacknowledge) {
+        await onUnacknowledge(violation);
+      }
+      return;
+    }
+    if (onAcknowledge) {
+      await onAcknowledge(violation);
+    }
     const next = new Set(selected);
-    next.delete(id);
+    next.delete(violation.id);
     setSelected(next);
   };
 
@@ -734,17 +761,41 @@ export const ApmeViolationsTable = ({
                                 label="Edit in Dev Spaces"
                               />
                             )}
-                            <Tooltip title="Mark as reviewed — won't be included in fix suggestions.">
-                              <Button
-                                size="small"
-                                variant="text"
-                                style={{ fontSize: 12 }}
-                                color="default"
-                                onClick={() => handleDismiss(v.id)}
+                            {(onAcknowledge || onUnacknowledge) && (
+                              <Tooltip
+                                title={
+                                  isAcknowledged(v)
+                                    ? 'Remove acknowledgment — violation will appear in scans again'
+                                    : "Acknowledge — won't block merges but remains visible when filtered"
+                                }
                               >
-                                Dismiss
-                              </Button>
-                            </Tooltip>
+                                <Button
+                                  size="small"
+                                  variant="text"
+                                  style={{ fontSize: 12 }}
+                                  color={
+                                    isAcknowledged(v) ? 'default' : 'primary'
+                                  }
+                                  startIcon={
+                                    isAcknowledged(v) ? (
+                                      <CheckCircleOutlineIcon
+                                        style={{ fontSize: 14 }}
+                                      />
+                                    ) : undefined
+                                  }
+                                  disabled={acknowledgingId === v.id}
+                                  onClick={() =>
+                                    void handleAcknowledgeToggle(v)
+                                  }
+                                >
+                                  {acknowledgeButtonLabel(
+                                    acknowledgingId,
+                                    v.id,
+                                    isAcknowledged(v),
+                                  )}
+                                </Button>
+                              </Tooltip>
+                            )}
                           </div>
                         </div>
                       </Box>

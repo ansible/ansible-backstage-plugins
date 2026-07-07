@@ -4,6 +4,7 @@
 
 import '@testing-library/jest-dom';
 import { render, screen, waitFor } from '@testing-library/react';
+import { MemoryRouter } from 'react-router-dom';
 import { TestApiProvider } from '@backstage/test-utils';
 import { ThemeProvider, createTheme } from '@material-ui/core/styles';
 import { configApiRef } from '@backstage/core-plugin-api';
@@ -47,36 +48,38 @@ describe('FleetQualityTab', () => {
 
   const renderTab = () =>
     render(
-      <TestApiProvider
-        apis={[
-          [
-            configApiRef,
-            new ConfigReader({ ansible: { apme: { enabled: true } } }),
-          ],
-          [apmeApiRef, mockApmeApi],
-          [
-            catalogApiRef,
-            {
-              getEntities: async () => ({
-                items: [
-                  catalogEntity(
-                    'amazon-aws-acme-scm-github-com',
-                    'https://github.com/acme-scm/amazon.aws',
-                  ),
-                  catalogEntity(
-                    'network-firewall-ansible-demo-github-com',
-                    'https://github.com/ansible-demo/network-firewall',
-                  ),
-                ],
-              }),
-            },
-          ],
-        ]}
-      >
-        <ThemeProvider theme={theme}>
-          <FleetQualityTab repositoryDetailPath={repositoryDetailPath} />
-        </ThemeProvider>
-      </TestApiProvider>,
+      <MemoryRouter>
+        <TestApiProvider
+          apis={[
+            [
+              configApiRef,
+              new ConfigReader({ ansible: { apme: { enabled: true } } }),
+            ],
+            [apmeApiRef, mockApmeApi],
+            [
+              catalogApiRef,
+              {
+                getEntities: async () => ({
+                  items: [
+                    catalogEntity(
+                      'amazon-aws-acme-scm-github-com',
+                      'https://github.com/acme-scm/amazon.aws',
+                    ),
+                    catalogEntity(
+                      'network-firewall-ansible-demo-github-com',
+                      'https://github.com/ansible-demo/network-firewall',
+                    ),
+                  ],
+                }),
+              },
+            ],
+          ]}
+        >
+          <ThemeProvider theme={theme}>
+            <FleetQualityTab repositoryDetailPath={repositoryDetailPath} />
+          </ThemeProvider>
+        </TestApiProvider>
+      </MemoryRouter>,
     );
 
   it('renders fleet summary, Preview chip, and grouped violations from mock fixtures', async () => {
@@ -106,20 +109,22 @@ describe('FleetQualityTab', () => {
 
   it('shows disabled message when APME is not enabled', async () => {
     render(
-      <TestApiProvider
-        apis={[
-          [
-            configApiRef,
-            new ConfigReader({ ansible: { apme: { enabled: false } } }),
-          ],
-          [apmeApiRef, mockApmeApi],
-          [catalogApiRef, { getEntities: async () => ({ items: [] }) }],
-        ]}
-      >
-        <ThemeProvider theme={theme}>
-          <FleetQualityTab repositoryDetailPath={repositoryDetailPath} />
-        </ThemeProvider>
-      </TestApiProvider>,
+      <MemoryRouter>
+        <TestApiProvider
+          apis={[
+            [
+              configApiRef,
+              new ConfigReader({ ansible: { apme: { enabled: false } } }),
+            ],
+            [apmeApiRef, mockApmeApi],
+            [catalogApiRef, { getEntities: async () => ({ items: [] }) }],
+          ]}
+        >
+          <ThemeProvider theme={theme}>
+            <FleetQualityTab repositoryDetailPath={repositoryDetailPath} />
+          </ThemeProvider>
+        </TestApiProvider>
+      </MemoryRouter>,
     );
 
     expect(

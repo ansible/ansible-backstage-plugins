@@ -16,6 +16,21 @@
 
 import { getApmeConfig, isApmeEnabled, isApmeAiEnabled } from './config';
 
+function mockApmeSection(
+  overrides: {
+    getOptionalBoolean?: jest.Mock;
+    getString?: jest.Mock;
+    getOptionalString?: jest.Mock;
+  } = {},
+) {
+  return {
+    getOptionalBoolean: jest.fn().mockReturnValue(undefined),
+    getString: jest.fn().mockReturnValue('http://localhost:8080'),
+    getOptionalString: jest.fn().mockReturnValue(undefined),
+    ...overrides,
+  };
+}
+
 describe('getApmeConfig', () => {
   it('returns disabled defaults when no apme config exists', () => {
     const mockConfig = {
@@ -28,18 +43,19 @@ describe('getApmeConfig', () => {
       checkSSL: false,
       enableAi: false,
       publishViaGateway: false,
+      targetAnsibleCoreVersion: '2.16',
     });
   });
 
   it('returns config from ansible.apme section with trailing slash trimmed', () => {
-    const mockApmeConfig = {
+    const mockApmeConfig = mockApmeSection({
       getOptionalBoolean: jest
         .fn()
         .mockImplementation((key: string) =>
           key === 'enabled' ? true : false,
         ),
       getString: jest.fn().mockReturnValue('https://apme.example.com/'),
-    };
+    });
 
     const mockConfig = {
       getOptionalConfig: jest
@@ -55,14 +71,14 @@ describe('getApmeConfig', () => {
       checkSSL: false,
       enableAi: false,
       publishViaGateway: false,
+      targetAnsibleCoreVersion: '2.16',
     });
   });
 
   it('defaults checkSSL to true when not specified', () => {
-    const mockApmeConfig = {
-      getOptionalBoolean: jest.fn().mockReturnValue(undefined),
+    const mockApmeConfig = mockApmeSection({
       getString: jest.fn().mockReturnValue('https://apme.example.com'),
-    };
+    });
 
     const mockConfig = {
       getOptionalConfig: jest
@@ -76,14 +92,13 @@ describe('getApmeConfig', () => {
   });
 
   it('defaults enableAi to false when key is omitted', () => {
-    const mockApmeConfig = {
+    const mockApmeConfig = mockApmeSection({
       getOptionalBoolean: jest
         .fn()
         .mockImplementation((key: string) =>
           key === 'enabled' ? true : undefined,
         ),
-      getString: jest.fn().mockReturnValue('http://localhost:8080'),
-    };
+    });
 
     const mockConfig = {
       getOptionalConfig: jest
@@ -100,12 +115,11 @@ describe('getApmeConfig', () => {
 
 describe('isApmeEnabled', () => {
   it('returns true only when enabled flag is set', () => {
-    const mockApmeConfig = {
+    const mockApmeConfig = mockApmeSection({
       getOptionalBoolean: jest
         .fn()
         .mockImplementation((key: string) => key === 'enabled'),
-      getString: jest.fn().mockReturnValue('http://localhost:8080'),
-    };
+    });
 
     const mockConfig = {
       getOptionalConfig: jest
