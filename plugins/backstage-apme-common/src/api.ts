@@ -27,6 +27,9 @@ import {
   CreatePullRequestResult,
   RemediationBundle,
   PushBranchResult,
+  RuleConfigUpdate,
+  CreateSuppressionRequest,
+  Suppression,
 } from './types';
 
 export interface ApmeScmRequestOptions {
@@ -51,6 +54,11 @@ export interface ApmeApi {
     options?: ApmeViolationsOptions,
   ): Promise<Violation[]>;
   getRules(): Promise<Rule[]>;
+  updateRuleConfig(ruleId: string, body: RuleConfigUpdate): Promise<Rule>;
+  deleteRuleConfig(ruleId: string): Promise<void>;
+  createSuppression(body: CreateSuppressionRequest): Promise<Suppression>;
+  deleteSuppression(suppressionId: number): Promise<void>;
+  getSuppressions(scope?: string): Promise<Suppression[]>;
   triggerScan(projectId: string): Promise<ScanResult>;
   createProject(request: CreateProjectRequest): Promise<Project>;
   deleteProject(projectId: string): Promise<void>;

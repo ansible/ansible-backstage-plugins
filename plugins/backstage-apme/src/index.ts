@@ -34,6 +34,10 @@ export { ApmeAdminCard as ApmeAdminCardComponent } from './components/ApmeAdminC
 export { ApmeQualitySettingsTab as ApmeQualitySettingsTabComponent } from './components/ApmeQualitySettingsTab';
 export { FleetQualityTab as ApmeFleetQualityTabComponent } from './components/FleetQualityTab';
 export { EntityQualityTab as ApmeEntityQualityTabComponent } from './components/EntityQualityTab';
+export { ApmeRepositoryOverviewCard as ApmeRepositoryOverviewCardComponent } from './components/ApmeRepositoryOverviewCard/ApmeRepositoryOverviewCard';
+export { DependenciesTab as ApmeDependenciesTabComponent } from './components/DependenciesTab/DependenciesTab';
+export { ApmeRepositoryCollectionsTab as ApmeRepositoryCollectionsTabComponent } from './components/ApmeRepositoryCollectionsTab/ApmeRepositoryCollectionsTab';
+export { ApmeRepositoryHeaderActions as ApmeRepositoryHeaderActionsComponent } from './components/ApmeRepositoryHeaderActions/ApmeRepositoryHeaderActions';
 export type { FleetQualityTabProps as ApmeFleetQualityTabProps } from './components/FleetQualityTab';
 export { PreviewChip as PreviewChipComponent } from './components/PreviewChip';
 export { apmeApiRef, ApmeApiClient } from './api';

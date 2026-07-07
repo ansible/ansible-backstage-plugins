@@ -70,9 +70,16 @@ export async function createRouter(options: RouterOptions): Promise<Router> {
   });
 
   router.get('/apme/settings', async (_req, res) => {
-    const { enableAi, publishViaGateway: settingsPublishViaGateway } =
-      getApmeConfig(rootConfig);
-    res.json({ enableAi, publishViaGateway: settingsPublishViaGateway });
+    const {
+      enableAi,
+      publishViaGateway: settingsPublishViaGateway,
+      targetAnsibleCoreVersion,
+    } = getApmeConfig(rootConfig);
+    res.json({
+      enableAi,
+      publishViaGateway: settingsPublishViaGateway,
+      targetAnsibleCoreVersion,
+    });
   });
 
   router.get('/apme/ai/status', async (_req, res) => {
@@ -124,6 +131,13 @@ export async function createRouter(options: RouterOptions): Promise<Router> {
     res.json(violations);
   });
 
+  router.get('/apme/projects/:projectId/dependencies', async (req, res) => {
+    const { projectId } = req.params;
+    logger.debug(`APME dependencies for project ${projectId} requested`);
+    const dependencies = await apmeService.getProjectDependencies(projectId);
+    res.json(dependencies);
+  });
+
   router.post('/apme/projects/:projectId/operation', async (req, res) => {
     await ensureUser(req);
     const { projectId } = req.params;
@@ -136,6 +150,68 @@ export async function createRouter(options: RouterOptions): Promise<Router> {
     logger.debug('APME rules list requested');
     const rules = await apmeService.getRules();
     res.json({ items: rules });
+  });
+
+  router.put('/apme/rules/:ruleId/config', async (req, res) => {
+    await ensureUser(req);
+    const { ruleId } = req.params;
+    const body = req.body;
+    if (!body || typeof body !== 'object') {
+      throw new InputError('Request body must be an object');
+    }
+    const hasValidField =
+      'severity_override' in body ||
+      'enabled_override' in body ||
+      'enforced' in body;
+    if (!hasValidField) {
+      throw new InputError(
+        'At least one of severity_override, enabled_override, or enforced is required',
+      );
+    }
+    logger.info(`APME rule config update for ${ruleId}`);
+    const rule = await apmeService.updateRuleConfig(ruleId, body);
+    res.json(rule);
+  });
+
+  router.delete('/apme/rules/:ruleId/config', async (req, res) => {
+    await ensureUser(req);
+    const { ruleId } = req.params;
+    logger.info(`APME rule config reset for ${ruleId}`);
+    await apmeService.deleteRuleConfig(ruleId);
+    res.status(204).send();
+  });
+
+  router.post('/apme/suppressions', async (req, res) => {
+    await ensureUser(req);
+    const { rule_id, scope } = req.body ?? {};
+    if (!rule_id || typeof rule_id !== 'string') {
+      throw new InputError('rule_id is required in request body');
+    }
+    if (!scope || typeof scope !== 'string') {
+      throw new InputError('scope is required in request body');
+    }
+    logger.info('APME suppression create requested');
+    const suppression = await apmeService.createSuppression(req.body);
+    res.status(201).json(suppression);
+  });
+
+  router.get('/apme/suppressions', async (req, res) => {
+    const scope = req.query.scope as string | undefined;
+    logger.debug(`APME suppressions list requested scope=${scope ?? 'all'}`);
+    const suppressions = await apmeService.getSuppressions(scope);
+    res.json(suppressions);
+  });
+
+  router.delete('/apme/suppressions/:suppressionId', async (req, res) => {
+    await ensureUser(req);
+    const suppressionId = parseInt(req.params.suppressionId, 10);
+    if (Number.isNaN(suppressionId)) {
+      res.status(400).json({ error: 'Invalid suppression id' });
+      return;
+    }
+    logger.info(`APME suppression delete ${suppressionId}`);
+    await apmeService.deleteSuppression(suppressionId);
+    res.status(204).send();
   });
 
   router.get('/apme/lookup', async (req, res) => {
@@ -158,6 +234,13 @@ export async function createRouter(options: RouterOptions): Promise<Router> {
 
   router.post('/apme/projects', async (req, res) => {
     await ensureUser(req);
+    const { name, repo_url } = req.body ?? {};
+    if (!name || typeof name !== 'string') {
+      throw new InputError('name is required in request body');
+    }
+    if (!repo_url || typeof repo_url !== 'string') {
+      throw new InputError('repo_url is required in request body');
+    }
     logger.info('APME create project requested');
     const project = await apmeService.createProject(req.body);
     res.status(201).json(project);

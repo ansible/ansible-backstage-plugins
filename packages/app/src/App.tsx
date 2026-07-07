@@ -141,7 +141,7 @@ const routes = (
     <Route path="/settings" element={<UserSettingsPage />} />
     <Route path="/catalog-graph" element={<CatalogGraphPage />} />
     <Route path="/ansible" element={<AnsiblePage />} />
-    <Route path="/self-service" element={<SelfServicePage />} />
+    <Route path="/self-service/*" element={<SelfServicePage />} />
     <ApmeRoutes />
   </FlatRoutes>
 );

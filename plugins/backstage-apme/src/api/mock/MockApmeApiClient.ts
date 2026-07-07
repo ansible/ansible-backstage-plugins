@@ -24,6 +24,10 @@ import {
   Activity,
   OperationState,
   Proposal,
+  ProjectDependencies,
+  RuleConfigUpdate,
+  CreateSuppressionRequest,
+  Suppression,
 } from '@ansible/backstage-apme-common/types';
 import { ApmeApi } from '../ApmeApi';
 import {
@@ -35,6 +39,12 @@ import {
 } from './fixtures';
 
 const delay = (ms: number) => new Promise(r => setTimeout(r, ms));
+
+function severityFromOverride(value: number): Rule['severity'] {
+  if (value >= 6) return 'critical';
+  if (value >= 4) return 'high';
+  return 'medium';
+}
 
 interface ScanState {
   operationId: string;
@@ -69,7 +79,11 @@ export class MockApmeApiClient implements ApmeApi {
 
   async getPortalSettings() {
     await delay(50);
-    return { enableAi: true, publishViaGateway: false };
+    return {
+      enableAi: true,
+      publishViaGateway: false,
+      targetAnsibleCoreVersion: '2.16',
+    };
   }
 
   async getAiStatus() {
@@ -133,9 +147,103 @@ export class MockApmeApiClient implements ApmeApi {
     return rows;
   }
 
+  async getProjectDependencies(
+    projectId: string,
+  ): Promise<ProjectDependencies> {
+    await delay(200);
+    const violations = this.violations[projectId] ?? [];
+    const depViolations = violations.filter(v => v.category === 'dependencies');
+    const pythonNames = new Set<string>();
+    for (const v of depViolations) {
+      if (v.validator_source === 'dep_audit') {
+        const name = v.message.split(/\s+/)[0];
+        if (name) pythonNames.add(name);
+      }
+    }
+    return {
+      ansible_core_version: '2.16.0',
+      collections: [
+        {
+          fqcn: 'ansible.posix',
+          version: '1.5.4',
+          source: 'specified',
+        },
+      ],
+      python_packages: [...pythonNames].map(name => ({
+        name,
+        version: '0.0.0',
+      })),
+      requirements_files: ['requirements.txt'],
+      dependency_tree: '',
+    };
+  }
+
   async getRules(): Promise<Rule[]> {
     await delay(300);
     return MOCK_RULES.map(r => ({ ...r }));
+  }
+
+  private mockSuppressions: Suppression[] = [];
+  private nextSuppressionId = 1;
+
+  async updateRuleConfig(
+    ruleId: string,
+    body: RuleConfigUpdate,
+  ): Promise<Rule> {
+    await delay(150);
+    const rule = MOCK_RULES.find(r => r.id === ruleId);
+    if (!rule) throw new Error(`Rule ${ruleId} not found`);
+    if (typeof body.enabled_override === 'boolean') {
+      rule.enabled = body.enabled_override;
+    }
+    if (typeof body.enforced === 'boolean') {
+      rule.enforced = body.enforced;
+    }
+    if (typeof body.severity_override === 'number') {
+      rule.severity = severityFromOverride(body.severity_override);
+    }
+    rule.hasOverride = true;
+    return { ...rule };
+  }
+
+  async deleteRuleConfig(ruleId: string): Promise<void> {
+    await delay(100);
+    const rule = MOCK_RULES.find(r => r.id === ruleId);
+    if (rule) {
+      rule.hasOverride = false;
+      rule.enforced = false;
+    }
+  }
+
+  async createSuppression(
+    body: CreateSuppressionRequest,
+  ): Promise<Suppression> {
+    await delay(150);
+    const suppression: Suppression = {
+      id: this.nextSuppressionId++,
+      fingerprint_hash: body.fingerprint_hash ?? 'mock',
+      fingerprint_mode: body.fingerprint_mode ?? 'full',
+      rule_id: body.rule_id,
+      scope: body.scope,
+      reason: body.reason ?? '',
+      created_by: 'mock',
+      created_at: new Date().toISOString(),
+    };
+    this.mockSuppressions.push(suppression);
+    return suppression;
+  }
+
+  async deleteSuppression(suppressionId: number): Promise<void> {
+    await delay(100);
+    this.mockSuppressions = this.mockSuppressions.filter(
+      s => s.id !== suppressionId,
+    );
+  }
+
+  async getSuppressions(scope?: string): Promise<Suppression[]> {
+    await delay(100);
+    if (!scope) return [...this.mockSuppressions];
+    return this.mockSuppressions.filter(s => s.scope === scope);
   }
 
   async triggerScan(projectId: string): Promise<ScanResult> {

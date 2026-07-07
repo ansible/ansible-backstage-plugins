@@ -19,6 +19,7 @@ import {
   Box,
   Button,
   Checkbox,
+  Chip,
   Collapse,
   IconButton,
   Menu,
@@ -31,22 +32,22 @@ import {
 import ArrowDropDownIcon from '@material-ui/icons/ArrowDropDown';
 import ExpandMoreIcon from '@material-ui/icons/ExpandMore';
 import ExpandLessIcon from '@material-ui/icons/ExpandLess';
+import CheckCircleOutlineIcon from '@material-ui/icons/CheckCircleOutline';
 import OpenInNewIcon from '@material-ui/icons/OpenInNew';
 import type { Violation } from '@ansible/backstage-apme-common/types';
 import {
   SEVERITY_STYLES,
   normalizeSeverity,
   effectiveFixType,
+  fixMethodLabel,
+  fixMethodTooltip,
   isFixableViolation,
   categoryLabel,
 } from '@ansible/backstage-apme-common/severity';
 import { useApmeAiEnabled } from '../../hooks/useApmeEnabled';
+import { acknowledgeButtonLabel } from '../../hooks/useViolationAcknowledge';
+import { EditInDevSpacesButton } from '../EditInDevSpacesButton';
 import { DiffView } from '../DiffView';
-import { FixChipStyled, type FixChipStatus } from '../FixChipStyled';
-import {
-  formatViolationMessage,
-  yamlSnippetAroundLine,
-} from '../../utils/violationRemediation';
 
 type SortColumn = 'severity' | 'fixMethod' | 'rule' | 'file';
 
@@ -197,52 +198,6 @@ const useStyles = makeStyles(theme => ({
     color: theme.palette.text.secondary,
     fontSize: 12,
   },
-  diffPanels: {
-    display: 'grid',
-    gridTemplateColumns: '1fr 1fr',
-    gap: theme.spacing(1.5),
-    marginTop: theme.spacing(1.5),
-    [theme.breakpoints.down('sm')]: {
-      gridTemplateColumns: '1fr',
-    },
-  },
-  diffPanel: {
-    border: `1px solid ${theme.palette.divider}`,
-    borderRadius: 4,
-    overflow: 'hidden',
-  },
-  diffPanelLabel: {
-    padding: theme.spacing(0.75, 1.5),
-    fontSize: 11,
-    fontWeight: 700,
-    textTransform: 'uppercase',
-    letterSpacing: '0.05em',
-    backgroundColor:
-      theme.palette.type === 'dark' ? 'rgba(255,255,255,0.04)' : '#f5f5f5',
-    borderBottom: `1px solid ${theme.palette.divider}`,
-  },
-  snippetEllipsis: {
-    display: 'block',
-    padding: theme.spacing(0.5, 1.5),
-    fontSize: 11,
-    color: theme.palette.text.secondary,
-    fontFamily: 'monospace',
-  },
-  issuesList: {
-    margin: 0,
-    paddingLeft: theme.spacing(2.5),
-    fontSize: 13,
-    lineHeight: 1.5,
-    '& li': {
-      marginBottom: theme.spacing(0.75),
-    },
-  },
-  suggestionPanel: {
-    fontSize: 13,
-    lineHeight: 1.5,
-    whiteSpace: 'pre-wrap',
-    fontFamily: 'monospace',
-  },
   footerActions: {
     display: 'flex',
     gap: theme.spacing(1),
@@ -263,28 +218,77 @@ const useStyles = makeStyles(theme => ({
   },
 }));
 
-export interface ViolationRowDiff {
-  before?: string;
-  after?: string;
-}
-
-export interface ApmeViolationsTableFilterContext {
-  totalViolationCount: number;
-  activeFixTypeFilter: string;
-  ruleFilter: string | null;
-  autoFixCount: number;
-  onClearFixTypeFilter?: () => void;
-  onClearRuleFilter?: () => void;
+function FixMethodDisplay({
+  remediationClass,
+  enableAi,
+}: {
+  remediationClass: number;
+  enableAi: boolean;
+}) {
+  const theme = useTheme();
+  const fixType = effectiveFixType(remediationClass, enableAi);
+  const label = fixMethodLabel(fixType);
+  const tooltip = fixMethodTooltip(fixType);
+  let chip;
+  if (fixType === 'auto') {
+    chip = (
+      <Chip
+        size="small"
+        label={label}
+        style={{
+          backgroundColor: theme.palette.success.main,
+          color: theme.palette.success.contrastText,
+          fontWeight: 600,
+          fontSize: 11,
+          height: 22,
+          borderRadius: 3,
+        }}
+      />
+    );
+  } else if (fixType === 'ai') {
+    chip = (
+      <Chip
+        size="small"
+        label={label}
+        style={{
+          backgroundColor: theme.palette.info.main,
+          color: theme.palette.info.contrastText,
+          fontWeight: 600,
+          fontSize: 11,
+          height: 22,
+          borderRadius: 3,
+        }}
+      />
+    );
+  } else {
+    chip = (
+      <Chip
+        size="small"
+        label={label}
+        variant="outlined"
+        style={{
+          fontSize: 11,
+          height: 22,
+          borderRadius: 3,
+          color: theme.palette.text.secondary,
+          borderColor: theme.palette.divider,
+        }}
+      />
+    );
+  }
+  return (
+    <Tooltip title={tooltip}>
+      <span>{chip}</span>
+    </Tooltip>
+  );
 }
 
 function CodePreview({
   yaml,
   highlightLine,
-  startLine = 1,
 }: {
   yaml?: string;
   highlightLine: number;
-  startLine?: number;
 }) {
   const classes = useStyles();
   if (!yaml) return null;
@@ -292,8 +296,11 @@ function CodePreview({
   return (
     <div className={classes.codeBlock}>
       {lines.map((content, i) => {
-        const lineNum = startLine + i;
-        const isHighlighted = lineNum === highlightLine;
+        const lineNum = i + 1;
+        const isHighlighted =
+          lineNum === highlightLine
+            ? true
+            : content.trim().length > 0 && i === 1;
         return (
           <div
             key={i}
@@ -308,218 +315,21 @@ function CodePreview({
   );
 }
 
-function IssuesList({ issues }: { issues: string[] }) {
-  const classes = useStyles();
-  if (issues.length === 0) {
-    return null;
-  }
-  return (
-    <ul className={classes.issuesList}>
-      {issues.map((issue, index) => (
-        <li key={`${index}-${issue}`}>{issue}</li>
-      ))}
-    </ul>
-  );
-}
-
-function CurrentYamlPanel({
-  yaml,
-  highlightLine,
-}: {
-  yaml: string;
-  highlightLine: number;
-}) {
-  const classes = useStyles();
-  const { snippet, startLine, truncatedAbove, truncatedBelow } =
-    yamlSnippetAroundLine(yaml, highlightLine);
-
-  return (
-    <>
-      {truncatedAbove && (
-        <Typography variant="caption" className={classes.snippetEllipsis}>
-          …
-        </Typography>
-      )}
-      <CodePreview
-        yaml={snippet}
-        highlightLine={highlightLine}
-        startLine={startLine}
-      />
-      {truncatedBelow && (
-        <Typography variant="caption" className={classes.snippetEllipsis}>
-          …
-        </Typography>
-      )}
-    </>
-  );
-}
-
-function TwoColumnRemediationPanel({
-  yaml,
-  highlightLine,
-  rightLabel,
-  rightContent,
-}: {
-  yaml: string;
-  highlightLine: number;
-  rightLabel: string;
-  rightContent: ReactNode;
-}) {
-  const classes = useStyles();
-
-  return (
-    <div className={classes.diffPanels}>
-      <div className={classes.diffPanel}>
-        <div className={classes.diffPanelLabel}>Current</div>
-        <Box padding={1}>
-          <CurrentYamlPanel yaml={yaml} highlightLine={highlightLine} />
-        </Box>
-      </div>
-      <div className={classes.diffPanel}>
-        <div className={classes.diffPanelLabel}>{rightLabel}</div>
-        <Box padding={1.5}>{rightContent}</Box>
-      </div>
-    </div>
-  );
-}
-
-function hasSuggestedRemediation(v: Violation): boolean {
-  return Boolean(
-    v.fixed_yaml?.trim() ||
-      v.ai_suggestion?.trim() ||
-      v.message?.trim(),
-  );
-}
-
-function ExpandedViolationDetail({
-  violation: v,
-  rowDiff,
-  onDismiss,
-}: {
-  violation: Violation;
-  rowDiff?: ViolationRowDiff;
-  onDismiss: () => void;
-}) {
-  const classes = useStyles();
-  const cat = v.category ? categoryLabel(v.category) : v.validator_source;
-
-  let remediationBody: ReactNode;
-  if (rowDiff?.before || rowDiff?.after) {
-    remediationBody = (
-      <div className={classes.diffPanels}>
-        <div className={classes.diffPanel}>
-          <div className={classes.diffPanelLabel}>Before</div>
-          <Box padding={1}>
-            <CodePreview yaml={rowDiff.before ?? ''} highlightLine={v.line} />
-          </Box>
-        </div>
-        <div className={classes.diffPanel}>
-          <div className={classes.diffPanelLabel}>After</div>
-          <Box padding={1}>
-            <CodePreview yaml={rowDiff.after ?? ''} highlightLine={v.line} />
-          </Box>
-        </div>
-      </div>
-    );
-  } else if (v.fixed_yaml) {
-    remediationBody = (
-      <DiffView
-        before={v.original_yaml}
-        after={v.fixed_yaml}
-        title="Proposed fix"
-      />
-    );
-  } else if (v.original_yaml?.trim() && v.ai_suggestion?.trim()) {
-    remediationBody = (
-      <TwoColumnRemediationPanel
-        yaml={v.original_yaml}
-        highlightLine={v.line}
-        rightLabel="Suggested change"
-        rightContent={
-          <Typography variant="body2" className={classes.suggestionPanel}>
-            {v.ai_suggestion}
-          </Typography>
-        }
-      />
-    );
-  } else if (v.original_yaml?.trim() && v.message?.trim()) {
-    remediationBody = (
-      <TwoColumnRemediationPanel
-        yaml={v.original_yaml}
-        highlightLine={v.line}
-        rightLabel="Issues found"
-        rightContent={
-          <IssuesList issues={formatViolationMessage(v.message)} />
-        }
-      />
-    );
-  } else if (v.message?.trim()) {
-    remediationBody = (
-      <IssuesList issues={formatViolationMessage(v.message)} />
-    );
-  } else if (v.ai_suggestion?.trim()) {
-    remediationBody = (
-      <Typography variant="body2" className={classes.suggestionPanel}>
-        {v.ai_suggestion}
-      </Typography>
-    );
-  } else {
-    remediationBody = (
-      <Typography variant="body2" color="textSecondary">
-        No automated suggestion for this rule — edit manually in your repo.
-      </Typography>
-    );
-  }
-
-  return (
-    <Box padding={2}>
-      <Typography variant="body2" className={classes.description}>
-        {v.ai_reason || `Rule ${v.rule_id} detected in ${v.file}`}
-      </Typography>
-      <Typography
-        variant="subtitle2"
-        style={{ marginTop: 12, marginBottom: 8, fontSize: 13 }}
-      >
-        Suggested remediation
-      </Typography>
-      {remediationBody}
-      <div className={classes.footer}>
-        <div className={classes.footerMeta}>
-          <span>
-            Validator: <strong>{v.validator_source}</strong>
-          </span>
-          {v.scope && (
-            <span>
-              Scope: <strong>{v.scope}</strong>
-            </span>
-          )}
-          <span>
-            Category: <strong>{cat}</strong>
-          </span>
-        </div>
-        <div className={classes.footerActions}>
-          <Tooltip title="Mark as reviewed — won't be included in fix suggestions.">
-            <Button
-              size="small"
-              variant="text"
-              style={{ fontSize: 12, color: '#6a6e73' }}
-              onClick={onDismiss}
-            >
-              Dismiss
-            </Button>
-          </Tooltip>
-        </div>
-      </div>
-    </Box>
-  );
-}
-
 function fixMethodSortKey(remediationClass: number, enableAi: boolean): number {
   const ft = effectiveFixType(remediationClass, enableAi);
   if (ft === 'auto') return 0;
   if (ft === 'ai') return 1;
   if (ft === 'manual') return 2;
   return 3;
+}
+
+export interface ApmeViolationsTableFilterContext {
+  totalViolationCount: number;
+  activeFixTypeFilter: string;
+  ruleFilter: string | null;
+  autoFixCount: number;
+  onClearFixTypeFilter?: () => void;
+  onClearRuleFilter?: () => void;
 }
 
 export interface ApmeViolationsTableProps {
@@ -530,30 +340,33 @@ export interface ApmeViolationsTableProps {
   /** Dev Spaces factory URL for manual violations (repo or remediation branch). */
   devSpacesUrl?: string | null;
   filterContext?: ApmeViolationsTableFilterContext;
-  /** When false, hide row checkboxes (e.g. during push/PR). */
-  showCheckboxes?: boolean;
-  /** Use status chips (Proposed / Excluded / In PR) instead of tier chips. */
-  fixChipMode?: 'tier' | 'status';
-  getFixStatus?: (violationId: number) => FixChipStatus;
-  /** Per-violation before/after diffs for review step. */
-  rowDiffs?: Map<number, ViolationRowDiff>;
+  /** When set, acknowledged violations are hidden unless showAcknowledgedOnly. */
+  showAcknowledgedOnly?: boolean;
+  onAcknowledge?: (violation: Violation) => Promise<void>;
+  onUnacknowledge?: (violation: Violation) => Promise<void>;
+  acknowledgingId?: number | null;
+  isAcknowledged?: (violation: Violation) => boolean;
 }
 
 export const ApmeViolationsTable = ({
   violations,
   selectedIds,
   onSelectionChange,
-  devSpacesUrl: _devSpacesUrl,
+  devSpacesUrl,
   toolbarActions,
   filterContext,
-  showCheckboxes = true,
-  fixChipMode = 'tier',
-  getFixStatus,
-  rowDiffs,
+  showAcknowledgedOnly = false,
+  onAcknowledge,
+  onUnacknowledge,
+  acknowledgingId = null,
+  isAcknowledged: isAcknowledgedProp,
 }: ApmeViolationsTableProps) => {
   const classes = useStyles();
   const enableAi = useApmeAiEnabled();
-  const [dismissed, setDismissed] = useState<Set<number>>(new Set());
+  const isAcknowledged = useMemo(
+    () => isAcknowledgedProp ?? ((v: Violation) => v.suppressed === true),
+    [isAcknowledgedProp],
+  );
   const [localSelected, setLocalSelected] = useState<Set<number>>(new Set());
   const [expandedIds, setExpandedIds] = useState<Set<number>>(new Set());
   const [collapsedIds, setCollapsedIds] = useState<Set<number>>(new Set());
@@ -566,10 +379,13 @@ export const ApmeViolationsTable = ({
   const selected = selectedIds ?? localSelected;
   const setSelected = onSelectionChange ?? setLocalSelected;
 
-  const visible = useMemo(
-    () => violations.filter(v => !dismissed.has(v.id)),
-    [violations, dismissed],
-  );
+  const visible = useMemo(() => {
+    return violations.filter(v => {
+      const acknowledged = isAcknowledged(v);
+      if (showAcknowledgedOnly) return acknowledged;
+      return !acknowledged;
+    });
+  }, [violations, showAcknowledgedOnly, isAcknowledged]);
 
   const sorted = useMemo(() => {
     const list = [...visible];
@@ -652,10 +468,18 @@ export const ApmeViolationsTable = ({
     setSelected(next);
   };
 
-  const handleDismiss = (id: number) => {
-    setDismissed(prev => new Set([...prev, id]));
+  const handleAcknowledgeToggle = async (violation: Violation) => {
+    if (isAcknowledged(violation)) {
+      if (onUnacknowledge) {
+        await onUnacknowledge(violation);
+      }
+      return;
+    }
+    if (onAcknowledge) {
+      await onAcknowledge(violation);
+    }
     const next = new Set(selected);
-    next.delete(id);
+    next.delete(violation.id);
     setSelected(next);
   };
 
@@ -731,45 +555,43 @@ export const ApmeViolationsTable = ({
   return (
     <Box className={classes.wrapper}>
       <div className={classes.toolbar}>
-        {showCheckboxes && (
-          <div className={classes.selectGroup}>
-            <Checkbox
-              size="small"
-              indeterminate={selected.size > 0 && !allSelected}
-              checked={allSelected}
-              onChange={handleSelectAll}
-              style={{ padding: 4 }}
-            />
-            <Button
-              size="small"
-              className={classes.selectMenuButton}
-              endIcon={<ArrowDropDownIcon style={{ fontSize: 18 }} />}
-              onClick={e => setSelectMenuAnchor(e.currentTarget)}
-            >
-              {selected.size > 0 ? `${selected.size} selected` : 'Select'}
-            </Button>
-            <Menu
-              anchorEl={selectMenuAnchor}
-              open={Boolean(selectMenuAnchor)}
-              onClose={() => setSelectMenuAnchor(null)}
-            >
-              <MenuItem onClick={() => selectByFilter('all')}>
-                All fixable
+        <div className={classes.selectGroup}>
+          <Checkbox
+            size="small"
+            indeterminate={selected.size > 0 && !allSelected}
+            checked={allSelected}
+            onChange={handleSelectAll}
+            style={{ padding: 4 }}
+          />
+          <Button
+            size="small"
+            className={classes.selectMenuButton}
+            endIcon={<ArrowDropDownIcon style={{ fontSize: 18 }} />}
+            onClick={e => setSelectMenuAnchor(e.currentTarget)}
+          >
+            {selected.size > 0 ? `${selected.size} selected` : 'Select'}
+          </Button>
+          <Menu
+            anchorEl={selectMenuAnchor}
+            open={Boolean(selectMenuAnchor)}
+            onClose={() => setSelectMenuAnchor(null)}
+          >
+            <MenuItem onClick={() => selectByFilter('all')}>
+              All fixable
+            </MenuItem>
+            <MenuItem onClick={() => selectByFilter('auto')}>
+              Auto-fixes only
+            </MenuItem>
+            {enableAi && (
+              <MenuItem onClick={() => selectByFilter('ai')}>
+                AI-assisted only
               </MenuItem>
-              <MenuItem onClick={() => selectByFilter('auto')}>
-                Auto-fixes only
-              </MenuItem>
-              {enableAi && (
-                <MenuItem onClick={() => selectByFilter('ai')}>
-                  AI-assisted only
-                </MenuItem>
-              )}
-              <MenuItem onClick={() => selectByFilter('clear')}>
-                Clear selection
-              </MenuItem>
-            </Menu>
-          </div>
-        )}
+            )}
+            <MenuItem onClick={() => selectByFilter('clear')}>
+              Clear selection
+            </MenuItem>
+          </Menu>
+        </div>
         {toolbarActions}
       </div>
 
@@ -809,9 +631,10 @@ export const ApmeViolationsTable = ({
             const sev = normalizeSeverity(v.level);
             const style = SEVERITY_STYLES[sev];
             const canSelect = isFixableViolation(v.remediation_class, enableAi);
+            const cat = v.category
+              ? categoryLabel(v.category)
+              : v.validator_source;
             const isExpanded = isRowExpanded(v.id);
-            const rowDiff = rowDiffs?.get(v.id);
-            const fixStatus = getFixStatus?.(v.id) ?? 'proposed';
 
             return [
               <tr
@@ -823,27 +646,23 @@ export const ApmeViolationsTable = ({
                   onClick={e => e.stopPropagation()}
                   onKeyDown={e => e.stopPropagation()}
                 >
-                  {showCheckboxes ? (
-                    <Tooltip
-                      title={
-                        canSelect
-                          ? 'Include in fix generation when checked'
-                          : hasSuggestedRemediation(v)
-                            ? 'Manual only — see suggested remediation below'
-                            : 'Manual only — no automated suggestion'
-                      }
-                    >
-                      <span>
-                        <Checkbox
-                          size="small"
-                          checked={selected.has(v.id)}
-                          disabled={!canSelect}
-                          onChange={() => handleSelect(v.id)}
-                          style={{ padding: 4 }}
-                        />
-                      </span>
-                    </Tooltip>
-                  ) : null}
+                  <Tooltip
+                    title={
+                      canSelect
+                        ? 'Include in remediation when selected'
+                        : 'Manual review — edit in Dev Spaces or apply auto-generated fixes to other rows'
+                    }
+                  >
+                    <span>
+                      <Checkbox
+                        size="small"
+                        checked={selected.has(v.id)}
+                        disabled={!canSelect}
+                        onChange={() => handleSelect(v.id)}
+                        style={{ padding: 4 }}
+                      />
+                    </span>
+                  </Tooltip>
                 </td>
                 <td>
                   <span
@@ -857,11 +676,9 @@ export const ApmeViolationsTable = ({
                   </span>
                 </td>
                 <td onClick={e => e.stopPropagation()}>
-                  <FixChipStyled
+                  <FixMethodDisplay
                     remediationClass={v.remediation_class}
                     enableAi={enableAi}
-                    mode={fixChipMode}
-                    status={fixStatus}
                   />
                 </td>
                 <td>
@@ -895,11 +712,93 @@ export const ApmeViolationsTable = ({
                 <tr key={`${v.id}-detail`}>
                   <td colSpan={6} className={classes.expandedCell}>
                     <Collapse in={isExpanded}>
-                      <ExpandedViolationDetail
-                        violation={v}
-                        rowDiff={rowDiff}
-                        onDismiss={() => handleDismiss(v.id)}
-                      />
+                      <Box padding={2}>
+                        <Typography
+                          variant="body2"
+                          className={classes.description}
+                        >
+                          {v.ai_reason ||
+                            `Rule ${v.rule_id} detected in ${v.file}`}
+                        </Typography>
+                        {v.ai_suggestion && (
+                          <Typography
+                            variant="body2"
+                            style={{ marginTop: 8, fontStyle: 'italic' }}
+                          >
+                            Guidance: {v.ai_suggestion}
+                          </Typography>
+                        )}
+                        {v.fixed_yaml ? (
+                          <DiffView
+                            before={v.original_yaml}
+                            after={v.fixed_yaml}
+                            title="Proposed fix"
+                          />
+                        ) : (
+                          <CodePreview
+                            yaml={v.original_yaml}
+                            highlightLine={v.line}
+                          />
+                        )}
+                        <div className={classes.footer}>
+                          <div className={classes.footerMeta}>
+                            <span>
+                              Validator: <strong>{v.validator_source}</strong>
+                            </span>
+                            {v.scope && (
+                              <span>
+                                Scope: <strong>{v.scope}</strong>
+                              </span>
+                            )}
+                            <span>
+                              Category: <strong>{cat}</strong>
+                            </span>
+                          </div>
+                          <div className={classes.footerActions}>
+                            {!canSelect && devSpacesUrl && (
+                              <EditInDevSpacesButton
+                                url={devSpacesUrl}
+                                label="Edit in Dev Spaces"
+                              />
+                            )}
+                            {(onAcknowledge || onUnacknowledge) && (
+                              <Tooltip
+                                title={
+                                  isAcknowledged(v)
+                                    ? 'Remove acknowledgment — violation will appear in scans again'
+                                    : "Acknowledge — won't block merges but remains visible when filtered"
+                                }
+                              >
+                                <Button
+                                  size="small"
+                                  variant="text"
+                                  style={{ fontSize: 12 }}
+                                  color={
+                                    isAcknowledged(v) ? 'default' : 'primary'
+                                  }
+                                  startIcon={
+                                    isAcknowledged(v) ? (
+                                      <CheckCircleOutlineIcon
+                                        style={{ fontSize: 14 }}
+                                      />
+                                    ) : undefined
+                                  }
+                                  disabled={acknowledgingId === v.id}
+                                  onClick={() =>
+                                    void handleAcknowledgeToggle(v)
+                                  }
+                                >
+                                  {acknowledgeButtonLabel(
+                                    acknowledgingId,
+                                    v.id,
+                                    isAcknowledged(v),
+                                  )}
+                                </Button>
+                              </Tooltip>
+                            )}
+                          </div>
+                        </div>
+                      </Box>
                     </Collapse>
                   </td>
                 </tr>

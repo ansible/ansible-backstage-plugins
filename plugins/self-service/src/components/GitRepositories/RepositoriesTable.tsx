@@ -36,6 +36,7 @@ import HelpOutlineIcon from '@material-ui/icons/HelpOutline';
 import GitHubIcon from '@material-ui/icons/GitHub';
 import { getSourceUrl, formatTimeAgo } from '../CollectionsCatalog/utils';
 import { EntityLinkButton, GitLabIcon, SyncStatusMap } from '../common';
+import { ApmeStatusChipSlot } from './ApmeStatusChipSlot';
 import {
   useCollectionsStyles,
   useTableWrapperStyles,
@@ -209,9 +210,15 @@ const RepositoriesTableInner = ({
         const repoName = entity.metadata?.title ?? entity.metadata?.name ?? '—';
         const linkPath = `${rootLink()}/repositories/${entity.metadata?.name ?? ''}`;
         return (
-          <EntityLinkButton linkPath={linkPath} className={classes.entityLink}>
-            {repoName}
-          </EntityLinkButton>
+          <Box display="flex" alignItems="center" style={{ gap: 8 }}>
+            <EntityLinkButton
+              linkPath={linkPath}
+              className={classes.entityLink}
+            >
+              {repoName}
+            </EntityLinkButton>
+            <ApmeStatusChipSlot entity={entity} projectDetailPath={linkPath} />
+          </Box>
         );
       },
     },

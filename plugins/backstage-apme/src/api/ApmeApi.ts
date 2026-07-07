@@ -33,7 +33,16 @@ import type {
   CreatePullRequestResult,
   ApmePortalSettings,
   ApmeAiStatus,
+  ProjectDependencies,
+  RuleConfigUpdate,
+  CreateSuppressionRequest,
+  Suppression,
 } from '@ansible/backstage-apme-common/types';
+import {
+  normalizeGatewayRules,
+  normalizeGatewayRule,
+  type GatewayRuleRow,
+} from '../utils/gatewayRules';
 
 export interface ApmeScmRequestOptions {
   scmToken?: string;
@@ -58,7 +67,13 @@ export interface ApmeApi {
     projectId: string,
     options?: ApmeViolationsOptions,
   ): Promise<Violation[]>;
+  getProjectDependencies(projectId: string): Promise<ProjectDependencies>;
   getRules(): Promise<Rule[]>;
+  updateRuleConfig(ruleId: string, body: RuleConfigUpdate): Promise<Rule>;
+  deleteRuleConfig(ruleId: string): Promise<void>;
+  createSuppression(body: CreateSuppressionRequest): Promise<Suppression>;
+  deleteSuppression(suppressionId: number): Promise<void>;
+  getSuppressions(scope?: string): Promise<Suppression[]>;
   triggerScan(projectId: string): Promise<ScanResult>;
   createProject(request: CreateProjectRequest): Promise<Project>;
   deleteProject(projectId: string): Promise<void>;
@@ -120,10 +135,10 @@ export class ApmeApiClient implements ApmeApi {
     }
 
     if (!response.ok) {
-      if (response.status === 409) {
+      const errorText = await response.text();
+      if (response.status === 409 && endpoint.includes('/operation')) {
         throw new Error('A scan is already in progress for this project');
       }
-      const errorText = await response.text();
       throw new Error(
         `APME API error: ${response.status} - ${errorText || response.statusText}`,
       );
@@ -184,9 +199,60 @@ export class ApmeApiClient implements ApmeApi {
     return response || [];
   }
 
+  async getProjectDependencies(
+    projectId: string,
+  ): Promise<ProjectDependencies> {
+    return this.fetch<ProjectDependencies>(
+      `/projects/${projectId}/dependencies`,
+    );
+  }
+
   async getRules(): Promise<Rule[]> {
-    const response = await this.fetch<{ items: Rule[] }>('/rules');
-    return response.items || [];
+    const response = await this.fetch<{ items: GatewayRuleRow[] }>('/rules');
+    return normalizeGatewayRules(response.items || []);
+  }
+
+  async updateRuleConfig(
+    ruleId: string,
+    body: RuleConfigUpdate,
+  ): Promise<Rule> {
+    const response = await this.fetch<GatewayRuleRow>(
+      `/rules/${encodeURIComponent(ruleId)}/config`,
+      {
+        method: 'PUT',
+        body: JSON.stringify(body),
+      },
+    );
+    return normalizeGatewayRule(response);
+  }
+
+  async deleteRuleConfig(ruleId: string): Promise<void> {
+    await this.fetch<void>(`/rules/${encodeURIComponent(ruleId)}/config`, {
+      method: 'DELETE',
+    });
+  }
+
+  async createSuppression(
+    body: CreateSuppressionRequest,
+  ): Promise<Suppression> {
+    return this.fetch<Suppression>('/suppressions', {
+      method: 'POST',
+      body: JSON.stringify(body),
+    });
+  }
+
+  async deleteSuppression(suppressionId: number): Promise<void> {
+    await this.fetch<void>(`/suppressions/${suppressionId}`, {
+      method: 'DELETE',
+    });
+  }
+
+  async getSuppressions(scope?: string): Promise<Suppression[]> {
+    const query =
+      scope !== undefined && scope !== ''
+        ? `?scope=${encodeURIComponent(scope)}`
+        : '';
+    return this.fetch<Suppression[]>(`/suppressions${query}`);
   }
 
   async triggerScan(projectId: string): Promise<ScanResult> {

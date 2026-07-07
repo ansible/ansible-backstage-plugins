@@ -6,6 +6,7 @@
  */
 
 import { useMemo, useState, type MouseEvent } from 'react';
+import { Link as RouterLink } from 'react-router-dom';
 import { useAsync } from 'react-use';
 import { useApi } from '@backstage/core-plugin-api';
 import { catalogApiRef } from '@backstage/plugin-catalog-react';
@@ -120,6 +121,7 @@ const useStyles = makeStyles(theme => ({
   titleRow: {
     display: 'flex',
     alignItems: 'center',
+    justifyContent: 'space-between',
     gap: theme.spacing(1),
     marginBottom: theme.spacing(1),
   },
@@ -443,7 +445,16 @@ export const FleetQualityTab = ({
     <Box>
       <Box className={classes.titleRow}>
         <Typography variant="h6">Fleet quality</Typography>
-        <PreviewChip />
+        <Box display="flex" alignItems="center" style={{ gap: 12 }}>
+          <Link
+            component={RouterLink}
+            to="/self-service/repositories/quality-settings?section=rules"
+            style={{ fontSize: 13 }}
+          >
+            All rules catalog →
+          </Link>
+          <PreviewChip />
+        </Box>
       </Box>
 
       <Box className={classes.summaryBar}>

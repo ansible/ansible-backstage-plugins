@@ -38,6 +38,8 @@ export interface Violation {
   node_line_start?: number;
   ai_reason?: string;
   ai_suggestion?: string;
+  /** True when an active suppression matches this violation (ADR-055). */
+  suppressed?: boolean;
 }
 
 export interface ActiveOperationSummary {
@@ -90,9 +92,47 @@ export interface Rule {
   name: string;
   description: string;
   severity: Severity;
+  /** Catalog default severity before overrides. */
+  defaultSeverity?: Severity;
   category: string;
   remediationClass: RemediationClass;
   enabled: boolean;
+  /** Validator source from gateway (native, opa, ansible, gitleaks). */
+  source?: string;
+  /** Override: enforce despite inline ignores. */
+  enforced?: boolean;
+  /** True when any portal override is active for this rule. */
+  hasOverride?: boolean;
+}
+
+/** Payload for PUT /rules/{rule_id}/config (partial update). */
+export interface RuleConfigUpdate {
+  severity_override?: number | null;
+  enabled_override?: boolean | null;
+  enforced?: boolean | null;
+}
+
+/** Request body for POST /suppressions (ADR-055). */
+export interface CreateSuppressionRequest {
+  fingerprint_hash?: string;
+  fingerprint_mode?: 'full' | 'rule_only';
+  rule_id: string;
+  original_yaml?: string;
+  module_fqcn?: string;
+  scope: string;
+  reason?: string;
+}
+
+/** Suppression record from gateway. */
+export interface Suppression {
+  id: number;
+  fingerprint_hash: string;
+  fingerprint_mode: string;
+  rule_id: string;
+  scope: string;
+  reason: string;
+  created_by: string;
+  created_at: string;
 }
 
 export interface ScanResult {
@@ -122,12 +162,15 @@ export interface ApmeConfig {
   enableAi: boolean;
   /** When true, portal proxies PR creation to the APME gateway (standalone path). */
   publishViaGateway: boolean;
+  /** Default ansible-core version shown in UI and sent when scans omit a version. */
+  targetAnsibleCoreVersion?: string;
 }
 
 /** Portal-side APME settings (backend app-config source of truth). */
 export interface ApmePortalSettings {
   enableAi: boolean;
   publishViaGateway: boolean;
+  targetAnsibleCoreVersion?: string;
 }
 
 /** Gateway AI service reachability (Abbenay via Primary). */
@@ -194,6 +237,30 @@ export interface Activity {
   manual_review: number;
   remediated_count: number;
   pr_url?: string | null;
+}
+
+export interface CollectionRef {
+  fqcn: string;
+  version: string;
+  source: string;
+  license?: string;
+  supplier?: string;
+}
+
+export interface PythonPackageRef {
+  name: string;
+  version: string;
+  license?: string;
+  supplier?: string;
+}
+
+/** Project dependency manifest from gateway GET /projects/{id}/dependencies (ADR-040). */
+export interface ProjectDependencies {
+  ansible_core_version: string;
+  collections: CollectionRef[];
+  python_packages: PythonPackageRef[];
+  requirements_files: string[];
+  dependency_tree: string;
 }
 
 export interface Proposal {
