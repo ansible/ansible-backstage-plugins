@@ -453,7 +453,8 @@ test.describe('Execution Environment GitLab Template Execution Tests', () => {
     page,
   }) => {
     if (!process.env.GL_USER_ID || !process.env.GL_USER_PASS) {
-      throw new Error(
+      test.skip(
+        true,
         'GL_USER_ID and GL_USER_PASS environment variables are required',
       );
     }
