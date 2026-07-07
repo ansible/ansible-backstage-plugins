@@ -387,6 +387,62 @@ const REPO_NAME = `ee-gl-repo-${RANDOM_LETTER}`;
 const EE_FILE_NAME = `ee-gl-${REPO_SUFFIX}`;
 
 const GL_ORG = process.env.GL_ORG || '';
+const RANDOM_LETTER_B = String.fromCodePoint(97 + Math.floor(Math.random() * 26));
+const BUILD_IMAGE_NAME = `ee-test/ee-gl-${RANDOM_LETTER}${RANDOM_LETTER_B}`;
+const BUILD_IMAGE_TAG = `build${RANDOM_LETTER}${RANDOM_LETTER_B}`;
+
+async function enableBuildExecutionEnvironment(page: Page): Promise<void> {
+  // Check the "Build Execution Environment" checkbox
+  const buildCheckbox = page
+    .locator('input[type="checkbox"]')
+    .filter({ has: page.locator('[id*="buildExecutionEnvironment"]') })
+    .or(page.locator('input#root_publishAndBuild_buildExecutionEnvironment'))
+    .first();
+
+  const buildLabel = page
+    .getByText(/Build Execution Environment/i)
+    .first();
+
+  if (await buildLabel.isVisible({ timeout: 3000 }).catch(() => false)) {
+    // Click the label/text to toggle the checkbox (MUI wraps inputs)
+    const isChecked = await buildCheckbox.isChecked().catch(() => false);
+    if (!isChecked) {
+      console.log('[EE GitLab Test] Checking "Build Execution Environment"...');
+      await buildLabel.click({ force: true });
+      await page.waitForTimeout(1500);
+    }
+  } else {
+    console.log('[EE GitLab Test] "Build Execution Environment" not found, skipping');
+    return;
+  }
+
+  // Registry defaults to "Private Automation Hub (PAH)" — leave it unless
+  // a custom registry is needed.
+
+  // Fill Image Name
+  const imageNameInput = page
+    .getByLabel(/Image Name/i)
+    .or(page.locator('input[id*="buildImageName"]'))
+    .first();
+  if (await imageNameInput.isVisible({ timeout: 3000 }).catch(() => false)) {
+    await imageNameInput.clear();
+    await imageNameInput.fill(BUILD_IMAGE_NAME);
+    console.log(`[EE GitLab Test] Set Image Name: ${BUILD_IMAGE_NAME}`);
+  }
+
+  // Fill Image Tag
+  const imageTagInput = page
+    .getByLabel(/Image Tag/i)
+    .or(page.locator('input[id*="buildImageTag"]'))
+    .first();
+  if (await imageTagInput.isVisible({ timeout: 3000 }).catch(() => false)) {
+    await imageTagInput.clear();
+    await imageTagInput.fill(BUILD_IMAGE_TAG);
+    console.log(`[EE GitLab Test] Set Image Tag: ${BUILD_IMAGE_TAG}`);
+  }
+
+  await page.waitForTimeout(1000);
+}
 
 test.describe('Execution Environment GitLab Template Execution Tests', () => {
   test.setTimeout(180_000);
@@ -752,6 +808,9 @@ test.describe('Execution Environment GitLab Template Execution Tests', () => {
           await repoInput.fill(REPO_NAME);
         }
 
+        // Enable Build Execution Environment and fill build fields
+        await enableBuildExecutionEnvironment(page);
+
         await page.waitForTimeout(2000);
         const nextBtnAfterFields = page
           .getByRole('button', { name: /^Next$/i })
@@ -817,6 +876,9 @@ test.describe('Execution Environment GitLab Template Execution Tests', () => {
         if ((await repoInput.count()) > 0) {
           await repoInput.fill(REPO_NAME);
         }
+
+        // Enable Build Execution Environment and fill build fields
+        await enableBuildExecutionEnvironment(page);
 
         await page.waitForTimeout(2000);
         const nextBtn = page.getByRole('button', { name: /^Next$/i }).first();
