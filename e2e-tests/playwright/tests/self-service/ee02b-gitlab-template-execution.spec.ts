@@ -387,7 +387,9 @@ const REPO_NAME = `ee-gl-repo-${RANDOM_LETTER}`;
 const EE_FILE_NAME = `ee-gl-${REPO_SUFFIX}`;
 
 const GL_ORG = process.env.GL_ORG || '';
-const RANDOM_LETTER_B = String.fromCodePoint(97 + Math.floor(Math.random() * 26));
+const RANDOM_LETTER_B = String.fromCodePoint(
+  97 + Math.floor(Math.random() * 26),
+);
 const BUILD_IMAGE_NAME = `ee-test/ee-gl-${RANDOM_LETTER}${RANDOM_LETTER_B}`;
 const BUILD_IMAGE_TAG = `build${RANDOM_LETTER}${RANDOM_LETTER_B}`;
 
@@ -399,9 +401,7 @@ async function enableBuildExecutionEnvironment(page: Page): Promise<void> {
     .or(page.locator('input#root_publishAndBuild_buildExecutionEnvironment'))
     .first();
 
-  const buildLabel = page
-    .getByText(/Build Execution Environment/i)
-    .first();
+  const buildLabel = page.getByText(/Build Execution Environment/i).first();
 
   if (await buildLabel.isVisible({ timeout: 3000 }).catch(() => false)) {
     // Click the label/text to toggle the checkbox (MUI wraps inputs)
@@ -412,7 +412,9 @@ async function enableBuildExecutionEnvironment(page: Page): Promise<void> {
       await page.waitForTimeout(1500);
     }
   } else {
-    console.log('[EE GitLab Test] "Build Execution Environment" not found, skipping');
+    console.log(
+      '[EE GitLab Test] "Build Execution Environment" not found, skipping',
+    );
     return;
   }
 
@@ -773,12 +775,8 @@ test.describe('Execution Environment GitLab Template Execution Tests', () => {
           // Pick the first available namespace, or a specific one from GL_ORG
           if (GL_ORG) {
             const orgOption = page
-              .getByRole('option', { name: new RegExp(GL_ORG, 'i') })
-              .or(
-                page
-                  .locator('[role="option"]')
-                  .filter({ hasText: new RegExp(GL_ORG, 'i') }),
-              )
+              .getByRole('option', { name: GL_ORG, exact: false })
+              .or(page.locator('[role="option"]').filter({ hasText: GL_ORG }))
               .first();
             if ((await orgOption.count()) > 0) {
               await orgOption.click({ force: true });
@@ -848,7 +846,7 @@ test.describe('Execution Environment GitLab Template Execution Tests', () => {
 
           if (GL_ORG) {
             const orgOption = page
-              .getByRole('option', { name: new RegExp(GL_ORG, 'i') })
+              .getByRole('option', { name: GL_ORG, exact: false })
               .first();
             if ((await orgOption.count()) > 0) {
               await orgOption.click({ force: true });

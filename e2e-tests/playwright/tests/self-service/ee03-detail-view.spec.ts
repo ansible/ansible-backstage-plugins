@@ -451,10 +451,10 @@ test.describe('Execution Environment Catalog and Detail View Tests', () => {
       .filter({ hasText: /ee-gl-/i })
       .first();
     if ((await glRow.count()) === 0) {
-      console.log(
-        '[EE Test] No GitLab-published EE found (ee-gl-*) — skipping GitLab build test',
+      test.skip(
+        true,
+        'No GitLab-published EE found (ee-gl-*) — run ee02b first',
       );
-      return;
     }
 
     await glRow.waitFor({ state: 'visible', timeout: 15000 });
