@@ -408,7 +408,10 @@ test.describe('Execution Environment Catalog and Detail View Tests', () => {
     );
     if ((await imageNameInput.count()) > 0) {
       await imageNameInput.first().waitFor({ state: 'visible', timeout: 5000 });
-      await imageNameInput.first().fill(`test-ee-image-${Date.now()}`);
+      const suffix = Array.from({ length: 4 }, () =>
+        String.fromCodePoint(97 + Math.floor(Math.random() * 26)),
+      ).join('');
+      await imageNameInput.first().fill(`ee-test/ee-build-${suffix}`);
       await page.waitForTimeout(500);
     }
     // Field 3: Image tag - prefilled, skip
@@ -442,8 +445,16 @@ test.describe('Execution Environment Catalog and Detail View Tests', () => {
     await expect(page.locator('main')).toBeVisible({ timeout: 15000 });
     const bodyText = await page.locator('body').innerText();
     if (bodyText.includes('No Execution Environment definition files, yet')) {
+      test.skip(true, 'No EE definitions found');
       return;
     }
+
+    // Wait for table rows to fully render
+    await page
+      .locator('table tbody tr')
+      .first()
+      .waitFor({ state: 'visible', timeout: 15000 });
+    await page.waitForLoadState('networkidle');
 
     // Find a GitLab-published EE row (created by ee02b with name pattern "ee-gl-*")
     const glRow = page
@@ -455,32 +466,65 @@ test.describe('Execution Environment Catalog and Detail View Tests', () => {
         true,
         'No GitLab-published EE found (ee-gl-*) — run ee02b first',
       );
+      return;
     }
 
     await glRow.waitFor({ state: 'visible', timeout: 15000 });
 
-    // Click kebab menu on the GitLab EE row
-    const buttons = glRow.locator('button');
-    if ((await buttons.count()) === 0) {
-      return;
-    }
-    const kebabBtn = buttons.last();
-    await kebabBtn.waitFor({ state: 'visible', timeout: 10000 });
-    await kebabBtn.click();
+    // Click kebab menu on the GitLab EE row — retry since the "Build" option
+    // only appears once the catalog has indexed the entity with the
+    // backstage.io/source-location annotation.
+    const BUILD_MENU_RETRIES = 3;
+    const BUILD_MENU_WAIT_MS = 10000;
+    let buildFound = false;
+    for (let attempt = 0; attempt < BUILD_MENU_RETRIES; attempt++) {
+      const kebabBtn = glRow.locator('button[aria-label="Actions"]');
+      if ((await kebabBtn.count()) === 0) {
+        console.log('[EE Test] Actions button not found on row');
+        break;
+      }
+      await kebabBtn.waitFor({ state: 'visible', timeout: 10000 });
+      await kebabBtn.click({ force: true });
+      await page.waitForTimeout(800);
 
-    const menu = page.locator('[role="menu"]:not([aria-hidden="true"])');
-    await expect(menu.first()).toBeVisible({ timeout: 5000 });
-
-    const menuText = await menu.first().innerText();
-    if (!menuText.includes('Build')) {
-      await page.keyboard.press('Escape');
+      // Check the full page body for menu items — MUI renders the dropdown
+      // menu as a portal at the body level, not inside the row.
+      const bodyText = await page.locator('body').innerText();
       console.log(
-        '[EE Test] Build option not available for this GitLab EE — skipping',
+        `[EE Test] Body contains "Build": ${bodyText.includes('Build')} (attempt ${attempt + 1}/${BUILD_MENU_RETRIES})`,
+      );
+      if (bodyText.includes('Build')) {
+        buildFound = true;
+        break;
+      }
+
+      console.log(
+        `[EE Test] Build option not in menu (attempt ${attempt + 1}/${BUILD_MENU_RETRIES}), waiting for catalog refresh...`,
+      );
+      await page.keyboard.press('Escape');
+      await page.waitForTimeout(BUILD_MENU_WAIT_MS);
+      await page.reload({ waitUntil: 'networkidle' });
+      await page
+        .locator('table tbody tr')
+        .first()
+        .waitFor({ state: 'visible', timeout: 15000 });
+    }
+
+    if (!buildFound) {
+      console.log(
+        '[EE Test] Build option not available after retries — entity may be missing source-location annotation',
+      );
+      test.skip(
+        true,
+        'Build option not available for GitLab EE — entity may need catalog refresh',
       );
       return;
     }
 
-    const buildMenuItem = menu.getByText('Build', { exact: false }).first();
+    const buildMenuItem = page
+      .getByRole('menuitem')
+      .filter({ hasText: /^Build$/ })
+      .first();
     await expect(buildMenuItem).toBeVisible({ timeout: 5000 });
     await buildMenuItem.click();
 
@@ -496,7 +540,10 @@ test.describe('Execution Environment Catalog and Detail View Tests', () => {
     );
     if ((await imageNameInput.count()) > 0) {
       await imageNameInput.first().waitFor({ state: 'visible', timeout: 5000 });
-      await imageNameInput.first().fill(`test-gl-ee-image-${Date.now()}`);
+      const suffix = Array.from({ length: 4 }, () =>
+        String.fromCodePoint(97 + Math.floor(Math.random() * 26)),
+      ).join('');
+      await imageNameInput.first().fill(`ee-test/ee-gl-${suffix}`);
       await page.waitForTimeout(500);
     }
 
@@ -521,17 +568,10 @@ test.describe('Execution Environment Catalog and Detail View Tests', () => {
 
       // Verify the toast contains a GitLab pipeline URL
       const toastLink = toast.first().locator('a[href*="gitlab"]');
-      if ((await toastLink.count()) > 0) {
-        const href = await toastLink.first().getAttribute('href');
-        expect(href).toContain('gitlab');
-        console.log('[EE Test] GitLab pipeline URL confirmed:', href);
-      } else {
-        console.log(
-          '[EE Test] Build triggered but no GitLab pipeline link in toast (toast text:',
-          toastText,
-          ')',
-        );
-      }
+      await expect(toastLink.first()).toBeVisible({ timeout: 5000 });
+      const href = await toastLink.first().getAttribute('href');
+      expect(href).toContain('gitlab');
+      console.log('[EE Test] GitLab pipeline URL confirmed:', href);
     }
   });
 
