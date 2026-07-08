@@ -43,6 +43,7 @@ import {
   SEVERITY_ORDER,
   normalizeSeverity,
   severityLabelToProto,
+  severityLevelToCatalogSeverity,
 } from '@ansible/backstage-apme-common/severity';
 import { apmeApiRef } from '../../api';
 import { useApmeEnabled } from '../../hooks/useApmeEnabled';
@@ -182,7 +183,7 @@ export const ApmeQualitySettingsTab = () => {
       setRulesError(null);
       const normalized = normalizeSeverity(severity);
       updateRuleLocal(rule.id, {
-        severity: normalized,
+        severity: severityLevelToCatalogSeverity(normalized),
         hasOverride: true,
       });
       try {

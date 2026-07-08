@@ -14,6 +14,8 @@
  * limitations under the License.
  */
 
+import type { Severity } from './types';
+
 export type SeverityLevel =
   'critical' | 'error' | 'high' | 'medium' | 'low' | 'info';
 
@@ -346,4 +348,12 @@ export function severityProtoToLabel(value: number): SeverityLevel {
     SEVERITY_PROTO_TO_LABEL.length - 1,
   );
   return SEVERITY_PROTO_TO_LABEL[index] ?? 'medium';
+}
+
+/** Map violation/UI severity labels to catalog Rule severity (no separate "error"). */
+export function severityLevelToCatalogSeverity(level: SeverityLevel): Severity {
+  if (level === 'error') {
+    return 'critical';
+  }
+  return level;
 }

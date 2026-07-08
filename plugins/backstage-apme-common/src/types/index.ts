@@ -56,6 +56,8 @@ export interface LatestScanSummary {
   total_violations: number;
   fixable: number;
   ai_candidate: number;
+  ai_proposed?: number;
+  ai_declined?: number;
   manual_review: number;
   remediated_count: number;
 }

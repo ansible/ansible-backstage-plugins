@@ -5,7 +5,10 @@
  */
 
 import type { RemediationClass, Rule, Severity } from './types';
-import { severityProtoToLabel } from './severity';
+import {
+  severityLevelToCatalogSeverity,
+  severityProtoToLabel,
+} from './severity';
 
 /** Raw rule row from the APME gateway ``/rules`` API. */
 export interface GatewayRuleRow {
@@ -64,7 +67,9 @@ function defaultSeverityFromRow(row: GatewayRuleRow): Severity | undefined {
     });
   }
   if (row.default_severity !== undefined && row.default_severity !== null) {
-    return severityProtoToLabel(row.default_severity);
+    return severityLevelToCatalogSeverity(
+      severityProtoToLabel(row.default_severity),
+    );
   }
   return undefined;
 }

@@ -418,6 +418,7 @@ export const FleetQualityTab = ({
   const reposClean = Math.max(0, totalRepos - reposWithIssues);
   const severityCounts = value?.severityCounts ?? {
     critical: 0,
+    error: 0,
     high: 0,
     medium: 0,
     low: 0,
