@@ -437,7 +437,7 @@ export const ApmeViolationsTable = ({
       return sortAsc ? cmp : -cmp;
     });
     return list;
-  }, [visible, sortCol, sortAsc, enableAi]);
+  }, [visible, sortCol, sortAsc, enableAi, aiAssistedViolationIds]);
 
   const autoExpand = sorted.length <= 3;
 

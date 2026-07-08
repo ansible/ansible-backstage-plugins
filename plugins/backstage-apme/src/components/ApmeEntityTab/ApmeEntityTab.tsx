@@ -610,8 +610,9 @@ export const ApmeEntityTab = ({
   }, [violations, proposals]);
 
   // Load persisted AI proposal hints from the latest scan for violation badges.
+  const latestScan = project?.latest_scan;
   useEffect(() => {
-    const scan = project?.latest_scan;
+    const scan = latestScan;
     if (!scan?.scan_id || !enableAi) {
       setActivityProposalHints([]);
       return undefined;
@@ -645,13 +646,7 @@ export const ApmeEntityTab = ({
     return () => {
       cancelled = true;
     };
-  }, [
-    project?.latest_scan?.scan_id,
-    project?.latest_scan?.ai_proposed,
-    project?.latest_scan?.ai_declined,
-    enableAi,
-    apmeApi,
-  ]);
+  }, [latestScan, enableAi, apmeApi]);
 
   const aiAssistedViolationIds = useMemo(
     () =>
@@ -1974,6 +1969,12 @@ export const ApmeEntityTab = ({
                   enableAi,
                 );
                 const approved = approvedProposalIds.has(proposal.id);
+                let chipLabel: string;
+                if (isAi) {
+                  chipLabel = needsReview ? 'AI — review' : 'AI fix';
+                } else {
+                  chipLabel = needsReview ? 'Review' : 'Auto-fix';
+                }
                 return (
                   <Box key={proposal.id} mb={2}>
                     <Box
@@ -1984,15 +1985,7 @@ export const ApmeEntityTab = ({
                     >
                       <Chip
                         size="small"
-                        label={
-                          isAi
-                            ? needsReview
-                              ? 'AI — review'
-                              : 'AI fix'
-                            : needsReview
-                              ? 'Review'
-                              : 'Auto-fix'
-                        }
+                        label={chipLabel}
                         style={{
                           backgroundColor: isAi
                             ? FIX_TYPE_STYLES.ai.background
