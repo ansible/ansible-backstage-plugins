@@ -69,7 +69,6 @@ import {
   SEVERITY_ORDER,
   FIX_TYPE_STYLES,
   normalizeSeverity,
-  isFixableViolation,
   proposalNeedsManualApproval,
   categoryLabel,
   type SeverityLevel,
@@ -312,20 +311,16 @@ function formatEntityLastChecked(
 }
 
 function generateFixesTooltip(
-  autoFix: number,
-  selectedFixableCount: number,
+  fixableCount: number,
   devSpacesBranch: string | undefined,
   projectBranch: string,
 ): string {
-  if (autoFix === 0) {
+  if (fixableCount === 0) {
     const branchLabel = devSpacesBranch ?? projectBranch;
     const suffix = branchLabel ? ` (${branchLabel})` : '';
     return `No auto-generated fixes available for this repo${suffix}. Manual violations require hand-editing in your repository.`;
   }
-  if (selectedFixableCount === 0) {
-    return 'Select auto-fix violations to generate fixes';
-  }
-  return `Generate fixes for ${selectedFixableCount} selected violation${selectedFixableCount !== 1 ? 's' : ''}`;
+  return 'Generate fixes for all fixable violations. Tier-1 auto-fixes apply in bulk; AI proposals are reviewed separately.';
 }
 
 interface Tier1RemediationResult extends Tier1RemediationCache {}
@@ -419,7 +414,6 @@ export const ApmeEntityTab = ({
   const [reviewProposalFilter, setReviewProposalFilter] = useState<
     'all' | 'auto' | 'ai'
   >('all');
-  const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
   const [remediationStep, setRemediationStep] =
     useState<RemediationStep>('select');
   const [fixProgress, setFixProgress] = useState<{
@@ -532,19 +526,6 @@ export const ApmeEntityTab = ({
     }
   }, [initialCategoryFilter]);
 
-  // Auto-select all auto-fix violations when violations load
-  const autoSelectedRef = useRef(false);
-  useEffect(() => {
-    if (violations.length === 0 || autoSelectedRef.current) return;
-    const autoFixIds = new Set(
-      violations.filter(v => v.remediation_class === 1).map(v => v.id),
-    );
-    if (autoFixIds.size > 0) {
-      setSelectedIds(autoFixIds);
-      autoSelectedRef.current = true;
-    }
-  }, [violations]);
-
   // Restore an in-progress remediation workflow after navigation away.
   useEffect(() => {
     if (
@@ -562,7 +543,6 @@ export const ApmeEntityTab = ({
       remediationActivityId: string | null;
       proposals: Proposal[];
       tier1Result: Tier1RemediationResult | null;
-      selectedIds?: number[];
       approvedProposalIds?: string[];
       branchPushed?: boolean;
       prBranchName?: string;
@@ -571,9 +551,6 @@ export const ApmeEntityTab = ({
       setRemediationActivityId(payload.remediationActivityId);
       setProposals(normalizeProposals(payload.proposals, violations));
       setTier1Result(payload.tier1Result);
-      if (payload.selectedIds?.length) {
-        setSelectedIds(new Set(payload.selectedIds));
-      }
       if (payload.approvedProposalIds?.length) {
         setApprovedProposalIds(new Set(payload.approvedProposalIds));
       }
@@ -756,7 +733,6 @@ export const ApmeEntityTab = ({
       remediationActivityId,
       proposals,
       tier1Result,
-      selectedIds: Array.from(selectedIds),
       approvedProposalIds: Array.from(approvedProposalIds),
       branchPushed,
       prBranchName,
@@ -767,7 +743,6 @@ export const ApmeEntityTab = ({
     remediationActivityId,
     proposals,
     tier1Result,
-    selectedIds,
     approvedProposalIds,
     branchPushed,
     prBranchName,
@@ -947,7 +922,6 @@ export const ApmeEntityTab = ({
           if (nextProposals.length > 0) {
             setTier1Result(null);
             setProposals(nextProposals);
-            setSelectedIds(new Set(nextProposals.map(p => p.violation_id)));
             setRemediationStep('review');
             setRemediationError(null);
             try {
@@ -1000,32 +974,21 @@ export const ApmeEntityTab = ({
     };
   }, [remediationStep, project?.id, apmeApi, violations]);
 
-  const selectedFixableIds = useMemo(() => {
+  const fixableViolationIds = useMemo(() => {
     const ids = new Set<number>();
     for (const v of violations) {
-      if (
-        selectedIds.has(v.id) &&
-        isFixableViolation(v.remediation_class, enableAi)
-      ) {
+      const ft = effectiveViolationFixType(v, enableAi, aiAssistedViolationIds);
+      if (ft === 'auto' || ft === 'ai') {
         ids.add(v.id);
       }
     }
     return ids;
-  }, [violations, selectedIds, enableAi]);
+  }, [violations, enableAi, aiAssistedViolationIds]);
 
   const visibleProposals = useMemo(() => {
     const active = allProposals.filter(p => !declinedProposalIds.has(p.id));
-    if (active.length === 0) {
-      return [];
-    }
-    if (remediationStep === 'review') {
-      return active;
-    }
-    if (selectedFixableIds.size > 0) {
-      return active.filter(p => selectedFixableIds.has(p.violation_id));
-    }
     return active;
-  }, [allProposals, selectedFixableIds, declinedProposalIds, remediationStep]);
+  }, [allProposals, declinedProposalIds]);
 
   const reviewAutoProposalCount = useMemo(
     () =>
@@ -1212,7 +1175,7 @@ export const ApmeEntityTab = ({
   ]);
 
   const handleGenerateFixes = useCallback(async () => {
-    if (!project || selectedFixableIds.size === 0) return;
+    if (!project || fixableViolationIds.size === 0) return;
     if (project.id) {
       clearRemediationWorkflowCache(project.id);
     }
@@ -1226,20 +1189,17 @@ export const ApmeEntityTab = ({
     setApprovedProposalIds(new Set());
     setDeclinedProposalIds(new Set());
     autoApprovedRef.current = new Set();
-    generatedViolationIdsRef.current = new Set(selectedFixableIds);
+    generatedViolationIdsRef.current = new Set();
     setRemediationStep('generate');
     setFixProgress({ message: 'Starting fix generation…', progress: 0 });
     try {
-      await apmeApi.triggerRemediate(
-        project.id,
-        Array.from(selectedFixableIds),
-      );
+      await apmeApi.triggerRemediate(project.id);
     } catch (err) {
       setRemediationError(err as Error);
       setRemediationStep('select');
       setFixProgress(null);
     }
-  }, [project, selectedFixableIds, apmeApi]);
+  }, [project, fixableViolationIds, apmeApi]);
 
   const handleApproveProposal = useCallback(
     async (proposal: Proposal) => {
@@ -1510,22 +1470,6 @@ export const ApmeEntityTab = ({
     v =>
       effectiveViolationFixType(v, enableAi, aiAssistedViolationIds) ===
       'manual',
-  ).length;
-
-  const selectedAutoCount = [...selectedIds].filter(id =>
-    violations.find(
-      v =>
-        v.id === id &&
-        effectiveViolationFixType(v, enableAi, aiAssistedViolationIds) ===
-          'auto',
-    ),
-  ).length;
-  const selectedAiCount = [...selectedIds].filter(id =>
-    violations.find(
-      v =>
-        v.id === id &&
-        effectiveViolationFixType(v, enableAi, aiAssistedViolationIds) === 'ai',
-    ),
   ).length;
 
   const devSpacesBaseUrl = configApi.getOptionalString(
@@ -2163,7 +2107,6 @@ export const ApmeEntityTab = ({
                 setRemediationActivityId(null);
                 setTier1Result(null);
                 setRemediationStep('select');
-                setSelectedIds(new Set());
                 setApprovedProposalIds(new Set());
                 handleScan();
               }}
@@ -2269,8 +2212,7 @@ export const ApmeEntityTab = ({
                   {remediationStep === 'select' && (
                     <Tooltip
                       title={generateFixesTooltip(
-                        autoFix,
-                        selectedFixableIds.size,
+                        fixableViolationIds.size,
                         devSpacesBranch,
                         project.branch,
                       )}
@@ -2281,9 +2223,7 @@ export const ApmeEntityTab = ({
                           variant="contained"
                           color="primary"
                           onClick={handleGenerateFixes}
-                          disabled={
-                            autoFix === 0 || selectedFixableIds.size === 0
-                          }
+                          disabled={fixableViolationIds.size === 0}
                         >
                           Generate fixes
                         </Button>
@@ -2509,8 +2449,7 @@ export const ApmeEntityTab = ({
                 key={`violations-${activeCategory}-${[...severityFilters].join(',')}-${fixTypeFilter}-${ruleFilter ?? ''}-${showAcknowledgedOnly}`}
                 violations={filteredViolations}
                 aiAssistedViolationIds={aiAssistedViolationIds}
-                selectedIds={selectedIds}
-                onSelectionChange={setSelectedIds}
+                selectionEnabled={false}
                 devSpacesUrl={devSpacesUrl}
                 showAcknowledgedOnly={showAcknowledgedOnly}
                 onAcknowledge={handleAcknowledge}
@@ -2525,28 +2464,6 @@ export const ApmeEntityTab = ({
                   onClearFixTypeFilter: () => setFixTypeFilter('all'),
                   onClearRuleFilter: () => setRuleFilter(null),
                 }}
-                toolbarActions={
-                  <>
-                    {selectedFixableIds.size > 0 &&
-                      remediationStep === 'select' && (
-                        <Box
-                          display="flex"
-                          alignItems="center"
-                          style={{ gap: 12 }}
-                        >
-                          <Typography variant="body2" style={{ fontSize: 12 }}>
-                            {selectedFixableIds.size} selected for PR scope
-                            {selectedAutoCount > 0
-                              ? ` · ${selectedAutoCount} auto`
-                              : ''}
-                            {enableAi && selectedAiCount > 0
-                              ? ` · ${selectedAiCount} AI`
-                              : ''}
-                          </Typography>
-                        </Box>
-                      )}
-                  </>
-                }
               />
             </div>
           )}

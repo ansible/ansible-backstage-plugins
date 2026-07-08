@@ -348,6 +348,8 @@ export interface ApmeViolationsTableFilterContext {
 
 export interface ApmeViolationsTableProps {
   violations: Violation[];
+  /** When false, hides per-violation checkboxes (backend remediate is all-or-nothing). */
+  selectionEnabled?: boolean;
   selectedIds?: Set<number>;
   onSelectionChange?: (ids: Set<number>) => void;
   toolbarActions?: ReactNode;
@@ -366,6 +368,7 @@ export interface ApmeViolationsTableProps {
 
 export const ApmeViolationsTable = ({
   violations,
+  selectionEnabled = false,
   selectedIds,
   onSelectionChange,
   devSpacesUrl,
@@ -572,50 +575,52 @@ export const ApmeViolationsTable = ({
   return (
     <Box className={classes.wrapper}>
       <div className={classes.toolbar}>
-        <div className={classes.selectGroup}>
-          <Checkbox
-            size="small"
-            indeterminate={selected.size > 0 && !allSelected}
-            checked={allSelected}
-            onChange={handleSelectAll}
-            style={{ padding: 4 }}
-          />
-          <Button
-            size="small"
-            className={classes.selectMenuButton}
-            endIcon={<ArrowDropDownIcon style={{ fontSize: 18 }} />}
-            onClick={e => setSelectMenuAnchor(e.currentTarget)}
-          >
-            {selected.size > 0 ? `${selected.size} selected` : 'Select'}
-          </Button>
-          <Menu
-            anchorEl={selectMenuAnchor}
-            open={Boolean(selectMenuAnchor)}
-            onClose={() => setSelectMenuAnchor(null)}
-          >
-            <MenuItem onClick={() => selectByFilter('all')}>
-              All fixable
-            </MenuItem>
-            <MenuItem onClick={() => selectByFilter('auto')}>
-              Auto-fixes only
-            </MenuItem>
-            {enableAi && (
-              <MenuItem onClick={() => selectByFilter('ai')}>
-                AI-assisted only
+        {selectionEnabled && (
+          <div className={classes.selectGroup}>
+            <Checkbox
+              size="small"
+              indeterminate={selected.size > 0 && !allSelected}
+              checked={allSelected}
+              onChange={handleSelectAll}
+              style={{ padding: 4 }}
+            />
+            <Button
+              size="small"
+              className={classes.selectMenuButton}
+              endIcon={<ArrowDropDownIcon style={{ fontSize: 18 }} />}
+              onClick={e => setSelectMenuAnchor(e.currentTarget)}
+            >
+              {selected.size > 0 ? `${selected.size} selected` : 'Select'}
+            </Button>
+            <Menu
+              anchorEl={selectMenuAnchor}
+              open={Boolean(selectMenuAnchor)}
+              onClose={() => setSelectMenuAnchor(null)}
+            >
+              <MenuItem onClick={() => selectByFilter('all')}>
+                All fixable
               </MenuItem>
-            )}
-            <MenuItem onClick={() => selectByFilter('clear')}>
-              Clear selection
-            </MenuItem>
-          </Menu>
-        </div>
+              <MenuItem onClick={() => selectByFilter('auto')}>
+                Auto-fixes only
+              </MenuItem>
+              {enableAi && (
+                <MenuItem onClick={() => selectByFilter('ai')}>
+                  AI-assisted only
+                </MenuItem>
+              )}
+              <MenuItem onClick={() => selectByFilter('clear')}>
+                Clear selection
+              </MenuItem>
+            </Menu>
+          </div>
+        )}
         {toolbarActions}
       </div>
 
       <table className={classes.table}>
         <thead>
           <tr>
-            <th style={{ width: 40 }} />
+            {selectionEnabled && <th style={{ width: 40 }} />}
             <th
               className="sortable"
               style={{ width: 110 }}
@@ -659,28 +664,30 @@ export const ApmeViolationsTable = ({
                 className="dataRow"
                 onClick={() => toggleExpanded(v.id)}
               >
-                <td
-                  onClick={e => e.stopPropagation()}
-                  onKeyDown={e => e.stopPropagation()}
-                >
-                  <Tooltip
-                    title={
-                      canSelect
-                        ? 'Include in remediation when selected'
-                        : 'Manual review — edit in Dev Spaces or apply auto-generated fixes to other rows'
-                    }
+                {selectionEnabled && (
+                  <td
+                    onClick={e => e.stopPropagation()}
+                    onKeyDown={e => e.stopPropagation()}
                   >
-                    <span>
-                      <Checkbox
-                        size="small"
-                        checked={selected.has(v.id)}
-                        disabled={!canSelect}
-                        onChange={() => handleSelect(v.id)}
-                        style={{ padding: 4 }}
-                      />
-                    </span>
-                  </Tooltip>
-                </td>
+                    <Tooltip
+                      title={
+                        canSelect
+                          ? 'Include in remediation when selected'
+                          : 'Manual review — edit in Dev Spaces or apply auto-generated fixes to other rows'
+                      }
+                    >
+                      <span>
+                        <Checkbox
+                          size="small"
+                          checked={selected.has(v.id)}
+                          disabled={!canSelect}
+                          onChange={() => handleSelect(v.id)}
+                          style={{ padding: 4 }}
+                        />
+                      </span>
+                    </Tooltip>
+                  </td>
+                )}
                 <td>
                   <span
                     className={classes.severityChip}
@@ -728,7 +735,10 @@ export const ApmeViolationsTable = ({
               </tr>,
               isExpanded ? (
                 <tr key={`${v.id}-detail`}>
-                  <td colSpan={6} className={classes.expandedCell}>
+                  <td
+                    colSpan={selectionEnabled ? 6 : 5}
+                    className={classes.expandedCell}
+                  >
                     <Collapse in={isExpanded}>
                       <Box padding={2}>
                         <Typography
