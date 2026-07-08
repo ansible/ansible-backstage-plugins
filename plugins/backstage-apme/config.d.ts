@@ -42,8 +42,8 @@ export interface Config {
        */
       enableAi?: boolean;
       /**
-       * When true, PR creation is proxied to the APME gateway SCM path (standalone).
-       * @default false
+       * When true, PR creation is proxied to the APME gateway SCM submit path (ADR-050).
+       * @default true
        * @visibility frontend
        */
       publishViaGateway?: boolean;

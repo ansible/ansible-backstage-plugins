@@ -65,7 +65,7 @@ export function useApmeAiEnabled(): boolean {
         enableAi: configFallback,
         publishViaGateway:
           configApi.getOptionalBoolean('ansible.apme.publishViaGateway') ??
-          false,
+          true,
       }),
     [apmeApi, configFallback, configApi],
   );

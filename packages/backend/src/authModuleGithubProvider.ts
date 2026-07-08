@@ -57,10 +57,16 @@ export default createBackendModule({
                 namespace: DEFAULT_NAMESPACE,
               });
 
+              const guestsGroupRef = stringifyEntityRef({
+                kind: 'Group',
+                name: 'guests',
+                namespace: DEFAULT_NAMESPACE,
+              });
+
               return ctx.issueToken({
                 claims: {
                   sub: userEntityRef,
-                  ent: [userEntityRef],
+                  ent: [userEntityRef, guestsGroupRef],
                 },
               });
             },

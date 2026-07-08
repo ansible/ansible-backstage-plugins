@@ -27,10 +27,10 @@ import type {
   HealthStatus,
   CreateProjectRequest,
   Activity,
+  ActivityDetail,
   OperationState,
-  RemediationBundle,
-  PushBranchResult,
   CreatePullRequestResult,
+  SubmitRemediationResult,
   ApmePortalSettings,
   ApmeAiStatus,
   ProjectDependencies,
@@ -78,17 +78,23 @@ export interface ApmeApi {
   createProject(request: CreateProjectRequest): Promise<Project>;
   deleteProject(projectId: string): Promise<void>;
   getActivity(projectId: string): Promise<Activity[]>;
+  getActivityDetail(activityId: string): Promise<ActivityDetail>;
   getOperationState(projectId: string): Promise<OperationState | null>;
   triggerRemediate(
     projectId: string,
     violationIds?: number[],
   ): Promise<ScanResult>;
   approveProposals(projectId: string, proposalIds: string[]): Promise<void>;
-  getRemediationBundle(activityId: string): Promise<RemediationBundle>;
+  submitRemediation(
+    projectId: string,
+    activityId: string,
+    options?: ApmeScmRequestOptions & { createPr?: boolean },
+  ): Promise<SubmitRemediationResult>;
   pushRemediationBranch(
+    projectId: string,
     activityId: string,
     options?: ApmeScmRequestOptions,
-  ): Promise<PushBranchResult>;
+  ): Promise<SubmitRemediationResult>;
   createPullRequest(
     projectId: string,
     activityId: string,
@@ -136,8 +142,18 @@ export class ApmeApiClient implements ApmeApi {
 
     if (!response.ok) {
       const errorText = await response.text();
-      if (response.status === 409 && endpoint.includes('/operation')) {
+      const method = (options?.method ?? 'GET').toUpperCase();
+      const isStartOperation =
+        method === 'POST' && /\/operation$/.test(endpoint);
+      if (response.status === 409 && isStartOperation) {
         throw new Error('A scan is already in progress for this project');
+      }
+      if (response.status === 409) {
+        throw new Error(
+          errorText
+            ? `APME API conflict: ${errorText}`
+            : 'APME API conflict: request could not be completed',
+        );
       }
       throw new Error(
         `APME API error: ${response.status} - ${errorText || response.statusText}`,
@@ -281,6 +297,10 @@ export class ApmeApiClient implements ApmeApi {
     return this.fetch<Activity[]>(`/projects/${projectId}/activity`);
   }
 
+  async getActivityDetail(activityId: string): Promise<ActivityDetail> {
+    return this.fetch<ActivityDetail>(`/activity/${activityId}`);
+  }
+
   async getOperationState(projectId: string): Promise<OperationState | null> {
     return this.fetch<OperationState | null>(
       `/projects/${projectId}/operation/state`,
@@ -327,22 +347,34 @@ export class ApmeApiClient implements ApmeApi {
     return headers;
   }
 
-  async getRemediationBundle(activityId: string): Promise<RemediationBundle> {
-    return this.fetch<RemediationBundle>(
-      `/activity/${activityId}/remediation-bundle`,
+  async submitRemediation(
+    projectId: string,
+    activityId: string,
+    options?: ApmeScmRequestOptions & { createPr?: boolean },
+  ): Promise<SubmitRemediationResult> {
+    return this.fetch<SubmitRemediationResult>(
+      `/projects/${projectId}/submit`,
+      {
+        method: 'POST',
+        headers: this.scmHeaders(options),
+        body: JSON.stringify({
+          activity_id: activityId,
+          branch_name: options?.branchName,
+          create_pr: options?.createPr,
+          scm_token: options?.scmToken,
+        }),
+      },
     );
   }
 
   async pushRemediationBranch(
+    projectId: string,
     activityId: string,
     options?: ApmeScmRequestOptions,
-  ): Promise<PushBranchResult> {
-    return this.fetch<PushBranchResult>(`/activity/${activityId}/push-branch`, {
-      method: 'POST',
-      headers: this.scmHeaders(options),
-      body: JSON.stringify({
-        branch_name: options?.branchName,
-      }),
+  ): Promise<SubmitRemediationResult> {
+    return this.submitRemediation(projectId, activityId, {
+      ...options,
+      createPr: false,
     });
   }
 
@@ -351,17 +383,18 @@ export class ApmeApiClient implements ApmeApi {
     activityId: string,
     options?: ApmeScmRequestOptions,
   ): Promise<CreatePullRequestResult> {
-    return this.fetch<CreatePullRequestResult>(
-      `/activity/${activityId}/pull-request`,
-      {
-        method: 'POST',
-        headers: this.scmHeaders(options),
-        body: JSON.stringify({
-          projectId,
-          scm_token: options?.scmToken,
-          branch_name: options?.branchName,
-        }),
-      },
-    );
+    const result = await this.submitRemediation(projectId, activityId, {
+      ...options,
+      createPr: true,
+    });
+    if (!result.pr_url) {
+      throw new Error('Gateway submit completed without a PR URL');
+    }
+    return {
+      pr_url: result.pr_url,
+      branch_name: result.branch_name,
+      provider: result.provider,
+      commit_sha: result.commit_sha,
+    };
   }
 }

@@ -38,12 +38,12 @@ import type { Violation } from '@ansible/backstage-apme-common/types';
 import {
   SEVERITY_STYLES,
   normalizeSeverity,
-  effectiveFixType,
   fixMethodLabel,
   fixMethodTooltip,
   isFixableViolation,
   categoryLabel,
 } from '@ansible/backstage-apme-common/severity';
+import { effectiveViolationFixType } from '@ansible/backstage-apme-common/proposalTier';
 import { useApmeAiEnabled } from '../../hooks/useApmeEnabled';
 import { acknowledgeButtonLabel } from '../../hooks/useViolationAcknowledge';
 import { EditInDevSpacesButton } from '../EditInDevSpacesButton';
@@ -219,14 +219,20 @@ const useStyles = makeStyles(theme => ({
 }));
 
 function FixMethodDisplay({
-  remediationClass,
+  violation,
   enableAi,
+  aiAssistedViolationIds,
 }: {
-  remediationClass: number;
+  violation: Violation;
   enableAi: boolean;
+  aiAssistedViolationIds?: ReadonlySet<number>;
 }) {
   const theme = useTheme();
-  const fixType = effectiveFixType(remediationClass, enableAi);
+  const fixType = effectiveViolationFixType(
+    violation,
+    enableAi,
+    aiAssistedViolationIds,
+  );
   const label = fixMethodLabel(fixType);
   const tooltip = fixMethodTooltip(fixType);
   let chip;
@@ -315,8 +321,16 @@ function CodePreview({
   );
 }
 
-function fixMethodSortKey(remediationClass: number, enableAi: boolean): number {
-  const ft = effectiveFixType(remediationClass, enableAi);
+function fixMethodSortKey(
+  violation: Violation,
+  enableAi: boolean,
+  aiAssistedViolationIds?: ReadonlySet<number>,
+): number {
+  const ft = effectiveViolationFixType(
+    violation,
+    enableAi,
+    aiAssistedViolationIds,
+  );
   if (ft === 'auto') return 0;
   if (ft === 'ai') return 1;
   if (ft === 'manual') return 2;
@@ -337,6 +351,8 @@ export interface ApmeViolationsTableProps {
   selectedIds?: Set<number>;
   onSelectionChange?: (ids: Set<number>) => void;
   toolbarActions?: ReactNode;
+  /** Violation IDs that received AI proposals on the latest remediate run. */
+  aiAssistedViolationIds?: ReadonlySet<number>;
   /** Dev Spaces factory URL for manual violations (repo or remediation branch). */
   devSpacesUrl?: string | null;
   filterContext?: ApmeViolationsTableFilterContext;
@@ -355,6 +371,7 @@ export const ApmeViolationsTable = ({
   devSpacesUrl,
   toolbarActions,
   filterContext,
+  aiAssistedViolationIds,
   showAcknowledgedOnly = false,
   onAcknowledge,
   onUnacknowledge,
@@ -402,8 +419,8 @@ export const ApmeViolationsTable = ({
         }
         case 'fixMethod':
           cmp =
-            fixMethodSortKey(a.remediation_class, enableAi) -
-            fixMethodSortKey(b.remediation_class, enableAi);
+            fixMethodSortKey(a, enableAi, aiAssistedViolationIds) -
+            fixMethodSortKey(b, enableAi, aiAssistedViolationIds);
           break;
         case 'rule':
           cmp = a.rule_id.localeCompare(b.rule_id);
@@ -448,7 +465,7 @@ export const ApmeViolationsTable = ({
     }
     const next = new Set<number>();
     for (const v of selectable) {
-      const ft = effectiveFixType(v.remediation_class, enableAi);
+      const ft = effectiveViolationFixType(v, enableAi, aiAssistedViolationIds);
       if (filter === 'all') next.add(v.id);
       else if (filter === 'auto' && ft === 'auto') next.add(v.id);
       else if (filter === 'ai' && ft === 'ai') next.add(v.id);
@@ -677,8 +694,9 @@ export const ApmeViolationsTable = ({
                 </td>
                 <td onClick={e => e.stopPropagation()}>
                   <FixMethodDisplay
-                    remediationClass={v.remediation_class}
+                    violation={v}
                     enableAi={enableAi}
+                    aiAssistedViolationIds={aiAssistedViolationIds}
                   />
                 </td>
                 <td>

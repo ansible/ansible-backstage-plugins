@@ -19,12 +19,7 @@ import PromiseRouter from 'express-promise-router';
 import { HttpAuthService, LoggerService } from '@backstage/backend-plugin-api';
 import { Config } from '@backstage/config';
 import { InputError } from '@backstage/errors';
-import {
-  IApmeService,
-  getApmeConfig,
-  isApmePublishViaGateway,
-} from '@ansible/backstage-apme-common';
-import { RemediationPublisher } from './remediationPublisher';
+import { IApmeService, getApmeConfig } from '@ansible/backstage-apme-common';
 
 export interface RouterOptions {
   apmeService: IApmeService;
@@ -46,11 +41,6 @@ function githubTokenFromRequest(
 export async function createRouter(options: RouterOptions): Promise<Router> {
   const { apmeService, logger, httpAuth, rootConfig } = options;
   const router = PromiseRouter();
-  const publishViaGateway = isApmePublishViaGateway(rootConfig);
-  const remediationPublisher = RemediationPublisher.fromConfig({
-    rootConfig,
-    logger,
-  });
 
   router.use(json());
 
@@ -261,6 +251,13 @@ export async function createRouter(options: RouterOptions): Promise<Router> {
     res.json(activity);
   });
 
+  router.get('/apme/activity/:activityId', async (req, res) => {
+    const { activityId } = req.params;
+    logger.debug(`APME activity detail ${activityId} requested`);
+    const detail = await apmeService.getActivityDetail(activityId);
+    res.json(detail);
+  });
+
   router.get('/apme/projects/:projectId/operation/state', async (req, res) => {
     const { projectId } = req.params;
     logger.debug(`APME operation state for project ${projectId} requested`);
@@ -295,98 +292,43 @@ export async function createRouter(options: RouterOptions): Promise<Router> {
     },
   );
 
-  router.get(
-    '/apme/activity/:activityId/remediation-bundle',
-    async (req, res) => {
-      const { activityId } = req.params;
-      logger.debug(`APME remediation bundle for activity ${activityId}`);
-      const bundle = await apmeService.getRemediationBundle(activityId);
-      res.json(bundle);
-    },
-  );
-
-  router.post('/apme/activity/:activityId/push-branch', async (req, res) => {
+  router.post('/apme/projects/:projectId/submit', async (req, res) => {
     await ensureUser(req);
-    const { activityId } = req.params;
-    const { branch_name: branchName } = req.body as { branch_name?: string };
-    logger.info(`APME push remediation branch for activity ${activityId}`);
-
-    if (publishViaGateway) {
-      throw new InputError(
-        'push-branch requires ansible.apme.publishViaGateway: false (portal SCM publish path)',
-      );
-    }
-
-    const bundle = await apmeService.getRemediationBundle(activityId);
-    if (bundle.pr_url) {
-      res.status(409).json({
-        error: `PR already created for this activity: ${bundle.pr_url}`,
-      });
-      return;
-    }
-
-    const userToken = githubTokenFromRequest(req);
-    const result = await remediationPublisher.pushBranch(
-      bundle,
-      userToken,
-      branchName,
-    );
-    res.status(201).json(result);
-  });
-
-  router.post('/apme/activity/:activityId/pull-request', async (req, res) => {
-    await ensureUser(req);
-    const { activityId } = req.params;
+    const { projectId } = req.params;
     const {
-      projectId,
-      scm_token: scmToken,
+      activity_id: activityId,
       branch_name: branchName,
+      create_pr: createPr,
+      scm_token: scmToken,
+      title,
+      body: prBody,
     } = req.body as {
-      projectId?: string;
-      scm_token?: string;
+      activity_id?: string;
       branch_name?: string;
+      create_pr?: boolean;
+      scm_token?: string;
+      title?: string;
+      body?: string;
     };
 
-    if (!projectId || typeof projectId !== 'string') {
-      throw new InputError('projectId is required in request body');
+    if (!activityId || typeof activityId !== 'string') {
+      throw new InputError('activity_id is required in request body');
     }
 
-    logger.info(`APME create PR for activity ${activityId}`);
-
-    if (publishViaGateway) {
-      const result = await apmeService.createPullRequest(
-        projectId,
-        activityId,
-        scmToken,
-      );
-      res.status(201).json(result);
-      return;
-    }
-
-    const bundle = await apmeService.getRemediationBundle(activityId);
-    if (bundle.pr_url) {
-      res.status(200).json({
-        pr_url: bundle.pr_url,
-        branch_name: branchName ?? bundle.branch_name,
-        provider: bundle.scm_provider,
-      });
-      return;
-    }
-
-    const targetBranch = branchName ?? bundle.branch_name;
-    const userToken = scmToken ?? githubTokenFromRequest(req);
-
-    if (!branchName) {
-      await remediationPublisher.pushBranch(bundle, userToken, targetBranch);
-    }
-
-    const prResult = await remediationPublisher.createPullRequest(
-      bundle,
-      userToken,
-      targetBranch,
+    logger.info(
+      `APME SCM submit for project ${projectId} activity ${activityId}`,
     );
-    const recorded = await apmeService.recordPullRequest(activityId, prResult);
-    res.status(201).json(recorded);
+
+    const token = scmToken ?? githubTokenFromRequest(req);
+    const result = await apmeService.submitRemediation(projectId, {
+      activity_id: activityId,
+      branch_name: branchName,
+      create_pr: createPr,
+      title,
+      body: prBody,
+      scm_token: token,
+    });
+    res.status(200).json(result);
   });
 
   return router as unknown as Router;

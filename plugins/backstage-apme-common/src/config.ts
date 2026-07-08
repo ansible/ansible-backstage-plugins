@@ -41,7 +41,7 @@ export function getApmeConfig(config: Config): ApmeConfig {
     checkSSL: apmeConfig.getOptionalBoolean('checkSSL') ?? true,
     enableAi: apmeConfig.getOptionalBoolean('enableAi') ?? false,
     publishViaGateway:
-      apmeConfig.getOptionalBoolean('publishViaGateway') ?? false,
+      apmeConfig.getOptionalBoolean('publishViaGateway') ?? true,
     targetAnsibleCoreVersion:
       apmeConfig.getOptionalString('targetAnsibleCoreVersion') ??
       DEFAULT_APME_TARGET_ANSIBLE_CORE_VERSION,

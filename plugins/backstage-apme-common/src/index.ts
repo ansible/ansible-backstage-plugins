@@ -19,6 +19,7 @@
 // @backstage/core-plugin-api is frontend-only and CRASHES the backend — DO NOT export here.
 export * from './types';
 export * from './severity';
+export * from './proposalTier';
 export * from './normalizeRepoUrl';
 export * from './catalogEntity';
 export * from './ApmeService';

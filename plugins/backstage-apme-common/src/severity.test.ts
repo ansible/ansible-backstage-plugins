@@ -16,8 +16,11 @@
 
 import {
   effectiveFixType,
+  getWorstViolationLevel,
   isFixableViolation,
   normalizeRemediationClass,
+  normalizeSeverity,
+  normalizeSeverityBreakdown,
   proposalNeedsManualApproval,
   fixMethodLabel,
 } from './severity';
@@ -77,7 +80,75 @@ describe('fixMethodLabel', () => {
   });
 });
 
-describe('effectiveFixType with strings', () => {
+describe('normalizeSeverityBreakdown', () => {
+  it('aggregates raw gateway levels into ADR-043 portal buckets', () => {
+    expect(
+      normalizeSeverityBreakdown({
+        critical: 1,
+        error: 2,
+        warning: 3,
+        low: 10,
+        info: 1,
+      }),
+    ).toEqual({
+      critical: 1,
+      error: 2,
+      high: 0,
+      medium: 3,
+      low: 10,
+      info: 1,
+    });
+  });
+});
+
+describe('normalizeSeverity', () => {
+  it('maps ADR-043 labels without collapsing error into high', () => {
+    expect(normalizeSeverity('error')).toBe('error');
+    expect(normalizeSeverity('high')).toBe('high');
+    expect(normalizeSeverity('unknown-level')).toBe('medium');
+  });
+});
+
+describe('getWorstViolationLevel', () => {
+  it('returns the highest non-zero bucket', () => {
+    expect(
+      getWorstViolationLevel({
+        critical: 0,
+        error: 0,
+        high: 0,
+        medium: 2,
+        low: 5,
+        info: 1,
+      }),
+    ).toEqual({ level: 'medium', count: 2 });
+  });
+
+  it('prefers error over high', () => {
+    expect(
+      getWorstViolationLevel({
+        critical: 0,
+        error: 1,
+        high: 4,
+        medium: 0,
+        low: 0,
+        info: 0,
+      }),
+    ).toEqual({ level: 'error', count: 1 });
+  });
+
+  it('falls back to medium when all buckets are zero', () => {
+    expect(
+      getWorstViolationLevel({
+        critical: 0,
+        error: 0,
+        high: 0,
+        medium: 0,
+        low: 0,
+        info: 0,
+      }),
+    ).toEqual({ level: 'medium', count: 0 });
+  });
+
   it('normalizes string remediation classes via normalizeRemediationClass', () => {
     expect(
       effectiveFixType(normalizeRemediationClass('auto-fixable'), true),

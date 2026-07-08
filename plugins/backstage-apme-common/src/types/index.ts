@@ -77,9 +77,12 @@ export interface Project {
   has_new_commits: boolean;
   active_operation?: ActiveOperationSummary | string | null;
   latest_scan?: LatestScanSummary | null;
-  // Computed on frontend for display
+  /** Raw severity counts from gateway ProjectDetail / list API. */
+  severity_breakdown?: Record<string, number>;
+  // Computed on frontend for display (mock / legacy)
   violationCounts?: {
     critical: number;
+    error: number;
     high: number;
     medium: number;
     low: number;
@@ -186,6 +189,25 @@ export interface CreatePullRequestResult {
   pr_url: string;
   branch_name?: string;
   provider?: string;
+  commit_sha?: string;
+}
+
+/** Request body for gateway SCM submit (ADR-050). */
+export interface SubmitRemediationRequest {
+  activity_id: string;
+  branch_name?: string;
+  create_pr?: boolean;
+  title?: string;
+  body?: string;
+  scm_token?: string;
+}
+
+/** Response from gateway SCM submit (ADR-050). */
+export interface SubmitRemediationResult {
+  branch_name: string;
+  commit_sha: string;
+  pr_url: string | null;
+  provider: string;
 }
 
 export interface RemediationBundleFile {
@@ -239,6 +261,24 @@ export interface Activity {
   pr_url?: string | null;
 }
 
+/** Summary row persisted for an AI proposal on a scan (gateway activity detail). */
+export interface ActivityProposalSummary {
+  id: number;
+  proposal_id: string;
+  rule_id: string;
+  file: string;
+  tier: number;
+  confidence: number;
+  status: string;
+}
+
+/** Full scan run detail from gateway GET /activity/{scan_id}. */
+export interface ActivityDetail extends Activity {
+  project_id?: string;
+  violations: Violation[];
+  proposals: ActivityProposalSummary[];
+}
+
 export interface CollectionRef {
   fqcn: string;
   version: string;
@@ -272,7 +312,14 @@ export interface Proposal {
   original_yaml: string;
   fixed_yaml: string;
   status: 'pending' | 'accepted' | 'declined';
+  /** Portal / mock field; gateway sends `explanation` (mapped on ingest). */
   ai_reason?: string;
+  /** Gateway remediation tier: 1 = deterministic, 2+ = AI-assisted. */
+  tier?: number;
+  confidence?: number;
+  explanation?: string;
+  diff_hunk?: string;
+  suggestion?: string;
 }
 
 export interface OperationProgressEntry {
