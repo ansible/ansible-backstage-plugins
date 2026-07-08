@@ -52,3 +52,4 @@ export {
   normalizeRepoUrl,
 } from '@ansible/backstage-apme-common/normalizeRepoUrl';
 export { useApmeEnabled } from './hooks/useApmeEnabled';
+export { gitRepositoriesExtensionsApiFactory } from './apis/gitRepositoriesExtensions';

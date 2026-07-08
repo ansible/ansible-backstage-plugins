@@ -48,6 +48,7 @@ export interface PrStatusBannerProps {
   error?: string;
   pushError?: string;
   branchPushed?: boolean;
+  merged?: boolean;
   devSpacesUrl?: string | null;
   creatingPr?: boolean;
   onCreatePr?: () => void;
@@ -61,6 +62,7 @@ export const PrStatusBanner = ({
   error,
   pushError,
   branchPushed,
+  merged,
   devSpacesUrl,
   creatingPr,
   onCreatePr,
@@ -108,6 +110,26 @@ export const PrStatusBanner = ({
             disabled={creatingPr}
           >
             Retry create PR
+          </Button>
+        )}
+      </Paper>
+    );
+  }
+
+  if (merged) {
+    return (
+      <Paper className={`${classes.banner} ${classes.success}`} elevation={1}>
+        <Box display="flex" alignItems="center" style={{ gap: 8 }}>
+          <CheckCircleIcon style={{ color: '#2e7d32' }} />
+          <Typography variant="body2">
+            Pull request merged
+            {prNumber ? ` (#${prNumber})` : ''}
+            {branchName ? ` · ${branchName}` : ''}
+          </Typography>
+        </Box>
+        {onScanAgain && (
+          <Button size="small" variant="outlined" onClick={onScanAgain}>
+            Scan again
           </Button>
         )}
       </Paper>
