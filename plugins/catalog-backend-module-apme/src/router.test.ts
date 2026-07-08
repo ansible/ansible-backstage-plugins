@@ -157,10 +157,10 @@ describe('catalog-backend-module-apme router', () => {
 
     const response = await request(app)
       .post('/apme/projects/proj-1/submit')
+      .set('X-SCM-Token', 'ghp_test')
       .send({
         activity_id: 'scan-1',
         create_pr: true,
-        scm_token: 'ghp_test',
       });
 
     expect(response.status).toBe(200);

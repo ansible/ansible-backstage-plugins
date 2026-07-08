@@ -51,12 +51,11 @@ function parseOwnerRepo(repoUrl: string): {
 }
 
 function isTextContent(data: Buffer): boolean {
-  try {
-    data.toString('utf8');
-    return true;
-  } catch {
-    return false;
+  const checkLength = Math.min(data.length, 8192);
+  for (let i = 0; i < checkLength; i++) {
+    if (data[i] === 0x00) return false;
   }
+  return true;
 }
 
 async function githubRequest<T>(

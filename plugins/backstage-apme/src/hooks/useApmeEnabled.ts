@@ -22,24 +22,40 @@ import type {
 } from '@ansible/backstage-apme-common/types';
 import { apmeApiRef } from '../api';
 
+const SETTINGS_CACHE_TTL_MS = 5 * 60 * 1000;
+
 let portalSettingsCache: ApmePortalSettings | undefined;
+let portalSettingsCacheTime = 0;
 let portalSettingsPromise: Promise<ApmePortalSettings> | undefined;
+let portalSettingsIsError = false;
 
 async function loadPortalSettings(
   apmeApi: { getPortalSettings(): Promise<ApmePortalSettings> },
   configFallback: ApmePortalSettings,
 ): Promise<ApmePortalSettings> {
-  if (portalSettingsCache) {
+  const now = Date.now();
+  if (
+    portalSettingsCache &&
+    now - portalSettingsCacheTime < SETTINGS_CACHE_TTL_MS
+  ) {
     return portalSettingsCache;
+  }
+  if (portalSettingsIsError) {
+    portalSettingsPromise = undefined;
+    portalSettingsIsError = false;
   }
   if (!portalSettingsPromise) {
     portalSettingsPromise = apmeApi
       .getPortalSettings()
       .then(settings => {
         portalSettingsCache = settings;
+        portalSettingsCacheTime = Date.now();
         return settings;
       })
-      .catch(() => configFallback);
+      .catch(() => {
+        portalSettingsIsError = true;
+        return configFallback;
+      });
   }
   return portalSettingsPromise;
 }
