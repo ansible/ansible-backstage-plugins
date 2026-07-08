@@ -341,8 +341,7 @@ export class ApmeApiClient implements ApmeApi {
     const headers: Record<string, string> = {};
     const token = options?.scmToken?.trim();
     if (token) {
-      headers['X-Github-Token'] = token;
-      headers['X-Gitlab-Token'] = token;
+      headers['X-SCM-Token'] = token;
     }
     return headers;
   }
@@ -361,7 +360,6 @@ export class ApmeApiClient implements ApmeApi {
           activity_id: activityId,
           branch_name: options?.branchName,
           create_pr: options?.createPr,
-          scm_token: options?.scmToken,
         }),
       },
     );

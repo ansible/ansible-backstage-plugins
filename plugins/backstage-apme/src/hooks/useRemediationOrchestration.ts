@@ -304,7 +304,14 @@ export function useRemediationOrchestration({
     if (autoIds.length === 0) return;
     autoIds.forEach(id => autoApprovedRef.current.add(id));
     setApprovedProposalIds(prev => new Set([...prev, ...autoIds]));
-    void apmeApi.approveProposals(project.id, autoIds);
+    apmeApi.approveProposals(project.id, autoIds).catch(() => {
+      autoIds.forEach(id => autoApprovedRef.current.delete(id));
+      setApprovedProposalIds(prev => {
+        const next = new Set(prev);
+        autoIds.forEach(id => next.delete(id));
+        return next;
+      });
+    });
   }, [
     remediationStep,
     project?.id,

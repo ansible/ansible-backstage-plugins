@@ -144,9 +144,15 @@ describe('operationStatus', () => {
     ).toBe('fallback');
   });
 
-  it('treats legacy string active_operation as in-flight', () => {
+  it('treats legacy string active_operation as in-flight only for active statuses', () => {
     expect(projectHasActiveOperation({ active_operation: 'scanning' })).toBe(
       true,
+    );
+    expect(projectHasActiveOperation({ active_operation: 'completed' })).toBe(
+      false,
+    );
+    expect(projectHasActiveOperation({ active_operation: 'failed' })).toBe(
+      false,
     );
     expect(projectHasActiveOperation(null)).toBe(false);
   });
