@@ -5,7 +5,7 @@
  */
 
 import { lazy, Suspense, useState, useEffect, useCallback } from 'react';
-import { Box, CircularProgress, Typography } from '@material-ui/core';
+import { Box, CircularProgress, Typography, useTheme } from '@material-ui/core';
 import {
   AnyApiFactory,
   configApiRef,
@@ -18,7 +18,6 @@ import {
   DefaultGitRepositoriesExtensionsApi,
   gitRepositoriesExtensionsApiRef,
   type GitRepositoriesExtensionsApi,
-  type GitRepositoryCatalogRowContext,
   type GitRepositoryDetailTabContext,
   type GitRepositoryDetailHeaderMenuContext,
   type GitRepositoriesPageTabContext,
@@ -33,7 +32,8 @@ import type { Project } from '@ansible/backstage-apme-common/types';
 import { apmeApiRef } from '@ansible/backstage-apme-common/api';
 import {
   SEVERITY_STYLES,
-  normalizeSeverity,
+  getWorstViolationLevel,
+  resolveViolationCounts,
 } from '@ansible/backstage-apme-common/severity';
 import { projectHasActiveOperation } from '@ansible/backstage-apme-common/operationStatus';
 
@@ -73,12 +73,6 @@ const LazyApmeRepositoryCollectionsTab = lazy(() =>
   })),
 );
 
-const LazyApmeRepoStatusChip = lazy(() =>
-  import('@ansible/plugin-backstage-apme').then(module => ({
-    default: module.ApmeRepoStatusChipComponent,
-  })),
-);
-
 const LazyApmeRepositoryHeaderActions = lazy(() =>
   import('@ansible/plugin-backstage-apme').then(module => ({
     default: module.ApmeRepositoryHeaderActionsComponent,
@@ -103,7 +97,12 @@ function buildProjectMap(projects: Project[]): Map<string, Project> {
 }
 
 function ApmeViolationsCell({ entity }: { entity: Entity }) {
+  const theme = useTheme();
   const apmeApi = useApi(apmeApiRef);
+  const mutedStatusStyle = {
+    fontWeight: 500,
+    color: theme.palette.text.primary,
+  };
   const [projectMap, setProjectMap] = useState<Map<string, Project> | null>(
     null,
   );
@@ -163,8 +162,8 @@ function ApmeViolationsCell({ entity }: { entity: Entity }) {
 
   if (!project) {
     return (
-      <Typography variant="body2" color="textSecondary">
-        —
+      <Typography variant="body2" style={mutedStatusStyle}>
+        Not scanned
       </Typography>
     );
   }
@@ -188,7 +187,7 @@ function ApmeViolationsCell({ entity }: { entity: Entity }) {
 
   if (neverScanned) {
     return (
-      <Typography variant="body2" color="textSecondary">
+      <Typography variant="body2" style={mutedStatusStyle}>
         Not scanned
       </Typography>
     );
@@ -202,30 +201,15 @@ function ApmeViolationsCell({ entity }: { entity: Entity }) {
     );
   }
 
-  const counts = project.violationCounts;
-  let worstLevel = 'info';
-  let worstCount = 0;
-  if (counts) {
-    if (counts.critical > 0) {
-      worstLevel = 'critical';
-      worstCount = counts.critical;
-    } else if (counts.high > 0) {
-      worstLevel = 'high';
-      worstCount = counts.high;
-    } else if (counts.medium > 0) {
-      worstLevel = 'medium';
-      worstCount = counts.medium;
-    } else if (counts.low > 0) {
-      worstLevel = 'low';
-      worstCount = counts.low;
-    } else {
-      worstLevel = 'info';
-      worstCount = counts.info;
-    }
-  }
-
-  const sev = normalizeSeverity(worstLevel);
+  const counts = resolveViolationCounts(project);
+  const { level: worstLevel, count: worstCount } =
+    getWorstViolationLevel(counts);
+  const sev = worstLevel;
   const style = SEVERITY_STYLES[sev];
+  const severitySuffix =
+    worstCount > 0
+      ? ` (${worstCount} ${SEVERITY_STYLES[sev].label.toUpperCase()})`
+      : '';
   const entityName = entity.metadata?.name ?? '';
   const detailPath = `${window.location.pathname.replace(/\/catalog$/, '')}/${entityName}?tab=quality`;
 
@@ -235,7 +219,8 @@ function ApmeViolationsCell({ entity }: { entity: Entity }) {
         variant="body2"
         style={{ color: style.background, fontWeight: 600 }}
       >
-        {project.total_violations} ({worstCount} {worstLevel.toUpperCase()})
+        {project.total_violations}
+        {severitySuffix}
       </Typography>
       <Typography
         variant="caption"
@@ -363,30 +348,7 @@ class ApmeGitRepositoriesExtensionsApi
   }
 
   getCatalogRowSlots() {
-    return [
-      {
-        id: 'apme-status-chip',
-        order: 10,
-        render: ({
-          entity,
-          projectDetailPath,
-        }: GitRepositoryCatalogRowContext) => {
-          const repoUrl = normalizeRepoUrlFromEntity(entity);
-          if (!repoUrl) {
-            return null;
-          }
-          return (
-            <Suspense fallback={null}>
-              <LazyApmeRepoStatusChip
-                repoUrl={repoUrl}
-                branch={defaultBranchFromEntity(entity)}
-                projectDetailPath={projectDetailPath}
-              />
-            </Suspense>
-          );
-        },
-      },
-    ];
+    return [];
   }
 
   getCatalogColumns(): GitRepositoryCatalogColumnDefinition[] {

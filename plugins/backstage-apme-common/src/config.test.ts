@@ -70,7 +70,7 @@ describe('getApmeConfig', () => {
       baseUrl: 'https://apme.example.com',
       checkSSL: false,
       enableAi: false,
-      publishViaGateway: false,
+      publishViaGateway: true,
       targetAnsibleCoreVersion: '2.16',
     });
   });

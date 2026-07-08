@@ -19,10 +19,11 @@ import {
   latestOperationProgressMessage,
   latestOperationProgressPercent,
 } from '@ansible/backstage-apme-common/operationStatus';
+import { isFixableViolation } from '@ansible/backstage-apme-common/severity';
 import {
-  isFixableViolation,
-  proposalNeedsManualApproval,
-} from '@ansible/backstage-apme-common/severity';
+  normalizeProposals,
+  proposalNeedsUserReview,
+} from '@ansible/backstage-apme-common/proposalTier';
 import type { RemediationStep } from '../components/RemediationStepper';
 import { apmeApiRef } from '../api';
 
@@ -208,7 +209,7 @@ export function useRemediationOrchestration({
           progress: progressPct ?? Math.min(10 + pollCount * 1.5, 90),
         });
         if (state?.proposals?.length) {
-          setProposals(state.proposals);
+          setProposals(normalizeProposals(state.proposals, violations));
         }
         const completed = isTerminalOperationState(state, pollCount, 2, true);
         if (completed || pollCount >= MAX_POLLS) {
@@ -226,7 +227,10 @@ export function useRemediationOrchestration({
             setRemediationStep('select');
             return;
           }
-          const nextProposals = state?.proposals ?? [];
+          const nextProposals = normalizeProposals(
+            state?.proposals ?? [],
+            violations,
+          );
           const tier1 = extractTier1RemediationResult(state);
           if (nextProposals.length > 0) {
             setTier1Result(null);
@@ -294,11 +298,7 @@ export function useRemediationOrchestration({
       return;
     }
     const autoIds = visibleProposals
-      .filter(p => {
-        const v = violations.find(viol => viol.id === p.violation_id);
-        if (!v) return true;
-        return !proposalNeedsManualApproval(v.remediation_class, enableAi);
-      })
+      .filter(p => !proposalNeedsUserReview(p, violations, enableAi))
       .map(p => p.id)
       .filter(id => !autoApprovedRef.current.has(id));
     if (autoIds.length === 0) return;
@@ -318,7 +318,10 @@ export function useRemediationOrchestration({
     if (!repoUrl) {
       throw new Error('No repository URL on this catalog entity.');
     }
-    const creds = await scmAuthApi.getCredentials({ url: repoUrl });
+    const creds = await scmAuthApi.getCredentials({
+      url: repoUrl,
+      additionalScope: { repoWrite: true },
+    });
     const scmToken = creds.token?.trim();
     if (!scmToken) {
       throw new Error(
@@ -404,9 +407,13 @@ export function useRemediationOrchestration({
     try {
       const scmToken = await resolveScmToken();
       const activityId = await resolveActivityId();
-      const result = await apmeApi.pushRemediationBranch(activityId, {
-        scmToken,
-      });
+      const result = await apmeApi.pushRemediationBranch(
+        project.id,
+        activityId,
+        {
+          scmToken,
+        },
+      );
       setPrBranchName(result.branch_name);
       setBranchPushed(true);
       setRemediationStep('pr');
@@ -417,7 +424,7 @@ export function useRemediationOrchestration({
   }, [project, repoUrl, resolveScmToken, resolveActivityId, apmeApi]);
 
   const handleCreatePr = useCallback(async () => {
-    if (!project || !repoUrl || !prBranchName) return;
+    if (!project || !repoUrl) return;
     setRemediationStep('pr');
     setCreatingPr(true);
     setPrError(null);

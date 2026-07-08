@@ -23,10 +23,10 @@ import {
   HealthStatus,
   CreateProjectRequest,
   Activity,
+  ActivityDetail,
   OperationState,
   CreatePullRequestResult,
-  RemediationBundle,
-  PushBranchResult,
+  SubmitRemediationResult,
   RuleConfigUpdate,
   CreateSuppressionRequest,
   Suppression,
@@ -63,17 +63,23 @@ export interface ApmeApi {
   createProject(request: CreateProjectRequest): Promise<Project>;
   deleteProject(projectId: string): Promise<void>;
   getActivity(projectId: string): Promise<Activity[]>;
+  getActivityDetail(activityId: string): Promise<ActivityDetail>;
   getOperationState(projectId: string): Promise<OperationState | null>;
   triggerRemediate(
     projectId: string,
     violationIds?: number[],
   ): Promise<ScanResult>;
   approveProposals(projectId: string, proposalIds: string[]): Promise<void>;
-  getRemediationBundle(activityId: string): Promise<RemediationBundle>;
+  submitRemediation(
+    projectId: string,
+    activityId: string,
+    options?: ApmeScmRequestOptions & { createPr?: boolean },
+  ): Promise<SubmitRemediationResult>;
   pushRemediationBranch(
+    projectId: string,
     activityId: string,
     options?: ApmeScmRequestOptions,
-  ): Promise<PushBranchResult>;
+  ): Promise<SubmitRemediationResult>;
   createPullRequest(
     projectId: string,
     activityId: string,

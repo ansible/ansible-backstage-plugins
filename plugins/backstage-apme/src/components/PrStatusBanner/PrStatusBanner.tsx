@@ -52,6 +52,7 @@ export interface PrStatusBannerProps {
   devSpacesUrl?: string | null;
   creatingPr?: boolean;
   onCreatePr?: () => void;
+  hideCreatePrAction?: boolean;
   onScanAgain?: () => void;
 }
 
@@ -66,6 +67,7 @@ export const PrStatusBanner = ({
   devSpacesUrl,
   creatingPr,
   onCreatePr,
+  hideCreatePrAction,
   onScanAgain,
 }: PrStatusBannerProps) => {
   const classes = useStyles();
@@ -189,7 +191,7 @@ export const PrStatusBanner = ({
               Open in Dev Spaces
             </Button>
           )}
-          {onCreatePr && (
+          {onCreatePr && !hideCreatePrAction && (
             <Button
               size="small"
               variant="outlined"

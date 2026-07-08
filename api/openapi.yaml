@@ -1433,6 +1433,29 @@ paths:
                 items:
                   type: object
 
+  /apme/activity/{activityId}:
+    get:
+      operationId: getApmeActivityDetail
+      summary: Get scan run detail
+      description: Returns violations, AI proposals, and logs for a single scan or remediation run.
+      tags:
+        - APME
+      parameters:
+        - name: activityId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Activity detail
+          content:
+            application/json:
+              schema:
+                type: object
+        '404':
+          description: Activity not found
+
   /apme/rules:
     get:
       operationId: getApmeRules
@@ -1555,83 +1578,56 @@ paths:
         '404':
           description: Project not found
 
-  /apme/activity/{activityId}/remediation-bundle:
-    get:
-      operationId: getApmeRemediationBundle
-      summary: Get remediation bundle for an activity
-      description: Returns the remediation file bundle and metadata for a completed remediation activity.
-      tags:
-        - APME
-      parameters:
-        - name: activityId
-          in: path
-          required: true
-          schema:
-            type: string
-      responses:
-        '200':
-          description: Remediation bundle
-          content:
-            application/json:
-              schema:
-                type: object
-
-  /apme/activity/{activityId}/push-branch:
+  /apme/projects/{projectId}/submit:
     post:
-      operationId: pushApmeRemediationBranch
-      summary: Push remediation branch via portal SCM
-      description: Pushes remediation changes to a branch using the user's SCM token when publishViaGateway is disabled.
+      operationId: submitApmeRemediation
+      summary: Push remediation changes and optionally open a PR via the gateway
+      description: Proxies to the APME gateway unified SCM submit endpoint (ADR-050). APME commits and pushes as the code author; the portal never receives raw file bodies.
       tags:
         - APME
       parameters:
-        - name: activityId
+        - name: projectId
           in: path
           required: true
           schema:
             type: string
       requestBody:
+        required: true
         content:
           application/json:
             schema:
               type: object
+              required:
+                - activity_id
               properties:
+                activity_id:
+                  type: string
                 branch_name:
                   type: string
+                create_pr:
+                  type: boolean
+                scm_token:
+                  type: string
+                title:
+                  type: string
+                body:
+                  type: string
       responses:
-        '201':
-          description: Branch pushed
-          content:
-            application/json:
-              schema:
-                type: object
-        '409':
-          description: Pull request already exists for this activity
-
-  /apme/activity/{activityId}/pull-request:
-    post:
-      operationId: createApmePullRequest
-      summary: Create a PR from remediation activity
-      description: Creates a GitHub pull request containing the remediation changes from a completed remediation activity.
-      tags:
-        - APME
-      parameters:
-        - name: activityId
-          in: path
-          required: true
-          schema:
-            type: string
-      requestBody:
-        content:
-          application/json:
-            schema:
-              type: object
-      responses:
-        '201':
-          description: PR created
+        '200':
+          description: Submit completed
           content:
             application/json:
               schema:
                 type: object
                 properties:
+                  branch_name:
+                    type: string
+                  commit_sha:
+                    type: string
                   pr_url:
                     type: string
+                    nullable: true
+                  provider:
+                    type: string
+        '409':
+          description: Request conflicted with existing state

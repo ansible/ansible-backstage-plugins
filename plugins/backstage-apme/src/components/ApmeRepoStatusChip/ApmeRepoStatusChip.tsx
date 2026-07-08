@@ -46,6 +46,7 @@ function getHighestSeverity(
   counts: NonNullable<Project['violationCounts']> | undefined,
 ): string {
   if (counts?.critical) return 'critical';
+  if (counts?.error) return 'error';
   if (counts?.high) return 'high';
   if (counts?.medium) return 'medium';
   if (counts?.low) return 'low';

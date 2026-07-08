@@ -12,6 +12,7 @@ import type {
 import { normalizeApmeCategory } from './gatewayRules';
 import {
   normalizeSeverity,
+  SEVERITY_ORDER,
   effectiveFixType,
   type SeverityLevel,
 } from '@ansible/backstage-apme-common/severity';
@@ -77,13 +78,13 @@ export function getViolationCategory(
 export function severityBreakdown(
   violations: Violation[],
 ): Record<SeverityLevel, number> {
-  const counts: Record<SeverityLevel, number> = {
-    critical: 0,
-    high: 0,
-    medium: 0,
-    low: 0,
-    info: 0,
-  };
+  const counts = SEVERITY_ORDER.reduce(
+    (acc, sev) => {
+      acc[sev] = 0;
+      return acc;
+    },
+    {} as Record<SeverityLevel, number>,
+  );
   for (const v of violations) {
     const sev = normalizeSeverity(v.level);
     counts[sev] += 1;

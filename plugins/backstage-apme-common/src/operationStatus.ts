@@ -38,6 +38,9 @@ const ACTIVE_OPERATION_STATUSES = new Set([
   'submitting_pr',
 ]);
 
+/** Statuses that may appear on project.active_operation but are not in-flight work. */
+const PROJECT_IDLE_OPERATION_STATUSES = new Set(['awaiting_approval']);
+
 export function isActiveOperationStatus(status: string | undefined): boolean {
   if (!status) {
     return false;
@@ -46,10 +49,10 @@ export function isActiveOperationStatus(status: string | undefined): boolean {
   if (TERMINAL_OPERATION_STATUSES.has(normalized)) {
     return false;
   }
-  return (
-    ACTIVE_OPERATION_STATUSES.has(normalized) ||
-    normalized === 'awaiting_approval'
-  );
+  if (PROJECT_IDLE_OPERATION_STATUSES.has(normalized)) {
+    return false;
+  }
+  return ACTIVE_OPERATION_STATUSES.has(normalized);
 }
 
 /** True when the gateway reports an in-flight check or remediate operation. */
