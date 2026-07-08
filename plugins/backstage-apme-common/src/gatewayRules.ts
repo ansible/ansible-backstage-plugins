@@ -33,13 +33,15 @@ export interface GatewayRuleRow {
   };
 }
 
-const SEVERITY_BY_INDEX: Severity[] = [
-  'critical',
-  'high',
-  'medium',
-  'low',
-  'info',
-];
+/** Maps proto severity int (1=info … 6=critical) to catalog Severity. */
+const SEVERITY_BY_PROTO: Record<number, Severity> = {
+  1: 'info',
+  2: 'low',
+  3: 'medium',
+  4: 'high',
+  5: 'critical',
+  6: 'critical',
+};
 
 function severityFromRow(row: GatewayRuleRow): Severity {
   const label = row.resolved_severity_label ?? row.default_severity_label;
@@ -50,13 +52,14 @@ function severityFromRow(row: GatewayRuleRow): Severity {
       normalized === 'high' ||
       normalized === 'medium' ||
       normalized === 'low' ||
-      normalized === 'info'
+      normalized === 'info' ||
+      normalized === 'blocker'
     ) {
-      return normalized;
+      return normalized === 'blocker' ? 'critical' : normalized;
     }
   }
-  const index = (row.resolved_severity ?? row.default_severity ?? 3) - 1;
-  return SEVERITY_BY_INDEX[Math.min(Math.max(index, 0), 4)] ?? 'medium';
+  const proto = row.resolved_severity ?? row.default_severity ?? 3;
+  return SEVERITY_BY_PROTO[proto] ?? 'medium';
 }
 
 function defaultSeverityFromRow(row: GatewayRuleRow): Severity | undefined {

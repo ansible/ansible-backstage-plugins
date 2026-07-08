@@ -28,10 +28,11 @@ export interface RouterOptions {
   rootConfig: Config;
 }
 
-function githubTokenFromRequest(
+function scmTokenFromRequest(
   req: Pick<Request, 'headers'>,
 ): string | undefined {
   const raw =
+    (req.headers['x-scm-token'] as string | undefined) ??
     (req.headers['x-github-token'] as string | undefined) ??
     (req.headers['x-gitlab-token'] as string | undefined);
   const token = raw?.trim();
@@ -53,13 +54,15 @@ export async function createRouter(options: RouterOptions): Promise<Router> {
     );
   };
 
-  router.get('/apme/health', async (_req, res) => {
+  router.get('/apme/health', async (req, res) => {
+    await ensureUser(req);
     logger.debug('APME health check requested');
     const health = await apmeService.getHealth();
     res.json(health);
   });
 
-  router.get('/apme/settings', async (_req, res) => {
+  router.get('/apme/settings', async (req, res) => {
+    await ensureUser(req);
     const {
       enableAi,
       publishViaGateway: settingsPublishViaGateway,
@@ -72,7 +75,8 @@ export async function createRouter(options: RouterOptions): Promise<Router> {
     });
   });
 
-  router.get('/apme/ai/status', async (_req, res) => {
+  router.get('/apme/ai/status', async (req, res) => {
+    await ensureUser(req);
     const { enableAi } = getApmeConfig(rootConfig);
     let connected = false;
     let modelCount = 0;
@@ -95,13 +99,15 @@ export async function createRouter(options: RouterOptions): Promise<Router> {
     res.json({ enableAi, connected, modelCount });
   });
 
-  router.get('/apme/projects', async (_req, res) => {
+  router.get('/apme/projects', async (req, res) => {
+    await ensureUser(req);
     logger.debug('APME projects list requested');
     const projects = await apmeService.getProjects();
     res.json({ items: projects });
   });
 
   router.get('/apme/projects/:projectId', async (req, res) => {
+    await ensureUser(req);
     const { projectId } = req.params;
     logger.debug(`APME project ${projectId} requested`);
     const project = await apmeService.getProject(projectId);
@@ -109,6 +115,7 @@ export async function createRouter(options: RouterOptions): Promise<Router> {
   });
 
   router.get('/apme/projects/:projectId/violations', async (req, res) => {
+    await ensureUser(req);
     const { projectId } = req.params;
     logger.debug(`APME violations for project ${projectId} requested`);
     const limitRaw = req.query.limit;
@@ -122,6 +129,7 @@ export async function createRouter(options: RouterOptions): Promise<Router> {
   });
 
   router.get('/apme/projects/:projectId/dependencies', async (req, res) => {
+    await ensureUser(req);
     const { projectId } = req.params;
     logger.debug(`APME dependencies for project ${projectId} requested`);
     const dependencies = await apmeService.getProjectDependencies(projectId);
@@ -136,7 +144,8 @@ export async function createRouter(options: RouterOptions): Promise<Router> {
     res.status(201).json({ operation_id: result.scanId });
   });
 
-  router.get('/apme/rules', async (_req, res) => {
+  router.get('/apme/rules', async (req, res) => {
+    await ensureUser(req);
     logger.debug('APME rules list requested');
     const rules = await apmeService.getRules();
     res.json({ items: rules });
@@ -186,6 +195,7 @@ export async function createRouter(options: RouterOptions): Promise<Router> {
   });
 
   router.get('/apme/suppressions', async (req, res) => {
+    await ensureUser(req);
     const scope = req.query.scope as string | undefined;
     logger.debug(`APME suppressions list requested scope=${scope ?? 'all'}`);
     const suppressions = await apmeService.getSuppressions(scope);
@@ -205,6 +215,7 @@ export async function createRouter(options: RouterOptions): Promise<Router> {
   });
 
   router.get('/apme/lookup', async (req, res) => {
+    await ensureUser(req);
     const repoUrl = req.query.repo_url as string;
     const branch = req.query.branch as string | undefined;
     if (!repoUrl) {
@@ -245,6 +256,7 @@ export async function createRouter(options: RouterOptions): Promise<Router> {
   });
 
   router.get('/apme/projects/:projectId/activity', async (req, res) => {
+    await ensureUser(req);
     const { projectId } = req.params;
     logger.debug(`APME activity for project ${projectId} requested`);
     const activity = await apmeService.getActivity(projectId);
@@ -252,6 +264,7 @@ export async function createRouter(options: RouterOptions): Promise<Router> {
   });
 
   router.get('/apme/activity/:activityId', async (req, res) => {
+    await ensureUser(req);
     const { activityId } = req.params;
     logger.debug(`APME activity detail ${activityId} requested`);
     const detail = await apmeService.getActivityDetail(activityId);
@@ -259,6 +272,7 @@ export async function createRouter(options: RouterOptions): Promise<Router> {
   });
 
   router.get('/apme/projects/:projectId/operation/state', async (req, res) => {
+    await ensureUser(req);
     const { projectId } = req.params;
     logger.debug(`APME operation state for project ${projectId} requested`);
     const state = await apmeService.getOperationState(projectId);
@@ -299,14 +313,12 @@ export async function createRouter(options: RouterOptions): Promise<Router> {
       activity_id: activityId,
       branch_name: branchName,
       create_pr: createPr,
-      scm_token: scmToken,
       title,
       body: prBody,
     } = req.body as {
       activity_id?: string;
       branch_name?: string;
       create_pr?: boolean;
-      scm_token?: string;
       title?: string;
       body?: string;
     };
@@ -319,7 +331,7 @@ export async function createRouter(options: RouterOptions): Promise<Router> {
       `APME SCM submit for project ${projectId} activity ${activityId}`,
     );
 
-    const token = scmToken ?? githubTokenFromRequest(req);
+    const token = scmTokenFromRequest(req);
     const result = await apmeService.submitRemediation(projectId, {
       activity_id: activityId,
       branch_name: branchName,

@@ -64,7 +64,7 @@ export function projectHasActiveOperation(
     return false;
   }
   if (typeof active === 'string') {
-    return active.length > 0;
+    return isActiveOperationStatus(active);
   }
   if (typeof active === 'object' && 'status' in active) {
     return isActiveOperationStatus(
