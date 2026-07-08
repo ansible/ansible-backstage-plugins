@@ -400,7 +400,7 @@ export const QualityTab = ({
       const newProject = await apmeApi.createProject({
         name,
         repo_url: repoUrl,
-        branch: 'main',
+        branch: branch || 'main',
       });
       await apmeApi.triggerScan(newProject.id);
       setExpectActiveScan(true);
@@ -411,7 +411,7 @@ export const QualityTab = ({
     } finally {
       setRegistering(false);
     }
-  }, [apmeApi, repoUrl, retry]);
+  }, [apmeApi, repoUrl, branch, retry]);
 
   const devSpacesBaseUrl = configApi.getOptionalString(
     'ansible.devSpaces.baseUrl',
