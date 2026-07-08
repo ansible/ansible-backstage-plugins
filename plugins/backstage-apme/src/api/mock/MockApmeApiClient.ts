@@ -22,6 +22,7 @@ import {
   HealthStatus,
   CreateProjectRequest,
   Activity,
+  ActivityDetail,
   OperationState,
   Proposal,
   ProjectDependencies,
@@ -81,7 +82,7 @@ export class MockApmeApiClient implements ApmeApi {
     await delay(50);
     return {
       enableAi: true,
-      publishViaGateway: false,
+      publishViaGateway: true,
       targetAnsibleCoreVersion: '2.16',
     };
   }
@@ -95,12 +96,21 @@ export class MockApmeApiClient implements ApmeApi {
     await delay(200);
     return this.projects.map(p => {
       const violations = this.violations[p.id] ?? [];
-      const counts = { critical: 0, high: 0, medium: 0, low: 0, info: 0 };
+      const counts = {
+        critical: 0,
+        error: 0,
+        high: 0,
+        medium: 0,
+        low: 0,
+        info: 0,
+      };
       for (const v of violations) {
-        const level = v.level as keyof typeof counts;
-        if (level in counts) counts[level]++;
-        else if (v.level === 'blocker' || v.level === 'error')
-          counts.critical++;
+        if (v.level === 'blocker' || v.level === 'critical') counts.critical++;
+        else if (v.level === 'error') counts.error++;
+        else if (v.level === 'high') counts.high++;
+        else if (v.level === 'medium') counts.medium++;
+        else if (v.level === 'low') counts.low++;
+        else counts.info++;
       }
       return { ...p, violationCounts: counts };
     });
@@ -295,6 +305,38 @@ export class MockApmeApiClient implements ApmeApi {
     return (MOCK_ACTIVITY[projectId] ?? []).map(a => ({ ...a }));
   }
 
+  async getActivityDetail(activityId: string): Promise<ActivityDetail> {
+    await delay(200);
+    for (const entries of Object.values(MOCK_ACTIVITY)) {
+      const match = entries.find(a => a.scan_id === activityId);
+      if (match) {
+        return {
+          ...match,
+          violations: [],
+          proposals: [],
+        };
+      }
+    }
+    return {
+      scan_id: activityId,
+      session_id: 'mock',
+      project_path: 'mock',
+      source: 'mock',
+      created_at: new Date().toISOString(),
+      scan_type: 'check',
+      total_violations: 0,
+      fixable: 0,
+      ai_candidate: 0,
+      ai_proposed: 0,
+      ai_declined: 0,
+      ai_accepted: 0,
+      manual_review: 0,
+      remediated_count: 0,
+      violations: [],
+      proposals: [],
+    };
+  }
+
   async getOperationState(projectId: string): Promise<OperationState | null> {
     await delay(150);
 
@@ -368,17 +410,33 @@ export class MockApmeApiClient implements ApmeApi {
             v => v.id === vid,
           );
           const isAi = violation?.remediation_class === 2;
+          const original = violation?.original_yaml ?? '';
+          const fixed =
+            violation?.fixed_yaml ??
+            (isAi ? (violation?.ai_suggestion ?? '') : '');
+          const diffHunk =
+            isAi && original && fixed
+              ? [
+                  `--- a/${violation?.file ?? ''}`,
+                  `+++ b/${violation?.file ?? ''}`,
+                  `@@ -${violation?.line ?? 1},1 +${violation?.line ?? 1},1 @@`,
+                  ...original
+                    .split('\n')
+                    .map(line => `-${line}`)
+                    .concat(fixed.split('\n').map(line => `+${line}`)),
+                ].join('\n')
+              : undefined;
           return {
             id: `prop-${vid}`,
             violation_id: vid,
             rule_id: violation?.rule_id ?? 'UNKNOWN',
             file: violation?.file ?? '',
             line: violation?.line ?? 0,
-            original_yaml: violation?.original_yaml ?? '',
-            fixed_yaml:
-              violation?.fixed_yaml ??
-              (isAi ? (violation?.ai_suggestion ?? '') : ''),
+            original_yaml: original,
+            fixed_yaml: fixed,
             status: 'pending' as const,
+            tier: isAi ? 2 : 1,
+            diff_hunk: diffHunk,
             ai_reason: isAi ? violation?.ai_reason : undefined,
           };
         });
@@ -439,49 +497,57 @@ export class MockApmeApiClient implements ApmeApi {
     }
   }
 
-  async createPullRequest(
-    _projectId: string,
-    _activityId: string,
-    _options?: { scmToken?: string; branchName?: string },
-  ): Promise<{ pr_url: string; branch_name?: string; provider?: string }> {
-    await delay(1500);
+  async submitRemediation(
+    projectId: string,
+    activityId: string,
+    options?: { scmToken?: string; branchName?: string; createPr?: boolean },
+  ) {
+    await delay(options?.createPr === false ? 500 : 1500);
+    const branchName =
+      options?.branchName ?? `apme/remediate-${activityId.slice(0, 8)}`;
+    if (options?.createPr === false) {
+      return {
+        branch_name: branchName,
+        commit_sha: 'mock-commit-sha',
+        pr_url: null,
+        provider: 'github',
+      };
+    }
     const prNumber = this.nextPrNumber++;
-    const proj = this.projects.find(p => p.id === _projectId);
+    const proj = this.projects.find(p => p.id === projectId);
     const repoName = proj?.name ?? 'rhel-patching';
     return {
+      branch_name: branchName,
+      commit_sha: 'mock-commit-sha',
       pr_url: `https://github.com/ansible-demo/${repoName}/pull/${prNumber}`,
-      branch_name: _options?.branchName ?? `apme/remediate-mock-${prNumber}`,
       provider: 'github',
     };
   }
 
-  async getRemediationBundle(activityId: string) {
-    await delay(100);
+  async createPullRequest(
+    projectId: string,
+    activityId: string,
+    options?: { scmToken?: string; branchName?: string },
+  ): Promise<{ pr_url: string; branch_name?: string; provider?: string }> {
+    const result = await this.submitRemediation(projectId, activityId, {
+      ...options,
+      createPr: true,
+    });
     return {
-      activity_id: activityId,
-      project_id: 'mock-project',
-      repo_url: 'https://github.com/ansible-demo/rhel-patching.git',
-      base_branch: 'main',
-      scm_provider: 'github',
-      branch_name: `apme/remediate-${activityId.slice(0, 8)}`,
-      title: 'fix: APME remediation — mock',
-      body: 'Mock remediation bundle',
-      files: [],
-      fixed_count: 1,
-      total_violations: 1,
+      pr_url: result.pr_url!,
+      branch_name: result.branch_name,
+      provider: result.provider,
     };
   }
 
   async pushRemediationBranch(
+    projectId: string,
     activityId: string,
     options?: { scmToken?: string; branchName?: string },
   ) {
-    await delay(500);
-    return {
-      branch_name:
-        options?.branchName ?? `apme/remediate-${activityId.slice(0, 8)}`,
-      provider: 'github',
-      repo_url: 'https://github.com/ansible-demo/rhel-patching.git',
-    };
+    return this.submitRemediation(projectId, activityId, {
+      ...options,
+      createPr: false,
+    });
   }
 }

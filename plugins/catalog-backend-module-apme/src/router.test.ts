@@ -28,8 +28,7 @@ describe('catalog-backend-module-apme router', () => {
     getOperationState: jest.fn(),
     triggerRemediate: jest.fn(),
     approveProposals: jest.fn(),
-    getRemediationBundle: jest.fn(),
-    pushRemediationBranch: jest.fn(),
+    submitRemediation: jest.fn(),
     createPullRequest: jest.fn(),
     getAiModels: jest.fn(),
   };
@@ -144,5 +143,34 @@ describe('catalog-backend-module-apme router', () => {
       reason: 'Acknowledged from portal',
     });
     expect(response.body).toEqual(suppression);
+  });
+
+  it('submits remediation via gateway SCM endpoint', async () => {
+    const submitResult = {
+      branch_name: 'apme/remediate-abc12345',
+      commit_sha: 'deadbeef',
+      pr_url: 'https://github.com/org/repo/pull/1',
+      provider: 'github',
+    };
+    mockApmeService.submitRemediation.mockResolvedValueOnce(submitResult);
+
+    const response = await request(app)
+      .post('/apme/projects/proj-1/submit')
+      .send({
+        activity_id: 'scan-1',
+        create_pr: true,
+        scm_token: 'ghp_test',
+      });
+
+    expect(response.status).toBe(200);
+    expect(mockApmeService.submitRemediation).toHaveBeenCalledWith('proj-1', {
+      activity_id: 'scan-1',
+      branch_name: undefined,
+      create_pr: true,
+      title: undefined,
+      body: undefined,
+      scm_token: 'ghp_test',
+    });
+    expect(response.body).toEqual(submitResult);
   });
 });

@@ -18,6 +18,7 @@ import {
   isActiveOperationStatus,
   isTerminalOperationState,
   latestOperationProgressPercent,
+  projectHasActiveOperation,
 } from './operationStatus';
 
 describe('operationStatus', () => {
@@ -25,7 +26,7 @@ describe('operationStatus', () => {
     expect(isActiveOperationStatus('scanning')).toBe(true);
     expect(isActiveOperationStatus('cloning')).toBe(true);
     expect(isActiveOperationStatus('applying')).toBe(true);
-    expect(isActiveOperationStatus('awaiting_approval')).toBe(true);
+    expect(isActiveOperationStatus('awaiting_approval')).toBe(false);
     expect(isActiveOperationStatus('completed')).toBe(false);
   });
 
@@ -72,6 +73,19 @@ describe('operationStatus', () => {
         },
         1,
       ),
+    ).toBe(true);
+  });
+
+  it('does not treat awaiting_approval on project snapshot as in-flight', () => {
+    expect(
+      projectHasActiveOperation({
+        active_operation: { status: 'awaiting_approval' },
+      }),
+    ).toBe(false);
+    expect(
+      projectHasActiveOperation({
+        active_operation: { status: 'scanning' },
+      }),
     ).toBe(true);
   });
 
