@@ -823,9 +823,7 @@ export const FleetQualityTab = ({
         </Box>
       )}
 
-      <Typography variant="caption" className={classes.studyNote}>
-        Fleet Quality view — UX study target; release scope TBD (Inc 10).
-      </Typography>
+      {/* Fleet Quality view */}
     </Box>
   );
 };
