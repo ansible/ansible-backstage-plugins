@@ -411,7 +411,7 @@ export const QualityTab = ({
     } finally {
       setRegistering(false);
     }
-  }, [apmeApi, repoUrl, retry]);
+  }, [apmeApi, repoUrl, branch, retry]);
 
   const devSpacesBaseUrl = configApi.getOptionalString(
     'ansible.devSpaces.baseUrl',
