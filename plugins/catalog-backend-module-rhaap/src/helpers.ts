@@ -942,6 +942,11 @@ export function formatNameSpace(name: string): string {
     .replaceAll(/^-|-$/g, '')
     .slice(0, MAX_NAMESPACE_LENGTH)
     .replace(/-$/, '');
+  if (!sanitized) {
+    throw new Error(
+      `Organization name "${name}" contains no valid characters for namespace conversion`,
+    );
+  }
   return sanitized === 'default' ? 'aap-default' : sanitized;
 }
 

@@ -42,7 +42,12 @@ export const AAPLogoutHandler = () => {
           // continue with AAP gateway logout regardless
         }
 
-        window.location.href = `${aapHost}/api/gateway/v1/logout/`;
+        try {
+          const validatedUrl = new URL(aapHost);
+          window.location.href = `${validatedUrl.origin}/api/gateway/v1/logout/`;
+        } catch {
+          window.location.href = '/';
+        }
       } else {
         await originalSignOut();
       }

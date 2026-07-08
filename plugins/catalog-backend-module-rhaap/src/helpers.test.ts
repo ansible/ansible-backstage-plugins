@@ -108,16 +108,18 @@ describe('helpers', () => {
       expect(formatNameSpace(longName).length).toBeLessThanOrEqual(63);
     });
 
-    it('should produce empty string for special-char-only names', () => {
-      expect(formatNameSpace('!!!@@@')).toEqual('');
+    it('should throw for special-char-only names', () => {
+      expect(() => formatNameSpace('!!!@@@')).toThrow(
+        'contains no valid characters',
+      );
     });
 
     it('should replace spaces with hyphens', () => {
       expect(formatNameSpace('test namespace')).toEqual('test-namespace');
     });
 
-    it('should handle empty string', () => {
-      expect(formatNameSpace('')).toEqual('');
+    it('should throw for empty string', () => {
+      expect(() => formatNameSpace('')).toThrow('contains no valid characters');
     });
 
     it('should handle multiple spaces', () => {
