@@ -21,8 +21,10 @@ import {
   isAiRemediationProposal,
   isDeclinedProposal,
   normalizeGatewayProposal,
+  normalizeProposals,
   proposalHasVisibleDiff,
   proposalNeedsUserReview,
+  violationHadAiAttempt,
 } from './proposalTier';
 import type { Violation } from './types';
 
@@ -82,6 +84,29 @@ describe('normalizeGatewayProposal', () => {
   });
 });
 
+describe('normalizeProposals', () => {
+  it('normalizes a batch of gateway proposals', () => {
+    const proposals = normalizeProposals(
+      [
+        {
+          id: 'p1',
+          rule_id: 'RULE-A',
+          file: 'playbook.yml',
+          line_start: 5,
+          tier: 1,
+          suggestion: 'fixed',
+          status: 'accepted',
+        },
+      ],
+      violations,
+    );
+
+    expect(proposals).toHaveLength(1);
+    expect(proposals[0].status).toBe('accepted');
+    expect(proposals[0].violation_id).toBe(10);
+  });
+});
+
 describe('proposalHasVisibleDiff', () => {
   it('returns true when diff_hunk is present', () => {
     expect(
@@ -97,6 +122,36 @@ describe('proposalHasVisibleDiff', () => {
         diff_hunk: '--- a\n+++ b\n@@ -1 +1 @@\n-old\n+new',
       }),
     ).toBe(true);
+  });
+
+  it('returns true when original and fixed yaml differ', () => {
+    expect(
+      proposalHasVisibleDiff({
+        id: 'p1',
+        violation_id: 1,
+        rule_id: 'L001',
+        file: 'a.yml',
+        line: 1,
+        original_yaml: 'before',
+        fixed_yaml: 'after',
+        status: 'pending',
+      }),
+    ).toBe(true);
+  });
+
+  it('returns false when before and after are identical', () => {
+    expect(
+      proposalHasVisibleDiff({
+        id: 'p1',
+        violation_id: 1,
+        rule_id: 'L001',
+        file: 'a.yml',
+        line: 1,
+        original_yaml: 'same',
+        fixed_yaml: 'same',
+        status: 'pending',
+      }),
+    ).toBe(false);
   });
 });
 
@@ -145,6 +200,44 @@ describe('effectiveViolationFixType', () => {
   });
 });
 
+describe('violationHadAiAttempt', () => {
+  it('detects AI remediation resolution codes', () => {
+    expect(
+      violationHadAiAttempt({
+        ...violations[0],
+        remediation_resolution: 11,
+      }),
+    ).toBe(true);
+    expect(
+      violationHadAiAttempt({
+        ...violations[0],
+        remediation_resolution: 1,
+      }),
+    ).toBe(false);
+  });
+});
+
+describe('collectAiAssistedViolationIds', () => {
+  it('returns empty set when AI is disabled', () => {
+    expect(
+      collectAiAssistedViolationIds(
+        violations,
+        [{ rule_id: 'RULE-A', file: 'playbook.yml', line: 5, tier: 2 }],
+        false,
+      ).size,
+    ).toBe(0);
+  });
+
+  it('skips tier-1 proposals when collecting AI-assisted ids', () => {
+    const ids = collectAiAssistedViolationIds(
+      violations,
+      [{ rule_id: 'RULE-A', file: 'playbook.yml', line: 5, tier: 1 }],
+      true,
+    );
+    expect(ids.size).toBe(0);
+  });
+});
+
 describe('isAiRemediationProposal', () => {
   it('classifies by gateway tier even when violation remediation_class is auto', () => {
     const proposal = normalizeGatewayProposal(
@@ -177,6 +270,20 @@ describe('isAiRemediationProposal', () => {
 
     expect(isAiRemediationProposal(proposal, violations, true)).toBe(false);
   });
+
+  it('falls back to explanation text when tier is absent', () => {
+    const proposal = normalizeGatewayProposal(
+      {
+        id: 'p3',
+        rule_id: 'RULE-A',
+        file: 'playbook.yml',
+        explanation: 'AI rewrite',
+      },
+      violations,
+    );
+
+    expect(isAiRemediationProposal(proposal, violations, true)).toBe(true);
+  });
 });
 
 describe('proposalNeedsUserReview', () => {
@@ -188,6 +295,20 @@ describe('proposalNeedsUserReview', () => {
         file: 'playbook.yml',
         tier: 2,
         explanation: 'AI',
+      },
+      violations,
+    );
+
+    expect(proposalNeedsUserReview(proposal, violations, true)).toBe(true);
+  });
+
+  it('requires review when proposal has AI explanation but no matching violation', () => {
+    const proposal = normalizeGatewayProposal(
+      {
+        id: 'p2',
+        rule_id: 'UNKNOWN',
+        file: 'other.yml',
+        explanation: 'Needs human review',
       },
       violations,
     );
@@ -209,5 +330,51 @@ describe('findViolationForProposal', () => {
     );
 
     expect(match?.id).toBe(20);
+  });
+
+  it('prefers violation_id when present', () => {
+    expect(
+      findViolationForProposal(
+        {
+          violation_id: 10,
+          rule_id: 'RULE-B',
+          file: 'roles/foo/tasks/main.yml',
+          line: 12,
+        },
+        violations,
+      )?.id,
+    ).toBe(10);
+  });
+
+  it('disambiguates duplicate rule/file by line', () => {
+    const dupes: Violation[] = [
+      { ...violations[0], id: 1, line: 5 },
+      { ...violations[0], id: 2, line: 8 },
+    ];
+    expect(
+      findViolationForProposal(
+        {
+          violation_id: 0,
+          rule_id: 'RULE-A',
+          file: 'playbook.yml',
+          line: 8,
+        },
+        dupes,
+      )?.id,
+    ).toBe(2);
+  });
+
+  it('returns undefined when no match exists', () => {
+    expect(
+      findViolationForProposal(
+        {
+          violation_id: 0,
+          rule_id: 'MISSING',
+          file: 'nowhere.yml',
+          line: 1,
+        },
+        violations,
+      ),
+    ).toBeUndefined();
   });
 });

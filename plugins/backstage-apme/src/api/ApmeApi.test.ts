@@ -251,4 +251,29 @@ describe('ApmeApiClient', () => {
       expect(result).toEqual(mockViolations);
     });
   });
+
+  describe('getActivityDetail', () => {
+    it('should fetch activity detail from catalog backend', async () => {
+      const detail = {
+        scan_id: 'scan-1',
+        scan_type: 'remediate',
+        status: 'completed',
+        proposals: [{ id: 'p1', tier: 2 }],
+        violations: [],
+      };
+
+      mockFetchApi.fetch.mockResolvedValueOnce({
+        ok: true,
+        json: () => Promise.resolve(detail),
+      });
+
+      const result = await client.getActivityDetail('scan-1');
+
+      expect(mockFetchApi.fetch).toHaveBeenCalledWith(
+        'http://localhost:7007/api/catalog/apme/activity/scan-1',
+        expect.any(Object),
+      );
+      expect(result).toEqual(detail);
+    });
+  });
 });
