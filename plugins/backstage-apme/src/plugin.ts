@@ -25,7 +25,6 @@ import {
   configApiRef,
 } from '@backstage/core-plugin-api';
 import { apmeApiRef, ApmeApiClient } from './api';
-import { MockApmeApiClient } from './api/mock/MockApmeApiClient';
 
 export const rootRouteRef = createRouteRef({
   id: 'apme',
@@ -53,7 +52,11 @@ export const apmePlugin = createPlugin({
       factory: ({ discoveryApi, fetchApi, configApi }) => {
         const mockMode =
           configApi.getOptionalBoolean('ansible.apme.mockMode') ?? false;
-        if (mockMode) return new MockApmeApiClient();
+        if (mockMode) {
+          const { MockApmeApiClient } =
+            require('./api/mock/MockApmeApiClient') as typeof import('./api/mock/MockApmeApiClient');
+          return new MockApmeApiClient();
+        }
         return new ApmeApiClient({ discoveryApi, fetchApi });
       },
     }),

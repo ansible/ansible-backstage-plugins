@@ -84,10 +84,13 @@ export class ApmeClient {
       ...((options.headers as Record<string, string>) || {}),
     };
 
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 30_000);
     try {
       const response = await fetch(url, {
         ...options,
         headers,
+        signal: controller.signal,
       });
 
       if (response.status === 404) {
@@ -111,9 +114,11 @@ export class ApmeClient {
 
       if (!response.ok) {
         const errorBody = await response.text();
-        throw new InputError(
-          `APME request failed: ${response.status} ${response.statusText} - ${errorBody}`,
-        );
+        const msg = `APME request failed: ${response.status} ${response.statusText} - ${errorBody}`;
+        if (response.status >= 500) {
+          throw new Error(msg);
+        }
+        throw new InputError(msg);
       }
 
       // Handle 204 No Content responses
@@ -134,6 +139,8 @@ export class ApmeClient {
       throw new InputError(
         `Failed to connect to APME: ${(error as Error).message}`,
       );
+    } finally {
+      clearTimeout(timeoutId);
     }
   }
 
