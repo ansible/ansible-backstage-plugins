@@ -126,7 +126,9 @@ export const ApmeAdminCard = () => {
             <Typography variant="caption" color="textSecondary">
               Scan schedule
             </Typography>
-            <Chip size="small" label="On commit + manual" />
+            <Typography variant="body2" component="div">
+              <Chip size="small" label="On commit + manual" />
+            </Typography>
           </Grid>
         </Grid>
       </CardContent>
