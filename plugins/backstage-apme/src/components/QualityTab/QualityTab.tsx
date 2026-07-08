@@ -400,7 +400,7 @@ export const QualityTab = ({
       const newProject = await apmeApi.createProject({
         name,
         repo_url: repoUrl,
-        branch: 'main',
+        branch: branch || 'main',
       });
       await apmeApi.triggerScan(newProject.id);
       setExpectActiveScan(true);

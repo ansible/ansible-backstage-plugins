@@ -162,6 +162,8 @@ function parseUnifiedDiffHunk(diff: string): DiffLine[] {
   return result;
 }
 
+const MAX_DIFF_LINES = 2000;
+
 function computeUnifiedDiff(before: string, after: string): DiffLine[] {
   const oldLines = before.split('\n');
   const newLines = after.split('\n');
@@ -169,7 +171,21 @@ function computeUnifiedDiff(before: string, after: string): DiffLine[] {
   const n = oldLines.length;
   const m = newLines.length;
 
-  // LCS via DP for small inputs (YAML snippets are typically <100 lines)
+  if (n > MAX_DIFF_LINES || m > MAX_DIFF_LINES) {
+    return [
+      ...oldLines.map((l, idx) => ({
+        type: 'removed' as const,
+        content: l,
+        lineNumber: idx + 1,
+      })),
+      ...newLines.map((l, idx) => ({
+        type: 'added' as const,
+        content: l,
+        lineNumber: idx + 1,
+      })),
+    ];
+  }
+
   const dp: number[][] = Array.from({ length: n + 1 }, () =>
     new Array<number>(m + 1).fill(0),
   );

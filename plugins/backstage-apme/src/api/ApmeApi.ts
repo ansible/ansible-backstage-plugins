@@ -128,13 +128,21 @@ export class ApmeApiClient implements ApmeApi {
     fetchOptions?: { notFoundReturnsNull?: boolean },
   ): Promise<T> {
     const baseUrl = await this.getBaseUrl();
-    const response = await this.fetchApi.fetch(`${baseUrl}${endpoint}`, {
-      ...options,
-      headers: {
-        'Content-Type': 'application/json',
-        ...options?.headers,
-      },
-    });
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 30_000);
+    let response: Response;
+    try {
+      response = await this.fetchApi.fetch(`${baseUrl}${endpoint}`, {
+        ...options,
+        headers: {
+          'Content-Type': 'application/json',
+          ...options?.headers,
+        },
+        signal: controller.signal,
+      });
+    } finally {
+      clearTimeout(timeoutId);
+    }
 
     if (response.status === 404 && fetchOptions?.notFoundReturnsNull) {
       return null as T;
@@ -185,7 +193,7 @@ export class ApmeApiClient implements ApmeApi {
   }
 
   async getProject(projectId: string): Promise<Project> {
-    return this.fetch<Project>(`/projects/${projectId}`);
+    return this.fetch<Project>(`/projects/${encodeURIComponent(projectId)}`);
   }
 
   async getProjectByRepoUrl(
@@ -210,7 +218,7 @@ export class ApmeApiClient implements ApmeApi {
     const limitQuery =
       options?.limit !== undefined ? `?limit=${options.limit}` : '';
     const response = await this.fetch<Violation[]>(
-      `/projects/${projectId}/violations${limitQuery}`,
+      `/projects/${encodeURIComponent(projectId)}/violations${limitQuery}`,
     );
     return response || [];
   }
@@ -219,7 +227,7 @@ export class ApmeApiClient implements ApmeApi {
     projectId: string,
   ): Promise<ProjectDependencies> {
     return this.fetch<ProjectDependencies>(
-      `/projects/${projectId}/dependencies`,
+      `/projects/${encodeURIComponent(projectId)}/dependencies`,
     );
   }
 
@@ -273,7 +281,7 @@ export class ApmeApiClient implements ApmeApi {
 
   async triggerScan(projectId: string): Promise<ScanResult> {
     const response = await this.fetch<{ operation_id: string }>(
-      `/projects/${projectId}/operation`,
+      `/projects/${encodeURIComponent(projectId)}/operation`,
       {
         method: 'POST',
         body: JSON.stringify({ action: 'check', options: {} }),
@@ -290,20 +298,26 @@ export class ApmeApiClient implements ApmeApi {
   }
 
   async deleteProject(projectId: string): Promise<void> {
-    await this.fetch<void>(`/projects/${projectId}`, { method: 'DELETE' });
+    await this.fetch<void>(`/projects/${encodeURIComponent(projectId)}`, {
+      method: 'DELETE',
+    });
   }
 
   async getActivity(projectId: string): Promise<Activity[]> {
-    return this.fetch<Activity[]>(`/projects/${projectId}/activity`);
+    return this.fetch<Activity[]>(
+      `/projects/${encodeURIComponent(projectId)}/activity`,
+    );
   }
 
   async getActivityDetail(activityId: string): Promise<ActivityDetail> {
-    return this.fetch<ActivityDetail>(`/activity/${activityId}`);
+    return this.fetch<ActivityDetail>(
+      `/activity/${encodeURIComponent(activityId)}`,
+    );
   }
 
   async getOperationState(projectId: string): Promise<OperationState | null> {
     return this.fetch<OperationState | null>(
-      `/projects/${projectId}/operation/state`,
+      `/projects/${encodeURIComponent(projectId)}/operation/state`,
       undefined,
       { notFoundReturnsNull: true },
     );
@@ -318,7 +332,7 @@ export class ApmeApiClient implements ApmeApi {
       body.violation_ids = violationIds;
     }
     const response = await this.fetch<{ operation_id: string }>(
-      `/projects/${projectId}/remediate`,
+      `/projects/${encodeURIComponent(projectId)}/remediate`,
       {
         method: 'POST',
         body: JSON.stringify(body),
@@ -331,10 +345,13 @@ export class ApmeApiClient implements ApmeApi {
     projectId: string,
     proposalIds: string[],
   ): Promise<void> {
-    await this.fetch<void>(`/projects/${projectId}/operation/approve`, {
-      method: 'POST',
-      body: JSON.stringify({ approved_ids: proposalIds }),
-    });
+    await this.fetch<void>(
+      `/projects/${encodeURIComponent(projectId)}/operation/approve`,
+      {
+        method: 'POST',
+        body: JSON.stringify({ approved_ids: proposalIds }),
+      },
+    );
   }
 
   private scmHeaders(options?: ApmeScmRequestOptions): Record<string, string> {
@@ -352,7 +369,7 @@ export class ApmeApiClient implements ApmeApi {
     options?: ApmeScmRequestOptions & { createPr?: boolean },
   ): Promise<SubmitRemediationResult> {
     return this.fetch<SubmitRemediationResult>(
-      `/projects/${projectId}/submit`,
+      `/projects/${encodeURIComponent(projectId)}/submit`,
       {
         method: 'POST',
         headers: this.scmHeaders(options),
