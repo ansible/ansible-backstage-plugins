@@ -222,7 +222,15 @@ describe('collectAiAssistedViolationIds', () => {
     expect(
       collectAiAssistedViolationIds(
         violations,
-        [{ rule_id: 'RULE-A', file: 'playbook.yml', line: 5, tier: 2 }],
+        [
+          {
+            rule_id: 'RULE-A',
+            file: 'playbook.yml',
+            line: 5,
+            tier: 2,
+            violation_id: 0,
+          },
+        ],
         false,
       ).size,
     ).toBe(0);
@@ -231,7 +239,15 @@ describe('collectAiAssistedViolationIds', () => {
   it('skips tier-1 proposals when collecting AI-assisted ids', () => {
     const ids = collectAiAssistedViolationIds(
       violations,
-      [{ rule_id: 'RULE-A', file: 'playbook.yml', line: 5, tier: 1 }],
+      [
+        {
+          rule_id: 'RULE-A',
+          file: 'playbook.yml',
+          line: 5,
+          tier: 1,
+          violation_id: 0,
+        },
+      ],
       true,
     );
     expect(ids.size).toBe(0);
