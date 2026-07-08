@@ -23,16 +23,13 @@ export {
   ApmeEntityTab,
   ApmeRepoStatusChip,
   ApmeAdminCard,
-  ApmeEnabledEntityLayoutRoute,
   ApmeQualitySettingsTab,
   ApmeFleetQualityTab,
-  QualityTabExtension,
   rootRouteRef as apmeRouteRef,
   projectRouteRef as apmeProjectRouteRef,
 } from './plugin';
 export { CreateProjectDialog } from './components/CreateProjectDialog';
 export { ApmeRepoStatusChip as ApmeRepoStatusChipComponent } from './components/ApmeRepoStatusChip';
-export { QualityTab } from './components/QualityTab';
 export { ApmeAdminCard as ApmeAdminCardComponent } from './components/ApmeAdminCard';
 export { ApmeQualitySettingsTab as ApmeQualitySettingsTabComponent } from './components/ApmeQualitySettingsTab';
 export { FleetQualityTab as ApmeFleetQualityTabComponent } from './components/FleetQualityTab';
@@ -43,7 +40,6 @@ export { ApmeRepositoryCollectionsTab as ApmeRepositoryCollectionsTabComponent }
 export { ApmeRepositoryHeaderActions as ApmeRepositoryHeaderActionsComponent } from './components/ApmeRepositoryHeaderActions/ApmeRepositoryHeaderActions';
 export type { FleetQualityTabProps as ApmeFleetQualityTabProps } from './components/FleetQualityTab';
 export { PreviewChip as PreviewChipComponent } from './components/PreviewChip';
-export { ApmeEnabledEntityLayoutRoute as ApmeEnabledEntityLayoutRouteComponent } from './components/ApmeEnabledEntityLayoutRoute';
 export { apmeApiRef, ApmeApiClient } from './api';
 export type { ApmeApi } from './api';
 export {
@@ -56,3 +52,4 @@ export {
   normalizeRepoUrl,
 } from '@ansible/backstage-apme-common/normalizeRepoUrl';
 export { useApmeEnabled } from './hooks/useApmeEnabled';
+export { gitRepositoriesExtensionsApiFactory } from './apis/gitRepositoriesExtensions';

@@ -54,23 +54,22 @@ export const FIX_TYPE_STYLES: Record<FixType, FixTypeStyle> = {
   auto: {
     background: '#4caf50',
     text: '#ffffff',
-    label: 'Auto-fix',
+    label: '⚡ Auto-fixed',
     tooltip:
-      'Auto-generated fix available at scan — applied when you run Generate fixes',
+      'Deterministic auto-fix — select and generate to preview the diff before push',
   },
   ai: {
     background: '#2196f3',
     text: '#ffffff',
-    label: 'AI candidate',
+    label: '✦ AI-fixed',
     tooltip:
-      'AI tier at scan — Generate fixes may produce a proposal for your review',
+      'AI-assisted fix — select and generate to review the proposed diff',
   },
   manual: {
     background: '#6a6e73',
     text: '#ffffff',
-    label: 'Manual review',
-    tooltip:
-      'Manual at scan — auto-generated fixes may still apply; hand-edit in Dev Spaces if not',
+    label: '— Manual only',
+    tooltip: 'Manual only — edit in Dev Spaces or your IDE',
   },
 };
 
@@ -180,13 +179,10 @@ export function proposalNeedsManualApproval(
 }
 
 export function fixMethodLabel(fixType: FixType | undefined): string {
-  if (fixType === 'auto') {
-    return 'Auto-fix';
+  if (!fixType) {
+    return FIX_TYPE_STYLES.manual.label;
   }
-  if (fixType === 'ai') {
-    return 'AI candidate';
-  }
-  return 'Manual review';
+  return FIX_TYPE_STYLES[fixType].label;
 }
 
 /** Tooltip for fix-method column (scan classification, not post-remediate status). */
@@ -199,14 +195,7 @@ export function fixMethodTooltip(fixType: FixType | undefined): string {
 
 /** Short fix-tier label for fleet repo rows (design: QualityOverviewContent). */
 export function fixTierShortLabel(remClass: number, enableAi: boolean): string {
-  const fixType = effectiveFixType(remClass, enableAi);
-  if (fixType === 'auto') {
-    return 'Auto-fix';
-  }
-  if (fixType === 'ai') {
-    return 'AI candidate';
-  }
-  return 'Manual review';
+  return fixMethodLabel(effectiveFixType(remClass, enableAi));
 }
 
 export function categoryLabel(apmeCategory: string): string {

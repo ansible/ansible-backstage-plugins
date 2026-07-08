@@ -19,14 +19,12 @@ import type { ReactNode } from 'react';
 import CheckIcon from '@material-ui/icons/Check';
 import type { RemediationStep } from '../RemediationStepper';
 
-const STEPS: { id: RemediationStep; label: string }[] = [
+const STEPS = [
   { id: 'select', label: 'Select' },
   { id: 'generate', label: 'Generate' },
   { id: 'review', label: 'Review' },
-  { id: 'push', label: 'Push branch' },
-  { id: 'pr', label: 'Create PR' },
-  { id: 'verify', label: 'Verify' },
-];
+  { id: 'push-act', label: 'Push & Act' },
+] as const;
 
 const useStyles = makeStyles(theme => ({
   root: {
@@ -91,8 +89,12 @@ const useStyles = makeStyles(theme => ({
   },
 }));
 
-function stepIndex(step: RemediationStep): number {
-  return STEPS.findIndex(s => s.id === step);
+/** Maps internal remediation steps to the 4-step design stepper. */
+export function workflowStepIndex(step: RemediationStep): number {
+  if (step === 'select') return 0;
+  if (step === 'generate') return 1;
+  if (step === 'review') return 2;
+  return 3;
 }
 
 function stepBadgeClassName(
@@ -136,13 +138,15 @@ function stepBadgeContent(
 
 export interface QualityWorkflowStepperProps {
   activeStep: RemediationStep;
+  creatingPr?: boolean;
 }
 
 export const QualityWorkflowStepper = ({
   activeStep,
+  creatingPr = false,
 }: QualityWorkflowStepperProps) => {
   const classes = useStyles();
-  const activeIndex = stepIndex(activeStep);
+  const activeIndex = workflowStepIndex(activeStep);
 
   return (
     <Box
@@ -156,7 +160,10 @@ export const QualityWorkflowStepper = ({
         const isPending = index > activeIndex;
         const isSpinning =
           isActive &&
-          (step.id === 'generate' || step.id === 'push' || step.id === 'pr');
+          (activeStep === 'generate' ||
+            activeStep === 'push' ||
+            creatingPr ||
+            activeStep === 'pr');
 
         return (
           <Box key={step.id} className={classes.step} component="span">

@@ -122,7 +122,9 @@ export const PrStatusBanner = ({
         <Box display="flex" alignItems="center" style={{ gap: 8 }}>
           <CheckCircleIcon style={{ color: '#2e7d32' }} />
           <Typography variant="body2">
-            Violations resolved · PR #{prNumber} merged
+            Pull request merged
+            {prNumber ? ` (#${prNumber})` : ''}
+            {branchName ? ` · ${branchName}` : ''}
           </Typography>
         </Box>
         {onScanAgain && (
@@ -158,6 +160,11 @@ export const PrStatusBanner = ({
               rel="noopener noreferrer"
             >
               Edit in Dev Spaces
+            </Button>
+          )}
+          {onScanAgain && (
+            <Button size="small" variant="outlined" onClick={onScanAgain}>
+              Scan again
             </Button>
           )}
         </Box>

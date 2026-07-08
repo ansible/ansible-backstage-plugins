@@ -69,11 +69,11 @@ describe('proposalNeedsManualApproval', () => {
 });
 
 describe('fixMethodLabel', () => {
-  it('uses scan-tier labels that do not imply fixes are already applied', () => {
-    expect(fixMethodLabel('auto')).toBe('Auto-fix');
-    expect(fixMethodLabel('ai')).toBe('AI candidate');
-    expect(fixMethodLabel('manual')).toBe('Manual review');
-    expect(fixMethodLabel(undefined)).toBe('Manual review');
+  it('uses design-tier labels for entity Quality chips', () => {
+    expect(fixMethodLabel('auto')).toBe('⚡ Auto-fixed');
+    expect(fixMethodLabel('ai')).toBe('✦ AI-fixed');
+    expect(fixMethodLabel('manual')).toBe('— Manual only');
+    expect(fixMethodLabel(undefined)).toBe('— Manual only');
   });
 });
 

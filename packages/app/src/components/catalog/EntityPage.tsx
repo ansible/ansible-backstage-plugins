@@ -57,7 +57,7 @@ import {
   EntityKubernetesContent,
   isKubernetesAvailable,
 } from '@backstage/plugin-kubernetes';
-import { ApmeEnabledEntityLayoutRoute } from '@ansible/plugin-backstage-apme';
+import { ApmeEntityTab } from '@ansible/plugin-backstage-apme';
 
 const techdocsContent = (
   <EntityTechdocsContent>
@@ -188,8 +188,6 @@ const serviceEntityPage = (
     <EntityLayout.Route path="/docs" title="Docs">
       {techdocsContent}
     </EntityLayout.Route>
-
-    <ApmeEnabledEntityLayoutRoute />
   </EntityLayout>
 );
 
@@ -225,8 +223,6 @@ const websiteEntityPage = (
     <EntityLayout.Route path="/docs" title="Docs">
       {techdocsContent}
     </EntityLayout.Route>
-
-    <ApmeEnabledEntityLayoutRoute />
   </EntityLayout>
 );
 
@@ -247,7 +243,13 @@ const defaultEntityPage = (
       {techdocsContent}
     </EntityLayout.Route>
 
-    <ApmeEnabledEntityLayoutRoute />
+    <EntityLayout.Route
+      path="/quality"
+      title="Quality"
+      if={isComponentType('git-repository')}
+    >
+      <ApmeEntityTab />
+    </EntityLayout.Route>
   </EntityLayout>
 );
 

@@ -62,7 +62,9 @@ const useStyles = makeStyles(theme => ({
     display: 'flex',
     alignItems: 'baseline',
     gap: 8,
-    marginBottom: theme.spacing(1),
+    marginBottom: theme.spacing(1.5),
+    paddingBottom: theme.spacing(1),
+    borderBottom: `1px solid ${theme.palette.divider}`,
   },
   sevBar: {
     display: 'flex',

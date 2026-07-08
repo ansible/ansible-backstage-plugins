@@ -12,7 +12,7 @@ import {
 } from '@backstage/core-plugin-api';
 import { OAuth2 } from '@backstage/core-app-api';
 import { rhAapAuthApiRef } from '@ansible/plugin-backstage-self-service';
-import { gitRepositoriesExtensionsApiFactory } from './apis/gitRepositoriesExtensions';
+import { gitRepositoriesExtensionsApiFactory } from '@ansible/plugin-backstage-apme';
 
 export const apis: AnyApiFactory[] = [
   createApiFactory({

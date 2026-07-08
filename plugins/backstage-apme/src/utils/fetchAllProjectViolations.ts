@@ -14,19 +14,17 @@
  * limitations under the License.
  */
 
-import { EntityLayout } from '@backstage/plugin-catalog';
-import { ApmeEntityTab } from '../ApmeEntityTab';
-import { useApmeEnabled } from '../../hooks/useApmeEnabled';
+import type { Violation } from '@ansible/backstage-apme-common/types';
+import type { ApmeApi } from '../api';
 
-/** Entity Quality tab route — hidden when APME is disabled (ADR-010). */
-export const ApmeEnabledEntityLayoutRoute = () => {
-  const enabled = useApmeEnabled();
-  if (!enabled) {
-    return null;
-  }
-  return (
-    <EntityLayout.Route path="/apme" title="Quality">
-      <ApmeEntityTab />
-    </EntityLayout.Route>
-  );
-};
+const MAX_VIOLATIONS = 5000;
+
+/** Fetch gateway violations up to the API limit (no server-side offset yet). */
+export async function fetchAllProjectViolations(
+  apmeApi: ApmeApi,
+  projectId: string,
+  totalHint?: number,
+): Promise<Violation[]> {
+  const limit = Math.min(totalHint ?? MAX_VIOLATIONS, MAX_VIOLATIONS);
+  return apmeApi.getViolations(projectId, { limit });
+}

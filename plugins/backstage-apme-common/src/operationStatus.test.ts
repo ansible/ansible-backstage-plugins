@@ -18,6 +18,10 @@ import {
   isActiveOperationStatus,
   isTerminalOperationState,
   latestOperationProgressPercent,
+  isCheckOperation,
+  isRemediateOperation,
+  formatScanProgressMessage,
+  formatGenerateProgressMessage,
 } from './operationStatus';
 
 describe('operationStatus', () => {
@@ -87,5 +91,33 @@ describe('operationStatus', () => {
         ],
       }),
     ).toBe(42);
+  });
+
+  it('classifies check vs remediate operations', () => {
+    expect(
+      isCheckOperation({
+        operation_id: 'op',
+        project_id: 'p',
+        status: 'scanning',
+        scan_type: 'check',
+      }),
+    ).toBe(true);
+    expect(
+      isRemediateOperation({
+        operation_id: 'op',
+        project_id: 'p',
+        status: 'generating',
+        scan_type: 'remediate',
+      }),
+    ).toBe(true);
+  });
+
+  it('qualifies engine fixed messages for generate progress', () => {
+    expect(
+      formatGenerateProgressMessage(
+        'Graph Tier 1 converged: 1 pass(es), 12 fixed, 12 nodes modified',
+      ),
+    ).toBe('12 fixes proposed — review and include before pushing');
+    expect(formatScanProgressMessage(null)).toBe('Scanning…');
   });
 });

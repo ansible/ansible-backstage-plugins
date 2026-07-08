@@ -14,7 +14,12 @@
   "main": "src/index.ts",
   "types": "src/index.ts",
   "files": [
-    "dist"
+    "dist",
+    "dist-dynamic/*.*",
+    "dist-dynamic/dist/**",
+    "dist-dynamic/alpha/*",
+    "build",
+    "src/**/*.d.ts"
   ],
   "scripts": {
     "build": "backstage-cli package build",
@@ -22,22 +27,28 @@
     "lint": "backstage-cli package lint",
     "test": "backstage-cli package test",
     "prepack": "backstage-cli package prepack",
-    "postpack": "backstage-cli package postpack"
+    "postpack": "backstage-cli package postpack",
+    "export-dynamic": "rhdh-cli plugin export --embed-package @ansible/backstage-apme-common --embed-package @ansible/backstage-rhaap-common"
   },
   "dependencies": {
     "@ansible/backstage-apme-common": "workspace:^",
     "@ansible/backstage-rhaap-common": "workspace:^",
-    "@backstage/backend-plugin-api": "^1.0.0",
-    "@backstage/catalog-client": "^1.8.0",
-    "@backstage/catalog-model": "^1.7.0",
-    "@backstage/config": "^1.2.0",
-    "@backstage/errors": "^1.2.4",
-    "@backstage/integration": "^1.18.2",
-    "express": "^4.18.2",
+    "@backstage/backend-dynamic-feature-service": "^0.8.0",
+    "@backstage/backend-plugin-api": "^1.8.0",
+    "@backstage/catalog-client": "^1.14.0",
+    "@backstage/catalog-model": "^1.7.7",
+    "@backstage/config": "^1.3.6",
+    "@backstage/errors": "^1.2.7",
+    "@backstage/integration": "^2.0.0",
+    "@backstage/plugin-catalog-backend": "^3.5.0",
+    "@backstage/plugin-catalog-common": "^1.1.8",
+    "@backstage/plugin-catalog-node": "^2.1.0",
+    "express": "^5.1.0",
     "express-promise-router": "^4.1.1"
   },
   "devDependencies": {
-    "@backstage/cli": "^0.27.0",
+    "@backstage/backend-test-utils": "^1.11.1",
+    "@backstage/cli": "^0.36.0",
     "@types/express": "^4.17.21",
     "@types/supertest": "^6.0.3",
     "supertest": "^7.1.1",

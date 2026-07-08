@@ -131,18 +131,6 @@ export const ApmeAdminCard = apmePlugin.provide(
   }),
 );
 
-export const ApmeEnabledEntityLayoutRoute = apmePlugin.provide(
-  createComponentExtension({
-    name: 'ApmeEnabledEntityLayoutRoute',
-    component: {
-      lazy: () =>
-        import('./components/ApmeEnabledEntityLayoutRoute').then(
-          m => m.ApmeEnabledEntityLayoutRoute,
-        ),
-    },
-  }),
-);
-
 export const ApmeQualitySettingsTab = apmePlugin.provide(
   createComponentExtension({
     name: 'ApmeQualitySettingsTab',
@@ -161,15 +149,6 @@ export const ApmeFleetQualityTab = apmePlugin.provide(
     component: {
       lazy: () =>
         import('./components/FleetQualityTab').then(m => m.FleetQualityTab),
-    },
-  }),
-);
-
-export const QualityTabExtension = apmePlugin.provide(
-  createComponentExtension({
-    name: 'QualityTab',
-    component: {
-      lazy: () => import('./components/QualityTab').then(m => m.QualityTab),
     },
   }),
 );
