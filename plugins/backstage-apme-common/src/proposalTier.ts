@@ -17,7 +17,14 @@
 import type { Proposal, Violation } from './types';
 import { effectiveFixType, proposalNeedsManualApproval } from './severity';
 
-type RawProposal = Partial<Proposal> & Record<string, unknown>;
+type RawProposal = Omit<Partial<Proposal>, 'status'> & {
+  line_start?: number;
+  suggestion?: string;
+  explanation?: string;
+  fixed_yaml?: string;
+  ai_reason?: string;
+  status?: string;
+};
 
 /** Match a gateway proposal to a scan violation when violation_id is absent. */
 export function findViolationForProposal(

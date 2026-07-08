@@ -9,7 +9,10 @@ import type {
   Rule,
   Severity,
 } from '@ansible/backstage-apme-common/types';
-import { severityProtoToLabel } from '@ansible/backstage-apme-common/severity';
+import {
+  severityLevelToCatalogSeverity,
+  severityProtoToLabel,
+} from '@ansible/backstage-apme-common/severity';
 
 /** Raw rule row from the APME gateway ``/rules`` API. */
 export interface GatewayRuleRow {
@@ -72,7 +75,9 @@ function defaultSeverityFromRow(row: GatewayRuleRow): Severity | undefined {
     });
   }
   if (row.default_severity !== undefined && row.default_severity !== null) {
-    return severityProtoToLabel(row.default_severity);
+    return severityLevelToCatalogSeverity(
+      severityProtoToLabel(row.default_severity),
+    );
   }
   return undefined;
 }

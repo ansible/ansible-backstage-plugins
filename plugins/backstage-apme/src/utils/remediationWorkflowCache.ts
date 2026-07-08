@@ -31,7 +31,7 @@ export interface RemediationWorkflowCache {
   remediationActivityId: string | null;
   proposals: Proposal[];
   tier1Result: Tier1RemediationCache | null;
-  selectedIds: number[];
+  selectedIds?: number[];
   approvedProposalIds: string[];
   branchPushed: boolean;
   prBranchName?: string;
