@@ -166,6 +166,7 @@ export function useScanPolling(entity: Entity): ScanPollingState {
               setScanProgress(null);
             }, 1500);
           }
+          return;
         }
       } catch {
         if (cancelled) return;
@@ -173,6 +174,7 @@ export function useScanPolling(entity: Entity): ScanPollingState {
         setScanning(false);
         setExpectActiveScan(false);
         setScanProgress(null);
+        return;
       }
 
       if (pollCount >= MAX_POLLS) {
