@@ -69,11 +69,10 @@ spec:
         token: ${{ secrets.USER_OAUTH_TOKEN }}
 
     - id: register
-      name: Register in catalog (optional)
+      name: Register in catalog
       action: catalog:register
       input:
-        repoContentsUrl: ${{ steps['publish-pr'].output.repoContentsUrl }}
-        catalogInfoPath: /catalog-info.yaml
+        catalogInfoUrl: https://github.com/${{ parameters.repoUrl | parseRepoUrl | pick('owner') }}/${{ parameters.repoUrl | parseRepoUrl | pick('repo') }}/blob/${{ parameters.defaultBranch }}/catalog-info.yaml
         optional: true
 
   output:
