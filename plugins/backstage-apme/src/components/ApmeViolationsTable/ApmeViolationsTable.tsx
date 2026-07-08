@@ -38,12 +38,12 @@ import type { Violation } from '@ansible/backstage-apme-common/types';
 import {
   SEVERITY_STYLES,
   normalizeSeverity,
-  effectiveFixType,
   fixMethodLabel,
   fixMethodTooltip,
   isFixableViolation,
   categoryLabel,
 } from '@ansible/backstage-apme-common/severity';
+import { effectiveViolationFixType } from '@ansible/backstage-apme-common/proposalTier';
 import { useApmeAiEnabled } from '../../hooks/useApmeEnabled';
 import { acknowledgeButtonLabel } from '../../hooks/useViolationAcknowledge';
 import { EditInDevSpacesButton } from '../EditInDevSpacesButton';
@@ -219,14 +219,20 @@ const useStyles = makeStyles(theme => ({
 }));
 
 function FixMethodDisplay({
-  remediationClass,
+  violation,
   enableAi,
+  aiAssistedViolationIds,
 }: {
-  remediationClass: number;
+  violation: Violation;
   enableAi: boolean;
+  aiAssistedViolationIds?: ReadonlySet<number>;
 }) {
   const theme = useTheme();
-  const fixType = effectiveFixType(remediationClass, enableAi);
+  const fixType = effectiveViolationFixType(
+    violation,
+    enableAi,
+    aiAssistedViolationIds,
+  );
   const label = fixMethodLabel(fixType);
   const tooltip = fixMethodTooltip(fixType);
   let chip;
@@ -315,8 +321,16 @@ function CodePreview({
   );
 }
 
-function fixMethodSortKey(remediationClass: number, enableAi: boolean): number {
-  const ft = effectiveFixType(remediationClass, enableAi);
+function fixMethodSortKey(
+  violation: Violation,
+  enableAi: boolean,
+  aiAssistedViolationIds?: ReadonlySet<number>,
+): number {
+  const ft = effectiveViolationFixType(
+    violation,
+    enableAi,
+    aiAssistedViolationIds,
+  );
   if (ft === 'auto') return 0;
   if (ft === 'ai') return 1;
   if (ft === 'manual') return 2;
@@ -334,9 +348,13 @@ export interface ApmeViolationsTableFilterContext {
 
 export interface ApmeViolationsTableProps {
   violations: Violation[];
+  /** When false, hides per-violation checkboxes (backend remediate is all-or-nothing). */
+  selectionEnabled?: boolean;
   selectedIds?: Set<number>;
   onSelectionChange?: (ids: Set<number>) => void;
   toolbarActions?: ReactNode;
+  /** Violation IDs that received AI proposals on the latest remediate run. */
+  aiAssistedViolationIds?: ReadonlySet<number>;
   /** Dev Spaces factory URL for manual violations (repo or remediation branch). */
   devSpacesUrl?: string | null;
   filterContext?: ApmeViolationsTableFilterContext;
@@ -350,11 +368,13 @@ export interface ApmeViolationsTableProps {
 
 export const ApmeViolationsTable = ({
   violations,
+  selectionEnabled = false,
   selectedIds,
   onSelectionChange,
   devSpacesUrl,
   toolbarActions,
   filterContext,
+  aiAssistedViolationIds,
   showAcknowledgedOnly = false,
   onAcknowledge,
   onUnacknowledge,
@@ -402,8 +422,8 @@ export const ApmeViolationsTable = ({
         }
         case 'fixMethod':
           cmp =
-            fixMethodSortKey(a.remediation_class, enableAi) -
-            fixMethodSortKey(b.remediation_class, enableAi);
+            fixMethodSortKey(a, enableAi, aiAssistedViolationIds) -
+            fixMethodSortKey(b, enableAi, aiAssistedViolationIds);
           break;
         case 'rule':
           cmp = a.rule_id.localeCompare(b.rule_id);
@@ -417,7 +437,7 @@ export const ApmeViolationsTable = ({
       return sortAsc ? cmp : -cmp;
     });
     return list;
-  }, [visible, sortCol, sortAsc, enableAi]);
+  }, [visible, sortCol, sortAsc, enableAi, aiAssistedViolationIds]);
 
   const autoExpand = sorted.length <= 3;
 
@@ -448,7 +468,7 @@ export const ApmeViolationsTable = ({
     }
     const next = new Set<number>();
     for (const v of selectable) {
-      const ft = effectiveFixType(v.remediation_class, enableAi);
+      const ft = effectiveViolationFixType(v, enableAi, aiAssistedViolationIds);
       if (filter === 'all') next.add(v.id);
       else if (filter === 'auto' && ft === 'auto') next.add(v.id);
       else if (filter === 'ai' && ft === 'ai') next.add(v.id);
@@ -555,50 +575,52 @@ export const ApmeViolationsTable = ({
   return (
     <Box className={classes.wrapper}>
       <div className={classes.toolbar}>
-        <div className={classes.selectGroup}>
-          <Checkbox
-            size="small"
-            indeterminate={selected.size > 0 && !allSelected}
-            checked={allSelected}
-            onChange={handleSelectAll}
-            style={{ padding: 4 }}
-          />
-          <Button
-            size="small"
-            className={classes.selectMenuButton}
-            endIcon={<ArrowDropDownIcon style={{ fontSize: 18 }} />}
-            onClick={e => setSelectMenuAnchor(e.currentTarget)}
-          >
-            {selected.size > 0 ? `${selected.size} selected` : 'Select'}
-          </Button>
-          <Menu
-            anchorEl={selectMenuAnchor}
-            open={Boolean(selectMenuAnchor)}
-            onClose={() => setSelectMenuAnchor(null)}
-          >
-            <MenuItem onClick={() => selectByFilter('all')}>
-              All fixable
-            </MenuItem>
-            <MenuItem onClick={() => selectByFilter('auto')}>
-              Auto-fixes only
-            </MenuItem>
-            {enableAi && (
-              <MenuItem onClick={() => selectByFilter('ai')}>
-                AI-assisted only
+        {selectionEnabled && (
+          <div className={classes.selectGroup}>
+            <Checkbox
+              size="small"
+              indeterminate={selected.size > 0 && !allSelected}
+              checked={allSelected}
+              onChange={handleSelectAll}
+              style={{ padding: 4 }}
+            />
+            <Button
+              size="small"
+              className={classes.selectMenuButton}
+              endIcon={<ArrowDropDownIcon style={{ fontSize: 18 }} />}
+              onClick={e => setSelectMenuAnchor(e.currentTarget)}
+            >
+              {selected.size > 0 ? `${selected.size} selected` : 'Select'}
+            </Button>
+            <Menu
+              anchorEl={selectMenuAnchor}
+              open={Boolean(selectMenuAnchor)}
+              onClose={() => setSelectMenuAnchor(null)}
+            >
+              <MenuItem onClick={() => selectByFilter('all')}>
+                All fixable
               </MenuItem>
-            )}
-            <MenuItem onClick={() => selectByFilter('clear')}>
-              Clear selection
-            </MenuItem>
-          </Menu>
-        </div>
+              <MenuItem onClick={() => selectByFilter('auto')}>
+                Auto-fixes only
+              </MenuItem>
+              {enableAi && (
+                <MenuItem onClick={() => selectByFilter('ai')}>
+                  AI-assisted only
+                </MenuItem>
+              )}
+              <MenuItem onClick={() => selectByFilter('clear')}>
+                Clear selection
+              </MenuItem>
+            </Menu>
+          </div>
+        )}
         {toolbarActions}
       </div>
 
       <table className={classes.table}>
         <thead>
           <tr>
-            <th style={{ width: 40 }} />
+            {selectionEnabled && <th style={{ width: 40 }} />}
             <th
               className="sortable"
               style={{ width: 110 }}
@@ -642,28 +664,30 @@ export const ApmeViolationsTable = ({
                 className="dataRow"
                 onClick={() => toggleExpanded(v.id)}
               >
-                <td
-                  onClick={e => e.stopPropagation()}
-                  onKeyDown={e => e.stopPropagation()}
-                >
-                  <Tooltip
-                    title={
-                      canSelect
-                        ? 'Include in remediation when selected'
-                        : 'Manual review — edit in Dev Spaces or apply auto-generated fixes to other rows'
-                    }
+                {selectionEnabled && (
+                  <td
+                    onClick={e => e.stopPropagation()}
+                    onKeyDown={e => e.stopPropagation()}
                   >
-                    <span>
-                      <Checkbox
-                        size="small"
-                        checked={selected.has(v.id)}
-                        disabled={!canSelect}
-                        onChange={() => handleSelect(v.id)}
-                        style={{ padding: 4 }}
-                      />
-                    </span>
-                  </Tooltip>
-                </td>
+                    <Tooltip
+                      title={
+                        canSelect
+                          ? 'Include in remediation when selected'
+                          : 'Manual review — edit in Dev Spaces or apply auto-generated fixes to other rows'
+                      }
+                    >
+                      <span>
+                        <Checkbox
+                          size="small"
+                          checked={selected.has(v.id)}
+                          disabled={!canSelect}
+                          onChange={() => handleSelect(v.id)}
+                          style={{ padding: 4 }}
+                        />
+                      </span>
+                    </Tooltip>
+                  </td>
+                )}
                 <td>
                   <span
                     className={classes.severityChip}
@@ -677,8 +701,9 @@ export const ApmeViolationsTable = ({
                 </td>
                 <td onClick={e => e.stopPropagation()}>
                   <FixMethodDisplay
-                    remediationClass={v.remediation_class}
+                    violation={v}
                     enableAi={enableAi}
+                    aiAssistedViolationIds={aiAssistedViolationIds}
                   />
                 </td>
                 <td>
@@ -710,7 +735,10 @@ export const ApmeViolationsTable = ({
               </tr>,
               isExpanded ? (
                 <tr key={`${v.id}-detail`}>
-                  <td colSpan={6} className={classes.expandedCell}>
+                  <td
+                    colSpan={selectionEnabled ? 6 : 5}
+                    className={classes.expandedCell}
+                  >
                     <Collapse in={isExpanded}>
                       <Box padding={2}>
                         <Typography

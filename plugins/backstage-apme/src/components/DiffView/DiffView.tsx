@@ -100,6 +100,68 @@ interface DiffLine {
   newNum?: number;
 }
 
+function parseUnifiedDiffHunk(diff: string): DiffLine[] {
+  const result: DiffLine[] = [];
+  let oldNum = 0;
+  let newNum = 0;
+
+  for (const raw of diff.split('\n')) {
+    if (!raw && result.length > 0) {
+      continue;
+    }
+    if (raw.startsWith('@@')) {
+      const match = raw.match(/@@ -(\d+)(?:,\d+)? \+(\d+)(?:,\d+)? @@/);
+      if (match) {
+        oldNum = Number.parseInt(match[1], 10);
+        newNum = Number.parseInt(match[2], 10);
+      }
+      result.push({ type: 'context', content: raw });
+      continue;
+    }
+    if (raw.startsWith('+++') || raw.startsWith('---')) {
+      result.push({ type: 'context', content: raw });
+      continue;
+    }
+    if (raw.startsWith('+')) {
+      result.push({
+        type: 'added',
+        content: raw.slice(1),
+        newNum: newNum > 0 ? newNum : undefined,
+      });
+      if (newNum > 0) {
+        newNum += 1;
+      }
+      continue;
+    }
+    if (raw.startsWith('-')) {
+      result.push({
+        type: 'removed',
+        content: raw.slice(1),
+        oldNum: oldNum > 0 ? oldNum : undefined,
+      });
+      if (oldNum > 0) {
+        oldNum += 1;
+      }
+      continue;
+    }
+    const content = raw.startsWith(' ') ? raw.slice(1) : raw;
+    result.push({
+      type: 'context',
+      content,
+      oldNum: oldNum > 0 ? oldNum : undefined,
+      newNum: newNum > 0 ? newNum : undefined,
+    });
+    if (oldNum > 0) {
+      oldNum += 1;
+    }
+    if (newNum > 0) {
+      newNum += 1;
+    }
+  }
+
+  return result;
+}
+
 function computeUnifiedDiff(before: string, after: string): DiffLine[] {
   const oldLines = before.split('\n');
   const newLines = after.split('\n');
@@ -151,13 +213,18 @@ function computeUnifiedDiff(before: string, after: string): DiffLine[] {
 export interface DiffViewProps {
   before?: string;
   after?: string;
+  /** Unified diff from the gateway (`diff_hunk`). Takes precedence over before/after. */
+  diff?: string;
   title?: string;
 }
 
-export const DiffView = ({ before, after, title }: DiffViewProps) => {
+export const DiffView = ({ before, after, diff, title }: DiffViewProps) => {
   const classes = useStyles();
 
   const lines = useMemo(() => {
+    if (diff?.trim()) {
+      return parseUnifiedDiffHunk(diff);
+    }
     if (before && after) return computeUnifiedDiff(before, after);
     if (before)
       return before.split('\n').map((c, i): DiffLine => ({
@@ -172,7 +239,7 @@ export const DiffView = ({ before, after, title }: DiffViewProps) => {
         newNum: i + 1,
       }));
     return [];
-  }, [before, after]);
+  }, [before, after, diff]);
 
   if (lines.length === 0) return null;
 

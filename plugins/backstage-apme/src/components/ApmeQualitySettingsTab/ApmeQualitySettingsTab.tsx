@@ -40,14 +40,16 @@ import { Table, Progress } from '@backstage/core-components';
 import type { Rule } from '@ansible/backstage-apme-common/types';
 import {
   SEVERITY_STYLES,
+  SEVERITY_ORDER,
   normalizeSeverity,
   severityLabelToProto,
+  severityLevelToCatalogSeverity,
 } from '@ansible/backstage-apme-common/severity';
 import { apmeApiRef } from '../../api';
 import { useApmeEnabled } from '../../hooks/useApmeEnabled';
 import { useApmeScanTargetLabel } from '../../hooks/useApmeScanTargetLabel';
 
-const SEVERITY_OPTIONS = ['critical', 'high', 'medium', 'low', 'info'] as const;
+const SEVERITY_OPTIONS = SEVERITY_ORDER;
 
 const useStyles = makeStyles(theme => ({
   connected: {
@@ -181,7 +183,7 @@ export const ApmeQualitySettingsTab = () => {
       setRulesError(null);
       const normalized = normalizeSeverity(severity);
       updateRuleLocal(rule.id, {
-        severity: normalized,
+        severity: severityLevelToCatalogSeverity(normalized),
         hasOverride: true,
       });
       try {

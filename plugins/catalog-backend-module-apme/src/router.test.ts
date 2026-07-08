@@ -25,11 +25,11 @@ describe('catalog-backend-module-apme router', () => {
     createProject: jest.fn(),
     deleteProject: jest.fn(),
     getActivity: jest.fn(),
+    getActivityDetail: jest.fn(),
     getOperationState: jest.fn(),
     triggerRemediate: jest.fn(),
     approveProposals: jest.fn(),
-    getRemediationBundle: jest.fn(),
-    pushRemediationBranch: jest.fn(),
+    submitRemediation: jest.fn(),
     createPullRequest: jest.fn(),
     getAiModels: jest.fn(),
   };
@@ -144,5 +144,69 @@ describe('catalog-backend-module-apme router', () => {
       reason: 'Acknowledged from portal',
     });
     expect(response.body).toEqual(suppression);
+  });
+
+  it('submits remediation via gateway SCM endpoint', async () => {
+    const submitResult = {
+      branch_name: 'apme/remediate-abc12345',
+      commit_sha: 'deadbeef',
+      pr_url: 'https://github.com/org/repo/pull/1',
+      provider: 'github',
+    };
+    mockApmeService.submitRemediation.mockResolvedValueOnce(submitResult);
+
+    const response = await request(app)
+      .post('/apme/projects/proj-1/submit')
+      .send({
+        activity_id: 'scan-1',
+        create_pr: true,
+        scm_token: 'ghp_test',
+      });
+
+    expect(response.status).toBe(200);
+    expect(mockApmeService.submitRemediation).toHaveBeenCalledWith('proj-1', {
+      activity_id: 'scan-1',
+      branch_name: undefined,
+      create_pr: true,
+      title: undefined,
+      body: undefined,
+      scm_token: 'ghp_test',
+    });
+    expect(response.body).toEqual(submitResult);
+  });
+
+  it('returns project activity history', async () => {
+    const activity = [
+      {
+        scan_id: 'scan-1',
+        scan_type: 'check',
+        status: 'completed',
+        created_at: '2026-07-08T00:00:00Z',
+      },
+    ];
+    mockApmeService.getActivity.mockResolvedValueOnce(activity);
+
+    const response = await request(app).get('/apme/projects/proj-1/activity');
+
+    expect(response.status).toBe(200);
+    expect(mockApmeService.getActivity).toHaveBeenCalledWith('proj-1');
+    expect(response.body).toEqual(activity);
+  });
+
+  it('returns activity detail with proposals', async () => {
+    const detail = {
+      scan_id: 'scan-1',
+      scan_type: 'remediate',
+      status: 'completed',
+      proposals: [{ id: 'p1', tier: 2 }],
+      violations: [],
+    };
+    mockApmeService.getActivityDetail.mockResolvedValueOnce(detail);
+
+    const response = await request(app).get('/apme/activity/scan-1');
+
+    expect(response.status).toBe(200);
+    expect(mockApmeService.getActivityDetail).toHaveBeenCalledWith('scan-1');
+    expect(response.body).toEqual(detail);
   });
 });

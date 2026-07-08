@@ -14,7 +14,19 @@
  * limitations under the License.
  */
 
-export type SeverityLevel = 'critical' | 'high' | 'medium' | 'low' | 'info';
+import type { Severity } from './types';
+
+export type SeverityLevel =
+  'critical' | 'error' | 'high' | 'medium' | 'low' | 'info';
+
+export interface ViolationCountsBySeverity {
+  critical: number;
+  error: number;
+  high: number;
+  medium: number;
+  low: number;
+  info: number;
+}
 
 export type FixType = 'auto' | 'ai' | 'manual';
 
@@ -39,15 +51,26 @@ export const SEVERITY_STYLES: Record<SeverityLevel, SeverityStyle> = {
     sortOrder: 0,
     label: 'Critical',
   },
-  high: { background: '#c9190b', text: '#ffffff', sortOrder: 1, label: 'High' },
+  error: {
+    background: '#c9190b',
+    text: '#ffffff',
+    sortOrder: 1,
+    label: 'Error',
+  },
+  high: {
+    background: '#f56a00',
+    text: '#ffffff',
+    sortOrder: 2,
+    label: 'High',
+  },
   medium: {
     background: '#c58c00',
     text: '#ffffff',
-    sortOrder: 2,
+    sortOrder: 3,
     label: 'Medium',
   },
-  low: { background: '#2b9af3', text: '#ffffff', sortOrder: 3, label: 'Low' },
-  info: { background: '#6a6e73', text: '#ffffff', sortOrder: 4, label: 'Info' },
+  low: { background: '#2b9af3', text: '#ffffff', sortOrder: 4, label: 'Low' },
+  info: { background: '#6a6e73', text: '#ffffff', sortOrder: 5, label: 'Info' },
 };
 
 export const FIX_TYPE_STYLES: Record<FixType, FixTypeStyle> = {
@@ -76,13 +99,30 @@ export const FIX_TYPE_STYLES: Record<FixType, FixTypeStyle> = {
 
 const APME_TO_PORTAL_SEVERITY: Record<string, SeverityLevel> = {
   critical: 'critical',
-  error: 'high',
-  high: 'high',
-  medium: 'medium',
-  low: 'low',
-  info: 'info',
+  fatal: 'critical',
   blocker: 'critical',
+  error: 'error',
+  high: 'high',
+  very_high: 'high',
+  medium: 'medium',
+  warning: 'medium',
+  warn: 'medium',
+  low: 'low',
+  very_low: 'low',
+  info: 'info',
+  none: 'info',
+  unspecified: 'medium',
 };
+
+/** ADR-043 severity order (worst first) for filters and summaries. */
+export const SEVERITY_ORDER: SeverityLevel[] = [
+  'critical',
+  'error',
+  'high',
+  'medium',
+  'low',
+  'info',
+];
 
 const REMEDIATION_CLASS_TO_FIX_TYPE: Record<number, FixType> = {
   1: 'auto',
@@ -107,7 +147,68 @@ export const APME_CATEGORY_MAP: Record<string, string> = {
 };
 
 export function normalizeSeverity(level: string): SeverityLevel {
-  return APME_TO_PORTAL_SEVERITY[level] ?? 'info';
+  return APME_TO_PORTAL_SEVERITY[level.toLowerCase()] ?? 'medium';
+}
+
+/** Aggregate raw gateway severity keys into ADR-043 portal buckets. */
+export function normalizeSeverityBreakdown(
+  breakdown: Record<string, number> | undefined,
+): ViolationCountsBySeverity {
+  const result: ViolationCountsBySeverity = {
+    critical: 0,
+    error: 0,
+    high: 0,
+    medium: 0,
+    low: 0,
+    info: 0,
+  };
+  if (!breakdown) {
+    return result;
+  }
+  for (const [level, count] of Object.entries(breakdown)) {
+    if (!count) {
+      continue;
+    }
+    const bucket = normalizeSeverity(level);
+    result[bucket] += count;
+  }
+  return result;
+}
+
+/** Highest non-zero severity bucket for fleet/repo violation summaries. */
+export function getWorstViolationLevel(counts: ViolationCountsBySeverity): {
+  level: SeverityLevel;
+  count: number;
+} {
+  if (counts.critical > 0) {
+    return { level: 'critical', count: counts.critical };
+  }
+  if (counts.error > 0) {
+    return { level: 'error', count: counts.error };
+  }
+  if (counts.high > 0) {
+    return { level: 'high', count: counts.high };
+  }
+  if (counts.medium > 0) {
+    return { level: 'medium', count: counts.medium };
+  }
+  if (counts.low > 0) {
+    return { level: 'low', count: counts.low };
+  }
+  if (counts.info > 0) {
+    return { level: 'info', count: counts.info };
+  }
+  return { level: 'medium', count: 0 };
+}
+
+export function resolveViolationCounts(project: {
+  violationCounts?: ViolationCountsBySeverity;
+  severity_breakdown?: Record<string, number>;
+}): ViolationCountsBySeverity {
+  if (project.violationCounts) {
+    return project.violationCounts;
+  }
+  return normalizeSeverityBreakdown(project.severity_breakdown);
 }
 
 export function severityColor(level: string): string {
@@ -225,12 +326,12 @@ const SEVERITY_LABEL_TO_PROTO: Record<string, number> = {
 };
 
 const SEVERITY_PROTO_TO_LABEL: SeverityLevel[] = [
-  'info',
+  'medium',
   'info',
   'low',
   'medium',
   'high',
-  'high',
+  'error',
   'critical',
 ];
 
@@ -247,4 +348,12 @@ export function severityProtoToLabel(value: number): SeverityLevel {
     SEVERITY_PROTO_TO_LABEL.length - 1,
   );
   return SEVERITY_PROTO_TO_LABEL[index] ?? 'medium';
+}
+
+/** Map violation/UI severity labels to catalog Rule severity (no separate "error"). */
+export function severityLevelToCatalogSeverity(level: SeverityLevel): Severity {
+  if (level === 'error') {
+    return 'critical';
+  }
+  return level;
 }

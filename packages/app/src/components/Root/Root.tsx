@@ -28,7 +28,6 @@ import MenuIcon from '@material-ui/icons/Menu';
 import CodeIcon from '@material-ui/icons/Code';
 import SearchIcon from '@material-ui/icons/Search';
 import { MyGroupsSidebarItem } from '@backstage/plugin-org';
-import { ApmeSidebarItem } from '../Apme/ApmeSidebarItem';
 import GroupIcon from '@material-ui/icons/People';
 import { AnsibleLogo } from '@ansible/plugin-backstage-rhaap';
 import { Administration } from '@backstage-community/plugin-rbac';
@@ -104,7 +103,6 @@ export const Root = ({ children }: PropsWithChildren<{}>) => (
             to="/self-service/repositories/catalog"
             text="Git Repositories"
           />
-          <ApmeSidebarItem />
           <SidebarItem
             icon={MenuIcon}
             to="/self-service/ee"

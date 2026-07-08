@@ -32,14 +32,16 @@ import {
   HealthStatus,
   CreateProjectRequest,
   Activity,
+  ActivityDetail,
   OperationState,
-  RemediationBundle,
   CreatePullRequestResult,
   RemediationClass,
   ProjectDependencies,
   RuleConfigUpdate,
   CreateSuppressionRequest,
   Suppression,
+  SubmitRemediationRequest,
+  SubmitRemediationResult,
 } from '../types';
 
 export interface ApmeClientOptions {
@@ -94,7 +96,10 @@ export class ApmeClient {
 
       if (response.status === 409) {
         const errorBody = await response.text();
-        if (endpoint.includes('/operation')) {
+        const method = (options?.method ?? 'GET').toUpperCase();
+        const isStartOperation =
+          method === 'POST' && /\/operation$/.test(endpoint);
+        if (isStartOperation) {
           throw new ConflictError(
             'A scan is already in progress for this project',
           );
@@ -316,6 +321,21 @@ export class ApmeClient {
     return response.items || [];
   }
 
+  async getActivityDetail(activityId: string): Promise<ActivityDetail> {
+    const detail = await this.executeRequest<ActivityDetail>(
+      `/api/v1/activity/${activityId}`,
+    );
+    return {
+      ...detail,
+      violations: (detail.violations ?? []).map(v => ({
+        ...v,
+        remediation_class: normalizeRemediationClass(
+          v.remediation_class,
+        ) as RemediationClass,
+      })),
+    };
+  }
+
   async getOperationState(projectId: string): Promise<OperationState | null> {
     try {
       return await this.executeRequest<OperationState>(
@@ -367,17 +387,12 @@ export class ApmeClient {
     );
   }
 
-  async createPullRequest(
+  async submitRemediation(
     projectId: string,
-    activityId: string,
-    scmToken?: string,
-  ): Promise<CreatePullRequestResult> {
-    const body: Record<string, string> = { projectId };
-    if (scmToken) {
-      body.scm_token = scmToken;
-    }
-    return this.executeRequest<CreatePullRequestResult>(
-      `/api/v1/activity/${activityId}/pull-request`,
+    body: SubmitRemediationRequest,
+  ): Promise<SubmitRemediationResult> {
+    return this.executeRequest<SubmitRemediationResult>(
+      `/api/v1/projects/${projectId}/operation/submit`,
       {
         method: 'POST',
         body: JSON.stringify(body),
@@ -385,27 +400,32 @@ export class ApmeClient {
     );
   }
 
-  async getRemediationBundle(activityId: string): Promise<RemediationBundle> {
-    return this.executeRequest<RemediationBundle>(
-      `/api/v1/activity/${activityId}/remediation-bundle`,
-    );
-  }
-
-  async recordPullRequest(
+  async createPullRequest(
+    projectId: string,
     activityId: string,
-    result: CreatePullRequestResult,
+    scmToken?: string,
+    branchName?: string,
   ): Promise<CreatePullRequestResult> {
-    return this.executeRequest<CreatePullRequestResult>(
-      `/api/v1/activity/${activityId}/pull-request/record`,
-      {
-        method: 'POST',
-        body: JSON.stringify({
-          pr_url: result.pr_url,
-          branch_name: result.branch_name ?? '',
-          provider: result.provider ?? 'github',
-        }),
-      },
-    );
+    const body: SubmitRemediationRequest = {
+      activity_id: activityId,
+      create_pr: true,
+    };
+    if (scmToken) {
+      body.scm_token = scmToken;
+    }
+    if (branchName) {
+      body.branch_name = branchName;
+    }
+    const result = await this.submitRemediation(projectId, body);
+    if (!result.pr_url) {
+      throw new InputError('Gateway submit completed without a PR URL');
+    }
+    return {
+      pr_url: result.pr_url,
+      branch_name: result.branch_name,
+      provider: result.provider,
+      commit_sha: result.commit_sha,
+    };
   }
 }
 
@@ -429,10 +449,10 @@ export type IApmeService = Pick<
   | 'createProject'
   | 'deleteProject'
   | 'getActivity'
+  | 'getActivityDetail'
   | 'getOperationState'
   | 'triggerRemediate'
   | 'approveProposals'
+  | 'submitRemediation'
   | 'createPullRequest'
-  | 'getRemediationBundle'
-  | 'recordPullRequest'
 >;

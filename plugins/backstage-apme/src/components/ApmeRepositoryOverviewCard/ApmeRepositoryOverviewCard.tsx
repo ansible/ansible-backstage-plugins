@@ -21,6 +21,7 @@ import HelpOutlineIcon from '@material-ui/icons/HelpOutline';
 import RefreshIcon from '@material-ui/icons/Refresh';
 import {
   SEVERITY_STYLES,
+  SEVERITY_ORDER,
   type SeverityLevel,
 } from '@ansible/backstage-apme-common/severity';
 import { useApmeAiEnabled } from '../../hooks/useApmeEnabled';
@@ -77,13 +78,7 @@ const CATEGORY_META: {
   },
 ];
 
-const SEV_ORDER: SeverityLevel[] = [
-  'critical',
-  'high',
-  'medium',
-  'low',
-  'info',
-];
+const SEV_ORDER = SEVERITY_ORDER;
 
 const useStyles = makeStyles(theme => ({
   card: {

@@ -30,6 +30,7 @@ import { Progress } from '@backstage/core-components';
 import type { Project } from '@ansible/backstage-apme-common/types';
 import {
   SEVERITY_STYLES,
+  SEVERITY_ORDER,
   normalizeSeverity,
   categoryLabel,
   fixTierShortLabel,
@@ -45,6 +46,7 @@ const STATUS_SUCCESS = '#3E8635';
 
 const SEVERITY_WEIGHT: Record<SeverityLevel, number> = {
   critical: 50,
+  error: 35,
   high: 20,
   medium: 5,
   low: 2,
@@ -242,13 +244,13 @@ export const FleetQualityTab = ({
     );
 
     const ruleMap = new Map<string, RuleAggregate>();
-    const severityCounts: Record<SeverityLevel, number> = {
-      critical: 0,
-      high: 0,
-      medium: 0,
-      low: 0,
-      info: 0,
-    };
+    const severityCounts = SEVERITY_ORDER.reduce(
+      (acc, sev) => {
+        acc[sev] = 0;
+        return acc;
+      },
+      {} as Record<SeverityLevel, number>,
+    );
 
     for (const { project, violations } of violationsByProject) {
       const projectKey = projectLookupKey(project.repo_url, project.branch);
@@ -327,13 +329,13 @@ export const FleetQualityTab = ({
   }, [value?.groups, severityFilters, categoryFilters]);
 
   const sortedGroups = useMemo(() => {
-    const sevOrder: Record<SeverityLevel, number> = {
-      critical: 0,
-      high: 1,
-      medium: 2,
-      low: 3,
-      info: 4,
-    };
+    const sevOrder = SEVERITY_ORDER.reduce(
+      (acc, sev, index) => {
+        acc[sev] = index;
+        return acc;
+      },
+      {} as Record<SeverityLevel, number>,
+    );
 
     return [...filteredGroups].sort((a, b) => {
       let cmp = 0;
@@ -416,6 +418,7 @@ export const FleetQualityTab = ({
   const reposClean = Math.max(0, totalRepos - reposWithIssues);
   const severityCounts = value?.severityCounts ?? {
     critical: 0,
+    error: 0,
     high: 0,
     medium: 0,
     low: 0,
@@ -427,13 +430,7 @@ export const FleetQualityTab = ({
     (s, r) => s + r.totalCount,
     0,
   );
-  const sevOrder: SeverityLevel[] = [
-    'critical',
-    'high',
-    'medium',
-    'low',
-    'info',
-  ];
+  const sevOrder = SEVERITY_ORDER;
   const sortArrow = (col: SortColumn): string => {
     if (sortCol !== col) return '';
     return sortAsc ? ' ↑' : ' ↓';
