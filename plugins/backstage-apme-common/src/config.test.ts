@@ -14,7 +14,12 @@
  * limitations under the License.
  */
 
-import { getApmeConfig, isApmeEnabled, isApmeAiEnabled } from './config';
+import {
+  getApmeConfig,
+  isApmeEnabled,
+  isApmeAiEnabled,
+  isApmePublishViaGateway,
+} from './config';
 
 function mockApmeSection(
   overrides: {
@@ -52,7 +57,7 @@ describe('getApmeConfig', () => {
       getOptionalBoolean: jest
         .fn()
         .mockImplementation((key: string) =>
-          key === 'enabled' ? true : false,
+          key === 'enabled' ? true : undefined,
         ),
       getString: jest.fn().mockReturnValue('https://apme.example.com/'),
     });
@@ -68,7 +73,7 @@ describe('getApmeConfig', () => {
     expect(getApmeConfig(mockConfig as any)).toEqual({
       enabled: true,
       baseUrl: 'https://apme.example.com',
-      checkSSL: false,
+      checkSSL: true,
       enableAi: false,
       publishViaGateway: true,
       targetAnsibleCoreVersion: '2.16',
@@ -110,6 +115,47 @@ describe('getApmeConfig', () => {
 
     expect(getApmeConfig(mockConfig as any).enableAi).toBe(false);
     expect(isApmeAiEnabled(mockConfig as any)).toBe(false);
+  });
+
+  it('defaults publishViaGateway to true when omitted', () => {
+    const mockApmeConfig = mockApmeSection({
+      getOptionalBoolean: jest
+        .fn()
+        .mockImplementation((key: string) =>
+          key === 'enabled' ? true : undefined,
+        ),
+    });
+
+    const mockConfig = {
+      getOptionalConfig: jest
+        .fn()
+        .mockImplementation((key: string) =>
+          key === 'ansible.apme' ? mockApmeConfig : undefined,
+        ),
+    };
+
+    expect(getApmeConfig(mockConfig as any).publishViaGateway).toBe(true);
+    expect(isApmePublishViaGateway(mockConfig as any)).toBe(true);
+  });
+
+  it('honors explicit publishViaGateway false', () => {
+    const mockApmeConfig = mockApmeSection({
+      getOptionalBoolean: jest
+        .fn()
+        .mockImplementation((key: string) =>
+          key === 'publishViaGateway' ? false : undefined,
+        ),
+    });
+
+    const mockConfig = {
+      getOptionalConfig: jest
+        .fn()
+        .mockImplementation((key: string) =>
+          key === 'ansible.apme' ? mockApmeConfig : undefined,
+        ),
+    };
+
+    expect(getApmeConfig(mockConfig as any).publishViaGateway).toBe(false);
   });
 });
 

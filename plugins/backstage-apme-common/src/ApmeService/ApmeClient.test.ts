@@ -84,4 +84,30 @@ describe('ApmeClient', () => {
       client.getProjectByRepoUrl('https://github.com/acme/terrible-playbook'),
     ).rejects.toBeInstanceOf(InputError);
   });
+
+  it('fetches activity detail and normalizes remediation classes', async () => {
+    (global.fetch as jest.Mock).mockResolvedValueOnce({
+      ok: true,
+      json: () =>
+        Promise.resolve({
+          scan_id: 'scan-1',
+          scan_type: 'remediate',
+          status: 'completed',
+          violations: [{ id: 1, remediation_class: 'auto-fixable' }],
+          proposals: [{ id: 'p1', tier: 2 }],
+        }),
+    });
+
+    const client = new ApmeClient({ rootConfig, logger: logger as never });
+    const detail = await client.getActivityDetail('scan-1');
+
+    expect(global.fetch).toHaveBeenCalledWith(
+      'http://localhost:8080/api/v1/activity/scan-1',
+      expect.objectContaining({
+        headers: { 'Content-Type': 'application/json' },
+      }),
+    );
+    expect(detail.violations[0].remediation_class).toBe(1);
+    expect(detail.proposals).toHaveLength(1);
+  });
 });
