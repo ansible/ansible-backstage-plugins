@@ -1290,4 +1290,74 @@ describe('AAPJobTemplateProvider', () => {
       expect(engTemplate.entity.metadata.title).toBe('Deploy Service');
     });
   });
+
+  describe('execute permission store', () => {
+    it('should populate store during sync', async () => {
+      const { executePermissionStore } =
+        require('../permissions/executePermissionStore');
+      const config = new ConfigReader(MOCK_JOB_TEMPLATE_CONFIG);
+      const logger = mockServices.logger.mock();
+      const schedule = new PersistingTaskRunner();
+
+      mockAnsibleService.syncJobTemplates.mockResolvedValue([
+        { job: MOCK_JOB_TEMPLATE, survey: null, instanceGroup: [] },
+      ]);
+
+      const executeMap = new Map();
+      executeMap.set('7', ['network-user']);
+      mockAnsibleService.getJobTemplateExecuteMap.mockResolvedValue(executeMap);
+
+      const provider = AAPJobTemplateProvider.fromConfig(
+        config,
+        mockAnsibleService,
+        { logger, schedule },
+      )[0];
+
+      const connection = {
+        applyMutation: jest.fn(),
+        refresh: jest.fn(),
+      } as unknown as EntityProviderConnection;
+
+      await provider.connect(connection);
+      const taskDef = schedule.getTasks()[0];
+      await (taskDef.fn as () => Promise<void>)();
+
+      expect(
+        mockAnsibleService.getJobTemplateExecuteMap,
+      ).toHaveBeenCalled();
+      expect(
+        executePermissionStore.hasExecutePermission('network-user', '7'),
+      ).toBe(true);
+    });
+
+    it('should continue sync when execute map fetch fails', async () => {
+      const config = new ConfigReader(MOCK_JOB_TEMPLATE_CONFIG);
+      const logger = mockServices.logger.mock();
+      const schedule = new PersistingTaskRunner();
+
+      mockAnsibleService.syncJobTemplates.mockResolvedValue([
+        { job: MOCK_JOB_TEMPLATE, survey: null, instanceGroup: [] },
+      ]);
+      mockAnsibleService.getJobTemplateExecuteMap.mockRejectedValue(
+        new Error('API unreachable'),
+      );
+
+      const provider = AAPJobTemplateProvider.fromConfig(
+        config,
+        mockAnsibleService,
+        { logger, schedule },
+      )[0];
+
+      const connection = {
+        applyMutation: jest.fn(),
+        refresh: jest.fn(),
+      } as unknown as EntityProviderConnection;
+
+      await provider.connect(connection);
+      const taskDef = schedule.getTasks()[0];
+      await (taskDef.fn as () => Promise<void>)();
+
+      expect(connection.applyMutation).toHaveBeenCalled();
+    });
+  });
 });
