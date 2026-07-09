@@ -30,6 +30,7 @@ export {
   rootRouteRef as apmeRouteRef,
   projectRouteRef as apmeProjectRouteRef,
 } from './plugin';
+export { gitRepositoriesExtensionsApiFactory } from './apis/gitRepositoriesExtensions';
 export { CreateProjectDialog } from './components/CreateProjectDialog';
 export { ApmeRepoStatusChip as ApmeRepoStatusChipComponent } from './components/ApmeRepoStatusChip';
 export { QualityTab } from './components/QualityTab';

@@ -1,10 +1,12 @@
 /*
  * Copyright Red Hat
  *
- * ADR-010: Composition root registers optional factory plugin UI for Git Repos surfaces.
+ * ADR-010: APME registers optional Git Repositories surfaces via
+ * gitRepositoriesExtensionsApiRef. Lives in the APME plugin so stock
+ * portal dynamic loading (no packages/app) gets the same UI as local.
  */
 
-import { lazy, Suspense, useState, useEffect, useCallback } from 'react';
+import { Suspense, useState, useEffect, useCallback } from 'react';
 import { Box, CircularProgress, Typography, useTheme } from '@material-ui/core';
 import {
   AnyApiFactory,
@@ -36,54 +38,18 @@ import {
   resolveViolationCounts,
 } from '@ansible/backstage-apme-common/severity';
 import { projectHasActiveOperation } from '@ansible/backstage-apme-common/operationStatus';
-
-const LazyApmeFleetQualityTab = lazy(() =>
-  import('@ansible/plugin-backstage-apme').then(module => ({
-    default: module.ApmeFleetQualityTabComponent,
-  })),
-);
-
-const LazyApmeQualitySettingsTab = lazy(() =>
-  import('@ansible/plugin-backstage-apme').then(module => ({
-    default: module.ApmeQualitySettingsTabComponent,
-  })),
-);
-
-const LazyEntityQualityTab = lazy(() =>
-  import('@ansible/plugin-backstage-apme').then(module => ({
-    default: module.ApmeEntityQualityTabComponent,
-  })),
-);
-
-const LazyApmeRepositoryOverviewCard = lazy(() =>
-  import('@ansible/plugin-backstage-apme').then(module => ({
-    default: module.ApmeRepositoryOverviewCardComponent,
-  })),
-);
-
-const LazyDependenciesTab = lazy(() =>
-  import('@ansible/plugin-backstage-apme').then(module => ({
-    default: module.ApmeDependenciesTabComponent,
-  })),
-);
-
-const LazyApmeRepositoryCollectionsTab = lazy(() =>
-  import('@ansible/plugin-backstage-apme').then(module => ({
-    default: module.ApmeRepositoryCollectionsTabComponent,
-  })),
-);
-
-const LazyApmeRepositoryHeaderActions = lazy(() =>
-  import('@ansible/plugin-backstage-apme').then(module => ({
-    default: module.ApmeRepositoryHeaderActionsComponent,
-  })),
-);
+import { FleetQualityTab } from '../components/FleetQualityTab';
+import { ApmeQualitySettingsTab } from '../components/ApmeQualitySettingsTab';
+import { EntityQualityTab } from '../components/EntityQualityTab';
+import { ApmeRepositoryOverviewCard } from '../components/ApmeRepositoryOverviewCard/ApmeRepositoryOverviewCard';
+import { DependenciesTab } from '../components/DependenciesTab/DependenciesTab';
+import { ApmeRepositoryCollectionsTab } from '../components/ApmeRepositoryCollectionsTab/ApmeRepositoryCollectionsTab';
+import { ApmeRepositoryHeaderActions } from '../components/ApmeRepositoryHeaderActions/ApmeRepositoryHeaderActions';
 
 function isApmeEnabled(config: Config): boolean {
   return config.getOptionalBoolean('ansible.apme.enabled') ?? false;
 }
 
-// ── Violations column cell ──────────────────────────────────────────────
 // Shared across all cells in a single table render; the first cell to
 // mount triggers the fetch, subsequent cells read from the same promise.
 let projectsFetchPromise: Promise<Map<string, Project>> | null = null;
@@ -240,8 +206,6 @@ function ApmeViolationsCell({ entity }: { entity: Entity }) {
   );
 }
 
-// ── Extension API implementation ────────────────────────────────────────
-
 class ApmeGitRepositoriesExtensionsApi
   extends DefaultGitRepositoriesExtensionsApi
   implements GitRepositoriesExtensionsApi
@@ -255,9 +219,7 @@ class ApmeGitRepositoriesExtensionsApi
         order: 10,
         render: ({ repositoryDetailPath }: GitRepositoriesPageTabContext) => (
           <Suspense fallback={null}>
-            <LazyApmeFleetQualityTab
-              repositoryDetailPath={repositoryDetailPath}
-            />
+            <FleetQualityTab repositoryDetailPath={repositoryDetailPath} />
           </Suspense>
         ),
       },
@@ -268,7 +230,7 @@ class ApmeGitRepositoriesExtensionsApi
         order: 30,
         render: () => (
           <Suspense fallback={null}>
-            <LazyApmeQualitySettingsTab />
+            <ApmeQualitySettingsTab />
           </Suspense>
         ),
       },
@@ -287,7 +249,7 @@ class ApmeGitRepositoriesExtensionsApi
           initialCategoryFilter,
         }: GitRepositoryDetailTabContext) => (
           <Suspense fallback={null}>
-            <LazyEntityQualityTab
+            <EntityQualityTab
               entity={entity}
               initialRuleFilter={initialRuleFilter}
               initialCategoryFilter={initialCategoryFilter}
@@ -301,7 +263,7 @@ class ApmeGitRepositoriesExtensionsApi
         order: 15,
         render: (ctx: GitRepositoryDetailTabContext) => (
           <Suspense fallback={null}>
-            <LazyDependenciesTab context={ctx} />
+            <DependenciesTab context={ctx} />
           </Suspense>
         ),
       },
@@ -315,7 +277,7 @@ class ApmeGitRepositoriesExtensionsApi
         order: 10,
         render: (ctx: GitRepositoryDetailTabContext) => (
           <Suspense fallback={null}>
-            <LazyApmeRepositoryOverviewCard context={ctx} />
+            <ApmeRepositoryOverviewCard context={ctx} />
           </Suspense>
         ),
       },
@@ -329,7 +291,7 @@ class ApmeGitRepositoriesExtensionsApi
         order: 10,
         render: (ctx: GitRepositoryDetailHeaderMenuContext) => (
           <Suspense fallback={null}>
-            <LazyApmeRepositoryHeaderActions
+            <ApmeRepositoryHeaderActions
               context={ctx}
               onCloseMenu={ctx.onCloseMenu}
             />
@@ -342,7 +304,7 @@ class ApmeGitRepositoriesExtensionsApi
   getCollectionsTabContent(context: GitRepositoryDetailTabContext) {
     return (
       <Suspense fallback={null}>
-        <LazyApmeRepositoryCollectionsTab context={context} />
+        <ApmeRepositoryCollectionsTab context={context} />
       </Suspense>
     );
   }
@@ -352,7 +314,6 @@ class ApmeGitRepositoriesExtensionsApi
   }
 
   getCatalogColumns(): GitRepositoryCatalogColumnDefinition[] {
-    // Reset the shared cache so each table mount gets fresh data
     projectsFetchPromise = null;
     return [
       {
@@ -367,6 +328,7 @@ class ApmeGitRepositoriesExtensionsApi
   }
 }
 
+/** Registers APME Git Repos surfaces when ansible.apme.enabled is true. */
 export const gitRepositoriesExtensionsApiFactory: AnyApiFactory =
   createApiFactory({
     api: gitRepositoriesExtensionsApiRef,
