@@ -121,7 +121,7 @@ describe('AAPRBACProvider', () => {
         connection.applyConditionalPermissions.mock.calls[0][0];
       expect(policies).toHaveLength(1);
       expect(policies[0].roleEntityRef).toBe('role:default/aap-user');
-      expect(policies[0].conditions.anyOf).toEqual(
+      expect((policies[0].conditions as any).anyOf).toEqual(
         expect.arrayContaining([
           expect.objectContaining({
             rule: 'HAS_EXECUTE_PERMISSION',
