@@ -195,11 +195,12 @@ describe('AAPRBACProvider', () => {
       await provider.connect(connection);
 
       const permissions = connection.applyPermissions.mock.calls[0][0];
-      expect(permissions).toHaveLength(7);
+      expect(permissions).toHaveLength(9);
       expect(permissions).toEqual(
         expect.arrayContaining([
           ['role:default/aap-user', 'scaffolder-action', 'use', 'allow'],
-          ['role:default/aap-user', 'scaffolder-task', 'create', 'allow'],
+          ['role:default/aap-user', 'scaffolder-task', 'use', 'allow'],
+          ['role:default/aap-user', 'scaffolder.task.create', 'create', 'allow'],
         ]),
       );
     });

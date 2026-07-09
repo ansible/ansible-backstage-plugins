@@ -20,11 +20,11 @@ const ROLE = 'role:default/aap-user';
 const PERMISSIONS: string[][] = [
   [ROLE, 'catalog-entity', 'read', 'allow'],
   [ROLE, 'scaffolder-template', 'read', 'allow'],
+  [ROLE, 'scaffolder.template.step.read', 'read', 'allow'],
   [ROLE, 'scaffolder-action', 'use', 'allow'],
   [ROLE, 'scaffolder-task', 'read', 'allow'],
-  [ROLE, 'scaffolder-task', 'create', 'allow'],
+  [ROLE, 'scaffolder-task', 'use', 'allow'],
   [ROLE, 'scaffolder.task.create', 'create', 'allow'],
-  [ROLE, 'scaffolder.task.cancel', 'use', 'allow'],
   [ROLE, 'ansible.templates.view', 'use', 'allow'],
   [ROLE, 'ansible.history.view', 'use', 'allow'],
 ];
