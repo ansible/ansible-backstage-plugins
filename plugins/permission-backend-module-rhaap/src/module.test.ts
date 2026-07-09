@@ -29,9 +29,9 @@ describe('AAPRBACProvider', () => {
     });
   });
 
-  describe('connect — single-org', () => {
-    it('should skip RBAC policy creation for single-org', async () => {
-      const provider = new AAPRBACProvider(['Default'], mockLogger as any);
+  describe('connect — no orgs', () => {
+    it('should skip RBAC policy creation for empty orgs', async () => {
+      const provider = new AAPRBACProvider([], mockLogger as any);
       const connection = createMockConnection();
 
       await provider.connect(connection);
@@ -43,14 +43,21 @@ describe('AAPRBACProvider', () => {
         expect.stringContaining('skipping RBAC policy creation'),
       );
     });
+  });
 
-    it('should skip RBAC policy creation for empty orgs', async () => {
-      const provider = new AAPRBACProvider([], mockLogger as any);
+  describe('connect — single-org', () => {
+    it('should create RBAC policy for single-org', async () => {
+      const provider = new AAPRBACProvider(['Default'], mockLogger as any);
       const connection = createMockConnection();
 
       await provider.connect(connection);
 
-      expect(connection.applyRoles).not.toHaveBeenCalled();
+      expect(connection.applyRoles).toHaveBeenCalledWith([
+        ['group:aap-default/aap-default', 'role:default/aap-user'],
+        ['group:default/aap-admins', 'role:default/aap-user'],
+      ]);
+      expect(connection.applyPermissions).toHaveBeenCalled();
+      expect(connection.applyConditionalPermissions).toHaveBeenCalled();
     });
   });
 
@@ -158,8 +165,8 @@ describe('AAPRBACProvider', () => {
   });
 
   describe('refresh', () => {
-    it('should be a no-op for single-org', async () => {
-      const provider = new AAPRBACProvider(['Default'], mockLogger as any);
+    it('should be a no-op for no orgs', async () => {
+      const provider = new AAPRBACProvider([], mockLogger as any);
       const connection = createMockConnection();
       await provider.connect(connection);
 
@@ -168,7 +175,7 @@ describe('AAPRBACProvider', () => {
       expect(connection.applyRoles).not.toHaveBeenCalled();
     });
 
-    it('should be a no-op for multi-org (create-if-missing)', async () => {
+    it('should be a no-op for configured orgs (create-if-missing)', async () => {
       const provider = new AAPRBACProvider(
         ['Default', 'Engineering'],
         mockLogger as any,

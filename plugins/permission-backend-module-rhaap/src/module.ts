@@ -107,15 +107,15 @@ export class AAPRBACProvider implements RBACProvider {
   async connect(connection: RBACProviderConnection): Promise<void> {
     this.connection = connection;
 
-    if (this.orgs.length <= 1) {
+    if (this.orgs.length === 0) {
       this.logger.info(
-        `[${PROVIDER_NAME}] Single-org or no orgs configured, skipping RBAC policy creation`,
+        `[${PROVIDER_NAME}] No orgs configured, skipping RBAC policy creation`,
       );
       return;
     }
 
     this.logger.info(
-      `[${PROVIDER_NAME}] Multi-org enabled (${this.orgs.length} orgs), creating RBAC policy`,
+      `[${PROVIDER_NAME}] ${this.orgs.length} org(s) configured, creating RBAC policy`,
     );
 
     const roles: string[][] = this.orgs.map(org => {
@@ -135,7 +135,7 @@ export class AAPRBACProvider implements RBACProvider {
   }
 
   async refresh(): Promise<void> {
-    if (!this.connection || this.orgs.length <= 1) return;
+    if (!this.connection || this.orgs.length === 0) return;
   }
 }
 
