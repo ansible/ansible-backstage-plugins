@@ -24,6 +24,7 @@ import { aapJobTemplateParser } from './entityParser';
 import { resolveTaskRunner } from './helpers';
 import { SyncStateTracker } from './SyncStateTracker';
 import { getEffectiveNamespace, validateNamespace } from '../helpers';
+import { executePermissionStore } from '../permissions/executePermissionStore';
 
 export class AAPJobTemplateProvider implements EntityProvider {
   private readonly env: string;
@@ -35,6 +36,7 @@ export class AAPJobTemplateProvider implements EntityProvider {
   private readonly logger: LoggerService;
   private readonly ansibleServiceRef: IAAPService;
   private readonly scheduleFn: () => Promise<void>;
+  private readonly scheduler?: SchedulerService;
   private connection?: EntityProviderConnection;
   private readonly syncState = new SyncStateTracker();
 
@@ -65,15 +67,19 @@ export class AAPJobTemplateProvider implements EntityProvider {
         logger,
         taskRunner,
         ansibleServiceRef,
+        options.scheduler,
       );
     });
   }
+
+  private readonly executePermissionsFrequency: { minutes: number };
 
   private constructor(
     config: AapConfig,
     logger: LoggerService,
     taskRunner: SchedulerServiceTaskRunner,
     ansibleServiceRef: IAAPService,
+    scheduler?: SchedulerService,
   ) {
     this.env = config.id;
     this.baseUrl = config.baseUrl;
@@ -85,6 +91,9 @@ export class AAPJobTemplateProvider implements EntityProvider {
       target: this.getProviderName(),
     });
     this.ansibleServiceRef = ansibleServiceRef;
+    this.scheduler = scheduler;
+    this.executePermissionsFrequency = (config.executePermissionsSchedule
+      ?.frequency as { minutes: number }) ?? { minutes: 40 };
 
     this.scheduleFn = this.createScheduleFn(taskRunner);
   }
@@ -167,6 +176,19 @@ export class AAPJobTemplateProvider implements EntityProvider {
         error = true;
       }
 
+      try {
+        const executeMap =
+          await this.ansibleServiceRef.getJobTemplateExecuteMap();
+        executePermissionStore.update(executeMap);
+        this.logger.info(
+          `[${AAPJobTemplateProvider.pluginLogName}]: Updated execute permission store with ${executeMap.size} templates.`,
+        );
+      } catch (e: any) {
+        this.logger.warn(
+          `[${AAPJobTemplateProvider.pluginLogName}]: Could not update execute permission store. ${e?.message ?? ''}`,
+        );
+      }
+
       if (error) {
         this.syncState.markSyncFailed();
         return false;
@@ -224,5 +246,36 @@ export class AAPJobTemplateProvider implements EntityProvider {
   async connect(connection: EntityProviderConnection): Promise<void> {
     this.connection = connection;
     await this.scheduleFn();
+    this.startPermissionStoreRefresh();
+  }
+
+  private startPermissionStoreRefresh(): void {
+    if (!this.scheduler) return;
+    this.scheduler
+      .scheduleTask({
+        id: `aap-execute-permission-refresh:${this.env}`,
+        frequency: this.executePermissionsFrequency,
+        timeout: { minutes: 5 },
+        scope: 'local',
+        fn: async () => {
+          try {
+            const executeMap =
+              await this.ansibleServiceRef.getJobTemplateExecuteMap();
+            executePermissionStore.update(executeMap);
+            this.logger.info(
+              `[${AAPJobTemplateProvider.pluginLogName}]: Refreshed execute permission store (local) with ${executeMap.size} templates.`,
+            );
+          } catch (e: any) {
+            this.logger.warn(
+              `[${AAPJobTemplateProvider.pluginLogName}]: Failed to refresh execute permission store. ${e?.message ?? ''}`,
+            );
+          }
+        },
+      })
+      .catch(e => {
+        this.logger.warn(
+          `[${AAPJobTemplateProvider.pluginLogName}]: Could not schedule execute permission refresh. ${e?.message ?? ''}`,
+        );
+      });
   }
 }
