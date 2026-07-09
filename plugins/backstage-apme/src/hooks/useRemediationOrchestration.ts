@@ -232,18 +232,24 @@ export function useRemediationOrchestration({
             violations,
           );
           const tier1 = extractTier1RemediationResult(state);
+          const activityIdFromState = state?.scan_id;
+          if (activityIdFromState) {
+            setRemediationActivityId(activityIdFromState);
+          }
           if (nextProposals.length > 0) {
             setTier1Result(null);
             setProposals(nextProposals);
             setRemediationStep('review');
             setRemediationError(null);
-            try {
-              const activity = await apmeApi.getActivity(projectId);
-              if (cancelled) return;
-              const latestId = activity[0]?.scan_id;
-              if (latestId) setRemediationActivityId(latestId);
-            } catch {
-              // activity lookup is best-effort for push-branch
+            if (!activityIdFromState) {
+              try {
+                const activity = await apmeApi.getActivity(projectId);
+                if (cancelled) return;
+                const latestId = activity[0]?.scan_id;
+                if (latestId) setRemediationActivityId(latestId);
+              } catch {
+                // activity lookup is best-effort for push-branch
+              }
             }
           } else if (tier1) {
             const filtered = filterTier1ByViolationIds(
@@ -255,19 +261,21 @@ export function useRemediationOrchestration({
             setTier1Result(filtered.remediatedCount > 0 ? filtered : tier1);
             setRemediationStep('review');
             setRemediationError(null);
-            try {
-              const activity = await apmeApi.getActivity(projectId);
-              if (cancelled) return;
-              const latestId = activity[0]?.scan_id;
-              if (latestId) setRemediationActivityId(latestId);
-            } catch {
-              // activity lookup is best-effort for push-branch
+            if (!activityIdFromState) {
+              try {
+                const activity = await apmeApi.getActivity(projectId);
+                if (cancelled) return;
+                const latestId = activity[0]?.scan_id;
+                if (latestId) setRemediationActivityId(latestId);
+              } catch {
+                // activity lookup is best-effort for push-branch
+              }
             }
           } else {
             setTier1Result(null);
             setRemediationError(
               new Error(
-                'No automated patches were produced for this run. Manual-only findings require hand-editing in your repo or Dev Spaces.',
+                'No automated patches were produced for this run. Manual-only findings require hand-editing in your repository.',
               ),
             );
             setRemediationStep('select');
