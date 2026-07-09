@@ -1,7 +1,7 @@
 import { ExecutePermissionStore } from './executePermissionStore';
 
 describe('ExecutePermissionStore', () => {
-  let store;
+  let store: ExecutePermissionStore;
 
   beforeEach(() => {
     store = new ExecutePermissionStore();
