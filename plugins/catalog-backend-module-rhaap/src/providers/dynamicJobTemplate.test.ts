@@ -1343,7 +1343,7 @@ describe('dynamicJobTemplate', () => {
           'url:https://ansible.example.com/execution/templates/job-template/123/details',
       });
 
-      expect((result.spec as any).type).toBe('service');
+      expect((result.spec as any).type).toBe('job-template');
       expect((result.spec as any).parameters).toHaveLength(1);
       expect((result.spec as any).parameters[0].title).toBe(
         'Please enter the following details',
