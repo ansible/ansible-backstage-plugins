@@ -41,6 +41,9 @@ backend.add(import('@backstage/plugin-catalog-backend-module-logs'));
 // RBAC supplies the policy; permission-backend still mounts the /api/permission routes (required by catalog).
 backend.add(import('@backstage/plugin-permission-backend'));
 backend.add(import('@backstage-community/plugin-rbac-backend'));
+backend.add(
+  import('@ansible/backstage-plugin-permission-backend-module-rhaap'),
+);
 
 // search plugin
 backend.add(import('@backstage/plugin-search-backend'));

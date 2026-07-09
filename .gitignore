@@ -105,3 +105,4 @@ screenshots/
 **/screenshots
 aap-logout.tar
 deploy/
+poc/federated-rbac-bridge/.env
