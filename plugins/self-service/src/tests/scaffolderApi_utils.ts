@@ -18,6 +18,7 @@ import type { ScaffolderApi } from '@backstage/plugin-scaffolder-common';
 const AAP_REDACTED = '$encrypted$'; // NOSONAR — AAP's placeholder for redacted credential values, not a real password
 
 export const mockScaffolderApi: jest.Mocked<ScaffolderApi> = {
+  getTask: jest.fn().mockResolvedValue(undefined),
   getTemplateParameterSchema: jest.fn().mockResolvedValue({
     title: 'Create wizard use cases',
     description: 'Use this template to create actual wizard use case templates',
