@@ -87,7 +87,8 @@ function readOrgs(envConfig: {
   }
 }
 
-class AAPRBACProvider implements RBACProvider {
+/** @internal Exported for testing only */
+export class AAPRBACProvider implements RBACProvider {
   private connection?: RBACProviderConnection;
 
   constructor(
