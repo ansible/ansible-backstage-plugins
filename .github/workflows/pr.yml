@@ -44,6 +44,8 @@ jobs:
         checks: read
         contents: read
         id-token: write
+    env:
+      NODE_OPTIONS: --max-old-space-size=8192
     strategy:
       matrix:
         node-version: [22, 24]
