@@ -58,7 +58,8 @@ function buildConditionalPolicy(): RoleConditionalPolicyDecision<PermissionInfo>
   };
 }
 
-function formatNamespace(name: string): string {
+/** @internal Exported for testing only */
+export function formatNamespace(name: string): string {
   return name
     .toLowerCase()
     .replace(/[^a-z0-9-]/g, '-')
@@ -67,7 +68,8 @@ function formatNamespace(name: string): string {
     .slice(0, 63);
 }
 
-function readOrgs(envConfig: {
+/** @internal Exported for testing only */
+export function readOrgs(envConfig: {
   has(key: string): boolean;
   getString(key: string): string;
   getStringArray(key: string): string[];

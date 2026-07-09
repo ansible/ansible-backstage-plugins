@@ -1,4 +1,4 @@
-import { AAPRBACProvider } from './module';
+import { AAPRBACProvider, formatNamespace, readOrgs } from './module';
 import type { RBACProviderConnection } from '@backstage-community/plugin-rbac-node';
 
 const mockLogger = {
@@ -182,5 +182,98 @@ describe('AAPRBACProvider', () => {
       expect(connection.applyRoles).not.toHaveBeenCalled();
       expect(connection.applyPermissions).not.toHaveBeenCalled();
     });
+  });
+
+  describe('connect — permissions', () => {
+    it('should include scaffolder and ansible sidebar permissions', async () => {
+      const provider = new AAPRBACProvider(
+        ['Default', 'Engineering'],
+        mockLogger as any,
+      );
+      const connection = createMockConnection();
+
+      await provider.connect(connection);
+
+      const permissions = connection.applyPermissions.mock.calls[0][0];
+      expect(permissions).toHaveLength(7);
+      expect(permissions).toEqual(
+        expect.arrayContaining([
+          ['role:default/aap-user', 'scaffolder-action', 'use', 'allow'],
+          ['role:default/aap-user', 'scaffolder-task', 'create', 'allow'],
+        ]),
+      );
+    });
+  });
+});
+
+describe('formatNamespace', () => {
+  it('should lowercase and strip special characters', () => {
+    expect(formatNamespace('My Org Name')).toBe('my-org-name');
+  });
+
+  it('should replace multiple hyphens with single', () => {
+    expect(formatNamespace('org--name')).toBe('org-name');
+  });
+
+  it('should strip leading and trailing hyphens', () => {
+    expect(formatNamespace('-org-name-')).toBe('org-name');
+  });
+
+  it('should truncate to 63 characters', () => {
+    const longName = 'a'.repeat(100);
+    expect(formatNamespace(longName).length).toBeLessThanOrEqual(63);
+  });
+
+  it('should handle underscores', () => {
+    expect(formatNamespace('my_org')).toBe('my-org');
+  });
+});
+
+describe('readOrgs', () => {
+  it('should return empty array when orgs not configured', () => {
+    const config = {
+      has: () => false,
+      getString: jest.fn(),
+      getStringArray: jest.fn(),
+    };
+    expect(readOrgs(config)).toEqual([]);
+  });
+
+  it('should parse comma-separated string', () => {
+    const config = {
+      has: () => true,
+      getString: () => 'Default, Engineering, SecOps',
+      getStringArray: jest.fn(),
+    };
+    expect(readOrgs(config)).toEqual(['Default', 'Engineering', 'SecOps']);
+  });
+
+  it('should fall back to string array', () => {
+    const config = {
+      has: () => true,
+      getString: () => {
+        throw new Error('not a string');
+      },
+      getStringArray: () => ['Default', 'Engineering'],
+    };
+    expect(readOrgs(config)).toEqual(['Default', 'Engineering']);
+  });
+
+  it('should filter empty entries', () => {
+    const config = {
+      has: () => true,
+      getString: () => 'Default, , Engineering, ',
+      getStringArray: jest.fn(),
+    };
+    expect(readOrgs(config)).toEqual(['Default', 'Engineering']);
+  });
+
+  it('should trim whitespace', () => {
+    const config = {
+      has: () => true,
+      getString: () => '  Default ,  Engineering  ',
+      getStringArray: jest.fn(),
+    };
+    expect(readOrgs(config)).toEqual(['Default', 'Engineering']);
   });
 });

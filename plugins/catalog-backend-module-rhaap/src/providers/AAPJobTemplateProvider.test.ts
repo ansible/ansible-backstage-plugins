@@ -1358,5 +1358,46 @@ describe('AAPJobTemplateProvider', () => {
 
       expect(connection.applyMutation).toHaveBeenCalled();
     });
+
+    it('should register local scheduled task when scheduler is provided', async () => {
+      const config = new ConfigReader(MOCK_JOB_TEMPLATE_CONFIG);
+      const logger = mockServices.logger.mock();
+
+      const mockTaskRunner = {
+        run: jest.fn().mockImplementation(async (task) => {
+          await task.fn();
+        }),
+      } as unknown as SchedulerServiceTaskRunner;
+
+      const mockScheduler = {
+        createScheduledTaskRunner: jest.fn().mockReturnValue(mockTaskRunner),
+        scheduleTask: jest.fn().mockResolvedValue(undefined),
+        getScheduledTasks: jest.fn().mockResolvedValue([]),
+        triggerTask: jest.fn(),
+      };
+
+      mockAnsibleService.syncJobTemplates.mockResolvedValue([]);
+      mockAnsibleService.getJobTemplateExecuteMap.mockResolvedValue(new Map());
+
+      const provider = AAPJobTemplateProvider.fromConfig(
+        config,
+        mockAnsibleService,
+        { logger, scheduler: mockScheduler as any },
+      )[0];
+
+      const connection = {
+        applyMutation: jest.fn(),
+        refresh: jest.fn(),
+      } as unknown as EntityProviderConnection;
+
+      await provider.connect(connection);
+
+      expect(mockScheduler.scheduleTask).toHaveBeenCalledWith(
+        expect.objectContaining({
+          id: expect.stringContaining('aap-execute-permission-refresh'),
+          scope: 'local',
+        }),
+      );
+    });
   });
 });
