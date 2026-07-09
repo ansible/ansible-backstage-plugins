@@ -1293,8 +1293,9 @@ describe('AAPJobTemplateProvider', () => {
 
   describe('execute permission store', () => {
     it('should populate store during sync', async () => {
-      const { executePermissionStore } =
-        require('../permissions/executePermissionStore');
+      const {
+        executePermissionStore,
+      } = require('../permissions/executePermissionStore');
       const config = new ConfigReader(MOCK_JOB_TEMPLATE_CONFIG);
       const logger = mockServices.logger.mock();
       const schedule = new PersistingTaskRunner();
@@ -1322,9 +1323,7 @@ describe('AAPJobTemplateProvider', () => {
       const taskDef = schedule.getTasks()[0];
       await (taskDef.fn as () => Promise<void>)();
 
-      expect(
-        mockAnsibleService.getJobTemplateExecuteMap,
-      ).toHaveBeenCalled();
+      expect(mockAnsibleService.getJobTemplateExecuteMap).toHaveBeenCalled();
       expect(
         executePermissionStore.hasExecutePermission('network-user', '7'),
       ).toBe(true);
