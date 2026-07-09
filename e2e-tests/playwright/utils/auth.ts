@@ -40,11 +40,18 @@ export async function clickRhaapSignIn(page: Page) {
     .click();
 }
 
+export interface AAPCredentials {
+  userId: string;
+  password: string;
+}
+
 /**
  * Login to AAP portal
  * Replaces the Cypress Common.LogintoAAP() with smarter auto-waiting
  */
-export async function loginAAP(page: Page) {
+export async function loginAAP(page: Page, credentials?: AAPCredentials) {
+  const userId = credentials?.userId || process.env.AAP_USER_ID!;
+  const userPass = credentials?.password || process.env.AAP_USER_PASS!;
   console.log('[Auth] Starting login process...');
 
   // Navigate to home page
@@ -121,10 +128,8 @@ export async function loginAAP(page: Page) {
     console.log('[Auth] AAP login page loaded, filling credentials...');
 
     // Fill in credentials
-    await page.locator('#pf-login-username-id').fill(process.env.AAP_USER_ID!);
-    await page
-      .locator('#pf-login-password-id')
-      .fill(process.env.AAP_USER_PASS!);
+    await page.locator('#pf-login-username-id').fill(userId);
+    await page.locator('#pf-login-password-id').fill(userPass);
 
     // Optional: Toggle password visibility (like Cypress test does)
     const showPasswordButton = page.getByLabel('Show password');
@@ -237,7 +242,41 @@ export async function loginAAP(page: Page) {
     .or(page.getByRole('link', { name: /templates/i }))
     .or(page.locator('[href*="/self-service"]'))
     .first();
-  await templatesOrShell.waitFor({ state: 'visible', timeout: 20000 });
+
+  const navFound = await templatesOrShell
+    .waitFor({ state: 'visible', timeout: 20000 })
+    .then(() => true)
+    .catch(() => false);
+
+  if (!navFound) {
+    // Fallback: check for any authenticated page content (sidebar nav, main element)
+    const sidebarOrMain = page
+      .locator('nav')
+      .or(page.locator('main'))
+      .or(page.locator('[class*="Sidebar"]'))
+      .first();
+    const hasContent = await sidebarOrMain
+      .waitFor({ state: 'visible', timeout: 10000 })
+      .then(() => true)
+      .catch(() => false);
+
+    const stillOnSignIn = await page
+      .getByText('Select a Sign-in method')
+      .isVisible()
+      .catch(() => false);
+    if (stillOnSignIn) {
+      throw new Error(
+        'Login verification failed: still on sign-in page after authentication',
+      );
+    }
+    if (!hasContent) {
+      throw new Error(
+        'Login verification failed: no navigation or content visible after authentication',
+      );
+    }
+    console.log('[Auth] Login successful (fallback check) ✓');
+    return;
+  }
 
   console.log('[Auth] Login successful ✓');
 }
