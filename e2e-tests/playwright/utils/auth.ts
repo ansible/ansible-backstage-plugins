@@ -317,10 +317,199 @@ export async function loginGitLab(page: Page) {
 }
 
 /**
- * Sign in to RHDH using GitLab authentication
+ * Click a Cloudflare Turnstile widget by locating its container and clicking
+ * at the checkbox position. Returns true if a widget was found and clicked.
  */
-export async function signInRHDHWithGitLab(page: Page) {
-  await loginGitLab(page);
+export async function clickTurnstileWidget(page: Page): Promise<boolean> {
+  const widgetBox = await page.evaluate(() => {
+    const iframes = document.querySelectorAll('iframe');
+    for (const iframe of Array.from(iframes)) {
+      const title = iframe.getAttribute('title') || '';
+      const src = iframe.getAttribute('src') || '';
+      if (
+        title.includes('Cloudflare') ||
+        title.includes('challenge') ||
+        src.includes('challenges.cloudflare') ||
+        src.includes('turnstile')
+      ) {
+        const rect = iframe.getBoundingClientRect();
+        if (rect.width > 0 && rect.height > 0) {
+          return {
+            x: rect.x,
+            y: rect.y,
+            width: rect.width,
+            height: rect.height,
+            via: 'iframe',
+          };
+        }
+      }
+    }
+    const cfInputs = document.querySelectorAll(
+      'input[name="cf-turnstile-response"]',
+    );
+    for (const input of Array.from(cfInputs)) {
+      let el: HTMLElement | null = input.parentElement;
+      while (el) {
+        const rect = el.getBoundingClientRect();
+        if (rect.width >= 30 && rect.height >= 30) {
+          return {
+            x: rect.x,
+            y: rect.y,
+            width: rect.width,
+            height: rect.height,
+            via: 'cf-input',
+          };
+        }
+        el = el.parentElement;
+      }
+    }
+    const containers = document.querySelectorAll('div[style*="display: grid"]');
+    for (const container of Array.from(containers)) {
+      const rect = container.getBoundingClientRect();
+      if (rect.width >= 200 && rect.height >= 50) {
+        return {
+          x: rect.x,
+          y: rect.y,
+          width: rect.width,
+          height: rect.height,
+          via: 'grid-div',
+        };
+      }
+    }
+    return null;
+  });
+
+  if (!widgetBox) return false;
+
+  const clickX = widgetBox.x + 30;
+  const clickY = widgetBox.y + widgetBox.height / 2;
+  console.log(
+    `[Auth] Turnstile (${widgetBox.via}) at (${widgetBox.x}, ${widgetBox.y}), ` +
+      `size ${widgetBox.width}x${widgetBox.height}, clicking at (${clickX}, ${clickY})`,
+  );
+  await page.mouse.click(clickX, clickY);
+  await page.waitForTimeout(3000);
+  return true;
+}
+
+/**
+ * Handle Cloudflare "Performing security verification" challenge page.
+ */
+export async function handleSecurityVerification(page: Page): Promise<void> {
+  await page.waitForLoadState('domcontentloaded').catch(() => {});
+  await page.waitForTimeout(2000);
+
+  const hasVerifyText = await page
+    .getByText(/Performing security verification/i)
+    .isVisible({ timeout: 3000 })
+    .catch(() => false);
+  if (!hasVerifyText) return;
+
+  console.log('[Auth] Security verification detected, waiting...');
+  await page.waitForTimeout(2000);
+
+  for (let attempt = 0; attempt < 10; attempt++) {
+    if (await clickTurnstileWidget(page)) {
+      console.log('[Auth] Turnstile clicked, waiting for page to update...');
+      await page.waitForTimeout(3000);
+      return;
+    }
+    console.log(`[Auth] Attempt ${attempt + 1}/10 — widget not clickable yet`);
+    await page.waitForTimeout(1000);
+  }
+
+  console.log('[Auth] Turnstile not resolved after 10 attempts, proceeding...');
+}
+
+/**
+ * Handle GitLab login on the current page — Turnstile challenges, credentials,
+ * TOTP 2FA, and Authorize page. Works for both popup and redirect OAuth flows.
+ */
+export async function handleGitLabLoginOnPage(page: Page): Promise<void> {
+  for (let round = 0; round < 5; round++) {
+    console.log(`[Auth] GitLab login round ${round + 1}, URL:`, page.url());
+
+    if (new URL(page.url()).hostname !== 'gitlab.com') {
+      console.log('[Auth] Left GitLab, login complete');
+      return;
+    }
+
+    await handleSecurityVerification(page);
+
+    const hasLoginForm = await page
+      .locator('#user_login')
+      .isVisible({ timeout: 5000 })
+      .catch(() => false);
+    const hasTOTP = await page
+      .locator('#user_otp_attempt')
+      .isVisible({ timeout: 2000 })
+      .catch(() => false);
+
+    if (hasTOTP && process.env.GL_AUTHENTICATOR_SECRET) {
+      console.log('[Auth] TOTP 2FA required, entering code...');
+      const totp = authenticator.generate(process.env.GL_AUTHENTICATOR_SECRET!);
+      await page.locator('#user_otp_attempt').fill(totp);
+      const totpSubmit = page
+        .locator('input[type="submit"], button[type="submit"]')
+        .first();
+      await Promise.all([
+        page
+          .waitForURL(/.*/, { waitUntil: 'domcontentloaded', timeout: 15000 })
+          .catch(() => {}),
+        totpSubmit.click(),
+      ]);
+      await page.waitForLoadState('networkidle').catch(() => {});
+      await page.waitForTimeout(3000);
+      console.log('[Auth] After 2FA submit, URL:', page.url());
+      continue;
+    }
+
+    if (hasLoginForm) {
+      console.log('[Auth] Filling GitLab credentials...');
+      await page.locator('#user_login').fill(process.env.GL_USER_ID!);
+      await page.locator('#user_password').fill(process.env.GL_USER_PASS!);
+      const submitBtn = page
+        .locator(
+          '[data-testid="sign-in-button"], input[type="submit"][value="Sign in"], button[type="submit"]',
+        )
+        .first();
+      await Promise.all([
+        page
+          .waitForURL(/.*/, { waitUntil: 'domcontentloaded', timeout: 15000 })
+          .catch(() => {}),
+        submitBtn.click(),
+      ]);
+      await page.waitForLoadState('networkidle').catch(() => {});
+      await page.waitForTimeout(3000);
+      console.log('[Auth] After submit, URL:', page.url());
+      continue;
+    }
+
+    console.log('[Auth] No login form or TOTP found, proceeding...');
+    break;
+  }
+
+  await page.waitForLoadState('networkidle').catch(() => {});
+  const authorizeBtn = page
+    .getByRole('button', { name: /authorize/i })
+    .or(page.locator('input[type="submit"][value*="Authorize"]'))
+    .first();
+  if (await authorizeBtn.isVisible({ timeout: 10000 }).catch(() => false)) {
+    console.log('[Auth] GitLab authorize page detected, clicking Authorize...');
+    await authorizeBtn.click();
+    await page
+      .waitForURL(url => url.hostname !== 'gitlab.com', { timeout: 30000 })
+      .catch(() => {});
+    console.log('[Auth] After authorize redirect, URL:', page.url());
+  }
+}
+
+async function signInRHDHWithProvider(
+  page: Page,
+  login: (p: Page) => Promise<void>,
+  providerName: string,
+) {
+  await login(page);
 
   await page.goto('/', { waitUntil: 'domcontentloaded' });
 
@@ -330,10 +519,10 @@ export async function signInRHDHWithGitLab(page: Page) {
     .catch(() => false);
 
   if (gateVisible) {
-    const gitlabRow = page
+    const providerRow = page
       .getByRole('listitem')
-      .filter({ hasText: /Sign In using GitLab/i });
-    await gitlabRow.getByRole('button', { name: /^Sign In$/i }).click();
+      .filter({ hasText: new RegExp(`Sign In using ${providerName}`, 'i') });
+    await providerRow.getByRole('button', { name: /^Sign In$/i }).click();
 
     await page.waitForLoadState('domcontentloaded');
 
@@ -387,9 +576,16 @@ export async function signInRHDHWithGitLab(page: Page) {
 
   if (await signInGate.isVisible({ timeout: 3000 }).catch(() => false)) {
     throw new Error(
-      'Still on portal sign-in picker after GitLab flow; check OAuth app / credentials.',
+      `Still on portal sign-in picker after ${providerName} flow; check OAuth app / credentials.`,
     );
   }
+}
+
+/**
+ * Sign in to RHDH using GitLab authentication
+ */
+export async function signInRHDHWithGitLab(page: Page) {
+  await signInRHDHWithProvider(page, loginGitLab, 'GitLab');
 }
 
 /**
@@ -448,76 +644,5 @@ function portalSignInMethodHeading(page: Page) {
  * (avoids strict-mode ambiguity with RH AAP's Sign In button).
  */
 export async function signInRHDHWithGitHub(page: Page) {
-  await loginGitHub(page);
-
-  await page.goto('/', { waitUntil: 'domcontentloaded' });
-
-  const signInGate = portalSignInMethodHeading(page);
-  const gateVisible = await signInGate
-    .isVisible({ timeout: 12000 })
-    .catch(() => false);
-
-  if (gateVisible) {
-    // Unique copy on the GitHub provider card (avoids matching RH AAP row).
-    const githubRow = page
-      .getByRole('listitem')
-      .filter({ hasText: /Sign In using GitHub/i });
-    await githubRow.getByRole('button', { name: /^Sign In$/i }).click();
-
-    await page.waitForLoadState('domcontentloaded');
-
-    // GitHub OAuth + Backstage may each show an Authorize button.
-    for (let i = 0; i < 4; i++) {
-      const authorize = page
-        .getByRole('button', { name: /^Authorize$/i })
-        .first();
-      if (!(await authorize.isVisible({ timeout: 8000 }).catch(() => false))) {
-        break;
-      }
-      await authorize.click();
-      await page.waitForLoadState('domcontentloaded');
-    }
-
-    await expect(signInGate).toBeHidden({ timeout: 120000 });
-  } else {
-    const genericSignIn = page
-      .getByRole('button', { name: /^Sign In$/i })
-      .first();
-    if (await genericSignIn.isVisible({ timeout: 5000 }).catch(() => false)) {
-      await genericSignIn.click();
-
-      const authorizeVisible = await page
-        .getByRole('button', { name: /^Authorize$/i })
-        .first()
-        .waitFor({ state: 'visible', timeout: 15000 })
-        .then(() => true)
-        .catch(() => false);
-
-      if (authorizeVisible) {
-        await page
-          .getByRole('button', { name: /^Authorize$/i })
-          .first()
-          .click();
-      }
-
-      const ansible = page
-        .getByRole('link', { name: /^Ansible$/i })
-        .or(page.getByText('Ansible', { exact: true }))
-        .first();
-      if (await ansible.isVisible({ timeout: 8000 }).catch(() => false)) {
-        await ansible.click();
-        await page.waitForURL(/\/ansible/, { timeout: 30000 });
-      }
-    }
-  }
-
-  if (!page.url().includes('/ansible')) {
-    await page.goto('/ansible', { waitUntil: 'domcontentloaded' });
-  }
-
-  if (await signInGate.isVisible({ timeout: 3000 }).catch(() => false)) {
-    throw new Error(
-      'Still on portal sign-in picker after GitHub flow; check OAuth app / credentials.',
-    );
-  }
+  await signInRHDHWithProvider(page, loginGitHub, 'GitHub');
 }
