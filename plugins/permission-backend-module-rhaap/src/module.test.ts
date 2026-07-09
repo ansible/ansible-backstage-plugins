@@ -53,7 +53,7 @@ describe('AAPRBACProvider', () => {
       await provider.connect(connection);
 
       expect(connection.applyRoles).toHaveBeenCalledWith([
-        ['group:aap-default/aap-default', 'role:default/aap-user'],
+        ['group:default/default', 'role:default/aap-user'],
         ['group:default/aap-admins', 'role:default/aap-user'],
       ]);
       expect(connection.applyPermissions).toHaveBeenCalled();
@@ -73,7 +73,7 @@ describe('AAPRBACProvider', () => {
 
       expect(connection.applyRoles).toHaveBeenCalledWith(
         expect.arrayContaining([
-          ['group:aap-default/aap-default', 'role:default/aap-user'],
+          ['group:default/default', 'role:default/aap-user'],
           ['group:engineering/engineering', 'role:default/aap-user'],
           ['group:secops/secops', 'role:default/aap-user'],
           ['group:default/aap-admins', 'role:default/aap-user'],
@@ -144,7 +144,7 @@ describe('AAPRBACProvider', () => {
       );
     });
 
-    it('should map Default org to aap-default namespace', async () => {
+    it('should map Default org to default namespace', async () => {
       const provider = new AAPRBACProvider(
         ['Default', 'Other'],
         mockLogger as any,
@@ -155,10 +155,10 @@ describe('AAPRBACProvider', () => {
 
       const roles = connection.applyRoles.mock.calls[0][0];
       const defaultRole = roles.find((r: string[]) =>
-        r[0].includes('aap-default'),
+        r[0] === 'group:default/default',
       );
       expect(defaultRole).toEqual([
-        'group:aap-default/aap-default',
+        'group:default/default',
         'role:default/aap-user',
       ]);
     });

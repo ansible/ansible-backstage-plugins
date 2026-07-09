@@ -119,8 +119,7 @@ export class AAPRBACProvider implements RBACProvider {
     );
 
     const roles: string[][] = this.orgs.map(org => {
-      const ns =
-        org.toLowerCase() === 'default' ? 'aap-default' : formatNamespace(org);
+      const ns = formatNamespace(org);
       return [`group:${ns}/${ns}`, ROLE];
     });
     roles.push(['group:default/aap-admins', ROLE]);
