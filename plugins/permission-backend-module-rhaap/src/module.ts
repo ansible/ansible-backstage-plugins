@@ -23,6 +23,8 @@ const PERMISSIONS: string[][] = [
   [ROLE, 'scaffolder-action', 'use', 'allow'],
   [ROLE, 'scaffolder-task', 'read', 'allow'],
   [ROLE, 'scaffolder-task', 'create', 'allow'],
+  [ROLE, 'scaffolder.task.create', 'create', 'allow'],
+  [ROLE, 'scaffolder.task.cancel', 'use', 'allow'],
   [ROLE, 'ansible.templates.view', 'use', 'allow'],
   [ROLE, 'ansible.history.view', 'use', 'allow'],
 ];
