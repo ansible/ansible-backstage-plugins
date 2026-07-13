@@ -141,53 +141,58 @@ test('Template visibility: admin sees >= normal user templates', async ({
 
   const normalPage = await normalContext.newPage();
 
-  const origId = process.env.AAP_USER_ID;
-  const origPass = process.env.AAP_USER_PASS;
-  try {
-    process.env.AAP_USER_ID = normalUserId;
-    process.env.AAP_USER_PASS = normalUserPass;
-    await loginAAP(normalPage);
-  } finally {
-    process.env.AAP_USER_ID = origId;
-    process.env.AAP_USER_PASS = origPass;
-  }
-
-  // Navigate to self-service catalog and check what the normal user sees
-  await normalPage.goto('/self-service/catalog', {
-    waitUntil: 'domcontentloaded',
-  });
-  await normalPage.waitForLoadState('networkidle', { timeout: 30000 });
-  await normalPage.waitForTimeout(3000);
-
-  // Check if the user landed on a 404 or permission-denied page
-  const pageText = await normalPage
-    .locator('body')
-    .innerText()
-    .catch(() => '');
-  const got404 =
-    pageText.includes("couldn't find that page") || pageText.includes('404');
-  const gotForbidden =
-    pageText.includes('Forbidden') || pageText.includes('not authorized');
-
   let normalCount = 0;
-  if (!got404 && !gotForbidden) {
-    const allMatch = pageText.match(/All\s+(\d+)/i);
-    if (allMatch) {
-      normalCount = parseInt(allMatch[1], 10);
-    } else {
-      normalCount = await normalPage
-        .getByRole('link', { name: 'Start' })
-        .count()
-        .catch(() => 0);
+  let got404 = false;
+  let gotForbidden = false;
+
+  try {
+    const origId = process.env.AAP_USER_ID;
+    const origPass = process.env.AAP_USER_PASS;
+    try {
+      process.env.AAP_USER_ID = normalUserId;
+      process.env.AAP_USER_PASS = normalUserPass;
+      await loginAAP(normalPage);
+    } finally {
+      process.env.AAP_USER_ID = origId;
+      process.env.AAP_USER_PASS = origPass;
     }
+
+    // Navigate to self-service catalog and check what the normal user sees
+    await normalPage.goto('/self-service/catalog', {
+      waitUntil: 'domcontentloaded',
+    });
+    await normalPage.waitForLoadState('networkidle', { timeout: 30000 });
+    await normalPage.waitForTimeout(3000);
+
+    // Check if the user landed on a 404 or permission-denied page
+    const pageText = await normalPage
+      .locator('body')
+      .innerText()
+      .catch(() => '');
+    got404 =
+      pageText.includes("couldn't find that page") || pageText.includes('404');
+    gotForbidden =
+      pageText.includes('Forbidden') || pageText.includes('not authorized');
+
+    if (!got404 && !gotForbidden) {
+      const allMatch = pageText.match(/All\s+(\d+)/i);
+      if (allMatch) {
+        normalCount = parseInt(allMatch[1], 10);
+      } else {
+        normalCount = await normalPage
+          .getByRole('link', { name: 'Start' })
+          .count()
+          .catch(() => 0);
+      }
+    }
+
+    console.log(
+      `[Visibility] Normal user sees ${normalCount} templates (404=${got404}, forbidden=${gotForbidden})`,
+    );
+  } finally {
+    await normalPage.close();
+    await normalContext.close();
   }
-
-  console.log(
-    `[Visibility] Normal user sees ${normalCount} templates (404=${got404}, forbidden=${gotForbidden})`,
-  );
-
-  await normalPage.close();
-  await normalContext.close();
 
   // --- Assertions ---
   expect(adminCount, 'Admin should see at least 1 template').toBeGreaterThan(0);

@@ -565,7 +565,7 @@ describe('AAPEntityProvider', () => {
                 name: 'testuser',
               }),
               spec: expect.objectContaining({
-                memberOf: ['Team A', 'default'],
+                memberOf: ['team-a', 'default'],
               }),
             }),
             locationKey: 'AapEntityProvider:development',
@@ -807,7 +807,7 @@ describe('AAPEntityProvider', () => {
           {
             entity: expect.objectContaining({
               spec: expect.objectContaining({
-                memberOf: ['Team A', 'default'],
+                memberOf: ['team-a', 'default'],
               }),
             }),
             locationKey: 'AapEntityProvider:development',
@@ -917,7 +917,7 @@ describe('AAPEntityProvider', () => {
           {
             entity: expect.objectContaining({
               spec: expect.objectContaining({
-                memberOf: ['Team A'],
+                memberOf: ['team-a'],
               }),
             }),
             locationKey: 'AapEntityProvider:development',
