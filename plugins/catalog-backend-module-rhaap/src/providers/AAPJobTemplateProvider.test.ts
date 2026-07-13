@@ -1132,34 +1132,6 @@ describe('AAPJobTemplateProvider', () => {
       },
     };
 
-    const NO_ORG_JOB_CONFIG = {
-      catalog: {
-        providers: {
-          rhaap: {
-            development: {
-              sync: {
-                jobTemplates: {
-                  enabled: true,
-                  surveyEnabled: true,
-                  schedule: {
-                    frequency: { minutes: 30 },
-                    timeout: { minutes: 3 },
-                  },
-                },
-              },
-            },
-          },
-        },
-      },
-      ansible: {
-        rhaap: {
-          baseUrl: 'https://rhaap.test',
-          token: 'testtoken',
-          checkSSL: false,
-        },
-      },
-    };
-
     const createEngTemplate = (): IJobTemplate => ({
       ...MOCK_JOB_TEMPLATE,
       id: 2,
