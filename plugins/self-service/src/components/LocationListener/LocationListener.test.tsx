@@ -122,48 +122,31 @@ describe('LocationListener', () => {
   });
 
   describe('multi-org namespace support', () => {
-    it('redirects /catalog/:namespace/template/:name with org-scoped namespace', () => {
-      (useLocation as jest.Mock).mockReturnValue({
-        pathname: '/catalog/engineering/template/deploy-app',
-      });
-      render(<LocationListener />);
-      expect(mockNavigate).toHaveBeenCalledWith(
+    it.each([
+      [
+        '/catalog/engineering/template/deploy-app',
         '/self-service/catalog/engineering/deploy-app',
-        { replace: true },
-      );
-    });
-
-    it('redirects /catalog/aap-default/template/:name for AAP Default org', () => {
-      (useLocation as jest.Mock).mockReturnValue({
-        pathname: '/catalog/aap-default/template/deploy-app',
-      });
-      render(<LocationListener />);
-      expect(mockNavigate).toHaveBeenCalledWith(
+        'org-scoped namespace',
+      ],
+      [
+        '/catalog/aap-default/template/deploy-app',
         '/self-service/catalog/aap-default/deploy-app',
-        { replace: true },
-      );
-    });
-
-    it('redirects /create/templates/:namespace/:name with org-scoped namespace', () => {
-      (useLocation as jest.Mock).mockReturnValue({
-        pathname: '/create/templates/platform-ops/deploy-app',
-      });
-      render(<LocationListener />);
-      expect(mockNavigate).toHaveBeenCalledWith(
+        'AAP Default org',
+      ],
+      [
+        '/create/templates/platform-ops/deploy-app',
         '/self-service/create/templates/platform-ops/deploy-app',
-        { replace: true },
-      );
-    });
-
-    it('preserves namespace in /catalog redirect for multi-word org names', () => {
-      (useLocation as jest.Mock).mockReturnValue({
-        pathname: '/catalog/platform-ops/template/network-backup',
-      });
-      render(<LocationListener />);
-      expect(mockNavigate).toHaveBeenCalledWith(
+        'create templates path',
+      ],
+      [
+        '/catalog/platform-ops/template/network-backup',
         '/self-service/catalog/platform-ops/network-backup',
-        { replace: true },
-      );
+        'multi-word org name',
+      ],
+    ])('redirects %s to %s (%s)', (from, to) => {
+      (useLocation as jest.Mock).mockReturnValue({ pathname: from });
+      render(<LocationListener />);
+      expect(mockNavigate).toHaveBeenCalledWith(to, { replace: true });
     });
   });
 });

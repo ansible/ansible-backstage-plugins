@@ -527,7 +527,9 @@ export class AAPEntityProvider implements EntityProvider {
         .filter(team => this.orgs.includes(team.orgName.toLowerCase()))
         .map(team => {
           const ns = getEffectiveNamespace(team.orgName, this.orgs);
-          return ns === 'default' ? team.name : `group:${ns}/${team.name}`;
+          return ns === 'default'
+            ? team.groupName
+            : `group:${ns}/${team.groupName}`;
         });
 
       const hasDirectOrgAccess = matchingOrgs.length > 0;
