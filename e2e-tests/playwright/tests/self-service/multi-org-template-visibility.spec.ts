@@ -14,12 +14,32 @@ import { loginAAP } from '../../utils/auth';
  *   Backstage org membership.
  *
  * Requires:
- *   - rhdh-local running with multi-org config (orgs: [Default, 11-org])
+ *   - rhdh-local running with multi-org config
  *   - Job template sync completed (RHAAP_TOKEN valid)
  *   - AAP_NORMAL_USER_ID / AAP_NORMAL_USER_PASS set in .env
  */
 
-const KNOWN_ORG_NAMESPACES = ['aap-default', '11org'];
+async function discoverOrgNamespaces(
+  page: import('@playwright/test').Page,
+  token: string,
+): Promise<string[]> {
+  const result = await catalogFetch(
+    page,
+    '/entities?filter=kind=Group,spec.type=organization&limit=100',
+    token,
+  );
+  if (!result.ok) return [];
+  const groups: any[] = Array.isArray(result.body)
+    ? result.body
+    : (result.body?.items ?? []);
+  return [
+    ...new Set(
+      groups
+        .map((g: any) => g.metadata?.namespace)
+        .filter((ns: string | undefined): ns is string => !!ns),
+    ),
+  ];
+}
 
 // ---------------------------------------------------------------------------
 // Test A: template org metadata via catalog API
@@ -27,6 +47,12 @@ const KNOWN_ORG_NAMESPACES = ['aap-default', '11org'];
 
 test('Template org metadata: annotations and namespaces', async ({ page }) => {
   const token = await getBackstageToken(page);
+
+  const orgNamespaces = await discoverOrgNamespaces(page, token);
+  expect(
+    orgNamespaces.length,
+    'Should discover at least one org namespace from catalog',
+  ).toBeGreaterThan(0);
 
   const result = await catalogFetch(
     page,
@@ -48,7 +74,6 @@ test('Template org metadata: annotations and namespaces', async ({ page }) => {
     'Should have at least one AAP-backed template in catalog',
   ).toBeGreaterThan(0);
 
-  // Every AAP template in multi-org mode should carry the org annotation
   for (const tpl of aapTemplates) {
     const orgAnnotation =
       tpl.metadata?.annotations?.['ansible.com/organization'];
@@ -57,18 +82,16 @@ test('Template org metadata: annotations and namespaces', async ({ page }) => {
       `Template "${tpl.metadata.name}" (ns: ${tpl.metadata.namespace}) should have ansible.com/organization`,
     ).toBeTruthy();
 
-    // Namespace should be one of the known org namespaces
     expect(
-      KNOWN_ORG_NAMESPACES,
-      `Template "${tpl.metadata.name}" namespace "${tpl.metadata.namespace}" should be a known org namespace`,
+      orgNamespaces,
+      `Template "${tpl.metadata.name}" namespace "${tpl.metadata.namespace}" should be a discovered org namespace`,
     ).toContain(tpl.metadata.namespace);
   }
 
-  // At least one template per configured org
   const namespacesPresent = new Set(
     aapTemplates.map((t: any) => t.metadata.namespace),
   );
-  for (const ns of KNOWN_ORG_NAMESPACES) {
+  for (const ns of orgNamespaces) {
     expect(
       namespacesPresent.has(ns),
       `Should have at least one template in namespace "${ns}"`,
