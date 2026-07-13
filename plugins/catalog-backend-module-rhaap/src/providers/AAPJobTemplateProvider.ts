@@ -131,15 +131,6 @@ export class AAPJobTemplateProvider implements EntityProvider {
       throw new NotFoundError('Not initialized');
     }
 
-    if (!this.orgs || this.orgs.length === 0) {
-      this.logger.warn(
-        `[${AAPJobTemplateProvider.pluginLogName}]: No orgs configured in catalog.providers.rhaap.<env>.orgs — skipping job template sync. ` +
-          'Add org names to enable catalog population (e.g., orgs: [Default]).',
-      );
-      return true;
-    }
-
-    // Validate all org namespaces at sync start
     for (const orgName of this.orgs) {
       const ns = getEffectiveNamespace(orgName, this.orgs);
       validateNamespace(ns, orgName);

@@ -104,3 +104,4 @@ videos/
 screenshots/
 **/screenshots
 aap-logout.tar
+deploy/
