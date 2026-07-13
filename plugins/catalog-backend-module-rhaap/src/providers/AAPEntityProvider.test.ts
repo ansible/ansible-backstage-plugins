@@ -958,34 +958,6 @@ describe('AAPEntityProvider', () => {
       },
     };
 
-    const NO_ORG_CONFIG = {
-      data: {
-        catalog: {
-          providers: {
-            rhaap: {
-              development: {
-                sync: {
-                  orgsUsersTeams: {
-                    schedule: {
-                      frequency: 'P1M',
-                      timeout: 'PT3M',
-                    },
-                  },
-                },
-              },
-            },
-          },
-        },
-        ansible: {
-          rhaap: {
-            baseUrl: 'https://rhaap.test',
-            token: 'testtoken',
-            checkSSL: false,
-          },
-        },
-      },
-    };
-
     it('should filter to only configured organizations', async () => {
       const config = new ConfigReader(MULTI_ORG_CONFIG.data);
       const logger = mockServices.logger.mock();
