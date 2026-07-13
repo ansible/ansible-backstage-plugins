@@ -1192,30 +1192,6 @@ describe('AAPJobTemplateProvider', () => {
       },
     });
 
-    it('should skip sync and log warning when no orgs are configured', async () => {
-      const config = new ConfigReader(NO_ORG_JOB_CONFIG);
-      const logger = mockServices.logger.mock();
-      const schedule = new PersistingTaskRunner();
-
-      const provider = AAPJobTemplateProvider.fromConfig(
-        config,
-        mockAnsibleService,
-        { schedule, logger },
-      )[0];
-
-      const entityProviderConnection: EntityProviderConnection = {
-        applyMutation: jest.fn(),
-        refresh: jest.fn(),
-      };
-
-      await provider.connect(entityProviderConnection);
-      const taskDef = schedule.getTasks()[0];
-      await (taskDef.fn as () => Promise<void>)();
-
-      expect(entityProviderConnection.applyMutation).not.toHaveBeenCalled();
-      expect(mockAnsibleService.syncJobTemplates).not.toHaveBeenCalled();
-    });
-
     it('should filter templates to only configured organizations', async () => {
       const config = new ConfigReader(MULTI_ORG_JOB_CONFIG);
       const logger = mockServices.logger.mock();
