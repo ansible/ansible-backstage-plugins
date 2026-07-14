@@ -28,7 +28,7 @@
   "dependencies": {
     "@ansible/backstage-apme-common": "workspace:^",
     "@ansible/backstage-rhaap-common": "workspace:^",
-    "@backstage/backend-plugin-api": "^1.0.0",
+    "@backstage/backend-plugin-api": "^1.8.0",
     "@backstage/catalog-client": "^1.8.0",
     "@backstage/catalog-model": "^1.7.0",
     "@backstage/config": "^1.2.0",
