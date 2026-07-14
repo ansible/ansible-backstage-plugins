@@ -1,0 +1,21 @@
+---
+# Triggers an APME-only pack in ansible-rhdh-plugins on every push/merge to
+# prototype/apme. Does not modify existing workflows in either repository
+# beyond this new file.
+name: APME prototype pack
+
+on:
+  push:
+    branches: [prototype/apme]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: write
+
+jobs:
+  pack:
+    uses: ansible/ansible-rhdh-plugins/.github/workflows/apme-prototype-plugins.yaml@main
+    with:
+      plugins_ref: prototype/apme
+      pack_ref: main
