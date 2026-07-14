@@ -15,7 +15,9 @@ permissions:
 
 jobs:
   pack:
-    # Point at @main after ansible/ansible-rhdh-plugins#716 merges.
+    # After ansible/ansible-rhdh-plugins#716 merges, change both pins to @main
+    # and pack_ref: main.
     uses: ansible/ansible-rhdh-plugins/.github/workflows/apme-prototype-plugins.yaml@feat/apme-prototype-pack
     with:
       plugins_ref: prototype/apme
+      pack_ref: feat/apme-prototype-pack
