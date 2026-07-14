@@ -128,8 +128,8 @@ describe('helpers', () => {
       );
     });
 
-    it('should map "Default" to "aap-default" to avoid namespace collision', () => {
-      expect(formatNameSpace('Default')).toEqual('aap-default');
+    it('should map "Default" to "default" to avoid namespace collision', () => {
+      expect(formatNameSpace('Default')).toEqual('default');
     });
   });
 
@@ -154,9 +154,9 @@ describe('helpers', () => {
       );
     });
 
-    it('should return "aap-default" for Default org in multi-org mode', () => {
+    it('should return "default" for Default org in multi-org mode', () => {
       const allOrgs = ['default', 'engineering'];
-      expect(getEffectiveNamespace('Default', allOrgs)).toEqual('aap-default');
+      expect(getEffectiveNamespace('Default', allOrgs)).toEqual('default');
     });
   });
 
@@ -166,7 +166,7 @@ describe('helpers', () => {
         validateNamespace('engineering', 'Engineering'),
       ).not.toThrow();
       expect(() => validateNamespace('default', 'Default')).not.toThrow();
-      expect(() => validateNamespace('aap-default', 'Default')).not.toThrow();
+      expect(() => validateNamespace('default', 'Default')).not.toThrow();
       expect(() =>
         validateNamespace('platform-ops', 'Platform Ops'),
       ).not.toThrow();
