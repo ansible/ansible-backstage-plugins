@@ -1,0 +1,58 @@
+{
+  "name": "@ansible/plugin-backstage-apme",
+  "version": "0.1.0",
+  "description": "Frontend plugin for APME - Ansible Policy & Modernization Engine",
+  "backstage": {
+    "role": "frontend-plugin"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "license": "Apache-2.0",
+  "main": "src/index.ts",
+  "types": "src/index.ts",
+  "files": [
+    "dist"
+  ],
+  "configSchema": "config.d.ts",
+  "scripts": {
+    "build": "backstage-cli package build",
+    "clean": "backstage-cli package clean",
+    "lint": "backstage-cli package lint",
+    "test": "backstage-cli package test",
+    "prepack": "backstage-cli package prepack",
+    "postpack": "backstage-cli package postpack",
+    "start": "backstage-cli package start",
+    "export-dynamic": "rhdh-cli plugin export --embed-package @ansible/backstage-apme-common --embed-package @ansible/backstage-rhaap-common"
+  },
+  "dependencies": {
+    "@ansible/backstage-apme-common": "workspace:^",
+    "@ansible/backstage-rhaap-common": "workspace:^",
+    "@backstage/catalog-model": "^1.5.0",
+    "@backstage/core-components": "^0.14.0",
+    "@backstage/core-plugin-api": "^1.9.0",
+    "@backstage/integration-react": "^1.2.0",
+    "@backstage/plugin-catalog": "^2.0.1",
+    "@backstage/plugin-catalog-react": "^1.12.0",
+    "@backstage/theme": "^0.5.0",
+    "@material-ui/core": "^4.12.4",
+    "@material-ui/icons": "^4.11.3",
+    "@material-ui/lab": "^4.0.0-alpha.61",
+    "react-use": "^17.4.0"
+  },
+  "devDependencies": {
+    "@backstage/catalog-model": "^1.5.0",
+    "@backstage/cli": "^0.27.0",
+    "@backstage/config": "^1.2.0",
+    "@backstage/test-utils": "^1.5.0",
+    "@testing-library/jest-dom": "^6.0.0",
+    "@testing-library/react": "^14.0.0",
+    "@types/react": "^18.0.0",
+    "typescript": "^5.0.0"
+  },
+  "peerDependencies": {
+    "react": "^17.0.0 || ^18.0.0",
+    "react-dom": "^17.0.0 || ^18.0.0",
+    "react-router-dom": "^6.0.0"
+  }
+}

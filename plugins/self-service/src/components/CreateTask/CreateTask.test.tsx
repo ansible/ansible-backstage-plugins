@@ -331,7 +331,7 @@ describe('Create task', () => {
     await render(<CreateTask />);
 
     await waitFor(() => {
-      expect(screen.getByText('Failed to fetch entity')).toBeInTheDocument();
+      expect(screen.getByText(/Failed to load template/)).toBeInTheDocument();
     });
 
     // Restore the original mock
@@ -350,7 +350,7 @@ describe('Create task', () => {
     await render(<CreateTask />);
 
     await waitFor(() => {
-      expect(screen.getByText('Failed to fetch entity')).toBeInTheDocument();
+      expect(screen.getByText(/Failed to load template/)).toBeInTheDocument();
     });
   });
 
@@ -365,7 +365,7 @@ describe('Create task', () => {
     await render(<CreateTask />);
 
     await waitFor(() => {
-      expect(screen.getByText('Failed to fetch entity')).toBeInTheDocument();
+      expect(screen.getByText(/Failed to load template/)).toBeInTheDocument();
     });
   });
 });

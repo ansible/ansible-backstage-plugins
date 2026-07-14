@@ -9,6 +9,10 @@ import {
 import { catalogApiRef } from '@backstage/plugin-catalog-react';
 import { Entity } from '@backstage/catalog-model';
 import { SCM_INTEGRATION_AUTH_FAILED_CODE } from '@ansible/backstage-rhaap-common/constants';
+import {
+  DefaultGitRepositoriesExtensionsApi,
+  gitRepositoriesExtensionsApiRef,
+} from '@ansible/backstage-rhaap-common/gitRepositoriesExtensions';
 import { RepositoryDetailsPage } from './RepositoryDetailsPage';
 
 const mockNavigate = jest.fn();
@@ -128,6 +132,10 @@ describe('RepositoryDetailsPage', () => {
           [discoveryApiRef, mockDiscoveryApi],
           [fetchApiRef, mockFetchApi],
           [identityApiRef, mockIdentityApi],
+          [
+            gitRepositoriesExtensionsApiRef,
+            new DefaultGitRepositoriesExtensionsApi(),
+          ],
         ]}
       >
         <ThemeProvider theme={theme}>
@@ -216,13 +224,19 @@ describe('RepositoryDetailsPage', () => {
     });
   });
 
-  it('renders View in source button when source URL exists', async () => {
+  it('renders Actions menu with View in source when source URL exists', async () => {
     await renderPage();
 
     await waitFor(() => {
       expect(
-        screen.getByRole('button', { name: /View in source/i }),
+        screen.getByRole('button', { name: /Actions/i }),
       ).toBeInTheDocument();
+    });
+
+    fireEvent.click(screen.getByRole('button', { name: /Actions/i }));
+
+    await waitFor(() => {
+      expect(screen.getByText('View in source')).toBeInTheDocument();
     });
   });
 
@@ -597,11 +611,12 @@ describe('RepositoryDetailsPage', () => {
 
     await waitFor(() => {
       expect(
-        screen.getByRole('button', { name: /View in source/i }),
+        screen.getByRole('button', { name: /Actions/i }),
       ).toBeInTheDocument();
     });
 
-    fireEvent.click(screen.getByRole('button', { name: /View in source/i }));
+    fireEvent.click(screen.getByRole('button', { name: /Actions/i }));
+    fireEvent.click(screen.getByText('View in source'));
 
     expect(mockOpen).toHaveBeenCalledWith(
       'https://github.com/test-org/test-repo',
@@ -636,7 +651,7 @@ describe('RepositoryDetailsPage', () => {
     });
 
     expect(
-      screen.queryByRole('button', { name: /View in source/i }),
+      screen.queryByRole('button', { name: /Actions/i }),
     ).not.toBeInTheDocument();
   });
 

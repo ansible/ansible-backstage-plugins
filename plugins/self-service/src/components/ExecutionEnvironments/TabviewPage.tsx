@@ -1,29 +1,12 @@
 import { useEffect, useCallback, useMemo } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { Typography, Box, makeStyles } from '@material-ui/core';
-import CategoryOutlinedIcon from '@material-ui/icons/CategoryOutlined';
-import CreateComponentIcon from '@material-ui/icons/AddCircleOutline';
+import { Typography } from '@material-ui/core';
 import { Header, Page, HeaderTabs, Content } from '@backstage/core-components';
 import { useRouteRef } from '@backstage/core-plugin-api';
 
 import { rootRouteRef } from '../../routes';
 import { CreateContent } from './create/CreateContent';
 import { EntityCatalogContent } from './catalog/CatalogContent';
-
-const useStyles = makeStyles(() => ({
-  tabContainer: {
-    '& .MuiTab-root': {
-      minWidth: '200px',
-      padding: '12px 40px',
-      fontSize: '16px',
-    },
-  },
-  tabWithIcon: {
-    display: 'flex',
-    alignItems: 'center',
-    gap: '8px',
-  },
-}));
 
 export const EEHeader = () => {
   const headerTitle = (
@@ -50,8 +33,8 @@ export const EEHeader = () => {
 };
 
 const tabs = [
-  { id: 0, label: 'Catalog', icon: <CategoryOutlinedIcon />, path: 'catalog' },
-  { id: 1, label: 'Create', icon: <CreateComponentIcon />, path: 'create' },
+  { id: 0, label: 'Catalog', path: 'catalog' },
+  { id: 1, label: 'Create', path: 'create' },
 ];
 
 const getTabIndexFromPath = (pathname: string): number => {
@@ -60,7 +43,6 @@ const getTabIndexFromPath = (pathname: string): number => {
 };
 
 export const EETabs: React.FC = () => {
-  const classes = useStyles();
   const location = useLocation();
   const navigate = useNavigate();
   const rootLink = useRouteRef(rootRouteRef);
@@ -113,17 +95,10 @@ export const EETabs: React.FC = () => {
       <HeaderTabs
         selectedIndex={selectedTab}
         onChange={onTabSelect}
-        tabs={
-          tabs.map(({ label, icon }) => ({
-            id: label.toLowerCase(),
-            label: (
-              <Box className={classes.tabWithIcon}>
-                {icon}
-                {label}
-              </Box>
-            ),
-          })) as any
-        }
+        tabs={tabs.map(({ label }) => ({
+          id: label.toLowerCase(),
+          label,
+        }))}
       />
       <Content>{content}</Content>
     </Page>

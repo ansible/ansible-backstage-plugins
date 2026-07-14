@@ -36,6 +36,7 @@ import HelpOutlineIcon from '@material-ui/icons/HelpOutline';
 import GitHubIcon from '@material-ui/icons/GitHub';
 import { getSourceUrl, formatTimeAgo } from '../CollectionsCatalog/utils';
 import { EntityLinkButton, GitLabIcon, SyncStatusMap } from '../common';
+import { ApmeStatusChipSlot } from './ApmeStatusChipSlot';
 import {
   useCollectionsStyles,
   useTableWrapperStyles,
@@ -49,6 +50,7 @@ import {
 } from './constants';
 import { rootRouteRef } from '../../routes';
 import { useLatestCIActivity } from './useLatestCIActivity';
+import { gitRepositoriesExtensionsApiRef } from '@ansible/backstage-rhaap-common/gitRepositoriesExtensions';
 import { usePaginatedGitRepos } from './usePaginatedGitRepos';
 
 const StarredIcon = () => <Star style={{ color: '#ffb74d' }} />;
@@ -133,6 +135,8 @@ const RepositoriesTableInner = ({
   } | null>(null);
   const [selectedEntity, setSelectedEntity] = useState<Entity | null>(null);
 
+  const extensionsApi = useApi(gitRepositoriesExtensionsApiRef);
+
   const { lastActivityMap, loading: lastActivityLoading } =
     useLatestCIActivity(paginatedEntities);
 
@@ -206,9 +210,15 @@ const RepositoriesTableInner = ({
         const repoName = entity.metadata?.title ?? entity.metadata?.name ?? '—';
         const linkPath = `${rootLink()}/repositories/${entity.metadata?.name ?? ''}`;
         return (
-          <EntityLinkButton linkPath={linkPath} className={classes.entityLink}>
-            {repoName}
-          </EntityLinkButton>
+          <Box display="flex" alignItems="center" style={{ gap: 8 }}>
+            <EntityLinkButton
+              linkPath={linkPath}
+              className={classes.entityLink}
+            >
+              {repoName}
+            </EntityLinkButton>
+            <ApmeStatusChipSlot entity={entity} projectDetailPath={linkPath} />
+          </Box>
         );
       },
     },
@@ -280,6 +290,24 @@ const RepositoriesTableInner = ({
         );
       },
     },
+    ...extensionsApi
+      .getCatalogColumns()
+      .sort((a, b) => a.order - b.order)
+      .map(
+        col =>
+          ({
+            title: col.tooltip
+              ? ((
+                  <ColumnHeaderWithTooltip
+                    label={col.title}
+                    tooltip={col.tooltip}
+                  />
+                ) as unknown as string)
+              : col.title,
+            id: col.id,
+            render: (entity: Entity) => col.render(entity),
+          }) as TableColumn<Entity>,
+      ),
     {
       title: (
         <ColumnHeaderWithTooltip

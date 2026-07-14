@@ -100,3 +100,5 @@ videos/
 # Screenshots
 screenshots/
 **/screenshots
+backstage-dev.sqlite3
+backstage-dev-db/

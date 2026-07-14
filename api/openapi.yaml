@@ -25,6 +25,8 @@ tags:
     description: Execution environment registration and build
   - name: Git Content
     description: Fetch file content and CI activity from GitHub/GitLab
+  - name: APME
+    description: Ansible Policy & Modernization Engine - static analysis and remediation
 
 components:
   securitySchemes:
@@ -1135,3 +1137,497 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
+
+  # ── APME (Ansible Policy & Modernization Engine) ──────────────────────
+
+  /apme/health:
+    get:
+      operationId: getApmeHealth
+      summary: Get APME service health status
+      description: Returns the health status of the APME backend service including component availability.
+      tags:
+        - APME
+      responses:
+        '200':
+          description: Health status
+          content:
+            application/json:
+              schema:
+                type: object
+
+  /apme/settings:
+    get:
+      operationId: getApmeSettings
+      summary: Get APME portal settings
+      description: Returns feature flags for AI and remediation publish mode configured for the portal.
+      tags:
+        - APME
+      responses:
+        '200':
+          description: APME settings
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  enableAi:
+                    type: boolean
+                  publishViaGateway:
+                    type: boolean
+
+  /apme/ai/status:
+    get:
+      operationId: getApmeAiStatus
+      summary: Get APME AI connectivity status
+      description: Returns whether AI features are enabled and whether the APME AI backend is reachable.
+      tags:
+        - APME
+      responses:
+        '200':
+          description: AI status
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  enableAi:
+                    type: boolean
+                  connected:
+                    type: boolean
+                  modelCount:
+                    type: integer
+
+  /apme/projects:
+    get:
+      operationId: getApmeProjects
+      summary: List all APME projects
+      description: Returns all Ansible content projects registered with APME for policy analysis and modernization.
+      tags:
+        - APME
+      responses:
+        '200':
+          description: List of projects
+          content:
+            application/json:
+              schema:
+                type: object
+    post:
+      operationId: createApmeProject
+      summary: Create a new APME project
+      description: Registers a new Ansible content repository with APME for policy analysis and modernization tracking.
+      tags:
+        - APME
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+      responses:
+        '201':
+          description: Project created
+          content:
+            application/json:
+              schema:
+                type: object
+
+  /apme/projects/{projectId}:
+    get:
+      operationId: getApmeProject
+      summary: Get a specific APME project
+      description: Returns details of a specific APME project including health score, violation counts, and scan history.
+      tags:
+        - APME
+      parameters:
+        - name: projectId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Project details
+          content:
+            application/json:
+              schema:
+                type: object
+    delete:
+      operationId: deleteApmeProject
+      summary: Delete an APME project
+      description: Removes a project from APME tracking. This does not delete the underlying repository.
+      tags:
+        - APME
+      parameters:
+        - name: projectId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '204':
+          description: Project deleted
+
+  /apme/projects/{projectId}/violations:
+    get:
+      operationId: getApmeViolations
+      summary: Get violations for a project
+      description: Returns all policy violations detected in the project from the most recent scan, including severity levels and file locations.
+      tags:
+        - APME
+      parameters:
+        - name: projectId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: List of violations
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+
+  /apme/projects/{projectId}/dependencies:
+    get:
+      operationId: getApmeProjectDependencies
+      summary: Get project dependencies from latest scan
+      description: Returns Ansible collections and Python packages detected during the latest gateway scan for the project.
+      tags:
+        - APME
+      parameters:
+        - name: projectId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Collections and Python packages discovered in the latest scan
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  collections:
+                    type: array
+                    items:
+                      type: object
+                  python_packages:
+                    type: array
+                    items:
+                      type: object
+
+  /apme/projects/{projectId}/operation:
+    post:
+      operationId: triggerApmeOperation
+      summary: Trigger a scan operation
+      description: Initiates a new policy scan on the project. Returns an operation ID for tracking progress.
+      tags:
+        - APME
+      parameters:
+        - name: projectId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '201':
+          description: Operation started
+          content:
+            application/json:
+              schema:
+                type: object
+
+  /apme/projects/{projectId}/operation/state:
+    get:
+      operationId: getApmeOperationState
+      summary: Get current operation state
+      description: Returns the current state of an in-progress operation including phase and progress details.
+      tags:
+        - APME
+      parameters:
+        - name: projectId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Operation state
+          content:
+            application/json:
+              schema:
+                type: object
+        '404':
+          description: No active operation
+
+  /apme/projects/{projectId}/operation/approve:
+    post:
+      operationId: approveApmeProposals
+      summary: Approve remediation proposals
+      description: Approves selected remediation proposals from the current operation to be applied to the codebase.
+      tags:
+        - APME
+      parameters:
+        - name: projectId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+      responses:
+        '200':
+          description: Proposals approved
+          content:
+            application/json:
+              schema:
+                type: object
+
+  /apme/projects/{projectId}/remediate:
+    post:
+      operationId: triggerApmeRemediation
+      summary: Trigger remediation
+      description: Initiates automated remediation of detected violations using AI-assisted code fixes.
+      tags:
+        - APME
+      parameters:
+        - name: projectId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '201':
+          description: Remediation started
+          content:
+            application/json:
+              schema:
+                type: object
+
+  /apme/projects/{projectId}/activity:
+    get:
+      operationId: getApmeActivity
+      summary: Get project scan history
+      description: Returns the history of scans and remediation operations performed on the project.
+      tags:
+        - APME
+      parameters:
+        - name: projectId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Activity history
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+
+  /apme/activity/{activityId}:
+    get:
+      operationId: getApmeActivityDetail
+      summary: Get scan run detail
+      description: Returns violations, AI proposals, and logs for a single scan or remediation run.
+      tags:
+        - APME
+      parameters:
+        - name: activityId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Activity detail
+          content:
+            application/json:
+              schema:
+                type: object
+        '404':
+          description: Activity not found
+
+  /apme/rules:
+    get:
+      operationId: getApmeRules
+      summary: List all APME rules
+      description: Returns the catalog of all policy rules available in APME including rule IDs, descriptions, and severity levels.
+      tags:
+        - APME
+      responses:
+        '200':
+          description: List of rules
+          content:
+            application/json:
+              schema:
+                type: object
+
+  /apme/rules/{ruleId}/config:
+    put:
+      operationId: updateApmeRuleConfig
+      summary: Update rule override config
+      description: Applies portal-side overrides for rule severity, enabled state, or enforcement.
+      tags:
+        - APME
+      parameters:
+        - name: ruleId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+      responses:
+        '200':
+          description: Updated rule
+    delete:
+      operationId: deleteApmeRuleConfig
+      summary: Reset rule override config
+      description: Clears portal overrides so the rule reverts to gateway catalog defaults.
+      tags:
+        - APME
+      parameters:
+        - name: ruleId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '204':
+          description: Override removed
+
+  /apme/suppressions:
+    get:
+      operationId: listApmeSuppressions
+      summary: List violation suppressions
+      description: Returns acknowledged violations for the portal, optionally filtered by scope.
+      tags:
+        - APME
+      parameters:
+        - name: scope
+          in: query
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Suppression list
+    post:
+      operationId: createApmeSuppression
+      summary: Acknowledge/suppress a violation
+      description: Creates a suppression so matching violations are hidden from quality views.
+      tags:
+        - APME
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+      responses:
+        '201':
+          description: Created suppression
+
+  /apme/suppressions/{suppressionId}:
+    delete:
+      operationId: deleteApmeSuppression
+      summary: Remove a suppression
+      description: Deletes a suppression so the violation can appear in quality results again.
+      tags:
+        - APME
+      parameters:
+        - name: suppressionId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '204':
+          description: Deleted
+
+  /apme/lookup:
+    get:
+      operationId: lookupApmeProject
+      summary: Lookup project by repo URL
+      description: Finds an APME project by its repository URL. Used to check if a repository is already registered.
+      tags:
+        - APME
+      parameters:
+        - name: repo_url
+          in: query
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Project found
+          content:
+            application/json:
+              schema:
+                type: object
+        '404':
+          description: Project not found
+
+  /apme/projects/{projectId}/submit:
+    post:
+      operationId: submitApmeRemediation
+      summary: Push remediation changes and optionally open a PR via the gateway
+      description: Proxies to the APME gateway unified SCM submit endpoint (ADR-050). APME commits and pushes as the code author; the portal never receives raw file bodies.
+      tags:
+        - APME
+      parameters:
+        - name: projectId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - activity_id
+              properties:
+                activity_id:
+                  type: string
+                branch_name:
+                  type: string
+                create_pr:
+                  type: boolean
+                scm_token:
+                  type: string
+                title:
+                  type: string
+                body:
+                  type: string
+      responses:
+        '200':
+          description: Submit completed
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  branch_name:
+                    type: string
+                  commit_sha:
+                    type: string
+                  pr_url:
+                    type: string
+                    nullable: true
+                  provider:
+                    type: string
+        '409':
+          description: Request conflicted with existing state

@@ -1,0 +1,465 @@
+/*
+ * Copyright Red Hat
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+import { Config } from '@backstage/config';
+import { LoggerService } from '@backstage/backend-plugin-api';
+import { ConflictError, InputError, NotFoundError } from '@backstage/errors';
+import { getApmeConfig } from '../config';
+import {
+  normalizeGatewayRules,
+  normalizeGatewayRule,
+  type GatewayRuleRow,
+} from '../gatewayRules';
+import { normalizeRemediationClass } from '../severity';
+import {
+  Project,
+  Violation,
+  Rule,
+  ScanResult,
+  HealthStatus,
+  CreateProjectRequest,
+  Activity,
+  ActivityDetail,
+  OperationState,
+  CreatePullRequestResult,
+  RemediationClass,
+  ProjectDependencies,
+  RuleConfigUpdate,
+  CreateSuppressionRequest,
+  Suppression,
+  SubmitRemediationRequest,
+  SubmitRemediationResult,
+} from '../types';
+
+export interface ApmeClientOptions {
+  rootConfig: Config;
+  logger: LoggerService;
+}
+
+export { getApmeConfig } from '../config';
+
+export class ApmeClient {
+  private readonly baseUrl: string;
+  private readonly enableAi: boolean;
+  private readonly logger: LoggerService;
+
+  constructor(options: ApmeClientOptions) {
+    const config = getApmeConfig(options.rootConfig);
+    this.baseUrl = config.baseUrl;
+    this.enableAi = config.enableAi;
+    // Note: checkSSL config is available but not used yet (for future TLS verification)
+    this.logger = options.logger.child({ service: 'ApmeClient' });
+    this.logger.debug(`APME client initialized with baseUrl: ${this.baseUrl}`);
+  }
+
+  private scanOperationOptions(): Record<string, boolean> {
+    return { enable_ai: this.enableAi };
+  }
+
+  private buildUrl(endpoint: string): string {
+    const path = endpoint.startsWith('/') ? endpoint : `/${endpoint}`;
+    return `${this.baseUrl}${path}`;
+  }
+
+  private async executeRequest<T>(
+    endpoint: string,
+    options: RequestInit = {},
+  ): Promise<T> {
+    const url = this.buildUrl(endpoint);
+    const headers: Record<string, string> = {
+      'Content-Type': 'application/json',
+      ...((options.headers as Record<string, string>) || {}),
+    };
+
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 30_000);
+    try {
+      const response = await fetch(url, {
+        ...options,
+        headers,
+        signal: controller.signal,
+      });
+
+      if (response.status === 404) {
+        throw new NotFoundError(`Resource not found: ${endpoint}`);
+      }
+
+      if (response.status === 409) {
+        const errorBody = await response.text();
+        const method = (options?.method ?? 'GET').toUpperCase();
+        const isStartOperation =
+          method === 'POST' && /\/operation$/.test(endpoint);
+        if (isStartOperation) {
+          throw new ConflictError(
+            'A scan is already in progress for this project',
+          );
+        }
+        throw new ConflictError(
+          errorBody || 'Request conflicted with existing state',
+        );
+      }
+
+      if (!response.ok) {
+        const errorBody = await response.text();
+        const msg = `APME request failed: ${response.status} ${response.statusText} - ${errorBody}`;
+        if (response.status >= 500) {
+          throw new Error(msg);
+        }
+        throw new InputError(msg);
+      }
+
+      // Handle 204 No Content responses
+      if (response.status === 204) {
+        return undefined as T;
+      }
+
+      return response.json() as Promise<T>;
+    } catch (error) {
+      if (
+        error instanceof NotFoundError ||
+        error instanceof InputError ||
+        error instanceof ConflictError
+      ) {
+        throw error;
+      }
+      this.logger.error(`APME request failed: ${endpoint}`, error as Error);
+      throw new InputError(
+        `Failed to connect to APME: ${(error as Error).message}`,
+      );
+    } finally {
+      clearTimeout(timeoutId);
+    }
+  }
+
+  async getHealth(): Promise<HealthStatus> {
+    return this.executeRequest<HealthStatus>('/api/v1/health');
+  }
+
+  async getAiModels(): Promise<
+    Array<{ id: string; provider: string; name: string }>
+  > {
+    try {
+      return await this.executeRequest<
+        Array<{ id: string; provider: string; name: string }>
+      >('/api/v1/ai/models');
+    } catch {
+      return [];
+    }
+  }
+
+  async getProjects(): Promise<Project[]> {
+    const response = await this.executeRequest<{ items: Project[] }>(
+      '/api/v1/projects',
+    );
+    return response.items || [];
+  }
+
+  async getProject(projectId: string): Promise<Project> {
+    return this.executeRequest<Project>(`/api/v1/projects/${projectId}`);
+  }
+
+  async getProjectByRepoUrl(
+    repoUrl: string,
+    branch?: string,
+  ): Promise<Project | null> {
+    try {
+      const branchQuery =
+        branch !== undefined && branch !== ''
+          ? `&branch=${encodeURIComponent(branch)}`
+          : '';
+      const project = await this.executeRequest<Project>(
+        `/api/v1/projects/lookup?repo_url=${encodeURIComponent(repoUrl)}${branchQuery}`,
+      );
+      return project;
+    } catch (error) {
+      if (error instanceof NotFoundError) {
+        return null;
+      }
+      throw error;
+    }
+  }
+
+  async getViolations(
+    projectId: string,
+    options?: { limit?: number },
+  ): Promise<Violation[]> {
+    const limitQuery =
+      options?.limit !== undefined ? `?limit=${options.limit}` : '';
+    // APME returns violations as a direct array, not wrapped in {items: []}
+    const response = await this.executeRequest<Violation[]>(
+      `/api/v1/projects/${projectId}/violations${limitQuery}`,
+    );
+    return (response || []).map(v => ({
+      ...v,
+      remediation_class: normalizeRemediationClass(
+        v.remediation_class,
+      ) as RemediationClass,
+    }));
+  }
+
+  async getProjectDependencies(
+    projectId: string,
+  ): Promise<ProjectDependencies> {
+    return this.executeRequest<ProjectDependencies>(
+      `/api/v1/projects/${projectId}/dependencies`,
+    );
+  }
+
+  async getRules(): Promise<Rule[]> {
+    const response = await this.executeRequest<
+      { items: GatewayRuleRow[] } | GatewayRuleRow[]
+    >('/api/v1/rules');
+    const rows = Array.isArray(response) ? response : response.items || [];
+    return normalizeGatewayRules(rows);
+  }
+
+  async updateRuleConfig(
+    ruleId: string,
+    body: RuleConfigUpdate,
+  ): Promise<Rule> {
+    const response = await this.executeRequest<GatewayRuleRow>(
+      `/api/v1/rules/${encodeURIComponent(ruleId)}/config`,
+      {
+        method: 'PUT',
+        body: JSON.stringify(body),
+      },
+    );
+    return normalizeGatewayRule(response);
+  }
+
+  async deleteRuleConfig(ruleId: string): Promise<void> {
+    await this.executeRequest<void>(
+      `/api/v1/rules/${encodeURIComponent(ruleId)}/config`,
+      { method: 'DELETE' },
+    );
+  }
+
+  async createSuppression(
+    body: CreateSuppressionRequest,
+  ): Promise<Suppression> {
+    return this.executeRequest<Suppression>('/api/v1/suppressions', {
+      method: 'POST',
+      body: JSON.stringify(body),
+    });
+  }
+
+  async deleteSuppression(suppressionId: number): Promise<void> {
+    await this.executeRequest<void>(`/api/v1/suppressions/${suppressionId}`, {
+      method: 'DELETE',
+    });
+  }
+
+  async getSuppressions(scope?: string): Promise<Suppression[]> {
+    const query =
+      scope !== undefined && scope !== ''
+        ? `?scope=${encodeURIComponent(scope)}`
+        : '';
+    return this.executeRequest<Suppression[]>(`/api/v1/suppressions${query}`);
+  }
+
+  async triggerScan(
+    projectId: string,
+    userIdentity?: { userEntityRef: string; orgEntityRef?: string },
+  ): Promise<ScanResult> {
+    const headers: Record<string, string> = {};
+    if (userIdentity) {
+      headers['X-User'] = userIdentity.userEntityRef;
+      if (userIdentity.orgEntityRef) {
+        headers['X-Org'] = userIdentity.orgEntityRef;
+      }
+    }
+
+    // Use the operation endpoint (ADR-052) to trigger a check
+    const response = await this.executeRequest<{ operation_id: string }>(
+      `/api/v1/projects/${projectId}/operation`,
+      {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({
+          action: 'check',
+          options: this.scanOperationOptions(),
+        }),
+      },
+    );
+
+    return {
+      scanId: response.operation_id,
+      projectId,
+      status: 'running',
+    };
+  }
+
+  async getScanStatus(projectId: string, scanId: string): Promise<ScanResult> {
+    return this.executeRequest<ScanResult>(
+      `/api/v1/projects/${projectId}/scans/${scanId}`,
+    );
+  }
+
+  async createProject(request: CreateProjectRequest): Promise<Project> {
+    return this.executeRequest<Project>('/api/v1/projects', {
+      method: 'POST',
+      body: JSON.stringify(request),
+    });
+  }
+
+  async deleteProject(projectId: string): Promise<void> {
+    await this.executeRequest<void>(`/api/v1/projects/${projectId}`, {
+      method: 'DELETE',
+    });
+  }
+
+  async getActivity(projectId: string): Promise<Activity[]> {
+    const response = await this.executeRequest<{ items: Activity[] }>(
+      `/api/v1/projects/${projectId}/activity`,
+    );
+    return response.items || [];
+  }
+
+  async getActivityDetail(activityId: string): Promise<ActivityDetail> {
+    const detail = await this.executeRequest<ActivityDetail>(
+      `/api/v1/activity/${activityId}`,
+    );
+    return {
+      ...detail,
+      violations: (detail.violations ?? []).map(v => ({
+        ...v,
+        remediation_class: normalizeRemediationClass(
+          v.remediation_class,
+        ) as RemediationClass,
+      })),
+    };
+  }
+
+  async getOperationState(projectId: string): Promise<OperationState | null> {
+    try {
+      return await this.executeRequest<OperationState>(
+        `/api/v1/projects/${projectId}/operation`,
+      );
+    } catch (error) {
+      if (error instanceof NotFoundError) {
+        return null;
+      }
+      throw error;
+    }
+  }
+
+  async triggerRemediate(
+    projectId: string,
+    violationIds?: number[],
+  ): Promise<ScanResult> {
+    const options: Record<string, unknown> = { ...this.scanOperationOptions() };
+    if (violationIds && violationIds.length > 0) {
+      options.violation_ids = violationIds;
+    }
+    const response = await this.executeRequest<{ operation_id: string }>(
+      `/api/v1/projects/${projectId}/operation`,
+      {
+        method: 'POST',
+        body: JSON.stringify({
+          action: 'remediate',
+          options,
+        }),
+      },
+    );
+    return {
+      scanId: response.operation_id,
+      projectId,
+      status: 'running',
+    };
+  }
+
+  async approveProposals(
+    projectId: string,
+    proposalIds: string[],
+  ): Promise<void> {
+    await this.executeRequest<void>(
+      `/api/v1/projects/${projectId}/operation/approve`,
+      {
+        method: 'POST',
+        body: JSON.stringify({ approved_ids: proposalIds }),
+      },
+    );
+  }
+
+  async submitRemediation(
+    projectId: string,
+    body: SubmitRemediationRequest,
+  ): Promise<SubmitRemediationResult> {
+    return this.executeRequest<SubmitRemediationResult>(
+      `/api/v1/projects/${projectId}/operation/submit`,
+      {
+        method: 'POST',
+        body: JSON.stringify(body),
+      },
+    );
+  }
+
+  async createPullRequest(
+    projectId: string,
+    activityId: string,
+    scmToken?: string,
+    branchName?: string,
+  ): Promise<CreatePullRequestResult> {
+    const body: SubmitRemediationRequest = {
+      activity_id: activityId,
+      create_pr: true,
+    };
+    if (scmToken) {
+      body.scm_token = scmToken;
+    }
+    if (branchName) {
+      body.branch_name = branchName;
+    }
+    const result = await this.submitRemediation(projectId, body);
+    if (!result.pr_url) {
+      throw new InputError('Gateway submit completed without a PR URL');
+    }
+    return {
+      pr_url: result.pr_url,
+      branch_name: result.branch_name,
+      provider: result.provider,
+      commit_sha: result.commit_sha,
+    };
+  }
+}
+
+export type IApmeService = Pick<
+  ApmeClient,
+  | 'getHealth'
+  | 'getAiModels'
+  | 'getProjects'
+  | 'getProject'
+  | 'getProjectByRepoUrl'
+  | 'getViolations'
+  | 'getProjectDependencies'
+  | 'getRules'
+  | 'updateRuleConfig'
+  | 'deleteRuleConfig'
+  | 'createSuppression'
+  | 'deleteSuppression'
+  | 'getSuppressions'
+  | 'triggerScan'
+  | 'getScanStatus'
+  | 'createProject'
+  | 'deleteProject'
+  | 'getActivity'
+  | 'getActivityDetail'
+  | 'getOperationState'
+  | 'triggerRemediate'
+  | 'approveProposals'
+  | 'submitRemediation'
+  | 'createPullRequest'
+>;
