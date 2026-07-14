@@ -78,7 +78,7 @@ describe('AAPEntityProvider', () => {
       kind: 'Group',
       metadata: {
         namespace: 'default',
-        name: 'aap-default',
+        name: 'default',
         title: 'Default',
         annotations: {
           'backstage.io/managed-by-location':
@@ -1006,7 +1006,7 @@ describe('AAPEntityProvider', () => {
               entity: expect.objectContaining({
                 kind: 'Group',
                 metadata: expect.objectContaining({
-                  name: 'aap-default',
+                  name: 'default',
                   title: 'Default',
                 }),
               }),
@@ -1096,10 +1096,10 @@ describe('AAPEntityProvider', () => {
           namespace: e.entity.metadata.namespace,
         }));
 
-      // Default org → aap-default namespace, Engineering org → engineering namespace
+      // Default org → default namespace, Engineering org → engineering namespace
       expect(groups).toContainEqual({
-        name: 'aap-default',
-        namespace: 'aap-default',
+        name: 'default',
+        namespace: 'default',
       });
       expect(groups).toContainEqual({
         name: 'engineering',
@@ -1120,7 +1120,7 @@ describe('AAPEntityProvider', () => {
 
       expect(teams).toContainEqual({
         name: 'team-alpha',
-        namespace: 'aap-default',
+        namespace: 'default',
       });
       expect(teams).toContainEqual({
         name: 'team-beta',
@@ -1275,10 +1275,8 @@ describe('AAPEntityProvider', () => {
       );
       expect(alice.entity.metadata.namespace).toBe('default');
 
-      // Membership refs use full entity refs (cross-namespace)
-      expect(alice.entity.spec.memberOf).toContain(
-        'group:aap-default/team-alpha',
-      );
+      // In default namespace, memberOf uses short refs
+      expect(alice.entity.spec.memberOf).toContain('team-alpha');
     });
 
     it('should use full user refs in org member lists in multi-org mode', async () => {
@@ -1331,7 +1329,7 @@ describe('AAPEntityProvider', () => {
 
       // Org members should use full entity refs since users are in default namespace
       const defaultOrg = call.entities.find(
-        (e: any) => e.entity.metadata?.name === 'aap-default',
+        (e: any) => e.entity.metadata?.name === 'default',
       );
       expect(defaultOrg.entity.spec.members).toContain('user:default/alice');
     });

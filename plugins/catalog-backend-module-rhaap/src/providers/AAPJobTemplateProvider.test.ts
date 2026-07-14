@@ -1235,7 +1235,7 @@ describe('AAPJobTemplateProvider', () => {
       const defaultTemplate = call.entities.find(
         (e: any) => e.entity.metadata?.name === 'test-job-template',
       );
-      expect(defaultTemplate.entity.metadata.namespace).toBe('aap-default');
+      expect(defaultTemplate.entity.metadata.namespace).toBe('default');
 
       const engTemplate = call.entities.find(
         (e: any) => e.entity.metadata?.name === 'deploy-service',

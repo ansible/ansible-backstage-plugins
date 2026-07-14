@@ -41,13 +41,11 @@ test('Multi-Org Catalog API: superuser entity structure', async ({ page }) => {
   );
 
   // Team memberships spanning both org namespaces
-  const inDefaultOrg = memberOf.some(m => m.includes('aap-default/'));
+  const inDefaultOrg = memberOf.some(m => m.includes('default/'));
   const in11Org = memberOf.some(m => m.includes('11org/'));
   expect(
     inDefaultOrg,
-    `Admin should have team in aap-default. memberOf: ${JSON.stringify(
-      memberOf,
-    )}`,
+    `Admin should have team in default. memberOf: ${JSON.stringify(memberOf)}`,
   ).toBe(true);
   expect(
     in11Org,
@@ -55,7 +53,7 @@ test('Multi-Org Catalog API: superuser entity structure', async ({ page }) => {
   ).toBe(true);
 
   // --- Org group entities ---
-  for (const orgName of ['aap-default', '11org']) {
+  for (const orgName of ['default', '11org']) {
     const orgResult = await catalogFetch(
       page,
       `/entities/by-name/group/default/${orgName}`,

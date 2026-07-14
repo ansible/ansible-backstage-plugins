@@ -43,7 +43,7 @@ test('Multi-Org UI: admin user entity page', async ({ page }) => {
 });
 
 test('Multi-Org UI: org group entity pages', async ({ page }) => {
-  for (const orgSlug of ['aap-default', '11org']) {
+  for (const orgSlug of ['default', '11org']) {
     await page.goto(`/catalog/default/group/${orgSlug}`, {
       waitUntil: 'domcontentloaded',
     });
@@ -65,9 +65,9 @@ test('Multi-Org UI: catalog lists org group entities', async ({ page }) => {
   await expect(page.locator('main')).toBeVisible();
 
   const tableOrList = page.locator('main');
-  await expect(
-    tableOrList.getByText(/aap-default|Default/i).first(),
-  ).toBeVisible({ timeout: 15000 });
+  await expect(tableOrList.getByText(/default|Default/i).first()).toBeVisible({
+    timeout: 15000,
+  });
   await expect(tableOrList.getByText(/11org|11-org/i).first()).toBeVisible({
     timeout: 15000,
   });

@@ -947,7 +947,7 @@ export function formatNameSpace(name: string): string {
       `Organization name "${name}" contains no valid characters for namespace conversion`,
     );
   }
-  return sanitized === 'default' ? 'aap-default' : sanitized;
+  return sanitized;
 }
 
 export function getEffectiveNamespace(
