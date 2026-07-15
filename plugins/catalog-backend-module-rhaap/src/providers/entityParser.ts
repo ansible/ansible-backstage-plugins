@@ -90,8 +90,10 @@ export function teamParser(options: {
   team: Team;
   teamMembers: string[];
   orgName?: string;
+  orgGroupName?: string;
 }): Entity {
-  const { baseUrl, team, nameSpace, teamMembers, orgName } = options;
+  const { baseUrl, team, nameSpace, teamMembers, orgName, orgGroupName } =
+    options;
   const normalizedBaseUrl = normalizeBaseUrl(baseUrl);
   const title = orgName ? `${team.name} [${orgName}]` : team.name;
   return {
@@ -110,6 +112,7 @@ export function teamParser(options: {
     },
     spec: {
       type: 'team',
+      ...(orgGroupName && { parent: orgGroupName }),
       children: [],
       members: teamMembers,
     },
@@ -129,7 +132,7 @@ export function userParser(options: {
   // Add aap-admins group for superusers (this should always be included)
   const finalGroupMemberships = [...groupMemberships];
   if (user.is_superuser === true) {
-    finalGroupMemberships.push('aap-admins');
+    finalGroupMemberships.push('group:default/aap-admins');
   }
 
   const name =

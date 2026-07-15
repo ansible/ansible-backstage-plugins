@@ -90,7 +90,7 @@ describe('AAPEntityProvider', () => {
       spec: {
         type: 'organization',
         children: ['team-a', 'team-b'],
-        members: ['user1', 'user2'],
+        members: ['user:default/user2'],
       },
     },
     {
@@ -110,6 +110,7 @@ describe('AAPEntityProvider', () => {
       },
       spec: {
         type: 'team',
+        parent: 'default',
         children: [],
         members: [],
       },
@@ -131,6 +132,7 @@ describe('AAPEntityProvider', () => {
       },
       spec: {
         type: 'team',
+        parent: 'default',
         children: [],
         members: [],
       },
@@ -156,7 +158,7 @@ describe('AAPEntityProvider', () => {
           displayName: 'User1 Last1',
           email: 'user1@test.com',
         },
-        memberOf: ['team-a', 'team-b'],
+        memberOf: ['group:default/team-a', 'group:default/team-b'],
       },
     },
     {
@@ -180,7 +182,7 @@ describe('AAPEntityProvider', () => {
           displayName: 'User2 Last2',
           email: 'user2@test.com',
         },
-        memberOf: ['team-b'],
+        memberOf: ['group:default/team-b'],
       },
     },
     {
@@ -199,7 +201,7 @@ describe('AAPEntityProvider', () => {
         title: 'TeamUser1 Last1',
       },
       spec: {
-        memberOf: ['team-a', 'team-b'],
+        memberOf: ['group:default/team-a', 'group:default/team-b'],
         profile: {
           displayName: 'TeamUser1 Last1',
           email: 'teamuser1@test.com',
@@ -223,7 +225,7 @@ describe('AAPEntityProvider', () => {
         title: 'TeamUser2 Last2',
       },
       spec: {
-        memberOf: ['team-b'],
+        memberOf: ['group:default/team-b'],
         profile: {
           displayName: 'TeamUser2 Last2',
           email: 'teamuser2@test.com',
@@ -565,7 +567,7 @@ describe('AAPEntityProvider', () => {
                 name: 'testuser',
               }),
               spec: expect.objectContaining({
-                memberOf: ['team-a', 'default'],
+                memberOf: ['group:default/team-a', 'group:default/default'],
               }),
             }),
             locationKey: 'AapEntityProvider:development',
@@ -623,7 +625,7 @@ describe('AAPEntityProvider', () => {
                 name: 'admin',
               }),
               spec: expect.objectContaining({
-                memberOf: ['aap-admins'],
+                memberOf: ['group:default/aap-admins'],
               }),
             }),
             locationKey: 'AapEntityProvider:development',
@@ -752,7 +754,7 @@ describe('AAPEntityProvider', () => {
           {
             entity: expect.objectContaining({
               spec: expect.objectContaining({
-                memberOf: ['default'],
+                memberOf: ['group:default/default'],
               }),
             }),
             locationKey: 'AapEntityProvider:development',
@@ -807,7 +809,7 @@ describe('AAPEntityProvider', () => {
           {
             entity: expect.objectContaining({
               spec: expect.objectContaining({
-                memberOf: ['team-a', 'default'],
+                memberOf: ['group:default/team-a', 'group:default/default'],
               }),
             }),
             locationKey: 'AapEntityProvider:development',
@@ -847,7 +849,7 @@ describe('AAPEntityProvider', () => {
           {
             entity: expect.objectContaining({
               spec: expect.objectContaining({
-                memberOf: ['default'],
+                memberOf: ['group:default/default'],
               }),
             }),
             locationKey: 'AapEntityProvider:development',
@@ -917,7 +919,7 @@ describe('AAPEntityProvider', () => {
           {
             entity: expect.objectContaining({
               spec: expect.objectContaining({
-                memberOf: ['team-a'],
+                memberOf: ['group:default/team-a'],
               }),
             }),
             locationKey: 'AapEntityProvider:development',
@@ -1275,8 +1277,8 @@ describe('AAPEntityProvider', () => {
       );
       expect(alice.entity.metadata.namespace).toBe('default');
 
-      // In default namespace, memberOf uses short refs
-      expect(alice.entity.spec.memberOf).toContain('team-alpha');
+      // memberOf always uses full refs
+      expect(alice.entity.spec.memberOf).toContain('group:default/team-alpha');
     });
 
     it('should use full user refs in org member lists in multi-org mode', async () => {
