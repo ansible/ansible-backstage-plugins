@@ -25,7 +25,11 @@ import { organizationParser, teamParser, userParser } from './entityParser';
 import { resolveTaskRunner } from './helpers';
 import { SyncStateTracker } from './SyncStateTracker';
 import { AapConfig } from './types';
-import { getEffectiveNamespace, validateNamespace } from '../helpers';
+import {
+  formatNameSpace,
+  getEffectiveNamespace,
+  validateNamespace,
+} from '../helpers';
 
 export class AAPEntityProvider implements EntityProvider {
   private readonly env: string;
@@ -220,7 +224,7 @@ export class AAPEntityProvider implements EntityProvider {
         const orgUsers = org.users
           ? (Object.values(org.users)
               .map(user => {
-                if (user.is_orguser && !user.is_orguser) {
+                if (user.is_orguser === false) {
                   return null;
                 }
                 return user.username;
@@ -228,10 +232,8 @@ export class AAPEntityProvider implements EntityProvider {
               .filter(user => !!user) as string[])
           : [];
 
-        // In multi-org mode, users live in 'default' namespace — use full refs
-        const orgMemberRefs = isMultiOrg
-          ? orgUsers.map(u => `user:default/${u}`)
-          : orgUsers;
+        // Users live in 'default' namespace as they can be part of multiple orgs
+        const orgMemberRefs = orgUsers.map(u => `user:default/${u}`);
 
         entities.push(
           organizationParser({
@@ -254,6 +256,7 @@ export class AAPEntityProvider implements EntityProvider {
               team: team as unknown as Team,
               teamMembers: [],
               orgName: isMultiOrg ? orgName : undefined,
+              orgGroupName: formatNameSpace(orgName),
             }),
           );
           groupCount += 1;
@@ -297,9 +300,7 @@ export class AAPEntityProvider implements EntityProvider {
                       this.orgs,
                     );
                     userMembers.push(
-                      memberNs === 'default'
-                        ? matchingTeam.groupName
-                        : `group:${memberNs}/${matchingTeam.groupName}`,
+                      `group:${memberNs}/${matchingTeam.groupName}`,
                     );
                     matched = true;
                     break;
@@ -377,9 +378,7 @@ export class AAPEntityProvider implements EntityProvider {
                       this.orgs,
                     );
                     userMembers.push(
-                      sysNs === 'default'
-                        ? matchingTeam.groupName
-                        : `group:${sysNs}/${matchingTeam.groupName}`,
+                      `group:${sysNs}/${matchingTeam.groupName}`,
                     );
                     break;
                   }
@@ -509,18 +508,14 @@ export class AAPEntityProvider implements EntityProvider {
         .filter(org => this.orgs.includes(org.name.toLowerCase()))
         .map(org => {
           const ns = getEffectiveNamespace(org.name, this.orgs);
-          return ns === 'default'
-            ? org.groupName
-            : `group:${ns}/${org.groupName}`;
+          return `group:${ns}/${org.groupName}`;
         });
 
       const teamsInConfiguredOrgs = userTeams
         .filter(team => this.orgs.includes(team.orgName.toLowerCase()))
         .map(team => {
           const ns = getEffectiveNamespace(team.orgName, this.orgs);
-          return ns === 'default'
-            ? team.groupName
-            : `group:${ns}/${team.groupName}`;
+          return `group:${ns}/${team.groupName}`;
         });
 
       const hasDirectOrgAccess = matchingOrgs.length > 0;
