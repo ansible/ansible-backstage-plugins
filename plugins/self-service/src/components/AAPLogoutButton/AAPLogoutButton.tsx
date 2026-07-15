@@ -44,11 +44,7 @@ const AAPLogoutButtonInner = () => {
       // Ignore if not logged into AAP
     }
 
-    try {
-      await identityApi.signOut();
-    } catch (error) {
-      errorApi.post(error);
-    }
+    identityApi.signOut().catch(error => errorApi.post(error));
 
     const aapHost = config
       .getOptionalString('ansible.rhaap.baseUrl')
