@@ -12,19 +12,16 @@ jest.mock('./notificationStore', () => ({
   },
 }));
 
-jest.mock('../CollectionsCatalog/collectionsCache', () => ({
-  collectionsCache: {
-    invalidateFetchedData: jest.fn(),
-  },
+jest.mock('../CollectionsCatalog/collectionsInvalidation', () => ({
+  invalidateCollections: jest.fn(),
 }));
 
-import { collectionsCache } from '../CollectionsCatalog/collectionsCache';
+import { invalidateCollections } from '../CollectionsCatalog/collectionsInvalidation';
 
 const mockShowNotification = notificationStore.showNotification as jest.Mock;
-const mockInvalidateFetchedData =
-  collectionsCache.invalidateFetchedData as jest.MockedFunction<
-    typeof collectionsCache.invalidateFetchedData
-  >;
+const mockInvalidateFetchedData = invalidateCollections as jest.MockedFunction<
+  typeof invalidateCollections
+>;
 
 describe('syncPollingService', () => {
   let mockDiscoveryApi: { getBaseUrl: jest.Mock };

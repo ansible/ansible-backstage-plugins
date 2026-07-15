@@ -50,5 +50,8 @@ export type {
   UsePaginatedCollectionsResult,
 } from './usePaginatedCollections';
 
-export { collectionsCache } from './collectionsCache';
-export type { CollectionsCacheState } from './collectionsCache';
+export {
+  invalidateCollections,
+  setCollectionsInvalidateCallback,
+  clearCollectionsInvalidateCallback,
+} from './collectionsInvalidation';

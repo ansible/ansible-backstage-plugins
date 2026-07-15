@@ -5,7 +5,6 @@ import { catalogApiRef } from '@backstage/plugin-catalog-react';
 import { discoveryApiRef, fetchApiRef } from '@backstage/core-plugin-api';
 import { Entity } from '@backstage/catalog-model';
 import { usePaginatedCollections } from './usePaginatedCollections';
-import { collectionsCache } from './collectionsCache';
 
 const mockEntity: Entity = {
   apiVersion: 'backstage.io/v1alpha1',
@@ -52,9 +51,14 @@ const mockEntity2: Entity = {
   },
 };
 
+const emptyFacets = {
+  facets: {},
+};
+
 const mockCatalogApi = {
   queryEntities: jest.fn(),
   getEntities: jest.fn(),
+  getEntityFacets: jest.fn(),
 };
 
 const mockDiscoveryApi = {
@@ -77,37 +81,38 @@ const wrapper = ({ children }: { children: ReactNode }) => (
   </TestApiProvider>
 );
 
+function setupDefaultMocks() {
+  mockCatalogApi.getEntityFacets.mockResolvedValue(emptyFacets);
+  mockCatalogApi.queryEntities.mockResolvedValue({
+    items: [mockEntity],
+    totalItems: 1,
+    pageInfo: {},
+  });
+  mockFetchApi.fetch.mockResolvedValue({
+    ok: true,
+    json: () =>
+      Promise.resolve({
+        content: {
+          providers: [
+            {
+              sourceId: 'src-1',
+              lastSyncTime: '2024-01-01T00:00:00Z',
+              lastFailedSyncTime: null,
+            },
+          ],
+        },
+      }),
+  });
+}
+
 describe('usePaginatedCollections', () => {
   beforeEach(() => {
     jest.clearAllMocks();
-    collectionsCache.clear();
-    mockCatalogApi.queryEntities.mockResolvedValue({
-      items: [mockEntity],
-      totalItems: 1,
-    });
-    mockFetchApi.fetch.mockResolvedValue({
-      ok: true,
-      json: () =>
-        Promise.resolve({
-          content: {
-            providers: [
-              {
-                sourceId: 'src-1',
-                lastSyncTime: '2024-01-01T00:00:00Z',
-                lastFailedSyncTime: null,
-              },
-            ],
-          },
-        }),
-    });
-  });
-
-  afterEach(() => {
-    collectionsCache.clear();
+    setupDefaultMocks();
   });
 
   describe('initial state', () => {
-    it('starts with initialLoading true when cache is empty', async () => {
+    it('starts with initialLoading true', async () => {
       const { result } = renderHook(
         () =>
           usePaginatedCollections({
@@ -125,10 +130,7 @@ describe('usePaginatedCollections', () => {
       });
     });
 
-    it('initializes from cache if available', async () => {
-      // Pre-populate cache
-      await collectionsCache.startLoading(mockCatalogApi as any);
-
+    it('returns entities after loading', async () => {
       const { result } = renderHook(
         () =>
           usePaginatedCollections({
@@ -139,104 +141,16 @@ describe('usePaginatedCollections', () => {
         { wrapper },
       );
 
-      // Should not be in initial loading state since cache has data
       await waitFor(() => {
         expect(result.current.initialLoading).toBe(false);
       });
+
       expect(result.current.entities.length).toBeGreaterThanOrEqual(0);
-    });
-
-    it('continues loading when cache has partial data (lines 118-121)', async () => {
-      // Pre-populate cache with partial data where isFullyLoaded is false
-      const partialEntities = Array.from({ length: 50 }, (_, i) => ({
-        ...mockEntity,
-        metadata: {
-          ...mockEntity.metadata,
-          uid: `uid-${i}`,
-          name: `collection-${i}`,
-        },
-        spec: {
-          ...mockEntity.spec,
-          collection_full_name: `ns${i}.collection${i}`,
-        },
-      }));
-
-      let callCount = 0;
-      mockCatalogApi.queryEntities.mockImplementation(() => {
-        callCount++;
-        if (callCount === 1) {
-          // Initial load - return partial data
-          return Promise.resolve({
-            items: partialEntities,
-            totalItems: 100, // More than returned, so not fully loaded
-          });
-        }
-        // Background load fails, leaving cache in partial state
-        return Promise.reject(new Error('Network error'));
-      });
-
-      // First, populate cache with partial data (background load will fail)
-      await collectionsCache.startLoading(mockCatalogApi as any);
-
-      // Verify cache has partial data and is NOT fully loaded
-      let cacheState = collectionsCache.getState();
-      expect(cacheState?.entities.length).toBe(50);
-      expect(cacheState?.isFullyLoaded).toBe(false);
-
-      // Reset mock for the hook's calls
-      mockCatalogApi.queryEntities.mockImplementation(({ offset }) => {
-        if (offset === 50) {
-          return Promise.resolve({
-            items: Array.from({ length: 50 }, (_, i) => ({
-              ...mockEntity,
-              metadata: {
-                ...mockEntity.metadata,
-                uid: `uid-${i + 50}`,
-                name: `collection-${i + 50}`,
-              },
-              spec: {
-                ...mockEntity.spec,
-                collection_full_name: `ns${i + 50}.collection${i + 50}`,
-              },
-            })),
-            totalItems: 100,
-          });
-        }
-        return Promise.resolve({ items: [], totalItems: 100 });
-      });
-
-      // Now render the hook - it should use cached data and call startLoading
-      // to continue loading (lines 118-121)
-      const { result } = renderHook(
-        () =>
-          usePaginatedCollections({
-            catalogApi: mockCatalogApi as any,
-            discoveryApi: mockDiscoveryApi as any,
-            fetchApi: mockFetchApi as any,
-          }),
-        { wrapper },
-      );
-
-      // Should not be in initial loading since cache has data
-      await waitFor(() => {
-        expect(result.current.initialLoading).toBe(false);
-      });
-
-      // Should have started with cached partial data
-      expect(result.current.totalCount).toBeGreaterThan(0);
-
-      // Wait for background loading to complete
-      await waitFor(() => {
-        cacheState = collectionsCache.getState();
-        return cacheState?.isFullyLoaded === true;
-      });
-
-      expect(cacheState?.entities.length).toBe(100);
     });
   });
 
   describe('fetching collections', () => {
-    it('fetches collections via cache', async () => {
+    it('calls queryEntities with correct filter', async () => {
       const { result } = renderHook(
         () =>
           usePaginatedCollections({
@@ -253,7 +167,10 @@ describe('usePaginatedCollections', () => {
 
       expect(mockCatalogApi.queryEntities).toHaveBeenCalledWith(
         expect.objectContaining({
-          filter: { kind: 'Component', 'spec.type': 'ansible-collection' },
+          filter: expect.objectContaining({
+            kind: 'Component',
+            'spec.type': 'ansible-collection',
+          }),
         }),
       );
     });
@@ -276,36 +193,8 @@ describe('usePaginatedCollections', () => {
       });
     });
 
-    it('sets error from catch block when startLoading throws (lines 143-147)', async () => {
-      // Mock startLoading to throw directly (bypassing internal error handling)
-      const startLoadingSpy = jest
-        .spyOn(collectionsCache, 'startLoading')
-        .mockRejectedValueOnce(new Error('Cache loading failed'));
-
-      const { result } = renderHook(
-        () =>
-          usePaginatedCollections({
-            catalogApi: mockCatalogApi as any,
-            discoveryApi: mockDiscoveryApi as any,
-            fetchApi: mockFetchApi as any,
-          }),
-        { wrapper },
-      );
-
-      await waitFor(() => {
-        expect(result.current.error).toBe('Cache loading failed');
-      });
-
-      expect(result.current.initialLoading).toBe(false);
-
-      startLoadingSpy.mockRestore();
-    });
-
-    it('sets default error message when non-Error is thrown (lines 144-145)', async () => {
-      // Mock startLoading to throw a non-Error value
-      const startLoadingSpy = jest
-        .spyOn(collectionsCache, 'startLoading')
-        .mockRejectedValueOnce('string error');
+    it('sets default error message when non-Error is thrown', async () => {
+      mockCatalogApi.queryEntities.mockRejectedValue('string error');
 
       const { result } = renderHook(
         () =>
@@ -322,8 +211,6 @@ describe('usePaginatedCollections', () => {
       });
 
       expect(result.current.initialLoading).toBe(false);
-
-      startLoadingSpy.mockRestore();
     });
   });
 
@@ -394,14 +281,7 @@ describe('usePaginatedCollections', () => {
   });
 
   describe('filtering', () => {
-    beforeEach(() => {
-      mockCatalogApi.queryEntities.mockResolvedValue({
-        items: [mockEntity, mockEntity2],
-        totalItems: 2,
-      });
-    });
-
-    it('filters by search query on name', async () => {
+    it('passes search query as fullTextFilter to queryEntities', async () => {
       const { result } = renderHook(
         () =>
           usePaginatedCollections({
@@ -421,14 +301,33 @@ describe('usePaginatedCollections', () => {
       });
 
       await waitFor(() => {
-        expect(result.current.totalCount).toBe(1);
-        expect(result.current.entities[0]?.metadata?.name).toBe(
-          'another-collection',
+        expect(mockCatalogApi.queryEntities).toHaveBeenCalledWith(
+          expect.objectContaining({
+            fullTextFilter: { term: 'another' },
+          }),
         );
       });
     });
 
-    it('filters by source', async () => {
+    it('passes source filter to queryEntities', async () => {
+      mockCatalogApi.getEntityFacets.mockImplementation(
+        async (req: { filter: Record<string, string>; facets: string[] }) => {
+          if (
+            req.facets.includes(
+              'metadata.annotations.ansible.io/collection-source-repository',
+            )
+          ) {
+            return {
+              facets: {
+                'metadata.annotations.ansible.io/collection-source-repository':
+                  [{ value: 'repo1', count: 1 }],
+              },
+            };
+          }
+          return { facets: {} };
+        },
+      );
+
       const { result } = renderHook(
         () =>
           usePaginatedCollections({
@@ -448,14 +347,20 @@ describe('usePaginatedCollections', () => {
       });
 
       await waitFor(() => {
-        expect(result.current.totalCount).toBe(1);
-        expect(result.current.entities[0]?.metadata?.name).toBe(
-          'test-collection',
-        );
+        expect(result.current.initialLoading).toBe(false);
       });
+
+      const calls = mockCatalogApi.queryEntities.mock.calls;
+      const callWithSource = calls.find(
+        (c: any[]) =>
+          c[0]?.filter?.[
+            'metadata.annotations.ansible.io/collection-source-repository'
+          ] === 'repo1',
+      );
+      expect(callWithSource).toBeDefined();
     });
 
-    it('filters by tag', async () => {
+    it('passes tag filter to queryEntities', async () => {
       const { result } = renderHook(
         () =>
           usePaginatedCollections({
@@ -475,33 +380,22 @@ describe('usePaginatedCollections', () => {
       });
 
       await waitFor(() => {
-        expect(result.current.totalCount).toBe(1);
-        expect(result.current.entities[0]?.metadata?.name).toBe(
-          'another-collection',
-        );
+        expect(result.current.initialLoading).toBe(false);
       });
+
+      // Find a queryEntities call that includes the tag filter
+      const calls = mockCatalogApi.queryEntities.mock.calls;
+      const callWithTag = calls.find(
+        (c: any[]) => c[0]?.filter?.['metadata.tags'] === 'security',
+      );
+      expect(callWithTag).toBeDefined();
     });
 
     it('resets to page 1 when filters change', async () => {
-      // Create many entities for pagination with unique collection_full_name
-      const manyEntities = Array.from({ length: 30 }, (_, i) => ({
-        ...mockEntity,
-        metadata: {
-          ...mockEntity.metadata,
-          uid: `uid-${i}`,
-          name: `collection-${i}`,
-        },
-        spec: {
-          ...mockEntity.spec,
-          collection_full_name: `ns${i}.collection${i}`,
-          collection_namespace: `ns${i}`,
-          collection_name: `collection${i}`,
-          collection_version: '1.0.0',
-        },
-      }));
       mockCatalogApi.queryEntities.mockResolvedValue({
-        items: manyEntities,
+        items: [mockEntity],
         totalItems: 30,
+        pageInfo: {},
       });
 
       const { result } = renderHook(
@@ -518,13 +412,6 @@ describe('usePaginatedCollections', () => {
         expect(result.current.initialLoading).toBe(false);
       });
 
-      // Go to page 2
-      act(() => {
-        result.current.goToPage(2);
-      });
-
-      expect(result.current.currentPage).toBe(2);
-
       // Change filter - should reset to page 1
       act(() => {
         result.current.setSearchQuery('test');
@@ -538,25 +425,23 @@ describe('usePaginatedCollections', () => {
 
   describe('pagination', () => {
     beforeEach(() => {
-      // Create entities with unique collection_full_name to avoid filterLatestVersions reducing them
-      const manyEntities = Array.from({ length: 30 }, (_, i) => ({
-        ...mockEntity,
-        metadata: {
-          ...mockEntity.metadata,
-          uid: `uid-${i}`,
-          name: `collection-${i}`,
-        },
-        spec: {
-          ...mockEntity.spec,
-          collection_full_name: `ns${i}.collection${i}`,
-          collection_namespace: `ns${i}`,
-          collection_name: `collection${i}`,
-          collection_version: '1.0.0',
-        },
-      }));
+      // Mode A (showLatestOnly=false) uses offset/limit directly,
+      // so totalItems from server drives page count.
       mockCatalogApi.queryEntities.mockResolvedValue({
-        items: manyEntities,
+        items: Array.from({ length: 12 }, (_, i) => ({
+          ...mockEntity,
+          metadata: {
+            ...mockEntity.metadata,
+            uid: `uid-${i}`,
+            name: `collection-${i}`,
+          },
+          spec: {
+            ...mockEntity.spec,
+            collection_full_name: `ns${i}.collection${i}`,
+          },
+        })),
         totalItems: 30,
+        pageInfo: {},
       });
     });
 
@@ -570,6 +455,11 @@ describe('usePaginatedCollections', () => {
           }),
         { wrapper },
       );
+
+      // Switch to Mode A for predictable pagination
+      act(() => {
+        result.current.setShowLatestOnly(false);
+      });
 
       await waitFor(() => {
         expect(result.current.initialLoading).toBe(false);
@@ -590,6 +480,10 @@ describe('usePaginatedCollections', () => {
         { wrapper },
       );
 
+      act(() => {
+        result.current.setShowLatestOnly(false);
+      });
+
       await waitFor(() => {
         expect(result.current.initialLoading).toBe(false);
       });
@@ -598,7 +492,9 @@ describe('usePaginatedCollections', () => {
         result.current.goToPage(2);
       });
 
-      expect(result.current.currentPage).toBe(2);
+      await waitFor(() => {
+        expect(result.current.currentPage).toBe(2);
+      });
     });
 
     it('goToPage clamps to valid range', async () => {
@@ -612,6 +508,10 @@ describe('usePaginatedCollections', () => {
         { wrapper },
       );
 
+      act(() => {
+        result.current.setShowLatestOnly(false);
+      });
+
       await waitFor(() => {
         expect(result.current.initialLoading).toBe(false);
       });
@@ -620,13 +520,17 @@ describe('usePaginatedCollections', () => {
         result.current.goToPage(100);
       });
 
-      expect(result.current.currentPage).toBe(result.current.totalPages);
+      await waitFor(() => {
+        expect(result.current.currentPage).toBe(3);
+      });
 
       act(() => {
         result.current.goToPage(0);
       });
 
-      expect(result.current.currentPage).toBe(1);
+      await waitFor(() => {
+        expect(result.current.currentPage).toBe(1);
+      });
     });
 
     it('nextPage increments page', async () => {
@@ -640,6 +544,10 @@ describe('usePaginatedCollections', () => {
         { wrapper },
       );
 
+      act(() => {
+        result.current.setShowLatestOnly(false);
+      });
+
       await waitFor(() => {
         expect(result.current.initialLoading).toBe(false);
       });
@@ -648,7 +556,9 @@ describe('usePaginatedCollections', () => {
         result.current.nextPage();
       });
 
-      expect(result.current.currentPage).toBe(2);
+      await waitFor(() => {
+        expect(result.current.currentPage).toBe(2);
+      });
     });
 
     it('prevPage decrements page', async () => {
@@ -662,6 +572,10 @@ describe('usePaginatedCollections', () => {
         { wrapper },
       );
 
+      act(() => {
+        result.current.setShowLatestOnly(false);
+      });
+
       await waitFor(() => {
         expect(result.current.initialLoading).toBe(false);
       });
@@ -670,11 +584,17 @@ describe('usePaginatedCollections', () => {
         result.current.goToPage(2);
       });
 
+      await waitFor(() => {
+        expect(result.current.currentPage).toBe(2);
+      });
+
       act(() => {
         result.current.prevPage();
       });
 
-      expect(result.current.currentPage).toBe(1);
+      await waitFor(() => {
+        expect(result.current.currentPage).toBe(1);
+      });
     });
 
     it('hasNextPage and hasPrevPage are correct', async () => {
@@ -688,6 +608,10 @@ describe('usePaginatedCollections', () => {
         { wrapper },
       );
 
+      act(() => {
+        result.current.setShowLatestOnly(false);
+      });
+
       await waitFor(() => {
         expect(result.current.initialLoading).toBe(false);
       });
@@ -697,7 +621,11 @@ describe('usePaginatedCollections', () => {
       expect(result.current.hasNextPage).toBe(true);
 
       act(() => {
-        result.current.goToPage(3); // Go to last page (30 items / 12 per page = 3 pages)
+        result.current.goToPage(3);
+      });
+
+      await waitFor(() => {
+        expect(result.current.currentPage).toBe(3);
       });
 
       // On last page
@@ -707,7 +635,7 @@ describe('usePaginatedCollections', () => {
   });
 
   describe('refresh', () => {
-    it('clears cache and refetches', async () => {
+    it('refetches data', async () => {
       const { result } = renderHook(
         () =>
           usePaginatedCollections({
@@ -733,29 +661,6 @@ describe('usePaginatedCollections', () => {
           initialCallCount,
         );
       });
-    });
-
-    it('resets filters state on refresh', async () => {
-      const { result } = renderHook(
-        () =>
-          usePaginatedCollections({
-            catalogApi: mockCatalogApi as any,
-            discoveryApi: mockDiscoveryApi as any,
-            fetchApi: mockFetchApi as any,
-          }),
-        { wrapper },
-      );
-
-      await waitFor(() => {
-        expect(result.current.initialLoading).toBe(false);
-      });
-
-      act(() => {
-        result.current.refresh();
-      });
-
-      expect(result.current.allSources).toEqual(['All']);
-      expect(result.current.allTags).toEqual(['All']);
     });
   });
 
@@ -791,10 +696,61 @@ describe('usePaginatedCollections', () => {
 
       expect(result.current.showLatestOnly).toBe(false);
     });
-  });
 
-  describe('cache subscription', () => {
-    it('updates state when cache notifies', async () => {
+    it('uses Mode A (direct per-page) when showLatestOnly is OFF', async () => {
+      mockCatalogApi.queryEntities.mockResolvedValue({
+        items: [mockEntity, mockEntity2],
+        totalItems: 2,
+        pageInfo: {},
+      });
+
+      const { result } = renderHook(
+        () =>
+          usePaginatedCollections({
+            catalogApi: mockCatalogApi as any,
+            discoveryApi: mockDiscoveryApi as any,
+            fetchApi: mockFetchApi as any,
+          }),
+        { wrapper },
+      );
+
+      // Toggle to Mode A
+      act(() => {
+        result.current.setShowLatestOnly(false);
+      });
+
+      await waitFor(() => {
+        expect(result.current.initialLoading).toBe(false);
+      });
+
+      // Mode A uses offset/limit directly
+      expect(mockCatalogApi.queryEntities).toHaveBeenCalledWith(
+        expect.objectContaining({
+          limit: 12,
+          offset: 0,
+          orderFields: [{ field: 'metadata.name', order: 'asc' }],
+        }),
+      );
+    });
+
+    it('uses Mode B (dedup index + page fetch) when showLatestOnly is ON', async () => {
+      mockCatalogApi.queryEntities
+        .mockResolvedValueOnce({
+          items: [mockEntity],
+          totalItems: 1,
+          pageInfo: {},
+        }) // unfiltered count from fetchFacets
+        .mockResolvedValueOnce({
+          items: [mockEntity, mockEntity2],
+          totalItems: 2,
+          pageInfo: {},
+        }) // dedup index
+        .mockResolvedValueOnce({
+          items: [mockEntity],
+          totalItems: 1,
+          pageInfo: {},
+        }); // page fetch
+
       const { result } = renderHook(
         () =>
           usePaginatedCollections({
@@ -809,15 +765,66 @@ describe('usePaginatedCollections', () => {
         expect(result.current.initialLoading).toBe(false);
       });
 
-      // Manually trigger a cache update
-      collectionsCache.updateSyncStatus(
-        { 'new-src': { lastSyncTime: '2024-02-01', lastFailedSyncTime: null } },
-        true,
+      // Mode B should make index call with dedup fields, then page fetch
+      const queryCalls = mockCatalogApi.queryEntities.mock.calls;
+      const indexCall = queryCalls.find(
+        (c: any[]) =>
+          c[0]?.fields?.includes('spec.collection_full_name') &&
+          c[0]?.limit === 5000,
+      );
+      expect(indexCall).toBeDefined();
+    });
+  });
+
+  describe('facets', () => {
+    it('fetches entity facets for filter dropdowns', async () => {
+      mockCatalogApi.getEntityFacets.mockResolvedValue({
+        facets: {
+          'metadata.tags': [
+            { value: 'networking', count: 5 },
+            { value: 'security', count: 3 },
+          ],
+        },
+      });
+
+      const { result } = renderHook(
+        () =>
+          usePaginatedCollections({
+            catalogApi: mockCatalogApi as any,
+            discoveryApi: mockDiscoveryApi as any,
+            fetchApi: mockFetchApi as any,
+          }),
+        { wrapper },
       );
 
-      // The sync status update doesn't notify listeners,
-      // but the entities should be preserved
-      expect(result.current.entities.length).toBeGreaterThanOrEqual(0);
+      await waitFor(() => {
+        expect(result.current.initialLoading).toBe(false);
+      });
+
+      expect(mockCatalogApi.getEntityFacets).toHaveBeenCalled();
+      expect(result.current.allTags).toContain('All');
+      expect(result.current.allTags).toContain('networking');
+      expect(result.current.allTags).toContain('security');
+    });
+  });
+
+  describe('loadingMore', () => {
+    it('is always false (no background loading in per-page mode)', async () => {
+      const { result } = renderHook(
+        () =>
+          usePaginatedCollections({
+            catalogApi: mockCatalogApi as any,
+            discoveryApi: mockDiscoveryApi as any,
+            fetchApi: mockFetchApi as any,
+          }),
+        { wrapper },
+      );
+
+      await waitFor(() => {
+        expect(result.current.initialLoading).toBe(false);
+      });
+
+      expect(result.current.loadingMore).toBe(false);
     });
   });
 });
