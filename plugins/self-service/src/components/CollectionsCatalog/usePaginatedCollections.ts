@@ -364,6 +364,13 @@ export function usePaginatedCollections({
 
           if (!isMountedRef.current || gen !== fetchGenRef.current) return;
 
+          if (result.totalItems > result.items.length) {
+            // eslint-disable-next-line no-console
+            console.warn(
+              `Repository collections truncated: ${result.totalItems} total, only first ${result.items.length} fetched`,
+            );
+          }
+
           const filtered = filterCollectionsByRepository(
             result.items,
             filterByRepositoryEntity,
