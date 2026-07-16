@@ -225,6 +225,50 @@ async function handleGitHubLoginOnPage(page: Page): Promise<void> {
 }
 
 /**
+ * Navigate the EE wizard from the Start button through to the EE Definition
+ * step. Clicks Next and selects the GitHub MCP provider until the
+ * "EE Definition Name" field is visible, rather than relying on a fixed
+ * number of Next clicks (which breaks when the wizard step count changes
+ * after OAuth redirect).
+ */
+async function navigateWizardToEEDefinitionStep(page: Page): Promise<void> {
+  const eeFieldLocator = page
+    .getByLabel(/EE Definition Name/i)
+    .or(
+      page
+        .locator('label')
+        .filter({ hasText: /^EE Definition Name/i })
+        .locator('..')
+        .locator('input, textarea')
+        .first(),
+    )
+    .first();
+
+  for (let attempt = 0; attempt < 10; attempt++) {
+    if (await eeFieldLocator.isVisible({ timeout: 1000 }).catch(() => false)) {
+      return;
+    }
+
+    const ghMcp = page
+      .locator('body')
+      .getByText(/^github$/i)
+      .first();
+    if (await ghMcp.isVisible({ timeout: 500 }).catch(() => false)) {
+      await ghMcp.click({ force: true }).catch(() => {});
+      await page.waitForTimeout(500);
+    }
+
+    const next = page.getByRole('button', { name: /^Next$/i }).first();
+    if ((await next.count()) > 0) {
+      await next.click({ force: true });
+      await page.waitForTimeout(800);
+    }
+  }
+
+  await expect(eeFieldLocator).toBeVisible({ timeout: 10000 });
+}
+
+/**
  * EE template import + execution wizard — migrated from
  * cypress/e2e/self-service/ee02-template-execution.cy.ts
  */
@@ -363,30 +407,7 @@ test.describe('Execution Environment Template Execution Tests', () => {
       if (!wizardOpened) return;
       await expect(page.locator('main')).toBeVisible({ timeout: 15000 });
 
-      for (let i = 0; i < 2; i++) {
-        const next = page.getByRole('button', { name: /^Next$/i });
-        if ((await next.count()) > 0) {
-          await next.first().click({ force: true });
-          await page.waitForTimeout(700);
-        }
-      }
-
-      const gh = page
-        .locator('body')
-        .getByText(/^github$/i)
-        .first();
-      if ((await gh.count()) > 0) {
-        await gh.click({ force: true }).catch(() => {});
-        await page.waitForTimeout(400);
-      }
-
-      const nextAfterMcp = page.getByRole('button', { name: /^Next$/i });
-      for (let i = 0; i < 3; i++) {
-        if ((await nextAfterMcp.count()) > 0) {
-          await nextAfterMcp.first().click({ force: true });
-          await page.waitForTimeout(700);
-        }
-      }
+      await navigateWizardToEEDefinitionStep(page);
 
       await page
         .getByLabel(/EE Definition Name/i)
@@ -493,30 +514,7 @@ test.describe('Execution Environment Template Execution Tests', () => {
           await page.waitForTimeout(2500);
         }
 
-        for (let i = 0; i < 2; i++) {
-          const next = page.getByRole('button', { name: /^Next$/i });
-          if ((await next.count()) > 0) {
-            await next.first().click({ force: true });
-            await page.waitForTimeout(700);
-          }
-        }
-
-        const ghMcp = page
-          .locator('body')
-          .getByText(/^github$/i)
-          .first();
-        if ((await ghMcp.count()) > 0) {
-          await ghMcp.click({ force: true }).catch(() => {});
-          await page.waitForTimeout(400);
-        }
-
-        for (let i = 0; i < 3; i++) {
-          const n = page.getByRole('button', { name: /^Next$/i });
-          if ((await n.count()) > 0) {
-            await n.first().click({ force: true });
-            await page.waitForTimeout(700);
-          }
-        }
+        await navigateWizardToEEDefinitionStep(page);
 
         await page
           .getByLabel(/EE Definition Name/i)
@@ -653,29 +651,7 @@ test.describe('Execution Environment Template Execution Tests', () => {
       await startAgain.click({ force: true });
       await page.waitForTimeout(2500);
 
-      for (let i = 0; i < 2; i++) {
-        const n = page.getByRole('button', { name: /^Next$/i });
-        if ((await n.count()) > 0) {
-          await n.first().click({ force: true });
-          await page.waitForTimeout(600);
-        }
-      }
-
-      if ((await page.locator('body').innerText()).includes('GitHub')) {
-        await page
-          .locator('body')
-          .getByText(/^github$/i)
-          .first()
-          .click({ force: true })
-          .catch(() => {});
-      }
-      for (let i = 0; i < 3; i++) {
-        const n = page.getByRole('button', { name: /^Next$/i });
-        if ((await n.count()) > 0) {
-          await n.first().click({ force: true });
-          await page.waitForTimeout(600);
-        }
-      }
+      await navigateWizardToEEDefinitionStep(page);
 
       await page
         .getByLabel(/EE Definition Name/i)
