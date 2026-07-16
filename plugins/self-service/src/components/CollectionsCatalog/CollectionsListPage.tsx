@@ -435,7 +435,9 @@ export const CollectionsListPage = ({
                     <Typography className={classes.paginationInfo}>
                       {isStarredFilter
                         ? `Showing ${displayedEntities.length} starred on this page`
-                        : `Showing ${startIndex + 1}-${endIndex} of ${totalCount} collections`}
+                        : `Showing ${
+                            startIndex + 1
+                          }-${endIndex} of ${totalCount} collections`}
                     </Typography>
                     <Box className={classes.paginationControls}>
                       <IconButton
