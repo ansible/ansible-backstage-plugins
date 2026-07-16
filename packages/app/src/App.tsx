@@ -56,10 +56,12 @@ import {
   ScmSelectorFieldExtension,
 } from '@ansible/plugin-backstage-self-service';
 import { RbacPage } from '@backstage-community/plugin-rbac';
+import { apmePlugin } from '@ansible/plugin-backstage-apme';
 import { ApmeRoutes } from './components/Apme/ApmeRoutes';
 
 const app = createApp({
   apis,
+  plugins: [apmePlugin],
   bindRoutes({ bind }) {
     bind(catalogPlugin.externalRoutes, {
       createComponent: scaffolderPlugin.routes.root,

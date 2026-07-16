@@ -25,6 +25,7 @@ import {
   configApiRef,
 } from '@backstage/core-plugin-api';
 import { apmeApiRef, ApmeApiClient } from './api';
+import { gitRepositoriesExtensionsApiFactory } from './apis/gitRepositoriesExtensions';
 
 export const rootRouteRef = createRouteRef({
   id: 'apme',
@@ -60,6 +61,8 @@ export const apmePlugin = createPlugin({
         return new ApmeApiClient({ discoveryApi, fetchApi });
       },
     }),
+    // ADR-010: register Git Repos surfaces for stock portal + local app
+    gitRepositoriesExtensionsApiFactory,
   ],
 });
 

@@ -446,6 +446,7 @@ export const ApmeEntityTab = ({
   const [tier1Result, setTier1Result] = useState<Tier1RemediationResult | null>(
     null,
   );
+  const [showTier1Details, setShowTier1Details] = useState(false);
   const [showScanHistory, setShowScanHistory] = useState(false);
   const [showAcknowledgedOnly, setShowAcknowledgedOnly] = useState(false);
   const generatedViolationIdsRef = useRef<Set<number>>(new Set());
@@ -914,18 +915,24 @@ export const ApmeEntityTab = ({
             violations,
           );
           const tier1 = extractTier1RemediationResult(state);
+          const activityIdFromState = state?.scan_id;
+          if (activityIdFromState) {
+            setRemediationActivityId(activityIdFromState);
+          }
           if (nextProposals.length > 0) {
             setTier1Result(null);
             setProposals(nextProposals);
             setRemediationStep('review');
             setRemediationError(null);
-            try {
-              const activity = await apmeApi.getActivity(projectId);
-              if (cancelled) return;
-              const latestId = activity[0]?.scan_id;
-              if (latestId) setRemediationActivityId(latestId);
-            } catch {
-              // activity lookup is best-effort for push-branch
+            if (!activityIdFromState) {
+              try {
+                const activity = await apmeApi.getActivity(projectId);
+                if (cancelled) return;
+                const latestId = activity[0]?.scan_id;
+                if (latestId) setRemediationActivityId(latestId);
+              } catch {
+                // activity lookup is best-effort for push-branch
+              }
             }
           } else if (tier1) {
             const filtered = filterTier1ByViolationIds(
@@ -935,21 +942,24 @@ export const ApmeEntityTab = ({
             );
             setProposals([]);
             setTier1Result(filtered.remediatedCount > 0 ? filtered : tier1);
+            setShowTier1Details(false);
             setRemediationStep('review');
             setRemediationError(null);
-            try {
-              const activity = await apmeApi.getActivity(projectId);
-              if (cancelled) return;
-              const latestId = activity[0]?.scan_id;
-              if (latestId) setRemediationActivityId(latestId);
-            } catch {
-              // activity lookup is best-effort for push-branch
+            if (!activityIdFromState) {
+              try {
+                const activity = await apmeApi.getActivity(projectId);
+                if (cancelled) return;
+                const latestId = activity[0]?.scan_id;
+                if (latestId) setRemediationActivityId(latestId);
+              } catch {
+                // activity lookup is best-effort for push-branch
+              }
             }
           } else {
             setTier1Result(null);
             setRemediationError(
               new Error(
-                'No automated patches were produced for this run. Manual-only findings require hand-editing in your repo or Dev Spaces.',
+                'No automated patches were produced for this run. Manual-only findings require hand-editing in your repository.',
               ),
             );
             setRemediationStep('select');
@@ -1493,9 +1503,9 @@ export const ApmeEntityTab = ({
           approvedProposalIds.has(p.id)
         );
       })) ||
+    // Activity id is resolved on push; do not hide the CTA while lookup is pending.
     Boolean(
       tier1Result &&
-      remediationActivityId &&
       (tier1Result.patches.length > 0 || tier1Result.remediatedCount > 0),
     );
 
@@ -1639,9 +1649,12 @@ export const ApmeEntityTab = ({
             <Typography variant="body2">
               {manual} violation{manual !== 1 ? 's' : ''} require manual fixes
               in your repo
-              {devSpacesBranch ? ` (${devSpacesBranch})` : ''}. Open Dev Spaces
-              to edit, or run <strong>Generate fixes</strong> to apply
-              auto-generated fixes to the rest.
+              {devSpacesBranch ? ` (${devSpacesBranch})` : ''}.
+              {devSpacesUrl
+                ? ' Open Dev Spaces to edit, or run '
+                : ' Edit in your repository, or run '}
+              <strong>Generate fixes</strong> to apply auto-generated fixes to
+              the rest.
             </Typography>
           </Paper>
         )}
@@ -1822,72 +1835,132 @@ export const ApmeEntityTab = ({
             />
           )}
 
-          {remediationStep === 'review' &&
+          {(remediationStep === 'review' || remediationStep === 'push') &&
             tier1Result &&
-            visibleProposals.length === 0 && (
+            visibleProposals.length === 0 &&
+            !branchPushed && (
               <Paper className={classes.reviewPanel} elevation={1}>
-                <Typography variant="subtitle2" gutterBottom>
-                  Auto-generated fixes ready
-                </Typography>
-                <Typography variant="body2" color="textSecondary" paragraph>
-                  {tier1Result.remediatedCount} finding
-                  {tier1Result.remediatedCount !== 1 ? 's were' : ' was'}{' '}
-                  transformed. Push the branch and open in Dev Spaces to review
-                  changes and commit.
-                </Typography>
-                {tier1Result.fixedViolations.length > 0 && (
-                  <Box mb={2}>
-                    <Typography
-                      variant="body2"
-                      style={{ fontWeight: 600, marginBottom: 8 }}
-                    >
-                      Findings addressed
+                <Box
+                  display="flex"
+                  alignItems="flex-start"
+                  justifyContent="space-between"
+                  flexWrap="wrap"
+                  style={{ gap: 12, marginBottom: 12 }}
+                >
+                  <Box style={{ flex: '1 1 240px' }}>
+                    <Typography variant="subtitle2" gutterBottom>
+                      Auto-generated fixes ready
                     </Typography>
-                    {tier1Result.fixedViolations.map((fv, idx) => (
-                      <Typography
-                        key={`${fv.rule_id}-${fv.file}-${fv.line ?? idx}`}
-                        variant="body2"
-                      >
-                        {fv.rule_id} · {fv.file}
-                        {fv.line !== undefined && fv.line !== null
-                          ? `:${fv.line}`
-                          : ''}
-                        {fv.message ? ` — ${fv.message}` : ''}
-                      </Typography>
-                    ))}
+                    <Typography variant="body2" color="textSecondary">
+                      {tier1Result.remediatedCount} finding
+                      {tier1Result.remediatedCount !== 1 ? 's' : ''} fixed
+                      across {tier1Result.patches.length} file
+                      {tier1Result.patches.length !== 1 ? 's' : ''}. Push a
+                      branch, then open a pull request
+                      {devSpacesUrl
+                        ? ', or review the branch in Dev Spaces after push'
+                        : ''}
+                      .
+                    </Typography>
                   </Box>
-                )}
-                {tier1Result.patches.length > 0 && (
-                  <Box>
-                    <Typography
-                      variant="body2"
-                      style={{ fontWeight: 600, marginBottom: 8 }}
+                  {canPushBranch && (
+                    <Button
+                      variant="contained"
+                      color="primary"
+                      onClick={handlePushBranch}
+                      disabled={remediationStep === 'push'}
                     >
-                      File changes
-                    </Typography>
-                    {tier1Result.patches.map(patch => (
-                      <Box key={patch.file} mb={2}>
-                        <Typography
-                          variant="body2"
-                          style={{ fontFamily: 'monospace', marginBottom: 4 }}
-                        >
-                          {patch.file}
-                        </Typography>
-                        <Box
-                          component="pre"
-                          style={{
-                            fontSize: 12,
-                            overflow: 'auto',
-                            backgroundColor: '#f5f5f5',
-                            padding: 12,
-                            borderRadius: 4,
-                            margin: 0,
-                          }}
-                        >
-                          {patch.diff}
-                        </Box>
+                      {remediationStep === 'push' ? 'Pushing…' : 'Push branch'}
+                    </Button>
+                  )}
+                </Box>
+                {!scmAuthorized && canPushBranch && !branchPushed && (
+                  <Typography
+                    variant="caption"
+                    color="textSecondary"
+                    display="block"
+                    style={{ marginBottom: 12 }}
+                  >
+                    Pushing uses your GitHub account. The first time, GitHub
+                    will ask you to authorize repository access.
+                  </Typography>
+                )}
+                {(tier1Result.fixedViolations.length > 0 ||
+                  tier1Result.patches.length > 0) && (
+                  <Box>
+                    <Button
+                      size="small"
+                      variant="text"
+                      onClick={() => setShowTier1Details(prev => !prev)}
+                      style={{ textTransform: 'none', paddingLeft: 0 }}
+                    >
+                      {showTier1Details
+                        ? 'Hide change details'
+                        : 'Show change details'}
+                    </Button>
+                    {showTier1Details && (
+                      <Box mt={1}>
+                        {tier1Result.fixedViolations.length > 0 && (
+                          <Box mb={2}>
+                            <Typography
+                              variant="body2"
+                              style={{ fontWeight: 600, marginBottom: 8 }}
+                            >
+                              Findings addressed
+                            </Typography>
+                            {tier1Result.fixedViolations.map((fv, idx) => (
+                              <Typography
+                                key={`${fv.rule_id}-${fv.file}-${fv.line ?? idx}`}
+                                variant="body2"
+                              >
+                                {fv.rule_id} · {fv.file}
+                                {fv.line !== undefined && fv.line !== null
+                                  ? `:${fv.line}`
+                                  : ''}
+                                {fv.message ? ` — ${fv.message}` : ''}
+                              </Typography>
+                            ))}
+                          </Box>
+                        )}
+                        {tier1Result.patches.length > 0 && (
+                          <Box>
+                            <Typography
+                              variant="body2"
+                              style={{ fontWeight: 600, marginBottom: 8 }}
+                            >
+                              File changes
+                            </Typography>
+                            {tier1Result.patches.map(patch => (
+                              <Box key={patch.file} mb={2}>
+                                <Typography
+                                  variant="body2"
+                                  style={{
+                                    fontFamily: 'monospace',
+                                    marginBottom: 4,
+                                  }}
+                                >
+                                  {patch.file}
+                                </Typography>
+                                <Box
+                                  component="pre"
+                                  style={{
+                                    fontSize: 12,
+                                    overflow: 'auto',
+                                    backgroundColor: '#f5f5f5',
+                                    padding: 12,
+                                    borderRadius: 4,
+                                    margin: 0,
+                                    maxHeight: 240,
+                                  }}
+                                >
+                                  {patch.diff}
+                                </Box>
+                              </Box>
+                            ))}
+                          </Box>
+                        )}
                       </Box>
-                    ))}
+                    )}
                   </Box>
                 )}
               </Paper>
@@ -2106,9 +2179,11 @@ export const ApmeEntityTab = ({
             />
           )}
 
+          {/* Tier-1-only review already shows Push in the panel above. */}
           {(remediationStep === 'review' || remediationStep === 'push') &&
             canPushBranch &&
-            !branchPushed && (
+            !branchPushed &&
+            visibleProposals.length > 0 && (
               <Box style={{ marginBottom: 16 }}>
                 {!scmAuthorized && remediationStep === 'review' && (
                   <Typography
@@ -2129,9 +2204,7 @@ export const ApmeEntityTab = ({
                   style={{ gap: 12 }}
                 >
                   <Typography variant="body2" style={{ marginRight: 'auto' }}>
-                    {tier1Result
-                      ? `${tier1Result.remediatedCount} auto-generated change${tier1Result.remediatedCount !== 1 ? 's' : ''} ready to push`
-                      : `${visibleProposals.length} fix${visibleProposals.length !== 1 ? 'es' : ''} ready to push`}
+                    {`${visibleProposals.length} fix${visibleProposals.length !== 1 ? 'es' : ''} ready to push`}
                   </Typography>
                   <Button
                     variant="contained"

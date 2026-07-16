@@ -173,8 +173,10 @@ export const PrStatusBanner = ({
         <Box display="flex" alignItems="center" style={{ gap: 8 }}>
           <CheckCircleIcon style={{ color: '#0066cc' }} />
           <Typography variant="body2">
-            Remediation branch <strong>{branchName}</strong> pushed. Open in Dev
-            Spaces to review the fixes and commit when ready.
+            Remediation branch <strong>{branchName}</strong> pushed.
+            {devSpacesUrl
+              ? ' Open in Dev Spaces to review the fixes, or create a pull request.'
+              : ' Create a pull request when ready.'}
           </Typography>
         </Box>
         <Box className={classes.actions}>
