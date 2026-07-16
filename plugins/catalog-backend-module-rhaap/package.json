@@ -38,7 +38,7 @@
     "@backstage/core-plugin-api": "^1.12.4",
     "@backstage/errors": "^1.2.7",
     "@backstage/integration": "^2.0.0",
-    "@backstage/plugin-catalog-backend": "^3.5.0",
+    "@backstage/plugin-catalog-backend": "^3.6.1",
     "@backstage/plugin-catalog-common": "^1.1.8",
     "@backstage/plugin-catalog-node": "^2.1.0",
     "@backstage/plugin-permission-common": "^0.9.7",
