@@ -4,8 +4,10 @@ metadata:
   name: apme-register-git-repository
   title: Register repo for Ansible Quality
   description: >-
-    Opens a pull request adding catalog-info.yaml so your playbook or automation
-    project appears in Git Repos and can use the Quality tab (scan, remediate, PR).
+    Registers your playbook or automation repository in the automation
+    portal catalog so it appears in Git Repos and can use the Quality tab
+    (scan, remediate, PR). Registers directly by default, no
+    catalog-info.yaml or pull request required.
   tags:
     - apme
     - quality
@@ -19,7 +21,6 @@ spec:
       required:
         - repoUrl
         - defaultBranch
-        - owner
       properties:
         repoUrl:
           title: Repository location
@@ -33,16 +34,33 @@ spec:
           title: Default branch
           type: string
           default: main
-          description: Branch catalog-info.yaml will target (usually main)
-        owner:
-          title: Catalog owner
-          type: string
-          description: Backstage owner entity ref (e.g. group:default/my-team)
-          default: user:guest
+          description: >-
+            Default branch of the repository (usually main). Used for
+            display and Quality scans.
+        openPullRequest:
+          title: Open a pull request instead
+          type: boolean
+          default: false
+          description: >-
+            Adds a catalog-info.yaml to the repository via a pull request
+            instead of registering it directly. The entity only appears in
+            the catalog after the pull request is merged and re-imported.
 
   steps:
+    - id: register-direct
+      name: Register in catalog
+      if: ${{ not parameters.openPullRequest }}
+      action: ansible:register:git-repository
+      input:
+        sourceControlProvider: github
+        repositoryOwner: ${{ parameters.repoUrl | parseRepoUrl | pick('owner') }}
+        repositoryName: ${{ parameters.repoUrl | parseRepoUrl | pick('repo') }}
+        repositoryUrl: https://github.com/${{ parameters.repoUrl | parseRepoUrl | pick('owner') }}/${{ parameters.repoUrl | parseRepoUrl | pick('repo') }}
+        defaultBranch: ${{ parameters.defaultBranch }}
+
     - id: fetch-base
       name: Generate catalog-info.yaml
+      if: ${{ parameters.openPullRequest }}
       action: fetch:template
       input:
         url: ./content
@@ -52,10 +70,11 @@ spec:
           org: ${{ parameters.repoUrl | parseRepoUrl | pick('owner') }}
           repoUrl: https://github.com/${{ parameters.repoUrl | parseRepoUrl | pick('owner') }}/${{ parameters.repoUrl | parseRepoUrl | pick('repo') }}
           defaultBranch: ${{ parameters.defaultBranch }}
-          owner: ${{ parameters.owner }}
+          owner: user:${{ user.entity.metadata.namespace }}/${{ user.entity.metadata.name }}
 
     - id: publish-pr
       name: Open pull request
+      if: ${{ parameters.openPullRequest }}
       action: publish:github:pull-request
       input:
         repoUrl: ${{ parameters.repoUrl }}
@@ -68,8 +87,9 @@ spec:
           After merge, import or refresh the catalog entity, then open **Quality → Register and scan**.
         token: ${{ secrets.USER_OAUTH_TOKEN }}
 
-    - id: register
-      name: Register in catalog
+    - id: register-via-pr
+      name: Register in catalog (optional)
+      if: ${{ parameters.openPullRequest }}
       action: catalog:register
       input:
         catalogInfoUrl: https://github.com/${{ parameters.repoUrl | parseRepoUrl | pick('owner') }}/${{ parameters.repoUrl | parseRepoUrl | pick('repo') }}/blob/${{ parameters.defaultBranch }}/catalog-info.yaml
@@ -84,11 +104,15 @@ spec:
         url: /self-service/repositories/catalog
       - title: Open in catalog
         icon: catalog
-        entityRef: ${{ steps['register'].output.entityRef }}
+        entityRef: ${{ steps['register-direct'].output.entityRef or steps['register-via-pr'].output.entityRef }}
     text:
       - title: Next steps
         content: |
-          1. Review and merge the pull request.
-          2. If the entity is not visible yet, use **Self-service → Catalog import** with your repo URL.
-          3. Open the repo in **Git Repos → Quality → Register and scan**.
-          4. Run the remediation workflow (Select → Generate → Review → Push branch → Create PR).
+          **If you registered directly (default):** your repository is already visible
+          in **Git Repos**. Open it and go to **Quality → Register and scan** to run the
+          remediation workflow (Select → Generate → Review → Push branch → Create PR).
+
+          **If you chose to open a pull request instead:** review and merge the pull
+          request first. If the entity isn't visible yet afterwards, use
+          **Self-service → Catalog import** with your repo URL, then open
+          **Quality → Register and scan**.

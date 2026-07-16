@@ -16,6 +16,7 @@ jest.mock('./actions', () => ({
   createEETemplateAction: jest.fn(() => 'action8'),
   prepareForPublishAction: jest.fn(() => 'action9'),
   createEECatalogInfoAction: jest.fn(() => 'action10'),
+  registerGitRepositoryAction: jest.fn(() => 'action11'),
 }));
 
 jest.mock('./filters', () => ({
@@ -91,6 +92,7 @@ describe('scaffolderModuleAnsible', () => {
     expect(actions).toContain('action4');
     expect(actions).toContain('action5');
     expect(actions).toContain('action6');
+    expect(actions).toContain('action11');
 
     // --- Verify template filters ---
     expect(
