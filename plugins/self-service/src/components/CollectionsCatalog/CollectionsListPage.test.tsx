@@ -19,6 +19,7 @@ jest.mock('@backstage/plugin-catalog-react', () => {
     updateFilters: () => {},
   });
 
+  // eslint-disable-next-line @typescript-eslint/no-shadow
   const EntityListProvider = ({ children }: { children?: React.ReactNode }) => {
     const [filters, setFilters] = React.useState({});
     const updateFilters = React.useCallback(
