@@ -269,6 +269,29 @@ async function navigateWizardToEEDefinitionStep(page: Page): Promise<void> {
 }
 
 /**
+ * Navigate past the remaining wizard steps until the Create button is
+ * visible. Clicks Next repeatedly (up to 10 times) until a button
+ * matching /create/i appears, handling variable step counts after OAuth.
+ */
+async function navigateWizardToCreateStep(page: Page): Promise<void> {
+  const createBtn = page.getByRole('button', { name: /create/i }).first();
+
+  for (let attempt = 0; attempt < 10; attempt++) {
+    if (await createBtn.isVisible({ timeout: 1000 }).catch(() => false)) {
+      return;
+    }
+
+    const next = page.getByRole('button', { name: /^Next$/i }).first();
+    if ((await next.count()) > 0) {
+      await next.click({ force: true });
+      await page.waitForTimeout(1000);
+    }
+  }
+
+  await expect(createBtn).toBeVisible({ timeout: 10000 });
+}
+
+/**
  * EE template import + execution wizard — migrated from
  * cypress/e2e/self-service/ee02-template-execution.cy.ts
  */
@@ -605,14 +628,7 @@ test.describe('Execution Environment Template Execution Tests', () => {
           .catch(() => {});
 
         await page.waitForTimeout(2000);
-        const nextBtnAfterFields = page
-          .getByRole('button', { name: /^Next$/i })
-          .first();
-        if ((await nextBtnAfterFields.count()) > 0) {
-          await expect(nextBtnAfterFields).toBeEnabled({ timeout: 15000 });
-          await nextBtnAfterFields.click({ force: true });
-          await page.waitForTimeout(1500);
-        }
+        await navigateWizardToCreateStep(page);
         await page
           .getByRole('button', { name: /create/i })
           .first()
@@ -711,12 +727,7 @@ test.describe('Execution Environment Template Execution Tests', () => {
       }
       await page.waitForTimeout(500);
 
-      const nextBtn2 = page.getByRole('button', { name: /^Next$/i }).first();
-      if ((await nextBtn2.count()) > 0) {
-        await expect(nextBtn2).toBeEnabled({ timeout: 15000 });
-        await nextBtn2.click({ force: true });
-        await page.waitForTimeout(1500);
-      }
+      await navigateWizardToCreateStep(page);
       const createBtn2 = page.getByRole('button', { name: /create/i }).first();
       if ((await createBtn2.count()) > 0) {
         await createBtn2.click({ force: true });
