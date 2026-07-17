@@ -936,7 +936,7 @@ const MAX_NAMESPACE_LENGTH = 63;
 export function formatNameSpace(name: string): string {
   const sanitized = name
     .toLowerCase()
-    .replaceAll(/[_\s]+/g, '-')
+    .replaceAll(/[_.\s]+/g, '-')
     .replaceAll(/[^a-z0-9-]/g, '')
     .replaceAll(/-+/g, '-')
     .replaceAll(/^-|-$/g, '')

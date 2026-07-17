@@ -53,8 +53,8 @@ describe('AAPRBACProvider', () => {
       await provider.connect(connection);
 
       expect(connection.applyRoles).toHaveBeenCalledWith([
-        ['group:default/default', 'role:default/aap-user'],
-        ['group:default/aap-admins', 'role:default/aap-user'],
+        ['group:default/default', 'role:default/aap-normal-user'],
+        ['group:default/aap-admins', 'role:default/aap-normal-user'],
       ]);
       expect(connection.applyPermissions).toHaveBeenCalled();
       expect(connection.applyConditionalPermissions).toHaveBeenCalled();
@@ -73,10 +73,10 @@ describe('AAPRBACProvider', () => {
 
       expect(connection.applyRoles).toHaveBeenCalledWith(
         expect.arrayContaining([
-          ['group:default/default', 'role:default/aap-user'],
-          ['group:engineering/engineering', 'role:default/aap-user'],
-          ['group:secops/secops', 'role:default/aap-user'],
-          ['group:default/aap-admins', 'role:default/aap-user'],
+          ['group:default/default', 'role:default/aap-normal-user'],
+          ['group:engineering/engineering', 'role:default/aap-normal-user'],
+          ['group:secops/secops', 'role:default/aap-normal-user'],
+          ['group:default/aap-admins', 'role:default/aap-normal-user'],
         ]),
       );
     });
@@ -93,20 +93,15 @@ describe('AAPRBACProvider', () => {
       const permissions = connection.applyPermissions.mock.calls[0][0];
       expect(permissions).toEqual(
         expect.arrayContaining([
+          ['role:default/aap-normal-user', 'catalog-entity', 'read', 'allow'],
           [
-            'role:default/aap-user',
-            'catalog-entity',
-            'read',
-            'allow',
-          ],
-          [
-            'role:default/aap-user',
+            'role:default/aap-normal-user',
             'ansible.templates.view',
             'use',
             'allow',
           ],
           [
-            'role:default/aap-user',
+            'role:default/aap-normal-user',
             'ansible.history.view',
             'use',
             'allow',
@@ -124,10 +119,9 @@ describe('AAPRBACProvider', () => {
 
       await provider.connect(connection);
 
-      const policies =
-        connection.applyConditionalPermissions.mock.calls[0][0];
+      const policies = connection.applyConditionalPermissions.mock.calls[0][0];
       expect(policies).toHaveLength(1);
-      expect(policies[0].roleEntityRef).toBe('role:default/aap-user');
+      expect(policies[0].roleEntityRef).toBe('role:default/aap-normal-user');
       expect((policies[0].conditions as any).anyOf).toEqual(
         expect.arrayContaining([
           expect.objectContaining({
@@ -154,12 +148,12 @@ describe('AAPRBACProvider', () => {
       await provider.connect(connection);
 
       const roles = connection.applyRoles.mock.calls[0][0];
-      const defaultRole = roles.find((r: string[]) =>
-        r[0] === 'group:default/default',
+      const defaultRole = roles.find(
+        (r: string[]) => r[0] === 'group:default/default',
       );
       expect(defaultRole).toEqual([
         'group:default/default',
-        'role:default/aap-user',
+        'role:default/aap-normal-user',
       ]);
     });
   });
@@ -205,9 +199,14 @@ describe('AAPRBACProvider', () => {
       expect(permissions).toHaveLength(9);
       expect(permissions).toEqual(
         expect.arrayContaining([
-          ['role:default/aap-user', 'scaffolder-action', 'use', 'allow'],
-          ['role:default/aap-user', 'scaffolder-task', 'use', 'allow'],
-          ['role:default/aap-user', 'scaffolder.task.create', 'create', 'allow'],
+          ['role:default/aap-normal-user', 'scaffolder-action', 'use', 'allow'],
+          ['role:default/aap-normal-user', 'scaffolder-task', 'use', 'allow'],
+          [
+            'role:default/aap-normal-user',
+            'scaffolder.task.create',
+            'create',
+            'allow',
+          ],
         ]),
       );
     });

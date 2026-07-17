@@ -15,7 +15,7 @@ import type { ConditionalPolicyDecision } from '@backstage/plugin-permission-com
 import type { LoggerService } from '@backstage/backend-plugin-api';
 
 const PROVIDER_NAME = 'aap-rbac-provider';
-const ROLE = 'role:default/aap-user';
+const ROLE = 'role:default/aap-normal-user';
 
 const PERMISSIONS: string[][] = [
   [ROLE, 'catalog-entity', 'read', 'allow'],
