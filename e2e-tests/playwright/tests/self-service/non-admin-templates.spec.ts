@@ -3,6 +3,11 @@ import { test, expect } from '../../fixtures/auth-context-user';
 const templateCardSelector = '.MuiCard-root, article';
 
 test.describe('Non-admin user: Templates page', () => {
+  test.skip(
+    process.env.RHDH_VERSION === '1.9',
+    'Non-admin login requires RHDH 1.10+',
+  );
+
   test.beforeEach(async ({ page }) => {
     await page.goto('/self-service/catalog', { waitUntil: 'networkidle' });
     await page.locator('main').waitFor({ state: 'visible', timeout: 30000 });
