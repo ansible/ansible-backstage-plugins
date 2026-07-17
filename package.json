@@ -92,7 +92,22 @@
     "ip-address": "^10.1.1",
     "handlebars": "^4.7.9",
     "node-forge": "^1.4.0",
-    "@backstage/cli-module-build": "^0.1.4"
+    "@backstage/cli-module-build": "^0.1.4",
+    "flatted": "^3.4.2",
+    "webpack-dev-server": "^5.2.5",
+    "launch-editor": "^2.14.1",
+    "linkify-it": "^5.0.1",
+    "markdown-it": "^14.2.0",
+    "typeorm": "^0.3.29",
+    "underscore": "^1.13.8",
+    "react-router": "^6.30.4",
+    "qs": "^6.15.2",
+    "@grpc/grpc-js": "^1.13.5",
+    "@babel/core": "^7.29.6",
+    "prismjs": "^1.30.0",
+    "lodash-es": "^4.18.0",
+    "@smithy/config-resolver": "^4.4.0",
+    "@tootallnate/once": "^2.0.1"
   },
   "prettier": "@spotify/prettier-config",
   "lint-staged": {
