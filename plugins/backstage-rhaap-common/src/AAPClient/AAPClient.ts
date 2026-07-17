@@ -79,6 +79,7 @@ export interface IAAPService extends Pick<
   | 'listSystemUsers'
   | 'getTeamsByUserId'
   | 'getUserRoleAssignments'
+  | 'getJobTemplateExecuteMap'
   | 'syncJobTemplates'
   | 'getOrgsByUserId'
   | 'getUserInfoById'
@@ -1375,6 +1376,108 @@ export class AAPClient implements IAAPService {
       },
       {},
     ) as RoleAssignments;
+  }
+
+  public async getJobTemplateExecuteMap(): Promise<Map<string, string[]>> {
+    const token = this.ansibleConfig.rhaap?.token ?? null;
+    const templateMap = new Map<string, string[]>();
+
+    const addUser = (templateId: string, username: string) => {
+      const users = templateMap.get(templateId) ?? [];
+      if (!users.includes(username)) {
+        users.push(username);
+      }
+      templateMap.set(templateId, users);
+    };
+
+    // 1. Direct user → template assignments
+    this.logger.info('Fetching JT execute user assignments from AAP.');
+    const userParams = new URLSearchParams();
+    userParams.set('content_type__model', 'jobtemplate');
+    userParams.set('page_size', '200');
+    const userAssignments = (await this.executeCatalogRequest(
+      `api/gateway/v1/role_user_assignments/?${decodeURIComponent(userParams.toString())}`,
+      token,
+    )) as Array<{
+      object_id: string | number;
+      summary_fields: {
+        role_definition?: { name?: string };
+        user?: { username?: string };
+      };
+    }>;
+
+    for (const item of userAssignments) {
+      const roleName = item.summary_fields?.role_definition?.name ?? '';
+      if (
+        roleName === 'JobTemplate Execute' ||
+        roleName === 'JobTemplate Admin'
+      ) {
+        const username = item.summary_fields?.user?.username;
+        if (username) {
+          addUser(String(item.object_id), username);
+        }
+      }
+    }
+
+    // 2. Team → template assignments (resolve team members)
+    this.logger.info('Fetching JT execute team assignments from AAP.');
+    const teamParams = new URLSearchParams();
+    teamParams.set('content_type__model', 'jobtemplate');
+    teamParams.set('page_size', '200');
+    const teamAssignments = (await this.executeCatalogRequest(
+      `api/gateway/v1/role_team_assignments/?${decodeURIComponent(teamParams.toString())}`,
+      token,
+    )) as Array<{
+      object_id: string | number;
+      summary_fields: {
+        role_definition?: { name?: string };
+        team?: { id?: number; name?: string };
+      };
+    }>;
+
+    const teamsToResolve = new Map<number, string[]>();
+    for (const item of teamAssignments) {
+      const roleName = item.summary_fields?.role_definition?.name ?? '';
+      if (
+        roleName === 'JobTemplate Execute' ||
+        roleName === 'JobTemplate Admin'
+      ) {
+        const teamId = item.summary_fields?.team?.id;
+        if (teamId) {
+          const templates = teamsToResolve.get(teamId) ?? [];
+          templates.push(String(item.object_id));
+          teamsToResolve.set(teamId, templates);
+        }
+      }
+    }
+
+    // Resolve team members for each team with execute assignments
+    for (const [teamId, templateIds] of teamsToResolve) {
+      const memberParams = new URLSearchParams();
+      memberParams.set('object_id', String(teamId));
+      memberParams.set('content_type__model', 'team');
+      memberParams.set('page_size', '200');
+      const members = (await this.executeCatalogRequest(
+        `api/gateway/v1/role_user_assignments/?${decodeURIComponent(memberParams.toString())}`,
+        token,
+      )) as Array<{
+        summary_fields: {
+          user?: { username?: string };
+          role_definition?: { name?: string };
+        };
+      }>;
+
+      for (const member of members) {
+        const username = member.summary_fields?.user?.username;
+        if (username) {
+          for (const tid of templateIds) {
+            addUser(tid, username);
+          }
+        }
+      }
+    }
+
+    return templateMap;
   }
 
   async syncJobTemplates(

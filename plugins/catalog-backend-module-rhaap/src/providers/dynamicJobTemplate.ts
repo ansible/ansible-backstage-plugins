@@ -538,7 +538,10 @@ export const generateTemplate = (options: {
       },
     },
     spec: {
-      type: 'service',
+      type: 'job-template',
+      ...(orgName && {
+        owner: `group:${nameSpace}/${formatNameSpace(orgName)}`,
+      }),
       parameters: [finalPromptForm],
       steps: [
         {

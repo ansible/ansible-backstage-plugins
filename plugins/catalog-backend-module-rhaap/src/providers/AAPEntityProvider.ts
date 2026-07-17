@@ -14,7 +14,6 @@ import { NotFoundError } from '@backstage/errors';
 import { Entity } from '@backstage/catalog-model';
 import {
   IAAPService,
-  RoleAssignments,
   User,
   Users,
   Team,
@@ -142,7 +141,6 @@ export class AAPEntityProvider implements EntityProvider {
     try {
       let groupCount = 0;
       let usersCount = 0;
-      let userRoleAssignments: RoleAssignments;
       let systemUsers = [] as Users;
       const entities: Entity[] = [];
       let orgsDetails: Array<{
@@ -173,23 +171,6 @@ export class AAPEntityProvider implements EntityProvider {
           `[${
             AAPEntityProvider.pluginLogName
           }]: Error while fetching organizations. ${e?.message ?? ''}`,
-        );
-        error = true;
-      }
-
-      try {
-        userRoleAssignments =
-          await this.ansibleServiceRef.getUserRoleAssignments();
-        this.logger.info(
-          `[${AAPEntityProvider.pluginLogName}]: Fetched ${
-            Object.keys(userRoleAssignments).length
-          } user role assignments.`,
-        );
-      } catch (e: any) {
-        this.logger.error(
-          `[${AAPEntityProvider.pluginLogName}]: Error while fetching users. ${
-            e?.message ?? ''
-          }`,
         );
         error = true;
       }

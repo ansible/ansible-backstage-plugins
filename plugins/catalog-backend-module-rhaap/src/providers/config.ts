@@ -75,6 +75,14 @@ function readAapApiEntityConfig(
     }
   }
 
+  const executePermissionsSchedule = catalogConfig.has(
+    'sync.executePermissions.schedule',
+  )
+    ? readSchedulerServiceTaskScheduleDefinitionFromConfig(
+        catalogConfig.getConfig('sync.executePermissions.schedule'),
+      )
+    : undefined;
+
   let surveyEnabled: boolean | undefined = undefined;
   let jobTemplateLabels: string[] = [];
   let jobTemplateExcludeLabels: string[] = [];
@@ -126,6 +134,7 @@ function readAapApiEntityConfig(
     surveyEnabled,
     jobTemplateLabels,
     jobTemplateExcludeLabels,
+    executePermissionsSchedule,
     pahRepositories,
   };
 }

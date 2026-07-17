@@ -1290,4 +1290,114 @@ describe('AAPJobTemplateProvider', () => {
       expect(engTemplate.entity.metadata.title).toBe('Deploy Service');
     });
   });
+
+  describe('execute permission store', () => {
+    it('should populate store during sync', async () => {
+      const {
+        executePermissionStore,
+      } = require('../permissions/executePermissionStore');
+      const config = new ConfigReader(MOCK_JOB_TEMPLATE_CONFIG);
+      const logger = mockServices.logger.mock();
+      const schedule = new PersistingTaskRunner();
+
+      mockAnsibleService.syncJobTemplates.mockResolvedValue([
+        { job: MOCK_JOB_TEMPLATE, survey: null, instanceGroup: [] },
+      ]);
+
+      const executeMap = new Map();
+      executeMap.set('7', ['network-user']);
+      mockAnsibleService.getJobTemplateExecuteMap.mockResolvedValue(executeMap);
+
+      const provider = AAPJobTemplateProvider.fromConfig(
+        config,
+        mockAnsibleService,
+        { logger, schedule },
+      )[0];
+
+      const connection = {
+        applyMutation: jest.fn(),
+        refresh: jest.fn(),
+      } as unknown as EntityProviderConnection;
+
+      await provider.connect(connection);
+      const taskDef = schedule.getTasks()[0];
+      await (taskDef.fn as () => Promise<void>)();
+
+      expect(mockAnsibleService.getJobTemplateExecuteMap).toHaveBeenCalled();
+      expect(
+        executePermissionStore.hasExecutePermission('network-user', '7'),
+      ).toBe(true);
+    });
+
+    it('should continue sync when execute map fetch fails', async () => {
+      const config = new ConfigReader(MOCK_JOB_TEMPLATE_CONFIG);
+      const logger = mockServices.logger.mock();
+      const schedule = new PersistingTaskRunner();
+
+      mockAnsibleService.syncJobTemplates.mockResolvedValue([
+        { job: MOCK_JOB_TEMPLATE, survey: null, instanceGroup: [] },
+      ]);
+      mockAnsibleService.getJobTemplateExecuteMap.mockRejectedValue(
+        new Error('API unreachable'),
+      );
+
+      const provider = AAPJobTemplateProvider.fromConfig(
+        config,
+        mockAnsibleService,
+        { logger, schedule },
+      )[0];
+
+      const connection = {
+        applyMutation: jest.fn(),
+        refresh: jest.fn(),
+      } as unknown as EntityProviderConnection;
+
+      await provider.connect(connection);
+      const taskDef = schedule.getTasks()[0];
+      await (taskDef.fn as () => Promise<void>)();
+
+      expect(connection.applyMutation).toHaveBeenCalled();
+    });
+
+    it('should register local scheduled task when scheduler is provided', async () => {
+      const config = new ConfigReader(MOCK_JOB_TEMPLATE_CONFIG);
+      const logger = mockServices.logger.mock();
+
+      const mockTaskRunner = {
+        run: jest.fn().mockImplementation(async (task) => {
+          await task.fn();
+        }),
+      } as unknown as SchedulerServiceTaskRunner;
+
+      const mockScheduler = {
+        createScheduledTaskRunner: jest.fn().mockReturnValue(mockTaskRunner),
+        scheduleTask: jest.fn().mockResolvedValue(undefined),
+        getScheduledTasks: jest.fn().mockResolvedValue([]),
+        triggerTask: jest.fn(),
+      };
+
+      mockAnsibleService.syncJobTemplates.mockResolvedValue([]);
+      mockAnsibleService.getJobTemplateExecuteMap.mockResolvedValue(new Map());
+
+      const provider = AAPJobTemplateProvider.fromConfig(
+        config,
+        mockAnsibleService,
+        { logger, scheduler: mockScheduler as any },
+      )[0];
+
+      const connection = {
+        applyMutation: jest.fn(),
+        refresh: jest.fn(),
+      } as unknown as EntityProviderConnection;
+
+      await provider.connect(connection);
+
+      expect(mockScheduler.scheduleTask).toHaveBeenCalledWith(
+        expect.objectContaining({
+          id: expect.stringContaining('aap-execute-permission-refresh'),
+          scope: 'local',
+        }),
+      );
+    });
+  });
 });

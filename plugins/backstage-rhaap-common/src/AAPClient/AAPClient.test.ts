@@ -2908,6 +2908,112 @@ describe('AAPClient', () => {
       });
     });
 
+    describe('getJobTemplateExecuteMap', () => {
+      it('should return map of template IDs to usernames from direct assignments', async () => {
+        (fetch as jest.Mock).mockResolvedValueOnce({
+          ok: true,
+          json: () =>
+            Promise.resolve({
+              count: 2,
+              next: null,
+              results: [
+                {
+                  object_id: '11',
+                  summary_fields: {
+                    role_definition: { name: 'JobTemplate Execute' },
+                    user: { username: 'network-user' },
+                  },
+                },
+                {
+                  object_id: '28',
+                  summary_fields: {
+                    role_definition: { name: 'JobTemplate Admin' },
+                    user: { username: 'portal-user' },
+                  },
+                },
+              ],
+            }),
+        });
+        // Team assignments call
+        (fetch as jest.Mock).mockResolvedValueOnce({
+          ok: true,
+          json: () =>
+            Promise.resolve({ count: 0, next: null, results: [] }),
+        });
+
+        const result = await client.getJobTemplateExecuteMap();
+
+        expect(result.get('11')).toEqual(['network-user']);
+        expect(result.get('28')).toEqual(['portal-user']);
+        expect(result.size).toBe(2);
+      });
+
+      it('should resolve team members for team-based assignments', async () => {
+        // User assignments - none direct
+        (fetch as jest.Mock).mockResolvedValueOnce({
+          ok: true,
+          json: () =>
+            Promise.resolve({ count: 0, next: null, results: [] }),
+        });
+        // Team assignments
+        (fetch as jest.Mock).mockResolvedValueOnce({
+          ok: true,
+          json: () =>
+            Promise.resolve({
+              count: 1,
+              next: null,
+              results: [
+                {
+                  object_id: '20',
+                  summary_fields: {
+                    role_definition: { name: 'JobTemplate Execute' },
+                    team: { id: 1, name: 'test-team' },
+                  },
+                },
+              ],
+            }),
+        });
+        // Team member resolution
+        (fetch as jest.Mock).mockResolvedValueOnce({
+          ok: true,
+          json: () =>
+            Promise.resolve({
+              count: 1,
+              next: null,
+              results: [
+                {
+                  summary_fields: {
+                    user: { username: 'team-member' },
+                    role_definition: { name: 'Team Member' },
+                  },
+                },
+              ],
+            }),
+        });
+
+        const result = await client.getJobTemplateExecuteMap();
+
+        expect(result.get('20')).toEqual(['team-member']);
+      });
+
+      it('should return empty map when no assignments exist', async () => {
+        (fetch as jest.Mock).mockResolvedValueOnce({
+          ok: true,
+          json: () =>
+            Promise.resolve({ count: 0, next: null, results: [] }),
+        });
+        (fetch as jest.Mock).mockResolvedValueOnce({
+          ok: true,
+          json: () =>
+            Promise.resolve({ count: 0, next: null, results: [] }),
+        });
+
+        const result = await client.getJobTemplateExecuteMap();
+
+        expect(result.size).toBe(0);
+      });
+    });
+
     describe('syncJobTemplates', () => {
       it('should fetch job templates with a disabled survey from AAP', async () => {
         const mockSurveyDisabledJobTemplateResponse = [

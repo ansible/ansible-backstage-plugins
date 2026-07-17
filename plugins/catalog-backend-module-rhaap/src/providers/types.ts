@@ -20,6 +20,7 @@ export type AapConfig = {
   surveyEnabled?: boolean;
   jobTemplateLabels?: string[];
   jobTemplateExcludeLabels?: string[];
+  executePermissionsSchedule?: SchedulerServiceTaskScheduleDefinition;
   /** When set, this config is for a PAH collection sync for the given repository name. */
   pahRepositories?: PAHRepositoryConfig[];
 };

@@ -17,6 +17,7 @@ import { EEEntityProvider } from './providers/EEEntityProvider';
 import { PAHCollectionProvider } from './providers/PAHCollectionProvider';
 import { CatalogClient } from '@backstage/catalog-client';
 import { AnsibleGitContentsProvider } from './providers/AnsibleGitContentsProvider';
+import { hasExecutePermission } from './permissions/rules';
 
 export const catalogModuleRhaap = createBackendModule({
   pluginId: 'catalog',
@@ -54,6 +55,7 @@ export const catalogModuleRhaap = createBackendModule({
         auth,
       }) {
         permissionsRegistry.addPermissions(ansiblePermissions);
+        permissionsRegistry.addPermissionRules([hasExecutePermission]);
         catalogModel.setFieldValidators(
           makeValidator({
             isValidEntityName: (value: string) => {

@@ -29,6 +29,14 @@ export interface Config {
               /** Default schedule for all repositories that don't have their own schedule */
               schedule?: SchedulerServiceTaskScheduleDefinitionConfig;
             };
+            /**
+             * Schedule for refreshing AAP execute permission mappings.
+             * Each pod independently fetches role assignments from AAP on this cadence.
+             * @default frequency: { minutes: 40 }, timeout: { minutes: 5 }
+             */
+            executePermissions?: {
+              schedule?: SchedulerServiceTaskScheduleDefinitionConfig;
+            };
             ansibleGitContents?: {
               /** @default true */
               enabled?: boolean;
