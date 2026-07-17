@@ -38,8 +38,9 @@ export const AAPLogoutHandler = () => {
 
         try {
           await originalSignOut();
-        } catch {
-          // continue with AAP gateway logout regardless
+        } catch (err) {
+          // eslint-disable-next-line no-console
+          console.error('Failed to clear Portal session during logout:', err);
         }
 
         try {

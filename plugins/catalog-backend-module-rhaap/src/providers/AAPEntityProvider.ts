@@ -310,9 +310,13 @@ export class AAPEntityProvider implements EntityProvider {
                 if (!matched) {
                   for (const org of orgsDetails) {
                     if (org.organization.id === team.orgId) {
-                      if (org.organization.namespace) {
-                        userMembers.push(org.organization.namespace);
-                      }
+                      const orgNs = getEffectiveNamespace(
+                        org.organization.name,
+                        this.orgs,
+                      );
+                      userMembers.push(
+                        `group:${orgNs}/${formatNameSpace(org.organization.name)}`,
+                      );
                       break;
                     }
                   }
