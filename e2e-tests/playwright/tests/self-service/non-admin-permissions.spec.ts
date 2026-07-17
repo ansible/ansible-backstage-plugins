@@ -1,6 +1,11 @@
 import { test, expect } from '../../fixtures/auth-context-user';
 
 test.describe('Non-admin user: Permission boundaries', () => {
+  test.skip(
+    process.env.RHDH_VERSION === '1.9',
+    'Non-admin login requires RHDH 1.10+',
+  );
+
   test('Non-admin user is authenticated and can access portal', async ({
     page,
   }) => {

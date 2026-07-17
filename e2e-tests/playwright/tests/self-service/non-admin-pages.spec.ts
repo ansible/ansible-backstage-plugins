@@ -1,6 +1,11 @@
 import { test, expect } from '../../fixtures/auth-context-user';
 
 test.describe('Non-admin user: Portal pages accessibility', () => {
+  test.skip(
+    process.env.RHDH_VERSION === '1.9',
+    'Non-admin login requires RHDH 1.10+',
+  );
+
   test.describe('Execution Environments', () => {
     test('Non-admin user can access EE catalog page', async ({ page }) => {
       await page.goto('/self-service/ee', { waitUntil: 'networkidle' });
