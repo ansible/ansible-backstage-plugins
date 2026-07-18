@@ -1,6 +1,9 @@
 dynamicPlugins:
   frontend:
     ansible.plugin-backstage-self-service:
+      # ADR-010: host default when APME guest is not loaded (Git Repos works without optional plugins)
+      apiFactories:
+        - importName: defaultGitRepositoriesExtensionsApiFactory
       signInPage:
         importName: SignInPage
       providerSettings:
