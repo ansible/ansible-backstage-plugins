@@ -1,5 +1,9 @@
 # Ansible RHDH / Self-Service Configuration
-# 
+#
+# Local development: put ALL overrides in app-config.local.yaml (gitignored).
+# Do not commit changes to this file for local env, credentials, APME toggles,
+# OAuth scopes, or support links — copy app-config.local.yaml.example to start.
+#
 # This configuration includes a DYNAMIC RBAC solution for AAP superusers:
 # 
 # 🚀 DYNAMIC RBAC FEATURES:

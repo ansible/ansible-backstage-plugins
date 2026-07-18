@@ -118,9 +118,13 @@ Registered via `permissionsRegistry.addPermissions()` in the catalog module. Fro
 
 ### Configuration
 
-- `app-config.yaml` — main config (AAP connection under `aap:` key with `baseUrl`, `token`, `checkSSL`)
-- `app-config.local.yaml` — local overrides (gitignored)
+- `app-config.yaml` — shared defaults checked into git; **do not edit for local dev**
+- `app-config.local.yaml` — **always** use this for local overrides (gitignored via `*.local.yaml`)
+- `app-config.local.yaml.example` — starter fragments; `cp app-config.local.yaml.example app-config.local.yaml`
+- `app-config.production.yaml` — gitignored; portal deployments use their own config path
 - Plugin config schemas defined in `config.d.ts` files within each plugin
+
+**Policy:** Never commit changes to `app-config.yaml` for machine-specific settings. Use `app-config.local.yaml` only.
 
 ### Dynamic Plugin Support
 
@@ -147,3 +151,4 @@ Plugins support deployment as dynamic plugins in RHDH. Each plugin has a `dist-d
 - If encountering repeated issues, investigate the root cause instead of trying random fixes or switching libraries.
 - When doing UI & UX work, ensure designs are aesthetically pleasing, easy to use, and follow UI/UX best practices. Pay attention to interaction patterns and micro-interactions.
 - When a task is very large in scope or too vague, break it down into smaller subtasks first. If that still leaves too many open questions, ask the user to help scope the work.
+- **Configuration:** Never modify `app-config.yaml` for local development, secrets, or prototype-only settings. Always add or change `app-config.local.yaml` (see `app-config.local.yaml.example`). Revert accidental `app-config.yaml` edits before opening a PR.

@@ -155,15 +155,15 @@ Edit `.env` and fill in the required values:
 
 **Note:** `BACKEND_SECRET` and `AUTH_SIGNING_KEY` are auto-generated if left empty. Set them explicitly if you need persistent sessions across restarts.
 
-#### 2. Create Local Configuration File (Optional)
+#### 2. Create Local Configuration File
 
-For local overrides (non-secret settings like schedule intervals, enabled features, etc.):
+**Always** put local overrides in `app-config.local.yaml` (gitignored). Do not edit `app-config.yaml` for development settings, secrets, or prototype-only config.
 
 ```bash
-cp app-config.yaml app-config.local.yaml
+cp app-config.local.yaml.example app-config.local.yaml
 ```
 
-Edit `app-config.local.yaml` to customize settings for your local environment. This file is gitignored.
+Edit `app-config.local.yaml` for your environment. Backstage merges it on top of `app-config.yaml` when you run `yarn start`.
 
 ### Running Locally
 
