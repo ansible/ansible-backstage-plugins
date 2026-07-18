@@ -240,7 +240,6 @@ ansible-backstage-plugins/
 │   └── template/             # Sample software template
 │
 ├── app-config.yaml           # Main configuration file
-├── app-config.production.yaml # Production configuration
 ├── package.json              # Root package.json with workspaces
 ├── tsconfig.json             # TypeScript configuration
 └── yarn.lock                 # Dependency lock file

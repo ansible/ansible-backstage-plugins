@@ -120,7 +120,6 @@ Registered via `permissionsRegistry.addPermissions()` in the catalog module. Fro
 
 - `app-config.yaml` — main config (AAP connection under `aap:` key with `baseUrl`, `token`, `checkSSL`)
 - `app-config.local.yaml` — local overrides (gitignored)
-- `app-config.production.yaml` — production config
 - Plugin config schemas defined in `config.d.ts` files within each plugin
 
 ### Dynamic Plugin Support
