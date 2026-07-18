@@ -21,6 +21,7 @@ import {
   type GitRepositoriesPageTabContext,
   type GitRepositoryCatalogColumnDefinition,
 } from '@ansible/backstage-rhaap-common/gitRepositoriesExtensions';
+import { ApmeAddRepositoryHeaderAction } from '../components/ApmeAddRepositoryHeaderAction/ApmeAddRepositoryHeaderAction';
 
 export function withSuspense<P extends object>(
   Component: ComponentType<P>,
@@ -97,6 +98,16 @@ export function createApmeGitRepositoriesExtensionsApi(
           path: 'quality-settings',
           order: 30,
           render: () => <ApmeQualitySettingsTab />,
+        },
+      ];
+    }
+
+    getPageHeaderActions() {
+      return [
+        {
+          id: 'add-repository',
+          order: 10,
+          render: () => <ApmeAddRepositoryHeaderAction />,
         },
       ];
     }

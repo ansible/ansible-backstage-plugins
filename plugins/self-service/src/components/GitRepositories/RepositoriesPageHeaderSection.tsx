@@ -1,12 +1,6 @@
-import { Button } from '@material-ui/core';
-import AddIcon from '@material-ui/icons/Add';
-import { Link as RouterLink } from 'react-router-dom';
 import { PageHeaderSection } from '../common';
 import type { SyncProgressEntry } from '../common';
 import { REPO_TOOLTIP, REPO_DESCRIPTION } from './constants';
-
-const APME_REGISTER_TEMPLATE_PATH =
-  '/self-service/create/templates/default/apme-register-git-repository';
 
 interface RepositoriesPageHeaderSectionProps {
   onSyncClick: () => void;
@@ -14,6 +8,8 @@ interface RepositoriesPageHeaderSectionProps {
   syncDisabledReason?: string;
   syncInProgress?: boolean;
   syncProgress?: SyncProgressEntry[];
+  /** ADR-010: optional actions from gitRepositoriesExtensionsApiRef (e.g. APME Add repository). */
+  extensionHeaderActions?: React.ReactNode;
 }
 
 export const RepositoriesPageHeaderSection = ({
@@ -22,6 +18,7 @@ export const RepositoriesPageHeaderSection = ({
   syncDisabledReason,
   syncInProgress = false,
   syncProgress,
+  extensionHeaderActions,
 }: RepositoriesPageHeaderSectionProps) => (
   <PageHeaderSection
     title="Git Repositories"
@@ -30,17 +27,7 @@ export const RepositoriesPageHeaderSection = ({
     onSyncClick={onSyncClick}
     syncDisabled={syncDisabled}
     syncDisabledReason={syncDisabledReason}
-    extraHeaderActions={
-      <Button
-        variant="contained"
-        color="primary"
-        startIcon={<AddIcon />}
-        component={RouterLink}
-        to={APME_REGISTER_TEMPLATE_PATH}
-      >
-        Add repository
-      </Button>
-    }
+    extraHeaderActions={extensionHeaderActions}
     syncInProgress={syncInProgress}
     syncProgress={syncProgress}
   />

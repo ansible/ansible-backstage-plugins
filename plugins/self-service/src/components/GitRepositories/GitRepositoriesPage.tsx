@@ -151,6 +151,22 @@ export const GitRepositoriesPage = () => {
     return [...CORE_TABS, ...extensionTabs].sort((a, b) => a.order - b.order);
   }, [extensionsApi]);
 
+  const extensionHeaderActions = useMemo(() => {
+    const actions = extensionsApi
+      .getPageHeaderActions()
+      .sort((a, b) => a.order - b.order);
+    if (actions.length === 0) {
+      return undefined;
+    }
+    return (
+      <>
+        {actions.map(action => (
+          <span key={action.id}>{action.render()}</span>
+        ))}
+      </>
+    );
+  }, [extensionsApi]);
+
   const [syncDialogOpen, setSyncDialogOpen] = useState(false);
   const [hasConfiguredSources, setHasConfiguredSources] = useState<
     boolean | null
@@ -283,6 +299,7 @@ export const GitRepositoriesPage = () => {
           syncDisabledReason={syncDisabledReason}
           syncInProgress={isSyncInProgress}
           syncProgress={syncProgress}
+          extensionHeaderActions={extensionHeaderActions}
         />
         <Box className={classes.tabsSection}>
           <HeaderTabs

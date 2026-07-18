@@ -52,17 +52,29 @@ describe('RepositoriesPageHeaderSection', () => {
     ).toBeInTheDocument();
   });
 
-  it('renders Add repository button linking to scaffolder template', () => {
+  it('does not render Add repository when no extension header actions are registered', () => {
     renderWithTheme(
       <RepositoriesPageHeaderSection onSyncClick={mockOnSyncClick} />,
     );
 
-    const addButton = screen.getByRole('button', { name: /Add repository/i });
-    expect(addButton).toBeInTheDocument();
-    expect(addButton).toHaveAttribute(
-      'href',
-      '/self-service/create/templates/default/apme-register-git-repository',
+    expect(
+      screen.queryByRole('button', { name: /Add repository/i }),
+    ).not.toBeInTheDocument();
+  });
+
+  it('renders extension header actions when provided', () => {
+    renderWithTheme(
+      <RepositoriesPageHeaderSection
+        onSyncClick={mockOnSyncClick}
+        extensionHeaderActions={
+          <button type="button">Add repository</button>
+        }
+      />,
     );
+
+    expect(
+      screen.getByRole('button', { name: /Add repository/i }),
+    ).toBeInTheDocument();
   });
 
   it('renders Sync Now button when user is superuser', () => {

@@ -7,7 +7,11 @@
 
 import { ReactNode } from 'react';
 import { Entity } from '@backstage/catalog-model';
-import { createApiRef } from '@backstage/core-plugin-api';
+import {
+  createApiFactory,
+  createApiRef,
+  type AnyApiFactory,
+} from '@backstage/core-plugin-api';
 
 /** Context passed to optional Git Repos page tab renderers (Inc 10 fleet drill-down). */
 export type GitRepositoriesPageTabContext = {
@@ -21,6 +25,13 @@ export type GitRepositoriesPageTabDefinition = {
   path: string;
   order: number;
   render: (context: GitRepositoriesPageTabContext) => ReactNode;
+};
+
+/** Optional header action on the Git Repositories list page (e.g. Add repository scaffolder). */
+export type GitRepositoriesPageHeaderActionDefinition = {
+  id: string;
+  order: number;
+  render: () => ReactNode;
 };
 
 /** Context for entity detail Quality tab and similar extensions. */
@@ -91,6 +102,7 @@ export type GitRepositoryDetailOverlayDefinition = {
 
 export interface GitRepositoriesExtensionsApi {
   getPageTabs(): GitRepositoriesPageTabDefinition[];
+  getPageHeaderActions(): GitRepositoriesPageHeaderActionDefinition[];
   getDetailTabs(): GitRepositoryDetailTabDefinition[];
   getDetailOverviewSlots(): GitRepositoryDetailOverviewSlotDefinition[];
   getDetailHeaderMenuItems(): GitRepositoryDetailHeaderMenuItemDefinition[];
@@ -110,6 +122,10 @@ export const gitRepositoriesExtensionsApiRef =
 /** Default: no optional factory plugin UI (ADR-010 zero footprint). */
 export class DefaultGitRepositoriesExtensionsApi implements GitRepositoriesExtensionsApi {
   getPageTabs(): GitRepositoriesPageTabDefinition[] {
+    return [];
+  }
+
+  getPageHeaderActions(): GitRepositoriesPageHeaderActionDefinition[] {
     return [];
   }
 
@@ -143,3 +159,11 @@ export class DefaultGitRepositoriesExtensionsApi implements GitRepositoriesExten
     return [];
   }
 }
+
+/** Host default for RHDH when no guest plugin registers extensions (ADR-010). */
+export const defaultGitRepositoriesExtensionsApiFactory: AnyApiFactory =
+  createApiFactory({
+    api: gitRepositoriesExtensionsApiRef,
+    deps: {},
+    factory: () => new DefaultGitRepositoriesExtensionsApi(),
+  });
