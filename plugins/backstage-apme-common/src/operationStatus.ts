@@ -101,6 +101,13 @@ export function isTerminalOperationState(
   return !waitForExplicitState;
 }
 
+/** True when the Quality tab should resume Scanning UI for a gateway op. */
+export function shouldResumeScanUi(
+  state: OperationState | null | undefined,
+): boolean {
+  return isActiveOperationStatus(state?.status);
+}
+
 /** Extract a short user-facing message from a gateway operation error string. */
 export function formatOperationError(error?: string | null): string {
   if (!error) {

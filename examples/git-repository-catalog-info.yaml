@@ -15,7 +15,7 @@ kind: Component
 metadata:
   name: <repo>
   title: <repo>
-  description: Ansible automation repository registered for content quality scanning
+  description: Ansible automation repository registered for Ansible content modernization
   annotations:
     backstage.io/source-location: url:https://github.com/<org>/<repo>
     github.com/project-slug: <org>/<repo>

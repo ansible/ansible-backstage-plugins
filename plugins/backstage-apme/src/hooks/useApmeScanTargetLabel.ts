@@ -4,15 +4,39 @@
 
 import { configApiRef, useApi } from '@backstage/core-plugin-api';
 import { useAsync } from 'react-use';
+import type { ProjectScanTarget, ScanTargetSource } from '@ansible/backstage-apme-common/types';
 import { DEFAULT_APME_TARGET_ANSIBLE_CORE_VERSION } from '@ansible/backstage-apme-common/scanTargetDefaults';
 import { apmeApiRef } from '../api';
 import { formatAnsibleCoreVersionLabel } from '../utils/scanTargetVersion';
 
-/**
- * Scan target label for UI copy — prefers a version from the latest project scan,
- * then portal app-config (`ansible.apme.targetAnsibleCoreVersion`), then 2.16.
- */
-export function useApmeScanTargetLabel(fromLastScan?: string | null): string {
+export interface ScanTargetDisplay {
+  label: string;
+  effective: string;
+  source: ScanTargetSource;
+  globalDefault: string;
+  projectOverride?: string;
+}
+
+function toDisplay(
+  resolution: Pick<
+    ProjectScanTarget,
+    'effective' | 'source' | 'globalDefault' | 'projectOverride'
+  >,
+): ScanTargetDisplay {
+  const label =
+    formatAnsibleCoreVersionLabel(resolution.effective) ??
+    `ansible-core ${DEFAULT_APME_TARGET_ANSIBLE_CORE_VERSION}`;
+  return {
+    label,
+    effective: resolution.effective,
+    source: resolution.source,
+    globalDefault: resolution.globalDefault,
+    projectOverride: resolution.projectOverride,
+  };
+}
+
+/** Portal-wide scan target (Quality Overview, Rules caption). */
+export function useApmeScanTargetLabel(): ScanTargetDisplay {
   const configApi = useApi(configApiRef);
   const apmeApi = useApi(apmeApiRef);
   const configVersion =
@@ -24,13 +48,14 @@ export function useApmeScanTargetLabel(fromLastScan?: string | null): string {
   );
 
   const version =
-    fromLastScan?.trim() ||
     settings?.targetAnsibleCoreVersion?.trim() ||
     configVersion.trim() ||
     DEFAULT_APME_TARGET_ANSIBLE_CORE_VERSION;
 
-  return (
-    formatAnsibleCoreVersionLabel(version) ??
-    `ansible-core ${DEFAULT_APME_TARGET_ANSIBLE_CORE_VERSION}`
-  );
+  return toDisplay({
+    effective: version,
+    source: settings?.targetAnsibleCoreVersion ? 'global' : 'default',
+    globalDefault: version,
+  });
 }
+

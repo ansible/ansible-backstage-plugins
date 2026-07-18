@@ -32,6 +32,7 @@ export interface RemediationWorkflowCache {
   proposals: Proposal[];
   tier1Result: Tier1RemediationCache | null;
   selectedIds?: number[];
+  includeAiInBulk?: boolean;
   approvedProposalIds: string[];
   branchPushed: boolean;
   prBranchName?: string;

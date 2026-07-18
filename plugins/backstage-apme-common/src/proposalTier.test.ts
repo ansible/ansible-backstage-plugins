@@ -303,7 +303,7 @@ describe('isAiRemediationProposal', () => {
 });
 
 describe('proposalNeedsUserReview', () => {
-  it('requires review for tier 2 proposals', () => {
+  it('requires checkbox inclusion for tier 2 proposals', () => {
     const proposal = normalizeGatewayProposal(
       {
         id: 'p1',
@@ -318,10 +318,25 @@ describe('proposalNeedsUserReview', () => {
     expect(proposalNeedsUserReview(proposal, violations, true)).toBe(true);
   });
 
-  it('requires review when proposal has AI explanation but no matching violation', () => {
+  it('requires checkbox inclusion for tier 1 auto-fix proposals', () => {
     const proposal = normalizeGatewayProposal(
       {
         id: 'p2',
+        rule_id: 'RULE-A',
+        file: 'playbook.yml',
+        tier: 1,
+        suggestion: 'fixed',
+      },
+      violations,
+    );
+
+    expect(proposalNeedsUserReview(proposal, violations, true)).toBe(true);
+  });
+
+  it('requires checkbox inclusion when proposal has no matching violation', () => {
+    const proposal = normalizeGatewayProposal(
+      {
+        id: 'p3',
         rule_id: 'UNKNOWN',
         file: 'other.yml',
         explanation: 'Needs human review',

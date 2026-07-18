@@ -338,4 +338,57 @@ export class RemediationPublisher {
     );
     return createGithubPullRequest(ctx, bundle, branchName);
   }
+
+  /**
+   * Commit full-file overrides onto an existing remediation branch
+   * (portal Review & edit tweaks after gateway submit).
+   */
+  async commitFileOverrides(options: {
+    repoUrl: string;
+    branchName: string;
+    files: Record<string, string>;
+    userToken?: string;
+    scmProvider?: string;
+  }): Promise<void> {
+    const paths = Object.keys(options.files);
+    if (paths.length === 0) {
+      return;
+    }
+
+    const bundle: RemediationBundle = {
+      activity_id: '',
+      project_id: '',
+      repo_url: options.repoUrl,
+      base_branch: options.branchName,
+      scm_provider: options.scmProvider ?? 'github',
+      branch_name: options.branchName,
+      title: 'Apply reviewed remediation edits',
+      body: '',
+      files: [],
+      fixed_count: 0,
+      total_violations: 0,
+    };
+
+    const ctx = await resolveGithubContext(
+      bundle,
+      this.scmFactory,
+      options.userToken,
+      this.logger,
+    );
+
+    const buffers: Record<string, Buffer> = {};
+    for (const [path, content] of Object.entries(options.files)) {
+      buffers[path] = Buffer.from(content, 'utf8');
+    }
+
+    this.logger.info(
+      `Applying ${paths.length} reviewed file override(s) on ${options.branchName}`,
+    );
+    await pushGithubFiles(
+      ctx,
+      options.branchName,
+      buffers,
+      'Apply reviewed remediation edits',
+    );
+  }
 }

@@ -15,3 +15,8 @@
  */
 
 export { ApmeViolationsTable } from './ApmeViolationsTable';
+export type {
+  ApmeViolationsTableFilterContext,
+  ApmeViolationsTableProps,
+  ViolationReviewDiff,
+} from './ApmeViolationsTable';

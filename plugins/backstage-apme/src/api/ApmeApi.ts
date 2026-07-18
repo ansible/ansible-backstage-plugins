@@ -37,25 +37,42 @@ import type {
   RuleConfigUpdate,
   CreateSuppressionRequest,
   Suppression,
+  ProjectScanTarget,
+  UpdatePortalSettingsRequest,
+  UpdateProjectScanTargetRequest,
+  ScanTriggerOptions,
 } from '@ansible/backstage-apme-common/types';
 import {
-  normalizeGatewayRules,
-  normalizeGatewayRule,
+  coerceRuleResponse,
   type GatewayRuleRow,
 } from '../utils/gatewayRules';
 
 export interface ApmeScmRequestOptions {
   scmToken?: string;
   branchName?: string;
+  /**
+   * Full-file contents keyed by path. After gateway submit, the portal
+   * commits these onto the remediation branch (Review & edit tweaks).
+   */
+  fileOverrides?: Record<string, string>;
 }
 
 export interface ApmeViolationsOptions {
   limit?: number;
+  offset?: number;
 }
 
 export interface ApmeApi {
   getHealth(): Promise<HealthStatus>;
   getPortalSettings(): Promise<ApmePortalSettings>;
+  updatePortalSettings(
+    body: UpdatePortalSettingsRequest,
+  ): Promise<ApmePortalSettings>;
+  getProjectScanTarget(projectId: string): Promise<ProjectScanTarget>;
+  updateProjectScanTarget(
+    projectId: string,
+    body: UpdateProjectScanTargetRequest,
+  ): Promise<ProjectScanTarget>;
   getAiStatus(): Promise<ApmeAiStatus>;
   getProjects(): Promise<Project[]>;
   getProject(projectId: string): Promise<Project>;
@@ -74,8 +91,9 @@ export interface ApmeApi {
   createSuppression(body: CreateSuppressionRequest): Promise<Suppression>;
   deleteSuppression(suppressionId: number): Promise<void>;
   getSuppressions(scope?: string): Promise<Suppression[]>;
-  triggerScan(projectId: string): Promise<ScanResult>;
+  triggerScan(projectId: string, options?: ScanTriggerOptions): Promise<ScanResult>;
   createProject(request: CreateProjectRequest): Promise<Project>;
+  validateRepoBranch(repoUrl: string, branch: string): Promise<void>;
   deleteProject(projectId: string): Promise<void>;
   getActivity(projectId: string): Promise<Activity[]>;
   getActivityDetail(activityId: string): Promise<ActivityDetail>;
@@ -107,15 +125,24 @@ export const apmeApiRef = createApiRef<ApmeApi>({ id: 'plugin.apme.api' });
 export interface ApmeApiClientOptions {
   discoveryApi: DiscoveryApi;
   fetchApi: FetchApi;
+  /** Timeout for remediation submit/push/PR. Defaults to 5 minutes. */
+  submitTimeoutMs?: number;
 }
 
 export class ApmeApiClient implements ApmeApi {
   private readonly discoveryApi: DiscoveryApi;
   private readonly fetchApi: FetchApi;
+  private readonly submitTimeoutMs: number;
 
   constructor(options: ApmeApiClientOptions) {
     this.discoveryApi = options.discoveryApi;
     this.fetchApi = options.fetchApi;
+    this.submitTimeoutMs =
+      options.submitTimeoutMs !== undefined &&
+      Number.isFinite(options.submitTimeoutMs) &&
+      options.submitTimeoutMs > 0
+        ? Math.floor(options.submitTimeoutMs)
+        : 300_000;
   }
 
   private async getBaseUrl(): Promise<string> {
@@ -125,14 +152,16 @@ export class ApmeApiClient implements ApmeApi {
   private async fetch<T>(
     endpoint: string,
     options?: RequestInit,
-    fetchOptions?: { notFoundReturnsNull?: boolean },
+    fetchOptions?: { notFoundReturnsNull?: boolean; timeoutMs?: number },
   ): Promise<T> {
     const baseUrl = await this.getBaseUrl();
+    const url = `${baseUrl}${endpoint}`;
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 30_000);
+    const timeoutMs = fetchOptions?.timeoutMs ?? 30_000;
+    const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
     let response: Response;
     try {
-      response = await this.fetchApi.fetch(`${baseUrl}${endpoint}`, {
+      response = await this.fetchApi.fetch(url, {
         ...options,
         headers: {
           'Content-Type': 'application/json',
@@ -140,6 +169,20 @@ export class ApmeApiClient implements ApmeApi {
         },
         signal: controller.signal,
       });
+    } catch (err) {
+      const name = err instanceof Error ? err.name : '';
+      const message = err instanceof Error ? err.message : String(err);
+      if (name === 'AbortError' || /aborted/i.test(message)) {
+        throw new Error(
+          `APME API request timed out or was aborted: ${url}`,
+        );
+      }
+      if (err instanceof TypeError || /Failed to fetch/i.test(message)) {
+        throw new Error(
+          `Could not reach APME catalog API at ${url}. Check that the portal backend is available.`,
+        );
+      }
+      throw err;
     } finally {
       clearTimeout(timeoutId);
     }
@@ -183,6 +226,34 @@ export class ApmeApiClient implements ApmeApi {
     return this.fetch<ApmePortalSettings>('/settings');
   }
 
+  async updatePortalSettings(
+    body: UpdatePortalSettingsRequest,
+  ): Promise<ApmePortalSettings> {
+    return this.fetch<ApmePortalSettings>('/settings', {
+      method: 'PUT',
+      body: JSON.stringify(body),
+    });
+  }
+
+  async getProjectScanTarget(projectId: string): Promise<ProjectScanTarget> {
+    return this.fetch<ProjectScanTarget>(
+      `/projects/${encodeURIComponent(projectId)}/scan-target`,
+    );
+  }
+
+  async updateProjectScanTarget(
+    projectId: string,
+    body: UpdateProjectScanTargetRequest,
+  ): Promise<ProjectScanTarget> {
+    return this.fetch<ProjectScanTarget>(
+      `/projects/${encodeURIComponent(projectId)}/scan-target`,
+      {
+        method: 'PUT',
+        body: JSON.stringify(body),
+      },
+    );
+  }
+
   async getAiStatus(): Promise<ApmeAiStatus> {
     return this.fetch<ApmeAiStatus>('/ai/status');
   }
@@ -215,10 +286,16 @@ export class ApmeApiClient implements ApmeApi {
     projectId: string,
     options?: ApmeViolationsOptions,
   ): Promise<Violation[]> {
-    const limitQuery =
-      options?.limit !== undefined ? `?limit=${options.limit}` : '';
+    const params = new URLSearchParams();
+    if (options?.limit !== undefined) {
+      params.set('limit', String(options.limit));
+    }
+    if (options?.offset !== undefined) {
+      params.set('offset', String(options.offset));
+    }
+    const query = params.toString() ? `?${params.toString()}` : '';
     const response = await this.fetch<Violation[]>(
-      `/projects/${encodeURIComponent(projectId)}/violations${limitQuery}`,
+      `/projects/${encodeURIComponent(projectId)}/violations${query}`,
     );
     return response || [];
   }
@@ -232,22 +309,25 @@ export class ApmeApiClient implements ApmeApi {
   }
 
   async getRules(): Promise<Rule[]> {
-    const response = await this.fetch<{ items: GatewayRuleRow[] }>('/rules');
-    return normalizeGatewayRules(response.items || []);
+    const response = await this.fetch<{ items: (GatewayRuleRow | Rule)[] }>(
+      '/rules',
+    );
+    const items = response.items || [];
+    return items.map(item => coerceRuleResponse(item));
   }
 
   async updateRuleConfig(
     ruleId: string,
     body: RuleConfigUpdate,
   ): Promise<Rule> {
-    const response = await this.fetch<GatewayRuleRow>(
+    const response = await this.fetch<GatewayRuleRow | Rule>(
       `/rules/${encodeURIComponent(ruleId)}/config`,
       {
         method: 'PUT',
         body: JSON.stringify(body),
       },
     );
-    return normalizeGatewayRule(response);
+    return coerceRuleResponse(response);
   }
 
   async deleteRuleConfig(ruleId: string): Promise<void> {
@@ -279,12 +359,20 @@ export class ApmeApiClient implements ApmeApi {
     return this.fetch<Suppression[]>(`/suppressions${query}`);
   }
 
-  async triggerScan(projectId: string): Promise<ScanResult> {
+  async triggerScan(
+    projectId: string,
+    options?: ScanTriggerOptions,
+  ): Promise<ScanResult> {
+    const scanOptions: Record<string, unknown> = {};
+    const version = options?.ansibleVersion?.trim();
+    if (version) {
+      scanOptions.ansible_version = version;
+    }
     const response = await this.fetch<{ operation_id: string }>(
       `/projects/${encodeURIComponent(projectId)}/operation`,
       {
         method: 'POST',
-        body: JSON.stringify({ action: 'check', options: {} }),
+        body: JSON.stringify({ action: 'check', options: scanOptions }),
       },
     );
     return { scanId: response.operation_id, projectId, status: 'running' };
@@ -295,6 +383,14 @@ export class ApmeApiClient implements ApmeApi {
       method: 'POST',
       body: JSON.stringify(request),
     });
+  }
+
+  async validateRepoBranch(repoUrl: string, branch: string): Promise<void> {
+    const params = new URLSearchParams({
+      repo_url: repoUrl,
+      branch,
+    });
+    await this.fetch<{ valid: boolean }>(`/repos/branch-check?${params}`);
   }
 
   async deleteProject(projectId: string): Promise<void> {
@@ -368,6 +464,7 @@ export class ApmeApiClient implements ApmeApi {
     activityId: string,
     options?: ApmeScmRequestOptions & { createPr?: boolean },
   ): Promise<SubmitRemediationResult> {
+    // Large remedia pushes (hundreds of blobs) often exceed the default 30s.
     return this.fetch<SubmitRemediationResult>(
       `/projects/${encodeURIComponent(projectId)}/submit`,
       {
@@ -377,8 +474,13 @@ export class ApmeApiClient implements ApmeApi {
           activity_id: activityId,
           branch_name: options?.branchName,
           create_pr: options?.createPr,
+          ...(options?.fileOverrides &&
+          Object.keys(options.fileOverrides).length > 0
+            ? { file_overrides: options.fileOverrides }
+            : {}),
         }),
       },
+      { timeoutMs: this.submitTimeoutMs },
     );
   }
 

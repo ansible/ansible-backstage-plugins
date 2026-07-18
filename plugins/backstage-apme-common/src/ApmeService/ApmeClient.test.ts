@@ -110,4 +110,101 @@ describe('ApmeClient', () => {
     expect(detail.violations[0].remediation_class).toBe(1);
     expect(detail.proposals).toHaveLength(1);
   });
+
+  it('includes ansible_version in scan operation payload', async () => {
+    (global.fetch as jest.Mock).mockResolvedValueOnce({
+      ok: true,
+      json: () => Promise.resolve({ operation_id: 'op-1' }),
+    });
+
+    const client = new ApmeClient({ rootConfig, logger: logger as never });
+    await client.triggerScan('proj-1', { ansibleVersion: '2.17' });
+
+    expect(global.fetch).toHaveBeenCalledWith(
+      'http://localhost:8080/api/v1/projects/proj-1/operation',
+      expect.objectContaining({
+        method: 'POST',
+        body: JSON.stringify({
+          action: 'check',
+          options: { enable_ai: false, ansible_version: '2.17' },
+        }),
+      }),
+    );
+  });
+
+  describe('submitRemediation timeout', () => {
+    function mockAbortableFetch() {
+      (global.fetch as jest.Mock).mockImplementation(
+        (_url: string, options?: RequestInit) =>
+          new Promise((_resolve, reject) => {
+            const signal = options?.signal;
+            const abort = () => {
+              const err = new Error('The operation was aborted');
+              err.name = 'AbortError';
+              reject(err);
+            };
+            if (signal?.aborted) {
+              abort();
+              return;
+            }
+            signal?.addEventListener('abort', abort);
+          }),
+      );
+    }
+
+    beforeEach(() => {
+      jest.useFakeTimers();
+    });
+
+    afterEach(() => {
+      jest.useRealTimers();
+    });
+
+    it('uses default submitTimeoutMs of 300_000 (not 30_000)', async () => {
+      mockAbortableFetch();
+      const client = new ApmeClient({ rootConfig, logger: logger as never });
+      const promise = client.submitRemediation('proj-1', {
+        activity_id: 'act-1',
+      });
+
+      jest.advanceTimersByTime(30_000);
+      let settled = false;
+      promise.then(
+        () => {
+          settled = true;
+        },
+        () => {
+          settled = true;
+        },
+      );
+      await Promise.resolve();
+      expect(settled).toBe(false);
+
+      jest.advanceTimersByTime(270_000);
+      await expect(promise).rejects.toThrow(/Failed to connect to APME/);
+    });
+
+    it('honors custom ansible.apme.submitTimeoutMs', async () => {
+      mockAbortableFetch();
+      const customConfig = new ConfigReader({
+        ansible: {
+          apme: {
+            enabled: true,
+            baseUrl: 'http://localhost:8080',
+            submitTimeoutMs: 5_000,
+          },
+        },
+      });
+      const client = new ApmeClient({
+        rootConfig: customConfig,
+        logger: logger as never,
+      });
+      const promise = client.submitRemediation('proj-1', {
+        activity_id: 'act-1',
+      });
+
+      jest.advanceTimersByTime(5_000);
+      await expect(promise).rejects.toThrow(/Failed to connect to APME/);
+    });
+  });
 });

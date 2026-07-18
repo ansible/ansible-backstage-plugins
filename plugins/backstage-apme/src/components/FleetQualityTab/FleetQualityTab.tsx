@@ -39,7 +39,7 @@ import {
 import { apmeApiRef } from '../../api';
 import { projectLookupKey } from '@ansible/backstage-rhaap-common/catalogEntity';
 import { useApmeEnabled, useApmeAiEnabled } from '../../hooks/useApmeEnabled';
-import { PreviewChip } from '../PreviewChip';
+import { PreviewLabelRow } from '../PreviewChip';
 
 const STATUS_ERROR = '#C9190B';
 const STATUS_SUCCESS = '#3E8635';
@@ -448,7 +448,7 @@ export const FleetQualityTab = ({
           >
             All rules catalog →
           </Link>
-          <PreviewChip />
+          <PreviewLabelRow />
         </Box>
       </Box>
 

@@ -57,7 +57,21 @@ import {
   EntityKubernetesContent,
   isKubernetesAvailable,
 } from '@backstage/plugin-kubernetes';
-import { ApmeEnabledEntityLayoutRoute } from '@ansible/plugin-backstage-apme';
+import {
+  ApmeEntityTab,
+  useApmeEnabled,
+} from '@ansible/plugin-backstage-apme';
+import { useAsyncEntity } from '@backstage/plugin-catalog-react';
+import { useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
+
+function apmeQualityRoute(apmeEnabled: boolean) {
+  return apmeEnabled ? (
+    <EntityLayout.Route path="/apme" title="Quality">
+      <ApmeEntityTab />
+    </EntityLayout.Route>
+  ) : null;
+}
 
 const techdocsContent = (
   <EntityTechdocsContent>
@@ -145,90 +159,96 @@ const overviewContent = (
   </Grid>
 );
 
-const serviceEntityPage = (
-  <EntityLayout>
-    <EntityLayout.Route path="/" title="Overview">
-      {overviewContent}
-    </EntityLayout.Route>
+function ServiceEntityPage() {
+  const apmeEnabled = useApmeEnabled();
+  return (
+    <EntityLayout>
+      <EntityLayout.Route path="/" title="Overview">
+        {overviewContent}
+      </EntityLayout.Route>
 
-    <EntityLayout.Route path="/ci-cd" title="CI/CD">
-      {cicdContent}
-    </EntityLayout.Route>
+      <EntityLayout.Route path="/ci-cd" title="CI/CD">
+        {cicdContent}
+      </EntityLayout.Route>
 
-    <EntityLayout.Route
-      path="/kubernetes"
-      title="Kubernetes"
-      if={isKubernetesAvailable}
-    >
-      <EntityKubernetesContent />
-    </EntityLayout.Route>
+      <EntityLayout.Route
+        path="/kubernetes"
+        title="Kubernetes"
+        if={isKubernetesAvailable}
+      >
+        <EntityKubernetesContent />
+      </EntityLayout.Route>
 
-    <EntityLayout.Route path="/api" title="API">
-      <Grid container spacing={3} alignItems="stretch">
-        <Grid item md={6}>
-          <EntityProvidedApisCard />
+      <EntityLayout.Route path="/api" title="API">
+        <Grid container spacing={3} alignItems="stretch">
+          <Grid item md={6}>
+            <EntityProvidedApisCard />
+          </Grid>
+          <Grid item md={6}>
+            <EntityConsumedApisCard />
+          </Grid>
         </Grid>
-        <Grid item md={6}>
-          <EntityConsumedApisCard />
+      </EntityLayout.Route>
+
+      <EntityLayout.Route path="/dependencies" title="Dependencies">
+        <Grid container spacing={3} alignItems="stretch">
+          <Grid item md={6}>
+            <EntityDependsOnComponentsCard />
+          </Grid>
+          <Grid item md={6}>
+            <EntityDependsOnResourcesCard />
+          </Grid>
         </Grid>
-      </Grid>
-    </EntityLayout.Route>
+      </EntityLayout.Route>
 
-    <EntityLayout.Route path="/dependencies" title="Dependencies">
-      <Grid container spacing={3} alignItems="stretch">
-        <Grid item md={6}>
-          <EntityDependsOnComponentsCard />
+      <EntityLayout.Route path="/docs" title="Docs">
+        {techdocsContent}
+      </EntityLayout.Route>
+
+      {apmeQualityRoute(apmeEnabled)}
+    </EntityLayout>
+  );
+}
+
+function WebsiteEntityPage() {
+  const apmeEnabled = useApmeEnabled();
+  return (
+    <EntityLayout>
+      <EntityLayout.Route path="/" title="Overview">
+        {overviewContent}
+      </EntityLayout.Route>
+
+      <EntityLayout.Route path="/ci-cd" title="CI/CD">
+        {cicdContent}
+      </EntityLayout.Route>
+
+      <EntityLayout.Route
+        path="/kubernetes"
+        title="Kubernetes"
+        if={isKubernetesAvailable}
+      >
+        <EntityKubernetesContent />
+      </EntityLayout.Route>
+
+      <EntityLayout.Route path="/dependencies" title="Dependencies">
+        <Grid container spacing={3} alignItems="stretch">
+          <Grid item md={6}>
+            <EntityDependsOnComponentsCard />
+          </Grid>
+          <Grid item md={6}>
+            <EntityDependsOnResourcesCard />
+          </Grid>
         </Grid>
-        <Grid item md={6}>
-          <EntityDependsOnResourcesCard />
-        </Grid>
-      </Grid>
-    </EntityLayout.Route>
+      </EntityLayout.Route>
 
-    <EntityLayout.Route path="/docs" title="Docs">
-      {techdocsContent}
-    </EntityLayout.Route>
+      <EntityLayout.Route path="/docs" title="Docs">
+        {techdocsContent}
+      </EntityLayout.Route>
 
-    <ApmeEnabledEntityLayoutRoute />
-  </EntityLayout>
-);
-
-const websiteEntityPage = (
-  <EntityLayout>
-    <EntityLayout.Route path="/" title="Overview">
-      {overviewContent}
-    </EntityLayout.Route>
-
-    <EntityLayout.Route path="/ci-cd" title="CI/CD">
-      {cicdContent}
-    </EntityLayout.Route>
-
-    <EntityLayout.Route
-      path="/kubernetes"
-      title="Kubernetes"
-      if={isKubernetesAvailable}
-    >
-      <EntityKubernetesContent />
-    </EntityLayout.Route>
-
-    <EntityLayout.Route path="/dependencies" title="Dependencies">
-      <Grid container spacing={3} alignItems="stretch">
-        <Grid item md={6}>
-          <EntityDependsOnComponentsCard />
-        </Grid>
-        <Grid item md={6}>
-          <EntityDependsOnResourcesCard />
-        </Grid>
-      </Grid>
-    </EntityLayout.Route>
-
-    <EntityLayout.Route path="/docs" title="Docs">
-      {techdocsContent}
-    </EntityLayout.Route>
-
-    <ApmeEnabledEntityLayoutRoute />
-  </EntityLayout>
-);
+      {apmeQualityRoute(apmeEnabled)}
+    </EntityLayout>
+  );
+}
 
 /**
  * NOTE: This page is designed to work on small screens such as mobile devices.
@@ -237,31 +257,58 @@ const websiteEntityPage = (
  * https://material-ui.com/components/grid/#basic-grid.
  */
 
-const defaultEntityPage = (
-  <EntityLayout>
-    <EntityLayout.Route path="/" title="Overview">
-      {overviewContent}
-    </EntityLayout.Route>
+/**
+ * Git repository components use the Self-service Git Repos detail page,
+ * same as discovered GH repos — not the generic catalog DefaultEntityPage.
+ */
+function GitRepositoryEntityPage() {
+  const { entity, loading } = useAsyncEntity();
+  const navigate = useNavigate();
+  useEffect(() => {
+    if (loading || !entity) {
+      return;
+    }
+    navigate(`/self-service/repositories/${entity.metadata.name}`, {
+      replace: true,
+    });
+  }, [entity, loading, navigate]);
+  return null;
+}
 
-    <EntityLayout.Route path="/docs" title="Docs">
-      {techdocsContent}
-    </EntityLayout.Route>
+function DefaultEntityPage() {
+  const apmeEnabled = useApmeEnabled();
+  return (
+    <EntityLayout>
+      <EntityLayout.Route path="/" title="Overview">
+        {overviewContent}
+      </EntityLayout.Route>
 
-    <ApmeEnabledEntityLayoutRoute />
-  </EntityLayout>
-);
+      <EntityLayout.Route path="/docs" title="Docs">
+        {techdocsContent}
+      </EntityLayout.Route>
+
+      {apmeQualityRoute(apmeEnabled)}
+    </EntityLayout>
+  );
+}
 
 const componentPage = (
   <EntitySwitch>
     <EntitySwitch.Case if={isComponentType('service')}>
-      {serviceEntityPage}
+      <ServiceEntityPage />
     </EntitySwitch.Case>
 
     <EntitySwitch.Case if={isComponentType('website')}>
-      {websiteEntityPage}
+      <WebsiteEntityPage />
     </EntitySwitch.Case>
 
-    <EntitySwitch.Case>{defaultEntityPage}</EntitySwitch.Case>
+    <EntitySwitch.Case if={isComponentType('git-repository')}>
+      <GitRepositoryEntityPage />
+    </EntitySwitch.Case>
+
+    <EntitySwitch.Case>
+      <DefaultEntityPage />
+    </EntitySwitch.Case>
   </EntitySwitch>
 );
 
@@ -412,6 +459,8 @@ export const entityPage = (
     <EntitySwitch.Case if={isKind('system')} children={systemPage} />
     <EntitySwitch.Case if={isKind('domain')} children={domainPage} />
 
-    <EntitySwitch.Case>{defaultEntityPage}</EntitySwitch.Case>
+    <EntitySwitch.Case>
+      <DefaultEntityPage />
+    </EntitySwitch.Case>
   </EntitySwitch>
 );

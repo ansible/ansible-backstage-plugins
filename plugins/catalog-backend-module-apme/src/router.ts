@@ -14,18 +14,46 @@
  * limitations under the License.
  */
 
-import { Router, json, Request } from 'express';
+import { Router, Request } from 'express';
 import PromiseRouter from 'express-promise-router';
 import { HttpAuthService, LoggerService } from '@backstage/backend-plugin-api';
 import { Config } from '@backstage/config';
 import { InputError } from '@backstage/errors';
-import { IApmeService, getApmeConfig } from '@ansible/backstage-apme-common';
+import {
+  IApmeService,
+  getApmeConfig,
+  isAllowedAnsibleCoreVersion,
+  mergeActivityPortalOutcomes,
+  normalizeAnsibleCoreVersion,
+  resolveScanTarget,
+  resolveScanTargetVersion,
+} from '@ansible/backstage-apme-common';
+import {
+  ApmePortalSettingsStore,
+} from './apmePortalSettingsStore';
+import { validateRepoBranch } from './branchLookup';
+import { jsonBody } from './jsonBody';
+import { resolveIntegrationScmToken } from './resolveIntegrationScmToken';
+import { RemediationPublisher } from './remediationPublisher';
 
 export interface RouterOptions {
   apmeService: IApmeService;
   logger: LoggerService;
   httpAuth: HttpAuthService;
   rootConfig: Config;
+  portalSettingsStore?: ApmePortalSettingsStore;
+}
+
+function scmTokenFromBody(body: unknown): string | undefined {
+  if (!body || typeof body !== 'object') {
+    return undefined;
+  }
+  const raw = (body as { scm_token?: unknown }).scm_token;
+  if (typeof raw !== 'string') {
+    return undefined;
+  }
+  const token = raw.trim();
+  return token || undefined;
 }
 
 function scmTokenFromRequest(
@@ -39,11 +67,84 @@ function scmTokenFromRequest(
   return token || undefined;
 }
 
+async function ensureRepoBranchValid(
+  rootConfig: Config,
+  logger: LoggerService,
+  repoUrl: string,
+  branch: string | undefined,
+  scmToken?: string,
+): Promise<void> {
+  const resolvedBranch = branch?.trim();
+  if (!resolvedBranch) {
+    throw new InputError('branch is required');
+  }
+  await validateRepoBranch({
+    rootConfig,
+    repoUrl,
+    branch: resolvedBranch,
+    scmToken,
+    logger,
+  });
+}
+
 export async function createRouter(options: RouterOptions): Promise<Router> {
-  const { apmeService, logger, httpAuth, rootConfig } = options;
+  const {
+    apmeService,
+    logger,
+    httpAuth,
+    rootConfig,
+    portalSettingsStore = new ApmePortalSettingsStore(),
+  } = options;
   const router = PromiseRouter();
 
-  router.use(json());
+  const configSnapshot = getApmeConfig(rootConfig);
+  const remediationPublisher = RemediationPublisher.fromConfig({
+    rootConfig,
+    logger,
+  });
+
+  const mergedPortalSettings = async () => {
+    const store = await portalSettingsStore.read();
+    const resolved = resolveScanTarget({
+      store,
+      configTargetAnsibleCoreVersion: configSnapshot.targetAnsibleCoreVersion,
+    });
+    return {
+      enableAi: configSnapshot.enableAi,
+      publishViaGateway: configSnapshot.publishViaGateway,
+      targetAnsibleCoreVersion: resolved.effective,
+    };
+  };
+
+  const scanVersionForProject = async (projectId: string) => {
+    const store = await portalSettingsStore.read();
+    return resolveScanTargetVersion({
+      projectId,
+      store,
+      configTargetAnsibleCoreVersion: configSnapshot.targetAnsibleCoreVersion,
+    });
+  };
+
+  const scanVersionFromRequest = async (
+    projectId: string,
+    bodyVersion: unknown,
+  ): Promise<string> => {
+    if (bodyVersion == null || bodyVersion === '') {
+      return scanVersionForProject(projectId);
+    }
+    if (typeof bodyVersion !== 'string') {
+      throw new InputError('options.ansible_version must be a string');
+    }
+    if (!isAllowedAnsibleCoreVersion(bodyVersion)) {
+      throw new InputError(
+        `Unsupported ansible-core version: ${bodyVersion}`,
+      );
+    }
+    return normalizeAnsibleCoreVersion(bodyVersion)!;
+  };
+
+  // Body parsing: use route-level `jsonBody` only (see ./jsonBody.ts). Never
+  // `router.use(jsonBody)` — this router shares the catalog HTTP stack.
 
   const ensureUser = async (req: unknown) => {
     await httpAuth.credentials(
@@ -63,16 +164,77 @@ export async function createRouter(options: RouterOptions): Promise<Router> {
 
   router.get('/apme/settings', async (req, res) => {
     await ensureUser(req);
-    const {
-      enableAi,
-      publishViaGateway: settingsPublishViaGateway,
-      targetAnsibleCoreVersion,
-    } = getApmeConfig(rootConfig);
-    res.json({
-      enableAi,
-      publishViaGateway: settingsPublishViaGateway,
-      targetAnsibleCoreVersion,
-    });
+    res.json(await mergedPortalSettings());
+  });
+
+  router.put('/apme/settings', jsonBody, async (req, res) => {
+    await ensureUser(req);
+    const { targetAnsibleCoreVersion } = req.body ?? {};
+    if (
+      typeof targetAnsibleCoreVersion !== 'string' ||
+      !targetAnsibleCoreVersion.trim()
+    ) {
+      throw new InputError('targetAnsibleCoreVersion is required');
+    }
+    if (!isAllowedAnsibleCoreVersion(targetAnsibleCoreVersion)) {
+      throw new InputError(
+        `Unsupported ansible-core version: ${targetAnsibleCoreVersion}`,
+      );
+    }
+    await portalSettingsStore.updateGlobal(
+      targetAnsibleCoreVersion.trim(),
+    );
+    res.json(await mergedPortalSettings());
+  });
+
+  router.get('/apme/projects/:projectId/scan-target', async (req, res) => {
+    await ensureUser(req);
+    const { projectId } = req.params;
+    const store = await portalSettingsStore.read();
+    res.json(
+      resolveScanTarget({
+        projectId,
+        store,
+        configTargetAnsibleCoreVersion: configSnapshot.targetAnsibleCoreVersion,
+      }),
+    );
+  });
+
+  router.put('/apme/projects/:projectId/scan-target', jsonBody, async (req, res) => {
+    await ensureUser(req);
+    const { projectId } = req.params;
+    const { targetAnsibleCoreVersion } = req.body ?? {};
+    if (
+      targetAnsibleCoreVersion !== null &&
+      (typeof targetAnsibleCoreVersion !== 'string' ||
+        !targetAnsibleCoreVersion.trim())
+    ) {
+      throw new InputError(
+        'targetAnsibleCoreVersion must be a version string or null',
+      );
+    }
+    if (
+      typeof targetAnsibleCoreVersion === 'string' &&
+      !isAllowedAnsibleCoreVersion(targetAnsibleCoreVersion)
+    ) {
+      throw new InputError(
+        `Unsupported ansible-core version: ${targetAnsibleCoreVersion}`,
+      );
+    }
+    await portalSettingsStore.updateProjectTarget(
+      projectId,
+      targetAnsibleCoreVersion === null
+        ? null
+        : targetAnsibleCoreVersion.trim(),
+    );
+    const store = await portalSettingsStore.read();
+    res.json(
+      resolveScanTarget({
+        projectId,
+        store,
+        configTargetAnsibleCoreVersion: configSnapshot.targetAnsibleCoreVersion,
+      }),
+    );
   });
 
   router.get('/apme/ai/status', async (req, res) => {
@@ -119,11 +281,24 @@ export async function createRouter(options: RouterOptions): Promise<Router> {
     const { projectId } = req.params;
     logger.debug(`APME violations for project ${projectId} requested`);
     const limitRaw = req.query.limit;
+    const offsetRaw = req.query.offset;
     const limit =
       typeof limitRaw === 'string' ? parseInt(limitRaw, 10) : undefined;
+    const offset =
+      typeof offsetRaw === 'string' ? parseInt(offsetRaw, 10) : undefined;
+    const violationOptions =
+      (limit !== undefined && !Number.isNaN(limit)) ||
+      (offset !== undefined && !Number.isNaN(offset))
+        ? {
+            ...(limit !== undefined && !Number.isNaN(limit) ? { limit } : {}),
+            ...(offset !== undefined && !Number.isNaN(offset)
+              ? { offset }
+              : {}),
+          }
+        : undefined;
     const violations = await apmeService.getViolations(
       projectId,
-      limit !== undefined && !Number.isNaN(limit) ? { limit } : undefined,
+      violationOptions,
     );
     res.json(violations);
   });
@@ -136,11 +311,28 @@ export async function createRouter(options: RouterOptions): Promise<Router> {
     res.json(dependencies);
   });
 
-  router.post('/apme/projects/:projectId/operation', async (req, res) => {
+  router.post(
+    '/apme/projects/:projectId/operation',
+    jsonBody,
+    async (req, res) => {
     await ensureUser(req);
     const { projectId } = req.params;
     logger.info(`APME operation triggered for project ${projectId}`);
-    const result = await apmeService.triggerScan(projectId);
+    const project = await apmeService.getProject(projectId);
+    const scmToken =
+      scmTokenFromRequest(req) ?? scmTokenFromBody(req.body);
+    await ensureRepoBranchValid(
+      rootConfig,
+      logger,
+      project.repo_url,
+      project.branch,
+      scmToken,
+    );
+    const ansibleVersion = await scanVersionFromRequest(
+      projectId,
+      req.body?.options?.ansible_version,
+    );
+    const result = await apmeService.triggerScan(projectId, { ansibleVersion });
     res.status(201).json({ operation_id: result.scanId });
   });
 
@@ -151,7 +343,7 @@ export async function createRouter(options: RouterOptions): Promise<Router> {
     res.json({ items: rules });
   });
 
-  router.put('/apme/rules/:ruleId/config', async (req, res) => {
+  router.put('/apme/rules/:ruleId/config', jsonBody, async (req, res) => {
     await ensureUser(req);
     const { ruleId } = req.params;
     const body = req.body;
@@ -180,7 +372,7 @@ export async function createRouter(options: RouterOptions): Promise<Router> {
     res.status(204).send();
   });
 
-  router.post('/apme/suppressions', async (req, res) => {
+  router.post('/apme/suppressions', jsonBody, async (req, res) => {
     await ensureUser(req);
     const { rule_id, scope } = req.body ?? {};
     if (!rule_id || typeof rule_id !== 'string') {
@@ -233,15 +425,45 @@ export async function createRouter(options: RouterOptions): Promise<Router> {
     res.json(project);
   });
 
-  router.post('/apme/projects', async (req, res) => {
+  router.get('/apme/repos/branch-check', async (req, res) => {
     await ensureUser(req);
-    const { name, repo_url } = req.body ?? {};
+    const repoUrl = req.query.repo_url;
+    const branch = req.query.branch;
+    if (typeof repoUrl !== 'string' || !repoUrl.trim()) {
+      throw new InputError('repo_url query parameter is required');
+    }
+    if (typeof branch !== 'string' || !branch.trim()) {
+      throw new InputError('branch query parameter is required');
+    }
+    const scmToken = scmTokenFromRequest(req);
+    await ensureRepoBranchValid(
+      rootConfig,
+      logger,
+      repoUrl,
+      branch,
+      scmToken,
+    );
+    res.json({ valid: true });
+  });
+
+  router.post('/apme/projects', jsonBody, async (req, res) => {
+    await ensureUser(req);
+    const { name, repo_url, branch } = req.body ?? {};
     if (!name || typeof name !== 'string') {
       throw new InputError('name is required in request body');
     }
     if (!repo_url || typeof repo_url !== 'string') {
       throw new InputError('repo_url is required in request body');
     }
+    const scmToken =
+      scmTokenFromRequest(req) ?? scmTokenFromBody(req.body);
+    await ensureRepoBranchValid(
+      rootConfig,
+      logger,
+      repo_url,
+      branch,
+      scmToken,
+    );
     logger.info('APME create project requested');
     const project = await apmeService.createProject(req.body);
     res.status(201).json(project);
@@ -260,7 +482,8 @@ export async function createRouter(options: RouterOptions): Promise<Router> {
     const { projectId } = req.params;
     logger.debug(`APME activity for project ${projectId} requested`);
     const activity = await apmeService.getActivity(projectId);
-    res.json(activity);
+    const store = await portalSettingsStore.read();
+    res.json(mergeActivityPortalOutcomes(activity, store.activities));
   });
 
   router.get('/apme/activity/:activityId', async (req, res) => {
@@ -283,19 +506,22 @@ export async function createRouter(options: RouterOptions): Promise<Router> {
     res.json(state);
   });
 
-  router.post('/apme/projects/:projectId/remediate', async (req, res) => {
+  router.post('/apme/projects/:projectId/remediate', jsonBody, async (req, res) => {
     await ensureUser(req);
     const { projectId } = req.params;
     logger.info(`APME remediate triggered for project ${projectId}`);
+    const ansibleVersion = await scanVersionForProject(projectId);
     const result = await apmeService.triggerRemediate(
       projectId,
       req.body?.violation_ids,
+      { ansibleVersion },
     );
     res.status(201).json({ operation_id: result.scanId });
   });
 
   router.post(
     '/apme/projects/:projectId/operation/approve',
+    jsonBody,
     async (req, res) => {
       await ensureUser(req);
       const { projectId } = req.params;
@@ -306,7 +532,7 @@ export async function createRouter(options: RouterOptions): Promise<Router> {
     },
   );
 
-  router.post('/apme/projects/:projectId/submit', async (req, res) => {
+  router.post('/apme/projects/:projectId/submit', jsonBody, async (req, res) => {
     await ensureUser(req);
     const { projectId } = req.params;
     const {
@@ -315,12 +541,14 @@ export async function createRouter(options: RouterOptions): Promise<Router> {
       create_pr: createPr,
       title,
       body: prBody,
+      file_overrides: fileOverrides,
     } = req.body as {
       activity_id?: string;
       branch_name?: string;
       create_pr?: boolean;
       title?: string;
       body?: string;
+      file_overrides?: Record<string, string>;
     };
 
     if (!activityId || typeof activityId !== 'string') {
@@ -331,7 +559,23 @@ export async function createRouter(options: RouterOptions): Promise<Router> {
       `APME SCM submit for project ${projectId} activity ${activityId}`,
     );
 
-    const token = scmTokenFromRequest(req);
+    const project = await apmeService.getProject(projectId);
+
+    let token =
+      scmTokenFromRequest(req) ?? scmTokenFromBody(req.body);
+    if (!token) {
+      token = await resolveIntegrationScmToken({
+        rootConfig,
+        logger,
+        repoUrl: project.repo_url,
+      });
+      if (token) {
+        logger.info(
+          `APME submit using integration/GitHub App token for project ${projectId}`,
+        );
+      }
+    }
+
     const result = await apmeService.submitRemediation(projectId, {
       activity_id: activityId,
       branch_name: branchName,
@@ -340,6 +584,36 @@ export async function createRouter(options: RouterOptions): Promise<Router> {
       body: prBody,
       scm_token: token,
     });
+
+    const overrides =
+      fileOverrides && typeof fileOverrides === 'object'
+        ? Object.fromEntries(
+            Object.entries(fileOverrides).filter(
+              ([path, content]) =>
+                typeof path === 'string' &&
+                path.length > 0 &&
+                typeof content === 'string',
+            ),
+          )
+        : {};
+
+    if (Object.keys(overrides).length > 0) {
+      await remediationPublisher.commitFileOverrides({
+        repoUrl: project.repo_url,
+        branchName: result.branch_name,
+        files: overrides,
+        userToken: token,
+      });
+      logger.info(
+        `Applied ${Object.keys(overrides).length} reviewed file override(s) on ${result.branch_name}`,
+      );
+    }
+
+    await portalSettingsStore.updateActivityOutcome(activityId, {
+      branch_name: result.branch_name,
+      pr_url: result.pr_url ?? null,
+    });
+
     res.status(200).json(result);
   });
 

@@ -213,16 +213,18 @@ export const DependenciesTab = ({ context }: DependenciesTabProps) => {
   if (!ctx.project) {
     return (
       <Box className={classes.noData} flexDirection="column">
-        <Typography>No scan data available</Typography>
+        <Typography>No quality scans yet</Typography>
+        <Typography variant="body2" color="textSecondary" style={{ marginBottom: 8 }}>
+          Run a scan to discover dependencies for this repository.
+        </Typography>
         <Button
           size="small"
           variant="contained"
           color="primary"
           startIcon={<RefreshIcon />}
-          onClick={() => void ctx.registerAndScan()}
-          disabled={ctx.registering}
+          onClick={navigateToQuality}
         >
-          Register and scan
+          Scan
         </Button>
       </Box>
     );

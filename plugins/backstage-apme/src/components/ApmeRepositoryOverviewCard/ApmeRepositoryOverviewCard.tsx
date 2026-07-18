@@ -160,27 +160,18 @@ export const ApmeRepositoryOverviewCard = ({
             Quality
           </Typography>
           <Typography variant="body2" color="textSecondary" paragraph>
-            No scan results yet. Register this repository with the APME gateway
-            to see quality insights here.
+            No quality scans yet. Quality scans run on push when the APME
+            workflow is configured, or use Scan to check this repository now.
           </Typography>
-          {ctx.registerError && (
-            <Typography variant="body2" color="error" paragraph>
-              {isApmeConnectionError(ctx.registerError.message)
-                ? APME_GATEWAY_UNAVAILABLE_MESSAGE
-                : ctx.registerError.message}
-            </Typography>
-          )}
           <Button
             size="small"
             variant="contained"
             color="primary"
-            disabled={ctx.registering || !ctx.repoUrl}
-            startIcon={
-              ctx.registering ? <CircularProgress size={16} /> : <RefreshIcon />
-            }
-            onClick={() => void ctx.registerAndScan()}
+            disabled={!ctx.repoUrl}
+            startIcon={<RefreshIcon />}
+            onClick={() => navigateToQuality()}
           >
-            {ctx.registering ? 'Scanning…' : 'Register and scan'}
+            Scan
           </Button>
         </CardContent>
       </Card>

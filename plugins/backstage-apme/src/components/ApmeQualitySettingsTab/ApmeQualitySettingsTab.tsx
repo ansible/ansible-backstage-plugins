@@ -6,6 +6,7 @@ import {
   useCallback,
   useEffect,
   useMemo,
+  useRef,
   useState,
   type ReactNode,
 } from 'react';
@@ -47,9 +48,16 @@ import {
 } from '@ansible/backstage-apme-common/severity';
 import { apmeApiRef } from '../../api';
 import { useApmeEnabled } from '../../hooks/useApmeEnabled';
-import { useApmeScanTargetLabel } from '../../hooks/useApmeScanTargetLabel';
+import { DEFAULT_APME_TARGET_ANSIBLE_CORE_VERSION } from '@ansible/backstage-apme-common/scanTargetDefaults';
+import { formatAnsibleCoreVersionLabel } from '../../utils/scanTargetVersion';
+import { PreviewLabelRow } from '../PreviewChip';
 
 const SEVERITY_OPTIONS = SEVERITY_ORDER;
+
+/** Map catalog Rule effective severity to dropdown value (ADR-043 buckets). */
+function effectiveSeveritySelectValue(severity: Rule['severity']): string {
+  return normalizeSeverity(severity);
+}
 
 const useStyles = makeStyles(theme => ({
   connected: {
@@ -65,6 +73,28 @@ const useStyles = makeStyles(theme => ({
   tabs: {
     marginBottom: theme.spacing(2),
     borderBottom: `1px solid ${theme.palette.divider}`,
+    '& .MuiTab-root': {
+      minWidth: 'auto',
+      textTransform: 'none',
+      fontWeight: 500,
+      borderRadius: theme.shape.borderRadius,
+      minHeight: 40,
+      '& .MuiTouchRipple-root': {
+        display: 'none',
+      },
+      '&:hover': {
+        backgroundColor:
+          theme.palette.type === 'dark'
+            ? 'rgba(255, 255, 255, 0.06)'
+            : theme.palette.action.hover,
+      },
+      '&.Mui-selected': {
+        backgroundColor:
+          theme.palette.type === 'dark'
+            ? 'rgba(255, 255, 255, 0.1)'
+            : theme.palette.action.selected,
+      },
+    },
   },
   ruleToolbar: {
     display: 'flex',
@@ -101,11 +131,24 @@ export const ApmeQualitySettingsTab = () => {
   const [rules, setRules] = useState<Rule[]>([]);
   const [savingRuleId, setSavingRuleId] = useState<string | null>(null);
   const [rulesError, setRulesError] = useState<string | null>(null);
+  const savingRuleIdRef = useRef<string | null>(null);
+
+  useEffect(() => {
+    savingRuleIdRef.current = savingRuleId;
+  }, [savingRuleId]);
 
   const baseUrl =
     configApi.getOptionalString('ansible.apme.baseUrl') ??
     configApi.getOptionalString('apme.baseUrl') ??
     '—';
+
+  const configScanTargetVersion =
+    configApi
+      .getOptionalString('ansible.apme.targetAnsibleCoreVersion')
+      ?.trim() || DEFAULT_APME_TARGET_ANSIBLE_CORE_VERSION;
+  const configScanTargetLabel =
+    formatAnsibleCoreVersionLabel(configScanTargetVersion) ??
+    `ansible-core ${configScanTargetVersion}`;
 
   const { value: health, loading: healthLoading } = useAsyncRetry(async () => {
     if (!enabled) return null;
@@ -126,7 +169,9 @@ export const ApmeQualitySettingsTab = () => {
       }
       setRulesError(null);
       const fetched = await apmeApi.getRules();
-      setRules(fetched);
+      if (savingRuleIdRef.current === null) {
+        setRules(fetched);
+      }
       return fetched;
     }, [enabled, apmeApi]);
 
@@ -182,15 +227,23 @@ export const ApmeQualitySettingsTab = () => {
       setSavingRuleId(rule.id);
       setRulesError(null);
       const normalized = normalizeSeverity(severity);
+      const expectedSeverity = severityLevelToCatalogSeverity(normalized);
       updateRuleLocal(rule.id, {
-        severity: severityLevelToCatalogSeverity(normalized),
+        severity: expectedSeverity,
         hasOverride: true,
       });
       try {
         const updated = await apmeApi.updateRuleConfig(rule.id, {
-          severity_override: severityLabelToProto(severity),
+          severity_override: severityLabelToProto(normalized),
         });
-        updateRuleLocal(rule.id, updated);
+        updateRuleLocal(rule.id, {
+          ...updated,
+          severity:
+            updated.severity === expectedSeverity
+              ? updated.severity
+              : expectedSeverity,
+          hasOverride: updated.hasOverride ?? true,
+        });
       } catch (err) {
         setRulesError((err as Error).message);
         void reloadRules();
@@ -232,7 +285,6 @@ export const ApmeQualitySettingsTab = () => {
   }, [rules, overridesOnly, search]);
 
   const overrideCount = rules.filter(r => r.hasOverride).length;
-  const scanTargetLabel = useApmeScanTargetLabel();
 
   useEffect(() => {
     if (sectionFromUrl === 'rules') {
@@ -317,16 +369,23 @@ export const ApmeQualitySettingsTab = () => {
             width: '12%',
             render: (row: Rule) => (
               <Select
-                value={normalizeSeverity(row.severity)}
+                key={`${row.id}-${row.severity}-${row.hasOverride ? '1' : '0'}`}
+                value={effectiveSeveritySelectValue(row.severity)}
                 onChange={e =>
                   void handleSeverityChange(row, e.target.value as string)
                 }
+                onClick={e => e.stopPropagation()}
+                onMouseDown={e => e.stopPropagation()}
                 disabled={savingRuleId === row.id}
                 variant="outlined"
                 style={{ fontSize: 12, minWidth: 100 }}
               >
                 {SEVERITY_OPTIONS.map(sev => (
-                  <MenuItem key={sev} value={sev}>
+                  <MenuItem
+                    key={sev}
+                    value={sev}
+                    onClick={e => e.stopPropagation()}
+                  >
                     {sev}
                   </MenuItem>
                 ))}
@@ -381,20 +440,48 @@ export const ApmeQualitySettingsTab = () => {
 
   return (
     <Box>
+      <Card style={{ marginBottom: 16 }}>
+        <CardHeader
+          title="Default scan target"
+          subheader="ansible-core version used for all repository quality scans."
+        />
+        <CardContent>
+          <Grid container spacing={2} alignItems="flex-end">
+            <Grid item xs={12} sm={6} md={4}>
+              <TextField
+                label="ansible-core version"
+                value={configScanTargetLabel}
+                disabled
+                variant="outlined"
+                margin="dense"
+                fullWidth
+                InputProps={{ readOnly: true }}
+                helperText="ansible.apme.targetAnsibleCoreVersion"
+              />
+            </Grid>
+          </Grid>
+        </CardContent>
+      </Card>
+
       <Tabs
         value={subTab}
         onChange={handleSubTabChange}
         className={classes.tabs}
       >
-        <Tab label="Overview" />
-        <Tab label="Rules" />
+        <Tab label="Overview" disableRipple />
+        <Tab label="Rules" disableRipple />
       </Tabs>
 
       {subTab === 0 && (
         <Card>
           <CardHeader
-            title="Content quality scanning"
-            subheader="Global settings"
+            title={
+              <Box display="flex" alignItems="center">
+                Content quality scanning
+                <PreviewLabelRow />
+              </Box>
+            }
+            subheader="Global settings — configure individual rules on the Rules tab"
           />
           <CardContent>
             <Typography variant="body2">
@@ -414,12 +501,6 @@ export const ApmeQualitySettingsTab = () => {
                   Gateway URL
                 </Typography>
                 <Typography variant="body2">{baseUrl}</Typography>
-              </Grid>
-              <Grid item xs={12} sm={6}>
-                <Typography variant="caption" color="textSecondary">
-                  Scan target
-                </Typography>
-                <Typography variant="body2">{scanTargetLabel}</Typography>
               </Grid>
               <Grid item xs={12} sm={6}>
                 <Typography variant="caption" color="textSecondary">
@@ -522,7 +603,8 @@ export const ApmeQualitySettingsTab = () => {
             style={{ marginBottom: 8 }}
           >
             {rules.length} registered · {overrideCount} with overrides ·{' '}
-            {rules.filter(r => !r.enabled).length} disabled
+            {rules.filter(r => !r.enabled).length} disabled · Portal scan target:{' '}
+            {configScanTargetLabel}
           </Typography>
           {rulesError && (
             <Typography

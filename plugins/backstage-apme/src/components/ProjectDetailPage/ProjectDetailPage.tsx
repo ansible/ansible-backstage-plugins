@@ -15,7 +15,7 @@
  */
 
 import { useState, useEffect, useCallback } from 'react';
-import { useParams } from 'react-router-dom';
+import { useParams, useNavigate } from 'react-router-dom';
 import { useAsyncRetry } from 'react-use';
 import { useApi } from '@backstage/core-plugin-api';
 import {
@@ -119,6 +119,7 @@ export const ProjectDetailPage = () => {
   const classes = useStyles();
   const { projectId } = useParams<{ projectId: string }>();
   const apmeApi = useApi(apmeApiRef);
+  const navigate = useNavigate();
   const [scanning, setScanning] = useState(false);
   const [remediating, setRemediating] = useState(false);
   const [scanProgress, setScanProgress] = useState<string | null>(null);
@@ -163,21 +164,11 @@ export const ProjectDetailPage = () => {
     return () => clearInterval(pollInterval);
   }, [scanning, remediating, projectId, apmeApi, retry]);
 
-  const handleScan = useCallback(async () => {
-    setScanning(true);
-    setActionError(null);
-    setScanProgress('Starting scan...');
-    try {
-      await apmeApi.triggerScan(projectId!);
-      setScanProgress('Scan in progress...');
-    } catch (err) {
-      setScanning(false);
-      setScanProgress(null);
-      setActionError(
-        err instanceof Error ? err.message : 'Failed to start scan',
-      );
-    }
-  }, [projectId, apmeApi]);
+  const handleScan = useCallback(() => {
+    const slug = data?.project?.name ?? data?.project?.id;
+    if (!slug) return;
+    navigate(`/self-service/repositories/${slug}?tab=quality`);
+  }, [data?.project?.name, data?.project?.id, navigate]);
 
   const handleRemediate = useCallback(async () => {
     setRemediating(true);
@@ -384,9 +375,9 @@ export const ProjectDetailPage = () => {
               variant="outlined"
               startIcon={<RefreshIcon />}
               onClick={handleScan}
-              disabled={scanning || remediating}
+              disabled={remediating}
             >
-              {scanning ? 'Scanning...' : 'Scan'}
+              Scan
             </Button>
             <Button
               variant="contained"

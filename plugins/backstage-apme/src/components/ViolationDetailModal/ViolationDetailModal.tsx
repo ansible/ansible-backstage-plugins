@@ -203,8 +203,8 @@ export const ViolationDetailModal = ({
                   <Tooltip
                     title={
                       isAcknowledgedRow
-                        ? 'Remove acknowledgment'
-                        : 'Acknowledge this finding'
+                        ? 'Show again for this repo'
+                        : 'Acknowledge — hide for this repo; does not fix the issue'
                     }
                   >
                     <Button
@@ -224,6 +224,7 @@ export const ViolationDetailModal = ({
                         acknowledgingId,
                         v.id,
                         isAcknowledgedRow,
+                        'acknowledge',
                       )}
                     </Button>
                   </Tooltip>

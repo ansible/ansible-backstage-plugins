@@ -14,7 +14,13 @@
  * limitations under the License.
  */
 
-import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
+import {
+  useState,
+  useEffect,
+  useCallback,
+  useMemo,
+  useRef,
+} from 'react';
 import { useAsyncRetry } from 'react-use';
 import { useApi, configApiRef } from '@backstage/core-plugin-api';
 import { scmAuthApiRef } from '@backstage/integration-react';
@@ -27,7 +33,10 @@ import {
 import { ApmeUnavailable } from '../ApmeUnavailable';
 import {
   APME_GATEWAY_UNAVAILABLE_MESSAGE,
+  apmeRemediationErrorTitle,
+  formatApmeUserFacingError,
   isApmeConnectionError,
+  parseExistingPrFromError,
 } from '../../utils/apmeConnectionError';
 import {
   Box,
@@ -35,12 +44,14 @@ import {
   Chip,
   CircularProgress,
   FormControl,
-  InputLabel,
+  FormControlLabel,
+  IconButton,
   LinearProgress,
-  Menu,
+  Link,
   MenuItem,
   Paper,
   Select,
+  Switch,
   Tooltip,
   Typography,
   makeStyles,
@@ -48,18 +59,12 @@ import {
 } from '@material-ui/core';
 import ScanIcon from '@material-ui/icons/PlayCircleOutline';
 import RefreshIcon from '@material-ui/icons/Refresh';
-import FilterListIcon from '@material-ui/icons/FilterList';
 import HelpOutlineIcon from '@material-ui/icons/HelpOutline';
 import CloseIcon from '@material-ui/icons/Close';
-import type {
-  Project,
-  Violation,
-  Proposal,
-  OperationState,
-} from '@ansible/backstage-apme-common/types';
+import type { Proposal } from '@ansible/backstage-apme-common/types';
 import {
-  isTerminalOperationState,
   formatOperationError,
+  isTerminalOperationState,
   latestOperationProgressMessage,
   latestOperationProgressPercent,
   projectHasActiveOperation,
@@ -67,18 +72,12 @@ import {
 import {
   SEVERITY_STYLES,
   SEVERITY_ORDER,
-  FIX_TYPE_STYLES,
   normalizeSeverity,
-  proposalNeedsManualApproval,
   categoryLabel,
   type SeverityLevel,
 } from '@ansible/backstage-apme-common/severity';
 import {
-  isAiRemediationProposal,
   normalizeProposals,
-  proposalNeedsUserReview,
-  proposalHasVisibleDiff,
-  isDeclinedProposal,
   collectAiAssistedViolationIds,
   effectiveViolationFixType,
   violationHadAiAttempt,
@@ -87,22 +86,44 @@ import {
   normalizeRepoUrlFromEntity,
   defaultBranchFromEntity,
 } from '@ansible/backstage-rhaap-common/catalogEntity';
-import { buildDevSpacesUrlFromRepoUrl } from '@ansible/backstage-rhaap-common/devSpaces';
+import {
+  buildDevSpacesUrlFromRepoUrl,
+} from '@ansible/backstage-rhaap-common/devSpaces';
+import { buildGithubCompareUrl } from '../../utils/githubCompareUrl';
 import { apmeApiRef } from '../../api';
+import { ensureRepoBranchForScan } from '../../utils/ensureRepoBranchForScan';
+import {
+  registerOrResolveApmeProject,
+  resolveApmeProject,
+} from '../../utils/registerOrResolveApmeProject';
 import { useApmeAiEnabled, useApmeAiStatus } from '../../hooks/useApmeEnabled';
+import { useApmeScanTargetLabel } from '../../hooks/useApmeScanTargetLabel';
 import { ApmeViolationsTable } from '../ApmeViolationsTable';
-import { EditInDevSpacesButton } from '../EditInDevSpacesButton';
+import type { ViolationReviewDiff } from '../ApmeViolationsTable';
 import { QualityWorkflowStepper } from '../QualityWorkflowStepper';
+import { RemediationReviewDialog } from '../RemediationReviewWorkspace';
+import { PreviewNotice } from '../PreviewChip';
 import type { RemediationStep } from '../RemediationStepper';
 import { FixProgressBanner } from '../FixProgressBanner';
-import { DiffView } from '../DiffView';
 import { PrStatusBanner } from '../PrStatusBanner';
+import type { BranchFileChange } from '../BranchFileChangesPanel';
 import { buildRulesById } from '../../utils/gatewayRules';
 import { getViolationCategory } from '../../utils/violationAnalytics';
 import { ScanHistoryView } from '../ScanHistoryView';
 import type { Activity } from '@ansible/backstage-apme-common/types';
-import HistoryIcon from '@material-ui/icons/History';
+import { Link as RouterLink, useSearchParams } from 'react-router-dom';
 import { useViolationAcknowledge } from '../../hooks/useViolationAcknowledge';
+import { usePostScanRefresh } from '../../hooks/usePostScanRefresh';
+import { useApmeScanLifecycle } from '../../hooks/useApmeScanLifecycle';
+import {
+  applyGeneratedBulkSet,
+  useRemediationGeneratePoll,
+  violationIdsFromProposals,
+  violationIdsFromTier1,
+} from '../../hooks/useRemediationGeneratePoll';
+import { mustRemediateBeforePush } from '../../utils/mustRemediateBeforePush';
+import { collectBulkFixableViolationIds } from '../../utils/bulkFixableViolations';
+import { buildReviewFileChanges } from '../../utils/buildReviewFileChanges';
 import {
   clearRemediationWorkflowCache,
   extractTier1FromOperationState,
@@ -112,25 +133,28 @@ import {
   saveRemediationWorkflowCache,
   type Tier1RemediationCache,
 } from '../../utils/remediationWorkflowCache';
-
-const ENTITY_VIOLATIONS_LIMIT = 500;
-
-function sortAutoFixFirst(violations: Violation[]): Violation[] {
-  return [...violations].sort((a, b) => {
-    const aAuto = a.remediation_class === 1 ? 0 : 1;
-    const bAuto = b.remediation_class === 1 ? 0 : 1;
-    if (aAuto !== bAuto) return aAuto - bAuto;
-    return a.id - b.id;
-  });
-}
+import { fetchAllProjectViolations } from '../../utils/fetchAllProjectViolations';
+import {
+  formatScmAuthFailureMessage,
+  isScmTokenRequiredError,
+  resolveScmTokenForRemediation,
+} from '../../utils/resolveScmTokenForRemediation';
 
 const useStyles = makeStyles(theme => ({
-  summaryLine: {
+  scanStatusRow: {
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: theme.spacing(2),
+    marginBottom: theme.spacing(1.5),
+    flexWrap: 'wrap',
+  },
+  scanStatusLeft: {
     display: 'flex',
     alignItems: 'center',
     gap: theme.spacing(1),
-    marginBottom: theme.spacing(1),
     flexWrap: 'wrap',
+    minWidth: 0,
   },
   scanToolbar: {
     display: 'flex',
@@ -143,6 +167,12 @@ const useStyles = makeStyles(theme => ({
     alignItems: 'center',
     gap: theme.spacing(1),
   },
+  scanMetaBelow: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: theme.spacing(1),
+    marginBottom: theme.spacing(1),
+  },
   scanActions: {
     display: 'flex',
     gap: theme.spacing(1),
@@ -154,14 +184,46 @@ const useStyles = makeStyles(theme => ({
     fontSize: 13,
     padding: '4px 16px',
   },
-  stackedBar: {
+  actionBar: {
     display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: theme.spacing(2),
+    marginBottom: theme.spacing(1.5),
+    flexWrap: 'wrap',
+  },
+  actionBarLeft: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: theme.spacing(1),
+  },
+  violationSummary: {
+    display: 'flex',
+    alignItems: 'center',
+    flexWrap: 'wrap',
+    gap: theme.spacing(0.5),
+    marginBottom: theme.spacing(1),
+    fontSize: 13,
+  },
+  summarySep: {
+    color: theme.palette.text.disabled,
+    margin: '0 2px',
+  },
+  severityBar: {
+    display: 'flex',
+    width: '100%',
     height: 6,
     borderRadius: 3,
     overflow: 'hidden',
     marginBottom: theme.spacing(2),
-    width: '100%',
-    maxWidth: 480,
+    backgroundColor:
+      theme.palette.type === 'dark'
+        ? theme.palette.grey[800]
+        : theme.palette.grey[200],
+  },
+  severityBarSegment: {
+    height: '100%',
+    minWidth: 0,
   },
   sevBar: {
     display: 'flex',
@@ -234,6 +296,9 @@ const useStyles = makeStyles(theme => ({
   formControl: {
     minWidth: 140,
   },
+  filterSelect: {
+    minWidth: 152,
+  },
   reviewPanel: {
     padding: theme.spacing(2),
     marginBottom: theme.spacing(2),
@@ -246,6 +311,19 @@ const useStyles = makeStyles(theme => ({
   noData: {
     padding: theme.spacing(4),
     textAlign: 'center',
+  },
+  emptyMessage: {
+    marginTop: theme.spacing(1),
+    marginBottom: theme.spacing(2),
+    textAlign: 'center',
+  },
+  historyContent: {
+    width: '100%',
+    flex: 1,
+    display: 'flex',
+    flexDirection: 'column',
+    minHeight: 0,
+    boxSizing: 'border-box',
   },
   infoBanner: {
     padding: theme.spacing(1.5, 2),
@@ -279,84 +357,70 @@ const useStyles = makeStyles(theme => ({
     flexWrap: 'wrap',
     color: theme.palette.text.primary,
   },
+  remediationErrorBody: {
+    flex: 1,
+    minWidth: 0,
+  },
+  remediationErrorDismiss: {
+    color: theme.palette.text.secondary,
+    padding: 4,
+    marginTop: -4,
+    marginRight: -8,
+  },
   dot: { color: theme.palette.text.disabled, margin: '0 4px' },
 }));
 
-function formatTimeAgo(isoString?: string): string {
-  if (!isoString) return 'Never';
-  const diff = Date.now() - new Date(isoString).getTime();
-  const minutes = Math.floor(diff / 60000);
-  if (minutes < 60) return `${minutes} minute${minutes !== 1 ? 's' : ''} ago`;
+function generateFixesTooltip(bulkCount: number): string {
+  if (bulkCount === 0) {
+    return 'No automated fixes are available for this scan. Manual findings require editing in your repo or Dev Spaces.';
+  }
+  return 'Generate fixes for all eligible autofix findings in one batch. Push a remediation branch when ready; edit further in Dev Spaces after push.';
+}
+
+function pushBranchReviewTooltip(): string {
+  return 'Push all prepared fixes to a remediation branch. Create a pull request when you are ready. Edit further in Dev Spaces after push.';
+}
+
+function fixMethodFilterLabel(value: string): string {
+  switch (value) {
+    case 'auto':
+      return 'Auto-fix only';
+    case 'ai':
+      return 'AI-assisted only';
+    case 'manual':
+      return 'Manual only';
+    default:
+      return 'All fixable';
+  }
+}
+
+/** Relative age for “Last quality scan · …” (e.g. 1 hour ago). */
+function formatScanAge(iso?: string | null): string {
+  if (!iso) {
+    return 'never';
+  }
+  const then = new Date(iso).getTime();
+  if (Number.isNaN(then)) {
+    return 'never';
+  }
+  const seconds = Math.max(0, Math.floor((Date.now() - then) / 1000));
+  if (seconds < 60) return 'just now';
+  const minutes = Math.floor(seconds / 60);
+  if (minutes < 60) {
+    return `${minutes} minute${minutes === 1 ? '' : 's'} ago`;
+  }
   const hours = Math.floor(minutes / 60);
-  if (hours < 24) return `${hours} hour${hours !== 1 ? 's' : ''} ago`;
+  if (hours < 48) {
+    return `${hours} hour${hours === 1 ? '' : 's'} ago`;
+  }
   const days = Math.floor(hours / 24);
-  return `${days} day${days !== 1 ? 's' : ''} ago`;
+  return `${days} day${days === 1 ? '' : 's'} ago`;
 }
 
-function formatEntityLastChecked(
-  scanning: boolean,
-  project: Project,
-  scanError: Error | null,
-): string {
-  if (scanning || projectHasActiveOperation(project)) {
-    return 'Scan in progress…';
-  }
-  if (scanError && !project.last_scanned_at) {
-    return 'Scan failed';
-  }
-  if (project.last_scanned_at) {
-    return formatTimeAgo(project.last_scanned_at);
-  }
-  return 'Never';
-}
-
-function generateFixesTooltip(
-  fixableCount: number,
-  devSpacesBranch: string | undefined,
-  projectBranch: string,
-): string {
-  if (fixableCount === 0) {
-    const branchLabel = devSpacesBranch ?? projectBranch;
-    const suffix = branchLabel ? ` (${branchLabel})` : '';
-    return `No auto-generated fixes available for this repo${suffix}. Manual violations require hand-editing in your repository.`;
-  }
-  return 'Generate fixes for all fixable violations. Tier-1 auto-fixes apply in bulk; AI proposals are reviewed separately.';
-}
-
-interface Tier1RemediationResult extends Tier1RemediationCache {}
-
-function extractTier1RemediationResult(
-  state: OperationState | null | undefined,
-): Tier1RemediationResult | null {
-  return extractTier1FromOperationState(state);
-}
-
-function filterTier1ByViolationIds(
-  tier1: Tier1RemediationResult,
-  selectedIds: Set<number>,
-  violations: Violation[],
-): Tier1RemediationResult {
-  if (selectedIds.size === 0) return tier1;
-
-  const selectedViolations = violations.filter(v => selectedIds.has(v.id));
-  const selectedKeys = new Set(
-    selectedViolations.map(v => `${v.rule_id}::${v.file}`),
-  );
-
-  const filteredFixed = tier1.fixedViolations.filter(fv =>
-    selectedKeys.has(`${fv.rule_id}::${fv.file}`),
-  );
-
-  const filesWithSelectedFixes = new Set(filteredFixed.map(fv => fv.file));
-  const filteredPatches = tier1.patches.filter(p =>
-    filesWithSelectedFixes.has(p.file),
-  );
-
-  return {
-    remediatedCount: filteredFixed.length,
-    fixedViolations: filteredFixed,
-    patches: filteredPatches,
-  };
+function sleep(ms: number): Promise<void> {
+  return new Promise(resolve => {
+    setTimeout(resolve, ms);
+  });
 }
 
 const CATEGORIES = [
@@ -367,16 +431,18 @@ const CATEGORIES = [
   'secrets',
   'dependencies',
 ] as const;
-const SEV_ORDER = SEVERITY_ORDER;
 
 export interface ApmeEntityTabProps {
   initialRuleFilter?: string;
   initialCategoryFilter?: string;
+  /** When set without a repo URL on the entity, load project by id first. */
+  initialProjectId?: string;
 }
 
 export const ApmeEntityTab = ({
   initialRuleFilter,
   initialCategoryFilter,
+  initialProjectId,
 }: ApmeEntityTabProps = {}) => {
   const classes = useStyles();
   const theme = useTheme();
@@ -389,6 +455,10 @@ export const ApmeEntityTab = ({
 
   const [scanning, setScanning] = useState(false);
   const [expectActiveScan, setExpectActiveScan] = useState(false);
+  /** Operation id from the in-flight Scan; ignore stale terminal ops from prior runs. */
+  const [trackedScanOperationId, setTrackedScanOperationId] = useState<
+    string | null
+  >(null);
   const [scanProgress, setScanProgress] = useState<{
     status: string;
     message?: string;
@@ -402,8 +472,6 @@ export const ApmeEntityTab = ({
   const [activeCategory, setActiveCategory] = useState<string>(
     initialCategoryFilter ?? 'all',
   );
-  const [categoryMenuAnchor, setCategoryMenuAnchor] =
-    useState<null | HTMLElement>(null);
   const [ruleFilter, setRuleFilter] = useState<string | null>(
     initialRuleFilter ?? null,
   );
@@ -411,9 +479,15 @@ export const ApmeEntityTab = ({
     new Set(),
   );
   const [fixTypeFilter, setFixTypeFilter] = useState('all');
-  const [reviewProposalFilter, setReviewProposalFilter] = useState<
-    'all' | 'auto' | 'ai'
-  >('all');
+  const [includeAiInBulk, setIncludeAiInBulk] = useState(false);
+  /** Review & edit: prepared file content overrides keyed by file path. */
+  const [selectedReviewFile, setSelectedReviewFile] = useState<string | null>(
+    null,
+  );
+  const [generatedViolationIds, setGeneratedViolationIds] = useState<Set<number>>(
+    new Set(),
+  );
+  const [reviewDialogOpen, setReviewDialogOpen] = useState(false);
   const [remediationStep, setRemediationStep] =
     useState<RemediationStep>('select');
   const [fixProgress, setFixProgress] = useState<{
@@ -437,20 +511,48 @@ export const ApmeEntityTab = ({
   const [pushError, setPushError] = useState<string | null>(null);
   const [branchPushed, setBranchPushed] = useState(false);
   const [creatingPr, setCreatingPr] = useState(false);
-  const [scmAuthorized, setScmAuthorized] = useState(false);
   const [remediationActivityId, setRemediationActivityId] = useState<
     string | null
   >(null);
   const [prMerged, setPrMerged] = useState(false);
   const [remediationError, setRemediationError] = useState<Error | null>(null);
-  const [tier1Result, setTier1Result] = useState<Tier1RemediationResult | null>(
+
+  // Connection-error banners stay until retry/dismiss; clear once gateway is healthy again.
+  useEffect(() => {
+    if (!remediationError || !isApmeConnectionError(remediationError.message)) {
+      return undefined;
+    }
+    let cancelled = false;
+    const clearIfHealthy = async () => {
+      try {
+        await apmeApi.getHealth();
+        if (!cancelled) {
+          setRemediationError(null);
+        }
+      } catch {
+        // Still unreachable — keep banner.
+      }
+    };
+    void clearIfHealthy();
+    const timer = setInterval(() => void clearIfHealthy(), 5_000);
+    return () => {
+      cancelled = true;
+      clearInterval(timer);
+    };
+  }, [remediationError, apmeApi]);
+  const [tier1Result, setTier1Result] = useState<Tier1RemediationCache | null>(
     null,
   );
   const [showScanHistory, setShowScanHistory] = useState(false);
   const [showAcknowledgedOnly, setShowAcknowledgedOnly] = useState(false);
+  /** Project id from Register/scan before catalog lookup catches up. */
+  const [pendingProjectId, setPendingProjectId] = useState<string | null>(
+    initialProjectId ?? null,
+  );
   const generatedViolationIdsRef = useRef<Set<number>>(new Set());
   const workflowRestoredRef = useRef(false);
-  const autoApprovedRef = useRef<Set<string>>(new Set());
+  const pendingScanFromUrlRef = useRef(false);
+  const [searchParams, setSearchParams] = useSearchParams();
 
   const repoUrl = normalizeRepoUrlFromEntity(entity);
   const branch = defaultBranchFromEntity(entity);
@@ -461,18 +563,57 @@ export const ApmeEntityTab = ({
     error,
     retry,
   } = useAsyncRetry(async () => {
+    if (pendingProjectId) {
+      try {
+        return await apmeApi.getProject(pendingProjectId);
+      } catch {
+        // Fall through when repo URL resolution is also possible.
+      }
+    }
     if (!repoUrl) return null;
-    return apmeApi.getProjectByRepoUrl(repoUrl, branch);
-  }, [repoUrl, branch, apmeApi]);
+    const entityName = entity.metadata.title || entity.metadata.name;
+    return resolveApmeProject(apmeApi, repoUrl, branch, entityName);
+  }, [
+    repoUrl,
+    branch,
+    apmeApi,
+    pendingProjectId,
+    entity.metadata.title,
+    entity.metadata.name,
+  ]);
+
+  // Clear pending id once lookup returns the registered project.
+  useEffect(() => {
+    if (project?.id && pendingProjectId && project.id === pendingProjectId) {
+      setPendingProjectId(null);
+    }
+  }, [project?.id, pendingProjectId]);
+
+  const activeProjectId = project?.id ?? pendingProjectId;
+  const effectiveRepoUrl = repoUrl ?? project?.repo_url ?? null;
+
+  const schedulePostScanRefresh = usePostScanRefresh(retry, setRefreshKey);
 
   const { value: violations = [], loading: violationsLoading } =
     useAsyncRetry(async () => {
       if (!project?.id) return [];
-      const loaded = await apmeApi.getViolations(project.id, {
-        limit: ENTITY_VIOLATIONS_LIMIT,
-      });
-      return sortAutoFixFirst(loaded);
-    }, [project?.id, refreshKey, apmeApi]);
+      return fetchAllProjectViolations(
+        apmeApi,
+        project.id,
+        project.latest_scan?.total_violations ?? project.total_violations,
+      );
+    }, [
+      project?.id,
+      refreshKey,
+      apmeApi,
+      project?.latest_scan?.total_violations,
+      project?.total_violations,
+    ]);
+
+  const violationsRef = useRef(violations);
+  useEffect(() => {
+    violationsRef.current = violations;
+  }, [violations]);
 
   const { value: rules = [] } = useAsyncRetry(
     async () => apmeApi.getRules(),
@@ -486,6 +627,8 @@ export const ApmeEntityTab = ({
     return apmeApi.getActivity(project.id);
   }, [project?.id, refreshKey, apmeApi]);
 
+  const scanTarget = useApmeScanTargetLabel();
+
   const resetRemediationWorkflow = useCallback(() => {
     if (project?.id) {
       clearRemediationWorkflowCache(project.id);
@@ -493,6 +636,10 @@ export const ApmeEntityTab = ({
     setRemediationStep('select');
     setProposals([]);
     setTier1Result(null);
+    setGeneratedViolationIds(new Set());
+    setIncludeAiInBulk(false);
+    setSelectedReviewFile(null);
+    setReviewDialogOpen(false);
     setRemediationActivityId(null);
     setApprovedProposalIds(new Set());
     setDeclinedProposalIds(new Set());
@@ -502,9 +649,48 @@ export const ApmeEntityTab = ({
     setPrError(null);
     setPrUrl(null);
     setRemediationError(null);
-    autoApprovedRef.current = new Set();
     generatedViolationIdsRef.current = new Set();
   }, [project?.id]);
+
+  const handleScanComplete = useCallback(() => {
+    resetRemediationWorkflow();
+    schedulePostScanRefresh();
+  }, [resetRemediationWorkflow, schedulePostScanRefresh]);
+
+  useApmeScanLifecycle({
+    projectId: activeProjectId,
+    project,
+    apmeApi,
+    scanning,
+    setScanning,
+    expectActiveScan,
+    setExpectActiveScan,
+    trackedScanOperationId,
+    setTrackedScanOperationId,
+    scanProgress,
+    setScanProgress,
+    scanError,
+    setScanError,
+    registering,
+    scanProgressStatus: scanProgress?.status,
+    onScanComplete: handleScanComplete,
+  });
+
+  useRemediationGeneratePoll({
+    remediationStep,
+    creatingPr,
+    projectId: project?.id,
+    apmeApi,
+    violationsRef,
+    setFixProgress,
+    setProposals,
+    setTier1Result,
+    setGeneratedViolationIds,
+    generatedViolationIdsRef,
+    setRemediationStep,
+    setRemediationError,
+    setRemediationActivityId,
+  });
 
   const rulesById = useMemo(() => buildRulesById(rules), [rules]);
 
@@ -542,17 +728,47 @@ export const ApmeEntityTab = ({
       remediationStep: RemediationStep;
       remediationActivityId: string | null;
       proposals: Proposal[];
-      tier1Result: Tier1RemediationResult | null;
+      tier1Result: Tier1RemediationCache | null;
       approvedProposalIds?: string[];
+      includeAiInBulk?: boolean;
       branchPushed?: boolean;
       prBranchName?: string;
     }) => {
-      setRemediationStep(payload.remediationStep);
+      setRemediationStep(
+        payload.remediationStep === 'select' &&
+          (payload.tier1Result || payload.proposals.length > 0)
+          ? 'review'
+          : payload.remediationStep,
+      );
       setRemediationActivityId(payload.remediationActivityId);
       setProposals(normalizeProposals(payload.proposals, violations));
       setTier1Result(payload.tier1Result);
+      if (
+        payload.remediationStep === 'review' ||
+        payload.remediationStep === 'select'
+      ) {
+        let generatedIds = new Set<number>();
+        if (payload.proposals.length > 0) {
+          generatedIds = violationIdsFromProposals(
+            normalizeProposals(payload.proposals, violations),
+          );
+        } else if (payload.tier1Result) {
+          generatedIds = violationIdsFromTier1(
+            payload.tier1Result,
+            violations,
+            generatedViolationIdsRef.current,
+          );
+        }
+        if (generatedIds.size > 0) {
+          generatedViolationIdsRef.current = generatedIds;
+          setGeneratedViolationIds(generatedIds);
+        }
+      }
       if (payload.approvedProposalIds?.length) {
         setApprovedProposalIds(new Set(payload.approvedProposalIds));
+      }
+      if (payload.includeAiInBulk !== undefined) {
+        setIncludeAiInBulk(payload.includeAiInBulk);
       }
       if (payload.branchPushed) {
         setBranchPushed(true);
@@ -710,16 +926,17 @@ export const ApmeEntityTab = ({
     }
   }, [autoFixCount, fixTypeFilter]);
 
-  // Persist remediation workflow while the user is on review/push/pr steps.
+  // Persist remediation workflow while fixes are ready or a PR is in flight.
   useEffect(() => {
     if (!project?.id) {
       return;
     }
-    const hasReviewPayload =
+    const hasRemediationPayload =
       proposals.length > 0 || (tier1Result?.remediatedCount ?? 0) > 0;
     if (
-      !['review', 'push', 'pr', 'verify'].includes(remediationStep) ||
-      (remediationStep === 'review' && !hasReviewPayload)
+      !['select', 'review', 'push', 'pr', 'verify'].includes(remediationStep) ||
+      (remediationStep === 'select' && !hasRemediationPayload) ||
+      (remediationStep === 'review' && !hasRemediationPayload)
     ) {
       return;
     }
@@ -728,6 +945,7 @@ export const ApmeEntityTab = ({
       remediationActivityId,
       proposals,
       tier1Result,
+      includeAiInBulk,
       approvedProposalIds: Array.from(approvedProposalIds),
       branchPushed,
       prBranchName,
@@ -738,151 +956,207 @@ export const ApmeEntityTab = ({
     remediationActivityId,
     proposals,
     tier1Result,
+    includeAiInBulk,
     approvedProposalIds,
     branchPushed,
     prBranchName,
   ]);
 
-  useEffect(() => {
-    if (!project?.id) {
-      return undefined;
-    }
-    if (projectHasActiveOperation(project)) {
-      setExpectActiveScan(true);
-      setScanning(true);
-      setScanError(null);
-      return undefined;
-    }
-    let cancelled = false;
-    void apmeApi.getOperationState(project.id).then(state => {
-      if (cancelled) {
-        return;
-      }
-      if (state?.status === 'failed') {
-        setScanning(false);
-        setExpectActiveScan(false);
-        setScanProgress(null);
-        setScanError(new Error(formatOperationError(state.error)));
-        return;
-      }
-      const progressMessage = latestOperationProgressMessage(state);
-      if (progressMessage) {
-        setScanProgress({
-          status: 'running',
-          message: progressMessage,
+  const visibleProposals = useMemo(() => {
+    const active = allProposals.filter(p => !declinedProposalIds.has(p.id));
+    return active;
+  }, [allProposals, declinedProposalIds]);
+
+  const bulkFixableIds = useMemo(
+    () =>
+      collectBulkFixableViolationIds(
+        violations,
+        enableAi,
+        includeAiInBulk,
+        aiAssistedViolationIds,
+      ),
+    [violations, enableAi, includeAiInBulk, aiAssistedViolationIds],
+  );
+
+  const bulkAiFixableCount = useMemo(
+    () =>
+      enableAi
+        ? violations.filter(
+            v =>
+              effectiveViolationFixType(v, enableAi, aiAssistedViolationIds) ===
+              'ai',
+          ).length
+        : 0,
+    [violations, enableAi, aiAssistedViolationIds],
+  );
+
+  const reviewDiffs = useMemo(() => {
+    const map = new Map<number, ViolationReviewDiff>();
+    // Prefer remedia proposals/tier-1 when present; otherwise scan-time previews show in the table.
+    for (const proposal of visibleProposals) {
+      if (proposal.violation_id > 0) {
+        map.set(proposal.violation_id, {
+          before: proposal.original_yaml,
+          after: proposal.fixed_yaml,
+          diff: proposal.diff_hunk,
+          explanation: proposal.ai_reason || proposal.explanation,
         });
       }
-      const active = state && !isTerminalOperationState(state, 0);
-      if (active) {
-        setExpectActiveScan(true);
-        setScanning(true);
-        setScanError(null);
-      }
-    });
-    return () => {
-      cancelled = true;
-    };
-  }, [project, apmeApi]);
-
-  // Poll for scan completion via gateway operation state
-  useEffect(() => {
-    if (!scanning || !project?.id) {
-      return undefined;
     }
-
-    let cancelled = false;
-    let pollCount = 0;
-    const maxPolls = 180;
-    const projectId = project.id;
-
-    const pollInterval = setInterval(async () => {
-      if (cancelled) return;
-      pollCount += 1;
-      try {
-        const state = await apmeApi.getOperationState(projectId);
-        if (cancelled) return;
-
-        const progressMessage = latestOperationProgressMessage(state);
-        if (progressMessage) {
-          setScanProgress({
-            status: 'running',
-            message: progressMessage,
-            progress: Math.min(10 + pollCount * 1.5, 90),
+    if (tier1Result) {
+      for (const fv of tier1Result.fixedViolations) {
+        const violation = violations.find(
+          v =>
+            v.rule_id === fv.rule_id &&
+            v.file === fv.file &&
+            (fv.line === null || fv.line === undefined || v.line === fv.line),
+        );
+        if (violation && !map.has(violation.id)) {
+          const patch = tier1Result.patches.find(p => p.file === fv.file);
+          map.set(violation.id, {
+            before: violation.original_yaml,
+            after: violation.fixed_yaml,
+            diff: patch?.diff,
           });
         }
-        const completed = isTerminalOperationState(
-          state,
-          pollCount,
-          2,
-          expectActiveScan,
-        );
-
-        if (completed) {
-          clearInterval(pollInterval);
-          setScanning(false);
-          setExpectActiveScan(false);
-          if (state?.status === 'failed') {
-            setScanProgress(null);
-            setScanError(new Error(formatOperationError(state.error)));
-          } else {
-            setScanProgress({
-              status: 'completed',
-              message: 'Scan complete',
-              progress: 100,
-              violationsFound: state?.result?.total_violations,
-            });
-            setTimeout(() => {
-              if (cancelled) return;
-              resetRemediationWorkflow();
-              retry();
-              setRefreshKey(k => k + 1);
-              setScanProgress(null);
-            }, 1500);
-          }
-        }
-      } catch {
-        if (cancelled) return;
-        clearInterval(pollInterval);
-        setScanning(false);
-        setExpectActiveScan(false);
-        setScanProgress(null);
       }
+    }
+    return map;
+  }, [visibleProposals, tier1Result, violations]);
 
-      if (pollCount >= maxPolls) {
-        clearInterval(pollInterval);
-        setScanning(false);
-        setExpectActiveScan(false);
-        setScanProgress(null);
-        setScanError(new Error('Scan timed out. Try again in a moment.'));
-      }
-    }, 2000);
+  /** Per-file prepared fixes for review (fix-generated files only). */
+  const branchFileChanges = useMemo(
+    (): BranchFileChange[] =>
+      buildReviewFileChanges(
+        visibleProposals,
+        tier1Result,
+        violations,
+        generatedViolationIds,
+      ),
+    [visibleProposals, tier1Result, violations, generatedViolationIds],
+  );
 
-    return () => {
-      cancelled = true;
-      clearInterval(pollInterval);
-    };
-  }, [
-    scanning,
-    project?.id,
-    apmeApi,
-    retry,
-    expectActiveScan,
-    resetRemediationWorkflow,
-  ]);
+  const reviewFindingCount = useMemo(() => {
+    if (reviewDiffs.size > 0) {
+      return reviewDiffs.size;
+    }
+    if (generatedViolationIds.size > 0) {
+      return generatedViolationIds.size;
+    }
+    return branchFileChanges.length;
+  }, [reviewDiffs.size, generatedViolationIds.size, branchFileChanges.length]);
 
-  // Poll remediation operation
   useEffect(() => {
-    if (remediationStep !== 'generate' || !project?.id) return undefined;
-    let cancelled = false;
-    let pollCount = 0;
-    const maxPolls = 180;
-    const projectId = project.id;
-    const pollInterval = setInterval(async () => {
-      if (cancelled) return;
-      pollCount += 1;
-      try {
-        const state = await apmeApi.getOperationState(projectId);
-        if (cancelled) return;
+    if (remediationStep !== 'review' || branchFileChanges.length === 0) {
+      return;
+    }
+    setSelectedReviewFile(prev => {
+      if (prev && branchFileChanges.some(c => c.file === prev)) {
+        return prev;
+      }
+      return branchFileChanges[0]?.file ?? null;
+    });
+  }, [remediationStep, branchFileChanges]);
+
+  const handleJumpToReviewFile = useCallback((filePath: string) => {
+    setSelectedReviewFile(filePath);
+    setReviewDialogOpen(true);
+  }, []);
+
+  const resolveScmToken = useCallback(
+    async (mode: 'optional' | 'interactive' = 'optional') => {
+      if (!effectiveRepoUrl) {
+        throw new Error('No repository URL on this catalog entity.');
+      }
+      return resolveScmTokenForRemediation(scmAuthApi, effectiveRepoUrl, mode);
+    },
+    [effectiveRepoUrl, scmAuthApi],
+  );
+
+  // Surface OAuth redirect failures (e.g. Failed to obtain access token).
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const oauthError = params.get('error');
+    if (!oauthError) {
+      return;
+    }
+    setPushError(formatScmAuthFailureMessage(new Error(oauthError)));
+    params.delete('error');
+    const next = `${window.location.pathname}${
+      params.toString() ? `?${params}` : ''
+    }${window.location.hash}`;
+    window.history.replaceState({}, '', next);
+  }, []);
+
+  const resolveActivityId = useCallback(async () => {
+    if (remediationActivityId) return remediationActivityId;
+    if (!project?.id) {
+      throw new Error('No APME project loaded.');
+    }
+    const activity = await apmeApi.getActivity(project.id);
+    const remedia =
+      activity.find(a => a.scan_type === 'remediate') ?? activity[0];
+    const latestId = remedia?.scan_id;
+    if (!latestId) {
+      throw new Error(
+        'No remediation activity found. Push a branch again to prepare fixes.',
+      );
+    }
+    setRemediationActivityId(latestId);
+    return latestId;
+  }, [remediationActivityId, project?.id, apmeApi]);
+
+  const handlePrepareFixes = useCallback(async () => {
+    if (!project || !effectiveRepoUrl) return;
+    const targetIds = bulkFixableIds;
+    if (targetIds.size === 0) return;
+
+    setCreatingPr(true);
+    setPushError(null);
+    setPrError(null);
+    setRemediationError(null);
+
+    try {
+      const needsFreshRemediation = mustRemediateBeforePush({
+        targetIds,
+        generatedIds: generatedViolationIdsRef.current,
+        activityId: remediationActivityId,
+      });
+
+      if (
+        !needsFreshRemediation &&
+        (tier1Result || proposals.length > 0) &&
+        remediationActivityId
+      ) {
+        setRemediationStep('review');
+        return;
+      }
+
+      clearRemediationWorkflowCache(project.id);
+      setTier1Result(null);
+      setProposals([]);
+      setApprovedProposalIds(new Set());
+      setSelectedReviewFile(null);
+      setDeclinedProposalIds(new Set());
+      setRemediationActivityId(null);
+      generatedViolationIdsRef.current = new Set(targetIds);
+      setGeneratedViolationIds(new Set(targetIds));
+      setRemediationStep('generate');
+      const bulkLabel =
+        targetIds.size === 1
+          ? '1 eligible finding'
+          : `${targetIds.size} eligible findings`;
+      setFixProgress({
+        message: `Generating fixes for ${bulkLabel}…`,
+        progress: 5,
+      });
+
+      await apmeApi.triggerRemediate(project.id, Array.from(targetIds));
+
+      let state = null;
+      for (let pollCount = 1; pollCount <= 180; pollCount += 1) {
+        await sleep(2000);
+        state = await apmeApi.getOperationState(project.id);
         const progressMessage =
           latestOperationProgressMessage(state) ?? 'Generating fixes…';
         const progressPct = latestOperationProgressPercent(state);
@@ -893,389 +1167,324 @@ export const ApmeEntityTab = ({
         if (state?.proposals?.length) {
           setProposals(normalizeProposals(state.proposals, violations));
         }
-        const completed = isTerminalOperationState(state, pollCount, 2, true);
-        if (completed || pollCount >= maxPolls) {
-          clearInterval(pollInterval);
-          setFixProgress(null);
-          if (state?.status === 'failed') {
-            setRemediationError(new Error(formatOperationError(state.error)));
-            setRemediationStep('select');
-            return;
-          }
-          if (pollCount >= maxPolls && !state) {
-            setRemediationError(
-              new Error('Fix generation timed out. Try again in a moment.'),
-            );
-            setRemediationStep('select');
-            return;
-          }
-          const nextProposals = normalizeProposals(
-            state?.proposals ?? [],
-            violations,
-          );
-          const tier1 = extractTier1RemediationResult(state);
-          if (nextProposals.length > 0) {
-            setTier1Result(null);
-            setProposals(nextProposals);
-            setRemediationStep('review');
-            setRemediationError(null);
-            try {
-              const activity = await apmeApi.getActivity(projectId);
-              if (cancelled) return;
-              const latestId = activity[0]?.scan_id;
-              if (latestId) setRemediationActivityId(latestId);
-            } catch {
-              // activity lookup is best-effort for push-branch
-            }
-          } else if (tier1) {
-            const filtered = filterTier1ByViolationIds(
-              tier1,
-              generatedViolationIdsRef.current,
-              violations,
-            );
-            setProposals([]);
-            setTier1Result(filtered.remediatedCount > 0 ? filtered : tier1);
-            setRemediationStep('review');
-            setRemediationError(null);
-            try {
-              const activity = await apmeApi.getActivity(projectId);
-              if (cancelled) return;
-              const latestId = activity[0]?.scan_id;
-              if (latestId) setRemediationActivityId(latestId);
-            } catch {
-              // activity lookup is best-effort for push-branch
-            }
-          } else {
-            setTier1Result(null);
-            setRemediationError(
-              new Error(
-                'No automated patches were produced for this run. Manual-only findings require hand-editing in your repo or Dev Spaces.',
-              ),
-            );
-            setRemediationStep('select');
-          }
+        if (isTerminalOperationState(state, pollCount, 2, true)) {
+          break;
         }
-      } catch (err) {
-        if (cancelled) return;
-        clearInterval(pollInterval);
-        setFixProgress(null);
-        setRemediationError(err as Error);
-        setRemediationStep('select');
-      }
-    }, 2000);
-    return () => {
-      cancelled = true;
-      clearInterval(pollInterval);
-    };
-  }, [remediationStep, project?.id, apmeApi, violations]);
-
-  const fixableViolationIds = useMemo(() => {
-    const ids = new Set<number>();
-    for (const v of violations) {
-      const ft = effectiveViolationFixType(v, enableAi, aiAssistedViolationIds);
-      if (ft === 'auto' || ft === 'ai') {
-        ids.add(v.id);
-      }
-    }
-    return ids;
-  }, [violations, enableAi, aiAssistedViolationIds]);
-
-  const visibleProposals = useMemo(() => {
-    const active = allProposals.filter(p => !declinedProposalIds.has(p.id));
-    return active;
-  }, [allProposals, declinedProposalIds]);
-
-  const reviewAutoProposalCount = useMemo(
-    () =>
-      visibleProposals.filter(
-        p => !isAiRemediationProposal(p, violations, enableAi),
-      ).length,
-    [visibleProposals, violations, enableAi],
-  );
-  const reviewAiProposalCount = useMemo(
-    () =>
-      visibleProposals.filter(p =>
-        isAiRemediationProposal(p, violations, enableAi),
-      ).length,
-    [visibleProposals, violations, enableAi],
-  );
-
-  const reviewProposals = useMemo(() => {
-    if (reviewProposalFilter === 'ai') {
-      return visibleProposals.filter(p =>
-        isAiRemediationProposal(p, violations, enableAi),
-      );
-    }
-    if (reviewProposalFilter === 'auto') {
-      return visibleProposals.filter(
-        p => !isAiRemediationProposal(p, violations, enableAi),
-      );
-    }
-    return visibleProposals;
-  }, [visibleProposals, reviewProposalFilter, violations, enableAi]);
-
-  // Auto-approve deterministic auto-fix proposals when review starts and the
-  // gateway operation is still waiting for approval. Restored/completed runs
-  // only update local state — calling approve again returns 409.
-  useEffect(() => {
-    if (
-      remediationStep !== 'review' ||
-      !project?.id ||
-      visibleProposals.length === 0
-    ) {
-      return;
-    }
-    const autoIds = visibleProposals
-      .filter(p => !proposalNeedsUserReview(p, violations, enableAi))
-      .map(p => p.id)
-      .filter(id => !autoApprovedRef.current.has(id));
-    if (autoIds.length === 0) return;
-    autoIds.forEach(id => autoApprovedRef.current.add(id));
-    setApprovedProposalIds(prev => new Set([...prev, ...autoIds]));
-    void (async () => {
-      try {
-        const state = await apmeApi.getOperationState(project.id);
-        if (state?.status !== 'awaiting_approval') {
-          return;
+        if (pollCount >= 180) {
+          throw new Error('Fix generation timed out. Try again in a moment.');
         }
-        await apmeApi.approveProposals(project.id, autoIds);
-      } catch {
-        // Local approval is sufficient once generate has finished.
       }
-    })();
-  }, [
-    remediationStep,
-    project?.id,
-    visibleProposals,
-    violations,
-    apmeApi,
-    enableAi,
-  ]);
 
-  const resolveScmToken = useCallback(async () => {
-    if (!repoUrl) {
-      throw new Error('No repository URL on this catalog entity.');
-    }
-    const creds = await scmAuthApi.getCredentials({
-      url: repoUrl,
-      additionalScope: { repoWrite: true },
-    });
-    const scmToken = creds.token?.trim();
-    if (!scmToken) {
-      throw new Error(
-        'No Git credentials available. Sign in to your Git host and try again.',
+      if (state?.status === 'failed') {
+        throw new Error(formatOperationError(state.error));
+      }
+
+      const nextProposals = normalizeProposals(
+        state?.proposals ?? [],
+        violations,
       );
-    }
-    setScmAuthorized(true);
-    return scmToken;
-  }, [repoUrl, scmAuthApi]);
+      const nextTier1 = extractTier1FromOperationState(state);
+      if (nextProposals.length > 0) {
+        setTier1Result(null);
+        setProposals(nextProposals);
+        applyGeneratedBulkSet(
+          violationIdsFromProposals(nextProposals),
+          setGeneratedViolationIds,
+          generatedViolationIdsRef,
+        );
+      } else if (nextTier1) {
+        setProposals([]);
+        setTier1Result(nextTier1);
+        applyGeneratedBulkSet(
+          violationIdsFromTier1(nextTier1, violations, targetIds),
+          setGeneratedViolationIds,
+          generatedViolationIdsRef,
+        );
+      } else {
+        throw new Error(
+          'No automated patches were produced for this run. Manual-only findings require hand-editing in your repo or Dev Spaces.',
+        );
+      }
 
-  // Probe for cached GitHub repo credentials when review starts so we can
-  // explain the one-time authorize prompt before the user clicks Publish.
-  useEffect(() => {
-    if (remediationStep !== 'review' || !repoUrl) {
-      return undefined;
-    }
-    let active = true;
-    void scmAuthApi
-      .getCredentials({
-        url: repoUrl,
-        optional: true,
-        additionalScope: { repoWrite: true },
-      })
-      .then(creds => {
-        if (active && creds.token?.trim()) {
-          setScmAuthorized(true);
-        }
-      })
-      .catch(() => {
-        // No cached SCM session yet — user will authorize on first publish.
-      });
-    return () => {
-      active = false;
-    };
-  }, [remediationStep, repoUrl, scmAuthApi]);
-
-  const resolveActivityId = useCallback(async () => {
-    if (remediationActivityId) return remediationActivityId;
-    if (!project?.id) {
-      throw new Error('No APME project loaded.');
-    }
-    const activity = await apmeApi.getActivity(project.id);
-    const latestId = activity[0]?.scan_id;
-    if (!latestId) {
-      throw new Error('No remediation activity found. Generate fixes first.');
-    }
-    setRemediationActivityId(latestId);
-    return latestId;
-  }, [remediationActivityId, project?.id, apmeApi]);
-
-  const handlePushBranch = useCallback(async () => {
-    if (!project || !repoUrl) return;
-    setRemediationStep('push');
-    setPushError(null);
-    setPrError(null);
-    try {
-      const scmToken = await resolveScmToken();
-      const activityId = await resolveActivityId();
-      const result = await apmeApi.pushRemediationBranch(
-        project.id,
-        activityId,
-        {
-          scmToken,
-        },
-      );
-      setPrBranchName(result.branch_name);
-      setBranchPushed(true);
-      setRemediationStep('pr');
-    } catch (err) {
-      setPushError((err as Error).message);
+      const activity = await apmeApi.getActivity(project.id);
+      const activityId =
+        state?.scan_id ??
+        activity.find(a => a.scan_type === 'remediate')?.scan_id ??
+        null;
+      if (!activityId) {
+        throw new Error('No remediation activity found after preparing fixes.');
+      }
+      setRemediationActivityId(activityId);
       setRemediationStep('review');
-    }
-  }, [project, repoUrl, resolveScmToken, resolveActivityId, apmeApi]);
-
-  const handleCreatePr = useCallback(async () => {
-    if (!project || !repoUrl) return;
-    setRemediationStep('pr');
-    setCreatingPr(true);
-    setPrError(null);
-    try {
-      const scmToken = await resolveScmToken();
-      const activityId = await resolveActivityId();
-      const result = await apmeApi.createPullRequest(project.id, activityId, {
-        scmToken,
-        branchName: prBranchName,
-      });
-      if (!result.pr_url) {
-        throw new Error('Gateway submit completed without a PR URL');
-      }
-      setPrUrl(result.pr_url);
-      setPrBranchName(result.branch_name ?? prBranchName);
-      const match = result.pr_url.match(/\/pull\/(\d+)/);
-      setPrNumber(match ? parseInt(match[1], 10) : undefined);
-      setRemediationStep('verify');
+      setRemediationError(null);
     } catch (err) {
-      setPrError((err as Error).message);
-      setRemediationStep('pr');
+      const errMessage = err instanceof Error ? err.message : String(err);
+      setRemediationError(
+        err instanceof Error ? err : new Error(errMessage),
+      );
+      setRemediationStep('select');
     } finally {
       setCreatingPr(false);
+      setFixProgress(null);
     }
   }, [
     project,
-    repoUrl,
-    prBranchName,
+    effectiveRepoUrl,
+    bulkFixableIds,
+    tier1Result,
+    proposals.length,
+    remediationActivityId,
+    violations,
+    apmeApi,
+  ]);
+
+  const handlePushBranch = useCallback(async () => {
+    if (!project || !effectiveRepoUrl) return;
+    if (!tier1Result && proposals.length === 0) return;
+
+    setCreatingPr(true);
+    setPushError(null);
+    setPrError(null);
+    setRemediationError(null);
+
+    try {
+      setRemediationStep('push');
+      setFixProgress({ message: 'Pushing remediation branch…', progress: 45 });
+
+      const allProposalIds = visibleProposals.map(p => p.id);
+      if (allProposalIds.length > 0) {
+        const state = await apmeApi.getOperationState(project.id);
+        if (state?.status === 'awaiting_approval') {
+          await apmeApi.approveProposals(project.id, allProposalIds);
+        } else {
+          try {
+            await apmeApi.approveProposals(project.id, allProposalIds);
+          } catch {
+            // Completed runs may already be approved server-side.
+          }
+        }
+        setApprovedProposalIds(new Set(allProposalIds));
+      }
+
+      const scmToken = await resolveScmToken('optional');
+      const resolvedActivityId = await resolveActivityId();
+      const pushResult = await apmeApi.pushRemediationBranch(
+        project.id,
+        resolvedActivityId,
+        scmToken ? { scmToken } : undefined,
+      );
+      setPrBranchName(pushResult.branch_name);
+      setBranchPushed(true);
+      setSelectedReviewFile(null);
+      setRemediationStep('push');
+    } catch (err) {
+      const existingPr = parseExistingPrFromError(
+        err instanceof Error ? err.message : String(err),
+      );
+      if (existingPr) {
+        setRemediationError(null);
+        setPushError(null);
+        setPrError(null);
+        setPrUrl(existingPr.url);
+        setPrNumber(existingPr.prNumber);
+        setBranchPushed(true);
+        setRemediationStep('verify');
+      } else {
+        const scmRequired = isScmTokenRequiredError(err);
+        if (scmRequired) {
+          setPushError(formatScmAuthFailureMessage(err));
+          setRemediationStep('review');
+        } else {
+          setRemediationError(
+            err instanceof Error ? err : new Error(String(err)),
+          );
+          setPushError(null);
+          setRemediationStep('review');
+        }
+      }
+    } finally {
+      setCreatingPr(false);
+      setFixProgress(null);
+    }
+  }, [
+    project,
+    effectiveRepoUrl,
+    tier1Result,
+    proposals.length,
+    visibleProposals,
     resolveScmToken,
     resolveActivityId,
     apmeApi,
   ]);
 
-  const handleGenerateFixes = useCallback(async () => {
-    if (!project || fixableViolationIds.size === 0) return;
-    if (project.id) {
-      clearRemediationWorkflowCache(project.id);
-    }
-    setRemediationError(null);
-    setTier1Result(null);
-    setBranchPushed(false);
+  const handleCreatePullRequest = useCallback(async () => {
+    if (!project || !effectiveRepoUrl) return;
+
+    setCreatingPr(true);
+    setPrError(null);
     setPushError(null);
-    setPrUrl(null);
-    setPrBranchName(undefined);
-    setProposals([]);
-    setApprovedProposalIds(new Set());
-    setDeclinedProposalIds(new Set());
-    autoApprovedRef.current = new Set();
-    generatedViolationIdsRef.current = new Set();
-    setRemediationStep('generate');
-    setFixProgress({ message: 'Starting fix generation…', progress: 0 });
+
     try {
-      await apmeApi.triggerRemediate(project.id);
+      setRemediationStep('pr');
+      setFixProgress({ message: 'Creating pull request…', progress: 75 });
+
+      const scmToken = await resolveScmToken('optional');
+      const resolvedActivityId = await resolveActivityId();
+      const prResult = await apmeApi.createPullRequest(
+        project.id,
+        resolvedActivityId,
+        {
+          ...(scmToken ? { scmToken } : {}),
+          ...(prBranchName ? { branchName: prBranchName } : {}),
+        },
+      );
+      if (!prResult.pr_url) {
+        throw new Error('Gateway submit completed without a PR URL');
+      }
+      setPrUrl(prResult.pr_url);
+      setPrBranchName(prResult.branch_name ?? prBranchName);
+      const match = prResult.pr_url.match(/\/pull\/(\d+)/);
+      setPrNumber(match ? parseInt(match[1], 10) : undefined);
+      setRemediationStep('verify');
     } catch (err) {
-      setRemediationError(err as Error);
-      setRemediationStep('select');
+      const existingPr = parseExistingPrFromError(
+        err instanceof Error ? err.message : String(err),
+      );
+      if (existingPr) {
+        setPrError(null);
+        setPushError(null);
+        setRemediationError(null);
+        setPrUrl(existingPr.url);
+        setPrNumber(existingPr.prNumber);
+        setBranchPushed(true);
+        setRemediationStep('verify');
+      } else {
+        setPrError(formatScmAuthFailureMessage(err));
+        setRemediationStep(branchPushed ? 'push' : 'select');
+      }
+    } finally {
+      setCreatingPr(false);
       setFixProgress(null);
     }
-  }, [project, fixableViolationIds, apmeApi]);
+  }, [
+    project,
+    effectiveRepoUrl,
+    resolveScmToken,
+    resolveActivityId,
+    apmeApi,
+    prBranchName,
+    branchPushed,
+  ]);
 
-  const handleApproveProposal = useCallback(
-    async (proposal: Proposal) => {
-      if (!project) return;
-      setApprovedProposalIds(prev => new Set([...prev, proposal.id]));
-      setDeclinedProposalIds(prev => {
-        const next = new Set(prev);
-        next.delete(proposal.id);
-        return next;
-      });
-      try {
-        const state = await apmeApi.getOperationState(project.id);
-        if (state?.status === 'awaiting_approval') {
-          await apmeApi.approveProposals(project.id, [proposal.id]);
-        }
-      } catch {
-        // Local approval is enough when the remediate operation already finished.
-      }
-    },
-    [project, apmeApi],
-  );
-
-  const handleDeclineProposal = useCallback((proposalId: string) => {
-    setDeclinedProposalIds(prev => new Set([...prev, proposalId]));
-    setApprovedProposalIds(prev => {
-      const next = new Set(prev);
-      next.delete(proposalId);
-      return next;
-    });
-  }, []);
-
-  const handleScan = useCallback(async () => {
-    if (!project) return;
-    if (project.id) {
-      clearRemediationWorkflowCache(project.id);
+  const handleScan = useCallback(() => {
+    if (!project?.id) {
+      return;
     }
+    clearRemediationWorkflowCache(project.id);
     resetRemediationWorkflow();
     setScanError(null);
+    setTrackedScanOperationId(null);
     if (projectHasActiveOperation(project)) {
       setExpectActiveScan(true);
       setScanning(true);
+      setScanProgress({
+        status: 'running',
+        message: 'Scan in progress…',
+      });
       return;
     }
-    setScanning(true);
-    setExpectActiveScan(true);
+    // Do not set scanning until triggerScan returns — avoids treating a prior
+    // completed operation as the new scan finishing instantly.
     setScanProgress({
       status: 'starting',
       message: `Starting scan for ${project.name}…`,
       progress: 0,
     });
-    try {
-      await apmeApi.triggerScan(project.id);
-    } catch (err) {
-      setScanError(err as Error);
-      setScanning(false);
-      setExpectActiveScan(false);
-      setScanProgress(null);
-    }
-  }, [project, apmeApi, resetRemediationWorkflow]);
+    void (async () => {
+      try {
+        await ensureRepoBranchForScan(
+          apmeApi,
+          project.repo_url,
+          project.branch,
+        );
+        const scanResult = await apmeApi.triggerScan(project.id, {
+          ansibleVersion: scanTarget.effective,
+        });
+        setTrackedScanOperationId(scanResult.scanId);
+        setExpectActiveScan(true);
+        setScanning(true);
+      } catch (err) {
+        setScanError(err as Error);
+        setScanning(false);
+        setExpectActiveScan(false);
+        setTrackedScanOperationId(null);
+        setScanProgress(null);
+      }
+    })();
+  }, [project, apmeApi, resetRemediationWorkflow, scanTarget.effective]);
 
   const handleRegister = useCallback(async () => {
-    if (!repoUrl) return;
+    if (!effectiveRepoUrl) return;
     setRegistering(true);
     setRegisterError(null);
+    setScanError(null);
+    setScanProgress({
+      status: 'starting',
+      message: 'Registering repository and starting scan…',
+      progress: 0,
+    });
     try {
+      await ensureRepoBranchForScan(apmeApi, effectiveRepoUrl, branch);
       const name = entity.metadata.title || entity.metadata.name;
-      const newProject = await apmeApi.createProject({
+      const resolvedProject = await registerOrResolveApmeProject(apmeApi, {
         name,
-        repo_url: repoUrl,
+        repo_url: effectiveRepoUrl,
         branch,
       });
-      await apmeApi.triggerScan(newProject.id);
+      setPendingProjectId(resolvedProject.id);
+      const scanResult = await apmeApi.triggerScan(resolvedProject.id);
+      setTrackedScanOperationId(scanResult.scanId);
       setExpectActiveScan(true);
       setScanning(true);
+      setScanProgress({
+        status: 'running',
+        message: `Scanning ${name}…`,
+        progress: 5,
+      });
       retry();
     } catch (err) {
       setRegisterError(err as Error);
+      setScanning(false);
+      setExpectActiveScan(false);
+      setTrackedScanOperationId(null);
+      setPendingProjectId(null);
+      setScanProgress(null);
     } finally {
       setRegistering(false);
     }
-  }, [apmeApi, entity, repoUrl, branch, retry]);
+  }, [apmeApi, entity, effectiveRepoUrl, branch, retry]);
+
+  useEffect(() => {
+    if (searchParams.get('scan') !== '1') {
+      return;
+    }
+    pendingScanFromUrlRef.current = true;
+    const params = new URLSearchParams(searchParams);
+    params.delete('scan');
+    setSearchParams(params, { replace: true });
+  }, [searchParams, setSearchParams]);
+
+  useEffect(() => {
+    if (!pendingScanFromUrlRef.current || loading) {
+      return;
+    }
+    pendingScanFromUrlRef.current = false;
+    if (project?.id) {
+      handleScan();
+    } else if (effectiveRepoUrl) {
+      void handleRegister();
+    }
+  }, [loading, project?.id, effectiveRepoUrl, handleScan, handleRegister]);
 
   const refreshViolations = useCallback(() => {
     setRefreshKey(k => k + 1);
@@ -1292,6 +1501,18 @@ export const ApmeEntityTab = ({
     () => violations.filter(v => isAcknowledged(v)).length,
     [violations, isAcknowledged],
   );
+
+  useEffect(() => {
+    if (acknowledgedCount === 0 && showAcknowledgedOnly) {
+      setShowAcknowledgedOnly(false);
+    }
+  }, [acknowledgedCount, showAcknowledgedOnly]);
+
+  // True in-flight scan only — never leftover progress from a completed gateway op.
+  const scanInFlight =
+    scanning ||
+    Boolean(trackedScanOperationId) ||
+    scanProgress?.status === 'starting';
 
   if (loading)
     return (
@@ -1324,21 +1545,54 @@ export const ApmeEntityTab = ({
     );
   }
 
-  // Unscanned state
+  // Unscanned state — keep progress visible while Register/scan bootstraps the project
   if (!project) {
+    const bootstrapping =
+      registering || scanInFlight || Boolean(pendingProjectId);
     return (
       <Content>
+        <PreviewNotice />
+        {bootstrapping && !scanError && (
+          <Paper className={classes.progressBanner} elevation={1}>
+            <LinearProgress
+              variant={
+                scanProgress?.progress !== undefined
+                  ? 'determinate'
+                  : 'indeterminate'
+              }
+              value={scanProgress?.progress}
+            />
+            <div className={classes.progressText}>
+              <Typography variant="caption" color="textSecondary">
+                {scanProgress?.message ||
+                  (registering
+                    ? 'Registering repository…'
+                    : 'Scan in progress…')}
+              </Typography>
+            </div>
+          </Paper>
+        )}
+        {scanError && (
+          <Typography
+            variant="body2"
+            color="error"
+            style={{ marginBottom: 16 }}
+          >
+            {scanError.message}
+          </Typography>
+        )}
         <div className={classes.noData}>
           <Typography variant="h6" gutterBottom>
-            No scan results yet
+            {bootstrapping ? 'Scan in progress…' : 'No quality scans yet'}
           </Typography>
           <Typography
             variant="body2"
             color="textSecondary"
             style={{ marginBottom: 16 }}
           >
-            Run a scan to check this repository for Ansible content quality
-            issues.
+            {bootstrapping
+              ? 'Registering this repository with Ansible content modernization and running the first scan. Results will appear here when it finishes.'
+              : 'Quality scans run on push when the APME workflow is configured, or use Scan to check this repository now.'}
           </Typography>
           {registerError &&
             (isApmeConnectionError(registerError.message) ? (
@@ -1352,7 +1606,7 @@ export const ApmeEntityTab = ({
                 {registerError.message}
               </Typography>
             ))}
-          {repoUrl && (
+          {effectiveRepoUrl && !bootstrapping && (
             <Button
               variant="contained"
               color="primary"
@@ -1371,13 +1625,10 @@ export const ApmeEntityTab = ({
   }
 
   // Compute summary stats from violations
-  const counts = SEVERITY_ORDER.reduce(
-    (acc, sev) => {
-      acc[sev] = 0;
-      return acc;
-    },
-    {} as Record<SeverityLevel, number>,
-  );
+  const counts = SEVERITY_ORDER.reduce((acc, sev) => {
+    acc[sev] = 0;
+    return acc;
+  }, {} as Record<SeverityLevel, number>);
   let autoFix = 0;
   let aiAssisted = 0;
   let manual = 0;
@@ -1394,11 +1645,8 @@ export const ApmeEntityTab = ({
     catCounts[cat] = (catCounts[cat] ?? 0) + 1;
   }
 
-  const fixableAtScan = project.latest_scan
-    ? project.latest_scan.fixable +
-      (enableAi ? project.latest_scan.ai_candidate : 0)
-    : autoFix + aiAssisted;
-  const scanTotalViolations = project.latest_scan?.total_violations;
+  const scanTotalViolations =
+    project.latest_scan?.total_violations ?? project.total_violations;
   const violationsTruncated =
     scanTotalViolations !== undefined &&
     scanTotalViolations !== null &&
@@ -1412,8 +1660,8 @@ export const ApmeEntityTab = ({
     !aiStatusLoading &&
     aiStatus !== undefined &&
     !aiStatus.connected;
-
-  const lastChecked = formatEntityLastChecked(scanning, project, scanError);
+  const showIncludeAiSwitch =
+    enableAi && !gatewayAiDisconnected && bulkAiFixableCount > 0;
 
   // Filter violations by active category, severity, and fix type
   const filteredViolations = violations
@@ -1438,6 +1686,11 @@ export const ApmeEntityTab = ({
     });
 
   const hasSeverityFilter = severityFilters.size > 0;
+  const hasViewFilter =
+    activeCategory !== 'all' ||
+    hasSeverityFilter ||
+    fixTypeFilter !== 'all' ||
+    Boolean(ruleFilter);
 
   const toggleSeverity = (sev: SeverityLevel) => {
     setSeverityFilters(prev => {
@@ -1447,6 +1700,16 @@ export const ApmeEntityTab = ({
       return next;
     });
   };
+
+  const clearViewFilters = () => {
+    setSeverityFilters(new Set());
+    setActiveCategory('all');
+    setFixTypeFilter('all');
+    setRuleFilter(null);
+  };
+
+  const operationInFlight =
+    scanInFlight || Boolean(fixProgress) || creatingPr || violationsLoading;
 
   const violationTotal = violations.length;
 
@@ -1470,141 +1733,27 @@ export const ApmeEntityTab = ({
   const devSpacesBaseUrl = configApi.getOptionalString(
     'ansible.devSpaces.baseUrl',
   );
-  const devSpacesBranch = prBranchName ?? project?.branch;
+  const devSpacesBranch = prBranchName ?? branch;
   const devSpacesUrl =
-    devSpacesBaseUrl && repoUrl
+    devSpacesBaseUrl && effectiveRepoUrl
       ? buildDevSpacesUrlFromRepoUrl(
           devSpacesBaseUrl,
-          repoUrl,
+          effectiveRepoUrl,
           devSpacesBranch || undefined,
         )
       : null;
-  const showDevSpacesForManual = Boolean(devSpacesUrl && manual > 0);
-
-  const canPushBranch =
-    (visibleProposals.length > 0 &&
-      visibleProposals.every(p => {
-        const v = violations.find(viol => viol.id === p.violation_id);
-        if (!v) {
-          return true;
-        }
-        return (
-          !proposalNeedsManualApproval(v.remediation_class, enableAi) ||
-          approvedProposalIds.has(p.id)
-        );
-      })) ||
-    Boolean(
-      tier1Result &&
-      remediationActivityId &&
-      (tier1Result.patches.length > 0 || tier1Result.remediatedCount > 0),
-    );
+  const githubCompareUrl = buildGithubCompareUrl(
+    effectiveRepoUrl,
+    branch,
+    prBranchName,
+  );
 
   return (
-    <Content>
-      {/* Summary line */}
-      {violations.length > 0 && (
-        <Box className={classes.summaryLine}>
-          <Typography
-            variant="body2"
-            style={{ color: '#c9190b', fontWeight: 600 }}
-          >
-            {violations.length} violation{violations.length !== 1 ? 's' : ''}
-          </Typography>
-          <Typography variant="body2" color="textSecondary">
-            ·
-          </Typography>
-          <Box
-            display="flex"
-            alignItems="center"
-            style={{ gap: 6, flexWrap: 'wrap' }}
-          >
-            {autoFix > 0 && (
-              <Chip
-                size="small"
-                label={`${autoFix} auto-fix`}
-                clickable
-                onClick={() => {
-                  setFixTypeFilter('auto');
-                  setRemediationStep('select');
-                  document
-                    .getElementById('apme-violations-table')
-                    ?.scrollIntoView({ behavior: 'smooth' });
-                }}
-                style={{
-                  backgroundColor: FIX_TYPE_STYLES.auto.background,
-                  color: FIX_TYPE_STYLES.auto.text,
-                  fontWeight: 600,
-                }}
-              />
-            )}
-            {enableAi && aiAssisted > 0 && (
-              <Chip
-                size="small"
-                label={`${aiAssisted} AI candidate${aiAssisted !== 1 ? 's' : ''}`}
-                clickable
-                onClick={() => {
-                  setFixTypeFilter('ai');
-                  setRemediationStep('select');
-                  document
-                    .getElementById('apme-violations-table')
-                    ?.scrollIntoView({ behavior: 'smooth' });
-                }}
-                style={{
-                  backgroundColor: FIX_TYPE_STYLES.ai.background,
-                  color: FIX_TYPE_STYLES.ai.text,
-                  fontWeight: 600,
-                }}
-              />
-            )}
-            {manual > 0 && (
-              <Chip
-                size="small"
-                label={`${manual} manual`}
-                clickable
-                variant="outlined"
-                onClick={() => {
-                  setFixTypeFilter('manual');
-                  setRemediationStep('select');
-                  document
-                    .getElementById('apme-violations-table')
-                    ?.scrollIntoView({ behavior: 'smooth' });
-                }}
-              />
-            )}
-            {autoFix === 0 && aiAssisted === 0 && enableAi && (
-              <Typography variant="body2" color="textSecondary">
-                {fixableAtScan} fixable at scan
-              </Typography>
-            )}
-            {autoFix === 0 && !enableAi && (
-              <Typography variant="body2" color="textSecondary">
-                no auto-fix at scan
-              </Typography>
-            )}
-          </Box>
-          <Typography variant="body2" color="textSecondary">
-            ·
-          </Typography>
-          <Typography variant="body2" color="textSecondary">
-            Last checked {lastChecked}
-          </Typography>
-          <Typography
-            variant="body2"
-            style={{ color: '#0066cc', cursor: 'pointer', marginLeft: 8 }}
-            onClick={() => {
-              const first = filteredViolations[0];
-              if (first) {
-                document
-                  .getElementById('apme-violations-table')
-                  ?.scrollIntoView({ behavior: 'smooth' });
-              }
-            }}
-          >
-            Fix violations →
-          </Typography>
-        </Box>
-      )}
-
+    <Content
+      stretch={showScanHistory}
+      className={showScanHistory ? classes.historyContent : undefined}
+    >
+      <PreviewNotice />
       {violationsTruncated &&
         scanTotalViolations !== undefined &&
         scanTotalViolations !== null && (
@@ -1624,78 +1773,55 @@ export const ApmeEntityTab = ({
           <Typography variant="body2">
             Portal AI tier is on ({aiCandidateCount} AI candidates at scan), but
             the APME gateway AI service (Abbenay) is not connected — AI
-            proposals will not be generated. <strong>Generate fixes</strong>{' '}
-            still applies auto-generated fixes. Connect Abbenay on the gateway
-            or check Quality settings → Overview for component health.
+            proposals will not be generated. <strong>Push branch</strong> still
+            applies auto-generated fixes. Connect Abbenay on the gateway or
+            check Quality settings → Overview for component health.
           </Typography>
         </Paper>
       )}
-
-      {remediationStep === 'select' &&
-        !remediationError &&
-        autoFix > 0 &&
-        manual > 0 && (
-          <Paper className={classes.infoBanner} elevation={0}>
-            <Typography variant="body2">
-              {manual} violation{manual !== 1 ? 's' : ''} require manual fixes
-              in your repo
-              {devSpacesBranch ? ` (${devSpacesBranch})` : ''}. Open Dev Spaces
-              to edit, or run <strong>Generate fixes</strong> to apply
-              auto-generated fixes to the rest.
-            </Typography>
-          </Paper>
-        )}
 
       {/* Scan toolbar */}
       {showScanHistory ? (
         <ScanHistoryView
           activity={scanHistory}
-          scanning={scanning}
           onBack={() => setShowScanHistory(false)}
-          onScan={handleScan}
+          repoUrl={effectiveRepoUrl}
+          currentRemediationActivityId={remediationActivityId}
+          currentBranchFileChanges={branchFileChanges}
+          currentBranchName={prBranchName}
         />
       ) : (
         <>
-          <div className={classes.scanToolbar}>
-            <div className={classes.scanMeta}>
-              <Typography
-                variant="body2"
-                color="textSecondary"
-                style={{ fontSize: 12 }}
-              >
-                Last quality scan · {lastChecked}
+          <div className={classes.scanStatusRow}>
+            <div className={classes.scanStatusLeft}>
+              <Typography variant="body2" color="textSecondary">
+                Last quality scan · {formatScanAge(project.last_scanned_at)}
               </Typography>
-              <Tooltip title="Scans run automatically on push. Use Scan to trigger a manual check.">
+              <Tooltip title={`Scan target: ${scanTarget.label}`}>
                 <HelpOutlineIcon
                   style={{ fontSize: 16, color: '#6a6e73', cursor: 'help' }}
                 />
               </Tooltip>
-              {scanHistory.length > 0 && (
-                <Button
-                  size="small"
-                  variant="text"
-                  startIcon={<HistoryIcon style={{ fontSize: 16 }} />}
-                  onClick={() => setShowScanHistory(true)}
-                  style={{ textTransform: 'none', fontSize: 12, marginLeft: 8 }}
-                >
-                  Scan history ({scanHistory.length})
-                </Button>
-              )}
-            </div>
-            <div className={classes.scanActions}>
-              <Button
-                size="small"
-                variant="outlined"
-                className={classes.pillScan}
-                startIcon={
-                  scanning ? <CircularProgress size={14} /> : <ScanIcon />
-                }
-                onClick={handleScan}
-                disabled={scanning}
+              <Link
+                component={RouterLink}
+                to="/self-service/repositories/quality-settings"
+                style={{ fontSize: 12, whiteSpace: 'nowrap' }}
               >
-                {scanning ? 'Scanning…' : 'Scan'}
-              </Button>
+                Quality settings
+              </Link>
             </div>
+            <Button
+              size="small"
+              variant="outlined"
+              className={classes.pillScan}
+              startIcon={
+                scanInFlight ? <CircularProgress size={14} /> : <ScanIcon />
+              }
+              onClick={handleScan}
+              disabled={scanInFlight}
+            >
+              {scanInFlight ? 'Scanning…' : 'Scan'}
+            </Button>
           </div>
 
           {ruleFilter && (
@@ -1715,7 +1841,15 @@ export const ApmeEntityTab = ({
                 <Typography variant="caption" color="textSecondary">
                   {filteredViolations.length} of {violationTotal} violations
                   {ruleFilter
-                    ? ` · ${ruleAutoFixCount} auto-fix${enableAi && ruleAiCount > 0 ? ` · ${ruleAiCount} AI` : ''}${ruleManualCount > 0 ? ` · ${ruleManualCount} manual` : ''}`
+                    ? ` · ${ruleAutoFixCount} auto-fix${
+                        enableAi && ruleAiCount > 0
+                          ? ` · ${ruleAiCount} AI`
+                          : ''
+                      }${
+                        ruleManualCount > 0
+                          ? ` · ${ruleManualCount} manual`
+                          : ''
+                      }`
                     : ''}
                 </Typography>
               </Box>
@@ -1742,8 +1876,8 @@ export const ApmeEntityTab = ({
             </Paper>
           )}
 
-          {/* Scan progress */}
-          {scanning && scanProgress && !scanError && (
+          {/* Scan progress — hide when fix/remediation banner is already showing */}
+          {scanInFlight && !scanError && !fixProgress && (
             <Paper className={classes.progressBanner} elevation={1}>
               <LinearProgress
                 variant={
@@ -1755,7 +1889,7 @@ export const ApmeEntityTab = ({
               />
               <div className={classes.progressText}>
                 <Typography variant="caption" color="textSecondary">
-                  {scanProgress?.message || 'Initializing…'}
+                  {scanProgress?.message || 'Scan in progress…'}
                 </Typography>
                 {scanProgress?.violationsFound !== undefined && (
                   <Typography variant="caption">
@@ -1765,6 +1899,24 @@ export const ApmeEntityTab = ({
               </div>
             </Paper>
           )}
+          {/* Brief post-complete banner after polling finishes */}
+          {!scanInFlight &&
+            scanProgress?.status === 'completed' &&
+            !scanError && (
+              <Paper className={classes.progressBanner} elevation={1}>
+                <LinearProgress variant="determinate" value={100} />
+                <div className={classes.progressText}>
+                  <Typography variant="caption" color="textSecondary">
+                    {scanProgress.message || 'Scan complete'}
+                  </Typography>
+                  {scanProgress.violationsFound !== undefined && (
+                    <Typography variant="caption">
+                      {scanProgress.violationsFound} violations found
+                    </Typography>
+                  )}
+                </div>
+              </Paper>
+            )}
 
           {scanError && (
             <Paper
@@ -1799,20 +1951,35 @@ export const ApmeEntityTab = ({
           )}
           {remediationError && (
             <Paper className={classes.remediationErrorBanner} elevation={0}>
-              <Typography
-                variant="subtitle2"
-                style={{ color: '#c9190b', marginBottom: 4 }}
+              <div className={classes.remediationErrorBody}>
+                <Typography
+                  variant="subtitle2"
+                  style={{ color: '#c9190b', marginBottom: 4 }}
+                >
+                  {apmeRemediationErrorTitle(remediationError.message)}
+                </Typography>
+                <Typography variant="body2">
+                  {formatApmeUserFacingError(remediationError.message)}
+                </Typography>
+              </div>
+              <IconButton
+                className={classes.remediationErrorDismiss}
+                aria-label="Dismiss error"
+                size="small"
+                onClick={() => {
+                  setRemediationError(null);
+                }}
               >
-                No automated patches
-              </Typography>
-              <Typography variant="body2">
-                {remediationError.message}
-              </Typography>
+                <CloseIcon fontSize="small" />
+              </IconButton>
             </Paper>
           )}
 
           {violations.length > 0 && (
-            <QualityWorkflowStepper activeStep={remediationStep} />
+            <QualityWorkflowStepper
+              activeStep={remediationStep}
+              busy={creatingPr}
+            />
           )}
 
           {fixProgress && (
@@ -1820,259 +1987,6 @@ export const ApmeEntityTab = ({
               message={fixProgress.message}
               progress={fixProgress.progress}
             />
-          )}
-
-          {remediationStep === 'review' &&
-            tier1Result &&
-            visibleProposals.length === 0 && (
-              <Paper className={classes.reviewPanel} elevation={1}>
-                <Typography variant="subtitle2" gutterBottom>
-                  Auto-generated fixes ready
-                </Typography>
-                <Typography variant="body2" color="textSecondary" paragraph>
-                  {tier1Result.remediatedCount} finding
-                  {tier1Result.remediatedCount !== 1 ? 's were' : ' was'}{' '}
-                  transformed. Push the branch and open in Dev Spaces to review
-                  changes and commit.
-                </Typography>
-                {tier1Result.fixedViolations.length > 0 && (
-                  <Box mb={2}>
-                    <Typography
-                      variant="body2"
-                      style={{ fontWeight: 600, marginBottom: 8 }}
-                    >
-                      Findings addressed
-                    </Typography>
-                    {tier1Result.fixedViolations.map((fv, idx) => (
-                      <Typography
-                        key={`${fv.rule_id}-${fv.file}-${fv.line ?? idx}`}
-                        variant="body2"
-                      >
-                        {fv.rule_id} · {fv.file}
-                        {fv.line !== undefined && fv.line !== null
-                          ? `:${fv.line}`
-                          : ''}
-                        {fv.message ? ` — ${fv.message}` : ''}
-                      </Typography>
-                    ))}
-                  </Box>
-                )}
-                {tier1Result.patches.length > 0 && (
-                  <Box>
-                    <Typography
-                      variant="body2"
-                      style={{ fontWeight: 600, marginBottom: 8 }}
-                    >
-                      File changes
-                    </Typography>
-                    {tier1Result.patches.map(patch => (
-                      <Box key={patch.file} mb={2}>
-                        <Typography
-                          variant="body2"
-                          style={{ fontFamily: 'monospace', marginBottom: 4 }}
-                        >
-                          {patch.file}
-                        </Typography>
-                        <Box
-                          component="pre"
-                          style={{
-                            fontSize: 12,
-                            overflow: 'auto',
-                            backgroundColor: '#f5f5f5',
-                            padding: 12,
-                            borderRadius: 4,
-                            margin: 0,
-                          }}
-                        >
-                          {patch.diff}
-                        </Box>
-                      </Box>
-                    ))}
-                  </Box>
-                )}
-              </Paper>
-            )}
-
-          {remediationStep === 'review' && visibleProposals.length > 0 && (
-            <Paper className={classes.reviewPanel} elevation={1}>
-              <Box
-                display="flex"
-                alignItems="center"
-                justifyContent="space-between"
-                flexWrap="wrap"
-                style={{ gap: 8, marginBottom: 8 }}
-              >
-                <Typography variant="subtitle2">
-                  Review proposed fixes
-                </Typography>
-                <Box display="flex" alignItems="center" style={{ gap: 8 }}>
-                  <Button
-                    size="small"
-                    variant="text"
-                    onClick={() => setRemediationStep('select')}
-                  >
-                    Back to violations
-                  </Button>
-                  {reviewAutoProposalCount > 0 && (
-                    <Chip
-                      size="small"
-                      label={`Auto (${reviewAutoProposalCount})`}
-                      clickable
-                      onClick={() => setReviewProposalFilter('auto')}
-                      color={
-                        reviewProposalFilter === 'auto' ? 'primary' : 'default'
-                      }
-                      variant={
-                        reviewProposalFilter === 'auto' ? 'default' : 'outlined'
-                      }
-                    />
-                  )}
-                  {reviewAiProposalCount > 0 && (
-                    <Chip
-                      size="small"
-                      label={`AI (${reviewAiProposalCount})`}
-                      clickable
-                      onClick={() => setReviewProposalFilter('ai')}
-                      color={
-                        reviewProposalFilter === 'ai' ? 'primary' : 'default'
-                      }
-                      variant={
-                        reviewProposalFilter === 'ai' ? 'default' : 'outlined'
-                      }
-                    />
-                  )}
-                  {reviewProposalFilter !== 'all' && (
-                    <Chip
-                      size="small"
-                      label="Show all"
-                      clickable
-                      variant="outlined"
-                      onClick={() => setReviewProposalFilter('all')}
-                    />
-                  )}
-                </Box>
-              </Box>
-              {reviewProposals.length === 0 && (
-                <Typography variant="body2" color="textSecondary">
-                  No proposals in this filter. Choose another tab above.
-                </Typography>
-              )}
-              {reviewProposals.map(proposal => {
-                const needsReview = proposalNeedsUserReview(
-                  proposal,
-                  violations,
-                  enableAi,
-                );
-                const isAi = isAiRemediationProposal(
-                  proposal,
-                  violations,
-                  enableAi,
-                );
-                const approved = approvedProposalIds.has(proposal.id);
-                let chipLabel: string;
-                if (isAi) {
-                  chipLabel = needsReview ? 'AI — review' : 'AI fix';
-                } else {
-                  chipLabel = needsReview ? 'Review' : 'Auto-fix';
-                }
-                return (
-                  <Box key={proposal.id} mb={2}>
-                    <Box
-                      display="flex"
-                      alignItems="center"
-                      mb={1}
-                      style={{ gap: 8, flexWrap: 'wrap' }}
-                    >
-                      <Chip
-                        size="small"
-                        label={chipLabel}
-                        style={{
-                          backgroundColor: isAi
-                            ? FIX_TYPE_STYLES.ai.background
-                            : FIX_TYPE_STYLES.auto.background,
-                          color: '#fff',
-                        }}
-                      />
-                      <Typography variant="body2">
-                        {proposal.rule_id} · {proposal.file}:{proposal.line}
-                      </Typography>
-                      {proposal.ai_reason && (
-                        <Typography
-                          variant="caption"
-                          color="textSecondary"
-                          style={{ flex: '1 1 100%' }}
-                        >
-                          {proposal.ai_reason}
-                        </Typography>
-                      )}
-                    </Box>
-                    {isDeclinedProposal(proposal) &&
-                    !proposalHasVisibleDiff(proposal) ? (
-                      <Typography
-                        variant="body2"
-                        color="textSecondary"
-                        style={{ fontStyle: 'italic' }}
-                      >
-                        No automated fix was generated — manual remediation
-                        required.
-                      </Typography>
-                    ) : (
-                      <DiffView
-                        diff={proposal.diff_hunk}
-                        before={proposal.original_yaml}
-                        after={proposal.fixed_yaml}
-                      />
-                    )}
-                    {!proposalHasVisibleDiff(proposal) &&
-                      !isDeclinedProposal(proposal) && (
-                        <Typography
-                          variant="body2"
-                          color="textSecondary"
-                          style={{ fontStyle: 'italic' }}
-                        >
-                          Change details are not available for this proposal.
-                        </Typography>
-                      )}
-                    {(needsReview || isDeclinedProposal(proposal)) &&
-                      !approved && (
-                        <Box className={classes.reviewActions}>
-                          <Button
-                            size="small"
-                            variant="contained"
-                            color="primary"
-                            onClick={() => handleApproveProposal(proposal)}
-                          >
-                            {isDeclinedProposal(proposal)
-                              ? 'Acknowledge'
-                              : 'Approve'}
-                          </Button>
-                          <Button
-                            size="small"
-                            variant="outlined"
-                            onClick={() => handleDeclineProposal(proposal.id)}
-                          >
-                            Decline
-                          </Button>
-                          <Button
-                            size="small"
-                            variant="text"
-                            onClick={() =>
-                              navigator.clipboard.writeText(proposal.file)
-                            }
-                          >
-                            Copy file path
-                          </Button>
-                        </Box>
-                      )}
-                    {!needsReview && (
-                      <Typography variant="caption" color="textSecondary">
-                        Auto-fix applied — included in PR
-                      </Typography>
-                    )}
-                  </Box>
-                );
-              })}
-            </Paper>
           )}
 
           {(prUrl || prError || pushError || branchPushed || prMerged) && (
@@ -2084,12 +1998,10 @@ export const ApmeEntityTab = ({
               pushError={pushError ?? undefined}
               branchPushed={branchPushed && !prUrl}
               merged={prMerged}
+              githubCompareUrl={githubCompareUrl}
               devSpacesUrl={devSpacesUrl}
               creatingPr={creatingPr}
-              onCreatePr={handleCreatePr}
-              hideCreatePrAction={
-                remediationStep === 'pr' && branchPushed && !prUrl
-              }
+              onCreatePr={() => void handleCreatePullRequest()}
               onScanAgain={() => {
                 setPrMerged(false);
                 setPrUrl(null);
@@ -2099,6 +2011,11 @@ export const ApmeEntityTab = ({
                 setPrError(null);
                 setRemediationActivityId(null);
                 setTier1Result(null);
+                setIncludeAiInBulk(false);
+                setSelectedReviewFile(null);
+                setReviewDialogOpen(false);
+                setGeneratedViolationIds(new Set());
+                generatedViolationIdsRef.current = new Set();
                 setRemediationStep('select');
                 setApprovedProposalIds(new Set());
                 handleScan();
@@ -2106,349 +2023,300 @@ export const ApmeEntityTab = ({
             />
           )}
 
-          {(remediationStep === 'review' || remediationStep === 'push') &&
-            canPushBranch &&
+          {remediationStep === 'review' &&
+            branchFileChanges.length > 0 &&
             !branchPushed && (
-              <Box style={{ marginBottom: 16 }}>
-                {!scmAuthorized && remediationStep === 'review' && (
-                  <Typography
-                    variant="caption"
-                    color="textSecondary"
-                    display="block"
-                    style={{ marginBottom: 8 }}
-                  >
-                    Pushing uses your GitHub account. The first time, GitHub
-                    will ask you to authorize repository access — this is
-                    separate from signing in to the portal.
-                  </Typography>
-                )}
+              <Paper className={classes.reviewPanel} elevation={0}>
                 <Box
                   display="flex"
                   alignItems="center"
-                  justifyContent="flex-end"
-                  style={{ gap: 12 }}
+                  justifyContent="space-between"
+                  style={{ gap: 12, flexWrap: 'wrap' }}
                 >
-                  <Typography variant="body2" style={{ marginRight: 'auto' }}>
-                    {tier1Result
-                      ? `${tier1Result.remediatedCount} auto-generated change${tier1Result.remediatedCount !== 1 ? 's' : ''} ready to push`
-                      : `${visibleProposals.length} fix${visibleProposals.length !== 1 ? 'es' : ''} ready to push`}
+                  <Typography variant="body2" color="textSecondary">
+                    {branchFileChanges.length} file
+                    {branchFileChanges.length === 1 ? '' : 's'} ·{' '}
+                    {reviewFindingCount} finding
+                    {reviewFindingCount === 1 ? '' : 's'} ready to push
                   </Typography>
-                  <Button
-                    variant="contained"
-                    color="primary"
-                    size="small"
-                    onClick={handlePushBranch}
-                    disabled={remediationStep === 'push'}
-                  >
-                    {remediationStep === 'push' ? 'Pushing…' : 'Push branch'}
-                  </Button>
-                </Box>
-              </Box>
-            )}
-
-          {remediationStep === 'pr' && branchPushed && !prUrl && (
-            <Box style={{ marginBottom: 16 }}>
-              <Box
-                display="flex"
-                alignItems="center"
-                justifyContent="flex-end"
-                style={{ gap: 12 }}
-              >
-                <Typography variant="body2" style={{ marginRight: 'auto' }}>
-                  {prBranchName
-                    ? `Branch ${prBranchName} pushed — ready to open a pull request`
-                    : 'Branch pushed — ready to open a pull request'}
-                </Typography>
-                <Button
-                  variant="contained"
-                  color="primary"
-                  size="small"
-                  onClick={handleCreatePr}
-                  disabled={creatingPr}
-                >
-                  {creatingPr ? 'Creating PR…' : 'Create pull request'}
-                </Button>
-              </Box>
-            </Box>
-          )}
-
-          {/* Category + fix-type filters */}
-          {violations.length > 0 && (
-            <>
-              <div className={classes.filterToolbar}>
-                <Typography variant="body2" style={{ fontWeight: 600 }}>
-                  {filteredViolations.length} violation
-                  {filteredViolations.length !== 1 ? 's' : ''}
-                </Typography>
-                <Box display="flex" alignItems="center" style={{ gap: 8 }}>
-                  {activeCategory !== 'all' && (
-                    <Chip
+                  <Box display="flex" style={{ gap: 8, flexWrap: 'wrap' }}>
+                    <Button
                       size="small"
-                      label={categoryLabel(activeCategory)}
-                      onDelete={() => setActiveCategory('all')}
-                      color="primary"
                       variant="outlined"
-                    />
-                  )}
-                  <Button
-                    size="small"
-                    variant="outlined"
-                    startIcon={<FilterListIcon />}
-                    onClick={e => setCategoryMenuAnchor(e.currentTarget)}
-                  >
-                    Category
-                  </Button>
-                  {devSpacesUrl &&
-                    (showDevSpacesForManual || remediationError) && (
-                      <EditInDevSpacesButton url={devSpacesUrl} />
-                    )}
-                  {remediationStep === 'select' && (
-                    <Tooltip
-                      title={generateFixesTooltip(
-                        fixableViolationIds.size,
-                        devSpacesBranch,
-                        project.branch,
-                      )}
+                      onClick={() => setReviewDialogOpen(true)}
                     >
+                      View patches
+                    </Button>
+                    <Tooltip title={pushBranchReviewTooltip()}>
                       <span>
                         <Button
                           size="small"
                           variant="contained"
                           color="primary"
-                          onClick={handleGenerateFixes}
-                          disabled={fixableViolationIds.size === 0}
+                          onClick={() => void handlePushBranch()}
+                          disabled={
+                            creatingPr || branchFileChanges.length === 0
+                          }
                         >
-                          Generate fixes
+                          {creatingPr ? 'Pushing branch…' : 'Push branch'}
                         </Button>
                       </span>
                     </Tooltip>
-                  )}
-                  <Menu
-                    anchorEl={categoryMenuAnchor}
-                    open={Boolean(categoryMenuAnchor)}
-                    onClose={() => setCategoryMenuAnchor(null)}
-                  >
-                    <MenuItem
-                      selected={activeCategory === 'all'}
-                      onClick={() => {
-                        setActiveCategory('all');
-                        setCategoryMenuAnchor(null);
-                      }}
-                    >
-                      All ({violations.length})
-                    </MenuItem>
-                    {CATEGORIES.slice(1).map(cat => {
-                      const count = catCounts[cat];
-                      return count ? (
-                        <MenuItem
-                          key={cat}
-                          selected={activeCategory === cat}
-                          onClick={() => {
-                            setActiveCategory(cat);
-                            setCategoryMenuAnchor(null);
-                          }}
-                        >
-                          {categoryLabel(cat)} ({count})
-                        </MenuItem>
-                      ) : null;
-                    })}
-                  </Menu>
+                  </Box>
                 </Box>
-              </div>
+              </Paper>
+            )}
 
-              <Box className={classes.sevBar}>
-                {SEV_ORDER.map(sev => {
+          <RemediationReviewDialog
+            open={reviewDialogOpen && remediationStep === 'review'}
+            onClose={() => setReviewDialogOpen(false)}
+            fileCount={branchFileChanges.length}
+            findingCount={reviewFindingCount}
+            files={branchFileChanges}
+            selectedFile={selectedReviewFile}
+            onSelectedFileChange={setSelectedReviewFile}
+          />
+
+          {violations.length > 0 && (
+            <>
+              <div className={classes.violationSummary}>
+                <Typography
+                  component="span"
+                  variant="body2"
+                  style={{ fontWeight: 600 }}
+                >
+                  {hasViewFilter
+                    ? `${filteredViolations.length} of ${violationTotal}`
+                    : violationTotal}{' '}
+                  violation{violationTotal !== 1 ? 's' : ''}
+                </Typography>
+                {SEVERITY_ORDER.map(sev => {
                   const count = counts[sev];
                   if (count === 0) return null;
-                  const isActive = severityFilters.has(sev);
-                  const isDimmed = hasSeverityFilter && !isActive;
                   const color = SEVERITY_STYLES[sev].background;
+                  const isActive = severityFilters.has(sev);
                   return (
                     <Box
                       key={sev}
-                      className={`${classes.sevItem} ${isActive ? classes.sevItemActive : ''}`}
-                      style={{
-                        backgroundColor: isActive ? `${color}12` : undefined,
-                        borderColor: isActive ? `${color}60` : undefined,
-                        opacity: isDimmed ? 0.45 : 1,
-                      }}
-                      onClick={() => toggleSeverity(sev)}
-                      role="button"
-                      tabIndex={0}
-                      onKeyDown={e => {
-                        if (e.key === 'Enter' || e.key === ' ')
-                          toggleSeverity(sev);
-                      }}
+                      component="span"
+                      display="inline-flex"
+                      alignItems="center"
                     >
-                      <Box
-                        style={{
-                          width: 10,
-                          height: 10,
-                          borderRadius: 2,
-                          backgroundColor: color,
-                        }}
-                      />
+                      <span className={classes.summarySep}>|</span>
                       <Typography
+                        component="button"
+                        variant="body2"
+                        onClick={() => toggleSeverity(sev)}
                         style={{
-                          fontSize: 12,
-                          textTransform: 'capitalize',
-                          color: isActive
-                            ? color
-                            : theme.palette.text.secondary,
-                          fontWeight: isActive ? 600 : 400,
+                          border: 'none',
+                          background: 'none',
+                          cursor: 'pointer',
+                          padding: 0,
+                          color,
+                          fontWeight: isActive ? 700 : 500,
+                          textDecoration: isActive ? 'underline' : 'none',
                         }}
                       >
-                        {sev}
-                      </Typography>
-                      <Typography
-                        style={{ fontSize: 12, fontWeight: 700, color }}
-                      >
-                        {count}
+                        {count} {SEVERITY_STYLES[sev].label}
                       </Typography>
                     </Box>
                   );
                 })}
-                {hasSeverityFilter && (
+                {hasViewFilter && (
                   <Button
                     size="small"
                     variant="text"
                     style={{ fontSize: 12, textTransform: 'none' }}
-                    onClick={() => setSeverityFilters(new Set())}
+                    onClick={clearViewFilters}
                   >
                     Clear filters
                   </Button>
                 )}
-              </Box>
+              </div>
+
+              <div className={classes.scanMetaBelow}>
+                <Typography variant="caption" color="textSecondary">
+                  Scan target: {scanTarget.label}
+                </Typography>
+                {scanHistory.length > 0 && (
+                  <Button
+                    size="small"
+                    variant="text"
+                    color="primary"
+                    onClick={() => setShowScanHistory(true)}
+                    style={{ textTransform: 'none', fontSize: 12, padding: 0 }}
+                  >
+                    View history ({scanHistory.length})
+                  </Button>
+                )}
+              </div>
 
               {violationTotal > 0 && (
-                <div className={classes.stackedBar}>
-                  {SEV_ORDER.map(sev => {
+                <div className={classes.severityBar} aria-hidden>
+                  {SEVERITY_ORDER.map(sev => {
                     const count = counts[sev];
                     if (count === 0) return null;
-                    const pct = (count / violationTotal) * 100;
                     return (
-                      <Box
+                      <div
                         key={sev}
+                        className={classes.severityBarSegment}
                         style={{
-                          width: `${pct}%`,
+                          width: `${(count / violationTotal) * 100}%`,
                           backgroundColor: SEVERITY_STYLES[sev].background,
-                          minWidth: count > 0 ? 4 : 0,
                         }}
-                        title={`${SEVERITY_STYLES[sev].label}: ${count}`}
                       />
                     );
                   })}
                 </div>
               )}
 
-              <Box className={classes.fixTypeBar}>
-                <FormControl
-                  variant="outlined"
-                  size="small"
-                  className={classes.formControl}
-                >
-                  <InputLabel>Fix type</InputLabel>
-                  <Select
-                    value={fixTypeFilter}
-                    onChange={e => setFixTypeFilter(e.target.value as string)}
-                    label="Fix type"
+              <div className={classes.actionBar}>
+                <div className={classes.actionBarLeft}>
+                  <FormControl
+                    variant="outlined"
+                    size="small"
+                    className={classes.filterSelect}
                   >
-                    <MenuItem value="all">All fixable</MenuItem>
-                    {autoFix > 0 && (
-                      <MenuItem value="auto">Auto-fix only</MenuItem>
-                    )}
-                    {enableAi && (
-                      <MenuItem value="ai">AI-assisted only</MenuItem>
-                    )}
-                    <MenuItem value="manual">Manual only</MenuItem>
-                  </Select>
-                </FormControl>
-                <Chip
-                  size="small"
-                  label="All fixable"
-                  onClick={() => setFixTypeFilter('all')}
-                  color={fixTypeFilter === 'all' ? 'primary' : 'default'}
-                  variant={fixTypeFilter === 'all' ? 'default' : 'outlined'}
-                />
-                {autoFix > 0 && (
-                  <Chip
+                    <Select
+                      value={fixTypeFilter}
+                      onChange={e => setFixTypeFilter(e.target.value as string)}
+                      displayEmpty
+                      renderValue={value => fixMethodFilterLabel(String(value))}
+                    >
+                      <MenuItem value="all">All fixable</MenuItem>
+                      {autoFix > 0 && (
+                        <MenuItem value="auto">Auto-fix only</MenuItem>
+                      )}
+                      {enableAi && (
+                        <MenuItem value="ai">AI-assisted only</MenuItem>
+                      )}
+                      <MenuItem value="manual">Manual only</MenuItem>
+                    </Select>
+                  </FormControl>
+                  <FormControl
+                    variant="outlined"
                     size="small"
-                    label="Auto-fix only"
-                    onClick={() => setFixTypeFilter('auto')}
-                    color={fixTypeFilter === 'auto' ? 'primary' : 'default'}
-                    variant={fixTypeFilter === 'auto' ? 'default' : 'outlined'}
-                  />
-                )}
-                {enableAi && (
-                  <Chip
-                    size="small"
-                    label="AI-assisted only"
-                    onClick={() => setFixTypeFilter('ai')}
-                    color={fixTypeFilter === 'ai' ? 'primary' : 'default'}
-                    variant={fixTypeFilter === 'ai' ? 'default' : 'outlined'}
-                  />
-                )}
-                {autoFix > 0 && (
-                  <Typography variant="caption" color="textSecondary">
-                    {autoFix} auto-fix
-                  </Typography>
-                )}
-                {enableAi && aiAssisted > 0 && (
-                  <Typography variant="caption" color="textSecondary">
-                    {aiAssisted} AI-assisted
-                  </Typography>
-                )}
-                {manual > 0 && (
-                  <Typography variant="caption" color="textSecondary">
-                    {manual} manual
-                  </Typography>
-                )}
-              </Box>
+                    className={classes.filterSelect}
+                  >
+                    <Select
+                      value={activeCategory}
+                      onChange={e =>
+                        setActiveCategory(e.target.value as string)
+                      }
+                      displayEmpty
+                      renderValue={value => {
+                        const cat = String(value);
+                        if (cat === 'all') {
+                          return 'All categories';
+                        }
+                        const count = catCounts[cat] ?? 0;
+                        return `${categoryLabel(cat)} (${count})`;
+                      }}
+                    >
+                      <MenuItem value="all">
+                        All categories ({violations.length})
+                      </MenuItem>
+                      {CATEGORIES.slice(1).map(cat => {
+                        const count = catCounts[cat];
+                        return count ? (
+                          <MenuItem key={cat} value={cat}>
+                            {categoryLabel(cat)} ({count})
+                          </MenuItem>
+                        ) : null;
+                      })}
+                    </Select>
+                  </FormControl>
+                  {acknowledgedCount > 0 && (
+                    <Chip
+                      size="small"
+                      label={`${acknowledgedCount} acknowledged`}
+                      onClick={() => setShowAcknowledgedOnly(prev => !prev)}
+                      color={showAcknowledgedOnly ? 'primary' : 'default'}
+                      variant={showAcknowledgedOnly ? 'default' : 'outlined'}
+                    />
+                  )}
+                </div>
+                <Box
+                  display="flex"
+                  alignItems="center"
+                  style={{ gap: 8, flexWrap: 'wrap' }}
+                >
+                  {remediationStep === 'select' && showIncludeAiSwitch && (
+                    <FormControlLabel
+                      control={
+                        <Switch
+                          size="small"
+                          checked={includeAiInBulk}
+                          onChange={event =>
+                            setIncludeAiInBulk(event.target.checked)
+                          }
+                          color="primary"
+                        />
+                      }
+                      label={`Include AI suggestions (${bulkAiFixableCount})`}
+                    />
+                  )}
+                  {remediationStep === 'select' && (
+                    <Tooltip title={generateFixesTooltip(bulkFixableIds.size)}>
+                      <span>
+                        <Button
+                          size="small"
+                          variant="contained"
+                          color="primary"
+                          onClick={() => void handlePrepareFixes()}
+                          disabled={bulkFixableIds.size === 0 || creatingPr}
+                        >
+                          {creatingPr
+                            ? 'Generating fixes…'
+                            : bulkFixableIds.size > 0
+                              ? `Generate fixes (${bulkFixableIds.size})`
+                              : 'Generate fixes'}
+                        </Button>
+                      </span>
+                    </Tooltip>
+                  )}
+                </Box>
+              </div>
             </>
           )}
 
-          {violations.length > 0 && (
-            <Box
-              display="flex"
-              alignItems="center"
-              style={{ gap: 8, marginBottom: 8 }}
+          {violations.length === 0 && !operationInFlight && (
+            <Typography
+              variant="body2"
+              color="textSecondary"
+              className={classes.emptyMessage}
             >
-              {acknowledgedCount > 0 && (
-                <Chip
-                  size="small"
-                  label={`${acknowledgedCount} acknowledged`}
-                  onClick={() => setShowAcknowledgedOnly(prev => !prev)}
-                  color={showAcknowledgedOnly ? 'primary' : 'default'}
-                  variant={showAcknowledgedOnly ? 'default' : 'outlined'}
-                />
-              )}
-            </Box>
-          )}
-
-          {/* Violations table — keep visible while re-fetching after acknowledge */}
-          {violationsLoading && violations.length === 0 && <Progress />}
-          {violations.length === 0 && !violationsLoading && (
-            <div className={classes.noData}>
-              <Typography variant="body1" color="textSecondary">
-                {project.scan_count === 0
-                  ? 'No scan results yet. Click Scan to analyze this repository.'
-                  : 'No violations found. This repository is clean.'}
-              </Typography>
-            </div>
+              {project.scan_count === 0
+                ? 'No quality scans yet. Click Scan to analyze this repository.'
+                : 'No violations found. This repository is clean.'}
+            </Typography>
           )}
           {violations.length > 0 && (
             <div id="apme-violations-table">
               <ApmeViolationsTable
-                key={`violations-${activeCategory}-${[...severityFilters].join(',')}-${fixTypeFilter}-${ruleFilter ?? ''}-${showAcknowledgedOnly}`}
+                key={`violations-${activeCategory}-${[...severityFilters].join(
+                  ',',
+                )}-${fixTypeFilter}-${ruleFilter ?? ''}-${remediationStep}`}
                 violations={filteredViolations}
                 aiAssistedViolationIds={aiAssistedViolationIds}
-                selectionEnabled={false}
-                devSpacesUrl={devSpacesUrl}
+                reviewDiffs={reviewDiffs}
+                showReviewPreparedCaption={
+                  remediationStep === 'review' && !branchPushed
+                }
+                onJumpToFile={
+                  remediationStep === 'review' && !branchPushed
+                    ? handleJumpToReviewFile
+                    : undefined
+                }
+                showScanPreviewCaption={remediationStep === 'select'}
                 showAcknowledgedOnly={showAcknowledgedOnly}
                 onAcknowledge={handleAcknowledge}
                 onUnacknowledge={handleUnacknowledge}
                 acknowledgingId={acknowledgingId}
                 isAcknowledged={isAcknowledged}
+                onRequestShowOpenIssues={() => setShowAcknowledgedOnly(false)}
+                onRequestShowWontFix={() => setShowAcknowledgedOnly(true)}
+                toolbarActions={null}
                 filterContext={{
                   totalViolationCount: violationTotal,
                   activeFixTypeFilter: fixTypeFilter,

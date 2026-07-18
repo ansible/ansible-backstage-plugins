@@ -15,10 +15,8 @@
  */
 
 import { Config } from '@backstage/config';
-import {
-  generateDevSpacesUrl,
-  getDevspacesUrlFromAnsibleConfig,
-} from '@ansible/backstage-rhaap-common/devSpaces';
+
+export { getDevspacesUrlFromAnsibleConfig } from '@ansible/backstage-rhaap-common/devSpaces';
 
 export type AnsibleDetails = {
   devSpacesBaseUrl: string;
@@ -29,8 +27,6 @@ export type AnsibleDetails = {
 function generateInitUrl(baseUrl: string, port: number): string {
   return `http://${baseUrl}:${port}/`;
 }
-
-export { generateDevSpacesUrl, getDevspacesUrlFromAnsibleConfig };
 
 export function generateRepoUrl(
   sourceControl: string,

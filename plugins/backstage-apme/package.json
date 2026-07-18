@@ -1,6 +1,6 @@
 {
   "name": "@ansible/plugin-backstage-apme",
-  "version": "0.1.0",
+  "version": "0.1.0-dev.1fdc1902",
   "description": "Frontend plugin for APME - Ansible Policy & Modernization Engine",
   "backstage": {
     "role": "frontend-plugin"

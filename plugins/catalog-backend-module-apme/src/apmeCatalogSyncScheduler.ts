@@ -40,13 +40,14 @@ export interface RegisterApmeCatalogSyncTasksOptions {
   apmeService: IApmeService;
   rootConfig: Config;
   logger: LoggerService;
+  resolveScanVersion?: (projectId: string) => Promise<string>;
 }
 
 /** Registers scheduled bulk-sync tasks for each enabled ansibleGitContents.apme block. */
 export function registerApmeCatalogSyncTasks(
   options: RegisterApmeCatalogSyncTasksOptions,
 ): void {
-  const { scheduler, catalogClient, auth, apmeService, rootConfig, logger } =
+  const { scheduler, catalogClient, auth, apmeService, rootConfig, logger, resolveScanVersion } =
     options;
 
   if (isApmeMockMode(rootConfig)) {
@@ -82,6 +83,7 @@ export function registerApmeCatalogSyncTasks(
           logger: taskLogger,
           syncConfig,
           offset,
+          resolveScanVersion,
         });
         offsets.set(taskId, summary.nextOffset ?? 0);
       },

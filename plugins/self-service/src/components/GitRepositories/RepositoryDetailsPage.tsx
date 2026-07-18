@@ -29,7 +29,10 @@ import {
 import { RequirePermission } from '@backstage/plugin-permission-react';
 import { gitRepositoriesViewPermission } from '@ansible/backstage-rhaap-common/permissions';
 import { gitRepositoriesExtensionsApiRef } from '@ansible/backstage-rhaap-common/gitRepositoriesExtensions';
-import type { GitRepositoryDetailTabDefinition } from '@ansible/backstage-rhaap-common/gitRepositoriesExtensions';
+import type {
+  GitRepositoryDetailTabContext,
+  GitRepositoryDetailTabDefinition,
+} from '@ansible/backstage-rhaap-common/gitRepositoriesExtensions';
 import { normalizeRepoUrlFromEntity } from '@ansible/backstage-rhaap-common/catalogEntity';
 
 import { RepositoryBreadcrumbs } from './RepositoryBreadcrumbs';
@@ -53,6 +56,18 @@ type CoreDetailTab = {
   order: number;
   kind: 'overview' | 'ci-activity' | 'collections';
 };
+
+function buildDetailTabContext(
+  entity: Entity,
+  searchParams: URLSearchParams,
+): GitRepositoryDetailTabContext {
+  return {
+    entity,
+    repoUrl: normalizeRepoUrlFromEntity(entity),
+    initialRuleFilter: searchParams.get('rule') ?? undefined,
+    initialCategoryFilter: searchParams.get('category') ?? undefined,
+  };
+}
 
 const CORE_DETAIL_TABS: CoreDetailTab[] = [
   { id: 'overview', label: 'Overview', order: 0, kind: 'overview' },
@@ -249,6 +264,25 @@ const RepositoryDetailsPageInner = () => {
     [extensionsApi],
   );
 
+  const detailOverlays = useMemo(
+    () =>
+      extensionsApi.getDetailOverlays().sort((a, b) => a.order - b.order),
+    [extensionsApi],
+  );
+
+  const detailTabContext = useMemo(
+    () => (entity ? buildDetailTabContext(entity, searchParams) : null),
+    [entity, searchParams],
+  );
+
+  const overviewSlots = useMemo(
+    () =>
+      extensionsApi
+        .getDetailOverviewSlots()
+        .sort((a, b) => a.order - b.order),
+    [extensionsApi],
+  );
+
   const fetchEntity = useCallback(() => {
     if (!repositoryName) return;
 
@@ -357,6 +391,8 @@ const RepositoryDetailsPageInner = () => {
     repositoryName ??
     'Repository';
 
+  const activeDetailTab = detailTabs[tab];
+
   if (loading) {
     return (
       <Box className={classes.detailsContainer}>
@@ -445,14 +481,11 @@ const RepositoryDetailsPageInner = () => {
                 </ListItemIcon>
               </MenuItem>
               {entity &&
+                detailTabContext &&
                 headerMenuItems.map(item => (
                   <Suspense key={item.id} fallback={null}>
                     {item.render({
-                      entity,
-                      repoUrl: normalizeRepoUrlFromEntity(entity),
-                      initialRuleFilter: searchParams.get('rule') ?? undefined,
-                      initialCategoryFilter:
-                        searchParams.get('category') ?? undefined,
+                      ...detailTabContext,
                       onCloseMenu: () => setActionsAnchor(null),
                     })}
                   </Suspense>
@@ -462,35 +495,35 @@ const RepositoryDetailsPageInner = () => {
         )}
       </Box>
 
+      {entity &&
+        detailTabContext &&
+        detailOverlays.map(overlay => (
+          <Suspense key={overlay.id} fallback={null}>
+            {overlay.render(detailTabContext)}
+          </Suspense>
+        ))}
+
       <Tabs
         value={tab}
         onChange={(_, v) => setTab(v)}
         className={classes.detailsTabs}
       >
         {detailTabs.map(detailTab => (
-          <Tab key={detailTab.id} label={detailTab.label} />
+          <Tab key={detailTab.id} label={detailTab.label} disableRipple />
         ))}
       </Tabs>
 
-      {detailTabs[tab]?.kind === 'overview' && (
+      {activeDetailTab?.kind === 'overview' && (
         <Box className={classes.detailsContent}>
           <Box className={classes.detailsLeftColumn}>
             {entity &&
-              extensionsApi
-                .getDetailOverviewSlots()
-                .sort((a, b) => a.order - b.order)
-                .map(slot => (
+              detailTabContext &&
+              overviewSlots.map(slot => (
                   <Suspense
                     key={slot.id}
                     fallback={<Typography>Loading…</Typography>}
                   >
-                    {slot.render({
-                      entity,
-                      repoUrl: normalizeRepoUrlFromEntity(entity),
-                      initialRuleFilter: searchParams.get('rule') ?? undefined,
-                      initialCategoryFilter:
-                        searchParams.get('category') ?? undefined,
-                    })}
+                    {slot.render(detailTabContext)}
                   </Suspense>
                 ))}
             <RepositoryReadmeCard
@@ -510,30 +543,24 @@ const RepositoryDetailsPageInner = () => {
         </Box>
       )}
 
-      {(() => {
-        const activeDetailTab = detailTabs[tab];
-        if (activeDetailTab?.kind !== 'extension' || !entity) {
-          return null;
-        }
-        return (
-          <Box
-            className={classes.detailsContent}
-            style={{ width: '100%', flex: 1 }}
-          >
-            <Suspense fallback={<Typography>Loading…</Typography>}>
-              {activeDetailTab.render({
-                entity,
-                repoUrl: normalizeRepoUrlFromEntity(entity),
-                initialRuleFilter: searchParams.get('rule') ?? undefined,
-                initialCategoryFilter:
-                  searchParams.get('category') ?? undefined,
-              })}
-            </Suspense>
-          </Box>
-        );
-      })()}
+      {activeDetailTab?.kind === 'extension' && detailTabContext && (
+        <Box
+          className={classes.detailsContent}
+          style={{
+            width: '100%',
+            flex: 1,
+            flexDirection: 'column',
+            alignItems: 'stretch',
+            alignSelf: 'stretch',
+          }}
+        >
+          <Suspense fallback={<Typography>Loading…</Typography>}>
+            {activeDetailTab.render(detailTabContext)}
+          </Suspense>
+        </Box>
+      )}
 
-      {detailTabs[tab]?.kind === 'ci-activity' && (
+      {activeDetailTab?.kind === 'ci-activity' && (
         <Box
           className={classes.detailsContent}
           style={{ width: '100%', flex: 1 }}
@@ -542,19 +569,15 @@ const RepositoryDetailsPageInner = () => {
         </Box>
       )}
 
-      {detailTabs[tab]?.kind === 'collections' && entity && (
+      {activeDetailTab?.kind === 'collections' && detailTabContext && (
         <Box
           className={classes.detailsContent}
           style={{ width: '100%', flex: 1 }}
         >
           {(() => {
-            const tabContext = {
-              entity,
-              repoUrl: normalizeRepoUrlFromEntity(entity),
-              initialRuleFilter: searchParams.get('rule') ?? undefined,
-              initialCategoryFilter: searchParams.get('category') ?? undefined,
-            };
-            const override = extensionsApi.getCollectionsTabContent(tabContext);
+            const override = extensionsApi.getCollectionsTabContent(
+              detailTabContext,
+            );
             if (override) {
               return (
                 <Suspense fallback={<Typography>Loading…</Typography>}>

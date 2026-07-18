@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-import { useState, useMemo, type ReactNode } from 'react';
+import { useState, useMemo, useEffect, type ReactNode } from 'react';
 import {
   Box,
   Button,
@@ -46,13 +46,14 @@ import {
 import { effectiveViolationFixType } from '@ansible/backstage-apme-common/proposalTier';
 import { useApmeAiEnabled } from '../../hooks/useApmeEnabled';
 import { acknowledgeButtonLabel } from '../../hooks/useViolationAcknowledge';
-import { EditInDevSpacesButton } from '../EditInDevSpacesButton';
 import { DiffView } from '../DiffView';
 
 type SortColumn = 'severity' | 'fixMethod' | 'rule' | 'file';
 
 const useStyles = makeStyles(theme => ({
   wrapper: {
+    width: '100%',
+    boxSizing: 'border-box',
     border: `1px solid ${theme.palette.divider}`,
     borderRadius: 4,
     overflow: 'hidden',
@@ -85,6 +86,7 @@ const useStyles = makeStyles(theme => ({
   },
   table: {
     width: '100%',
+    tableLayout: 'fixed',
     borderCollapse: 'collapse',
     fontSize: 13,
     '& thead': {
@@ -111,6 +113,7 @@ const useStyles = makeStyles(theme => ({
       padding: '10px 12px',
       borderBottom: `1px solid ${theme.palette.divider}`,
       verticalAlign: 'middle',
+      minWidth: 0,
     },
     '& tbody tr:last-child td': {
       borderBottom: 'none',
@@ -310,7 +313,9 @@ function CodePreview({
         return (
           <div
             key={i}
-            className={`${classes.codeLine} ${isHighlighted ? classes.codeLineHighlighted : ''}`}
+            className={`${classes.codeLine} ${
+              isHighlighted ? classes.codeLineHighlighted : ''
+            }`}
           >
             <span className={classes.codeLineNumber}>{lineNum}</span>
             <span className={classes.codeLineContent}>{content}</span>
@@ -346,17 +351,34 @@ export interface ApmeViolationsTableFilterContext {
   onClearRuleFilter?: () => void;
 }
 
+export interface ViolationReviewDiff {
+  before?: string;
+  after?: string;
+  diff?: string;
+  explanation?: string;
+}
+
 export interface ApmeViolationsTableProps {
   violations: Violation[];
   /** When false, hides per-violation checkboxes (backend remediate is all-or-nothing). */
   selectionEnabled?: boolean;
   selectedIds?: Set<number>;
   onSelectionChange?: (ids: Set<number>) => void;
+  /** Review step: only generated suggestion rows are selectable. */
+  onlySelectableIds?: ReadonlySet<number>;
+  /** Review step: side-by-side diff content keyed by violation id. */
+  reviewDiffs?: ReadonlyMap<number, ViolationReviewDiff>;
+  /**
+   * Review step: prepared fixes are ready to push (view patches optional).
+   */
+  showReviewPreparedCaption?: boolean;
+  /** Jump from a finding row to a file in the patches viewer. */
+  onJumpToFile?: (filePath: string) => void;
+  /** Select step: label scan-time before/after previews in expanded rows. */
+  showScanPreviewCaption?: boolean;
   toolbarActions?: ReactNode;
   /** Violation IDs that received AI proposals on the latest remediate run. */
   aiAssistedViolationIds?: ReadonlySet<number>;
-  /** Dev Spaces factory URL for manual violations (repo or remediation branch). */
-  devSpacesUrl?: string | null;
   filterContext?: ApmeViolationsTableFilterContext;
   /** When set, acknowledged violations are hidden unless showAcknowledgedOnly. */
   showAcknowledgedOnly?: boolean;
@@ -364,6 +386,10 @@ export interface ApmeViolationsTableProps {
   onUnacknowledge?: (violation: Violation) => Promise<void>;
   acknowledgingId?: number | null;
   isAcknowledged?: (violation: Violation) => boolean;
+  /** Leave won't-fix-only view and show open issues again. */
+  onRequestShowOpenIssues?: () => void;
+  /** Switch to won't-fix-only view. */
+  onRequestShowWontFix?: () => void;
 }
 
 export const ApmeViolationsTable = ({
@@ -371,7 +397,11 @@ export const ApmeViolationsTable = ({
   selectionEnabled = false,
   selectedIds,
   onSelectionChange,
-  devSpacesUrl,
+  onlySelectableIds,
+  reviewDiffs,
+  showReviewPreparedCaption = false,
+  onJumpToFile,
+  showScanPreviewCaption = false,
   toolbarActions,
   filterContext,
   aiAssistedViolationIds,
@@ -380,6 +410,8 @@ export const ApmeViolationsTable = ({
   onUnacknowledge,
   acknowledgingId = null,
   isAcknowledged: isAcknowledgedProp,
+  onRequestShowOpenIssues,
+  onRequestShowWontFix,
 }: ApmeViolationsTableProps) => {
   const classes = useStyles();
   const enableAi = useApmeAiEnabled();
@@ -406,6 +438,15 @@ export const ApmeViolationsTable = ({
       return !acknowledged;
     });
   }, [violations, showAcknowledgedOnly, isAcknowledged]);
+
+  const allInViewAcknowledged =
+    violations.length > 0 && violations.every(v => isAcknowledged(v));
+
+  useEffect(() => {
+    if (showAcknowledgedOnly && visible.length === 0) {
+      onRequestShowOpenIssues?.();
+    }
+  }, [showAcknowledgedOnly, visible.length, onRequestShowOpenIssues]);
 
   const sorted = useMemo(() => {
     const list = [...visible];
@@ -441,9 +482,15 @@ export const ApmeViolationsTable = ({
 
   const autoExpand = sorted.length <= 3;
 
-  const selectable = sorted.filter(v =>
-    isFixableViolation(v.remediation_class, enableAi),
-  );
+  const selectable = sorted.filter(v => {
+    if (!isFixableViolation(v.remediation_class, enableAi)) {
+      return false;
+    }
+    if (onlySelectableIds && onlySelectableIds.size > 0) {
+      return onlySelectableIds.has(v.id);
+    }
+    return true;
+  });
   const allSelected =
     selectable.length > 0 && selectable.every(v => selected.has(v.id));
 
@@ -530,8 +577,14 @@ export const ApmeViolationsTable = ({
     const autoCount = filterContext?.autoFixCount ?? 0;
     const totalCount = filterContext?.totalViolationCount ?? violations.length;
 
+    const allMarkedWontFix =
+      !showAcknowledgedOnly && allInViewAcknowledged && onRequestShowWontFix;
+
     let message = 'No violations match the current filters.';
-    if (fixFilter === 'auto' && autoCount === 0) {
+    if (allMarkedWontFix) {
+      message =
+        'All issues in this view are acknowledged. Open the acknowledged list to review them.';
+    } else if (fixFilter === 'auto' && autoCount === 0) {
       message = rule
         ? `Rule ${rule} has no auto-fix violations. Switch to All fixable or clear the rule filter.`
         : 'No auto-fix violations match these filters. Switch to All fixable or clear filters.';
@@ -549,6 +602,15 @@ export const ApmeViolationsTable = ({
           justifyContent="center"
           style={{ gap: 8, flexWrap: 'wrap' }}
         >
+          {allMarkedWontFix && (
+            <Button
+              size="small"
+              variant="outlined"
+              onClick={onRequestShowWontFix}
+            >
+              Show acknowledged
+            </Button>
+          )}
           {fixFilter !== 'all' && filterContext?.onClearFixTypeFilter && (
             <Button
               size="small"
@@ -652,7 +714,12 @@ export const ApmeViolationsTable = ({
           {sorted.map(v => {
             const sev = normalizeSeverity(v.level);
             const style = SEVERITY_STYLES[sev];
-            const canSelect = isFixableViolation(v.remediation_class, enableAi);
+            const canSelect =
+              isFixableViolation(v.remediation_class, enableAi) &&
+              (!onlySelectableIds ||
+                onlySelectableIds.size === 0 ||
+                onlySelectableIds.has(v.id));
+            const reviewDiff = reviewDiffs?.get(v.id);
             const cat = v.category
               ? categoryLabel(v.category)
               : v.validator_source;
@@ -670,11 +737,15 @@ export const ApmeViolationsTable = ({
                     onKeyDown={e => e.stopPropagation()}
                   >
                     <Tooltip
-                      title={
-                        canSelect
-                          ? 'Include in remediation when selected'
-                          : 'Manual review — edit in Dev Spaces or apply auto-generated fixes to other rows'
-                      }
+                      title={(() => {
+                        if (!canSelect) {
+                          return 'Manual review — not included in automated remediation';
+                        }
+                        if (onlySelectableIds?.size) {
+                          return 'Include this suggestion in the pull request';
+                        }
+                        return 'Include in remediation when selected';
+                      })()}
                     >
                       <span>
                         <Checkbox
@@ -713,15 +784,29 @@ export const ApmeViolationsTable = ({
                   </Typography>
                 </td>
                 <td>
-                  <button
-                    type="button"
-                    className={classes.fileLink}
-                    onClick={e => e.stopPropagation()}
-                    title={`${v.file}:${v.line}`}
-                  >
-                    {v.file.split('/').pop()}:{v.line}
-                    <OpenInNewIcon style={{ fontSize: 12 }} />
-                  </button>
+                  {onJumpToFile ? (
+                    <button
+                      type="button"
+                      className={classes.fileLink}
+                      onClick={e => {
+                        e.stopPropagation();
+                        onJumpToFile(v.file);
+                      }}
+                      title={`Jump to ${v.file}:${v.line} in review editor`}
+                    >
+                      {v.file.split('/').pop()}:{v.line}
+                    </button>
+                  ) : (
+                    <button
+                      type="button"
+                      className={classes.fileLink}
+                      onClick={e => e.stopPropagation()}
+                      title={`${v.file}:${v.line}`}
+                    >
+                      {v.file.split('/').pop()}:{v.line}
+                      <OpenInNewIcon style={{ fontSize: 12 }} />
+                    </button>
+                  )}
                 </td>
                 <td onClick={e => e.stopPropagation()}>
                   <IconButton size="small" onClick={() => toggleExpanded(v.id)}>
@@ -745,10 +830,11 @@ export const ApmeViolationsTable = ({
                           variant="body2"
                           className={classes.description}
                         >
-                          {v.ai_reason ||
+                          {reviewDiff?.explanation ||
+                            v.ai_reason ||
                             `Rule ${v.rule_id} detected in ${v.file}`}
                         </Typography>
-                        {v.ai_suggestion && (
+                        {v.ai_suggestion && !reviewDiff && (
                           <Typography
                             variant="body2"
                             style={{ marginTop: 8, fontStyle: 'italic' }}
@@ -756,18 +842,76 @@ export const ApmeViolationsTable = ({
                             Guidance: {v.ai_suggestion}
                           </Typography>
                         )}
-                        {v.fixed_yaml ? (
-                          <DiffView
-                            before={v.original_yaml}
-                            after={v.fixed_yaml}
-                            title="Proposed fix"
-                          />
-                        ) : (
-                          <CodePreview
-                            yaml={v.original_yaml}
-                            highlightLine={v.line}
-                          />
+                        {showScanPreviewCaption &&
+                          !reviewDiff &&
+                          v.fixed_yaml &&
+                          (v.original_yaml || v.fixed_yaml) && (
+                            <Typography
+                              variant="caption"
+                              color="textSecondary"
+                              display="block"
+                              style={{ marginTop: 4, marginBottom: 4 }}
+                            >
+                              Preview only — example fix from the scan. Generate
+                              fixes to create a remediation branch.
+                            </Typography>
+                          )}
+                        {reviewDiff && showReviewPreparedCaption && (
+                          <Typography
+                            variant="caption"
+                            color="textSecondary"
+                            display="block"
+                            style={{ marginTop: 4, marginBottom: 4 }}
+                          >
+                            Prepared fix — included when you push. Edit in Dev
+                            Spaces after push.
+                          </Typography>
                         )}
+                        {reviewDiff && !showReviewPreparedCaption && (
+                          <Typography
+                            variant="caption"
+                            color="textSecondary"
+                            display="block"
+                            style={{ marginTop: 4, marginBottom: 4 }}
+                          >
+                            Prepared fix — included when you push the
+                            remediation branch.
+                          </Typography>
+                        )}
+                        {(() => {
+                          if (reviewDiff?.before || reviewDiff?.after) {
+                            return (
+                              <DiffView
+                                before={reviewDiff.before ?? v.original_yaml}
+                                after={reviewDiff.after ?? v.fixed_yaml}
+                                title="Proposed fix"
+                              />
+                            );
+                          }
+                          if (reviewDiff?.diff?.trim()) {
+                            return (
+                              <DiffView
+                                diff={reviewDiff.diff}
+                                title="Proposed fix"
+                              />
+                            );
+                          }
+                          if (v.fixed_yaml) {
+                            return (
+                              <DiffView
+                                before={v.original_yaml}
+                                after={v.fixed_yaml}
+                                title="Proposed fix"
+                              />
+                            );
+                          }
+                          return (
+                            <CodePreview
+                              yaml={v.original_yaml}
+                              highlightLine={v.line}
+                            />
+                          );
+                        })()}
                         <div className={classes.footer}>
                           <div className={classes.footerMeta}>
                             <span>
@@ -783,18 +927,12 @@ export const ApmeViolationsTable = ({
                             </span>
                           </div>
                           <div className={classes.footerActions}>
-                            {!canSelect && devSpacesUrl && (
-                              <EditInDevSpacesButton
-                                url={devSpacesUrl}
-                                label="Edit in Dev Spaces"
-                              />
-                            )}
                             {(onAcknowledge || onUnacknowledge) && (
                               <Tooltip
                                 title={
                                   isAcknowledged(v)
-                                    ? 'Remove acknowledgment — violation will appear in scans again'
-                                    : "Acknowledge — won't block merges but remains visible when filtered"
+                                    ? 'Show again for this repo'
+                                    : 'Acknowledge — hide for this repo; does not fix the issue'
                                 }
                               >
                                 <Button

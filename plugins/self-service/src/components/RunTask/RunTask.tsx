@@ -264,7 +264,8 @@ export const RunTask = () => {
           name = pathParts[0];
         }
 
-        navigate(`/catalog/${namespace}/${kind}/${name}`);
+        const dest = `/catalog/${namespace}/${kind}/${name}`;
+        navigate(dest);
       } else {
         console.warn(`Unexpected entityRef format: ${entityRef}`); // eslint-disable-line no-console
       }

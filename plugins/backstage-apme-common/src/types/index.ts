@@ -167,8 +167,15 @@ export interface ApmeConfig {
   enableAi: boolean;
   /** When true, portal proxies PR creation to the APME gateway (standalone path). */
   publishViaGateway: boolean;
+  /**
+   * Client timeout for remediation submit/push/PR (ms).
+   * Default 300000 (5 minutes). Large remedia pushes often need longer than 30s.
+   */
+  submitTimeoutMs: number;
   /** Default ansible-core version shown in UI and sent when scans omit a version. */
   targetAnsibleCoreVersion?: string;
+  /** Optional path for persisted portal scan-target settings JSON. */
+  portalSettingsPath?: string;
 }
 
 /** Portal-side APME settings (backend app-config source of truth). */
@@ -176,6 +183,29 @@ export interface ApmePortalSettings {
   enableAi: boolean;
   publishViaGateway: boolean;
   targetAnsibleCoreVersion?: string;
+}
+
+export type ScanTargetSource = 'project' | 'global' | 'config' | 'default';
+
+/** Effective scan target for a project (portal API). */
+export interface ProjectScanTarget {
+  effective: string;
+  source: ScanTargetSource;
+  globalDefault: string;
+  projectOverride?: string;
+}
+
+export interface UpdatePortalSettingsRequest {
+  targetAnsibleCoreVersion?: string;
+}
+
+export interface UpdateProjectScanTargetRequest {
+  targetAnsibleCoreVersion: string | null;
+}
+
+export interface ScanTriggerOptions {
+  ansibleVersion?: string;
+  userIdentity?: { userEntityRef: string; orgEntityRef?: string };
 }
 
 /** Gateway AI service reachability (Abbenay via Primary). */
@@ -261,6 +291,7 @@ export interface Activity {
   manual_review: number;
   remediated_count: number;
   pr_url?: string | null;
+  branch_name?: string | null;
 }
 
 /** Summary row persisted for an AI proposal on a scan (gateway activity detail). */

@@ -11,7 +11,23 @@ const useStyles = makeStyles(theme => ({
     fontSize: 12,
     borderRadius: theme.shape.borderRadius,
     overflow: 'auto',
+    maxHeight: 320,
     border: `1px solid ${theme.palette.divider}`,
+    backgroundColor: theme.palette.background.paper,
+  },
+  rootFillHeight: {
+    maxHeight: 'none',
+    height: '100%',
+    flex: 1,
+    minHeight: 0,
+    display: 'flex',
+    flexDirection: 'column',
+    overflow: 'hidden',
+  },
+  linesScroll: {
+    flex: 1,
+    minHeight: 0,
+    overflow: 'auto',
   },
   title: {
     padding: theme.spacing(0.75, 1.5),
@@ -51,6 +67,7 @@ const useStyles = makeStyles(theme => ({
     padding: '0 8px',
     whiteSpace: 'pre',
     flex: 1,
+    color: theme.palette.text.primary,
   },
   added: {
     backgroundColor:
@@ -77,6 +94,54 @@ const useStyles = makeStyles(theme => ({
           ? 'rgba(248, 81, 73, 0.10)'
           : 'rgba(248, 81, 73, 0.06)',
     },
+  },
+  sideBySideRoot: {
+    display: 'grid',
+    gridTemplateColumns: '1fr 1fr',
+    gap: theme.spacing(1),
+    marginTop: theme.spacing(1),
+    [theme.breakpoints.down('sm')]: {
+      gridTemplateColumns: '1fr',
+    },
+  },
+  sideBySidePanel: {
+    border: `1px solid ${theme.palette.divider}`,
+    borderRadius: theme.shape.borderRadius,
+    overflow: 'hidden',
+    minWidth: 0,
+  },
+  sideBySideHeader: {
+    padding: theme.spacing(0.75, 1.5),
+    borderBottom: `1px solid ${theme.palette.divider}`,
+    backgroundColor:
+      theme.palette.type === 'dark' ? 'rgba(255,255,255,0.04)' : '#f5f5f5',
+    fontWeight: 600,
+    fontSize: 11,
+    textTransform: 'uppercase',
+    letterSpacing: '0.04em',
+    color: theme.palette.text.secondary,
+  },
+  sideBySideHeaderAfter: {
+    backgroundColor:
+      theme.palette.type === 'dark'
+        ? 'rgba(46, 160, 67, 0.12)'
+        : 'rgba(46, 160, 67, 0.08)',
+  },
+  sideBySideHeaderBefore: {
+    backgroundColor:
+      theme.palette.type === 'dark'
+        ? 'rgba(248, 81, 73, 0.12)'
+        : 'rgba(248, 81, 73, 0.08)',
+  },
+  sideBySideBody: {
+    fontFamily: '"JetBrains Mono", "Fira Code", "Cascadia Code", monospace',
+    fontSize: 12,
+    padding: theme.spacing(1),
+    whiteSpace: 'pre-wrap',
+    overflow: 'auto',
+    maxHeight: 280,
+    color: theme.palette.text.primary,
+    backgroundColor: theme.palette.background.paper,
   },
   context: {
     backgroundColor:
@@ -232,12 +297,65 @@ export interface DiffViewProps {
   /** Unified diff from the gateway (`diff_hunk`). Takes precedence over before/after. */
   diff?: string;
   title?: string;
+  /** Side-by-side Before/After panels (design checkbox review flow). */
+  layout?: 'unified' | 'sideBySide';
+  afterLabel?: string;
+  /** Expand to fill a flex parent (e.g. patch viewer modal). */
+  fillHeight?: boolean;
 }
 
-export const DiffView = ({ before, after, diff, title }: DiffViewProps) => {
+function SideBySideDiff({
+  before,
+  after,
+  afterLabel = 'After (proposed)',
+}: {
+  before?: string;
+  after?: string;
+  afterLabel?: string;
+}) {
   const classes = useStyles();
+  if (!before?.trim() && !after?.trim()) return null;
+  return (
+    <Box className={classes.sideBySideRoot}>
+      <Box className={classes.sideBySidePanel}>
+        <Typography
+          className={`${classes.sideBySideHeader} ${classes.sideBySideHeaderBefore}`}
+        >
+          Before
+        </Typography>
+        <Box className={classes.sideBySideBody}>{before ?? ''}</Box>
+      </Box>
+      <Box className={classes.sideBySidePanel}>
+        <Typography
+          className={`${classes.sideBySideHeader} ${classes.sideBySideHeaderAfter}`}
+        >
+          {afterLabel}
+        </Typography>
+        <Box className={classes.sideBySideBody}>{after ?? ''}</Box>
+      </Box>
+    </Box>
+  );
+}
+
+export const DiffView = ({
+  before,
+  after,
+  diff,
+  title,
+  layout = 'unified',
+  afterLabel,
+  fillHeight = false,
+}: DiffViewProps) => {
+  const classes = useStyles();
+  const showSideBySide =
+    layout === 'sideBySide' &&
+    !diff?.trim() &&
+    Boolean(before?.trim() || after?.trim());
 
   const lines = useMemo(() => {
+    if (showSideBySide) {
+      return [];
+    }
     if (diff?.trim()) {
       return parseUnifiedDiffHunk(diff);
     }
@@ -255,7 +373,20 @@ export const DiffView = ({ before, after, diff, title }: DiffViewProps) => {
         newNum: i + 1,
       }));
     return [];
-  }, [before, after, diff]);
+  }, [before, after, diff, showSideBySide]);
+
+  if (showSideBySide) {
+    return (
+      <Box>
+        {title && <Typography className={classes.title}>{title}</Typography>}
+        <SideBySideDiff
+          before={before}
+          after={after}
+          afterLabel={afterLabel}
+        />
+      </Box>
+    );
+  }
 
   if (lines.length === 0) return null;
 
@@ -266,19 +397,25 @@ export const DiffView = ({ before, after, diff, title }: DiffViewProps) => {
   };
 
   return (
-    <Box className={classes.root}>
+    <Box
+      className={
+        fillHeight ? `${classes.root} ${classes.rootFillHeight}` : classes.root
+      }
+    >
       {title && <Typography className={classes.title}>{title}</Typography>}
-      {lines.map((line, idx) => (
-        <div
-          key={idx}
-          className={`${classes.line} ${diffLineClassName(classes, line.type)}`}
-        >
-          <span className={classes.lineNumber}>{line.oldNum ?? ''}</span>
-          <span className={classes.lineNumber}>{line.newNum ?? ''}</span>
-          <span className={classes.linePrefix}>{prefixChar(line.type)}</span>
-          <span className={classes.lineContent}>{line.content}</span>
-        </div>
-      ))}
+      <Box className={fillHeight ? classes.linesScroll : undefined}>
+        {lines.map((line, idx) => (
+          <div
+            key={idx}
+            className={`${classes.line} ${diffLineClassName(classes, line.type)}`}
+          >
+            <span className={classes.lineNumber}>{line.oldNum ?? ''}</span>
+            <span className={classes.lineNumber}>{line.newNum ?? ''}</span>
+            <span className={classes.linePrefix}>{prefixChar(line.type)}</span>
+            <span className={classes.lineContent}>{line.content}</span>
+          </div>
+        ))}
+      </Box>
     </Box>
   );
 };

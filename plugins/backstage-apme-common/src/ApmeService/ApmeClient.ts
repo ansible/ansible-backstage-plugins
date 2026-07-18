@@ -42,6 +42,7 @@ import {
   Suppression,
   SubmitRemediationRequest,
   SubmitRemediationResult,
+  ScanTriggerOptions,
 } from '../types';
 
 export interface ApmeClientOptions {
@@ -54,19 +55,26 @@ export { getApmeConfig } from '../config';
 export class ApmeClient {
   private readonly baseUrl: string;
   private readonly enableAi: boolean;
+  private readonly submitTimeoutMs: number;
   private readonly logger: LoggerService;
 
   constructor(options: ApmeClientOptions) {
     const config = getApmeConfig(options.rootConfig);
     this.baseUrl = config.baseUrl;
     this.enableAi = config.enableAi;
+    this.submitTimeoutMs = config.submitTimeoutMs;
     // Note: checkSSL config is available but not used yet (for future TLS verification)
     this.logger = options.logger.child({ service: 'ApmeClient' });
     this.logger.debug(`APME client initialized with baseUrl: ${this.baseUrl}`);
   }
 
-  private scanOperationOptions(): Record<string, boolean> {
-    return { enable_ai: this.enableAi };
+  private scanOperationOptions(ansibleVersion?: string): Record<string, unknown> {
+    const options: Record<string, unknown> = { enable_ai: this.enableAi };
+    const version = ansibleVersion?.trim();
+    if (version) {
+      options.ansible_version = version;
+    }
+    return options;
   }
 
   private buildUrl(endpoint: string): string {
@@ -77,6 +85,7 @@ export class ApmeClient {
   private async executeRequest<T>(
     endpoint: string,
     options: RequestInit = {},
+    requestOptions?: { timeoutMs?: number },
   ): Promise<T> {
     const url = this.buildUrl(endpoint);
     const headers: Record<string, string> = {
@@ -84,8 +93,9 @@ export class ApmeClient {
       ...((options.headers as Record<string, string>) || {}),
     };
 
+    const timeoutMs = requestOptions?.timeoutMs ?? 30_000;
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 30_000);
+    const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
     try {
       const response = await fetch(url, {
         ...options,
@@ -194,13 +204,19 @@ export class ApmeClient {
 
   async getViolations(
     projectId: string,
-    options?: { limit?: number },
+    options?: { limit?: number; offset?: number },
   ): Promise<Violation[]> {
-    const limitQuery =
-      options?.limit !== undefined ? `?limit=${options.limit}` : '';
+    const params = new URLSearchParams();
+    if (options?.limit !== undefined) {
+      params.set('limit', String(options.limit));
+    }
+    if (options?.offset !== undefined) {
+      params.set('offset', String(options.offset));
+    }
+    const query = params.toString() ? `?${params.toString()}` : '';
     // APME returns violations as a direct array, not wrapped in {items: []}
     const response = await this.executeRequest<Violation[]>(
-      `/api/v1/projects/${projectId}/violations${limitQuery}`,
+      `/api/v1/projects/${projectId}/violations${query}`,
     );
     return (response || []).map(v => ({
       ...v,
@@ -272,9 +288,10 @@ export class ApmeClient {
 
   async triggerScan(
     projectId: string,
-    userIdentity?: { userEntityRef: string; orgEntityRef?: string },
+    options?: ScanTriggerOptions,
   ): Promise<ScanResult> {
     const headers: Record<string, string> = {};
+    const userIdentity = options?.userIdentity;
     if (userIdentity) {
       headers['X-User'] = userIdentity.userEntityRef;
       if (userIdentity.orgEntityRef) {
@@ -290,7 +307,7 @@ export class ApmeClient {
         headers,
         body: JSON.stringify({
           action: 'check',
-          options: this.scanOperationOptions(),
+          options: this.scanOperationOptions(options?.ansibleVersion),
         }),
       },
     );
@@ -359,10 +376,13 @@ export class ApmeClient {
   async triggerRemediate(
     projectId: string,
     violationIds?: number[],
+    options?: ScanTriggerOptions,
   ): Promise<ScanResult> {
-    const options: Record<string, unknown> = { ...this.scanOperationOptions() };
+    const scanOptions: Record<string, unknown> = {
+      ...this.scanOperationOptions(options?.ansibleVersion),
+    };
     if (violationIds && violationIds.length > 0) {
-      options.violation_ids = violationIds;
+      scanOptions.violation_ids = violationIds;
     }
     const response = await this.executeRequest<{ operation_id: string }>(
       `/api/v1/projects/${projectId}/operation`,
@@ -370,7 +390,7 @@ export class ApmeClient {
         method: 'POST',
         body: JSON.stringify({
           action: 'remediate',
-          options,
+          options: scanOptions,
         }),
       },
     );
@@ -398,12 +418,14 @@ export class ApmeClient {
     projectId: string,
     body: SubmitRemediationRequest,
   ): Promise<SubmitRemediationResult> {
+    // Large remedia pushes often exceed the default short fetch timeout.
     return this.executeRequest<SubmitRemediationResult>(
       `/api/v1/projects/${projectId}/operation/submit`,
       {
         method: 'POST',
         body: JSON.stringify(body),
       },
+      { timeoutMs: this.submitTimeoutMs },
     );
   }
 

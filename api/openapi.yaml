@@ -1250,6 +1250,43 @@ paths:
                     type: boolean
                   publishViaGateway:
                     type: boolean
+                  targetAnsibleCoreVersion:
+                    type: string
+                    description: Global default ansible-core minor version for quality scans
+    put:
+      operationId: updateApmeSettings
+      summary: Update APME portal settings
+      description: Persists the portal-wide default ansible-core scan target.
+      tags:
+        - APME
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - targetAnsibleCoreVersion
+              properties:
+                targetAnsibleCoreVersion:
+                  type: string
+                  description: ansible-core minor version (e.g. 2.17)
+      responses:
+        '200':
+          description: Updated APME settings
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  enableAi:
+                    type: boolean
+                  publishViaGateway:
+                    type: boolean
+                  targetAnsibleCoreVersion:
+                    type: string
+        '400':
+          description: Invalid or unsupported ansible-core version
 
   /apme/ai/status:
     get:

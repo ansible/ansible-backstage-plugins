@@ -417,6 +417,40 @@ export const useCollectionsStyles = makeStyles(theme => ({
     marginTop: theme.spacing(2),
     marginBottom: theme.spacing(3),
     borderBottom: `1px solid ${theme.palette.divider}`,
+    paddingLeft: 0,
+    '& .MuiTabs-root': {
+      paddingLeft: 0,
+    },
+    '& .MuiTabs-scroller': {
+      marginLeft: 0,
+    },
+    '& .MuiTabs-flexContainer': {
+      paddingLeft: 0,
+    },
+    '& .MuiTab-root': {
+      minWidth: 'auto',
+      maxWidth: 'none',
+      padding: theme.spacing(1.5, 2),
+      textTransform: 'none',
+      fontWeight: 500,
+      borderRadius: theme.shape.borderRadius,
+      minHeight: 40,
+      '& .MuiTouchRipple-root': {
+        display: 'none',
+      },
+      '&:hover': {
+        backgroundColor:
+          theme.palette.type === 'dark'
+            ? 'rgba(255, 255, 255, 0.06)'
+            : theme.palette.action.hover,
+      },
+      '&.Mui-selected': {
+        backgroundColor:
+          theme.palette.type === 'dark'
+            ? 'rgba(255, 255, 255, 0.1)'
+            : theme.palette.action.selected,
+      },
+    },
   },
   aboutCard: {
     borderRadius: 12,

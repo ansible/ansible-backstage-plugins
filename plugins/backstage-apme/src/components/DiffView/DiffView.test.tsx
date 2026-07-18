@@ -48,4 +48,21 @@ describe('DiffView', () => {
 
     expect(container).toBeEmptyDOMElement();
   });
+
+  it('shows M009-style with_items to loop in unified diff', () => {
+    const before = `- name: Example
+  with_items: "{{ items }}"`;
+    const after = `- name: Example
+  loop: "{{ items }}"`;
+
+    render(
+      <ThemeProvider theme={theme}>
+        <DiffView before={before} after={after} title="Proposed fix" />
+      </ThemeProvider>,
+    );
+
+    expect(screen.getByText('Proposed fix')).toBeInTheDocument();
+    expect(screen.getByText(/with_items/)).toBeInTheDocument();
+    expect(screen.getByText(/loop:/)).toBeInTheDocument();
+  });
 });

@@ -12,14 +12,19 @@ import type {
 } from '@ansible/backstage-apme-common/types';
 import { apmeApiRef } from '../api';
 
+export type AcknowledgeLabelVariant = 'wontFix' | 'acknowledge';
+
 export function acknowledgeButtonLabel(
   acknowledgingId: number | null | undefined,
   violationId: number,
   isAcknowledged: boolean,
+  variant: AcknowledgeLabelVariant = 'acknowledge',
 ): string {
   if (acknowledgingId === violationId) return 'Saving…';
-  if (isAcknowledged) return 'Acknowledged';
-  return 'Acknowledge';
+  if (variant === 'acknowledge') {
+    return isAcknowledged ? 'Acknowledged' : 'Acknowledge';
+  }
+  return isAcknowledged ? "Won't be fixed" : "Won't fix";
 }
 
 function isDuplicateSuppressionError(err: unknown): boolean {

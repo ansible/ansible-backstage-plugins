@@ -124,7 +124,9 @@ describe('RepositoryDetailsPage', () => {
     });
   });
 
-  const renderPage = async () => {
+  const renderPage = async (
+    extensionsApi: DefaultGitRepositoriesExtensionsApi = new DefaultGitRepositoriesExtensionsApi(),
+  ) => {
     return renderInTestApp(
       <TestApiProvider
         apis={[
@@ -132,10 +134,7 @@ describe('RepositoryDetailsPage', () => {
           [discoveryApiRef, mockDiscoveryApi],
           [fetchApiRef, mockFetchApi],
           [identityApiRef, mockIdentityApi],
-          [
-            gitRepositoriesExtensionsApiRef,
-            new DefaultGitRepositoriesExtensionsApi(),
-          ],
+          [gitRepositoriesExtensionsApiRef, extensionsApi],
         ]}
       >
         <ThemeProvider theme={theme}>
@@ -696,5 +695,33 @@ describe('RepositoryDetailsPage', () => {
     await waitFor(() => {
       expect(screen.getByText('README')).toBeInTheDocument();
     });
+  });
+
+  it('renders no detail overlays when extensions API returns empty (ADR-010 zero footprint)', async () => {
+    await renderPage();
+
+    await waitFor(() => {
+      expect(screen.getAllByText('test-repo').length).toBeGreaterThan(0);
+    });
+
+    expect(screen.queryByTestId('detail-overlay-probe')).not.toBeInTheDocument();
+  });
+
+  it('renders detail overlays registered via extensions API', async () => {
+    const withOverlay = new DefaultGitRepositoriesExtensionsApi();
+    withOverlay.getDetailOverlays = () => [
+      {
+        id: 'test-overlay',
+        order: 10,
+        render: () => <div data-testid="detail-overlay-probe">Overlay probe</div>,
+      },
+    ];
+
+    await renderPage(withOverlay);
+
+    await waitFor(() => {
+      expect(screen.getByTestId('detail-overlay-probe')).toBeInTheDocument();
+    });
+    expect(screen.getByText('Overlay probe')).toBeInTheDocument();
   });
 });

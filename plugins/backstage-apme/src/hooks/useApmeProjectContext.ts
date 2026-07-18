@@ -21,8 +21,9 @@ import {
 } from '@ansible/backstage-rhaap-common/catalogEntity';
 import { projectHasActiveOperation } from '@ansible/backstage-apme-common/operationStatus';
 import { apmeApiRef } from '../api';
-
-const VIOLATIONS_LIMIT = 500;
+import { ensureRepoBranchForScan } from '../utils/ensureRepoBranchForScan';
+import { registerOrResolveApmeProject } from '../utils/registerOrResolveApmeProject';
+import { fetchAllProjectViolations } from '../utils/fetchAllProjectViolations';
 
 export interface ApmeProjectContext {
   repoUrl: string | null;
@@ -64,8 +65,12 @@ export function useApmeProjectContext(entity: Entity): ApmeProjectContext {
   const { value: violations = [], loading: violationsLoading } =
     useAsyncRetry(async () => {
       if (!project?.id) return [];
-      return apmeApi.getViolations(project.id, { limit: VIOLATIONS_LIMIT });
-    }, [project?.id, apmeApi, refreshKey]);
+      return fetchAllProjectViolations(
+        apmeApi,
+        project.id,
+        project.latest_scan?.total_violations ?? project.total_violations,
+      );
+    }, [project?.id, apmeApi, refreshKey, project?.latest_scan?.total_violations, project?.total_violations]);
 
   const { value: rules = [] } = useAsyncRetry(
     async () => apmeApi.getRules(),
@@ -94,13 +99,14 @@ export function useApmeProjectContext(entity: Entity): ApmeProjectContext {
     setRegistering(true);
     setRegisterError(null);
     try {
+      await ensureRepoBranchForScan(apmeApi, repoUrl, branch);
       const name = entity.metadata.title || entity.metadata.name;
-      const newProject = await apmeApi.createProject({
+      const resolvedProject = await registerOrResolveApmeProject(apmeApi, {
         name,
         repo_url: repoUrl,
         branch,
       });
-      await apmeApi.triggerScan(newProject.id);
+      await apmeApi.triggerScan(resolvedProject.id);
       refresh();
     } catch (err) {
       setRegisterError(err as Error);

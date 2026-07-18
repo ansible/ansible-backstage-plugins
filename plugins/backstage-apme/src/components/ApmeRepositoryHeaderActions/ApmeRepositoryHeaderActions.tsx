@@ -4,9 +4,12 @@
  * ADR-010: Repository detail header actions composed from packages/app.
  */
 
-import { useCallback, useState } from 'react';
-import { useAsync } from 'react-use';
-import { useApi } from '@backstage/core-plugin-api';
+import { useCallback } from 'react';
+import { useNavigate } from 'react-router-dom';
+import {
+  configApiRef,
+  useApi,
+} from '@backstage/core-plugin-api';
 import {
   ListItemIcon,
   ListItemText,
@@ -16,49 +19,49 @@ import {
 import PlayArrowIcon from '@material-ui/icons/PlayArrow';
 import SyncIcon from '@material-ui/icons/Sync';
 import OpenInNewIcon from '@material-ui/icons/OpenInNew';
-import type { GitRepositoryDetailTabContext } from '@ansible/backstage-rhaap-common/gitRepositoriesExtensions';
+import SettingsIcon from '@material-ui/icons/Settings';
+import DeleteOutlineIcon from '@material-ui/icons/DeleteOutline';
+import type { GitRepositoryDetailHeaderMenuContext } from '@ansible/backstage-rhaap-common/gitRepositoriesExtensions';
 import { buildDevSpacesUrlFromRepoUrl } from '@ansible/backstage-rhaap-common/devSpaces';
-import { apmeApiRef } from '../../api';
-import { useApmeEnabled } from '../../hooks/useApmeEnabled';
 import {
   normalizeRepoUrlFromEntity,
   defaultBranchFromEntity,
 } from '@ansible/backstage-rhaap-common/catalogEntity';
+import { useApmeEnabled } from '../../hooks/useApmeEnabled';
+import { useNavigateToRepositoryQualityTab } from '../../hooks/useNavigateToRepositoryQualityTab';
+import { isManuallyRegisteredGitRepository } from '../../utils/removeManualGitRepository';
+import { requestRemoveRepository } from '../../utils/removeRepositoryDialogController';
 
 export interface ApmeRepositoryHeaderActionsProps {
-  context: GitRepositoryDetailTabContext;
+  context: GitRepositoryDetailHeaderMenuContext;
   onCloseMenu: () => void;
 }
 
-/** Menu items for repo detail Actions dropdown (scan, Dev Spaces). */
+/** Menu items for repo detail Actions dropdown (scan, Dev Spaces, remove). */
 export const ApmeRepositoryHeaderActions = ({
   context,
   onCloseMenu,
 }: ApmeRepositoryHeaderActionsProps) => {
-  const apmeApi = useApi(apmeApiRef);
   const enabled = useApmeEnabled();
-  const [scanning, setScanning] = useState(false);
+  const configApi = useApi(configApiRef);
+  const navigate = useNavigate();
+  const navigateToQualityTab = useNavigateToRepositoryQualityTab(context.entity);
+
   const repoUrl = context.repoUrl ?? normalizeRepoUrlFromEntity(context.entity);
   const branch = defaultBranchFromEntity(context.entity);
-  const devSpacesUrl = repoUrl
-    ? buildDevSpacesUrlFromRepoUrl(repoUrl, branch)
-    : null;
+  const devSpacesBaseUrl = configApi.getOptionalString(
+    'ansible.devSpaces.baseUrl',
+  );
+  const devSpacesUrl =
+    devSpacesBaseUrl && repoUrl
+      ? buildDevSpacesUrlFromRepoUrl(devSpacesBaseUrl, repoUrl, branch)
+      : null;
+  const isManual = isManuallyRegisteredGitRepository(context.entity);
 
-  const { value: project } = useAsync(async () => {
-    if (!enabled || !repoUrl) return null;
-    return apmeApi.getProjectByRepoUrl(repoUrl, branch);
-  }, [enabled, apmeApi, repoUrl, branch]);
-
-  const handleScan = useCallback(async () => {
-    if (!project?.id) return;
+  const handleScan = useCallback(() => {
     onCloseMenu();
-    setScanning(true);
-    try {
-      await apmeApi.triggerScan(project.id);
-    } finally {
-      setScanning(false);
-    }
-  }, [apmeApi, onCloseMenu, project?.id]);
+    navigateToQualityTab(undefined, { triggerScan: true });
+  }, [navigateToQualityTab, onCloseMenu]);
 
   const handleDevSpaces = useCallback(() => {
     onCloseMenu();
@@ -66,6 +69,16 @@ export const ApmeRepositoryHeaderActions = ({
       window.open(devSpacesUrl, '_blank', 'noopener,noreferrer');
     }
   }, [devSpacesUrl, onCloseMenu]);
+
+  const handleQualitySettings = useCallback(() => {
+    onCloseMenu();
+    navigate('/self-service/repositories/quality-settings');
+  }, [navigate, onCloseMenu]);
+
+  const handleOpenRemoveDialog = useCallback(() => {
+    requestRemoveRepository(context.entity);
+    onCloseMenu();
+  }, [context.entity, onCloseMenu]);
 
   if (!enabled || !repoUrl) {
     return null;
@@ -87,18 +100,24 @@ export const ApmeRepositoryHeaderActions = ({
         </span>
       </Tooltip>
       <MenuItem
-        onClick={() => void handleScan()}
-        disabled={!project?.id || scanning}
+        onClick={handleScan}
         style={{ justifyContent: 'space-between', gap: 16 }}
       >
-        <ListItemText
-          primary={scanning ? 'Starting scan…' : 'Run quality scan'}
-        />
+        <ListItemText primary="Run quality scan" />
         <ListItemIcon style={{ minWidth: 0 }}>
           <PlayArrowIcon fontSize="small" style={{ opacity: 0.6 }} />
         </ListItemIcon>
       </MenuItem>
-      {devSpacesUrl && (
+      <MenuItem
+        onClick={handleQualitySettings}
+        style={{ justifyContent: 'space-between', gap: 16 }}
+      >
+        <ListItemText primary="Quality settings" />
+        <ListItemIcon style={{ minWidth: 0 }}>
+          <SettingsIcon fontSize="small" style={{ opacity: 0.6 }} />
+        </ListItemIcon>
+      </MenuItem>
+      {devSpacesBaseUrl && devSpacesUrl && (
         <MenuItem
           onClick={handleDevSpaces}
           style={{ justifyContent: 'space-between', gap: 16 }}
@@ -106,6 +125,17 @@ export const ApmeRepositoryHeaderActions = ({
           <ListItemText primary="Edit in Dev Spaces" />
           <ListItemIcon style={{ minWidth: 0 }}>
             <OpenInNewIcon fontSize="small" style={{ opacity: 0.6 }} />
+          </ListItemIcon>
+        </MenuItem>
+      )}
+      {isManual && (
+        <MenuItem
+          onClick={handleOpenRemoveDialog}
+          style={{ justifyContent: 'space-between', gap: 16 }}
+        >
+          <ListItemText primary="Remove repository" />
+          <ListItemIcon style={{ minWidth: 0 }}>
+            <DeleteOutlineIcon fontSize="small" style={{ opacity: 0.6 }} />
           </ListItemIcon>
         </MenuItem>
       )}

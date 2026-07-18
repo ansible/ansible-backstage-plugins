@@ -27,6 +27,29 @@ export * from './config';
 export * from './apmeSyncConfig';
 export * from './apmeCatalogSync';
 export * from './operationStatus';
+export {
+  ansibleCoreVersionOptions,
+  isAllowedAnsibleCoreVersion,
+  normalizeAnsibleCoreVersion,
+  ANSIBLE_CORE_VERSION_OPTIONS,
+} from './ansibleCoreVersionOptions';
+export {
+  resolveScanTarget,
+  resolveScanTargetVersion,
+} from './resolveScanTarget';
+export type {
+  ActivityPortalOutcome,
+  ApmePortalSettingsData,
+  ProjectScanTargetResolution,
+  ScanTargetSource,
+} from './resolveScanTarget';
+export { mergeActivityPortalOutcomes } from './mergeActivityPortalOutcomes';
+export {
+  isApmeProjectConflictError,
+  resolveApmeProject,
+  registerOrResolveApmeProject,
+} from './registerOrResolveApmeProject';
+export type { ApmeProjectResolver } from './registerOrResolveApmeProject';
 // FRONTEND-ONLY — import by path, NOT from this index:
 //   import { apmeApiRef } from '@ansible/backstage-apme-common/api'
 //   import { useApmeEnabled } from '@ansible/backstage-apme-common/useApmeEnabled'

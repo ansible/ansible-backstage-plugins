@@ -21,6 +21,7 @@ import {
   latestOperationProgressMessage,
   latestOperationProgressPercent,
   projectHasActiveOperation,
+  shouldResumeScanUi,
 } from './operationStatus';
 
 describe('operationStatus', () => {
@@ -155,6 +156,34 @@ describe('operationStatus', () => {
       false,
     );
     expect(projectHasActiveOperation(null)).toBe(false);
+  });
+
+  it('does not resume Scanning UI for completed ops that still have progress logs', () => {
+    expect(
+      shouldResumeScanUi({
+        operation_id: 'op',
+        project_id: 'p',
+        status: 'completed',
+        progress: [
+          {
+            phase: 'scan',
+            message: 'Graph Tier 1 converged: 2 pass(es)',
+            timestamp: 't1',
+          },
+        ],
+      }),
+    ).toBe(false);
+    expect(
+      shouldResumeScanUi({
+        operation_id: 'op',
+        project_id: 'p',
+        status: 'scanning',
+        progress: [
+          { phase: 'scan', message: 'Running…', timestamp: 't1' },
+        ],
+      }),
+    ).toBe(true);
+    expect(shouldResumeScanUi(null)).toBe(false);
   });
 
   it('formats gateway operation errors for display', () => {

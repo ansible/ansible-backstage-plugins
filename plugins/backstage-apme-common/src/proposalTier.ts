@@ -15,7 +15,7 @@
  */
 
 import type { Proposal, Violation } from './types';
-import { effectiveFixType, proposalNeedsManualApproval } from './severity';
+import { effectiveFixType } from './severity';
 
 type RawProposal = Omit<Partial<Proposal>, 'status'> & {
   line_start?: number;
@@ -205,18 +205,11 @@ export function isAiRemediationProposal(
     : false;
 }
 
-/** True when the user must explicitly approve before applying this proposal. */
+/** True when the user must explicitly include this proposal via checkbox before PR. */
 export function proposalNeedsUserReview(
-  proposal: Proposal,
-  violations: Violation[],
-  enableAi: boolean,
+  _proposal: Proposal,
+  _violations: Violation[],
+  _enableAi: boolean,
 ): boolean {
-  if (typeof proposal.tier === 'number' && proposal.tier >= 2) {
-    return true;
-  }
-  const violation = findViolationForProposal(proposal, violations);
-  if (violation) {
-    return proposalNeedsManualApproval(violation.remediation_class, enableAi);
-  }
-  return Boolean(proposal.ai_reason?.trim() || proposal.explanation?.trim());
+  return true;
 }

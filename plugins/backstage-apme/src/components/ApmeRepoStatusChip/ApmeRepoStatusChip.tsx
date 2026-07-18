@@ -14,12 +14,16 @@
  * limitations under the License.
  */
 
-import { useAsync } from 'react-use';
+import { useEffect, useState } from 'react';
+import { useAsyncRetry } from 'react-use';
 import { useApi } from '@backstage/core-plugin-api';
 import { Chip, CircularProgress, makeStyles } from '@material-ui/core';
 import { useNavigate } from 'react-router-dom';
 import { Project } from '@ansible/backstage-apme-common/types';
-import { projectHasActiveOperation } from '@ansible/backstage-apme-common/operationStatus';
+import {
+  projectHasActiveOperation,
+  shouldResumeScanUi,
+} from '@ansible/backstage-apme-common/operationStatus';
 import { apmeApiRef } from '../../api';
 import { useApmeEnabled } from '../../hooks/useApmeEnabled';
 
@@ -69,17 +73,58 @@ export const ApmeRepoStatusChip = ({
   const apmeApi = useApi(apmeApiRef);
   const navigate = useNavigate();
   const enabled = useApmeEnabled();
+  const [operationActive, setOperationActive] = useState(false);
 
-  const { value: project, loading } = useAsync(async () => {
+  const {
+    value: project,
+    loading,
+    retry,
+  } = useAsyncRetry(async () => {
     if (!enabled || !repoUrl) return null;
     return apmeApi.getProjectByRepoUrl(repoUrl, branch);
   }, [enabled, repoUrl, branch, apmeApi]);
+
+  // Poll so Scanning… / violation counts update without a hard refresh.
+  useEffect(() => {
+    if (!enabled || !project?.id) {
+      setOperationActive(false);
+      return undefined;
+    }
+
+    const projectId = project.id;
+    let cancelled = false;
+    const tick = async () => {
+      try {
+        const [fresh, state] = await Promise.all([
+          apmeApi.getProjectByRepoUrl(repoUrl, branch),
+          apmeApi.getOperationState(projectId),
+        ]);
+        if (cancelled) return;
+        const active =
+          shouldResumeScanUi(state) || projectHasActiveOperation(fresh);
+        setOperationActive(active);
+        retry();
+      } catch {
+        // Next tick retries.
+      }
+    };
+
+    void tick();
+    const interval = setInterval(() => {
+      void tick();
+    }, 3000);
+
+    return () => {
+      cancelled = true;
+      clearInterval(interval);
+    };
+  }, [enabled, project?.id, repoUrl, branch, apmeApi, retry]);
 
   if (!enabled) {
     return null;
   }
 
-  if (loading) {
+  if (loading && !project) {
     return <CircularProgress size={16} />;
   }
 
@@ -89,7 +134,7 @@ export const ApmeRepoStatusChip = ({
     );
   }
 
-  if (projectHasActiveOperation(project)) {
+  if (operationActive || projectHasActiveOperation(project)) {
     return <Chip size="small" label="Scanning…" className={classes.scanning} />;
   }
 

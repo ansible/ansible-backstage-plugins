@@ -36,7 +36,7 @@ export interface ApmeUnavailableProps {
 
 /** Friendly empty state when the APME gateway is unreachable. */
 export const ApmeUnavailable = ({
-  message = 'APME service is unavailable. Check that the APME engine is running and apme.baseUrl is configured.',
+  message = 'Ansible content modernization is temporarily unavailable.',
 }: ApmeUnavailableProps) => {
   const classes = useStyles();
 

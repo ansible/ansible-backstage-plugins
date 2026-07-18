@@ -19,12 +19,8 @@ import {
   createComponentExtension,
   createRoutableExtension,
   createRouteRef,
-  createApiFactory,
-  discoveryApiRef,
-  fetchApiRef,
-  configApiRef,
 } from '@backstage/core-plugin-api';
-import { apmeApiRef, ApmeApiClient } from './api';
+import { apmeApiFactory } from './api/apmeApiFactory';
 
 export const rootRouteRef = createRouteRef({
   id: 'apme',
@@ -41,26 +37,7 @@ export const apmePlugin = createPlugin({
     root: rootRouteRef,
     project: projectRouteRef,
   },
-  apis: [
-    createApiFactory({
-      api: apmeApiRef,
-      deps: {
-        discoveryApi: discoveryApiRef,
-        fetchApi: fetchApiRef,
-        configApi: configApiRef,
-      },
-      factory: ({ discoveryApi, fetchApi, configApi }) => {
-        const mockMode =
-          configApi.getOptionalBoolean('ansible.apme.mockMode') ?? false;
-        if (mockMode) {
-          const { MockApmeApiClient } =
-            require('./api/mock/MockApmeApiClient') as typeof import('./api/mock/MockApmeApiClient');
-          return new MockApmeApiClient();
-        }
-        return new ApmeApiClient({ discoveryApi, fetchApi });
-      },
-    }),
-  ],
+  apis: [apmeApiFactory],
 });
 
 export const ApmePage = apmePlugin.provide(

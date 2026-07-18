@@ -4,6 +4,8 @@
 dynamicPlugins:
   frontend:
     ansible.plugin-backstage-apme:
+      apiFactories:
+        - importName: gitRepositoriesExtensionsApiFactory
       appIcons:
         - name: apmeIcon
           importName: SecurityIcon

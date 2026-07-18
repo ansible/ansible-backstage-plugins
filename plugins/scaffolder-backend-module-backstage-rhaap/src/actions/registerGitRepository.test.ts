@@ -68,7 +68,7 @@ describe('registerGitRepository', () => {
       () =>
         ({
           createClient: jest.fn().mockResolvedValue(mockScmClient),
-        }) as any,
+        } as any),
     );
 
     discovery.getBaseUrl.mockResolvedValue('http://localhost:7007/api/catalog');
@@ -149,6 +149,10 @@ describe('registerGitRepository', () => {
     expect(ctx.output).toHaveBeenCalledWith(
       'entityRef',
       'component:default/test-org-test-repo-github-manual',
+    );
+    expect(ctx.output).toHaveBeenCalledWith(
+      'entityName',
+      'test-org-test-repo-github-manual',
     );
   });
 
@@ -233,7 +237,7 @@ describe('registerGitRepository', () => {
     );
   });
 
-  it('does not set entityRef output when the response omits it', async () => {
+  it('sets entityName even when the response omits entityRef', async () => {
     mockFetch.mockResolvedValue({
       ok: true,
       status: 200,
@@ -246,6 +250,10 @@ describe('registerGitRepository', () => {
 
     await action.handler(ctx);
 
-    expect(ctx.output).not.toHaveBeenCalled();
+    expect(ctx.output).toHaveBeenCalledWith(
+      'entityName',
+      'test-org-test-repo-github-manual',
+    );
+    expect(ctx.output).not.toHaveBeenCalledWith('entityRef', expect.anything());
   });
 });

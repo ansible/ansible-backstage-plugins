@@ -20,6 +20,16 @@ import { DEFAULT_APME_TARGET_ANSIBLE_CORE_VERSION } from './scanTargetDefaults';
 
 export { DEFAULT_APME_TARGET_ANSIBLE_CORE_VERSION } from './scanTargetDefaults';
 
+/** Default timeout for remediation submit/push/PR (5 minutes). */
+export const DEFAULT_APME_SUBMIT_TIMEOUT_MS = 300_000;
+
+function resolveSubmitTimeoutMs(raw: number | undefined): number {
+  if (raw !== undefined && Number.isFinite(raw) && raw > 0) {
+    return Math.floor(raw);
+  }
+  return DEFAULT_APME_SUBMIT_TIMEOUT_MS;
+}
+
 /** Reads APME config from `ansible.apme` (ADR-011). */
 export function getApmeConfig(config: Config): ApmeConfig {
   const apmeConfig = config.getOptionalConfig('ansible.apme');
@@ -31,7 +41,9 @@ export function getApmeConfig(config: Config): ApmeConfig {
       checkSSL: false,
       enableAi: false,
       publishViaGateway: false,
+      submitTimeoutMs: DEFAULT_APME_SUBMIT_TIMEOUT_MS,
       targetAnsibleCoreVersion: DEFAULT_APME_TARGET_ANSIBLE_CORE_VERSION,
+      portalSettingsPath: undefined,
     };
   }
 
@@ -42,9 +54,13 @@ export function getApmeConfig(config: Config): ApmeConfig {
     enableAi: apmeConfig.getOptionalBoolean('enableAi') ?? false,
     publishViaGateway:
       apmeConfig.getOptionalBoolean('publishViaGateway') ?? true,
+    submitTimeoutMs: resolveSubmitTimeoutMs(
+      apmeConfig.getOptionalNumber?.('submitTimeoutMs'),
+    ),
     targetAnsibleCoreVersion:
       apmeConfig.getOptionalString('targetAnsibleCoreVersion') ??
       DEFAULT_APME_TARGET_ANSIBLE_CORE_VERSION,
+    portalSettingsPath: apmeConfig.getOptionalString('portalSettingsPath'),
   };
 }
 

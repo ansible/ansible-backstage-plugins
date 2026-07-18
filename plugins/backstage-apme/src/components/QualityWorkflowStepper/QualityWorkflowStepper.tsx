@@ -14,27 +14,70 @@
  * limitations under the License.
  */
 
-import { Box, CircularProgress, makeStyles } from '@material-ui/core';
+import { Box, CircularProgress, Tooltip, makeStyles } from '@material-ui/core';
 import type { ReactNode } from 'react';
 import CheckIcon from '@material-ui/icons/Check';
+import HelpOutlineIcon from '@material-ui/icons/HelpOutline';
 import type { RemediationStep } from '../RemediationStepper';
 
-const STEPS: { id: RemediationStep; label: string }[] = [
-  { id: 'select', label: 'Select' },
-  { id: 'generate', label: 'Generate' },
-  { id: 'review', label: 'Review' },
+/** Generate fixes → Push branch → Open pull request. */
+const STEPS: { id: string; label: string }[] = [
+  { id: 'prepare', label: 'Generate fixes' },
   { id: 'push', label: 'Push branch' },
-  { id: 'pr', label: 'Create PR' },
-  { id: 'verify', label: 'Verify' },
+  { id: 'pr', label: 'Open pull request' },
 ];
+
+const DEFAULT_HELP =
+  'Generate automated fixes for eligible findings, review patches if needed, push a remediation branch, then open a pull request.';
+
+function remediationStepToIndex(step: RemediationStep): number {
+  if (step === 'select' || step === 'generate') return 0;
+  if (step === 'review' || step === 'push') return 1;
+  if (step === 'pr') return 2;
+  if (step === 'verify') return 3;
+  return 0;
+}
+
+function stepIsSpinning(
+  step: RemediationStep,
+  stepIndex: number,
+  busy: boolean,
+): boolean {
+  const activeIndex = remediationStepToIndex(step);
+  if (stepIndex !== activeIndex || !busy) return false;
+  if (stepIndex === 0) {
+    return step === 'generate';
+  }
+  if (stepIndex === 1) {
+    return step === 'push';
+  }
+  if (stepIndex === 2) {
+    return step === 'pr';
+  }
+  return false;
+}
 
 const useStyles = makeStyles(theme => ({
   root: {
     display: 'flex',
     alignItems: 'center',
-    gap: 4,
+    justifyContent: 'space-between',
+    gap: theme.spacing(2),
     marginBottom: theme.spacing(2),
+    padding: theme.spacing(1.5, 2),
+    borderRadius: theme.shape.borderRadius,
+    border: `1px solid ${theme.palette.divider}`,
+    backgroundColor:
+      theme.palette.type === 'dark'
+        ? 'rgba(255,255,255,0.03)'
+        : theme.palette.background.paper,
+  },
+  steps: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: 4,
     flexWrap: 'wrap',
+    minWidth: 0,
   },
   step: {
     display: 'flex',
@@ -77,7 +120,7 @@ const useStyles = makeStyles(theme => ({
     whiteSpace: 'nowrap',
   },
   labelActive: {
-    color: theme.palette.text.primary,
+    color: theme.palette.primary.main,
     fontWeight: 600,
   },
   labelPending: {
@@ -89,11 +132,13 @@ const useStyles = makeStyles(theme => ({
     margin: '0 4px',
     userSelect: 'none',
   },
+  help: {
+    color: theme.palette.text.secondary,
+    fontSize: 18,
+    flexShrink: 0,
+    cursor: 'help',
+  },
 }));
-
-function stepIndex(step: RemediationStep): number {
-  return STEPS.findIndex(s => s.id === step);
-}
 
 function stepBadgeClassName(
   base: string,
@@ -136,13 +181,18 @@ function stepBadgeContent(
 
 export interface QualityWorkflowStepperProps {
   activeStep: RemediationStep;
+  /** True while remedia, push, or create-PR work is running. */
+  busy?: boolean;
+  helpText?: string;
 }
 
 export const QualityWorkflowStepper = ({
   activeStep,
+  busy = false,
+  helpText = DEFAULT_HELP,
 }: QualityWorkflowStepperProps) => {
   const classes = useStyles();
-  const activeIndex = stepIndex(activeStep);
+  const activeIndex = remediationStepToIndex(activeStep);
 
   return (
     <Box
@@ -150,47 +200,50 @@ export const QualityWorkflowStepper = ({
       role="navigation"
       aria-label="Remediation workflow"
     >
-      {STEPS.map((step, index) => {
-        const isComplete = index < activeIndex;
-        const isActive = index === activeIndex;
-        const isPending = index > activeIndex;
-        const isSpinning =
-          isActive &&
-          (step.id === 'generate' || step.id === 'push' || step.id === 'pr');
+      <Box className={classes.steps}>
+        {STEPS.map((step, index) => {
+          const isComplete = index < activeIndex;
+          const isActive = index === activeIndex;
+          const isPending = index > activeIndex;
+          const isSpinning = stepIsSpinning(activeStep, index, busy);
 
-        return (
-          <Box key={step.id} className={classes.step} component="span">
-            {index > 0 && (
-              <span className={classes.arrow} aria-hidden>
-                →
+          return (
+            <Box key={step.id} className={classes.step} component="span">
+              {index > 0 && (
+                <span className={classes.arrow} aria-hidden>
+                  →
+                </span>
+              )}
+              <span
+                className={stepBadgeClassName(
+                  classes.badge,
+                  classes.badgeComplete,
+                  classes.badgeActive,
+                  classes.badgePending,
+                  isComplete,
+                  isActive,
+                )}
+              >
+                {stepBadgeContent(isComplete, isSpinning, index)}
               </span>
-            )}
-            <span
-              className={stepBadgeClassName(
-                classes.badge,
-                classes.badgeComplete,
-                classes.badgeActive,
-                classes.badgePending,
-                isComplete,
-                isActive,
-              )}
-            >
-              {stepBadgeContent(isComplete, isSpinning, index)}
-            </span>
-            <span
-              className={stepLabelClassName(
-                classes.label,
-                classes.labelActive,
-                classes.labelPending,
-                isActive,
-                isPending,
-              )}
-            >
-              {step.label}
-            </span>
-          </Box>
-        );
-      })}
+              <span
+                className={stepLabelClassName(
+                  classes.label,
+                  classes.labelActive,
+                  classes.labelPending,
+                  isActive,
+                  isPending,
+                )}
+              >
+                {step.label}
+              </span>
+            </Box>
+          );
+        })}
+      </Box>
+      <Tooltip title={helpText}>
+        <HelpOutlineIcon className={classes.help} aria-label="Workflow help" />
+      </Tooltip>
     </Box>
   );
 };

@@ -30,6 +30,10 @@ import {
   CreateSuppressionRequest,
   Suppression,
 } from '@ansible/backstage-apme-common/types';
+import {
+  severityLevelToCatalogSeverity,
+  severityProtoToLabel,
+} from '@ansible/backstage-apme-common/severity';
 import { ApmeApi } from '../ApmeApi';
 import {
   MOCK_HEALTH,
@@ -42,9 +46,7 @@ import {
 const delay = (ms: number) => new Promise(r => setTimeout(r, ms));
 
 function severityFromOverride(value: number): Rule['severity'] {
-  if (value >= 6) return 'critical';
-  if (value >= 4) return 'high';
-  return 'medium';
+  return severityLevelToCatalogSeverity(severityProtoToLabel(value));
 }
 
 interface ScanState {
@@ -83,9 +85,53 @@ export class MockApmeApiClient implements ApmeApi {
     return {
       enableAi: true,
       publishViaGateway: true,
-      targetAnsibleCoreVersion: '2.16',
+      targetAnsibleCoreVersion: this.globalScanTarget,
     };
   }
+
+  async updatePortalSettings(body: { targetAnsibleCoreVersion?: string }) {
+    await delay(50);
+    if (body.targetAnsibleCoreVersion) {
+      this.globalScanTarget = body.targetAnsibleCoreVersion;
+    }
+    return this.getPortalSettings();
+  }
+
+  async getProjectScanTarget(projectId: string) {
+    await delay(50);
+    const override = this.projectScanTargets[projectId];
+    const globalDefault = this.globalScanTarget;
+    if (override) {
+      return {
+        effective: override,
+        source: 'project' as const,
+        globalDefault,
+        projectOverride: override,
+      };
+    }
+    return {
+      effective: globalDefault,
+      source: 'global' as const,
+      globalDefault,
+    };
+  }
+
+  async updateProjectScanTarget(
+    projectId: string,
+    body: { targetAnsibleCoreVersion: string | null },
+  ) {
+    await delay(50);
+    if (body.targetAnsibleCoreVersion === null) {
+      delete this.projectScanTargets[projectId];
+    } else {
+      this.projectScanTargets[projectId] = body.targetAnsibleCoreVersion;
+    }
+    return this.getProjectScanTarget(projectId);
+  }
+
+  private globalScanTarget = '2.16';
+
+  private projectScanTargets: Record<string, string> = {};
 
   async getAiStatus() {
     await delay(50);
@@ -147,14 +193,15 @@ export class MockApmeApiClient implements ApmeApi {
 
   async getViolations(
     projectId: string,
-    options?: { limit?: number },
+    options?: { limit?: number; offset?: number },
   ): Promise<Violation[]> {
     await delay(200);
     const rows = (this.violations[projectId] ?? []).map(v => ({ ...v }));
+    const offset = options?.offset ?? 0;
     if (options?.limit !== undefined) {
-      return rows.slice(0, options.limit);
+      return rows.slice(offset, offset + options.limit);
     }
-    return rows;
+    return rows.slice(offset);
   }
 
   async getProjectDependencies(
@@ -256,7 +303,10 @@ export class MockApmeApiClient implements ApmeApi {
     return this.mockSuppressions.filter(s => s.scope === scope);
   }
 
-  async triggerScan(projectId: string): Promise<ScanResult> {
+  async triggerScan(
+    projectId: string,
+    _options?: { ansibleVersion?: string },
+  ): Promise<ScanResult> {
     await delay(300);
     const operationId = `op-scan-${Date.now()}`;
     this.activeScans.set(projectId, {
@@ -269,6 +319,10 @@ export class MockApmeApiClient implements ApmeApi {
     const proj = this.projects.find(p => p.id === projectId);
     if (proj) proj.active_operation = operationId;
     return { scanId: operationId, projectId, status: 'running' };
+  }
+
+  async validateRepoBranch(_repoUrl: string, _branch: string): Promise<void> {
+    await delay(50);
   }
 
   async createProject(request: CreateProjectRequest): Promise<Project> {
@@ -500,7 +554,12 @@ export class MockApmeApiClient implements ApmeApi {
   async submitRemediation(
     projectId: string,
     activityId: string,
-    options?: { scmToken?: string; branchName?: string; createPr?: boolean },
+    options?: {
+      scmToken?: string;
+      branchName?: string;
+      createPr?: boolean;
+      fileOverrides?: Record<string, string>;
+    },
   ) {
     await delay(options?.createPr === false ? 500 : 1500);
     const branchName =

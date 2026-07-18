@@ -39,6 +39,7 @@ export interface ApmeScmRequestOptions {
 
 export interface ApmeViolationsOptions {
   limit?: number;
+  offset?: number;
 }
 
 export interface ApmeApi {

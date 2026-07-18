@@ -64,6 +64,73 @@ describe('ApmeApiClient', () => {
     });
   });
 
+  describe('portal settings', () => {
+    it('getPortalSettings GETs /settings', async () => {
+      const settings = {
+        enableAi: false,
+        publishViaGateway: true,
+        targetAnsibleCoreVersion: '2.17',
+      };
+      mockFetchApi.fetch.mockResolvedValueOnce({
+        ok: true,
+        json: () => Promise.resolve(settings),
+      });
+
+      const result = await client.getPortalSettings();
+
+      expect(mockFetchApi.fetch).toHaveBeenCalledWith(
+        'http://localhost:7007/api/catalog/apme/settings',
+        expect.objectContaining({
+          headers: { 'Content-Type': 'application/json' },
+        }),
+      );
+      expect(result).toEqual(settings);
+    });
+
+    it('updatePortalSettings PUTs /settings with version body', async () => {
+      const settings = {
+        enableAi: false,
+        publishViaGateway: true,
+        targetAnsibleCoreVersion: '2.18',
+      };
+      mockFetchApi.fetch.mockResolvedValueOnce({
+        ok: true,
+        json: () => Promise.resolve(settings),
+      });
+
+      const result = await client.updatePortalSettings({
+        targetAnsibleCoreVersion: '2.18',
+      });
+
+      expect(mockFetchApi.fetch).toHaveBeenCalledWith(
+        'http://localhost:7007/api/catalog/apme/settings',
+        expect.objectContaining({
+          method: 'PUT',
+          body: JSON.stringify({ targetAnsibleCoreVersion: '2.18' }),
+        }),
+      );
+      expect(result).toEqual(settings);
+    });
+
+    it('maps network TypeError to a reachable-backend message', async () => {
+      mockFetchApi.fetch.mockRejectedValueOnce(
+        new TypeError('Failed to fetch'),
+      );
+
+      let message = '';
+      try {
+        await client.getPortalSettings();
+      } catch (err) {
+        message = err instanceof Error ? err.message : String(err);
+      }
+
+      expect(message).toMatch(
+        /Could not reach APME catalog API.*Check that the portal backend is available/,
+      );
+      expect(message).not.toMatch(/port 7007/i);
+    });
+  });
+
   describe('getProjects', () => {
     it('should fetch projects list', async () => {
       const mockProjects = {
@@ -199,6 +266,42 @@ describe('ApmeApiClient', () => {
         'A scan is already in progress',
       );
     });
+
+    it('includes ansible_version in scan operation payload when provided', async () => {
+      mockFetchApi.fetch.mockResolvedValueOnce({
+        ok: true,
+        json: () => Promise.resolve({ operation_id: 'op-456' }),
+      });
+
+      await client.triggerScan('project-1', { ansibleVersion: '2.17' });
+
+      expect(mockFetchApi.fetch).toHaveBeenCalledWith(
+        'http://localhost:7007/api/catalog/apme/projects/project-1/operation',
+        expect.objectContaining({
+          method: 'POST',
+          body: JSON.stringify({
+            action: 'check',
+            options: { ansible_version: '2.17' },
+          }),
+        }),
+      );
+    });
+  });
+
+  describe('validateRepoBranch', () => {
+    it('calls the branch-check endpoint', async () => {
+      mockFetchApi.fetch.mockResolvedValueOnce({
+        ok: true,
+        json: () => Promise.resolve({ valid: true }),
+      });
+
+      await client.validateRepoBranch('https://github.com/test/new', 'main');
+
+      expect(mockFetchApi.fetch).toHaveBeenCalledWith(
+        'http://localhost:7007/api/catalog/apme/repos/branch-check?repo_url=https%3A%2F%2Fgithub.com%2Ftest%2Fnew&branch=main',
+        expect.any(Object),
+      );
+    });
   });
 
   describe('createProject', () => {
@@ -274,6 +377,165 @@ describe('ApmeApiClient', () => {
         expect.any(Object),
       );
       expect(result).toEqual(detail);
+    });
+  });
+
+  describe('getRules', () => {
+    it('returns catalog Rule items without re-normalizing', async () => {
+      const portalRules = {
+        items: [
+          {
+            id: 'M009',
+            name: 'M009',
+            description: 'Use loop instead of with_items',
+            severity: 'low',
+            defaultSeverity: 'high',
+            category: 'lint',
+            remediationClass: 1,
+            enabled: true,
+            hasOverride: true,
+          },
+        ],
+      };
+
+      mockFetchApi.fetch.mockResolvedValueOnce({
+        ok: true,
+        json: () => Promise.resolve(portalRules),
+      });
+
+      const result = await client.getRules();
+
+      expect(result).toEqual(portalRules.items);
+      expect(result[0]?.severity).toBe('low');
+    });
+  });
+
+  describe('updateRuleConfig', () => {
+    it('returns catalog Rule response without re-normalizing severity', async () => {
+      const updatedRule = {
+        id: 'M009',
+        name: 'M009',
+        description: 'Use loop instead of with_items',
+        severity: 'low',
+        defaultSeverity: 'high',
+        category: 'lint',
+        remediationClass: 1,
+        enabled: true,
+        hasOverride: true,
+      };
+
+      mockFetchApi.fetch.mockResolvedValueOnce({
+        ok: true,
+        json: () => Promise.resolve(updatedRule),
+      });
+
+      const result = await client.updateRuleConfig('M009', {
+        severity_override: 2,
+      });
+
+      expect(result).toEqual(updatedRule);
+      expect(result.severity).toBe('low');
+    });
+  });
+
+  describe('submitTimeoutMs', () => {
+    function mockAbortableFetch() {
+      mockFetchApi.fetch.mockImplementation(
+        (_url: string, options?: RequestInit) =>
+          new Promise((_resolve, reject) => {
+            const signal = options?.signal;
+            const abort = () => {
+              const err = new Error('The operation was aborted');
+              err.name = 'AbortError';
+              reject(err);
+            };
+            if (signal?.aborted) {
+              abort();
+              return;
+            }
+            signal?.addEventListener('abort', abort);
+          }),
+      );
+    }
+
+    beforeEach(() => {
+      jest.useFakeTimers();
+    });
+
+    afterEach(() => {
+      jest.useRealTimers();
+    });
+
+    it('defaults submitTimeoutMs to 300_000', async () => {
+      mockAbortableFetch();
+      const promise = client.submitRemediation('proj-1', 'act-1');
+      await Promise.resolve();
+      await Promise.resolve();
+
+      jest.advanceTimersByTime(299_999);
+      let settled = false;
+      promise.then(
+        () => {
+          settled = true;
+        },
+        () => {
+          settled = true;
+        },
+      );
+      await Promise.resolve();
+      expect(settled).toBe(false);
+
+      jest.advanceTimersByTime(1);
+      await expect(promise).rejects.toThrow(
+        /APME API request timed out or was aborted/,
+      );
+    });
+
+    it('falls back to 300_000 for non-positive submitTimeoutMs', async () => {
+      client = new ApmeApiClient({
+        discoveryApi: mockDiscoveryApi,
+        fetchApi: mockFetchApi,
+        submitTimeoutMs: 0,
+      });
+      mockAbortableFetch();
+      const promise = client.submitRemediation('proj-1', 'act-1');
+      await Promise.resolve();
+      await Promise.resolve();
+
+      jest.advanceTimersByTime(300_000);
+      await expect(promise).rejects.toThrow(
+        /APME API request timed out or was aborted/,
+      );
+    });
+
+    it('honors custom submitTimeoutMs for pushRemediationBranch', async () => {
+      client = new ApmeApiClient({
+        discoveryApi: mockDiscoveryApi,
+        fetchApi: mockFetchApi,
+        submitTimeoutMs: 5_000,
+      });
+      mockAbortableFetch();
+      const promise = client.pushRemediationBranch('proj-1', 'act-1');
+      await Promise.resolve();
+      await Promise.resolve();
+
+      jest.advanceTimersByTime(4_999);
+      let settled = false;
+      promise.then(
+        () => {
+          settled = true;
+        },
+        () => {
+          settled = true;
+        },
+      );
+      await Promise.resolve();
+      expect(settled).toBe(false);
+
+      jest.advanceTimersByTime(1);
+      await expect(promise).rejects.toThrow(
+        /APME API request timed out or was aborted/,
+      );
     });
   });
 });

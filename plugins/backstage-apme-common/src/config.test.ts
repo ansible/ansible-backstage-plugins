@@ -26,12 +26,14 @@ function mockApmeSection(
     getOptionalBoolean?: jest.Mock;
     getString?: jest.Mock;
     getOptionalString?: jest.Mock;
+    getOptionalNumber?: jest.Mock;
   } = {},
 ) {
   return {
     getOptionalBoolean: jest.fn().mockReturnValue(undefined),
     getString: jest.fn().mockReturnValue('http://localhost:8080'),
     getOptionalString: jest.fn().mockReturnValue(undefined),
+    getOptionalNumber: jest.fn().mockReturnValue(undefined),
     ...overrides,
   };
 }
@@ -48,7 +50,9 @@ describe('getApmeConfig', () => {
       checkSSL: false,
       enableAi: false,
       publishViaGateway: false,
+      submitTimeoutMs: 300_000,
       targetAnsibleCoreVersion: '2.16',
+      portalSettingsPath: undefined,
     });
   });
 
@@ -76,7 +80,9 @@ describe('getApmeConfig', () => {
       checkSSL: true,
       enableAi: false,
       publishViaGateway: true,
+      submitTimeoutMs: 300_000,
       targetAnsibleCoreVersion: '2.16',
+      portalSettingsPath: undefined,
     });
   });
 
@@ -156,6 +162,53 @@ describe('getApmeConfig', () => {
     };
 
     expect(getApmeConfig(mockConfig as any).publishViaGateway).toBe(false);
+  });
+
+  it('defaults submitTimeoutMs to 5 minutes when omitted', () => {
+    const mockApmeConfig = mockApmeSection();
+    const mockConfig = {
+      getOptionalConfig: jest
+        .fn()
+        .mockImplementation((key: string) =>
+          key === 'ansible.apme' ? mockApmeConfig : undefined,
+        ),
+    };
+
+    expect(getApmeConfig(mockConfig as any).submitTimeoutMs).toBe(300_000);
+  });
+
+  it('honors explicit submitTimeoutMs', () => {
+    const mockApmeConfig = mockApmeSection({
+      getOptionalNumber: jest
+        .fn()
+        .mockImplementation((key: string) =>
+          key === 'submitTimeoutMs' ? 120_000 : undefined,
+        ),
+    });
+    const mockConfig = {
+      getOptionalConfig: jest
+        .fn()
+        .mockImplementation((key: string) =>
+          key === 'ansible.apme' ? mockApmeConfig : undefined,
+        ),
+    };
+
+    expect(getApmeConfig(mockConfig as any).submitTimeoutMs).toBe(120_000);
+  });
+
+  it('rejects non-positive submitTimeoutMs and falls back to default', () => {
+    const mockApmeConfig = mockApmeSection({
+      getOptionalNumber: jest.fn().mockReturnValue(0),
+    });
+    const mockConfig = {
+      getOptionalConfig: jest
+        .fn()
+        .mockImplementation((key: string) =>
+          key === 'ansible.apme' ? mockApmeConfig : undefined,
+        ),
+    };
+
+    expect(getApmeConfig(mockConfig as any).submitTimeoutMs).toBe(300_000);
   });
 });
 

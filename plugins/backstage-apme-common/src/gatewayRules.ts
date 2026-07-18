@@ -26,6 +26,10 @@ export interface GatewayRuleRow {
   resolved_enabled?: boolean;
   remediation_class?: number;
   remediationClass?: number;
+  severity?: Severity;
+  defaultSeverity?: Severity;
+  enforced?: boolean;
+  hasOverride?: boolean;
   override?: {
     severity_override?: number | null;
     enabled_override?: boolean | null;
@@ -33,17 +37,42 @@ export interface GatewayRuleRow {
   };
 }
 
-/** Maps proto severity int (1=info … 6=critical) to catalog Severity. */
-const SEVERITY_BY_PROTO: Record<number, Severity> = {
-  1: 'info',
-  2: 'low',
-  3: 'medium',
-  4: 'high',
-  5: 'critical',
-  6: 'critical',
-};
+/** True when JSON is already a portal ``Rule`` from catalog proxy (not raw gateway). */
+export function isPortalRuleRow(row: GatewayRuleRow): row is Rule {
+  if (row.rule_id) {
+    return false;
+  }
+  if (
+    row.resolved_severity_label !== null &&
+    row.resolved_severity_label !== undefined
+  ) {
+    return false;
+  }
+  if (
+    row.default_severity_label !== null &&
+    row.default_severity_label !== undefined
+  ) {
+    return false;
+  }
+  // Portal rules use ``id`` + catalog ``severity``; gateway rows use ``rule_id``.
+  return (
+    typeof row.id === 'string' && row.id.length > 0 && Boolean(row.severity)
+  );
+}
+
+/** Normalize a single rules API payload to portal ``Rule`` (idempotent for Rule JSON). */
+export function coerceRuleResponse(row: GatewayRuleRow | Rule): Rule {
+  if (isPortalRuleRow(row)) {
+    return row;
+  }
+  return normalizeGatewayRule(row);
+}
 
 function severityFromRow(row: GatewayRuleRow): Severity {
+  if (isPortalRuleRow(row)) {
+    return row.severity;
+  }
+
   const label = row.resolved_severity_label ?? row.default_severity_label;
   if (label) {
     const normalized = label.toLowerCase();
@@ -53,16 +82,23 @@ function severityFromRow(row: GatewayRuleRow): Severity {
       normalized === 'medium' ||
       normalized === 'low' ||
       normalized === 'info' ||
+      normalized === 'error' ||
       normalized === 'blocker'
     ) {
-      return normalized === 'blocker' ? 'critical' : normalized;
+      return normalized === 'error' || normalized === 'blocker'
+        ? 'critical'
+        : (normalized as Severity);
     }
   }
   const proto = row.resolved_severity ?? row.default_severity ?? 3;
-  return SEVERITY_BY_PROTO[proto] ?? 'medium';
+  return severityLevelToCatalogSeverity(severityProtoToLabel(proto));
 }
 
 function defaultSeverityFromRow(row: GatewayRuleRow): Severity | undefined {
+  if (isPortalRuleRow(row)) {
+    return row.defaultSeverity;
+  }
+
   if (row.default_severity_label) {
     return severityFromRow({
       default_severity_label: row.default_severity_label,
@@ -84,6 +120,10 @@ export function normalizeApmeCategory(category: string): string {
 }
 
 export function normalizeGatewayRule(row: GatewayRuleRow): Rule {
+  if (isPortalRuleRow(row)) {
+    return row;
+  }
+
   const id = row.rule_id ?? row.id ?? '';
   const override = row.override;
   const hasOverride =

@@ -19,9 +19,15 @@ import {
   createBackendModule,
 } from '@backstage/backend-plugin-api';
 import { CatalogClient } from '@backstage/catalog-client';
-import { apmeServiceRef, isApmeEnabled } from '@ansible/backstage-apme-common';
+import {
+  apmeServiceRef,
+  isApmeEnabled,
+  getApmeConfig,
+  resolveScanTargetVersion,
+} from '@ansible/backstage-apme-common';
 import { createRouter } from './router';
 import { registerApmeCatalogSyncTasks } from './apmeCatalogSyncScheduler';
+import { ApmePortalSettingsStore } from './apmePortalSettingsStore';
 
 export const catalogModuleApme = createBackendModule({
   pluginId: 'catalog',
@@ -55,13 +61,34 @@ export const catalogModuleApme = createBackendModule({
 
         logger.info('Initializing APME catalog module');
 
+        const configSnapshot = getApmeConfig(rootConfig);
+        const portalSettingsStore = new ApmePortalSettingsStore(
+          configSnapshot.portalSettingsPath,
+        );
+        logger.info(
+          `APME portal settings store at ${portalSettingsStore.path}`,
+        );
+
+        const resolveScanVersion = async (projectId: string) => {
+          const store = await portalSettingsStore.read();
+          return resolveScanTargetVersion({
+            projectId,
+            store,
+            configTargetAnsibleCoreVersion:
+              configSnapshot.targetAnsibleCoreVersion,
+          });
+        };
+
         const router = await createRouter({
           apmeService,
           logger,
           httpAuth,
           rootConfig,
+          portalSettingsStore,
         });
 
+        // Mounted on the catalog plugin stack — never apply global body parsers
+        // in createRouter (see jsonBody.ts / router regression test).
         httpRouter.use(router);
         logger.info('APME routes registered at /api/catalog/apme/*');
 
@@ -73,6 +100,7 @@ export const catalogModuleApme = createBackendModule({
           apmeService,
           rootConfig,
           logger,
+          resolveScanVersion,
         });
       },
     });

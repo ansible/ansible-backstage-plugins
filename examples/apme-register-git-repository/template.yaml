@@ -2,12 +2,13 @@ apiVersion: scaffolder.backstage.io/v1beta3
 kind: Template
 metadata:
   name: apme-register-git-repository
-  title: Register repo for Ansible Quality
+  title: Register repo for Ansible content modernization
   description: >-
     Registers your playbook or automation repository in the automation
-    portal catalog so it appears in Git Repos and can use the Quality tab
-    (scan, remediate, PR). Registers directly by default, no
-    catalog-info.yaml or pull request required.
+    portal catalog so it appears in Git Repos and you can run Ansible content
+    modernization from the Quality tab (scan, fix, open a PR). Registers
+    directly by default, no catalog-info.yaml or pull request required.
+    GitHub (github.com) only.
   tags:
     - apme
     - quality
@@ -18,14 +19,21 @@ spec:
 
   parameters:
     - title: Repository
+      description: >-
+        Select an existing **GitHub (github.com)** repository. Host is fixed to
+        github.com — choose owner/org and repository name separately. Do not
+        paste a full URL. Backstage may prompt for GitHub credentials when the
+        repository requires them (for example private repos or opening a PR).
       required:
         - repoUrl
         - defaultBranch
       properties:
         repoUrl:
-          title: Repository location
+          title: GitHub repository
           type: string
-          description: Existing GitHub repository to register for Quality scanning
+          description: >-
+            Host is locked to github.com. Enter owner/org and repository name
+            in the picker fields.
           ui:field: RepoUrlPicker
           ui:options:
             allowedHosts:
@@ -35,8 +43,10 @@ spec:
           type: string
           default: main
           description: >-
-            Default branch of the repository (usually main). Used for
-            display and Quality scans.
+            Branch used for modernization scans. Confirm on GitHub (Code →
+            branch dropdown) if unsure — many repos use `main`, but older
+            repos may use `master`. The Quality tab validates this branch
+            before scanning.
         openPullRequest:
           title: Open a pull request instead
           type: boolean
@@ -53,9 +63,9 @@ spec:
       action: ansible:register:git-repository
       input:
         sourceControlProvider: github
-        repositoryOwner: ${{ parameters.repoUrl | parseRepoUrl | pick('owner') }}
-        repositoryName: ${{ parameters.repoUrl | parseRepoUrl | pick('repo') }}
-        repositoryUrl: https://github.com/${{ parameters.repoUrl | parseRepoUrl | pick('owner') }}/${{ parameters.repoUrl | parseRepoUrl | pick('repo') }}
+        repositoryOwner: ${{ (parameters.repoUrl | parseRepoUrl).owner }}
+        repositoryName: ${{ (parameters.repoUrl | parseRepoUrl).repo }}
+        repositoryUrl: https://github.com/${{ (parameters.repoUrl | parseRepoUrl).owner }}/${{ (parameters.repoUrl | parseRepoUrl).repo }}
         defaultBranch: ${{ parameters.defaultBranch }}
 
     - id: fetch-base
@@ -65,10 +75,10 @@ spec:
       input:
         url: ./content
         values:
-          entityName: ${{ parameters.repoUrl | parseRepoUrl | pick('repo') }}
-          repoName: ${{ parameters.repoUrl | parseRepoUrl | pick('repo') }}
-          org: ${{ parameters.repoUrl | parseRepoUrl | pick('owner') }}
-          repoUrl: https://github.com/${{ parameters.repoUrl | parseRepoUrl | pick('owner') }}/${{ parameters.repoUrl | parseRepoUrl | pick('repo') }}
+          entityName: ${{ (parameters.repoUrl | parseRepoUrl).repo }}
+          repoName: ${{ (parameters.repoUrl | parseRepoUrl).repo }}
+          org: ${{ (parameters.repoUrl | parseRepoUrl).owner }}
+          repoUrl: https://github.com/${{ (parameters.repoUrl | parseRepoUrl).owner }}/${{ (parameters.repoUrl | parseRepoUrl).repo }}
           defaultBranch: ${{ parameters.defaultBranch }}
           owner: user:${{ user.entity.metadata.namespace }}/${{ user.entity.metadata.name }}
 
@@ -79,10 +89,10 @@ spec:
       input:
         repoUrl: ${{ parameters.repoUrl }}
         branchName: backstage-apme-catalog-info
-        title: Add catalog-info.yaml for Ansible Quality
+        title: Add catalog-info.yaml for Ansible content modernization
         description: |
           Registers this repository in the automation portal catalog as a git-repository
-          so teams can run Ansible content quality scans and remediation from the Quality tab.
+          so teams can run Ansible content modernization scans and fixes from the Quality tab.
 
           After merge, import or refresh the catalog entity, then open **Quality → Register and scan**.
         token: ${{ secrets.USER_OAUTH_TOKEN }}
@@ -92,7 +102,7 @@ spec:
       if: ${{ parameters.openPullRequest }}
       action: catalog:register
       input:
-        catalogInfoUrl: https://github.com/${{ parameters.repoUrl | parseRepoUrl | pick('owner') }}/${{ parameters.repoUrl | parseRepoUrl | pick('repo') }}/blob/${{ parameters.defaultBranch }}/catalog-info.yaml
+        catalogInfoUrl: https://github.com/${{ (parameters.repoUrl | parseRepoUrl).owner }}/${{ (parameters.repoUrl | parseRepoUrl).repo }}/blob/${{ parameters.defaultBranch }}/catalog-info.yaml
         optional: true
 
   output:
@@ -102,15 +112,15 @@ spec:
       - title: Go to Git Repositories
         icon: catalog
         url: /self-service/repositories/catalog
-      - title: Open in catalog
+      - title: Open repository
         icon: catalog
-        entityRef: ${{ steps['register-direct'].output.entityRef or steps['register-via-pr'].output.entityRef }}
+        url: /self-service/repositories/${{ steps['register-direct'].output.entityName or (parameters.repoUrl | parseRepoUrl).repo }}
     text:
       - title: Next steps
         content: |
           **If you registered directly (default):** your repository is already visible
-          in **Git Repos**. Open it and go to **Quality → Register and scan** to run the
-          remediation workflow (Select → Generate → Review → Push branch → Create PR).
+          in **Git Repos**. Open it and go to **Quality → Register and scan** to run
+          Ansible content modernization (Select issues → Create pull request).
 
           **If you chose to open a pull request instead:** review and merge the pull
           request first. If the entity isn't visible yet afterwards, use

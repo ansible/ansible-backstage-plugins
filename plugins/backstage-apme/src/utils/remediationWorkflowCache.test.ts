@@ -35,7 +35,7 @@ describe('remediationWorkflowCache', () => {
       remediationActivityId: 'scan-1',
       proposals: [],
       tier1Result: null,
-      selectedIds: [],
+      includeAiInBulk: false,
       approvedProposalIds: [],
       branchPushed: false,
     });
@@ -52,7 +52,7 @@ describe('remediationWorkflowCache', () => {
       remediationActivityId: 'scan-1',
       proposals: [],
       tier1Result: null,
-      selectedIds: [],
+      includeAiInBulk: false,
       approvedProposalIds: [],
       branchPushed: false,
     });
@@ -67,7 +67,7 @@ describe('remediationWorkflowCache', () => {
       remediationActivityId: 'scan-1',
       proposals: [],
       tier1Result: null,
-      selectedIds: [],
+      includeAiInBulk: false,
       approvedProposalIds: [],
       branchPushed: false,
     });
@@ -85,7 +85,7 @@ describe('remediationWorkflowCache', () => {
       remediationActivityId: 'scan-1',
       proposals: [],
       tier1Result: null,
-      selectedIds: [],
+      includeAiInBulk: false,
       approvedProposalIds: [],
       branchPushed: false,
     };

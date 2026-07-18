@@ -23,6 +23,10 @@
     "./operationStatus": "./src/operationStatus.ts",
     "./gatewayRules": "./src/gatewayRules.ts",
     "./scanTargetDefaults": "./src/scanTargetDefaults.ts",
+    "./ansibleCoreVersionOptions": "./src/ansibleCoreVersionOptions.ts",
+    "./resolveScanTarget": "./src/resolveScanTarget.ts",
+    "./config": "./src/config.ts",
+    "./registerOrResolveApmeProject": "./src/registerOrResolveApmeProject.ts",
     "./package.json": "./package.json"
   },
   "typesVersions": {
@@ -56,6 +60,18 @@
       ],
       "scanTargetDefaults": [
         "src/scanTargetDefaults.ts"
+      ],
+      "ansibleCoreVersionOptions": [
+        "src/ansibleCoreVersionOptions.ts"
+      ],
+      "resolveScanTarget": [
+        "src/resolveScanTarget.ts"
+      ],
+      "config": [
+        "src/config.ts"
+      ],
+      "registerOrResolveApmeProject": [
+        "src/registerOrResolveApmeProject.ts"
       ]
     }
   },

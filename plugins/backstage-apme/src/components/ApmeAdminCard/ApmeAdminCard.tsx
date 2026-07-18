@@ -17,6 +17,7 @@
 import { useAsync } from 'react-use';
 import { useApi, configApiRef } from '@backstage/core-plugin-api';
 import {
+  Box,
   Card,
   CardContent,
   CardHeader,
@@ -30,6 +31,7 @@ import ErrorIcon from '@material-ui/icons/Error';
 import { apmeApiRef } from '../../api';
 import { useApmeEnabled } from '../../hooks/useApmeEnabled';
 import { useApmeScanTargetLabel } from '../../hooks/useApmeScanTargetLabel';
+import { PreviewLabelRow } from '../PreviewChip';
 
 const useStyles = makeStyles(theme => ({
   connected: {
@@ -67,7 +69,7 @@ export const ApmeAdminCard = () => {
   const configApi = useApi(configApiRef);
   const enabled = useApmeEnabled();
   const baseUrl = configApi.getOptionalString('apme.baseUrl') ?? '—';
-  const scanTargetLabel = useApmeScanTargetLabel();
+  const scanTarget = useApmeScanTargetLabel();
 
   const { value: health, loading: healthLoading } = useAsync(async () => {
     if (!enabled) return null;
@@ -89,7 +91,12 @@ export const ApmeAdminCard = () => {
   return (
     <Card>
       <CardHeader
-        title="APME Integration"
+        title={
+          <Box display="flex" alignItems="center">
+            APME Integration
+            <PreviewLabelRow />
+          </Box>
+        }
         subheader="Content quality scanning"
       />
       <CardContent>
@@ -112,7 +119,7 @@ export const ApmeAdminCard = () => {
             <Typography variant="caption" color="textSecondary">
               Scan target
             </Typography>
-            <Typography variant="body2">{scanTargetLabel}</Typography>
+            <Typography variant="body2">{scanTarget.label}</Typography>
           </Grid>
           <Grid item xs={12} sm={6}>
             <Typography variant="caption" color="textSecondary">

@@ -88,7 +88,10 @@ describe('FleetQualityTab', () => {
     expect(
       await screen.findByText('Fleet quality', {}, { timeout: 5000 }),
     ).toBeInTheDocument();
-    expect(screen.getByTestId('preview-chip')).toBeInTheDocument();
+    expect(screen.getByTestId('preview-chip')).toHaveTextContent(
+      'Early access preview',
+    );
+    expect(screen.getByTestId('preview-feedback-link')).toBeInTheDocument();
     expect(
       await screen.findByText(
         /violations · .* rules · .* repositories/i,

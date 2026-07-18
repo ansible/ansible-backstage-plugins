@@ -41,10 +41,11 @@ export { ApmeRepositoryOverviewCard as ApmeRepositoryOverviewCardComponent } fro
 export { DependenciesTab as ApmeDependenciesTabComponent } from './components/DependenciesTab/DependenciesTab';
 export { ApmeRepositoryCollectionsTab as ApmeRepositoryCollectionsTabComponent } from './components/ApmeRepositoryCollectionsTab/ApmeRepositoryCollectionsTab';
 export { ApmeRepositoryHeaderActions as ApmeRepositoryHeaderActionsComponent } from './components/ApmeRepositoryHeaderActions/ApmeRepositoryHeaderActions';
+export { ApmeRemoveRepositoryDialog as ApmeRemoveRepositoryDialogComponent } from './components/ApmeRemoveRepositoryDialog/ApmeRemoveRepositoryDialog';
 export type { FleetQualityTabProps as ApmeFleetQualityTabProps } from './components/FleetQualityTab';
 export { PreviewChip as PreviewChipComponent } from './components/PreviewChip';
-export { ApmeEnabledEntityLayoutRoute as ApmeEnabledEntityLayoutRouteComponent } from './components/ApmeEnabledEntityLayoutRoute';
 export { apmeApiRef, ApmeApiClient } from './api';
+export { apmeApiFactory } from './api/apmeApiFactory';
 export type { ApmeApi } from './api';
 export {
   normalizeRepoUrlFromEntity,
@@ -56,3 +57,13 @@ export {
   normalizeRepoUrl,
 } from '@ansible/backstage-apme-common/normalizeRepoUrl';
 export { useApmeEnabled } from './hooks/useApmeEnabled';
+export {
+  ApmeViolationsCell,
+  resetApmeProjectsFetchPromise,
+} from './apis/apmeViolationsCell';
+export { gitRepositoriesExtensionsApiFactory } from './apis/gitRepositoriesExtensions';
+export {
+  createApmeGitRepositoriesExtensionsApi,
+  createGitRepositoriesExtensionsApiFactory,
+  withSuspense,
+} from './apis/apmeGitRepositoriesExtensionsCore';

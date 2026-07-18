@@ -136,6 +136,7 @@ export function registerGitRepositoryAction(options: {
       },
       output: {
         entityRef: z => z.string().optional(),
+        entityName: z => z.string().optional(),
       },
     },
     async handler(ctx) {
@@ -204,6 +205,7 @@ export function registerGitRepositoryAction(options: {
       if (result.entityRef) {
         ctx.output('entityRef', result.entityRef);
       }
+      ctx.output('entityName', entity.metadata.name);
 
       logger.info(
         `[ansible:register:git-repository] Successfully registered ${values.repositoryOwner}/${values.repositoryName} in the catalog`,

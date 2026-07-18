@@ -13,6 +13,7 @@ import {
 import CheckCircleIcon from '@material-ui/icons/CheckCircle';
 import ErrorIcon from '@material-ui/icons/Error';
 import CodeIcon from '@material-ui/icons/Code';
+import GitHubIcon from '@material-ui/icons/GitHub';
 
 const useStyles = makeStyles(theme => ({
   banner: {
@@ -23,21 +24,33 @@ const useStyles = makeStyles(theme => ({
     justifyContent: 'space-between',
     gap: theme.spacing(2),
     flexWrap: 'wrap',
-  },
-  success: {
-    backgroundColor: theme.palette.success.light,
-  },
-  info: {
     backgroundColor:
-      theme.palette.type === 'dark' ? 'rgba(33, 150, 243, 0.15)' : '#e7f1fa',
+      theme.palette.type === 'dark'
+        ? 'rgba(33, 150, 243, 0.12)'
+        : theme.palette.background.paper,
+    border: `1px solid ${theme.palette.divider}`,
+    color: theme.palette.text.primary,
   },
-  error: {
-    backgroundColor: theme.palette.error.light,
+  errorBanner: {
+    backgroundColor:
+      theme.palette.type === 'dark'
+        ? 'rgba(211, 47, 47, 0.12)'
+        : theme.palette.background.paper,
+    borderColor:
+      theme.palette.type === 'dark'
+        ? 'rgba(211, 47, 47, 0.4)'
+        : theme.palette.error.light,
   },
   actions: {
     display: 'flex',
     gap: theme.spacing(1),
     flexWrap: 'wrap',
+  },
+  message: {
+    color: theme.palette.text.primary,
+  },
+  link: {
+    color: theme.palette.primary.main,
   },
 }));
 
@@ -49,6 +62,8 @@ export interface PrStatusBannerProps {
   pushError?: string;
   branchPushed?: boolean;
   merged?: boolean;
+  /** Compare default branch … remediation branch (GitHub Files changed view). */
+  githubCompareUrl?: string | null;
   devSpacesUrl?: string | null;
   creatingPr?: boolean;
   onCreatePr?: () => void;
@@ -64,6 +79,7 @@ export const PrStatusBanner = ({
   pushError,
   branchPushed,
   merged,
+  githubCompareUrl,
   devSpacesUrl,
   creatingPr,
   onCreatePr,
@@ -72,42 +88,53 @@ export const PrStatusBanner = ({
 }: PrStatusBannerProps) => {
   const classes = useStyles();
 
+  const viewChangesOnGitHub = githubCompareUrl ? (
+    <Button
+      size="small"
+      variant="outlined"
+      color="primary"
+      startIcon={<GitHubIcon style={{ fontSize: 14 }} />}
+      href={githubCompareUrl}
+      target="_blank"
+      rel="noopener noreferrer"
+    >
+      View changes on GitHub
+    </Button>
+  ) : null;
+
   if (pushError) {
     return (
-      <Paper className={`${classes.banner} ${classes.error}`} elevation={1}>
+      <Paper
+        className={`${classes.banner} ${classes.errorBanner}`}
+        elevation={0}
+      >
         <Box display="flex" alignItems="center" style={{ gap: 8 }}>
           <ErrorIcon color="error" />
-          <Typography variant="body2">
+          <Typography variant="body2" className={classes.message}>
             Push branch failed: {pushError}
           </Typography>
         </Box>
-        {devSpacesUrl && (
-          <Button
-            size="small"
-            variant="outlined"
-            startIcon={<CodeIcon style={{ fontSize: 14 }} />}
-            href={devSpacesUrl}
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Open in Dev Spaces
-          </Button>
-        )}
       </Paper>
     );
   }
 
   if (error) {
     return (
-      <Paper className={`${classes.banner} ${classes.error}`} elevation={1}>
+      <Paper
+        className={`${classes.banner} ${classes.errorBanner}`}
+        elevation={0}
+      >
         <Box display="flex" alignItems="center" style={{ gap: 8 }}>
           <ErrorIcon color="error" />
-          <Typography variant="body2">PR creation failed: {error}</Typography>
+          <Typography variant="body2" className={classes.message}>
+            PR creation failed: {error}
+          </Typography>
         </Box>
         {branchPushed && onCreatePr && (
           <Button
             size="small"
             variant="outlined"
+            color="primary"
             onClick={onCreatePr}
             disabled={creatingPr}
           >
@@ -120,15 +147,20 @@ export const PrStatusBanner = ({
 
   if (merged) {
     return (
-      <Paper className={`${classes.banner} ${classes.success}`} elevation={1}>
+      <Paper className={classes.banner} elevation={0}>
         <Box display="flex" alignItems="center" style={{ gap: 8 }}>
-          <CheckCircleIcon style={{ color: '#2e7d32' }} />
-          <Typography variant="body2">
+          <CheckCircleIcon color="primary" />
+          <Typography variant="body2" className={classes.message}>
             Violations resolved · PR #{prNumber} merged
           </Typography>
         </Box>
         {onScanAgain && (
-          <Button size="small" variant="outlined" onClick={onScanAgain}>
+          <Button
+            size="small"
+            variant="outlined"
+            color="primary"
+            onClick={onScanAgain}
+          >
             Scan again
           </Button>
         )}
@@ -138,50 +170,28 @@ export const PrStatusBanner = ({
 
   if (prUrl) {
     return (
-      <Paper className={`${classes.banner} ${classes.success}`} elevation={1}>
+      <Paper className={classes.banner} elevation={0}>
         <Box display="flex" alignItems="center" style={{ gap: 8 }}>
-          <CheckCircleIcon style={{ color: '#2e7d32' }} />
-          <Typography variant="body2">
+          <CheckCircleIcon color="primary" />
+          <Typography variant="body2" className={classes.message}>
             PR #{prNumber ?? '—'} opened
             {branchName ? ` on ${branchName}` : ''} ·{' '}
-            <Link href={prUrl} target="_blank" rel="noopener">
+            <Link
+              href={prUrl}
+              target="_blank"
+              rel="noopener"
+              className={classes.link}
+            >
               View pull request
             </Link>
           </Typography>
         </Box>
         <Box className={classes.actions}>
+          {viewChangesOnGitHub}
           {devSpacesUrl && (
             <Button
               size="small"
               variant="outlined"
-              startIcon={<CodeIcon style={{ fontSize: 14 }} />}
-              href={devSpacesUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-            >
-              Edit in Dev Spaces
-            </Button>
-          )}
-        </Box>
-      </Paper>
-    );
-  }
-
-  if (branchPushed && branchName) {
-    return (
-      <Paper className={`${classes.banner} ${classes.info}`} elevation={1}>
-        <Box display="flex" alignItems="center" style={{ gap: 8 }}>
-          <CheckCircleIcon style={{ color: '#0066cc' }} />
-          <Typography variant="body2">
-            Remediation branch <strong>{branchName}</strong> pushed. Open in Dev
-            Spaces to review the fixes and commit when ready.
-          </Typography>
-        </Box>
-        <Box className={classes.actions}>
-          {devSpacesUrl && (
-            <Button
-              size="small"
-              variant="contained"
               color="primary"
               startIcon={<CodeIcon style={{ fontSize: 14 }} />}
               href={devSpacesUrl}
@@ -191,14 +201,45 @@ export const PrStatusBanner = ({
               Open in Dev Spaces
             </Button>
           )}
+        </Box>
+      </Paper>
+    );
+  }
+
+  if (branchPushed && branchName) {
+    return (
+      <Paper className={classes.banner} elevation={0}>
+        <Box display="flex" alignItems="center" style={{ gap: 8 }}>
+          <CheckCircleIcon color="primary" />
+          <Typography variant="body2" className={classes.message}>
+            Remediation branch <strong>{branchName}</strong> pushed. Create a
+            pull request when you are ready to review the fixes.
+          </Typography>
+        </Box>
+        <Box className={classes.actions}>
           {onCreatePr && !hideCreatePrAction && (
             <Button
               size="small"
               variant="outlined"
+              color="primary"
               onClick={onCreatePr}
               disabled={creatingPr}
             >
               {creatingPr ? 'Creating PR…' : 'Create pull request'}
+            </Button>
+          )}
+          {viewChangesOnGitHub}
+          {devSpacesUrl && (
+            <Button
+              size="small"
+              variant="outlined"
+              color="primary"
+              startIcon={<CodeIcon style={{ fontSize: 14 }} />}
+              href={devSpacesUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              Open in Dev Spaces
             </Button>
           )}
         </Box>

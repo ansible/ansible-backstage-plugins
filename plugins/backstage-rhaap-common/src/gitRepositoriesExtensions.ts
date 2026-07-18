@@ -79,11 +79,22 @@ export type GitRepositoryCatalogColumnDefinition = {
   render: (entity: Entity) => ReactNode;
 };
 
+/**
+ * Persistent overlay on the repository detail page (outside the Actions Menu).
+ * Use for dialogs that must survive menu close (e.g. remove confirmation).
+ */
+export type GitRepositoryDetailOverlayDefinition = {
+  id: string;
+  order: number;
+  render: (context: GitRepositoryDetailTabContext) => ReactNode;
+};
+
 export interface GitRepositoriesExtensionsApi {
   getPageTabs(): GitRepositoriesPageTabDefinition[];
   getDetailTabs(): GitRepositoryDetailTabDefinition[];
   getDetailOverviewSlots(): GitRepositoryDetailOverviewSlotDefinition[];
   getDetailHeaderMenuItems(): GitRepositoryDetailHeaderMenuItemDefinition[];
+  getDetailOverlays(): GitRepositoryDetailOverlayDefinition[];
   getCollectionsTabContent(
     context: GitRepositoryDetailTabContext,
   ): ReactNode | null;
@@ -111,6 +122,10 @@ export class DefaultGitRepositoriesExtensionsApi implements GitRepositoriesExten
   }
 
   getDetailHeaderMenuItems(): GitRepositoryDetailHeaderMenuItemDefinition[] {
+    return [];
+  }
+
+  getDetailOverlays(): GitRepositoryDetailOverlayDefinition[] {
     return [];
   }
 

@@ -16,6 +16,16 @@
 
 export interface Config {
   ansible?: {
+    /**
+     * @deepVisibility frontend
+     */
+    devSpaces?: {
+      /**
+       * OpenShift Dev Spaces dashboard base URL.
+       * @visibility frontend
+       */
+      baseUrl?: string;
+    };
     apme?: {
       /**
        * When false, the plugin registers no routes, sidebar, or UI surfaces.
@@ -47,6 +57,25 @@ export interface Config {
        * @visibility frontend
        */
       publishViaGateway?: boolean;
+      /**
+       * Timeout in milliseconds for remediation submit / push branch / create PR.
+       * Large remedia pushes may need longer than the default short HTTP timeout.
+       * @default 300000
+       * @visibility frontend
+       */
+      submitTimeoutMs?: number;
+      /**
+       * Default ansible-core scan target for quality scans (Helm / app-config).
+       * Shown read-only in Quality Settings; not editable in the portal UI.
+       * @visibility frontend
+       */
+      targetAnsibleCoreVersion?: string;
+      /**
+       * Early-access feedback form URL. Omit for default EAP form; set "" to hide link.
+       * @default https://forms.gle/VUvfyTjnVax83GPt6
+       * @visibility frontend
+       */
+      feedbackFormUrl?: string;
     };
   };
 }

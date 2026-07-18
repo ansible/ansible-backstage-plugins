@@ -20,12 +20,9 @@ import { useApmeEnabled } from '../../hooks/useApmeEnabled';
 
 /** Entity Quality tab route — hidden when APME is disabled (ADR-010). */
 export const ApmeEnabledEntityLayoutRoute = () => {
-  const enabled = useApmeEnabled();
-  if (!enabled) {
-    return null;
-  }
+  const apmeEnabled = useApmeEnabled();
   return (
-    <EntityLayout.Route path="/apme" title="Quality">
+    <EntityLayout.Route path="/apme" title="Quality" if={() => apmeEnabled}>
       <ApmeEntityTab />
     </EntityLayout.Route>
   );

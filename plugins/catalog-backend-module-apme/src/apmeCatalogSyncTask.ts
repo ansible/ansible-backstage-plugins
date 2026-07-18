@@ -22,6 +22,7 @@ import {
   ApmeGitContentsSyncConfig,
   createProjectRequestFromEntity,
   IApmeService,
+  registerOrResolveApmeProject,
   scanOnRegisterForEntity,
   selectEntitiesForApmeSync,
   sliceApmeSyncBatch,
@@ -36,6 +37,7 @@ export interface ApmeCatalogSyncTaskOptions {
   logger: LoggerService;
   syncConfig: ApmeGitContentsSyncConfig;
   offset: number;
+  resolveScanVersion?: (projectId: string) => Promise<string>;
 }
 
 async function getCatalogEntities(
@@ -61,7 +63,7 @@ async function getCatalogEntities(
 export async function runApmeCatalogSyncBatch(
   options: ApmeCatalogSyncTaskOptions,
 ): Promise<ApmeCatalogSyncSummary> {
-  const { apmeService, catalogClient, auth, logger, syncConfig, offset } =
+  const { apmeService, catalogClient, auth, logger, syncConfig, offset, resolveScanVersion } =
     options;
 
   const summary: ApmeCatalogSyncSummary = {
@@ -102,17 +104,22 @@ export async function runApmeCatalogSyncBatch(
     }
 
     try {
-      let project = await apmeService.getProjectByRepoUrl(
+      const existing = await apmeService.getProjectByRepoUrl(
         request.repo_url,
         request.branch,
       );
-      if (!project) {
-        project = await apmeService.createProject(request);
+      const project = existing
+        ? existing
+        : await registerOrResolveApmeProject(apmeService, request);
+      if (!existing) {
         summary.registered += 1;
       }
 
       if (scanOnRegisterForEntity(entity, syncConfig)) {
-        await apmeService.triggerScan(project.id);
+        const ansibleVersion = resolveScanVersion
+          ? await resolveScanVersion(project.id)
+          : undefined;
+        await apmeService.triggerScan(project.id, { ansibleVersion });
         summary.scanned += 1;
       }
     } catch (error) {
