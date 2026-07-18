@@ -19,19 +19,6 @@
 app:
   title: Ansible RHDH / Self-Service
   baseUrl: http://localhost:3000
-  support:
-    url: https://github.com/ansible/ansible-backstage-plugins/issues
-    items:
-      - title: GitHub Issues
-        icon: github
-        links:
-          - url: https://github.com/ansible/ansible-backstage-plugins/issues
-            title: Report an issue
-      - title: Documentation
-        icon: docs
-        links:
-          - url: https://github.com/ansible/ansible-backstage-plugins#readme
-            title: Plugin documentation
 organization:
   name: Ansible RHDH
 backend:
@@ -99,9 +86,6 @@ auth:
       development:
         clientId: ${AUTH_GITHUB_CLIENT_ID}
         clientSecret: ${AUTH_GITHUB_CLIENT_SECRET}
-        additionalScopes:
-          - repo
-          - read:org
     gitlab:
       development:
         clientId: ${AUTH_GITLAB_CLIENT_ID}
@@ -210,10 +194,10 @@ ansible:
   automationHub:
     baseUrl: https://example.com
   rhaap:
-    # Ansible Automation Platform connection settings — override in app-config.local.yaml
-    baseUrl: <changeme>
-    token: <changeme>
-    checkSSL: false
+    # Ansible Automation Platform connection settings
+    baseUrl: ${AAP_HOST}
+    token: ${AAP_API_TOKEN}
+    checkSSL: false        # Set to true in production
   creatorService:
     baseUrl: localhost
     port: '8000'
