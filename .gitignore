@@ -49,6 +49,7 @@ site
 
 # Local configuration files
 *.local.yaml
+app-config.production.yaml
 
 # Sensitive credentials
 *-credentials.yaml
