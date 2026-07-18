@@ -48,6 +48,7 @@ import {
 } from '@ansible/backstage-apme-common/severity';
 import { apmeApiRef } from '../../api';
 import { useApmeEnabled } from '../../hooks/useApmeEnabled';
+import { useApmeColorTokens } from '../../hooks/useApmeColorTokens';
 import { DEFAULT_APME_TARGET_ANSIBLE_CORE_VERSION } from '@ansible/backstage-apme-common/scanTargetDefaults';
 import { formatAnsibleCoreVersionLabel } from '../../utils/scanTargetVersion';
 import { PreviewLabelRow } from '../PreviewChip';
@@ -118,6 +119,7 @@ function connectionStatusLabel(
 /** Quality settings tab for Git Repositories — Overview + Rules admin. */
 export const ApmeQualitySettingsTab = () => {
   const classes = useStyles();
+  const colorTokens = useApmeColorTokens();
   const apmeApi = useApi(apmeApiRef);
   const configApi = useApi(configApiRef);
   const enabled = useApmeEnabled();
@@ -352,12 +354,16 @@ export const ApmeQualitySettingsTab = () => {
             width: '10%',
             render: (row: Rule) => {
               const sev = row.defaultSeverity ?? row.severity;
+              const tokens = colorTokens.severity[normalizeSeverity(sev)];
               const s = SEVERITY_STYLES[normalizeSeverity(sev)];
               return s ? (
                 <Chip
                   size="small"
                   label={s.label}
-                  style={{ backgroundColor: s.background, color: s.text }}
+                  style={{
+                    backgroundColor: tokens.pillBackground,
+                    color: tokens.pillText,
+                  }}
                 />
               ) : (
                 sev
@@ -473,16 +479,15 @@ export const ApmeQualitySettingsTab = () => {
       </Tabs>
 
       {subTab === 0 && (
-        <Card>
-          <CardHeader
-            title={
-              <Box display="flex" alignItems="center">
-                Content quality scanning
-                <PreviewLabelRow />
-              </Box>
-            }
-            subheader="Global settings — configure individual rules on the Rules tab"
-          />
+        <>
+          <Box marginBottom={1}>
+            <PreviewLabelRow />
+          </Box>
+          <Card>
+            <CardHeader
+              title="Content quality scanning"
+              subheader="Global settings — configure individual rules on the Rules tab"
+            />
           <CardContent>
             <Typography variant="body2">
               {connected ? (
@@ -561,6 +566,7 @@ export const ApmeQualitySettingsTab = () => {
             </Grid>
           </CardContent>
         </Card>
+        </>
       )}
 
       {subTab === 1 && (

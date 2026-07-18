@@ -97,6 +97,280 @@ export const FIX_TYPE_STYLES: Record<FixType, FixTypeStyle> = {
   },
 };
 
+export type ThemeMode = 'light' | 'dark';
+
+export interface SeverityColorTokens {
+  pillBackground: string;
+  pillText: string;
+  inlineText: string;
+  barFill: string;
+}
+
+export interface FixTypeColorTokens {
+  pillBackground: string;
+  pillText: string;
+  inlineText: string;
+}
+
+export interface DependencySourceTokens {
+  background: string;
+  text: string;
+}
+
+export interface DependencyViolationTokens {
+  countPillBackground: string;
+  countPillText: string;
+  okCheckColor: string;
+}
+
+export interface CodePreviewTokens {
+  background: string;
+  text: string;
+  lineNumber: string;
+  divider: string;
+  highlightBackground: string;
+  highlightBorder: string;
+}
+
+/** ADR-012 early-access preview chip (Plugin Factory non-GA surfaces). */
+export interface PreviewSurfaceTokens {
+  prominentBackground: string;
+  prominentText: string;
+  prominentBorder: string;
+  outlinedBackground: string;
+  outlinedText: string;
+  outlinedBorder: string;
+}
+
+const SEVERITY_COLOR_TOKENS: Record<
+  ThemeMode,
+  Record<SeverityLevel, SeverityColorTokens>
+> = {
+  light: {
+    critical: {
+      pillBackground: '#a30000',
+      pillText: '#ffffff',
+      inlineText: '#a30000',
+      barFill: '#a30000',
+    },
+    error: {
+      pillBackground: '#c9190b',
+      pillText: '#ffffff',
+      inlineText: '#c9190b',
+      barFill: '#c9190b',
+    },
+    high: {
+      pillBackground: '#f56a00',
+      pillText: '#ffffff',
+      inlineText: '#c46100',
+      barFill: '#f56a00',
+    },
+    medium: {
+      pillBackground: '#c58c00',
+      pillText: '#ffffff',
+      inlineText: '#8a6900',
+      barFill: '#f0ab00',
+    },
+    low: {
+      pillBackground: '#2b9af3',
+      pillText: '#ffffff',
+      inlineText: '#0066cc',
+      barFill: '#2b9af3',
+    },
+    info: {
+      pillBackground: '#6a6e73',
+      pillText: '#ffffff',
+      inlineText: '#4d5358',
+      barFill: '#6a6e73',
+    },
+  },
+  dark: {
+    critical: {
+      pillBackground: '#7d1007',
+      pillText: '#ffffff',
+      inlineText: '#fe5149',
+      barFill: '#a30000',
+    },
+    error: {
+      pillBackground: '#a30000',
+      pillText: '#ffffff',
+      inlineText: '#fe5149',
+      barFill: '#c9190b',
+    },
+    high: {
+      pillBackground: '#8f4700',
+      pillText: '#ffffff',
+      inlineText: '#ff8c00',
+      barFill: '#f56a00',
+    },
+    medium: {
+      pillBackground: '#7a5c00',
+      pillText: '#ffffff',
+      inlineText: '#f0ab00',
+      barFill: '#c58c00',
+    },
+    low: {
+      pillBackground: '#004368',
+      pillText: '#ffffff',
+      inlineText: '#92d5ff',
+      barFill: '#2b9af3',
+    },
+    info: {
+      pillBackground: '#4d5358',
+      pillText: '#ffffff',
+      inlineText: '#b8bbbe',
+      barFill: '#6a6e73',
+    },
+  },
+};
+
+const FIX_TYPE_COLOR_TOKENS: Record<
+  ThemeMode,
+  Record<FixType, FixTypeColorTokens>
+> = {
+  light: {
+    auto: {
+      pillBackground: '#4caf50',
+      pillText: '#ffffff',
+      inlineText: '#1a7f37',
+    },
+    ai: {
+      pillBackground: '#2196f3',
+      pillText: '#ffffff',
+      inlineText: '#6753ac',
+    },
+    manual: {
+      pillBackground: '#6a6e73',
+      pillText: '#ffffff',
+      inlineText: '#6a6e73',
+    },
+  },
+  dark: {
+    auto: {
+      pillBackground: '#1a7f37',
+      pillText: '#ffffff',
+      inlineText: '#3fb950',
+    },
+    ai: {
+      pillBackground: '#6753ac',
+      pillText: '#ffffff',
+      inlineText: '#a78bfa',
+    },
+    manual: {
+      pillBackground: '#4d5358',
+      pillText: '#ffffff',
+      inlineText: '#9ca3af',
+    },
+  },
+};
+
+const DEPENDENCY_SOURCE_TOKENS: Record<
+  ThemeMode,
+  Record<string, DependencySourceTokens>
+> = {
+  light: {
+    specified: { background: '#e7f1fa', text: '#0066cc' },
+    dependency: { background: '#f4f0e6', text: '#795600' },
+    learned: { background: '#e9f5e9', text: '#3e8635' },
+    galaxy: { background: '#e7f1fa', text: '#0066cc' },
+    local: { background: '#f4f0e6', text: '#795600' },
+    git: { background: '#e9f5e9', text: '#3e8635' },
+  },
+  dark: {
+    specified: { background: 'rgba(43, 154, 243, 0.12)', text: '#6cb8f7' },
+    dependency: { background: 'rgba(197, 140, 0, 0.12)', text: '#e6b800' },
+    learned: { background: 'rgba(62, 134, 53, 0.12)', text: '#7cc576' },
+    galaxy: { background: 'rgba(43, 154, 243, 0.12)', text: '#6cb8f7' },
+    local: { background: 'rgba(197, 140, 0, 0.12)', text: '#e6b800' },
+    git: { background: 'rgba(62, 134, 53, 0.12)', text: '#7cc576' },
+  },
+};
+
+const DEPENDENCY_VIOLATION_TOKENS: Record<
+  ThemeMode,
+  DependencyViolationTokens
+> = {
+  light: {
+    countPillBackground: '#fdeaea',
+    countPillText: '#c9190b',
+    okCheckColor: '#3e8635',
+  },
+  dark: {
+    countPillBackground: 'rgba(201, 25, 11, 0.15)',
+    countPillText: '#fe5149',
+    okCheckColor: '#3fb950',
+  },
+};
+
+function buildCodePreviewTokens(mode: ThemeMode): CodePreviewTokens {
+  const error = SEVERITY_COLOR_TOKENS[mode].error;
+  return {
+    background: mode === 'dark' ? '#212121' : '#f5f5f5',
+    text: mode === 'dark' ? '#e0e0e0' : '#151515',
+    lineNumber: mode === 'dark' ? '#9e9e9e' : '#757575',
+    divider: mode === 'dark' ? 'rgba(255,255,255,0.12)' : 'rgba(0,0,0,0.12)',
+    highlightBackground:
+      mode === 'dark' ? 'rgba(201, 25, 11, 0.15)' : 'rgba(201, 25, 11, 0.10)',
+    highlightBorder: error.barFill,
+  };
+}
+
+const CODE_PREVIEW_TOKENS: Record<ThemeMode, CodePreviewTokens> = {
+  light: buildCodePreviewTokens('light'),
+  dark: buildCodePreviewTokens('dark'),
+};
+
+const PREVIEW_SURFACE_TOKENS: Record<ThemeMode, PreviewSurfaceTokens> = {
+  light: {
+    prominentBackground: '#fdeaea',
+    prominentText: '#7d1007',
+    prominentBorder: '#c9190b',
+    outlinedBackground: 'transparent',
+    outlinedText: '#c9190b',
+    outlinedBorder: '#c9190b',
+  },
+  dark: {
+    prominentBackground: 'rgba(250, 120, 120, 0.22)',
+    prominentText: '#fe5149',
+    prominentBorder: 'rgba(250, 120, 120, 0.45)',
+    outlinedBackground: 'transparent',
+    outlinedText: '#fe5149',
+    outlinedBorder: 'rgba(250, 120, 120, 0.45)',
+  },
+};
+
+export function getSeverityColorTokens(
+  mode: ThemeMode,
+): Record<SeverityLevel, SeverityColorTokens> {
+  return SEVERITY_COLOR_TOKENS[mode];
+}
+
+export function getFixTypeColorTokens(
+  mode: ThemeMode,
+): Record<FixType, FixTypeColorTokens> {
+  return FIX_TYPE_COLOR_TOKENS[mode];
+}
+
+export function getDependencySourceTokens(
+  mode: ThemeMode,
+): Record<string, DependencySourceTokens> {
+  return DEPENDENCY_SOURCE_TOKENS[mode];
+}
+
+export function getDependencyViolationTokens(
+  mode: ThemeMode,
+): DependencyViolationTokens {
+  return DEPENDENCY_VIOLATION_TOKENS[mode];
+}
+
+export function getCodePreviewTokens(mode: ThemeMode): CodePreviewTokens {
+  return CODE_PREVIEW_TOKENS[mode];
+}
+
+export function getPreviewSurfaceTokens(mode: ThemeMode): PreviewSurfaceTokens {
+  return PREVIEW_SURFACE_TOKENS[mode];
+}
+
 const APME_TO_PORTAL_SEVERITY: Record<string, SeverityLevel> = {
   critical: 'critical',
   fatal: 'critical',

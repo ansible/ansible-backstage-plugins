@@ -65,7 +65,9 @@ function findViolationForTier1Patch(
     v =>
       v.rule_id === fixed.rule_id &&
       v.file === fixed.file &&
-      (fixed.line == null || v.line === fixed.line),
+      (fixed.line === undefined ||
+        fixed.line === null ||
+        v.line === fixed.line),
   );
 }
 

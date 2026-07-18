@@ -29,13 +29,15 @@ import KeyboardArrowDownIcon from '@material-ui/icons/KeyboardArrowDown';
 import { Progress } from '@backstage/core-components';
 import type { Project } from '@ansible/backstage-apme-common/types';
 import {
-  SEVERITY_STYLES,
   SEVERITY_ORDER,
   normalizeSeverity,
   categoryLabel,
+  effectiveFixType,
   fixTierShortLabel,
+  getFixTypeColorTokens,
   type SeverityLevel,
 } from '@ansible/backstage-apme-common/severity';
+import { useApmeColorTokens } from '../../hooks/useApmeColorTokens';
 import { apmeApiRef } from '../../api';
 import { projectLookupKey } from '@ansible/backstage-rhaap-common/catalogEntity';
 import { useApmeEnabled, useApmeAiEnabled } from '../../hooks/useApmeEnabled';
@@ -53,11 +55,14 @@ const SEVERITY_WEIGHT: Record<SeverityLevel, number> = {
   info: 1,
 };
 
-const FIX_TIER_COLORS: Record<string, { light: string; dark: string }> = {
-  auto: { light: '#1a7f37', dark: '#3fb950' },
-  ai: { light: '#6753ac', dark: '#a78bfa' },
-  manual: { light: '#6b7280', dark: '#9ca3af' },
-};
+function fixTierColor(
+  remClass: number,
+  enableAi: boolean,
+  mode: 'light' | 'dark',
+): string {
+  const fixType = effectiveFixType(remClass, enableAi) ?? 'manual';
+  return getFixTypeColorTokens(mode)[fixType].inlineText;
+}
 
 const useStyles = makeStyles(theme => ({
   summaryBar: {
@@ -168,26 +173,12 @@ function entityProjectLookupKey(entity: Entity): string | undefined {
   return projectLookupKey(repoUrl, branch);
 }
 
-function fixTierColor(
-  remClass: number,
-  enableAi: boolean,
-  isDark: boolean,
-): string {
-  const label = fixTierShortLabel(remClass, enableAi);
-  if (label === 'Auto-fix') {
-    return isDark ? FIX_TIER_COLORS.auto.dark : FIX_TIER_COLORS.auto.light;
-  }
-  if (label === 'AI-fix') {
-    return isDark ? FIX_TIER_COLORS.ai.dark : FIX_TIER_COLORS.ai.light;
-  }
-  return isDark ? FIX_TIER_COLORS.manual.dark : FIX_TIER_COLORS.manual.light;
-}
-
 export const FleetQualityTab = ({
   repositoryDetailPath,
 }: FleetQualityTabProps) => {
   const classes = useStyles();
   const theme = useTheme();
+  const colorTokens = useApmeColorTokens();
   const isDark = theme.palette.type === 'dark';
   const apmeApi = useApi(apmeApiRef);
   const catalogApi = useApi(catalogApiRef);
@@ -438,18 +429,19 @@ export const FleetQualityTab = ({
 
   return (
     <Box>
+      <Box marginBottom={1}>
+        <PreviewLabelRow />
+      </Box>
+
       <Box className={classes.titleRow}>
         <Typography variant="h6">Fleet quality</Typography>
-        <Box display="flex" alignItems="center" style={{ gap: 12 }}>
-          <Link
-            component={RouterLink}
-            to="/self-service/repositories/quality-settings?section=rules"
-            style={{ fontSize: 13 }}
-          >
-            All rules catalog →
-          </Link>
-          <PreviewLabelRow />
-        </Box>
+        <Link
+          component={RouterLink}
+          to="/self-service/repositories/quality-settings?section=rules"
+          style={{ fontSize: 13 }}
+        >
+          All rules catalog →
+        </Link>
       </Box>
 
       <Box className={classes.summaryBar}>
@@ -483,7 +475,9 @@ export const FleetQualityTab = ({
           }
           const isActive = severityFilters.has(sev);
           const isDimmed = hasFilter && !isActive && severityFilters.size > 0;
-          const color = SEVERITY_STYLES[sev].background;
+          const tokens = colorTokens.severity[sev];
+          const color = tokens.barFill;
+          const inlineColor = tokens.inlineText;
           return (
             <Box
               key={sev}
@@ -514,7 +508,7 @@ export const FleetQualityTab = ({
                 style={{
                   fontSize: 12,
                   textTransform: 'capitalize',
-                  color: isActive ? color : theme.palette.text.secondary,
+                  color: isActive ? inlineColor : theme.palette.text.secondary,
                   fontWeight: isActive ? 600 : 400,
                 }}
               >
@@ -607,7 +601,7 @@ export const FleetQualityTab = ({
             <tbody>
               {sortedGroups.map(group => {
                 const sev = normalizeSeverity(group.level);
-                const color = SEVERITY_STYLES[sev].background;
+                const sevTokens = colorTokens.severity[sev];
                 const isExpanded = expandedRule === group.ruleId;
 
                 return [
@@ -647,8 +641,8 @@ export const FleetQualityTab = ({
                           textTransform: 'uppercase',
                           letterSpacing: 0.3,
                           whiteSpace: 'nowrap',
-                          backgroundColor: sev === 'medium' ? '#c58c00' : color,
-                          color: '#fff',
+                          backgroundColor: sevTokens.pillBackground,
+                          color: sevTokens.pillText,
                         }}
                       >
                         {group.totalCount} {sev}
@@ -753,7 +747,7 @@ export const FleetQualityTab = ({
                                     color: fixTierColor(
                                       r.remediationClass,
                                       enableAi,
-                                      isDark,
+                                      colorTokens.mode,
                                     ),
                                     flexShrink: 0,
                                   }}

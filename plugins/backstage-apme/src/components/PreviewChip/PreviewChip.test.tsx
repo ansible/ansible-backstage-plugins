@@ -10,17 +10,21 @@ import { TestApiProvider } from '@backstage/test-utils';
 import { configApiRef } from '@backstage/core-plugin-api';
 import { DEFAULT_APME_FEEDBACK_FORM_URL } from '../../constants/previewFeedback';
 import {
+  PreviewChip,
   PreviewFeedbackLink,
   PreviewLabelRow,
   PreviewNotice,
   usePreviewFeedbackUrl,
 } from './PreviewChip';
+import { getPreviewSurfaceTokens } from '@ansible/backstage-apme-common/severity';
 
 const theme = createTheme();
+const darkTheme = createTheme({ palette: { type: 'dark' } });
 
 function renderWithConfig(
   ui: ReactElement,
   config: Record<string, string | boolean> = { 'ansible.apme.enabled': true },
+  themeOverride = theme,
 ) {
   const configApi = {
     getOptionalString: (key: string) => {
@@ -34,7 +38,7 @@ function renderWithConfig(
   };
   return render(
     <TestApiProvider apis={[[configApiRef, configApi]]}>
-      <ThemeProvider theme={theme}>{ui}</ThemeProvider>
+      <ThemeProvider theme={themeOverride}>{ui}</ThemeProvider>
     </TestApiProvider>,
   );
 }
@@ -75,6 +79,38 @@ describe('usePreviewFeedbackUrl', () => {
       'ansible.apme.enabled': false,
     });
     expect(screen.getByTestId('feedback-url')).toHaveTextContent('none');
+  });
+});
+
+describe('PreviewChip', () => {
+  it('applies light-mode prominent tokens', () => {
+    renderWithConfig(<PreviewChip variant="prominent" />);
+    const chip = screen.getByTestId('preview-chip');
+    const tokens = getPreviewSurfaceTokens('light');
+    expect(chip).toHaveStyle({
+      backgroundColor: tokens.prominentBackground,
+      color: tokens.prominentText,
+    });
+  });
+
+  it('applies dark-mode prominent tokens', () => {
+    renderWithConfig(<PreviewChip variant="prominent" />, undefined, darkTheme);
+    const chip = screen.getByTestId('preview-chip');
+    const tokens = getPreviewSurfaceTokens('dark');
+    expect(chip).toHaveStyle({
+      backgroundColor: tokens.prominentBackground,
+      color: tokens.prominentText,
+    });
+  });
+
+  it('applies outlined tokens for default variant', () => {
+    renderWithConfig(<PreviewChip />);
+    const chip = screen.getByTestId('preview-chip');
+    const tokens = getPreviewSurfaceTokens('light');
+    expect(chip).toHaveStyle({
+      color: tokens.outlinedText,
+      borderColor: tokens.outlinedBorder,
+    });
   });
 });
 

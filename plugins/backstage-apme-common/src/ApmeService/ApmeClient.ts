@@ -300,15 +300,19 @@ export class ApmeClient {
     }
 
     // Use the operation endpoint (ADR-052) to trigger a check
+    const body: Record<string, unknown> = {
+      action: 'check',
+      options: this.scanOperationOptions(options?.ansibleVersion),
+    };
+    if (options?.scmToken) {
+      body.scm_token = options.scmToken;
+    }
     const response = await this.executeRequest<{ operation_id: string }>(
       `/api/v1/projects/${projectId}/operation`,
       {
         method: 'POST',
         headers,
-        body: JSON.stringify({
-          action: 'check',
-          options: this.scanOperationOptions(options?.ansibleVersion),
-        }),
+        body: JSON.stringify(body),
       },
     );
 
@@ -384,14 +388,19 @@ export class ApmeClient {
     if (violationIds && violationIds.length > 0) {
       scanOptions.violation_ids = violationIds;
     }
+    const body: Record<string, unknown> = {
+      action: 'remediate',
+      options: scanOptions,
+    };
+    const scmToken = options?.scmToken?.trim();
+    if (scmToken) {
+      body.scm_token = scmToken;
+    }
     const response = await this.executeRequest<{ operation_id: string }>(
       `/api/v1/projects/${projectId}/operation`,
       {
         method: 'POST',
-        body: JSON.stringify({
-          action: 'remediate',
-          options: scanOptions,
-        }),
+        body: JSON.stringify(body),
       },
     );
     return {

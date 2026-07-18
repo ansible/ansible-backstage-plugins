@@ -20,7 +20,6 @@ import {
 import HelpOutlineIcon from '@material-ui/icons/HelpOutline';
 import RefreshIcon from '@material-ui/icons/Refresh';
 import {
-  SEVERITY_STYLES,
   SEVERITY_ORDER,
   type SeverityLevel,
 } from '@ansible/backstage-apme-common/severity';
@@ -40,6 +39,7 @@ import {
   severityBreakdown,
   type ViolationCategory,
 } from '../../utils/violationAnalytics';
+import { useApmeColorTokens } from '../../hooks/useApmeColorTokens';
 
 const CATEGORY_META: {
   key: ViolationCategory;
@@ -114,6 +114,7 @@ export const ApmeRepositoryOverviewCard = ({
 }: ApmeRepositoryOverviewCardProps) => {
   const classes = useStyles();
   const theme = useTheme();
+  const colorTokens = useApmeColorTokens();
   const enableAi = useApmeAiEnabled();
   const [, setSearchParams] = useSearchParams();
   const ctx = useApmeProjectContext(context.entity);
@@ -185,7 +186,10 @@ export const ApmeRepositoryOverviewCard = ({
           <Typography variant="subtitle2" gutterBottom>
             Quality
           </Typography>
-          <Typography variant="body2" style={{ color: '#3e8635' }}>
+          <Typography
+            variant="body2"
+            style={{ color: colorTokens.dependencyViolation.okCheckColor }}
+          >
             No violations detected on the latest scan.
           </Typography>
         </CardContent>
@@ -238,7 +242,7 @@ export const ApmeRepositoryOverviewCard = ({
             style={{
               fontSize: 20,
               fontWeight: 600,
-              color: SEVERITY_STYLES[worstSev].background,
+              color: colorTokens.severity[worstSev].inlineText,
               lineHeight: 1,
             }}
           >
@@ -268,7 +272,7 @@ export const ApmeRepositoryOverviewCard = ({
                 key={sev}
                 style={{
                   flex: count,
-                  backgroundColor: SEVERITY_STYLES[sev].background,
+                  backgroundColor: colorTokens.severity[sev].barFill,
                 }}
               />
             );
@@ -288,7 +292,7 @@ export const ApmeRepositoryOverviewCard = ({
                 key={sev}
                 style={{ fontSize: 11, color: theme.palette.text.secondary }}
               >
-                <strong style={{ color: SEVERITY_STYLES[sev].background }}>
+                <strong style={{ color: colorTokens.severity[sev].inlineText }}>
                   {count}
                 </strong>{' '}
                 <span style={{ textTransform: 'capitalize' }}>{sev}</span>
@@ -375,7 +379,7 @@ export const ApmeRepositoryOverviewCard = ({
                         key={sev}
                         style={{
                           flex: n,
-                          backgroundColor: SEVERITY_STYLES[sev].background,
+                          backgroundColor: colorTokens.severity[sev].barFill,
                         }}
                       />
                     );

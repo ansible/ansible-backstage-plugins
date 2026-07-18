@@ -25,13 +25,7 @@ import {
   isApmeConnectionError,
 } from '../../utils/apmeConnectionError';
 import { collectionViolationCount } from '../../utils/violationAnalytics';
-
-const SOURCE_COLORS: Record<string, { bg: string; color: string }> = {
-  specified: { bg: '#e7f1fa', color: '#0066cc' },
-  dependency: { bg: '#f4f0e6', color: '#795600' },
-  learned: { bg: '#e9f5e9', color: '#3e8635' },
-  galaxy: { bg: '#e7f1fa', color: '#0066cc' },
-};
+import { useApmeColorTokens } from '../../hooks/useApmeColorTokens';
 
 const useStyles = makeStyles(theme => ({
   root: {
@@ -96,6 +90,7 @@ export const ApmeRepositoryCollectionsTab = ({
 }: ApmeRepositoryCollectionsTabProps) => {
   const classes = useStyles();
   const theme = useTheme();
+  const colorTokens = useApmeColorTokens();
   const [, setSearchParams] = useSearchParams();
   const ctx = useApmeProjectContext(context.entity);
 
@@ -186,7 +181,7 @@ export const ApmeRepositoryCollectionsTab = ({
               style={{
                 fontSize: 11,
                 fontWeight: 600,
-                color: '#c9190b',
+                color: colorTokens.dependencyViolation.countPillText,
                 cursor: 'pointer',
               }}
             >
@@ -201,7 +196,9 @@ export const ApmeRepositoryCollectionsTab = ({
 
       <Box className={classes.grid}>
         {collections.map(c => {
-          const srcStyle = SOURCE_COLORS[c.source] ?? SOURCE_COLORS.specified;
+          const srcStyle =
+            colorTokens.dependencySource[c.source] ??
+            colorTokens.dependencySource.specified;
           const vCount = collectionViolationCount(ctx.violations, c);
           const [ns, name] = c.fqcn.split('.');
           return (
@@ -218,8 +215,8 @@ export const ApmeRepositoryCollectionsTab = ({
                 <span
                   className={classes.sourceBadge}
                   style={{
-                    backgroundColor: srcStyle.bg,
-                    color: srcStyle.color,
+                    backgroundColor: srcStyle.background,
+                    color: srcStyle.text,
                   }}
                 >
                   {c.source}
@@ -229,7 +226,7 @@ export const ApmeRepositoryCollectionsTab = ({
                     style={{
                       fontSize: 11,
                       fontWeight: 600,
-                      color: '#c9190b',
+                      color: colorTokens.dependencyViolation.countPillText,
                     }}
                   >
                     {vCount} violation{vCount !== 1 ? 's' : ''}

@@ -16,6 +16,12 @@
 
 import {
   effectiveFixType,
+  getDependencySourceTokens,
+  getDependencyViolationTokens,
+  getCodePreviewTokens,
+  getPreviewSurfaceTokens,
+  getFixTypeColorTokens,
+  getSeverityColorTokens,
   getWorstViolationLevel,
   isFixableViolation,
   normalizeRemediationClass,
@@ -23,7 +29,70 @@ import {
   normalizeSeverityBreakdown,
   proposalNeedsManualApproval,
   fixMethodLabel,
+  SEVERITY_ORDER,
 } from './severity';
+
+describe('getSeverityColorTokens', () => {
+  it('defines light and dark token sets for every severity level', () => {
+    for (const mode of ['light', 'dark'] as const) {
+      const tokens = getSeverityColorTokens(mode);
+      for (const level of SEVERITY_ORDER) {
+        const t = tokens[level];
+        expect(t.pillBackground).toBeTruthy();
+        expect(t.pillText).toBeTruthy();
+        expect(t.inlineText).toBeTruthy();
+        expect(t.barFill).toBeTruthy();
+      }
+    }
+  });
+
+  it('uses lifted inline tints in dark mode', () => {
+    const dark = getSeverityColorTokens('dark');
+    expect(dark.critical.inlineText).not.toBe(dark.critical.pillBackground);
+    expect(dark.error.inlineText).toBe('#fe5149');
+  });
+});
+
+describe('getFixTypeColorTokens', () => {
+  it('defines auto, ai, and manual tokens for both modes', () => {
+    for (const mode of ['light', 'dark'] as const) {
+      const tokens = getFixTypeColorTokens(mode);
+      expect(tokens.auto.inlineText).toBeTruthy();
+      expect(tokens.ai.inlineText).toBeTruthy();
+      expect(tokens.manual.inlineText).toBeTruthy();
+    }
+  });
+});
+
+describe('getDependencySourceTokens', () => {
+  it('includes learned and dependency source keys', () => {
+    const light = getDependencySourceTokens('light');
+    expect(light.learned.text).toBe('#3e8635');
+    expect(getDependencySourceTokens('dark').learned.text).toBe('#7cc576');
+  });
+});
+
+describe('getDependencyViolationTokens', () => {
+  it('provides theme-aware violation status colors', () => {
+    expect(getDependencyViolationTokens('light').countPillText).toBe('#c9190b');
+    expect(getDependencyViolationTokens('dark').okCheckColor).toBe('#3fb950');
+  });
+});
+
+describe('getCodePreviewTokens', () => {
+  it('uses severity error bar color for highlight border', () => {
+    const light = getCodePreviewTokens('light');
+    expect(light.highlightBorder).toBe('#c9190b');
+    expect(getCodePreviewTokens('dark').background).toBe('#212121');
+  });
+});
+
+describe('getPreviewSurfaceTokens', () => {
+  it('defines ADR-012 chip colors for light and dark', () => {
+    expect(getPreviewSurfaceTokens('light').prominentBackground).toBe('#fdeaea');
+    expect(getPreviewSurfaceTokens('dark').prominentText).toBe('#fe5149');
+  });
+});
 
 describe('normalizeRemediationClass', () => {
   it('maps proto integers', () => {

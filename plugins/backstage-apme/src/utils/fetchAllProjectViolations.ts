@@ -51,7 +51,7 @@ export async function fetchAllProjectViolations(
 
     if (page.length < VIOLATIONS_PAGE_SIZE) {
       hasMore = false;
-    } else if (totalHint != null && all.length >= totalHint) {
+    } else if (totalHint !== undefined && totalHint !== null && all.length >= totalHint) {
       hasMore = false;
     } else {
       offset += VIOLATIONS_PAGE_SIZE;

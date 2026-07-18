@@ -169,7 +169,9 @@ __metadata:
     "@material-ui/lab": "npm:^4.0.0-alpha.61"
     "@testing-library/jest-dom": "npm:^6.0.0"
     "@testing-library/react": "npm:^14.0.0"
+    "@types/js-yaml": "npm:^4"
     "@types/react": "npm:^18.0.0"
+    js-yaml: "npm:^4.1.0"
     react-use: "npm:^17.4.0"
     typescript: "npm:^5.0.0"
   peerDependencies:

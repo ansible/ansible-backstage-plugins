@@ -22,6 +22,7 @@ import {
   normalizeSeverity,
   categoryLabel,
 } from '@ansible/backstage-apme-common/severity';
+import { useApmeColorTokens } from '../../hooks/useApmeColorTokens';
 import { getViolationCategory } from '../../utils/violationAnalytics';
 import { acknowledgeButtonLabel } from '../../hooks/useViolationAcknowledge';
 import { DiffView } from '../DiffView';
@@ -104,6 +105,7 @@ export const ViolationDetailModal = ({
   isAcknowledged: isAcknowledgedProp,
 }: ViolationDetailModalProps) => {
   const classes = useStyles();
+  const colorTokens = useApmeColorTokens();
   const bodyRef = useRef<HTMLDivElement>(null);
   const scrollAnchorIdRef = useRef<number | null>(null);
   const canAcknowledge = Boolean(onAcknowledge || onUnacknowledge);
@@ -164,6 +166,7 @@ export const ViolationDetailModal = ({
       <div ref={bodyRef} className={classes.body}>
         {displayViolations.map(v => {
           const sev = normalizeSeverity(v.level);
+          const tokens = colorTokens.severity[sev];
           const style = SEVERITY_STYLES[sev];
           const isAcknowledgedRow = isAcknowledged(v);
           return (
@@ -180,8 +183,8 @@ export const ViolationDetailModal = ({
                 <span
                   className={classes.severityChip}
                   style={{
-                    backgroundColor: style.background,
-                    color: style.text,
+                    backgroundColor: tokens.pillBackground,
+                    color: tokens.pillText,
                   }}
                 >
                   {style.label}

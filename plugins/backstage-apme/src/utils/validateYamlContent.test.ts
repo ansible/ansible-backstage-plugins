@@ -23,10 +23,10 @@ describe('validateYamlContent', () => {
 
   it('reports parse errors', () => {
     const result = validateYamlContent('name: [\n');
-    expect(result.valid).toBe(false);
-    if (!result.valid) {
-      expect(result.message).toBeTruthy();
-    }
+    expect(result).toEqual({
+      valid: false,
+      message: expect.any(String),
+    });
   });
 
   it('treats empty content as valid', () => {

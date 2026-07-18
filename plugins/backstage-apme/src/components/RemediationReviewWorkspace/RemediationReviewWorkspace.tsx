@@ -166,6 +166,26 @@ export const RemediationReviewWorkspace = ({
     activeChange?.before?.trim() && activeChange?.after?.trim(),
   );
 
+  let activeDiffView = null;
+  if (activeChange && hasDiff) {
+    activeDiffView = (
+      <DiffView
+        diff={activeChange.diff}
+        title={isModal ? undefined : 'Changes'}
+        fillHeight={isModal}
+      />
+    );
+  } else if (activeChange && hasBeforeAfter) {
+    activeDiffView = (
+      <DiffView
+        before={activeChange.before}
+        after={activeChange.after}
+        title={isModal ? undefined : 'Changes'}
+        fillHeight={isModal}
+      />
+    );
+  }
+
   const shell = (
     <>
       {!hideHeader && (
@@ -239,20 +259,7 @@ export const RemediationReviewWorkspace = ({
                 </Typography>
               </Box>
               <Box className={isModal ? classes.diffFill : undefined}>
-                {hasDiff ? (
-                  <DiffView
-                    diff={activeChange.diff}
-                    title={isModal ? undefined : 'Changes'}
-                    fillHeight={isModal}
-                  />
-                ) : hasBeforeAfter ? (
-                  <DiffView
-                    before={activeChange.before}
-                    after={activeChange.after}
-                    title={isModal ? undefined : 'Changes'}
-                    fillHeight={isModal}
-                  />
-                ) : null}
+                {activeDiffView}
               </Box>
               <Typography
                 variant="body2"

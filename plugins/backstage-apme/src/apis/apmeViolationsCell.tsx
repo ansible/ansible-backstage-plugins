@@ -21,6 +21,7 @@ import {
   getWorstViolationLevel,
   resolveViolationCounts,
 } from '@ansible/backstage-apme-common/severity';
+import { useApmeColorTokens } from '../hooks/useApmeColorTokens';
 import { projectHasActiveOperation } from '@ansible/backstage-apme-common/operationStatus';
 
 // Shared across all cells in a single table render; the first cell to
@@ -89,6 +90,7 @@ function buildProjectMap(projects: Project[]): Map<string, Project> {
 
 export function ApmeViolationsCell({ entity }: { entity: Entity }) {
   const theme = useTheme();
+  const colorTokens = useApmeColorTokens();
   const apmeApi = useApi(apmeApiRef);
   const mutedStatusStyle = {
     fontWeight: 500,
@@ -193,7 +195,7 @@ export function ApmeViolationsCell({ entity }: { entity: Entity }) {
   const counts = resolveViolationCounts(project);
   const { level: worstLevel, count: worstCount } =
     getWorstViolationLevel(counts);
-  const style = SEVERITY_STYLES[worstLevel];
+  const worstTokens = colorTokens.severity[worstLevel];
   const severitySuffix =
     worstCount > 0
       ? ` (${worstCount} ${SEVERITY_STYLES[worstLevel].label.toUpperCase()})`
@@ -205,7 +207,7 @@ export function ApmeViolationsCell({ entity }: { entity: Entity }) {
     <Box>
       <Typography
         variant="body2"
-        style={{ color: style.background, fontWeight: 600 }}
+        style={{ color: worstTokens.inlineText, fontWeight: 600 }}
       >
         {project.total_violations}
         {severitySuffix}

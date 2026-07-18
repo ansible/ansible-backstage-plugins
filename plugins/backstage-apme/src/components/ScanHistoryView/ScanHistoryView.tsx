@@ -49,6 +49,19 @@ const SOURCE_LABELS: Record<string, string> = {
 
 export type { BranchFileChange };
 
+function githubReviewHint(
+  prUrl: string | null | undefined,
+  branchUrl: string | null | undefined,
+): string {
+  if (prUrl) {
+    return ' See the PR column for the GitHub diff.';
+  }
+  if (branchUrl) {
+    return ' Open the branch link to review on GitHub.';
+  }
+  return '';
+}
+
 function renderViolationSummary(
   scan: Activity,
   remaining: number,
@@ -561,11 +574,7 @@ export const ScanHistoryView = ({
                                         color="textSecondary"
                                       >
                                         Could not load activity detail.
-                                        {prUrl
-                                          ? ' See the PR column for the GitHub diff.'
-                                          : branchUrl
-                                            ? ' Open the branch link to review on GitHub.'
-                                            : ''}
+                                        {githubReviewHint(prUrl, branchUrl)}
                                       </Typography>
                                     );
                                   }
@@ -641,11 +650,7 @@ export const ScanHistoryView = ({
                                         {scan.remediated_count > 0
                                           ? ` · ${scan.remediated_count} fixed`
                                           : ''}
-                                        {prUrl
-                                          ? ' See the PR column for the GitHub diff.'
-                                          : branchUrl
-                                            ? ' Open the branch link to review on GitHub.'
-                                            : ''}
+                                        {githubReviewHint(prUrl, branchUrl)}
                                       </Typography>
                                     );
                                   }

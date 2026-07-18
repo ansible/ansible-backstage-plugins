@@ -129,7 +129,7 @@ export async function createRouter(options: RouterOptions): Promise<Router> {
     projectId: string,
     bodyVersion: unknown,
   ): Promise<string> => {
-    if (bodyVersion == null || bodyVersion === '') {
+    if (bodyVersion === null || bodyVersion === undefined || bodyVersion === '') {
       return scanVersionForProject(projectId);
     }
     if (typeof bodyVersion !== 'string') {
@@ -319,8 +319,24 @@ export async function createRouter(options: RouterOptions): Promise<Router> {
     const { projectId } = req.params;
     logger.info(`APME operation triggered for project ${projectId}`);
     const project = await apmeService.getProject(projectId);
-    const scmToken =
+    let scmToken =
       scmTokenFromRequest(req) ?? scmTokenFromBody(req.body);
+    if (!scmToken) {
+      scmToken = await resolveIntegrationScmToken({
+        rootConfig,
+        logger,
+        repoUrl: project.repo_url,
+      });
+      if (scmToken) {
+        logger.info(
+          `APME operation using integration/GitHub App token for project ${projectId}`,
+        );
+      }
+    }
+    const ansibleVersion = await scanVersionFromRequest(
+      projectId,
+      req.body?.options?.ansible_version,
+    );
     await ensureRepoBranchValid(
       rootConfig,
       logger,
@@ -328,11 +344,10 @@ export async function createRouter(options: RouterOptions): Promise<Router> {
       project.branch,
       scmToken,
     );
-    const ansibleVersion = await scanVersionFromRequest(
-      projectId,
-      req.body?.options?.ansible_version,
-    );
-    const result = await apmeService.triggerScan(projectId, { ansibleVersion });
+    const result = await apmeService.triggerScan(projectId, {
+      ansibleVersion,
+      scmToken,
+    });
     res.status(201).json({ operation_id: result.scanId });
   });
 
@@ -510,11 +525,21 @@ export async function createRouter(options: RouterOptions): Promise<Router> {
     await ensureUser(req);
     const { projectId } = req.params;
     logger.info(`APME remediate triggered for project ${projectId}`);
+    const project = await apmeService.getProject(projectId);
+    let scmToken =
+      scmTokenFromRequest(req) ?? scmTokenFromBody(req.body);
+    if (!scmToken) {
+      scmToken = await resolveIntegrationScmToken({
+        rootConfig,
+        logger,
+        repoUrl: project.repo_url,
+      });
+    }
     const ansibleVersion = await scanVersionForProject(projectId);
     const result = await apmeService.triggerRemediate(
       projectId,
       req.body?.violation_ids,
-      { ansibleVersion },
+      { ansibleVersion, scmToken },
     );
     res.status(201).json({ operation_id: result.scanId });
   });

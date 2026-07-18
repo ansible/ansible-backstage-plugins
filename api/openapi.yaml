@@ -1310,6 +1310,37 @@ paths:
                   modelCount:
                     type: integer
 
+  /apme/repos/branch-check:
+    get:
+      operationId: checkApmeRepoBranch
+      summary: Validate repository branch exists
+      description: Verifies that the given repository URL and branch are reachable using portal SCM credentials.
+      tags:
+        - APME
+      parameters:
+        - name: repo_url
+          in: query
+          required: true
+          schema:
+            type: string
+        - name: branch
+          in: query
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Branch is valid
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  valid:
+                    type: boolean
+        '400':
+          description: Missing or invalid query parameters
+
   /apme/projects:
     get:
       operationId: getApmeProjects
@@ -1378,6 +1409,79 @@ paths:
       responses:
         '204':
           description: Project deleted
+
+  /apme/projects/{projectId}/scan-target:
+    get:
+      operationId: getApmeProjectScanTarget
+      summary: Get effective ansible-core scan target for a project
+      description: Resolves the ansible-core version used for quality scans, including project override and portal defaults.
+      tags:
+        - APME
+      parameters:
+        - name: projectId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Resolved scan target
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  effective:
+                    type: string
+                  source:
+                    type: string
+                    enum: [project, global, config, default]
+                  globalDefault:
+                    type: string
+                  projectOverride:
+                    type: string
+    put:
+      operationId: updateApmeProjectScanTarget
+      summary: Set per-project ansible-core scan target override
+      description: Persists a project-specific ansible-core scan target, or clears the override when null.
+      tags:
+        - APME
+      parameters:
+        - name: projectId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                targetAnsibleCoreVersion:
+                  type: string
+                  nullable: true
+                  description: ansible-core minor version (e.g. 2.17), or null to clear project override
+      responses:
+        '200':
+          description: Updated scan target resolution
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  effective:
+                    type: string
+                  source:
+                    type: string
+                    enum: [project, global, config, default]
+                  globalDefault:
+                    type: string
+                  projectOverride:
+                    type: string
+        '400':
+          description: Invalid or unsupported ansible-core version
 
   /apme/projects/{projectId}/violations:
     get:

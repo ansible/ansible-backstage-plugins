@@ -90,13 +90,11 @@ export const ApmeAdminCard = () => {
 
   return (
     <Card>
+      <Box padding={2} paddingBottom={0}>
+        <PreviewLabelRow />
+      </Box>
       <CardHeader
-        title={
-          <Box display="flex" alignItems="center">
-            APME Integration
-            <PreviewLabelRow />
-          </Box>
-        }
+        title="APME Integration"
         subheader="Content quality scanning"
       />
       <CardContent>

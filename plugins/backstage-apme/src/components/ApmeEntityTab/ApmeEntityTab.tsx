@@ -76,6 +76,7 @@ import {
   categoryLabel,
   type SeverityLevel,
 } from '@ansible/backstage-apme-common/severity';
+import { useApmeColorTokens } from '../../hooks/useApmeColorTokens';
 import {
   normalizeProposals,
   collectAiAssistedViolationIds,
@@ -439,6 +440,19 @@ export interface ApmeEntityTabProps {
   initialProjectId?: string;
 }
 
+function generateFixesButtonLabel(
+  creatingPr: boolean,
+  bulkCount: number,
+): string {
+  if (creatingPr) {
+    return 'Generating fixes…';
+  }
+  if (bulkCount > 0) {
+    return `Generate fixes (${bulkCount})`;
+  }
+  return 'Generate fixes';
+}
+
 export const ApmeEntityTab = ({
   initialRuleFilter,
   initialCategoryFilter,
@@ -446,6 +460,7 @@ export const ApmeEntityTab = ({
 }: ApmeEntityTabProps = {}) => {
   const classes = useStyles();
   const theme = useTheme();
+  const colorTokens = useApmeColorTokens();
   const apmeApi = useApi(apmeApiRef);
   const scmAuthApi = useApi(scmAuthApiRef);
   const configApi = useApi(configApiRef);
@@ -1938,7 +1953,7 @@ export const ApmeEntityTab = ({
             >
               <Typography
                 variant="subtitle2"
-                style={{ color: '#c9190b', marginBottom: 4 }}
+                style={{ color: colorTokens.dependencyViolation.countPillText, marginBottom: 4 }}
               >
                 Scan failed
               </Typography>
@@ -1954,7 +1969,7 @@ export const ApmeEntityTab = ({
               <div className={classes.remediationErrorBody}>
                 <Typography
                   variant="subtitle2"
-                  style={{ color: '#c9190b', marginBottom: 4 }}
+                  style={{ color: colorTokens.dependencyViolation.countPillText, marginBottom: 4 }}
                 >
                   {apmeRemediationErrorTitle(remediationError.message)}
                 </Typography>
@@ -2093,7 +2108,7 @@ export const ApmeEntityTab = ({
                 {SEVERITY_ORDER.map(sev => {
                   const count = counts[sev];
                   if (count === 0) return null;
-                  const color = SEVERITY_STYLES[sev].background;
+                  const color = colorTokens.severity[sev].inlineText;
                   const isActive = severityFilters.has(sev);
                   return (
                     <Box
@@ -2162,7 +2177,7 @@ export const ApmeEntityTab = ({
                         className={classes.severityBarSegment}
                         style={{
                           width: `${(count / violationTotal) * 100}%`,
-                          backgroundColor: SEVERITY_STYLES[sev].background,
+                          backgroundColor: colorTokens.severity[sev].barFill,
                         }}
                       />
                     );
@@ -2266,11 +2281,7 @@ export const ApmeEntityTab = ({
                           onClick={() => void handlePrepareFixes()}
                           disabled={bulkFixableIds.size === 0 || creatingPr}
                         >
-                          {creatingPr
-                            ? 'Generating fixes…'
-                            : bulkFixableIds.size > 0
-                              ? `Generate fixes (${bulkFixableIds.size})`
-                              : 'Generate fixes'}
+                          {generateFixesButtonLabel(creatingPr, bulkFixableIds.size)}
                         </Button>
                       </span>
                     </Tooltip>

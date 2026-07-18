@@ -38,6 +38,7 @@ import {
   violationsForPythonPackage,
 } from '../../utils/violationAnalytics';
 import { useViolationAcknowledge } from '../../hooks/useViolationAcknowledge';
+import { useApmeColorTokens } from '../../hooks/useApmeColorTokens';
 import { ViolationDetailModal } from '../ViolationDetailModal';
 
 function activateOnKey(e: KeyboardEvent, action: () => void): void {
@@ -45,29 +46,6 @@ function activateOnKey(e: KeyboardEvent, action: () => void): void {
     e.preventDefault();
     action();
   }
-}
-
-function getSourceColors(
-  isDark: boolean,
-): Record<string, { bg: string; color: string }> {
-  if (isDark) {
-    return {
-      specified: { bg: 'rgba(43, 154, 243, 0.12)', color: '#6cb8f7' },
-      dependency: { bg: 'rgba(197, 140, 0, 0.12)', color: '#e6b800' },
-      learned: { bg: 'rgba(62, 134, 53, 0.12)', color: '#7cc576' },
-      galaxy: { bg: 'rgba(43, 154, 243, 0.12)', color: '#6cb8f7' },
-      local: { bg: 'rgba(197, 140, 0, 0.12)', color: '#e6b800' },
-      git: { bg: 'rgba(62, 134, 53, 0.12)', color: '#7cc576' },
-    };
-  }
-  return {
-    specified: { bg: '#e7f1fa', color: '#0066cc' },
-    dependency: { bg: '#f4f0e6', color: '#795600' },
-    learned: { bg: '#e9f5e9', color: '#3e8635' },
-    galaxy: { bg: '#e7f1fa', color: '#0066cc' },
-    local: { bg: '#f4f0e6', color: '#795600' },
-    git: { bg: '#e9f5e9', color: '#3e8635' },
-  };
 }
 
 const useStyles = makeStyles(theme => ({
@@ -132,10 +110,7 @@ export interface DependenciesTabProps {
 export const DependenciesTab = ({ context }: DependenciesTabProps) => {
   const classes = useStyles();
   const theme = useTheme();
-  const sourceColors = useMemo(
-    () => getSourceColors(theme.palette.type === 'dark'),
-    [theme.palette.type],
-  );
+  const colorTokens = useApmeColorTokens();
   const [, setSearchParams] = useSearchParams();
   const [modalTarget, setModalTarget] = useState<ModalTarget>(null);
   const pendingViolationsRefreshRef = useRef(false);
@@ -317,7 +292,8 @@ export const DependenciesTab = ({ context }: DependenciesTabProps) => {
             <tbody>
               {collections.map(c => {
                 const srcStyle =
-                  sourceColors[c.source] ?? sourceColors.specified;
+                  colorTokens.dependencySource[c.source] ??
+                  colorTokens.dependencySource.specified;
                 const vCount = collectionViolationCount(
                   activeViolations,
                   c,
@@ -356,8 +332,8 @@ export const DependenciesTab = ({ context }: DependenciesTabProps) => {
                       <span
                         className={classes.sourceBadge}
                         style={{
-                          backgroundColor: srcStyle.bg,
-                          color: srcStyle.color,
+                          backgroundColor: srcStyle.background,
+                          color: srcStyle.text,
                         }}
                       >
                         {c.source}
@@ -389,8 +365,11 @@ export const DependenciesTab = ({ context }: DependenciesTabProps) => {
                             fontWeight: 600,
                             padding: '1px 7px',
                             borderRadius: 10,
-                            backgroundColor: '#fdeaea',
-                            color: '#c9190b',
+                            backgroundColor:
+                              colorTokens.dependencyViolation
+                                .countPillBackground,
+                            color:
+                              colorTokens.dependencyViolation.countPillText,
                             cursor: 'pointer',
                           }}
                         >
@@ -399,10 +378,13 @@ export const DependenciesTab = ({ context }: DependenciesTabProps) => {
                       ) : (
                         <CheckCircleOutlineIcon
                           style={{
-                            fontSize: 16,
-                            color: '#3e8635',
-                            opacity: 0.6,
+                            fontSize: 12,
+                            width: 12,
+                            height: 12,
+                            color: colorTokens.dependencyViolation.okCheckColor,
+                            opacity: 0.7,
                           }}
+                          fontSize="inherit"
                         />
                       )}
                     </td>
@@ -499,8 +481,11 @@ export const DependenciesTab = ({ context }: DependenciesTabProps) => {
                             fontWeight: 600,
                             padding: '1px 7px',
                             borderRadius: 10,
-                            backgroundColor: '#fdeaea',
-                            color: '#c9190b',
+                            backgroundColor:
+                              colorTokens.dependencyViolation
+                                .countPillBackground,
+                            color:
+                              colorTokens.dependencyViolation.countPillText,
                             cursor: 'pointer',
                           }}
                         >
@@ -509,10 +494,13 @@ export const DependenciesTab = ({ context }: DependenciesTabProps) => {
                       ) : (
                         <CheckCircleOutlineIcon
                           style={{
-                            fontSize: 16,
-                            color: '#3e8635',
-                            opacity: 0.6,
+                            fontSize: 12,
+                            width: 12,
+                            height: 12,
+                            color: colorTokens.dependencyViolation.okCheckColor,
+                            opacity: 0.7,
                           }}
+                          fontSize="inherit"
                         />
                       )}
                     </td>

@@ -27,7 +27,6 @@ import {
   Tooltip,
   Typography,
   makeStyles,
-  useTheme,
 } from '@material-ui/core';
 import ArrowDropDownIcon from '@material-ui/icons/ArrowDropDown';
 import ExpandMoreIcon from '@material-ui/icons/ExpandMore';
@@ -43,6 +42,7 @@ import {
   isFixableViolation,
   categoryLabel,
 } from '@ansible/backstage-apme-common/severity';
+import { useApmeColorTokens } from '../../hooks/useApmeColorTokens';
 import { effectiveViolationFixType } from '@ansible/backstage-apme-common/proposalTier';
 import { useApmeAiEnabled } from '../../hooks/useApmeEnabled';
 import { acknowledgeButtonLabel } from '../../hooks/useViolationAcknowledge';
@@ -159,10 +159,9 @@ const useStyles = makeStyles(theme => ({
     marginTop: theme.spacing(1),
     fontFamily: 'monospace',
     fontSize: 12,
-    backgroundColor: '#1e1e2e',
-    color: '#cdd6f4',
     borderRadius: 6,
     overflow: 'hidden',
+    border: `1px solid ${theme.palette.divider}`,
   },
   codeLine: {
     display: 'flex',
@@ -173,19 +172,13 @@ const useStyles = makeStyles(theme => ({
     width: 36,
     textAlign: 'right',
     padding: '2px 8px',
-    color: theme.palette.text.disabled,
     userSelect: 'none',
     flexShrink: 0,
-    borderRight: `1px solid ${theme.palette.divider}`,
   },
   codeLineContent: {
     padding: '2px 12px',
     whiteSpace: 'pre',
     flex: 1,
-  },
-  codeLineHighlighted: {
-    backgroundColor: 'rgba(243, 139, 168, 0.15)',
-    borderLeft: '3px solid #f38ba8',
   },
   footer: {
     display: 'flex',
@@ -230,7 +223,7 @@ function FixMethodDisplay({
   enableAi: boolean;
   aiAssistedViolationIds?: ReadonlySet<number>;
 }) {
-  const theme = useTheme();
+  const colorTokens = useApmeColorTokens();
   const fixType = effectiveViolationFixType(
     violation,
     enableAi,
@@ -238,6 +231,7 @@ function FixMethodDisplay({
   );
   const label = fixMethodLabel(fixType);
   const tooltip = fixMethodTooltip(fixType);
+  const tokens = fixType ? colorTokens.fixType[fixType] : colorTokens.fixType.manual;
   let chip;
   if (fixType === 'auto') {
     chip = (
@@ -245,8 +239,8 @@ function FixMethodDisplay({
         size="small"
         label={label}
         style={{
-          backgroundColor: theme.palette.success.main,
-          color: theme.palette.success.contrastText,
+          backgroundColor: tokens.pillBackground,
+          color: tokens.pillText,
           fontWeight: 600,
           fontSize: 11,
           height: 22,
@@ -260,8 +254,8 @@ function FixMethodDisplay({
         size="small"
         label={label}
         style={{
-          backgroundColor: theme.palette.info.main,
-          color: theme.palette.info.contrastText,
+          backgroundColor: tokens.pillBackground,
+          color: tokens.pillText,
           fontWeight: 600,
           fontSize: 11,
           height: 22,
@@ -279,8 +273,8 @@ function FixMethodDisplay({
           fontSize: 11,
           height: 22,
           borderRadius: 3,
-          color: theme.palette.text.secondary,
-          borderColor: theme.palette.divider,
+          color: tokens.inlineText,
+          borderColor: tokens.inlineText,
         }}
       />
     );
@@ -300,24 +294,42 @@ function CodePreview({
   highlightLine: number;
 }) {
   const classes = useStyles();
+  const { codePreview } = useApmeColorTokens();
   if (!yaml) return null;
   const lines = yaml.split('\n');
   return (
-    <div className={classes.codeBlock}>
+    <div
+      className={classes.codeBlock}
+      style={{
+        backgroundColor: codePreview.background,
+        color: codePreview.text,
+      }}
+    >
       {lines.map((content, i) => {
         const lineNum = i + 1;
-        const isHighlighted =
-          lineNum === highlightLine
-            ? true
-            : content.trim().length > 0 && i === 1;
+        const isHighlighted = lineNum === highlightLine;
         return (
           <div
             key={i}
-            className={`${classes.codeLine} ${
-              isHighlighted ? classes.codeLineHighlighted : ''
-            }`}
+            className={classes.codeLine}
+            style={
+              isHighlighted
+                ? {
+                    backgroundColor: codePreview.highlightBackground,
+                    borderLeft: `3px solid ${codePreview.highlightBorder}`,
+                  }
+                : undefined
+            }
           >
-            <span className={classes.codeLineNumber}>{lineNum}</span>
+            <span
+              className={classes.codeLineNumber}
+              style={{
+                color: codePreview.lineNumber,
+                borderRight: `1px solid ${codePreview.divider}`,
+              }}
+            >
+              {lineNum}
+            </span>
             <span className={classes.codeLineContent}>{content}</span>
           </div>
         );
@@ -414,6 +426,7 @@ export const ApmeViolationsTable = ({
   onRequestShowWontFix,
 }: ApmeViolationsTableProps) => {
   const classes = useStyles();
+  const colorTokens = useApmeColorTokens();
   const enableAi = useApmeAiEnabled();
   const isAcknowledged = useMemo(
     () => isAcknowledgedProp ?? ((v: Violation) => v.suppressed === true),
@@ -713,6 +726,7 @@ export const ApmeViolationsTable = ({
         <tbody>
           {sorted.map(v => {
             const sev = normalizeSeverity(v.level);
+            const tokens = colorTokens.severity[sev];
             const style = SEVERITY_STYLES[sev];
             const canSelect =
               isFixableViolation(v.remediation_class, enableAi) &&
@@ -763,8 +777,8 @@ export const ApmeViolationsTable = ({
                   <span
                     className={classes.severityChip}
                     style={{
-                      backgroundColor: style.background,
-                      color: style.text,
+                      backgroundColor: tokens.pillBackground,
+                      color: tokens.pillText,
                     }}
                   >
                     {style.label.toUpperCase()}

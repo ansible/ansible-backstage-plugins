@@ -7,6 +7,7 @@ import OpenInNewIcon from '@material-ui/icons/OpenInNew';
 import { configApiRef, useApi } from '@backstage/core-plugin-api';
 import { DEFAULT_APME_FEEDBACK_FORM_URL } from '../../constants/previewFeedback';
 import { useApmeEnabled } from '../../hooks/useApmeEnabled';
+import { useApmeColorTokens } from '../../hooks/useApmeColorTokens';
 
 /** ADR-012 label for non-GA Plugin Factory surfaces. */
 export const PREVIEW_CHIP_LABEL = 'Early access preview';
@@ -15,11 +16,15 @@ export const PREVIEW_NOTICE_TITLE = 'Ansible content modernization';
 
 const useChipStyles = makeStyles(theme => ({
   chip: {
-    marginLeft: theme.spacing(1),
     height: 22,
     fontSize: '0.6875rem',
     fontWeight: 600,
     letterSpacing: '0.02em',
+    '& .MuiChip-label': {
+      paddingLeft: theme.spacing(1),
+      paddingRight: theme.spacing(1),
+      lineHeight: 1.2,
+    },
   },
   chipProminent: {
     marginLeft: 0,
@@ -27,19 +32,6 @@ const useChipStyles = makeStyles(theme => ({
     fontSize: '0.6875rem',
     fontWeight: 700,
     letterSpacing: '0.02em',
-    backgroundColor:
-      theme.palette.type === 'dark'
-        ? 'rgba(250, 120, 120, 0.22)'
-        : theme.palette.error.light,
-    color:
-      theme.palette.type === 'dark'
-        ? theme.palette.error.light
-        : theme.palette.error.dark,
-    border: `1px solid ${
-      theme.palette.type === 'dark'
-        ? 'rgba(250, 120, 120, 0.45)'
-        : theme.palette.error.main
-    }`,
     '& .MuiChip-label': {
       paddingLeft: theme.spacing(1.25),
       paddingRight: theme.spacing(1.25),
@@ -58,6 +50,7 @@ const useChipStyles = makeStyles(theme => ({
     gap: 4,
     fontSize: '0.8125rem',
     whiteSpace: 'nowrap',
+    color: theme.palette.primary.main,
   },
   feedbackIcon: {
     fontSize: 12,
@@ -93,15 +86,37 @@ export function usePreviewFeedbackUrl(): string | null {
 /** ADR-012 — labels non-GA Plugin Factory surfaces (UI only, not a config toggle). */
 export const PreviewChip = ({ variant = 'default' }: PreviewChipProps) => {
   const classes = useChipStyles();
+  const { preview } = useApmeColorTokens();
   const prominent = variant === 'prominent';
+
+  if (prominent) {
+    return (
+      <Chip
+        label={PREVIEW_CHIP_LABEL}
+        size="small"
+        className={classes.chipProminent}
+        data-testid="preview-chip"
+        style={{
+          backgroundColor: preview.prominentBackground,
+          color: preview.prominentText,
+          border: `1px solid ${preview.prominentBorder}`,
+        }}
+      />
+    );
+  }
 
   return (
     <Chip
       label={PREVIEW_CHIP_LABEL}
       size="small"
-      variant={prominent ? 'default' : 'outlined'}
-      className={prominent ? classes.chipProminent : classes.chip}
+      variant="outlined"
+      className={classes.chip}
       data-testid="preview-chip"
+      style={{
+        backgroundColor: preview.outlinedBackground,
+        color: preview.outlinedText,
+        borderColor: preview.outlinedBorder,
+      }}
     />
   );
 };

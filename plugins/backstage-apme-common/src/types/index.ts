@@ -206,6 +206,8 @@ export interface UpdateProjectScanTargetRequest {
 export interface ScanTriggerOptions {
   ansibleVersion?: string;
   userIdentity?: { userEntityRef: string; orgEntityRef?: string };
+  /** One-time SCM token for private-repo clone (portal integration / user). */
+  scmToken?: string;
 }
 
 /** Gateway AI service reachability (Abbenay via Primary). */

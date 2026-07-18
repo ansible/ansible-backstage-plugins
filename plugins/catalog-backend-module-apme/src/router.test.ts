@@ -396,6 +396,7 @@ describe('catalog-backend-module-apme router', () => {
     expect(response.status).toBe(201);
     expect(mockApmeService.triggerScan).toHaveBeenCalledWith('proj-1', {
       ansibleVersion: '2.16',
+      scmToken: 'test-token',
     });
   });
 
@@ -420,6 +421,7 @@ describe('catalog-backend-module-apme router', () => {
     expect(response.status).toBe(201);
     expect(mockApmeService.triggerScan).toHaveBeenCalledWith('proj-1', {
       ansibleVersion: '2.18',
+      scmToken: 'test-token',
     });
   });
 
