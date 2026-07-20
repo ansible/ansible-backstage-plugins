@@ -720,7 +720,9 @@ export const ApmeViolationsTable = ({
             >
               File{sortArrow('file')}
             </th>
-            <th style={{ width: 48 }}>Edit</th>
+            <th style={{ width: 120 }} title="Expand to preview the proposed fix">
+              Action preview
+            </th>
           </tr>
         </thead>
         <tbody>
@@ -823,7 +825,15 @@ export const ApmeViolationsTable = ({
                   )}
                 </td>
                 <td onClick={e => e.stopPropagation()}>
-                  <IconButton size="small" onClick={() => toggleExpanded(v.id)}>
+                  <IconButton
+                    size="small"
+                    aria-label={
+                      isExpanded
+                        ? 'Collapse action preview'
+                        : 'Expand action preview'
+                    }
+                    onClick={() => toggleExpanded(v.id)}
+                  >
                     {isExpanded ? (
                       <ExpandLessIcon fontSize="small" />
                     ) : (
