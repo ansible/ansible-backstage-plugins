@@ -30,11 +30,21 @@ export class ApmePortalSettingsStore {
     }
     try {
       const raw = await fs.readFile(this.filePath, 'utf8');
+      // Empty or whitespace-only files (e.g. accidental touch) are treated as unset.
+      if (!raw.trim()) {
+        this.cache = {};
+        return {};
+      }
       const parsed = JSON.parse(raw) as ApmePortalSettingsData;
       this.cache = this.normalize(parsed);
       return this.clone(this.cache);
     } catch (error) {
       if ((error as NodeJS.ErrnoException).code === 'ENOENT') {
+        this.cache = {};
+        return {};
+      }
+      // Corrupt JSON should not take down remediate / settings APIs.
+      if (error instanceof SyntaxError) {
         this.cache = {};
         return {};
       }
