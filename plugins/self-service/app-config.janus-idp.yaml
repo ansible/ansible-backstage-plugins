@@ -2,7 +2,11 @@ dynamicPlugins:
   frontend:
     ansible.plugin-backstage-self-service:
       # ADR-010: host default when APME guest is not loaded (Git Repos works without optional plugins)
+      # API factories listed here (not createPlugin apis) — Scalprum may eval PluginRoot more than once.
       apiFactories:
+        - importName: AAPApis
+        - importName: AapAuthApi
+        - importName: EEBuildApis
         - importName: defaultGitRepositoriesExtensionsApiFactory
       signInPage:
         importName: SignInPage

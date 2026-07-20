@@ -20,7 +20,6 @@ import {
   createRoutableExtension,
   createRouteRef,
 } from '@backstage/core-plugin-api';
-import { apmeApiFactory } from './api/apmeApiFactory';
 
 export const rootRouteRef = createRouteRef({
   id: 'apme',
@@ -31,13 +30,18 @@ export const projectRouteRef = createRouteRef({
   params: ['projectId'],
 });
 
+/**
+ * API factories are registered by the composition root, not createPlugin:
+ * - Monolith: packages/app/src/apis.ts (apmeApiFactory)
+ * - RHDH/OCI: dynamicPlugins apiFactories (apmeApiFactory + gitRepositoriesExtensionsApiFactory)
+ * Registering here as well causes "duplicate or forbidden API factory" for plugin.apme.api.
+ */
 export const apmePlugin = createPlugin({
   id: 'apme',
   routes: {
     root: rootRouteRef,
     project: projectRouteRef,
   },
-  apis: [apmeApiFactory],
 });
 
 export const ApmePage = apmePlugin.provide(

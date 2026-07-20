@@ -968,14 +968,20 @@ describe('ScmSelectorExtension', () => {
         formData: {
           provider: 'github',
           providerLabel: 'Github',
-          org: '',
-          repoName: '',
+          // GitHub auth always exposes at least the personal namespace; empty org
+          // keeps hasErrors true even when auth succeeds.
+          org: 'testuser',
+          repoName: 'my-repo',
           repoExists: false,
         },
       });
 
       await waitFor(() => {
         expect(mockScmAuthApi.getCredentials).toHaveBeenCalled();
+      });
+
+      await waitFor(() => {
+        expect(screen.getByText(/Authenticated with/i)).toBeInTheDocument();
       });
 
       await waitFor(() => {

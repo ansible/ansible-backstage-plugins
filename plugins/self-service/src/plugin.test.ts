@@ -99,15 +99,11 @@ describe('self-service plugin module', () => {
     jest.clearAllMocks();
   });
 
-  it('calls createPlugin with expected id and apis', () => {
+  it('calls createPlugin with expected id and routes (APIs registered via composition root)', () => {
     expect(createPluginMock).toHaveBeenCalledTimes(1);
     const callArg = createPluginMock.mock.calls[0][0];
     expect(callArg).toHaveProperty('id', 'self-service');
-    expect(callArg).toHaveProperty('apis');
-    expect(Array.isArray(callArg.apis)).toBe(true);
-    expect(callArg.apis).toContain(mockAAPApis);
-    expect(callArg.apis).toContain(mockAapAuthApi);
-    expect(callArg.apis).toContain(mockEEBuildApis);
+    expect(callArg).not.toHaveProperty('apis');
     expect(callArg).toHaveProperty('routes');
     expect(callArg.routes).toHaveProperty('root', mockRootRouteRef);
     expect(callArg.routes).toHaveProperty('ee', mockEeRouteRef);

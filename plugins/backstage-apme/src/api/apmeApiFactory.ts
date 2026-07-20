@@ -10,7 +10,11 @@ import {
 } from '@backstage/core-plugin-api';
 import { apmeApiRef, ApmeApiClient } from './ApmeApi';
 
-/** Registers plugin.apme.api for monolith app composition (packages/app/src/apis.ts). */
+/**
+ * Registers plugin.apme.api.
+ * Monolith: packages/app/src/apis.ts. RHDH/OCI: apiFactories in app-config.janus-idp.yaml.
+ * Do not also list on createPlugin({ apis }) — that duplicates the factory in dynamic mode.
+ */
 export const apmeApiFactory = createApiFactory({
   api: apmeApiRef,
   deps: {

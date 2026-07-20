@@ -12,11 +12,16 @@ import {
   templatesRouteRef,
   historyRouteRef,
 } from './routes';
-import { AAPApis, AapAuthApi, EEBuildApis } from './apis';
 
+/**
+ * API factories are registered by the composition root, not createPlugin:
+ * - Monolith: packages/app (or host wiring)
+ * - RHDH/OCI: dynamicPlugins apiFactories in app-config.janus-idp.yaml
+ * Scalprum may evaluate PluginRoot more than once; createPlugin({ apis }) then
+ * throws "duplicate or forbidden API factory" (e.g. apiRef{ansible}).
+ */
 export const selfServicePlugin = createPlugin({
   id: 'self-service',
-  apis: [AAPApis, AapAuthApi, EEBuildApis],
   routes: {
     root: rootRouteRef,
     ee: eeRouteRef,

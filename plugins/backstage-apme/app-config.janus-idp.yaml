@@ -4,18 +4,13 @@
 dynamicPlugins:
   frontend:
     ansible.plugin-backstage-apme:
+      # Composition-root registration (ADR-010). Do not also put these on createPlugin({ apis }).
       apiFactories:
+        - importName: apmeApiFactory
         - importName: gitRepositoriesExtensionsApiFactory
-      appIcons:
-        - name: apmeIcon
-          importName: SecurityIcon
-          module: '@material-ui/icons'
       dynamicRoutes:
         - path: /apme
           importName: ApmePage
-          menuItem:
-            icon: apmeIcon
-            text: APME
         - path: /apme/project/:projectId
           importName: ApmeProjectPage
       entityTabs:
