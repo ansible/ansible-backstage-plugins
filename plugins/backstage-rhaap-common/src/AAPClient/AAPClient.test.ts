@@ -2147,6 +2147,131 @@ describe('AAPClient', () => {
         );
       });
 
+      it('should correctly encode org names with special characters in URL', async () => {
+        const specialCharOrgs = [
+          { input: 'AT&T', encoded: 'at%26t' },
+          { input: 'Johnson & Johnson', encoded: 'johnson+%26+johnson' },
+          { input: 'S&P Global', encoded: 's%26p+global' },
+          { input: 'org with spaces', encoded: 'org+with+spaces' },
+          { input: 'org+plus', encoded: 'org%2Bplus' },
+          { input: 'org=equals', encoded: 'org%3Dequals' },
+          { input: 'org#hash', encoded: 'org%23hash' },
+        ];
+
+        for (const { input, encoded } of specialCharOrgs) {
+          const mockSpecialCharCatalogConfig = {
+            keys: jest.fn().mockReturnValue(['development']),
+            getConfig: jest.fn().mockImplementation((key: string) => {
+              if (key === 'development') {
+                return {
+                  getString: jest.fn().mockImplementation((path: string) => {
+                    if (path === 'orgs') return input;
+                    throw new Error(`No value for ${path}`);
+                  }),
+                  getStringArray: jest
+                    .fn()
+                    .mockImplementation((path: string) => {
+                      if (path === 'orgs') return [input];
+                      throw new Error(`No value for ${path}`);
+                    }),
+                  getOptionalBoolean: jest.fn().mockReturnValue(false),
+                  getOptionalStringArray: jest.fn().mockReturnValue([]),
+                };
+              }
+              throw new Error(`No config for key ${key}`);
+            }),
+          };
+
+          const mockSpecialCharConfig = {
+            ...mockConfig,
+            getOptionalConfig: jest.fn().mockImplementation((path: string) => {
+              if (path === 'catalog.providers.rhaap') {
+                return mockSpecialCharCatalogConfig;
+              }
+              return mockConfig.getOptionalConfig(path);
+            }),
+          };
+
+          const specialCharClient = new AAPClient({
+            rootConfig: mockSpecialCharConfig,
+            logger: mockLogger,
+          });
+
+          const mockResponse = {
+            ok: true,
+            json: jest.fn().mockResolvedValue({ results: [{ id: 1 }] }),
+          };
+          mockFetch.mockClear();
+          mockFetch.mockResolvedValue(mockResponse);
+
+          await specialCharClient.getResourceData(
+            'job_templates',
+            'test-token',
+          );
+
+          const calledUrl = mockFetch.mock.calls[0][0] as string;
+          expect(calledUrl).toContain(`organization__name__iexact=${encoded}`);
+          expect(calledUrl).not.toContain(
+            `organization__name__iexact=${input.toLowerCase()}`,
+          );
+        }
+      });
+
+      it('should not double-decode percent-encoded org names in URL', async () => {
+        const mockAmpersandCatalogConfig = {
+          keys: jest.fn().mockReturnValue(['development']),
+          getConfig: jest.fn().mockImplementation((key: string) => {
+            if (key === 'development') {
+              return {
+                getString: jest.fn().mockImplementation((path: string) => {
+                  if (path === 'orgs') return 'foo_&_bar';
+                  throw new Error(`No value for ${path}`);
+                }),
+                getStringArray: jest.fn().mockImplementation((path: string) => {
+                  if (path === 'orgs') return ['foo_&_bar'];
+                  throw new Error(`No value for ${path}`);
+                }),
+                getOptionalBoolean: jest.fn().mockReturnValue(false),
+                getOptionalStringArray: jest.fn().mockReturnValue([]),
+              };
+            }
+            throw new Error(`No config for key ${key}`);
+          }),
+        };
+
+        const mockAmpersandConfig = {
+          ...mockConfig,
+          getOptionalConfig: jest.fn().mockImplementation((path: string) => {
+            if (path === 'catalog.providers.rhaap') {
+              return mockAmpersandCatalogConfig;
+            }
+            return mockConfig.getOptionalConfig(path);
+          }),
+        };
+
+        const ampersandClient = new AAPClient({
+          rootConfig: mockAmpersandConfig,
+          logger: mockLogger,
+        });
+
+        const mockResponse = {
+          ok: true,
+          json: jest.fn().mockResolvedValue({ results: [{ id: 1 }] }),
+        };
+        mockFetch.mockResolvedValue(mockResponse);
+
+        await ampersandClient.getResourceData('job_templates', 'test-token');
+
+        const calledUrl = mockFetch.mock.calls[0][0] as string;
+        const urlObj = new URL(calledUrl);
+        expect(urlObj.searchParams.get('organization__name__iexact')).toBe(
+          'foo_&_bar',
+        );
+        expect(calledUrl).not.toMatch(
+          /organization__name__iexact=foo_&_bar(?!.*%26)/,
+        );
+      });
+
       it('should handle job_templates resource with labels', async () => {
         // Create a client with job template labels configured
         const mockLabelCatalogConfig = {
@@ -2205,7 +2330,7 @@ describe('AAPClient', () => {
         await labelClient.getResourceData('job_templates', 'test-token');
 
         expect(mockFetch).toHaveBeenCalledWith(
-          expect.stringContaining('labels__name__in=label1,Label2'),
+          expect.stringContaining('labels__name__in=label1%2CLabel2'),
           expect.any(Object),
         );
       });
@@ -2267,7 +2392,7 @@ describe('AAPClient', () => {
         await excludeLabelClient.getResourceData('job_templates', 'test-token');
 
         expect(mockFetch).toHaveBeenCalledWith(
-          expect.stringContaining('not__labels__name__in=exclude1,Exclude2'),
+          expect.stringContaining('not__labels__name__in=exclude1%2CExclude2'),
           expect.any(Object),
         );
       });
