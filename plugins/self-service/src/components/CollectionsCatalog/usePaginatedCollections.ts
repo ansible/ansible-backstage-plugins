@@ -3,18 +3,9 @@ import { Entity } from '@backstage/catalog-model';
 import { CatalogApi } from '@backstage/plugin-catalog-react';
 import { DiscoveryApi, FetchApi } from '@backstage/core-plugin-api';
 import { SyncStatusMap } from '../common';
-import {
-  getCollectionFullName,
-  compareVersions,
-  filterCollectionsByRepository,
-  sortEntities,
-  filterLatestVersions,
-} from './utils';
+import { filterCollectionsByRepository, sortEntities } from './utils';
 import { PAGE_SIZE } from './constants';
-import {
-  setCollectionsInvalidateCallback,
-  clearCollectionsInvalidateCallback,
-} from './collectionsInvalidation';
+import { addCollectionsInvalidateCallback } from './collectionsInvalidation';
 
 const LIGHTWEIGHT_FIELDS = [
   'kind',
@@ -30,15 +21,6 @@ const LIGHTWEIGHT_FIELDS = [
   'spec.collection_version',
   'spec.collection_full_name',
 ];
-
-const DEDUP_INDEX_FIELDS = [
-  'metadata.name',
-  'metadata.annotations',
-  'spec.collection_full_name',
-  'spec.collection_version',
-];
-
-const INDEX_CACHE_TTL_MS = 5 * 60 * 1000;
 
 export interface UsePaginatedCollectionsOptions {
   catalogApi: CatalogApi;
@@ -77,13 +59,6 @@ export interface UsePaginatedCollectionsResult {
   refresh: () => void;
 }
 
-interface IndexCache {
-  key: string;
-  dedupNames: string[];
-  totalUnique: number;
-  timestamp: number;
-}
-
 const BASE_FILTER: Record<string, string> = {
   kind: 'Component',
   'spec.type': 'ansible-collection',
@@ -93,6 +68,7 @@ function buildEntityFilter(
   sourceFilter: string,
   tagFilter: string,
   sourceTypeMap: Map<string, 'pah' | 'scm'>,
+  showLatestOnly: boolean,
 ): Record<string, string | string[]> {
   const filter: Record<string, string> = { ...BASE_FILTER };
 
@@ -108,6 +84,10 @@ function buildEntityFilter(
 
   if (tagFilter !== 'All') {
     filter['metadata.tags'] = tagFilter;
+  }
+
+  if (showLatestOnly) {
+    filter['metadata.annotations.ansible.io/is-latest-version'] = 'true';
   }
 
   return filter;
@@ -148,36 +128,6 @@ function buildRepoFilter(repoEntity: Entity): {
   };
 }
 
-function dedupIndexEntities(entities: Entity[]): string[] {
-  const grouped = new Map<string, { name: string; version: string }>();
-
-  for (const entity of entities) {
-    const fullName = getCollectionFullName(entity);
-    const sourceId =
-      entity.metadata?.annotations?.['ansible.io/discovery-source-id'] ||
-      'unknown';
-    const key = `${fullName}::${sourceId}`;
-    const version =
-      typeof entity.spec?.collection_version === 'string'
-        ? entity.spec.collection_version
-        : '0.0.0';
-
-    const existing = grouped.get(key);
-    if (!existing || compareVersions(version, existing.version) > 0) {
-      grouped.set(key, { name: entity.metadata.name, version });
-    }
-  }
-
-  const entries = Array.from(grouped.entries());
-  entries.sort((a, b) => {
-    const fullNameA = a[0].split('::')[0];
-    const fullNameB = b[0].split('::')[0];
-    return fullNameA.localeCompare(fullNameB);
-  });
-
-  return entries.map(([, v]) => v.name);
-}
-
 export function usePaginatedCollections({
   catalogApi,
   discoveryApi,
@@ -199,16 +149,12 @@ export function usePaginatedCollections({
   const [entities, setEntities] = useState<Entity[]>([]);
   const [totalCount, setTotalCount] = useState(0);
   const [totalUnfilteredCount, setTotalUnfilteredCount] = useState(0);
-  const [unfilteredDedupCount, setUnfilteredDedupCount] = useState<
-    number | null
-  >(null);
   const [currentPage, setCurrentPage] = useState(1);
   const [initialLoading, setInitialLoading] = useState(true);
   const [pageLoading, setPageLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const sourceTypeMapRef = useRef<Map<string, 'pah' | 'scm'>>(new Map());
-  const indexCacheRef = useRef<IndexCache | null>(null);
   const isMountedRef = useRef(true);
   const fetchGenRef = useRef(0);
   const hasLoadedOnceRef = useRef(false);
@@ -388,152 +334,37 @@ export function usePaginatedCollections({
           return;
         }
 
-        if (!showLatestOnly) {
-          // MODE A: Direct per-page fetch — one queryEntities call
-          const filter = buildEntityFilter(
-            sourceFilter,
-            tagFilter,
-            sourceTypeMapRef.current,
-          );
-          const result = await catalogApi.queryEntities({
-            filter,
-            fields: LIGHTWEIGHT_FIELDS,
-            limit: PAGE_SIZE,
-            offset: (page - 1) * PAGE_SIZE,
-            orderFields: [{ field: 'metadata.name', order: 'asc' }],
-            ...(debouncedSearchQuery.trim()
-              ? { fullTextFilter: { term: debouncedSearchQuery.trim() } }
-              : {}),
-          });
+        const filter = buildEntityFilter(
+          sourceFilter,
+          tagFilter,
+          sourceTypeMapRef.current,
+          showLatestOnly,
+        );
+        const result = await catalogApi.queryEntities({
+          filter,
+          fields: LIGHTWEIGHT_FIELDS,
+          limit: PAGE_SIZE,
+          offset: (page - 1) * PAGE_SIZE,
+          orderFields: [{ field: 'metadata.name', order: 'asc' }],
+          ...(debouncedSearchQuery.trim()
+            ? { fullTextFilter: { term: debouncedSearchQuery.trim() } }
+            : {}),
+        });
 
-          if (!isMountedRef.current || gen !== fetchGenRef.current) return;
+        if (!isMountedRef.current || gen !== fetchGenRef.current) return;
 
-          const lastPage = Math.max(
-            1,
-            Math.ceil(result.totalItems / PAGE_SIZE),
-          );
-          if (page > lastPage && page > 1) {
-            fetchPage(lastPage);
-            return;
-          }
-
-          setEntities(result.items);
-          setTotalCount(result.totalItems);
-          setCurrentPage(page);
-          hasLoadedOnceRef.current = true;
-          setInitialLoading(false);
-          setPageLoading(false);
-        } else {
-          // MODE B: Lightweight index for dedup, then fetch page by name array
-          const activeFilter = buildEntityFilter(
-            sourceFilter,
-            tagFilter,
-            sourceTypeMapRef.current,
-          );
-          const cacheKey = `${sourceFilter}::${tagFilter}::${debouncedSearchQuery}`;
-          const cached = indexCacheRef.current;
-          let dedupNames: string[];
-          let totalUnique: number;
-
-          if (
-            cached &&
-            cached.key === cacheKey &&
-            Date.now() - cached.timestamp < INDEX_CACHE_TTL_MS
-          ) {
-            dedupNames = cached.dedupNames;
-            totalUnique = cached.totalUnique;
-          } else {
-            // Fetch lightweight index — just enough fields for dedup
-            const indexResult = await catalogApi.queryEntities({
-              filter: activeFilter,
-              fields: DEDUP_INDEX_FIELDS,
-              limit: 5000,
-              orderFields: [{ field: 'metadata.name', order: 'asc' }],
-              ...(debouncedSearchQuery.trim()
-                ? { fullTextFilter: { term: debouncedSearchQuery.trim() } }
-                : {}),
-            });
-
-            if (!isMountedRef.current || gen !== fetchGenRef.current) return;
-
-            if (indexResult.totalItems > indexResult.items.length) {
-              // eslint-disable-next-line no-console
-              console.warn(
-                `Collections index truncated: ${indexResult.totalItems} total, only first ${indexResult.items.length} indexed`,
-              );
-            }
-
-            dedupNames = dedupIndexEntities(indexResult.items);
-            totalUnique = dedupNames.length;
-
-            if (
-              sourceFilter === 'All' &&
-              tagFilter === 'All' &&
-              !debouncedSearchQuery.trim()
-            ) {
-              setUnfilteredDedupCount(totalUnique);
-            }
-
-            indexCacheRef.current = {
-              key: cacheKey,
-              dedupNames,
-              totalUnique,
-              timestamp: Date.now(),
-            };
-          }
-
-          if (totalUnique === 0) {
-            setEntities([]);
-            setTotalCount(0);
-            setCurrentPage(1);
-            hasLoadedOnceRef.current = true;
-            setInitialLoading(false);
-            setPageLoading(false);
-            return;
-          }
-
-          const lastPage = Math.max(1, Math.ceil(totalUnique / PAGE_SIZE));
-          if (page > lastPage && page > 1) {
-            fetchPage(lastPage);
-            return;
-          }
-
-          // Fetch the specific 12 entities for this page
-          const start = (page - 1) * PAGE_SIZE;
-          const pageNames = dedupNames.slice(start, start + PAGE_SIZE);
-
-          if (pageNames.length === 0) {
-            setEntities([]);
-            setTotalCount(totalUnique);
-            setCurrentPage(page);
-            hasLoadedOnceRef.current = true;
-            setInitialLoading(false);
-            setPageLoading(false);
-            return;
-          }
-
-          const pageResult = await catalogApi.queryEntities({
-            filter: {
-              ...activeFilter,
-              'metadata.name': pageNames,
-            },
-            fields: LIGHTWEIGHT_FIELDS,
-            limit: pageNames.length * 10,
-          });
-
-          if (!isMountedRef.current || gen !== fetchGenRef.current) return;
-
-          // Re-apply dedup + sort to the page results
-          const deduped = filterLatestVersions(pageResult.items);
-          const sorted = sortEntities(deduped);
-
-          setEntities(sorted);
-          setTotalCount(totalUnique);
-          setCurrentPage(page);
-          hasLoadedOnceRef.current = true;
-          setInitialLoading(false);
-          setPageLoading(false);
+        const lastPage = Math.max(1, Math.ceil(result.totalItems / PAGE_SIZE));
+        if (page > lastPage && page > 1) {
+          fetchPage(lastPage);
+          return;
         }
+
+        setEntities(result.items);
+        setTotalCount(result.totalItems);
+        setCurrentPage(page);
+        hasLoadedOnceRef.current = true;
+        setInitialLoading(false);
+        setPageLoading(false);
       } catch (err) {
         if (!isMountedRef.current || gen !== fetchGenRef.current) return;
         setError(
@@ -556,22 +387,16 @@ export function usePaginatedCollections({
 
   // Reset to page 1 and fetch when filters/search/mode changes
   useEffect(() => {
-    indexCacheRef.current = null;
     setCurrentPage(1);
     fetchPage(1);
   }, [fetchPage]);
 
   // Register invalidation callback
   useEffect(() => {
-    setCollectionsInvalidateCallback(() => {
-      indexCacheRef.current = null;
-      setUnfilteredDedupCount(null);
+    return addCollectionsInvalidateCallback(() => {
       fetchPage(1);
       fetchFacets();
     });
-    return () => {
-      clearCollectionsInvalidateCallback();
-    };
   }, [fetchPage, fetchFacets]);
 
   const totalPages = Math.max(1, Math.ceil(totalCount / PAGE_SIZE));
@@ -599,21 +424,14 @@ export function usePaginatedCollections({
   }, [hasPrevPage, currentPage, fetchPage]);
 
   const refresh = useCallback(() => {
-    indexCacheRef.current = null;
-    setUnfilteredDedupCount(null);
     fetchPage(1);
     fetchFacets();
     fetchSyncStatus();
   }, [fetchPage, fetchFacets, fetchSyncStatus]);
 
-  const loadedEntityCount =
-    showLatestOnly && unfilteredDedupCount !== null
-      ? unfilteredDedupCount
-      : totalUnfilteredCount;
-
   return {
     entities,
-    loadedEntityCount,
+    loadedEntityCount: totalUnfilteredCount,
     totalCount,
     initialLoading,
     pageLoading,

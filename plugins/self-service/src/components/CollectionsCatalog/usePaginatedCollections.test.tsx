@@ -425,8 +425,8 @@ describe('usePaginatedCollections', () => {
 
   describe('pagination', () => {
     beforeEach(() => {
-      // Mode A (showLatestOnly=false) uses offset/limit directly,
-      // so totalItems from server drives page count.
+      // With showLatestOnly=false, offset/limit pagination works directly
+      // and totalItems from server drives page count.
       mockCatalogApi.queryEntities.mockResolvedValue({
         items: Array.from({ length: 12 }, (_, i) => ({
           ...mockEntity,
@@ -456,7 +456,7 @@ describe('usePaginatedCollections', () => {
         { wrapper },
       );
 
-      // Switch to Mode A for predictable pagination
+      // Disable latest-only filter for predictable pagination
       act(() => {
         result.current.setShowLatestOnly(false);
       });
@@ -697,7 +697,7 @@ describe('usePaginatedCollections', () => {
       expect(result.current.showLatestOnly).toBe(false);
     });
 
-    it('uses Mode A (direct per-page) when showLatestOnly is OFF', async () => {
+    it('does not include annotation filter when showLatestOnly is OFF', async () => {
       mockCatalogApi.queryEntities.mockResolvedValue({
         items: [mockEntity, mockEntity2],
         totalItems: 2,
@@ -714,7 +714,6 @@ describe('usePaginatedCollections', () => {
         { wrapper },
       );
 
-      // Toggle to Mode A
       act(() => {
         result.current.setShowLatestOnly(false);
       });
@@ -723,7 +722,6 @@ describe('usePaginatedCollections', () => {
         expect(result.current.initialLoading).toBe(false);
       });
 
-      // Mode A uses offset/limit directly
       expect(mockCatalogApi.queryEntities).toHaveBeenCalledWith(
         expect.objectContaining({
           limit: 12,
@@ -731,25 +729,22 @@ describe('usePaginatedCollections', () => {
           orderFields: [{ field: 'metadata.name', order: 'asc' }],
         }),
       );
+
+      const calls = mockCatalogApi.queryEntities.mock.calls;
+      const lastPageCall = calls[calls.length - 1];
+      expect(
+        lastPageCall[0]?.filter?.[
+          'metadata.annotations.ansible.io/is-latest-version'
+        ],
+      ).toBeUndefined();
     });
 
-    it('uses Mode B (dedup index + page fetch) when showLatestOnly is ON', async () => {
-      mockCatalogApi.queryEntities
-        .mockResolvedValueOnce({
-          items: [mockEntity],
-          totalItems: 1,
-          pageInfo: {},
-        }) // unfiltered count from fetchFacets
-        .mockResolvedValueOnce({
-          items: [mockEntity, mockEntity2],
-          totalItems: 2,
-          pageInfo: {},
-        }) // dedup index
-        .mockResolvedValueOnce({
-          items: [mockEntity],
-          totalItems: 1,
-          pageInfo: {},
-        }); // page fetch
+    it('includes annotation filter when showLatestOnly is ON', async () => {
+      mockCatalogApi.queryEntities.mockResolvedValue({
+        items: [mockEntity],
+        totalItems: 1,
+        pageInfo: {},
+      });
 
       const { result } = renderHook(
         () =>
@@ -765,14 +760,15 @@ describe('usePaginatedCollections', () => {
         expect(result.current.initialLoading).toBe(false);
       });
 
-      // Mode B should make index call with dedup fields, then page fetch
-      const queryCalls = mockCatalogApi.queryEntities.mock.calls;
-      const indexCall = queryCalls.find(
+      // showLatestOnly defaults to true, so the annotation filter should be present
+      const calls = mockCatalogApi.queryEntities.mock.calls;
+      const callWithAnnotation = calls.find(
         (c: any[]) =>
-          c[0]?.fields?.includes('spec.collection_full_name') &&
-          c[0]?.limit === 5000,
+          c[0]?.filter?.[
+            'metadata.annotations.ansible.io/is-latest-version'
+          ] === 'true',
       );
-      expect(indexCall).toBeDefined();
+      expect(callWithAnnotation).toBeDefined();
     });
   });
 
