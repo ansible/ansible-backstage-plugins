@@ -38,7 +38,7 @@ import { EmptyState } from '../common';
 import type { SyncProgressEntry } from '../common';
 import { useCollectionsStyles } from './styles';
 import { PAGE_SIZE } from './constants';
-import { filterLatestVersions, sortEntities } from './utils';
+import { sortEntities } from './utils';
 import { CollectionCard } from './CollectionCard';
 import { usePaginatedCollections } from './usePaginatedCollections';
 
@@ -188,7 +188,11 @@ export const CollectionsListPage = ({
     if (filters.user?.value === 'starred') {
       let starred = paginatedEntities.filter(e => isStarredEntity(e));
       if (showLatestOnly) {
-        starred = filterLatestVersions(starred);
+        starred = starred.filter(
+          e =>
+            e.metadata?.annotations?.['ansible.io/is-latest-version'] ===
+            'true',
+        );
       }
       return sortEntities(starred);
     }
