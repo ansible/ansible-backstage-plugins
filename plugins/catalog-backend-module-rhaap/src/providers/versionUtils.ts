@@ -58,8 +58,7 @@ export function stampLatestVersionAnnotations(entities: Entity[]): void {
   }
 
   for (const entity of groups.values()) {
-    if (entity.metadata.annotations) {
-      entity.metadata.annotations['ansible.io/is-latest-version'] = 'true';
-    }
+    entity.metadata.annotations ??= {};
+    entity.metadata.annotations['ansible.io/is-latest-version'] = 'true';
   }
 }
