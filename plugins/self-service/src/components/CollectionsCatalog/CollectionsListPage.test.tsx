@@ -137,6 +137,7 @@ const mockEntity: Entity = {
       'ansible.io/discovery-source-id': 'src-1',
       'ansible.io/collection-source': 'pah',
       'ansible.io/collection-source-repository': 'repo1',
+      'ansible.io/is-latest-version': 'true',
     },
   },
   spec: {

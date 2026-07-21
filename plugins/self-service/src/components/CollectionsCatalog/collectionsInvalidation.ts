@@ -1,17 +1,14 @@
 type InvalidateCallback = () => void;
 
-let callback: InvalidateCallback | null = null;
+const callbacks = new Set<InvalidateCallback>();
 
-export const setCollectionsInvalidateCallback = (
+export const addCollectionsInvalidateCallback = (
   cb: InvalidateCallback,
-): void => {
-  callback = cb;
-};
-
-export const clearCollectionsInvalidateCallback = (): void => {
-  callback = null;
+): (() => void) => {
+  callbacks.add(cb);
+  return () => callbacks.delete(cb);
 };
 
 export const invalidateCollections = (): void => {
-  callback?.();
+  callbacks.forEach(cb => cb());
 };

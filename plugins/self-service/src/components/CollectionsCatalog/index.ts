@@ -52,6 +52,5 @@ export type {
 
 export {
   invalidateCollections,
-  setCollectionsInvalidateCallback,
-  clearCollectionsInvalidateCallback,
+  addCollectionsInvalidateCallback,
 } from './collectionsInvalidation';
