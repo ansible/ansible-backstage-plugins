@@ -13,13 +13,15 @@ Frontend Backstage plugin for **APME** (Ansible Policy & Modernization Engine). 
 ## Configuration
 
 ```yaml
-apme:
-  enabled: true
-  baseUrl: http://localhost:8080
-  checkSSL: false
+ansible:
+  apme:
+    enabled: true
+    baseUrl: http://localhost:8080
+    checkSSL: false
+    # Optional: skip AAP OAuth on Add repository (RHDH Local / no AAP).
+    # Default false — Portal keeps Self-service Create + AAP login.
+    # useStockCreateForRegister: true
 ```
-
-Legacy `ansible.apme` block is also supported.
 
 ## Getting started
 

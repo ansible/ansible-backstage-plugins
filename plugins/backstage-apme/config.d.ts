@@ -76,6 +76,16 @@ export interface Config {
        * @visibility frontend
        */
       feedbackFormUrl?: string;
+      /**
+       * When true, Add repository opens stock scaffolder Create
+       * (`/create/templates/...`) instead of Self-service CreateTask
+       * (`/self-service/create/...`). Self-service Create always requests
+       * AAP OAuth on submit; stock Create does not. Use for RHDH Local /
+       * Gateway-only loops without AAP. Default false (Portal / AAP path).
+       * @default false
+       * @visibility frontend
+       */
+      useStockCreateForRegister?: boolean;
     };
   };
 }
