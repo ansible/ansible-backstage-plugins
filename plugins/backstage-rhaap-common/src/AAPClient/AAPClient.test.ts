@@ -2159,6 +2159,7 @@ describe('AAPClient', () => {
         ];
 
         for (const { input, encoded } of specialCharOrgs) {
+          const config = mockConfig;
           const mockSpecialCharCatalogConfig = {
             keys: jest.fn().mockReturnValue(['development']),
             getConfig: jest.fn().mockImplementation((key: string) => {
@@ -2183,12 +2184,12 @@ describe('AAPClient', () => {
           };
 
           const mockSpecialCharConfig = {
-            ...mockConfig,
+            ...config,
             getOptionalConfig: jest.fn().mockImplementation((path: string) => {
               if (path === 'catalog.providers.rhaap') {
                 return mockSpecialCharCatalogConfig;
               }
-              return mockConfig.getOptionalConfig(path);
+              return config.getOptionalConfig(path);
             }),
           };
 
