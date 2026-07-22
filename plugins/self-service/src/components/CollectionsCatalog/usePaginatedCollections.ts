@@ -35,7 +35,6 @@ export interface UsePaginatedCollectionsResult {
   totalCount: number;
   initialLoading: boolean;
   pageLoading: boolean;
-  loadingMore: boolean;
   error: string | null;
   currentPage: number;
   totalPages: number;
@@ -148,7 +147,9 @@ export function usePaginatedCollections({
 
   const [entities, setEntities] = useState<Entity[]>([]);
   const [totalCount, setTotalCount] = useState(0);
-  const [totalUnfilteredCount, setTotalUnfilteredCount] = useState(0);
+  const [totalUnfilteredCount, setTotalUnfilteredCount] = useState<
+    number | null
+  >(null);
   const [currentPage, setCurrentPage] = useState(1);
   const [initialLoading, setInitialLoading] = useState(true);
   const [pageLoading, setPageLoading] = useState(false);
@@ -431,11 +432,10 @@ export function usePaginatedCollections({
 
   return {
     entities,
-    loadedEntityCount: totalUnfilteredCount,
+    loadedEntityCount: totalUnfilteredCount ?? 0,
     totalCount,
     initialLoading,
     pageLoading,
-    loadingMore: false,
     error,
     currentPage,
     totalPages,

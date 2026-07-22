@@ -803,24 +803,4 @@ describe('usePaginatedCollections', () => {
       expect(result.current.allTags).toContain('security');
     });
   });
-
-  describe('loadingMore', () => {
-    it('is always false (no background loading in per-page mode)', async () => {
-      const { result } = renderHook(
-        () =>
-          usePaginatedCollections({
-            catalogApi: mockCatalogApi as any,
-            discoveryApi: mockDiscoveryApi as any,
-            fetchApi: mockFetchApi as any,
-          }),
-        { wrapper },
-      );
-
-      await waitFor(() => {
-        expect(result.current.initialLoading).toBe(false);
-      });
-
-      expect(result.current.loadingMore).toBe(false);
-    });
-  });
 });

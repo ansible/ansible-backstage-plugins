@@ -32,8 +32,6 @@ export {
   getCollectionFullName,
   compareVersions,
   sortEntities,
-  filterLatestVersions,
-  getUniqueFilters,
 } from './utils';
 
 export {

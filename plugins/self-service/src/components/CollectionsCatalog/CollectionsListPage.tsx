@@ -149,7 +149,6 @@ export const CollectionsListPage = ({
     totalCount,
     initialLoading,
     pageLoading,
-    loadingMore,
     error,
     currentPage,
     totalPages,
@@ -211,12 +210,10 @@ export const CollectionsListPage = ({
 
   const showCatalogEmptyState =
     !initialLoading &&
-    !loadingMore &&
     (filterByRepositoryEntity ? totalCount === 0 : loadedEntityCount === 0);
 
   const showNoFilterMatches =
     !initialLoading &&
-    !loadingMore &&
     !filterByRepositoryEntity &&
     !isStarredFilter &&
     loadedEntityCount > 0 &&
@@ -423,7 +420,7 @@ export const CollectionsListPage = ({
                   <Typography variant="h6" className={classes.contentTitle}>
                     Ansible Collections
                     {collectionsTitleCount}
-                    {(initialLoading || pageLoading || loadingMore) && (
+                    {(initialLoading || pageLoading) && (
                       <CircularProgress
                         size={16}
                         style={{ marginLeft: 8, verticalAlign: 'middle' }}
