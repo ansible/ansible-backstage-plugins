@@ -31,7 +31,7 @@ export interface UsePaginatedCollectionsOptions {
 
 export interface UsePaginatedCollectionsResult {
   entities: Entity[];
-  loadedEntityCount: number;
+  loadedEntityCount: number | null;
   totalCount: number;
   initialLoading: boolean;
   pageLoading: boolean;
@@ -432,7 +432,7 @@ export function usePaginatedCollections({
 
   return {
     entities,
-    loadedEntityCount: totalUnfilteredCount ?? 0,
+    loadedEntityCount: totalUnfilteredCount,
     totalCount,
     initialLoading,
     pageLoading,
