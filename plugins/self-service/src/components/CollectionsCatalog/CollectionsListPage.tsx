@@ -107,10 +107,10 @@ function collectionsTitleCountSuffix(
   initialLoading: boolean,
   filterByRepositoryEntity: Entity | null | undefined,
   showNoFilterMatches: boolean,
-  loadedEntityCount: number,
+  loadedEntityCount: number | null,
   totalCount: number,
 ): string {
-  if (initialLoading) {
+  if (initialLoading || loadedEntityCount === null) {
     return '';
   }
   if (!filterByRepositoryEntity && showNoFilterMatches) {
@@ -210,12 +210,14 @@ export const CollectionsListPage = ({
 
   const showCatalogEmptyState =
     !initialLoading &&
+    loadedEntityCount !== null &&
     (filterByRepositoryEntity ? totalCount === 0 : loadedEntityCount === 0);
 
   const showNoFilterMatches =
     !initialLoading &&
     !filterByRepositoryEntity &&
     !isStarredFilter &&
+    loadedEntityCount !== null &&
     loadedEntityCount > 0 &&
     totalCount === 0;
 
