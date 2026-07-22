@@ -548,6 +548,44 @@ describe('ansible-aap:jobTemplate:launch', () => {
     expect(mockAnsibleService.getJobStatus).not.toHaveBeenCalled();
   });
 
+  it('throws when polling returns a response without a status field', async () => {
+    jest.spyOn(global, 'setTimeout').mockImplementation((cb: any) => {
+      cb();
+      return {} as any;
+    });
+
+    const launchResponse = {
+      id: 82,
+      status: 'pending',
+      url: 'https://test.com/execution/jobs/playbook/82/output',
+      launchedAt: '2024-01-01T00:00:00.000Z',
+    };
+
+    mockAnsibleService.launchJobTemplateNoWait.mockResolvedValue(
+      launchResponse,
+    );
+    mockAnsibleService.getJobStatus.mockResolvedValueOnce({
+      id: 82,
+      status: undefined,
+      url: 'https://test.com/execution/jobs/playbook/82/output',
+    } as any);
+
+    const ctx = createMockActionContext({
+      input: {
+        token: MOCK_TOKEN,
+        values: projectData,
+        waitForCompletion: true,
+      },
+    });
+
+    await expect(action.handler(ctx as any)).rejects.toThrow(
+      'Job 82 finished with status "unknown"',
+    );
+    expect(ctx.output).not.toHaveBeenCalled();
+
+    jest.restoreAllMocks();
+  });
+
   it('strips full AAP inventory and normalizes credentials before launch', async () => {
     const launchResponse = {
       id: 1,

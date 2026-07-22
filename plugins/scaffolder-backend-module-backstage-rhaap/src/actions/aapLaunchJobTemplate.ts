@@ -93,8 +93,10 @@ async function pollJobCompletion(
     `Polling completed after ${pollCount} polls (${pollCount * (POLL_INTERVAL_MS / 1000)}s)`,
   );
 
-  if (currentStatus && currentStatus !== 'successful') {
-    throw new Error(`Job ${result.id} finished with status "${currentStatus}"`);
+  if (currentStatus !== 'successful') {
+    throw new Error(
+      `Job ${result.id} finished with status "${currentStatus ?? 'unknown'}"`,
+    );
   }
 
   return result;
