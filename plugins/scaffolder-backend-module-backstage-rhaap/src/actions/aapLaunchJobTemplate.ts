@@ -88,10 +88,14 @@ async function pollJobCompletion(
     throw e;
   }
 
-  logger.info(`Job ${result.id} completed with status: ${result.status}`);
+  logger.info(`Job ${result.id} completed with status: ${currentStatus}`);
   logger.debug(
     `Polling completed after ${pollCount} polls (${pollCount * (POLL_INTERVAL_MS / 1000)}s)`,
   );
+
+  if (currentStatus && currentStatus !== 'successful') {
+    throw new Error(`Job ${result.id} finished with status "${currentStatus}"`);
+  }
 
   return result;
 }
