@@ -71,15 +71,16 @@ export const LocationListener = () => {
       return undefined;
     }
 
-    // Handle /catalog/default/template/* paths - redirect to self-service catalog details
-    if (pathname.includes('/catalog/default/template/')) {
-      const templateName = pathname.split('/').pop();
-      if (templateName) {
-        navigate(`/self-service/catalog/default/${templateName}`, {
-          replace: true,
-        });
-        return undefined;
-      }
+    // Handle /catalog/{namespace}/template/* paths - redirect to self-service catalog details
+    const catalogTemplateMatch = pathname.match(
+      /^\/catalog\/([^/]+)\/template\/([^/]+)$/,
+    );
+    if (catalogTemplateMatch) {
+      const [, ns, templateName] = catalogTemplateMatch;
+      navigate(`/self-service/catalog/${ns}/${templateName}`, {
+        replace: true,
+      });
+      return undefined;
     }
 
     // Hide specific UI elements on catalog-import page

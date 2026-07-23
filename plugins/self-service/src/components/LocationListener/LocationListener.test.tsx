@@ -120,4 +120,33 @@ describe('LocationListener', () => {
       { replace: true },
     );
   });
+
+  describe('multi-org namespace support', () => {
+    it.each([
+      [
+        '/catalog/engineering/template/deploy-app',
+        '/self-service/catalog/engineering/deploy-app',
+        'org-scoped namespace',
+      ],
+      [
+        '/catalog/aap-default/template/deploy-app',
+        '/self-service/catalog/aap-default/deploy-app',
+        'AAP Default org',
+      ],
+      [
+        '/create/templates/platform-ops/deploy-app',
+        '/self-service/create/templates/platform-ops/deploy-app',
+        'create templates path',
+      ],
+      [
+        '/catalog/platform-ops/template/network-backup',
+        '/self-service/catalog/platform-ops/network-backup',
+        'multi-word org name',
+      ],
+    ])('redirects %s to %s (%s)', (from, to) => {
+      (useLocation as jest.Mock).mockReturnValue({ pathname: from });
+      render(<LocationListener />);
+      expect(mockNavigate).toHaveBeenCalledWith(to, { replace: true });
+    });
+  });
 });

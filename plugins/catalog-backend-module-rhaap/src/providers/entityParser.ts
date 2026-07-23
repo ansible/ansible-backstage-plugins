@@ -59,8 +59,9 @@ export function organizationParser(options: {
   org: Organization;
   orgMembers: string[];
   teams: string[];
+  orgName?: string;
 }): Entity {
-  const { baseUrl, org, nameSpace, orgMembers, teams } = options;
+  const { baseUrl, org, nameSpace, orgMembers, teams, orgName } = options;
   const normalizedBaseUrl = normalizeBaseUrl(baseUrl);
   return {
     apiVersion: 'backstage.io/v1alpha1',
@@ -72,6 +73,7 @@ export function organizationParser(options: {
       annotations: {
         [ANNOTATION_LOCATION]: `url:${normalizedBaseUrl}/access/organizations/${org.id}/details`,
         [ANNOTATION_ORIGIN_LOCATION]: `url:${normalizedBaseUrl}/access/organizations/${org.id}/details`,
+        ...(orgName && { 'ansible.com/organization': orgName }),
       },
     },
     spec: {
@@ -87,24 +89,30 @@ export function teamParser(options: {
   nameSpace: string;
   team: Team;
   teamMembers: string[];
+  orgName?: string;
+  orgGroupName?: string;
 }): Entity {
-  const { baseUrl, team, nameSpace, teamMembers } = options;
+  const { baseUrl, team, nameSpace, teamMembers, orgName, orgGroupName } =
+    options;
   const normalizedBaseUrl = normalizeBaseUrl(baseUrl);
+  const title = orgName ? `${team.name} [${orgName}]` : team.name;
   return {
     apiVersion: 'backstage.io/v1alpha1',
     kind: 'Group',
     metadata: {
       namespace: nameSpace,
       name: team.groupName,
-      title: team.name,
+      title,
       description: team.description,
       annotations: {
         [ANNOTATION_LOCATION]: `url:${normalizedBaseUrl}/access/teams/${team.id}/details`,
         [ANNOTATION_ORIGIN_LOCATION]: `url:${normalizedBaseUrl}/access/teams/${team.id}/details`,
+        ...(orgName && { 'ansible.com/organization': orgName }),
       },
     },
     spec: {
       type: 'team',
+      ...(orgGroupName && { parent: orgGroupName }),
       children: [],
       members: teamMembers,
     },
@@ -116,14 +124,15 @@ export function userParser(options: {
   nameSpace: string;
   user: User;
   groupMemberships: string[];
+  orgNames?: string[];
 }): Entity {
-  const { baseUrl, user, nameSpace, groupMemberships } = options;
+  const { baseUrl, user, nameSpace, groupMemberships, orgNames } = options;
   const normalizedBaseUrl = normalizeBaseUrl(baseUrl);
 
   // Add aap-admins group for superusers (this should always be included)
   const finalGroupMemberships = [...groupMemberships];
   if (user.is_superuser === true) {
-    finalGroupMemberships.push('aap-admins');
+    finalGroupMemberships.push('group:default/aap-admins');
   }
 
   const name =
@@ -139,6 +148,9 @@ export function userParser(options: {
   // Add RBAC-relevant annotations
   if (user.is_superuser !== undefined) {
     annotations['aap.platform/is_superuser'] = String(user.is_superuser);
+  }
+  if (orgNames && orgNames.length > 0) {
+    annotations['ansible.com/organizations'] = orgNames.join(',');
   }
 
   return {
@@ -167,6 +179,7 @@ export const aapJobTemplateParser = (options: {
   job: IJobTemplate;
   survey: ISurvey | null;
   instanceGroup: InstanceGroup[];
+  orgName?: string;
 }): Entity => {
   return generateTemplate(options);
 };
