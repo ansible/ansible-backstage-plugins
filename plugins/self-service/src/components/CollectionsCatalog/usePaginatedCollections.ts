@@ -112,19 +112,29 @@ function buildRepoFilter(repoEntity: Entity): {
   }
 
   const ann = repoEntity.metadata?.annotations || {};
-  return {
-    filter: {
-      ...BASE_FILTER,
-      'metadata.annotations.ansible.io/scm-provider':
-        ann['ansible.io/scm-provider'] || '',
-      'metadata.annotations.ansible.io/scm-host':
-        ann['ansible.io/scm-host'] || '',
-      'metadata.annotations.ansible.io/scm-organization':
-        ann['ansible.io/scm-organization'] || '',
-      'metadata.annotations.ansible.io/scm-repository':
-        ann['ansible.io/scm-repository'] || '',
-    },
-  };
+  const filter: Record<string, string | string[]> = { ...BASE_FILTER };
+
+  const scmMappings: [string, string][] = [
+    ['ansible.io/scm-provider', 'metadata.annotations.ansible.io/scm-provider'],
+    ['ansible.io/scm-host', 'metadata.annotations.ansible.io/scm-host'],
+    [
+      'ansible.io/scm-organization',
+      'metadata.annotations.ansible.io/scm-organization',
+    ],
+    [
+      'ansible.io/scm-repository',
+      'metadata.annotations.ansible.io/scm-repository',
+    ],
+  ];
+
+  for (const [annKey, filterKey] of scmMappings) {
+    const value = ann[annKey];
+    if (value) {
+      filter[filterKey] = value;
+    }
+  }
+
+  return { filter };
 }
 
 export function usePaginatedCollections({
