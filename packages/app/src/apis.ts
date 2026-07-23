@@ -12,6 +12,7 @@ import {
 } from '@backstage/core-plugin-api';
 import { OAuth2 } from '@backstage/core-app-api';
 import { rhAapAuthApiRef } from '@ansible/plugin-backstage-self-service';
+import { apmeApiFactory } from '@ansible/plugin-backstage-apme';
 
 export const apis: AnyApiFactory[] = [
   createApiFactory({
@@ -41,4 +42,5 @@ export const apis: AnyApiFactory[] = [
         defaultScopes: ['read', 'write'],
       }),
   }),
+  apmeApiFactory,
 ];

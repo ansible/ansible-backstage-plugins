@@ -189,6 +189,15 @@ catalog:
                   timeout: { minutes: 15 }
 
 ansible:
+  # EAP capability — default off (ADR-013/019). Opt in for local eap-next:
+  #   ansible.apme.enabled: true
+  #   ansible.apme.baseUrl: http://localhost:8080
+  apme:
+    enabled: false
+    baseUrl: http://localhost:8080
+    checkSSL: false
+    enableAi: false
+    publishViaGateway: true
   devSpaces:
     baseUrl: https://devspaces.apps.ansible-rhdh.testing.ansible.com/
   automationHub:

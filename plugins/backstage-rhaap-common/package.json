@@ -16,7 +16,8 @@
     ".": "./src/index.ts",
     "./constants": "./src/constants.ts",
     "./permissions": "./src/permissions.ts",
-    "./package.json": "./package.json"
+    "./package.json": "./package.json",
+    "./catalogEntity": "./src/catalogEntity.ts"
   },
   "typesVersions": {
     "*": {
@@ -25,6 +26,9 @@
       ],
       "permissions": [
         "src/permissions.ts"
+      ],
+      "catalogEntity": [
+        "src/catalogEntity.ts"
       ]
     }
   },
