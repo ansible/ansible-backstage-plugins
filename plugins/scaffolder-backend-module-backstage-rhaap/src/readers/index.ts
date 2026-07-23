@@ -1,5 +1,5 @@
 /*
- * Copyright 2024 The Ansible plugin Authors
+ * Copyright Red Hat
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,11 +14,11 @@
  * limitations under the License.
  */
 
-export * from './actions';
-export { scaffolderModuleAnsible as default } from './module';
+export {
+  IntegrationAwareFetchReader,
+  buildAllowedHostsFromIntegrations,
+} from './IntegrationAwareFetchReader';
 export {
   urlReaderIntegrationModule,
   integrationAwareUrlReaderFactory,
-  IntegrationAwareFetchReader,
-  buildAllowedHostsFromIntegrations,
-} from './readers';
+} from './module';
