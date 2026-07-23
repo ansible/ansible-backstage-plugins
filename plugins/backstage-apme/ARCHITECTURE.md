@@ -114,6 +114,14 @@ When detached, the host shows Overview + `CheckOptionsForm` + Scan. Mounting
 the panel while idle leaves it stuck on “Starting scan…” (same rule as the
 native SPA).
 
+### Dark theme (PatternFly)
+
+Portal/Backstage uses MUI theme; PatternFly dark tokens only apply when
+`pf-v6-theme-dark` is on **`<html>`** (`:root:where(.pf-v6-theme-dark)`).
+`useSyncPatternFlyTheme` (called from `ApmeEntityTab`) mirrors
+`theme.palette.type === 'dark'` onto that class while Quality is mounted, then
+restores the prior class state on unmount. A wrapper-only class is not enough.
+
 ### Adapter (`createApmeUiWorkflowAdapter.ts`)
 
 Builds the `@apme/ui-workflow` `ApmeApiAdapter`:

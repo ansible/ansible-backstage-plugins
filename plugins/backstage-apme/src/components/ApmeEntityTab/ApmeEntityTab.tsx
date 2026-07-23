@@ -48,6 +48,7 @@ import { createApmeUiWorkflowAdapter } from '../../api/createApmeUiWorkflowAdapt
 import { registerOrResolveApmeProject } from '../../utils/registerOrResolveApmeProject';
 import { ensureRepoBranchForScan } from '../../utils/ensureRepoBranchForScan';
 import { useApmeAiEnabled } from '../../hooks/useApmeEnabled';
+import { useSyncPatternFlyTheme } from '../../hooks/useSyncPatternFlyTheme';
 import { ApmeUnavailable } from '../ApmeUnavailable';
 
 export interface ApmeEntityTabProps {
@@ -199,6 +200,9 @@ function WorkflowBody({ projectId }: { projectId: string }) {
  * `@apme/ui-workflow` (ADR-056: Gateway owns SCM push; no file bundles).
  */
 export const ApmeEntityTab = (_props: ApmeEntityTabProps) => {
+  // PF + @apme/ui-workflow dark tokens require pf-v6-theme-dark on <html>.
+  useSyncPatternFlyTheme();
+
   const { entity } = useEntity();
   const apmeApi = useApi(apmeApiRef);
   const discoveryApi = useApi(discoveryApiRef);
