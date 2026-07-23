@@ -101,7 +101,7 @@
     "markdown-it": "^14.2.0",
     "typeorm": "^0.3.29",
     "underscore": "^1.13.8",
-    "react-router": "^6.30.4",
+    "react-router": "^7.0.0",
     "qs": "^6.15.2",
     "@grpc/grpc-js": "^1.13.5",
     "@babel/core": "^7.29.6",
