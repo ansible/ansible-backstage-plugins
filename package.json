@@ -77,7 +77,7 @@
     "protobufjs": "7.6.3",
     "undici": "^6.26.0",
     "fast-xml-parser": "^5.5.6",
-    "immutable": "^3.8.3",
+    "immutable": "^4.0.0",
     "rollup": "^4.59.0",
     "svgo": "^2.8.1",
     "koa": "^3.1.2",
