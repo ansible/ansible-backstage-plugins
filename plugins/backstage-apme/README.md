@@ -2,6 +2,8 @@
 
 Thin Portal host for APME Quality on catalog entities.
 
+Architecture overview: [ARCHITECTURE.md](./ARCHITECTURE.md).
+
 ## Scope
 
 - Resolves/registers an APME project from the entity source location

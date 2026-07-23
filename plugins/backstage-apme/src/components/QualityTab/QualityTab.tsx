@@ -88,10 +88,7 @@ export const QualityTab = ({
 
   return (
     <EntityProvider entity={entity}>
-      <ApmeEntityTab
-        initialRuleFilter={initialRuleFilter}
-        initialProjectId={projectId && !repoUrl ? projectId : undefined}
-      />
+      <ApmeEntityTab initialRuleFilter={initialRuleFilter} />
     </EntityProvider>
   );
 };

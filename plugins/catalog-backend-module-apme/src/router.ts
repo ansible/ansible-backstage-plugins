@@ -279,6 +279,13 @@ export async function createRouter(options: RouterOptions): Promise<Router> {
     res.json({ enableAi, connected, modelCount });
   });
 
+  // @apme/ui-workflow CheckOptionsForm → GET /ai/models (via catalog proxy apiBase).
+  router.get('/apme/ai/models', async (req, res) => {
+    await ensureUser(req);
+    const models = await apmeService.getAiModels();
+    res.json(models);
+  });
+
   router.get('/apme/projects', async (req, res) => {
     await ensureUser(req);
     logger.debug('APME projects list requested');

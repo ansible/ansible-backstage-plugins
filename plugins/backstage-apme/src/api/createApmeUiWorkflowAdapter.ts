@@ -22,7 +22,12 @@ import {
 
 /**
  * Adapter for `@apme/ui-workflow` that talks to the catalog APME proxy
- * (`/api/catalog/apme` → Gateway), not the Gateway origin directly.
+ * (`…/api/catalog/apme` → Gateway), not the Gateway origin directly.
+ *
+ * Uses the absolute discovery URL (same as {@link ApmeApiClient}). In
+ * `yarn start` / `make react`, the FE origin (:3001) does not proxy `/api/*`
+ * — relative `/api/catalog/...` returns the SPA HTML shell, so model list
+ * and operation calls silently fail JSON parse.
  */
 export async function createApmeUiWorkflowAdapter(options: {
   discoveryApi: DiscoveryApi;
@@ -33,7 +38,11 @@ export async function createApmeUiWorkflowAdapter(options: {
   return createDefaultApmeApiAdapter({
     apiBase,
     fetch: options.fetchApi.fetch.bind(options.fetchApi),
-    origin:
-      typeof window !== 'undefined' ? window.location.origin : catalogBase,
+    // Prefer backend origin for absolute SSE URLs when apiBase is absolute.
+    origin: apiBase.startsWith('http')
+      ? new URL(apiBase).origin
+      : typeof window !== 'undefined'
+        ? window.location.origin
+        : catalogBase,
   });
 }
