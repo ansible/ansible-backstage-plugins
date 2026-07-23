@@ -452,7 +452,9 @@ export const CollectionsListPage = ({
                         <NavigateBeforeIcon />
                       </IconButton>
                       <Typography variant="body2">
-                        Page {currentPage} of {totalPages}
+                        {isStarredFilter
+                          ? `Page ${currentPage}`
+                          : `Page ${currentPage} of ${totalPages}`}
                       </Typography>
                       <IconButton
                         size="small"
