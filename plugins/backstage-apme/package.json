@@ -23,12 +23,12 @@
     "prepack": "backstage-cli package prepack",
     "postpack": "backstage-cli package postpack",
     "start": "backstage-cli package start",
-    "export-dynamic": "rhdh-cli plugin export --embed-package @ansible/backstage-apme-common --embed-package @ansible/backstage-rhaap-common"
+    "export-dynamic": "rhdh-cli plugin export --embed-package @ansible/backstage-apme-common --embed-package @ansible/backstage-rhaap-common --embed-package @apme/ui-workflow"
   },
   "dependencies": {
     "@ansible/backstage-apme-common": "workspace:^",
     "@ansible/backstage-rhaap-common": "workspace:^",
-    "@apme/ui-workflow": "workspace:^",
+    "@apme/ui-workflow": "https://github.com/cidrblock/apme/releases/download/ui-workflow-v0.1.1/apme-ui-workflow-0.1.1.tgz",
     "@backstage/catalog-model": "^1.5.0",
     "@backstage/core-components": "^0.14.0",
     "@backstage/core-plugin-api": "^1.9.0",

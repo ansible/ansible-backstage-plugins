@@ -25,5 +25,16 @@ ansible:
     publishViaGateway: true
 ```
 
-`@apme/ui-workflow` is vendored at `plugins/apme-ui-workflow` (synced from
-`apme` `frontend/packages/ui-workflow`) until the package is published to npm.
+`@apme/ui-workflow` is installed from an APME GitHub Release tarball (ADR-066),
+not a vendored workspace copy. Bump the dependency URL in `package.json` when
+APME tags a new `ui-workflow-v*` release, then run `yarn install`.
+
+**Canonical URL** (after [ansible/apme#451](https://github.com/ansible/apme/pull/451) merges and the release is published on `ansible/apme`):
+
+```text
+https://github.com/ansible/apme/releases/download/ui-workflow-v0.1.1/apme-ui-workflow-0.1.1.tgz
+```
+
+Until that merge (GitHub `workflow` OAuth scope required to land the release
+workflow), local/dev may pin the identical tarball from the `cidrblock/apme`
+fork release of the same tag.
