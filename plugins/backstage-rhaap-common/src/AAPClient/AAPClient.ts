@@ -623,7 +623,7 @@ export class AAPClient implements IAAPService {
     let templateID;
     const urlSearchParams = new URLSearchParams();
     urlSearchParams.set('name', payload.template);
-    const templateIdEndpoint = `api/controller/v2/job_templates/?${decodeURIComponent(urlSearchParams.toString())}`;
+    const templateIdEndpoint = `api/controller/v2/job_templates/?${urlSearchParams.toString()}`;
     try {
       const templateResponse = await this.executeGetRequest(
         templateIdEndpoint,
@@ -951,7 +951,7 @@ export class AAPClient implements IAAPService {
       }
     }
 
-    const endPoint = `api/controller/v2/${aapResource}/?${decodeURIComponent(urlSearchParams.toString())}`;
+    const endPoint = `api/controller/v2/${aapResource}/?${urlSearchParams.toString()}`;
     const response = await this.executeGetRequest(endPoint, token);
     return await response.json();
   }
@@ -1183,7 +1183,7 @@ export class AAPClient implements IAAPService {
         });
       }
       const rawOrgs = await this.executeCatalogRequest(
-        `${orgEndPoint}?${decodeURIComponent(urlSearchParams.toString())}`,
+        `${orgEndPoint}?${urlSearchParams.toString()}`,
         token,
       );
 
@@ -1207,13 +1207,13 @@ export class AAPClient implements IAAPService {
           const [rawTeams, users] = await Promise.all([
             teamsUrl
               ? this.executeCatalogRequest(
-                  `${teamsUrl}?${decodeURIComponent(urlSearchParams.toString())}`,
+                  `${teamsUrl}?${urlSearchParams.toString()}`,
                   token,
                 )
               : Promise.resolve([]),
             usersUrl
               ? this.executeCatalogRequest(
-                  `${usersUrl}?${decodeURIComponent(urlSearchParams.toString())}`,
+                  `${usersUrl}?${urlSearchParams.toString()}`,
                   token,
                 )
               : Promise.resolve([] as Users),
@@ -1230,7 +1230,7 @@ export class AAPClient implements IAAPService {
               if (!teamUsersUrl) {
                 return [];
               }
-              teamUsersUrl = `${teamUsersUrl}?${decodeURIComponent(batchUrlSearchParams.toString())}`;
+              teamUsersUrl = `${teamUsersUrl}?${batchUrlSearchParams.toString()}`;
               const teamUsers = ((await this.executeCatalogRequest(
                 teamUsersUrl,
                 token,
@@ -1303,7 +1303,7 @@ export class AAPClient implements IAAPService {
     const urlSearchParams = new URLSearchParams();
     urlSearchParams.set('page_size', '200');
     const teams = await this.executeCatalogRequest(
-      `${endPoint}?${decodeURIComponent(urlSearchParams.toString())}`,
+      `${endPoint}?${urlSearchParams.toString()}`,
       token,
     );
     return teams
@@ -1340,7 +1340,7 @@ export class AAPClient implements IAAPService {
       });
     }
     const orgs = await this.executeCatalogRequest(
-      `${endPoint}?${decodeURIComponent(urlSearchParams.toString())}`,
+      `${endPoint}?${urlSearchParams.toString()}`,
       token,
     );
     return orgs
@@ -1378,7 +1378,7 @@ export class AAPClient implements IAAPService {
     const urlSearchParams = new URLSearchParams();
     urlSearchParams.set('page_size', '200');
     const roles = await this.executeCatalogRequest(
-      `${endPoint}?${decodeURIComponent(urlSearchParams.toString())}`,
+      `${endPoint}?${urlSearchParams.toString()}`,
       token,
     );
     return roles.reduce(
@@ -1446,7 +1446,7 @@ export class AAPClient implements IAAPService {
     try {
       const token = this.ansibleConfig.rhaap?.token ?? null;
       const templates = await this.executeCatalogRequest(
-        `${endPoint}?${decodeURIComponent(urlSearchParams.toString())}`,
+        `${endPoint}?${urlSearchParams.toString()}`,
         token,
       );
       const jobTemplatesData = await Promise.all(
