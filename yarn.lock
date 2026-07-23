@@ -141,7 +141,7 @@ __metadata:
   dependencies:
     "@ansible/backstage-apme-common": "workspace:^"
     "@ansible/backstage-rhaap-common": "workspace:^"
-    "@apme/ui-workflow": "https://github.com/cidrblock/apme/releases/download/ui-workflow-v0.1.1/apme-ui-workflow-0.1.1.tgz"
+    "@apme/ui-workflow": "https://github.com/ansible/apme/releases/download/ui-workflow-v0.1.1/apme-ui-workflow-0.1.1.tgz"
     "@backstage/catalog-model": "npm:^1.5.0"
     "@backstage/cli": "npm:^0.27.0"
     "@backstage/config": "npm:^1.2.0"
@@ -357,15 +357,15 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@apme/ui-workflow@https://github.com/cidrblock/apme/releases/download/ui-workflow-v0.1.1/apme-ui-workflow-0.1.1.tgz":
+"@apme/ui-workflow@https://github.com/ansible/apme/releases/download/ui-workflow-v0.1.1/apme-ui-workflow-0.1.1.tgz":
   version: 0.1.1
-  resolution: "@apme/ui-workflow@https://github.com/cidrblock/apme/releases/download/ui-workflow-v0.1.1/apme-ui-workflow-0.1.1.tgz"
+  resolution: "@apme/ui-workflow@https://github.com/ansible/apme/releases/download/ui-workflow-v0.1.1/apme-ui-workflow-0.1.1.tgz"
   peerDependencies:
     "@patternfly/react-core": ^6.3.1
     "@patternfly/react-icons": ^6.3.1
     react: ^18.3.1
     react-dom: ^18.3.1
-  checksum: 10c0/9d4f5c303c8f9aca84ff341c60e12ae54a8eea4a5fb6818f8675dedaf79c3d1eddcee224114b6ee0655a77505f7e54ccbcc10c1e46bbd801d711cc40924097d1
+  checksum: 10c0/e5b4b00d967a53b32dd7eba65cd6cfdb75a9a538f73e7417ce0726617772e2faa2f07ef6a68aba9714b09a7bac3b74029a132db5eeef05c0de9ffc8dab7715e8
   languageName: node
   linkType: hard
 
