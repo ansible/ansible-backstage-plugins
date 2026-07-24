@@ -53,11 +53,20 @@ function readAapApiEntityConfig(
         .split(',')
         .map(o => o.trim().toLowerCase())
         .filter(o => o.length > 0);
-  } catch (error) {
-    organizations = catalogConfig
-      .getStringArray('orgs')
-      .map(o => o.trim().toLowerCase())
-      .filter(o => o.length > 0);
+  } catch {
+    try {
+      organizations = catalogConfig
+        .getStringArray('orgs')
+        .map(o => o.trim().toLowerCase())
+        .filter(o => o.length > 0);
+    } catch {
+      // orgs is set but invalid (empty string, wrong type) — fall through to default
+    }
+  }
+
+  // Sane default: sync the Default org when no orgs are configured
+  if (organizations.length === 0) {
+    organizations = ['default'];
   }
 
   if (organizations.length > 1) {
