@@ -3,9 +3,7 @@ import { ThemeProvider, createTheme } from '@material-ui/core/styles';
 import { TestApiProvider, mockApis } from '@backstage/test-utils';
 import {
   catalogApiRef,
-  EntityKindFilter,
   EntityListProvider,
-  EntityTypeFilter,
   MockStarredEntitiesApi,
   starredEntitiesApiRef,
 } from '@backstage/plugin-catalog-react';
@@ -14,27 +12,92 @@ import { permissionApiRef } from '@backstage/plugin-permission-react';
 
 jest.mock('@backstage/plugin-catalog-react', () => {
   const actual = jest.requireActual('@backstage/plugin-catalog-react');
-  const CatalogFilterLayout = ({
-    children,
+  const React = require('react');
+
+  const MockEntityListContext = React.createContext({
+    filters: {},
+    updateFilters: () => {},
+  });
+
+  // eslint-disable-next-line @typescript-eslint/no-shadow
+  const EntityListProvider = ({ children }: { children?: React.ReactNode }) => {
+    const [filters, setFilters] = React.useState({});
+    const updateFilters = React.useCallback(
+      (
+        updater:
+          | Record<string, unknown>
+          | ((prev: Record<string, unknown>) => Record<string, unknown>),
+      ) => {
+        setFilters((prev: Record<string, unknown>) =>
+          typeof updater === 'function'
+            ? updater(prev)
+            : { ...prev, ...updater },
+        );
+      },
+      [],
+    );
+    return React.createElement(
+      MockEntityListContext.Provider,
+      { value: { filters, updateFilters } },
+      children,
+    );
+  };
+
+  const useEntityList = () => React.useContext(MockEntityListContext);
+
+  const UserListPicker = ({
+    availableFilters,
   }: {
-    children?: React.ReactNode;
-  }) => <div data-testid="catalog-filter-layout">{children}</div>;
+    availableFilters?: string[];
+  }) => {
+    const { updateFilters } = useEntityList();
+    return React.createElement(
+      'div',
+      { 'data-testid': 'user-list-picker' },
+      (availableFilters ?? ['all']).map((f: string) =>
+        React.createElement(
+          'button',
+          {
+            key: f,
+            'data-testid': `${f}-filter`,
+            onClick: () => {
+              updateFilters((prev: Record<string, unknown>) => ({
+                ...prev,
+                user: { value: f },
+              }));
+            },
+          },
+          f,
+        ),
+      ),
+    );
+  };
+
+  const CatalogFilterLayout = ({ children }: { children?: React.ReactNode }) =>
+    React.createElement(
+      'div',
+      { 'data-testid': 'catalog-filter-layout' },
+      children,
+    );
   CatalogFilterLayout.Filters = ({
     children,
   }: {
     children?: React.ReactNode;
-  }) => <div data-testid="catalog-filters">{children}</div>;
+  }) =>
+    React.createElement('div', { 'data-testid': 'catalog-filters' }, children);
   CatalogFilterLayout.Content = ({
     children,
   }: {
     children?: React.ReactNode;
-  }) => <div data-testid="catalog-content">{children}</div>;
-  const UserListPicker = () => <div data-testid="user-list-picker" />;
+  }) =>
+    React.createElement('div', { 'data-testid': 'catalog-content' }, children);
+
   return {
     ...actual,
     CatalogFilterLayout,
+    EntityListProvider,
+    useEntityList,
     UserListPicker,
-    EntityListProvider: actual.EntityListProvider,
     catalogApiRef: actual.catalogApiRef,
     starredEntitiesApiRef: actual.starredEntitiesApiRef,
     MockStarredEntitiesApi: actual.MockStarredEntitiesApi,
@@ -61,7 +124,6 @@ jest.mock('../../routes', () => ({
 import { Entity } from '@backstage/catalog-model';
 import { MemoryRouter } from 'react-router-dom';
 import { CollectionsListPage, CollectionsContent } from './CollectionsListPage';
-import { collectionsCache } from './collectionsCache';
 
 const theme = createTheme();
 
@@ -75,6 +137,7 @@ const mockEntity: Entity = {
       'ansible.io/discovery-source-id': 'src-1',
       'ansible.io/collection-source': 'pah',
       'ansible.io/collection-source-repository': 'repo1',
+      'ansible.io/is-latest-version': 'true',
     },
   },
   spec: {
@@ -89,6 +152,7 @@ const mockEntity: Entity = {
 const mockCatalogApi = {
   getEntities: jest.fn(),
   queryEntities: jest.fn(),
+  getEntityFacets: jest.fn().mockResolvedValue({ facets: {} }),
 };
 
 const mockDiscoveryApi = {
@@ -130,8 +194,24 @@ const renderListPage = (
 describe('CollectionsListPage', () => {
   beforeEach(() => {
     jest.clearAllMocks();
-    // Clear the collections cache before each test to ensure isolation
-    collectionsCache.clear();
+    mockCatalogApi.getEntityFacets.mockImplementation(
+      async (req: { facets: string[] }) => {
+        if (
+          req.facets.includes(
+            'metadata.annotations.ansible.io/collection-source-repository',
+          )
+        ) {
+          return {
+            facets: {
+              'metadata.annotations.ansible.io/collection-source-repository': [
+                { value: 'repo1', count: 1 },
+              ],
+            },
+          };
+        }
+        return { facets: {} };
+      },
+    );
     mockCatalogApi.queryEntities.mockResolvedValue({
       items: [mockEntity],
       totalItems: 1,
@@ -154,6 +234,9 @@ describe('CollectionsListPage', () => {
 
   it('shows progress while loading with UI shell visible', async () => {
     mockCatalogApi.queryEntities.mockImplementation(
+      () => new Promise(() => {}),
+    );
+    mockCatalogApi.getEntityFacets.mockImplementation(
       () => new Promise(() => {}),
     );
 
@@ -252,19 +335,26 @@ describe('CollectionsListPage', () => {
       expect(screen.getByText('ns.collection')).toBeInTheDocument();
     });
 
+    // After initial load, make queryEntities return empty for non-matching search
+    mockCatalogApi.queryEntities.mockImplementation(async (req: any) => {
+      if (req.fullTextFilter?.term) {
+        return { items: [], totalItems: 0 };
+      }
+      return { items: [mockEntity], totalItems: 1 };
+    });
+
     const searchInput = screen.getByPlaceholderText('Search');
     fireEvent.change(searchInput, {
       target: { value: 'does-not-exist-xyz' },
     });
 
     await waitFor(() => {
-      expect(searchInput).toHaveValue('does-not-exist-xyz');
+      expect(
+        screen.getByText('No collections match your search or filters.'),
+      ).toBeInTheDocument();
     });
 
     expect(screen.queryByText('No Collections Found')).not.toBeInTheDocument();
-    expect(
-      screen.getByText('No collections match your search or filters.'),
-    ).toBeInTheDocument();
     expect(
       screen.getByText(/Ansible Collections \(0 of 1\)/),
     ).toBeInTheDocument();
@@ -458,16 +548,7 @@ describe('CollectionsListPage', () => {
     expect(sourceInput.closest('input')).toHaveValue('repo1');
   });
 
-  it('when filters.user is starred only starred entities are shown', async () => {
-    const catalogReact = require('@backstage/plugin-catalog-react');
-    const useEntityListSpy = jest
-      .spyOn(catalogReact, 'useEntityList')
-      .mockReturnValue({
-        filters: { user: { value: 'starred' } },
-        updateFilters: jest.fn(),
-        queryParameters: {},
-      } as any);
-
+  it('when starred filter is active only starred entities are shown', async () => {
     const starredApi = new MockStarredEntitiesApi();
     starredApi.toggleStarred('component:default/test-collection');
 
@@ -495,24 +576,15 @@ describe('CollectionsListPage', () => {
       expect(screen.getByText('ns.collection')).toBeInTheDocument();
     });
 
+    fireEvent.click(screen.getByTestId('starred-filter'));
+
     await waitFor(() => {
       expect(screen.queryByText('other.other')).not.toBeInTheDocument();
     });
     expect(screen.getByText('ns.collection')).toBeInTheDocument();
-
-    useEntityListSpy.mockRestore();
   });
 
-  it('when filters.user is all all entities are shown with showLatestOnly applied', async () => {
-    const catalogReact = require('@backstage/plugin-catalog-react');
-    const useEntityListSpy = jest
-      .spyOn(catalogReact, 'useEntityList')
-      .mockReturnValue({
-        filters: { user: { value: 'all' } },
-        updateFilters: jest.fn(),
-        queryParameters: {},
-      } as any);
-
+  it('when all filter is active all entities are shown', async () => {
     const entities = [
       mockEntity,
       {
@@ -537,15 +609,13 @@ describe('CollectionsListPage', () => {
       expect(screen.getByText('ns.collection')).toBeInTheDocument();
       expect(screen.getByText('other.other')).toBeInTheDocument();
     });
-
-    useEntityListSpy.mockRestore();
   });
 });
 
-describe('CollectionsTypeFilter', () => {
+describe('CatalogFilterLayout', () => {
   beforeEach(() => {
     jest.clearAllMocks();
-    collectionsCache.clear();
+    mockCatalogApi.getEntityFacets.mockResolvedValue({ facets: {} });
     mockCatalogApi.queryEntities.mockResolvedValue({
       items: [mockEntity],
       totalItems: 1,
@@ -566,60 +636,6 @@ describe('CollectionsTypeFilter', () => {
     });
   });
 
-  it('calls updateFilters with kind and type when filters are missing', async () => {
-    const updateFiltersMock = jest.fn();
-    const catalogReact = require('@backstage/plugin-catalog-react');
-    const useEntityListSpy = jest
-      .spyOn(catalogReact, 'useEntityList')
-      .mockReturnValue({
-        filters: {},
-        updateFilters: updateFiltersMock,
-        queryParameters: {},
-      } as any);
-
-    renderListPage();
-
-    await waitFor(() => {
-      expect(updateFiltersMock).toHaveBeenCalled();
-    });
-
-    expect(updateFiltersMock).toHaveBeenCalledWith(expect.any(Function));
-    const updater = updateFiltersMock.mock.calls[0][0];
-    const result = updater({});
-    expect(result.kind).toBeInstanceOf(EntityKindFilter);
-    expect(result.kind.value).toBe('Component');
-    expect(result.type).toBeInstanceOf(EntityTypeFilter);
-    expect(result.type.getTypes()).toEqual(['ansible-collection']);
-
-    useEntityListSpy.mockRestore();
-  });
-
-  it('does not call updateFilters when kind and type are already set', async () => {
-    const updateFiltersMock = jest.fn();
-    const catalogReact = require('@backstage/plugin-catalog-react');
-    const useEntityListSpy = jest
-      .spyOn(catalogReact, 'useEntityList')
-      .mockReturnValue({
-        filters: {
-          kind: new EntityKindFilter('Component', 'Component'),
-          type: new EntityTypeFilter('ansible-collection'),
-          user: { value: 'all' },
-        },
-        updateFilters: updateFiltersMock,
-        queryParameters: {},
-      } as any);
-
-    renderListPage();
-
-    await waitFor(() => {
-      expect(screen.getByText('ns.collection')).toBeInTheDocument();
-    });
-
-    expect(updateFiltersMock).not.toHaveBeenCalled();
-
-    useEntityListSpy.mockRestore();
-  });
-
   it('is rendered when CollectionsListPage renders with entities', async () => {
     renderListPage();
 
@@ -634,7 +650,7 @@ describe('CollectionsTypeFilter', () => {
 describe('CollectionsContent', () => {
   beforeEach(() => {
     jest.clearAllMocks();
-    collectionsCache.clear();
+    mockCatalogApi.getEntityFacets.mockResolvedValue({ facets: {} });
   });
 
   it('renders when provided with router and APIs', async () => {
@@ -676,7 +692,7 @@ describe('CollectionsContent', () => {
 describe('CollectionsListPage with filterByRepositoryEntity', () => {
   beforeEach(() => {
     jest.clearAllMocks();
-    collectionsCache.clear();
+    mockCatalogApi.getEntityFacets.mockResolvedValue({ facets: {} });
     mockFetchApi.fetch.mockResolvedValue({
       ok: true,
       json: async () => ({

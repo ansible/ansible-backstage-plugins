@@ -38,7 +38,7 @@ import { EmptyState } from '../common';
 import type { SyncProgressEntry } from '../common';
 import { useCollectionsStyles } from './styles';
 import { PAGE_SIZE } from './constants';
-import { filterLatestVersions, sortEntities } from './utils';
+import { sortEntities } from './utils';
 import { CollectionCard } from './CollectionCard';
 import { usePaginatedCollections } from './usePaginatedCollections';
 
@@ -107,14 +107,21 @@ function collectionsTitleCountSuffix(
   initialLoading: boolean,
   filterByRepositoryEntity: Entity | null | undefined,
   showNoFilterMatches: boolean,
-  loadedEntityCount: number,
+  loadedEntityCount: number | null,
   totalCount: number,
 ): string {
-  if (initialLoading) {
+  if (initialLoading || loadedEntityCount === null) {
     return '';
   }
   if (!filterByRepositoryEntity && showNoFilterMatches) {
     return ` (0 of ${loadedEntityCount})`;
+  }
+  if (
+    !filterByRepositoryEntity &&
+    loadedEntityCount > 0 &&
+    totalCount !== loadedEntityCount
+  ) {
+    return ` (${totalCount} of ${loadedEntityCount})`;
   }
   return ` (${totalCount})`;
 }
@@ -141,7 +148,7 @@ export const CollectionsListPage = ({
     loadedEntityCount,
     totalCount,
     initialLoading,
-    loadingMore,
+    pageLoading,
     error,
     currentPage,
     totalPages,
@@ -180,12 +187,19 @@ export const CollectionsListPage = ({
     if (filters.user?.value === 'starred') {
       let starred = paginatedEntities.filter(e => isStarredEntity(e));
       if (showLatestOnly) {
-        starred = filterLatestVersions(starred);
+        starred = starred.filter(
+          e =>
+            e.metadata?.annotations?.['ansible.io/is-latest-version'] ===
+            'true',
+        );
       }
       return sortEntities(starred);
     }
     return paginatedEntities;
   })();
+
+  const isStarredFilter =
+    !filterByRepositoryEntity && filters.user?.value === 'starred';
 
   const startIndex = (currentPage - 1) * PAGE_SIZE;
   const endIndex = Math.min(startIndex + PAGE_SIZE, totalCount);
@@ -196,23 +210,33 @@ export const CollectionsListPage = ({
 
   const showCatalogEmptyState =
     !initialLoading &&
-    !loadingMore &&
+    loadedEntityCount !== null &&
     (filterByRepositoryEntity ? totalCount === 0 : loadedEntityCount === 0);
 
   const showNoFilterMatches =
     !initialLoading &&
-    !loadingMore &&
     !filterByRepositoryEntity &&
+    !isStarredFilter &&
+    loadedEntityCount !== null &&
     loadedEntityCount > 0 &&
     totalCount === 0;
 
-  const collectionsTitleCount = collectionsTitleCountSuffix(
-    initialLoading,
-    filterByRepositoryEntity,
-    showNoFilterMatches,
-    loadedEntityCount,
-    totalCount,
-  );
+  const showNoStarredOnPage =
+    !initialLoading &&
+    !pageLoading &&
+    isStarredFilter &&
+    totalCount > 0 &&
+    displayedEntities.length === 0;
+
+  const collectionsTitleCount = isStarredFilter
+    ? ` (${displayedEntities.length} starred)`
+    : collectionsTitleCountSuffix(
+        initialLoading,
+        filterByRepositoryEntity,
+        showNoFilterMatches,
+        loadedEntityCount,
+        totalCount,
+      );
 
   let collectionsCardsContent: ReactNode;
   if (initialLoading) {
@@ -221,17 +245,22 @@ export const CollectionsListPage = ({
         <Progress />
       </Box>
     );
-  } else if (showNoFilterMatches) {
+  } else if ((showNoFilterMatches || showNoStarredOnPage) && !pageLoading) {
     collectionsCardsContent = (
       <Box className={classes.cardsContainer}>
         <Typography variant="body1" color="textSecondary" component="p">
-          No collections match your search or filters.
+          {showNoStarredOnPage
+            ? 'No starred collections on this page. Browse other pages to find your starred collections.'
+            : 'No collections match your search or filters.'}
         </Typography>
       </Box>
     );
   } else {
     collectionsCardsContent = (
-      <Box className={classes.cardsContainer}>
+      <Box
+        className={classes.cardsContainer}
+        style={pageLoading ? { opacity: 0.5, pointerEvents: 'none' } : {}}
+      >
         {displayedEntities.map(entity => (
           <CollectionCard
             key={entity.metadata.uid || entity.metadata.name}
@@ -393,7 +422,7 @@ export const CollectionsListPage = ({
                   <Typography variant="h6" className={classes.contentTitle}>
                     Ansible Collections
                     {collectionsTitleCount}
-                    {(initialLoading || loadingMore) && (
+                    {(initialLoading || pageLoading) && (
                       <CircularProgress
                         size={16}
                         style={{ marginLeft: 8, verticalAlign: 'middle' }}
@@ -407,8 +436,11 @@ export const CollectionsListPage = ({
                 {!initialLoading && totalPages > 1 && (
                   <Box className={classes.paginationContainer}>
                     <Typography className={classes.paginationInfo}>
-                      Showing {startIndex + 1}-{endIndex} of {totalCount}{' '}
-                      collections
+                      {isStarredFilter
+                        ? `Showing ${displayedEntities.length} starred on this page`
+                        : `Showing ${
+                            startIndex + 1
+                          }-${endIndex} of ${totalCount} collections`}
                     </Typography>
                     <Box className={classes.paginationControls}>
                       <IconButton
@@ -420,7 +452,9 @@ export const CollectionsListPage = ({
                         <NavigateBeforeIcon />
                       </IconButton>
                       <Typography variant="body2">
-                        Page {currentPage} of {totalPages}
+                        {isStarredFilter
+                          ? `Page ${currentPage}`
+                          : `Page ${currentPage} of ${totalPages}`}
                       </Typography>
                       <IconButton
                         size="small"

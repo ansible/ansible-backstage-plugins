@@ -16,6 +16,7 @@ import { AapConfig, type PAHRepositoryConfig } from './types';
 import { IAAPService } from '@ansible/backstage-rhaap-common';
 import { pahCollectionParser } from './entityParser';
 import { Entity } from '@backstage/catalog-model';
+import { stampLatestVersionAnnotations } from './versionUtils';
 
 export class PAHCollectionProvider implements EntityProvider {
   private readonly env: string;
@@ -278,6 +279,8 @@ export class PAHCollectionProvider implements EntityProvider {
         );
         collectionsCount++;
       }
+
+      stampLatestVersionAnnotations(entities);
 
       await this.connection.applyMutation({
         type: 'full',
