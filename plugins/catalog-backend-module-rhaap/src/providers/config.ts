@@ -45,17 +45,20 @@ function readAapApiEntityConfig(
         catalogConfig.getConfig(`sync.${syncEntity}.schedule`),
       )
     : undefined;
-  let organizations: string[] = [];
+  const multiOrgEnabled =
+    catalogConfig.getOptionalBoolean('multiOrgEnabled') ?? false;
+
+  let allOrgs: string[] = [];
   try {
     if (catalogConfig.has('orgs'))
-      organizations = catalogConfig
+      allOrgs = catalogConfig
         .getString('orgs')
         .split(',')
         .map(o => o.trim().toLowerCase())
         .filter(o => o.length > 0);
   } catch {
     try {
-      organizations = catalogConfig
+      allOrgs = catalogConfig
         .getStringArray('orgs')
         .map(o => o.trim().toLowerCase())
         .filter(o => o.length > 0);
@@ -65,11 +68,14 @@ function readAapApiEntityConfig(
   }
 
   // Sane default: sync the Default org when no orgs are configured
-  if (organizations.length === 0) {
-    organizations = ['default'];
+  if (allOrgs.length === 0) {
+    allOrgs = ['default'];
   }
 
-  if (organizations.length > 1) {
+  // When multiOrgEnabled is false, only sync the first org in single-org mode
+  const organizations = multiOrgEnabled ? allOrgs : [allOrgs[0]];
+
+  if (multiOrgEnabled && organizations.length > 1) {
     const seen = new Map<string, string>();
     for (const org of organizations) {
       const ns = formatNameSpace(org);
@@ -131,6 +137,7 @@ function readAapApiEntityConfig(
     token,
     checkSSL,
     schedule,
+    multiOrgEnabled,
     organizations,
     surveyEnabled,
     jobTemplateLabels,

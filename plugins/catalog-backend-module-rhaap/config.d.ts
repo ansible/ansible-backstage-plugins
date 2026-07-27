@@ -6,6 +6,13 @@ export interface Config {
       /** @visibility frontend */
       rhaap?: {
         [authEnv: string]: {
+          /**
+           * Enable multi-org namespace scoping.
+           * When false (default), only the first org is synced in the default namespace.
+           * When true, all configured orgs are synced with org-scoped namespaces.
+           * @default false
+           */
+          multiOrgEnabled?: boolean;
           orgs?: string | string[];
           sync?: {
             orgsUsersTeams?: {
