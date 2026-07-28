@@ -937,6 +937,7 @@ describe('AAPEntityProvider', () => {
           providers: {
             rhaap: {
               development: {
+                multiOrgEnabled: true,
                 orgs: 'Default, Engineering',
                 sync: {
                   orgsUsersTeams: {
