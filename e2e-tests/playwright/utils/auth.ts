@@ -146,20 +146,37 @@ export async function loginAAP(page: Page, credentials?: AAPCredentials) {
     await page.waitForLoadState('domcontentloaded');
     console.log('[Auth] After Log in click, URL:', page.url());
 
-    // Check for AAP OAuth authorization page by URL (most reliable)
-    const isOnAuthorizePage = page.url().includes('/o/authorize/');
+    // Check if URL indicates pending OAuth authorization (/?next=/o/authorize/)
+    // or if we're directly on the authorize page (/o/authorize/)
+    const urlHasAuthorizeNext = page.url().includes('?next=/o/authorize/');
+    const urlIsAuthorizePage = page.url().includes('/o/authorize/') && !urlHasAuthorizeNext;
 
-    if (isOnAuthorizePage) {
-      console.log(
-        '[Auth] AAP OAuth authorization page detected, clicking Authorize...',
-      );
-      // Wait for Authorize button to be visible
-      const authorizeButton = page.getByRole('button', { name: /Authorize/i });
-      await authorizeButton.waitFor({ state: 'visible', timeout: 10000 });
-      await authorizeButton.click();
-      console.log('[Auth] Clicked Authorize button');
-      // Wait for navigation to complete
-      await page.waitForLoadState('domcontentloaded');
+    if (urlHasAuthorizeNext || urlIsAuthorizePage) {
+      console.log('[Auth] OAuth authorization flow detected...');
+
+      // If on AAP home with next parameter, wait for redirect to actual authorize page
+      if (urlHasAuthorizeNext) {
+        console.log('[Auth] Waiting for redirect to authorize page...');
+        try {
+          await page.waitForURL(url => url.pathname.includes('/o/authorize/'), { timeout: 10000 });
+          console.log('[Auth] Redirected to authorize page:', page.url());
+        } catch {
+          console.log('[Auth] No redirect to authorize page - may have auto-authorized');
+          return;
+        }
+      }
+
+      // Now try to click Authorize button if it exists
+      try {
+        const authorizeButton = page.getByRole('button', { name: /Authorize/i });
+        await authorizeButton.waitFor({ state: 'visible', timeout: 5000 });
+        console.log('[Auth] Authorize button found, clicking...');
+        await authorizeButton.click();
+        console.log('[Auth] Clicked Authorize button');
+      } catch (error) {
+        console.log('[Auth] Authorize button not found - page may have auto-redirected');
+        // This is OK - user was probably already authorized
+      }
     }
 
     // Wait for OAuth redirect back to portal - match actual hostname, not query params
