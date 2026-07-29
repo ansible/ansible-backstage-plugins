@@ -92,8 +92,8 @@ describe('self-service', () => {
     mockRhAapAuthApi.getAccessToken.mockResolvedValue('mock-token');
     mockAnsibleApi.getSyncStatus.mockResolvedValue({
       aap: {
-        orgsUsersTeams: { lastSync: null },
-        jobTemplates: { lastSync: null },
+        orgsUsersTeams: { lastSync: null, syncInProgress: false },
+        jobTemplates: { lastSync: null, syncInProgress: false },
       },
     });
 
@@ -213,8 +213,8 @@ describe('self-service', () => {
     );
     mockAnsibleApi.getSyncStatus.mockResolvedValue({
       aap: {
-        orgsUsersTeams: { lastSync: null },
-        jobTemplates: { lastSync: null },
+        orgsUsersTeams: { lastSync: null, syncInProgress: false },
+        jobTemplates: { lastSync: null, syncInProgress: false },
       },
     });
 
@@ -248,8 +248,8 @@ describe('self-service', () => {
     mockAnsibleApi.syncTemplates.mockResolvedValue(true);
     mockAnsibleApi.getSyncStatus.mockResolvedValue({
       aap: {
-        orgsUsersTeams: { lastSync: null },
-        jobTemplates: { lastSync: null },
+        orgsUsersTeams: { lastSync: null, syncInProgress: false },
+        jobTemplates: { lastSync: null, syncInProgress: false },
       },
     });
 
@@ -298,8 +298,8 @@ describe('self-service', () => {
     mockAnsibleApi.syncTemplates.mockResolvedValue(false);
     mockAnsibleApi.getSyncStatus.mockResolvedValue({
       aap: {
-        orgsUsersTeams: { lastSync: null },
-        jobTemplates: { lastSync: null },
+        orgsUsersTeams: { lastSync: null, syncInProgress: false },
+        jobTemplates: { lastSync: null, syncInProgress: false },
       },
     });
 
@@ -347,8 +347,8 @@ describe('self-service', () => {
     mockAnsibleApi.syncOrgsUsersTeam.mockResolvedValue(true);
     mockAnsibleApi.getSyncStatus.mockResolvedValue({
       aap: {
-        orgsUsersTeams: { lastSync: null },
-        jobTemplates: { lastSync: null },
+        orgsUsersTeams: { lastSync: null, syncInProgress: false },
+        jobTemplates: { lastSync: null, syncInProgress: false },
       },
     });
 
@@ -393,8 +393,8 @@ describe('self-service', () => {
     );
     mockAnsibleApi.getSyncStatus.mockResolvedValue({
       aap: {
-        orgsUsersTeams: { lastSync: null },
-        jobTemplates: { lastSync: null },
+        orgsUsersTeams: { lastSync: null, syncInProgress: false },
+        jobTemplates: { lastSync: null, syncInProgress: false },
       },
     });
 
@@ -447,8 +447,8 @@ describe('self-service', () => {
     mockAnsibleApi.syncTemplates.mockResolvedValue(true);
     mockAnsibleApi.getSyncStatus.mockResolvedValue({
       aap: {
-        orgsUsersTeams: { lastSync: null },
-        jobTemplates: { lastSync: null },
+        orgsUsersTeams: { lastSync: null, syncInProgress: false },
+        jobTemplates: { lastSync: null, syncInProgress: false },
       },
     });
 
@@ -1268,8 +1268,8 @@ describe('TemplatesRoutesPage notifications', () => {
     mockRhAapAuthApi.getAccessToken.mockResolvedValue('mock-token');
     mockAnsibleApi.getSyncStatus.mockResolvedValue({
       aap: {
-        orgsUsersTeams: { lastSync: null },
-        jobTemplates: { lastSync: null },
+        orgsUsersTeams: { lastSync: null, syncInProgress: false },
+        jobTemplates: { lastSync: null, syncInProgress: false },
       },
     });
     if (!mockScaffolderApi.autocomplete) {
@@ -1354,8 +1354,8 @@ describe('HomeCategoryPicker EE exclusion', () => {
     mockRhAapAuthApi.getAccessToken.mockResolvedValue('mock-token');
     mockAnsibleApi.getSyncStatus.mockResolvedValue({
       aap: {
-        orgsUsersTeams: { lastSync: null },
-        jobTemplates: { lastSync: null },
+        orgsUsersTeams: { lastSync: null, syncInProgress: false },
+        jobTemplates: { lastSync: null, syncInProgress: false },
       },
     });
     if (!mockScaffolderApi.autocomplete) {
