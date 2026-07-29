@@ -13,13 +13,24 @@ const baseConfig = {
 
 describe('readAapApiEntityConfigs', () => {
   describe('sane defaults', () => {
-    it('should default to ["default"] when orgs is omitted', () => {
+    it.each([
+      { scenario: 'orgs is omitted', orgs: undefined, expected: ['default'] },
+      { scenario: 'orgs is empty string', orgs: '', expected: ['default'] },
+      {
+        scenario: 'orgs is configured',
+        orgs: 'Engineering',
+        expected: ['engineering'],
+      },
+    ])('should resolve to $expected when $scenario', ({ orgs, expected }) => {
+      const envConfig: Record<string, unknown> = {};
+      if (orgs !== undefined) envConfig.orgs = orgs;
+
       const config = new ConfigReader({
         ...baseConfig,
         catalog: {
           providers: {
             rhaap: {
-              production: {},
+              production: envConfig,
             },
           },
         },
@@ -27,45 +38,7 @@ describe('readAapApiEntityConfigs', () => {
 
       const configs = readAapApiEntityConfigs(config, 'orgsUsersTeams');
       expect(configs).toHaveLength(1);
-      expect(configs[0].organizations).toEqual(['default']);
-    });
-
-    it('should default to ["default"] when orgs is empty string', () => {
-      const config = new ConfigReader({
-        ...baseConfig,
-        catalog: {
-          providers: {
-            rhaap: {
-              production: {
-                orgs: '',
-              },
-            },
-          },
-        },
-      });
-
-      const configs = readAapApiEntityConfigs(config, 'orgsUsersTeams');
-      expect(configs).toHaveLength(1);
-      expect(configs[0].organizations).toEqual(['default']);
-    });
-
-    it('should use configured orgs when provided', () => {
-      const config = new ConfigReader({
-        ...baseConfig,
-        catalog: {
-          providers: {
-            rhaap: {
-              production: {
-                orgs: 'Engineering',
-              },
-            },
-          },
-        },
-      });
-
-      const configs = readAapApiEntityConfigs(config, 'orgsUsersTeams');
-      expect(configs).toHaveLength(1);
-      expect(configs[0].organizations).toEqual(['engineering']);
+      expect(configs[0].organizations).toEqual(expected);
     });
 
     it('should use only first org from comma-separated when multiOrgEnabled is false', () => {
