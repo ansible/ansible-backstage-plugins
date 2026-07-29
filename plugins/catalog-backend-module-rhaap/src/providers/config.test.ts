@@ -22,7 +22,7 @@ describe('readAapApiEntityConfigs', () => {
         expected: ['engineering'],
       },
     ])('should resolve to $expected when $scenario', ({ orgs, expected }) => {
-      const envConfig: Record<string, unknown> = {};
+      const envConfig: { orgs?: string } = {};
       if (orgs !== undefined) envConfig.orgs = orgs;
 
       const config = new ConfigReader({
