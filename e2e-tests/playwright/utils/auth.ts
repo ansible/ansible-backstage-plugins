@@ -146,19 +146,20 @@ export async function loginAAP(page: Page, credentials?: AAPCredentials) {
     await page.waitForLoadState('domcontentloaded');
     console.log('[Auth] After Log in click, URL:', page.url());
 
-    // Check for AAP OAuth authorization page
-    const aapAuthorizeVisible = await page
-      .getByText(/Authorize.*\?/)
-      .waitFor({ state: 'visible', timeout: 10000 })
-      .then(() => true)
-      .catch(() => false);
+    // Check for AAP OAuth authorization page by URL (most reliable)
+    const isOnAuthorizePage = page.url().includes('/o/authorize/');
 
-    if (aapAuthorizeVisible) {
+    if (isOnAuthorizePage) {
       console.log(
         '[Auth] AAP OAuth authorization page detected, clicking Authorize...',
       );
-      await page.getByRole('button', { name: 'Authorize' }).click();
+      // Wait for Authorize button to be visible
+      const authorizeButton = page.getByRole('button', { name: /Authorize/i });
+      await authorizeButton.waitFor({ state: 'visible', timeout: 10000 });
+      await authorizeButton.click();
       console.log('[Auth] Clicked Authorize button');
+      // Wait for navigation to complete
+      await page.waitForLoadState('domcontentloaded');
     }
 
     // Wait for OAuth redirect back to portal - match actual hostname, not query params
