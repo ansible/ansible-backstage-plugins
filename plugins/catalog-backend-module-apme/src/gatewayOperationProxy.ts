@@ -34,9 +34,12 @@ export type OperationProxyRequest = {
 export type OperationProxyResponse = {
   status(code: number): OperationProxyResponse;
   setHeader(name: string, value: string): void;
-  write(chunk: string): unknown;
+  write(chunk: string | Buffer): unknown;
   end(): void;
   send(body: string): unknown;
+  /** Present when compression middleware is installed. */
+  flushHeaders?: () => void;
+  flush?: () => void;
 };
 
 /**
@@ -106,21 +109,29 @@ export async function proxyProjectOperation(options: {
     res.setHeader('Content-Type', contentType);
   }
 
-  // SSE / streaming
+  // SSE / streaming — must flush each chunk. Without flushHeaders/flush,
+  // compression (and some proxies) buffer until the Gateway closes the
+  // stream, so Portal UI hangs on "Cloning…" until remount re-polls GET
+  // /operation (tab switch). Gateway already sets X-Accel-Buffering: no.
   if (contentType?.includes('text/event-stream')) {
     res.setHeader('Cache-Control', 'no-cache');
     res.setHeader('Connection', 'keep-alive');
+    res.setHeader('X-Accel-Buffering', 'no');
+    res.flushHeaders?.();
     if (!upstream.body) {
       res.end();
       return;
     }
     const reader = upstream.body.getReader();
-    const decoder = new TextDecoder();
     try {
       for (;;) {
         const { done, value } = await reader.read();
         if (done) break;
-        res.write(decoder.decode(value, { stream: true }));
+        if (value?.byteLength) {
+          // Write raw bytes so SSE frame boundaries stay intact.
+          res.write(Buffer.from(value));
+          res.flush?.();
+        }
       }
     } finally {
       res.end();

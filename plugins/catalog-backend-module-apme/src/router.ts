@@ -314,9 +314,19 @@ export async function createRouter(options: RouterOptions): Promise<Router> {
 
   // Transparent Gateway proxy for @apme/ui-workflow operation surface
   // (GET/POST/PATCH/SSE under /operation*). ADR-056: no file_overrides.
+  // Skip jsonBody on GET/HEAD — SSE /operation/events must not hit the
+  // body parser (keeps the streaming path lean).
+  const jsonBodyUnlessGet: typeof jsonBody = (req, res, next) => {
+    if (req.method === 'GET' || req.method === 'HEAD') {
+      next();
+      return;
+    }
+    return jsonBody(req, res, next);
+  };
+
   router.all(
     '/apme/projects/:projectId/operation',
-    jsonBody,
+    jsonBodyUnlessGet,
     async (req, res) => {
       await ensureUser(req);
       const { projectId } = req.params;
@@ -335,7 +345,7 @@ export async function createRouter(options: RouterOptions): Promise<Router> {
 
   router.all(
     '/apme/projects/:projectId/operation/*',
-    jsonBody,
+    jsonBodyUnlessGet,
     async (req, res) => {
       await ensureUser(req);
       const { projectId } = req.params;
