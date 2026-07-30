@@ -14,10 +14,30 @@
  * limitations under the License.
  */
 
-import type { Request, Response } from 'express';
+import type { IncomingHttpHeaders } from 'http';
 import type { LoggerService } from '@backstage/backend-plugin-api';
 import { getApmeConfig } from '@ansible/backstage-apme-common';
 import type { Config } from '@backstage/config';
+
+/**
+ * Minimal request/response shapes so we do not depend on a single
+ * `@types/express` revision (PromiseRouter params vs root `Request` often
+ * disagree on deprecated `param` / `sendfile`).
+ */
+export type OperationProxyRequest = {
+  method: string;
+  url: string;
+  headers: IncomingHttpHeaders;
+  body?: unknown;
+};
+
+export type OperationProxyResponse = {
+  status(code: number): OperationProxyResponse;
+  setHeader(name: string, value: string): void;
+  write(chunk: string): unknown;
+  end(): void;
+  send(body: string): unknown;
+};
 
 /**
  * Transparent proxy of `/apme/projects/:projectId/operation*` to Gateway
@@ -27,8 +47,8 @@ import type { Config } from '@backstage/config';
  * Gateway can own commit/push (ADR-056). Never forwards `file_overrides`.
  */
 export async function proxyProjectOperation(options: {
-  req: Request;
-  res: Response;
+  req: OperationProxyRequest;
+  res: OperationProxyResponse;
   rootConfig: Config;
   logger: LoggerService;
   projectId: string;

@@ -14,8 +14,9 @@
  * limitations under the License.
  */
 
-import { Router, Request } from 'express';
+import { Router } from 'express';
 import PromiseRouter from 'express-promise-router';
+import type { IncomingHttpHeaders } from 'http';
 import { HttpAuthService, LoggerService } from '@backstage/backend-plugin-api';
 import { Config } from '@backstage/config';
 import { InputError } from '@backstage/errors';
@@ -24,9 +25,7 @@ import {
   getApmeConfig,
   isAllowedAnsibleCoreVersion,
   mergeActivityPortalOutcomes,
-  normalizeAnsibleCoreVersion,
   resolveScanTarget,
-  resolveScanTargetVersion,
 } from '@ansible/backstage-apme-common';
 import {
   ApmePortalSettingsStore,
@@ -35,6 +34,12 @@ import { validateRepoBranch } from './branchLookup';
 import { jsonBody } from './jsonBody';
 import { resolveIntegrationScmToken } from './resolveIntegrationScmToken';
 import { proxyProjectOperation } from './gatewayOperationProxy';
+
+/** Headers + optional body — avoids dual `@types/express` Request mismatches. */
+type ApmeHttpRequest = {
+  headers: IncomingHttpHeaders;
+  body?: unknown;
+};
 
 export interface RouterOptions {
   apmeService: IApmeService;
@@ -56,9 +61,7 @@ function scmTokenFromBody(body: unknown): string | undefined {
   return token || undefined;
 }
 
-function scmTokenFromRequest(
-  req: Pick<Request, 'headers'>,
-): string | undefined {
+function scmTokenFromRequest(req: ApmeHttpRequest): string | undefined {
   const raw =
     (req.headers['x-scm-token'] as string | undefined) ??
     (req.headers['x-github-token'] as string | undefined) ??
@@ -100,7 +103,7 @@ export async function createRouter(options: RouterOptions): Promise<Router> {
   const configSnapshot = getApmeConfig(rootConfig);
 
   const resolveScmTokenForProject = async (
-    req: Request,
+    req: ApmeHttpRequest,
     projectId: string,
   ): Promise<string | undefined> => {
     let scmToken = scmTokenFromRequest(req) ?? scmTokenFromBody(req.body);
@@ -132,33 +135,6 @@ export async function createRouter(options: RouterOptions): Promise<Router> {
       publishViaGateway: configSnapshot.publishViaGateway,
       targetAnsibleCoreVersion: resolved.effective,
     };
-  };
-
-  const scanVersionForProject = async (projectId: string) => {
-    const store = await portalSettingsStore.read();
-    return resolveScanTargetVersion({
-      projectId,
-      store,
-      configTargetAnsibleCoreVersion: configSnapshot.targetAnsibleCoreVersion,
-    });
-  };
-
-  const scanVersionFromRequest = async (
-    projectId: string,
-    bodyVersion: unknown,
-  ): Promise<string> => {
-    if (bodyVersion === null || bodyVersion === undefined || bodyVersion === '') {
-      return scanVersionForProject(projectId);
-    }
-    if (typeof bodyVersion !== 'string') {
-      throw new InputError('options.ansible_version must be a string');
-    }
-    if (!isAllowedAnsibleCoreVersion(bodyVersion)) {
-      throw new InputError(
-        `Unsupported ansible-core version: ${bodyVersion}`,
-      );
-    }
-    return normalizeAnsibleCoreVersion(bodyVersion)!;
   };
 
   // Body parsing: use route-level `jsonBody` only (see ./jsonBody.ts). Never
@@ -364,7 +340,9 @@ export async function createRouter(options: RouterOptions): Promise<Router> {
       await ensureUser(req);
       const { projectId } = req.params;
       const scmToken = await resolveScmTokenForProject(req, projectId);
-      const rest = req.params[0] ? `/${req.params[0]}` : '';
+      // Express splat (`*`) is exposed as params[0] at runtime.
+      const splat = (req.params as { projectId: string; 0?: string })[0];
+      const rest = splat ? `/${splat}` : '';
       await proxyProjectOperation({
         req,
         res,
