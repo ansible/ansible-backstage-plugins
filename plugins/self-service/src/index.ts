@@ -21,6 +21,7 @@ export { AdditionalBuildStepsPickerFieldExtension } from './components/Scaffolde
 export { EEFileNamePickerFieldExtension } from './components/Scaffolder/EEFileNamePicker/extensions';
 export { EETagsPickerFieldExtension } from './components/Scaffolder/EETagsPicker/extensions';
 export { ScmSelectorFieldExtension } from './components/Scaffolder/ScmSelector/extensions';
+export { GitHubRepoUrlFieldExtension } from './components/Scaffolder/GitHubRepoUrlField/extensions';
 
 export * from './apis';
 

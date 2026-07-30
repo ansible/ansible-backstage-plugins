@@ -2,7 +2,7 @@
 
 | Field | Value |
 |-------|--------|
-| **Status** | Planned |
+| **Status** | Complete |
 | **Persona** | Developer |
 | **Surface** | Add repository / Create template flow |
 | **Depends on** | Catalog scaffolder + git-repository registration routes |
@@ -15,16 +15,24 @@
 
 ## Acceptance criteria
 
-- [ ] **Add repository** (or equivalent) completes with Guest / stock Create —
-      no AAP OAuth popup required in the default local loop.
-- [ ] Registered entity appears in catalog with SCM annotations suitable for
+- [x] **Add repository** uses stock Create when
+      `ansible.apme.useStockCreateForRegister: true` —
+      `/create/templates/default/apme-register-git-repository` (no AAP OAuth).
+- [x] Default / Portal path remains Self-service Create
+      (`/self-service/create/templates/...`) when the flag is unset/false.
+- [x] Registered entity appears in catalog with SCM annotations suitable for
       the Quality tab ([US-001](US-001-quality-tab-scan-with-ai.md)).
-- [ ] Path chosen and documented: `useStockCreateForRegister` **or**
-      register-without-PR / ManualGitProvider — pick one, not both.
-- [ ] Verified in local loop.
+- [x] Path chosen and documented: **`useStockCreateForRegister`** with
+      `GitHubRepoUrlField` (paste github.com URL; live owner/repo parse;
+      branch field; github.com-only validation). Not ManualGitProvider.
+- [x] Verified in local loop (Add repository → Git Repositories list →
+      Quality scan).
 
 ## Notes
 
-- Local config already sets `ansible.apme.useStockCreateForRegister: true`;
-  story is complete when the eap-next plugin path fully honors it end-to-end.
+- Guest header action: `ApmeAddRepositoryHeaderAction` via
+  `getPageHeaderActions` (ADR-010).
+- Register template uses `ui:field: GitHubRepoUrlField` (not `RepoUrlPicker`).
+- Local loop (`apme-rhdh-dev`) sets `useStockCreateForRegister: true` in
+  `app-config.local.yaml` and `app-config.react.yaml`.
 - Related branch reference: `feat/apme-use-stock-create-for-register`.

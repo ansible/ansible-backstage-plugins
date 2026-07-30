@@ -14,6 +14,7 @@ import { AAPJobTemplateProvider } from './providers/AAPJobTemplateProvider';
 import { AAPEntityProvider } from './providers/AAPEntityProvider';
 import { makeValidator } from '@backstage/catalog-model';
 import { EEEntityProvider } from './providers/EEEntityProvider';
+import { ManualGitRepositoryProvider } from './providers/ManualGitRepositoryProvider';
 import { PAHCollectionProvider } from './providers/PAHCollectionProvider';
 import { CatalogClient } from '@backstage/catalog-client';
 import { AnsibleGitContentsProvider } from './providers/AnsibleGitContentsProvider';
@@ -75,6 +76,9 @@ export const catalogModuleRhaap = createBackendModule({
           },
         );
         const eeEntityProvider = new EEEntityProvider(logger);
+        const manualGitRepositoryProvider = new ManualGitRepositoryProvider(
+          logger,
+        );
         const jobTemplateProvider = AAPJobTemplateProvider.fromConfig(
           config,
           ansibleService,
@@ -102,6 +106,7 @@ export const catalogModuleRhaap = createBackendModule({
           aapEntityProvider,
           jobTemplateProvider,
           eeEntityProvider,
+          manualGitRepositoryProvider,
           ...pahCollectionProviders,
           ansibleGitContentsProviders,
         );
@@ -128,6 +133,7 @@ export const catalogModuleRhaap = createBackendModule({
             aapEntityProvider: aapEntityProvider[0],
             jobTemplateProvider: jobTemplateProvider[0],
             eeEntityProvider: eeEntityProvider,
+            manualGitRepositoryProvider: manualGitRepositoryProvider,
             pahCollectionProviders: pahCollectionProviders,
             httpAuth: httpAuth,
             userInfo: userInfo,

@@ -27,6 +27,7 @@ import {
   defaultBranchFromEntity,
   normalizeRepoUrlFromEntity,
 } from '@ansible/backstage-rhaap-common/catalogEntity';
+import { ApmeAddRepositoryHeaderAction } from '../components/ApmeAddRepositoryHeaderAction/ApmeAddRepositoryHeaderAction';
 
 export function withSuspense<P extends object>(
   Component: ComponentType<P>,
@@ -72,6 +73,16 @@ export function createApmeGitRepositoriesExtensionsApi(
     extends DefaultGitRepositoriesExtensionsApi
     implements GitRepositoriesExtensionsApi
   {
+    getPageHeaderActions() {
+      return [
+        {
+          id: 'add-repository',
+          order: 10,
+          render: () => <ApmeAddRepositoryHeaderAction />,
+        },
+      ];
+    }
+
     getDetailTabs() {
       return [
         {
