@@ -158,11 +158,20 @@ export async function loginAAP(page: Page, credentials?: AAPCredentials) {
       if (urlHasAuthorizeNext) {
         console.log('[Auth] Waiting for redirect to authorize page...');
         try {
-          await page.waitForURL(url => url.pathname.includes('/o/authorize/'), { timeout: 10000 });
+          await page.waitForURL(url => url.pathname.includes('/o/authorize/'), { timeout: 5000 });
           console.log('[Auth] Redirected to authorize page:', page.url());
         } catch {
-          console.log('[Auth] No redirect to authorize page - may have auto-authorized');
-          return;
+          // Auto-redirect didn't happen - manually navigate to the authorize URL
+          console.log('[Auth] Auto-redirect failed, extracting authorize URL from next parameter...');
+          const currentUrl = new URL(page.url());
+          const nextParam = currentUrl.searchParams.get('next');
+          if (nextParam) {
+            const authorizeUrl = `${currentUrl.origin}${nextParam}`;
+            console.log('[Auth] Manually navigating to:', authorizeUrl);
+            await page.goto(authorizeUrl);
+            await page.waitForLoadState('domcontentloaded');
+            console.log('[Auth] Now at:', page.url());
+          }
         }
       }
 
