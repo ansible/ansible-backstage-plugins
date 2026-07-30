@@ -157,33 +157,37 @@ export async function loginAAP(page: Page, credentials?: AAPCredentials) {
       // If on AAP home with next parameter, wait for redirect to actual authorize page
       if (urlHasAuthorizeNext) {
         console.log('[Auth] Waiting for redirect to authorize page...');
-        try {
-          await page.waitForURL(url => url.pathname.includes('/o/authorize/'), { timeout: 5000 });
-          console.log('[Auth] Redirected to authorize page:', page.url());
-        } catch {
-          // Auto-redirect didn't happen - manually navigate to the authorize URL
-          console.log('[Auth] Auto-redirect failed, extracting authorize URL from next parameter...');
-          const currentUrl = new URL(page.url());
-          const nextParam = currentUrl.searchParams.get('next');
-          if (nextParam) {
-            const authorizeUrl = `${currentUrl.origin}${nextParam}`;
-            console.log('[Auth] Manually navigating to:', authorizeUrl);
-            await page.goto(authorizeUrl);
-            await page.waitForLoadState('domcontentloaded');
-            console.log('[Auth] Now at:', page.url());
-          }
+        console.log('[Auth] Current URL (before wait):', page.url());
+
+        // Wait a bit for JavaScript to execute
+        await page.waitForTimeout(3000);
+        console.log('[Auth] URL after 3s wait:', page.url());
+
+        // Check if still stuck at home page
+        if (page.url().includes('?next=/o/authorize/')) {
+          console.log('[Auth] Still at home page, reloading to trigger redirect...');
+          await page.reload({ waitUntil: 'networkidle' });
+          console.log('[Auth] URL after reload:', page.url());
         }
+
+        console.log('[Auth] Waiting for URL to change to /o/authorize/ or different hostname...');
+        await page.waitForURL(url => url.pathname.includes('/o/authorize/') || url.hostname !== new URL(page.url()).hostname, { timeout: 20000 });
+        console.log('[Auth] ✅ Redirected to authorize page:', page.url());
       }
 
       // Now try to click Authorize button if it exists
+      console.log('[Auth] Looking for Authorize button on page...');
+      console.log('[Auth] Current URL before button check:', page.url());
       try {
         const authorizeButton = page.getByRole('button', { name: /Authorize/i });
         await authorizeButton.waitFor({ state: 'visible', timeout: 5000 });
-        console.log('[Auth] Authorize button found, clicking...');
+        console.log('[Auth] ✅ Authorize button found, clicking...');
         await authorizeButton.click();
         console.log('[Auth] Clicked Authorize button');
+        console.log('[Auth] URL after button click:', page.url());
       } catch (error) {
-        console.log('[Auth] Authorize button not found - page may have auto-redirected');
+        console.log('[Auth] ⚠️  Authorize button not found - page may have auto-redirected');
+        console.log('[Auth] Current URL:', page.url());
         // This is OK - user was probably already authorized
       }
     }
