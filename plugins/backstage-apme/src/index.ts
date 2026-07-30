@@ -37,3 +37,12 @@ export {
   normalizeRepoUrl,
 } from '@ansible/backstage-apme-common/normalizeRepoUrl';
 export { useApmeEnabled } from './hooks/useApmeEnabled';
+export { gitRepositoriesExtensionsApiFactory } from './apis/gitRepositoriesExtensions';
+export {
+  createApmeGitRepositoriesExtensionsApi,
+  createGitRepositoriesExtensionsApiFactory,
+  withSuspense,
+} from './apis/apmeGitRepositoriesExtensionsCore';
+export { ApmeViolationsCell } from './apis/apmeViolationsCell';
+export { ApmeRepoStatusChip } from './components/ApmeRepoStatusChip';
+export { ApmeRepositoryHeaderActions } from './components/ApmeRepositoryHeaderActions/ApmeRepositoryHeaderActions';

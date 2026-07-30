@@ -2,6 +2,10 @@ import { screen, fireEvent, waitFor } from '@testing-library/react';
 import { renderInTestApp, TestApiProvider } from '@backstage/test-utils';
 import { ThemeProvider, createTheme } from '@material-ui/core/styles';
 import { discoveryApiRef, fetchApiRef } from '@backstage/core-plugin-api';
+import {
+  DefaultGitRepositoriesExtensionsApi,
+  gitRepositoriesExtensionsApiRef,
+} from '@ansible/backstage-rhaap-common/gitRepositoriesExtensions';
 import { GitRepositoriesPage } from './GitRepositoriesPage';
 
 jest.mock('@backstage/plugin-permission-react', () => ({
@@ -143,6 +147,10 @@ describe('GitRepositoriesPage', () => {
         apis={[
           [discoveryApiRef, mockDiscoveryApi],
           [fetchApiRef, mockFetchApi],
+          [
+            gitRepositoriesExtensionsApiRef,
+            new DefaultGitRepositoriesExtensionsApi(),
+          ],
         ]}
       >
         <ThemeProvider theme={theme}>
@@ -160,6 +168,10 @@ describe('GitRepositoriesPage', () => {
         apis={[
           [discoveryApiRef, mockDiscoveryApi],
           [fetchApiRef, mockFetchApi],
+          [
+            gitRepositoriesExtensionsApiRef,
+            new DefaultGitRepositoriesExtensionsApi(),
+          ],
         ]}
       >
         <ThemeProvider theme={theme}>
@@ -177,6 +189,10 @@ describe('GitRepositoriesPage', () => {
         apis={[
           [discoveryApiRef, mockDiscoveryApi],
           [fetchApiRef, mockFetchApi],
+          [
+            gitRepositoriesExtensionsApiRef,
+            new DefaultGitRepositoriesExtensionsApi(),
+          ],
         ]}
       >
         <ThemeProvider theme={theme}>
@@ -196,6 +212,10 @@ describe('GitRepositoriesPage', () => {
         apis={[
           [discoveryApiRef, mockDiscoveryApi],
           [fetchApiRef, mockFetchApi],
+          [
+            gitRepositoriesExtensionsApiRef,
+            new DefaultGitRepositoriesExtensionsApi(),
+          ],
         ]}
       >
         <ThemeProvider theme={theme}>
@@ -216,6 +236,10 @@ describe('GitRepositoriesPage', () => {
         apis={[
           [discoveryApiRef, mockDiscoveryApi],
           [fetchApiRef, mockFetchApi],
+          [
+            gitRepositoriesExtensionsApiRef,
+            new DefaultGitRepositoriesExtensionsApi(),
+          ],
         ]}
       >
         <ThemeProvider theme={theme}>
@@ -241,6 +265,10 @@ describe('GitRepositoriesPage', () => {
         apis={[
           [discoveryApiRef, mockDiscoveryApi],
           [fetchApiRef, mockFetchApi],
+          [
+            gitRepositoriesExtensionsApiRef,
+            new DefaultGitRepositoriesExtensionsApi(),
+          ],
         ]}
       >
         <ThemeProvider theme={theme}>
@@ -266,6 +294,10 @@ describe('GitRepositoriesPage', () => {
         apis={[
           [discoveryApiRef, mockDiscoveryApi],
           [fetchApiRef, mockFetchApi],
+          [
+            gitRepositoriesExtensionsApiRef,
+            new DefaultGitRepositoriesExtensionsApi(),
+          ],
         ]}
       >
         <ThemeProvider theme={theme}>
@@ -301,6 +333,10 @@ describe('GitRepositoriesPage', () => {
         apis={[
           [discoveryApiRef, mockDiscoveryApi],
           [fetchApiRef, mockFetchApi],
+          [
+            gitRepositoriesExtensionsApiRef,
+            new DefaultGitRepositoriesExtensionsApi(),
+          ],
         ]}
       >
         <ThemeProvider theme={theme}>
@@ -320,6 +356,10 @@ describe('GitRepositoriesPage', () => {
         apis={[
           [discoveryApiRef, mockDiscoveryApi],
           [fetchApiRef, mockFetchApi],
+          [
+            gitRepositoriesExtensionsApiRef,
+            new DefaultGitRepositoriesExtensionsApi(),
+          ],
         ]}
       >
         <ThemeProvider theme={theme}>
@@ -343,6 +383,10 @@ describe('GitRepositoriesPage', () => {
         apis={[
           [discoveryApiRef, mockDiscoveryApi],
           [fetchApiRef, mockFetchApi],
+          [
+            gitRepositoriesExtensionsApiRef,
+            new DefaultGitRepositoriesExtensionsApi(),
+          ],
         ]}
       >
         <ThemeProvider theme={theme}>
@@ -363,6 +407,10 @@ describe('GitRepositoriesPage', () => {
         apis={[
           [discoveryApiRef, mockDiscoveryApi],
           [fetchApiRef, mockFetchApi],
+          [
+            gitRepositoriesExtensionsApiRef,
+            new DefaultGitRepositoriesExtensionsApi(),
+          ],
         ]}
       >
         <ThemeProvider theme={theme}>
@@ -388,6 +436,10 @@ describe('GitRepositoriesPage', () => {
         apis={[
           [discoveryApiRef, mockDiscoveryApi],
           [fetchApiRef, mockFetchApi],
+          [
+            gitRepositoriesExtensionsApiRef,
+            new DefaultGitRepositoriesExtensionsApi(),
+          ],
         ]}
       >
         <ThemeProvider theme={theme}>
@@ -415,6 +467,10 @@ describe('GitRepositoriesPage', () => {
         apis={[
           [discoveryApiRef, mockDiscoveryApi],
           [fetchApiRef, mockFetchApi],
+          [
+            gitRepositoriesExtensionsApiRef,
+            new DefaultGitRepositoriesExtensionsApi(),
+          ],
         ]}
       >
         <ThemeProvider theme={theme}>
@@ -441,6 +497,10 @@ describe('GitRepositoriesPage', () => {
         apis={[
           [discoveryApiRef, mockDiscoveryApi],
           [fetchApiRef, mockFetchApi],
+          [
+            gitRepositoriesExtensionsApiRef,
+            new DefaultGitRepositoriesExtensionsApi(),
+          ],
         ]}
       >
         <ThemeProvider theme={theme}>
@@ -462,6 +522,10 @@ describe('GitRepositoriesPage', () => {
         apis={[
           [discoveryApiRef, mockDiscoveryApi],
           [fetchApiRef, mockFetchApi],
+          [
+            gitRepositoriesExtensionsApiRef,
+            new DefaultGitRepositoriesExtensionsApi(),
+          ],
         ]}
       >
         <ThemeProvider theme={theme}>

@@ -11,6 +11,10 @@ import {
 import { permissionApiRef } from '@backstage/plugin-permission-react';
 import { Entity } from '@backstage/catalog-model';
 import { MemoryRouter } from 'react-router-dom';
+import {
+  DefaultGitRepositoriesExtensionsApi,
+  gitRepositoriesExtensionsApiRef,
+} from '@ansible/backstage-rhaap-common/gitRepositoriesExtensions';
 
 interface TableColumn {
   title: unknown;
@@ -199,6 +203,10 @@ describe('RepositoriesTable', () => {
           [fetchApiRef, mockFetchApi],
           [starredEntitiesApiRef, new MockStarredEntitiesApi()],
           [permissionApiRef, mockApis.permission()],
+          [
+            gitRepositoriesExtensionsApiRef,
+            new DefaultGitRepositoriesExtensionsApi(),
+          ],
         ]}
       >
         <MemoryRouter>
@@ -697,6 +705,52 @@ describe('RepositoriesTable', () => {
 
     await waitFor(() => {
       expect(screen.getByText('View in source')).toBeInTheDocument();
+    });
+  });
+
+  it('renders catalog row menu items from extensions API', async () => {
+    class WithRowMenu extends DefaultGitRepositoriesExtensionsApi {
+      getCatalogRowMenuItems() {
+        return [
+          {
+            id: 'test-run-scan',
+            order: 10,
+            render: () => <div>Run quality scan</div>,
+          },
+        ];
+      }
+    }
+
+    render(
+      <TestApiProvider
+        apis={[
+          [catalogApiRef, mockCatalogApi],
+          [discoveryApiRef, mockDiscoveryApi],
+          [fetchApiRef, mockFetchApi],
+          [starredEntitiesApiRef, new MockStarredEntitiesApi()],
+          [permissionApiRef, mockApis.permission()],
+          [gitRepositoriesExtensionsApiRef, new WithRowMenu()],
+        ]}
+      >
+        <MemoryRouter>
+          <ThemeProvider theme={theme}>
+            <EntityListProvider>
+              <RepositoriesTable syncStatusMap={defaultSyncStatusMap} />
+            </EntityListProvider>
+          </ThemeProvider>
+        </MemoryRouter>
+      </TestApiProvider>,
+    );
+
+    await waitFor(() => {
+      expect(screen.getByTestId('table')).toBeInTheDocument();
+    });
+
+    fireEvent.click(screen.getAllByLabelText('Actions')[0]);
+
+    await waitFor(() => {
+      expect(screen.getByText('View in source')).toBeInTheDocument();
+      expect(screen.getByText('Run quality scan')).toBeInTheDocument();
     });
   });
 

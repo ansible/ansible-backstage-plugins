@@ -1,8 +1,8 @@
 # RHDH dynamic plugin wiring (legacy filename: app-config.janus-idp.yaml).
 # Merged at deploy time via portal dynamic-plugins.yaml pluginConfig → app-config.dynamic-plugins.yaml.
 #
-# eap-next thin host: apmeApiFactory + Quality entity tab only.
-# No ApmePage / ApmeProjectPage / gitRepositoriesExtensionsApiFactory.
+# eap-next thin host: apmeApiFactory + Git Repos extensions (US-002) + Quality entity tab.
+# No ApmePage / ApmeProjectPage / fleet / settings (deferred).
 
 dynamicPlugins:
   frontend:
@@ -10,6 +10,7 @@ dynamicPlugins:
       # Composition-root registration (ADR-010). Do not also put these on createPlugin({ apis }).
       apiFactories:
         - importName: apmeApiFactory
+        - importName: gitRepositoriesExtensionsApiFactory
       entityTabs:
         - path: /apme
           title: Quality

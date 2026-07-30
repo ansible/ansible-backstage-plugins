@@ -8,6 +8,8 @@ interface RepositoriesPageHeaderSectionProps {
   syncDisabledReason?: string;
   syncInProgress?: boolean;
   syncProgress?: SyncProgressEntry[];
+  /** ADR-010: optional actions from gitRepositoriesExtensionsApiRef (e.g. APME Add repository). */
+  extensionHeaderActions?: React.ReactNode;
 }
 
 export const RepositoriesPageHeaderSection = ({
@@ -16,6 +18,7 @@ export const RepositoriesPageHeaderSection = ({
   syncDisabledReason,
   syncInProgress = false,
   syncProgress,
+  extensionHeaderActions,
 }: RepositoriesPageHeaderSectionProps) => (
   <PageHeaderSection
     title="Git Repositories"
@@ -24,6 +27,7 @@ export const RepositoriesPageHeaderSection = ({
     onSyncClick={onSyncClick}
     syncDisabled={syncDisabled}
     syncDisabledReason={syncDisabledReason}
+    extraHeaderActions={extensionHeaderActions}
     syncInProgress={syncInProgress}
     syncProgress={syncProgress}
   />

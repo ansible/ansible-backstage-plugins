@@ -23,3 +23,6 @@ export { EETagsPickerFieldExtension } from './components/Scaffolder/EETagsPicker
 export { ScmSelectorFieldExtension } from './components/Scaffolder/ScmSelector/extensions';
 
 export * from './apis';
+
+/** ADR-010 host default when APME guest is not loaded. */
+export { defaultGitRepositoriesExtensionsApiFactory } from '@ansible/backstage-rhaap-common/gitRepositoriesExtensions';
