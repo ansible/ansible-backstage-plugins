@@ -4,6 +4,10 @@ Ansible Backstage Plugins are custom plugins developed for Backstage — an open
 
 [![codecov](https://codecov.io/gh/ansible/ansible-backstage-plugins/graph/badge.svg?token=cLBzlKD9iK)](https://codecov.io/gh/ansible/ansible-backstage-plugins)
 
+## APME Quality (EAP)
+
+- [User stories](user-stories/README.md) — Quality tab, Git Repos chrome, register, settings
+
 ## Licensing
 
 **ansible-backstage-plugins** is licensed under the Apache License version 2. Refer to the
