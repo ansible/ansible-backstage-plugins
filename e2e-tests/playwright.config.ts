@@ -10,6 +10,7 @@ dotenv.config();
  */
 export default defineConfig({
   testDir: './playwright/tests',
+  globalSetup: require.resolve('./playwright/global-setup'),
 
   // Serial execution within worker to maintain shared browser context
   fullyParallel: false,
