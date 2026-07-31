@@ -18,7 +18,7 @@
 - [x] Git Repos **Quality** tab shows cross-repo violation summary (counts,
       severity chips, rule groups).
 - [x] Expand a rule to see affected repos; drill into entity Quality
-      (`?tab=quality&rule=`).
+      (`?tab=quality-activity&rule=` → latest scan, Rule filter prefilled).
 - [x] Filter by severity / category; sort by impact, severity, repos,
       occurrences, category.
 - [x] Thin host only — read-only aggregation via Gateway + catalog; no fat

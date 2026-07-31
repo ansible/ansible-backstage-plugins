@@ -116,6 +116,7 @@ __metadata:
     "@backstage/backend-dynamic-feature-service": "npm:^0.8.0"
     "@backstage/backend-plugin-api": "npm:^1.8.0"
     "@backstage/backend-test-utils": "npm:^1.11.1"
+    "@backstage/catalog-model": "npm:^1.7.6"
     "@backstage/cli": "npm:^0.36.0"
     "@backstage/config": "npm:^1.3.6"
     "@backstage/core-plugin-api": "npm:^1.12.4"
@@ -132,6 +133,8 @@ __metadata:
     undici: "npm:^6.26.0"
     web-streams-polyfill: "npm:^4.1.0"
     yaml: "npm:^2.0.0"
+  peerDependencies:
+    react: ^17.0.0 || ^18.0.0
   languageName: unknown
   linkType: soft
 
@@ -141,7 +144,7 @@ __metadata:
   dependencies:
     "@ansible/backstage-apme-common": "workspace:^"
     "@ansible/backstage-rhaap-common": "workspace:^"
-    "@apme/ui-workflow": "https://github.com/ansible/apme/releases/download/ui-workflow-v0.1.1/apme-ui-workflow-0.1.1.tgz"
+    "@apme/ui-workflow": "https://github.com/ansible/apme/releases/download/v2026.8.4/apme-ui-workflow-2026.8.4.tgz"
     "@backstage/catalog-model": "npm:^1.5.0"
     "@backstage/cli": "npm:^0.27.0"
     "@backstage/config": "npm:^1.2.0"
@@ -357,15 +360,15 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@apme/ui-workflow@https://github.com/ansible/apme/releases/download/ui-workflow-v0.1.1/apme-ui-workflow-0.1.1.tgz":
-  version: 0.1.1
-  resolution: "@apme/ui-workflow@https://github.com/ansible/apme/releases/download/ui-workflow-v0.1.1/apme-ui-workflow-0.1.1.tgz"
+"@apme/ui-workflow@https://github.com/ansible/apme/releases/download/v2026.8.4/apme-ui-workflow-2026.8.4.tgz":
+  version: 2026.8.4
+  resolution: "@apme/ui-workflow@https://github.com/ansible/apme/releases/download/v2026.8.4/apme-ui-workflow-2026.8.4.tgz"
   peerDependencies:
     "@patternfly/react-core": ^6.3.1
     "@patternfly/react-icons": ^6.3.1
-    react: ^18.3.1
-    react-dom: ^18.3.1
-  checksum: 10c0/e5b4b00d967a53b32dd7eba65cd6cfdb75a9a538f73e7417ce0726617772e2faa2f07ef6a68aba9714b09a7bac3b74029a132db5eeef05c0de9ffc8dab7715e8
+    react: ^18.3.1 || ^19.2.7
+    react-dom: ^18.3.1 || ^19.2.7
+  checksum: 10c0/23831986a83039c7eca7b069015f721c4f90ab6ae420dc567a898a1a9ef95c5fccbebf59236db2947029ba01b92a638034e2cc882f0364e59881ba5622eb98b9
   languageName: node
   linkType: hard
 

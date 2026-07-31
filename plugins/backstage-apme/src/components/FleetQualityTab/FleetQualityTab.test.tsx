@@ -42,7 +42,7 @@ function catalogEntity(name: string, repoUrl: string): Entity {
 describe('FleetQualityTab', () => {
   const mockApmeApi = new MockApmeApiClient();
   const repositoryDetailPath = (entityName: string, ruleId?: string) => {
-    const base = `/self-service/repositories/${entityName}?tab=quality`;
+    const base = `/self-service/repositories/${entityName}?tab=quality-activity`;
     return ruleId ? `${base}&rule=${encodeURIComponent(ruleId)}` : base;
   };
 

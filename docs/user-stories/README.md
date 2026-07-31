@@ -28,7 +28,7 @@ after verified in the local loop (`make react` and/or RHDH dynamic plugins).
 | [US-004](US-004-admin-quality-settings.md) | Admin / Quality settings | J6 | Complete |
 | [US-005](US-005-fleet-quality.md) | Fleet Quality overview | J4 | Complete |
 | [US-006](US-006-overview-quality-card.md) | Overview Quality card (above About) | J1 | Complete |
-| [US-007](US-007-scan-triage-acknowledge.md) | Scan triage: filter, acknowledge, history | J2 | Planned |
+| [US-007](US-007-scan-triage-acknowledge.md) | Scan triage: filter, acknowledge, Quality activity | J2 | Done |
 | [US-008](US-008-remediate-and-ship.md) | Remediate and ship (canonical E2E) | J3 | Planned |
 | [US-009](US-009-dependency-risk.md) | Dependency risk (Collections / Dependencies) | J5 | Planned |
 | [US-010](US-010-background-estate-scan.md) | Background estate scan | J8 | Deferred |

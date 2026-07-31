@@ -20,7 +20,7 @@ crosswalk — not a second source of acceptance criteria.
 | Journey | Scope | Story | Status |
 |---------|-------|-------|--------|
 | J1 Discover and prioritize | EAP + GA | [US-002](US-002-git-repos-chrome.md), [US-006](US-006-overview-quality-card.md) | Complete |
-| J2 Scan and triage | EAP + GA | [US-001](US-001-quality-tab-scan-with-ai.md), [US-007](US-007-scan-triage-acknowledge.md) | Partial → Planned |
+| J2 Scan and triage | EAP + GA | [US-001](US-001-quality-tab-scan-with-ai.md), [US-007](US-007-scan-triage-acknowledge.md) | Done (remediate → US-008) |
 | J3 Remediate and ship | EAP + GA | [US-001](US-001-quality-tab-scan-with-ai.md), [US-008](US-008-remediate-and-ship.md) | Partial → Planned |
 | J4 Oversight across fleet | EAP + GA | [US-005](US-005-fleet-quality.md) | Complete |
 | J5 Dependency risk | EAP + GA | [US-009](US-009-dependency-risk.md) | Planned |

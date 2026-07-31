@@ -178,7 +178,8 @@ export const GitRepositoriesPage = () => {
 
   const repositoryDetailPath = useCallback(
     (entityName: string, ruleId?: string) => {
-      const base = `${rootLink()}/repositories/${entityName}?tab=quality`;
+      // Fleet drill-down → Quality activity (latest scan) with Rule filter.
+      const base = `${rootLink()}/repositories/${entityName}?tab=quality-activity`;
       return ruleId ? `${base}&rule=${encodeURIComponent(ruleId)}` : base;
     },
     [rootLink],

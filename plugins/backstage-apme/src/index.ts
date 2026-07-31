@@ -23,8 +23,10 @@ export {
 } from './plugin';
 export { QualityTab } from './components/QualityTab';
 export { EntityQualityTab as ApmeEntityQualityTabComponent } from './components/EntityQualityTab';
+export { EntityQualityActivityTab as ApmeEntityQualityActivityTabComponent } from './components/EntityQualityActivityTab';
 export { FleetQualityTab as ApmeFleetQualityTabComponent } from './components/FleetQualityTab';
 export type { FleetQualityTabProps as ApmeFleetQualityTabProps } from './components/FleetQualityTab';
+export { ApmeQualityActivityTab } from './components/ApmeQualityActivityTab';
 export { apmeApiRef, ApmeApiClient } from './api';
 export { apmeApiFactory } from './api/apmeApiFactory';
 export type { ApmeApi } from './api';

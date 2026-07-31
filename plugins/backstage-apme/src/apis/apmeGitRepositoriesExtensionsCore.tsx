@@ -2,8 +2,8 @@
  * Copyright Red Hat
  *
  * Shared Git Repositories extension API for monolith (lazy) and OCI (direct) wiring.
- * eap-next thin host: Quality detail tab, Fleet Quality + settings page tabs,
- * Overview quality card (sidebar), Run quality scan, status chrome only.
+ * eap-next thin host: Quality + Quality activity detail tabs, Fleet Quality +
+ * settings page tabs, Overview quality card, Run quality scan, status chrome.
  */
 
 import { Suspense, type ComponentType } from 'react';
@@ -49,6 +49,9 @@ export type ApmeGitRepositoriesComponents = {
     initialRuleFilter?: string;
     initialCategoryFilter?: string;
   }>;
+  EntityQualityActivityTab: ComponentType<{
+    entity: GitRepositoryDetailTabContext['entity'];
+  }>;
   ApmeRepositoryOverviewCard: ComponentType<{
     context: GitRepositoryDetailTabContext;
   }>;
@@ -65,6 +68,7 @@ export function createApmeGitRepositoriesExtensionsApi(
   const {
     FleetQualityTab,
     EntityQualityTab,
+    EntityQualityActivityTab,
     ApmeRepositoryOverviewCard,
     ApmeRepositoryHeaderActions,
     ApmeViolationsCell,
@@ -123,6 +127,14 @@ export function createApmeGitRepositoriesExtensionsApi(
               initialRuleFilter={initialRuleFilter}
               initialCategoryFilter={initialCategoryFilter}
             />
+          ),
+        },
+        {
+          id: 'quality-activity',
+          label: 'Quality activity',
+          order: 15,
+          render: ({ entity }: GitRepositoryDetailTabContext) => (
+            <EntityQualityActivityTab entity={entity} />
           ),
         },
       ];

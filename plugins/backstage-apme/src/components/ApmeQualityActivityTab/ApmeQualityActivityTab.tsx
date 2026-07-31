@@ -1,0 +1,509 @@
+/*
+ * Copyright Red Hat
+ *
+ * Repo detail Quality activity — SPA project Activity list/detail (US-007).
+ */
+
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
+import { useApi } from '@backstage/core-plugin-api';
+import { Progress, ResponseErrorPanel } from '@backstage/core-components';
+import {
+  Box,
+  Card as MuiCard,
+  makeStyles,
+  useTheme,
+} from '@material-ui/core';
+import {
+  Button,
+  Card,
+  CardBody,
+  Flex,
+  FlexItem,
+} from '@patternfly/react-core';
+import '@patternfly/react-core/dist/styles/base.css';
+import { ApmeApiProvider } from '@apme/ui-workflow';
+import type {
+  Activity,
+  ActivityDetail,
+} from '@ansible/backstage-apme-common/types';
+import { apmeApiRef } from '../../api';
+import { useResolveApmeProject } from '../../hooks/useResolveApmeProject';
+import { useSyncPatternFlyTheme } from '../../hooks/useSyncPatternFlyTheme';
+import { useViolationAcknowledge } from '../../hooks/useViolationAcknowledge';
+import { ApmeUnavailable } from '../ApmeUnavailable';
+import { PreviewLabelRow } from '../PreviewChip';
+import { QualityFindingsSection } from '../QualityFindingsSection';
+
+const useActivityListStyles = makeStyles(theme => ({
+  table: {
+    width: '100%',
+    borderCollapse: 'collapse',
+    fontSize: 13,
+    '& thead': {
+      backgroundColor:
+        theme.palette.type === 'dark' ? 'rgba(255,255,255,0.04)' : '#f5f5f5',
+      borderBottom: `1px solid ${theme.palette.divider}`,
+    },
+    '& th': {
+      textAlign: 'left',
+      padding: '10px 12px',
+      fontWeight: 600,
+      fontSize: 12,
+      color: theme.palette.text.secondary,
+      textTransform: 'uppercase',
+      letterSpacing: 0.3,
+      cursor: 'pointer',
+      userSelect: 'none',
+      whiteSpace: 'nowrap',
+      '&:hover': { color: theme.palette.text.primary },
+    },
+    '& td': {
+      padding: '10px 12px',
+      borderBottom: `1px solid ${theme.palette.divider}`,
+      verticalAlign: 'middle',
+    },
+    '& tbody tr:last-child td': {
+      borderBottom: 'none',
+    },
+    '& tbody tr:hover': {
+      backgroundColor: theme.palette.action.hover,
+    },
+  },
+  typeChip: {
+    display: 'inline-block',
+    padding: '2px 8px',
+    borderRadius: 6,
+    fontSize: 12,
+    fontWeight: 600,
+    lineHeight: 1.4,
+  },
+}));
+
+type ActivitySortColumn =
+  | 'type'
+  | 'violations'
+  | 'fixable'
+  | 'remediated'
+  | 'manual'
+  | 'time';
+
+/** In-page panel dismiss — labeled (not icon-only); keeps control on the right. */
+function CloseDetailButton({ onClose }: { onClose: () => void }) {
+  return (
+    <Button
+      variant="link"
+      isInline
+      aria-label="Close activity detail"
+      onClick={event => {
+        event.preventDefault();
+        event.stopPropagation();
+        onClose();
+      }}
+    >
+      Close
+    </Button>
+  );
+}
+
+function displayType(scanType: string): string {
+  if (scanType === 'scan') return 'check';
+  if (scanType === 'fix') return 'remediate';
+  return scanType;
+}
+
+function timeAgo(iso: string): string {
+  const ms = Date.now() - new Date(iso).getTime();
+  if (Number.isNaN(ms) || ms < 0) return iso;
+  const mins = Math.floor(ms / 60000);
+  if (mins < 1) return 'just now';
+  if (mins < 60) return `${mins}m ago`;
+  const hours = Math.floor(mins / 60);
+  if (hours < 48) return `${hours}h ago`;
+  const days = Math.floor(hours / 24);
+  return `${days}d ago`;
+}
+
+function ActivityList({
+  activities,
+  onOpen,
+}: {
+  activities: Activity[];
+  onOpen: (scanId: string) => void;
+}) {
+  const classes = useActivityListStyles();
+  const theme = useTheme();
+  const isDark = theme.palette.type === 'dark';
+  const [sortCol, setSortCol] = useState<ActivitySortColumn>('time');
+  const [sortAsc, setSortAsc] = useState(false);
+
+  const sorted = useMemo(() => {
+    return [...activities].sort((a, b) => {
+      let cmp = 0;
+      switch (sortCol) {
+        case 'type':
+          cmp = displayType(a.scan_type).localeCompare(displayType(b.scan_type));
+          break;
+        case 'violations':
+          cmp = a.total_violations - b.total_violations;
+          break;
+        case 'fixable':
+          cmp = a.fixable - b.fixable;
+          break;
+        case 'remediated':
+          cmp = a.remediated_count - b.remediated_count;
+          break;
+        case 'manual':
+          cmp = a.manual_review - b.manual_review;
+          break;
+        case 'time':
+        default:
+          cmp =
+            new Date(a.created_at).getTime() - new Date(b.created_at).getTime();
+          break;
+      }
+      return sortAsc ? cmp : -cmp;
+    });
+  }, [activities, sortCol, sortAsc]);
+
+  const handleSort = (col: ActivitySortColumn) => {
+    if (sortCol === col) {
+      setSortAsc(!sortAsc);
+    } else {
+      setSortCol(col);
+      setSortAsc(col === 'type');
+    }
+  };
+
+  const sortArrow = (col: ActivitySortColumn): string => {
+    if (sortCol !== col) return '';
+    return sortAsc ? ' ↑' : ' ↓';
+  };
+
+  if (activities.length === 0) {
+    return (
+      <div style={{ padding: 24, textAlign: 'center', opacity: 0.6 }}>
+        No quality activity recorded yet. Run a scan from the Quality tab.
+      </div>
+    );
+  }
+
+  return (
+    <MuiCard variant="outlined" style={{ borderRadius: 8, overflow: 'hidden' }}>
+      <Box style={{ overflow: 'auto' }}>
+        <table className={classes.table} role="grid">
+          <thead>
+            <tr>
+              <th style={{ width: 110 }} onClick={() => handleSort('type')}>
+                Type{sortArrow('type')}
+              </th>
+              <th
+                style={{ width: 100 }}
+                onClick={() => handleSort('violations')}
+              >
+                Violations{sortArrow('violations')}
+              </th>
+              <th style={{ width: 88 }} onClick={() => handleSort('fixable')}>
+                Fixable{sortArrow('fixable')}
+              </th>
+              <th
+                style={{ width: 110 }}
+                onClick={() => handleSort('remediated')}
+              >
+                Remediated{sortArrow('remediated')}
+              </th>
+              <th style={{ width: 88 }} onClick={() => handleSort('manual')}>
+                Manual{sortArrow('manual')}
+              </th>
+              <th style={{ width: 120 }} onClick={() => handleSort('time')}>
+                Time{sortArrow('time')}
+              </th>
+            </tr>
+          </thead>
+          <tbody>
+            {sorted.map(scan => {
+              const isFix = scan.scan_type === 'remediate';
+              const typeLabel = displayType(scan.scan_type);
+              return (
+                <tr
+                  key={scan.scan_id}
+                  role="row"
+                  tabIndex={0}
+                  onClick={() => onOpen(scan.scan_id)}
+                  onKeyDown={e => {
+                    if (e.key === 'Enter' || e.key === ' ') {
+                      e.preventDefault();
+                      onOpen(scan.scan_id);
+                    }
+                  }}
+                  style={{ cursor: 'pointer' }}
+                >
+                  <td>
+                    <span
+                      className={classes.typeChip}
+                      style={{
+                        backgroundColor: isFix
+                          ? isDark
+                            ? 'rgba(62, 134, 53, 0.25)'
+                            : 'rgba(62, 134, 53, 0.12)'
+                          : isDark
+                            ? 'rgba(0, 102, 204, 0.25)'
+                            : 'rgba(0, 102, 204, 0.1)',
+                        color: isFix
+                          ? isDark
+                            ? '#BDE5B8'
+                            : '#3E8635'
+                          : isDark
+                            ? '#8EC8F7'
+                            : '#0066CC',
+                      }}
+                    >
+                      {typeLabel}
+                    </span>
+                  </td>
+                  <td>{scan.total_violations}</td>
+                  <td style={{ opacity: isFix ? 0.35 : 1 }}>
+                    {isFix ? '—' : scan.fixable}
+                  </td>
+                  <td style={{ opacity: isFix ? 1 : 0.35 }}>
+                    {isFix ? scan.remediated_count : '—'}
+                  </td>
+                  <td>{scan.manual_review}</td>
+                  <td style={{ color: theme.palette.text.secondary }}>
+                    {timeAgo(scan.created_at)}
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </Box>
+    </MuiCard>
+  );
+}
+
+function ActivityDetailView({
+  projectId,
+  detail,
+  onBack,
+  ruleFilter,
+}: {
+  projectId: string;
+  detail: ActivityDetail;
+  onBack: () => void;
+  ruleFilter?: string;
+}) {
+  const {
+    acknowledgedIds,
+    ackError,
+    pendingId,
+    acknowledge,
+    clearAckError,
+  } = useViolationAcknowledge(projectId);
+
+  return (
+    <Flex direction={{ default: 'column' }} gap={{ default: 'gapMd' }}>
+      <Flex
+        justifyContent={{ default: 'justifyContentSpaceBetween' }}
+        alignItems={{ default: 'alignItemsFlexStart' }}
+      >
+        <FlexItem>
+          <div style={{ fontSize: 18, fontWeight: 600 }}>
+            {displayType(detail.scan_type)} via {detail.source}
+          </div>
+          <div style={{ opacity: 0.7, marginTop: 4 }}>
+            {new Date(detail.created_at).toLocaleString()} ·{' '}
+            {detail.total_violations} violations
+          </div>
+        </FlexItem>
+        <FlexItem>
+          <CloseDetailButton onClose={onBack} />
+        </FlexItem>
+      </Flex>
+      <QualityFindingsSection
+        projectId={projectId}
+        violations={detail.violations}
+        ruleFilter={ruleFilter}
+        acknowledgedIds={acknowledgedIds}
+        pendingId={pendingId}
+        ackError={ackError}
+        onAcknowledge={acknowledge}
+        onClearAckError={clearAckError}
+        description="Findings from this past quality check (read-only)."
+      />
+    </Flex>
+  );
+}
+
+function QualityActivityBody({ projectId }: { projectId: string }) {
+  const apmeApi = useApi(apmeApiRef);
+  const [searchParams, setSearchParams] = useSearchParams();
+  const activityId = searchParams.get('activity') ?? undefined;
+  const ruleFilter = searchParams.get('rule') ?? undefined;
+
+  const [activities, setActivities] = useState<Activity[] | null>(null);
+  const [detail, setDetail] = useState<ActivityDetail | null>(null);
+  const [listError, setListError] = useState<Error | null>(null);
+  const [detailError, setDetailError] = useState<Error | null>(null);
+  const [detailLoading, setDetailLoading] = useState(false);
+
+  const openActivity = useCallback(
+    (scanId: string, replace = false) => {
+      const next = new URLSearchParams(searchParams);
+      next.set('activity', scanId);
+      setSearchParams(next, { replace });
+    },
+    [searchParams, setSearchParams],
+  );
+
+  const backToList = useCallback(() => {
+    const next = new URLSearchParams(searchParams);
+    next.delete('activity');
+    setSearchParams(next, { replace: true });
+    setDetail(null);
+    setDetailError(null);
+  }, [searchParams, setSearchParams]);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const rows = await apmeApi.getActivity(projectId);
+        if (!cancelled) {
+          setActivities(rows);
+          setListError(null);
+        }
+      } catch (e) {
+        if (!cancelled) {
+          setListError(e instanceof Error ? e : new Error(String(e)));
+        }
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [apmeApi, projectId]);
+
+  // Fleet drill-down (?rule=): open the latest scan automatically.
+  useEffect(() => {
+    if (activityId || !ruleFilter || !activities?.length) return;
+    const latest = [...activities].sort(
+      (a, b) =>
+        new Date(b.created_at).getTime() - new Date(a.created_at).getTime(),
+    )[0];
+    if (latest) {
+      openActivity(latest.scan_id, true);
+    }
+  }, [activityId, ruleFilter, activities, openActivity]);
+
+  useEffect(() => {
+    if (!activityId) {
+      setDetail(null);
+      setDetailError(null);
+      setDetailLoading(false);
+      return;
+    }
+    let cancelled = false;
+    setDetailLoading(true);
+    (async () => {
+      try {
+        const next = await apmeApi.getActivityDetail(activityId);
+        if (!cancelled) {
+          setDetail(next);
+          setDetailError(null);
+        }
+      } catch (e) {
+        if (!cancelled) {
+          setDetail(null);
+          setDetailError(e instanceof Error ? e : new Error(String(e)));
+        }
+      } finally {
+        if (!cancelled) setDetailLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [apmeApi, activityId]);
+
+  if (listError && !activityId) {
+    return <ResponseErrorPanel error={listError} />;
+  }
+  if (!activities && !activityId) {
+    return <Progress />;
+  }
+
+  if (activityId) {
+    return (
+      <Card>
+        <CardBody>
+          {detailLoading ? (
+            <Progress />
+          ) : detailError ? (
+            <Flex direction={{ default: 'column' }} gap={{ default: 'gapSm' }}>
+              <Flex justifyContent={{ default: 'justifyContentFlexEnd' }}>
+                <CloseDetailButton onClose={backToList} />
+              </Flex>
+              <ResponseErrorPanel error={detailError} />
+            </Flex>
+          ) : detail ? (
+            <ActivityDetailView
+              projectId={projectId}
+              detail={detail}
+              onBack={backToList}
+              ruleFilter={ruleFilter}
+            />
+          ) : (
+            <Flex direction={{ default: 'column' }} gap={{ default: 'gapSm' }}>
+              <Flex justifyContent={{ default: 'justifyContentFlexEnd' }}>
+                <CloseDetailButton onClose={backToList} />
+              </Flex>
+              <div style={{ opacity: 0.7 }}>Activity not found.</div>
+            </Flex>
+          )}
+        </CardBody>
+      </Card>
+    );
+  }
+
+  return (
+    <Card>
+      <CardBody>
+        <Flex direction={{ default: 'column' }} gap={{ default: 'gapMd' }}>
+          <PreviewLabelRow />
+          <div style={{ fontSize: 18, fontWeight: 600 }}>
+            Quality activity ({activities?.length ?? 0})
+          </div>
+          <ActivityList
+            activities={activities ?? []}
+            onOpen={openActivity}
+          />
+        </Flex>
+      </CardBody>
+    </Card>
+  );
+}
+
+/**
+ * Thin host: list project activity; open past scan via ?activity= with Back.
+ */
+export const ApmeQualityActivityTab = () => {
+  useSyncPatternFlyTheme();
+  const { adapter, projectId, error, unavailable } = useResolveApmeProject();
+
+  if (unavailable) {
+    return <ApmeUnavailable />;
+  }
+  if (error) {
+    return <ResponseErrorPanel error={error} />;
+  }
+  if (!adapter || !projectId) {
+    return <Progress />;
+  }
+
+  return (
+    <ApmeApiProvider adapter={adapter}>
+      <QualityActivityBody projectId={projectId} />
+    </ApmeApiProvider>
+  );
+};

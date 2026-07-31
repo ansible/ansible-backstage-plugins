@@ -14,14 +14,9 @@
  * limitations under the License.
  */
 
-import { useEffect, useMemo, useState } from 'react';
-import {
-  discoveryApiRef,
-  fetchApiRef,
-  useApi,
-} from '@backstage/core-plugin-api';
+import { useEffect, useState } from 'react';
+import { useApi } from '@backstage/core-plugin-api';
 import { Progress, ResponseErrorPanel } from '@backstage/core-components';
-import { useEntity } from '@backstage/plugin-catalog-react';
 import {
   Button,
   Card,
@@ -36,30 +31,25 @@ import {
   CheckOptionsForm,
   ProjectWorkflowPanel,
   useProjectWorkflow,
-  type ApmeApiAdapter,
 } from '@apme/ui-workflow';
-import type { Project } from '@ansible/backstage-apme-common';
-import {
-  defaultBranchFromEntity,
-  normalizeRepoUrlFromEntity,
-} from '@ansible/backstage-rhaap-common/catalogEntity';
+import type { Project } from '@ansible/backstage-apme-common/types';
 import { apmeApiRef } from '../../api';
-import { createApmeUiWorkflowAdapter } from '../../api/createApmeUiWorkflowAdapter';
-import { registerOrResolveApmeProject } from '../../utils/registerOrResolveApmeProject';
-import { ensureRepoBranchForScan } from '../../utils/ensureRepoBranchForScan';
-import { resolveDefaultAnsibleVersionForScan } from '../../utils/resolveDefaultAnsibleVersionForScan';
 import { useApmeAiEnabled } from '../../hooks/useApmeEnabled';
+import { useResolveApmeProject } from '../../hooks/useResolveApmeProject';
 import { useSyncPatternFlyTheme } from '../../hooks/useSyncPatternFlyTheme';
+import { resolveDefaultAnsibleVersionForScan } from '../../utils/resolveDefaultAnsibleVersionForScan';
 import { ApmeUnavailable } from '../ApmeUnavailable';
+import { PreviewLabelRow } from '../PreviewChip';
 
 export interface ApmeEntityTabProps {
-  /** Reserved for fleet drill-down; unused in eap-next thin mount. */
+  /** Reserved — fleet drill-down targets Quality activity, not this tab. */
   initialRuleFilter?: string;
   initialCategoryFilter?: string;
 }
 
 /**
  * Portal host chrome: Overview (idle) vs Session (live op).
+ * Findings / history live on Quality activity; this tab starts scans.
  * ``ProjectWorkflowPanel`` is session-only — mounting it when detached shows a
  * permanent "Starting scan…" spinner (native SPA only mounts it when
  * ``sessionTabVisible``).
@@ -145,6 +135,7 @@ function WorkflowBody({ projectId }: { projectId: string }) {
     <Card>
       <CardBody>
         <Flex direction={{ default: 'column' }} gap={{ default: 'gapMd' }}>
+          <PreviewLabelRow />
           <FlexItem>
             <div style={{ fontSize: 18, fontWeight: 600 }}>{project.name}</div>
             <div style={{ opacity: 0.7, marginTop: 4 }}>
@@ -221,81 +212,7 @@ export const ApmeEntityTab = (_props: ApmeEntityTabProps) => {
   // PF + @apme/ui-workflow dark tokens require pf-v6-theme-dark on <html>.
   useSyncPatternFlyTheme();
 
-  const { entity } = useEntity();
-  const apmeApi = useApi(apmeApiRef);
-  const discoveryApi = useApi(discoveryApiRef);
-  const fetchApi = useApi(fetchApiRef);
-
-  const [adapter, setAdapter] = useState<ApmeApiAdapter | null>(null);
-  const [projectId, setProjectId] = useState<string | null>(null);
-  const [error, setError] = useState<Error | null>(null);
-  const [unavailable, setUnavailable] = useState(false);
-
-  const repoUrl = useMemo(
-    () => normalizeRepoUrlFromEntity(entity) ?? undefined,
-    [entity],
-  );
-  const branch = useMemo(() => defaultBranchFromEntity(entity), [entity]);
-
-  useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      try {
-        const next = await createApmeUiWorkflowAdapter({
-          discoveryApi,
-          fetchApi,
-        });
-        if (!cancelled) setAdapter(next);
-      } catch (e) {
-        if (!cancelled) {
-          setError(e instanceof Error ? e : new Error(String(e)));
-        }
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, [discoveryApi, fetchApi]);
-
-  useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      if (!repoUrl) {
-        setError(new Error('Entity has no source-location repository URL'));
-        return;
-      }
-      try {
-        await ensureRepoBranchForScan(apmeApi, repoUrl, branch);
-        const name =
-          entity.metadata.name ||
-          repoUrl.replace(/\/$/, '').split('/').pop()?.replace(/\.git$/, '') ||
-          'repository';
-        const project = await registerOrResolveApmeProject(apmeApi, {
-          name,
-          repo_url: repoUrl,
-          branch,
-        });
-        if (!cancelled) setProjectId(project.id);
-      } catch (e) {
-        if (cancelled) return;
-        const err = e instanceof Error ? e : new Error(String(e));
-        const msg = err.message.toLowerCase();
-        if (
-          msg.includes('failed to fetch') ||
-          msg.includes('network') ||
-          msg.includes('econnrefused') ||
-          msg.includes('unavailable')
-        ) {
-          setUnavailable(true);
-        } else {
-          setError(err);
-        }
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, [apmeApi, repoUrl, branch, entity.metadata.name]);
+  const { adapter, projectId, error, unavailable } = useResolveApmeProject();
 
   if (unavailable) {
     return <ApmeUnavailable />;
