@@ -129,7 +129,9 @@ export const ApmeQualitySettingsTab = () => {
         <CardContent>
           <Typography variant="body2" className={classes.hint}>
             Sets the global ansible-core target used when a repository has no
-            per-project override. Changes persist in the Portal settings store.
+            per-project override. Prefills the Quality tab scan form and applies
+            to background catalog-sync scans. Changes persist in the Portal
+            settings store.
           </Typography>
 
           {error && (

@@ -25,8 +25,9 @@ review, Portal-side git). That diverged from the native SPA and fought
 2. **Mount it** from the Portal Quality tab with a small adapter.
 3. **Proxy** all Gateway calls through `catalog-backend-module-apme` so the
    browser never talks to `:8080` with a separate auth model.
-4. **Leave analytics / fleet / SPA shell** in their native homes (Portal
-   analytics stays Portal-only when re-enabled later; not part of this package).
+4. **Leave native SPA shell / Activity pages** in APME. Portal hosts a thin
+   **Fleet Quality** Git Repos tab (read-only aggregate + drill-down) — not a
+   second remediation UI.
 
 ### Ownership
 
@@ -39,7 +40,8 @@ review, Portal-side git). That diverged from the native SPA and fought
 | Resolve/register Gateway project from catalog SCM annotations | Portal FE + common helpers |
 | Backstage identity → Gateway, SCM token injection | Catalog proxy |
 | AI models list / enable flag (portal config + settings) | Portal config + proxy |
-| Fleet Analytics, Activity SPA pages, native app shell | Native APME SPA only |
+| Fleet Quality (Git Repos page tab — aggregate + drill-down) | Portal thin host |
+| Activity SPA pages, native app shell | Native APME SPA only |
 | Feedback widgets on the workflow panel | Off in Portal (`feedbackEnabled={false}`) |
 
 ### Product shape

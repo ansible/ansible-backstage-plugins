@@ -2,7 +2,7 @@
 # Merged at deploy time via portal dynamic-plugins.yaml pluginConfig → app-config.dynamic-plugins.yaml.
 #
 # eap-next thin host: apmeApiFactory + Git Repos extensions (US-002) + Quality entity tab.
-# No ApmePage / ApmeProjectPage / fleet / settings (deferred).
+# No ApmePage / ApmeProjectPage SPA shell (native APME). Fleet + settings via Git Repos tabs.
 
 dynamicPlugins:
   frontend:

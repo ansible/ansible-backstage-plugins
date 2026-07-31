@@ -2,7 +2,7 @@
  * Copyright Red Hat
  *
  * Shared Git Repositories extension API for monolith (lazy) and OCI (direct) wiring.
- * eap-next thin host: Quality detail tab, Quality settings page tab,
+ * eap-next thin host: Quality detail tab, Fleet Quality + settings page tabs,
  * Overview quality card (sidebar), Run quality scan, status chrome only.
  */
 
@@ -18,6 +18,7 @@ import {
   DefaultGitRepositoriesExtensionsApi,
   gitRepositoriesExtensionsApiRef,
   type GitRepositoriesExtensionsApi,
+  type GitRepositoriesPageTabContext,
   type GitRepositoryDetailTabContext,
   type GitRepositoryDetailHeaderMenuContext,
   type GitRepositoryCatalogColumnDefinition,
@@ -40,6 +41,9 @@ export function withSuspense<P extends object>(
 }
 
 export type ApmeGitRepositoriesComponents = {
+  FleetQualityTab: ComponentType<{
+    repositoryDetailPath: GitRepositoriesPageTabContext['repositoryDetailPath'];
+  }>;
   EntityQualityTab: ComponentType<{
     entity: GitRepositoryDetailTabContext['entity'];
     initialRuleFilter?: string;
@@ -59,6 +63,7 @@ export function createApmeGitRepositoriesExtensionsApi(
   components: ApmeGitRepositoriesComponents,
 ): new () => GitRepositoriesExtensionsApi {
   const {
+    FleetQualityTab,
     EntityQualityTab,
     ApmeRepositoryOverviewCard,
     ApmeRepositoryHeaderActions,
@@ -81,6 +86,17 @@ export function createApmeGitRepositoriesExtensionsApi(
 
     getPageTabs() {
       return [
+        {
+          id: 'quality',
+          label: 'Quality',
+          path: 'quality',
+          order: 10,
+          render: ({
+            repositoryDetailPath,
+          }: GitRepositoriesPageTabContext) => (
+            <FleetQualityTab repositoryDetailPath={repositoryDetailPath} />
+          ),
+        },
         {
           id: 'quality-settings',
           label: 'Quality settings',

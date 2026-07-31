@@ -30,11 +30,14 @@
 ## Out of scope
 
 - Portal-side SCM commit (`RemediationPublisher`) — Gateway owns SCM (ADR-056).
-- Fleet / multi-repo bulk analytics ([US-005](US-005-fleet-quality.md)).
-- Quality settings / Remove / Dev Spaces menu items (later stories).
+- Fleet Quality page tab ([US-005](US-005-fleet-quality.md)).
+- Remove / Dev Spaces menu items ([US-011](US-011-quick-actions-dev-spaces.md)).
 
 ## Notes
 
+- Craig journey: [J1](user-journeys.md) (catalog violations column); overview
+  card → [US-006](US-006-overview-quality-card.md); Dev Spaces / remaining
+  header actions → [US-011](US-011-quick-actions-dev-spaces.md).
 - Host contract: `@ansible/backstage-rhaap-common/gitRepositoriesExtensions`.
 - Guest factory: `gitRepositoriesExtensionsApiFactory` (thin surfaces only).
 - RHDH Local must register **only** the APME factory — also registering

@@ -36,6 +36,8 @@
 
 ## Notes
 
+- Craig journey: [J7](user-journeys.md). Optional PR path and GitLab parity
+  called out upstream remain open / secondary.
 - Header action: `ApmeAddRepositoryHeaderAction` via `getPageHeaderActions`
   (ADR-010).
 - Template (owned by APME):

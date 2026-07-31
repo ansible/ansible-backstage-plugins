@@ -11,12 +11,14 @@ import {
   withSuspense,
   ApmeViolationsCell,
   ApmeEntityQualityTabComponent,
+  ApmeFleetQualityTabComponent,
   ApmeRepositoryOverviewCard,
   ApmeRepositoryHeaderActions,
 } from '@ansible/plugin-backstage-apme';
 
 const ApmeGitRepositoriesExtensionsApi = createApmeGitRepositoriesExtensionsApi(
   {
+    FleetQualityTab: withSuspense(ApmeFleetQualityTabComponent),
     EntityQualityTab: withSuspense(ApmeEntityQualityTabComponent),
     ApmeRepositoryOverviewCard: withSuspense(ApmeRepositoryOverviewCard),
     ApmeRepositoryHeaderActions: withSuspense(ApmeRepositoryHeaderActions),

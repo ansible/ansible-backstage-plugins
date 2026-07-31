@@ -53,6 +53,9 @@ Direct RHDH URL:
 
 ## Notes
 
+- Craig journeys: [J2](user-journeys.md) / [J3](user-journeys.md) (scan path);
+  triage depth → [US-007](US-007-scan-triage-acknowledge.md); full remediate→PR
+  → [US-008](US-008-remediate-and-ship.md).
 - AI gate: `ansible.apme.enableAi` (default **on** in local configs), ANDed into
   check options; per-scan toggle still available on the Quality tab.
 - Host wiring: `plugins/backstage-apme` thin host; UI package `@apme/ui-workflow`.

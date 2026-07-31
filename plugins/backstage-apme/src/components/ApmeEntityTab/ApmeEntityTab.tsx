@@ -47,6 +47,7 @@ import { apmeApiRef } from '../../api';
 import { createApmeUiWorkflowAdapter } from '../../api/createApmeUiWorkflowAdapter';
 import { registerOrResolveApmeProject } from '../../utils/registerOrResolveApmeProject';
 import { ensureRepoBranchForScan } from '../../utils/ensureRepoBranchForScan';
+import { resolveDefaultAnsibleVersionForScan } from '../../utils/resolveDefaultAnsibleVersionForScan';
 import { useApmeAiEnabled } from '../../hooks/useApmeEnabled';
 import { useSyncPatternFlyTheme } from '../../hooks/useSyncPatternFlyTheme';
 import { ApmeUnavailable } from '../ApmeUnavailable';
@@ -76,6 +77,23 @@ function WorkflowBody({ projectId }: { projectId: string }) {
   useEffect(() => {
     setEnableAi(portalAiEnabled);
   }, [portalAiEnabled]);
+
+  // Prefill from Quality settings / project scan-target (US-004).
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      const version = await resolveDefaultAnsibleVersionForScan(
+        apmeApi,
+        projectId,
+      );
+      if (!cancelled) {
+        setAnsibleVersion(version);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [apmeApi, projectId]);
 
   const workflow = useProjectWorkflow(projectId, {
     checkOptions: {

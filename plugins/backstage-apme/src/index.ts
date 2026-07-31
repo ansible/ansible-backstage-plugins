@@ -23,6 +23,8 @@ export {
 } from './plugin';
 export { QualityTab } from './components/QualityTab';
 export { EntityQualityTab as ApmeEntityQualityTabComponent } from './components/EntityQualityTab';
+export { FleetQualityTab as ApmeFleetQualityTabComponent } from './components/FleetQualityTab';
+export type { FleetQualityTabProps as ApmeFleetQualityTabProps } from './components/FleetQualityTab';
 export { apmeApiRef, ApmeApiClient } from './api';
 export { apmeApiFactory } from './api/apmeApiFactory';
 export type { ApmeApi } from './api';
@@ -50,3 +52,9 @@ export { ApmeRepositoryOverviewCard } from './components/ApmeRepositoryOverviewC
 export { ApmeAddRepositoryHeaderAction } from './components/ApmeAddRepositoryHeaderAction/ApmeAddRepositoryHeaderAction';
 export { ApmeQualitySettingsTab } from './components/ApmeQualitySettingsTab';
 export { APME_REGISTER_GIT_REPOSITORY_TEMPLATE_PATH } from './components/ApmeAddRepositoryHeaderAction/ApmeAddRepositoryHeaderAction';
+export {
+  PreviewChip,
+  PreviewLabelRow,
+  PreviewNotice,
+  PreviewFeedbackLink,
+} from './components/PreviewChip';

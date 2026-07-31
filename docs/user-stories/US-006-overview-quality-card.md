@@ -34,7 +34,11 @@
 
 ## Notes
 
+- Craig journey: [J1](user-journeys.md) (overview card half of discover).
 - Host contract: `getDetailOverviewSlots` on
   `@ansible/backstage-rhaap-common/gitRepositoriesExtensions`.
 - Self-service renders slots in `detailsRightColumn` above
   `RepositoryAboutCard`.
+- **View details →** opens the Quality tab idle chrome (`CheckOptionsForm`).
+  A findings-list / scan-history landing is [US-007](US-007-scan-triage-acknowledge.md).
+- Signed off locally (Portal Overview + right-column layout).
