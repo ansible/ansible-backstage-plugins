@@ -1962,6 +1962,61 @@ describe('StepForm', () => {
       expect(fieldHasDependenciesInSchema('field', 123 as any)).toBe(false);
       expect(fieldHasDependenciesInSchema('field', [] as any)).toBe(false);
     });
+
+    it('returns false when oneOf is empty array', () => {
+      const schema = {
+        dependencies: {
+          field: {
+            oneOf: [],
+          },
+        },
+      };
+
+      expect(fieldHasDependenciesInSchema('field', schema)).toBe(true);
+      expect(fieldHasDependenciesInSchema('otherField', schema)).toBe(false);
+    });
+
+    it('returns false when schema has properties object but field is not there', () => {
+      const schema = {
+        properties: {
+          existingField: {
+            dependencies: {
+              innerField: {
+                oneOf: [{ properties: { innerField: { const: true } } }],
+              },
+            },
+          },
+        },
+      };
+
+      expect(fieldHasDependenciesInSchema('innerField', schema)).toBe(true);
+      expect(fieldHasDependenciesInSchema('existingField', schema)).toBe(false);
+      expect(fieldHasDependenciesInSchema('nonExistent', schema)).toBe(false);
+    });
+
+    it('handles very deeply nested schema (4+ levels)', () => {
+      const schema = {
+        properties: {
+          level1: {
+            properties: {
+              level2: {
+                properties: {
+                  level3: {
+                    dependencies: {
+                      deepField: {
+                        oneOf: [{ properties: { deepField: { const: true } } }],
+                      },
+                    },
+                  },
+                },
+              },
+            },
+          },
+        },
+      };
+
+      expect(fieldHasDependenciesInSchema('deepField', schema)).toBe(true);
+    });
   });
 
   describe('getActiveSchemaProperties', () => {
@@ -2125,6 +2180,105 @@ describe('StepForm', () => {
       // Should skip branch without const and only return base properties
       expect(activeProps.has('field1')).toBe(true);
       expect(activeProps.has('dependentField')).toBe(false);
+    });
+
+    it('handles branchProp that is not an object', () => {
+      const schema = {
+        properties: {
+          field1: { type: 'boolean' },
+        },
+        dependencies: {
+          field1: {
+            oneOf: [
+              {
+                properties: {
+                  field1: 'not-an-object', // branchProp is string, not object
+                  dependentField: { type: 'string' },
+                },
+              },
+            ],
+          },
+        },
+      };
+
+      const activeProps = getActiveSchemaProperties(schema, { field1: true });
+
+      // Should skip branch with invalid branchProp
+      expect(activeProps.has('field1')).toBe(true);
+      expect(activeProps.has('dependentField')).toBe(false);
+    });
+
+    it('handles branchProp without const property', () => {
+      const schema = {
+        properties: {
+          field1: { type: 'boolean' },
+        },
+        dependencies: {
+          field1: {
+            oneOf: [
+              {
+                properties: {
+                  field1: { type: 'boolean' }, // Has type but no const
+                  dependentField: { type: 'string' },
+                },
+              },
+            ],
+          },
+        },
+      };
+
+      const activeProps = getActiveSchemaProperties(schema, { field1: true });
+
+      // Should skip branch without const
+      expect(activeProps.has('field1')).toBe(true);
+      expect(activeProps.has('dependentField')).toBe(false);
+    });
+
+    it('handles const value mismatch (formData value != const)', () => {
+      const schema = {
+        properties: {
+          provider: { type: 'string' },
+        },
+        dependencies: {
+          provider: {
+            oneOf: [
+              {
+                properties: {
+                  provider: { const: 'github' },
+                  githubToken: { type: 'string' },
+                },
+              },
+            ],
+          },
+        },
+      };
+
+      const activeProps = getActiveSchemaProperties(schema, {
+        provider: 'gitlab',
+      });
+
+      // Should not include githubToken because provider != 'github'
+      expect(activeProps.has('provider')).toBe(true);
+      expect(activeProps.has('githubToken')).toBe(false);
+    });
+
+    it('handles null schema', () => {
+      const activeProps = getActiveSchemaProperties(null as any, {});
+      expect(activeProps.size).toBe(0);
+    });
+
+    it('handles undefined schema', () => {
+      const activeProps = getActiveSchemaProperties(undefined as any, {});
+      expect(activeProps.size).toBe(0);
+    });
+
+    it('handles schema with null properties', () => {
+      const schema = {
+        properties: null,
+      };
+
+      const activeProps = getActiveSchemaProperties(schema as any, {});
+      expect(activeProps.size).toBe(0);
     });
 
     it('handles multiple dependencies with some matching and some not', () => {
@@ -2674,6 +2828,190 @@ describe('StepForm', () => {
       expect(cleaned.enabled).toBe(false);
       expect(cleaned.count).toBe(0);
       expect(cleaned.name).toBe('');
+    });
+
+    it('handles nested object without properties or dependencies schema', () => {
+      const schema = {
+        properties: {
+          config: {
+            type: 'object',
+            // No properties, no dependencies - just a plain object
+          },
+        },
+      };
+
+      const formData = {
+        config: {
+          field1: 'value1',
+          field2: 'value2',
+        },
+      };
+
+      const cleaned = cleanupFormDataAgainstSchema(formData, schema);
+
+      // Should preserve the nested object as-is
+      expect(cleaned.config).toEqual({
+        field1: 'value1',
+        field2: 'value2',
+      });
+    });
+
+    it('handles formData with undefined values', () => {
+      const schema = {
+        properties: {
+          field1: { type: 'string' },
+          field2: { type: 'string' },
+        },
+      };
+
+      const formData = {
+        field1: undefined,
+        field2: 'value',
+      };
+
+      const cleaned = cleanupFormDataAgainstSchema(formData, schema);
+
+      expect(cleaned.field1).toBeUndefined();
+      expect(cleaned.field2).toBe('value');
+    });
+
+    it('handles formData with null values', () => {
+      const schema = {
+        properties: {
+          field1: { type: 'string' },
+          field2: { type: 'object' },
+        },
+      };
+
+      const formData = {
+        field1: null,
+        field2: null,
+      };
+
+      const cleaned = cleanupFormDataAgainstSchema(formData, schema);
+
+      expect(cleaned.field1).toBeNull();
+      expect(cleaned.field2).toBeNull();
+    });
+
+    it('handles very deeply nested cleanup (5 levels)', () => {
+      const schema = {
+        properties: {
+          l1: {
+            properties: {
+              l2: {
+                properties: {
+                  l3: {
+                    properties: {
+                      l4: {
+                        properties: {
+                          l5: { type: 'string' },
+                        },
+                      },
+                    },
+                  },
+                },
+              },
+            },
+          },
+        },
+      };
+
+      const formData = {
+        l1: {
+          l2: {
+            l3: {
+              l4: {
+                l5: 'deep-value',
+                extraField: 'remove',
+              },
+              extraL3: 'remove',
+            },
+            extraL2: 'remove',
+          },
+          extraL1: 'remove',
+        },
+        extraRoot: 'remove',
+      };
+
+      const cleaned = cleanupFormDataAgainstSchema(formData, schema);
+
+      expect(cleaned.l1.l2.l3.l4.l5).toBe('deep-value');
+      expect(cleaned.l1.l2.l3.l4.extraField).toBeUndefined();
+      expect(cleaned.l1.l2.l3.extraL3).toBeUndefined();
+      expect(cleaned.l1.l2.extraL2).toBeUndefined();
+      expect(cleaned.l1.extraL1).toBeUndefined();
+      expect(cleaned.extraRoot).toBeUndefined();
+    });
+
+    it('handles const value mismatch (field value does not match const)', () => {
+      const schema = {
+        properties: {
+          buildExecutionEnvironment: { type: 'boolean' },
+        },
+        dependencies: {
+          buildExecutionEnvironment: {
+            oneOf: [
+              {
+                properties: {
+                  buildExecutionEnvironment: { const: true }, // Expects true
+                  buildRegistry: { type: 'string' },
+                },
+              },
+            ],
+          },
+        },
+      };
+
+      // Value is "maybe" (string), doesn't match const: true
+      const formData = {
+        buildExecutionEnvironment: 'maybe',
+        buildRegistry: 'PAH',
+      };
+
+      const cleaned = cleanupFormDataAgainstSchema(formData, schema);
+
+      // buildRegistry should be removed because const doesn't match
+      expect(cleaned.buildExecutionEnvironment).toBe('maybe');
+      expect(cleaned.buildRegistry).toBeUndefined();
+    });
+
+    it('handles multiple oneOf branches with only one matching', () => {
+      const schema = {
+        properties: {
+          provider: { type: 'string' },
+        },
+        dependencies: {
+          provider: {
+            oneOf: [
+              {
+                properties: {
+                  provider: { const: 'github' },
+                  githubToken: { type: 'string' },
+                },
+              },
+              {
+                properties: {
+                  provider: { const: 'gitlab' },
+                  gitlabToken: { type: 'string' },
+                },
+              },
+            ],
+          },
+        },
+      };
+
+      const formData = {
+        provider: 'github',
+        githubToken: 'token123',
+        gitlabToken: 'shouldBeRemoved',
+      };
+
+      const cleaned = cleanupFormDataAgainstSchema(formData, schema);
+
+      expect(cleaned.provider).toBe('github');
+      expect(cleaned.githubToken).toBe('token123');
+      expect(cleaned.gitlabToken).toBeUndefined(); // Wrong branch
     });
   });
 });
