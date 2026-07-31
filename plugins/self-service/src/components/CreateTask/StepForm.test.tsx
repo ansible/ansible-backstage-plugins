@@ -60,6 +60,9 @@ import {
   StepForm,
   deepMergePlainObjects,
   stripSchemaDefaultsForUiFieldProps,
+  getActiveSchemaProperties,
+  fieldHasDependenciesInSchema,
+  cleanupFormDataAgainstSchema,
 } from './StepForm';
 
 const createScaffolderFormMock = (formData: any) => {
@@ -1823,6 +1826,318 @@ describe('StepForm', () => {
       expect(out.allOf[0].then.properties.credentials).not.toHaveProperty(
         'default',
       );
+    });
+  });
+
+  describe('fieldHasDependenciesInSchema', () => {
+    it('detects field with direct dependencies', () => {
+      const schema = {
+        dependencies: {
+          publishToSCM: {
+            oneOf: [{ properties: { publishToSCM: { const: true } } }],
+          },
+        },
+      };
+
+      expect(fieldHasDependenciesInSchema('publishToSCM', schema)).toBe(true);
+      expect(fieldHasDependenciesInSchema('otherField', schema)).toBe(false);
+    });
+
+    it('detects field with dependencies nested in oneOf branches', () => {
+      const schema = {
+        dependencies: {
+          publishToSCM: {
+            oneOf: [
+              {
+                properties: { publishToSCM: { const: true } },
+                dependencies: {
+                  buildExecutionEnvironment: {
+                    oneOf: [{ properties: { buildExecutionEnvironment: { const: true } } }],
+                  },
+                },
+              },
+            ],
+          },
+        },
+      };
+
+      // buildExecutionEnvironment is nested inside publishToSCM's oneOf branch
+      expect(fieldHasDependenciesInSchema('buildExecutionEnvironment', schema)).toBe(true);
+    });
+
+    it('returns false for simple boolean fields without dependencies', () => {
+      const schema = {
+        properties: {
+          registryTlsVerify: { type: 'boolean' },
+        },
+        dependencies: {
+          buildExecutionEnvironment: { oneOf: [] },
+        },
+      };
+
+      expect(fieldHasDependenciesInSchema('registryTlsVerify', schema)).toBe(false);
+    });
+
+    it('handles empty or null schemas', () => {
+      expect(fieldHasDependenciesInSchema('anyField', {})).toBe(false);
+      expect(fieldHasDependenciesInSchema('anyField', null as any)).toBe(false);
+    });
+  });
+
+  describe('getActiveSchemaProperties', () => {
+    it('returns all base properties when no dependencies', () => {
+      const schema = {
+        properties: {
+          name: { type: 'string' },
+          age: { type: 'number' },
+        },
+      };
+
+      const activeProps = getActiveSchemaProperties(schema, {});
+      expect(activeProps.has('name')).toBe(true);
+      expect(activeProps.has('age')).toBe(true);
+    });
+
+    it('includes dependent fields when conditional is true', () => {
+      const schema = {
+        properties: {
+          buildExecutionEnvironment: { type: 'boolean' },
+        },
+        dependencies: {
+          buildExecutionEnvironment: {
+            oneOf: [
+              {
+                properties: {
+                  buildExecutionEnvironment: { const: true },
+                  buildRegistry: { type: 'string' },
+                  buildImageName: { type: 'string' },
+                },
+              },
+            ],
+          },
+        },
+      };
+
+      const formData = { buildExecutionEnvironment: true };
+      const activeProps = getActiveSchemaProperties(schema, formData);
+
+      expect(activeProps.has('buildExecutionEnvironment')).toBe(true);
+      expect(activeProps.has('buildRegistry')).toBe(true);
+      expect(activeProps.has('buildImageName')).toBe(true);
+    });
+
+    it('excludes dependent fields when conditional is false', () => {
+      const schema = {
+        properties: {
+          buildExecutionEnvironment: { type: 'boolean' },
+        },
+        dependencies: {
+          buildExecutionEnvironment: {
+            oneOf: [
+              {
+                properties: {
+                  buildExecutionEnvironment: { const: true },
+                  buildRegistry: { type: 'string' },
+                  buildImageName: { type: 'string' },
+                },
+              },
+            ],
+          },
+        },
+      };
+
+      const formData = { buildExecutionEnvironment: false };
+      const activeProps = getActiveSchemaProperties(schema, formData);
+
+      expect(activeProps.has('buildExecutionEnvironment')).toBe(true);
+      expect(activeProps.has('buildRegistry')).toBe(false);
+      expect(activeProps.has('buildImageName')).toBe(false);
+    });
+
+    it('handles missing schema properties', () => {
+      const activeProps = getActiveSchemaProperties({}, {});
+      expect(activeProps.size).toBe(0);
+    });
+  });
+
+  describe('cleanupFormDataAgainstSchema', () => {
+    it('removes inactive fields based on schema', () => {
+      const schema = {
+        properties: {
+          buildExecutionEnvironment: { type: 'boolean' },
+        },
+        dependencies: {
+          buildExecutionEnvironment: {
+            oneOf: [
+              {
+                properties: {
+                  buildExecutionEnvironment: { const: true },
+                  buildRegistry: { type: 'string' },
+                },
+              },
+            ],
+          },
+        },
+      };
+
+      const formData = {
+        buildExecutionEnvironment: false,
+        buildRegistry: 'PAH',
+      };
+
+      const cleaned = cleanupFormDataAgainstSchema(formData, schema);
+
+      expect(cleaned.buildExecutionEnvironment).toBe(false);
+      expect(cleaned.buildRegistry).toBeUndefined();
+    });
+
+    it('keeps active fields based on schema', () => {
+      const schema = {
+        properties: {
+          buildExecutionEnvironment: { type: 'boolean' },
+        },
+        dependencies: {
+          buildExecutionEnvironment: {
+            oneOf: [
+              {
+                properties: {
+                  buildExecutionEnvironment: { const: true },
+                  buildRegistry: { type: 'string' },
+                  buildImageName: { type: 'string' },
+                },
+              },
+            ],
+          },
+        },
+      };
+
+      const formData = {
+        buildExecutionEnvironment: true,
+        buildRegistry: 'PAH',
+        buildImageName: 'my-img',
+      };
+
+      const cleaned = cleanupFormDataAgainstSchema(formData, schema);
+
+      expect(cleaned.buildExecutionEnvironment).toBe(true);
+      expect(cleaned.buildRegistry).toBe('PAH');
+      expect(cleaned.buildImageName).toBe('my-img');
+    });
+
+    it('recursively cleans nested objects', () => {
+      const schema = {
+        properties: {
+          publishAndBuild: {
+            properties: {
+              buildExecutionEnvironment: { type: 'boolean' },
+            },
+            dependencies: {
+              buildExecutionEnvironment: {
+                oneOf: [
+                  {
+                    properties: {
+                      buildExecutionEnvironment: { const: true },
+                      buildRegistry: { type: 'string' },
+                    },
+                  },
+                ],
+              },
+            },
+          },
+        },
+      };
+
+      const formData = {
+        publishAndBuild: {
+          buildExecutionEnvironment: false,
+          buildRegistry: 'PAH', // Should be removed
+        },
+      };
+
+      const cleaned = cleanupFormDataAgainstSchema(formData, schema);
+
+      expect(cleaned.publishAndBuild.buildExecutionEnvironment).toBe(false);
+      expect(cleaned.publishAndBuild.buildRegistry).toBeUndefined();
+    });
+
+    it('preserves non-object values', () => {
+      const schema = {
+        properties: {
+          name: { type: 'string' },
+          tags: { type: 'array' },
+          count: { type: 'number' },
+        },
+      };
+
+      const formData = {
+        name: 'test',
+        tags: ['a', 'b'],
+        count: 42,
+      };
+
+      const cleaned = cleanupFormDataAgainstSchema(formData, schema);
+
+      expect(cleaned.name).toBe('test');
+      expect(cleaned.tags).toEqual(['a', 'b']);
+      expect(cleaned.count).toBe(42);
+    });
+
+    it('handles null or invalid inputs', () => {
+      expect(cleanupFormDataAgainstSchema(null as any, {})).toBeNull();
+      expect(cleanupFormDataAgainstSchema({}, null as any)).toEqual({});
+    });
+
+    it('handles rapid toggling - check, uncheck, check again', () => {
+      const schema = {
+        properties: {
+          buildExecutionEnvironment: { type: 'boolean' },
+        },
+        dependencies: {
+          buildExecutionEnvironment: {
+            oneOf: [
+              {
+                properties: {
+                  buildExecutionEnvironment: { const: true },
+                  buildRegistry: { type: 'string' },
+                  buildImageName: { type: 'string' },
+                },
+              },
+            ],
+          },
+        },
+      };
+
+      // Step 1: Check and fill data
+      let formData = {
+        buildExecutionEnvironment: true,
+        buildRegistry: 'PAH',
+        buildImageName: 'my-img',
+      };
+      let cleaned = cleanupFormDataAgainstSchema(formData, schema);
+      expect(cleaned.buildRegistry).toBe('PAH');
+      expect(cleaned.buildImageName).toBe('my-img');
+
+      // Step 2: Uncheck - should remove dependent fields
+      formData = {
+        buildExecutionEnvironment: false,
+        buildRegistry: 'PAH',
+        buildImageName: 'my-img',
+      };
+      cleaned = cleanupFormDataAgainstSchema(formData, schema);
+      expect(cleaned.buildExecutionEnvironment).toBe(false);
+      expect(cleaned.buildRegistry).toBeUndefined();
+      expect(cleaned.buildImageName).toBeUndefined();
+
+      // Step 3: Check again and refill - should preserve new data
+      formData = {
+        buildExecutionEnvironment: true,
+        buildRegistry: 'Quay',
+        buildImageName: 'new-img',
+      };
+      cleaned = cleanupFormDataAgainstSchema(formData, schema);
+      expect(cleaned.buildExecutionEnvironment).toBe(true);
+      expect(cleaned.buildRegistry).toBe('Quay');
+      expect(cleaned.buildImageName).toBe('new-img');
     });
   });
 });

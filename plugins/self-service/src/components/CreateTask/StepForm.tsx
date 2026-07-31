@@ -446,6 +446,144 @@ function isPlainObject(value: unknown): value is Record<string, any> {
   return value !== null && typeof value === 'object' && !Array.isArray(value);
 }
 
+/**
+ * Determines which properties should be active in the schema based on current form values.
+ * Handles JSON Schema dependencies with oneOf branches.
+ */
+export function getActiveSchemaProperties(
+  schema: Record<string, any>,
+  currentFormData: Record<string, any>,
+): Set<string> {
+  const activeProps = new Set<string>();
+
+  if (!schema?.properties) {
+    return activeProps;
+  }
+
+  // Add base properties
+  Object.keys(schema.properties).forEach(prop => activeProps.add(prop));
+
+  // Process dependencies
+  if (schema.dependencies) {
+    for (const [depKey, depValue] of Object.entries(schema.dependencies)) {
+      if (!depValue || typeof depValue !== 'object') continue;
+
+      const depValueObj = depValue as any;
+      if (Array.isArray(depValueObj.oneOf)) {
+        for (const branch of depValueObj.oneOf) {
+          if (!branch.properties) continue;
+
+          // Check if this branch matches
+          const branchProp = branch.properties[depKey];
+          if (branchProp && typeof branchProp === 'object' && 'const' in branchProp) {
+            if (currentFormData[depKey] === branchProp.const) {
+              // Branch is active, add its properties
+              Object.keys(branch.properties).forEach(prop => {
+                if (prop !== depKey) {
+                  activeProps.add(prop);
+                }
+              });
+            }
+          }
+        }
+      }
+    }
+  }
+
+  return activeProps;
+}
+
+/**
+ * Recursively checks if a field name has dependencies defined anywhere in the schema tree.
+ * Used to distinguish conditional checkboxes (have dependencies) from simple boolean fields (no dependencies).
+ */
+export function fieldHasDependenciesInSchema(fieldName: string, schema: Record<string, any>): boolean {
+  if (!schema || typeof schema !== 'object') {
+    return false;
+  }
+
+  // Check if dependencies exist at this level
+  if (schema.dependencies?.[fieldName]) {
+    return true;
+  }
+
+  // Recursively check in oneOf branches
+  if (Array.isArray(schema.oneOf)) {
+    for (const branch of schema.oneOf) {
+      if (fieldHasDependenciesInSchema(fieldName, branch)) {
+        return true;
+      }
+    }
+  }
+
+  // Recursively check in dependencies oneOf branches
+  if (schema.dependencies) {
+    for (const depValue of Object.values(schema.dependencies)) {
+      if (typeof depValue === 'object' && depValue !== null) {
+        const depValueObj = depValue as any;
+        if (Array.isArray(depValueObj.oneOf)) {
+          for (const branch of depValueObj.oneOf) {
+            if (fieldHasDependenciesInSchema(fieldName, branch)) {
+              return true;
+            }
+          }
+        }
+      }
+    }
+  }
+
+  // Recursively check in properties
+  if (schema.properties) {
+    for (const propValue of Object.values(schema.properties)) {
+      if (typeof propValue === 'object' && propValue !== null) {
+        if (fieldHasDependenciesInSchema(fieldName, propValue as Record<string, any>)) {
+          return true;
+        }
+      }
+    }
+  }
+
+  return false;
+}
+
+/**
+ * Cleans form data against schema, removing fields that are not active based on dependencies.
+ * Recursively cleans nested objects.
+ */
+export function cleanupFormDataAgainstSchema(
+  currentFormData: Record<string, any>,
+  schema: Record<string, any>,
+): Record<string, any> {
+  if (!schema || !currentFormData || typeof currentFormData !== 'object') {
+    return currentFormData;
+  }
+
+  const cleaned: Record<string, any> = {};
+  const activeProps = getActiveSchemaProperties(schema, currentFormData);
+
+  for (const key of Object.keys(currentFormData)) {
+    const value = currentFormData[key];
+
+    if (!activeProps.has(key)) {
+      continue;
+    }
+
+    // Recursively clean nested objects
+    if (value && typeof value === 'object' && !Array.isArray(value)) {
+      const nestedSchema = schema.properties?.[key];
+      if (nestedSchema?.properties || nestedSchema?.dependencies) {
+        cleaned[key] = cleanupFormDataAgainstSchema(value, nestedSchema);
+      } else {
+        cleaned[key] = value;
+      }
+    } else {
+      cleaned[key] = value;
+    }
+  }
+
+  return cleaned;
+}
+
 export function deepMergePlainObjects(
   base: Record<string, any>,
   patch: Record<string, any>,
@@ -668,6 +806,78 @@ export const StepForm = ({
     setActiveStep(prevActiveStep => prevActiveStep - 1);
   };
 
+  // Get all active properties based on current form data and schema dependencies
+
+  // Detect boolean toggles and clean up dependent fields (only for current step)
+  const cleanupNestedFields = useCallback(
+    (merged: Record<string, any>, prev: Record<string, any>, stepIndex: number): Record<string, any> => {
+      const step = filteredSteps[stepIndex];
+      if (!step?.schema?.properties) {
+        return merged;
+      }
+
+      const stepPropertyKeys = new Set(Object.keys(step.schema.properties));
+      let hasToggleInCurrentStep = false;
+
+      // Check for boolean toggles from true to false ONLY in current step's properties
+      // AND only for fields that have dependencies (conditional checkboxes)
+      for (const topLevelKey of stepPropertyKeys) {
+        const currentValue = merged[topLevelKey];
+        const prevValue = prev[topLevelKey];
+
+        if (currentValue && typeof currentValue === 'object' && !Array.isArray(currentValue)) {
+          const propSchema = step.schema.properties[topLevelKey];
+
+          // Check nested booleans within this step's property
+          // but ONLY if they have dependencies defined anywhere in the schema tree (they are conditional checkboxes)
+          const checkNestedToggle = (
+            current: Record<string, any>,
+            previous: Record<string, any>,
+          ): boolean => {
+            for (const key of Object.keys(current)) {
+              if (typeof current[key] === 'boolean' && previous[key] === true && current[key] === false) {
+                // Check if this field has dependencies defined anywhere in the schema tree
+                // This distinguishes conditional checkboxes from simple boolean fields
+                if (fieldHasDependenciesInSchema(key, propSchema)) {
+                  return true;
+                }
+              }
+              if (current[key] && typeof current[key] === 'object' && !Array.isArray(current[key])) {
+                if (checkNestedToggle(current[key], previous[key] || {})) {
+                  return true;
+                }
+              }
+            }
+            return false;
+          };
+
+          if (checkNestedToggle(currentValue, prevValue || {})) {
+            hasToggleInCurrentStep = true;
+            break;
+          }
+        }
+      }
+
+      // Only run cleanup if toggle was detected in current step
+      if (hasToggleInCurrentStep) {
+        // Clean only the current step's properties, preserve others
+        const cleaned = { ...merged };
+        for (const key of stepPropertyKeys) {
+          if (cleaned[key] && typeof cleaned[key] === 'object' && !Array.isArray(cleaned[key])) {
+            const propSchema = step.schema.properties[key];
+            if (propSchema) {
+              cleaned[key] = cleanupFormDataAgainstSchema(cleaned[key], propSchema);
+            }
+          }
+        }
+        return cleaned;
+      }
+
+      return merged;
+    },
+    [filteredSteps],
+  );
+
   // Hybrid merge: shallow-apply RJSF payloads, then remove step keys missing from the patch so
   // dependency/oneOf branches do not leave stale fields — except keys backed by `ui:field`, which
   // RJSF may omit from change events and must be retained (see mergeStepFormDataHybrid).
@@ -680,15 +890,12 @@ export const StepForm = ({
       if (!step) {
         return;
       }
-      setFormData(prev =>
-        mergeStepFormDataHybrid(
-          prev,
-          step,
-          data.formData as Record<string, any>,
-        ),
-      );
+      setFormData(prev => {
+        const merged = mergeStepFormDataHybrid(prev, step, data.formData as Record<string, any>);
+        return cleanupNestedFields(merged, prev, stepIndex);
+      });
     },
-    [filteredSteps],
+    [filteredSteps, cleanupNestedFields],
   );
 
   const handleFormSubmit = useCallback(
