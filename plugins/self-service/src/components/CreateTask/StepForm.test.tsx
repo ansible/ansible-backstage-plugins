@@ -1963,7 +1963,7 @@ describe('StepForm', () => {
       expect(fieldHasDependenciesInSchema('field', [] as any)).toBe(false);
     });
 
-    it('returns false when oneOf is empty array', () => {
+    it('returns true because dependencies[fieldName] exists, even with empty oneOf', () => {
       const schema = {
         dependencies: {
           field: {
@@ -3012,6 +3012,288 @@ describe('StepForm', () => {
       expect(cleaned.provider).toBe('github');
       expect(cleaned.githubToken).toBe('token123');
       expect(cleaned.gitlabToken).toBeUndefined(); // Wrong branch
+    });
+  });
+
+  describe('cleanupNestedFields integration (via component)', () => {
+    const createToggleFormMock = (getPayload: (callCount: number) => any) => {
+      let callCount = 0;
+      return ({ onChange, onSubmit, formData, children }: any) => (
+        <form
+          onSubmit={e => {
+            e.preventDefault();
+            // Submit current parent formData so cleanup from onChange is observable
+            onSubmit({ formData: formData ?? {} });
+          }}
+        >
+          <div>MockForm</div>
+          <button
+            type="button"
+            data-testid="toggle-conditional"
+            onClick={() => {
+              callCount += 1;
+              onChange?.({ formData: getPayload(callCount) });
+            }}
+          >
+            Toggle
+          </button>
+          {children}
+          <button type="submit">Submit</button>
+        </form>
+      );
+    };
+
+    const goToCreateAndAssert = async (expectedValues: Record<string, any>) => {
+      fireEvent.click(screen.getByText('Submit'));
+
+      const createButton = await screen.findByText('Create');
+      fireEvent.click(createButton);
+
+      await waitFor(() => {
+        expect(submitFunction).toHaveBeenCalledWith(
+          expect.objectContaining(expectedValues),
+          expect.any(Object),
+        );
+      });
+    };
+
+    it('removes stale dependents when a nested conditional is toggled off via onChange', async () => {
+      const steps = [
+        {
+          title: 'EE Config',
+          schema: {
+            properties: {
+              eeConfig: {
+                type: 'object',
+                properties: {
+                  buildExecutionEnvironment: { type: 'boolean' },
+                },
+                dependencies: {
+                  buildExecutionEnvironment: {
+                    oneOf: [
+                      {
+                        properties: {
+                          buildExecutionEnvironment: { const: true },
+                          buildRegistry: { type: 'string' },
+                        },
+                      },
+                    ],
+                  },
+                },
+              },
+            },
+          },
+        },
+      ];
+
+      jest
+        .spyOn(require('./ScaffolderFormWrapper'), 'ScaffolderForm')
+        .mockImplementation(
+          createToggleFormMock(callCount =>
+            callCount === 1
+              ? {
+                  eeConfig: {
+                    buildExecutionEnvironment: true,
+                    buildRegistry: 'PAH',
+                  },
+                }
+              : {
+                  eeConfig: {
+                    buildExecutionEnvironment: false,
+                    buildRegistry: 'PAH',
+                  },
+                },
+          ),
+        );
+
+      render(<StepForm steps={steps} submitFunction={submitFunction} />);
+
+      fireEvent.click(screen.getByTestId('toggle-conditional'));
+      await waitFor(() => {
+        expect(screen.getByTestId('toggle-conditional')).toBeInTheDocument();
+      });
+
+      fireEvent.click(screen.getByTestId('toggle-conditional'));
+
+      await goToCreateAndAssert({
+        eeConfig: {
+          buildExecutionEnvironment: false,
+        },
+      });
+
+      const [values] = submitFunction.mock.calls.at(-1);
+      expect(values.eeConfig.buildRegistry).toBeUndefined();
+    });
+
+    it('cleans deeply nested conditional toggles (recursive checkNestedToggle)', async () => {
+      const steps = [
+        {
+          title: 'Deep Config',
+          schema: {
+            properties: {
+              level1: {
+                type: 'object',
+                properties: {
+                  level2: {
+                    type: 'object',
+                    properties: {
+                      buildEE: { type: 'boolean' },
+                    },
+                    dependencies: {
+                      buildEE: {
+                        oneOf: [
+                          {
+                            properties: {
+                              buildEE: { const: true },
+                              eeName: { type: 'string' },
+                            },
+                          },
+                        ],
+                      },
+                    },
+                  },
+                },
+              },
+            },
+          },
+        },
+      ];
+
+      jest
+        .spyOn(require('./ScaffolderFormWrapper'), 'ScaffolderForm')
+        .mockImplementation(
+          createToggleFormMock(callCount =>
+            callCount === 1
+              ? {
+                  level1: {
+                    level2: {
+                      buildEE: true,
+                      eeName: 'my-ee',
+                    },
+                  },
+                }
+              : {
+                  level1: {
+                    level2: {
+                      buildEE: false,
+                      eeName: 'my-ee',
+                    },
+                  },
+                },
+          ),
+        );
+
+      render(<StepForm steps={steps} submitFunction={submitFunction} />);
+
+      fireEvent.click(screen.getByTestId('toggle-conditional'));
+      await waitFor(() => {
+        expect(screen.getByTestId('toggle-conditional')).toBeInTheDocument();
+      });
+      fireEvent.click(screen.getByTestId('toggle-conditional'));
+
+      await goToCreateAndAssert({
+        level1: {
+          level2: {
+            buildEE: false,
+          },
+        },
+      });
+
+      const [values] = submitFunction.mock.calls.at(-1);
+      expect(values.level1.level2.eeName).toBeUndefined();
+    });
+
+    it('cleans multiple top-level object keys when several conditionals toggle off', async () => {
+      const steps = [
+        {
+          title: 'Multi Config',
+          schema: {
+            properties: {
+              publish: {
+                type: 'object',
+                properties: {
+                  publishToSCM: { type: 'boolean' },
+                },
+                dependencies: {
+                  publishToSCM: {
+                    oneOf: [
+                      {
+                        properties: {
+                          publishToSCM: { const: true },
+                          repoUrl: { type: 'string' },
+                        },
+                      },
+                    ],
+                  },
+                },
+              },
+              build: {
+                type: 'object',
+                properties: {
+                  buildEE: { type: 'boolean' },
+                },
+                dependencies: {
+                  buildEE: {
+                    oneOf: [
+                      {
+                        properties: {
+                          buildEE: { const: true },
+                          buildRegistry: { type: 'string' },
+                        },
+                      },
+                    ],
+                  },
+                },
+              },
+            },
+          },
+        },
+      ];
+
+      jest
+        .spyOn(require('./ScaffolderFormWrapper'), 'ScaffolderForm')
+        .mockImplementation(
+          createToggleFormMock(callCount =>
+            callCount === 1
+              ? {
+                  publish: {
+                    publishToSCM: true,
+                    repoUrl: 'github.com',
+                  },
+                  build: {
+                    buildEE: true,
+                    buildRegistry: 'PAH',
+                  },
+                }
+              : {
+                  publish: {
+                    publishToSCM: false,
+                    repoUrl: 'github.com',
+                  },
+                  build: {
+                    buildEE: false,
+                    buildRegistry: 'PAH',
+                  },
+                },
+          ),
+        );
+
+      render(<StepForm steps={steps} submitFunction={submitFunction} />);
+
+      fireEvent.click(screen.getByTestId('toggle-conditional'));
+      await waitFor(() => {
+        expect(screen.getByTestId('toggle-conditional')).toBeInTheDocument();
+      });
+      fireEvent.click(screen.getByTestId('toggle-conditional'));
+
+      await goToCreateAndAssert({
+        publish: { publishToSCM: false },
+        build: { buildEE: false },
+      });
+
+      const [values] = submitFunction.mock.calls.at(-1);
+      expect(values.publish.repoUrl).toBeUndefined();
+      expect(values.build.buildRegistry).toBeUndefined();
     });
   });
 });
