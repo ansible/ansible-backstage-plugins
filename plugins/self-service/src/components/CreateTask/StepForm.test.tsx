@@ -1892,6 +1892,76 @@ describe('StepForm', () => {
       expect(fieldHasDependenciesInSchema('anyField', {})).toBe(false);
       expect(fieldHasDependenciesInSchema('anyField', null as any)).toBe(false);
     });
+
+    it('detects dependencies nested in schema properties', () => {
+      const schema = {
+        properties: {
+          outerField: {
+            type: 'object',
+            properties: {
+              innerField: { type: 'string' },
+            },
+            dependencies: {
+              innerField: { oneOf: [] },
+            },
+          },
+        },
+      };
+
+      // Should recursively find dependencies in nested properties
+      expect(fieldHasDependenciesInSchema('innerField', schema)).toBe(true);
+    });
+
+    it('handles schema with only oneOf (no dependencies)', () => {
+      const schema = {
+        oneOf: [
+          {
+            properties: { field1: { type: 'string' } },
+            dependencies: {
+              field1: { oneOf: [] },
+            },
+          },
+        ],
+      };
+
+      // Should search in oneOf branches
+      expect(fieldHasDependenciesInSchema('field1', schema)).toBe(true);
+    });
+
+    it('handles deeply nested dependencies (3+ levels)', () => {
+      const schema = {
+        dependencies: {
+          level1: {
+            oneOf: [
+              {
+                dependencies: {
+                  level2: {
+                    oneOf: [
+                      {
+                        dependencies: {
+                          level3: { oneOf: [] },
+                        },
+                      },
+                    ],
+                  },
+                },
+              },
+            ],
+          },
+        },
+      };
+
+      // Should recursively find deeply nested dependencies
+      expect(fieldHasDependenciesInSchema('level3', schema)).toBe(true);
+    });
+
+    it('returns false for non-object schema values', () => {
+      expect(
+        fieldHasDependenciesInSchema('field', 'not-an-object' as any),
+      ).toBe(false);
+      expect(fieldHasDependenciesInSchema('field', 123 as any)).toBe(false);
+      expect(fieldHasDependenciesInSchema('field', [] as any)).toBe(false);
+    });
   });
 
   describe('getActiveSchemaProperties', () => {
@@ -1967,6 +2037,134 @@ describe('StepForm', () => {
     it('handles missing schema properties', () => {
       const activeProps = getActiveSchemaProperties({}, {});
       expect(activeProps.size).toBe(0);
+    });
+
+    it('handles dependencies with invalid oneOf (not an array)', () => {
+      const schema = {
+        properties: {
+          field1: { type: 'string' },
+        },
+        dependencies: {
+          field1: { oneOf: 'invalid' }, // Not an array
+        },
+      };
+
+      const activeProps = getActiveSchemaProperties(schema, { field1: 'test' });
+
+      // Should only include base properties, skip invalid oneOf
+      expect(activeProps.has('field1')).toBe(true);
+      expect(activeProps.size).toBe(1);
+    });
+
+    it('handles dependencies with non-object depValue', () => {
+      const schema = {
+        properties: {
+          field1: { type: 'string' },
+        },
+        dependencies: {
+          field1: 'invalid', // Not an object
+        },
+      };
+
+      const activeProps = getActiveSchemaProperties(schema, { field1: 'test' });
+
+      // Should skip invalid dependency and only return base properties
+      expect(activeProps.has('field1')).toBe(true);
+      expect(activeProps.size).toBe(1);
+    });
+
+    it('handles oneOf branch without properties', () => {
+      const schema = {
+        properties: {
+          buildExecutionEnvironment: { type: 'boolean' },
+        },
+        dependencies: {
+          buildExecutionEnvironment: {
+            oneOf: [
+              { type: 'object' }, // No properties key
+              {
+                properties: {
+                  buildExecutionEnvironment: { const: true },
+                  buildRegistry: { type: 'string' },
+                },
+              },
+            ],
+          },
+        },
+      };
+
+      const formData = { buildExecutionEnvironment: true };
+      const activeProps = getActiveSchemaProperties(schema, formData);
+
+      // Should skip first branch (no properties), process second branch
+      expect(activeProps.has('buildExecutionEnvironment')).toBe(true);
+      expect(activeProps.has('buildRegistry')).toBe(true);
+    });
+
+    it('handles branch property without const keyword', () => {
+      const schema = {
+        properties: {
+          field1: { type: 'string' },
+        },
+        dependencies: {
+          field1: {
+            oneOf: [
+              {
+                properties: {
+                  field1: { type: 'string' }, // No const
+                  dependentField: { type: 'string' },
+                },
+              },
+            ],
+          },
+        },
+      };
+
+      const activeProps = getActiveSchemaProperties(schema, { field1: 'test' });
+
+      // Should skip branch without const and only return base properties
+      expect(activeProps.has('field1')).toBe(true);
+      expect(activeProps.has('dependentField')).toBe(false);
+    });
+
+    it('handles multiple dependencies with some matching and some not', () => {
+      const schema = {
+        properties: {
+          field1: { type: 'boolean' },
+          field2: { type: 'boolean' },
+        },
+        dependencies: {
+          field1: {
+            oneOf: [
+              {
+                properties: {
+                  field1: { const: true },
+                  dependent1: { type: 'string' },
+                },
+              },
+            ],
+          },
+          field2: {
+            oneOf: [
+              {
+                properties: {
+                  field2: { const: true },
+                  dependent2: { type: 'string' },
+                },
+              },
+            ],
+          },
+        },
+      };
+
+      // field1 = true (matches), field2 = false (doesn't match)
+      const formData = { field1: true, field2: false };
+      const activeProps = getActiveSchemaProperties(schema, formData);
+
+      expect(activeProps.has('field1')).toBe(true);
+      expect(activeProps.has('field2')).toBe(true);
+      expect(activeProps.has('dependent1')).toBe(true); // field1 matched
+      expect(activeProps.has('dependent2')).toBe(false); // field2 didn't match
     });
   });
 
@@ -2324,6 +2522,158 @@ describe('StepForm', () => {
 
       expect(cleaned.eeDefinition.specifyRequirements).toBe(false);
       expect(cleaned.eeDefinition.pythonRequirements).toBeUndefined();
+    });
+
+    it('preserves arrays without recursive cleanup', () => {
+      const schema = {
+        properties: {
+          tags: { type: 'array' },
+          items: { type: 'array' },
+        },
+      };
+
+      const formData = {
+        tags: ['tag1', 'tag2'],
+        items: [{ id: 1 }, { id: 2 }],
+      };
+
+      const cleaned = cleanupFormDataAgainstSchema(formData, schema);
+
+      // Arrays should be preserved as-is (not recursively cleaned)
+      expect(cleaned.tags).toEqual(['tag1', 'tag2']);
+      expect(cleaned.items).toEqual([{ id: 1 }, { id: 2 }]);
+    });
+
+    it('handles nested object with dependencies but no properties', () => {
+      const schema = {
+        properties: {
+          nestedConfig: {
+            dependencies: {
+              someField: { oneOf: [] },
+            },
+            // No properties key
+          },
+        },
+      };
+
+      const formData = {
+        nestedConfig: {
+          field1: 'value1',
+          field2: 'value2',
+        },
+      };
+
+      const cleaned = cleanupFormDataAgainstSchema(formData, schema);
+
+      // Nested object without properties should be preserved
+      expect(cleaned.nestedConfig).toEqual({
+        field1: 'value1',
+        field2: 'value2',
+      });
+    });
+
+    it('handles deeply nested objects (3+ levels)', () => {
+      const schema = {
+        properties: {
+          level1: {
+            properties: {
+              level2: {
+                properties: {
+                  level3: {
+                    properties: {
+                      field: { type: 'string' },
+                    },
+                  },
+                },
+              },
+            },
+          },
+        },
+      };
+
+      const formData = {
+        level1: {
+          level2: {
+            level3: {
+              field: 'deep-value',
+              extraField: 'should-be-removed',
+            },
+          },
+        },
+      };
+
+      const cleaned = cleanupFormDataAgainstSchema(formData, schema);
+
+      // Should recursively clean at all levels
+      expect(cleaned.level1.level2.level3.field).toBe('deep-value');
+      expect(cleaned.level1.level2.level3.extraField).toBeUndefined();
+    });
+
+    it('handles mixed types: objects, arrays, scalars', () => {
+      const schema = {
+        properties: {
+          name: { type: 'string' },
+          tags: { type: 'array' },
+          config: {
+            properties: {
+              enabled: { type: 'boolean' },
+            },
+          },
+        },
+      };
+
+      const formData = {
+        name: 'test',
+        tags: ['a', 'b'],
+        config: {
+          enabled: true,
+          extraField: 'remove',
+        },
+        extraRootField: 'remove',
+      };
+
+      const cleaned = cleanupFormDataAgainstSchema(formData, schema);
+
+      expect(cleaned.name).toBe('test');
+      expect(cleaned.tags).toEqual(['a', 'b']);
+      expect(cleaned.config.enabled).toBe(true);
+      expect(cleaned.config.extraField).toBeUndefined();
+      expect(cleaned.extraRootField).toBeUndefined();
+    });
+
+    it('handles empty formData object', () => {
+      const schema = {
+        properties: {
+          field1: { type: 'string' },
+          field2: { type: 'string' },
+        },
+      };
+
+      const cleaned = cleanupFormDataAgainstSchema({}, schema);
+
+      expect(cleaned).toEqual({});
+    });
+
+    it('preserves boolean false values (not removed as falsy)', () => {
+      const schema = {
+        properties: {
+          enabled: { type: 'boolean' },
+          count: { type: 'number' },
+          name: { type: 'string' },
+        },
+      };
+
+      const formData = {
+        enabled: false, // Should NOT be removed
+        count: 0, // Should NOT be removed
+        name: '', // Should NOT be removed
+      };
+
+      const cleaned = cleanupFormDataAgainstSchema(formData, schema);
+
+      expect(cleaned.enabled).toBe(false);
+      expect(cleaned.count).toBe(0);
+      expect(cleaned.name).toBe('');
     });
   });
 });

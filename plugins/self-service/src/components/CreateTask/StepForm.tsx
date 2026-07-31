@@ -450,6 +450,7 @@ function isPlainObject(value: unknown): value is Record<string, any> {
  * Determines which properties should be active in the schema based on current form values.
  * Handles JSON Schema dependencies with oneOf branches.
  */
+/* eslint-disable sonarjs/cognitive-complexity */
 export function getActiveSchemaProperties(
   schema: Record<string, any>,
   currentFormData: Record<string, any>,
@@ -496,11 +497,17 @@ export function getActiveSchemaProperties(
 
   return activeProps;
 }
+/* eslint-enable sonarjs/cognitive-complexity */
 
 /**
  * Recursively checks if a field name has dependencies defined anywhere in the schema tree.
  * Used to distinguish conditional checkboxes (have dependencies) from simple boolean fields (no dependencies).
+ *
+ * Note: This function has high cognitive complexity due to the inherent complexity of traversing
+ * deeply nested JSON Schema structures (oneOf branches, dependencies, properties recursion).
+ * The logic cannot be meaningfully simplified without sacrificing clarity.
  */
+/* eslint-disable sonarjs/cognitive-complexity */
 export function fieldHasDependenciesInSchema(
   fieldName: string,
   schema: Record<string, any>,
@@ -557,6 +564,7 @@ export function fieldHasDependenciesInSchema(
 
   return false;
 }
+/* eslint-enable sonarjs/cognitive-complexity */
 
 /**
  * Cleans form data against schema, removing fields that are not active based on dependencies.
