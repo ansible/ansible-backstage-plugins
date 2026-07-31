@@ -1852,7 +1852,13 @@ describe('StepForm', () => {
                 properties: { publishToSCM: { const: true } },
                 dependencies: {
                   buildExecutionEnvironment: {
-                    oneOf: [{ properties: { buildExecutionEnvironment: { const: true } } }],
+                    oneOf: [
+                      {
+                        properties: {
+                          buildExecutionEnvironment: { const: true },
+                        },
+                      },
+                    ],
                   },
                 },
               },
@@ -1862,7 +1868,9 @@ describe('StepForm', () => {
       };
 
       // buildExecutionEnvironment is nested inside publishToSCM's oneOf branch
-      expect(fieldHasDependenciesInSchema('buildExecutionEnvironment', schema)).toBe(true);
+      expect(
+        fieldHasDependenciesInSchema('buildExecutionEnvironment', schema),
+      ).toBe(true);
     });
 
     it('returns false for simple boolean fields without dependencies', () => {
@@ -1875,7 +1883,9 @@ describe('StepForm', () => {
         },
       };
 
-      expect(fieldHasDependenciesInSchema('registryTlsVerify', schema)).toBe(false);
+      expect(fieldHasDependenciesInSchema('registryTlsVerify', schema)).toBe(
+        false,
+      );
     });
 
     it('handles empty or null schemas', () => {
@@ -2138,6 +2148,95 @@ describe('StepForm', () => {
       expect(cleaned.buildExecutionEnvironment).toBe(true);
       expect(cleaned.buildRegistry).toBe('Quay');
       expect(cleaned.buildImageName).toBe('new-img');
+    });
+
+    it('only cleans the toggled key, not sibling nested objects', () => {
+      const schema = {
+        properties: {
+          publishAndBuild: {
+            properties: {
+              buildExecutionEnvironment: { type: 'boolean' },
+            },
+            dependencies: {
+              buildExecutionEnvironment: {
+                oneOf: [
+                  {
+                    properties: {
+                      buildExecutionEnvironment: { const: true },
+                      buildRegistry: { type: 'string' },
+                    },
+                  },
+                ],
+              },
+            },
+          },
+          gitConfig: {
+            properties: {
+              repoUrl: { type: 'string' },
+              branch: { type: 'string' },
+            },
+          },
+        },
+      };
+
+      // Both nested objects have data
+      const formData = {
+        publishAndBuild: {
+          buildExecutionEnvironment: false,
+          buildRegistry: 'PAH', // Should be removed
+        },
+        gitConfig: {
+          repoUrl: 'github.com/myrepo',
+          branch: 'main', // Should be PRESERVED (not cleaned)
+        },
+      };
+
+      const cleaned = cleanupFormDataAgainstSchema(formData, schema);
+
+      // publishAndBuild should be cleaned
+      expect(cleaned.publishAndBuild.buildExecutionEnvironment).toBe(false);
+      expect(cleaned.publishAndBuild.buildRegistry).toBeUndefined();
+
+      // gitConfig should be PRESERVED (sibling object, no toggle)
+      expect(cleaned.gitConfig).toBeDefined();
+      expect(cleaned.gitConfig.repoUrl).toBe('github.com/myrepo');
+      expect(cleaned.gitConfig.branch).toBe('main');
+    });
+
+    it('does not clean data when there is no toggle detected (navigation safety)', () => {
+      const schema = {
+        properties: {
+          buildExecutionEnvironment: { type: 'boolean' },
+        },
+        dependencies: {
+          buildExecutionEnvironment: {
+            oneOf: [
+              {
+                properties: {
+                  buildExecutionEnvironment: { const: true },
+                  buildRegistry: { type: 'string' },
+                  buildImageName: { type: 'string' },
+                },
+              },
+            ],
+          },
+        },
+      };
+
+      // User fills form with buildExecutionEnvironment=true
+      const formData = {
+        buildExecutionEnvironment: true,
+        buildRegistry: 'PAH',
+        buildImageName: 'my-img',
+      };
+
+      // Simulate navigation (onSubmit) - no toggle, just re-submitting same data
+      const cleaned = cleanupFormDataAgainstSchema(formData, schema);
+
+      // All data should be PRESERVED (no toggle from true→false)
+      expect(cleaned.buildExecutionEnvironment).toBe(true);
+      expect(cleaned.buildRegistry).toBe('PAH');
+      expect(cleaned.buildImageName).toBe('my-img');
     });
   });
 });

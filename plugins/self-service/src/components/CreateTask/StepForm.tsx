@@ -475,7 +475,11 @@ export function getActiveSchemaProperties(
 
           // Check if this branch matches
           const branchProp = branch.properties[depKey];
-          if (branchProp && typeof branchProp === 'object' && 'const' in branchProp) {
+          if (
+            branchProp &&
+            typeof branchProp === 'object' &&
+            'const' in branchProp
+          ) {
             if (currentFormData[depKey] === branchProp.const) {
               // Branch is active, add its properties
               Object.keys(branch.properties).forEach(prop => {
@@ -497,7 +501,10 @@ export function getActiveSchemaProperties(
  * Recursively checks if a field name has dependencies defined anywhere in the schema tree.
  * Used to distinguish conditional checkboxes (have dependencies) from simple boolean fields (no dependencies).
  */
-export function fieldHasDependenciesInSchema(fieldName: string, schema: Record<string, any>): boolean {
+export function fieldHasDependenciesInSchema(
+  fieldName: string,
+  schema: Record<string, any>,
+): boolean {
   if (!schema || typeof schema !== 'object') {
     return false;
   }
@@ -536,7 +543,12 @@ export function fieldHasDependenciesInSchema(fieldName: string, schema: Record<s
   if (schema.properties) {
     for (const propValue of Object.values(schema.properties)) {
       if (typeof propValue === 'object' && propValue !== null) {
-        if (fieldHasDependenciesInSchema(fieldName, propValue as Record<string, any>)) {
+        if (
+          fieldHasDependenciesInSchema(
+            fieldName,
+            propValue as Record<string, any>,
+          )
+        ) {
           return true;
         }
       }
@@ -806,26 +818,33 @@ export const StepForm = ({
     setActiveStep(prevActiveStep => prevActiveStep - 1);
   };
 
-  // Get all active properties based on current form data and schema dependencies
-
   // Detect boolean toggles and clean up dependent fields (only for current step)
   const cleanupNestedFields = useCallback(
-    (merged: Record<string, any>, prev: Record<string, any>, stepIndex: number): Record<string, any> => {
+    (
+      merged: Record<string, any>,
+      prev: Record<string, any>,
+      stepIndex: number,
+    ): Record<string, any> => {
       const step = filteredSteps[stepIndex];
       if (!step?.schema?.properties) {
         return merged;
       }
 
       const stepPropertyKeys = new Set(Object.keys(step.schema.properties));
-      let hasToggleInCurrentStep = false;
+      let toggledKey: string | null = null;
 
       // Check for boolean toggles from true to false ONLY in current step's properties
       // AND only for fields that have dependencies (conditional checkboxes)
+      // Track WHICH specific key has the toggle to avoid cleaning unrelated sibling keys
       for (const topLevelKey of stepPropertyKeys) {
         const currentValue = merged[topLevelKey];
         const prevValue = prev[topLevelKey];
 
-        if (currentValue && typeof currentValue === 'object' && !Array.isArray(currentValue)) {
+        if (
+          currentValue &&
+          typeof currentValue === 'object' &&
+          !Array.isArray(currentValue)
+        ) {
           const propSchema = step.schema.properties[topLevelKey];
 
           // Check nested booleans within this step's property
@@ -835,14 +854,22 @@ export const StepForm = ({
             previous: Record<string, any>,
           ): boolean => {
             for (const key of Object.keys(current)) {
-              if (typeof current[key] === 'boolean' && previous[key] === true && current[key] === false) {
+              if (
+                typeof current[key] === 'boolean' &&
+                previous[key] === true &&
+                current[key] === false
+              ) {
                 // Check if this field has dependencies defined anywhere in the schema tree
                 // This distinguishes conditional checkboxes from simple boolean fields
                 if (fieldHasDependenciesInSchema(key, propSchema)) {
                   return true;
                 }
               }
-              if (current[key] && typeof current[key] === 'object' && !Array.isArray(current[key])) {
+              if (
+                current[key] &&
+                typeof current[key] === 'object' &&
+                !Array.isArray(current[key])
+              ) {
                 if (checkNestedToggle(current[key], previous[key] || {})) {
                   return true;
                 }
@@ -852,23 +879,27 @@ export const StepForm = ({
           };
 
           if (checkNestedToggle(currentValue, prevValue || {})) {
-            hasToggleInCurrentStep = true;
+            toggledKey = topLevelKey;
             break;
           }
         }
       }
 
-      // Only run cleanup if toggle was detected in current step
-      if (hasToggleInCurrentStep) {
-        // Clean only the current step's properties, preserve others
+      // Only clean the specific key that had the toggle, not all keys in the step
+      // This prevents unnecessarily re-cleaning sibling nested objects (e.g., gitConfig when publishAndBuild toggles)
+      if (toggledKey) {
         const cleaned = { ...merged };
-        for (const key of stepPropertyKeys) {
-          if (cleaned[key] && typeof cleaned[key] === 'object' && !Array.isArray(cleaned[key])) {
-            const propSchema = step.schema.properties[key];
-            if (propSchema) {
-              cleaned[key] = cleanupFormDataAgainstSchema(cleaned[key], propSchema);
-            }
-          }
+        const propSchema = step.schema.properties[toggledKey];
+        if (
+          cleaned[toggledKey] &&
+          typeof cleaned[toggledKey] === 'object' &&
+          !Array.isArray(cleaned[toggledKey]) &&
+          propSchema
+        ) {
+          cleaned[toggledKey] = cleanupFormDataAgainstSchema(
+            cleaned[toggledKey],
+            propSchema,
+          );
         }
         return cleaned;
       }
@@ -891,7 +922,11 @@ export const StepForm = ({
         return;
       }
       setFormData(prev => {
-        const merged = mergeStepFormDataHybrid(prev, step, data.formData as Record<string, any>);
+        const merged = mergeStepFormDataHybrid(
+          prev,
+          step,
+          data.formData as Record<string, any>,
+        );
         return cleanupNestedFields(merged, prev, stepIndex);
       });
     },
@@ -903,18 +938,21 @@ export const StepForm = ({
       if (data.formData) {
         const step = filteredSteps[stepIndex];
         if (step) {
-          setFormData(prev =>
-            mergeStepFormDataHybrid(
+          setFormData(prev => {
+            const merged = mergeStepFormDataHybrid(
               prev,
               step,
               data.formData as Record<string, any>,
-            ),
-          );
+            );
+            // Apply cleanup to catch edge cases where onChange didn't fire
+            // (e.g., session storage restore, browser autofill, programmatic updates)
+            return cleanupNestedFields(merged, prev, stepIndex);
+          });
         }
       }
       handleNext();
     },
-    [filteredSteps, handleNext],
+    [filteredSteps, handleNext, cleanupNestedFields],
   );
 
   // clear persisted form data from sessionStorage
