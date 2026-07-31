@@ -5,8 +5,8 @@
  */
 
 import { useCallback } from 'react';
-import { ListItemIcon, ListItemText, MenuItem } from '@material-ui/core';
-import PlayArrowIcon from '@material-ui/icons/PlayArrow';
+import { MenuItem } from '@material-ui/core';
+import AssessmentIcon from '@material-ui/icons/Assessment';
 import type { GitRepositoryDetailHeaderMenuContext } from '@ansible/backstage-rhaap-common/gitRepositoriesExtensions';
 import { normalizeRepoUrlFromEntity } from '@ansible/backstage-rhaap-common/catalogEntity';
 import { useApmeEnabled } from '../../hooks/useApmeEnabled';
@@ -40,14 +40,9 @@ export const ApmeRepositoryHeaderActions = ({
   }
 
   return (
-    <MenuItem
-      onClick={handleScan}
-      style={{ justifyContent: 'space-between', gap: 16 }}
-    >
-      <ListItemText primary="Run quality scan" />
-      <ListItemIcon style={{ minWidth: 0 }}>
-        <PlayArrowIcon fontSize="small" style={{ opacity: 0.6 }} />
-      </ListItemIcon>
+    <MenuItem onClick={handleScan}>
+      <AssessmentIcon fontSize="small" style={{ marginRight: 8 }} />
+      Run quality scan
     </MenuItem>
   );
 };

@@ -199,32 +199,14 @@ export function ApmeViolationsCell({ entity }: { entity: Entity }) {
     worstCount > 0
       ? ` (${worstCount} ${SEVERITY_STYLES[worstLevel].label.toUpperCase()})`
       : '';
-  const entityName = entity.metadata?.name ?? '';
-  const detailPath = `${window.location.pathname.replace(/\/catalog$/, '')}/${entityName}?tab=quality`;
 
   return (
-    <Box>
-      <Typography
-        variant="body2"
-        style={{ color: worstTokens.inlineText, fontWeight: 600 }}
-      >
-        {project.total_violations}
-        {severitySuffix}
-      </Typography>
-      <Typography
-        variant="caption"
-        component="div"
-        style={{
-          color: '#0066cc',
-          cursor: 'pointer',
-          textDecoration: 'none',
-        }}
-        onClick={() => {
-          window.location.href = detailPath;
-        }}
-      >
-        Fix violations →
-      </Typography>
-    </Box>
+    <Typography
+      variant="body2"
+      style={{ color: worstTokens.inlineText, fontWeight: 600 }}
+    >
+      {project.total_violations}
+      {severitySuffix}
+    </Typography>
   );
 }

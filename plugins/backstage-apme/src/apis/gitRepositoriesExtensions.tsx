@@ -6,8 +6,8 @@
  */
 
 import { EntityQualityTab } from '../components/EntityQualityTab';
+import { ApmeRepositoryOverviewCard } from '../components/ApmeRepositoryOverviewCard/ApmeRepositoryOverviewCard';
 import { ApmeRepositoryHeaderActions } from '../components/ApmeRepositoryHeaderActions/ApmeRepositoryHeaderActions';
-import { ApmeRepoStatusChip } from '../components/ApmeRepoStatusChip';
 import { ApmeViolationsCell } from './apmeViolationsCell';
 import {
   createApmeGitRepositoriesExtensionsApi,
@@ -18,8 +18,8 @@ import {
 const ApmeGitRepositoriesExtensionsApi = createApmeGitRepositoriesExtensionsApi(
   {
     EntityQualityTab: withSuspense(EntityQualityTab),
+    ApmeRepositoryOverviewCard: withSuspense(ApmeRepositoryOverviewCard),
     ApmeRepositoryHeaderActions: withSuspense(ApmeRepositoryHeaderActions),
-    ApmeRepoStatusChip: withSuspense(ApmeRepoStatusChip),
     ApmeViolationsCell,
   },
 );

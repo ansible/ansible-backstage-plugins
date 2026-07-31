@@ -397,7 +397,8 @@ export const useCollectionsStyles = makeStyles(theme => ({
     flexShrink: 0,
     display: 'flex',
     flexDirection: 'column',
-    gap: theme.spacing(3),
+    // Match detailsContent column gap visually with stacked Quality + About.
+    gap: theme.spacing(2),
   },
   detailsHeader: {
     display: 'flex',
@@ -554,6 +555,35 @@ export const useCollectionsStyles = makeStyles(theme => ({
     '&::-webkit-scrollbar-thumb': {
       backgroundColor: theme.palette.divider,
       borderRadius: 3,
+    },
+    // PatternFly base.css resets :where(h1–h6) to font-size 100% and
+    // :where(ul) to list-style:none — restore readable markdown here.
+    '& h1, & h2, & h3, & h4, & h5, & h6': {
+      marginTop: theme.spacing(2),
+      marginBottom: theme.spacing(1),
+      fontWeight: 600,
+      lineHeight: 1.3,
+    },
+    '& h1': { fontSize: '1.75rem' },
+    '& h2': { fontSize: '1.5rem' },
+    '& h3': { fontSize: '1.25rem' },
+    '& p': {
+      marginBottom: theme.spacing(1.5),
+      lineHeight: 1.6,
+    },
+    '& ul': {
+      listStyleType: 'disc',
+      paddingLeft: theme.spacing(3),
+      marginBottom: theme.spacing(1.5),
+    },
+    '& ol': {
+      listStyleType: 'decimal',
+      paddingLeft: theme.spacing(3),
+      marginBottom: theme.spacing(1.5),
+    },
+    '& li': {
+      marginBottom: theme.spacing(0.5),
+      display: 'list-item',
     },
   },
   readmeLoading: {

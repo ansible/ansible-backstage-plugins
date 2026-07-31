@@ -2,7 +2,7 @@
 
 | Field | Value |
 |-------|--------|
-| **Status** | Planned |
+| **Status** | In progress |
 | **Persona** | Admin / power user |
 | **Surface** | Portal admin card and/or Quality settings tab |
 | **Depends on** | Catalog APME settings APIs (`/apme/settings`, scan-target) |
@@ -15,13 +15,19 @@
 
 ## Acceptance criteria
 
-- [ ] User-facing settings UI for agreed knobs (ansible-core target at minimum;
+- [x] User-facing settings UI for agreed knobs (ansible-core target at minimum;
       AI gate only if product still wants UI override of app-config).
-- [ ] Changes persist via existing portal settings store / Gateway-facing APIs.
-- [ ] Thin host only — no reintroduction of fat remediation admin flows.
+- [x] Changes persist via existing portal settings store / Gateway-facing APIs.
+- [x] Thin host only — no reintroduction of fat remediation admin flows.
 - [ ] Verified in local loop.
 
 ## Notes
 
-- Port from prototype `ApmeAdminCard` / `ApmeQualitySettingsTab` only what EAP
-  still needs; drop anything tied to Portal-side SCM.
+- Slim `ApmeQualitySettingsTab` via ADR-010 `getPageTabs()` →
+  `/repositories/quality-settings`.
+- Persists with `getPortalSettings` / `updatePortalSettings`
+  (`PUT /apme/settings` → `ApmePortalSettingsStore`).
+- AI gate shown read-only from settings (`ansible.apme.enableAi` app-config);
+  not editable in UI.
+- Dropped from prototype port: Rules admin, Fleet, `ApmeAdminCard`, Portal-side
+  SCM, per-project scan-target UI (APIs remain for later).

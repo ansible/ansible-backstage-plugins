@@ -54,7 +54,10 @@ export type GitRepositoryDetailHeaderMenuItemDefinition = {
   render: (context: GitRepositoryDetailHeaderMenuContext) => ReactNode;
 };
 
-/** Optional slot on the Overview tab (e.g. quality summary card). */
+/**
+ * Optional slot on the Overview tab sidebar, rendered above About
+ * (e.g. quality summary card).
+ */
 export type GitRepositoryDetailOverviewSlotDefinition = {
   id: string;
   order: number;

@@ -46,10 +46,7 @@ export {
 export { ApmeViolationsCell } from './apis/apmeViolationsCell';
 export { ApmeRepoStatusChip } from './components/ApmeRepoStatusChip';
 export { ApmeRepositoryHeaderActions } from './components/ApmeRepositoryHeaderActions/ApmeRepositoryHeaderActions';
+export { ApmeRepositoryOverviewCard } from './components/ApmeRepositoryOverviewCard/ApmeRepositoryOverviewCard';
 export { ApmeAddRepositoryHeaderAction } from './components/ApmeAddRepositoryHeaderAction/ApmeAddRepositoryHeaderAction';
-export {
-  APME_REGISTER_GIT_REPOSITORY_SELF_SERVICE_PATH,
-  APME_REGISTER_GIT_REPOSITORY_STOCK_CREATE_PATH,
-  APME_REGISTER_GIT_REPOSITORY_TEMPLATE_PATH,
-  resolveApmeRegisterGitRepositoryPath,
-} from './components/ApmeAddRepositoryHeaderAction/ApmeAddRepositoryHeaderAction';
+export { ApmeQualitySettingsTab } from './components/ApmeQualitySettingsTab';
+export { APME_REGISTER_GIT_REPOSITORY_TEMPLATE_PATH } from './components/ApmeAddRepositoryHeaderAction/ApmeAddRepositoryHeaderAction';

@@ -9,6 +9,9 @@ Architecture (approach, FE/BE wiring, `@apme/ui-workflow`): [ARCHITECTURE.md](./
 - Resolves/registers an APME project from the entity source location
 - Mounts shared `@apme/ui-workflow` (`ProjectWorkflowPanel`)
 - Talks to Gateway via `catalog-backend-module-apme` (`/api/catalog/apme`)
+- Owns the **Add repository** scaffolder Template YAML under
+  `templates/apme-register-git-repository/` (catalog content — must be loaded
+  via `catalog.locations`; not included in `export-dynamic` by default)
 
 ## Not in this package
 

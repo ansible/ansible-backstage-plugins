@@ -516,22 +516,22 @@ const RepositoryDetailsPageInner = () => {
       {activeDetailTab?.kind === 'overview' && (
         <Box className={classes.detailsContent}>
           <Box className={classes.detailsLeftColumn}>
-            {entity &&
-              detailTabContext &&
-              overviewSlots.map(slot => (
-                  <Suspense
-                    key={slot.id}
-                    fallback={<Typography>Loading…</Typography>}
-                  >
-                    {slot.render(detailTabContext)}
-                  </Suspense>
-                ))}
             <RepositoryReadmeCard
               readmeContent={readmeContent}
               isLoading={readmeLoading}
             />
           </Box>
           <Box className={classes.detailsRightColumn}>
+            {entity &&
+              detailTabContext &&
+              overviewSlots.map(slot => (
+                <Suspense
+                  key={slot.id}
+                  fallback={<Typography>Loading…</Typography>}
+                >
+                  {slot.render(detailTabContext)}
+                </Suspense>
+              ))}
             <RepositoryAboutCard
               entity={entity}
               onViewSource={handleViewSource}

@@ -30,7 +30,12 @@ export const CollectionReadmeCard = ({
           />
         );
       }
-      return <MarkdownContent content={readmeContent} />;
+      return (
+        <MarkdownContent
+          content={readmeContent}
+          className={classes.readmeHtmlContent}
+        />
+      );
     }
 
     return (

@@ -2,7 +2,8 @@
  * Copyright Red Hat
  *
  * Shared Git Repositories extension API for monolith (lazy) and OCI (direct) wiring.
- * eap-next thin host: Quality detail tab, Run quality scan, status chrome only.
+ * eap-next thin host: Quality detail tab, Quality settings page tab,
+ * Overview quality card (sidebar), Run quality scan, status chrome only.
  */
 
 import { Suspense, type ComponentType } from 'react';
@@ -20,14 +21,11 @@ import {
   type GitRepositoryDetailTabContext,
   type GitRepositoryDetailHeaderMenuContext,
   type GitRepositoryCatalogColumnDefinition,
-  type GitRepositoryCatalogRowContext,
   type GitRepositoryCatalogRowMenuContext,
 } from '@ansible/backstage-rhaap-common/gitRepositoriesExtensions';
-import {
-  defaultBranchFromEntity,
-  normalizeRepoUrlFromEntity,
-} from '@ansible/backstage-rhaap-common/catalogEntity';
+import { normalizeRepoUrlFromEntity } from '@ansible/backstage-rhaap-common/catalogEntity';
 import { ApmeAddRepositoryHeaderAction } from '../components/ApmeAddRepositoryHeaderAction/ApmeAddRepositoryHeaderAction';
+import { ApmeQualitySettingsTab } from '../components/ApmeQualitySettingsTab';
 
 export function withSuspense<P extends object>(
   Component: ComponentType<P>,
@@ -47,14 +45,12 @@ export type ApmeGitRepositoriesComponents = {
     initialRuleFilter?: string;
     initialCategoryFilter?: string;
   }>;
+  ApmeRepositoryOverviewCard: ComponentType<{
+    context: GitRepositoryDetailTabContext;
+  }>;
   ApmeRepositoryHeaderActions: ComponentType<{
     context: GitRepositoryDetailHeaderMenuContext;
     onCloseMenu: () => void;
-  }>;
-  ApmeRepoStatusChip: ComponentType<{
-    repoUrl: string;
-    branch?: string;
-    projectDetailPath?: string;
   }>;
   ApmeViolationsCell: ComponentType<{ entity: Entity }>;
 };
@@ -64,8 +60,8 @@ export function createApmeGitRepositoriesExtensionsApi(
 ): new () => GitRepositoriesExtensionsApi {
   const {
     EntityQualityTab,
+    ApmeRepositoryOverviewCard,
     ApmeRepositoryHeaderActions,
-    ApmeRepoStatusChip,
     ApmeViolationsCell,
   } = components;
 
@@ -79,6 +75,18 @@ export function createApmeGitRepositoriesExtensionsApi(
           id: 'add-repository',
           order: 10,
           render: () => <ApmeAddRepositoryHeaderAction />,
+        },
+      ];
+    }
+
+    getPageTabs() {
+      return [
+        {
+          id: 'quality-settings',
+          label: 'Quality settings',
+          path: 'quality-settings',
+          order: 15,
+          render: () => <ApmeQualitySettingsTab />,
         },
       ];
     }
@@ -99,6 +107,18 @@ export function createApmeGitRepositoriesExtensionsApi(
               initialRuleFilter={initialRuleFilter}
               initialCategoryFilter={initialCategoryFilter}
             />
+          ),
+        },
+      ];
+    }
+
+    getDetailOverviewSlots() {
+      return [
+        {
+          id: 'apme-quality-overview',
+          order: 10,
+          render: (ctx: GitRepositoryDetailTabContext) => (
+            <ApmeRepositoryOverviewCard context={ctx} />
           ),
         },
       ];
@@ -138,29 +158,9 @@ export function createApmeGitRepositoriesExtensionsApi(
       ];
     }
 
+    /** Parity with prototype: no status chips on the catalog list (noisy). */
     getCatalogRowSlots() {
-      return [
-        {
-          id: 'apme-status-chip',
-          order: 10,
-          render: ({
-            entity,
-            projectDetailPath,
-          }: GitRepositoryCatalogRowContext) => {
-            const repoUrl = normalizeRepoUrlFromEntity(entity);
-            if (!repoUrl) {
-              return null;
-            }
-            return (
-              <ApmeRepoStatusChip
-                repoUrl={repoUrl}
-                branch={defaultBranchFromEntity(entity)}
-                projectDetailPath={projectDetailPath}
-              />
-            );
-          },
-        },
-      ];
+      return [];
     }
 
     getCatalogColumns(): GitRepositoryCatalogColumnDefinition[] {

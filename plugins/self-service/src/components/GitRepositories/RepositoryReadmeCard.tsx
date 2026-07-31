@@ -25,7 +25,14 @@ export const RepositoryReadmeCard = ({
     }
 
     if (readmeContent) {
-      return <MarkdownContent content={readmeContent} />;
+      // readmeHtmlContent styles headings/lists — Backstage MarkdownContent
+      // only styles tables/links; Portal/theme resets flatten h1–h6 and ul.
+      return (
+        <MarkdownContent
+          content={readmeContent}
+          className={classes.readmeHtmlContent}
+        />
+      );
     }
 
     return (

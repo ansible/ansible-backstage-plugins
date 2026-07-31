@@ -15,8 +15,8 @@
 
 ## Acceptance criteria
 
-- [x] Git Repos table shows a **status chip** per registered repo (via
-      `getCatalogRowSlots` → `ApmeRepoStatusChip`) plus **Violations** column.
+- [x] Git Repos table shows a **Violations** column (count + worst severity).
+      Status chips removed for list parity with prototype (noisy).
 - [x] List **Actions** kebab includes **Run quality scan** (via
       `getCatalogRowMenuItems`) — opens Quality with `CheckOptionsForm`.
 - [x] Detail header **Actions → Run quality scan** opens the Quality tab with
@@ -40,3 +40,5 @@
 - RHDH Local must register **only** the APME factory — also registering
   `defaultGitRepositoriesExtensionsApiFactory` for the same `apiRef` blanks
   the SPA.
+- List chrome: Violations column only (no “Fix violations →” CTA; no status
+  chips). Run scan stays on list/detail Actions kebab.

@@ -71,7 +71,7 @@ function WorkflowBody({ projectId }: { projectId: string }) {
   const [ansibleVersion, setAnsibleVersion] = useState('');
   const [collections, setCollections] = useState('');
   const [enableAi, setEnableAi] = useState(portalAiEnabled);
-  const [autoApplyTier1, setAutoApplyTier1] = useState(true);
+  const [autoApplyTier1, setAutoApplyTier1] = useState(false);
 
   useEffect(() => {
     setEnableAi(portalAiEnabled);

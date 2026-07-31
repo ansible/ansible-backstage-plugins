@@ -1,38 +1,43 @@
-# US-003 — Register a repo without AAP OAuth
+# US-003 — Register a repository from Git Repos
 
 | Field | Value |
 |-------|--------|
 | **Status** | Complete |
-| **Persona** | Developer |
-| **Surface** | Add repository / Create template flow |
-| **Depends on** | Catalog scaffolder + git-repository registration routes |
+| **Persona** | Developer (portal user) |
+| **Surface** | Git Repositories → **Add repository** → Self-service Create template |
+| **Depends on** | Catalog scaffolder + `ansible:register:git-repository` |
 
 ## Story
 
-> As a developer, I want to register a Git repository into the catalog for
-> Quality scans without signing into AAP OAuth, so local and Portal demos are
-> not blocked by RH AAP login.
+> As a developer using the automation portal, I want to register my playbook
+> or automation repository from **Add repository** so it appears in Git Repos
+> and I can run Quality scans — without leaving the portal or using a separate
+> developer-only registration path.
 
 ## Acceptance criteria
 
-- [x] **Add repository** uses stock Create when
-      `ansible.apme.useStockCreateForRegister: true` —
-      `/create/templates/default/apme-register-git-repository` (no AAP OAuth).
-- [x] Default / Portal path remains Self-service Create
-      (`/self-service/create/templates/...`) when the flag is unset/false.
-- [x] Registered entity appears in catalog with SCM annotations suitable for
-      the Quality tab ([US-001](US-001-quality-tab-scan-with-ai.md)).
-- [x] Path chosen and documented: **`useStockCreateForRegister`** with
-      `GitHubRepoUrlField` (paste github.com URL; live owner/repo parse;
-      branch field; github.com-only validation). Not ManualGitProvider.
-- [x] Verified in local loop (Add repository → Git Repositories list →
-      Quality scan).
+- [x] **Add repository** opens the Self-service Create template
+      `/self-service/create/templates/default/apme-register-git-repository`.
+- [x] Completing the template (direct register, default) adds a catalog entity
+      with SCM annotations suitable for the Quality tab
+      ([US-001](US-001-quality-tab-scan-with-ai.md)).
+- [x] Repository URL entry uses `GitHubRepoUrlField` (paste github.com URL;
+      owner/repo parse; branch field; github.com-only validation).
+- [x] After register, the entity is visible under **Git Repositories** and
+      Quality can be opened from the list/detail chrome
+      ([US-002](US-002-git-repos-chrome.md)).
+
+## Out of scope
+
+- Alternate “stock Create” (`/create/...`) or app-config switches for local
+  developer loops — not a product surface.
+- Opening a catalog-info.yaml pull request instead of direct register (optional
+  template checkbox; secondary path).
 
 ## Notes
 
-- Guest header action: `ApmeAddRepositoryHeaderAction` via
-  `getPageHeaderActions` (ADR-010).
-- Register template uses `ui:field: GitHubRepoUrlField` (not `RepoUrlPicker`).
-- Local loop (`apme-rhdh-dev`) sets `useStockCreateForRegister: true` in
-  `app-config.local.yaml` and `app-config.react.yaml`.
-- Related branch reference: `feat/apme-use-stock-create-for-register`.
+- Header action: `ApmeAddRepositoryHeaderAction` via `getPageHeaderActions`
+  (ADR-010).
+- Template (owned by APME):
+  `plugins/backstage-apme/templates/apme-register-git-repository/` —
+  loaded via `catalog.locations` (not bundled by `export-dynamic`).
