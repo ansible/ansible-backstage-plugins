@@ -4,9 +4,20 @@ import { loginAAP } from './auth';
 const DEFAULT_ROLE_NAME = 'portal-nonadmin-role';
 const ROLE_DESCRIPTION =
   'E2E test role with all plugin permissions for non-admin user';
+const MAX_CHECKBOX_ITERATIONS = 50;
 
 function log(msg: string) {
   console.log(`[RBAC Setup] ${msg}`);
+}
+
+async function isElementVisible(
+  locator: ReturnType<Page['locator']>,
+  timeout: number,
+): Promise<boolean> {
+  return locator
+    .waitFor({ state: 'visible', timeout })
+    .then(() => true)
+    .catch(() => false);
 }
 
 async function triggerCatalogSync(page: Page) {
@@ -15,9 +26,7 @@ async function triggerCatalogSync(page: Page) {
   await page.locator('main').waitFor({ state: 'visible', timeout: 30_000 });
 
   const syncLink = page.getByText('Sync now');
-  const syncVisible = await syncLink
-    .isVisible({ timeout: 10_000 })
-    .catch(() => false);
+  const syncVisible = await isElementVisible(syncLink, 10_000);
 
   if (!syncVisible) {
     log('Sync now link not found, skipping sync');
@@ -56,12 +65,18 @@ async function createRBACRole(page: Page) {
   await page.goto('/rbac', { waitUntil: 'domcontentloaded' });
   await page.locator('main').waitFor({ state: 'visible', timeout: 30_000 });
 
+  // Search for the role name to handle pagination
+  const searchInput = page.getByPlaceholder(/search/i);
+  const hasSearch = await isElementVisible(searchInput, 3_000);
+  if (hasSearch) {
+    await searchInput.fill(roleName);
+    await page.waitForTimeout(1_000);
+  }
+
   const existingRole = page
     .locator('table')
     .getByText(roleName, { exact: true });
-  const roleExists = await existingRole
-    .isVisible({ timeout: 5_000 })
-    .catch(() => false);
+  const roleExists = await isElementVisible(existingRole, 5_000);
 
   if (roleExists) {
     log(`Role "${roleName}" already exists, skipping creation`);
@@ -88,7 +103,7 @@ async function createRBACRole(page: Page) {
   log('Step 1 complete, clicked Next');
 
   // Step 2: Users and Groups
-  log(`Step 2: Selecting user "${userId}"...`);
+  log('Step 2: Selecting configured non-admin user...');
   const userTextField = page
     .getByTestId('users-and-groups-text-field')
     .locator('input');
@@ -104,9 +119,7 @@ async function createRBACRole(page: Page) {
     .filter({ hasText: userId })
     .first();
 
-  const optionVisible = await userOption
-    .isVisible({ timeout: 10_000 })
-    .catch(() => false);
+  const optionVisible = await isElementVisible(userOption, 10_000);
 
   if (!optionVisible) {
     throw new Error(
@@ -132,7 +145,7 @@ async function createRBACRole(page: Page) {
 
   const allPluginsOption = page
     .getByRole('option')
-    .filter({ hasText: /all/i })
+    .filter({ hasText: /^All\s*\(/ })
     .first();
   await allPluginsOption.click();
   log('Selected "All plugins" option');
@@ -166,8 +179,9 @@ async function createRBACRole(page: Page) {
       .locator('input[type="checkbox"]:not(:checked)')
       .count();
 
+    const maxIterations = Math.min(uncheckedCount, MAX_CHECKBOX_ITERATIONS);
     let checked = 0;
-    while (uncheckedCount > 0) {
+    while (uncheckedCount > 0 && checked < maxIterations) {
       const checkbox = nestedRow
         .locator('input[type="checkbox"]:not(:checked)')
         .first();
@@ -197,9 +211,7 @@ async function createRBACRole(page: Page) {
     .catch(e => log(`Navigation wait timed out: ${(e as Error).message}`));
 
   const errorAlert = page.locator('[class*="MuiAlert-standardError"]');
-  const hasError = await errorAlert
-    .isVisible({ timeout: 3_000 })
-    .catch(() => false);
+  const hasError = await isElementVisible(errorAlert, 3_000);
 
   if (hasError) {
     const errorText = (await errorAlert.textContent()) ?? 'Unknown error';
@@ -215,7 +227,7 @@ export async function setupNonAdminRBAC() {
     return;
   }
 
-  const baseURL = process.env.BASE_URL || 'http://localhost:7071';
+  const baseURL = process.env.BASE_URL || 'http://localhost:7007';
   log(`Starting RBAC setup against ${baseURL}`);
 
   const browser = await chromium.launch();
