@@ -836,11 +836,11 @@ export const StepForm = ({
       }
 
       const stepPropertyKeys = new Set(Object.keys(step.schema.properties));
-      let toggledKey: string | null = null;
+      const toggledKeys: string[] = [];
 
       // Check for boolean toggles from true to false ONLY in current step's properties
       // AND only for fields that have dependencies (conditional checkboxes)
-      // Track WHICH specific key has the toggle to avoid cleaning unrelated sibling keys
+      // Collect ALL toggled keys to handle batch updates (session restore, programmatic changes)
       for (const topLevelKey of stepPropertyKeys) {
         const currentValue = merged[topLevelKey];
         const prevValue = prev[topLevelKey];
@@ -884,27 +884,30 @@ export const StepForm = ({
           };
 
           if (checkNestedToggle(currentValue, prevValue || {})) {
-            toggledKey = topLevelKey;
-            break;
+            toggledKeys.push(topLevelKey);
+            // Continue checking other keys instead of breaking
           }
         }
       }
 
-      // Only clean the specific key that had the toggle, not all keys in the step
-      // This prevents unnecessarily re-cleaning sibling nested objects (e.g., gitConfig when publishAndBuild toggles)
-      if (toggledKey) {
+      // Clean ALL keys that had toggles, not just the first one
+      // This handles batch updates (session restore, programmatic changes) where multiple
+      // conditional checkboxes toggle simultaneously
+      if (toggledKeys.length > 0) {
         const cleaned = { ...merged };
-        const propSchema = step.schema.properties[toggledKey];
-        if (
-          cleaned[toggledKey] &&
-          typeof cleaned[toggledKey] === 'object' &&
-          !Array.isArray(cleaned[toggledKey]) &&
-          propSchema
-        ) {
-          cleaned[toggledKey] = cleanupFormDataAgainstSchema(
-            cleaned[toggledKey],
-            propSchema,
-          );
+        for (const key of toggledKeys) {
+          const propSchema = step.schema.properties[key];
+          if (
+            cleaned[key] &&
+            typeof cleaned[key] === 'object' &&
+            !Array.isArray(cleaned[key]) &&
+            propSchema
+          ) {
+            cleaned[key] = cleanupFormDataAgainstSchema(
+              cleaned[key],
+              propSchema,
+            );
+          }
         }
         return cleaned;
       }

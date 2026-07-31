@@ -2262,5 +2262,68 @@ describe('StepForm', () => {
       expect(cleaned.buildRegistry).toBe('PAH');
       expect(cleaned.buildImageName).toBe('my-img');
     });
+
+    it('cleans multiple toggled keys in batch updates (session restore edge case)', () => {
+      // Schema with TWO independent conditional sections
+      const schema = {
+        properties: {
+          publishAndBuild: {
+            properties: {
+              buildExecutionEnvironment: { type: 'boolean' },
+            },
+            dependencies: {
+              buildExecutionEnvironment: {
+                oneOf: [
+                  {
+                    properties: {
+                      buildExecutionEnvironment: { const: true },
+                      buildRegistry: { type: 'string' },
+                    },
+                  },
+                ],
+              },
+            },
+          },
+          eeDefinition: {
+            properties: {
+              specifyRequirements: { type: 'boolean' },
+            },
+            dependencies: {
+              specifyRequirements: {
+                oneOf: [
+                  {
+                    properties: {
+                      specifyRequirements: { const: true },
+                      pythonRequirements: { type: 'array' },
+                    },
+                  },
+                ],
+              },
+            },
+          },
+        },
+      };
+
+      // Simulate batch update (session restore): BOTH fields toggled from true→false
+      const formData = {
+        publishAndBuild: {
+          buildExecutionEnvironment: false,
+          buildRegistry: 'PAH', // Should be removed
+        },
+        eeDefinition: {
+          specifyRequirements: false,
+          pythonRequirements: ['ansible'], // Should be removed
+        },
+      };
+
+      const cleaned = cleanupFormDataAgainstSchema(formData, schema);
+
+      // BOTH sections should be cleaned
+      expect(cleaned.publishAndBuild.buildExecutionEnvironment).toBe(false);
+      expect(cleaned.publishAndBuild.buildRegistry).toBeUndefined();
+
+      expect(cleaned.eeDefinition.specifyRequirements).toBe(false);
+      expect(cleaned.eeDefinition.pythonRequirements).toBeUndefined();
+    });
   });
 });
