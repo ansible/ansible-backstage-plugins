@@ -2097,6 +2097,30 @@ describe('StepForm', () => {
       expect(cleanupFormDataAgainstSchema({}, null as any)).toEqual({});
     });
 
+    it('preserves all data when schema has no properties (prevents data loss)', () => {
+      // Schema with dependencies but no properties (e.g., $ref or allOf-only schema)
+      const schema = {
+        dependencies: {
+          someField: { oneOf: [] },
+        },
+        // NO properties key
+      };
+
+      const formData = {
+        field1: 'value1',
+        field2: 'value2',
+        field3: { nested: 'data' },
+      };
+
+      const cleaned = cleanupFormDataAgainstSchema(formData, schema);
+
+      // All data should be PRESERVED (cannot determine active fields without schema.properties)
+      expect(cleaned).toEqual(formData);
+      expect(cleaned.field1).toBe('value1');
+      expect(cleaned.field2).toBe('value2');
+      expect(cleaned.field3).toEqual({ nested: 'data' });
+    });
+
     it('handles rapid toggling - check, uncheck, check again', () => {
       const schema = {
         properties: {

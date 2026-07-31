@@ -570,6 +570,11 @@ export function cleanupFormDataAgainstSchema(
     return currentFormData;
   }
 
+  // Without declared properties we cannot decide what is active; keep the data as-is.
+  if (!schema.properties || typeof schema.properties !== 'object') {
+    return currentFormData;
+  }
+
   const cleaned: Record<string, any> = {};
   const activeProps = getActiveSchemaProperties(schema, currentFormData);
 
