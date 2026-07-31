@@ -22,33 +22,47 @@ async function isElementVisible(
 
 async function triggerCatalogSync(page: Page) {
   log('Navigating to Templates page for sync...');
-  await page.goto('/self-service/catalog', { waitUntil: 'domcontentloaded' });
-  await page.locator('main').waitFor({ state: 'visible', timeout: 30_000 });
+  await page.goto('/self-service/catalog', { waitUntil: 'networkidle' });
+  await page
+    .getByText('Templates')
+    .first()
+    .waitFor({ state: 'visible', timeout: 30_000 });
+  log('Templates page loaded');
 
-  const syncLink = page.getByText('Sync now');
-  const syncVisible = await isElementVisible(syncLink, 10_000);
+  const syncLink = page
+    .locator('span')
+    .filter({ hasText: /^Sync now/ })
+    .first();
+  const syncVisible = await isElementVisible(syncLink, 20_000);
 
   if (!syncVisible) {
-    log('Sync now link not found, skipping sync');
+    log('Sync now not found, trying API fallback...');
+    const res = await page.request.post(
+      '/api/catalog/ansible/sync/from-aap/orgs_users_teams',
+    );
+    log(`Sync API fallback: ${res.status()}`);
+    await page.waitForTimeout(10_000);
     return;
   }
 
   await syncLink.click();
   log('Clicked Sync now, waiting for dialog...');
 
-  await page
-    .getByText('AAP synchronization options')
-    .waitFor({ state: 'visible', timeout: 10_000 });
+  const dialog = page.getByRole('dialog');
+  await dialog.waitFor({ state: 'visible', timeout: 15_000 });
+  log('Sync dialog opened');
 
-  const orgsCheckbox = page.locator('input[name="orgsUsersTeams"]');
+  const orgsCheckbox = dialog.getByRole('checkbox', {
+    name: /Organizations, Users, and Teams/i,
+  });
   if (!(await orgsCheckbox.isChecked())) {
     await orgsCheckbox.check();
   }
 
-  await page.getByRole('button', { name: 'Ok' }).click();
+  await dialog.getByRole('button', { name: 'Ok' }).click();
   log('Sync triggered, waiting for completion...');
 
-  await page.waitForTimeout(5_000);
+  await page.waitForTimeout(10_000);
   log('Catalog sync complete');
 }
 
@@ -94,10 +108,12 @@ async function createRBACRole(page: Page) {
     .getByTestId('role-name')
     .waitFor({ state: 'visible', timeout: 10_000 });
   await page.getByTestId('role-name').locator('input').fill(roleName);
-  await page
-    .getByTestId('role-description')
-    .locator('input')
-    .fill(ROLE_DESCRIPTION);
+
+  const descField = page.getByTestId('role-description').locator('input');
+  const hasDesc = await isElementVisible(descField, 2_000);
+  if (hasDesc) {
+    await descField.fill(ROLE_DESCRIPTION);
+  }
 
   await page.getByTestId('nextButton-0').click();
   log('Step 1 complete, clicked Next');
@@ -145,7 +161,7 @@ async function createRBACRole(page: Page) {
 
   const allPluginsOption = page
     .getByRole('option')
-    .filter({ hasText: /^All\s*\(/ })
+    .filter({ hasText: /^All plugins/ })
     .first();
   await allPluginsOption.click();
   log('Selected "All plugins" option');
@@ -179,7 +195,7 @@ async function createRBACRole(page: Page) {
       .locator('input[type="checkbox"]:not(:checked)')
       .count();
 
-    const maxIterations = Math.min(uncheckedCount, MAX_CHECKBOX_ITERATIONS);
+    const maxIterations = MAX_CHECKBOX_ITERATIONS;
     let checked = 0;
     while (uncheckedCount > 0 && checked < maxIterations) {
       const checkbox = nestedRow
