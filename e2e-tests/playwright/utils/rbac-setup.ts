@@ -194,7 +194,7 @@ async function createRBACRole(page: Page) {
 
   await page
     .waitForURL(/\/rbac(?!\/role\/new)/, { timeout: 15_000 })
-    .catch((e) => log(`Navigation wait timed out: ${(e as Error).message}`));
+    .catch(e => log(`Navigation wait timed out: ${(e as Error).message}`));
 
   const errorAlert = page.locator('[class*="MuiAlert-standardError"]');
   const hasError = await errorAlert
