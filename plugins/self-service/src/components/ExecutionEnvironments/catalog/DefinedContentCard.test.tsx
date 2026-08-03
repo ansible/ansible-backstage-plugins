@@ -137,9 +137,7 @@ describe('DefinedContentCard', () => {
       collectionsFileRef: null,
     };
     renderWithTheme(<DefinedContentCard parsedDefinition={parsed} />);
-    expect(
-      screen.getByText(/https:\/\/github\.com/),
-    ).toBeInTheDocument();
+    expect(screen.getByText(/https:\/\/github\.com/)).toBeInTheDocument();
   });
 
   it('shows Python requirements list when provided', () => {
