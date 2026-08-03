@@ -109,7 +109,7 @@ export async function discoverOrgNamespaces(
   if (!result.ok) return [];
   const groups: any[] = Array.isArray(result.body)
     ? result.body
-    : result.body?.items ?? [];
+    : (result.body?.items ?? []);
   return [
     ...new Set(
       groups

@@ -45,7 +45,7 @@ test('Template org metadata: annotations and namespaces', async ({ page }) => {
 
   const templates: any[] = Array.isArray(result.body)
     ? result.body
-    : result.body?.items ?? [];
+    : (result.body?.items ?? []);
 
   const aapTemplates = templates.filter(
     (t: any) => t.metadata?.aapJobTemplateId,
