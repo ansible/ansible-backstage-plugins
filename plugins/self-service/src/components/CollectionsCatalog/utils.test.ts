@@ -103,6 +103,16 @@ describe('CollectionsCatalog utils', () => {
       );
     });
 
+    it('returns "unknown" when no annotations at all', () => {
+      const entity: Entity = {
+        apiVersion: 'backstage.io/v1alpha1',
+        kind: 'Component',
+        metadata: { name: 'c' },
+        spec: {},
+      };
+      expect(buildSourceString(entity)).toBe('unknown');
+    });
+
     it('returns scmProvider only when host/repo missing', () => {
       const entity: Entity = {
         apiVersion: 'backstage.io/v1alpha1',
@@ -225,6 +235,28 @@ describe('CollectionsCatalog utils', () => {
       };
       expect(getCollectionFullName(entity)).toBe('.');
     });
+
+    it('handles undefined spec', () => {
+      const entity = {
+        apiVersion: 'backstage.io/v1alpha1',
+        kind: 'Component',
+        metadata: { name: 'c' },
+      } as Entity;
+      expect(getCollectionFullName(entity)).toBe('.');
+    });
+
+    it('handles non-string namespace and name', () => {
+      const entity: Entity = {
+        apiVersion: 'backstage.io/v1alpha1',
+        kind: 'Component',
+        metadata: { name: 'c' },
+        spec: {
+          collection_namespace: 123,
+          collection_name: null,
+        } as any,
+      };
+      expect(getCollectionFullName(entity)).toBe('.');
+    });
   });
 
   describe('compareVersions', () => {
@@ -307,6 +339,63 @@ describe('CollectionsCatalog utils', () => {
             name: 'a-2',
             annotations: { 'ansible.io/discovery-source-id': 'src1' },
           },
+          spec: {
+            collection_full_name: 'ns.col',
+            collection_version: '2.0.0',
+          } as any,
+        },
+      ];
+      const result = filterLatestVersions(entities);
+      expect(result).toHaveLength(1);
+      expect(result[0].spec?.collection_version).toBe('2.0.0');
+    });
+
+    it('uses fallback version when collection_version is missing', () => {
+      const entities: Entity[] = [
+        {
+          apiVersion: 'backstage.io/v1alpha1',
+          kind: 'Component',
+          metadata: {
+            name: 'a-1',
+            annotations: { 'ansible.io/discovery-source-id': 'src1' },
+          },
+          spec: {
+            collection_full_name: 'ns.col',
+          } as any,
+        },
+        {
+          apiVersion: 'backstage.io/v1alpha1',
+          kind: 'Component',
+          metadata: {
+            name: 'a-2',
+            annotations: { 'ansible.io/discovery-source-id': 'src1' },
+          },
+          spec: {
+            collection_full_name: 'ns.col',
+            collection_version: '1.0.0',
+          } as any,
+        },
+      ];
+      const result = filterLatestVersions(entities);
+      expect(result).toHaveLength(1);
+      expect(result[0].spec?.collection_version).toBe('1.0.0');
+    });
+
+    it('uses fallback source-id when discovery-source-id is missing', () => {
+      const entities: Entity[] = [
+        {
+          apiVersion: 'backstage.io/v1alpha1',
+          kind: 'Component',
+          metadata: { name: 'a-1' },
+          spec: {
+            collection_full_name: 'ns.col',
+            collection_version: '1.0.0',
+          } as any,
+        },
+        {
+          apiVersion: 'backstage.io/v1alpha1',
+          kind: 'Component',
+          metadata: { name: 'a-2' },
           spec: {
             collection_full_name: 'ns.col',
             collection_version: '2.0.0',
@@ -461,6 +550,20 @@ describe('CollectionsCatalog utils', () => {
       ];
       const { sources } = getUniqueFilters(entities);
       expect(sources).toHaveLength(0);
+    });
+
+    it('handles entities with no annotations', () => {
+      const entities: Entity[] = [
+        {
+          apiVersion: 'backstage.io/v1alpha1',
+          kind: 'Component',
+          metadata: { name: 'a', tags: ['t1'] },
+          spec: {},
+        },
+      ];
+      const { sources, tags } = getUniqueFilters(entities);
+      expect(sources).toHaveLength(0);
+      expect(tags).toEqual(['t1']);
     });
 
     it('sorts sources and tags', () => {
@@ -664,6 +767,62 @@ describe('CollectionsCatalog utils', () => {
         'collection-a',
         'collection-b',
       ]);
+    });
+
+    it('falls back to annotation matching when spec has no repository_collections', () => {
+      const collections = [
+        createCollection('c1', {
+          'ansible.io/scm-provider': 'github',
+          'ansible.io/scm-host': 'github.com',
+          'ansible.io/scm-organization': 'org',
+          'ansible.io/scm-repository': 'repo',
+        }),
+      ];
+      const repoEntity = createRepoEntity('r', {
+        'ansible.io/scm-provider': 'github',
+        'ansible.io/scm-host': 'github.com',
+        'ansible.io/scm-organization': 'org',
+        'ansible.io/scm-repository': 'repo',
+      });
+      const result = filterCollectionsByRepository(collections, repoEntity);
+      expect(result).toHaveLength(1);
+    });
+
+    it('handles repo entity with undefined spec and mismatched annotations', () => {
+      const collections = [
+        createCollection('c1', {
+          'ansible.io/scm-provider': 'github',
+          'ansible.io/scm-host': 'github.com',
+          'ansible.io/scm-organization': 'org',
+          'ansible.io/scm-repository': 'repo',
+        }),
+      ];
+      const repoEntity = {
+        apiVersion: 'backstage.io/v1alpha1',
+        kind: 'Component',
+        metadata: { name: 'r' },
+      } as Entity;
+      const result = filterCollectionsByRepository(collections, repoEntity);
+      expect(result).toHaveLength(0);
+    });
+
+    it('handles collection with no annotations object during annotation matching', () => {
+      const collections = [
+        {
+          apiVersion: 'backstage.io/v1alpha1',
+          kind: 'Component',
+          metadata: { name: 'c1' },
+          spec: {},
+        } as Entity,
+      ];
+      const repoEntity = createRepoEntity('r', {
+        'ansible.io/scm-provider': 'github',
+        'ansible.io/scm-host': 'github.com',
+        'ansible.io/scm-organization': 'org',
+        'ansible.io/scm-repository': 'repo',
+      });
+      const result = filterCollectionsByRepository(collections, repoEntity);
+      expect(result).toHaveLength(0);
     });
 
     it('handles collection without metadata name', () => {

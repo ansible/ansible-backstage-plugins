@@ -597,4 +597,138 @@ describe('useLatestCIActivity', () => {
     expect(body.items[0].provider).toBe('github');
     expect(body.items[1].provider).toBe('gitlab');
   });
+
+  it('falls back to empty string when GitHub run has no run_number or id', async () => {
+    mockBatchResponse({
+      'component:default/no-num-repo': {
+        status: 200,
+        data: {
+          workflow_runs: [
+            {
+              name: 'Build',
+              created_at: '2024-06-15T11:30:00Z',
+              html_url: 'https://github.com/org/repo/actions/runs/1',
+            },
+          ],
+        },
+      },
+    });
+
+    renderTestConsumer([createGitHubEntity('no-num-repo')]);
+
+    await waitFor(() => {
+      expect(screen.getByTestId('loading')).toHaveTextContent('false');
+    });
+
+    expect(screen.getByTestId('activity-no-num-repo')).toHaveTextContent(
+      'Build # • 30 minutes ago',
+    );
+  });
+
+  it('handles GitHub run with non-string created_at', async () => {
+    mockBatchResponse({
+      'component:default/bad-date-repo': {
+        status: 200,
+        data: {
+          workflow_runs: [
+            {
+              run_number: 1,
+              id: 100,
+              name: 'CI',
+              created_at: 12345,
+              html_url: 'https://github.com/org/repo/actions/runs/100',
+            },
+          ],
+        },
+      },
+    });
+
+    renderTestConsumer([createGitHubEntity('bad-date-repo')]);
+
+    await waitFor(() => {
+      expect(screen.getByTestId('loading')).toHaveTextContent('false');
+    });
+
+    expect(screen.getByTestId('activity-bad-date-repo')).toHaveTextContent(
+      'CI #1',
+    );
+  });
+
+  it('handles GitLab pipeline with non-string created_at and web_url', async () => {
+    mockBatchResponse({
+      'component:default/gl-bad-fields': {
+        status: 200,
+        data: [
+          {
+            id: 55,
+            created_at: null,
+            web_url: 12345,
+          },
+        ],
+      },
+    });
+
+    renderTestConsumer([createGitLabEntity('gl-bad-fields')]);
+
+    await waitFor(() => {
+      expect(screen.getByTestId('loading')).toHaveTextContent('false');
+    });
+
+    expect(screen.getByTestId('activity-gl-bad-fields')).toHaveTextContent(
+      'Pipeline #55',
+    );
+  });
+
+  it('handles GitHub data where workflow_runs is not an array', async () => {
+    mockBatchResponse({
+      'component:default/bad-runs-repo': {
+        status: 200,
+        data: { workflow_runs: 'not-an-array' },
+      },
+    });
+
+    renderTestConsumer([createGitHubEntity('bad-runs-repo')]);
+
+    await waitFor(() => {
+      expect(screen.getByTestId('loading')).toHaveTextContent('false');
+    });
+
+    expect(screen.getByTestId('activity-bad-runs-repo')).toHaveTextContent(
+      'N/A',
+    );
+  });
+
+  it('handles GitLab data that is not an array', async () => {
+    mockBatchResponse({
+      'component:default/gl-bad-data': {
+        status: 200,
+        data: { not: 'an-array' },
+      },
+    });
+
+    renderTestConsumer([createGitLabEntity('gl-bad-data')]);
+
+    await waitFor(() => {
+      expect(screen.getByTestId('loading')).toHaveTextContent('false');
+    });
+
+    expect(screen.getByTestId('activity-gl-bad-data')).toHaveTextContent('N/A');
+  });
+
+  it('handles entity with no batch items (no SCM annotations)', async () => {
+    const bareEntity: Entity = {
+      apiVersion: 'backstage.io/v1alpha1',
+      kind: 'Component',
+      metadata: { name: 'bare-entity' },
+      spec: {},
+    };
+
+    renderTestConsumer([bareEntity]);
+
+    await waitFor(() => {
+      expect(screen.getByTestId('loading')).toHaveTextContent('false');
+    });
+
+    expect(screen.getByTestId('activity-bare-entity')).toHaveTextContent('N/A');
+  });
 });

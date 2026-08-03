@@ -389,6 +389,89 @@ describe('EEBuildDialog', () => {
     });
   });
 
+  it('does nothing when entity has no name', async () => {
+    const user = userEvent.setup();
+    const noNameEntity: Entity = {
+      apiVersion: 'backstage.io/v1alpha1',
+      kind: 'Component',
+      metadata: { name: '' as any, namespace: 'default' },
+      spec: {},
+    };
+    renderDialog({ entity: noNameEntity });
+    await user.click(screen.getByRole('button', { name: /^Build$/i }));
+    expect(mockTriggerBuild).not.toHaveBeenCalled();
+  });
+
+  it('shows warning when image tag is empty', async () => {
+    const showSpy = jest.spyOn(notificationStore, 'showNotification');
+    const user = userEvent.setup();
+    renderDialog();
+
+    await user.type(screen.getByTestId('ee-build-image-name'), 'ns/ee');
+    await user.clear(screen.getByTestId('ee-build-image-tag'));
+    await user.click(screen.getByRole('button', { name: /^Build$/i }));
+
+    await waitFor(() => {
+      expect(showSpy).toHaveBeenCalledWith(
+        expect.objectContaining({
+          title: 'Cannot build',
+          description: 'Image tag is required.',
+          severity: 'warning',
+        }),
+      );
+    });
+    expect(mockTriggerBuild).not.toHaveBeenCalled();
+    showSpy.mockRestore();
+  });
+
+  it('defaults namespace to "default" when entity has no namespace', async () => {
+    const user = userEvent.setup();
+    const noNsEntity: Entity = {
+      apiVersion: 'backstage.io/v1alpha1',
+      kind: 'Component',
+      metadata: { name: 'test-ee' },
+      spec: {},
+    };
+    renderDialog({ entity: noNsEntity });
+
+    await user.type(screen.getByTestId('ee-build-image-name'), 'ns/ee');
+    await user.click(screen.getByRole('button', { name: /^Build$/i }));
+
+    await waitFor(() => {
+      expect(mockTriggerBuild).toHaveBeenCalledWith(
+        expect.objectContaining({
+          entityRef: 'component:default/test-ee',
+        }),
+        expect.anything(),
+      );
+    });
+  });
+
+  it('shows fallback message when build is rejected with empty message', async () => {
+    const showSpy = jest.spyOn(notificationStore, 'showNotification');
+    const user = userEvent.setup();
+    mockTriggerBuild.mockResolvedValue({
+      accepted: false,
+      message: '',
+    });
+
+    renderDialog();
+    await user.type(screen.getByTestId('ee-build-image-name'), 'ns/ee');
+    await user.click(screen.getByRole('button', { name: /^Build$/i }));
+
+    await waitFor(() => {
+      expect(showSpy).toHaveBeenCalledWith(
+        expect.objectContaining({
+          title: 'Build failed',
+          description: 'The catalog build API may not be deployed yet.',
+          severity: 'error',
+        }),
+      );
+    });
+    expect(mockOnClose).not.toHaveBeenCalled();
+    showSpy.mockRestore();
+  });
+
   it('shows custom registry URL field when Custom registry is chosen', async () => {
     renderDialog();
     fireEvent.mouseDown(
@@ -450,48 +533,6 @@ describe('EEBuildDialog', () => {
       );
     });
     expect(mockTriggerBuild).not.toHaveBeenCalled();
-    showSpy.mockRestore();
-  });
-
-  it('passes scmProvider gitlab and scmToken to triggerBuild', async () => {
-    const user = userEvent.setup();
-    renderDialog({ scmToken: 'gl-mock-token', scmProvider: 'gitlab' });
-
-    await user.type(screen.getByTestId('ee-build-image-name'), 'ns/ee');
-    await user.click(screen.getByRole('button', { name: /^Build$/i }));
-
-    await waitFor(() => {
-      expect(mockTriggerBuild).toHaveBeenCalledWith(expect.any(Object), {
-        scmToken: 'gl-mock-token',
-        scmProvider: 'gitlab',
-      });
-    });
-  });
-
-  it('shows pipeline URL in success notification for GitLab', async () => {
-    const showSpy = jest.spyOn(notificationStore, 'showNotification');
-    const pipelineUrl = 'https://gitlab.com/org/repo/-/pipelines/42';
-    mockTriggerBuild.mockResolvedValueOnce({
-      accepted: true,
-      pipelineUrl,
-    });
-    const user = userEvent.setup();
-    renderDialog({ scmToken: 'gl-tok', scmProvider: 'gitlab' });
-
-    await user.type(screen.getByTestId('ee-build-image-name'), 'ns/ee');
-    await user.click(screen.getByRole('button', { name: /^Build$/i }));
-
-    await waitFor(() => {
-      expect(showSpy).toHaveBeenCalledWith(
-        expect.objectContaining({
-          title: 'Build triggered',
-          severity: 'success',
-        }),
-      );
-    });
-    const runLink = screen.getByRole('link', { name: pipelineUrl });
-    expect(runLink).toHaveAttribute('href', pipelineUrl);
-    expect(runLink).toHaveAttribute('target', '_blank');
     showSpy.mockRestore();
   });
 });

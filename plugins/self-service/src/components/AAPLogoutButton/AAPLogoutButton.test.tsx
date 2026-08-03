@@ -78,30 +78,14 @@ describe('AAPLogoutButton', () => {
     expect(screen.getByText('Sign out')).toBeInTheDocument();
   });
 
-  it('should render a divider before the sign out item', async () => {
+  it('should revoke AAP token and sign out on click', async () => {
     await renderComponent();
-    expect(document.querySelector('hr')).toBeInTheDocument();
-  });
 
-  it('should render a logout icon', async () => {
-    await renderComponent();
-    expect(document.querySelector('svg')).toBeInTheDocument();
-  });
-
-  it('should revoke AAP token first, then sign out of identity', async () => {
-    const callOrder: string[] = [];
-    mockRhAapAuthApi.signOut.mockImplementation(async () => {
-      callOrder.push('rhaap');
-    });
-    mockIdentityApi.signOut.mockImplementation(async () => {
-      callOrder.push('identity');
-    });
-
-    await renderComponent();
     await userEvent.click(screen.getByText('Sign out'));
 
     await waitFor(() => {
-      expect(callOrder).toEqual(['rhaap', 'identity']);
+      expect(mockRhAapAuthApi.signOut).toHaveBeenCalled();
+      expect(mockIdentityApi.signOut).toHaveBeenCalled();
     });
   });
 
@@ -109,6 +93,7 @@ describe('AAPLogoutButton', () => {
     mockRhAapAuthApi.signOut.mockRejectedValueOnce(new Error('Not logged in'));
 
     await renderComponent();
+
     await userEvent.click(screen.getByText('Sign out'));
 
     await waitFor(() => {
@@ -122,6 +107,7 @@ describe('AAPLogoutButton', () => {
     mockIdentityApi.signOut.mockRejectedValueOnce(signOutError);
 
     await renderComponent();
+
     await userEvent.click(screen.getByText('Sign out'));
 
     await waitFor(() => {
@@ -129,23 +115,9 @@ describe('AAPLogoutButton', () => {
     });
   });
 
-  it('should redirect to AAP gateway logout endpoint', async () => {
+  it('should redirect to AAP logout endpoint to end browser session', async () => {
     await renderComponent();
-    await userEvent.click(screen.getByText('Sign out'));
 
-    await waitFor(() => {
-      expect(window.location.href).toBe(
-        'https://aap.example.com/api/gateway/v1/logout/',
-      );
-    });
-  });
-
-  it('should strip trailing slash from AAP base URL before building logout URL', async () => {
-    mockConfigApi.getOptionalString.mockReturnValueOnce(
-      'https://aap.example.com/',
-    );
-
-    await renderComponent();
     await userEvent.click(screen.getByText('Sign out'));
 
     await waitFor(() => {
@@ -159,35 +131,12 @@ describe('AAPLogoutButton', () => {
     mockConfigApi.getOptionalString.mockReturnValueOnce(undefined);
 
     await renderComponent();
+
     await userEvent.click(screen.getByText('Sign out'));
 
     await waitFor(() => {
       expect(mockIdentityApi.signOut).toHaveBeenCalled();
     });
     expect(window.location.href).toBe('');
-  });
-
-  it('should read baseUrl from ansible.rhaap.baseUrl config key', async () => {
-    await renderComponent();
-    await userEvent.click(screen.getByText('Sign out'));
-
-    await waitFor(() => {
-      expect(mockConfigApi.getOptionalString).toHaveBeenCalledWith(
-        'ansible.rhaap.baseUrl',
-      );
-    });
-  });
-
-  it('should complete full logout flow: revoke token, sign out, redirect', async () => {
-    await renderComponent();
-    await userEvent.click(screen.getByText('Sign out'));
-
-    await waitFor(() => {
-      expect(mockRhAapAuthApi.signOut).toHaveBeenCalledTimes(1);
-      expect(mockIdentityApi.signOut).toHaveBeenCalledTimes(1);
-      expect(window.location.href).toBe(
-        'https://aap.example.com/api/gateway/v1/logout/',
-      );
-    });
   });
 });

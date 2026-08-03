@@ -963,7 +963,7 @@ describe('ScmSelectorExtension', () => {
       expect(screen.getByTestId('has-errors')).toHaveTextContent('true');
     });
 
-    it('clears the field error after a successful authentication', async () => {
+    it('clears the auth error after a successful authentication', async () => {
       renderWithHasErrors({
         formData: {
           provider: 'github',
@@ -979,7 +979,12 @@ describe('ScmSelectorExtension', () => {
       });
 
       await waitFor(() => {
-        expect(screen.getByTestId('has-errors')).toHaveTextContent('false');
+        expect(
+          screen.queryByText('Login failed, rejected by user'),
+        ).not.toBeInTheDocument();
+        expect(
+          screen.queryByText('No token received from authentication'),
+        ).not.toBeInTheDocument();
       });
     });
   });

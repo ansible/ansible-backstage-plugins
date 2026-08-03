@@ -372,6 +372,45 @@ describe('usePaginatedCollections', () => {
       });
     });
 
+    it('handles sync status response with missing content field', async () => {
+      mockFetchApi.fetch.mockResolvedValue({
+        ok: true,
+        json: () => Promise.resolve({}),
+      });
+
+      const { result } = renderHook(
+        () =>
+          usePaginatedCollections({
+            catalogApi: mockCatalogApi as any,
+            discoveryApi: mockDiscoveryApi as any,
+            fetchApi: mockFetchApi as any,
+          }),
+        { wrapper },
+      );
+
+      await waitFor(() => {
+        expect(result.current.hasConfiguredSources).toBe(false);
+      });
+    });
+
+    it('handles sync status fetch throwing error', async () => {
+      mockFetchApi.fetch.mockRejectedValue(new Error('Network error'));
+
+      const { result } = renderHook(
+        () =>
+          usePaginatedCollections({
+            catalogApi: mockCatalogApi as any,
+            discoveryApi: mockDiscoveryApi as any,
+            fetchApi: mockFetchApi as any,
+          }),
+        { wrapper },
+      );
+
+      await waitFor(() => {
+        expect(result.current.hasConfiguredSources).toBe(false);
+      });
+    });
+
     it('sets hasConfiguredSources to false when fetch fails', async () => {
       mockFetchApi.fetch.mockResolvedValue({
         ok: false,
@@ -479,6 +518,255 @@ describe('usePaginatedCollections', () => {
         expect(result.current.entities[0]?.metadata?.name).toBe(
           'another-collection',
         );
+      });
+    });
+
+    it('filters SCM-sourced entities by scm-host-name', async () => {
+      const scmEntity: Entity = {
+        ...mockEntity,
+        metadata: {
+          ...mockEntity.metadata,
+          name: 'scm-collection',
+          uid: 'uid-scm',
+          annotations: {
+            'ansible.io/discovery-source-id': 'src-scm',
+            'ansible.io/collection-source': 'scm',
+            'ansible.io/scm-host-name': 'github.com',
+          },
+        },
+        spec: {
+          ...mockEntity.spec,
+          collection_full_name: 'scm_ns.scm_collection',
+          collection_namespace: 'scm_ns',
+          collection_name: 'scm_collection',
+        },
+      };
+
+      mockCatalogApi.queryEntities.mockResolvedValue({
+        items: [mockEntity, scmEntity],
+        totalItems: 2,
+      });
+
+      const { result } = renderHook(
+        () =>
+          usePaginatedCollections({
+            catalogApi: mockCatalogApi as any,
+            discoveryApi: mockDiscoveryApi as any,
+            fetchApi: mockFetchApi as any,
+          }),
+        { wrapper },
+      );
+
+      await waitFor(() => {
+        expect(result.current.initialLoading).toBe(false);
+      });
+
+      act(() => {
+        result.current.setSourceFilter('github.com');
+      });
+
+      await waitFor(() => {
+        expect(result.current.totalCount).toBe(1);
+        expect(result.current.entities[0]?.metadata?.name).toBe(
+          'scm-collection',
+        );
+      });
+    });
+
+    it('handles entity with no annotations using fallback', async () => {
+      const noAnnotationsEntity: Entity = {
+        apiVersion: 'backstage.io/v1alpha1',
+        kind: 'Component',
+        metadata: {
+          name: 'bare-collection',
+          uid: 'uid-bare',
+        },
+        spec: {
+          type: 'ansible-collection',
+          collection_full_name: 'bare_ns.bare_collection',
+          collection_namespace: 'bare_ns',
+          collection_name: 'bare_collection',
+          collection_version: '1.0.0',
+        },
+      };
+
+      mockCatalogApi.queryEntities.mockResolvedValue({
+        items: [noAnnotationsEntity],
+        totalItems: 1,
+      });
+
+      const { result } = renderHook(
+        () =>
+          usePaginatedCollections({
+            catalogApi: mockCatalogApi as any,
+            discoveryApi: mockDiscoveryApi as any,
+            fetchApi: mockFetchApi as any,
+          }),
+        { wrapper },
+      );
+
+      await waitFor(() => {
+        expect(result.current.initialLoading).toBe(false);
+      });
+
+      expect(result.current.totalCount).toBe(1);
+    });
+
+    it('filters by search query on namespace', async () => {
+      const { result } = renderHook(
+        () =>
+          usePaginatedCollections({
+            catalogApi: mockCatalogApi as any,
+            discoveryApi: mockDiscoveryApi as any,
+            fetchApi: mockFetchApi as any,
+          }),
+        { wrapper },
+      );
+
+      await waitFor(() => {
+        expect(result.current.initialLoading).toBe(false);
+      });
+
+      act(() => {
+        result.current.setSearchQuery('ns2');
+      });
+
+      await waitFor(() => {
+        expect(result.current.totalCount).toBe(1);
+        expect(result.current.entities[0]?.metadata?.name).toBe(
+          'another-collection',
+        );
+      });
+    });
+
+    it('filters by search query on description', async () => {
+      const entityWithDesc: Entity = {
+        ...mockEntity,
+        metadata: {
+          ...mockEntity.metadata,
+          name: 'desc-collection',
+          uid: 'uid-desc',
+          description: 'unique-description-text',
+        },
+        spec: {
+          ...mockEntity.spec,
+          collection_full_name: 'desc_ns.desc_collection',
+          collection_namespace: 'desc_ns',
+          collection_name: 'desc_collection',
+        },
+      };
+
+      mockCatalogApi.queryEntities.mockResolvedValue({
+        items: [mockEntity, entityWithDesc],
+        totalItems: 2,
+      });
+
+      const { result } = renderHook(
+        () =>
+          usePaginatedCollections({
+            catalogApi: mockCatalogApi as any,
+            discoveryApi: mockDiscoveryApi as any,
+            fetchApi: mockFetchApi as any,
+          }),
+        { wrapper },
+      );
+
+      await waitFor(() => {
+        expect(result.current.initialLoading).toBe(false);
+      });
+
+      act(() => {
+        result.current.setSearchQuery('unique-description');
+      });
+
+      await waitFor(() => {
+        expect(result.current.totalCount).toBe(1);
+        expect(result.current.entities[0]?.metadata?.name).toBe(
+          'desc-collection',
+        );
+      });
+    });
+
+    it('filters by search query on tags', async () => {
+      const { result } = renderHook(
+        () =>
+          usePaginatedCollections({
+            catalogApi: mockCatalogApi as any,
+            discoveryApi: mockDiscoveryApi as any,
+            fetchApi: mockFetchApi as any,
+          }),
+        { wrapper },
+      );
+
+      await waitFor(() => {
+        expect(result.current.initialLoading).toBe(false);
+      });
+
+      act(() => {
+        result.current.setSearchQuery('networking');
+      });
+
+      await waitFor(() => {
+        expect(result.current.totalCount).toBe(1);
+        expect(result.current.entities[0]?.metadata?.name).toBe(
+          'test-collection',
+        );
+      });
+    });
+
+    it('shows all versions when showLatestOnly is false', async () => {
+      const version1: Entity = {
+        ...mockEntity,
+        metadata: {
+          ...mockEntity.metadata,
+          name: 'collection-v1',
+          uid: 'uid-v1',
+        },
+        spec: {
+          ...mockEntity.spec,
+          collection_full_name: 'ns.versioned_collection',
+          collection_version: '1.0.0',
+        },
+      };
+      const version2: Entity = {
+        ...mockEntity,
+        metadata: {
+          ...mockEntity.metadata,
+          name: 'collection-v2',
+          uid: 'uid-v2',
+        },
+        spec: {
+          ...mockEntity.spec,
+          collection_full_name: 'ns.versioned_collection',
+          collection_version: '2.0.0',
+        },
+      };
+
+      mockCatalogApi.queryEntities.mockResolvedValue({
+        items: [version1, version2],
+        totalItems: 2,
+      });
+
+      const { result } = renderHook(
+        () =>
+          usePaginatedCollections({
+            catalogApi: mockCatalogApi as any,
+            discoveryApi: mockDiscoveryApi as any,
+            fetchApi: mockFetchApi as any,
+          }),
+        { wrapper },
+      );
+
+      await waitFor(() => {
+        expect(result.current.initialLoading).toBe(false);
+      });
+
+      act(() => {
+        result.current.setShowLatestOnly(false);
+      });
+
+      await waitFor(() => {
+        expect(result.current.totalCount).toBe(2);
       });
     });
 

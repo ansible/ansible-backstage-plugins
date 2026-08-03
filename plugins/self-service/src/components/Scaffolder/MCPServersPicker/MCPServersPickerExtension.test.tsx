@@ -266,7 +266,7 @@ describe('MCPServersPickerExtension', () => {
       const noteBoxes = screen.getAllByText(
         "Update the 'mcp-vars.yaml' file if you want to override the default variables for the MCP servers selected for installation.",
       );
-      expect(noteBoxes).toHaveLength(1);
+      expect(noteBoxes.length).toBe(1);
     });
 
     it('hides note box when all cards are deselected', () => {
@@ -422,6 +422,40 @@ describe('MCPServersPickerExtension', () => {
       rerender(<MCPServersPickerExtension {...props} formData={['server3']} />);
       expect(screen.getByLabelText('Deselect server3')).toBeInTheDocument();
       expect(screen.getByLabelText('Select server1')).toBeInTheDocument();
+    });
+  });
+
+  describe('Icon Assignment', () => {
+    it('assigns GitHub icon for server with github in name', () => {
+      const props = createMockProps({
+        schema: { items: { enum: ['my-github-server'] } },
+      });
+      render(<MCPServersPickerExtension {...props} />);
+      expect(screen.getByText('my-github-server')).toBeInTheDocument();
+    });
+
+    it('assigns GitLab icon for server with gitlab in name', () => {
+      const props = createMockProps({
+        schema: { items: { enum: ['gitlab-runner'] } },
+      });
+      render(<MCPServersPickerExtension {...props} />);
+      expect(screen.getByText('gitlab-runner')).toBeInTheDocument();
+    });
+
+    it('assigns Cloud icon for server with cloud in name', () => {
+      const props = createMockProps({
+        schema: { items: { enum: ['aws-cloud-server'] } },
+      });
+      render(<MCPServersPickerExtension {...props} />);
+      expect(screen.getByText('aws-cloud-server')).toBeInTheDocument();
+    });
+
+    it('assigns Storage icon for server with database in name', () => {
+      const props = createMockProps({
+        schema: { items: { enum: ['database-primary'] } },
+      });
+      render(<MCPServersPickerExtension {...props} />);
+      expect(screen.getByText('database-primary')).toBeInTheDocument();
     });
   });
 
