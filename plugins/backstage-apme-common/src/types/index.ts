@@ -219,6 +219,93 @@ export interface ApmeAiStatus {
   modelCount: number;
 }
 
+/** Engine descriptor from GET /api/v1/ai/engines (Gateway → Abbenay). */
+export interface ApmeAiEngineInfo {
+  id: string;
+  requiresKey: boolean;
+  defaultBaseUrl?: string;
+  defaultEnvVar?: string;
+}
+
+/** Response shape of GET /api/v1/ai/engines. */
+export interface ApmeAiEnginesResponse {
+  engines: ApmeAiEngineInfo[];
+}
+
+/** Provider summary returned by the portal catalog proxy — no secrets. */
+export interface ApmeAiProviderSummary {
+  id: string;
+  engine: string;
+  models: string[];
+}
+
+/** Raw shape of GET /api/v1/ai/config from the Gateway. */
+export interface ApmeAiConfigResponse {
+  config?: {
+    providers?: unknown;
+  };
+  path?: string;
+  [key: string]: unknown;
+}
+
+/** Request body for POST …/provider/{id}/configure (US-016). */
+export interface ApmeAiProviderConfigureRequest {
+  engine: string;
+  /** Write-only — omit when empty to leave unchanged. */
+  api_key?: string;
+  base_url?: string;
+  /** Model ids as Record<id, {}> (empty metadata). */
+  models?: Record<string, Record<string, unknown>>;
+}
+
+function normalizeProviderEntry(p: unknown): ApmeAiProviderSummary {
+  if (!p || typeof p !== 'object') {
+    return { id: String(p ?? ''), engine: '', models: [] };
+  }
+  const obj = p as Record<string, unknown>;
+  const id = typeof obj.id === 'string' ? obj.id : String(obj.id ?? '');
+  const engine = typeof obj.engine === 'string' ? obj.engine : '';
+  let models: string[] = [];
+  if (Array.isArray(obj.models)) {
+    models = obj.models.filter((m): m is string => typeof m === 'string');
+  } else if (obj.models && typeof obj.models === 'object') {
+    models = Object.keys(obj.models as Record<string, unknown>);
+  }
+  return { id, engine, models };
+}
+
+/**
+ * Normalise the raw AI providers response from the Gateway into a flat array.
+ * Handles: bare array, `{providers: array}`, `{providers: record}`,
+ * and `{config: {providers: record}}`. Never exposes secrets.
+ */
+export function normalizeApmeAiProviders(raw: unknown): ApmeAiProviderSummary[] {
+  if (Array.isArray(raw)) {
+    return raw.map(p => normalizeProviderEntry(p));
+  }
+  if (raw && typeof raw === 'object') {
+    const obj = raw as Record<string, unknown>;
+    const providersSource = 'providers' in obj
+      ? obj.providers
+      : obj.config && typeof obj.config === 'object'
+        ? (obj.config as Record<string, unknown>).providers
+        : undefined;
+    if (Array.isArray(providersSource)) {
+      return providersSource.map(p => normalizeProviderEntry(p));
+    }
+    if (providersSource && typeof providersSource === 'object') {
+      return Object.entries(providersSource as Record<string, unknown>).map(
+        ([id, val]) =>
+          normalizeProviderEntry({
+            id,
+            ...(typeof val === 'object' && val !== null ? val : {}),
+          }),
+      );
+    }
+  }
+  return [];
+}
+
 export interface CreatePullRequestResult {
   pr_url: string;
   branch_name?: string;

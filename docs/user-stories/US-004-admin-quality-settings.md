@@ -49,6 +49,8 @@ yarn workspace @ansible/plugin-backstage-apme test \
 - Prefill helper: `resolveDefaultAnsibleVersionForScan`.
 - AI gate shown read-only from settings (`ansible.apme.enableAi` app-config);
   not editable in UI.
+- AI provider CRUD (add/edit/remove Abbenay providers) is out of scope here —
+  see [US-016](US-016-abbenay-providers-quality-settings.md).
 - Dropped from prototype port: Rules admin, Fleet, `ApmeAdminCard`, Portal-side
   SCM, per-project scan-target UI (APIs remain for later).
 - Upstream J6 also mentions gateway health / rules — out of slim EAP surface.

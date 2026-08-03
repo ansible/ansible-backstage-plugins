@@ -25,6 +25,7 @@ import {
   getApmeConfig,
   isAllowedAnsibleCoreVersion,
   mergeActivityPortalOutcomes,
+  normalizeApmeAiProviders,
   resolveScanTarget,
 } from '@ansible/backstage-apme-common';
 import {
@@ -260,6 +261,48 @@ export async function createRouter(options: RouterOptions): Promise<Router> {
     await ensureUser(req);
     const models = await apmeService.getAiModels();
     res.json(models);
+  });
+
+  // US-016: Abbenay AI provider CRUD (portal → Gateway ADR-070 → Abbenay).
+  router.get('/apme/ai/config', async (req, res) => {
+    await ensureUser(req);
+    const config = await apmeService.getAiConfig();
+    res.json(config);
+  });
+
+  router.post('/apme/ai/config', jsonBody, async (req, res) => {
+    await ensureUser(req);
+    const result = await apmeService.updateAiConfig(req.body);
+    res.json(result);
+  });
+
+  router.get('/apme/ai/providers', async (req, res) => {
+    await ensureUser(req);
+    const raw = await apmeService.getAiProviders();
+    res.json(normalizeApmeAiProviders(raw));
+  });
+
+  router.get('/apme/ai/engines', async (req, res) => {
+    await ensureUser(req);
+    const result = await apmeService.getAiEngines();
+    res.json(result);
+  });
+
+  router.post('/apme/ai/provider/:id/configure', jsonBody, async (req, res) => {
+    await ensureUser(req);
+    const { id } = req.params;
+    if (!id) {
+      throw new InputError('Provider id is required');
+    }
+    const result = await apmeService.configureAiProvider(id, req.body);
+    res.json(result);
+  });
+
+  router.delete('/apme/ai/provider/:id', async (req, res) => {
+    await ensureUser(req);
+    const { id } = req.params;
+    await apmeService.deleteAiProvider(id);
+    res.status(204).send();
   });
 
   router.get('/apme/projects', async (req, res) => {

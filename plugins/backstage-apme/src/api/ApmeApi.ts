@@ -33,6 +33,9 @@ import type {
   SubmitRemediationResult,
   ApmePortalSettings,
   ApmeAiStatus,
+  ApmeAiProviderSummary,
+  ApmeAiProviderConfigureRequest,
+  ApmeAiEnginesResponse,
   ProjectDependencies,
   RuleConfigUpdate,
   CreateSuppressionRequest,
@@ -69,6 +72,15 @@ export interface ApmeApi {
     body: UpdateProjectScanTargetRequest,
   ): Promise<ProjectScanTarget>;
   getAiStatus(): Promise<ApmeAiStatus>;
+  /** Inference models from Primary (ListAIModels) — not the Abbenay admin providers list. */
+  getAiModels(): Promise<Array<{ id: string; provider: string; name: string }>>;
+  getAiConfig(): Promise<unknown>;
+  updateAiConfig(body: unknown): Promise<unknown>;
+  getAiProviders(): Promise<ApmeAiProviderSummary[]>;
+  /** Engine descriptors from Gateway → Abbenay GET /api/v1/ai/engines. */
+  getAiEngines(): Promise<ApmeAiEnginesResponse>;
+  configureAiProvider(id: string, body: ApmeAiProviderConfigureRequest): Promise<unknown>;
+  deleteAiProvider(id: string): Promise<void>;
   getProjects(): Promise<Project[]>;
   getProject(projectId: string): Promise<Project>;
   getProjectByRepoUrl(
@@ -251,6 +263,52 @@ export class ApmeApiClient implements ApmeApi {
 
   async getAiStatus(): Promise<ApmeAiStatus> {
     return this.fetch<ApmeAiStatus>('/ai/status');
+  }
+
+  async getAiModels(): Promise<
+    Array<{ id: string; provider: string; name: string }>
+  > {
+    return this.fetch<Array<{ id: string; provider: string; name: string }>>(
+      '/ai/models',
+    );
+  }
+
+  async getAiConfig(): Promise<unknown> {
+    return this.fetch<unknown>('/ai/config');
+  }
+
+  async updateAiConfig(body: unknown): Promise<unknown> {
+    return this.fetch<unknown>('/ai/config', {
+      method: 'POST',
+      body: JSON.stringify(body),
+    });
+  }
+
+  async getAiProviders(): Promise<ApmeAiProviderSummary[]> {
+    return this.fetch<ApmeAiProviderSummary[]>('/ai/providers');
+  }
+
+  async configureAiProvider(
+    id: string,
+    body: ApmeAiProviderConfigureRequest,
+  ): Promise<unknown> {
+    return this.fetch<unknown>(
+      `/ai/provider/${encodeURIComponent(id)}/configure`,
+      {
+        method: 'POST',
+        body: JSON.stringify(body),
+      },
+    );
+  }
+
+  async deleteAiProvider(id: string): Promise<void> {
+    await this.fetch<void>(`/ai/provider/${encodeURIComponent(id)}`, {
+      method: 'DELETE',
+    });
+  }
+
+  async getAiEngines(): Promise<ApmeAiEnginesResponse> {
+    return this.fetch<ApmeAiEnginesResponse>('/ai/engines');
   }
 
   async getProjects(): Promise<Project[]> {

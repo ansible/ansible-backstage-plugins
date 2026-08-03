@@ -43,6 +43,8 @@ import {
   SubmitRemediationRequest,
   SubmitRemediationResult,
   ScanTriggerOptions,
+  ApmeAiProviderConfigureRequest,
+  ApmeAiEnginesResponse,
 } from '../types';
 
 export interface ApmeClientOptions {
@@ -168,6 +170,57 @@ export class ApmeClient {
     } catch {
       return [];
     }
+  }
+
+  async getAiConfig(): Promise<unknown> {
+    try {
+      return await this.executeRequest<unknown>('/api/v1/ai/config');
+    } catch {
+      return {};
+    }
+  }
+
+  async updateAiConfig(body: unknown): Promise<unknown> {
+    return this.executeRequest<unknown>('/api/v1/ai/config', {
+      method: 'POST',
+      body: JSON.stringify(body),
+    });
+  }
+
+  async getAiProviders(): Promise<unknown> {
+    try {
+      return await this.executeRequest<unknown>('/api/v1/ai/providers');
+    } catch {
+      return [];
+    }
+  }
+
+  async getAiEngines(): Promise<ApmeAiEnginesResponse> {
+    try {
+      return await this.executeRequest<ApmeAiEnginesResponse>('/api/v1/ai/engines');
+    } catch {
+      return { engines: [] };
+    }
+  }
+
+  async configureAiProvider(
+    id: string,
+    body: ApmeAiProviderConfigureRequest,
+  ): Promise<unknown> {
+    return this.executeRequest<unknown>(
+      `/api/v1/ai/provider/${encodeURIComponent(id)}/configure`,
+      {
+        method: 'POST',
+        body: JSON.stringify(body),
+      },
+    );
+  }
+
+  async deleteAiProvider(id: string): Promise<void> {
+    await this.executeRequest<void>(
+      `/api/v1/ai/provider/${encodeURIComponent(id)}`,
+      { method: 'DELETE' },
+    );
   }
 
   async getProjects(): Promise<Project[]> {
@@ -471,6 +524,12 @@ export type IApmeService = Pick<
   ApmeClient,
   | 'getHealth'
   | 'getAiModels'
+  | 'getAiConfig'
+  | 'updateAiConfig'
+  | 'getAiProviders'
+  | 'getAiEngines'
+  | 'configureAiProvider'
+  | 'deleteAiProvider'
   | 'getProjects'
   | 'getProject'
   | 'getProjectByRepoUrl'

@@ -11,10 +11,18 @@ import { ApmeQualitySettingsTab } from './ApmeQualitySettingsTab';
 describe('ApmeQualitySettingsTab', () => {
   const getPortalSettings = jest.fn();
   const updatePortalSettings = jest.fn();
+  const getAiProviders = jest.fn();
+  const getAiStatus = jest.fn();
+  const configureAiProvider = jest.fn();
+  const deleteAiProvider = jest.fn();
 
   const apmeApi = {
     getPortalSettings,
     updatePortalSettings,
+    getAiProviders,
+    getAiStatus,
+    configureAiProvider,
+    deleteAiProvider,
   };
 
   beforeEach(() => {
@@ -29,6 +37,8 @@ describe('ApmeQualitySettingsTab', () => {
       publishViaGateway: true,
       targetAnsibleCoreVersion: '2.18',
     });
+    getAiProviders.mockResolvedValue([]);
+    getAiStatus.mockResolvedValue({ enableAi: true, connected: false, modelCount: 0 });
   });
 
   function renderTab() {
@@ -75,5 +85,12 @@ describe('ApmeQualitySettingsTab', () => {
     getPortalSettings.mockRejectedValueOnce(new Error('settings unavailable'));
     renderTab();
     expect(await screen.findByText(/settings unavailable/i)).toBeInTheDocument();
+  });
+
+  it('renders the AI providers card below quality settings', async () => {
+    renderTab();
+    expect(await screen.findByText('Quality settings')).toBeInTheDocument();
+    expect(await screen.findByText('AI providers')).toBeInTheDocument();
+    expect(getAiProviders).toHaveBeenCalled();
   });
 });

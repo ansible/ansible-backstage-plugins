@@ -24,6 +24,7 @@ import { Progress } from '@backstage/core-components';
 import { ansibleCoreVersionOptions } from '@ansible/backstage-apme-common/ansibleCoreVersionOptions';
 import { DEFAULT_APME_TARGET_ANSIBLE_CORE_VERSION } from '@ansible/backstage-apme-common/scanTargetDefaults';
 import { apmeApiRef } from '../../api';
+import { ApmeAiProvidersSection } from './ApmeAiProvidersSection';
 
 const useStyles = makeStyles(theme => ({
   root: {
@@ -189,6 +190,10 @@ export const ApmeQualitySettingsTab = () => {
           </Typography>
         </CardContent>
       </Card>
+
+      <Box mt={3}>
+        <ApmeAiProvidersSection />
+      </Box>
     </Box>
   );
 };

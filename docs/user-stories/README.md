@@ -37,3 +37,4 @@ after verified in the local loop (`make react` and/or RHDH dynamic plugins).
 | [US-013](US-013-content-health-dashboard.md) | Content Health dashboard | J11 | Deferred |
 | [US-014](US-014-message-inbox.md) | Message inbox | J12 | Deferred |
 | [US-015](US-015-eap-feedback.md) | Submit EAP feedback | J13 | Planned |
+| [US-016](US-016-abbenay-providers-quality-settings.md) | Abbenay AI providers on Quality settings | J6 | Complete |
