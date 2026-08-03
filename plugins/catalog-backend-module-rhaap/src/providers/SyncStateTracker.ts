@@ -31,6 +31,9 @@ export class SyncStateTracker {
         message: {
           provider: this.providerName ?? 'unknown',
           syncInProgress,
+          lastSyncTime: this.lastSyncTime,
+          lastSyncStatus: this.lastSyncStatus,
+          lastFailedSyncTime: this.lastFailedSyncTime,
         },
       })
       .catch(() => {});

@@ -58,6 +58,14 @@ import {
 } from '../notifications';
 
 const headerStyles = makeStyles(theme => ({
+  '@keyframes spin': {
+    from: { transform: 'rotate(0deg)' },
+    to: { transform: 'rotate(360deg)' },
+  },
+  syncSpinning: {
+    animation: '$spin 1.5s linear infinite',
+    willChange: 'transform',
+  },
   header_title_color: {
     color: theme.palette.type === 'light' ? 'rgba(0, 0, 0, 0.87)' : '#ffffff',
   },
@@ -315,7 +323,25 @@ export const HomeComponent = () => {
   const { lastSignal: syncSignal } = useSignal<{
     provider: string;
     syncInProgress: boolean;
+    lastSyncTime: string | null;
+    lastSyncStatus: 'success' | 'failure' | null;
+    lastFailedSyncTime: string | null;
   }>('catalog:aap-sync-status');
+
+  useEffect(() => {
+    if (!syncSignal || syncSignal.syncInProgress) return;
+    const isJT = syncSignal.provider.startsWith('aap-job-template');
+    const key = isJT ? 'jobTemplates' : 'orgsUsersTeams';
+    setSyncStatus(prev => ({
+      ...prev,
+      [key]: {
+        ...prev[key],
+        lastSync: syncSignal.lastSyncTime,
+        syncInProgress: false,
+      },
+    }));
+  }, [syncSignal]);
+
   const isSyncInProgress =
     localSyncing ||
     syncSignal?.syncInProgress ||
@@ -545,7 +571,13 @@ export const HomeComponent = () => {
                           textDecoration: 'underline',
                         }}
                       >
-                        Sync now <Sync fontSize="small" />
+                        {isSyncInProgress ? 'Syncing...' : 'Sync now'}{' '}
+                        <Sync
+                          fontSize="small"
+                          className={
+                            isSyncInProgress ? classes.syncSpinning : undefined
+                          }
+                        />
                         <Tooltip title="Sync AAP Job Templates, Organizations, Users, and Teams from AAP to automation portal.">
                           <Info
                             fontSize="small"
