@@ -16,6 +16,7 @@ export type AapConfig = {
   token: string;
   checkSSL: boolean;
   schedule?: SchedulerServiceTaskScheduleDefinition;
+  multiOrgEnabled: boolean;
   organizations: string[];
   surveyEnabled?: boolean;
   jobTemplateLabels?: string[];
