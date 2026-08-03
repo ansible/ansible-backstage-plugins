@@ -203,8 +203,8 @@ describe('Ansible API module', () => {
     );
     expect(result).toEqual({
       aap: {
-        orgsUsersTeams: { lastSync: null },
-        jobTemplates: { lastSync: null },
+        orgsUsersTeams: { lastSync: null, syncInProgress: false },
+        jobTemplates: { lastSync: null, syncInProgress: false },
       },
     });
   });
