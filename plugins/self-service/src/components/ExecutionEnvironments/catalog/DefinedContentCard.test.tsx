@@ -137,11 +137,9 @@ describe('DefinedContentCard', () => {
       collectionsFileRef: null,
     };
     renderWithTheme(<DefinedContentCard parsedDefinition={parsed} />);
-    const matches = screen.getAllByText(
-      (_content, el) =>
-        el?.textContent?.includes('https://github.com') ?? false,
-    );
-    expect(matches.length).toBeGreaterThan(0);
+    expect(
+      screen.getByText(/https:\/\/github\.com/),
+    ).toBeInTheDocument();
   });
 
   it('shows Python requirements list when provided', () => {
