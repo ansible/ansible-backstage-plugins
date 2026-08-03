@@ -54,6 +54,9 @@ app-config.production.yaml
 # SQLite database files (dev environment persistence)
 sqlite-data/
 
+# SQLite database files (dev environment persistence)
+sqlite-data/
+
 # Sensitive credentials
 *-credentials.yaml
 
