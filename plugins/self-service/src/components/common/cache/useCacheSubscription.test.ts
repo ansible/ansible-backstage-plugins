@@ -343,6 +343,8 @@ describe('useCacheSubscription', () => {
       rejectLoading(new Error('too late'));
       await new Promise(r => setTimeout(r, 0));
     });
+
+    expect(cache.startLoading).toHaveBeenCalled();
   });
 
   it('continues loading partially loaded cache', async () => {

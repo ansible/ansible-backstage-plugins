@@ -54,11 +54,13 @@ describe('useUnregisterEntityDialogState', () => {
     const { result } = renderHook(() => useUnregisterEntityDialogState(entity));
 
     expect(result.current.type).toBe('bootstrap');
-    if (result.current.type === 'bootstrap') {
-      expect(result.current.location).toBe('bootstrap:bootstrap');
-      await result.current.deleteEntity();
-      expect(mockCatalogApi.removeEntityByUid).toHaveBeenCalledWith('uid-bs');
-    }
+    const bootstrapState = result.current as Extract<
+      typeof result.current,
+      { type: 'bootstrap' }
+    >;
+    expect(bootstrapState.location).toBe('bootstrap:bootstrap');
+    await bootstrapState.deleteEntity();
+    expect(mockCatalogApi.removeEntityByUid).toHaveBeenCalledWith('uid-bs');
   });
 
   it('returns loading state when prerequisites are loading', () => {
@@ -92,9 +94,11 @@ describe('useUnregisterEntityDialogState', () => {
     const { result } = renderHook(() => useUnregisterEntityDialogState(entity));
 
     expect(result.current.type).toBe('error');
-    if (result.current.type === 'error') {
-      expect(result.current.error).toBe(apiError);
-    }
+    const errorState = result.current as Extract<
+      typeof result.current,
+      { type: 'error' }
+    >;
+    expect(errorState.error).toBe(apiError);
   });
 
   it('returns unregister state with colocated entities and callbacks', async () => {
@@ -116,14 +120,16 @@ describe('useUnregisterEntityDialogState', () => {
     const { result } = renderHook(() => useUnregisterEntityDialogState(entity));
 
     expect(result.current.type).toBe('unregister');
-    if (result.current.type === 'unregister') {
-      expect(result.current.location).toBe(
-        'url:https://example.com/catalog.yaml',
-      );
-      expect(result.current.colocatedEntities).toHaveLength(1);
-      await result.current.unregisterLocation();
-      expect(mockCatalogApi.removeLocationById).toHaveBeenCalledWith('loc-1');
-    }
+    const unregisterState = result.current as Extract<
+      typeof result.current,
+      { type: 'unregister' }
+    >;
+    expect(unregisterState.location).toBe(
+      'url:https://example.com/catalog.yaml',
+    );
+    expect(unregisterState.colocatedEntities).toHaveLength(1);
+    await unregisterState.unregisterLocation();
+    expect(mockCatalogApi.removeLocationById).toHaveBeenCalledWith('loc-1');
   });
 
   it('returns only-delete state when no location is found', () => {
