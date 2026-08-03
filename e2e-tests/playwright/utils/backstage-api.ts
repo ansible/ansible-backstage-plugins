@@ -91,3 +91,30 @@ export async function catalogRequest(page: Page, path: string, token: string) {
     headers: { Authorization: `Bearer ${token}` },
   });
 }
+
+/**
+ * Discovers org namespaces dynamically from the catalog API.
+ * Queries for Group entities with spec.type=organization and returns
+ * their namespace slugs. Works on any AAP instance without hardcoding.
+ */
+export async function discoverOrgNamespaces(
+  page: Page,
+  token: string,
+): Promise<string[]> {
+  const result = await catalogFetch(
+    page,
+    '/entities?filter=kind=Group,spec.type=organization&limit=100',
+    token,
+  );
+  if (!result.ok) return [];
+  const groups: any[] = Array.isArray(result.body)
+    ? result.body
+    : result.body?.items ?? [];
+  return [
+    ...new Set(
+      groups
+        .map((g: any) => g.metadata?.namespace)
+        .filter((ns: string | undefined): ns is string => !!ns),
+    ),
+  ];
+}
