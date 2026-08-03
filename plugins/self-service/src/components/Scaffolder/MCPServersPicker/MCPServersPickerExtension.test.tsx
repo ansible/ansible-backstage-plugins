@@ -426,36 +426,17 @@ describe('MCPServersPickerExtension', () => {
   });
 
   describe('Icon Assignment', () => {
-    it('assigns GitHub icon for server with github in name', () => {
+    it.each([
+      ['GitHub', 'my-github-server'],
+      ['GitLab', 'gitlab-runner'],
+      ['Cloud', 'aws-cloud-server'],
+      ['Storage', 'database-primary'],
+    ])('assigns %s icon for matching server name', (_label, serverName) => {
       const props = createMockProps({
-        schema: { items: { enum: ['my-github-server'] } },
+        schema: { items: { enum: [serverName] } },
       });
       render(<MCPServersPickerExtension {...props} />);
-      expect(screen.getByText('my-github-server')).toBeInTheDocument();
-    });
-
-    it('assigns GitLab icon for server with gitlab in name', () => {
-      const props = createMockProps({
-        schema: { items: { enum: ['gitlab-runner'] } },
-      });
-      render(<MCPServersPickerExtension {...props} />);
-      expect(screen.getByText('gitlab-runner')).toBeInTheDocument();
-    });
-
-    it('assigns Cloud icon for server with cloud in name', () => {
-      const props = createMockProps({
-        schema: { items: { enum: ['aws-cloud-server'] } },
-      });
-      render(<MCPServersPickerExtension {...props} />);
-      expect(screen.getByText('aws-cloud-server')).toBeInTheDocument();
-    });
-
-    it('assigns Storage icon for server with database in name', () => {
-      const props = createMockProps({
-        schema: { items: { enum: ['database-primary'] } },
-      });
-      render(<MCPServersPickerExtension {...props} />);
-      expect(screen.getByText('database-primary')).toBeInTheDocument();
+      expect(screen.getByText(serverName)).toBeInTheDocument();
     });
   });
 

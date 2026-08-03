@@ -49,23 +49,14 @@ describe('formExtraFields', () => {
     expect(field!.component).toBeDefined();
   });
 
-  it('EntityNamePicker has schema and validation', () => {
-    const field = formExtraFields.find(f => f.name === 'EntityNamePicker');
-    expect(field!.schema).toBeDefined();
-    expect(field!.validation).toBeDefined();
-  });
-
-  it('RepoUrlPicker has schema and validation', () => {
-    const field = formExtraFields.find(f => f.name === 'RepoUrlPicker');
-    expect(field!.schema).toBeDefined();
-    expect(field!.validation).toBeDefined();
-  });
-
-  it('MultiEntityPicker has schema and validation', () => {
-    const field = formExtraFields.find(f => f.name === 'MultiEntityPicker');
-    expect(field!.schema).toBeDefined();
-    expect(field!.validation).toBeDefined();
-  });
+  it.each(['EntityNamePicker', 'RepoUrlPicker', 'MultiEntityPicker'])(
+    '%s has schema and validation',
+    fieldName => {
+      const field = formExtraFields.find(f => f.name === fieldName);
+      expect(field!.schema).toBeDefined();
+      expect(field!.validation).toBeDefined();
+    },
+  );
 
   it('EntityPicker has schema but no validation', () => {
     const field = formExtraFields.find(f => f.name === 'EntityPicker');

@@ -440,86 +440,37 @@ describe('usePaginatedCollections', () => {
       });
     });
 
-    it('filters by search query on name', async () => {
-      const { result } = renderHook(
-        () =>
-          usePaginatedCollections({
-            catalogApi: mockCatalogApi as any,
-            discoveryApi: mockDiscoveryApi as any,
-            fetchApi: mockFetchApi as any,
-          }),
-        { wrapper },
-      );
-
-      await waitFor(() => {
-        expect(result.current.initialLoading).toBe(false);
-      });
-
-      act(() => {
-        result.current.setSearchQuery('another');
-      });
-
-      await waitFor(() => {
-        expect(result.current.totalCount).toBe(1);
-        expect(result.current.entities[0]?.metadata?.name).toBe(
-          'another-collection',
+    it.each([
+      ['search query', 'setSearchQuery', 'another', 'another-collection'],
+      ['source', 'setSourceFilter', 'repo1', 'test-collection'],
+      ['tag', 'setTagFilter', 'security', 'another-collection'],
+    ] as const)(
+      'filters by %s',
+      async (_label, setter, value, expectedName) => {
+        const { result } = renderHook(
+          () =>
+            usePaginatedCollections({
+              catalogApi: mockCatalogApi as any,
+              discoveryApi: mockDiscoveryApi as any,
+              fetchApi: mockFetchApi as any,
+            }),
+          { wrapper },
         );
-      });
-    });
 
-    it('filters by source', async () => {
-      const { result } = renderHook(
-        () =>
-          usePaginatedCollections({
-            catalogApi: mockCatalogApi as any,
-            discoveryApi: mockDiscoveryApi as any,
-            fetchApi: mockFetchApi as any,
-          }),
-        { wrapper },
-      );
+        await waitFor(() => {
+          expect(result.current.initialLoading).toBe(false);
+        });
 
-      await waitFor(() => {
-        expect(result.current.initialLoading).toBe(false);
-      });
+        act(() => {
+          (result.current[setter] as (v: string) => void)(value);
+        });
 
-      act(() => {
-        result.current.setSourceFilter('repo1');
-      });
-
-      await waitFor(() => {
-        expect(result.current.totalCount).toBe(1);
-        expect(result.current.entities[0]?.metadata?.name).toBe(
-          'test-collection',
-        );
-      });
-    });
-
-    it('filters by tag', async () => {
-      const { result } = renderHook(
-        () =>
-          usePaginatedCollections({
-            catalogApi: mockCatalogApi as any,
-            discoveryApi: mockDiscoveryApi as any,
-            fetchApi: mockFetchApi as any,
-          }),
-        { wrapper },
-      );
-
-      await waitFor(() => {
-        expect(result.current.initialLoading).toBe(false);
-      });
-
-      act(() => {
-        result.current.setTagFilter('security');
-      });
-
-      await waitFor(() => {
-        expect(result.current.totalCount).toBe(1);
-        expect(result.current.entities[0]?.metadata?.name).toBe(
-          'another-collection',
-        );
-      });
-    });
+        await waitFor(() => {
+          expect(result.current.totalCount).toBe(1);
+          expect(result.current.entities[0]?.metadata?.name).toBe(expectedName);
+        });
+      },
+    );
 
     it('filters SCM-sourced entities by scm-host-name', async () => {
       const scmEntity: Entity = {

@@ -344,13 +344,14 @@ describe('CollectionsListPage', () => {
     });
     fireEvent.click(screen.getByText('repo1'));
 
+    let clearButton: Element | null | undefined;
     await waitFor(() => {
-      const clearButton = sourceInput
+      clearButton = sourceInput
         .closest('.MuiAutocomplete-root')
         ?.querySelector('.MuiAutocomplete-clearIndicator');
       expect(clearButton).toBeTruthy();
-      fireEvent.click(clearButton!);
     });
+    fireEvent.click(clearButton!);
 
     await waitFor(() => {
       expect(screen.getByText('ns.collection')).toBeInTheDocument();
