@@ -505,21 +505,23 @@ export const generateTemplate = (options: {
   job: IJobTemplate;
   survey: ISurvey | null;
   instanceGroup: InstanceGroup[];
+  orgName?: string;
 }): Entity => {
-  const { baseUrl, nameSpace, job, survey, instanceGroup } = options;
+  const { baseUrl, nameSpace, job, survey, instanceGroup, orgName } = options;
   const normalizedBaseUrl = normalizeBaseUrl(baseUrl);
   const [promptForm, inputVars] = getPromptFormDetails(job, instanceGroup);
   const [finalPromptForm, extraVariables] = getSurveyDetails(
     promptForm,
     survey,
   );
+  const title = job.name;
   const template: Entity = {
     apiVersion: 'scaffolder.backstage.io/v1beta3',
     kind: 'Template',
     metadata: {
       namespace: nameSpace,
       name: formatNameSpace(job.name),
-      title: job.name,
+      title,
       aapJobTemplateId: job.id,
       description: job.description,
       tags: (job.summary_fields.labels?.results ?? []).map((label: ILabel) =>
@@ -532,6 +534,7 @@ export const generateTemplate = (options: {
       annotations: {
         [ANNOTATION_LOCATION]: `url:${normalizedBaseUrl}/execution/templates/job-template/${job.id}/details`,
         [ANNOTATION_ORIGIN_LOCATION]: `url:${normalizedBaseUrl}/execution/templates/job-template/${job.id}/details`,
+        ...(orgName && { 'ansible.com/organization': orgName }),
       },
     },
     spec: {

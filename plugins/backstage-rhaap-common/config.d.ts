@@ -115,7 +115,7 @@ export interface Config {
     providers?: {
       rhaap?: {
         [authEnv: string]: {
-          orgs: string;
+          orgs?: string | string[];
         };
       };
     };
