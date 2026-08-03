@@ -1,0 +1,72 @@
+{
+  "name": "@ansible/plugin-backstage-compliance",
+  "description": "Frontend plugin for compliance scanning, findings review, and selective remediation",
+  "version": "0.1.0",
+  "main": "src/index.ts",
+  "types": "src/index.ts",
+  "license": "Apache-2.0",
+  "private": true,
+  "publishConfig": {
+    "access": "public",
+    "main": "dist/index.esm.js",
+    "types": "dist/index.d.ts"
+  },
+  "backstage": {
+    "role": "frontend-plugin",
+    "pluginId": "compliance",
+    "pluginPackages": [
+      "@ansible/plugin-backstage-compliance"
+    ]
+  },
+  "sideEffects": false,
+  "scripts": {
+    "start": "backstage-cli package start",
+    "build": "backstage-cli package build",
+    "lint": "backstage-cli package lint",
+    "test": "backstage-cli package test",
+    "clean": "backstage-cli package clean",
+    "prepack": "backstage-cli package prepack",
+    "postpack": "backstage-cli package postpack",
+    "export-dynamic": "rhdh-cli plugin export"
+  },
+  "dependencies": {
+    "@ansible/backstage-compliance-common": "workspace:^",
+    "@backstage/core-components": "^0.18.8",
+    "@backstage/core-plugin-api": "^1.12.4",
+    "@backstage/plugin-catalog-common": "^1.1.8",
+    "@backstage/plugin-permission-react": "^0.4.41",
+    "@backstage/theme": "^0.7.2",
+    "@material-ui/core": "^4.9.13",
+    "@material-ui/icons": "^4.9.1",
+    "@material-ui/lab": "^4.0.0-alpha.61",
+    "@rjsf/core": "^5.24.7",
+    "@rjsf/material-ui": "^5.24.7",
+    "@rjsf/validator-ajv8": "^5.24.7",
+    "react-use": "^17.2.4",
+    "react-window": "^1.8.10",
+    "recharts": "^2.15.3"
+  },
+  "peerDependencies": {
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "react-router-dom": "^6.22.3"
+  },
+  "devDependencies": {
+    "@backstage/cli": "^0.36.0",
+    "@backstage/dev-utils": "^1.1.21",
+    "@backstage/test-utils": "^1.7.16",
+    "@testing-library/dom": "^10.4.0",
+    "@testing-library/jest-dom": "^6.0.0",
+    "@testing-library/react": "^16.0.0",
+    "@types/jest": "^29.5.14",
+    "@types/react": "^18.3.3",
+    "@types/react-dom": "^18",
+    "@types/react-window": "^1.8.8",
+    "typescript": "~5.8.0"
+  },
+  "files": [
+    "dist",
+    "dist-scalprum"
+  ],
+  "configSchema": "config.d.ts"
+}

@@ -1,0 +1,14 @@
+---
+dynamicPlugins:
+  frontend:
+    ansible.plugin-backstage-compliance:
+      dynamicRoutes:
+        - importName: CompliancePage
+          path: /compliance/*
+          menuItem:
+            icon: security
+            text: Compliance
+      pluginConfig:
+        ansible:
+          compliance:
+            enabled: true

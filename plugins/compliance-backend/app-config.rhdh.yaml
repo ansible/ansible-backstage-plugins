@@ -1,0 +1,9 @@
+---
+dynamicPlugins:
+  backend:
+    ansible.plugin-backstage-compliance-backend:
+      pluginConfig:
+        ansible:
+          compliance:
+            enabled: true
+            authMode: production
