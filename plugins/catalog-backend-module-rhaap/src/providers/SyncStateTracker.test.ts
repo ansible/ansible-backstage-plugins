@@ -109,6 +109,74 @@ describe('SyncStateTracker', () => {
     });
   });
 
+  describe('signals integration', () => {
+    it('should publish signal on markSyncStarted when signals is set', () => {
+      const mockSignals = { publish: jest.fn().mockResolvedValue(undefined) };
+      tracker.setSignals(mockSignals as any, 'test-provider');
+
+      tracker.markSyncStarted();
+
+      expect(mockSignals.publish).toHaveBeenCalledWith(
+        expect.objectContaining({
+          channel: 'catalog:aap-sync-status',
+          message: expect.objectContaining({
+            provider: 'test-provider',
+            syncInProgress: true,
+          }),
+        }),
+      );
+    });
+
+    it('should publish signal on markSyncSucceeded', () => {
+      const mockSignals = { publish: jest.fn().mockResolvedValue(undefined) };
+      tracker.setSignals(mockSignals as any, 'test-provider');
+
+      tracker.markSyncSucceeded();
+
+      expect(mockSignals.publish).toHaveBeenCalledWith(
+        expect.objectContaining({
+          message: expect.objectContaining({
+            syncInProgress: false,
+            lastSyncStatus: 'success',
+            lastSyncTime: '2025-06-01T12:00:00.000Z',
+          }),
+        }),
+      );
+    });
+
+    it('should publish signal on markSyncFailed', () => {
+      const mockSignals = { publish: jest.fn().mockResolvedValue(undefined) };
+      tracker.setSignals(mockSignals as any, 'test-provider');
+
+      tracker.markSyncFailed();
+
+      expect(mockSignals.publish).toHaveBeenCalledWith(
+        expect.objectContaining({
+          message: expect.objectContaining({
+            syncInProgress: false,
+            lastSyncStatus: 'failure',
+            lastFailedSyncTime: '2025-06-01T12:00:00.000Z',
+          }),
+        }),
+      );
+    });
+
+    it('should not throw when signals publish fails', () => {
+      const mockSignals = {
+        publish: jest.fn().mockRejectedValue(new Error('publish failed')),
+      };
+      tracker.setSignals(mockSignals as any, 'test-provider');
+
+      expect(() => tracker.markSyncStarted()).not.toThrow();
+    });
+
+    it('should not publish when signals is not set', () => {
+      tracker.markSyncStarted();
+      tracker.markSyncSucceeded();
+      tracker.markSyncFailed();
+    });
+  });
+
   describe('createScheduleFn', () => {
     let logger: ReturnType<typeof mockServices.logger.mock>;
     let mockTaskRunner: { run: jest.Mock };
