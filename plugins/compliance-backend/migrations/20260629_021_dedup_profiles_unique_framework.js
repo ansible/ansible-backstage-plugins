@@ -1,0 +1,57 @@
+'use strict';
+Object.defineProperty(exports, '__esModule', { value: true });
+exports.up = up;
+exports.down = down;
+
+async function up(knex) {
+  const dupes = await knex('compliance_profile_registry')
+    .select('framework')
+    .groupBy('framework')
+    .havingRaw('COUNT(*) > 1');
+
+  for (const { framework } of dupes) {
+    const rows = await knex('compliance_profile_registry')
+      .where('framework', framework)
+      .orderByRaw("CASE WHEN connection_status = 'connected' THEN 0 ELSE 1 END")
+      .orderBy('updated_at', 'desc');
+
+    if (rows.length <= 1) continue;
+
+    const keep = rows[0];
+    const removeIds = rows.slice(1).map(r => r.id);
+
+    await knex('compliance_scans')
+      .whereIn('profile_id', removeIds)
+      .update({ profile_id: keep.id });
+
+    const hasRemediationProfiles = await knex.schema.hasTable(
+      'compliance_remediation_profiles',
+    );
+    if (hasRemediationProfiles) {
+      await knex('compliance_remediation_profiles')
+        .whereIn('profile_id', removeIds)
+        .update({ profile_id: keep.id });
+    }
+
+    if (!keep.rule_count) {
+      const donor = rows.find(r => r.rule_count);
+      if (donor) {
+        await knex('compliance_profile_registry')
+          .where('id', keep.id)
+          .update({ rule_count: donor.rule_count });
+      }
+    }
+
+    await knex('compliance_profile_registry').whereIn('id', removeIds).delete();
+  }
+
+  await knex.schema.alterTable('compliance_profile_registry', table => {
+    table.unique(['framework']);
+  });
+}
+
+async function down(knex) {
+  await knex.schema.alterTable('compliance_profile_registry', table => {
+    table.dropUnique(['framework']);
+  });
+}

@@ -1,0 +1,60 @@
+{
+  "name": "@ansible/plugin-backstage-compliance-backend",
+  "description": "Backend plugin for compliance - REST API, Controller client, database, and findings ingestion",
+  "version": "0.1.0",
+  "main": "src/index.ts",
+  "types": "src/index.ts",
+  "license": "Apache-2.0",
+  "private": true,
+  "publishConfig": {
+    "access": "public",
+    "main": "dist/index.cjs.js",
+    "types": "dist/index.d.ts"
+  },
+  "backstage": {
+    "role": "backend-plugin",
+    "pluginId": "compliance",
+    "pluginPackages": [
+      "@ansible/plugin-backstage-compliance-backend"
+    ]
+  },
+  "configSchema": "config.d.ts",
+  "scripts": {
+    "start": "backstage-cli package start",
+    "build": "backstage-cli package build",
+    "lint": "backstage-cli package lint",
+    "test": "backstage-cli package test",
+    "clean": "backstage-cli package clean",
+    "prepack": "backstage-cli package prepack",
+    "postpack": "backstage-cli package postpack",
+    "export-dynamic": "rhdh-cli plugin export --no-install --embed-package @ansible/backstage-compliance-common"
+  },
+  "dependencies": {
+    "@ansible/backstage-compliance-common": "workspace:^",
+    "@backstage/backend-defaults": "^0.14.2",
+    "@backstage/backend-plugin-api": "^1.9.0",
+    "@backstage/config": "^1.3.6",
+    "@backstage/plugin-catalog-common": "^1.1.8",
+    "@backstage/plugin-permission-common": "^0.9.8",
+    "express": "^4.17.1",
+    "express-promise-router": "^4.1.0",
+    "express-rate-limit": "^8.5.2",
+    "knex": "^3.1.0",
+    "undici": "^7.0.0",
+    "yaml": "^2.0.0"
+  },
+  "devDependencies": {
+    "@backstage/cli": "^0.36.0",
+    "@types/express": "^4.17.6",
+    "@types/jest": "^29.5.14",
+    "typescript": "~5.8.0"
+  },
+  "files": [
+    "dist",
+    "migrations",
+    "config.d.ts",
+    "dist-dynamic/*.*",
+    "dist-dynamic/dist/**",
+    "dist-dynamic/alpha/*"
+  ]
+}
