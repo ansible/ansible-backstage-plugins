@@ -77,7 +77,10 @@ export interface ApmeAiProviderDialogProps {
   /** Existing provider being edited, or undefined for add. */
   provider?: ApmeAiProviderSummary;
   onClose(): void;
-  onSave(id: string, body: ApmeAiProviderConfigureRequest): Promise<void>;
+  onSave(
+    id: string,
+    payload: { configure: ApmeAiProviderConfigureRequest; models: string[] },
+  ): Promise<void>;
 }
 
 type Step = 'setup' | 'models';
@@ -162,19 +165,16 @@ export const ApmeAiProviderDialog = ({
     setSaving(true);
     setError(undefined);
     try {
-      const body: ApmeAiProviderConfigureRequest = { engine };
+      const configure: ApmeAiProviderConfigureRequest = { engine };
       const trimmedKey = apiKey.trim();
       if (trimmedKey) {
-        body.api_key = trimmedKey;
+        configure.apiKey = trimmedKey;
       }
       const trimmedUrl = baseUrl.trim();
       if (trimmedUrl) {
-        body.base_url = trimmedUrl;
+        configure.baseUrl = trimmedUrl;
       }
-      if (models.length > 0) {
-        body.models = Object.fromEntries(models.map(m => [m, {}]));
-      }
-      await onSave(isEdit ? provider!.id : id.trim(), body);
+      await onSave(isEdit ? provider!.id : id.trim(), { configure, models });
       handleClose();
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));

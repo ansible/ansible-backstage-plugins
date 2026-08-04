@@ -196,8 +196,44 @@ export const ApmeAiProvidersSection = () => {
     void load();
   }, [load]);
 
-  const handleSave = async (id: string, body: ApmeAiProviderConfigureRequest) => {
-    await apmeApi.configureAiProvider(id, body);
+  const handleSave = async (
+    id: string,
+    payload: { configure: ApmeAiProviderConfigureRequest; models: string[] },
+  ) => {
+    const { configure, models } = payload;
+    await apmeApi.configureAiProvider(id, configure);
+    // Merge models into Abbenay config via POST /api/config (separate endpoint).
+    let raw: unknown;
+    try {
+      raw = await apmeApi.getAiConfig();
+    } catch {
+      throw new Error(
+        'Provider saved but could not read AI config to persist models. Check Abbenay connectivity.',
+      );
+    }
+    // Normalize: handle both {config:{providers}} and {providers} response shapes.
+    const root =
+      raw && typeof raw === 'object' && 'config' in raw && (raw as any).config
+        ? (raw as any).config
+        : raw;
+    const config: Record<string, unknown> =
+      root && typeof root === 'object' ? { ...(root as object) } : {};
+    const providers: Record<string, Record<string, unknown>> = {
+      ...((config.providers as object) || {}),
+    };
+    const prev: Record<string, unknown> = { ...(providers[id] || {}) };
+    providers[id] = {
+      ...prev,
+      engine: configure.engine || prev.engine,
+      models: Object.fromEntries(models.map(m => [m, {}])),
+    };
+    if (configure.baseUrl) {
+      providers[id].base_url = configure.baseUrl;
+    }
+    await apmeApi.updateAiConfig({
+      location: 'user',
+      config: { ...config, providers },
+    });
     await load();
   };
 

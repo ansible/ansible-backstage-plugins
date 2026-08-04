@@ -251,11 +251,10 @@ export interface ApmeAiConfigResponse {
 /** Request body for POST …/provider/{id}/configure (US-016). */
 export interface ApmeAiProviderConfigureRequest {
   engine: string;
-  /** Write-only — omit when empty to leave unchanged. */
-  api_key?: string;
-  base_url?: string;
-  /** Model ids as Record<id, {}> (empty metadata). */
-  models?: Record<string, Record<string, unknown>>;
+  /** Write-only — omit when empty to leave unchanged. camelCase per Abbenay v2026.8+. */
+  apiKey?: string;
+  baseUrl?: string;
+  envVarName?: string;
 }
 
 function normalizeProviderEntry(p: unknown): ApmeAiProviderSummary {

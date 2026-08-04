@@ -15,6 +15,7 @@ describe('ApmeAiProvidersSection', () => {
   const getAiConfig = jest.fn();
   const getAiEngines = jest.fn();
   const configureAiProvider = jest.fn();
+  const updateAiConfig = jest.fn();
   const deleteAiProvider = jest.fn();
 
   const apmeApi = {
@@ -24,6 +25,7 @@ describe('ApmeAiProvidersSection', () => {
     getAiConfig,
     getAiEngines,
     configureAiProvider,
+    updateAiConfig,
     deleteAiProvider,
   };
 
@@ -37,6 +39,8 @@ describe('ApmeAiProvidersSection', () => {
       { id: 'openai', requiresKey: true },
       { id: 'anthropic', requiresKey: true },
     ]});
+    configureAiProvider.mockResolvedValue(undefined);
+    updateAiConfig.mockResolvedValue(undefined);
   });
 
   function renderSection() {
@@ -152,5 +156,89 @@ describe('ApmeAiProvidersSection', () => {
     fireEvent.click(await screen.findByRole('button', { name: /^remove$/i }));
 
     expect(await screen.findByText('Gateway timeout')).toBeInTheDocument();
+  });
+
+  it('save calls configureAiProvider with camelCase body then updateAiConfig with merged models', async () => {
+    getAiConfig.mockResolvedValue({
+      config: { providers: { 'existing-prov': { engine: 'anthropic' } }, server: {} },
+    });
+
+    renderSection();
+    await screen.findByText('AI providers');
+
+    fireEvent.click(screen.getByRole('button', { name: /add provider/i }));
+    fireEvent.change(screen.getByLabelText('Provider ID'), { target: { value: 'new-prov' } });
+    fireEvent.change(screen.getByLabelText('API key'), { target: { value: 'sk-test' } });
+
+    await waitFor(() =>
+      expect(screen.getByLabelText(/Engine/i)).toBeInTheDocument(),
+    );
+    fireEvent.click(screen.getByRole('button', { name: /next: models/i }));
+
+    const modelInput = await screen.findByLabelText('Model ID');
+    fireEvent.change(modelInput, { target: { value: 'gpt-4o' } });
+    fireEvent.click(screen.getByRole('button', { name: /^add$/i }));
+
+    fireEvent.click(screen.getByRole('button', { name: /^save$/i }));
+
+    await waitFor(() => {
+      expect(configureAiProvider).toHaveBeenCalledWith('new-prov', {
+        engine: 'openai',
+        apiKey: 'sk-test',
+      });
+    });
+    await waitFor(() => {
+      expect(updateAiConfig).toHaveBeenCalledWith(
+        expect.objectContaining({
+          location: 'user',
+          config: expect.objectContaining({
+            providers: expect.objectContaining({
+              'new-prov': expect.objectContaining({
+                engine: 'openai',
+                models: { 'gpt-4o': {} },
+              }),
+              'existing-prov': expect.objectContaining({ engine: 'anthropic' }),
+            }),
+          }),
+        }),
+      );
+    });
+  });
+
+  it('save merges new provider models while preserving existing providers and server config', async () => {
+    getAiConfig.mockResolvedValue({
+      config: {
+        providers: { 'other-prov': { engine: 'anthropic', models: { 'claude-3': {} } } },
+        server: { port: 8080 },
+      },
+    });
+
+    renderSection();
+    await screen.findByText('AI providers');
+
+    fireEvent.click(screen.getByRole('button', { name: /add provider/i }));
+    fireEvent.change(screen.getByLabelText('Provider ID'), { target: { value: 'my-prov' } });
+
+    await waitFor(() =>
+      expect(screen.getByLabelText(/Engine/i)).toBeInTheDocument(),
+    );
+    fireEvent.click(screen.getByRole('button', { name: /next: models/i }));
+    await screen.findByLabelText('Model ID');
+
+    fireEvent.click(screen.getByRole('button', { name: /^save$/i }));
+
+    await waitFor(() => {
+      expect(updateAiConfig).toHaveBeenCalledWith(
+        expect.objectContaining({
+          config: expect.objectContaining({
+            server: { port: 8080 },
+            providers: expect.objectContaining({
+              'other-prov': expect.objectContaining({ engine: 'anthropic' }),
+              'my-prov': expect.objectContaining({ engine: 'openai' }),
+            }),
+          }),
+        }),
+      );
+    });
   });
 });

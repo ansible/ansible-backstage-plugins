@@ -147,7 +147,7 @@ describe('ApmeAiProviderDialog', () => {
     expect(screen.getAllByText('gpt-4o')).toHaveLength(1);
   });
 
-  it('calls onSave with correct body including api_key when set', async () => {
+  it('calls onSave with correct payload including apiKey and models separately', async () => {
     renderDialog();
     fireEvent.change(screen.getByLabelText('Provider ID'), { target: { value: 'test-prov' } });
     fireEvent.change(screen.getByLabelText('API key'), { target: { value: 'sk-secret' } });
@@ -165,14 +165,16 @@ describe('ApmeAiProviderDialog', () => {
 
     await waitFor(() => {
       expect(onSave).toHaveBeenCalledWith('test-prov', {
-        engine: 'openai', // first engine in MOCK_ENGINES
-        api_key: 'sk-secret',
-        models: { 'gpt-4o': {} },
+        configure: {
+          engine: 'openai', // first engine in MOCK_ENGINES
+          apiKey: 'sk-secret',
+        },
+        models: ['gpt-4o'],
       });
     });
   });
 
-  it('omits api_key from body when left blank (edit)', async () => {
+  it('omits apiKey from configure when left blank (edit)', async () => {
     renderDialog({ provider: { id: 'existing', engine: 'openai', models: ['gpt-4o'] } });
 
     await waitFor(() =>
@@ -186,7 +188,9 @@ describe('ApmeAiProviderDialog', () => {
     await waitFor(() => {
       expect(onSave).toHaveBeenCalledWith(
         'existing',
-        expect.not.objectContaining({ api_key: expect.anything() }),
+        expect.objectContaining({
+          configure: expect.not.objectContaining({ apiKey: expect.anything() }),
+        }),
       );
     });
   });

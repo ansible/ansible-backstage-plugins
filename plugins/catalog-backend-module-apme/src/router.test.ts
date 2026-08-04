@@ -505,17 +505,17 @@ describe('catalog-backend-module-apme router', () => {
     ]);
   });
 
-  it('calls configureAiProvider with body', async () => {
+  it('calls configureAiProvider with camelCase body (Abbenay v2026.8+)', async () => {
     mockApmeService.configureAiProvider.mockResolvedValueOnce({ ok: true });
 
     const response = await request(app)
       .post('/apme/ai/provider/my-openrouter/configure')
-      .send({ engine: 'openrouter', api_key: 'sk-xxx', models: { 'gpt-4o': {} } });
+      .send({ engine: 'openrouter', apiKey: 'sk-xxx' });
 
     expect(response.status).toBe(200);
     expect(mockApmeService.configureAiProvider).toHaveBeenCalledWith(
       'my-openrouter',
-      { engine: 'openrouter', api_key: 'sk-xxx', models: { 'gpt-4o': {} } },
+      { engine: 'openrouter', apiKey: 'sk-xxx' },
     );
   });
 
