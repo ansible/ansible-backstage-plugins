@@ -8,7 +8,11 @@ describe('useDisplayConfig (unit — no React render)', () => {
   function resolveConfig(config?: ProfileDisplayConfig) {
     // Extract the computation that useMemo wraps
     const c = config ?? {};
-    const DEFAULT_SEVERITY = { CAT_I: 'CAT I', CAT_II: 'CAT II', CAT_III: 'CAT III' };
+    const DEFAULT_SEVERITY = {
+      CAT_I: 'CAT I',
+      CAT_II: 'CAT II',
+      CAT_III: 'CAT III',
+    };
     const severityMap = {
       CAT_I: c.severity_map?.CAT_I ?? DEFAULT_SEVERITY.CAT_I,
       CAT_II: c.severity_map?.CAT_II ?? DEFAULT_SEVERITY.CAT_II,
@@ -29,7 +33,8 @@ describe('useDisplayConfig (unit — no React render)', () => {
       severityMap,
       remediationVerb: c.remediation_verb ?? 'Remediate',
       severityLabel: (key: string) => {
-        if (key in severityMap) return severityMap[key as keyof typeof severityMap];
+        if (key in severityMap)
+          return severityMap[key as keyof typeof severityMap];
         return key;
       },
     };

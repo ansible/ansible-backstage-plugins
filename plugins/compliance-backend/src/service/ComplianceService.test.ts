@@ -345,7 +345,6 @@ describe('ComplianceService', () => {
       const response = await service.launchScan({
         profileId: 'rhel9-stig',
         inventoryId: 1,
-
       });
 
       expect(response).toHaveProperty('scanId');
@@ -442,7 +441,6 @@ describe('ComplianceService', () => {
       await service.launchScan({
         profileId: 'rhel9-stig',
         inventoryId: 1,
-
       });
 
       expect(mockDb.getProfile).toHaveBeenCalledWith('rhel9-stig');
@@ -463,7 +461,6 @@ describe('ComplianceService', () => {
       await service.launchScan({
         profileId: 'rhel9-stig',
         inventoryId: 1,
-
       });
 
       expect(mockDb.getProfile).toHaveBeenCalledWith('rhel9-stig');
@@ -492,7 +489,6 @@ describe('ComplianceService', () => {
         service.launchScan({
           profileId: 'nonexistent-profile',
           inventoryId: 1,
-  
         }),
       ).rejects.toThrow(/no compliance workflow job template found/i);
     });
@@ -1396,10 +1392,7 @@ describe('ComplianceService', () => {
         },
       ];
 
-      const plan = service.buildRemediationPlan(
-        selections,
-        passingFindings,
-      );
+      const plan = service.buildRemediationPlan(selections, passingFindings);
 
       expect(plan.groups).toEqual([]);
     });
@@ -1423,10 +1416,7 @@ describe('ComplianceService', () => {
       // Both fail on host-1, host-3 => same group
       expect(plan.groups).toHaveLength(1);
       expect(plan.groups[0].extraVars).toHaveProperty('timeout', 600);
-      expect(plan.groups[0].extraVars).toHaveProperty(
-        'crypto_policy',
-        'FIPS',
-      );
+      expect(plan.groups[0].extraVars).toHaveProperty('crypto_policy', 'FIPS');
     });
   });
 
@@ -1447,17 +1437,31 @@ describe('ComplianceService', () => {
       });
 
       mockGetWorkflowNodes = jest.fn().mockResolvedValue({
-        count: 0, next: null, previous: null, results: [],
+        count: 0,
+        next: null,
+        previous: null,
+        results: [],
       });
       mockGetJobStatus = jest.fn().mockResolvedValue({
-        id: 100, status: 'failed', finished: null, failed: true, elapsed: 10, job_tags: '', result_traceback: '',
+        id: 100,
+        status: 'failed',
+        finished: null,
+        failed: true,
+        elapsed: 10,
+        job_tags: '',
+        result_traceback: '',
       });
       mockGetJobFailureEvents = jest.fn().mockResolvedValue({
-        count: 0, next: null, previous: null, results: [],
+        count: 0,
+        next: null,
+        previous: null,
+        results: [],
       });
       mockGetJobStdout = jest.fn().mockResolvedValue({ content: '' });
 
-      const MockedClient = ControllerClient as jest.MockedClass<typeof ControllerClient>;
+      const MockedClient = ControllerClient as jest.MockedClass<
+        typeof ControllerClient
+      >;
       MockedClient.prototype.getWorkflowNodes = mockGetWorkflowNodes;
       MockedClient.prototype.getJobStatus = mockGetJobStatus;
       MockedClient.prototype.getJobFailureEvents = mockGetJobFailureEvents;
@@ -1468,12 +1472,20 @@ describe('ComplianceService', () => {
 
     it('returns result_traceback from failed child job', async () => {
       mockGetWorkflowNodes.mockResolvedValue({
-        count: 1, next: null, previous: null, results: [
+        count: 1,
+        next: null,
+        previous: null,
+        results: [
           { id: 1, summary_fields: { job: { id: 200, status: 'failed' } } },
         ],
       });
       mockGetJobStatus.mockResolvedValue({
-        id: 200, status: 'failed', finished: null, failed: true, elapsed: 10, job_tags: '',
+        id: 200,
+        status: 'failed',
+        finished: null,
+        failed: true,
+        elapsed: 10,
+        job_tags: '',
         result_traceback: 'Traceback: module error on host',
       });
 
@@ -1486,17 +1498,38 @@ describe('ComplianceService', () => {
 
     it('falls back to job events when result_traceback is empty', async () => {
       mockGetWorkflowNodes.mockResolvedValue({
-        count: 1, next: null, previous: null, results: [
+        count: 1,
+        next: null,
+        previous: null,
+        results: [
           { id: 1, summary_fields: { job: { id: 200, status: 'failed' } } },
         ],
       });
       mockGetJobStatus.mockResolvedValue({
-        id: 200, status: 'failed', finished: null, failed: true, elapsed: 10, job_tags: '',
+        id: 200,
+        status: 'failed',
+        finished: null,
+        failed: true,
+        elapsed: 10,
+        job_tags: '',
         result_traceback: '',
       });
       mockGetJobFailureEvents.mockResolvedValue({
-        count: 1, next: null, previous: null, results: [
-          { id: 1, event: 'runner_on_failed', event_data: { host: 'host-1', task: 'Fail check', res: { msg: 'No XCCDF results found' } }, stdout: '', host_name: 'host-1' },
+        count: 1,
+        next: null,
+        previous: null,
+        results: [
+          {
+            id: 1,
+            event: 'runner_on_failed',
+            event_data: {
+              host: 'host-1',
+              task: 'Fail check',
+              res: { msg: 'No XCCDF results found' },
+            },
+            stdout: '',
+            host_name: 'host-1',
+          },
         ],
       });
 
@@ -1509,17 +1542,49 @@ describe('ComplianceService', () => {
 
     it('formats unreachable host events', async () => {
       mockGetWorkflowNodes.mockResolvedValue({
-        count: 1, next: null, previous: null, results: [
+        count: 1,
+        next: null,
+        previous: null,
+        results: [
           { id: 1, summary_fields: { job: { id: 300, status: 'failed' } } },
         ],
       });
       mockGetJobStatus.mockResolvedValue({
-        id: 300, status: 'failed', finished: null, failed: true, elapsed: 5, job_tags: '', result_traceback: '',
+        id: 300,
+        status: 'failed',
+        finished: null,
+        failed: true,
+        elapsed: 5,
+        job_tags: '',
+        result_traceback: '',
       });
       mockGetJobFailureEvents.mockResolvedValue({
-        count: 2, next: null, previous: null, results: [
-          { id: 1, event: 'runner_on_unreachable', event_data: { host: 'web01', task: 'Check SSH', res: { msg: 'SSH timeout' } }, stdout: '', host_name: 'web01' },
-          { id: 2, event: 'runner_on_unreachable', event_data: { host: 'web02', task: 'Check SSH', res: { msg: 'SSH timeout' } }, stdout: '', host_name: 'web02' },
+        count: 2,
+        next: null,
+        previous: null,
+        results: [
+          {
+            id: 1,
+            event: 'runner_on_unreachable',
+            event_data: {
+              host: 'web01',
+              task: 'Check SSH',
+              res: { msg: 'SSH timeout' },
+            },
+            stdout: '',
+            host_name: 'web01',
+          },
+          {
+            id: 2,
+            event: 'runner_on_unreachable',
+            event_data: {
+              host: 'web02',
+              task: 'Check SSH',
+              res: { msg: 'SSH timeout' },
+            },
+            stdout: '',
+            host_name: 'web02',
+          },
         ],
       });
 

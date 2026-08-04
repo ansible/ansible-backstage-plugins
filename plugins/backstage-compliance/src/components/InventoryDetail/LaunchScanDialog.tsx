@@ -1,4 +1,5 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
+import type { FC } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   Dialog,
@@ -58,7 +59,7 @@ interface LaunchScanDialogProps {
   initialProfileId: string;
 }
 
-export const LaunchScanDialog: React.FC<LaunchScanDialogProps> = ({
+export const LaunchScanDialog: FC<LaunchScanDialogProps> = ({
   open,
   onClose,
   inventoryId,
@@ -71,7 +72,10 @@ export const LaunchScanDialog: React.FC<LaunchScanDialogProps> = ({
   const api = useApi(complianceApiRef);
   const [profileId, setProfileId] = useState(initialProfileId);
   const [checking, setChecking] = useState(false);
-  const [lastScan, setLastScan] = useState<{ passRate: number; date: string } | null>(null);
+  const [lastScan, setLastScan] = useState<{
+    passRate: number;
+    date: string;
+  } | null>(null);
   const [launching, setLaunching] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -86,16 +90,21 @@ export const LaunchScanDialog: React.FC<LaunchScanDialogProps> = ({
     if (!open || !profileId) return;
     setChecking(true);
     setLastScan(null);
-    api.getAuthoritativeScan(profileId, inventoryId)
+    api
+      .getAuthoritativeScan(profileId, inventoryId)
       .then(result => {
         if (result) {
           setLastScan({
             passRate: result.passRate,
-            date: new Date(result.scan.completedAt ?? result.scan.startedAt).toLocaleString(),
+            date: new Date(
+              result.scan.completedAt ?? result.scan.startedAt,
+            ).toLocaleString(),
           });
         }
       })
-      .catch(() => { /* Expected: no previous scan for this profile/inventory pair */ })
+      .catch(() => {
+        /* Expected: no previous scan for this profile/inventory pair */
+      })
       .finally(() => setChecking(false));
   }, [api, open, profileId, inventoryId]);
 
@@ -112,7 +121,8 @@ export const LaunchScanDialog: React.FC<LaunchScanDialogProps> = ({
     }
   };
 
-  const selectedLabel = profileOptions.find(p => p.value === profileId)?.label ?? '';
+  const selectedLabel =
+    profileOptions.find(p => p.value === profileId)?.label ?? '';
 
   return (
     <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth>
@@ -125,7 +135,12 @@ export const LaunchScanDialog: React.FC<LaunchScanDialogProps> = ({
           </Typography>
         </div>
 
-        <FormControl variant="outlined" size="small" fullWidth className={classes.field}>
+        <FormControl
+          variant="outlined"
+          size="small"
+          fullWidth
+          className={classes.field}
+        >
           <InputLabel id="scan-profile-label">Compliance Profile</InputLabel>
           <Select
             labelId="scan-profile-label"
@@ -134,7 +149,9 @@ export const LaunchScanDialog: React.FC<LaunchScanDialogProps> = ({
             label="Compliance Profile"
           >
             {profileOptions.map(opt => (
-              <MenuItem key={opt.value} value={opt.value}>{opt.label}</MenuItem>
+              <MenuItem key={opt.value} value={opt.value}>
+                {opt.label}
+              </MenuItem>
             ))}
           </Select>
         </FormControl>
@@ -149,17 +166,30 @@ export const LaunchScanDialog: React.FC<LaunchScanDialogProps> = ({
         )}
 
         {!checking && lastScan && (
-          <div className={classes.scanCheck} style={{ backgroundColor: 'rgba(62,134,53,0.06)' }}>
-            <CheckCircleIcon fontSize="small" style={{ color: STATUS_COLORS.success }} />
+          <div
+            className={classes.scanCheck}
+            style={{ backgroundColor: 'rgba(62,134,53,0.06)' }}
+          >
+            <CheckCircleIcon
+              fontSize="small"
+              style={{ color: STATUS_COLORS.success }}
+            />
             <Typography variant="body2">
-              Last scan: <strong>{lastScan.passRate}%</strong> pass rate ({lastScan.date})
+              Last scan: <strong>{lastScan.passRate}%</strong> pass rate (
+              {lastScan.date})
             </Typography>
           </div>
         )}
 
         {!checking && !lastScan && profileId && (
-          <div className={classes.scanCheck} style={{ backgroundColor: 'rgba(240,171,0,0.06)' }}>
-            <WarningIcon fontSize="small" style={{ color: STATUS_COLORS.warning }} />
+          <div
+            className={classes.scanCheck}
+            style={{ backgroundColor: 'rgba(240,171,0,0.06)' }}
+          >
+            <WarningIcon
+              fontSize="small"
+              style={{ color: STATUS_COLORS.warning }}
+            />
             <Typography variant="body2">
               No previous scan for {selectedLabel} on this inventory
             </Typography>
@@ -167,7 +197,11 @@ export const LaunchScanDialog: React.FC<LaunchScanDialogProps> = ({
         )}
 
         {error && (
-          <Box mt={1} p={1} style={{ backgroundColor: 'rgba(201,25,11,0.06)', borderRadius: 4 }}>
+          <Box
+            mt={1}
+            p={1}
+            style={{ backgroundColor: 'rgba(201,25,11,0.06)', borderRadius: 4 }}
+          >
             <Typography variant="body2" style={{ color: STATUS_COLORS.error }}>
               {error}
             </Typography>
@@ -175,7 +209,9 @@ export const LaunchScanDialog: React.FC<LaunchScanDialogProps> = ({
         )}
       </DialogContent>
       <DialogActions>
-        <Button onClick={onClose} disabled={launching}>Cancel</Button>
+        <Button onClick={onClose} disabled={launching}>
+          Cancel
+        </Button>
         <Button
           variant="contained"
           color="primary"

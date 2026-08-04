@@ -71,7 +71,9 @@ function makeFullChain(overrides?: Partial<ChainResponse>): ChainResponse {
 
 // ─── Helpers ─────────────────────────────────────────────────────────
 
-async function renderChainView(mockApi: ReturnType<typeof createMockComplianceApi>) {
+async function renderChainView(
+  mockApi: ReturnType<typeof createMockComplianceApi>,
+) {
   return renderInTestApp(
     <TestApiProvider apis={[[complianceApiRef, mockApi]]}>
       <ChainView />
@@ -143,7 +145,9 @@ describe('ChainView', () => {
     mockApi.getChain.mockResolvedValue(makeFullChain());
     await renderChainView(mockApi);
     await waitFor(() => {
-      expect(screen.getByText('Remediation execution exec-abc...')).toBeInTheDocument();
+      expect(
+        screen.getByText('Remediation execution exec-abc...'),
+      ).toBeInTheDocument();
     });
   });
 
@@ -272,7 +276,9 @@ describe('ChainView', () => {
     mockApi.getChain.mockResolvedValue(chain);
     await renderChainView(mockApi);
     await waitFor(() => {
-      expect(screen.getByText('5 rules selected on 10 hosts')).toBeInTheDocument();
+      expect(
+        screen.getByText('5 rules selected on 10 hosts'),
+      ).toBeInTheDocument();
     });
   });
 
@@ -331,7 +337,9 @@ describe('ChainView', () => {
     mockApi.getChain.mockResolvedValue(chain);
     await renderChainView(mockApi);
     await waitFor(() => {
-      expect(screen.getByText('Assessment scan not linked')).toBeInTheDocument();
+      expect(
+        screen.getByText('Assessment scan not linked'),
+      ).toBeInTheDocument();
     });
   });
 

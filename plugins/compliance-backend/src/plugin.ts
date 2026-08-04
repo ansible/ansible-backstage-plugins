@@ -21,6 +21,7 @@ import * as fs from 'fs';
 import {
   coreServices,
   createBackendPlugin,
+  resolvePackagePath,
 } from '@backstage/backend-plugin-api';
 
 import { ComplianceService } from './service/ComplianceService';
@@ -40,13 +41,23 @@ export const complianceBackendPlugin = createBackendPlugin({
         httpAuth: coreServices.httpAuth,
         permissions: coreServices.permissions,
       },
-      async init({ logger, config, httpRouter, database, httpAuth, permissions }) {
+      async init({
+        logger,
+        config,
+        httpRouter,
+        database,
+        httpAuth,
+        permissions,
+      }) {
         logger.info('Initializing compliance backend plugin');
 
         // ─── Enabled check (Plugin Factory requirement) ─────────
-        const enabled = config.getOptionalBoolean('ansible.compliance.enabled') ?? false;
+        const enabled =
+          config.getOptionalBoolean('ansible.compliance.enabled') ?? false;
         if (!enabled) {
-          logger.info('Compliance plugin disabled (ansible.compliance.enabled is false or absent)');
+          logger.info(
+            'Compliance plugin disabled (ansible.compliance.enabled is false or absent)',
+          );
           return;
         }
 
@@ -58,7 +69,9 @@ export const complianceBackendPlugin = createBackendPlugin({
         //   routes require Backstage auth. Mutating endpoints are
         //   additionally gated by catalogEntityCreatePermission via
         //   the permissions service in the router.
-        const authMode = config.getOptionalString('ansible.compliance.authMode') ?? 'production';
+        const authMode =
+          config.getOptionalString('ansible.compliance.authMode') ??
+          'production';
         logger.info(`Compliance auth mode: ${authMode}`);
 
         // ─── Database ───────────────────────────────────────────
@@ -66,9 +79,19 @@ export const complianceBackendPlugin = createBackendPlugin({
 
         // Run migrations — check compiled TS migrations first (local dev: src/database/migrations/),
         // then fall back to package-root JS migrations (dist-dynamic: ../migrations/).
-        const tsMigrations = path.resolve(__dirname, 'database', 'migrations');
-        const jsMigrations = path.resolve(__dirname, '..', 'migrations');
-        const migrationsDir = fs.existsSync(tsMigrations) ? tsMigrations : jsMigrations;
+        const packagePath = resolvePackagePath(
+          '@ansible/plugin-backstage-compliance-backend',
+        );
+        const tsMigrations = path.resolve(
+          packagePath,
+          'dist',
+          'database',
+          'migrations',
+        );
+        const jsMigrations = path.resolve(packagePath, 'migrations');
+        const migrationsDir = fs.existsSync(tsMigrations)
+          ? tsMigrations
+          : jsMigrations;
 
         // SQLite ALTER TABLE recreates tables, which fails FK checks inside transactions.
         // Disable FK checks before migrations, re-enable after.
@@ -84,9 +107,12 @@ export const complianceBackendPlugin = createBackendPlugin({
         const complianceDb = new ComplianceDatabase(dbClient as any);
 
         // ─── Data retention cleanup ────────────────────────────
-        const retentionDays = config.getOptionalNumber('ansible.compliance.retentionDays') ?? 90;
+        const retentionDays =
+          config.getOptionalNumber('ansible.compliance.retentionDays') ?? 90;
         try {
-          const cleanedUp = await complianceDb.cleanupOldFindings(retentionDays);
+          const cleanedUp = await complianceDb.cleanupOldFindings(
+            retentionDays,
+          );
           if (cleanedUp > 0) {
             logger.info(
               `Data retention: cleaned up ${cleanedUp} findings older than ${retentionDays} days`,
@@ -94,7 +120,11 @@ export const complianceBackendPlugin = createBackendPlugin({
           }
         } catch (cleanupError) {
           logger.warn(
-            `Data retention cleanup failed: ${cleanupError instanceof Error ? cleanupError.message : String(cleanupError)}`,
+            `Data retention cleanup failed: ${
+              cleanupError instanceof Error
+                ? cleanupError.message
+                : String(cleanupError)
+            }`,
           );
         }
 
@@ -106,7 +136,11 @@ export const complianceBackendPlugin = createBackendPlugin({
           try {
             await new MockDataSeeder(dbClient as any, logger).seed();
           } catch (seedErr) {
-            logger.error(`Mock data seeder failed: ${seedErr instanceof Error ? seedErr.message : String(seedErr)}`);
+            logger.error(
+              `Mock data seeder failed: ${
+                seedErr instanceof Error ? seedErr.message : String(seedErr)
+              }`,
+            );
           }
         }
 
@@ -137,35 +171,113 @@ export const complianceBackendPlugin = createBackendPlugin({
           // This is the standalone dev shell path (./bin/start.sh mock).
 
           // --- Read-only endpoints ---
-          httpRouter.addAuthPolicy({ path: '/health', allow: 'unauthenticated' });
-          httpRouter.addAuthPolicy({ path: '/profiles', allow: 'unauthenticated' });
-          httpRouter.addAuthPolicy({ path: '/scans', allow: 'unauthenticated' });
-          httpRouter.addAuthPolicy({ path: '/findings', allow: 'unauthenticated' });
-          httpRouter.addAuthPolicy({ path: '/compliance-profiles', allow: 'unauthenticated' });
-          httpRouter.addAuthPolicy({ path: '/inventories', allow: 'unauthenticated' });
-          httpRouter.addAuthPolicy({ path: '/dashboard', allow: 'unauthenticated' });
-          httpRouter.addAuthPolicy({ path: '/posture', allow: 'unauthenticated' });
-          httpRouter.addAuthPolicy({ path: '/workflow-templates', allow: 'unauthenticated' });
-          httpRouter.addAuthPolicy({ path: '/workflow-status', allow: 'unauthenticated' });
-          httpRouter.addAuthPolicy({ path: '/workflow-nodes', allow: 'unauthenticated' });
-          httpRouter.addAuthPolicy({ path: '/job-events', allow: 'unauthenticated' });
-          httpRouter.addAuthPolicy({ path: '/job-status', allow: 'unauthenticated' });
-          httpRouter.addAuthPolicy({ path: '/controller', allow: 'unauthenticated' });
-          httpRouter.addAuthPolicy({ path: '/previous-findings', allow: 'unauthenticated' });
+          httpRouter.addAuthPolicy({
+            path: '/health',
+            allow: 'unauthenticated',
+          });
+          httpRouter.addAuthPolicy({
+            path: '/profiles',
+            allow: 'unauthenticated',
+          });
+          httpRouter.addAuthPolicy({
+            path: '/scans',
+            allow: 'unauthenticated',
+          });
+          httpRouter.addAuthPolicy({
+            path: '/findings',
+            allow: 'unauthenticated',
+          });
+          httpRouter.addAuthPolicy({
+            path: '/compliance-profiles',
+            allow: 'unauthenticated',
+          });
+          httpRouter.addAuthPolicy({
+            path: '/inventories',
+            allow: 'unauthenticated',
+          });
+          httpRouter.addAuthPolicy({
+            path: '/dashboard',
+            allow: 'unauthenticated',
+          });
+          httpRouter.addAuthPolicy({
+            path: '/posture',
+            allow: 'unauthenticated',
+          });
+          httpRouter.addAuthPolicy({
+            path: '/workflow-templates',
+            allow: 'unauthenticated',
+          });
+          httpRouter.addAuthPolicy({
+            path: '/workflow-status',
+            allow: 'unauthenticated',
+          });
+          httpRouter.addAuthPolicy({
+            path: '/workflow-nodes',
+            allow: 'unauthenticated',
+          });
+          httpRouter.addAuthPolicy({
+            path: '/job-events',
+            allow: 'unauthenticated',
+          });
+          httpRouter.addAuthPolicy({
+            path: '/job-status',
+            allow: 'unauthenticated',
+          });
+          httpRouter.addAuthPolicy({
+            path: '/controller',
+            allow: 'unauthenticated',
+          });
+          httpRouter.addAuthPolicy({
+            path: '/previous-findings',
+            allow: 'unauthenticated',
+          });
 
           // --- Mutating endpoints ---
           httpRouter.addAuthPolicy({ path: '/scan', allow: 'unauthenticated' });
-          httpRouter.addAuthPolicy({ path: '/remediate', allow: 'unauthenticated' });
-          httpRouter.addAuthPolicy({ path: '/remediation-profiles', allow: 'unauthenticated' });
-          httpRouter.addAuthPolicy({ path: '/remediation-profiles/:id', allow: 'unauthenticated' });
-          httpRouter.addAuthPolicy({ path: '/remediation-executions', allow: 'unauthenticated' });
-          httpRouter.addAuthPolicy({ path: '/remediation-executions/:id', allow: 'unauthenticated' });
-          httpRouter.addAuthPolicy({ path: '/baseline-targets', allow: 'unauthenticated' });
-          httpRouter.addAuthPolicy({ path: '/baseline-targets/:id', allow: 'unauthenticated' });
-          httpRouter.addAuthPolicy({ path: '/remediation-error-details', allow: 'unauthenticated' });
-          httpRouter.addAuthPolicy({ path: '/settings', allow: 'unauthenticated' });
-          httpRouter.addAuthPolicy({ path: '/cleanup', allow: 'unauthenticated' });
-          httpRouter.addAuthPolicy({ path: '/findings/ingest', allow: 'unauthenticated' });
+          httpRouter.addAuthPolicy({
+            path: '/remediate',
+            allow: 'unauthenticated',
+          });
+          httpRouter.addAuthPolicy({
+            path: '/remediation-profiles',
+            allow: 'unauthenticated',
+          });
+          httpRouter.addAuthPolicy({
+            path: '/remediation-profiles/:id',
+            allow: 'unauthenticated',
+          });
+          httpRouter.addAuthPolicy({
+            path: '/remediation-executions',
+            allow: 'unauthenticated',
+          });
+          httpRouter.addAuthPolicy({
+            path: '/remediation-executions/:id',
+            allow: 'unauthenticated',
+          });
+          httpRouter.addAuthPolicy({
+            path: '/baseline-targets',
+            allow: 'unauthenticated',
+          });
+          httpRouter.addAuthPolicy({
+            path: '/baseline-targets/:id',
+            allow: 'unauthenticated',
+          });
+          httpRouter.addAuthPolicy({
+            path: '/remediation-error-details',
+            allow: 'unauthenticated',
+          });
+          httpRouter.addAuthPolicy({
+            path: '/settings',
+            allow: 'unauthenticated',
+          });
+          httpRouter.addAuthPolicy({
+            path: '/cleanup',
+            allow: 'unauthenticated',
+          });
+          httpRouter.addAuthPolicy({
+            path: '/findings/ingest',
+            allow: 'unauthenticated',
+          });
         } else {
           // Production mode: only /health and /findings/ingest are unauthenticated.
           // /findings/ingest must be reachable from the EE (playbook POSTs findings
@@ -174,12 +286,21 @@ export const complianceBackendPlugin = createBackendPlugin({
           // layer. Security is enforced via per-scan ingest tokens stored in the
           // database (ADR-010): each scan generates a unique token at creation time,
           // and the ingest endpoint rejects requests without a valid matching token.
-          httpRouter.addAuthPolicy({ path: '/health', allow: 'unauthenticated' });
-          httpRouter.addAuthPolicy({ path: '/findings/ingest', allow: 'unauthenticated' });
+          httpRouter.addAuthPolicy({
+            path: '/health',
+            allow: 'unauthenticated',
+          });
+          httpRouter.addAuthPolicy({
+            path: '/findings/ingest',
+            allow: 'unauthenticated',
+          });
           // Artifact registration (POST) from playbook uses per-scan ingest token
           // (ADR-010, ADR-032). The /scans prefix must be unauthenticated for this POST.
           // GET artifact endpoints enforce Backstage httpAuth in the route handler (ADR-037).
-          httpRouter.addAuthPolicy({ path: '/scans', allow: 'unauthenticated' });
+          httpRouter.addAuthPolicy({
+            path: '/scans',
+            allow: 'unauthenticated',
+          });
         }
       },
     });

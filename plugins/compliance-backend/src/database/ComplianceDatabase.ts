@@ -20,9 +20,17 @@ import type {
   BaselineTarget,
 } from '@ansible/backstage-compliance-common';
 
-export type CreateScanInput = Omit<ComplianceScan, 'id' | 'errorDetails'> & { errorDetails?: string | null };
-export type FindingInput = Omit<StoredFinding, 'id' | 'scanId' | 'findingState'> & { scanId?: string; findingState?: FindingState | null };
-export type RuleMetadataInput = Omit<RuleMetadataRecord, 'aapImpact' | 'aapImpactReason'> & { aapImpact?: string; aapImpactReason?: string };
+export type CreateScanInput = Omit<ComplianceScan, 'id' | 'errorDetails'> & {
+  errorDetails?: string | null;
+};
+export type FindingInput = Omit<
+  StoredFinding,
+  'id' | 'scanId' | 'findingState'
+> & { scanId?: string; findingState?: FindingState | null };
+export type RuleMetadataInput = Omit<
+  RuleMetadataRecord,
+  'aapImpact' | 'aapImpactReason'
+> & { aapImpact?: string; aapImpactReason?: string };
 
 function toISOString(value: unknown): string {
   if (value instanceof Date) return value.toISOString();
@@ -31,13 +39,17 @@ function toISOString(value: unknown): string {
 }
 
 function toISOStringOrNull(value: unknown): string | null {
-  if (value == null) return null;
+  if (value === null || value === undefined) return null;
   return toISOString(value);
 }
 
 function safeJsonParse<T>(value: unknown): T | null {
   if (!value) return null;
-  try { return JSON.parse(value as string); } catch { return null; }
+  try {
+    return JSON.parse(value as string);
+  } catch {
+    return null;
+  }
 }
 
 export class ComplianceDatabase {
@@ -59,13 +71,20 @@ export class ComplianceDatabase {
       status: row.status,
       started_at: row.startedAt,
       completed_at: row.completedAt,
-      ...(row.scanMetadata ? { scan_metadata: JSON.stringify(row.scanMetadata) } : {}),
+      ...(row.scanMetadata
+        ? { scan_metadata: JSON.stringify(row.scanMetadata) }
+        : {}),
     });
     return { ...row, id, errorDetails: row.errorDetails ?? null };
   }
 
-  async updateScanWorkflowJobId(scanId: string, workflowJobId: number): Promise<void> {
-    await this.db('compliance_scans').where('id', scanId).update({ workflow_job_id: workflowJobId });
+  async updateScanWorkflowJobId(
+    scanId: string,
+    workflowJobId: number,
+  ): Promise<void> {
+    await this.db('compliance_scans')
+      .where('id', scanId)
+      .update({ workflow_job_id: workflowJobId });
   }
 
   async updateScanStatus(
@@ -80,25 +99,49 @@ export class ComplianceDatabase {
     await this.db('compliance_scans').where('id', scanId).update(update);
   }
 
-  async updateScanMetadata(scanId: string, metadata: Record<string, unknown>): Promise<void> {
-    await this.db('compliance_scans').where('id', scanId).update({
-      scan_metadata: JSON.stringify(metadata),
-    });
+  async updateScanMetadata(
+    scanId: string,
+    metadata: Record<string, unknown>,
+  ): Promise<void> {
+    await this.db('compliance_scans')
+      .where('id', scanId)
+      .update({
+        scan_metadata: JSON.stringify(metadata),
+      });
   }
 
   async mergeScanMetadata(
     scanId: string,
     hostname: string,
-    hostMeta: { totalScannedPackages?: number; totalVulnerablePackages?: number; totalVulnerabilities?: number },
+    hostMeta: {
+      totalScannedPackages?: number;
+      totalVulnerablePackages?: number;
+      totalVulnerabilities?: number;
+    },
   ): Promise<void> {
     await this.db.transaction(async trx => {
-      const row = await trx('compliance_scans').where('id', scanId).select('scan_metadata').first();
-      const existing = row?.scan_metadata ? safeJsonParse<Record<string, unknown>>(row.scan_metadata as string) ?? {} : {};
-      const hosts = (existing.hosts ?? {}) as Record<string, Record<string, number>>;
+      const row = await trx('compliance_scans')
+        .where('id', scanId)
+        .select('scan_metadata')
+        .first();
+      const existing = row?.scan_metadata
+        ? safeJsonParse<Record<string, unknown>>(row.scan_metadata as string) ??
+          {}
+        : {};
+      const hosts = (existing.hosts ?? {}) as Record<
+        string,
+        Record<string, number>
+      >;
       hosts[hostname] = {
-        ...(hostMeta.totalScannedPackages !== undefined ? { totalScannedPackages: hostMeta.totalScannedPackages } : {}),
-        ...(hostMeta.totalVulnerablePackages !== undefined ? { totalVulnerablePackages: hostMeta.totalVulnerablePackages } : {}),
-        ...(hostMeta.totalVulnerabilities !== undefined ? { totalVulnerabilities: hostMeta.totalVulnerabilities } : {}),
+        ...(hostMeta.totalScannedPackages !== undefined
+          ? { totalScannedPackages: hostMeta.totalScannedPackages }
+          : {}),
+        ...(hostMeta.totalVulnerablePackages !== undefined
+          ? { totalVulnerablePackages: hostMeta.totalVulnerablePackages }
+          : {}),
+        ...(hostMeta.totalVulnerabilities !== undefined
+          ? { totalVulnerabilities: hostMeta.totalVulnerabilities }
+          : {}),
       };
       let totalScannedPackages = 0;
       let totalVulnerablePackages = 0;
@@ -108,9 +151,16 @@ export class ComplianceDatabase {
         totalVulnerablePackages += h.totalVulnerablePackages ?? 0;
         totalVulnerabilities += h.totalVulnerabilities ?? 0;
       }
-      await trx('compliance_scans').where('id', scanId).update({
-        scan_metadata: JSON.stringify({ hosts, totalScannedPackages, totalVulnerablePackages, totalVulnerabilities }),
-      });
+      await trx('compliance_scans')
+        .where('id', scanId)
+        .update({
+          scan_metadata: JSON.stringify({
+            hosts,
+            totalScannedPackages,
+            totalVulnerablePackages,
+            totalVulnerabilities,
+          }),
+        });
     });
   }
 
@@ -120,7 +170,9 @@ export class ComplianceDatabase {
     return this.mapScanRow(row);
   }
 
-  async getScanByWorkflowJobId(workflowJobId: number): Promise<ComplianceScan | null> {
+  async getScanByWorkflowJobId(
+    workflowJobId: number,
+  ): Promise<ComplianceScan | null> {
     const row = await this.db('compliance_scans')
       .where('workflow_job_id', workflowJobId)
       .first();
@@ -157,7 +209,7 @@ export class ComplianceDatabase {
     // PostgreSQL "ON CONFLICT DO UPDATE cannot affect row a second time"
     // error. Supply chain scans may produce duplicate CVE matches for the
     // same package (different match contexts in Grype output). Keep last.
-    const deduped = new Map<string, typeof mapped[0]>();
+    const deduped = new Map<string, (typeof mapped)[0]>();
     for (const row of mapped) {
       deduped.set(`${row.scan_id}\0${row.rule_id}\0${row.host}`, row);
     }
@@ -168,7 +220,14 @@ export class ComplianceDatabase {
       await this.db('compliance_findings')
         .insert(rows.slice(i, i + batchSize))
         .onConflict(['scan_id', 'rule_id', 'host'])
-        .merge(['status', 'severity', 'actual_value', 'expected_value', 'evidence', 'finding_state']);
+        .merge([
+          'status',
+          'severity',
+          'actual_value',
+          'expected_value',
+          'evidence',
+          'finding_state',
+        ]);
     }
 
     return findings.length;
@@ -179,7 +238,9 @@ export class ComplianceDatabase {
    * same profile that was completed before the given scan. Used to provide
    * before/after comparison.
    */
-  async getPreviousScan(currentScan: ComplianceScan): Promise<ComplianceScan | null> {
+  async getPreviousScan(
+    currentScan: ComplianceScan,
+  ): Promise<ComplianceScan | null> {
     const row = await this.db('compliance_scans')
       .where('profile_id', currentScan.profileId)
       .whereIn('scan_type', ['assessment', 'verification'])
@@ -238,16 +299,19 @@ export class ComplianceDatabase {
     if (currentFindings.length === 0) return;
 
     // Build lookup from previous scan
-    const prevMap = new Map<string, { status: string; findingState: string | null }>();
+    const prevMap = new Map<
+      string,
+      { status: string; findingState: string | null }
+    >();
     if (prevScan) {
       const prevFindings = await this.db('compliance_findings')
         .where('scan_id', prevScan.id)
         .select('rule_id', 'host', 'status', 'finding_state');
       for (const pf of prevFindings) {
-        prevMap.set(
-          `${pf.rule_id}|${pf.host}`,
-          { status: pf.status as string, findingState: pf.finding_state as string | null },
-        );
+        prevMap.set(`${pf.rule_id}|${pf.host}`, {
+          status: pf.status as string,
+          findingState: pf.finding_state as string | null,
+        });
       }
     }
 
@@ -282,7 +346,10 @@ export class ComplianceDatabase {
     for (const u of updates) {
       const key = u.state ?? '__null__';
       let ids = byState.get(key);
-      if (!ids) { ids = []; byState.set(key, ids); }
+      if (!ids) {
+        ids = [];
+        byState.set(key, ids);
+      }
       ids.push(u.id);
     }
     for (const [key, ids] of byState) {
@@ -325,7 +392,10 @@ export class ComplianceDatabase {
     return rows.map(this.mapScanRow);
   }
 
-  async getAuthoritativeScan(profileId: string, inventoryId: number): Promise<ComplianceScan | null> {
+  async getAuthoritativeScan(
+    profileId: string,
+    inventoryId: number,
+  ): Promise<ComplianceScan | null> {
     const row = await this.db('compliance_scans')
       .where('profile_id', profileId)
       .where('inventory_id', inventoryId)
@@ -351,24 +421,36 @@ export class ComplianceDatabase {
       startedAt: toISOString(row.started_at),
       completedAt: toISOStringOrNull(row.completed_at),
       errorDetails: (row.error_details as string) ?? null,
-      scanMetadata: row.scan_metadata ? safeJsonParse(row.scan_metadata as string) : null,
+      scanMetadata: row.scan_metadata
+        ? safeJsonParse(row.scan_metadata as string)
+        : null,
     };
   }
 
   // ─── Scan error details ────────────────────────────────────────────
 
-  async updateScanErrorDetails(scanId: string, errorDetails: string): Promise<void> {
-    await this.db('compliance_scans').where('id', scanId).update({ error_details: errorDetails });
+  async updateScanErrorDetails(
+    scanId: string,
+    errorDetails: string,
+  ): Promise<void> {
+    await this.db('compliance_scans')
+      .where('id', scanId)
+      .update({ error_details: errorDetails });
   }
 
   // ─── Ingest tokens ─────────────────────────────────────────────────
 
   async storeIngestToken(scanId: string, token: string): Promise<void> {
-    await this.db('compliance_scans').where('id', scanId).update({ ingest_token: token });
+    await this.db('compliance_scans')
+      .where('id', scanId)
+      .update({ ingest_token: token });
   }
 
   async getIngestToken(scanId: string): Promise<string | null> {
-    const row = await this.db('compliance_scans').where('id', scanId).select('ingest_token').first();
+    const row = await this.db('compliance_scans')
+      .where('id', scanId)
+      .select('ingest_token')
+      .first();
     if (!row) return null;
     return (row.ingest_token as string) || null;
   }
@@ -432,14 +514,24 @@ export class ComplianceDatabase {
         await this.db('compliance_findings')
           .insert(rows.slice(i, i + batchSize))
           .onConflict(['scan_id', 'rule_id', 'host'])
-          .merge(['status', 'severity', 'actual_value', 'expected_value', 'evidence', 'finding_state']);
+          .merge([
+            'status',
+            'severity',
+            'actual_value',
+            'expected_value',
+            'evidence',
+            'finding_state',
+          ]);
       }
     }
 
     return { scanId: savedScan.id, findingCount: findings.length };
   }
 
-  async getLatestFindings(profileId?: string, inventoryId?: number): Promise<StoredFinding[]> {
+  async getLatestFindings(
+    profileId?: string,
+    inventoryId?: number,
+  ): Promise<StoredFinding[]> {
     let scanQuery = this.db('compliance_scans')
       .whereExists(
         this.db('compliance_findings')
@@ -476,7 +568,11 @@ export class ComplianceDatabase {
   async getFindingsByScanIdPaginated(
     scanId: string,
     opts: { limit: number; offset: number; severity?: string; status?: string },
-  ): Promise<{ findings: StoredFinding[]; total: number; totalFailing: number }> {
+  ): Promise<{
+    findings: StoredFinding[];
+    total: number;
+    totalFailing: number;
+  }> {
     // Paginate at the RULE level (not raw findings) so aggregation into
     // MultiHostFinding objects gets complete host lists per rule.
     // Step 1: Get paginated distinct rule_ids matching filters
@@ -534,17 +630,52 @@ export class ComplianceDatabase {
     return { findings: rows.map(this.mapFindingRow), total, totalFailing };
   }
 
-  async getAggregatedStatsByScanIds(scanIds: string[]): Promise<Map<string, { pass: number; fail: number; catI: number; na: number; hosts: Set<string>; rules: Set<string>; totalPackages?: number; totalScannedPackages?: number; totalVulnerablePackages?: number }>> {
+  async getAggregatedStatsByScanIds(scanIds: string[]): Promise<
+    Map<
+      string,
+      {
+        pass: number;
+        fail: number;
+        catI: number;
+        na: number;
+        hosts: Set<string>;
+        rules: Set<string>;
+        totalPackages?: number;
+        totalScannedPackages?: number;
+        totalVulnerablePackages?: number;
+      }
+    >
+  > {
     if (scanIds.length === 0) return new Map();
     const rows = await this.db('compliance_findings')
       .select('scan_id', 'status', 'severity', 'host', 'rule_id')
       .whereIn('scan_id', scanIds);
-    const result = new Map<string, { pass: number; fail: number; catI: number; na: number; hosts: Set<string>; rules: Set<string>; totalPackages?: number; totalScannedPackages?: number; totalVulnerablePackages?: number }>();
+    const result = new Map<
+      string,
+      {
+        pass: number;
+        fail: number;
+        catI: number;
+        na: number;
+        hosts: Set<string>;
+        rules: Set<string>;
+        totalPackages?: number;
+        totalScannedPackages?: number;
+        totalVulnerablePackages?: number;
+      }
+    >();
     for (const row of rows) {
       const sid = row.scan_id as string;
       let entry = result.get(sid);
       if (!entry) {
-        entry = { pass: 0, fail: 0, catI: 0, na: 0, hosts: new Set(), rules: new Set() };
+        entry = {
+          pass: 0,
+          fail: 0,
+          catI: 0,
+          na: 0,
+          hosts: new Set(),
+          rules: new Set(),
+        };
         result.set(sid, entry);
       }
       if (row.status === 'not_applicable') {
@@ -565,12 +696,17 @@ export class ComplianceDatabase {
       .whereIn('id', scanIds)
       .whereNotNull('scan_metadata');
     for (const sr of scanMetaRows as Array<Record<string, unknown>>) {
-      const meta = safeJsonParse<Record<string, unknown>>(sr.scan_metadata as string);
+      const meta = safeJsonParse<Record<string, unknown>>(
+        sr.scan_metadata as string,
+      );
       const entry = result.get(sr.id as string);
       if (entry && meta) {
-        if (meta.totalPackages !== undefined) entry.totalPackages = Number(meta.totalPackages);
-        if (meta.totalScannedPackages !== undefined) entry.totalScannedPackages = Number(meta.totalScannedPackages);
-        if (meta.totalVulnerablePackages !== undefined) entry.totalVulnerablePackages = Number(meta.totalVulnerablePackages);
+        if (meta.totalPackages !== undefined)
+          entry.totalPackages = Number(meta.totalPackages);
+        if (meta.totalScannedPackages !== undefined)
+          entry.totalScannedPackages = Number(meta.totalScannedPackages);
+        if (meta.totalVulnerablePackages !== undefined)
+          entry.totalVulnerablePackages = Number(meta.totalVulnerablePackages);
       }
     }
 
@@ -581,7 +717,8 @@ export class ComplianceDatabase {
     assessScanId: string,
     verifyScanId: string,
   ): Promise<{ fixed: number; regressed: number; unchanged: number }> {
-    const rows = await this.db.raw(`
+    const rows = await this.db.raw(
+      `
       SELECT
         SUM(CASE WHEN a.status = 'fail' AND v.status = 'pass' THEN 1 ELSE 0 END) AS fixed,
         SUM(CASE WHEN a.status = 'pass' AND v.status = 'fail' THEN 1 ELSE 0 END) AS regressed,
@@ -591,7 +728,9 @@ export class ComplianceDatabase {
         ON a.rule_id = v.rule_id AND a.host = v.host
       WHERE a.scan_id = ? AND v.scan_id = ?
         AND a.status IN ('pass','fail') AND v.status IN ('pass','fail')
-    `, [assessScanId, verifyScanId]);
+    `,
+      [assessScanId, verifyScanId],
+    );
     const row = Array.isArray(rows) ? rows[0] : rows?.rows?.[0] ?? {};
     return {
       fixed: Number(row.fixed) || 0,
@@ -600,19 +739,65 @@ export class ComplianceDatabase {
     };
   }
 
-  async getBatchScanStatsAggregated(scanIds: string[]): Promise<Record<string, { pass: number; fail: number; rules: number; hosts: number; naCount: number; stateNew: number; stateFixed: number; stateResurfaced: number; totalPackages?: number; totalVulnerabilities?: number; totalScannedPackages?: number; totalVulnerablePackages?: number }>> {
+  async getBatchScanStatsAggregated(scanIds: string[]): Promise<
+    Record<
+      string,
+      {
+        pass: number;
+        fail: number;
+        rules: number;
+        hosts: number;
+        naCount: number;
+        stateNew: number;
+        stateFixed: number;
+        stateResurfaced: number;
+        totalPackages?: number;
+        totalVulnerabilities?: number;
+        totalScannedPackages?: number;
+        totalVulnerablePackages?: number;
+      }
+    >
+  > {
     if (scanIds.length === 0) return {};
     const rows = await this.db('compliance_findings')
       .select('scan_id')
       .count({ total: '*' })
-      .sum({ pass_count: this.db.raw("CASE WHEN status = 'pass' THEN 1 ELSE 0 END") })
-      .sum({ fail_count: this.db.raw("CASE WHEN status = 'fail' THEN 1 ELSE 0 END") })
-      .sum({ na_count: this.db.raw("CASE WHEN status = 'not_applicable' THEN 1 ELSE 0 END") })
-      .sum({ state_new: this.db.raw("CASE WHEN finding_state = 'new' THEN 1 ELSE 0 END") })
-      .sum({ state_fixed: this.db.raw("CASE WHEN finding_state = 'fixed' THEN 1 ELSE 0 END") })
-      .sum({ state_resurfaced: this.db.raw("CASE WHEN finding_state = 'resurfaced' THEN 1 ELSE 0 END") })
-      .countDistinct({ rule_count: this.db.raw("CASE WHEN status != 'not_applicable' THEN rule_id END") })
-      .countDistinct({ host_count: this.db.raw("CASE WHEN status != 'not_applicable' THEN host END") })
+      .sum({
+        pass_count: this.db.raw("CASE WHEN status = 'pass' THEN 1 ELSE 0 END"),
+      })
+      .sum({
+        fail_count: this.db.raw("CASE WHEN status = 'fail' THEN 1 ELSE 0 END"),
+      })
+      .sum({
+        na_count: this.db.raw(
+          "CASE WHEN status = 'not_applicable' THEN 1 ELSE 0 END",
+        ),
+      })
+      .sum({
+        state_new: this.db.raw(
+          "CASE WHEN finding_state = 'new' THEN 1 ELSE 0 END",
+        ),
+      })
+      .sum({
+        state_fixed: this.db.raw(
+          "CASE WHEN finding_state = 'fixed' THEN 1 ELSE 0 END",
+        ),
+      })
+      .sum({
+        state_resurfaced: this.db.raw(
+          "CASE WHEN finding_state = 'resurfaced' THEN 1 ELSE 0 END",
+        ),
+      })
+      .countDistinct({
+        rule_count: this.db.raw(
+          "CASE WHEN status != 'not_applicable' THEN rule_id END",
+        ),
+      })
+      .countDistinct({
+        host_count: this.db.raw(
+          "CASE WHEN status != 'not_applicable' THEN host END",
+        ),
+      })
       .whereIn('scan_id', scanIds)
       .groupBy('scan_id');
 
@@ -622,11 +807,29 @@ export class ComplianceDatabase {
       .whereNotNull('scan_metadata');
     const metaMap = new Map<string, Record<string, unknown>>();
     for (const sr of scanMetaRows as Array<Record<string, unknown>>) {
-      const parsed = safeJsonParse<Record<string, unknown>>(sr.scan_metadata as string);
+      const parsed = safeJsonParse<Record<string, unknown>>(
+        sr.scan_metadata as string,
+      );
       if (parsed) metaMap.set(sr.id as string, parsed);
     }
 
-    const result: Record<string, { pass: number; fail: number; rules: number; hosts: number; naCount: number; stateNew: number; stateFixed: number; stateResurfaced: number; totalPackages?: number; totalVulnerabilities?: number; totalScannedPackages?: number; totalVulnerablePackages?: number }> = {};
+    const result: Record<
+      string,
+      {
+        pass: number;
+        fail: number;
+        rules: number;
+        hosts: number;
+        naCount: number;
+        stateNew: number;
+        stateFixed: number;
+        stateResurfaced: number;
+        totalPackages?: number;
+        totalVulnerabilities?: number;
+        totalScannedPackages?: number;
+        totalVulnerablePackages?: number;
+      }
+    > = {};
     for (const row of rows as Array<Record<string, unknown>>) {
       const sid = row.scan_id as string;
       const meta = metaMap.get(sid);
@@ -639,19 +842,46 @@ export class ComplianceDatabase {
         stateNew: Number(row.state_new) || 0,
         stateFixed: Number(row.state_fixed) || 0,
         stateResurfaced: Number(row.state_resurfaced) || 0,
-        ...(meta?.totalPackages !== undefined ? { totalPackages: Number(meta.totalPackages) } : {}),
-        ...(meta?.totalVulnerabilities !== undefined ? { totalVulnerabilities: Number(meta.totalVulnerabilities) } : {}),
-        ...(meta?.totalScannedPackages !== undefined ? { totalScannedPackages: Number(meta.totalScannedPackages) } : {}),
-        ...(meta?.totalVulnerablePackages !== undefined ? { totalVulnerablePackages: Number(meta.totalVulnerablePackages) } : {}),
+        ...(meta?.totalPackages !== undefined
+          ? { totalPackages: Number(meta.totalPackages) }
+          : {}),
+        ...(meta?.totalVulnerabilities !== undefined
+          ? { totalVulnerabilities: Number(meta.totalVulnerabilities) }
+          : {}),
+        ...(meta?.totalScannedPackages !== undefined
+          ? { totalScannedPackages: Number(meta.totalScannedPackages) }
+          : {}),
+        ...(meta?.totalVulnerablePackages !== undefined
+          ? { totalVulnerablePackages: Number(meta.totalVulnerablePackages) }
+          : {}),
       };
     }
     return result;
   }
 
-  async getAggregatedFindingsForScans(scanIds: string[], limit: number = 100): Promise<Array<{ ruleId: string; stigId: string; host: string; status: string; severity: string; evidence: string | null }>> {
+  async getAggregatedFindingsForScans(
+    scanIds: string[],
+    limit: number = 100,
+  ): Promise<
+    Array<{
+      ruleId: string;
+      stigId: string;
+      host: string;
+      status: string;
+      severity: string;
+      evidence: string | null;
+    }>
+  > {
     if (scanIds.length === 0) return [];
     return this.db('compliance_findings')
-      .select('rule_id as ruleId', 'stig_id as stigId', 'host', 'status', 'severity', 'evidence')
+      .select(
+        'rule_id as ruleId',
+        'stig_id as stigId',
+        'host',
+        'status',
+        'severity',
+        'evidence',
+      )
       .whereIn('scan_id', scanIds)
       .where('status', '!=', 'not_applicable')
       .where('host', '!=', 'localhost')
@@ -660,8 +890,14 @@ export class ComplianceDatabase {
       .limit(limit * 20);
   }
 
-  async getSummaryCounts(scanIds: string[]): Promise<{ criticalHigh: number; fixable: number; unfixable: number; hostsAffected: number }> {
-    if (scanIds.length === 0) return { criticalHigh: 0, fixable: 0, unfixable: 0, hostsAffected: 0 };
+  async getSummaryCounts(scanIds: string[]): Promise<{
+    criticalHigh: number;
+    fixable: number;
+    unfixable: number;
+    hostsAffected: number;
+  }> {
+    if (scanIds.length === 0)
+      return { criticalHigh: 0, fixable: 0, unfixable: 0, hostsAffected: 0 };
     const rows = await this.db('compliance_findings')
       .select('severity', 'evidence', 'host')
       .whereIn('scan_id', scanIds)
@@ -674,23 +910,42 @@ export class ComplianceDatabase {
     for (const row of rows) {
       hostsSet.add(row.host as string);
       if (row.severity === 'CAT_I') criticalHigh++;
-      const ev = row.evidence ? safeJsonParse<Record<string, unknown>>(row.evidence as string) : null;
-      const isFixable = ev?.fix_state === 'fixed' && Array.isArray(ev?.fix_versions) && (ev.fix_versions as unknown[]).length > 0;
+      const ev = row.evidence
+        ? safeJsonParse<Record<string, unknown>>(row.evidence as string)
+        : null;
+      const isFixable =
+        ev?.fix_state === 'fixed' &&
+        Array.isArray(ev?.fix_versions) &&
+        (ev.fix_versions as unknown[]).length > 0;
       if (isFixable) fixable++;
       else unfixable++;
     }
     return { criticalHigh, fixable, unfixable, hostsAffected: hostsSet.size };
   }
 
-  async getHostSeverityCounts(scanIds: string[]): Promise<Array<{ host: string; critical: number; medium: number; low: number; total: number }>> {
+  async getHostSeverityCounts(scanIds: string[]): Promise<
+    Array<{
+      host: string;
+      critical: number;
+      medium: number;
+      low: number;
+      total: number;
+    }>
+  > {
     if (scanIds.length === 0) return [];
     const rows: any[] = await this.db('compliance_findings')
       .select(
         'host',
-        this.db.raw("COUNT(*) as total"),
-        this.db.raw("SUM(CASE WHEN severity = 'CAT_I' THEN 1 ELSE 0 END) as critical"),
-        this.db.raw("SUM(CASE WHEN severity = 'CAT_II' THEN 1 ELSE 0 END) as medium"),
-        this.db.raw("SUM(CASE WHEN severity = 'CAT_III' THEN 1 ELSE 0 END) as low"),
+        this.db.raw('COUNT(*) as total'),
+        this.db.raw(
+          "SUM(CASE WHEN severity = 'CAT_I' THEN 1 ELSE 0 END) as critical",
+        ),
+        this.db.raw(
+          "SUM(CASE WHEN severity = 'CAT_II' THEN 1 ELSE 0 END) as medium",
+        ),
+        this.db.raw(
+          "SUM(CASE WHEN severity = 'CAT_III' THEN 1 ELSE 0 END) as low",
+        ),
       )
       .whereIn('scan_id', scanIds)
       .where('status', 'fail')
@@ -705,12 +960,14 @@ export class ComplianceDatabase {
     }));
   }
 
-  async getNotApplicableRules(scanId: string): Promise<Array<{ ruleId: string; ruleTitle: string; severity: string }>> {
+  async getNotApplicableRules(
+    scanId: string,
+  ): Promise<Array<{ ruleId: string; ruleTitle: string; severity: string }>> {
     const rows = await this.db('compliance_findings as f')
       .leftJoin('compliance_rule_metadata as m', 'f.rule_id', 'm.rule_id')
       .distinct(
         'f.rule_id',
-        this.db.raw("COALESCE(m.title, f.rule_id) as rule_title"),
+        this.db.raw('COALESCE(m.title, f.rule_id) as rule_title'),
         'f.severity',
       )
       .where('f.scan_id', scanId)
@@ -771,19 +1028,30 @@ export class ComplianceDatabase {
     cutoff.setDate(cutoff.getDate() - days);
 
     let query = this.db('compliance_posture_snapshots')
-      .leftJoin('compliance_scans', 'compliance_posture_snapshots.scan_id', 'compliance_scans.id')
+      .leftJoin(
+        'compliance_scans',
+        'compliance_posture_snapshots.scan_id',
+        'compliance_scans.id',
+      )
       .select(
         'compliance_posture_snapshots.*',
         'compliance_scans.workflow_job_id as scan_workflow_job_id',
       )
-      .where('compliance_posture_snapshots.timestamp', '>=', cutoff.toISOString())
+      .where(
+        'compliance_posture_snapshots.timestamp',
+        '>=',
+        cutoff.toISOString(),
+      )
       .orderBy('compliance_posture_snapshots.timestamp', 'asc');
 
     if (profileId) {
       query = query.where('compliance_posture_snapshots.profile_id', profileId);
     }
     if (inventoryId !== undefined) {
-      query = query.where('compliance_posture_snapshots.inventory_id', inventoryId);
+      query = query.where(
+        'compliance_posture_snapshots.inventory_id',
+        inventoryId,
+      );
     }
 
     const rows = await query;
@@ -794,7 +1062,9 @@ export class ComplianceDatabase {
   async getExecutionsInTimeRange(
     since: string,
     inventoryId?: number,
-  ): Promise<import('@ansible/backstage-compliance-common').RemediationEvent[]> {
+  ): Promise<
+    import('@ansible/backstage-compliance-common').RemediationEvent[]
+  > {
     let query = this.db('compliance_remediation_executions')
       .where('completed_at', '>=', since)
       .where('status', 'succeeded')
@@ -831,7 +1101,10 @@ export class ComplianceDatabase {
     };
   }
 
-  async getLatestCompletedScan(profileId: string, inventoryId: number): Promise<ComplianceScan | null> {
+  async getLatestCompletedScan(
+    profileId: string,
+    inventoryId: number,
+  ): Promise<ComplianceScan | null> {
     const row = await this.db('compliance_scans')
       .where('profile_id', profileId)
       .where('inventory_id', inventoryId)
@@ -845,19 +1118,33 @@ export class ComplianceDatabase {
 
   // ─── Per-host posture (ADR-023) ─────────────────────────────────────
 
-  async getHostPosture(scanId: string): Promise<import('@ansible/backstage-compliance-common').HostPosture[]> {
+  async getHostPosture(
+    scanId: string,
+  ): Promise<import('@ansible/backstage-compliance-common').HostPosture[]> {
     const rows = await this.db('compliance_findings')
       .where('scan_id', scanId)
       .whereIn('status', ['pass', 'fail', 'not_applicable'])
       .groupBy('host')
       .select(
         'host',
-        this.db.raw("COUNT(CASE WHEN status = 'pass' THEN 1 END) as pass_count"),
-        this.db.raw("COUNT(CASE WHEN status = 'fail' THEN 1 END) as fail_count"),
-        this.db.raw("COUNT(CASE WHEN status = 'not_applicable' THEN 1 END) as na_count"),
-        this.db.raw("COUNT(CASE WHEN severity = 'CAT_I' AND status = 'fail' THEN 1 END) as cat_i_fail"),
-        this.db.raw("COUNT(CASE WHEN severity = 'CAT_II' AND status = 'fail' THEN 1 END) as cat_ii_fail"),
-        this.db.raw("COUNT(CASE WHEN severity = 'CAT_III' AND status = 'fail' THEN 1 END) as cat_iii_fail"),
+        this.db.raw(
+          "COUNT(CASE WHEN status = 'pass' THEN 1 END) as pass_count",
+        ),
+        this.db.raw(
+          "COUNT(CASE WHEN status = 'fail' THEN 1 END) as fail_count",
+        ),
+        this.db.raw(
+          "COUNT(CASE WHEN status = 'not_applicable' THEN 1 END) as na_count",
+        ),
+        this.db.raw(
+          "COUNT(CASE WHEN severity = 'CAT_I' AND status = 'fail' THEN 1 END) as cat_i_fail",
+        ),
+        this.db.raw(
+          "COUNT(CASE WHEN severity = 'CAT_II' AND status = 'fail' THEN 1 END) as cat_ii_fail",
+        ),
+        this.db.raw(
+          "COUNT(CASE WHEN severity = 'CAT_III' AND status = 'fail' THEN 1 END) as cat_iii_fail",
+        ),
       );
 
     return rows.map((row: Record<string, unknown>) => {
@@ -877,7 +1164,10 @@ export class ComplianceDatabase {
     });
   }
 
-  async getHostPostureBaseline(scanId: string, baselineRuleIds: string[]): Promise<import('@ansible/backstage-compliance-common').HostPosture[]> {
+  async getHostPostureBaseline(
+    scanId: string,
+    baselineRuleIds: string[],
+  ): Promise<import('@ansible/backstage-compliance-common').HostPosture[]> {
     if (baselineRuleIds.length === 0) return [];
     const rows = await this.db('compliance_findings')
       .where('scan_id', scanId)
@@ -886,12 +1176,24 @@ export class ComplianceDatabase {
       .groupBy('host')
       .select(
         'host',
-        this.db.raw("COUNT(CASE WHEN status = 'pass' THEN 1 END) as pass_count"),
-        this.db.raw("COUNT(CASE WHEN status = 'fail' THEN 1 END) as fail_count"),
-        this.db.raw("COUNT(CASE WHEN status = 'not_applicable' THEN 1 END) as na_count"),
-        this.db.raw("COUNT(CASE WHEN severity = 'CAT_I' AND status = 'fail' THEN 1 END) as cat_i_fail"),
-        this.db.raw("COUNT(CASE WHEN severity = 'CAT_II' AND status = 'fail' THEN 1 END) as cat_ii_fail"),
-        this.db.raw("COUNT(CASE WHEN severity = 'CAT_III' AND status = 'fail' THEN 1 END) as cat_iii_fail"),
+        this.db.raw(
+          "COUNT(CASE WHEN status = 'pass' THEN 1 END) as pass_count",
+        ),
+        this.db.raw(
+          "COUNT(CASE WHEN status = 'fail' THEN 1 END) as fail_count",
+        ),
+        this.db.raw(
+          "COUNT(CASE WHEN status = 'not_applicable' THEN 1 END) as na_count",
+        ),
+        this.db.raw(
+          "COUNT(CASE WHEN severity = 'CAT_I' AND status = 'fail' THEN 1 END) as cat_i_fail",
+        ),
+        this.db.raw(
+          "COUNT(CASE WHEN severity = 'CAT_II' AND status = 'fail' THEN 1 END) as cat_ii_fail",
+        ),
+        this.db.raw(
+          "COUNT(CASE WHEN severity = 'CAT_III' AND status = 'fail' THEN 1 END) as cat_iii_fail",
+        ),
       );
 
     return rows.map((row: Record<string, unknown>) => {
@@ -915,7 +1217,9 @@ export class ComplianceDatabase {
     scanId: string,
     hostname: string,
     limit: number = 50,
-  ): Promise<import('@ansible/backstage-compliance-common').HostFindingSummary[]> {
+  ): Promise<
+    import('@ansible/backstage-compliance-common').HostFindingSummary[]
+  > {
     const rows = await this.db('compliance_findings as f')
       .leftJoin('compliance_rule_metadata as m', 'f.rule_id', 'm.rule_id')
       .where('f.scan_id', scanId)
@@ -923,13 +1227,17 @@ export class ComplianceDatabase {
       .select(
         'f.rule_id',
         'f.stig_id',
-        this.db.raw("COALESCE(m.title, f.rule_id) as title"),
+        this.db.raw('COALESCE(m.title, f.rule_id) as title'),
         'f.severity',
         'f.status',
         'f.finding_state',
       )
-      .orderByRaw("CASE f.severity WHEN 'CAT_I' THEN 0 WHEN 'CAT_II' THEN 1 ELSE 2 END")
-      .orderByRaw("CASE f.status WHEN 'fail' THEN 0 WHEN 'error' THEN 1 WHEN 'pass' THEN 2 ELSE 3 END")
+      .orderByRaw(
+        "CASE f.severity WHEN 'CAT_I' THEN 0 WHEN 'CAT_II' THEN 1 ELSE 2 END",
+      )
+      .orderByRaw(
+        "CASE f.status WHEN 'fail' THEN 0 WHEN 'error' THEN 1 WHEN 'pass' THEN 2 ELSE 3 END",
+      )
       .limit(limit);
 
     return rows.map((row: Record<string, unknown>) => ({
@@ -938,26 +1246,30 @@ export class ComplianceDatabase {
       title: row.title as string,
       severity: row.severity as 'CAT_I' | 'CAT_II' | 'CAT_III',
       status: row.status as 'pass' | 'fail' | 'not_applicable' | 'error',
-      findingState: (row.finding_state as import('@ansible/backstage-compliance-common').FindingState) || null,
+      findingState:
+        (row.finding_state as import('@ansible/backstage-compliance-common').FindingState) ||
+        null,
     }));
   }
 
   // ─── Remediation profiles ──────────────────────────────────────────
 
-  async saveRemediationProfile(
-    profile: {
-      id?: string;
-      name: string;
-      description: string;
-      profileId: string;
-      creationScanId?: string;
-      /** @deprecated Use creationScanId */
-      scanId?: string;
-      selections: Array<Omit<RemediationSelection, 'parameters'> & { parameters?: Record<string, string | number | boolean> }>;
-      status?: RemediationProfileStatus;
-      createdBy?: string;
-    },
-  ): Promise<{ id: string }> {
+  async saveRemediationProfile(profile: {
+    id?: string;
+    name: string;
+    description: string;
+    profileId: string;
+    creationScanId?: string;
+    /** @deprecated Use creationScanId */
+    scanId?: string;
+    selections: Array<
+      Omit<RemediationSelection, 'parameters'> & {
+        parameters?: Record<string, string | number | boolean>;
+      }
+    >;
+    status?: RemediationProfileStatus;
+    createdBy?: string;
+  }): Promise<{ id: string }> {
     const now = new Date().toISOString();
     const scanId = profile.creationScanId ?? profile.scanId ?? null;
     const status = profile.status ?? 'saved';
@@ -993,7 +1305,11 @@ export class ComplianceDatabase {
 
     if (status === 'draft') {
       const updated = await this.db('compliance_remediation_profiles')
-        .where({ name: profile.name, profile_id: profile.profileId, status: 'draft' })
+        .where({
+          name: profile.name,
+          profile_id: profile.profileId,
+          status: 'draft',
+        })
         .update({
           description: profile.description,
           creation_scan_id: scanId,
@@ -1002,7 +1318,11 @@ export class ComplianceDatabase {
         });
       if (updated > 0) {
         const existing = await this.db('compliance_remediation_profiles')
-          .where({ name: profile.name, profile_id: profile.profileId, status: 'draft' })
+          .where({
+            name: profile.name,
+            profile_id: profile.profileId,
+            status: 'draft',
+          })
           .first('id');
         return { id: existing.id };
       }
@@ -1012,37 +1332,56 @@ export class ComplianceDatabase {
     return { id };
   }
 
-  async listRemediationProfiles(statusFilter?: RemediationProfileStatus | 'all'): Promise<RemediationProfile[]> {
+  async listRemediationProfiles(
+    statusFilter?: RemediationProfileStatus | 'all',
+  ): Promise<RemediationProfile[]> {
     let query = this.db('compliance_remediation_profiles')
       .select('compliance_remediation_profiles.*')
       .select(
-        this.db.raw('(SELECT COUNT(*) FROM compliance_remediation_executions WHERE remediation_profile_id = compliance_remediation_profiles.id) as execution_count'),
+        this.db.raw(
+          '(SELECT COUNT(*) FROM compliance_remediation_executions WHERE remediation_profile_id = compliance_remediation_profiles.id) as execution_count',
+        ),
       )
       .select(
-        this.db.raw('(SELECT MAX(started_at) FROM compliance_remediation_executions WHERE remediation_profile_id = compliance_remediation_profiles.id) as last_executed_at'),
+        this.db.raw(
+          '(SELECT MAX(started_at) FROM compliance_remediation_executions WHERE remediation_profile_id = compliance_remediation_profiles.id) as last_executed_at',
+        ),
       )
       .orderBy('created_at', 'desc');
 
     if (statusFilter && statusFilter !== 'all') {
-      query = query.where('compliance_remediation_profiles.status', statusFilter);
+      query = query.where(
+        'compliance_remediation_profiles.status',
+        statusFilter,
+      );
     } else if (!statusFilter) {
-      query = query.whereNot('compliance_remediation_profiles.status', 'archived');
+      query = query.whereNot(
+        'compliance_remediation_profiles.status',
+        'archived',
+      );
     }
 
     const rows = await query;
-    const profiles = rows.map((row: Record<string, unknown>) => this.mapRemediationProfileRow(row));
+    const profiles = rows.map((row: Record<string, unknown>) =>
+      this.mapRemediationProfileRow(row),
+    );
 
     if (profiles.length === 0) return profiles;
 
     const profileIds = profiles.map(p => p.id);
     const latestExecs = await this.db('compliance_remediation_executions as e1')
       .whereIn('e1.remediation_profile_id', profileIds)
-      .whereRaw('e1.id = (SELECT e2.id FROM compliance_remediation_executions e2 WHERE e2.remediation_profile_id = e1.remediation_profile_id ORDER BY e2.started_at DESC, e2.id DESC LIMIT 1)')
+      .whereRaw(
+        'e1.id = (SELECT e2.id FROM compliance_remediation_executions e2 WHERE e2.remediation_profile_id = e1.remediation_profile_id ORDER BY e2.started_at DESC, e2.id DESC LIMIT 1)',
+      )
       .select('*');
 
     const execByProfile = new Map<string, RemediationExecution>();
     for (const row of latestExecs) {
-      execByProfile.set(row.remediation_profile_id as string, this.mapExecutionRow(row));
+      execByProfile.set(
+        row.remediation_profile_id as string,
+        this.mapExecutionRow(row),
+      );
     }
     for (const profile of profiles) {
       profile.latestExecution = execByProfile.get(profile.id) ?? null;
@@ -1051,7 +1390,10 @@ export class ComplianceDatabase {
     return profiles;
   }
 
-  async updateRemediationProfileStatus(id: string, status: RemediationProfileStatus): Promise<boolean> {
+  async updateRemediationProfileStatus(
+    id: string,
+    status: RemediationProfileStatus,
+  ): Promise<boolean> {
     const updated = await this.db('compliance_remediation_profiles')
       .where('id', id)
       .update({ status, updated_at: new Date().toISOString() });
@@ -1062,10 +1404,14 @@ export class ComplianceDatabase {
     const row = await this.db('compliance_remediation_profiles')
       .select('compliance_remediation_profiles.*')
       .select(
-        this.db.raw('(SELECT COUNT(*) FROM compliance_remediation_executions WHERE remediation_profile_id = compliance_remediation_profiles.id) as execution_count'),
+        this.db.raw(
+          '(SELECT COUNT(*) FROM compliance_remediation_executions WHERE remediation_profile_id = compliance_remediation_profiles.id) as execution_count',
+        ),
       )
       .select(
-        this.db.raw('(SELECT MAX(started_at) FROM compliance_remediation_executions WHERE remediation_profile_id = compliance_remediation_profiles.id) as last_executed_at'),
+        this.db.raw(
+          '(SELECT MAX(started_at) FROM compliance_remediation_executions WHERE remediation_profile_id = compliance_remediation_profiles.id) as last_executed_at',
+        ),
       )
       .where('compliance_remediation_profiles.id', id)
       .first();
@@ -1076,7 +1422,9 @@ export class ComplianceDatabase {
       .orderBy('started_at', 'desc')
       .orderBy('id', 'desc')
       .first();
-    profile.latestExecution = latestExec ? this.mapExecutionRow(latestExec) : null;
+    profile.latestExecution = latestExec
+      ? this.mapExecutionRow(latestExec)
+      : null;
     return profile;
   }
 
@@ -1090,11 +1438,15 @@ export class ComplianceDatabase {
     if (!profile) return false;
     const executions = await this.getExecutionsByProfileId(id, 1);
     if (executions.length > 0) {
-      throw new Error('Cannot delete a profile with execution history. Archive it instead.');
+      throw new Error(
+        'Cannot delete a profile with execution history. Archive it instead.',
+      );
     }
     const isPinned = await this.isProfilePinnedAsBaseline(id);
     if (isPinned) {
-      throw new Error('Cannot delete a profile pinned as a baseline. Unpin it first.');
+      throw new Error(
+        'Cannot delete a profile pinned as a baseline. Unpin it first.',
+      );
     }
     const deleted = await this.db('compliance_remediation_profiles')
       .where('id', id)
@@ -1102,7 +1454,9 @@ export class ComplianceDatabase {
     return deleted > 0;
   }
 
-  private mapRemediationProfileRow(row: Record<string, unknown>): RemediationProfile {
+  private mapRemediationProfileRow(
+    row: Record<string, unknown>,
+  ): RemediationProfile {
     let selections: RemediationSelection[] = [];
     try {
       selections = JSON.parse(row.selections_json as string);
@@ -1160,7 +1514,9 @@ export class ComplianceDatabase {
         hosts_targeted: null,
         hosts_succeeded: null,
         hosts_failed: null,
-        plan_summary: execution.planSummary ? JSON.stringify(execution.planSummary) : null,
+        plan_summary: execution.planSummary
+          ? JSON.stringify(execution.planSummary)
+          : null,
         verification_scan_id: null,
         created_by: execution.createdBy ?? null,
       });
@@ -1168,9 +1524,9 @@ export class ComplianceDatabase {
       const msg = err instanceof Error ? err.message : '';
       const code = (err as Record<string, unknown>).code;
       if (
-        msg.includes('UNIQUE constraint failed') ||  // SQLite
-        msg.includes('duplicate key value violates unique constraint') ||  // PostgreSQL
-        code === '23505'  // PostgreSQL error code
+        msg.includes('UNIQUE constraint failed') || // SQLite
+        msg.includes('duplicate key value violates unique constraint') || // PostgreSQL
+        code === '23505' // PostgreSQL error code
       ) {
         return null; // concurrent execution guard triggered
       }
@@ -1180,28 +1536,41 @@ export class ComplianceDatabase {
   }
 
   async getExecutionById(id: string): Promise<RemediationExecution | null> {
-    const row = await this.db('compliance_remediation_executions').where('id', id).first();
+    const row = await this.db('compliance_remediation_executions')
+      .where('id', id)
+      .first();
     if (!row) return null;
     return this.mapExecutionRow(row);
   }
 
-  async getExecutionsByProfileId(profileId: string, limit: number = 20): Promise<RemediationExecution[]> {
+  async getExecutionsByProfileId(
+    profileId: string,
+    limit: number = 20,
+  ): Promise<RemediationExecution[]> {
     const rows = await this.db('compliance_remediation_executions')
       .where('remediation_profile_id', profileId)
       .orderBy('started_at', 'desc')
       .limit(limit);
-    return rows.map((row: Record<string, unknown>) => this.mapExecutionRow(row));
+    return rows.map((row: Record<string, unknown>) =>
+      this.mapExecutionRow(row),
+    );
   }
 
-  async getRecentExecutions(limit: number = 50): Promise<RemediationExecution[]> {
+  async getRecentExecutions(
+    limit: number = 50,
+  ): Promise<RemediationExecution[]> {
     const rows = await this.db('compliance_remediation_executions')
       .orderBy('started_at', 'desc')
       .limit(limit);
-    return rows.map((row: Record<string, unknown>) => this.mapExecutionRow(row));
+    return rows.map((row: Record<string, unknown>) =>
+      this.mapExecutionRow(row),
+    );
   }
 
   /** Get the currently running/pending execution for an inventory (for UI display). */
-  async getRunningExecutionForInventory(inventoryId: number): Promise<RemediationExecution | null> {
+  async getRunningExecutionForInventory(
+    inventoryId: number,
+  ): Promise<RemediationExecution | null> {
     const row = await this.db('compliance_remediation_executions')
       .where('inventory_id', inventoryId)
       .whereIn('status', ['pending', 'running'])
@@ -1228,19 +1597,31 @@ export class ComplianceDatabase {
   ): Promise<void> {
     const row: Record<string, unknown> = { status: update.status };
     if (update.completedAt !== undefined) row.completed_at = update.completedAt;
-    if (update.elapsedSeconds !== undefined) row.elapsed_seconds = update.elapsedSeconds;
-    if (update.primaryJobId !== undefined) row.primary_job_id = update.primaryJobId;
-    if (update.allJobIds !== undefined) row.all_job_ids = JSON.stringify(update.allJobIds);
-    if (update.rulesApplied !== undefined) row.rules_applied = update.rulesApplied;
+    if (update.elapsedSeconds !== undefined)
+      row.elapsed_seconds = update.elapsedSeconds;
+    if (update.primaryJobId !== undefined)
+      row.primary_job_id = update.primaryJobId;
+    if (update.allJobIds !== undefined)
+      row.all_job_ids = JSON.stringify(update.allJobIds);
+    if (update.rulesApplied !== undefined)
+      row.rules_applied = update.rulesApplied;
     if (update.rulesFailed !== undefined) row.rules_failed = update.rulesFailed;
-    if (update.hostsTargeted !== undefined) row.hosts_targeted = update.hostsTargeted;
-    if (update.hostsSucceeded !== undefined) row.hosts_succeeded = update.hostsSucceeded;
+    if (update.hostsTargeted !== undefined)
+      row.hosts_targeted = update.hostsTargeted;
+    if (update.hostsSucceeded !== undefined)
+      row.hosts_succeeded = update.hostsSucceeded;
     if (update.hostsFailed !== undefined) row.hosts_failed = update.hostsFailed;
-    if (update.planSummary !== undefined) row.plan_summary = JSON.stringify(update.planSummary);
-    await this.db('compliance_remediation_executions').where('id', id).update(row);
+    if (update.planSummary !== undefined)
+      row.plan_summary = JSON.stringify(update.planSummary);
+    await this.db('compliance_remediation_executions')
+      .where('id', id)
+      .update(row);
   }
 
-  async updateVerificationScanId(executionId: string, scanId: string): Promise<void> {
+  async updateVerificationScanId(
+    executionId: string,
+    scanId: string,
+  ): Promise<void> {
     await this.db('compliance_remediation_executions')
       .where('id', executionId)
       .update({ verification_scan_id: scanId });
@@ -1251,16 +1632,22 @@ export class ComplianceDatabase {
    * maxAgeHours=0 returns ALL running/pending (used on every list load).
    * maxAgeHours>0 returns only those older than the cutoff (legacy fallback).
    */
-  async getStaleRunningExecutions(maxAgeHours: number = 0): Promise<RemediationExecution[]> {
-    let query = this.db('compliance_remediation_executions')
-      .whereIn('status', ['pending', 'running']);
+  async getStaleRunningExecutions(
+    maxAgeHours: number = 0,
+  ): Promise<RemediationExecution[]> {
+    let query = this.db('compliance_remediation_executions').whereIn('status', [
+      'pending',
+      'running',
+    ]);
     if (maxAgeHours > 0) {
       const cutoff = new Date();
       cutoff.setHours(cutoff.getHours() - maxAgeHours);
       query = query.where('started_at', '<', cutoff.toISOString());
     }
     const rows = await query;
-    return rows.map((row: Record<string, unknown>) => this.mapExecutionRow(row));
+    return rows.map((row: Record<string, unknown>) =>
+      this.mapExecutionRow(row),
+    );
   }
 
   private mapExecutionRow(row: Record<string, unknown>): RemediationExecution {
@@ -1315,13 +1702,19 @@ export class ComplianceDatabase {
   }
 
   async unpinBaselineTarget(id: string): Promise<boolean> {
-    const deleted = await this.db('compliance_baseline_targets').where('id', id).delete();
+    const deleted = await this.db('compliance_baseline_targets')
+      .where('id', id)
+      .delete();
     return deleted > 0;
   }
 
-  async getBaselineTargetsForProfile(complianceProfileId: string): Promise<BaselineTarget[]> {
-    const rows = await this.db('compliance_baseline_targets')
-      .where('compliance_profile_id', complianceProfileId);
+  async getBaselineTargetsForProfile(
+    complianceProfileId: string,
+  ): Promise<BaselineTarget[]> {
+    const rows = await this.db('compliance_baseline_targets').where(
+      'compliance_profile_id',
+      complianceProfileId,
+    );
     return rows.map((row: Record<string, unknown>) => ({
       id: row.id as string,
       remediationProfileId: row.remediation_profile_id as string,
@@ -1332,7 +1725,9 @@ export class ComplianceDatabase {
     }));
   }
 
-  async isProfilePinnedAsBaseline(remediationProfileId: string): Promise<boolean> {
+  async isProfilePinnedAsBaseline(
+    remediationProfileId: string,
+  ): Promise<boolean> {
     const row = await this.db('compliance_baseline_targets')
       .where('remediation_profile_id', remediationProfileId)
       .first();
@@ -1380,7 +1775,11 @@ export class ComplianceDatabase {
     if (configs.length === 0) return result;
 
     // Build a single query with UNION ALL for each config
-    const allPairs: Array<{ scanId: string; ruleId: string; configKey: string }> = [];
+    const allPairs: Array<{
+      scanId: string;
+      ruleId: string;
+      configKey: string;
+    }> = [];
     for (const cfg of configs) {
       if (cfg.ruleIds.length === 0) {
         result.set(cfg.key, { passCount: 0, failCount: 0 });
@@ -1394,7 +1793,10 @@ export class ComplianceDatabase {
     if (allPairs.length === 0) return result;
 
     // Group by scanId for efficient querying
-    const byScanId = new Map<string, { keys: Set<string>; ruleIds: Set<string> }>();
+    const byScanId = new Map<
+      string,
+      { keys: Set<string>; ruleIds: Set<string> }
+    >();
     for (const pair of allPairs) {
       let group = byScanId.get(pair.scanId);
       if (!group) {
@@ -1465,17 +1867,33 @@ export class ComplianceDatabase {
       await this.db('compliance_rule_metadata')
         .insert(rows)
         .onConflict('rule_id')
-        .merge(['stig_id', 'title', 'description', 'check_text', 'fix_text', 'category', 'disruption', 'aap_impact', 'aap_impact_reason', 'scanner', 'updated_at']);
+        .merge([
+          'stig_id',
+          'title',
+          'description',
+          'check_text',
+          'fix_text',
+          'category',
+          'disruption',
+          'aap_impact',
+          'aap_impact_reason',
+          'scanner',
+          'updated_at',
+        ]);
     }
 
     return rules.length;
   }
 
-  async getRuleMetadataBulk(ruleIds: string[]): Promise<Map<string, RuleMetadataRecord>> {
+  async getRuleMetadataBulk(
+    ruleIds: string[],
+  ): Promise<Map<string, RuleMetadataRecord>> {
     if (ruleIds.length === 0) return new Map();
 
-    const rows = await this.db('compliance_rule_metadata')
-      .whereIn('rule_id', ruleIds);
+    const rows = await this.db('compliance_rule_metadata').whereIn(
+      'rule_id',
+      ruleIds,
+    );
 
     const map = new Map<string, RuleMetadataRecord>();
     for (const row of rows) {
@@ -1502,8 +1920,14 @@ export class ComplianceDatabase {
       checkText: (row.check_text as string) || '',
       fixText: (row.fix_text as string) || '',
       category: (row.category as string) || '',
-      disruption: ((row.disruption as string) || 'medium') as 'low' | 'medium' | 'high',
-      aapImpact: ((row.aap_impact as string) || 'safe') as 'safe' | 'caution' | 'breaks-connectivity',
+      disruption: ((row.disruption as string) || 'medium') as
+        | 'low'
+        | 'medium'
+        | 'high',
+      aapImpact: ((row.aap_impact as string) || 'safe') as
+        | 'safe'
+        | 'caution'
+        | 'breaks-connectivity',
       aapImpactReason: (row.aap_impact_reason as string) || '',
       scanner: (row.scanner as string) || '',
       updatedAt: toISOString(row.updated_at),
@@ -1521,13 +1945,18 @@ export class ComplianceDatabase {
 
   // ─── Profile registry ────────────────────────────────────────────
 
-  async listProfiles(includeDisconnected = false): Promise<ComplianceProfile[]> {
-    const query = this.db('compliance_profile_registry')
-      .orderBy('created_at', 'desc');
+  async listProfiles(
+    includeDisconnected = false,
+  ): Promise<ComplianceProfile[]> {
+    const query = this.db('compliance_profile_registry').orderBy(
+      'created_at',
+      'desc',
+    );
     if (!includeDisconnected) {
       query.where(function () {
-        this.where('connection_status', 'connected')
-          .orWhereNull('connection_status');
+        this.where('connection_status', 'connected').orWhereNull(
+          'connection_status',
+        );
       });
     }
     const rows = await query;
@@ -1542,7 +1971,10 @@ export class ComplianceDatabase {
     return this.mapProfileRow(row);
   }
 
-  async saveProfile(profile: SaveProfileRequest, ruleCount?: number): Promise<ComplianceProfile> {
+  async saveProfile(
+    profile: SaveProfileRequest,
+    ruleCount?: number,
+  ): Promise<ComplianceProfile> {
     const now = new Date().toISOString();
 
     // Match by id, then by profile_slug for reconnect on disconnect→re-add cycles.
@@ -1560,7 +1992,7 @@ export class ComplianceDatabase {
     const id = existing ? (existing.id as string) : randomUUID();
     const slug = existing
       ? (existing.profile_slug as string)
-      : (profile.profileSlug || ComplianceDatabase.slugify(profile.displayName));
+      : profile.profileSlug || ComplianceDatabase.slugify(profile.displayName);
 
     const row: Record<string, unknown> = {
       id,
@@ -1570,14 +2002,20 @@ export class ComplianceDatabase {
       framework: profile.framework,
       version: profile.version || '',
       platform: profile.platform || '',
-      platform_spec: profile.platformSpec ? JSON.stringify(profile.platformSpec) : null,
-      certification: profile.certification ? JSON.stringify(profile.certification) : null,
+      platform_spec: profile.platformSpec
+        ? JSON.stringify(profile.platformSpec)
+        : null,
+      certification: profile.certification
+        ? JSON.stringify(profile.certification)
+        : null,
       workflow_template_id: profile.workflowTemplateId,
       remediate_jt_id: profile.remediateJtId ?? null,
       ee_id: profile.eeId,
       remediation_playbook_path: profile.remediationPlaybookPath || '',
       scan_tags: profile.scanTags || '',
-      display_config: profile.displayConfig ? JSON.stringify(profile.displayConfig) : null,
+      display_config: profile.displayConfig
+        ? JSON.stringify(profile.displayConfig)
+        : null,
       updated_at: now,
     };
     if (ruleCount !== undefined) {
@@ -1593,20 +2031,25 @@ export class ComplianceDatabase {
 
       const oldVersion = existing.profile_version as string | undefined;
       if (profile.version && oldVersion && profile.version !== oldVersion) {
-        const history = safeJsonParse<Array<Record<string, unknown>>>(existing.version_history) ?? [];
+        const history =
+          safeJsonParse<Array<Record<string, unknown>>>(
+            existing.version_history,
+          ) ?? [];
         history.push({
           version: oldVersion,
-          installedAt: toISOString(existing.connected_at ?? existing.updated_at),
+          installedAt: toISOString(
+            existing.connected_at ?? existing.updated_at,
+          ),
         });
         row.profile_version = profile.version;
-        row.version_history = JSON.stringify(history.slice(-ComplianceDatabase.MAX_VERSION_HISTORY));
+        row.version_history = JSON.stringify(
+          history.slice(-ComplianceDatabase.MAX_VERSION_HISTORY),
+        );
       } else if (profile.version) {
         row.profile_version = profile.version;
       }
 
-      await this.db('compliance_profile_registry')
-        .where('id', id)
-        .update(row);
+      await this.db('compliance_profile_registry').where('id', id).update(row);
     } else {
       await this.db('compliance_profile_registry').insert({
         ...row,
@@ -1662,10 +2105,12 @@ export class ComplianceDatabase {
       ruleCount: (row.rule_count as number) ?? undefined,
       displayConfig: safeJsonParse(row.display_config) ?? undefined,
       connectionStatus: connectionStatus as 'connected' | 'disconnected',
-      currentVersion: profileVersion ? {
-        version: profileVersion,
-        installedAt: toISOString(row.connected_at ?? row.updated_at),
-      } : undefined,
+      currentVersion: profileVersion
+        ? {
+            version: profileVersion,
+            installedAt: toISOString(row.connected_at ?? row.updated_at),
+          }
+        : undefined,
       createdAt: toISOString(row.created_at),
       updatedAt: toISOString(row.updated_at),
     };
@@ -1698,8 +2143,10 @@ export class ComplianceDatabase {
         .first();
     }
     if (!existing) {
-      let query = this.db('compliance_profile_registry')
-        .where('framework', framework);
+      let query = this.db('compliance_profile_registry').where(
+        'framework',
+        framework,
+      );
       if (displayName) query = query.where('display_name', displayName);
       existing = await query.first();
     }
@@ -1713,15 +2160,22 @@ export class ComplianceDatabase {
         updated_at: now,
       };
       if (version && version !== existing.profile_version) {
-        const history = safeJsonParse<Array<Record<string, unknown>>>(existing.version_history) ?? [];
+        const history =
+          safeJsonParse<Array<Record<string, unknown>>>(
+            existing.version_history,
+          ) ?? [];
         if (existing.profile_version) {
           history.push({
             version: existing.profile_version,
-            installedAt: toISOString(existing.connected_at ?? existing.updated_at),
+            installedAt: toISOString(
+              existing.connected_at ?? existing.updated_at,
+            ),
           });
         }
         update.profile_version = version;
-        update.version_history = JSON.stringify(history.slice(-ComplianceDatabase.MAX_VERSION_HISTORY));
+        update.version_history = JSON.stringify(
+          history.slice(-ComplianceDatabase.MAX_VERSION_HISTORY),
+        );
       }
       if (displayName) update.display_name = displayName;
 
@@ -1738,10 +2192,7 @@ export class ComplianceDatabase {
   }
 
   /** Mark a profile as disconnected. All historical data is preserved. */
-  async disconnectProfile(
-    id: string,
-    by?: string,
-  ): Promise<boolean> {
+  async disconnectProfile(id: string, by?: string): Promise<boolean> {
     const now = new Date().toISOString();
     const updated = await this.db('compliance_profile_registry')
       .where('id', id)
@@ -1766,10 +2217,7 @@ export class ComplianceDatabase {
     return this.disconnectProfile(profile.id, by);
   }
 
-  async disconnectProfileBySlug(
-    slug: string,
-    by?: string,
-  ): Promise<boolean> {
+  async disconnectProfileBySlug(slug: string, by?: string): Promise<boolean> {
     const profile = await this.db('compliance_profile_registry')
       .where('profile_slug', slug)
       .first();
@@ -1845,15 +2293,17 @@ export class ComplianceDatabase {
       .merge(['oci_reference', 'artifact_name', 'mime_type']);
   }
 
-  async getArtifactsForScan(scanId: string): Promise<Array<{
-    id: string;
-    scanId: string;
-    artifactKey: string;
-    ociReference: string;
-    artifactName: string;
-    mimeType: string;
-    createdAt: string;
-  }>> {
+  async getArtifactsForScan(scanId: string): Promise<
+    Array<{
+      id: string;
+      scanId: string;
+      artifactKey: string;
+      ociReference: string;
+      artifactName: string;
+      mimeType: string;
+      createdAt: string;
+    }>
+  > {
     const rows = await this.db('compliance_scan_artifacts')
       .where('scan_id', scanId)
       .orderBy('artifact_key');
@@ -1868,7 +2318,10 @@ export class ComplianceDatabase {
     }));
   }
 
-  async getArtifact(scanId: string, artifactKey: string): Promise<{
+  async getArtifact(
+    scanId: string,
+    artifactKey: string,
+  ): Promise<{
     id: string;
     scanId: string;
     artifactKey: string;

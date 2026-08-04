@@ -15,13 +15,21 @@ export function isArray(val: unknown): val is unknown[] {
 }
 
 export function isValidScanId(scanId: string): boolean {
-  return typeof scanId === 'string' && scanId.length > 0 && scanId.length <= 128
-    && /^[a-zA-Z0-9_-]+$/.test(scanId);
+  return (
+    typeof scanId === 'string' &&
+    scanId.length > 0 &&
+    scanId.length <= 128 &&
+    /^[a-zA-Z0-9_-]+$/.test(scanId)
+  );
 }
 
 export function isValidProfileId(profileId: string): boolean {
-  return typeof profileId === 'string' && profileId.length > 0 && profileId.length <= 128
-    && /^[a-zA-Z0-9_-]+$/.test(profileId);
+  return (
+    typeof profileId === 'string' &&
+    profileId.length > 0 &&
+    profileId.length <= 128 &&
+    /^[a-zA-Z0-9_-]+$/.test(profileId)
+  );
 }
 
 export function parseInventoryId(raw: string | undefined): number | undefined {

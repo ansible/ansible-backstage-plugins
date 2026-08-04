@@ -21,8 +21,12 @@ async function runMigrations(client: Knex) {
   // Prefer TS source dir, but use JS dir if it has more migrations (022, 023 are JS-only)
   let dir = tsMigrations;
   if (fs.existsSync(jsMigrations)) {
-    const tsCount = fs.readdirSync(tsMigrations).filter((f: string) => f.endsWith('.ts')).length;
-    const jsCount = fs.readdirSync(jsMigrations).filter((f: string) => f.endsWith('.js')).length;
+    const tsCount = fs
+      .readdirSync(tsMigrations)
+      .filter((f: string) => f.endsWith('.ts')).length;
+    const jsCount = fs
+      .readdirSync(jsMigrations)
+      .filter((f: string) => f.endsWith('.js')).length;
     if (jsCount > tsCount) dir = jsMigrations;
   }
   await client.migrate.latest({
@@ -61,13 +65,19 @@ describe('MockDataSeeder', () => {
     const findings = await db('compliance_findings').count('* as cnt');
     expect(Number(findings[0].cnt)).toBeGreaterThan(500);
 
-    const snapshots = await db('compliance_posture_snapshots').count('* as cnt');
+    const snapshots = await db('compliance_posture_snapshots').count(
+      '* as cnt',
+    );
     expect(Number(snapshots[0].cnt)).toBe(14);
 
-    const remProfiles = await db('compliance_remediation_profiles').count('* as cnt');
+    const remProfiles = await db('compliance_remediation_profiles').count(
+      '* as cnt',
+    );
     expect(Number(remProfiles[0].cnt)).toBe(3);
 
-    const executions = await db('compliance_remediation_executions').count('* as cnt');
+    const executions = await db('compliance_remediation_executions').count(
+      '* as cnt',
+    );
     expect(Number(executions[0].cnt)).toBe(3);
 
     const baselines = await db('compliance_baseline_targets').count('* as cnt');
@@ -80,10 +90,14 @@ describe('MockDataSeeder', () => {
   it('is idempotent — running twice produces same row counts', async () => {
     const seeder = new MockDataSeeder(db, logger);
     await seeder.seed();
-    const countBefore = Number((await db('compliance_scans').count('* as cnt'))[0].cnt);
+    const countBefore = Number(
+      (await db('compliance_scans').count('* as cnt'))[0].cnt,
+    );
 
     await seeder.seed();
-    const countAfter = Number((await db('compliance_scans').count('* as cnt'))[0].cnt);
+    const countAfter = Number(
+      (await db('compliance_scans').count('* as cnt'))[0].cnt,
+    );
 
     expect(countAfter).toBe(countBefore);
   });
@@ -149,10 +163,14 @@ describe('MockDataSeeder', () => {
     expect(compProfile).toBeTruthy();
 
     // Executions reference valid remediation profiles
-    const exec = await db('compliance_remediation_executions').where('id', 'mock-exec-001').first();
+    const exec = await db('compliance_remediation_executions')
+      .where('id', 'mock-exec-001')
+      .first();
     expect(exec).toBeTruthy();
     expect(exec.verification_scan_id).toBe('mock-scan-verify-001');
-    const verifyScan = await db('compliance_scans').where('id', 'mock-scan-verify-001').first();
+    const verifyScan = await db('compliance_scans')
+      .where('id', 'mock-scan-verify-001')
+      .first();
     expect(verifyScan).toBeTruthy();
   });
 
@@ -160,7 +178,9 @@ describe('MockDataSeeder', () => {
     const seeder = new MockDataSeeder(db, logger);
     await seeder.seed();
 
-    const scScan = await db('compliance_scans').where('id', 'mock-scan-sc-prod-002').first();
+    const scScan = await db('compliance_scans')
+      .where('id', 'mock-scan-sc-prod-002')
+      .first();
     expect(scScan).toBeTruthy();
     expect(scScan.scan_metadata).toBeTruthy();
     const meta = JSON.parse(scScan.scan_metadata as string);

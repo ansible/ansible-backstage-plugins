@@ -11,7 +11,9 @@ jest.mock('react-router-dom', () => ({
 
 function createMockApi(overrides: Partial<Record<string, jest.Mock>> = {}) {
   return {
-    getHealth: jest.fn().mockResolvedValue({ status: 'ok', dataSource: 'mock' }),
+    getHealth: jest
+      .fn()
+      .mockResolvedValue({ status: 'ok', dataSource: 'mock' }),
     getProfiles: jest.fn().mockResolvedValue([]),
     getRegisteredProfiles: jest.fn().mockResolvedValue([]),
     getScans: jest.fn().mockResolvedValue([]),
@@ -19,17 +21,53 @@ function createMockApi(overrides: Partial<Record<string, jest.Mock>> = {}) {
     getInventories: jest.fn().mockResolvedValue([]),
     getFindings: jest.fn().mockResolvedValue([]),
     getWorkflowTemplates: jest.fn().mockResolvedValue([]),
-    validateScan: jest.fn().mockResolvedValue({ valid: true, matchedHosts: [], mismatchedHosts: [], factsAvailable: true }),
-    launchScan: jest.fn().mockResolvedValue({ scanId: 'scan-1', workflowJobId: 1, status: 'pending' }),
-    getWorkflowStatus: jest.fn().mockResolvedValue({ id: 1, status: 'successful', finished: null, failed: false, elapsed: 0, name: '' }),
+    validateScan: jest.fn().mockResolvedValue({
+      valid: true,
+      matchedHosts: [],
+      mismatchedHosts: [],
+      factsAvailable: true,
+    }),
+    launchScan: jest.fn().mockResolvedValue({
+      scanId: 'scan-1',
+      workflowJobId: 1,
+      status: 'pending',
+    }),
+    getWorkflowStatus: jest.fn().mockResolvedValue({
+      id: 1,
+      status: 'successful',
+      finished: null,
+      failed: false,
+      elapsed: 0,
+      name: '',
+    }),
     getWorkflowNodes: jest.fn().mockResolvedValue([]),
     getJobEvents: jest.fn().mockResolvedValue([]),
-    launchRemediation: jest.fn().mockResolvedValue({ remediationId: 'r1', workflowJobId: 2, status: 'pending' }),
-    getDashboardStats: jest.fn().mockResolvedValue({ hostsScanned: 0, criticalFindings: 0, pendingRemediation: 0, activeProfiles: 0, recentScans: [], frameworkScores: [] }),
+    launchRemediation: jest.fn().mockResolvedValue({
+      remediationId: 'r1',
+      workflowJobId: 2,
+      status: 'pending',
+    }),
+    getDashboardStats: jest.fn().mockResolvedValue({
+      hostsScanned: 0,
+      criticalFindings: 0,
+      pendingRemediation: 0,
+      activeProfiles: 0,
+      recentScans: [],
+      frameworkScores: [],
+    }),
     getPostureHistory: jest.fn().mockResolvedValue([]),
     getRemediationProfiles: jest.fn().mockResolvedValue([]),
     getRemediationProfile: jest.fn().mockResolvedValue(null),
-    saveRemediationProfile: jest.fn().mockResolvedValue({ id: '1', name: 'test', description: '', complianceProfileId: '', targetInventory: '', selections: [], createdAt: '', updatedAt: '' }),
+    saveRemediationProfile: jest.fn().mockResolvedValue({
+      id: '1',
+      name: 'test',
+      description: '',
+      complianceProfileId: '',
+      targetInventory: '',
+      selections: [],
+      createdAt: '',
+      updatedAt: '',
+    }),
     saveRegisteredProfile: jest.fn().mockResolvedValue({}),
     deleteRegisteredProfile: jest.fn().mockResolvedValue(undefined),
     getControllerWorkflowTemplates: jest.fn().mockResolvedValue([]),
@@ -62,7 +100,8 @@ describe('ProfileBrowser', () => {
 
   it('shows profile cards when profiles exist', async () => {
     const mockApi = createMockApi({
-      getRegisteredProfiles: jest.fn().mockResolvedValue([{
+      getRegisteredProfiles: jest.fn().mockResolvedValue([
+        {
           id: 'cart-1',
           displayName: 'DISA STIG for RHEL 9',
           description: 'DoD Security Technical Implementation Guide',
@@ -71,7 +110,8 @@ describe('ProfileBrowser', () => {
           platform: 'RHEL 9',
           workflowTemplateId: 1,
           eeId: 2,
-          remediationPlaybookPath: '/usr/share/scap-security-guide/ansible/rhel9-playbook-stig.yml',
+          remediationPlaybookPath:
+            '/usr/share/scap-security-guide/ansible/rhel9-playbook-stig.yml',
           scanTags: '',
           createdAt: '2025-01-01',
           updatedAt: '2025-01-01',
@@ -103,7 +143,8 @@ describe('ProfileBrowser', () => {
 
   it('shows "Registered" badge for registry profiles', async () => {
     const mockApi = createMockApi({
-      getRegisteredProfiles: jest.fn().mockResolvedValue([{
+      getRegisteredProfiles: jest.fn().mockResolvedValue([
+        {
           id: 'cart-1',
           displayName: 'DISA STIG for RHEL 9',
           description: 'DoD STIG',
@@ -129,7 +170,8 @@ describe('ProfileBrowser', () => {
 
   it('shows "View Details" and "Launch Scan" buttons on profile cards', async () => {
     const mockApi = createMockApi({
-      getRegisteredProfiles: jest.fn().mockResolvedValue([{
+      getRegisteredProfiles: jest.fn().mockResolvedValue([
+        {
           id: 'cart-1',
           displayName: 'DISA STIG for RHEL 9',
           description: 'DoD STIG',

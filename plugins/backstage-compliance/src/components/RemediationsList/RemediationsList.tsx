@@ -1,10 +1,8 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import { Fragment } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useUrlToggle } from '../../hooks/useUrlToggle';
-import {
-  InfoCard,
-  Progress,
-} from '@backstage/core-components';
+import { InfoCard, Progress } from '@backstage/core-components';
 import { useApi, alertApiRef } from '@backstage/core-plugin-api';
 import { usePermission } from '@backstage/plugin-permission-react';
 import { catalogEntityCreatePermission } from '@backstage/plugin-catalog-common/alpha';
@@ -51,7 +49,11 @@ import MoreVertIcon from '@material-ui/icons/MoreVert';
 import { Menu } from '@material-ui/core';
 import { complianceApiRef } from '../../api';
 import { formatDuration } from '../shared/formatTime';
-import { EXECUTION_COLORS, PROFILE_STATUS_COLORS, STATUS_COLORS } from '../shared/colors';
+import {
+  EXECUTION_COLORS,
+  PROFILE_STATUS_COLORS,
+  STATUS_COLORS,
+} from '../shared/colors';
 import { CHIP_SIZES, TABLE_STYLES } from '../shared/chipStyles';
 import { InlineBaselinePins } from './InlineBaselinePins';
 import type {
@@ -63,7 +65,6 @@ import type {
 } from '@ansible/backstage-compliance-common/types';
 
 type StatusFilter = 'active' | 'all' | 'draft' | 'archived';
-
 
 const useStyles = makeStyles(theme => ({
   emptyState: {
@@ -138,12 +139,18 @@ function formatRelativeDate(iso: string): string {
 
 function formatAbsoluteDate(iso: string): string {
   const d = new Date(iso);
-  return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
-    + ' ' + d.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
+  return `${d.toLocaleDateString('en-US', {
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric',
+  })} ${d.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}`;
 }
 
 function formatHybridDate(iso: string): { absolute: string; relative: string } {
-  return { absolute: formatAbsoluteDate(iso), relative: formatRelativeDate(iso) };
+  return {
+    absolute: formatAbsoluteDate(iso),
+    relative: formatRelativeDate(iso),
+  };
 }
 
 function ExecutionHistoryRow({
@@ -176,48 +183,77 @@ function ExecutionHistoryRow({
       </TableCell>
       <TableCell>
         <Chip
-          label={inventoryNames.get(execution.inventoryId) || `Inventory #${execution.inventoryId}`}
+          label={
+            inventoryNames.get(execution.inventoryId) ||
+            `Inventory #${execution.inventoryId}`
+          }
           size="small"
           variant="outlined"
           clickable
           onClick={e => {
             e.stopPropagation();
             const path = `/compliance/inventories/${execution.inventoryId}`;
-            navigate(complianceProfileId ? `${path}?profileId=${complianceProfileId}` : path);
+            navigate(
+              complianceProfileId
+                ? `${path}?profileId=${complianceProfileId}`
+                : path,
+            );
           }}
         />
       </TableCell>
       <TableCell>
-        {execution.rulesApplied != null ? (
+        {execution.rulesApplied !== null ? (
           <>
             {execution.rulesApplied}
             {execution.rulesFailed ? (
-              <span style={{ color: STATUS_COLORS.error }}> ({execution.rulesFailed} failed)</span>
+              <span style={{ color: STATUS_COLORS.error }}>
+                {' '}
+                ({execution.rulesFailed} failed)
+              </span>
             ) : null}
           </>
-        ) : '—'}
+        ) : (
+          '—'
+        )}
       </TableCell>
       <TableCell>
-        {execution.hostsTargeted != null ? (
+        {execution.hostsTargeted !== null ? (
           <>
             {execution.hostsTargeted}
             {execution.hostsFailed ? (
-              <span style={{ color: STATUS_COLORS.error }}> ({execution.hostsFailed} failed)</span>
+              <span style={{ color: STATUS_COLORS.error }}>
+                {' '}
+                ({execution.hostsFailed} failed)
+              </span>
             ) : null}
           </>
-        ) : '—'}
+        ) : (
+          '—'
+        )}
       </TableCell>
       <TableCell>{formatDuration(execution.elapsedSeconds)}</TableCell>
       <TableCell>
         <div className={classes.actions}>
           {execution.verificationScanId && (
-            <Chip label="Verified" size="small" className={classes.statusChip} style={{ backgroundColor: EXECUTION_COLORS.succeeded.bg, color: EXECUTION_COLORS.succeeded.fg }} />
+            <Chip
+              label="Verified"
+              size="small"
+              className={classes.statusChip}
+              style={{
+                backgroundColor: EXECUTION_COLORS.succeeded.bg,
+                color: EXECUTION_COLORS.succeeded.fg,
+              }}
+            />
           )}
           {execution.primaryJobId && (
             <Tooltip title="View execution details">
               <IconButton
                 size="small"
-                onClick={() => navigate(`/compliance/remediation-result/${execution.primaryJobId}`)}
+                onClick={() =>
+                  navigate(
+                    `/compliance/remediation-result/${execution.primaryJobId}`,
+                  )
+                }
               >
                 <VisibilityIcon fontSize="small" />
               </IconButton>
@@ -255,11 +291,22 @@ function RowActions({
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
   const open = Boolean(anchorEl);
 
-  useEffect(() => () => { setAnchorEl(null); }, []);
+  useEffect(
+    () => () => {
+      setAnchorEl(null);
+    },
+    [],
+  );
 
   return (
     <div style={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-      <Tooltip title={r.status === 'archived' ? 'Archived — restore to launch' : r.status === 'draft' ? 'Save the profile before launching' : 'Launch remediation'}>
+      <Tooltip
+        title={(() => {
+          if (r.status === 'archived') return 'Archived — restore to launch';
+          if (r.status === 'draft') return 'Save the profile before launching';
+          return 'Launch remediation';
+        })()}
+      >
         <span>
           <IconButton
             size="small"
@@ -270,7 +317,11 @@ function RowActions({
           </IconButton>
         </span>
       </Tooltip>
-      <IconButton size="small" onClick={e => setAnchorEl(e.currentTarget)} aria-label="More actions">
+      <IconButton
+        size="small"
+        onClick={e => setAnchorEl(e.currentTarget)}
+        aria-label="More actions"
+      >
         <MoreVertIcon fontSize="small" />
       </IconButton>
       <Menu
@@ -280,32 +331,72 @@ function RowActions({
         anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
         transformOrigin={{ vertical: 'top', horizontal: 'right' }}
       >
-        <MenuItem onClick={() => { setAnchorEl(null); onEdit(); }}>
-          <VisibilityIcon fontSize="small" style={{ marginRight: 8 }} /> Edit Selections
+        <MenuItem
+          onClick={() => {
+            setAnchorEl(null);
+            onEdit();
+          }}
+        >
+          <VisibilityIcon fontSize="small" style={{ marginRight: 8 }} /> Edit
+          Selections
         </MenuItem>
         {r.status === 'saved' && (
-          <MenuItem onClick={() => { setAnchorEl(null); onBookmark(); }}>
+          <MenuItem
+            onClick={() => {
+              setAnchorEl(null);
+              onBookmark();
+            }}
+          >
+            {baselineTargets.some(bt => bt.remediationProfileId === r.id) ? (
+              <BookmarkIcon
+                fontSize="small"
+                style={{ marginRight: 8, color: STATUS_COLORS.info }}
+              />
+            ) : (
+              <BookmarkBorderIcon fontSize="small" style={{ marginRight: 8 }} />
+            )}
             {baselineTargets.some(bt => bt.remediationProfileId === r.id)
-              ? <BookmarkIcon fontSize="small" style={{ marginRight: 8, color: STATUS_COLORS.info }} />
-              : <BookmarkBorderIcon fontSize="small" style={{ marginRight: 8 }} />}
-            {baselineTargets.some(bt => bt.remediationProfileId === r.id) ? 'Manage Baseline' : 'Pin as Baseline'}
+              ? 'Manage Baseline'
+              : 'Pin as Baseline'}
           </MenuItem>
         )}
         {canArchive && isAdmin && (
-          <MenuItem onClick={() => { setAnchorEl(null); onArchive(); }}>
-            {r.status === 'archived'
-              ? <><UnarchiveIcon fontSize="small" style={{ marginRight: 8 }} /> Restore</>
-              : <><ArchiveIcon fontSize="small" style={{ marginRight: 8 }} /> Archive</>}
+          <MenuItem
+            onClick={() => {
+              setAnchorEl(null);
+              onArchive();
+            }}
+          >
+            {r.status === 'archived' ? (
+              <>
+                <UnarchiveIcon fontSize="small" style={{ marginRight: 8 }} />{' '}
+                Restore
+              </>
+            ) : (
+              <>
+                <ArchiveIcon fontSize="small" style={{ marginRight: 8 }} />{' '}
+                Archive
+              </>
+            )}
           </MenuItem>
         )}
         {isAdmin && (
           <MenuItem
             disabled={!canDelete}
-            onClick={() => { setAnchorEl(null); onDelete(); }}
+            onClick={() => {
+              setAnchorEl(null);
+              onDelete();
+            }}
             style={canDelete ? { color: STATUS_COLORS.error } : undefined}
           >
             <DeleteIcon fontSize="small" style={{ marginRight: 8 }} />
-            {!canDelete ? ((r.executionCount ?? 0) > 0 ? 'Delete (has history)' : 'Delete (pinned)') : 'Delete'}
+            {(() => {
+              if (!canDelete)
+                return (r.executionCount ?? 0) > 0
+                  ? 'Delete (has history)'
+                  : 'Delete (pinned)';
+              return 'Delete';
+            })()}
           </MenuItem>
         )}
       </Menu>
@@ -319,27 +410,49 @@ export const RemediationsList = () => {
   const api = useApi(complianceApiRef);
   const alertApi = useApi(alertApiRef);
   const [remediations, setRemediations] = useState<RemediationProfile[]>([]);
-  const [profileNames, setProfileNames] = useState<Map<string, string>>(new Map());
-  const [inventoryNames, setInventoryNames] = useState<Map<number, string>>(new Map());
+  const [profileNames, setProfileNames] = useState<Map<string, string>>(
+    new Map(),
+  );
+  const [inventoryNames, setInventoryNames] = useState<Map<number, string>>(
+    new Map(),
+  );
   const [loading, setLoading] = useState(true);
-  const [statusFilter, setStatusFilter] = useUrlToggle<StatusFilter>('statusFilter', 'active');
-  const [expandedProfiles, setExpandedProfiles] = useState<Set<string>>(new Set());
-  const [executionHistory, setExecutionHistory] = useState<Map<string, RemediationExecution[]>>(new Map());
-  const [deleteTarget, setDeleteTarget] = useState<RemediationProfile | null>(null);
-  const [archiveTarget, setArchiveTarget] = useState<RemediationProfile | null>(null);
+  const [statusFilter, setStatusFilter] = useUrlToggle<StatusFilter>(
+    'statusFilter',
+    'active',
+  );
+  const [expandedProfiles, setExpandedProfiles] = useState<Set<string>>(
+    new Set(),
+  );
+  const [executionHistory, setExecutionHistory] = useState<
+    Map<string, RemediationExecution[]>
+  >(new Map());
+  const [deleteTarget, setDeleteTarget] = useState<RemediationProfile | null>(
+    null,
+  );
+  const [archiveTarget, setArchiveTarget] = useState<RemediationProfile | null>(
+    null,
+  );
   const [actionInProgress, setActionInProgress] = useState(false);
 
   // Baseline pinning state
   const [baselineTargets, setBaselineTargets] = useState<BaselineTarget[]>([]);
-  const inventorySectionRefs = useRef<Map<string, HTMLDivElement | null>>(new Map());
+  const inventorySectionRefs = useRef<Map<string, HTMLDivElement | null>>(
+    new Map(),
+  );
 
   // Launch dialog state (ADR-015)
-  const [launchTarget, setLaunchTarget] = useState<RemediationProfile | null>(null);
+  const [launchTarget, setLaunchTarget] = useState<RemediationProfile | null>(
+    null,
+  );
   const [launchInventoryId, setLaunchInventoryId] = useState<string>('');
-  const [launchScanCheck, setLaunchScanCheck] = useState<AuthoritativeScanResponse | null>(null);
+  const [launchScanCheck, setLaunchScanCheck] =
+    useState<AuthoritativeScanResponse | null>(null);
   const [launchScanChecking, setLaunchScanChecking] = useState(false);
   const [launchScanMissing, setLaunchScanMissing] = useState(false);
-  const [inventories, setInventories] = useState<Array<{ id: number; name: string; hostCount: number }>>([]);
+  const [inventories, setInventories] = useState<
+    Array<{ id: number; name: string; hostCount: number }>
+  >([]);
 
   // Cross-profile filtering (ADR-015 §5)
   const [searchParams, setSearchParams] = useSearchParams();
@@ -373,26 +486,35 @@ export const RemediationsList = () => {
       setExpandedProfiles(new Set());
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
-      alertApi.post({ message: `Failed to load remediations: ${msg}`, severity: 'error' });
+      alertApi.post({
+        message: `Failed to load remediations: ${msg}`,
+        severity: 'error',
+      });
     } finally {
       setLoading(false);
     }
   }, [api, alertApi, statusFilter, filterByProfile]);
 
-  useEffect(() => { loadProfiles(); }, [loadProfiles]);
+  useEffect(() => {
+    loadProfiles();
+  }, [loadProfiles]);
 
   // Check for authoritative scan when launch dialog inventory changes
   useEffect(() => {
     if (!launchTarget || !launchInventoryId) {
       setLaunchScanCheck(null);
       setLaunchScanMissing(false);
-      return;
+      return undefined;
     }
     let cancelled = false;
     setLaunchScanChecking(true);
     setLaunchScanCheck(null);
     setLaunchScanMissing(false);
-    api.getAuthoritativeScan(launchTarget.complianceProfileId, Number(launchInventoryId))
+    api
+      .getAuthoritativeScan(
+        launchTarget.complianceProfileId,
+        Number(launchInventoryId),
+      )
       .then(result => {
         if (cancelled) return;
         if (result) {
@@ -406,8 +528,12 @@ export const RemediationsList = () => {
       .catch(() => {
         if (!cancelled) setLaunchScanMissing(true);
       })
-      .finally(() => { if (!cancelled) setLaunchScanChecking(false); });
-    return () => { cancelled = true; };
+      .finally(() => {
+        if (!cancelled) setLaunchScanChecking(false);
+      });
+    return () => {
+      cancelled = true;
+    };
   }, [api, launchTarget, launchInventoryId]);
 
   const toggleExpanded = async (profileId: string) => {
@@ -422,7 +548,10 @@ export const RemediationsList = () => {
           setExecutionHistory(prev => new Map(prev).set(profileId, execs));
         } catch (err) {
           const msg = err instanceof Error ? err.message : String(err);
-          alertApi.post({ message: `Failed to load execution history: ${msg}`, severity: 'error' });
+          alertApi.post({
+            message: `Failed to load execution history: ${msg}`,
+            severity: 'error',
+          });
         }
       }
     }
@@ -458,24 +587,39 @@ export const RemediationsList = () => {
     if (!archiveTarget) return;
     setActionInProgress(true);
     try {
-      const newStatus = archiveTarget.status === 'archived' ? 'saved' : 'archived';
-      await api.updateRemediationProfileStatus(archiveTarget.id, newStatus as RemediationProfileStatus);
-      const shouldRemoveFromView = (statusFilter === 'active' && newStatus === 'archived')
-        || (statusFilter === 'archived' && newStatus === 'saved');
+      const newStatus =
+        archiveTarget.status === 'archived' ? 'saved' : 'archived';
+      await api.updateRemediationProfileStatus(
+        archiveTarget.id,
+        newStatus as RemediationProfileStatus,
+      );
+      const shouldRemoveFromView =
+        (statusFilter === 'active' && newStatus === 'archived') ||
+        (statusFilter === 'archived' && newStatus === 'saved');
       if (shouldRemoveFromView) {
         setRemediations(prev => prev.filter(r => r.id !== archiveTarget.id));
       } else {
-        setRemediations(prev => prev.map(r => r.id === archiveTarget.id ? { ...r, status: newStatus as RemediationProfileStatus } : r));
+        setRemediations(prev =>
+          prev.map(r =>
+            r.id === archiveTarget.id
+              ? { ...r, status: newStatus as RemediationProfileStatus }
+              : r,
+          ),
+        );
       }
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
       if (msg.includes('409')) {
         alertApi.post({
-          message: 'This profile is pinned as a baseline. Unpin it from the Compliance Posture > By Inventory view before archiving.',
+          message:
+            'This profile is pinned as a baseline. Unpin it from the Compliance Posture > By Inventory view before archiving.',
           severity: 'warning',
         });
       } else {
-        alertApi.post({ message: `Failed to update status: ${msg}`, severity: 'error' });
+        alertApi.post({
+          message: `Failed to update status: ${msg}`,
+          severity: 'error',
+        });
       }
     } finally {
       setActionInProgress(false);
@@ -489,7 +633,8 @@ export const RemediationsList = () => {
     <InfoCard title="Remediations">
       <div className={classes.headerRow}>
         <Typography variant="body2" color="textSecondary">
-          Saved remediation profiles capture your rule selections. Launch them against any inventory.
+          Saved remediation profiles capture your rule selections. Launch them
+          against any inventory.
         </Typography>
         <Button
           variant="outlined"
@@ -502,7 +647,11 @@ export const RemediationsList = () => {
       </div>
 
       <div className={classes.filterRow}>
-        <FormControl variant="outlined" size="small" className={classes.statusFilter}>
+        <FormControl
+          variant="outlined"
+          size="small"
+          className={classes.statusFilter}
+        >
           <InputLabel id="status-filter-label">Status</InputLabel>
           <Select
             labelId="status-filter-label"
@@ -516,7 +665,11 @@ export const RemediationsList = () => {
             <MenuItem value="archived">Archived</MenuItem>
           </Select>
         </FormControl>
-        <FormControl variant="outlined" size="small" className={classes.profileFilter}>
+        <FormControl
+          variant="outlined"
+          size="small"
+          className={classes.profileFilter}
+        >
           <InputLabel id="profile-filter-label">Profile</InputLabel>
           <Select
             labelId="profile-filter-label"
@@ -535,7 +688,9 @@ export const RemediationsList = () => {
           >
             <MenuItem value="">All Profiles</MenuItem>
             {Array.from(profileNames.entries()).map(([id, name]) => (
-              <MenuItem key={id} value={id}>{name}</MenuItem>
+              <MenuItem key={id} value={id}>
+                {name}
+              </MenuItem>
             ))}
           </Select>
         </FormControl>
@@ -546,16 +701,25 @@ export const RemediationsList = () => {
 
       {remediations.length === 0 ? (
         <div className={classes.emptyState}>
-          <SettingsIcon style={{ fontSize: 64, color: STATUS_COLORS.neutral, marginBottom: 16 }} />
+          <SettingsIcon
+            style={{
+              fontSize: 64,
+              color: STATUS_COLORS.neutral,
+              marginBottom: 16,
+            }}
+          />
           <Typography variant="h6" color="textSecondary" gutterBottom>
-            {statusFilter === 'active' ? 'No active remediations' :
-             statusFilter === 'draft' ? 'No drafts' :
-             statusFilter === 'archived' ? 'No archived remediations' :
-             'No remediations'}
+            {(() => {
+              if (statusFilter === 'active') return 'No active remediations';
+              if (statusFilter === 'draft') return 'No drafts';
+              if (statusFilter === 'archived')
+                return 'No archived remediations';
+              return 'No remediations';
+            })()}
           </Typography>
           <Typography variant="body2" color="textSecondary" paragraph>
-            Run a compliance scan, review the findings, then save your rule selections
-            as a remediation profile.
+            Run a compliance scan, review the findings, then save your rule
+            selections as a remediation profile.
           </Typography>
           {statusFilter === 'active' && (
             <Button
@@ -576,9 +740,13 @@ export const RemediationsList = () => {
                 <TableCell style={TABLE_STYLES.header}>Name</TableCell>
                 <TableCell style={TABLE_STYLES.header}>Status</TableCell>
                 <TableCell style={TABLE_STYLES.header}>Profile</TableCell>
-                <TableCell style={TABLE_STYLES.header} align="right">Rules</TableCell>
+                <TableCell style={TABLE_STYLES.header} align="right">
+                  Rules
+                </TableCell>
                 <TableCell style={TABLE_STYLES.header}>Last Run</TableCell>
-                <TableCell style={TABLE_STYLES.header} align="right">Runs</TableCell>
+                <TableCell style={TABLE_STYLES.header} align="right">
+                  Runs
+                </TableCell>
                 <TableCell style={TABLE_STYLES.header} />
               </TableRow>
             </TableHead>
@@ -588,22 +756,36 @@ export const RemediationsList = () => {
                 const hasExecutions = (r.executionCount ?? 0) > 0;
                 const profileColor = PROFILE_STATUS_COLORS[r.status || 'saved'];
                 const latestExec = r.latestExecution;
-                const isPinned = baselineTargets.some(bt => bt.remediationProfileId === r.id);
+                const isPinned = baselineTargets.some(
+                  bt => bt.remediationProfileId === r.id,
+                );
                 const canDelete = !hasExecutions && !isPinned;
-                const canArchive = r.status === 'saved' || r.status === 'archived';
+                const canArchive =
+                  r.status === 'saved' || r.status === 'archived';
 
                 return (
-                  <React.Fragment key={r.id}>
+                  <Fragment key={r.id}>
                     <TableRow hover>
                       <TableCell padding="checkbox">
                         {(hasExecutions || r.status === 'saved') && (
-                          <IconButton size="small" data-testid={`expand-${r.id}`} onClick={() => toggleExpanded(r.id)}>
-                            {isExpanded ? <ExpandLessIcon fontSize="small" /> : <ExpandMoreIcon fontSize="small" />}
+                          <IconButton
+                            size="small"
+                            data-testid={`expand-${r.id}`}
+                            onClick={() => toggleExpanded(r.id)}
+                          >
+                            {isExpanded ? (
+                              <ExpandLessIcon fontSize="small" />
+                            ) : (
+                              <ExpandMoreIcon fontSize="small" />
+                            )}
                           </IconButton>
                         )}
                       </TableCell>
                       <TableCell>
-                        <Typography variant="body2" className={classes.nameCell}>
+                        <Typography
+                          variant="body2"
+                          className={classes.nameCell}
+                        >
                           {r.name}
                         </Typography>
                         {r.description && (
@@ -612,17 +794,31 @@ export const RemediationsList = () => {
                           </Typography>
                         )}
                         {(() => {
-                          const pins = baselineTargets.filter(bt => bt.remediationProfileId === r.id);
+                          const pins = baselineTargets.filter(
+                            bt => bt.remediationProfileId === r.id,
+                          );
                           if (pins.length === 0) return null;
                           return (
-                            <Box display="flex" alignItems="center" mt={0.5} style={{ gap: 4 }}>
+                            <Box
+                              display="flex"
+                              alignItems="center"
+                              mt={0.5}
+                              style={{ gap: 4 }}
+                            >
                               <Chip
                                 icon={<BookmarkIcon style={{ fontSize: 14 }} />}
                                 label={`${pins.length} pinned`}
                                 size="small"
                                 className={classes.statusChip}
-                                style={{ backgroundColor: EXECUTION_COLORS.running.bg, color: EXECUTION_COLORS.running.fg, cursor: 'pointer' }}
-                                onClick={(e) => { e.stopPropagation(); handleBookmarkClick(r.id); }}
+                                style={{
+                                  backgroundColor: EXECUTION_COLORS.running.bg,
+                                  color: EXECUTION_COLORS.running.fg,
+                                  cursor: 'pointer',
+                                }}
+                                onClick={e => {
+                                  e.stopPropagation();
+                                  handleBookmarkClick(r.id);
+                                }}
                               />
                             </Box>
                           );
@@ -634,15 +830,22 @@ export const RemediationsList = () => {
                             label={r.status || 'saved'}
                             size="small"
                             className={classes.statusChip}
-                            style={{ backgroundColor: profileColor.bg, color: profileColor.fg }}
+                            style={{
+                              backgroundColor: profileColor.bg,
+                              color: profileColor.fg,
+                            }}
                           />
                           {latestExec && (
                             <Chip
-                              label={`${latestExec.status} · ${inventoryNames.get(latestExec.inventoryId) || `#${latestExec.inventoryId}`}`}
+                              label={`${latestExec.status} · ${
+                                inventoryNames.get(latestExec.inventoryId) ||
+                                `#${latestExec.inventoryId}`
+                              }`}
                               size="small"
                               className={classes.statusChip}
                               style={{
-                                backgroundColor: EXECUTION_COLORS[latestExec.status].bg,
+                                backgroundColor:
+                                  EXECUTION_COLORS[latestExec.status].bg,
                                 color: EXECUTION_COLORS[latestExec.status].fg,
                               }}
                             />
@@ -651,7 +854,10 @@ export const RemediationsList = () => {
                       </TableCell>
                       <TableCell>
                         <Chip
-                          label={profileNames.get(r.complianceProfileId) || r.complianceProfileId}
+                          label={
+                            profileNames.get(r.complianceProfileId) ||
+                            r.complianceProfileId
+                          }
                           size="small"
                           variant="outlined"
                         />
@@ -660,14 +866,23 @@ export const RemediationsList = () => {
                         {r.selections.filter(s => s.enabled).length}
                       </TableCell>
                       <TableCell>
-                        {r.lastExecutedAt ? (() => {
-                          const { absolute, relative } = formatHybridDate(r.lastExecutedAt);
-                          return (
-                            <Tooltip title={relative}>
-                              <Typography variant="body2" style={{ whiteSpace: 'nowrap' }}>{absolute}</Typography>
-                            </Tooltip>
-                          );
-                        })() : (
+                        {r.lastExecutedAt ? (
+                          (() => {
+                            const { absolute, relative } = formatHybridDate(
+                              r.lastExecutedAt,
+                            );
+                            return (
+                              <Tooltip title={relative}>
+                                <Typography
+                                  variant="body2"
+                                  style={{ whiteSpace: 'nowrap' }}
+                                >
+                                  {absolute}
+                                </Typography>
+                              </Tooltip>
+                            );
+                          })()
+                        ) : (
                           <span className={classes.muted}>Never</span>
                         )}
                       </TableCell>
@@ -682,7 +897,9 @@ export const RemediationsList = () => {
                           canArchive={canArchive}
                           baselineTargets={baselineTargets}
                           onBookmark={() => handleBookmarkClick(r.id)}
-                          onEdit={() => navigate(`/compliance/remediation-edit/${r.id}`)}
+                          onEdit={() =>
+                            navigate(`/compliance/remediation-edit/${r.id}`)
+                          }
                           onLaunch={() => {
                             setLaunchTarget(r);
                             setLaunchInventoryId('');
@@ -697,14 +914,21 @@ export const RemediationsList = () => {
                     {(hasExecutions || r.status === 'saved') && (
                       <TableRow>
                         <TableCell style={{ padding: 0 }} colSpan={8}>
-                          <Collapse in={isExpanded} timeout="auto" unmountOnExit>
+                          <Collapse
+                            in={isExpanded}
+                            timeout="auto"
+                            unmountOnExit
+                          >
                             <Box px={2} py={1} className={classes.expandedRow}>
                               {hasExecutions && (
                                 <>
                                   <Typography variant="subtitle2" gutterBottom>
                                     Execution History
                                   </Typography>
-                                  <Table size="small" className={classes.executionTable}>
+                                  <Table
+                                    size="small"
+                                    className={classes.executionTable}
+                                  >
                                     <TableHead>
                                       <TableRow>
                                         <TableCell>When</TableCell>
@@ -717,18 +941,27 @@ export const RemediationsList = () => {
                                       </TableRow>
                                     </TableHead>
                                     <TableBody>
-                                      {(executionHistory.get(r.id) || []).map(exec => (
-                                        <ExecutionHistoryRow
-                                          key={exec.id}
-                                          execution={exec}
-                                          inventoryNames={inventoryNames}
-                                          complianceProfileId={r.complianceProfileId}
-                                        />
-                                      ))}
+                                      {(executionHistory.get(r.id) || []).map(
+                                        exec => (
+                                          <ExecutionHistoryRow
+                                            key={exec.id}
+                                            execution={exec}
+                                            inventoryNames={inventoryNames}
+                                            complianceProfileId={
+                                              r.complianceProfileId
+                                            }
+                                          />
+                                        ),
+                                      )}
                                       {!executionHistory.has(r.id) && (
                                         <TableRow>
                                           <TableCell colSpan={7}>
-                                            <Typography variant="caption" className={classes.muted}>Loading...</Typography>
+                                            <Typography
+                                              variant="caption"
+                                              className={classes.muted}
+                                            >
+                                              Loading...
+                                            </Typography>
                                           </TableCell>
                                         </TableRow>
                                       )}
@@ -738,8 +971,19 @@ export const RemediationsList = () => {
                               )}
                               {r.status === 'saved' && (
                                 <div
-                                  ref={el => inventorySectionRefs.current.set(r.id, el)}
-                                  style={hasExecutions ? { marginTop: 16, borderTop: '1px solid rgba(0,0,0,0.12)', paddingTop: 12 } : undefined}
+                                  ref={el =>
+                                    inventorySectionRefs.current.set(r.id, el)
+                                  }
+                                  style={
+                                    hasExecutions
+                                      ? {
+                                          marginTop: 16,
+                                          borderTop:
+                                            '1px solid rgba(0,0,0,0.12)',
+                                          paddingTop: 12,
+                                        }
+                                      : undefined
+                                  }
                                 >
                                   <InlineBaselinePins
                                     remediationProfileId={r.id}
@@ -755,7 +999,7 @@ export const RemediationsList = () => {
                         </TableCell>
                       </TableRow>
                     )}
-                  </React.Fragment>
+                  </Fragment>
                 );
               })}
             </TableBody>
@@ -777,15 +1021,24 @@ export const RemediationsList = () => {
               Profile: <strong>{launchTarget?.name}</strong>
             </Typography>
             <Typography variant="body2" color="textSecondary">
-              Standard: {profileNames.get(launchTarget?.complianceProfileId ?? '') || launchTarget?.complianceProfileId}
+              Standard:{' '}
+              {profileNames.get(launchTarget?.complianceProfileId ?? '') ||
+                launchTarget?.complianceProfileId}
             </Typography>
             <Typography variant="body2" color="textSecondary">
-              Rules: {launchTarget?.selections.filter(s => s.enabled).length} selected
+              Rules: {launchTarget?.selections.filter(s => s.enabled).length}{' '}
+              selected
             </Typography>
           </Box>
 
-          <FormControl variant="outlined" fullWidth style={{ marginBottom: 16 }}>
-            <InputLabel id="launch-inventory-label">Target Inventory</InputLabel>
+          <FormControl
+            variant="outlined"
+            fullWidth
+            style={{ marginBottom: 16 }}
+          >
+            <InputLabel id="launch-inventory-label">
+              Target Inventory
+            </InputLabel>
             <Select
               labelId="launch-inventory-label"
               value={launchInventoryId}
@@ -810,13 +1063,23 @@ export const RemediationsList = () => {
           )}
 
           {launchScanCheck && (
-            <Box display="flex" alignItems="center" style={{ gap: 8, color: STATUS_COLORS.success }}>
+            <Box
+              display="flex"
+              alignItems="center"
+              style={{ gap: 8, color: STATUS_COLORS.success }}
+            >
               <CheckCircleIcon fontSize="small" />
               <Typography variant="body2">
-                Last scan: {launchScanCheck.passRate}% pass rate ({launchScanCheck.passCount} pass, {launchScanCheck.failCount} fail)
+                Last scan: {launchScanCheck.passRate}% pass rate (
+                {launchScanCheck.passCount} pass, {launchScanCheck.failCount}{' '}
+                fail)
                 {launchScanCheck.scan.completedAt && (
                   <span style={{ color: STATUS_COLORS.neutral }}>
-                    {' '}— {new Date(launchScanCheck.scan.completedAt).toLocaleDateString()}
+                    {' '}
+                    —{' '}
+                    {new Date(
+                      launchScanCheck.scan.completedAt,
+                    ).toLocaleDateString()}
                   </span>
                 )}
               </Typography>
@@ -825,7 +1088,11 @@ export const RemediationsList = () => {
 
           {launchScanMissing && (
             <Box>
-              <Box display="flex" alignItems="center" style={{ gap: 8, color: STATUS_COLORS.error, marginBottom: 8 }}>
+              <Box
+                display="flex"
+                alignItems="center"
+                style={{ gap: 8, color: STATUS_COLORS.error, marginBottom: 8 }}
+              >
                 <WarningIcon fontSize="small" />
                 <Typography variant="body2">
                   No completed assessment scan found for this inventory.
@@ -836,8 +1103,10 @@ export const RemediationsList = () => {
                 variant="outlined"
                 onClick={() => {
                   const params = new URLSearchParams();
-                  if (launchTarget?.complianceProfileId) params.set('profile', launchTarget.complianceProfileId);
-                  if (launchInventoryId) params.set('inventory', launchInventoryId);
+                  if (launchTarget?.complianceProfileId)
+                    params.set('profile', launchTarget.complianceProfileId);
+                  if (launchInventoryId)
+                    params.set('inventory', launchInventoryId);
                   setLaunchTarget(null);
                   navigate(`/compliance/scan?${params.toString()}`);
                 }}
@@ -870,40 +1139,86 @@ export const RemediationsList = () => {
       </Dialog>
 
       {/* Delete confirmation dialog */}
-      <Dialog open={!!deleteTarget} onClose={() => setDeleteTarget(null)} maxWidth="sm" fullWidth>
-        <DialogTitle>Delete {deleteTarget?.status === 'draft' ? 'Draft' : 'Profile'}</DialogTitle>
+      <Dialog
+        open={!!deleteTarget}
+        onClose={() => setDeleteTarget(null)}
+        maxWidth="sm"
+        fullWidth
+      >
+        <DialogTitle>
+          Delete {deleteTarget?.status === 'draft' ? 'Draft' : 'Profile'}
+        </DialogTitle>
         <DialogContent>
           <DialogContentText>
             Delete <strong>{deleteTarget?.name}</strong>? This cannot be undone.
           </DialogContentText>
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setDeleteTarget(null)} disabled={actionInProgress}>Cancel</Button>
-          <Button variant="contained" color="secondary" onClick={handleDelete} disabled={actionInProgress}>
+          <Button
+            onClick={() => setDeleteTarget(null)}
+            disabled={actionInProgress}
+          >
+            Cancel
+          </Button>
+          <Button
+            variant="contained"
+            color="secondary"
+            onClick={handleDelete}
+            disabled={actionInProgress}
+          >
             {actionInProgress ? 'Deleting...' : 'Delete'}
           </Button>
         </DialogActions>
       </Dialog>
 
       {/* Archive/Restore confirmation dialog */}
-      <Dialog open={!!archiveTarget} onClose={() => setArchiveTarget(null)} maxWidth="sm" fullWidth>
-        <DialogTitle>{archiveTarget?.status === 'archived' ? 'Restore Profile' : 'Archive Profile'}</DialogTitle>
+      <Dialog
+        open={!!archiveTarget}
+        onClose={() => setArchiveTarget(null)}
+        maxWidth="sm"
+        fullWidth
+      >
+        <DialogTitle>
+          {archiveTarget?.status === 'archived'
+            ? 'Restore Profile'
+            : 'Archive Profile'}
+        </DialogTitle>
         <DialogContent>
           <DialogContentText>
-            {archiveTarget?.status === 'archived'
-              ? <>Restore <strong>{archiveTarget?.name}</strong> to active remediations?</>
-              : <>Archive <strong>{archiveTarget?.name}</strong>? It will be hidden from the default view but can be restored later.</>
-            }
+            {archiveTarget?.status === 'archived' ? (
+              <>
+                Restore <strong>{archiveTarget?.name}</strong> to active
+                remediations?
+              </>
+            ) : (
+              <>
+                Archive <strong>{archiveTarget?.name}</strong>? It will be
+                hidden from the default view but can be restored later.
+              </>
+            )}
           </DialogContentText>
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setArchiveTarget(null)} disabled={actionInProgress}>Cancel</Button>
-          <Button variant="contained" color="primary" onClick={handleArchive} disabled={actionInProgress}>
-            {actionInProgress ? 'Processing...' : archiveTarget?.status === 'archived' ? 'Restore' : 'Archive'}
+          <Button
+            onClick={() => setArchiveTarget(null)}
+            disabled={actionInProgress}
+          >
+            Cancel
+          </Button>
+          <Button
+            variant="contained"
+            color="primary"
+            onClick={handleArchive}
+            disabled={actionInProgress}
+          >
+            {(() => {
+              if (actionInProgress) return 'Processing...';
+              if (archiveTarget?.status === 'archived') return 'Restore';
+              return 'Archive';
+            })()}
           </Button>
         </DialogActions>
       </Dialog>
-
     </InfoCard>
   );
 };

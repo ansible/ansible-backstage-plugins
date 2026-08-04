@@ -1,7 +1,16 @@
-import { detectEvents, buildMultiProfileSeries, buildFilteredSeries } from './trendUtils';
+import {
+  detectEvents,
+  buildMultiProfileSeries,
+  buildFilteredSeries,
+} from './trendUtils';
 import type { PostureSnapshot } from '@ansible/backstage-compliance-common/types';
 
-function snap(overrides: Partial<PostureSnapshot> & { compliancePct: number; timestamp: string }): PostureSnapshot {
+function snap(
+  overrides: Partial<PostureSnapshot> & {
+    compliancePct: number;
+    timestamp: string;
+  },
+): PostureSnapshot {
   return {
     id: `snap-${Math.random().toString(36).slice(2, 8)}`,
     profileId: 'prof-1',
@@ -15,7 +24,9 @@ function snap(overrides: Partial<PostureSnapshot> & { compliancePct: number; tim
 
 describe('detectEvents', () => {
   it('marks first point as normal with zero delta', () => {
-    const result = detectEvents([snap({ compliancePct: 80, timestamp: '2026-06-01T00:00:00Z' })]);
+    const result = detectEvents([
+      snap({ compliancePct: 80, timestamp: '2026-06-01T00:00:00Z' }),
+    ]);
     expect(result).toHaveLength(1);
     expect(result[0].eventType).toBe('normal');
     expect(result[0].delta).toBe(0);
@@ -81,13 +92,21 @@ describe('detectEvents', () => {
   });
 
   it('converts timestamps to epoch milliseconds', () => {
-    const result = detectEvents([snap({ compliancePct: 80, timestamp: '2026-06-01T12:00:00Z' })]);
-    expect(result[0].timestamp).toBe(new Date('2026-06-01T12:00:00Z').getTime());
+    const result = detectEvents([
+      snap({ compliancePct: 80, timestamp: '2026-06-01T12:00:00Z' }),
+    ]);
+    expect(result[0].timestamp).toBe(
+      new Date('2026-06-01T12:00:00Z').getTime(),
+    );
   });
 
   it('preserves scanId for navigation', () => {
     const result = detectEvents([
-      snap({ compliancePct: 80, timestamp: '2026-06-01T00:00:00Z', scanId: 'scan-abc' }),
+      snap({
+        compliancePct: 80,
+        timestamp: '2026-06-01T00:00:00Z',
+        scanId: 'scan-abc',
+      }),
     ]);
     expect(result[0].scanId).toBe('scan-abc');
   });
@@ -101,9 +120,21 @@ describe('buildMultiProfileSeries', () => {
 
   it('groups snapshots by profileId', () => {
     const snapshots = [
-      snap({ profileId: 'prof-stig', compliancePct: 80, timestamp: '2026-06-01T00:00:00Z' }),
-      snap({ profileId: 'prof-cis', compliancePct: 90, timestamp: '2026-06-01T00:00:00Z' }),
-      snap({ profileId: 'prof-stig', compliancePct: 85, timestamp: '2026-06-02T00:00:00Z' }),
+      snap({
+        profileId: 'prof-stig',
+        compliancePct: 80,
+        timestamp: '2026-06-01T00:00:00Z',
+      }),
+      snap({
+        profileId: 'prof-cis',
+        compliancePct: 90,
+        timestamp: '2026-06-01T00:00:00Z',
+      }),
+      snap({
+        profileId: 'prof-stig',
+        compliancePct: 85,
+        timestamp: '2026-06-02T00:00:00Z',
+      }),
     ];
     const { data, profileIds } = buildMultiProfileSeries(snapshots, profileMap);
     expect(profileIds).toContain('prof-stig');
@@ -113,9 +144,21 @@ describe('buildMultiProfileSeries', () => {
 
   it('fills forward last known value for profiles without data at a timestamp', () => {
     const snapshots = [
-      snap({ profileId: 'prof-stig', compliancePct: 80, timestamp: '2026-06-01T00:00:00Z' }),
-      snap({ profileId: 'prof-cis', compliancePct: 90, timestamp: '2026-06-02T00:00:00Z' }),
-      snap({ profileId: 'prof-stig', compliancePct: 85, timestamp: '2026-06-03T00:00:00Z' }),
+      snap({
+        profileId: 'prof-stig',
+        compliancePct: 80,
+        timestamp: '2026-06-01T00:00:00Z',
+      }),
+      snap({
+        profileId: 'prof-cis',
+        compliancePct: 90,
+        timestamp: '2026-06-02T00:00:00Z',
+      }),
+      snap({
+        profileId: 'prof-stig',
+        compliancePct: 85,
+        timestamp: '2026-06-03T00:00:00Z',
+      }),
     ];
     const { data } = buildMultiProfileSeries(snapshots, profileMap);
     const lastRow = data[data.length - 1];
@@ -125,7 +168,13 @@ describe('buildMultiProfileSeries', () => {
 
   it('returns empty data for no matching profiles', () => {
     const { data, profileIds } = buildMultiProfileSeries(
-      [snap({ profileId: 'unknown', compliancePct: 50, timestamp: '2026-06-01T00:00:00Z' })],
+      [
+        snap({
+          profileId: 'unknown',
+          compliancePct: 50,
+          timestamp: '2026-06-01T00:00:00Z',
+        }),
+      ],
       profileMap,
     );
     expect(data).toEqual([]);
@@ -134,8 +183,16 @@ describe('buildMultiProfileSeries', () => {
 
   it('handles single profile', () => {
     const snapshots = [
-      snap({ profileId: 'prof-stig', compliancePct: 80, timestamp: '2026-06-01T00:00:00Z' }),
-      snap({ profileId: 'prof-stig', compliancePct: 85, timestamp: '2026-06-02T00:00:00Z' }),
+      snap({
+        profileId: 'prof-stig',
+        compliancePct: 80,
+        timestamp: '2026-06-01T00:00:00Z',
+      }),
+      snap({
+        profileId: 'prof-stig',
+        compliancePct: 85,
+        timestamp: '2026-06-02T00:00:00Z',
+      }),
     ];
     const { data, profileIds } = buildMultiProfileSeries(snapshots, profileMap);
     expect(profileIds).toEqual(['prof-stig']);
@@ -158,11 +215,30 @@ describe('buildFilteredSeries', () => {
       ['prof-cis', 'CIS L1'],
     ]);
     const snapshots = [
-      snap({ profileId: 'prof-stig', compliancePct: 80, timestamp: '2026-06-01T00:00:00Z', inventoryId: 1 }),
-      snap({ profileId: 'prof-cis', compliancePct: 90, timestamp: '2026-06-01T00:00:00Z', inventoryId: 1 }),
-      snap({ profileId: 'prof-stig', compliancePct: 85, timestamp: '2026-06-02T00:00:00Z', inventoryId: 2 }),
+      snap({
+        profileId: 'prof-stig',
+        compliancePct: 80,
+        timestamp: '2026-06-01T00:00:00Z',
+        inventoryId: 1,
+      }),
+      snap({
+        profileId: 'prof-cis',
+        compliancePct: 90,
+        timestamp: '2026-06-01T00:00:00Z',
+        inventoryId: 1,
+      }),
+      snap({
+        profileId: 'prof-stig',
+        compliancePct: 85,
+        timestamp: '2026-06-02T00:00:00Z',
+        inventoryId: 2,
+      }),
     ];
-    const { data, seriesIds } = buildFilteredSeries(snapshots, seriesMap, false);
+    const { data, seriesIds } = buildFilteredSeries(
+      snapshots,
+      seriesMap,
+      false,
+    );
     expect(seriesIds).toContain('prof-stig');
     expect(seriesIds).toContain('prof-cis');
     expect(data.length).toBeGreaterThanOrEqual(2);
@@ -175,12 +251,29 @@ describe('buildFilteredSeries', () => {
       ['prof-stig:2', 'DISA STIG - Staging'],
     ]);
     const snapshots = [
-      snap({ profileId: 'prof-stig', compliancePct: 80, timestamp: '2026-06-01T00:00:00Z', inventoryId: 1 }),
-      snap({ profileId: 'prof-stig', compliancePct: 70, timestamp: '2026-06-01T00:00:00Z', inventoryId: 2 }),
-      snap({ profileId: 'prof-stig', compliancePct: 85, timestamp: '2026-06-02T00:00:00Z', inventoryId: 1 }),
+      snap({
+        profileId: 'prof-stig',
+        compliancePct: 80,
+        timestamp: '2026-06-01T00:00:00Z',
+        inventoryId: 1,
+      }),
+      snap({
+        profileId: 'prof-stig',
+        compliancePct: 70,
+        timestamp: '2026-06-01T00:00:00Z',
+        inventoryId: 2,
+      }),
+      snap({
+        profileId: 'prof-stig',
+        compliancePct: 85,
+        timestamp: '2026-06-02T00:00:00Z',
+        inventoryId: 1,
+      }),
     ];
     const { data, seriesIds } = buildFilteredSeries(snapshots, seriesMap, true);
-    expect(seriesIds).toEqual(expect.arrayContaining(['prof-stig:1', 'prof-stig:2']));
+    expect(seriesIds).toEqual(
+      expect.arrayContaining(['prof-stig:1', 'prof-stig:2']),
+    );
     expect(data[data.length - 1]['prof-stig:1']).toBe(85);
     expect(data[data.length - 1]['prof-stig:2']).toBe(70);
   });
@@ -191,9 +284,24 @@ describe('buildFilteredSeries', () => {
       ['prof-cis:1', 'CIS - Prod'],
     ]);
     const snapshots = [
-      snap({ profileId: 'prof-stig', compliancePct: 80, timestamp: '2026-06-01T00:00:00Z', inventoryId: 1 }),
-      snap({ profileId: 'prof-cis', compliancePct: 90, timestamp: '2026-06-02T00:00:00Z', inventoryId: 1 }),
-      snap({ profileId: 'prof-stig', compliancePct: 85, timestamp: '2026-06-03T00:00:00Z', inventoryId: 1 }),
+      snap({
+        profileId: 'prof-stig',
+        compliancePct: 80,
+        timestamp: '2026-06-01T00:00:00Z',
+        inventoryId: 1,
+      }),
+      snap({
+        profileId: 'prof-cis',
+        compliancePct: 90,
+        timestamp: '2026-06-02T00:00:00Z',
+        inventoryId: 1,
+      }),
+      snap({
+        profileId: 'prof-stig',
+        compliancePct: 85,
+        timestamp: '2026-06-03T00:00:00Z',
+        inventoryId: 1,
+      }),
     ];
     const { data } = buildFilteredSeries(snapshots, seriesMap, true);
     const lastRow = data[data.length - 1];
@@ -204,8 +312,16 @@ describe('buildFilteredSeries', () => {
   it('filters out series not in seriesMap', () => {
     const seriesMap = new Map([['prof-stig', 'DISA STIG']]);
     const snapshots = [
-      snap({ profileId: 'prof-stig', compliancePct: 80, timestamp: '2026-06-01T00:00:00Z' }),
-      snap({ profileId: 'prof-unknown', compliancePct: 50, timestamp: '2026-06-01T00:00:00Z' }),
+      snap({
+        profileId: 'prof-stig',
+        compliancePct: 80,
+        timestamp: '2026-06-01T00:00:00Z',
+      }),
+      snap({
+        profileId: 'prof-unknown',
+        compliancePct: 50,
+        timestamp: '2026-06-01T00:00:00Z',
+      }),
     ];
     const { seriesIds } = buildFilteredSeries(snapshots, seriesMap, false);
     expect(seriesIds).toEqual(['prof-stig']);
@@ -219,9 +335,17 @@ describe('buildFilteredSeries', () => {
 
   it('returns empty when no series match', () => {
     const snapshots = [
-      snap({ profileId: 'prof-stig', compliancePct: 80, timestamp: '2026-06-01T00:00:00Z' }),
+      snap({
+        profileId: 'prof-stig',
+        compliancePct: 80,
+        timestamp: '2026-06-01T00:00:00Z',
+      }),
     ];
-    const { data, seriesIds } = buildFilteredSeries(snapshots, new Map(), false);
+    const { data, seriesIds } = buildFilteredSeries(
+      snapshots,
+      new Map(),
+      false,
+    );
     expect(data).toEqual([]);
     expect(seriesIds).toEqual([]);
   });
@@ -232,9 +356,21 @@ describe('buildFilteredSeries', () => {
       ['prof-cis', 'CIS L1'],
     ]);
     const snapshots = [
-      snap({ profileId: 'prof-stig', compliancePct: 80, timestamp: '2026-06-01T00:00:00Z' }),
-      snap({ profileId: 'prof-cis', compliancePct: 90, timestamp: '2026-06-01T00:00:00Z' }),
-      snap({ profileId: 'prof-stig', compliancePct: 85, timestamp: '2026-06-03T00:00:00Z' }),
+      snap({
+        profileId: 'prof-stig',
+        compliancePct: 80,
+        timestamp: '2026-06-01T00:00:00Z',
+      }),
+      snap({
+        profileId: 'prof-cis',
+        compliancePct: 90,
+        timestamp: '2026-06-01T00:00:00Z',
+      }),
+      snap({
+        profileId: 'prof-stig',
+        compliancePct: 85,
+        timestamp: '2026-06-03T00:00:00Z',
+      }),
     ];
     const stopped = new Set(['prof-cis']);
     const { data } = buildFilteredSeries(snapshots, seriesMap, false, stopped);
@@ -249,9 +385,21 @@ describe('buildFilteredSeries', () => {
       ['prof-cis', 'CIS L1'],
     ]);
     const snapshots = [
-      snap({ profileId: 'prof-stig', compliancePct: 80, timestamp: '2026-06-01T00:00:00Z' }),
-      snap({ profileId: 'prof-cis', compliancePct: 90, timestamp: '2026-06-01T00:00:00Z' }),
-      snap({ profileId: 'prof-stig', compliancePct: 85, timestamp: '2026-06-03T00:00:00Z' }),
+      snap({
+        profileId: 'prof-stig',
+        compliancePct: 80,
+        timestamp: '2026-06-01T00:00:00Z',
+      }),
+      snap({
+        profileId: 'prof-cis',
+        compliancePct: 90,
+        timestamp: '2026-06-01T00:00:00Z',
+      }),
+      snap({
+        profileId: 'prof-stig',
+        compliancePct: 85,
+        timestamp: '2026-06-03T00:00:00Z',
+      }),
     ];
     const { data } = buildFilteredSeries(snapshots, seriesMap, false);
     const lastRow = data[data.length - 1];
@@ -262,10 +410,23 @@ describe('buildFilteredSeries', () => {
   it('empty stoppedSeriesIds behaves like not passing it', () => {
     const seriesMap = new Map([['prof-stig', 'DISA STIG']]);
     const snapshots = [
-      snap({ profileId: 'prof-stig', compliancePct: 80, timestamp: '2026-06-01T00:00:00Z' }),
-      snap({ profileId: 'prof-stig', compliancePct: 85, timestamp: '2026-06-02T00:00:00Z' }),
+      snap({
+        profileId: 'prof-stig',
+        compliancePct: 80,
+        timestamp: '2026-06-01T00:00:00Z',
+      }),
+      snap({
+        profileId: 'prof-stig',
+        compliancePct: 85,
+        timestamp: '2026-06-02T00:00:00Z',
+      }),
     ];
-    const { data } = buildFilteredSeries(snapshots, seriesMap, false, new Set());
+    const { data } = buildFilteredSeries(
+      snapshots,
+      seriesMap,
+      false,
+      new Set(),
+    );
     expect(data).toHaveLength(2);
     expect(data[1]['prof-stig']).toBe(85);
   });

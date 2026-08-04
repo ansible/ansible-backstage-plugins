@@ -1,5 +1,8 @@
 import { Chip, ChipProps } from '@material-ui/core';
-import type { ScanCertification, CertificationStatus } from '@ansible/backstage-compliance-common/types';
+import type {
+  ScanCertification,
+  CertificationStatus,
+} from '@ansible/backstage-compliance-common/types';
 import { STATUS_COLORS } from './colors';
 
 const COLORS: Record<CertificationStatus, string> = {
@@ -18,7 +21,11 @@ interface CertificationBadgeProps extends Omit<ChipProps, 'label'> {
   certification: ScanCertification | null | undefined;
 }
 
-export const CertificationBadge = ({ certification, style, ...chipProps }: CertificationBadgeProps) => {
+export const CertificationBadge = ({
+  certification,
+  style,
+  ...chipProps
+}: CertificationBadgeProps) => {
   const status = certification?.status ?? 'uncertified';
   return (
     <Chip

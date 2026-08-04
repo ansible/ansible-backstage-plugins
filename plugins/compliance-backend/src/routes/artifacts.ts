@@ -31,52 +31,60 @@ export function registerArtifactRoutes(
 ): void {
   const { logger, database, httpAuth } = deps;
 
-  router.post('/scans/:scanId/artifacts', express.json({ limit: '1kb' }), async (req, res) => {
-    const { scanId } = req.params;
-    if (!isValidScanId(scanId)) {
-      res.status(400).json({ error: 'Invalid scanId' });
-      return;
-    }
-
-    const { artifactKey, ociReference, artifactName, mimeType, ingestToken } = req.body;
-    if (!artifactKey || !ociReference || !artifactName) {
-      res.status(400).json({ error: 'Missing required fields: artifactKey, ociReference, artifactName' });
-      return;
-    }
-
-    if (!isValidArtifactKey(artifactKey)) {
-      res.status(400).json({ error: 'Invalid artifactKey format' });
-      return;
-    }
-
-    const scan = await database.getScanById(scanId);
-    if (!scan) {
-      res.status(404).json({ error: `Scan ${scanId} not found` });
-      return;
-    }
-
-    const storedToken = await database.getIngestToken(scanId);
-    if (storedToken) {
-      if (!ingestToken || storedToken !== ingestToken) {
-        res.status(403).json({ error: 'Invalid or missing ingest token' });
+  router.post(
+    '/scans/:scanId/artifacts',
+    express.json({ limit: '1kb' }),
+    async (req, res) => {
+      const { scanId } = req.params;
+      if (!isValidScanId(scanId)) {
+        res.status(400).json({ error: 'Invalid scanId' });
         return;
       }
-    }
 
-    await database.storeArtifact(
-      scanId,
-      artifactKey,
-      ociReference,
-      artifactName,
-      mimeType || 'application/json',
-    );
+      const { artifactKey, ociReference, artifactName, mimeType, ingestToken } =
+        req.body;
+      if (!artifactKey || !ociReference || !artifactName) {
+        res.status(400).json({
+          error:
+            'Missing required fields: artifactKey, ociReference, artifactName',
+        });
+        return;
+      }
 
-    logger.info(`Artifact registered: ${artifactKey} for scan ${scanId}`);
-    res.status(201).json({ artifactKey, scanId });
-  });
+      if (!isValidArtifactKey(artifactKey)) {
+        res.status(400).json({ error: 'Invalid artifactKey format' });
+        return;
+      }
+
+      const scan = await database.getScanById(scanId);
+      if (!scan) {
+        res.status(404).json({ error: `Scan ${scanId} not found` });
+        return;
+      }
+
+      const storedToken = await database.getIngestToken(scanId);
+      if (storedToken) {
+        if (!ingestToken || storedToken !== ingestToken) {
+          res.status(403).json({ error: 'Invalid or missing ingest token' });
+          return;
+        }
+      }
+
+      await database.storeArtifact(
+        scanId,
+        artifactKey,
+        ociReference,
+        artifactName,
+        mimeType || 'application/json',
+      );
+
+      logger.info(`Artifact registered: ${artifactKey} for scan ${scanId}`);
+      res.status(201).json({ artifactKey, scanId });
+    },
+  );
 
   router.get('/scans/:scanId/artifacts', async (req, res) => {
-    if (!await requireUserAuth(httpAuth, req, res)) return;
+    if (!(await requireUserAuth(httpAuth, req, res))) return;
     const { scanId } = req.params;
     if (!isValidScanId(scanId)) {
       res.status(400).json({ error: 'Invalid scanId' });
@@ -84,12 +92,14 @@ export function registerArtifactRoutes(
     }
 
     const { resolvedScanId } = await resolveScanId(database, scanId);
-    const artifacts = await database.getArtifactsForScan(resolvedScanId || scanId);
+    const artifacts = await database.getArtifactsForScan(
+      resolvedScanId || scanId,
+    );
     res.json(artifacts);
   });
 
   router.get('/scans/:scanId/artifacts/:key/download', async (req, res) => {
-    if (!await requireUserAuth(httpAuth, req, res)) return;
+    if (!(await requireUserAuth(httpAuth, req, res))) return;
     const { scanId, key } = req.params;
     if (!isValidScanId(scanId)) {
       res.status(400).json({ error: 'Invalid scanId' });
@@ -100,10 +110,15 @@ export function registerArtifactRoutes(
       return;
     }
 
-    const { resolvedScanId: resolvedId } = await resolveScanId(database, scanId);
+    const { resolvedScanId: resolvedId } = await resolveScanId(
+      database,
+      scanId,
+    );
     const artifact = await database.getArtifact(resolvedId || scanId, key);
     if (!artifact) {
-      res.status(404).json({ error: `Artifact ${key} not found for scan ${scanId}` });
+      res
+        .status(404)
+        .json({ error: `Artifact ${key} not found for scan ${scanId}` });
       return;
     }
 
@@ -127,7 +142,9 @@ async function getRegistryToken(
   dispatcher: any,
   logger: any,
 ): Promise<string | null> {
-  const challengeResp = await fetch(`https://${registry}/v2/`, { dispatcher } as any);
+  const challengeResp = await fetch(`https://${registry}/v2/`, {
+    dispatcher,
+  } as any);
   if (challengeResp.ok) return null;
 
   const wwwAuth = challengeResp.headers.get('www-authenticate') || '';
@@ -141,9 +158,13 @@ async function getRegistryToken(
 
   const aapUser = process.env.AAP_REGISTRY_USER || 'admin';
   const aapPass = process.env.AAP_REGISTRY_PASSWORD || '';
-  const basicAuth = aapPass ? `Basic ${Buffer.from(`${aapUser}:${aapPass}`).toString('base64')}` : undefined;
+  const basicAuth = aapPass
+    ? `Basic ${Buffer.from(`${aapUser}:${aapPass}`).toString('base64')}`
+    : undefined;
 
-  const tokenUrl = `${realm}?service=${encodeURIComponent(service)}&scope=${encodeURIComponent(scope)}`;
+  const tokenUrl = `${realm}?service=${encodeURIComponent(
+    service,
+  )}&scope=${encodeURIComponent(scope)}`;
   logger.info(`Requesting registry token from ${realm}`);
 
   const tokenResp = await fetch(tokenUrl, {
@@ -156,7 +177,7 @@ async function getRegistryToken(
     return null;
   }
 
-  const body = await tokenResp.json() as any;
+  const body = (await tokenResp.json()) as any;
   return body.token || body.access_token || null;
 }
 
@@ -172,8 +193,15 @@ async function fetchOciBlob(
   const { Agent } = await import('undici');
   const dispatcher = new Agent({ connect: { rejectUnauthorized: false } });
 
-  const token = await getRegistryToken(registry, repository, dispatcher, logger);
-  const authHeaders: Record<string, string> = token ? { Authorization: `Bearer ${token}` } : {};
+  const token = await getRegistryToken(
+    registry,
+    repository,
+    dispatcher,
+    logger,
+  );
+  const authHeaders: Record<string, string> = token
+    ? { Authorization: `Bearer ${token}` }
+    : {};
 
   const baseUrl = `https://${registry}`;
   const manifestUrl = `${baseUrl}/v2/${repository}/manifests/${tag}`;
@@ -181,17 +209,20 @@ async function fetchOciBlob(
 
   const manifestResp = await fetch(manifestUrl, {
     headers: {
-      Accept: 'application/vnd.oci.image.manifest.v1+json, application/vnd.oras.artifact.manifest.v1+json',
+      Accept:
+        'application/vnd.oci.image.manifest.v1+json, application/vnd.oras.artifact.manifest.v1+json',
       ...authHeaders,
     },
     dispatcher,
   } as any);
 
   if (!manifestResp.ok) {
-    throw new Error(`Manifest fetch failed: ${manifestResp.status} ${manifestResp.statusText}`);
+    throw new Error(
+      `Manifest fetch failed: ${manifestResp.status} ${manifestResp.statusText}`,
+    );
   }
 
-  const manifest = await manifestResp.json() as any;
+  const manifest = (await manifestResp.json()) as any;
   const layers = manifest.layers || manifest.blobs || [];
   if (layers.length === 0) {
     throw new Error('No layers in OCI manifest');
@@ -206,7 +237,9 @@ async function fetchOciBlob(
     dispatcher,
   } as any);
   if (!blobResp.ok) {
-    throw new Error(`Blob fetch failed: ${blobResp.status} ${blobResp.statusText}`);
+    throw new Error(
+      `Blob fetch failed: ${blobResp.status} ${blobResp.statusText}`,
+    );
   }
 
   return blobResp.arrayBuffer();

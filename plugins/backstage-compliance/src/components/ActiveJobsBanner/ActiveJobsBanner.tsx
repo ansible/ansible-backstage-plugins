@@ -1,9 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import {
-  StatusRunning,
-  StatusPending,
-} from '@backstage/core-components';
+import { StatusRunning, StatusPending } from '@backstage/core-components';
 import {
   Box,
   Typography,
@@ -17,7 +14,10 @@ import CloseIcon from '@material-ui/icons/Close';
 import { useApi } from '@backstage/core-plugin-api';
 import { complianceApiRef } from '../../api';
 import { formatElapsed } from '../shared/formatTime';
-import type { ComplianceScan, RemediationExecution } from '@ansible/backstage-compliance-common/types';
+import type {
+  ComplianceScan,
+  RemediationExecution,
+} from '@ansible/backstage-compliance-common/types';
 
 const useStyles = makeStyles(theme => ({
   root: {
@@ -82,8 +82,20 @@ function scanTypeLabel(scan: ComplianceScan): string {
 }
 
 type ActiveItem =
-  | { kind: 'scan'; scan: ComplianceScan; id: string; elapsed: number; startTime: number }
-  | { kind: 'execution'; execution: RemediationExecution; id: string; elapsed: number; startTime: number };
+  | {
+      kind: 'scan';
+      scan: ComplianceScan;
+      id: string;
+      elapsed: number;
+      startTime: number;
+    }
+  | {
+      kind: 'execution';
+      execution: RemediationExecution;
+      id: string;
+      elapsed: number;
+      startTime: number;
+    };
 
 const TWO_HOURS_MS = 2 * 60 * 60 * 1000;
 
@@ -110,7 +122,7 @@ export const ActiveJobsBanner = () => {
 
   // Poll for active scans and executions
   useEffect(() => {
-    if (!visible) return;
+    if (!visible) return undefined;
 
     let cancelled = false;
 
@@ -180,7 +192,7 @@ export const ActiveJobsBanner = () => {
         clearInterval(tickRef.current);
         tickRef.current = null;
       }
-      return;
+      return undefined;
     }
 
     tickRef.current = setInterval(() => {
@@ -207,12 +219,12 @@ export const ActiveJobsBanner = () => {
   return (
     <Box className={classes.root}>
       {visibleItems.map(item => {
-        const isRunning = item.kind === 'scan'
-          ? item.scan.status === 'running'
-          : item.execution.status === 'running';
-        const label = item.kind === 'scan'
-          ? scanTypeLabel(item.scan)
-          : 'Remediation';
+        const isRunning =
+          item.kind === 'scan'
+            ? item.scan.status === 'running'
+            : item.execution.status === 'running';
+        const label =
+          item.kind === 'scan' ? scanTypeLabel(item.scan) : 'Remediation';
 
         return (
           <Paper
@@ -245,9 +257,7 @@ export const ActiveJobsBanner = () => {
             </Box>
 
             <Box className={classes.progressSection}>
-              {isRunning && (
-                <LinearProgress className={classes.progressBar} />
-              )}
+              {isRunning && <LinearProgress className={classes.progressBar} />}
             </Box>
 
             <Typography variant="body2" className={classes.elapsed}>

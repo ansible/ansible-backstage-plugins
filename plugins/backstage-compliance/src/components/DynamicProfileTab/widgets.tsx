@@ -13,7 +13,10 @@ import {
   makeStyles,
 } from '@material-ui/core';
 import { InfoCard } from '@backstage/core-components';
-import type { TabWidget, DisplayColumn } from '@ansible/backstage-compliance-common/types';
+import type {
+  TabWidget,
+  DisplayColumn,
+} from '@ansible/backstage-compliance-common/types';
 import type { MultiHostFinding } from '@ansible/backstage-compliance-common/types';
 import { SEVERITY_COLORS, SURFACE_COLORS } from '../shared/colors';
 import { TABLE_STYLES, CHIP_SIZES } from '../shared/chipStyles';
@@ -45,10 +48,23 @@ interface WidgetProps {
   config: TabWidget;
   findings: MultiHostFinding[];
   severityLabel: (key: string) => string;
-  scanMeta?: { totalPackages?: number; totalVulnerabilities?: number; totalScannedPackages?: number; totalVulnerablePackages?: number };
+  scanMeta?: {
+    totalPackages?: number;
+    totalVulnerabilities?: number;
+    totalScannedPackages?: number;
+    totalVulnerablePackages?: number;
+  };
 }
 
-function computeMetric(findings: MultiHostFinding[], metric?: string, scanMeta?: { totalPackages?: number; totalScannedPackages?: number; totalVulnerablePackages?: number }): { value: number; label: string } {
+function computeMetric(
+  findings: MultiHostFinding[],
+  metric?: string,
+  scanMeta?: {
+    totalPackages?: number;
+    totalScannedPackages?: number;
+    totalVulnerablePackages?: number;
+  },
+): { value: number; label: string } {
   const totalFindings = findings.length;
   const failCount = findings.filter(f => f.failCount > 0).length;
   const passCount = totalFindings - failCount;
@@ -62,11 +78,15 @@ function computeMetric(findings: MultiHostFinding[], metric?: string, scanMeta?:
         return { value: rate, label: `${rate}%` };
       }
       const denominator = scanMeta?.totalPackages ?? totalFindings;
-      const rate = denominator > 0 ? Math.round(((denominator - failCount) / denominator) * 100) : 100;
+      const rate =
+        denominator > 0
+          ? Math.round(((denominator - failCount) / denominator) * 100)
+          : 100;
       return { value: rate, label: `${rate}%` };
     }
     case 'compliance_rate': {
-      const rate = totalFindings > 0 ? Math.round((passCount / totalFindings) * 100) : 100;
+      const rate =
+        totalFindings > 0 ? Math.round((passCount / totalFindings) * 100) : 100;
       return { value: rate, label: `${rate}%` };
     }
     case 'finding_count':
@@ -76,7 +96,11 @@ function computeMetric(findings: MultiHostFinding[], metric?: string, scanMeta?:
   }
 }
 
-export const SummaryCardWidget = ({ config, findings, scanMeta }: WidgetProps) => {
+export const SummaryCardWidget = ({
+  config,
+  findings,
+  scanMeta,
+}: WidgetProps) => {
   const classes = useStyles();
   const metric = computeMetric(findings, config.metric, scanMeta);
   const unit = config.unit ?? 'findings';
@@ -89,7 +113,10 @@ export const SummaryCardWidget = ({ config, findings, scanMeta }: WidgetProps) =
         </Typography>
         <Typography className={classes.statValue}>{metric.label}</Typography>
         <Typography className={classes.statLabel}>
-          {scanMeta?.totalScannedPackages ?? scanMeta?.totalPackages ?? findings.length} {unit} evaluated
+          {scanMeta?.totalScannedPackages ??
+            scanMeta?.totalPackages ??
+            findings.length}{' '}
+          {unit} evaluated
         </Typography>
         <LinearProgress
           variant="determinate"
@@ -103,11 +130,21 @@ export const SummaryCardWidget = ({ config, findings, scanMeta }: WidgetProps) =
   );
 };
 
-export const SeverityBreakdownWidget = ({ config, findings, severityLabel }: WidgetProps) => {
+export const SeverityBreakdownWidget = ({
+  config,
+  findings,
+  severityLabel,
+}: WidgetProps) => {
   const classes = useStyles();
-  const catI = findings.filter(f => f.severity === 'CAT_I' && f.failCount > 0).length;
-  const catII = findings.filter(f => f.severity === 'CAT_II' && f.failCount > 0).length;
-  const catIII = findings.filter(f => f.severity === 'CAT_III' && f.failCount > 0).length;
+  const catI = findings.filter(
+    f => f.severity === 'CAT_I' && f.failCount > 0,
+  ).length;
+  const catII = findings.filter(
+    f => f.severity === 'CAT_II' && f.failCount > 0,
+  ).length;
+  const catIII = findings.filter(
+    f => f.severity === 'CAT_III' && f.failCount > 0,
+  ).length;
 
   const customLabels = config.labels ?? {};
 
@@ -121,19 +158,35 @@ export const SeverityBreakdownWidget = ({ config, findings, severityLabel }: Wid
           <Chip
             label={`${customLabels.CAT_I ?? severityLabel('CAT_I')}: ${catI}`}
             className={classes.severityChip}
-            style={{ backgroundColor: SEVERITY_COLORS.CAT_I, color: SURFACE_COLORS.onDark, ...CHIP_SIZES.standard }}
+            style={{
+              backgroundColor: SEVERITY_COLORS.CAT_I,
+              color: SURFACE_COLORS.onDark,
+              ...CHIP_SIZES.standard,
+            }}
             size="small"
           />
           <Chip
-            label={`${customLabels.CAT_II ?? severityLabel('CAT_II')}: ${catII}`}
+            label={`${
+              customLabels.CAT_II ?? severityLabel('CAT_II')
+            }: ${catII}`}
             className={classes.severityChip}
-            style={{ backgroundColor: SEVERITY_COLORS.CAT_II, color: SURFACE_COLORS.onDark, ...CHIP_SIZES.standard }}
+            style={{
+              backgroundColor: SEVERITY_COLORS.CAT_II,
+              color: SURFACE_COLORS.onDark,
+              ...CHIP_SIZES.standard,
+            }}
             size="small"
           />
           <Chip
-            label={`${customLabels.CAT_III ?? severityLabel('CAT_III')}: ${catIII}`}
+            label={`${
+              customLabels.CAT_III ?? severityLabel('CAT_III')
+            }: ${catIII}`}
             className={classes.severityChip}
-            style={{ backgroundColor: SEVERITY_COLORS.CAT_III, color: SURFACE_COLORS.onDark, ...CHIP_SIZES.standard }}
+            style={{
+              backgroundColor: SEVERITY_COLORS.CAT_III,
+              color: SURFACE_COLORS.onDark,
+              ...CHIP_SIZES.standard,
+            }}
             size="small"
           />
         </Box>
@@ -142,7 +195,11 @@ export const SeverityBreakdownWidget = ({ config, findings, severityLabel }: Wid
   );
 };
 
-export const FindingsTableWidget = ({ config, findings, severityLabel }: WidgetProps) => {
+export const FindingsTableWidget = ({
+  config,
+  findings,
+  severityLabel,
+}: WidgetProps) => {
   const columns: DisplayColumn[] = config.columns ?? [
     { field: 'rule_id', label: 'Rule ID' },
     { field: 'title', label: 'Title' },
@@ -171,7 +228,9 @@ export const FindingsTableWidget = ({ config, findings, severityLabel }: WidgetP
         <TableHead>
           <TableRow>
             {columns.map(col => (
-              <TableCell key={col.field} style={TABLE_STYLES.header}>{col.label}</TableCell>
+              <TableCell key={col.field} style={TABLE_STYLES.header}>
+                {col.label}
+              </TableCell>
             ))}
           </TableRow>
         </TableHead>
@@ -196,7 +255,8 @@ export const TrendChartWidget = ({ config }: WidgetProps) => {
     <InfoCard title={config.label ?? 'Trend'}>
       <Box p={2}>
         <Typography variant="body2" color="textSecondary">
-          Trend chart rendering requires posture history data. Available when connected to a live backend.
+          Trend chart rendering requires posture history data. Available when
+          connected to a live backend.
         </Typography>
       </Box>
     </InfoCard>
@@ -225,8 +285,12 @@ export const HostBreakdownWidget = ({ config, findings }: WidgetProps) => {
           <TableHead>
             <TableRow>
               <TableCell style={TABLE_STYLES.header}>Host</TableCell>
-              <TableCell style={TABLE_STYLES.header} align="right">Failing</TableCell>
-              <TableCell style={TABLE_STYLES.header} align="right">Passing</TableCell>
+              <TableCell style={TABLE_STYLES.header} align="right">
+                Failing
+              </TableCell>
+              <TableCell style={TABLE_STYLES.header} align="right">
+                Passing
+              </TableCell>
             </TableRow>
           </TableHead>
           <TableBody>

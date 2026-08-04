@@ -1,5 +1,5 @@
-"use strict";
-Object.defineProperty(exports, "__esModule", { value: true });
+'use strict';
+Object.defineProperty(exports, '__esModule', { value: true });
 exports.up = up;
 exports.down = down;
 
@@ -11,13 +11,13 @@ async function up(knex) {
     )
   `);
 
-  await knex.schema.alterTable("compliance_findings", (table) => {
-    table.unique(["scan_id", "rule_id", "host"]);
+  await knex.schema.alterTable('compliance_findings', table => {
+    table.unique(['scan_id', 'rule_id', 'host']);
   });
 }
 
 async function down(knex) {
-  await knex.schema.alterTable("compliance_findings", (table) => {
-    table.dropUnique(["scan_id", "rule_id", "host"]);
+  await knex.schema.alterTable('compliance_findings', table => {
+    table.dropUnique(['scan_id', 'rule_id', 'host']);
   });
 }

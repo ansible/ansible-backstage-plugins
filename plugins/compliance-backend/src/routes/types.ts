@@ -27,7 +27,9 @@ export interface RouterDependencies {
 export type ScanResolution = {
   resolvedScanId: string | undefined;
   workflowJobId: number | undefined;
-  dbScan: Awaited<ReturnType<ComplianceDatabase['getScanByWorkflowJobId']>> | undefined;
+  dbScan:
+    | Awaited<ReturnType<ComplianceDatabase['getScanByWorkflowJobId']>>
+    | undefined;
 };
 
 export type RegisterRoutes = (

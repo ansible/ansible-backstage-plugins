@@ -62,10 +62,16 @@ interface NodeStatus {
 
 function nodeStatusIcon(status: string) {
   switch (status) {
-    case 'successful': return <StatusOK />;
-    case 'failed': case 'error': return <StatusError />;
-    case 'running': case 'waiting': return <CircularProgress size={20} thickness={4} />;
-    default: return <StatusPending />;
+    case 'successful':
+      return <StatusOK />;
+    case 'failed':
+    case 'error':
+      return <StatusError />;
+    case 'running':
+    case 'waiting':
+      return <CircularProgress size={20} thickness={4} />;
+    default:
+      return <StatusPending />;
   }
 }
 
@@ -75,7 +81,8 @@ function computeProgress(nodes: NodeStatus[]): number {
   const step = 100 / nodes.length;
   for (const n of nodes) {
     if (n.status === 'successful') pct += step;
-    else if (n.status === 'running' || n.status === 'waiting') pct += step * 0.5;
+    else if (n.status === 'running' || n.status === 'waiting')
+      pct += step * 0.5;
     else if (n.status === 'failed' || n.status === 'error') pct += step;
   }
   return Math.round(pct);
@@ -113,9 +120,11 @@ export const ScanProgress = ({
   onFailedRef.current = onFailed;
 
   // Independent 1s tick for smooth elapsed display
-  const isTerminal = ['successful', 'failed', 'error', 'canceled'].includes(overallStatus);
+  const isTerminal = ['successful', 'failed', 'error', 'canceled'].includes(
+    overallStatus,
+  );
   useEffect(() => {
-    if (isTerminal) return;
+    if (isTerminal) return undefined;
     const tick = setInterval(() => setLocalElapsed(prev => prev + 1), 1000);
     return () => clearInterval(tick);
   }, [isTerminal]);
@@ -134,7 +143,7 @@ export const ScanProgress = ({
   }, []);
 
   useEffect(() => {
-    if (!visible || isTerminal) return;
+    if (!visible || isTerminal) return undefined;
     let cancelled = false;
 
     const pollStatus = async () => {
@@ -146,13 +155,19 @@ export const ScanProgress = ({
         setServerElapsed(status.elapsed);
 
         let mapped: NodeStatus[];
-        const wfNodes = isSimpleJob.current ? [] : await api.getWorkflowNodes(workflowJobId);
+        const wfNodes = isSimpleJob.current
+          ? []
+          : await api.getWorkflowNodes(workflowJobId);
         if (cancelled) return;
 
         if (wfNodes.length > 0) {
           mapped = nodeIds.map(id => {
             const node = wfNodes.find(
-              n => n.identifier === id || n.summary_fields?.unified_job_template?.name?.toLowerCase().includes(id.replace('-', ' ')),
+              n =>
+                n.identifier === id ||
+                n.summary_fields?.unified_job_template?.name
+                  ?.toLowerCase()
+                  .includes(id.replace('-', ' ')),
             );
             const job = node?.summary_fields?.job;
             return {
@@ -163,21 +178,43 @@ export const ScanProgress = ({
           });
         } else {
           isSimpleJob.current = true;
-          mapped = [{ identifier: 'run-oscap', status: status.status, jobId: workflowJobId }];
+          mapped = [
+            {
+              identifier: 'run-oscap',
+              status: status.status,
+              jobId: workflowJobId,
+            },
+          ];
         }
         setNodes(mapped);
 
-        const runningNode = mapped.find(n => n.status === 'running' || n.status === 'waiting');
+        const runningNode = mapped.find(
+          n => n.status === 'running' || n.status === 'waiting',
+        );
         if (runningNode?.jobId) {
           try {
             const events = await api.getJobEvents(runningNode.jobId);
             if (!cancelled) {
-              const remoteHosts = new Set(events.filter(e => e.host_name && e.host_name !== 'localhost').map(e => e.host_name));
-              const hasLocalhostEvents = events.some(e => e.host_name === 'localhost');
+              const remoteHosts = new Set(
+                events
+                  .filter(e => e.host_name && e.host_name !== 'localhost')
+                  .map(e => e.host_name),
+              );
+              const hasLocalhostEvents = events.some(
+                e => e.host_name === 'localhost',
+              );
               if (hasLocalhostEvents && remoteHosts.size > 0) {
-                setHostProgress(`Processing results from ${remoteHosts.size} host${remoteHosts.size !== 1 ? 's' : ''}...`);
+                setHostProgress(
+                  `Processing results from ${remoteHosts.size} host${
+                    remoteHosts.size !== 1 ? 's' : ''
+                  }...`,
+                );
               } else if (remoteHosts.size > 0) {
-                setHostProgress(`Scanning: ${remoteHosts.size} host${remoteHosts.size !== 1 ? 's' : ''} completed`);
+                setHostProgress(
+                  `Scanning: ${remoteHosts.size} host${
+                    remoteHosts.size !== 1 ? 's' : ''
+                  } completed`,
+                );
               } else {
                 setHostProgress('Initializing scan...');
               }
@@ -211,25 +248,54 @@ export const ScanProgress = ({
   }, [api, workflowJobId, visible, isTerminal, nodeIds, steps]);
 
   const terminal = ['successful', 'failed', 'error', 'canceled'];
-  const isFailed = overallStatus === 'failed' || overallStatus === 'error' || overallStatus === 'canceled';
-  if (overallStatus === 'successful' && nodes.every(n => terminal.includes(n.status))) {
+  const isFailed =
+    overallStatus === 'failed' ||
+    overallStatus === 'error' ||
+    overallStatus === 'canceled';
+  if (
+    overallStatus === 'successful' &&
+    nodes.every(n => terminal.includes(n.status))
+  ) {
     return null;
   }
 
   const progress = computeProgress(nodes);
-  const activeStep = nodes.filter(n => n.status === 'successful' || n.status === 'failed' || n.status === 'error').length;
+  const activeStep = nodes.filter(
+    n =>
+      n.status === 'successful' ||
+      n.status === 'failed' ||
+      n.status === 'error',
+  ).length;
 
   return (
     <Box className={classes.root}>
       <Paper className={classes.paper} variant="outlined">
         <Box className={classes.header}>
           <Typography variant="subtitle1">
-            {isFailed ? <StatusError /> : <CircularProgress size={18} thickness={4} style={{ marginRight: 8 }} />} {scanType === 'verification' ? 'Verification Scan' : scanType === 'remediation' ? 'Remediation' : 'Assessment Scan'}{profileName ? `: ${profileName}` : ''}
+            {isFailed ? (
+              <StatusError />
+            ) : (
+              <CircularProgress
+                size={18}
+                thickness={4}
+                style={{ marginRight: 8 }}
+              />
+            )}{' '}
+            {(() => {
+              if (scanType === 'verification') return 'Verification Scan';
+              if (scanType === 'remediation') return 'Remediation';
+              return 'Assessment Scan';
+            })()}
+            {profileName ? `: ${profileName}` : ''}
           </Typography>
           <Chip
             size="small"
             label={isFailed ? `Scan ${overallStatus}` : overallStatus}
-            color={isFailed ? 'secondary' : overallStatus === 'running' ? 'primary' : 'default'}
+            color={(() => {
+              if (isFailed) return 'secondary' as const;
+              if (overallStatus === 'running') return 'primary' as const;
+              return 'default' as const;
+            })()}
           />
         </Box>
 

@@ -16,7 +16,10 @@ import {
 } from '@material-ui/core';
 import CloudDownloadIcon from '@material-ui/icons/CloudDownload';
 import { useApi, alertApiRef } from '@backstage/core-plugin-api';
-import type { HostRiskEntry, TabWidget } from '@ansible/backstage-compliance-common/types';
+import type {
+  HostRiskEntry,
+  TabWidget,
+} from '@ansible/backstage-compliance-common/types';
 import { complianceApiRef } from '../../api';
 import { TABLE_STYLES } from '../shared/chipStyles';
 import { STATUS_COLORS } from '../shared/colors';
@@ -47,7 +50,10 @@ const useStyles = makeStyles(theme => ({
 
 interface Props {
   config: TabWidget;
-  tabData: { hostRisk: HostRiskEntry[]; summary: { totalPackages: number } } | null;
+  tabData: {
+    hostRisk: HostRiskEntry[];
+    summary: { totalPackages: number };
+  } | null;
 }
 
 export const HostRiskHeatmapWidget = ({ config, tabData }: Props) => {
@@ -56,24 +62,32 @@ export const HostRiskHeatmapWidget = ({ config, tabData }: Props) => {
   const alertApi = useApi(alertApiRef);
   const [downloadingHost, setDownloadingHost] = useState<string | null>(null);
 
-  const downloadAction = config.actions?.find(a => a.type === 'download_artifact');
+  const downloadAction = config.actions?.find(
+    a => a.type === 'download_artifact',
+  );
 
-  const handleDownload = useCallback(async (host: HostRiskEntry) => {
-    if (!downloadAction || !host.latestScanId) return;
-    const artifactKey = `${downloadAction.artifact_key_prefix}${host.hostname}`;
-    const ext = downloadAction.file_extension ?? '.json';
-    const filename = `${artifactKey}${ext}`;
-    setDownloadingHost(host.hostname);
-    try {
-      await api.downloadArtifact(host.latestScanId, artifactKey, filename);
-    } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : String(err);
-      const label = downloadAction.label ?? 'artifact';
-      alertApi.post({ message: `Failed to download ${label} for ${host.hostname}: ${msg}`, severity: 'error' });
-    } finally {
-      setDownloadingHost(null);
-    }
-  }, [api, alertApi, downloadAction]);
+  const handleDownload = useCallback(
+    async (host: HostRiskEntry) => {
+      if (!downloadAction || !host.latestScanId) return;
+      const artifactKey = `${downloadAction.artifact_key_prefix}${host.hostname}`;
+      const ext = downloadAction.file_extension ?? '.json';
+      const filename = `${artifactKey}${ext}`;
+      setDownloadingHost(host.hostname);
+      try {
+        await api.downloadArtifact(host.latestScanId, artifactKey, filename);
+      } catch (err: unknown) {
+        const msg = err instanceof Error ? err.message : String(err);
+        const label = downloadAction.label ?? 'artifact';
+        alertApi.post({
+          message: `Failed to download ${label} for ${host.hostname}: ${msg}`,
+          severity: 'error',
+        });
+      } finally {
+        setDownloadingHost(null);
+      }
+    },
+    [api, alertApi, downloadAction],
+  );
 
   if (!tabData || tabData.hostRisk.length === 0) return null;
 
@@ -96,9 +110,16 @@ export const HostRiskHeatmapWidget = ({ config, tabData }: Props) => {
           <TableHead>
             <TableRow>
               <TableCell style={TABLE_STYLES.header}>Host</TableCell>
-              <TableCell style={TABLE_STYLES.header} align="right">Risk Score</TableCell>
-              <TableCell style={TABLE_STYLES.header} align="right">{colLabel}</TableCell>
-              <TableCell style={TABLE_STYLES.header} className={classes.barCell}>
+              <TableCell style={TABLE_STYLES.header} align="right">
+                Risk Score
+              </TableCell>
+              <TableCell style={TABLE_STYLES.header} align="right">
+                {colLabel}
+              </TableCell>
+              <TableCell
+                style={TABLE_STYLES.header}
+                className={classes.barCell}
+              >
                 Vulnerable / Clean
               </TableCell>
               {downloadAction && (
@@ -110,13 +131,18 @@ export const HostRiskHeatmapWidget = ({ config, tabData }: Props) => {
           </TableHead>
           <TableBody>
             {hosts.map(h => {
-              const denominator = h.scannedPackages > 0
-                ? h.scannedPackages
-                : Math.max(h.total, 1);
+              const denominator =
+                h.scannedPackages > 0
+                  ? h.scannedPackages
+                  : Math.max(h.total, 1);
               const critPct = (h.critical / denominator) * 100;
               const medPct = (h.medium / denominator) * 100;
               const lowPct = (h.low / denominator) * 100;
-              const tooltipText = `${critLabel}: ${h.critical} · ${medLabel}: ${h.medium} · ${lowLabel}: ${h.low} · ${cleanLabel}: ${denominator - h.total}`;
+              const tooltipText = `${critLabel}: ${h.critical} · ${medLabel}: ${
+                h.medium
+              } · ${lowLabel}: ${h.low} · ${cleanLabel}: ${
+                denominator - h.total
+              }`;
 
               return (
                 <TableRow key={h.hostname}>
@@ -124,7 +150,13 @@ export const HostRiskHeatmapWidget = ({ config, tabData }: Props) => {
                   <TableCell align="right">
                     <Typography
                       className={classes.riskScore}
-                      style={{ color: h.score >= 50 ? STATUS_COLORS.error : h.score >= 20 ? STATUS_COLORS.warning : STATUS_COLORS.success }}
+                      style={{
+                        color: (() => {
+                          if (h.score >= 50) return STATUS_COLORS.error;
+                          if (h.score >= 20) return STATUS_COLORS.warning;
+                          return STATUS_COLORS.success;
+                        })(),
+                      }}
                     >
                       {h.score}
                     </Typography>
@@ -133,24 +165,50 @@ export const HostRiskHeatmapWidget = ({ config, tabData }: Props) => {
                   <TableCell className={classes.barCell}>
                     <Tooltip title={tooltipText} arrow>
                       <div className={classes.barTrack}>
-                        {critPct > 0 && <div className={classes.segCritical} style={{ width: `${critPct}%` }} />}
-                        {medPct > 0 && <div className={classes.segMedium} style={{ width: `${medPct}%` }} />}
-                        {lowPct > 0 && <div className={classes.segLow} style={{ width: `${lowPct}%` }} />}
+                        {critPct > 0 && (
+                          <div
+                            className={classes.segCritical}
+                            style={{ width: `${critPct}%` }}
+                          />
+                        )}
+                        {medPct > 0 && (
+                          <div
+                            className={classes.segMedium}
+                            style={{ width: `${medPct}%` }}
+                          />
+                        )}
+                        {lowPct > 0 && (
+                          <div
+                            className={classes.segLow}
+                            style={{ width: `${lowPct}%` }}
+                          />
+                        )}
                       </div>
                     </Tooltip>
                   </TableCell>
                   {downloadAction && (
                     <TableCell align="center">
-                      <Tooltip title={h.latestScanId ? `Download SBOM for ${h.hostname}` : 'No SBOM available'} arrow>
+                      <Tooltip
+                        title={
+                          h.latestScanId
+                            ? `Download SBOM for ${h.hostname}`
+                            : 'No SBOM available'
+                        }
+                        arrow
+                      >
                         <span>
                           <IconButton
                             size="small"
-                            disabled={!h.latestScanId || downloadingHost === h.hostname}
+                            disabled={
+                              !h.latestScanId || downloadingHost === h.hostname
+                            }
                             onClick={() => handleDownload(h)}
                           >
-                            {downloadingHost === h.hostname
-                              ? <CircularProgress size={16} />
-                              : <CloudDownloadIcon fontSize="small" />}
+                            {downloadingHost === h.hostname ? (
+                              <CircularProgress size={16} />
+                            ) : (
+                              <CloudDownloadIcon fontSize="small" />
+                            )}
                           </IconButton>
                         </span>
                       </Tooltip>

@@ -36,7 +36,8 @@ describe('computeClusters', () => {
 
   it('marks small clusters as outliers', () => {
     const hosts = [
-      host(30), host(32),
+      host(30),
+      host(32),
       ...Array.from({ length: 20 }, (_, i) => host(90 + i * 0.3)),
     ];
     const clusters = computeClusters(hosts);

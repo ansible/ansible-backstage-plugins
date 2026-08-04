@@ -95,7 +95,9 @@ export const MOCK_FINDINGS: MultiHostFinding[] = [
     checkText: 'Verify the SSH daemon ClientAliveInterval setting.',
     severity: 'CAT_II',
     category: 'SSH',
-    disruption: 'low', aapImpact: 'safe' as const, aapImpactReason: '',
+    disruption: 'low',
+    aapImpact: 'safe' as const,
+    aapImpactReason: '',
     parameters: [
       {
         name: 'interval',
@@ -107,9 +109,27 @@ export const MOCK_FINDINGS: MultiHostFinding[] = [
       },
     ],
     hosts: [
-      { host: 'web-01.example.com', status: 'fail', actualValue: '900', expectedValue: '600', findingState: 'active' as const },
-      { host: 'web-02.example.com', status: 'pass', actualValue: '600', expectedValue: '600', findingState: 'fixed' as const },
-      { host: 'db-01.example.com', status: 'fail', actualValue: '0', expectedValue: '600', findingState: 'new' as const },
+      {
+        host: 'web-01.example.com',
+        status: 'fail',
+        actualValue: '900',
+        expectedValue: '600',
+        findingState: 'active' as const,
+      },
+      {
+        host: 'web-02.example.com',
+        status: 'pass',
+        actualValue: '600',
+        expectedValue: '600',
+        findingState: 'fixed' as const,
+      },
+      {
+        host: 'db-01.example.com',
+        status: 'fail',
+        actualValue: '0',
+        expectedValue: '600',
+        findingState: 'new' as const,
+      },
     ],
     passCount: 1,
     failCount: 2,
@@ -127,7 +147,9 @@ export const MOCK_FINDINGS: MultiHostFinding[] = [
     checkText: 'Verify the password minimum length in pwquality.conf.',
     severity: 'CAT_I',
     category: 'Accounts',
-    disruption: 'low', aapImpact: 'safe' as const, aapImpactReason: '',
+    disruption: 'low',
+    aapImpact: 'safe' as const,
+    aapImpactReason: '',
     parameters: [
       {
         name: 'minlen',
@@ -139,9 +161,27 @@ export const MOCK_FINDINGS: MultiHostFinding[] = [
       },
     ],
     hosts: [
-      { host: 'web-01.example.com', status: 'fail', actualValue: '8', expectedValue: '15', findingState: 'resurfaced' as const },
-      { host: 'web-02.example.com', status: 'fail', actualValue: '8', expectedValue: '15', findingState: 'active' as const },
-      { host: 'db-01.example.com', status: 'pass', actualValue: '15', expectedValue: '15', findingState: null },
+      {
+        host: 'web-01.example.com',
+        status: 'fail',
+        actualValue: '8',
+        expectedValue: '15',
+        findingState: 'resurfaced' as const,
+      },
+      {
+        host: 'web-02.example.com',
+        status: 'fail',
+        actualValue: '8',
+        expectedValue: '15',
+        findingState: 'active' as const,
+      },
+      {
+        host: 'db-01.example.com',
+        status: 'pass',
+        actualValue: '15',
+        expectedValue: '15',
+        findingState: null,
+      },
     ],
     passCount: 1,
     failCount: 2,
@@ -159,12 +199,32 @@ export const MOCK_FINDINGS: MultiHostFinding[] = [
     checkText: 'Verify PermitRootLogin is set to no.',
     severity: 'CAT_I',
     category: 'SSH',
-    disruption: 'low', aapImpact: 'safe' as const, aapImpactReason: '',
+    disruption: 'low',
+    aapImpact: 'safe' as const,
+    aapImpactReason: '',
     parameters: [],
     hosts: [
-      { host: 'web-01.example.com', status: 'pass', actualValue: 'no', expectedValue: 'no', findingState: null },
-      { host: 'web-02.example.com', status: 'pass', actualValue: 'no', expectedValue: 'no', findingState: null },
-      { host: 'db-01.example.com', status: 'pass', actualValue: 'no', expectedValue: 'no', findingState: null },
+      {
+        host: 'web-01.example.com',
+        status: 'pass',
+        actualValue: 'no',
+        expectedValue: 'no',
+        findingState: null,
+      },
+      {
+        host: 'web-02.example.com',
+        status: 'pass',
+        actualValue: 'no',
+        expectedValue: 'no',
+        findingState: null,
+      },
+      {
+        host: 'db-01.example.com',
+        status: 'pass',
+        actualValue: 'no',
+        expectedValue: 'no',
+        findingState: null,
+      },
     ],
     passCount: 3,
     failCount: 0,
@@ -211,23 +271,127 @@ export const MOCK_DASHBOARD_STATS: DashboardStats = {
     },
   ],
   frameworkScores: [
-    { profileId: 'rhel9-stig', name: 'DISA STIG V2R8', target: 'RHEL 9', rules: 366, rate: 78, passCount: 285, failCount: 81, lastScan: '2026-04-28', contributingScans: [{ scanId: 's1', inventoryId: 1, inventoryName: 'prod-servers', passRate: 78, passCount: 285, failCount: 81, ruleCount: 366, timestamp: '2026-04-28' }] },
-    { profileId: 'rhel9-cis-l1', name: 'CIS Benchmark L1', target: 'RHEL 9', rules: 189, rate: 92, passCount: 174, failCount: 15, lastScan: '2026-04-27', contributingScans: [{ scanId: 's2', inventoryId: 2, inventoryName: 'staging-servers', passRate: 92, passCount: 174, failCount: 15, ruleCount: 189, timestamp: '2026-04-27' }] },
-    { profileId: 'rhel9-pci-dss', name: 'PCI-DSS v4.0', target: 'RHEL 9', rules: 142, rate: 85, passCount: 121, failCount: 21, lastScan: '2026-04-25', contributingScans: [{ scanId: 's3', inventoryId: 1, inventoryName: 'prod-servers', passRate: 85, passCount: 121, failCount: 21, ruleCount: 142, timestamp: '2026-04-25' }] },
+    {
+      profileId: 'rhel9-stig',
+      name: 'DISA STIG V2R8',
+      target: 'RHEL 9',
+      rules: 366,
+      rate: 78,
+      passCount: 285,
+      failCount: 81,
+      lastScan: '2026-04-28',
+      contributingScans: [
+        {
+          scanId: 's1',
+          inventoryId: 1,
+          inventoryName: 'prod-servers',
+          passRate: 78,
+          passCount: 285,
+          failCount: 81,
+          ruleCount: 366,
+          timestamp: '2026-04-28',
+        },
+      ],
+    },
+    {
+      profileId: 'rhel9-cis-l1',
+      name: 'CIS Benchmark L1',
+      target: 'RHEL 9',
+      rules: 189,
+      rate: 92,
+      passCount: 174,
+      failCount: 15,
+      lastScan: '2026-04-27',
+      contributingScans: [
+        {
+          scanId: 's2',
+          inventoryId: 2,
+          inventoryName: 'staging-servers',
+          passRate: 92,
+          passCount: 174,
+          failCount: 15,
+          ruleCount: 189,
+          timestamp: '2026-04-27',
+        },
+      ],
+    },
+    {
+      profileId: 'rhel9-pci-dss',
+      name: 'PCI-DSS v4.0',
+      target: 'RHEL 9',
+      rules: 142,
+      rate: 85,
+      passCount: 121,
+      failCount: 21,
+      lastScan: '2026-04-25',
+      contributingScans: [
+        {
+          scanId: 's3',
+          inventoryId: 1,
+          inventoryName: 'prod-servers',
+          passRate: 85,
+          passCount: 121,
+          failCount: 21,
+          ruleCount: 142,
+          timestamp: '2026-04-25',
+        },
+      ],
+    },
   ],
   postureStatus: [
-    { profileId: 'rhel9-stig', name: 'DISA STIG V2R8', rate: 78, aboveTarget: false },
-    { profileId: 'rhel9-cis-l1', name: 'CIS Benchmark L1', rate: 92, aboveTarget: true },
-    { profileId: 'rhel9-pci-dss', name: 'PCI-DSS v4.0', rate: 85, aboveTarget: true },
+    {
+      profileId: 'rhel9-stig',
+      name: 'DISA STIG V2R8',
+      rate: 78,
+      aboveTarget: false,
+    },
+    {
+      profileId: 'rhel9-cis-l1',
+      name: 'CIS Benchmark L1',
+      rate: 92,
+      aboveTarget: true,
+    },
+    {
+      profileId: 'rhel9-pci-dss',
+      name: 'PCI-DSS v4.0',
+      rate: 85,
+      aboveTarget: true,
+    },
   ],
   byInventory: [
-    { inventoryId: 1, inventoryName: 'prod-servers', profileScores: [
-      { profileId: 'rhel9-stig', name: 'DISA STIG V2R8', rate: 78, passCount: 285, failCount: 81 },
-      { profileId: 'rhel9-pci-dss', name: 'PCI-DSS v4.0', rate: 85, passCount: 121, failCount: 21 },
-    ] },
-    { inventoryId: 2, inventoryName: 'staging-servers', profileScores: [
-      { profileId: 'rhel9-cis-l1', name: 'CIS Benchmark L1', rate: 92, passCount: 174, failCount: 15 },
-    ] },
+    {
+      inventoryId: 1,
+      inventoryName: 'prod-servers',
+      profileScores: [
+        {
+          profileId: 'rhel9-stig',
+          name: 'DISA STIG V2R8',
+          rate: 78,
+          passCount: 285,
+          failCount: 81,
+        },
+        {
+          profileId: 'rhel9-pci-dss',
+          name: 'PCI-DSS v4.0',
+          rate: 85,
+          passCount: 121,
+          failCount: 21,
+        },
+      ],
+    },
+    {
+      inventoryId: 2,
+      inventoryName: 'staging-servers',
+      profileScores: [
+        {
+          profileId: 'rhel9-cis-l1',
+          name: 'CIS Benchmark L1',
+          rate: 92,
+          passCount: 174,
+          failCount: 15,
+        },
+      ],
+    },
   ],
 };
 
@@ -246,7 +410,12 @@ export const MOCK_REGISTERED_PROFILES: ComplianceProfile[] = [
     eeId: 1,
     remediationPlaybookPath: 'playbooks/rhel9-stig-remediate.yml',
     scanTags: 'stig,rhel9',
-    certification: { status: 'certified' as const, authority: 'NIST SCAP 1.2', validationId: '', disclaimer: '' },
+    certification: {
+      status: 'certified' as const,
+      authority: 'NIST SCAP 1.2',
+      validationId: '',
+      disclaimer: '',
+    },
     createdAt: '2026-01-01T00:00:00Z',
     updatedAt: '2026-04-01T00:00:00Z',
   },
@@ -268,7 +437,11 @@ export const MOCK_REMEDIATION_PROFILES: RemediationProfile[] = [
     targetInventory: 'production-web-servers',
     status: 'saved',
     selections: [
-      { ruleId: 'sshd_set_idle_timeout', enabled: true, parameters: { interval: 600 } },
+      {
+        ruleId: 'sshd_set_idle_timeout',
+        enabled: true,
+        parameters: { interval: 600 },
+      },
     ],
     createdAt: '2026-04-01T00:00:00Z',
     updatedAt: '2026-04-01T00:00:00Z',
@@ -302,24 +475,42 @@ export const MOCK_SCANS: ComplianceScan[] = [
  */
 export function createMockComplianceApi(): jest.Mocked<ComplianceApi> {
   return {
-    getHealth: jest.fn().mockResolvedValue({ status: 'ok', dataSource: 'mock', retentionDays: 90 }),
+    getHealth: jest.fn().mockResolvedValue({
+      status: 'ok',
+      dataSource: 'mock',
+      retentionDays: 90,
+    }),
     updateSettings: jest.fn().mockResolvedValue({ retentionDays: 90 }),
     runCleanup: jest.fn().mockResolvedValue({ deleted: 0, retentionDays: 90 }),
     getProfiles: jest.fn().mockResolvedValue(MOCK_PROFILES),
     getInventories: jest.fn().mockResolvedValue(MOCK_INVENTORIES),
     getWorkflowTemplates: jest.fn().mockResolvedValue([
-      { id: 10, name: 'compliance-stig-scan', description: 'STIG scan workflow' },
+      {
+        id: 10,
+        name: 'compliance-stig-scan',
+        description: 'STIG scan workflow',
+      },
     ]),
     getScans: jest.fn().mockResolvedValue(MOCK_SCANS),
     getScan: jest.fn().mockResolvedValue(null),
-    validateScan: jest.fn().mockResolvedValue({ valid: true, matchedHosts: [], mismatchedHosts: [], factsAvailable: true }),
+    validateScan: jest.fn().mockResolvedValue({
+      valid: true,
+      matchedHosts: [],
+      mismatchedHosts: [],
+      factsAvailable: true,
+    }),
     launchScan: jest.fn().mockResolvedValue({
       scanId: 'scan-new',
       workflowJobId: 100,
       status: 'pending',
     } as LaunchScanResponse),
     getFindings: jest.fn().mockResolvedValue(MOCK_FINDINGS),
-    getFindingsPaginated: jest.fn().mockResolvedValue({ findings: MOCK_FINDINGS, total: MOCK_FINDINGS.length, limit: 100, offset: 0 }),
+    getFindingsPaginated: jest.fn().mockResolvedValue({
+      findings: MOCK_FINDINGS,
+      total: MOCK_FINDINGS.length,
+      limit: 100,
+      offset: 0,
+    }),
     getPreviousFindings: jest.fn().mockResolvedValue([]),
     getWorkflowStatus: jest.fn().mockResolvedValue({
       id: 42,
@@ -340,7 +531,9 @@ export function createMockComplianceApi(): jest.Mocked<ComplianceApi> {
     getWorkflowNodes: jest.fn().mockResolvedValue([
       {
         id: 1,
-        summary_fields: { job: { id: 100, name: 'scan', status: 'successful', type: 'job' } },
+        summary_fields: {
+          job: { id: 100, name: 'scan', status: 'successful', type: 'job' },
+        },
         identifier: 'scan',
       },
     ] as WorkflowNode[]),
@@ -354,36 +547,110 @@ export function createMockComplianceApi(): jest.Mocked<ComplianceApi> {
     getContributingScans: jest.fn().mockResolvedValue([]),
     getPostureHistory: jest.fn().mockResolvedValue([] as PostureSnapshot[]),
     getRemediationEventsForTrend: jest.fn().mockResolvedValue([]),
-    getHostPosture: jest.fn().mockResolvedValue({ hosts: [], scanId: '', scanTimestamp: '', profileId: '', inventoryId: 0 }),
-    getHostFindings: jest.fn().mockResolvedValue({ hostname: '', scanId: '', profileId: '', findings: [], totalCount: 0 }),
-    getRemediationProfiles: jest.fn().mockResolvedValue(MOCK_REMEDIATION_PROFILES),
-    getRemediationProfile: jest.fn().mockResolvedValue(MOCK_REMEDIATION_PROFILES[0]),
-    saveRemediationProfile: jest.fn().mockResolvedValue(MOCK_REMEDIATION_PROFILES[0]),
+    getHostPosture: jest.fn().mockResolvedValue({
+      hosts: [],
+      scanId: '',
+      scanTimestamp: '',
+      profileId: '',
+      inventoryId: 0,
+    }),
+    getHostFindings: jest.fn().mockResolvedValue({
+      hostname: '',
+      scanId: '',
+      profileId: '',
+      findings: [],
+      totalCount: 0,
+    }),
+    getRemediationProfiles: jest
+      .fn()
+      .mockResolvedValue(MOCK_REMEDIATION_PROFILES),
+    getRemediationProfile: jest
+      .fn()
+      .mockResolvedValue(MOCK_REMEDIATION_PROFILES[0]),
+    saveRemediationProfile: jest
+      .fn()
+      .mockResolvedValue(MOCK_REMEDIATION_PROFILES[0]),
     deleteRemediationProfile: jest.fn().mockResolvedValue(undefined),
-    updateRemediationProfileStatus: jest.fn().mockResolvedValue(MOCK_REMEDIATION_PROFILES[0]),
+    updateRemediationProfileStatus: jest
+      .fn()
+      .mockResolvedValue(MOCK_REMEDIATION_PROFILES[0]),
     getRemediationExecutions: jest.fn().mockResolvedValue([]),
     getRemediationExecution: jest.fn().mockResolvedValue(null),
     updateRemediationExecution: jest.fn().mockResolvedValue(null),
-    getRegisteredProfiles: jest.fn().mockResolvedValue(MOCK_REGISTERED_PROFILES),
-    getRegisteredProfile: jest.fn().mockResolvedValue(MOCK_REGISTERED_PROFILES[0]),
-    saveRegisteredProfile: jest.fn().mockResolvedValue(MOCK_REGISTERED_PROFILES[0]),
+    getRegisteredProfiles: jest
+      .fn()
+      .mockResolvedValue(MOCK_REGISTERED_PROFILES),
+    getRegisteredProfile: jest
+      .fn()
+      .mockResolvedValue(MOCK_REGISTERED_PROFILES[0]),
+    saveRegisteredProfile: jest
+      .fn()
+      .mockResolvedValue(MOCK_REGISTERED_PROFILES[0]),
     deleteRegisteredProfile: jest.fn().mockResolvedValue(undefined),
     disconnectProfile: jest.fn().mockResolvedValue(undefined),
-    getProfileTabData: jest.fn().mockResolvedValue({ findings: [], summary: { totalPackages: 0, totalVulnerabilities: 0, totalScannedPackages: 0, totalVulnerablePackages: 0, fixable: 0, unfixable: 0, hostsAffected: 0, criticalHigh: 0 }, hostRisk: [] }),
-    getJobTemplateDetail: jest.fn().mockResolvedValue({ id: 10, name: 'compliance-stig-scan', description: '', extra_vars: '{}' }),
+    getProfileTabData: jest.fn().mockResolvedValue({
+      findings: [],
+      summary: {
+        totalPackages: 0,
+        totalVulnerabilities: 0,
+        totalScannedPackages: 0,
+        totalVulnerablePackages: 0,
+        fixable: 0,
+        unfixable: 0,
+        hostsAffected: 0,
+        criticalHigh: 0,
+      },
+      hostRisk: [],
+    }),
+    getJobTemplateDetail: jest.fn().mockResolvedValue({
+      id: 10,
+      name: 'compliance-stig-scan',
+      description: '',
+      extra_vars: '{}',
+    }),
     getControllerJobTemplates: jest.fn().mockResolvedValue([
       { id: 49, name: 'compliance-run-oscap', description: 'STIG assessment' },
-      { id: 52, name: 'compliance-scan-cis-l1-rhel9', description: 'CIS L1 assessment' },
-      { id: 54, name: 'compliance-scan-cis-l2-rhel9', description: 'CIS L2 assessment' },
+      {
+        id: 52,
+        name: 'compliance-scan-cis-l1-rhel9',
+        description: 'CIS L1 assessment',
+      },
+      {
+        id: 54,
+        name: 'compliance-scan-cis-l2-rhel9',
+        description: 'CIS L2 assessment',
+      },
     ]),
     getControllerWorkflowTemplates: jest.fn().mockResolvedValue([
-      { id: 10, name: 'compliance-stig-scan', description: 'STIG scan workflow' },
+      {
+        id: 10,
+        name: 'compliance-stig-scan',
+        description: 'STIG scan workflow',
+      },
     ]),
     getControllerExecutionEnvironments: jest.fn().mockResolvedValue([
-      { id: 1, name: 'compliance-ee', image: 'registry.example.com/compliance-ee:latest' },
+      {
+        id: 1,
+        name: 'compliance-ee',
+        image: 'registry.example.com/compliance-ee:latest',
+      },
     ]),
     getAuthoritativeScan: jest.fn().mockResolvedValue(null),
-    getBatchScanStats: jest.fn().mockResolvedValue({}  as Record<string, { pass: number; fail: number; rules: number; hosts: number; naCount: number; stateNew?: number; stateFixed?: number; stateResurfaced?: number }>),
+    getBatchScanStats: jest.fn().mockResolvedValue(
+      {} as Record<
+        string,
+        {
+          pass: number;
+          fail: number;
+          rules: number;
+          hosts: number;
+          naCount: number;
+          stateNew?: number;
+          stateFixed?: number;
+          stateResurfaced?: number;
+        }
+      >,
+    ),
     getNotApplicableRules: jest.fn().mockResolvedValue([]),
     getAllRecentExecutions: jest.fn().mockResolvedValue([]),
     getBaselineTargets: jest.fn().mockResolvedValue([]),

@@ -1,9 +1,19 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
+import type { FC } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Card, Typography, Tooltip, IconButton, makeStyles } from '@material-ui/core';
+import {
+  Card,
+  Typography,
+  Tooltip,
+  IconButton,
+  makeStyles,
+} from '@material-ui/core';
 import BookmarkIcon from '@material-ui/icons/Bookmark';
 import BookmarkBorderIcon from '@material-ui/icons/BookmarkBorder';
-import type { InventoryPosture, BaselineTarget } from '@ansible/backstage-compliance-common/types';
+import type {
+  InventoryPosture,
+  BaselineTarget,
+} from '@ansible/backstage-compliance-common/types';
 import { ComplianceGauge, getColor } from './ComplianceGauge';
 import { PinBaselineDialog } from './PinBaselineDialog';
 import { STATUS_COLORS } from '../shared/colors';
@@ -57,7 +67,6 @@ const useStyles = makeStyles(theme => ({
   },
 }));
 
-
 type PostureMode = 'standard' | 'baseline';
 
 interface InventoryPostureViewProps {
@@ -68,7 +77,7 @@ interface InventoryPostureViewProps {
   onBaselineChanged?: (switchToBaseline?: boolean) => void;
 }
 
-export const InventoryPostureView: React.FC<InventoryPostureViewProps> = ({
+export const InventoryPostureView: FC<InventoryPostureViewProps> = ({
   byInventory,
   postureMode,
   baselineTargets,
@@ -87,31 +96,48 @@ export const InventoryPostureView: React.FC<InventoryPostureViewProps> = ({
 
   if (byInventory.length === 0) {
     return (
-      <Typography variant="body2" color="textSecondary" style={{ textAlign: 'center', padding: 24 }}>
-        No inventory-level posture data available. Run scans to see per-inventory scores.
+      <Typography
+        variant="body2"
+        color="textSecondary"
+        style={{ textAlign: 'center', padding: 24 }}
+      >
+        No inventory-level posture data available. Run scans to see
+        per-inventory scores.
       </Typography>
     );
   }
 
   const getBaselineForPair = (profileId: string, inventoryId: number) =>
-    baselineTargets.find(bt => bt.complianceProfileId === profileId && bt.inventoryId === inventoryId);
+    baselineTargets.find(
+      bt =>
+        bt.complianceProfileId === profileId && bt.inventoryId === inventoryId,
+    );
 
   return (
     <>
       <div className={classes.grid}>
         {byInventory.map(inv => (
-          <Card key={inv.inventoryId} variant="outlined" className={classes.card}>
+          <Card
+            key={inv.inventoryId}
+            variant="outlined"
+            className={classes.card}
+          >
             <Typography
               className={classes.inventoryName}
               style={{ cursor: 'pointer', color: STATUS_COLORS.info }}
-              onClick={() => navigate(`/compliance/inventories/${inv.inventoryId}`)}
+              onClick={() =>
+                navigate(`/compliance/inventories/${inv.inventoryId}`)
+              }
             >
               {inv.inventoryName}
             </Typography>
             <div className={classes.gaugeRow}>
               {inv.profileScores.map(ps => {
                 const bl = ps.baseline;
-                const existing = getBaselineForPair(ps.profileId, inv.inventoryId);
+                const existing = getBaselineForPair(
+                  ps.profileId,
+                  inv.inventoryId,
+                );
                 const showBaseline = postureMode === 'baseline' && bl;
                 const gaugeValue = showBaseline ? bl!.rate : ps.rate;
                 const gaugeSubtitle = showBaseline
@@ -122,14 +148,22 @@ export const InventoryPostureView: React.FC<InventoryPostureViewProps> = ({
                   <div key={ps.profileId} className={classes.gaugeSlot}>
                     <div className={classes.pinRow}>
                       <Tooltip
-                        title={existing
-                          ? `Baseline: ${bl?.remediationProfileName ?? 'pinned'} — click to manage`
-                          : 'Pin a baseline to track targeted compliance'}
+                        title={
+                          existing
+                            ? `Baseline: ${
+                                bl?.remediationProfileName ?? 'pinned'
+                              } — click to manage`
+                            : 'Pin a baseline to track targeted compliance'
+                        }
                       >
                         <IconButton
                           className={classes.pinButton}
                           size="small"
-                          aria-label={existing ? 'Manage pinned baseline' : 'Pin a baseline'}
+                          aria-label={
+                            existing
+                              ? 'Manage pinned baseline'
+                              : 'Pin a baseline'
+                          }
                           onClick={e => {
                             e.stopPropagation();
                             setPinDialog({
@@ -141,9 +175,17 @@ export const InventoryPostureView: React.FC<InventoryPostureViewProps> = ({
                             });
                           }}
                         >
-                          {existing
-                            ? <BookmarkIcon fontSize="small" style={{ color: STATUS_COLORS.info }} />
-                            : <BookmarkBorderIcon fontSize="small" color="disabled" />}
+                          {existing ? (
+                            <BookmarkIcon
+                              fontSize="small"
+                              style={{ color: STATUS_COLORS.info }}
+                            />
+                          ) : (
+                            <BookmarkBorderIcon
+                              fontSize="small"
+                              color="disabled"
+                            />
+                          )}
                         </IconButton>
                       </Tooltip>
                     </div>
@@ -152,23 +194,33 @@ export const InventoryPostureView: React.FC<InventoryPostureViewProps> = ({
                       label={ps.name}
                       subtitle={gaugeSubtitle}
                       clickable={!!onGaugeClick}
-                      onClick={() => onGaugeClick?.(ps.profileId, inv.inventoryId)}
+                      onClick={() =>
+                        onGaugeClick?.(ps.profileId, inv.inventoryId)
+                      }
                       dimmed={postureMode === 'baseline' && !bl}
                     />
                     {postureMode === 'standard' && bl && (
                       <div className={classes.baselineAnnotation}>
-                        <span className={classes.baselineRate} style={{ color: getColor(bl.rate) }}>
+                        <span
+                          className={classes.baselineRate}
+                          style={{ color: getColor(bl.rate) }}
+                        >
                           Baseline: {bl.rate}%
                         </span>
                         <br />
                         <span className={classes.baselineRemaining}>
-                          {bl.ruleCount - bl.passCount > 0 ? `${bl.ruleCount - bl.passCount} rules to go` : 'target met'}
+                          {bl.ruleCount - bl.passCount > 0
+                            ? `${bl.ruleCount - bl.passCount} rules to go`
+                            : 'target met'}
                         </span>
                       </div>
                     )}
                     {postureMode === 'baseline' && bl && (
                       <div className={classes.baselineAnnotation}>
-                        <span className={classes.baselineRate} style={{ color: getColor(ps.rate) }}>
+                        <span
+                          className={classes.baselineRate}
+                          style={{ color: getColor(ps.rate) }}
+                        >
                           Standard: {ps.rate}%
                         </span>
                         <br />
@@ -178,7 +230,15 @@ export const InventoryPostureView: React.FC<InventoryPostureViewProps> = ({
                       </div>
                     )}
                     {postureMode === 'baseline' && !bl && (
-                      <Typography variant="caption" color="textSecondary" style={{ textAlign: 'center', display: 'block', marginTop: 4 }}>
+                      <Typography
+                        variant="caption"
+                        color="textSecondary"
+                        style={{
+                          textAlign: 'center',
+                          display: 'block',
+                          marginTop: 4,
+                        }}
+                      >
                         No baseline pinned
                       </Typography>
                     )}

@@ -1,4 +1,4 @@
-import React from 'react';
+import { forwardRef, useImperativeHandle } from 'react';
 import { renderInTestApp, TestApiProvider } from '@backstage/test-utils';
 import { screen, waitFor, fireEvent, within } from '@testing-library/react';
 import { RemediationProfileBuilder } from './RemediationProfileBuilder';
@@ -8,16 +8,18 @@ import type { ComplianceApi } from '../../api';
 
 // react-window: render all items directly in tests (JSDOM has no layout dimensions)
 jest.mock('react-window', () => ({
-  VariableSizeList: React.forwardRef(({ children: Row, itemCount }: any, ref: any) => {
-    React.useImperativeHandle(ref, () => ({ resetAfterIndex: () => {} }));
-    return (
-      <div data-testid="virtualized-list">
-        {Array.from({ length: itemCount }, (_, i) => (
-          <Row key={i} index={i} style={{}} />
-        ))}
-      </div>
-    );
-  }),
+  VariableSizeList: forwardRef(
+    ({ children: Row, itemCount }: any, ref: any) => {
+      useImperativeHandle(ref, () => ({ resetAfterIndex: () => {} }));
+      return (
+        <div data-testid="virtualized-list">
+          {Array.from({ length: itemCount }, (_, i) => (
+            <Row key={i} index={i} style={{}} />
+          ))}
+        </div>
+      );
+    },
+  ),
 }));
 
 // Mock useParams to provide a jobId
@@ -58,9 +60,14 @@ describe('RemediationProfileBuilder', () => {
       expect(screen.getByText(/rules with failures/)).toBeInTheDocument();
     });
     // The summary bar shows a "compliant" count (text split across elements with <strong>)
-    expect(screen.getByText((_, element) =>
-      element?.tagName === 'P' && /\d+\s*compliant/.test(element.textContent || '') || false
-    )).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        (_, element) =>
+          (element?.tagName === 'P' &&
+            /\d+\s*compliant/.test(element.textContent || '')) ||
+          false,
+      ),
+    ).toBeInTheDocument();
     // "selected" and "skipped" text appear in summary bar and per-group headers
     expect(screen.getAllByText(/selected/).length).toBeGreaterThanOrEqual(1);
     expect(screen.getByText(/skipped/)).toBeInTheDocument();
@@ -94,7 +101,9 @@ describe('RemediationProfileBuilder', () => {
     });
     expect(screen.getByTestId('passing-rules-header')).toBeInTheDocument();
     // Failed rules should be visible
-    expect(screen.getByText('Set SSH Client Alive Interval')).toBeInTheDocument();
+    expect(
+      screen.getByText('Set SSH Client Alive Interval'),
+    ).toBeInTheDocument();
     expect(screen.getByText('Set Password Minimum Length')).toBeInTheDocument();
     // Passing rule is in the DOM but hidden (MUI Collapse uses CSS, not DOM removal).
     // Verify the collapse wrapper has height 0 / is not expanded.
@@ -115,7 +124,9 @@ describe('RemediationProfileBuilder', () => {
       expect(screen.getByText('Disable SSH Root Login')).toBeInTheDocument();
     });
     // Shows the informational note
-    expect(screen.getByText(/These rules are currently compliant/)).toBeInTheDocument();
+    expect(
+      screen.getByText(/These rules are currently compliant/),
+    ).toBeInTheDocument();
   });
 
   it('switches to category view and shows severity group headers', async () => {
@@ -144,15 +155,21 @@ describe('RemediationProfileBuilder', () => {
   it('displays inline name and description fields (Insights pattern)', async () => {
     await renderBuilder();
     await waitFor(() => {
-      expect(screen.getByLabelText('Remediation profile name')).toBeInTheDocument();
+      expect(
+        screen.getByLabelText('Remediation profile name'),
+      ).toBeInTheDocument();
     });
-    expect(screen.getByLabelText('Remediation profile description')).toBeInTheDocument();
+    expect(
+      screen.getByLabelText('Remediation profile description'),
+    ).toBeInTheDocument();
   });
 
   it('shows helper text when name is empty', async () => {
     await renderBuilder();
     await waitFor(() => {
-      expect(screen.getByText('Name your remediation to enable auto-save')).toBeInTheDocument();
+      expect(
+        screen.getByText('Name your remediation to enable auto-save'),
+      ).toBeInTheDocument();
     });
   });
 
@@ -208,7 +225,9 @@ describe('RemediationProfileBuilder', () => {
 
     // The passing rules header should show 0 selected
     const passingHeader = screen.getByTestId('passing-rules-header');
-    expect(within(passingHeader).getByText(/0\/1 selected/)).toBeInTheDocument();
+    expect(
+      within(passingHeader).getByText(/0\/1 selected/),
+    ).toBeInTheDocument();
   });
 
   it('persists selections when switching between views', async () => {

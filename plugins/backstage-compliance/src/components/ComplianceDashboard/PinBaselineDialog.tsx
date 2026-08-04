@@ -1,4 +1,5 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
+import type { FC } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   Dialog,
@@ -18,7 +19,10 @@ import {
 import InfoOutlinedIcon from '@material-ui/icons/InfoOutlined';
 import { useApi, alertApiRef } from '@backstage/core-plugin-api';
 import { complianceApiRef } from '../../api';
-import type { RemediationProfile, BaselineTarget } from '@ansible/backstage-compliance-common/types';
+import type {
+  RemediationProfile,
+  BaselineTarget,
+} from '@ansible/backstage-compliance-common/types';
 
 const useStyles = makeStyles(theme => ({
   helperText: {
@@ -29,7 +33,10 @@ const useStyles = makeStyles(theme => ({
   },
   currentBaseline: {
     padding: theme.spacing(1.5),
-    backgroundColor: theme.palette.type === 'dark' ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.03)',
+    backgroundColor:
+      theme.palette.type === 'dark'
+        ? 'rgba(255,255,255,0.05)'
+        : 'rgba(0,0,0,0.03)',
     borderRadius: theme.shape.borderRadius,
     marginBottom: theme.spacing(2),
   },
@@ -39,7 +46,10 @@ const useStyles = makeStyles(theme => ({
   },
   emptyState: {
     padding: theme.spacing(2),
-    backgroundColor: theme.palette.type === 'dark' ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.03)',
+    backgroundColor:
+      theme.palette.type === 'dark'
+        ? 'rgba(255,255,255,0.05)'
+        : 'rgba(0,0,0,0.03)',
     borderRadius: theme.shape.borderRadius,
     display: 'flex',
     alignItems: 'flex-start',
@@ -59,7 +69,7 @@ interface PinBaselineDialogProps {
   preselectedRemediationProfileId?: string;
 }
 
-export const PinBaselineDialog: React.FC<PinBaselineDialogProps> = ({
+export const PinBaselineDialog: FC<PinBaselineDialogProps> = ({
   open,
   onClose,
   complianceProfileId,
@@ -79,17 +89,24 @@ export const PinBaselineDialog: React.FC<PinBaselineDialogProps> = ({
   const [loading, setLoading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
 
-  const [inventories, setInventories] = useState<Array<{ id: number; name: string; hostCount: number }>>([]);
-  const [selectedInventoryId, setSelectedInventoryId] = useState<number | ''>('');
+  const [inventories, setInventories] = useState<
+    Array<{ id: number; name: string; hostCount: number }>
+  >([]);
+  const [selectedInventoryId, setSelectedInventoryId] = useState<number | ''>(
+    '',
+  );
   const needsInventorySelection = inventoryId === undefined;
 
   useEffect(() => {
     if (!open) return;
     setLoading(true);
 
-    const fetchProfiles = api.getRemediationProfiles?.('saved')
+    const fetchProfiles = api
+      .getRemediationProfiles?.('saved')
       .then(rps => {
-        const matching = rps.filter(rp => rp.complianceProfileId === complianceProfileId);
+        const matching = rps.filter(
+          rp => rp.complianceProfileId === complianceProfileId,
+        );
         setProfiles(matching);
         if (preselectedRemediationProfileId) {
           setSelectedProfileId(preselectedRemediationProfileId);
@@ -104,20 +121,34 @@ export const PinBaselineDialog: React.FC<PinBaselineDialogProps> = ({
       .catch(() => setProfiles([]));
 
     const fetchInventories = needsInventorySelection
-      ? api.getInventories().then(setInventories).catch(() => setInventories([]))
+      ? api
+          .getInventories()
+          .then(setInventories)
+          .catch(() => setInventories([]))
       : Promise.resolve();
 
-    Promise.all([fetchProfiles, fetchInventories]).finally(() => setLoading(false));
+    Promise.all([fetchProfiles, fetchInventories]).finally(() =>
+      setLoading(false),
+    );
 
     if (!needsInventorySelection) {
       setSelectedInventoryId(inventoryId!);
     } else {
       setSelectedInventoryId('');
     }
-  }, [open, api, complianceProfileId, existingBaseline, inventoryId, needsInventorySelection, preselectedRemediationProfileId]);
+  }, [
+    open,
+    api,
+    complianceProfileId,
+    existingBaseline,
+    inventoryId,
+    needsInventorySelection,
+    preselectedRemediationProfileId,
+  ]);
 
   const finalInventoryId = inventoryId ?? (selectedInventoryId || undefined);
-  const finalInventoryName = inventoryName ?? inventories.find(i => i.id === selectedInventoryId)?.name;
+  const finalInventoryName =
+    inventoryName ?? inventories.find(i => i.id === selectedInventoryId)?.name;
 
   const handlePin = async () => {
     if (!selectedProfileId || !finalInventoryId) return;
@@ -135,7 +166,10 @@ export const PinBaselineDialog: React.FC<PinBaselineDialogProps> = ({
       onPinned();
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
-      alertApi.post({ message: `Failed to pin baseline: ${msg}`, severity: 'error' });
+      alertApi.post({
+        message: `Failed to pin baseline: ${msg}`,
+        severity: 'error',
+      });
     } finally {
       setSubmitting(false);
     }
@@ -150,14 +184,18 @@ export const PinBaselineDialog: React.FC<PinBaselineDialogProps> = ({
       onPinned();
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
-      alertApi.post({ message: `Failed to unpin baseline: ${msg}`, severity: 'error' });
+      alertApi.post({
+        message: `Failed to unpin baseline: ${msg}`,
+        severity: 'error',
+      });
     } finally {
       setSubmitting(false);
     }
   };
 
   const selectedProfile = profiles.find(p => p.id === selectedProfileId);
-  const enabledRules = selectedProfile?.selections?.filter(s => s.enabled).length ?? 0;
+  const enabledRules =
+    selectedProfile?.selections?.filter(s => s.enabled).length ?? 0;
 
   return (
     <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth>
@@ -166,38 +204,47 @@ export const PinBaselineDialog: React.FC<PinBaselineDialogProps> = ({
       </DialogTitle>
       <DialogContent>
         <Typography className={classes.helperText}>
-          A baseline is a curated set of rules you've chosen to enforce.
-          Pinning it here lets you track progress toward your specific
-          compliance target, separate from the full {complianceProfileName} standard.
+          A baseline is a curated set of rules you've chosen to enforce. Pinning
+          it here lets you track progress toward your specific compliance
+          target, separate from the full {complianceProfileName} standard.
         </Typography>
 
         {inventoryName ? (
           <Typography variant="body2" style={{ marginBottom: 16 }}>
             <strong>Inventory:</strong> {inventoryName}
           </Typography>
-        ) : needsInventorySelection && !loading && (
-          <FormControl fullWidth variant="outlined" size="small" style={{ marginBottom: 16 }}>
-            <InputLabel>Target inventory</InputLabel>
-            <Select
-              value={selectedInventoryId}
-              onChange={e => setSelectedInventoryId(e.target.value as number)}
-              label="Target inventory"
+        ) : (
+          needsInventorySelection &&
+          !loading && (
+            <FormControl
+              fullWidth
+              variant="outlined"
+              size="small"
+              style={{ marginBottom: 16 }}
             >
-              {inventories.map(inv => (
-                <MenuItem key={inv.id} value={inv.id}>
-                  {inv.name} ({inv.hostCount} hosts)
-                </MenuItem>
-              ))}
-            </Select>
-          </FormControl>
+              <InputLabel>Target inventory</InputLabel>
+              <Select
+                value={selectedInventoryId}
+                onChange={e => setSelectedInventoryId(e.target.value as number)}
+                label="Target inventory"
+              >
+                {inventories.map(inv => (
+                  <MenuItem key={inv.id} value={inv.id}>
+                    {inv.name} ({inv.hostCount} hosts)
+                  </MenuItem>
+                ))}
+              </Select>
+            </FormControl>
+          )
         )}
 
         {existingBaseline && (
           <Box className={classes.currentBaseline}>
             <Typography variant="body2">
               <strong>Current baseline:</strong>{' '}
-              {profiles.find(p => p.id === existingBaseline.remediationProfileId)?.name
-                ?? existingBaseline.remediationProfileId}
+              {profiles.find(
+                p => p.id === existingBaseline.remediationProfileId,
+              )?.name ?? existingBaseline.remediationProfileId}
             </Typography>
             <Typography variant="caption" color="textSecondary">
               Pinned {new Date(existingBaseline.pinnedAt).toLocaleDateString()}
@@ -205,61 +252,82 @@ export const PinBaselineDialog: React.FC<PinBaselineDialogProps> = ({
           </Box>
         )}
 
-        {loading ? (
-          <Box display="flex" justifyContent="center" py={3}>
-            <CircularProgress size={32} />
-          </Box>
-        ) : profiles.length === 0 ? (
-          <Box className={classes.emptyState}>
-            <InfoOutlinedIcon color="action" style={{ marginTop: 2 }} />
-            <div>
-              <Typography variant="body2">
-                No saved remediation profiles found for <strong>{complianceProfileName}</strong>.
-              </Typography>
-              <Typography variant="body2" color="textSecondary" style={{ marginTop: 4 }}>
-                Create a remediation profile first by scanning your inventory and selecting
-                rules to enforce, then come back here to pin it as your baseline.
-              </Typography>
-              <Button
-                variant="text"
-                color="primary"
-                size="small"
-                style={{ marginTop: 8, padding: '4px 8px' }}
-                onClick={() => { onClose(); navigate('/compliance/remediations'); }}
-              >
-                Go to Remediations
-              </Button>
-            </div>
-          </Box>
-        ) : (
-          <>
-            <FormControl fullWidth variant="outlined" size="small">
-              <InputLabel>Remediation profile</InputLabel>
-              <Select
-                value={selectedProfileId}
-                onChange={e => setSelectedProfileId(e.target.value as string)}
-                label="Remediation profile"
-              >
-                {profiles.map(rp => {
-                  const count = rp.selections?.filter(s => s.enabled).length ?? 0;
-                  return (
-                    <MenuItem key={rp.id} value={rp.id}>
-                      {rp.name} ({count} rules)
-                    </MenuItem>
-                  );
-                })}
-              </Select>
-            </FormControl>
-            {selectedProfile && (
-              <Typography className={classes.ruleCount} style={{ marginTop: 8 }}>
-                This baseline covers {enabledRules} rules.
-                {finalInventoryName
-                  ? ` The dashboard will show your compliance against these ${enabledRules} rules for ${finalInventoryName}.`
-                  : ` The dashboard will show your compliance against these ${enabledRules} rules alongside the full ${complianceProfileName} score.`}
-              </Typography>
-            )}
-          </>
-        )}
+        {(() => {
+          if (loading) {
+            return (
+              <Box display="flex" justifyContent="center" py={3}>
+                <CircularProgress size={32} />
+              </Box>
+            );
+          }
+          if (profiles.length === 0) {
+            return (
+              <Box className={classes.emptyState}>
+                <InfoOutlinedIcon color="action" style={{ marginTop: 2 }} />
+                <div>
+                  <Typography variant="body2">
+                    No saved remediation profiles found for{' '}
+                    <strong>{complianceProfileName}</strong>.
+                  </Typography>
+                  <Typography
+                    variant="body2"
+                    color="textSecondary"
+                    style={{ marginTop: 4 }}
+                  >
+                    Create a remediation profile first by scanning your
+                    inventory and selecting rules to enforce, then come back
+                    here to pin it as your baseline.
+                  </Typography>
+                  <Button
+                    variant="text"
+                    color="primary"
+                    size="small"
+                    style={{ marginTop: 8, padding: '4px 8px' }}
+                    onClick={() => {
+                      onClose();
+                      navigate('/compliance/remediations');
+                    }}
+                  >
+                    Go to Remediations
+                  </Button>
+                </div>
+              </Box>
+            );
+          }
+          return (
+            <>
+              <FormControl fullWidth variant="outlined" size="small">
+                <InputLabel>Remediation profile</InputLabel>
+                <Select
+                  value={selectedProfileId}
+                  onChange={e => setSelectedProfileId(e.target.value as string)}
+                  label="Remediation profile"
+                >
+                  {profiles.map(rp => {
+                    const count =
+                      rp.selections?.filter(s => s.enabled).length ?? 0;
+                    return (
+                      <MenuItem key={rp.id} value={rp.id}>
+                        {rp.name} ({count} rules)
+                      </MenuItem>
+                    );
+                  })}
+                </Select>
+              </FormControl>
+              {selectedProfile && (
+                <Typography
+                  className={classes.ruleCount}
+                  style={{ marginTop: 8 }}
+                >
+                  This baseline covers {enabledRules} rules.
+                  {finalInventoryName
+                    ? ` The dashboard will show your compliance against these ${enabledRules} rules for ${finalInventoryName}.`
+                    : ` The dashboard will show your compliance against these ${enabledRules} rules alongside the full ${complianceProfileName} score.`}
+                </Typography>
+              )}
+            </>
+          );
+        })()}
       </DialogContent>
       <DialogActions>
         {existingBaseline && (
@@ -273,11 +341,20 @@ export const PinBaselineDialog: React.FC<PinBaselineDialogProps> = ({
         </Button>
         <Button
           onClick={handlePin}
-          disabled={!selectedProfileId || !finalInventoryId || submitting || profiles.length === 0}
+          disabled={
+            !selectedProfileId ||
+            !finalInventoryId ||
+            submitting ||
+            profiles.length === 0
+          }
           color="primary"
           variant="contained"
         >
-          {submitting ? <CircularProgress size={20} /> : existingBaseline ? 'Replace' : 'Pin'}
+          {(() => {
+            if (submitting) return <CircularProgress size={20} />;
+            if (existingBaseline) return 'Replace';
+            return 'Pin';
+          })()}
         </Button>
       </DialogActions>
     </Dialog>

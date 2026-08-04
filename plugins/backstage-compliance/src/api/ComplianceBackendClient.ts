@@ -141,7 +141,11 @@ export class ComplianceBackendClient implements ComplianceApi {
   }
 
   getHealth() {
-    return this.request<{ status: string; dataSource: string; retentionDays?: number }>('/health');
+    return this.request<{
+      status: string;
+      dataSource: string;
+      retentionDays?: number;
+    }>('/health');
   }
 
   updateSettings(settings: { retentionDays: number }) {
@@ -152,9 +156,12 @@ export class ComplianceBackendClient implements ComplianceApi {
   }
 
   runCleanup() {
-    return this.request<{ deleted: number; retentionDays: number }>('/cleanup', {
-      method: 'POST',
-    });
+    return this.request<{ deleted: number; retentionDays: number }>(
+      '/cleanup',
+      {
+        method: 'POST',
+      },
+    );
   }
 
   getProfiles() {
@@ -167,26 +174,34 @@ export class ComplianceBackendClient implements ComplianceApi {
 
   async getScan(scanId: string): Promise<ComplianceScan | null> {
     try {
-      return await this.request<ComplianceScan>(`/scans/${encodeURIComponent(scanId)}`);
+      return await this.request<ComplianceScan>(
+        `/scans/${encodeURIComponent(scanId)}`,
+      );
     } catch {
       return null;
     }
   }
 
   getInventories() {
-    return this.request<Array<{ id: number; name: string; hostCount: number }>>('/inventories');
+    return this.request<Array<{ id: number; name: string; hostCount: number }>>(
+      '/inventories',
+    );
   }
 
   getWorkflowTemplates(nameFilter?: string) {
     const q = nameFilter ? `?name=${encodeURIComponent(nameFilter)}` : '';
-    return this.request<Array<{ id: number; name: string; description: string }>>(
-      `/workflow-templates${q}`,
-    );
+    return this.request<
+      Array<{ id: number; name: string; description: string }>
+    >(`/workflow-templates${q}`);
   }
 
   async launchScan(body: LaunchScanRequest) {
     const aapToken = await this.getAapToken();
-    return this.request<LaunchScanResponse>('/scan', { method: 'POST', body, aapToken });
+    return this.request<LaunchScanResponse>('/scan', {
+      method: 'POST',
+      body,
+      aapToken,
+    });
   }
 
   getFindings(scanId?: string, profileId?: string) {
@@ -207,9 +222,9 @@ export class ComplianceBackendClient implements ComplianceApi {
     params.set('offset', String(opts.offset));
     if (opts.severity) params.set('severity', opts.severity);
     if (opts.status) params.set('status', opts.status);
-    return this.request<import('@ansible/backstage-compliance-common').PaginatedFindings>(
-      `/findings?${params.toString()}`,
-    );
+    return this.request<
+      import('@ansible/backstage-compliance-common').PaginatedFindings
+    >(`/findings?${params.toString()}`);
   }
 
   getPreviousFindings(scanId: string) {
@@ -236,7 +251,11 @@ export class ComplianceBackendClient implements ComplianceApi {
 
   async launchRemediation(body: LaunchRemediationRequest) {
     const aapToken = await this.getAapToken();
-    return this.request<LaunchRemediationResponse>('/remediate', { method: 'POST', body, aapToken });
+    return this.request<LaunchRemediationResponse>('/remediate', {
+      method: 'POST',
+      body,
+      aapToken,
+    });
   }
 
   getDashboardStats() {
@@ -253,7 +272,8 @@ export class ComplianceBackendClient implements ComplianceApi {
     const params = new URLSearchParams();
     if (profileId) params.set('profileId', profileId);
     if (days) params.set('days', String(days));
-    if (inventoryId !== undefined) params.set('inventoryId', String(inventoryId));
+    if (inventoryId !== undefined)
+      params.set('inventoryId', String(inventoryId));
     const q = params.toString() ? `?${params}` : '';
     return this.request<PostureSnapshot[]>(`/posture${q}`);
   }
@@ -261,24 +281,40 @@ export class ComplianceBackendClient implements ComplianceApi {
   getRemediationEventsForTrend(days?: number, inventoryId?: number) {
     const params = new URLSearchParams();
     if (days) params.set('days', String(days));
-    if (inventoryId !== undefined) params.set('inventoryId', String(inventoryId));
+    if (inventoryId !== undefined)
+      params.set('inventoryId', String(inventoryId));
     const q = params.toString() ? `?${params}` : '';
-    return this.request<import('@ansible/backstage-compliance-common').RemediationEvent[]>(`/posture/events${q}`);
+    return this.request<
+      import('@ansible/backstage-compliance-common').RemediationEvent[]
+    >(`/posture/events${q}`);
   }
 
-  getHostPosture(inventoryId: number, profileId: string, options?: { baselineView?: boolean }) {
+  getHostPosture(
+    inventoryId: number,
+    profileId: string,
+    options?: { baselineView?: boolean },
+  ) {
     const params = new URLSearchParams({ profileId });
     if (options?.baselineView) params.set('baselineView', 'true');
-    return this.request<import('@ansible/backstage-compliance-common').HostPostureResponse>(
-      `/inventory/${inventoryId}/host-posture?${params.toString()}`,
-    );
+    return this.request<
+      import('@ansible/backstage-compliance-common').HostPostureResponse
+    >(`/inventory/${inventoryId}/host-posture?${params.toString()}`);
   }
 
-  getHostFindings(inventoryId: number, hostname: string, profileId: string, limit?: number) {
+  getHostFindings(
+    inventoryId: number,
+    hostname: string,
+    profileId: string,
+    limit?: number,
+  ) {
     const params = new URLSearchParams({ profileId });
     if (limit) params.set('limit', String(limit));
-    return this.request<import('@ansible/backstage-compliance-common').HostFindingsResponse>(
-      `/inventory/${inventoryId}/host/${encodeURIComponent(hostname)}/findings?${params}`,
+    return this.request<
+      import('@ansible/backstage-compliance-common').HostFindingsResponse
+    >(
+      `/inventory/${inventoryId}/host/${encodeURIComponent(
+        hostname,
+      )}/findings?${params}`,
     );
   }
 
@@ -307,9 +343,12 @@ export class ComplianceBackendClient implements ComplianceApi {
   }
 
   deleteRemediationProfile(id: string) {
-    return this.request<void>(`/remediation-profiles/${encodeURIComponent(id)}`, {
-      method: 'DELETE',
-    });
+    return this.request<void>(
+      `/remediation-profiles/${encodeURIComponent(id)}`,
+      {
+        method: 'DELETE',
+      },
+    );
   }
 
   updateRemediationProfileStatus(id: string, status: RemediationProfileStatus) {
@@ -324,24 +363,44 @@ export class ComplianceBackendClient implements ComplianceApi {
   getRemediationExecutions(profileId: string, limit?: number) {
     const params = new URLSearchParams({ profileId });
     if (limit) params.set('limit', String(limit));
-    return this.request<RemediationExecution[]>(`/remediation-executions?${params}`);
+    return this.request<RemediationExecution[]>(
+      `/remediation-executions?${params}`,
+    );
   }
 
   getBatchScanStats(scanIds: string[]) {
-    return this.request<Record<string, { pass: number; fail: number; rules: number; hosts: number; naCount: number; stateNew?: number; stateFixed?: number; stateResurfaced?: number; totalPackages?: number; totalVulnerabilities?: number; totalScannedPackages?: number; totalVulnerablePackages?: number }>>(
-      `/scans/stats?ids=${scanIds.map(encodeURIComponent).join(',')}`,
-    );
+    return this.request<
+      Record<
+        string,
+        {
+          pass: number;
+          fail: number;
+          rules: number;
+          hosts: number;
+          naCount: number;
+          stateNew?: number;
+          stateFixed?: number;
+          stateResurfaced?: number;
+          totalPackages?: number;
+          totalVulnerabilities?: number;
+          totalScannedPackages?: number;
+          totalVulnerablePackages?: number;
+        }
+      >
+    >(`/scans/stats?ids=${scanIds.map(encodeURIComponent).join(',')}`);
   }
 
   getNotApplicableRules(scanId: string) {
-    return this.request<Array<{ ruleId: string; ruleTitle: string; severity: string }>>(
-      `/scans/${encodeURIComponent(scanId)}/findings/na`,
-    );
+    return this.request<
+      Array<{ ruleId: string; ruleTitle: string; severity: string }>
+    >(`/scans/${encodeURIComponent(scanId)}/findings/na`);
   }
 
   getAllRecentExecutions(limit?: number) {
     const params = limit ? `?limit=${limit}` : '';
-    return this.request<RemediationExecution[]>(`/remediation-executions${params}`);
+    return this.request<RemediationExecution[]>(
+      `/remediation-executions${params}`,
+    );
   }
 
   async getRemediationExecution(id: string) {
@@ -354,7 +413,10 @@ export class ComplianceBackendClient implements ComplianceApi {
     }
   }
 
-  updateRemediationExecution(id: string, update: Partial<RemediationExecution>) {
+  updateRemediationExecution(
+    id: string,
+    update: Partial<RemediationExecution>,
+  ) {
     return this.request<RemediationExecution>(
       `/remediation-executions/${encodeURIComponent(id)}`,
       { method: 'PATCH', body: update },
@@ -372,10 +434,26 @@ export class ComplianceBackendClient implements ComplianceApi {
     }
   }
 
-  async getBaselineScores(remediationProfileId: string): Promise<Array<{ inventoryId: number; passRate: number; passCount: number; failCount: number }>> {
+  async getBaselineScores(remediationProfileId: string): Promise<
+    Array<{
+      inventoryId: number;
+      passRate: number;
+      passCount: number;
+      failCount: number;
+    }>
+  > {
     try {
-      return await this.request<Array<{ inventoryId: number; passRate: number; passCount: number; failCount: number }>>(
-        `/baseline-scores?remediationProfileId=${encodeURIComponent(remediationProfileId)}`,
+      return await this.request<
+        Array<{
+          inventoryId: number;
+          passRate: number;
+          passCount: number;
+          failCount: number;
+        }>
+      >(
+        `/baseline-scores?remediationProfileId=${encodeURIComponent(
+          remediationProfileId,
+        )}`,
       );
     } catch {
       return [];
@@ -385,11 +463,14 @@ export class ComplianceBackendClient implements ComplianceApi {
   async getAuthoritativeScan(profileId: string, inventoryId: number) {
     try {
       return await this.request<AuthoritativeScanResponse>(
-        `/scans/authoritative?profileId=${encodeURIComponent(profileId)}&inventoryId=${inventoryId}`,
+        `/scans/authoritative?profileId=${encodeURIComponent(
+          profileId,
+        )}&inventoryId=${inventoryId}`,
       );
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
       if (msg.includes('404') || msg.includes('Not Found')) return null;
+      // eslint-disable-next-line no-console
       console.error('Authoritative scan check failed:', msg);
       return null;
     }
@@ -409,7 +490,9 @@ export class ComplianceBackendClient implements ComplianceApi {
 
   async getRegisteredProfile(id: string): Promise<ComplianceProfile | null> {
     try {
-      return await this.request<ComplianceProfile>(`/compliance-profiles/${encodeURIComponent(id)}`);
+      return await this.request<ComplianceProfile>(
+        `/compliance-profiles/${encodeURIComponent(id)}`,
+      );
     } catch {
       return null;
     }
@@ -417,15 +500,22 @@ export class ComplianceBackendClient implements ComplianceApi {
 
   async saveRegisteredProfile(body: SaveProfileRequest) {
     const aapToken = await this.getAapToken();
-    return this.request<ComplianceProfile>('/compliance-profiles', { method: 'POST', body, aapToken });
+    return this.request<ComplianceProfile>('/compliance-profiles', {
+      method: 'POST',
+      body,
+      aapToken,
+    });
   }
 
   async deleteRegisteredProfile(id: string) {
     const aapToken = await this.getAapToken();
-    return this.request<void>(`/compliance-profiles/${encodeURIComponent(id)}`, {
-      method: 'DELETE',
-      aapToken,
-    });
+    return this.request<void>(
+      `/compliance-profiles/${encodeURIComponent(id)}`,
+      {
+        method: 'DELETE',
+        aapToken,
+      },
+    );
   }
 
   async disconnectProfile(profileId: string) {
@@ -439,23 +529,31 @@ export class ComplianceBackendClient implements ComplianceApi {
 
   async getProfileTabData(profileId: string) {
     const aapToken = await this.getAapToken();
-    return this.request<import('@ansible/backstage-compliance-common').ProfileTabDataResponse>(`/profile-tab-data/${encodeURIComponent(profileId)}`, { aapToken });
+    return this.request<
+      import('@ansible/backstage-compliance-common').ProfileTabDataResponse
+    >(`/profile-tab-data/${encodeURIComponent(profileId)}`, { aapToken });
   }
 
-  async getJobTemplateDetail(id: number): Promise<{ id: number; name: string; description: string; extra_vars: string; execution_environment: number | null }> {
+  async getJobTemplateDetail(id: number): Promise<{
+    id: number;
+    name: string;
+    description: string;
+    extra_vars: string;
+    execution_environment: number | null;
+  }> {
     return this.request(`/job-templates/${id}`);
   }
 
   getControllerJobTemplates() {
-    return this.request<Array<{ id: number; name: string; description: string }>>(
-      '/controller/job-templates',
-    );
+    return this.request<
+      Array<{ id: number; name: string; description: string }>
+    >('/controller/job-templates');
   }
 
   getControllerWorkflowTemplates() {
-    return this.request<Array<{ id: number; name: string; description: string }>>(
-      '/controller/workflow-job-templates',
-    );
+    return this.request<
+      Array<{ id: number; name: string; description: string }>
+    >('/controller/workflow-job-templates');
   }
 
   getControllerExecutionEnvironments() {
@@ -465,11 +563,17 @@ export class ComplianceBackendClient implements ComplianceApi {
   }
 
   getBaselineTargets(complianceProfileId?: string) {
-    const q = complianceProfileId ? `?complianceProfileId=${encodeURIComponent(complianceProfileId)}` : '';
+    const q = complianceProfileId
+      ? `?complianceProfileId=${encodeURIComponent(complianceProfileId)}`
+      : '';
     return this.request<BaselineTarget[]>(`/baseline-targets${q}`);
   }
 
-  pinBaselineTarget(body: { remediationProfileId: string; complianceProfileId: string; inventoryId: number }) {
+  pinBaselineTarget(body: {
+    remediationProfileId: string;
+    complianceProfileId: string;
+    inventoryId: number;
+  }) {
     return this.request<BaselineTarget>('/baseline-targets', {
       method: 'POST',
       body,
@@ -483,20 +587,26 @@ export class ComplianceBackendClient implements ComplianceApi {
   }
 
   getChain(executionId: string) {
-    return this.request<import('@ansible/backstage-compliance-common').ChainResponse>(
-      `/chain/${encodeURIComponent(executionId)}`,
-    );
+    return this.request<
+      import('@ansible/backstage-compliance-common').ChainResponse
+    >(`/chain/${encodeURIComponent(executionId)}`);
   }
 
   getArtifacts(scanId: string) {
-    return this.request<import('@ansible/backstage-compliance-common').ScanArtifact[]>(
-      `/scans/${encodeURIComponent(scanId)}/artifacts`,
-    );
+    return this.request<
+      import('@ansible/backstage-compliance-common').ScanArtifact[]
+    >(`/scans/${encodeURIComponent(scanId)}/artifacts`);
   }
 
-  async downloadArtifact(scanId: string, artifactKey: string, filename: string): Promise<void> {
+  async downloadArtifact(
+    scanId: string,
+    artifactKey: string,
+    filename: string,
+  ): Promise<void> {
     const baseUrl = await this.discoveryApi.getBaseUrl('compliance');
-    const url = `${baseUrl}/scans/${encodeURIComponent(scanId)}/artifacts/${encodeURIComponent(artifactKey)}/download`;
+    const url = `${baseUrl}/scans/${encodeURIComponent(
+      scanId,
+    )}/artifacts/${encodeURIComponent(artifactKey)}/download`;
     const resp = await this.fetchApi.fetch(url);
     if (!resp.ok) throw new Error(`${resp.status} ${resp.statusText}`);
     const blob = await resp.blob();
@@ -509,5 +619,4 @@ export class ComplianceBackendClient implements ComplianceApi {
     document.body.removeChild(anchor);
     URL.revokeObjectURL(objUrl);
   }
-
 }

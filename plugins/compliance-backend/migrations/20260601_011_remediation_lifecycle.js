@@ -1,5 +1,5 @@
-"use strict";
-Object.defineProperty(exports, "__esModule", { value: true });
+'use strict';
+Object.defineProperty(exports, '__esModule', { value: true });
 exports.up = up;
 exports.down = down;
 
@@ -18,8 +18,12 @@ async function up(knex) {
   // 3. Create execution history table (ADR-014 §1)
   await knex.schema.createTable('compliance_remediation_executions', table => {
     table.string('id').primary();
-    table.string('remediation_profile_id').notNullable()
-      .references('id').inTable('compliance_remediation_profiles').onDelete('RESTRICT');
+    table
+      .string('remediation_profile_id')
+      .notNullable()
+      .references('id')
+      .inTable('compliance_remediation_profiles')
+      .onDelete('RESTRICT');
     table.integer('inventory_id').notNullable();
     table.string('informing_scan_id').nullable();
     table.integer('primary_job_id').nullable();
@@ -51,8 +55,12 @@ async function up(knex) {
   // 4. Create baseline targets table (ADR-014 §7)
   await knex.schema.createTable('compliance_baseline_targets', table => {
     table.string('id').primary();
-    table.string('remediation_profile_id').notNullable()
-      .references('id').inTable('compliance_remediation_profiles').onDelete('RESTRICT');
+    table
+      .string('remediation_profile_id')
+      .notNullable()
+      .references('id')
+      .inTable('compliance_remediation_profiles')
+      .onDelete('RESTRICT');
     table.string('compliance_profile_id').notNullable();
     table.integer('inventory_id').notNullable();
     table.string('pinned_at').notNullable();
@@ -73,10 +81,14 @@ async function up(knex) {
 
     if (!profile) continue;
 
-    const status = scan.status === 'completed' ? 'succeeded'
-      : scan.status === 'failed' ? 'failed'
-      : scan.status === 'cancelled' ? 'cancelled'
-      : 'failed';
+    let status = 'failed';
+    if (scan.status === 'completed') {
+      status = 'succeeded';
+    } else if (scan.status === 'failed') {
+      status = 'failed';
+    } else if (scan.status === 'cancelled') {
+      status = 'cancelled';
+    }
 
     try {
       await knex('compliance_remediation_executions').insert({
@@ -85,7 +97,9 @@ async function up(knex) {
         inventory_id: scan.inventory_id || 0,
         informing_scan_id: null,
         primary_job_id: scan.workflow_job_id,
-        all_job_ids: scan.workflow_job_id ? JSON.stringify([scan.workflow_job_id]) : null,
+        all_job_ids: scan.workflow_job_id
+          ? JSON.stringify([scan.workflow_job_id])
+          : null,
         status,
         started_at: scan.started_at,
         completed_at: scan.completed_at,
@@ -99,7 +113,7 @@ async function up(knex) {
         verification_scan_id: null,
         created_by: null,
       });
-    } catch (_err) {
+    } catch {
       // Skip on constraint violation
     }
   }

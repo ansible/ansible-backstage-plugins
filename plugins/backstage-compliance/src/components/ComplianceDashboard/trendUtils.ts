@@ -100,7 +100,10 @@ export function buildMultiProfileSeries(
     for (const pid of profileIds) {
       const snaps = byProfile.get(pid)!;
       let idx = indexByProfile.get(pid)!;
-      while (idx < snaps.length && new Date(snaps[idx].timestamp).getTime() <= ts) {
+      while (
+        idx < snaps.length &&
+        new Date(snaps[idx].timestamp).getTime() <= ts
+      ) {
         lastKnown.set(pid, snaps[idx].compliancePct);
         idx++;
       }
@@ -146,7 +149,10 @@ export function buildFilteredSeries(
   for (const sid of seriesIds) {
     indexBySeries.set(sid, 0);
     const snaps = bySeries.get(sid)!;
-    maxTsBySeries.set(sid, new Date(snaps[snaps.length - 1].timestamp).getTime());
+    maxTsBySeries.set(
+      sid,
+      new Date(snaps[snaps.length - 1].timestamp).getTime(),
+    );
   }
 
   const data: MultiProfileRow[] = sortedTimestamps.map(ts => {
@@ -154,7 +160,10 @@ export function buildFilteredSeries(
     for (const sid of seriesIds) {
       const snaps = bySeries.get(sid)!;
       let idx = indexBySeries.get(sid)!;
-      while (idx < snaps.length && new Date(snaps[idx].timestamp).getTime() <= ts) {
+      while (
+        idx < snaps.length &&
+        new Date(snaps[idx].timestamp).getTime() <= ts
+      ) {
         lastKnown.set(sid, snaps[idx].compliancePct);
         idx++;
       }

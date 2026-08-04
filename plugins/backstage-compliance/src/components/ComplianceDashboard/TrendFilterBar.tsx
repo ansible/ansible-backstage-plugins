@@ -1,4 +1,5 @@
-import React, { useMemo } from 'react';
+import { useMemo } from 'react';
+import type { FC } from 'react';
 import { Chip, makeStyles } from '@material-ui/core';
 import type { FilterOption } from '../ResultsViewer/FilterGroup';
 import { MultiFilterGroup } from '../shared/MultiFilterGroup';
@@ -37,7 +38,7 @@ interface TrendFilterBarProps {
   onClearAll: () => void;
 }
 
-export const TrendFilterBar: React.FC<TrendFilterBarProps> = ({
+export const TrendFilterBar: FC<TrendFilterBarProps> = ({
   profileOptions,
   inventoryOptions,
   selectedProfiles,
@@ -49,12 +50,25 @@ export const TrendFilterBar: React.FC<TrendFilterBarProps> = ({
   onClearAll,
 }) => {
   const classes = useStyles();
-  const hasActiveFilters = selectedProfiles.size > 0 || selectedInventories.size > 0;
+  const hasActiveFilters =
+    selectedProfiles.size > 0 || selectedInventories.size > 0;
 
-  const profileColorMap = useMemo(() => new Map(profileOptions.map(o => [o.key, o.color])), [profileOptions]);
-  const inventoryColorMap = useMemo(() => new Map(inventoryOptions.map(o => [o.key, o.color])), [inventoryOptions]);
-  const profileLabelMap = useMemo(() => new Map(profileOptions.map(o => [o.key, o.label])), [profileOptions]);
-  const inventoryLabelMap = useMemo(() => new Map(inventoryOptions.map(o => [o.key, o.label])), [inventoryOptions]);
+  const profileColorMap = useMemo(
+    () => new Map(profileOptions.map(o => [o.key, o.color])),
+    [profileOptions],
+  );
+  const inventoryColorMap = useMemo(
+    () => new Map(inventoryOptions.map(o => [o.key, o.color])),
+    [inventoryOptions],
+  );
+  const profileLabelMap = useMemo(
+    () => new Map(profileOptions.map(o => [o.key, o.label])),
+    [profileOptions],
+  );
+  const inventoryLabelMap = useMemo(
+    () => new Map(inventoryOptions.map(o => [o.key, o.label])),
+    [inventoryOptions],
+  );
 
   return (
     <>
@@ -84,7 +98,10 @@ export const TrendFilterBar: React.FC<TrendFilterBarProps> = ({
               label={profileLabelMap.get(pid) ?? pid}
               size="small"
               className={classes.filterPill}
-              style={{ backgroundColor: profileColorMap.get(pid), color: SURFACE_COLORS.onDark }}
+              style={{
+                backgroundColor: profileColorMap.get(pid),
+                color: SURFACE_COLORS.onDark,
+              }}
               onDelete={() => onToggleProfile(pid)}
             />
           ))}
@@ -94,7 +111,10 @@ export const TrendFilterBar: React.FC<TrendFilterBarProps> = ({
               label={inventoryLabelMap.get(iid) ?? iid}
               size="small"
               className={classes.filterPill}
-              style={{ backgroundColor: inventoryColorMap.get(iid), color: SURFACE_COLORS.onDark }}
+              style={{
+                backgroundColor: inventoryColorMap.get(iid),
+                color: SURFACE_COLORS.onDark,
+              }}
               onDelete={() => onToggleInventory(iid)}
             />
           ))}

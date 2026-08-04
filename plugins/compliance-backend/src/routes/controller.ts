@@ -28,7 +28,9 @@ export function registerControllerRoutes(
     } catch (error) {
       const msg = error instanceof Error ? error.message : String(error);
       logger.warn(`Failed to fetch JT detail for ${id}: ${msg}`);
-      res.status(502).json({ error: 'Failed to fetch job template details from Controller' });
+      res.status(502).json({
+        error: 'Failed to fetch job template details from Controller',
+      });
     }
   });
 
@@ -44,7 +46,11 @@ export function registerControllerRoutes(
       try {
         status = await service.getWorkflowJobStatus(jobId, userToken);
       } catch (err) {
-        logger.debug(`WJT status failed for ${jobId}, falling back to JT: ${err instanceof Error ? err.message : String(err)}`);
+        logger.debug(
+          `WJT status failed for ${jobId}, falling back to JT: ${
+            err instanceof Error ? err.message : String(err)
+          }`,
+        );
         status = await service.getJobStatus(jobId, userToken);
       }
       res.json(status);
@@ -84,7 +90,11 @@ export function registerControllerRoutes(
       try {
         nodes = await service.getWorkflowNodes(jobId, userToken);
       } catch (err) {
-        logger.debug(`Workflow nodes failed for ${jobId} (likely a JT, not WJT): ${err instanceof Error ? err.message : String(err)}`);
+        logger.debug(
+          `Workflow nodes failed for ${jobId} (likely a JT, not WJT): ${
+            err instanceof Error ? err.message : String(err)
+          }`,
+        );
         nodes = [];
       }
       res.json(nodes);
@@ -120,19 +130,26 @@ export function registerControllerRoutes(
     } catch (error) {
       const msg = error instanceof Error ? error.message : String(error);
       logger.error(`Failed to list job templates: ${msg}`);
-      res.status(500).json({ error: 'Failed to retrieve job templates from Controller' });
+      res
+        .status(500)
+        .json({ error: 'Failed to retrieve job templates from Controller' });
     }
   });
 
   router.get('/controller/workflow-job-templates', async (req, res) => {
     const userToken = getUserAapToken(req);
     try {
-      const templates = await service.getWorkflowTemplates(undefined, userToken);
+      const templates = await service.getWorkflowTemplates(
+        undefined,
+        userToken,
+      );
       res.json(templates);
     } catch (error) {
       const msg = error instanceof Error ? error.message : String(error);
       logger.error(`Failed to list workflow job templates: ${msg}`);
-      res.status(500).json({ error: 'Failed to retrieve workflow templates from Controller' });
+      res.status(500).json({
+        error: 'Failed to retrieve workflow templates from Controller',
+      });
     }
   });
 
@@ -144,7 +161,9 @@ export function registerControllerRoutes(
     } catch (error) {
       const msg = error instanceof Error ? error.message : String(error);
       logger.error(`Failed to list execution environments: ${msg}`);
-      res.status(500).json({ error: 'Failed to retrieve execution environments from Controller' });
+      res.status(500).json({
+        error: 'Failed to retrieve execution environments from Controller',
+      });
     }
   });
 }

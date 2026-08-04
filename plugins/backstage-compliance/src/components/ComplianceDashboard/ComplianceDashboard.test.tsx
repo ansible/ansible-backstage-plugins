@@ -38,9 +38,15 @@ describe('ComplianceDashboard', () => {
     expect(screen.getByText('Pending Remediation')).toBeInTheDocument();
     expect(screen.getByText('Active Profiles')).toBeInTheDocument();
     // Verify the actual stat values from mock data
-    expect(screen.getByText(String(MOCK_DASHBOARD_STATS.hostsScanned))).toBeInTheDocument();
-    expect(screen.getByText(String(MOCK_DASHBOARD_STATS.criticalFindings))).toBeInTheDocument();
-    expect(screen.getByText(String(MOCK_DASHBOARD_STATS.activeProfiles))).toBeInTheDocument();
+    expect(
+      screen.getByText(String(MOCK_DASHBOARD_STATS.hostsScanned)),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(String(MOCK_DASHBOARD_STATS.criticalFindings)),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(String(MOCK_DASHBOARD_STATS.activeProfiles)),
+    ).toBeInTheDocument();
   });
 
   it('displays quick action buttons', async () => {
@@ -56,9 +62,13 @@ describe('ComplianceDashboard', () => {
     await waitFor(() => {
       expect(screen.getByText('Recent Activity')).toBeInTheDocument();
     });
-    expect(screen.getAllByText('RHEL 9 STIG V2R8').length).toBeGreaterThanOrEqual(1);
+    expect(
+      screen.getAllByText('RHEL 9 STIG V2R8').length,
+    ).toBeGreaterThanOrEqual(1);
     // "CIS Benchmark L1" appears in both Recent Activity and Active Profiles
-    expect(screen.getAllByText('CIS Benchmark L1').length).toBeGreaterThanOrEqual(1);
+    expect(
+      screen.getAllByText('CIS Benchmark L1').length,
+    ).toBeGreaterThanOrEqual(1);
   });
 
   it('displays Remediation badge for remediation scanner entries', async () => {
@@ -71,13 +81,21 @@ describe('ComplianceDashboard', () => {
   it('displays active compliance profiles section', async () => {
     await renderDashboard();
     await waitFor(() => {
-      expect(screen.getByText('Active Compliance Profiles')).toBeInTheDocument();
+      expect(
+        screen.getByText('Active Compliance Profiles'),
+      ).toBeInTheDocument();
     });
     // Framework names come from MOCK_DASHBOARD_STATS.frameworkScores.
     // Some names appear in multiple sections so we use getAllByText.
-    expect(screen.getAllByText('DISA STIG V2R8').length).toBeGreaterThanOrEqual(1);
-    expect(screen.getAllByText('CIS Benchmark L1').length).toBeGreaterThanOrEqual(1);
-    expect(screen.getAllByText('PCI-DSS v4.0').length).toBeGreaterThanOrEqual(1);
+    expect(screen.getAllByText('DISA STIG V2R8').length).toBeGreaterThanOrEqual(
+      1,
+    );
+    expect(
+      screen.getAllByText('CIS Benchmark L1').length,
+    ).toBeGreaterThanOrEqual(1);
+    expect(screen.getAllByText('PCI-DSS v4.0').length).toBeGreaterThanOrEqual(
+      1,
+    );
   });
 
   it('displays trend deltas on stat cards', async () => {
@@ -104,7 +122,9 @@ describe('ComplianceDashboard', () => {
     await waitFor(() => {
       expect(screen.getByText('Welcome to AAP Compliance')).toBeInTheDocument();
     });
-    expect(screen.getByText('Get Started with Compliance Scanning')).toBeInTheDocument();
+    expect(
+      screen.getByText('Get Started with Compliance Scanning'),
+    ).toBeInTheDocument();
   });
 
   it('shows welcome state when API errors', async () => {

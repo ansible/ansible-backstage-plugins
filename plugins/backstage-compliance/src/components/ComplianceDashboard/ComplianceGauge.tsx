@@ -1,4 +1,4 @@
-import React from 'react';
+import type { FC, MouseEvent } from 'react';
 import { Typography, ButtonBase, makeStyles } from '@material-ui/core';
 import { scoreColor, STATUS_COLORS } from '../shared/colors';
 
@@ -40,14 +40,14 @@ interface ComplianceGaugeProps {
   value: number;
   label?: string;
   subtitle?: string;
-  onClick?: (event: React.MouseEvent<HTMLElement>) => void;
+  onClick?: (event: MouseEvent<HTMLElement>) => void;
   clickable?: boolean;
   dimmed?: boolean;
 }
 
 export const getColor = scoreColor;
 
-export const ComplianceGauge: React.FC<ComplianceGaugeProps> = ({
+export const ComplianceGauge: FC<ComplianceGaugeProps> = ({
   value,
   label,
   subtitle,
@@ -90,21 +90,51 @@ export const ComplianceGauge: React.FC<ComplianceGaugeProps> = ({
   const svgHeight = gapTopY + strokeWidth / 2 + 2;
 
   const content = (
-    <div className={`${classes.container} ${isClickable ? classes.clickable : ''}`}>
+    <div
+      className={`${classes.container} ${isClickable ? classes.clickable : ''}`}
+    >
       <svg
         viewBox={`0 0 ${size} ${svgHeight}`}
-        style={{ width: '100%', maxWidth: size, height: 'auto', opacity: dimmed ? 0.4 : 1 }}
+        style={{
+          width: '100%',
+          maxWidth: size,
+          height: 'auto',
+          opacity: dimmed ? 0.4 : 1,
+        }}
       >
-        <path d={makeSvgArc(arcStartDeg, arcEndDeg)} fill="none" stroke="#e0e0e0" strokeWidth={strokeWidth} strokeLinecap="round" />
+        <path
+          d={makeSvgArc(arcStartDeg, arcEndDeg)}
+          fill="none"
+          stroke="#e0e0e0"
+          strokeWidth={strokeWidth}
+          strokeLinecap="round"
+        />
         {clampedValue > 0.5 && (
-          <path d={makeSvgArc(arcStartDeg, valueEndDeg)} fill="none" stroke={color} strokeWidth={strokeWidth} strokeLinecap="round" />
+          <path
+            d={makeSvgArc(arcStartDeg, valueEndDeg)}
+            fill="none"
+            stroke={color}
+            strokeWidth={strokeWidth}
+            strokeLinecap="round"
+          />
         )}
-        <text x={cx} y={cy - 2} textAnchor="middle" dominantBaseline="central" fill={dimmed ? STATUS_COLORS.neutral : color} fontSize="28" fontWeight={700} fontFamily='"Red Hat Text", "Red Hat Display", sans-serif'>
+        <text
+          x={cx}
+          y={cy - 2}
+          textAnchor="middle"
+          dominantBaseline="central"
+          fill={dimmed ? STATUS_COLORS.neutral : color}
+          fontSize="28"
+          fontWeight={700}
+          fontFamily='"Red Hat Text", "Red Hat Display", sans-serif'
+        >
           {dimmed ? '--' : `${Math.round(value)}%`}
         </text>
       </svg>
       {label && (
-        <Typography className={classes.label} title={label}>{label}</Typography>
+        <Typography className={classes.label} title={label}>
+          {label}
+        </Typography>
       )}
       {subtitle && (
         <Typography className={classes.subtitle}>{subtitle}</Typography>

@@ -19,7 +19,11 @@ import type {
 import { ComplianceDatabase } from '../database/ComplianceDatabase';
 
 function safeParseEvidence(raw: string): Record<string, unknown> | undefined {
-  try { return JSON.parse(raw); } catch { return undefined; }
+  try {
+    return JSON.parse(raw);
+  } catch {
+    return undefined;
+  }
 }
 
 // ─── Severity mapping (Track A uses lowercase, stored as CAT_*) ──────
@@ -72,8 +76,14 @@ export function buildRuleMetadataRecords(
     checkText: (raw.check_text as string) || '',
     fixText: (raw.fix_text as string) || '',
     category: (raw.category as string) || '',
-    disruption: ((raw.disruption as string) || 'medium') as 'low' | 'medium' | 'high',
-    aapImpact: ((raw.aap_impact as string) || 'safe') as 'safe' | 'caution' | 'breaks-connectivity',
+    disruption: ((raw.disruption as string) || 'medium') as
+      | 'low'
+      | 'medium'
+      | 'high',
+    aapImpact: ((raw.aap_impact as string) || 'safe') as
+      | 'safe'
+      | 'caution'
+      | 'breaks-connectivity',
     aapImpactReason: (raw.aap_impact_reason as string) || '',
     scanner: (raw.scanner as string) || 'openscap',
     updatedAt: new Date().toISOString(),
@@ -90,17 +100,20 @@ export class FindingsParser {
   // ─── Grouping ──────────────────────────────────────────────────────
 
   groupFindingsByRule(stored: StoredFinding[]) {
-    const byRule = new Map<string, {
-      finding: StoredFinding;
-      hosts: Array<{
-        host: string;
-        status: 'pass' | 'fail' | 'error' | 'not_applicable';
-        actualValue: string;
-        expectedValue: string;
-        findingState?: FindingState | null;
-      }>;
-      seenHosts: Set<string>;
-    }>();
+    const byRule = new Map<
+      string,
+      {
+        finding: StoredFinding;
+        hosts: Array<{
+          host: string;
+          status: 'pass' | 'fail' | 'error' | 'not_applicable';
+          actualValue: string;
+          expectedValue: string;
+          findingState?: FindingState | null;
+        }>;
+        seenHosts: Set<string>;
+      }
+    >();
     for (const f of stored) {
       let entry = byRule.get(f.ruleId);
       if (!entry) {
@@ -109,9 +122,11 @@ export class FindingsParser {
       }
       if (entry.seenHosts.has(f.host)) continue;
       entry.seenHosts.add(f.host);
-      const status = (['pass', 'fail', 'error', 'not_applicable'].includes(f.status)
-        ? f.status
-        : 'error') as 'pass' | 'fail' | 'error' | 'not_applicable';
+      const status = (
+        ['pass', 'fail', 'error', 'not_applicable'].includes(f.status)
+          ? f.status
+          : 'error'
+      ) as 'pass' | 'fail' | 'error' | 'not_applicable';
       entry.hosts.push({
         host: f.host,
         status,
@@ -133,7 +148,9 @@ export class FindingsParser {
     for (const [ruleId, entry] of byRule) {
       const passCount = entry.hosts.filter(h => h.status === 'pass').length;
       const failCount = entry.hosts.filter(h => h.status === 'fail').length;
-      const naCount = entry.hosts.filter(h => h.status === 'not_applicable').length;
+      const naCount = entry.hosts.filter(
+        h => h.status === 'not_applicable',
+      ).length;
       const dm = dbMeta.get(ruleId);
 
       const stateSummary = { new: 0, active: 0, fixed: 0, resurfaced: 0 };
@@ -145,7 +162,9 @@ export class FindingsParser {
       }
 
       // totalCount excludes N/A so pass rate = passCount / totalCount is accurate
-      const applicableHosts = entry.hosts.filter(h => h.status !== 'not_applicable').length;
+      const applicableHosts = entry.hosts.filter(
+        h => h.status !== 'not_applicable',
+      ).length;
 
       results.push({
         ruleId,
@@ -154,13 +173,19 @@ export class FindingsParser {
         description: dm?.description || '',
         fixText: dm?.fixText || '',
         checkText: dm?.checkText || '',
-        severity: (entry.finding.severity as 'CAT_I' | 'CAT_II' | 'CAT_III') || 'CAT_II',
+        severity:
+          (entry.finding.severity as 'CAT_I' | 'CAT_II' | 'CAT_III') ||
+          'CAT_II',
         category: dm?.category || '',
         disruption: (dm?.disruption || 'medium') as 'low' | 'medium' | 'high',
-        aapImpact: ((dm?.aapImpact && dm.aapImpact !== 'safe' ? dm.aapImpact : null) || 'safe') as 'safe' | 'caution' | 'breaks-connectivity',
+        aapImpact: ((dm?.aapImpact && dm.aapImpact !== 'safe'
+          ? dm.aapImpact
+          : null) || 'safe') as 'safe' | 'caution' | 'breaks-connectivity',
         aapImpactReason: dm?.aapImpactReason || '',
         automationAvailable: !!(dm?.fixText && /^\s*- name:/m.test(dm.fixText)),
-        evidence: entry.finding.evidence ? safeParseEvidence(entry.finding.evidence) : undefined,
+        evidence: entry.finding.evidence
+          ? safeParseEvidence(entry.finding.evidence)
+          : undefined,
         parameters: [],
         hosts: entry.hosts,
         passCount,
@@ -252,8 +277,7 @@ export class FindingsParser {
       // 2. res.ansible_facts.findings (facts-based output)
       // 3. res.ansible_facts.compliance_results.findings (nested facts)
       // 4. res.ansible_facts.compliance_report.findings (consolidated report)
-      const factsSource =
-        (res.ansible_facts as Record<string, unknown>) ?? {};
+      const factsSource = (res.ansible_facts as Record<string, unknown>) ?? {};
 
       const rawFindings: RawControllerFinding[] | undefined =
         (res.findings as RawControllerFinding[]) ??
@@ -315,7 +339,12 @@ export class FindingsParser {
     let actualValue = raw.actual_value ?? '';
     let expectedValue = raw.expected_value ?? '';
 
-    if (!actualValue && !expectedValue && raw.evidence && typeof raw.evidence === 'object') {
+    if (
+      !actualValue &&
+      !expectedValue &&
+      raw.evidence &&
+      typeof raw.evidence === 'object'
+    ) {
       const ev = raw.evidence as Record<string, unknown>;
       actualValue = String(ev.actual ?? ev.actual_value ?? '');
       expectedValue = String(ev.expected ?? ev.expected_value ?? '');

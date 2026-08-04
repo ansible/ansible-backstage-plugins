@@ -1,4 +1,4 @@
-import React from 'react';
+import type { ReactNode } from 'react';
 import { render, screen } from '@testing-library/react';
 import { TestApiProvider } from '@backstage/test-utils';
 import { alertApiRef } from '@backstage/core-plugin-api';
@@ -12,8 +12,13 @@ const mockApi = {
   getArtifacts: jest.fn().mockResolvedValue([]),
 };
 
-const wrapper = ({ children }: { children: React.ReactNode }) => (
-  <TestApiProvider apis={[[alertApiRef, mockAlertApi], [complianceApiRef, mockApi as any]]}>
+const wrapper = ({ children }: { children: ReactNode }) => (
+  <TestApiProvider
+    apis={[
+      [alertApiRef, mockAlertApi],
+      [complianceApiRef, mockApi as any],
+    ]}
+  >
     {children}
   </TestApiProvider>
 );
@@ -58,7 +63,18 @@ describe('HostRiskHeatmapWidget', () => {
     const { container } = render(
       <HostRiskHeatmapWidget
         config={{ widget: 'host_risk_heatmap' }}
-        tabData={{ hostRisk: [host({ scannedPackages: 1000, critical: 10, medium: 20, low: 5, total: 35 })], summary: { totalPackages: 1000 } }}
+        tabData={{
+          hostRisk: [
+            host({
+              scannedPackages: 1000,
+              critical: 10,
+              medium: 20,
+              low: 5,
+              total: 35,
+            }),
+          ],
+          summary: { totalPackages: 1000 },
+        }}
       />,
       { wrapper },
     );
@@ -70,7 +86,10 @@ describe('HostRiskHeatmapWidget', () => {
     render(
       <HostRiskHeatmapWidget
         config={{ widget: 'host_risk_heatmap' }}
-        tabData={{ hostRisk: [host({ scannedPackages: 0, total: 20 })], summary: { totalPackages: 0 } }}
+        tabData={{
+          hostRisk: [host({ scannedPackages: 0, total: 20 })],
+          summary: { totalPackages: 0 },
+        }}
       />,
       { wrapper },
     );
@@ -80,7 +99,10 @@ describe('HostRiskHeatmapWidget', () => {
   it('uses custom labels from config', () => {
     render(
       <HostRiskHeatmapWidget
-        config={{ widget: 'host_risk_heatmap', labels: { findings: 'Vulnerabilities' } }}
+        config={{
+          widget: 'host_risk_heatmap',
+          labels: { findings: 'Vulnerabilities' },
+        }}
         tabData={{ hostRisk: [host()], summary: { totalPackages: 500 } }}
       />,
       { wrapper },
@@ -91,8 +113,20 @@ describe('HostRiskHeatmapWidget', () => {
   it('shows download button when actions declared', () => {
     render(
       <HostRiskHeatmapWidget
-        config={{ widget: 'host_risk_heatmap', actions: [{ type: 'download_artifact', artifact_key_prefix: 'sbom-', label: 'SBOM' }] }}
-        tabData={{ hostRisk: [host({ latestScanId: '4151' })], summary: { totalPackages: 500 } }}
+        config={{
+          widget: 'host_risk_heatmap',
+          actions: [
+            {
+              type: 'download_artifact',
+              artifact_key_prefix: 'sbom-',
+              label: 'SBOM',
+            },
+          ],
+        }}
+        tabData={{
+          hostRisk: [host({ latestScanId: '4151' })],
+          summary: { totalPackages: 500 },
+        }}
       />,
       { wrapper },
     );

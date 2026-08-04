@@ -98,12 +98,18 @@ function passRate(pass: number, fail: number): string {
 
 const ExecutionStatusIcon = ({ status }: { status: string }) => {
   switch (status) {
-    case 'succeeded': return <StatusOK />;
-    case 'failed': return <StatusError />;
-    case 'running': return <StatusRunning />;
-    case 'pending': return <StatusPending />;
-    case 'cancelled': return <StatusWarning />;
-    default: return <StatusPending />;
+    case 'succeeded':
+      return <StatusOK />;
+    case 'failed':
+      return <StatusError />;
+    case 'running':
+      return <StatusRunning />;
+    case 'pending':
+      return <StatusPending />;
+    case 'cancelled':
+      return <StatusWarning />;
+    default:
+      return <StatusPending />;
   }
 };
 
@@ -118,20 +124,37 @@ export const ChainView = () => {
 
   useEffect(() => {
     if (!executionId) return;
-    api.getChain(executionId)
-      .then(data => { setChain(data); setLoading(false); })
-      .catch(err => { setError(err instanceof Error ? err.message : String(err)); setLoading(false); });
+    api
+      .getChain(executionId)
+      .then(data => {
+        setChain(data);
+        setLoading(false);
+      })
+      .catch(err => {
+        setError(err instanceof Error ? err.message : String(err));
+        setLoading(false);
+      });
   }, [api, executionId]);
 
   if (loading) {
-    return <Box p={4}><Progress /></Box>;
+    return (
+      <Box p={4}>
+        <Progress />
+      </Box>
+    );
   }
 
   if (error || !chain) {
     return (
       <Box p={4}>
         <Breadcrumbs>
-          <Typography color="primary" style={{ cursor: 'pointer' }} onClick={() => navigate('/compliance/results')}>Results</Typography>
+          <Typography
+            color="primary"
+            style={{ cursor: 'pointer' }}
+            onClick={() => navigate('/compliance/results')}
+          >
+            Results
+          </Typography>
           <Typography>Chain View</Typography>
         </Breadcrumbs>
         <Box mt={2} />
@@ -140,7 +163,10 @@ export const ChainView = () => {
             <Typography variant="h6" color="textSecondary" gutterBottom>
               {error || 'Execution not found'}
             </Typography>
-            <Button variant="outlined" onClick={() => navigate('/compliance/results')}>
+            <Button
+              variant="outlined"
+              onClick={() => navigate('/compliance/results')}
+            >
               Back to Results
             </Button>
           </div>
@@ -149,55 +175,113 @@ export const ChainView = () => {
     );
   }
 
-  const { execution, assessmentScan, assessmentStats, verificationScan, verificationStats, delta } = chain;
-  const activeStep = verificationScan ? 2 : execution.status === 'succeeded' ? 1 : 0;
+  const {
+    execution,
+    assessmentScan,
+    assessmentStats,
+    verificationScan,
+    verificationStats,
+    delta,
+  } = chain;
+  let activeStep = 0;
+  if (verificationScan) {
+    activeStep = 2;
+  } else if (execution.status === 'succeeded') {
+    activeStep = 1;
+  }
 
   return (
     <>
       <Breadcrumbs>
-        <Typography color="primary" style={{ cursor: 'pointer' }} onClick={() => navigate('/compliance/results')}>Results</Typography>
+        <Typography
+          color="primary"
+          style={{ cursor: 'pointer' }}
+          onClick={() => navigate('/compliance/results')}
+        >
+          Results
+        </Typography>
         <Typography>Assessment Chain</Typography>
       </Breadcrumbs>
       <Box mt={2} />
-      <InfoCard title="Assessment Chain" subheader={`Remediation execution ${executionId?.slice(0, 8)}...`}>
+      <InfoCard
+        title="Assessment Chain"
+        subheader={`Remediation execution ${executionId?.slice(0, 8)}...`}
+      >
         <Stepper activeStep={activeStep} orientation="vertical" nonLinear>
           {/* Step 1: Assessment Scan */}
           <Step completed={!!assessmentScan}>
             <StepLabel
-              StepIconComponent={() => <AssessmentIcon color={assessmentScan ? 'primary' : 'disabled'} />}
+              StepIconComponent={() => (
+                <AssessmentIcon
+                  color={assessmentScan ? 'primary' : 'disabled'}
+                />
+              )}
             >
               Assessment Scan
             </StepLabel>
             <StepContent>
               {assessmentScan && assessmentStats ? (
                 <Paper variant="outlined" className={classes.stepCard}>
-                  <Typography variant="subtitle2">{formatDate(assessmentScan.startedAt)}</Typography>
+                  <Typography variant="subtitle2">
+                    {formatDate(assessmentScan.startedAt)}
+                  </Typography>
                   <div className={classes.statsRow}>
                     <Typography className={classes.passRate}>
                       {passRate(assessmentStats.pass, assessmentStats.fail)}
                     </Typography>
-                    <Chip label={`${assessmentStats.rules} rules`} size="small" variant="outlined" />
-                    <Chip label={`${assessmentStats.hosts} hosts`} size="small" variant="outlined" />
-                    <Chip label={`${assessmentStats.pass} pass`} size="small" style={{ backgroundColor: STATUS_COLORS.success, color: '#fff' }} />
-                    <Chip label={`${assessmentStats.fail} fail`} size="small" style={{ backgroundColor: STATUS_COLORS.error, color: '#fff' }} />
+                    <Chip
+                      label={`${assessmentStats.rules} rules`}
+                      size="small"
+                      variant="outlined"
+                    />
+                    <Chip
+                      label={`${assessmentStats.hosts} hosts`}
+                      size="small"
+                      variant="outlined"
+                    />
+                    <Chip
+                      label={`${assessmentStats.pass} pass`}
+                      size="small"
+                      style={{
+                        backgroundColor: STATUS_COLORS.success,
+                        color: '#fff',
+                      }}
+                    />
+                    <Chip
+                      label={`${assessmentStats.fail} fail`}
+                      size="small"
+                      style={{
+                        backgroundColor: STATUS_COLORS.error,
+                        color: '#fff',
+                      }}
+                    />
                   </div>
                   <Box mt={1}>
                     <Button
                       size="small"
                       className={classes.linkButton}
-                      onClick={() => navigate(`/compliance/results/${assessmentScan.workflowJobId ?? assessmentScan.id}`)}
+                      onClick={() =>
+                        navigate(
+                          `/compliance/results/${
+                            assessmentScan.workflowJobId ?? assessmentScan.id
+                          }`,
+                        )
+                      }
                     >
                       View full results
                     </Button>
                   </Box>
                 </Paper>
               ) : (
-                <Typography variant="body2" color="textSecondary">Assessment scan not linked</Typography>
+                <Typography variant="body2" color="textSecondary">
+                  Assessment scan not linked
+                </Typography>
               )}
               <div className={classes.connector}>
                 <ArrowForwardIcon fontSize="small" />
                 <Typography variant="body2">
-                  {execution.rulesApplied ?? '?'} rules selected on {execution.hostsTargeted ?? '?'} hosts
+                  {execution.rulesApplied ?? '?'} rules selected on{' '}
+                  {execution.hostsTargeted ?? '?'} hosts
                 </Typography>
               </div>
             </StepContent>
@@ -206,7 +290,13 @@ export const ChainView = () => {
           {/* Step 2: Remediation Execution */}
           <Step completed={execution.status === 'succeeded'}>
             <StepLabel
-              StepIconComponent={() => <BuildIcon color={execution.status === 'succeeded' ? 'primary' : 'disabled'} />}
+              StepIconComponent={() => (
+                <BuildIcon
+                  color={
+                    execution.status === 'succeeded' ? 'primary' : 'disabled'
+                  }
+                />
+              )}
             >
               Remediation
             </StepLabel>
@@ -214,7 +304,10 @@ export const ChainView = () => {
               <Paper variant="outlined" className={classes.stepCard}>
                 <div className={classes.executionStatus}>
                   <ExecutionStatusIcon status={execution.status} />
-                  <Typography variant="subtitle2" style={{ textTransform: 'capitalize' }}>
+                  <Typography
+                    variant="subtitle2"
+                    style={{ textTransform: 'capitalize' }}
+                  >
                     {execution.status}
                   </Typography>
                   <Typography variant="body2" color="textSecondary">
@@ -224,22 +317,33 @@ export const ChainView = () => {
                 <div className={classes.statsRow}>
                   {execution.hostsSucceeded !== null && (
                     <Chip
-                      icon={<CheckCircleIcon style={{ color: STATUS_COLORS.success }} />}
+                      icon={
+                        <CheckCircleIcon
+                          style={{ color: STATUS_COLORS.success }}
+                        />
+                      }
                       label={`${execution.hostsSucceeded} hosts succeeded`}
                       size="small"
                       variant="outlined"
                     />
                   )}
-                  {execution.hostsFailed !== null && execution.hostsFailed > 0 && (
+                  {execution.hostsFailed !== null &&
+                    execution.hostsFailed > 0 && (
+                      <Chip
+                        icon={
+                          <ErrorIcon style={{ color: STATUS_COLORS.error }} />
+                        }
+                        label={`${execution.hostsFailed} hosts failed`}
+                        size="small"
+                        variant="outlined"
+                      />
+                    )}
+                  {execution.rulesApplied !== null && (
                     <Chip
-                      icon={<ErrorIcon style={{ color: STATUS_COLORS.error }} />}
-                      label={`${execution.hostsFailed} hosts failed`}
+                      label={`${execution.rulesApplied} rules applied`}
                       size="small"
                       variant="outlined"
                     />
-                  )}
-                  {execution.rulesApplied !== null && (
-                    <Chip label={`${execution.rulesApplied} rules applied`} size="small" variant="outlined" />
                   )}
                 </div>
                 {execution.primaryJobId && (
@@ -247,55 +351,105 @@ export const ChainView = () => {
                     <Button
                       size="small"
                       className={classes.linkButton}
-                      onClick={() => navigate(`/compliance/remediation-result/${execution.primaryJobId}`)}
+                      onClick={() =>
+                        navigate(
+                          `/compliance/remediation-result/${execution.primaryJobId}`,
+                        )
+                      }
                     >
                       View execution details
                     </Button>
                   </Box>
                 )}
               </Paper>
-              {verificationScan ? (
-                <div className={classes.connector}>
-                  <ArrowForwardIcon fontSize="small" />
-                  <Typography variant="body2">Verification scan triggered</Typography>
-                </div>
-              ) : execution.status === 'succeeded' ? (
-                <div className={classes.connector}>
-                  <Typography variant="body2" color="textSecondary">No verification scan yet</Typography>
-                </div>
-              ) : null}
+              {(() => {
+                if (verificationScan) {
+                  return (
+                    <div className={classes.connector}>
+                      <ArrowForwardIcon fontSize="small" />
+                      <Typography variant="body2">
+                        Verification scan triggered
+                      </Typography>
+                    </div>
+                  );
+                }
+                if (execution.status === 'succeeded') {
+                  return (
+                    <div className={classes.connector}>
+                      <Typography variant="body2" color="textSecondary">
+                        No verification scan yet
+                      </Typography>
+                    </div>
+                  );
+                }
+                return null;
+              })()}
             </StepContent>
           </Step>
 
           {/* Step 3: Verification Scan */}
           <Step completed={verificationScan?.status === 'completed'}>
             <StepLabel
-              StepIconComponent={() => <VerifiedUserIcon color={verificationScan ? 'primary' : 'disabled'} />}
+              StepIconComponent={() => (
+                <VerifiedUserIcon
+                  color={verificationScan ? 'primary' : 'disabled'}
+                />
+              )}
             >
               Verification
             </StepLabel>
             <StepContent>
               {verificationScan && verificationStats ? (
                 <Paper variant="outlined" className={classes.stepCard}>
-                  <Typography variant="subtitle2">{formatDate(verificationScan.startedAt)}</Typography>
+                  <Typography variant="subtitle2">
+                    {formatDate(verificationScan.startedAt)}
+                  </Typography>
                   <div className={classes.statsRow}>
                     <Typography className={classes.passRate}>
                       {passRate(verificationStats.pass, verificationStats.fail)}
                     </Typography>
-                    <Chip label={`${verificationStats.rules} rules`} size="small" variant="outlined" />
-                    <Chip label={`${verificationStats.hosts} hosts`} size="small" variant="outlined" />
-                    <Chip label={`${verificationStats.pass} pass`} size="small" style={{ backgroundColor: STATUS_COLORS.success, color: '#fff' }} />
-                    <Chip label={`${verificationStats.fail} fail`} size="small" style={{ backgroundColor: STATUS_COLORS.error, color: '#fff' }} />
+                    <Chip
+                      label={`${verificationStats.rules} rules`}
+                      size="small"
+                      variant="outlined"
+                    />
+                    <Chip
+                      label={`${verificationStats.hosts} hosts`}
+                      size="small"
+                      variant="outlined"
+                    />
+                    <Chip
+                      label={`${verificationStats.pass} pass`}
+                      size="small"
+                      style={{
+                        backgroundColor: STATUS_COLORS.success,
+                        color: '#fff',
+                      }}
+                    />
+                    <Chip
+                      label={`${verificationStats.fail} fail`}
+                      size="small"
+                      style={{
+                        backgroundColor: STATUS_COLORS.error,
+                        color: '#fff',
+                      }}
+                    />
                   </div>
                   {delta && (
                     <Box mt={1.5} display="flex" style={{ gap: 16 }}>
                       {delta.fixed > 0 && (
-                        <Typography variant="body2" className={classes.deltaPositive}>
+                        <Typography
+                          variant="body2"
+                          className={classes.deltaPositive}
+                        >
                           +{delta.fixed} fixed
                         </Typography>
                       )}
                       {delta.regressed > 0 && (
-                        <Typography variant="body2" className={classes.deltaNegative}>
+                        <Typography
+                          variant="body2"
+                          className={classes.deltaNegative}
+                        >
                           -{delta.regressed} regressed
                         </Typography>
                       )}
@@ -310,7 +464,14 @@ export const ChainView = () => {
                     <Button
                       size="small"
                       className={classes.linkButton}
-                      onClick={() => navigate(`/compliance/results/${verificationScan.workflowJobId ?? verificationScan.id}`)}
+                      onClick={() =>
+                        navigate(
+                          `/compliance/results/${
+                            verificationScan.workflowJobId ??
+                            verificationScan.id
+                          }`,
+                        )
+                      }
                     >
                       View verification results
                     </Button>

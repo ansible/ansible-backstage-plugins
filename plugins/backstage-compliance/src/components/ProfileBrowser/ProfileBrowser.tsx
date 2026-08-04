@@ -1,10 +1,7 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
+import type { ReactElement } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import {
-  InfoCard,
-  Breadcrumbs,
-  Progress,
-} from '@backstage/core-components';
+import { InfoCard, Breadcrumbs, Progress } from '@backstage/core-components';
 import {
   Grid,
   Card,
@@ -58,7 +55,7 @@ interface DisplayProfile {
   source: string;
   categories: Array<{ name: string; count: number }>;
   severity: { catI: number; catII: number; catIII: number };
-  icon: React.ReactElement;
+  icon: ReactElement;
   /** True when this profile was loaded from the compliance profile registry. */
   fromRegistry?: boolean;
 }
@@ -83,7 +80,7 @@ function registrationToDisplayProfile(c: ComplianceProfile): DisplayProfile {
 }
 
 /** Pick an icon based on the framework name. */
-function frameworkIcon(framework: string): React.ReactElement {
+function frameworkIcon(framework: string): ReactElement {
   const fw = framework.toUpperCase();
   if (fw.includes('CIS')) return <VerifiedUserIcon />;
   if (fw.includes('PCI')) return <PolicyIcon />;
@@ -163,15 +160,15 @@ const BUILTIN_PROFILES: DisplayProfile[] = [
 
 const frameworkColor: Record<string, 'primary' | 'secondary' | 'default'> = {
   'DISA STIG': 'secondary',
-  'DISA_STIG': 'secondary',
+  DISA_STIG: 'secondary',
   CIS: 'primary',
   'PCI-DSS': 'default',
-  'PCI_DSS': 'default',
+  PCI_DSS: 'default',
   HIPAA: 'default',
-  'NIST_800_53': 'default',
-  'SUPPLY_CHAIN': 'primary',
-  'PQC_READINESS': 'primary',
-  'CUSTOM': 'default',
+  NIST_800_53: 'default',
+  SUPPLY_CHAIN: 'primary',
+  PQC_READINESS: 'primary',
+  CUSTOM: 'default',
 };
 
 export const ProfileBrowser = () => {
@@ -188,32 +185,38 @@ export const ProfileBrowser = () => {
 
     Promise.all([
       api.getRegisteredProfiles().catch(err => {
+        // eslint-disable-next-line no-console
         console.error('Failed to load profiles:', err);
         return [] as ComplianceProfile[];
       }),
       api.getProfiles().catch(err => {
+        // eslint-disable-next-line no-console
         console.error('Failed to load profiles:', err);
         return [];
       }),
-    ]).then(([profiles, backendProfiles]) => {
-      if (cancelled) return;
+    ])
+      .then(([registeredProfiles, backendProfiles]) => {
+        if (cancelled) return;
 
-      if (profiles.length > 0) {
-        const registryProfiles = profiles.map(c => ({
-          ...registrationToDisplayProfile(c),
-          icon: frameworkIcon(c.framework),
-        }));
-        setProfiles(registryProfiles);
-      } else if (backendProfiles.length > 0) {
-        setProfiles(BUILTIN_PROFILES);
-      } else {
-        setProfiles([]);
-      }
-    }).finally(() => {
-      if (!cancelled) setLoading(false);
-    });
+        if (registeredProfiles.length > 0) {
+          const registryProfiles = registeredProfiles.map(c => ({
+            ...registrationToDisplayProfile(c),
+            icon: frameworkIcon(c.framework),
+          }));
+          setProfiles(registryProfiles);
+        } else if (backendProfiles.length > 0) {
+          setProfiles(BUILTIN_PROFILES);
+        } else {
+          setProfiles([]);
+        }
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
 
-    return () => { cancelled = true; };
+    return () => {
+      cancelled = true;
+    };
   }, [api]);
 
   const selectedProfile = profileId
@@ -235,142 +238,6 @@ export const ProfileBrowser = () => {
     return (
       <>
         <Breadcrumbs>
-            <Typography
-              color="primary"
-              style={{ cursor: 'pointer' }}
-              onClick={() => navigate('/compliance')}
-            >
-              Compliance
-            </Typography>
-            <Typography
-              color="primary"
-              style={{ cursor: 'pointer' }}
-              onClick={() => navigate('/compliance/profiles/all')}
-            >
-              Profiles
-            </Typography>
-            <Typography>{selectedProfile.name}</Typography>
-          </Breadcrumbs>
-
-          <Box mt={3} />
-
-          <Grid container spacing={3}>
-            <Grid item xs={12} md={8}>
-              <InfoCard title="Overview">
-                <Typography variant="body1" paragraph>
-                  {selectedProfile.description}
-                </Typography>
-                <Grid container spacing={2}>
-                  <Grid item xs={4}>
-                    <Typography variant="caption" color="textSecondary">
-                      Framework
-                    </Typography>
-                    <Typography variant="body1">
-                      {selectedProfile.framework} {selectedProfile.version}
-                    </Typography>
-                  </Grid>
-                  <Grid item xs={4}>
-                    <Typography variant="caption" color="textSecondary">
-                      Platform
-                    </Typography>
-                    <Typography variant="body1">
-                      {selectedProfile.applicableOs.length > 0
-                        ? selectedProfile.applicableOs.join(', ')
-                        : 'Not specified'}
-                    </Typography>
-                  </Grid>
-                  <Grid item xs={4}>
-                    <Typography variant="caption" color="textSecondary">
-                      Last Updated
-                    </Typography>
-                    <Typography variant="body1">
-                      {selectedProfile.lastUpdated || 'N/A'}
-                    </Typography>
-                  </Grid>
-                </Grid>
-              </InfoCard>
-
-              {hasCategories && (
-                <>
-                  <Box mt={3} />
-
-                  <InfoCard title="Rule Categories">
-                    <Table size="small">
-                      <TableHead>
-                        <TableRow>
-                          <TableCell>Category</TableCell>
-                          <TableCell align="right">Rules</TableCell>
-                        </TableRow>
-                      </TableHead>
-                      <TableBody>
-                        {selectedProfile.categories.map(cat => (
-                          <TableRow key={cat.name}>
-                            <TableCell>{cat.name}</TableCell>
-                            <TableCell align="right">{cat.count}</TableCell>
-                          </TableRow>
-                        ))}
-                      </TableBody>
-                    </Table>
-                  </InfoCard>
-                </>
-              )}
-            </Grid>
-
-            <Grid item xs={12} md={4}>
-              {hasSeverity && (
-                <InfoCard title="Severity Distribution">
-                  <div className={classes.ruleCategory}>
-                    <Chip label="CAT I — Critical" size="small" color="secondary" />
-                    <Typography variant="subtitle2">
-                      {selectedProfile.severity.catI}
-                    </Typography>
-                  </div>
-                  <div className={classes.ruleCategory}>
-                    <Chip label="CAT II — Medium" size="small" style={{ backgroundColor: SEVERITY_COLORS.CAT_II, color: '#fff' }} />
-                    <Typography variant="subtitle2">
-                      {selectedProfile.severity.catII}
-                    </Typography>
-                  </div>
-                  <div className={classes.ruleCategory}>
-                    <Chip label="CAT III — Low" size="small" color="primary" />
-                    <Typography variant="subtitle2">
-                      {selectedProfile.severity.catIII}
-                    </Typography>
-                  </div>
-                </InfoCard>
-              )}
-
-              <Box mt={2} />
-
-              <Button
-                variant="contained"
-                color="primary"
-                fullWidth
-                size="large"
-                onClick={() => navigate(`/compliance/scan?profile=${selectedProfile?.id ?? ''}`)}
-              >
-                Scan with this Profile
-              </Button>
-
-              {selectedProfile.fromRegistry && (
-                <Box mt={1}>
-                  <Chip
-                    label="From compliance profile registry"
-                    size="small"
-                    variant="outlined"
-                    color="primary"
-                  />
-                </Box>
-              )}
-            </Grid>
-          </Grid>
-      </>
-    );
-  }
-
-  return (
-    <>
-      <Breadcrumbs>
           <Typography
             color="primary"
             style={{ cursor: 'pointer' }}
@@ -378,36 +245,205 @@ export const ProfileBrowser = () => {
           >
             Compliance
           </Typography>
-          <Typography>Profiles</Typography>
+          <Typography
+            color="primary"
+            style={{ cursor: 'pointer' }}
+            onClick={() => navigate('/compliance/profiles/all')}
+          >
+            Profiles
+          </Typography>
+          <Typography>{selectedProfile.name}</Typography>
         </Breadcrumbs>
 
         <Box mt={3} />
 
-        {profiles.length === 0 ? (
-          <Box textAlign="center" py={6}>
-            <SecurityIcon style={{ fontSize: 64, color: STATUS_COLORS.neutral, marginBottom: 16 }} />
-            <Typography variant="h6" color="textSecondary" gutterBottom>
-              No compliance profiles registered
-            </Typography>
-            <Typography variant="body2" color="textSecondary" paragraph>
-              Add a compliance profile in Settings to map a standard (e.g., DISA STIG)
-              to an assessment job template and execution environment.
-            </Typography>
+        <Grid container spacing={3}>
+          <Grid item xs={12} md={8}>
+            <InfoCard title="Overview">
+              <Typography variant="body1" paragraph>
+                {selectedProfile.description}
+              </Typography>
+              <Grid container spacing={2}>
+                <Grid item xs={4}>
+                  <Typography variant="caption" color="textSecondary">
+                    Framework
+                  </Typography>
+                  <Typography variant="body1">
+                    {selectedProfile.framework} {selectedProfile.version}
+                  </Typography>
+                </Grid>
+                <Grid item xs={4}>
+                  <Typography variant="caption" color="textSecondary">
+                    Platform
+                  </Typography>
+                  <Typography variant="body1">
+                    {selectedProfile.applicableOs.length > 0
+                      ? selectedProfile.applicableOs.join(', ')
+                      : 'Not specified'}
+                  </Typography>
+                </Grid>
+                <Grid item xs={4}>
+                  <Typography variant="caption" color="textSecondary">
+                    Last Updated
+                  </Typography>
+                  <Typography variant="body1">
+                    {selectedProfile.lastUpdated || 'N/A'}
+                  </Typography>
+                </Grid>
+              </Grid>
+            </InfoCard>
+
+            {hasCategories && (
+              <>
+                <Box mt={3} />
+
+                <InfoCard title="Rule Categories">
+                  <Table size="small">
+                    <TableHead>
+                      <TableRow>
+                        <TableCell>Category</TableCell>
+                        <TableCell align="right">Rules</TableCell>
+                      </TableRow>
+                    </TableHead>
+                    <TableBody>
+                      {selectedProfile.categories.map(cat => (
+                        <TableRow key={cat.name}>
+                          <TableCell>{cat.name}</TableCell>
+                          <TableCell align="right">{cat.count}</TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </InfoCard>
+              </>
+            )}
+          </Grid>
+
+          <Grid item xs={12} md={4}>
+            {hasSeverity && (
+              <InfoCard title="Severity Distribution">
+                <div className={classes.ruleCategory}>
+                  <Chip
+                    label="CAT I — Critical"
+                    size="small"
+                    color="secondary"
+                  />
+                  <Typography variant="subtitle2">
+                    {selectedProfile.severity.catI}
+                  </Typography>
+                </div>
+                <div className={classes.ruleCategory}>
+                  <Chip
+                    label="CAT II — Medium"
+                    size="small"
+                    style={{
+                      backgroundColor: SEVERITY_COLORS.CAT_II,
+                      color: '#fff',
+                    }}
+                  />
+                  <Typography variant="subtitle2">
+                    {selectedProfile.severity.catII}
+                  </Typography>
+                </div>
+                <div className={classes.ruleCategory}>
+                  <Chip label="CAT III — Low" size="small" color="primary" />
+                  <Typography variant="subtitle2">
+                    {selectedProfile.severity.catIII}
+                  </Typography>
+                </div>
+              </InfoCard>
+            )}
+
+            <Box mt={2} />
+
             <Button
               variant="contained"
               color="primary"
-              onClick={() => navigate('/compliance/settings')}
+              fullWidth
+              size="large"
+              onClick={() =>
+                navigate(
+                  `/compliance/scan?profile=${selectedProfile?.id ?? ''}`,
+                )
+              }
             >
-              Go to Settings
+              Scan with this Profile
             </Button>
-          </Box>
-        ) : (
+
+            {selectedProfile.fromRegistry && (
+              <Box mt={1}>
+                <Chip
+                  label="From compliance profile registry"
+                  size="small"
+                  variant="outlined"
+                  color="primary"
+                />
+              </Box>
+            )}
+          </Grid>
+        </Grid>
+      </>
+    );
+  }
+
+  return (
+    <>
+      <Breadcrumbs>
+        <Typography
+          color="primary"
+          style={{ cursor: 'pointer' }}
+          onClick={() => navigate('/compliance')}
+        >
+          Compliance
+        </Typography>
+        <Typography>Profiles</Typography>
+      </Breadcrumbs>
+
+      <Box mt={3} />
+
+      {profiles.length === 0 ? (
+        <Box textAlign="center" py={6}>
+          <SecurityIcon
+            style={{
+              fontSize: 64,
+              color: STATUS_COLORS.neutral,
+              marginBottom: 16,
+            }}
+          />
+          <Typography variant="h6" color="textSecondary" gutterBottom>
+            No compliance profiles registered
+          </Typography>
+          <Typography variant="body2" color="textSecondary" paragraph>
+            Add a compliance profile in Settings to map a standard (e.g., DISA
+            STIG) to an assessment job template and execution environment.
+          </Typography>
+          <Button
+            variant="contained"
+            color="primary"
+            onClick={() => navigate('/compliance/settings')}
+          >
+            Go to Settings
+          </Button>
+        </Box>
+      ) : (
         <Grid container spacing={3}>
           {profiles.map(profile => (
             <Grid item xs={12} sm={6} md={4} key={profile.id}>
-              <Card variant="outlined" style={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
+              <Card
+                variant="outlined"
+                style={{
+                  height: '100%',
+                  display: 'flex',
+                  flexDirection: 'column',
+                }}
+              >
                 <CardContent style={{ flex: 1 }}>
-                  <Box display="flex" alignItems="center" mb={1} style={{ gap: 8 }}>
+                  <Box
+                    display="flex"
+                    alignItems="center"
+                    mb={1}
+                    style={{ gap: 8 }}
+                  >
                     {profile.icon}
                     <Chip
                       label={profile.framework}
@@ -452,7 +488,9 @@ export const ProfileBrowser = () => {
                   <Button
                     size="small"
                     color="primary"
-                    onClick={() => navigate(`/compliance/profiles/${profile.id}`)}
+                    onClick={() =>
+                      navigate(`/compliance/profiles/${profile.id}`)
+                    }
                   >
                     View Details
                   </Button>
@@ -460,7 +498,9 @@ export const ProfileBrowser = () => {
                     size="small"
                     color="primary"
                     variant="outlined"
-                    onClick={() => navigate(`/compliance/scan?profile=${profile.id}`)}
+                    onClick={() =>
+                      navigate(`/compliance/scan?profile=${profile.id}`)
+                    }
                   >
                     Launch Scan
                   </Button>
@@ -469,7 +509,7 @@ export const ProfileBrowser = () => {
             </Grid>
           ))}
         </Grid>
-        )}
+      )}
     </>
   );
 };

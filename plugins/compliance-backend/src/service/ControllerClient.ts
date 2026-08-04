@@ -68,9 +68,7 @@ export class ControllerClient {
   ): Promise<T> {
     const normalizedEndpoint = endpoint.replace(/^\/+/, '');
     const url = `${this.baseUrl}/${normalizedEndpoint}`;
-    this.logger.info(
-      `[${ControllerClient.LOG_PREFIX}]: GET ${url}`,
-    );
+    this.logger.info(`[${ControllerClient.LOG_PREFIX}]: GET ${url}`);
 
     let response;
     try {
@@ -95,9 +93,13 @@ export class ControllerClient {
         `[${ControllerClient.LOG_PREFIX}]: GET ${url} returned ${response.status} ${response.statusText}`,
       );
       if (response.status === 403) {
-        throw new Error('Insufficient privileges. Please contact your administrator.');
+        throw new Error(
+          'Insufficient privileges. Please contact your administrator.',
+        );
       }
-      throw new Error(`GET ${url} failed: ${response.status} ${response.statusText}`);
+      throw new Error(
+        `GET ${url} failed: ${response.status} ${response.statusText}`,
+      );
     }
 
     return (await response.json()) as T;
@@ -110,9 +112,7 @@ export class ControllerClient {
   ): Promise<T> {
     const normalizedEndpoint = endpoint.replace(/^\/+/, '');
     const url = `${this.baseUrl}/${normalizedEndpoint}`;
-    this.logger.info(
-      `[${ControllerClient.LOG_PREFIX}]: POST ${url}`,
-    );
+    this.logger.info(`[${ControllerClient.LOG_PREFIX}]: POST ${url}`);
 
     let response;
     try {
@@ -145,9 +145,13 @@ export class ControllerClient {
         `[${ControllerClient.LOG_PREFIX}]: POST ${url} returned ${response.status}: ${errorDetail}`,
       );
       if (response.status === 403) {
-        throw new Error('Insufficient privileges. Please contact your administrator.');
+        throw new Error(
+          'Insufficient privileges. Please contact your administrator.',
+        );
       }
-      throw new Error(`POST ${url} failed: ${response.status} ${response.statusText}`);
+      throw new Error(
+        `POST ${url} failed: ${response.status} ${response.statusText}`,
+      );
     }
 
     return (await response.json()) as T;
@@ -158,13 +162,19 @@ export class ControllerClient {
     token?: string,
     maxPages: number = 50,
   ): Promise<T[]> {
-    const first = await this.executeGetRequest<PaginatedResponse<T>>(endpoint, token);
+    const first = await this.executeGetRequest<PaginatedResponse<T>>(
+      endpoint,
+      token,
+    );
     const results = [...first.results];
     let nextUrl = first.next;
     let page = 1;
     while (nextUrl && results.length < first.count && page < maxPages) {
       const relative = nextUrl.replace(this.baseUrl, '').replace(/^\/+/, '');
-      const resp = await this.executeGetRequest<PaginatedResponse<T>>(relative, token);
+      const resp = await this.executeGetRequest<PaginatedResponse<T>>(
+        relative,
+        token,
+      );
       results.push(...resp.results);
       nextUrl = resp.next;
       page++;
@@ -182,7 +192,9 @@ export class ControllerClient {
   async listWorkflowJobTemplates(
     nameFilter?: string,
     token?: string,
-  ): Promise<PaginatedResponse<{ id: number; name: string; description: string }>> {
+  ): Promise<
+    PaginatedResponse<{ id: number; name: string; description: string }>
+  > {
     const query = nameFilter
       ? `?name__icontains=${encodeURIComponent(nameFilter)}`
       : '';
@@ -210,7 +222,7 @@ export class ControllerClient {
     if (jobTags) {
       body.job_tags = jobTags;
     }
-    if (inventoryId != null) {
+    if (inventoryId !== null && inventoryId !== undefined) {
       body.inventory = inventoryId;
     }
     return this.executePostRequest(
@@ -223,7 +235,9 @@ export class ControllerClient {
   async listJobTemplates(
     nameFilter?: string,
     token?: string,
-  ): Promise<PaginatedResponse<{ id: number; name: string; description: string }>> {
+  ): Promise<
+    PaginatedResponse<{ id: number; name: string; description: string }>
+  > {
     const query = nameFilter
       ? `?name__icontains=${encodeURIComponent(nameFilter)}&page_size=10`
       : '?page_size=50';
@@ -236,7 +250,13 @@ export class ControllerClient {
   async getJobTemplateDetail(
     templateId: number,
     token?: string,
-  ): Promise<{ id: number; name: string; description: string; extra_vars: string; execution_environment: number | null }> {
+  ): Promise<{
+    id: number;
+    name: string;
+    description: string;
+    extra_vars: string;
+    execution_environment: number | null;
+  }> {
     return this.executeGetRequest(
       `api/controller/v2/job_templates/${templateId}/`,
       token,
@@ -283,8 +303,14 @@ export class ControllerClient {
 
   // ─── Workflow Jobs ──────────────────────────────────────────────────
 
-  async getWorkflowJobStatus(jobId: number, token?: string): Promise<WorkflowJobStatus> {
-    return this.executeGetRequest(`api/controller/v2/workflow_jobs/${jobId}/`, token);
+  async getWorkflowJobStatus(
+    jobId: number,
+    token?: string,
+  ): Promise<WorkflowJobStatus> {
+    return this.executeGetRequest(
+      `api/controller/v2/workflow_jobs/${jobId}/`,
+      token,
+    );
   }
 
   async getWorkflowNodes(
@@ -299,7 +325,10 @@ export class ControllerClient {
 
   // ─── Jobs ───────────────────────────────────────────────────────────
 
-  async getJobStatus(jobId: number, token?: string): Promise<{
+  async getJobStatus(
+    jobId: number,
+    token?: string,
+  ): Promise<{
     id: number;
     status: string;
     finished: string | null;
@@ -367,7 +396,10 @@ export class ControllerClient {
     return { count: results.length, next: null, previous: null, results };
   }
 
-  async getJobStdout(jobId: number, token?: string): Promise<{ content: string }> {
+  async getJobStdout(
+    jobId: number,
+    token?: string,
+  ): Promise<{ content: string }> {
     return this.executeGetRequest(
       `api/controller/v2/jobs/${jobId}/stdout/?format=json`,
       token,
@@ -376,7 +408,9 @@ export class ControllerClient {
 
   // ─── Inventories & Execution Environments ───────────────────────────
 
-  async listInventories(token?: string): Promise<
+  async listInventories(
+    token?: string,
+  ): Promise<
     PaginatedResponse<{ id: number; name: string; total_hosts: number }>
   > {
     return this.executeGetRequest(
@@ -385,9 +419,9 @@ export class ControllerClient {
     );
   }
 
-  async listExecutionEnvironments(token?: string): Promise<
-    PaginatedResponse<{ id: number; name: string; image: string }>
-  > {
+  async listExecutionEnvironments(
+    token?: string,
+  ): Promise<PaginatedResponse<{ id: number; name: string; image: string }>> {
     return this.executeGetRequest(
       'api/controller/v2/execution_environments/?order_by=name&page_size=200',
       token,
@@ -408,7 +442,14 @@ export class ControllerClient {
   async getInventoryHostFacts(
     inventoryId: number,
     token?: string,
-  ): Promise<Array<{ hostname: string; ansible_os_family?: string; ansible_distribution_major_version?: string; device_type?: string }>> {
+  ): Promise<
+    Array<{
+      hostname: string;
+      ansible_os_family?: string;
+      ansible_distribution_major_version?: string;
+      device_type?: string;
+    }>
+  > {
     const hosts = await this.fetchAllPages<{ id: number; name: string }>(
       `api/controller/v2/inventories/${inventoryId}/hosts/?page_size=200`,
       token,
@@ -424,7 +465,8 @@ export class ControllerClient {
           return {
             hostname: host.name,
             ansible_os_family: facts.ansible_os_family as string | undefined,
-            ansible_distribution_major_version: facts.ansible_distribution_major_version as string | undefined,
+            ansible_distribution_major_version:
+              facts.ansible_distribution_major_version as string | undefined,
             device_type: facts.device_type as string | undefined,
           };
         } catch {

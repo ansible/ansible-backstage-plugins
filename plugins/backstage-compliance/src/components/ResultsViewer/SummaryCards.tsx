@@ -50,21 +50,46 @@ export const SummaryCards = ({
 }: SummaryCardsProps) => {
   const classes = useStyles();
 
-  const displayRate = isBaselineView && baselineRate !== undefined ? baselineRate : overallPassRate;
+  const displayRate =
+    isBaselineView && baselineRate !== undefined
+      ? baselineRate
+      : overallPassRate;
 
   return (
     <div className={classes.summarySection}>
       <InfoCard>
         <div className={classes.summaryCard}>
-          <Typography className={classes.summaryValue} style={{ color: getColor(displayRate) }}>
+          <Typography
+            className={classes.summaryValue}
+            style={{ color: getColor(displayRate) }}
+          >
             {displayRate}%
           </Typography>
-          <Typography className={classes.summaryLabel} style={{ textTransform: 'capitalize' }}>
-            {isBaselineView ? `Baseline ${displayConfig?.gaugeLabel ?? 'compliance'}` : `Overall ${displayConfig?.gaugeLabel ?? 'compliance'}`}
+          <Typography
+            className={classes.summaryLabel}
+            style={{ textTransform: 'capitalize' }}
+          >
+            {isBaselineView
+              ? `Baseline ${displayConfig?.gaugeLabel ?? 'compliance'}`
+              : `Overall ${displayConfig?.gaugeLabel ?? 'compliance'}`}
           </Typography>
           {baselineRate !== undefined && (
-            <Typography variant="caption" style={{ display: 'block', marginTop: 4, fontWeight: 600, color: getColor(isBaselineView ? (standardRate ?? overallPassRate) : baselineRate!) }}>
-              {isBaselineView ? `Standard: ${standardRate ?? overallPassRate}%` : `Baseline: ${baselineRate}%`}
+            <Typography
+              variant="caption"
+              style={{
+                display: 'block',
+                marginTop: 4,
+                fontWeight: 600,
+                color: getColor(
+                  isBaselineView
+                    ? standardRate ?? overallPassRate
+                    : baselineRate!,
+                ),
+              }}
+            >
+              {isBaselineView
+                ? `Standard: ${standardRate ?? overallPassRate}%`
+                : `Baseline: ${baselineRate}%`}
             </Typography>
           )}
         </div>
@@ -72,23 +97,34 @@ export const SummaryCards = ({
       <InfoCard>
         <div className={classes.summaryCard}>
           <Typography className={classes.summaryValue}>{totalHosts}</Typography>
-          <Typography className={classes.summaryLabel}>Hosts Scanned</Typography>
+          <Typography className={classes.summaryLabel}>
+            Hosts Scanned
+          </Typography>
         </div>
       </InfoCard>
       <InfoCard>
         <div className={classes.summaryCard}>
           <Typography className={classes.summaryValue}>{totalRules}</Typography>
-          <Typography className={classes.summaryLabel} style={{ textTransform: 'capitalize' }}>
+          <Typography
+            className={classes.summaryLabel}
+            style={{ textTransform: 'capitalize' }}
+          >
             {displayConfig?.gaugeUnit ?? 'Rules'} Evaluated
           </Typography>
         </div>
       </InfoCard>
       <InfoCard>
         <div className={classes.summaryCard}>
-          <Typography className={classes.summaryValue} style={{ color: STATUS_COLORS.error }}>
+          <Typography
+            className={classes.summaryValue}
+            style={{ color: STATUS_COLORS.error }}
+          >
             {rulesWithFailures}
           </Typography>
-          <Typography className={classes.summaryLabel} style={{ textTransform: 'capitalize' }}>
+          <Typography
+            className={classes.summaryLabel}
+            style={{ textTransform: 'capitalize' }}
+          >
             {displayConfig?.gaugeUnit ?? 'Rules'} with Failures
           </Typography>
         </div>

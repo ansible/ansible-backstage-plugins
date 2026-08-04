@@ -1,4 +1,4 @@
-import React from 'react';
+import type { ReactNode } from 'react';
 import '@testing-library/jest-dom';
 import { screen, waitFor, fireEvent } from '@testing-library/react';
 import { renderInTestApp, TestApiProvider } from '@backstage/test-utils';
@@ -8,14 +8,14 @@ import { ProfileSettings } from './ProfileSettings';
 // Mock permission module — default to admin allowed
 jest.mock('@backstage/plugin-permission-react', () => ({
   usePermission: () => ({ allowed: true, loading: false }),
-  RequirePermission: ({ children }: { children: React.ReactNode }) => (
-    <>{children}</>
-  ),
+  RequirePermission: ({ children }: { children: ReactNode }) => <>{children}</>,
 }));
 
 function createMockApi(overrides: Partial<Record<string, jest.Mock>> = {}) {
   return {
-    getHealth: jest.fn().mockResolvedValue({ status: 'ok', dataSource: 'mock' }),
+    getHealth: jest
+      .fn()
+      .mockResolvedValue({ status: 'ok', dataSource: 'mock' }),
     getProfiles: jest.fn().mockResolvedValue([]),
     getRegisteredProfiles: jest.fn().mockResolvedValue([]),
     getScans: jest.fn().mockResolvedValue([]),
@@ -23,17 +23,53 @@ function createMockApi(overrides: Partial<Record<string, jest.Mock>> = {}) {
     getInventories: jest.fn().mockResolvedValue([]),
     getFindings: jest.fn().mockResolvedValue([]),
     getWorkflowTemplates: jest.fn().mockResolvedValue([]),
-    validateScan: jest.fn().mockResolvedValue({ valid: true, matchedHosts: [], mismatchedHosts: [], factsAvailable: true }),
-    launchScan: jest.fn().mockResolvedValue({ scanId: 'scan-1', workflowJobId: 1, status: 'pending' }),
-    getWorkflowStatus: jest.fn().mockResolvedValue({ id: 1, status: 'successful', finished: null, failed: false, elapsed: 0, name: '' }),
+    validateScan: jest.fn().mockResolvedValue({
+      valid: true,
+      matchedHosts: [],
+      mismatchedHosts: [],
+      factsAvailable: true,
+    }),
+    launchScan: jest.fn().mockResolvedValue({
+      scanId: 'scan-1',
+      workflowJobId: 1,
+      status: 'pending',
+    }),
+    getWorkflowStatus: jest.fn().mockResolvedValue({
+      id: 1,
+      status: 'successful',
+      finished: null,
+      failed: false,
+      elapsed: 0,
+      name: '',
+    }),
     getWorkflowNodes: jest.fn().mockResolvedValue([]),
     getJobEvents: jest.fn().mockResolvedValue([]),
-    launchRemediation: jest.fn().mockResolvedValue({ remediationId: 'r1', workflowJobId: 2, status: 'pending' }),
-    getDashboardStats: jest.fn().mockResolvedValue({ hostsScanned: 0, criticalFindings: 0, pendingRemediation: 0, activeProfiles: 0, recentScans: [], frameworkScores: [] }),
+    launchRemediation: jest.fn().mockResolvedValue({
+      remediationId: 'r1',
+      workflowJobId: 2,
+      status: 'pending',
+    }),
+    getDashboardStats: jest.fn().mockResolvedValue({
+      hostsScanned: 0,
+      criticalFindings: 0,
+      pendingRemediation: 0,
+      activeProfiles: 0,
+      recentScans: [],
+      frameworkScores: [],
+    }),
     getPostureHistory: jest.fn().mockResolvedValue([]),
     getRemediationProfiles: jest.fn().mockResolvedValue([]),
     getRemediationProfile: jest.fn().mockResolvedValue(null),
-    saveRemediationProfile: jest.fn().mockResolvedValue({ id: '1', name: 'test', description: '', complianceProfileId: '', targetInventory: '', selections: [], createdAt: '', updatedAt: '' }),
+    saveRemediationProfile: jest.fn().mockResolvedValue({
+      id: '1',
+      name: 'test',
+      description: '',
+      complianceProfileId: '',
+      targetInventory: '',
+      selections: [],
+      createdAt: '',
+      updatedAt: '',
+    }),
     saveRegisteredProfile: jest.fn().mockResolvedValue({}),
     deleteRegisteredProfile: jest.fn().mockResolvedValue(undefined),
     getControllerWorkflowTemplates: jest.fn().mockResolvedValue([]),
@@ -83,9 +119,7 @@ describe('ProfileSettings', () => {
     await renderWithApi();
 
     await waitFor(() => {
-      expect(
-        screen.getByText('Add Compliance Profile'),
-      ).toBeInTheDocument();
+      expect(screen.getByText('Add Compliance Profile')).toBeInTheDocument();
     });
   });
 
@@ -166,7 +200,9 @@ describe('ProfileSettings', () => {
     await renderWithApi(mockApi);
 
     await waitFor(() => {
-      expect(screen.getByLabelText('edit compliance profile')).toBeInTheDocument();
+      expect(
+        screen.getByLabelText('edit compliance profile'),
+      ).toBeInTheDocument();
     });
   });
 
@@ -194,7 +230,9 @@ describe('ProfileSettings', () => {
     await renderWithApi(mockApi);
 
     await waitFor(() => {
-      expect(screen.getByLabelText('edit compliance profile')).toBeInTheDocument();
+      expect(
+        screen.getByLabelText('edit compliance profile'),
+      ).toBeInTheDocument();
     });
 
     fireEvent.click(screen.getByLabelText('edit compliance profile'));
@@ -204,7 +242,9 @@ describe('ProfileSettings', () => {
       expect(screen.getByDisplayValue('STIG for RHEL 9')).toBeInTheDocument();
       expect(screen.getByDisplayValue('DoD profile')).toBeInTheDocument();
       expect(screen.getByDisplayValue('V2R8')).toBeInTheDocument();
-      expect(screen.getByDisplayValue('/usr/share/ssg/rhel9.yml')).toBeInTheDocument();
+      expect(
+        screen.getByDisplayValue('/usr/share/ssg/rhel9.yml'),
+      ).toBeInTheDocument();
     });
   });
 
@@ -234,7 +274,9 @@ describe('ProfileSettings', () => {
     await renderWithApi(mockApi);
 
     await waitFor(() => {
-      expect(screen.getByLabelText('edit compliance profile')).toBeInTheDocument();
+      expect(
+        screen.getByLabelText('edit compliance profile'),
+      ).toBeInTheDocument();
     });
 
     fireEvent.click(screen.getByLabelText('edit compliance profile'));

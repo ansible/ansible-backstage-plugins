@@ -74,7 +74,12 @@ export type FindingState = 'new' | 'active' | 'fixed' | 'resurfaced';
 export type RemediationProfileStatus = 'draft' | 'saved' | 'archived';
 
 /** Remediation execution status — system-derived from Controller job state (ADR-014 §2). */
-export type RemediationExecutionStatus = 'pending' | 'running' | 'succeeded' | 'failed' | 'cancelled';
+export type RemediationExecutionStatus =
+  | 'pending'
+  | 'running'
+  | 'succeeded'
+  | 'failed'
+  | 'cancelled';
 
 /** A remediation execution record — one row per launch (ADR-014 §1). */
 export interface RemediationExecution {
@@ -217,7 +222,10 @@ export interface ComplianceScan {
   startedAt: string;
   completedAt: string | null;
   errorDetails: string | null;
-  scanMetadata?: { totalPackages?: number; totalVulnerabilities?: number } | null;
+  scanMetadata?: {
+    totalPackages?: number;
+    totalVulnerabilities?: number;
+  } | null;
 }
 
 /** A scan artifact stored in PAH as an OCI artifact (ADR-032). */

@@ -1,4 +1,5 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo } from 'react';
+import type { FC } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { InfoCard } from '@backstage/core-components';
 import { useApi } from '@backstage/core-plugin-api';
@@ -87,7 +88,7 @@ const useStyles = makeStyles(theme => ({
   },
 }));
 
-export const InventoriesList: React.FC = () => {
+export const InventoriesList: FC = () => {
   const classes = useStyles();
   const navigate = useNavigate();
   const api = useApi(complianceApiRef);
@@ -95,9 +96,13 @@ export const InventoriesList: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [profileFilter, setProfileFilter] = useState<string>('');
   useEffect(() => {
-    api.getDashboardStats()
+    api
+      .getDashboardStats()
       .then(setStats)
-      .catch(err => { console.error('Failed to load inventories:', err); })
+      .catch(err => {
+        // eslint-disable-next-line no-console
+        console.error('Failed to load inventories:', err);
+      })
       .finally(() => setLoading(false));
   }, [api]);
 
@@ -126,7 +131,13 @@ export const InventoriesList: React.FC = () => {
     return (
       <InfoCard title="Inventories">
         <div className={classes.empty}>
-          <StorageIcon style={{ fontSize: 64, color: STATUS_COLORS.neutral, marginBottom: 16 }} />
+          <StorageIcon
+            style={{
+              fontSize: 64,
+              color: STATUS_COLORS.neutral,
+              marginBottom: 16,
+            }}
+          />
           <Typography variant="h6" color="textSecondary" gutterBottom>
             No inventories with scan data
           </Typography>
@@ -142,12 +153,17 @@ export const InventoriesList: React.FC = () => {
     <InfoCard title="Inventories">
       <div className={classes.headerRow}>
         <Typography variant="body2" color="textSecondary">
-          Inventories with compliance scan data. Click to see per-host compliance.
+          Inventories with compliance scan data. Click to see per-host
+          compliance.
         </Typography>
       </div>
 
       <div className={classes.filterRow}>
-        <FormControl variant="outlined" size="small" className={classes.profileFilter}>
+        <FormControl
+          variant="outlined"
+          size="small"
+          className={classes.profileFilter}
+        >
           <InputLabel id="inv-profile-filter">Profile</InputLabel>
           <Select
             labelId="inv-profile-filter"
@@ -157,7 +173,9 @@ export const InventoriesList: React.FC = () => {
           >
             <MenuItem value="">All Profiles</MenuItem>
             {Array.from(profileNames.entries()).map(([id, name]) => (
-              <MenuItem key={id} value={id}>{name}</MenuItem>
+              <MenuItem key={id} value={id}>
+                {name}
+              </MenuItem>
             ))}
           </Select>
         </FormControl>
@@ -173,8 +191,12 @@ export const InventoriesList: React.FC = () => {
               <TableCell style={TABLE_STYLES.header}>Inventory</TableCell>
               <TableCell style={TABLE_STYLES.header}>Active Scans</TableCell>
               <TableCell style={TABLE_STYLES.header}>Baseline</TableCell>
-              <TableCell style={TABLE_STYLES.header}>Baseline Compliance</TableCell>
-              <TableCell style={TABLE_STYLES.header}>Standard Compliance</TableCell>
+              <TableCell style={TABLE_STYLES.header}>
+                Baseline Compliance
+              </TableCell>
+              <TableCell style={TABLE_STYLES.header}>
+                Standard Compliance
+              </TableCell>
             </TableRow>
           </TableHead>
           <TableBody>
@@ -183,23 +205,42 @@ export const InventoriesList: React.FC = () => {
               return inv.profileScores.map((ps, idx) => {
                 const isFirst = idx === 0;
                 const isLast = idx === count - 1;
-                const cellClass = `${classes.profileCell} ${isLast ? classes.groupBorder : ''}`;
+                const cellClass = `${classes.profileCell} ${
+                  isLast ? classes.groupBorder : ''
+                }`;
                 return (
                   <TableRow
                     key={`${inv.inventoryId}-${ps.profileId}`}
                     className={classes.profileRow}
                     hover
-                    onClick={() => navigate(`/compliance/inventories/${inv.inventoryId}?profile=${ps.scanTags || ps.profileId}`)}
+                    onClick={() =>
+                      navigate(
+                        `/compliance/inventories/${inv.inventoryId}?profile=${
+                          ps.scanTags || ps.profileId
+                        }`,
+                      )
+                    }
                   >
                     {isFirst && (
-                      <TableCell rowSpan={count} className={classes.inventoryCell}>
-                        <Typography variant="body2" className={classes.nameCell}>
+                      <TableCell
+                        rowSpan={count}
+                        className={classes.inventoryCell}
+                      >
+                        <Typography
+                          variant="body2"
+                          className={classes.nameCell}
+                        >
                           {inv.inventoryName}
                         </Typography>
                       </TableCell>
                     )}
                     <TableCell className={cellClass}>
-                      <Chip label={ps.name} size="small" variant="outlined" className={classes.profileChip} />
+                      <Chip
+                        label={ps.name}
+                        size="small"
+                        variant="outlined"
+                        className={classes.profileChip}
+                      />
                     </TableCell>
                     <TableCell className={cellClass}>
                       {ps.baseline ? (
@@ -217,7 +258,10 @@ export const InventoriesList: React.FC = () => {
                           label={`${ps.baseline.rate}%`}
                           size="small"
                           className={classes.scoreChip}
-                          style={{ backgroundColor: scoreColor(ps.baseline.rate), color: '#fff' }}
+                          style={{
+                            backgroundColor: scoreColor(ps.baseline.rate),
+                            color: '#fff',
+                          }}
                         />
                       ) : null}
                     </TableCell>
@@ -226,7 +270,10 @@ export const InventoriesList: React.FC = () => {
                         label={`${ps.rate}%`}
                         size="small"
                         className={classes.scoreChip}
-                        style={{ backgroundColor: scoreColor(ps.rate), color: '#fff' }}
+                        style={{
+                          backgroundColor: scoreColor(ps.rate),
+                          color: '#fff',
+                        }}
                       />
                     </TableCell>
                   </TableRow>

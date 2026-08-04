@@ -33,26 +33,41 @@ export function registerProfileRoutes(
   });
 
   router.post('/compliance-profiles', async (req, res) => {
-    if (!await requirePermission(req, res, httpAuth, permissions)) return;
+    if (!(await requirePermission(req, res, httpAuth, permissions))) return;
 
     const body = req.body;
 
     if (!isNonEmptyString(body.displayName)) {
-      res.status(400).json({ error: 'displayName is required and must be a non-empty string' });
+      res.status(400).json({
+        error: 'displayName is required and must be a non-empty string',
+      });
       return;
     }
     if (!isNonEmptyString(body.framework)) {
-      res.status(400).json({ error: 'framework is required and must be a non-empty string' });
+      res.status(400).json({
+        error: 'framework is required and must be a non-empty string',
+      });
       return;
     }
-    if (body.workflowTemplateId !== undefined && body.workflowTemplateId !== null && !isPositiveInteger(body.workflowTemplateId)) {
-      res.status(400).json({ error: 'workflowTemplateId must be a positive integer when provided' });
+    if (
+      body.workflowTemplateId !== undefined &&
+      body.workflowTemplateId !== null &&
+      !isPositiveInteger(body.workflowTemplateId)
+    ) {
+      res.status(400).json({
+        error: 'workflowTemplateId must be a positive integer when provided',
+      });
       return;
     }
 
     if (body.platformSpec !== undefined && body.platformSpec !== null) {
-      if (typeof body.platformSpec !== 'object' || Array.isArray(body.platformSpec)) {
-        res.status(400).json({ error: 'platformSpec must be an object when provided' });
+      if (
+        typeof body.platformSpec !== 'object' ||
+        Array.isArray(body.platformSpec)
+      ) {
+        res
+          .status(400)
+          .json({ error: 'platformSpec must be an object when provided' });
         return;
       }
     }
@@ -86,7 +101,7 @@ export function registerProfileRoutes(
   });
 
   router.delete('/compliance-profiles/:id', async (req, res) => {
-    if (!await requirePermission(req, res, httpAuth, permissions)) return;
+    if (!(await requirePermission(req, res, httpAuth, permissions))) return;
 
     const { id } = req.params;
     try {
@@ -106,7 +121,7 @@ export function registerProfileRoutes(
   // ─── Profile lifecycle ────────────────────────────────────────────
 
   router.post('/compliance-profiles/connect', async (req, res) => {
-    if (!await requirePermission(req, res, httpAuth, permissions)) return;
+    if (!(await requirePermission(req, res, httpAuth, permissions))) return;
 
     const { framework, version, displayName, slug } = req.body;
     if (!isNonEmptyString(framework)) {
@@ -114,9 +129,16 @@ export function registerProfileRoutes(
       return;
     }
     try {
-      const profile = await database.connectProfile(framework, version ?? '', displayName, slug);
+      const profile = await database.connectProfile(
+        framework,
+        version ?? '',
+        displayName,
+        slug,
+      );
       if (!profile) {
-        res.status(404).json({ error: `No profile with framework '${framework}' found to reconnect` });
+        res.status(404).json({
+          error: `No profile with framework '${framework}' found to reconnect`,
+        });
         return;
       }
       res.json(profile);
@@ -128,7 +150,7 @@ export function registerProfileRoutes(
   });
 
   router.post('/compliance-profiles/disconnect', async (req, res) => {
-    if (!await requirePermission(req, res, httpAuth, permissions)) return;
+    if (!(await requirePermission(req, res, httpAuth, permissions))) return;
 
     const { profileId, framework, slug } = req.body;
     try {
@@ -138,10 +160,14 @@ export function registerProfileRoutes(
       } else if (isNonEmptyString(slug)) {
         success = await database.disconnectProfileBySlug(slug);
       } else if (isNonEmptyString(framework)) {
-        logger.warn('disconnect-by-framework is deprecated — use profileId or slug');
+        logger.warn(
+          'disconnect-by-framework is deprecated — use profileId or slug',
+        );
         success = await database.disconnectProfileByFramework(framework);
       } else {
-        res.status(400).json({ error: 'profileId, slug, or framework is required' });
+        res
+          .status(400)
+          .json({ error: 'profileId, slug, or framework is required' });
         return;
       }
       if (!success) {
@@ -161,7 +187,7 @@ export function registerProfileRoutes(
   const MAX_BUNDLE_SIZE = 5 * 1024 * 1024; // 5 MB
 
   router.put('/compliance-profiles/:id/bundle', async (req, res) => {
-    if (!await requirePermission(req, res, httpAuth, permissions)) return;
+    if (!(await requirePermission(req, res, httpAuth, permissions))) return;
 
     const { id } = req.params;
     const profile = await database.getProfile(id);
@@ -172,17 +198,28 @@ export function registerProfileRoutes(
 
     try {
       const contentType = req.headers['content-type'] ?? '';
-      const allowedTypes = ['application/javascript', 'text/javascript', 'application/json'];
+      const allowedTypes = [
+        'application/javascript',
+        'text/javascript',
+        'application/json',
+      ];
       if (!allowedTypes.some(t => contentType.includes(t))) {
-        res.status(415).json({ error: `Unsupported content type: ${contentType}. Use application/javascript or application/json.` });
+        res.status(415).json({
+          error: `Unsupported content type: ${contentType}. Use application/javascript or application/json.`,
+        });
         return;
       }
 
-      const bundleData = typeof req.body === 'string' ? req.body : JSON.stringify(req.body);
+      const bundleData =
+        typeof req.body === 'string' ? req.body : JSON.stringify(req.body);
       const size = Buffer.byteLength(bundleData, 'utf8');
 
       if (size > MAX_BUNDLE_SIZE) {
-        res.status(413).json({ error: `Bundle exceeds maximum size of ${MAX_BUNDLE_SIZE / 1024 / 1024}MB` });
+        res.status(413).json({
+          error: `Bundle exceeds maximum size of ${
+            MAX_BUNDLE_SIZE / 1024 / 1024
+          }MB`,
+        });
         return;
       }
 
@@ -219,7 +256,7 @@ export function registerProfileRoutes(
   });
 
   router.delete('/compliance-profiles/:id/bundle', async (req, res) => {
-    if (!await requirePermission(req, res, httpAuth, permissions)) return;
+    if (!(await requirePermission(req, res, httpAuth, permissions))) return;
 
     const { id } = req.params;
     try {

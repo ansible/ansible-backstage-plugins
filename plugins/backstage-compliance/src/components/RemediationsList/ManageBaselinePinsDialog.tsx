@@ -1,4 +1,5 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
+import type { FC } from 'react';
 import {
   Dialog,
   DialogTitle,
@@ -56,7 +57,7 @@ interface ManageBaselinePinsDialogProps {
   onChanged: () => void;
 }
 
-export const ManageBaselinePinsDialog: React.FC<ManageBaselinePinsDialogProps> = ({
+export const ManageBaselinePinsDialog: FC<ManageBaselinePinsDialogProps> = ({
   open,
   onClose,
   remediationProfileId,
@@ -70,19 +71,26 @@ export const ManageBaselinePinsDialog: React.FC<ManageBaselinePinsDialogProps> =
   const classes = useStyles();
   const api = useApi(complianceApiRef);
   const alertApi = useApi(alertApiRef);
-  const [inventories, setInventories] = useState<Array<{ id: number; name: string; hostCount: number }>>([]);
+  const [inventories, setInventories] = useState<
+    Array<{ id: number; name: string; hostCount: number }>
+  >([]);
   const [loading, setLoading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
 
-  const pinsForThisProfile = currentPins.filter(bt => bt.remediationProfileId === remediationProfileId);
-  const initialPinnedIds = new Set(pinsForThisProfile.map(bt => bt.inventoryId));
+  const pinsForThisProfile = currentPins.filter(
+    bt => bt.remediationProfileId === remediationProfileId,
+  );
+  const initialPinnedIds = new Set(
+    pinsForThisProfile.map(bt => bt.inventoryId),
+  );
 
   useEffect(() => {
     if (!open) return;
     setLoading(true);
     setSelectedIds(new Set(pinsForThisProfile.map(bt => bt.inventoryId)));
-    api.getInventories()
+    api
+      .getInventories()
       .then(setInventories)
       .catch(() => setInventories([]))
       .finally(() => setLoading(false));
@@ -112,7 +120,9 @@ export const ManageBaselinePinsDialog: React.FC<ManageBaselinePinsDialogProps> =
     setSubmitting(true);
     try {
       const toPin = [...selectedIds].filter(id => !initialPinnedIds.has(id));
-      const toUnpin = pinsForThisProfile.filter(bt => !selectedIds.has(bt.inventoryId));
+      const toUnpin = pinsForThisProfile.filter(
+        bt => !selectedIds.has(bt.inventoryId),
+      );
 
       for (const bt of toUnpin) {
         await api.unpinBaselineTarget(bt.id);
@@ -129,7 +139,10 @@ export const ManageBaselinePinsDialog: React.FC<ManageBaselinePinsDialogProps> =
       onChanged();
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
-      alertApi.post({ message: `Failed to update baseline pins: ${msg}`, severity: 'error' });
+      alertApi.post({
+        message: `Failed to update baseline pins: ${msg}`,
+        severity: 'error',
+      });
     } finally {
       setSubmitting(false);
     }
@@ -140,59 +153,99 @@ export const ManageBaselinePinsDialog: React.FC<ManageBaselinePinsDialogProps> =
       <DialogTitle>Manage Baseline Pins</DialogTitle>
       <DialogContent>
         <Typography className={classes.helperText}>
-          Select which inventories should use <strong>{remediationProfileName}</strong> ({ruleCount} rules)
-          as their baseline for {complianceProfileName}. The dashboard will track progress against this
-          curated rule set for each pinned inventory.
+          Select which inventories should use{' '}
+          <strong>{remediationProfileName}</strong> ({ruleCount} rules) as their
+          baseline for {complianceProfileName}. The dashboard will track
+          progress against this curated rule set for each pinned inventory.
         </Typography>
 
-        {loading ? (
-          <Box display="flex" justifyContent="center" py={3}>
-            <CircularProgress size={32} />
-          </Box>
-        ) : inventories.length === 0 ? (
-          <Typography color="textSecondary" style={{ textAlign: 'center', padding: 16 }}>
-            No inventories found.
-          </Typography>
-        ) : (
-          <Box>
-            {inventories.map(inv => {
-              const isPinned = selectedIds.has(inv.id);
-              const wasPinned = initialPinnedIds.has(inv.id);
-              return (
-                <div key={inv.id} className={classes.inventoryRow}>
-                  <FormControlLabel
-                    control={
-                      <Checkbox
-                        checked={isPinned}
-                        onChange={() => handleToggle(inv.id)}
-                        color="primary"
+        {(() => {
+          if (loading) {
+            return (
+              <Box display="flex" justifyContent="center" py={3}>
+                <CircularProgress size={32} />
+              </Box>
+            );
+          }
+          if (inventories.length === 0) {
+            return (
+              <Typography
+                color="textSecondary"
+                style={{ textAlign: 'center', padding: 16 }}
+              >
+                No inventories found.
+              </Typography>
+            );
+          }
+          return (
+            <Box>
+              {inventories.map(inv => {
+                const isPinned = selectedIds.has(inv.id);
+                const wasPinned = initialPinnedIds.has(inv.id);
+                return (
+                  <div key={inv.id} className={classes.inventoryRow}>
+                    <FormControlLabel
+                      control={
+                        <Checkbox
+                          checked={isPinned}
+                          onChange={() => handleToggle(inv.id)}
+                          color="primary"
+                          size="small"
+                        />
+                      }
+                      label={
+                        <Box display="flex" alignItems="center">
+                          <Typography variant="body2">{inv.name}</Typography>
+                          <Typography className={classes.hostCount}>
+                            ({inv.hostCount} hosts)
+                          </Typography>
+                        </Box>
+                      }
+                    />
+                    {wasPinned && isPinned && (
+                      <Chip
+                        label="pinned"
                         size="small"
+                        className={classes.pinnedChip}
+                        style={{
+                          backgroundColor: EXECUTION_COLORS.succeeded.bg,
+                          color: EXECUTION_COLORS.succeeded.fg,
+                        }}
                       />
-                    }
-                    label={
-                      <Box display="flex" alignItems="center">
-                        <Typography variant="body2">{inv.name}</Typography>
-                        <Typography className={classes.hostCount}>({inv.hostCount} hosts)</Typography>
-                      </Box>
-                    }
-                  />
-                  {wasPinned && isPinned && (
-                    <Chip label="pinned" size="small" className={classes.pinnedChip} style={{ backgroundColor: EXECUTION_COLORS.succeeded.bg, color: EXECUTION_COLORS.succeeded.fg }} />
-                  )}
-                  {!wasPinned && isPinned && (
-                    <Chip label="will pin" size="small" className={classes.pinnedChip} style={{ backgroundColor: EXECUTION_COLORS.running.bg, color: EXECUTION_COLORS.running.fg }} />
-                  )}
-                  {wasPinned && !isPinned && (
-                    <Chip label="will unpin" size="small" className={classes.pinnedChip} style={{ backgroundColor: EXECUTION_COLORS.pending.bg, color: EXECUTION_COLORS.pending.fg }} />
-                  )}
-                </div>
-              );
-            })}
-          </Box>
-        )}
+                    )}
+                    {!wasPinned && isPinned && (
+                      <Chip
+                        label="will pin"
+                        size="small"
+                        className={classes.pinnedChip}
+                        style={{
+                          backgroundColor: EXECUTION_COLORS.running.bg,
+                          color: EXECUTION_COLORS.running.fg,
+                        }}
+                      />
+                    )}
+                    {wasPinned && !isPinned && (
+                      <Chip
+                        label="will unpin"
+                        size="small"
+                        className={classes.pinnedChip}
+                        style={{
+                          backgroundColor: EXECUTION_COLORS.pending.bg,
+                          color: EXECUTION_COLORS.pending.fg,
+                        }}
+                      />
+                    )}
+                  </div>
+                );
+              })}
+            </Box>
+          );
+        })()}
       </DialogContent>
       <DialogActions>
-        <Button onClick={onClose} disabled={submitting}>Cancel</Button>
+        <Button onClick={onClose} disabled={submitting}>
+          Cancel
+        </Button>
         <Button
           onClick={handleApply}
           disabled={!hasChanges || submitting}

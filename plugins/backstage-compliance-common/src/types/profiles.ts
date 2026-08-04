@@ -8,7 +8,10 @@ export type ComplianceFramework =
   | 'PQC_READINESS'
   | 'CUSTOM';
 
-export const FRAMEWORK_OPTIONS: ReadonlyArray<{ value: ComplianceFramework; label: string }> = [
+export const FRAMEWORK_OPTIONS: ReadonlyArray<{
+  value: ComplianceFramework;
+  label: string;
+}> = [
   { value: 'DISA_STIG', label: 'DISA STIG' },
   { value: 'CIS', label: 'CIS Benchmark' },
   { value: 'PCI_DSS', label: 'PCI-DSS' },

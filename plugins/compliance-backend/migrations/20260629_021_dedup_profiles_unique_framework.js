@@ -1,5 +1,5 @@
-"use strict";
-Object.defineProperty(exports, "__esModule", { value: true });
+'use strict';
+Object.defineProperty(exports, '__esModule', { value: true });
 exports.up = up;
 exports.down = down;
 
@@ -18,13 +18,15 @@ async function up(knex) {
     if (rows.length <= 1) continue;
 
     const keep = rows[0];
-    const removeIds = rows.slice(1).map((r) => r.id);
+    const removeIds = rows.slice(1).map(r => r.id);
 
     await knex('compliance_scans')
       .whereIn('profile_id', removeIds)
       .update({ profile_id: keep.id });
 
-    const hasRemediationProfiles = await knex.schema.hasTable('compliance_remediation_profiles');
+    const hasRemediationProfiles = await knex.schema.hasTable(
+      'compliance_remediation_profiles',
+    );
     if (hasRemediationProfiles) {
       await knex('compliance_remediation_profiles')
         .whereIn('profile_id', removeIds)
@@ -32,7 +34,7 @@ async function up(knex) {
     }
 
     if (!keep.rule_count) {
-      const donor = rows.find((r) => r.rule_count);
+      const donor = rows.find(r => r.rule_count);
       if (donor) {
         await knex('compliance_profile_registry')
           .where('id', keep.id)
@@ -40,18 +42,16 @@ async function up(knex) {
       }
     }
 
-    await knex('compliance_profile_registry')
-      .whereIn('id', removeIds)
-      .delete();
+    await knex('compliance_profile_registry').whereIn('id', removeIds).delete();
   }
 
-  await knex.schema.alterTable('compliance_profile_registry', (table) => {
+  await knex.schema.alterTable('compliance_profile_registry', table => {
     table.unique(['framework']);
   });
 }
 
 async function down(knex) {
-  await knex.schema.alterTable('compliance_profile_registry', (table) => {
+  await knex.schema.alterTable('compliance_profile_registry', table => {
     table.dropUnique(['framework']);
   });
 }

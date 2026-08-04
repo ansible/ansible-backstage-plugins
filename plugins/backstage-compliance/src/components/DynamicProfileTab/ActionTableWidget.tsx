@@ -1,4 +1,5 @@
-import React, { useState, useMemo, useCallback } from 'react';
+import { Fragment } from 'react';
+import { useState, useMemo, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useApi } from '@backstage/core-plugin-api';
 import {
@@ -24,7 +25,10 @@ import {
 import ExpandMoreIcon from '@material-ui/icons/ExpandMore';
 import ExpandLessIcon from '@material-ui/icons/ExpandLess';
 import Alert from '@material-ui/lab/Alert';
-import type { TabWidget, ComplianceProfile } from '@ansible/backstage-compliance-common/types';
+import type {
+  TabWidget,
+  ComplianceProfile,
+} from '@ansible/backstage-compliance-common/types';
 import { complianceApiRef } from '../../api';
 import { SEVERITY_COLORS, SURFACE_COLORS } from '../shared/colors';
 import { TABLE_STYLES } from '../shared/chipStyles';
@@ -101,15 +105,23 @@ function parseEvidence(raw: unknown): Record<string, unknown> | null {
   if (!raw) return null;
   if (typeof raw === 'object') return raw as Record<string, unknown>;
   if (typeof raw === 'string') {
-    try { return JSON.parse(raw); } catch { return null; }
+    try {
+      return JSON.parse(raw);
+    } catch {
+      return null;
+    }
   }
   return null;
 }
 
-function parseFindingRows(rawFindings: Array<Record<string, unknown>>): FindingRow[] {
+function parseFindingRows(
+  rawFindings: Array<Record<string, unknown>>,
+): FindingRow[] {
   return rawFindings.map(f => {
     const ev = parseEvidence(f.evidence);
-    const fixVersions = Array.isArray(ev?.fix_versions) ? (ev.fix_versions as string[]) : [];
+    const fixVersions = Array.isArray(ev?.fix_versions)
+      ? (ev.fix_versions as string[])
+      : [];
     return {
       ruleId: String(f.ruleId ?? ''),
       stigId: String(f.stigId ?? ''),
@@ -166,12 +178,20 @@ const MAX_DISPLAY = 50;
 
 interface Props {
   config: TabWidget;
-  tabData: { findings: Array<Record<string, unknown>>; summary: { fixable: number; unfixable: number } } | null;
+  tabData: {
+    findings: Array<Record<string, unknown>>;
+    summary: { fixable: number; unfixable: number };
+  } | null;
   profile: ComplianceProfile;
   severityLabel: (key: string) => string;
 }
 
-export const ActionTableWidget = ({ config, tabData, profile, severityLabel }: Props) => {
+export const ActionTableWidget = ({
+  config,
+  tabData,
+  profile,
+  severityLabel,
+}: Props) => {
   const classes = useStyles();
   const navigate = useNavigate();
   const api = useApi(complianceApiRef);
@@ -181,13 +201,24 @@ export const ActionTableWidget = ({ config, tabData, profile, severityLabel }: P
     return groupByRule(parseFindingRows(tabData.findings));
   }, [tabData]);
 
-  const fixable = useMemo(() => grouped.filter(f => f.fixState === 'fixed' && f.fixVersions.length > 0), [grouped]);
-  const unfixable = useMemo(() => grouped.filter(f => f.fixState !== 'fixed' || f.fixVersions.length === 0), [grouped]);
+  const fixable = useMemo(
+    () =>
+      grouped.filter(f => f.fixState === 'fixed' && f.fixVersions.length > 0),
+    [grouped],
+  );
+  const unfixable = useMemo(
+    () =>
+      grouped.filter(f => f.fixState !== 'fixed' || f.fixVersions.length === 0),
+    [grouped],
+  );
 
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [patchingId, setPatchingId] = useState<string | null>(null);
-  const [snackbar, setSnackbar] = useState<{ message: string; severity: 'success' | 'error' } | null>(null);
+  const [snackbar, setSnackbar] = useState<{
+    message: string;
+    severity: 'success' | 'error';
+  } | null>(null);
 
   const displayFixable = fixable.slice(0, MAX_DISPLAY);
   const displayUnfixable = unfixable.slice(0, MAX_DISPLAY);
@@ -209,26 +240,41 @@ export const ActionTableWidget = ({ config, tabData, profile, severityLabel }: P
     }
   }, [displayFixable, selected.size]);
 
-  const handleQuickPatch = useCallback(async (finding: GroupedFinding) => {
-    setPatchingId(finding.ruleId);
-    try {
-      await api.launchRemediation({
-        profileId: profile.id,
-        inventoryId: -1,
-        selections: [{ ruleId: finding.ruleId, enabled: true, parameters: {} }],
-        limit: finding.hosts.join(','),
-      });
-      setSnackbar({ message: `Patch launched for ${finding.ruleId}`, severity: 'success' });
-    } catch (err) {
-      setSnackbar({ message: `Patch failed: ${err instanceof Error ? err.message : 'Unknown error'}`, severity: 'error' });
-    } finally {
-      setPatchingId(null);
-    }
-  }, [api, profile.id]);
+  const handleQuickPatch = useCallback(
+    async (finding: GroupedFinding) => {
+      setPatchingId(finding.ruleId);
+      try {
+        await api.launchRemediation({
+          profileId: profile.id,
+          inventoryId: -1,
+          selections: [
+            { ruleId: finding.ruleId, enabled: true, parameters: {} },
+          ],
+          limit: finding.hosts.join(','),
+        });
+        setSnackbar({
+          message: `Patch launched for ${finding.ruleId}`,
+          severity: 'success',
+        });
+      } catch (err) {
+        setSnackbar({
+          message: `Patch failed: ${
+            err instanceof Error ? err.message : 'Unknown error'
+          }`,
+          severity: 'error',
+        });
+      } finally {
+        setPatchingId(null);
+      }
+    },
+    [api, profile.id],
+  );
 
   const handleBuildRemediation = useCallback(() => {
     const preselect = Array.from(selected).join(',');
-    navigate(`/compliance/remediation-builder?profileId=${profile.id}&preselect=${preselect}`);
+    navigate(
+      `/compliance/remediation-builder?profileId=${profile.id}&preselect=${preselect}`,
+    );
   }, [navigate, profile.id, selected]);
 
   if (!tabData) return null;
@@ -247,14 +293,25 @@ export const ActionTableWidget = ({ config, tabData, profile, severityLabel }: P
 
       <Box className={classes.section}>
         <Box className={classes.sectionHeader}>
-          <Chip label={`${fixableLabel} (${tabData.summary.fixable})`} className={classes.chipFix} size="small" />
+          <Chip
+            label={`${fixableLabel} (${tabData.summary.fixable})`}
+            className={classes.chipFix}
+            size="small"
+          />
         </Box>
         {displayFixable.length > 0 ? (
           <TableContainer component={Paper} variant="outlined">
             {selected.size > 0 && (
               <Toolbar className={classes.toolbar}>
-                <Typography variant="body2">{selected.size} selected</Typography>
-                <Button variant="contained" color="primary" size="small" onClick={handleBuildRemediation}>
+                <Typography variant="body2">
+                  {selected.size} selected
+                </Typography>
+                <Button
+                  variant="contained"
+                  color="primary"
+                  size="small"
+                  onClick={handleBuildRemediation}
+                >
                   Build Remediation ({selected.size})
                 </Button>
               </Toolbar>
@@ -264,18 +321,36 @@ export const ActionTableWidget = ({ config, tabData, profile, severityLabel }: P
                 <TableRow>
                   <TableCell padding="checkbox">
                     <Checkbox
-                      checked={selected.size === displayFixable.length && displayFixable.length > 0}
-                      indeterminate={selected.size > 0 && selected.size < displayFixable.length}
+                      checked={
+                        selected.size === displayFixable.length &&
+                        displayFixable.length > 0
+                      }
+                      indeterminate={
+                        selected.size > 0 &&
+                        selected.size < displayFixable.length
+                      }
                       onChange={selectAll}
                       size="small"
                     />
                   </TableCell>
-                  <TableCell style={TABLE_STYLES.header}>{colLabels.cve ?? 'CVE'}</TableCell>
-                  <TableCell style={TABLE_STYLES.header}>{colLabels.package ?? 'Package'}</TableCell>
-                  <TableCell style={TABLE_STYLES.header}>{colLabels.installed ?? 'Installed'}</TableCell>
-                  <TableCell style={TABLE_STYLES.header}>{colLabels.fix_version ?? 'Fix Version'}</TableCell>
-                  <TableCell style={TABLE_STYLES.header}>{colLabels.severity ?? 'Severity'}</TableCell>
-                  <TableCell style={TABLE_STYLES.header} align="right">Action</TableCell>
+                  <TableCell style={TABLE_STYLES.header}>
+                    {colLabels.cve ?? 'CVE'}
+                  </TableCell>
+                  <TableCell style={TABLE_STYLES.header}>
+                    {colLabels.package ?? 'Package'}
+                  </TableCell>
+                  <TableCell style={TABLE_STYLES.header}>
+                    {colLabels.installed ?? 'Installed'}
+                  </TableCell>
+                  <TableCell style={TABLE_STYLES.header}>
+                    {colLabels.fix_version ?? 'Fix Version'}
+                  </TableCell>
+                  <TableCell style={TABLE_STYLES.header}>
+                    {colLabels.severity ?? 'Severity'}
+                  </TableCell>
+                  <TableCell style={TABLE_STYLES.header} align="right">
+                    Action
+                  </TableCell>
                   <TableCell padding="checkbox" />
                 </TableRow>
               </TableHead>
@@ -283,88 +358,200 @@ export const ActionTableWidget = ({ config, tabData, profile, severityLabel }: P
                 {displayFixable.map(f => {
                   const isExpanded = expandedId === f.ruleId;
                   return (
-                    <React.Fragment key={f.ruleId}>
+                    <Fragment key={f.ruleId}>
                       <TableRow hover>
                         <TableCell padding="checkbox">
-                          <Checkbox checked={selected.has(f.ruleId)} onChange={() => toggleSelect(f.ruleId)} size="small" />
+                          <Checkbox
+                            checked={selected.has(f.ruleId)}
+                            onChange={() => toggleSelect(f.ruleId)}
+                            size="small"
+                          />
                         </TableCell>
-                        <TableCell><Typography variant="body2" className={classes.monospace}>{f.ruleId}</Typography></TableCell>
-                        <TableCell>{f.stigId}</TableCell>
-                        <TableCell><Typography variant="body2" className={classes.monospace}>{f.installedVersion || '—'}</Typography></TableCell>
-                        <TableCell><Typography variant="body2" className={classes.monospace}>{f.fixVersions[0] ?? '—'}</Typography></TableCell>
                         <TableCell>
-                          <Chip label={severityLabel(f.severity)} size="small" style={{ backgroundColor: severityColor(f.severity), color: SURFACE_COLORS.onDark, fontWeight: 600, fontSize: '0.7rem' }} />
+                          <Typography
+                            variant="body2"
+                            className={classes.monospace}
+                          >
+                            {f.ruleId}
+                          </Typography>
+                        </TableCell>
+                        <TableCell>{f.stigId}</TableCell>
+                        <TableCell>
+                          <Typography
+                            variant="body2"
+                            className={classes.monospace}
+                          >
+                            {f.installedVersion || '—'}
+                          </Typography>
+                        </TableCell>
+                        <TableCell>
+                          <Typography
+                            variant="body2"
+                            className={classes.monospace}
+                          >
+                            {f.fixVersions[0] ?? '—'}
+                          </Typography>
+                        </TableCell>
+                        <TableCell>
+                          <Chip
+                            label={severityLabel(f.severity)}
+                            size="small"
+                            style={{
+                              backgroundColor: severityColor(f.severity),
+                              color: SURFACE_COLORS.onDark,
+                              fontWeight: 600,
+                              fontSize: '0.7rem',
+                            }}
+                          />
                         </TableCell>
                         <TableCell align="right">
-                          <Button variant="outlined" size="small" color="primary" className={classes.patchButton} disabled={patchingId === f.ruleId} onClick={() => handleQuickPatch(f)}>
+                          <Button
+                            variant="outlined"
+                            size="small"
+                            color="primary"
+                            className={classes.patchButton}
+                            disabled={patchingId === f.ruleId}
+                            onClick={() => handleQuickPatch(f)}
+                          >
                             {patchingId === f.ruleId ? 'Patching...' : 'Patch'}
                           </Button>
                         </TableCell>
                         <TableCell padding="checkbox">
-                          <IconButton size="small" onClick={() => setExpandedId(isExpanded ? null : f.ruleId)}>
-                            {isExpanded ? <ExpandLessIcon /> : <ExpandMoreIcon />}
+                          <IconButton
+                            size="small"
+                            onClick={() =>
+                              setExpandedId(isExpanded ? null : f.ruleId)
+                            }
+                          >
+                            {isExpanded ? (
+                              <ExpandLessIcon />
+                            ) : (
+                              <ExpandMoreIcon />
+                            )}
                           </IconButton>
                         </TableCell>
                       </TableRow>
                       <TableRow>
-                        <TableCell colSpan={8} style={{ padding: 0, borderBottom: isExpanded ? undefined : 'none' }}>
+                        <TableCell
+                          colSpan={8}
+                          style={{
+                            padding: 0,
+                            borderBottom: isExpanded ? undefined : 'none',
+                          }}
+                        >
                           <Collapse in={isExpanded}>
                             <Box className={classes.detailBox}>
                               {f.evidence?.cvss_score !== undefined && (
-                                <Typography variant="body2" color="textSecondary" gutterBottom>
+                                <Typography
+                                  variant="body2"
+                                  color="textSecondary"
+                                  gutterBottom
+                                >
                                   CVSS Score: {String(f.evidence.cvss_score)}
-                                  {f.evidence?.cvss_vector ? ` (${String(f.evidence.cvss_vector)})` : ''}
+                                  {f.evidence?.cvss_vector
+                                    ? ` (${String(f.evidence.cvss_vector)})`
+                                    : ''}
                                 </Typography>
                               )}
                               <Typography variant="body2" color="textSecondary">
-                                Affected hosts ({f.hosts.length}): {f.hosts.slice(0, 10).join(', ')}{f.hosts.length > 10 ? ` ... +${f.hosts.length - 10} more` : ''}
+                                Affected hosts ({f.hosts.length}):{' '}
+                                {f.hosts.slice(0, 10).join(', ')}
+                                {f.hosts.length > 10
+                                  ? ` ... +${f.hosts.length - 10} more`
+                                  : ''}
                               </Typography>
                             </Box>
                           </Collapse>
                         </TableCell>
                       </TableRow>
-                    </React.Fragment>
+                    </Fragment>
                   );
                 })}
               </TableBody>
             </Table>
             {fixable.length > MAX_DISPLAY && (
-              <Typography variant="body2" color="textSecondary" className={classes.paginationNote}>
-                Showing {MAX_DISPLAY} of {fixable.length} fixable findings. Use the Results tab for full details.
+              <Typography
+                variant="body2"
+                color="textSecondary"
+                className={classes.paginationNote}
+              >
+                Showing {MAX_DISPLAY} of {fixable.length} fixable findings. Use
+                the Results tab for full details.
               </Typography>
             )}
           </TableContainer>
         ) : (
-          <Typography variant="body2" color="textSecondary">No fixable vulnerabilities found.</Typography>
+          <Typography variant="body2" color="textSecondary">
+            No fixable vulnerabilities found.
+          </Typography>
         )}
       </Box>
 
       {unfixable.length > 0 && (
         <Box className={`${classes.section} ${classes.unfixableSection}`}>
           <Box className={classes.sectionHeader}>
-            <Chip label={`${unfixableLabel} (${tabData.summary.unfixable})`} className={classes.chipNoFix} size="small" />
+            <Chip
+              label={`${unfixableLabel} (${tabData.summary.unfixable})`}
+              className={classes.chipNoFix}
+              size="small"
+            />
           </Box>
           <TableContainer component={Paper} variant="outlined">
             <Table size="small">
               <TableHead>
                 <TableRow>
-                  <TableCell style={TABLE_STYLES.header}>{colLabels.cve ?? 'CVE'}</TableCell>
-                  <TableCell style={TABLE_STYLES.header}>{colLabels.package ?? 'Package'}</TableCell>
-                  <TableCell style={TABLE_STYLES.header}>{colLabels.severity ?? 'Severity'}</TableCell>
+                  <TableCell style={TABLE_STYLES.header}>
+                    {colLabels.cve ?? 'CVE'}
+                  </TableCell>
+                  <TableCell style={TABLE_STYLES.header}>
+                    {colLabels.package ?? 'Package'}
+                  </TableCell>
+                  <TableCell style={TABLE_STYLES.header}>
+                    {colLabels.severity ?? 'Severity'}
+                  </TableCell>
                   <TableCell style={TABLE_STYLES.header}>Status</TableCell>
                 </TableRow>
               </TableHead>
               <TableBody>
                 {displayUnfixable.map(f => (
                   <TableRow key={f.ruleId}>
-                    <TableCell><Typography variant="body2" className={classes.monospace}>{f.ruleId}</Typography></TableCell>
+                    <TableCell>
+                      <Typography variant="body2" className={classes.monospace}>
+                        {f.ruleId}
+                      </Typography>
+                    </TableCell>
                     <TableCell>{f.stigId}</TableCell>
                     <TableCell>
-                      <Chip label={severityLabel(f.severity)} size="small" style={{ backgroundColor: severityColor(f.severity), color: SURFACE_COLORS.onDark, fontWeight: 600, fontSize: '0.7rem' }} />
+                      <Chip
+                        label={severityLabel(f.severity)}
+                        size="small"
+                        style={{
+                          backgroundColor: severityColor(f.severity),
+                          color: SURFACE_COLORS.onDark,
+                          fontWeight: 600,
+                          fontSize: '0.7rem',
+                        }}
+                      />
                     </TableCell>
                     <TableCell>
-                      <Tooltip title={f.fixState === 'wont-fix' ? 'Vendor has declined to fix' : 'No vendor fix available yet'}>
-                        <Chip label={f.fixState === 'wont-fix' ? "Won't Fix" : 'No Fix'} className={f.fixState === 'wont-fix' ? classes.chipWontFix : classes.chipNoFix} size="small" />
+                      <Tooltip
+                        title={
+                          f.fixState === 'wont-fix'
+                            ? 'Vendor has declined to fix'
+                            : 'No vendor fix available yet'
+                        }
+                      >
+                        <Chip
+                          label={
+                            f.fixState === 'wont-fix' ? "Won't Fix" : 'No Fix'
+                          }
+                          className={
+                            f.fixState === 'wont-fix'
+                              ? classes.chipWontFix
+                              : classes.chipNoFix
+                          }
+                          size="small"
+                        />
                       </Tooltip>
                     </TableCell>
                   </TableRow>
@@ -372,7 +559,11 @@ export const ActionTableWidget = ({ config, tabData, profile, severityLabel }: P
               </TableBody>
             </Table>
             {unfixable.length > MAX_DISPLAY && (
-              <Typography variant="body2" color="textSecondary" className={classes.paginationNote}>
+              <Typography
+                variant="body2"
+                color="textSecondary"
+                className={classes.paginationNote}
+              >
                 Showing {MAX_DISPLAY} of {unfixable.length} unfixable findings.
               </Typography>
             )}
@@ -380,8 +571,16 @@ export const ActionTableWidget = ({ config, tabData, profile, severityLabel }: P
         </Box>
       )}
 
-      <Snackbar open={!!snackbar} autoHideDuration={4000} onClose={() => setSnackbar(null)}>
-        {snackbar ? <Alert severity={snackbar.severity} onClose={() => setSnackbar(null)}>{snackbar.message}</Alert> : undefined}
+      <Snackbar
+        open={!!snackbar}
+        autoHideDuration={4000}
+        onClose={() => setSnackbar(null)}
+      >
+        {snackbar ? (
+          <Alert severity={snackbar.severity} onClose={() => setSnackbar(null)}>
+            {snackbar.message}
+          </Alert>
+        ) : undefined}
       </Snackbar>
     </Box>
   );

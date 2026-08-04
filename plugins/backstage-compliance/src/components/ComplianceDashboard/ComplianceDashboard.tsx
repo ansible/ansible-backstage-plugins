@@ -1,4 +1,6 @@
-import React, { useState, useEffect } from 'react';
+import { useMemo } from 'react';
+import type { MouseEvent } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useUrlToggle } from '../../hooks/useUrlToggle';
 import {
@@ -39,7 +41,12 @@ import { PostureTrendChart } from './PostureTrendChart';
 import { complianceApiRef } from '../../api';
 import { CertificationBadge } from '../shared/CertificationBadge';
 import { scoreColor, STATUS_COLORS, THRESHOLDS } from '../shared/colors';
-import type { DashboardStats, PostureSnapshot, ComplianceProfile, BaselineTarget } from '@ansible/backstage-compliance-common/types';
+import type {
+  DashboardStats,
+  PostureSnapshot,
+  ComplianceProfile,
+  BaselineTarget,
+} from '@ansible/backstage-compliance-common/types';
 
 const useStyles = makeStyles(theme => ({
   section: {
@@ -157,11 +164,30 @@ export const ComplianceDashboard = () => {
   const [postureHistory, setPostureHistory] = useState<PostureSnapshot[]>([]);
   const [profiles, setProfiles] = useState<ComplianceProfile[]>([]);
   const [loading, setLoading] = useState(true);
-  const [postureView, setPostureView] = useUrlToggle<'profile' | 'inventory'>('postureView', 'profile');
-  const [postureMode, setPostureMode] = useUrlToggle<'standard' | 'baseline'>('postureMode', 'standard');
+  const [postureView, setPostureView] = useUrlToggle<'profile' | 'inventory'>(
+    'postureView',
+    'profile',
+  );
+  const [postureMode, setPostureMode] = useUrlToggle<'standard' | 'baseline'>(
+    'postureMode',
+    'standard',
+  );
   const [baselineTargets, setBaselineTargets] = useState<BaselineTarget[]>([]);
   const [popoverAnchor, setPopoverAnchor] = useState<HTMLElement | null>(null);
-  const [popoverProfile, setPopoverProfile] = useState<{ name: string; profileId: string; scans: Array<{ scanId: string; inventoryId: number; inventoryName: string; passRate: number; passCount: number; failCount: number; ruleCount: number; timestamp: string }> }>({ name: '', profileId: '', scans: [] });
+  const [popoverProfile, setPopoverProfile] = useState<{
+    name: string;
+    profileId: string;
+    scans: Array<{
+      scanId: string;
+      inventoryId: number;
+      inventoryName: string;
+      passRate: number;
+      passCount: number;
+      failCount: number;
+      ruleCount: number;
+      timestamp: string;
+    }>;
+  }>({ name: '', profileId: '', scans: [] });
   const [pinDialogFromPopover, setPinDialogFromPopover] = useState<{
     profileId: string;
     profileName: string;
@@ -175,33 +201,54 @@ export const ComplianceDashboard = () => {
     if (refreshKey > 0) setLoading(true);
     Promise.all([
       api.getDashboardStats().catch(err => {
+        // eslint-disable-next-line no-console
         console.error('Failed to load dashboard stats:', err);
         return null;
       }),
       api.getPostureHistory(undefined, 90).catch(err => {
+        // eslint-disable-next-line no-console
         console.error('Failed to load posture history:', err);
         return [] as PostureSnapshot[];
       }),
-      api.getRegisteredProfiles({ includeDisconnected: true }).catch(() => [] as ComplianceProfile[]),
+      api
+        .getRegisteredProfiles({ includeDisconnected: true })
+        .catch(() => [] as ComplianceProfile[]),
       api.getBaselineTargets().catch(() => [] as BaselineTarget[]),
-    ]).then(([dashboardStats, history, carts, baselines]) => {
-      if (cancelled) return;
-      setStats(dashboardStats);
-      setPostureHistory(history);
-      setProfiles(carts);
-      setBaselineTargets(baselines);
-    }).finally(() => { if (!cancelled) setLoading(false); });
-    return () => { cancelled = true; };
+    ])
+      .then(([dashboardStats, history, carts, baselines]) => {
+        if (cancelled) return;
+        setStats(dashboardStats);
+        setPostureHistory(history);
+        setProfiles(carts);
+        setBaselineTargets(baselines);
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
   }, [api, refreshKey]);
 
   // Determine if this is an "empty" state (no scan history)
-  const isEmpty = !stats || (stats.recentScans.length === 0 && stats.hostsScanned === 0);
+  const isEmpty =
+    !stats || (stats.recentScans.length === 0 && stats.hostsScanned === 0);
 
-  const popoverBaselineMap = React.useMemo(() => {
+  const popoverBaselineMap = useMemo(() => {
     if (!stats || !popoverProfile.profileId) return new Map();
-    const map = new Map<number, { remediationProfileName: string; rate: number; passCount: number; ruleCount: number }>();
+    const map = new Map<
+      number,
+      {
+        remediationProfileName: string;
+        rate: number;
+        passCount: number;
+        ruleCount: number;
+      }
+    >();
     for (const inv of stats.byInventory) {
-      const ps = inv.profileScores.find(p => p.profileId === popoverProfile.profileId);
+      const ps = inv.profileScores.find(
+        p => p.profileId === popoverProfile.profileId,
+      );
       if (ps?.baseline) {
         map.set(inv.inventoryId, {
           remediationProfileName: ps.baseline.remediationProfileName,
@@ -232,23 +279,32 @@ export const ComplianceDashboard = () => {
         <div className={classes.section}>
           <InfoCard title="Welcome to AAP Compliance">
             <div className={classes.welcomeCard}>
-              <SecurityIcon style={{ fontSize: 64, color: STATUS_COLORS.info, marginBottom: 16 }} />
+              <SecurityIcon
+                style={{
+                  fontSize: 64,
+                  color: STATUS_COLORS.info,
+                  marginBottom: 16,
+                }}
+              />
               <Typography variant="h5" gutterBottom>
                 Get Started with Compliance Scanning
               </Typography>
               <Typography variant="body1" color="textSecondary" paragraph>
-                Scan your infrastructure against industry compliance frameworks like DISA STIG,
-                CIS Benchmarks, and PCI-DSS. Review findings, build remediations, and
-                bring your systems into compliance.
+                Scan your infrastructure against industry compliance frameworks
+                like DISA STIG, CIS Benchmarks, and PCI-DSS. Review findings,
+                build remediations, and bring your systems into compliance.
               </Typography>
 
               <Box maxWidth={480} mx="auto" mt={4}>
                 <div className={classes.welcomeStep}>
                   <div className={classes.stepNumber}>1</div>
                   <div>
-                    <Typography variant="subtitle1">Add a Compliance Profile</Typography>
+                    <Typography variant="subtitle1">
+                      Add a Compliance Profile
+                    </Typography>
                     <Typography variant="body2" color="textSecondary">
-                      Map a compliance standard to a workflow job template in Settings.
+                      Map a compliance standard to a workflow job template in
+                      Settings.
                     </Typography>
                   </div>
                 </div>
@@ -257,7 +313,8 @@ export const ComplianceDashboard = () => {
                   <div>
                     <Typography variant="subtitle1">Launch a Scan</Typography>
                     <Typography variant="body2" color="textSecondary">
-                      Select a profile, choose an inventory, and run a compliance scan.
+                      Select a profile, choose an inventory, and run a
+                      compliance scan.
                     </Typography>
                   </div>
                 </div>
@@ -266,18 +323,26 @@ export const ComplianceDashboard = () => {
                   <div>
                     <Typography variant="subtitle1">Review Findings</Typography>
                     <Typography variant="body2" color="textSecondary">
-                      Analyze per-host results, build remediations, and apply fixes.
+                      Analyze per-host results, build remediations, and apply
+                      fixes.
                     </Typography>
                   </div>
                 </div>
               </Box>
 
-              <Box mt={4} display="flex" justifyContent="center" style={{ gap: 16 }}>
+              <Box
+                mt={4}
+                display="flex"
+                justifyContent="center"
+                style={{ gap: 16 }}
+              >
                 <Card variant="outlined">
                   <CardActionArea onClick={() => navigate('settings')}>
                     <div className={classes.quickAction}>
                       <SettingsIcon className={classes.actionIcon} />
-                      <Typography variant="subtitle2">Configure Settings</Typography>
+                      <Typography variant="subtitle2">
+                        Configure Settings
+                      </Typography>
                     </div>
                   </CardActionArea>
                 </Card>
@@ -297,8 +362,15 @@ export const ComplianceDashboard = () => {
     );
   }
 
-  const handleGaugeClick = (event: React.MouseEvent<HTMLElement>, fw: typeof stats.frameworkScores[0]) => {
-    setPopoverProfile({ name: fw.name, profileId: fw.profileId, scans: fw.contributingScans });
+  const handleGaugeClick = (
+    event: MouseEvent<HTMLElement>,
+    fw: (typeof stats.frameworkScores)[0],
+  ) => {
+    setPopoverProfile({
+      name: fw.name,
+      profileId: fw.profileId,
+      scans: fw.contributingScans,
+    });
     setPopoverAnchor(event.currentTarget);
   };
 
@@ -306,54 +378,69 @@ export const ComplianceDashboard = () => {
     <div>
       {/* Compliance Posture */}
       <div className={classes.section}>
-        <InfoCard title="Compliance Posture" action={
-          <Box display="flex" alignItems="center" style={{ gap: 12 }}>
-            <ButtonGroup size="small" variant="outlined">
-              <Tooltip title="Show compliance against the full standard">
+        <InfoCard
+          title="Compliance Posture"
+          action={
+            <Box display="flex" alignItems="center" style={{ gap: 12 }}>
+              <ButtonGroup size="small" variant="outlined">
+                <Tooltip title="Show compliance against the full standard">
+                  <Button
+                    color={postureMode === 'standard' ? 'primary' : 'default'}
+                    variant={
+                      postureMode === 'standard' ? 'contained' : 'outlined'
+                    }
+                    onClick={() => setPostureMode('standard')}
+                  >
+                    Standard
+                  </Button>
+                </Tooltip>
+                <Tooltip title="Show compliance against your pinned baseline (curated rule set)">
+                  <Button
+                    color={postureMode === 'baseline' ? 'primary' : 'default'}
+                    variant={
+                      postureMode === 'baseline' ? 'contained' : 'outlined'
+                    }
+                    onClick={() => setPostureMode('baseline')}
+                  >
+                    Baseline
+                  </Button>
+                </Tooltip>
+              </ButtonGroup>
+              <ButtonGroup size="small" variant="outlined">
                 <Button
-                  color={postureMode === 'standard' ? 'primary' : 'default'}
-                  variant={postureMode === 'standard' ? 'contained' : 'outlined'}
-                  onClick={() => setPostureMode('standard')}
+                  color={postureView === 'profile' ? 'primary' : 'default'}
+                  variant={postureView === 'profile' ? 'contained' : 'outlined'}
+                  onClick={() => setPostureView('profile')}
                 >
-                  Standard
+                  By Profile
                 </Button>
-              </Tooltip>
-              <Tooltip title="Show compliance against your pinned baseline (curated rule set)">
                 <Button
-                  color={postureMode === 'baseline' ? 'primary' : 'default'}
-                  variant={postureMode === 'baseline' ? 'contained' : 'outlined'}
-                  onClick={() => setPostureMode('baseline')}
+                  color={postureView === 'inventory' ? 'primary' : 'default'}
+                  variant={
+                    postureView === 'inventory' ? 'contained' : 'outlined'
+                  }
+                  onClick={() => setPostureView('inventory')}
                 >
-                  Baseline
+                  By Inventory
                 </Button>
-              </Tooltip>
-            </ButtonGroup>
-            <ButtonGroup size="small" variant="outlined">
-              <Button
-                color={postureView === 'profile' ? 'primary' : 'default'}
-                variant={postureView === 'profile' ? 'contained' : 'outlined'}
-                onClick={() => setPostureView('profile')}
-              >
-                By Profile
-              </Button>
-              <Button
-                color={postureView === 'inventory' ? 'primary' : 'default'}
-                variant={postureView === 'inventory' ? 'contained' : 'outlined'}
-                onClick={() => setPostureView('inventory')}
-              >
-                By Inventory
-              </Button>
-            </ButtonGroup>
-          </Box>
-        }>
+              </ButtonGroup>
+            </Box>
+          }
+        >
           {postureView === 'profile' ? (
             <div className={classes.row} style={{ justifyContent: 'center' }}>
               {stats.frameworkScores.map(fw => {
                 const showBaseline = postureMode === 'baseline' && fw.baseline;
                 const gaugeValue = showBaseline ? fw.baseline!.rate : fw.rate;
                 const gaugeSubtitle = showBaseline
-                  ? `${Math.round(fw.baseline!.ruleCount / fw.baseline!.inventoryCount)} rules · ${fw.baseline!.inventoryCount} of ${fw.contributingScans.length} inv.`
-                  : `${fw.passCount}/${fw.passCount + fw.failCount} rules passing`;
+                  ? `${Math.round(
+                      fw.baseline!.ruleCount / fw.baseline!.inventoryCount,
+                    )} rules · ${fw.baseline!.inventoryCount} of ${
+                      fw.contributingScans.length
+                    } inv.`
+                  : `${fw.passCount}/${
+                      fw.passCount + fw.failCount
+                    } rules passing`;
                 return (
                   <div className={classes.gaugeItem} key={fw.profileId}>
                     <ComplianceGauge
@@ -365,19 +452,58 @@ export const ComplianceDashboard = () => {
                       dimmed={postureMode === 'baseline' && !fw.baseline}
                     />
                     {postureMode === 'standard' && fw.baseline && (
-                      <Typography variant="caption" style={{ display: 'block', marginTop: 4, fontWeight: 600, color: scoreColor(fw.baseline.rate) }}>
+                      <Typography
+                        variant="caption"
+                        style={{
+                          display: 'block',
+                          marginTop: 4,
+                          fontWeight: 600,
+                          color: scoreColor(fw.baseline.rate),
+                        }}
+                      >
                         Baseline: {fw.baseline.rate}%
-                        <span style={{ fontWeight: 400, color: STATUS_COLORS.neutral }}> ({fw.baseline.inventoryCount} inv.)</span>
+                        <span
+                          style={{
+                            fontWeight: 400,
+                            color: STATUS_COLORS.neutral,
+                          }}
+                        >
+                          {' '}
+                          ({fw.baseline.inventoryCount} inv.)
+                        </span>
                       </Typography>
                     )}
                     {postureMode === 'baseline' && fw.baseline && (
-                      <Typography variant="caption" style={{ display: 'block', marginTop: 4, fontWeight: 600, color: scoreColor(fw.rate) }}>
+                      <Typography
+                        variant="caption"
+                        style={{
+                          display: 'block',
+                          marginTop: 4,
+                          fontWeight: 600,
+                          color: scoreColor(fw.rate),
+                        }}
+                      >
                         Standard: {fw.rate}%
-                        <span style={{ fontWeight: 400, color: STATUS_COLORS.neutral }}> ({fw.passCount}/{fw.passCount + fw.failCount})</span>
+                        <span
+                          style={{
+                            fontWeight: 400,
+                            color: STATUS_COLORS.neutral,
+                          }}
+                        >
+                          {' '}
+                          ({fw.passCount}/{fw.passCount + fw.failCount})
+                        </span>
                       </Typography>
                     )}
                     {postureMode === 'baseline' && !fw.baseline && (
-                      <Typography variant="caption" style={{ display: 'block', marginTop: 4, color: STATUS_COLORS.neutral }}>
+                      <Typography
+                        variant="caption"
+                        style={{
+                          display: 'block',
+                          marginTop: 4,
+                          color: STATUS_COLORS.neutral,
+                        }}
+                      >
                         No baseline pinned
                       </Typography>
                     )}
@@ -390,13 +516,17 @@ export const ComplianceDashboard = () => {
               byInventory={stats.byInventory}
               postureMode={postureMode}
               baselineTargets={baselineTargets}
-              onBaselineChanged={(switchToBaseline) => {
+              onBaselineChanged={switchToBaseline => {
                 setRefreshKey(k => k + 1);
                 if (switchToBaseline) setPostureMode('baseline');
               }}
               onGaugeClick={(profileId, inventoryId) => {
-                const fw = stats.frameworkScores.find(f => f.profileId === profileId);
-                const scan = fw?.contributingScans.find(s => s.inventoryId === inventoryId);
+                const fw = stats.frameworkScores.find(
+                  f => f.profileId === profileId,
+                );
+                const scan = fw?.contributingScans.find(
+                  s => s.inventoryId === inventoryId,
+                );
                 if (scan) {
                   navigate(`results/${scan.workflowJobId ?? scan.scanId}`);
                 }
@@ -446,48 +576,102 @@ export const ComplianceDashboard = () => {
           <div className={classes.statItem}>
             <InfoCard>
               <div className={classes.statCard}>
-                <Typography className={classes.statValue}>{stats.hostsScanned}</Typography>
-                <Typography className={classes.statLabel}>Hosts Scanned</Typography>
+                <Typography className={classes.statValue}>
+                  {stats.hostsScanned}
+                </Typography>
+                <Typography className={classes.statLabel}>
+                  Hosts Scanned
+                </Typography>
               </div>
             </InfoCard>
           </div>
           <div className={classes.statItem}>
             <InfoCard>
               <div className={classes.statCard}>
-                <Typography className={`${classes.statValue} ${classes.critical}`}>{stats.criticalFindings}</Typography>
-                <Typography className={classes.statLabel}>Critical (CAT I)</Typography>
-                {stats.criticalFindingsDelta != null && stats.criticalFindingsDelta !== 0 && (
-                  <Typography className={classes.statDelta} style={{ color: stats.criticalFindingsDelta > 0 ? STATUS_COLORS.error : STATUS_COLORS.success }}>
-                    {stats.criticalFindingsDelta > 0
-                      ? <><ArrowUpwardIcon />{stats.criticalFindingsDelta}</>
-                      : <><ArrowDownwardIcon />{Math.abs(stats.criticalFindingsDelta)}</>
-                    }
-                  </Typography>
-                )}
+                <Typography
+                  className={`${classes.statValue} ${classes.critical}`}
+                >
+                  {stats.criticalFindings}
+                </Typography>
+                <Typography className={classes.statLabel}>
+                  Critical (CAT I)
+                </Typography>
+                {stats.criticalFindingsDelta !== null &&
+                  stats.criticalFindingsDelta !== 0 && (
+                    <Typography
+                      className={classes.statDelta}
+                      style={{
+                        color:
+                          (stats.criticalFindingsDelta ?? 0) > 0
+                            ? STATUS_COLORS.error
+                            : STATUS_COLORS.success,
+                      }}
+                    >
+                      {(stats.criticalFindingsDelta ?? 0) > 0 ? (
+                        <>
+                          <ArrowUpwardIcon />
+                          {stats.criticalFindingsDelta}
+                        </>
+                      ) : (
+                        <>
+                          <ArrowDownwardIcon />
+                          {Math.abs(stats.criticalFindingsDelta ?? 0)}
+                        </>
+                      )}
+                    </Typography>
+                  )}
               </div>
             </InfoCard>
           </div>
           <div className={classes.statItem}>
             <InfoCard>
               <div className={classes.statCard}>
-                <Typography className={`${classes.statValue} ${classes.warning}`}>{stats.pendingRemediation}</Typography>
-                <Typography className={classes.statLabel}>Pending Remediation</Typography>
-                {stats.pendingRemediationDelta != null && stats.pendingRemediationDelta !== 0 && (
-                  <Typography className={classes.statDelta} style={{ color: stats.pendingRemediationDelta > 0 ? STATUS_COLORS.error : STATUS_COLORS.success }}>
-                    {stats.pendingRemediationDelta > 0
-                      ? <><ArrowUpwardIcon />{stats.pendingRemediationDelta}</>
-                      : <><ArrowDownwardIcon />{Math.abs(stats.pendingRemediationDelta)}</>
-                    }
-                  </Typography>
-                )}
+                <Typography
+                  className={`${classes.statValue} ${classes.warning}`}
+                >
+                  {stats.pendingRemediation}
+                </Typography>
+                <Typography className={classes.statLabel}>
+                  Pending Remediation
+                </Typography>
+                {stats.pendingRemediationDelta !== null &&
+                  stats.pendingRemediationDelta !== 0 && (
+                    <Typography
+                      className={classes.statDelta}
+                      style={{
+                        color:
+                          (stats.pendingRemediationDelta ?? 0) > 0
+                            ? STATUS_COLORS.error
+                            : STATUS_COLORS.success,
+                      }}
+                    >
+                      {(stats.pendingRemediationDelta ?? 0) > 0 ? (
+                        <>
+                          <ArrowUpwardIcon />
+                          {stats.pendingRemediationDelta}
+                        </>
+                      ) : (
+                        <>
+                          <ArrowDownwardIcon />
+                          {Math.abs(stats.pendingRemediationDelta ?? 0)}
+                        </>
+                      )}
+                    </Typography>
+                  )}
               </div>
             </InfoCard>
           </div>
           <div className={classes.statItem}>
             <InfoCard>
               <div className={classes.statCard}>
-                <Typography className={`${classes.statValue} ${classes.success}`}>{stats.activeProfiles}</Typography>
-                <Typography className={classes.statLabel}>Active Profiles</Typography>
+                <Typography
+                  className={`${classes.statValue} ${classes.success}`}
+                >
+                  {stats.activeProfiles}
+                </Typography>
+                <Typography className={classes.statLabel}>
+                  Active Profiles
+                </Typography>
               </div>
             </InfoCard>
           </div>
@@ -558,7 +742,9 @@ export const ComplianceDashboard = () => {
                   <div className={classes.quickAction}>
                     <SecurityIcon className={classes.actionIcon} />
                     <div>
-                      <Typography variant="subtitle1">Browse Profiles</Typography>
+                      <Typography variant="subtitle1">
+                        Browse Profiles
+                      </Typography>
                       <Typography variant="body2" color="textSecondary">
                         View compliance frameworks and benchmarks
                       </Typography>
@@ -584,16 +770,19 @@ export const ComplianceDashboard = () => {
             >
               {stats.recentScans.map(scan => {
                 const isRemediation = scan.scanner === 'remediation';
-                const activityLabel = isRemediation
-                  ? 'Remediation'
-                  : scan.scanType === 'verification'
-                    ? 'Verification'
-                    : 'Assessment';
-                const activityColor = isRemediation
-                  ? 'primary'
-                  : scan.scanType === 'verification'
-                    ? 'secondary'
-                    : 'default';
+                let activityLabel = 'Assessment';
+                if (isRemediation) {
+                  activityLabel = 'Remediation';
+                } else if (scan.scanType === 'verification') {
+                  activityLabel = 'Verification';
+                }
+                let activityColor: 'primary' | 'secondary' | 'default' =
+                  'default';
+                if (isRemediation) {
+                  activityColor = 'primary';
+                } else if (scan.scanType === 'verification') {
+                  activityColor = 'secondary';
+                }
 
                 return (
                   <div
@@ -602,57 +791,96 @@ export const ComplianceDashboard = () => {
                     style={{ cursor: 'pointer' }}
                     onClick={() => {
                       const navId = scan.workflowJobId ?? scan.id;
-                      navigate(isRemediation ? `remediation-result/${navId}` : `results/${navId}`);
+                      navigate(
+                        isRemediation
+                          ? `remediation-result/${navId}`
+                          : `results/${navId}`,
+                      );
                     }}
                     role="button"
                     tabIndex={0}
                     onKeyDown={e => {
                       if (e.key === 'Enter') {
                         const navId = scan.workflowJobId ?? scan.id;
-                        navigate(isRemediation ? `remediation-result/${navId}` : `results/${navId}`);
+                        navigate(
+                          isRemediation
+                            ? `remediation-result/${navId}`
+                            : `results/${navId}`,
+                        );
                       }
                     }}
                   >
                     <div>
-                      <Box display="flex" alignItems="center" style={{ gap: 6 }}>
-                        <Typography variant="subtitle2">{scan.profileName}</Typography>
+                      <Box
+                        display="flex"
+                        alignItems="center"
+                        style={{ gap: 6 }}
+                      >
+                        <Typography variant="subtitle2">
+                          {scan.profileName}
+                        </Typography>
                         <Chip
-                          icon={isRemediation ? <BuildIcon style={{ fontSize: 12 }} /> : undefined}
+                          icon={
+                            isRemediation ? (
+                              <BuildIcon style={{ fontSize: 12 }} />
+                            ) : undefined
+                          }
                           label={activityLabel}
                           size="small"
                           variant="outlined"
-                          color={activityColor as 'primary' | 'secondary' | 'default'}
-                          style={isRemediation
-                            ? { height: 18, fontSize: '0.65rem', borderColor: STATUS_COLORS.success, color: STATUS_COLORS.success }
-                            : { height: 18, fontSize: '0.65rem' }}
+                          color={
+                            activityColor as 'primary' | 'secondary' | 'default'
+                          }
+                          style={
+                            isRemediation
+                              ? {
+                                  height: 18,
+                                  fontSize: '0.65rem',
+                                  borderColor: STATUS_COLORS.success,
+                                  color: STATUS_COLORS.success,
+                                }
+                              : { height: 18, fontSize: '0.65rem' }
+                          }
                         />
                       </Box>
-                      <Box display="flex" alignItems="center" style={{ gap: 6, marginTop: 2 }}>
+                      <Box
+                        display="flex"
+                        alignItems="center"
+                        style={{ gap: 6, marginTop: 2 }}
+                      >
                         <Chip
                           label={scan.inventoryName}
                           size="small"
                           variant="outlined"
-                          style={{ height: 18, fontSize: '0.65rem', fontFamily: 'monospace' }}
+                          style={{
+                            height: 18,
+                            fontSize: '0.65rem',
+                            fontFamily: 'monospace',
+                          }}
                         />
                         <Typography variant="caption" color="textSecondary">
                           {new Date(scan.timestamp).toLocaleString()}
                         </Typography>
                       </Box>
                     </div>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                      {scan.status === 'failed' ? (
-                        <StatusError />
-                      ) : isRemediation ? (
-                        <StatusOK />
-                      ) : scan.passRate >= THRESHOLDS.excellent ? (
-                        <StatusOK />
-                      ) : scan.passRate >= THRESHOLDS.good ? (
-                        <StatusWarning />
-                      ) : (
-                        <StatusError />
-                      )}
+                    <div
+                      style={{ display: 'flex', alignItems: 'center', gap: 8 }}
+                    >
+                      {(() => {
+                        if (scan.status === 'failed') return <StatusError />;
+                        if (isRemediation) return <StatusOK />;
+                        if (scan.passRate >= THRESHOLDS.excellent)
+                          return <StatusOK />;
+                        if (scan.passRate >= THRESHOLDS.good)
+                          return <StatusWarning />;
+                        return <StatusError />;
+                      })()}
                       <Typography variant="subtitle2">
-                        {scan.status === 'failed' ? 'Failed' : isRemediation ? scan.status : `${scan.passRate}%`}
+                        {(() => {
+                          if (scan.status === 'failed') return 'Failed';
+                          if (isRemediation) return scan.status;
+                          return `${scan.passRate}%`;
+                        })()}
                       </Typography>
                     </div>
                   </div>
@@ -672,18 +900,29 @@ export const ComplianceDashboard = () => {
                 <Card variant="outlined" className={classes.frameworkCard}>
                   <CardContent>
                     <Box display="flex" alignItems="center" style={{ gap: 8 }}>
-                      <Typography variant="h6" gutterBottom>{fw.name}</Typography>
+                      <Typography variant="h6" gutterBottom>
+                        {fw.name}
+                      </Typography>
                       {(() => {
                         const cart = profiles.find(c => c.id === fw.profileId);
                         if (!cart?.certification) return null;
-                        return <CertificationBadge certification={cart.certification} style={{ marginBottom: 8 }} />;
+                        return (
+                          <CertificationBadge
+                            certification={cart.certification}
+                            style={{ marginBottom: 8 }}
+                          />
+                        );
                       })()}
                     </Box>
                     <Typography variant="body2" color="textSecondary">
                       {fw.target} &middot; {fw.rules} rules
                     </Typography>
                     <Box mt={2}>
-                      <Box display="flex" justifyContent="space-between" mb={0.5}>
+                      <Box
+                        display="flex"
+                        justifyContent="space-between"
+                        mb={0.5}
+                      >
                         <Typography variant="caption">Compliance</Typography>
                         <Typography variant="caption">{fw.rate}%</Typography>
                       </Box>
@@ -693,15 +932,29 @@ export const ComplianceDashboard = () => {
                         className={classes.complianceBar}
                         classes={{ barColorPrimary: '' }}
                         style={{ backgroundColor: 'rgba(0,0,0,0.08)' }}
-                        ref={(el: HTMLElement | null) => { if (el) { const bar = el.querySelector('.MuiLinearProgress-bar') as HTMLElement; if (bar) bar.style.backgroundColor = scoreColor(fw.rate); } }}
+                        ref={(el: HTMLElement | null) => {
+                          if (el) {
+                            const bar = el.querySelector(
+                              '.MuiLinearProgress-bar',
+                            ) as HTMLElement;
+                            if (bar)
+                              bar.style.backgroundColor = scoreColor(fw.rate);
+                          }
+                        }}
                       />
                     </Box>
-                    <Box mt={1.5} display="flex" justifyContent="space-between" alignItems="center">
-                      <Typography
-                        variant="caption"
-                        color="textSecondary"
-                      >
-                        {fw.lastScan ? `Last scan: ${new Date(fw.lastScan).toLocaleDateString()}` : 'No scans yet'}
+                    <Box
+                      mt={1.5}
+                      display="flex"
+                      justifyContent="space-between"
+                      alignItems="center"
+                    >
+                      <Typography variant="caption" color="textSecondary">
+                        {fw.lastScan
+                          ? `Last scan: ${new Date(
+                              fw.lastScan,
+                            ).toLocaleDateString()}`
+                          : 'No scans yet'}
                       </Typography>
                       <Chip
                         icon={<AssessmentIcon style={{ fontSize: 14 }} />}

@@ -25,9 +25,12 @@ export function computeClusters(hosts: HostPosture[]): Cluster[] {
     current.push(sorted[i]);
   }
   if (current.length > 0) clusters.push(buildCluster(current, clusters.length));
-  const mainCluster = clusters.reduce((a, b) => a.hosts.length > b.hosts.length ? a : b);
+  const mainCluster = clusters.reduce((a, b) =>
+    a.hosts.length > b.hosts.length ? a : b,
+  );
   for (const c of clusters) {
-    if (c !== mainCluster && c.hosts.length < mainCluster.hosts.length * 0.15) c.isOutlier = true;
+    if (c !== mainCluster && c.hosts.length < mainCluster.hosts.length * 0.15)
+      c.isOutlier = true;
   }
   return clusters;
 }
@@ -46,7 +49,9 @@ export function isOutlier(host: HostPosture, allHosts: HostPosture[]): boolean {
   if (allHosts.length < 3) return false;
   const scores = allHosts.map(h => h.compliancePct);
   const mean = scores.reduce((a, b) => a + b, 0) / scores.length;
-  const stdDev = Math.sqrt(scores.reduce((a, b) => a + (b - mean) ** 2, 0) / scores.length);
+  const stdDev = Math.sqrt(
+    scores.reduce((a, b) => a + (b - mean) ** 2, 0) / scores.length,
+  );
   return host.compliancePct < mean - 1.5 * stdDev;
 }
 
@@ -63,7 +68,11 @@ export function getChipStyle(host: HostPosture, allHosts: HostPosture[]) {
   return {
     borderColor: c,
     color: c,
-    backgroundColor: c === STATUS_COLORS.error ? 'rgba(201,25,11,0.04)' : c === STATUS_COLORS.warning ? 'rgba(240,171,0,0.04)' : 'rgba(62,134,53,0.04)',
+    backgroundColor: (() => {
+      if (c === STATUS_COLORS.error) return 'rgba(201,25,11,0.04)';
+      if (c === STATUS_COLORS.warning) return 'rgba(240,171,0,0.04)';
+      return 'rgba(62,134,53,0.04)';
+    })(),
   };
 }
 

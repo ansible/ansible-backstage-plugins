@@ -1,4 +1,13 @@
-import React, { useState, useEffect, useMemo, useCallback, createContext, useContext } from 'react';
+import {
+  Component,
+  useState,
+  useEffect,
+  useMemo,
+  useCallback,
+  createContext,
+  useContext,
+} from 'react';
+import type { ReactNode } from 'react';
 import { Routes, Route, useNavigate, useLocation } from 'react-router-dom';
 import {
   Page,
@@ -9,7 +18,9 @@ import {
 } from '@backstage/core-components';
 import { useApi } from '@backstage/core-plugin-api';
 
-const DynamicTabRefreshContext = createContext<(() => void) | undefined>(undefined);
+const DynamicTabRefreshContext = createContext<(() => void) | undefined>(
+  undefined,
+);
 export const useDynamicTabRefresh = () => useContext(DynamicTabRefreshContext);
 import { Box, Button, Chip, makeStyles } from '@material-ui/core';
 import { ComplianceDashboard } from './ComplianceDashboard';
@@ -37,17 +48,17 @@ import type { ComplianceProfile } from '@ansible/backstage-compliance-common/typ
  * exception in a child route and renders a Backstage ErrorPanel instead of
  * crashing the entire tab.
  */
-class ComplianceErrorBoundary extends React.Component<
-  { children: React.ReactNode },
+class ComplianceErrorBoundary extends Component<
+  { children: ReactNode },
   { error?: Error }
 > {
-  constructor(props: { children: React.ReactNode }) {
-    super(props);
-    this.state = {};
-  }
-
   static getDerivedStateFromError(error: Error) {
     return { error };
+  }
+
+  constructor(props: { children: ReactNode }) {
+    super(props);
+    this.state = {};
   }
 
   render() {
@@ -119,18 +130,25 @@ const ComplianceRouterInner = () => {
 
   useEffect(() => {
     let cancelled = false;
-    api.getRegisteredProfiles().then(profiles => {
-      if (cancelled) return;
-      const tabs: DynamicTabEntry[] = profiles
-        .filter(p => p.displayConfig?.tab && p.connectionStatus !== 'disconnected')
-        .map(p => ({
-          id: `profile-${p.id}`,
-          label: p.displayConfig!.tab!.label,
-          profile: p,
-        }));
-      setDynamicTabs(tabs);
-    }).catch(() => {});
-    return () => { cancelled = true; };
+    api
+      .getRegisteredProfiles()
+      .then(profiles => {
+        if (cancelled) return;
+        const tabs: DynamicTabEntry[] = profiles
+          .filter(
+            p => p.displayConfig?.tab && p.connectionStatus !== 'disconnected',
+          )
+          .map(p => ({
+            id: `profile-${p.id}`,
+            label: p.displayConfig!.tab!.label,
+            profile: p,
+          }));
+        setDynamicTabs(tabs);
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
   }, [api, tabRefreshKey]);
 
   const allTabs = useMemo(() => {
@@ -144,8 +162,16 @@ const ComplianceRouterInner = () => {
   const getSelectedTab = (): number => {
     const path = location.pathname.replace(/^\/compliance\/?/, '');
     if (path.startsWith('scan')) return 1;
-    if (path.startsWith('results') || path.startsWith('chain/') || path.startsWith('remediation/') || path.startsWith('execute') || path.startsWith('remediation-result')) return 2;
-    if (path === 'remediations' || path.startsWith('remediation-edit/')) return 3;
+    if (
+      path.startsWith('results') ||
+      path.startsWith('chain/') ||
+      path.startsWith('remediation/') ||
+      path.startsWith('execute') ||
+      path.startsWith('remediation-result')
+    )
+      return 2;
+    if (path === 'remediations' || path.startsWith('remediation-edit/'))
+      return 3;
     if (path.startsWith('inventories')) return 4;
 
     for (let i = 0; i < dynamicTabs.length; i++) {
@@ -178,7 +204,12 @@ const ComplianceRouterInner = () => {
           subtitle={
             <Box display="inline-flex" alignItems="center" style={{ gap: 8 }}>
               <span>Scan, review, and remediate infrastructure compliance</span>
-              <Chip label="Preview" size="small" variant="outlined" className={classes.previewChip} />
+              <Chip
+                label="Preview"
+                size="small"
+                variant="outlined"
+                className={classes.previewChip}
+              />
             </Box>
           }
           style={{ background: 'inherit' }}
@@ -198,14 +229,32 @@ const ComplianceRouterInner = () => {
               <Route path="/results" element={<ScanHistory />} />
               <Route path="/results/:jobId" element={<ResultsViewer />} />
               <Route path="/chain/:executionId" element={<ChainView />} />
-              <Route path="/remediation/:jobId" element={<RemediationProfileBuilder />} />
-              <Route path="/remediation-edit/:remediationId" element={<RemediationProfileBuilder />} />
-              <Route path="/execute/launch" element={<RemediationExecution />} />
-              <Route path="/execute/:jobId" element={<RemediationExecution />} />
-              <Route path="/remediation-result/:jobId" element={<RemediationExecution viewMode={true} />} />
+              <Route
+                path="/remediation/:jobId"
+                element={<RemediationProfileBuilder />}
+              />
+              <Route
+                path="/remediation-edit/:remediationId"
+                element={<RemediationProfileBuilder />}
+              />
+              <Route
+                path="/execute/launch"
+                element={<RemediationExecution />}
+              />
+              <Route
+                path="/execute/:jobId"
+                element={<RemediationExecution />}
+              />
+              <Route
+                path="/remediation-result/:jobId"
+                element={<RemediationExecution viewMode />}
+              />
               <Route path="/remediations" element={<RemediationsList />} />
               <Route path="/inventories" element={<InventoriesList />} />
-              <Route path="/inventories/:inventoryId" element={<InventoryDetail />} />
+              <Route
+                path="/inventories/:inventoryId"
+                element={<InventoryDetail />}
+              />
               {dynamicTabs.map(dt => (
                 <Route
                   key={dt.id}

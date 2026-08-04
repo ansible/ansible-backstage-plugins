@@ -1,7 +1,16 @@
-import React from 'react';
+import type { FC } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
-  Popover, Typography, List, ListItem, ListItemText, Divider, IconButton, Tooltip, Box, makeStyles,
+  Popover,
+  Typography,
+  List,
+  ListItem,
+  ListItemText,
+  Divider,
+  IconButton,
+  Tooltip,
+  Box,
+  makeStyles,
 } from '@material-ui/core';
 import BookmarkBorderIcon from '@material-ui/icons/BookmarkBorder';
 import type { ContributingScan } from '@ansible/backstage-compliance-common/types';
@@ -52,7 +61,7 @@ interface ContributingScansPopoverProps {
   onPinBaseline?: (inventoryId: number, inventoryName: string) => void;
 }
 
-export const ContributingScansPopover: React.FC<ContributingScansPopoverProps> = ({
+export const ContributingScansPopover: FC<ContributingScansPopoverProps> = ({
   anchorEl,
   onClose,
   profileName,
@@ -76,12 +85,15 @@ export const ContributingScansPopover: React.FC<ContributingScansPopoverProps> =
     >
       <div className={classes.content}>
         <Typography className={classes.header}>
-          {profileName} — {isBaseline ? 'Baseline by Inventory' : 'Contributing Scans'}
+          {profileName} —{' '}
+          {isBaseline ? 'Baseline by Inventory' : 'Contributing Scans'}
         </Typography>
         <Divider />
         <List dense disablePadding>
           {scans.map(scan => {
-            const bl = isBaseline ? baselineByInventory!.get(scan.inventoryId) : undefined;
+            const bl = isBaseline
+              ? baselineByInventory!.get(scan.inventoryId)
+              : undefined;
 
             if (isBaseline && !bl) {
               return (
@@ -112,14 +124,28 @@ export const ContributingScansPopover: React.FC<ContributingScansPopoverProps> =
                 <ListItem
                   key={scan.scanId}
                   className={classes.listItem}
-                  onClick={() => { onClose(); navigate(`/compliance/results/${scan.workflowJobId ?? scan.scanId}`); }}
+                  onClick={() => {
+                    onClose();
+                    navigate(
+                      `/compliance/results/${
+                        scan.workflowJobId ?? scan.scanId
+                      }`,
+                    );
+                  }}
                 >
                   <ListItemText
                     primary={`${scan.inventoryName} — ${bl.remediationProfileName}`}
                     secondary={`${bl.passCount}/${bl.ruleCount} baseline rules`}
                   />
-                  <Box display="flex" flexDirection="column" alignItems="flex-end">
-                    <Typography className={classes.passRate} style={{ color: getColor(bl.rate) }}>
+                  <Box
+                    display="flex"
+                    flexDirection="column"
+                    alignItems="flex-end"
+                  >
+                    <Typography
+                      className={classes.passRate}
+                      style={{ color: getColor(bl.rate) }}
+                    >
                       {bl.rate}%
                     </Typography>
                     <Typography className={classes.secondaryRate}>
@@ -134,11 +160,18 @@ export const ContributingScansPopover: React.FC<ContributingScansPopoverProps> =
               <ListItem
                 key={scan.scanId}
                 className={classes.listItem}
-                onClick={() => { onClose(); navigate(`/compliance/results/${scan.workflowJobId ?? scan.scanId}`); }}
+                onClick={() => {
+                  onClose();
+                  navigate(
+                    `/compliance/results/${scan.workflowJobId ?? scan.scanId}`,
+                  );
+                }}
               >
                 <ListItemText
                   primary={scan.inventoryName}
-                  secondary={`${scan.passCount}/${scan.ruleCount} rules · ${new Date(scan.timestamp).toLocaleDateString()}`}
+                  secondary={`${scan.passCount}/${
+                    scan.ruleCount
+                  } rules · ${new Date(scan.timestamp).toLocaleDateString()}`}
                 />
                 <Typography
                   className={classes.passRate}
@@ -151,7 +184,10 @@ export const ContributingScansPopover: React.FC<ContributingScansPopoverProps> =
           })}
           {scans.length === 0 && (
             <ListItem>
-              <ListItemText primary="No scans found" secondary="Run a scan with this profile to see results here." />
+              <ListItemText
+                primary="No scans found"
+                secondary="Run a scan with this profile to see results here."
+              />
             </ListItem>
           )}
         </List>

@@ -59,9 +59,12 @@ export const InlineBaselinePins = ({
   const alertApi = useApi(alertApiRef);
 
   const pinsForThis = useMemo(
-    () => currentPins.filter(
-      bt => bt.remediationProfileId === remediationProfileId && bt.complianceProfileId === complianceProfileId,
-    ),
+    () =>
+      currentPins.filter(
+        bt =>
+          bt.remediationProfileId === remediationProfileId &&
+          bt.complianceProfileId === complianceProfileId,
+      ),
     [currentPins, remediationProfileId, complianceProfileId],
   );
   const initialPinnedIds = useMemo(
@@ -69,11 +72,17 @@ export const InlineBaselinePins = ({
     [pinsForThis],
   );
   const pinsKey = useMemo(
-    () => pinsForThis.map(p => p.inventoryId).sort().join(','),
+    () =>
+      pinsForThis
+        .map(p => p.inventoryId)
+        .sort()
+        .join(','),
     [pinsForThis],
   );
 
-  const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set(initialPinnedIds));
+  const [selectedIds, setSelectedIds] = useState<Set<number>>(
+    new Set(initialPinnedIds),
+  );
   const [submitting, setSubmitting] = useState(false);
   const [scores, setScores] = useState<Map<number, number>>(new Map());
 
@@ -83,12 +92,15 @@ export const InlineBaselinePins = ({
 
   useEffect(() => {
     if (pinsForThis.length === 0) return;
-    api.getBaselineScores(remediationProfileId).then(data => {
-      const map = new Map<number, number>();
-      for (const s of data) map.set(s.inventoryId, s.passRate);
-      setScores(map);
-    }).catch(() => {});
-  }, [api, remediationProfileId, pinsKey]);
+    api
+      .getBaselineScores(remediationProfileId)
+      .then(data => {
+        const map = new Map<number, number>();
+        for (const s of data) map.set(s.inventoryId, s.passRate);
+        setScores(map);
+      })
+      .catch(() => {});
+  }, [api, remediationProfileId, pinsKey, pinsForThis.length]);
 
   const hasChanges = (() => {
     if (selectedIds.size !== initialPinnedIds.size) return true;
@@ -111,7 +123,9 @@ export const InlineBaselinePins = ({
     setSubmitting(true);
     try {
       const toPin = [...selectedIds].filter(id => !initialPinnedIds.has(id));
-      const toUnpin = pinsForThis.filter(bt => !selectedIds.has(bt.inventoryId));
+      const toUnpin = pinsForThis.filter(
+        bt => !selectedIds.has(bt.inventoryId),
+      );
 
       for (const bt of toUnpin) {
         await api.unpinBaselineTarget(bt.id);
@@ -126,7 +140,10 @@ export const InlineBaselinePins = ({
       onChanged();
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
-      alertApi.post({ message: `Failed to update baseline pins: ${msg}`, severity: 'error' });
+      alertApi.post({
+        message: `Failed to update baseline pins: ${msg}`,
+        severity: 'error',
+      });
     } finally {
       setSubmitting(false);
     }
@@ -146,11 +163,41 @@ export const InlineBaselinePins = ({
 
         let statusChip = null;
         if (wasPinned && isPinned) {
-          statusChip = <Chip label="pinned" size="small" className={classes.chip} style={{ backgroundColor: EXECUTION_COLORS.succeeded.bg, color: EXECUTION_COLORS.succeeded.fg }} />;
+          statusChip = (
+            <Chip
+              label="pinned"
+              size="small"
+              className={classes.chip}
+              style={{
+                backgroundColor: EXECUTION_COLORS.succeeded.bg,
+                color: EXECUTION_COLORS.succeeded.fg,
+              }}
+            />
+          );
         } else if (!wasPinned && isPinned) {
-          statusChip = <Chip label="will pin" size="small" className={classes.chip} style={{ backgroundColor: EXECUTION_COLORS.running.bg, color: EXECUTION_COLORS.running.fg }} />;
+          statusChip = (
+            <Chip
+              label="will pin"
+              size="small"
+              className={classes.chip}
+              style={{
+                backgroundColor: EXECUTION_COLORS.running.bg,
+                color: EXECUTION_COLORS.running.fg,
+              }}
+            />
+          );
         } else if (wasPinned && !isPinned) {
-          statusChip = <Chip label="will unpin" size="small" className={classes.chip} style={{ backgroundColor: EXECUTION_COLORS.pending.bg, color: EXECUTION_COLORS.pending.fg }} />;
+          statusChip = (
+            <Chip
+              label="will unpin"
+              size="small"
+              className={classes.chip}
+              style={{
+                backgroundColor: EXECUTION_COLORS.pending.bg,
+                color: EXECUTION_COLORS.pending.fg,
+              }}
+            />
+          );
         }
 
         const rateColors = rate !== undefined ? getRateColor(rate) : null;
@@ -171,14 +218,19 @@ export const InlineBaselinePins = ({
             />
             <div className={classes.inventoryLabel}>
               <Typography variant="body2">{inv.name}</Typography>
-              <Typography variant="caption" color="textSecondary">({inv.hostCount} hosts)</Typography>
+              <Typography variant="caption" color="textSecondary">
+                ({inv.hostCount} hosts)
+              </Typography>
               {statusChip}
               {rateColors && wasPinned && isPinned && (
                 <Chip
                   label={`${rate}%`}
                   size="small"
                   className={classes.rateChip}
-                  style={{ backgroundColor: rateColors.bg, color: rateColors.fg }}
+                  style={{
+                    backgroundColor: rateColors.bg,
+                    color: rateColors.fg,
+                  }}
                 />
               )}
             </div>

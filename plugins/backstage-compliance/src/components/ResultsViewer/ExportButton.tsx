@@ -8,7 +8,8 @@
  *
  * Falls back to CSV + JSON + CKL when no export_formats are declared.
  */
-import React, { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback } from 'react';
+import type { MouseEvent } from 'react';
 import {
   Button,
   Menu,
@@ -36,14 +37,23 @@ interface ExportButtonProps {
   profileName?: string;
   displayConfig?: ProfileDisplayConfig;
   scanId?: string;
-  onDownloadArtifact?: (scanId: string, artifactKey: string, filename: string) => Promise<void>;
+  onDownloadArtifact?: (
+    scanId: string,
+    artifactKey: string,
+    filename: string,
+  ) => Promise<void>;
   onFetchArtifacts?: (scanId: string) => Promise<ScanArtifact[]>;
 }
 
 const DEFAULT_FORMATS: ExportFormatSpec[] = [
   { key: 'csv', label: 'Export as CSV', type: 'cff_derived' },
   { key: 'json', label: 'Export as JSON', type: 'cff_derived' },
-  { key: 'ckl', label: 'Export as CKL', type: 'cff_derived', description: 'STIG Viewer checklist' },
+  {
+    key: 'ckl',
+    label: 'Export as CKL',
+    type: 'cff_derived',
+    description: 'STIG Viewer checklist',
+  },
 ];
 
 function downloadBlob(content: string, filename: string, mimeType: string) {
@@ -67,23 +77,32 @@ function escapeCSVField(value: string): string {
 
 function buildCSV(findings: MultiHostFinding[]): string {
   const headers = [
-    'Rule ID', 'STIG ID', 'Title', 'Severity', 'Category',
-    'Host', 'Status', 'Actual Value', 'Expected Value',
+    'Rule ID',
+    'STIG ID',
+    'Title',
+    'Severity',
+    'Category',
+    'Host',
+    'Status',
+    'Actual Value',
+    'Expected Value',
   ];
   const rows: string[] = [headers.join(',')];
   for (const finding of findings) {
     for (const host of finding.hosts) {
-      rows.push([
-        escapeCSVField(finding.ruleId),
-        escapeCSVField(finding.stigId),
-        escapeCSVField(finding.title),
-        escapeCSVField(finding.severity),
-        escapeCSVField(finding.category || ''),
-        escapeCSVField(host.host),
-        escapeCSVField(host.status),
-        escapeCSVField(host.actualValue),
-        escapeCSVField(host.expectedValue),
-      ].join(','));
+      rows.push(
+        [
+          escapeCSVField(finding.ruleId),
+          escapeCSVField(finding.stigId),
+          escapeCSVField(finding.title),
+          escapeCSVField(finding.severity),
+          escapeCSVField(finding.category || ''),
+          escapeCSVField(host.host),
+          escapeCSVField(host.status),
+          escapeCSVField(host.actualValue),
+          escapeCSVField(host.expectedValue),
+        ].join(','),
+      );
     }
   }
   return rows.join('\n');
@@ -100,19 +119,27 @@ function escapeXml(str: string): string {
 
 function toCklSeverity(severity: string): string {
   switch (severity) {
-    case 'CAT_I': return 'high';
-    case 'CAT_II': return 'medium';
-    case 'CAT_III': return 'low';
-    default: return 'medium';
+    case 'CAT_I':
+      return 'high';
+    case 'CAT_II':
+      return 'medium';
+    case 'CAT_III':
+      return 'low';
+    default:
+      return 'medium';
   }
 }
 
 function toCklStatus(status: string): string {
   switch (status) {
-    case 'pass': return 'NotAFinding';
-    case 'fail': return 'Open';
-    case 'error': return 'Not_Reviewed';
-    default: return 'Not_Reviewed';
+    case 'pass':
+      return 'NotAFinding';
+    case 'fail':
+      return 'Open';
+    case 'error':
+      return 'Not_Reviewed';
+    default:
+      return 'Not_Reviewed';
   }
 }
 
@@ -125,12 +152,16 @@ export function generateCKL(
     const hostResult = finding.hosts.find(h => h.host === hostname);
     const status = hostResult ? toCklStatus(hostResult.status) : 'Not_Reviewed';
     const details = hostResult
-      ? `Actual: ${escapeXml(hostResult.actualValue)}\nExpected: ${escapeXml(hostResult.expectedValue)}`
+      ? `Actual: ${escapeXml(hostResult.actualValue)}\nExpected: ${escapeXml(
+          hostResult.expectedValue,
+        )}`
       : '';
     return `      <VULN>
         <STIG_DATA>
           <VULN_ATTRIBUTE>Vuln_Num</VULN_ATTRIBUTE>
-          <ATTRIBUTE_DATA>${escapeXml(finding.stigId || finding.ruleId)}</ATTRIBUTE_DATA>
+          <ATTRIBUTE_DATA>${escapeXml(
+            finding.stigId || finding.ruleId,
+          )}</ATTRIBUTE_DATA>
         </STIG_DATA>
         <STIG_DATA>
           <VULN_ATTRIBUTE>Rule_ID</VULN_ATTRIBUTE>
@@ -201,10 +232,14 @@ function getDateStamp(): string {
 function getFormatIcon(fmt: ExportFormatSpec) {
   if (fmt.type === 'artifact') return <CloudDownloadIcon fontSize="small" />;
   switch (fmt.key) {
-    case 'csv': return <DescriptionIcon fontSize="small" />;
-    case 'json': return <CodeIcon fontSize="small" />;
-    case 'ckl': return <AssignmentTurnedInIcon fontSize="small" />;
-    default: return <GetAppIcon fontSize="small" />;
+    case 'csv':
+      return <DescriptionIcon fontSize="small" />;
+    case 'json':
+      return <CodeIcon fontSize="small" />;
+    case 'ckl':
+      return <AssignmentTurnedInIcon fontSize="small" />;
+    default:
+      return <GetAppIcon fontSize="small" />;
   }
 }
 
@@ -225,15 +260,20 @@ export const ExportButton = ({
 
   useEffect(() => {
     if (scanId && onFetchArtifacts) {
-      onFetchArtifacts(scanId).then(setArtifacts).catch((err: unknown) => {
-        const msg = err instanceof Error ? err.message : String(err);
-        alertApi.post({ message: `Failed to load export artifacts: ${msg}`, severity: 'warning' });
-        setArtifacts([]);
-      });
+      onFetchArtifacts(scanId)
+        .then(setArtifacts)
+        .catch((err: unknown) => {
+          const msg = err instanceof Error ? err.message : String(err);
+          alertApi.post({
+            message: `Failed to load export artifacts: ${msg}`,
+            severity: 'warning',
+          });
+          setArtifacts([]);
+        });
     }
   }, [scanId, onFetchArtifacts, alertApi]);
 
-  const handleClick = (event: React.MouseEvent<HTMLButtonElement>) => {
+  const handleClick = (event: MouseEvent<HTMLButtonElement>) => {
     setAnchorEl(event.currentTarget);
   };
 
@@ -243,45 +283,76 @@ export const ExportButton = ({
 
   const safeName = (profileName || 'scan').replace(/[^a-zA-Z0-9_-]/g, '_');
 
-  const handleCffExport = useCallback((fmt: ExportFormatSpec) => {
-    switch (fmt.key) {
-      case 'csv': {
-        const csv = buildCSV(findings);
-        downloadBlob(csv, `compliance-findings-${safeName}-${getDateStamp()}.csv`, 'text/csv;charset=utf-8');
-        break;
-      }
-      case 'json': {
-        const json = JSON.stringify(findings, null, 2);
-        downloadBlob(json, `compliance-findings-${safeName}-${getDateStamp()}.json`, 'application/json');
-        break;
-      }
-      case 'ckl': {
-        const allHosts = new Set<string>();
-        for (const finding of findings) {
-          for (const host of finding.hosts) allHosts.add(host.host);
+  const handleCffExport = useCallback(
+    (fmt: ExportFormatSpec) => {
+      switch (fmt.key) {
+        case 'csv': {
+          const csv = buildCSV(findings);
+          downloadBlob(
+            csv,
+            `compliance-findings-${safeName}-${getDateStamp()}.csv`,
+            'text/csv;charset=utf-8',
+          );
+          break;
         }
-        const hostname = allHosts.values().next().value || 'unknown-host';
-        const ckl = generateCKL(findings, hostname, profileName || 'Compliance Scan');
-        downloadBlob(ckl, `compliance-findings-${safeName}-${getDateStamp()}.ckl`, 'application/xml');
-        break;
+        case 'json': {
+          const json = JSON.stringify(findings, null, 2);
+          downloadBlob(
+            json,
+            `compliance-findings-${safeName}-${getDateStamp()}.json`,
+            'application/json',
+          );
+          break;
+        }
+        case 'ckl': {
+          const allHosts = new Set<string>();
+          for (const finding of findings) {
+            for (const host of finding.hosts) allHosts.add(host.host);
+          }
+          const hostname = allHosts.values().next().value || 'unknown-host';
+          const ckl = generateCKL(
+            findings,
+            hostname,
+            profileName || 'Compliance Scan',
+          );
+          downloadBlob(
+            ckl,
+            `compliance-findings-${safeName}-${getDateStamp()}.ckl`,
+            'application/xml',
+          );
+          break;
+        }
+        default:
+          break;
       }
-    }
-    handleClose();
-  }, [findings, safeName, profileName]);
-
-  const handleArtifactExport = useCallback(async (artifact: ScanArtifact) => {
-    if (!scanId || !onDownloadArtifact) return;
-    setDownloading(true);
-    try {
-      await onDownloadArtifact(scanId, artifact.artifactKey, artifact.artifactName);
-    } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : String(err);
-      alertApi.post({ message: `Failed to download ${artifact.artifactName}: ${msg}`, severity: 'error' });
-    } finally {
-      setDownloading(false);
       handleClose();
-    }
-  }, [scanId, onDownloadArtifact, alertApi]);
+    },
+    [findings, safeName, profileName],
+  );
+
+  const handleArtifactExport = useCallback(
+    async (artifact: ScanArtifact) => {
+      if (!scanId || !onDownloadArtifact) return;
+      setDownloading(true);
+      try {
+        await onDownloadArtifact(
+          scanId,
+          artifact.artifactKey,
+          artifact.artifactName,
+        );
+      } catch (err: unknown) {
+        const msg = err instanceof Error ? err.message : String(err);
+        alertApi.post({
+          message: `Failed to download ${artifact.artifactName}: ${msg}`,
+          severity: 'error',
+        });
+      } finally {
+        setDownloading(false);
+        handleClose();
+      }
+    },
+    [scanId, onDownloadArtifact, alertApi],
+  );
 
   const cffFormats = formats.filter(f => f.type === 'cff_derived');
   const artifactFormats = formats.filter(f => f.type === 'artifact');
@@ -290,17 +361,15 @@ export const ExportButton = ({
     <>
       <Button
         variant="outlined"
-        startIcon={downloading ? <CircularProgress size={16} /> : <GetAppIcon />}
+        startIcon={
+          downloading ? <CircularProgress size={16} /> : <GetAppIcon />
+        }
         onClick={handleClick}
         disabled={findings.length === 0 || downloading}
       >
         Export
       </Button>
-      <Menu
-        anchorEl={anchorEl}
-        open={Boolean(anchorEl)}
-        onClose={handleClose}
-      >
+      <Menu anchorEl={anchorEl} open={Boolean(anchorEl)} onClose={handleClose}>
         {cffFormats.map(fmt => (
           <MenuItem key={fmt.key} onClick={() => handleCffExport(fmt)}>
             <ListItemIcon>{getFormatIcon(fmt)}</ListItemIcon>
@@ -312,18 +381,28 @@ export const ExportButton = ({
           <>
             <Divider />
             {artifacts.map(artifact => {
-              const fmt = artifactFormats.find(f =>
-                f.artifact_key && (
-                  artifact.artifactKey === f.artifact_key ||
-                  (f.artifact_key.endsWith('*') && artifact.artifactKey.startsWith(f.artifact_key.slice(0, -1)))
-                )
+              const fmt = artifactFormats.find(
+                f =>
+                  f.artifact_key &&
+                  (artifact.artifactKey === f.artifact_key ||
+                    (f.artifact_key.endsWith('*') &&
+                      artifact.artifactKey.startsWith(
+                        f.artifact_key.slice(0, -1),
+                      ))),
               );
               return (
-                <MenuItem key={artifact.id} onClick={() => handleArtifactExport(artifact)}>
-                  <ListItemIcon><CloudDownloadIcon fontSize="small" /></ListItemIcon>
+                <MenuItem
+                  key={artifact.id}
+                  onClick={() => handleArtifactExport(artifact)}
+                >
+                  <ListItemIcon>
+                    <CloudDownloadIcon fontSize="small" />
+                  </ListItemIcon>
                   <ListItemText
                     primary={artifact.artifactName}
-                    secondary={fmt?.description || fmt?.label || artifact.mimeType}
+                    secondary={
+                      fmt?.description || fmt?.label || artifact.mimeType
+                    }
                   />
                 </MenuItem>
               );

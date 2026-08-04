@@ -15,8 +15,12 @@ export async function up(knex: Knex): Promise<void> {
   // 3. Create execution history table (ADR-014 §1)
   await knex.schema.createTable('compliance_remediation_executions', table => {
     table.string('id').primary();
-    table.string('remediation_profile_id').notNullable()
-      .references('id').inTable('compliance_remediation_profiles').onDelete('RESTRICT');
+    table
+      .string('remediation_profile_id')
+      .notNullable()
+      .references('id')
+      .inTable('compliance_remediation_profiles')
+      .onDelete('RESTRICT');
     table.integer('inventory_id').notNullable();
     table.string('informing_scan_id').nullable();
     table.integer('primary_job_id').nullable();
@@ -49,8 +53,12 @@ export async function up(knex: Knex): Promise<void> {
   // 4. Create baseline targets table (ADR-014 §7)
   await knex.schema.createTable('compliance_baseline_targets', table => {
     table.string('id').primary();
-    table.string('remediation_profile_id').notNullable()
-      .references('id').inTable('compliance_remediation_profiles').onDelete('RESTRICT');
+    table
+      .string('remediation_profile_id')
+      .notNullable()
+      .references('id')
+      .inTable('compliance_remediation_profiles')
+      .onDelete('RESTRICT');
     table.string('compliance_profile_id').notNullable();
     table.integer('inventory_id').notNullable();
     table.string('pinned_at').notNullable();
@@ -75,10 +83,14 @@ export async function up(knex: Knex): Promise<void> {
       continue;
     }
 
-    const status = scan.status === 'completed' ? 'succeeded'
-      : scan.status === 'failed' ? 'failed'
-      : scan.status === 'cancelled' ? 'cancelled'
-      : 'failed'; // treat unknown as failed during backfill
+    let status = 'failed';
+    if (scan.status === 'completed') {
+      status = 'succeeded';
+    } else if (scan.status === 'failed') {
+      status = 'failed';
+    } else if (scan.status === 'cancelled') {
+      status = 'cancelled';
+    }
 
     // Use try-catch to skip duplicates (partial unique index may reject)
     try {
@@ -88,7 +100,9 @@ export async function up(knex: Knex): Promise<void> {
         inventory_id: scan.inventory_id || 0,
         informing_scan_id: null,
         primary_job_id: scan.workflow_job_id,
-        all_job_ids: scan.workflow_job_id ? JSON.stringify([scan.workflow_job_id]) : null,
+        all_job_ids: scan.workflow_job_id
+          ? JSON.stringify([scan.workflow_job_id])
+          : null,
         status,
         started_at: scan.started_at,
         completed_at: scan.completed_at,

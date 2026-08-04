@@ -1,10 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import {
-  InfoCard,
-  Breadcrumbs,
-  Progress,
-} from '@backstage/core-components';
+import { InfoCard, Breadcrumbs, Progress } from '@backstage/core-components';
 import { useApi } from '@backstage/core-plugin-api';
 import { usePermission } from '@backstage/plugin-permission-react';
 import { catalogEntityCreatePermission } from '@backstage/plugin-catalog-common/alpha';
@@ -81,11 +77,14 @@ const DataRetentionSettings = () => {
   const [cleanupResult, setCleanupResult] = useState<string | null>(null);
 
   useEffect(() => {
-    api.getHealth().then(h => {
-      if (h.retentionDays) {
-        setRetentionDays(h.retentionDays);
-      }
-    }).catch(() => {});
+    api
+      .getHealth()
+      .then(h => {
+        if (h.retentionDays) {
+          setRetentionDays(h.retentionDays);
+        }
+      })
+      .catch(() => {});
   }, [api]);
 
   const handleSave = async () => {
@@ -118,8 +117,9 @@ const DataRetentionSettings = () => {
   return (
     <Box>
       <Typography variant="body2" color="textSecondary" paragraph>
-        Configure how long scan findings are retained. Older findings are automatically
-        cleaned up on startup. Scan records are preserved for history.
+        Configure how long scan findings are retained. Older findings are
+        automatically cleaned up on startup. Scan records are preserved for
+        history.
       </Typography>
       <Box display="flex" alignItems="center" style={{ gap: 16 }}>
         <TextField
@@ -133,14 +133,27 @@ const DataRetentionSettings = () => {
           style={{ width: 200 }}
         />
         <Button variant="outlined" onClick={handleSave} disabled={saving}>
-          {saving ? 'Saving...' : saved ? 'Saved ✓' : 'Save'}
+          {(() => {
+            if (saving) return 'Saving...';
+            if (saved) return 'Saved ✓';
+            return 'Save';
+          })()}
         </Button>
-        <Button variant="outlined" color="secondary" onClick={handleCleanup} disabled={cleaning}>
+        <Button
+          variant="outlined"
+          color="secondary"
+          onClick={handleCleanup}
+          disabled={cleaning}
+        >
           {cleaning ? 'Cleaning...' : 'Run Cleanup Now'}
         </Button>
       </Box>
       {cleanupResult && (
-        <Typography variant="body2" color="textSecondary" style={{ marginTop: 8 }}>
+        <Typography
+          variant="body2"
+          color="textSecondary"
+          style={{ marginTop: 8 }}
+        >
           {cleanupResult}
         </Typography>
       )}
@@ -160,19 +173,30 @@ export const ProfileSettings = () => {
   const [profiles, setProfiles] = useState<ComplianceProfile[]>([]);
   const [loading, setLoading] = useState(true);
   const [dialogOpen, setDialogOpen] = useState(false);
-  const [editProfile, setEditProfile] = useState<ComplianceProfile | null>(null);
+  const [editProfile, setEditProfile] = useState<ComplianceProfile | null>(
+    null,
+  );
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
-  const [deleteTarget, setDeleteTarget] = useState<ComplianceProfile | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<ComplianceProfile | null>(
+    null,
+  );
   const [deleteError, setDeleteError] = useState<string | null>(null);
 
-  const [workflowTemplates, setWorkflowTemplates] = useState<WorkflowTemplate[]>([]);
-  const [executionEnvironments, setExecutionEnvironments] = useState<ExecutionEnvironment[]>([]);
+  const [workflowTemplates, setWorkflowTemplates] = useState<
+    WorkflowTemplate[]
+  >([]);
+  const [executionEnvironments, setExecutionEnvironments] = useState<
+    ExecutionEnvironment[]
+  >([]);
 
   const loadProfiles = useCallback(async () => {
     try {
-      const data = await api.getRegisteredProfiles({ includeDisconnected: true });
+      const data = await api.getRegisteredProfiles({
+        includeDisconnected: true,
+      });
       setProfiles(data);
     } catch (err) {
+      // eslint-disable-next-line no-console
       console.error('Failed to load profiles:', err);
     } finally {
       setLoading(false);
@@ -189,6 +213,7 @@ export const ProfileSettings = () => {
       setWorkflowTemplates([...jts, ...wfts]);
       setExecutionEnvironments(ees);
     } catch (err) {
+      // eslint-disable-next-line no-console
       console.error('Failed to load controller resources:', err);
     }
   }, [api]);
@@ -247,7 +272,9 @@ export const ProfileSettings = () => {
       await loadProfiles();
       if (hadTab) refreshTabs?.();
     } catch (err) {
-      setDeleteError(err instanceof Error ? err.message : 'Failed to disconnect profile');
+      setDeleteError(
+        err instanceof Error ? err.message : 'Failed to disconnect profile',
+      );
     }
   };
 
@@ -263,7 +290,11 @@ export const ProfileSettings = () => {
     return (
       <>
         <Breadcrumbs>
-          <Typography color="primary" style={{ cursor: 'pointer' }} onClick={() => navigate('/compliance')}>
+          <Typography
+            color="primary"
+            style={{ cursor: 'pointer' }}
+            onClick={() => navigate('/compliance')}
+          >
             Compliance
           </Typography>
           <Typography>Settings</Typography>
@@ -271,8 +302,8 @@ export const ProfileSettings = () => {
         <Box mt={3} />
         <InfoCard title="Access Denied">
           <Typography variant="body1">
-            You do not have permission to manage compliance profiles.
-            Contact your administrator if you need access.
+            You do not have permission to manage compliance profiles. Contact
+            your administrator if you need access.
           </Typography>
         </InfoCard>
       </>
@@ -282,7 +313,11 @@ export const ProfileSettings = () => {
   return (
     <>
       <Breadcrumbs>
-        <Typography color="primary" style={{ cursor: 'pointer' }} onClick={() => navigate('/compliance')}>
+        <Typography
+          color="primary"
+          style={{ cursor: 'pointer' }}
+          onClick={() => navigate('/compliance')}
+        >
           Compliance
         </Typography>
         <Typography>Settings</Typography>
@@ -293,25 +328,44 @@ export const ProfileSettings = () => {
       <InfoCard title="Compliance Profiles">
         <div className={classes.headerRow}>
           <Typography variant="body2" color="textSecondary">
-            Each profile maps a compliance standard (e.g., DISA STIG, CIS) to an automation controller workflow job template and execution environment.
+            Each profile maps a compliance standard (e.g., DISA STIG, CIS) to an
+            automation controller workflow job template and execution
+            environment.
           </Typography>
-          <Button variant="contained" color="primary" startIcon={<AddIcon />} onClick={handleOpenDialog}>
+          <Button
+            variant="contained"
+            color="primary"
+            startIcon={<AddIcon />}
+            onClick={handleOpenDialog}
+          >
             Add Profile
           </Button>
         </div>
 
-        {profiles.filter(p => p.connectionStatus !== 'disconnected').length === 0 ? (
+        {profiles.filter(p => p.connectionStatus !== 'disconnected').length ===
+        0 ? (
           <div className={classes.emptyState}>
-            <SettingsIcon style={{ fontSize: 64, color: STATUS_COLORS.neutral, marginBottom: 16 }} />
+            <SettingsIcon
+              style={{
+                fontSize: 64,
+                color: STATUS_COLORS.neutral,
+                marginBottom: 16,
+              }}
+            />
             <Typography variant="h6" color="textSecondary" gutterBottom>
               No compliance profiles configured
             </Typography>
             <Typography variant="body2" color="textSecondary" paragraph>
-              A compliance profile maps a standard (e.g., DISA STIG for RHEL 9) to
-              a workflow job template and execution environment so you can scan
-              and remediate from the portal.
+              A compliance profile maps a standard (e.g., DISA STIG for RHEL 9)
+              to a workflow job template and execution environment so you can
+              scan and remediate from the portal.
             </Typography>
-            <Button variant="contained" color="primary" startIcon={<AddIcon />} onClick={handleOpenDialog}>
+            <Button
+              variant="contained"
+              color="primary"
+              startIcon={<AddIcon />}
+              onClick={handleOpenDialog}
+            >
               Add Compliance Profile
             </Button>
           </div>
@@ -332,44 +386,69 @@ export const ProfileSettings = () => {
                 </TableRow>
               </TableHead>
               <TableBody>
-                {profiles.filter(c => c.connectionStatus !== 'disconnected').map(c => (
-                  <TableRow key={c.id}>
-                    <TableCell>
-                      <Typography variant="body2" style={{ fontWeight: 500 }}>
-                        {c.displayName}
-                      </Typography>
-                      {c.profileSlug && (
-                        <Typography variant="caption" color="textSecondary" style={{ fontFamily: 'monospace' }}>
-                          {c.profileSlug}
+                {profiles
+                  .filter(c => c.connectionStatus !== 'disconnected')
+                  .map(c => (
+                    <TableRow key={c.id}>
+                      <TableCell>
+                        <Typography variant="body2" style={{ fontWeight: 500 }}>
+                          {c.displayName}
                         </Typography>
-                      )}
-                      {c.description && !c.profileSlug && (
-                        <Typography variant="caption" color="textSecondary">
-                          {c.description}
-                        </Typography>
-                      )}
-                    </TableCell>
-                    <TableCell>
-                      <Chip label={getFrameworkLabel(c.framework)} size="small" variant="outlined" className={classes.frameworkChip} />
-                    </TableCell>
-                    <TableCell>
-                      <CertificationBadge certification={c.certification} />
-                    </TableCell>
-                    <TableCell>{c.version || '--'}</TableCell>
-                    <TableCell>{c.platform || '--'}</TableCell>
-                    <TableCell>{c.workflowTemplateId ? `ID ${c.workflowTemplateId}` : '--'}</TableCell>
-                    <TableCell>{c.remediateJtId ? `ID ${c.remediateJtId}` : 'Auto'}</TableCell>
-                    <TableCell>{c.eeId ? `ID ${c.eeId}` : '--'}</TableCell>
-                    <TableCell>
-                      <IconButton size="small" onClick={() => handleEditClick(c)} aria-label="edit compliance profile">
-                        <EditIcon fontSize="small" />
-                      </IconButton>
-                      <IconButton size="small" onClick={() => handleDeleteClick(c)} aria-label="delete compliance profile">
-                        <DeleteIcon fontSize="small" />
-                      </IconButton>
-                    </TableCell>
-                  </TableRow>
-                ))}
+                        {c.profileSlug && (
+                          <Typography
+                            variant="caption"
+                            color="textSecondary"
+                            style={{ fontFamily: 'monospace' }}
+                          >
+                            {c.profileSlug}
+                          </Typography>
+                        )}
+                        {c.description && !c.profileSlug && (
+                          <Typography variant="caption" color="textSecondary">
+                            {c.description}
+                          </Typography>
+                        )}
+                      </TableCell>
+                      <TableCell>
+                        <Chip
+                          label={getFrameworkLabel(c.framework)}
+                          size="small"
+                          variant="outlined"
+                          className={classes.frameworkChip}
+                        />
+                      </TableCell>
+                      <TableCell>
+                        <CertificationBadge certification={c.certification} />
+                      </TableCell>
+                      <TableCell>{c.version || '--'}</TableCell>
+                      <TableCell>{c.platform || '--'}</TableCell>
+                      <TableCell>
+                        {c.workflowTemplateId
+                          ? `ID ${c.workflowTemplateId}`
+                          : '--'}
+                      </TableCell>
+                      <TableCell>
+                        {c.remediateJtId ? `ID ${c.remediateJtId}` : 'Auto'}
+                      </TableCell>
+                      <TableCell>{c.eeId ? `ID ${c.eeId}` : '--'}</TableCell>
+                      <TableCell>
+                        <IconButton
+                          size="small"
+                          onClick={() => handleEditClick(c)}
+                          aria-label="edit compliance profile"
+                        >
+                          <EditIcon fontSize="small" />
+                        </IconButton>
+                        <IconButton
+                          size="small"
+                          onClick={() => handleDeleteClick(c)}
+                          aria-label="delete compliance profile"
+                        >
+                          <DeleteIcon fontSize="small" />
+                        </IconButton>
+                      </TableCell>
+                    </TableRow>
+                  ))}
               </TableBody>
             </Table>
           </TableContainer>
@@ -390,7 +469,10 @@ export const ProfileSettings = () => {
         <DataRetentionSettings />
       </InfoCard>
 
-      <Dialog open={deleteDialogOpen} onClose={() => setDeleteDialogOpen(false)}>
+      <Dialog
+        open={deleteDialogOpen}
+        onClose={() => setDeleteDialogOpen(false)}
+      >
         <DialogTitle>Disconnect Compliance Profile</DialogTitle>
         <DialogContent>
           <Typography>
@@ -407,7 +489,11 @@ export const ProfileSettings = () => {
         </DialogContent>
         <DialogActions>
           <Button onClick={() => setDeleteDialogOpen(false)}>Cancel</Button>
-          <Button variant="contained" color="secondary" onClick={handleDeleteConfirm}>
+          <Button
+            variant="contained"
+            color="secondary"
+            onClick={handleDeleteConfirm}
+          >
             Disconnect
           </Button>
         </DialogActions>

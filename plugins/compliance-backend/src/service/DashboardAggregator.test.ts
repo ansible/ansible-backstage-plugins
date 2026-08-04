@@ -1,5 +1,8 @@
 import { LoggerService } from '@backstage/backend-plugin-api';
-import { DashboardAggregator, DashboardServiceDeps } from './DashboardAggregator';
+import {
+  DashboardAggregator,
+  DashboardServiceDeps,
+} from './DashboardAggregator';
 import type { ComplianceDatabase } from '../database/ComplianceDatabase';
 
 // ─── Mock factories ──────────────────────────────────────────────────
@@ -24,11 +27,15 @@ function createMockDatabase(): jest.Mocked<ComplianceDatabase> {
     getBaselineScoresBatch: jest.fn().mockResolvedValue(new Map()),
     getPostureHistory: jest.fn().mockResolvedValue([]),
     getRemediationProfile: jest.fn().mockResolvedValue(null),
-    getBaselineScore: jest.fn().mockResolvedValue({ passCount: 0, failCount: 0 }),
+    getBaselineScore: jest
+      .fn()
+      .mockResolvedValue({ passCount: 0, failCount: 0 }),
   } as unknown as jest.Mocked<ComplianceDatabase>;
 }
 
-function createMockService(overrides?: Partial<DashboardServiceDeps>): jest.Mocked<DashboardServiceDeps> {
+function createMockService(
+  overrides?: Partial<DashboardServiceDeps>,
+): jest.Mocked<DashboardServiceDeps> {
   return {
     getInventories: jest.fn().mockResolvedValue([]),
     getRemediationProfile: jest.fn().mockResolvedValue(null),
@@ -37,7 +44,10 @@ function createMockService(overrides?: Partial<DashboardServiceDeps>): jest.Mock
   } as jest.Mocked<DashboardServiceDeps>;
 }
 
-function createAggregator(dbOverrides?: Partial<jest.Mocked<ComplianceDatabase>>, svcOverrides?: Partial<DashboardServiceDeps>) {
+function createAggregator(
+  dbOverrides?: Partial<jest.Mocked<ComplianceDatabase>>,
+  svcOverrides?: Partial<DashboardServiceDeps>,
+) {
   const logger = createMockLogger();
   const db = createMockDatabase();
   Object.assign(db, dbOverrides);
@@ -47,7 +57,12 @@ function createAggregator(dbOverrides?: Partial<jest.Mocked<ComplianceDatabase>>
 }
 
 // Mock scan fixture
-function makeScan(id: string, profileId: string, inventoryId: number, extra?: Record<string, unknown>) {
+function makeScan(
+  id: string,
+  profileId: string,
+  inventoryId: number,
+  extra?: Record<string, unknown>,
+) {
   return {
     id,
     profileId,
@@ -92,11 +107,22 @@ describe('DashboardAggregator', () => {
     it('computes hostsScanned from unique host set', async () => {
       const scan = makeScan('s1', 'rhel9-stig', 1);
       const batchStats = new Map([
-        ['s1', { pass: 300, fail: 66, catI: 5, hosts: ['web-01', 'web-02', 'db-01'], rules: new Set(['r1', 'r2']) }],
+        [
+          's1',
+          {
+            pass: 300,
+            fail: 66,
+            catI: 5,
+            hosts: ['web-01', 'web-02', 'db-01'],
+            rules: new Set(['r1', 'r2']),
+          },
+        ],
       ]);
       const { aggregator } = createAggregator({
         getLatestScanPerProfileInventory: jest.fn().mockResolvedValue([scan]),
-        listProfiles: jest.fn().mockResolvedValue([makeProfile('rhel9-stig', 'DISA STIG')]),
+        listProfiles: jest
+          .fn()
+          .mockResolvedValue([makeProfile('rhel9-stig', 'DISA STIG')]),
         getAggregatedStatsByScanIds: jest.fn().mockResolvedValue(batchStats),
       });
       const stats = await aggregator.getDashboardStats();
@@ -106,11 +132,22 @@ describe('DashboardAggregator', () => {
     it('computes criticalFindings and pendingRemediation', async () => {
       const scan = makeScan('s1', 'rhel9-stig', 1);
       const batchStats = new Map([
-        ['s1', { pass: 300, fail: 66, catI: 12, hosts: ['h1'], rules: new Set(['r1']) }],
+        [
+          's1',
+          {
+            pass: 300,
+            fail: 66,
+            catI: 12,
+            hosts: ['h1'],
+            rules: new Set(['r1']),
+          },
+        ],
       ]);
       const { aggregator } = createAggregator({
         getLatestScanPerProfileInventory: jest.fn().mockResolvedValue([scan]),
-        listProfiles: jest.fn().mockResolvedValue([makeProfile('rhel9-stig', 'STIG')]),
+        listProfiles: jest
+          .fn()
+          .mockResolvedValue([makeProfile('rhel9-stig', 'STIG')]),
         getAggregatedStatsByScanIds: jest.fn().mockResolvedValue(batchStats),
       });
       const stats = await aggregator.getDashboardStats();
@@ -121,11 +158,22 @@ describe('DashboardAggregator', () => {
     it('computes frameworkScores with correct pass rate', async () => {
       const scan = makeScan('s1', 'rhel9-stig', 1);
       const batchStats = new Map([
-        ['s1', { pass: 285, fail: 81, catI: 0, hosts: ['h1'], rules: new Set(['r1', 'r2']) }],
+        [
+          's1',
+          {
+            pass: 285,
+            fail: 81,
+            catI: 0,
+            hosts: ['h1'],
+            rules: new Set(['r1', 'r2']),
+          },
+        ],
       ]);
       const { aggregator } = createAggregator({
         getLatestScanPerProfileInventory: jest.fn().mockResolvedValue([scan]),
-        listProfiles: jest.fn().mockResolvedValue([makeProfile('rhel9-stig', 'DISA STIG V2R8')]),
+        listProfiles: jest
+          .fn()
+          .mockResolvedValue([makeProfile('rhel9-stig', 'DISA STIG V2R8')]),
         getAggregatedStatsByScanIds: jest.fn().mockResolvedValue(batchStats),
       });
       const stats = await aggregator.getDashboardStats();
@@ -142,12 +190,32 @@ describe('DashboardAggregator', () => {
         makeScan('s2', 'rhel9-stig', 2),
       ];
       const batchStats = new Map([
-        ['s1', { pass: 100, fail: 50, catI: 2, hosts: ['h1', 'h2'], rules: new Set(['r1', 'r2']) }],
-        ['s2', { pass: 80, fail: 20, catI: 1, hosts: ['h3'], rules: new Set(['r1', 'r3']) }],
+        [
+          's1',
+          {
+            pass: 100,
+            fail: 50,
+            catI: 2,
+            hosts: ['h1', 'h2'],
+            rules: new Set(['r1', 'r2']),
+          },
+        ],
+        [
+          's2',
+          {
+            pass: 80,
+            fail: 20,
+            catI: 1,
+            hosts: ['h3'],
+            rules: new Set(['r1', 'r3']),
+          },
+        ],
       ]);
       const { aggregator } = createAggregator({
         getLatestScanPerProfileInventory: jest.fn().mockResolvedValue(scans),
-        listProfiles: jest.fn().mockResolvedValue([makeProfile('rhel9-stig', 'STIG')]),
+        listProfiles: jest
+          .fn()
+          .mockResolvedValue([makeProfile('rhel9-stig', 'STIG')]),
         getAggregatedStatsByScanIds: jest.fn().mockResolvedValue(batchStats),
       });
       const stats = await aggregator.getDashboardStats();
@@ -164,15 +232,35 @@ describe('DashboardAggregator', () => {
         makeScan('s2', 'rhel9-cis', 1),
       ];
       const batchStats = new Map([
-        ['s1', { pass: 300, fail: 66, catI: 0, hosts: ['h1'], rules: new Set(['r1']) }],
-        ['s2', { pass: 150, fail: 39, catI: 0, hosts: ['h1'], rules: new Set(['r2']) }],
+        [
+          's1',
+          {
+            pass: 300,
+            fail: 66,
+            catI: 0,
+            hosts: ['h1'],
+            rules: new Set(['r1']),
+          },
+        ],
+        [
+          's2',
+          {
+            pass: 150,
+            fail: 39,
+            catI: 0,
+            hosts: ['h1'],
+            rules: new Set(['r2']),
+          },
+        ],
       ]);
       const { aggregator } = createAggregator({
         getLatestScanPerProfileInventory: jest.fn().mockResolvedValue(scans),
-        listProfiles: jest.fn().mockResolvedValue([
-          makeProfile('rhel9-stig', 'STIG'),
-          makeProfile('rhel9-cis', 'CIS'),
-        ]),
+        listProfiles: jest
+          .fn()
+          .mockResolvedValue([
+            makeProfile('rhel9-stig', 'STIG'),
+            makeProfile('rhel9-cis', 'CIS'),
+          ]),
         getAggregatedStatsByScanIds: jest.fn().mockResolvedValue(batchStats),
       });
       const stats = await aggregator.getDashboardStats();
@@ -183,11 +271,16 @@ describe('DashboardAggregator', () => {
     it('maps inventory names from service, falls back to ID', async () => {
       const scans = [makeScan('s1', 'p1', 99)];
       const batchStats = new Map([
-        ['s1', { pass: 10, fail: 0, catI: 0, hosts: ['h1'], rules: new Set(['r1']) }],
+        [
+          's1',
+          { pass: 10, fail: 0, catI: 0, hosts: ['h1'], rules: new Set(['r1']) },
+        ],
       ]);
       const { aggregator } = createAggregator({
         getLatestScanPerProfileInventory: jest.fn().mockResolvedValue(scans),
-        listProfiles: jest.fn().mockResolvedValue([makeProfile('p1', 'Profile')]),
+        listProfiles: jest
+          .fn()
+          .mockResolvedValue([makeProfile('p1', 'Profile')]),
         getAggregatedStatsByScanIds: jest.fn().mockResolvedValue(batchStats),
       });
       const stats = await aggregator.getDashboardStats();
@@ -197,16 +290,25 @@ describe('DashboardAggregator', () => {
     it('uses inventory names when service returns them', async () => {
       const scans = [makeScan('s1', 'p1', 5)];
       const batchStats = new Map([
-        ['s1', { pass: 10, fail: 0, catI: 0, hosts: ['h1'], rules: new Set(['r1']) }],
+        [
+          's1',
+          { pass: 10, fail: 0, catI: 0, hosts: ['h1'], rules: new Set(['r1']) },
+        ],
       ]);
       const { aggregator } = createAggregator(
         {
           getLatestScanPerProfileInventory: jest.fn().mockResolvedValue(scans),
-          listProfiles: jest.fn().mockResolvedValue([makeProfile('p1', 'Profile')]),
+          listProfiles: jest
+            .fn()
+            .mockResolvedValue([makeProfile('p1', 'Profile')]),
           getAggregatedStatsByScanIds: jest.fn().mockResolvedValue(batchStats),
         },
         {
-          getInventories: jest.fn().mockResolvedValue([{ id: 5, name: 'production-servers', hostCount: 10 }]),
+          getInventories: jest
+            .fn()
+            .mockResolvedValue([
+              { id: 5, name: 'production-servers', hostCount: 10 },
+            ]),
         },
       );
       const stats = await aggregator.getDashboardStats();
@@ -215,10 +317,30 @@ describe('DashboardAggregator', () => {
 
     it('computes deltas when previous scans exist', async () => {
       const scan = makeScan('s1', 'p1', 1);
-      const prevScan = makeScan('s-prev', 'p1', 1, { completedAt: '2026-05-31T00:00:00Z' });
+      const prevScan = makeScan('s-prev', 'p1', 1, {
+        completedAt: '2026-05-31T00:00:00Z',
+      });
       const batchStats = new Map([
-        ['s1', { pass: 300, fail: 66, catI: 5, hosts: ['h1'], rules: new Set(['r1']) }],
-        ['s-prev', { pass: 280, fail: 86, catI: 8, hosts: ['h1'], rules: new Set(['r1']) }],
+        [
+          's1',
+          {
+            pass: 300,
+            fail: 66,
+            catI: 5,
+            hosts: ['h1'],
+            rules: new Set(['r1']),
+          },
+        ],
+        [
+          's-prev',
+          {
+            pass: 280,
+            fail: 86,
+            catI: 8,
+            hosts: ['h1'],
+            rules: new Set(['r1']),
+          },
+        ],
       ]);
       const { aggregator } = createAggregator({
         getLatestScanPerProfileInventory: jest.fn().mockResolvedValue([scan]),
@@ -234,7 +356,10 @@ describe('DashboardAggregator', () => {
     it('omits delta fields when no previous scans', async () => {
       const scan = makeScan('s1', 'p1', 1);
       const batchStats = new Map([
-        ['s1', { pass: 10, fail: 5, catI: 1, hosts: ['h1'], rules: new Set(['r1']) }],
+        [
+          's1',
+          { pass: 10, fail: 5, catI: 1, hosts: ['h1'], rules: new Set(['r1']) },
+        ],
       ]);
       const { aggregator } = createAggregator({
         getLatestScanPerProfileInventory: jest.fn().mockResolvedValue([scan]),
@@ -260,42 +385,76 @@ describe('DashboardAggregator', () => {
 
     it('returns empty stats when database throws', async () => {
       const { aggregator, logger } = createAggregator({
-        getLatestScanPerProfileInventory: jest.fn().mockRejectedValue(new Error('DB down')),
+        getLatestScanPerProfileInventory: jest
+          .fn()
+          .mockRejectedValue(new Error('DB down')),
       });
       const stats = await aggregator.getDashboardStats();
       expect(stats.hostsScanned).toBe(0);
-      expect(logger.warn).toHaveBeenCalledWith(expect.stringContaining('Dashboard stats aggregation failed'));
+      expect(logger.warn).toHaveBeenCalledWith(
+        expect.stringContaining('Dashboard stats aggregation failed'),
+      );
     });
 
     it('continues when inventory fetch fails', async () => {
       const scan = makeScan('s1', 'p1', 1);
       const batchStats = new Map([
-        ['s1', { pass: 10, fail: 5, catI: 0, hosts: ['h1'], rules: new Set(['r1']) }],
+        [
+          's1',
+          { pass: 10, fail: 5, catI: 0, hosts: ['h1'], rules: new Set(['r1']) },
+        ],
       ]);
       const { aggregator, logger } = createAggregator(
         {
           getLatestScanPerProfileInventory: jest.fn().mockResolvedValue([scan]),
-          listProfiles: jest.fn().mockResolvedValue([makeProfile('p1', 'STIG')]),
+          listProfiles: jest
+            .fn()
+            .mockResolvedValue([makeProfile('p1', 'STIG')]),
           getAggregatedStatsByScanIds: jest.fn().mockResolvedValue(batchStats),
         },
         {
-          getInventories: jest.fn().mockRejectedValue(new Error('Controller down')),
+          getInventories: jest
+            .fn()
+            .mockRejectedValue(new Error('Controller down')),
         },
       );
       const stats = await aggregator.getDashboardStats();
       expect(stats.hostsScanned).toBe(1);
-      expect(logger.warn).toHaveBeenCalledWith(expect.stringContaining('Failed to fetch inventories'));
+      expect(logger.warn).toHaveBeenCalledWith(
+        expect.stringContaining('Failed to fetch inventories'),
+      );
     });
 
     it('enriches byInventory scores with baseline data', async () => {
       const scan = makeScan('s1', 'p1', 1);
       const batchStats = new Map([
-        ['s1', { pass: 300, fail: 66, catI: 0, hosts: ['h1'], rules: new Set(['r1']) }],
+        [
+          's1',
+          {
+            pass: 300,
+            fail: 66,
+            catI: 0,
+            hosts: ['h1'],
+            rules: new Set(['r1']),
+          },
+        ],
       ]);
-      const baselines = [{ id: 'bt-1', remediationProfileId: 'rp-1', complianceProfileId: 'p1', inventoryId: 1, pinnedAt: '2026-06-01' }];
-      const baselineScores = new Map([['p1::1', { passCount: 8, failCount: 2 }]]);
+      const baselines = [
+        {
+          id: 'bt-1',
+          remediationProfileId: 'rp-1',
+          complianceProfileId: 'p1',
+          inventoryId: 1,
+          pinnedAt: '2026-06-01',
+        },
+      ];
+      const baselineScores = new Map([
+        ['p1::1', { passCount: 8, failCount: 2 }],
+      ]);
       const remProfile = {
-        id: 'rp-1', name: 'My Baseline', selections: [
+        id: 'rp-1',
+        name: 'My Baseline',
+        selections: [
           { ruleId: 'r1', enabled: true },
           { ruleId: 'r2', enabled: true },
         ],
@@ -303,7 +462,9 @@ describe('DashboardAggregator', () => {
       const { aggregator } = createAggregator(
         {
           getLatestScanPerProfileInventory: jest.fn().mockResolvedValue([scan]),
-          listProfiles: jest.fn().mockResolvedValue([makeProfile('p1', 'STIG')]),
+          listProfiles: jest
+            .fn()
+            .mockResolvedValue([makeProfile('p1', 'STIG')]),
           getAggregatedStatsByScanIds: jest.fn().mockResolvedValue(batchStats),
           getAllBaselineTargets: jest.fn().mockResolvedValue(baselines),
           getBaselineScoresBatch: jest.fn().mockResolvedValue(baselineScores),
@@ -332,7 +493,9 @@ describe('DashboardAggregator', () => {
     });
 
     it('delegates to database in live mode', async () => {
-      const snapshots = [{ id: 'snap-1', profileId: 'p1', rate: 80, timestamp: '2026-06-01' }];
+      const snapshots = [
+        { id: 'snap-1', profileId: 'p1', rate: 80, timestamp: '2026-06-01' },
+      ];
       const { aggregator, db } = createAggregator({
         getPostureHistory: jest.fn().mockResolvedValue(snapshots),
       });
@@ -356,7 +519,8 @@ describe('DashboardAggregator', () => {
     it('returns empty array when no enabled selections', async () => {
       const { aggregator } = createAggregator({
         getRemediationProfile: jest.fn().mockResolvedValue({
-          id: 'rp-1', selections: [{ ruleId: 'r1', enabled: false }],
+          id: 'rp-1',
+          selections: [{ ruleId: 'r1', enabled: false }],
         }),
       });
       const result = await aggregator.getBaselineScoresForProfile('rp-1');
@@ -366,7 +530,8 @@ describe('DashboardAggregator', () => {
     it('returns empty array when no baseline pins exist', async () => {
       const { aggregator } = createAggregator({
         getRemediationProfile: jest.fn().mockResolvedValue({
-          id: 'rp-1', selections: [{ ruleId: 'r1', enabled: true }],
+          id: 'rp-1',
+          selections: [{ ruleId: 'r1', enabled: true }],
         }),
         getAllBaselineTargets: jest.fn().mockResolvedValue([]),
       });
@@ -377,18 +542,25 @@ describe('DashboardAggregator', () => {
     it('computes per-inventory scores from latest scans', async () => {
       const { aggregator } = createAggregator({
         getRemediationProfile: jest.fn().mockResolvedValue({
-          id: 'rp-1', selections: [
+          id: 'rp-1',
+          selections: [
             { ruleId: 'r1', enabled: true },
             { ruleId: 'r2', enabled: true },
           ],
         }),
         getAllBaselineTargets: jest.fn().mockResolvedValue([
-          { remediationProfileId: 'rp-1', complianceProfileId: 'p1', inventoryId: 1 },
+          {
+            remediationProfileId: 'rp-1',
+            complianceProfileId: 'p1',
+            inventoryId: 1,
+          },
         ]),
-        getLatestScanPerProfileInventory: jest.fn().mockResolvedValue([
-          makeScan('s1', 'p1', 1),
-        ]),
-        getBaselineScore: jest.fn().mockResolvedValue({ passCount: 8, failCount: 2 }),
+        getLatestScanPerProfileInventory: jest
+          .fn()
+          .mockResolvedValue([makeScan('s1', 'p1', 1)]),
+        getBaselineScore: jest
+          .fn()
+          .mockResolvedValue({ passCount: 8, failCount: 2 }),
       });
       const result = await aggregator.getBaselineScoresForProfile('rp-1');
       expect(result).toHaveLength(1);
@@ -401,10 +573,15 @@ describe('DashboardAggregator', () => {
     it('skips inventories with no matching scan', async () => {
       const { aggregator } = createAggregator({
         getRemediationProfile: jest.fn().mockResolvedValue({
-          id: 'rp-1', selections: [{ ruleId: 'r1', enabled: true }],
+          id: 'rp-1',
+          selections: [{ ruleId: 'r1', enabled: true }],
         }),
         getAllBaselineTargets: jest.fn().mockResolvedValue([
-          { remediationProfileId: 'rp-1', complianceProfileId: 'p1', inventoryId: 99 },
+          {
+            remediationProfileId: 'rp-1',
+            complianceProfileId: 'p1',
+            inventoryId: 99,
+          },
         ]),
         getLatestScanPerProfileInventory: jest.fn().mockResolvedValue([]),
       });

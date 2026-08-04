@@ -17,7 +17,7 @@ export function registerHealthRoutes(
   });
 
   router.post('/settings', async (req, res) => {
-    if (!await requirePermission(req, res, httpAuth, permissions)) return;
+    if (!(await requirePermission(req, res, httpAuth, permissions))) return;
 
     if (req.body.retentionDays && typeof req.body.retentionDays === 'number') {
       state.retentionDays = Math.max(7, Math.min(365, req.body.retentionDays));
@@ -27,11 +27,13 @@ export function registerHealthRoutes(
   });
 
   router.post('/cleanup', async (req, res) => {
-    if (!await requirePermission(req, res, httpAuth, permissions)) return;
+    if (!(await requirePermission(req, res, httpAuth, permissions))) return;
 
     try {
       const deleted = await database.cleanupOldFindings(state.retentionDays);
-      logger.info(`Manual cleanup: removed ${deleted} findings older than ${state.retentionDays} days`);
+      logger.info(
+        `Manual cleanup: removed ${deleted} findings older than ${state.retentionDays} days`,
+      );
       res.json({ deleted, retentionDays: state.retentionDays });
     } catch (error) {
       const msg = error instanceof Error ? error.message : String(error);

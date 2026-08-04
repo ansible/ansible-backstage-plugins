@@ -4,7 +4,10 @@ import { renderInTestApp, TestApiProvider } from '@backstage/test-utils';
 import { alertApiRef } from '@backstage/core-plugin-api';
 import { complianceApiRef } from '../../api/complianceApiRef';
 import { RemediationsList } from './RemediationsList';
-import type { RemediationProfile, RemediationExecution } from '@ansible/backstage-compliance-common/types';
+import type {
+  RemediationProfile,
+  RemediationExecution,
+} from '@ansible/backstage-compliance-common/types';
 
 let mockPermissionAllowed = true;
 jest.mock('@backstage/plugin-permission-react', () => ({
@@ -57,7 +60,11 @@ const DRAFT_PROFILE: RemediationProfile = {
   targetInventory: '',
   status: 'draft',
   selections: [
-    { ruleId: 'audit_rules_privileged_commands', enabled: true, parameters: {} },
+    {
+      ruleId: 'audit_rules_privileged_commands',
+      enabled: true,
+      parameters: {},
+    },
   ],
   createdAt: '2025-10-03T12:00:00Z',
   updatedAt: '2025-10-03T12:00:00Z',
@@ -90,33 +97,74 @@ const MOCK_EXECUTIONS: RemediationExecution[] = [
 
 function createMockApi(overrides: Partial<Record<string, jest.Mock>> = {}) {
   return {
-    getHealth: jest.fn().mockResolvedValue({ status: 'ok', dataSource: 'mock' }),
+    getHealth: jest
+      .fn()
+      .mockResolvedValue({ status: 'ok', dataSource: 'mock' }),
     getProfiles: jest.fn().mockResolvedValue([]),
-    getRegisteredProfiles: jest.fn().mockResolvedValue([
-      { id: 'rhel9-stig', displayName: 'DISA STIG V2R8' },
-    ]),
+    getRegisteredProfiles: jest
+      .fn()
+      .mockResolvedValue([{ id: 'rhel9-stig', displayName: 'DISA STIG V2R8' }]),
     getScans: jest.fn().mockResolvedValue([]),
     getRegisteredProfile: jest.fn().mockResolvedValue(null),
-    getInventories: jest.fn().mockResolvedValue([
-      { id: 1, name: 'prod-webservers', hostCount: 5 },
-    ]),
+    getInventories: jest
+      .fn()
+      .mockResolvedValue([{ id: 1, name: 'prod-webservers', hostCount: 5 }]),
     getFindings: jest.fn().mockResolvedValue([]),
     getWorkflowTemplates: jest.fn().mockResolvedValue([]),
-    validateScan: jest.fn().mockResolvedValue({ valid: true, matchedHosts: [], mismatchedHosts: [], factsAvailable: true }),
-    launchScan: jest.fn().mockResolvedValue({ scanId: 'scan-1', workflowJobId: 1, status: 'pending' }),
-    getWorkflowStatus: jest.fn().mockResolvedValue({ id: 1, status: 'successful', finished: null, failed: false, elapsed: 0, name: '' }),
+    validateScan: jest.fn().mockResolvedValue({
+      valid: true,
+      matchedHosts: [],
+      mismatchedHosts: [],
+      factsAvailable: true,
+    }),
+    launchScan: jest.fn().mockResolvedValue({
+      scanId: 'scan-1',
+      workflowJobId: 1,
+      status: 'pending',
+    }),
+    getWorkflowStatus: jest.fn().mockResolvedValue({
+      id: 1,
+      status: 'successful',
+      finished: null,
+      failed: false,
+      elapsed: 0,
+      name: '',
+    }),
     getWorkflowNodes: jest.fn().mockResolvedValue([]),
     getJobEvents: jest.fn().mockResolvedValue([]),
-    launchRemediation: jest.fn().mockResolvedValue({ remediationId: 'r1', workflowJobId: 2, status: 'pending' }),
-    getDashboardStats: jest.fn().mockResolvedValue({ hostsScanned: 0, criticalFindings: 0, pendingRemediation: 0, activeProfiles: 0, recentScans: [], frameworkScores: [] }),
+    launchRemediation: jest.fn().mockResolvedValue({
+      remediationId: 'r1',
+      workflowJobId: 2,
+      status: 'pending',
+    }),
+    getDashboardStats: jest.fn().mockResolvedValue({
+      hostsScanned: 0,
+      criticalFindings: 0,
+      pendingRemediation: 0,
+      activeProfiles: 0,
+      recentScans: [],
+      frameworkScores: [],
+    }),
     getPostureHistory: jest.fn().mockResolvedValue([]),
     getRemediationProfiles: jest.fn().mockResolvedValue([]),
     getRemediationProfile: jest.fn().mockResolvedValue(null),
-    saveRemediationProfile: jest.fn().mockResolvedValue({ id: '1', name: 'test', description: '', complianceProfileId: '', targetInventory: '', status: 'saved', selections: [], createdAt: '', updatedAt: '' }),
+    saveRemediationProfile: jest.fn().mockResolvedValue({
+      id: '1',
+      name: 'test',
+      description: '',
+      complianceProfileId: '',
+      targetInventory: '',
+      status: 'saved',
+      selections: [],
+      createdAt: '',
+      updatedAt: '',
+    }),
     deleteRemediationProfile: jest.fn().mockResolvedValue(undefined),
-    updateRemediationProfileStatus: jest.fn().mockImplementation((_id: string, status: string) =>
-      Promise.resolve({ id: _id, name: 'test', status }),
-    ),
+    updateRemediationProfileStatus: jest
+      .fn()
+      .mockImplementation((_id: string, status: string) =>
+        Promise.resolve({ id: _id, name: 'test', status }),
+      ),
     getRemediationExecutions: jest.fn().mockResolvedValue([]),
     getRemediationExecution: jest.fn().mockResolvedValue(null),
     updateRemediationExecution: jest.fn().mockResolvedValue({}),
@@ -137,7 +185,12 @@ function renderWithApi(
   mockApi: ReturnType<typeof createMockApi> = createMockApi(),
 ) {
   return renderInTestApp(
-    <TestApiProvider apis={[[complianceApiRef, mockApi], [alertApiRef, mockAlertApi]]}>
+    <TestApiProvider
+      apis={[
+        [complianceApiRef, mockApi],
+        [alertApiRef, mockAlertApi],
+      ]}
+    >
       <RemediationsList />
     </TestApiProvider>,
   );
@@ -166,7 +219,9 @@ describe('RemediationsList', () => {
 
   it('shows remediation rows with lifecycle columns', async () => {
     const mockApi = createMockApi({
-      getRemediationProfiles: jest.fn().mockResolvedValue([SAVED_PROFILE, DRAFT_PROFILE]),
+      getRemediationProfiles: jest
+        .fn()
+        .mockResolvedValue([SAVED_PROFILE, DRAFT_PROFILE]),
     });
     await renderWithApi(mockApi);
     await waitFor(() => {
@@ -197,7 +252,9 @@ describe('RemediationsList', () => {
 
   it('renders profile status chips', async () => {
     const mockApi = createMockApi({
-      getRemediationProfiles: jest.fn().mockResolvedValue([SAVED_PROFILE, DRAFT_PROFILE]),
+      getRemediationProfiles: jest
+        .fn()
+        .mockResolvedValue([SAVED_PROFILE, DRAFT_PROFILE]),
     });
     await renderWithApi(mockApi);
     await waitFor(() => {
@@ -212,7 +269,9 @@ describe('RemediationsList', () => {
     });
     await renderWithApi(mockApi);
     await waitFor(() => {
-      expect(screen.getByText('succeeded · prod-webservers')).toBeInTheDocument();
+      expect(
+        screen.getByText('succeeded · prod-webservers'),
+      ).toBeInTheDocument();
     });
   });
 
@@ -245,7 +304,10 @@ describe('RemediationsList', () => {
     });
     fireEvent.click(screen.getByRole('button', { name: 'Archive' }));
     await waitFor(() => {
-      expect(mockApi.updateRemediationProfileStatus).toHaveBeenCalledWith('rem-1', 'archived');
+      expect(mockApi.updateRemediationProfileStatus).toHaveBeenCalledWith(
+        'rem-1',
+        'archived',
+      );
     });
   });
 
@@ -296,12 +358,17 @@ describe('RemediationsList', () => {
 
   it('posts alert when API rejects', async () => {
     const mockApi = createMockApi({
-      getRemediationProfiles: jest.fn().mockRejectedValue(new Error('API down')),
+      getRemediationProfiles: jest
+        .fn()
+        .mockRejectedValue(new Error('API down')),
     });
     await renderWithApi(mockApi);
     await waitFor(() => {
       expect(mockAlertApi.post).toHaveBeenCalledWith(
-        expect.objectContaining({ severity: 'error', message: expect.stringContaining('API down') }),
+        expect.objectContaining({
+          severity: 'error',
+          message: expect.stringContaining('API down'),
+        }),
       );
     });
   });
@@ -309,7 +376,9 @@ describe('RemediationsList', () => {
   it('hides archive and disables delete for non-admin users', async () => {
     mockPermissionAllowed = false;
     const mockApi = createMockApi({
-      getRemediationProfiles: jest.fn().mockResolvedValue([SAVED_PROFILE, DRAFT_PROFILE]),
+      getRemediationProfiles: jest
+        .fn()
+        .mockResolvedValue([SAVED_PROFILE, DRAFT_PROFILE]),
     });
     await renderWithApi(mockApi);
     await waitFor(() => {
@@ -338,7 +407,10 @@ describe('RemediationsList', () => {
     fireEvent.click(screen.getByTestId('expand-rem-1'));
     await waitFor(() => {
       expect(screen.getByText('Execution History')).toBeInTheDocument();
-      expect(mockApi.getRemediationExecutions).toHaveBeenCalledWith('rem-1', 10);
+      expect(mockApi.getRemediationExecutions).toHaveBeenCalledWith(
+        'rem-1',
+        10,
+      );
     });
   });
 });

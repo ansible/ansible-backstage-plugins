@@ -38,7 +38,15 @@ export interface ResolvedDisplayConfig {
   severityMap: Required<SeverityMap>;
   remediationVerb: string;
   severityLabel: (key: string) => string;
-  computeScore: (pass: number, fail: number, total: number, scanMeta?: { totalScannedPackages?: number; totalVulnerablePackages?: number }) => number;
+  computeScore: (
+    pass: number,
+    fail: number,
+    total: number,
+    scanMeta?: {
+      totalScannedPackages?: number;
+      totalVulnerablePackages?: number;
+    },
+  ) => number;
 }
 
 export function useDisplayConfig(
@@ -53,9 +61,18 @@ export function useDisplayConfig(
       CAT_III: config.severity_map?.CAT_III ?? DEFAULT_SEVERITY_MAP.CAT_III,
     };
 
-    const scoreFormula: ScoreFormula = config.score_formula ?? 'compliance_rate';
+    const scoreFormula: ScoreFormula =
+      config.score_formula ?? 'compliance_rate';
 
-    const computeScore = (pass: number, fail: number, total: number, scanMeta?: { totalScannedPackages?: number; totalVulnerablePackages?: number }): number => {
+    const computeScore = (
+      pass: number,
+      fail: number,
+      total: number,
+      scanMeta?: {
+        totalScannedPackages?: number;
+        totalVulnerablePackages?: number;
+      },
+    ): number => {
       if (scoreFormula === 'vulnerability_free_rate') {
         const scanned = scanMeta?.totalScannedPackages;
         const vulnerable = scanMeta?.totalVulnerablePackages;

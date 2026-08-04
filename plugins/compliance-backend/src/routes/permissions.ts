@@ -1,5 +1,8 @@
 import type express from 'express';
-import type { HttpAuthService, PermissionsService } from '@backstage/backend-plugin-api';
+import type {
+  HttpAuthService,
+  PermissionsService,
+} from '@backstage/backend-plugin-api';
 import { AuthorizeResult } from '@backstage/plugin-permission-common';
 import { catalogEntityCreatePermission } from '@backstage/plugin-catalog-common/alpha';
 
@@ -65,7 +68,9 @@ export async function extractUserIdentity(
   if (!httpAuth) return undefined;
   try {
     const credentials = await httpAuth.credentials(req);
-    const principal = credentials.principal as { userEntityRef?: string } | undefined;
+    const principal = credentials.principal as
+      | { userEntityRef?: string }
+      | undefined;
     return principal?.userEntityRef;
   } catch {
     return undefined;

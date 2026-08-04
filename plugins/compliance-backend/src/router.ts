@@ -35,11 +35,18 @@ export interface RouterOptions {
 export async function createRouter(
   options: RouterOptions,
 ): Promise<express.Router> {
-  const { logger, service, database, httpAuth, permissions, configRetentionDays } = options;
+  const {
+    logger,
+    service,
+    database,
+    httpAuth,
+    permissions,
+    configRetentionDays,
+  } = options;
   const router = Router() as unknown as express.Router;
   router.use((req, res, next) => {
     if (req.path === '/findings/ingest') return next();
-    express.json({ limit: '1mb' })(req, res, next);
+    return express.json({ limit: '1mb' })(req, res, next);
   });
 
   const state: SharedState = {
@@ -51,7 +58,12 @@ export async function createRouter(
   };
 
   const deps: RouterDependencies = {
-    logger, service, database, httpAuth, permissions, state,
+    logger,
+    service,
+    database,
+    httpAuth,
+    permissions,
+    state,
   };
 
   registerHealthRoutes(router, deps);

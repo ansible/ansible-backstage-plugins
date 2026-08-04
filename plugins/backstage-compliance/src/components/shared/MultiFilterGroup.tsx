@@ -68,13 +68,17 @@ export const MultiFilterGroup = ({
           <span style={{ display: 'inline-flex', alignItems: 'center' }}>
             {badgeLabel}
             <ExpandMoreIcon
-              className={`${classes.chevron} ${expanded ? classes.chevronOpen : ''}`}
+              className={`${classes.chevron} ${
+                expanded ? classes.chevronOpen : ''
+              }`}
             />
           </span>
         }
         size="small"
         variant={activeCount > 0 ? 'default' : 'outlined'}
-        className={`${classes.groupChip} ${activeCount > 0 ? classes.groupChipActive : ''}`}
+        className={`${classes.groupChip} ${
+          activeCount > 0 ? classes.groupChipActive : ''
+        }`}
         onClick={onToggleExpand}
       />
       {expanded &&
@@ -85,7 +89,9 @@ export const MultiFilterGroup = ({
               key={opt.key}
               label={opt.label}
               size="small"
-              className={`${classes.childChip} ${isActive ? classes.childChipActive : ''}`}
+              className={`${classes.childChip} ${
+                isActive ? classes.childChipActive : ''
+              }`}
               variant={isActive ? 'default' : 'outlined'}
               style={
                 isActive
