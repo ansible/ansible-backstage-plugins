@@ -469,11 +469,20 @@ describe('AAPJobTemplateProvider', () => {
                 title: 'Test Job Template',
                 aapJobTemplateId: 1,
               }),
+              spec: expect.objectContaining({
+                type: 'automation-template',
+              }),
             }),
             locationKey: 'AAPJobTemplateProvider:development',
           },
         ],
       });
+
+      const entity = (entityProviderConnection.applyMutation as jest.Mock).mock
+        .calls[0][0].entities[0].entity;
+      expect(entity.metadata.annotations['ansible.com/template-source']).toBe(
+        'aap-template',
+      );
     });
 
     it('should handle multiple job templates', async () => {

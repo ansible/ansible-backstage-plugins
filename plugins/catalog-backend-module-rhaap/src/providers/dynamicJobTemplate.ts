@@ -535,10 +535,11 @@ export const generateTemplate = (options: {
         [ANNOTATION_LOCATION]: `url:${normalizedBaseUrl}/execution/templates/job-template/${job.id}/details`,
         [ANNOTATION_ORIGIN_LOCATION]: `url:${normalizedBaseUrl}/execution/templates/job-template/${job.id}/details`,
         ...(orgName && { 'ansible.com/organization': orgName }),
+        'ansible.com/template-source': 'aap-template',
       },
     },
     spec: {
-      type: 'service',
+      type: 'automation-template',
       parameters: [finalPromptForm],
       steps: [
         {
