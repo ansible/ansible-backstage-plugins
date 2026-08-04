@@ -44,7 +44,15 @@ const mockNotifications = [
   },
 ];
 
-const mockSyncSignal = { lastSignal: null };
+const mockSyncSignal: {
+  lastSignal: {
+    provider: string;
+    syncInProgress: boolean;
+    lastSyncTime: string | null;
+    lastSyncStatus: string | null;
+    lastFailedSyncTime: string | null;
+  } | null;
+} = { lastSignal: null };
 jest.mock('@backstage/plugin-signals-react', () => ({
   useSignal: () => mockSyncSignal,
 }));
