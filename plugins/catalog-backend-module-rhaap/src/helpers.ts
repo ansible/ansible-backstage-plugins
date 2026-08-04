@@ -930,11 +930,41 @@ export function getSkipTlsVerifyHosts(config: Config): string[] {
   );
 }
 
+const BACKSTAGE_NAMESPACE_REGEX = /^[a-z0-9]([a-z0-9-]*[a-z0-9])?$/;
+const MAX_NAMESPACE_LENGTH = 63;
+
 export function formatNameSpace(name: string): string {
-  return name
+  const sanitized = name
     .toLowerCase()
-    .replaceAll(/[^\w\s]/gi, '')
-    .replaceAll(/\s/g, '-');
+    .replaceAll(/[_\s]+/g, '-')
+    .replaceAll(/[^a-z0-9-]/g, '')
+    .replaceAll(/-+/g, '-')
+    .replaceAll(/^-|-$/g, '')
+    .slice(0, MAX_NAMESPACE_LENGTH)
+    .replace(/-$/, '');
+  if (!sanitized) {
+    throw new Error(
+      `Organization name "${name}" contains no valid characters for namespace conversion`,
+    );
+  }
+  return sanitized;
+}
+
+export function getEffectiveNamespace(
+  orgName: string,
+  allOrgs: string[],
+): string {
+  if (allOrgs.length <= 1) return 'default';
+  return formatNameSpace(orgName);
+}
+
+export function validateNamespace(namespace: string, orgName: string): void {
+  if (!namespace || !BACKSTAGE_NAMESPACE_REGEX.test(namespace)) {
+    throw new Error(
+      `Organization name "${orgName}" produces invalid Backstage namespace "${namespace}". ` +
+        `Namespaces must match ${BACKSTAGE_NAMESPACE_REGEX}.`,
+    );
+  }
 }
 
 export function buildFileUrl(
