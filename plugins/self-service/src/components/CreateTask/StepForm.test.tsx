@@ -60,6 +60,9 @@ import {
   StepForm,
   deepMergePlainObjects,
   stripSchemaDefaultsForUiFieldProps,
+  getActiveSchemaProperties,
+  fieldHasDependenciesInSchema,
+  cleanupFormDataAgainstSchema,
 } from './StepForm';
 
 const createScaffolderFormMock = (formData: any) => {
@@ -1823,6 +1826,1474 @@ describe('StepForm', () => {
       expect(out.allOf[0].then.properties.credentials).not.toHaveProperty(
         'default',
       );
+    });
+  });
+
+  describe('fieldHasDependenciesInSchema', () => {
+    it('detects field with direct dependencies', () => {
+      const schema = {
+        dependencies: {
+          publishToSCM: {
+            oneOf: [{ properties: { publishToSCM: { const: true } } }],
+          },
+        },
+      };
+
+      expect(fieldHasDependenciesInSchema('publishToSCM', schema)).toBe(true);
+      expect(fieldHasDependenciesInSchema('otherField', schema)).toBe(false);
+    });
+
+    it('detects field with dependencies nested in oneOf branches', () => {
+      const schema = {
+        dependencies: {
+          publishToSCM: {
+            oneOf: [
+              {
+                properties: { publishToSCM: { const: true } },
+                dependencies: {
+                  buildExecutionEnvironment: {
+                    oneOf: [
+                      {
+                        properties: {
+                          buildExecutionEnvironment: { const: true },
+                        },
+                      },
+                    ],
+                  },
+                },
+              },
+            ],
+          },
+        },
+      };
+
+      // buildExecutionEnvironment is nested inside publishToSCM's oneOf branch
+      expect(
+        fieldHasDependenciesInSchema('buildExecutionEnvironment', schema),
+      ).toBe(true);
+    });
+
+    it('returns false for simple boolean fields without dependencies', () => {
+      const schema = {
+        properties: {
+          registryTlsVerify: { type: 'boolean' },
+        },
+        dependencies: {
+          buildExecutionEnvironment: { oneOf: [] },
+        },
+      };
+
+      expect(fieldHasDependenciesInSchema('registryTlsVerify', schema)).toBe(
+        false,
+      );
+    });
+
+    it('handles empty or null schemas', () => {
+      expect(fieldHasDependenciesInSchema('anyField', {})).toBe(false);
+      expect(fieldHasDependenciesInSchema('anyField', null as any)).toBe(false);
+    });
+
+    it('detects dependencies nested in schema properties', () => {
+      const schema = {
+        properties: {
+          outerField: {
+            type: 'object',
+            properties: {
+              innerField: { type: 'string' },
+            },
+            dependencies: {
+              innerField: { oneOf: [] },
+            },
+          },
+        },
+      };
+
+      // Should recursively find dependencies in nested properties
+      expect(fieldHasDependenciesInSchema('innerField', schema)).toBe(true);
+    });
+
+    it('handles schema with only oneOf (no dependencies)', () => {
+      const schema = {
+        oneOf: [
+          {
+            properties: { field1: { type: 'string' } },
+            dependencies: {
+              field1: { oneOf: [] },
+            },
+          },
+        ],
+      };
+
+      // Should search in oneOf branches
+      expect(fieldHasDependenciesInSchema('field1', schema)).toBe(true);
+    });
+
+    it('handles deeply nested dependencies (3+ levels)', () => {
+      const schema = {
+        dependencies: {
+          level1: {
+            oneOf: [
+              {
+                dependencies: {
+                  level2: {
+                    oneOf: [
+                      {
+                        dependencies: {
+                          level3: { oneOf: [] },
+                        },
+                      },
+                    ],
+                  },
+                },
+              },
+            ],
+          },
+        },
+      };
+
+      // Should recursively find deeply nested dependencies
+      expect(fieldHasDependenciesInSchema('level3', schema)).toBe(true);
+    });
+
+    it('returns false for non-object schema values', () => {
+      expect(
+        fieldHasDependenciesInSchema('field', 'not-an-object' as any),
+      ).toBe(false);
+      expect(fieldHasDependenciesInSchema('field', 123 as any)).toBe(false);
+      expect(fieldHasDependenciesInSchema('field', [] as any)).toBe(false);
+    });
+
+    it('returns true because dependencies[fieldName] exists, even with empty oneOf', () => {
+      const schema = {
+        dependencies: {
+          field: {
+            oneOf: [],
+          },
+        },
+      };
+
+      expect(fieldHasDependenciesInSchema('field', schema)).toBe(true);
+      expect(fieldHasDependenciesInSchema('otherField', schema)).toBe(false);
+    });
+
+    it('returns false when schema has properties object but field is not there', () => {
+      const schema = {
+        properties: {
+          existingField: {
+            dependencies: {
+              innerField: {
+                oneOf: [{ properties: { innerField: { const: true } } }],
+              },
+            },
+          },
+        },
+      };
+
+      expect(fieldHasDependenciesInSchema('innerField', schema)).toBe(true);
+      expect(fieldHasDependenciesInSchema('existingField', schema)).toBe(false);
+      expect(fieldHasDependenciesInSchema('nonExistent', schema)).toBe(false);
+    });
+
+    it('handles very deeply nested schema (4+ levels)', () => {
+      const schema = {
+        properties: {
+          level1: {
+            properties: {
+              level2: {
+                properties: {
+                  level3: {
+                    dependencies: {
+                      deepField: {
+                        oneOf: [{ properties: { deepField: { const: true } } }],
+                      },
+                    },
+                  },
+                },
+              },
+            },
+          },
+        },
+      };
+
+      expect(fieldHasDependenciesInSchema('deepField', schema)).toBe(true);
+    });
+  });
+
+  describe('getActiveSchemaProperties', () => {
+    it('returns all base properties when no dependencies', () => {
+      const schema = {
+        properties: {
+          name: { type: 'string' },
+          age: { type: 'number' },
+        },
+      };
+
+      const activeProps = getActiveSchemaProperties(schema, {});
+      expect(activeProps.has('name')).toBe(true);
+      expect(activeProps.has('age')).toBe(true);
+    });
+
+    it('includes dependent fields when conditional is true', () => {
+      const schema = {
+        properties: {
+          buildExecutionEnvironment: { type: 'boolean' },
+        },
+        dependencies: {
+          buildExecutionEnvironment: {
+            oneOf: [
+              {
+                properties: {
+                  buildExecutionEnvironment: { const: true },
+                  buildRegistry: { type: 'string' },
+                  buildImageName: { type: 'string' },
+                },
+              },
+            ],
+          },
+        },
+      };
+
+      const formData = { buildExecutionEnvironment: true };
+      const activeProps = getActiveSchemaProperties(schema, formData);
+
+      expect(activeProps.has('buildExecutionEnvironment')).toBe(true);
+      expect(activeProps.has('buildRegistry')).toBe(true);
+      expect(activeProps.has('buildImageName')).toBe(true);
+    });
+
+    it('excludes dependent fields when conditional is false', () => {
+      const schema = {
+        properties: {
+          buildExecutionEnvironment: { type: 'boolean' },
+        },
+        dependencies: {
+          buildExecutionEnvironment: {
+            oneOf: [
+              {
+                properties: {
+                  buildExecutionEnvironment: { const: true },
+                  buildRegistry: { type: 'string' },
+                  buildImageName: { type: 'string' },
+                },
+              },
+            ],
+          },
+        },
+      };
+
+      const formData = { buildExecutionEnvironment: false };
+      const activeProps = getActiveSchemaProperties(schema, formData);
+
+      expect(activeProps.has('buildExecutionEnvironment')).toBe(true);
+      expect(activeProps.has('buildRegistry')).toBe(false);
+      expect(activeProps.has('buildImageName')).toBe(false);
+    });
+
+    it('handles missing schema properties', () => {
+      const activeProps = getActiveSchemaProperties({}, {});
+      expect(activeProps.size).toBe(0);
+    });
+
+    it('handles dependencies with invalid oneOf (not an array)', () => {
+      const schema = {
+        properties: {
+          field1: { type: 'string' },
+        },
+        dependencies: {
+          field1: { oneOf: 'invalid' }, // Not an array
+        },
+      };
+
+      const activeProps = getActiveSchemaProperties(schema, { field1: 'test' });
+
+      // Should only include base properties, skip invalid oneOf
+      expect(activeProps.has('field1')).toBe(true);
+      expect(activeProps.size).toBe(1);
+    });
+
+    it('handles dependencies with non-object depValue', () => {
+      const schema = {
+        properties: {
+          field1: { type: 'string' },
+        },
+        dependencies: {
+          field1: 'invalid', // Not an object
+        },
+      };
+
+      const activeProps = getActiveSchemaProperties(schema, { field1: 'test' });
+
+      // Should skip invalid dependency and only return base properties
+      expect(activeProps.has('field1')).toBe(true);
+      expect(activeProps.size).toBe(1);
+    });
+
+    it('handles oneOf branch without properties', () => {
+      const schema = {
+        properties: {
+          buildExecutionEnvironment: { type: 'boolean' },
+        },
+        dependencies: {
+          buildExecutionEnvironment: {
+            oneOf: [
+              { type: 'object' }, // No properties key
+              {
+                properties: {
+                  buildExecutionEnvironment: { const: true },
+                  buildRegistry: { type: 'string' },
+                },
+              },
+            ],
+          },
+        },
+      };
+
+      const formData = { buildExecutionEnvironment: true };
+      const activeProps = getActiveSchemaProperties(schema, formData);
+
+      // Should skip first branch (no properties), process second branch
+      expect(activeProps.has('buildExecutionEnvironment')).toBe(true);
+      expect(activeProps.has('buildRegistry')).toBe(true);
+    });
+
+    it('handles branch property without const keyword', () => {
+      const schema = {
+        properties: {
+          field1: { type: 'string' },
+        },
+        dependencies: {
+          field1: {
+            oneOf: [
+              {
+                properties: {
+                  field1: { type: 'string' }, // No const
+                  dependentField: { type: 'string' },
+                },
+              },
+            ],
+          },
+        },
+      };
+
+      const activeProps = getActiveSchemaProperties(schema, { field1: 'test' });
+
+      // Should skip branch without const and only return base properties
+      expect(activeProps.has('field1')).toBe(true);
+      expect(activeProps.has('dependentField')).toBe(false);
+    });
+
+    it('handles branchProp that is not an object', () => {
+      const schema = {
+        properties: {
+          field1: { type: 'boolean' },
+        },
+        dependencies: {
+          field1: {
+            oneOf: [
+              {
+                properties: {
+                  field1: 'not-an-object', // branchProp is string, not object
+                  dependentField: { type: 'string' },
+                },
+              },
+            ],
+          },
+        },
+      };
+
+      const activeProps = getActiveSchemaProperties(schema, { field1: true });
+
+      // Should skip branch with invalid branchProp
+      expect(activeProps.has('field1')).toBe(true);
+      expect(activeProps.has('dependentField')).toBe(false);
+    });
+
+    it('handles branchProp without const property', () => {
+      const schema = {
+        properties: {
+          field1: { type: 'boolean' },
+        },
+        dependencies: {
+          field1: {
+            oneOf: [
+              {
+                properties: {
+                  field1: { type: 'boolean' }, // Has type but no const
+                  dependentField: { type: 'string' },
+                },
+              },
+            ],
+          },
+        },
+      };
+
+      const activeProps = getActiveSchemaProperties(schema, { field1: true });
+
+      // Should skip branch without const
+      expect(activeProps.has('field1')).toBe(true);
+      expect(activeProps.has('dependentField')).toBe(false);
+    });
+
+    it('handles const value mismatch (formData value != const)', () => {
+      const schema = {
+        properties: {
+          provider: { type: 'string' },
+        },
+        dependencies: {
+          provider: {
+            oneOf: [
+              {
+                properties: {
+                  provider: { const: 'github' },
+                  githubToken: { type: 'string' },
+                },
+              },
+            ],
+          },
+        },
+      };
+
+      const activeProps = getActiveSchemaProperties(schema, {
+        provider: 'gitlab',
+      });
+
+      // Should not include githubToken because provider != 'github'
+      expect(activeProps.has('provider')).toBe(true);
+      expect(activeProps.has('githubToken')).toBe(false);
+    });
+
+    it('handles null schema', () => {
+      const activeProps = getActiveSchemaProperties(null as any, {});
+      expect(activeProps.size).toBe(0);
+    });
+
+    it('handles undefined schema', () => {
+      const activeProps = getActiveSchemaProperties(undefined as any, {});
+      expect(activeProps.size).toBe(0);
+    });
+
+    it('handles schema with null properties', () => {
+      const schema = {
+        properties: null,
+      };
+
+      const activeProps = getActiveSchemaProperties(schema as any, {});
+      expect(activeProps.size).toBe(0);
+    });
+
+    it('handles multiple dependencies with some matching and some not', () => {
+      const schema = {
+        properties: {
+          field1: { type: 'boolean' },
+          field2: { type: 'boolean' },
+        },
+        dependencies: {
+          field1: {
+            oneOf: [
+              {
+                properties: {
+                  field1: { const: true },
+                  dependent1: { type: 'string' },
+                },
+              },
+            ],
+          },
+          field2: {
+            oneOf: [
+              {
+                properties: {
+                  field2: { const: true },
+                  dependent2: { type: 'string' },
+                },
+              },
+            ],
+          },
+        },
+      };
+
+      // field1 = true (matches), field2 = false (doesn't match)
+      const formData = { field1: true, field2: false };
+      const activeProps = getActiveSchemaProperties(schema, formData);
+
+      expect(activeProps.has('field1')).toBe(true);
+      expect(activeProps.has('field2')).toBe(true);
+      expect(activeProps.has('dependent1')).toBe(true); // field1 matched
+      expect(activeProps.has('dependent2')).toBe(false); // field2 didn't match
+    });
+  });
+
+  describe('cleanupFormDataAgainstSchema', () => {
+    it('removes inactive fields based on schema', () => {
+      const schema = {
+        properties: {
+          buildExecutionEnvironment: { type: 'boolean' },
+        },
+        dependencies: {
+          buildExecutionEnvironment: {
+            oneOf: [
+              {
+                properties: {
+                  buildExecutionEnvironment: { const: true },
+                  buildRegistry: { type: 'string' },
+                },
+              },
+            ],
+          },
+        },
+      };
+
+      const formData = {
+        buildExecutionEnvironment: false,
+        buildRegistry: 'PAH',
+      };
+
+      const cleaned = cleanupFormDataAgainstSchema(formData, schema);
+
+      expect(cleaned.buildExecutionEnvironment).toBe(false);
+      expect(cleaned.buildRegistry).toBeUndefined();
+    });
+
+    it('keeps active fields based on schema', () => {
+      const schema = {
+        properties: {
+          buildExecutionEnvironment: { type: 'boolean' },
+        },
+        dependencies: {
+          buildExecutionEnvironment: {
+            oneOf: [
+              {
+                properties: {
+                  buildExecutionEnvironment: { const: true },
+                  buildRegistry: { type: 'string' },
+                  buildImageName: { type: 'string' },
+                },
+              },
+            ],
+          },
+        },
+      };
+
+      const formData = {
+        buildExecutionEnvironment: true,
+        buildRegistry: 'PAH',
+        buildImageName: 'my-img',
+      };
+
+      const cleaned = cleanupFormDataAgainstSchema(formData, schema);
+
+      expect(cleaned.buildExecutionEnvironment).toBe(true);
+      expect(cleaned.buildRegistry).toBe('PAH');
+      expect(cleaned.buildImageName).toBe('my-img');
+    });
+
+    it('recursively cleans nested objects', () => {
+      const schema = {
+        properties: {
+          publishAndBuild: {
+            properties: {
+              buildExecutionEnvironment: { type: 'boolean' },
+            },
+            dependencies: {
+              buildExecutionEnvironment: {
+                oneOf: [
+                  {
+                    properties: {
+                      buildExecutionEnvironment: { const: true },
+                      buildRegistry: { type: 'string' },
+                    },
+                  },
+                ],
+              },
+            },
+          },
+        },
+      };
+
+      const formData = {
+        publishAndBuild: {
+          buildExecutionEnvironment: false,
+          buildRegistry: 'PAH', // Should be removed
+        },
+      };
+
+      const cleaned = cleanupFormDataAgainstSchema(formData, schema);
+
+      expect(cleaned.publishAndBuild.buildExecutionEnvironment).toBe(false);
+      expect(cleaned.publishAndBuild.buildRegistry).toBeUndefined();
+    });
+
+    it('preserves non-object values', () => {
+      const schema = {
+        properties: {
+          name: { type: 'string' },
+          tags: { type: 'array' },
+          count: { type: 'number' },
+        },
+      };
+
+      const formData = {
+        name: 'test',
+        tags: ['a', 'b'],
+        count: 42,
+      };
+
+      const cleaned = cleanupFormDataAgainstSchema(formData, schema);
+
+      expect(cleaned.name).toBe('test');
+      expect(cleaned.tags).toEqual(['a', 'b']);
+      expect(cleaned.count).toBe(42);
+    });
+
+    it('handles null or invalid inputs', () => {
+      expect(cleanupFormDataAgainstSchema(null as any, {})).toBeNull();
+      expect(cleanupFormDataAgainstSchema({}, null as any)).toEqual({});
+    });
+
+    it('preserves all data when schema has no properties (prevents data loss)', () => {
+      // Schema with dependencies but no properties (e.g., $ref or allOf-only schema)
+      const schema = {
+        dependencies: {
+          someField: { oneOf: [] },
+        },
+        // NO properties key
+      };
+
+      const formData = {
+        field1: 'value1',
+        field2: 'value2',
+        field3: { nested: 'data' },
+      };
+
+      const cleaned = cleanupFormDataAgainstSchema(formData, schema);
+
+      // All data should be PRESERVED (cannot determine active fields without schema.properties)
+      expect(cleaned).toEqual(formData);
+      expect(cleaned.field1).toBe('value1');
+      expect(cleaned.field2).toBe('value2');
+      expect(cleaned.field3).toEqual({ nested: 'data' });
+    });
+
+    it('handles rapid toggling - check, uncheck, check again', () => {
+      const schema = {
+        properties: {
+          buildExecutionEnvironment: { type: 'boolean' },
+        },
+        dependencies: {
+          buildExecutionEnvironment: {
+            oneOf: [
+              {
+                properties: {
+                  buildExecutionEnvironment: { const: true },
+                  buildRegistry: { type: 'string' },
+                  buildImageName: { type: 'string' },
+                },
+              },
+            ],
+          },
+        },
+      };
+
+      // Step 1: Check and fill data
+      let formData = {
+        buildExecutionEnvironment: true,
+        buildRegistry: 'PAH',
+        buildImageName: 'my-img',
+      };
+      let cleaned = cleanupFormDataAgainstSchema(formData, schema);
+      expect(cleaned.buildRegistry).toBe('PAH');
+      expect(cleaned.buildImageName).toBe('my-img');
+
+      // Step 2: Uncheck - should remove dependent fields
+      formData = {
+        buildExecutionEnvironment: false,
+        buildRegistry: 'PAH',
+        buildImageName: 'my-img',
+      };
+      cleaned = cleanupFormDataAgainstSchema(formData, schema);
+      expect(cleaned.buildExecutionEnvironment).toBe(false);
+      expect(cleaned.buildRegistry).toBeUndefined();
+      expect(cleaned.buildImageName).toBeUndefined();
+
+      // Step 3: Check again and refill - should preserve new data
+      formData = {
+        buildExecutionEnvironment: true,
+        buildRegistry: 'Quay',
+        buildImageName: 'new-img',
+      };
+      cleaned = cleanupFormDataAgainstSchema(formData, schema);
+      expect(cleaned.buildExecutionEnvironment).toBe(true);
+      expect(cleaned.buildRegistry).toBe('Quay');
+      expect(cleaned.buildImageName).toBe('new-img');
+    });
+
+    it('only cleans the toggled key, not sibling nested objects', () => {
+      const schema = {
+        properties: {
+          publishAndBuild: {
+            properties: {
+              buildExecutionEnvironment: { type: 'boolean' },
+            },
+            dependencies: {
+              buildExecutionEnvironment: {
+                oneOf: [
+                  {
+                    properties: {
+                      buildExecutionEnvironment: { const: true },
+                      buildRegistry: { type: 'string' },
+                    },
+                  },
+                ],
+              },
+            },
+          },
+          gitConfig: {
+            properties: {
+              repoUrl: { type: 'string' },
+              branch: { type: 'string' },
+            },
+          },
+        },
+      };
+
+      // Both nested objects have data
+      const formData = {
+        publishAndBuild: {
+          buildExecutionEnvironment: false,
+          buildRegistry: 'PAH', // Should be removed
+        },
+        gitConfig: {
+          repoUrl: 'github.com/myrepo',
+          branch: 'main', // Should be PRESERVED (not cleaned)
+        },
+      };
+
+      const cleaned = cleanupFormDataAgainstSchema(formData, schema);
+
+      // publishAndBuild should be cleaned
+      expect(cleaned.publishAndBuild.buildExecutionEnvironment).toBe(false);
+      expect(cleaned.publishAndBuild.buildRegistry).toBeUndefined();
+
+      // gitConfig should be PRESERVED (sibling object, no toggle)
+      expect(cleaned.gitConfig).toBeDefined();
+      expect(cleaned.gitConfig.repoUrl).toBe('github.com/myrepo');
+      expect(cleaned.gitConfig.branch).toBe('main');
+    });
+
+    it('does not clean data when there is no toggle detected (navigation safety)', () => {
+      const schema = {
+        properties: {
+          buildExecutionEnvironment: { type: 'boolean' },
+        },
+        dependencies: {
+          buildExecutionEnvironment: {
+            oneOf: [
+              {
+                properties: {
+                  buildExecutionEnvironment: { const: true },
+                  buildRegistry: { type: 'string' },
+                  buildImageName: { type: 'string' },
+                },
+              },
+            ],
+          },
+        },
+      };
+
+      // User fills form with buildExecutionEnvironment=true
+      const formData = {
+        buildExecutionEnvironment: true,
+        buildRegistry: 'PAH',
+        buildImageName: 'my-img',
+      };
+
+      // Simulate navigation (onSubmit) - no toggle, just re-submitting same data
+      const cleaned = cleanupFormDataAgainstSchema(formData, schema);
+
+      // All data should be PRESERVED (no toggle from true→false)
+      expect(cleaned.buildExecutionEnvironment).toBe(true);
+      expect(cleaned.buildRegistry).toBe('PAH');
+      expect(cleaned.buildImageName).toBe('my-img');
+    });
+
+    it('cleans multiple toggled keys in batch updates (session restore edge case)', () => {
+      // Schema with TWO independent conditional sections
+      const schema = {
+        properties: {
+          publishAndBuild: {
+            properties: {
+              buildExecutionEnvironment: { type: 'boolean' },
+            },
+            dependencies: {
+              buildExecutionEnvironment: {
+                oneOf: [
+                  {
+                    properties: {
+                      buildExecutionEnvironment: { const: true },
+                      buildRegistry: { type: 'string' },
+                    },
+                  },
+                ],
+              },
+            },
+          },
+          eeDefinition: {
+            properties: {
+              specifyRequirements: { type: 'boolean' },
+            },
+            dependencies: {
+              specifyRequirements: {
+                oneOf: [
+                  {
+                    properties: {
+                      specifyRequirements: { const: true },
+                      pythonRequirements: { type: 'array' },
+                    },
+                  },
+                ],
+              },
+            },
+          },
+        },
+      };
+
+      // Simulate batch update (session restore): BOTH fields toggled from true→false
+      const formData = {
+        publishAndBuild: {
+          buildExecutionEnvironment: false,
+          buildRegistry: 'PAH', // Should be removed
+        },
+        eeDefinition: {
+          specifyRequirements: false,
+          pythonRequirements: ['ansible'], // Should be removed
+        },
+      };
+
+      const cleaned = cleanupFormDataAgainstSchema(formData, schema);
+
+      // BOTH sections should be cleaned
+      expect(cleaned.publishAndBuild.buildExecutionEnvironment).toBe(false);
+      expect(cleaned.publishAndBuild.buildRegistry).toBeUndefined();
+
+      expect(cleaned.eeDefinition.specifyRequirements).toBe(false);
+      expect(cleaned.eeDefinition.pythonRequirements).toBeUndefined();
+    });
+
+    it('preserves arrays without recursive cleanup', () => {
+      const schema = {
+        properties: {
+          tags: { type: 'array' },
+          items: { type: 'array' },
+        },
+      };
+
+      const formData = {
+        tags: ['tag1', 'tag2'],
+        items: [{ id: 1 }, { id: 2 }],
+      };
+
+      const cleaned = cleanupFormDataAgainstSchema(formData, schema);
+
+      // Arrays should be preserved as-is (not recursively cleaned)
+      expect(cleaned.tags).toEqual(['tag1', 'tag2']);
+      expect(cleaned.items).toEqual([{ id: 1 }, { id: 2 }]);
+    });
+
+    it('handles nested object with dependencies but no properties', () => {
+      const schema = {
+        properties: {
+          nestedConfig: {
+            dependencies: {
+              someField: { oneOf: [] },
+            },
+            // No properties key
+          },
+        },
+      };
+
+      const formData = {
+        nestedConfig: {
+          field1: 'value1',
+          field2: 'value2',
+        },
+      };
+
+      const cleaned = cleanupFormDataAgainstSchema(formData, schema);
+
+      // Nested object without properties should be preserved
+      expect(cleaned.nestedConfig).toEqual({
+        field1: 'value1',
+        field2: 'value2',
+      });
+    });
+
+    it('handles deeply nested objects (3+ levels)', () => {
+      const schema = {
+        properties: {
+          level1: {
+            properties: {
+              level2: {
+                properties: {
+                  level3: {
+                    properties: {
+                      field: { type: 'string' },
+                    },
+                  },
+                },
+              },
+            },
+          },
+        },
+      };
+
+      const formData = {
+        level1: {
+          level2: {
+            level3: {
+              field: 'deep-value',
+              extraField: 'should-be-removed',
+            },
+          },
+        },
+      };
+
+      const cleaned = cleanupFormDataAgainstSchema(formData, schema);
+
+      // Should recursively clean at all levels
+      expect(cleaned.level1.level2.level3.field).toBe('deep-value');
+      expect(cleaned.level1.level2.level3.extraField).toBeUndefined();
+    });
+
+    it('handles mixed types: objects, arrays, scalars', () => {
+      const schema = {
+        properties: {
+          name: { type: 'string' },
+          tags: { type: 'array' },
+          config: {
+            properties: {
+              enabled: { type: 'boolean' },
+            },
+          },
+        },
+      };
+
+      const formData = {
+        name: 'test',
+        tags: ['a', 'b'],
+        config: {
+          enabled: true,
+          extraField: 'remove',
+        },
+        extraRootField: 'remove',
+      };
+
+      const cleaned = cleanupFormDataAgainstSchema(formData, schema);
+
+      expect(cleaned.name).toBe('test');
+      expect(cleaned.tags).toEqual(['a', 'b']);
+      expect(cleaned.config.enabled).toBe(true);
+      expect(cleaned.config.extraField).toBeUndefined();
+      expect(cleaned.extraRootField).toBeUndefined();
+    });
+
+    it('handles empty formData object', () => {
+      const schema = {
+        properties: {
+          field1: { type: 'string' },
+          field2: { type: 'string' },
+        },
+      };
+
+      const cleaned = cleanupFormDataAgainstSchema({}, schema);
+
+      expect(cleaned).toEqual({});
+    });
+
+    it('preserves boolean false values (not removed as falsy)', () => {
+      const schema = {
+        properties: {
+          enabled: { type: 'boolean' },
+          count: { type: 'number' },
+          name: { type: 'string' },
+        },
+      };
+
+      const formData = {
+        enabled: false, // Should NOT be removed
+        count: 0, // Should NOT be removed
+        name: '', // Should NOT be removed
+      };
+
+      const cleaned = cleanupFormDataAgainstSchema(formData, schema);
+
+      expect(cleaned.enabled).toBe(false);
+      expect(cleaned.count).toBe(0);
+      expect(cleaned.name).toBe('');
+    });
+
+    it('handles nested object without properties or dependencies schema', () => {
+      const schema = {
+        properties: {
+          config: {
+            type: 'object',
+            // No properties, no dependencies - just a plain object
+          },
+        },
+      };
+
+      const formData = {
+        config: {
+          field1: 'value1',
+          field2: 'value2',
+        },
+      };
+
+      const cleaned = cleanupFormDataAgainstSchema(formData, schema);
+
+      // Should preserve the nested object as-is
+      expect(cleaned.config).toEqual({
+        field1: 'value1',
+        field2: 'value2',
+      });
+    });
+
+    it('handles formData with undefined values', () => {
+      const schema = {
+        properties: {
+          field1: { type: 'string' },
+          field2: { type: 'string' },
+        },
+      };
+
+      const formData = {
+        field1: undefined,
+        field2: 'value',
+      };
+
+      const cleaned = cleanupFormDataAgainstSchema(formData, schema);
+
+      expect(cleaned.field1).toBeUndefined();
+      expect(cleaned.field2).toBe('value');
+    });
+
+    it('handles formData with null values', () => {
+      const schema = {
+        properties: {
+          field1: { type: 'string' },
+          field2: { type: 'object' },
+        },
+      };
+
+      const formData = {
+        field1: null,
+        field2: null,
+      };
+
+      const cleaned = cleanupFormDataAgainstSchema(formData, schema);
+
+      expect(cleaned.field1).toBeNull();
+      expect(cleaned.field2).toBeNull();
+    });
+
+    it('handles very deeply nested cleanup (5 levels)', () => {
+      const schema = {
+        properties: {
+          l1: {
+            properties: {
+              l2: {
+                properties: {
+                  l3: {
+                    properties: {
+                      l4: {
+                        properties: {
+                          l5: { type: 'string' },
+                        },
+                      },
+                    },
+                  },
+                },
+              },
+            },
+          },
+        },
+      };
+
+      const formData = {
+        l1: {
+          l2: {
+            l3: {
+              l4: {
+                l5: 'deep-value',
+                extraField: 'remove',
+              },
+              extraL3: 'remove',
+            },
+            extraL2: 'remove',
+          },
+          extraL1: 'remove',
+        },
+        extraRoot: 'remove',
+      };
+
+      const cleaned = cleanupFormDataAgainstSchema(formData, schema);
+
+      expect(cleaned.l1.l2.l3.l4.l5).toBe('deep-value');
+      expect(cleaned.l1.l2.l3.l4.extraField).toBeUndefined();
+      expect(cleaned.l1.l2.l3.extraL3).toBeUndefined();
+      expect(cleaned.l1.l2.extraL2).toBeUndefined();
+      expect(cleaned.l1.extraL1).toBeUndefined();
+      expect(cleaned.extraRoot).toBeUndefined();
+    });
+
+    it('handles const value mismatch (field value does not match const)', () => {
+      const schema = {
+        properties: {
+          buildExecutionEnvironment: { type: 'boolean' },
+        },
+        dependencies: {
+          buildExecutionEnvironment: {
+            oneOf: [
+              {
+                properties: {
+                  buildExecutionEnvironment: { const: true }, // Expects true
+                  buildRegistry: { type: 'string' },
+                },
+              },
+            ],
+          },
+        },
+      };
+
+      // Value is "maybe" (string), doesn't match const: true
+      const formData = {
+        buildExecutionEnvironment: 'maybe',
+        buildRegistry: 'PAH',
+      };
+
+      const cleaned = cleanupFormDataAgainstSchema(formData, schema);
+
+      // buildRegistry should be removed because const doesn't match
+      expect(cleaned.buildExecutionEnvironment).toBe('maybe');
+      expect(cleaned.buildRegistry).toBeUndefined();
+    });
+
+    it('handles multiple oneOf branches with only one matching', () => {
+      const schema = {
+        properties: {
+          provider: { type: 'string' },
+        },
+        dependencies: {
+          provider: {
+            oneOf: [
+              {
+                properties: {
+                  provider: { const: 'github' },
+                  githubToken: { type: 'string' },
+                },
+              },
+              {
+                properties: {
+                  provider: { const: 'gitlab' },
+                  gitlabToken: { type: 'string' },
+                },
+              },
+            ],
+          },
+        },
+      };
+
+      const formData = {
+        provider: 'github',
+        githubToken: 'token123',
+        gitlabToken: 'shouldBeRemoved',
+      };
+
+      const cleaned = cleanupFormDataAgainstSchema(formData, schema);
+
+      expect(cleaned.provider).toBe('github');
+      expect(cleaned.githubToken).toBe('token123');
+      expect(cleaned.gitlabToken).toBeUndefined(); // Wrong branch
+    });
+  });
+
+  describe('cleanupNestedFields integration (via component)', () => {
+    const createToggleFormMock = (getPayload: (callCount: number) => any) => {
+      let callCount = 0;
+      return ({ onChange, onSubmit, formData, children }: any) => (
+        <form
+          onSubmit={e => {
+            e.preventDefault();
+            // Submit current parent formData so cleanup from onChange is observable
+            onSubmit({ formData: formData ?? {} });
+          }}
+        >
+          <div>MockForm</div>
+          <button
+            type="button"
+            data-testid="toggle-conditional"
+            onClick={() => {
+              callCount += 1;
+              onChange?.({ formData: getPayload(callCount) });
+            }}
+          >
+            Toggle
+          </button>
+          {children}
+          <button type="submit">Submit</button>
+        </form>
+      );
+    };
+
+    const goToCreateAndAssert = async (expectedValues: Record<string, any>) => {
+      fireEvent.click(screen.getByText('Submit'));
+
+      const createButton = await screen.findByText('Create');
+      fireEvent.click(createButton);
+
+      await waitFor(() => {
+        expect(submitFunction).toHaveBeenCalledWith(
+          expect.objectContaining(expectedValues),
+          expect.any(Object),
+        );
+      });
+    };
+
+    it('removes stale dependents when a nested conditional is toggled off via onChange', async () => {
+      const steps = [
+        {
+          title: 'EE Config',
+          schema: {
+            properties: {
+              eeConfig: {
+                type: 'object',
+                properties: {
+                  buildExecutionEnvironment: { type: 'boolean' },
+                },
+                dependencies: {
+                  buildExecutionEnvironment: {
+                    oneOf: [
+                      {
+                        properties: {
+                          buildExecutionEnvironment: { const: true },
+                          buildRegistry: { type: 'string' },
+                        },
+                      },
+                    ],
+                  },
+                },
+              },
+            },
+          },
+        },
+      ];
+
+      jest
+        .spyOn(require('./ScaffolderFormWrapper'), 'ScaffolderForm')
+        .mockImplementation(
+          createToggleFormMock(callCount =>
+            callCount === 1
+              ? {
+                  eeConfig: {
+                    buildExecutionEnvironment: true,
+                    buildRegistry: 'PAH',
+                  },
+                }
+              : {
+                  eeConfig: {
+                    buildExecutionEnvironment: false,
+                    buildRegistry: 'PAH',
+                  },
+                },
+          ),
+        );
+
+      render(<StepForm steps={steps} submitFunction={submitFunction} />);
+
+      fireEvent.click(screen.getByTestId('toggle-conditional'));
+      await waitFor(() => {
+        expect(screen.getByTestId('toggle-conditional')).toBeInTheDocument();
+      });
+
+      fireEvent.click(screen.getByTestId('toggle-conditional'));
+
+      await goToCreateAndAssert({
+        eeConfig: {
+          buildExecutionEnvironment: false,
+        },
+      });
+
+      const [values] = submitFunction.mock.calls.at(-1);
+      expect(values.eeConfig.buildRegistry).toBeUndefined();
+    });
+
+    it('cleans deeply nested conditional toggles (recursive checkNestedToggle)', async () => {
+      const steps = [
+        {
+          title: 'Deep Config',
+          schema: {
+            properties: {
+              level1: {
+                type: 'object',
+                properties: {
+                  level2: {
+                    type: 'object',
+                    properties: {
+                      buildEE: { type: 'boolean' },
+                    },
+                    dependencies: {
+                      buildEE: {
+                        oneOf: [
+                          {
+                            properties: {
+                              buildEE: { const: true },
+                              eeName: { type: 'string' },
+                            },
+                          },
+                        ],
+                      },
+                    },
+                  },
+                },
+              },
+            },
+          },
+        },
+      ];
+
+      jest
+        .spyOn(require('./ScaffolderFormWrapper'), 'ScaffolderForm')
+        .mockImplementation(
+          createToggleFormMock(callCount =>
+            callCount === 1
+              ? {
+                  level1: {
+                    level2: {
+                      buildEE: true,
+                      eeName: 'my-ee',
+                    },
+                  },
+                }
+              : {
+                  level1: {
+                    level2: {
+                      buildEE: false,
+                      eeName: 'my-ee',
+                    },
+                  },
+                },
+          ),
+        );
+
+      render(<StepForm steps={steps} submitFunction={submitFunction} />);
+
+      fireEvent.click(screen.getByTestId('toggle-conditional'));
+      await waitFor(() => {
+        expect(screen.getByTestId('toggle-conditional')).toBeInTheDocument();
+      });
+      fireEvent.click(screen.getByTestId('toggle-conditional'));
+
+      await goToCreateAndAssert({
+        level1: {
+          level2: {
+            buildEE: false,
+          },
+        },
+      });
+
+      const [values] = submitFunction.mock.calls.at(-1);
+      expect(values.level1.level2.eeName).toBeUndefined();
+    });
+
+    it('cleans multiple top-level object keys when several conditionals toggle off', async () => {
+      const steps = [
+        {
+          title: 'Multi Config',
+          schema: {
+            properties: {
+              publish: {
+                type: 'object',
+                properties: {
+                  publishToSCM: { type: 'boolean' },
+                },
+                dependencies: {
+                  publishToSCM: {
+                    oneOf: [
+                      {
+                        properties: {
+                          publishToSCM: { const: true },
+                          repoUrl: { type: 'string' },
+                        },
+                      },
+                    ],
+                  },
+                },
+              },
+              build: {
+                type: 'object',
+                properties: {
+                  buildEE: { type: 'boolean' },
+                },
+                dependencies: {
+                  buildEE: {
+                    oneOf: [
+                      {
+                        properties: {
+                          buildEE: { const: true },
+                          buildRegistry: { type: 'string' },
+                        },
+                      },
+                    ],
+                  },
+                },
+              },
+            },
+          },
+        },
+      ];
+
+      jest
+        .spyOn(require('./ScaffolderFormWrapper'), 'ScaffolderForm')
+        .mockImplementation(
+          createToggleFormMock(callCount =>
+            callCount === 1
+              ? {
+                  publish: {
+                    publishToSCM: true,
+                    repoUrl: 'github.com',
+                  },
+                  build: {
+                    buildEE: true,
+                    buildRegistry: 'PAH',
+                  },
+                }
+              : {
+                  publish: {
+                    publishToSCM: false,
+                    repoUrl: 'github.com',
+                  },
+                  build: {
+                    buildEE: false,
+                    buildRegistry: 'PAH',
+                  },
+                },
+          ),
+        );
+
+      render(<StepForm steps={steps} submitFunction={submitFunction} />);
+
+      fireEvent.click(screen.getByTestId('toggle-conditional'));
+      await waitFor(() => {
+        expect(screen.getByTestId('toggle-conditional')).toBeInTheDocument();
+      });
+      fireEvent.click(screen.getByTestId('toggle-conditional'));
+
+      await goToCreateAndAssert({
+        publish: { publishToSCM: false },
+        build: { buildEE: false },
+      });
+
+      const [values] = submitFunction.mock.calls.at(-1);
+      expect(values.publish.repoUrl).toBeUndefined();
+      expect(values.build.buildRegistry).toBeUndefined();
     });
   });
 });
