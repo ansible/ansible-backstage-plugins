@@ -7,6 +7,7 @@ import {
   renderInTestApp,
   TestApiProvider,
 } from '@backstage/test-utils';
+import { ThemeProvider, createMuiTheme } from '@material-ui/core/styles';
 import { scaffolderApiRef } from '@backstage/plugin-scaffolder-react';
 import { mockScaffolderApi } from '../../tests/scaffolderApi_utils';
 import { rootRouteRef } from '../../routes';
@@ -72,17 +73,29 @@ describe('My items', () => {
 
   // setup mock response
   beforeEach(() => {
+    jest.restoreAllMocks();
     server.use(
       rest.get('/*', (_, res, ctx) => res(ctx.status(200), ctx.json({}))),
     );
+    mockIdentityApi.getBackstageIdentity.mockResolvedValue({
+      type: 'user',
+      userEntityRef: 'user:default/test-user',
+      ownershipEntityRefs: ['user:default/test-user'],
+    });
   });
 
-  const render = (children: JSX.Element) => {
+  const render = (
+    children: JSX.Element,
+    overrides?: {
+      scaffolderApi?: any;
+      identityApi?: any;
+    },
+  ) => {
     return renderInTestApp(
       <TestApiProvider
         apis={[
-          [scaffolderApiRef, mockScaffolderApi],
-          [identityApiRef, mockIdentityApi],
+          [scaffolderApiRef, overrides?.scaffolderApi ?? mockScaffolderApi],
+          [identityApiRef, overrides?.identityApi ?? mockIdentityApi],
         ]}
       >
         <>{children}</>
@@ -118,6 +131,264 @@ describe('My items', () => {
     expect(
       screen.getByRole('columnheader', { name: 'Status' }),
     ).toBeInTheDocument();
+  });
+
+  it('renders error when listTasks is not available', async () => {
+    const noListTasksApi = {
+      getTemplateParameterSchema: jest.fn(),
+    };
+    await render(<TaskList />, { scaffolderApi: noListTasksApi });
+    await waitFor(() => {
+      expect(
+        screen.getByText(/listTasks method is not available on scaffolderApi/),
+      ).toBeInTheDocument();
+    });
+  });
+
+  it('renders error when listTasks API call fails', async () => {
+    const failingApi = {
+      ...mockScaffolderApi,
+      listTasks: jest.fn().mockRejectedValue(new Error('Network error')),
+    };
+    await render(<TaskList />, { scaffolderApi: failingApi });
+    await waitFor(() => {
+      expect(screen.getByText(/Error: Network error/)).toBeInTheDocument();
+    });
+  });
+
+  it('shows Untitled for tasks with missing template title', async () => {
+    const apiWithUntitled = {
+      ...mockScaffolderApi,
+      listTasks: jest.fn().mockResolvedValue({
+        tasks: [
+          {
+            id: 'task-no-title',
+            spec: {
+              templateInfo: {
+                entity: {
+                  metadata: { name: 'unnamed-template', namespace: 'default' },
+                },
+              },
+              user: {
+                entity: { metadata: { title: 'Some User' } },
+              },
+            },
+            status: 'completed',
+            createdAt: '2024-12-14T10:00:00.000Z',
+          },
+        ],
+        totalTasks: '1',
+      }),
+    };
+    await render(<TaskList />, { scaffolderApi: apiWithUntitled });
+    await waitFor(() => {
+      expect(screen.getByText('Untitled')).toBeInTheDocument();
+    });
+  });
+
+  it('renders task rows with different status values', async () => {
+    const apiWithStatuses = {
+      ...mockScaffolderApi,
+      listTasks: jest.fn().mockResolvedValue({
+        tasks: [
+          {
+            id: 'task-processing',
+            spec: {
+              templateInfo: {
+                entity: {
+                  metadata: {
+                    name: 't1',
+                    namespace: 'default',
+                    title: 'Processing task',
+                  },
+                },
+              },
+              user: { entity: { metadata: { title: 'User A' } } },
+            },
+            status: 'processing',
+            createdAt: '2024-12-14T10:00:00.000Z',
+          },
+          {
+            id: 'task-open',
+            spec: {
+              templateInfo: {
+                entity: {
+                  metadata: {
+                    name: 't2',
+                    namespace: 'default',
+                    title: 'Open task',
+                  },
+                },
+              },
+              user: { entity: { metadata: { title: 'User B' } } },
+            },
+            status: 'open',
+            createdAt: '2024-12-14T11:00:00.000Z',
+          },
+          {
+            id: 'task-cancelled',
+            spec: {
+              templateInfo: {
+                entity: {
+                  metadata: {
+                    name: 't3',
+                    namespace: 'default',
+                    title: 'Cancelled task',
+                  },
+                },
+              },
+              user: { entity: { metadata: { title: 'User C' } } },
+            },
+            status: 'cancelled',
+            createdAt: '2024-12-14T12:00:00.000Z',
+          },
+        ],
+        totalTasks: '3',
+      }),
+    };
+    await render(<TaskList />, { scaffolderApi: apiWithStatuses });
+    await waitFor(() => {
+      expect(screen.getByText('processing')).toBeInTheDocument();
+    });
+    expect(screen.getByText('open')).toBeInTheDocument();
+    expect(screen.getByText('cancelled')).toBeInTheDocument();
+  });
+
+  it('uses filterByOwnership=all when user is in admins group', async () => {
+    mockIdentityApi.getBackstageIdentity.mockResolvedValue({
+      type: 'user',
+      userEntityRef: 'user:default/admin-user',
+      ownershipEntityRefs: ['user:default/admin-user', 'group:default/admins'],
+    });
+    const listTasksSpy = jest.fn().mockResolvedValue({
+      tasks: [],
+      totalTasks: '0',
+    });
+    const adminApi = {
+      ...mockScaffolderApi,
+      listTasks: listTasksSpy,
+    };
+    await render(<TaskList />, { scaffolderApi: adminApi });
+    await waitFor(() => {
+      expect(listTasksSpy).toHaveBeenCalledWith(
+        expect.objectContaining({
+          filterByOwnership: 'all',
+        }),
+      );
+    });
+  });
+
+  it('renders task with unknown status showing default empty icon', async () => {
+    const apiWithUnknown = {
+      ...mockScaffolderApi,
+      listTasks: jest.fn().mockResolvedValue({
+        tasks: [
+          {
+            id: 'task-unknown',
+            spec: {
+              templateInfo: {
+                entity: {
+                  metadata: {
+                    name: 't1',
+                    namespace: 'default',
+                    title: 'Unknown status task',
+                  },
+                },
+              },
+              user: { entity: { metadata: { title: 'User' } } },
+            },
+            status: 'some-unknown-status',
+            createdAt: '2024-12-14T10:00:00.000Z',
+          },
+        ],
+        totalTasks: '1',
+      }),
+    };
+    await render(<TaskList />, { scaffolderApi: apiWithUnknown });
+    await waitFor(() => {
+      expect(screen.getByText('some-unknown-status')).toBeInTheDocument();
+    });
+  });
+
+  it('renders empty state when no tasks are returned', async () => {
+    const emptyApi = {
+      ...mockScaffolderApi,
+      listTasks: jest.fn().mockResolvedValue({
+        tasks: [],
+        totalTasks: '0',
+      }),
+    };
+    await render(<TaskList />, { scaffolderApi: emptyApi });
+    await waitFor(() => {
+      expect(screen.getByText('No tasks found')).toBeInTheDocument();
+    });
+  });
+
+  it('handles undefined totalTasks in API response', async () => {
+    const apiNoTotal = {
+      ...mockScaffolderApi,
+      listTasks: jest.fn().mockResolvedValue({
+        tasks: [],
+        totalTasks: undefined,
+      }),
+    };
+    await render(<TaskList />, { scaffolderApi: apiNoTotal });
+    await waitFor(() => {
+      expect(screen.getByText('No tasks found')).toBeInTheDocument();
+    });
+  });
+
+  it('handles task with missing template name by not navigating', async () => {
+    const apiNoName = {
+      ...mockScaffolderApi,
+      listTasks: jest.fn().mockResolvedValue({
+        tasks: [
+          {
+            id: 'task-no-name',
+            spec: {
+              templateInfo: {
+                entity: { metadata: {} },
+              },
+              user: { entity: { metadata: { title: 'User' } } },
+            },
+            status: 'completed',
+            createdAt: '2024-12-14T10:00:00.000Z',
+          },
+        ],
+        totalTasks: '1',
+      }),
+    };
+    await render(<TaskList />, { scaffolderApi: apiNoName });
+    await waitFor(() => {
+      expect(screen.getByText('Untitled')).toBeInTheDocument();
+    });
+    fireEvent.click(screen.getByText('Untitled'));
+  });
+
+  it('renders with dark theme styles', async () => {
+    const darkTheme = createMuiTheme({ palette: { type: 'dark' } });
+
+    await renderInTestApp(
+      <ThemeProvider theme={darkTheme}>
+        <TestApiProvider
+          apis={[
+            [scaffolderApiRef, mockScaffolderApi],
+            [identityApiRef, mockIdentityApi],
+          ]}
+        >
+          <TaskList />
+        </TestApiProvider>
+      </ThemeProvider>,
+      {
+        mountedRoutes: {
+          '/self-service': rootRouteRef,
+        },
+      },
+    );
+
+    await waitFor(() => {
+      expect(screen.getByText('Task List')).toBeInTheDocument();
+    });
   });
 });
 

@@ -119,6 +119,27 @@ describe('DefinedContentCard', () => {
     expect(el.textContent).toBe('ansible.netcommon');
   });
 
+  it('falls back to original name when URL has empty path', () => {
+    const parsed: ParsedEEDefinition = {
+      baseImageName: null,
+      collections: [
+        {
+          name: 'https://github.com',
+          version: 'main',
+          type: 'git',
+        },
+      ],
+      pythonPath: null,
+      pythonPackages: null,
+      pythonFileRef: null,
+      systemPackages: null,
+      systemFileRef: null,
+      collectionsFileRef: null,
+    };
+    renderWithTheme(<DefinedContentCard parsedDefinition={parsed} />);
+    expect(screen.getByText(/https:\/\/github\.com/)).toBeInTheDocument();
+  });
+
   it('shows Python requirements list when provided', () => {
     const parsed: ParsedEEDefinition = {
       baseImageName: null,

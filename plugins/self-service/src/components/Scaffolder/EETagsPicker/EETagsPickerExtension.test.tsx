@@ -467,7 +467,7 @@ describe('EETagsPickerExtension', () => {
       );
 
       const inputs = screen.getAllByRole('textbox');
-      expect(inputs).toHaveLength(2);
+      expect(inputs.length).toBe(2);
       expect(inputs[1]).toHaveValue('');
     });
 
@@ -1016,6 +1016,46 @@ describe('EETagsPickerExtension', () => {
       render(<EETagsPickerExtension {...props} />);
 
       expect(props.onChange).toHaveBeenCalledWith(['execution-environment']);
+    });
+
+    it('renders without description when schema description is missing', () => {
+      const props = createMockProps({
+        schema: {
+          title: 'Tags',
+          default: ['tag1'],
+          items: { type: 'string' },
+        },
+      });
+      render(<EETagsPickerExtension {...props} />);
+
+      expect(screen.getByText('Tags')).toBeInTheDocument();
+      expect(
+        screen.queryByText(/Add tags to make this EE definition discoverable/),
+      ).not.toBeInTheDocument();
+    });
+
+    it('respects required=false and does not set required attribute', () => {
+      const props = createMockProps({
+        required: false,
+        formData: ['tag1'],
+      });
+      render(<EETagsPickerExtension {...props} />);
+
+      const inputs = screen.getAllByRole('textbox');
+      expect(inputs[0]).not.toHaveAttribute('required');
+    });
+
+    it('uses empty array when schema has no default', () => {
+      const props = createMockProps({
+        formData: undefined,
+        schema: {
+          title: 'Tags',
+          items: { type: 'string' },
+        },
+      });
+      render(<EETagsPickerExtension {...props} />);
+
+      expect(props.onChange).not.toHaveBeenCalled();
     });
 
     it('handles disabled state for all buttons', () => {

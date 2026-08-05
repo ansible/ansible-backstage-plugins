@@ -260,6 +260,190 @@ describe('CollectionAboutCard', () => {
     ).toBeInTheDocument();
   });
 
+  it('renders N/A when version is not a string', () => {
+    renderWithTheme(
+      <CollectionAboutCard
+        entity={{
+          ...mockEntity,
+          spec: {
+            ...mockEntity.spec,
+            collection_version: undefined,
+          } as any,
+        }}
+        lastSync={null}
+        lastFailedSync={null}
+        onViewSource={mockOnViewSource}
+      />,
+    );
+    expect(screen.getByText('N/A')).toBeInTheDocument();
+  });
+
+  it('renders "Not Available" when lastSync is null but lastFailedSync exists', () => {
+    renderWithTheme(
+      <CollectionAboutCard
+        entity={mockEntity}
+        lastSync={null}
+        lastFailedSync="2024-06-14T10:00:00Z"
+        onViewSource={mockOnViewSource}
+      />,
+    );
+    expect(screen.getByText('Not Available')).toBeInTheDocument();
+  });
+
+  it('renders "Never Synced" when both lastSync and lastFailedSync are null', () => {
+    renderWithTheme(
+      <CollectionAboutCard
+        entity={mockEntity}
+        lastSync={null}
+        lastFailedSync={null}
+        onViewSource={mockOnViewSource}
+      />,
+    );
+    expect(screen.getByText('Never Synced')).toBeInTheDocument();
+  });
+
+  it('handles authors as objects with name field', () => {
+    renderWithTheme(
+      <CollectionAboutCard
+        entity={{
+          ...mockEntity,
+          spec: {
+            ...mockEntity.spec,
+            collection_authors: [{ name: 'Object Author' }, 'String Author'],
+          } as any,
+        }}
+        lastSync={null}
+        lastFailedSync={null}
+        onViewSource={mockOnViewSource}
+      />,
+    );
+    expect(
+      screen.getByText('Object Author, String Author'),
+    ).toBeInTheDocument();
+  });
+
+  it('handles tags as objects with name field', () => {
+    renderWithTheme(
+      <CollectionAboutCard
+        entity={{
+          ...mockEntity,
+          spec: {
+            ...mockEntity.spec,
+            collection_tags: [{ name: 'obj-tag' }, 'str-tag'],
+          } as any,
+        }}
+        lastSync={null}
+        lastFailedSync={null}
+        onViewSource={mockOnViewSource}
+      />,
+    );
+    expect(screen.getByText('obj-tag')).toBeInTheDocument();
+    expect(screen.getByText('str-tag')).toBeInTheDocument();
+  });
+
+  it('renders with undefined spec', () => {
+    const entity = {
+      ...mockEntity,
+      spec: undefined,
+    } as unknown as Entity;
+
+    renderWithTheme(
+      <CollectionAboutCard
+        entity={entity}
+        lastSync={null}
+        lastFailedSync={null}
+        onViewSource={mockOnViewSource}
+      />,
+    );
+    expect(screen.getByText('N/A')).toBeInTheDocument();
+    expect(screen.getByText('Unknown')).toBeInTheDocument();
+  });
+
+  it('renders non-array authors as Unknown', () => {
+    renderWithTheme(
+      <CollectionAboutCard
+        entity={{
+          ...mockEntity,
+          spec: {
+            ...mockEntity.spec,
+            collection_authors: 'not-an-array',
+          } as any,
+        }}
+        lastSync={null}
+        lastFailedSync={null}
+        onViewSource={mockOnViewSource}
+      />,
+    );
+    expect(screen.getByText('Unknown')).toBeInTheDocument();
+  });
+
+  it('filters out author objects with no name property', () => {
+    renderWithTheme(
+      <CollectionAboutCard
+        entity={{
+          ...mockEntity,
+          spec: {
+            ...mockEntity.spec,
+            collection_authors: [
+              { name: 'Valid' },
+              { notName: 'Invalid' },
+              'StringAuthor',
+            ],
+          } as any,
+        }}
+        lastSync={null}
+        lastFailedSync={null}
+        onViewSource={mockOnViewSource}
+      />,
+    );
+    expect(screen.getByText('Valid, StringAuthor')).toBeInTheDocument();
+  });
+
+  it('filters out tag objects with no name property', () => {
+    renderWithTheme(
+      <CollectionAboutCard
+        entity={{
+          ...mockEntity,
+          spec: {
+            ...mockEntity.spec,
+            collection_tags: [
+              { name: 'valid-tag' },
+              { notName: 'invalid' },
+              'str-tag',
+            ],
+          } as any,
+        }}
+        lastSync={null}
+        lastFailedSync={null}
+        onViewSource={mockOnViewSource}
+      />,
+    );
+    expect(screen.getByText('valid-tag')).toBeInTheDocument();
+    expect(screen.getByText('str-tag')).toBeInTheDocument();
+  });
+
+  it('renders Unknown when sourceString is empty', () => {
+    const entity: Entity = {
+      apiVersion: 'backstage.io/v1alpha1',
+      kind: 'Component',
+      metadata: {
+        name: 'test',
+        annotations: {},
+      },
+      spec: {} as any,
+    };
+
+    renderWithTheme(
+      <CollectionAboutCard
+        entity={entity}
+        lastSync={null}
+        lastFailedSync={null}
+        onViewSource={mockOnViewSource}
+      />,
+    );
+    expect(screen.getByText('Unknown')).toBeInTheDocument();
+  });
+
   it('shows "No tags" when no displayable tags', () => {
     const entity: Entity = {
       ...mockEntity,
