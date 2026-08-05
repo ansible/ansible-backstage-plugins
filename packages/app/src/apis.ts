@@ -13,8 +13,10 @@ import {
 import { OAuth2 } from '@backstage/core-app-api';
 import { rhAapAuthApiRef } from '@ansible/plugin-backstage-self-service';
 import { gitRepositoriesExtensionsApiFactory } from './apis/gitRepositoriesExtensions';
+import { signalsPlugin } from '@backstage/plugin-signals';
 
 export const apis: AnyApiFactory[] = [
+  ...signalsPlugin.getApis(),
   createApiFactory({
     api: scmIntegrationsApiRef,
     deps: { configApi: configApiRef },

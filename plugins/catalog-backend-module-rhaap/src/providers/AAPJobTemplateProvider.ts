@@ -24,6 +24,7 @@ import { aapJobTemplateParser } from './entityParser';
 import { resolveTaskRunner } from './helpers';
 import { SyncStateTracker } from './SyncStateTracker';
 import { getEffectiveNamespace, validateNamespace } from '../helpers';
+import type { SignalsService } from '@backstage/plugin-signals-node';
 
 export class AAPJobTemplateProvider implements EntityProvider {
   private readonly env: string;
@@ -108,6 +109,10 @@ export class AAPJobTemplateProvider implements EntityProvider {
 
   getLastSyncTime(): string | null {
     return this.syncState.getLastSyncTime();
+  }
+
+  setSignals(signals: SignalsService): void {
+    this.syncState.setSignals(signals, `aap-job-template:${this.env}`);
   }
 
   getLastFailedSyncTime(): string | null {
