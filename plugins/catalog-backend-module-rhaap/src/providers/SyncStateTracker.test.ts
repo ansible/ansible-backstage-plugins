@@ -174,6 +174,8 @@ describe('SyncStateTracker', () => {
       tracker.markSyncStarted();
       tracker.markSyncSucceeded();
       tracker.markSyncFailed();
+
+      expect(tracker.getLastSyncStatus()).toBe('failure');
     });
   });
 
