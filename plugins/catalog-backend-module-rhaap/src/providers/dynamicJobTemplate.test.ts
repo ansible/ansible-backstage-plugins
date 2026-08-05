@@ -1341,9 +1341,10 @@ describe('dynamicJobTemplate', () => {
           'url:https://ansible.example.com/execution/templates/job-template/123/details',
         [ANNOTATION_ORIGIN_LOCATION]:
           'url:https://ansible.example.com/execution/templates/job-template/123/details',
+        'ansible.com/template-source': 'aap-template',
       });
 
-      expect((result.spec as any).type).toBe('service');
+      expect((result.spec as any).type).toBe('automation-template');
       expect((result.spec as any).parameters).toHaveLength(1);
       expect((result.spec as any).parameters[0].title).toBe(
         'Please enter the following details',
@@ -1387,6 +1388,7 @@ describe('dynamicJobTemplate', () => {
           'url:https://ansible.example.com/execution/templates/job-template/123/details',
         [ANNOTATION_ORIGIN_LOCATION]:
           'url:https://ansible.example.com/execution/templates/job-template/123/details',
+        'ansible.com/template-source': 'aap-template',
       });
     });
 
