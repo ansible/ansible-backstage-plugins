@@ -71,6 +71,58 @@ describe('FeedbackFooter', () => {
     expect(fab).toBeInTheDocument();
   });
 
+  it('renders nothing when feedback is disabled', async () => {
+    const disabledConfigApi = {
+      ...mockConfigApi,
+      getOptionalBoolean: (key: string) => {
+        if (key === 'ansible.feedback.enabled') {
+          return false;
+        }
+        return undefined;
+      },
+    };
+
+    const { container } = await renderInTestApp(
+      <TestApiProvider apis={[[configApiRef, disabledConfigApi]]}>
+        <FeedbackFooter />
+      </TestApiProvider>,
+    );
+
+    expect(container.innerHTML).toBe('');
+    expect(screen.queryByText(/Feedback/i)).not.toBeInTheDocument();
+  });
+
+  it('renders nothing when getOptionalBoolean returns undefined (nullish coalescing fallback)', async () => {
+    const undefinedConfigApi = {
+      ...mockConfigApi,
+      getOptionalBoolean: () => undefined,
+    };
+
+    const { container } = await renderInTestApp(
+      <TestApiProvider apis={[[configApiRef, undefinedConfigApi]]}>
+        <FeedbackFooter />
+      </TestApiProvider>,
+    );
+
+    expect(container.innerHTML).toBe('');
+  });
+
+  it('renders with dark theme styles', async () => {
+    const muiCore = require('@material-ui/core');
+    const useThemeSpy = jest
+      .spyOn(muiCore, 'useTheme')
+      .mockReturnValue({ palette: { type: 'dark' } });
+
+    await renderInTestApp(
+      <TestApiProvider apis={[[configApiRef, mockConfigApi]]}>
+        <FeedbackFooter />
+      </TestApiProvider>,
+    );
+
+    expect(screen.getByText(/Feedback/i)).toBeInTheDocument();
+    useThemeSpy.mockRestore();
+  });
+
   it('opens RatingsFeedbackModal when FAB is clicked and passes correct props', async () => {
     const user = userEvent.setup();
 

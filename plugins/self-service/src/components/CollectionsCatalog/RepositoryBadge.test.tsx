@@ -118,6 +118,19 @@ describe('RepositoryBadge', () => {
     expect(screen.getByText('Community')).toBeInTheDocument();
   });
 
+  it('returns null when entity has no annotations', () => {
+    const entity: Entity = {
+      apiVersion: 'backstage.io/v1alpha1',
+      kind: 'Component',
+      metadata: { name: 'c' },
+      spec: {},
+    };
+
+    const { container } = renderWithTheme(<RepositoryBadge entity={entity} />);
+
+    expect(container.firstChild).toBeNull();
+  });
+
   it('returns null for unknown pah repository type', () => {
     const entity: Entity = {
       apiVersion: 'backstage.io/v1alpha1',

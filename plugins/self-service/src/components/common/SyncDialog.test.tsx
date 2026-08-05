@@ -1227,6 +1227,420 @@ describe('SyncDialog', () => {
     );
   }, 15000);
 
+  it('shows error from response.error object with message field', async () => {
+    mockFetchApi.fetch
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          content: {
+            providers: [
+              {
+                sourceId: 'src-1',
+                scmProvider: 'github',
+                hostName: 'github.com',
+                organization: 'myorg',
+                lastSyncTime: null,
+              },
+            ],
+          },
+        }),
+      })
+      .mockResolvedValueOnce({
+        ok: false,
+        status: 403,
+        statusText: 'Forbidden',
+        json: async () => ({
+          error: { message: 'Insufficient permissions for sync' },
+        }),
+      });
+
+    renderDialog({ open: true, onClose: mockOnClose });
+
+    await waitFor(() => {
+      expect(screen.getByText('myorg')).toBeInTheDocument();
+    });
+    fireEvent.click(screen.getByText('myorg'));
+    await waitFor(() => {
+      expect(
+        screen.getByRole('button', { name: /Sync Selected/i }),
+      ).not.toBeDisabled();
+    });
+    fireEvent.click(screen.getByRole('button', { name: /Sync Selected/i }));
+
+    await waitFor(() => {
+      expect(mockShowNotification).toHaveBeenCalledWith(
+        expect.objectContaining({
+          title: 'Sync failed',
+          description: expect.stringContaining(
+            'Insufficient permissions for sync',
+          ),
+        }),
+      );
+    });
+  });
+
+  it('shows error from response.message field when no error field', async () => {
+    mockFetchApi.fetch
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          content: {
+            providers: [
+              {
+                sourceId: 'src-1',
+                scmProvider: 'github',
+                hostName: 'github.com',
+                organization: 'myorg',
+                lastSyncTime: null,
+              },
+            ],
+          },
+        }),
+      })
+      .mockResolvedValueOnce({
+        ok: false,
+        status: 400,
+        statusText: 'Bad Request',
+        json: async () => ({
+          message: 'Invalid filter parameters',
+        }),
+      });
+
+    renderDialog({ open: true, onClose: mockOnClose });
+
+    await waitFor(() => {
+      expect(screen.getByText('myorg')).toBeInTheDocument();
+    });
+    fireEvent.click(screen.getByText('myorg'));
+    await waitFor(() => {
+      expect(
+        screen.getByRole('button', { name: /Sync Selected/i }),
+      ).not.toBeDisabled();
+    });
+    fireEvent.click(screen.getByRole('button', { name: /Sync Selected/i }));
+
+    await waitFor(() => {
+      expect(mockShowNotification).toHaveBeenCalledWith(
+        expect.objectContaining({
+          title: 'Sync failed',
+          description: expect.stringContaining('Invalid filter parameters'),
+        }),
+      );
+    });
+  });
+
+  it('falls back to statusText when response body has no error or message', async () => {
+    mockFetchApi.fetch
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          content: {
+            providers: [
+              {
+                sourceId: 'src-1',
+                scmProvider: 'github',
+                hostName: 'github.com',
+                organization: 'myorg',
+                lastSyncTime: null,
+              },
+            ],
+          },
+        }),
+      })
+      .mockResolvedValueOnce({
+        ok: false,
+        status: 502,
+        statusText: 'Bad Gateway',
+        json: async () => ({}),
+      });
+
+    renderDialog({ open: true, onClose: mockOnClose });
+
+    await waitFor(() => {
+      expect(screen.getByText('myorg')).toBeInTheDocument();
+    });
+    fireEvent.click(screen.getByText('myorg'));
+    await waitFor(() => {
+      expect(
+        screen.getByRole('button', { name: /Sync Selected/i }),
+      ).not.toBeDisabled();
+    });
+    fireEvent.click(screen.getByRole('button', { name: /Sync Selected/i }));
+
+    await waitFor(() => {
+      expect(mockShowNotification).toHaveBeenCalledWith(
+        expect.objectContaining({
+          title: 'Sync failed',
+          description: expect.stringContaining('Bad Gateway'),
+        }),
+      );
+    });
+  });
+
+  it('falls back to status code when response has no body, statusText, or error', async () => {
+    mockFetchApi.fetch
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          content: {
+            providers: [
+              {
+                sourceId: 'src-1',
+                scmProvider: 'github',
+                hostName: 'github.com',
+                organization: 'myorg',
+                lastSyncTime: null,
+              },
+            ],
+          },
+        }),
+      })
+      .mockResolvedValueOnce({
+        ok: false,
+        status: 500,
+        statusText: '',
+        json: async () => {
+          throw new Error('not json');
+        },
+      });
+
+    renderDialog({ open: true, onClose: mockOnClose });
+
+    await waitFor(() => {
+      expect(screen.getByText('myorg')).toBeInTheDocument();
+    });
+    fireEvent.click(screen.getByText('myorg'));
+    await waitFor(() => {
+      expect(
+        screen.getByRole('button', { name: /Sync Selected/i }),
+      ).not.toBeDisabled();
+    });
+    fireEvent.click(screen.getByRole('button', { name: /Sync Selected/i }));
+
+    await waitFor(() => {
+      expect(mockShowNotification).toHaveBeenCalledWith(
+        expect.objectContaining({
+          title: 'Sync failed',
+          description: expect.stringContaining(
+            'Request failed with status 500',
+          ),
+        }),
+      );
+    });
+  });
+
+  it('shows PAH repository name in failure label for failed results', async () => {
+    mockFetchApi.fetch
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          content: {
+            providers: [
+              {
+                sourceId: 'pah-1',
+                repository: 'my-pah-repo',
+                scmProvider: 'pah',
+                lastSyncTime: null,
+              },
+            ],
+          },
+        }),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          results: [
+            {
+              status: 'failed',
+              repositoryName: 'my-pah-repo',
+              error: { message: 'PAH unreachable' },
+            },
+          ],
+        }),
+      });
+
+    renderDialog({ open: true, onClose: mockOnClose });
+
+    await waitFor(() => {
+      expect(screen.getByText('my-pah-repo')).toBeInTheDocument();
+    });
+    fireEvent.click(screen.getByText('my-pah-repo'));
+    await waitFor(() => {
+      expect(
+        screen.getByRole('button', { name: /Sync Selected/i }),
+      ).not.toBeDisabled();
+    });
+    fireEvent.click(screen.getByRole('button', { name: /Sync Selected/i }));
+
+    await waitFor(() => {
+      expect(mockShowNotification).toHaveBeenCalledWith(
+        expect.objectContaining({
+          title: 'Sync failed',
+          description: expect.stringContaining(
+            'PAH:my-pah-repo: PAH unreachable',
+          ),
+        }),
+      );
+    });
+  });
+
+  it('falls back to status in failure label when error.message is absent', async () => {
+    mockFetchApi.fetch
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          content: {
+            providers: [
+              {
+                sourceId: 'src-1',
+                scmProvider: 'github',
+                hostName: 'github.com',
+                organization: 'myorg',
+                lastSyncTime: null,
+              },
+            ],
+          },
+        }),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          results: [
+            {
+              status: 'invalid',
+              scmProvider: 'github',
+              hostName: 'github.com',
+              organization: 'myorg',
+            },
+          ],
+        }),
+      });
+
+    renderDialog({ open: true, onClose: mockOnClose });
+
+    await waitFor(() => {
+      expect(screen.getByText('myorg')).toBeInTheDocument();
+    });
+    fireEvent.click(screen.getByText('myorg'));
+    await waitFor(() => {
+      expect(
+        screen.getByRole('button', { name: /Sync Selected/i }),
+      ).not.toBeDisabled();
+    });
+    fireEvent.click(screen.getByRole('button', { name: /Sync Selected/i }));
+
+    await waitFor(() => {
+      expect(mockShowNotification).toHaveBeenCalledWith(
+        expect.objectContaining({
+          title: 'Sync failed',
+          description: expect.stringContaining(
+            'github:github.com:myorg: invalid',
+          ),
+        }),
+      );
+    });
+  });
+
+  it('shows non-Error rejection reason as string in failure toast', async () => {
+    mockFetchApi.fetch
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          content: {
+            providers: [
+              {
+                sourceId: 'src-1',
+                scmProvider: 'github',
+                hostName: 'github.com',
+                organization: 'myorg',
+                lastSyncTime: null,
+              },
+            ],
+          },
+        }),
+      })
+      .mockRejectedValueOnce('raw string rejection');
+
+    renderDialog({ open: true, onClose: mockOnClose });
+
+    await waitFor(() => {
+      expect(screen.getByText('myorg')).toBeInTheDocument();
+    });
+    fireEvent.click(screen.getByText('myorg'));
+    await waitFor(() => {
+      expect(
+        screen.getByRole('button', { name: /Sync Selected/i }),
+      ).not.toBeDisabled();
+    });
+    fireEvent.click(screen.getByRole('button', { name: /Sync Selected/i }));
+
+    await waitFor(() => {
+      expect(mockShowNotification).toHaveBeenCalledWith(
+        expect.objectContaining({
+          title: 'Sync failed',
+          description: expect.stringContaining('raw string rejection'),
+        }),
+      );
+    });
+  });
+
+  it('handles non-Error rejection from fetchSources', async () => {
+    mockFetchApi.fetch.mockRejectedValue('string-error');
+
+    renderDialog({ open: true, onClose: mockOnClose });
+
+    await waitFor(() => {
+      expect(screen.getByText(/No sources configured/)).toBeInTheDocument();
+    });
+  });
+
+  it('handles OK sync response with no results array', async () => {
+    const mockOnSyncsStarted = jest.fn();
+    mockFetchApi.fetch
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          content: {
+            providers: [
+              {
+                sourceId: 'src-1',
+                scmProvider: 'github',
+                hostName: 'github.com',
+                organization: 'myorg',
+                lastSyncTime: null,
+              },
+            ],
+          },
+        }),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ status: 'ok' }),
+      });
+
+    renderDialog({
+      open: true,
+      onClose: mockOnClose,
+      onSyncsStarted: mockOnSyncsStarted,
+    });
+
+    await waitFor(() => {
+      expect(screen.getByText('myorg')).toBeInTheDocument();
+    });
+    fireEvent.click(screen.getByText('myorg'));
+    await waitFor(() => {
+      expect(
+        screen.getByRole('button', { name: /Sync Selected/i }),
+      ).not.toBeDisabled();
+    });
+    fireEvent.click(screen.getByRole('button', { name: /Sync Selected/i }));
+
+    await waitFor(() => {
+      expect(mockOnSyncsStarted).toHaveBeenCalled();
+      expect(mockOnClose).toHaveBeenCalled();
+    });
+  });
+
   it('selecting leaf host syncs with host-only filter', async () => {
     mockFetchApi.fetch
       .mockResolvedValueOnce({

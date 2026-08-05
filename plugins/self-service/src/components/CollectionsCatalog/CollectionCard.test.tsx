@@ -178,6 +178,128 @@ describe('CollectionCard', () => {
     expect(screen.getByText('N/A')).toBeInTheDocument();
   });
 
+  it('falls back to namespace.name when collection_full_name is empty', () => {
+    const entityNoFullName: Entity = {
+      ...mockEntity,
+      spec: {
+        ...mockEntity.spec,
+        collection_full_name: '',
+      } as any,
+    };
+
+    renderWithTheme(
+      <CollectionCard
+        entity={entityNoFullName}
+        onClick={mockOnClick}
+        isStarred={false}
+        onToggleStar={mockOnToggleStar}
+        syncStatusMap={{}}
+      />,
+    );
+
+    expect(screen.getByText('my_namespace.my_collection')).toBeInTheDocument();
+  });
+
+  it('renders Never Synced when no sync status exists for the source', () => {
+    const entityNoSource: Entity = {
+      ...mockEntity,
+      metadata: {
+        ...mockEntity.metadata,
+        annotations: {},
+      },
+    };
+
+    renderWithTheme(
+      <CollectionCard
+        entity={entityNoSource}
+        onClick={mockOnClick}
+        isStarred={false}
+        onToggleStar={mockOnToggleStar}
+        syncStatusMap={{}}
+      />,
+    );
+
+    expect(
+      screen.getByText(
+        (content, el) =>
+          el?.textContent === 'Last Sync: Never Synced' ||
+          content.includes('Never Synced'),
+      ),
+    ).toBeInTheDocument();
+  });
+
+  it('renders source as link when sourceUrl exists', () => {
+    const entityWithSourceUrl: Entity = {
+      ...mockEntity,
+      metadata: {
+        ...mockEntity.metadata,
+        annotations: {
+          ...mockEntity.metadata.annotations,
+          'backstage.io/source-url': 'https://hub.example.com/repo1',
+        },
+      },
+    };
+
+    renderWithTheme(
+      <CollectionCard
+        entity={entityWithSourceUrl}
+        onClick={mockOnClick}
+        isStarred={false}
+        onToggleStar={mockOnToggleStar}
+        syncStatusMap={{}}
+      />,
+    );
+
+    const sourceLink = screen.getByText('Private Automation Hub (repo1)');
+    expect(sourceLink.closest('a')).toHaveAttribute(
+      'href',
+      'https://hub.example.com/repo1',
+    );
+  });
+
+  it('handles entity with undefined spec', () => {
+    const entityNoSpec = {
+      ...mockEntity,
+      spec: undefined,
+    } as unknown as Entity;
+
+    renderWithTheme(
+      <CollectionCard
+        entity={entityNoSpec}
+        onClick={mockOnClick}
+        isStarred={false}
+        onToggleStar={mockOnToggleStar}
+        syncStatusMap={{}}
+      />,
+    );
+
+    expect(screen.getByText('N/A')).toBeInTheDocument();
+  });
+
+  it('handles non-string collection_namespace and collection_name', () => {
+    const entityBadSpec: Entity = {
+      ...mockEntity,
+      spec: {
+        ...mockEntity.spec,
+        collection_namespace: 123 as any,
+        collection_name: null as any,
+        collection_full_name: '',
+      } as any,
+    };
+
+    renderWithTheme(
+      <CollectionCard
+        entity={entityBadSpec}
+        onClick={mockOnClick}
+        isStarred={false}
+        onToggleStar={mockOnToggleStar}
+        syncStatusMap={{}}
+      />,
+    );
+
+    expect(screen.getByText('.')).toBeInTheDocument();
+  });
+
   it('displays Not Available for last sync when sync failed and no last sync time', () => {
     renderWithTheme(
       <CollectionCard

@@ -15,6 +15,12 @@ import { permissionApiRef } from '@backstage/plugin-permission-react';
 import { Entity } from '@backstage/catalog-model';
 import { MemoryRouter } from 'react-router-dom';
 
+let capturedColumns: Array<{
+  title: string;
+  field: string;
+  render?: (row: any) => any;
+}> = [];
+
 jest.mock('@backstage/core-components', () => {
   const actual = jest.requireActual('@backstage/core-components');
   return {
@@ -25,41 +31,48 @@ jest.mock('@backstage/core-components', () => {
       data,
       columns,
     }: {
-      title: string;
+      title: React.ReactNode;
       data: unknown[];
-      columns: { title: string; field: string }[];
-    }) => (
-      <div data-testid="table">
-        <div data-testid="table-title">{title}</div>
-        <table>
-          <thead>
-            <tr>
-              {columns.map(col => (
-                <th key={col.field}>{col.title}</th>
-              ))}
-            </tr>
-          </thead>
-          <tbody>
-            {(
-              data as Array<{
-                id: string;
-                status: string;
-                project: string;
-                eventDisplay: string;
-                trigger: string;
-              }>
-            ).map(row => (
-              <tr key={row.id} data-testid={`table-row-${row.id}`}>
-                <td>{row.status}</td>
-                <td>{row.project}</td>
-                <td>{row.eventDisplay}</td>
-                <td>{row.trigger}</td>
+      columns: Array<{
+        title: string;
+        field: string;
+        render?: (row: any) => any;
+      }>;
+    }) => {
+      capturedColumns = columns;
+      return (
+        <div data-testid="table">
+          <div data-testid="table-title">{title}</div>
+          <table>
+            <thead>
+              <tr>
+                {columns.map(col => (
+                  <th key={col.field}>{col.title}</th>
+                ))}
               </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-    ),
+            </thead>
+            <tbody>
+              {(
+                data as Array<{
+                  id: string;
+                  status: string;
+                  project: string;
+                  eventDisplay: string;
+                  trigger: string;
+                }>
+              ).map(row => (
+                <tr key={row.id} data-testid={`table-row-${row.id}`}>
+                  <td>{row.status}</td>
+                  <td>{row.project}</td>
+                  <td>{row.eventDisplay}</td>
+                  <td>{row.trigger}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      );
+    },
   };
 });
 
@@ -1041,6 +1054,16 @@ describe('ciActivityUtils', () => {
     expect(rows).toEqual([]);
   });
 
+  it('buildRowsFromResults handles github entry with error result', () => {
+    const entity = createGitHubEntity('test-repo');
+    const entityMap = new Map([['key1', { entity, provider: 'github' }]]);
+    const results = {
+      key1: { status: 200, data: { workflow_runs: [] } },
+    };
+    const rows = buildRowsFromResults(results, entityMap);
+    expect(rows).toEqual([]);
+  });
+
   it('buildRowsFromResults sorts by time descending and limits to 150', () => {
     const entity = createGitHubEntity('test-repo');
     const entityMap = new Map([['key1', { entity, provider: 'github' }]]);
@@ -1062,5 +1085,278 @@ describe('ciActivityUtils', () => {
     expect(new Date(rows[0].time).getTime()).toBeGreaterThan(
       new Date(rows[1].time).getTime(),
     );
+  });
+});
+
+describe('RepositoriesCIActivityTab column render functions', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+    ciActivityCache.clear();
+    jest.useFakeTimers();
+    jest.setSystemTime(new Date('2024-06-15T12:00:00Z'));
+    capturedColumns = [];
+
+    mockCatalogApi.getEntities.mockResolvedValue({
+      items: [createGitHubEntity('github-repo')],
+    });
+    mockBatchResponse({
+      [entityRef('github-repo')]: {
+        status: 200,
+        data: {
+          workflow_runs: [
+            {
+              id: 123,
+              run_number: 42,
+              name: 'CI Build',
+              status: 'completed',
+              conclusion: 'success',
+              event: 'push',
+              created_at: '2024-06-15T11:00:00Z',
+              html_url:
+                'https://github.com/test-org/github-repo/actions/runs/123',
+            },
+          ],
+        },
+      },
+    });
+  });
+
+  afterEach(() => {
+    jest.useRealTimers();
+  });
+
+  const renderAndCapture = async () => {
+    render(
+      <TestApiProvider
+        apis={[
+          [catalogApiRef, mockCatalogApi],
+          [discoveryApiRef, mockDiscoveryApi],
+          [fetchApiRef, mockFetchApi],
+          [identityApiRef, mockIdentityApi],
+          [starredEntitiesApiRef, new MockStarredEntitiesApi()],
+          [permissionApiRef, mockApis.permission()],
+        ]}
+      >
+        <MemoryRouter>
+          <ThemeProvider theme={theme}>
+            <RepositoriesCIActivityTab />
+          </ThemeProvider>
+        </MemoryRouter>
+      </TestApiProvider>,
+    );
+    await waitFor(() => {
+      expect(capturedColumns.length).toBeGreaterThan(0);
+    });
+    return capturedColumns;
+  };
+
+  it('project column renders link when projectUrl exists', async () => {
+    const cols = await renderAndCapture();
+    const projectCol = cols.find(c => c.field === 'project')!;
+    const { container } = render(
+      <ThemeProvider theme={theme}>
+        {projectCol.render!({
+          project: 'my-repo',
+          projectUrl: 'https://github.com/org/my-repo',
+        })}
+      </ThemeProvider>,
+    );
+    const link = container.querySelector('a');
+    expect(link).not.toBeNull();
+    expect(link!.getAttribute('href')).toBe('https://github.com/org/my-repo');
+    expect(link!.textContent).toBe('my-repo');
+  });
+
+  it('project column renders plain text when projectUrl is missing', async () => {
+    const cols = await renderAndCapture();
+    const projectCol = cols.find(c => c.field === 'project')!;
+    const { container } = render(
+      projectCol.render!({ project: 'plain-repo', projectUrl: undefined }),
+    );
+    expect(container.textContent).toBe('plain-repo');
+    expect(container.querySelector('a')).toBeNull();
+  });
+
+  it('event column renders link when runUrl exists', async () => {
+    const cols = await renderAndCapture();
+    const eventCol = cols.find(c => c.field === 'eventDisplay')!;
+    const { container } = render(
+      <ThemeProvider theme={theme}>
+        {eventCol.render!({
+          eventDisplay: 'CI Build #42',
+          runUrl: 'https://github.com/org/repo/actions/runs/123',
+        })}
+      </ThemeProvider>,
+    );
+    const link = container.querySelector('a');
+    expect(link).not.toBeNull();
+    expect(link!.textContent).toBe('CI Build #42');
+  });
+
+  it('event column renders plain text when runUrl is missing', async () => {
+    const cols = await renderAndCapture();
+    const eventCol = cols.find(c => c.field === 'eventDisplay')!;
+    const { container } = render(
+      eventCol.render!({ eventDisplay: 'Pipeline #456', runUrl: undefined }),
+    );
+    expect(container.textContent).toBe('Pipeline #456');
+    expect(container.querySelector('a')).toBeNull();
+  });
+
+  it('time column renders formatted time when time exists', async () => {
+    const cols = await renderAndCapture();
+    const timeCol = cols.find(c => c.field === 'time')!;
+    const { container } = render(
+      timeCol.render!({ time: '2024-06-15T11:00:00Z' }),
+    );
+    expect(container.textContent).not.toBe('—');
+    expect(container.textContent!.length).toBeGreaterThan(0);
+  });
+
+  it('time column renders dash when time is null', async () => {
+    const cols = await renderAndCapture();
+    const timeCol = cols.find(c => c.field === 'time')!;
+    const { container } = render(timeCol.render!({ time: null }));
+    expect(container.textContent).toBe('—');
+  });
+
+  it('status column renders icon and label for success', async () => {
+    const cols = await renderAndCapture();
+    const statusCol = cols.find(c => c.field === 'status')!;
+    const { container } = render(
+      <ThemeProvider theme={theme}>
+        {statusCol.render!({ status: 'success' })}
+      </ThemeProvider>,
+    );
+    expect(container.textContent).toContain('Success');
+  });
+
+  it('status column renders icon and label for failure', async () => {
+    const cols = await renderAndCapture();
+    const statusCol = cols.find(c => c.field === 'status')!;
+    const { container } = render(
+      <ThemeProvider theme={theme}>
+        {statusCol.render!({ status: 'failure' })}
+      </ThemeProvider>,
+    );
+    expect(container.textContent).toContain('Failure');
+  });
+
+  it('table title includes fetchingMore spinner', async () => {
+    ciActivityCache.startLoading(
+      [createGitHubEntity('github-repo')],
+      mockDiscoveryApi,
+      mockFetchApi,
+    );
+    await waitFor(() =>
+      expect(ciActivityCache.getState()?.loading).toBe(false),
+    );
+
+    render(
+      <TestApiProvider
+        apis={[
+          [catalogApiRef, mockCatalogApi],
+          [discoveryApiRef, mockDiscoveryApi],
+          [fetchApiRef, mockFetchApi],
+          [identityApiRef, mockIdentityApi],
+          [starredEntitiesApiRef, new MockStarredEntitiesApi()],
+          [permissionApiRef, mockApis.permission()],
+        ]}
+      >
+        <MemoryRouter>
+          <ThemeProvider theme={theme}>
+            <RepositoriesCIActivityTab />
+          </ThemeProvider>
+        </MemoryRouter>
+      </TestApiProvider>,
+    );
+
+    await waitFor(() => {
+      expect(screen.getByTestId('table-title')).toBeInTheDocument();
+    });
+
+    expect(screen.getByTestId('table-title').textContent).toContain(
+      'CI Activity',
+    );
+  });
+
+  it('handles getEntities rejecting with non-Error value', async () => {
+    mockCatalogApi.getEntities.mockRejectedValue('string-error');
+
+    render(
+      <TestApiProvider
+        apis={[
+          [catalogApiRef, mockCatalogApi],
+          [discoveryApiRef, mockDiscoveryApi],
+          [fetchApiRef, mockFetchApi],
+          [identityApiRef, mockIdentityApi],
+          [starredEntitiesApiRef, new MockStarredEntitiesApi()],
+          [permissionApiRef, mockApis.permission()],
+        ]}
+      >
+        <MemoryRouter>
+          <ThemeProvider theme={theme}>
+            <RepositoriesCIActivityTab />
+          </ThemeProvider>
+        </MemoryRouter>
+      </TestApiProvider>,
+    );
+
+    await waitFor(() => {
+      expect(
+        screen.getByText('Unable to load CI activity'),
+      ).toBeInTheDocument();
+    });
+
+    expect(screen.getByText('Failed to load entities')).toBeInTheDocument();
+  });
+
+  it('handles getEntities returning raw array format', async () => {
+    mockCatalogApi.getEntities.mockResolvedValue([
+      createGitHubEntity('raw-array-repo'),
+    ]);
+    mockBatchResponse({
+      [entityRef('raw-array-repo')]: {
+        status: 200,
+        data: {
+          workflow_runs: [
+            {
+              id: 999,
+              run_number: 1,
+              name: 'Build',
+              status: 'completed',
+              conclusion: 'success',
+              event: 'push',
+              created_at: '2024-06-15T11:00:00Z',
+            },
+          ],
+        },
+      },
+    });
+
+    render(
+      <TestApiProvider
+        apis={[
+          [catalogApiRef, mockCatalogApi],
+          [discoveryApiRef, mockDiscoveryApi],
+          [fetchApiRef, mockFetchApi],
+          [identityApiRef, mockIdentityApi],
+          [starredEntitiesApiRef, new MockStarredEntitiesApi()],
+          [permissionApiRef, mockApis.permission()],
+        ]}
+      >
+        <MemoryRouter>
+          <ThemeProvider theme={theme}>
+            <RepositoriesCIActivityTab />
+          </ThemeProvider>
+        </MemoryRouter>
+      </TestApiProvider>,
+    );
+
+    await waitFor(() => {
+      expect(screen.getByTestId('table')).toBeInTheDocument();
+    });
+
+    expect(screen.getByText('Build #1')).toBeInTheDocument();
   });
 });

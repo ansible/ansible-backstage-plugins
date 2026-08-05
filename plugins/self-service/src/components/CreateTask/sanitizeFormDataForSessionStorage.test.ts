@@ -84,6 +84,25 @@ describe('sanitizeFormDataForSessionStorage', () => {
     );
   });
 
+  it('preserves null values unchanged', () => {
+    expect(sanitizeFormDataForSessionStorage({ a: null, b: 'hello' })).toEqual({
+      a: null,
+      b: 'hello',
+    });
+  });
+
+  it('preserves undefined values unchanged', () => {
+    expect(sanitizeFormDataForSessionStorage({ a: undefined, b: 1 })).toEqual({
+      a: undefined,
+      b: 1,
+    });
+  });
+
+  it('returns non-object non-string primitives unchanged', () => {
+    expect(sanitizeFormDataForSessionStorage(42)).toBe(42);
+    expect(sanitizeFormDataForSessionStorage(true)).toBe(true);
+  });
+
   it('omits top-level keys when omitKeys is provided', () => {
     expect(
       sanitizeFormDataForSessionStorage(
