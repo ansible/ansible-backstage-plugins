@@ -19,6 +19,7 @@ import {
 import { apmeApiFactory } from '@ansible/plugin-backstage-apme';
 import { signalsPlugin } from '@backstage/plugin-signals';
 import { gitRepositoriesExtensionsApiFactory } from './apis/gitRepositoriesExtensions';
+import { signalsPlugin } from '@backstage/plugin-signals';
 
 export const apis: AnyApiFactory[] = [
   ...signalsPlugin.getApis(),
