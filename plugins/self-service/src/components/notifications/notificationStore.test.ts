@@ -246,6 +246,71 @@ describe('notificationStore', () => {
     });
   });
 
+  describe('edge cases', () => {
+    it('handles removing one of multiple notifications (other stays)', () => {
+      notificationStore.showNotification({
+        title: 'Keep',
+        autoHideDuration: 0,
+      });
+      const removeId = notificationStore.showNotification({
+        title: 'Remove',
+        autoHideDuration: 0,
+      });
+
+      notificationStore.removeNotification(removeId);
+
+      const notifications = notificationStore.getNotifications();
+      expect(notifications.find(n => n.title === 'Keep')?.isExiting).toBe(
+        false,
+      );
+      expect(notifications.find(n => n.title === 'Remove')?.isExiting).toBe(
+        true,
+      );
+
+      jest.advanceTimersByTime(300);
+
+      const remaining = notificationStore.getNotifications();
+      expect(remaining).toHaveLength(1);
+      expect(remaining[0].title).toBe('Keep');
+    });
+
+    it('handles double removeNotification call on same id', () => {
+      const id = notificationStore.showNotification({
+        title: 'Test',
+        autoHideDuration: 0,
+      });
+
+      notificationStore.removeNotification(id);
+      notificationStore.removeNotification(id);
+
+      jest.advanceTimersByTime(300);
+
+      expect(notificationStore.getNotifications()).toHaveLength(0);
+    });
+
+    it('dismisses notification by category while exit animation is in progress', () => {
+      const id = notificationStore.showNotification({
+        title: 'Exiting',
+        category: 'cat-x',
+        autoHideDuration: 0,
+      });
+
+      notificationStore.removeNotification(id);
+      expect(notificationStore.getNotifications()[0].isExiting).toBe(true);
+
+      notificationStore.showNotification({
+        title: 'New',
+        dismissCategories: ['cat-x'],
+      });
+
+      jest.advanceTimersByTime(300);
+
+      const remaining = notificationStore.getNotifications();
+      expect(remaining).toHaveLength(1);
+      expect(remaining[0].title).toBe('New');
+    });
+  });
+
   describe('clearAll', () => {
     it('removes all notifications', () => {
       notificationStore.showNotification({ title: 'First' });

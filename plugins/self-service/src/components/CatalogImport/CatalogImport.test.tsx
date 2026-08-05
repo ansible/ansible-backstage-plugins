@@ -1,4 +1,5 @@
 import { render, screen } from '@testing-library/react';
+import { ThemeProvider, createTheme } from '@material-ui/core/styles';
 import { CatalogImport } from './CatalogImport';
 import '@testing-library/jest-dom';
 
@@ -38,5 +39,21 @@ describe('CatalogImport', () => {
     );
     expect(screen.getByTestId('info-card')).toBeInTheDocument();
     expect(screen.getByTestId('import-stepper')).toBeInTheDocument();
+  });
+
+  it('renders correctly with dark theme', () => {
+    const darkTheme = createTheme({ palette: { type: 'dark' } });
+    render(
+      <ThemeProvider theme={darkTheme}>
+        <CatalogImport />
+      </ThemeProvider>,
+    );
+
+    expect(screen.getByTestId('header-title')).toHaveTextContent(
+      'Add Template',
+    );
+    expect(screen.getByTestId('header-subtitle')).toHaveTextContent(
+      'Add a new template to the catalog',
+    );
   });
 });

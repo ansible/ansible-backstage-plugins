@@ -135,6 +135,229 @@ describe('parseEEDefinition', () => {
     expect(result!.systemFileRef).toBe('bindep.txt');
   });
 
+  it('returns null when definition exceeds max length', () => {
+    const oversized = 'a'.repeat(100_001);
+    expect(parseEEDefinition(oversized)).toBeNull();
+  });
+
+  it('coerces number values to string via asString', () => {
+    const yaml = `
+  images:
+    base_image:
+      name: 123
+  `;
+    const result = parseEEDefinition(yaml);
+    expect(result).not.toBeNull();
+    expect(result!.baseImageName).toBe('123');
+  });
+
+  it('returns null for whitespace-only string fields', () => {
+    const yaml = `
+  images:
+    base_image:
+      name: "   "
+  `;
+    const result = parseEEDefinition(yaml);
+    expect(result).not.toBeNull();
+    expect(result!.baseImageName).toBeNull();
+  });
+
+  it('returns null baseImageName when base_image is not a record', () => {
+    const yaml = `
+  images:
+    base_image: just-a-string
+  `;
+    const result = parseEEDefinition(yaml);
+    expect(result).not.toBeNull();
+    expect(result!.baseImageName).toBeNull();
+  });
+
+  it('ignores non-array non-string python dependency', () => {
+    const yaml = `
+  dependencies:
+    python: 123
+  `;
+    const result = parseEEDefinition(yaml);
+    expect(result).not.toBeNull();
+    expect(result!.pythonPackages).toBeNull();
+    expect(result!.pythonFileRef).toBeNull();
+  });
+
+  it('filters non-string and empty entries from python list', () => {
+    const yaml = `
+  dependencies:
+    python:
+      - 123
+      - "   "
+      - ""
+      - valid-pkg
+  `;
+    const result = parseEEDefinition(yaml);
+    expect(result).not.toBeNull();
+    expect(result!.pythonPackages).toEqual(['valid-pkg']);
+  });
+
+  it('returns null pythonPackages when all entries are invalid', () => {
+    const yaml = `
+  dependencies:
+    python:
+      - 123
+      - "   "
+  `;
+    const result = parseEEDefinition(yaml);
+    expect(result).not.toBeNull();
+    expect(result!.pythonPackages).toBeNull();
+  });
+
+  it('parses collection with type field', () => {
+    const yaml = `
+  dependencies:
+    galaxy:
+      collections:
+        - name: ansible.netcommon
+          version: 5.0.0
+          type: galaxy
+  `;
+    const result = parseEEDefinition(yaml);
+    expect(result).not.toBeNull();
+    expect(result!.collections).toHaveLength(1);
+    expect(result!.collections[0]).toEqual({
+      name: 'ansible.netcommon',
+      version: '5.0.0',
+      type: 'galaxy',
+    });
+  });
+
+  it('parses system packages from object with packages array', () => {
+    const yaml = `
+  dependencies:
+    system:
+      packages:
+        - git
+        - curl
+  `;
+    const result = parseEEDefinition(yaml);
+    expect(result).not.toBeNull();
+    expect(result!.systemPackages).toEqual(['git', 'curl']);
+  });
+
+  it('returns empty array when galaxy collections is not an array', () => {
+    const yaml = `
+  dependencies:
+    galaxy:
+      collections: not-an-array
+  `;
+    const result = parseEEDefinition(yaml);
+    expect(result).not.toBeNull();
+    expect(result!.collections).toEqual([]);
+  });
+
+  it('returns null for invalid YAML syntax', () => {
+    expect(parseEEDefinition('{{{')).toBeNull();
+  });
+
+  it('returns null when YAML parses to a non-record (e.g. scalar)', () => {
+    expect(parseEEDefinition('just-a-string')).toBeNull();
+  });
+
+  it('returns null baseImageName when images is not a record', () => {
+    const yaml = `
+  images: not-a-record
+  `;
+    const result = parseEEDefinition(yaml);
+    expect(result).not.toBeNull();
+    expect(result!.baseImageName).toBeNull();
+  });
+
+  it('returns null pythonPath when python_interpreter is not a record', () => {
+    const yaml = `
+  dependencies:
+    python_interpreter: not-a-record
+  `;
+    const result = parseEEDefinition(yaml);
+    expect(result).not.toBeNull();
+    expect(result!.pythonPath).toBeNull();
+  });
+
+  it('skips non-record collection entries in galaxy', () => {
+    const yaml = `
+  dependencies:
+    galaxy:
+      collections:
+        - not-a-record
+        - name: valid.collection
+  `;
+    const result = parseEEDefinition(yaml);
+    expect(result).not.toBeNull();
+    expect(result!.collections).toHaveLength(1);
+    expect(result!.collections[0].name).toBe('valid.collection');
+  });
+
+  it('skips collections without a string name', () => {
+    const yaml = `
+  dependencies:
+    galaxy:
+      collections:
+        - version: 1.0.0
+        - name: 123
+  `;
+    const result = parseEEDefinition(yaml);
+    expect(result).not.toBeNull();
+    expect(result!.collections).toHaveLength(0);
+  });
+
+  it('handles galaxy .yml file reference', () => {
+    const yaml = `
+  dependencies:
+    galaxy: requirements.yml
+  `;
+    const result = parseEEDefinition(yaml);
+    expect(result).not.toBeNull();
+    expect(result!.collectionsFileRef).toBe('requirements.yml');
+  });
+
+  it('ignores galaxy when neither record nor matching file reference', () => {
+    const yaml = `
+  dependencies:
+    galaxy: 123
+  `;
+    const result = parseEEDefinition(yaml);
+    expect(result).not.toBeNull();
+    expect(result!.collections).toHaveLength(0);
+    expect(result!.collectionsFileRef).toBeNull();
+  });
+
+  it('handles system .in file reference', () => {
+    const yaml = `
+  dependencies:
+    system: packages.in
+  `;
+    const result = parseEEDefinition(yaml);
+    expect(result).not.toBeNull();
+    expect(result!.systemFileRef).toBe('packages.in');
+  });
+
+  it('ignores system when neither array nor record nor matching file reference', () => {
+    const yaml = `
+  dependencies:
+    system: 456
+  `;
+    const result = parseEEDefinition(yaml);
+    expect(result).not.toBeNull();
+    expect(result!.systemPackages).toBeNull();
+    expect(result!.systemFileRef).toBeNull();
+  });
+
+  it('handles python .in file reference', () => {
+    const yaml = `
+  dependencies:
+    python: requirements.in
+  `;
+    const result = parseEEDefinition(yaml);
+    expect(result).not.toBeNull();
+    expect(result!.pythonFileRef).toBe('requirements.in');
+  });
+
   it('returns full result for complete definition', () => {
     const yaml = `
   version: 3

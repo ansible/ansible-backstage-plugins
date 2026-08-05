@@ -286,7 +286,7 @@ describe('CollectionDetailsPage', () => {
     const syncStatusCalls = mockFetchApi.fetch.mock.calls.filter(
       (c: [string]) => String(c[0]).includes('ansible/sync/status'),
     );
-    expect(syncStatusCalls).toHaveLength(0);
+    expect(syncStatusCalls.length).toBe(0);
   });
 
   it('shows EmptyState and breadcrumbs when getEntities rejects', async () => {
@@ -924,6 +924,88 @@ describe('CollectionDetailsPage', () => {
     expect(mockFetchApi.fetch).not.toHaveBeenCalledWith(
       expect.stringContaining('ansible/git/file-content'),
     );
+  });
+
+  it('handles getEntities returning a raw array', async () => {
+    mockCatalogApi.getEntities.mockResolvedValue([mockEntity]);
+
+    renderWithRouter('my-namespace-my-collection');
+
+    await waitFor(() => {
+      expect(
+        screen.getAllByText('my_namespace.my_collection').length,
+      ).toBeGreaterThan(0);
+    });
+  });
+
+  it('handles getEntities returning items as undefined', async () => {
+    mockCatalogApi.getEntities.mockResolvedValue({});
+
+    renderWithRouter('my-namespace-my-collection');
+
+    await waitFor(() => {
+      expect(screen.getByText('No Collections Found')).toBeInTheDocument();
+    });
+  });
+
+  it('handles entity with no spec and no annotations', async () => {
+    const bareEntity: Entity = {
+      apiVersion: 'backstage.io/v1alpha1',
+      kind: 'Component',
+      metadata: {
+        name: 'my-namespace-my-collection',
+      },
+    };
+    mockCatalogApi.getEntities.mockResolvedValue({ items: [bareEntity] });
+
+    renderWithRouter('my-namespace-my-collection');
+
+    await waitFor(() => {
+      expect(screen.getByText('About')).toBeInTheDocument();
+    });
+  });
+
+  it('sets empty readme when direct fetch returns non-ok response', async () => {
+    const originalFetch = globalThis.fetch;
+    globalThis.fetch = jest.fn().mockResolvedValue({
+      ok: false,
+      status: 404,
+      text: () => Promise.resolve(''),
+    });
+
+    const entityDirectNotOk: Entity = {
+      ...mockEntity,
+      metadata: {
+        ...mockEntity.metadata,
+        annotations: {
+          ...mockEntity.metadata.annotations,
+          'ansible.io/collection-source': 'scm',
+        },
+      },
+      spec: {
+        ...mockEntity.spec,
+        collection_readme_url:
+          'https://github.com/org/repo/blob/main/README.md',
+      } as any,
+    };
+    mockCatalogApi.getEntities.mockResolvedValue({
+      items: [entityDirectNotOk],
+    });
+    mockFetchApi.fetch.mockResolvedValue({
+      ok: true,
+      json: async () => ({ content: { providers: [] } }),
+    });
+
+    renderWithRouter('my-namespace-my-collection');
+
+    await waitFor(() => {
+      expect(globalThis.fetch).toHaveBeenCalled();
+    });
+    await waitFor(() => {
+      expect(screen.getByText('About')).toBeInTheDocument();
+    });
+
+    globalThis.fetch = originalFetch;
   });
 
   it('View Source opens source-location URL with url: prefix stripped', async () => {

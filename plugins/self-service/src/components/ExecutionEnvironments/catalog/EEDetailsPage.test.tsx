@@ -1,24 +1,25 @@
-import { SCM_INTEGRATION_AUTH_FAILED_CODE } from '@ansible/backstage-rhaap-common/constants';
 import {
-  configApiRef,
-  discoveryApiRef,
-  fetchApiRef,
-  identityApiRef,
-} from '@backstage/core-plugin-api';
-import { scmAuthApiRef } from '@backstage/integration-react';
-import { catalogApiRef } from '@backstage/plugin-catalog-react';
-import { TestApiProvider } from '@backstage/test-utils';
-import { createMuiTheme, ThemeProvider } from '@material-ui/core/styles';
-import {
-  cleanup,
-  fireEvent,
   render,
   screen,
   waitFor,
+  fireEvent,
+  cleanup,
 } from '@testing-library/react';
-import { MemoryRouter } from 'react-router-dom';
+import { TestApiProvider } from '@backstage/test-utils';
+import { catalogApiRef } from '@backstage/plugin-catalog-react';
+import {
+  configApiRef,
+  discoveryApiRef,
+  identityApiRef,
+  fetchApiRef,
+} from '@backstage/core-plugin-api';
+import { scmAuthApiRef } from '@backstage/integration-react';
 import { eeBuildApiRef } from '../../../apis';
 import { NotificationProvider, notificationStore } from '../../notifications';
+import { ThemeProvider, createMuiTheme } from '@material-ui/core/styles';
+import { MemoryRouter } from 'react-router-dom';
+import { SCM_INTEGRATION_AUTH_FAILED_CODE } from '@ansible/backstage-rhaap-common/constants';
+
 // Component under test (named export)
 import { EEDetailsPage } from './EEDetailsPage';
 
@@ -750,7 +751,7 @@ describe('EEDetailsPage', () => {
     ).toBeInTheDocument();
   });
 
-  test('Actions menu: Build is shown for GitLab-published EE entities', async () => {
+  test('Actions menu: Build is available for GitLab entities', async () => {
     renderWithCatalogApi(() =>
       Promise.resolve({ items: [entityGitLabWithTree] }),
     );
@@ -1012,6 +1013,74 @@ describe('EEDetailsPage', () => {
     });
 
     expect(getEntities).toHaveBeenCalledTimes(2);
+  });
+
+  test('handles getEntities returning raw array instead of {items}', async () => {
+    renderWithCatalogApi(() => Promise.resolve([entityFull]));
+
+    await screen.findByTestId('favorite-entity');
+    expect(
+      screen.getByText('Execution env one description'),
+    ).toBeInTheDocument();
+  });
+
+  test('renders when source-location URL is invalid (unparseable)', async () => {
+    const entityBadUrl = {
+      ...entityFull,
+      metadata: {
+        ...entityFull.metadata,
+        annotations: {
+          ...entityFull.metadata.annotations,
+          'backstage.io/source-location': 'url:not-a-valid-url',
+        },
+      },
+    };
+    renderWithCatalogApi(() => Promise.resolve({ items: [entityBadUrl] }));
+
+    await screen.findByTestId('favorite-entity');
+    expect(
+      screen.getByText('Execution env one description'),
+    ).toBeInTheDocument();
+  });
+
+  test('renders when source-location URL has fewer than 2 path parts', async () => {
+    const entityShortPath = {
+      ...entityFull,
+      metadata: {
+        ...entityFull.metadata,
+        annotations: {
+          ...entityFull.metadata.annotations,
+          'backstage.io/source-location': 'url:https://github.com/owner-only',
+        },
+      },
+    };
+    renderWithCatalogApi(() => Promise.resolve({ items: [entityShortPath] }));
+
+    await screen.findByTestId('favorite-entity');
+    expect(
+      screen.getByText('Execution env one description'),
+    ).toBeInTheDocument();
+  });
+
+  test('shows Unknown owner when entity has no spec.owner', async () => {
+    const entityNoOwner = {
+      ...entityFull,
+      spec: { ...entityFull.spec, owner: undefined },
+    };
+    renderWithCatalogApi(() => Promise.resolve({ items: [entityNoOwner] }));
+
+    await screen.findByTestId('favorite-entity');
+    expect(await screen.findByText('Unknown')).toBeInTheDocument();
+  });
+
+  test('shows owner ref when getEntityByRef returns null', async () => {
+    const getEntityByRefImpl = jest.fn().mockResolvedValue(null);
+    renderWithCatalogApi(() => Promise.resolve({ items: [entityFull] }), {
+      getEntityByRefImpl,
+    });
+
+    await screen.findByTestId('favorite-entity');
+    expect(await screen.findByText('user:default/team-a')).toBeInTheDocument();
   });
 
   test('refresh button re-enables after failed refresh', async () => {

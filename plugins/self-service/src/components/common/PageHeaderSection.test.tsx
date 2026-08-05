@@ -242,6 +242,46 @@ describe('PageHeaderSection', () => {
     expect(syncButton).not.toBeDisabled();
   });
 
+  it('shows Checking permissions tooltip when permission check is loading', () => {
+    mockUseIsSuperuser.mockReturnValueOnce({
+      isSuperuser: false,
+      loading: true,
+      error: null,
+    });
+
+    renderWithTheme(<PageHeaderSection {...defaultProps} />);
+
+    const syncButton = screen.getByRole('button', { name: /Sync Now/i });
+    expect(syncButton).toBeDisabled();
+    expect(screen.getByTitle('Checking permissions...')).toBeInTheDocument();
+  });
+
+  it('renders correctly with dark theme', async () => {
+    const darkTheme = createTheme({ palette: { type: 'dark' } });
+    render(
+      <ThemeProvider theme={darkTheme}>
+        <PageHeaderSection
+          {...defaultProps}
+          syncInProgress={false}
+          syncProgress={[
+            {
+              sourceId: 'src-1',
+              displayName: 'github.com:org1',
+              outcome: 'failure',
+            },
+          ]}
+        />
+      </ThemeProvider>,
+    );
+
+    const syncButton = screen.getByRole('button', { name: /Sync Now/i });
+    fireEvent.mouseOver(syncButton);
+
+    await waitFor(() => {
+      expect(screen.getByText('github.com:org1')).toBeInTheDocument();
+    });
+  });
+
   it('shows sync progress popover content when syncInProgress and syncProgress entries are provided', async () => {
     renderWithTheme(
       <PageHeaderSection

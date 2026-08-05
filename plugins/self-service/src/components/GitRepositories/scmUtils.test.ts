@@ -4,9 +4,173 @@ import {
   getGitHubOwnerRepo,
   getGitLabProjectPath,
   getProjectDisplayName,
+  getRepoHost,
+  getRepoHostName,
 } from './scmUtils';
 
 describe('scmUtils', () => {
+  describe('getRepoHost', () => {
+    it('returns hostname from https scm-host annotation', () => {
+      const entity: Entity = {
+        apiVersion: 'backstage.io/v1alpha1',
+        kind: 'Component',
+        metadata: {
+          name: 'test',
+          annotations: {
+            'ansible.io/scm-host': 'https://git.example.com/path',
+          },
+        },
+        spec: {},
+      };
+      expect(getRepoHost(entity)).toBe('git.example.com');
+    });
+
+    it('returns hostname from http scm-host annotation', () => {
+      const entity: Entity = {
+        apiVersion: 'backstage.io/v1alpha1',
+        kind: 'Component',
+        metadata: {
+          name: 'test',
+          annotations: { 'ansible.io/scm-host': 'http://git.internal:8080' },
+        },
+        spec: {},
+      };
+      expect(getRepoHost(entity)).toBe('git.internal');
+    });
+
+    it('returns scm-host as-is when not a URL', () => {
+      const entity: Entity = {
+        apiVersion: 'backstage.io/v1alpha1',
+        kind: 'Component',
+        metadata: {
+          name: 'test',
+          annotations: { 'ansible.io/scm-host': 'my-custom-host' },
+        },
+        spec: {},
+      };
+      expect(getRepoHost(entity)).toBe('my-custom-host');
+    });
+
+    it('falls back to github.com when provider is github', () => {
+      const entity: Entity = {
+        apiVersion: 'backstage.io/v1alpha1',
+        kind: 'Component',
+        metadata: {
+          name: 'test',
+          annotations: { 'ansible.io/scm-provider': 'github' },
+        },
+        spec: {},
+      };
+      expect(getRepoHost(entity)).toBe('github.com');
+    });
+
+    it('falls back to gitlab.com when provider is gitlab', () => {
+      const entity: Entity = {
+        apiVersion: 'backstage.io/v1alpha1',
+        kind: 'Component',
+        metadata: {
+          name: 'test',
+          annotations: { 'ansible.io/scm-provider': 'gitlab' },
+        },
+        spec: {},
+      };
+      expect(getRepoHost(entity)).toBe('gitlab.com');
+    });
+
+    it('returns provider string for unknown provider', () => {
+      const entity: Entity = {
+        apiVersion: 'backstage.io/v1alpha1',
+        kind: 'Component',
+        metadata: {
+          name: 'test',
+          annotations: { 'ansible.io/scm-provider': 'bitbucket' },
+        },
+        spec: {},
+      };
+      expect(getRepoHost(entity)).toBe('bitbucket');
+    });
+
+    it('returns empty string when no annotations', () => {
+      const entity: Entity = {
+        apiVersion: 'backstage.io/v1alpha1',
+        kind: 'Component',
+        metadata: { name: 'test' },
+        spec: {},
+      };
+      expect(getRepoHost(entity)).toBe('');
+    });
+
+    it('returns scm-host as-is when URL parsing fails on malformed http URL', () => {
+      const entity: Entity = {
+        apiVersion: 'backstage.io/v1alpha1',
+        kind: 'Component',
+        metadata: {
+          name: 'test',
+          annotations: { 'ansible.io/scm-host': 'http://' },
+        },
+        spec: {},
+      };
+      expect(getRepoHost(entity)).toBe('http://');
+    });
+  });
+
+  describe('getRepoHostName', () => {
+    it('returns scm-host-name annotation when present', () => {
+      const entity: Entity = {
+        apiVersion: 'backstage.io/v1alpha1',
+        kind: 'Component',
+        metadata: {
+          name: 'test',
+          annotations: {
+            'ansible.io/scm-host-name': 'My GitLab',
+            'ansible.io/scm-provider': 'gitlab',
+          },
+        },
+        spec: {},
+      };
+      expect(getRepoHostName(entity)).toBe('My GitLab');
+    });
+
+    it('falls back to getRepoHost when scm-host-name is missing', () => {
+      const entity: Entity = {
+        apiVersion: 'backstage.io/v1alpha1',
+        kind: 'Component',
+        metadata: {
+          name: 'test',
+          annotations: { 'ansible.io/scm-provider': 'github' },
+        },
+        spec: {},
+      };
+      expect(getRepoHostName(entity)).toBe('github.com');
+    });
+
+    it('returns empty string when entity has no annotations object', () => {
+      const entity: Entity = {
+        apiVersion: 'backstage.io/v1alpha1',
+        kind: 'Component',
+        metadata: { name: 'test' },
+        spec: {},
+      };
+      expect(getRepoHostName(entity)).toBe('');
+    });
+
+    it('falls back to getRepoHost when scm-host-name is whitespace-only', () => {
+      const entity: Entity = {
+        apiVersion: 'backstage.io/v1alpha1',
+        kind: 'Component',
+        metadata: {
+          name: 'test',
+          annotations: {
+            'ansible.io/scm-host-name': '   ',
+            'ansible.io/scm-provider': 'gitlab',
+          },
+        },
+        spec: {},
+      };
+      expect(getRepoHostName(entity)).toBe('gitlab.com');
+    });
+  });
+
   describe('getGitHubOwnerRepo', () => {
     it('returns owner and repo for GitHub entity', () => {
       const entity: Entity = {
@@ -236,6 +400,17 @@ describe('scmUtils', () => {
 
       expect(getGitLabProjectPath(entity)).toBeNull();
     });
+
+    it('returns null when entity has no annotations object', () => {
+      const entity: Entity = {
+        apiVersion: 'backstage.io/v1alpha1',
+        kind: 'Component',
+        metadata: { name: 'test' },
+        spec: {},
+      };
+
+      expect(getGitLabProjectPath(entity)).toBeNull();
+    });
   });
 
   describe('getProjectDisplayName', () => {
@@ -354,6 +529,35 @@ describe('scmUtils', () => {
       expect(
         buildRawReadmeFetchUrl('https://notgitlab.com/org/repo', branch, file),
       ).toBeNull();
+    });
+
+    it('returns null for GitHub URL missing owner or repo', () => {
+      expect(
+        buildRawReadmeFetchUrl('https://github.com/', branch, file),
+      ).toBeNull();
+      expect(
+        buildRawReadmeFetchUrl('https://github.com/acme', branch, file),
+      ).toBeNull();
+    });
+
+    it('returns null for GitLab URL with empty pathname', () => {
+      expect(
+        buildRawReadmeFetchUrl('https://gitlab.com/', branch, file),
+      ).toBeNull();
+    });
+
+    it('returns null for invalid URL string', () => {
+      expect(buildRawReadmeFetchUrl('not-a-url', branch, file)).toBeNull();
+    });
+
+    it('strips .git suffix from GitHub repo name', () => {
+      expect(
+        buildRawReadmeFetchUrl(
+          'https://github.com/acme/widgets.git',
+          branch,
+          file,
+        ),
+      ).toBe('https://raw.githubusercontent.com/acme/widgets/main/README.md');
     });
   });
 });

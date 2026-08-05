@@ -39,7 +39,9 @@ const mockCatalogApi = {
 };
 
 const mockConfigApi = {
-  getOptionalString: jest.fn((_key: string) => 'Ansible RHDH'),
+  getOptionalString: jest.fn(
+    (_key: string): string | undefined => 'Ansible RHDH',
+  ),
 };
 
 const mockAlertApi = {
@@ -296,6 +298,69 @@ describe('UnregisterEntityDialog', () => {
           severity: 'success',
           display: 'transient',
         });
+      });
+    });
+  });
+
+  describe('error handling', () => {
+    it('handles string error thrown from removeEntityByUid', async () => {
+      const user = userEvent.setup();
+      mockCatalogApi.getLocationByRef.mockResolvedValue(undefined);
+      mockCatalogApi.getEntities.mockResolvedValue({ items: [] });
+      mockCatalogApi.removeEntityByUid.mockRejectedValue(
+        'String error message',
+      );
+
+      renderDialog();
+      await waitFor(() => {
+        expect(
+          screen.getByRole('button', { name: /delete entity/i }),
+        ).toBeInTheDocument();
+      });
+
+      await user.click(screen.getByRole('button', { name: /delete entity/i }));
+      await waitFor(() => {
+        expect(mockAlertPost).toHaveBeenCalledWith({
+          message: 'String error message',
+        });
+      });
+    });
+
+    it('handles non-string non-Error thrown from removeEntityByUid', async () => {
+      const user = userEvent.setup();
+      mockCatalogApi.getLocationByRef.mockResolvedValue(undefined);
+      mockCatalogApi.getEntities.mockResolvedValue({ items: [] });
+      mockCatalogApi.removeEntityByUid.mockRejectedValue(12345);
+
+      renderDialog();
+      await waitFor(() => {
+        expect(
+          screen.getByRole('button', { name: /delete entity/i }),
+        ).toBeInTheDocument();
+      });
+
+      await user.click(screen.getByRole('button', { name: /delete entity/i }));
+      await waitFor(() => {
+        expect(mockAlertPost).toHaveBeenCalledWith({
+          message: 'Unknown error',
+        });
+      });
+    });
+
+    it('uses Backstage as fallback when app.title config is not set', async () => {
+      mockConfigApi.getOptionalString.mockReturnValue(undefined);
+      mockCatalogApi.getLocationByRef.mockResolvedValue({
+        id: 'loc-1',
+        type: 'url',
+        target: 'https://github.com/org/repo/blob/main/catalog-info.yaml',
+      });
+      mockCatalogApi.getEntities.mockResolvedValue({ items: [] });
+
+      renderDialog();
+      await waitFor(() => {
+        expect(
+          screen.getByText(/re-register the entity in Backstage/),
+        ).toBeInTheDocument();
       });
     });
   });

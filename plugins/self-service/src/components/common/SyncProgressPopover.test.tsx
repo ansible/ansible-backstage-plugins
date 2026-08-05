@@ -73,6 +73,13 @@ describe('SyncProgressPopover', () => {
     expect(screen.getByText('1 of 1 task completed')).toBeInTheDocument();
   });
 
+  it('shows 0% when entries array is empty', () => {
+    renderPopover([]);
+
+    expect(screen.getByText('0%')).toBeInTheDocument();
+    expect(screen.getByText('0 of 0 tasks completed')).toBeInTheDocument();
+  });
+
   it('shows correct partial progress during an active sync', () => {
     renderPopover([
       { sourceId: 'src-1', displayName: 'github.com:org1', outcome: 'success' },

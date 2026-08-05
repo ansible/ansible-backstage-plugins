@@ -129,6 +129,23 @@ describe('CollectionResourcesCard', () => {
     expect(screen.getByText('Homepage')).toBeInTheDocument();
   });
 
+  it('handles entity with undefined spec gracefully', () => {
+    const entity = {
+      apiVersion: 'backstage.io/v1alpha1',
+      kind: 'Component',
+      metadata: {
+        name: 'c',
+        links: [{ title: 'Docs', url: 'https://example.com/docs' }],
+      },
+      spec: undefined,
+    } as unknown as Entity;
+
+    renderWithTheme(<CollectionResourcesCard entity={entity} />);
+
+    expect(screen.getByText('Resources')).toBeInTheDocument();
+    expect(screen.getByText('Docs')).toBeInTheDocument();
+  });
+
   it('renders link with Source/Code/Repository title using Code icon path', () => {
     const entity: Entity = {
       apiVersion: 'backstage.io/v1alpha1',
