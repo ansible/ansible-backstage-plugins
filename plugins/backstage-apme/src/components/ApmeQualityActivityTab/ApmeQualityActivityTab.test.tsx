@@ -42,6 +42,10 @@ jest.mock('@apme/ui-workflow', () => ({
   ),
 }));
 
+function expectActivityDetailLoaded() {
+  return screen.findByText(/check via portal/i);
+}
+
 jest.mock('../../hooks/useSyncPatternFlyTheme', () => ({
   useSyncPatternFlyTheme: jest.fn(),
 }));
@@ -157,9 +161,9 @@ describe('ApmeQualityActivityTab', () => {
 
   it('opens detail via ?activity= and closes with Close', async () => {
     renderTab('/?activity=scan-1');
-    expect(await screen.findByTestId('assess-findings')).toHaveTextContent(
-      '1 findings',
-    );
+    await expectActivityDetailLoaded();
+    expect(screen.getByText('L001')).toBeInTheDocument();
+    expect(screen.getByText('use FQCN')).toBeInTheDocument();
     expect(getActivityDetail).toHaveBeenCalledWith('scan-1');
     expect(screen.queryByText(/Quality activity detail/i)).not.toBeInTheDocument();
     expect(screen.queryByText(/Early access preview/i)).not.toBeInTheDocument();
@@ -171,10 +175,13 @@ describe('ApmeQualityActivityTab', () => {
   });
 
   it('fleet ?rule= opens the latest activity automatically', async () => {
-    renderTab('/?rule=L022');
+    // Filter must match a violation in the mock detail (QualityFindingsSection
+    // hides non-matching rules — empty state is "No open findings…").
+    renderTab('/?rule=L001');
     await waitFor(() => {
       expect(getActivityDetail).toHaveBeenCalledWith('scan-1');
     });
-    expect(await screen.findByTestId('assess-findings')).toBeInTheDocument();
+    await expectActivityDetailLoaded();
+    expect(screen.getByText('L001')).toBeInTheDocument();
   });
 });

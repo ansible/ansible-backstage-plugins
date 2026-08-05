@@ -91,13 +91,13 @@ export const ApmeRepoStatusChip = ({
     let cancelled = false;
     let timer: ReturnType<typeof setTimeout> | undefined;
 
-    const schedule = (ms: number) => {
+    function schedule(ms: number) {
       timer = setTimeout(() => {
         void tick();
       }, ms);
-    };
+    }
 
-    const tick = async () => {
+    async function tick() {
       try {
         const fresh = await apmeApi.getProjectByRepoUrl(repoUrl, branch);
         if (cancelled) {
@@ -126,7 +126,7 @@ export const ApmeRepoStatusChip = ({
           schedule(IDLE_POLL_MS);
         }
       }
-    };
+    }
 
     setLoading(true);
     void tick();

@@ -183,6 +183,8 @@ export interface ApmePortalSettings {
   enableAi: boolean;
   publishViaGateway: boolean;
   targetAnsibleCoreVersion?: string;
+  /** Abbenay chat model id (provider/model) for workflow remediate + escalate-ai. */
+  defaultAiModelId?: string;
 }
 
 export type ScanTargetSource = 'project' | 'global' | 'config' | 'default';
@@ -197,6 +199,32 @@ export interface ProjectScanTarget {
 
 export interface UpdatePortalSettingsRequest {
   targetAnsibleCoreVersion?: string;
+  defaultAiModelId?: string | null;
+}
+
+/** Galaxy / Automation Hub server (ADR-045). Token value is never exposed. */
+export interface GalaxyServer {
+  id: number;
+  name: string;
+  url: string;
+  auth_url: string;
+  has_token: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface CreateGalaxyServerRequest {
+  name: string;
+  url: string;
+  token?: string;
+  auth_url?: string;
+}
+
+export interface UpdateGalaxyServerRequest {
+  name?: string;
+  url?: string;
+  token?: string;
+  auth_url?: string;
 }
 
 export interface UpdateProjectScanTargetRequest {
@@ -214,9 +242,15 @@ export interface ScanTriggerOptions {
 export interface ApmeAiStatus {
   /** Portal ansible.apme.enableAi — scans/remediate send enable_ai when true. */
   enableAi: boolean;
-  /** True when Abbenay is reachable or at least one model is listed. */
+  /**
+   * True when inference models are listed, or Abbenay health reports ok.
+   * Does not flip true solely because admin config lists models.
+   */
   connected: boolean;
+  /** Count of live inference models from ListAIModels. */
   modelCount: number;
+  /** Models listed in Abbenay admin config (informational; may exceed modelCount). */
+  configuredModelCount?: number;
 }
 
 /** Engine descriptor from GET /api/v1/ai/engines (Gateway → Abbenay). */
@@ -239,6 +273,14 @@ export interface ApmeAiProviderSummary {
   models: string[];
 }
 
+/** Model row from portal-side provider discovery (Ollama / OpenAI-compatible APIs). */
+export interface DiscoveredAiModel {
+  id: string;
+  name: string;
+  provider: string;
+  engine: string;
+}
+
 /** Raw shape of GET /api/v1/ai/config from the Gateway. */
 export interface ApmeAiConfigResponse {
   config?: {
@@ -255,6 +297,11 @@ export interface ApmeAiProviderConfigureRequest {
   apiKey?: string;
   baseUrl?: string;
   envVarName?: string;
+  /**
+   * `env` references a deploy-time process env var (Helm / `.env-abbenay`).
+   * Prefer over `apiKey` for containers — Abbenay has no keytar there.
+   */
+  secretStorage?: 'env' | 'keychain';
 }
 
 function normalizeProviderEntry(p: unknown): ApmeAiProviderSummary {
@@ -284,11 +331,12 @@ export function normalizeApmeAiProviders(raw: unknown): ApmeAiProviderSummary[] 
   }
   if (raw && typeof raw === 'object') {
     const obj = raw as Record<string, unknown>;
-    const providersSource = 'providers' in obj
-      ? obj.providers
-      : obj.config && typeof obj.config === 'object'
-        ? (obj.config as Record<string, unknown>).providers
-        : undefined;
+    let providersSource: unknown;
+    if ('providers' in obj) {
+      providersSource = obj.providers;
+    } else if (obj.config && typeof obj.config === 'object') {
+      providersSource = (obj.config as Record<string, unknown>).providers;
+    }
     if (Array.isArray(providersSource)) {
       return providersSource.map(p => normalizeProviderEntry(p));
     }

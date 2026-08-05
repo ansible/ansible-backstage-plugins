@@ -24,6 +24,7 @@ export {
 export { QualityTab } from './components/QualityTab';
 export { EntityQualityTab as ApmeEntityQualityTabComponent } from './components/EntityQualityTab';
 export { EntityQualityActivityTab as ApmeEntityQualityActivityTabComponent } from './components/EntityQualityActivityTab';
+export { DependenciesTab as ApmeDependenciesTabComponent } from './components/DependenciesTab/DependenciesTab';
 export { FleetQualityTab as ApmeFleetQualityTabComponent } from './components/FleetQualityTab';
 export type { FleetQualityTabProps as ApmeFleetQualityTabProps } from './components/FleetQualityTab';
 export { ApmeQualityActivityTab } from './components/ApmeQualityActivityTab';
@@ -53,6 +54,7 @@ export { ApmeRepositoryHeaderActions } from './components/ApmeRepositoryHeaderAc
 export { ApmeRepositoryOverviewCard } from './components/ApmeRepositoryOverviewCard/ApmeRepositoryOverviewCard';
 export { ApmeAddRepositoryHeaderAction } from './components/ApmeAddRepositoryHeaderAction/ApmeAddRepositoryHeaderAction';
 export { ApmeQualitySettingsTab } from './components/ApmeQualitySettingsTab';
+export { ApmeAbbenaySettingsTabRoute } from './components/ApmeAbbenaySettingsTab';
 export { APME_REGISTER_GIT_REPOSITORY_TEMPLATE_PATH } from './components/ApmeAddRepositoryHeaderAction/ApmeAddRepositoryHeaderAction';
 export {
   PreviewChip,

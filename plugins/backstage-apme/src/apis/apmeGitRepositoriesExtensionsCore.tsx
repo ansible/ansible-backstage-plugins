@@ -52,6 +52,7 @@ export type ApmeGitRepositoriesComponents = {
   EntityQualityActivityTab: ComponentType<{
     entity: GitRepositoryDetailTabContext['entity'];
   }>;
+  DependenciesTab: ComponentType<{ context: GitRepositoryDetailTabContext }>;
   ApmeRepositoryOverviewCard: ComponentType<{
     context: GitRepositoryDetailTabContext;
   }>;
@@ -69,6 +70,7 @@ export function createApmeGitRepositoriesExtensionsApi(
     FleetQualityTab,
     EntityQualityTab,
     EntityQualityActivityTab,
+    DependenciesTab,
     ApmeRepositoryOverviewCard,
     ApmeRepositoryHeaderActions,
     ApmeViolationsCell,
@@ -135,6 +137,14 @@ export function createApmeGitRepositoriesExtensionsApi(
           order: 15,
           render: ({ entity }: GitRepositoryDetailTabContext) => (
             <EntityQualityActivityTab entity={entity} />
+          ),
+        },
+        {
+          id: 'dependencies',
+          label: 'Dependencies',
+          order: 16,
+          render: (ctx: GitRepositoryDetailTabContext) => (
+            <DependenciesTab context={ctx} />
           ),
         },
       ];

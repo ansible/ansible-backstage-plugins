@@ -98,7 +98,7 @@ export const ApmeAiProviderDialog = ({
   const [step, setStep] = useState<Step>('setup');
   const [id, setId] = useState(provider?.id ?? '');
   const [engine, setEngine] = useState(provider?.engine ?? '');
-  const [apiKey, setApiKey] = useState('');
+  const [envVarName, setEnvVarName] = useState('');
   const [baseUrl, setBaseUrl] = useState('');
   const [modelInput, setModelInput] = useState('');
   const [models, setModels] = useState<string[]>(provider?.models ?? []);
@@ -126,6 +126,13 @@ export const ApmeAiProviderDialog = ({
           }
           return list.length > 0 ? list[0].id : '';
         });
+        setEnvVarName(prev => {
+          if (prev) {
+            return prev;
+          }
+          const first = list.length > 0 ? list[0] : undefined;
+          return first?.defaultEnvVar ?? '';
+        });
       })
       .catch(err => {
         setEnginesError(
@@ -140,7 +147,7 @@ export const ApmeAiProviderDialog = ({
     setStep('setup');
     setId(provider?.id ?? '');
     setEngine(provider?.engine ?? '');
-    setApiKey('');
+    setEnvVarName('');
     setBaseUrl('');
     setModelInput('');
     setModels(provider?.models ?? []);
@@ -166,9 +173,10 @@ export const ApmeAiProviderDialog = ({
     setError(undefined);
     try {
       const configure: ApmeAiProviderConfigureRequest = { engine };
-      const trimmedKey = apiKey.trim();
-      if (trimmedKey) {
-        configure.apiKey = trimmedKey;
+      const trimmedEnv = envVarName.trim();
+      if (trimmedEnv) {
+        configure.envVarName = trimmedEnv;
+        configure.secretStorage = 'env';
       }
       const trimmedUrl = baseUrl.trim();
       if (trimmedUrl) {
@@ -196,6 +204,13 @@ export const ApmeAiProviderDialog = ({
   ).filter(Boolean);
 
   const selectedEngineInfo = engines.find(e => e.id === engine);
+
+  let envVarHelperExtra = '';
+  if (selectedEngineInfo?.requiresKey) {
+    envVarHelperExtra = ' This engine needs a key in that env var.';
+  } else if (isEdit) {
+    envVarHelperExtra = ' Leave blank to keep the existing env reference.';
+  }
 
   const title = isEdit ? `Edit provider: ${provider!.id}` : 'Add AI provider';
 
@@ -250,7 +265,14 @@ export const ApmeAiProviderDialog = ({
                   labelId="apme-engine-label"
                   label="Engine"
                   value={engine}
-                  onChange={e => setEngine(e.target.value as string)}
+                  onChange={e => {
+                    const next = e.target.value as string;
+                    setEngine(next);
+                    const info = engines.find(eng => eng.id === next);
+                    if (info?.defaultEnvVar) {
+                      setEnvVarName(info.defaultEnvVar);
+                    }
+                  }}
                   disabled={saving || engineOptions.length === 0}
                 >
                   {engineOptions.map(opt => (
@@ -264,19 +286,21 @@ export const ApmeAiProviderDialog = ({
 
             <TextField
               className={classes.field}
-              label="API key"
+              label="API key env var"
               variant="outlined"
               size="small"
-              type="password"
-              value={apiKey}
-              onChange={e => setApiKey(e.target.value)}
+              value={envVarName}
+              onChange={e => setEnvVarName(e.target.value)}
               disabled={saving}
-              inputProps={{ 'aria-label': 'API key' }}
+              required={Boolean(selectedEngineInfo?.requiresKey) && !isEdit}
+              placeholder={selectedEngineInfo?.defaultEnvVar}
+              inputProps={{ 'aria-label': 'API key env var' }}
             />
             <Typography className={classes.helperText}>
-              {selectedEngineInfo?.requiresKey
-                ? `${selectedEngineInfo.defaultEnvVar ? `Env: ${selectedEngineInfo.defaultEnvVar}. ` : ''}API key required for this engine.`
-                : 'Leave blank to keep the existing key unchanged.'}
+              Set this variable in Abbenay&apos;s deploy env (for example
+              `.env-abbenay` or a Helm secret) and restart Abbenay. Portal does
+              not store API key values.
+              {envVarHelperExtra}
             </Typography>
 
             <TextField
@@ -290,6 +314,10 @@ export const ApmeAiProviderDialog = ({
               inputProps={{ 'aria-label': 'Base URL' }}
               placeholder={selectedEngineInfo?.defaultBaseUrl}
             />
+            <Typography className={classes.helperText}>
+              API root only (e.g. https://host/v1). Do not append
+              /chat/completions — Abbenay adds the path it needs.
+            </Typography>
           </>
         )}
 

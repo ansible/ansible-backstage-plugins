@@ -64,7 +64,35 @@ export class ApmePortalSettingsStore {
     const current = await this.read();
     await this.write({
       ...current,
-      global: { targetAnsibleCoreVersion },
+      global: {
+        ...current.global,
+        targetAnsibleCoreVersion,
+      },
+    });
+  }
+
+  async updateGlobalSettings(updates: {
+    targetAnsibleCoreVersion?: string;
+    defaultAiModelId?: string | null;
+  }): Promise<void> {
+    const current = await this.read();
+    const global = { ...(current.global ?? {}) };
+
+    if (updates.targetAnsibleCoreVersion !== undefined) {
+      global.targetAnsibleCoreVersion = updates.targetAnsibleCoreVersion;
+    }
+    if (updates.defaultAiModelId !== undefined) {
+      const trimmed = updates.defaultAiModelId?.trim();
+      if (trimmed) {
+        global.defaultAiModelId = trimmed;
+      } else {
+        delete global.defaultAiModelId;
+      }
+    }
+
+    await this.write({
+      ...current,
+      global,
     });
   }
 

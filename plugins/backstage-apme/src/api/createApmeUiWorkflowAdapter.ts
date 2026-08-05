@@ -29,6 +29,16 @@ import {
  * — relative `/api/catalog/...` returns the SPA HTML shell, so model list
  * and operation calls silently fail JSON parse.
  */
+function resolveWorkflowOrigin(apiBase: string, catalogBase: string): string {
+  if (apiBase.startsWith('http')) {
+    return new URL(apiBase).origin;
+  }
+  if (typeof window !== 'undefined') {
+    return window.location.origin;
+  }
+  return catalogBase;
+}
+
 export async function createApmeUiWorkflowAdapter(options: {
   discoveryApi: DiscoveryApi;
   fetchApi: FetchApi;
@@ -39,10 +49,6 @@ export async function createApmeUiWorkflowAdapter(options: {
     apiBase,
     fetch: options.fetchApi.fetch.bind(options.fetchApi),
     // Prefer backend origin for absolute SSE URLs when apiBase is absolute.
-    origin: apiBase.startsWith('http')
-      ? new URL(apiBase).origin
-      : typeof window !== 'undefined'
-        ? window.location.origin
-        : catalogBase,
+    origin: resolveWorkflowOrigin(apiBase, catalogBase),
   });
 }

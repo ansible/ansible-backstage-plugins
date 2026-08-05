@@ -7,6 +7,7 @@
 
 import { EntityQualityTab } from '../components/EntityQualityTab';
 import { EntityQualityActivityTab } from '../components/EntityQualityActivityTab';
+import { DependenciesTab } from '../components/DependenciesTab/DependenciesTab';
 import { FleetQualityTab } from '../components/FleetQualityTab';
 import { ApmeRepositoryOverviewCard } from '../components/ApmeRepositoryOverviewCard/ApmeRepositoryOverviewCard';
 import { ApmeRepositoryHeaderActions } from '../components/ApmeRepositoryHeaderActions/ApmeRepositoryHeaderActions';
@@ -22,6 +23,7 @@ const ApmeGitRepositoriesExtensionsApi = createApmeGitRepositoriesExtensionsApi(
     FleetQualityTab: withSuspense(FleetQualityTab),
     EntityQualityTab: withSuspense(EntityQualityTab),
     EntityQualityActivityTab: withSuspense(EntityQualityActivityTab),
+    DependenciesTab: withSuspense(DependenciesTab),
     ApmeRepositoryOverviewCard: withSuspense(ApmeRepositoryOverviewCard),
     ApmeRepositoryHeaderActions: withSuspense(ApmeRepositoryHeaderActions),
     ApmeViolationsCell,

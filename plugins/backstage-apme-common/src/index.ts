@@ -37,6 +37,11 @@ export {
   resolveScanTarget,
   resolveScanTargetVersion,
 } from './resolveScanTarget';
+export {
+  formatApmeAbbenayChatModelId,
+  pickApmeChatModelId,
+  resolveApmeChatModelIdFromProviders,
+} from './apmeChatModel';
 export type {
   ActivityPortalOutcome,
   ApmePortalSettingsData,

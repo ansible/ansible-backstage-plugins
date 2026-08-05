@@ -27,6 +27,7 @@
     "./resolveScanTarget": "./src/resolveScanTarget.ts",
     "./config": "./src/config.ts",
     "./registerOrResolveApmeProject": "./src/registerOrResolveApmeProject.ts",
+    "./apmeChatModel": "./src/apmeChatModel.ts",
     "./package.json": "./package.json"
   },
   "typesVersions": {
@@ -72,6 +73,9 @@
       ],
       "registerOrResolveApmeProject": [
         "src/registerOrResolveApmeProject.ts"
+      ],
+      "apmeChatModel": [
+        "src/apmeChatModel.ts"
       ]
     }
   },

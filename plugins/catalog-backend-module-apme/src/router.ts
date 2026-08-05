@@ -14,12 +14,20 @@
  * limitations under the License.
  */
 
-import { Router } from 'express';
+import {
+  assertSafeAbbenayProviderId,
+  assertSafeHttpUrl,
+} from './urlSafety';
+import {
+  listApmeInferenceModels,
+  resolveApmeAiStatus,
+} from './aiResolution';
 import PromiseRouter from 'express-promise-router';
+import type { Router } from 'express';
 import type { IncomingHttpHeaders } from 'http';
 import { HttpAuthService, LoggerService } from '@backstage/backend-plugin-api';
 import { Config } from '@backstage/config';
-import { InputError } from '@backstage/errors';
+import { InputError, NotAllowedError } from '@backstage/errors';
 import {
   IApmeService,
   getApmeConfig,
@@ -35,6 +43,8 @@ import { validateRepoBranch } from './branchLookup';
 import { jsonBody } from './jsonBody';
 import { resolveIntegrationScmToken } from './resolveIntegrationScmToken';
 import { proxyProjectOperation } from './gatewayOperationProxy';
+
+const GALAXY_SERVER_NAME_RE = /^[A-Za-z0-9_-]+$/;
 
 /** Headers + optional body — avoids dual `@types/express` Request mismatches. */
 type ApmeHttpRequest = {
@@ -135,6 +145,7 @@ export async function createRouter(options: RouterOptions): Promise<Router> {
       enableAi: configSnapshot.enableAi,
       publishViaGateway: configSnapshot.publishViaGateway,
       targetAnsibleCoreVersion: resolved.effective,
+      defaultAiModelId: store.global?.defaultAiModelId,
     };
   };
 
@@ -142,13 +153,49 @@ export async function createRouter(options: RouterOptions): Promise<Router> {
   // `router.use(jsonBody)` — this router shares the catalog HTTP stack.
 
   const ensureUser = async (req: unknown) => {
-    await httpAuth.credentials(
+    return httpAuth.credentials(
       req as Parameters<HttpAuthService['credentials']>[0],
       {
         allow: ['user'],
       },
     );
   };
+
+  /**
+   * Mutating AI/Galaxy/settings routes: any authenticated user by default.
+   * When ansible.apme.settingsAdminEntityRefs is non-empty, only those users.
+   */
+  const ensureSettingsAdmin = async (req: unknown) => {
+    const credentials = await ensureUser(req);
+    const allowlist =
+      rootConfig.getOptionalStringArray('ansible.apme.settingsAdminEntityRefs') ??
+      [];
+    if (allowlist.length === 0) {
+      return credentials;
+    }
+    const principal = credentials.principal as {
+      type?: string;
+      userEntityRef?: string;
+    };
+    const ref =
+      principal.type === 'user' ? principal.userEntityRef : undefined;
+    if (!ref || !allowlist.includes(ref)) {
+      throw new NotAllowedError(
+        'APME settings mutations require an allowlisted user (ansible.apme.settingsAdminEntityRefs)',
+      );
+    }
+    return credentials;
+  };
+
+  const outboundUrlOptions = () => ({
+    allowHttp:
+      rootConfig.getOptionalBoolean('ansible.apme.allowHttpOutboundUrls') ??
+      false,
+    allowPrivateHosts:
+      rootConfig.getOptionalBoolean(
+        'ansible.apme.allowPrivateOutboundUrls',
+      ) ?? false,
+  });
 
   router.get('/apme/health', async (req, res) => {
     await ensureUser(req);
@@ -163,23 +210,127 @@ export async function createRouter(options: RouterOptions): Promise<Router> {
   });
 
   router.put('/apme/settings', jsonBody, async (req, res) => {
-    await ensureUser(req);
-    const { targetAnsibleCoreVersion } = req.body ?? {};
-    if (
-      typeof targetAnsibleCoreVersion !== 'string' ||
-      !targetAnsibleCoreVersion.trim()
-    ) {
-      throw new InputError('targetAnsibleCoreVersion is required');
+    await ensureSettingsAdmin(req);
+    const { targetAnsibleCoreVersion, defaultAiModelId } = req.body ?? {};
+    const updates: {
+      targetAnsibleCoreVersion?: string;
+      defaultAiModelId?: string | null;
+    } = {};
+
+    if (targetAnsibleCoreVersion !== undefined) {
+      if (
+        typeof targetAnsibleCoreVersion !== 'string' ||
+        !targetAnsibleCoreVersion.trim()
+      ) {
+        throw new InputError('targetAnsibleCoreVersion must be a non-empty string');
+      }
+      if (!isAllowedAnsibleCoreVersion(targetAnsibleCoreVersion)) {
+        throw new InputError(
+          `Unsupported ansible-core version: ${targetAnsibleCoreVersion}`,
+        );
+      }
+      updates.targetAnsibleCoreVersion = targetAnsibleCoreVersion.trim();
     }
-    if (!isAllowedAnsibleCoreVersion(targetAnsibleCoreVersion)) {
+
+    if (defaultAiModelId !== undefined) {
+      if (
+        defaultAiModelId !== null &&
+        typeof defaultAiModelId !== 'string'
+      ) {
+        throw new InputError('defaultAiModelId must be a string or null');
+      }
+      updates.defaultAiModelId =
+        typeof defaultAiModelId === 'string' ? defaultAiModelId : null;
+    }
+
+    if (
+      updates.targetAnsibleCoreVersion === undefined &&
+      updates.defaultAiModelId === undefined
+    ) {
       throw new InputError(
-        `Unsupported ansible-core version: ${targetAnsibleCoreVersion}`,
+        'At least one of targetAnsibleCoreVersion or defaultAiModelId is required',
       );
     }
-    await portalSettingsStore.updateGlobal(
-      targetAnsibleCoreVersion.trim(),
-    );
+
+    await portalSettingsStore.updateGlobalSettings(updates);
     res.json(await mergedPortalSettings());
+  });
+
+  router.get('/apme/settings/galaxy-servers', async (req, res) => {
+    await ensureUser(req);
+    const servers = await apmeService.listGalaxyServers();
+    res.json(servers);
+  });
+
+  router.post('/apme/settings/galaxy-servers', jsonBody, async (req, res) => {
+    await ensureSettingsAdmin(req);
+    const { name, url, token, auth_url } = req.body ?? {};
+    if (typeof name !== 'string' || !name.trim()) {
+      throw new InputError('name is required');
+    }
+    if (!GALAXY_SERVER_NAME_RE.test(name.trim())) {
+      throw new InputError('name must match [A-Za-z0-9_-]+');
+    }
+    if (typeof url !== 'string' || !url.trim()) {
+      throw new InputError('url is required');
+    }
+    assertSafeHttpUrl(url, 'url', outboundUrlOptions());
+    if (typeof auth_url === 'string' && auth_url.trim()) {
+      assertSafeHttpUrl(auth_url, 'auth_url', outboundUrlOptions());
+    }
+    const server = await apmeService.createGalaxyServer({
+      name: name.trim(),
+      url: url.trim(),
+      token: typeof token === 'string' ? token : undefined,
+      auth_url: typeof auth_url === 'string' ? auth_url : undefined,
+    });
+    res.status(201).json(server);
+  });
+
+  router.patch(
+    '/apme/settings/galaxy-servers/:serverId',
+    jsonBody,
+    async (req, res) => {
+      await ensureSettingsAdmin(req);
+      const serverId = Number.parseInt(req.params.serverId, 10);
+      if (!Number.isFinite(serverId)) {
+        throw new InputError('serverId must be a number');
+      }
+      const { name, url, token, auth_url } = req.body ?? {};
+      const body: Record<string, string> = {};
+      if (typeof name === 'string') {
+        if (!GALAXY_SERVER_NAME_RE.test(name.trim())) {
+          throw new InputError('name must match [A-Za-z0-9_-]+');
+        }
+        body.name = name.trim();
+      }
+      if (typeof url === 'string') {
+        assertSafeHttpUrl(url, 'url', outboundUrlOptions());
+        body.url = url.trim();
+      }
+      if (typeof token === 'string') body.token = token;
+      if (typeof auth_url === 'string') {
+        if (auth_url.trim()) {
+          assertSafeHttpUrl(auth_url, 'auth_url', outboundUrlOptions());
+        }
+        body.auth_url = auth_url;
+      }
+      if (Object.keys(body).length === 0) {
+        throw new InputError('At least one field is required');
+      }
+      const server = await apmeService.updateGalaxyServer(serverId, body);
+      res.json(server);
+    },
+  );
+
+  router.delete('/apme/settings/galaxy-servers/:serverId', async (req, res) => {
+    await ensureSettingsAdmin(req);
+    const serverId = Number.parseInt(req.params.serverId, 10);
+    if (!Number.isFinite(serverId)) {
+      throw new InputError('serverId must be a number');
+    }
+    await apmeService.deleteGalaxyServer(serverId);
+    res.status(204).send();
   });
 
   router.get('/apme/projects/:projectId/scan-target', async (req, res) => {
@@ -235,31 +386,20 @@ export async function createRouter(options: RouterOptions): Promise<Router> {
   router.get('/apme/ai/status', async (req, res) => {
     await ensureUser(req);
     const { enableAi } = getApmeConfig(rootConfig);
-    let connected = false;
-    let modelCount = 0;
-    try {
-      const models = await apmeService.getAiModels();
-      modelCount = models.length;
-      connected = modelCount > 0;
-    } catch (err) {
-      logger.debug(`APME AI models check failed: ${String(err)}`);
-    }
-    if (!connected) {
-      try {
-        const health = await apmeService.getHealth();
-        const abbenay = health.components?.find(c => c.name === 'Abbenay AI');
-        connected = abbenay?.status === 'ok' || abbenay?.status === 'healthy';
-      } catch (err) {
-        logger.debug(`APME health check for AI status failed: ${String(err)}`);
-      }
-    }
-    res.json({ enableAi, connected, modelCount });
+    const status = await resolveApmeAiStatus(apmeService, logger);
+    res.json({
+      enableAi,
+      connected: status.connected,
+      modelCount: status.modelCount,
+      configuredModelCount: status.configuredModelCount,
+    });
   });
 
   // @apme/ui-workflow CheckOptionsForm → GET /ai/models (via catalog proxy apiBase).
+  // Inference list only — do not synthesize from admin config (avoids "Connected" lies).
   router.get('/apme/ai/models', async (req, res) => {
     await ensureUser(req);
-    const models = await apmeService.getAiModels();
+    const models = await listApmeInferenceModels(apmeService);
     res.json(models);
   });
 
@@ -271,7 +411,7 @@ export async function createRouter(options: RouterOptions): Promise<Router> {
   });
 
   router.post('/apme/ai/config', jsonBody, async (req, res) => {
-    await ensureUser(req);
+    await ensureSettingsAdmin(req);
     const result = await apmeService.updateAiConfig(req.body);
     res.json(result);
   });
@@ -289,18 +429,24 @@ export async function createRouter(options: RouterOptions): Promise<Router> {
   });
 
   router.post('/apme/ai/provider/:id/configure', jsonBody, async (req, res) => {
-    await ensureUser(req);
+    await ensureSettingsAdmin(req);
     const { id } = req.params;
     if (!id) {
       throw new InputError('Provider id is required');
     }
+    assertSafeAbbenayProviderId(id);
+    // Secrets are deploy-time env (Helm / .env-abbenay), not a Portal filesystem
+    // bridge. Pass envVarName + secretStorage: 'env' (or apiKey for keytar hosts).
     const result = await apmeService.configureAiProvider(id, req.body);
     res.json(result);
   });
 
   router.delete('/apme/ai/provider/:id', async (req, res) => {
-    await ensureUser(req);
+    await ensureSettingsAdmin(req);
     const { id } = req.params;
+    if (id) {
+      assertSafeAbbenayProviderId(id);
+    }
     await apmeService.deleteAiProvider(id);
     res.status(204).send();
   });
@@ -364,7 +510,7 @@ export async function createRouter(options: RouterOptions): Promise<Router> {
       next();
       return;
     }
-    return jsonBody(req, res, next);
+    jsonBody(req, res, next);
   };
 
   router.all(
