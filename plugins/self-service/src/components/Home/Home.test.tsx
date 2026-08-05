@@ -1432,6 +1432,36 @@ describe('sync signal integration', () => {
 
     mockSyncSignal.lastSignal = null;
   });
+
+  it('should keep sync disabled when one provider completes but another is still syncing', async () => {
+    mockSyncSignal.lastSignal = {
+      provider: 'aap-org-users-teams',
+      syncInProgress: true,
+      lastSyncTime: null,
+      lastSyncStatus: null,
+      lastFailedSyncTime: null,
+    };
+
+    await render(<HomeComponent />);
+
+    await waitFor(() => {
+      expect(screen.getByText('Syncing...')).toBeInTheDocument();
+    });
+
+    mockSyncSignal.lastSignal = {
+      provider: 'aap-job-template-provider',
+      syncInProgress: false,
+      lastSyncTime: '2025-06-01T13:00:00.000Z',
+      lastSyncStatus: 'success',
+      lastFailedSyncTime: null,
+    };
+
+    await waitFor(() => {
+      expect(screen.getByText('Syncing...')).toBeInTheDocument();
+    });
+
+    mockSyncSignal.lastSignal = null;
+  });
 });
 
 describe('HomeCategoryPicker EE exclusion', () => {

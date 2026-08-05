@@ -329,15 +329,17 @@ export const HomeComponent = () => {
   }>('catalog:aap-sync-status');
 
   useEffect(() => {
-    if (!syncSignal || syncSignal.syncInProgress) return;
+    if (!syncSignal) return;
     const isJT = syncSignal.provider.startsWith('aap-job-template');
     const key = isJT ? 'jobTemplates' : 'orgsUsersTeams';
     setSyncStatus(prev => ({
       ...prev,
       [key]: {
         ...prev[key],
-        lastSync: syncSignal.lastSyncTime,
-        syncInProgress: false,
+        lastSync: syncSignal.syncInProgress
+          ? prev[key].lastSync
+          : syncSignal.lastSyncTime,
+        syncInProgress: syncSignal.syncInProgress,
       },
     }));
   }, [syncSignal]);
