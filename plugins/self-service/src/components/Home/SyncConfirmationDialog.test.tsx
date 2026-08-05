@@ -81,6 +81,30 @@ describe('SyncConfirmationDialog', () => {
     expect(onClose).toHaveBeenCalledWith(['orgsUsersTeams', 'templates']);
   });
 
+  it('should remove item from value when unchecking a checkbox', () => {
+    const onClose = jest.fn();
+    render(
+      <SyncConfirmationDialog
+        {...defaultProps}
+        value={['orgsUsersTeams', 'templates']}
+        onClose={onClose}
+      />,
+    );
+
+    const orgsCheckbox = screen.getByLabelText(
+      /Organizations, Users, and Teams/,
+    );
+    expect(orgsCheckbox).toBeChecked();
+
+    fireEvent.click(orgsCheckbox);
+    expect(orgsCheckbox).not.toBeChecked();
+
+    const okButton = screen.getByText('Ok');
+    fireEvent.click(okButton);
+
+    expect(onClose).toHaveBeenCalledWith(['templates']);
+  });
+
   it('should handle cancel button', () => {
     const onClose = jest.fn();
     render(<SyncConfirmationDialog {...defaultProps} onClose={onClose} />);

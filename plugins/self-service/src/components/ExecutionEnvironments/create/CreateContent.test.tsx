@@ -10,7 +10,10 @@ import {
   starredEntitiesApiRef,
 } from '@backstage/plugin-catalog-react';
 import { MockEntityListContextProvider } from '@backstage/plugin-catalog-react/testUtils';
-import { permissionApiRef } from '@backstage/plugin-permission-react';
+import {
+  permissionApiRef,
+  usePermission,
+} from '@backstage/plugin-permission-react';
 import { scaffolderApiRef } from '@backstage/plugin-scaffolder-react';
 import { TemplateEntityV1beta3 } from '@backstage/plugin-scaffolder-common';
 
@@ -24,6 +27,11 @@ import {
 } from '../../../tests/mockAnsibleApi';
 import { mockScaffolderApi } from '../../../tests/scaffolderApi_utils';
 
+jest.mock('@backstage/plugin-permission-react', () => ({
+  ...jest.requireActual('@backstage/plugin-permission-react'),
+  usePermission: jest.fn().mockReturnValue({ loading: false, allowed: true }),
+}));
+
 jest.mock('../../Home/TemplateCard', () => ({
   WizardCard: ({ template }: { template: TemplateEntityV1beta3 }) => (
     <div data-testid={`wizard-card-${template.metadata.name}`}>
@@ -35,6 +43,10 @@ jest.mock('../../Home/TemplateCard', () => ({
 describe('CreateContent', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    (usePermission as jest.Mock).mockReturnValue({
+      loading: false,
+      allowed: true,
+    });
     mockRhAapAuthApi.getAccessToken.mockResolvedValue('mock-token');
   });
 
@@ -498,6 +510,33 @@ describe('CreateContent', () => {
     });
   });
 
+  describe('Permission Gating', () => {
+    it('should not render kebab menu when user lacks create permission', async () => {
+      (usePermission as jest.Mock).mockReturnValue({
+        loading: false,
+        allowed: false,
+      });
+
+      const entityRefs = ['component:default/e1'];
+      const tagFacets = ['execution-environment'];
+      mockCatalogApi.getEntityFacets.mockResolvedValue(
+        facetsFromEntityRefs(entityRefs, tagFacets),
+      );
+
+      await render(
+        <MockEntityListContextProvider>
+          <CreateContent />
+        </MockEntityListContextProvider>,
+      );
+
+      await waitFor(() => {
+        expect(screen.getByTestId('create-content')).toBeInTheDocument();
+      });
+
+      expect(screen.queryByTestId('kebab-menu-button')).not.toBeInTheDocument();
+    });
+  });
+
   describe('Kebab Menu', () => {
     it('should render kebab menu button', async () => {
       const entityRefs = ['component:default/e1'];
@@ -527,6 +566,33 @@ describe('CreateContent', () => {
 
       await waitFor(() => {
         expect(screen.getByText('Import Template')).toBeInTheDocument();
+      });
+    });
+
+    it('should close menu and navigate when Import Template is clicked', async () => {
+      const entityRefs = ['component:default/e1'];
+      const tagFacets = ['execution-environment'];
+      mockCatalogApi.getEntityFacets.mockResolvedValue(
+        facetsFromEntityRefs(entityRefs, tagFacets),
+      );
+
+      await render(<CreateContent />);
+
+      const kebabButton = screen.getByTestId('kebab-menu-button');
+      fireEvent.click(kebabButton);
+
+      await waitFor(() => {
+        expect(
+          screen.getByTestId('import-template-button'),
+        ).toBeInTheDocument();
+      });
+
+      fireEvent.click(screen.getByTestId('import-template-button'));
+
+      await waitFor(() => {
+        expect(
+          screen.queryByTestId('import-template-button'),
+        ).not.toBeInTheDocument();
       });
     });
 

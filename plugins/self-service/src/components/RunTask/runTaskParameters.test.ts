@@ -52,6 +52,41 @@ describe('findNestedBooleanTrue / findNestedNonEmptyString', () => {
   });
 });
 
+describe('array traversal', () => {
+  it('findNestedBooleanTrue finds value inside an array element', () => {
+    expect(
+      findNestedBooleanTrue(
+        { steps: [{ deploy: false }, { deploy: true }] },
+        'deploy',
+      ),
+    ).toBe(true);
+  });
+
+  it('findNestedBooleanTrue returns false when no array element matches', () => {
+    expect(
+      findNestedBooleanTrue(
+        { steps: [{ deploy: false }, { other: 'x' }] },
+        'deploy',
+      ),
+    ).toBe(false);
+  });
+
+  it('findNestedNonEmptyString finds value inside an array element', () => {
+    expect(
+      findNestedNonEmptyString(
+        { items: [{ name: '' }, { name: 'found-it' }] },
+        'name',
+      ),
+    ).toBe('found-it');
+  });
+
+  it('findNestedNonEmptyString returns undefined when no array element matches', () => {
+    expect(
+      findNestedNonEmptyString({ items: [{ other: 'x' }] }, 'name'),
+    ).toBeUndefined();
+  });
+});
+
 describe('resolveEeFileNameFromParameters', () => {
   it('returns undefined when missing', () => {
     expect(resolveEeFileNameFromParameters(undefined)).toBeUndefined();

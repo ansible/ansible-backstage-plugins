@@ -1247,6 +1247,182 @@ describe('self-service', () => {
     });
   });
 
+  it('should filter out execution-environment type entities from templates', async () => {
+    const entityRefs = ['component:default/e1'];
+    const tags = ['tag1'];
+    mockCatalogApi.getEntityFacets.mockResolvedValue(
+      facetsFromEntityRefs(entityRefs, tags, [
+        'service',
+        'execution-environment',
+      ]),
+    );
+    mockCatalogApi.getEntities.mockResolvedValue({
+      items: [
+        {
+          metadata: {
+            name: 'regular-template',
+            title: 'Regular Template',
+            description: 'A regular template',
+            namespace: 'default',
+            tags: [],
+            uid: 'uid-1',
+            etag: 'etag-1',
+            annotations: {},
+          },
+          apiVersion: 'scaffolder.backstage.io/v1beta3',
+          kind: 'Template',
+          spec: { owner: 'RedHat', type: 'service' },
+          relations: [],
+        },
+        {
+          metadata: {
+            name: 'ee-template',
+            title: 'EE Builder',
+            description: 'Build EE',
+            namespace: 'default',
+            tags: [],
+            uid: 'uid-2',
+            etag: 'etag-2',
+            annotations: {},
+          },
+          apiVersion: 'scaffolder.backstage.io/v1beta3',
+          kind: 'Template',
+          spec: { owner: 'RedHat', type: 'execution-environment' },
+          relations: [],
+        },
+      ],
+    });
+    mockCatalogApi.queryEntities.mockResolvedValue({
+      items: [
+        {
+          metadata: {
+            name: 'regular-template',
+            title: 'Regular Template',
+            description: 'A regular template',
+            namespace: 'default',
+            tags: [],
+            uid: 'uid-1',
+            etag: 'etag-1',
+            annotations: {},
+          },
+          apiVersion: 'scaffolder.backstage.io/v1beta3',
+          kind: 'Template',
+          spec: { owner: 'RedHat', type: 'service' },
+          relations: [],
+        },
+        {
+          metadata: {
+            name: 'ee-template',
+            title: 'EE Builder',
+            description: 'Build EE',
+            namespace: 'default',
+            tags: [],
+            uid: 'uid-2',
+            etag: 'etag-2',
+            annotations: {},
+          },
+          apiVersion: 'scaffolder.backstage.io/v1beta3',
+          kind: 'Template',
+          spec: { owner: 'RedHat', type: 'execution-environment' },
+          relations: [],
+        },
+      ],
+      totalItems: 2,
+      pageInfo: {},
+    });
+
+    await render(<HomeComponent />);
+
+    await waitFor(() => {
+      expect(screen.getByText('Regular Template')).toBeInTheDocument();
+    });
+    expect(screen.queryByText('EE Builder')).not.toBeInTheDocument();
+  });
+
+  it('should filter out entities whose aapJobTemplateId does not match any job template', async () => {
+    const entityRefs = ['component:default/e1'];
+    const tags = ['tag1'];
+    mockCatalogApi.getEntityFacets.mockResolvedValue(
+      facetsFromEntityRefs(entityRefs, tags),
+    );
+
+    const templateWithMatchingId = {
+      metadata: {
+        name: 'matching-template',
+        title: 'Matching Template',
+        description: 'Has matching ID',
+        namespace: 'default',
+        tags: [],
+        uid: 'uid-match',
+        etag: 'etag-1',
+        annotations: {},
+        aapJobTemplateId: 1,
+      },
+      apiVersion: 'scaffolder.backstage.io/v1beta3',
+      kind: 'Template',
+      spec: { owner: 'RedHat', type: 'service' },
+      relations: [],
+    };
+    const templateWithNonMatchingId = {
+      metadata: {
+        name: 'orphan-template',
+        title: 'Orphan Template',
+        description: 'Has non-matching ID',
+        namespace: 'default',
+        tags: [],
+        uid: 'uid-orphan',
+        etag: 'etag-2',
+        annotations: {},
+        aapJobTemplateId: 999,
+      },
+      apiVersion: 'scaffolder.backstage.io/v1beta3',
+      kind: 'Template',
+      spec: { owner: 'RedHat', type: 'service' },
+      relations: [],
+    };
+    const templateWithNoId = {
+      metadata: {
+        name: 'no-id-template',
+        title: 'No ID Template',
+        description: 'No aapJobTemplateId',
+        namespace: 'default',
+        tags: [],
+        uid: 'uid-noid',
+        etag: 'etag-3',
+        annotations: {},
+      },
+      apiVersion: 'scaffolder.backstage.io/v1beta3',
+      kind: 'Template',
+      spec: { owner: 'RedHat', type: 'service' },
+      relations: [],
+    };
+
+    mockCatalogApi.getEntities.mockResolvedValue({
+      items: [
+        templateWithMatchingId,
+        templateWithNonMatchingId,
+        templateWithNoId,
+      ],
+    });
+    mockCatalogApi.queryEntities.mockResolvedValue({
+      items: [
+        templateWithMatchingId,
+        templateWithNonMatchingId,
+        templateWithNoId,
+      ],
+      totalItems: 3,
+      pageInfo: {},
+    });
+
+    await render(<HomeComponent />);
+
+    await waitFor(() => {
+      expect(screen.getByText('Matching Template')).toBeInTheDocument();
+    });
+    expect(screen.getByText('No ID Template')).toBeInTheDocument();
+    expect(screen.queryByText('Orphan Template')).not.toBeInTheDocument();
+  });
+
   it('should show "No templates found" when catalog returns no entities', async () => {
     mockCatalogApi.getEntityFacets.mockResolvedValue({
       facets: {

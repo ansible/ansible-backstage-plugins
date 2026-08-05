@@ -155,6 +155,37 @@ describe('EmptyState', () => {
     expect(screen.getByTitle('Custom reason')).toBeInTheDocument();
   });
 
+  it('shows progress popover when syncProgress has failure entries', () => {
+    renderWithTheme(
+      <EmptyState
+        hasConfiguredSources
+        onSyncClick={mockOnSyncClick}
+        syncProgress={[
+          { sourceId: 'source1', displayName: 'source1', outcome: 'failure' },
+        ]}
+      />,
+    );
+
+    const syncButton = screen.getByRole('button', { name: /Sync Now/i });
+    expect(syncButton).toBeInTheDocument();
+  });
+
+  it('shows progress popover when syncInProgress with syncProgress entries', () => {
+    renderWithTheme(
+      <EmptyState
+        hasConfiguredSources
+        onSyncClick={mockOnSyncClick}
+        syncInProgress
+        syncProgress={[
+          { sourceId: 'source1', displayName: 'source1', outcome: 'success' },
+        ]}
+      />,
+    );
+
+    const syncButton = screen.getByRole('button', { name: /Sync Now/i });
+    expect(syncButton).toBeInTheDocument();
+  });
+
   it('applies spinning animation class to sync icon when syncInProgress', () => {
     renderWithTheme(
       <EmptyState

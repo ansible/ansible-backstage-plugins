@@ -293,6 +293,41 @@ describe('useIsSuperuser', () => {
     expect(mockCatalogApi.getEntityByRef).toHaveBeenCalledTimes(2);
   });
 
+  it('handles non-Error thrown from identity API', async () => {
+    mockIdentityApi.getBackstageIdentity.mockRejectedValue('string error');
+
+    const { result } = renderHook(() => useIsSuperuser(), { wrapper });
+
+    await waitFor(() => {
+      expect(result.current.loading).toBe(false);
+    });
+
+    expect(result.current.isSuperuser).toBe(false);
+    expect(result.current.error?.message).toBe(
+      'Failed to check superuser status',
+    );
+  });
+
+  it('redacts URLs in warning messages', async () => {
+    mockIdentityApi.getBackstageIdentity.mockResolvedValue({
+      userEntityRef: 'user:default/testuser',
+    });
+    mockCatalogApi.getEntityByRef.mockRejectedValue(
+      new Error('Failed at https://example.com/secret/path'),
+    );
+
+    renderHook(() => useIsSuperuser(), { wrapper });
+
+    await waitFor(() => {
+      expect(mockCatalogApi.getEntityByRef).toHaveBeenCalledTimes(1);
+    });
+
+    expect(consoleWarnSpy).toHaveBeenCalledWith(
+      expect.stringContaining('retrying'),
+      expect.stringContaining('[redacted-url]'),
+    );
+  });
+
   it('starts with loading true', () => {
     mockIdentityApi.getBackstageIdentity.mockReturnValue(new Promise(() => {}));
 

@@ -266,7 +266,7 @@ describe('MCPServersPickerExtension', () => {
       const noteBoxes = screen.getAllByText(
         "Update the 'mcp-vars.yaml' file if you want to override the default variables for the MCP servers selected for installation.",
       );
-      expect(noteBoxes).toHaveLength(1);
+      expect(noteBoxes.length).toBe(1);
     });
 
     it('hides note box when all cards are deselected', () => {
@@ -422,6 +422,21 @@ describe('MCPServersPickerExtension', () => {
       rerender(<MCPServersPickerExtension {...props} formData={['server3']} />);
       expect(screen.getByLabelText('Deselect server3')).toBeInTheDocument();
       expect(screen.getByLabelText('Select server1')).toBeInTheDocument();
+    });
+  });
+
+  describe('Icon Assignment', () => {
+    it.each([
+      ['GitHub', 'my-github-server'],
+      ['GitLab', 'gitlab-runner'],
+      ['Cloud', 'aws-cloud-server'],
+      ['Storage', 'database-primary'],
+    ])('assigns %s icon for matching server name', (_label, serverName) => {
+      const props = createMockProps({
+        schema: { items: { enum: [serverName] } },
+      });
+      render(<MCPServersPickerExtension {...props} />);
+      expect(screen.getByText(serverName)).toBeInTheDocument();
     });
   });
 

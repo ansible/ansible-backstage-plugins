@@ -156,6 +156,43 @@ describe('AAPTokenField', () => {
     });
   });
 
+  it('should use custom title from uiSchema ui:options', async () => {
+    mockRhAapAuthApi.getAccessToken.mockResolvedValue('test-token');
+
+    await renderComponent({
+      uiSchema: { 'ui:options': { title: 'My Custom Token' } },
+    });
+
+    await waitFor(() => {
+      expect(screen.getByLabelText('My Custom Token')).toBeInTheDocument();
+    });
+  });
+
+  it('should use custom helperText from uiSchema ui:options', async () => {
+    mockRhAapAuthApi.getAccessToken.mockResolvedValue('test-token');
+
+    await renderComponent({
+      uiSchema: { 'ui:options': { helperText: 'Custom helper message' } },
+    });
+
+    await waitFor(() => {
+      expect(screen.getByText('Custom helper message')).toBeInTheDocument();
+    });
+  });
+
+  it('should fall back to schema.title when uiSchema title is not a string', async () => {
+    mockRhAapAuthApi.getAccessToken.mockResolvedValue('test-token');
+
+    await renderComponent({
+      schema: { title: 'Schema Title' },
+      uiSchema: { 'ui:options': { title: 42 } },
+    });
+
+    await waitFor(() => {
+      expect(screen.getByLabelText('Schema Title')).toBeInTheDocument();
+    });
+  });
+
   it('should make input readonly', async () => {
     mockRhAapAuthApi.getAccessToken.mockResolvedValue('test-token');
 

@@ -309,6 +309,55 @@ describe('CollectionsListPage', () => {
     expect(screen.getByText('v1.0.0')).toBeInTheDocument();
   });
 
+  it('renders collection card when entity has no uid', async () => {
+    const entityNoUid = {
+      ...mockEntity,
+      metadata: {
+        ...mockEntity.metadata,
+        uid: undefined,
+      },
+    };
+    mockCatalogApi.queryEntities.mockResolvedValue({
+      items: [entityNoUid],
+      totalItems: 1,
+    });
+
+    renderListPage();
+
+    await waitFor(() => {
+      expect(screen.getByText('ns.collection')).toBeInTheDocument();
+    });
+  });
+
+  it('resets source filter to All when value is cleared', async () => {
+    renderListPage();
+
+    await waitFor(() => {
+      expect(screen.getByText('ns.collection')).toBeInTheDocument();
+    });
+
+    const sourceInput = screen.getByPlaceholderText('Search sources...');
+    fireEvent.focus(sourceInput);
+    fireEvent.keyDown(sourceInput, { key: 'ArrowDown' });
+    await waitFor(() => {
+      expect(screen.getByText('repo1')).toBeInTheDocument();
+    });
+    fireEvent.click(screen.getByText('repo1'));
+
+    let clearButton: Element | null | undefined;
+    await waitFor(() => {
+      clearButton = sourceInput
+        .closest('.MuiAutocomplete-root')
+        ?.querySelector('.MuiAutocomplete-clearIndicator');
+      expect(clearButton).toBeTruthy();
+    });
+    fireEvent.click(clearButton!);
+
+    await waitFor(() => {
+      expect(screen.getByText('ns.collection')).toBeInTheDocument();
+    });
+  });
+
   it('calls onSourcesStatusChange when sync status is fetched', async () => {
     const onSourcesStatusChange = jest.fn();
 
@@ -428,6 +477,108 @@ describe('CollectionsListPage', () => {
     fireEvent.click(clearButton);
 
     expect(searchInput).toHaveValue('');
+  });
+
+  it('filters by tag when tag is selected from dropdown', async () => {
+    const entityWithTag = {
+      ...mockEntity,
+      metadata: {
+        ...mockEntity.metadata,
+        name: 'tagged-col',
+        uid: 'uid-tagged',
+        tags: ['network', 'security'],
+      },
+      spec: {
+        ...mockEntity.spec,
+        collection_full_name: 'ns.tagged',
+      } as any,
+    };
+    const entityNoTag = {
+      ...mockEntity,
+      metadata: {
+        ...mockEntity.metadata,
+        name: 'plain-col',
+        uid: 'uid-plain',
+      },
+      spec: {
+        ...mockEntity.spec,
+        collection_full_name: 'ns.plain',
+      } as any,
+    };
+    mockCatalogApi.queryEntities.mockResolvedValue({
+      items: [entityWithTag, entityNoTag],
+      totalItems: 2,
+    });
+
+    renderListPage();
+
+    await waitFor(() => {
+      expect(screen.getByText('ns.tagged')).toBeInTheDocument();
+      expect(screen.getByText('ns.plain')).toBeInTheDocument();
+    });
+
+    const tagInput = screen.getByPlaceholderText('Search tags...');
+    fireEvent.focus(tagInput);
+    fireEvent.keyDown(tagInput, { key: 'ArrowDown' });
+    await waitFor(() => {
+      expect(screen.getByText('network')).toBeInTheDocument();
+    });
+    fireEvent.click(screen.getByText('network'));
+
+    await waitFor(() => {
+      expect(screen.getByText('ns.tagged')).toBeInTheDocument();
+      expect(screen.queryByText('ns.plain')).not.toBeInTheDocument();
+    });
+  });
+
+  it('resets tag filter to All when tag value is cleared', async () => {
+    const entityWithTag = {
+      ...mockEntity,
+      metadata: {
+        ...mockEntity.metadata,
+        name: 'tagged-col',
+        uid: 'uid-tagged',
+        tags: ['network'],
+      },
+      spec: {
+        ...mockEntity.spec,
+        collection_full_name: 'ns.tagged',
+      } as any,
+    };
+    mockCatalogApi.queryEntities.mockResolvedValue({
+      items: [mockEntity, entityWithTag],
+      totalItems: 2,
+    });
+
+    renderListPage();
+
+    await waitFor(() => {
+      expect(screen.getByText('ns.collection')).toBeInTheDocument();
+      expect(screen.getByText('ns.tagged')).toBeInTheDocument();
+    });
+
+    const tagInput = screen.getByPlaceholderText('Search tags...');
+    fireEvent.focus(tagInput);
+    fireEvent.keyDown(tagInput, { key: 'ArrowDown' });
+    await waitFor(() => {
+      expect(screen.getByText('network')).toBeInTheDocument();
+    });
+    fireEvent.click(screen.getByText('network'));
+
+    await waitFor(() => {
+      expect(screen.queryByText('ns.collection')).not.toBeInTheDocument();
+    });
+
+    const clearButton = tagInput
+      .closest('.MuiAutocomplete-root')
+      ?.querySelector('.MuiAutocomplete-clearIndicator');
+    expect(clearButton).toBeTruthy();
+    fireEvent.click(clearButton!);
+
+    await waitFor(() => {
+      expect(screen.getByText('ns.collection')).toBeInTheDocument();
+      expect(screen.getByText('ns.tagged')).toBeInTheDocument();
+    });
   });
 
   it('Show latest version only checkbox toggles filter', async () => {

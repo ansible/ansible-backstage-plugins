@@ -181,4 +181,39 @@ describe('RepositoryAboutCard', () => {
 
     expect(screen.getByText('Source')).toBeInTheDocument();
   });
+
+  it('handles entity with undefined spec', () => {
+    const entity = {
+      ...createMockEntity(),
+      spec: undefined,
+    } as unknown as Entity;
+
+    renderWithTheme(<RepositoryAboutCard entity={entity} />);
+
+    expect(screen.getByText('About')).toBeInTheDocument();
+    const containsSection = screen.getByText('Contains').parentElement;
+    expect(containsSection).toHaveTextContent('—');
+  });
+
+  it('renders source provider label when no host or repo annotations', () => {
+    const entity: Entity = {
+      apiVersion: 'backstage.io/v1alpha1',
+      kind: 'Component',
+      metadata: {
+        name: 'test-repo',
+        description: 'desc',
+        annotations: {},
+      },
+      spec: {
+        repository_name: 'test',
+        repository_default_branch: 'main',
+        repository_collection_count: 0,
+        repository_ee_count: 0,
+      },
+    };
+
+    renderWithTheme(<RepositoryAboutCard entity={entity} />);
+
+    expect(screen.getByText('unknown')).toBeInTheDocument();
+  });
 });

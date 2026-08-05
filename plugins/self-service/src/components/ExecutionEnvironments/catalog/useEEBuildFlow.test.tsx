@@ -44,21 +44,6 @@ const entityWithGithub: Entity = {
   spec: { type: 'execution-environment' },
 };
 
-const entityWithGitlab: Entity = {
-  apiVersion: 'backstage.io/v1alpha1',
-  kind: 'Component',
-  metadata: {
-    name: 'gl-ee',
-    namespace: 'default',
-    annotations: {
-      'backstage.io/source-location':
-        'url:https://gitlab.com/org/repo/-/tree/main/ee/',
-      'ansible.io/scm-provider': 'gitlab',
-    },
-  },
-  spec: { type: 'execution-environment' },
-};
-
 const entityNoScm: Entity = {
   apiVersion: 'backstage.io/v1alpha1',
   kind: 'Component',
@@ -111,7 +96,6 @@ describe('useEEBuildFlow', () => {
     expect(result.current.dialogOpen).toBe(true);
     expect(result.current.buildEntity).toEqual(entityWithGithub);
     expect(result.current.scmToken).toBe('t');
-    expect(result.current.scmProvider).toBe('github');
     expect(result.current.authBusy).toBe(false);
   });
 
@@ -173,7 +157,6 @@ describe('useEEBuildFlow', () => {
     });
     expect(result.current.buildEntity).toEqual(resolvedEntity);
     expect(result.current.scmToken).toBe('t');
-    expect(result.current.scmProvider).toBe('github');
     expect(sessionStorage.getItem(EE_BUILD_PENDING_SESSION_KEY)).toBeNull();
   });
 
@@ -251,7 +234,233 @@ describe('useEEBuildFlow', () => {
     expect(result.current.dialogOpen).toBe(false);
     expect(result.current.buildEntity).toBeNull();
     expect(result.current.scmToken).toBeNull();
-    expect(result.current.scmProvider).toBeNull();
+  });
+
+  it('notifies when resume resolves entity without Git source metadata', async () => {
+    const showSpy = jest.spyOn(notificationStore, 'showNotification');
+    mockGetEntityByRef.mockResolvedValue(entityNoScm);
+
+    sessionStorage.setItem(
+      EE_BUILD_PENDING_SESSION_KEY,
+      JSON.stringify({
+        entityRef: 'component:default/plain',
+        savedAt: Date.now(),
+      }),
+    );
+
+    const { result } = renderHook(() => useEEBuildFlow(), { wrapper });
+
+    await waitFor(() => {
+      expect(showSpy).toHaveBeenCalledWith(
+        expect.objectContaining({
+          title: 'Build',
+          severity: 'error',
+          description: expect.stringContaining('no Git source metadata'),
+        }),
+      );
+    });
+
+    expect(result.current.dialogOpen).toBe(false);
+    expect(mockGetCredentials).not.toHaveBeenCalled();
+    showSpy.mockRestore();
+  });
+
+  it('notifies when resume getCredentials returns empty token', async () => {
+    const showSpy = jest.spyOn(notificationStore, 'showNotification');
+    mockGetEntityByRef.mockResolvedValue(entityWithGithub);
+    mockGetCredentials.mockResolvedValue({ token: '  ', headers: {} });
+
+    sessionStorage.setItem(
+      EE_BUILD_PENDING_SESSION_KEY,
+      JSON.stringify({
+        entityRef: 'component:default/my-ee',
+        savedAt: Date.now(),
+      }),
+    );
+
+    const { result } = renderHook(() => useEEBuildFlow(), { wrapper });
+
+    await waitFor(() => {
+      expect(showSpy).toHaveBeenCalledWith(
+        expect.objectContaining({
+          title: 'Build',
+          severity: 'error',
+          description: expect.stringContaining('No Git token'),
+        }),
+      );
+    });
+
+    expect(result.current.dialogOpen).toBe(false);
+    showSpy.mockRestore();
+  });
+
+  it('notifies when resume getCredentials throws', async () => {
+    const showSpy = jest.spyOn(notificationStore, 'showNotification');
+    mockGetEntityByRef.mockResolvedValue(entityWithGithub);
+    mockGetCredentials.mockRejectedValue(new Error('auth failed'));
+
+    sessionStorage.setItem(
+      EE_BUILD_PENDING_SESSION_KEY,
+      JSON.stringify({
+        entityRef: 'component:default/my-ee',
+        savedAt: Date.now(),
+      }),
+    );
+
+    const { result } = renderHook(() => useEEBuildFlow(), { wrapper });
+
+    await waitFor(() => {
+      expect(showSpy).toHaveBeenCalledWith(
+        expect.objectContaining({
+          title: 'Sign-in failed',
+          severity: 'error',
+          description: expect.stringContaining('auth failed'),
+        }),
+      );
+    });
+
+    expect(result.current.dialogOpen).toBe(false);
+    showSpy.mockRestore();
+  });
+
+  it('notifies when resume getEntityByRef rejects', async () => {
+    const showSpy = jest.spyOn(notificationStore, 'showNotification');
+    mockGetEntityByRef.mockRejectedValue(new Error('catalog down'));
+
+    sessionStorage.setItem(
+      EE_BUILD_PENDING_SESSION_KEY,
+      JSON.stringify({
+        entityRef: 'component:default/my-ee',
+        savedAt: Date.now(),
+      }),
+    );
+
+    const { result } = renderHook(() => useEEBuildFlow(), { wrapper });
+
+    await waitFor(() => {
+      expect(showSpy).toHaveBeenCalledWith(
+        expect.objectContaining({
+          title: 'Build',
+          severity: 'error',
+          description: expect.stringContaining('Could not load'),
+        }),
+      );
+    });
+
+    expect(result.current.dialogOpen).toBe(false);
+    showSpy.mockRestore();
+  });
+
+  it('drops pending payload when entityRef is missing', async () => {
+    sessionStorage.setItem(
+      EE_BUILD_PENDING_SESSION_KEY,
+      JSON.stringify({
+        savedAt: Date.now(),
+      }),
+    );
+
+    const { result } = renderHook(() => useEEBuildFlow(), { wrapper });
+
+    await act(async () => {
+      await new Promise(r => setTimeout(r, 0));
+    });
+
+    expect(mockGetEntityByRef).not.toHaveBeenCalled();
+    expect(sessionStorage.getItem(EE_BUILD_PENDING_SESSION_KEY)).toBeNull();
+    expect(result.current.dialogOpen).toBe(false);
+  });
+
+  it('skips processing when component unmounts before getEntityByRef resolves', async () => {
+    let resolveEntity!: (v: Entity | undefined) => void;
+    mockGetEntityByRef.mockReturnValue(
+      new Promise<Entity | undefined>(r => {
+        resolveEntity = r;
+      }),
+    );
+    const showSpy = jest.spyOn(notificationStore, 'showNotification');
+
+    sessionStorage.setItem(
+      EE_BUILD_PENDING_SESSION_KEY,
+      JSON.stringify({
+        entityRef: 'component:default/my-ee',
+        savedAt: Date.now(),
+      }),
+    );
+
+    const { unmount } = renderHook(() => useEEBuildFlow(), { wrapper });
+
+    unmount();
+
+    await act(async () => {
+      resolveEntity(entityWithGithub);
+      await new Promise(r => setTimeout(r, 0));
+    });
+
+    expect(showSpy).not.toHaveBeenCalled();
+    showSpy.mockRestore();
+  });
+
+  it('skips processing when component unmounts before getCredentials resolves', async () => {
+    let resolveCreds!: (v: { token: string; headers: object }) => void;
+    mockGetEntityByRef.mockResolvedValue(entityWithGithub);
+    mockGetCredentials.mockReturnValue(
+      new Promise<{ token: string; headers: object }>(r => {
+        resolveCreds = r;
+      }),
+    );
+    const showSpy = jest.spyOn(notificationStore, 'showNotification');
+
+    sessionStorage.setItem(
+      EE_BUILD_PENDING_SESSION_KEY,
+      JSON.stringify({
+        entityRef: 'component:default/my-ee',
+        savedAt: Date.now(),
+      }),
+    );
+
+    const { unmount } = renderHook(() => useEEBuildFlow(), { wrapper });
+
+    await act(async () => {
+      await new Promise(r => setTimeout(r, 0));
+    });
+
+    unmount();
+
+    await act(async () => {
+      resolveCreds({ token: 'abc', headers: {} });
+      await new Promise(r => setTimeout(r, 0));
+    });
+
+    expect(showSpy).not.toHaveBeenCalledWith(
+      expect.objectContaining({ title: 'Sign-in failed' }),
+    );
+    showSpy.mockRestore();
+  });
+
+  it('prevents concurrent startBuildFlow calls', async () => {
+    let resolveCreds!: (v: { token: string; headers: object }) => void;
+    mockGetCredentials.mockReturnValue(
+      new Promise<{ token: string; headers: object }>(r => {
+        resolveCreds = r;
+      }),
+    );
+
+    const { result } = renderHook(() => useEEBuildFlow(), { wrapper });
+
+    act(() => {
+      result.current.startBuildFlow(entityWithGithub);
+    });
+
+    await act(async () => {
+      await result.current.startBuildFlow(entityWithGithub);
+    });
+
+    expect(mockGetCredentials).toHaveBeenCalledTimes(1);
+
+    await act(async () => {
+      resolveCreds({ token: 'tok', headers: {} });
+      await new Promise(r => setTimeout(r, 0));
+    });
   });
 
   it('shows notification and does not open dialog when getCredentials returns an empty token', async () => {
@@ -272,52 +481,5 @@ describe('useEEBuildFlow', () => {
     expect(result.current.dialogOpen).toBe(false);
     expect(result.current.scmToken).toBeNull();
     showSpy.mockRestore();
-  });
-
-  it('sets scmProvider to gitlab for GitLab entity', async () => {
-    const { result } = renderHook(() => useEEBuildFlow(), { wrapper });
-
-    await act(async () => {
-      await result.current.startBuildFlow(entityWithGitlab);
-    });
-
-    expect(result.current.scmProvider).toBe('gitlab');
-    expect(result.current.dialogOpen).toBe(true);
-    expect(result.current.scmToken).toBe('t');
-  });
-
-  it('sets scmProvider to github for GitHub entity', async () => {
-    const { result } = renderHook(() => useEEBuildFlow(), { wrapper });
-
-    await act(async () => {
-      await result.current.startBuildFlow(entityWithGithub);
-    });
-
-    expect(result.current.scmProvider).toBe('github');
-  });
-
-  it('calls getCredentials with additionalScope for GitLab entity', async () => {
-    const { result } = renderHook(() => useEEBuildFlow(), { wrapper });
-
-    await act(async () => {
-      await result.current.startBuildFlow(entityWithGitlab);
-    });
-
-    expect(mockGetCredentials).toHaveBeenCalledWith({
-      url: 'https://gitlab.com/org/repo',
-      additionalScope: { repoWrite: true },
-    });
-  });
-
-  it('calls getCredentials without additionalScope for GitHub entity', async () => {
-    const { result } = renderHook(() => useEEBuildFlow(), { wrapper });
-
-    await act(async () => {
-      await result.current.startBuildFlow(entityWithGithub);
-    });
-
-    expect(mockGetCredentials).toHaveBeenCalledWith({
-      url: 'https://github.com/acme/repo',
-    });
   });
 });
