@@ -43,6 +43,10 @@ describe('catalog-backend-module-apme router', () => {
     getAiEngines: jest.fn(),
     configureAiProvider: jest.fn(),
     deleteAiProvider: jest.fn(),
+    listGalaxyServers: jest.fn(),
+    createGalaxyServer: jest.fn(),
+    updateGalaxyServer: jest.fn(),
+    deleteGalaxyServer: jest.fn(),
   };
 
   const logger = {
@@ -354,6 +358,80 @@ describe('catalog-backend-module-apme router', () => {
     expect(stored.global?.targetAnsibleCoreVersion).toBe('2.18');
   });
 
+  it('persists default AI model via PUT /apme/settings', async () => {
+    const response = await request(app)
+      .put('/apme/settings')
+      .send({ defaultAiModelId: 'test/gpt-oss-120b' });
+
+    expect(response.status).toBe(200);
+    expect(response.body.defaultAiModelId).toBe('test/gpt-oss-120b');
+
+    const stored = await portalSettingsStore.read();
+    expect(stored.global?.defaultAiModelId).toBe('test/gpt-oss-120b');
+  });
+
+  it('lists galaxy servers via GET /apme/settings/galaxy-servers', async () => {
+    const servers = [
+      {
+        id: 1,
+        name: 'galaxy',
+        url: 'https://galaxy.ansible.com/api/',
+        auth_url: '',
+        has_token: false,
+        created_at: '2026-01-01T00:00:00Z',
+        updated_at: '2026-01-01T00:00:00Z',
+      },
+    ];
+    mockApmeService.listGalaxyServers.mockResolvedValueOnce(servers);
+
+    const response = await request(app).get('/apme/settings/galaxy-servers');
+
+    expect(response.status).toBe(200);
+    expect(mockApmeService.listGalaxyServers).toHaveBeenCalled();
+    expect(response.body).toEqual(servers);
+  });
+
+  it('creates galaxy server via POST /apme/settings/galaxy-servers', async () => {
+    const created = {
+      id: 2,
+      name: 'automation_hub',
+      url: 'https://console.redhat.com/api/automation-hub/',
+      auth_url: '',
+      has_token: true,
+      created_at: '2026-01-02T00:00:00Z',
+      updated_at: '2026-01-02T00:00:00Z',
+    };
+    mockApmeService.createGalaxyServer.mockResolvedValueOnce(created);
+
+    const response = await request(app)
+      .post('/apme/settings/galaxy-servers')
+      .send({
+        name: 'automation_hub',
+        url: 'https://console.redhat.com/api/automation-hub/',
+        token: 'secret',
+      });
+
+    expect(response.status).toBe(201);
+    expect(mockApmeService.createGalaxyServer).toHaveBeenCalledWith({
+      name: 'automation_hub',
+      url: 'https://console.redhat.com/api/automation-hub/',
+      token: 'secret',
+      auth_url: undefined,
+    });
+    expect(response.body).toEqual(created);
+  });
+
+  it('deletes galaxy server via DELETE /apme/settings/galaxy-servers/:id', async () => {
+    mockApmeService.deleteGalaxyServer.mockResolvedValueOnce(undefined);
+
+    const response = await request(app).delete(
+      '/apme/settings/galaxy-servers/3',
+    );
+
+    expect(response.status).toBe(204);
+    expect(mockApmeService.deleteGalaxyServer).toHaveBeenCalledWith(3);
+  });
+
   it('resolves per-project scan target with override', async () => {
     await portalSettingsStore.updateGlobal('2.17');
     await portalSettingsStore.updateProjectTarget('proj-1', '2.16');
@@ -505,7 +583,29 @@ describe('catalog-backend-module-apme router', () => {
     ]);
   });
 
-  it('calls configureAiProvider with camelCase body (Abbenay v2026.8+)', async () => {
+  it('proxies configureAiProvider with envVarName + secretStorage (deploy-time secrets)', async () => {
+    mockApmeService.configureAiProvider.mockResolvedValueOnce({ ok: true });
+
+    const response = await request(app)
+      .post('/apme/ai/provider/my-openrouter/configure')
+      .send({
+        engine: 'openrouter',
+        envVarName: 'OPENROUTER_API_KEY',
+        secretStorage: 'env',
+      });
+
+    expect(response.status).toBe(200);
+    expect(mockApmeService.configureAiProvider).toHaveBeenCalledWith(
+      'my-openrouter',
+      {
+        engine: 'openrouter',
+        envVarName: 'OPENROUTER_API_KEY',
+        secretStorage: 'env',
+      },
+    );
+  });
+
+  it('proxies configureAiProvider apiKey body through (keytar host path)', async () => {
     mockApmeService.configureAiProvider.mockResolvedValueOnce({ ok: true });
 
     const response = await request(app)
@@ -519,6 +619,15 @@ describe('catalog-backend-module-apme router', () => {
     );
   });
 
+  it('rejects unsafe AI provider ids on configure', async () => {
+    const response = await request(app)
+      .post('/apme/ai/provider/bad;id/configure')
+      .send({ engine: 'openrouter', envVarName: 'OPENROUTER_API_KEY' });
+
+    expect(response.status).toBe(400);
+    expect(mockApmeService.configureAiProvider).not.toHaveBeenCalled();
+  });
+
   it('deletes an AI provider and returns 204', async () => {
     mockApmeService.deleteAiProvider.mockResolvedValueOnce(undefined);
 
@@ -526,6 +635,56 @@ describe('catalog-backend-module-apme router', () => {
 
     expect(response.status).toBe(204);
     expect(mockApmeService.deleteAiProvider).toHaveBeenCalledWith('my-openrouter');
+  });
+
+  it('returns AI status connected from Abbenay health when models list is empty', async () => {
+    mockApmeService.getAiModels.mockResolvedValueOnce([]);
+    mockApmeService.getAiConfig.mockRejectedValueOnce(new Error('config down'));
+    mockApmeService.getAiEngines.mockRejectedValueOnce(new Error('engines down'));
+    mockApmeService.getHealth.mockResolvedValueOnce({
+      status: 'healthy',
+      components: [{ name: 'Abbenay AI', status: 'ok' }],
+    });
+
+    const response = await request(app).get('/apme/ai/status');
+
+    expect(response.status).toBe(200);
+    expect(response.body.connected).toBe(true);
+    expect(response.body.modelCount).toBe(0);
+  });
+
+  it('reports configuredModelCount without using it as inference modelCount', async () => {
+    mockApmeService.getAiModels.mockResolvedValueOnce([]);
+    mockApmeService.getAiConfig.mockResolvedValueOnce({
+      config: {
+        providers: {
+          test: {
+            engine: 'openai',
+            models: {
+              'gpt-oss-120b': {},
+              'deepseek-r1-distill-qwen-14b': {},
+            },
+          },
+        },
+      },
+    });
+
+    const response = await request(app).get('/apme/ai/status');
+
+    expect(response.status).toBe(200);
+    expect(response.body.connected).toBe(true);
+    expect(response.body.modelCount).toBe(0);
+    expect(response.body.configuredModelCount).toBe(2);
+  });
+
+  it('returns empty AI models when inference list is empty (no config synthesis)', async () => {
+    mockApmeService.getAiModels.mockResolvedValueOnce([]);
+
+    const response = await request(app).get('/apme/ai/models');
+
+    expect(response.status).toBe(200);
+    expect(response.body).toEqual([]);
+    expect(mockApmeService.getAiConfig).not.toHaveBeenCalled();
   });
 
   it('returns AI config', async () => {

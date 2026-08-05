@@ -35,6 +35,23 @@ import { ApmeUnavailable } from '../ApmeUnavailable';
 import { PreviewLabelRow } from '../PreviewChip';
 import { QualityFindingsSection } from '../QualityFindingsSection';
 
+function scanTypeChipStyle(isFix: boolean, isDark: boolean) {
+  if (isFix) {
+    return {
+      backgroundColor: isDark
+        ? 'rgba(62, 134, 53, 0.25)'
+        : 'rgba(62, 134, 53, 0.12)',
+      color: isDark ? '#BDE5B8' : '#3E8635',
+    };
+  }
+  return {
+    backgroundColor: isDark
+      ? 'rgba(0, 102, 204, 0.25)'
+      : 'rgba(0, 102, 204, 0.1)',
+    color: isDark ? '#8EC8F7' : '#0066CC',
+  };
+}
+
 const useActivityListStyles = makeStyles(theme => ({
   table: {
     width: '100%',
@@ -241,22 +258,7 @@ function ActivityList({
                   <td>
                     <span
                       className={classes.typeChip}
-                      style={{
-                        backgroundColor: isFix
-                          ? isDark
-                            ? 'rgba(62, 134, 53, 0.25)'
-                            : 'rgba(62, 134, 53, 0.12)'
-                          : isDark
-                            ? 'rgba(0, 102, 204, 0.25)'
-                            : 'rgba(0, 102, 204, 0.1)',
-                        color: isFix
-                          ? isDark
-                            ? '#BDE5B8'
-                            : '#3E8635'
-                          : isDark
-                            ? '#8EC8F7'
-                            : '#0066CC',
-                      }}
+                      style={scanTypeChipStyle(isFix, isDark)}
                     >
                       {typeLabel}
                     </span>
@@ -401,7 +403,7 @@ function QualityActivityBody({ projectId }: { projectId: string }) {
       setDetail(null);
       setDetailError(null);
       setDetailLoading(false);
-      return;
+      return undefined;
     }
     let cancelled = false;
     setDetailLoading(true);
@@ -434,34 +436,41 @@ function QualityActivityBody({ projectId }: { projectId: string }) {
   }
 
   if (activityId) {
+    let detailBody: JSX.Element;
+    if (detailLoading) {
+      detailBody = <Progress />;
+    } else if (detailError) {
+      detailBody = (
+        <Flex direction={{ default: 'column' }} gap={{ default: 'gapSm' }}>
+          <Flex justifyContent={{ default: 'justifyContentFlexEnd' }}>
+            <CloseDetailButton onClose={backToList} />
+          </Flex>
+          <ResponseErrorPanel error={detailError} />
+        </Flex>
+      );
+    } else if (detail) {
+      detailBody = (
+        <ActivityDetailView
+          projectId={projectId}
+          detail={detail}
+          onBack={backToList}
+          ruleFilter={ruleFilter}
+        />
+      );
+    } else {
+      detailBody = (
+        <Flex direction={{ default: 'column' }} gap={{ default: 'gapSm' }}>
+          <Flex justifyContent={{ default: 'justifyContentFlexEnd' }}>
+            <CloseDetailButton onClose={backToList} />
+          </Flex>
+          <div style={{ opacity: 0.7 }}>Activity not found.</div>
+        </Flex>
+      );
+    }
+
     return (
       <Card>
-        <CardBody>
-          {detailLoading ? (
-            <Progress />
-          ) : detailError ? (
-            <Flex direction={{ default: 'column' }} gap={{ default: 'gapSm' }}>
-              <Flex justifyContent={{ default: 'justifyContentFlexEnd' }}>
-                <CloseDetailButton onClose={backToList} />
-              </Flex>
-              <ResponseErrorPanel error={detailError} />
-            </Flex>
-          ) : detail ? (
-            <ActivityDetailView
-              projectId={projectId}
-              detail={detail}
-              onBack={backToList}
-              ruleFilter={ruleFilter}
-            />
-          ) : (
-            <Flex direction={{ default: 'column' }} gap={{ default: 'gapSm' }}>
-              <Flex justifyContent={{ default: 'justifyContentFlexEnd' }}>
-                <CloseDetailButton onClose={backToList} />
-              </Flex>
-              <div style={{ opacity: 0.7 }}>Activity not found.</div>
-            </Flex>
-          )}
-        </CardBody>
+        <CardBody>{detailBody}</CardBody>
       </Card>
     );
   }

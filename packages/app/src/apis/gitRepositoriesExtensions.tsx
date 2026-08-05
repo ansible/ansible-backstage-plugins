@@ -12,6 +12,7 @@ import {
   ApmeViolationsCell,
   ApmeEntityQualityTabComponent,
   ApmeEntityQualityActivityTabComponent,
+  ApmeDependenciesTabComponent,
   ApmeFleetQualityTabComponent,
   ApmeRepositoryOverviewCard,
   ApmeRepositoryHeaderActions,
@@ -24,6 +25,7 @@ const ApmeGitRepositoriesExtensionsApi = createApmeGitRepositoriesExtensionsApi(
     EntityQualityActivityTab: withSuspense(
       ApmeEntityQualityActivityTabComponent,
     ),
+    DependenciesTab: withSuspense(ApmeDependenciesTabComponent),
     ApmeRepositoryOverviewCard: withSuspense(ApmeRepositoryOverviewCard),
     ApmeRepositoryHeaderActions: withSuspense(ApmeRepositoryHeaderActions),
     ApmeViolationsCell,

@@ -48,7 +48,7 @@ describe('ApmeAiProviderDialog', () => {
     await waitFor(() =>
       expect(screen.getByLabelText(/Engine/i)).toBeInTheDocument(),
     );
-    expect(screen.getByLabelText('API key')).toBeInTheDocument();
+    expect(screen.getByLabelText('API key env var')).toBeInTheDocument();
   });
 
   it('lists live engines from getAiEngines (openai, ollama, redhat)', async () => {
@@ -147,14 +147,17 @@ describe('ApmeAiProviderDialog', () => {
     expect(screen.getAllByText('gpt-4o')).toHaveLength(1);
   });
 
-  it('calls onSave with correct payload including apiKey and models separately', async () => {
+  it('calls onSave with envVarName + secretStorage and models separately', async () => {
     renderDialog();
     fireEvent.change(screen.getByLabelText('Provider ID'), { target: { value: 'test-prov' } });
-    fireEvent.change(screen.getByLabelText('API key'), { target: { value: 'sk-secret' } });
 
     await waitFor(() =>
       expect(screen.getByLabelText(/Engine/i)).toBeInTheDocument(),
     );
+    // Prefills from engine defaultEnvVar; override to assert payload.
+    fireEvent.change(screen.getByLabelText('API key env var'), {
+      target: { value: 'OPENAI_API_KEY' },
+    });
     fireEvent.click(screen.getByRole('button', { name: /next: models/i }));
 
     const modelInput = await screen.findByLabelText('Model ID');
@@ -167,19 +170,23 @@ describe('ApmeAiProviderDialog', () => {
       expect(onSave).toHaveBeenCalledWith('test-prov', {
         configure: {
           engine: 'openai', // first engine in MOCK_ENGINES
-          apiKey: 'sk-secret',
+          envVarName: 'OPENAI_API_KEY',
+          secretStorage: 'env',
         },
         models: ['gpt-4o'],
       });
     });
   });
 
-  it('omits apiKey from configure when left blank (edit)', async () => {
+  it('omits envVarName from configure when left blank (edit)', async () => {
     renderDialog({ provider: { id: 'existing', engine: 'openai', models: ['gpt-4o'] } });
 
     await waitFor(() =>
       expect(screen.getByLabelText(/Engine/i)).toBeInTheDocument(),
     );
+    fireEvent.change(screen.getByLabelText('API key env var'), {
+      target: { value: '' },
+    });
     fireEvent.click(screen.getByRole('button', { name: /next: models/i }));
     await screen.findByText(/Step 2 of 2/);
 
@@ -189,7 +196,10 @@ describe('ApmeAiProviderDialog', () => {
       expect(onSave).toHaveBeenCalledWith(
         'existing',
         expect.objectContaining({
-          configure: expect.not.objectContaining({ apiKey: expect.anything() }),
+          configure: expect.not.objectContaining({
+            envVarName: expect.anything(),
+            apiKey: expect.anything(),
+          }),
         }),
       );
     });

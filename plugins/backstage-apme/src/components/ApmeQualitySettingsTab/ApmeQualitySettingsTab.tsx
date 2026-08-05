@@ -25,6 +25,7 @@ import { ansibleCoreVersionOptions } from '@ansible/backstage-apme-common/ansibl
 import { DEFAULT_APME_TARGET_ANSIBLE_CORE_VERSION } from '@ansible/backstage-apme-common/scanTargetDefaults';
 import { apmeApiRef } from '../../api';
 import { ApmeAiProvidersSection } from './ApmeAiProvidersSection';
+import { ApmeGalaxyServersSection } from './ApmeGalaxyServersSection';
 
 const useStyles = makeStyles(theme => ({
   root: {
@@ -190,6 +191,10 @@ export const ApmeQualitySettingsTab = () => {
           </Typography>
         </CardContent>
       </Card>
+
+      <Box mt={3}>
+        <ApmeGalaxyServersSection />
+      </Box>
 
       <Box mt={3}>
         <ApmeAiProvidersSection />

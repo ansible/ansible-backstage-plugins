@@ -11,7 +11,11 @@ import { DEFAULT_APME_TARGET_ANSIBLE_CORE_VERSION } from './scanTargetDefaults';
 export type ScanTargetSource = 'project' | 'global' | 'config' | 'default';
 
 export interface ApmePortalSettingsData {
-  global?: { targetAnsibleCoreVersion?: string };
+  global?: {
+    targetAnsibleCoreVersion?: string;
+    /** Abbenay chat model id (provider/model) for remediate + escalate-ai. */
+    defaultAiModelId?: string;
+  };
   projects?: Record<string, { targetAnsibleCoreVersion?: string }>;
   activities?: Record<
     string,

@@ -59,4 +59,4 @@ Direct RHDH URL:
 - AI gate: `ansible.apme.enableAi` (default **on** in local configs), ANDed into
   check options; per-scan toggle still available on the Quality tab.
 - Host wiring: `plugins/backstage-apme` thin host; UI package `@apme/ui-workflow`.
-- See [`plugins/backstage-apme/ARCHITECTURE.md`](../../plugins/backstage-apme/ARCHITECTURE.md) for adapter and proxy details.
+- See [backstage-apme ARCHITECTURE](https://github.com/ansible/ansible-backstage-plugins/blob/feat/apme-eap-next-ui-workflow/plugins/backstage-apme/ARCHITECTURE.md) for adapter and proxy details.

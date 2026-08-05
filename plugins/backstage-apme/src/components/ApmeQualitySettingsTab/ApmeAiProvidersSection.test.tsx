@@ -17,6 +17,7 @@ describe('ApmeAiProvidersSection', () => {
   const configureAiProvider = jest.fn();
   const updateAiConfig = jest.fn();
   const deleteAiProvider = jest.fn();
+  const updatePortalSettings = jest.fn();
 
   const apmeApi = {
     getAiProviders,
@@ -27,6 +28,7 @@ describe('ApmeAiProvidersSection', () => {
     configureAiProvider,
     updateAiConfig,
     deleteAiProvider,
+    updatePortalSettings,
   };
 
   beforeEach(() => {
@@ -36,11 +38,12 @@ describe('ApmeAiProvidersSection', () => {
     getAiModels.mockResolvedValue([]);
     getAiConfig.mockResolvedValue(undefined);
     getAiEngines.mockResolvedValue({ engines: [
-      { id: 'openai', requiresKey: true },
-      { id: 'anthropic', requiresKey: true },
+      { id: 'openai', requiresKey: true, defaultEnvVar: 'OPENAI_API_KEY' },
+      { id: 'anthropic', requiresKey: true, defaultEnvVar: 'ANTHROPIC_API_KEY' },
     ]});
     configureAiProvider.mockResolvedValue(undefined);
     updateAiConfig.mockResolvedValue(undefined);
+    updatePortalSettings.mockResolvedValue({});
   });
 
   function renderSection() {
@@ -58,7 +61,7 @@ describe('ApmeAiProvidersSection', () => {
 
   it('shows connected status chip from getAiStatus', async () => {
     renderSection();
-    expect(await screen.findByText(/Connected · 2 models/i)).toBeInTheDocument();
+    expect(await screen.findByText(/Connected · 2 inference models/i)).toBeInTheDocument();
   });
 
   it('shows empty state when no providers', async () => {
@@ -158,7 +161,7 @@ describe('ApmeAiProvidersSection', () => {
     expect(await screen.findByText('Gateway timeout')).toBeInTheDocument();
   });
 
-  it('save calls configureAiProvider with camelCase body then updateAiConfig with merged models', async () => {
+  it('save calls configureAiProvider with envVarName then updateAiConfig with merged models', async () => {
     getAiConfig.mockResolvedValue({
       config: { providers: { 'existing-prov': { engine: 'anthropic' } }, server: {} },
     });
@@ -168,11 +171,13 @@ describe('ApmeAiProvidersSection', () => {
 
     fireEvent.click(screen.getByRole('button', { name: /add provider/i }));
     fireEvent.change(screen.getByLabelText('Provider ID'), { target: { value: 'new-prov' } });
-    fireEvent.change(screen.getByLabelText('API key'), { target: { value: 'sk-test' } });
 
     await waitFor(() =>
       expect(screen.getByLabelText(/Engine/i)).toBeInTheDocument(),
     );
+    fireEvent.change(screen.getByLabelText('API key env var'), {
+      target: { value: 'OPENAI_API_KEY' },
+    });
     fireEvent.click(screen.getByRole('button', { name: /next: models/i }));
 
     const modelInput = await screen.findByLabelText('Model ID');
@@ -184,7 +189,8 @@ describe('ApmeAiProvidersSection', () => {
     await waitFor(() => {
       expect(configureAiProvider).toHaveBeenCalledWith('new-prov', {
         engine: 'openai',
-        apiKey: 'sk-test',
+        envVarName: 'OPENAI_API_KEY',
+        secretStorage: 'env',
       });
     });
     await waitFor(() => {
@@ -202,6 +208,11 @@ describe('ApmeAiProvidersSection', () => {
           }),
         }),
       );
+    });
+    await waitFor(() => {
+      expect(updatePortalSettings).toHaveBeenCalledWith({
+        defaultAiModelId: 'new-prov/gpt-4o',
+      });
     });
   });
 

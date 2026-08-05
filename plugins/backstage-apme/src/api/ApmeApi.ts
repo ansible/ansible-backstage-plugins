@@ -44,6 +44,9 @@ import type {
   UpdatePortalSettingsRequest,
   UpdateProjectScanTargetRequest,
   ScanTriggerOptions,
+  GalaxyServer,
+  CreateGalaxyServerRequest,
+  UpdateGalaxyServerRequest,
 } from '@ansible/backstage-apme-common/types';
 import {
   coerceRuleResponse,
@@ -98,6 +101,13 @@ export interface ApmeApi {
   createSuppression(body: CreateSuppressionRequest): Promise<Suppression>;
   deleteSuppression(suppressionId: number): Promise<void>;
   getSuppressions(scope?: string): Promise<Suppression[]>;
+  listGalaxyServers(): Promise<GalaxyServer[]>;
+  createGalaxyServer(body: CreateGalaxyServerRequest): Promise<GalaxyServer>;
+  updateGalaxyServer(
+    serverId: number,
+    body: UpdateGalaxyServerRequest,
+  ): Promise<GalaxyServer>;
+  deleteGalaxyServer(serverId: number): Promise<void>;
   triggerScan(projectId: string, options?: ScanTriggerOptions): Promise<ScanResult>;
   createProject(request: CreateProjectRequest): Promise<Project>;
   validateRepoBranch(repoUrl: string, branch: string): Promise<void>;
@@ -240,6 +250,39 @@ export class ApmeApiClient implements ApmeApi {
       method: 'PUT',
       body: JSON.stringify(body),
     });
+  }
+
+  async listGalaxyServers(): Promise<GalaxyServer[]> {
+    return this.fetch<GalaxyServer[]>('/settings/galaxy-servers');
+  }
+
+  async createGalaxyServer(
+    body: CreateGalaxyServerRequest,
+  ): Promise<GalaxyServer> {
+    return this.fetch<GalaxyServer>('/settings/galaxy-servers', {
+      method: 'POST',
+      body: JSON.stringify(body),
+    });
+  }
+
+  async updateGalaxyServer(
+    serverId: number,
+    body: UpdateGalaxyServerRequest,
+  ): Promise<GalaxyServer> {
+    return this.fetch<GalaxyServer>(
+      `/settings/galaxy-servers/${encodeURIComponent(String(serverId))}`,
+      {
+        method: 'PATCH',
+        body: JSON.stringify(body),
+      },
+    );
+  }
+
+  async deleteGalaxyServer(serverId: number): Promise<void> {
+    await this.fetch<void>(
+      `/settings/galaxy-servers/${encodeURIComponent(String(serverId))}`,
+      { method: 'DELETE' },
+    );
   }
 
   async getProjectScanTarget(projectId: string): Promise<ProjectScanTarget> {

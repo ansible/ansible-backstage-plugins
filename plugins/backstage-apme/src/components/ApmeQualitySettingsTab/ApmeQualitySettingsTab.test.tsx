@@ -11,6 +11,10 @@ import { ApmeQualitySettingsTab } from './ApmeQualitySettingsTab';
 describe('ApmeQualitySettingsTab', () => {
   const getPortalSettings = jest.fn();
   const updatePortalSettings = jest.fn();
+  const listGalaxyServers = jest.fn();
+  const createGalaxyServer = jest.fn();
+  const updateGalaxyServer = jest.fn();
+  const deleteGalaxyServer = jest.fn();
   const getAiProviders = jest.fn();
   const getAiStatus = jest.fn();
   const configureAiProvider = jest.fn();
@@ -19,6 +23,10 @@ describe('ApmeQualitySettingsTab', () => {
   const apmeApi = {
     getPortalSettings,
     updatePortalSettings,
+    listGalaxyServers,
+    createGalaxyServer,
+    updateGalaxyServer,
+    deleteGalaxyServer,
     getAiProviders,
     getAiStatus,
     configureAiProvider,
@@ -37,6 +45,17 @@ describe('ApmeQualitySettingsTab', () => {
       publishViaGateway: true,
       targetAnsibleCoreVersion: '2.18',
     });
+    listGalaxyServers.mockResolvedValue([
+      {
+        id: 1,
+        name: 'galaxy',
+        url: 'https://galaxy.ansible.com/api/',
+        auth_url: '',
+        has_token: false,
+        created_at: '2026-01-01T00:00:00Z',
+        updated_at: '2026-01-01T00:00:00Z',
+      },
+    ]);
     getAiProviders.mockResolvedValue([]);
     getAiStatus.mockResolvedValue({ enableAi: true, connected: false, modelCount: 0 });
   });
@@ -92,5 +111,15 @@ describe('ApmeQualitySettingsTab', () => {
     expect(await screen.findByText('Quality settings')).toBeInTheDocument();
     expect(await screen.findByText('AI providers')).toBeInTheDocument();
     expect(getAiProviders).toHaveBeenCalled();
+  });
+
+  it('renders galaxy servers section with list from gateway', async () => {
+    renderTab();
+    expect(await screen.findByText('Galaxy servers')).toBeInTheDocument();
+    expect(listGalaxyServers).toHaveBeenCalled();
+    expect(screen.getByText('galaxy')).toBeInTheDocument();
+    expect(
+      screen.getByText('https://galaxy.ansible.com/api/'),
+    ).toBeInTheDocument();
   });
 });

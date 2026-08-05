@@ -43,6 +43,9 @@ import {
   SubmitRemediationRequest,
   SubmitRemediationResult,
   ScanTriggerOptions,
+  GalaxyServer,
+  CreateGalaxyServerRequest,
+  UpdateGalaxyServerRequest,
   ApmeAiProviderConfigureRequest,
   ApmeAiEnginesResponse,
 } from '../types';
@@ -339,6 +342,44 @@ export class ApmeClient {
     return this.executeRequest<Suppression[]>(`/api/v1/suppressions${query}`);
   }
 
+  async listGalaxyServers(): Promise<GalaxyServer[]> {
+    return this.executeRequest<GalaxyServer[]>(
+      '/api/v1/settings/galaxy-servers',
+    );
+  }
+
+  async createGalaxyServer(
+    body: CreateGalaxyServerRequest,
+  ): Promise<GalaxyServer> {
+    return this.executeRequest<GalaxyServer>(
+      '/api/v1/settings/galaxy-servers',
+      {
+        method: 'POST',
+        body: JSON.stringify(body),
+      },
+    );
+  }
+
+  async updateGalaxyServer(
+    serverId: number,
+    body: UpdateGalaxyServerRequest,
+  ): Promise<GalaxyServer> {
+    return this.executeRequest<GalaxyServer>(
+      `/api/v1/settings/galaxy-servers/${serverId}`,
+      {
+        method: 'PATCH',
+        body: JSON.stringify(body),
+      },
+    );
+  }
+
+  async deleteGalaxyServer(serverId: number): Promise<void> {
+    await this.executeRequest<void>(
+      `/api/v1/settings/galaxy-servers/${serverId}`,
+      { method: 'DELETE' },
+    );
+  }
+
   async triggerScan(
     projectId: string,
     options?: ScanTriggerOptions,
@@ -541,6 +582,10 @@ export type IApmeService = Pick<
   | 'createSuppression'
   | 'deleteSuppression'
   | 'getSuppressions'
+  | 'listGalaxyServers'
+  | 'createGalaxyServer'
+  | 'updateGalaxyServer'
+  | 'deleteGalaxyServer'
   | 'triggerScan'
   | 'getScanStatus'
   | 'createProject'

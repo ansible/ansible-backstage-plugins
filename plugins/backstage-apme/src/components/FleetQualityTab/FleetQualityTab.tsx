@@ -7,10 +7,6 @@
 
 import { useMemo, useState, type MouseEvent } from 'react';
 import { Link as RouterLink } from 'react-router-dom';
-import { useAsync } from 'react-use';
-import { useApi } from '@backstage/core-plugin-api';
-import { catalogApiRef } from '@backstage/plugin-catalog-react';
-import { Entity } from '@backstage/catalog-model';
 import {
   Box,
   Card,
@@ -27,7 +23,6 @@ import CheckCircleIcon from '@material-ui/icons/CheckCircle';
 import ChevronRightIcon from '@material-ui/icons/ChevronRight';
 import KeyboardArrowDownIcon from '@material-ui/icons/KeyboardArrowDown';
 import { Progress } from '@backstage/core-components';
-import type { Project } from '@ansible/backstage-apme-common/types';
 import {
   SEVERITY_ORDER,
   normalizeSeverity,
@@ -38,11 +33,11 @@ import {
   type SeverityLevel,
 } from '@ansible/backstage-apme-common/severity';
 import { useApmeColorTokens } from '../../hooks/useApmeColorTokens';
-import { apmeApiRef } from '../../api';
-import { projectLookupKey } from '@ansible/backstage-rhaap-common/catalogEntity';
 import { useApmeEnabled, useApmeAiEnabled } from '../../hooks/useApmeEnabled';
-import { fetchAllProjectViolations } from '../../utils/fetchAllProjectViolations';
 import { PreviewLabelRow } from '../PreviewChip';
+import {
+  useFleetQualityData,
+} from './useFleetQualityData';
 
 const STATUS_ERROR = '#C9190B';
 const STATUS_SUCCESS = '#3E8635';
@@ -144,36 +139,6 @@ export interface FleetQualityTabProps {
   repositoryDetailPath: (entityName: string, ruleId?: string) => string;
 }
 
-type FleetRepoRow = {
-  project: Project;
-  entityName: string;
-  count: number;
-  remediationClass: number;
-  lastScannedAt?: string;
-};
-
-type RuleAggregate = {
-  ruleId: string;
-  message: string;
-  level: string;
-  category?: string;
-  repos: FleetRepoRow[];
-  totalCount: number;
-};
-
-function entityProjectLookupKey(entity: Entity): string | undefined {
-  const loc =
-    entity.metadata?.annotations?.['backstage.io/source-location'] ??
-    entity.metadata?.annotations?.['ansible.com/repository-url'];
-  if (!loc) return undefined;
-  const match = loc.match(/url:(https?:\/\/[^\s]+)/);
-  const repoUrl = match ? match[1] : loc.replace(/^url:/, '');
-  const spec = entity.spec as
-    { repository_default_branch?: string } | undefined;
-  const branch = spec?.repository_default_branch ?? 'main';
-  return projectLookupKey(repoUrl, branch);
-}
-
 export const FleetQualityTab = ({
   repositoryDetailPath,
 }: FleetQualityTabProps) => {
@@ -181,10 +146,9 @@ export const FleetQualityTab = ({
   const theme = useTheme();
   const colorTokens = useApmeColorTokens();
   const isDark = theme.palette.type === 'dark';
-  const apmeApi = useApi(apmeApiRef);
-  const catalogApi = useApi(catalogApiRef);
   const enabled = useApmeEnabled();
   const enableAi = useApmeAiEnabled();
+  const { value, loading } = useFleetQualityData(enabled);
 
   const [severityFilters, setSeverityFilters] = useState<Set<SeverityLevel>>(
     new Set(),
@@ -195,119 +159,6 @@ export const FleetQualityTab = ({
   const [sortCol, setSortCol] = useState<SortColumn>('impact');
   const [sortAsc, setSortAsc] = useState(false);
   const [expandedRule, setExpandedRule] = useState<string | null>(null);
-
-  const { value, loading } = useAsync(async () => {
-    if (!enabled) {
-      return {
-        groups: [] as RuleAggregate[],
-        reposWithIssues: 0,
-        totalRepos: 0,
-        violationTotal: 0,
-        severityCounts: {} as Record<SeverityLevel, number>,
-      };
-    }
-
-    const [projects, catalogResponse] = await Promise.all([
-      apmeApi.getProjects(),
-      catalogApi.getEntities({
-        filter: [{ kind: 'Component', 'spec.type': 'git-repository' }],
-      }),
-    ]);
-
-    const entities = Array.isArray(catalogResponse)
-      ? catalogResponse
-      : (catalogResponse.items ?? []);
-
-    const entityByProjectKey = new Map<string, string>();
-    for (const entity of entities) {
-      const key = entityProjectLookupKey(entity);
-      if (key && entity.metadata?.name) {
-        entityByProjectKey.set(key, entity.metadata.name);
-      }
-    }
-
-    const totalRepos = Math.max(entities.length, projects.length);
-    const scanned = projects.filter(p => (p.total_violations ?? 0) > 0);
-    const violationsByProject = await Promise.all(
-      scanned.map(async project => ({
-        project,
-        violations: await fetchAllProjectViolations(
-          apmeApi,
-          project.id,
-          project.total_violations,
-        ),
-      })),
-    );
-
-    const ruleMap = new Map<string, RuleAggregate>();
-    const severityCounts = SEVERITY_ORDER.reduce(
-      (acc, sev) => {
-        acc[sev] = 0;
-        return acc;
-      },
-      {} as Record<SeverityLevel, number>,
-    );
-
-    for (const { project, violations } of violationsByProject) {
-      const projectKey = projectLookupKey(project.repo_url, project.branch);
-      const entityName =
-        entityByProjectKey.get(projectKey) ??
-        project.name.replace(/[^a-zA-Z0-9-_]/g, '-').toLowerCase();
-
-      for (const v of violations) {
-        const sev = normalizeSeverity(v.level);
-        severityCounts[sev] = (severityCounts[sev] ?? 0) + 1;
-
-        const existing = ruleMap.get(v.rule_id);
-        if (!existing) {
-          ruleMap.set(v.rule_id, {
-            ruleId: v.rule_id,
-            message: v.message,
-            level: v.level,
-            category: v.category,
-            repos: [
-              {
-                project,
-                entityName,
-                count: 1,
-                remediationClass: v.remediation_class,
-                lastScannedAt: project.last_scanned_at,
-              },
-            ],
-            totalCount: 1,
-          });
-        } else {
-          existing.totalCount += 1;
-          const repo = existing.repos.find(r => r.project.id === project.id);
-          if (repo) {
-            repo.count += 1;
-          } else {
-            existing.repos.push({
-              project,
-              entityName,
-              count: 1,
-              remediationClass: v.remediation_class,
-              lastScannedAt: project.last_scanned_at,
-            });
-          }
-        }
-      }
-    }
-
-    const groups = Array.from(ruleMap.values());
-    const violationTotal = groups.reduce((sum, g) => sum + g.totalCount, 0);
-    const reposWithIssues = new Set(
-      groups.flatMap(g => g.repos.map(r => r.project.id)),
-    ).size;
-
-    return {
-      groups,
-      reposWithIssues,
-      totalRepos,
-      violationTotal,
-      severityCounts,
-    };
-  }, [enabled, apmeApi, catalogApi]);
 
   const filteredGroups = useMemo(() => {
     let result = value?.groups ?? [];

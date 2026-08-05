@@ -29,6 +29,9 @@ import {
   RuleConfigUpdate,
   CreateSuppressionRequest,
   Suppression,
+  GalaxyServer,
+  CreateGalaxyServerRequest,
+  UpdateGalaxyServerRequest,
 } from '@ansible/backstage-apme-common/types';
 import {
   severityLevelToCatalogSeverity,
@@ -74,6 +77,18 @@ export class MockApmeApiClient implements ApmeApi {
   private activeRemediations: Map<string, RemediateState> = new Map();
   private nextProjectId = 100;
   private nextPrNumber = 142;
+  private nextGalaxyServerId = 2;
+  private galaxyServers: GalaxyServer[] = [
+    {
+      id: 1,
+      name: 'galaxy',
+      url: 'https://galaxy.ansible.com/api/',
+      auth_url: '',
+      has_token: false,
+      created_at: '2025-01-01T00:00:00.000Z',
+      updated_at: '2025-01-01T00:00:00.000Z',
+    },
+  ];
 
   async getHealth(): Promise<HealthStatus> {
     await delay(100);
@@ -86,13 +101,20 @@ export class MockApmeApiClient implements ApmeApi {
       enableAi: true,
       publishViaGateway: true,
       targetAnsibleCoreVersion: this.globalScanTarget,
+      defaultAiModelId: this.defaultAiModelId,
     };
   }
 
-  async updatePortalSettings(body: { targetAnsibleCoreVersion?: string }) {
+  async updatePortalSettings(body: {
+    targetAnsibleCoreVersion?: string;
+    defaultAiModelId?: string | null;
+  }) {
     await delay(50);
     if (body.targetAnsibleCoreVersion) {
       this.globalScanTarget = body.targetAnsibleCoreVersion;
+    }
+    if (body.defaultAiModelId !== undefined) {
+      this.defaultAiModelId = body.defaultAiModelId ?? undefined;
     }
     return this.getPortalSettings();
   }
@@ -130,12 +152,74 @@ export class MockApmeApiClient implements ApmeApi {
   }
 
   private globalScanTarget = '2.16';
+  private defaultAiModelId: string | undefined = 'mock-provider/mock-model';
 
   private projectScanTargets: Record<string, string> = {};
 
   async getAiStatus() {
     await delay(50);
-    return { enableAi: true, connected: true, modelCount: 1 };
+    return { enableAi: true, connected: true, modelCount: 1, configuredModelCount: 1 };
+  }
+
+  async getAiModels() {
+    await delay(50);
+    return [
+      {
+        id: 'mock-model',
+        provider: 'mock-provider',
+        name: 'Mock model',
+      },
+    ];
+  }
+
+  async getAiConfig() {
+    await delay(50);
+    return {
+      providers: {
+        'mock-provider': {
+          type: 'openai',
+          models: [{ id: 'mock-model', name: 'Mock model' }],
+        },
+      },
+    };
+  }
+
+  async updateAiConfig(body: unknown) {
+    await delay(50);
+    return body;
+  }
+
+  async getAiProviders() {
+    await delay(50);
+    return [
+      {
+        id: 'mock-provider',
+        engine: 'openai',
+        models: ['mock-model'],
+      },
+    ];
+  }
+
+  async getAiEngines() {
+    await delay(50);
+    return {
+      engines: [
+        {
+          id: 'openai',
+          requiresKey: true,
+          defaultBaseUrl: 'https://api.openai.com/v1',
+        },
+      ],
+    };
+  }
+
+  async configureAiProvider(_id: string, body: unknown) {
+    await delay(50);
+    return body;
+  }
+
+  async deleteAiProvider(_id: string) {
+    await delay(50);
   }
 
   async getProjects(): Promise<Project[]> {
@@ -301,6 +385,57 @@ export class MockApmeApiClient implements ApmeApi {
     await delay(100);
     if (!scope) return [...this.mockSuppressions];
     return this.mockSuppressions.filter(s => s.scope === scope);
+  }
+
+  async listGalaxyServers(): Promise<GalaxyServer[]> {
+    await delay(100);
+    return this.galaxyServers.map(s => ({ ...s }));
+  }
+
+  async createGalaxyServer(
+    body: CreateGalaxyServerRequest,
+  ): Promise<GalaxyServer> {
+    await delay(150);
+    const now = new Date().toISOString();
+    const server: GalaxyServer = {
+      id: this.nextGalaxyServerId++,
+      name: body.name,
+      url: body.url,
+      auth_url: body.auth_url ?? '',
+      has_token: Boolean(body.token?.trim()),
+      created_at: now,
+      updated_at: now,
+    };
+    this.galaxyServers.push(server);
+    return { ...server };
+  }
+
+  async updateGalaxyServer(
+    serverId: number,
+    body: UpdateGalaxyServerRequest,
+  ): Promise<GalaxyServer> {
+    await delay(150);
+    const idx = this.galaxyServers.findIndex(s => s.id === serverId);
+    if (idx < 0) throw new Error(`Galaxy server ${serverId} not found`);
+    const existing = this.galaxyServers[idx];
+    const updated: GalaxyServer = {
+      ...existing,
+      name: body.name ?? existing.name,
+      url: body.url ?? existing.url,
+      auth_url: body.auth_url ?? existing.auth_url,
+      has_token:
+        body.token !== undefined
+          ? Boolean(body.token.trim())
+          : existing.has_token,
+      updated_at: new Date().toISOString(),
+    };
+    this.galaxyServers[idx] = updated;
+    return { ...updated };
+  }
+
+  async deleteGalaxyServer(serverId: number): Promise<void> {
+    await delay(100);
+    this.galaxyServers = this.galaxyServers.filter(s => s.id !== serverId);
   }
 
   async triggerScan(

@@ -26,7 +26,6 @@ import {
 } from '@patternfly/react-core';
 import '@patternfly/react-core/dist/styles/base.css';
 import {
-  AI_MODEL_STORAGE_KEY,
   ApmeApiProvider,
   CheckOptionsForm,
   ProjectWorkflowPanel,
@@ -35,6 +34,7 @@ import {
 import type { Project } from '@ansible/backstage-apme-common/types';
 import { apmeApiRef } from '../../api';
 import { useApmeAiEnabled } from '../../hooks/useApmeEnabled';
+import { useApmeWorkflowAiModel } from '../../hooks/useApmeWorkflowAiModel';
 import { useResolveApmeProject } from '../../hooks/useResolveApmeProject';
 import { useSyncPatternFlyTheme } from '../../hooks/useSyncPatternFlyTheme';
 import { resolveDefaultAnsibleVersionForScan } from '../../utils/resolveDefaultAnsibleVersionForScan';
@@ -85,6 +85,8 @@ function WorkflowBody({ projectId }: { projectId: string }) {
     };
   }, [apmeApi, projectId]);
 
+  const getAiModel = useApmeWorkflowAiModel();
+
   const workflow = useProjectWorkflow(projectId, {
     checkOptions: {
       ansibleVersion,
@@ -92,7 +94,7 @@ function WorkflowBody({ projectId }: { projectId: string }) {
       enableAi: portalAiEnabled && enableAi,
       autoApplyTier1,
     },
-    getAiModel: () => localStorage.getItem(AI_MODEL_STORAGE_KEY) ?? undefined,
+    getAiModel,
   });
 
   const { sessionTabVisible, isRunning, startScan, cancel } = workflow;

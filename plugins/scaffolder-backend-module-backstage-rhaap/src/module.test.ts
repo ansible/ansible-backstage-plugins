@@ -16,6 +16,7 @@ jest.mock('./actions', () => ({
   createEETemplateAction: jest.fn(() => 'action8'),
   prepareForPublishAction: jest.fn(() => 'action9'),
   createEECatalogInfoAction: jest.fn(() => 'action10'),
+  registerGitRepositoryAction: jest.fn(() => 'action11'),
 }));
 
 jest.mock('./filters', () => ({

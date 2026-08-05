@@ -18,7 +18,6 @@ import {
   filterViolationsForAssessPanel,
   violationsToAssessFindings,
 } from '../../utils/violationToAssessFinding';
-import { normalizeRuleId } from '../../utils/violationAnalytics';
 
 export interface QualityFindingsSectionProps {
   projectId: string;
@@ -53,10 +52,11 @@ export function QualityFindingsSection({
   // Pass the full open set into the panel so Rule filter can show "N of total".
   const panelFilterOpts = useMemo(
     () => ({
+      ruleId: ruleFilter,
       category: categoryFilter,
       acknowledgedIds,
     }),
-    [categoryFilter, acknowledgedIds],
+    [ruleFilter, categoryFilter, acknowledgedIds],
   );
 
   const ackFilterOpts = useMemo(
@@ -76,11 +76,6 @@ export function QualityFindingsSection({
   const findings = useMemo(
     () => violationsToAssessFindings(violations, panelFilterOpts),
     [violations, panelFilterOpts],
-  );
-
-  const initialRuleFilters = useMemo(
-    () => (ruleFilter ? [normalizeRuleId(ruleFilter)] : undefined),
-    [ruleFilter],
   );
 
   if (violations.length === 0 && findings.length === 0) {
@@ -107,11 +102,7 @@ export function QualityFindingsSection({
       ) : null}
 
       {findings.length > 0 ? (
-        <AssessFindingsPanel
-          findings={findings}
-          description={description}
-          initialRuleFilters={initialRuleFilters}
-        />
+        <AssessFindingsPanel findings={findings} description={description} />
       ) : (
         <div style={{ opacity: 0.7 }}>
           No open findings match the current filters.
@@ -143,10 +134,10 @@ export function QualityFindingsSection({
             <tbody>
               {openViolations.map(violation => (
                 <tr key={violation.id} role="row">
-                  <td role="cell">{violation.rule_id}</td>
-                  <td role="cell">{violation.level}</td>
-                  <td role="cell">{violation.message}</td>
-                  <td role="cell">
+                  <td>{violation.rule_id}</td>
+                  <td>{violation.level}</td>
+                  <td>{violation.message}</td>
+                  <td>
                     <Button
                       variant="secondary"
                       size="sm"

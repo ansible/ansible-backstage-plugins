@@ -10,10 +10,8 @@ info:
     name: Apache-2.0
     url: http://www.apache.org/licenses/LICENSE-2.0.html
   contact: {}
-
 servers:
   - url: /
-
 tags:
   - name: Health
     description: Health check endpoints
@@ -25,14 +23,14 @@ tags:
     description: Execution environment registration and build
   - name: Git Content
     description: Fetch file content and CI activity from GitHub/GitLab
-
+  - name: APME
+    description: Ansible Policy & Modernization Engine - static analysis and remediation
 components:
   securitySchemes:
     JWT:
       type: http
       scheme: bearer
       bearerFormat: JWT
-
   schemas:
     ErrorResponse:
       type: object
@@ -43,7 +41,6 @@ components:
           type: string
           description: Human-readable error message
       additionalProperties: false
-
     AAPSyncResponse:
       type: object
       required:
@@ -60,7 +57,6 @@ components:
           type: string
           description: Error message when status is failed
       additionalProperties: false
-
     AAPProviderSyncStatus:
       type: object
       required:
@@ -92,7 +88,6 @@ components:
             - null
           description: Status of the last sync attempt
       additionalProperties: false
-
     SyncResultStatus:
       type: string
       enum:
@@ -101,7 +96,6 @@ components:
         - failed
         - invalid
       description: Status of an individual sync operation
-
     SyncResponseSummary:
       type: object
       required:
@@ -122,7 +116,6 @@ components:
         invalid:
           type: integer
       additionalProperties: false
-
     SyncError:
       type: object
       required:
@@ -134,7 +127,6 @@ components:
         message:
           type: string
       additionalProperties: false
-
     SyncFilter:
       type: object
       description: |
@@ -155,7 +147,6 @@ components:
           type: string
           description: Organization or group name
       additionalProperties: false
-
     SCMSyncResult:
       type: object
       required:
@@ -177,7 +168,6 @@ components:
         error:
           $ref: '#/components/schemas/SyncError'
       additionalProperties: false
-
     PAHSyncResult:
       type: object
       required:
@@ -193,7 +183,6 @@ components:
         error:
           $ref: '#/components/schemas/SyncError'
       additionalProperties: false
-
     PAHSyncFilter:
       type: object
       required:
@@ -203,7 +192,6 @@ components:
           type: string
           description: PAH repository name (e.g. rh-certified, validated)
       additionalProperties: false
-
     ProviderStatus:
       type: object
       required:
@@ -258,8 +246,6 @@ components:
         collectionsDelta:
           type: integer
       additionalProperties: false
-
-
 paths:
   /health:
     get:
@@ -283,15 +269,18 @@ paths:
                     enum:
                       - ok
                 additionalProperties: false
-
   /ansible/sync/from-aap/orgs_users_teams:
     post:
       operationId: syncOrgsUsersTeams
       summary: Trigger AAP organizations, users, and teams sync
-      description: |
-        Triggers a background synchronization of organizations, users, and teams from Ansible Automation Platform into the Backstage catalog.
+      description: >
+        Triggers a background synchronization of organizations, users, and teams from Ansible
+        Automation Platform into the Backstage catalog.
+
         The endpoint returns immediately — the sync runs asynchronously via the scheduler.
-        **Permissions**: Requires superuser access (`aap.platform/is_superuser` annotation) or an allowed external-access service principal.
+
+        **Permissions**: Requires superuser access (`aap.platform/is_superuser` annotation) or an
+        allowed external-access service principal.
       tags:
         - AAP Sync
       security:
@@ -321,15 +310,18 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/AAPSyncResponse'
-
   /ansible/sync/from-aap/job_templates:
     post:
       operationId: syncJobTemplates
       summary: Trigger AAP job templates sync
-      description: |
-        Triggers a background synchronization of job templates from Ansible Automation Platform into the Backstage catalog.
+      description: >
+        Triggers a background synchronization of job templates from Ansible Automation Platform into
+        the Backstage catalog.
+
         The endpoint returns immediately — the sync runs asynchronously via the scheduler.
-        **Permissions**: Requires superuser access (`aap.platform/is_superuser` annotation) or an allowed external-access service principal.
+
+        **Permissions**: Requires superuser access (`aap.platform/is_superuser` annotation) or an
+        allowed external-access service principal.
       tags:
         - AAP Sync
       security:
@@ -359,7 +351,6 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/AAPSyncResponse'
-
   /aap/create_user:
     post:
       operationId: createUser
@@ -425,16 +416,18 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
-
-
   /ansible/sync/status:
     get:
       operationId: getSyncStatus
       summary: Get sync status across all providers
-      description: |
-        Returns the current synchronization status for AAP entities and/or Ansible content providers.
+      description: >
+        Returns the current synchronization status for AAP entities and/or Ansible content
+        providers.
+
         If neither query parameter is provided, both sections are returned.
-        **Permissions**: Requires the Backstage catalog **entity read** permission (`catalog.entity.read`), evaluated via the permission framework.
+
+        **Permissions**: Requires the Backstage catalog **entity read** permission
+        (`catalog.entity.read`), evaluated via the permission framework.
       tags:
         - Ansible Content Sync
       security:
@@ -519,15 +512,17 @@ paths:
                   content:
                     type: 'null'
                 additionalProperties: false
-
   /ansible/sync/from-aap/content:
     post:
       operationId: syncFromAapContent
       summary: Trigger PAH collections sync
-      description: |
+      description: >
         Starts synchronization of Private Automation Hub collections.
+
         If no filters are provided, all configured PAH repositories are synced.
-        **Permissions**: Requires superuser access (`aap.platform/is_superuser` annotation) or an allowed external-access service principal.
+
+        **Permissions**: Requires superuser access (`aap.platform/is_superuser` annotation) or an
+        allowed external-access service principal.
       tags:
         - Ansible Content Sync
       security:
@@ -637,16 +632,19 @@ paths:
                     items:
                       $ref: '#/components/schemas/PAHSyncResult'
                 additionalProperties: false
-
   /ansible/sync/from-scm/content:
     post:
       operationId: syncFromScmContent
       summary: Trigger SCM git contents sync
-      description: |
+      description: >
         Starts synchronization of Ansible content from Git repositories (GitHub/GitLab).
+
         Supports hierarchical filtering: scmProvider -> hostName -> organization.
+
         If no filters are provided, all configured SCM sources are synced.
-        **Permissions**: Requires superuser access (`aap.platform/is_superuser` annotation) or an allowed external-access service principal.
+
+        **Permissions**: Requires superuser access (`aap.platform/is_superuser` annotation) or an
+        allowed external-access service principal.
       tags:
         - Ansible Content Sync
       security:
@@ -758,16 +756,19 @@ paths:
                     items:
                       $ref: '#/components/schemas/SCMSyncResult'
                 additionalProperties: false
-
   /ansible/ee:
     post:
       operationId: registerExecutionEnvironment
       summary: Register an execution environment
-      description: |
+      description: >
         Registers a new execution environment entity in the catalog.
+
         This endpoint is restricted to backend service-to-service calls only
+
         (e.g. from the scaffolder plugin). User requests are rejected.
-        **Permissions**: Service-to-service only (service principal required, user principals rejected).
+
+        **Permissions**: Service-to-service only (service principal required, user principals
+        rejected).
       tags:
         - Execution Environments
       security:
@@ -812,7 +813,6 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
-
   /ansible/git/file-content:
     get:
       operationId: getGitFileContent
@@ -925,7 +925,6 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
-
   /ansible/git/ci-activity:
     post:
       operationId: batchCIActivity
@@ -1020,7 +1019,6 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
-
   /ansible/ee/build:
     post:
       operationId: buildExecutionEnvironment
@@ -1062,11 +1060,13 @@ paths:
                 owner:
                   type: string
                   maxLength: 256
-                  description: GitHub repository owner (optional override; derived from entity annotations when omitted)
+                  description: GitHub repository owner (optional override; derived from entity annotations when
+                    omitted)
                 repo:
                   type: string
                   maxLength: 256
-                  description: GitHub repository name (optional override; derived from entity annotations when omitted)
+                  description: GitHub repository name (optional override; derived from entity annotations when
+                    omitted)
                 host:
                   type: string
                   maxLength: 256
@@ -1135,3 +1135,842 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
+  /ansible/git-repository:
+    post:
+      operationId: registerGitRepository
+      summary: Register a Git repository directly in the catalog
+      description: >
+        Registers a Git repository entity in the catalog directly, without requiring
+
+        a catalog-info.yaml file or pull request in the target repository. Used by the
+
+        "Register repo" scaffolder template so registration completes immediately.
+
+        Rejects with 409 if a repository entity with matching SCM provider/organization/
+
+        repository annotations already exists.
+
+        This endpoint is restricted to backend service-to-service calls only
+
+        (e.g. from the scaffolder plugin). User requests are rejected.
+
+        **Permissions**: Service-to-service only (service principal required, user principals
+        rejected).
+      tags:
+        - Git Content
+      security:
+        - JWT: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - entity
+              properties:
+                entity:
+                  type: object
+                  description: Backstage catalog entity representing the Git repository
+              additionalProperties: false
+      responses:
+        '200':
+          description: Git repository registered successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - success
+                  - entityRef
+                properties:
+                  success:
+                    type: boolean
+                    enum:
+                      - true
+                  entityRef:
+                    type: string
+                additionalProperties: false
+        '400':
+          description: Missing entity in request body
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '409':
+          description: A repository entity with matching SCM provider/organization/repository already exists
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - error
+                  - entityRef
+                properties:
+                  error:
+                    type: string
+                  entityRef:
+                    type: string
+                additionalProperties: false
+        '500':
+          description: Internal error registering the Git repository
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /apme/health:
+    get:
+      operationId: getApmeHealth
+      summary: Get APME service health status
+      description: Returns the health status of the APME backend service including component availability.
+      tags:
+        - APME
+      responses:
+        '200':
+          description: Health status
+          content:
+            application/json:
+              schema:
+                type: object
+  /apme/settings:
+    get:
+      operationId: getApmeSettings
+      summary: Get APME portal settings
+      description: Returns feature flags for AI and remediation publish mode configured for the portal.
+      tags:
+        - APME
+      responses:
+        '200':
+          description: APME settings
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  enableAi:
+                    type: boolean
+                  publishViaGateway:
+                    type: boolean
+                  targetAnsibleCoreVersion:
+                    type: string
+                    description: Global default ansible-core minor version for quality scans
+    put:
+      operationId: updateApmeSettings
+      summary: Update APME portal settings
+      description: Persists portal-wide quality defaults including ansible-core scan target and default AI
+        model.
+      tags:
+        - APME
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: []
+              properties:
+                targetAnsibleCoreVersion:
+                  type: string
+                  description: ansible-core minor version (e.g. 2.17)
+                defaultAiModelId:
+                  type: string
+                  nullable: true
+                  description: Default Abbenay model id for quality workflows
+      responses:
+        '200':
+          description: Updated APME settings
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  enableAi:
+                    type: boolean
+                  publishViaGateway:
+                    type: boolean
+                  targetAnsibleCoreVersion:
+                    type: string
+        '400':
+          description: Invalid or unsupported ansible-core version
+  /apme/ai/status:
+    get:
+      operationId: getApmeAiStatus
+      summary: Get APME AI connectivity status
+      description: Returns whether AI features are enabled and whether the APME AI backend is reachable.
+      tags:
+        - APME
+      responses:
+        '200':
+          description: AI status
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  enableAi:
+                    type: boolean
+                  connected:
+                    type: boolean
+                  modelCount:
+                    type: integer
+  /apme/repos/branch-check:
+    get:
+      operationId: checkApmeRepoBranch
+      summary: Validate repository branch exists
+      description: Verifies that the given repository URL and branch are reachable using portal SCM credentials.
+      tags:
+        - APME
+      parameters:
+        - name: repo_url
+          in: query
+          required: true
+          schema:
+            type: string
+        - name: branch
+          in: query
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Branch is valid
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  valid:
+                    type: boolean
+        '400':
+          description: Missing or invalid query parameters
+  /apme/projects:
+    get:
+      operationId: getApmeProjects
+      summary: List all APME projects
+      description: Returns all Ansible content projects registered with APME for policy analysis and
+        modernization.
+      tags:
+        - APME
+      responses:
+        '200':
+          description: List of projects
+          content:
+            application/json:
+              schema:
+                type: object
+    post:
+      operationId: createApmeProject
+      summary: Create a new APME project
+      description: Registers a new Ansible content repository with APME for policy analysis and
+        modernization tracking.
+      tags:
+        - APME
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+      responses:
+        '201':
+          description: Project created
+          content:
+            application/json:
+              schema:
+                type: object
+  /apme/projects/{projectId}:
+    get:
+      operationId: getApmeProject
+      summary: Get a specific APME project
+      description: Returns details of a specific APME project including health score, violation counts,
+        and scan history.
+      tags:
+        - APME
+      parameters:
+        - name: projectId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Project details
+          content:
+            application/json:
+              schema:
+                type: object
+    delete:
+      operationId: deleteApmeProject
+      summary: Delete an APME project
+      description: Removes a project from APME tracking. This does not delete the underlying repository.
+      tags:
+        - APME
+      parameters:
+        - name: projectId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '204':
+          description: Project deleted
+  /apme/projects/{projectId}/scan-target:
+    get:
+      operationId: getApmeProjectScanTarget
+      summary: Get effective ansible-core scan target for a project
+      description: Resolves the ansible-core version used for quality scans, including project override
+        and portal defaults.
+      tags:
+        - APME
+      parameters:
+        - name: projectId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Resolved scan target
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  effective:
+                    type: string
+                  source:
+                    type: string
+                    enum:
+                      - project
+                      - global
+                      - config
+                      - default
+                  globalDefault:
+                    type: string
+                  projectOverride:
+                    type: string
+    put:
+      operationId: updateApmeProjectScanTarget
+      summary: Set per-project ansible-core scan target override
+      description: Persists a project-specific ansible-core scan target, or clears the override when null.
+      tags:
+        - APME
+      parameters:
+        - name: projectId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                targetAnsibleCoreVersion:
+                  type: string
+                  nullable: true
+                  description: ansible-core minor version (e.g. 2.17), or null to clear project override
+      responses:
+        '200':
+          description: Updated scan target resolution
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  effective:
+                    type: string
+                  source:
+                    type: string
+                    enum:
+                      - project
+                      - global
+                      - config
+                      - default
+                  globalDefault:
+                    type: string
+                  projectOverride:
+                    type: string
+        '400':
+          description: Invalid or unsupported ansible-core version
+  /apme/projects/{projectId}/violations:
+    get:
+      operationId: getApmeViolations
+      summary: Get violations for a project
+      description: Returns all policy violations detected in the project from the most recent scan,
+        including severity levels and file locations.
+      tags:
+        - APME
+      parameters:
+        - name: projectId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: List of violations
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+  /apme/projects/{projectId}/dependencies:
+    get:
+      operationId: getApmeProjectDependencies
+      summary: Get project dependencies from latest scan
+      description: Returns Ansible collections and Python packages detected during the latest gateway scan
+        for the project.
+      tags:
+        - APME
+      parameters:
+        - name: projectId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Collections and Python packages discovered in the latest scan
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  collections:
+                    type: array
+                    items:
+                      type: object
+                  python_packages:
+                    type: array
+                    items:
+                      type: object
+  /apme/projects/{projectId}/activity:
+    get:
+      operationId: getApmeActivity
+      summary: Get project scan history
+      description: Returns the history of scans and remediation operations performed on the project.
+      tags:
+        - APME
+      parameters:
+        - name: projectId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Activity history
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+  /apme/activity/{activityId}:
+    get:
+      operationId: getApmeActivityDetail
+      summary: Get scan run detail
+      description: Returns violations, AI proposals, and logs for a single scan or remediation run.
+      tags:
+        - APME
+      parameters:
+        - name: activityId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Activity detail
+          content:
+            application/json:
+              schema:
+                type: object
+        '404':
+          description: Activity not found
+  /apme/rules:
+    get:
+      operationId: getApmeRules
+      summary: List all APME rules
+      description: Returns the catalog of all policy rules available in APME including rule IDs,
+        descriptions, and severity levels.
+      tags:
+        - APME
+      responses:
+        '200':
+          description: List of rules
+          content:
+            application/json:
+              schema:
+                type: object
+  /apme/rules/{ruleId}/config:
+    put:
+      operationId: updateApmeRuleConfig
+      summary: Update rule override config
+      description: Applies portal-side overrides for rule severity, enabled state, or enforcement.
+      tags:
+        - APME
+      parameters:
+        - name: ruleId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+      responses:
+        '200':
+          description: Updated rule
+    delete:
+      operationId: deleteApmeRuleConfig
+      summary: Reset rule override config
+      description: Clears portal overrides so the rule reverts to gateway catalog defaults.
+      tags:
+        - APME
+      parameters:
+        - name: ruleId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '204':
+          description: Override removed
+  /apme/suppressions:
+    get:
+      operationId: listApmeSuppressions
+      summary: List violation suppressions
+      description: Returns acknowledged violations for the portal, optionally filtered by scope.
+      tags:
+        - APME
+      parameters:
+        - name: scope
+          in: query
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Suppression list
+    post:
+      operationId: createApmeSuppression
+      summary: Acknowledge/suppress a violation
+      description: Creates a suppression so matching violations are hidden from quality views.
+      tags:
+        - APME
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+      responses:
+        '201':
+          description: Created suppression
+  /apme/suppressions/{suppressionId}:
+    delete:
+      operationId: deleteApmeSuppression
+      summary: Remove a suppression
+      description: Deletes a suppression so the violation can appear in quality results again.
+      tags:
+        - APME
+      parameters:
+        - name: suppressionId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '204':
+          description: Deleted
+  /apme/lookup:
+    get:
+      operationId: lookupApmeProject
+      summary: Lookup project by repo URL
+      description: Finds an APME project by its repository URL. Used to check if a repository is already
+        registered.
+      tags:
+        - APME
+      parameters:
+        - name: repo_url
+          in: query
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Project found
+          content:
+            application/json:
+              schema:
+                type: object
+        '404':
+          description: Project not found
+  /apme/projects/{projectId}/submit:
+    post:
+      operationId: submitApmeRemediation
+      summary: Push remediation changes and optionally open a PR via the gateway
+      description: Proxies to the APME gateway unified SCM submit endpoint (ADR-050). APME commits and
+        pushes as the code author; the portal never receives raw file bodies.
+      tags:
+        - APME
+      parameters:
+        - name: projectId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - activity_id
+              properties:
+                activity_id:
+                  type: string
+                branch_name:
+                  type: string
+                create_pr:
+                  type: boolean
+                scm_token:
+                  type: string
+                title:
+                  type: string
+                body:
+                  type: string
+      responses:
+        '200':
+          description: Submit completed
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  branch_name:
+                    type: string
+                  commit_sha:
+                    type: string
+                  pr_url:
+                    type: string
+                    nullable: true
+                  provider:
+                    type: string
+        '409':
+          description: Request conflicted with existing state
+  /apme/settings/galaxy-servers:
+    get:
+      operationId: listApmeGalaxyServers
+      summary: List configured Galaxy servers
+      description: Returns Automation Hub / Galaxy server entries configured for APME collection resolution.
+      tags:
+        - APME
+      responses:
+        '200':
+          description: Galaxy server list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+    post:
+      operationId: createApmeGalaxyServer
+      summary: Register a Galaxy server
+      description: Adds an Automation Hub or Galaxy server with credentials for APME scans.
+      tags:
+        - APME
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - name
+                - url
+              properties:
+                name:
+                  type: string
+                url:
+                  type: string
+                token:
+                  type: string
+                auth_url:
+                  type: string
+              additionalProperties: false
+      responses:
+        '201':
+          description: Galaxy server created
+          content:
+            application/json:
+              schema:
+                type: object
+  /apme/settings/galaxy-servers/{serverId}:
+    patch:
+      operationId: updateApmeGalaxyServer
+      summary: Update a Galaxy server
+      description: Updates URL, token, or auth settings for a Galaxy server entry.
+      tags:
+        - APME
+      parameters:
+        - name: serverId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+      responses:
+        '200':
+          description: Galaxy server updated
+          content:
+            application/json:
+              schema:
+                type: object
+    delete:
+      operationId: deleteApmeGalaxyServer
+      summary: Delete a Galaxy server
+      description: Removes a Galaxy server configuration from APME.
+      tags:
+        - APME
+      parameters:
+        - name: serverId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '204':
+          description: Galaxy server deleted
+  /apme/ai/models:
+    get:
+      operationId: listApmeAiModels
+      summary: List inference models
+      description: Returns models available from the configured Abbenay AI backend for workflow check options.
+      tags:
+        - APME
+      responses:
+        '200':
+          description: Model list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+  /apme/ai/config:
+    get:
+      operationId: getApmeAiConfig
+      summary: Get Abbenay AI configuration
+      description: Returns the current Abbenay AI provider configuration from the gateway.
+      tags:
+        - APME
+      responses:
+        '200':
+          description: AI configuration
+          content:
+            application/json:
+              schema:
+                type: object
+    post:
+      operationId: updateApmeAiConfig
+      summary: Update Abbenay AI configuration
+      description: Persists Abbenay AI settings via the gateway (admin only).
+      tags:
+        - APME
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+      responses:
+        '200':
+          description: Updated AI configuration
+          content:
+            application/json:
+              schema:
+                type: object
+  /apme/ai/providers:
+    get:
+      operationId: listApmeAiProviders
+      summary: List configured AI providers
+      description: Returns AI providers configured in Abbenay with secrets redacted for the portal UI.
+      tags:
+        - APME
+      responses:
+        '200':
+          description: Provider list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+  /apme/ai/engines:
+    get:
+      operationId: listApmeAiEngines
+      summary: List supported AI engine types
+      description: Returns engine metadata used when adding providers in Quality settings.
+      tags:
+        - APME
+      responses:
+        '200':
+          description: Engine catalog
+          content:
+            application/json:
+              schema:
+                type: object
+  /apme/ai/provider/{id}/configure:
+    post:
+      operationId: configureApmeAiProvider
+      summary: Configure an AI provider
+      description: Creates or updates an Abbenay provider, optionally writing container-mode API key secrets.
+      tags:
+        - APME
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+      responses:
+        '200':
+          description: Provider configured
+          content:
+            application/json:
+              schema:
+                type: object
+  /apme/ai/provider/{id}:
+    delete:
+      operationId: deleteApmeAiProvider
+      summary: Delete an AI provider
+      description: Removes an Abbenay provider configuration (deploy-time env secrets are unchanged).
+      tags:
+        - APME
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '204':
+          description: Provider deleted

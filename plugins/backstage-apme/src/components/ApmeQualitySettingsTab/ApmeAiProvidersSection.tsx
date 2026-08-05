@@ -44,6 +44,7 @@ import type {
 } from '@ansible/backstage-apme-common/types';
 import { normalizeApmeAiProviders } from '@ansible/backstage-apme-common/types';
 import { apmeApiRef } from '../../api';
+import { persistApmeDefaultAiModel } from '../../hooks/useApmeWorkflowAiModel';
 import { ApmeAiProviderDialog } from './ApmeAiProviderDialog';
 
 const useStyles = makeStyles(theme => ({
@@ -174,10 +175,25 @@ export const ApmeAiProvidersSection = () => {
         apmeApi.getAiConfig().catch(() => undefined),
       ]);
       let nextProviders = prov;
+      const configProviders =
+        config !== undefined ? normalizeApmeAiProviders(config) : [];
+      const configById = new Map(configProviders.map(p => [p.id, p]));
+
+      // HTTP /providers omits model lists — merge from /config when present.
+      if (nextProviders.length > 0 && configById.size > 0) {
+        nextProviders = nextProviders.map(p => {
+          const fromConfig = configById.get(p.id);
+          if (fromConfig && fromConfig.models.length > 0) {
+            return { ...p, models: fromConfig.models };
+          }
+          return p;
+        });
+      }
+
       // Deploy-time ConfigMap providers often show up via /config while
       // /providers is empty — fall back so the list is not blank.
-      if (nextProviders.length === 0 && config !== undefined) {
-        nextProviders = normalizeApmeAiProviders(config);
+      if (nextProviders.length === 0 && configProviders.length > 0) {
+        nextProviders = configProviders;
       }
       nextProviders = [...nextProviders].sort((a, b) =>
         a.id.localeCompare(b.id, undefined, { sensitivity: 'base' }),
@@ -200,7 +216,7 @@ export const ApmeAiProvidersSection = () => {
     id: string,
     payload: { configure: ApmeAiProviderConfigureRequest; models: string[] },
   ) => {
-    const { configure, models } = payload;
+    const { configure, models: modelIds } = payload;
     await apmeApi.configureAiProvider(id, configure);
     // Merge models into Abbenay config via POST /api/config (separate endpoint).
     let raw: unknown;
@@ -218,22 +234,25 @@ export const ApmeAiProvidersSection = () => {
         : raw;
     const config: Record<string, unknown> =
       root && typeof root === 'object' ? { ...(root as object) } : {};
-    const providers: Record<string, Record<string, unknown>> = {
+    const providersById: Record<string, Record<string, unknown>> = {
       ...((config.providers as object) || {}),
     };
-    const prev: Record<string, unknown> = { ...(providers[id] || {}) };
-    providers[id] = {
+    const prev: Record<string, unknown> = { ...(providersById[id] || {}) };
+    providersById[id] = {
       ...prev,
       engine: configure.engine || prev.engine,
-      models: Object.fromEntries(models.map(m => [m, {}])),
+      models: Object.fromEntries(modelIds.map(m => [m, {}])),
     };
     if (configure.baseUrl) {
-      providers[id].base_url = configure.baseUrl;
+      providersById[id].base_url = configure.baseUrl;
     }
     await apmeApi.updateAiConfig({
       location: 'user',
-      config: { ...config, providers },
+      config: { ...config, providers: providersById },
     });
+    if (modelIds.length > 0) {
+      await persistApmeDefaultAiModel(apmeApi, id, modelIds[0]);
+    }
     await load();
   };
 
@@ -252,11 +271,22 @@ export const ApmeAiProvidersSection = () => {
     }
   };
 
-  const statusLabel = aiStatus
-    ? aiStatus.connected
-      ? `Connected · ${aiStatus.modelCount} model${aiStatus.modelCount === 1 ? '' : 's'}`
-      : 'Disconnected'
-    : undefined;
+  const statusLabel = (() => {
+    if (!aiStatus) {
+      return undefined;
+    }
+    if (!aiStatus.connected) {
+      return 'Disconnected';
+    }
+    if (aiStatus.modelCount > 0) {
+      const suffix = aiStatus.modelCount === 1 ? '' : 's';
+      return `Connected · ${aiStatus.modelCount} inference model${suffix}`;
+    }
+    if ((aiStatus.configuredModelCount ?? 0) > 0) {
+      return `Connected · ${aiStatus.configuredModelCount} configured (0 inference)`;
+    }
+    return 'Connected · no models listed';
+  })();
 
   return (
     <>
