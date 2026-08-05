@@ -5,9 +5,19 @@ const DEFAULT_ROLE_NAME = 'portal-nonadmin-role';
 const ROLE_DESCRIPTION =
   'E2E test role with all plugin permissions for non-admin user';
 const MAX_CHECKBOX_ITERATIONS = 50;
+const SENSITIVE_ENV_KEYS = ['AAP_TOKEN', 'AAP_NONADMIN_USER_ID'];
+
+function redact(msg: string): string {
+  let sanitized = msg;
+  for (const key of SENSITIVE_ENV_KEYS) {
+    const val = process.env[key];
+    if (val) sanitized = sanitized.split(val).join(`[${key}]`);
+  }
+  return sanitized;
+}
 
 function log(msg: string) {
-  console.log(`[RBAC Setup] ${msg}`);
+  console.log(`[RBAC Setup] ${redact(msg)}`);
 }
 
 async function isElementVisible(
@@ -40,7 +50,13 @@ async function triggerCatalogSync(page: Page) {
     const res = await page.request.post(
       '/api/catalog/ansible/sync/from-aap/orgs_users_teams',
     );
-    log(`Sync API fallback: ${res.status()}`);
+    const status = res.status();
+    log(`Sync API fallback: ${status}`);
+    if (status < 200 || status >= 300) {
+      throw new Error(
+        `Catalog sync API returned non-success status: ${status}`,
+      );
+    }
     await page.waitForTimeout(10_000);
     return;
   }
@@ -217,14 +233,15 @@ async function createRBACRole(page: Page) {
   // Step 4: Review and Create
   log('Step 4: Reviewing and creating role...');
 
-  const createSubmitButton = page.getByRole('button', { name: /Create/i });
+  const createSubmitButton = page.getByRole('button', {
+    name: 'Create',
+    exact: true,
+  });
   await createSubmitButton.waitFor({ state: 'visible', timeout: 10_000 });
   await createSubmitButton.click();
   log('Clicked Create button');
 
-  await page
-    .waitForURL(/\/rbac(?!\/role\/new)/, { timeout: 15_000 })
-    .catch(e => log(`Navigation wait timed out: ${(e as Error).message}`));
+  await page.waitForURL(/\/rbac(?!\/role\/new)/, { timeout: 15_000 });
 
   const errorAlert = page.locator('[class*="MuiAlert-standardError"]');
   const hasError = await isElementVisible(errorAlert, 3_000);
@@ -246,7 +263,7 @@ export async function setupNonAdminRBAC() {
   const baseURL = process.env.BASE_URL || 'http://localhost:7007';
   log(`Starting RBAC setup against ${baseURL}`);
 
-  const browser = await chromium.launch();
+  const browser = await chromium.launch({ channel: 'chrome' });
   const context = await browser.newContext({
     baseURL,
     ignoreHTTPSErrors: true,
