@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState, useRef } from 'react';
+import { useSignal } from '@backstage/plugin-signals-react';
 import { useNavigate } from 'react-router';
 import { Route, Routes, Navigate } from 'react-router-dom';
 import {
@@ -57,6 +58,14 @@ import {
 } from '../notifications';
 
 const headerStyles = makeStyles(theme => ({
+  '@keyframes spin': {
+    from: { transform: 'rotate(0deg)' },
+    to: { transform: 'rotate(360deg)' },
+  },
+  syncSpinning: {
+    animation: '$spin 1.5s linear infinite',
+    willChange: 'transform',
+  },
   header_title_color: {
     color: theme.palette.type === 'light' ? 'rgba(0, 0, 0, 0.87)' : '#ffffff',
   },
@@ -304,12 +313,48 @@ export const HomeComponent = () => {
   const [loading, setLoading] = useState<boolean>(true);
   const [syncKey, setSyncKey] = useState(0);
   const [syncStatus, setSyncStatus] = useState<{
-    orgsUsersTeams: { lastSync: string | null };
-    jobTemplates: { lastSync: string | null };
+    orgsUsersTeams: { lastSync: string | null; syncInProgress: boolean };
+    jobTemplates: { lastSync: string | null; syncInProgress: boolean };
   }>({
-    orgsUsersTeams: { lastSync: null },
-    jobTemplates: { lastSync: null },
+    orgsUsersTeams: { lastSync: null, syncInProgress: false },
+    jobTemplates: { lastSync: null, syncInProgress: false },
   });
+  const [localSyncing, setLocalSyncing] = useState(false);
+  const { lastSignal: syncSignal } = useSignal<{
+    provider: string;
+    syncInProgress: boolean;
+    lastSyncTime: string | null;
+    lastSyncStatus: 'success' | 'failure' | null;
+    lastFailedSyncTime: string | null;
+  }>('catalog:aap-sync-status');
+
+  useEffect(() => {
+    if (!syncSignal) return;
+    const isJT = syncSignal.provider.startsWith('aap-job-template');
+    const key = isJT ? 'jobTemplates' : 'orgsUsersTeams';
+    setSyncStatus(prev => ({
+      ...prev,
+      [key]: {
+        ...prev[key],
+        lastSync: syncSignal.syncInProgress
+          ? prev[key].lastSync
+          : syncSignal.lastSyncTime,
+        syncInProgress: syncSignal.syncInProgress,
+      },
+    }));
+  }, [syncSignal]);
+
+  const isSyncInProgress =
+    localSyncing ||
+    syncSignal?.syncInProgress ||
+    syncStatus.orgsUsersTeams.syncInProgress ||
+    syncStatus.jobTemplates.syncInProgress;
+  const syncDisabled = syncControlsDisabled || isSyncInProgress;
+
+  let syncDisabledTooltip = '';
+  if (isSyncInProgress) syncDisabledTooltip = 'Sync in progress...';
+  else if (syncControlsDisabled)
+    syncDisabledTooltip = 'Checking permissions...';
 
   const fetchRequestIdRef = useRef(0);
   const fetchSucceededRef = useRef(false);
@@ -377,49 +422,54 @@ export const HomeComponent = () => {
 
   const handleSync = useCallback(async () => {
     let result = false;
-    setSnackbarMsg('Starting sync...');
-    setShowSnackbar(true);
-    if (syncOptions.includes('orgsUsersTeams')) {
-      result = await ansibleApi.syncOrgsUsersTeam();
-      if (result) {
-        setSnackbarMsg('Organizations, Users and Teams synced successfully');
-        fetchSyncStatus();
-      } else {
-        setSnackbarMsg('Organizations, Users and Teams sync failed');
-      }
+    setLocalSyncing(true);
+    try {
+      setSnackbarMsg('Starting sync...');
       setShowSnackbar(true);
-    }
-    if (syncOptions.includes('templates')) {
-      result = await ansibleApi.syncTemplates();
-      setShowSnackbar(false);
-      if (result) {
-        fetchSyncStatus();
-        setSnackbarMsg('Fetching updated templates...');
-        setShowSnackbar(true);
-        const preSyncTemplates = jobTemplatesRef.current;
-        let newTemplates = await fetchJobTemplates();
-        // delayed re-fetch to aligns the allow-list with the provider
-        const listUnchanged =
-          newTemplates &&
-          !jobTemplateListsDiffer(preSyncTemplates, newTemplates);
-        if (listUnchanged) {
-          await new Promise(resolve =>
-            setTimeout(resolve, JOB_TEMPLATE_LIST_STALE_RETRY_MS),
-          );
-          newTemplates = await fetchJobTemplates();
+      if (syncOptions.includes('orgsUsersTeams')) {
+        result = await ansibleApi.syncOrgsUsersTeam();
+        if (result) {
+          setSnackbarMsg('Organizations, Users and Teams synced successfully');
+          fetchSyncStatus();
+        } else {
+          setSnackbarMsg('Organizations, Users and Teams sync failed');
         }
-        setSyncKey(prev => prev + 1);
-        setSnackbarMsg(
-          newTemplates
-            ? 'Templates synced successfully'
-            : 'Templates synced, but refreshing the list failed. Please reload the page.',
-        );
-      } else {
-        setSnackbarMsg('Templates sync failed');
+        setShowSnackbar(true);
       }
-      setShowSnackbar(true);
+      if (syncOptions.includes('templates')) {
+        result = await ansibleApi.syncTemplates();
+        setShowSnackbar(false);
+        if (result) {
+          fetchSyncStatus();
+          setSnackbarMsg('Fetching updated templates...');
+          setShowSnackbar(true);
+          const preSyncTemplates = jobTemplatesRef.current;
+          let newTemplates = await fetchJobTemplates();
+          // delayed re-fetch to aligns the allow-list with the provider
+          const listUnchanged =
+            newTemplates &&
+            !jobTemplateListsDiffer(preSyncTemplates, newTemplates);
+          if (listUnchanged) {
+            await new Promise(resolve =>
+              setTimeout(resolve, JOB_TEMPLATE_LIST_STALE_RETRY_MS),
+            );
+            newTemplates = await fetchJobTemplates();
+          }
+          setSyncKey(prev => prev + 1);
+          setSnackbarMsg(
+            newTemplates
+              ? 'Templates synced successfully'
+              : 'Templates synced, but refreshing the list failed. Please reload the page.',
+          );
+        } else {
+          setSnackbarMsg('Templates sync failed');
+        }
+        setShowSnackbar(true);
+      }
+      setSyncOptions([]);
+    } finally {
+      setLocalSyncing(false);
     }
-    setSyncOptions([]);
   }, [ansibleApi, syncOptions, fetchSyncStatus, fetchJobTemplates]);
 
   const handleClose = (newSyncOptions?: string[]) => {
@@ -432,7 +482,8 @@ export const HomeComponent = () => {
 
   useEffect(() => {
     fetchJobTemplates();
-  }, [fetchJobTemplates]);
+    fetchSyncStatus();
+  }, [fetchJobTemplates, fetchSyncStatus]);
 
   // After fetchJobTemplates completes, schedule a catalog refresh so that
   // recently imported templates (via "Add Template") have time to be
@@ -502,22 +553,16 @@ export const HomeComponent = () => {
               <HeaderLabel
                 label=""
                 value={
-                  <Tooltip
-                    title={
-                      syncControlsDisabled ? 'Checking permissions...' : ''
-                    }
-                  >
+                  <Tooltip title={syncDisabledTooltip} placement="bottom-start">
                     <Typography
                       component="a"
                       onClick={
-                        syncControlsDisabled
-                          ? undefined
-                          : ShowSyncConfirmationDialog
+                        syncDisabled ? undefined : ShowSyncConfirmationDialog
                       }
                       style={{
-                        cursor: syncControlsDisabled ? 'default' : 'pointer',
+                        cursor: syncDisabled ? 'default' : 'pointer',
                         color: 'inherit',
-                        opacity: syncControlsDisabled ? 0.5 : 1,
+                        opacity: syncDisabled ? 0.5 : 1,
                       }}
                     >
                       <span
@@ -528,7 +573,13 @@ export const HomeComponent = () => {
                           textDecoration: 'underline',
                         }}
                       >
-                        Sync now <Sync fontSize="small" />
+                        {isSyncInProgress ? 'Syncing...' : 'Sync now'}{' '}
+                        <Sync
+                          fontSize="small"
+                          className={
+                            isSyncInProgress ? classes.syncSpinning : undefined
+                          }
+                        />
                         <Tooltip title="Sync AAP Job Templates, Organizations, Users, and Teams from AAP to automation portal.">
                           <Info
                             fontSize="small"

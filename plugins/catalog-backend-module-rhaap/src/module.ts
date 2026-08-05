@@ -2,6 +2,7 @@ import {
   coreServices,
   createBackendModule,
 } from '@backstage/backend-plugin-api';
+import { signalsServiceRef } from '@backstage/plugin-signals-node';
 
 import { ansibleServiceRef } from '@ansible/backstage-rhaap-common';
 import { ansiblePermissions } from '@ansible/backstage-rhaap-common/permissions';
@@ -37,6 +38,7 @@ export const catalogModuleRhaap = createBackendModule({
         permissionsApi: coreServices.permissions,
         httpAuth: coreServices.httpAuth,
         userInfo: coreServices.userInfo,
+        signals: signalsServiceRef,
       },
       async init({
         logger,
@@ -52,6 +54,7 @@ export const catalogModuleRhaap = createBackendModule({
         userInfo,
         discovery,
         auth,
+        signals,
       }) {
         permissionsRegistry.addPermissions(ansiblePermissions);
         catalogModel.setFieldValidators(
@@ -97,6 +100,13 @@ export const catalogModuleRhaap = createBackendModule({
         logger.info(
           `[catalog-module-rhaap]: Created ${ansibleGitContentsProviders.length} Ansible Git Contents provider(s)`,
         );
+
+        for (const p of aapEntityProvider) {
+          p.setSignals(signals);
+        }
+        for (const p of jobTemplateProvider) {
+          p.setSignals(signals);
+        }
 
         catalogProcessing.addEntityProvider(
           aapEntityProvider,
