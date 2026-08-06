@@ -103,6 +103,214 @@ interface CollectionsListPageProps {
   syncProgress?: SyncProgressEntry[];
 }
 
+interface CollectionsFiltersProps {
+  searchQuery: string;
+  setSearchQuery: (q: string) => void;
+  initialLoading: boolean;
+  allSources: string[];
+  sourceFilter: string;
+  setSourceFilter: (f: string) => void;
+  allTags: string[];
+  tagFilter: string;
+  setTagFilter: (f: string) => void;
+  showLatestOnly: boolean;
+  setShowLatestOnly: (v: boolean) => void;
+}
+
+const CollectionsFilters = ({
+  searchQuery,
+  setSearchQuery,
+  initialLoading,
+  allSources,
+  sourceFilter,
+  setSourceFilter,
+  allTags,
+  tagFilter,
+  setTagFilter,
+  showLatestOnly,
+  setShowLatestOnly,
+}: CollectionsFiltersProps) => {
+  const classes = useCollectionsStyles();
+  return (
+    <CatalogFilterLayout.Filters>
+      <TextField
+        className={classes.searchInput}
+        placeholder="Search"
+        variant="standard"
+        fullWidth
+        value={searchQuery}
+        onChange={e => setSearchQuery(e.target.value)}
+        disabled={initialLoading}
+        InputProps={{
+          startAdornment: (
+            <InputAdornment position="start">
+              <SearchIcon color="disabled" />
+            </InputAdornment>
+          ),
+          endAdornment: searchQuery ? (
+            <InputAdornment position="end">
+              <IconButton
+                size="small"
+                onClick={() => setSearchQuery('')}
+                aria-label="Clear search"
+              >
+                <ClearIcon fontSize="small" />
+              </IconButton>
+            </InputAdornment>
+          ) : null,
+        }}
+      />
+      <UserListPicker availableFilters={['starred', 'all']} />
+
+      <Typography
+        style={{
+          marginTop: 16,
+          fontWeight: 600,
+          fontSize: '0.875rem',
+        }}
+      >
+        Source Type
+      </Typography>
+      <Paper className={classes.paper}>
+        <Autocomplete
+          options={allSources}
+          value={sourceFilter}
+          onChange={(_event, newValue) => setSourceFilter(newValue || 'All')}
+          openOnFocus
+          disabled={initialLoading}
+          renderInput={params => (
+            <TextField
+              {...params}
+              placeholder="Search sources..."
+              variant="standard"
+              InputProps={{
+                ...params.InputProps,
+                disableUnderline: true,
+                style: { fontSize: '0.875rem' },
+              }}
+            />
+          )}
+          disableClearable={sourceFilter === 'All'}
+          size="small"
+          fullWidth
+        />
+      </Paper>
+
+      <Typography
+        style={{
+          marginTop: 16,
+          fontWeight: 600,
+          fontSize: '0.875rem',
+        }}
+      >
+        Tags
+      </Typography>
+      <Paper className={classes.paper}>
+        <Autocomplete
+          options={allTags}
+          value={tagFilter}
+          onChange={(_event, newValue) => setTagFilter(newValue || 'All')}
+          openOnFocus
+          disabled={initialLoading}
+          renderInput={params => (
+            <TextField
+              {...params}
+              placeholder="Search tags..."
+              variant="standard"
+              InputProps={{
+                ...params.InputProps,
+                disableUnderline: true,
+                style: { fontSize: '0.875rem' },
+              }}
+            />
+          )}
+          disableClearable={tagFilter === 'All'}
+          size="small"
+          fullWidth
+        />
+      </Paper>
+
+      <FormControlLabel
+        control={
+          <Checkbox
+            checked={showLatestOnly}
+            onChange={e => setShowLatestOnly(e.target.checked)}
+            color="primary"
+            size="small"
+            disabled={initialLoading}
+          />
+        }
+        label="Show latest version only"
+        style={{ marginTop: 16 }}
+      />
+    </CatalogFilterLayout.Filters>
+  );
+};
+
+interface CollectionsPaginationProps {
+  isStarredFilter: boolean;
+  displayedCount: number;
+  startIndex: number;
+  endIndex: number;
+  totalCount: number;
+  currentPage: number;
+  totalPages: number;
+  hasPrevPage: boolean;
+  hasNextPage: boolean;
+  prevPage: () => void;
+  nextPage: () => void;
+}
+
+const CollectionsPagination = ({
+  isStarredFilter,
+  displayedCount,
+  startIndex,
+  endIndex,
+  totalCount,
+  currentPage,
+  totalPages,
+  hasPrevPage,
+  hasNextPage,
+  prevPage,
+  nextPage,
+}: CollectionsPaginationProps) => {
+  const classes = useCollectionsStyles();
+  return (
+    <Box className={classes.paginationContainer}>
+      <Typography className={classes.paginationInfo}>
+        {isStarredFilter
+          ? `Showing ${displayedCount} starred on this page`
+          : `Showing ${
+              startIndex + 1
+            }-${endIndex} of ${totalCount} collections`}
+      </Typography>
+      <Box className={classes.paginationControls}>
+        <IconButton
+          size="small"
+          disabled={!hasPrevPage}
+          onClick={prevPage}
+          aria-label="Previous page"
+        >
+          <NavigateBeforeIcon />
+        </IconButton>
+        <Typography variant="body2">
+          {isStarredFilter
+            ? `Page ${currentPage}`
+            : `Page ${currentPage} of ${totalPages}`}
+        </Typography>
+        <IconButton
+          size="small"
+          disabled={!hasNextPage}
+          onClick={nextPage}
+          aria-label="Next page"
+        >
+          <NavigateNextIcon />
+        </IconButton>
+      </Box>
+    </Box>
+  );
+};
+
 function collectionsTitleCountSuffix(
   initialLoading: boolean,
   filterByRepositoryEntity: Entity | null | undefined,
@@ -298,122 +506,19 @@ export const CollectionsListPage = ({
         >
           <CatalogFilterLayout>
             {!filterByRepositoryEntity && (
-              <CatalogFilterLayout.Filters>
-                <TextField
-                  className={classes.searchInput}
-                  placeholder="Search"
-                  variant="standard"
-                  fullWidth
-                  value={searchQuery}
-                  onChange={e => setSearchQuery(e.target.value)}
-                  disabled={initialLoading}
-                  InputProps={{
-                    startAdornment: (
-                      <InputAdornment position="start">
-                        <SearchIcon color="disabled" />
-                      </InputAdornment>
-                    ),
-                    endAdornment: searchQuery ? (
-                      <InputAdornment position="end">
-                        <IconButton
-                          size="small"
-                          onClick={() => setSearchQuery('')}
-                          aria-label="Clear search"
-                        >
-                          <ClearIcon fontSize="small" />
-                        </IconButton>
-                      </InputAdornment>
-                    ) : null,
-                  }}
-                />
-                <UserListPicker availableFilters={['starred', 'all']} />
-
-                <Typography
-                  style={{
-                    marginTop: 16,
-                    fontWeight: 600,
-                    fontSize: '0.875rem',
-                  }}
-                >
-                  Source Type
-                </Typography>
-                <Paper className={classes.paper}>
-                  <Autocomplete
-                    options={allSources}
-                    value={sourceFilter}
-                    onChange={(_event, newValue) =>
-                      setSourceFilter(newValue || 'All')
-                    }
-                    openOnFocus
-                    disabled={initialLoading}
-                    renderInput={params => (
-                      <TextField
-                        {...params}
-                        placeholder="Search sources..."
-                        variant="standard"
-                        InputProps={{
-                          ...params.InputProps,
-                          disableUnderline: true,
-                          style: { fontSize: '0.875rem' },
-                        }}
-                      />
-                    )}
-                    disableClearable={sourceFilter === 'All'}
-                    size="small"
-                    fullWidth
-                  />
-                </Paper>
-
-                <Typography
-                  style={{
-                    marginTop: 16,
-                    fontWeight: 600,
-                    fontSize: '0.875rem',
-                  }}
-                >
-                  Tags
-                </Typography>
-                <Paper className={classes.paper}>
-                  <Autocomplete
-                    options={allTags}
-                    value={tagFilter}
-                    onChange={(_event, newValue) =>
-                      setTagFilter(newValue || 'All')
-                    }
-                    openOnFocus
-                    disabled={initialLoading}
-                    renderInput={params => (
-                      <TextField
-                        {...params}
-                        placeholder="Search tags..."
-                        variant="standard"
-                        InputProps={{
-                          ...params.InputProps,
-                          disableUnderline: true,
-                          style: { fontSize: '0.875rem' },
-                        }}
-                      />
-                    )}
-                    disableClearable={tagFilter === 'All'}
-                    size="small"
-                    fullWidth
-                  />
-                </Paper>
-
-                <FormControlLabel
-                  control={
-                    <Checkbox
-                      checked={showLatestOnly}
-                      onChange={e => setShowLatestOnly(e.target.checked)}
-                      color="primary"
-                      size="small"
-                      disabled={initialLoading}
-                    />
-                  }
-                  label="Show latest version only"
-                  style={{ marginTop: 16 }}
-                />
-              </CatalogFilterLayout.Filters>
+              <CollectionsFilters
+                searchQuery={searchQuery}
+                setSearchQuery={setSearchQuery}
+                initialLoading={initialLoading}
+                allSources={allSources}
+                sourceFilter={sourceFilter}
+                setSourceFilter={setSourceFilter}
+                allTags={allTags}
+                tagFilter={tagFilter}
+                setTagFilter={setTagFilter}
+                showLatestOnly={showLatestOnly}
+                setShowLatestOnly={setShowLatestOnly}
+              />
             )}
 
             <CatalogFilterLayout.Content>
@@ -434,38 +539,19 @@ export const CollectionsListPage = ({
                 {collectionsCardsContent}
 
                 {!initialLoading && totalPages > 1 && (
-                  <Box className={classes.paginationContainer}>
-                    <Typography className={classes.paginationInfo}>
-                      {isStarredFilter
-                        ? `Showing ${displayedEntities.length} starred on this page`
-                        : `Showing ${
-                            startIndex + 1
-                          }-${endIndex} of ${totalCount} collections`}
-                    </Typography>
-                    <Box className={classes.paginationControls}>
-                      <IconButton
-                        size="small"
-                        disabled={!hasPrevPage}
-                        onClick={prevPage}
-                        aria-label="Previous page"
-                      >
-                        <NavigateBeforeIcon />
-                      </IconButton>
-                      <Typography variant="body2">
-                        {isStarredFilter
-                          ? `Page ${currentPage}`
-                          : `Page ${currentPage} of ${totalPages}`}
-                      </Typography>
-                      <IconButton
-                        size="small"
-                        disabled={!hasNextPage}
-                        onClick={nextPage}
-                        aria-label="Next page"
-                      >
-                        <NavigateNextIcon />
-                      </IconButton>
-                    </Box>
-                  </Box>
+                  <CollectionsPagination
+                    isStarredFilter={isStarredFilter}
+                    displayedCount={displayedEntities.length}
+                    startIndex={startIndex}
+                    endIndex={endIndex}
+                    totalCount={totalCount}
+                    currentPage={currentPage}
+                    totalPages={totalPages}
+                    hasPrevPage={hasPrevPage}
+                    hasNextPage={hasNextPage}
+                    prevPage={prevPage}
+                    nextPage={nextPage}
+                  />
                 )}
               </Box>
             </CatalogFilterLayout.Content>
