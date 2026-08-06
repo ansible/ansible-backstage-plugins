@@ -1,6 +1,6 @@
 {
   "name": "@ansible/backstage-plugin-catalog-backend-module-apme",
-  "version": "0.1.0",
+  "version": "2026.8.0",
   "description": "Backend module for APME integration with Backstage catalog",
   "backstage": {
     "role": "backend-plugin-module",
