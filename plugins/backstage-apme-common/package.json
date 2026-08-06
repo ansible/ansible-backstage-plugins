@@ -1,6 +1,6 @@
 {
   "name": "@ansible/backstage-apme-common",
-  "version": "0.1.0",
+  "version": "2026.8.0",
   "description": "Common library for APME Backstage plugin - shared types and service client",
   "backstage": {
     "role": "common-library"
