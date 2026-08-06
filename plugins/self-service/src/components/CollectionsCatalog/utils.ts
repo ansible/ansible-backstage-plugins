@@ -169,6 +169,7 @@ export function filterCollectionsByRepository(
     repository_collections?: string[];
   };
   const repoAnnotations = repoEntity.metadata?.annotations || {};
+  const repoName = repoEntity.metadata?.name;
   const repoProvider = (repoAnnotations['ansible.io/scm-provider'] ?? '')
     .toString()
     .toLowerCase();
@@ -182,12 +183,30 @@ export function filterCollectionsByRepository(
     ),
   );
 
-  return collections.filter(c => {
-    if (byName.size > 0) {
-      const name = c.metadata?.name;
-      return typeof name === 'string' && byName.has(name);
+  const matched = collections.filter(c => {
+    const name = c.metadata?.name;
+    if (typeof name === 'string' && byName.has(name)) {
+      return true;
     }
+
     const ann = c.metadata?.annotations || {};
+    if (
+      typeof repoName === 'string' &&
+      ann['ansible.io/consumed-by-repository'] === repoName
+    ) {
+      return true;
+    }
+
+    // When repository_collections is set it replaces SCM matching (preserved).
+    if (byName.size > 0) {
+      return false;
+    }
+
+    // Require repo SCM identity to be present so empty===empty does not match.
+    if (!repoProvider || !repoHost || !repoOrg || !repoRepo) {
+      return false;
+    }
+
     const provider = (ann['ansible.io/scm-provider'] ?? '')
       .toString()
       .toLowerCase();
@@ -201,4 +220,76 @@ export function filterCollectionsByRepository(
       repo === repoRepo
     );
   });
+
+  return dedupeCollectionsByFqcnPreferringCatalog(matched, collections);
+}
+
+function collectionFullNameKey(entity: Entity): string {
+  const spec = (entity.spec ?? {}) as {
+    collection_full_name?: string;
+    collection_version?: string;
+  };
+  const fullName =
+    typeof spec.collection_full_name === 'string'
+      ? spec.collection_full_name
+      : (entity.metadata?.name ?? '');
+  const version =
+    typeof spec.collection_version === 'string' ? spec.collection_version : '';
+  return version ? `${fullName}@${version}` : fullName;
+}
+
+function isLearnedCollection(entity: Entity): boolean {
+  return (
+    entity.metadata?.annotations?.['ansible.io/collection-source'] === 'learned'
+  );
+}
+
+/**
+ * Dedupe by FQCN[+version], preferring non-learned (PAH/SCM) over learned.
+ * When a learned entity points at a canonical catalog collection, substitute
+ * that entity into the result if present in the full catalog list.
+ */
+export function dedupeCollectionsByFqcnPreferringCatalog(
+  matched: Entity[],
+  allCollections: Entity[],
+): Entity[] {
+  const byRef = new Map<string, Entity>();
+  for (const entity of allCollections) {
+    const name = entity.metadata?.name;
+    if (typeof name === 'string') {
+      byRef.set(`component:default/${name}`, entity);
+      byRef.set(name, entity);
+    }
+  }
+
+  const preferred = new Map<string, Entity>();
+
+  for (const entity of matched) {
+    let candidate = entity;
+    if (isLearnedCollection(entity)) {
+      const canonical =
+        entity.metadata?.annotations?.['ansible.io/canonical-collection'];
+      if (canonical && byRef.has(canonical)) {
+        candidate = byRef.get(canonical)!;
+      }
+    }
+
+    const key = collectionFullNameKey(candidate) || candidate.metadata?.name;
+    if (!key) {
+      continue;
+    }
+
+    const existing = preferred.get(key);
+    if (!existing) {
+      preferred.set(key, candidate);
+      continue;
+    }
+
+    // Prefer non-learned over learned for the same FQCN.
+    if (isLearnedCollection(existing) && !isLearnedCollection(candidate)) {
+      preferred.set(key, candidate);
+    }
+  }
+
+  return Array.from(preferred.values());
 }
