@@ -51,9 +51,10 @@ test('Multi-Org Catalog API: superuser entity structure', async ({ page }) => {
 
   // aap-admins group membership
   const memberOf: string[] = user.spec?.memberOf ?? [];
-  expect(memberOf, 'memberOf should include aap-admins').toContain(
-    'aap-admins',
-  );
+  expect(
+    memberOf.some(m => m.includes('aap-admins')),
+    `memberOf should include aap-admins. Got: ${JSON.stringify(memberOf)}`,
+  ).toBe(true);
 
   // Team memberships spanning both org namespaces
   const inDefaultOrg = memberOf.some(m => m.includes('default/'));
