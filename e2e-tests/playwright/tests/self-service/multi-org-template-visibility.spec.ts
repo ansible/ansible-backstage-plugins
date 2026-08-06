@@ -1,5 +1,9 @@
 import { test, expect } from '../../fixtures/auth-context';
-import { getBackstageToken, catalogFetch } from '../../utils/backstage-api';
+import {
+  getBackstageToken,
+  catalogFetch,
+  discoverOrgNamespaces,
+} from '../../utils/backstage-api';
 import { loginAAP } from '../../utils/auth';
 
 /**
@@ -18,28 +22,6 @@ import { loginAAP } from '../../utils/auth';
  *   - Job template sync completed (RHAAP_TOKEN valid)
  *   - AAP_NORMAL_USER_ID / AAP_NORMAL_USER_PASS set in .env
  */
-
-async function discoverOrgNamespaces(
-  page: import('@playwright/test').Page,
-  token: string,
-): Promise<string[]> {
-  const result = await catalogFetch(
-    page,
-    '/entities?filter=kind=Group,spec.type=organization&limit=100',
-    token,
-  );
-  if (!result.ok) return [];
-  const groups: any[] = Array.isArray(result.body)
-    ? result.body
-    : (result.body?.items ?? []);
-  return [
-    ...new Set(
-      groups
-        .map((g: any) => g.metadata?.namespace)
-        .filter((ns: string | undefined): ns is string => !!ns),
-    ),
-  ];
-}
 
 // ---------------------------------------------------------------------------
 // Test A: template org metadata via catalog API
@@ -232,7 +214,9 @@ test('Template visibility: admin sees >= normal user templates', async ({
     );
   } else if (adminCount > normalCount) {
     console.log(
-      `[Visibility] Admin sees ${adminCount - normalCount} more templates than normal user — AAP RBAC is filtering`,
+      `[Visibility] Admin sees ${
+        adminCount - normalCount
+      } more templates than normal user — AAP RBAC is filtering`,
     );
   } else {
     console.log(`[Visibility] Both users see the same ${adminCount} templates`);
