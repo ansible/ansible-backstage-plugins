@@ -77,7 +77,7 @@ test('Multi-Org Catalog API: superuser entity structure', async ({ page }) => {
   for (const orgName of orgNamespaces) {
     const orgResult = await catalogFetch(
       page,
-      `/entities/by-name/group/default/${orgName}`,
+      `/entities/by-name/group/${orgName}/${orgName}`,
       token,
     );
     expect(orgResult.ok, `Org '${orgName}' should exist`).toBe(true);

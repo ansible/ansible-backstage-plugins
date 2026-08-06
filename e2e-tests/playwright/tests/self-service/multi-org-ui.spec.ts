@@ -57,7 +57,7 @@ test('Multi-Org UI: admin user entity page', async ({ page }) => {
   for (const ns of nonDefaultOrgs) {
     const orgResult = await catalogFetch(
       page,
-      `/entities/by-name/group/default/${ns}`,
+      `/entities/by-name/group/${ns}/${ns}`,
       token,
     );
     if (orgResult.ok) {
@@ -93,7 +93,7 @@ test('Multi-Org UI: org group entity pages', async ({ page }) => {
   expect(orgNamespaces.length).toBeGreaterThan(0);
 
   for (const orgSlug of orgNamespaces) {
-    await page.goto(`/catalog/default/group/${orgSlug}`, {
+    await page.goto(`/catalog/${orgSlug}/group/${orgSlug}`, {
       waitUntil: 'domcontentloaded',
     });
     await page.waitForLoadState('networkidle', { timeout: 30000 });
