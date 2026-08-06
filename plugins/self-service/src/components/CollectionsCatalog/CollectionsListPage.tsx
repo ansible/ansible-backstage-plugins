@@ -318,6 +318,7 @@ const CollectionsCards = ({
     <Box
       className={classes.cardsContainer}
       style={pageLoading ? { opacity: 0.5, pointerEvents: 'none' } : {}}
+      aria-busy={pageLoading}
     >
       {displayedEntities.map(entity => (
         <CollectionCard
