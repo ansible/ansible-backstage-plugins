@@ -595,10 +595,31 @@ describe('CollectionsListPage', () => {
         collection_full_name: 'ns.plain',
       } as any,
     };
-    mockCatalogApi.queryEntities.mockResolvedValue({
-      items: [entityWithTag, entityNoTag],
-      totalItems: 2,
+    mockCatalogApi.queryEntities.mockImplementation(async (req: any) => {
+      if (req?.filter?.['metadata.tags'] === 'network') {
+        return { items: [entityWithTag], totalItems: 1, pageInfo: {} };
+      }
+      return {
+        items: [entityWithTag, entityNoTag],
+        totalItems: 2,
+        pageInfo: {},
+      };
     });
+    mockCatalogApi.getEntityFacets.mockImplementation(
+      async (req: { facets: string[] }) => {
+        if (req.facets.includes('metadata.tags')) {
+          return {
+            facets: {
+              'metadata.tags': [
+                { value: 'network', count: 1 },
+                { value: 'security', count: 1 },
+              ],
+            },
+          };
+        }
+        return { facets: {} };
+      },
+    );
 
     renderListPage();
 
@@ -635,10 +656,28 @@ describe('CollectionsListPage', () => {
         collection_full_name: 'ns.tagged',
       } as any,
     };
-    mockCatalogApi.queryEntities.mockResolvedValue({
-      items: [mockEntity, entityWithTag],
-      totalItems: 2,
+    mockCatalogApi.queryEntities.mockImplementation(async (req: any) => {
+      if (req?.filter?.['metadata.tags'] === 'network') {
+        return { items: [entityWithTag], totalItems: 1, pageInfo: {} };
+      }
+      return {
+        items: [mockEntity, entityWithTag],
+        totalItems: 2,
+        pageInfo: {},
+      };
     });
+    mockCatalogApi.getEntityFacets.mockImplementation(
+      async (req: { facets: string[] }) => {
+        if (req.facets.includes('metadata.tags')) {
+          return {
+            facets: {
+              'metadata.tags': [{ value: 'network', count: 1 }],
+            },
+          };
+        }
+        return { facets: {} };
+      },
+    );
 
     renderListPage();
 
