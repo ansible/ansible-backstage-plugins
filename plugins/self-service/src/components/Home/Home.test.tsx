@@ -44,6 +44,19 @@ const mockNotifications = [
   },
 ];
 
+const mockSyncSignal: {
+  lastSignal: {
+    provider: string;
+    syncInProgress: boolean;
+    lastSyncTime: string | null;
+    lastSyncStatus: string | null;
+    lastFailedSyncTime: string | null;
+  } | null;
+} = { lastSignal: null };
+jest.mock('@backstage/plugin-signals-react', () => ({
+  useSignal: () => mockSyncSignal,
+}));
+
 jest.mock('../notifications', () => ({
   NotificationProvider: ({ children }: any) => <>{children}</>,
   NotificationStack: ({
@@ -92,8 +105,8 @@ describe('self-service', () => {
     mockRhAapAuthApi.getAccessToken.mockResolvedValue('mock-token');
     mockAnsibleApi.getSyncStatus.mockResolvedValue({
       aap: {
-        orgsUsersTeams: { lastSync: null },
-        jobTemplates: { lastSync: null },
+        orgsUsersTeams: { lastSync: null, syncInProgress: false },
+        jobTemplates: { lastSync: null, syncInProgress: false },
       },
     });
 
@@ -213,8 +226,8 @@ describe('self-service', () => {
     );
     mockAnsibleApi.getSyncStatus.mockResolvedValue({
       aap: {
-        orgsUsersTeams: { lastSync: null },
-        jobTemplates: { lastSync: null },
+        orgsUsersTeams: { lastSync: null, syncInProgress: false },
+        jobTemplates: { lastSync: null, syncInProgress: false },
       },
     });
 
@@ -248,8 +261,8 @@ describe('self-service', () => {
     mockAnsibleApi.syncTemplates.mockResolvedValue(true);
     mockAnsibleApi.getSyncStatus.mockResolvedValue({
       aap: {
-        orgsUsersTeams: { lastSync: null },
-        jobTemplates: { lastSync: null },
+        orgsUsersTeams: { lastSync: null, syncInProgress: false },
+        jobTemplates: { lastSync: null, syncInProgress: false },
       },
     });
 
@@ -298,8 +311,8 @@ describe('self-service', () => {
     mockAnsibleApi.syncTemplates.mockResolvedValue(false);
     mockAnsibleApi.getSyncStatus.mockResolvedValue({
       aap: {
-        orgsUsersTeams: { lastSync: null },
-        jobTemplates: { lastSync: null },
+        orgsUsersTeams: { lastSync: null, syncInProgress: false },
+        jobTemplates: { lastSync: null, syncInProgress: false },
       },
     });
 
@@ -347,8 +360,8 @@ describe('self-service', () => {
     mockAnsibleApi.syncOrgsUsersTeam.mockResolvedValue(true);
     mockAnsibleApi.getSyncStatus.mockResolvedValue({
       aap: {
-        orgsUsersTeams: { lastSync: null },
-        jobTemplates: { lastSync: null },
+        orgsUsersTeams: { lastSync: null, syncInProgress: false },
+        jobTemplates: { lastSync: null, syncInProgress: false },
       },
     });
 
@@ -393,8 +406,8 @@ describe('self-service', () => {
     );
     mockAnsibleApi.getSyncStatus.mockResolvedValue({
       aap: {
-        orgsUsersTeams: { lastSync: null },
-        jobTemplates: { lastSync: null },
+        orgsUsersTeams: { lastSync: null, syncInProgress: false },
+        jobTemplates: { lastSync: null, syncInProgress: false },
       },
     });
 
@@ -447,8 +460,8 @@ describe('self-service', () => {
     mockAnsibleApi.syncTemplates.mockResolvedValue(true);
     mockAnsibleApi.getSyncStatus.mockResolvedValue({
       aap: {
-        orgsUsersTeams: { lastSync: null },
-        jobTemplates: { lastSync: null },
+        orgsUsersTeams: { lastSync: null, syncInProgress: false },
+        jobTemplates: { lastSync: null, syncInProgress: false },
       },
     });
 
@@ -1444,8 +1457,8 @@ describe('TemplatesRoutesPage notifications', () => {
     mockRhAapAuthApi.getAccessToken.mockResolvedValue('mock-token');
     mockAnsibleApi.getSyncStatus.mockResolvedValue({
       aap: {
-        orgsUsersTeams: { lastSync: null },
-        jobTemplates: { lastSync: null },
+        orgsUsersTeams: { lastSync: null, syncInProgress: false },
+        jobTemplates: { lastSync: null, syncInProgress: false },
       },
     });
     if (!mockScaffolderApi.autocomplete) {
@@ -1518,6 +1531,115 @@ describe('TemplatesRoutesPage notifications', () => {
   });
 });
 
+describe('sync signal integration', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+    mockUseIsSuperuser.mockReturnValue({
+      isSuperuser: true,
+      loading: false,
+      error: null,
+    });
+    mockUsePermission.mockReturnValue({ loading: false, allowed: true });
+    mockRhAapAuthApi.getAccessToken.mockResolvedValue('mock-token');
+    mockAnsibleApi.getSyncStatus.mockResolvedValue({
+      aap: {
+        orgsUsersTeams: { lastSync: null, syncInProgress: false },
+        jobTemplates: { lastSync: null, syncInProgress: false },
+      },
+    });
+  });
+
+  const render = (children: JSX.Element) => {
+    return renderInTestApp(
+      <TestApiProvider
+        apis={[
+          [catalogApiRef, mockCatalogApi],
+          [ansibleApiRef, mockAnsibleApi],
+          [rhAapAuthApiRef, mockRhAapAuthApi],
+          [scaffolderApiRef, mockScaffolderApi],
+          [starredEntitiesApiRef, new MockStarredEntitiesApi()],
+          [permissionApiRef, mockApis.permission()],
+        ]}
+      >
+        <MockEntityListContextProvider>
+          {children}
+        </MockEntityListContextProvider>
+      </TestApiProvider>,
+      {
+        mountedRoutes: {
+          '/self-service': rootRouteRef,
+        },
+      },
+    );
+  };
+
+  it('should update sync status when a completed signal arrives', async () => {
+    mockSyncSignal.lastSignal = {
+      provider: 'aap-org-users-teams',
+      syncInProgress: false,
+      lastSyncTime: '2025-06-01T12:00:00.000Z',
+      lastSyncStatus: 'success',
+      lastFailedSyncTime: null,
+    };
+
+    await render(<HomeComponent />);
+
+    await waitFor(() => {
+      expect(screen.getByText('Sync now')).toBeInTheDocument();
+    });
+
+    mockSyncSignal.lastSignal = null;
+  });
+
+  it('should route job template signals to jobTemplates key', async () => {
+    mockSyncSignal.lastSignal = {
+      provider: 'aap-job-template-provider',
+      syncInProgress: false,
+      lastSyncTime: '2025-06-01T13:00:00.000Z',
+      lastSyncStatus: 'success',
+      lastFailedSyncTime: null,
+    };
+
+    await render(<HomeComponent />);
+
+    await waitFor(() => {
+      expect(screen.getByText('Sync now')).toBeInTheDocument();
+    });
+
+    mockSyncSignal.lastSignal = null;
+  });
+
+  it('should keep sync disabled when one provider completes but another is still syncing', async () => {
+    mockSyncSignal.lastSignal = {
+      provider: 'aap-org-users-teams',
+      syncInProgress: true,
+      lastSyncTime: null,
+      lastSyncStatus: null,
+      lastFailedSyncTime: null,
+    };
+
+    await render(<HomeComponent />);
+
+    await waitFor(() => {
+      expect(screen.getByText('Syncing...')).toBeInTheDocument();
+    });
+
+    mockSyncSignal.lastSignal = {
+      provider: 'aap-job-template-provider',
+      syncInProgress: false,
+      lastSyncTime: '2025-06-01T13:00:00.000Z',
+      lastSyncStatus: 'success',
+      lastFailedSyncTime: null,
+    };
+
+    await waitFor(() => {
+      expect(screen.getByText('Syncing...')).toBeInTheDocument();
+    });
+
+    mockSyncSignal.lastSignal = null;
+  });
+});
+
 describe('HomeCategoryPicker EE exclusion', () => {
   beforeEach(() => {
     jest.clearAllMocks();
@@ -1530,8 +1652,8 @@ describe('HomeCategoryPicker EE exclusion', () => {
     mockRhAapAuthApi.getAccessToken.mockResolvedValue('mock-token');
     mockAnsibleApi.getSyncStatus.mockResolvedValue({
       aap: {
-        orgsUsersTeams: { lastSync: null },
-        jobTemplates: { lastSync: null },
+        orgsUsersTeams: { lastSync: null, syncInProgress: false },
+        jobTemplates: { lastSync: null, syncInProgress: false },
       },
     });
     if (!mockScaffolderApi.autocomplete) {
