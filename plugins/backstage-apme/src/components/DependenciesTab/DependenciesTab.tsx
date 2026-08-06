@@ -28,6 +28,10 @@ import type { GitRepositoryDetailTabContext } from '@ansible/backstage-rhaap-com
 import { useApmeProjectContext } from '../../hooks/useApmeProjectContext';
 import { ApmeUnavailable } from '../ApmeUnavailable';
 import {
+  ApmeOutlinedTableCard,
+  useApmeOutlinedTableStyles,
+} from '../ApmeOutlinedTable';
+import {
   APME_GATEWAY_UNAVAILABLE_MESSAGE,
   isApmeConnectionError,
 } from '../../utils/apmeConnectionError';
@@ -58,25 +62,8 @@ const useStyles = makeStyles(theme => ({
     marginBottom: 12,
     marginTop: 8,
   },
-  table: {
-    width: '100%',
-    borderCollapse: 'collapse' as const,
-    fontSize: 13,
-    '& th': {
-      textAlign: 'left',
-      padding: '8px 12px',
-      fontWeight: 600,
-      fontSize: 11,
-      textTransform: 'uppercase',
-      letterSpacing: 0.5,
-      color: theme.palette.text.secondary,
-      borderBottom: `2px solid ${theme.palette.divider}`,
-    },
-    '& td': {
-      padding: '8px 12px',
-      borderBottom: `1px solid ${theme.palette.divider}`,
-      verticalAlign: 'middle',
-    },
+  sectionCard: {
+    marginBottom: 24,
   },
   sourceBadge: {
     fontSize: 10,
@@ -109,6 +96,7 @@ export interface DependenciesTabProps {
 
 export const DependenciesTab = ({ context }: DependenciesTabProps) => {
   const classes = useStyles();
+  const tableClasses = useApmeOutlinedTableStyles();
   const theme = useTheme();
   const colorTokens = useApmeColorTokens();
   const [, setSearchParams] = useSearchParams();
@@ -271,151 +259,141 @@ export const DependenciesTab = ({ context }: DependenciesTabProps) => {
       <Typography className={classes.sectionTitle}>
         Collections ({collections.length})
       </Typography>
-      <Box
-        style={{
-          border: `1px solid ${theme.palette.divider}`,
-          borderRadius: 6,
-          overflow: 'hidden',
-          marginBottom: 24,
-        }}
-      >
-        {collections.length === 0 ? (
-          <Typography className={classes.noData}>
-            No collections detected
-          </Typography>
-        ) : (
-          <table className={classes.table}>
-            <thead>
-              <tr>
-                <th>FQCN</th>
-                <th>Version</th>
-                <th>Source</th>
-                <th style={{ textAlign: 'right' }}>Violations</th>
-              </tr>
-            </thead>
-            <tbody>
-              {collections.map(c => {
-                const srcStyle =
-                  colorTokens.dependencySource[c.source] ??
-                  colorTokens.dependencySource.specified;
-                const vCount = collectionViolationCount(
-                  activeViolations,
-                  c,
-                  ctx.rulesById,
-                );
-                const matched = violationsForCollection(
-                  ctx.violations,
-                  c.fqcn,
-                  ctx.rulesById,
-                );
-                return (
-                  <tr key={c.fqcn}>
-                    <td>
-                      <Typography
-                        style={{
-                          fontFamily: 'monospace',
-                          fontSize: 13,
-                          fontWeight: 500,
-                        }}
-                      >
-                        {c.fqcn}
-                      </Typography>
-                    </td>
-                    <td>
-                      <Typography
-                        style={{
-                          fontFamily: 'monospace',
-                          fontSize: 12,
-                          color: theme.palette.text.secondary,
-                        }}
-                      >
-                        {c.version}
-                      </Typography>
-                    </td>
-                    <td>
-                      <span
-                        className={classes.sourceBadge}
-                        style={{
-                          backgroundColor: srcStyle.background,
-                          color: srcStyle.text,
-                        }}
-                      >
-                        {c.source}
-                      </span>
-                    </td>
-                    <td style={{ textAlign: 'right' }}>
-                      {vCount > 0 ? (
+      <Box className={classes.sectionCard}>
+        <ApmeOutlinedTableCard>
+          {collections.length === 0 ? (
+            <Typography className={classes.noData}>
+              No collections detected
+            </Typography>
+          ) : (
+            <table className={tableClasses.table}>
+              <thead>
+                <tr>
+                  <th>FQCN</th>
+                  <th>Version</th>
+                  <th>Source</th>
+                  <th style={{ textAlign: 'right' }}>Violations</th>
+                </tr>
+              </thead>
+              <tbody>
+                {collections.map(c => {
+                  const srcStyle =
+                    colorTokens.dependencySource[c.source] ??
+                    colorTokens.dependencySource.specified;
+                  const vCount = collectionViolationCount(
+                    activeViolations,
+                    c,
+                    ctx.rulesById,
+                  );
+                  const matched = violationsForCollection(
+                    ctx.violations,
+                    c.fqcn,
+                    ctx.rulesById,
+                  );
+                  return (
+                    <tr key={c.fqcn}>
+                      <td>
+                        <Typography
+                          style={{
+                            fontFamily: 'monospace',
+                            fontSize: 13,
+                            fontWeight: 500,
+                          }}
+                        >
+                          {c.fqcn}
+                        </Typography>
+                      </td>
+                      <td>
+                        <Typography
+                          style={{
+                            fontFamily: 'monospace',
+                            fontSize: 12,
+                            color: theme.palette.text.secondary,
+                          }}
+                        >
+                          {c.version}
+                        </Typography>
+                      </td>
+                      <td>
                         <span
-                          role="button"
-                          tabIndex={0}
-                          onClick={() =>
-                            setModalTarget({
-                              title: `${c.fqcn} ${c.version}`,
-                              subtitle: `${vCount} violation${vCount !== 1 ? 's' : ''}`,
-                              violations: matched,
-                            })
-                          }
-                          onKeyDown={e =>
-                            activateOnKey(e, () =>
+                          className={classes.sourceBadge}
+                          style={{
+                            backgroundColor: srcStyle.background,
+                            color: srcStyle.text,
+                          }}
+                        >
+                          {c.source}
+                        </span>
+                      </td>
+                      <td style={{ textAlign: 'right' }}>
+                        {vCount > 0 ? (
+                          <span
+                            role="button"
+                            tabIndex={0}
+                            onClick={() =>
                               setModalTarget({
                                 title: `${c.fqcn} ${c.version}`,
                                 subtitle: `${vCount} violation${vCount !== 1 ? 's' : ''}`,
                                 violations: matched,
-                              }),
-                            )
-                          }
-                          style={{
-                            fontSize: 11,
-                            fontWeight: 600,
-                            padding: '1px 7px',
-                            borderRadius: 10,
-                            backgroundColor:
-                              colorTokens.dependencyViolation
-                                .countPillBackground,
-                            color:
-                              colorTokens.dependencyViolation.countPillText,
-                            cursor: 'pointer',
-                          }}
-                        >
-                          {vCount}
-                        </span>
-                      ) : (
-                        <CheckCircleOutlineIcon
-                          style={{
-                            fontSize: 12,
-                            width: 12,
-                            height: 12,
-                            color: colorTokens.dependencyViolation.okCheckColor,
-                            opacity: 0.7,
-                          }}
-                          fontSize="inherit"
-                        />
-                      )}
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        )}
+                              })
+                            }
+                            onKeyDown={e =>
+                              activateOnKey(e, () =>
+                                setModalTarget({
+                                  title: `${c.fqcn} ${c.version}`,
+                                  subtitle: `${vCount} violation${vCount !== 1 ? 's' : ''}`,
+                                  violations: matched,
+                                }),
+                              )
+                            }
+                            style={{
+                              fontSize: 11,
+                              fontWeight: 600,
+                              padding: '1px 7px',
+                              borderRadius: 10,
+                              backgroundColor:
+                                colorTokens.dependencyViolation
+                                  .countPillBackground,
+                              color:
+                                colorTokens.dependencyViolation.countPillText,
+                              cursor: 'pointer',
+                            }}
+                          >
+                            {vCount}
+                          </span>
+                        ) : (
+                          <CheckCircleOutlineIcon
+                            style={{
+                              fontSize: 12,
+                              width: 12,
+                              height: 12,
+                              color:
+                                colorTokens.dependencyViolation.okCheckColor,
+                              opacity: 0.7,
+                            }}
+                            fontSize="inherit"
+                          />
+                        )}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          )}
+        </ApmeOutlinedTableCard>
       </Box>
 
       <Typography className={classes.sectionTitle}>
         Python packages ({pythonPkgs.length})
       </Typography>
-      <Box
-        style={{
-          border: `1px solid ${theme.palette.divider}`,
-          borderRadius: 6,
-          overflow: 'hidden',
-        }}
-      >
+      <ApmeOutlinedTableCard>
         {pythonPkgs.length === 0 ? (
           <Typography className={classes.noData}>
             No Python packages detected
           </Typography>
         ) : (
-          <table className={classes.table}>
+          <table className={tableClasses.table}>
             <thead>
               <tr>
                 <th>Package</th>
@@ -514,7 +492,7 @@ export const DependenciesTab = ({ context }: DependenciesTabProps) => {
             </tbody>
           </table>
         )}
-      </Box>
+      </ApmeOutlinedTableCard>
 
       {modalTarget && (
         <ViolationDetailModal
