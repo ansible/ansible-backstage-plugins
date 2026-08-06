@@ -27,6 +27,7 @@ import {
 import { normalizeRepoUrlFromEntity } from '@ansible/backstage-rhaap-common/catalogEntity';
 import { ApmeAddRepositoryHeaderAction } from '../components/ApmeAddRepositoryHeaderAction/ApmeAddRepositoryHeaderAction';
 import { ApmeQualitySettingsTab } from '../components/ApmeQualitySettingsTab';
+import { ApmeRulesTab } from '../components/ApmeRulesTab';
 
 export function withSuspense<P extends object>(
   Component: ComponentType<P>,
@@ -97,9 +98,7 @@ export function createApmeGitRepositoriesExtensionsApi(
           label: 'Quality',
           path: 'quality',
           order: 10,
-          render: ({
-            repositoryDetailPath,
-          }: GitRepositoriesPageTabContext) => (
+          render: ({ repositoryDetailPath }: GitRepositoriesPageTabContext) => (
             <FleetQualityTab repositoryDetailPath={repositoryDetailPath} />
           ),
         },
@@ -109,6 +108,13 @@ export function createApmeGitRepositoriesExtensionsApi(
           path: 'quality-settings',
           order: 15,
           render: () => <ApmeQualitySettingsTab />,
+        },
+        {
+          id: 'rules',
+          label: 'Rules',
+          path: 'rules',
+          order: 16,
+          render: () => <ApmeRulesTab />,
         },
       ];
     }
