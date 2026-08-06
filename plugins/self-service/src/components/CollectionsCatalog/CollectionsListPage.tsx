@@ -1,4 +1,4 @@
-import { useEffect, type ReactNode } from 'react';
+import { useEffect } from 'react';
 import { Progress } from '@backstage/core-components';
 import {
   Box,
@@ -35,7 +35,7 @@ import { Entity } from '@backstage/catalog-model';
 import { useNavigate } from 'react-router-dom';
 
 import { EmptyState } from '../common';
-import type { SyncProgressEntry } from '../common';
+import type { SyncProgressEntry, SyncStatusMap } from '../common';
 import { useCollectionsStyles } from './styles';
 import { PAGE_SIZE } from './constants';
 import { sortEntities } from './utils';
@@ -247,6 +247,92 @@ const CollectionsFilters = ({
   );
 };
 
+function getDisplayedEntities(
+  paginatedEntities: Entity[],
+  filterByRepositoryEntity: Entity | null | undefined,
+  isStarredFilter: boolean,
+  showLatestOnly: boolean,
+  isStarredEntity: (entity: Entity) => boolean,
+): Entity[] {
+  if (filterByRepositoryEntity) return paginatedEntities;
+
+  if (isStarredFilter) {
+    let starred = paginatedEntities.filter(e => isStarredEntity(e));
+    if (showLatestOnly) {
+      starred = starred.filter(
+        e =>
+          e.metadata?.annotations?.['ansible.io/is-latest-version'] === 'true',
+      );
+    }
+    return sortEntities(starred);
+  }
+  return paginatedEntities;
+}
+
+interface CollectionsCardsProps {
+  initialLoading: boolean;
+  pageLoading: boolean;
+  showNoFilterMatches: boolean;
+  showNoStarredOnPage: boolean;
+  displayedEntities: Entity[];
+  navigate: (path: string) => void;
+  isStarredEntity: (entity: Entity) => boolean;
+  toggleStarredEntity: (entity: Entity) => void;
+  syncStatusMap: SyncStatusMap;
+}
+
+const CollectionsCards = ({
+  initialLoading,
+  pageLoading,
+  showNoFilterMatches,
+  showNoStarredOnPage,
+  displayedEntities,
+  navigate,
+  isStarredEntity,
+  toggleStarredEntity,
+  syncStatusMap,
+}: CollectionsCardsProps) => {
+  const classes = useCollectionsStyles();
+
+  if (initialLoading) {
+    return (
+      <Box className={classes.cardsContainer}>
+        <Progress />
+      </Box>
+    );
+  }
+
+  if ((showNoFilterMatches || showNoStarredOnPage) && !pageLoading) {
+    return (
+      <Box className={classes.cardsContainer}>
+        <Typography variant="body1" color="textSecondary" component="p">
+          {showNoStarredOnPage
+            ? 'No starred collections on this page. Browse other pages to find your starred collections.'
+            : 'No collections match your search or filters.'}
+        </Typography>
+      </Box>
+    );
+  }
+
+  return (
+    <Box
+      className={classes.cardsContainer}
+      style={pageLoading ? { opacity: 0.5, pointerEvents: 'none' } : {}}
+    >
+      {displayedEntities.map(entity => (
+        <CollectionCard
+          key={entity.metadata.uid || entity.metadata.name}
+          entity={entity}
+          onClick={navigate}
+          isStarred={isStarredEntity(entity)}
+          onToggleStar={toggleStarredEntity}
+          syncStatusMap={syncStatusMap}
+        />
+      ))}
+    </Box>
+  );
+};
+
 interface CollectionsPaginationProps {
   isStarredFilter: boolean;
   displayedCount: number;
@@ -389,25 +475,16 @@ export const CollectionsListPage = ({
     }
   }, [hasConfiguredSources, onSourcesStatusChange]);
 
-  const displayedEntities = (() => {
-    if (filterByRepositoryEntity) return paginatedEntities;
-
-    if (filters.user?.value === 'starred') {
-      let starred = paginatedEntities.filter(e => isStarredEntity(e));
-      if (showLatestOnly) {
-        starred = starred.filter(
-          e =>
-            e.metadata?.annotations?.['ansible.io/is-latest-version'] ===
-            'true',
-        );
-      }
-      return sortEntities(starred);
-    }
-    return paginatedEntities;
-  })();
-
   const isStarredFilter =
     !filterByRepositoryEntity && filters.user?.value === 'starred';
+
+  const displayedEntities = getDisplayedEntities(
+    paginatedEntities,
+    filterByRepositoryEntity,
+    isStarredFilter,
+    showLatestOnly,
+    isStarredEntity,
+  );
 
   const startIndex = (currentPage - 1) * PAGE_SIZE;
   const endIndex = Math.min(startIndex + PAGE_SIZE, totalCount);
@@ -445,43 +522,6 @@ export const CollectionsListPage = ({
         loadedEntityCount,
         totalCount,
       );
-
-  let collectionsCardsContent: ReactNode;
-  if (initialLoading) {
-    collectionsCardsContent = (
-      <Box className={classes.cardsContainer}>
-        <Progress />
-      </Box>
-    );
-  } else if ((showNoFilterMatches || showNoStarredOnPage) && !pageLoading) {
-    collectionsCardsContent = (
-      <Box className={classes.cardsContainer}>
-        <Typography variant="body1" color="textSecondary" component="p">
-          {showNoStarredOnPage
-            ? 'No starred collections on this page. Browse other pages to find your starred collections.'
-            : 'No collections match your search or filters.'}
-        </Typography>
-      </Box>
-    );
-  } else {
-    collectionsCardsContent = (
-      <Box
-        className={classes.cardsContainer}
-        style={pageLoading ? { opacity: 0.5, pointerEvents: 'none' } : {}}
-      >
-        {displayedEntities.map(entity => (
-          <CollectionCard
-            key={entity.metadata.uid || entity.metadata.name}
-            entity={entity}
-            onClick={navigate}
-            isStarred={isStarredEntity(entity)}
-            onToggleStar={toggleStarredEntity}
-            syncStatusMap={syncStatusMap}
-          />
-        ))}
-      </Box>
-    );
-  }
 
   return (
     <div style={{ flexDirection: 'column', width: '100%' }}>
@@ -536,7 +576,17 @@ export const CollectionsListPage = ({
                   </Typography>
                 </Box>
 
-                {collectionsCardsContent}
+                <CollectionsCards
+                  initialLoading={initialLoading}
+                  pageLoading={pageLoading}
+                  showNoFilterMatches={showNoFilterMatches}
+                  showNoStarredOnPage={showNoStarredOnPage}
+                  displayedEntities={displayedEntities}
+                  navigate={navigate}
+                  isStarredEntity={isStarredEntity}
+                  toggleStarredEntity={toggleStarredEntity}
+                  syncStatusMap={syncStatusMap}
+                />
 
                 {!initialLoading && totalPages > 1 && (
                   <CollectionsPagination
