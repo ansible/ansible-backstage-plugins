@@ -124,10 +124,7 @@ describe('ApmeQualityActivityTab', () => {
       <MemoryRouter initialEntries={[initialEntry]}>
         <TestApiProvider
           apis={[
-            [
-              apmeApiRef,
-              { getActivity, getActivityDetail, createSuppression },
-            ],
+            [apmeApiRef, { getActivity, getActivityDetail, createSuppression }],
             [
               configApiRef,
               new ConfigReader({ ansible: { apme: { enabled: true } } }),
@@ -148,7 +145,9 @@ describe('ApmeQualityActivityTab', () => {
 
   it('lists quality activity rows with sortable headers', async () => {
     renderTab();
-    expect(await screen.findByText(/Quality activity \(1\)/i)).toBeInTheDocument();
+    expect(
+      await screen.findByText(/Quality activity \(1\)/i),
+    ).toBeInTheDocument();
     expect(getActivity).toHaveBeenCalledWith('proj-1');
     expect(screen.getByText('Type')).toBeInTheDocument();
     expect(screen.getByText(/Time/)).toBeInTheDocument();
@@ -162,13 +161,19 @@ describe('ApmeQualityActivityTab', () => {
   it('opens detail via ?activity= and closes with Close', async () => {
     renderTab('/?activity=scan-1');
     await expectActivityDetailLoaded();
-    expect(screen.getByText('L001')).toBeInTheDocument();
-    expect(screen.getByText('use FQCN')).toBeInTheDocument();
+    expect(screen.getByTestId('assess-findings')).toHaveTextContent(
+      '1 findings',
+    );
     expect(getActivityDetail).toHaveBeenCalledWith('scan-1');
-    expect(screen.queryByText(/Quality activity detail/i)).not.toBeInTheDocument();
+    expect(
+      screen.queryByText(/Quality activity detail/i),
+    ).not.toBeInTheDocument();
     expect(screen.queryByText(/Early access preview/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/^Acknowledge$/i)).not.toBeInTheDocument();
 
-    fireEvent.click(screen.getByRole('button', { name: /close activity detail/i }));
+    fireEvent.click(
+      screen.getByRole('button', { name: /close activity detail/i }),
+    );
     await waitFor(() => {
       expect(screen.getByText(/Quality activity \(1\)/i)).toBeInTheDocument();
     });
@@ -182,6 +187,8 @@ describe('ApmeQualityActivityTab', () => {
       expect(getActivityDetail).toHaveBeenCalledWith('scan-1');
     });
     await expectActivityDetailLoaded();
-    expect(screen.getByText('L001')).toBeInTheDocument();
+    expect(screen.getByTestId('assess-findings')).toHaveTextContent(
+      '1 findings',
+    );
   });
 });

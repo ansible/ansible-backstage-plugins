@@ -19,7 +19,6 @@ import type {
 import { apmeApiRef } from '../../api';
 import { useResolveApmeProject } from '../../hooks/useResolveApmeProject';
 import { useSyncPatternFlyTheme } from '../../hooks/useSyncPatternFlyTheme';
-import { useViolationAcknowledge } from '../../hooks/useViolationAcknowledge';
 import {
   ApmeOutlinedTableCard,
   useApmeOutlinedTableStyles,
@@ -258,19 +257,14 @@ function ActivityList({
 }
 
 function ActivityDetailView({
-  projectId,
   detail,
   onBack,
   ruleFilter,
 }: {
-  projectId: string;
   detail: ActivityDetail;
   onBack: () => void;
   ruleFilter?: string;
 }) {
-  const { acknowledgedIds, ackError, pendingId, acknowledge, clearAckError } =
-    useViolationAcknowledge(projectId);
-
   return (
     <Flex direction={{ default: 'column' }} gap={{ default: 'gapMd' }}>
       <Flex
@@ -291,14 +285,8 @@ function ActivityDetailView({
         </FlexItem>
       </Flex>
       <QualityFindingsSection
-        projectId={projectId}
         violations={detail.violations}
         ruleFilter={ruleFilter}
-        acknowledgedIds={acknowledgedIds}
-        pendingId={pendingId}
-        ackError={ackError}
-        onAcknowledge={acknowledge}
-        onClearAckError={clearAckError}
         description="Findings from this past quality check (read-only)."
       />
     </Flex>
@@ -419,7 +407,6 @@ function QualityActivityBody({ projectId }: { projectId: string }) {
     } else if (detail) {
       detailBody = (
         <ActivityDetailView
-          projectId={projectId}
           detail={detail}
           onBack={backToList}
           ruleFilter={ruleFilter}
