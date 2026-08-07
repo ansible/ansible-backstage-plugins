@@ -26,6 +26,9 @@ import type {
 /** Prefix for galaxy servers managed by portal PAH sync bootstrap. */
 export const PORTAL_HUB_GALAXY_SERVER_PREFIX = 'portal_hub_';
 
+/** PAH content repo path segment — same charset as user-facing galaxy server names. */
+const PAH_REPO_NAME_RE = /^[A-Za-z0-9_-]+$/;
+
 export interface PortalPahGalaxyServerSpec {
   name: string;
   url: string;
@@ -102,7 +105,11 @@ export function buildPortalPahGalaxyServers(
       envConfig.getOptionalConfigArray('sync.pahCollections.repositories') ??
       [];
     for (const entry of entries) {
-      const repoName = entry.getString('name');
+      const repoName = entry.getString('name').trim();
+      // Reject path metacharacters before interpolating into a credentialed URL.
+      if (!PAH_REPO_NAME_RE.test(repoName)) {
+        continue;
+      }
       const normalizedRepo = normalizePahRepoIdentifier(repoName);
       if (!normalizedRepo || seen.has(normalizedRepo)) {
         continue;
@@ -110,7 +117,7 @@ export function buildPortalPahGalaxyServers(
       seen.add(normalizedRepo);
       const spec: PortalPahGalaxyServerSpec = {
         name: `${PORTAL_HUB_GALAXY_SERVER_PREFIX}${normalizedRepo}`,
-        url: `${base}/api/galaxy/content/${repoName}/`,
+        url: `${base}/api/galaxy/content/${encodeURIComponent(repoName)}/`,
       };
       if (token) {
         spec.token = token;

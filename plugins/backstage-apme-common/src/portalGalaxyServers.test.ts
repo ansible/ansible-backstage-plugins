@@ -154,6 +154,37 @@ describe('portalGalaxyServers', () => {
       });
       expect(buildPortalPahGalaxyServers(config)).toHaveLength(1);
     });
+
+    it('skips PAH repo names with path metacharacters', () => {
+      const config = new ConfigReader({
+        ansible: {
+          rhaap: { baseUrl: 'https://aap.example.com', token: 't' },
+        },
+        catalog: {
+          providers: {
+            rhaap: {
+              production: {
+                sync: {
+                  pahCollections: {
+                    repositories: [
+                      { name: '../evil' },
+                      { name: 'published with spaces' },
+                      { name: 'published' },
+                    ],
+                  },
+                },
+              },
+            },
+          },
+        },
+      });
+      const servers = buildPortalPahGalaxyServers(config);
+      expect(servers).toHaveLength(1);
+      expect(servers[0].name).toBe('portal_hub_published');
+      expect(servers[0].url).toBe(
+        'https://aap.example.com/api/galaxy/content/published/',
+      );
+    });
   });
 
   describe('syncPortalGalaxyServers', () => {
