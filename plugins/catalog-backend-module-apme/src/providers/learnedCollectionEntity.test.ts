@@ -125,6 +125,12 @@ describe('learnedCollectionEntity', () => {
     expect(
       entity!.metadata.annotations?.['ansible.io/canonical-collection'],
     ).toBe('component:default/pah-published-ansible.posix-1.5.4');
+    expect(
+      entity!.metadata.annotations?.['ansible.io/scm-provider'],
+    ).toBeUndefined();
+    expect(
+      entity!.metadata.annotations?.['ansible.io/scm-repository'],
+    ).toBeUndefined();
     expect(entity!.spec).toMatchObject({
       collection_namespace: 'ansible',
       collection_name: 'posix',

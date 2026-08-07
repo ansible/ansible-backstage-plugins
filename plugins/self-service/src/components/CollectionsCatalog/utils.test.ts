@@ -132,6 +132,28 @@ describe('CollectionsCatalog utils', () => {
       };
       expect(buildSourceString(entity)).toBe('github@github.com/org/repo.git');
     });
+
+    it('returns learned dependency label (not SCM of consuming repo)', () => {
+      const entity: Entity = {
+        apiVersion: 'backstage.io/v1alpha1',
+        kind: 'Component',
+        metadata: {
+          name: 'apme-learned-dep',
+          annotations: {
+            'ansible.io/collection-source': 'learned',
+            'ansible.io/consumed-by-repository': 'my-playbook-repo',
+            // Stale scm copy must not win over learned source.
+            'ansible.io/scm-provider': 'github',
+            'ansible.io/scm-host': 'github.com',
+            'ansible.io/scm-repository': 'acme/my-playbook',
+          },
+        },
+        spec: {},
+      };
+      expect(buildSourceString(entity)).toBe(
+        'Learned dependency (my-playbook-repo)',
+      );
+    });
   });
 
   describe('getSourceUrl', () => {

@@ -37,6 +37,13 @@ export const buildSourceString = (entity: Entity): string => {
       : 'Private Automation Hub';
   }
 
+  if (collectionSource === 'learned') {
+    const consumedBy = annotations['ansible.io/consumed-by-repository'] || '';
+    return consumedBy
+      ? `Learned dependency (${consumedBy})`
+      : 'Learned dependency';
+  }
+
   // SCM collection
   const scmProvider = annotations['ansible.io/scm-provider'] || 'unknown';
   const host = annotations['ansible.io/scm-host'] || '';
@@ -52,6 +59,10 @@ export const getSourceUrl = (entity: Entity): string | undefined => {
   const collectionSource = annotations['ansible.io/collection-source'];
   if (collectionSource === 'pah') {
     return annotations['backstage.io/source-url'];
+  }
+  // Learned deps are synthetic — no collection source URL.
+  if (collectionSource === 'learned') {
+    return undefined;
   }
 
   const sourceLocation = annotations['backstage.io/source-location'];

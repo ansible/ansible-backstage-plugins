@@ -149,18 +149,9 @@ export function buildLearnedCollectionEntity(
       `component:default/${canonicalEntityName}`;
   }
 
-  const repoAnnotations = repoEntity.metadata?.annotations ?? {};
-  for (const key of [
-    'ansible.io/scm-provider',
-    'ansible.io/scm-host',
-    'ansible.io/scm-organization',
-    'ansible.io/scm-repository',
-  ] as const) {
-    const value = repoAnnotations[key];
-    if (typeof value === 'string' && value) {
-      annotations[key] = value;
-    }
-  }
+  // Do not copy the consuming repo's scm-* annotations — that makes Collections
+  // buildSourceString look like the collection lives in the playbook repo.
+  // Linkage is via CONSUMED_BY_REPOSITORY_ANNOTATION only.
 
   return {
     apiVersion: 'backstage.io/v1alpha1',
