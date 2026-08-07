@@ -1,11 +1,15 @@
 import { chromium, Page } from '@playwright/test';
-import { loginAAP } from './auth';
 
 const DEFAULT_ROLE_NAME = 'portal-nonadmin-role';
 const ROLE_DESCRIPTION =
   'E2E test role with all plugin permissions for non-admin user';
 const MAX_CHECKBOX_ITERATIONS = 50;
-const SENSITIVE_ENV_KEYS = ['AAP_TOKEN', 'AAP_NONADMIN_USER_ID'];
+const SENSITIVE_ENV_KEYS = [
+  'AAP_TOKEN',
+  'AAP_NONADMIN_USER_ID',
+  'AAP_USER_PASS',
+  'AAP_NONADMIN_USER_PASS',
+];
 
 function redact(msg: string): string {
   let sanitized = msg;
@@ -30,9 +34,139 @@ async function isElementVisible(
     .catch(() => false);
 }
 
+async function loginAsAdmin(page: Page) {
+  log('Navigating to login page...');
+  await page.goto('/', { waitUntil: 'domcontentloaded' });
+  await page.waitForTimeout(2000);
+
+  const onLoginPage = await page
+    .getByText('Log in to your account')
+    .isVisible({ timeout: 5000 })
+    .catch(() => false);
+
+  if (!onLoginPage) {
+    const signIn = page.getByRole('button', { name: /Sign In/i }).first();
+    if (await signIn.isVisible({ timeout: 5000 }).catch(() => false)) {
+      await signIn.click();
+      await page.waitForLoadState('domcontentloaded');
+    }
+    await page
+      .getByText('Log in to your account')
+      .waitFor({ state: 'visible', timeout: 15_000 });
+  }
+
+  log('Filling admin credentials...');
+  await page.locator('#pf-login-username-id').fill(process.env.AAP_USER_ID!);
+  await page.locator('#pf-login-password-id').fill(process.env.AAP_USER_PASS!);
+  await page.getByRole('button', { name: 'Log in' }).click();
+  await page.waitForLoadState('domcontentloaded');
+
+  const authorizeVisible = await page
+    .getByText(/Authorize.*\?/)
+    .isVisible({ timeout: 5000 })
+    .catch(() => false);
+
+  if (authorizeVisible) {
+    log('OAuth authorize page detected, clicking Authorize...');
+    await page.getByRole('button', { name: 'Authorize' }).click();
+    await page.waitForLoadState('domcontentloaded');
+  }
+
+  await page.waitForTimeout(3000);
+  await page.locator('main').waitFor({ state: 'visible', timeout: 30_000 });
+  log(`Admin login complete, URL: ${page.url()}`);
+}
+
+async function createNonAdminUserViaUI(page: Page) {
+  const username = process.env.AAP_NONADMIN_USER_ID!;
+  const password = process.env.AAP_NONADMIN_USER_PASS!;
+  const orgName = process.env.AAP_ORG_NAME || 'Default';
+
+  log('Navigating to Access Management > Users...');
+  await page.goto('/access/users', { waitUntil: 'domcontentloaded' });
+  await page.locator('main').waitFor({ state: 'visible', timeout: 30_000 });
+
+  const searchInput = page
+    .getByPlaceholder(/search/i)
+    .or(page.locator('input[aria-label*="Search"]'))
+    .first();
+  const hasSearch = await isElementVisible(searchInput, 5_000);
+  if (hasSearch) {
+    await searchInput.fill(username);
+    await page.waitForTimeout(2_000);
+  }
+
+  const existingUser = page
+    .locator('table')
+    .getByText(username, { exact: true });
+  const userExists = await isElementVisible(existingUser, 5_000);
+
+  if (userExists) {
+    log(`User "${username}" already exists, skipping creation`);
+    return;
+  }
+
+  if (hasSearch) {
+    await searchInput.clear();
+    await page.waitForTimeout(1_000);
+  }
+
+  log('Clicking Create user...');
+  const createUserBtn = page
+    .locator('a, button')
+    .filter({ hasText: /Create user/i })
+    .first();
+  await createUserBtn.waitFor({ state: 'visible', timeout: 15_000 });
+  await createUserBtn.click();
+  await page.waitForLoadState('domcontentloaded');
+  await page.waitForTimeout(2_000);
+
+  log('Filling user details...');
+
+  const usernameField = page.getByPlaceholder('Enter username').or(
+    page.locator('input').first(),
+  ).first();
+  await usernameField.waitFor({ state: 'visible', timeout: 10_000 });
+  await usernameField.fill(username);
+
+  const passwordFields = page.locator('input[type="password"]');
+  await passwordFields.first().waitFor({ state: 'visible', timeout: 10_000 });
+  await passwordFields.nth(0).fill(password);
+  log('Filled password');
+
+  await passwordFields.nth(1).fill(password);
+  log('Filled confirm password');
+
+  log('Selecting organization...');
+  const orgDropdown = page.getByPlaceholder('Select organizations').or(
+    page.locator('button, input').filter({ hasText: /Select organizations/i }),
+  ).first();
+  await orgDropdown.click();
+  await page.waitForTimeout(1_000);
+  const orgOption = page
+    .getByRole('option', { name: orgName })
+    .or(page.locator('li, [role="menuitem"]').filter({ hasText: orgName }))
+    .first();
+  await orgOption.waitFor({ state: 'visible', timeout: 5_000 });
+  await orgOption.click();
+  log(`Selected organization: ${orgName}`);
+
+  log('Submitting user creation...');
+  await page
+    .locator('button')
+    .filter({ hasText: /^Create user$/i })
+    .last()
+    .click();
+  await page.waitForLoadState('domcontentloaded');
+  await page.waitForTimeout(3_000);
+
+  log(`Non-admin user "${username}" created via UI`);
+}
+
 async function triggerCatalogSync(page: Page) {
   log('Navigating to Templates page for sync...');
-  await page.goto('/self-service/catalog', { waitUntil: 'networkidle' });
+  await page.goto('/self-service/catalog', { waitUntil: 'domcontentloaded' });
+  await page.waitForTimeout(3_000);
   await page
     .getByText('Templates')
     .first()
@@ -95,7 +229,6 @@ async function createRBACRole(page: Page) {
   await page.goto('/rbac', { waitUntil: 'domcontentloaded' });
   await page.locator('main').waitFor({ state: 'visible', timeout: 30_000 });
 
-  // Search for the role name to handle pagination
   const searchInput = page.getByPlaceholder(/search/i);
   const hasSearch = await isElementVisible(searchInput, 3_000);
   if (hasSearch) {
@@ -260,21 +393,34 @@ export async function setupNonAdminRBAC() {
     return;
   }
 
-  const baseURL = process.env.BASE_URL || 'http://localhost:7007';
-  log(`Starting RBAC setup against ${baseURL}`);
+  const aapURL = process.env.AAP_URL || 'https://localhost';
+  const portalURL = process.env.BASE_URL || 'http://localhost:7007';
+  log(`Starting RBAC setup: AAP=${aapURL}, Portal=${portalURL}`);
 
   const browser = await chromium.launch({ channel: 'chrome' });
-  const context = await browser.newContext({
-    baseURL,
+
+  const aapContext = await browser.newContext({
+    baseURL: aapURL,
     ignoreHTTPSErrors: true,
     viewport: { width: 1920, height: 1080 },
   });
-  const page = await context.newPage();
+  const aapPage = await aapContext.newPage();
 
   try {
-    log('Logging in as admin...');
-    await loginAAP(page);
-    log('Admin login complete');
+    await loginAsAdmin(aapPage);
+    await createNonAdminUserViaUI(aapPage);
+    await aapPage.close();
+    await aapContext.close();
+
+    const portalContext = await browser.newContext({
+      baseURL: portalURL,
+      ignoreHTTPSErrors: true,
+      viewport: { width: 1920, height: 1080 },
+    });
+    const page = await portalContext.newPage();
+
+    log('Logging in to Portal as admin...');
+    await loginAsAdmin(page);
 
     try {
       await triggerCatalogSync(page);
@@ -284,9 +430,9 @@ export async function setupNonAdminRBAC() {
 
     await createRBACRole(page);
     log('RBAC setup complete');
-  } finally {
     await page.close();
-    await context.close();
+    await portalContext.close();
+  } finally {
     await browser.close();
   }
 }

@@ -1,4 +1,3 @@
-import { createNonAdminTestUser } from './utils/aap-user-setup';
 import { setupNonAdminRBAC } from './utils/rbac-setup';
 
 function redactMessage(msg: string): string {
@@ -14,7 +13,6 @@ function redactMessage(msg: string): string {
 async function globalSetup() {
   if (process.env.AAP_NONADMIN_USER_ID && process.env.AAP_TOKEN) {
     try {
-      await createNonAdminTestUser();
       await setupNonAdminRBAC();
     } catch (error) {
       const message = redactMessage((error as Error).message);
