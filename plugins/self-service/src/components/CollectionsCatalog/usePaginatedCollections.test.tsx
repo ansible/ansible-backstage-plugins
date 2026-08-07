@@ -309,7 +309,7 @@ describe('usePaginatedCollections', () => {
       });
     });
 
-    it('passes source filter to queryEntities', async () => {
+    it('passes PAH source filter to queryEntities', async () => {
       mockCatalogApi.getEntityFacets.mockImplementation(
         async (req: { filter: Record<string, string>; facets: string[] }) => {
           if (
@@ -358,6 +358,57 @@ describe('usePaginatedCollections', () => {
           ] === 'repo1',
       );
       expect(callWithSource).toBeDefined();
+    });
+
+    it('passes SCM source filter to queryEntities using scm-host-name', async () => {
+      mockCatalogApi.getEntityFacets.mockImplementation(
+        async (req: { filter: Record<string, string>; facets: string[] }) => {
+          if (
+            req.facets.includes('metadata.annotations.ansible.io/scm-host-name')
+          ) {
+            return {
+              facets: {
+                'metadata.annotations.ansible.io/scm-host-name': [
+                  { value: 'github.com', count: 3 },
+                ],
+              },
+            };
+          }
+          return { facets: {} };
+        },
+      );
+
+      const { result } = renderHook(
+        () =>
+          usePaginatedCollections({
+            catalogApi: mockCatalogApi as any,
+            discoveryApi: mockDiscoveryApi as any,
+            fetchApi: mockFetchApi as any,
+          }),
+        { wrapper },
+      );
+
+      await waitFor(() => {
+        expect(result.current.initialLoading).toBe(false);
+      });
+
+      await waitFor(() => {
+        expect(result.current.allSources).toContain('github.com');
+      });
+
+      act(() => {
+        result.current.setSourceFilter('github.com');
+      });
+
+      await waitFor(() => {
+        const calls = mockCatalogApi.queryEntities.mock.calls;
+        const callWithScm = calls.find(
+          (c: any[]) =>
+            c[0]?.filter?.['metadata.annotations.ansible.io/scm-host-name'] ===
+            'github.com',
+        );
+        expect(callWithScm).toBeDefined();
+      });
     });
 
     it('passes tag filter to queryEntities', async () => {
@@ -597,6 +648,53 @@ describe('usePaginatedCollections', () => {
       });
     });
 
+    it('auto-corrects page when server returns fewer items than expected', async () => {
+      mockCatalogApi.queryEntities
+        .mockResolvedValueOnce({
+          items: Array.from({ length: 12 }, (_, i) => ({
+            ...mockEntity,
+            metadata: {
+              ...mockEntity.metadata,
+              uid: `uid-${i}`,
+              name: `collection-${i}`,
+            },
+          })),
+          totalItems: 30,
+          pageInfo: {},
+        })
+        .mockResolvedValue({
+          items: [],
+          totalItems: 5,
+          pageInfo: {},
+        });
+
+      const { result } = renderHook(
+        () =>
+          usePaginatedCollections({
+            catalogApi: mockCatalogApi as any,
+            discoveryApi: mockDiscoveryApi as any,
+            fetchApi: mockFetchApi as any,
+          }),
+        { wrapper },
+      );
+
+      act(() => {
+        result.current.setShowLatestOnly(false);
+      });
+
+      await waitFor(() => {
+        expect(result.current.initialLoading).toBe(false);
+      });
+
+      act(() => {
+        result.current.goToPage(3);
+      });
+
+      await waitFor(() => {
+        expect(result.current.currentPage).toBeLessThanOrEqual(1);
+      });
+    });
+
     it('hasNextPage and hasPrevPage are correct', async () => {
       const { result } = renderHook(
         () =>
@@ -631,6 +729,111 @@ describe('usePaginatedCollections', () => {
       // On last page
       expect(result.current.hasPrevPage).toBe(true);
       expect(result.current.hasNextPage).toBe(false);
+    });
+  });
+
+  describe('filterByRepositoryEntity', () => {
+    it('fetches and paginates collections for a repository entity', async () => {
+      const repoEntity: Entity = {
+        apiVersion: 'backstage.io/v1alpha1',
+        kind: 'Component',
+        metadata: { name: 'my-repo' },
+        spec: {
+          repository_collections: ['collection-a', 'collection-b'],
+        },
+      };
+
+      mockCatalogApi.queryEntities.mockResolvedValue({
+        items: [
+          {
+            ...mockEntity,
+            metadata: { ...mockEntity.metadata, name: 'collection-a' },
+          },
+          {
+            ...mockEntity,
+            metadata: { ...mockEntity.metadata, name: 'collection-b' },
+          },
+        ],
+        totalItems: 2,
+        pageInfo: {},
+      });
+
+      const { result } = renderHook(
+        () =>
+          usePaginatedCollections({
+            catalogApi: mockCatalogApi as any,
+            discoveryApi: mockDiscoveryApi as any,
+            fetchApi: mockFetchApi as any,
+            filterByRepositoryEntity: repoEntity,
+          }),
+        { wrapper },
+      );
+
+      await waitFor(() => {
+        expect(result.current.initialLoading).toBe(false);
+      });
+
+      expect(result.current.entities.length).toBeGreaterThan(0);
+    });
+
+    it('warns when repository results are truncated', async () => {
+      const consoleSpy = jest
+        .spyOn(console, 'warn')
+        .mockImplementation(() => {});
+      const repoEntity: Entity = {
+        apiVersion: 'backstage.io/v1alpha1',
+        kind: 'Component',
+        metadata: { name: 'my-repo' },
+        spec: {
+          repository_collections: ['collection-a'],
+        },
+      };
+
+      mockCatalogApi.queryEntities.mockResolvedValue({
+        items: [mockEntity],
+        totalItems: 1001,
+        pageInfo: {},
+      });
+
+      const { result } = renderHook(
+        () =>
+          usePaginatedCollections({
+            catalogApi: mockCatalogApi as any,
+            discoveryApi: mockDiscoveryApi as any,
+            fetchApi: mockFetchApi as any,
+            filterByRepositoryEntity: repoEntity,
+          }),
+        { wrapper },
+      );
+
+      await waitFor(() => {
+        expect(result.current.initialLoading).toBe(false);
+      });
+
+      expect(consoleSpy).toHaveBeenCalledWith(
+        expect.stringContaining('Repository collections truncated'),
+      );
+      consoleSpy.mockRestore();
+    });
+  });
+
+  describe('sync status error handling', () => {
+    it('sets hasConfiguredSources to false when fetch throws', async () => {
+      mockFetchApi.fetch.mockRejectedValue(new Error('Network error'));
+
+      const { result } = renderHook(
+        () =>
+          usePaginatedCollections({
+            catalogApi: mockCatalogApi as any,
+            discoveryApi: mockDiscoveryApi as any,
+            fetchApi: mockFetchApi as any,
+          }),
+        { wrapper },
+      );
+
+      await waitFor(() => {
+        expect(result.current.hasConfiguredSources).toBe(false);
+      });
     });
   });
 
@@ -801,6 +1004,60 @@ describe('usePaginatedCollections', () => {
       expect(result.current.allTags).toContain('All');
       expect(result.current.allTags).toContain('networking');
       expect(result.current.allTags).toContain('security');
+    });
+
+    it('populates allSources from PAH and SCM facets', async () => {
+      mockCatalogApi.getEntityFacets.mockImplementation(
+        async (req: { filter: Record<string, string>; facets: string[] }) => {
+          if (req.facets.includes('metadata.tags')) {
+            return { facets: { 'metadata.tags': [] } };
+          }
+          if (
+            req.facets.includes(
+              'metadata.annotations.ansible.io/collection-source-repository',
+            )
+          ) {
+            return {
+              facets: {
+                'metadata.annotations.ansible.io/collection-source-repository':
+                  [{ value: 'pah-repo', count: 2 }],
+              },
+            };
+          }
+          if (
+            req.facets.includes('metadata.annotations.ansible.io/scm-host-name')
+          ) {
+            return {
+              facets: {
+                'metadata.annotations.ansible.io/scm-host-name': [
+                  { value: 'github.com', count: 3 },
+                ],
+              },
+            };
+          }
+          return { facets: {} };
+        },
+      );
+
+      const { result } = renderHook(
+        () =>
+          usePaginatedCollections({
+            catalogApi: mockCatalogApi as any,
+            discoveryApi: mockDiscoveryApi as any,
+            fetchApi: mockFetchApi as any,
+          }),
+        { wrapper },
+      );
+
+      await waitFor(() => {
+        expect(result.current.initialLoading).toBe(false);
+      });
+
+      await waitFor(() => {
+        expect(result.current.allSources).toContain('pah-repo');
+        expect(result.current.allSources).toContain('github.com');
+      });
+      expect(result.current.allSources[0]).toBe('All');
     });
   });
 });
