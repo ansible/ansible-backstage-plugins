@@ -158,12 +158,15 @@ export class ApmeLearnedDepsEntityProvider implements EntityProvider {
       try {
         project = await this.apmeService.getProjectByRepoUrl(repoUrl, branch);
       } catch (error) {
-        this.logger.debug(
-          `No APME project for ${repoUrl}: ${(error as Error).message}`,
+        // Do not full-replace with a partial set — that would drop previously
+        // published learned deps for repos we failed to fetch.
+        this.logger.warn(
+          `Learned deps sync aborted: project lookup failed for ${repoUrl}: ${(error as Error).message}`,
         );
-        continue;
+        return;
       }
       if (!project) {
+        // Not registered in APME — skip (client maps 404 → null).
         continue;
       }
 
@@ -173,10 +176,10 @@ export class ApmeLearnedDepsEntityProvider implements EntityProvider {
           project.id,
         );
       } catch (error) {
-        this.logger.debug(
-          `No dependencies for project ${project.id}: ${(error as Error).message}`,
+        this.logger.warn(
+          `Learned deps sync aborted: dependencies failed for project ${project.id}: ${(error as Error).message}`,
         );
-        continue;
+        return;
       }
 
       for (const collection of dependencies.collections ?? []) {
