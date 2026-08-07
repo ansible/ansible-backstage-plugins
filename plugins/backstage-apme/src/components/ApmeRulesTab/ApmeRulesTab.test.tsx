@@ -114,6 +114,24 @@ describe('ApmeRulesTab', () => {
     });
   });
 
+  it('surfaces an error when rule mutation fails', async () => {
+    updateRuleConfig.mockRejectedValueOnce(
+      new Error('APME API error: 403 - Forbidden'),
+    );
+    renderTab();
+    await screen.findByText('M001');
+    const enableSwitch = screen.getByRole('checkbox', {
+      name: /enable M001/i,
+    });
+    fireEvent.click(enableSwitch);
+    expect(
+      await screen.findByText(/APME API error: 403 - Forbidden/i),
+    ).toBeInTheDocument();
+    expect(screen.getByRole('alert')).toHaveTextContent(
+      'APME API error: 403 - Forbidden',
+    );
+  });
+
   it('resets override via deleteRuleConfig', async () => {
     renderTab();
     await screen.findByText('D001');

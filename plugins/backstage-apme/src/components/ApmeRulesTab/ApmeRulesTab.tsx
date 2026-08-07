@@ -56,6 +56,16 @@ const SEVERITY_SELECT_OPTIONS: { value: number; label: string }[] = [
   { value: 6, label: 'Critical' },
 ];
 
+function toError(err: unknown): Error {
+  return err instanceof Error ? err : new Error(String(err));
+}
+
+/** Gateway/catalog 404 on reset means there was no override to delete. */
+function isNotFoundError(err: unknown): boolean {
+  const message = toError(err).message;
+  return /\b404\b/.test(message) || /not found/i.test(message);
+}
+
 const useStyles = makeStyles(theme => ({
   root: {
     paddingBottom: theme.spacing(3),
@@ -114,6 +124,10 @@ const useStyles = makeStyles(theme => ({
     textAlign: 'right',
     fontSize: 13,
     color: theme.palette.text.secondary,
+  },
+  actionError: {
+    color: theme.palette.error.main,
+    marginBottom: theme.spacing(2),
   },
   dialogHeader: {
     display: 'flex',
@@ -176,6 +190,7 @@ export const ApmeRulesTab = () => {
   const [rules, setRules] = useState<Rule[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<Error | null>(null);
+  const [actionError, setActionError] = useState<Error | null>(null);
   const [searchText, setSearchText] = useState('');
   const [categoryFilter, setCategoryFilter] = useState('');
   const [sourceFilter, setSourceFilter] = useState('');
@@ -254,14 +269,16 @@ export const ApmeRulesTab = () => {
         enabled: rule.enabled,
         hasOverride: rule.hasOverride,
       };
+      setActionError(null);
       patchRule(rule.id, { enabled, hasOverride: true });
       startUpdating(rule.id);
       try {
         await apmeApi.updateRuleConfig(rule.id, {
           enabled_override: enabled,
         });
-      } catch {
+      } catch (err) {
         patchRule(rule.id, prev);
+        setActionError(toError(err));
       } finally {
         stopUpdating(rule.id);
       }
@@ -275,12 +292,14 @@ export const ApmeRulesTab = () => {
         enforced: rule.enforced,
         hasOverride: rule.hasOverride,
       };
+      setActionError(null);
       patchRule(rule.id, { enforced, hasOverride: true });
       startUpdating(rule.id);
       try {
         await apmeApi.updateRuleConfig(rule.id, { enforced });
-      } catch {
+      } catch (err) {
         patchRule(rule.id, prev);
+        setActionError(toError(err));
       } finally {
         stopUpdating(rule.id);
       }
@@ -298,6 +317,7 @@ export const ApmeRulesTab = () => {
       const nextSeverity = severityLevelToCatalogSeverity(
         severityProtoToLabel(severityInt),
       );
+      setActionError(null);
       patchRule(rule.id, {
         severity: nextSeverity,
         hasOverride: true,
@@ -307,8 +327,9 @@ export const ApmeRulesTab = () => {
         await apmeApi.updateRuleConfig(rule.id, {
           severity_override: severityInt,
         });
-      } catch {
+      } catch (err) {
         patchRule(rule.id, prev);
+        setActionError(toError(err));
       } finally {
         stopUpdating(rule.id);
       }
@@ -318,6 +339,7 @@ export const ApmeRulesTab = () => {
 
   const handleResetOverride = useCallback(
     async (ruleId: string) => {
+      setActionError(null);
       startUpdating(ruleId);
       try {
         await apmeApi.deleteRuleConfig(ruleId);
@@ -326,8 +348,11 @@ export const ApmeRulesTab = () => {
           if (cur?.id !== ruleId) return cur;
           return null;
         });
-      } catch {
-        // 404 = no override
+      } catch (err) {
+        // 404 = no override to delete; ignore. Surface other failures.
+        if (!isNotFoundError(err)) {
+          setActionError(toError(err));
+        }
       } finally {
         stopUpdating(ruleId);
       }
@@ -354,6 +379,16 @@ export const ApmeRulesTab = () => {
         {' · '}
         <strong>{overrideCount}</strong> with overrides
       </Typography>
+
+      {actionError && (
+        <Typography
+          variant="body2"
+          className={classes.actionError}
+          role="alert"
+        >
+          {actionError.message}
+        </Typography>
+      )}
 
       <Box className={classes.filters}>
         <TextField
