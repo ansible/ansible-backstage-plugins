@@ -132,10 +132,33 @@ describe('learnedCollectionEntity', () => {
       entity!.metadata.annotations?.['ansible.io/scm-repository'],
     ).toBeUndefined();
     expect(entity!.spec).toMatchObject({
+      owner: 'ansible',
+      system: 'ansible-collections',
       collection_namespace: 'ansible',
       collection_name: 'posix',
       collection_version: '1.5.4',
       collection_full_name: 'ansible.posix',
+    });
+  });
+
+  it('falls back to safe owner/system when namespace is invalid', () => {
+    const entity = buildLearnedCollectionEntity({
+      repoEntity,
+      projectId: 'proj-1',
+      collection: {
+        fqcn: 'Bad-NS.posix',
+        version: '1.0.0',
+        source: 'learned',
+      },
+    });
+
+    expect(entity).not.toBeNull();
+    expect(entity!.spec).toMatchObject({
+      owner: 'guest',
+      system: 'learned-collections',
+      collection_namespace: 'Bad-NS',
+      collection_name: 'posix',
+      collection_full_name: 'Bad-NS.posix',
     });
   });
 

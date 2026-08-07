@@ -28,6 +28,9 @@ export const CANONICAL_COLLECTION_ANNOTATION =
 
 export const LEARNED_COLLECTION_SOURCE = 'learned';
 
+/** Ansible collection namespace: lowercase letter, then [a-z0-9_]*. */
+const COLLECTION_NAMESPACE_RE = /^[a-z][a-z0-9_]*$/;
+
 const MAX_ENTITY_NAME_LENGTH = 63;
 const LEARNED_NAME_PREFIX = 'apme-learned-';
 /** Hex chars from sha256(repo|fqcn|version) — kept at the end so truncate cannot drop identity. */
@@ -153,6 +156,12 @@ export function buildLearnedCollectionEntity(
   // buildSourceString look like the collection lives in the playbook repo.
   // Linkage is via CONSUMED_BY_REPOSITORY_ANNOTATION only.
 
+  const namespaceSafe = COLLECTION_NAMESPACE_RE.test(parsed.namespace);
+  const owner = namespaceSafe ? parsed.namespace : 'guest';
+  const system = namespaceSafe
+    ? `${parsed.namespace}-collections`
+    : 'learned-collections';
+
   return {
     apiVersion: 'backstage.io/v1alpha1',
     kind: 'Component',
@@ -167,8 +176,8 @@ export function buildLearnedCollectionEntity(
     spec: {
       type: 'ansible-collection',
       lifecycle: 'production',
-      owner: parsed.namespace,
-      system: `${parsed.namespace}-collections`,
+      owner,
+      system,
       collection_namespace: parsed.namespace,
       collection_name: parsed.name,
       collection_version: version === 'unknown' ? '' : version,
