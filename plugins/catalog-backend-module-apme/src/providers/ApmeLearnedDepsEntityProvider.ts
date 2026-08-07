@@ -40,6 +40,43 @@ import {
 
 const PROVIDER_NAME = 'ApmeLearnedDepsEntityProvider';
 const SYNC_TASK_ID = 'apme-learned-deps-sync';
+/** Bound concurrent APME lookups so large fleets finish within the task timeout. */
+const LEARNED_DEPS_FETCH_CONCURRENCY = 8;
+
+type RepoSyncOutcome =
+  | { kind: 'entities'; entities: Entity[] }
+  | { kind: 'abort'; message: string };
+
+/**
+ * Run async work over items with a fixed worker pool.
+ * Exported for unit tests.
+ */
+export async function mapPool<T, R>(
+  items: readonly T[],
+  concurrency: number,
+  fn: (item: T, index: number) => Promise<R>,
+): Promise<R[]> {
+  if (items.length === 0) {
+    return [];
+  }
+  const results = new Array<R>(items.length);
+  let nextIndex = 0;
+  const workerCount = Math.min(Math.max(1, concurrency), items.length);
+
+  const workers = Array.from({ length: workerCount }, async () => {
+    while (true) {
+      const index = nextIndex;
+      nextIndex += 1;
+      if (index >= items.length) {
+        return;
+      }
+      results[index] = await fn(items[index], index);
+    }
+  });
+
+  await Promise.all(workers);
+  return results;
+}
 
 export interface ApmeLearnedDepsEntityProviderOptions {
   apmeService: IApmeService;
@@ -145,60 +182,78 @@ export class ApmeLearnedDepsEntityProvider implements EntityProvider {
     const catalogIndex = indexCatalogCollectionsByFqcn(
       collectionsResponse.items,
     );
-    const entities: Entity[] = [];
 
-    for (const repo of repos) {
-      const repoUrl = normalizeRepoUrlFromEntity(repo);
-      if (!repoUrl) {
-        continue;
-      }
-      const branch = defaultBranchFromEntity(repo);
-
-      let project;
-      try {
-        project = await this.apmeService.getProjectByRepoUrl(repoUrl, branch);
-      } catch (error) {
-        // Do not full-replace with a partial set — that would drop previously
-        // published learned deps for repos we failed to fetch.
-        this.logger.warn(
-          `Learned deps sync aborted: project lookup failed for ${repoUrl}: ${(error as Error).message}`,
-        );
-        return;
-      }
-      if (!project) {
-        // Not registered in APME — skip (client maps 404 → null).
-        continue;
-      }
-
-      let dependencies;
-      try {
-        dependencies = await this.apmeService.getProjectDependencies(
-          project.id,
-        );
-      } catch (error) {
-        this.logger.warn(
-          `Learned deps sync aborted: dependencies failed for project ${project.id}: ${(error as Error).message}`,
-        );
-        return;
-      }
-
-      for (const collection of dependencies.collections ?? []) {
-        const canonical = findCanonicalCollectionEntity(
-          catalogIndex,
-          collection.fqcn,
-          collection.version,
-        );
-        const entity = buildLearnedCollectionEntity({
-          repoEntity: repo,
-          projectId: project.id,
-          collection,
-          canonicalEntityName: canonical?.metadata?.name,
-        });
-        if (entity) {
-          entities.push(entity);
+    const outcomes = await mapPool(
+      repos,
+      LEARNED_DEPS_FETCH_CONCURRENCY,
+      async (repo): Promise<RepoSyncOutcome> => {
+        const repoUrl = normalizeRepoUrlFromEntity(repo);
+        if (!repoUrl) {
+          return { kind: 'entities', entities: [] };
         }
-      }
+        const branch = defaultBranchFromEntity(repo);
+
+        let project;
+        try {
+          project = await this.apmeService.getProjectByRepoUrl(
+            repoUrl,
+            branch,
+          );
+        } catch (error) {
+          return {
+            kind: 'abort',
+            message: `project lookup failed for ${repoUrl}: ${(error as Error).message}`,
+          };
+        }
+        if (!project) {
+          // Not registered in APME — skip (client maps 404 → null).
+          return { kind: 'entities', entities: [] };
+        }
+
+        let dependencies;
+        try {
+          dependencies = await this.apmeService.getProjectDependencies(
+            project.id,
+          );
+        } catch (error) {
+          return {
+            kind: 'abort',
+            message: `dependencies failed for project ${project.id}: ${(error as Error).message}`,
+          };
+        }
+
+        const entities: Entity[] = [];
+        for (const collection of dependencies.collections ?? []) {
+          const canonical = findCanonicalCollectionEntity(
+            catalogIndex,
+            collection.fqcn,
+            collection.version,
+          );
+          const entity = buildLearnedCollectionEntity({
+            repoEntity: repo,
+            projectId: project.id,
+            collection,
+            canonicalEntityName: canonical?.metadata?.name,
+          });
+          if (entity) {
+            entities.push(entity);
+          }
+        }
+        return { kind: 'entities', entities };
+      },
+    );
+
+    const abort = outcomes.find(outcome => outcome.kind === 'abort');
+    if (abort && abort.kind === 'abort') {
+      // Do not full-replace with a partial set — that would drop previously
+      // published learned deps for repos we failed to fetch.
+      this.logger.warn(`Learned deps sync aborted: ${abort.message}`);
+      return;
     }
+
+    const entities = outcomes.flatMap(outcome =>
+      outcome.kind === 'entities' ? outcome.entities : [],
+    );
 
     await this.connection.applyMutation({
       type: 'full',

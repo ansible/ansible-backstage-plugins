@@ -16,7 +16,30 @@
 
 import { ConfigReader } from '@backstage/config';
 import { Entity } from '@backstage/catalog-model';
-import { ApmeLearnedDepsEntityProvider } from './ApmeLearnedDepsEntityProvider';
+import {
+  ApmeLearnedDepsEntityProvider,
+  mapPool,
+} from './ApmeLearnedDepsEntityProvider';
+
+describe('mapPool', () => {
+  it('runs work with bounded concurrency', async () => {
+    let inflight = 0;
+    let maxInflight = 0;
+    const items = [1, 2, 3, 4, 5, 6];
+
+    const results = await mapPool(items, 3, async n => {
+      inflight += 1;
+      maxInflight = Math.max(maxInflight, inflight);
+      await new Promise(resolve => setTimeout(resolve, 20));
+      inflight -= 1;
+      return n * 2;
+    });
+
+    expect(results).toEqual([2, 4, 6, 8, 10, 12]);
+    expect(maxInflight).toBeLessThanOrEqual(3);
+    expect(maxInflight).toBeGreaterThan(1);
+  });
+});
 
 describe('ApmeLearnedDepsEntityProvider', () => {
   const repoA: Entity = {
@@ -86,10 +109,11 @@ describe('ApmeLearnedDepsEntityProvider', () => {
 
   it('applies a full mutation when all project fetches succeed', async () => {
     const apmeService = {
-      getProjectByRepoUrl: jest
-        .fn()
-        .mockResolvedValueOnce({ id: 'p-a' })
-        .mockResolvedValueOnce({ id: 'p-b' }),
+      getProjectByRepoUrl: jest.fn(async (repoUrl: string) => {
+        if (repoUrl.includes('repo-a')) return { id: 'p-a' };
+        if (repoUrl.includes('repo-b')) return { id: 'p-b' };
+        return null;
+      }),
       getProjectDependencies: jest.fn().mockResolvedValue({
         collections: [
           { fqcn: 'ansible.posix', version: '1.5.4', source: 'learned' },
@@ -108,10 +132,11 @@ describe('ApmeLearnedDepsEntityProvider', () => {
 
   it('skips repos with no APME project (null) and still mutates', async () => {
     const apmeService = {
-      getProjectByRepoUrl: jest
-        .fn()
-        .mockResolvedValueOnce(null)
-        .mockResolvedValueOnce({ id: 'p-b' }),
+      getProjectByRepoUrl: jest.fn(async (repoUrl: string) => {
+        if (repoUrl.includes('repo-a')) return null;
+        if (repoUrl.includes('repo-b')) return { id: 'p-b' };
+        return null;
+      }),
       getProjectDependencies: jest.fn().mockResolvedValue({
         collections: [
           { fqcn: 'ansible.posix', version: '1.5.4', source: 'learned' },
@@ -129,10 +154,10 @@ describe('ApmeLearnedDepsEntityProvider', () => {
 
   it('aborts without mutation when project lookup throws', async () => {
     const apmeService = {
-      getProjectByRepoUrl: jest
-        .fn()
-        .mockResolvedValueOnce({ id: 'p-a' })
-        .mockRejectedValueOnce(new Error('gateway 503')),
+      getProjectByRepoUrl: jest.fn(async (repoUrl: string) => {
+        if (repoUrl.includes('repo-a')) return { id: 'p-a' };
+        throw new Error('gateway 503');
+      }),
       getProjectDependencies: jest.fn().mockResolvedValue({
         collections: [
           { fqcn: 'ansible.posix', version: '1.5.4', source: 'learned' },
@@ -155,7 +180,7 @@ describe('ApmeLearnedDepsEntityProvider', () => {
       getProjectByRepoUrl: jest.fn().mockResolvedValue({ id: 'p-a' }),
       getProjectDependencies: jest
         .fn()
-        .mockRejectedValueOnce(new Error('deps unavailable')),
+        .mockRejectedValue(new Error('deps unavailable')),
     };
     const { provider, applyMutation } = createProvider(apmeService);
     await provider.connect({ applyMutation } as never);
