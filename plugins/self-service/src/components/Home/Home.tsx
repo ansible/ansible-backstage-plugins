@@ -564,22 +564,12 @@ export const HomeComponent = () => {
                 value={
                   <Typography component="span" style={{ color: 'inherit' }}>
                     <Tooltip title={syncTooltip} placement="bottom">
-                      <span
+                      <button
+                        type="button"
                         onClick={
                           syncDisabled ? undefined : ShowSyncConfirmationDialog
                         }
-                        onKeyDown={e => {
-                          if (
-                            !syncDisabled &&
-                            (e.key === 'Enter' || e.key === ' ')
-                          ) {
-                            e.preventDefault();
-                            (e.currentTarget as HTMLElement).click();
-                          }
-                        }}
-                        role="button"
-                        aria-disabled={syncDisabled}
-                        tabIndex={syncDisabled ? -1 : 0}
+                        disabled={syncDisabled}
                         style={{
                           display: 'inline-flex',
                           alignItems: 'center',
@@ -587,6 +577,11 @@ export const HomeComponent = () => {
                           textDecoration: 'underline',
                           cursor: syncDisabled ? 'default' : 'pointer',
                           opacity: syncDisabled ? 0.5 : 1,
+                          background: 'none',
+                          border: 'none',
+                          padding: 0,
+                          font: 'inherit',
+                          color: 'inherit',
                         }}
                       >
                         {isSyncInProgress ? 'Syncing...' : 'Sync now'}
@@ -596,7 +591,7 @@ export const HomeComponent = () => {
                             isSyncInProgress ? classes.syncSpinning : undefined
                           }
                         />
-                      </span>
+                      </button>
                     </Tooltip>
                     <Tooltip title="Sync AAP Job Templates, Organizations, Users, and Teams from AAP to automation portal.">
                       <Info fontSize="small" style={{ marginLeft: '4px' }} />
