@@ -126,6 +126,7 @@ export interface SyncPortalGalaxyServersResult {
   created: number;
   updated: number;
   unchanged: number;
+  deleted: number;
   desired: number;
 }
 
@@ -135,13 +136,17 @@ function urlsEqual(a: string, b: string): boolean {
 }
 
 /**
- * Upserts portal-managed galaxy servers on the gateway.
+ * Upserts portal-managed galaxy servers on the gateway, then prunes
+ * obsolete `portal_hub_*` entries not in `desired`.
  * Never deletes non-portal_hub_* servers (manual Quality-settings entries).
  */
 export async function syncPortalGalaxyServers(
   apmeService: Pick<
     IApmeService,
-    'listGalaxyServers' | 'createGalaxyServer' | 'updateGalaxyServer'
+    | 'listGalaxyServers'
+    | 'createGalaxyServer'
+    | 'updateGalaxyServer'
+    | 'deleteGalaxyServer'
   >,
   desired: PortalPahGalaxyServerSpec[],
   logger?: LoggerService,
@@ -150,12 +155,14 @@ export async function syncPortalGalaxyServers(
     created: 0,
     updated: 0,
     unchanged: 0,
+    deleted: 0,
     desired: desired.length,
   };
 
   if (desired.length === 0) {
-    logger?.info('No portal PAH galaxy servers to sync');
-    return result;
+    logger?.info(
+      'No portal PAH galaxy servers desired; pruning obsolete portal_hub_* entries',
+    );
   }
 
   const existing = await apmeService.listGalaxyServers();
@@ -163,6 +170,8 @@ export async function syncPortalGalaxyServers(
   for (const server of existing) {
     byName.set(server.name, server);
   }
+
+  const desiredNames = new Set(desired.map(spec => spec.name));
 
   for (const spec of desired) {
     const current = byName.get(spec.name);
@@ -211,6 +220,18 @@ export async function syncPortalGalaxyServers(
     await apmeService.updateGalaxyServer(current.id, patch);
     result.updated += 1;
     logger?.info(`Updated portal galaxy server ${spec.name}`);
+  }
+
+  for (const server of existing) {
+    if (!isPortalManagedGalaxyServerName(server.name)) {
+      continue;
+    }
+    if (desiredNames.has(server.name)) {
+      continue;
+    }
+    await apmeService.deleteGalaxyServer(server.id);
+    result.deleted += 1;
+    logger?.info(`Deleted obsolete portal galaxy server ${server.name}`);
   }
 
   return result;

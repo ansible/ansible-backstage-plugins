@@ -157,23 +157,38 @@ describe('portalGalaxyServers', () => {
   });
 
   describe('syncPortalGalaxyServers', () => {
+    const emptyServer = (
+      id: number,
+      name: string,
+      url: string,
+      has_token = false,
+    ) => ({
+      id,
+      name,
+      url,
+      auth_url: '',
+      has_token,
+      created_at: '',
+      updated_at: '',
+    });
+
     it('creates missing portal servers and skips manual ones', async () => {
-      const listGalaxyServers = jest.fn().mockResolvedValue([
-        {
-          id: 9,
-          name: 'galaxy',
-          url: 'https://galaxy.ansible.com/api/',
-          auth_url: '',
-          has_token: false,
-          created_at: '',
-          updated_at: '',
-        },
-      ]);
+      const listGalaxyServers = jest
+        .fn()
+        .mockResolvedValue([
+          emptyServer(9, 'galaxy', 'https://galaxy.ansible.com/api/'),
+        ]);
       const createGalaxyServer = jest.fn().mockResolvedValue({});
       const updateGalaxyServer = jest.fn().mockResolvedValue({});
+      const deleteGalaxyServer = jest.fn().mockResolvedValue(undefined);
 
       const result = await syncPortalGalaxyServers(
-        { listGalaxyServers, createGalaxyServer, updateGalaxyServer },
+        {
+          listGalaxyServers,
+          createGalaxyServer,
+          updateGalaxyServer,
+          deleteGalaxyServer,
+        },
         [
           {
             name: 'portal_hub_published',
@@ -184,31 +199,36 @@ describe('portalGalaxyServers', () => {
       );
 
       expect(result.created).toBe(1);
+      expect(result.deleted).toBe(0);
       expect(createGalaxyServer).toHaveBeenCalledWith({
         name: 'portal_hub_published',
         url: 'https://aap.example.com/api/galaxy/content/published/',
         token: 'tok',
       });
       expect(updateGalaxyServer).not.toHaveBeenCalled();
+      expect(deleteGalaxyServer).not.toHaveBeenCalled();
     });
 
     it('updates URL when changed', async () => {
       const listGalaxyServers = jest.fn().mockResolvedValue([
-        {
-          id: 3,
-          name: 'portal_hub_published',
-          url: 'https://old.example.com/api/galaxy/content/published/',
-          auth_url: '',
-          has_token: true,
-          created_at: '',
-          updated_at: '',
-        },
+        emptyServer(
+          3,
+          'portal_hub_published',
+          'https://old.example.com/api/galaxy/content/published/',
+          true,
+        ),
       ]);
       const createGalaxyServer = jest.fn();
       const updateGalaxyServer = jest.fn().mockResolvedValue({});
+      const deleteGalaxyServer = jest.fn().mockResolvedValue(undefined);
 
       const result = await syncPortalGalaxyServers(
-        { listGalaxyServers, createGalaxyServer, updateGalaxyServer },
+        {
+          listGalaxyServers,
+          createGalaxyServer,
+          updateGalaxyServer,
+          deleteGalaxyServer,
+        },
         [
           {
             name: 'portal_hub_published',
@@ -219,11 +239,86 @@ describe('portalGalaxyServers', () => {
       );
 
       expect(result.updated).toBe(1);
+      expect(result.deleted).toBe(0);
       expect(updateGalaxyServer).toHaveBeenCalledWith(3, {
         url: 'https://aap.example.com/api/galaxy/content/published/',
         token: 'tok',
       });
       expect(createGalaxyServer).not.toHaveBeenCalled();
+      expect(deleteGalaxyServer).not.toHaveBeenCalled();
+    });
+
+    it('prunes obsolete portal_hub servers and leaves manual ones', async () => {
+      const listGalaxyServers = jest.fn().mockResolvedValue([
+        emptyServer(1, 'galaxy', 'https://galaxy.ansible.com/api/'),
+        emptyServer(
+          2,
+          'portal_hub_validated',
+          'https://aap.example.com/api/galaxy/content/validated/',
+          true,
+        ),
+        emptyServer(
+          3,
+          'portal_hub_published',
+          'https://aap.example.com/api/galaxy/content/published/',
+          true,
+        ),
+      ]);
+      const createGalaxyServer = jest.fn();
+      const updateGalaxyServer = jest.fn().mockResolvedValue({});
+      const deleteGalaxyServer = jest.fn().mockResolvedValue(undefined);
+
+      const result = await syncPortalGalaxyServers(
+        {
+          listGalaxyServers,
+          createGalaxyServer,
+          updateGalaxyServer,
+          deleteGalaxyServer,
+        },
+        [
+          {
+            name: 'portal_hub_published',
+            url: 'https://aap.example.com/api/galaxy/content/published/',
+            token: 'tok',
+          },
+        ],
+      );
+
+      expect(result.deleted).toBe(1);
+      expect(deleteGalaxyServer).toHaveBeenCalledWith(2);
+      expect(deleteGalaxyServer).not.toHaveBeenCalledWith(1);
+      expect(deleteGalaxyServer).not.toHaveBeenCalledWith(3);
+    });
+
+    it('prunes all portal_hub servers when desired is empty', async () => {
+      const listGalaxyServers = jest.fn().mockResolvedValue([
+        emptyServer(1, 'galaxy', 'https://galaxy.ansible.com/api/'),
+        emptyServer(
+          2,
+          'portal_hub_published',
+          'https://aap.example.com/api/galaxy/content/published/',
+          true,
+        ),
+      ]);
+      const createGalaxyServer = jest.fn();
+      const updateGalaxyServer = jest.fn();
+      const deleteGalaxyServer = jest.fn().mockResolvedValue(undefined);
+
+      const result = await syncPortalGalaxyServers(
+        {
+          listGalaxyServers,
+          createGalaxyServer,
+          updateGalaxyServer,
+          deleteGalaxyServer,
+        },
+        [],
+      );
+
+      expect(result.desired).toBe(0);
+      expect(result.deleted).toBe(1);
+      expect(deleteGalaxyServer).toHaveBeenCalledWith(2);
+      expect(createGalaxyServer).not.toHaveBeenCalled();
+      expect(updateGalaxyServer).not.toHaveBeenCalled();
     });
   });
 });

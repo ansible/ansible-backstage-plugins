@@ -47,7 +47,7 @@ export async function registerPortalGalaxyServersSync(
     const desired = buildPortalPahGalaxyServers(rootConfig);
     const result = await syncPortalGalaxyServers(apmeService, desired, logger);
     logger.info(
-      `Portal galaxy servers sync: desired=${result.desired}, created=${result.created}, updated=${result.updated}, unchanged=${result.unchanged}`,
+      `Portal galaxy servers sync: desired=${result.desired}, created=${result.created}, updated=${result.updated}, unchanged=${result.unchanged}, deleted=${result.deleted}`,
     );
   };
 
