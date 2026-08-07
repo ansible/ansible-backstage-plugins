@@ -64,13 +64,12 @@ export async function mapPool<T, R>(
   const workerCount = Math.min(Math.max(1, concurrency), items.length);
 
   const workers = Array.from({ length: workerCount }, async () => {
-    while (true) {
-      const index = nextIndex;
-      nextIndex += 1;
-      if (index >= items.length) {
-        return;
-      }
+    let index = nextIndex;
+    nextIndex += 1;
+    while (index < items.length) {
       results[index] = await fn(items[index], index);
+      index = nextIndex;
+      nextIndex += 1;
     }
   });
 
