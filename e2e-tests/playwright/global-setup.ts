@@ -17,7 +17,12 @@ async function globalSetup() {
     } catch (error) {
       const message = redactMessage((error as Error).message);
       console.error('[Global Setup] Non-admin setup failed:', message);
-      throw error;
+      if (!process.env.CI) {
+        throw error;
+      }
+      console.log(
+        '[Global Setup] Running in CI, continuing (Ansible handles user/RBAC/OAuth setup)',
+      );
     }
   }
 }
