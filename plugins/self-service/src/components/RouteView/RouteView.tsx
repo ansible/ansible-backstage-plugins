@@ -168,8 +168,11 @@ const RouteViewContent = () => {
         >
           <Route index element={<Navigate to="catalog" replace />} />
           <Route path="catalog" element={<GitRepositoriesPage />} />
+          <Route path="quality" element={<GitRepositoriesPage />} />
           <Route path="ci-activity" element={<GitRepositoriesPage />} />
+          <Route path="quality-settings" element={<GitRepositoriesPage />} />
           <Route path=":repositoryName" element={<RepositoryDetailsPage />} />
+          <Route path="*" element={<Navigate to="catalog" replace />} />
         </Route>
         {/* Default redirects */}
         <Route

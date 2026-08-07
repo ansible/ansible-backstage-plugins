@@ -65,11 +65,13 @@ This script will:
 
 3. **Configure the Application**
 
-Copy and edit the configuration file:
+Create your local config (required for development):
 
 ```bash
-cp app-config.yaml app-config.local.yaml
+cp app-config.local.yaml.example app-config.local.yaml
 ```
+
+**Always use `app-config.local.yaml` for local settings.** It is gitignored (`*.local.yaml`). Do **not** commit edits to `app-config.yaml` for credentials, AAP/APME toggles, OAuth scopes, or other machine-specific values.
 
 Update the following fields in `app-config.local.yaml`:
 
@@ -226,6 +228,8 @@ yarn test:all        # Run all tests with coverage
 ```
 
 ### Testing Requirements
+
+- **Prototype verification:** When building an additional plugin prototype via the portal Claude Code plugin, follow **Rule 0** in `/portal:build-prototype` (Prototype Verification section). Run `yarn tsc --noEmit` before commit. Prototype-specific browser acceptance criteria live in the prototype `plan.md`.
 
 - **Coverage**: Maintain >80% code coverage
 - **Test files**: Co-locate tests with source files

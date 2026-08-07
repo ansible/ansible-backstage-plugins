@@ -11,8 +11,14 @@ import {
   oauthRequestApiRef,
 } from '@backstage/core-plugin-api';
 import { OAuth2 } from '@backstage/core-app-api';
-import { rhAapAuthApiRef } from '@ansible/plugin-backstage-self-service';
+import {
+  rhAapAuthApiRef,
+  AAPApis,
+  EEBuildApis,
+} from '@ansible/plugin-backstage-self-service';
+import { apmeApiFactory } from '@ansible/plugin-backstage-apme';
 import { signalsPlugin } from '@backstage/plugin-signals';
+import { gitRepositoriesExtensionsApiFactory } from './apis/gitRepositoriesExtensions';
 
 export const apis: AnyApiFactory[] = [
   ...signalsPlugin.getApis(),
@@ -43,4 +49,9 @@ export const apis: AnyApiFactory[] = [
         defaultScopes: ['read', 'write'],
       }),
   }),
+  // Host plugin APIs (formerly createPlugin apis on self-service — RHDH uses apiFactories).
+  AAPApis,
+  EEBuildApis,
+  apmeApiFactory,
+  gitRepositoriesExtensionsApiFactory,
 ];

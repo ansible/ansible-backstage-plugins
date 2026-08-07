@@ -1,5 +1,6 @@
 import { render, screen, fireEvent } from '@testing-library/react';
 import { ThemeProvider, createTheme } from '@material-ui/core/styles';
+import { MemoryRouter } from 'react-router-dom';
 import { RepositoriesPageHeaderSection } from './RepositoriesPageHeaderSection';
 
 const mockUseIsSuperuser = jest.fn().mockReturnValue({
@@ -14,7 +15,11 @@ jest.mock('../../hooks', () => ({
 const theme = createTheme();
 
 const renderWithTheme = (ui: React.ReactElement) => {
-  return render(<ThemeProvider theme={theme}>{ui}</ThemeProvider>);
+  return render(
+    <MemoryRouter>
+      <ThemeProvider theme={theme}>{ui}</ThemeProvider>
+    </MemoryRouter>,
+  );
 };
 
 describe('RepositoriesPageHeaderSection', () => {
@@ -44,6 +49,31 @@ describe('RepositoriesPageHeaderSection', () => {
 
     expect(
       screen.getByText(/Browse Git repositories from your connected/),
+    ).toBeInTheDocument();
+  });
+
+  it('does not render Add repository when no extension header actions are registered', () => {
+    renderWithTheme(
+      <RepositoriesPageHeaderSection onSyncClick={mockOnSyncClick} />,
+    );
+
+    expect(
+      screen.queryByRole('button', { name: /Add repository/i }),
+    ).not.toBeInTheDocument();
+  });
+
+  it('renders extension header actions when provided', () => {
+    renderWithTheme(
+      <RepositoriesPageHeaderSection
+        onSyncClick={mockOnSyncClick}
+        extensionHeaderActions={
+          <button type="button">Add repository</button>
+        }
+      />,
+    );
+
+    expect(
+      screen.getByRole('button', { name: /Add repository/i }),
     ).toBeInTheDocument();
   });
 

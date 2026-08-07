@@ -2,7 +2,14 @@ import { screen, fireEvent, waitFor } from '@testing-library/react';
 import { renderInTestApp, TestApiProvider } from '@backstage/test-utils';
 import { ThemeProvider, createTheme } from '@material-ui/core/styles';
 import { discoveryApiRef, fetchApiRef } from '@backstage/core-plugin-api';
-import { GitRepositoriesPage } from './GitRepositoriesPage';
+import {
+  DefaultGitRepositoriesExtensionsApi,
+  gitRepositoriesExtensionsApiRef,
+} from '@ansible/backstage-rhaap-common/gitRepositoriesExtensions';
+import {
+  GitRepositoriesPage,
+  repositoryTabPathMatches,
+} from './GitRepositoriesPage';
 
 jest.mock('@backstage/plugin-permission-react', () => ({
   usePermission: () => ({ allowed: true }),
@@ -131,6 +138,12 @@ const mockFetchApi = {
 
 const theme = createTheme();
 
+const defaultTestApis = [
+  [discoveryApiRef, mockDiscoveryApi],
+  [fetchApiRef, mockFetchApi],
+  [gitRepositoriesExtensionsApiRef, new DefaultGitRepositoriesExtensionsApi()],
+] as const;
+
 describe('GitRepositoriesPage', () => {
   beforeEach(() => {
     jest.clearAllMocks();
@@ -142,12 +155,7 @@ describe('GitRepositoriesPage', () => {
 
   it('renders page with Git Repositories header', async () => {
     await renderInTestApp(
-      <TestApiProvider
-        apis={[
-          [discoveryApiRef, mockDiscoveryApi],
-          [fetchApiRef, mockFetchApi],
-        ]}
-      >
+      <TestApiProvider apis={[...defaultTestApis]}>
         <ThemeProvider theme={theme}>
           <GitRepositoriesPage />
         </ThemeProvider>
@@ -159,12 +167,7 @@ describe('GitRepositoriesPage', () => {
 
   it('renders RepositoriesTable by default', async () => {
     await renderInTestApp(
-      <TestApiProvider
-        apis={[
-          [discoveryApiRef, mockDiscoveryApi],
-          [fetchApiRef, mockFetchApi],
-        ]}
-      >
+      <TestApiProvider apis={[...defaultTestApis]}>
         <ThemeProvider theme={theme}>
           <GitRepositoriesPage />
         </ThemeProvider>
@@ -176,12 +179,7 @@ describe('GitRepositoriesPage', () => {
 
   it('renders Sync Now button', async () => {
     await renderInTestApp(
-      <TestApiProvider
-        apis={[
-          [discoveryApiRef, mockDiscoveryApi],
-          [fetchApiRef, mockFetchApi],
-        ]}
-      >
+      <TestApiProvider apis={[...defaultTestApis]}>
         <ThemeProvider theme={theme}>
           <GitRepositoriesPage />
         </ThemeProvider>
@@ -195,12 +193,7 @@ describe('GitRepositoriesPage', () => {
 
   it('opens sync dialog when Sync Now is clicked', async () => {
     await renderInTestApp(
-      <TestApiProvider
-        apis={[
-          [discoveryApiRef, mockDiscoveryApi],
-          [fetchApiRef, mockFetchApi],
-        ]}
-      >
+      <TestApiProvider apis={[...defaultTestApis]}>
         <ThemeProvider theme={theme}>
           <GitRepositoriesPage />
         </ThemeProvider>
@@ -215,12 +208,7 @@ describe('GitRepositoriesPage', () => {
 
   it('closes sync dialog when close button is clicked', async () => {
     await renderInTestApp(
-      <TestApiProvider
-        apis={[
-          [discoveryApiRef, mockDiscoveryApi],
-          [fetchApiRef, mockFetchApi],
-        ]}
-      >
+      <TestApiProvider apis={[...defaultTestApis]}>
         <ThemeProvider theme={theme}>
           <GitRepositoriesPage />
         </ThemeProvider>
@@ -240,12 +228,7 @@ describe('GitRepositoriesPage', () => {
 
   it('calls onSourcesStatusChange when RepositoriesTable reports source status', async () => {
     await renderInTestApp(
-      <TestApiProvider
-        apis={[
-          [discoveryApiRef, mockDiscoveryApi],
-          [fetchApiRef, mockFetchApi],
-        ]}
-      >
+      <TestApiProvider apis={[...defaultTestApis]}>
         <ThemeProvider theme={theme}>
           <GitRepositoriesPage />
         </ThemeProvider>
@@ -265,12 +248,7 @@ describe('GitRepositoriesPage', () => {
 
   it('calls startTracking when sync dialog reports syncs started', async () => {
     await renderInTestApp(
-      <TestApiProvider
-        apis={[
-          [discoveryApiRef, mockDiscoveryApi],
-          [fetchApiRef, mockFetchApi],
-        ]}
-      >
+      <TestApiProvider apis={[...defaultTestApis]}>
         <ThemeProvider theme={theme}>
           <GitRepositoriesPage />
         </ThemeProvider>
@@ -300,12 +278,7 @@ describe('GitRepositoriesPage', () => {
     });
 
     await renderInTestApp(
-      <TestApiProvider
-        apis={[
-          [discoveryApiRef, mockDiscoveryApi],
-          [fetchApiRef, mockFetchApi],
-        ]}
-      >
+      <TestApiProvider apis={[...defaultTestApis]}>
         <ThemeProvider theme={theme}>
           <GitRepositoriesPage />
         </ThemeProvider>
@@ -319,12 +292,7 @@ describe('GitRepositoriesPage', () => {
 
   it('renders tab navigation with Catalog and CI Activity tabs', async () => {
     await renderInTestApp(
-      <TestApiProvider
-        apis={[
-          [discoveryApiRef, mockDiscoveryApi],
-          [fetchApiRef, mockFetchApi],
-        ]}
-      >
+      <TestApiProvider apis={[...defaultTestApis]}>
         <ThemeProvider theme={theme}>
           <GitRepositoriesPage />
         </ThemeProvider>
@@ -342,12 +310,7 @@ describe('GitRepositoriesPage', () => {
     });
 
     await renderInTestApp(
-      <TestApiProvider
-        apis={[
-          [discoveryApiRef, mockDiscoveryApi],
-          [fetchApiRef, mockFetchApi],
-        ]}
-      >
+      <TestApiProvider apis={[...defaultTestApis]}>
         <ThemeProvider theme={theme}>
           <GitRepositoriesPage />
         </ThemeProvider>
@@ -362,12 +325,7 @@ describe('GitRepositoriesPage', () => {
     mockFetchApi.fetch.mockRejectedValue(new Error('Network error'));
 
     await renderInTestApp(
-      <TestApiProvider
-        apis={[
-          [discoveryApiRef, mockDiscoveryApi],
-          [fetchApiRef, mockFetchApi],
-        ]}
-      >
+      <TestApiProvider apis={[...defaultTestApis]}>
         <ThemeProvider theme={theme}>
           <GitRepositoriesPage />
         </ThemeProvider>
@@ -387,12 +345,7 @@ describe('GitRepositoriesPage', () => {
     });
 
     await renderInTestApp(
-      <TestApiProvider
-        apis={[
-          [discoveryApiRef, mockDiscoveryApi],
-          [fetchApiRef, mockFetchApi],
-        ]}
-      >
+      <TestApiProvider apis={[...defaultTestApis]}>
         <ThemeProvider theme={theme}>
           <GitRepositoriesPage />
         </ThemeProvider>
@@ -414,12 +367,7 @@ describe('GitRepositoriesPage', () => {
     });
 
     const { unmount } = await renderInTestApp(
-      <TestApiProvider
-        apis={[
-          [discoveryApiRef, mockDiscoveryApi],
-          [fetchApiRef, mockFetchApi],
-        ]}
-      >
+      <TestApiProvider apis={[...defaultTestApis]}>
         <ThemeProvider theme={theme}>
           <GitRepositoriesPage />
         </ThemeProvider>
@@ -440,12 +388,7 @@ describe('GitRepositoriesPage', () => {
     });
 
     await renderInTestApp(
-      <TestApiProvider
-        apis={[
-          [discoveryApiRef, mockDiscoveryApi],
-          [fetchApiRef, mockFetchApi],
-        ]}
-      >
+      <TestApiProvider apis={[...defaultTestApis]}>
         <ThemeProvider theme={theme}>
           <GitRepositoriesPage />
         </ThemeProvider>
@@ -466,12 +409,7 @@ describe('GitRepositoriesPage', () => {
     });
 
     await renderInTestApp(
-      <TestApiProvider
-        apis={[
-          [discoveryApiRef, mockDiscoveryApi],
-          [fetchApiRef, mockFetchApi],
-        ]}
-      >
+      <TestApiProvider apis={[...defaultTestApis]}>
         <ThemeProvider theme={theme}>
           <GitRepositoriesPage />
         </ThemeProvider>
@@ -486,12 +424,7 @@ describe('GitRepositoriesPage', () => {
 
   it('preserves previous hasConfiguredSources when onSourcesStatusChange receives null', async () => {
     await renderInTestApp(
-      <TestApiProvider
-        apis={[
-          [discoveryApiRef, mockDiscoveryApi],
-          [fetchApiRef, mockFetchApi],
-        ]}
-      >
+      <TestApiProvider apis={[...defaultTestApis]}>
         <ThemeProvider theme={theme}>
           <GitRepositoriesPage />
         </ThemeProvider>
@@ -513,12 +446,7 @@ describe('GitRepositoriesPage', () => {
 
   it('navigates to CI Activity tab when selected', async () => {
     await renderInTestApp(
-      <TestApiProvider
-        apis={[
-          [discoveryApiRef, mockDiscoveryApi],
-          [fetchApiRef, mockFetchApi],
-        ]}
-      >
+      <TestApiProvider apis={[...defaultTestApis]}>
         <ThemeProvider theme={theme}>
           <GitRepositoriesPage />
         </ThemeProvider>
@@ -530,5 +458,31 @@ describe('GitRepositoriesPage', () => {
     fireEvent.click(ciActivityTab);
 
     expect(screen.getByTestId('ci-activity-tab')).toBeInTheDocument();
+  });
+});
+
+describe('repositoryTabPathMatches', () => {
+  it('matches quality-settings without matching quality', () => {
+    expect(
+      repositoryTabPathMatches(
+        '/self-service/repositories/quality-settings',
+        'quality-settings',
+      ),
+    ).toBe(true);
+    expect(
+      repositoryTabPathMatches(
+        '/self-service/repositories/quality-settings?section=rules',
+        'quality-settings',
+      ),
+    ).toBe(true);
+    expect(
+      repositoryTabPathMatches(
+        '/self-service/repositories/quality-settings',
+        'quality',
+      ),
+    ).toBe(false);
+    expect(
+      repositoryTabPathMatches('/self-service/repositories/quality', 'quality'),
+    ).toBe(true);
   });
 });
