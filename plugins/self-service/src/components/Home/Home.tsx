@@ -354,8 +354,12 @@ export const HomeComponent = () => {
   const getSyncTooltip = () => {
     if (isSyncInProgress) return 'Sync in progress...';
     if (syncControlsDisabled) return 'Checking permissions...';
-    const lastSync =
-      syncStatus.jobTemplates.lastSync || syncStatus.orgsUsersTeams.lastSync;
+    const jtSync = syncStatus.jobTemplates.lastSync;
+    const outSync = syncStatus.orgsUsersTeams.lastSync;
+    let lastSync = jtSync || outSync;
+    if (jtSync && outSync) {
+      lastSync = new Date(jtSync) > new Date(outSync) ? jtSync : outSync;
+    }
     if (lastSync) return `Last synced: ${new Date(lastSync).toLocaleString()}`;
     return '';
   };
@@ -574,6 +578,7 @@ export const HomeComponent = () => {
                           }
                         }}
                         role="button"
+                        aria-disabled={syncDisabled}
                         tabIndex={syncDisabled ? -1 : 0}
                         style={{
                           display: 'inline-flex',
