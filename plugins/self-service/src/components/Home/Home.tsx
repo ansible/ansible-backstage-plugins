@@ -564,6 +564,15 @@ export const HomeComponent = () => {
                         onClick={
                           syncDisabled ? undefined : ShowSyncConfirmationDialog
                         }
+                        onKeyDown={e => {
+                          if (
+                            !syncDisabled &&
+                            (e.key === 'Enter' || e.key === ' ')
+                          ) {
+                            e.preventDefault();
+                            (e.currentTarget as HTMLElement).click();
+                          }
+                        }}
                         role="button"
                         tabIndex={syncDisabled ? -1 : 0}
                         style={{
