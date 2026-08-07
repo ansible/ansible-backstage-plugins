@@ -8,19 +8,8 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { useApi } from '@backstage/core-plugin-api';
 import { Progress, ResponseErrorPanel } from '@backstage/core-components';
-import {
-  Box,
-  Card as MuiCard,
-  makeStyles,
-  useTheme,
-} from '@material-ui/core';
-import {
-  Button,
-  Card,
-  CardBody,
-  Flex,
-  FlexItem,
-} from '@patternfly/react-core';
+import { makeStyles, useTheme } from '@material-ui/core';
+import { Button, Card, CardBody, Flex, FlexItem } from '@patternfly/react-core';
 import '@patternfly/react-core/dist/styles/base.css';
 import { ApmeApiProvider } from '@apme/ui-workflow';
 import type {
@@ -30,7 +19,10 @@ import type {
 import { apmeApiRef } from '../../api';
 import { useResolveApmeProject } from '../../hooks/useResolveApmeProject';
 import { useSyncPatternFlyTheme } from '../../hooks/useSyncPatternFlyTheme';
-import { useViolationAcknowledge } from '../../hooks/useViolationAcknowledge';
+import {
+  ApmeOutlinedTableCard,
+  useApmeOutlinedTableStyles,
+} from '../ApmeOutlinedTable';
 import { ApmeUnavailable } from '../ApmeUnavailable';
 import { PreviewLabelRow } from '../PreviewChip';
 import { QualityFindingsSection } from '../QualityFindingsSection';
@@ -52,41 +44,7 @@ function scanTypeChipStyle(isFix: boolean, isDark: boolean) {
   };
 }
 
-const useActivityListStyles = makeStyles(theme => ({
-  table: {
-    width: '100%',
-    borderCollapse: 'collapse',
-    fontSize: 13,
-    '& thead': {
-      backgroundColor:
-        theme.palette.type === 'dark' ? 'rgba(255,255,255,0.04)' : '#f5f5f5',
-      borderBottom: `1px solid ${theme.palette.divider}`,
-    },
-    '& th': {
-      textAlign: 'left',
-      padding: '10px 12px',
-      fontWeight: 600,
-      fontSize: 12,
-      color: theme.palette.text.secondary,
-      textTransform: 'uppercase',
-      letterSpacing: 0.3,
-      cursor: 'pointer',
-      userSelect: 'none',
-      whiteSpace: 'nowrap',
-      '&:hover': { color: theme.palette.text.primary },
-    },
-    '& td': {
-      padding: '10px 12px',
-      borderBottom: `1px solid ${theme.palette.divider}`,
-      verticalAlign: 'middle',
-    },
-    '& tbody tr:last-child td': {
-      borderBottom: 'none',
-    },
-    '& tbody tr:hover': {
-      backgroundColor: theme.palette.action.hover,
-    },
-  },
+const useActivityListStyles = makeStyles({
   typeChip: {
     display: 'inline-block',
     padding: '2px 8px',
@@ -95,15 +53,10 @@ const useActivityListStyles = makeStyles(theme => ({
     fontWeight: 600,
     lineHeight: 1.4,
   },
-}));
+});
 
 type ActivitySortColumn =
-  | 'type'
-  | 'violations'
-  | 'fixable'
-  | 'remediated'
-  | 'manual'
-  | 'time';
+  'type' | 'violations' | 'fixable' | 'remediated' | 'manual' | 'time';
 
 /** In-page panel dismiss — labeled (not icon-only); keeps control on the right. */
 function CloseDetailButton({ onClose }: { onClose: () => void }) {
@@ -149,6 +102,7 @@ function ActivityList({
   onOpen: (scanId: string) => void;
 }) {
   const classes = useActivityListStyles();
+  const tableClasses = useApmeOutlinedTableStyles();
   const theme = useTheme();
   const isDark = theme.palette.type === 'dark';
   const [sortCol, setSortCol] = useState<ActivitySortColumn>('time');
@@ -159,7 +113,9 @@ function ActivityList({
       let cmp = 0;
       switch (sortCol) {
         case 'type':
-          cmp = displayType(a.scan_type).localeCompare(displayType(b.scan_type));
+          cmp = displayType(a.scan_type).localeCompare(
+            displayType(b.scan_type),
+          );
           break;
         case 'violations':
           cmp = a.total_violations - b.total_violations;
@@ -206,103 +162,109 @@ function ActivityList({
   }
 
   return (
-    <MuiCard variant="outlined" style={{ borderRadius: 8, overflow: 'hidden' }}>
-      <Box style={{ overflow: 'auto' }}>
-        <table className={classes.table} role="grid">
-          <thead>
-            <tr>
-              <th style={{ width: 110 }} onClick={() => handleSort('type')}>
-                Type{sortArrow('type')}
-              </th>
-              <th
-                style={{ width: 100 }}
-                onClick={() => handleSort('violations')}
+    <ApmeOutlinedTableCard>
+      <table className={tableClasses.table} role="grid">
+        <thead>
+          <tr>
+            <th
+              className={tableClasses.sortableHeader}
+              style={{ width: 110 }}
+              onClick={() => handleSort('type')}
+            >
+              Type{sortArrow('type')}
+            </th>
+            <th
+              className={tableClasses.sortableHeader}
+              style={{ width: 100 }}
+              onClick={() => handleSort('violations')}
+            >
+              Violations{sortArrow('violations')}
+            </th>
+            <th
+              className={tableClasses.sortableHeader}
+              style={{ width: 88 }}
+              onClick={() => handleSort('fixable')}
+            >
+              Fixable{sortArrow('fixable')}
+            </th>
+            <th
+              className={tableClasses.sortableHeader}
+              style={{ width: 110 }}
+              onClick={() => handleSort('remediated')}
+            >
+              Remediated{sortArrow('remediated')}
+            </th>
+            <th
+              className={tableClasses.sortableHeader}
+              style={{ width: 88 }}
+              onClick={() => handleSort('manual')}
+            >
+              Manual{sortArrow('manual')}
+            </th>
+            <th
+              className={tableClasses.sortableHeader}
+              style={{ width: 120 }}
+              onClick={() => handleSort('time')}
+            >
+              Time{sortArrow('time')}
+            </th>
+          </tr>
+        </thead>
+        <tbody>
+          {sorted.map(scan => {
+            const isFix = scan.scan_type === 'remediate';
+            const typeLabel = displayType(scan.scan_type);
+            return (
+              <tr
+                key={scan.scan_id}
+                role="row"
+                tabIndex={0}
+                onClick={() => onOpen(scan.scan_id)}
+                onKeyDown={e => {
+                  if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault();
+                    onOpen(scan.scan_id);
+                  }
+                }}
+                style={{ cursor: 'pointer' }}
               >
-                Violations{sortArrow('violations')}
-              </th>
-              <th style={{ width: 88 }} onClick={() => handleSort('fixable')}>
-                Fixable{sortArrow('fixable')}
-              </th>
-              <th
-                style={{ width: 110 }}
-                onClick={() => handleSort('remediated')}
-              >
-                Remediated{sortArrow('remediated')}
-              </th>
-              <th style={{ width: 88 }} onClick={() => handleSort('manual')}>
-                Manual{sortArrow('manual')}
-              </th>
-              <th style={{ width: 120 }} onClick={() => handleSort('time')}>
-                Time{sortArrow('time')}
-              </th>
-            </tr>
-          </thead>
-          <tbody>
-            {sorted.map(scan => {
-              const isFix = scan.scan_type === 'remediate';
-              const typeLabel = displayType(scan.scan_type);
-              return (
-                <tr
-                  key={scan.scan_id}
-                  role="row"
-                  tabIndex={0}
-                  onClick={() => onOpen(scan.scan_id)}
-                  onKeyDown={e => {
-                    if (e.key === 'Enter' || e.key === ' ') {
-                      e.preventDefault();
-                      onOpen(scan.scan_id);
-                    }
-                  }}
-                  style={{ cursor: 'pointer' }}
-                >
-                  <td>
-                    <span
-                      className={classes.typeChip}
-                      style={scanTypeChipStyle(isFix, isDark)}
-                    >
-                      {typeLabel}
-                    </span>
-                  </td>
-                  <td>{scan.total_violations}</td>
-                  <td style={{ opacity: isFix ? 0.35 : 1 }}>
-                    {isFix ? '—' : scan.fixable}
-                  </td>
-                  <td style={{ opacity: isFix ? 1 : 0.35 }}>
-                    {isFix ? scan.remediated_count : '—'}
-                  </td>
-                  <td>{scan.manual_review}</td>
-                  <td style={{ color: theme.palette.text.secondary }}>
-                    {timeAgo(scan.created_at)}
-                  </td>
-                </tr>
-              );
-            })}
-          </tbody>
-        </table>
-      </Box>
-    </MuiCard>
+                <td>
+                  <span
+                    className={classes.typeChip}
+                    style={scanTypeChipStyle(isFix, isDark)}
+                  >
+                    {typeLabel}
+                  </span>
+                </td>
+                <td>{scan.total_violations}</td>
+                <td style={{ opacity: isFix ? 0.35 : 1 }}>
+                  {isFix ? '—' : scan.fixable}
+                </td>
+                <td style={{ opacity: isFix ? 1 : 0.35 }}>
+                  {isFix ? scan.remediated_count : '—'}
+                </td>
+                <td>{scan.manual_review}</td>
+                <td style={{ color: theme.palette.text.secondary }}>
+                  {timeAgo(scan.created_at)}
+                </td>
+              </tr>
+            );
+          })}
+        </tbody>
+      </table>
+    </ApmeOutlinedTableCard>
   );
 }
 
 function ActivityDetailView({
-  projectId,
   detail,
   onBack,
   ruleFilter,
 }: {
-  projectId: string;
   detail: ActivityDetail;
   onBack: () => void;
   ruleFilter?: string;
 }) {
-  const {
-    acknowledgedIds,
-    ackError,
-    pendingId,
-    acknowledge,
-    clearAckError,
-  } = useViolationAcknowledge(projectId);
-
   return (
     <Flex direction={{ default: 'column' }} gap={{ default: 'gapMd' }}>
       <Flex
@@ -323,14 +285,8 @@ function ActivityDetailView({
         </FlexItem>
       </Flex>
       <QualityFindingsSection
-        projectId={projectId}
         violations={detail.violations}
         ruleFilter={ruleFilter}
-        acknowledgedIds={acknowledgedIds}
-        pendingId={pendingId}
-        ackError={ackError}
-        onAcknowledge={acknowledge}
-        onClearAckError={clearAckError}
         description="Findings from this past quality check (read-only)."
       />
     </Flex>
@@ -451,7 +407,6 @@ function QualityActivityBody({ projectId }: { projectId: string }) {
     } else if (detail) {
       detailBody = (
         <ActivityDetailView
-          projectId={projectId}
           detail={detail}
           onBack={backToList}
           ruleFilter={ruleFilter}
@@ -483,10 +438,7 @@ function QualityActivityBody({ projectId }: { projectId: string }) {
           <div style={{ fontSize: 18, fontWeight: 600 }}>
             Quality activity ({activities?.length ?? 0})
           </div>
-          <ActivityList
-            activities={activities ?? []}
-            onOpen={openActivity}
-          />
+          <ActivityList activities={activities ?? []} onOpen={openActivity} />
         </Flex>
       </CardBody>
     </Card>

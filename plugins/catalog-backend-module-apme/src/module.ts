@@ -25,9 +25,12 @@ import {
   getApmeConfig,
   resolveScanTargetVersion,
 } from '@ansible/backstage-apme-common';
+import { catalogProcessingExtensionPoint } from '@backstage/plugin-catalog-node/alpha';
 import { createRouter } from './router';
 import { registerApmeCatalogSyncTasks } from './apmeCatalogSyncScheduler';
 import { ApmePortalSettingsStore } from './apmePortalSettingsStore';
+import { registerPortalGalaxyServersSync } from './portalGalaxyServersSync';
+import { ApmeLearnedDepsEntityProvider } from './providers/ApmeLearnedDepsEntityProvider';
 
 export const catalogModuleApme = createBackendModule({
   pluginId: 'catalog',
@@ -43,6 +46,7 @@ export const catalogModuleApme = createBackendModule({
         scheduler: coreServices.scheduler,
         discovery: coreServices.discovery,
         auth: coreServices.auth,
+        catalogProcessing: catalogProcessingExtensionPoint,
       },
       async init({
         logger,
@@ -53,6 +57,7 @@ export const catalogModuleApme = createBackendModule({
         scheduler,
         discovery,
         auth,
+        catalogProcessing,
       }) {
         if (!isApmeEnabled(rootConfig)) {
           logger.info('APME is disabled; skipping catalog module registration');
@@ -102,6 +107,23 @@ export const catalogModuleApme = createBackendModule({
           logger,
           resolveScanVersion,
         });
+
+        await registerPortalGalaxyServersSync({
+          scheduler,
+          apmeService,
+          rootConfig,
+          logger,
+        });
+
+        const learnedDepsProvider = new ApmeLearnedDepsEntityProvider({
+          apmeService,
+          catalogClient,
+          auth,
+          logger,
+          rootConfig,
+        });
+        catalogProcessing.addEntityProvider(learnedDepsProvider);
+        await learnedDepsProvider.schedule(scheduler);
       },
     });
   },

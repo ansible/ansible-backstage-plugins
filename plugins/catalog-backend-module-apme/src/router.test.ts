@@ -8,7 +8,7 @@ import os from 'os';
 import path from 'path';
 import fs from 'fs/promises';
 import { ConfigReader } from '@backstage/config';
-import { InputError } from '@backstage/errors';
+import { InputError, NotAllowedError } from '@backstage/errors';
 import { createRouter } from './router';
 import { ApmePortalSettingsStore } from './apmePortalSettingsStore';
 
@@ -736,5 +736,160 @@ describe('catalog-backend-module-apme router', () => {
     expect(response.body.entityRefs).toEqual([
       'component:default/demo-repo',
     ]);
+  });
+
+  it('updates rule config via PUT /apme/rules/:ruleId/config', async () => {
+    const updated = { id: 'M001', enabled: false, hasOverride: true };
+    mockApmeService.updateRuleConfig.mockResolvedValueOnce(updated);
+
+    const response = await request(app)
+      .put('/apme/rules/M001/config')
+      .send({ enabled_override: false });
+
+    expect(response.status).toBe(200);
+    expect(mockApmeService.updateRuleConfig).toHaveBeenCalledWith('M001', {
+      enabled_override: false,
+    });
+    expect(response.body).toEqual(updated);
+  });
+
+  it('resets rule config via DELETE /apme/rules/:ruleId/config', async () => {
+    mockApmeService.deleteRuleConfig.mockResolvedValueOnce(undefined);
+
+    const response = await request(app).delete('/apme/rules/M001/config');
+
+    expect(response.status).toBe(204);
+    expect(mockApmeService.deleteRuleConfig).toHaveBeenCalledWith('M001');
+  });
+});
+
+describe('catalog-backend-module-apme router settings admin allowlist', () => {
+  const mockApmeService = {
+    getRules: jest.fn(),
+    updateRuleConfig: jest.fn(),
+    deleteRuleConfig: jest.fn(),
+  };
+
+  const logger = {
+    child: () => logger,
+    info: jest.fn(),
+    debug: jest.fn(),
+    warn: jest.fn(),
+    error: jest.fn(),
+  };
+
+  const adminRef = 'user:default/admin';
+  const otherRef = 'user:default/other';
+
+  async function buildApp(userEntityRef: string) {
+    const settingsPath = path.join(
+      os.tmpdir(),
+      `apme-portal-settings-admin-${Date.now()}-${Math.random()}.json`,
+    );
+    const portalSettingsStore = new ApmePortalSettingsStore(settingsPath);
+    const router = await createRouter({
+      apmeService: mockApmeService as never,
+      logger: logger as never,
+      httpAuth: {
+        credentials: jest.fn().mockResolvedValue({
+          principal: { type: 'user', userEntityRef },
+        }),
+      } as never,
+      rootConfig: new ConfigReader({
+        ansible: {
+          apme: {
+            enabled: true,
+            baseUrl: 'http://localhost:8080',
+            settingsAdminEntityRefs: [adminRef],
+          },
+        },
+      }),
+      portalSettingsStore,
+    });
+    const expressApp = express().use(router);
+    expressApp.use(
+      (
+        err: unknown,
+        _req: express.Request,
+        res: express.Response,
+        next: express.NextFunction,
+      ) => {
+        if (err instanceof NotAllowedError) {
+          res.status(403).json({ error: err.message });
+          return;
+        }
+        if (err instanceof InputError) {
+          res.status(400).json({ error: err.message });
+          return;
+        }
+        next(err);
+      },
+    );
+    return { app: expressApp, settingsPath };
+  }
+
+  afterEach(async () => {
+    jest.clearAllMocks();
+  });
+
+  it('allows allowlisted users to mutate rule config', async () => {
+    const { app, settingsPath } = await buildApp(adminRef);
+    mockApmeService.updateRuleConfig.mockResolvedValueOnce({
+      id: 'M001',
+      enabled: false,
+    });
+
+    try {
+      const response = await request(app)
+        .put('/apme/rules/M001/config')
+        .send({ enabled_override: false });
+
+      expect(response.status).toBe(200);
+      expect(mockApmeService.updateRuleConfig).toHaveBeenCalled();
+    } finally {
+      await fs.unlink(settingsPath).catch(() => undefined);
+    }
+  });
+
+  it('rejects non-allowlisted users on rule config PUT', async () => {
+    const { app, settingsPath } = await buildApp(otherRef);
+
+    try {
+      const response = await request(app)
+        .put('/apme/rules/M001/config')
+        .send({ enabled_override: false });
+
+      expect(response.status).toBe(403);
+      expect(mockApmeService.updateRuleConfig).not.toHaveBeenCalled();
+    } finally {
+      await fs.unlink(settingsPath).catch(() => undefined);
+    }
+  });
+
+  it('rejects non-allowlisted users on rule config DELETE', async () => {
+    const { app, settingsPath } = await buildApp(otherRef);
+
+    try {
+      const response = await request(app).delete('/apme/rules/M001/config');
+
+      expect(response.status).toBe(403);
+      expect(mockApmeService.deleteRuleConfig).not.toHaveBeenCalled();
+    } finally {
+      await fs.unlink(settingsPath).catch(() => undefined);
+    }
+  });
+
+  it('still allows non-allowlisted users to list rules', async () => {
+    const { app, settingsPath } = await buildApp(otherRef);
+    mockApmeService.getRules.mockResolvedValueOnce([{ id: 'M001' }]);
+
+    try {
+      const response = await request(app).get('/apme/rules');
+
+      expect(response.status).toBe(200);
+      expect(response.body).toEqual({ items: [{ id: 'M001' }] });
+    } finally {
+      await fs.unlink(settingsPath).catch(() => undefined);
+    }
   });
 });

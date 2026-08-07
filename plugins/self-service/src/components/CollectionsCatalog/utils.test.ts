@@ -132,6 +132,28 @@ describe('CollectionsCatalog utils', () => {
       };
       expect(buildSourceString(entity)).toBe('github@github.com/org/repo.git');
     });
+
+    it('returns learned dependency label (not SCM of consuming repo)', () => {
+      const entity: Entity = {
+        apiVersion: 'backstage.io/v1alpha1',
+        kind: 'Component',
+        metadata: {
+          name: 'apme-learned-dep',
+          annotations: {
+            'ansible.io/collection-source': 'learned',
+            'ansible.io/consumed-by-repository': 'my-playbook-repo',
+            // Stale scm copy must not win over learned source.
+            'ansible.io/scm-provider': 'github',
+            'ansible.io/scm-host': 'github.com',
+            'ansible.io/scm-repository': 'acme/my-playbook',
+          },
+        },
+        spec: {},
+      };
+      expect(buildSourceString(entity)).toBe(
+        'Learned dependency (my-playbook-repo)',
+      );
+    });
   });
 
   describe('getSourceUrl', () => {
@@ -683,6 +705,107 @@ describe('CollectionsCatalog utils', () => {
 
       const result = filterCollectionsByRepository(collections, repoEntity);
       expect(result).toHaveLength(0);
+    });
+
+    it('includes learned deps via consumed-by-repository', () => {
+      const collections = [
+        createCollection('unrelated'),
+        {
+          apiVersion: 'backstage.io/v1alpha1',
+          kind: 'Component',
+          metadata: {
+            name: 'apme-learned-my-repo-ansible.posix-1-5-4',
+            annotations: {
+              'ansible.io/collection-source': 'learned',
+              'ansible.io/consumed-by-repository': 'my-repo',
+            },
+          },
+          spec: {
+            type: 'ansible-collection',
+            collection_full_name: 'ansible.posix',
+            collection_version: '1.5.4',
+          },
+        } as Entity,
+      ];
+
+      const repoEntity = createRepoEntity('my-repo');
+      const result = filterCollectionsByRepository(collections, repoEntity);
+      expect(result).toHaveLength(1);
+      expect(result[0].metadata.name).toBe(
+        'apme-learned-my-repo-ansible.posix-1-5-4',
+      );
+    });
+
+    it('unions learned deps with repository_collections', () => {
+      const collections = [
+        createCollection('collection-a'),
+        {
+          apiVersion: 'backstage.io/v1alpha1',
+          kind: 'Component',
+          metadata: {
+            name: 'apme-learned-dep',
+            annotations: {
+              'ansible.io/collection-source': 'learned',
+              'ansible.io/consumed-by-repository': 'my-repo',
+            },
+          },
+          spec: {
+            collection_full_name: 'community.general',
+            collection_version: '8.0.0',
+          },
+        } as Entity,
+      ];
+
+      const repoEntity = createRepoEntity(
+        'my-repo',
+        {},
+        { repository_collections: ['collection-a'] },
+      );
+
+      const result = filterCollectionsByRepository(collections, repoEntity);
+      expect(result.map(c => c.metadata.name).sort()).toEqual([
+        'apme-learned-dep',
+        'collection-a',
+      ]);
+    });
+
+    it('dedupes learned against canonical PAH collection', () => {
+      const pah: Entity = {
+        apiVersion: 'backstage.io/v1alpha1',
+        kind: 'Component',
+        metadata: {
+          name: 'pah-published-ansible.posix-1.5.4',
+          annotations: { 'ansible.io/collection-source': 'pah' },
+        },
+        spec: {
+          collection_full_name: 'ansible.posix',
+          collection_version: '1.5.4',
+        },
+      };
+      const learned: Entity = {
+        apiVersion: 'backstage.io/v1alpha1',
+        kind: 'Component',
+        metadata: {
+          name: 'apme-learned-my-repo-ansible.posix-1-5-4',
+          annotations: {
+            'ansible.io/collection-source': 'learned',
+            'ansible.io/consumed-by-repository': 'my-repo',
+            'ansible.io/canonical-collection':
+              'component:default/pah-published-ansible.posix-1.5.4',
+          },
+        },
+        spec: {
+          collection_full_name: 'ansible.posix',
+          collection_version: '1.5.4',
+        },
+      };
+
+      const result = filterCollectionsByRepository(
+        [pah, learned],
+        createRepoEntity('my-repo'),
+      );
+      expect(result).toHaveLength(1);
+      expect(result[0].metadata.name).toBe('pah-published-ansible.posix-1.5.4');
     });
   });
 });

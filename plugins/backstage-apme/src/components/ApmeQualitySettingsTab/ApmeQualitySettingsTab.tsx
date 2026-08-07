@@ -3,6 +3,7 @@
  *
  * Thin Quality settings for Git Repositories (US-004): global ansible-core
  * scan target via portal settings store. AI gate remains app-config only.
+ * Galaxy servers are bootstrapped from PAH catalog sync (not editable here).
  */
 
 import { useCallback, useEffect, useState } from 'react';
@@ -25,7 +26,6 @@ import { ansibleCoreVersionOptions } from '@ansible/backstage-apme-common/ansibl
 import { DEFAULT_APME_TARGET_ANSIBLE_CORE_VERSION } from '@ansible/backstage-apme-common/scanTargetDefaults';
 import { apmeApiRef } from '../../api';
 import { ApmeAiProvidersSection } from './ApmeAiProvidersSection';
-import { ApmeGalaxyServersSection } from './ApmeGalaxyServersSection';
 
 const useStyles = makeStyles(theme => ({
   root: {
@@ -68,7 +68,9 @@ export const ApmeQualitySettingsTab = () => {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<Error | undefined>();
   const [savedMessage, setSavedMessage] = useState<string | undefined>();
-  const [version, setVersion] = useState(DEFAULT_APME_TARGET_ANSIBLE_CORE_VERSION);
+  const [version, setVersion] = useState(
+    DEFAULT_APME_TARGET_ANSIBLE_CORE_VERSION,
+  );
   const [enableAi, setEnableAi] = useState(false);
   const [dirty, setDirty] = useState(false);
 
@@ -137,16 +139,16 @@ export const ApmeQualitySettingsTab = () => {
           </Typography>
 
           {error && (
-            <Typography
-              variant="body2"
-              className={classes.error}
-              role="alert"
-            >
+            <Typography variant="body2" className={classes.error} role="alert">
               {error.message}
             </Typography>
           )}
 
-          <FormControl variant="outlined" className={classes.field} size="small">
+          <FormControl
+            variant="outlined"
+            className={classes.field}
+            size="small"
+          >
             <InputLabel id="apme-target-ansible-core-label">
               Target ansible-core
             </InputLabel>
@@ -191,10 +193,6 @@ export const ApmeQualitySettingsTab = () => {
           </Typography>
         </CardContent>
       </Card>
-
-      <Box mt={3}>
-        <ApmeGalaxyServersSection />
-      </Box>
 
       <Box mt={3}>
         <ApmeAiProvidersSection />

@@ -162,7 +162,7 @@ export async function createRouter(options: RouterOptions): Promise<Router> {
   };
 
   /**
-   * Mutating AI/Galaxy/settings routes: any authenticated user by default.
+   * Mutating AI/Galaxy/settings/Rules routes: any authenticated user by default.
    * When ansible.apme.settingsAdminEntityRefs is non-empty, only those users.
    */
   const ensureSettingsAdmin = async (req: unknown) => {
@@ -562,7 +562,7 @@ export async function createRouter(options: RouterOptions): Promise<Router> {
   });
 
   router.put('/apme/rules/:ruleId/config', jsonBody, async (req, res) => {
-    await ensureUser(req);
+    await ensureSettingsAdmin(req);
     const { ruleId } = req.params;
     const body = req.body;
     if (!body || typeof body !== 'object') {
@@ -583,7 +583,7 @@ export async function createRouter(options: RouterOptions): Promise<Router> {
   });
 
   router.delete('/apme/rules/:ruleId/config', async (req, res) => {
-    await ensureUser(req);
+    await ensureSettingsAdmin(req);
     const { ruleId } = req.params;
     logger.info(`APME rule config reset for ${ruleId}`);
     await apmeService.deleteRuleConfig(ruleId);

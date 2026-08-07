@@ -55,6 +55,17 @@ export {
   registerOrResolveApmeProject,
 } from './registerOrResolveApmeProject';
 export type { ApmeProjectResolver } from './registerOrResolveApmeProject';
+export {
+  PORTAL_HUB_GALAXY_SERVER_PREFIX,
+  buildPortalPahGalaxyServers,
+  isPortalManagedGalaxyServerName,
+  normalizePahRepoIdentifier,
+  syncPortalGalaxyServers,
+} from './portalGalaxyServers';
+export type {
+  PortalPahGalaxyServerSpec,
+  SyncPortalGalaxyServersResult,
+} from './portalGalaxyServers';
 // FRONTEND-ONLY — import by path, NOT from this index:
 //   import { apmeApiRef } from '@ansible/backstage-apme-common/api'
 //   import { useApmeEnabled } from '@ansible/backstage-apme-common/useApmeEnabled'

@@ -54,6 +54,7 @@ export { ApmeRepositoryHeaderActions } from './components/ApmeRepositoryHeaderAc
 export { ApmeRepositoryOverviewCard } from './components/ApmeRepositoryOverviewCard/ApmeRepositoryOverviewCard';
 export { ApmeAddRepositoryHeaderAction } from './components/ApmeAddRepositoryHeaderAction/ApmeAddRepositoryHeaderAction';
 export { ApmeQualitySettingsTab } from './components/ApmeQualitySettingsTab';
+export { ApmeRulesTab } from './components/ApmeRulesTab';
 export { ApmeAbbenaySettingsTabRoute } from './components/ApmeAbbenaySettingsTab';
 export { APME_REGISTER_GIT_REPOSITORY_TEMPLATE_PATH } from './components/ApmeAddRepositoryHeaderAction/ApmeAddRepositoryHeaderAction';
 export {
