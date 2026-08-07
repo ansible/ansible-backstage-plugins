@@ -51,6 +51,9 @@ site
 *.local.yaml
 app-config.production.yaml
 
+# SQLite database files (dev environment persistence)
+sqlite-data/
+
 # Sensitive credentials
 *-credentials.yaml
 
@@ -103,3 +106,5 @@ screenshots/
 **/screenshots
 backstage-dev.sqlite3
 backstage-dev-db/
+aap-logout.tar
+deploy/

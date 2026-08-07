@@ -30,8 +30,14 @@ export interface AnsibleApi {
   syncOrgsUsersTeam(): Promise<boolean>;
   getSyncStatus(): Promise<{
     aap: {
-      orgsUsersTeams: { lastSync: string | null };
-      jobTemplates: { lastSync: string | null };
+      orgsUsersTeams: {
+        lastSync: string | null;
+        syncInProgress: boolean;
+      };
+      jobTemplates: {
+        lastSync: string | null;
+        syncInProgress: boolean;
+      };
     };
   }>;
 }
@@ -203,8 +209,14 @@ export class AnsibleApiClient implements AnsibleApi {
 
   async getSyncStatus(): Promise<{
     aap: {
-      orgsUsersTeams: { lastSync: string | null };
-      jobTemplates: { lastSync: string | null };
+      orgsUsersTeams: {
+        lastSync: string | null;
+        syncInProgress: boolean;
+      };
+      jobTemplates: {
+        lastSync: string | null;
+        syncInProgress: boolean;
+      };
     };
   }> {
     const baseUrl = await this.discoveryApi.getBaseUrl('catalog');
@@ -217,8 +229,8 @@ export class AnsibleApiClient implements AnsibleApi {
     } catch {
       return {
         aap: {
-          orgsUsersTeams: { lastSync: null },
-          jobTemplates: { lastSync: null },
+          orgsUsersTeams: { lastSync: null, syncInProgress: false },
+          jobTemplates: { lastSync: null, syncInProgress: false },
         },
       };
     }

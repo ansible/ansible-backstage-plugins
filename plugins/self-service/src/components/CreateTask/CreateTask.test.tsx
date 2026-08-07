@@ -6,6 +6,7 @@ import {
   renderInTestApp,
   TestApiProvider,
 } from '@backstage/test-utils';
+import { ThemeProvider, createMuiTheme } from '@material-ui/core/styles';
 import { mockScaffolderApi } from '../../tests/scaffolderApi_utils';
 import { CreateTask } from './CreateTask';
 import { scaffolderApiRef } from '@backstage/plugin-scaffolder-react';
@@ -367,5 +368,63 @@ describe('Create task', () => {
     await waitFor(() => {
       expect(screen.getByText(/Failed to load template/)).toBeInTheDocument();
     });
+  });
+
+  it('should render with dark theme styles', async () => {
+    (require('react-router-dom').useParams as jest.Mock).mockReturnValue({
+      namespace: 'default',
+      templateName: 'generic-seed',
+    });
+
+    mockCatalogApi.getEntityByRef.mockResolvedValue(null);
+
+    const darkTheme = createMuiTheme({ palette: { type: 'dark' } });
+
+    await renderInTestApp(
+      <ThemeProvider theme={darkTheme}>
+        <TestApiProvider
+          apis={[
+            [scaffolderApiRef, mockScaffolderApi],
+            [catalogApiRef, mockCatalogApi],
+            [rhAapAuthApiRef, mockRhAapAuthApi],
+          ]}
+        >
+          <CreateTask />
+        </TestApiProvider>
+      </ThemeProvider>,
+      {
+        mountedRoutes: {
+          '/self-service': rootRouteRef,
+        },
+      },
+    );
+
+    await waitFor(() => {
+      expect(screen.getByTestId('template-task--title')).toBeInTheDocument();
+    });
+  });
+
+  it('should show no data state when getTemplateParameterSchema returns null', async () => {
+    (require('react-router-dom').useParams as jest.Mock).mockReturnValue({
+      namespace: 'default',
+      templateName: 'null-template',
+    });
+
+    const originalGetTemplateParameterSchema =
+      mockScaffolderApi.getTemplateParameterSchema;
+    mockScaffolderApi.getTemplateParameterSchema = jest
+      .fn()
+      .mockResolvedValue(null);
+
+    mockCatalogApi.getEntityByRef.mockResolvedValue(null);
+
+    await render(<CreateTask />);
+
+    await waitFor(() => {
+      expect(screen.getByText('No entity data available.')).toBeInTheDocument();
+    });
+
+    mockScaffolderApi.getTemplateParameterSchema =
+      originalGetTemplateParameterSchema;
   });
 });

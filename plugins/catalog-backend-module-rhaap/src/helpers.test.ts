@@ -20,6 +20,8 @@ import { ANNOTATION_EDIT_URL } from '@backstage/catalog-model';
 import { ConfigReader } from '@backstage/config';
 import {
   formatNameSpace,
+  getEffectiveNamespace,
+  validateNamespace,
   buildFileUrl,
   getDirectoryFromPath,
   validateSyncFilter,
@@ -93,17 +95,98 @@ describe('helpers', () => {
       );
     });
 
+    it('should replace underscores with hyphens', () => {
+      expect(formatNameSpace('my_org_name')).toEqual('my-org-name');
+    });
+
+    it('should strip non-ASCII characters', () => {
+      expect(formatNameSpace('Ünïcödé Tëst')).toEqual('ncd-tst');
+    });
+
+    it('should truncate to 63 characters', () => {
+      const longName = 'a'.repeat(100);
+      expect(formatNameSpace(longName).length).toBeLessThanOrEqual(63);
+    });
+
+    it('should throw for special-char-only names', () => {
+      expect(() => formatNameSpace('!!!@@@')).toThrow(
+        'contains no valid characters',
+      );
+    });
+
     it('should replace spaces with hyphens', () => {
       expect(formatNameSpace('test namespace')).toEqual('test-namespace');
     });
 
-    it('should handle empty string', () => {
-      expect(formatNameSpace('')).toEqual('');
+    it('should throw for empty string', () => {
+      expect(() => formatNameSpace('')).toThrow('contains no valid characters');
     });
 
     it('should handle multiple spaces', () => {
       expect(formatNameSpace('test   multiple   spaces')).toEqual(
-        'test---multiple---spaces',
+        'test-multiple-spaces',
+      );
+    });
+
+    it('should map "Default" to "default" to avoid namespace collision', () => {
+      expect(formatNameSpace('Default')).toEqual('default');
+    });
+  });
+
+  describe('getEffectiveNamespace', () => {
+    it('should return "default" for single-org configs', () => {
+      expect(getEffectiveNamespace('Engineering', ['engineering'])).toEqual(
+        'default',
+      );
+    });
+
+    it('should return "default" for single org named Default', () => {
+      expect(getEffectiveNamespace('Default', ['default'])).toEqual('default');
+    });
+
+    it('should return formatted org name for multi-org configs', () => {
+      const allOrgs = ['engineering', 'platform-ops'];
+      expect(getEffectiveNamespace('Engineering', allOrgs)).toEqual(
+        'engineering',
+      );
+      expect(getEffectiveNamespace('Platform Ops', allOrgs)).toEqual(
+        'platform-ops',
+      );
+    });
+
+    it('should return "default" for Default org in multi-org mode', () => {
+      const allOrgs = ['default', 'engineering'];
+      expect(getEffectiveNamespace('Default', allOrgs)).toEqual('default');
+    });
+  });
+
+  describe('validateNamespace', () => {
+    it('should pass for valid namespaces', () => {
+      expect(() =>
+        validateNamespace('engineering', 'Engineering'),
+      ).not.toThrow();
+      expect(() => validateNamespace('default', 'Default')).not.toThrow();
+      expect(() => validateNamespace('default', 'Default')).not.toThrow();
+      expect(() =>
+        validateNamespace('platform-ops', 'Platform Ops'),
+      ).not.toThrow();
+    });
+
+    it('should throw for empty namespace', () => {
+      expect(() => validateNamespace('', 'Empty Org')).toThrow(
+        'produces invalid Backstage namespace',
+      );
+    });
+
+    it('should throw for namespace with invalid characters', () => {
+      expect(() => validateNamespace('ORG_NAME', 'ORG_NAME')).toThrow(
+        'produces invalid Backstage namespace',
+      );
+    });
+
+    it('should throw for namespace starting with hyphen', () => {
+      expect(() => validateNamespace('-bad-name', '-Bad Name')).toThrow(
+        'produces invalid Backstage namespace',
       );
     });
   });

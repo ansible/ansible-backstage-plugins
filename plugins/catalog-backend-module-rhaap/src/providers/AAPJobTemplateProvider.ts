@@ -23,10 +23,13 @@ import { Entity } from '@backstage/catalog-model';
 import { aapJobTemplateParser } from './entityParser';
 import { resolveTaskRunner } from './helpers';
 import { SyncStateTracker } from './SyncStateTracker';
+import { getEffectiveNamespace, validateNamespace } from '../helpers';
+import type { SignalsService } from '@backstage/plugin-signals-node';
 
 export class AAPJobTemplateProvider implements EntityProvider {
   private readonly env: string;
   private readonly baseUrl: string;
+  private readonly orgs: string[];
   private readonly surveyEnabled: boolean | undefined;
   private readonly jobTemplateLabels: string[];
   private readonly jobTemplateExcludeLabels: string[];
@@ -75,6 +78,7 @@ export class AAPJobTemplateProvider implements EntityProvider {
   ) {
     this.env = config.id;
     this.baseUrl = config.baseUrl;
+    this.orgs = config.organizations;
     this.surveyEnabled = config.surveyEnabled ?? undefined;
     this.jobTemplateLabels = config.jobTemplateLabels ?? [];
     this.jobTemplateExcludeLabels = config.jobTemplateExcludeLabels ?? [];
@@ -107,6 +111,10 @@ export class AAPJobTemplateProvider implements EntityProvider {
     return this.syncState.getLastSyncTime();
   }
 
+  setSignals(signals: SignalsService): void {
+    this.syncState.setSignals(signals, `aap-job-template:${this.env}`);
+  }
+
   getLastFailedSyncTime(): string | null {
     return this.syncState.getLastFailedSyncTime();
   }
@@ -127,6 +135,14 @@ export class AAPJobTemplateProvider implements EntityProvider {
     if (!this.connection) {
       throw new NotFoundError('Not initialized');
     }
+
+    for (const orgName of this.orgs) {
+      const ns = getEffectiveNamespace(orgName, this.orgs);
+      validateNamespace(ns, orgName);
+    }
+
+    const isMultiOrg = this.orgs.length > 1;
+
     this.syncState.markSyncStarted();
     try {
       let jobTemplateCount = 0;
@@ -162,13 +178,27 @@ export class AAPJobTemplateProvider implements EntityProvider {
       }
 
       for (const { job, survey, instanceGroup } of aapJobTemplates) {
+        // Filter templates to configured orgs
+        const templateOrgName = job.summary_fields?.organization?.name;
+        if (
+          templateOrgName &&
+          !this.orgs.includes(templateOrgName.toLowerCase())
+        ) {
+          continue;
+        }
+
+        const ns = templateOrgName
+          ? getEffectiveNamespace(templateOrgName, this.orgs)
+          : 'default';
+
         entities.push(
           aapJobTemplateParser({
             baseUrl: this.baseUrl,
-            nameSpace: 'default',
+            nameSpace: ns,
             job,
             survey,
             instanceGroup,
+            orgName: isMultiOrg ? templateOrgName : undefined,
           }),
         );
         jobTemplateCount++;

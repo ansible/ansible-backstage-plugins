@@ -102,6 +102,9 @@ jest.mock('./RepositoriesTable', () => ({
       <button type="button" onClick={() => onSourcesStatusChange?.(false)}>
         Set no sources
       </button>
+      <button type="button" onClick={() => onSourcesStatusChange?.(null)}>
+        Set null status
+      </button>
     </div>
   ),
 }));
@@ -397,6 +400,48 @@ describe('GitRepositoriesPage', () => {
         initialCallCount,
       );
     });
+  });
+
+  it('handles sync status response with no content field', async () => {
+    mockFetchApi.fetch.mockResolvedValue({
+      ok: true,
+      json: () => Promise.resolve({}),
+    });
+
+    await renderInTestApp(
+      <TestApiProvider apis={[...defaultTestApis]}>
+        <ThemeProvider theme={theme}>
+          <GitRepositoriesPage />
+        </ThemeProvider>
+      </TestApiProvider>,
+    );
+
+    await waitFor(() => {
+      const syncButton = screen.getByRole('button', { name: /Sync Now/i });
+      expect(syncButton).toBeDisabled();
+    });
+  });
+
+  it('preserves previous hasConfiguredSources when onSourcesStatusChange receives null', async () => {
+    await renderInTestApp(
+      <TestApiProvider apis={[...defaultTestApis]}>
+        <ThemeProvider theme={theme}>
+          <GitRepositoriesPage />
+        </ThemeProvider>
+      </TestApiProvider>,
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: /Set sources/i }));
+    await waitFor(() => {
+      expect(
+        screen.getByRole('button', { name: /Sync Now/i }),
+      ).not.toBeDisabled();
+    });
+
+    fireEvent.click(screen.getByRole('button', { name: /Set null status/i }));
+    expect(
+      screen.getByRole('button', { name: /Sync Now/i }),
+    ).not.toBeDisabled();
   });
 
   it('navigates to CI Activity tab when selected', async () => {

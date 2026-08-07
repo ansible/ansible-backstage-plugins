@@ -724,4 +724,44 @@ describe('RepositoryDetailsPage', () => {
     });
     expect(screen.getByText('Overlay probe')).toBeInTheDocument();
   });
+
+  it('handles entity with no annotations and no spec', async () => {
+    const bareEntity: Entity = {
+      apiVersion: 'backstage.io/v1alpha1',
+      kind: 'Component',
+      metadata: {
+        name: 'test-repo',
+      },
+    };
+
+    mockCatalogApi.getEntities.mockResolvedValue({
+      items: [bareEntity],
+    });
+
+    await renderPage();
+
+    await waitFor(() => {
+      expect(screen.getByText('README')).toBeInTheDocument();
+    });
+  });
+
+  it('handles getEntities returning a raw array', async () => {
+    mockCatalogApi.getEntities.mockResolvedValue([createMockEntity()]);
+
+    await renderPage();
+
+    await waitFor(() => {
+      expect(screen.getAllByText('test-repo').length).toBeGreaterThan(0);
+    });
+  });
+
+  it('handles getEntities returning items as undefined', async () => {
+    mockCatalogApi.getEntities.mockResolvedValue({});
+
+    await renderPage();
+
+    await waitFor(() => {
+      expect(screen.getByText('Repositories')).toBeInTheDocument();
+    });
+  });
 });

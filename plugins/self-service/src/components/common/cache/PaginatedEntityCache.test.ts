@@ -253,6 +253,115 @@ describe('PaginatedEntityCache', () => {
     });
   });
 
+  describe('edge cases in initial load', () => {
+    it('handles queryEntities returning undefined items', async () => {
+      const cache = createCache();
+      const mockApi = createMockCatalogApi({
+        queryEntities: jest.fn().mockResolvedValue({ totalItems: 0 }),
+      });
+
+      await cache.startLoading(mockApi);
+
+      const state = cache.getState();
+      expect(state?.entities).toHaveLength(0);
+      expect(state?.isFullyLoaded).toBe(true);
+    });
+
+    it('handles queryEntities returning undefined totalItems', async () => {
+      const cache = createCache();
+      const items = [mockEntity];
+      const mockApi = createMockCatalogApi({
+        queryEntities: jest.fn().mockResolvedValue({ items }),
+      });
+
+      await cache.startLoading(mockApi);
+
+      const state = cache.getState();
+      expect(state?.entities).toHaveLength(1);
+      expect(state?.totalServerItems).toBe(1);
+    });
+
+    it('uses fallback message when initial load throws non-Error', async () => {
+      const cache = createCache();
+      const mockApi = createMockCatalogApi({
+        queryEntities: jest.fn().mockRejectedValue('string-error'),
+      });
+
+      await cache.startLoading(mockApi);
+
+      const state = cache.getState();
+      expect(state?.error).toBe('Failed to fetch entities');
+    });
+
+    it('uses fallback message when initial load throws Error with empty message', async () => {
+      const cache = createCache();
+      const mockApi = createMockCatalogApi({
+        queryEntities: jest.fn().mockRejectedValue(new Error('')),
+      });
+
+      await cache.startLoading(mockApi);
+
+      const state = cache.getState();
+      expect(state?.error).toBe('Failed to fetch entities');
+    });
+  });
+
+  describe('background loading edge cases', () => {
+    it('uses fallback message when background fetch throws non-Error', async () => {
+      const cache = createCache();
+      const page1 = Array.from({ length: 50 }, (_, i) => makeEntity(`p1-${i}`));
+
+      const mockApi = createMockCatalogApi({
+        queryEntities: jest
+          .fn()
+          .mockResolvedValueOnce({ items: page1, totalItems: 200 })
+          .mockRejectedValueOnce('string-error'),
+      });
+
+      await cache.startLoading(mockApi);
+
+      const state = cache.getState();
+      expect(state?.entities).toHaveLength(50);
+      expect(state?.error).toBe('Failed to load remaining entities');
+    });
+
+    it('handles background page returning empty items', async () => {
+      const cache = createCache();
+      const page1 = Array.from({ length: 50 }, (_, i) => makeEntity(`p1-${i}`));
+
+      const mockApi = createMockCatalogApi({
+        queryEntities: jest
+          .fn()
+          .mockResolvedValueOnce({ items: page1, totalItems: 200 })
+          .mockResolvedValueOnce({ items: [] }),
+      });
+
+      await cache.startLoading(mockApi);
+
+      const state = cache.getState();
+      expect(state?.entities).toHaveLength(50);
+      expect(state?.isFullyLoaded).toBe(true);
+    });
+
+    it('handles background page returning undefined items', async () => {
+      const cache = createCache();
+      const page1 = Array.from({ length: 50 }, (_, i) => makeEntity(`p1-${i}`));
+
+      const mockApi = createMockCatalogApi({
+        queryEntities: jest
+          .fn()
+          .mockResolvedValueOnce({ items: page1, totalItems: 200 })
+          .mockResolvedValueOnce({}),
+      });
+
+      await cache.startLoading(mockApi);
+
+      const state = cache.getState();
+      expect(state?.entities).toHaveLength(50);
+      expect(state?.isFullyLoaded).toBe(true);
+    });
+  });
+
   describe('TTL expiry', () => {
     it('returns null from getState when TTL has expired', async () => {
       const cache = createCache();

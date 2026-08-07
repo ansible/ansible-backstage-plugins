@@ -17,9 +17,11 @@ import {
   EEBuildApis,
 } from '@ansible/plugin-backstage-self-service';
 import { apmeApiFactory } from '@ansible/plugin-backstage-apme';
+import { signalsPlugin } from '@backstage/plugin-signals';
 import { gitRepositoriesExtensionsApiFactory } from './apis/gitRepositoriesExtensions';
 
 export const apis: AnyApiFactory[] = [
+  ...signalsPlugin.getApis(),
   createApiFactory({
     api: scmIntegrationsApiRef,
     deps: { configApi: configApiRef },

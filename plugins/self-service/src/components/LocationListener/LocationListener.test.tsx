@@ -120,4 +120,16 @@ describe('LocationListener', () => {
       { replace: true },
     );
   });
+
+  it('does not redirect unrelated paths', () => {
+    (useLocation as jest.Mock).mockReturnValue({ pathname: '/settings' });
+    render(<LocationListener />);
+    expect(mockNavigate).not.toHaveBeenCalled();
+  });
+
+  it('returns null (renders nothing)', () => {
+    (useLocation as jest.Mock).mockReturnValue({ pathname: '/settings' });
+    const { container } = render(<LocationListener />);
+    expect(container.innerHTML).toBe('');
+  });
 });

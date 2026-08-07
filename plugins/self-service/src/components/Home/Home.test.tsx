@@ -44,6 +44,19 @@ const mockNotifications = [
   },
 ];
 
+const mockSyncSignal: {
+  lastSignal: {
+    provider: string;
+    syncInProgress: boolean;
+    lastSyncTime: string | null;
+    lastSyncStatus: string | null;
+    lastFailedSyncTime: string | null;
+  } | null;
+} = { lastSignal: null };
+jest.mock('@backstage/plugin-signals-react', () => ({
+  useSignal: () => mockSyncSignal,
+}));
+
 jest.mock('../notifications', () => ({
   NotificationProvider: ({ children }: any) => <>{children}</>,
   NotificationStack: ({
@@ -92,8 +105,8 @@ describe('self-service', () => {
     mockRhAapAuthApi.getAccessToken.mockResolvedValue('mock-token');
     mockAnsibleApi.getSyncStatus.mockResolvedValue({
       aap: {
-        orgsUsersTeams: { lastSync: null },
-        jobTemplates: { lastSync: null },
+        orgsUsersTeams: { lastSync: null, syncInProgress: false },
+        jobTemplates: { lastSync: null, syncInProgress: false },
       },
     });
 
@@ -213,8 +226,8 @@ describe('self-service', () => {
     );
     mockAnsibleApi.getSyncStatus.mockResolvedValue({
       aap: {
-        orgsUsersTeams: { lastSync: null },
-        jobTemplates: { lastSync: null },
+        orgsUsersTeams: { lastSync: null, syncInProgress: false },
+        jobTemplates: { lastSync: null, syncInProgress: false },
       },
     });
 
@@ -248,8 +261,8 @@ describe('self-service', () => {
     mockAnsibleApi.syncTemplates.mockResolvedValue(true);
     mockAnsibleApi.getSyncStatus.mockResolvedValue({
       aap: {
-        orgsUsersTeams: { lastSync: null },
-        jobTemplates: { lastSync: null },
+        orgsUsersTeams: { lastSync: null, syncInProgress: false },
+        jobTemplates: { lastSync: null, syncInProgress: false },
       },
     });
 
@@ -298,8 +311,8 @@ describe('self-service', () => {
     mockAnsibleApi.syncTemplates.mockResolvedValue(false);
     mockAnsibleApi.getSyncStatus.mockResolvedValue({
       aap: {
-        orgsUsersTeams: { lastSync: null },
-        jobTemplates: { lastSync: null },
+        orgsUsersTeams: { lastSync: null, syncInProgress: false },
+        jobTemplates: { lastSync: null, syncInProgress: false },
       },
     });
 
@@ -347,8 +360,8 @@ describe('self-service', () => {
     mockAnsibleApi.syncOrgsUsersTeam.mockResolvedValue(true);
     mockAnsibleApi.getSyncStatus.mockResolvedValue({
       aap: {
-        orgsUsersTeams: { lastSync: null },
-        jobTemplates: { lastSync: null },
+        orgsUsersTeams: { lastSync: null, syncInProgress: false },
+        jobTemplates: { lastSync: null, syncInProgress: false },
       },
     });
 
@@ -393,8 +406,8 @@ describe('self-service', () => {
     );
     mockAnsibleApi.getSyncStatus.mockResolvedValue({
       aap: {
-        orgsUsersTeams: { lastSync: null },
-        jobTemplates: { lastSync: null },
+        orgsUsersTeams: { lastSync: null, syncInProgress: false },
+        jobTemplates: { lastSync: null, syncInProgress: false },
       },
     });
 
@@ -447,8 +460,8 @@ describe('self-service', () => {
     mockAnsibleApi.syncTemplates.mockResolvedValue(true);
     mockAnsibleApi.getSyncStatus.mockResolvedValue({
       aap: {
-        orgsUsersTeams: { lastSync: null },
-        jobTemplates: { lastSync: null },
+        orgsUsersTeams: { lastSync: null, syncInProgress: false },
+        jobTemplates: { lastSync: null, syncInProgress: false },
       },
     });
 
@@ -1234,6 +1247,182 @@ describe('self-service', () => {
     });
   });
 
+  it('should filter out execution-environment type entities from templates', async () => {
+    const entityRefs = ['component:default/e1'];
+    const tags = ['tag1'];
+    mockCatalogApi.getEntityFacets.mockResolvedValue(
+      facetsFromEntityRefs(entityRefs, tags, [
+        'service',
+        'execution-environment',
+      ]),
+    );
+    mockCatalogApi.getEntities.mockResolvedValue({
+      items: [
+        {
+          metadata: {
+            name: 'regular-template',
+            title: 'Regular Template',
+            description: 'A regular template',
+            namespace: 'default',
+            tags: [],
+            uid: 'uid-1',
+            etag: 'etag-1',
+            annotations: {},
+          },
+          apiVersion: 'scaffolder.backstage.io/v1beta3',
+          kind: 'Template',
+          spec: { owner: 'RedHat', type: 'service' },
+          relations: [],
+        },
+        {
+          metadata: {
+            name: 'ee-template',
+            title: 'EE Builder',
+            description: 'Build EE',
+            namespace: 'default',
+            tags: [],
+            uid: 'uid-2',
+            etag: 'etag-2',
+            annotations: {},
+          },
+          apiVersion: 'scaffolder.backstage.io/v1beta3',
+          kind: 'Template',
+          spec: { owner: 'RedHat', type: 'execution-environment' },
+          relations: [],
+        },
+      ],
+    });
+    mockCatalogApi.queryEntities.mockResolvedValue({
+      items: [
+        {
+          metadata: {
+            name: 'regular-template',
+            title: 'Regular Template',
+            description: 'A regular template',
+            namespace: 'default',
+            tags: [],
+            uid: 'uid-1',
+            etag: 'etag-1',
+            annotations: {},
+          },
+          apiVersion: 'scaffolder.backstage.io/v1beta3',
+          kind: 'Template',
+          spec: { owner: 'RedHat', type: 'service' },
+          relations: [],
+        },
+        {
+          metadata: {
+            name: 'ee-template',
+            title: 'EE Builder',
+            description: 'Build EE',
+            namespace: 'default',
+            tags: [],
+            uid: 'uid-2',
+            etag: 'etag-2',
+            annotations: {},
+          },
+          apiVersion: 'scaffolder.backstage.io/v1beta3',
+          kind: 'Template',
+          spec: { owner: 'RedHat', type: 'execution-environment' },
+          relations: [],
+        },
+      ],
+      totalItems: 2,
+      pageInfo: {},
+    });
+
+    await render(<HomeComponent />);
+
+    await waitFor(() => {
+      expect(screen.getByText('Regular Template')).toBeInTheDocument();
+    });
+    expect(screen.queryByText('EE Builder')).not.toBeInTheDocument();
+  });
+
+  it('should filter out entities whose aapJobTemplateId does not match any job template', async () => {
+    const entityRefs = ['component:default/e1'];
+    const tags = ['tag1'];
+    mockCatalogApi.getEntityFacets.mockResolvedValue(
+      facetsFromEntityRefs(entityRefs, tags),
+    );
+
+    const templateWithMatchingId = {
+      metadata: {
+        name: 'matching-template',
+        title: 'Matching Template',
+        description: 'Has matching ID',
+        namespace: 'default',
+        tags: [],
+        uid: 'uid-match',
+        etag: 'etag-1',
+        annotations: {},
+        aapJobTemplateId: 1,
+      },
+      apiVersion: 'scaffolder.backstage.io/v1beta3',
+      kind: 'Template',
+      spec: { owner: 'RedHat', type: 'service' },
+      relations: [],
+    };
+    const templateWithNonMatchingId = {
+      metadata: {
+        name: 'orphan-template',
+        title: 'Orphan Template',
+        description: 'Has non-matching ID',
+        namespace: 'default',
+        tags: [],
+        uid: 'uid-orphan',
+        etag: 'etag-2',
+        annotations: {},
+        aapJobTemplateId: 999,
+      },
+      apiVersion: 'scaffolder.backstage.io/v1beta3',
+      kind: 'Template',
+      spec: { owner: 'RedHat', type: 'service' },
+      relations: [],
+    };
+    const templateWithNoId = {
+      metadata: {
+        name: 'no-id-template',
+        title: 'No ID Template',
+        description: 'No aapJobTemplateId',
+        namespace: 'default',
+        tags: [],
+        uid: 'uid-noid',
+        etag: 'etag-3',
+        annotations: {},
+      },
+      apiVersion: 'scaffolder.backstage.io/v1beta3',
+      kind: 'Template',
+      spec: { owner: 'RedHat', type: 'service' },
+      relations: [],
+    };
+
+    mockCatalogApi.getEntities.mockResolvedValue({
+      items: [
+        templateWithMatchingId,
+        templateWithNonMatchingId,
+        templateWithNoId,
+      ],
+    });
+    mockCatalogApi.queryEntities.mockResolvedValue({
+      items: [
+        templateWithMatchingId,
+        templateWithNonMatchingId,
+        templateWithNoId,
+      ],
+      totalItems: 3,
+      pageInfo: {},
+    });
+
+    await render(<HomeComponent />);
+
+    await waitFor(() => {
+      expect(screen.getByText('Matching Template')).toBeInTheDocument();
+    });
+    expect(screen.getByText('No ID Template')).toBeInTheDocument();
+    expect(screen.queryByText('Orphan Template')).not.toBeInTheDocument();
+  });
+
   it('should show "No templates found" when catalog returns no entities', async () => {
     mockCatalogApi.getEntityFacets.mockResolvedValue({
       facets: {
@@ -1268,8 +1457,8 @@ describe('TemplatesRoutesPage notifications', () => {
     mockRhAapAuthApi.getAccessToken.mockResolvedValue('mock-token');
     mockAnsibleApi.getSyncStatus.mockResolvedValue({
       aap: {
-        orgsUsersTeams: { lastSync: null },
-        jobTemplates: { lastSync: null },
+        orgsUsersTeams: { lastSync: null, syncInProgress: false },
+        jobTemplates: { lastSync: null, syncInProgress: false },
       },
     });
     if (!mockScaffolderApi.autocomplete) {
@@ -1342,6 +1531,115 @@ describe('TemplatesRoutesPage notifications', () => {
   });
 });
 
+describe('sync signal integration', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+    mockUseIsSuperuser.mockReturnValue({
+      isSuperuser: true,
+      loading: false,
+      error: null,
+    });
+    mockUsePermission.mockReturnValue({ loading: false, allowed: true });
+    mockRhAapAuthApi.getAccessToken.mockResolvedValue('mock-token');
+    mockAnsibleApi.getSyncStatus.mockResolvedValue({
+      aap: {
+        orgsUsersTeams: { lastSync: null, syncInProgress: false },
+        jobTemplates: { lastSync: null, syncInProgress: false },
+      },
+    });
+  });
+
+  const render = (children: JSX.Element) => {
+    return renderInTestApp(
+      <TestApiProvider
+        apis={[
+          [catalogApiRef, mockCatalogApi],
+          [ansibleApiRef, mockAnsibleApi],
+          [rhAapAuthApiRef, mockRhAapAuthApi],
+          [scaffolderApiRef, mockScaffolderApi],
+          [starredEntitiesApiRef, new MockStarredEntitiesApi()],
+          [permissionApiRef, mockApis.permission()],
+        ]}
+      >
+        <MockEntityListContextProvider>
+          {children}
+        </MockEntityListContextProvider>
+      </TestApiProvider>,
+      {
+        mountedRoutes: {
+          '/self-service': rootRouteRef,
+        },
+      },
+    );
+  };
+
+  it('should update sync status when a completed signal arrives', async () => {
+    mockSyncSignal.lastSignal = {
+      provider: 'aap-org-users-teams',
+      syncInProgress: false,
+      lastSyncTime: '2025-06-01T12:00:00.000Z',
+      lastSyncStatus: 'success',
+      lastFailedSyncTime: null,
+    };
+
+    await render(<HomeComponent />);
+
+    await waitFor(() => {
+      expect(screen.getByText('Sync now')).toBeInTheDocument();
+    });
+
+    mockSyncSignal.lastSignal = null;
+  });
+
+  it('should route job template signals to jobTemplates key', async () => {
+    mockSyncSignal.lastSignal = {
+      provider: 'aap-job-template-provider',
+      syncInProgress: false,
+      lastSyncTime: '2025-06-01T13:00:00.000Z',
+      lastSyncStatus: 'success',
+      lastFailedSyncTime: null,
+    };
+
+    await render(<HomeComponent />);
+
+    await waitFor(() => {
+      expect(screen.getByText('Sync now')).toBeInTheDocument();
+    });
+
+    mockSyncSignal.lastSignal = null;
+  });
+
+  it('should keep sync disabled when one provider completes but another is still syncing', async () => {
+    mockSyncSignal.lastSignal = {
+      provider: 'aap-org-users-teams',
+      syncInProgress: true,
+      lastSyncTime: null,
+      lastSyncStatus: null,
+      lastFailedSyncTime: null,
+    };
+
+    await render(<HomeComponent />);
+
+    await waitFor(() => {
+      expect(screen.getByText('Syncing...')).toBeInTheDocument();
+    });
+
+    mockSyncSignal.lastSignal = {
+      provider: 'aap-job-template-provider',
+      syncInProgress: false,
+      lastSyncTime: '2025-06-01T13:00:00.000Z',
+      lastSyncStatus: 'success',
+      lastFailedSyncTime: null,
+    };
+
+    await waitFor(() => {
+      expect(screen.getByText('Syncing...')).toBeInTheDocument();
+    });
+
+    mockSyncSignal.lastSignal = null;
+  });
+});
+
 describe('HomeCategoryPicker EE exclusion', () => {
   beforeEach(() => {
     jest.clearAllMocks();
@@ -1354,8 +1652,8 @@ describe('HomeCategoryPicker EE exclusion', () => {
     mockRhAapAuthApi.getAccessToken.mockResolvedValue('mock-token');
     mockAnsibleApi.getSyncStatus.mockResolvedValue({
       aap: {
-        orgsUsersTeams: { lastSync: null },
-        jobTemplates: { lastSync: null },
+        orgsUsersTeams: { lastSync: null, syncInProgress: false },
+        jobTemplates: { lastSync: null, syncInProgress: false },
       },
     });
     if (!mockScaffolderApi.autocomplete) {
