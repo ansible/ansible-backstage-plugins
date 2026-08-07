@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 
+import { createHash } from 'crypto';
 import { Entity } from '@backstage/catalog-model';
 import type { CollectionRef } from '@ansible/backstage-apme-common';
 
@@ -27,13 +28,26 @@ export const CANONICAL_COLLECTION_ANNOTATION =
 
 export const LEARNED_COLLECTION_SOURCE = 'learned';
 
+const MAX_ENTITY_NAME_LENGTH = 63;
+const LEARNED_NAME_PREFIX = 'apme-learned-';
+/** Hex chars from sha256(repo|fqcn|version) — kept at the end so truncate cannot drop identity. */
+const LEARNED_NAME_HASH_LENGTH = 8;
+
 export function sanitizeLearnedEntityName(value: string): string {
   return value
     .toLowerCase()
     .replaceAll(/[^a-z0-9-]/g, '-')
     .replaceAll(/-+/g, '-')
     .replaceAll(/(^-)|(-$)/g, '')
-    .substring(0, 63);
+    .substring(0, MAX_ENTITY_NAME_LENGTH);
+}
+
+/** Sanitize and truncate a name segment without chopping mid-hyphen trail. */
+function truncateNameSegment(value: string, maxLength: number): string {
+  if (maxLength <= 0) {
+    return '';
+  }
+  return sanitizeLearnedEntityName(value).substring(0, maxLength).replace(/-$/, '');
 }
 
 export function parseCollectionFqcn(fqcn: string): {
@@ -52,18 +66,40 @@ export function collectionFqcnKey(fullName: string, version?: string): string {
   return v ? `${fullName}@${v}` : fullName;
 }
 
+/**
+ * Stable Backstage entity name for a learned dep.
+ * Format: `apme-learned-{short-repo}-{short-fqcn}-{8hex}` where the hash is
+ * sha256(`repo|fqcn|version`) so the 63-char limit cannot collide versions/FQCNs.
+ */
 export function buildLearnedCollectionEntityName(
   repoEntityName: string,
   fqcn: string,
   version: string,
 ): string {
-  const parsed = parseCollectionFqcn(fqcn);
-  const ns = parsed?.namespace ?? 'unknown';
-  const name = parsed?.name ?? fqcn;
   const ver = version?.trim() || 'unknown';
-  return sanitizeLearnedEntityName(
-    `apme-learned-${repoEntityName}-${ns}.${name}-${ver}`,
-  );
+  const hash = createHash('sha256')
+    .update(`${repoEntityName}|${fqcn}|${ver}`)
+    .digest('hex')
+    .slice(0, LEARNED_NAME_HASH_LENGTH);
+
+  // Reserve prefix + two separators + trailing hash.
+  const budget =
+    MAX_ENTITY_NAME_LENGTH -
+    LEARNED_NAME_PREFIX.length -
+    LEARNED_NAME_HASH_LENGTH -
+    2;
+  const repoBudget = Math.max(1, Math.floor(budget * 0.6));
+  const fqcnBudget = Math.max(1, budget - repoBudget);
+
+  const parsed = parseCollectionFqcn(fqcn);
+  const fqcnLabel = parsed
+    ? `${parsed.namespace}.${parsed.name}`
+    : fqcn;
+
+  const shortRepo = truncateNameSegment(repoEntityName, repoBudget);
+  const shortFqcn = truncateNameSegment(fqcnLabel, fqcnBudget);
+
+  return `${LEARNED_NAME_PREFIX}${shortRepo}-${shortFqcn}-${hash}`;
 }
 
 export interface BuildLearnedCollectionEntityOptions {

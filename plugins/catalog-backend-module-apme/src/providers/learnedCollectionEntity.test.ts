@@ -53,14 +53,50 @@ describe('learnedCollectionEntity', () => {
     expect(parseCollectionFqcn('bad')).toBeNull();
   });
 
-  it('builds stable learned entity names', () => {
+  it('builds stable learned entity names within Backstage length limits', () => {
+    const name = buildLearnedCollectionEntityName(
+      'terrible-playbook-github-github-com',
+      'ansible.posix',
+      '1.5.4',
+    );
+    expect(name).toMatch(/^apme-learned-/);
+    expect(name.length).toBeLessThanOrEqual(63);
+    expect(name).toMatch(/-[0-9a-f]{8}$/);
+    // Deterministic for the same identity.
     expect(
       buildLearnedCollectionEntityName(
         'terrible-playbook-github-github-com',
         'ansible.posix',
         '1.5.4',
       ),
-    ).toMatch(/^apme-learned-/);
+    ).toBe(name);
+  });
+
+  it('keeps distinct names when versions differ under a long repo name', () => {
+    const repo = 'terrible-playbook-github-github-com';
+    const v154 = buildLearnedCollectionEntityName(repo, 'ansible.posix', '1.5.4');
+    const v155 = buildLearnedCollectionEntityName(repo, 'ansible.posix', '1.5.5');
+    expect(v154).not.toBe(v155);
+    expect(v154.length).toBeLessThanOrEqual(63);
+    expect(v155.length).toBeLessThanOrEqual(63);
+  });
+
+  it('keeps distinct names for different FQCNs under a very long repo name', () => {
+    const repo =
+      'my-org-very-long-repository-name-from-github-com-example-extra';
+    const posix = buildLearnedCollectionEntityName(
+      repo,
+      'ansible.posix',
+      '1.5.4',
+    );
+    const general = buildLearnedCollectionEntityName(
+      repo,
+      'community.general',
+      '1.0.0',
+    );
+    expect(posix).not.toBe(general);
+    expect(posix.length).toBeLessThanOrEqual(63);
+    expect(general.length).toBeLessThanOrEqual(63);
   });
 
   it('builds a learned collection entity', () => {
