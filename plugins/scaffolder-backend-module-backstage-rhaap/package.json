@@ -28,7 +28,7 @@
   },
   "dependencies": {
     "@ansible/backstage-rhaap-common": "workspace:^",
-    "@backstage/backend-defaults": "^0.16.0",
+    "@backstage/backend-defaults": "^0.17.0",
     "@backstage/backend-dynamic-feature-service": "^0.8.0",
     "@backstage/backend-plugin-api": "^1.8.0",
     "@backstage/catalog-model": "^1.7.7",
