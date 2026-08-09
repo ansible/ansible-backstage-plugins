@@ -137,6 +137,8 @@ describe('authModuleRHAAPProvider', () => {
       redirect_uri: `${appUrl}/api/auth/rhaap/handler/frame`,
       state: expect.any(String),
       approval_prompt: 'auto',
+      code_challenge: expect.any(String),
+      code_challenge_method: 'S256',
     });
     expect(decodeOAuthState(startUrl.searchParams.get('state')!)).toEqual({
       env: 'development',
