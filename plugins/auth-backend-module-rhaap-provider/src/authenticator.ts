@@ -15,9 +15,7 @@ const pkceStore = new Map<string, { verifier: string; createdAt: number }>();
 
 function generatePKCE(): { verifier: string; challenge: string } {
   const verifier = randomBytes(32).toString('base64url');
-  const challenge = createHash('sha256')
-    .update(verifier)
-    .digest('base64url');
+  const challenge = createHash('sha256').update(verifier).digest('base64url');
   return { verifier, challenge };
 }
 
@@ -112,9 +110,7 @@ export const aapAuthAuthenticator = (aapService: IAAPService) =>
     ) {
       const state = input.req.query.state as string | undefined;
       if (!state) {
-        throw new Error(
-          'OAuth state parameter missing from callback request.',
-        );
+        throw new Error('OAuth state parameter missing from callback request.');
       }
       const pkceEntry = pkceStore.get(state);
       if (!pkceEntry) {
