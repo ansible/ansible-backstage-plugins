@@ -161,5 +161,10 @@ describe('authModuleRHAAPProvider', () => {
     expect(handlerResponse.text).toContain(
       encodeURIComponent(`"accessToken":"accessToken"`),
     );
+    expect(mockAnsibleService.rhAAPAuthenticate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        codeVerifier: expect.any(String),
+      }),
+    );
   });
 });
