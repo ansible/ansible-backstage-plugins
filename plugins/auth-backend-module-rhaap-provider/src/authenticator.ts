@@ -10,6 +10,7 @@ import { IAAPService } from '@ansible/backstage-rhaap-common';
 import { AuthenticationError } from '@backstage/errors';
 
 const PKCE_TTL_MS = 10 * 60 * 1000;
+const PKCE_MAX_ENTRIES = 10_000;
 const pkceStore = new Map<string, { verifier: string; createdAt: number }>();
 
 function generatePKCE(): { verifier: string; challenge: string } {
@@ -26,6 +27,10 @@ function cleanExpiredPKCE(): void {
     if (now - entry.createdAt > PKCE_TTL_MS) {
       pkceStore.delete(key);
     }
+  }
+  while (pkceStore.size > PKCE_MAX_ENTRIES) {
+    const oldest = pkceStore.keys().next().value;
+    if (oldest) pkceStore.delete(oldest);
   }
 }
 
@@ -105,7 +110,12 @@ export const aapAuthAuthenticator = (aapService: IAAPService) =>
       input,
       { host, clientId, clientSecret, callbackURL, checkSSL },
     ) {
-      const state = input.req.query.state as string;
+      const state = input.req.query.state as string | undefined;
+      if (!state) {
+        throw new Error(
+          'OAuth state parameter missing from callback request.',
+        );
+      }
       const pkceEntry = pkceStore.get(state);
       if (!pkceEntry) {
         throw new Error(
