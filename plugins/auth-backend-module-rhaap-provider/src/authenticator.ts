@@ -113,12 +113,17 @@ export const aapAuthAuthenticator = (aapService: IAAPService) =>
         throw new Error('OAuth state parameter missing from callback request.');
       }
       const pkceEntry = pkceStore.get(state);
+      pkceStore.delete(state);
       if (!pkceEntry) {
         throw new Error(
           'PKCE verifier not found for OAuth state. The login session may have expired or the server may have restarted. Please try logging in again.',
         );
       }
-      pkceStore.delete(state);
+      if (Date.now() - pkceEntry.createdAt >= PKCE_TTL_MS) {
+        throw new Error(
+          'PKCE verifier has expired. Please try logging in again.',
+        );
+      }
 
       const result = await aapService.rhAAPAuthenticate({
         host: host,

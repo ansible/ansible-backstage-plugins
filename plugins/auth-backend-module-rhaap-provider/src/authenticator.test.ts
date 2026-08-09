@@ -187,6 +187,101 @@ describe('authenticator', () => {
     expect(mockAAPService.rhAAPRevokeToken).not.toHaveBeenCalled();
   });
 
+  describe('authenticate PKCE validation', () => {
+    const authContext = {
+      host: DEFAULT_HOST,
+      clientId: CLIENT_ID,
+      clientSecret: CLIENT_SECRET,
+      callbackURL: 'http://localhost',
+      checkSSL: CHECK_SSL,
+    };
+
+    it('should throw when OAuth state parameter is missing', async () => {
+      const aapAuthAuthenticator = createAuthenticator(mockAAPService as any);
+      aapAuthAuthenticator.initialize({
+        callbackUrl: '',
+        config: mockServices.rootConfig({
+          data: {
+            clientId: CLIENT_ID,
+            clientSecret: CLIENT_SECRET,
+            host: DEFAULT_HOST,
+            checkSSL: CHECK_SSL,
+            callbackUrl: 'http://localhost',
+          },
+        }),
+      });
+
+      await expect(
+        aapAuthAuthenticator.authenticate(
+          // @ts-ignore
+          { req: { query: {} } },
+          authContext,
+        ),
+      ).rejects.toThrow('OAuth state parameter missing from callback request.');
+    });
+
+    it('should throw when PKCE verifier is not found for state', async () => {
+      const aapAuthAuthenticator = createAuthenticator(mockAAPService as any);
+      aapAuthAuthenticator.initialize({
+        callbackUrl: '',
+        config: mockServices.rootConfig({
+          data: {
+            clientId: CLIENT_ID,
+            clientSecret: CLIENT_SECRET,
+            host: DEFAULT_HOST,
+            checkSSL: CHECK_SSL,
+            callbackUrl: 'http://localhost',
+          },
+        }),
+      });
+
+      await expect(
+        aapAuthAuthenticator.authenticate(
+          // @ts-ignore
+          { req: { query: { state: 'unknown-state' } } },
+          authContext,
+        ),
+      ).rejects.toThrow('PKCE verifier not found for OAuth state');
+    });
+
+    it('should throw when PKCE verifier has expired', async () => {
+      const aapAuthAuthenticator = createAuthenticator(mockAAPService as any);
+      const ctx = aapAuthAuthenticator.initialize({
+        callbackUrl: '',
+        config: mockServices.rootConfig({
+          data: {
+            clientId: CLIENT_ID,
+            clientSecret: CLIENT_SECRET,
+            host: DEFAULT_HOST,
+            checkSSL: CHECK_SSL,
+            callbackUrl: 'http://localhost',
+          },
+        }),
+      });
+
+      const now = Date.now();
+      jest.spyOn(Date, 'now').mockReturnValue(now);
+
+      await aapAuthAuthenticator.start(
+        // @ts-ignore
+        { state: 'expired-state', scope: '', req: {} },
+        ctx,
+      );
+
+      jest.spyOn(Date, 'now').mockReturnValue(now + 10 * 60 * 1000);
+
+      await expect(
+        aapAuthAuthenticator.authenticate(
+          // @ts-ignore
+          { req: { query: { state: 'expired-state', code: 'auth-code' } } },
+          authContext,
+        ),
+      ).rejects.toThrow('PKCE verifier has expired');
+
+      jest.restoreAllMocks();
+    });
+  });
+
   describe('logout sync', () => {
     const authContext = {
       host: DEFAULT_HOST,
