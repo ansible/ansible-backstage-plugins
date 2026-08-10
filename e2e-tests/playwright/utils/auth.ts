@@ -146,6 +146,29 @@ export async function loginAAP(page: Page, credentials?: AAPCredentials) {
     await page.waitForLoadState('domcontentloaded');
     console.log('[Auth] After Log in click, URL:', page.url());
 
+    // Detect login failure: AAP re-shows the login form with an error alert
+    const loginError = await page
+      .locator(
+        '.pf-v5-c-alert__title, .pf-c-alert__title, .pf-v5-c-helper-text__item.pf-m-error, [class*="login"] [class*="error"]',
+      )
+      .first()
+      .textContent({ timeout: 3000 })
+      .catch(() => null);
+    if (loginError) {
+      throw new Error(
+        `AAP login failed for user "${userId}": ${loginError.trim()}`,
+      );
+    }
+    const stillOnLogin = await page
+      .locator('#pf-login-username-id')
+      .isVisible({ timeout: 1000 })
+      .catch(() => false);
+    if (stillOnLogin) {
+      throw new Error(
+        `AAP login failed for user "${userId}": still on login page after submitting credentials. URL: ${page.url()}`,
+      );
+    }
+
     // Check for AAP OAuth authorization page
     const aapAuthorizeVisible = await page
       .getByText(/Authorize.*\?/)
