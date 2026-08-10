@@ -103,13 +103,21 @@ Also includes custom scaffolder field extensions in the self-service plugin unde
 
 ### Permissions (RBAC)
 
-Permissions are defined in `backstage-rhaap-common/src/permissions.ts`:
+Basic view permissions are defined in `backstage-rhaap-common/src/permissions/index.ts`:
 
 - `ansible.execution-environments.view`
 - `ansible.git-repositories.view`
 - `ansible.collections.view`
+- `ansible.templates.view`
+- `ansible.history.view`
 
-Registered via `permissionsRegistry.addPermissions()` in the catalog module. Frontend sidebar items use conditional rendering based on these permissions.
+A resource permission for settings mutations is also defined there:
+
+- `ansible.settings.edit` — a `ResourcePermission` scoped by capability area (`apme`, `aap`, `general`) via the `RESOURCE_TYPE_ANSIBLE_SETTINGS` resource type.
+
+The `FOR_CAPABILITY` permission rule (`backstage-rhaap-common/src/permissions/rules.ts`) allows RBAC policies to grant settings access narrowly (e.g. `FOR_CAPABILITY(capability=apme)`).
+
+View permissions are registered via `permissionsRegistry.addPermissions()` in the catalog module. The settings resource permission is registered via `permissionsRegistry.addResourceType()` in `catalog-backend-module-apme`. Frontend components use `RequirePermission` with `resourceRef="apme"` for conditional rendering.
 
 ### Frontend Plugin Structure
 

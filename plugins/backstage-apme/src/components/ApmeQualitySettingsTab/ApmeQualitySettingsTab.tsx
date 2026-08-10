@@ -22,6 +22,8 @@ import {
   makeStyles,
 } from '@material-ui/core';
 import { Progress } from '@backstage/core-components';
+import { RequirePermission } from '@backstage/plugin-permission-react';
+import { ansibleSettingsEditPermission } from '@ansible/backstage-rhaap-common/permissions';
 import { ansibleCoreVersionOptions } from '@ansible/backstage-apme-common/ansibleCoreVersionOptions';
 import { DEFAULT_APME_TARGET_ANSIBLE_CORE_VERSION } from '@ansible/backstage-apme-common/scanTargetDefaults';
 import { apmeApiRef } from '../../api';
@@ -171,21 +173,27 @@ export const ApmeQualitySettingsTab = () => {
             </Select>
           </FormControl>
 
-          <Box className={classes.actions}>
-            <Button
-              color="primary"
-              variant="contained"
-              onClick={() => void onSave()}
-              disabled={saving || !dirty}
-            >
-              {saving ? 'Saving…' : 'Save'}
-            </Button>
-            {savedMessage && (
-              <Typography variant="body2" color="primary">
-                {savedMessage}
-              </Typography>
-            )}
-          </Box>
+          <RequirePermission
+            permission={ansibleSettingsEditPermission}
+            resourceRef="apme"
+            errorPage={<></>}
+          >
+            <Box className={classes.actions}>
+              <Button
+                color="primary"
+                variant="contained"
+                onClick={() => void onSave()}
+                disabled={saving || !dirty}
+              >
+                {saving ? 'Saving…' : 'Save'}
+              </Button>
+              {savedMessage && (
+                <Typography variant="body2" color="primary">
+                  {savedMessage}
+                </Typography>
+              )}
+            </Box>
+          </RequirePermission>
 
           <Typography variant="body2" className={classes.meta}>
             AI-assisted remediation: {enableAi ? 'enabled' : 'disabled'}{' '}
@@ -194,9 +202,15 @@ export const ApmeQualitySettingsTab = () => {
         </CardContent>
       </Card>
 
-      <Box mt={3}>
-        <ApmeAiProvidersSection />
-      </Box>
+      <RequirePermission
+        permission={ansibleSettingsEditPermission}
+        resourceRef="apme"
+        errorPage={<></>}
+      >
+        <Box mt={3}>
+          <ApmeAiProvidersSection />
+        </Box>
+      </RequirePermission>
     </Box>
   );
 };

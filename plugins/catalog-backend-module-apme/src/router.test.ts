@@ -8,7 +8,8 @@ import os from 'os';
 import path from 'path';
 import fs from 'fs/promises';
 import { ConfigReader } from '@backstage/config';
-import { InputError, NotAllowedError } from '@backstage/errors';
+import { InputError } from '@backstage/errors';
+import { AuthorizeResult } from '@backstage/plugin-permission-common';
 import { createRouter } from './router';
 import { ApmePortalSettingsStore } from './apmePortalSettingsStore';
 
@@ -57,6 +58,11 @@ describe('catalog-backend-module-apme router', () => {
     error: jest.fn(),
   };
 
+  const mockPermissions = {
+    authorize: jest.fn().mockResolvedValue([{ result: AuthorizeResult.ALLOW }]),
+    authorizeConditional: jest.fn().mockResolvedValue([]),
+  };
+
   let app: express.Express;
   let settingsPath: string;
   let portalSettingsStore: ApmePortalSettingsStore;
@@ -94,6 +100,7 @@ describe('catalog-backend-module-apme router', () => {
         },
       }),
       portalSettingsStore,
+      permissions: mockPermissions as never,
     });
     app = express().use(router);
     app.use(
@@ -436,7 +443,9 @@ describe('catalog-backend-module-apme router', () => {
     await portalSettingsStore.updateGlobal('2.17');
     await portalSettingsStore.updateProjectTarget('proj-1', '2.16');
 
-    const response = await request(app).get('/apme/projects/proj-1/scan-target');
+    const response = await request(app).get(
+      '/apme/projects/proj-1/scan-target',
+    );
 
     expect(response.status).toBe(200);
     expect(response.body).toEqual({
@@ -631,16 +640,22 @@ describe('catalog-backend-module-apme router', () => {
   it('deletes an AI provider and returns 204', async () => {
     mockApmeService.deleteAiProvider.mockResolvedValueOnce(undefined);
 
-    const response = await request(app).delete('/apme/ai/provider/my-openrouter');
+    const response = await request(app).delete(
+      '/apme/ai/provider/my-openrouter',
+    );
 
     expect(response.status).toBe(204);
-    expect(mockApmeService.deleteAiProvider).toHaveBeenCalledWith('my-openrouter');
+    expect(mockApmeService.deleteAiProvider).toHaveBeenCalledWith(
+      'my-openrouter',
+    );
   });
 
   it('returns AI status connected from Abbenay health when models list is empty', async () => {
     mockApmeService.getAiModels.mockResolvedValueOnce([]);
     mockApmeService.getAiConfig.mockRejectedValueOnce(new Error('config down'));
-    mockApmeService.getAiEngines.mockRejectedValueOnce(new Error('engines down'));
+    mockApmeService.getAiEngines.mockRejectedValueOnce(
+      new Error('engines down'),
+    );
     mockApmeService.getHealth.mockResolvedValueOnce({
       status: 'healthy',
       components: [{ name: 'Abbenay AI', status: 'ok' }],
@@ -701,7 +716,11 @@ describe('catalog-backend-module-apme router', () => {
     const engines = {
       engines: [
         { id: 'openai', requiresKey: true, defaultEnvVar: 'OPENAI_API_KEY' },
-        { id: 'ollama', requiresKey: false, defaultBaseUrl: 'http://localhost:11434' },
+        {
+          id: 'ollama',
+          requiresKey: false,
+          defaultBaseUrl: 'http://localhost:11434',
+        },
         { id: 'redhat', requiresKey: true },
       ],
     };
@@ -733,9 +752,7 @@ describe('catalog-backend-module-apme router', () => {
       .send({ entityRefs: ['component:default/demo-repo'] });
 
     expect(response.status).toBe(200);
-    expect(response.body.entityRefs).toEqual([
-      'component:default/demo-repo',
-    ]);
+    expect(response.body.entityRefs).toEqual(['component:default/demo-repo']);
   });
 
   it('updates rule config via PUT /apme/rules/:ruleId/config', async () => {
@@ -761,135 +778,76 @@ describe('catalog-backend-module-apme router', () => {
     expect(response.status).toBe(204);
     expect(mockApmeService.deleteRuleConfig).toHaveBeenCalledWith('M001');
   });
-});
 
-describe('catalog-backend-module-apme router settings admin allowlist', () => {
-  const mockApmeService = {
-    getRules: jest.fn(),
-    updateRuleConfig: jest.fn(),
-    deleteRuleConfig: jest.fn(),
-  };
+  it('returns 403 on PUT /apme/settings when permission is DENY', async () => {
+    mockPermissions.authorize.mockResolvedValueOnce([
+      { result: AuthorizeResult.DENY },
+    ]);
 
-  const logger = {
-    child: () => logger,
-    info: jest.fn(),
-    debug: jest.fn(),
-    warn: jest.fn(),
-    error: jest.fn(),
-  };
+    const response = await request(app)
+      .put('/apme/settings')
+      .send({ targetAnsibleCoreVersion: '2.18' });
 
-  const adminRef = 'user:default/admin';
-  const otherRef = 'user:default/other';
-
-  async function buildApp(userEntityRef: string) {
-    const settingsPath = path.join(
-      os.tmpdir(),
-      `apme-portal-settings-admin-${Date.now()}-${Math.random()}.json`,
+    expect(response.status).toBe(403);
+    expect(response.body.error).toContain(
+      'ansible.settings.edit permission required for capability apme',
     );
-    const portalSettingsStore = new ApmePortalSettingsStore(settingsPath);
-    const router = await createRouter({
-      apmeService: mockApmeService as never,
-      logger: logger as never,
-      httpAuth: {
-        credentials: jest.fn().mockResolvedValue({
-          principal: { type: 'user', userEntityRef },
-        }),
-      } as never,
-      rootConfig: new ConfigReader({
-        ansible: {
-          apme: {
-            enabled: true,
-            baseUrl: 'http://localhost:8080',
-            settingsAdminEntityRefs: [adminRef],
-          },
-        },
-      }),
-      portalSettingsStore,
-    });
-    const expressApp = express().use(router);
-    expressApp.use(
-      (
-        err: unknown,
-        _req: express.Request,
-        res: express.Response,
-        next: express.NextFunction,
-      ) => {
-        if (err instanceof NotAllowedError) {
-          res.status(403).json({ error: err.message });
-          return;
-        }
-        if (err instanceof InputError) {
-          res.status(400).json({ error: err.message });
-          return;
-        }
-        next(err);
-      },
+  });
+
+  it('returns 403 on POST /apme/settings/galaxy-servers when permission is DENY', async () => {
+    mockPermissions.authorize.mockResolvedValueOnce([
+      { result: AuthorizeResult.DENY },
+    ]);
+
+    const response = await request(app)
+      .post('/apme/settings/galaxy-servers')
+      .send({ name: 'test', url: 'https://galaxy.example.com/api/' });
+
+    expect(response.status).toBe(403);
+    expect(response.body.error).toContain(
+      'ansible.settings.edit permission required for capability apme',
     );
-    return { app: expressApp, settingsPath };
-  }
-
-  afterEach(async () => {
-    jest.clearAllMocks();
   });
 
-  it('allows allowlisted users to mutate rule config', async () => {
-    const { app, settingsPath } = await buildApp(adminRef);
-    mockApmeService.updateRuleConfig.mockResolvedValueOnce({
-      id: 'M001',
-      enabled: false,
-    });
+  it('returns 403 on PUT /apme/rules/:ruleId/config when permission is DENY', async () => {
+    mockPermissions.authorize.mockResolvedValueOnce([
+      { result: AuthorizeResult.DENY },
+    ]);
 
-    try {
-      const response = await request(app)
-        .put('/apme/rules/M001/config')
-        .send({ enabled_override: false });
+    const response = await request(app)
+      .put('/apme/rules/M001/config')
+      .send({ enabled_override: false });
 
-      expect(response.status).toBe(200);
-      expect(mockApmeService.updateRuleConfig).toHaveBeenCalled();
-    } finally {
-      await fs.unlink(settingsPath).catch(() => undefined);
-    }
+    expect(response.status).toBe(403);
+    expect(mockApmeService.updateRuleConfig).not.toHaveBeenCalled();
+    expect(response.body.error).toContain(
+      'ansible.settings.edit permission required for capability apme',
+    );
   });
 
-  it('rejects non-allowlisted users on rule config PUT', async () => {
-    const { app, settingsPath } = await buildApp(otherRef);
+  it('returns 403 on DELETE /apme/rules/:ruleId/config when permission is DENY', async () => {
+    mockPermissions.authorize.mockResolvedValueOnce([
+      { result: AuthorizeResult.DENY },
+    ]);
 
-    try {
-      const response = await request(app)
-        .put('/apme/rules/M001/config')
-        .send({ enabled_override: false });
+    const response = await request(app).delete('/apme/rules/M001/config');
 
-      expect(response.status).toBe(403);
-      expect(mockApmeService.updateRuleConfig).not.toHaveBeenCalled();
-    } finally {
-      await fs.unlink(settingsPath).catch(() => undefined);
-    }
+    expect(response.status).toBe(403);
+    expect(mockApmeService.deleteRuleConfig).not.toHaveBeenCalled();
+    expect(response.body.error).toContain(
+      'ansible.settings.edit permission required for capability apme',
+    );
   });
 
-  it('rejects non-allowlisted users on rule config DELETE', async () => {
-    const { app, settingsPath } = await buildApp(otherRef);
-
-    try {
-      const response = await request(app).delete('/apme/rules/M001/config');
-
-      expect(response.status).toBe(403);
-      expect(mockApmeService.deleteRuleConfig).not.toHaveBeenCalled();
-    } finally {
-      await fs.unlink(settingsPath).catch(() => undefined);
-    }
-  });
-
-  it('still allows non-allowlisted users to list rules', async () => {
-    const { app, settingsPath } = await buildApp(otherRef);
+  it('still allows GET /apme/rules regardless of settings permission', async () => {
+    mockPermissions.authorize.mockResolvedValueOnce([
+      { result: AuthorizeResult.DENY },
+    ]);
     mockApmeService.getRules.mockResolvedValueOnce([{ id: 'M001' }]);
 
-    try {
-      const response = await request(app).get('/apme/rules');
+    const response = await request(app).get('/apme/rules');
 
-      expect(response.status).toBe(200);
-      expect(response.body).toEqual({ items: [{ id: 'M001' }] });
-    } finally {
-      await fs.unlink(settingsPath).catch(() => undefined);
-    }
+    expect(response.status).toBe(200);
+    expect(response.body).toEqual({ items: [{ id: 'M001' }] });
   });
 });
