@@ -14,7 +14,7 @@ import type {
   SyncOutcome,
   SyncProgressEntry,
 } from '../common/types';
-import { collectionsCache } from '../CollectionsCatalog/collectionsCache';
+import { invalidateCollections } from '../CollectionsCatalog/collectionsInvalidation';
 import { gitReposCache } from '../GitRepositories/gitReposCache';
 
 interface ProviderStatus {
@@ -115,7 +115,7 @@ class SyncPollingService {
   }
 
   private invalidateAllCaches(): void {
-    collectionsCache.invalidateFetchedData();
+    invalidateCollections();
     gitReposCache.invalidateFetchedData();
   }
 
