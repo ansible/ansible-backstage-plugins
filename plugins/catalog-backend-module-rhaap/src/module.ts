@@ -7,10 +7,8 @@ import { signalsServiceRef } from '@backstage/plugin-signals-node';
 import { ansibleServiceRef } from '@ansible/backstage-rhaap-common';
 import { ansiblePermissions } from '@ansible/backstage-rhaap-common/permissions';
 import { createRouter } from './router';
-import {
-  catalogModelExtensionPoint,
-  catalogProcessingExtensionPoint,
-} from '@backstage/plugin-catalog-node/alpha';
+import { catalogProcessingExtensionPoint } from '@backstage/plugin-catalog-node';
+import { catalogModelExtensionPoint } from '@backstage/plugin-catalog-node/alpha';
 import { AAPJobTemplateProvider } from './providers/AAPJobTemplateProvider';
 import { AAPEntityProvider } from './providers/AAPEntityProvider';
 import { makeValidator } from '@backstage/catalog-model';

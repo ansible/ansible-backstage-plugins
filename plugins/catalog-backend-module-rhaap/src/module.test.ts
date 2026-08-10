@@ -1,7 +1,5 @@
-import {
-  catalogModelExtensionPoint,
-  catalogProcessingExtensionPoint,
-} from '@backstage/plugin-catalog-node/alpha';
+import { catalogProcessingExtensionPoint } from '@backstage/plugin-catalog-node';
+import { catalogModelExtensionPoint } from '@backstage/plugin-catalog-node/alpha';
 import { catalogModuleRhaap } from './module';
 import { SchedulerServiceTaskScheduleDefinition } from '@backstage/backend-plugin-api';
 import { AAPEntityProvider } from './providers/AAPEntityProvider';
