@@ -187,6 +187,27 @@ describe('GitRepositoriesPage', () => {
     expect(screen.queryByText('Gated Tab')).not.toBeInTheDocument();
   });
 
+  it('keeps a permission-gated tab hidden while permission is loading', async () => {
+    mockUsePermission.mockReturnValue({ loading: true, allowed: false });
+
+    await renderInTestApp(
+      <TestApiProvider
+        apis={[
+          [discoveryApiRef, mockDiscoveryApi],
+          [fetchApiRef, mockFetchApi],
+          [gitRepositoriesExtensionsApiRef, new ExtensionsApiWithGatedTab()],
+        ]}
+      >
+        <ThemeProvider theme={theme}>
+          <GitRepositoriesPage />
+        </ThemeProvider>
+      </TestApiProvider>,
+    );
+
+    expect(screen.getByText('Catalog')).toBeInTheDocument();
+    expect(screen.queryByText('Gated Tab')).not.toBeInTheDocument();
+  });
+
   it('shows a permission-gated tab when the user is authorized', async () => {
     mockUsePermission.mockReturnValue({ loading: false, allowed: true });
 
