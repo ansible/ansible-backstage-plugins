@@ -23,7 +23,10 @@ import {
 } from '@material-ui/core';
 import { Progress } from '@backstage/core-components';
 import { RequirePermission } from '@backstage/plugin-permission-react';
-import { ansibleSettingsEditPermission } from '@ansible/backstage-rhaap-common/permissions';
+import {
+  ansibleSettingsEditPermission,
+  ansibleSettingsViewPermission,
+} from '@ansible/backstage-rhaap-common/permissions';
 import { ansibleCoreVersionOptions } from '@ansible/backstage-apme-common/ansibleCoreVersionOptions';
 import { DEFAULT_APME_TARGET_ANSIBLE_CORE_VERSION } from '@ansible/backstage-apme-common/scanTargetDefaults';
 import { apmeApiRef } from '../../api';
@@ -58,10 +61,7 @@ const useStyles = makeStyles(theme => ({
   },
 }));
 
-/**
- * Git Repositories page tab: edit global Quality scan defaults.
- */
-export const ApmeQualitySettingsTab = () => {
+const ApmeQualitySettingsTabContent = () => {
   const classes = useStyles();
   const apmeApi = useApi(apmeApiRef);
   const options = ansibleCoreVersionOptions();
@@ -214,3 +214,16 @@ export const ApmeQualitySettingsTab = () => {
     </Box>
   );
 };
+
+/**
+ * Git Repositories page tab: edit global Quality scan defaults.
+ * Gated by `ansible.settings.view` for the `apme` capability.
+ */
+export const ApmeQualitySettingsTab = () => (
+  <RequirePermission
+    permission={ansibleSettingsViewPermission}
+    resourceRef="apme"
+  >
+    <ApmeQualitySettingsTabContent />
+  </RequirePermission>
+);

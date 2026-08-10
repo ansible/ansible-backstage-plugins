@@ -29,6 +29,7 @@ import { catalogProcessingExtensionPoint } from '@backstage/plugin-catalog-node/
 import {
   ANSIBLE_SETTINGS_CAPABILITIES,
   ansibleSettingsEditPermission,
+  ansibleSettingsViewPermission,
   type AnsibleSettingsCapability,
 } from '@ansible/backstage-rhaap-common/permissions';
 import {
@@ -85,7 +86,10 @@ export const catalogModuleApme = createBackendModule({
 
         permissionsRegistry.addResourceType({
           resourceRef: ansibleSettingsResourceRef,
-          permissions: [ansibleSettingsEditPermission],
+          permissions: [
+            ansibleSettingsEditPermission,
+            ansibleSettingsViewPermission,
+          ],
           rules: settingsPermissionRules,
           getResources: async resourceRefs =>
             resourceRefs.map(ref =>

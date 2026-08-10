@@ -61,7 +61,7 @@ describe('permissions', () => {
   });
 
   it('exports ANSIBLE_SETTINGS_CAPABILITIES for resource refs', () => {
-    expect(ANSIBLE_SETTINGS_CAPABILITIES).toEqual(['apme', 'aap', 'general']);
+    expect(ANSIBLE_SETTINGS_CAPABILITIES).toEqual(['apme']);
   });
 
   it('ansiblePermissions contains all five view permissions', () => {

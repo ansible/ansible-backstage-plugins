@@ -31,11 +31,10 @@ export const hasCapability = createPermissionRule<
   HasCapabilityParams
 >({
   name: 'FOR_CAPABILITY',
-  description:
-    'Match settings mutations by capability area (apme, aap, general)',
+  description: 'Match settings mutations by capability area (apme)',
   resourceRef: ansibleSettingsResourceRef,
   paramsSchema: z.object({
-    capability: z.enum(['apme', 'aap', 'general']),
+    capability: z.enum(['apme']),
   }),
   apply: (resource, { capability }) => resource.capability === capability,
   toQuery: ({ capability }) => ({ capability: { $eq: capability } }),

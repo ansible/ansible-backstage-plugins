@@ -111,13 +111,16 @@ Basic view permissions are defined in `backstage-rhaap-common/src/permissions/in
 - `ansible.templates.view`
 - `ansible.history.view`
 
-A resource permission for settings mutations is also defined there:
+Resource permissions for settings are also defined there, scoped by capability area (`apme`, `aap`, `general`) via `RESOURCE_TYPE_ANSIBLE_SETTINGS`:
 
-- `ansible.settings.edit` — a `ResourcePermission` scoped by capability area (`apme`, `aap`, `general`) via the `RESOURCE_TYPE_ANSIBLE_SETTINGS` resource type.
+- `ansible.settings.view` — gates read access to settings-exclusive endpoints (`/apme/settings/galaxy-servers`, `/apme/ai/config`, `/apme/ai/engines`) and the Quality settings / Abbenay AI frontend tabs. Shared reads (`/apme/settings`, `/apme/ai/status`, `/apme/ai/models`, `/apme/ai/providers`) remain open because they back non-settings scan/workflow features.
+- `ansible.settings.edit` — gates mutation endpoints (`PUT /apme/settings`, `POST/PATCH/DELETE` galaxy-servers, rule config, AI provider CRUD).
 
 The `FOR_CAPABILITY` permission rule (`backstage-rhaap-common/src/permissions/rules.ts`) allows RBAC policies to grant settings access narrowly (e.g. `FOR_CAPABILITY(capability=apme)`).
 
-View permissions are registered via `permissionsRegistry.addPermissions()` in the catalog module. The settings resource permission is registered via `permissionsRegistry.addResourceType()` in `catalog-backend-module-apme`. Frontend components use `RequirePermission` with `resourceRef="apme"` for conditional rendering.
+View permissions are registered via `permissionsRegistry.addPermissions()` in the catalog module. The settings resource permissions are registered via `permissionsRegistry.addResourceType()` in `catalog-backend-module-apme`. Frontend components use `RequirePermission` with `resourceRef="apme"` as a content-level guard.
+
+The "Quality settings" Git Repositories tab additionally declares `permission`/`resourceRef` on its `GitRepositoriesPageTabDefinition` (`gitRepositoriesExtensions.ts`). `GitRepositoriesPage` resolves this via an invisible `usePermission` probe and hides the tab from the tab bar entirely for unauthorized users (redirecting away if deep-linked), rather than showing a clickable tab that 404s. Other extension tabs can opt into the same tab-bar-level gating by setting `permission`/`resourceRef` on their own `GitRepositoriesPageTabDefinition`.
 
 ### Frontend Plugin Structure
 

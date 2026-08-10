@@ -40,6 +40,7 @@ import { jsonBody } from './jsonBody';
 import { resolveIntegrationScmToken } from './resolveIntegrationScmToken';
 import { proxyProjectOperation } from './gatewayOperationProxy';
 import { createRequireSettingsManageMiddleware } from './requireSettingsManage';
+import { createRequireSettingsViewMiddleware } from './requireSettingsView';
 
 const GALAXY_SERVER_NAME_RE = /^[A-Za-z0-9_-]+$/;
 
@@ -113,6 +114,11 @@ export async function createRouter(options: RouterOptions): Promise<Router> {
   const configSnapshot = getApmeConfig(rootConfig);
 
   const requireApmeSettingsManage = createRequireSettingsManageMiddleware({
+    httpAuth,
+    permissions,
+  });
+
+  const requireApmeSettingsView = createRequireSettingsViewMiddleware({
     httpAuth,
     permissions,
   });
@@ -236,11 +242,14 @@ export async function createRouter(options: RouterOptions): Promise<Router> {
     },
   );
 
-  router.get('/apme/settings/galaxy-servers', async (req, res) => {
-    await ensureUser(req);
-    const servers = await apmeService.listGalaxyServers();
-    res.json(servers);
-  });
+  router.get(
+    '/apme/settings/galaxy-servers',
+    requireApmeSettingsView,
+    async (_req, res) => {
+      const servers = await apmeService.listGalaxyServers();
+      res.json(servers);
+    },
+  );
 
   router.post(
     '/apme/settings/galaxy-servers',
@@ -396,8 +405,7 @@ export async function createRouter(options: RouterOptions): Promise<Router> {
   });
 
   // US-016: Abbenay AI provider CRUD (portal → Gateway ADR-070 → Abbenay).
-  router.get('/apme/ai/config', async (req, res) => {
-    await ensureUser(req);
+  router.get('/apme/ai/config', requireApmeSettingsView, async (_req, res) => {
     const config = await apmeService.getAiConfig();
     res.json(config);
   });
@@ -418,8 +426,7 @@ export async function createRouter(options: RouterOptions): Promise<Router> {
     res.json(normalizeApmeAiProviders(raw));
   });
 
-  router.get('/apme/ai/engines', async (req, res) => {
-    await ensureUser(req);
+  router.get('/apme/ai/engines', requireApmeSettingsView, async (_req, res) => {
     const result = await apmeService.getAiEngines();
     res.json(result);
   });

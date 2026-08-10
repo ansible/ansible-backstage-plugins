@@ -850,4 +850,65 @@ describe('catalog-backend-module-apme router', () => {
     expect(response.status).toBe(200);
     expect(response.body).toEqual({ items: [{ id: 'M001' }] });
   });
+
+  it('returns 403 on GET /apme/settings/galaxy-servers when view permission is DENY', async () => {
+    mockPermissions.authorize.mockResolvedValueOnce([
+      { result: AuthorizeResult.DENY },
+    ]);
+
+    const response = await request(app).get('/apme/settings/galaxy-servers');
+
+    expect(response.status).toBe(403);
+    expect(response.body.error).toContain(
+      'ansible.settings.view permission required for capability apme',
+    );
+  });
+
+  it('returns 403 on GET /apme/ai/config when view permission is DENY', async () => {
+    mockPermissions.authorize.mockResolvedValueOnce([
+      { result: AuthorizeResult.DENY },
+    ]);
+
+    const response = await request(app).get('/apme/ai/config');
+
+    expect(response.status).toBe(403);
+    expect(response.body.error).toContain(
+      'ansible.settings.view permission required for capability apme',
+    );
+  });
+
+  it('returns 403 on GET /apme/ai/engines when view permission is DENY', async () => {
+    mockPermissions.authorize.mockResolvedValueOnce([
+      { result: AuthorizeResult.DENY },
+    ]);
+
+    const response = await request(app).get('/apme/ai/engines');
+
+    expect(response.status).toBe(403);
+    expect(response.body.error).toContain(
+      'ansible.settings.view permission required for capability apme',
+    );
+  });
+
+  it('still allows shared GET routes regardless of settings view permission', async () => {
+    mockPermissions.authorize.mockResolvedValue([
+      { result: AuthorizeResult.DENY },
+    ]);
+
+    mockApmeService.getAiModels.mockResolvedValueOnce([]);
+    const modelsRes = await request(app).get('/apme/ai/models');
+    expect(modelsRes.status).toBe(200);
+
+    mockApmeService.getAiProviders.mockResolvedValueOnce([]);
+    const providersRes = await request(app).get('/apme/ai/providers');
+    expect(providersRes.status).toBe(200);
+
+    const settingsRes = await request(app).get('/apme/settings');
+    expect(settingsRes.status).toBe(200);
+
+    // Restore default ALLOW for subsequent tests
+    mockPermissions.authorize.mockResolvedValue([
+      { result: AuthorizeResult.ALLOW },
+    ]);
+  });
 });

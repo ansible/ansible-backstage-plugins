@@ -25,6 +25,7 @@ import {
   type GitRepositoryCatalogRowMenuContext,
 } from '@ansible/backstage-rhaap-common/gitRepositoriesExtensions';
 import { normalizeRepoUrlFromEntity } from '@ansible/backstage-rhaap-common/catalogEntity';
+import { ansibleSettingsViewPermission } from '@ansible/backstage-rhaap-common/permissions';
 import { ApmeAddRepositoryHeaderAction } from '../components/ApmeAddRepositoryHeaderAction/ApmeAddRepositoryHeaderAction';
 import { ApmeQualitySettingsTab } from '../components/ApmeQualitySettingsTab';
 import { ApmeRulesTab } from '../components/ApmeRulesTab';
@@ -108,6 +109,10 @@ export function createApmeGitRepositoriesExtensionsApi(
           path: 'quality-settings',
           order: 15,
           render: () => <ApmeQualitySettingsTab />,
+          // Hidden entirely (not just content-blocked) for users lacking
+          // ansible.settings.view for the apme capability.
+          permission: ansibleSettingsViewPermission,
+          resourceRef: 'apme',
         },
         {
           id: 'rules',

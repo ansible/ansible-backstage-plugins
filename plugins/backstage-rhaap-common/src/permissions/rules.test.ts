@@ -2,6 +2,7 @@ import {
   hasCapability,
   settingsPermissionRules,
   ansibleSettingsResourceRef,
+  type AnsibleSettingsResource,
 } from './rules';
 import { RESOURCE_TYPE_ANSIBLE_SETTINGS } from './index';
 
@@ -25,14 +26,17 @@ describe('settings permission rules', () => {
   });
 
   it('apply returns false when capability does not match', () => {
-    expect(
-      hasCapability.apply({ capability: 'apme' }, { capability: 'aap' }),
-    ).toBe(false);
+    const otherResource = {
+      capability: 'other',
+    } as unknown as AnsibleSettingsResource;
+    expect(hasCapability.apply(otherResource, { capability: 'apme' })).toBe(
+      false,
+    );
   });
 
   it('toQuery returns equality filter for capability', () => {
-    expect(hasCapability.toQuery({ capability: 'general' })).toEqual({
-      capability: { $eq: 'general' },
+    expect(hasCapability.toQuery({ capability: 'apme' })).toEqual({
+      capability: { $eq: 'apme' },
     });
   });
 });
