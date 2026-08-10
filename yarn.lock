@@ -137,6 +137,7 @@ __metadata:
     undici: "npm:^6.26.0"
     web-streams-polyfill: "npm:^4.1.0"
     yaml: "npm:^2.0.0"
+    zod: "npm:^4.3.6"
   peerDependencies:
     react: ^17.0.0 || ^18.0.0
   languageName: unknown
