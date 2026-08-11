@@ -116,7 +116,7 @@ export const aapAuthAuthenticator = (aapService: IAAPService) =>
       pkceStore.delete(state);
       if (!pkceEntry) {
         throw new Error(
-          'PKCE verifier not found for OAuth state. The login session may have expired or the server may have restarted. Please try logging in again.',
+          'PKCE verifier not found for OAuth state. The login session may have expired, the server may have restarted, or the callback was routed to a different replica. Please try logging in again.',
         );
       }
       if (Date.now() - pkceEntry.createdAt >= PKCE_TTL_MS) {
