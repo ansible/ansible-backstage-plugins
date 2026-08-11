@@ -272,15 +272,13 @@ async function navigateWizardToEEDefinitionStep(page: Page): Promise<void> {
  * Navigate past the remaining wizard steps until the Create button is
  * visible. Clicks Next repeatedly (up to 10 times) until a button
  * matching /create/i appears, handling variable step counts after OAuth.
- *
- * Returns true if the Create button was found, false otherwise.
  */
-async function navigateWizardToCreateStep(page: Page): Promise<boolean> {
+async function navigateWizardToCreateStep(page: Page): Promise<void> {
   const createBtn = page.getByRole('button', { name: /create/i }).first();
 
   for (let attempt = 0; attempt < 10; attempt++) {
     if (await createBtn.isVisible({ timeout: 1000 }).catch(() => false)) {
-      return true;
+      return;
     }
 
     const next = page.getByRole('button', { name: /^Next$/i }).first();
@@ -290,7 +288,7 @@ async function navigateWizardToCreateStep(page: Page): Promise<boolean> {
     }
   }
 
-  return await createBtn.isVisible({ timeout: 10000 }).catch(() => false);
+  await expect(createBtn).toBeVisible({ timeout: 10000 });
 }
 
 /**
@@ -311,7 +309,7 @@ const RANDOM_LETTER = String.fromCharCode(97 + Math.floor(Math.random() * 26));
 const REPO_NAME = `ee-repo-${RANDOM_LETTER}`;
 const EE_FILE_NAME = `ee-${REPO_SUFFIX}`;
 
-test.describe.skip('Execution Environment Template Execution Tests', () => {
+test.describe('Execution Environment Template Execution Tests', () => {
   // Extended timeout to accommodate GitHub OAuth redirect flow + template execution
   test.setTimeout(180_000);
 
@@ -585,11 +583,7 @@ test.describe.skip('Execution Environment Template Execution Tests', () => {
         .first()
         .fill('execution environment');
 
-      // Uncheck "Publish to a Git repository" — click the FormControlLabel
-      const publishLabel = page
-        .locator('label')
-        .filter({ hasText: /^Publish to a Git repository$/i })
-        .first();
+      // Uncheck "Publish to a Git repository" — click the visible MUI checkbox element
       const publishCheckbox = page
         .locator('input[type="checkbox"]#root_publishAndBuild_publishToSCM')
         .first();
@@ -597,28 +591,32 @@ test.describe.skip('Execution Environment Template Execution Tests', () => {
         (await publishCheckbox.count()) > 0 &&
         (await publishCheckbox.isChecked())
       ) {
-        if ((await publishLabel.count()) > 0) {
-          await publishLabel.click();
+        const muiCheckbox = page
+          .locator(
+            'label[for="root_publishAndBuild_publishToSCM"], ' +
+              'span:has(> input#root_publishAndBuild_publishToSCM)',
+          )
+          .first();
+        if ((await muiCheckbox.count()) > 0) {
+          await muiCheckbox.click({ force: true });
         } else {
-          const checkboxRoot = publishCheckbox.locator('..');
-          await checkboxRoot.click();
+          await publishCheckbox.evaluate((el: HTMLInputElement) => {
+            el.click();
+            el.dispatchEvent(new Event('change', { bubbles: true }));
+          });
         }
         await page.waitForTimeout(500);
         if (await publishCheckbox.isChecked()) {
-          await publishCheckbox.click({ force: true });
-          await page.waitForTimeout(500);
+          await publishCheckbox.evaluate((el: HTMLInputElement) => {
+            el.checked = false;
+            el.dispatchEvent(new Event('change', { bubbles: true }));
+          });
         }
         console.log('[EE Test] Unchecked "Publish to a Git repository"');
       }
       await page.waitForTimeout(500);
 
-      const reachedCreate = await navigateWizardToCreateStep(page);
-      if (!reachedCreate) {
-        console.log(
-          '[EE Test] Could not reach Create step. Wizard navigation blocked, possibly by incomplete OAuth or form validation.',
-        );
-        return;
-      }
+      await navigateWizardToCreateStep(page);
       const createBtn2 = page.getByRole('button', { name: /create/i }).first();
       if ((await createBtn2.count()) > 0) {
         await createBtn2.click({ force: true });

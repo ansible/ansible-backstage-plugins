@@ -479,7 +479,7 @@ async function fillPublishFields(page: Page): Promise<void> {
   }
 }
 
-test.describe.skip('Execution Environment GitLab Template Execution Tests', () => {
+test.describe('Execution Environment GitLab Template Execution Tests', () => {
   test.setTimeout(180_000);
 
   test('Imports EE template via kebab menu and executes it with GitLab as provider', async ({
