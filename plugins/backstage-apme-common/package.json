@@ -26,6 +26,7 @@
     "./ansibleCoreVersionOptions": "./src/ansibleCoreVersionOptions.ts",
     "./resolveScanTarget": "./src/resolveScanTarget.ts",
     "./config": "./src/config.ts",
+    "./settingsCapability": "./src/settingsCapability.ts",
     "./registerOrResolveApmeProject": "./src/registerOrResolveApmeProject.ts",
     "./apmeChatModel": "./src/apmeChatModel.ts",
     "./package.json": "./package.json"
@@ -70,6 +71,9 @@
       ],
       "config": [
         "src/config.ts"
+      ],
+      "settingsCapability": [
+        "src/settingsCapability.ts"
       ],
       "registerOrResolveApmeProject": [
         "src/registerOrResolveApmeProject.ts"

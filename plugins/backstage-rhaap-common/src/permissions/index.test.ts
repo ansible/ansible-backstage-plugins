@@ -6,7 +6,7 @@ import {
   historyViewPermission,
   ansiblePermissions,
   ansibleSettingsEditPermission,
-  ANSIBLE_SETTINGS_CAPABILITIES,
+  ansibleSettingsViewPermission,
   RESOURCE_TYPE_ANSIBLE_SETTINGS,
 } from './index';
 
@@ -60,8 +60,13 @@ describe('permissions', () => {
     });
   });
 
-  it('exports ANSIBLE_SETTINGS_CAPABILITIES for resource refs', () => {
-    expect(ANSIBLE_SETTINGS_CAPABILITIES).toEqual(['apme']);
+  it('exports ansibleSettingsViewPermission as a resource permission', () => {
+    expect(ansibleSettingsViewPermission).toEqual({
+      type: 'resource',
+      name: 'ansible.settings.view',
+      resourceType: RESOURCE_TYPE_ANSIBLE_SETTINGS,
+      attributes: {},
+    });
   });
 
   it('ansiblePermissions contains all five view permissions', () => {

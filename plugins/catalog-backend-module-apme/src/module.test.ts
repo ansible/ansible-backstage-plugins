@@ -14,7 +14,6 @@ jest.mock('@backstage/backend-plugin-api', () => ({
     scheduler: 'scheduler',
     discovery: 'discovery',
     auth: 'auth',
-    permissionsRegistry: 'permissionsRegistry',
     permissions: 'permissions',
   },
   createBackendModule: (opts: unknown) => opts,
@@ -25,10 +24,16 @@ jest.mock('@ansible/backstage-apme-common', () => ({
   isApmeEnabled: jest.fn(),
   getApmeConfig: jest.fn(),
   resolveScanTargetVersion: jest.fn().mockResolvedValue('2.18'),
+  APME_SETTINGS_CAPABILITY: 'apme',
 }));
 
 jest.mock('@backstage/plugin-catalog-node/alpha', () => ({
   catalogProcessingExtensionPoint: 'catalogProcessingExtensionPoint',
+}));
+
+jest.mock('@ansible/backstage-rhaap-common/permissions/extensionPoint', () => ({
+  ansibleSettingsCapabilitiesExtensionPoint:
+    'ansibleSettingsCapabilitiesExtensionPoint',
 }));
 
 jest.mock('./router', () => ({
@@ -93,7 +98,7 @@ describe('catalogModuleApme', () => {
     const init = getInit();
 
     const logger = { info: jest.fn() };
-    const permissionsRegistry = { addResourceType: jest.fn() };
+    const settingsCapabilities = { addCapability: jest.fn() };
 
     await init({
       logger,
@@ -105,23 +110,23 @@ describe('catalogModuleApme', () => {
       discovery: {},
       auth: {},
       catalogProcessing: { addEntityProvider: jest.fn() },
-      permissionsRegistry,
+      settingsCapabilities,
       permissions: {},
     });
 
     expect(logger.info).toHaveBeenCalledWith(
       'APME is disabled; skipping catalog module registration',
     );
-    expect(permissionsRegistry.addResourceType).not.toHaveBeenCalled();
+    expect(settingsCapabilities.addCapability).not.toHaveBeenCalled();
     expect(mockCreateRouter).not.toHaveBeenCalled();
   });
 
-  it('registers settings resource permissions and initializes services when enabled', async () => {
+  it('registers capability and initializes services when enabled', async () => {
     const init = getInit();
 
     const logger = { info: jest.fn() };
     const httpRouter = { use: jest.fn() };
-    const permissionsRegistry = { addResourceType: jest.fn() };
+    const settingsCapabilities = { addCapability: jest.fn() };
     const catalogProcessing = { addEntityProvider: jest.fn() };
     const scheduler = {};
     const apmeService = {};
@@ -141,15 +146,14 @@ describe('catalogModuleApme', () => {
       discovery,
       auth,
       catalogProcessing,
-      permissionsRegistry,
+      settingsCapabilities,
       permissions,
     });
 
-    expect(permissionsRegistry.addResourceType).toHaveBeenCalledTimes(1);
-    const resourceType = permissionsRegistry.addResourceType.mock.calls[0][0];
-    await expect(
-      resourceType.getResources(['apme', 'invalid']),
-    ).resolves.toEqual([{ capability: 'apme' }, undefined]);
+    expect(settingsCapabilities.addCapability).toHaveBeenCalledWith({
+      id: 'apme',
+      label: 'APME Quality',
+    });
 
     expect(mockCreateRouter).toHaveBeenCalledWith(
       expect.objectContaining({

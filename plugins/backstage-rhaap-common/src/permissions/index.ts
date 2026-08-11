@@ -33,22 +33,12 @@ export const historyViewPermission: BasicPermission = {
   attributes: {},
 };
 
-/** Resource type for portal settings mutations scoped by capability area. */
+/** Resource type for portal settings scoped by capability area. */
 export const RESOURCE_TYPE_ANSIBLE_SETTINGS = 'ansible-settings';
 
 /**
- * Capability areas that can be authorized for settings permissions.
- * Resource refs passed to authorize / RequirePermission use these values
- * (e.g. `resourceRef: 'apme'`).
- */
-export const ANSIBLE_SETTINGS_CAPABILITIES = ['apme'] as const;
-export type AnsibleSettingsCapability =
-  (typeof ANSIBLE_SETTINGS_CAPABILITIES)[number];
-
-/**
  * Resource permission to view portal settings for a capability area.
- * Authorize with `resourceRef` set to a value from
- * {@link ANSIBLE_SETTINGS_CAPABILITIES} (e.g. `'apme'`).
+ * Authorize with `resourceRef` set to a registered capability id (e.g. `'apme'`).
  */
 export const ansibleSettingsViewPermission = createPermission({
   name: 'ansible.settings.view',
@@ -58,8 +48,7 @@ export const ansibleSettingsViewPermission = createPermission({
 
 /**
  * Resource permission to mutate portal settings for a capability area.
- * Authorize with `resourceRef` set to a value from
- * {@link ANSIBLE_SETTINGS_CAPABILITIES} (e.g. `'apme'`).
+ * Authorize with `resourceRef` set to a registered capability id (e.g. `'apme'`).
  */
 export const ansibleSettingsEditPermission = createPermission({
   name: 'ansible.settings.edit',

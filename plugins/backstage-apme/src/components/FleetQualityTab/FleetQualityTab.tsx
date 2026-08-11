@@ -25,6 +25,7 @@ import KeyboardArrowDownIcon from '@material-ui/icons/KeyboardArrowDown';
 import { Progress } from '@backstage/core-components';
 import { RequirePermission } from '@backstage/plugin-permission-react';
 import { ansibleSettingsViewPermission } from '@ansible/backstage-rhaap-common/permissions';
+import { APME_SETTINGS_CAPABILITY } from '@ansible/backstage-apme-common/settingsCapability';
 import {
   SEVERITY_ORDER,
   normalizeSeverity,
@@ -293,7 +294,7 @@ export const FleetQualityTab = ({
         <Typography variant="h6">Fleet quality</Typography>
         <RequirePermission
           permission={ansibleSettingsViewPermission}
-          resourceRef="apme"
+          resourceRef={APME_SETTINGS_CAPABILITY}
           errorPage={<></>}
         >
           <Link

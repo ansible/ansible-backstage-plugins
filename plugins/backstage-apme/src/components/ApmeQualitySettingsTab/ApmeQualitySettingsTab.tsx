@@ -27,6 +27,7 @@ import {
   ansibleSettingsEditPermission,
   ansibleSettingsViewPermission,
 } from '@ansible/backstage-rhaap-common/permissions';
+import { APME_SETTINGS_CAPABILITY } from '@ansible/backstage-apme-common/settingsCapability';
 import { ansibleCoreVersionOptions } from '@ansible/backstage-apme-common/ansibleCoreVersionOptions';
 import { DEFAULT_APME_TARGET_ANSIBLE_CORE_VERSION } from '@ansible/backstage-apme-common/scanTargetDefaults';
 import { apmeApiRef } from '../../api';
@@ -175,7 +176,7 @@ const ApmeQualitySettingsTabContent = () => {
 
           <RequirePermission
             permission={ansibleSettingsEditPermission}
-            resourceRef="apme"
+            resourceRef={APME_SETTINGS_CAPABILITY}
             errorPage={<></>}
           >
             <Box className={classes.actions}>
@@ -204,7 +205,7 @@ const ApmeQualitySettingsTabContent = () => {
 
       <RequirePermission
         permission={ansibleSettingsEditPermission}
-        resourceRef="apme"
+        resourceRef={APME_SETTINGS_CAPABILITY}
         errorPage={<></>}
       >
         <Box mt={3}>
@@ -222,7 +223,7 @@ const ApmeQualitySettingsTabContent = () => {
 export const ApmeQualitySettingsTab = () => (
   <RequirePermission
     permission={ansibleSettingsViewPermission}
-    resourceRef="apme"
+    resourceRef={APME_SETTINGS_CAPABILITY}
   >
     <ApmeQualitySettingsTabContent />
   </RequirePermission>

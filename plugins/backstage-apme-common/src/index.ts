@@ -49,6 +49,7 @@ export type {
   ScanTargetSource,
 } from './resolveScanTarget';
 export { mergeActivityPortalOutcomes } from './mergeActivityPortalOutcomes';
+export { APME_SETTINGS_CAPABILITY } from './settingsCapability';
 export {
   isApmeProjectConflictError,
   resolveApmeProject,

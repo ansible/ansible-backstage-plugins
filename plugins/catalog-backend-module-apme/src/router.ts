@@ -33,6 +33,7 @@ import {
   mergeActivityPortalOutcomes,
   normalizeApmeAiProviders,
   resolveScanTarget,
+  APME_SETTINGS_CAPABILITY,
 } from '@ansible/backstage-apme-common';
 import { ApmePortalSettingsStore } from './apmePortalSettingsStore';
 import { validateRepoBranch } from './branchLookup';
@@ -116,11 +117,13 @@ export async function createRouter(options: RouterOptions): Promise<Router> {
   const requireApmeSettingsManage = createRequireSettingsManageMiddleware({
     httpAuth,
     permissions,
+    capability: APME_SETTINGS_CAPABILITY,
   });
 
   const requireApmeSettingsView = createRequireSettingsViewMiddleware({
     httpAuth,
     permissions,
+    capability: APME_SETTINGS_CAPABILITY,
   });
 
   const resolveScmTokenForProject = async (

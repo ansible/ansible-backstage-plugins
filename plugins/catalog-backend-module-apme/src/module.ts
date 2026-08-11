@@ -24,29 +24,15 @@ import {
   isApmeEnabled,
   getApmeConfig,
   resolveScanTargetVersion,
+  APME_SETTINGS_CAPABILITY,
 } from '@ansible/backstage-apme-common';
 import { catalogProcessingExtensionPoint } from '@backstage/plugin-catalog-node/alpha';
-import {
-  ANSIBLE_SETTINGS_CAPABILITIES,
-  ansibleSettingsEditPermission,
-  ansibleSettingsViewPermission,
-  type AnsibleSettingsCapability,
-} from '@ansible/backstage-rhaap-common/permissions';
-import {
-  ansibleSettingsResourceRef,
-  settingsPermissionRules,
-} from '@ansible/backstage-rhaap-common/permissions/rules';
+import { ansibleSettingsCapabilitiesExtensionPoint } from '@ansible/backstage-rhaap-common/permissions/extensionPoint';
 import { createRouter } from './router';
 import { registerApmeCatalogSyncTasks } from './apmeCatalogSyncScheduler';
 import { ApmePortalSettingsStore } from './apmePortalSettingsStore';
 import { registerPortalGalaxyServersSync } from './portalGalaxyServersSync';
 import { ApmeLearnedDepsEntityProvider } from './providers/ApmeLearnedDepsEntityProvider';
-
-function isAnsibleSettingsCapability(
-  ref: string,
-): ref is AnsibleSettingsCapability {
-  return (ANSIBLE_SETTINGS_CAPABILITIES as readonly string[]).includes(ref);
-}
 
 export const catalogModuleApme = createBackendModule({
   pluginId: 'catalog',
@@ -63,7 +49,7 @@ export const catalogModuleApme = createBackendModule({
         discovery: coreServices.discovery,
         auth: coreServices.auth,
         catalogProcessing: catalogProcessingExtensionPoint,
-        permissionsRegistry: coreServices.permissionsRegistry,
+        settingsCapabilities: ansibleSettingsCapabilitiesExtensionPoint,
         permissions: coreServices.permissions,
       },
       async init({
@@ -76,7 +62,7 @@ export const catalogModuleApme = createBackendModule({
         discovery,
         auth,
         catalogProcessing,
-        permissionsRegistry,
+        settingsCapabilities,
         permissions,
       }) {
         if (!isApmeEnabled(rootConfig)) {
@@ -84,19 +70,9 @@ export const catalogModuleApme = createBackendModule({
           return;
         }
 
-        permissionsRegistry.addResourceType({
-          resourceRef: ansibleSettingsResourceRef,
-          permissions: [
-            ansibleSettingsEditPermission,
-            ansibleSettingsViewPermission,
-          ],
-          rules: settingsPermissionRules,
-          getResources: async resourceRefs =>
-            resourceRefs.map(ref =>
-              isAnsibleSettingsCapability(ref)
-                ? { capability: ref }
-                : undefined,
-            ),
+        settingsCapabilities.addCapability({
+          id: APME_SETTINGS_CAPABILITY,
+          label: 'APME Quality',
         });
 
         logger.info('Initializing APME catalog module');
