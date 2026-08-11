@@ -280,6 +280,8 @@ export class AAPEntityProvider implements EntityProvider {
         `[${AAPEntityProvider.pluginLogName}]: Processing ${allUsers.length} users in batches of ${batchSize}`,
       );
 
+      const processedOrgUserIds = new Set<number>();
+
       for (let i = 0; i < allUsers.length; i += batchSize) {
         const batch = allUsers.slice(i, i + batchSize);
         this.logger.debug(
@@ -330,7 +332,11 @@ export class AAPEntityProvider implements EntityProvider {
 
               // Add org group refs to memberOf (consistent with createSingleUser)
               for (const org of orgsDetails) {
-                if (org.users?.some(u => u.id === user.id)) {
+                if (
+                  org.users?.some(
+                    u => u.id === user.id && u.is_orguser !== false,
+                  )
+                ) {
                   const orgNs = getEffectiveNamespace(
                     org.organization.name,
                     this.orgs,
@@ -355,6 +361,7 @@ export class AAPEntityProvider implements EntityProvider {
                 orgNames: isMultiOrg ? userOrgNames : undefined,
               });
               entities.push(userEntity);
+              processedOrgUserIds.add(user.id);
               return { success: true, user };
             } catch (userError) {
               this.logger.warn(
@@ -378,7 +385,7 @@ export class AAPEntityProvider implements EntityProvider {
       }
 
       // Process system users — skip those already processed as org users
-      const processedUserIds = new Set(allUsers.map(u => u.id));
+      const processedUserIds = processedOrgUserIds;
       const uniqueSystemUsers = systemUsers.filter(
         u => !processedUserIds.has(u.id),
       );

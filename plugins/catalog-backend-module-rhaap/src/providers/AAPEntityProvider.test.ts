@@ -158,11 +158,7 @@ describe('AAPEntityProvider', () => {
           displayName: 'User1 Last1',
           email: 'user1@test.com',
         },
-        memberOf: [
-          'group:default/team-a',
-          'group:default/team-b',
-          'group:default/default',
-        ],
+        memberOf: ['group:default/team-a', 'group:default/team-b'],
       },
     },
     {
