@@ -1991,7 +1991,9 @@ describe('AAPClient', () => {
       it('should fetch resource data', async () => {
         const mockResponse = {
           ok: true,
-          json: jest.fn().mockResolvedValue({ results: [{ id: 1 }], next: null, next: null }),
+          json: jest
+            .fn()
+            .mockResolvedValue({ results: [{ id: 1 }], next: null }),
         };
         mockFetch.mockResolvedValue(mockResponse);
 
@@ -2006,7 +2008,9 @@ describe('AAPClient', () => {
       it('should handle execution_environments resource with orgId', async () => {
         const mockResponse = {
           ok: true,
-          json: jest.fn().mockResolvedValue({ results: [{ id: 1 }], next: null, next: null }),
+          json: jest
+            .fn()
+            .mockResolvedValue({ results: [{ id: 1 }], next: null }),
         };
         mockFetch.mockResolvedValue(mockResponse);
 
@@ -2025,7 +2029,9 @@ describe('AAPClient', () => {
       it('should handle job_templates resource with survey and labels', async () => {
         const mockResponse = {
           ok: true,
-          json: jest.fn().mockResolvedValue({ results: [{ id: 1 }], next: null, next: null }),
+          json: jest
+            .fn()
+            .mockResolvedValue({ results: [{ id: 1 }], next: null }),
         };
         mockFetch.mockResolvedValue(mockResponse);
 
@@ -2127,7 +2133,9 @@ describe('AAPClient', () => {
 
         const mockResponse = {
           ok: true,
-          json: jest.fn().mockResolvedValue({ results: [{ id: 1 }], next: null }),
+          json: jest
+            .fn()
+            .mockResolvedValue({ results: [{ id: 1 }], next: null }),
         };
         mockFetch.mockResolvedValue(mockResponse);
 
@@ -2201,7 +2209,9 @@ describe('AAPClient', () => {
 
           const mockResponse = {
             ok: true,
-            json: jest.fn().mockResolvedValue({ results: [{ id: 1 }], next: null }),
+            json: jest
+              .fn()
+              .mockResolvedValue({ results: [{ id: 1 }], next: null }),
           };
           mockFetch.mockClear();
           mockFetch.mockResolvedValue(mockResponse);
@@ -2258,7 +2268,9 @@ describe('AAPClient', () => {
 
         const mockResponse = {
           ok: true,
-          json: jest.fn().mockResolvedValue({ results: [{ id: 1 }], next: null }),
+          json: jest
+            .fn()
+            .mockResolvedValue({ results: [{ id: 1 }], next: null }),
         };
         mockFetch.mockResolvedValue(mockResponse);
 
@@ -2325,7 +2337,9 @@ describe('AAPClient', () => {
 
         const mockResponse = {
           ok: true,
-          json: jest.fn().mockResolvedValue({ results: [{ id: 1 }], next: null }),
+          json: jest
+            .fn()
+            .mockResolvedValue({ results: [{ id: 1 }], next: null }),
         };
         mockFetch.mockResolvedValue(mockResponse);
 
@@ -2387,7 +2401,9 @@ describe('AAPClient', () => {
 
         const mockResponse = {
           ok: true,
-          json: jest.fn().mockResolvedValue({ results: [{ id: 1 }], next: null }),
+          json: jest
+            .fn()
+            .mockResolvedValue({ results: [{ id: 1 }], next: null }),
         };
         mockFetch.mockResolvedValue(mockResponse);
 
