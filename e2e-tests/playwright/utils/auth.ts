@@ -149,23 +149,22 @@ export async function loginAAP(page: Page, credentials?: AAPCredentials) {
     // Detect login failure: AAP re-shows the login form with an error alert
     const loginError = await page
       .locator(
-        '.pf-v5-c-alert__title, .pf-c-alert__title, .pf-v5-c-helper-text__item.pf-m-error, [class*="login"] [class*="error"]',
+        '.pf-v5-c-alert__title, .pf-c-alert__title, .pf-v5-c-helper-text__item.pf-m-error',
       )
       .first()
       .textContent({ timeout: 3000 })
       .catch(() => null);
     if (loginError) {
-      throw new Error(
-        `AAP login failed for user "${userId}": ${loginError.trim()}`,
-      );
+      throw new Error(`AAP login failed: ${loginError.trim()}`);
     }
     const stillOnLogin = await page
       .locator('#pf-login-username-id')
-      .isVisible({ timeout: 1000 })
+      .waitFor({ state: 'visible', timeout: 1000 })
+      .then(() => true)
       .catch(() => false);
     if (stillOnLogin) {
       throw new Error(
-        `AAP login failed for user "${userId}": still on login page after submitting credentials. URL: ${page.url()}`,
+        `AAP login failed: still on login page after submitting credentials.`,
       );
     }
 

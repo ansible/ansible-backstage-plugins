@@ -244,6 +244,42 @@ describe('authenticator', () => {
       ).rejects.toThrow('PKCE verifier not found for OAuth state');
     });
 
+    it('should authenticate successfully with valid PKCE state', async () => {
+      const aapAuthAuthenticator = createAuthenticator(mockAAPService as any);
+      const ctx = aapAuthAuthenticator.initialize({
+        callbackUrl: '',
+        config: mockServices.rootConfig({
+          data: {
+            clientId: CLIENT_ID,
+            clientSecret: CLIENT_SECRET,
+            host: DEFAULT_HOST,
+            checkSSL: CHECK_SSL,
+            callbackUrl: 'http://localhost',
+          },
+        }),
+      });
+
+      await aapAuthAuthenticator.start(
+        // @ts-ignore
+        { state: 'valid-state', scope: '', req: {} },
+        ctx,
+      );
+
+      const result = await aapAuthAuthenticator.authenticate(
+        // @ts-ignore
+        { req: { query: { state: 'valid-state', code: 'auth-code' } } },
+        authContext,
+      );
+
+      expect(mockAAPService.rhAAPAuthenticate).toHaveBeenCalledWith(
+        expect.objectContaining({
+          code: 'auth-code',
+          codeVerifier: expect.any(String),
+        }),
+      );
+      expect(result.fullProfile).toBeDefined();
+    });
+
     it('should throw when PKCE verifier has expired', async () => {
       const aapAuthAuthenticator = createAuthenticator(mockAAPService as any);
       const ctx = aapAuthAuthenticator.initialize({
@@ -277,6 +313,57 @@ describe('authenticator', () => {
           authContext,
         ),
       ).rejects.toThrow('PKCE verifier has expired');
+
+      jest.restoreAllMocks();
+    });
+  });
+
+  describe('PKCE store cleanup', () => {
+    it('should clean expired entries on next start call', async () => {
+      const aapAuthAuthenticator = createAuthenticator(mockAAPService as any);
+      const ctx = aapAuthAuthenticator.initialize({
+        callbackUrl: '',
+        config: mockServices.rootConfig({
+          data: {
+            clientId: CLIENT_ID,
+            clientSecret: CLIENT_SECRET,
+            host: DEFAULT_HOST,
+            checkSSL: CHECK_SSL,
+            callbackUrl: 'http://localhost',
+          },
+        }),
+      });
+
+      const baseTime = 1000000;
+      jest.spyOn(Date, 'now').mockReturnValue(baseTime);
+
+      await aapAuthAuthenticator.start(
+        // @ts-ignore
+        { state: 'old-state-1', scope: '', req: {} },
+        ctx,
+      );
+
+      jest.spyOn(Date, 'now').mockReturnValue(baseTime + 10 * 60 * 1000 + 1);
+
+      await aapAuthAuthenticator.start(
+        // @ts-ignore
+        { state: 'new-state', scope: '', req: {} },
+        ctx,
+      );
+
+      await expect(
+        aapAuthAuthenticator.authenticate(
+          // @ts-ignore
+          { req: { query: { state: 'old-state-1', code: 'c' } } },
+          {
+            host: DEFAULT_HOST,
+            clientId: CLIENT_ID,
+            clientSecret: CLIENT_SECRET,
+            callbackURL: 'http://localhost',
+            checkSSL: CHECK_SSL,
+          },
+        ),
+      ).rejects.toThrow('PKCE verifier not found');
 
       jest.restoreAllMocks();
     });
