@@ -10,6 +10,7 @@ import {
 import type { Config } from '@backstage/config';
 import { isError, NotFoundError } from '@backstage/errors';
 import { Entity } from '@backstage/catalog-model';
+import { stampLatestVersionAnnotations } from './versionUtils';
 
 import type {
   AnsibleGitContentsSourceConfig,
@@ -326,6 +327,8 @@ export class AnsibleGitContentsProvider implements EntityProvider {
         signal,
       );
     }
+
+    stampLatestVersionAnnotations(allEntities);
 
     const repositoryEntities = this.createRepositoryEntities(repositoryData);
     allEntities.push(...repositoryEntities);

@@ -1438,6 +1438,9 @@ describe('PAHCollectionProvider', () => {
       expect(entity.metadata.title).toBe('ansible.posix v1.5.4');
       expect(entity.spec.collection_namespace).toBe('ansible');
       expect(entity.spec.collection_name).toBe('posix');
+      expect(entity.metadata.annotations['ansible.io/is-latest-version']).toBe(
+        'true',
+      );
     });
   });
 

@@ -1,5 +1,9 @@
 import { test, expect } from '../../fixtures/auth-context';
-import { getBackstageToken, catalogFetch } from '../../utils/backstage-api';
+import {
+  getBackstageToken,
+  catalogFetch,
+  discoverOrgNamespaces,
+} from '../../utils/backstage-api';
 
 /**
  * Multi-Org Catalog API Tests
@@ -10,7 +14,7 @@ import { getBackstageToken, catalogFetch } from '../../utils/backstage-api';
  *
  * All assertions run in a single test to avoid repeated OAuth logins.
  *
- * Requires: rhdh-local running with multi-org config (orgs: [Default, 11-org])
+ * Requires: rhdh-local running with multi-org config
  * Auth: AAP OAuth via shared auth-context fixture + Backstage Bearer token
  */
 
@@ -18,6 +22,17 @@ const ADMIN_USERNAME = process.env.AAP_USER_ID || 'admin';
 
 test('Multi-Org Catalog API: superuser entity structure', async ({ page }) => {
   const token = await getBackstageToken(page);
+  const orgNamespaces = await discoverOrgNamespaces(page, token);
+  expect(
+    orgNamespaces.length,
+    'Should discover at least one org namespace',
+  ).toBeGreaterThan(0);
+
+  const nonDefaultOrgs = orgNamespaces.filter(ns => ns !== 'default');
+  expect(
+    nonDefaultOrgs.length,
+    'Should have at least one non-default org',
+  ).toBeGreaterThan(0);
 
   // --- Admin user entity ---
   const userResult = await catalogFetch(
@@ -36,27 +51,33 @@ test('Multi-Org Catalog API: superuser entity structure', async ({ page }) => {
 
   // aap-admins group membership
   const memberOf: string[] = user.spec?.memberOf ?? [];
-  expect(memberOf, 'memberOf should include aap-admins').toContain(
-    'aap-admins',
-  );
+  expect(
+    memberOf.some(m => m.includes('aap-admins')),
+    `memberOf should include aap-admins. Got: ${JSON.stringify(memberOf)}`,
+  ).toBe(true);
 
   // Team memberships spanning both org namespaces
   const inDefaultOrg = memberOf.some(m => m.includes('default/'));
-  const in11Org = memberOf.some(m => m.includes('11org/'));
   expect(
     inDefaultOrg,
     `Admin should have team in default. memberOf: ${JSON.stringify(memberOf)}`,
   ).toBe(true);
+
+  const inNonDefaultOrg = nonDefaultOrgs.some(ns =>
+    memberOf.some(m => m.includes(`${ns}/`)),
+  );
   expect(
-    in11Org,
-    `Admin should have team in 11org. memberOf: ${JSON.stringify(memberOf)}`,
+    inNonDefaultOrg,
+    `Admin should have team in a non-default org (${nonDefaultOrgs.join(
+      ', ',
+    )}). memberOf: ${JSON.stringify(memberOf)}`,
   ).toBe(true);
 
   // --- Org group entities ---
-  for (const orgName of ['default', '11org']) {
+  for (const orgName of orgNamespaces) {
     const orgResult = await catalogFetch(
       page,
-      `/entities/by-name/group/default/${orgName}`,
+      `/entities/by-name/group/${orgName}/${orgName}`,
       token,
     );
     expect(orgResult.ok, `Org '${orgName}' should exist`).toBe(true);
