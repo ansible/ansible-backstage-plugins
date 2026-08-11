@@ -191,6 +191,30 @@ describe('AAPEntityProvider', () => {
     },
     {
       apiVersion: 'backstage.io/v1alpha1',
+      kind: 'User',
+      metadata: {
+        namespace: 'default',
+        name: 'sys_user3',
+        title: 'SysUser3 Last3',
+        annotations: {
+          'aap.platform/is_superuser': 'false',
+          'backstage.io/managed-by-location':
+            'url:https://rhaap.test/access/users/3/details',
+          'backstage.io/managed-by-origin-location':
+            'url:https://rhaap.test/access/users/3/details',
+        },
+      },
+      spec: {
+        profile: {
+          username: 'sys_user3',
+          displayName: 'SysUser3 Last3',
+          email: 'sysuser3@test.com',
+        },
+        memberOf: ['group:default/team-a'],
+      },
+    },
+    {
+      apiVersion: 'backstage.io/v1alpha1',
       kind: 'Group',
       metadata: {
         annotations: {
@@ -304,6 +328,15 @@ describe('AAPEntityProvider', () => {
         last_name: 'Last2',
         is_superuser: false,
       },
+      {
+        id: 3,
+        url: 'https://rhaap.test/api/v2/users/3/',
+        username: 'sys_user3',
+        email: 'sysuser3@test.com',
+        first_name: 'SysUser3',
+        last_name: 'Last3',
+        is_superuser: false,
+      },
     ]);
 
     mockAnsibleService.getTeamsByUserId.mockImplementation(
@@ -332,6 +365,17 @@ describe('AAPEntityProvider', () => {
               name: 'Team B',
               groupName: 'team-b',
               id: 2,
+              orgId: 1,
+              orgName: 'Default',
+            },
+          ]);
+        }
+        if (_userId === 3) {
+          return Promise.resolve([
+            {
+              name: 'Team A',
+              groupName: 'team-a',
+              id: 1,
               orgId: 1,
               orgName: 'Default',
             },
