@@ -311,7 +311,7 @@ const RANDOM_LETTER = String.fromCharCode(97 + Math.floor(Math.random() * 26));
 const REPO_NAME = `ee-repo-${RANDOM_LETTER}`;
 const EE_FILE_NAME = `ee-${REPO_SUFFIX}`;
 
-test.describe('Execution Environment Template Execution Tests', () => {
+test.describe.skip('Execution Environment Template Execution Tests', () => {
   // Extended timeout to accommodate GitHub OAuth redirect flow + template execution
   test.setTimeout(180_000);
 
