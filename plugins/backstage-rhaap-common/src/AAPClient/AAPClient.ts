@@ -1007,12 +1007,16 @@ export class AAPClient implements IAAPService {
     callbackURL: string;
     code?: string;
     refreshToken?: string;
+    codeVerifier?: string;
   }): Promise<OAuthAuthenticatorResult<PassportProfile>> {
     const endPoint = 'o/token/';
     const data = new URLSearchParams();
     if (options.code) {
       data.append('grant_type', 'authorization_code');
       data.append('code', options.code);
+      if (options.codeVerifier) {
+        data.append('code_verifier', options.codeVerifier);
+      }
     } else if (options.refreshToken) {
       data.append('grant_type', 'refresh_token');
       data.append('refresh_token', options.refreshToken);
