@@ -644,7 +644,7 @@ describe('AAPClient', () => {
       it('should not delete if project does not exist', async () => {
         const mockResponse = {
           ok: true,
-          json: jest.fn().mockResolvedValue({ results: [], next: null }),
+          json: jest.fn().mockResolvedValue({ results: [] }),
         };
         mockFetch.mockResolvedValue(mockResponse);
 
@@ -1049,7 +1049,7 @@ describe('AAPClient', () => {
           })
           .mockResolvedValueOnce({
             ok: true,
-            json: jest.fn().mockResolvedValue({ results: [], next: null }),
+            json: jest.fn().mockResolvedValue({ results: [] }),
           })
           .mockResolvedValueOnce({
             ok: true,
@@ -1141,7 +1141,7 @@ describe('AAPClient', () => {
             })
             .mockResolvedValueOnce({
               ok: true,
-              json: jest.fn().mockResolvedValue({ results: [], next: null }),
+              json: jest.fn().mockResolvedValue({ results: [] }),
             })
             .mockResolvedValueOnce({
               ok: true,
@@ -2444,7 +2444,7 @@ describe('AAPClient', () => {
       it('should handle no templates found', async () => {
         const mockResponse = {
           ok: true,
-          json: jest.fn().mockResolvedValue({ results: [], next: null }),
+          json: jest.fn().mockResolvedValue({ results: [] }),
         };
         mockFetch.mockResolvedValue(mockResponse);
 
@@ -3101,7 +3101,7 @@ describe('AAPClient', () => {
           .mockResolvedValueOnce(mockJobTemplateResponse);
         jest.spyOn(client as any, 'executeGetRequest').mockResolvedValueOnce({
           ok: true,
-          json: jest.fn().mockResolvedValue({ results: [], next: null }),
+          json: jest.fn().mockResolvedValue({ results: [] }),
         });
 
         const result = await client.syncJobTemplates(false, [
@@ -3123,7 +3123,7 @@ describe('AAPClient', () => {
           .mockResolvedValueOnce(mockJobTemplateResponse);
         jest.spyOn(client as any, 'executeGetRequest').mockResolvedValueOnce({
           ok: true,
-          json: jest.fn().mockResolvedValue({ results: [], next: null }),
+          json: jest.fn().mockResolvedValue({ results: [] }),
         });
 
         const result = await client.syncJobTemplates(
@@ -3774,7 +3774,7 @@ describe('AAPClient', () => {
       it('should encode repository name in request URL', async () => {
         const mockResponse = {
           ok: true,
-          json: jest.fn().mockResolvedValue({ results: [], next: null }),
+          json: jest.fn().mockResolvedValue({ results: [] }),
         };
         mockFetch.mockResolvedValue(mockResponse);
 
