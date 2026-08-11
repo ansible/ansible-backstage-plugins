@@ -24,14 +24,10 @@ const ADMIN_USERNAME = process.env.AAP_USER_ID || 'admin';
 test('Multi-Org UI: admin user entity page', async ({ page }) => {
   const token = await getBackstageToken(page);
   const orgNamespaces = await discoverOrgNamespaces(page, token);
-  const nonDefaultOrgs = orgNamespaces.filter(ns => ns !== 'default');
-  if (nonDefaultOrgs.length === 0) {
-    test.skip(
-      true,
-      'Single-org environment (e.g. aap-tiny): multi-org tests require 2+ organizations',
-    );
-    return;
-  }
+  expect(
+    orgNamespaces.length,
+    'Should discover at least one org namespace',
+  ).toBeGreaterThan(0);
 
   await page.goto(`/catalog/default/user/${ADMIN_USERNAME}`, {
     waitUntil: 'domcontentloaded',
@@ -45,56 +41,45 @@ test('Multi-Org UI: admin user entity page', async ({ page }) => {
     page.getByRole('link', { name: 'AAP Administrators' }),
   ).toBeVisible({ timeout: 15000 });
 
-  const mainContent = page.locator('main');
-  await expect(mainContent.getByText(/\[Default\]/i).first()).toBeVisible({
-    timeout: 10000,
-  });
-
-  // Verify at least one non-default org appears in team memberships
-  const orgDisplayNames: string[] = [];
-  for (const ns of nonDefaultOrgs) {
-    const orgResult = await catalogFetch(
-      page,
-      `/entities/by-name/group/${ns}/${ns}`,
-      token,
-    );
-    if (orgResult.ok) {
-      const displayName =
-        orgResult.body.spec?.profile?.displayName ??
-        orgResult.body.metadata?.name;
-      if (displayName) orgDisplayNames.push(displayName);
+  if (orgNamespaces.length > 1) {
+    const mainContent = page.locator('main');
+    const orgDisplayNames: string[] = [];
+    for (const ns of orgNamespaces) {
+      const orgResult = await catalogFetch(
+        page,
+        `/entities/by-name/group/${ns}/${ns}`,
+        token,
+      );
+      if (orgResult.ok) {
+        const displayName =
+          orgResult.body.spec?.profile?.displayName ??
+          orgResult.body.metadata?.name;
+        if (displayName) orgDisplayNames.push(displayName);
+      }
     }
-  }
 
-  let foundNonDefaultOrg = false;
-  for (const name of orgDisplayNames) {
-    const escapedName = name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-    const count = await mainContent
-      .getByText(new RegExp(`\\[${escapedName}\\]`, 'i'))
-      .count();
-    if (count > 0) {
-      foundNonDefaultOrg = true;
-      break;
+    let visibleOrgCount = 0;
+    for (const name of orgDisplayNames) {
+      const escapedName = name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      const count = await mainContent
+        .getByText(new RegExp(`\\[${escapedName}\\]`, 'i'))
+        .count();
+      if (count > 0) visibleOrgCount++;
     }
+    expect(
+      visibleOrgCount,
+      `Should show teams from multiple orgs. Visible: ${visibleOrgCount}/${orgDisplayNames.length}. Checked: ${orgDisplayNames.join(', ')}`,
+    ).toBeGreaterThan(1);
   }
-  expect(
-    foundNonDefaultOrg,
-    `Should show team from a non-default org. Checked: ${orgDisplayNames.join(
-      ', ',
-    )}`,
-  ).toBe(true);
 });
 
 test('Multi-Org UI: org group entity pages', async ({ page }) => {
   const token = await getBackstageToken(page);
   const orgNamespaces = await discoverOrgNamespaces(page, token);
-  if (orgNamespaces.filter(ns => ns !== 'default').length === 0) {
-    test.skip(
-      true,
-      'Single-org environment (e.g. aap-tiny): multi-org tests require 2+ organizations',
-    );
-    return;
-  }
+  expect(
+    orgNamespaces.length,
+    'Should discover at least one org namespace',
+  ).toBeGreaterThan(0);
 
   for (const orgSlug of orgNamespaces) {
     await page.goto(`/catalog/${orgSlug}/group/${orgSlug}`, {
@@ -112,13 +97,10 @@ test('Multi-Org UI: org group entity pages', async ({ page }) => {
 test('Multi-Org UI: catalog lists org group entities', async ({ page }) => {
   const token = await getBackstageToken(page);
   const orgNamespaces = await discoverOrgNamespaces(page, token);
-  if (orgNamespaces.filter(ns => ns !== 'default').length === 0) {
-    test.skip(
-      true,
-      'Single-org environment (e.g. aap-tiny): multi-org tests require 2+ organizations',
-    );
-    return;
-  }
+  expect(
+    orgNamespaces.length,
+    'Should discover at least one org namespace',
+  ).toBeGreaterThan(0);
 
   await page.goto('/catalog?filters[kind]=group&filters[type]=organization', {
     waitUntil: 'domcontentloaded',

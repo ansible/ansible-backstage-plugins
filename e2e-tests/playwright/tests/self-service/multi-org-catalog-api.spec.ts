@@ -23,16 +23,12 @@ const ADMIN_USERNAME = process.env.AAP_USER_ID || 'admin';
 test('Multi-Org Catalog API: superuser entity structure', async ({ page }) => {
   const token = await getBackstageToken(page);
   const orgNamespaces = await discoverOrgNamespaces(page, token);
-  const nonDefaultOrgs = orgNamespaces.filter(ns => ns !== 'default');
-  if (nonDefaultOrgs.length === 0) {
-    test.skip(
-      true,
-      'Single-org environment (e.g. aap-tiny): multi-org tests require 2+ organizations',
-    );
-    return;
-  }
+  expect(
+    orgNamespaces.length,
+    'Should discover at least one org namespace',
+  ).toBeGreaterThan(0);
 
-  // --- Admin user entity ---
+  // --- Admin user entity (always runs) ---
   const userResult = await catalogFetch(
     page,
     `/entities/by-name/user/default/${ADMIN_USERNAME}`,
@@ -54,24 +50,18 @@ test('Multi-Org Catalog API: superuser entity structure', async ({ page }) => {
     `memberOf should include aap-admins. Got: ${JSON.stringify(memberOf)}`,
   ).toBe(true);
 
-  // Team memberships spanning both org namespaces
-  const inDefaultOrg = memberOf.some(m => m.includes('default/'));
-  expect(
-    inDefaultOrg,
-    `Admin should have team in default. memberOf: ${JSON.stringify(memberOf)}`,
-  ).toBe(true);
+  // Multi-org: team memberships spanning multiple org namespaces
+  if (orgNamespaces.length > 1) {
+    const orgsWithMembership = orgNamespaces.filter(ns =>
+      memberOf.some(m => m.includes(`${ns}/`)),
+    );
+    expect(
+      orgsWithMembership.length,
+      `Admin should have teams in multiple orgs. Found in: ${orgsWithMembership.join(', ')}. memberOf: ${JSON.stringify(memberOf)}`,
+    ).toBeGreaterThan(1);
+  }
 
-  const inNonDefaultOrg = nonDefaultOrgs.some(ns =>
-    memberOf.some(m => m.includes(`${ns}/`)),
-  );
-  expect(
-    inNonDefaultOrg,
-    `Admin should have team in a non-default org (${nonDefaultOrgs.join(
-      ', ',
-    )}). memberOf: ${JSON.stringify(memberOf)}`,
-  ).toBe(true);
-
-  // --- Org group entities ---
+  // --- Org group entities (always runs for all discovered orgs) ---
   for (const orgName of orgNamespaces) {
     const orgResult = await catalogFetch(
       page,
