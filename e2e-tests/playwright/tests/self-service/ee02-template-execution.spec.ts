@@ -585,7 +585,11 @@ test.describe('Execution Environment Template Execution Tests', () => {
         .first()
         .fill('execution environment');
 
-      // Uncheck "Publish to a Git repository" — click the visible MUI checkbox element
+      // Uncheck "Publish to a Git repository" — click the FormControlLabel
+      const publishLabel = page
+        .locator('label')
+        .filter({ hasText: /^Publish to a Git repository$/i })
+        .first();
       const publishCheckbox = page
         .locator('input[type="checkbox"]#root_publishAndBuild_publishToSCM')
         .first();
@@ -593,26 +597,16 @@ test.describe('Execution Environment Template Execution Tests', () => {
         (await publishCheckbox.count()) > 0 &&
         (await publishCheckbox.isChecked())
       ) {
-        const muiCheckbox = page
-          .locator(
-            'label[for="root_publishAndBuild_publishToSCM"], ' +
-              'span:has(> input#root_publishAndBuild_publishToSCM)',
-          )
-          .first();
-        if ((await muiCheckbox.count()) > 0) {
-          await muiCheckbox.click({ force: true });
+        if ((await publishLabel.count()) > 0) {
+          await publishLabel.click();
         } else {
-          await publishCheckbox.evaluate((el: HTMLInputElement) => {
-            el.click();
-            el.dispatchEvent(new Event('change', { bubbles: true }));
-          });
+          const checkboxRoot = publishCheckbox.locator('..');
+          await checkboxRoot.click();
         }
         await page.waitForTimeout(500);
         if (await publishCheckbox.isChecked()) {
-          await publishCheckbox.evaluate((el: HTMLInputElement) => {
-            el.checked = false;
-            el.dispatchEvent(new Event('change', { bubbles: true }));
-          });
+          await publishCheckbox.click({ force: true });
+          await page.waitForTimeout(500);
         }
         console.log('[EE Test] Unchecked "Publish to a Git repository"');
       }
