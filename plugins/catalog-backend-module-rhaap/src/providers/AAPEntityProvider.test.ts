@@ -158,7 +158,11 @@ describe('AAPEntityProvider', () => {
           displayName: 'User1 Last1',
           email: 'user1@test.com',
         },
-        memberOf: ['group:default/team-a', 'group:default/team-b'],
+        memberOf: [
+          'group:default/team-a',
+          'group:default/team-b',
+          'group:default/default',
+        ],
       },
     },
     {
@@ -182,55 +186,7 @@ describe('AAPEntityProvider', () => {
           displayName: 'User2 Last2',
           email: 'user2@test.com',
         },
-        memberOf: ['group:default/team-b'],
-      },
-    },
-    {
-      apiVersion: 'backstage.io/v1alpha1',
-      kind: 'User',
-      metadata: {
-        annotations: {
-          'aap.platform/is_superuser': 'false',
-          'backstage.io/managed-by-location':
-            'url:https://rhaap.test/access/users/1/details',
-          'backstage.io/managed-by-origin-location':
-            'url:https://rhaap.test/access/users/1/details',
-        },
-        name: 'team_user1',
-        namespace: 'default',
-        title: 'TeamUser1 Last1',
-      },
-      spec: {
-        memberOf: ['group:default/team-a', 'group:default/team-b'],
-        profile: {
-          displayName: 'TeamUser1 Last1',
-          email: 'teamuser1@test.com',
-          username: 'team_user1',
-        },
-      },
-    },
-    {
-      apiVersion: 'backstage.io/v1alpha1',
-      kind: 'User',
-      metadata: {
-        annotations: {
-          'aap.platform/is_superuser': 'false',
-          'backstage.io/managed-by-location':
-            'url:https://rhaap.test/access/users/2/details',
-          'backstage.io/managed-by-origin-location':
-            'url:https://rhaap.test/access/users/2/details',
-        },
-        name: 'team_user2',
-        namespace: 'default',
-        title: 'TeamUser2 Last2',
-      },
-      spec: {
-        memberOf: ['group:default/team-b'],
-        profile: {
-          displayName: 'TeamUser2 Last2',
-          email: 'teamuser2@test.com',
-          username: 'team_user2',
-        },
+        memberOf: ['group:default/team-b', 'group:default/default'],
       },
     },
     {

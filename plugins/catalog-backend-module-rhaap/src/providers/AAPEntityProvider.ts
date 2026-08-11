@@ -328,6 +328,20 @@ export class AAPEntityProvider implements EntityProvider {
                 }
               }
 
+              // Add org group refs to memberOf (consistent with createSingleUser)
+              for (const org of orgsDetails) {
+                if (org.users?.some(u => u.id === user.id)) {
+                  const orgNs = getEffectiveNamespace(
+                    org.organization.name,
+                    this.orgs,
+                  );
+                  const orgRef = `group:${orgNs}/${formatNameSpace(org.organization.name)}`;
+                  if (!userMembers.includes(orgRef)) {
+                    userMembers.push(orgRef);
+                  }
+                }
+              }
+
               // Collect org names for user annotations
               const userOrgNames = orgsDetails
                 .filter(o => o.users?.some(u => u.id === user.id))
@@ -363,13 +377,17 @@ export class AAPEntityProvider implements EntityProvider {
         }
       }
 
-      // Process system users with the same batched approach
+      // Process system users — skip those already processed as org users
+      const processedUserIds = new Set(allUsers.map(u => u.id));
+      const uniqueSystemUsers = systemUsers.filter(
+        u => !processedUserIds.has(u.id),
+      );
       this.logger.info(
-        `[${AAPEntityProvider.pluginLogName}]: Processing ${systemUsers.length} system users in batches of ${batchSize}`,
+        `[${AAPEntityProvider.pluginLogName}]: Processing ${uniqueSystemUsers.length} system users in batches of ${batchSize} (${systemUsers.length - uniqueSystemUsers.length} already processed as org users)`,
       );
 
-      for (let i = 0; i < systemUsers.length; i += batchSize) {
-        const batch = systemUsers.slice(i, i + batchSize);
+      for (let i = 0; i < uniqueSystemUsers.length; i += batchSize) {
+        const batch = uniqueSystemUsers.slice(i, i + batchSize);
 
         const batchResults = await Promise.allSettled(
           batch.map(async (user: User) => {
@@ -423,7 +441,7 @@ export class AAPEntityProvider implements EntityProvider {
         usersCount += successfulSystemUsers;
 
         // Small delay between batches
-        if (i + batchSize < systemUsers.length) {
+        if (i + batchSize < uniqueSystemUsers.length) {
           await new Promise(resolve => setTimeout(resolve, 100));
         }
       }
