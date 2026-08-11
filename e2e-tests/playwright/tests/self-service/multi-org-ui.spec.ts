@@ -24,16 +24,14 @@ const ADMIN_USERNAME = process.env.AAP_USER_ID || 'admin';
 test('Multi-Org UI: admin user entity page', async ({ page }) => {
   const token = await getBackstageToken(page);
   const orgNamespaces = await discoverOrgNamespaces(page, token);
-  expect(
-    orgNamespaces.length,
-    'Should discover at least one org namespace',
-  ).toBeGreaterThan(0);
-
   const nonDefaultOrgs = orgNamespaces.filter(ns => ns !== 'default');
-  expect(
-    nonDefaultOrgs.length,
-    'Should have at least one non-default org',
-  ).toBeGreaterThan(0);
+  if (nonDefaultOrgs.length === 0) {
+    test.skip(
+      true,
+      'Single-org environment (e.g. aap-tiny): multi-org tests require 2+ organizations',
+    );
+    return;
+  }
 
   await page.goto(`/catalog/default/user/${ADMIN_USERNAME}`, {
     waitUntil: 'domcontentloaded',
@@ -90,7 +88,13 @@ test('Multi-Org UI: admin user entity page', async ({ page }) => {
 test('Multi-Org UI: org group entity pages', async ({ page }) => {
   const token = await getBackstageToken(page);
   const orgNamespaces = await discoverOrgNamespaces(page, token);
-  expect(orgNamespaces.length).toBeGreaterThan(0);
+  if (orgNamespaces.filter(ns => ns !== 'default').length === 0) {
+    test.skip(
+      true,
+      'Single-org environment (e.g. aap-tiny): multi-org tests require 2+ organizations',
+    );
+    return;
+  }
 
   for (const orgSlug of orgNamespaces) {
     await page.goto(`/catalog/${orgSlug}/group/${orgSlug}`, {
@@ -108,7 +112,13 @@ test('Multi-Org UI: org group entity pages', async ({ page }) => {
 test('Multi-Org UI: catalog lists org group entities', async ({ page }) => {
   const token = await getBackstageToken(page);
   const orgNamespaces = await discoverOrgNamespaces(page, token);
-  expect(orgNamespaces.length).toBeGreaterThan(0);
+  if (orgNamespaces.filter(ns => ns !== 'default').length === 0) {
+    test.skip(
+      true,
+      'Single-org environment (e.g. aap-tiny): multi-org tests require 2+ organizations',
+    );
+    return;
+  }
 
   await page.goto('/catalog?filters[kind]=group&filters[type]=organization', {
     waitUntil: 'domcontentloaded',

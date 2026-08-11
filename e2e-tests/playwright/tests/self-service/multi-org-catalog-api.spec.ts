@@ -23,16 +23,14 @@ const ADMIN_USERNAME = process.env.AAP_USER_ID || 'admin';
 test('Multi-Org Catalog API: superuser entity structure', async ({ page }) => {
   const token = await getBackstageToken(page);
   const orgNamespaces = await discoverOrgNamespaces(page, token);
-  expect(
-    orgNamespaces.length,
-    'Should discover at least one org namespace',
-  ).toBeGreaterThan(0);
-
   const nonDefaultOrgs = orgNamespaces.filter(ns => ns !== 'default');
-  expect(
-    nonDefaultOrgs.length,
-    'Should have at least one non-default org',
-  ).toBeGreaterThan(0);
+  if (nonDefaultOrgs.length === 0) {
+    test.skip(
+      true,
+      'Single-org environment (e.g. aap-tiny): multi-org tests require 2+ organizations',
+    );
+    return;
+  }
 
   // --- Admin user entity ---
   const userResult = await catalogFetch(
