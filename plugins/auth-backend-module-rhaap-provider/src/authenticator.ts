@@ -1,3 +1,4 @@
+import { randomBytes, createHash } from 'node:crypto';
 import { Strategy as OAuth2Strategy } from 'passport-oauth2';
 import {
   createOAuthAuthenticator,
@@ -6,6 +7,29 @@ import {
   PassportProfile,
 } from '@backstage/plugin-auth-node';
 import { IAAPService } from '@ansible/backstage-rhaap-common';
+
+const PKCE_TTL_MS = 10 * 60 * 1000;
+const PKCE_MAX_ENTRIES = 10_000;
+const pkceStore = new Map<string, { verifier: string; createdAt: number }>();
+
+function generatePKCE(): { verifier: string; challenge: string } {
+  const verifier = randomBytes(32).toString('base64url');
+  const challenge = createHash('sha256').update(verifier).digest('base64url');
+  return { verifier, challenge };
+}
+
+function cleanExpiredPKCE(): void {
+  const now = Date.now();
+  for (const [key, entry] of pkceStore) {
+    if (now - entry.createdAt > PKCE_TTL_MS) {
+      pkceStore.delete(key);
+    }
+  }
+  while (pkceStore.size > PKCE_MAX_ENTRIES) {
+    const oldest = pkceStore.keys().next().value;
+    if (oldest) pkceStore.delete(oldest);
+  }
+}
 
 /** @public */
 export interface AAPAuthenticatorContext {
@@ -63,12 +87,19 @@ export const aapAuthAuthenticator = (aapService: IAAPService) =>
       return { helper, host, clientId, clientSecret, callbackURL, checkSSL };
     },
     async start(input, { helper }) {
+      const { verifier, challenge } = generatePKCE();
+      cleanExpiredPKCE();
+      pkceStore.set(input.state, {
+        verifier,
+        createdAt: Date.now(),
+      });
+
       const start = await helper.start(input, {
         accessType: 'offline',
         prompt: 'auto',
         approval_prompt: 'auto',
       });
-      start.url += '&approval_prompt=auto';
+      start.url += `&approval_prompt=auto&code_challenge=${challenge}&code_challenge_method=S256`;
       return start;
     },
 
@@ -76,6 +107,23 @@ export const aapAuthAuthenticator = (aapService: IAAPService) =>
       input,
       { host, clientId, clientSecret, callbackURL, checkSSL },
     ) {
+      const state = input.req.query.state as string | undefined;
+      if (!state) {
+        throw new Error('OAuth state parameter missing from callback request.');
+      }
+      const pkceEntry = pkceStore.get(state);
+      pkceStore.delete(state);
+      if (!pkceEntry) {
+        throw new Error(
+          'PKCE verifier not found for OAuth state. The login session may have expired, the server may have restarted, or the callback was routed to a different replica. Please try logging in again.',
+        );
+      }
+      if (Date.now() - pkceEntry.createdAt >= PKCE_TTL_MS) {
+        throw new Error(
+          'PKCE verifier has expired. Please try logging in again.',
+        );
+      }
+
       const result = await aapService.rhAAPAuthenticate({
         host: host,
         checkSSL: checkSSL,
@@ -83,6 +131,7 @@ export const aapAuthAuthenticator = (aapService: IAAPService) =>
         clientSecret: clientSecret,
         callbackURL: callbackURL,
         code: input.req.query.code as string,
+        codeVerifier: pkceEntry.verifier,
       });
       const fullProfile = await aapService.fetchProfile(
         result.session.accessToken,

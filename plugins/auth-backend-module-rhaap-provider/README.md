@@ -49,6 +49,10 @@ auth:
           - resolver: usernameMatchingUser
 ```
 
+## Deployment Notes
+
+The PKCE code verifier used during OAuth login is stored in process memory. In multi-replica deployments, configure your load balancer for session affinity (sticky sessions) so the OAuth callback reaches the same replica that started the login. Single-replica deployments require no extra configuration.
+
 ## Detailed Documentation
 
 For comprehensive configuration, troubleshooting, and advanced usage, see:
