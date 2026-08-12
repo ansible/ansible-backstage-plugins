@@ -35,7 +35,7 @@ import {
 import {
   ansibleSettingsResourceRef,
   settingsPermissionRules,
-} from '@ansible/backstage-rhaap-common/permissions/rules';
+} from './ansibleSettingsPermissionRules';
 import { createRouter } from './router';
 import { registerApmeCatalogSyncTasks } from './apmeCatalogSyncScheduler';
 import { ApmePortalSettingsStore } from './apmePortalSettingsStore';
