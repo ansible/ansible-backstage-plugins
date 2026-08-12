@@ -5,7 +5,10 @@ import {
   templatesViewPermission,
   historyViewPermission,
   ansiblePermissions,
-} from './permissions';
+  ansibleSettingsEditPermission,
+  ANSIBLE_SETTINGS_CAPABILITIES,
+  RESOURCE_TYPE_ANSIBLE_SETTINGS,
+} from './index';
 
 describe('permissions', () => {
   it('exports executionEnvironmentsViewPermission with correct shape', () => {
@@ -48,16 +51,30 @@ describe('permissions', () => {
     });
   });
 
-  it('ansiblePermissions contains all five permissions', () => {
+  it('exports ansibleSettingsEditPermission as a resource permission', () => {
+    expect(ansibleSettingsEditPermission).toEqual({
+      type: 'resource',
+      name: 'ansible.settings.edit',
+      resourceType: RESOURCE_TYPE_ANSIBLE_SETTINGS,
+      attributes: {},
+    });
+  });
+
+  it('exports ANSIBLE_SETTINGS_CAPABILITIES for resource refs', () => {
+    expect(ANSIBLE_SETTINGS_CAPABILITIES).toEqual(['apme']);
+  });
+
+  it('ansiblePermissions contains all five view permissions', () => {
     expect(ansiblePermissions).toHaveLength(5);
     expect(ansiblePermissions).toContain(executionEnvironmentsViewPermission);
     expect(ansiblePermissions).toContain(gitRepositoriesViewPermission);
     expect(ansiblePermissions).toContain(collectionsViewPermission);
     expect(ansiblePermissions).toContain(templatesViewPermission);
     expect(ansiblePermissions).toContain(historyViewPermission);
+    expect(ansiblePermissions).not.toContain(ansibleSettingsEditPermission);
   });
 
-  it('each permission has type basic and attributes object', () => {
+  it('each view permission has type basic and attributes object', () => {
     ansiblePermissions.forEach(permission => {
       expect(permission.type).toBe('basic');
       expect(permission.attributes).toEqual({});

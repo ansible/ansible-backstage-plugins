@@ -15,7 +15,11 @@ import {
   useLocation,
   useNavigate,
 } from 'react-router-dom';
-import { RequirePermission } from '@backstage/plugin-permission-react';
+import {
+  RequirePermission,
+  usePermission,
+} from '@backstage/plugin-permission-react';
+import type { Permission } from '@backstage/plugin-permission-common';
 import { gitRepositoriesViewPermission } from '@ansible/backstage-rhaap-common/permissions';
 import { gitRepositoriesExtensionsApiRef } from '@ansible/backstage-rhaap-common/gitRepositoriesExtensions';
 import type { GitRepositoriesPageTabDefinition } from '@ansible/backstage-rhaap-common/gitRepositoriesExtensions';
@@ -97,7 +101,46 @@ type ResolvedGitRepoTab =
       order: number;
       kind: 'extension';
       render: GitRepositoriesPageTabDefinition['render'];
+      permission?: GitRepositoriesPageTabDefinition['permission'];
+      resourceRef?: GitRepositoriesPageTabDefinition['resourceRef'];
     };
+
+type TabAuthorization = 'loading' | 'allowed' | 'denied';
+
+/**
+ * Renders nothing; resolves whether `tabId` should be visible based on its
+ * permission and reports the result up so the tab bar can hide unauthorized
+ * extension tabs entirely instead of rendering a "missing permissions" page
+ * behind a clickable tab.
+ */
+const TabVisibilityProbe = ({
+  tabId,
+  permission,
+  resourceRef,
+  onResolved,
+}: {
+  tabId: string;
+  permission: Permission;
+  resourceRef: string | undefined;
+  onResolved: (tabId: string, authorization: TabAuthorization) => void;
+}) => {
+  const { loading, allowed } = usePermission({
+    permission,
+    resourceRef,
+  } as Parameters<typeof usePermission>[0]);
+
+  useEffect(() => {
+    let authorization: TabAuthorization = 'denied';
+    if (loading) {
+      authorization = 'loading';
+    } else if (allowed) {
+      authorization = 'allowed';
+    }
+    onResolved(tabId, authorization);
+  }, [tabId, loading, allowed, onResolved]);
+
+  return null;
+};
 
 /** True when pathname selects this repositories page tab (exact segment match). */
 export function repositoryTabPathMatches(
@@ -147,9 +190,39 @@ export const GitRepositoriesPage = () => {
       order: tab.order,
       kind: 'extension' as const,
       render: tab.render,
+      permission: tab.permission,
+      resourceRef: tab.resourceRef,
     }));
     return [...CORE_TABS, ...extensionTabs].sort((a, b) => a.order - b.order);
   }, [extensionsApi]);
+
+  const [tabAuthorization, setTabAuthorization] = useState<
+    Record<string, TabAuthorization>
+  >({});
+
+  const handleTabResolved = useCallback(
+    (tabId: string, authorization: TabAuthorization) => {
+      setTabAuthorization(prev =>
+        prev[tabId] === authorization
+          ? prev
+          : { ...prev, [tabId]: authorization },
+      );
+    },
+    [],
+  );
+
+  // Permission-gated extension tabs are hidden until explicitly allowed, so
+  // an unauthorized user never sees a clickable tab that then 404s.
+  const visibleTabs = useMemo(
+    () =>
+      tabs.filter(
+        tab =>
+          tab.kind !== 'extension' ||
+          !tab.permission ||
+          tabAuthorization[tab.id] === 'allowed',
+      ),
+    [tabs, tabAuthorization],
+  );
 
   const extensionHeaderActions = useMemo(() => {
     const actions = extensionsApi
@@ -174,7 +247,7 @@ export const GitRepositoriesPage = () => {
   const [syncStatusMap, setSyncStatusMap] = useState<SyncStatusMap>({});
   const prevSyncInProgressRef = useRef(false);
 
-  const selectedTab = getTabIndexFromPath(location.pathname, tabs);
+  const selectedTab = getTabIndexFromPath(location.pathname, visibleTabs);
 
   const repositoryDetailPath = useCallback(
     (entityName: string, ruleId?: string) => {
@@ -217,6 +290,21 @@ export const GitRepositoriesPage = () => {
     }
   }, [discoveryApi, fetchApi]);
 
+  // Deep-linking straight to a permission-gated tab's path must not leave the
+  // user stranded on a URL for a tab that's hidden from the tab bar.
+  useEffect(() => {
+    const matchedTab = tabs.find(tab =>
+      repositoryTabPathMatches(location.pathname, tab.path),
+    );
+    if (
+      matchedTab?.kind === 'extension' &&
+      matchedTab.permission &&
+      tabAuthorization[matchedTab.id] === 'denied'
+    ) {
+      navigate(`${rootLink()}/repositories/catalog`, { replace: true });
+    }
+  }, [location.pathname, tabs, tabAuthorization, navigate, rootLink]);
+
   useEffect(() => {
     fetchSyncStatus();
   }, [fetchSyncStatus]);
@@ -249,15 +337,15 @@ export const GitRepositoriesPage = () => {
 
   const onTabSelect = useCallback(
     (index: number) => {
-      const tab = tabs[index];
+      const tab = visibleTabs[index];
       if (tab) {
         navigate(`${rootLink()}/repositories/${tab.path}`);
       }
     },
-    [navigate, rootLink, tabs],
+    [navigate, rootLink, visibleTabs],
   );
 
-  const activeTab = tabs[selectedTab];
+  const activeTab = visibleTabs[selectedTab];
 
   let content;
   if (activeTab?.kind === 'catalog') {
@@ -302,11 +390,25 @@ export const GitRepositoriesPage = () => {
           syncProgress={syncProgress}
           extensionHeaderActions={extensionHeaderActions}
         />
+        {tabs
+          .filter(
+            (tab): tab is Extract<ResolvedGitRepoTab, { kind: 'extension' }> =>
+              tab.kind === 'extension' && !!tab.permission,
+          )
+          .map(tab => (
+            <TabVisibilityProbe
+              key={tab.id}
+              tabId={tab.id}
+              permission={tab.permission!}
+              resourceRef={tab.resourceRef}
+              onResolved={handleTabResolved}
+            />
+          ))}
         <Box className={classes.tabsSection}>
           <HeaderTabs
             selectedIndex={selectedTab}
             onChange={onTabSelect}
-            tabs={tabs.map(({ label, path }) => ({
+            tabs={visibleTabs.map(({ label, path }) => ({
               id: path,
               label,
             }))}

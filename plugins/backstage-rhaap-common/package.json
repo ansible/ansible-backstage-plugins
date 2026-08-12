@@ -15,7 +15,8 @@
   "exports": {
     ".": "./src/index.ts",
     "./constants": "./src/constants.ts",
-    "./permissions": "./src/permissions.ts",
+    "./permissions": "./src/permissions/index.ts",
+    "./permissions/rules": "./src/permissions/rules.ts",
     "./gitRepositoriesExtensions": "./src/gitRepositoriesExtensions.ts",
     "./catalogEntity": "./src/catalogEntity.ts",
     "./package.json": "./package.json"
@@ -26,7 +27,10 @@
         "src/constants.ts"
       ],
       "permissions": [
-        "src/permissions.ts"
+        "src/permissions/index.ts"
+      ],
+      "permissions/rules": [
+        "src/permissions/rules.ts"
       ],
       "gitRepositoriesExtensions": [
         "src/gitRepositoriesExtensions.ts"
@@ -59,9 +63,11 @@
     "@backstage/integration": "^2.0.0",
     "@backstage/plugin-auth-node": "^0.6.14",
     "@backstage/plugin-permission-common": "^0.9.7",
+    "@backstage/plugin-permission-node": "^0.11.0",
     "lodash.uniqby": "^4.7.0",
     "undici": "^6.26.0",
-    "yaml": "^2.0.0"
+    "yaml": "^2.0.0",
+    "zod": "^4.3.6"
   },
   "peerDependencies": {
     "react": "^17.0.0 || ^18.0.0"

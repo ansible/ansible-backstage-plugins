@@ -34,12 +34,16 @@ e2e-tests/.yarn/*
 .env
 .env.test
 
+# Local runtime data (e.g. APME portal settings store default path)
+.data/
+
 # Build output
 dist
 dist-types
 dist-scalprum
 plugins/*/dist-dynamic/*
 storybook-static
+*.tsbuildinfo
 
 # Temporary change files created by Vim
 *.swp

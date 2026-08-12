@@ -12,6 +12,7 @@ import {
   createApiRef,
   type AnyApiFactory,
 } from '@backstage/core-plugin-api';
+import type { Permission } from '@backstage/plugin-permission-common';
 
 /** Context passed to optional Git Repos page tab renderers (Inc 10 fleet drill-down). */
 export type GitRepositoriesPageTabContext = {
@@ -25,6 +26,15 @@ export type GitRepositoriesPageTabDefinition = {
   path: string;
   order: number;
   render: (context: GitRepositoriesPageTabContext) => ReactNode;
+  /**
+   * Optional permission gate (ADR-020 capability check). When set, the host
+   * page hides this tab entirely from the tab bar (and redirects away if
+   * deep-linked) for unauthorized users, rather than rendering `render()`
+   * behind a "missing permissions" page.
+   */
+  permission?: Permission;
+  /** Resource ref to authorize against, required when `permission` is a `ResourcePermission`. */
+  resourceRef?: string;
 };
 
 /** Optional header action on the Git Repositories list page (e.g. Add repository scaffolder). */
