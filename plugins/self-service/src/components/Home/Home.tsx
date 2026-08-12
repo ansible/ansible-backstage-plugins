@@ -2,20 +2,8 @@ import { useCallback, useEffect, useMemo, useState, useRef } from 'react';
 import { useSignal } from '@backstage/plugin-signals-react';
 import { useNavigate } from 'react-router';
 import { Route, Routes, Navigate } from 'react-router-dom';
-import {
-  Button,
-  makeStyles,
-  Snackbar,
-  Tooltip,
-  Typography,
-} from '@material-ui/core';
-import {
-  Content,
-  Header,
-  HeaderLabel,
-  ItemCardGrid,
-  Page,
-} from '@backstage/core-components';
+import { Button, Snackbar, Tooltip, Typography } from '@material-ui/core';
+import { Content, ItemCardGrid, Page } from '@backstage/core-components';
 import { useApi, useRouteRef } from '@backstage/core-plugin-api';
 import {
   usePermission,
@@ -41,9 +29,7 @@ import { useIsSuperuser } from '../../hooks';
 import { rootRouteRef } from '../../routes';
 import { ansibleApiRef, rhAapAuthApiRef } from '../../apis';
 import { SyncConfirmationDialog } from './SyncConfirmationDialog';
-import Sync from '@material-ui/icons/Sync';
-import Info from '@material-ui/icons/Info';
-import OpenInNew from '@material-ui/icons/OpenInNew';
+import { TemplatesPageHeaderSection } from './TemplatesPageHeaderSection';
 import { TemplateEntityV1beta3 } from '@backstage/plugin-scaffolder-common';
 import Alert from '@material-ui/lab/Alert';
 import { SkeletonLoader } from './SkeletonLoader';
@@ -56,29 +42,6 @@ import {
   NotificationStack,
   useNotifications,
 } from '../notifications';
-
-const headerStyles = makeStyles(theme => ({
-  '@keyframes spin': {
-    from: { transform: 'rotate(0deg)' },
-    to: { transform: 'rotate(360deg)' },
-  },
-  syncSpinning: {
-    animation: '$spin 1.5s linear infinite',
-    willChange: 'transform',
-  },
-  header_title_color: {
-    color: theme.palette.type === 'light' ? 'rgba(0, 0, 0, 0.87)' : '#ffffff',
-  },
-  header_subtitle: {
-    display: 'inline-block',
-    color: theme.palette.type === 'light' ? 'rgba(0, 0, 0, 0.87)' : '#ffffff',
-    opacity: 0.8,
-    maxWidth: '75ch',
-    marginTop: '8px',
-    fontWeight: 500,
-    lineHeight: 1.57,
-  },
-}));
 
 /** When the first post sync AAP list matches pre sync, a second fetch may still be stale, wait before retrying. */
 const JOB_TEMPLATE_LIST_STALE_RETRY_MS = 450;
@@ -283,15 +246,12 @@ const TemplateContent = ({
 };
 
 export const HomeComponent = () => {
-  const classes = headerStyles();
   const navigate = useNavigate();
   const rootLink = useRouteRef(rootRouteRef);
   const ansibleApi = useApi(ansibleApiRef);
   const rhAapAuthApi = useApi(rhAapAuthApiRef);
   const scaffolderApi = useApi(scaffolderApiRef);
   const { isSuperuser, loading: checkingSuperuser } = useIsSuperuser();
-  const showSyncControls = checkingSuperuser || isSuperuser;
-  const syncControlsDisabled = checkingSuperuser;
 
   const { loading: checkingCatalogCreate, allowed: canCreateCatalogEntity } =
     usePermission({ permission: catalogEntityCreatePermission });
@@ -349,21 +309,6 @@ export const HomeComponent = () => {
     syncSignal?.syncInProgress ||
     syncStatus.orgsUsersTeams.syncInProgress ||
     syncStatus.jobTemplates.syncInProgress;
-  const syncDisabled = syncControlsDisabled || isSyncInProgress;
-
-  const getSyncTooltip = () => {
-    if (isSyncInProgress) return 'Sync in progress...';
-    if (syncControlsDisabled) return 'Checking permissions...';
-    const jtSync = syncStatus.jobTemplates.lastSync;
-    const outSync = syncStatus.orgsUsersTeams.lastSync;
-    let lastSync = jtSync || outSync;
-    if (jtSync && outSync) {
-      lastSync = new Date(jtSync) > new Date(outSync) ? jtSync : outSync;
-    }
-    if (lastSync) return `Last synced: ${new Date(lastSync).toLocaleString()}`;
-    return '';
-  };
-  const syncTooltip = getSyncTooltip();
 
   const fetchRequestIdRef = useRef(0);
   const fetchSucceededRef = useRef(false);
@@ -516,6 +461,10 @@ export const HomeComponent = () => {
     }
   }, [syncOptions, handleSync]);
 
+  useEffect(() => {
+    document.title = 'View Templates | Backstage';
+  }, []);
+
   return (
     <Page themeId="app">
       {open && (
@@ -528,118 +477,48 @@ export const HomeComponent = () => {
           syncStatus={syncStatus}
         />
       )}
-      <Header
-        pageTitleOverride="View Templates"
-        title={<span className={classes.header_title_color}>Templates</span>}
-        subtitle={
-          <>
-            <div>
-              <span className={classes.header_subtitle}>
-                Browse available templates. Each template provides a guided
-                experience to get your automation running. Select "Start" to
-                begin the guided task.
-              </span>
-            </div>
-            <Typography
-              component="a"
-              href="https://red.ht/self-service-launch-template"
-              target="_blank"
-              rel="noopener noreferrer"
-              style={{
-                cursor: 'pointer',
-                color: 'inherit',
-                textDecoration: 'underline',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '4px',
-                marginTop: '8px',
-                opacity: 0.8,
-              }}
-            >
-              Learn more <OpenInNew fontSize="small" />
-            </Typography>
-            {showSyncControls && (
-              <HeaderLabel
-                label=""
-                value={
-                  <Typography component="span" style={{ color: 'inherit' }}>
-                    <Tooltip title={syncTooltip} placement="bottom">
-                      <span>
-                        <button
-                          type="button"
-                          onClick={
-                            syncDisabled
-                              ? undefined
-                              : ShowSyncConfirmationDialog
-                          }
-                          disabled={syncDisabled}
-                          style={{
-                            display: 'inline-flex',
-                            alignItems: 'center',
-                            gap: '4px',
-                            textDecoration: 'underline',
-                            cursor: syncDisabled ? 'default' : 'pointer',
-                            opacity: syncDisabled ? 0.5 : 1,
-                            background: 'none',
-                            border: 'none',
-                            padding: 0,
-                            font: 'inherit',
-                            color: 'inherit',
-                          }}
-                        >
-                          {isSyncInProgress ? 'Syncing...' : 'Sync now'}
-                          <Sync
-                            fontSize="small"
-                            className={
-                              isSyncInProgress
-                                ? classes.syncSpinning
-                                : undefined
-                            }
-                          />
-                        </button>
-                      </span>
-                    </Tooltip>
-                    <Tooltip title="Sync AAP Job Templates, Organizations, Users, and Teams from AAP to automation portal.">
-                      <Info fontSize="small" style={{ marginLeft: '4px' }} />
-                    </Tooltip>
-                  </Typography>
-                }
-                contentTypograpyRootComponent="span"
-              />
-            )}
-          </>
-        }
-        style={{ background: 'inherit' }}
-      >
-        {showAddTemplate && (
-          <Tooltip title={addTemplateDisabled ? 'Checking permissions...' : ''}>
-            <span>
-              <Button
-                data-testid="add-template-button"
-                onClick={() => navigate(`${rootLink()}/catalog-import`)}
-                variant="contained"
-                disabled={addTemplateDisabled}
-              >
-                Add Template
-              </Button>
-            </span>
-          </Tooltip>
-        )}
-      </Header>
-      <Snackbar
-        anchorOrigin={{ vertical: 'top', horizontal: 'center' }}
-        open={controllerSnackbar.status === 'error'}
-        style={{ zIndex: 10000, marginTop: '70px' }}
-        TransitionProps={{ exit: false }}
-      >
-        <Alert
-          severity="error"
-          onClose={() => setControllerSnackbar({ status: 'idle' })}
-        >
-          {controllerSnackbar.status === 'error' && controllerSnackbar.message}
-        </Alert>
-      </Snackbar>
       <Content>
+        <TemplatesPageHeaderSection
+          onSyncClick={ShowSyncConfirmationDialog}
+          syncDisabled={isSyncInProgress}
+          syncDisabledReason={
+            isSyncInProgress ? 'Sync in progress...' : undefined
+          }
+          syncInProgress={isSyncInProgress}
+          actions={
+            showAddTemplate ? (
+              <Tooltip
+                title={addTemplateDisabled ? 'Checking permissions...' : ''}
+              >
+                <span>
+                  <Button
+                    data-testid="add-template-button"
+                    onClick={() => navigate(`${rootLink()}/catalog-import`)}
+                    variant="contained"
+                    color="primary"
+                    disabled={addTemplateDisabled}
+                  >
+                    Add Template
+                  </Button>
+                </span>
+              </Tooltip>
+            ) : undefined
+          }
+        />
+        <Snackbar
+          anchorOrigin={{ vertical: 'top', horizontal: 'center' }}
+          open={controllerSnackbar.status === 'error'}
+          style={{ zIndex: 10000, marginTop: '70px' }}
+          TransitionProps={{ exit: false }}
+        >
+          <Alert
+            severity="error"
+            onClose={() => setControllerSnackbar({ status: 'idle' })}
+          >
+            {controllerSnackbar.status === 'error' &&
+              controllerSnackbar.message}
+          </Alert>
+        </Snackbar>
         <EntityListProvider key={syncKey}>
           <CatalogFilterLayout>
             <CatalogFilterLayout.Filters>

@@ -1,9 +1,13 @@
+import React from 'react';
 import { Box, Button, Tooltip, Typography } from '@material-ui/core';
 import HelpOutlineIcon from '@material-ui/icons/HelpOutline';
 import SyncIcon from '@material-ui/icons/Sync';
 import { useIsSuperuser } from '../../hooks';
-import { useCollectionsStyles } from '../CollectionsCatalog/styles';
-import { useSharedStyles, useProgressTooltipStyles } from './styles';
+import {
+  usePageHeaderStyles,
+  useSharedStyles,
+  useProgressTooltipStyles,
+} from './styles';
 import { SyncProgressPopover } from './SyncProgressPopover';
 import type { SyncProgressEntry } from './types';
 
@@ -18,6 +22,10 @@ export interface PageHeaderSectionProps {
   syncInProgress?: boolean;
   /** Per-source progress entries surfaced from syncPollingService. */
   syncProgress?: SyncProgressEntry[];
+  /** Extra action buttons rendered alongside the sync button. */
+  actions?: React.ReactNode;
+  /** Content rendered below the description (e.g. a "Learn more" link). */
+  descriptionExtra?: React.ReactNode;
 }
 
 export const PageHeaderSection = ({
@@ -29,8 +37,10 @@ export const PageHeaderSection = ({
   syncDisabledReason,
   syncInProgress = false,
   syncProgress = [],
+  actions,
+  descriptionExtra,
 }: PageHeaderSectionProps) => {
-  const classes = useCollectionsStyles();
+  const classes = usePageHeaderStyles();
   const sharedClasses = useSharedStyles();
   const tooltipClasses = useProgressTooltipStyles();
   const { isSuperuser: allowed, loading: checkingPermission } =
@@ -71,53 +81,63 @@ export const PageHeaderSection = ({
             <HelpOutlineIcon className={classes.helpIcon} />
           </Tooltip>
         </Box>
-        {showSyncButton && (
-          <Box
-            style={{
-              display: 'flex',
-              flexDirection: 'column',
-              alignItems: 'flex-end',
-            }}
-          >
-            <Tooltip
-              title={
-                showProgressPopover ? (
-                  <SyncProgressPopover entries={syncProgress} />
-                ) : (
-                  buttonTooltip
-                )
-              }
-              classes={showProgressPopover ? tooltipClasses : undefined}
-              interactive={showProgressPopover}
-              arrow
-              placement="bottom-end"
+        <Box
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: '12px',
+          }}
+        >
+          {actions}
+          {showSyncButton && (
+            <Box
+              style={{
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'flex-end',
+              }}
             >
-              <span>
-                <Button
-                  variant="outlined"
-                  color="primary"
-                  startIcon={
-                    <SyncIcon
-                      className={
-                        syncInProgress
-                          ? sharedClasses.syncIconSpinning
-                          : undefined
-                      }
-                    />
-                  }
-                  onClick={onSyncClick}
-                  className={classes.syncButton}
-                  disabled={isButtonDisabled}
-                >
-                  Sync Now
-                </Button>
-              </span>
-            </Tooltip>
-          </Box>
-        )}
+              <Tooltip
+                title={
+                  showProgressPopover ? (
+                    <SyncProgressPopover entries={syncProgress} />
+                  ) : (
+                    buttonTooltip
+                  )
+                }
+                classes={showProgressPopover ? tooltipClasses : undefined}
+                interactive={showProgressPopover}
+                arrow
+                placement="bottom-end"
+              >
+                <span>
+                  <Button
+                    variant="outlined"
+                    color="primary"
+                    startIcon={
+                      <SyncIcon
+                        className={
+                          syncInProgress
+                            ? sharedClasses.syncIconSpinning
+                            : undefined
+                        }
+                      />
+                    }
+                    onClick={onSyncClick}
+                    className={classes.syncButton}
+                    disabled={isButtonDisabled}
+                  >
+                    Sync Now
+                  </Button>
+                </span>
+              </Tooltip>
+            </Box>
+          )}
+        </Box>
       </Box>
       <Typography variant="body1" className={classes.description}>
         {description}
+        {descriptionExtra && <> {descriptionExtra}</>}
       </Typography>
     </Box>
   );

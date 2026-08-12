@@ -1,5 +1,47 @@
 import { makeStyles } from '@material-ui/core/styles';
 
+export const usePageHeaderStyles = makeStyles(theme => ({
+  pageHeader: {
+    marginBottom: theme.spacing(2),
+  },
+  headerRow: {
+    display: 'flex',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    marginBottom: theme.spacing(1.5),
+  },
+  headerTitle: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '8px',
+  },
+  headerTitleText: {
+    fontWeight: 700,
+    fontSize: '1.75rem',
+  },
+  helpIcon: {
+    color: theme.palette.text.secondary,
+    cursor: 'pointer',
+    fontSize: '1.25rem',
+    '&:hover': {
+      color: theme.palette.primary.main,
+    },
+  },
+  syncButton: {
+    textTransform: 'none',
+    fontWeight: 500,
+  },
+  description: {
+    color: theme.palette.text.secondary,
+    fontSize: 15,
+    lineHeight: 1.5,
+    maxWidth: '900px',
+    paddingBottom: theme.spacing(3),
+    borderBottom: `1px solid ${theme.palette.divider}`,
+    marginBottom: theme.spacing(2),
+  },
+}));
+
 export const useSharedStyles = makeStyles(theme => ({
   // Empty state styles
   emptyStateContainer: {
