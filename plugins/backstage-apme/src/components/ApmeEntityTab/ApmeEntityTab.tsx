@@ -14,22 +14,17 @@
  * limitations under the License.
  */
 
-import { useEffect, useState } from 'react';
-import { useApi } from '@backstage/core-plugin-api';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import { configApiRef, useApi } from '@backstage/core-plugin-api';
 import { Progress, ResponseErrorPanel } from '@backstage/core-components';
-import {
-  Button,
-  Card,
-  CardBody,
-  Flex,
-  FlexItem,
-} from '@patternfly/react-core';
+import { Button, Card, CardBody, Flex, FlexItem } from '@patternfly/react-core';
 import '@patternfly/react-core/dist/styles/base.css';
 import {
   ApmeApiProvider,
   CheckOptionsForm,
   ProjectWorkflowPanel,
   useProjectWorkflow,
+  type ProjectWorkflowController,
 } from '@apme/ui-workflow';
 import type { Project } from '@ansible/backstage-apme-common/types';
 import { apmeApiRef } from '../../api';
@@ -38,7 +33,9 @@ import { useApmeWorkflowAiModel } from '../../hooks/useApmeWorkflowAiModel';
 import { useResolveApmeProject } from '../../hooks/useResolveApmeProject';
 import { useSyncPatternFlyTheme } from '../../hooks/useSyncPatternFlyTheme';
 import { resolveDefaultAnsibleVersionForScan } from '../../utils/resolveDefaultAnsibleVersionForScan';
+import { resolvePostPushDevSpacesUrl } from '../../utils/resolvePostPushDevSpacesUrl';
 import { ApmeUnavailable } from '../ApmeUnavailable';
+import { PostPushDevSpacesBanner } from '../EditInDevSpacesButton';
 import { PreviewLabelRow } from '../PreviewChip';
 
 export interface ApmeEntityTabProps {
@@ -56,6 +53,7 @@ export interface ApmeEntityTabProps {
  */
 function WorkflowBody({ projectId }: { projectId: string }) {
   const apmeApi = useApi(apmeApiRef);
+  const configApi = useApi(configApiRef);
   const portalAiEnabled = useApmeAiEnabled();
   const [project, setProject] = useState<Project | null>(null);
   const [loadError, setLoadError] = useState<Error | null>(null);
@@ -63,6 +61,8 @@ function WorkflowBody({ projectId }: { projectId: string }) {
   const [collections, setCollections] = useState('');
   const [enableAi, setEnableAi] = useState(portalAiEnabled);
   const [autoApplyTier1, setAutoApplyTier1] = useState(false);
+  /** Remediation branch captured from the last successful createPR/push. */
+  const [pushedBranchName, setPushedBranchName] = useState<string | null>(null);
 
   useEffect(() => {
     setEnableAi(portalAiEnabled);
@@ -97,7 +97,41 @@ function WorkflowBody({ projectId }: { projectId: string }) {
     getAiModel,
   });
 
-  const { sessionTabVisible, isRunning, startScan, cancel } = workflow;
+  const { sessionTabVisible, isRunning, startScan, cancel, dismiss } = workflow;
+
+  const createPRWithCapture = useCallback(
+    async (options?: Parameters<ProjectWorkflowController['createPR']>[0]) => {
+      const result = await workflow.createPR(options);
+      if (result.branch_name) {
+        setPushedBranchName(result.branch_name);
+      }
+      return result;
+    },
+    [workflow],
+  );
+
+  const handleStartScan = useCallback(async () => {
+    setPushedBranchName(null);
+    await startScan();
+  }, [startScan]);
+
+  const workflowForPanel = useMemo(
+    (): ProjectWorkflowController => ({
+      ...workflow,
+      createPR: createPRWithCapture,
+      dismiss: () => {
+        setPushedBranchName(null);
+        dismiss();
+      },
+    }),
+    [workflow, createPRWithCapture, dismiss],
+  );
+
+  useEffect(() => {
+    if (!sessionTabVisible) {
+      setPushedBranchName(null);
+    }
+  }, [sessionTabVisible]);
 
   useEffect(() => {
     let cancelled = false;
@@ -116,13 +150,29 @@ function WorkflowBody({ projectId }: { projectId: string }) {
     };
   }, [apmeApi, projectId, sessionTabVisible]);
 
+  const devSpacesUrl = resolvePostPushDevSpacesUrl({
+    sessionVisible: sessionTabVisible,
+    devSpacesBaseUrl: configApi.getOptionalString('ansible.devSpaces.baseUrl'),
+    repoUrl: project?.repo_url,
+    pushedBranchName,
+    projectBranch: project?.branch,
+    prUrl: workflow.opState?.pr_url,
+    operationStatus: workflow.opState?.status,
+  });
+
   if (sessionTabVisible) {
     return (
-      <ProjectWorkflowPanel
-        workflow={workflow}
-        enableAi={portalAiEnabled && enableAi}
-        feedbackEnabled={false}
-      />
+      <>
+        <PostPushDevSpacesBanner
+          url={devSpacesUrl}
+          branchName={pushedBranchName ?? undefined}
+        />
+        <ProjectWorkflowPanel
+          workflow={workflowForPanel}
+          enableAi={portalAiEnabled && enableAi}
+          feedbackEnabled={false}
+        />
+      </>
     );
   }
 
@@ -189,7 +239,7 @@ function WorkflowBody({ projectId }: { projectId: string }) {
               variant="primary"
               isDisabled={isRunning}
               onClick={() => {
-                void startScan();
+                void handleStartScan();
               }}
             >
               Scan
