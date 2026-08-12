@@ -8,8 +8,9 @@ import {
 } from '@ansible/backstage-rhaap-common/gitRepositoriesExtensions';
 import { GitRepositoriesPage } from './GitRepositoriesPage';
 
+const mockUsePermission = jest.fn().mockReturnValue({ allowed: true });
 jest.mock('@backstage/plugin-permission-react', () => ({
-  usePermission: () => ({ allowed: true }),
+  usePermission: (...args: any[]) => mockUsePermission(...args),
   RequirePermission: (props: any) => props.children,
 }));
 
@@ -132,6 +133,29 @@ const mockFetchApi = {
 
 const theme = createTheme();
 
+const gatedPermission = {
+  type: 'resource',
+  name: 'test.gated',
+  resourceType: 'test-resource',
+  attributes: {},
+} as any;
+
+class ExtensionsApiWithGatedTab extends DefaultGitRepositoriesExtensionsApi {
+  getPageTabs() {
+    return [
+      {
+        id: 'gated',
+        label: 'Gated Tab',
+        path: 'gated',
+        order: 15,
+        render: () => <div data-testid="gated-tab-content">Gated content</div>,
+        permission: gatedPermission,
+        resourceRef: 'apme',
+      },
+    ];
+  }
+}
+
 describe('GitRepositoriesPage', () => {
   beforeEach(() => {
     jest.clearAllMocks();
@@ -139,6 +163,96 @@ describe('GitRepositoriesPage', () => {
       isSyncInProgress: false,
       startTracking: mockStartTracking,
     });
+    mockUsePermission.mockReturnValue({ loading: false, allowed: true });
+  });
+
+  it('hides a permission-gated tab entirely when the user is unauthorized', async () => {
+    mockUsePermission.mockReturnValue({ loading: false, allowed: false });
+
+    await renderInTestApp(
+      <TestApiProvider
+        apis={[
+          [discoveryApiRef, mockDiscoveryApi],
+          [fetchApiRef, mockFetchApi],
+          [gitRepositoriesExtensionsApiRef, new ExtensionsApiWithGatedTab()],
+        ]}
+      >
+        <ThemeProvider theme={theme}>
+          <GitRepositoriesPage />
+        </ThemeProvider>
+      </TestApiProvider>,
+    );
+
+    expect(screen.getByText('Catalog')).toBeInTheDocument();
+    expect(screen.queryByText('Gated Tab')).not.toBeInTheDocument();
+  });
+
+  it('keeps a permission-gated tab hidden while permission is loading', async () => {
+    mockUsePermission.mockReturnValue({ loading: true, allowed: false });
+
+    await renderInTestApp(
+      <TestApiProvider
+        apis={[
+          [discoveryApiRef, mockDiscoveryApi],
+          [fetchApiRef, mockFetchApi],
+          [gitRepositoriesExtensionsApiRef, new ExtensionsApiWithGatedTab()],
+        ]}
+      >
+        <ThemeProvider theme={theme}>
+          <GitRepositoriesPage />
+        </ThemeProvider>
+      </TestApiProvider>,
+    );
+
+    expect(screen.getByText('Catalog')).toBeInTheDocument();
+    expect(screen.queryByText('Gated Tab')).not.toBeInTheDocument();
+  });
+
+  it('shows a permission-gated tab when the user is authorized', async () => {
+    mockUsePermission.mockReturnValue({ loading: false, allowed: true });
+
+    await renderInTestApp(
+      <TestApiProvider
+        apis={[
+          [discoveryApiRef, mockDiscoveryApi],
+          [fetchApiRef, mockFetchApi],
+          [gitRepositoriesExtensionsApiRef, new ExtensionsApiWithGatedTab()],
+        ]}
+      >
+        <ThemeProvider theme={theme}>
+          <GitRepositoriesPage />
+        </ThemeProvider>
+      </TestApiProvider>,
+    );
+
+    const gatedTab = screen.getByText('Gated Tab');
+    expect(gatedTab).toBeInTheDocument();
+
+    fireEvent.click(gatedTab);
+    expect(await screen.findByTestId('gated-tab-content')).toBeInTheDocument();
+  });
+
+  it('redirects away when deep-linking to a permission-gated tab the user cannot access', async () => {
+    mockUsePermission.mockReturnValue({ loading: false, allowed: false });
+
+    await renderInTestApp(
+      <TestApiProvider
+        apis={[
+          [discoveryApiRef, mockDiscoveryApi],
+          [fetchApiRef, mockFetchApi],
+          [gitRepositoriesExtensionsApiRef, new ExtensionsApiWithGatedTab()],
+        ]}
+      >
+        <ThemeProvider theme={theme}>
+          <GitRepositoriesPage />
+        </ThemeProvider>
+      </TestApiProvider>,
+      { routeEntries: ['/self-service/repositories/gated'] },
+    );
+
+    expect(await screen.findByTestId('repositories-table')).toBeInTheDocument();
+    expect(screen.queryByTestId('gated-tab-content')).not.toBeInTheDocument();
+    expect(screen.queryByText('Gated Tab')).not.toBeInTheDocument();
   });
 
   it('renders page with Git Repositories header', async () => {

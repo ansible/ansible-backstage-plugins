@@ -8,6 +8,10 @@ import { TestApiProvider } from '@backstage/test-utils';
 import { apmeApiRef } from '../../api';
 import { ApmeQualitySettingsTab } from './ApmeQualitySettingsTab';
 
+jest.mock('@backstage/plugin-permission-react', () => ({
+  RequirePermission: (props: any) => props.children,
+}));
+
 describe('ApmeQualitySettingsTab', () => {
   const getPortalSettings = jest.fn();
   const updatePortalSettings = jest.fn();

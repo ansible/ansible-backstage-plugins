@@ -23,6 +23,8 @@ import CheckCircleIcon from '@material-ui/icons/CheckCircle';
 import ChevronRightIcon from '@material-ui/icons/ChevronRight';
 import KeyboardArrowDownIcon from '@material-ui/icons/KeyboardArrowDown';
 import { Progress } from '@backstage/core-components';
+import { RequirePermission } from '@backstage/plugin-permission-react';
+import { ansibleSettingsViewPermission } from '@ansible/backstage-rhaap-common/permissions';
 import {
   SEVERITY_ORDER,
   normalizeSeverity,
@@ -35,9 +37,7 @@ import {
 import { useApmeColorTokens } from '../../hooks/useApmeColorTokens';
 import { useApmeEnabled, useApmeAiEnabled } from '../../hooks/useApmeEnabled';
 import { PreviewLabelRow } from '../PreviewChip';
-import {
-  useFleetQualityData,
-} from './useFleetQualityData';
+import { useFleetQualityData } from './useFleetQualityData';
 
 const STATUS_ERROR = '#C9190B';
 const STATUS_SUCCESS = '#3E8635';
@@ -291,13 +291,19 @@ export const FleetQualityTab = ({
 
       <Box className={classes.titleRow}>
         <Typography variant="h6">Fleet quality</Typography>
-        <Link
-          component={RouterLink}
-          to="/self-service/repositories/quality-settings"
-          style={{ fontSize: 13 }}
+        <RequirePermission
+          permission={ansibleSettingsViewPermission}
+          resourceRef="apme"
+          errorPage={<></>}
         >
-          Quality settings →
-        </Link>
+          <Link
+            component={RouterLink}
+            to="/self-service/repositories/quality-settings"
+            style={{ fontSize: 13 }}
+          >
+            Quality settings →
+          </Link>
+        </RequirePermission>
       </Box>
 
       <Box className={classes.summaryBar}>

@@ -33,6 +33,8 @@ import ExclamationCircleIcon from '@patternfly/react-icons/dist/esm/icons/exclam
 import '@patternfly/react-core/dist/styles/base.css';
 import { AI_MODEL_STORAGE_KEY } from '@apme/ui-workflow';
 import type { ApmePortalSettings } from '@ansible/backstage-apme-common/types';
+import { RequirePermission } from '@backstage/plugin-permission-react';
+import { ansibleSettingsViewPermission } from '@ansible/backstage-rhaap-common/permissions';
 import { apmeApiRef } from '../../api';
 import { useSyncPatternFlyTheme } from '../../hooks/useSyncPatternFlyTheme';
 import { ApmeAiProvidersSection } from '../ApmeQualitySettingsTab/ApmeAiProvidersSection';
@@ -57,8 +59,7 @@ function connectionLabel(
   return 'Disconnected — check Abbenay configuration on the Gateway';
 }
 
-/** Git Repositories → Quality settings: Abbenay AI defaults + LLM providers. */
-export const ApmeAbbenaySettingsTab = () => {
+const ApmeAbbenaySettingsTabContent = () => {
   useSyncPatternFlyTheme();
   const apmeApi = useApi(apmeApiRef);
 
@@ -67,9 +68,8 @@ export const ApmeAbbenaySettingsTab = () => {
   const [error, setError] = useState<Error | null>(null);
   const [saveMessage, setSaveMessage] = useState<string | null>(null);
 
-  const [portalSettings, setPortalSettings] = useState<ApmePortalSettings | null>(
-    null,
-  );
+  const [portalSettings, setPortalSettings] =
+    useState<ApmePortalSettings | null>(null);
   const [models, setModels] = useState<ApmeAiModelRow[]>([]);
   const [connected, setConnected] = useState(false);
   const [modelCount, setModelCount] = useState(0);
@@ -143,7 +143,10 @@ export const ApmeAbbenaySettingsTab = () => {
       <CardBody>
         <Flex direction={{ default: 'column' }} gap={{ default: 'gapMd' }}>
           <FlexItem>
-            <Flex gap={{ default: 'gapSm' }} alignItems={{ default: 'alignItemsCenter' }}>
+            <Flex
+              gap={{ default: 'gapSm' }}
+              alignItems={{ default: 'alignItemsCenter' }}
+            >
               {connected ? (
                 <CheckCircleIcon color="var(--pf-t--global--icon--color--status--success--default)" />
               ) : (
@@ -157,7 +160,12 @@ export const ApmeAbbenaySettingsTab = () => {
 
           {error ? (
             <FlexItem>
-              <Alert variant="danger" isInline title="Save failed" ouiaId="abbenay-save-error">
+              <Alert
+                variant="danger"
+                isInline
+                title="Save failed"
+                ouiaId="abbenay-save-error"
+              >
                 {error.message}
               </Alert>
             </FlexItem>
@@ -165,7 +173,12 @@ export const ApmeAbbenaySettingsTab = () => {
 
           {saveMessage ? (
             <FlexItem>
-              <Alert variant="success" isInline title={saveMessage} ouiaId="abbenay-save-ok" />
+              <Alert
+                variant="success"
+                isInline
+                title={saveMessage}
+                ouiaId="abbenay-save-ok"
+              />
             </FlexItem>
           ) : null}
 
@@ -181,7 +194,10 @@ export const ApmeAbbenaySettingsTab = () => {
           </FlexItem>
 
           <FlexItem>
-            <label htmlFor="abbenay-default-model" style={{ display: 'block', marginBottom: 4, fontWeight: 600 }}>
+            <label
+              htmlFor="abbenay-default-model"
+              style={{ display: 'block', marginBottom: 4, fontWeight: 600 }}
+            >
               Default AI model
             </label>
             {models.length === 0 ? (
@@ -212,7 +228,9 @@ export const ApmeAbbenaySettingsTab = () => {
             <Button
               variant="primary"
               isLoading={saving}
-              isDisabled={saving || (enableAi && !selectedModelId && models.length > 0)}
+              isDisabled={
+                saving || (enableAi && !selectedModelId && models.length > 0)
+              }
               onClick={() => void handleSave()}
             >
               Save
@@ -227,3 +245,15 @@ export const ApmeAbbenaySettingsTab = () => {
     </Card>
   );
 };
+
+/** Git Repositories / Settings: Abbenay AI defaults + LLM providers.
+ * Gated by `ansible.settings.view` for the `apme` capability.
+ */
+export const ApmeAbbenaySettingsTab = () => (
+  <RequirePermission
+    permission={ansibleSettingsViewPermission}
+    resourceRef="apme"
+  >
+    <ApmeAbbenaySettingsTabContent />
+  </RequirePermission>
+);

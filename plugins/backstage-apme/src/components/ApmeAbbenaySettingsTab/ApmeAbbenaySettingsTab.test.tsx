@@ -9,6 +9,10 @@ import { ThemeProvider, createTheme } from '@material-ui/core/styles';
 import { apmeApiRef } from '../../api';
 import { ApmeAbbenaySettingsTab } from './ApmeAbbenaySettingsTab';
 
+jest.mock('@backstage/plugin-permission-react', () => ({
+  RequirePermission: (props: any) => props.children,
+}));
+
 const theme = createTheme();
 
 const mockApmeApi = {
@@ -41,7 +45,12 @@ describe('ApmeAbbenaySettingsTab', () => {
     ]);
     mockApmeApi.getAiProviders.mockResolvedValue([]);
     mockApmeApi.getAiEngines.mockResolvedValue([
-      { id: 'openrouter', requires_key: true, default_base_url: '', default_env_var: '' },
+      {
+        id: 'openrouter',
+        requires_key: true,
+        default_base_url: '',
+        default_env_var: '',
+      },
     ]);
     mockApmeApi.updatePortalSettings.mockResolvedValue({
       enableAi: false,
@@ -69,7 +78,9 @@ describe('ApmeAbbenaySettingsTab', () => {
     ).toBeInTheDocument();
 
     expect(
-      screen.getByText(/app-config ansible\.apme\.enableAi; not editable here/i),
+      screen.getByText(
+        /app-config ansible\.apme\.enableAi; not editable here/i,
+      ),
     ).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole('button', { name: 'Save' }));
