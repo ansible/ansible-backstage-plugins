@@ -17,6 +17,7 @@
     "./constants": "./src/constants.ts",
     "./permissions": "./src/permissions.ts",
     "./gitRepositoriesExtensions": "./src/gitRepositoriesExtensions.ts",
+    "./devSpaces": "./src/devSpaces.ts",
     "./catalogEntity": "./src/catalogEntity.ts",
     "./package.json": "./package.json"
   },
@@ -30,6 +31,9 @@
       ],
       "gitRepositoriesExtensions": [
         "src/gitRepositoriesExtensions.ts"
+      ],
+      "devSpaces": [
+        "src/devSpaces.ts"
       ],
       "catalogEntity": [
         "src/catalogEntity.ts"
