@@ -57,10 +57,9 @@ Before setting up the development environment, ensure you have:
 
 ### Required Software
 
-- **Node.js**: Version **24.9.0** (preferred) or **22.11.0** (fallback)
+- **Node.js**: Version **22** or **24**
   - Check version: `node --version`
   - Install via [nvm](https://github.com/nvm-sh/nvm) or from [nodejs.org](https://nodejs.org/)
-  - Use the same Node version for `./install-deps` and `yarn start`; if you switch versions, run `npm rebuild better-sqlite3`
 
 - **Yarn**: Version **4.9.2** (managed via Corepack)
   - Corepack is included with Node.js 16.10+
@@ -118,7 +117,7 @@ Check that installation was successful:
 
 ```bash
 # Check Node.js version
-node --version  # Should show v24.9.0 (or v22.11.0 if using the fallback)
+node --version  # Should show v22.x.x or v24.x.x
 
 # Check Yarn version
 yarn --version  # Should show 4.9.1 or similar
