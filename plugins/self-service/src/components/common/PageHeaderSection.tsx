@@ -1,4 +1,4 @@
-import React from 'react';
+import type { ReactNode } from 'react';
 import { Box, Button, Tooltip, Typography } from '@material-ui/core';
 import HelpOutlineIcon from '@material-ui/icons/HelpOutline';
 import SyncIcon from '@material-ui/icons/Sync';
@@ -23,9 +23,9 @@ export interface PageHeaderSectionProps {
   /** Per-source progress entries surfaced from syncPollingService. */
   syncProgress?: SyncProgressEntry[];
   /** Extra action buttons rendered alongside the sync button. */
-  actions?: React.ReactNode;
+  actions?: ReactNode;
   /** Content rendered below the description (e.g. a "Learn more" link). */
-  descriptionExtra?: React.ReactNode;
+  descriptionExtra?: ReactNode;
 }
 
 export const PageHeaderSection = ({

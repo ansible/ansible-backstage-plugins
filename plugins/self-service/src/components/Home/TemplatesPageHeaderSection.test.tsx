@@ -1,4 +1,4 @@
-import React from 'react';
+import type { ReactElement } from 'react';
 import { render, screen, fireEvent } from '@testing-library/react';
 import { ThemeProvider, createTheme } from '@material-ui/core/styles';
 import { TemplatesPageHeaderSection } from './TemplatesPageHeaderSection';
@@ -14,7 +14,7 @@ jest.mock('../../hooks', () => ({
 
 const theme = createTheme();
 
-const renderWithTheme = (ui: React.ReactElement) => {
+const renderWithTheme = (ui: ReactElement) => {
   return render(<ThemeProvider theme={theme}>{ui}</ThemeProvider>);
 };
 

@@ -1,4 +1,4 @@
-import React from 'react';
+import type { ReactNode } from 'react';
 import { Typography } from '@material-ui/core';
 import OpenInNewIcon from '@material-ui/icons/OpenInNew';
 import { PageHeaderSection } from '../common';
@@ -11,7 +11,7 @@ interface TemplatesPageHeaderSectionProps {
   syncDisabledReason?: string;
   syncInProgress?: boolean;
   syncProgress?: SyncProgressEntry[];
-  actions?: React.ReactNode;
+  actions?: ReactNode;
 }
 
 export const TemplatesPageHeaderSection = ({
