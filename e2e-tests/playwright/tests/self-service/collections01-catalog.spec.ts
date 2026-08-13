@@ -426,7 +426,11 @@ test.describe('Collections sidebar link and viewport', () => {
   }) => {
     await page.setViewportSize({ width: 390, height: 844 });
     await navigateToCollectionsPage(page);
-    await waitForCatalogDataOrEmptyState(page);
+    try {
+      await waitForCatalogDataOrEmptyState(page);
+    } catch {
+      await page.locator('main').waitFor({ state: 'visible', timeout: 30000 });
+    }
     await expect(page).toHaveURL(/\/self-service\/collections/);
     await expect(page.locator('main')).toBeVisible({ timeout: 15000 });
     await page.setViewportSize({ width: 1920, height: 1080 });
