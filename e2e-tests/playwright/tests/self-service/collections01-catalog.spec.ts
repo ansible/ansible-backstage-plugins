@@ -428,8 +428,12 @@ test.describe('Collections sidebar link and viewport', () => {
     await navigateToCollectionsPage(page);
     try {
       await waitForCatalogDataOrEmptyState(page);
-    } catch {
-      await page.locator('main').waitFor({ state: 'visible', timeout: 30000 });
+    } catch (error: unknown) {
+      if (error instanceof Error && error.name === 'TimeoutError') {
+        await page.locator('main').waitFor({ state: 'visible', timeout: 30000 });
+      } else {
+        throw error;
+      }
     }
     await expect(page).toHaveURL(/\/self-service\/collections/);
     await expect(page.locator('main')).toBeVisible({ timeout: 15000 });
