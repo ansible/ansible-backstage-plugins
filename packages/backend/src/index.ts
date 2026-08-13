@@ -61,6 +61,7 @@ backend.add(
   import('@ansible/plugin-scaffolder-backend-module-backstage-rhaap'),
 );
 backend.add(
-  import('@ansible/backstage-plugin-catalog-backend-module-apme'),
+  import('@ansible/backstage-plugin-catalog-backend-module-ansible-settings'),
 );
+backend.add(import('@ansible/backstage-plugin-catalog-backend-module-apme'));
 backend.start();

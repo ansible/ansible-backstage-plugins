@@ -35,6 +35,7 @@ import { AI_MODEL_STORAGE_KEY } from '@apme/ui-workflow';
 import type { ApmePortalSettings } from '@ansible/backstage-apme-common/types';
 import { RequirePermission } from '@backstage/plugin-permission-react';
 import { ansibleSettingsViewPermission } from '@ansible/backstage-rhaap-common/permissions';
+import { APME_SETTINGS_CAPABILITY } from '@ansible/backstage-apme-common/settingsCapability';
 import { apmeApiRef } from '../../api';
 import { useSyncPatternFlyTheme } from '../../hooks/useSyncPatternFlyTheme';
 import { ApmeAiProvidersSection } from '../ApmeQualitySettingsTab/ApmeAiProvidersSection';
@@ -252,7 +253,7 @@ const ApmeAbbenaySettingsTabContent = () => {
 export const ApmeAbbenaySettingsTab = () => (
   <RequirePermission
     permission={ansibleSettingsViewPermission}
-    resourceRef="apme"
+    resourceRef={APME_SETTINGS_CAPABILITY}
   >
     <ApmeAbbenaySettingsTabContent />
   </RequirePermission>

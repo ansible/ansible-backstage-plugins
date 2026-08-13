@@ -26,6 +26,7 @@ import {
 } from '@ansible/backstage-rhaap-common/gitRepositoriesExtensions';
 import { normalizeRepoUrlFromEntity } from '@ansible/backstage-rhaap-common/catalogEntity';
 import { ansibleSettingsViewPermission } from '@ansible/backstage-rhaap-common/permissions';
+import { APME_SETTINGS_CAPABILITY } from '@ansible/backstage-apme-common/settingsCapability';
 import { ApmeAddRepositoryHeaderAction } from '../components/ApmeAddRepositoryHeaderAction/ApmeAddRepositoryHeaderAction';
 import { ApmeQualitySettingsTab } from '../components/ApmeQualitySettingsTab';
 import { ApmeRulesTab } from '../components/ApmeRulesTab';
@@ -112,7 +113,7 @@ export function createApmeGitRepositoriesExtensionsApi(
           // Hidden entirely (not just content-blocked) for users lacking
           // ansible.settings.view for the apme capability.
           permission: ansibleSettingsViewPermission,
-          resourceRef: 'apme',
+          resourceRef: APME_SETTINGS_CAPABILITY,
         },
         {
           id: 'rules',

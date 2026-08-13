@@ -17,6 +17,7 @@
     "./constants": "./src/constants.ts",
     "./permissions": "./src/permissions/index.ts",
     "./permissions/rules": "./src/permissions/rules.ts",
+    "./permissions/extensionPoint": "./src/permissions/capabilityExtensionPoint.ts",
     "./gitRepositoriesExtensions": "./src/gitRepositoriesExtensions.ts",
     "./devSpaces": "./src/devSpaces.ts",
     "./catalogEntity": "./src/catalogEntity.ts",
@@ -32,6 +33,9 @@
       ],
       "permissions/rules": [
         "src/permissions/rules.ts"
+      ],
+      "permissions/extensionPoint": [
+        "src/permissions/capabilityExtensionPoint.ts"
       ],
       "gitRepositoriesExtensions": [
         "src/gitRepositoriesExtensions.ts"

@@ -8,23 +8,23 @@ import { ansibleSettingsViewPermission } from '@ansible/backstage-rhaap-common/p
 export function createRequireSettingsViewMiddleware(deps: {
   httpAuth: HttpAuthService;
   permissions: PermissionsService;
+  capability: string;
 }): any {
-  const { httpAuth, permissions } = deps;
+  const { httpAuth, permissions, capability } = deps;
   return async (req: any, res: any, next: any) => {
     const credentials = await httpAuth.credentials(
       req as unknown as Parameters<HttpAuthService['credentials']>[0],
       { allow: ['user'] },
     );
     const [decision] = await permissions.authorize(
-      [{ permission: ansibleSettingsViewPermission, resourceRef: 'apme' }],
+      [{ permission: ansibleSettingsViewPermission, resourceRef: capability }],
       { credentials },
     );
     if (decision.result === AuthorizeResult.ALLOW) {
       next();
     } else {
       res.status(403).json({
-        error:
-          'Forbidden: ansible.settings.view permission required for capability apme',
+        error: `Forbidden: ansible.settings.view permission required for capability ${capability}`,
       });
     }
   };

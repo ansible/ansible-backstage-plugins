@@ -16,6 +16,7 @@ describe('createRequireSettingsManageMiddleware', () => {
     const middleware = createRequireSettingsManageMiddleware({
       httpAuth: mockHttpAuth as never,
       permissions: mockPermissions as never,
+      capability: 'apme',
     });
     const next = jest.fn();
     const res = { status: jest.fn().mockReturnThis(), json: jest.fn() };
@@ -35,6 +36,7 @@ describe('createRequireSettingsManageMiddleware', () => {
     const middleware = createRequireSettingsManageMiddleware({
       httpAuth: mockHttpAuth as never,
       permissions: mockPermissions as never,
+      capability: 'apme',
     });
     const next = jest.fn();
     const res = { status: jest.fn().mockReturnThis(), json: jest.fn() };

@@ -111,14 +111,16 @@ Basic view permissions are defined in `backstage-rhaap-common/src/permissions/in
 - `ansible.templates.view`
 - `ansible.history.view`
 
-Resource permissions for settings are also defined there, scoped by capability area (`apme`, `aap`, `general`) via `RESOURCE_TYPE_ANSIBLE_SETTINGS`:
+Resource permissions for settings are also defined there, scoped by capability area via `RESOURCE_TYPE_ANSIBLE_SETTINGS`:
 
 - `ansible.settings.view` — gates read access to settings-exclusive endpoints (`/apme/settings/galaxy-servers`, `/apme/ai/config`, `/apme/ai/engines`) and the Quality settings / Abbenay AI frontend tabs. Shared reads (`/apme/settings`, `/apme/ai/status`, `/apme/ai/models`, `/apme/ai/providers`) remain open because they back non-settings scan/workflow features.
 - `ansible.settings.edit` — gates mutation endpoints (`PUT /apme/settings`, `POST/PATCH/DELETE` galaxy-servers, rule config, AI provider CRUD).
 
-The `FOR_CAPABILITY` permission rule (`backstage-rhaap-common/src/permissions/rules.ts`) allows RBAC policies to grant settings access narrowly (e.g. `FOR_CAPABILITY(capability=apme)`).
+The `FOR_CAPABILITY` permission rule is built dynamically by the `catalog-backend-module-ansible-settings` aggregator module. Capability owners (APME today) register themselves via the `ansibleSettingsCapabilitiesExtensionPoint` (`backstage-rhaap-common/src/permissions/capabilityExtensionPoint.ts`) at module-init time. The aggregator collects all registrations, builds a `z.enum(...)` from only the actually-registered capability IDs, and calls `permissionsRegistry.addResourceType()` once — registering both `ansible.settings.edit` and `ansible.settings.view` on the shared `RESOURCE_TYPE_ANSIBLE_SETTINGS` resource type. This means the RBAC condition-rules metadata (`GET /api/permission/plugins/condition-rules`) reflects exactly which capabilities are installed. Adding or removing a capability-owning module requires a backend restart to update the dropdown.
 
-View permissions are registered via `permissionsRegistry.addPermissions()` in the catalog module. The settings resource permissions are registered via `permissionsRegistry.addResourceType()` in `catalog-backend-module-apme`. Frontend components use `RequirePermission` with `resourceRef="apme"` as a content-level guard.
+The `APME_SETTINGS_CAPABILITY` constant (`backstage-apme-common/src/settingsCapability.ts`) is the single source of truth for the `'apme'` capability ID, threaded through both backend middleware (`requireSettingsManage`, `requireSettingsView`) and all frontend `RequirePermission` / `resourceRef` call sites.
+
+View permissions are registered via `permissionsRegistry.addPermissions()` in the catalog module. The settings resource permissions are registered via the aggregator module `catalog-backend-module-ansible-settings`. Frontend components use `RequirePermission` with `resourceRef={APME_SETTINGS_CAPABILITY}` as a content-level guard.
 
 The "Quality settings" Git Repositories tab additionally declares `permission`/`resourceRef` on its `GitRepositoriesPageTabDefinition` (`gitRepositoriesExtensions.ts`). `GitRepositoriesPage` resolves this via an invisible `usePermission` probe and hides the tab from the tab bar entirely for unauthorized users (redirecting away if deep-linked), rather than showing a clickable tab that 404s. Other extension tabs can opt into the same tab-bar-level gating by setting `permission`/`resourceRef` on their own `GitRepositoriesPageTabDefinition`.
 

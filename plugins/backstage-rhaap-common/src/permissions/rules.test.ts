@@ -1,6 +1,5 @@
 import {
-  hasCapability,
-  settingsPermissionRules,
+  createSettingsPermissionRules,
   ansibleSettingsResourceRef,
   type AnsibleSettingsResource,
 } from './rules';
@@ -14,29 +13,45 @@ describe('settings permission rules', () => {
     );
   });
 
-  it('exports hasCapability as FOR_CAPABILITY', () => {
-    expect(hasCapability.name).toBe('FOR_CAPABILITY');
-    expect(settingsPermissionRules).toContain(hasCapability);
-  });
+  describe('createSettingsPermissionRules', () => {
+    const rules = createSettingsPermissionRules(['apme']);
+    const hasCapability = rules[0];
 
-  it('apply returns true when capability matches', () => {
-    expect(
-      hasCapability.apply({ capability: 'apme' }, { capability: 'apme' }),
-    ).toBe(true);
-  });
+    it('returns a single FOR_CAPABILITY rule', () => {
+      expect(rules).toHaveLength(1);
+      expect(hasCapability.name).toBe('FOR_CAPABILITY');
+    });
 
-  it('apply returns false when capability does not match', () => {
-    const otherResource = {
-      capability: 'other',
-    } as unknown as AnsibleSettingsResource;
-    expect(hasCapability.apply(otherResource, { capability: 'apme' })).toBe(
-      false,
-    );
-  });
+    it('apply returns true when capability matches', () => {
+      expect(
+        hasCapability.apply({ capability: 'apme' }, { capability: 'apme' }),
+      ).toBe(true);
+    });
 
-  it('toQuery returns equality filter for capability', () => {
-    expect(hasCapability.toQuery({ capability: 'apme' })).toEqual({
-      capability: { $eq: 'apme' },
+    it('apply returns false when capability does not match', () => {
+      const otherResource = {
+        capability: 'other',
+      } as unknown as AnsibleSettingsResource;
+      expect(hasCapability.apply(otherResource, { capability: 'apme' })).toBe(
+        false,
+      );
+    });
+
+    it('toQuery returns equality filter for capability', () => {
+      expect(hasCapability.toQuery({ capability: 'apme' })).toEqual({
+        capability: { $eq: 'apme' },
+      });
+    });
+
+    it('supports multiple capability ids', () => {
+      const multiRules = createSettingsPermissionRules(['apme', 'aap']);
+      const rule = multiRules[0];
+      expect(rule.apply({ capability: 'aap' }, { capability: 'aap' })).toBe(
+        true,
+      );
+      expect(rule.apply({ capability: 'apme' }, { capability: 'aap' })).toBe(
+        false,
+      );
     });
   });
 });
