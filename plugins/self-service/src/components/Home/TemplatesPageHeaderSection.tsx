@@ -38,7 +38,7 @@ export const TemplatesPageHeaderSection = ({
         href="https://red.ht/self-service-launch-template"
         target="_blank"
         rel="noopener noreferrer"
-        variant="body1"
+        variant="body2"
         style={{
           display: 'inline-flex',
           alignItems: 'center',
@@ -47,7 +47,7 @@ export const TemplatesPageHeaderSection = ({
           textDecoration: 'underline',
         }}
       >
-        Learn more <OpenInNewIcon style={{ fontSize: '1rem' }} />
+        Learn more <OpenInNewIcon style={{ fontSize: '0.875rem' }} />
       </Typography>
     }
   />

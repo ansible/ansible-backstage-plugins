@@ -2,6 +2,8 @@ import { makeStyles } from '@material-ui/core/styles';
 
 export const usePageHeaderStyles = makeStyles(theme => ({
   pageHeader: {
+    paddingBottom: theme.spacing(3),
+    borderBottom: `1px solid ${theme.palette.divider}`,
     marginBottom: theme.spacing(2),
   },
   headerRow: {
@@ -36,9 +38,6 @@ export const usePageHeaderStyles = makeStyles(theme => ({
     fontSize: 15,
     lineHeight: 1.5,
     maxWidth: '900px',
-    paddingBottom: theme.spacing(3),
-    borderBottom: `1px solid ${theme.palette.divider}`,
-    marginBottom: theme.spacing(2),
   },
 }));
 
