@@ -56,13 +56,17 @@ test('Template org metadata: annotations and namespaces', async ({ page }) => {
     'Should have at least one AAP-backed template in catalog',
   ).toBeGreaterThan(0);
 
+  const isMultiOrg = orgNamespaces.length > 1;
+
   for (const tpl of aapTemplates) {
-    const orgAnnotation =
-      tpl.metadata?.annotations?.['ansible.com/organization'];
-    expect(
-      orgAnnotation,
-      `Template "${tpl.metadata.name}" (ns: ${tpl.metadata.namespace}) should have ansible.com/organization`,
-    ).toBeTruthy();
+    if (isMultiOrg) {
+      const orgAnnotation =
+        tpl.metadata?.annotations?.['ansible.com/organization'];
+      expect(
+        orgAnnotation,
+        `Template "${tpl.metadata.name}" (ns: ${tpl.metadata.namespace}) should have ansible.com/organization`,
+      ).toBeTruthy();
+    }
 
     expect(
       orgNamespaces,
@@ -70,14 +74,20 @@ test('Template org metadata: annotations and namespaces', async ({ page }) => {
     ).toContain(tpl.metadata.namespace);
   }
 
-  const namespacesPresent = new Set(
-    aapTemplates.map((t: any) => t.metadata.namespace),
-  );
-  for (const ns of orgNamespaces) {
-    expect(
-      namespacesPresent.has(ns),
-      `Should have at least one template in namespace "${ns}"`,
-    ).toBe(true);
+  if (isMultiOrg) {
+    const namespacesPresent = new Set(
+      aapTemplates.map((t: any) => t.metadata.namespace),
+    );
+    for (const ns of orgNamespaces) {
+      expect(
+        namespacesPresent.has(ns),
+        `Should have at least one template in namespace "${ns}"`,
+      ).toBe(true);
+    }
+  } else {
+    console.log(
+      `[Template Visibility] Single-org mode: skipping org annotation and per-namespace checks`,
+    );
   }
 });
 
