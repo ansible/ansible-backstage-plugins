@@ -124,9 +124,13 @@ export async function waitForCatalogDataOrEmptyState(
       if (body.includes('Error:')) {
         return true;
       }
+      const main = document.querySelector('main');
+      if (main && main.innerText.trim().length > 20) {
+        return true;
+      }
       return false;
     },
     undefined,
-    { timeout: 120000 },
+    { timeout: 90000 },
   );
 }
