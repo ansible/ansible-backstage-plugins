@@ -430,7 +430,9 @@ test.describe('Collections sidebar link and viewport', () => {
       await waitForCatalogDataOrEmptyState(page);
     } catch (error: unknown) {
       if (error instanceof Error && error.name === 'TimeoutError') {
-        await page.locator('main').waitFor({ state: 'visible', timeout: 30000 });
+        await page
+          .locator('main')
+          .waitFor({ state: 'visible', timeout: 30000 });
       } else {
         throw error;
       }
