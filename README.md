@@ -57,7 +57,7 @@ Before setting up the development environment, ensure you have:
 
 ### Required Software
 
-- **Node.js**: Version **20** or **22** (LTS versions)
+- **Node.js**: Version **22** or **24**
   - Check version: `node --version`
   - Install via [nvm](https://github.com/nvm-sh/nvm) or from [nodejs.org](https://nodejs.org/)
 
@@ -117,7 +117,7 @@ Check that installation was successful:
 
 ```bash
 # Check Node.js version
-node --version  # Should show v20.x.x or v22.x.x
+node --version  # Should show v22.x.x or v24.x.x
 
 # Check Yarn version
 yarn --version  # Should show 4.9.1 or similar
