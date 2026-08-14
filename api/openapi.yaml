@@ -1906,7 +1906,7 @@ paths:
     get:
       operationId: listApmeAiProviders
       summary: List configured AI providers
-      description: Returns AI providers configured in Abbenay with secrets redacted for the portal UI.
+      description: Returns Gateway-managed AI providers with secrets redacted for the portal UI.
       tags:
         - APME
       responses:
@@ -1918,6 +1918,66 @@ paths:
                 type: array
                 items:
                   type: object
+    post:
+      operationId: createApmeAiProvider
+      summary: Create an AI provider
+      description: Creates a Gateway-managed AI provider (API key write-only; pushed to Abbenay memory at scan time).
+      tags:
+        - APME
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+      responses:
+        '201':
+          description: Provider created
+          content:
+            application/json:
+              schema:
+                type: object
+  /apme/ai/providers/{id}:
+    patch:
+      operationId: updateApmeAiProvider
+      summary: Update an AI provider
+      description: Partially updates a Gateway-managed AI provider by numeric id.
+      tags:
+        - APME
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+      responses:
+        '200':
+          description: Provider updated
+          content:
+            application/json:
+              schema:
+                type: object
+    delete:
+      operationId: deleteApmeAiProviderById
+      summary: Delete an AI provider by id
+      description: Removes a Gateway-managed AI provider by numeric id.
+      tags:
+        - APME
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '204':
+          description: Provider deleted
   /apme/ai/engines:
     get:
       operationId: listApmeAiEngines

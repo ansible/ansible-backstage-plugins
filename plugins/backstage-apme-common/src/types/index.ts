@@ -267,10 +267,16 @@ export interface ApmeAiEnginesResponse {
 }
 
 /** Provider summary returned by the portal catalog proxy — no secrets. */
+/** Provider row from Gateway ``/settings/ai-providers`` (US-016 + memory push). */
 export interface ApmeAiProviderSummary {
-  id: string;
+  /** Gateway DB id (numeric). */
+  id: number;
+  /** Abbenay virtual provider name. */
+  name: string;
   engine: string;
   models: string[];
+  baseUrl?: string;
+  hasApiKey?: boolean;
 }
 
 /** Model row from portal-side provider discovery (Ollama / OpenAI-compatible APIs). */
@@ -290,26 +296,39 @@ export interface ApmeAiConfigResponse {
   [key: string]: unknown;
 }
 
-/** Request body for POST …/provider/{id}/configure (US-016). */
-export interface ApmeAiProviderConfigureRequest {
+/** Create/update body for Gateway ``/settings/ai-providers``. */
+export interface ApmeAiProviderUpsertRequest {
+  name?: string;
   engine: string;
-  /** Write-only — omit when empty to leave unchanged. camelCase per Abbenay v2026.8+. */
+  /** Write-only — omit when empty to leave unchanged on update. */
   apiKey?: string;
   baseUrl?: string;
-  envVarName?: string;
-  /**
-   * `env` references a deploy-time process env var (Helm / `.env-abbenay`).
-   * Prefer over `apiKey` for containers — Abbenay has no keytar there.
-   */
-  secretStorage?: 'env' | 'keychain';
+  models?: Record<string, Record<string, unknown>>;
 }
+
+/** @deprecated Prefer ApmeAiProviderUpsertRequest — kept for older call sites. */
+export type ApmeAiProviderConfigureRequest = ApmeAiProviderUpsertRequest & {
+  envVarName?: string;
+  secretStorage?: 'env' | 'keychain' | 'memory';
+};
 
 function normalizeProviderEntry(p: unknown): ApmeAiProviderSummary {
   if (!p || typeof p !== 'object') {
-    return { id: String(p ?? ''), engine: '', models: [] };
+    return { id: 0, name: String(p ?? ''), engine: '', models: [] };
   }
   const obj = p as Record<string, unknown>;
-  const id = typeof obj.id === 'string' ? obj.id : String(obj.id ?? '');
+  const numericId =
+    typeof obj.id === 'number'
+      ? obj.id
+      : typeof obj.id === 'string' && /^\d+$/.test(obj.id)
+        ? Number(obj.id)
+        : 0;
+  const name =
+    typeof obj.name === 'string' && obj.name
+      ? obj.name
+      : typeof obj.id === 'string' && !/^\d+$/.test(obj.id)
+        ? obj.id
+        : String(obj.name ?? obj.id ?? '');
   const engine = typeof obj.engine === 'string' ? obj.engine : '';
   let models: string[] = [];
   if (Array.isArray(obj.models)) {
@@ -317,7 +336,19 @@ function normalizeProviderEntry(p: unknown): ApmeAiProviderSummary {
   } else if (obj.models && typeof obj.models === 'object') {
     models = Object.keys(obj.models as Record<string, unknown>);
   }
-  return { id, engine, models };
+  const baseUrl =
+    typeof obj.base_url === 'string'
+      ? obj.base_url
+      : typeof obj.baseUrl === 'string'
+        ? obj.baseUrl
+        : undefined;
+  const hasApiKey =
+    typeof obj.has_api_key === 'boolean'
+      ? obj.has_api_key
+      : typeof obj.hasApiKey === 'boolean'
+        ? obj.hasApiKey
+        : undefined;
+  return { id: numericId, name, engine, models, baseUrl, hasApiKey };
 }
 
 /**
@@ -325,7 +356,9 @@ function normalizeProviderEntry(p: unknown): ApmeAiProviderSummary {
  * Handles: bare array, `{providers: array}`, `{providers: record}`,
  * and `{config: {providers: record}}`. Never exposes secrets.
  */
-export function normalizeApmeAiProviders(raw: unknown): ApmeAiProviderSummary[] {
+export function normalizeApmeAiProviders(
+  raw: unknown,
+): ApmeAiProviderSummary[] {
   if (Array.isArray(raw)) {
     return raw.map(p => normalizeProviderEntry(p));
   }
@@ -345,6 +378,7 @@ export function normalizeApmeAiProviders(raw: unknown): ApmeAiProviderSummary[] 
         ([id, val]) =>
           normalizeProviderEntry({
             id,
+            name: id,
             ...(typeof val === 'object' && val !== null ? val : {}),
           }),
       );

@@ -42,6 +42,8 @@ describe('catalog-backend-module-apme router', () => {
     updateAiConfig: jest.fn(),
     getAiProviders: jest.fn(),
     getAiEngines: jest.fn(),
+    createAiProvider: jest.fn(),
+    updateAiProvider: jest.fn(),
     configureAiProvider: jest.fn(),
     deleteAiProvider: jest.fn(),
     listGalaxyServers: jest.fn(),
@@ -580,7 +582,13 @@ describe('catalog-backend-module-apme router', () => {
   // US-016: AI provider CRUD routes
   it('returns normalised AI providers list', async () => {
     mockApmeService.getAiProviders.mockResolvedValueOnce([
-      { id: 'my-openrouter', engine: 'openrouter', models: { 'gpt-4o': {} } },
+      {
+        id: 1,
+        name: 'my-openrouter',
+        engine: 'openrouter',
+        models: { 'gpt-4o': {} },
+        has_api_key: true,
+      },
     ]);
 
     const response = await request(app).get('/apme/ai/providers');
@@ -588,56 +596,85 @@ describe('catalog-backend-module-apme router', () => {
     expect(response.status).toBe(200);
     expect(mockApmeService.getAiProviders).toHaveBeenCalled();
     expect(response.body).toEqual([
-      { id: 'my-openrouter', engine: 'openrouter', models: ['gpt-4o'] },
+      {
+        id: 1,
+        name: 'my-openrouter',
+        engine: 'openrouter',
+        models: ['gpt-4o'],
+        hasApiKey: true,
+      },
     ]);
   });
 
-  it('proxies configureAiProvider with envVarName + secretStorage (deploy-time secrets)', async () => {
-    mockApmeService.configureAiProvider.mockResolvedValueOnce({ ok: true });
+  it('creates AI provider via POST /apme/ai/providers', async () => {
+    mockApmeService.createAiProvider.mockResolvedValueOnce({
+      id: 1,
+      name: 'my-openrouter',
+      engine: 'openrouter',
+      has_api_key: true,
+    });
+
+    const response = await request(app)
+      .post('/apme/ai/providers')
+      .send({
+        name: 'my-openrouter',
+        engine: 'openrouter',
+        apiKey: 'sk-xxx',
+        models: { 'gpt-4o': {} },
+      });
+
+    expect(response.status).toBe(201);
+    expect(mockApmeService.createAiProvider).toHaveBeenCalledWith({
+      name: 'my-openrouter',
+      engine: 'openrouter',
+      apiKey: 'sk-xxx',
+      baseUrl: undefined,
+      models: { 'gpt-4o': {} },
+    });
+  });
+
+  it('legacy configure path creates via createAiProvider', async () => {
+    mockApmeService.createAiProvider.mockResolvedValueOnce({ ok: true });
 
     const response = await request(app)
       .post('/apme/ai/provider/my-openrouter/configure')
       .send({
         engine: 'openrouter',
-        envVarName: 'OPENROUTER_API_KEY',
-        secretStorage: 'env',
+        apiKey: 'sk-xxx',
       });
 
     expect(response.status).toBe(200);
-    expect(mockApmeService.configureAiProvider).toHaveBeenCalledWith(
-      'my-openrouter',
-      {
-        engine: 'openrouter',
-        envVarName: 'OPENROUTER_API_KEY',
-        secretStorage: 'env',
-      },
-    );
-  });
-
-  it('proxies configureAiProvider apiKey body through (keytar host path)', async () => {
-    mockApmeService.configureAiProvider.mockResolvedValueOnce({ ok: true });
-
-    const response = await request(app)
-      .post('/apme/ai/provider/my-openrouter/configure')
-      .send({ engine: 'openrouter', apiKey: 'sk-xxx' });
-
-    expect(response.status).toBe(200);
-    expect(mockApmeService.configureAiProvider).toHaveBeenCalledWith(
-      'my-openrouter',
-      { engine: 'openrouter', apiKey: 'sk-xxx' },
-    );
+    expect(mockApmeService.createAiProvider).toHaveBeenCalledWith({
+      name: 'my-openrouter',
+      engine: 'openrouter',
+      apiKey: 'sk-xxx',
+      baseUrl: undefined,
+      models: undefined,
+    });
   });
 
   it('rejects unsafe AI provider ids on configure', async () => {
     const response = await request(app)
       .post('/apme/ai/provider/bad;id/configure')
-      .send({ engine: 'openrouter', envVarName: 'OPENROUTER_API_KEY' });
+      .send({ engine: 'openrouter', apiKey: 'sk' });
 
     expect(response.status).toBe(400);
-    expect(mockApmeService.configureAiProvider).not.toHaveBeenCalled();
+    expect(mockApmeService.createAiProvider).not.toHaveBeenCalled();
   });
 
-  it('deletes an AI provider and returns 204', async () => {
+  it('deletes AI provider by numeric id', async () => {
+    mockApmeService.deleteAiProvider.mockResolvedValueOnce(undefined);
+
+    const response = await request(app).delete('/apme/ai/providers/7');
+
+    expect(response.status).toBe(204);
+    expect(mockApmeService.deleteAiProvider).toHaveBeenCalledWith('7');
+  });
+
+  it('legacy delete-by-name resolves to numeric id', async () => {
+    mockApmeService.getAiProviders.mockResolvedValueOnce([
+      { id: 7, name: 'my-openrouter', engine: 'openrouter', models: {} },
+    ]);
     mockApmeService.deleteAiProvider.mockResolvedValueOnce(undefined);
 
     const response = await request(app).delete(
@@ -645,9 +682,7 @@ describe('catalog-backend-module-apme router', () => {
     );
 
     expect(response.status).toBe(204);
-    expect(mockApmeService.deleteAiProvider).toHaveBeenCalledWith(
-      'my-openrouter',
-    );
+    expect(mockApmeService.deleteAiProvider).toHaveBeenCalledWith(7);
   });
 
   it('returns AI status connected from Abbenay health when models list is empty', async () => {

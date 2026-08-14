@@ -17,16 +17,22 @@ describe('ApmeQualitySettingsTab', () => {
   const updatePortalSettings = jest.fn();
   const getAiProviders = jest.fn();
   const getAiStatus = jest.fn();
-  const configureAiProvider = jest.fn();
+  const createAiProvider = jest.fn();
+  const updateAiProvider = jest.fn();
   const deleteAiProvider = jest.fn();
+  const getAiModels = jest.fn();
+  const getAiEngines = jest.fn();
 
   const apmeApi = {
     getPortalSettings,
     updatePortalSettings,
     getAiProviders,
     getAiStatus,
-    configureAiProvider,
+    createAiProvider,
+    updateAiProvider,
     deleteAiProvider,
+    getAiModels,
+    getAiEngines,
   };
 
   beforeEach(() => {
@@ -42,6 +48,8 @@ describe('ApmeQualitySettingsTab', () => {
       targetAnsibleCoreVersion: '2.18',
     });
     getAiProviders.mockResolvedValue([]);
+    getAiModels.mockResolvedValue([]);
+    getAiEngines.mockResolvedValue({ engines: [] });
     getAiStatus.mockResolvedValue({
       enableAi: true,
       connected: false,

@@ -78,7 +78,7 @@ export interface ApmeAiProviderDialogProps {
   provider?: ApmeAiProviderSummary;
   onClose(): void;
   onSave(
-    id: string,
+    name: string,
     payload: { configure: ApmeAiProviderConfigureRequest; models: string[] },
   ): Promise<void>;
 }
@@ -96,10 +96,10 @@ export const ApmeAiProviderDialog = ({
   const isEdit = Boolean(provider);
 
   const [step, setStep] = useState<Step>('setup');
-  const [id, setId] = useState(provider?.id ?? '');
+  const [id, setId] = useState(provider?.name ?? '');
   const [engine, setEngine] = useState(provider?.engine ?? '');
-  const [envVarName, setEnvVarName] = useState('');
-  const [baseUrl, setBaseUrl] = useState('');
+  const [apiKey, setApiKey] = useState('');
+  const [baseUrl, setBaseUrl] = useState(provider?.baseUrl ?? '');
   const [modelInput, setModelInput] = useState('');
   const [models, setModels] = useState<string[]>(provider?.models ?? []);
   const [saving, setSaving] = useState(false);
@@ -126,13 +126,6 @@ export const ApmeAiProviderDialog = ({
           }
           return list.length > 0 ? list[0].id : '';
         });
-        setEnvVarName(prev => {
-          if (prev) {
-            return prev;
-          }
-          const first = list.length > 0 ? list[0] : undefined;
-          return first?.defaultEnvVar ?? '';
-        });
       })
       .catch(err => {
         setEnginesError(
@@ -140,15 +133,15 @@ export const ApmeAiProviderDialog = ({
         );
       })
       .finally(() => setEnginesLoading(false));
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open]);
 
   const handleClose = () => {
     setStep('setup');
-    setId(provider?.id ?? '');
+    setId(provider?.name ?? '');
     setEngine(provider?.engine ?? '');
-    setEnvVarName('');
-    setBaseUrl('');
+    setApiKey('');
+    setBaseUrl(provider?.baseUrl ?? '');
     setModelInput('');
     setModels(provider?.models ?? []);
     setSaving(false);
@@ -173,16 +166,15 @@ export const ApmeAiProviderDialog = ({
     setError(undefined);
     try {
       const configure: ApmeAiProviderConfigureRequest = { engine };
-      const trimmedEnv = envVarName.trim();
-      if (trimmedEnv) {
-        configure.envVarName = trimmedEnv;
-        configure.secretStorage = 'env';
+      const trimmedKey = apiKey.trim();
+      if (trimmedKey) {
+        configure.apiKey = trimmedKey;
       }
       const trimmedUrl = baseUrl.trim();
       if (trimmedUrl) {
         configure.baseUrl = trimmedUrl;
       }
-      await onSave(isEdit ? provider!.id : id.trim(), { configure, models });
+      await onSave(isEdit ? provider!.name : id.trim(), { configure, models });
       handleClose();
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));
@@ -191,31 +183,37 @@ export const ApmeAiProviderDialog = ({
     }
   };
 
+  const selectedEngineInfo = engines.find(e => e.id === engine);
+  const needsKey = Boolean(selectedEngineInfo?.requiresKey);
   const canAdvance = isEdit
     ? Boolean(engine)
-    : Boolean(id.trim()) && Boolean(engine);
+    : Boolean(id.trim()) &&
+      Boolean(engine) &&
+      (!needsKey || Boolean(apiKey.trim()));
 
-  // When editing a provider whose engine is not in the live list, keep it visible.
   const engineIds = engines.map(e => e.id);
   const engineOptions: string[] = (
-    engine && !engineIds.includes(engine)
-      ? [...engineIds, engine]
-      : engineIds
+    engine && !engineIds.includes(engine) ? [...engineIds, engine] : engineIds
   ).filter(Boolean);
 
-  const selectedEngineInfo = engines.find(e => e.id === engine);
-
-  let envVarHelperExtra = '';
-  if (selectedEngineInfo?.requiresKey) {
-    envVarHelperExtra = ' This engine needs a key in that env var.';
-  } else if (isEdit) {
-    envVarHelperExtra = ' Leave blank to keep the existing env reference.';
+  let apiKeyHelper =
+    'Stored in the APME Gateway and pushed to Abbenay memory when an AI scan runs.';
+  if (isEdit && provider?.hasApiKey) {
+    apiKeyHelper =
+      'Leave blank to keep the existing key. Stored in Gateway; pushed to Abbenay at scan time.';
+  } else if (needsKey) {
+    apiKeyHelper = `Required for ${engine || 'this engine'}. ${apiKeyHelper}`;
   }
 
-  const title = isEdit ? `Edit provider: ${provider!.id}` : 'Add AI provider';
+  const title = isEdit ? `Edit provider: ${provider!.name}` : 'Add AI provider';
 
   return (
-    <Dialog maxWidth="sm" fullWidth open={open} aria-labelledby="apme-ai-provider-dialog-title">
+    <Dialog
+      maxWidth="sm"
+      fullWidth
+      open={open}
+      aria-labelledby="apme-ai-provider-dialog-title"
+    >
       <DialogTitle id="apme-ai-provider-dialog-title">{title}</DialogTitle>
       <DialogContent dividers>
         {step === 'setup' && (
@@ -225,21 +223,31 @@ export const ApmeAiProviderDialog = ({
             </Typography>
 
             {!isEdit && (
-              <TextField
-                className={classes.field}
-                label="Provider ID"
-                variant="outlined"
-                size="small"
-                value={id}
-                onChange={e => setId(e.target.value)}
-                disabled={saving}
-                required
-                inputProps={{ 'aria-label': 'Provider ID' }}
-              />
+              <>
+                <TextField
+                  className={classes.field}
+                  label="Provider name"
+                  variant="outlined"
+                  size="small"
+                  value={id}
+                  onChange={e => setId(e.target.value)}
+                  disabled={saving}
+                  required
+                  inputProps={{ 'aria-label': 'Provider name' }}
+                  placeholder="my-openai"
+                />
+                <Typography className={classes.helperText}>
+                  Slug used as the Abbenay provider key (lowercase letters,
+                  digits, hyphens). Not the numeric Gateway id.
+                </Typography>
+              </>
             )}
 
             {enginesLoading && (
-              <div className={classes.field} style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <div
+                className={classes.field}
+                style={{ display: 'flex', alignItems: 'center', gap: 8 }}
+              >
                 <CircularProgress size={16} />
                 <Typography variant="body2" className={classes.helperText}>
                   Loading engines…
@@ -265,14 +273,7 @@ export const ApmeAiProviderDialog = ({
                   labelId="apme-engine-label"
                   label="Engine"
                   value={engine}
-                  onChange={e => {
-                    const next = e.target.value as string;
-                    setEngine(next);
-                    const info = engines.find(eng => eng.id === next);
-                    if (info?.defaultEnvVar) {
-                      setEnvVarName(info.defaultEnvVar);
-                    }
-                  }}
+                  onChange={e => setEngine(e.target.value as string)}
                   disabled={saving || engineOptions.length === 0}
                 >
                   {engineOptions.map(opt => (
@@ -286,21 +287,19 @@ export const ApmeAiProviderDialog = ({
 
             <TextField
               className={classes.field}
-              label="API key env var"
+              label="API key"
               variant="outlined"
               size="small"
-              value={envVarName}
-              onChange={e => setEnvVarName(e.target.value)}
+              type="password"
+              value={apiKey}
+              onChange={e => setApiKey(e.target.value)}
               disabled={saving}
-              required={Boolean(selectedEngineInfo?.requiresKey) && !isEdit}
-              placeholder={selectedEngineInfo?.defaultEnvVar}
-              inputProps={{ 'aria-label': 'API key env var' }}
+              required={needsKey && !isEdit}
+              inputProps={{ 'aria-label': 'API key' }}
+              autoComplete="new-password"
             />
             <Typography className={classes.helperText}>
-              Set this variable in Abbenay&apos;s deploy env (for example
-              `.env-abbenay` or a Helm secret) and restart Abbenay. Portal does
-              not store API key values.
-              {envVarHelperExtra}
+              {apiKeyHelper}
             </Typography>
 
             <TextField
@@ -355,7 +354,11 @@ export const ApmeAiProviderDialog = ({
             </div>
 
             {models.length > 0 && (
-              <div className={classes.chips} role="list" aria-label="Enabled models">
+              <div
+                className={classes.chips}
+                role="list"
+                aria-label="Enabled models"
+              >
                 {models.map(model => (
                   <Chip
                     key={model}
@@ -376,7 +379,11 @@ export const ApmeAiProviderDialog = ({
         )}
 
         {error && (
-          <Typography variant="body2" className={classes.errorText} role="alert">
+          <Typography
+            variant="body2"
+            className={classes.errorText}
+            role="alert"
+          >
             {error}
           </Typography>
         )}

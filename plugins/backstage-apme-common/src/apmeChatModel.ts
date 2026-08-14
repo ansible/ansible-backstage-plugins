@@ -25,12 +25,12 @@ export function resolveApmeChatModelIdFromProviders(
   providers: ApmeAiProviderSummary[],
 ): string | undefined {
   const sorted = [...providers].sort((a, b) =>
-    a.id.localeCompare(b.id, undefined, { sensitivity: 'base' }),
+    a.name.localeCompare(b.name, undefined, { sensitivity: 'base' }),
   );
   for (const provider of sorted) {
     const firstModel = provider.models.find(m => m.trim());
     if (firstModel) {
-      return formatApmeAbbenayChatModelId(provider.id, firstModel);
+      return formatApmeAbbenayChatModelId(provider.name, firstModel);
     }
   }
   return undefined;

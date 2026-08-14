@@ -42,7 +42,6 @@ import type {
   ApmeAiProviderConfigureRequest,
   ApmeAiStatus,
 } from '@ansible/backstage-apme-common/types';
-import { normalizeApmeAiProviders } from '@ansible/backstage-apme-common/types';
 import { apmeApiRef } from '../../api';
 import { persistApmeDefaultAiModel } from '../../hooks/useApmeWorkflowAiModel';
 import { ApmeAiProviderDialog } from './ApmeAiProviderDialog';
@@ -168,35 +167,13 @@ export const ApmeAiProvidersSection = () => {
     setLoading(true);
     setError(undefined);
     try {
-      const [prov, status, modelList, config] = await Promise.all([
+      const [prov, status, modelList] = await Promise.all([
         apmeApi.getAiProviders().catch(() => [] as ApmeAiProviderSummary[]),
         apmeApi.getAiStatus().catch(() => undefined),
         apmeApi.getAiModels().catch(() => [] as AiModelRow[]),
-        apmeApi.getAiConfig().catch(() => undefined),
       ]);
-      let nextProviders = prov;
-      const configProviders =
-        config !== undefined ? normalizeApmeAiProviders(config) : [];
-      const configById = new Map(configProviders.map(p => [p.id, p]));
-
-      // HTTP /providers omits model lists — merge from /config when present.
-      if (nextProviders.length > 0 && configById.size > 0) {
-        nextProviders = nextProviders.map(p => {
-          const fromConfig = configById.get(p.id);
-          if (fromConfig && fromConfig.models.length > 0) {
-            return { ...p, models: fromConfig.models };
-          }
-          return p;
-        });
-      }
-
-      // Deploy-time ConfigMap providers often show up via /config while
-      // /providers is empty — fall back so the list is not blank.
-      if (nextProviders.length === 0 && configProviders.length > 0) {
-        nextProviders = configProviders;
-      }
-      nextProviders = [...nextProviders].sort((a, b) =>
-        a.id.localeCompare(b.id, undefined, { sensitivity: 'base' }),
+      const nextProviders = [...prov].sort((a, b) =>
+        a.name.localeCompare(b.name, undefined, { sensitivity: 'base' }),
       );
       setProviders(nextProviders);
       setAiStatus(status);
@@ -213,45 +190,30 @@ export const ApmeAiProvidersSection = () => {
   }, [load]);
 
   const handleSave = async (
-    id: string,
+    name: string,
     payload: { configure: ApmeAiProviderConfigureRequest; models: string[] },
   ) => {
     const { configure, models: modelIds } = payload;
-    await apmeApi.configureAiProvider(id, configure);
-    // Merge models into Abbenay config via POST /api/config (separate endpoint).
-    let raw: unknown;
-    try {
-      raw = await apmeApi.getAiConfig();
-    } catch {
-      throw new Error(
-        'Provider saved but could not read AI config to persist models. Check Abbenay connectivity.',
-      );
+    const modelsMap = Object.fromEntries(modelIds.map(m => [m, {}]));
+    const body: ApmeAiProviderConfigureRequest = {
+      name,
+      engine: configure.engine,
+      models: modelsMap,
+    };
+    if (configure.apiKey) {
+      body.apiKey = configure.apiKey;
     }
-    // Normalize: handle both {config:{providers}} and {providers} response shapes.
-    const root =
-      raw && typeof raw === 'object' && 'config' in raw && (raw as any).config
-        ? (raw as any).config
-        : raw;
-    const config: Record<string, unknown> =
-      root && typeof root === 'object' ? { ...(root as object) } : {};
-    const providersById: Record<string, Record<string, unknown>> = {
-      ...((config.providers as object) || {}),
-    };
-    const prev: Record<string, unknown> = { ...(providersById[id] || {}) };
-    providersById[id] = {
-      ...prev,
-      engine: configure.engine || prev.engine,
-      models: Object.fromEntries(modelIds.map(m => [m, {}])),
-    };
     if (configure.baseUrl) {
-      providersById[id].base_url = configure.baseUrl;
+      body.baseUrl = configure.baseUrl;
     }
-    await apmeApi.updateAiConfig({
-      location: 'user',
-      config: { ...config, providers: providersById },
-    });
+
+    if (editProvider && editProvider.id > 0) {
+      await apmeApi.updateAiProvider(editProvider.id, body);
+    } else {
+      await apmeApi.createAiProvider(body);
+    }
     if (modelIds.length > 0) {
-      await persistApmeDefaultAiModel(apmeApi, id, modelIds[0]);
+      await persistApmeDefaultAiModel(apmeApi, name, modelIds[0]);
     }
     await load();
   };
@@ -355,14 +317,14 @@ export const ApmeAiProvidersSection = () => {
           {!loading && providers.length > 0 && (
             <List disablePadding>
               {providers.map((p, idx) => (
-                <div key={p.id}>
+                <div key={p.id || p.name}>
                   {idx > 0 && <Divider component="li" />}
                   <ListItem disableGutters>
                     <ListItemText
                       primary={
                         <Box display="flex" alignItems="center">
                           <Typography variant="body1" component="span">
-                            {p.id}
+                            {p.name}
                           </Typography>
                           <Chip
                             label={p.engine}
@@ -381,7 +343,7 @@ export const ApmeAiProvidersSection = () => {
                     <ListItemSecondaryAction>
                       <IconButton
                         edge="end"
-                        aria-label={`Edit provider ${p.id}`}
+                        aria-label={`Edit provider ${p.name}`}
                         size="small"
                         onClick={() => setEditProvider(p)}
                       >
@@ -389,7 +351,7 @@ export const ApmeAiProvidersSection = () => {
                       </IconButton>
                       <IconButton
                         edge="end"
-                        aria-label={`Remove provider ${p.id}`}
+                        aria-label={`Remove provider ${p.name}`}
                         size="small"
                         onClick={() => {
                           setRemoveError(undefined);
@@ -408,10 +370,7 @@ export const ApmeAiProvidersSection = () => {
 
           {!loading && models.length > 0 && (
             <Box>
-              <Typography
-                variant="subtitle2"
-                className={classes.modelsHeading}
-              >
+              <Typography variant="subtitle2" className={classes.modelsHeading}>
                 Available models
               </Typography>
               <Typography variant="body2" className={classes.sectionHint}>
@@ -424,11 +383,7 @@ export const ApmeAiProvidersSection = () => {
                     key={m.id}
                     size="small"
                     label={m.name || m.id}
-                    title={
-                      m.provider
-                        ? `${m.id} (${m.provider})`
-                        : m.id
-                    }
+                    title={m.provider ? `${m.id} (${m.provider})` : m.id}
                     variant="outlined"
                   />
                 ))}
@@ -456,7 +411,7 @@ export const ApmeAiProvidersSection = () => {
       {removeProvider && (
         <RemoveConfirmDialog
           open
-          providerId={removeProvider.id}
+          providerId={removeProvider.name}
           onCancel={() => setRemoveProvider(undefined)}
           onConfirm={() => void handleRemoveConfirm()}
         />

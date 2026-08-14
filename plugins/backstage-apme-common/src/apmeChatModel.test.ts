@@ -24,8 +24,8 @@ describe('apmeChatModel', () => {
   it('resolveApmeChatModelIdFromProviders uses first model per provider', () => {
     expect(
       resolveApmeChatModelIdFromProviders([
-        { id: 'beta', engine: 'openai', models: ['m1'] },
-        { id: 'alpha', engine: 'openai', models: ['m2', 'm3'] },
+        { id: 2, name: 'beta', engine: 'openai', models: ['m1'] },
+        { id: 1, name: 'alpha', engine: 'openai', models: ['m2', 'm3'] },
       ]),
     ).toBe('alpha/m2');
   });
