@@ -23,3 +23,4 @@ export { EETagsPickerFieldExtension } from './components/Scaffolder/EETagsPicker
 export { ScmSelectorFieldExtension } from './components/Scaffolder/ScmSelector/extensions';
 
 export * from './apis';
+export { defaultGitRepositoriesExtensionsApiFactory } from '@ansible/backstage-rhaap-common/gitRepositoriesExtensions';

@@ -57,7 +57,7 @@ for (const filePath of routerFiles) {
   routeRegex.lastIndex = 0;
   while ((match = routeRegex.exec(source)) !== null) {
     const method = match[1].toUpperCase();
-    const path = normalizePath(match[2]); // Normalize Express :param to OpenAPI {param}
+    const path = normalizePath(match[2]);
     const key = `${method} ${path}`;
     codeRoutes.set(key, { method, path, file: relPath });
   }

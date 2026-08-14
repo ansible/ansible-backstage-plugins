@@ -337,7 +337,7 @@ const CollectionDetailsPageInner = () => {
         onChange={(_, v) => setTab(v)}
         className={classes.detailsTabs}
       >
-        <Tab label="Overview" />
+        <Tab label="Overview" disableRipple />
       </Tabs>
 
       {tab === 0 && (

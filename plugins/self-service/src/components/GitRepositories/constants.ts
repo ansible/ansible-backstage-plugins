@@ -16,6 +16,9 @@ export const COLUMN_CONTAINS_TOOLTIP =
 export const COLUMN_LAST_SYNC_TOOLTIP =
   "When this repository's content source was last synced.";
 
+export const COLUMN_VIOLATIONS_TOOLTIP =
+  'Content quality violations detected by APME scanning. Shows open violation count and highest severity.';
+
 export const PAGE_SIZE = 10;
 
 export const CI_BATCH_CHUNK_SIZE = 100;

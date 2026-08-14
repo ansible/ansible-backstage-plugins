@@ -1,0 +1,20 @@
+# RHDH dynamic plugin wiring (legacy filename: app-config.janus-idp.yaml).
+# Merged at deploy time via portal dynamic-plugins.yaml pluginConfig → app-config.dynamic-plugins.yaml.
+
+dynamicPlugins:
+  frontend:
+    ansible.plugin-backstage-apme:
+      # Composition-root registration (ADR-010). Do not also put these on createPlugin({ apis }).
+      apiFactories:
+        - importName: apmeApiFactory
+        - importName: gitRepositoriesExtensionsApiFactory
+      dynamicRoutes:
+        - path: /apme
+          importName: ApmePage
+        - path: /apme/project/:projectId
+          importName: ApmeProjectPage
+      entityTabs:
+        - path: /apme
+          title: APME
+          mountPoint: entity.page.apme
+          importName: ApmeEntityTab

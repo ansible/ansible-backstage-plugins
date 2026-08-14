@@ -119,8 +119,7 @@ export const CreateTask = () => {
         setEntityTemplate(response as TemplateParameterSchema);
 
         try {
-          const entityRef = `template:${namespace}/${templateName}`;
-          const entity = await catalogApi.getEntityByRef(entityRef);
+          const entity = await catalogApi.getEntityByRef(templateRef);
           if (entity) {
             setTemplateEntity(entity);
           }
@@ -129,7 +128,11 @@ export const CreateTask = () => {
           console.debug('Optional catalog entity lookup failed:', e);
         }
       } catch (err) {
-        setError('Failed to fetch entity');
+        const detail =
+          err instanceof Error ? err.message : 'Unknown scaffolder error';
+        setError(
+          `Failed to load template "${namespace}/${templateName}". ${detail} If you just added this template, restart the backend and wait for catalog processing.`,
+        );
       } finally {
         setLoading(false);
       }

@@ -1,0 +1,50 @@
+# Local development overrides — copy to app-config.local.yaml (gitignored).
+#
+#   cp app-config.local.yaml.example app-config.local.yaml
+#
+# Backstage merges this file on top of app-config.yaml. Put ALL machine-specific
+# settings here: credentials, AAP/APME, OAuth scopes, support links, schedules.
+# Do not commit changes to app-config.yaml for local or prototype work.
+
+app:
+  # Optional: customize title/baseUrl for local dev
+  # title: Ansible automation portal development
+
+  # Optional: support menu links (not in shared app-config.yaml)
+  # support:
+  #   url: https://github.com/ansible/ansible-backstage-plugins/issues
+  #   items:
+  #     - title: GitHub Issues
+  #       icon: github
+  #       links:
+  #         - url: https://github.com/ansible/ansible-backstage-plugins/issues
+  #           title: Report an issue
+
+auth:
+  providers:
+    github:
+      development:
+        # Extra scopes for push/PR flows during APME remediation dev:
+        # additionalScopes:
+        #   - repo
+        #   - read:org
+        clientId: ${AUTH_GITHUB_CLIENT_ID}
+        clientSecret: ${AUTH_GITHUB_CLIENT_SECRET}
+
+ansible:
+  rhaap:
+    # Override env vars from .env if needed
+    # baseUrl: ${AAP_HOST}
+    # token: ${AAP_API_TOKEN}
+    # checkSSL: false
+
+  # APME content quality (prototype) — enable only in local config
+  apme:
+    enabled: true
+    baseUrl: http://localhost:8080
+    checkSSL: false
+    enableAi: false
+    mockMode: false
+    targetAnsibleCoreVersion: '2.16'
+    # submitTimeoutMs: 120000
+    # portalSettingsPath: .data/apme-portal-settings.json

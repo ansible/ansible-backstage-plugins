@@ -968,8 +968,10 @@ describe('ScmSelectorExtension', () => {
         formData: {
           provider: 'github',
           providerLabel: 'Github',
-          org: '',
-          repoName: '',
+          // GitHub auth always exposes at least the personal namespace; empty org
+          // keeps hasErrors true even when auth succeeds.
+          org: 'testuser',
+          repoName: 'my-repo',
           repoExists: false,
         },
       });
@@ -979,6 +981,11 @@ describe('ScmSelectorExtension', () => {
       });
 
       await waitFor(() => {
+        expect(screen.getByText(/Authenticated with/i)).toBeInTheDocument();
+      });
+
+      await waitFor(() => {
+        expect(screen.getByTestId('has-errors')).toHaveTextContent('false');
         expect(
           screen.queryByText('Login failed, rejected by user'),
         ).not.toBeInTheDocument();

@@ -11,6 +11,10 @@ import {
 import { permissionApiRef } from '@backstage/plugin-permission-react';
 import { Entity } from '@backstage/catalog-model';
 import { MemoryRouter } from 'react-router-dom';
+import {
+  DefaultGitRepositoriesExtensionsApi,
+  gitRepositoriesExtensionsApiRef,
+} from '@ansible/backstage-rhaap-common/gitRepositoriesExtensions';
 
 interface TableColumn {
   title: unknown;
@@ -199,6 +203,10 @@ describe('RepositoriesTable', () => {
           [fetchApiRef, mockFetchApi],
           [starredEntitiesApiRef, new MockStarredEntitiesApi()],
           [permissionApiRef, mockApis.permission()],
+          [
+            gitRepositoriesExtensionsApiRef,
+            new DefaultGitRepositoriesExtensionsApi(),
+          ],
         ]}
       >
         <MemoryRouter>
