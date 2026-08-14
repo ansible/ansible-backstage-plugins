@@ -78,7 +78,7 @@ export interface ApmeAiProviderDialogProps {
   provider?: ApmeAiProviderSummary;
   onClose(): void;
   onSave(
-    name: string,
+    id: string,
     payload: { configure: ApmeAiProviderConfigureRequest; models: string[] },
   ): Promise<void>;
 }
@@ -96,10 +96,10 @@ export const ApmeAiProviderDialog = ({
   const isEdit = Boolean(provider);
 
   const [step, setStep] = useState<Step>('setup');
-  const [id, setId] = useState(provider?.name ?? '');
+  const [id, setId] = useState(provider?.id ?? '');
   const [engine, setEngine] = useState(provider?.engine ?? '');
   const [apiKey, setApiKey] = useState('');
-  const [baseUrl, setBaseUrl] = useState(provider?.baseUrl ?? '');
+  const [baseUrl, setBaseUrl] = useState('');
   const [modelInput, setModelInput] = useState('');
   const [models, setModels] = useState<string[]>(provider?.models ?? []);
   const [saving, setSaving] = useState(false);
@@ -138,10 +138,10 @@ export const ApmeAiProviderDialog = ({
 
   const handleClose = () => {
     setStep('setup');
-    setId(provider?.name ?? '');
+    setId(provider?.id ?? '');
     setEngine(provider?.engine ?? '');
     setApiKey('');
-    setBaseUrl(provider?.baseUrl ?? '');
+    setBaseUrl('');
     setModelInput('');
     setModels(provider?.models ?? []);
     setSaving(false);
@@ -165,16 +165,25 @@ export const ApmeAiProviderDialog = ({
     setSaving(true);
     setError(undefined);
     try {
-      const configure: ApmeAiProviderConfigureRequest = { engine };
+      // Abbenay SoT via Gateway proxy (ADR-070 / apme#561): one-shot configure
+      // with apiKey + secretStore:file writes secrets.json on the Abbenay volume.
+      const configure: ApmeAiProviderConfigureRequest = {
+        engine,
+        secretStore: 'file',
+      };
       const trimmedKey = apiKey.trim();
       if (trimmedKey) {
         configure.apiKey = trimmedKey;
+        const secretName = engines.find(e => e.id === engine)?.defaultEnvVar;
+        if (secretName) {
+          configure.secretName = secretName;
+        }
       }
       const trimmedUrl = baseUrl.trim();
       if (trimmedUrl) {
         configure.baseUrl = trimmedUrl;
       }
-      await onSave(isEdit ? provider!.name : id.trim(), { configure, models });
+      await onSave(isEdit ? provider!.id : id.trim(), { configure, models });
       handleClose();
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));
@@ -183,29 +192,30 @@ export const ApmeAiProviderDialog = ({
     }
   };
 
-  const selectedEngineInfo = engines.find(e => e.id === engine);
-  const needsKey = Boolean(selectedEngineInfo?.requiresKey);
+  const needsKey = Boolean(engines.find(e => e.id === engine)?.requiresKey);
   const canAdvance = isEdit
     ? Boolean(engine)
     : Boolean(id.trim()) &&
       Boolean(engine) &&
       (!needsKey || Boolean(apiKey.trim()));
 
+  // When editing a provider whose engine is not in the live list, keep it visible.
   const engineIds = engines.map(e => e.id);
   const engineOptions: string[] = (
     engine && !engineIds.includes(engine) ? [...engineIds, engine] : engineIds
   ).filter(Boolean);
 
+  const selectedEngineInfo = engines.find(e => e.id === engine);
+
   let apiKeyHelper =
-    'Stored in the APME Gateway and pushed to Abbenay memory when an AI scan runs.';
-  if (isEdit && provider?.hasApiKey) {
-    apiKeyHelper =
-      'Leave blank to keep the existing key. Stored in Gateway; pushed to Abbenay at scan time.';
+    "Stored in Abbenay's file secret store (secrets.json on the config volume). Gateway proxies the key and does not keep it.";
+  if (isEdit) {
+    apiKeyHelper = `Leave blank to keep the existing key. ${apiKeyHelper}`;
   } else if (needsKey) {
     apiKeyHelper = `Required for ${engine || 'this engine'}. ${apiKeyHelper}`;
   }
 
-  const title = isEdit ? `Edit provider: ${provider!.name}` : 'Add AI provider';
+  const title = isEdit ? `Edit provider: ${provider!.id}` : 'Add AI provider';
 
   return (
     <Dialog
@@ -237,8 +247,7 @@ export const ApmeAiProviderDialog = ({
                   placeholder="my-openai"
                 />
                 <Typography className={classes.helperText}>
-                  Slug used as the Abbenay provider key (lowercase letters,
-                  digits, hyphens). Not the numeric Gateway id.
+                  Abbenay provider key (lowercase letters, digits, hyphens).
                 </Typography>
               </>
             )}

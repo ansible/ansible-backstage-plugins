@@ -12,9 +12,10 @@ describe('ApmeAiProvidersSection', () => {
   const getAiProviders = jest.fn();
   const getAiStatus = jest.fn();
   const getAiModels = jest.fn();
+  const getAiConfig = jest.fn();
   const getAiEngines = jest.fn();
-  const createAiProvider = jest.fn();
-  const updateAiProvider = jest.fn();
+  const configureAiProvider = jest.fn();
+  const updateAiConfig = jest.fn();
   const deleteAiProvider = jest.fn();
   const updatePortalSettings = jest.fn();
 
@@ -22,9 +23,10 @@ describe('ApmeAiProvidersSection', () => {
     getAiProviders,
     getAiStatus,
     getAiModels,
+    getAiConfig,
     getAiEngines,
-    createAiProvider,
-    updateAiProvider,
+    configureAiProvider,
+    updateAiConfig,
     deleteAiProvider,
     updatePortalSettings,
   };
@@ -38,6 +40,7 @@ describe('ApmeAiProvidersSection', () => {
     });
     getAiProviders.mockResolvedValue([]);
     getAiModels.mockResolvedValue([]);
+    getAiConfig.mockResolvedValue(undefined);
     getAiEngines.mockResolvedValue({
       engines: [
         { id: 'openai', requiresKey: true, defaultEnvVar: 'OPENAI_API_KEY' },
@@ -48,8 +51,8 @@ describe('ApmeAiProvidersSection', () => {
         },
       ],
     });
-    createAiProvider.mockResolvedValue(undefined);
-    updateAiProvider.mockResolvedValue(undefined);
+    configureAiProvider.mockResolvedValue(undefined);
+    updateAiConfig.mockResolvedValue(undefined);
     updatePortalSettings.mockResolvedValue({});
   });
 
@@ -80,11 +83,23 @@ describe('ApmeAiProvidersSection', () => {
     ).toBeInTheDocument();
   });
 
+  it('shows available models section and model chips when providers empty but models returned', async () => {
+    getAiModels.mockResolvedValue([
+      { id: 'gpt-4o', provider: 'openai', name: 'GPT-4o' },
+      { id: 'claude-3-opus', provider: 'anthropic', name: 'Claude 3 Opus' },
+    ]);
+    renderSection();
+    expect(await screen.findByText('Available models')).toBeInTheDocument();
+    expect(screen.getByTitle('gpt-4o (openai)')).toBeInTheDocument();
+    expect(screen.getByTitle('claude-3-opus (anthropic)')).toBeInTheDocument();
+    expect(screen.getByText('GPT-4o')).toBeInTheDocument();
+    expect(screen.getByText('Claude 3 Opus')).toBeInTheDocument();
+  });
+
   it('renders provider list with engine chip and model count', async () => {
     getAiProviders.mockResolvedValue([
       {
-        id: 1,
-        name: 'my-openrouter',
+        id: 'my-openrouter',
         engine: 'openrouter',
         models: ['gpt-4o', 'gpt-4'],
       },
@@ -95,11 +110,11 @@ describe('ApmeAiProvidersSection', () => {
     expect(screen.getByText(/2 models: gpt-4o, gpt-4/)).toBeInTheDocument();
   });
 
-  it('renders providers sorted by name', async () => {
+  it('renders providers sorted by id when API returns unsorted list', async () => {
     getAiProviders.mockResolvedValue([
-      { id: 3, name: 'zeta-provider', engine: 'openai', models: [] },
-      { id: 1, name: 'Alpha-provider', engine: 'anthropic', models: [] },
-      { id: 2, name: 'beta-provider', engine: 'openrouter', models: [] },
+      { id: 'zeta-provider', engine: 'openai', models: [] },
+      { id: 'Alpha-provider', engine: 'anthropic', models: [] },
+      { id: 'beta-provider', engine: 'openrouter', models: [] },
     ]);
     renderSection();
     await screen.findByText('Alpha-provider');
@@ -118,11 +133,24 @@ describe('ApmeAiProvidersSection', () => {
     expect(screen.getByText('Add AI provider')).toBeInTheDocument();
   });
 
+  it('opens edit dialog on Edit icon click', async () => {
+    getAiProviders.mockResolvedValue([
+      { id: 'my-provider', engine: 'anthropic', models: ['claude-3'] },
+    ]);
+    renderSection();
+    const editBtn = await screen.findByRole('button', {
+      name: /edit provider my-provider/i,
+    });
+    fireEvent.click(editBtn);
+    expect(screen.getByText('Edit provider: my-provider')).toBeInTheDocument();
+  });
+
   it('shows remove confirm dialog and calls deleteAiProvider on confirm', async () => {
     getAiProviders.mockResolvedValueOnce([
-      { id: 7, name: 'my-provider', engine: 'anthropic', models: [] },
+      { id: 'my-provider', engine: 'anthropic', models: [] },
     ]);
     deleteAiProvider.mockResolvedValue(undefined);
+    // After delete, reload returns empty list
     getAiProviders.mockResolvedValueOnce([]);
 
     renderSection();
@@ -131,17 +159,42 @@ describe('ApmeAiProvidersSection', () => {
     });
     fireEvent.click(removeBtn);
 
+    // Confirm dialog should appear
     expect(
       await screen.findByRole('heading', { name: /remove provider/i }),
     ).toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: /^remove$/i }));
 
     await waitFor(() => {
-      expect(deleteAiProvider).toHaveBeenCalledWith(7);
+      expect(deleteAiProvider).toHaveBeenCalledWith('my-provider');
     });
   });
 
-  it('save calls createAiProvider with apiKey and models', async () => {
+  it('shows error when deleteAiProvider fails', async () => {
+    getAiProviders.mockResolvedValueOnce([
+      { id: 'fail-provider', engine: 'openrouter', models: [] },
+    ]);
+    deleteAiProvider.mockRejectedValue(new Error('Gateway timeout'));
+
+    renderSection();
+    const removeBtn = await screen.findByRole('button', {
+      name: /remove provider fail-provider/i,
+    });
+    fireEvent.click(removeBtn);
+
+    fireEvent.click(await screen.findByRole('button', { name: /^remove$/i }));
+
+    expect(await screen.findByText('Gateway timeout')).toBeInTheDocument();
+  });
+
+  it('save calls configureAiProvider with apiKey + secretStore file then updateAiConfig with merged models', async () => {
+    getAiConfig.mockResolvedValue({
+      config: {
+        providers: { 'existing-prov': { engine: 'anthropic' } },
+        server: {},
+      },
+    });
+
     renderSection();
     await screen.findByText('AI providers');
 
@@ -165,17 +218,77 @@ describe('ApmeAiProvidersSection', () => {
     fireEvent.click(screen.getByRole('button', { name: /^save$/i }));
 
     await waitFor(() => {
-      expect(createAiProvider).toHaveBeenCalledWith({
-        name: 'new-prov',
+      expect(configureAiProvider).toHaveBeenCalledWith('new-prov', {
         engine: 'openai',
         apiKey: 'sk-test',
-        models: { 'gpt-4o': {} },
+        secretStore: 'file',
+        secretName: 'OPENAI_API_KEY',
       });
+    });
+    await waitFor(() => {
+      expect(updateAiConfig).toHaveBeenCalledWith(
+        expect.objectContaining({
+          location: 'user',
+          config: expect.objectContaining({
+            providers: expect.objectContaining({
+              'new-prov': expect.objectContaining({
+                engine: 'openai',
+                models: { 'gpt-4o': {} },
+              }),
+              'existing-prov': expect.objectContaining({ engine: 'anthropic' }),
+            }),
+          }),
+        }),
+      );
     });
     await waitFor(() => {
       expect(updatePortalSettings).toHaveBeenCalledWith({
         defaultAiModelId: 'new-prov/gpt-4o',
       });
+    });
+  });
+
+  it('save merges new provider models while preserving existing providers and server config', async () => {
+    getAiConfig.mockResolvedValue({
+      config: {
+        providers: {
+          'other-prov': { engine: 'anthropic', models: { 'claude-3': {} } },
+        },
+        server: { port: 8080 },
+      },
+    });
+
+    renderSection();
+    await screen.findByText('AI providers');
+
+    fireEvent.click(screen.getByRole('button', { name: /add provider/i }));
+    fireEvent.change(screen.getByLabelText('Provider name'), {
+      target: { value: 'my-prov' },
+    });
+
+    await waitFor(() =>
+      expect(screen.getByLabelText(/Engine/i)).toBeInTheDocument(),
+    );
+    fireEvent.change(screen.getByLabelText('API key'), {
+      target: { value: 'sk-test' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: /next: models/i }));
+    await screen.findByLabelText('Model ID');
+
+    fireEvent.click(screen.getByRole('button', { name: /^save$/i }));
+
+    await waitFor(() => {
+      expect(updateAiConfig).toHaveBeenCalledWith(
+        expect.objectContaining({
+          config: expect.objectContaining({
+            server: { port: 8080 },
+            providers: expect.objectContaining({
+              'other-prov': expect.objectContaining({ engine: 'anthropic' }),
+              'my-prov': expect.objectContaining({ engine: 'openai' }),
+            }),
+          }),
+        }),
+      );
     });
   });
 });

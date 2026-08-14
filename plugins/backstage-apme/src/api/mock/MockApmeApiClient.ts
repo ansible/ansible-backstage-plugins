@@ -198,11 +198,9 @@ export class MockApmeApiClient implements ApmeApi {
     await delay(50);
     return [
       {
-        id: 1,
-        name: 'mock-provider',
+        id: 'mock-provider',
         engine: 'openai',
         models: ['mock-model'],
-        hasApiKey: true,
       },
     ];
   }
@@ -220,21 +218,12 @@ export class MockApmeApiClient implements ApmeApi {
     };
   }
 
-  async createAiProvider(body: unknown) {
+  async configureAiProvider(_id: string, body: unknown) {
     await delay(50);
     return body;
   }
 
-  async updateAiProvider(_id: number, body: unknown) {
-    await delay(50);
-    return body;
-  }
-
-  async configureAiProvider(id: string, body: unknown) {
-    return this.createAiProvider({ ...(body as object), name: id });
-  }
-
-  async deleteAiProvider(_id: string | number) {
+  async deleteAiProvider(_id: string) {
     await delay(50);
   }
 

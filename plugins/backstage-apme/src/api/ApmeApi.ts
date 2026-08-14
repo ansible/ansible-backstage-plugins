@@ -77,18 +77,13 @@ export interface ApmeApi {
   getAiConfig(): Promise<unknown>;
   updateAiConfig(body: unknown): Promise<unknown>;
   getAiProviders(): Promise<ApmeAiProviderSummary[]>;
-  /** Engine descriptors from Gateway settings → Abbenay. */
+  /** Engine descriptors from Gateway → Abbenay GET /api/v1/ai/engines. */
   getAiEngines(): Promise<ApmeAiEnginesResponse>;
-  createAiProvider(body: ApmeAiProviderConfigureRequest): Promise<unknown>;
-  updateAiProvider(
-    id: number,
-    body: ApmeAiProviderConfigureRequest,
-  ): Promise<unknown>;
   configureAiProvider(
     id: string,
     body: ApmeAiProviderConfigureRequest,
   ): Promise<unknown>;
-  deleteAiProvider(id: string | number): Promise<void>;
+  deleteAiProvider(id: string): Promise<void>;
   getProjects(): Promise<Project[]>;
   getProject(projectId: string): Promise<Project>;
   getProjectByRepoUrl(
@@ -337,35 +332,21 @@ export class ApmeApiClient implements ApmeApi {
     return this.fetch<ApmeAiProviderSummary[]>('/ai/providers');
   }
 
-  async createAiProvider(
-    body: ApmeAiProviderConfigureRequest,
-  ): Promise<unknown> {
-    return this.fetch<unknown>('/ai/providers', {
-      method: 'POST',
-      body: JSON.stringify(body),
-    });
-  }
-
-  async updateAiProvider(
-    id: number,
-    body: ApmeAiProviderConfigureRequest,
-  ): Promise<unknown> {
-    return this.fetch<unknown>(`/ai/providers/${id}`, {
-      method: 'PATCH',
-      body: JSON.stringify(body),
-    });
-  }
-
-  /** @deprecated Prefer createAiProvider / updateAiProvider. */
   async configureAiProvider(
     id: string,
     body: ApmeAiProviderConfigureRequest,
   ): Promise<unknown> {
-    return this.createAiProvider({ ...body, name: body.name ?? id });
+    return this.fetch<unknown>(
+      `/ai/provider/${encodeURIComponent(id)}/configure`,
+      {
+        method: 'POST',
+        body: JSON.stringify(body),
+      },
+    );
   }
 
-  async deleteAiProvider(id: string | number): Promise<void> {
-    await this.fetch<void>(`/ai/providers/${encodeURIComponent(String(id))}`, {
+  async deleteAiProvider(id: string): Promise<void> {
+    await this.fetch<void>(`/ai/provider/${encodeURIComponent(id)}`, {
       method: 'DELETE',
     });
   }

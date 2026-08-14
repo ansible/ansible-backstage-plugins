@@ -194,9 +194,7 @@ export class ApmeClient {
 
   async getAiProviders(): Promise<unknown> {
     try {
-      return await this.executeRequest<unknown>(
-        '/api/v1/settings/ai-providers',
-      );
+      return await this.executeRequest<unknown>('/api/v1/ai/providers');
     } catch {
       return [];
     }
@@ -204,76 +202,30 @@ export class ApmeClient {
 
   async getAiEngines(): Promise<ApmeAiEnginesResponse> {
     try {
-      const raw = await this.executeRequest<unknown>(
-        '/api/v1/settings/ai-engines',
+      return await this.executeRequest<ApmeAiEnginesResponse>(
+        '/api/v1/ai/engines',
       );
-      if (Array.isArray(raw)) {
-        return { engines: raw as ApmeAiEnginesResponse['engines'] };
-      }
-      if (
-        raw &&
-        typeof raw === 'object' &&
-        Array.isArray((raw as ApmeAiEnginesResponse).engines)
-      ) {
-        return raw as ApmeAiEnginesResponse;
-      }
-      return { engines: [] };
     } catch {
       return { engines: [] };
     }
   }
 
-  async createAiProvider(
-    body: ApmeAiProviderConfigureRequest,
-  ): Promise<unknown> {
-    return this.executeRequest<unknown>('/api/v1/settings/ai-providers', {
-      method: 'POST',
-      body: JSON.stringify({
-        name: body.name,
-        engine: body.engine,
-        api_key: body.apiKey ?? '',
-        base_url: body.baseUrl ?? '',
-        models: body.models ?? {},
-      }),
-    });
-  }
-
-  async updateAiProvider(
-    id: number,
-    body: ApmeAiProviderConfigureRequest,
-  ): Promise<unknown> {
-    const payload: Record<string, unknown> = {
-      engine: body.engine,
-    };
-    if (body.name) {
-      payload.name = body.name;
-    }
-    if (body.apiKey) {
-      payload.api_key = body.apiKey;
-    }
-    if (body.baseUrl !== undefined) {
-      payload.base_url = body.baseUrl;
-    }
-    if (body.models) {
-      payload.models = body.models;
-    }
-    return this.executeRequest<unknown>(`/api/v1/settings/ai-providers/${id}`, {
-      method: 'PATCH',
-      body: JSON.stringify(payload),
-    });
-  }
-
-  /** @deprecated Prefer createAiProvider / updateAiProvider. */
   async configureAiProvider(
     id: string,
     body: ApmeAiProviderConfigureRequest,
   ): Promise<unknown> {
-    return this.createAiProvider({ ...body, name: body.name ?? id });
+    return this.executeRequest<unknown>(
+      `/api/v1/ai/provider/${encodeURIComponent(id)}/configure`,
+      {
+        method: 'POST',
+        body: JSON.stringify(body),
+      },
+    );
   }
 
-  async deleteAiProvider(id: string | number): Promise<void> {
+  async deleteAiProvider(id: string): Promise<void> {
     await this.executeRequest<void>(
-      `/api/v1/settings/ai-providers/${encodeURIComponent(String(id))}`,
+      `/api/v1/ai/provider/${encodeURIComponent(id)}`,
       { method: 'DELETE' },
     );
   }
@@ -621,8 +573,6 @@ export type IApmeService = Pick<
   | 'updateAiConfig'
   | 'getAiProviders'
   | 'getAiEngines'
-  | 'createAiProvider'
-  | 'updateAiProvider'
   | 'configureAiProvider'
   | 'deleteAiProvider'
   | 'getProjects'

@@ -432,66 +432,6 @@ export async function createRouter(options: RouterOptions): Promise<Router> {
   });
 
   router.post(
-    '/apme/ai/providers',
-    jsonBody,
-    requireApmeSettingsManage,
-    async (req, res) => {
-      const body = req.body ?? {};
-      const name = typeof body.name === 'string' ? body.name : '';
-      if (!name) {
-        throw new InputError('Provider name is required');
-      }
-      assertSafeAbbenayProviderId(name);
-      const result = await apmeService.createAiProvider({
-        name,
-        engine: body.engine,
-        apiKey: body.apiKey ?? body.api_key,
-        baseUrl: body.baseUrl ?? body.base_url,
-        models: body.models,
-      });
-      res.status(201).json(result);
-    },
-  );
-
-  router.patch(
-    '/apme/ai/providers/:id',
-    jsonBody,
-    requireApmeSettingsManage,
-    async (req, res) => {
-      const id = Number(req.params.id);
-      if (!Number.isFinite(id) || id <= 0) {
-        throw new InputError('Provider id must be a positive number');
-      }
-      const body = req.body ?? {};
-      if (typeof body.name === 'string' && body.name) {
-        assertSafeAbbenayProviderId(body.name);
-      }
-      const result = await apmeService.updateAiProvider(id, {
-        name: body.name,
-        engine: body.engine,
-        apiKey: body.apiKey ?? body.api_key,
-        baseUrl: body.baseUrl ?? body.base_url,
-        models: body.models,
-      });
-      res.json(result);
-    },
-  );
-
-  router.delete(
-    '/apme/ai/providers/:id',
-    requireApmeSettingsManage,
-    async (req, res) => {
-      const id = req.params.id;
-      if (!id) {
-        throw new InputError('Provider id is required');
-      }
-      await apmeService.deleteAiProvider(id);
-      res.status(204).send();
-    },
-  );
-
-  // Legacy configure/delete-by-name paths (Abbenay HTTP proxy era).
-  router.post(
     '/apme/ai/provider/:id/configure',
     jsonBody,
     requireApmeSettingsManage,
@@ -501,14 +441,7 @@ export async function createRouter(options: RouterOptions): Promise<Router> {
         throw new InputError('Provider id is required');
       }
       assertSafeAbbenayProviderId(id);
-      const body = req.body ?? {};
-      const result = await apmeService.createAiProvider({
-        name: id,
-        engine: body.engine,
-        apiKey: body.apiKey ?? body.api_key,
-        baseUrl: body.baseUrl ?? body.base_url,
-        models: body.models,
-      });
+      const result = await apmeService.configureAiProvider(id, req.body);
       res.json(result);
     },
   );
@@ -521,15 +454,7 @@ export async function createRouter(options: RouterOptions): Promise<Router> {
       if (id) {
         assertSafeAbbenayProviderId(id);
       }
-      // Resolve name → numeric id when legacy clients pass provider name.
-      const raw = await apmeService.getAiProviders();
-      const providers = normalizeApmeAiProviders(raw);
-      const match = providers.find(p => p.name === id || String(p.id) === id);
-      if (!match) {
-        res.status(404).json({ error: 'AI provider not found' });
-        return;
-      }
-      await apmeService.deleteAiProvider(match.id);
+      await apmeService.deleteAiProvider(id);
       res.status(204).send();
     },
   );
