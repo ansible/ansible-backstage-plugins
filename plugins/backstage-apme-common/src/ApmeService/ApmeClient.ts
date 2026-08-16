@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 
+import { Agent } from 'undici';
 import { Config } from '@backstage/config';
 import { LoggerService } from '@backstage/backend-plugin-api';
 import { ConflictError, InputError, NotFoundError } from '@backstage/errors';
@@ -62,13 +63,16 @@ export class ApmeClient {
   private readonly enableAi: boolean;
   private readonly submitTimeoutMs: number;
   private readonly logger: LoggerService;
+  private readonly dispatcher: Agent | undefined;
 
   constructor(options: ApmeClientOptions) {
     const config = getApmeConfig(options.rootConfig);
     this.baseUrl = config.baseUrl;
     this.enableAi = config.enableAi;
     this.submitTimeoutMs = config.submitTimeoutMs;
-    // Note: checkSSL config is available but not used yet (for future TLS verification)
+    if (!config.checkSSL) {
+      this.dispatcher = new Agent({ connect: { rejectUnauthorized: false } });
+    }
     this.logger = options.logger.child({ service: 'ApmeClient' });
     this.logger.debug(`APME client initialized with baseUrl: ${this.baseUrl}`);
   }
@@ -108,7 +112,8 @@ export class ApmeClient {
         ...options,
         headers,
         signal: controller.signal,
-      });
+        ...(this.dispatcher ? { dispatcher: this.dispatcher } : {}),
+      } as RequestInit);
 
       if (response.status === 404) {
         throw new NotFoundError(`Resource not found: ${endpoint}`);

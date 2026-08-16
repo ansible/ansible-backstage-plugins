@@ -96,7 +96,8 @@
     "@backstage/catalog-model": "^1.7.7",
     "@backstage/config": "^1.3.6",
     "@backstage/core-plugin-api": "^1.12.4",
-    "@backstage/errors": "^1.2.7"
+    "@backstage/errors": "^1.2.7",
+    "undici": "^8.10.0"
   },
   "devDependencies": {
     "@backstage/cli": "^0.27.0",
