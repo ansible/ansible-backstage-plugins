@@ -227,6 +227,7 @@ describe('authenticator', () => {
         expect.any(String),
         expect.objectContaining({
           httpOnly: true,
+          secure: false,
           sameSite: 'lax',
           path: '/api/auth/rhaap/handler',
         }),

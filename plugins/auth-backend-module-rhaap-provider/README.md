@@ -51,7 +51,7 @@ auth:
 
 ## Deployment Notes
 
-The PKCE code verifier used during OAuth login is stored in a browser cookie (`rhaap-pkce`, HttpOnly, Secure, 10-minute expiry). This ensures login works correctly across multiple backend replicas without requiring session affinity or sticky sessions.
+The PKCE code verifier used during OAuth login is stored in a browser cookie (`rhaap-pkce`, HttpOnly, SameSite=Lax, 10-minute expiry; Secure flag is set automatically when using HTTPS). This ensures login works correctly across multiple backend replicas without requiring session affinity or sticky sessions.
 
 ## Detailed Documentation
 
