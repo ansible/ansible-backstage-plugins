@@ -128,6 +128,13 @@ describe('authModuleRHAAPProvider', () => {
     const nonceFromCookie = cookieHeader.match(/rhaap-nonce=([^;]+)/)?.[1];
     expect(nonceFromCookie).toBeDefined();
 
+    const pkceCookie = Array.isArray(setCookieHeaders)
+      ? setCookieHeaders.find((c: string) => c.startsWith('rhaap-pkce='))
+      : undefined;
+    expect(pkceCookie).toBeDefined();
+    expect(pkceCookie).toContain('HttpOnly');
+    expect(pkceCookie).toContain('SameSite=Lax');
+
     const startUrl = new URL(startResponse.get('location') ?? '');
     expect(startUrl.origin).toBe('https://rhaap.test');
     expect(startUrl.pathname).toBe('/o/authorize/');

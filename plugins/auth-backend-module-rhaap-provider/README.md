@@ -51,7 +51,7 @@ auth:
 
 ## Deployment Notes
 
-The PKCE code verifier used during OAuth login is stored in process memory. In multi-replica deployments, configure your load balancer for session affinity (sticky sessions) so the OAuth callback reaches the same replica that started the login. Single-replica deployments require no extra configuration.
+The PKCE code verifier used during OAuth login is stored in a browser cookie (`rhaap-pkce`, HttpOnly, Secure, 10-minute expiry). This ensures login works correctly across multiple backend replicas without requiring session affinity or sticky sessions.
 
 ## Detailed Documentation
 
