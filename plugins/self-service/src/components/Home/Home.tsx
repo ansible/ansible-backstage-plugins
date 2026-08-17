@@ -253,9 +253,13 @@ const TemplateContent = ({
 
   const filteredEntities = useMemo(
     () =>
-      (entities as TemplateEntityV1beta3[]).filter(entity =>
-        filterBySource(entity, jobTemplates, selectedSources),
-      ),
+      (entities as TemplateEntityV1beta3[]).filter(entity => {
+        if (!isHomePageTemplate(entity, jobTemplates)) return false;
+        if (selectedSources.length === 0) return true;
+        const source =
+          entity.metadata?.annotations?.[TEMPLATE_SOURCE_ANNOTATION] ?? '';
+        return selectedSources.includes(source);
+      }),
     [entities, jobTemplates, selectedSources],
   );
 
