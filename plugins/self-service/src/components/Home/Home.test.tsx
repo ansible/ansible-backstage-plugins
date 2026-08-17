@@ -1449,6 +1449,100 @@ describe('self-service', () => {
     expect(screen.queryByText(/Showing/)).toBeNull();
     expect(screen.queryByText(/Page/)).toBeNull();
   });
+
+  it('should show Syncing text when sync is in progress', async () => {
+    const entityRefs = ['component:default/e1'];
+    const tags = ['tag1'];
+    mockCatalogApi.getEntityFacets.mockResolvedValue(
+      facetsFromEntityRefs(entityRefs, tags),
+    );
+    mockAnsibleApi.getSyncStatus.mockResolvedValue({
+      aap: {
+        orgsUsersTeams: { lastSync: null, syncInProgress: true },
+        jobTemplates: { lastSync: null, syncInProgress: false },
+      },
+    });
+
+    await render(<HomeComponent />);
+
+    await waitFor(() => {
+      expect(screen.getByText('Syncing...')).toBeInTheDocument();
+    });
+
+    const syncButton = screen.getByText('Syncing...').closest('button');
+    expect(syncButton).toBeDisabled();
+  });
+
+  it('should show sync button disabled while checking permissions', async () => {
+    const entityRefs = ['component:default/e1'];
+    const tags = ['tag1'];
+    mockCatalogApi.getEntityFacets.mockResolvedValue(
+      facetsFromEntityRefs(entityRefs, tags),
+    );
+    mockUseIsSuperuser.mockReturnValue({
+      isSuperuser: false,
+      loading: true,
+      error: null,
+    });
+
+    await render(<HomeComponent />);
+
+    await waitFor(() => {
+      expect(screen.getByText('Sync now')).toBeInTheDocument();
+    });
+
+    const syncButton = screen.getByText('Sync now').closest('button');
+    expect(syncButton).toBeDisabled();
+  });
+
+  it('should display last sync time from job templates', async () => {
+    const entityRefs = ['component:default/e1'];
+    const tags = ['tag1'];
+    mockCatalogApi.getEntityFacets.mockResolvedValue(
+      facetsFromEntityRefs(entityRefs, tags),
+    );
+    const syncTime = '2026-08-01T12:00:00Z';
+    mockAnsibleApi.getSyncStatus.mockResolvedValue({
+      aap: {
+        orgsUsersTeams: { lastSync: null, syncInProgress: false },
+        jobTemplates: { lastSync: syncTime, syncInProgress: false },
+      },
+    });
+
+    await render(<HomeComponent />);
+
+    await waitFor(() => {
+      expect(screen.getByText('Sync now')).toBeInTheDocument();
+    });
+
+    const syncButton = screen.getByText('Sync now').closest('button');
+    expect(syncButton).not.toBeDisabled();
+  });
+
+  it('should select the most recent sync timestamp', async () => {
+    const entityRefs = ['component:default/e1'];
+    const tags = ['tag1'];
+    mockCatalogApi.getEntityFacets.mockResolvedValue(
+      facetsFromEntityRefs(entityRefs, tags),
+    );
+    const olderSync = '2026-08-01T10:00:00Z';
+    const newerSync = '2026-08-01T14:00:00Z';
+    mockAnsibleApi.getSyncStatus.mockResolvedValue({
+      aap: {
+        orgsUsersTeams: { lastSync: newerSync, syncInProgress: false },
+        jobTemplates: { lastSync: olderSync, syncInProgress: false },
+      },
+    });
+
+    await render(<HomeComponent />);
+
+    await waitFor(() => {
+      expect(screen.getByText('Sync now')).toBeInTheDocument();
+    });
+
+    const syncButton = screen.getByText('Sync now').closest('button');
+    expect(syncButton).not.toBeDisabled();
+  });
 });
 
 describe('TemplatesRoutesPage notifications', () => {

@@ -182,55 +182,31 @@ describe('AAPEntityProvider', () => {
           displayName: 'User2 Last2',
           email: 'user2@test.com',
         },
-        memberOf: ['group:default/team-b'],
+        memberOf: ['group:default/team-b', 'group:default/default'],
       },
     },
     {
       apiVersion: 'backstage.io/v1alpha1',
       kind: 'User',
       metadata: {
+        namespace: 'default',
+        name: 'sys_user3',
+        title: 'SysUser3 Last3',
         annotations: {
           'aap.platform/is_superuser': 'false',
           'backstage.io/managed-by-location':
-            'url:https://rhaap.test/access/users/1/details',
+            'url:https://rhaap.test/access/users/3/details',
           'backstage.io/managed-by-origin-location':
-            'url:https://rhaap.test/access/users/1/details',
+            'url:https://rhaap.test/access/users/3/details',
         },
-        name: 'team_user1',
-        namespace: 'default',
-        title: 'TeamUser1 Last1',
       },
       spec: {
-        memberOf: ['group:default/team-a', 'group:default/team-b'],
         profile: {
-          displayName: 'TeamUser1 Last1',
-          email: 'teamuser1@test.com',
-          username: 'team_user1',
+          username: 'sys_user3',
+          displayName: 'SysUser3 Last3',
+          email: 'sysuser3@test.com',
         },
-      },
-    },
-    {
-      apiVersion: 'backstage.io/v1alpha1',
-      kind: 'User',
-      metadata: {
-        annotations: {
-          'aap.platform/is_superuser': 'false',
-          'backstage.io/managed-by-location':
-            'url:https://rhaap.test/access/users/2/details',
-          'backstage.io/managed-by-origin-location':
-            'url:https://rhaap.test/access/users/2/details',
-        },
-        name: 'team_user2',
-        namespace: 'default',
-        title: 'TeamUser2 Last2',
-      },
-      spec: {
-        memberOf: ['group:default/team-b'],
-        profile: {
-          displayName: 'TeamUser2 Last2',
-          email: 'teamuser2@test.com',
-          username: 'team_user2',
-        },
+        memberOf: ['group:default/team-a'],
       },
     },
     {
@@ -348,6 +324,15 @@ describe('AAPEntityProvider', () => {
         last_name: 'Last2',
         is_superuser: false,
       },
+      {
+        id: 3,
+        url: 'https://rhaap.test/api/v2/users/3/',
+        username: 'sys_user3',
+        email: 'sysuser3@test.com',
+        first_name: 'SysUser3',
+        last_name: 'Last3',
+        is_superuser: false,
+      },
     ]);
 
     mockAnsibleService.getTeamsByUserId.mockImplementation(
@@ -376,6 +361,17 @@ describe('AAPEntityProvider', () => {
               name: 'Team B',
               groupName: 'team-b',
               id: 2,
+              orgId: 1,
+              orgName: 'Default',
+            },
+          ]);
+        }
+        if (_userId === 3) {
+          return Promise.resolve([
+            {
+              name: 'Team A',
+              groupName: 'team-a',
+              id: 1,
               orgId: 1,
               orgName: 'Default',
             },
