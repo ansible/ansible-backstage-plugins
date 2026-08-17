@@ -5,6 +5,8 @@ import { TagFilterPicker } from './TagFilterPicker';
 
 export const TEMPLATE_SOURCE_ANNOTATION = 'ansible.com/template-source';
 
+const SOURCE_FACET_KEY = `metadata.annotations.${TEMPLATE_SOURCE_ANNOTATION}`;
+
 export interface SourcePickerProps {
   syncKey: number;
   selectedSources: string[];
@@ -20,7 +22,7 @@ export const SourcePicker = ({
   const [availableSources, setAvailableSources] = useState<string[]>([]);
 
   useEffect(() => {
-    const facetKey = `metadata.annotations.${TEMPLATE_SOURCE_ANNOTATION}`;
+    let ignore = false;
     catalogApi
       .getEntityFacets({
         filter: { kind: 'Template' },
@@ -36,21 +38,25 @@ export const SourcePicker = ({
               kind: 'Template',
               ...(nonEETypes.length > 0 && { 'spec.type': nonEETypes }),
             },
-            facets: [facetKey],
+            facets: [SOURCE_FACET_KEY],
           });
         },
       )
       .then(
         (response: { facets: Record<string, Array<{ value: string }>> }) => {
-          const sources = (response.facets[facetKey] ?? [])
+          if (ignore) return;
+          const sources = (response.facets[SOURCE_FACET_KEY] ?? [])
             .map(f => f.value)
             .sort((a, b) => a.localeCompare(b));
           setAvailableSources(sources);
         },
       )
       .catch(() => {
-        setAvailableSources([]);
+        if (!ignore) setAvailableSources([]);
       });
+    return () => {
+      ignore = true;
+    };
   }, [catalogApi, syncKey]);
 
   return (

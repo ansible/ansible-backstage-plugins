@@ -124,7 +124,7 @@ describe('SourcePicker', () => {
     expect(onSourceChange).toHaveBeenCalledWith(['aap-template']);
   });
 
-  it('allows selecting multiple sources', async () => {
+  it('calls onSourceChange for each source selection', async () => {
     const onSourceChange = jest.fn();
     setupTwoStageMock([
       { value: 'aap-template' },
