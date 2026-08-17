@@ -17,12 +17,20 @@
 import { EntityLayout } from '@backstage/plugin-catalog';
 import { ApmeEntityTab } from '../ApmeEntityTab';
 import { useApmeEnabled } from '../../hooks/useApmeEnabled';
+import { isGitRepositoryEntity } from '../../utils/isGitRepositoryEntity';
 
-/** Entity Quality tab route — hidden when APME is disabled (ADR-010). */
+/**
+ * Entity Quality tab route — hidden when APME is disabled (ADR-010) or the
+ * entity is not a git-repository Component (User/Group/service/etc.).
+ */
 export const ApmeEnabledEntityLayoutRoute = () => {
   const apmeEnabled = useApmeEnabled();
   return (
-    <EntityLayout.Route path="/apme" title="Quality" if={() => apmeEnabled}>
+    <EntityLayout.Route
+      path="/apme"
+      title="Quality"
+      if={entity => apmeEnabled && isGitRepositoryEntity(entity)}
+    >
       <ApmeEntityTab />
     </EntityLayout.Route>
   );

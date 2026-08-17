@@ -57,14 +57,15 @@ import {
   EntityKubernetesContent,
   isKubernetesAvailable,
 } from '@backstage/plugin-kubernetes';
-import {
-  ApmeEntityTab,
-  useApmeEnabled,
-} from '@ansible/plugin-backstage-apme';
+import { ApmeEntityTab, useApmeEnabled } from '@ansible/plugin-backstage-apme';
 
 function apmeQualityRoute(apmeEnabled: boolean) {
   return apmeEnabled ? (
-    <EntityLayout.Route path="/apme" title="Quality">
+    <EntityLayout.Route
+      path="/apme"
+      title="Quality"
+      if={isComponentType('git-repository')}
+    >
       <ApmeEntityTab />
     </EntityLayout.Route>
   ) : null;
