@@ -49,6 +49,10 @@ import Alert from '@material-ui/lab/Alert';
 import { SkeletonLoader } from './SkeletonLoader';
 import { scaffolderApiRef } from '@backstage/plugin-scaffolder-react';
 import { TagFilterPicker } from '../utils/TagFilterPicker';
+import {
+  SourcePicker,
+  TEMPLATE_SOURCE_ANNOTATION,
+} from '../utils/SourcePicker';
 import { CatalogItemsDetails } from '../CatalogItemDetails';
 import { CreateTask } from '../CreateTask';
 import {
@@ -222,12 +226,26 @@ const HomeCategoryPicker = ({ syncKey }: { syncKey: number }) => {
   );
 };
 
+export const filterBySource = (
+  entity: TemplateEntityV1beta3,
+  jobTemplates: { id: number; name: string }[],
+  selectedSources: string[],
+): boolean => {
+  if (!isHomePageTemplate(entity, jobTemplates)) return false;
+  if (selectedSources.length === 0) return true;
+  const source =
+    entity.metadata?.annotations?.[TEMPLATE_SOURCE_ANNOTATION] ?? '';
+  return selectedSources.includes(source);
+};
+
 const TemplateContent = ({
   loading: externalLoading,
   jobTemplates,
+  selectedSources,
 }: {
   loading: boolean;
   jobTemplates: { id: number; name: string }[];
+  selectedSources: string[];
 }) => {
   const { entities, loading: catalogLoading } = useEntityList();
 
@@ -236,9 +254,9 @@ const TemplateContent = ({
   const filteredEntities = useMemo(
     () =>
       (entities as TemplateEntityV1beta3[]).filter(entity =>
-        isHomePageTemplate(entity, jobTemplates),
+        filterBySource(entity, jobTemplates, selectedSources),
       ),
-    [entities, jobTemplates],
+    [entities, jobTemplates, selectedSources],
   );
 
   const totalCount = filteredEntities.length;
@@ -301,6 +319,7 @@ export const HomeComponent = () => {
     : isSuperuser && (checkingCatalogCreate || canCreateCatalogEntity);
   const addTemplateDisabled = checkingAddTemplate;
   const [open, setOpen] = useState(false);
+  const [selectedSources, setSelectedSources] = useState<string[]>([]);
   const [syncOptions, setSyncOptions] = useState<string[]>([]);
   const [showSnackbar, setShowSnackbar] = useState<boolean>(false);
   const [snackbarMsg, setSnackbarMsg] = useState<string>('Sync failed');
@@ -351,10 +370,19 @@ export const HomeComponent = () => {
     syncStatus.jobTemplates.syncInProgress;
   const syncDisabled = syncControlsDisabled || isSyncInProgress;
 
-  let syncDisabledTooltip = '';
-  if (isSyncInProgress) syncDisabledTooltip = 'Sync in progress...';
-  else if (syncControlsDisabled)
-    syncDisabledTooltip = 'Checking permissions...';
+  const getSyncTooltip = () => {
+    if (isSyncInProgress) return 'Sync in progress...';
+    if (syncControlsDisabled) return 'Checking permissions...';
+    const jtSync = syncStatus.jobTemplates.lastSync;
+    const outSync = syncStatus.orgsUsersTeams.lastSync;
+    let lastSync = jtSync || outSync;
+    if (jtSync && outSync) {
+      lastSync = new Date(jtSync) > new Date(outSync) ? jtSync : outSync;
+    }
+    if (lastSync) return `Last synced: ${new Date(lastSync).toLocaleString()}`;
+    return '';
+  };
+  const syncTooltip = getSyncTooltip();
 
   const fetchRequestIdRef = useRef(0);
   const fetchSucceededRef = useRef(false);
@@ -553,42 +581,47 @@ export const HomeComponent = () => {
               <HeaderLabel
                 label=""
                 value={
-                  <Tooltip title={syncDisabledTooltip} placement="bottom-start">
-                    <Typography
-                      component="a"
-                      onClick={
-                        syncDisabled ? undefined : ShowSyncConfirmationDialog
-                      }
-                      style={{
-                        cursor: syncDisabled ? 'default' : 'pointer',
-                        color: 'inherit',
-                        opacity: syncDisabled ? 0.5 : 1,
-                      }}
-                    >
-                      <span
-                        style={{
-                          display: 'flex',
-                          alignItems: 'center',
-                          gap: '4px',
-                          textDecoration: 'underline',
-                        }}
-                      >
-                        {isSyncInProgress ? 'Syncing...' : 'Sync now'}{' '}
-                        <Sync
-                          fontSize="small"
-                          className={
-                            isSyncInProgress ? classes.syncSpinning : undefined
+                  <Typography component="span" style={{ color: 'inherit' }}>
+                    <Tooltip title={syncTooltip} placement="bottom">
+                      <span>
+                        <button
+                          type="button"
+                          onClick={
+                            syncDisabled
+                              ? undefined
+                              : ShowSyncConfirmationDialog
                           }
-                        />
-                        <Tooltip title="Sync AAP Job Templates, Organizations, Users, and Teams from AAP to automation portal.">
-                          <Info
+                          disabled={syncDisabled}
+                          style={{
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: '4px',
+                            textDecoration: 'underline',
+                            cursor: syncDisabled ? 'default' : 'pointer',
+                            opacity: syncDisabled ? 0.5 : 1,
+                            background: 'none',
+                            border: 'none',
+                            padding: 0,
+                            font: 'inherit',
+                            color: 'inherit',
+                          }}
+                        >
+                          {isSyncInProgress ? 'Syncing...' : 'Sync now'}
+                          <Sync
                             fontSize="small"
-                            style={{ marginLeft: '4px' }}
+                            className={
+                              isSyncInProgress
+                                ? classes.syncSpinning
+                                : undefined
+                            }
                           />
-                        </Tooltip>
+                        </button>
                       </span>
-                    </Typography>
-                  </Tooltip>
+                    </Tooltip>
+                    <Tooltip title="Sync AAP Job Templates, Organizations, Users, and Teams from AAP to automation portal.">
+                      <Info fontSize="small" style={{ marginLeft: '4px' }} />
+                    </Tooltip>
+                  </Typography>
                 }
                 contentTypograpyRootComponent="span"
               />
@@ -643,10 +676,19 @@ export const HomeComponent = () => {
                 <HomeCategoryPicker syncKey={syncKey} />
               </div>
               <HomeTagPicker syncKey={syncKey} />
+              <SourcePicker
+                syncKey={syncKey}
+                selectedSources={selectedSources}
+                onSourceChange={setSelectedSources}
+              />
               <EntityOwnerPicker />
             </CatalogFilterLayout.Filters>
             <CatalogFilterLayout.Content>
-              <TemplateContent loading={loading} jobTemplates={jobTemplates} />
+              <TemplateContent
+                loading={loading}
+                jobTemplates={jobTemplates}
+                selectedSources={selectedSources}
+              />
             </CatalogFilterLayout.Content>
           </CatalogFilterLayout>
         </EntityListProvider>

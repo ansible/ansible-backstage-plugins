@@ -1991,7 +1991,9 @@ describe('AAPClient', () => {
       it('should fetch resource data', async () => {
         const mockResponse = {
           ok: true,
-          json: jest.fn().mockResolvedValue({ results: [{ id: 1 }] }),
+          json: jest
+            .fn()
+            .mockResolvedValue({ results: [{ id: 1 }], next: null }),
         };
         mockFetch.mockResolvedValue(mockResponse);
 
@@ -2000,13 +2002,15 @@ describe('AAPClient', () => {
           'test-token',
         );
 
-        expect(result).toEqual({ results: [{ id: 1 }] });
+        expect(result).toEqual({ results: [{ id: 1 }], count: 1 });
       });
 
       it('should handle execution_environments resource with orgId', async () => {
         const mockResponse = {
           ok: true,
-          json: jest.fn().mockResolvedValue({ results: [{ id: 1 }] }),
+          json: jest
+            .fn()
+            .mockResolvedValue({ results: [{ id: 1 }], next: null }),
         };
         mockFetch.mockResolvedValue(mockResponse);
 
@@ -2015,7 +2019,7 @@ describe('AAPClient', () => {
           'test-token',
         );
 
-        expect(result).toEqual({ results: [{ id: 1 }] });
+        expect(result).toEqual({ results: [{ id: 1 }], count: 1 });
         expect(mockFetch).toHaveBeenCalledWith(
           expect.stringContaining('or__organization__id=123'),
           expect.any(Object),
@@ -2025,7 +2029,9 @@ describe('AAPClient', () => {
       it('should handle job_templates resource with survey and labels', async () => {
         const mockResponse = {
           ok: true,
-          json: jest.fn().mockResolvedValue({ results: [{ id: 1 }] }),
+          json: jest
+            .fn()
+            .mockResolvedValue({ results: [{ id: 1 }], next: null }),
         };
         mockFetch.mockResolvedValue(mockResponse);
 
@@ -2034,7 +2040,7 @@ describe('AAPClient', () => {
           'test-token',
         );
 
-        expect(result).toEqual({ results: [{ id: 1 }] });
+        expect(result).toEqual({ results: [{ id: 1 }], count: 1 });
         expect(mockFetch).toHaveBeenCalledWith(
           expect.stringContaining('organization__name__iexact=testorg'),
           expect.any(Object),
@@ -2087,7 +2093,7 @@ describe('AAPClient', () => {
           ok: true,
           json: jest
             .fn()
-            .mockResolvedValue({ results: [{ id: 1 }, { id: 2 }] }),
+            .mockResolvedValue({ results: [{ id: 1 }, { id: 2 }], next: null }),
         };
         mockFetch.mockResolvedValue(mockResponse);
 
@@ -2096,7 +2102,7 @@ describe('AAPClient', () => {
           'test-token',
         );
 
-        expect(result).toEqual({ results: [{ id: 1 }, { id: 2 }] });
+        expect(result).toEqual({ results: [{ id: 1 }, { id: 2 }], count: 2 });
         // Due to urlSearchParams.set() overwriting values, only the last organization will be in the URL
         expect(mockFetch).toHaveBeenCalledWith(
           expect.stringContaining('or__organization__name__iexact=testorg2'),
@@ -2127,7 +2133,9 @@ describe('AAPClient', () => {
 
         const mockResponse = {
           ok: true,
-          json: jest.fn().mockResolvedValue({ results: [{ id: 1 }] }),
+          json: jest
+            .fn()
+            .mockResolvedValue({ results: [{ id: 1 }], next: null }),
         };
         mockFetch.mockResolvedValue(mockResponse);
 
@@ -2136,7 +2144,7 @@ describe('AAPClient', () => {
           'test-token',
         );
 
-        expect(result).toEqual({ results: [{ id: 1 }] });
+        expect(result).toEqual({ results: [{ id: 1 }], count: 1 });
         // When no organizations are configured, no organization filter should be applied
         expect(mockFetch).toHaveBeenCalledWith(
           expect.not.stringContaining('organization__name__iexact'),
@@ -2201,7 +2209,9 @@ describe('AAPClient', () => {
 
           const mockResponse = {
             ok: true,
-            json: jest.fn().mockResolvedValue({ results: [{ id: 1 }] }),
+            json: jest
+              .fn()
+              .mockResolvedValue({ results: [{ id: 1 }], next: null }),
           };
           mockFetch.mockClear();
           mockFetch.mockResolvedValue(mockResponse);
@@ -2258,7 +2268,9 @@ describe('AAPClient', () => {
 
         const mockResponse = {
           ok: true,
-          json: jest.fn().mockResolvedValue({ results: [{ id: 1 }] }),
+          json: jest
+            .fn()
+            .mockResolvedValue({ results: [{ id: 1 }], next: null }),
         };
         mockFetch.mockResolvedValue(mockResponse);
 
@@ -2325,7 +2337,9 @@ describe('AAPClient', () => {
 
         const mockResponse = {
           ok: true,
-          json: jest.fn().mockResolvedValue({ results: [{ id: 1 }] }),
+          json: jest
+            .fn()
+            .mockResolvedValue({ results: [{ id: 1 }], next: null }),
         };
         mockFetch.mockResolvedValue(mockResponse);
 
@@ -2387,7 +2401,9 @@ describe('AAPClient', () => {
 
         const mockResponse = {
           ok: true,
-          json: jest.fn().mockResolvedValue({ results: [{ id: 1 }] }),
+          json: jest
+            .fn()
+            .mockResolvedValue({ results: [{ id: 1 }], next: null }),
         };
         mockFetch.mockResolvedValue(mockResponse);
 
@@ -3393,6 +3409,62 @@ describe('AAPClient', () => {
         expect(result.session.accessToken).toBe('test-access-token');
         expect(result.session.tokenType).toBe('Bearer');
         expect(result.session.refreshToken).toBe('test-refresh-token');
+      });
+
+      it('should include code_verifier in token request when provided', async () => {
+        const mockResponse = {
+          ok: true,
+          json: jest.fn().mockResolvedValue({
+            access_token: 'test-access-token',
+            token_type: 'Bearer',
+            scope: 'read write',
+            expires_in: 3600,
+            refresh_token: 'test-refresh-token',
+          }),
+        };
+        mockFetch.mockResolvedValue(mockResponse);
+
+        await client.rhAAPAuthenticate({
+          host: 'https://test.example.com',
+          checkSSL: true,
+          clientId: 'test-client-id',
+          clientSecret: 'test-client-secret',
+          callbackURL: 'https://callback.example.com',
+          code: 'test-code',
+          codeVerifier: 'test-verifier-value',
+        });
+
+        const fetchCall = mockFetch.mock.calls[0];
+        const body = fetchCall[1].body as URLSearchParams;
+        expect(body.get('code_verifier')).toBe('test-verifier-value');
+        expect(body.get('grant_type')).toBe('authorization_code');
+      });
+
+      it('should not include code_verifier when not provided', async () => {
+        const mockResponse = {
+          ok: true,
+          json: jest.fn().mockResolvedValue({
+            access_token: 'test-access-token',
+            token_type: 'Bearer',
+            scope: 'read write',
+            expires_in: 3600,
+            refresh_token: 'test-refresh-token',
+          }),
+        };
+        mockFetch.mockResolvedValue(mockResponse);
+
+        await client.rhAAPAuthenticate({
+          host: 'https://test.example.com',
+          checkSSL: true,
+          clientId: 'test-client-id',
+          clientSecret: 'test-client-secret',
+          callbackURL: 'https://callback.example.com',
+          code: 'test-code',
+        });
+
+        const fetchCall = mockFetch.mock.calls[0];
+        const body = fetchCall[1].body as URLSearchParams;
+        expect(body.has('code_verifier')).toBe(false);
       });
 
       it('should authenticate with refresh token', async () => {

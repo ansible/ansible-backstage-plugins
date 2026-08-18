@@ -9,6 +9,7 @@ import {
   MockStarredEntitiesApi,
   starredEntitiesApiRef,
 } from '@backstage/plugin-catalog-react';
+import { filterBySource } from './Home';
 import { MockEntityListContextProvider } from '@backstage/plugin-catalog-react/testUtils';
 import { permissionApiRef } from '@backstage/plugin-permission-react';
 import { scaffolderApiRef } from '@backstage/plugin-scaffolder-react';
@@ -1449,6 +1450,100 @@ describe('self-service', () => {
     expect(screen.queryByText(/Showing/)).toBeNull();
     expect(screen.queryByText(/Page/)).toBeNull();
   });
+
+  it('should show Syncing text when sync is in progress', async () => {
+    const entityRefs = ['component:default/e1'];
+    const tags = ['tag1'];
+    mockCatalogApi.getEntityFacets.mockResolvedValue(
+      facetsFromEntityRefs(entityRefs, tags),
+    );
+    mockAnsibleApi.getSyncStatus.mockResolvedValue({
+      aap: {
+        orgsUsersTeams: { lastSync: null, syncInProgress: true },
+        jobTemplates: { lastSync: null, syncInProgress: false },
+      },
+    });
+
+    await render(<HomeComponent />);
+
+    await waitFor(() => {
+      expect(screen.getByText('Syncing...')).toBeInTheDocument();
+    });
+
+    const syncButton = screen.getByText('Syncing...').closest('button');
+    expect(syncButton).toBeDisabled();
+  });
+
+  it('should show sync button disabled while checking permissions', async () => {
+    const entityRefs = ['component:default/e1'];
+    const tags = ['tag1'];
+    mockCatalogApi.getEntityFacets.mockResolvedValue(
+      facetsFromEntityRefs(entityRefs, tags),
+    );
+    mockUseIsSuperuser.mockReturnValue({
+      isSuperuser: false,
+      loading: true,
+      error: null,
+    });
+
+    await render(<HomeComponent />);
+
+    await waitFor(() => {
+      expect(screen.getByText('Sync now')).toBeInTheDocument();
+    });
+
+    const syncButton = screen.getByText('Sync now').closest('button');
+    expect(syncButton).toBeDisabled();
+  });
+
+  it('should display last sync time from job templates', async () => {
+    const entityRefs = ['component:default/e1'];
+    const tags = ['tag1'];
+    mockCatalogApi.getEntityFacets.mockResolvedValue(
+      facetsFromEntityRefs(entityRefs, tags),
+    );
+    const syncTime = '2026-08-01T12:00:00Z';
+    mockAnsibleApi.getSyncStatus.mockResolvedValue({
+      aap: {
+        orgsUsersTeams: { lastSync: null, syncInProgress: false },
+        jobTemplates: { lastSync: syncTime, syncInProgress: false },
+      },
+    });
+
+    await render(<HomeComponent />);
+
+    await waitFor(() => {
+      expect(screen.getByText('Sync now')).toBeInTheDocument();
+    });
+
+    const syncButton = screen.getByText('Sync now').closest('button');
+    expect(syncButton).not.toBeDisabled();
+  });
+
+  it('should select the most recent sync timestamp', async () => {
+    const entityRefs = ['component:default/e1'];
+    const tags = ['tag1'];
+    mockCatalogApi.getEntityFacets.mockResolvedValue(
+      facetsFromEntityRefs(entityRefs, tags),
+    );
+    const olderSync = '2026-08-01T10:00:00Z';
+    const newerSync = '2026-08-01T14:00:00Z';
+    mockAnsibleApi.getSyncStatus.mockResolvedValue({
+      aap: {
+        orgsUsersTeams: { lastSync: newerSync, syncInProgress: false },
+        jobTemplates: { lastSync: olderSync, syncInProgress: false },
+      },
+    });
+
+    await render(<HomeComponent />);
+
+    await waitFor(() => {
+      expect(screen.getByText('Sync now')).toBeInTheDocument();
+    });
+
+    const syncButton = screen.getByText('Sync now').closest('button');
+    expect(syncButton).not.toBeDisabled();
+  });
 });
 
 describe('TemplatesRoutesPage notifications', () => {
@@ -1755,5 +1850,35 @@ describe('HomeCategoryPicker EE exclusion', () => {
       expect(screen.getByText('Categories')).toBeInTheDocument();
     });
     expect(screen.getByText('Tags')).toBeInTheDocument();
+  });
+});
+
+describe('filterBySource', () => {
+  const makeTemplate = (annotations: Record<string, string> = {}) =>
+    ({
+      apiVersion: 'scaffolder.backstage.io/v1beta3',
+      kind: 'Template',
+      metadata: { name: 'test', annotations },
+      spec: { type: 'automation-template', owner: 'test' },
+    }) as any;
+
+  const jobTemplates = [{ id: 1, name: 'test' }];
+
+  it('returns true when no sources selected', () => {
+    const entity = makeTemplate({ 'ansible.com/template-source': 'scm' });
+    expect(filterBySource(entity, jobTemplates, [])).toBe(true);
+  });
+
+  it('filters by selected source', () => {
+    const entity = makeTemplate({
+      'ansible.com/template-source': 'aap-template',
+    });
+    expect(filterBySource(entity, jobTemplates, ['aap-template'])).toBe(true);
+    expect(filterBySource(entity, jobTemplates, ['scm'])).toBe(false);
+  });
+
+  it('handles entity without source annotation', () => {
+    const entity = makeTemplate({});
+    expect(filterBySource(entity, jobTemplates, ['aap-template'])).toBe(false);
   });
 });
