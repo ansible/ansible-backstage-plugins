@@ -10,6 +10,7 @@ interface TemplatesPageHeaderSectionProps {
   syncDisabledReason?: string;
   syncInProgress?: boolean;
   syncProgress?: SyncProgressEntry[];
+  lastSyncTimes?: Array<{ label: string; time: string | null }>;
   actions?: ReactNode;
 }
 
@@ -19,6 +20,7 @@ export const TemplatesPageHeaderSection = ({
   syncDisabledReason,
   syncInProgress = false,
   syncProgress,
+  lastSyncTimes,
   actions,
 }: TemplatesPageHeaderSectionProps) => (
   <PageHeaderSection
@@ -30,6 +32,7 @@ export const TemplatesPageHeaderSection = ({
     syncDisabledReason={syncDisabledReason}
     syncInProgress={syncInProgress}
     syncProgress={syncProgress}
+    lastSyncTimes={lastSyncTimes}
     actions={actions}
     descriptionExtra={
       <a

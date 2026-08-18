@@ -561,6 +561,13 @@ export const HomeComponent = () => {
           }
           syncInProgress={isSyncInProgress}
           syncProgress={templateSyncProgress}
+          lastSyncTimes={[
+            {
+              label: 'Organizations, Users, and Teams',
+              time: syncStatus.orgsUsersTeams.lastSync,
+            },
+            { label: 'Job Templates', time: syncStatus.jobTemplates.lastSync },
+          ]}
           actions={
             showAddTemplate ? (
               <Tooltip

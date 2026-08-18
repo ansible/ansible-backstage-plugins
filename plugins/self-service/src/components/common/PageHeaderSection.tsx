@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react';
-import { Box, Button, Tooltip, Typography } from '@material-ui/core';
+import { Box, Button, Divider, Tooltip, Typography } from '@material-ui/core';
+import CheckCircleIcon from '@material-ui/icons/CheckCircle';
 import HelpOutlineIcon from '@material-ui/icons/HelpOutline';
 import SyncIcon from '@material-ui/icons/Sync';
 import { useIsSuperuser } from '../../hooks';
@@ -10,6 +11,7 @@ import {
 } from './styles';
 import { SyncProgressPopover } from './SyncProgressPopover';
 import type { SyncProgressEntry } from './types';
+import { formatRelativeTime } from '../../utils/timeUtils';
 
 export interface PageHeaderSectionProps {
   title: string;
@@ -22,6 +24,8 @@ export interface PageHeaderSectionProps {
   syncInProgress?: boolean;
   /** Per-source progress entries surfaced from syncPollingService. */
   syncProgress?: SyncProgressEntry[];
+  /** Per-source last sync timestamps shown when idle. */
+  lastSyncTimes?: Array<{ label: string; time: string | null }>;
   /** Extra action buttons rendered alongside the sync button. */
   actions?: ReactNode;
   /** Content rendered below the description (e.g. a "Learn more" link). */
@@ -37,6 +41,7 @@ export const PageHeaderSection = ({
   syncDisabledReason,
   syncInProgress = false,
   syncProgress = [],
+  lastSyncTimes = [],
   actions,
   descriptionExtra,
 }: PageHeaderSectionProps) => {
@@ -49,11 +54,48 @@ export const PageHeaderSection = ({
   const showSyncButton = checkingPermission || allowed;
   const isButtonDisabled = checkingPermission || syncDisabled;
 
-  const showProgressPopover = syncProgress.length > 0;
+  const hasNonSuccessOutcome = syncProgress.some(e => e.outcome !== 'success');
+  const showProgressPopover =
+    syncProgress.length > 0 && (syncInProgress || hasNonSuccessOutcome);
+  const synced = lastSyncTimes.filter(s => s.time);
+  const showLastSyncPopover =
+    !syncInProgress && !showProgressPopover && synced.length > 0;
 
-  const getButtonTooltip = () => {
+  const getButtonTooltip = (): string | React.ReactElement => {
     if (checkingPermission) return 'Checking permissions...';
     if (syncDisabled && syncDisabledReason) return syncDisabledReason;
+    if (showLastSyncPopover) {
+      return (
+        <Box style={{ width: 400, padding: '16px 20px' }}>
+          <Typography
+            style={{ fontSize: '1rem', fontWeight: 600, marginBottom: 4 }}
+          >
+            Last synced
+          </Typography>
+          <Divider style={{ margin: '8px 0' }} />
+          <Box style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+            {synced.map(s => (
+              <Box
+                key={s.label}
+                style={{ display: 'flex', alignItems: 'center', gap: 8 }}
+              >
+                <CheckCircleIcon
+                  style={{ fontSize: '1.15rem', color: '#4caf50' }}
+                />
+                <Typography style={{ flex: 1, fontSize: '0.85rem' }}>
+                  {s.label}
+                </Typography>
+                <Typography
+                  style={{ fontSize: '0.78rem', fontWeight: 500, opacity: 0.7 }}
+                >
+                  {formatRelativeTime(s.time).replace(/^Synced /i, '')}
+                </Typography>
+              </Box>
+            ))}
+          </Box>
+        </Box>
+      ) as React.ReactElement;
+    }
     return '';
   };
   const buttonTooltip = getButtonTooltip();
@@ -97,8 +139,12 @@ export const PageHeaderSection = ({
                     buttonTooltip
                   )
                 }
-                classes={showProgressPopover ? tooltipClasses : undefined}
-                interactive={showProgressPopover}
+                classes={
+                  showProgressPopover || showLastSyncPopover
+                    ? tooltipClasses
+                    : undefined
+                }
+                interactive={showProgressPopover || showLastSyncPopover}
                 arrow
                 placement="bottom-end"
               >
