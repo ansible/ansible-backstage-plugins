@@ -58,10 +58,7 @@ export class UseCaseMaker {
   private token: string | null;
   private octokit: Octokit;
   private scmIntegration:
-    | GithubIntegrationConfig
-    | GitLabIntegrationConfig
-    | undefined
-    | null = null;
+    GithubIntegrationConfig | GitLabIntegrationConfig | undefined | null = null;
   constructor({
     ansibleConfig,
     logger,
