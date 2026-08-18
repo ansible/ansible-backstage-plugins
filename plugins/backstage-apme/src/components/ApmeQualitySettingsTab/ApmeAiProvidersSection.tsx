@@ -347,7 +347,7 @@ export const ApmeAiProvidersSection = () => {
           {!loading && providers.length === 0 && (
             <Typography variant="body2" className={classes.emptyText}>
               {models.length > 0
-                ? 'No editable providers listed. Models below are available for scans (read-only from Primary). Use Add provider to create a Portal-managed account, or check deploy-time config.'
+                ? 'No editable providers listed. Models below are available for scans (read-only from Primary). Use Add provider to configure Abbenay (API key → file secret store), or check deploy-time config.'
                 : 'No providers configured. Add a provider to enable AI-assisted remediation.'}
             </Typography>
           )}
@@ -408,10 +408,7 @@ export const ApmeAiProvidersSection = () => {
 
           {!loading && models.length > 0 && (
             <Box>
-              <Typography
-                variant="subtitle2"
-                className={classes.modelsHeading}
-              >
+              <Typography variant="subtitle2" className={classes.modelsHeading}>
                 Available models
               </Typography>
               <Typography variant="body2" className={classes.sectionHint}>
@@ -424,11 +421,7 @@ export const ApmeAiProvidersSection = () => {
                     key={m.id}
                     size="small"
                     label={m.name || m.id}
-                    title={
-                      m.provider
-                        ? `${m.id} (${m.provider})`
-                        : m.id
-                    }
+                    title={m.provider ? `${m.id} (${m.provider})` : m.id}
                     variant="outlined"
                   />
                 ))}

@@ -48,10 +48,7 @@ import type {
   CreateGalaxyServerRequest,
   UpdateGalaxyServerRequest,
 } from '@ansible/backstage-apme-common/types';
-import {
-  coerceRuleResponse,
-  type GatewayRuleRow,
-} from '../utils/gatewayRules';
+import { coerceRuleResponse, type GatewayRuleRow } from '../utils/gatewayRules';
 
 export interface ApmeScmRequestOptions {
   scmToken?: string;
@@ -82,7 +79,10 @@ export interface ApmeApi {
   getAiProviders(): Promise<ApmeAiProviderSummary[]>;
   /** Engine descriptors from Gateway → Abbenay GET /api/v1/ai/engines. */
   getAiEngines(): Promise<ApmeAiEnginesResponse>;
-  configureAiProvider(id: string, body: ApmeAiProviderConfigureRequest): Promise<unknown>;
+  configureAiProvider(
+    id: string,
+    body: ApmeAiProviderConfigureRequest,
+  ): Promise<unknown>;
   deleteAiProvider(id: string): Promise<void>;
   getProjects(): Promise<Project[]>;
   getProject(projectId: string): Promise<Project>;
@@ -108,7 +108,10 @@ export interface ApmeApi {
     body: UpdateGalaxyServerRequest,
   ): Promise<GalaxyServer>;
   deleteGalaxyServer(serverId: number): Promise<void>;
-  triggerScan(projectId: string, options?: ScanTriggerOptions): Promise<ScanResult>;
+  triggerScan(
+    projectId: string,
+    options?: ScanTriggerOptions,
+  ): Promise<ScanResult>;
   createProject(request: CreateProjectRequest): Promise<Project>;
   validateRepoBranch(repoUrl: string, branch: string): Promise<void>;
   deleteProject(projectId: string): Promise<void>;
@@ -190,9 +193,7 @@ export class ApmeApiClient implements ApmeApi {
       const name = err instanceof Error ? err.name : '';
       const message = err instanceof Error ? err.message : String(err);
       if (name === 'AbortError' || /aborted/i.test(message)) {
-        throw new Error(
-          `APME API request timed out or was aborted: ${url}`,
-        );
+        throw new Error(`APME API request timed out or was aborted: ${url}`);
       }
       if (err instanceof TypeError || /Failed to fetch/i.test(message)) {
         throw new Error(

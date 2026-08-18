@@ -73,7 +73,9 @@ export class ApmeClient {
     this.logger.debug(`APME client initialized with baseUrl: ${this.baseUrl}`);
   }
 
-  private scanOperationOptions(ansibleVersion?: string): Record<string, unknown> {
+  private scanOperationOptions(
+    ansibleVersion?: string,
+  ): Record<string, unknown> {
     const options: Record<string, unknown> = { enable_ai: this.enableAi };
     const version = ansibleVersion?.trim();
     if (version) {
@@ -200,7 +202,9 @@ export class ApmeClient {
 
   async getAiEngines(): Promise<ApmeAiEnginesResponse> {
     try {
-      return await this.executeRequest<ApmeAiEnginesResponse>('/api/v1/ai/engines');
+      return await this.executeRequest<ApmeAiEnginesResponse>(
+        '/api/v1/ai/engines',
+      );
     } catch {
       return { engines: [] };
     }

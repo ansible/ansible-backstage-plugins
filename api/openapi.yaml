@@ -1936,7 +1936,11 @@ paths:
     post:
       operationId: configureApmeAiProvider
       summary: Configure an AI provider
-      description: Creates or updates an Abbenay provider, optionally writing container-mode API key secrets.
+      description: >
+        Creates or updates an Abbenay provider via the Gateway admin proxy.
+        Pass apiKey with secretStore=file (Abbenay ≥ v2026.8.6) so the key is
+        written to Abbenay's secrets.json on the config volume. Gateway does
+        not persist API keys (ADR-070).
       tags:
         - APME
       parameters:

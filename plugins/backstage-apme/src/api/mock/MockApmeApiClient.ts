@@ -158,7 +158,12 @@ export class MockApmeApiClient implements ApmeApi {
 
   async getAiStatus() {
     await delay(50);
-    return { enableAi: true, connected: true, modelCount: 1, configuredModelCount: 1 };
+    return {
+      enableAi: true,
+      connected: true,
+      modelCount: 1,
+      configuredModelCount: 1,
+    };
   }
 
   async getAiModels() {

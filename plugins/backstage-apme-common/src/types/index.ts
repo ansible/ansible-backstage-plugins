@@ -290,18 +290,26 @@ export interface ApmeAiConfigResponse {
   [key: string]: unknown;
 }
 
-/** Request body for POST …/provider/{id}/configure (US-016). */
+/** Request body for POST …/provider/{id}/configure (Abbenay via Gateway ADR-070). */
 export interface ApmeAiProviderConfigureRequest {
   engine: string;
-  /** Write-only — omit when empty to leave unchanged. camelCase per Abbenay v2026.8+. */
+  /**
+   * Write-only API key. With ``secretStore: "file"`` (Abbenay ≥ v2026.8.6),
+   * Abbenay persists the key on the config volume — Gateway does not store it.
+   */
   apiKey?: string;
   baseUrl?: string;
-  envVarName?: string;
+  /** Logical Abbenay secret name; defaults to ``{PROVIDER}_API_KEY`` when omitted. */
+  secretName?: string;
   /**
-   * `env` references a deploy-time process env var (Helm / `.env-abbenay`).
-   * Prefer over `apiKey` for containers — Abbenay has no keytar there.
+   * Abbenay secret backend. Portal uses ``file`` for durable container keys.
+   * ``env`` + ``envVarName`` remains for deploy-time secrets.
    */
-  secretStorage?: 'env' | 'keychain';
+  secretStore?: 'file' | 'memory' | 'keychain' | 'env';
+  /** Deploy-time process env var name (sets ``secretStore: env``). */
+  envVarName?: string;
+  /** @deprecated Prefer ``secretStore``. */
+  secretStorage?: 'env' | 'keychain' | 'file' | 'memory';
 }
 
 function normalizeProviderEntry(p: unknown): ApmeAiProviderSummary {
@@ -325,7 +333,9 @@ function normalizeProviderEntry(p: unknown): ApmeAiProviderSummary {
  * Handles: bare array, `{providers: array}`, `{providers: record}`,
  * and `{config: {providers: record}}`. Never exposes secrets.
  */
-export function normalizeApmeAiProviders(raw: unknown): ApmeAiProviderSummary[] {
+export function normalizeApmeAiProviders(
+  raw: unknown,
+): ApmeAiProviderSummary[] {
   if (Array.isArray(raw)) {
     return raw.map(p => normalizeProviderEntry(p));
   }

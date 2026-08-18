@@ -15,7 +15,11 @@ jest.mock('@backstage/core-plugin-api', () => ({
 
 const MOCK_ENGINES = [
   { id: 'openai', requiresKey: true, defaultEnvVar: 'OPENAI_API_KEY' },
-  { id: 'ollama', requiresKey: false, defaultBaseUrl: 'http://localhost:11434' },
+  {
+    id: 'ollama',
+    requiresKey: false,
+    defaultBaseUrl: 'http://localhost:11434',
+  },
   { id: 'redhat', requiresKey: true },
 ];
 
@@ -43,12 +47,12 @@ describe('ApmeAiProviderDialog', () => {
   it('renders step 1 setup form for add', async () => {
     renderDialog();
     expect(screen.getByText('Add AI provider')).toBeInTheDocument();
-    expect(screen.getByLabelText('Provider ID')).toBeInTheDocument();
+    expect(screen.getByLabelText('Provider name')).toBeInTheDocument();
     // Engine select appears after engines load
     await waitFor(() =>
       expect(screen.getByLabelText(/Engine/i)).toBeInTheDocument(),
     );
-    expect(screen.getByLabelText('API key env var')).toBeInTheDocument();
+    expect(screen.getByLabelText('API key')).toBeInTheDocument();
   });
 
   it('lists live engines from getAiEngines (openai, ollama, redhat)', async () => {
@@ -72,18 +76,24 @@ describe('ApmeAiProviderDialog', () => {
       expect(screen.getByLabelText(/Engine/i)).toBeInTheDocument(),
     );
     fireEvent.mouseDown(screen.getByLabelText(/Engine/i));
-    expect(screen.queryByRole('option', { name: 'mock' })).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole('option', { name: 'mock' }),
+    ).not.toBeInTheDocument();
   });
 
   it('renders edit title when provider is supplied', async () => {
-    renderDialog({ provider: { id: 'my-prov', engine: 'openai', models: ['gpt-4o'] } });
+    renderDialog({
+      provider: { id: 'my-prov', engine: 'openai', models: ['gpt-4o'] },
+    });
     expect(screen.getByText('Edit provider: my-prov')).toBeInTheDocument();
     // ID field should not appear in edit mode
-    expect(screen.queryByLabelText('Provider ID')).not.toBeInTheDocument();
+    expect(screen.queryByLabelText('Provider name')).not.toBeInTheDocument();
   });
 
   it('shows unknown engine in edit mode even if not in live list', async () => {
-    renderDialog({ provider: { id: 'my-prov', engine: 'custom-engine', models: [] } });
+    renderDialog({
+      provider: { id: 'my-prov', engine: 'custom-engine', models: [] },
+    });
     await waitFor(() =>
       expect(screen.getByLabelText(/Engine/i)).toBeInTheDocument(),
     );
@@ -110,7 +120,7 @@ describe('ApmeAiProviderDialog', () => {
 
   it('advances to step 2 on "Next: Models"', async () => {
     renderDialog();
-    const idField = screen.getByLabelText('Provider ID');
+    const idField = screen.getByLabelText('Provider name');
     fireEvent.change(idField, { target: { value: 'my-provider' } });
 
     // Wait for engine select to appear (engines loaded)
@@ -118,6 +128,9 @@ describe('ApmeAiProviderDialog', () => {
       expect(screen.getByLabelText(/Engine/i)).toBeInTheDocument(),
     );
 
+    fireEvent.change(screen.getByLabelText('API key'), {
+      target: { value: 'sk-test' },
+    });
     fireEvent.click(screen.getByRole('button', { name: /next: models/i }));
 
     expect(await screen.findByText(/Step 2 of 2/)).toBeInTheDocument();
@@ -126,12 +139,15 @@ describe('ApmeAiProviderDialog', () => {
 
   it('adds model chips on step 2 and shows chip list', async () => {
     renderDialog();
-    const idField = screen.getByLabelText('Provider ID');
+    const idField = screen.getByLabelText('Provider name');
     fireEvent.change(idField, { target: { value: 'my-provider' } });
 
     await waitFor(() =>
       expect(screen.getByLabelText(/Engine/i)).toBeInTheDocument(),
     );
+    fireEvent.change(screen.getByLabelText('API key'), {
+      target: { value: 'sk-test' },
+    });
     fireEvent.click(screen.getByRole('button', { name: /next: models/i }));
 
     const modelInput = await screen.findByLabelText('Model ID');
@@ -139,24 +155,48 @@ describe('ApmeAiProviderDialog', () => {
     fireEvent.click(screen.getByRole('button', { name: /^add$/i }));
 
     expect(screen.getByText('gpt-4o')).toBeInTheDocument();
-    expect(screen.getByRole('list', { name: /enabled models/i })).toBeInTheDocument();
+    expect(
+      screen.getByRole('list', { name: /enabled models/i }),
+    ).toBeInTheDocument();
 
     // Adding the same model again does not duplicate it
-    fireEvent.change(screen.getByLabelText('Model ID'), { target: { value: 'gpt-4o' } });
+    fireEvent.change(screen.getByLabelText('Model ID'), {
+      target: { value: 'gpt-4o' },
+    });
     fireEvent.click(screen.getByRole('button', { name: /^add$/i }));
     expect(screen.getAllByText('gpt-4o')).toHaveLength(1);
   });
 
-  it('calls onSave with envVarName + secretStorage and models separately', async () => {
+  it('requires API key before advancing when engine needs a key', async () => {
     renderDialog();
-    fireEvent.change(screen.getByLabelText('Provider ID'), { target: { value: 'test-prov' } });
+    fireEvent.change(screen.getByLabelText('Provider name'), {
+      target: { value: 'my-provider' },
+    });
+    await waitFor(() =>
+      expect(screen.getByLabelText(/Engine/i)).toBeInTheDocument(),
+    );
+    expect(
+      screen.getByRole('button', { name: /next: models/i }),
+    ).toBeDisabled();
+    fireEvent.change(screen.getByLabelText('API key'), {
+      target: { value: 'sk-test' },
+    });
+    expect(
+      screen.getByRole('button', { name: /next: models/i }),
+    ).not.toBeDisabled();
+  });
+
+  it('calls onSave with apiKey + secretStore file and models separately', async () => {
+    renderDialog();
+    fireEvent.change(screen.getByLabelText('Provider name'), {
+      target: { value: 'test-prov' },
+    });
 
     await waitFor(() =>
       expect(screen.getByLabelText(/Engine/i)).toBeInTheDocument(),
     );
-    // Prefills from engine defaultEnvVar; override to assert payload.
-    fireEvent.change(screen.getByLabelText('API key env var'), {
-      target: { value: 'OPENAI_API_KEY' },
+    fireEvent.change(screen.getByLabelText('API key'), {
+      target: { value: 'sk-test' },
     });
     fireEvent.click(screen.getByRole('button', { name: /next: models/i }));
 
@@ -170,23 +210,23 @@ describe('ApmeAiProviderDialog', () => {
       expect(onSave).toHaveBeenCalledWith('test-prov', {
         configure: {
           engine: 'openai', // first engine in MOCK_ENGINES
-          envVarName: 'OPENAI_API_KEY',
-          secretStorage: 'env',
+          apiKey: 'sk-test',
+          secretStore: 'file',
+          secretName: 'OPENAI_API_KEY',
         },
         models: ['gpt-4o'],
       });
     });
   });
 
-  it('omits envVarName from configure when left blank (edit)', async () => {
-    renderDialog({ provider: { id: 'existing', engine: 'openai', models: ['gpt-4o'] } });
+  it('omits apiKey from configure when left blank (edit)', async () => {
+    renderDialog({
+      provider: { id: 'existing', engine: 'openai', models: ['gpt-4o'] },
+    });
 
     await waitFor(() =>
       expect(screen.getByLabelText(/Engine/i)).toBeInTheDocument(),
     );
-    fireEvent.change(screen.getByLabelText('API key env var'), {
-      target: { value: '' },
-    });
     fireEvent.click(screen.getByRole('button', { name: /next: models/i }));
     await screen.findByText(/Step 2 of 2/);
 
@@ -196,23 +236,29 @@ describe('ApmeAiProviderDialog', () => {
       expect(onSave).toHaveBeenCalledWith(
         'existing',
         expect.objectContaining({
-          configure: expect.not.objectContaining({
-            envVarName: expect.anything(),
-            apiKey: expect.anything(),
+          configure: expect.objectContaining({
+            engine: 'openai',
+            secretStore: 'file',
           }),
         }),
       );
+      expect(onSave.mock.calls[0][1].configure.apiKey).toBeUndefined();
     });
   });
 
   it('shows error when onSave rejects', async () => {
     onSave.mockRejectedValue(new Error('configure failed'));
     renderDialog();
-    fireEvent.change(screen.getByLabelText('Provider ID'), { target: { value: 'p1' } });
+    fireEvent.change(screen.getByLabelText('Provider name'), {
+      target: { value: 'p1' },
+    });
 
     await waitFor(() =>
       expect(screen.getByLabelText(/Engine/i)).toBeInTheDocument(),
     );
+    fireEvent.change(screen.getByLabelText('API key'), {
+      target: { value: 'sk-test' },
+    });
     fireEvent.click(screen.getByRole('button', { name: /next: models/i }));
     await screen.findByText(/Step 2 of 2/);
 

@@ -33,14 +33,24 @@ describe('ApmeAiProvidersSection', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
-    getAiStatus.mockResolvedValue({ enableAi: true, connected: true, modelCount: 2 });
+    getAiStatus.mockResolvedValue({
+      enableAi: true,
+      connected: true,
+      modelCount: 2,
+    });
     getAiProviders.mockResolvedValue([]);
     getAiModels.mockResolvedValue([]);
     getAiConfig.mockResolvedValue(undefined);
-    getAiEngines.mockResolvedValue({ engines: [
-      { id: 'openai', requiresKey: true, defaultEnvVar: 'OPENAI_API_KEY' },
-      { id: 'anthropic', requiresKey: true, defaultEnvVar: 'ANTHROPIC_API_KEY' },
-    ]});
+    getAiEngines.mockResolvedValue({
+      engines: [
+        { id: 'openai', requiresKey: true, defaultEnvVar: 'OPENAI_API_KEY' },
+        {
+          id: 'anthropic',
+          requiresKey: true,
+          defaultEnvVar: 'ANTHROPIC_API_KEY',
+        },
+      ],
+    });
     configureAiProvider.mockResolvedValue(undefined);
     updateAiConfig.mockResolvedValue(undefined);
     updatePortalSettings.mockResolvedValue({});
@@ -61,12 +71,16 @@ describe('ApmeAiProvidersSection', () => {
 
   it('shows connected status chip from getAiStatus', async () => {
     renderSection();
-    expect(await screen.findByText(/Connected · 2 inference models/i)).toBeInTheDocument();
+    expect(
+      await screen.findByText(/Connected · 2 inference models/i),
+    ).toBeInTheDocument();
   });
 
   it('shows empty state when no providers', async () => {
     renderSection();
-    expect(await screen.findByText(/no providers configured/i)).toBeInTheDocument();
+    expect(
+      await screen.findByText(/no providers configured/i),
+    ).toBeInTheDocument();
   });
 
   it('shows available models section and model chips when providers empty but models returned', async () => {
@@ -84,7 +98,11 @@ describe('ApmeAiProvidersSection', () => {
 
   it('renders provider list with engine chip and model count', async () => {
     getAiProviders.mockResolvedValue([
-      { id: 'my-openrouter', engine: 'openrouter', models: ['gpt-4o', 'gpt-4'] },
+      {
+        id: 'my-openrouter',
+        engine: 'openrouter',
+        models: ['gpt-4o', 'gpt-4'],
+      },
     ]);
     renderSection();
     expect(await screen.findByText('my-openrouter')).toBeInTheDocument();
@@ -120,7 +138,9 @@ describe('ApmeAiProvidersSection', () => {
       { id: 'my-provider', engine: 'anthropic', models: ['claude-3'] },
     ]);
     renderSection();
-    const editBtn = await screen.findByRole('button', { name: /edit provider my-provider/i });
+    const editBtn = await screen.findByRole('button', {
+      name: /edit provider my-provider/i,
+    });
     fireEvent.click(editBtn);
     expect(screen.getByText('Edit provider: my-provider')).toBeInTheDocument();
   });
@@ -134,11 +154,15 @@ describe('ApmeAiProvidersSection', () => {
     getAiProviders.mockResolvedValueOnce([]);
 
     renderSection();
-    const removeBtn = await screen.findByRole('button', { name: /remove provider my-provider/i });
+    const removeBtn = await screen.findByRole('button', {
+      name: /remove provider my-provider/i,
+    });
     fireEvent.click(removeBtn);
 
     // Confirm dialog should appear
-    expect(await screen.findByRole('heading', { name: /remove provider/i })).toBeInTheDocument();
+    expect(
+      await screen.findByRole('heading', { name: /remove provider/i }),
+    ).toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: /^remove$/i }));
 
     await waitFor(() => {
@@ -153,7 +177,9 @@ describe('ApmeAiProvidersSection', () => {
     deleteAiProvider.mockRejectedValue(new Error('Gateway timeout'));
 
     renderSection();
-    const removeBtn = await screen.findByRole('button', { name: /remove provider fail-provider/i });
+    const removeBtn = await screen.findByRole('button', {
+      name: /remove provider fail-provider/i,
+    });
     fireEvent.click(removeBtn);
 
     fireEvent.click(await screen.findByRole('button', { name: /^remove$/i }));
@@ -161,22 +187,27 @@ describe('ApmeAiProvidersSection', () => {
     expect(await screen.findByText('Gateway timeout')).toBeInTheDocument();
   });
 
-  it('save calls configureAiProvider with envVarName then updateAiConfig with merged models', async () => {
+  it('save calls configureAiProvider with apiKey + secretStore file then updateAiConfig with merged models', async () => {
     getAiConfig.mockResolvedValue({
-      config: { providers: { 'existing-prov': { engine: 'anthropic' } }, server: {} },
+      config: {
+        providers: { 'existing-prov': { engine: 'anthropic' } },
+        server: {},
+      },
     });
 
     renderSection();
     await screen.findByText('AI providers');
 
     fireEvent.click(screen.getByRole('button', { name: /add provider/i }));
-    fireEvent.change(screen.getByLabelText('Provider ID'), { target: { value: 'new-prov' } });
+    fireEvent.change(screen.getByLabelText('Provider name'), {
+      target: { value: 'new-prov' },
+    });
 
     await waitFor(() =>
       expect(screen.getByLabelText(/Engine/i)).toBeInTheDocument(),
     );
-    fireEvent.change(screen.getByLabelText('API key env var'), {
-      target: { value: 'OPENAI_API_KEY' },
+    fireEvent.change(screen.getByLabelText('API key'), {
+      target: { value: 'sk-test' },
     });
     fireEvent.click(screen.getByRole('button', { name: /next: models/i }));
 
@@ -189,8 +220,9 @@ describe('ApmeAiProvidersSection', () => {
     await waitFor(() => {
       expect(configureAiProvider).toHaveBeenCalledWith('new-prov', {
         engine: 'openai',
-        envVarName: 'OPENAI_API_KEY',
-        secretStorage: 'env',
+        apiKey: 'sk-test',
+        secretStore: 'file',
+        secretName: 'OPENAI_API_KEY',
       });
     });
     await waitFor(() => {
@@ -219,7 +251,9 @@ describe('ApmeAiProvidersSection', () => {
   it('save merges new provider models while preserving existing providers and server config', async () => {
     getAiConfig.mockResolvedValue({
       config: {
-        providers: { 'other-prov': { engine: 'anthropic', models: { 'claude-3': {} } } },
+        providers: {
+          'other-prov': { engine: 'anthropic', models: { 'claude-3': {} } },
+        },
         server: { port: 8080 },
       },
     });
@@ -228,11 +262,16 @@ describe('ApmeAiProvidersSection', () => {
     await screen.findByText('AI providers');
 
     fireEvent.click(screen.getByRole('button', { name: /add provider/i }));
-    fireEvent.change(screen.getByLabelText('Provider ID'), { target: { value: 'my-prov' } });
+    fireEvent.change(screen.getByLabelText('Provider name'), {
+      target: { value: 'my-prov' },
+    });
 
     await waitFor(() =>
       expect(screen.getByLabelText(/Engine/i)).toBeInTheDocument(),
     );
+    fireEvent.change(screen.getByLabelText('API key'), {
+      target: { value: 'sk-test' },
+    });
     fireEvent.click(screen.getByRole('button', { name: /next: models/i }));
     await screen.findByLabelText('Model ID');
 

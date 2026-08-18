@@ -592,7 +592,31 @@ describe('catalog-backend-module-apme router', () => {
     ]);
   });
 
-  it('proxies configureAiProvider with envVarName + secretStorage (deploy-time secrets)', async () => {
+  it('proxies configureAiProvider with apiKey + secretStore file (Abbenay ≥ v2026.8.6)', async () => {
+    mockApmeService.configureAiProvider.mockResolvedValueOnce({ ok: true });
+
+    const response = await request(app)
+      .post('/apme/ai/provider/my-openrouter/configure')
+      .send({
+        engine: 'openrouter',
+        apiKey: 'sk-xxx',
+        secretStore: 'file',
+        secretName: 'OPENROUTER_API_KEY',
+      });
+
+    expect(response.status).toBe(200);
+    expect(mockApmeService.configureAiProvider).toHaveBeenCalledWith(
+      'my-openrouter',
+      {
+        engine: 'openrouter',
+        apiKey: 'sk-xxx',
+        secretStore: 'file',
+        secretName: 'OPENROUTER_API_KEY',
+      },
+    );
+  });
+
+  it('proxies configureAiProvider envVarName body through (deploy-time secrets)', async () => {
     mockApmeService.configureAiProvider.mockResolvedValueOnce({ ok: true });
 
     const response = await request(app)
@@ -600,7 +624,6 @@ describe('catalog-backend-module-apme router', () => {
       .send({
         engine: 'openrouter',
         envVarName: 'OPENROUTER_API_KEY',
-        secretStorage: 'env',
       });
 
     expect(response.status).toBe(200);
@@ -609,22 +632,7 @@ describe('catalog-backend-module-apme router', () => {
       {
         engine: 'openrouter',
         envVarName: 'OPENROUTER_API_KEY',
-        secretStorage: 'env',
       },
-    );
-  });
-
-  it('proxies configureAiProvider apiKey body through (keytar host path)', async () => {
-    mockApmeService.configureAiProvider.mockResolvedValueOnce({ ok: true });
-
-    const response = await request(app)
-      .post('/apme/ai/provider/my-openrouter/configure')
-      .send({ engine: 'openrouter', apiKey: 'sk-xxx' });
-
-    expect(response.status).toBe(200);
-    expect(mockApmeService.configureAiProvider).toHaveBeenCalledWith(
-      'my-openrouter',
-      { engine: 'openrouter', apiKey: 'sk-xxx' },
     );
   });
 
