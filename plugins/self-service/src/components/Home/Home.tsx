@@ -49,6 +49,10 @@ import Alert from '@material-ui/lab/Alert';
 import { SkeletonLoader } from './SkeletonLoader';
 import { scaffolderApiRef } from '@backstage/plugin-scaffolder-react';
 import { TagFilterPicker } from '../utils/TagFilterPicker';
+import {
+  SourcePicker,
+  TEMPLATE_SOURCE_ANNOTATION,
+} from '../utils/SourcePicker';
 import { CatalogItemsDetails } from '../CatalogItemDetails';
 import { CreateTask } from '../CreateTask';
 import {
@@ -222,12 +226,26 @@ const HomeCategoryPicker = ({ syncKey }: { syncKey: number }) => {
   );
 };
 
+export const filterBySource = (
+  entity: TemplateEntityV1beta3,
+  jobTemplates: { id: number; name: string }[],
+  selectedSources: string[],
+): boolean => {
+  if (!isHomePageTemplate(entity, jobTemplates)) return false;
+  if (selectedSources.length === 0) return true;
+  const source =
+    entity.metadata?.annotations?.[TEMPLATE_SOURCE_ANNOTATION] ?? '';
+  return selectedSources.includes(source);
+};
+
 const TemplateContent = ({
   loading: externalLoading,
   jobTemplates,
+  selectedSources,
 }: {
   loading: boolean;
   jobTemplates: { id: number; name: string }[];
+  selectedSources: string[];
 }) => {
   const { entities, loading: catalogLoading } = useEntityList();
 
@@ -236,9 +254,9 @@ const TemplateContent = ({
   const filteredEntities = useMemo(
     () =>
       (entities as TemplateEntityV1beta3[]).filter(entity =>
-        isHomePageTemplate(entity, jobTemplates),
+        filterBySource(entity, jobTemplates, selectedSources),
       ),
-    [entities, jobTemplates],
+    [entities, jobTemplates, selectedSources],
   );
 
   const totalCount = filteredEntities.length;
@@ -301,6 +319,7 @@ export const HomeComponent = () => {
     : isSuperuser && (checkingCatalogCreate || canCreateCatalogEntity);
   const addTemplateDisabled = checkingAddTemplate;
   const [open, setOpen] = useState(false);
+  const [selectedSources, setSelectedSources] = useState<string[]>([]);
   const [syncOptions, setSyncOptions] = useState<string[]>([]);
   const [showSnackbar, setShowSnackbar] = useState<boolean>(false);
   const [snackbarMsg, setSnackbarMsg] = useState<string>('Sync failed');
@@ -657,10 +676,19 @@ export const HomeComponent = () => {
                 <HomeCategoryPicker syncKey={syncKey} />
               </div>
               <HomeTagPicker syncKey={syncKey} />
+              <SourcePicker
+                syncKey={syncKey}
+                selectedSources={selectedSources}
+                onSourceChange={setSelectedSources}
+              />
               <EntityOwnerPicker />
             </CatalogFilterLayout.Filters>
             <CatalogFilterLayout.Content>
-              <TemplateContent loading={loading} jobTemplates={jobTemplates} />
+              <TemplateContent
+                loading={loading}
+                jobTemplates={jobTemplates}
+                selectedSources={selectedSources}
+              />
             </CatalogFilterLayout.Content>
           </CatalogFilterLayout>
         </EntityListProvider>
