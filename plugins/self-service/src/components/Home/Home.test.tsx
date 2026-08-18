@@ -9,6 +9,7 @@ import {
   MockStarredEntitiesApi,
   starredEntitiesApiRef,
 } from '@backstage/plugin-catalog-react';
+import { filterBySource } from './Home';
 import { MockEntityListContextProvider } from '@backstage/plugin-catalog-react/testUtils';
 import { permissionApiRef } from '@backstage/plugin-permission-react';
 import { scaffolderApiRef } from '@backstage/plugin-scaffolder-react';
@@ -1851,5 +1852,35 @@ describe('HomeCategoryPicker EE exclusion', () => {
       expect(screen.getByText('Categories')).toBeInTheDocument();
     });
     expect(screen.getByText('Tags')).toBeInTheDocument();
+  });
+});
+
+describe('filterBySource', () => {
+  const makeTemplate = (annotations: Record<string, string> = {}) =>
+    ({
+      apiVersion: 'scaffolder.backstage.io/v1beta3',
+      kind: 'Template',
+      metadata: { name: 'test', annotations },
+      spec: { type: 'automation-template', owner: 'test' },
+    }) as any;
+
+  const jobTemplates = [{ id: 1, name: 'test' }];
+
+  it('returns true when no sources selected', () => {
+    const entity = makeTemplate({ 'ansible.com/template-source': 'scm' });
+    expect(filterBySource(entity, jobTemplates, [])).toBe(true);
+  });
+
+  it('filters by selected source', () => {
+    const entity = makeTemplate({
+      'ansible.com/template-source': 'aap-template',
+    });
+    expect(filterBySource(entity, jobTemplates, ['aap-template'])).toBe(true);
+    expect(filterBySource(entity, jobTemplates, ['scm'])).toBe(false);
+  });
+
+  it('handles entity without source annotation', () => {
+    const entity = makeTemplate({});
+    expect(filterBySource(entity, jobTemplates, ['aap-template'])).toBe(false);
   });
 });
