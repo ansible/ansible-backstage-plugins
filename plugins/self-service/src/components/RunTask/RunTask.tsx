@@ -288,8 +288,7 @@ export const RunTask = () => {
     const fetchEntity = async () => {
       try {
         const eeFileName = task?.spec?.parameters?.eeFileName as
-          | string
-          | undefined;
+          string | undefined;
         if (!eeFileName) {
           console.warn('EE file name not found in task parameters'); // eslint-disable-line no-console
           return;
@@ -324,8 +323,7 @@ export const RunTask = () => {
 
     if (!entity) {
       const eeFileName = task?.spec?.parameters?.eeFileName as
-        | string
-        | undefined;
+        string | undefined;
       if (!eeFileName) {
         console.error('EE file name not found in task parameters'); // eslint-disable-line no-console
         return null;
