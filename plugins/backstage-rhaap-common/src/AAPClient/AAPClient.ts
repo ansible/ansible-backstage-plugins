@@ -902,8 +902,8 @@ export class AAPClient implements IAAPService {
     }
 
     const endPoint = `api/controller/v2/${aapResource}/?${urlSearchParams.toString()}`;
-    const response = await this.executeGetRequest(endPoint, token);
-    return await response.json();
+    const results = await this.executeCatalogRequest(endPoint, token);
+    return { results, count: results.length };
   }
 
   public async getJobTemplatesByName(
