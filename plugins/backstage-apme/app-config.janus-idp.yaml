@@ -1,8 +1,16 @@
-# RHDH dynamic plugin wiring (legacy filename: app-config.janus-idp.yaml).
-# Merged at deploy time via portal dynamic-plugins.yaml pluginConfig → app-config.dynamic-plugins.yaml.
+# Example RHDH pluginConfig for this frontend plugin — not loaded at runtime.
 #
-# eap-next thin host: apmeApiFactory + Git Repos extensions (US-002) + Quality entity tab.
-# No ApmePage / ApmeProjectPage SPA shell (native APME). Fleet + settings via Git Repos tabs.
+# RHDH does not read this file (or createPlugin({ apis })). Frontend factories,
+# entity tabs, and mount points exist only when a host copies this block into
+# dynamic-plugins.yaml pluginConfig. Portal: overlay/dynamic-plugins.portal*.yaml
+# in ansible-automation-platform/automation-portal-local (and chart/operator
+# when they ship APME). yarn start uses packages/app instead.
+#
+# Filename is a Janus IDP convention so `rhdh-cli plugin package` can print an
+# example overlay. Changing this file alone does not change Portal.
+#
+# eap-next thin host: apmeApiFactory + Git Repos extensions (US-002) + Quality
+# entity tab. No ApmePage / ApmeProjectPage SPA shell (native APME).
 
 dynamicPlugins:
   frontend:
@@ -21,3 +29,9 @@ dynamicPlugins:
           config:
             layout:
               gridColumn: '1 / -1'
+            # Tab is visible only when at least one card contributes. Restrict
+            # Quality to git-repository Components — not User/Group/API/etc.
+            if:
+              allOf:
+                - isKind: component
+                - isType: git-repository
