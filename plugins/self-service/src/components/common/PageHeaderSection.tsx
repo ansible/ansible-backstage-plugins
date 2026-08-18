@@ -49,15 +49,7 @@ export const PageHeaderSection = ({
   const showSyncButton = checkingPermission || allowed;
   const isButtonDisabled = checkingPermission || syncDisabled;
 
-  // Keep the popover visible after sync ends if any source has a failure or
-  // ambiguous outcome so users can inspect per-source results on hover.
-  // Success-only completions are adequately communicated by the auto-hiding
-  // success toast and do not need a persistent popover.
-  const hasFailureOrAmbiguous = syncProgress.some(
-    e => e.outcome === 'failure' || e.outcome === 'ambiguous',
-  );
-  const showProgressPopover =
-    (syncInProgress || hasFailureOrAmbiguous) && syncProgress.length > 0;
+  const showProgressPopover = syncProgress.length > 0;
 
   const getButtonTooltip = () => {
     if (checkingPermission) return 'Checking permissions...';
