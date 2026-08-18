@@ -226,6 +226,18 @@ const HomeCategoryPicker = ({ syncKey }: { syncKey: number }) => {
   );
 };
 
+export const filterBySource = (
+  entity: TemplateEntityV1beta3,
+  jobTemplates: { id: number; name: string }[],
+  selectedSources: string[],
+): boolean => {
+  if (!isHomePageTemplate(entity, jobTemplates)) return false;
+  if (selectedSources.length === 0) return true;
+  const source =
+    entity.metadata?.annotations?.[TEMPLATE_SOURCE_ANNOTATION] ?? '';
+  return selectedSources.includes(source);
+};
+
 const TemplateContent = ({
   loading: externalLoading,
   jobTemplates,
@@ -241,13 +253,9 @@ const TemplateContent = ({
 
   const filteredEntities = useMemo(
     () =>
-      (entities as TemplateEntityV1beta3[]).filter(entity => {
-        if (!isHomePageTemplate(entity, jobTemplates)) return false;
-        if (selectedSources.length === 0) return true;
-        const source =
-          entity.metadata?.annotations?.[TEMPLATE_SOURCE_ANNOTATION] ?? '';
-        return selectedSources.includes(source);
-      }),
+      (entities as TemplateEntityV1beta3[]).filter(entity =>
+        filterBySource(entity, jobTemplates, selectedSources),
+      ),
     [entities, jobTemplates, selectedSources],
   );
 

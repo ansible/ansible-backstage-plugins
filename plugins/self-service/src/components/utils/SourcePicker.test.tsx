@@ -1,4 +1,4 @@
-import { screen, waitFor, within } from '@testing-library/react';
+import { act, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { renderInTestApp, TestApiProvider } from '@backstage/test-utils';
 import { catalogApiRef } from '@backstage/plugin-catalog-react';
@@ -187,6 +187,88 @@ describe('SourcePicker', () => {
 
     await waitFor(() => {
       expect(mockCatalogApi.getEntityFacets).toHaveBeenCalledTimes(4);
+    });
+  });
+
+  it('handles missing spec.type facets gracefully', async () => {
+    mockCatalogApi.getEntityFacets
+      .mockResolvedValueOnce({
+        facets: {},
+      })
+      .mockResolvedValueOnce({
+        facets: { [facetKey]: [{ value: 'aap-template' }] },
+      });
+
+    await renderSourcePicker();
+
+    await waitFor(() => {
+      expect(mockCatalogApi.getEntityFacets).toHaveBeenCalledTimes(2);
+    });
+
+    expect(mockCatalogApi.getEntityFacets).toHaveBeenNthCalledWith(2, {
+      filter: { kind: 'Template' },
+      facets: [facetKey],
+    });
+  });
+
+  it('omits spec.type filter when all types are execution environments', async () => {
+    mockCatalogApi.getEntityFacets
+      .mockResolvedValueOnce({
+        facets: {
+          'spec.type': [{ value: 'ansible-execution-environment' }],
+        },
+      })
+      .mockResolvedValueOnce({
+        facets: { [facetKey]: [{ value: 'scm' }] },
+      });
+
+    await renderSourcePicker();
+
+    await waitFor(() => {
+      expect(mockCatalogApi.getEntityFacets).toHaveBeenCalledTimes(2);
+    });
+
+    expect(mockCatalogApi.getEntityFacets).toHaveBeenNthCalledWith(2, {
+      filter: { kind: 'Template' },
+      facets: [facetKey],
+    });
+  });
+
+  it('does not update state after unmount', async () => {
+    let resolveSecondCall: (value: any) => void;
+    mockCatalogApi.getEntityFacets
+      .mockResolvedValueOnce({
+        facets: {
+          'spec.type': [{ value: 'job-template' }],
+        },
+      })
+      .mockImplementationOnce(
+        () =>
+          new Promise(resolve => {
+            resolveSecondCall = resolve;
+          }),
+      );
+
+    const { unmount } = await renderInTestApp(
+      <TestApiProvider apis={[[catalogApiRef, mockCatalogApi as any]]}>
+        <SourcePicker
+          syncKey={0}
+          selectedSources={[]}
+          onSourceChange={jest.fn()}
+        />
+      </TestApiProvider>,
+    );
+
+    await waitFor(() => {
+      expect(mockCatalogApi.getEntityFacets).toHaveBeenCalledTimes(2);
+    });
+
+    unmount();
+
+    await act(async () => {
+      resolveSecondCall!({
+        facets: { [facetKey]: [{ value: 'aap-template' }] },
+      });
     });
   });
 });
