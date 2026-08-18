@@ -43,6 +43,11 @@
     "otplib": "^12.0.1",
     "typescript": "^5.7.2"
   },
+  "resolutions": {
+    "tmp": "^0.2.7",
+    "brace-expansion": "^5.0.9",
+    "ip-address": "^10.3.1"
+  },
   "engines": {
     "node": ">=18.0.0"
   }
