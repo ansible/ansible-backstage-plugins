@@ -290,17 +290,14 @@ export const HomeComponent = () => {
   >([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [syncKey, setSyncKey] = useState(0);
+  type SyncProviderStatus = {
+    lastSync: string | null;
+    syncInProgress: boolean;
+    lastSyncStatus: 'success' | 'failure' | null;
+  };
   const [syncStatus, setSyncStatus] = useState<{
-    orgsUsersTeams: {
-      lastSync: string | null;
-      syncInProgress: boolean;
-      lastSyncStatus: 'success' | 'failure' | null;
-    };
-    jobTemplates: {
-      lastSync: string | null;
-      syncInProgress: boolean;
-      lastSyncStatus: 'success' | 'failure' | null;
-    };
+    orgsUsersTeams: SyncProviderStatus;
+    jobTemplates: SyncProviderStatus;
   }>({
     orgsUsersTeams: {
       lastSync: null,
@@ -472,7 +469,7 @@ export const HomeComponent = () => {
         if (result) {
           fetchSyncStatus();
           const preSyncTemplates = jobTemplatesRef.current;
-          let newTemplates = await fetchJobTemplates();
+          const newTemplates = await fetchJobTemplates();
           const listUnchanged =
             newTemplates &&
             !jobTemplateListsDiffer(preSyncTemplates, newTemplates);
@@ -480,7 +477,7 @@ export const HomeComponent = () => {
             await new Promise(resolve =>
               setTimeout(resolve, JOB_TEMPLATE_LIST_STALE_RETRY_MS),
             );
-            newTemplates = await fetchJobTemplates();
+            await fetchJobTemplates();
           }
           setSyncKey(prev => prev + 1);
         }
