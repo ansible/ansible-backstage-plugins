@@ -4,7 +4,13 @@
 
 import { ConfigReader } from '@backstage/config';
 import { InputError } from '@backstage/errors';
+import { Agent } from 'undici';
 import { ApmeClient } from './ApmeClient';
+
+jest.mock('undici', () => {
+  const MockAgent = jest.fn();
+  return { Agent: MockAgent };
+});
 
 describe('ApmeClient', () => {
   const logger = {
@@ -205,6 +211,81 @@ describe('ApmeClient', () => {
 
       jest.advanceTimersByTime(5_000);
       await expect(promise).rejects.toThrow(/Failed to connect to APME/);
+    });
+  });
+
+  describe('checkSSL / TLS dispatcher', () => {
+    it('creates undici Agent and passes dispatcher when checkSSL is false', async () => {
+      const sslOffConfig = new ConfigReader({
+        ansible: {
+          apme: {
+            enabled: true,
+            baseUrl: 'http://localhost:8080',
+            checkSSL: false,
+          },
+        },
+      });
+      (global.fetch as jest.Mock).mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        json: () => Promise.resolve({ status: 'ok' }),
+      });
+
+      const client = new ApmeClient({
+        rootConfig: sslOffConfig,
+        logger: logger as never,
+      });
+      await client.getHealth();
+
+      expect(Agent).toHaveBeenCalledWith({
+        connect: { rejectUnauthorized: false },
+      });
+      expect(global.fetch).toHaveBeenCalledWith(
+        expect.any(String),
+        expect.objectContaining({ dispatcher: expect.anything() }),
+      );
+    });
+
+    it('does not create dispatcher when checkSSL is true', async () => {
+      const sslOnConfig = new ConfigReader({
+        ansible: {
+          apme: {
+            enabled: true,
+            baseUrl: 'http://localhost:8080',
+            checkSSL: true,
+          },
+        },
+      });
+      (global.fetch as jest.Mock).mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        json: () => Promise.resolve({ status: 'ok' }),
+      });
+
+      const client = new ApmeClient({
+        rootConfig: sslOnConfig,
+        logger: logger as never,
+      });
+      await client.getHealth();
+
+      expect(Agent).not.toHaveBeenCalled();
+      const fetchOpts = (global.fetch as jest.Mock).mock.calls[0][1];
+      expect(fetchOpts.dispatcher).toBeUndefined();
+    });
+
+    it('defaults to checkSSL true (no dispatcher) when checkSSL is omitted', async () => {
+      (global.fetch as jest.Mock).mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        json: () => Promise.resolve({ status: 'ok' }),
+      });
+
+      const client = new ApmeClient({ rootConfig, logger: logger as never });
+      await client.getHealth();
+
+      expect(Agent).not.toHaveBeenCalled();
+      const fetchOpts = (global.fetch as jest.Mock).mock.calls[0][1];
+      expect(fetchOpts.dispatcher).toBeUndefined();
     });
   });
 });
