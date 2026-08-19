@@ -22,7 +22,7 @@
     "clean": "backstage-cli package clean",
     "prepack": "backstage-cli package prepack",
     "postpack": "backstage-cli package postpack",
-    "export-dynamic": "rhdh-cli plugin export"
+    "export-dynamic": "yarn run -T rhdh-cli plugin export && node ../../scripts/fix-scalprum-chunk-id-regex.mjs dist-dynamic/dist-scalprum"
   },
   "dependencies": {
     "@ansible/backstage-rhaap-common": "workspace:^",

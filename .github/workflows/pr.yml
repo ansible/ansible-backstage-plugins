@@ -72,6 +72,9 @@ jobs:
       - name: Check dependency version pins
         run: bash scripts/check-dependency-pins.sh
 
+      - name: Run scalprum chunk-id regex script tests
+        run: yarn test:scripts
+
       - name: Lint OpenAPI spec
         run: yarn openapi:lint
 
@@ -137,12 +140,47 @@ jobs:
             exit 1
           fi
           
+  scalprum-export:
+    if: ${{ !startsWith(github.head_ref, 'patchback/backports/') }}
+    name: Export self-service scalprum bundle
+    runs-on: ubuntu-latest
+    env:
+      NODE_OPTIONS: --max-old-space-size=8192
+    steps:
+      - name: Checkout
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@1d0ff469b7ec7b3cb9d8673fde0c81c44821de2a # v4
+        with:
+          node-version: 22
+          registry-url: 'https://registry.npmjs.org'
+
+      - name: Setup local Turbo cache
+        uses: dtinth/setup-github-actions-caching-for-turbo@cc723b4600e40a6b8815b65701d8614b91e2669e # v1
+
+      - name: Install dependencies
+        uses: backstage/actions/yarn-install@b3c1841fd69e1658ac631afafd0fb140a2309024 # v0.6.17
+        with:
+          cache-prefix: ${{ github.ref_name }}-${{ runner.os }}-22-scalprum
+
+      - name: Export self-service dynamic plugin
+        run: yarn workspace @ansible/plugin-backstage-self-service run export-dynamic
+
+      - name: Verify scalprum webpack chunk-id regex
+        run: >-
+          node scripts/verify-scalprum-chunk-id-regex.mjs
+          plugins/self-service/dist-dynamic/dist-scalprum
+
   all-green:
     if: ${{ always() }}
     name: check
     needs:
       - docs
       - test
+      - scalprum-export
     runs-on: ubuntu-latest
     steps:
       - name: Verify all jobs succeeded
@@ -150,7 +188,8 @@ jobs:
           python -c "
           results = {
             'docs': '${{ needs.docs.result }}',
-            'test': '${{ needs.test.result }}'
+            'test': '${{ needs.test.result }}',
+            'scalprum-export': '${{ needs.scalprum-export.result }}'
           }
           # Allow 'skipped' for patchback PRs
           failed = [job for job, result in results.items() if result not in ('success', 'skipped')]
