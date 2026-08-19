@@ -24,6 +24,8 @@ __metadata:
     "@backstage/core-plugin-api": "npm:^1.12.4"
     "@backstage/errors": "npm:^1.2.7"
     typescript: "npm:^5.0.0"
+    undici: "npm:^6.26.0"
+    web-streams-polyfill: "npm:^4.1.0"
   languageName: unknown
   linkType: soft
 
