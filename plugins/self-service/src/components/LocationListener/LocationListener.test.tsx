@@ -109,6 +109,14 @@ describe('LocationListener', () => {
     evaluateMock.mockRestore();
   });
 
+  it('redirects bare /catalog to /self-service/catalog', () => {
+    (useLocation as jest.Mock).mockReturnValue({ pathname: '/catalog' });
+    render(<LocationListener />);
+    expect(mockNavigate).toHaveBeenCalledWith('/self-service/catalog', {
+      replace: true,
+    });
+  });
+
   it('redirects /catalog/default/template/:templateName correctly', () => {
     const templateName = 'my-template';
     (useLocation as jest.Mock).mockReturnValue({
@@ -119,5 +127,21 @@ describe('LocationListener', () => {
       `/self-service/catalog/default/${templateName}`,
       { replace: true },
     );
+  });
+
+  it('redirects any unknown /catalog/* paths to /self-service/catalog', () => {
+    const paths = [
+      '/catalog/default/Component/my-component',
+      '/catalog/some/other/path',
+    ];
+    paths.forEach(path => {
+      (useLocation as jest.Mock).mockReturnValue({ pathname: path });
+      render(<LocationListener />);
+      expect(mockNavigate).toHaveBeenCalledWith('/self-service/catalog', {
+        replace: true,
+      });
+      mockNavigate.mockClear();
+      cleanup();
+    });
   });
 });
