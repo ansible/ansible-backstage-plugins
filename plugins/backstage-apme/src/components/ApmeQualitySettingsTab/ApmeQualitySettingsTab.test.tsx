@@ -35,11 +35,13 @@ describe('ApmeQualitySettingsTab', () => {
       enableAi: true,
       publishViaGateway: true,
       targetAnsibleCoreVersion: '2.16',
+      gatewayBaseUrl: 'http://localhost:8080',
     });
     updatePortalSettings.mockResolvedValue({
       enableAi: true,
       publishViaGateway: true,
       targetAnsibleCoreVersion: '2.18',
+      gatewayBaseUrl: 'http://localhost:8080',
     });
     getAiProviders.mockResolvedValue([]);
     getAiStatus.mockResolvedValue({
@@ -64,6 +66,9 @@ describe('ApmeQualitySettingsTab', () => {
     expect(screen.getByLabelText(/target ansible-core/i)).toHaveTextContent(
       'ansible-core 2.16',
     );
+    expect(screen.getByLabelText('APME Gateway URL')).toHaveValue(
+      'http://localhost:8080',
+    );
     expect(
       screen.getByText(/AI-assisted remediation: enabled/i),
     ).toBeInTheDocument();
@@ -86,11 +91,31 @@ describe('ApmeQualitySettingsTab', () => {
     await waitFor(() => {
       expect(updatePortalSettings).toHaveBeenCalledWith({
         targetAnsibleCoreVersion: '2.18',
+        gatewayBaseUrl: 'http://localhost:8080',
       });
     });
     expect(
       await screen.findByText('Quality defaults saved.'),
     ).toBeInTheDocument();
+  });
+
+  it('saves a Gateway URL via updatePortalSettings', async () => {
+    renderTab();
+    await screen.findByText('Quality settings');
+
+    const urlField = screen.getByLabelText('APME Gateway URL');
+    fireEvent.change(urlField, {
+      target: { value: 'http://host.containers.internal:8080' },
+    });
+
+    fireEvent.click(screen.getByRole('button', { name: /^save$/i }));
+
+    await waitFor(() => {
+      expect(updatePortalSettings).toHaveBeenCalledWith({
+        targetAnsibleCoreVersion: '2.16',
+        gatewayBaseUrl: 'http://host.containers.internal:8080',
+      });
+    });
   });
 
   it('shows an error panel when load fails', async () => {

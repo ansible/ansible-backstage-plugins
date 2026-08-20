@@ -25,6 +25,7 @@ jest.mock('@ansible/backstage-apme-common', () => ({
   isApmeEnabled: jest.fn(),
   getApmeConfig: jest.fn(),
   resolveScanTargetVersion: jest.fn().mockResolvedValue('2.18'),
+  ApmeClient: class ApmeClient {},
 }));
 
 jest.mock('@backstage/plugin-catalog-node/alpha', () => ({

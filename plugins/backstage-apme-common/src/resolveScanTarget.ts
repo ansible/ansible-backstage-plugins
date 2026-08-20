@@ -15,12 +15,11 @@ export interface ApmePortalSettingsData {
     targetAnsibleCoreVersion?: string;
     /** Abbenay chat model id (provider/model) for remediate + escalate-ai. */
     defaultAiModelId?: string;
+    /** Override for `ansible.apme.baseUrl` (APME Gateway). */
+    gatewayBaseUrl?: string;
   };
   projects?: Record<string, { targetAnsibleCoreVersion?: string }>;
-  activities?: Record<
-    string,
-    { branch_name?: string; pr_url?: string | null }
-  >;
+  activities?: Record<string, { branch_name?: string; pr_url?: string | null }>;
 }
 
 export interface ActivityPortalOutcome {

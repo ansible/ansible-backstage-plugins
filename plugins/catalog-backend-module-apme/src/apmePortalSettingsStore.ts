@@ -55,7 +55,10 @@ export class ApmePortalSettingsStore {
   async write(data: ApmePortalSettingsData): Promise<ApmePortalSettingsData> {
     const normalized = this.normalize(data);
     await fs.mkdir(path.dirname(this.filePath), { recursive: true });
-    await fs.writeFile(this.filePath, `${JSON.stringify(normalized, null, 2)}\n`);
+    await fs.writeFile(
+      this.filePath,
+      `${JSON.stringify(normalized, null, 2)}\n`,
+    );
     this.cache = normalized;
     return this.clone(normalized);
   }
@@ -74,6 +77,7 @@ export class ApmePortalSettingsStore {
   async updateGlobalSettings(updates: {
     targetAnsibleCoreVersion?: string;
     defaultAiModelId?: string | null;
+    gatewayBaseUrl?: string | null;
   }): Promise<void> {
     const current = await this.read();
     const global = { ...(current.global ?? {}) };
@@ -87,6 +91,14 @@ export class ApmePortalSettingsStore {
         global.defaultAiModelId = trimmed;
       } else {
         delete global.defaultAiModelId;
+      }
+    }
+    if (updates.gatewayBaseUrl !== undefined) {
+      const trimmed = updates.gatewayBaseUrl?.trim();
+      if (trimmed) {
+        global.gatewayBaseUrl = trimmed;
+      } else {
+        delete global.gatewayBaseUrl;
       }
     }
 

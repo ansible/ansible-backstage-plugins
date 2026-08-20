@@ -58,15 +58,27 @@ export async function proxyProjectOperation(options: {
   /** Path after `/operation` (e.g. ``, `/approve`, `/events`). */
   operationSuffix: string;
   scmToken?: string;
+  /** Effective Gateway URL (portal-settings override, else app-config). */
+  gatewayBaseUrl?: string;
 }): Promise<void> {
-  const { req, res, rootConfig, logger, projectId, operationSuffix, scmToken } =
-    options;
-  const { baseUrl } = getApmeConfig(rootConfig);
+  const {
+    req,
+    res,
+    rootConfig,
+    logger,
+    projectId,
+    operationSuffix,
+    scmToken,
+    gatewayBaseUrl,
+  } = options;
+  const baseUrl = (gatewayBaseUrl ?? getApmeConfig(rootConfig).baseUrl).replace(
+    /\/$/,
+    '',
+  );
   const targetPath = `/api/v1/projects/${encodeURIComponent(
     projectId,
   )}/operation${operationSuffix}`;
-  const qs =
-    req.url.includes('?') ? req.url.slice(req.url.indexOf('?')) : '';
+  const qs = req.url.includes('?') ? req.url.slice(req.url.indexOf('?')) : '';
   const targetUrl = `${baseUrl.replace(/\/$/, '')}${targetPath}${qs}`;
 
   const headers: Record<string, string> = {

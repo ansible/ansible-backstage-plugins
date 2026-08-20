@@ -351,6 +351,7 @@ describe('catalog-backend-module-apme router', () => {
 
     expect(response.status).toBe(200);
     expect(response.body.targetAnsibleCoreVersion).toBe('2.17');
+    expect(response.body.gatewayBaseUrl).toBe('http://localhost:8080');
   });
 
   it('persists global default via PUT /apme/settings', async () => {
@@ -363,6 +364,46 @@ describe('catalog-backend-module-apme router', () => {
 
     const stored = await portalSettingsStore.read();
     expect(stored.global?.targetAnsibleCoreVersion).toBe('2.18');
+  });
+
+  it('persists Gateway URL override via PUT /apme/settings', async () => {
+    const response = await request(app)
+      .put('/apme/settings')
+      .send({ gatewayBaseUrl: 'http://host.containers.internal:8080/' });
+
+    expect(response.status).toBe(200);
+    expect(response.body.gatewayBaseUrl).toBe(
+      'http://host.containers.internal:8080',
+    );
+
+    const stored = await portalSettingsStore.read();
+    expect(stored.global?.gatewayBaseUrl).toBe(
+      'http://host.containers.internal:8080',
+    );
+  });
+
+  it('rejects an invalid Gateway URL', async () => {
+    const response = await request(app)
+      .put('/apme/settings')
+      .send({ gatewayBaseUrl: 'ftp://not-valid' });
+
+    expect(response.status).toBe(400);
+  });
+
+  it('clears Gateway URL override with null', async () => {
+    await portalSettingsStore.updateGlobalSettings({
+      gatewayBaseUrl: 'http://host.containers.internal:8080',
+    });
+
+    const response = await request(app)
+      .put('/apme/settings')
+      .send({ gatewayBaseUrl: null });
+
+    expect(response.status).toBe(200);
+    expect(response.body.gatewayBaseUrl).toBe('http://localhost:8080');
+
+    const stored = await portalSettingsStore.read();
+    expect(stored.global?.gatewayBaseUrl).toBeUndefined();
   });
 
   it('persists default AI model via PUT /apme/settings', async () => {
@@ -524,6 +565,29 @@ describe('catalog-backend-module-apme router', () => {
     expect(response.status).toBe(200);
     expect(global.fetch).toHaveBeenCalledWith(
       'http://localhost:8080/api/v1/projects/proj-1/operation/approve',
+      expect.objectContaining({ method: 'POST' }),
+    );
+  });
+
+  it('proxies operations to a stored Gateway URL override', async () => {
+    await portalSettingsStore.updateGlobalSettings({
+      gatewayBaseUrl: 'http://host.containers.internal:8080',
+    });
+    (global.fetch as jest.Mock).mockReset().mockResolvedValueOnce({
+      ok: true,
+      status: 201,
+      headers: new Headers({ 'content-type': 'application/json' }),
+      text: async () => JSON.stringify({ operation_id: 'scan-1' }),
+      body: null,
+    });
+
+    const response = await request(app)
+      .post('/apme/projects/proj-1/operation')
+      .send({ action: 'check' });
+
+    expect(response.status).toBe(201);
+    expect(global.fetch).toHaveBeenCalledWith(
+      'http://host.containers.internal:8080/api/v1/projects/proj-1/operation',
       expect.objectContaining({ method: 'POST' }),
     );
   });
