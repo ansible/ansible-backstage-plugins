@@ -28,11 +28,11 @@ import {
 } from '@backstage/core-plugin-api';
 import { RequirePermission } from '@backstage/plugin-permission-react';
 import { gitRepositoriesViewPermission } from '@ansible/backstage-rhaap-common/permissions';
-import { gitRepositoriesExtensionsApiRef } from '@ansible/backstage-rhaap-common/gitRepositoriesExtensions';
 import type {
   GitRepositoryDetailTabContext,
   GitRepositoryDetailTabDefinition,
 } from '@ansible/backstage-rhaap-common/gitRepositoriesExtensions';
+import { useGitRepositoriesExtensions } from './useGitRepositoriesExtensions';
 import { normalizeRepoUrlFromEntity } from '@ansible/backstage-rhaap-common/catalogEntity';
 
 import { RepositoryBreadcrumbs } from './RepositoryBreadcrumbs';
@@ -230,7 +230,7 @@ const RepositoryDetailsPageInner = () => {
   const discoveryApi = useApi<DiscoveryApi>(discoveryApiRef);
   const fetchApi = useApi<FetchApi>(fetchApiRef);
   const rootLink = useRouteRef(rootRouteRef);
-  const extensionsApi = useApi(gitRepositoriesExtensionsApiRef);
+  const extensionsApi = useGitRepositoriesExtensions();
   const [searchParams] = useSearchParams();
 
   const detailTabs = useMemo((): ResolvedDetailTab[] => {
@@ -265,8 +265,7 @@ const RepositoryDetailsPageInner = () => {
   );
 
   const detailOverlays = useMemo(
-    () =>
-      extensionsApi.getDetailOverlays().sort((a, b) => a.order - b.order),
+    () => extensionsApi.getDetailOverlays().sort((a, b) => a.order - b.order),
     [extensionsApi],
   );
 
@@ -277,9 +276,7 @@ const RepositoryDetailsPageInner = () => {
 
   const overviewSlots = useMemo(
     () =>
-      extensionsApi
-        .getDetailOverviewSlots()
-        .sort((a, b) => a.order - b.order),
+      extensionsApi.getDetailOverviewSlots().sort((a, b) => a.order - b.order),
     [extensionsApi],
   );
 
@@ -575,9 +572,8 @@ const RepositoryDetailsPageInner = () => {
           style={{ width: '100%', flex: 1 }}
         >
           {(() => {
-            const override = extensionsApi.getCollectionsTabContent(
-              detailTabContext,
-            );
+            const override =
+              extensionsApi.getCollectionsTabContent(detailTabContext);
             if (override) {
               return (
                 <Suspense fallback={<Typography>Loading…</Typography>}>

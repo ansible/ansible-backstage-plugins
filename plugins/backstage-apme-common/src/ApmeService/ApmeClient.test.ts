@@ -288,4 +288,23 @@ describe('ApmeClient', () => {
       expect(fetchOpts.dispatcher).toBeUndefined();
     });
   });
+
+  it('uses resolveBaseUrl for Gateway calls when set', async () => {
+    (global.fetch as jest.Mock).mockResolvedValueOnce({
+      ok: true,
+      json: () => Promise.resolve({ status: 'ok' }),
+    });
+
+    const client = new ApmeClient({
+      rootConfig,
+      logger: logger as never,
+      resolveBaseUrl: async () => 'http://host.containers.internal:8080/',
+    });
+    await client.getHealth();
+
+    expect(global.fetch).toHaveBeenCalledWith(
+      'http://host.containers.internal:8080/api/v1/health',
+      expect.anything(),
+    );
+  });
 });

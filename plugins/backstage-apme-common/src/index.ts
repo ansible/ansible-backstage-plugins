@@ -38,6 +38,16 @@ export {
   resolveScanTargetVersion,
 } from './resolveScanTarget';
 export {
+  InvalidGatewayBaseUrlError,
+  normalizeGatewayBaseUrl,
+  resolveGatewayBaseUrl,
+} from './resolveGatewayBaseUrl';
+export type {
+  GatewayBaseUrlResolution,
+  GatewayBaseUrlSource,
+  ResolveGatewayBaseUrlInput,
+} from './resolveGatewayBaseUrl';
+export {
   formatApmeAbbenayChatModelId,
   pickApmeChatModelId,
   resolveApmeChatModelIdFromProviders,
