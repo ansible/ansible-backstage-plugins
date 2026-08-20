@@ -1,0 +1,52 @@
+%%{init: {'themeVariables': {'fontFamily': 'Red Hat Text'}, 'sequence': {'bottomMarginAdj': 40}}}%%
+sequenceDiagram
+  actor Sched as Scheduler<br/>(SchedulerServiceTaskRunner)
+  participant Provider as PAHCollectionProvider
+  participant Client as AAPClient<br/>(backstage-rhaap-common)
+  participant PAH as Private Automation Hub<br/>(Galaxy API)
+  participant Catalog as Backstage Catalog<br/>(EntityProviderConnection)
+
+  Sched->>Provider: scheduled tick -> run(signal)<br/>(or manual startSync())
+  activate Provider
+  Provider->>Provider: isSyncing = true
+
+  Provider->>Client: syncCollectionsByRepositories([repoName], limit=100, signal)
+  activate Client
+
+  loop for each configured repository
+    Client->>PAH: GET /api/galaxy/pulp/api/v3/repositories?name={repo}
+    PAH-->>Client: results[] (isValidPAHRepository)
+    Note over Client: Skip repository if not a<br/>valid PAH repository
+  end
+
+  Client->>Client: build query params<br/>(repository_name[], limit=100)
+
+  loop pagination while links.next present
+    Client->>PAH: GET /api/galaxy/v3/plugin/ansible/search/<br/>collection-versions/?repository_name&limit
+    PAH-->>Client: { data: [...], links: { next } }
+    loop for each collection item
+      Client->>PAH: GET {pulp_href}?fields=docs_blob&fields=authors
+      PAH-->>Client: docs_blob, authors
+      Client->>Client: processCollectionItem()<br/>-> Collection
+    end
+  end
+
+  Client-->>Provider: Collection[]
+  deactivate Client
+
+  alt sync succeeded
+    loop for each fetched collection
+      Provider->>Provider: pahCollectionParser() -> Entity
+    end
+    Provider->>Provider: stampLatestVersionAnnotations(entities)
+    Provider->>Catalog: applyMutation({ type: 'full', entities })
+    activate Catalog
+    Catalog-->>Provider: ack
+    deactivate Catalog
+    Provider->>Provider: lastSyncTime = now<br/>lastSyncStatus = 'success'<br/>update collection counts
+  else sync failed (exception thrown)
+    Provider->>Provider: lastFailedSyncTime = now<br/>lastSyncStatus = 'failure'
+  end
+
+  Provider->>Provider: isSyncing = false
+  deactivate Provider
