@@ -144,4 +144,16 @@ test.describe('Ansible self-service Browse Page Functional Tests', () => {
 
     await expect(page.locator('main')).toBeVisible();
   });
+
+  test('Validates page header elements', async ({ page }) => {
+    await expect(page.getByText('Templates').first()).toBeVisible({
+      timeout: 15000,
+    });
+
+    const learnMore = page.getByText('Learn more').first();
+    await expect(learnMore).toBeVisible({ timeout: 10000 });
+
+    const syncBtn = page.getByRole('button', { name: 'Sync Now' });
+    await expect(syncBtn.first()).toBeVisible({ timeout: 10000 });
+  });
 });

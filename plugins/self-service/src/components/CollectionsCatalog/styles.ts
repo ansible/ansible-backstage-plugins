@@ -35,42 +35,9 @@ export const useTableWrapperStyles = makeStyles(theme => ({
 }));
 
 export const useCollectionsStyles = makeStyles(theme => ({
-  pageHeader: {
-    marginBottom: theme.spacing(2),
-  },
-  headerRow: {
-    display: 'flex',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
-    marginBottom: theme.spacing(1.5),
-  },
-  headerTitle: {
-    display: 'flex',
-    alignItems: 'center',
-    gap: '8px',
-  },
   syncButton: {
     textTransform: 'none',
     fontWeight: 500,
-  },
-  headerTitleText: {
-    fontWeight: 700,
-    fontSize: '1.75rem',
-  },
-  helpIcon: {
-    color: theme.palette.text.secondary,
-    cursor: 'pointer',
-    fontSize: '1.25rem',
-    '&:hover': {
-      color: theme.palette.primary.main,
-    },
-  },
-  description: {
-    color: theme.palette.text.secondary,
-    fontSize: 15,
-    lineHeight: 1.5,
-    maxWidth: '900px',
-    marginBottom: theme.spacing(5),
   },
   searchInput: {
     marginBottom: theme.spacing(2),
