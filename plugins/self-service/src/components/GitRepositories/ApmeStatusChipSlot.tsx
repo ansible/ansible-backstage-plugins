@@ -5,8 +5,7 @@
  */
 
 import { Entity } from '@backstage/catalog-model';
-import { useApi } from '@backstage/core-plugin-api';
-import { gitRepositoriesExtensionsApiRef } from '@ansible/backstage-rhaap-common/gitRepositoriesExtensions';
+import { useGitRepositoriesExtensions } from './useGitRepositoriesExtensions';
 
 export interface ApmeStatusChipSlotProps {
   entity: Entity;
@@ -21,7 +20,7 @@ export const ApmeStatusChipSlot = ({
   entity,
   projectDetailPath,
 }: ApmeStatusChipSlotProps) => {
-  const extensionsApi = useApi(gitRepositoriesExtensionsApiRef);
+  const extensionsApi = useGitRepositoriesExtensions();
   const slots = extensionsApi.getCatalogRowSlots();
 
   if (slots.length === 0) {
