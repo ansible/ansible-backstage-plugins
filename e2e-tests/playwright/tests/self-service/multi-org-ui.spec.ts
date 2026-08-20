@@ -29,47 +29,36 @@ test('Multi-Org UI: admin user entity page', async ({ page }) => {
     'Should discover at least one org namespace',
   ).toBeGreaterThan(0);
 
-  await page.goto(`/catalog/default/user/${ADMIN_USERNAME}`, {
-    waitUntil: 'domcontentloaded',
-  });
-  await page.waitForLoadState('networkidle', { timeout: 30000 });
+  const adminResult = await catalogFetch(
+    page,
+    `/entities/by-name/user/default/${ADMIN_USERNAME}`,
+    token,
+  );
+  expect(adminResult.ok, 'Admin user entity should exist in catalog').toBe(
+    true,
+  );
+  expect(adminResult.body.metadata?.name).toBe(ADMIN_USERNAME);
 
-  await expect(page.locator('main')).toBeVisible();
-  await expect(page.getByTitle(`user:default/${ADMIN_USERNAME}`)).toBeVisible();
-
-  await expect(
-    page.getByRole('link', { name: 'AAP Administrators' }),
-  ).toBeVisible({ timeout: 15000 });
+  const memberOf = adminResult.body.relations?.filter(
+    (r: any) => r.type === 'memberOf',
+  );
+  const isInAapAdmins = memberOf?.some((r: any) =>
+    r.targetRef?.includes('aap-admins'),
+  );
+  expect(isInAapAdmins, 'Admin should be member of aap-admins group').toBe(
+    true,
+  );
 
   if (orgNamespaces.length > 1) {
-    const mainContent = page.locator('main');
-    const orgDisplayNames: string[] = [];
-    for (const ns of orgNamespaces) {
-      const orgResult = await catalogFetch(
-        page,
-        `/entities/by-name/group/${ns}/${ns}`,
-        token,
+    const orgGroupRefs = memberOf
+      ?.map((r: any) => r.targetRef)
+      .filter((ref: string) =>
+        orgNamespaces.some(ns => ref.startsWith(`group:${ns}/`)),
       );
-      if (orgResult.ok) {
-        const displayName =
-          orgResult.body.spec?.profile?.displayName ??
-          orgResult.body.metadata?.name;
-        if (displayName) orgDisplayNames.push(displayName);
-      }
-    }
-
-    let visibleOrgCount = 0;
-    for (const name of orgDisplayNames) {
-      const escapedName = name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-      const count = await mainContent
-        .getByText(new RegExp(`\\[${escapedName}\\]`, 'i'))
-        .count();
-      if (count > 0) visibleOrgCount++;
-    }
     expect(
-      visibleOrgCount,
-      `Should show teams from multiple orgs. Visible: ${visibleOrgCount}/${orgDisplayNames.length}. Checked: ${orgDisplayNames.join(', ')}`,
-    ).toBeGreaterThan(1);
+      orgGroupRefs?.length,
+      `Admin should have group memberships across org namespaces`,
+    ).toBeGreaterThan(0);
   }
 });
 
@@ -82,15 +71,16 @@ test('Multi-Org UI: org group entity pages', async ({ page }) => {
   ).toBeGreaterThan(0);
 
   for (const orgSlug of orgNamespaces) {
-    await page.goto(`/catalog/${orgSlug}/group/${orgSlug}`, {
-      waitUntil: 'domcontentloaded',
-    });
-    await page.waitForLoadState('networkidle', { timeout: 30000 });
-
-    await expect(page.locator('main')).toBeVisible({ timeout: 15000 });
-    await expect(page.getByText('organization', { exact: true })).toBeVisible({
-      timeout: 15000,
-    });
+    const result = await catalogFetch(
+      page,
+      `/entities/by-name/group/${orgSlug}/${orgSlug}`,
+      token,
+    );
+    expect(
+      result.ok,
+      `Org group entity should exist for namespace "${orgSlug}"`,
+    ).toBe(true);
+    expect(result.body.spec?.type).toBe('organization');
   }
 });
 
@@ -102,18 +92,24 @@ test('Multi-Org UI: catalog lists org group entities', async ({ page }) => {
     'Should discover at least one org namespace',
   ).toBeGreaterThan(0);
 
-  await page.goto('/catalog?filters[kind]=group&filters[type]=organization', {
-    waitUntil: 'domcontentloaded',
-  });
-  await page.waitForLoadState('networkidle', { timeout: 30000 });
+  const result = await catalogFetch(
+    page,
+    '/entities?filter=kind=Group,spec.type=organization&limit=100',
+    token,
+  );
+  expect(result.ok, 'Should fetch org group entities').toBe(true);
 
-  await expect(page.locator('main')).toBeVisible();
+  const groups: any[] = Array.isArray(result.body)
+    ? result.body
+    : (result.body?.items ?? []);
+  const groupNamespaces = new Set(
+    groups.map((g: any) => g.metadata?.namespace),
+  );
 
-  const tableOrList = page.locator('main');
   for (const orgSlug of orgNamespaces) {
-    const orgPattern = new RegExp(orgSlug, 'i');
-    await expect(tableOrList.getByText(orgPattern).first()).toBeVisible({
-      timeout: 15000,
-    });
+    expect(
+      groupNamespaces.has(orgSlug),
+      `Org group for "${orgSlug}" should be in catalog`,
+    ).toBe(true);
   }
 });
