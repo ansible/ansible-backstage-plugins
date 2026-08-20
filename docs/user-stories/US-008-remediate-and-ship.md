@@ -2,7 +2,7 @@
 
 | Field | Value |
 |-------|--------|
-| **Status** | Planned |
+| **Status** | Work in progress |
 | **Persona** | Repo owner |
 | **Surface** | Entity **Quality** tab |
 | **Craig journey** | [J3](user-journeys.md) (canonical E2E) |
@@ -37,3 +37,4 @@
   [`user-journeys.md` J3](https://github.com/ansible/ansible-rhdh-plugins/blob/docs/apme-productization/prototypes/apme/references/user-journeys.md).
 - Overlaps US-001 workflow stages; this story tracks the full remediate→PR
   acceptance path as a distinct close-the-gap item.
+- JIRA link - https://redhat.atlassian.net/browse/AAP-88786

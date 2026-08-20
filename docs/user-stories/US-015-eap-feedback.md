@@ -2,7 +2,7 @@
 
 | Field | Value |
 |-------|--------|
-| **Status** | Planned |
+| **Status** | Complete |
 | **Persona** | EAP participant |
 | **Surface** | In-UI feedback link and/or Google Form |
 | **Craig journey** | [J13](user-journeys.md) |

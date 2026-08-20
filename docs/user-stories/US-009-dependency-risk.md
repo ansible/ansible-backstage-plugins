@@ -2,7 +2,7 @@
 
 | Field | Value |
 |-------|--------|
-| **Status** | Planned |
+| **Status** | Complete |
 | **Persona** | Repo owner or security |
 | **Surface** | Repo detail → **Dependencies** / **Collections** |
 | **Craig journey** | [J5](user-journeys.md) |
