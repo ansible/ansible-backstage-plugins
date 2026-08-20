@@ -134,6 +134,8 @@ describe('authModuleRHAAPProvider', () => {
     expect(pkceCookie).toBeDefined();
     expect(pkceCookie).toContain('HttpOnly');
     expect(pkceCookie).toContain('SameSite=Lax');
+    expect(pkceCookie).toContain('Path=/api/auth/rhaap/handler');
+    expect(pkceCookie).toContain('Max-Age=600');
 
     const startUrl = new URL(startResponse.get('location') ?? '');
     expect(startUrl.origin).toBe('https://rhaap.test');

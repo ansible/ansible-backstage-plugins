@@ -19,12 +19,15 @@ function generatePKCE(): { verifier: string; challenge: string } {
 }
 
 function getPkceCookieOptions(callbackURL: string) {
-  const { protocol } = new URL(callbackURL);
+  const { protocol, pathname } = new URL(callbackURL);
+  const path = pathname.endsWith('/handler/frame')
+    ? pathname.slice(0, -'/frame'.length)
+    : '/api/auth/rhaap/handler';
   return {
     httpOnly: true,
     secure: protocol === 'https:',
     sameSite: 'lax' as const,
-    path: '/api/auth/rhaap/handler',
+    path,
   };
 }
 
