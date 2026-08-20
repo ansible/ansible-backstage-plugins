@@ -2,20 +2,8 @@ import { useCallback, useEffect, useMemo, useState, useRef } from 'react';
 import { useSignal } from '@backstage/plugin-signals-react';
 import { useNavigate } from 'react-router';
 import { Route, Routes, Navigate } from 'react-router-dom';
-import {
-  Button,
-  makeStyles,
-  Snackbar,
-  Tooltip,
-  Typography,
-} from '@material-ui/core';
-import {
-  Content,
-  Header,
-  HeaderLabel,
-  ItemCardGrid,
-  Page,
-} from '@backstage/core-components';
+import { Button, Snackbar, Tooltip, Typography } from '@material-ui/core';
+import { Content, ItemCardGrid, Page } from '@backstage/core-components';
 import { useApi, useRouteRef } from '@backstage/core-plugin-api';
 import {
   usePermission,
@@ -41,9 +29,8 @@ import { useIsSuperuser } from '../../hooks';
 import { rootRouteRef } from '../../routes';
 import { ansibleApiRef, rhAapAuthApiRef } from '../../apis';
 import { SyncConfirmationDialog } from './SyncConfirmationDialog';
-import Sync from '@material-ui/icons/Sync';
-import Info from '@material-ui/icons/Info';
-import OpenInNew from '@material-ui/icons/OpenInNew';
+import { TemplatesPageHeaderSection } from './TemplatesPageHeaderSection';
+import type { SyncProgressEntry, SyncOutcome } from '../common';
 import { TemplateEntityV1beta3 } from '@backstage/plugin-scaffolder-common';
 import Alert from '@material-ui/lab/Alert';
 import { SkeletonLoader } from './SkeletonLoader';
@@ -60,29 +47,6 @@ import {
   NotificationStack,
   useNotifications,
 } from '../notifications';
-
-const headerStyles = makeStyles(theme => ({
-  '@keyframes spin': {
-    from: { transform: 'rotate(0deg)' },
-    to: { transform: 'rotate(360deg)' },
-  },
-  syncSpinning: {
-    animation: '$spin 1.5s linear infinite',
-    willChange: 'transform',
-  },
-  header_title_color: {
-    color: theme.palette.type === 'light' ? 'rgba(0, 0, 0, 0.87)' : '#ffffff',
-  },
-  header_subtitle: {
-    display: 'inline-block',
-    color: theme.palette.type === 'light' ? 'rgba(0, 0, 0, 0.87)' : '#ffffff',
-    opacity: 0.8,
-    maxWidth: '75ch',
-    marginTop: '8px',
-    fontWeight: 500,
-    lineHeight: 1.57,
-  },
-}));
 
 /** When the first post sync AAP list matches pre sync, a second fetch may still be stale, wait before retrying. */
 const JOB_TEMPLATE_LIST_STALE_RETRY_MS = 450;
@@ -301,15 +265,12 @@ const TemplateContent = ({
 };
 
 export const HomeComponent = () => {
-  const classes = headerStyles();
   const navigate = useNavigate();
   const rootLink = useRouteRef(rootRouteRef);
   const ansibleApi = useApi(ansibleApiRef);
   const rhAapAuthApi = useApi(rhAapAuthApiRef);
   const scaffolderApi = useApi(scaffolderApiRef);
   const { isSuperuser, loading: checkingSuperuser } = useIsSuperuser();
-  const showSyncControls = checkingSuperuser || isSuperuser;
-  const syncControlsDisabled = checkingSuperuser;
 
   const { loading: checkingCatalogCreate, allowed: canCreateCatalogEntity } =
     usePermission({ permission: catalogEntityCreatePermission });
@@ -321,8 +282,6 @@ export const HomeComponent = () => {
   const [open, setOpen] = useState(false);
   const [selectedSources, setSelectedSources] = useState<string[]>([]);
   const [syncOptions, setSyncOptions] = useState<string[]>([]);
-  const [showSnackbar, setShowSnackbar] = useState<boolean>(false);
-  const [snackbarMsg, setSnackbarMsg] = useState<string>('Sync failed');
   const [controllerSnackbar, setControllerSnackbar] = useState<
     { status: 'idle' } | { status: 'error'; message: string }
   >({ status: 'idle' });
@@ -331,14 +290,28 @@ export const HomeComponent = () => {
   >([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [syncKey, setSyncKey] = useState(0);
+  type SyncProviderStatus = {
+    lastSync: string | null;
+    syncInProgress: boolean;
+    lastSyncStatus: 'success' | 'failure' | null;
+  };
   const [syncStatus, setSyncStatus] = useState<{
-    orgsUsersTeams: { lastSync: string | null; syncInProgress: boolean };
-    jobTemplates: { lastSync: string | null; syncInProgress: boolean };
+    orgsUsersTeams: SyncProviderStatus;
+    jobTemplates: SyncProviderStatus;
   }>({
-    orgsUsersTeams: { lastSync: null, syncInProgress: false },
-    jobTemplates: { lastSync: null, syncInProgress: false },
+    orgsUsersTeams: {
+      lastSync: null,
+      syncInProgress: false,
+      lastSyncStatus: null,
+    },
+    jobTemplates: {
+      lastSync: null,
+      syncInProgress: false,
+      lastSyncStatus: null,
+    },
   });
   const [localSyncing, setLocalSyncing] = useState(false);
+  const [activeSyncTypes, setActiveSyncTypes] = useState<string[]>([]);
   const { lastSignal: syncSignal } = useSignal<{
     provider: string;
     syncInProgress: boolean;
@@ -359,6 +332,9 @@ export const HomeComponent = () => {
           ? prev[key].lastSync
           : syncSignal.lastSyncTime,
         syncInProgress: syncSignal.syncInProgress,
+        lastSyncStatus: syncSignal.syncInProgress
+          ? prev[key].lastSyncStatus
+          : syncSignal.lastSyncStatus,
       },
     }));
   }, [syncSignal]);
@@ -368,21 +344,41 @@ export const HomeComponent = () => {
     syncSignal?.syncInProgress ||
     syncStatus.orgsUsersTeams.syncInProgress ||
     syncStatus.jobTemplates.syncInProgress;
-  const syncDisabled = syncControlsDisabled || isSyncInProgress;
 
-  const getSyncTooltip = () => {
-    if (isSyncInProgress) return 'Sync in progress...';
-    if (syncControlsDisabled) return 'Checking permissions...';
-    const jtSync = syncStatus.jobTemplates.lastSync;
-    const outSync = syncStatus.orgsUsersTeams.lastSync;
-    let lastSync = jtSync || outSync;
-    if (jtSync && outSync) {
-      lastSync = new Date(jtSync) > new Date(outSync) ? jtSync : outSync;
+  const templateSyncProgress = useMemo((): SyncProgressEntry[] => {
+    const getOutcome = (status: {
+      syncInProgress: boolean;
+      lastSyncStatus: 'success' | 'failure' | null;
+    }): SyncOutcome => {
+      if (status.syncInProgress || localSyncing) return 'pending';
+      if (status.lastSyncStatus === 'failure') return 'failure';
+      return 'success';
+    };
+    const entries: SyncProgressEntry[] = [];
+    const showOrgs =
+      activeSyncTypes.includes('orgsUsersTeams') ||
+      syncStatus.orgsUsersTeams.lastSync !== null ||
+      syncStatus.orgsUsersTeams.syncInProgress;
+    const showTemplates =
+      activeSyncTypes.includes('templates') ||
+      syncStatus.jobTemplates.lastSync !== null ||
+      syncStatus.jobTemplates.syncInProgress;
+    if (showOrgs) {
+      entries.push({
+        sourceId: 'aap-orgs-users-teams',
+        displayName: 'Organizations, Users, and Teams',
+        outcome: getOutcome(syncStatus.orgsUsersTeams),
+      });
     }
-    if (lastSync) return `Last synced: ${new Date(lastSync).toLocaleString()}`;
-    return '';
-  };
-  const syncTooltip = getSyncTooltip();
+    if (showTemplates) {
+      entries.push({
+        sourceId: 'aap-job-templates',
+        displayName: 'Job Templates',
+        outcome: getOutcome(syncStatus.jobTemplates),
+      });
+    }
+    return entries;
+  }, [activeSyncTypes, syncStatus, localSyncing]);
 
   const fetchRequestIdRef = useRef(0);
   const fetchSucceededRef = useRef(false);
@@ -392,7 +388,16 @@ export const HomeComponent = () => {
   const fetchSyncStatus = useCallback(async () => {
     try {
       const status = await ansibleApi.getSyncStatus();
-      setSyncStatus(status.aap);
+      setSyncStatus(prev => ({
+        orgsUsersTeams: {
+          ...status.aap.orgsUsersTeams,
+          lastSyncStatus: prev.orgsUsersTeams.lastSyncStatus,
+        },
+        jobTemplates: {
+          ...status.aap.jobTemplates,
+          lastSyncStatus: prev.jobTemplates.lastSyncStatus,
+        },
+      }));
     } catch {
       // Silently handle sync status fetch errors
       // The dialog will show "Never synced" as fallback
@@ -451,29 +456,20 @@ export const HomeComponent = () => {
   const handleSync = useCallback(async () => {
     let result = false;
     setLocalSyncing(true);
+    setActiveSyncTypes([...syncOptions]);
     try {
-      setSnackbarMsg('Starting sync...');
-      setShowSnackbar(true);
       if (syncOptions.includes('orgsUsersTeams')) {
         result = await ansibleApi.syncOrgsUsersTeam();
         if (result) {
-          setSnackbarMsg('Organizations, Users and Teams synced successfully');
           fetchSyncStatus();
-        } else {
-          setSnackbarMsg('Organizations, Users and Teams sync failed');
         }
-        setShowSnackbar(true);
       }
       if (syncOptions.includes('templates')) {
         result = await ansibleApi.syncTemplates();
-        setShowSnackbar(false);
         if (result) {
           fetchSyncStatus();
-          setSnackbarMsg('Fetching updated templates...');
-          setShowSnackbar(true);
           const preSyncTemplates = jobTemplatesRef.current;
-          let newTemplates = await fetchJobTemplates();
-          // delayed re-fetch to aligns the allow-list with the provider
+          const newTemplates = await fetchJobTemplates();
           const listUnchanged =
             newTemplates &&
             !jobTemplateListsDiffer(preSyncTemplates, newTemplates);
@@ -481,18 +477,10 @@ export const HomeComponent = () => {
             await new Promise(resolve =>
               setTimeout(resolve, JOB_TEMPLATE_LIST_STALE_RETRY_MS),
             );
-            newTemplates = await fetchJobTemplates();
+            await fetchJobTemplates();
           }
           setSyncKey(prev => prev + 1);
-          setSnackbarMsg(
-            newTemplates
-              ? 'Templates synced successfully'
-              : 'Templates synced, but refreshing the list failed. Please reload the page.',
-          );
-        } else {
-          setSnackbarMsg('Templates sync failed');
         }
-        setShowSnackbar(true);
       }
       setSyncOptions([]);
     } finally {
@@ -521,10 +509,6 @@ export const HomeComponent = () => {
     const CATALOG_SETTLE_MS = 750;
     const timerId = setTimeout(() => {
       setSyncKey(prev => prev + 1);
-      if (fetchSucceededRef.current) {
-        setSnackbarMsg('Templates refreshed');
-        setShowSnackbar(true);
-      }
     }, CATALOG_SETTLE_MS);
     return () => clearTimeout(timerId);
   }, [loading]);
@@ -534,6 +518,27 @@ export const HomeComponent = () => {
       handleSync();
     }
   }, [syncOptions, handleSync]);
+
+  useEffect(() => {
+    if (
+      activeSyncTypes.length > 0 &&
+      !localSyncing &&
+      !syncStatus.orgsUsersTeams.syncInProgress &&
+      !syncStatus.jobTemplates.syncInProgress
+    ) {
+      const timerId = setTimeout(() => setActiveSyncTypes([]), 3000);
+      return () => clearTimeout(timerId);
+    }
+    return undefined;
+  }, [activeSyncTypes, localSyncing, syncStatus]);
+
+  useEffect(() => {
+    const prevTitle = document.title;
+    document.title = 'View Templates | Backstage';
+    return () => {
+      document.title = prevTitle;
+    };
+  }, []);
 
   return (
     <Page themeId="app">
@@ -547,118 +552,56 @@ export const HomeComponent = () => {
           syncStatus={syncStatus}
         />
       )}
-      <Header
-        pageTitleOverride="View Templates"
-        title={<span className={classes.header_title_color}>Templates</span>}
-        subtitle={
-          <>
-            <div>
-              <span className={classes.header_subtitle}>
-                Browse available templates. Each template provides a guided
-                experience to get your automation running. Select "Start" to
-                begin the guided task.
-              </span>
-            </div>
-            <Typography
-              component="a"
-              href="https://red.ht/self-service-launch-template"
-              target="_blank"
-              rel="noopener noreferrer"
-              style={{
-                cursor: 'pointer',
-                color: 'inherit',
-                textDecoration: 'underline',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '4px',
-                marginTop: '8px',
-                opacity: 0.8,
-              }}
-            >
-              Learn more <OpenInNew fontSize="small" />
-            </Typography>
-            {showSyncControls && (
-              <HeaderLabel
-                label=""
-                value={
-                  <Typography component="span" style={{ color: 'inherit' }}>
-                    <Tooltip title={syncTooltip} placement="bottom">
-                      <span>
-                        <button
-                          type="button"
-                          onClick={
-                            syncDisabled
-                              ? undefined
-                              : ShowSyncConfirmationDialog
-                          }
-                          disabled={syncDisabled}
-                          style={{
-                            display: 'inline-flex',
-                            alignItems: 'center',
-                            gap: '4px',
-                            textDecoration: 'underline',
-                            cursor: syncDisabled ? 'default' : 'pointer',
-                            opacity: syncDisabled ? 0.5 : 1,
-                            background: 'none',
-                            border: 'none',
-                            padding: 0,
-                            font: 'inherit',
-                            color: 'inherit',
-                          }}
-                        >
-                          {isSyncInProgress ? 'Syncing...' : 'Sync now'}
-                          <Sync
-                            fontSize="small"
-                            className={
-                              isSyncInProgress
-                                ? classes.syncSpinning
-                                : undefined
-                            }
-                          />
-                        </button>
-                      </span>
-                    </Tooltip>
-                    <Tooltip title="Sync AAP Job Templates, Organizations, Users, and Teams from AAP to automation portal.">
-                      <Info fontSize="small" style={{ marginLeft: '4px' }} />
-                    </Tooltip>
-                  </Typography>
-                }
-                contentTypograpyRootComponent="span"
-              />
-            )}
-          </>
-        }
-        style={{ background: 'inherit' }}
-      >
-        {showAddTemplate && (
-          <Tooltip title={addTemplateDisabled ? 'Checking permissions...' : ''}>
-            <span>
-              <Button
-                data-testid="add-template-button"
-                onClick={() => navigate(`${rootLink()}/catalog-import`)}
-                variant="contained"
-                disabled={addTemplateDisabled}
-              >
-                Add Template
-              </Button>
-            </span>
-          </Tooltip>
-        )}
-      </Header>
-      <Snackbar
-        anchorOrigin={{ vertical: 'top', horizontal: 'center' }}
-        open={controllerSnackbar.status === 'error'}
-        style={{ zIndex: 10000, marginTop: '70px' }}
-        TransitionProps={{ exit: false }}
-      >
-        <Alert
-          severity="error"
-          onClose={() => setControllerSnackbar({ status: 'idle' })}
-        >
-          {controllerSnackbar.status === 'error' && controllerSnackbar.message}
-        </Alert>
-      </Snackbar>
       <Content>
+        <TemplatesPageHeaderSection
+          onSyncClick={ShowSyncConfirmationDialog}
+          syncDisabled={isSyncInProgress}
+          syncDisabledReason={
+            isSyncInProgress ? 'Sync in progress...' : undefined
+          }
+          syncInProgress={isSyncInProgress}
+          syncProgress={templateSyncProgress}
+          lastSyncTimes={[
+            {
+              label: 'Organizations, Users, and Teams',
+              time: syncStatus.orgsUsersTeams.lastSync,
+            },
+            { label: 'Job Templates', time: syncStatus.jobTemplates.lastSync },
+          ]}
+          actions={
+            showAddTemplate ? (
+              <Tooltip
+                title={addTemplateDisabled ? 'Checking permissions...' : ''}
+              >
+                <span>
+                  <Button
+                    data-testid="add-template-button"
+                    onClick={() => navigate(`${rootLink()}/catalog-import`)}
+                    variant="contained"
+                    color="primary"
+                    disabled={addTemplateDisabled}
+                  >
+                    Add Template
+                  </Button>
+                </span>
+              </Tooltip>
+            ) : undefined
+          }
+        />
+        <Snackbar
+          anchorOrigin={{ vertical: 'top', horizontal: 'center' }}
+          open={controllerSnackbar.status === 'error'}
+          style={{ zIndex: 10000 }}
+          TransitionProps={{ exit: false }}
+        >
+          <Alert
+            severity="error"
+            onClose={() => setControllerSnackbar({ status: 'idle' })}
+          >
+            {controllerSnackbar.status === 'error' &&
+              controllerSnackbar.message}
+          </Alert>
+        </Snackbar>
         <EntityListProvider key={syncKey}>
           <CatalogFilterLayout>
             <CatalogFilterLayout.Filters>
@@ -693,14 +636,6 @@ export const HomeComponent = () => {
           </CatalogFilterLayout>
         </EntityListProvider>
       </Content>
-      <Snackbar
-        anchorOrigin={{ vertical: 'top', horizontal: 'right' }}
-        open={showSnackbar}
-        onClose={() => setShowSnackbar(false)}
-        autoHideDuration={3000}
-        message={snackbarMsg}
-        style={{ zIndex: 10000, marginTop: '70px' }}
-      />
     </Page>
   );
 };

@@ -27,8 +27,8 @@ test.describe('Non-admin user: Permission boundaries', () => {
     await page.goto('/self-service', { waitUntil: 'networkidle' });
     await page.locator('main').waitFor({ state: 'visible', timeout: 30000 });
 
-    const syncLink = page.getByText('Sync now');
-    await expect(syncLink).not.toBeVisible();
+    const syncBtn = page.getByRole('button', { name: 'Sync Now' });
+    await expect(syncBtn).not.toBeVisible();
   });
 
   test('Non-admin user does not see "Add Template" button', async ({

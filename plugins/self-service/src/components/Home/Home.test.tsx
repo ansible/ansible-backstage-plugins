@@ -235,10 +235,10 @@ describe('self-service', () => {
     await render(<HomeComponent />);
 
     await waitFor(() => {
-      expect(screen.getByText('Sync now')).toBeInTheDocument();
+      expect(screen.getByText('Sync Now')).toBeInTheDocument();
     });
 
-    const syncButton = screen.getByText('Sync now');
+    const syncButton = screen.getByText('Sync Now');
     fireEvent.click(syncButton);
 
     await waitFor(() => {
@@ -271,11 +271,11 @@ describe('self-service', () => {
 
     // Wait for component to load
     await waitFor(() => {
-      expect(screen.getByText('Sync now')).toBeInTheDocument();
+      expect(screen.getByText('Sync Now')).toBeInTheDocument();
     });
 
     // Simulate clicking sync button
-    const syncButton = screen.getByText('Sync now');
+    const syncButton = screen.getByText('Sync Now');
     fireEvent.click(syncButton);
 
     // Wait for dialog to appear
@@ -321,11 +321,11 @@ describe('self-service', () => {
 
     // Wait for component to load
     await waitFor(() => {
-      expect(screen.getByText('Sync now')).toBeInTheDocument();
+      expect(screen.getByText('Sync Now')).toBeInTheDocument();
     });
 
     // Simulate clicking sync button
-    const syncButton = screen.getByText('Sync now');
+    const syncButton = screen.getByText('Sync Now');
     fireEvent.click(syncButton);
 
     // Wait for dialog to appear
@@ -370,11 +370,11 @@ describe('self-service', () => {
 
     // Wait for component to load
     await waitFor(() => {
-      expect(screen.getByText('Sync now')).toBeInTheDocument();
+      expect(screen.getByText('Sync Now')).toBeInTheDocument();
     });
 
     // Simulate clicking sync button
-    const syncButton = screen.getByText('Sync now');
+    const syncButton = screen.getByText('Sync Now');
     fireEvent.click(syncButton);
 
     // Wait for dialog to appear
@@ -416,11 +416,11 @@ describe('self-service', () => {
 
     // Wait for component to load
     await waitFor(() => {
-      expect(screen.getByText('Sync now')).toBeInTheDocument();
+      expect(screen.getByText('Sync Now')).toBeInTheDocument();
     });
 
     // Simulate clicking sync button
-    const syncButton = screen.getByText('Sync now');
+    const syncButton = screen.getByText('Sync Now');
     fireEvent.click(syncButton);
 
     // Wait for dialog to appear
@@ -470,10 +470,10 @@ describe('self-service', () => {
 
     // Wait for component to load
     await waitFor(() => {
-      expect(screen.getByText('Sync now')).toBeInTheDocument();
+      expect(screen.getByText('Sync Now')).toBeInTheDocument();
     });
 
-    const syncButton = screen.getByText('Sync now');
+    const syncButton = screen.getByText('Sync Now');
     fireEvent.click(syncButton);
 
     await waitFor(() => {
@@ -494,23 +494,10 @@ describe('self-service', () => {
     });
   });
 
-  it('should handle snackbar closing', async () => {
-    const entityRefs = ['component:default/e1'];
-    const tags = ['tag1'];
-    mockCatalogApi.getEntityFacets.mockResolvedValue(
-      facetsFromEntityRefs(entityRefs, tags),
-    );
-
-    await render(<HomeComponent />);
-
-    // Test snackbar functionality exists
-    expect(screen.getByText('Templates', { exact: true })).toBeInTheDocument();
-  });
-
   describe('fetchJobTemplates and sync refresh', () => {
     // Helper: opens sync dialog, selects Job Templates checkbox, clicks Ok
     const triggerTemplateSync = async () => {
-      fireEvent.click(screen.getByText('Sync now'));
+      fireEvent.click(screen.getByText('Sync Now'));
       await waitFor(() =>
         expect(screen.getByRole('dialog')).toBeInTheDocument(),
       );
@@ -621,7 +608,7 @@ describe('self-service', () => {
       await render(<HomeComponent />);
 
       await waitFor(() => {
-        expect(screen.getByText('Sync now')).toBeInTheDocument();
+        expect(screen.getByText('Sync Now')).toBeInTheDocument();
       });
 
       const facetCallsBeforeSync =
@@ -664,7 +651,7 @@ describe('self-service', () => {
       await render(<HomeComponent />);
 
       await waitFor(() => {
-        expect(screen.getByText('Sync now')).toBeInTheDocument();
+        expect(screen.getByText('Sync Now')).toBeInTheDocument();
       });
 
       const facetCallsBeforeSync =
@@ -714,7 +701,7 @@ describe('self-service', () => {
       await render(<HomeComponent />);
 
       await waitFor(() => {
-        expect(screen.getByText('Sync now')).toBeInTheDocument();
+        expect(screen.getByText('Sync Now')).toBeInTheDocument();
       });
 
       const facetCallsBeforeSync =
@@ -762,7 +749,7 @@ describe('self-service', () => {
       await render(<HomeComponent />);
 
       await waitFor(() => {
-        expect(screen.getByText('Sync now')).toBeInTheDocument();
+        expect(screen.getByText('Sync Now')).toBeInTheDocument();
       });
 
       const facetCallsBeforeSync =
@@ -824,7 +811,7 @@ describe('self-service', () => {
   });
 
   describe('permission gating', () => {
-    it('should show Sync now disabled while superuser check is loading', async () => {
+    it('should show Sync Now disabled while superuser check is loading', async () => {
       mockUseIsSuperuser.mockReturnValue({
         isSuperuser: false,
         loading: true,
@@ -839,7 +826,7 @@ describe('self-service', () => {
 
       await render(<HomeComponent />);
 
-      expect(screen.getByText('Sync now')).toBeInTheDocument();
+      expect(screen.getByText('Sync Now')).toBeInTheDocument();
     });
 
     it('should hide Sync now when user is not a superuser', async () => {
@@ -857,7 +844,7 @@ describe('self-service', () => {
 
       await render(<HomeComponent />);
 
-      expect(screen.queryByText('Sync now')).toBeNull();
+      expect(screen.queryByText('Sync Now')).toBeNull();
     });
 
     it('should show Add Template when user is superuser and has catalog create permission', async () => {
@@ -1053,116 +1040,6 @@ describe('self-service', () => {
           ),
         ).toBeInTheDocument();
       });
-    });
-
-    it('should not show "Templates refreshed" snackbar when there is an error', async () => {
-      jest.useFakeTimers();
-
-      const entityRefs = ['component:default/e1'];
-      const tags = ['tag1'];
-      mockCatalogApi.getEntityFacets.mockResolvedValue(
-        facetsFromEntityRefs(entityRefs, tags),
-      );
-
-      const mockError = Object.assign(
-        new Error('Request failed with 503 Service Unavailable'),
-        {
-          body: {
-            error: {
-              message: 'Controller service is absent in provided AAP instance',
-            },
-          },
-        },
-      );
-      (mockScaffolderApi.autocomplete as jest.Mock).mockRejectedValue(
-        mockError,
-      );
-
-      await render(<HomeComponent />);
-
-      await waitFor(() => {
-        expect(
-          screen.getByText(
-            'Controller service is absent in provided AAP instance',
-          ),
-        ).toBeInTheDocument();
-      });
-
-      jest.advanceTimersByTime(1000);
-
-      expect(screen.queryByText('Templates refreshed')).toBeNull();
-    });
-
-    it('should show "Templates refreshed" snackbar after successful fetch', async () => {
-      jest.useFakeTimers();
-
-      const entityRefs = ['component:default/e1'];
-      const tags = ['tag1'];
-      mockCatalogApi.getEntityFacets.mockResolvedValue(
-        facetsFromEntityRefs(entityRefs, tags),
-      );
-
-      await render(<HomeComponent />);
-
-      await waitFor(() => {
-        expect(mockScaffolderApi.autocomplete).toHaveBeenCalled();
-      });
-
-      jest.advanceTimersByTime(1000);
-
-      await waitFor(() => {
-        expect(screen.getByText('Templates refreshed')).toBeInTheDocument();
-      });
-    });
-
-    it('should not show "Templates refreshed" after dismissing error before timer fires', async () => {
-      jest.useFakeTimers();
-
-      const entityRefs = ['component:default/e1'];
-      const tags = ['tag1'];
-      mockCatalogApi.getEntityFacets.mockResolvedValue(
-        facetsFromEntityRefs(entityRefs, tags),
-      );
-
-      const mockError = Object.assign(
-        new Error('Request failed with 503 Service Unavailable'),
-        {
-          body: {
-            error: {
-              message: 'Controller service is absent in provided AAP instance',
-            },
-          },
-        },
-      );
-      (mockScaffolderApi.autocomplete as jest.Mock).mockRejectedValue(
-        mockError,
-      );
-
-      await render(<HomeComponent />);
-
-      await waitFor(() => {
-        expect(
-          screen.getByText(
-            'Controller service is absent in provided AAP instance',
-          ),
-        ).toBeInTheDocument();
-      });
-
-      const alert = screen.getByRole('alert');
-      const closeButton = within(alert).getByRole('button');
-      fireEvent.click(closeButton);
-
-      await waitFor(() => {
-        expect(
-          screen.queryByText(
-            'Controller service is absent in provided AAP instance',
-          ),
-        ).toBeNull();
-      });
-
-      jest.advanceTimersByTime(1000);
-
-      expect(screen.queryByText('Templates refreshed')).toBeNull();
     });
 
     it('should close error Alert when close button is clicked', async () => {
@@ -1451,7 +1328,7 @@ describe('self-service', () => {
     expect(screen.queryByText(/Page/)).toBeNull();
   });
 
-  it('should show Syncing text when sync is in progress', async () => {
+  it('should show sync button disabled when sync is in progress', async () => {
     const entityRefs = ['component:default/e1'];
     const tags = ['tag1'];
     mockCatalogApi.getEntityFacets.mockResolvedValue(
@@ -1467,10 +1344,10 @@ describe('self-service', () => {
     await render(<HomeComponent />);
 
     await waitFor(() => {
-      expect(screen.getByText('Syncing...')).toBeInTheDocument();
+      expect(screen.getByText('Sync Now')).toBeInTheDocument();
     });
 
-    const syncButton = screen.getByText('Syncing...').closest('button');
+    const syncButton = screen.getByText('Sync Now').closest('button');
     expect(syncButton).toBeDisabled();
   });
 
@@ -1489,10 +1366,10 @@ describe('self-service', () => {
     await render(<HomeComponent />);
 
     await waitFor(() => {
-      expect(screen.getByText('Sync now')).toBeInTheDocument();
+      expect(screen.getByText('Sync Now')).toBeInTheDocument();
     });
 
-    const syncButton = screen.getByText('Sync now').closest('button');
+    const syncButton = screen.getByText('Sync Now').closest('button');
     expect(syncButton).toBeDisabled();
   });
 
@@ -1513,10 +1390,10 @@ describe('self-service', () => {
     await render(<HomeComponent />);
 
     await waitFor(() => {
-      expect(screen.getByText('Sync now')).toBeInTheDocument();
+      expect(screen.getByText('Sync Now')).toBeInTheDocument();
     });
 
-    const syncButton = screen.getByText('Sync now').closest('button');
+    const syncButton = screen.getByText('Sync Now').closest('button');
     expect(syncButton).not.toBeDisabled();
   });
 
@@ -1538,10 +1415,10 @@ describe('self-service', () => {
     await render(<HomeComponent />);
 
     await waitFor(() => {
-      expect(screen.getByText('Sync now')).toBeInTheDocument();
+      expect(screen.getByText('Sync Now')).toBeInTheDocument();
     });
 
-    const syncButton = screen.getByText('Sync now').closest('button');
+    const syncButton = screen.getByText('Sync Now').closest('button');
     expect(syncButton).not.toBeDisabled();
   });
 });
@@ -1680,7 +1557,7 @@ describe('sync signal integration', () => {
     await render(<HomeComponent />);
 
     await waitFor(() => {
-      expect(screen.getByText('Sync now')).toBeInTheDocument();
+      expect(screen.getByText('Sync Now')).toBeInTheDocument();
     });
 
     mockSyncSignal.lastSignal = null;
@@ -1698,7 +1575,7 @@ describe('sync signal integration', () => {
     await render(<HomeComponent />);
 
     await waitFor(() => {
-      expect(screen.getByText('Sync now')).toBeInTheDocument();
+      expect(screen.getByText('Sync Now')).toBeInTheDocument();
     });
 
     mockSyncSignal.lastSignal = null;
@@ -1716,7 +1593,8 @@ describe('sync signal integration', () => {
     await render(<HomeComponent />);
 
     await waitFor(() => {
-      expect(screen.getByText('Syncing...')).toBeInTheDocument();
+      const syncButton = screen.getByText('Sync Now').closest('button');
+      expect(syncButton).toBeDisabled();
     });
 
     mockSyncSignal.lastSignal = {
@@ -1728,7 +1606,204 @@ describe('sync signal integration', () => {
     };
 
     await waitFor(() => {
-      expect(screen.getByText('Syncing...')).toBeInTheDocument();
+      const syncButton = screen.getByText('Sync Now').closest('button');
+      expect(syncButton).toBeDisabled();
+    });
+
+    mockSyncSignal.lastSignal = null;
+  });
+});
+
+describe('sync progress tooltip', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+    mockUseIsSuperuser.mockReturnValue({
+      isSuperuser: true,
+      loading: false,
+      error: null,
+    });
+    mockUsePermission.mockReturnValue({ loading: false, allowed: true });
+    mockRhAapAuthApi.getAccessToken.mockResolvedValue('mock-token');
+    mockAnsibleApi.getSyncStatus.mockResolvedValue({
+      aap: {
+        orgsUsersTeams: { lastSync: null, syncInProgress: false },
+        jobTemplates: { lastSync: null, syncInProgress: false },
+      },
+    });
+  });
+
+  const render = (children: JSX.Element) => {
+    return renderInTestApp(
+      <TestApiProvider
+        apis={[
+          [catalogApiRef, mockCatalogApi],
+          [ansibleApiRef, mockAnsibleApi],
+          [rhAapAuthApiRef, mockRhAapAuthApi],
+          [scaffolderApiRef, mockScaffolderApi],
+          [starredEntitiesApiRef, new MockStarredEntitiesApi()],
+          [permissionApiRef, mockApis.permission()],
+        ]}
+      >
+        <MockEntityListContextProvider>
+          {children}
+        </MockEntityListContextProvider>
+      </TestApiProvider>,
+      {
+        mountedRoutes: {
+          '/self-service': rootRouteRef,
+        },
+      },
+    );
+  };
+
+  const triggerSync = async (options: ('orgsUsersTeams' | 'templates')[]) => {
+    const syncButton = screen.getByText('Sync Now');
+    fireEvent.click(syncButton);
+    await waitFor(() => {
+      expect(screen.getByRole('dialog')).toBeInTheDocument();
+    });
+    const dialog = screen.getByRole('dialog');
+    const checkboxes = within(dialog).getAllByRole('checkbox');
+    if (options.includes('orgsUsersTeams')) fireEvent.click(checkboxes[0]);
+    if (options.includes('templates')) fireEvent.click(checkboxes[1]);
+    fireEvent.click(screen.getByText('Ok'));
+  };
+
+  it('should show sync progress popover with template-specific entries during sync', async () => {
+    const entityRefs = ['component:default/e1'];
+    const tags = ['tag1'];
+    mockCatalogApi.getEntityFacets.mockResolvedValue({
+      facets: {
+        'relations.ownedBy': entityRefs.map(value => ({ count: 1, value })),
+        'metadata.tags': tags.map((value, idx) => ({ value, count: idx })),
+        'spec.type': [{ value: 'service', count: 1 }],
+      },
+    });
+    mockAnsibleApi.syncOrgsUsersTeam.mockReturnValue(new Promise(() => {}));
+    mockAnsibleApi.syncTemplates.mockReturnValue(new Promise(() => {}));
+
+    await render(<HomeComponent />);
+    await waitFor(() => {
+      expect(screen.getByText('Sync Now')).toBeInTheDocument();
+    });
+
+    await triggerSync(['orgsUsersTeams', 'templates']);
+
+    await waitFor(() => {
+      expect(mockAnsibleApi.syncOrgsUsersTeam).toHaveBeenCalled();
+    });
+
+    fireEvent.mouseOver(screen.getByText('Sync Now'));
+
+    await waitFor(() => {
+      expect(screen.getByText('Syncing…')).toBeInTheDocument();
+      expect(
+        screen.getByText('Organizations, Users, and Teams'),
+      ).toBeInTheDocument();
+      expect(screen.getByText('Job Templates')).toBeInTheDocument();
+    });
+  });
+
+  it('should show only selected sync types in tooltip', async () => {
+    const entityRefs = ['component:default/e1'];
+    const tags = ['tag1'];
+    mockCatalogApi.getEntityFacets.mockResolvedValue({
+      facets: {
+        'relations.ownedBy': entityRefs.map(value => ({ count: 1, value })),
+        'metadata.tags': tags.map((value, idx) => ({ value, count: idx })),
+        'spec.type': [{ value: 'service', count: 1 }],
+      },
+    });
+    mockAnsibleApi.syncTemplates.mockReturnValue(new Promise(() => {}));
+
+    await render(<HomeComponent />);
+    await waitFor(() => {
+      expect(screen.getByText('Sync Now')).toBeInTheDocument();
+    });
+
+    await triggerSync(['templates']);
+
+    await waitFor(() => {
+      expect(mockAnsibleApi.syncTemplates).toHaveBeenCalled();
+    });
+
+    fireEvent.mouseOver(screen.getByText('Sync Now'));
+
+    await waitFor(() => {
+      expect(screen.getByText('Syncing…')).toBeInTheDocument();
+      expect(screen.getByText('Job Templates')).toBeInTheDocument();
+      expect(
+        screen.queryByText('Organizations, Users, and Teams'),
+      ).not.toBeInTheDocument();
+    });
+  });
+
+  it('should not show popover when no sync has been triggered', async () => {
+    const entityRefs = ['component:default/e1'];
+    const tags = ['tag1'];
+    mockCatalogApi.getEntityFacets.mockResolvedValue({
+      facets: {
+        'relations.ownedBy': entityRefs.map(value => ({ count: 1, value })),
+        'metadata.tags': tags.map((value, idx) => ({ value, count: idx })),
+        'spec.type': [{ value: 'service', count: 1 }],
+      },
+    });
+
+    await render(<HomeComponent />);
+    await waitFor(() => {
+      expect(screen.getByText('Sync Now')).toBeInTheDocument();
+    });
+
+    fireEvent.mouseOver(screen.getByText('Sync Now'));
+
+    await waitFor(() => {
+      expect(screen.queryByText('Syncing…')).not.toBeInTheDocument();
+      expect(
+        screen.queryByText('Last sync completed with errors'),
+      ).not.toBeInTheDocument();
+      expect(screen.queryByText('Sync completed')).not.toBeInTheDocument();
+    });
+  });
+
+  it('should show failure state when sync signal reports failure', async () => {
+    const entityRefs = ['component:default/e1'];
+    const tags = ['tag1'];
+    mockCatalogApi.getEntityFacets.mockResolvedValue({
+      facets: {
+        'relations.ownedBy': entityRefs.map(value => ({ count: 1, value })),
+        'metadata.tags': tags.map((value, idx) => ({ value, count: idx })),
+        'spec.type': [{ value: 'service', count: 1 }],
+      },
+    });
+    mockAnsibleApi.syncOrgsUsersTeam.mockResolvedValue(true);
+    mockAnsibleApi.syncTemplates.mockResolvedValue(false);
+
+    mockSyncSignal.lastSignal = {
+      provider: 'aap-job-template-provider',
+      syncInProgress: false,
+      lastSyncTime: null,
+      lastSyncStatus: 'failure',
+      lastFailedSyncTime: '2026-01-01T00:00:00Z',
+    };
+
+    await render(<HomeComponent />);
+    await waitFor(() => {
+      expect(screen.getByText('Sync Now')).toBeInTheDocument();
+    });
+
+    await triggerSync(['orgsUsersTeams', 'templates']);
+
+    await waitFor(() => {
+      expect(mockAnsibleApi.syncOrgsUsersTeam).toHaveBeenCalled();
+    });
+
+    fireEvent.mouseOver(screen.getByText('Sync Now'));
+
+    await waitFor(() => {
+      expect(
+        screen.getByText('Last sync completed with errors'),
+      ).toBeInTheDocument();
+      expect(screen.getByText('Failed')).toBeInTheDocument();
     });
 
     mockSyncSignal.lastSignal = null;
