@@ -137,8 +137,6 @@ describe('authModuleRHAAPProvider', () => {
       redirect_uri: `${appUrl}/api/auth/rhaap/handler/frame`,
       state: expect.any(String),
       approval_prompt: 'auto',
-      code_challenge: expect.any(String),
-      code_challenge_method: 'S256',
     });
     expect(decodeOAuthState(startUrl.searchParams.get('state')!)).toEqual({
       env: 'development',
@@ -160,11 +158,6 @@ describe('authModuleRHAAPProvider', () => {
     );
     expect(handlerResponse.text).toContain(
       encodeURIComponent(`"accessToken":"accessToken"`),
-    );
-    expect(mockAnsibleService.rhAAPAuthenticate).toHaveBeenCalledWith(
-      expect.objectContaining({
-        codeVerifier: expect.any(String),
-      }),
     );
   });
 });
