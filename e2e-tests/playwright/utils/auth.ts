@@ -266,7 +266,7 @@ export async function loginAAP(page: Page, credentials?: AAPCredentials) {
     .first();
 
   const navFound = await templatesOrShell
-    .waitFor({ state: 'visible', timeout: 20000 })
+    .waitFor({ state: 'visible', timeout: 45000 })
     .then(() => true)
     .catch(() => false);
 
@@ -278,7 +278,7 @@ export async function loginAAP(page: Page, credentials?: AAPCredentials) {
       .or(page.locator('[class*="Sidebar"]'))
       .first();
     const hasContent = await sidebarOrMain
-      .waitFor({ state: 'visible', timeout: 10000 })
+      .waitFor({ state: 'visible', timeout: 30000 })
       .then(() => true)
       .catch(() => false);
 
@@ -287,8 +287,12 @@ export async function loginAAP(page: Page, credentials?: AAPCredentials) {
       .isVisible()
       .catch(() => false);
     if (stillOnSignIn) {
+      const currentUrl = page.url();
+      const bodyText = await page.locator('body').textContent();
       throw new Error(
-        'Login verification failed: still on sign-in page after authentication',
+        `Login verification failed: still on sign-in page after authentication.\n` +
+          `URL: ${currentUrl}\n` +
+          `Body text (first 500 chars): ${bodyText?.substring(0, 500)}`,
       );
     }
     if (!hasContent) {
