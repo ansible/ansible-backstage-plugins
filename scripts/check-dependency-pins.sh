@@ -31,7 +31,7 @@ if v:
     [ -z "$range" ] && continue
     found=1
 
-    resolved=$(grep -A1 "\"${pkg}@npm:${range}\":" yarn.lock \
+    resolved=$(grep -A1 "\"${pkg}@npm:${range}" yarn.lock \
       | grep 'version:' \
       | sed 's/.*version: //')
 
