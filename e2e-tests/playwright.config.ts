@@ -11,9 +11,10 @@ dotenv.config();
 export default defineConfig({
   testDir: './playwright/tests',
 
-  // Serial execution within worker to maintain shared browser context
-  fullyParallel: false,
-  workers: 1, // Single worker to share browser context across all tests
+  // Parallel execution for faster CI runs
+  // Each worker gets its own authenticated browser context
+  fullyParallel: true,
+  workers: process.env.CI ? 2 : 2, // 4 parallel workers in CI, auto-detect locally
 
   // Retry configuration
   retries: process.env.CI ? 1 : 0,
