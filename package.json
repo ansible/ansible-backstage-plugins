@@ -60,7 +60,7 @@
     "@types/react": "^18",
     "@types/react-dom": "^18",
     "@rjsf/utils": "=5.24.0",
-    "axios": "^1.16.0",
+    "axios": "^1.18.0",
     "basic-ftp": "^5.3.1",
     "bfj": "7.0.2",
     "dompurify": "^3.4.0",
