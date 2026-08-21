@@ -1,0 +1,31 @@
+%%{init: {'themeVariables': {'fontFamily': 'Red Hat Text'}}}%%
+flowchart TD
+  Backend["packages/backend<br/>backend.add(...)"] --> Module["catalogModuleRhaap<br/>createBackendModule('catalog','rhaap')"]
+
+  Module --> Svc["ansibleServiceRef<br/>(IAAPService / AAPClient)"]
+  Module --> Sched["scheduler<br/>(coreServices.scheduler)"]
+  Module --> Perms["permissionsRegistry<br/>.addPermissions(ansiblePermissions)"]
+  Module --> Router["createRouter()<br/>REST endpoints"]
+
+  Module --> AAPEntity["AAPEntityProvider<br/>orgs, teams, users"]
+  Module --> JobTemplate["AAPJobTemplateProvider<br/>job templates"]
+  Module --> EE["EEEntityProvider<br/>execution environments"]
+  Module --> ManualGit["ManualGitRepositoryProvider<br/>manually registered repos"]
+  Module --> PAH["PAHCollectionProvider(s)<br/>Private Automation Hub collections"]
+  Module --> GitContents["AnsibleGitContentsProvider(s)<br/>git-based Ansible content"]
+
+  AAPEntity -->|"catalogProcessing.addEntityProvider()"| Catalog[("Backstage<br/>Software Catalog")]
+  JobTemplate -->|"catalogProcessing.addEntityProvider()"| Catalog
+  EE -->|"catalogProcessing.addEntityProvider()"| Catalog
+  ManualGit -->|"catalogProcessing.addEntityProvider()"| Catalog
+  PAH -->|"catalogProcessing.addEntityProvider()"| Catalog
+  GitContents -->|"catalogProcessing.addEntityProvider()"| Catalog
+
+  AAPEntity -.->|fromConfig, scheduled sync| Svc
+  JobTemplate -.->|fromConfig, scheduled sync| Svc
+  PAH -.->|fromConfig, scheduled sync| Svc
+
+  Svc -->|HTTP API calls| AAP[("Ansible Automation<br/>Platform")]
+
+  style Catalog fill:#d5e8d4,stroke:#82b366
+  style AAP fill:#dae8fc,stroke:#6c8ebf
