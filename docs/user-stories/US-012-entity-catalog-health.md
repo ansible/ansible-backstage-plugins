@@ -2,7 +2,7 @@
 
 | Field | Value |
 |-------|--------|
-| **Status** | Planned |
+| **Status** | Deferred |
 | **Persona** | Catalog user |
 | **Surface** | Catalog entity page (legacy layout) — Quality tab / `ApmeHealthCard` |
 | **Craig journey** | [J10](user-journeys.md) |
