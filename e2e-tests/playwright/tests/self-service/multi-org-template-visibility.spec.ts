@@ -111,28 +111,25 @@ async function getTemplateCount(
   });
   await page.waitForLoadState('networkidle', { timeout: 30000 });
 
-  // Wait for the "All" count to appear in the sidebar (autocomplete fetch
-  // must complete before the grid renders filtered templates).
-  try {
-    await page.getByText(/All/i).first().waitFor({ timeout: 15000 });
-  } catch {
-    // Page may not have sidebar if no templates loaded
-  }
+  // Wait for template cards to render (Home.tsx filteredEntities -> WizardCard)
   await page.waitForTimeout(3000);
 
-  // The sidebar shows "All <count>" — extract the number
-  const bodyText = await page
-    .locator('body')
-    .innerText()
-    .catch(() => '');
-  const allMatch = bodyText.match(/All\s+(\d+)/i);
-  if (allMatch) return parseInt(allMatch[1], 10);
-
-  // Fallback: count visible "Start" links (one per template card)
-  return page
-    .getByRole('link', { name: 'Start' })
+  // Count actual rendered WizardCard components (each has a "Start" button)
+  // This matches filteredEntities.length from Home.tsx after RBAC filtering
+  const cardCount = await page
+    .locator('[data-testid="template-card-actions--create"]')
     .count()
     .catch(() => 0);
+
+  if (cardCount === 0) {
+    const hasEmptyState = await page
+      .getByText(/No templates/i)
+      .isVisible()
+      .catch(() => false);
+    console.log(`[getTemplateCount] No cards, empty state: ${hasEmptyState}`);
+  }
+
+  return cardCount;
 }
 
 test('Template visibility: admin sees >= normal user templates', async ({
@@ -181,9 +178,6 @@ test('Template visibility: admin sees >= normal user templates', async ({
     }
 
     // Navigate to self-service catalog and check what the normal user sees
-    await normalPage.goto('/self-service/catalog', {
-      waitUntil: 'domcontentloaded',
-    });
     await normalPage.waitForLoadState('networkidle', { timeout: 30000 });
     await normalPage.waitForTimeout(3000);
 
@@ -198,15 +192,7 @@ test('Template visibility: admin sees >= normal user templates', async ({
       pageText.includes('Forbidden') || pageText.includes('not authorized');
 
     if (!got404 && !gotForbidden) {
-      const allMatch = pageText.match(/All\s+(\d+)/i);
-      if (allMatch) {
-        normalCount = parseInt(allMatch[1], 10);
-      } else {
-        normalCount = await normalPage
-          .getByRole('link', { name: 'Start' })
-          .count()
-          .catch(() => 0);
-      }
+      normalCount = await getTemplateCount(normalPage);
     }
 
     console.log(
