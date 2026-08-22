@@ -116,7 +116,7 @@ export async function createNonAdminTestUser(): Promise<TestUser> {
   const isSeeded =
     process.env.USE_SEEDED_DATA === 'true' || username.startsWith('user_');
   if (isSeeded) {
-    console.log(`[AAP Setup] Using seeded user ${username}, skipping creation`);
+    console.log('[AAP Setup] Using seeded user, skipping creation');
     const existingUsers = await aapGet(
       `api/gateway/v1/users/?username=${encodeURIComponent(username)}`,
     );
