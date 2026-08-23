@@ -24,6 +24,7 @@ import {
   isApmeEnabled,
   getApmeConfig,
   resolveScanTargetVersion,
+  ApmeClient,
 } from '@ansible/backstage-apme-common';
 import { catalogProcessingExtensionPoint } from '@backstage/plugin-catalog-node/alpha';
 import {
@@ -108,6 +109,14 @@ export const catalogModuleApme = createBackendModule({
         logger.info(
           `APME portal settings store at ${portalSettingsStore.path}`,
         );
+
+        const maybeClient = apmeService as ApmeClient;
+        if (typeof maybeClient.setResolveBaseUrl === 'function') {
+          maybeClient.setResolveBaseUrl(async () => {
+            const store = await portalSettingsStore.read();
+            return store.global?.gatewayBaseUrl;
+          });
+        }
 
         const resolveScanVersion = async (projectId: string) => {
           const store = await portalSettingsStore.read();

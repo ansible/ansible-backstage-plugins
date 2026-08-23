@@ -20,12 +20,11 @@ export interface ApmePortalSettingsData {
      * When set, wins over app-config `ansible.apme.enableAi`.
      */
     enableAi?: boolean;
+    /** Override for `ansible.apme.baseUrl` (APME Gateway). */
+    gatewayBaseUrl?: string;
   };
   projects?: Record<string, { targetAnsibleCoreVersion?: string }>;
-  activities?: Record<
-    string,
-    { branch_name?: string; pr_url?: string | null }
-  >;
+  activities?: Record<string, { branch_name?: string; pr_url?: string | null }>;
 }
 
 export interface ActivityPortalOutcome {

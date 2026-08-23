@@ -1254,10 +1254,16 @@ paths:
                   targetAnsibleCoreVersion:
                     type: string
                     description: Global default ansible-core minor version for quality scans
+                  defaultAiModelId:
+                    type: string
+                    description: Default Abbenay model id for quality workflows
+                  gatewayBaseUrl:
+                    type: string
+                    description: Effective APME Gateway URL (portal-settings override, else app-config)
     put:
       operationId: updateApmeSettings
       summary: Update APME portal settings
-      description: Persists portal-wide quality defaults including ansible-core scan target and default AI
+      description: Persists portal-wide quality defaults including ansible-core scan target, Gateway URL, and default AI
         model.
       tags:
         - APME
@@ -1276,6 +1282,10 @@ paths:
                   type: string
                   nullable: true
                   description: Default Abbenay model id for quality workflows
+                gatewayBaseUrl:
+                  type: string
+                  nullable: true
+                  description: APME Gateway URL override; null or empty restores app-config ansible.apme.baseUrl
       responses:
         '200':
           description: Updated APME settings
@@ -1290,8 +1300,12 @@ paths:
                     type: boolean
                   targetAnsibleCoreVersion:
                     type: string
+                  defaultAiModelId:
+                    type: string
+                  gatewayBaseUrl:
+                    type: string
         '400':
-          description: Invalid or unsupported ansible-core version
+          description: Invalid or unsupported ansible-core version or Gateway URL
   /apme/ai/status:
     get:
       operationId: getApmeAiStatus

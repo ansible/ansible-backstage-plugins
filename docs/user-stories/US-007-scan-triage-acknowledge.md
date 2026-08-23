@@ -2,7 +2,7 @@
 
 | Field | Value |
 |-------|--------|
-| **Status** | Done |
+| **Status** | Complete |
 | **Persona** | Repo owner |
 | **Surface** | Entity **Quality activity** detail tab (scan start stays on **Quality**) |
 | **Craig journey** | [J2](user-journeys.md) |

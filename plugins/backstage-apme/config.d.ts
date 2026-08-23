@@ -34,6 +34,7 @@ export interface Config {
       enabled?: boolean;
       /**
        * APME Gateway base URL (e.g. http://localhost:8080).
+       * Quality settings can override this at runtime (portal settings store).
        * @visibility frontend
        */
       baseUrl?: string;

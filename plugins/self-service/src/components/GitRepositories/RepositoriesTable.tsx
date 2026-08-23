@@ -50,7 +50,7 @@ import {
 } from './constants';
 import { rootRouteRef } from '../../routes';
 import { useLatestCIActivity } from './useLatestCIActivity';
-import { gitRepositoriesExtensionsApiRef } from '@ansible/backstage-rhaap-common/gitRepositoriesExtensions';
+import { useGitRepositoriesExtensions } from './useGitRepositoriesExtensions';
 import { usePaginatedGitRepos } from './usePaginatedGitRepos';
 
 const StarredIcon = () => <Star style={{ color: '#ffb74d' }} />;
@@ -135,13 +135,11 @@ const RepositoriesTableInner = ({
   } | null>(null);
   const [selectedEntity, setSelectedEntity] = useState<Entity | null>(null);
 
-  const extensionsApi = useApi(gitRepositoriesExtensionsApiRef);
+  const extensionsApi = useGitRepositoriesExtensions();
 
   const catalogRowMenuItems = useMemo(
     () =>
-      extensionsApi
-        .getCatalogRowMenuItems()
-        .sort((a, b) => a.order - b.order),
+      extensionsApi.getCatalogRowMenuItems().sort((a, b) => a.order - b.order),
     [extensionsApi],
   );
 
@@ -216,7 +214,9 @@ const RepositoriesTableInner = ({
       width: '28%',
       render: (entity: Entity) => {
         const repoName = entity.metadata?.title ?? entity.metadata?.name ?? '—';
-        const linkPath = `${rootLink()}/repositories/${entity.metadata?.name ?? ''}`;
+        const linkPath = `${rootLink()}/repositories/${
+          entity.metadata?.name ?? ''
+        }`;
         return (
           <Box display="flex" alignItems="center" style={{ gap: 8 }}>
             <EntityLinkButton
@@ -314,7 +314,7 @@ const RepositoriesTableInner = ({
               : col.title,
             id: col.id,
             render: (entity: Entity) => col.render(entity),
-          }) as TableColumn<Entity>,
+          } as TableColumn<Entity>),
       ),
     {
       title: (
@@ -326,7 +326,7 @@ const RepositoriesTableInner = ({
       id: 'lastActivity',
       render: (entity: Entity) => {
         const entry = lastActivityMap[stringifyEntityRef(entity)];
-        const text = lastActivityLoading ? '—' : (entry?.text ?? 'N/A');
+        const text = lastActivityLoading ? '—' : entry?.text ?? 'N/A';
         const url = entry?.url;
         return (
           <Typography variant="body2" color="textSecondary" component="span">

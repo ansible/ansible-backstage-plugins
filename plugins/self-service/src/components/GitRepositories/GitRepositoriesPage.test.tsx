@@ -166,6 +166,24 @@ describe('GitRepositoriesPage', () => {
     mockUsePermission.mockReturnValue({ loading: false, allowed: true });
   });
 
+  it('renders core tabs when no guest extensions factory is registered', async () => {
+    await renderInTestApp(
+      <TestApiProvider
+        apis={[
+          [discoveryApiRef, mockDiscoveryApi],
+          [fetchApiRef, mockFetchApi],
+        ]}
+      >
+        <ThemeProvider theme={theme}>
+          <GitRepositoriesPage />
+        </ThemeProvider>
+      </TestApiProvider>,
+    );
+
+    expect(screen.getByText('Catalog')).toBeInTheDocument();
+    expect(screen.queryByText('Quality settings')).not.toBeInTheDocument();
+  });
+
   it('hides a permission-gated tab entirely when the user is unauthorized', async () => {
     mockUsePermission.mockReturnValue({ loading: false, allowed: false });
 

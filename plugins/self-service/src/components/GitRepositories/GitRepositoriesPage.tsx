@@ -21,8 +21,8 @@ import {
 } from '@backstage/plugin-permission-react';
 import type { Permission } from '@backstage/plugin-permission-common';
 import { gitRepositoriesViewPermission } from '@ansible/backstage-rhaap-common/permissions';
-import { gitRepositoriesExtensionsApiRef } from '@ansible/backstage-rhaap-common/gitRepositoriesExtensions';
 import type { GitRepositoriesPageTabDefinition } from '@ansible/backstage-rhaap-common/gitRepositoriesExtensions';
+import { useGitRepositoriesExtensions } from './useGitRepositoriesExtensions';
 import {
   discoveryApiRef,
   fetchApiRef,
@@ -177,7 +177,7 @@ export const GitRepositoriesPage = () => {
   const navigate = useNavigate();
   const discoveryApi = useApi(discoveryApiRef);
   const fetchApi = useApi(fetchApiRef);
-  const extensionsApi = useApi(gitRepositoriesExtensionsApiRef);
+  const extensionsApi = useGitRepositoriesExtensions();
   const rootLink = useRouteRef(rootRouteRef);
   const { isSyncInProgress, syncProgress, startTracking } =
     useSyncStatusPolling();

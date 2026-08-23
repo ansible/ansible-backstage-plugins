@@ -2,7 +2,7 @@
 
 | Field | Value |
 |-------|--------|
-| **Status** | Planned |
+| **Status** | Complete |
 | **Persona** | Repo owner |
 | **Surface** | Git Repos catalog header; repo detail header menu |
 | **Craig journey** | [J9](user-journeys.md) |

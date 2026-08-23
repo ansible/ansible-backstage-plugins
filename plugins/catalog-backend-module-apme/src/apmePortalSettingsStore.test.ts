@@ -53,4 +53,18 @@ describe('ApmePortalSettingsStore', () => {
       global: { enableAi: false },
     });
   });
+
+  it('round-trips a Gateway URL override', async () => {
+    const store = new ApmePortalSettingsStore(settingsPath);
+    await store.updateGlobalSettings({
+      gatewayBaseUrl: 'http://host.containers.internal:8080',
+    });
+    await expect(store.read()).resolves.toEqual({
+      global: { gatewayBaseUrl: 'http://host.containers.internal:8080' },
+    });
+    await store.updateGlobalSettings({ gatewayBaseUrl: null });
+    await expect(store.read()).resolves.toEqual({
+      global: {},
+    });
+  });
 });

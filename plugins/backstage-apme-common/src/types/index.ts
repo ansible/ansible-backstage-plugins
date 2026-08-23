@@ -15,7 +15,12 @@
  */
 
 export type Severity =
-  'blocker' | 'critical' | 'high' | 'medium' | 'low' | 'info';
+  | 'blocker'
+  | 'critical'
+  | 'high'
+  | 'medium'
+  | 'low'
+  | 'info';
 
 export type RemediationClass = 1 | 2 | 3 | 9; // 1=auto, 2=assisted, 3=manual, 9=none
 
@@ -185,6 +190,11 @@ export interface ApmePortalSettings {
   targetAnsibleCoreVersion?: string;
   /** Abbenay chat model id (provider/model) for workflow remediate + escalate-ai. */
   defaultAiModelId?: string;
+  /**
+   * Effective APME Gateway URL (portal-settings override, else app-config).
+   * Backend scan/remediate/proxy calls use this, not the frontend origin.
+   */
+  gatewayBaseUrl?: string;
 }
 
 export type ScanTargetSource = 'project' | 'global' | 'config' | 'default';
@@ -202,6 +212,8 @@ export interface UpdatePortalSettingsRequest {
   defaultAiModelId?: string | null;
   /** When set, persists a portal override for AI-assisted remediation. */
   enableAi?: boolean;
+  /** Set to override app-config; null or empty clears the override. */
+  gatewayBaseUrl?: string | null;
 }
 
 /** Galaxy / Automation Hub server (ADR-045). Token value is never exposed. */

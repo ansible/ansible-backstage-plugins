@@ -2,8 +2,8 @@
  * Copyright Red Hat
  *
  * Thin Quality settings for Git Repositories (US-004 / AAP-88783):
- * global ansible-core target + AI gate via portal settings store.
- * Galaxy servers are bootstrapped from PAH catalog sync (not editable here).
+ * global ansible-core target, APME Gateway URL, and AI gate via portal
+ * settings store. Galaxy servers are bootstrapped from PAH catalog sync.
  */
 
 import { useCallback, useEffect, useState } from 'react';
@@ -20,6 +20,7 @@ import {
   MenuItem,
   Select,
   Switch,
+  TextField,
   Typography,
   makeStyles,
 } from '@material-ui/core';
@@ -37,10 +38,15 @@ import { ApmeAiProvidersSection } from './ApmeAiProvidersSection';
 
 const useStyles = makeStyles(theme => ({
   root: {
-    maxWidth: 640,
+    maxWidth: 720,
   },
   field: {
     minWidth: 220,
+    marginTop: theme.spacing(1),
+    marginBottom: theme.spacing(2),
+  },
+  urlField: {
+    width: '100%',
     marginTop: theme.spacing(1),
     marginBottom: theme.spacing(2),
   },
@@ -76,6 +82,7 @@ const ApmeQualitySettingsTabContent = () => {
   const [version, setVersion] = useState(
     DEFAULT_APME_TARGET_ANSIBLE_CORE_VERSION,
   );
+  const [gatewayBaseUrl, setGatewayBaseUrl] = useState('');
   const [enableAi, setEnableAi] = useState(false);
   const [dirty, setDirty] = useState(false);
 
@@ -89,6 +96,7 @@ const ApmeQualitySettingsTabContent = () => {
         settings.targetAnsibleCoreVersion?.trim() ||
           DEFAULT_APME_TARGET_ANSIBLE_CORE_VERSION,
       );
+      setGatewayBaseUrl(settings.gatewayBaseUrl?.trim() ?? '');
       setEnableAi(Boolean(settings.enableAi));
       setDirty(false);
     } catch (err) {
@@ -109,12 +117,14 @@ const ApmeQualitySettingsTabContent = () => {
     try {
       const settings = await apmeApi.updatePortalSettings({
         targetAnsibleCoreVersion: version,
+        gatewayBaseUrl: gatewayBaseUrl.trim() || null,
         enableAi,
       });
       setVersion(
         settings.targetAnsibleCoreVersion?.trim() ||
           DEFAULT_APME_TARGET_ANSIBLE_CORE_VERSION,
       );
+      setGatewayBaseUrl(settings.gatewayBaseUrl?.trim() ?? '');
       setEnableAi(Boolean(settings.enableAi));
       invalidateApmePortalSettingsCache();
       setDirty(false);
@@ -140,8 +150,9 @@ const ApmeQualitySettingsTabContent = () => {
         <CardContent>
           <Typography variant="body2" className={classes.hint}>
             Sets the global ansible-core target used when a repository has no
-            per-project override. Prefills the Quality tab scan form and applies
-            to background catalog-sync scans. Changes persist in the Portal
+            per-project override, and the APME Gateway URL used for scans and
+            remediation. Prefills the Quality tab scan form and applies to
+            background catalog-sync scans. Changes persist in the Portal
             settings store.
           </Typography>
 
@@ -177,6 +188,22 @@ const ApmeQualitySettingsTabContent = () => {
               ))}
             </Select>
           </FormControl>
+
+          <TextField
+            className={classes.urlField}
+            variant="outlined"
+            size="small"
+            label="APME Gateway URL"
+            value={gatewayBaseUrl}
+            onChange={event => {
+              setGatewayBaseUrl(event.target.value);
+              setDirty(true);
+              setSavedMessage(undefined);
+            }}
+            disabled={saving}
+            helperText="Overrides app-config ansible.apme.baseUrl. Clear and save to use app-config. Example: http://host.containers.internal:8080"
+            inputProps={{ 'aria-label': 'APME Gateway URL' }}
+          />
 
           <RequirePermission
             permission={ansibleSettingsEditPermission}

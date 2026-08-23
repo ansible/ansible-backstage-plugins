@@ -28,13 +28,13 @@ after verified in the local loop (`make react` and/or RHDH dynamic plugins).
 | [US-004](US-004-admin-quality-settings.md) | Admin / Quality settings | J6 | Complete |
 | [US-005](US-005-fleet-quality.md) | Fleet Quality overview | J4 | Complete |
 | [US-006](US-006-overview-quality-card.md) | Overview Quality card (above About) | J1 | Complete |
-| [US-007](US-007-scan-triage-acknowledge.md) | Scan triage: filter, acknowledge, Quality activity | J2 | Done |
-| [US-008](US-008-remediate-and-ship.md) | Remediate and ship (canonical E2E) | J3 | Planned |
-| [US-009](US-009-dependency-risk.md) | Dependency risk (Collections / Dependencies) | J5 | Planned |
+| [US-007](US-007-scan-triage-acknowledge.md) | Scan triage: filter, acknowledge, Quality activity | J2 | Complete |
+| [US-008](US-008-remediate-and-ship.md) | Remediate and ship (canonical E2E) | J3 | Work in progress |
+| [US-009](US-009-dependency-risk.md) | Dependency risk (Collections / Dependencies) | J5 | Complete |
 | [US-010](US-010-background-estate-scan.md) | Background estate scan | J8 | Deferred |
-| [US-011](US-011-quick-actions-dev-spaces.md) | Quick actions (Dev Spaces, header shortcuts) | J9 | Planned |
-| [US-012](US-012-entity-catalog-health.md) | Entity catalog health (legacy layout) | J10 | Planned |
+| [US-011](US-011-quick-actions-dev-spaces.md) | Quick actions (Dev Spaces, header shortcuts) | J9 | Complete |
+| [US-012](US-012-entity-catalog-health.md) | Entity catalog health (legacy layout) | J10 | Deferred |
 | [US-013](US-013-content-health-dashboard.md) | Content Health dashboard | J11 | Deferred |
 | [US-014](US-014-message-inbox.md) | Message inbox | J12 | Deferred |
-| [US-015](US-015-eap-feedback.md) | Submit EAP feedback | J13 | Planned |
+| [US-015](US-015-eap-feedback.md) | Submit EAP feedback | J13 | Complete |
 | [US-016](US-016-abbenay-providers-quality-settings.md) | Abbenay AI providers on Quality settings | J6 | Complete |

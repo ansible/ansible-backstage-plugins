@@ -54,12 +54,18 @@ import {
 export interface ApmeClientOptions {
   rootConfig: Config;
   logger: LoggerService;
+  /**
+   * Optional per-request Gateway URL (portal-settings override).
+   * Return a stored URL or undefined to use `ansible.apme.baseUrl`.
+   */
+  resolveBaseUrl?: () => Promise<string | undefined>;
 }
 
 export { getApmeConfig } from '../config';
 
 export class ApmeClient {
-  private readonly baseUrl: string;
+  private readonly configBaseUrl: string;
+  private resolveBaseUrlFn?: () => Promise<string | undefined>;
   private readonly enableAi: boolean;
   private readonly submitTimeoutMs: number;
   private readonly logger: LoggerService;
@@ -67,14 +73,34 @@ export class ApmeClient {
 
   constructor(options: ApmeClientOptions) {
     const config = getApmeConfig(options.rootConfig);
-    this.baseUrl = config.baseUrl;
+    this.configBaseUrl = config.baseUrl;
+    this.resolveBaseUrlFn = options.resolveBaseUrl;
     this.enableAi = config.enableAi;
     this.submitTimeoutMs = config.submitTimeoutMs;
     if (!config.checkSSL) {
       this.dispatcher = new Agent({ connect: { rejectUnauthorized: false } });
     }
     this.logger = options.logger.child({ service: 'ApmeClient' });
-    this.logger.debug(`APME client initialized with baseUrl: ${this.baseUrl}`);
+    this.logger.debug(
+      `APME client initialized with baseUrl: ${this.configBaseUrl}`,
+    );
+  }
+
+  /**
+   * Attach a portal-settings resolver after construction (catalog module).
+   */
+  setResolveBaseUrl(resolveBaseUrl: () => Promise<string | undefined>): void {
+    this.resolveBaseUrlFn = resolveBaseUrl;
+  }
+
+  private async currentBaseUrl(): Promise<string> {
+    if (!this.resolveBaseUrlFn) {
+      return this.configBaseUrl;
+    }
+    const override = (await this.resolveBaseUrlFn())
+      ?.trim()
+      .replace(/\/+$/, '');
+    return override || this.configBaseUrl;
   }
 
   private scanOperationOptions(
@@ -91,9 +117,9 @@ export class ApmeClient {
     return options;
   }
 
-  private buildUrl(endpoint: string): string {
+  private buildUrl(endpoint: string, baseUrl: string): string {
     const path = endpoint.startsWith('/') ? endpoint : `/${endpoint}`;
-    return `${this.baseUrl}${path}`;
+    return `${baseUrl}${path}`;
   }
 
   private async executeRequest<T>(
@@ -101,7 +127,10 @@ export class ApmeClient {
     options: RequestInit = {},
     requestOptions?: { timeoutMs?: number },
   ): Promise<T> {
-    const url = this.buildUrl(endpoint);
+    const baseUrl = this.resolveBaseUrlFn
+      ? await this.currentBaseUrl()
+      : this.configBaseUrl;
+    const url = this.buildUrl(endpoint, baseUrl);
     const headers: Record<string, string> = {
       'Content-Type': 'application/json',
       ...((options.headers as Record<string, string>) || {}),
@@ -259,7 +288,9 @@ export class ApmeClient {
           ? `&branch=${encodeURIComponent(branch)}`
           : '';
       const project = await this.executeRequest<Project>(
-        `/api/v1/projects/lookup?repo_url=${encodeURIComponent(repoUrl)}${branchQuery}`,
+        `/api/v1/projects/lookup?repo_url=${encodeURIComponent(
+          repoUrl,
+        )}${branchQuery}`,
       );
       return project;
     } catch (error) {

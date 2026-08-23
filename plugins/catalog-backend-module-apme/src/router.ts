@@ -33,6 +33,9 @@ import {
   mergeActivityPortalOutcomes,
   normalizeApmeAiProviders,
   resolveScanTarget,
+  resolveGatewayBaseUrl,
+  InvalidGatewayBaseUrlError,
+  normalizeGatewayBaseUrl,
 } from '@ansible/backstage-apme-common';
 import { ApmePortalSettingsStore } from './apmePortalSettingsStore';
 import { validateRepoBranch } from './branchLookup';
@@ -156,7 +159,19 @@ export async function createRouter(options: RouterOptions): Promise<Router> {
       publishViaGateway: configSnapshot.publishViaGateway,
       targetAnsibleCoreVersion: resolved.effective,
       defaultAiModelId: store.global?.defaultAiModelId,
+      gatewayBaseUrl: resolveGatewayBaseUrl({
+        store,
+        configBaseUrl: configSnapshot.baseUrl,
+      }).effective,
     };
+  };
+
+  const resolveEffectiveGatewayBaseUrl = async () => {
+    const store = await portalSettingsStore.read();
+    return resolveGatewayBaseUrl({
+      store,
+      configBaseUrl: configSnapshot.baseUrl,
+    }).effective;
   };
 
   // Body parsing: use route-level `jsonBody` only (see ./jsonBody.ts). Never
@@ -197,12 +212,17 @@ export async function createRouter(options: RouterOptions): Promise<Router> {
     jsonBody,
     requireApmeSettingsManage,
     async (req, res) => {
-      const { targetAnsibleCoreVersion, defaultAiModelId, enableAi } =
-        req.body ?? {};
+      const {
+        targetAnsibleCoreVersion,
+        defaultAiModelId,
+        enableAi,
+        gatewayBaseUrl,
+      } = req.body ?? {};
       const updates: {
         targetAnsibleCoreVersion?: string;
         defaultAiModelId?: string | null;
         enableAi?: boolean;
+        gatewayBaseUrl?: string | null;
       } = {};
 
       if (targetAnsibleCoreVersion !== undefined) {
@@ -237,13 +257,40 @@ export async function createRouter(options: RouterOptions): Promise<Router> {
         updates.enableAi = enableAi;
       }
 
+      if (gatewayBaseUrl !== undefined) {
+        if (gatewayBaseUrl !== null && typeof gatewayBaseUrl !== 'string') {
+          throw new InputError('gatewayBaseUrl must be a string or null');
+        }
+        if (gatewayBaseUrl === null || !gatewayBaseUrl.trim()) {
+          updates.gatewayBaseUrl = null;
+        } else {
+          try {
+            const normalized = normalizeGatewayBaseUrl(gatewayBaseUrl);
+            if (!normalized) {
+              throw new InputError('gatewayBaseUrl must be a non-empty string');
+            }
+            updates.gatewayBaseUrl = normalized;
+          } catch (error) {
+            if (error instanceof InputError) {
+              throw error;
+            }
+            const message =
+              error instanceof InvalidGatewayBaseUrlError
+                ? error.message
+                : 'gatewayBaseUrl is invalid';
+            throw new InputError(message);
+          }
+        }
+      }
+
       if (
         updates.targetAnsibleCoreVersion === undefined &&
         updates.defaultAiModelId === undefined &&
-        updates.enableAi === undefined
+        updates.enableAi === undefined &&
+        updates.gatewayBaseUrl === undefined
       ) {
         throw new InputError(
-          'At least one of targetAnsibleCoreVersion, defaultAiModelId, or enableAi is required',
+          'At least one of targetAnsibleCoreVersion, defaultAiModelId, enableAi, or gatewayBaseUrl is required',
         );
       }
 
@@ -546,6 +593,7 @@ export async function createRouter(options: RouterOptions): Promise<Router> {
         projectId,
         operationSuffix: '',
         scmToken,
+        gatewayBaseUrl: await resolveEffectiveGatewayBaseUrl(),
       });
     },
   );
@@ -568,6 +616,7 @@ export async function createRouter(options: RouterOptions): Promise<Router> {
         projectId,
         operationSuffix: rest,
         scmToken,
+        gatewayBaseUrl: await resolveEffectiveGatewayBaseUrl(),
       });
     },
   );
@@ -658,7 +707,9 @@ export async function createRouter(options: RouterOptions): Promise<Router> {
       return;
     }
     logger.debug(
-      `APME project lookup by repo URL: ${repoUrl}${branch ? ` branch=${branch}` : ''}`,
+      `APME project lookup by repo URL: ${repoUrl}${
+        branch ? ` branch=${branch}` : ''
+      }`,
     );
     const project = await apmeService.getProjectByRepoUrl(repoUrl, branch);
     if (!project) {

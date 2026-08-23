@@ -102,6 +102,7 @@ export class MockApmeApiClient implements ApmeApi {
       publishViaGateway: true,
       targetAnsibleCoreVersion: this.globalScanTarget,
       defaultAiModelId: this.defaultAiModelId,
+      gatewayBaseUrl: this.gatewayBaseUrl,
     };
   }
 
@@ -109,6 +110,7 @@ export class MockApmeApiClient implements ApmeApi {
     targetAnsibleCoreVersion?: string;
     defaultAiModelId?: string | null;
     enableAi?: boolean;
+    gatewayBaseUrl?: string | null;
   }) {
     await delay(50);
     if (body.targetAnsibleCoreVersion) {
@@ -119,6 +121,9 @@ export class MockApmeApiClient implements ApmeApi {
     }
     if (body.enableAi !== undefined) {
       this.enableAi = body.enableAi;
+    }
+    if (body.gatewayBaseUrl !== undefined) {
+      this.gatewayBaseUrl = body.gatewayBaseUrl?.trim() || undefined;
     }
     return this.getPortalSettings();
   }
@@ -158,6 +163,7 @@ export class MockApmeApiClient implements ApmeApi {
   private globalScanTarget = '2.16';
   private defaultAiModelId: string | undefined = 'mock-provider/mock-model';
   private enableAi = true;
+  private gatewayBaseUrl: string | undefined = 'http://localhost:8080';
 
   private projectScanTargets: Record<string, string> = {};
 
@@ -612,7 +618,7 @@ export class MockApmeApiClient implements ApmeApi {
           const original = violation?.original_yaml ?? '';
           const fixed =
             violation?.fixed_yaml ??
-            (isAi ? (violation?.ai_suggestion ?? '') : '');
+            (isAi ? violation?.ai_suggestion ?? '' : '');
           const diffHunk =
             isAi && original && fixed
               ? [
