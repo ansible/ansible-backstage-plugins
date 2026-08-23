@@ -98,7 +98,7 @@ export class MockApmeApiClient implements ApmeApi {
   async getPortalSettings() {
     await delay(50);
     return {
-      enableAi: true,
+      enableAi: this.enableAi,
       publishViaGateway: true,
       targetAnsibleCoreVersion: this.globalScanTarget,
       defaultAiModelId: this.defaultAiModelId,
@@ -108,6 +108,7 @@ export class MockApmeApiClient implements ApmeApi {
   async updatePortalSettings(body: {
     targetAnsibleCoreVersion?: string;
     defaultAiModelId?: string | null;
+    enableAi?: boolean;
   }) {
     await delay(50);
     if (body.targetAnsibleCoreVersion) {
@@ -115,6 +116,9 @@ export class MockApmeApiClient implements ApmeApi {
     }
     if (body.defaultAiModelId !== undefined) {
       this.defaultAiModelId = body.defaultAiModelId ?? undefined;
+    }
+    if (body.enableAi !== undefined) {
+      this.enableAi = body.enableAi;
     }
     return this.getPortalSettings();
   }
@@ -153,13 +157,14 @@ export class MockApmeApiClient implements ApmeApi {
 
   private globalScanTarget = '2.16';
   private defaultAiModelId: string | undefined = 'mock-provider/mock-model';
+  private enableAi = true;
 
   private projectScanTargets: Record<string, string> = {};
 
   async getAiStatus() {
     await delay(50);
     return {
-      enableAi: true,
+      enableAi: this.enableAi,
       connected: true,
       modelCount: 1,
       configuredModelCount: 1,

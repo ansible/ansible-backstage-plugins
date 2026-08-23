@@ -178,7 +178,7 @@ export interface ApmeConfig {
   portalSettingsPath?: string;
 }
 
-/** Portal-side APME settings (backend app-config source of truth). */
+/** Portal-side APME settings (store override wins over app-config for enableAi). */
 export interface ApmePortalSettings {
   enableAi: boolean;
   publishViaGateway: boolean;
@@ -200,6 +200,8 @@ export interface ProjectScanTarget {
 export interface UpdatePortalSettingsRequest {
   targetAnsibleCoreVersion?: string;
   defaultAiModelId?: string | null;
+  /** When set, persists a portal override for AI-assisted remediation. */
+  enableAi?: boolean;
 }
 
 /** Galaxy / Automation Hub server (ADR-045). Token value is never exposed. */
@@ -236,6 +238,8 @@ export interface ScanTriggerOptions {
   userIdentity?: { userEntityRef: string; orgEntityRef?: string };
   /** One-time SCM token for private-repo clone (portal integration / user). */
   scmToken?: string;
+  /** Override app-config enableAi for this scan (portal settings store). */
+  enableAi?: boolean;
 }
 
 /** Gateway AI service reachability (Abbenay via Primary). */
@@ -266,11 +270,19 @@ export interface ApmeAiEnginesResponse {
   engines: ApmeAiEngineInfo[];
 }
 
+/** Origin of an AI provider row in Quality settings. */
+export type ApmeAiProviderSource = 'managed' | 'config';
+
 /** Provider summary returned by the portal catalog proxy — no secrets. */
 export interface ApmeAiProviderSummary {
   id: string;
   engine: string;
   models: string[];
+  /**
+   * `managed` = portal / Abbenay file-store (editable).
+   * `config` = deploy-time ConfigMap only (read-only).
+   */
+  source?: ApmeAiProviderSource;
 }
 
 /** Model row from portal-side provider discovery (Ollama / OpenAI-compatible APIs). */
@@ -361,6 +373,36 @@ export function normalizeApmeAiProviders(
     }
   }
   return [];
+}
+
+/**
+ * Merge HTTP `/providers` (portal-managed) with `/config` providers (ConfigMap).
+ * Managed wins on id collision; config-only rows are tagged read-only.
+ */
+export function mergeApmeAiProviderLists(
+  fromProviders: ApmeAiProviderSummary[],
+  fromConfig: ApmeAiProviderSummary[],
+): ApmeAiProviderSummary[] {
+  const configById = new Map(fromConfig.map(p => [p.id, p]));
+  const managedIds = new Set(fromProviders.map(p => p.id));
+
+  const managed = fromProviders.map(p => {
+    const cfg = configById.get(p.id);
+    return {
+      ...p,
+      models:
+        p.models.length > 0 ? p.models : (cfg?.models ?? p.models ?? []),
+      source: 'managed' as const,
+    };
+  });
+
+  const configOnly = fromConfig
+    .filter(p => !managedIds.has(p.id))
+    .map(p => ({ ...p, source: 'config' as const }));
+
+  return [...managed, ...configOnly].sort((a, b) =>
+    a.id.localeCompare(b.id, undefined, { sensitivity: 'base' }),
+  );
 }
 
 export interface CreatePullRequestResult {

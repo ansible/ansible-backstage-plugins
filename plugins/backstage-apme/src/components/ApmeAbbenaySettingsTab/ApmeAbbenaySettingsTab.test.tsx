@@ -70,7 +70,7 @@ describe('ApmeAbbenaySettingsTab', () => {
       </ThemeProvider>,
     );
 
-  it('renders connection status and saves default model (enableAi is read-only)', async () => {
+  it('renders connection status and saves default model (enableAi toggled in Quality settings)', async () => {
     renderTab();
 
     expect(
@@ -78,9 +78,7 @@ describe('ApmeAbbenaySettingsTab', () => {
     ).toBeInTheDocument();
 
     expect(
-      screen.getByText(
-        /app-config ansible\.apme\.enableAi; not editable here/i,
-      ),
+      screen.getByText(/set in Git Repositories → Quality settings/i),
     ).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole('button', { name: 'Save' }));

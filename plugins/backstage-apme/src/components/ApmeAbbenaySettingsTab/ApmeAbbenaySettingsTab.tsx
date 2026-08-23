@@ -188,7 +188,7 @@ const ApmeAbbenaySettingsTabContent = () => {
               <strong>{enableAi ? 'enabled' : 'disabled'}</strong>
               <span style={{ opacity: 0.7 }}>
                 {' '}
-                (app-config ansible.apme.enableAi; not editable here)
+                (set in Git Repositories → Quality settings)
               </span>
             </div>
           </FlexItem>

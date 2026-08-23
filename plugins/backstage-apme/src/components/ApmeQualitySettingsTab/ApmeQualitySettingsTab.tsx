@@ -1,8 +1,8 @@
 /*
  * Copyright Red Hat
  *
- * Thin Quality settings for Git Repositories (US-004): global ansible-core
- * scan target via portal settings store. AI gate remains app-config only.
+ * Thin Quality settings for Git Repositories (US-004 / AAP-88783):
+ * global ansible-core target + AI gate via portal settings store.
  * Galaxy servers are bootstrapped from PAH catalog sync (not editable here).
  */
 
@@ -15,9 +15,11 @@ import {
   CardContent,
   CardHeader,
   FormControl,
+  FormControlLabel,
   InputLabel,
   MenuItem,
   Select,
+  Switch,
   Typography,
   makeStyles,
 } from '@material-ui/core';
@@ -30,6 +32,7 @@ import {
 import { ansibleCoreVersionOptions } from '@ansible/backstage-apme-common/ansibleCoreVersionOptions';
 import { DEFAULT_APME_TARGET_ANSIBLE_CORE_VERSION } from '@ansible/backstage-apme-common/scanTargetDefaults';
 import { apmeApiRef } from '../../api';
+import { invalidateApmePortalSettingsCache } from '../../hooks/useApmeEnabled';
 import { ApmeAiProvidersSection } from './ApmeAiProvidersSection';
 
 const useStyles = makeStyles(theme => ({
@@ -52,7 +55,7 @@ const useStyles = makeStyles(theme => ({
     marginBottom: theme.spacing(2),
   },
   meta: {
-    marginTop: theme.spacing(2),
+    marginTop: theme.spacing(1),
     color: theme.palette.text.secondary,
   },
   error: {
@@ -106,12 +109,14 @@ const ApmeQualitySettingsTabContent = () => {
     try {
       const settings = await apmeApi.updatePortalSettings({
         targetAnsibleCoreVersion: version,
+        enableAi,
       });
       setVersion(
         settings.targetAnsibleCoreVersion?.trim() ||
           DEFAULT_APME_TARGET_ANSIBLE_CORE_VERSION,
       );
       setEnableAi(Boolean(settings.enableAi));
+      invalidateApmePortalSettingsCache();
       setDirty(false);
       setSavedMessage('Quality defaults saved.');
     } catch (err) {
@@ -176,29 +181,55 @@ const ApmeQualitySettingsTabContent = () => {
           <RequirePermission
             permission={ansibleSettingsEditPermission}
             resourceRef="apme"
-            errorPage={<></>}
+            errorPage={
+              <Typography variant="body2" className={classes.meta}>
+                AI-assisted remediation:{' '}
+                {enableAi ? 'enabled' : 'disabled'} (read-only)
+              </Typography>
+            }
           >
-            <Box className={classes.actions}>
-              <Button
-                color="primary"
-                variant="contained"
-                onClick={() => void onSave()}
-                disabled={saving || !dirty}
-              >
-                {saving ? 'Saving…' : 'Save'}
-              </Button>
-              {savedMessage && (
-                <Typography variant="body2" color="primary">
-                  {savedMessage}
-                </Typography>
-              )}
-            </Box>
-          </RequirePermission>
+            <>
+              <FormControlLabel
+                control={
+                  <Switch
+                    color="primary"
+                    checked={enableAi}
+                    onChange={(_e, checked) => {
+                      setEnableAi(checked);
+                      setDirty(true);
+                      setSavedMessage(undefined);
+                    }}
+                    disabled={saving}
+                    inputProps={{
+                      'aria-label': 'AI-assisted remediation',
+                    }}
+                  />
+                }
+                label="AI-assisted remediation"
+              />
+              <Typography variant="body2" className={classes.meta}>
+                When enabled, Quality scans and remediations may use configured
+                AI providers. App-config <code>ansible.apme.enableAi</code> is
+                the default until you save a choice here.
+              </Typography>
 
-          <Typography variant="body2" className={classes.meta}>
-            AI-assisted remediation: {enableAi ? 'enabled' : 'disabled'}{' '}
-            (app-config <code>ansible.apme.enableAi</code>; not editable here).
-          </Typography>
+              <Box className={classes.actions}>
+                <Button
+                  color="primary"
+                  variant="contained"
+                  onClick={() => void onSave()}
+                  disabled={saving || !dirty}
+                >
+                  {saving ? 'Saving…' : 'Save'}
+                </Button>
+                {savedMessage && (
+                  <Typography variant="body2" color="primary">
+                    {savedMessage}
+                  </Typography>
+                )}
+              </Box>
+            </>
+          </RequirePermission>
         </CardContent>
       </Card>
 

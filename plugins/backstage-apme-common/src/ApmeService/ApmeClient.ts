@@ -79,8 +79,11 @@ export class ApmeClient {
 
   private scanOperationOptions(
     ansibleVersion?: string,
+    enableAiOverride?: boolean,
   ): Record<string, unknown> {
-    const options: Record<string, unknown> = { enable_ai: this.enableAi };
+    const options: Record<string, unknown> = {
+      enable_ai: enableAiOverride ?? this.enableAi,
+    };
     const version = ansibleVersion?.trim();
     if (version) {
       options.ansible_version = version;
@@ -405,7 +408,10 @@ export class ApmeClient {
     // Use the operation endpoint (ADR-052) to trigger a check
     const body: Record<string, unknown> = {
       action: 'check',
-      options: this.scanOperationOptions(options?.ansibleVersion),
+      options: this.scanOperationOptions(
+        options?.ansibleVersion,
+        options?.enableAi,
+      ),
     };
     if (options?.scmToken) {
       body.scm_token = options.scmToken;
@@ -486,7 +492,10 @@ export class ApmeClient {
     options?: ScanTriggerOptions,
   ): Promise<ScanResult> {
     const scanOptions: Record<string, unknown> = {
-      ...this.scanOperationOptions(options?.ansibleVersion),
+      ...this.scanOperationOptions(
+        options?.ansibleVersion,
+        options?.enableAi,
+      ),
     };
     if (violationIds && violationIds.length > 0) {
       scanOptions.violation_ids = violationIds;

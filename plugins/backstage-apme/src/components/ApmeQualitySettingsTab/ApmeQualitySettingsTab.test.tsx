@@ -57,7 +57,7 @@ describe('ApmeQualitySettingsTab', () => {
     );
   }
 
-  it('loads current ansible-core target from portal settings', async () => {
+  it('loads current ansible-core target and AI toggle from portal settings', async () => {
     renderTab();
     expect(await screen.findByText('Quality settings')).toBeInTheDocument();
     expect(getPortalSettings).toHaveBeenCalled();
@@ -65,11 +65,11 @@ describe('ApmeQualitySettingsTab', () => {
       'ansible-core 2.16',
     );
     expect(
-      screen.getByText(/AI-assisted remediation: enabled/i),
-    ).toBeInTheDocument();
+      screen.getByRole('checkbox', { name: /AI-assisted remediation/i }),
+    ).toBeChecked();
   });
 
-  it('saves a new target via updatePortalSettings', async () => {
+  it('saves ansible-core target and enableAi via updatePortalSettings', async () => {
     renderTab();
     await screen.findByText('Quality settings');
 
@@ -86,11 +86,34 @@ describe('ApmeQualitySettingsTab', () => {
     await waitFor(() => {
       expect(updatePortalSettings).toHaveBeenCalledWith({
         targetAnsibleCoreVersion: '2.18',
+        enableAi: true,
       });
     });
     expect(
       await screen.findByText('Quality defaults saved.'),
     ).toBeInTheDocument();
+  });
+
+  it('saves enableAi toggle via updatePortalSettings', async () => {
+    updatePortalSettings.mockResolvedValue({
+      enableAi: false,
+      publishViaGateway: true,
+      targetAnsibleCoreVersion: '2.16',
+    });
+    renderTab();
+    await screen.findByText('Quality settings');
+
+    fireEvent.click(
+      screen.getByRole('checkbox', { name: /AI-assisted remediation/i }),
+    );
+    fireEvent.click(screen.getByRole('button', { name: /^save$/i }));
+
+    await waitFor(() => {
+      expect(updatePortalSettings).toHaveBeenCalledWith({
+        targetAnsibleCoreVersion: '2.16',
+        enableAi: false,
+      });
+    });
   });
 
   it('shows an error panel when load fails', async () => {

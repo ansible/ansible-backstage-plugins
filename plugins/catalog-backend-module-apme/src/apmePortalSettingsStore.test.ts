@@ -45,4 +45,12 @@ describe('ApmePortalSettingsStore', () => {
       global: { targetAnsibleCoreVersion: '2.16' },
     });
   });
+
+  it('persists enableAi via updateGlobalSettings', async () => {
+    const store = new ApmePortalSettingsStore(settingsPath);
+    await store.updateGlobalSettings({ enableAi: false });
+    await expect(store.read()).resolves.toEqual({
+      global: { enableAi: false },
+    });
+  });
 });
