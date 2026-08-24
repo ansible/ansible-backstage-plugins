@@ -1,6 +1,11 @@
 import { render, screen } from '@testing-library/react';
-import { MemoryRouter } from 'react-router-dom';
+import { MemoryRouter, useLocation } from 'react-router-dom';
 import { RouteView } from './RouteView';
+
+const LocationPathname = () => {
+  const { pathname } = useLocation();
+  return <div data-testid="location-pathname">{pathname}</div>;
+};
 
 // Mock page components
 jest.mock('../Home', () => ({
@@ -239,6 +244,11 @@ describe('RouteView', () => {
         childTestId: 'repository-details',
         permissionName: 'repos.view',
       },
+      {
+        path: '/repositories/quality-settings',
+        childTestId: 'git-repositories',
+        permissionName: 'repos.view',
+      },
     ])(
       'renders $childTestId at $path with $permissionName',
       ({ path, childTestId, permissionName }) => {
@@ -281,6 +291,20 @@ describe('RouteView', () => {
         0,
       );
     });
+  });
+
+  it('redirects legacy /repositories/rules to /repositories/quality-settings', () => {
+    render(
+      <MemoryRouter initialEntries={['/repositories/rules']}>
+        <LocationPathname />
+        <RouteView />
+      </MemoryRouter>,
+    );
+
+    expect(screen.getByTestId('location-pathname')).toHaveTextContent(
+      '/repositories/quality-settings',
+    );
+    expect(screen.getByTestId('git-repositories')).toBeInTheDocument();
   });
 
   it('redirects unknown routes to /self-service/catalog', () => {

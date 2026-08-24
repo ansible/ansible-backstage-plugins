@@ -1,4 +1,5 @@
 import { screen, fireEvent, waitFor } from '@testing-library/react';
+import { Route, Routes, useLocation } from 'react-router-dom';
 import { renderInTestApp, TestApiProvider } from '@backstage/test-utils';
 import { ThemeProvider, createTheme } from '@material-ui/core/styles';
 import { discoveryApiRef, fetchApiRef } from '@backstage/core-plugin-api';
@@ -6,7 +7,15 @@ import {
   DefaultGitRepositoriesExtensionsApi,
   gitRepositoriesExtensionsApiRef,
 } from '@ansible/backstage-rhaap-common/gitRepositoriesExtensions';
-import { GitRepositoriesPage } from './GitRepositoriesPage';
+import {
+  GitRepositoriesPage,
+  GitRepositoriesRoutesPage,
+} from './GitRepositoriesPage';
+
+const LocationPathname = () => {
+  const { pathname } = useLocation();
+  return <div data-testid="location-pathname">{pathname}</div>;
+};
 
 const mockUsePermission = jest.fn().mockReturnValue({ allowed: true });
 jest.mock('@backstage/plugin-permission-react', () => ({
@@ -271,6 +280,36 @@ describe('GitRepositoriesPage', () => {
     expect(await screen.findByTestId('repositories-table')).toBeInTheDocument();
     expect(screen.queryByTestId('gated-tab-content')).not.toBeInTheDocument();
     expect(screen.queryByText('Gated Tab')).not.toBeInTheDocument();
+  });
+
+  it('redirects the legacy /repositories/rules mount to /repositories/quality-settings', async () => {
+    await renderInTestApp(
+      <TestApiProvider
+        apis={[
+          [discoveryApiRef, mockDiscoveryApi],
+          [fetchApiRef, mockFetchApi],
+          [
+            gitRepositoriesExtensionsApiRef,
+            new DefaultGitRepositoriesExtensionsApi(),
+          ],
+        ]}
+      >
+        <ThemeProvider theme={theme}>
+          <LocationPathname />
+          <Routes>
+            <Route
+              path="repositories/*"
+              element={<GitRepositoriesRoutesPage />}
+            />
+          </Routes>
+        </ThemeProvider>
+      </TestApiProvider>,
+      { routeEntries: ['/repositories/rules'] },
+    );
+
+    expect(await screen.findByTestId('location-pathname')).toHaveTextContent(
+      '/repositories/quality-settings',
+    );
   });
 
   it('renders page with Git Repositories header', async () => {

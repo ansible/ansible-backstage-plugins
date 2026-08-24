@@ -7,6 +7,7 @@
  */
 
 import { Suspense, type ComponentType } from 'react';
+import { Box } from '@material-ui/core';
 import {
   AnyApiFactory,
   configApiRef,
@@ -108,18 +109,21 @@ export function createApmeGitRepositoriesExtensionsApi(
           label: 'Quality settings',
           path: 'quality-settings',
           order: 15,
-          render: () => <ApmeQualitySettingsTab />,
+          render: () => (
+            <>
+              <ApmeQualitySettingsTab />
+              <Box mt={4}>
+                <ApmeRulesTab />
+              </Box>
+            </>
+          ),
           // Hidden entirely (not just content-blocked) for users lacking
-          // ansible.settings.view for the apme capability.
+          // ansible.settings.view for apme. Nesting Rules here is intentional
+          // (AAP-88784): the old standalone rules tab was only gated by
+          // gitRepositoriesViewPermission; the consolidated tab uses the
+          // Quality settings permission.
           permission: ansibleSettingsViewPermission,
           resourceRef: 'apme',
-        },
-        {
-          id: 'rules',
-          label: 'Rules',
-          path: 'rules',
-          order: 16,
-          render: () => <ApmeRulesTab />,
         },
       ];
     }
