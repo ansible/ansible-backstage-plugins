@@ -117,6 +117,11 @@ export function createApmeGitRepositoriesExtensionsApi(
               </Box>
             </>
           ),
+          // Hidden entirely (not just content-blocked) for users lacking
+          // ansible.settings.view for apme. Nesting Rules here is intentional
+          // (AAP-88784): the old standalone rules tab was only gated by
+          // gitRepositoriesViewPermission; the consolidated tab uses the
+          // Quality settings permission.
           permission: ansibleSettingsViewPermission,
           resourceRef: 'apme',
         },
