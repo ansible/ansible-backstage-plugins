@@ -784,14 +784,35 @@ describe('catalog-backend-module-apme router', () => {
     expect(response.body.configuredModelCount).toBe(2);
   });
 
-  it('returns empty AI models when inference list is empty (no config synthesis)', async () => {
+  it('falls back to config models when inference list is empty (AAP-89202)', async () => {
     mockApmeService.getAiModels.mockResolvedValueOnce([]);
+    mockApmeService.getAiConfig.mockResolvedValueOnce({
+      config: {
+        providers: {
+          ollama: { engine: 'ollama', models: { 'qwen2.5:0.5b': {} } },
+        },
+      },
+    });
+
+    const response = await request(app).get('/apme/ai/models');
+
+    expect(response.status).toBe(200);
+    expect(response.body).toEqual([
+      { id: 'ollama/qwen2.5:0.5b', provider: 'ollama', name: 'qwen2.5:0.5b' },
+    ]);
+    expect(mockApmeService.getAiConfig).toHaveBeenCalled();
+  });
+
+  it('returns empty AI models when both inference and config are empty', async () => {
+    mockApmeService.getAiModels.mockResolvedValueOnce([]);
+    mockApmeService.getAiConfig.mockResolvedValueOnce({
+      config: { providers: {} },
+    });
 
     const response = await request(app).get('/apme/ai/models');
 
     expect(response.status).toBe(200);
     expect(response.body).toEqual([]);
-    expect(mockApmeService.getAiConfig).not.toHaveBeenCalled();
   });
 
   it('returns AI config', async () => {
