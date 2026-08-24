@@ -437,7 +437,10 @@ const GitRepositoriesRoutesContent = () => {
         <Route path="quality" element={<GitRepositoriesPage />} />
         <Route path="ci-activity" element={<GitRepositoriesPage />} />
         <Route path="quality-settings" element={<GitRepositoriesPage />} />
-        <Route path="rules" element={<Navigate to="quality-settings" replace />} />
+        <Route
+          path="rules"
+          element={<Navigate to="../quality-settings" replace />}
+        />
         <Route path=":repositoryName" element={<RepositoryDetailsPage />} />
         <Route path="*" element={<Navigate to="catalog" replace />} />
       </Routes>
