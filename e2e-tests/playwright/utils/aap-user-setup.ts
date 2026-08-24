@@ -138,6 +138,13 @@ export async function deleteNonAdminTestUser(): Promise<void> {
   const username = process.env.AAP_NONADMIN_USER_ID;
   if (!AAP_API || !AAP_TOKEN || !username) return;
 
+  const isSeeded =
+    process.env.USE_SEEDED_DATA === 'true' || username.startsWith('user_');
+  if (isSeeded) {
+    console.log(`[AAP Teardown] Skipping deletion of seeded user: ${username}`);
+    return;
+  }
+
   try {
     const users = await aapGet(
       `api/gateway/v1/users/?username=${encodeURIComponent(username)}`,

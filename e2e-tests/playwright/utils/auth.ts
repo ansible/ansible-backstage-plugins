@@ -111,15 +111,12 @@ export async function loginAAP(page: Page, credentials?: AAPCredentials) {
   } else {
     console.log('[Auth] Clicking RH AAP Sign In button...');
     await clickRhaapSignIn(page);
-
-    // Wait a moment for navigation (like Cypress wait)
-    await page.waitForLoadState('domcontentloaded');
     console.log('[Auth] After Sign In click, URL:', page.url());
 
-    // Wait for AAP login page to load
+    // Wait for AAP login page to load — 45s for slow CI environments
     loginPageVisible = await page
       .getByText('Log in to your account')
-      .waitFor({ state: 'visible', timeout: 20000 })
+      .waitFor({ state: 'visible', timeout: 45000 })
       .then(() => true)
       .catch(() => false);
   }
@@ -139,57 +136,115 @@ export async function loginAAP(page: Page, credentials?: AAPCredentials) {
     }
 
     console.log('[Auth] Clicking Log in button...');
-    // Click login button
-    await page.getByRole('button', { name: 'Log in' }).click();
+    const preLoginUrl = page.url();
 
-    // Wait a moment for navigation
+    // Click login and wait for the form POST navigation to complete.
+    // Promise.all starts listening BEFORE the click fires, avoiding the race
+    // where navigation begins between click() and the wait call.
+    // Same pattern used for GitLab login in handleGitLabLoginOnPage().
+    await Promise.all([
+      page
+        .waitForURL(url => url.toString() !== preLoginUrl, {
+          waitUntil: 'domcontentloaded',
+          timeout: 30000,
+        })
+        .catch(() => {}),
+      page.getByRole('button', { name: 'Log in' }).click(),
+    ]);
+
     await page.waitForLoadState('domcontentloaded');
     console.log('[Auth] After Log in click, URL:', page.url());
 
-    // Detect login failure: AAP re-shows the login form with an error alert
-    const loginError = await page
-      .locator(
-        '.pf-v5-c-alert__title, .pf-c-alert__title, .pf-v5-c-helper-text__item.pf-m-error',
-      )
-      .first()
-      .textContent({ timeout: 3000 })
-      .catch(() => null);
-    if (loginError) {
-      throw new Error(`AAP login failed: ${loginError.trim()}`);
-    }
-    const stillOnLogin = await page
-      .locator('#pf-login-username-id')
-      .waitFor({ state: 'visible', timeout: 1000 })
-      .then(() => true)
-      .catch(() => false);
-    if (stillOnLogin) {
+    const postLoginUrl = page.url();
+    const urlChanged = postLoginUrl !== preLoginUrl;
+
+    if (!urlChanged) {
+      // URL did not change — login was rejected or the server timed out.
+      const errorText = await page
+        .locator(
+          [
+            '.pf-v5-c-alert__title',
+            '.pf-c-alert__title',
+            '.pf-v6-c-alert__title',
+            '.pf-v5-c-helper-text__item.pf-m-error',
+            '.pf-c-helper-text__item.pf-m-error',
+            '#csrf-failure',
+            '.errornote',
+          ].join(', '),
+        )
+        .first()
+        .textContent({ timeout: 5000 })
+        .catch(() => null);
+
+      const bodySnippet = await page
+        .locator('body')
+        .textContent({ timeout: 3000 })
+        .then(t => t?.substring(0, 500) ?? 'N/A')
+        .catch(() => 'N/A');
+
       throw new Error(
-        `AAP login failed: still on login page after submitting credentials.`,
+        `AAP login failed for user "${userId}": ` +
+          `${
+            errorText
+              ? errorText.trim()
+              : 'no error alert found (possible timeout or CSRF failure)'
+          }.\n` +
+          `URL: ${postLoginUrl}\n` +
+          `Body (first 500 chars): ${bodySnippet}`,
       );
     }
 
-    // Check for AAP OAuth authorization page
-    const aapAuthorizeVisible = await page
-      .getByText(/Authorize.*\?/)
-      .waitFor({ state: 'visible', timeout: 10000 })
+    // URL changed — login POST was accepted. Verify we didn't land back on
+    // the login page (e.g. redirect loop or session not established).
+    const stillOnLogin = await page
+      .locator('#pf-login-username-id')
+      .waitFor({ state: 'visible', timeout: 3000 })
       .then(() => true)
       .catch(() => false);
 
-    if (aapAuthorizeVisible) {
+    if (stillOnLogin) {
+      const bodySnippet = await page
+        .locator('body')
+        .textContent({ timeout: 3000 })
+        .then(t => t?.substring(0, 500) ?? 'N/A')
+        .catch(() => 'N/A');
+
+      throw new Error(
+        `AAP login failed for user "${userId}": redirected back to login page.\n` +
+          `URL: ${page.url()}\n` +
+          `Body (first 500 chars): ${bodySnippet}`,
+      );
+    }
+
+    // Check for AAP OAuth authorization page — use button/input locator
+    // (same pattern as GitLab authorize) instead of fragile text regex.
+    const baseUrl = new URL(process.env.BASE_URL || 'http://localhost:7007');
+    const authorizeBtn = page
+      .getByRole('button', { name: /authorize/i })
+      .or(page.locator('input[type="submit"][value*="Authorize"]'))
+      .first();
+
+    if (await authorizeBtn.isVisible({ timeout: 10000 }).catch(() => false)) {
       console.log(
         '[Auth] AAP OAuth authorization page detected, clicking Authorize...',
       );
-      await page.getByRole('button', { name: 'Authorize' }).click();
-      console.log('[Auth] Clicked Authorize button');
+      await Promise.all([
+        page
+          .waitForURL(url => url.hostname === baseUrl.hostname, {
+            timeout: 30000,
+          })
+          .catch(() => {}),
+        authorizeBtn.click(),
+      ]);
+      console.log('[Auth] After authorize redirect, URL:', page.url());
+    } else {
+      // No authorize page — already authorized, wait for redirect to portal
+      console.log('[Auth] Waiting for OAuth callback redirect...');
+      await page.waitForURL(url => url.hostname === baseUrl.hostname, {
+        timeout: 30000,
+      });
+      console.log('[Auth] After login redirect, URL:', page.url());
     }
-
-    // Wait for OAuth redirect back to portal - match actual hostname, not query params
-    console.log('[Auth] Waiting for OAuth callback redirect...');
-    const baseUrl = new URL(process.env.BASE_URL || 'http://localhost:7007');
-    await page.waitForURL(url => url.hostname === baseUrl.hostname, {
-      timeout: 30000,
-    });
-    console.log('[Auth] After login redirect, URL:', page.url());
 
     // Wait for page to fully load after OAuth callback
     await page.waitForLoadState('networkidle', { timeout: 30000 });
@@ -296,8 +351,15 @@ export async function loginAAP(page: Page, credentials?: AAPCredentials) {
       );
     }
     if (!hasContent) {
+      const bodySnippet = await page
+        .locator('body')
+        .textContent({ timeout: 3000 })
+        .then(t => t?.substring(0, 500) ?? 'N/A')
+        .catch(() => 'N/A');
       throw new Error(
-        'Login verification failed: no navigation or content visible after authentication',
+        `Login verification failed: no navigation or content visible after authentication.\n` +
+          `URL: ${page.url()}\n` +
+          `Body (first 500 chars): ${bodySnippet}`,
       );
     }
     console.log('[Auth] Login successful (fallback check) ✓');
