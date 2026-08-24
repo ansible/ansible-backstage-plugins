@@ -16,7 +16,7 @@
 
 ## Acceptance criteria
 
-- [ ] **Generate fixes** remediates autofixes in one activity (all-or-nothing;
+- [ ] **Generate fixes** remediates rule-based fixes in one activity (all-or-nothing;
       no per-violation selection in current product shape).
 - [ ] Optional **Include AI** when `ansible.apme.enableAi` and Abbenay are
       configured (off by default in EAP welcome-pack configs).

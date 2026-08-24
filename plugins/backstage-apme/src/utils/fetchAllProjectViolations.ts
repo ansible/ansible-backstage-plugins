@@ -20,8 +20,8 @@ import type { ApmeApi } from '../api/ApmeApi';
 /** Gateway page size; fetch all pages when a project exceeds this. */
 export const VIOLATIONS_PAGE_SIZE = 500;
 
-/** Tier-1 auto-fix rows first, then stable by violation id. */
-export function sortAutoFixFirst(violations: Violation[]): Violation[] {
+/** Rule-based fix (tier 1) rows first, then stable by violation id. */
+export function sortRuleBasedFixFirst(violations: Violation[]): Violation[] {
   return [...violations].sort((a, b) => {
     const aAuto = a.remediation_class === 1 ? 0 : 1;
     const bAuto = b.remediation_class === 1 ? 0 : 1;
@@ -31,7 +31,7 @@ export function sortAutoFixFirst(violations: Violation[]): Violation[] {
 }
 
 /**
- * Load every violation page from the gateway, then sort auto-fix rows first.
+ * Load every violation page from the gateway, then sort rule-based fix rows first.
  */
 export async function fetchAllProjectViolations(
   apmeApi: Pick<ApmeApi, 'getViolations'>,
@@ -58,5 +58,5 @@ export async function fetchAllProjectViolations(
     }
   }
 
-  return sortAutoFixFirst(all);
+  return sortRuleBasedFixFirst(all);
 }

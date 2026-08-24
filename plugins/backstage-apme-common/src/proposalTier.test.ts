@@ -272,7 +272,7 @@ describe('isAiRemediationProposal', () => {
     expect(isAiRemediationProposal(proposal, violations, true)).toBe(true);
   });
 
-  it('treats tier 1 as deterministic auto-fix', () => {
+  it('treats tier 1 as deterministic rule-based fix', () => {
     const proposal = normalizeGatewayProposal(
       {
         id: 'p2',
@@ -318,7 +318,7 @@ describe('proposalNeedsUserReview', () => {
     expect(proposalNeedsUserReview(proposal, violations, true)).toBe(true);
   });
 
-  it('requires checkbox inclusion for tier 1 auto-fix proposals', () => {
+  it('requires checkbox inclusion for tier 1 rule-based fix proposals', () => {
     const proposal = normalizeGatewayProposal(
       {
         id: 'p2',

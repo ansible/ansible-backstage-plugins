@@ -77,16 +77,16 @@ export const FIX_TYPE_STYLES: Record<FixType, FixTypeStyle> = {
   auto: {
     background: '#4caf50',
     text: '#ffffff',
-    label: 'Auto-fix',
+    label: 'Rule-based fix',
     tooltip:
-      'Auto-generated fix available at scan — applied when you run Generate fixes',
+      'Rule-based fix available at scan — applied when you run Generate fixes',
   },
   ai: {
     background: '#2196f3',
     text: '#ffffff',
-    label: 'AI candidate',
+    label: 'AI fix',
     tooltip:
-      'AI tier at scan — Generate fixes may produce a proposal for your review',
+      'AI fix at scan — Generate fixes may produce a proposal for your review',
   },
   manual: {
     background: '#6a6e73',
@@ -556,10 +556,10 @@ export function proposalNeedsManualApproval(
 
 export function fixMethodLabel(fixType: FixType | undefined): string {
   if (fixType === 'auto') {
-    return 'Auto-fix';
+    return 'Rule-based fix';
   }
   if (fixType === 'ai') {
-    return 'AI candidate';
+    return 'AI fix';
   }
   return 'Manual review';
 }
@@ -576,10 +576,10 @@ export function fixMethodTooltip(fixType: FixType | undefined): string {
 export function fixTierShortLabel(remClass: number, enableAi: boolean): string {
   const fixType = effectiveFixType(remClass, enableAi);
   if (fixType === 'auto') {
-    return 'Auto-fix';
+    return 'Rule-based fix';
   }
   if (fixType === 'ai') {
-    return 'AI candidate';
+    return 'AI fix';
   }
   return 'Manual review';
 }
