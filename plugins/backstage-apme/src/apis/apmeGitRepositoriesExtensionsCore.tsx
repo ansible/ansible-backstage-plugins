@@ -7,6 +7,7 @@
  */
 
 import { Suspense, type ComponentType } from 'react';
+import { Box } from '@material-ui/core';
 import {
   AnyApiFactory,
   configApiRef,
@@ -108,18 +109,16 @@ export function createApmeGitRepositoriesExtensionsApi(
           label: 'Quality settings',
           path: 'quality-settings',
           order: 15,
-          render: () => <ApmeQualitySettingsTab />,
-          // Hidden entirely (not just content-blocked) for users lacking
-          // ansible.settings.view for the apme capability.
+          render: () => (
+            <>
+              <ApmeQualitySettingsTab />
+              <Box mt={4}>
+                <ApmeRulesTab />
+              </Box>
+            </>
+          ),
           permission: ansibleSettingsViewPermission,
           resourceRef: 'apme',
-        },
-        {
-          id: 'rules',
-          label: 'Rules',
-          path: 'rules',
-          order: 16,
-          render: () => <ApmeRulesTab />,
         },
       ];
     }
