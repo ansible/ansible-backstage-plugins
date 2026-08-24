@@ -81,6 +81,51 @@ describe('ApmeAiProvidersSection', () => {
     expect(
       await screen.findByText(/no providers configured/i),
     ).toBeInTheDocument();
+    expect(screen.queryByText(/deploy-time config/i)).not.toBeInTheDocument();
+  });
+
+  it('shows ConfigMap providers as read-only system section', async () => {
+    getAiProviders.mockResolvedValue([]);
+    getAiConfig.mockResolvedValue({
+      config: {
+        providers: {
+          'cm-prov': { engine: 'openai', models: { 'gpt-4o': {} } },
+        },
+      },
+    });
+    renderSection();
+
+    expect(await screen.findByText('System providers')).toBeInTheDocument();
+    expect(screen.getByText('cm-prov')).toBeInTheDocument();
+    expect(screen.getByText('Source: ConfigMap')).toBeInTheDocument();
+    expect(
+      screen.queryByRole('button', { name: /edit provider cm-prov/i }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole('button', { name: /remove provider cm-prov/i }),
+    ).not.toBeInTheDocument();
+  });
+
+  it('keeps managed providers editable when ConfigMap also lists them', async () => {
+    getAiProviders.mockResolvedValue([
+      { id: 'shared', engine: 'openai', models: ['gpt-4o'] },
+    ]);
+    getAiConfig.mockResolvedValue({
+      config: {
+        providers: {
+          shared: { engine: 'openai', models: { 'gpt-4o': {} } },
+          'cm-only': { engine: 'anthropic', models: {} },
+        },
+      },
+    });
+    renderSection();
+
+    expect(await screen.findByText('shared')).toBeInTheDocument();
+    expect(
+      screen.getByRole('button', { name: /edit provider shared/i }),
+    ).toBeInTheDocument();
+    expect(screen.getByText('System providers')).toBeInTheDocument();
+    expect(screen.getByText('cm-only')).toBeInTheDocument();
   });
 
   it('shows available models section and model chips when providers empty but models returned', async () => {

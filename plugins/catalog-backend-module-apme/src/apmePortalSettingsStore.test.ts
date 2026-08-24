@@ -46,6 +46,14 @@ describe('ApmePortalSettingsStore', () => {
     });
   });
 
+  it('persists enableAi via updateGlobalSettings', async () => {
+    const store = new ApmePortalSettingsStore(settingsPath);
+    await store.updateGlobalSettings({ enableAi: false });
+    await expect(store.read()).resolves.toEqual({
+      global: { enableAi: false },
+    });
+  });
+
   it('round-trips a Gateway URL override', async () => {
     const store = new ApmePortalSettingsStore(settingsPath);
     await store.updateGlobalSettings({

@@ -77,6 +77,7 @@ export class ApmePortalSettingsStore {
   async updateGlobalSettings(updates: {
     targetAnsibleCoreVersion?: string;
     defaultAiModelId?: string | null;
+    enableAi?: boolean;
     gatewayBaseUrl?: string | null;
   }): Promise<void> {
     const current = await this.read();
@@ -92,6 +93,9 @@ export class ApmePortalSettingsStore {
       } else {
         delete global.defaultAiModelId;
       }
+    }
+    if (updates.enableAi !== undefined) {
+      global.enableAi = updates.enableAi;
     }
     if (updates.gatewayBaseUrl !== undefined) {
       const trimmed = updates.gatewayBaseUrl?.trim();

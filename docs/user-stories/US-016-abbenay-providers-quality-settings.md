@@ -18,9 +18,12 @@
 ## Acceptance criteria
 
 - [x] Quality settings shows an **AI providers** card below ansible-core /
-      read-only AI gate (US-004 unchanged).
+      AI gate toggle (US-004 / AAP-88783).
 - [x] Status chip reflects `getAiStatus` (connected / model count).
 - [x] List shows provider id, engine, model count (no secrets).
+- [x] Portal-managed providers are editable; deploy-time ConfigMap-only
+      providers appear under **System providers** (lock + Source: ConfigMap,
+      no Edit/Delete). UI-managed wins on id collision.
 - [x] **Add provider** / **Edit** open a Material-UI Dialog with two steps:
       (1) provider setup — id (add only), engine select, optional base URL,
       write-only API key; (2) models — enable model ids.
@@ -59,7 +62,10 @@ yarn workspace @ansible/backstage-plugin-catalog-backend-module-apme test \
   on a provider (edit mode) still appear in the select. `mock` engine is
   filtered out. Engine descriptors include `requiresKey`, `defaultBaseUrl`, and
   `defaultEnvVar` to provide helpful hints in the dialog.
-- `ansible.apme.enableAi` remains app-config read-only (US-004).
+- `ansible.apme.enableAi` is the default AI gate; Quality settings can override
+  it via the portal settings store (US-004 / AAP-88783).
+- Deploy-time ConfigMap providers remain supported as read-only **System
+  providers** alongside portal-managed providers.
 - Inference / model picker for scans still uses Primary `GET /ai/models`.
 - UX inspired by Abbenay VS Code flow
   ([abbenay#95](https://github.com/redhat-developer/abbenay/pull/95));
