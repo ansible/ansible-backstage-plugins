@@ -141,7 +141,7 @@ export async function deleteNonAdminTestUser(): Promise<void> {
   const isSeeded =
     process.env.USE_SEEDED_DATA === 'true' || username.startsWith('user_');
   if (isSeeded) {
-    console.log(`[AAP Teardown] Skipping deletion of seeded user: ${username}`);
+    console.log('[AAP Teardown] Skipping deletion of seeded user');
     return;
   }
 
