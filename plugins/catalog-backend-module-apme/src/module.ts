@@ -128,6 +128,11 @@ export const catalogModuleApme = createBackendModule({
           });
         };
 
+        const resolveEnableAi = async () => {
+          const store = await portalSettingsStore.read();
+          return store.global?.enableAi ?? configSnapshot.enableAi;
+        };
+
         const router = await createRouter({
           apmeService,
           logger,
@@ -151,6 +156,7 @@ export const catalogModuleApme = createBackendModule({
           rootConfig,
           logger,
           resolveScanVersion,
+          resolveEnableAi,
         });
 
         await registerPortalGalaxyServersSync({

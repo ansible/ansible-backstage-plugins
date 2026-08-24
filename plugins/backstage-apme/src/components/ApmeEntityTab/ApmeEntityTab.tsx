@@ -230,7 +230,7 @@ function WorkflowBody({ projectId }: { projectId: string }) {
             />
             {!portalAiEnabled ? (
               <div style={{ opacity: 0.7, marginTop: 8, fontSize: 13 }}>
-                AI is disabled in portal config (`ansible.apme.enableAi`).
+                AI is disabled in Quality settings.
               </div>
             ) : null}
           </FlexItem>

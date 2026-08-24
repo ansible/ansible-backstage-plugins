@@ -418,6 +418,26 @@ describe('catalog-backend-module-apme router', () => {
     expect(stored.global?.defaultAiModelId).toBe('test/gpt-oss-120b');
   });
 
+  it('persists enableAi override via PUT /apme/settings', async () => {
+    const response = await request(app)
+      .put('/apme/settings')
+      .send({ enableAi: false });
+
+    expect(response.status).toBe(200);
+    expect(response.body.enableAi).toBe(false);
+    const stored = await portalSettingsStore.read();
+    expect(stored.global?.enableAi).toBe(false);
+  });
+
+  it('GET /apme/settings prefers store enableAi over app-config', async () => {
+    await portalSettingsStore.updateGlobalSettings({ enableAi: true });
+
+    const response = await request(app).get('/apme/settings');
+
+    expect(response.status).toBe(200);
+    expect(response.body.enableAi).toBe(true);
+  });
+
   it('lists galaxy servers via GET /apme/settings/galaxy-servers', async () => {
     const servers = [
       {

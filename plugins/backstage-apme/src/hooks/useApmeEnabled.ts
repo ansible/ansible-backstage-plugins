@@ -29,6 +29,14 @@ let portalSettingsCacheTime = 0;
 let portalSettingsPromise: Promise<ApmePortalSettings> | undefined;
 let portalSettingsIsError = false;
 
+/** Drop cached portal settings after Quality settings save. */
+export function invalidateApmePortalSettingsCache(): void {
+  portalSettingsCache = undefined;
+  portalSettingsCacheTime = 0;
+  portalSettingsPromise = undefined;
+  portalSettingsIsError = false;
+}
+
 async function loadPortalSettings(
   apmeApi: { getPortalSettings(): Promise<ApmePortalSettings> },
   configFallback: ApmePortalSettings,

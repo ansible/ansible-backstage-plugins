@@ -38,6 +38,8 @@ export interface ApmeCatalogSyncTaskOptions {
   syncConfig: ApmeGitContentsSyncConfig;
   offset: number;
   resolveScanVersion?: (projectId: string) => Promise<string>;
+  /** Portal settings enableAi (falls back to ApmeClient app-config). */
+  resolveEnableAi?: () => Promise<boolean>;
 }
 
 async function getCatalogEntities(
@@ -63,8 +65,16 @@ async function getCatalogEntities(
 export async function runApmeCatalogSyncBatch(
   options: ApmeCatalogSyncTaskOptions,
 ): Promise<ApmeCatalogSyncSummary> {
-  const { apmeService, catalogClient, auth, logger, syncConfig, offset, resolveScanVersion } =
-    options;
+  const {
+    apmeService,
+    catalogClient,
+    auth,
+    logger,
+    syncConfig,
+    offset,
+    resolveScanVersion,
+    resolveEnableAi,
+  } = options;
 
   const summary: ApmeCatalogSyncSummary = {
     registered: 0,
@@ -119,7 +129,13 @@ export async function runApmeCatalogSyncBatch(
         const ansibleVersion = resolveScanVersion
           ? await resolveScanVersion(project.id)
           : undefined;
-        await apmeService.triggerScan(project.id, { ansibleVersion });
+        const enableAi = resolveEnableAi
+          ? await resolveEnableAi()
+          : undefined;
+        await apmeService.triggerScan(project.id, {
+          ansibleVersion,
+          ...(enableAi !== undefined ? { enableAi } : {}),
+        });
         summary.scanned += 1;
       }
     } catch (error) {

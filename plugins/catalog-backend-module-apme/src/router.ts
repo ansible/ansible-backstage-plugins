@@ -155,7 +155,7 @@ export async function createRouter(options: RouterOptions): Promise<Router> {
       configTargetAnsibleCoreVersion: configSnapshot.targetAnsibleCoreVersion,
     });
     return {
-      enableAi: configSnapshot.enableAi,
+      enableAi: store.global?.enableAi ?? configSnapshot.enableAi,
       publishViaGateway: configSnapshot.publishViaGateway,
       targetAnsibleCoreVersion: resolved.effective,
       defaultAiModelId: store.global?.defaultAiModelId,
@@ -212,11 +212,16 @@ export async function createRouter(options: RouterOptions): Promise<Router> {
     jsonBody,
     requireApmeSettingsManage,
     async (req, res) => {
-      const { targetAnsibleCoreVersion, defaultAiModelId, gatewayBaseUrl } =
-        req.body ?? {};
+      const {
+        targetAnsibleCoreVersion,
+        defaultAiModelId,
+        enableAi,
+        gatewayBaseUrl,
+      } = req.body ?? {};
       const updates: {
         targetAnsibleCoreVersion?: string;
         defaultAiModelId?: string | null;
+        enableAi?: boolean;
         gatewayBaseUrl?: string | null;
       } = {};
 
@@ -243,6 +248,13 @@ export async function createRouter(options: RouterOptions): Promise<Router> {
         }
         updates.defaultAiModelId =
           typeof defaultAiModelId === 'string' ? defaultAiModelId : null;
+      }
+
+      if (enableAi !== undefined) {
+        if (typeof enableAi !== 'boolean') {
+          throw new InputError('enableAi must be a boolean');
+        }
+        updates.enableAi = enableAi;
       }
 
       if (gatewayBaseUrl !== undefined) {
@@ -274,10 +286,11 @@ export async function createRouter(options: RouterOptions): Promise<Router> {
       if (
         updates.targetAnsibleCoreVersion === undefined &&
         updates.defaultAiModelId === undefined &&
+        updates.enableAi === undefined &&
         updates.gatewayBaseUrl === undefined
       ) {
         throw new InputError(
-          'At least one of targetAnsibleCoreVersion, defaultAiModelId, or gatewayBaseUrl is required',
+          'At least one of targetAnsibleCoreVersion, defaultAiModelId, enableAi, or gatewayBaseUrl is required',
         );
       }
 
@@ -430,10 +443,10 @@ export async function createRouter(options: RouterOptions): Promise<Router> {
 
   router.get('/apme/ai/status', async (req, res) => {
     await ensureUser(req);
-    const { enableAi } = getApmeConfig(rootConfig);
+    const settings = await mergedPortalSettings();
     const status = await resolveApmeAiStatus(apmeService, logger);
     res.json({
-      enableAi,
+      enableAi: settings.enableAi,
       connected: status.connected,
       modelCount: status.modelCount,
       configuredModelCount: status.configuredModelCount,

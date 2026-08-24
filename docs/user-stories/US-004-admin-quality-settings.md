@@ -17,7 +17,7 @@
 ## Acceptance criteria
 
 - [x] User-facing settings UI for agreed knobs (ansible-core target at minimum;
-      AI gate only if product still wants UI override of app-config).
+      AI gate toggleable in UI with portal store override of app-config).
 - [x] Changes persist via existing portal settings store / Gateway-facing APIs.
 - [x] Thin host only — no reintroduction of fat remediation admin flows.
 - [x] Saved global target prefills the Quality tab `CheckOptionsForm` (via
@@ -28,11 +28,13 @@
 
 1. Portal up with APME plugins (`automation-portal-local` `make dev` / reload).
 2. Open **Git Repositories → Quality settings**.
-3. Change **Target ansible-core**, **Save** — success message; reload tab shows
-   the new value.
+3. Change **Target ansible-core**, toggle **AI-assisted remediation**, **Save** —
+   success message; reload tab shows the new values.
 4. Open a repo **Quality** tab — ansible-core field is prefilled with the saved
    global (unless a per-project override exists).
-5. AI line is read-only from `ansible.apme.enableAi` (not editable in UI).
+5. AI gate is editable in Quality settings (portal store overrides
+   `ansible.apme.enableAi` after save). View-only users see a read-only status
+   line.
 
 ```bash
 yarn workspace @ansible/plugin-backstage-apme test \
@@ -47,8 +49,8 @@ yarn workspace @ansible/plugin-backstage-apme test \
 - Persists with `getPortalSettings` / `updatePortalSettings`
   (`PUT /apme/settings` → `ApmePortalSettingsStore`).
 - Prefill helper: `resolveDefaultAnsibleVersionForScan`.
-- AI gate shown read-only from settings (`ansible.apme.enableAi` app-config);
-  not editable in UI.
+- AI gate: UI toggle persists `global.enableAi` in the portal settings store;
+  until set, app-config `ansible.apme.enableAi` is the default ([AAP-88783](https://redhat.atlassian.net/browse/AAP-88783)).
 - AI provider CRUD (add/edit/remove Abbenay providers) is out of scope here —
   see [US-016](US-016-abbenay-providers-quality-settings.md).
 - Dropped from prototype port: Rules admin, Fleet, `ApmeAdminCard`, Portal-side

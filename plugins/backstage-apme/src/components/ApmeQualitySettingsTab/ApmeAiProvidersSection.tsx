@@ -35,6 +35,7 @@ import ListItemText from '@material-ui/core/ListItemText';
 import Typography from '@material-ui/core/Typography';
 import DeleteIcon from '@material-ui/icons/Delete';
 import EditIcon from '@material-ui/icons/Edit';
+import LockIcon from '@material-ui/icons/Lock';
 import { makeStyles } from '@material-ui/core/styles';
 import { Progress } from '@backstage/core-components';
 import type {
@@ -42,7 +43,10 @@ import type {
   ApmeAiProviderConfigureRequest,
   ApmeAiStatus,
 } from '@ansible/backstage-apme-common/types';
-import { normalizeApmeAiProviders } from '@ansible/backstage-apme-common/types';
+import {
+  mergeApmeAiProviderLists,
+  normalizeApmeAiProviders,
+} from '@ansible/backstage-apme-common/types';
 import { apmeApiRef } from '../../api';
 import { persistApmeDefaultAiModel } from '../../hooks/useApmeWorkflowAiModel';
 import { ApmeAiProviderDialog } from './ApmeAiProviderDialog';
@@ -96,6 +100,13 @@ const useStyles = makeStyles(theme => ({
   },
   engineChip: {
     marginRight: theme.spacing(0.5),
+  },
+  sourceChip: {
+    marginLeft: theme.spacing(1),
+  },
+  sectionTitle: {
+    marginTop: theme.spacing(2),
+    marginBottom: theme.spacing(0.5),
   },
 }));
 
@@ -174,30 +185,9 @@ export const ApmeAiProvidersSection = () => {
         apmeApi.getAiModels().catch(() => [] as AiModelRow[]),
         apmeApi.getAiConfig().catch(() => undefined),
       ]);
-      let nextProviders = prov;
       const configProviders =
         config !== undefined ? normalizeApmeAiProviders(config) : [];
-      const configById = new Map(configProviders.map(p => [p.id, p]));
-
-      // HTTP /providers omits model lists — merge from /config when present.
-      if (nextProviders.length > 0 && configById.size > 0) {
-        nextProviders = nextProviders.map(p => {
-          const fromConfig = configById.get(p.id);
-          if (fromConfig && fromConfig.models.length > 0) {
-            return { ...p, models: fromConfig.models };
-          }
-          return p;
-        });
-      }
-
-      // Deploy-time ConfigMap providers often show up via /config while
-      // /providers is empty — fall back so the list is not blank.
-      if (nextProviders.length === 0 && configProviders.length > 0) {
-        nextProviders = configProviders;
-      }
-      nextProviders = [...nextProviders].sort((a, b) =>
-        a.id.localeCompare(b.id, undefined, { sensitivity: 'base' }),
-      );
+      const nextProviders = mergeApmeAiProviderLists(prov, configProviders);
       setProviders(nextProviders);
       setAiStatus(status);
       setModels(modelList);
@@ -288,6 +278,9 @@ export const ApmeAiProvidersSection = () => {
     return 'Connected · no models listed';
   })();
 
+  const managedProviders = providers.filter(p => p.source !== 'config');
+  const configProviders = providers.filter(p => p.source === 'config');
+
   return (
     <>
       <Card>
@@ -347,14 +340,14 @@ export const ApmeAiProvidersSection = () => {
           {!loading && providers.length === 0 && (
             <Typography variant="body2" className={classes.emptyText}>
               {models.length > 0
-                ? 'No editable providers listed. Models below are available for scans (read-only from Primary). Use Add provider to configure Abbenay (API key → file secret store), or check deploy-time config.'
+                ? 'No editable providers listed. Models below are available for scans (read-only from Primary). Use Add provider to configure an AI provider in the portal.'
                 : 'No providers configured. Add a provider to enable AI-assisted remediation.'}
             </Typography>
           )}
 
-          {!loading && providers.length > 0 && (
+          {!loading && managedProviders.length > 0 && (
             <List disablePadding>
-              {providers.map((p, idx) => (
+              {managedProviders.map((p, idx) => (
                 <div key={p.id}>
                   {idx > 0 && <Divider component="li" />}
                   <ListItem disableGutters>
@@ -404,6 +397,58 @@ export const ApmeAiProvidersSection = () => {
                 </div>
               ))}
             </List>
+          )}
+
+          {!loading && configProviders.length > 0 && (
+            <Box>
+              <Typography variant="subtitle2" className={classes.sectionTitle}>
+                System providers
+              </Typography>
+              <Typography variant="body2" className={classes.sectionHint}>
+                Read-only providers from deploy-time ConfigMap. Edit/Delete are
+                disabled — change them in your deployment YAML.
+              </Typography>
+              <List disablePadding>
+                {configProviders.map((p, idx) => (
+                  <div key={p.id}>
+                    {idx > 0 && <Divider component="li" />}
+                    <ListItem disableGutters>
+                      <ListItemText
+                        primary={
+                          <Box display="flex" alignItems="center">
+                            <LockIcon
+                              fontSize="small"
+                              style={{ marginRight: 8, opacity: 0.7 }}
+                              aria-hidden
+                            />
+                            <Typography variant="body1" component="span">
+                              {p.id}
+                            </Typography>
+                            <Chip
+                              label={p.engine}
+                              size="small"
+                              className={classes.engineChip}
+                              style={{ marginLeft: 8 }}
+                            />
+                            <Chip
+                              label="Source: ConfigMap"
+                              size="small"
+                              variant="outlined"
+                              className={classes.sourceChip}
+                            />
+                          </Box>
+                        }
+                        secondary={
+                          p.models.length > 0
+                            ? `${p.models.length} model${p.models.length === 1 ? '' : 's'}: ${p.models.join(', ')}`
+                            : 'No models configured'
+                        }
+                      />
+                    </ListItem>
+                  </div>
+                ))}
+              </List>
+            </Box>
           )}
 
           {!loading && models.length > 0 && (
