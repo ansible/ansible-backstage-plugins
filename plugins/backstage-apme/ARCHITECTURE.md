@@ -140,7 +140,7 @@ SSE uses **fetch + ReadableStream** inside `@apme/ui-workflow` (not
 Idle chrome (`ApmeEntityTab` / `WorkflowBody`):
 
 1. User sets options on `CheckOptionsForm` (`idPrefix="portal-quality"`):
-   Ansible version, collections, AI toggle, auto-apply Tier-1.
+   Ansible version, collections, AI toggle, auto-apply rule-based fixes.
 2. Scan calls `startScan()` from `useProjectWorkflow`.
 3. Package opens a session and `POST …/projects/:id/operation` with
    `action: 'check'` and options including:
@@ -183,7 +183,7 @@ Shared PatternFly UI for the **same** remediation workflow the native SPA uses:
 |--------------------|------------|
 | Scan | Progress / live operation status via SSE |
 | Review findings | Assess / findings panels (`assess_pause`) |
-| Choose fixes | Proposal review; Tier-1 quick-fix; optional AI escalation |
+| Choose fixes | Proposal review; rule-based fix; optional AI escalation |
 | Apply | Begin remediate / apply proposals |
 | Commit | Submit → Gateway SCM (PR/push) |
 | Complete | Terminal status |

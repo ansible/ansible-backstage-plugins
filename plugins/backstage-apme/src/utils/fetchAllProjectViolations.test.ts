@@ -7,7 +7,7 @@
 import type { Violation } from '@ansible/backstage-apme-common/types';
 import {
   fetchAllProjectViolations,
-  sortAutoFixFirst,
+  sortRuleBasedFixFirst,
   VIOLATIONS_PAGE_SIZE,
 } from './fetchAllProjectViolations';
 
@@ -23,9 +23,9 @@ function violation(id: number, remediationClass: 1 | 2 | 3): Violation {
   } as Violation;
 }
 
-describe('sortAutoFixFirst', () => {
-  it('places tier-1 auto-fix violations before others', () => {
-    const sorted = sortAutoFixFirst([
+describe('sortRuleBasedFixFirst', () => {
+  it('places rule-based fix (tier 1) violations before others', () => {
+    const sorted = sortRuleBasedFixFirst([
       violation(3, 2),
       violation(1, 1),
       violation(2, 3),
@@ -35,7 +35,7 @@ describe('sortAutoFixFirst', () => {
 });
 
 describe('fetchAllProjectViolations', () => {
-  it('pages until a short final page and sorts auto-fix first', async () => {
+  it('pages until a short final page and sorts rule-based fix first', async () => {
     const pages = Array.from({ length: VIOLATIONS_PAGE_SIZE + 2 }, (_, i) =>
       violation(i + 1, i === VIOLATIONS_PAGE_SIZE ? 1 : 2),
     );

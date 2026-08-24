@@ -142,8 +142,8 @@ describe('proposalNeedsManualApproval', () => {
 
 describe('fixMethodLabel', () => {
   it('uses scan-tier labels that do not imply fixes are already applied', () => {
-    expect(fixMethodLabel('auto')).toBe('Auto-fix');
-    expect(fixMethodLabel('ai')).toBe('AI candidate');
+    expect(fixMethodLabel('auto')).toBe('Rule-based fix');
+    expect(fixMethodLabel('ai')).toBe('AI fix');
     expect(fixMethodLabel('manual')).toBe('Manual review');
     expect(fixMethodLabel(undefined)).toBe('Manual review');
   });

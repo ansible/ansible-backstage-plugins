@@ -31,10 +31,10 @@ Shared `@apme/ui-workflow` session mounted from the Quality tab:
 
 | Step | What the user sees / does |
 |------|---------------------------|
-| 1. Options | `CheckOptionsForm`: Ansible version, collections, **AI on/off** (+ model when enabled), auto-apply Tier-1 |
+| 1. Options | `CheckOptionsForm`: Ansible version, collections, **AI on/off** (+ model when enabled), auto-apply rule-based fixes |
 | 2. Scan | Start Scan → Gateway `check` operation; live progress via SSE |
 | 3. Assess | Review findings (`assess_pause`) |
-| 4. Choose fixes | Proposal review; Tier-1 quick-fix; optional **AI escalation** when AI is enabled |
+| 4. Choose fixes | Proposal review; rule-based fix; optional **AI escalation** when AI is enabled |
 | 5. Apply | Begin remediate / apply approved proposals |
 | 6. Commit | Submit → Gateway SCM (push/PR) when configured |
 | 7. Complete | Terminal operation status |
