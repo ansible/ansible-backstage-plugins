@@ -1,3 +1,4 @@
+pre-commit
 # docs
 argparse-manpage
 cairosvg

@@ -111,7 +111,8 @@ function buildActivityMap(
       map[key] = parseGitHubActivity(run);
     } else if (item?.provider === 'gitlab') {
       const pipeline = (Array.isArray(result.data) ? result.data : [])[0] as
-        Record<string, unknown> | undefined;
+        | Record<string, unknown>
+        | undefined;
       map[key] = parseGitLabActivity(pipeline);
     } else {
       map[key] = { text: NO_ACTIVITY };

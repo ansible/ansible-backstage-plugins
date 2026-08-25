@@ -39,7 +39,6 @@ repos:
     rev: v3.6.2
     hooks:
       - id: prettier
-        always_run: true
         additional_dependencies:
           - prettier
           - prettier-plugin-toml
@@ -53,6 +52,11 @@ repos:
 
   - repo: local
     hooks:
+      - id: eslint
+        name: ESLint
+        entry: scripts/pre-commit-lint.sh
+        language: system
+        pass_filenames: false
       - id: openapi-lint
         name: OpenAPI Spectral Lint
         entry: yarn openapi:lint
