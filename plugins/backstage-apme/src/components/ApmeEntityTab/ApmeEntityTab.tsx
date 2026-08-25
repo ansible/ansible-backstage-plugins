@@ -28,7 +28,7 @@ import {
 } from '@apme/ui-workflow';
 import type { Project } from '@ansible/backstage-apme-common/types';
 import { apmeApiRef } from '../../api';
-import { useApmeAiEnabled } from '../../hooks/useApmeEnabled';
+import { useApmePortalAiState } from '../../hooks/useApmeEnabled';
 import { useApmeWorkflowAiModel } from '../../hooks/useApmeWorkflowAiModel';
 import { useResolveApmeProject } from '../../hooks/useResolveApmeProject';
 import { useSyncPatternFlyTheme } from '../../hooks/useSyncPatternFlyTheme';
@@ -55,7 +55,9 @@ export interface ApmeEntityTabProps {
 function WorkflowBody({ projectId }: { projectId: string }) {
   const apmeApi = useApi(apmeApiRef);
   const configApi = useApi(configApiRef);
-  const portalAiEnabled = useApmeAiEnabled();
+  const { enabled: portalAiEnabled, loading: portalAiLoading } =
+    useApmePortalAiState();
+  const portalAiActive = !portalAiLoading && portalAiEnabled;
   const [project, setProject] = useState<Project | null>(null);
   const [loadError, setLoadError] = useState<Error | null>(null);
   const [ansibleVersion, setAnsibleVersion] = useState('');
@@ -66,11 +68,14 @@ function WorkflowBody({ projectId }: { projectId: string }) {
   const [pushedBranchName, setPushedBranchName] = useState<string | null>(null);
 
   useEffect(() => {
+    if (portalAiLoading) {
+      return;
+    }
     setEnableAi(portalAiEnabled);
     if (!portalAiEnabled) {
       setAutoApplyTier1(false);
     }
-  }, [portalAiEnabled]);
+  }, [portalAiEnabled, portalAiLoading]);
 
   // Prefill from Quality settings / project scan-target (US-004).
   useEffect(() => {
@@ -95,8 +100,8 @@ function WorkflowBody({ projectId }: { projectId: string }) {
     checkOptions: {
       ansibleVersion,
       collections,
-      enableAi: portalAiEnabled && enableAi,
-      autoApplyTier1: portalAiEnabled && autoApplyTier1,
+      enableAi: portalAiActive && enableAi,
+      autoApplyTier1: portalAiActive && autoApplyTier1,
     },
     getAiModel,
   });
@@ -173,7 +178,7 @@ function WorkflowBody({ projectId }: { projectId: string }) {
         />
         <ProjectWorkflowPanel
           workflow={workflowForPanel}
-          enableAi={portalAiEnabled && enableAi}
+          enableAi={portalAiActive && enableAi}
           feedbackEnabled={false}
         />
       </>
@@ -219,7 +224,7 @@ function WorkflowBody({ projectId }: { projectId: string }) {
             </FlexItem>
           </Flex>
           <FlexItem>
-            {portalAiEnabled ? (
+            {portalAiActive ? (
               <CheckOptionsForm
                 ansibleVersion={ansibleVersion}
                 onAnsibleVersionChange={setAnsibleVersion}

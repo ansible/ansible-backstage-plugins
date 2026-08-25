@@ -10,11 +10,15 @@ import { ConfigReader } from '@backstage/config';
 import { apmeApiRef } from '../../api';
 import { ApmeEntityTab } from './ApmeEntityTab';
 
-const mockUseApmeAiEnabled = jest.fn(() => false);
+const mockUseApmePortalAiState = jest.fn(() => ({
+  enabled: false,
+  loading: false,
+}));
 const mockUseProjectWorkflow = jest.fn();
 
 jest.mock('../../hooks/useApmeEnabled', () => ({
-  useApmeAiEnabled: () => mockUseApmeAiEnabled(),
+  useApmePortalAiState: () => mockUseApmePortalAiState(),
+  useApmeAiEnabled: () => mockUseApmePortalAiState().enabled,
 }));
 
 jest.mock('../../hooks/useApmeWorkflowAiModel', () => ({
@@ -101,7 +105,7 @@ describe('ApmeEntityTab', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
-    mockUseApmeAiEnabled.mockReturnValue(false);
+    mockUseApmePortalAiState.mockReturnValue({ enabled: false, loading: false });
     mockUseProjectWorkflow.mockReturnValue(workflowStub);
     getProject.mockResolvedValue({
       id: 'proj-1',
@@ -136,13 +140,39 @@ describe('ApmeEntityTab', () => {
     const calls = mockUseProjectWorkflow.mock.calls;
     expect(calls.length).toBeGreaterThan(0);
     return calls[calls.length - 1][1].checkOptions as {
+      ansibleVersion: string;
+      collections: string;
       enableAi: boolean;
       autoApplyTier1: boolean;
     };
   }
 
   it('skips CheckOptionsForm when portal AI is disabled', async () => {
-    mockUseApmeAiEnabled.mockReturnValue(false);
+    mockUseApmePortalAiState.mockReturnValue({ enabled: false, loading: false });
+    renderTab();
+
+    expect(await screen.findByText('demo-repo')).toBeInTheDocument();
+    expect(screen.queryByTestId('check-options')).not.toBeInTheDocument();
+    expect(screen.getByLabelText('Ansible Core Version')).toBeInTheDocument();
+
+    fireEvent.change(screen.getByLabelText('Ansible Core Version'), {
+      target: { value: '2.17' },
+    });
+    fireEvent.change(screen.getByLabelText('Collections (comma-separated)'), {
+      target: { value: 'ansible.posix' },
+    });
+
+    await waitFor(() => {
+      const opts = latestCheckOptions();
+      expect(opts.enableAi).toBe(false);
+      expect(opts.autoApplyTier1).toBe(false);
+      expect(opts.ansibleVersion).toBe('2.17');
+      expect(opts.collections).toBe('ansible.posix');
+    });
+  });
+
+  it('skips CheckOptionsForm while portal settings are loading', async () => {
+    mockUseApmePortalAiState.mockReturnValue({ enabled: true, loading: true });
     renderTab();
 
     expect(await screen.findByText('demo-repo')).toBeInTheDocument();
@@ -157,7 +187,7 @@ describe('ApmeEntityTab', () => {
   });
 
   it('keeps checkOptions AI flags false when portal AI is disabled', async () => {
-    mockUseApmeAiEnabled.mockReturnValue(false);
+    mockUseApmePortalAiState.mockReturnValue({ enabled: false, loading: false });
     renderTab();
     await screen.findByText('demo-repo');
 
@@ -168,7 +198,7 @@ describe('ApmeEntityTab', () => {
   });
 
   it('passes autoApplyTier1 through to the workflow when portal AI is enabled', async () => {
-    mockUseApmeAiEnabled.mockReturnValue(true);
+    mockUseApmePortalAiState.mockReturnValue({ enabled: true, loading: false });
     renderTab();
     await screen.findByText('demo-repo');
 
@@ -183,7 +213,7 @@ describe('ApmeEntityTab', () => {
   });
 
   it('resets autoApplyTier1 for the gateway when portal AI flips from enabled to disabled', async () => {
-    mockUseApmeAiEnabled.mockReturnValue(true);
+    mockUseApmePortalAiState.mockReturnValue({ enabled: true, loading: false });
     const { rerender } = renderTab();
     await screen.findByText('demo-repo');
 
@@ -192,7 +222,7 @@ describe('ApmeEntityTab', () => {
       expect(latestCheckOptions().autoApplyTier1).toBe(true);
     });
 
-    mockUseApmeAiEnabled.mockReturnValue(false);
+    mockUseApmePortalAiState.mockReturnValue({ enabled: false, loading: false });
     rerender(
       <TestApiProvider
         apis={[
