@@ -37,6 +37,7 @@ import { resolvePostPushDevSpacesUrl } from '../../utils/resolvePostPushDevSpace
 import { ApmeUnavailable } from '../ApmeUnavailable';
 import { PostPushDevSpacesBanner } from '../EditInDevSpacesButton';
 import { PreviewLabelRow } from '../PreviewChip';
+import { ApmeScanOptionsFields } from './ApmeScanOptionsFields';
 
 export interface ApmeEntityTabProps {
   /** Reserved — fleet drill-down targets Quality activity, not this tab. */
@@ -218,20 +219,28 @@ function WorkflowBody({ projectId }: { projectId: string }) {
             </FlexItem>
           </Flex>
           <FlexItem>
-            <CheckOptionsForm
-              ansibleVersion={ansibleVersion}
-              onAnsibleVersionChange={setAnsibleVersion}
-              collections={collections}
-              onCollectionsChange={setCollections}
-              enableAi={portalAiEnabled && enableAi}
-              onEnableAiChange={checked => {
-                if (portalAiEnabled) setEnableAi(checked);
-              }}
-              autoApplyTier1={autoApplyTier1}
-              onAutoApplyTier1Change={setAutoApplyTier1}
-              showAiOptions={portalAiEnabled}
-              idPrefix="portal-quality"
-            />
+            {portalAiEnabled ? (
+              <CheckOptionsForm
+                ansibleVersion={ansibleVersion}
+                onAnsibleVersionChange={setAnsibleVersion}
+                collections={collections}
+                onCollectionsChange={setCollections}
+                enableAi={enableAi}
+                onEnableAiChange={setEnableAi}
+                autoApplyTier1={autoApplyTier1}
+                onAutoApplyTier1Change={setAutoApplyTier1}
+                showAiOptions
+                idPrefix="portal-quality"
+              />
+            ) : (
+              <ApmeScanOptionsFields
+                ansibleVersion={ansibleVersion}
+                onAnsibleVersionChange={setAnsibleVersion}
+                collections={collections}
+                onCollectionsChange={setCollections}
+                idPrefix="portal-quality"
+              />
+            )}
           </FlexItem>
           <Flex gap={{ default: 'gapSm' }}>
             <Button

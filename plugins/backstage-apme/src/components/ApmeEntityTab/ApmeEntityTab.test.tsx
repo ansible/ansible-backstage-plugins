@@ -141,13 +141,13 @@ describe('ApmeEntityTab', () => {
     };
   }
 
-  it('hides AI options and forces checkOptions AI flags false when portal AI is disabled', async () => {
+  it('skips CheckOptionsForm when portal AI is disabled', async () => {
     mockUseApmeAiEnabled.mockReturnValue(false);
     renderTab();
 
     expect(await screen.findByText('demo-repo')).toBeInTheDocument();
-    expect(screen.getByTestId('show-ai-options')).toHaveTextContent('false');
-    expect(screen.getByTestId('form-enable-ai')).toHaveTextContent('false');
+    expect(screen.queryByTestId('check-options')).not.toBeInTheDocument();
+    expect(screen.getByLabelText('Ansible Core Version')).toBeInTheDocument();
 
     await waitFor(() => {
       const opts = latestCheckOptions();
@@ -156,18 +156,15 @@ describe('ApmeEntityTab', () => {
     });
   });
 
-  it('keeps checkOptions.autoApplyTier1 false when portal AI is disabled even after stale auto-apply toggle', async () => {
+  it('keeps checkOptions AI flags false when portal AI is disabled', async () => {
     mockUseApmeAiEnabled.mockReturnValue(false);
     renderTab();
     await screen.findByText('demo-repo');
 
-    fireEvent.click(screen.getByRole('button', { name: 'enable-auto-apply' }));
-
     await waitFor(() => {
       expect(latestCheckOptions().autoApplyTier1).toBe(false);
+      expect(latestCheckOptions().enableAi).toBe(false);
     });
-    // Form may hold local autoApply state, but gateway options stay gated.
-    expect(latestCheckOptions().enableAi).toBe(false);
   });
 
   it('passes autoApplyTier1 through to the workflow when portal AI is enabled', async () => {
@@ -213,7 +210,7 @@ describe('ApmeEntityTab', () => {
     );
 
     await waitFor(() => {
-      expect(screen.getByTestId('show-ai-options')).toHaveTextContent('false');
+      expect(screen.queryByTestId('check-options')).not.toBeInTheDocument();
       expect(latestCheckOptions().autoApplyTier1).toBe(false);
       expect(latestCheckOptions().enableAi).toBe(false);
     });
