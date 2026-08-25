@@ -75,19 +75,15 @@ export function useApmeEnabled(): boolean {
 }
 
 /**
- * Portal AI tier flag with load state — prefers backend app-config
- * (`GET /apme/settings`) over frontend config so UI matches scan/remediate
- * `enable_ai` sent to the gateway.
+ * Portal AI tier flag — prefers backend app-config (`GET /apme/settings`) over
+ * frontend config so UI matches scan/remediate `enable_ai` sent to the gateway.
  */
-export function useApmePortalAiState(): {
-  enabled: boolean;
-  loading: boolean;
-} {
+export function useApmeAiEnabled(): boolean {
   const configApi = useApi(configApiRef);
   const apmeApi = useApi(apmeApiRef);
   const configFallback =
     configApi.getOptionalBoolean('ansible.apme.enableAi') ?? false;
-  const { value, loading } = useAsync(
+  const { value } = useAsync(
     () =>
       loadPortalSettings(apmeApi, {
         enableAi: configFallback,
@@ -97,15 +93,7 @@ export function useApmePortalAiState(): {
       }),
     [apmeApi, configFallback, configApi],
   );
-  return {
-    enabled: value?.enableAi ?? configFallback,
-    loading,
-  };
-}
-
-/** Portal AI tier flag — see {@link useApmePortalAiState} for loading state. */
-export function useApmeAiEnabled(): boolean {
-  return useApmePortalAiState().enabled;
+  return value?.enableAi ?? configFallback;
 }
 
 /** Gateway Abbenay reachability (separate from portal enableAi). */

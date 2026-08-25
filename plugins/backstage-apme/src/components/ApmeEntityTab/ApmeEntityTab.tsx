@@ -28,7 +28,7 @@ import {
 } from '@apme/ui-workflow';
 import type { Project } from '@ansible/backstage-apme-common/types';
 import { apmeApiRef } from '../../api';
-import { useApmePortalAiState } from '../../hooks/useApmeEnabled';
+import { useApmeAiEnabled } from '../../hooks/useApmeEnabled';
 import { useApmeWorkflowAiModel } from '../../hooks/useApmeWorkflowAiModel';
 import { useResolveApmeProject } from '../../hooks/useResolveApmeProject';
 import { useSyncPatternFlyTheme } from '../../hooks/useSyncPatternFlyTheme';
@@ -37,7 +37,6 @@ import { resolvePostPushDevSpacesUrl } from '../../utils/resolvePostPushDevSpace
 import { ApmeUnavailable } from '../ApmeUnavailable';
 import { PostPushDevSpacesBanner } from '../EditInDevSpacesButton';
 import { PreviewLabelRow } from '../PreviewChip';
-import { ApmeScanOptionsFields } from './ApmeScanOptionsFields';
 
 export interface ApmeEntityTabProps {
   /** Reserved — fleet drill-down targets Quality activity, not this tab. */
@@ -55,9 +54,7 @@ export interface ApmeEntityTabProps {
 function WorkflowBody({ projectId }: { projectId: string }) {
   const apmeApi = useApi(apmeApiRef);
   const configApi = useApi(configApiRef);
-  const { enabled: portalAiEnabled, loading: portalAiLoading } =
-    useApmePortalAiState();
-  const portalAiActive = !portalAiLoading && portalAiEnabled;
+  const portalAiEnabled = useApmeAiEnabled();
   const [project, setProject] = useState<Project | null>(null);
   const [loadError, setLoadError] = useState<Error | null>(null);
   const [ansibleVersion, setAnsibleVersion] = useState('');
@@ -68,14 +65,11 @@ function WorkflowBody({ projectId }: { projectId: string }) {
   const [pushedBranchName, setPushedBranchName] = useState<string | null>(null);
 
   useEffect(() => {
-    if (portalAiLoading) {
-      return;
-    }
     setEnableAi(portalAiEnabled);
     if (!portalAiEnabled) {
       setAutoApplyTier1(false);
     }
-  }, [portalAiEnabled, portalAiLoading]);
+  }, [portalAiEnabled]);
 
   // Prefill from Quality settings / project scan-target (US-004).
   useEffect(() => {
@@ -100,8 +94,8 @@ function WorkflowBody({ projectId }: { projectId: string }) {
     checkOptions: {
       ansibleVersion,
       collections,
-      enableAi: portalAiActive && enableAi,
-      autoApplyTier1: portalAiActive && autoApplyTier1,
+      enableAi: portalAiEnabled && enableAi,
+      autoApplyTier1: portalAiEnabled && autoApplyTier1,
     },
     getAiModel,
   });
@@ -178,7 +172,7 @@ function WorkflowBody({ projectId }: { projectId: string }) {
         />
         <ProjectWorkflowPanel
           workflow={workflowForPanel}
-          enableAi={portalAiActive && enableAi}
+          enableAi={portalAiEnabled && enableAi}
           feedbackEnabled={false}
         />
       </>
@@ -224,29 +218,20 @@ function WorkflowBody({ projectId }: { projectId: string }) {
             </FlexItem>
           </Flex>
           <FlexItem>
-            {portalAiActive ? (
-              <CheckOptionsForm
-                ansibleVersion={ansibleVersion}
-                onAnsibleVersionChange={setAnsibleVersion}
-                collections={collections}
-                onCollectionsChange={setCollections}
-                enableAi={enableAi}
-                onEnableAiChange={setEnableAi}
-                autoApplyTier1={autoApplyTier1}
-                onAutoApplyTier1Change={setAutoApplyTier1}
-                showAiOptions
-                idPrefix="portal-quality"
-              />
-            ) : (
-              <ApmeScanOptionsFields
-                ansibleVersion={ansibleVersion}
-                onAnsibleVersionChange={setAnsibleVersion}
-                collections={collections}
-                onCollectionsChange={setCollections}
-                showAiDisabledNote={!portalAiLoading && !portalAiEnabled}
-                idPrefix="portal-quality"
-              />
-            )}
+            <CheckOptionsForm
+              ansibleVersion={ansibleVersion}
+              onAnsibleVersionChange={setAnsibleVersion}
+              collections={collections}
+              onCollectionsChange={setCollections}
+              enableAi={portalAiEnabled && enableAi}
+              onEnableAiChange={checked => {
+                if (portalAiEnabled) setEnableAi(checked);
+              }}
+              autoApplyTier1={autoApplyTier1}
+              onAutoApplyTier1Change={setAutoApplyTier1}
+              showAiOptions={portalAiEnabled}
+              idPrefix="portal-quality"
+            />
           </FlexItem>
           <Flex gap={{ default: 'gapSm' }}>
             <Button
