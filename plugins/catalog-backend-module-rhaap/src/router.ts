@@ -462,6 +462,104 @@ export async function createRouter(options: {
   );
 
   /**
+   * Deregisters a manually-registered Git repository from the catalog.
+   * Only removes entities that were registered via ManualGitRepositoryProvider
+   * (identified by the `ansible.io/registration-method: manual` annotation).
+   *
+   * Requires the user to have gitRepositoriesViewPermission.
+   * Request body: { entityRef: string } or { entity: Entity }
+   */
+  router.delete(
+    '/ansible/git-repository',
+    express.json(),
+    createPermissionCheckMiddleware({ httpAuth, permissions }, [
+      gitRepositoriesViewPermission,
+    ]),
+    async (request, response) => {
+      const perms = response.locals.permissions as Record<string, boolean>;
+      if (!perms[gitRepositoriesViewPermission.name]) {
+        response
+          .status(403)
+          .json({ error: 'Forbidden: insufficient permissions' });
+        return;
+      }
+
+      if (!manualGitRepositoryProvider) {
+        response
+          .status(500)
+          .json({ error: 'Git repository deregistration is not available.' });
+        return;
+      }
+
+      const { entityRef, entity: providedEntity } = request.body;
+
+      if (!entityRef && !providedEntity) {
+        response
+          .status(400)
+          .json({ error: 'Missing entityRef or entity in request body.' });
+        return;
+      }
+
+      try {
+        let entityToRemove = providedEntity;
+
+        if (entityRef && !providedEntity) {
+          const { token } = await auth.getPluginRequestToken({
+            onBehalfOf: await auth.getOwnServiceCredentials(),
+            targetPluginId: 'catalog',
+          });
+
+          const entities = await catalogClient.getEntities(
+            {
+              filter: {
+                kind: 'Component',
+                'spec.type': 'git-repository',
+              },
+            },
+            { token },
+          );
+
+          entityToRemove = entities.items.find(
+            e => stringifyEntityRef(e) === entityRef,
+          );
+
+          if (!entityToRemove) {
+            response.status(404).json({
+              error: `Entity not found: ${entityRef}`,
+            });
+            return;
+          }
+        }
+
+        const registrationMethod =
+          entityToRemove?.metadata?.annotations?.[
+            'ansible.io/registration-method'
+          ];
+        if (registrationMethod !== 'manual') {
+          response.status(400).json({
+            error:
+              'Only manually-registered repositories can be deregistered via this endpoint.',
+          });
+          return;
+        }
+
+        await manualGitRepositoryProvider.deregisterRepository(entityToRemove);
+        response.status(200).json({
+          success: true,
+          entityRef: stringifyEntityRef(entityToRemove),
+        });
+      } catch (error) {
+        const errorMessage =
+          error instanceof Error ? error.message : String(error);
+        logger.error(`Failed to deregister Git repository: ${errorMessage}`);
+        response.status(500).json({
+          error: `Failed to deregister Git repository: ${errorMessage}`,
+        });
+      }
+    },
+  );
+
+  /**
    * Triggers an EE build via GitHub Actions workflow_dispatch or GitLab CI pipeline.
    * Authenticated Backstage user or allowlisted external-access (service) token; loads the EE entity
    * with that principal's catalog token so RBAC applies.

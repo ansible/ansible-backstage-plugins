@@ -87,7 +87,7 @@ describe('ManualGitRepositoryProvider', () => {
         metadata: {
           namespace: 'default',
         },
-      };
+      } as any;
 
       await expect(
         provider.registerRepository(entityWithoutName),
@@ -130,7 +130,7 @@ describe('ManualGitRepositoryProvider', () => {
         spec: {
           type: 'git-repository',
         },
-      };
+      } as any;
 
       await expect(
         provider.registerRepository(entityWithNullMetadata),
@@ -145,12 +145,79 @@ describe('ManualGitRepositoryProvider', () => {
           name: 'test-org-test-repo-github-manual',
         },
         spec: null,
-      };
+      } as any;
 
       await expect(
         provider.registerRepository(entityWithNullSpec),
       ).rejects.toThrow(
         'Type [spec.type] must be "git-repository" for Git repository registration',
+      );
+    });
+  });
+
+  describe('deregisterRepository', () => {
+    const validEntity = {
+      apiVersion: 'backstage.io/v1alpha1',
+      kind: 'Component',
+      metadata: {
+        name: 'test-org-test-repo-github-manual',
+        namespace: 'default',
+        annotations: {
+          'backstage.io/source-location':
+            'url:https://github.com/test-org/test-repo',
+          'ansible.io/scm-provider': 'github',
+          'ansible.io/scm-organization': 'test-org',
+          'ansible.io/scm-repository': 'test-repo',
+          'ansible.io/registration-method': 'manual',
+        },
+      },
+      spec: {
+        type: 'git-repository',
+      },
+    };
+
+    beforeEach(async () => {
+      await provider.connect(mockConnection);
+    });
+
+    it('should successfully deregister a valid git repository entity', async () => {
+      await provider.deregisterRepository(validEntity);
+
+      expect(logger.info).toHaveBeenCalledWith(
+        'Deregistering manually-added Git repository entity test-org-test-repo-github-manual',
+      );
+      expect(mockConnection.applyMutation).toHaveBeenCalledWith({
+        type: 'delta',
+        added: [],
+        removed: [
+          {
+            entity: validEntity,
+            locationKey: 'ManualGitRepositoryProvider',
+          },
+        ],
+      });
+    });
+
+    it('should throw error when not connected', async () => {
+      const unconnectedProvider = new ManualGitRepositoryProvider(logger);
+
+      await expect(
+        unconnectedProvider.deregisterRepository(validEntity),
+      ).rejects.toThrow('ManualGitRepositoryProvider is not connected yet');
+    });
+
+    it('should throw error when metadata.name is missing', async () => {
+      const entityWithoutName = {
+        ...validEntity,
+        metadata: {
+          namespace: 'default',
+        },
+      };
+
+      await expect(
+        provider.deregisterRepository(entityWithoutName as any),
+      ).rejects.toThrow(
+        'Name [metadata.name] is required for Git repository deregistration',
       );
     });
   });
