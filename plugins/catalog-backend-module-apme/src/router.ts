@@ -454,7 +454,7 @@ export async function createRouter(options: RouterOptions): Promise<Router> {
   });
 
   // @apme/ui-workflow CheckOptionsForm → GET /ai/models (via catalog proxy apiBase).
-  // Inference list only — do not synthesize from admin config (avoids "Connected" lies).
+  // Prefers live inference; falls back to config models (AAP-89202).
   router.get('/apme/ai/models', async (req, res) => {
     await ensureUser(req);
     const models = await listApmeInferenceModels(apmeService);
