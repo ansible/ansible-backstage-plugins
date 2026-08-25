@@ -66,6 +66,9 @@ function WorkflowBody({ projectId }: { projectId: string }) {
 
   useEffect(() => {
     setEnableAi(portalAiEnabled);
+    if (!portalAiEnabled) {
+      setAutoApplyTier1(false);
+    }
   }, [portalAiEnabled]);
 
   // Prefill from Quality settings / project scan-target (US-004).
@@ -92,7 +95,7 @@ function WorkflowBody({ projectId }: { projectId: string }) {
       ansibleVersion,
       collections,
       enableAi: portalAiEnabled && enableAi,
-      autoApplyTier1,
+      autoApplyTier1: portalAiEnabled && autoApplyTier1,
     },
     getAiModel,
   });
@@ -226,13 +229,9 @@ function WorkflowBody({ projectId }: { projectId: string }) {
               }}
               autoApplyTier1={autoApplyTier1}
               onAutoApplyTier1Change={setAutoApplyTier1}
+              showAiOptions={portalAiEnabled}
               idPrefix="portal-quality"
             />
-            {!portalAiEnabled ? (
-              <div style={{ opacity: 0.7, marginTop: 8, fontSize: 13 }}>
-                AI is disabled in Quality settings.
-              </div>
-            ) : null}
           </FlexItem>
           <Flex gap={{ default: 'gapSm' }}>
             <Button
