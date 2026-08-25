@@ -154,6 +154,9 @@ describe('ApmeEntityTab', () => {
     expect(await screen.findByText('demo-repo')).toBeInTheDocument();
     expect(screen.queryByTestId('check-options')).not.toBeInTheDocument();
     expect(screen.getByLabelText('Ansible Core Version')).toBeInTheDocument();
+    expect(
+      screen.getByText('AI is disabled in Quality settings.'),
+    ).toBeInTheDocument();
 
     fireEvent.change(screen.getByLabelText('Ansible Core Version'), {
       target: { value: '2.17' },
@@ -178,6 +181,9 @@ describe('ApmeEntityTab', () => {
     expect(await screen.findByText('demo-repo')).toBeInTheDocument();
     expect(screen.queryByTestId('check-options')).not.toBeInTheDocument();
     expect(screen.getByLabelText('Ansible Core Version')).toBeInTheDocument();
+    expect(
+      screen.queryByText('AI is disabled in Quality settings.'),
+    ).not.toBeInTheDocument();
 
     await waitFor(() => {
       const opts = latestCheckOptions();

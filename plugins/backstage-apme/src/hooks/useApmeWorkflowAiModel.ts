@@ -13,7 +13,7 @@ import {
 import { normalizeApmeAiProviders } from '@ansible/backstage-apme-common/types';
 import { AI_MODEL_STORAGE_KEY } from '@apme/ui-workflow';
 import { apmeApiRef } from '../api';
-import { useApmeAiEnabled } from './useApmeEnabled';
+import { useApmePortalAiState } from './useApmeEnabled';
 
 /**
  * Resolve the Abbenay chat model id for remediate / escalate-ai.
@@ -21,11 +21,13 @@ import { useApmeAiEnabled } from './useApmeEnabled';
  */
 export function useApmeWorkflowAiModel(): () => string | undefined {
   const apmeApi = useApi(apmeApiRef);
-  const portalAiEnabled = useApmeAiEnabled();
+  const { enabled: portalAiEnabled, loading: portalAiLoading } =
+    useApmePortalAiState();
+  const portalAiActive = !portalAiLoading && portalAiEnabled;
   const modelRef = useRef<string | undefined>(undefined);
 
   const { value } = useAsync(async () => {
-    if (!portalAiEnabled) {
+    if (!portalAiActive) {
       return undefined;
     }
 
@@ -49,7 +51,7 @@ export function useApmeWorkflowAiModel(): () => string | undefined {
 
     const providers = normalizeApmeAiProviders(providersRaw);
     return resolveApmeChatModelIdFromProviders(providers);
-  }, [apmeApi, portalAiEnabled]);
+  }, [apmeApi, portalAiActive]);
 
   modelRef.current = value;
   return () => modelRef.current;

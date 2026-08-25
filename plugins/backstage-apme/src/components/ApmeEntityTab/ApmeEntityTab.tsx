@@ -243,6 +243,7 @@ function WorkflowBody({ projectId }: { projectId: string }) {
                 onAnsibleVersionChange={setAnsibleVersion}
                 collections={collections}
                 onCollectionsChange={setCollections}
+                showAiDisabledNote={!portalAiLoading && !portalAiEnabled}
                 idPrefix="portal-quality"
               />
             )}

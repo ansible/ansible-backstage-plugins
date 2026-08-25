@@ -17,6 +17,8 @@ export interface ApmeScanOptionsFieldsProps {
   onAnsibleVersionChange: (value: string) => void;
   collections: string;
   onCollectionsChange: (value: string) => void;
+  /** When true, show why AI scan options are absent (portal AI resolved off). */
+  showAiDisabledNote?: boolean;
   idPrefix?: string;
 }
 
@@ -26,6 +28,7 @@ export function ApmeScanOptionsFields({
   onAnsibleVersionChange,
   collections,
   onCollectionsChange,
+  showAiDisabledNote = false,
   idPrefix = '',
 }: ApmeScanOptionsFieldsProps) {
   const prefix = idPrefix ? `${idPrefix}-` : '';
@@ -33,6 +36,13 @@ export function ApmeScanOptionsFields({
   return (
     <ExpandableSection toggleText="Advanced Options" style={{ marginTop: 8 }}>
       <Flex direction={{ default: 'column' }} gap={{ default: 'gapMd' }}>
+        {showAiDisabledNote ? (
+          <FlexItem>
+            <div style={{ opacity: 0.7 }}>
+              AI is disabled in Quality settings.
+            </div>
+          </FlexItem>
+        ) : null}
         <FlexItem>
           <label
             htmlFor={`${prefix}ansible-version`}
