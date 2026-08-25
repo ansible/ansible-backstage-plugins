@@ -2840,6 +2840,195 @@ describe('RunTask', () => {
     }, 15000);
   });
 
+  describe('Internal URL SPA navigation', () => {
+    beforeEach(() => {
+      mockNavigate.mockClear();
+    });
+
+    it('should use navigate() for internal URLs instead of opening a new tab', async () => {
+      const user = userEvent.setup();
+
+      const useTaskEventStreamMock =
+        require('@backstage/plugin-scaffolder-react').useTaskEventStream;
+
+      const originalImplementation =
+        useTaskEventStreamMock.getMockImplementation();
+
+      useTaskEventStreamMock.mockImplementation(() => ({
+        task: {
+          spec: {
+            templateInfo: {
+              entity: {
+                metadata: {
+                  title: 'Test Template',
+                },
+              },
+            },
+            steps: [{ id: 'step1', name: 'Step 1' }],
+          },
+        },
+        completed: true,
+        loading: false,
+        error: undefined,
+        output: {
+          links: [
+            {
+              title: 'Go to Git Repositories',
+              url: '/self-service/repositories/catalog?refresh=true',
+            },
+          ],
+        },
+        steps: { step1: { status: 'completed' } },
+        stepLogs: {},
+      }));
+
+      await render(<RunTask />);
+
+      await waitFor(() => {
+        expect(
+          screen.getByText('Go to Git Repositories'),
+        ).toBeInTheDocument();
+      });
+
+      await user.click(screen.getByText('Go to Git Repositories'));
+
+      await waitFor(() => {
+        expect(mockNavigate).toHaveBeenCalledWith(
+          '/self-service/repositories/catalog?refresh=true',
+        );
+      });
+
+      useTaskEventStreamMock.mockImplementation(originalImplementation);
+    }, 15000);
+
+    it('should still open external URLs in a new tab', async () => {
+      const useTaskEventStreamMock =
+        require('@backstage/plugin-scaffolder-react').useTaskEventStream;
+
+      const originalImplementation =
+        useTaskEventStreamMock.getMockImplementation();
+
+      useTaskEventStreamMock.mockImplementation(() => ({
+        task: {
+          spec: {
+            templateInfo: {
+              entity: {
+                metadata: {
+                  title: 'Test Template',
+                },
+              },
+            },
+            steps: [{ id: 'step1', name: 'Step 1' }],
+          },
+        },
+        completed: true,
+        loading: false,
+        error: undefined,
+        output: {
+          links: [
+            {
+              title: 'View PR',
+              url: 'https://github.com/ansible/ansible-backstage-plugins/pull/601',
+            },
+          ],
+        },
+        steps: { step1: { status: 'completed' } },
+        stepLogs: {},
+      }));
+
+      await render(<RunTask />);
+
+      await waitFor(() => {
+        expect(screen.getByText('View PR')).toBeInTheDocument();
+      });
+
+      const linkButton = screen.getByText('View PR').closest('a');
+      expect(linkButton).toHaveAttribute('target', '_blank');
+      expect(linkButton).toHaveAttribute('rel', 'noopener noreferrer');
+      expect(linkButton).toHaveAttribute(
+        'href',
+        'https://github.com/ansible/ansible-backstage-plugins/pull/601',
+      );
+
+      expect(mockNavigate).not.toHaveBeenCalled();
+
+      useTaskEventStreamMock.mockImplementation(originalImplementation);
+    }, 15000);
+
+    it('should use navigate() for multiple internal URLs in mixed output', async () => {
+      const user = userEvent.setup();
+
+      const useTaskEventStreamMock =
+        require('@backstage/plugin-scaffolder-react').useTaskEventStream;
+
+      const originalImplementation =
+        useTaskEventStreamMock.getMockImplementation();
+
+      useTaskEventStreamMock.mockImplementation(() => ({
+        task: {
+          spec: {
+            templateInfo: {
+              entity: {
+                metadata: {
+                  title: 'Test Template',
+                },
+              },
+            },
+            steps: [{ id: 'step1', name: 'Step 1' }],
+          },
+        },
+        completed: true,
+        loading: false,
+        error: undefined,
+        output: {
+          links: [
+            {
+              title: 'Go to Git Repositories',
+              url: '/self-service/repositories/catalog?refresh=true',
+            },
+            {
+              title: 'View PR',
+              url: 'https://github.com/example/repo/pull/1',
+            },
+            {
+              title: 'Open repository',
+              url: '/self-service/repositories/my-repo',
+            },
+          ],
+        },
+        steps: { step1: { status: 'completed' } },
+        stepLogs: {},
+      }));
+
+      await render(<RunTask />);
+
+      await waitFor(() => {
+        expect(
+          screen.getByText('Go to Git Repositories'),
+        ).toBeInTheDocument();
+        expect(screen.getByText('Open repository')).toBeInTheDocument();
+        expect(screen.getByText('View PR')).toBeInTheDocument();
+      });
+
+      await user.click(screen.getByText('Go to Git Repositories'));
+      expect(mockNavigate).toHaveBeenCalledWith(
+        '/self-service/repositories/catalog?refresh=true',
+      );
+
+      mockNavigate.mockClear();
+
+      await user.click(screen.getByText('Open repository'));
+      expect(mockNavigate).toHaveBeenCalledWith(
+        '/self-service/repositories/my-repo',
+      );
+
+      const externalLink = screen.getByText('View PR').closest('a');
+      expect(externalLink).toHaveAttribute('target', '_blank');
+
+      useTaskEventStreamMock.mockImplementation(originalImplementation);
+    }, 15000);
+  });
+
   describe('Link filtering with if conditions', () => {
     it('should filter out links with if condition set to false', async () => {
       const useTaskEventStreamMock =

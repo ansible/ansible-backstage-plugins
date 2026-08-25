@@ -614,6 +614,18 @@ export const RunTask = () => {
                     </Button>
                   );
                 }
+                const isInternalUrl = link.url?.startsWith('/');
+                if (isInternalUrl) {
+                  return (
+                    <Button
+                      key={link.url || link.title || `link-${index}`}
+                      onClick={() => navigate(link.url!)}
+                      {...sharedButtonProps}
+                    >
+                      {link.title}
+                    </Button>
+                  );
+                }
                 return (
                   <Button
                     key={link.url || link.title || `link-${index}`}

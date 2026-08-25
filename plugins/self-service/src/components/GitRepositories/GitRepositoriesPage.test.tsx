@@ -821,6 +821,55 @@ describe('GitRepositoriesPage', () => {
     invalidateSpy.mockRestore();
   });
 
+  it('invalidates cache when arriving from template output link with refresh=true', async () => {
+    const invalidateSpy = jest.spyOn(gitReposCache, 'invalidateFetchedData');
+
+    await renderInTestApp(
+      <TestApiProvider
+        apis={[
+          [discoveryApiRef, mockDiscoveryApi],
+          [fetchApiRef, mockFetchApi],
+          [
+            gitRepositoriesExtensionsApiRef,
+            new DefaultGitRepositoriesExtensionsApi(),
+          ],
+        ]}
+      >
+        <ThemeProvider theme={theme}>
+          <Routes>
+            <Route
+              path="/repositories/*"
+              element={
+                <>
+                  <LocationPathname />
+                  <GitRepositoriesPage />
+                </>
+              }
+            />
+          </Routes>
+        </ThemeProvider>
+      </TestApiProvider>,
+      {
+        routeEntries: [
+          '/repositories/catalog?refresh=true',
+        ],
+      },
+    );
+
+    await waitFor(() => {
+      expect(invalidateSpy).toHaveBeenCalled();
+    });
+
+    expect(screen.getByTestId('repositories-table')).toBeInTheDocument();
+
+    await waitFor(() => {
+      const locationEl = screen.getByTestId('location-pathname');
+      expect(locationEl.textContent).toBe('/repositories/catalog');
+    });
+
+    invalidateSpy.mockRestore();
+  });
+
   it('does not invalidate cache when refresh parameter is not "true"', async () => {
     const invalidateSpy = jest.spyOn(gitReposCache, 'invalidateFetchedData');
 
