@@ -289,6 +289,12 @@ export type ApmeAiProviderSource = 'managed' | 'config';
 export interface ApmeAiProviderSummary {
   id: string;
   engine: string;
+  /**
+   * Real model data only when normalized from GET /apme/ai/config. When
+   * normalized from GET /apme/ai/providers, always []. Abbenay's provider
+   * registry doesn't carry model IDs. Use mergeApmeAiProviderLists to combine
+   * both sources into rows with populated models.
+   */
   models: string[];
   /**
    * `managed` = portal / Abbenay file-store (editable).
@@ -402,8 +408,7 @@ export function mergeApmeAiProviderLists(
     const cfg = configById.get(p.id);
     return {
       ...p,
-      models:
-        p.models.length > 0 ? p.models : (cfg?.models ?? p.models ?? []),
+      models: p.models.length > 0 ? p.models : cfg?.models ?? p.models ?? [],
       source: 'managed' as const,
     };
   });
