@@ -107,8 +107,7 @@ export function normalizeRepoUrlFromEntity(entity: Entity): string | null {
 /** Reads default branch from a git-repository catalog entity. */
 export function defaultBranchFromEntity(entity: Entity): string {
   const spec = entity.spec as
-    | { repository_default_branch?: string }
-    | undefined;
+    { repository_default_branch?: string } | undefined;
   return spec?.repository_default_branch ?? 'main';
 }
 

@@ -15,11 +15,17 @@ function displayUrlFromPickerValue(value?: string): string {
     return '';
   }
   // Already a pasted URL in progress (before valid parse stored picker format).
-  if (value.includes('://') || value.startsWith('git@') || value.startsWith('github.com/')) {
+  if (
+    value.includes('://') ||
+    value.startsWith('git@') ||
+    value.startsWith('github.com/')
+  ) {
     return value;
   }
   try {
-    const params = new URLSearchParams(value.includes('?') ? value.split('?')[1] : '');
+    const params = new URLSearchParams(
+      value.includes('?') ? value.split('?')[1] : '',
+    );
     const owner = params.get('owner');
     const repo = params.get('repo');
     if (owner && repo) {
@@ -100,14 +106,23 @@ export const GitHubRepoUrlFieldExtension = ({
         fullWidth
         variant="outlined"
         margin="normal"
-        error={Boolean(rawErrors?.length) || (Boolean(draft.trim()) && !parsed.ok)}
+        error={
+          Boolean(rawErrors?.length) || (Boolean(draft.trim()) && !parsed.ok)
+        }
         helperText={helperText}
         placeholder="https://github.com/owner/repo"
         inputProps={{ 'aria-label': title }}
       />
       {parsed.ok ? (
-        <Typography variant="body2" color="textSecondary" style={{ marginTop: -4 }}>
-          Will register <strong>{parsed.value.owner}/{parsed.value.repo}</strong>
+        <Typography
+          variant="body2"
+          color="textSecondary"
+          style={{ marginTop: -4 }}
+        >
+          Will register{' '}
+          <strong>
+            {parsed.value.owner}/{parsed.value.repo}
+          </strong>
         </Typography>
       ) : null}
     </Box>

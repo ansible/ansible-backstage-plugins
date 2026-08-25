@@ -146,9 +146,7 @@ export const gitRepositoriesExtensionsApiRef =
   });
 
 /** Default: no optional factory plugin UI (ADR-010 zero footprint). */
-export class DefaultGitRepositoriesExtensionsApi
-  implements GitRepositoriesExtensionsApi
-{
+export class DefaultGitRepositoriesExtensionsApi implements GitRepositoriesExtensionsApi {
   getPageTabs(): GitRepositoriesPageTabDefinition[] {
     return [];
   }

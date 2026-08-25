@@ -68,7 +68,7 @@ describe('registerGitRepository', () => {
       () =>
         ({
           createClient: jest.fn().mockResolvedValue(mockScmClient),
-        } as any),
+        }) as any,
     );
 
     discovery.getBaseUrl.mockResolvedValue('http://localhost:7007/api/catalog');
