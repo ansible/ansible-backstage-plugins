@@ -1,0 +1,11 @@
+#!/usr/bin/env sh
+. "$(dirname -- "$0")/_/husky.sh"
+
+if ! command -v pre-commit >/dev/null 2>&1; then
+  echo "husky: pre-commit is not installed."
+  echo "Install with: pip install pre-commit"
+  exit 1
+fi
+
+# Commit-message validation is defined in .pre-commit-config.yaml.
+pre-commit run check-commit-attribution --hook-stage commit-msg --commit-msg-filename "$1"
