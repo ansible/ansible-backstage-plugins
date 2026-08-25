@@ -5,4 +5,6 @@ export {
   GitRepositoriesSidebarItem,
   TemplatesSidebarItem,
   HistorySidebarItem,
+  ContentQualitySidebarItem,
+  ContentSidebarGroup,
 } from './SidebarItems';

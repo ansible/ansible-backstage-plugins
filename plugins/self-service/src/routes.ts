@@ -16,6 +16,10 @@ export const gitRepositoriesRouteRef = createRouteRef({
   id: 'self-service/repositories',
 });
 
+export const contentQualityRouteRef = createRouteRef({
+  id: 'self-service/content-quality',
+});
+
 export const templatesRouteRef = createRouteRef({
   id: 'self-service/templates',
 });

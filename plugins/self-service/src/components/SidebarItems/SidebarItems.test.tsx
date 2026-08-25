@@ -8,6 +8,8 @@ import {
   GitRepositoriesSidebarItem,
   TemplatesSidebarItem,
   HistorySidebarItem,
+  ContentQualitySidebarItem,
+  ContentSidebarGroup,
 } from './SidebarItems';
 
 jest.mock('@backstage/core-plugin-api', () => ({
@@ -24,10 +26,15 @@ jest.mock('@backstage/plugin-permission-react', () => ({
   usePermission: (...args: unknown[]) => mockUsePermission(...args),
 }));
 
-const createMockConfigApi = (permissionEnabled: boolean | undefined) => ({
-  getOptionalBoolean: jest.fn((key: string) =>
-    key === 'permission.enabled' ? permissionEnabled : undefined,
-  ),
+const createMockConfigApi = (
+  permissionEnabled: boolean | undefined,
+  apmeEnabled?: boolean,
+) => ({
+  getOptionalBoolean: jest.fn((key: string) => {
+    if (key === 'permission.enabled') return permissionEnabled;
+    if (key === 'ansible.apme.enabled') return apmeEnabled;
+    return undefined;
+  }),
   getString: jest.fn(),
   getOptionalString: jest.fn(),
   getConfig: jest.fn(),
@@ -635,5 +642,145 @@ describe('HistorySidebarItem', () => {
         type: 'basic',
       }),
     });
+  });
+});
+
+describe('ContentQualitySidebarItem', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+  });
+
+  it('renders sidebar item when permission framework is disabled', async () => {
+    mockUsePermission.mockReturnValue({
+      loading: false,
+      allowed: false,
+    });
+
+    await renderInTestApp(
+      <TestApiProvider apis={[[configApiRef, createMockConfigApi(false)]]}>
+        <ContentQualitySidebarItem />
+      </TestApiProvider>,
+    );
+
+    const link = screen.getByRole('link', { name: /Content quality/i });
+    expect(link).toBeInTheDocument();
+    expect(link).toHaveAttribute('href', '/self-service/content-quality');
+  });
+
+  it('renders sidebar item when permission framework enabled and allowed', async () => {
+    mockUsePermission.mockReturnValue({ loading: false, allowed: true });
+
+    await renderInTestApp(
+      <TestApiProvider apis={[[configApiRef, createMockConfigApi(true)]]}>
+        <ContentQualitySidebarItem />
+      </TestApiProvider>,
+    );
+
+    const link = screen.getByRole('link', { name: /Content quality/i });
+    expect(link).toBeInTheDocument();
+    expect(link).toHaveAttribute('href', '/self-service/content-quality');
+  });
+
+  it('calls usePermission with git repositories view permission', async () => {
+    mockUsePermission.mockReturnValue({ loading: false, allowed: true });
+
+    await renderInTestApp(
+      <TestApiProvider apis={[[configApiRef, createMockConfigApi(true)]]}>
+        <ContentQualitySidebarItem />
+      </TestApiProvider>,
+    );
+
+    expect(mockUsePermission).toHaveBeenCalledWith({
+      permission: expect.objectContaining({
+        name: 'ansible.git-repositories.view',
+        type: 'basic',
+      }),
+    });
+  });
+});
+
+describe('ContentSidebarGroup', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+  });
+
+  it('renders flat GitRepositoriesSidebarItem when APME is disabled', async () => {
+    mockUsePermission.mockReturnValue({ loading: false, allowed: true });
+
+    await renderInTestApp(
+      <TestApiProvider
+        apis={[[configApiRef, createMockConfigApi(false, false)]]}
+      >
+        <ContentSidebarGroup />
+      </TestApiProvider>,
+    );
+
+    const link = screen.getByRole('link', { name: /Git Repositories/i });
+    expect(link).toBeInTheDocument();
+    expect(link).toHaveAttribute('href', '/self-service/repositories');
+    expect(screen.queryByText('Content quality')).not.toBeInTheDocument();
+  });
+
+  it('renders flat GitRepositoriesSidebarItem when APME is undefined', async () => {
+    mockUsePermission.mockReturnValue({ loading: false, allowed: true });
+
+    await renderInTestApp(
+      <TestApiProvider
+        apis={[[configApiRef, createMockConfigApi(false, undefined)]]}
+      >
+        <ContentSidebarGroup />
+      </TestApiProvider>,
+    );
+
+    const link = screen.getByRole('link', { name: /Git Repositories/i });
+    expect(link).toBeInTheDocument();
+  });
+
+  it('renders Content submenu with Git Repositories and Content quality when APME is enabled', async () => {
+    mockUsePermission.mockReturnValue({ loading: false, allowed: true });
+
+    await renderInTestApp(
+      <TestApiProvider
+        apis={[[configApiRef, createMockConfigApi(false, true)]]}
+      >
+        <ContentSidebarGroup />
+      </TestApiProvider>,
+    );
+
+    expect(screen.getByRole('button', { name: 'Content' })).toBeInTheDocument();
+  });
+
+  it('returns null when permission framework enabled and not allowed', async () => {
+    mockUsePermission.mockReturnValue({ loading: false, allowed: false });
+
+    const { container } = await renderInTestApp(
+      <TestApiProvider
+        apis={[[configApiRef, createMockConfigApi(true, true)]]}
+      >
+        <ContentSidebarGroup />
+      </TestApiProvider>,
+    );
+
+    expect(
+      screen.queryByRole('link', { name: /Git Repositories/i }),
+    ).not.toBeInTheDocument();
+    expect(container.firstChild).toBeNull();
+  });
+
+  it('returns null when permission framework enabled and loading', async () => {
+    mockUsePermission.mockReturnValue({ loading: true, allowed: false });
+
+    const { container } = await renderInTestApp(
+      <TestApiProvider
+        apis={[[configApiRef, createMockConfigApi(true, true)]]}
+      >
+        <ContentSidebarGroup />
+      </TestApiProvider>,
+    );
+
+    expect(
+      screen.queryByRole('link', { name: /Git Repositories/i }),
+    ).not.toBeInTheDocument();
+    expect(container.firstChild).toBeNull();
   });
 });
