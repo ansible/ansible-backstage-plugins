@@ -11,6 +11,7 @@ import {
   GitRepositoriesPage,
   GitRepositoriesRoutesPage,
 } from './GitRepositoriesPage';
+import { gitReposCache } from './gitReposCache';
 
 const LocationPathname = () => {
   const { pathname } = useLocation();
@@ -710,5 +711,136 @@ describe('GitRepositoriesPage', () => {
     fireEvent.click(ciActivityTab);
 
     expect(screen.getByTestId('ci-activity-tab')).toBeInTheDocument();
+  });
+
+  it('invalidates cache when navigating with refresh=true parameter', async () => {
+    const invalidateSpy = jest.spyOn(gitReposCache, 'invalidateFetchedData');
+
+    await renderInTestApp(
+      <TestApiProvider
+        apis={[
+          [discoveryApiRef, mockDiscoveryApi],
+          [fetchApiRef, mockFetchApi],
+          [
+            gitRepositoriesExtensionsApiRef,
+            new DefaultGitRepositoriesExtensionsApi(),
+          ],
+        ]}
+      >
+        <ThemeProvider theme={theme}>
+          <Routes>
+            <Route path="/repositories/*" element={<GitRepositoriesPage />} />
+            <Route path="*" element={<LocationPathname />} />
+          </Routes>
+        </ThemeProvider>
+      </TestApiProvider>,
+      {
+        routeEntries: ['/repositories/catalog?refresh=true'],
+      },
+    );
+
+    await waitFor(() => {
+      expect(invalidateSpy).toHaveBeenCalled();
+    });
+
+    invalidateSpy.mockRestore();
+  });
+
+  it('removes refresh parameter from URL after cache invalidation', async () => {
+    const invalidateSpy = jest.spyOn(gitReposCache, 'invalidateFetchedData');
+
+    await renderInTestApp(
+      <TestApiProvider
+        apis={[
+          [discoveryApiRef, mockDiscoveryApi],
+          [fetchApiRef, mockFetchApi],
+          [
+            gitRepositoriesExtensionsApiRef,
+            new DefaultGitRepositoriesExtensionsApi(),
+          ],
+        ]}
+      >
+        <ThemeProvider theme={theme}>
+          <Routes>
+            <Route path="/repositories/*" element={<GitRepositoriesPage />} />
+            <Route path="*" element={<LocationPathname />} />
+          </Routes>
+        </ThemeProvider>
+      </TestApiProvider>,
+      {
+        routeEntries: ['/repositories/catalog?refresh=true'],
+      },
+    );
+
+    await waitFor(() => {
+      expect(invalidateSpy).toHaveBeenCalled();
+    });
+
+    await waitFor(() => {
+      const locationEl = screen.getByTestId('location-pathname');
+      expect(locationEl.textContent).toBe('/repositories/catalog');
+    });
+
+    invalidateSpy.mockRestore();
+  });
+
+  it('does not invalidate cache on normal navigation without refresh parameter', async () => {
+    const invalidateSpy = jest.spyOn(gitReposCache, 'invalidateFetchedData');
+
+    await renderInTestApp(
+      <TestApiProvider
+        apis={[
+          [discoveryApiRef, mockDiscoveryApi],
+          [fetchApiRef, mockFetchApi],
+          [
+            gitRepositoriesExtensionsApiRef,
+            new DefaultGitRepositoriesExtensionsApi(),
+          ],
+        ]}
+      >
+        <ThemeProvider theme={theme}>
+          <GitRepositoriesPage />
+        </ThemeProvider>
+      </TestApiProvider>,
+      { routeEntries: ['/repositories/catalog'] },
+    );
+
+    await waitFor(() => {
+      expect(screen.getByTestId('repositories-table')).toBeInTheDocument();
+    });
+
+    expect(invalidateSpy).not.toHaveBeenCalled();
+
+    invalidateSpy.mockRestore();
+  });
+
+  it('does not invalidate cache when refresh parameter is not "true"', async () => {
+    const invalidateSpy = jest.spyOn(gitReposCache, 'invalidateFetchedData');
+
+    await renderInTestApp(
+      <TestApiProvider
+        apis={[
+          [discoveryApiRef, mockDiscoveryApi],
+          [fetchApiRef, mockFetchApi],
+          [
+            gitRepositoriesExtensionsApiRef,
+            new DefaultGitRepositoriesExtensionsApi(),
+          ],
+        ]}
+      >
+        <ThemeProvider theme={theme}>
+          <GitRepositoriesPage />
+        </ThemeProvider>
+      </TestApiProvider>,
+      { routeEntries: ['/repositories/catalog?refresh=false'] },
+    );
+
+    await waitFor(() => {
+      expect(screen.getByTestId('repositories-table')).toBeInTheDocument();
+    });
+
+    expect(invalidateSpy).not.toHaveBeenCalled();
+
+    invalidateSpy.mockRestore();
   });
 });

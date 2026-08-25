@@ -14,6 +14,7 @@ import {
   Routes,
   useLocation,
   useNavigate,
+  useSearchParams,
 } from 'react-router-dom';
 import {
   RequirePermission,
@@ -175,6 +176,7 @@ export const GitRepositoriesPage = () => {
   const classes = useStyles();
   const location = useLocation();
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
   const discoveryApi = useApi(discoveryApiRef);
   const fetchApi = useApi(fetchApiRef);
   const extensionsApi = useGitRepositoriesExtensions();
@@ -315,6 +317,15 @@ export const GitRepositoriesPage = () => {
     }
     prevSyncInProgressRef.current = isSyncInProgress;
   }, [isSyncInProgress, fetchSyncStatus]);
+
+  useEffect(() => {
+    const shouldRefresh = searchParams.get('refresh');
+    if (shouldRefresh === 'true') {
+      gitReposCache.invalidateFetchedData();
+      searchParams.delete('refresh');
+      setSearchParams(searchParams, { replace: true });
+    }
+  }, [searchParams, setSearchParams]);
 
   const handleSyncClick = () => setSyncDialogOpen(true);
   const handleSourcesStatusChange = useCallback((status: boolean | null) => {
