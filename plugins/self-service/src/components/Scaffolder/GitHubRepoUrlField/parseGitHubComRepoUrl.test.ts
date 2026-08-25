@@ -83,4 +83,19 @@ describe('parseGitHubComRepoUrl', () => {
       parseGitHubComRepoUrl('https://github.com/acme/playbooks/tree/%').ok,
     ).toBe(false);
   });
+
+  it('strips an encoded .git suffix after decoding', () => {
+    const result = parseGitHubComRepoUrl(
+      'https://github.com/acme/playbooks%2Egit',
+    );
+    expect(result).toEqual({
+      ok: true,
+      value: {
+        owner: 'acme',
+        repo: 'playbooks',
+        httpsUrl: 'https://github.com/acme/playbooks',
+        repoUrlPicker: 'github.com?owner=acme&repo=playbooks',
+      },
+    });
+  });
 });

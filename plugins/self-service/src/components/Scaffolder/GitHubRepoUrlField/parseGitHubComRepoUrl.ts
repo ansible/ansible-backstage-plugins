@@ -88,7 +88,7 @@ export function parseGitHubComRepoUrl(raw: string): ParseGitHubComRepoResult {
   }
 
   const owner = decodeIdentitySegment(parts[0]);
-  const repo = decodeIdentitySegment(stripGitSuffix(parts[1]));
+  const repo = stripGitSuffix(decodeIdentitySegment(parts[1]) ?? '');
   if (
     !owner ||
     !repo ||

@@ -64,6 +64,8 @@ export function normalizeSourceLocation(sourceLocation: string): string | null {
     value = value.slice(4).trim();
   }
 
+  value = normalizeRepoUrl(value);
+
   try {
     const url = new URL(value);
     const segments = url.pathname.split('/').filter(Boolean);

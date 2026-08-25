@@ -178,6 +178,14 @@ describe('registerGitRepository', () => {
     expect(body.entity.spec.owner).toBe('group:default/my-team');
   });
 
+  it('throws when owner cannot be determined', async () => {
+    const action = makeAction();
+    const ctx = makeCtx({ owner: undefined }, { user: undefined });
+
+    await expect(action.handler(ctx)).rejects.toThrow('owner is required');
+    expect(mockFetch).not.toHaveBeenCalled();
+  });
+
   it('sanitizes owner/repo names into a valid entity name', async () => {
     const action = makeAction();
     const ctx = makeCtx({

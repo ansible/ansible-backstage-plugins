@@ -60,6 +60,17 @@ describe('catalogEntity', () => {
     );
   });
 
+  it('derives lookup key from an SCP-style source-location annotation', () => {
+    const entity = gitEntity();
+    entity.metadata.annotations = {
+      'backstage.io/source-location':
+        'url:git@github.com:acme/terrible-playbook.git',
+    };
+    expect(projectLookupKeyFromEntity(entity)).toBe(
+      'https://github.com/acme/terrible-playbook#main',
+    );
+  });
+
   it('returns null when entity has no repo URL', () => {
     const entity: Entity = {
       apiVersion: 'backstage.io/v1alpha1',

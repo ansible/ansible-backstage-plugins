@@ -211,7 +211,12 @@ export function registerGitRepositoryAction(options: {
         values.repositoryOwner,
         values.repositoryName,
       );
-      const owner = values.owner || ctx.user?.ref || '';
+      const owner = values.owner || ctx.user?.ref;
+      if (!owner) {
+        throw new Error(
+          '[ansible:register:git-repository] owner is required (pass owner or run the template as an authenticated user).',
+        );
+      }
 
       const scmClientFactory = new ScmClientFactory({ rootConfig, logger });
       const scmClient = await scmClientFactory.createClient({

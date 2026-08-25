@@ -1063,6 +1063,23 @@ describe('createRouter', () => {
       expect(provider.registerRepository).not.toHaveBeenCalled();
     });
 
+    it('returns 400 when kind is not Component', async () => {
+      const provider = {
+        registerRepository: jest.fn(),
+      };
+      const testApp = await makeGitRepoApp(provider);
+
+      const response = await request(testApp)
+        .post('/ansible/git-repository')
+        .send({
+          entity: { ...gitEntity, kind: 'API' },
+        })
+        .expect(400);
+
+      expect(response.body.error).toContain('Kind must be "Component"');
+      expect(provider.registerRepository).not.toHaveBeenCalled();
+    });
+
     it('returns 409 when the repository is already registered', async () => {
       const provider = {
         registerRepository: jest.fn(),

@@ -407,6 +407,13 @@ export async function createRouter(options: {
         return;
       }
 
+      if (entity?.kind !== 'Component') {
+        response.status(400).json({
+          error: 'Kind must be "Component" for Git repository registration',
+        });
+        return;
+      }
+
       const entityName = entity?.metadata?.name;
       if (typeof entityName !== 'string' || entityName.length === 0) {
         response.status(400).json({
