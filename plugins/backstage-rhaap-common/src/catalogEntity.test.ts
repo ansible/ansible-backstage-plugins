@@ -5,8 +5,13 @@
 import { Entity } from '@backstage/catalog-model';
 import {
   defaultBranchFromEntity,
+  normalizeRepoUrl,
+  normalizeRepoUrlFromEntity,
+  normalizeSourceLocation,
   projectLookupKey,
   projectLookupKeyFromEntity,
+  projectNameFromRepoUrl,
+  scmOrganizationFromEntity,
 } from './catalogEntity';
 
 describe('catalogEntity', () => {
@@ -79,5 +84,68 @@ describe('catalogEntity', () => {
       spec: { type: 'git-repository' },
     };
     expect(projectLookupKeyFromEntity(entity)).toBeNull();
+  });
+
+  it('derives a project name from org/repo in a clone URL', () => {
+    expect(
+      projectNameFromRepoUrl('https://github.com/acme/playbooks.git'),
+    ).toBe('acme/playbooks');
+    expect(projectNameFromRepoUrl('not-a-url')).toBe('not-a-url');
+    expect(projectNameFromRepoUrl('')).toBe('repository');
+  });
+
+  it('normalizes a host-only source location', () => {
+    expect(normalizeSourceLocation('https://github.com')).toBe(
+      'https://github.com',
+    );
+  });
+
+  it('falls back to github.com for org/repo source locations', () => {
+    expect(normalizeSourceLocation('acme/playbooks')).toBe(
+      'https://github.com/acme/playbooks',
+    );
+  });
+
+  it('returns null for a source location that is not a URL or org/repo', () => {
+    expect(normalizeSourceLocation('solo')).toBeNull();
+  });
+
+  it('reads a repo URL from github.com/project-slug when source-location is absent', () => {
+    const entity: Entity = {
+      apiVersion: 'backstage.io/v1alpha1',
+      kind: 'Component',
+      metadata: {
+        name: 'slug-repo',
+        annotations: { 'github.com/project-slug': 'acme/playbooks' },
+      },
+    };
+    expect(normalizeRepoUrlFromEntity(entity)).toBe(
+      'https://github.com/acme/playbooks',
+    );
+  });
+
+  it('reads a repo URL from SCM annotations', () => {
+    const entity: Entity = {
+      apiVersion: 'backstage.io/v1alpha1',
+      kind: 'Component',
+      metadata: {
+        name: 'scm-repo',
+        annotations: {
+          'ansible.io/scm-host': 'https://gitlab.com/',
+          'ansible.io/scm-organization': 'acme',
+          'ansible.io/scm-repository': 'playbooks',
+        },
+      },
+    };
+    expect(normalizeRepoUrlFromEntity(entity)).toBe(
+      'https://gitlab.com/acme/playbooks',
+    );
+    expect(scmOrganizationFromEntity(entity)).toBe('acme');
+  });
+
+  it('strips trailing slashes from clone URLs', () => {
+    expect(normalizeRepoUrl('https://github.com/acme/playbooks///')).toBe(
+      'https://github.com/acme/playbooks',
+    );
   });
 });
