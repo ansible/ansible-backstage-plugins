@@ -40,13 +40,22 @@ jest.mock('@backstage/core-components', () => {
       title,
       data,
       columns,
+      onSearchChange,
     }: {
       title: string;
       data: unknown[];
       columns: TableColumn[];
+      onSearchChange?: (searchText: string) => void;
     }) => (
       <div data-testid="table">
         <div data-testid="table-title">{title}</div>
+        {onSearchChange && (
+          <input
+            data-testid="table-search"
+            placeholder="Search"
+            onChange={e => onSearchChange(e.target.value)}
+          />
+        )}
         <table>
           <thead>
             <tr>
@@ -919,5 +928,40 @@ describe('RepositoriesTable', () => {
     expect(screen.getByTestId('table-title')).toHaveTextContent(
       'Git Repositories (2)',
     );
+  });
+
+  it('searches across all pages and resets to page 1', async () => {
+    const items = [
+      ...Array.from({ length: 11 }, (_, i) =>
+        createMockEntity(`alpha-repo-${String(i).padStart(2, '0')}`),
+      ),
+      createMockEntity('terrible-playbook'),
+    ];
+    mockCatalogApi.getEntities.mockResolvedValue({ items });
+
+    renderTable();
+
+    await waitFor(() => {
+      expect(screen.getByTestId('table-title')).toHaveTextContent(
+        'Git Repositories (12)',
+      );
+    });
+
+    expect(
+      screen.queryByTestId('table-row-terrible-playbook'),
+    ).not.toBeInTheDocument();
+    expect(screen.getByText('Page 1 of 2')).toBeInTheDocument();
+
+    fireEvent.change(screen.getByTestId('table-search'), {
+      target: { value: 'Terrible' },
+    });
+
+    expect(screen.getByTestId('table-title')).toHaveTextContent(
+      'Git Repositories (1)',
+    );
+    expect(
+      screen.getByTestId('table-row-terrible-playbook'),
+    ).toBeInTheDocument();
+    expect(screen.queryByText(/Page /)).not.toBeInTheDocument();
   });
 });
