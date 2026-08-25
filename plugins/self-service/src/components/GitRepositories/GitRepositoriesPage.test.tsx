@@ -14,8 +14,8 @@ import {
 import { gitReposCache } from './gitReposCache';
 
 const LocationPathname = () => {
-  const { pathname } = useLocation();
-  return <div data-testid="location-pathname">{pathname}</div>;
+  const { pathname, search } = useLocation();
+  return <div data-testid="location-pathname">{`${pathname}${search}`}</div>;
 };
 
 const mockUsePermission = jest.fn().mockReturnValue({ allowed: true });
@@ -762,8 +762,15 @@ describe('GitRepositoriesPage', () => {
       >
         <ThemeProvider theme={theme}>
           <Routes>
-            <Route path="/repositories/*" element={<GitRepositoriesPage />} />
-            <Route path="*" element={<LocationPathname />} />
+            <Route
+              path="/repositories/*"
+              element={
+                <>
+                  <LocationPathname />
+                  <GitRepositoriesPage />
+                </>
+              }
+            />
           </Routes>
         </ThemeProvider>
       </TestApiProvider>,
