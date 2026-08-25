@@ -501,41 +501,32 @@ export async function createRouter(options: {
       }
 
       try {
-        let entityToRemove = providedEntity;
+        const ref = entityRef ?? stringifyEntityRef(providedEntity);
 
-        if (entityRef && !providedEntity) {
-          const { token } = await auth.getPluginRequestToken({
-            onBehalfOf: await auth.getOwnServiceCredentials(),
-            targetPluginId: 'catalog',
-          });
+        const { token } = await auth.getPluginRequestToken({
+          onBehalfOf: await auth.getOwnServiceCredentials(),
+          targetPluginId: 'catalog',
+        });
 
-          const entities = await catalogClient.getEntities(
-            {
-              filter: {
-                kind: 'Component',
-                'spec.type': 'git-repository',
-              },
-            },
-            { token },
-          );
+        const fetched = await catalogClient.getEntityByRef(ref, { token });
 
-          entityToRemove = entities.items.find(
-            e => stringifyEntityRef(e) === entityRef,
-          );
-
-          if (!entityToRemove) {
-            response.status(404).json({
-              error: `Entity not found: ${entityRef}`,
-            });
-            return;
-          }
+        if (!fetched) {
+          response.status(404).json({ error: `Entity not found: ${ref}` });
+          return;
         }
 
-        const registrationMethod =
-          entityToRemove?.metadata?.annotations?.[
-            'ansible.io/registration-method'
-          ];
-        if (registrationMethod !== 'manual') {
+        if (
+          fetched.kind !== 'Component' ||
+          (fetched.spec as Record<string, unknown>)?.type !== 'git-repository'
+        ) {
+          response.status(400).json({ error: 'Not a Git repository.' });
+          return;
+        }
+
+        if (
+          fetched.metadata?.annotations?.['ansible.io/registration-method'] !==
+          'manual'
+        ) {
           response.status(400).json({
             error:
               'Only manually-registered repositories can be deregistered via this endpoint.',
@@ -543,10 +534,10 @@ export async function createRouter(options: {
           return;
         }
 
-        await manualGitRepositoryProvider.deregisterRepository(entityToRemove);
+        await manualGitRepositoryProvider.deregisterRepository(fetched);
         response.status(200).json({
           success: true,
-          entityRef: stringifyEntityRef(entityToRemove),
+          entityRef: stringifyEntityRef(fetched),
         });
       } catch (error) {
         const errorMessage =

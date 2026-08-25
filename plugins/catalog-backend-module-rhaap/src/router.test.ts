@@ -963,7 +963,7 @@ describe('createRouter', () => {
     async function createDeleteTestApp(
       overrides: {
         manualGitRepositoryProvider?: ManualGitRepositoryProvider;
-        catalogEntities?: Array<{ kind: string; metadata: { name: string; annotations?: Record<string, string> }; spec?: { type: string } }>;
+        getEntityByRef?: jest.Mock;
       } = {},
     ) {
       const testApp = express();
@@ -971,9 +971,8 @@ describe('createRouter', () => {
 
       const catalogClient = {
         ...mockCatalogClient,
-        getEntities: jest.fn().mockResolvedValue({
-          items: overrides.catalogEntities || [],
-        }),
+        getEntityByRef:
+          overrides.getEntityByRef ?? jest.fn().mockResolvedValue(null),
       };
 
       testApp.use(
@@ -1017,12 +1016,14 @@ describe('createRouter', () => {
       };
 
       const testApp = await createDeleteTestApp({
-        catalogEntities: [mockEntity as any],
+        getEntityByRef: jest.fn().mockResolvedValue(mockEntity),
       });
 
       const response = await request(testApp)
         .delete('/ansible/git-repository')
-        .send({ entity: mockEntity })
+        .send({
+          entityRef: 'component:default/test-org-test-repo-github-manual',
+        })
         .expect(200);
 
       expect(response.body).toEqual({
@@ -1034,7 +1035,7 @@ describe('createRouter', () => {
       ).toHaveBeenCalledWith(mockEntity);
     });
 
-    it('should successfully deregister using entityRef', async () => {
+    it('should successfully deregister using entityRef only', async () => {
       const mockEntity = {
         apiVersion: 'backstage.io/v1alpha1',
         kind: 'Component',
@@ -1051,7 +1052,7 @@ describe('createRouter', () => {
       };
 
       const testApp = await createDeleteTestApp({
-        catalogEntities: [mockEntity as any],
+        getEntityByRef: jest.fn().mockResolvedValue(mockEntity),
       });
 
       const response = await request(testApp)
@@ -1067,7 +1068,7 @@ describe('createRouter', () => {
       });
       expect(
         mockManualGitRepositoryProvider.deregisterRepository,
-      ).toHaveBeenCalled();
+      ).toHaveBeenCalledWith(mockEntity);
     });
 
     it('should return 400 when entityRef and entity are both missing', async () => {
@@ -1084,7 +1085,7 @@ describe('createRouter', () => {
     });
 
     it('should return 400 when trying to deregister a non-manual repository', async () => {
-      const mockEntity = {
+      const crawlerEntity = {
         apiVersion: 'backstage.io/v1alpha1',
         kind: 'Component',
         metadata: {
@@ -1099,11 +1100,13 @@ describe('createRouter', () => {
         },
       };
 
-      const testApp = await createDeleteTestApp();
+      const testApp = await createDeleteTestApp({
+        getEntityByRef: jest.fn().mockResolvedValue(crawlerEntity),
+      });
 
       const response = await request(testApp)
         .delete('/ansible/git-repository')
-        .send({ entity: mockEntity })
+        .send({ entityRef: 'component:default/test-repo' })
         .expect(400);
 
       expect(response.body).toEqual({
@@ -1112,9 +1115,237 @@ describe('createRouter', () => {
       });
     });
 
+    it('should return 400 when a client sends a forged manual annotation but catalog holds a crawler entity', async () => {
+      const catalogCrawlerEntity = {
+        apiVersion: 'backstage.io/v1alpha1',
+        kind: 'Component',
+        metadata: {
+          name: 'crawler-repo',
+          namespace: 'default',
+          annotations: {
+            'ansible.io/discovery-source-id': 'github:github.com:my-org',
+          },
+        },
+        spec: { type: 'git-repository' },
+      };
+
+      const testApp = await createDeleteTestApp({
+        getEntityByRef: jest.fn().mockResolvedValue(catalogCrawlerEntity),
+      });
+
+      // Body has forged manual annotation; backend must ignore it and check catalog
+      const response = await request(testApp)
+        .delete('/ansible/git-repository')
+        .send({
+          entityRef: 'component:default/crawler-repo',
+          entity: {
+            ...catalogCrawlerEntity,
+            metadata: {
+              ...catalogCrawlerEntity.metadata,
+              annotations: { 'ansible.io/registration-method': 'manual' },
+            },
+          },
+        })
+        .expect(400);
+
+      expect(response.body).toEqual({
+        error:
+          'Only manually-registered repositories can be deregistered via this endpoint.',
+      });
+      expect(
+        mockManualGitRepositoryProvider.deregisterRepository,
+      ).not.toHaveBeenCalled();
+    });
+
+    it('should return 400 when catalog entity has wrong kind', async () => {
+      const apiEntity = {
+        apiVersion: 'backstage.io/v1alpha1',
+        kind: 'API',
+        metadata: {
+          name: 'some-api',
+          namespace: 'default',
+          annotations: {
+            'ansible.io/registration-method': 'manual',
+          },
+        },
+        spec: {
+          type: 'openapi',
+        },
+      };
+
+      const testApp = await createDeleteTestApp({
+        getEntityByRef: jest.fn().mockResolvedValue(apiEntity),
+      });
+
+      const response = await request(testApp)
+        .delete('/ansible/git-repository')
+        .send({ entityRef: 'api:default/some-api' })
+        .expect(400);
+
+      expect(response.body).toEqual({
+        error: 'Not a Git repository.',
+      });
+      expect(
+        mockManualGitRepositoryProvider.deregisterRepository,
+      ).not.toHaveBeenCalled();
+    });
+
+    it('should return 400 when catalog entity has wrong spec.type', async () => {
+      const serviceEntity = {
+        apiVersion: 'backstage.io/v1alpha1',
+        kind: 'Component',
+        metadata: {
+          name: 'some-service',
+          namespace: 'default',
+          annotations: {
+            'ansible.io/registration-method': 'manual',
+          },
+        },
+        spec: {
+          type: 'service',
+        },
+      };
+
+      const testApp = await createDeleteTestApp({
+        getEntityByRef: jest.fn().mockResolvedValue(serviceEntity),
+      });
+
+      const response = await request(testApp)
+        .delete('/ansible/git-repository')
+        .send({ entityRef: 'component:default/some-service' })
+        .expect(400);
+
+      expect(response.body).toEqual({
+        error: 'Not a Git repository.',
+      });
+      expect(
+        mockManualGitRepositoryProvider.deregisterRepository,
+      ).not.toHaveBeenCalled();
+    });
+
+    it('should return 400 when catalog entity has null spec', async () => {
+      const noSpecEntity = {
+        apiVersion: 'backstage.io/v1alpha1',
+        kind: 'Component',
+        metadata: {
+          name: 'broken-entity',
+          namespace: 'default',
+          annotations: {
+            'ansible.io/registration-method': 'manual',
+          },
+        },
+        spec: null,
+      };
+
+      const testApp = await createDeleteTestApp({
+        getEntityByRef: jest.fn().mockResolvedValue(noSpecEntity),
+      });
+
+      const response = await request(testApp)
+        .delete('/ansible/git-repository')
+        .send({ entityRef: 'component:default/broken-entity' })
+        .expect(400);
+
+      expect(response.body).toEqual({
+        error: 'Not a Git repository.',
+      });
+    });
+
+    it('should derive entityRef from entity body when entityRef is not provided', async () => {
+      const mockEntity = {
+        apiVersion: 'backstage.io/v1alpha1',
+        kind: 'Component',
+        metadata: {
+          name: 'test-org-test-repo-github-manual',
+          namespace: 'default',
+          annotations: {
+            'ansible.io/registration-method': 'manual',
+          },
+        },
+        spec: {
+          type: 'git-repository',
+        },
+      };
+
+      const getEntityByRef = jest.fn().mockResolvedValue(mockEntity);
+      const testApp = await createDeleteTestApp({ getEntityByRef });
+
+      const response = await request(testApp)
+        .delete('/ansible/git-repository')
+        .send({ entity: mockEntity })
+        .expect(200);
+
+      expect(response.body).toEqual({
+        success: true,
+        entityRef: 'component:default/test-org-test-repo-github-manual',
+      });
+      expect(getEntityByRef).toHaveBeenCalledWith(
+        'component:default/test-org-test-repo-github-manual',
+        expect.objectContaining({ token: expect.any(String) }),
+      );
+      expect(
+        mockManualGitRepositoryProvider.deregisterRepository,
+      ).toHaveBeenCalledWith(mockEntity);
+    });
+
+    it('should use entityRef for catalog lookup even when entity body is also provided', async () => {
+      const catalogEntity = {
+        apiVersion: 'backstage.io/v1alpha1',
+        kind: 'Component',
+        metadata: {
+          name: 'real-repo',
+          namespace: 'default',
+          annotations: {
+            'ansible.io/registration-method': 'manual',
+          },
+        },
+        spec: { type: 'git-repository' },
+      };
+
+      const getEntityByRef = jest.fn().mockResolvedValue(catalogEntity);
+      const testApp = await createDeleteTestApp({ getEntityByRef });
+
+      const response = await request(testApp)
+        .delete('/ansible/git-repository')
+        .send({
+          entityRef: 'component:default/real-repo',
+          entity: {
+            kind: 'Component',
+            metadata: {
+              name: 'different-entity',
+              namespace: 'default',
+              annotations: { 'ansible.io/registration-method': 'manual' },
+            },
+            spec: { type: 'git-repository' },
+          },
+        })
+        .expect(200);
+
+      expect(getEntityByRef).toHaveBeenCalledWith(
+        'component:default/real-repo',
+        expect.any(Object),
+      );
+      expect(response.body.entityRef).toBe('component:default/real-repo');
+    });
+
+    it('should return 500 when stringifyEntityRef fails for malformed entity body', async () => {
+      const testApp = await createDeleteTestApp();
+
+      const response = await request(testApp)
+        .delete('/ansible/git-repository')
+        .send({
+          entity: { metadata: { name: 'no-kind' } },
+        })
+        .expect(500);
+
+      expect(response.body.error).toContain(
+        'Failed to deregister Git repository',
+      );
+    });
+
     it('should return 404 when entity is not found by entityRef', async () => {
       const testApp = await createDeleteTestApp({
-        catalogEntities: [],
+        getEntityByRef: jest.fn().mockResolvedValue(null),
       });
 
       const response = await request(testApp)
@@ -1225,11 +1456,13 @@ describe('createRouter', () => {
         },
       };
 
-      const testApp = await createDeleteTestApp();
+      const testApp = await createDeleteTestApp({
+        getEntityByRef: jest.fn().mockResolvedValue(mockEntity),
+      });
 
       const response = await request(testApp)
         .delete('/ansible/git-repository')
-        .send({ entity: mockEntity })
+        .send({ entityRef: 'component:default/test-repo' })
         .expect(500);
 
       expect(response.body).toEqual({

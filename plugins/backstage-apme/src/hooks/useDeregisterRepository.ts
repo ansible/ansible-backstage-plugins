@@ -53,7 +53,6 @@ export function useDeregisterRepository(
         },
         body: JSON.stringify({
           entityRef: stringifyEntityRef(entity),
-          entity,
         }),
       });
 

@@ -220,5 +220,31 @@ describe('ManualGitRepositoryProvider', () => {
         'Name [metadata.name] is required for Git repository deregistration',
       );
     });
+
+    it('should throw error when spec.type is missing', async () => {
+      const entityWithoutType = {
+        ...validEntity,
+        spec: {},
+      };
+
+      await expect(
+        provider.deregisterRepository(entityWithoutType as any),
+      ).rejects.toThrow(
+        'Type [spec.type] must be "git-repository" for Git repository deregistration',
+      );
+    });
+
+    it('should throw error when spec.type is not "git-repository"', async () => {
+      const entityWithWrongType = {
+        ...validEntity,
+        spec: { type: 'wrong-type' },
+      };
+
+      await expect(
+        provider.deregisterRepository(entityWithWrongType as any),
+      ).rejects.toThrow(
+        'Type [spec.type] must be "git-repository" for Git repository deregistration',
+      );
+    });
   });
 });

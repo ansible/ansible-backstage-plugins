@@ -80,6 +80,12 @@ export class ManualGitRepositoryProvider implements EntityProvider {
       );
     }
 
+    if (!entity?.spec?.type || entity.spec.type !== 'git-repository') {
+      throw new Error(
+        'Type [spec.type] must be "git-repository" for Git repository deregistration',
+      );
+    }
+
     this.logger.info(
       `Deregistering manually-added Git repository entity ${entity.metadata.name}`,
     );
