@@ -79,7 +79,11 @@ function parseGitLabActivity(
     typeof pipeline.created_at === 'string' ? pipeline.created_at : undefined,
   );
   return {
-    text: `Pipeline #${typeof pipeline.id === 'string' || typeof pipeline.id === 'number' ? String(pipeline.id) : ''} • ${timeAgo}`,
+    text: `Pipeline #${
+      typeof pipeline.id === 'string' || typeof pipeline.id === 'number'
+        ? String(pipeline.id)
+        : ''
+    } • ${timeAgo}`,
     url: typeof pipeline.web_url === 'string' ? pipeline.web_url : undefined,
   };
 }
