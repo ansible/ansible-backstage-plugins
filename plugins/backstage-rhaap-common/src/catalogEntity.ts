@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-import { Entity } from '@backstage/catalog-model';
+import type { Entity } from '@backstage/catalog-model';
 
 function stripTrailingSlashes(value: string): string {
   let end = value.length;
@@ -29,6 +29,12 @@ export function normalizeRepoUrl(repoUrl: string): string {
   let value = stripTrailingSlashes(repoUrl.trim());
   if (value.endsWith('.git')) {
     value = value.slice(0, -4);
+  }
+
+  const scpLikeSshUrl = value.match(/^[^@/\s]+@([^:/\s]+):(.+)$/);
+  if (scpLikeSshUrl) {
+    const [, host, path] = scpLikeSshUrl;
+    return `https://${host.toLowerCase()}/${stripTrailingSlashes(path)}`;
   }
 
   try {

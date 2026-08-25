@@ -35,6 +35,14 @@ describe('catalogEntity', () => {
     ).toBe('https://github.com/acme/terrible-playbook#backup');
   });
 
+  it('builds equivalent lookup keys for HTTPS and SCP-style SSH clone URLs', () => {
+    expect(
+      projectLookupKey('git@github.com:acme/terrible-playbook.git', 'main'),
+    ).toBe(
+      projectLookupKey('https://github.com/acme/terrible-playbook', 'main'),
+    );
+  });
+
   it('defaults branch to main when omitted', () => {
     expect(projectLookupKey('https://github.com/acme/repo')).toBe(
       'https://github.com/acme/repo#main',

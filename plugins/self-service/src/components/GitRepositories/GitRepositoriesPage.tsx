@@ -6,7 +6,12 @@ import {
   useMemo,
   Suspense,
 } from 'react';
-import { Page, Content, HeaderTabs } from '@backstage/core-components';
+import {
+  Page,
+  Content,
+  HeaderTabs,
+  ErrorBoundary,
+} from '@backstage/core-components';
 import { Box, makeStyles } from '@material-ui/core';
 import {
   Navigate,
@@ -156,14 +161,19 @@ export function repositoryTabPathMatches(
   return nextChar === undefined || nextChar === '/' || nextChar === '?';
 }
 
+const findMatchingTab = (
+  pathname: string,
+  tabs: ResolvedGitRepoTab[],
+): ResolvedGitRepoTab | undefined =>
+  [...tabs]
+    .sort((a, b) => b.path.length - a.path.length)
+    .find(tab => repositoryTabPathMatches(pathname, tab.path));
+
 const getTabIndexFromPath = (
   pathname: string,
   tabs: ResolvedGitRepoTab[],
 ): number => {
-  const sorted = [...tabs].sort((a, b) => b.path.length - a.path.length);
-  const matched = sorted.find(tab =>
-    repositoryTabPathMatches(pathname, tab.path),
-  );
+  const matched = findMatchingTab(pathname, tabs);
   if (!matched) {
     return 0;
   }
@@ -292,9 +302,7 @@ export const GitRepositoriesPage = () => {
   // Deep-linking straight to a permission-gated tab's path must not leave the
   // user stranded on a URL for a tab that's hidden from the tab bar.
   useEffect(() => {
-    const matchedTab = tabs.find(tab =>
-      repositoryTabPathMatches(location.pathname, tab.path),
-    );
+    const matchedTab = findMatchingTab(location.pathname, tabs);
     if (
       matchedTab?.kind === 'extension' &&
       matchedTab.permission &&
@@ -364,9 +372,11 @@ export const GitRepositoriesPage = () => {
     );
   } else if (activeTab?.kind === 'extension') {
     content = (
-      <Suspense fallback={null}>
-        {activeTab.render({ repositoryDetailPath })}
-      </Suspense>
+      <ErrorBoundary>
+        <Suspense fallback={null}>
+          {activeTab.render({ repositoryDetailPath })}
+        </Suspense>
+      </ErrorBoundary>
     );
   } else {
     content = (

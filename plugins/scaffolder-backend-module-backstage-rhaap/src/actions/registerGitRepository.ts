@@ -14,6 +14,60 @@ interface RegisterGitRepositoryInput {
   token?: string;
 }
 
+const SUPPORTED_SCM_PROVIDERS = ['github', 'gitlab'] as const;
+type SupportedScmProvider = (typeof SUPPORTED_SCM_PROVIDERS)[number];
+
+function isSupportedScmProvider(value: string): value is SupportedScmProvider {
+  return (SUPPORTED_SCM_PROVIDERS as readonly string[]).includes(value);
+}
+
+function assertRepositoryUrlMatchesIdentity(
+  repositoryUrl: string,
+  provider: SupportedScmProvider,
+  owner: string,
+  repo: string,
+): void {
+  let url: URL;
+  try {
+    url = new URL(repositoryUrl);
+  } catch {
+    throw new Error(
+      '[ansible:register:git-repository] repositoryUrl must be a valid HTTPS URL.',
+    );
+  }
+
+  if (url.protocol !== 'https:') {
+    throw new Error(
+      '[ansible:register:git-repository] repositoryUrl must use https.',
+    );
+  }
+
+  if (provider === 'github' && url.hostname.toLowerCase() !== 'github.com') {
+    throw new Error(
+      '[ansible:register:git-repository] GitHub repositoryUrl must be hosted on github.com.',
+    );
+  }
+
+  const path = url.pathname.replace(/\.git$/i, '');
+  const parts = path.split('/').filter(Boolean);
+  if (parts.length < 2) {
+    throw new Error(
+      '[ansible:register:git-repository] repositoryUrl must include owner and repository.',
+    );
+  }
+
+  const urlRepo = parts[parts.length - 1];
+  const urlOwner = parts.slice(0, -1).join('/');
+  if (
+    urlOwner.toLowerCase() !== owner.toLowerCase() ||
+    urlRepo.toLowerCase() !== repo.toLowerCase()
+  ) {
+    throw new Error(
+      `[ansible:register:git-repository] repositoryUrl does not match ${owner}/${repo}.`,
+    );
+  }
+}
+
 /**
  * Builds a Backstage catalog entity object for a Git repository registered
  * directly by a user (e.g. via the "Register repo" scaffolder template).
@@ -112,7 +166,9 @@ export function registerGitRepositoryAction(options: {
     schema: {
       input: {
         sourceControlProvider: z =>
-          z.string({ description: 'SCM provider (e.g. github, gitlab)' }),
+          z.enum(['github', 'gitlab'], {
+            description: 'SCM provider (github or gitlab)',
+          }),
         repositoryOwner: z => z.string(),
         repositoryName: z => z.string(),
         repositoryUrl: z =>
@@ -142,8 +198,19 @@ export function registerGitRepositoryAction(options: {
     async handler(ctx) {
       const { input, logger } = ctx;
       const values = input as unknown as RegisterGitRepositoryInput;
-      const sourceControlProvider =
-        values.sourceControlProvider.toLowerCase() as 'github' | 'gitlab';
+      const sourceControlProvider = values.sourceControlProvider.toLowerCase();
+      if (!isSupportedScmProvider(sourceControlProvider)) {
+        throw new Error(
+          `[ansible:register:git-repository] Unsupported source control provider "${values.sourceControlProvider}". ` +
+            `Supported values: ${SUPPORTED_SCM_PROVIDERS.join(', ')}.`,
+        );
+      }
+      assertRepositoryUrlMatchesIdentity(
+        values.repositoryUrl,
+        sourceControlProvider,
+        values.repositoryOwner,
+        values.repositoryName,
+      );
       const owner = values.owner || ctx.user?.ref || '';
 
       const scmClientFactory = new ScmClientFactory({ rootConfig, logger });

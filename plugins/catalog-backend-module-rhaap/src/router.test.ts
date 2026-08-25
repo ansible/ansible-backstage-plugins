@@ -945,6 +945,154 @@ describe('createRouter', () => {
     });
   });
 
+  describe('POST /ansible/git-repository', () => {
+    const gitEntity = {
+      apiVersion: 'backstage.io/v1alpha1',
+      kind: 'Component',
+      metadata: {
+        name: 'test-org-test-repo-github-manual',
+        annotations: {
+          'ansible.io/scm-provider': 'github',
+          'ansible.io/scm-organization': 'test-org',
+          'ansible.io/scm-repository': 'test-repo',
+        },
+      },
+      spec: {
+        type: 'git-repository',
+      },
+    };
+
+    async function makeGitRepoApp(provider?: {
+      registerRepository: jest.Mock;
+    }) {
+      const testApp = express();
+      testApp.use(express.json());
+      testApp.use(
+        '/',
+        await createRouter({
+          logger: mockLogger,
+          config: mockConfig,
+          aapEntityProvider: mockAAPEntityProvider,
+          jobTemplateProvider: mockJobTemplateProvider,
+          eeEntityProvider: mockEEEntityProvider,
+          pahCollectionProviders: [mockPAHCollectionProvider],
+          httpAuth: mockHttpAuth,
+          userInfo: mockUserInfo,
+          auth: mockAuth,
+          catalogClient: mockCatalogClient,
+          scheduler: mockScheduler,
+          permissions: mockPermissions,
+          ansibleGitContentsProviders: [],
+          ...(provider ? { manualGitRepositoryProvider: provider as any } : {}),
+        }),
+      );
+      return testApp;
+    }
+
+    it('registers a git repository', async () => {
+      const provider = {
+        registerRepository: jest.fn().mockResolvedValue(undefined),
+      };
+      mockCatalogClient.getEntities = jest
+        .fn()
+        .mockResolvedValue({ items: [] });
+      const testApp = await makeGitRepoApp(provider);
+
+      const response = await request(testApp)
+        .post('/ansible/git-repository')
+        .send({ entity: gitEntity })
+        .expect(200);
+
+      expect(response.body.success).toBe(true);
+      expect(provider.registerRepository).toHaveBeenCalledWith(gitEntity);
+    });
+
+    it('returns 400 when entity is missing', async () => {
+      const provider = {
+        registerRepository: jest.fn(),
+      };
+      const testApp = await makeGitRepoApp(provider);
+
+      const response = await request(testApp)
+        .post('/ansible/git-repository')
+        .send({})
+        .expect(400);
+
+      expect(response.body).toEqual({
+        error: 'Missing entity in request body.',
+      });
+      expect(provider.registerRepository).not.toHaveBeenCalled();
+    });
+
+    it('returns 400 when metadata.name is missing', async () => {
+      const provider = {
+        registerRepository: jest.fn(),
+      };
+      const testApp = await makeGitRepoApp(provider);
+
+      const response = await request(testApp)
+        .post('/ansible/git-repository')
+        .send({
+          entity: {
+            ...gitEntity,
+            metadata: { annotations: gitEntity.metadata.annotations },
+          },
+        })
+        .expect(400);
+
+      expect(response.body.error).toContain('Name [metadata.name] is required');
+      expect(provider.registerRepository).not.toHaveBeenCalled();
+    });
+
+    it('returns 400 when spec.type is not git-repository', async () => {
+      const provider = {
+        registerRepository: jest.fn(),
+      };
+      const testApp = await makeGitRepoApp(provider);
+
+      const response = await request(testApp)
+        .post('/ansible/git-repository')
+        .send({
+          entity: { ...gitEntity, spec: { type: 'service' } },
+        })
+        .expect(400);
+
+      expect(response.body.error).toContain(
+        'Type [spec.type] must be "git-repository"',
+      );
+      expect(provider.registerRepository).not.toHaveBeenCalled();
+    });
+
+    it('returns 409 when the repository is already registered', async () => {
+      const provider = {
+        registerRepository: jest.fn(),
+      };
+      mockCatalogClient.getEntities = jest.fn().mockResolvedValue({
+        items: [gitEntity],
+      });
+      const testApp = await makeGitRepoApp(provider);
+
+      const response = await request(testApp)
+        .post('/ansible/git-repository')
+        .send({ entity: gitEntity })
+        .expect(409);
+
+      expect(response.body.error).toContain('already registered');
+      expect(provider.registerRepository).not.toHaveBeenCalled();
+    });
+
+    it('returns 500 when the provider is not configured', async () => {
+      const response = await request(app)
+        .post('/ansible/git-repository')
+        .send({ entity: gitEntity })
+        .expect(500);
+
+      expect(response.body).toEqual({
+        error: 'Git repository registration is not available.',
+      });
+    });
+  });
+
   describe('POST /ansible/ee/build', () => {
     const validBuildBody = {
       entityRef: 'component:default/my-ee',

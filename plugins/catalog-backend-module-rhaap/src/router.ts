@@ -407,6 +407,23 @@ export async function createRouter(options: {
         return;
       }
 
+      const entityName = entity?.metadata?.name;
+      if (typeof entityName !== 'string' || entityName.length === 0) {
+        response.status(400).json({
+          error:
+            'Name [metadata.name] is required for Git repository registration',
+        });
+        return;
+      }
+
+      if (entity?.spec?.type !== 'git-repository') {
+        response.status(400).json({
+          error:
+            'Type [spec.type] must be "git-repository" for Git repository registration',
+        });
+        return;
+      }
+
       try {
         const annotations = entity?.metadata?.annotations ?? {};
         const scmProvider = annotations['ansible.io/scm-provider'];
@@ -454,7 +471,14 @@ export async function createRouter(options: {
         const errorMessage =
           error instanceof Error ? error.message : String(error);
         logger.error(`Failed to register Git repository: ${errorMessage}`);
-        response.status(500).json({
+        const isValidationError =
+          errorMessage.includes(
+            'Name [metadata.name] is required for Git repository registration',
+          ) ||
+          errorMessage.includes(
+            'Type [spec.type] must be "git-repository" for Git repository registration',
+          );
+        response.status(isValidationError ? 400 : 500).json({
           error: `Failed to register Git repository: ${errorMessage}`,
         });
       }

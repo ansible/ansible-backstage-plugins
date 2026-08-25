@@ -23,9 +23,20 @@ export type ParseGitHubComRepoResult =
   { ok: true; value: ParsedGitHubComRepo } | { ok: false; error: string };
 
 const GITHUB_HOST = 'github.com';
+const GITHUB_OWNER_PATTERN =
+  /^[A-Za-z0-9](?:[A-Za-z0-9]|-(?=[A-Za-z0-9])){0,38}$/;
+const GITHUB_REPO_PATTERN = /^[A-Za-z0-9._-]{1,100}$/;
 
 function stripGitSuffix(name: string): string {
   return name.replace(/\.git$/i, '');
+}
+
+function decodeIdentitySegment(value: string): string | undefined {
+  try {
+    return decodeURIComponent(value).normalize('NFC');
+  } catch {
+    return undefined;
+  }
 }
 
 /**
@@ -57,7 +68,7 @@ export function parseGitHubComRepoUrl(raw: string): ParseGitHubComRepoResult {
     };
   }
 
-  if (url.protocol !== 'http:' && url.protocol !== 'https:') {
+  if (url.protocol !== 'https:') {
     return { ok: false, error: 'URL must use https:// (github.com only).' };
   }
 
@@ -76,9 +87,14 @@ export function parseGitHubComRepoUrl(raw: string): ParseGitHubComRepoResult {
     };
   }
 
-  const owner = parts[0];
-  const repo = stripGitSuffix(parts[1]);
-  if (!owner || !repo) {
+  const owner = decodeIdentitySegment(parts[0]);
+  const repo = decodeIdentitySegment(stripGitSuffix(parts[1]));
+  if (
+    !owner ||
+    !repo ||
+    !GITHUB_OWNER_PATTERN.test(owner) ||
+    !GITHUB_REPO_PATTERN.test(repo)
+  ) {
     return {
       ok: false,
       error: 'Could not read owner and repository from the URL.',
@@ -90,11 +106,20 @@ export function parseGitHubComRepoUrl(raw: string): ParseGitHubComRepoResult {
     parts.length >= 4 &&
     (parts[2] === 'tree' || parts[2] === 'blob' || parts[2] === 'edit')
   ) {
-    suggestedBranch = decodeURIComponent(parts[3]);
+    const decodedBranch = decodeIdentitySegment(parts[3]);
+    if (decodedBranch === undefined) {
+      return {
+        ok: false,
+        error: 'Invalid URL. Paste a github.com repository link.',
+      };
+    }
+    suggestedBranch = decodedBranch;
   }
 
   const httpsUrl = `https://github.com/${owner}/${repo}`;
-  const repoUrlPicker = `${GITHUB_HOST}?owner=${encodeURIComponent(owner)}&repo=${encodeURIComponent(repo)}`;
+  const repoUrlPicker = `${GITHUB_HOST}?owner=${encodeURIComponent(
+    owner,
+  )}&repo=${encodeURIComponent(repo)}`;
 
   return {
     ok: true,

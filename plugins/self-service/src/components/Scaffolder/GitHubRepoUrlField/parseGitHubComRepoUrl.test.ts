@@ -60,7 +60,27 @@ describe('parseGitHubComRepoUrl', () => {
     expect(result.ok).toBe(false);
   });
 
-  it('rejects empty', () => {
-    expect(parseGitHubComRepoUrl('').ok).toBe(false);
+  it('rejects http github.com URLs', () => {
+    const result = parseGitHubComRepoUrl('http://github.com/acme/playbooks');
+    expect(result).toEqual({
+      ok: false,
+      error: 'URL must use https:// (github.com only).',
+    });
+  });
+
+  it('rejects encoded separators and non-ASCII owner names', () => {
+    expect(parseGitHubComRepoUrl('https://github.com/%2F/repo').ok).toBe(false);
+    expect(parseGitHubComRepoUrl('https://github.com/аcme/repo').ok).toBe(
+      false,
+    );
+  });
+
+  it('rejects malformed branch escapes without throwing', () => {
+    expect(() =>
+      parseGitHubComRepoUrl('https://github.com/acme/playbooks/tree/%'),
+    ).not.toThrow();
+    expect(
+      parseGitHubComRepoUrl('https://github.com/acme/playbooks/tree/%').ok,
+    ).toBe(false);
   });
 });

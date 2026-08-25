@@ -68,14 +68,18 @@ export function usePaginatedGitRepos({
     });
 
   const filteredEntities = useMemo(() => {
-    const searchLower = searchQuery.toLowerCase().trim();
+    const searchLower = searchQuery.normalize('NFC').toLowerCase().trim();
     return allEntities
       .filter(entity => {
         const matchesSource =
           sourceFilter === 'All' || getRepoHost(entity) === sourceFilter;
         const matchesEntityFilter = !entityFilter || entityFilter(entity);
-        const name = (entity.metadata?.name ?? '').toLowerCase();
-        const title = (entity.metadata?.title ?? '').toLowerCase();
+        const name = (entity.metadata?.name ?? '')
+          .normalize('NFC')
+          .toLowerCase();
+        const title = (entity.metadata?.title ?? '')
+          .normalize('NFC')
+          .toLowerCase();
         const matchesSearch =
           !searchLower ||
           name.includes(searchLower) ||

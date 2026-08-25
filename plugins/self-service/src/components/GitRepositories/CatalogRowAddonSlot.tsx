@@ -21,7 +21,9 @@ export const CatalogRowAddonSlot = ({
   projectDetailPath,
 }: CatalogRowAddonSlotProps) => {
   const extensionsApi = useGitRepositoriesExtensions();
-  const slots = extensionsApi.getCatalogRowSlots();
+  const slots = [...extensionsApi.getCatalogRowSlots()].sort(
+    (a, b) => a.order - b.order,
+  );
 
   if (slots.length === 0) {
     return null;

@@ -5,8 +5,8 @@
  * Guest plugins register tabs and slots from packages/app — not from self-service.
  */
 
-import { ReactNode } from 'react';
-import { Entity } from '@backstage/catalog-model';
+import type { ReactNode } from 'react';
+import type { Entity } from '@backstage/catalog-model';
 import {
   createApiFactory,
   createApiRef,

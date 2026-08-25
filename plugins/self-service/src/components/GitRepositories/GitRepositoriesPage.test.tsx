@@ -277,6 +277,89 @@ describe('GitRepositoriesPage', () => {
     expect(screen.queryByText('Gated Tab')).not.toBeInTheDocument();
   });
 
+  it('redirects a nested gated path using longest-path matching', async () => {
+    mockUsePermission.mockReturnValue({ loading: false, allowed: false });
+
+    class NestedGatedTabApi extends DefaultGitRepositoriesExtensionsApi {
+      getPageTabs() {
+        return [
+          {
+            id: 'insights',
+            label: 'Insights',
+            path: 'catalog/insights',
+            order: 15,
+            render: () => (
+              <div data-testid="insights-tab-content">Insights</div>
+            ),
+            permission: gatedPermission,
+            resourceRef: 'example-resource',
+          },
+        ];
+      }
+    }
+
+    await renderInTestApp(
+      <TestApiProvider
+        apis={[
+          [discoveryApiRef, mockDiscoveryApi],
+          [fetchApiRef, mockFetchApi],
+          [gitRepositoriesExtensionsApiRef, new NestedGatedTabApi()],
+        ]}
+      >
+        <ThemeProvider theme={theme}>
+          <GitRepositoriesPage />
+        </ThemeProvider>
+      </TestApiProvider>,
+      { routeEntries: ['/self-service/repositories/catalog/insights'] },
+    );
+
+    expect(await screen.findByTestId('repositories-table')).toBeInTheDocument();
+    expect(
+      screen.queryByTestId('insights-tab-content'),
+    ).not.toBeInTheDocument();
+    expect(screen.queryByText('Insights')).not.toBeInTheDocument();
+  });
+
+  it('selects a nested guest tab over the shorter catalog path', async () => {
+    mockUsePermission.mockReturnValue({ loading: false, allowed: true });
+
+    class NestedTabApi extends DefaultGitRepositoriesExtensionsApi {
+      getPageTabs() {
+        return [
+          {
+            id: 'insights',
+            label: 'Insights',
+            path: 'catalog/insights',
+            order: 15,
+            render: () => (
+              <div data-testid="insights-tab-content">Insights</div>
+            ),
+          },
+        ];
+      }
+    }
+
+    await renderInTestApp(
+      <TestApiProvider
+        apis={[
+          [discoveryApiRef, mockDiscoveryApi],
+          [fetchApiRef, mockFetchApi],
+          [gitRepositoriesExtensionsApiRef, new NestedTabApi()],
+        ]}
+      >
+        <ThemeProvider theme={theme}>
+          <GitRepositoriesPage />
+        </ThemeProvider>
+      </TestApiProvider>,
+      { routeEntries: ['/self-service/repositories/catalog/insights'] },
+    );
+
+    expect(
+      await screen.findByTestId('insights-tab-content'),
+    ).toBeInTheDocument();
+    expect(screen.queryByTestId('repositories-table')).not.toBeInTheDocument();
+  });
+
   it('renders a guest tab at its registered path instead of treating it as a repository name', async () => {
     class ExtensionsApiWithGuestTab extends DefaultGitRepositoriesExtensionsApi {
       getPageTabs() {

@@ -182,7 +182,8 @@ describe('registerGitRepository', () => {
     const action = makeAction();
     const ctx = makeCtx({
       repositoryOwner: 'Test_Org',
-      repositoryName: 'Test.Repo!',
+      repositoryName: 'Test.Repo',
+      repositoryUrl: 'https://github.com/Test_Org/Test.Repo',
     });
 
     await action.handler(ctx);
@@ -255,5 +256,29 @@ describe('registerGitRepository', () => {
       'test-org-test-repo-github-manual',
     );
     expect(ctx.output).not.toHaveBeenCalledWith('entityRef', expect.anything());
+  });
+
+  it('throws when the source control provider is unsupported', async () => {
+    const action = makeAction();
+    const ctx = makeCtx({ sourceControlProvider: 'bitbucket' });
+
+    await expect(action.handler(ctx)).rejects.toThrow(
+      'Unsupported source control provider "bitbucket"',
+    );
+    expect(mockFetch).not.toHaveBeenCalled();
+  });
+
+  it('throws when repositoryUrl does not match the verified identity', async () => {
+    const action = makeAction();
+    const ctx = makeCtx({
+      repositoryOwner: 'test-org',
+      repositoryName: 'test-repo',
+      repositoryUrl: 'https://github.com/other/repo-b',
+    });
+
+    await expect(action.handler(ctx)).rejects.toThrow(
+      'repositoryUrl does not match test-org/test-repo',
+    );
+    expect(mockFetch).not.toHaveBeenCalled();
   });
 });

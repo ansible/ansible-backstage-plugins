@@ -440,7 +440,7 @@ const RepositoryDetailsPageInner = () => {
             </Typography>
           )}
         </Box>
-        {hasSourceUrl() && (
+        {(hasSourceUrl() || headerMenuItems.length > 0) && (
           <>
             <Button
               variant="contained"
@@ -465,18 +465,20 @@ const RepositoryDetailsPageInner = () => {
               anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
               transformOrigin={{ vertical: 'top', horizontal: 'right' }}
             >
-              <MenuItem
-                onClick={() => {
-                  setActionsAnchor(null);
-                  handleViewSource();
-                }}
-                style={{ justifyContent: 'space-between', gap: 16 }}
-              >
-                <ListItemText primary="View in source" />
-                <ListItemIcon style={{ minWidth: 0 }}>
-                  <OpenInNewIcon fontSize="small" style={{ opacity: 0.6 }} />
-                </ListItemIcon>
-              </MenuItem>
+              {hasSourceUrl() && (
+                <MenuItem
+                  onClick={() => {
+                    setActionsAnchor(null);
+                    handleViewSource();
+                  }}
+                  style={{ justifyContent: 'space-between', gap: 16 }}
+                >
+                  <ListItemText primary="View in source" />
+                  <ListItemIcon style={{ minWidth: 0 }}>
+                    <OpenInNewIcon fontSize="small" style={{ opacity: 0.6 }} />
+                  </ListItemIcon>
+                </MenuItem>
+              )}
               {entity &&
                 detailTabContext &&
                 headerMenuItems.map(item => (
