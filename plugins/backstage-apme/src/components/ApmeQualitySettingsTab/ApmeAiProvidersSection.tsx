@@ -265,17 +265,7 @@ export const ApmeAiProvidersSection = () => {
     if (!aiStatus) {
       return undefined;
     }
-    if (!aiStatus.connected) {
-      return 'Disconnected';
-    }
-    if (aiStatus.modelCount > 0) {
-      const suffix = aiStatus.modelCount === 1 ? '' : 's';
-      return `Connected · ${aiStatus.modelCount} inference model${suffix}`;
-    }
-    if ((aiStatus.configuredModelCount ?? 0) > 0) {
-      return `Connected · ${aiStatus.configuredModelCount} configured (0 inference)`;
-    }
-    return 'Connected · no models listed';
+    return aiStatus.connected ? 'Connected' : 'Disconnected';
   })();
 
   const managedProviders = providers.filter(p => p.source !== 'config');
