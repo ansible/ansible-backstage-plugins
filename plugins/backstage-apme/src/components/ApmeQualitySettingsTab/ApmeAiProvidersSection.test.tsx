@@ -71,9 +71,33 @@ describe('ApmeAiProvidersSection', () => {
 
   it('shows connected status chip from getAiStatus', async () => {
     renderSection();
+    expect(await screen.findByText('Connected')).toBeInTheDocument();
+  });
+
+  it('shows Connected without model-count details when only configured models exist', async () => {
+    getAiStatus.mockResolvedValue({
+      enableAi: true,
+      connected: true,
+      modelCount: 0,
+      configuredModelCount: 2,
+    });
+    renderSection();
+    const status = await screen.findByText('Connected');
+    expect(status).toBeInTheDocument();
+    expect(status.textContent).toBe('Connected');
     expect(
-      await screen.findByText(/Connected · 2 inference models/i),
-    ).toBeInTheDocument();
+      screen.queryByText(/configured \(0 inference\)/i),
+    ).not.toBeInTheDocument();
+  });
+
+  it('shows disconnected status chip when Abbenay is unreachable', async () => {
+    getAiStatus.mockResolvedValue({
+      enableAi: true,
+      connected: false,
+      modelCount: 0,
+    });
+    renderSection();
+    expect(await screen.findByText('Disconnected')).toBeInTheDocument();
   });
 
   it('shows empty state when no providers', async () => {
