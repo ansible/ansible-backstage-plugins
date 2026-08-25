@@ -123,6 +123,7 @@ const RepositoriesTableInner = ({
     allSources,
     sourceFilter,
     setSourceFilter,
+    setSearchQuery,
   } = usePaginatedGitRepos({
     catalogApi,
     onSourcesStatusChange,
@@ -210,6 +211,8 @@ const RepositoriesTableInner = ({
       title: 'Git Repository',
       id: 'name',
       field: 'metadata.name',
+      // Search is applied across all pages in usePaginatedGitRepos.
+      customFilterAndSearch: () => true,
       highlight: true,
       width: '28%',
       render: (entity: Entity) => {
@@ -496,6 +499,7 @@ const RepositoriesTableInner = ({
                 paging: false,
                 rowStyle: { cursor: 'default' },
               }}
+              onSearchChange={setSearchQuery}
               columns={columns}
               data={paginatedEntities}
             />
