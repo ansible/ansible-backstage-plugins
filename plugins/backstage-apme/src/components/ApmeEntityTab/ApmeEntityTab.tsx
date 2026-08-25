@@ -558,7 +558,6 @@ export const ApmeEntityTab = ({
   const [tier1Result, setTier1Result] = useState<Tier1RemediationCache | null>(
     null,
   );
-  const [showTier1Details, setShowTier1Details] = useState(false);
   const [showScanHistory, setShowScanHistory] = useState(false);
   const [showAcknowledgedOnly, setShowAcknowledgedOnly] = useState(false);
   /** Project id from Register/scan before catalog lookup catches up. */
