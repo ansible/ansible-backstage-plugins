@@ -22,5 +22,17 @@ export interface Config {
        */
       enabled?: boolean;
     };
+    /**
+     * APME (Ansible Policy & Modernization Engine) configuration
+     * @deepVisibility frontend
+     */
+    apme?: {
+      /**
+       * Enable APME integration. When true, shows Content submenu with Git Repositories
+       * and Content quality. Defaults to false.
+       * @visibility frontend
+       */
+      enabled?: boolean;
+    };
   };
 }

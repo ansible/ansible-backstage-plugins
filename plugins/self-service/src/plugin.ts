@@ -9,6 +9,7 @@ import {
   eeRouteRef,
   collectionsRouteRef,
   gitRepositoriesRouteRef,
+  contentQualityRouteRef,
   templatesRouteRef,
   historyRouteRef,
 } from './routes';
@@ -22,6 +23,7 @@ export const selfServicePlugin = createPlugin({
     ee: eeRouteRef,
     collections: collectionsRouteRef,
     gitRepositories: gitRepositoriesRouteRef,
+    contentQuality: contentQualityRouteRef,
     templates: templatesRouteRef,
     history: historyRouteRef,
   },
@@ -232,6 +234,58 @@ export const HistorySidebarItem = selfServicePlugin.provide(
     component: {
       lazy: () =>
         import('./components/SidebarItems').then(m => m.HistorySidebarItem),
+    },
+  }),
+);
+
+/**
+ * Content quality page component for mounting at /self-service/content-quality
+ * Shows estate-wide quality metrics when APME is enabled.
+ *
+ * @public
+ */
+export const ContentQualityPage = selfServicePlugin.provide(
+  createRoutableExtension({
+    name: 'ContentQualityPage',
+    component: () =>
+      import('./components/ContentQuality').then(
+        m => m.ContentQualityRoutesPage,
+      ),
+    mountPoint: contentQualityRouteRef,
+  }),
+);
+
+/**
+ * A sidebar group that renders a Content submenu when APME is enabled.
+ * When APME is disabled, renders the flat Git Repositories sidebar item.
+ * The submenu includes Git Repositories and Content quality links.
+ *
+ * @public
+ */
+export const ContentSidebarGroup = selfServicePlugin.provide(
+  createComponentExtension({
+    name: 'ContentSidebarGroup',
+    component: {
+      lazy: () =>
+        import('./components/SidebarItems').then(m => m.ContentSidebarGroup),
+    },
+  }),
+);
+
+/**
+ * A sidebar item for Content quality. Used within the Content submenu
+ * when APME is enabled.
+ *
+ * @public
+ */
+export const ContentQualitySidebarItem = selfServicePlugin.provide(
+  createComponentExtension({
+    name: 'ContentQualitySidebarItem',
+    component: {
+      lazy: () =>
+        import('./components/SidebarItems').then(
+          m => m.ContentQualitySidebarItem,
+        ),
     },
   }),
 );
