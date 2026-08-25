@@ -11,6 +11,10 @@ import {
 import { permissionApiRef } from '@backstage/plugin-permission-react';
 import { Entity } from '@backstage/catalog-model';
 import { MemoryRouter } from 'react-router-dom';
+import {
+  DefaultGitRepositoriesExtensionsApi,
+  gitRepositoriesExtensionsApiRef,
+} from '@ansible/backstage-rhaap-common/gitRepositoriesExtensions';
 
 interface TableColumn {
   title: unknown;
@@ -36,13 +40,22 @@ jest.mock('@backstage/core-components', () => {
       title,
       data,
       columns,
+      onSearchChange,
     }: {
       title: string;
       data: unknown[];
       columns: TableColumn[];
+      onSearchChange?: (searchText: string) => void;
     }) => (
       <div data-testid="table">
         <div data-testid="table-title">{title}</div>
+        {onSearchChange && (
+          <input
+            data-testid="table-search"
+            placeholder="Search"
+            onChange={e => onSearchChange(e.target.value)}
+          />
+        )}
         <table>
           <thead>
             <tr>
@@ -199,6 +212,10 @@ describe('RepositoriesTable', () => {
           [fetchApiRef, mockFetchApi],
           [starredEntitiesApiRef, new MockStarredEntitiesApi()],
           [permissionApiRef, mockApis.permission()],
+          [
+            gitRepositoriesExtensionsApiRef,
+            new DefaultGitRepositoriesExtensionsApi(),
+          ],
         ]}
       >
         <MemoryRouter>
@@ -700,6 +717,52 @@ describe('RepositoriesTable', () => {
     });
   });
 
+  it('renders catalog row menu items from extensions API', async () => {
+    class WithRowMenu extends DefaultGitRepositoriesExtensionsApi {
+      getCatalogRowMenuItems() {
+        return [
+          {
+            id: 'test-run-scan',
+            order: 10,
+            render: () => <div>Run quality scan</div>,
+          },
+        ];
+      }
+    }
+
+    render(
+      <TestApiProvider
+        apis={[
+          [catalogApiRef, mockCatalogApi],
+          [discoveryApiRef, mockDiscoveryApi],
+          [fetchApiRef, mockFetchApi],
+          [starredEntitiesApiRef, new MockStarredEntitiesApi()],
+          [permissionApiRef, mockApis.permission()],
+          [gitRepositoriesExtensionsApiRef, new WithRowMenu()],
+        ]}
+      >
+        <MemoryRouter>
+          <ThemeProvider theme={theme}>
+            <EntityListProvider>
+              <RepositoriesTable syncStatusMap={defaultSyncStatusMap} />
+            </EntityListProvider>
+          </ThemeProvider>
+        </MemoryRouter>
+      </TestApiProvider>,
+    );
+
+    await waitFor(() => {
+      expect(screen.getByTestId('table')).toBeInTheDocument();
+    });
+
+    fireEvent.click(screen.getAllByLabelText('Actions')[0]);
+
+    await waitFor(() => {
+      expect(screen.getByText('View in source')).toBeInTheDocument();
+      expect(screen.getByText('Run quality scan')).toBeInTheDocument();
+    });
+  });
+
   it('closes kebab menu when clicking View in source', async () => {
     const windowOpenSpy = jest
       .spyOn(globalThis, 'open')
@@ -865,5 +928,40 @@ describe('RepositoriesTable', () => {
     expect(screen.getByTestId('table-title')).toHaveTextContent(
       'Git Repositories (2)',
     );
+  });
+
+  it('searches across all pages and resets to page 1', async () => {
+    const items = [
+      ...Array.from({ length: 11 }, (_, i) =>
+        createMockEntity(`alpha-repo-${String(i).padStart(2, '0')}`),
+      ),
+      createMockEntity('terrible-playbook'),
+    ];
+    mockCatalogApi.getEntities.mockResolvedValue({ items });
+
+    renderTable();
+
+    await waitFor(() => {
+      expect(screen.getByTestId('table-title')).toHaveTextContent(
+        'Git Repositories (12)',
+      );
+    });
+
+    expect(
+      screen.queryByTestId('table-row-terrible-playbook'),
+    ).not.toBeInTheDocument();
+    expect(screen.getByText('Page 1 of 2')).toBeInTheDocument();
+
+    fireEvent.change(screen.getByTestId('table-search'), {
+      target: { value: 'Terrible' },
+    });
+
+    expect(screen.getByTestId('table-title')).toHaveTextContent(
+      'Git Repositories (1)',
+    );
+    expect(
+      screen.getByTestId('table-row-terrible-playbook'),
+    ).toBeInTheDocument();
+    expect(screen.queryByText(/Page /)).not.toBeInTheDocument();
   });
 });

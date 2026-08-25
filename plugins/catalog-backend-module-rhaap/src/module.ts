@@ -2,7 +2,6 @@ import {
   coreServices,
   createBackendModule,
 } from '@backstage/backend-plugin-api';
-import { signalsServiceRef } from '@backstage/plugin-signals-node';
 
 import { ansibleServiceRef } from '@ansible/backstage-rhaap-common';
 import { ansiblePermissions } from '@ansible/backstage-rhaap-common/permissions';
@@ -15,6 +14,7 @@ import { AAPJobTemplateProvider } from './providers/AAPJobTemplateProvider';
 import { AAPEntityProvider } from './providers/AAPEntityProvider';
 import { makeValidator } from '@backstage/catalog-model';
 import { EEEntityProvider } from './providers/EEEntityProvider';
+import { ManualGitRepositoryProvider } from './providers/ManualGitRepositoryProvider';
 import { PAHCollectionProvider } from './providers/PAHCollectionProvider';
 import { CatalogClient } from '@backstage/catalog-client';
 import { AnsibleGitContentsProvider } from './providers/AnsibleGitContentsProvider';
@@ -38,7 +38,6 @@ export const catalogModuleRhaap = createBackendModule({
         permissionsApi: coreServices.permissions,
         httpAuth: coreServices.httpAuth,
         userInfo: coreServices.userInfo,
-        signals: signalsServiceRef,
       },
       async init({
         logger,
@@ -54,7 +53,6 @@ export const catalogModuleRhaap = createBackendModule({
         userInfo,
         discovery,
         auth,
-        signals,
       }) {
         permissionsRegistry.addPermissions(ansiblePermissions);
         catalogModel.setFieldValidators(
@@ -78,6 +76,9 @@ export const catalogModuleRhaap = createBackendModule({
           },
         );
         const eeEntityProvider = new EEEntityProvider(logger);
+        const manualGitRepositoryProvider = new ManualGitRepositoryProvider(
+          logger,
+        );
         const jobTemplateProvider = AAPJobTemplateProvider.fromConfig(
           config,
           ansibleService,
@@ -101,17 +102,11 @@ export const catalogModuleRhaap = createBackendModule({
           `[catalog-module-rhaap]: Created ${ansibleGitContentsProviders.length} Ansible Git Contents provider(s)`,
         );
 
-        for (const p of aapEntityProvider) {
-          p.setSignals(signals);
-        }
-        for (const p of jobTemplateProvider) {
-          p.setSignals(signals);
-        }
-
         catalogProcessing.addEntityProvider(
           aapEntityProvider,
           jobTemplateProvider,
           eeEntityProvider,
+          manualGitRepositoryProvider,
           ...pahCollectionProviders,
           ansibleGitContentsProviders,
         );
@@ -138,6 +133,7 @@ export const catalogModuleRhaap = createBackendModule({
             aapEntityProvider: aapEntityProvider[0],
             jobTemplateProvider: jobTemplateProvider[0],
             eeEntityProvider: eeEntityProvider,
+            manualGitRepositoryProvider: manualGitRepositoryProvider,
             pahCollectionProviders: pahCollectionProviders,
             httpAuth: httpAuth,
             userInfo: userInfo,

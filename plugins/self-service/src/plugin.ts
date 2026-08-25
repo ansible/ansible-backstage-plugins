@@ -3,6 +3,7 @@ import {
   createPlugin,
   createRoutableExtension,
 } from '@backstage/core-plugin-api';
+import { defaultGitRepositoriesExtensionsApiFactory } from '@ansible/backstage-rhaap-common/gitRepositoriesExtensions';
 
 import {
   rootRouteRef,
@@ -16,7 +17,12 @@ import { AAPApis, AapAuthApi, EEBuildApis } from './apis';
 
 export const selfServicePlugin = createPlugin({
   id: 'self-service',
-  apis: [AAPApis, AapAuthApi, EEBuildApis],
+  apis: [
+    AAPApis,
+    AapAuthApi,
+    EEBuildApis,
+    defaultGitRepositoriesExtensionsApiFactory,
+  ],
   routes: {
     root: rootRouteRef,
     ee: eeRouteRef,
