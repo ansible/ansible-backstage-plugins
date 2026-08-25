@@ -61,7 +61,15 @@ This script will:
 
 - Install all package dependencies
 - Set up the Yarn workspace
-- Configure pre-commit hooks via Husky
+- Configure Git hooks via Husky (which runs [pre-commit](https://pre-commit.com/) — see `.pre-commit-config.yaml`)
+- Install the pre-commit CLI and prefetch hook environments (requires Python 3 + pip)
+
+If `./install-deps` could not install pre-commit, install it manually before your first commit:
+
+```bash
+pip install pre-commit
+pre-commit install-hooks
+```
 
 3. **Configure the Application**
 

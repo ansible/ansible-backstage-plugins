@@ -23,7 +23,6 @@
     "fix": "backstage-cli repo fix",
     "lint": "backstage-cli repo lint --since origin/main",
     "lint:all": "backstage-cli repo lint",
-    "lint-staged": "lint-staged -p 10",
     "prettier:check": "prettier --check .",
     "new": "backstage-cli new",
     "openapi:lint": "spectral lint api/openapi.yaml --ruleset api/.spectral.yaml",
@@ -58,7 +57,6 @@
     "jest-environment-jsdom": "^29.7.0",
     "jest-environment-node": "^29.7.0",
     "jest-junit": "^16.0.0",
-    "lint-staged": "15.2.10",
     "node-gyp": "^10.0.0",
     "prettier": "^2.3.2",
     "sonarqube-scanner": "^4.3.2",
@@ -129,14 +127,5 @@
     "picomatch": "^4.0.4"
   },
   "prettier": "@spotify/prettier-config",
-  "lint-staged": {
-    "*.{js,jsx,ts,tsx,mjs,cjs}": [
-      "eslint --fix",
-      "prettier --write"
-    ],
-    "*.{json,md}": [
-      "prettier --write"
-    ]
-  },
   "packageManager": "yarn@4.12.0"
 }

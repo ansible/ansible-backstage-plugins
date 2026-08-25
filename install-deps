@@ -23,6 +23,24 @@ printf "==================== Step: Root Deps Installation => Start =============
 yarn install
 printf "==================== Step: Root Deps Installation => Complete ====================\n"
 
+printf "==================== Step: pre-commit CLI => Start ====================\n"
+if command -v python3 >/dev/null 2>&1; then
+  if python3 -m pip install pre-commit; then
+    if command -v pre-commit >/dev/null 2>&1; then
+      pre-commit install-hooks
+    elif python3 -m pre_commit install-hooks; then
+      :
+    else
+      echo "Warning: pre-commit installed but install-hooks failed."
+    fi
+  else
+    echo "Warning: failed to install pre-commit. Install manually: pip install pre-commit"
+  fi
+else
+  echo "Warning: python3 not found. Install pre-commit before committing: pip install pre-commit"
+fi
+printf "==================== Step: pre-commit CLI => Complete ====================\n"
+
 printf "==================== Step: yarn tsc => Start ====================\n"
 if ! yarn tsc; then
   echo "==================== Step: yarn tsc => Failed ===================="
