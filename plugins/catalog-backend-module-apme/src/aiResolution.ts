@@ -9,6 +9,7 @@ import type { LoggerService } from '@backstage/backend-plugin-api';
 import {
   IApmeService,
   normalizeApmeAiProviders,
+  formatApmeAbbenayChatModelId,
 } from '@ansible/backstage-apme-common';
 
 export type ApmeAiModelRow = {
@@ -23,11 +24,38 @@ export type ResolvedApmeAiStatus = {
   configuredModelCount: number;
 };
 
-/** Live inference models only — never synthesize from Abbenay admin config. */
+/**
+ * AI models for the Quality tab model picker.
+ * Prefers live inference list; falls back to configured provider models
+ * when inference returns empty (AAP-89202).
+ */
 export async function listApmeInferenceModels(
   apmeService: IApmeService,
 ): Promise<ApmeAiModelRow[]> {
-  return apmeService.getAiModels();
+  const live = await apmeService.getAiModels();
+  if (live.length > 0) {
+    return live;
+  }
+
+  try {
+    const config = await apmeService.getAiConfig();
+    const providers = normalizeApmeAiProviders(config);
+    const rows: ApmeAiModelRow[] = [];
+    for (const provider of providers) {
+      for (const model of provider.models) {
+        if (model.trim()) {
+          rows.push({
+            id: formatApmeAbbenayChatModelId(provider.id, model),
+            provider: provider.id,
+            name: model,
+          });
+        }
+      }
+    }
+    return rows;
+  } catch {
+    return [];
+  }
 }
 
 /**
