@@ -153,7 +153,7 @@ const RemoveConfirmDialog = ({
 );
 
 /**
- * AI providers card rendered below the ansible-core card in Quality settings (US-016).
+ * AI providers card rendered beside the ansible-core card in Quality settings (US-016).
  */
 export const ApmeAiProvidersSection = () => {
   const classes = useStyles();
