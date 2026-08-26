@@ -2,6 +2,7 @@ import { createTemplateAction } from '@backstage/plugin-scaffolder-node';
 import { AuthService, DiscoveryService } from '@backstage/backend-plugin-api';
 import type { Config } from '@backstage/config';
 import { ScmClientFactory } from '@ansible/backstage-rhaap-common';
+import { normalizeRepoUrl } from '@ansible/backstage-rhaap-common/catalogEntity';
 
 interface RegisterGitRepositoryInput {
   sourceControlProvider: string;
@@ -21,15 +22,22 @@ function isSupportedScmProvider(value: string): value is SupportedScmProvider {
   return (SUPPORTED_SCM_PROVIDERS as readonly string[]).includes(value);
 }
 
-function assertRepositoryUrlMatchesIdentity(
+/**
+ * Canonicalizes a clone or web URL to HTTPS and checks it matches owner/repo.
+ *
+ * SCP-style SSH (`git@host:owner/repo.git`) is accepted as input, then stored
+ * as `https://host/owner/repo`. Catalog links and APME clones are HTTPS-only.
+ */
+function canonicalizeRepositoryUrl(
   repositoryUrl: string,
   provider: SupportedScmProvider,
   owner: string,
   repo: string,
-): void {
+): string {
+  const canonical = normalizeRepoUrl(repositoryUrl);
   let url: URL;
   try {
-    url = new URL(repositoryUrl);
+    url = new URL(canonical);
   } catch {
     throw new Error(
       '[ansible:register:git-repository] repositoryUrl must be a valid HTTPS URL.',
@@ -66,6 +74,8 @@ function assertRepositoryUrlMatchesIdentity(
       `[ansible:register:git-repository] repositoryUrl does not match ${owner}/${repo}.`,
     );
   }
+
+  return canonical;
 }
 
 /**
@@ -83,7 +93,7 @@ function assertRepositoryUrlMatchesIdentity(
  * @param sourceControlProvider - Lowercased SCM provider (`'github'` or `'gitlab'`).
  * @param repositoryOwner - Organization or user that owns the repository.
  * @param repositoryName - Repository name.
- * @param repositoryUrl - Fully-qualified URL to the repository.
+ * @param repositoryUrl - HTTPS repository URL (SCP-style input is canonicalized first).
  * @param defaultBranch - Default branch of the repository.
  * @param owner - Backstage owner entity ref (e.g. `group:default/my-team`).
  * @param description - Optional human-readable description.
@@ -172,7 +182,10 @@ export function registerGitRepositoryAction(options: {
         repositoryOwner: z => z.string(),
         repositoryName: z => z.string(),
         repositoryUrl: z =>
-          z.string({ description: 'Fully-qualified URL to the repository' }),
+          z.string({
+            description:
+              'Repository URL (HTTPS or SCP-style SSH). Stored as HTTPS.',
+          }),
         defaultBranch: z => z.string(),
         owner: z =>
           z
@@ -205,7 +218,7 @@ export function registerGitRepositoryAction(options: {
             `Supported values: ${SUPPORTED_SCM_PROVIDERS.join(', ')}.`,
         );
       }
-      assertRepositoryUrlMatchesIdentity(
+      const repositoryUrl = canonicalizeRepositoryUrl(
         values.repositoryUrl,
         sourceControlProvider,
         values.repositoryOwner,
@@ -242,7 +255,7 @@ export function registerGitRepositoryAction(options: {
         sourceControlProvider,
         values.repositoryOwner,
         values.repositoryName,
-        values.repositoryUrl,
+        repositoryUrl,
         values.defaultBranch,
         owner,
         values.description,

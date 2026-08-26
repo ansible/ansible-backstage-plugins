@@ -289,4 +289,53 @@ describe('registerGitRepository', () => {
     );
     expect(mockFetch).not.toHaveBeenCalled();
   });
+
+  it('canonicalizes an SCP-style SSH clone URL to HTTPS before registering', async () => {
+    const action = makeAction();
+    const ctx = makeCtx({
+      repositoryUrl: 'git@github.com:test-org/test-repo.git',
+    });
+
+    await action.handler(ctx);
+
+    const [, fetchOptions] = mockFetch.mock.calls[0];
+    const body = JSON.parse(fetchOptions!.body as string);
+    expect(
+      body.entity.metadata.annotations['backstage.io/source-location'],
+    ).toBe('url:https://github.com/test-org/test-repo');
+    expect(body.entity.metadata.annotations['backstage.io/view-url']).toBe(
+      'https://github.com/test-org/test-repo',
+    );
+    expect(body.entity.metadata.links[0].url).toBe(
+      'https://github.com/test-org/test-repo',
+    );
+  });
+
+  it('canonicalizes a GitLab SCP-style clone URL to HTTPS', async () => {
+    const action = makeAction();
+    const ctx = makeCtx({
+      sourceControlProvider: 'gitlab',
+      repositoryUrl: 'git@gitlab.com:test-org/test-repo.git',
+    });
+
+    await action.handler(ctx);
+
+    const [, fetchOptions] = mockFetch.mock.calls[0];
+    const body = JSON.parse(fetchOptions!.body as string);
+    expect(
+      body.entity.metadata.annotations['backstage.io/source-location'],
+    ).toBe('url:https://gitlab.com/test-org/test-repo');
+  });
+
+  it('rejects an SCP-style URL that does not match the verified identity', async () => {
+    const action = makeAction();
+    const ctx = makeCtx({
+      repositoryUrl: 'git@github.com:other/repo-b.git',
+    });
+
+    await expect(action.handler(ctx)).rejects.toThrow(
+      'repositoryUrl does not match test-org/test-repo',
+    );
+    expect(mockFetch).not.toHaveBeenCalled();
+  });
 });
