@@ -1392,7 +1392,7 @@ describe('createRouter', () => {
       });
     });
 
-    it('should return 403 when user lacks permissions', async () => {
+    it('should return 403 when user lacks git-repositories delete permission', async () => {
       const mockPermissionsNoAccess = {
         authorize: jest
           .fn()

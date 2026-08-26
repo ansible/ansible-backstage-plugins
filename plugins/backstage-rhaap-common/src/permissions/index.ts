@@ -15,6 +15,12 @@ export const gitRepositoriesViewPermission: BasicPermission = {
   attributes: {},
 };
 
+export const gitRepositoriesDeletePermission: BasicPermission = {
+  type: 'basic',
+  name: 'ansible.git-repositories.delete',
+  attributes: { action: 'delete' },
+};
+
 export const collectionsViewPermission: BasicPermission = {
   type: 'basic',
   name: 'ansible.collections.view',
@@ -70,6 +76,7 @@ export const ansibleSettingsEditPermission = createPermission({
 export const ansiblePermissions = [
   executionEnvironmentsViewPermission,
   gitRepositoriesViewPermission,
+  gitRepositoriesDeletePermission,
   collectionsViewPermission,
   templatesViewPermission,
   historyViewPermission,

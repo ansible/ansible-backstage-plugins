@@ -1,6 +1,7 @@
 import {
   executionEnvironmentsViewPermission,
   gitRepositoriesViewPermission,
+  gitRepositoriesDeletePermission,
   collectionsViewPermission,
   templatesViewPermission,
   historyViewPermission,
@@ -24,6 +25,14 @@ describe('permissions', () => {
       type: 'basic',
       name: 'ansible.git-repositories.view',
       attributes: {},
+    });
+  });
+
+  it('exports gitRepositoriesDeletePermission with correct shape', () => {
+    expect(gitRepositoriesDeletePermission).toEqual({
+      type: 'basic',
+      name: 'ansible.git-repositories.delete',
+      attributes: { action: 'delete' },
     });
   });
 
@@ -64,20 +73,20 @@ describe('permissions', () => {
     expect(ANSIBLE_SETTINGS_CAPABILITIES).toEqual(['apme']);
   });
 
-  it('ansiblePermissions contains all five view permissions', () => {
-    expect(ansiblePermissions).toHaveLength(5);
+  it('ansiblePermissions contains all view and delete permissions', () => {
+    expect(ansiblePermissions).toHaveLength(6);
     expect(ansiblePermissions).toContain(executionEnvironmentsViewPermission);
     expect(ansiblePermissions).toContain(gitRepositoriesViewPermission);
+    expect(ansiblePermissions).toContain(gitRepositoriesDeletePermission);
     expect(ansiblePermissions).toContain(collectionsViewPermission);
     expect(ansiblePermissions).toContain(templatesViewPermission);
     expect(ansiblePermissions).toContain(historyViewPermission);
     expect(ansiblePermissions).not.toContain(ansibleSettingsEditPermission);
   });
 
-  it('each view permission has type basic and attributes object', () => {
+  it('each permission in ansiblePermissions has type basic and a non-empty name', () => {
     ansiblePermissions.forEach(permission => {
       expect(permission.type).toBe('basic');
-      expect(permission.attributes).toEqual({});
       expect(typeof permission.name).toBe('string');
       expect(permission.name.length).toBeGreaterThan(0);
     });

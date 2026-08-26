@@ -9,8 +9,11 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import { MenuItem } from '@material-ui/core';
 import AssessmentIcon from '@material-ui/icons/Assessment';
 import DeleteOutlineIcon from '@material-ui/icons/DeleteOutline';
+import { configApiRef, useApi } from '@backstage/core-plugin-api';
+import { usePermission } from '@backstage/plugin-permission-react';
 import type { GitRepositoryDetailHeaderMenuContext } from '@ansible/backstage-rhaap-common/gitRepositoriesExtensions';
 import { normalizeRepoUrlFromEntity } from '@ansible/backstage-rhaap-common/catalogEntity';
+import { gitRepositoriesDeletePermission } from '@ansible/backstage-rhaap-common/permissions';
 import { useApmeEnabled } from '../../hooks/useApmeEnabled';
 import { useNavigateToRepositoryQualityTab } from '../../hooks/useNavigateToRepositoryQualityTab';
 import { isManuallyRegisteredRepository } from '../../hooks/useDeregisterRepository';
@@ -27,6 +30,7 @@ export const ApmeRepositoryHeaderActions = ({
   onCloseMenu,
 }: ApmeRepositoryHeaderActionsProps) => {
   const enabled = useApmeEnabled();
+  const config = useApi(configApiRef);
   const navigate = useNavigate();
   const location = useLocation();
   const navigateToQualityTab = useNavigateToRepositoryQualityTab(
@@ -34,8 +38,19 @@ export const ApmeRepositoryHeaderActions = ({
   );
   const [deregisterDialogOpen, setDeregisterDialogOpen] = useState(false);
 
+  const isPermissionFrameworkEnabled =
+    config.getOptionalBoolean('permission.enabled');
+  const { loading: deletePermissionLoading, allowed: canDeleteGitRepo } =
+    usePermission({
+      permission: gitRepositoriesDeletePermission,
+    });
+
   const repoUrl = context.repoUrl ?? normalizeRepoUrlFromEntity(context.entity);
   const isManualRepo = isManuallyRegisteredRepository(context.entity);
+  const canDeregister =
+    isManualRepo &&
+    (!isPermissionFrameworkEnabled ||
+      (!deletePermissionLoading && canDeleteGitRepo));
 
   const handleScan = useCallback(() => {
     onCloseMenu();
@@ -71,7 +86,7 @@ export const ApmeRepositoryHeaderActions = ({
         <AssessmentIcon fontSize="small" style={{ marginRight: 8 }} />
         Run quality scan
       </MenuItem>
-      {isManualRepo && (
+      {canDeregister && (
         <MenuItem onClick={handleDeregisterClick}>
           <DeleteOutlineIcon fontSize="small" style={{ marginRight: 8 }} />
           Deregister

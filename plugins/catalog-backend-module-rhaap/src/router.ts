@@ -31,6 +31,7 @@ import { AuthorizeResult } from '@backstage/plugin-permission-common';
 import { catalogEntityReadPermission } from '@backstage/plugin-catalog-common/alpha';
 import {
   gitRepositoriesViewPermission,
+  gitRepositoriesDeletePermission,
   executionEnvironmentsViewPermission,
   collectionsViewPermission,
   ScmClientFactory,
@@ -466,18 +467,18 @@ export async function createRouter(options: {
    * Only removes entities that were registered via ManualGitRepositoryProvider
    * (identified by the `ansible.io/registration-method: manual` annotation).
    *
-   * Requires the user to have gitRepositoriesViewPermission.
+   * Requires the user to have gitRepositoriesDeletePermission.
    * Request body: { entityRef: string } or { entity: Entity }
    */
   router.delete(
     '/ansible/git-repository',
     express.json(),
     createPermissionCheckMiddleware({ httpAuth, permissions }, [
-      gitRepositoriesViewPermission,
+      gitRepositoriesDeletePermission,
     ]),
     async (request, response) => {
       const perms = response.locals.permissions as Record<string, boolean>;
-      if (!perms[gitRepositoriesViewPermission.name]) {
+      if (!perms[gitRepositoriesDeletePermission.name]) {
         response
           .status(403)
           .json({ error: 'Forbidden: insufficient permissions' });

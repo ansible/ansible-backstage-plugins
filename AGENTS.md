@@ -107,6 +107,7 @@ Basic view permissions are defined in `backstage-rhaap-common/src/permissions/in
 
 - `ansible.execution-environments.view`
 - `ansible.git-repositories.view`
+- `ansible.git-repositories.delete` — gates DELETE `/ansible/git-repository` and the Deregister UI action
 - `ansible.collections.view`
 - `ansible.templates.view`
 - `ansible.history.view`

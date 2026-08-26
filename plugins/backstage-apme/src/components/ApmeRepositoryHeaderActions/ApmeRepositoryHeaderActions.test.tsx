@@ -14,11 +14,19 @@ import { Entity } from '@backstage/catalog-model';
 import { ApmeRepositoryHeaderActions } from './ApmeRepositoryHeaderActions';
 
 const mockNavigate = jest.fn();
+const mockUsePermission = jest.fn().mockReturnValue({
+  loading: false,
+  allowed: true,
+});
 
 jest.mock('react-router-dom', () => ({
   ...jest.requireActual('react-router-dom'),
   useNavigate: () => mockNavigate,
   useLocation: () => ({ pathname: '/self-service/repositories/test-repo' }),
+}));
+
+jest.mock('@backstage/plugin-permission-react', () => ({
+  usePermission: (...args: unknown[]) => mockUsePermission(...args),
 }));
 
 const mockConfigApi = {
@@ -84,6 +92,10 @@ describe('ApmeRepositoryHeaderActions', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     mockConfigApi.getOptionalBoolean.mockReturnValue(true);
+    mockUsePermission.mockReturnValue({
+      loading: false,
+      allowed: true,
+    });
   });
 
   it('renders Run quality scan menu item', async () => {
@@ -99,6 +111,15 @@ describe('ApmeRepositoryHeaderActions', () => {
   it('renders Deregister for manually-registered repos', async () => {
     await renderComponent(manualEntity);
     expect(screen.getByText('Deregister')).toBeInTheDocument();
+  });
+
+  it('does not render Deregister when delete permission is denied', async () => {
+    mockUsePermission.mockReturnValue({
+      loading: false,
+      allowed: false,
+    });
+    await renderComponent(manualEntity);
+    expect(screen.queryByText('Deregister')).not.toBeInTheDocument();
   });
 
   it('opens deregister dialog when Deregister is clicked', async () => {
