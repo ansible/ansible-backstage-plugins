@@ -763,6 +763,60 @@ describe('RepositoriesTable', () => {
     });
   });
 
+  it('keeps the kebab menu mounted when a guest row menu item render throws', async () => {
+    const errorSpy = jest.spyOn(console, 'error').mockImplementation(() => {});
+
+    class ThrowingRowMenu extends DefaultGitRepositoriesExtensionsApi {
+      getCatalogRowMenuItems() {
+        return [
+          {
+            id: 'boom',
+            order: 10,
+            render: () => {
+              throw new Error('guest menu boom');
+            },
+          },
+        ];
+      }
+    }
+
+    render(
+      <TestApiProvider
+        apis={[
+          [catalogApiRef, mockCatalogApi],
+          [discoveryApiRef, mockDiscoveryApi],
+          [fetchApiRef, mockFetchApi],
+          [starredEntitiesApiRef, new MockStarredEntitiesApi()],
+          [permissionApiRef, mockApis.permission()],
+          [gitRepositoriesExtensionsApiRef, new ThrowingRowMenu()],
+        ]}
+      >
+        <MemoryRouter>
+          <ThemeProvider theme={theme}>
+            <EntityListProvider>
+              <RepositoriesTable syncStatusMap={defaultSyncStatusMap} />
+            </EntityListProvider>
+          </ThemeProvider>
+        </MemoryRouter>
+      </TestApiProvider>,
+    );
+
+    await waitFor(() => {
+      expect(screen.getByTestId('table')).toBeInTheDocument();
+    });
+
+    fireEvent.click(screen.getAllByLabelText('Actions')[0]);
+
+    await waitFor(() => {
+      expect(screen.getByText('View in source')).toBeInTheDocument();
+      expect(
+        screen.getByText('This extension failed to load.'),
+      ).toBeInTheDocument();
+    });
+
+    errorSpy.mockRestore();
+  });
+
   it('closes kebab menu when clicking View in source', async () => {
     const windowOpenSpy = jest
       .spyOn(globalThis, 'open')

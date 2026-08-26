@@ -698,6 +698,40 @@ describe('RepositoryDetailsPage', () => {
     expect(screen.queryByText('View in source')).not.toBeInTheDocument();
   });
 
+  it('keeps repository details mounted when a guest detail tab render throws', async () => {
+    const errorSpy = jest.spyOn(console, 'error').mockImplementation(() => {});
+
+    class ThrowingDetailTabApi extends DefaultGitRepositoriesExtensionsApi {
+      getDetailTabs() {
+        return [
+          {
+            id: 'guest-detail',
+            label: 'Guest Detail',
+            order: 5,
+            render: () => {
+              throw new Error('guest detail boom');
+            },
+          },
+        ];
+      }
+    }
+
+    await renderPage(new ThrowingDetailTabApi());
+
+    await waitFor(() => {
+      expect(screen.getByText('Guest Detail')).toBeInTheDocument();
+    });
+
+    fireEvent.click(screen.getByText('Guest Detail'));
+
+    expect(
+      screen.getByText('This extension failed to load.'),
+    ).toBeInTheDocument();
+    expect(screen.getByText('Overview')).toBeInTheDocument();
+
+    errorSpy.mockRestore();
+  });
+
   it('handles entity with no annotations and no spec', async () => {
     const bareEntity: Entity = {
       apiVersion: 'backstage.io/v1alpha1',

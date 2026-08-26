@@ -1,17 +1,5 @@
-import {
-  useState,
-  useCallback,
-  useEffect,
-  useRef,
-  useMemo,
-  Suspense,
-} from 'react';
-import {
-  Page,
-  Content,
-  HeaderTabs,
-  ErrorBoundary,
-} from '@backstage/core-components';
+import { useState, useCallback, useEffect, useRef, useMemo } from 'react';
+import { Page, Content, HeaderTabs } from '@backstage/core-components';
 import { Box, makeStyles } from '@material-ui/core';
 import {
   Navigate,
@@ -28,6 +16,7 @@ import type { Permission } from '@backstage/plugin-permission-common';
 import { gitRepositoriesViewPermission } from '@ansible/backstage-rhaap-common/permissions';
 import type { GitRepositoriesPageTabDefinition } from '@ansible/backstage-rhaap-common/gitRepositoriesExtensions';
 import { useGitRepositoriesExtensions } from './useGitRepositoriesExtensions';
+import { GuestExtensionRender } from './GuestExtensionRender';
 import {
   discoveryApiRef,
   fetchApiRef,
@@ -245,7 +234,10 @@ export const GitRepositoriesPage = () => {
     return (
       <>
         {actions.map(action => (
-          <span key={action.id}>{action.render()}</span>
+          <GuestExtensionRender
+            key={action.id}
+            render={() => action.render()}
+          />
         ))}
       </>
     );
@@ -373,11 +365,10 @@ export const GitRepositoriesPage = () => {
     );
   } else if (activeTab?.kind === 'extension') {
     content = (
-      <ErrorBoundary>
-        <Suspense fallback={null}>
-          {activeTab.render({ repositoryDetailPath })}
-        </Suspense>
-      </ErrorBoundary>
+      <GuestExtensionRender
+        key={activeTab.id}
+        render={() => activeTab.render({ repositoryDetailPath })}
+      />
     );
   } else {
     content = (

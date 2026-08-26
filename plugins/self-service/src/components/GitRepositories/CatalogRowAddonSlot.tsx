@@ -6,6 +6,7 @@
 
 import { Entity } from '@backstage/catalog-model';
 import { useGitRepositoriesExtensions } from './useGitRepositoriesExtensions';
+import { GuestExtensionRender } from './GuestExtensionRender';
 
 export interface CatalogRowAddonSlotProps {
   entity: Entity;
@@ -32,7 +33,10 @@ export const CatalogRowAddonSlot = ({
   return (
     <>
       {slots.map(slot => (
-        <span key={slot.id}>{slot.render({ entity, projectDetailPath })}</span>
+        <GuestExtensionRender
+          key={slot.id}
+          render={() => slot.render({ entity, projectDetailPath })}
+        />
       ))}
     </>
   );

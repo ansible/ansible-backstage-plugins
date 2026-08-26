@@ -400,6 +400,54 @@ describe('GitRepositoriesPage', () => {
     expect(await screen.findByTestId('guest-tab-content')).toBeInTheDocument();
   });
 
+  it('keeps the Git Repositories page mounted when a guest tab render throws', async () => {
+    const errorSpy = jest.spyOn(console, 'error').mockImplementation(() => {});
+
+    class ThrowingGuestTabApi extends DefaultGitRepositoriesExtensionsApi {
+      getPageTabs() {
+        return [
+          {
+            id: 'guest',
+            label: 'Guest Tab',
+            path: 'guest-tab',
+            order: 10,
+            render: () => {
+              throw new Error('guest tab boom');
+            },
+          },
+        ];
+      }
+    }
+
+    await renderInTestApp(
+      <TestApiProvider
+        apis={[
+          [discoveryApiRef, mockDiscoveryApi],
+          [fetchApiRef, mockFetchApi],
+          [gitRepositoriesExtensionsApiRef, new ThrowingGuestTabApi()],
+        ]}
+      >
+        <ThemeProvider theme={theme}>
+          <Routes>
+            <Route
+              path="repositories/*"
+              element={<GitRepositoriesRoutesPage />}
+            />
+          </Routes>
+        </ThemeProvider>
+      </TestApiProvider>,
+      { routeEntries: ['/repositories/guest-tab'] },
+    );
+
+    expect(screen.getByText('Git Repositories')).toBeInTheDocument();
+    expect(
+      screen.getByText('This extension failed to load.'),
+    ).toBeInTheDocument();
+    expect(screen.getByText('Guest Tab')).toBeInTheDocument();
+
+    errorSpy.mockRestore();
+  });
+
   it('renders page with Git Repositories header', async () => {
     await renderInTestApp(
       <TestApiProvider

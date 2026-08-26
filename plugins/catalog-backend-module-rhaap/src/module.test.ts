@@ -5,6 +5,7 @@ import {
 import { catalogModuleRhaap } from './module';
 import { SchedulerServiceTaskScheduleDefinition } from '@backstage/backend-plugin-api';
 import { AAPEntityProvider } from './providers/AAPEntityProvider';
+import { AAPJobTemplateProvider } from './providers/AAPJobTemplateProvider';
 import { mockServices, startTestBackend } from '@backstage/backend-test-utils';
 import { MOCK_CONFIG } from './mock';
 import { createRouter } from './router';
@@ -34,6 +35,14 @@ describe('catalogModuleRHAAPEntityProvider', () => {
         return { run: runner };
       },
     });
+    const entitySetSignals = jest.spyOn(
+      AAPEntityProvider.prototype,
+      'setSignals',
+    );
+    const jobSetSignals = jest.spyOn(
+      AAPJobTemplateProvider.prototype,
+      'setSignals',
+    );
 
     await startTestBackend({
       extensionPoints: [
@@ -54,6 +63,10 @@ describe('catalogModuleRHAAPEntityProvider', () => {
       'AapEntityProvider:development',
     );
     expect(runner).not.toHaveBeenCalled();
+    expect(entitySetSignals).toHaveBeenCalled();
+    expect(jobSetSignals).toHaveBeenCalled();
+    entitySetSignals.mockRestore();
+    jobSetSignals.mockRestore();
   });
 
   it('should pass allowedExternalAccessSubjects to createRouter when backend.auth.externalAccess is configured', async () => {

@@ -1,4 +1,4 @@
-import { useEffect, useState, useMemo, Suspense } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import {
   Box,
   CircularProgress,
@@ -37,6 +37,7 @@ import GitHubIcon from '@material-ui/icons/GitHub';
 import { getSourceUrl, formatTimeAgo } from '../CollectionsCatalog/utils';
 import { EntityLinkButton, GitLabIcon, SyncStatusMap } from '../common';
 import { CatalogRowAddonSlot } from './CatalogRowAddonSlot';
+import { GuestExtensionRender } from './GuestExtensionRender';
 import {
   useCollectionsStyles,
   useTableWrapperStyles,
@@ -317,7 +318,9 @@ const RepositoriesTableInner = ({
                 ) as unknown as string)
               : col.title,
             id: col.id,
-            render: (entity: Entity) => col.render(entity),
+            render: (entity: Entity) => (
+              <GuestExtensionRender render={() => col.render(entity)} />
+            ),
           }) as TableColumn<Entity>,
       ),
     {
@@ -567,12 +570,15 @@ const RepositoriesTableInner = ({
         </MenuItem>
         {selectedEntity
           ? catalogRowMenuItems.map(item => (
-              <Suspense key={item.id} fallback={null}>
-                {item.render({
-                  entity: selectedEntity,
-                  onCloseMenu: handleKebabClose,
-                })}
-              </Suspense>
+              <GuestExtensionRender
+                key={item.id}
+                render={() =>
+                  item.render({
+                    entity: selectedEntity,
+                    onCloseMenu: handleKebabClose,
+                  })
+                }
+              />
             ))
           : null}
       </Menu>

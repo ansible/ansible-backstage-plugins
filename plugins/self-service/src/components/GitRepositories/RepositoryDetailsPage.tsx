@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState, useMemo, Suspense } from 'react';
+import { useCallback, useEffect, useState, useMemo } from 'react';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import {
   Box,
@@ -33,6 +33,7 @@ import type {
   GitRepositoryDetailTabDefinition,
 } from '@ansible/backstage-rhaap-common/gitRepositoriesExtensions';
 import { useGitRepositoriesExtensions } from './useGitRepositoriesExtensions';
+import { GuestExtensionRender } from './GuestExtensionRender';
 import { normalizeRepoUrlFromEntity } from '@ansible/backstage-rhaap-common/catalogEntity';
 
 import { RepositoryBreadcrumbs } from './RepositoryBreadcrumbs';
@@ -485,12 +486,15 @@ const RepositoryDetailsPageInner = () => {
               {entity &&
                 detailTabContext &&
                 headerMenuItems.map(item => (
-                  <Suspense key={item.id} fallback={null}>
-                    {item.render({
-                      ...detailTabContext,
-                      onCloseMenu: () => setActionsAnchor(null),
-                    })}
-                  </Suspense>
+                  <GuestExtensionRender
+                    key={item.id}
+                    render={() =>
+                      item.render({
+                        ...detailTabContext,
+                        onCloseMenu: () => setActionsAnchor(null),
+                      })
+                    }
+                  />
                 ))}
             </Menu>
           </>
@@ -500,9 +504,10 @@ const RepositoryDetailsPageInner = () => {
       {entity &&
         detailTabContext &&
         detailOverlays.map(overlay => (
-          <Suspense key={overlay.id} fallback={null}>
-            {overlay.render(detailTabContext)}
-          </Suspense>
+          <GuestExtensionRender
+            key={overlay.id}
+            render={() => overlay.render(detailTabContext)}
+          />
         ))}
 
       <Tabs
@@ -527,12 +532,11 @@ const RepositoryDetailsPageInner = () => {
             {entity &&
               detailTabContext &&
               overviewSlots.map(slot => (
-                <Suspense
+                <GuestExtensionRender
                   key={slot.id}
                   fallback={<Typography>Loading…</Typography>}
-                >
-                  {slot.render(detailTabContext)}
-                </Suspense>
+                  render={() => slot.render(detailTabContext)}
+                />
               ))}
             <RepositoryAboutCard
               entity={entity}
@@ -556,9 +560,11 @@ const RepositoryDetailsPageInner = () => {
             alignSelf: 'stretch',
           }}
         >
-          <Suspense fallback={<Typography>Loading…</Typography>}>
-            {activeDetailTab.render(detailTabContext)}
-          </Suspense>
+          <GuestExtensionRender
+            key={activeDetailTab.id}
+            fallback={<Typography>Loading…</Typography>}
+            render={() => activeDetailTab.render(detailTabContext)}
+          />
         </Box>
       )}
 
@@ -581,9 +587,10 @@ const RepositoryDetailsPageInner = () => {
               extensionsApi.getCollectionsTabContent(detailTabContext);
             if (override) {
               return (
-                <Suspense fallback={<Typography>Loading…</Typography>}>
-                  {override}
-                </Suspense>
+                <GuestExtensionRender
+                  fallback={<Typography>Loading…</Typography>}
+                  render={() => override}
+                />
               );
             }
             return (
