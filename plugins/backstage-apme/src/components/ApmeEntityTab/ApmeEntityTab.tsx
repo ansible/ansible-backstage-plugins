@@ -232,6 +232,11 @@ function WorkflowBody({ projectId }: { projectId: string }) {
               showAiOptions={portalAiEnabled}
               idPrefix="portal-quality"
             />
+            {!portalAiEnabled && (
+              <div style={{ opacity: 0.6, fontSize: 13, marginTop: 8 }}>
+                AI is disabled in Quality settings.
+              </div>
+            )}
           </FlexItem>
           <Flex gap={{ default: 'gapSm' }}>
             <Button
