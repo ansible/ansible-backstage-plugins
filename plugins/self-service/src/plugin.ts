@@ -14,10 +14,11 @@ import {
   historyRouteRef,
 } from './routes';
 import { AAPApis, AapAuthApi, EEBuildApis } from './apis';
+import { gitRepositoriesCatalogApiFactory } from './apis/gitRepositoriesCatalog';
 
 export const selfServicePlugin = createPlugin({
   id: 'self-service',
-  apis: [AAPApis, AapAuthApi, EEBuildApis],
+  apis: [AAPApis, AapAuthApi, EEBuildApis, gitRepositoriesCatalogApiFactory],
   routes: {
     root: rootRouteRef,
     ee: eeRouteRef,

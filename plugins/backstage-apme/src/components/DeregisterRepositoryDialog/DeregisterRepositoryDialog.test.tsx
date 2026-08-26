@@ -10,6 +10,7 @@ import {
 } from '@backstage/core-plugin-api';
 import { TestApiProvider, renderInTestApp } from '@backstage/test-utils';
 import { Entity } from '@backstage/catalog-model';
+import { gitRepositoriesCatalogApiRef } from '@ansible/backstage-rhaap-common/gitRepositoriesCatalog';
 import { DeregisterRepositoryDialog } from './DeregisterRepositoryDialog';
 
 const mockEntity: Entity = {
@@ -35,6 +36,8 @@ const mockFetchApi = {
   fetch: jest.fn(),
 };
 
+const mockInvalidateCatalogCache = jest.fn();
+
 const renderDialog = async (
   props: Partial<React.ComponentProps<typeof DeregisterRepositoryDialog>> = {},
 ) => {
@@ -51,6 +54,10 @@ const renderDialog = async (
       apis={[
         [discoveryApiRef, mockDiscoveryApi],
         [fetchApiRef, mockFetchApi],
+        [
+          gitRepositoriesCatalogApiRef,
+          { invalidateCatalogCache: mockInvalidateCatalogCache },
+        ],
       ]}
     >
       <DeregisterRepositoryDialog {...mergedProps} />
@@ -99,9 +106,10 @@ describe('DeregisterRepositoryDialog', () => {
     await waitFor(() => {
       expect(onConfirm).toHaveBeenCalled();
     });
+    expect(mockInvalidateCatalogCache).toHaveBeenCalled();
   });
 
-  it('shows error message on failure', async () => {
+  it('does not invalidate catalog cache when deregister fails', async () => {
     mockFetchApi.fetch.mockResolvedValueOnce({
       ok: false,
       text: () =>
@@ -115,6 +123,7 @@ describe('DeregisterRepositoryDialog', () => {
     await waitFor(() => {
       expect(screen.getByText(/something went wrong/i)).toBeInTheDocument();
     });
+    expect(mockInvalidateCatalogCache).not.toHaveBeenCalled();
   });
 
   it('does not render when open is false', async () => {

@@ -52,6 +52,7 @@ export {
 export { ApmeViolationsCell } from './apis/apmeViolationsCell';
 export { ApmeRepoStatusChip } from './components/ApmeRepoStatusChip';
 export { ApmeRepositoryHeaderActions } from './components/ApmeRepositoryHeaderActions/ApmeRepositoryHeaderActions';
+export { ApmeDeregisterRepositoryOverlay } from './components/ApmeDeregisterRepositoryOverlay';
 export { ApmeRepositoryOverviewCard } from './components/ApmeRepositoryOverviewCard/ApmeRepositoryOverviewCard';
 export { ApmeAddRepositoryHeaderAction } from './components/ApmeAddRepositoryHeaderAction/ApmeAddRepositoryHeaderAction';
 export { ApmeQualitySettingsTab } from './components/ApmeQualitySettingsTab';

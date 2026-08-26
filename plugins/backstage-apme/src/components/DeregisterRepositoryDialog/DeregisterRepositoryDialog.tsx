@@ -27,6 +27,7 @@ import {
 import { Alert } from '@material-ui/lab';
 import { Entity } from '@backstage/catalog-model';
 import { useDeregisterRepository } from '../../hooks/useDeregisterRepository';
+import { useInvalidateGitRepositoriesCatalog } from '../../hooks/useInvalidateGitRepositoriesCatalog';
 
 export interface DeregisterRepositoryDialogProps {
   open: boolean;
@@ -42,6 +43,7 @@ export const DeregisterRepositoryDialog = ({
   onConfirm,
 }: DeregisterRepositoryDialogProps) => {
   const { deregister, loading } = useDeregisterRepository(entity);
+  const invalidateGitRepositoriesCatalog = useInvalidateGitRepositoriesCatalog();
   const [error, setError] = useState<string | null>(null);
 
   const displayName =
@@ -54,12 +56,13 @@ export const DeregisterRepositoryDialog = ({
     setError(null);
     try {
       await deregister();
+      invalidateGitRepositoriesCatalog();
       onConfirm();
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
       setError(msg);
     }
-  }, [deregister, onConfirm]);
+  }, [deregister, invalidateGitRepositoriesCatalog, onConfirm]);
 
   const handleClose = useCallback(() => {
     if (!loading) {
@@ -72,6 +75,8 @@ export const DeregisterRepositoryDialog = ({
     <Dialog
       open={open}
       onClose={handleClose}
+      disableBackdropClick
+      disableEscapeKeyDown={loading}
       aria-labelledby="deregister-dialog-title"
       aria-describedby="deregister-dialog-description"
     >

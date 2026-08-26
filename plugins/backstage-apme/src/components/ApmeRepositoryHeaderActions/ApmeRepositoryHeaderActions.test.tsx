@@ -12,6 +12,8 @@ import {
 import { TestApiProvider, renderInTestApp } from '@backstage/test-utils';
 import { Entity } from '@backstage/catalog-model';
 import { ApmeRepositoryHeaderActions } from './ApmeRepositoryHeaderActions';
+import { ApmeDeregisterRepositoryOverlay } from '../ApmeDeregisterRepositoryOverlay';
+import { deregisterRepositoryDialogStore } from '../ApmeDeregisterRepositoryOverlay';
 
 const mockNavigate = jest.fn();
 const mockUsePermission = jest.fn().mockReturnValue({
@@ -84,6 +86,7 @@ const renderComponent = async (entity: Entity = baseEntity) => {
       ]}
     >
       <ApmeRepositoryHeaderActions context={context} onCloseMenu={onCloseMenu} />
+      <ApmeDeregisterRepositoryOverlay context={context} />
     </TestApiProvider>,
   );
 };
@@ -91,6 +94,7 @@ const renderComponent = async (entity: Entity = baseEntity) => {
 describe('ApmeRepositoryHeaderActions', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    deregisterRepositoryDialogStore.close();
     mockConfigApi.getOptionalBoolean.mockReturnValue(true);
     mockUsePermission.mockReturnValue({
       loading: false,

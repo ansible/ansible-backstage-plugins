@@ -461,6 +461,7 @@ const RepositoryDetailsPageInner = () => {
               anchorEl={actionsAnchor}
               open={Boolean(actionsAnchor)}
               onClose={() => setActionsAnchor(null)}
+              keepMounted
               getContentAnchorEl={null}
               anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
               transformOrigin={{ vertical: 'top', horizontal: 'right' }}

@@ -63,6 +63,9 @@ export type ApmeGitRepositoriesComponents = {
     context: GitRepositoryDetailHeaderMenuContext;
     onCloseMenu: () => void;
   }>;
+  ApmeDeregisterRepositoryOverlay: ComponentType<{
+    context: GitRepositoryDetailTabContext;
+  }>;
   ApmeViolationsCell: ComponentType<{ entity: Entity }>;
 };
 
@@ -76,6 +79,7 @@ export function createApmeGitRepositoriesExtensionsApi(
     DependenciesTab,
     ApmeRepositoryOverviewCard,
     ApmeRepositoryHeaderActions,
+    ApmeDeregisterRepositoryOverlay,
     ApmeViolationsCell,
   } = components;
 
@@ -187,6 +191,18 @@ export function createApmeGitRepositoriesExtensionsApi(
               context={ctx}
               onCloseMenu={ctx.onCloseMenu}
             />
+          ),
+        },
+      ];
+    }
+
+    getDetailOverlays() {
+      return [
+        {
+          id: 'apme-deregister-repository',
+          order: 10,
+          render: (ctx: GitRepositoryDetailTabContext) => (
+            <ApmeDeregisterRepositoryOverlay context={ctx} />
           ),
         },
       ];

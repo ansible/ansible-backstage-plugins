@@ -4,8 +4,7 @@
  * ADR-010: Thin repository detail header actions (US-002).
  */
 
-import { useCallback, useState } from 'react';
-import { useNavigate, useLocation } from 'react-router-dom';
+import { useCallback } from 'react';
 import { MenuItem } from '@material-ui/core';
 import AssessmentIcon from '@material-ui/icons/Assessment';
 import DeleteOutlineIcon from '@material-ui/icons/DeleteOutline';
@@ -17,7 +16,7 @@ import { gitRepositoriesDeletePermission } from '@ansible/backstage-rhaap-common
 import { useApmeEnabled } from '../../hooks/useApmeEnabled';
 import { useNavigateToRepositoryQualityTab } from '../../hooks/useNavigateToRepositoryQualityTab';
 import { isManuallyRegisteredRepository } from '../../hooks/useDeregisterRepository';
-import { DeregisterRepositoryDialog } from '../DeregisterRepositoryDialog';
+import { deregisterRepositoryDialogStore } from '../ApmeDeregisterRepositoryOverlay';
 
 export interface ApmeRepositoryHeaderActionsProps {
   context: GitRepositoryDetailHeaderMenuContext;
@@ -31,12 +30,9 @@ export const ApmeRepositoryHeaderActions = ({
 }: ApmeRepositoryHeaderActionsProps) => {
   const enabled = useApmeEnabled();
   const config = useApi(configApiRef);
-  const navigate = useNavigate();
-  const location = useLocation();
   const navigateToQualityTab = useNavigateToRepositoryQualityTab(
     context.entity,
   );
-  const [deregisterDialogOpen, setDeregisterDialogOpen] = useState(false);
 
   const isPermissionFrameworkEnabled =
     config.getOptionalBoolean('permission.enabled');
@@ -57,24 +53,18 @@ export const ApmeRepositoryHeaderActions = ({
     navigateToQualityTab();
   }, [navigateToQualityTab, onCloseMenu]);
 
-  const handleDeregisterClick = useCallback(() => {
-    onCloseMenu();
-    setDeregisterDialogOpen(true);
-  }, [onCloseMenu]);
-
-  const handleDeregisterConfirm = useCallback(() => {
-    setDeregisterDialogOpen(false);
-    // Navigate to repositories catalog - derive path from current location
-    // Current URL: /self-service/repositories/:repositoryName
-    // Target URL: /self-service/repositories/catalog
-    const currentPath = location.pathname;
-    const repositoriesBase = currentPath.replace(/\/[^/]+$/, '');
-    navigate(`${repositoriesBase}/catalog`);
-  }, [navigate, location.pathname]);
-
-  const handleDeregisterClose = useCallback(() => {
-    setDeregisterDialogOpen(false);
-  }, []);
+  const handleDeregisterClick = useCallback(
+    (event: React.MouseEvent) => {
+      event.stopPropagation();
+      onCloseMenu();
+      // Open after the Actions menu backdrop finishes closing; otherwise MUI
+      // treats that backdrop click as a Dialog dismiss and the confirm flashes away.
+      window.setTimeout(() => {
+        deregisterRepositoryDialogStore.open(context.entity);
+      }, 150);
+    },
+    [context.entity, onCloseMenu],
+  );
 
   if (!enabled || !repoUrl) {
     return null;
@@ -92,12 +82,6 @@ export const ApmeRepositoryHeaderActions = ({
           Deregister
         </MenuItem>
       )}
-      <DeregisterRepositoryDialog
-        open={deregisterDialogOpen}
-        entity={context.entity}
-        onClose={handleDeregisterClose}
-        onConfirm={handleDeregisterConfirm}
-      />
     </>
   );
 };
