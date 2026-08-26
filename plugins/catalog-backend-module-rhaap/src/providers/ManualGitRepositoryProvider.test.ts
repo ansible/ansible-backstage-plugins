@@ -1,6 +1,7 @@
 import { ManualGitRepositoryProvider } from './ManualGitRepositoryProvider';
 import { EntityProviderConnection } from '@backstage/plugin-catalog-node';
 import { mockServices } from '@backstage/backend-test-utils';
+import { Entity } from '@backstage/catalog-model';
 
 describe('ManualGitRepositoryProvider', () => {
   let provider: ManualGitRepositoryProvider;
@@ -32,7 +33,7 @@ describe('ManualGitRepositoryProvider', () => {
   });
 
   describe('registerRepository', () => {
-    const validEntity = {
+    const validEntity: Entity = {
       apiVersion: 'backstage.io/v1alpha1',
       kind: 'Component',
       metadata: {
@@ -87,7 +88,7 @@ describe('ManualGitRepositoryProvider', () => {
         metadata: {
           namespace: 'default',
         },
-      };
+      } as Entity;
 
       await expect(
         provider.registerRepository(entityWithoutName),
@@ -100,7 +101,7 @@ describe('ManualGitRepositoryProvider', () => {
       const entityWithoutType = {
         ...validEntity,
         spec: {},
-      };
+      } as Entity;
 
       await expect(
         provider.registerRepository(entityWithoutType),
@@ -115,7 +116,7 @@ describe('ManualGitRepositoryProvider', () => {
         spec: {
           type: 'wrong-type',
         },
-      };
+      } as Entity;
 
       await expect(
         provider.registerRepository(entityWithWrongType),
@@ -130,7 +131,7 @@ describe('ManualGitRepositoryProvider', () => {
         spec: {
           type: 'git-repository',
         },
-      };
+      } as unknown as Entity;
 
       await expect(
         provider.registerRepository(entityWithNullMetadata),
@@ -145,7 +146,7 @@ describe('ManualGitRepositoryProvider', () => {
           name: 'test-org-test-repo-github-manual',
         },
         spec: null,
-      };
+      } as unknown as Entity;
 
       await expect(
         provider.registerRepository(entityWithNullSpec),

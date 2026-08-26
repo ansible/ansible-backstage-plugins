@@ -129,10 +129,11 @@ const TabVisibilityProbe = ({
   resourceRef: string | undefined;
   onResolved: (tabId: string, authorization: TabAuthorization) => void;
 }) => {
-  const { loading, allowed } = usePermission({
-    permission,
-    resourceRef,
-  } as Parameters<typeof usePermission>[0]);
+  const { loading, allowed } = usePermission(
+    permission.type === 'resource'
+      ? { permission, resourceRef }
+      : { permission },
+  );
 
   useEffect(() => {
     let authorization: TabAuthorization = 'denied';

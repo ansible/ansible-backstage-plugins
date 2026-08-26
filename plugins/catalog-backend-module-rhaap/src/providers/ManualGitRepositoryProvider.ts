@@ -3,6 +3,7 @@ import {
   EntityProviderConnection,
 } from '@backstage/plugin-catalog-node';
 import { LoggerService } from '@backstage/backend-plugin-api';
+import { Entity } from '@backstage/catalog-model';
 
 /**
  * A lightweight {@link EntityProvider} for Git repositories registered
@@ -30,7 +31,7 @@ export class ManualGitRepositoryProvider implements EntityProvider {
     this.connection = connection;
   }
 
-  async registerRepository(entity: any): Promise<void> {
+  async registerRepository(entity: Entity): Promise<void> {
     if (!this.connection) {
       throw new Error('ManualGitRepositoryProvider is not connected yet');
     }
