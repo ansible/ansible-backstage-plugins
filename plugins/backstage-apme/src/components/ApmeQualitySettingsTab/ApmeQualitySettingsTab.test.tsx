@@ -10,6 +10,7 @@ import { ApmeQualitySettingsTab } from './ApmeQualitySettingsTab';
 
 jest.mock('@backstage/plugin-permission-react', () => ({
   RequirePermission: (props: any) => props.children,
+  usePermission: () => ({ loading: false, allowed: true }),
 }));
 
 describe('ApmeQualitySettingsTab', () => {
