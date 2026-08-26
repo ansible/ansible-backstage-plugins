@@ -10,6 +10,7 @@ import { ApmeQualitySettingsTab } from './ApmeQualitySettingsTab';
 
 jest.mock('@backstage/plugin-permission-react', () => ({
   RequirePermission: (props: any) => props.children,
+  usePermission: () => ({ loading: false, allowed: true }),
 }));
 
 describe('ApmeQualitySettingsTab', () => {
@@ -152,7 +153,7 @@ describe('ApmeQualitySettingsTab', () => {
     ).toBeInTheDocument();
   });
 
-  it('renders the AI providers card below quality settings', async () => {
+  it('renders the AI providers card alongside quality settings', async () => {
     renderTab();
     expect(await screen.findByText('Quality settings')).toBeInTheDocument();
     expect(await screen.findByText('AI providers')).toBeInTheDocument();

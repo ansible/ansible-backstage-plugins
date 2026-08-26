@@ -19,6 +19,7 @@ jest.mock('@backstage/plugin-permission-react', () => ({
     }
     return <>{props.children}</>;
   },
+  usePermission: () => ({ loading: false, allowed: false }),
 }));
 
 describe('ApmeQualitySettingsTab (view-only)', () => {

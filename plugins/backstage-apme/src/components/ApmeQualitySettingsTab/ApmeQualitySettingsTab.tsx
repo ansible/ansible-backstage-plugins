@@ -16,6 +16,7 @@ import {
   CardHeader,
   FormControl,
   FormControlLabel,
+  Grid,
   InputLabel,
   MenuItem,
   Select,
@@ -25,7 +26,10 @@ import {
   makeStyles,
 } from '@material-ui/core';
 import { Progress } from '@backstage/core-components';
-import { RequirePermission } from '@backstage/plugin-permission-react';
+import {
+  RequirePermission,
+  usePermission,
+} from '@backstage/plugin-permission-react';
 import {
   ansibleSettingsEditPermission,
   ansibleSettingsViewPermission,
@@ -37,9 +41,6 @@ import { invalidateApmePortalSettingsCache } from '../../hooks/useApmeEnabled';
 import { ApmeAiProvidersSection } from './ApmeAiProvidersSection';
 
 const useStyles = makeStyles(theme => ({
-  root: {
-    maxWidth: 720,
-  },
   field: {
     minWidth: 220,
     marginTop: theme.spacing(1),
@@ -74,6 +75,10 @@ const ApmeQualitySettingsTabContent = () => {
   const classes = useStyles();
   const apmeApi = useApi(apmeApiRef);
   const options = ansibleCoreVersionOptions();
+  const { allowed: canEdit } = usePermission({
+    permission: ansibleSettingsEditPermission,
+    resourceRef: 'apme',
+  });
 
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -141,135 +146,138 @@ const ApmeQualitySettingsTabContent = () => {
   }
 
   return (
-    <Box className={classes.root}>
-      <Card>
-        <CardHeader
-          title="Quality settings"
-          subheader="Defaults for Quality scans across registered repositories"
-        />
-        <CardContent>
-          <Typography variant="body2" className={classes.hint}>
-            Sets the global ansible-core target used when a repository has no
-            per-project override, and the APME Gateway URL used for scans and
-            remediation. Prefills the Quality tab scan form and applies to
-            background catalog-sync scans. Changes persist in the Portal
-            settings store.
-          </Typography>
-
-          {error && (
-            <Typography variant="body2" className={classes.error} role="alert">
-              {error.message}
+    <Grid container spacing={3} alignItems="flex-start">
+      <Grid item xs={12} md={canEdit ? 6 : 12}>
+        <Card>
+          <CardHeader
+            title="Quality settings"
+            subheader="Defaults for Quality scans across registered repositories"
+          />
+          <CardContent>
+            <Typography variant="body2" className={classes.hint}>
+              Sets the global ansible-core target used when a repository has no
+              per-project override, and the APME Gateway URL used for scans and
+              remediation. Prefills the Quality tab scan form and applies to
+              background catalog-sync scans. Changes persist in the Portal
+              settings store.
             </Typography>
-          )}
 
-          <FormControl
-            variant="outlined"
-            className={classes.field}
-            size="small"
-          >
-            <InputLabel id="apme-target-ansible-core-label">
-              Target ansible-core
-            </InputLabel>
-            <Select
-              labelId="apme-target-ansible-core-label"
-              label="Target ansible-core"
-              value={version}
+            {error && (
+              <Typography
+                variant="body2"
+                className={classes.error}
+                role="alert"
+              >
+                {error.message}
+              </Typography>
+            )}
+
+            <FormControl
+              variant="outlined"
+              className={classes.field}
+              size="small"
+            >
+              <InputLabel id="apme-target-ansible-core-label">
+                Target ansible-core
+              </InputLabel>
+              <Select
+                labelId="apme-target-ansible-core-label"
+                label="Target ansible-core"
+                value={version}
+                onChange={event => {
+                  setVersion(String(event.target.value));
+                  setDirty(true);
+                  setSavedMessage(undefined);
+                }}
+                disabled={saving}
+              >
+                {options.map(option => (
+                  <MenuItem key={option.value} value={option.value}>
+                    {option.label}
+                  </MenuItem>
+                ))}
+              </Select>
+            </FormControl>
+
+            <TextField
+              className={classes.urlField}
+              variant="outlined"
+              size="small"
+              label="APME Gateway URL"
+              value={gatewayBaseUrl}
               onChange={event => {
-                setVersion(String(event.target.value));
+                setGatewayBaseUrl(event.target.value);
                 setDirty(true);
                 setSavedMessage(undefined);
               }}
               disabled={saving}
+              helperText="Overrides app-config ansible.apme.baseUrl. Clear and save to use app-config. Example: http://host.containers.internal:8080"
+              inputProps={{ 'aria-label': 'APME Gateway URL' }}
+            />
+
+            <RequirePermission
+              permission={ansibleSettingsEditPermission}
+              resourceRef="apme"
+              errorPage={
+                <Typography variant="body2" className={classes.meta}>
+                  AI-assisted remediation:{' '}
+                  {enableAi ? 'enabled' : 'disabled'} (read-only)
+                </Typography>
+              }
             >
-              {options.map(option => (
-                <MenuItem key={option.value} value={option.value}>
-                  {option.label}
-                </MenuItem>
-              ))}
-            </Select>
-          </FormControl>
+              <>
+                <FormControlLabel
+                  control={
+                    <Switch
+                      color="primary"
+                      checked={enableAi}
+                      onChange={(_e, checked) => {
+                        setEnableAi(checked);
+                        setDirty(true);
+                        setSavedMessage(undefined);
+                      }}
+                      disabled={saving}
+                      inputProps={{
+                        'aria-label': 'AI-assisted remediation',
+                      }}
+                    />
+                  }
+                  label="AI-assisted remediation"
+                />
+                <Typography variant="body2" className={classes.meta}>
+                  When enabled, Quality scans and remediations may use configured
+                  AI providers. App-config{' '}
+                  <code>ansible.apme.enableAi</code> is the default until you
+                  save a choice here.
+                </Typography>
 
-          <TextField
-            className={classes.urlField}
-            variant="outlined"
-            size="small"
-            label="APME Gateway URL"
-            value={gatewayBaseUrl}
-            onChange={event => {
-              setGatewayBaseUrl(event.target.value);
-              setDirty(true);
-              setSavedMessage(undefined);
-            }}
-            disabled={saving}
-            helperText="Overrides app-config ansible.apme.baseUrl. Clear and save to use app-config. Example: http://host.containers.internal:8080"
-            inputProps={{ 'aria-label': 'APME Gateway URL' }}
-          />
-
-          <RequirePermission
-            permission={ansibleSettingsEditPermission}
-            resourceRef="apme"
-            errorPage={
-              <Typography variant="body2" className={classes.meta}>
-                AI-assisted remediation:{' '}
-                {enableAi ? 'enabled' : 'disabled'} (read-only)
-              </Typography>
-            }
-          >
-            <>
-              <FormControlLabel
-                control={
-                  <Switch
+                <Box className={classes.actions}>
+                  <Button
                     color="primary"
-                    checked={enableAi}
-                    onChange={(_e, checked) => {
-                      setEnableAi(checked);
-                      setDirty(true);
-                      setSavedMessage(undefined);
-                    }}
-                    disabled={saving}
-                    inputProps={{
-                      'aria-label': 'AI-assisted remediation',
-                    }}
-                  />
-                }
-                label="AI-assisted remediation"
-              />
-              <Typography variant="body2" className={classes.meta}>
-                When enabled, Quality scans and remediations may use configured
-                AI providers. App-config <code>ansible.apme.enableAi</code> is
-                the default until you save a choice here.
-              </Typography>
+                    variant="contained"
+                    onClick={() => void onSave()}
+                    disabled={saving || !dirty}
+                  >
+                    {saving ? 'Saving…' : 'Save'}
+                  </Button>
+                  {savedMessage && (
+                    <Typography variant="body2" color="primary">
+                      {savedMessage}
+                    </Typography>
+                  )}
+                </Box>
+              </>
+            </RequirePermission>
+          </CardContent>
+        </Card>
+      </Grid>
 
-              <Box className={classes.actions}>
-                <Button
-                  color="primary"
-                  variant="contained"
-                  onClick={() => void onSave()}
-                  disabled={saving || !dirty}
-                >
-                  {saving ? 'Saving…' : 'Save'}
-                </Button>
-                {savedMessage && (
-                  <Typography variant="body2" color="primary">
-                    {savedMessage}
-                  </Typography>
-                )}
-              </Box>
-            </>
-          </RequirePermission>
-        </CardContent>
-      </Card>
-
-      <RequirePermission
-        permission={ansibleSettingsEditPermission}
-        resourceRef="apme"
-        errorPage={<></>}
-      >
-        <Box mt={3}>
+      {canEdit && (
+        <Grid item xs={12} md={6}>
           <ApmeAiProvidersSection />
-        </Box>
-      </RequirePermission>
-    </Box>
+        </Grid>
+      )}
+    </Grid>
   );
 };
 
