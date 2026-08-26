@@ -2,7 +2,11 @@
  * Copyright Red Hat
  *
  * ADR-010: Host/guest extension contracts for Git Repositories surfaces.
- * Guest plugins register tabs and slots from packages/app — not from self-service.
+ *
+ * Host (this package + self-service) registers the empty default factory so
+ * zero-guest RHDH / yarn start still have a bound apiRef. Guest plugins
+ * replace that factory from packages/app or Janus `apiFactories` — they
+ * must not be imported by self-service (ADR-010 rule 5).
  *
  * Single factory: `gitRepositoriesExtensionsApiRef` binds one implementation
  * app-wide. This host ships zero-or-one guest. A second independent guest
@@ -18,6 +22,10 @@
  * tabs and sorted together). Every other slot inserts guest contributions
  * at a fixed host position; `order` then ranks those guests relative to
  * each other, not relative to core columns/actions.
+ *
+ * @alpha Not independently versioned. `@ansible/backstage-rhaap-common` is
+ * private (`workspace:^`). Out-of-repo guests should treat this surface as
+ * unstable until the package is published with a semver.
  */
 
 import type { ReactNode } from 'react';
@@ -162,6 +170,11 @@ export type GitRepositoryDetailOverlayDefinition = {
   render: (context: GitRepositoryDetailTabContext) => ReactNode;
 };
 
+/**
+ * Host/guest extension contract for Git Repositories surfaces.
+ *
+ * @alpha Not independently versioned (`workspace:^` / private package).
+ */
 export interface GitRepositoriesExtensionsApi {
   getPageTabs(): GitRepositoriesPageTabDefinition[];
   getPageHeaderActions(): GitRepositoriesPageHeaderActionDefinition[];
@@ -180,16 +193,22 @@ export interface GitRepositoriesExtensionsApi {
 /**
  * Git Repositories host/guest extension contract.
  *
- * Backstage binds a single implementation per apiRef. This default is empty
- * (ADR-010 zero footprint). A guest replaces it entirely — a second guest
- * cannot register in parallel without a composite factory.
+ * Backstage binds a single implementation per apiRef. The host registers an
+ * empty default (ADR-010 zero footprint). A guest replaces it entirely — a
+ * second guest cannot register in parallel without a composite factory.
+ *
+ * @alpha Not independently versioned (`workspace:^` / private package).
  */
 export const gitRepositoriesExtensionsApiRef =
   createApiRef<GitRepositoriesExtensionsApi>({
     id: 'plugin.rhaap.git-repositories.extensions',
   });
 
-/** Default: no optional factory plugin UI (ADR-010 zero footprint). */
+/**
+ * Empty default implementation (ADR-010 zero footprint).
+ *
+ * @alpha
+ */
 export class DefaultGitRepositoriesExtensionsApi implements GitRepositoriesExtensionsApi {
   getPageTabs(): GitRepositoriesPageTabDefinition[] {
     return [];
@@ -234,7 +253,12 @@ export class DefaultGitRepositoriesExtensionsApi implements GitRepositoriesExten
   }
 }
 
-/** Host default for RHDH when no guest plugin registers extensions (ADR-010). */
+/**
+ * Host default factory so Git Repos has a bound apiRef when no guest is loaded.
+ * Guest plugins replace this from packages/app or Janus `apiFactories`.
+ *
+ * @alpha
+ */
 export const defaultGitRepositoriesExtensionsApiFactory: AnyApiFactory =
   createApiFactory({
     api: gitRepositoriesExtensionsApiRef,

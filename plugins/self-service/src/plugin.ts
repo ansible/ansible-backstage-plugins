@@ -21,6 +21,9 @@ export const selfServicePlugin = createPlugin({
     AAPApis,
     AapAuthApi,
     EEBuildApis,
+    // Empty default so Git Repos has a bound apiRef with no guest installed
+    // (same pattern as AAPApis). Guests replace this from packages/app or
+    // Janus apiFactories; self-service does not import guest packages (ADR-010).
     defaultGitRepositoriesExtensionsApiFactory,
   ],
   routes: {
