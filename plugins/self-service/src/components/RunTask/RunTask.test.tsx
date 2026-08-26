@@ -3489,7 +3489,7 @@ describe('RunTask', () => {
       await render(<RunTask />);
 
       await waitFor(() => {
-        expect(screen.getByText('Test Template')).toBeInTheDocument();
+        expect(screen.getByText('EE Template')).toBeInTheDocument();
       });
 
       expect(
@@ -3532,7 +3532,7 @@ describe('RunTask', () => {
       await render(<RunTask />);
 
       await waitFor(() => {
-        expect(screen.getByText('Test Template')).toBeInTheDocument();
+        expect(screen.getByText('Register repo')).toBeInTheDocument();
       });
 
       expect(
