@@ -59,7 +59,7 @@ describe('ManualGitRepositoryProvider', () => {
       await provider.registerRepository(validEntity);
 
       expect(logger.info).toHaveBeenCalledWith(
-        'Registering manually-added Git repository entity test-org-test-repo-github-manual',
+        'Registering manually-added Git repository entity',
       );
       expect(mockConnection.applyMutation).toHaveBeenCalledWith({
         type: 'delta',

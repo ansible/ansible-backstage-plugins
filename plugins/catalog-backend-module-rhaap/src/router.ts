@@ -460,7 +460,7 @@ export async function createRouter(options: {
           if (existing.items.length > 0) {
             const existingRef = stringifyEntityRef(existing.items[0]);
             logger.info(
-              `Repository ${scmOrganization}/${scmRepository} is already registered as ${existingRef}, rejecting duplicate registration`,
+              'Repository is already registered, rejecting duplicate registration',
             );
             response.status(409).json({
               error: `Repository ${scmOrganization}/${scmRepository} is already registered in the catalog as ${existingRef}.`,

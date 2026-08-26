@@ -47,9 +47,7 @@ export class ManualGitRepositoryProvider implements EntityProvider {
       );
     }
 
-    this.logger.info(
-      `Registering manually-added Git repository entity ${entity.metadata.name}`,
-    );
+    this.logger.info('Registering manually-added Git repository entity');
 
     await this.connection.applyMutation({
       type: 'delta',

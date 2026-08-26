@@ -235,9 +235,9 @@ export const GitRepositoriesPage = () => {
   );
 
   const extensionHeaderActions = useMemo(() => {
-    const actions = extensionsApi
-      .getPageHeaderActions()
-      .sort((a, b) => a.order - b.order);
+    const actions = [...extensionsApi.getPageHeaderActions()].sort(
+      (a, b) => a.order - b.order,
+    );
     if (actions.length === 0) {
       return undefined;
     }

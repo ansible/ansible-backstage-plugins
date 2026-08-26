@@ -140,7 +140,9 @@ const RepositoriesTableInner = ({
 
   const catalogRowMenuItems = useMemo(
     () =>
-      extensionsApi.getCatalogRowMenuItems().sort((a, b) => a.order - b.order),
+      [...extensionsApi.getCatalogRowMenuItems()].sort(
+        (a, b) => a.order - b.order,
+      ),
     [extensionsApi],
   );
 
@@ -301,8 +303,7 @@ const RepositoriesTableInner = ({
         );
       },
     },
-    ...extensionsApi
-      .getCatalogColumns()
+    ...[...extensionsApi.getCatalogColumns()]
       .sort((a, b) => a.order - b.order)
       .map(
         col =>
@@ -317,7 +318,7 @@ const RepositoriesTableInner = ({
               : col.title,
             id: col.id,
             render: (entity: Entity) => col.render(entity),
-          }) as TableColumn<Entity>,
+          } as TableColumn<Entity>),
       ),
     {
       title: (
@@ -329,7 +330,7 @@ const RepositoriesTableInner = ({
       id: 'lastActivity',
       render: (entity: Entity) => {
         const entry = lastActivityMap[stringifyEntityRef(entity)];
-        const text = lastActivityLoading ? '—' : (entry?.text ?? 'N/A');
+        const text = lastActivityLoading ? '—' : entry?.text ?? 'N/A';
         const url = entry?.url;
         return (
           <Typography variant="body2" color="textSecondary" component="span">

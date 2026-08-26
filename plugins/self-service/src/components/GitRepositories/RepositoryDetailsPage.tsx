@@ -258,14 +258,15 @@ const RepositoryDetailsPageInner = () => {
 
   const headerMenuItems = useMemo(
     () =>
-      extensionsApi
-        .getDetailHeaderMenuItems()
-        .sort((a, b) => a.order - b.order),
+      [...extensionsApi.getDetailHeaderMenuItems()].sort(
+        (a, b) => a.order - b.order,
+      ),
     [extensionsApi],
   );
 
   const detailOverlays = useMemo(
-    () => extensionsApi.getDetailOverlays().sort((a, b) => a.order - b.order),
+    () =>
+      [...extensionsApi.getDetailOverlays()].sort((a, b) => a.order - b.order),
     [extensionsApi],
   );
 
@@ -276,7 +277,9 @@ const RepositoryDetailsPageInner = () => {
 
   const overviewSlots = useMemo(
     () =>
-      extensionsApi.getDetailOverviewSlots().sort((a, b) => a.order - b.order),
+      [...extensionsApi.getDetailOverviewSlots()].sort(
+        (a, b) => a.order - b.order,
+      ),
     [extensionsApi],
   );
 

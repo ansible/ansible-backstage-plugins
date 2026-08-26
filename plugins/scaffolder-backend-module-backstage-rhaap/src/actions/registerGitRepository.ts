@@ -267,7 +267,7 @@ export function registerGitRepositoryAction(options: {
         const errorText = await response.text();
         if (response.status === 409) {
           logger.warn(
-            `[ansible:register:git-repository] Repository already registered: ${errorText}`,
+            '[ansible:register:git-repository] Repository already registered',
           );
         }
         throw new Error(`Failed to register Git repository: ${errorText}`);
@@ -280,7 +280,7 @@ export function registerGitRepositoryAction(options: {
       ctx.output('entityName', entity.metadata.name);
 
       logger.info(
-        `[ansible:register:git-repository] Successfully registered ${values.repositoryOwner}/${values.repositoryName} in the catalog`,
+        '[ansible:register:git-repository] Successfully registered repository in the catalog',
       );
     },
   });
