@@ -3,6 +3,21 @@
  *
  * ADR-010: Host/guest extension contracts for Git Repositories surfaces.
  * Guest plugins register tabs and slots from packages/app — not from self-service.
+ *
+ * Single factory: `gitRepositoriesExtensionsApiRef` binds one implementation
+ * app-wide. This host ships zero-or-one guest. A second independent guest
+ * cannot register alongside the first without a composite factory (no
+ * cross-plugin deps). See the apiRef JSDoc.
+ *
+ * `id` must be unique within each getter's returned array. Prefix with the
+ * guest plugin id (`plugin.<name>.<slot>.<item>`) so a future composite
+ * factory can merge guests without collisions. The host uses `id` as React
+ * keys and for tab-selection matching.
+ *
+ * `order` is global only for page tabs and detail tabs (merged with core
+ * tabs and sorted together). Every other slot inserts guest contributions
+ * at a fixed host position; `order` then ranks those guests relative to
+ * each other, not relative to core columns/actions.
  */
 
 import type { ReactNode } from 'react';
@@ -21,9 +36,11 @@ export type GitRepositoriesPageTabContext = {
 
 /** Optional top-level tab on the Git Repositories page (e.g. a custom analytics tab). */
 export type GitRepositoriesPageTabDefinition = {
+  /** Unique within `getPageTabs()`. Prefer `plugin.<name>.page-tab.<item>`. */
   id: string;
   label: string;
   path: string;
+  /** Global: merged with Catalog (0) and CI Activity (20) and sorted together. */
   order: number;
   render: (context: GitRepositoriesPageTabContext) => ReactNode;
   /**
@@ -39,7 +56,9 @@ export type GitRepositoriesPageTabDefinition = {
 
 /** Optional header action on the Git Repositories list page (e.g. Add repository scaffolder). */
 export type GitRepositoriesPageHeaderActionDefinition = {
+  /** Unique within `getPageHeaderActions()`. Prefer `plugin.<name>.page-header.<item>`. */
   id: string;
+  /** Local: ranks guest header actions among themselves only. */
   order: number;
   render: () => ReactNode;
 };
@@ -59,7 +78,9 @@ export type GitRepositoryDetailHeaderMenuContext =
   };
 
 export type GitRepositoryDetailHeaderMenuItemDefinition = {
+  /** Unique within `getDetailHeaderMenuItems()`. Prefer `plugin.<name>.detail-menu.<item>`. */
   id: string;
+  /** Local: ranks guest Actions-menu items among themselves only. */
   order: number;
   render: (context: GitRepositoryDetailHeaderMenuContext) => ReactNode;
 };
@@ -69,15 +90,19 @@ export type GitRepositoryDetailHeaderMenuItemDefinition = {
  * (e.g. a summary card).
  */
 export type GitRepositoryDetailOverviewSlotDefinition = {
+  /** Unique within `getDetailOverviewSlots()`. Prefer `plugin.<name>.overview-slot.<item>`. */
   id: string;
+  /** Local: ranks guest Overview slots among themselves (host places them above About). */
   order: number;
   render: (context: GitRepositoryDetailTabContext) => ReactNode;
 };
 
 /** Optional tab on a git-repository entity detail page. */
 export type GitRepositoryDetailTabDefinition = {
+  /** Unique within `getDetailTabs()`. Prefer `plugin.<name>.detail-tab.<item>`. */
   id: string;
   label: string;
+  /** Global: merged with Overview (0), CI Activity (20), Collections (30). */
   order: number;
   render: (context: GitRepositoryDetailTabContext) => ReactNode;
 };
@@ -89,7 +114,9 @@ export type GitRepositoryCatalogRowContext = {
 };
 
 export type GitRepositoryCatalogRowSlotDefinition = {
+  /** Unique within `getCatalogRowSlots()`. Prefer `plugin.<name>.row-slot.<item>`. */
   id: string;
+  /** Local: ranks guest row addons among themselves (host places them next to the name). */
   order: number;
   render: (context: GitRepositoryCatalogRowContext) => ReactNode;
 };
@@ -101,16 +128,24 @@ export type GitRepositoryCatalogRowMenuContext = {
 };
 
 export type GitRepositoryCatalogRowMenuItemDefinition = {
+  /** Unique within `getCatalogRowMenuItems()`. Prefer `plugin.<name>.row-menu.<item>`. */
   id: string;
+  /** Local: ranks guest kebab items among themselves (after View in source). */
   order: number;
   render: (context: GitRepositoryCatalogRowMenuContext) => ReactNode;
 };
 
 /** Optional table column contributed by a factory plugin (e.g. extra metrics). */
 export type GitRepositoryCatalogColumnDefinition = {
+  /** Unique within `getCatalogColumns()`. Prefer `plugin.<name>.column.<item>`. */
   id: string;
   title: string;
   tooltip?: string;
+  /**
+   * Local: ranks guest columns among themselves only. The host always inserts
+   * that group between the core Contains and Last Activity columns — guests
+   * cannot appear first, last, or elsewhere in the table.
+   */
   order: number;
   render: (entity: Entity) => ReactNode;
 };
@@ -120,7 +155,9 @@ export type GitRepositoryCatalogColumnDefinition = {
  * Use for dialogs that must survive menu close (e.g. remove confirmation).
  */
 export type GitRepositoryDetailOverlayDefinition = {
+  /** Unique within `getDetailOverlays()`. Prefer `plugin.<name>.overlay.<item>`. */
   id: string;
+  /** Local: ranks guest overlays among themselves only. */
   order: number;
   render: (context: GitRepositoryDetailTabContext) => ReactNode;
 };
@@ -140,6 +177,13 @@ export interface GitRepositoriesExtensionsApi {
   getCatalogColumns(): GitRepositoryCatalogColumnDefinition[];
 }
 
+/**
+ * Git Repositories host/guest extension contract.
+ *
+ * Backstage binds a single implementation per apiRef. This default is empty
+ * (ADR-010 zero footprint). A guest replaces it entirely — a second guest
+ * cannot register in parallel without a composite factory.
+ */
 export const gitRepositoriesExtensionsApiRef =
   createApiRef<GitRepositoriesExtensionsApi>({
     id: 'plugin.rhaap.git-repositories.extensions',
