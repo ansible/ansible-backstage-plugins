@@ -479,6 +479,11 @@ export async function createRouter(options: RouterOptions): Promise<Router> {
 
   router.get('/apme/ai/providers', async (req, res) => {
     await ensureUser(req);
+    // Abbenay's provider registry (GET /api/providers) never includes model
+    // IDs. See ProviderInfo in abbenay/packages/daemon/src/core/state.ts.
+    // `models` is always [] here; callers needing real model IDs must merge
+    // with GET /apme/ai/config via mergeApmeAiProviderLists (see
+    // ApmeAiProvidersSection.tsx).
     const raw = await apmeService.getAiProviders();
     res.json(normalizeApmeAiProviders(raw));
   });
