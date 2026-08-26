@@ -79,11 +79,9 @@ jest.mock('@backstage/plugin-scaffolder-react', () => ({
   })),
 }));
 
-// Mock gitReposCache
-const mockInvalidateFetchedData = jest.fn();
 jest.mock('../GitRepositories/gitReposCache', () => ({
   gitReposCache: {
-    invalidateFetchedData: mockInvalidateFetchedData,
+    invalidateFetchedData: jest.fn(),
     getState: jest.fn(),
   },
 }));
@@ -3369,8 +3367,11 @@ describe('RunTask', () => {
   });
 
   describe('Cache invalidation', () => {
+    const getGitReposCacheMock = () =>
+      require('../GitRepositories/gitReposCache').gitReposCache;
+
     beforeEach(() => {
-      mockInvalidateFetchedData.mockClear();
+      getGitReposCacheMock().invalidateFetchedData.mockClear();
     });
 
     it('should invalidate git repos cache when git-repository template completes successfully', async () => {
@@ -3406,7 +3407,9 @@ describe('RunTask', () => {
       await render(<RunTask />);
 
       await waitFor(() => {
-        expect(mockInvalidateFetchedData).toHaveBeenCalled();
+        expect(
+          getGitReposCacheMock().invalidateFetchedData,
+        ).toHaveBeenCalled();
       });
 
       useTaskEventStreamMock.mockImplementation(originalImplementation);
@@ -3445,7 +3448,9 @@ describe('RunTask', () => {
       await render(<RunTask />);
 
       await waitFor(() => {
-        expect(mockInvalidateFetchedData).toHaveBeenCalled();
+        expect(
+          getGitReposCacheMock().invalidateFetchedData,
+        ).toHaveBeenCalled();
       });
 
       useTaskEventStreamMock.mockImplementation(originalImplementation);
@@ -3487,7 +3492,9 @@ describe('RunTask', () => {
         expect(screen.getByText('Test Template')).toBeInTheDocument();
       });
 
-      expect(mockInvalidateFetchedData).not.toHaveBeenCalled();
+      expect(
+        getGitReposCacheMock().invalidateFetchedData,
+      ).not.toHaveBeenCalled();
 
       useTaskEventStreamMock.mockImplementation(originalImplementation);
     }, 15000);
@@ -3528,7 +3535,9 @@ describe('RunTask', () => {
         expect(screen.getByText('Test Template')).toBeInTheDocument();
       });
 
-      expect(mockInvalidateFetchedData).not.toHaveBeenCalled();
+      expect(
+        getGitReposCacheMock().invalidateFetchedData,
+      ).not.toHaveBeenCalled();
 
       useTaskEventStreamMock.mockImplementation(originalImplementation);
     }, 15000);
