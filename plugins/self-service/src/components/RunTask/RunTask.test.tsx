@@ -79,6 +79,15 @@ jest.mock('@backstage/plugin-scaffolder-react', () => ({
   })),
 }));
 
+// Mock gitReposCache
+const mockInvalidateFetchedData = jest.fn();
+jest.mock('../GitRepositories/gitReposCache', () => ({
+  gitReposCache: {
+    invalidateFetchedData: mockInvalidateFetchedData,
+    getState: jest.fn(),
+  },
+}));
+
 // Mock the TaskSteps component
 jest.mock('@backstage/plugin-scaffolder-react/alpha', () => ({
   TaskSteps: jest.fn(() => <div data-testid="task-steps">Task Steps Mock</div>),
@@ -3354,6 +3363,172 @@ describe('RunTask', () => {
       await render(<RunTask />);
 
       expect(screen.queryByText('Download EE Files')).not.toBeInTheDocument();
+
+      useTaskEventStreamMock.mockImplementation(originalImplementation);
+    }, 15000);
+  });
+
+  describe('Cache invalidation', () => {
+    beforeEach(() => {
+      mockInvalidateFetchedData.mockClear();
+    });
+
+    it('should invalidate git repos cache when git-repository template completes successfully', async () => {
+      const useTaskEventStreamMock =
+        require('@backstage/plugin-scaffolder-react').useTaskEventStream;
+
+      const originalImplementation =
+        useTaskEventStreamMock.getMockImplementation();
+
+      useTaskEventStreamMock.mockImplementation(() => ({
+        task: {
+          spec: {
+            templateInfo: {
+              entity: {
+                metadata: {
+                  title: 'Register repo',
+                  name: 'apme-register-git-repository',
+                  tags: ['git-repository', 'apme'],
+                },
+              },
+            },
+            steps: [{ id: 'register-direct', name: 'Register in catalog' }],
+          },
+        },
+        completed: true,
+        loading: false,
+        error: undefined,
+        output: { links: [] },
+        steps: { 'register-direct': { status: 'completed' } },
+        stepLogs: {},
+      }));
+
+      await render(<RunTask />);
+
+      await waitFor(() => {
+        expect(mockInvalidateFetchedData).toHaveBeenCalled();
+      });
+
+      useTaskEventStreamMock.mockImplementation(originalImplementation);
+    }, 15000);
+
+    it('should invalidate git repos cache when template has git-repository tag', async () => {
+      const useTaskEventStreamMock =
+        require('@backstage/plugin-scaffolder-react').useTaskEventStream;
+
+      const originalImplementation =
+        useTaskEventStreamMock.getMockImplementation();
+
+      useTaskEventStreamMock.mockImplementation(() => ({
+        task: {
+          spec: {
+            templateInfo: {
+              entity: {
+                metadata: {
+                  title: 'Some Git Template',
+                  name: 'custom-git-template',
+                  tags: ['git-repository'],
+                },
+              },
+            },
+            steps: [{ id: 'step1', name: 'Step 1' }],
+          },
+        },
+        completed: true,
+        loading: false,
+        error: undefined,
+        output: { links: [] },
+        steps: { step1: { status: 'completed' } },
+        stepLogs: {},
+      }));
+
+      await render(<RunTask />);
+
+      await waitFor(() => {
+        expect(mockInvalidateFetchedData).toHaveBeenCalled();
+      });
+
+      useTaskEventStreamMock.mockImplementation(originalImplementation);
+    }, 15000);
+
+    it('should NOT invalidate git repos cache when template is not git-repository', async () => {
+      const useTaskEventStreamMock =
+        require('@backstage/plugin-scaffolder-react').useTaskEventStream;
+
+      const originalImplementation =
+        useTaskEventStreamMock.getMockImplementation();
+
+      useTaskEventStreamMock.mockImplementation(() => ({
+        task: {
+          spec: {
+            templateInfo: {
+              entity: {
+                metadata: {
+                  title: 'EE Template',
+                  name: 'ee-builder',
+                  tags: ['execution-environment'],
+                },
+              },
+            },
+            steps: [{ id: 'step1', name: 'Step 1' }],
+          },
+        },
+        completed: true,
+        loading: false,
+        error: undefined,
+        output: { links: [] },
+        steps: { step1: { status: 'completed' } },
+        stepLogs: {},
+      }));
+
+      await render(<RunTask />);
+
+      await waitFor(() => {
+        expect(screen.getByText('Test Template')).toBeInTheDocument();
+      });
+
+      expect(mockInvalidateFetchedData).not.toHaveBeenCalled();
+
+      useTaskEventStreamMock.mockImplementation(originalImplementation);
+    }, 15000);
+
+    it('should NOT invalidate cache when task fails', async () => {
+      const useTaskEventStreamMock =
+        require('@backstage/plugin-scaffolder-react').useTaskEventStream;
+
+      const originalImplementation =
+        useTaskEventStreamMock.getMockImplementation();
+
+      useTaskEventStreamMock.mockImplementation(() => ({
+        task: {
+          spec: {
+            templateInfo: {
+              entity: {
+                metadata: {
+                  title: 'Register repo',
+                  name: 'apme-register-git-repository',
+                  tags: ['git-repository'],
+                },
+              },
+            },
+            steps: [{ id: 'register-direct', name: 'Register in catalog' }],
+          },
+        },
+        completed: true,
+        loading: false,
+        error: { message: 'Task failed' },
+        output: { links: [] },
+        steps: { 'register-direct': { status: 'failed' } },
+        stepLogs: {},
+      }));
+
+      await render(<RunTask />);
+
+      await waitFor(() => {
+        expect(screen.getByText('Test Template')).toBeInTheDocument();
+      });
+
+      expect(mockInvalidateFetchedData).not.toHaveBeenCalled();
 
       useTaskEventStreamMock.mockImplementation(originalImplementation);
     }, 15000);

@@ -20,6 +20,7 @@ import {
   taskCreatePermission,
   taskReadPermission,
 } from '@backstage/plugin-scaffolder-common/alpha';
+import { gitReposCache } from '../GitRepositories/gitReposCache';
 import {
   Button,
   CircularProgress,
@@ -386,6 +387,24 @@ export const RunTask = () => {
       if (pendingTimeout !== null) clearTimeout(pendingTimeout);
     };
   }, [matchingEntity, completed, effectiveTask, allSteps, catalogApi]);
+
+  // Invalidate git repos cache when repo-registration template completes successfully
+  useEffect(() => {
+    if (!completed || taskStatus !== 'completed' || !effectiveTask) {
+      return;
+    }
+
+    const templateTags =
+      effectiveTask?.spec?.templateInfo?.entity?.metadata?.tags;
+    const isGitRepoTemplate =
+      templateTags?.includes('git-repository') ||
+      effectiveTask?.spec?.templateInfo?.entity?.metadata?.name ===
+        'apme-register-git-repository';
+
+    if (isGitRepoTemplate) {
+      gitReposCache.invalidateFetchedData();
+    }
+  }, [completed, taskStatus, effectiveTask]);
 
   const getMatchingEntity = useCallback(async (): Promise<Entity | null> => {
     let entity = matchingEntity;
