@@ -148,12 +148,25 @@ describe('ApmeEntityTab', () => {
     expect(await screen.findByText('demo-repo')).toBeInTheDocument();
     expect(screen.getByTestId('show-ai-options')).toHaveTextContent('false');
     expect(screen.getByTestId('form-enable-ai')).toHaveTextContent('false');
+    expect(
+      screen.getByText('AI is disabled in Quality settings.'),
+    ).toBeInTheDocument();
 
     await waitFor(() => {
       const opts = latestCheckOptions();
       expect(opts.enableAi).toBe(false);
       expect(opts.autoApplyTier1).toBe(false);
     });
+  });
+
+  it('does not show AI disabled note when portal AI is enabled', async () => {
+    mockUseApmeAiEnabled.mockReturnValue(true);
+    renderTab();
+    await screen.findByText('demo-repo');
+
+    expect(
+      screen.queryByText('AI is disabled in Quality settings.'),
+    ).not.toBeInTheDocument();
   });
 
   it('keeps checkOptions.autoApplyTier1 false when portal AI is disabled even after stale auto-apply toggle', async () => {
