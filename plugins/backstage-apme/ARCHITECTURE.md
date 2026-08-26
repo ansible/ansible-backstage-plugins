@@ -77,7 +77,7 @@ Browser (RHDH or make react)
   │         │    fetch   = fetchApi.fetch                              ← Bearer
   │         └─ ApmeApiProvider
   │              └─ useProjectWorkflow
-  │                   ├─ idle:  Overview + CheckOptionsForm → startScan()
+  │                   ├─ idle:  Overview + CheckOptionsForm (AI fields conditional) → startScan()
   │                   └─ live:  ProjectWorkflowPanel
   │                        └─ adapter.fetch / fetch-stream SSE
   │
@@ -112,9 +112,9 @@ hits the SPA and returns HTML, which breaks JSON parsing and SSE.
 `useProjectWorkflow` exposes `sessionTabVisible` (true only while an operation
 is attached). **`ProjectWorkflowPanel` mounts only when `sessionTabVisible`.**
 
-When detached, the host shows Overview + `CheckOptionsForm` + Scan. Mounting
-the panel while idle leaves it stuck on “Starting scan…” (same rule as the
-native SPA).
+When detached, the host shows Overview + `CheckOptionsForm` (ansible/collections
+always; AI fields only when portal AI is enabled) + Scan. Mounting the panel
+while idle leaves it stuck on “Starting scan…” (same rule as the native SPA).
 
 ### Dark theme (PatternFly)
 
@@ -139,21 +139,36 @@ SSE uses **fetch + ReadableStream** inside `@apme/ui-workflow` (not
 
 Idle chrome (`ApmeEntityTab` / `WorkflowBody`):
 
-1. User sets options on `CheckOptionsForm` (`idPrefix="portal-quality"`):
-   Ansible version, collections, AI toggle, auto-apply rule-based fixes.
+1. User sets Advanced Options on `CheckOptionsForm` (`idPrefix="portal-quality"`).
+   Fields depend on portal AI (`useApmeAiEnabled()` / `GET /apme/settings`
+   `enableAi`):
+   - **Always:** Ansible Core Version, Collections
+   - **Portal AI enabled** (`showAiOptions={true}`): AI toggle, auto-apply
+     tier-1, model selector
+   - **Portal AI disabled** (`showAiOptions={false}`): ansible/collections only;
+     helper text notes AI is disabled in Quality settings
 2. Scan calls `startScan()` from `useProjectWorkflow`.
 3. Package opens a session and `POST …/projects/:id/operation` with
    `action: 'check'` and options including:
    - `assess_pause: true`
-   - `interactive: !autoApplyTier1`
-   - `enable_ai` / `ai_model` (model from `localStorage` key `apme-ai-model`)
+   - `interactive: !autoApplyTier1` (only when portal AI enabled)
+   - `enable_ai` / `ai_model` (only when portal AI enabled; model from
+     `useApmeWorkflowAiModel` / `localStorage` key `apme-ai-model`)
 4. On success, `sessionTabVisible` flips and `ProjectWorkflowPanel` takes over.
+
+Check options and panel props gate AI fields via `portalAiEnabled && …` in
+`ApmeEntityTab` (`enableAi`, `autoApplyTier1`).
 
 ### AI
 
 - Portal gate: `useApmeAiEnabled()` — prefers `GET /apme/settings` (`enableAi`),
   falls back to `ansible.apme.enableAi` in app-config.
-- Models: `CheckOptionsForm` → `GET {apiBase}/ai/models` → catalog proxy.
+- When portal AI is enabled: `CheckOptionsForm` shows AI controls
+  (`showAiOptions={true}`); `useApmeWorkflowAiModel` fetches
+  `GET {apiBase}/ai/models` via catalog proxy.
+- When portal AI is disabled: AI controls hidden (`showAiOptions={false}`);
+  no `GET /ai/models` on the Quality tab (`useApmeWorkflowAiModel` returns
+  early).
 - Effective AI flag is ANDed into check options and the panel props.
 
 ### Config knobs (portal)
@@ -246,7 +261,7 @@ credential (`httpAuth.credentials(req, { allow: ['user'] })`).
 | Catalog path (under `/api/catalog`) | Purpose |
 |-------------------------------------|---------|
 | `GET /apme/settings` | Portal settings including `enableAi` |
-| `GET /apme/ai/models`, `GET /apme/ai/status` | CheckOptionsForm / AI gate |
+| `GET /apme/ai/models`, `GET /apme/ai/status` | AI model list / status (Quality tab fetch only when portal AI enabled) |
 | `GET/POST /apme/projects`, `GET /apme/lookup` | Resolve / register project |
 | `ALL /apme/projects/:projectId/operation` | Create/read operation |
 | `ALL /apme/projects/:projectId/operation/*` | Transparent proxy: `events`, `approve`, `begin-remediate`, `proposals`, `cancel`, `escalate-ai`, `submit`, … |
