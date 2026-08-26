@@ -152,7 +152,7 @@ describe('ApmeQualitySettingsTab', () => {
     ).toBeInTheDocument();
   });
 
-  it('renders the AI providers card below quality settings', async () => {
+  it('renders the AI providers card alongside quality settings', async () => {
     renderTab();
     expect(await screen.findByText('Quality settings')).toBeInTheDocument();
     expect(await screen.findByText('AI providers')).toBeInTheDocument();
