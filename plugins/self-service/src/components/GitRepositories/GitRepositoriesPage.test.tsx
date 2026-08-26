@@ -729,8 +729,15 @@ describe('GitRepositoriesPage', () => {
       >
         <ThemeProvider theme={theme}>
           <Routes>
-            <Route path="/repositories/*" element={<GitRepositoriesPage />} />
-            <Route path="*" element={<LocationPathname />} />
+            <Route
+              path="/repositories/*"
+              element={
+                <>
+                  <LocationPathname />
+                  <GitRepositoriesPage />
+                </>
+              }
+            />
           </Routes>
         </ThemeProvider>
       </TestApiProvider>,
@@ -741,6 +748,11 @@ describe('GitRepositoriesPage', () => {
 
     await waitFor(() => {
       expect(invalidateSpy).toHaveBeenCalled();
+    });
+
+    await waitFor(() => {
+      const locationEl = screen.getByTestId('location-pathname');
+      expect(locationEl.textContent).toBe('/repositories/catalog');
     });
 
     invalidateSpy.mockRestore();

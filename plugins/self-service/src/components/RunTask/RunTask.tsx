@@ -614,7 +614,8 @@ export const RunTask = () => {
                     </Button>
                   );
                 }
-                const isInternalUrl = link.url?.startsWith('/');
+                const isInternalUrl =
+                  link.url?.startsWith('/') && !link.url.startsWith('//');
                 if (isInternalUrl) {
                   return (
                     <Button

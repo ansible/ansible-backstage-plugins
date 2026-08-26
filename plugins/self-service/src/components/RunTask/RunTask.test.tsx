@@ -2955,6 +2955,64 @@ describe('RunTask', () => {
       useTaskEventStreamMock.mockImplementation(originalImplementation);
     }, 15000);
 
+    it('should treat protocol-relative URLs (//host/path) as external, not internal', async () => {
+      const useTaskEventStreamMock =
+        require('@backstage/plugin-scaffolder-react').useTaskEventStream;
+
+      const originalImplementation =
+        useTaskEventStreamMock.getMockImplementation();
+
+      useTaskEventStreamMock.mockImplementation(() => ({
+        task: {
+          spec: {
+            templateInfo: {
+              entity: {
+                metadata: {
+                  title: 'Test Template',
+                },
+              },
+            },
+            steps: [{ id: 'step1', name: 'Step 1' }],
+          },
+        },
+        completed: true,
+        loading: false,
+        error: undefined,
+        output: {
+          links: [
+            {
+              title: 'Protocol Relative Link',
+              url: '//evil.example.com/phish',
+            },
+          ],
+        },
+        steps: { step1: { status: 'completed' } },
+        stepLogs: {},
+      }));
+
+      await render(<RunTask />);
+
+      await waitFor(() => {
+        expect(
+          screen.getByText('Protocol Relative Link'),
+        ).toBeInTheDocument();
+      });
+
+      const linkButton = screen
+        .getByText('Protocol Relative Link')
+        .closest('a');
+      expect(linkButton).toHaveAttribute('target', '_blank');
+      expect(linkButton).toHaveAttribute('rel', 'noopener noreferrer');
+      expect(linkButton).toHaveAttribute(
+        'href',
+        '//evil.example.com/phish',
+      );
+
+      expect(mockNavigate).not.toHaveBeenCalled();
+
+      useTaskEventStreamMock.mockImplementation(originalImplementation);
+    }, 15000);
+
     it('should use navigate() for multiple internal URLs in mixed output', async () => {
       const user = userEvent.setup();
 
