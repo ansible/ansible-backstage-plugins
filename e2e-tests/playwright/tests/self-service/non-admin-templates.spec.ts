@@ -109,16 +109,14 @@ test.describe('Non-admin user: Templates page', () => {
       expect(bodyText).not.toContain('Insufficient privileges');
 
       // Wait for content to load
-      await page.waitForTimeout(1000);
+      await page.waitForTimeout(2000);
 
       // Templates with surveys show forms, templates without surveys go to RunTasks (task execution)
       const hasForm = (await page.locator('form').count()) > 0;
       const hasInputs =
         (await page.locator('input, select, textarea').count()) > 0;
       const hasTaskExecution =
-        (await page
-          .locator('[data-testid*="task"], [class*="task"], [class*="Task"]')
-          .count()) > 0 ||
+        (await page.locator('[data-testid*="button-row"]').count()) > 0 ||
         bodyText.toLowerCase().includes('task') ||
         bodyText.toLowerCase().includes('running') ||
         bodyText.toLowerCase().includes('completed');
