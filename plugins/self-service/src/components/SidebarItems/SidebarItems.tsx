@@ -85,7 +85,7 @@ export const GitRepositoriesSidebarItem = () => {
     <PermissionGatedSidebarItem
       permission={gitRepositoriesViewPermission}
       icon={GitHubIcon}
-      to={`${rootLink()}/repositories`}
+      to={`${rootLink()}/repositories/catalog`}
       text="Git Repositories"
     />
   );
