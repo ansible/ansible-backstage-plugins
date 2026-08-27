@@ -38,7 +38,7 @@ export interface ApmeCatalogSyncTaskOptions {
   syncConfig: ApmeGitContentsSyncConfig;
   offset: number;
   resolveScanVersion?: (projectId: string) => Promise<string>;
-  /** Portal settings enableAi (falls back to ApmeClient app-config). */
+  /** Portal settings enableAi (defaults false when unset). */
   resolveEnableAi?: () => Promise<boolean>;
 }
 

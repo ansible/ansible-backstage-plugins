@@ -17,7 +17,6 @@
 import {
   getApmeConfig,
   isApmeEnabled,
-  isApmeAiEnabled,
   isApmePublishViaGateway,
 } from './config';
 
@@ -48,7 +47,6 @@ describe('getApmeConfig', () => {
       enabled: false,
       baseUrl: 'http://localhost:8080',
       checkSSL: false,
-      enableAi: false,
       publishViaGateway: false,
       submitTimeoutMs: 300_000,
       targetAnsibleCoreVersion: '2.16',
@@ -78,7 +76,6 @@ describe('getApmeConfig', () => {
       enabled: true,
       baseUrl: 'https://apme.example.com',
       checkSSL: true,
-      enableAi: false,
       publishViaGateway: true,
       submitTimeoutMs: 300_000,
       targetAnsibleCoreVersion: '2.16',
@@ -100,27 +97,6 @@ describe('getApmeConfig', () => {
     };
 
     expect(getApmeConfig(mockConfig as any).checkSSL).toBe(true);
-  });
-
-  it('defaults enableAi to false when key is omitted', () => {
-    const mockApmeConfig = mockApmeSection({
-      getOptionalBoolean: jest
-        .fn()
-        .mockImplementation((key: string) =>
-          key === 'enabled' ? true : undefined,
-        ),
-    });
-
-    const mockConfig = {
-      getOptionalConfig: jest
-        .fn()
-        .mockImplementation((key: string) =>
-          key === 'ansible.apme' ? mockApmeConfig : undefined,
-        ),
-    };
-
-    expect(getApmeConfig(mockConfig as any).enableAi).toBe(false);
-    expect(isApmeAiEnabled(mockConfig as any)).toBe(false);
   });
 
   it('defaults publishViaGateway to true when omitted', () => {

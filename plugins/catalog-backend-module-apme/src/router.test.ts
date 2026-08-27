@@ -429,7 +429,11 @@ describe('catalog-backend-module-apme router', () => {
     expect(stored.global?.enableAi).toBe(false);
   });
 
-  it('GET /apme/settings prefers store enableAi over app-config', async () => {
+  it('GET /apme/settings defaults enableAi to false when store unset', async () => {
+    const unset = await request(app).get('/apme/settings');
+    expect(unset.status).toBe(200);
+    expect(unset.body.enableAi).toBe(false);
+
     await portalSettingsStore.updateGlobalSettings({ enableAi: true });
 
     const response = await request(app).get('/apme/settings');

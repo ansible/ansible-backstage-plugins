@@ -169,7 +169,6 @@ export interface ApmeConfig {
   enabled: boolean;
   baseUrl: string;
   checkSSL: boolean;
-  enableAi: boolean;
   /** When true, portal proxies PR creation to the APME gateway (standalone path). */
   publishViaGateway: boolean;
   /**
@@ -183,7 +182,7 @@ export interface ApmeConfig {
   portalSettingsPath?: string;
 }
 
-/** Portal-side APME settings (store override wins over app-config for enableAi). */
+/** Portal-side APME settings (Quality settings store). */
 export interface ApmePortalSettings {
   enableAi: boolean;
   publishViaGateway: boolean;
@@ -250,13 +249,13 @@ export interface ScanTriggerOptions {
   userIdentity?: { userEntityRef: string; orgEntityRef?: string };
   /** One-time SCM token for private-repo clone (portal integration / user). */
   scmToken?: string;
-  /** Override app-config enableAi for this scan (portal settings store). */
+  /** Per-scan override (portal settings store). */
   enableAi?: boolean;
 }
 
 /** Gateway AI service reachability (Abbenay via Primary). */
 export interface ApmeAiStatus {
-  /** Portal ansible.apme.enableAi — scans/remediate send enable_ai when true. */
+  /** Portal AI gate from Quality settings — scans/remediate send enable_ai when true. */
   enableAi: boolean;
   /**
    * True when inference models are listed, or Abbenay health reports ok.

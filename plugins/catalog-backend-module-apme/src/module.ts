@@ -130,7 +130,7 @@ export const catalogModuleApme = createBackendModule({
 
         const resolveEnableAi = async () => {
           const store = await portalSettingsStore.read();
-          return store.global?.enableAi ?? configSnapshot.enableAi;
+          return store.global?.enableAi ?? false;
         };
 
         const router = await createRouter({

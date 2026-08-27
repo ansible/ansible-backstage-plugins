@@ -66,7 +66,6 @@ export { getApmeConfig } from '../config';
 export class ApmeClient {
   private readonly configBaseUrl: string;
   private resolveBaseUrlFn?: () => Promise<string | undefined>;
-  private readonly enableAi: boolean;
   private readonly submitTimeoutMs: number;
   private readonly logger: LoggerService;
   private readonly dispatcher: Agent | undefined;
@@ -75,7 +74,6 @@ export class ApmeClient {
     const config = getApmeConfig(options.rootConfig);
     this.configBaseUrl = config.baseUrl;
     this.resolveBaseUrlFn = options.resolveBaseUrl;
-    this.enableAi = config.enableAi;
     this.submitTimeoutMs = config.submitTimeoutMs;
     if (!config.checkSSL) {
       this.dispatcher = new Agent({ connect: { rejectUnauthorized: false } });
@@ -108,7 +106,7 @@ export class ApmeClient {
     enableAiOverride?: boolean,
   ): Record<string, unknown> {
     const options: Record<string, unknown> = {
-      enable_ai: enableAiOverride ?? this.enableAi,
+      enable_ai: enableAiOverride ?? false,
     };
     const version = ansibleVersion?.trim();
     if (version) {
