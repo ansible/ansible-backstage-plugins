@@ -125,6 +125,23 @@ export const aapAuthAuthenticator = (aapService: IAAPService) =>
         );
       }
 
+      const oauthError = input.req.query.error as string | undefined;
+      const oauthErrorDescription = input.req.query.error_description as
+        string | undefined;
+
+      if (oauthError) {
+        const errorMessage = oauthErrorDescription
+          ? `AAP OAuth error (${oauthError}): ${oauthErrorDescription}`
+          : `AAP OAuth error: ${oauthError}`;
+        throw new AuthenticationError(errorMessage);
+      }
+
+      if (!input.req.query.code) {
+        throw new AuthenticationError(
+          'OAuth callback is missing both authorization code and error parameters.',
+        );
+      }
+
       const result = await aapService.rhAAPAuthenticate({
         host: host,
         checkSSL: checkSSL,

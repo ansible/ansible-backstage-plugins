@@ -280,6 +280,100 @@ describe('authenticator', () => {
       expect(result.fullProfile).toBeDefined();
     });
 
+    it('should throw with AAP error description when callback has error param', async () => {
+      const aapAuthAuthenticator = createAuthenticator(mockAAPService as any);
+      const ctx = aapAuthAuthenticator.initialize({
+        callbackUrl: '',
+        config: mockServices.rootConfig({
+          data: {
+            clientId: CLIENT_ID,
+            clientSecret: CLIENT_SECRET,
+            host: DEFAULT_HOST,
+            checkSSL: CHECK_SSL,
+            callbackUrl: 'http://localhost',
+          },
+        }),
+      });
+
+      await aapAuthAuthenticator.start(
+        // @ts-ignore
+        { state: 'error-state', scope: '', req: {} },
+        ctx,
+      );
+
+      await expect(
+        aapAuthAuthenticator.authenticate(
+          // @ts-ignore
+          { req: { query: { state: 'error-state', error: 'invalid_request', error_description: 'User e2e-nonadmin does not belong to any configured organizations' } } },
+          authContext,
+        ),
+      ).rejects.toThrow(
+        'AAP OAuth error (invalid_request): User e2e-nonadmin does not belong to any configured organizations',
+      );
+    });
+
+    it('should throw with error code when callback has error but no description', async () => {
+      const aapAuthAuthenticator = createAuthenticator(mockAAPService as any);
+      const ctx = aapAuthAuthenticator.initialize({
+        callbackUrl: '',
+        config: mockServices.rootConfig({
+          data: {
+            clientId: CLIENT_ID,
+            clientSecret: CLIENT_SECRET,
+            host: DEFAULT_HOST,
+            checkSSL: CHECK_SSL,
+            callbackUrl: 'http://localhost',
+          },
+        }),
+      });
+
+      await aapAuthAuthenticator.start(
+        // @ts-ignore
+        { state: 'denied-state', scope: '', req: {} },
+        ctx,
+      );
+
+      await expect(
+        aapAuthAuthenticator.authenticate(
+          // @ts-ignore
+          { req: { query: { state: 'denied-state', error: 'access_denied' } } },
+          authContext,
+        ),
+      ).rejects.toThrow('AAP OAuth error: access_denied');
+    });
+
+    it('should throw when callback has neither code nor error', async () => {
+      const aapAuthAuthenticator = createAuthenticator(mockAAPService as any);
+      const ctx = aapAuthAuthenticator.initialize({
+        callbackUrl: '',
+        config: mockServices.rootConfig({
+          data: {
+            clientId: CLIENT_ID,
+            clientSecret: CLIENT_SECRET,
+            host: DEFAULT_HOST,
+            checkSSL: CHECK_SSL,
+            callbackUrl: 'http://localhost',
+          },
+        }),
+      });
+
+      await aapAuthAuthenticator.start(
+        // @ts-ignore
+        { state: 'empty-state', scope: '', req: {} },
+        ctx,
+      );
+
+      await expect(
+        aapAuthAuthenticator.authenticate(
+          // @ts-ignore
+          { req: { query: { state: 'empty-state' } } },
+          authContext,
+        ),
+      ).rejects.toThrow(
+        'OAuth callback is missing both authorization code and error parameters.',
+      );
+    });
+
     it('should throw when PKCE verifier has expired', async () => {
       const aapAuthAuthenticator = createAuthenticator(mockAAPService as any);
       const ctx = aapAuthAuthenticator.initialize({

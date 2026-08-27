@@ -175,39 +175,38 @@ export class AAPClient implements IAAPService {
       }
     }
     if (!response.ok) {
-      const errorOutput = await response.json();
+      let errorOutput: any;
+      try {
+        errorOutput = await response.json();
+      } catch {
+        errorOutput = null;
+      }
+
       this.logger.error(
         `[${this.pluginLogName}] Failed to send POST request: ${response.statusText}`,
       );
       this.logger.error(
         `[${this.pluginLogName}] Error: ${JSON.stringify(errorOutput)}`,
       );
+
       if (response.status === 403) {
         throw new Error(
           `Insufficient privileges. Please contact your administrator.`,
         );
-      } else {
-        let errorResponse;
-        try {
-          errorResponse = await response.json();
-        } catch {
-          errorResponse = null;
-        }
-        if (errorResponse) {
+      }
+
+      if (errorOutput) {
+        // @ts-ignore
+        if (errorOutput?.__all__?.length) {
           // @ts-ignore
-          if (errorResponse?.__all__?.length) {
-            // @ts-ignore
-            throw new Error(errorResponse.__all__.join(' '));
-          } else if (errorResponse.constructor === Object) {
-            const errorData = Object.values(errorResponse);
-            throw new Error(errorData.join(' '));
-          } else {
-            throw new Error(`Failed to post data`);
-          }
-        } else {
-          throw new Error(`Failed to post data`);
+          throw new Error(errorOutput.__all__.join(' '));
+        } else if (errorOutput.constructor === Object) {
+          const errorData = Object.values(errorOutput);
+          throw new Error(errorData.join(' '));
         }
       }
+
+      throw new Error(`Failed to post data`);
     }
     return response;
   }
@@ -962,7 +961,9 @@ export class AAPClient implements IAAPService {
       data.append('grant_type', 'refresh_token');
       data.append('refresh_token', options.refreshToken);
     } else {
-      throw new AuthenticationError('You have to provide code or refreshToken');
+      throw new AuthenticationError(
+        'Neither authorization code nor refresh token was provided.',
+      );
     }
     data.append('client_id', options.clientId);
     data.append('client_secret', options.clientSecret);
@@ -970,16 +971,13 @@ export class AAPClient implements IAAPService {
     this.logger.info(
       `[${this.pluginLogName}]: Authenticating with RH AAP at ${this.ansibleConfig.rhaap?.baseUrl}/${endPoint}.`,
     );
-    const response = await this.executePostRequest(
-      endPoint,
-      undefined,
-      data,
-      true,
-    );
 
-    if (!response.ok) {
+    let response;
+    try {
+      response = await this.executePostRequest(endPoint, undefined, data, true);
+    } catch (error) {
       throw new AuthenticationError(
-        'Failed to obtain access token from RH AAP.',
+        `AAP token exchange failed: ${error instanceof Error ? error.message : 'Unknown error'}`,
       );
     }
 
