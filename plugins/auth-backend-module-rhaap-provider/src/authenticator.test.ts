@@ -273,6 +273,105 @@ describe('authenticator', () => {
       expect(result.fullProfile).toBeDefined();
     });
 
+    it('should throw with AAP error description when callback has error param', async () => {
+      const aapAuthAuthenticator = createAuthenticator(mockAAPService as any);
+      aapAuthAuthenticator.initialize({
+        callbackUrl: '',
+        config: mockServices.rootConfig({
+          data: {
+            clientId: CLIENT_ID,
+            clientSecret: CLIENT_SECRET,
+            host: DEFAULT_HOST,
+            checkSSL: CHECK_SSL,
+            callbackUrl: 'http://localhost',
+          },
+        }),
+      });
+
+      await expect(
+        aapAuthAuthenticator.authenticate(
+          // @ts-ignore
+          {
+            req: {
+              cookies: { 'rhaap-pkce': 'test-verifier' },
+              query: {
+                state: 'error-state',
+                error: 'invalid_request',
+                error_description:
+                  'User e2e-nonadmin does not belong to any configured organizations',
+              },
+              res: { clearCookie: jest.fn() },
+            } as any,
+          },
+          authContext,
+        ),
+      ).rejects.toThrow(
+        'AAP OAuth error (invalid_request): User e2e-nonadmin does not belong to any configured organizations',
+      );
+    });
+
+    it('should throw with error code when callback has error but no description', async () => {
+      const aapAuthAuthenticator = createAuthenticator(mockAAPService as any);
+      aapAuthAuthenticator.initialize({
+        callbackUrl: '',
+        config: mockServices.rootConfig({
+          data: {
+            clientId: CLIENT_ID,
+            clientSecret: CLIENT_SECRET,
+            host: DEFAULT_HOST,
+            checkSSL: CHECK_SSL,
+            callbackUrl: 'http://localhost',
+          },
+        }),
+      });
+
+      await expect(
+        aapAuthAuthenticator.authenticate(
+          // @ts-ignore
+          {
+            req: {
+              cookies: { 'rhaap-pkce': 'test-verifier' },
+              query: { state: 'denied-state', error: 'access_denied' },
+              res: { clearCookie: jest.fn() },
+            } as any,
+          },
+          authContext,
+        ),
+      ).rejects.toThrow('AAP OAuth error: access_denied');
+    });
+
+    it('should throw when callback has neither code nor error', async () => {
+      const aapAuthAuthenticator = createAuthenticator(mockAAPService as any);
+      aapAuthAuthenticator.initialize({
+        callbackUrl: '',
+        config: mockServices.rootConfig({
+          data: {
+            clientId: CLIENT_ID,
+            clientSecret: CLIENT_SECRET,
+            host: DEFAULT_HOST,
+            checkSSL: CHECK_SSL,
+            callbackUrl: 'http://localhost',
+          },
+        }),
+      });
+
+      await expect(
+        aapAuthAuthenticator.authenticate(
+          // @ts-ignore
+          {
+            req: {
+              cookies: { 'rhaap-pkce': 'test-verifier' },
+              query: { state: 'empty-state' },
+              res: { clearCookie: jest.fn() },
+            } as any,
+          },
+          authContext,
+        ),
+      ).rejects.toThrow(
+        'OAuth callback is missing both authorization code and error parameters.',
+      );
+    });
+
     it('should clear rhaap-pkce cookie after reading', async () => {
       const mockClearCookie = jest.fn();
       const aapAuthAuthenticator = createAuthenticator(mockAAPService as any);
