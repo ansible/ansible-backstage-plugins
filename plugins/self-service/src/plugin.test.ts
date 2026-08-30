@@ -11,6 +11,9 @@ const mockEEBuildApis = { api: 'EEBuildApis' } as unknown as ApiFactory<
   any,
   any
 >;
+const mockGitRepositoriesCatalogApiFactory = {
+  api: 'GitRepositoriesCatalogApi',
+} as unknown as ApiFactory<any, any, any>;
 const mockRootRouteRef = { id: 'root-route-ref' };
 const mockEeRouteRef = { id: 'ee-route-ref' };
 const mockCollectionsRouteRef = { id: 'collections-route-ref' };
@@ -24,6 +27,9 @@ jest.mock('./apis', () => ({
   AAPApis: mockAAPApis,
   AapAuthApi: mockAapAuthApi,
   EEBuildApis: mockEEBuildApis,
+}));
+jest.mock('./apis/gitRepositoriesCatalog', () => ({
+  gitRepositoriesCatalogApiFactory: mockGitRepositoriesCatalogApiFactory,
 }));
 jest.mock('./routes', () => ({
   rootRouteRef: mockRootRouteRef,
@@ -116,6 +122,7 @@ describe('self-service plugin module', () => {
     expect(callArg.apis).toContain(mockAAPApis);
     expect(callArg.apis).toContain(mockAapAuthApi);
     expect(callArg.apis).toContain(mockEEBuildApis);
+    expect(callArg.apis).toContain(mockGitRepositoriesCatalogApiFactory);
     expect(callArg).toHaveProperty('routes');
     expect(callArg.routes).toHaveProperty('root', mockRootRouteRef);
     expect(callArg.routes).toHaveProperty('ee', mockEeRouteRef);
