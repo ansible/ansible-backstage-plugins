@@ -19,16 +19,21 @@ function project(
     violation_trend: 'stable',
     scan_count: 1,
     has_scm_token: false,
+    has_new_commits: false,
     ...partial,
   };
 }
 
 describe('enrichProjectsWithSeverityBreakdown', () => {
   it('fetches detail only for projects missing severity breakdown', async () => {
-    const fetchDetail = jest.fn(async (projectId: string) => ({
-      severity_breakdown:
-        projectId === 'p1' ? { critical: 3 } : { high: 2 },
-    }));
+    const fetchDetail = jest.fn(
+      async (
+        projectId: string,
+      ): Promise<Pick<Project, 'severity_breakdown'>> => ({
+        severity_breakdown:
+          projectId === 'p1' ? { critical: 3 } : { high: 2 },
+      }),
+    );
 
     const result = await enrichProjectsWithSeverityBreakdown(
       [
