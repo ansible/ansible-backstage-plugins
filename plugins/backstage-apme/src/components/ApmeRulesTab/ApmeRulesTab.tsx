@@ -30,9 +30,10 @@ import {
 import CloseIcon from '@material-ui/icons/Close';
 import type { Rule, Severity } from '@ansible/backstage-apme-common/types';
 import {
-  SEVERITY_STYLES,
+  chipStyleForSeverity,
   categoryLabel,
   normalizeSeverity,
+  severityLabel,
   severityLabelToProto,
   severityLevelToCatalogSeverity,
   severityProtoToLabel,
@@ -161,13 +162,12 @@ const useStyles = makeStyles(theme => ({
 function SeverityBadge({ severity }: { severity: Severity | string }) {
   const classes = useStyles();
   const level = normalizeSeverity(severity);
-  const style = SEVERITY_STYLES[level];
   return (
     <span
       className={classes.severityChip}
-      style={{ backgroundColor: style.background, color: style.text }}
+      style={chipStyleForSeverity(level)}
     >
-      {style.label}
+      {severityLabel(level)}
     </span>
   );
 }

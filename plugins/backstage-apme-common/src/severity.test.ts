@@ -15,6 +15,7 @@
  */
 
 import {
+  chipStyleForSeverity,
   effectiveFixType,
   getDependencySourceTokens,
   getDependencyViolationTokens,
@@ -23,10 +24,15 @@ import {
   getFixTypeColorTokens,
   getSeverityColorTokens,
   getWorstViolationLevel,
+  hasNonZeroSeverityCounts,
+  inlineTextColorForSeverity,
   isFixableViolation,
   normalizeRemediationClass,
   normalizeSeverity,
   normalizeSeverityBreakdown,
+  projectNeedsSeverityEnrichment,
+  projectWorstSeverity,
+  worstSeverityCountSuffix,
   proposalNeedsManualApproval,
   fixMethodLabel,
   SEVERITY_ORDER,
@@ -175,6 +181,88 @@ describe('normalizeSeverity', () => {
     expect(normalizeSeverity('error')).toBe('error');
     expect(normalizeSeverity('high')).toBe('high');
     expect(normalizeSeverity('unknown-level')).toBe('medium');
+  });
+});
+
+describe('severity presentation helpers', () => {
+  it('chipStyleForSeverity maps pill colors from SEVERITY_STYLES', () => {
+    expect(chipStyleForSeverity('critical')).toEqual({
+      backgroundColor: '#a30000',
+      color: '#ffffff',
+    });
+  });
+
+  it('inlineTextColorForSeverity is theme-aware', () => {
+    expect(inlineTextColorForSeverity('high', 'light')).toBe('#c46100');
+    expect(inlineTextColorForSeverity('high', 'dark')).toBe('#ff8c00');
+  });
+
+  it('projectWorstSeverity delegates to resolveViolationCounts', () => {
+    expect(
+      projectWorstSeverity({
+        severity_breakdown: { critical: 2, low: 5 },
+      }),
+    ).toEqual({ level: 'critical', count: 2 });
+  });
+
+  it('projectWorstSeverity returns null when breakdown is missing but total > 0', () => {
+    expect(
+      projectWorstSeverity({
+        total_violations: 4,
+        severity_breakdown: {},
+      }),
+    ).toBeNull();
+  });
+
+  it('worstSeverityCountSuffix omits label when worst is unknown', () => {
+    expect(worstSeverityCountSuffix(null)).toBe('');
+    expect(worstSeverityCountSuffix({ level: 'high', count: 2 })).toBe(
+      ' (2 HIGH)',
+    );
+  });
+
+  it('hasNonZeroSeverityCounts detects populated buckets', () => {
+    expect(
+      hasNonZeroSeverityCounts({
+        critical: 0,
+        error: 0,
+        high: 1,
+        medium: 0,
+        low: 0,
+        info: 0,
+      }),
+    ).toBe(true);
+    expect(
+      hasNonZeroSeverityCounts({
+        critical: 0,
+        error: 0,
+        high: 0,
+        medium: 0,
+        low: 0,
+        info: 0,
+      }),
+    ).toBe(false);
+  });
+
+  it('projectNeedsSeverityEnrichment when list rows omit breakdown', () => {
+    expect(
+      projectNeedsSeverityEnrichment({
+        total_violations: 4,
+        severity_breakdown: {},
+      }),
+    ).toBe(true);
+    expect(
+      projectNeedsSeverityEnrichment({
+        total_violations: 4,
+        severity_breakdown: { high: 4 },
+      }),
+    ).toBe(false);
+    expect(
+      projectNeedsSeverityEnrichment({
+        total_violations: 0,
+        severity_breakdown: {},
+      }),
+    ).toBe(false);
   });
 });
 

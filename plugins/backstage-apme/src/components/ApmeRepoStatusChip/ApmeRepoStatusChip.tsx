@@ -24,10 +24,8 @@ import {
   shouldResumeScanUi,
 } from '@ansible/backstage-apme-common/operationStatus';
 import {
-  SEVERITY_STYLES,
-  getWorstViolationLevel,
-  resolveViolationCounts,
-  type SeverityLevel,
+  chipStyleForSeverity,
+  projectWorstSeverity,
 } from '@ansible/backstage-apme-common/severity';
 import { apmeApiRef } from '../../api';
 import { useApmeEnabled } from '../../hooks/useApmeEnabled';
@@ -51,14 +49,6 @@ const useStyles = makeStyles(theme => ({
     color: theme.palette.common.white,
   },
 }));
-
-function chipStyleForSeverity(level: SeverityLevel) {
-  const style = SEVERITY_STYLES[level];
-  return {
-    backgroundColor: style.background,
-    color: style.text,
-  };
-}
 
 export interface ApmeRepoStatusChipProps {
   repoUrl: string;
@@ -161,9 +151,6 @@ export const ApmeRepoStatusChip = ({
     return <Chip size="small" label="Clean" className={classes.clean} />;
   }
 
-  const counts = resolveViolationCounts(project);
-  const { level } = getWorstViolationLevel(counts);
-  // Count + neutral label; color conveys worst severity (avoid "307 error").
   const label = `${project.total_violations} violation${
     project.total_violations === 1 ? '' : 's'
   }`;
@@ -177,11 +164,24 @@ export const ApmeRepoStatusChip = ({
     navigate(`/self-service/repositories/${slug}?tab=quality`);
   };
 
+  const worst = projectWorstSeverity(project);
+  if (!worst) {
+    return (
+      <Chip
+        size="small"
+        label={label}
+        className={classes.notScanned}
+        onClick={handleClick}
+        clickable
+      />
+    );
+  }
+
   return (
     <Chip
       size="small"
       label={label}
-      style={chipStyleForSeverity(level)}
+      style={chipStyleForSeverity(worst.level)}
       onClick={handleClick}
       clickable
     />

@@ -18,7 +18,7 @@ import CheckCircleOutlineIcon from '@material-ui/icons/CheckCircleOutline';
 import CloseIcon from '@material-ui/icons/Close';
 import type { Violation } from '@ansible/backstage-apme-common/types';
 import {
-  SEVERITY_STYLES,
+  severityLabel,
   normalizeSeverity,
   categoryLabel,
 } from '@ansible/backstage-apme-common/severity';
@@ -167,7 +167,6 @@ export const ViolationDetailModal = ({
         {displayViolations.map(v => {
           const sev = normalizeSeverity(v.level);
           const tokens = colorTokens.severity[sev];
-          const style = SEVERITY_STYLES[sev];
           const isAcknowledgedRow = isAcknowledged(v);
           return (
             <Box
@@ -187,7 +186,7 @@ export const ViolationDetailModal = ({
                     color: tokens.pillText,
                   }}
                 >
-                  {style.label}
+                  {severityLabel(v.level)}
                 </span>
                 <span className={classes.ruleId}>{v.rule_id}</span>
                 <Typography variant="body2" style={{ flex: 1 }}>

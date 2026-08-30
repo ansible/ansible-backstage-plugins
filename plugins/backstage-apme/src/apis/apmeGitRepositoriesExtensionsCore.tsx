@@ -30,6 +30,7 @@ import { ansibleSettingsViewPermission } from '@ansible/backstage-rhaap-common/p
 import { ApmeAddRepositoryHeaderAction } from '../components/ApmeAddRepositoryHeaderAction/ApmeAddRepositoryHeaderAction';
 import { ApmeQualitySettingsTab } from '../components/ApmeQualitySettingsTab';
 import { ApmeRulesTab } from '../components/ApmeRulesTab';
+import { ApmeQualityTabLabel } from '../components/ApmeQualityTabLabel';
 
 export function withSuspense<P extends object>(
   Component: ComponentType<P>,
@@ -139,6 +140,9 @@ export function createApmeGitRepositoriesExtensionsApi(
           id: 'quality',
           label: 'Quality',
           order: 10,
+          renderLabel: (ctx: GitRepositoryDetailTabContext) => (
+            <ApmeQualityTabLabel context={ctx} />
+          ),
           render: ({
             entity,
             initialRuleFilter,

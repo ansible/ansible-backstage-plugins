@@ -449,7 +449,72 @@ export function normalizeSeverityBreakdown(
   return result;
 }
 
-/** Highest non-zero severity bucket for fleet/repo violation summaries. */
+/** True when at least one ADR-043 severity bucket has a non-zero count. */
+export function hasNonZeroSeverityCounts(
+  counts: ViolationCountsBySeverity,
+): boolean {
+  return SEVERITY_ORDER.some(level => counts[level] > 0);
+}
+
+/** Pill/chip background + text from the shared severity palette. */
+export function chipStyleForSeverity(level: SeverityLevel): {
+  backgroundColor: string;
+  color: string;
+} {
+  const style = SEVERITY_STYLES[level];
+  return { backgroundColor: style.background, color: style.text };
+}
+
+/** Theme-aware inline text color for counts, tab labels, and links. */
+export function inlineTextColorForSeverity(
+  level: SeverityLevel,
+  mode: ThemeMode,
+): string {
+  return getSeverityColorTokens(mode)[level].inlineText;
+}
+
+/**
+ * Worst open-severity bucket for a project summary or detail row.
+ * Returns null when violations exist but severity breakdown is missing/empty
+ * (avoids painting counts medium/amber before enrichment completes).
+ */
+export function projectWorstSeverity(project: {
+  violationCounts?: ViolationCountsBySeverity;
+  severity_breakdown?: Record<string, number>;
+  total_violations?: number;
+}): { level: SeverityLevel; count: number } | null {
+  const counts = resolveViolationCounts(project);
+  if (!hasNonZeroSeverityCounts(counts)) {
+    return null;
+  }
+  return getWorstViolationLevel(counts);
+}
+
+/** Suffix for catalog/tab counts, e.g. `` (3 HIGH)``. */
+export function worstSeverityCountSuffix(
+  worst: { level: SeverityLevel; count: number } | null,
+): string {
+  if (!worst || worst.count <= 0) {
+    return '';
+  }
+  return ` (${worst.count} ${SEVERITY_STYLES[worst.level].label.toUpperCase()})`;
+}
+
+/**
+ * List API summaries omit severity_breakdown; detail/lookup include it.
+ * Returns true when we should fetch project detail to colorize correctly.
+ */
+export function projectNeedsSeverityEnrichment(project: {
+  total_violations?: number;
+  violationCounts?: ViolationCountsBySeverity;
+  severity_breakdown?: Record<string, number>;
+}): boolean {
+  if ((project.total_violations ?? 0) <= 0) {
+    return false;
+  }
+  return !hasNonZeroSeverityCounts(resolveViolationCounts(project));
+}
+
 export function getWorstViolationLevel(counts: ViolationCountsBySeverity): {
   level: SeverityLevel;
   count: number;

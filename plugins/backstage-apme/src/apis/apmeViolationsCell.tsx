@@ -15,10 +15,10 @@ import {
 } from '@ansible/backstage-rhaap-common/catalogEntity';
 import type { Project } from '@ansible/backstage-apme-common/types';
 import {
-  SEVERITY_STYLES,
-  getWorstViolationLevel,
-  resolveViolationCounts,
-  getSeverityColorTokens,
+  inlineTextColorForSeverity,
+  projectNeedsSeverityEnrichment,
+  projectWorstSeverity,
+  worstSeverityCountSuffix,
 } from '@ansible/backstage-apme-common/severity';
 import { projectHasActiveOperation } from '@ansible/backstage-apme-common/operationStatus';
 import { apmeApiRef } from '../api';
@@ -85,11 +85,24 @@ function buildProjectMap(projects: Project[]): Map<string, Project> {
   return map;
 }
 
+function violationCountStyle(
+  project: Project,
+  mode: 'light' | 'dark',
+  mutedColor: string,
+): { color: string; fontWeight: number } {
+  const worst = projectWorstSeverity(project);
+  if (!worst) {
+    return { color: mutedColor, fontWeight: 600 };
+  }
+  return {
+    color: inlineTextColorForSeverity(worst.level, mode),
+    fontWeight: 600,
+  };
+}
+
 export function ApmeViolationsCell({ entity }: { entity: Entity }) {
   const theme = useTheme();
-  const colorTokens = getSeverityColorTokens(
-    theme.palette.type === 'dark' ? 'dark' : 'light',
-  );
+  const mode = theme.palette.type === 'dark' ? 'dark' : 'light';
   const mutedStatusStyle = {
     fontWeight: 500,
     color: theme.palette.text.primary,
@@ -98,6 +111,7 @@ export function ApmeViolationsCell({ entity }: { entity: Entity }) {
   const [projectMap, setProjectMap] = useState<Map<string, Project> | null>(
     null,
   );
+  const [enrichedProject, setEnrichedProject] = useState<Project | null>(null);
 
   const fetchProjectMap = useCallback(async () => {
     const projects = await apmeApi.getProjects();
@@ -140,15 +154,35 @@ export function ApmeViolationsCell({ entity }: { entity: Entity }) {
     return undefined;
   }, [projectMap, fetchProjectMap]);
 
+  const repoUrl = normalizeRepoUrlFromEntity(entity);
+  const branch = defaultBranchFromEntity(entity);
+  const mapProject = repoUrl
+    ? projectMap?.get(projectLookupKey(repoUrl, branch))
+    : undefined;
+  const project = enrichedProject ?? mapProject;
+
+  useEffect(() => {
+    setEnrichedProject(null);
+    if (!mapProject || !projectNeedsSeverityEnrichment(mapProject)) {
+      return undefined;
+    }
+    let cancelled = false;
+    void apmeApi
+      .getProjectByRepoUrl(mapProject.repo_url, mapProject.branch)
+      .then(detail => {
+        if (!cancelled && detail) {
+          setEnrichedProject(detail);
+        }
+      })
+      .catch(() => undefined);
+    return () => {
+      cancelled = true;
+    };
+  }, [apmeApi, mapProject]);
+
   if (!projectMap) {
     return null;
   }
-
-  const repoUrl = normalizeRepoUrlFromEntity(entity);
-  const branch = defaultBranchFromEntity(entity);
-  const project = repoUrl
-    ? projectMap.get(projectLookupKey(repoUrl, branch))
-    : undefined;
 
   if (!project) {
     return (
@@ -191,22 +225,19 @@ export function ApmeViolationsCell({ entity }: { entity: Entity }) {
     );
   }
 
-  const counts = resolveViolationCounts(project);
-  const { level: worstLevel, count: worstCount } =
-    getWorstViolationLevel(counts);
-  const worstTokens = colorTokens[worstLevel];
-  const severitySuffix =
-    worstCount > 0
-      ? ` (${worstCount} ${SEVERITY_STYLES[worstLevel].label.toUpperCase()})`
-      : '';
+  const worst = projectWorstSeverity(project);
 
   return (
     <Typography
       variant="body2"
-      style={{ color: worstTokens.inlineText, fontWeight: 600 }}
+      style={violationCountStyle(
+        project,
+        mode,
+        theme.palette.text.secondary,
+      )}
     >
       {project.total_violations}
-      {severitySuffix}
+      {worstSeverityCountSuffix(worst)}
     </Typography>
   );
 }
