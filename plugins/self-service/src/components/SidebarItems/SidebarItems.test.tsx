@@ -664,7 +664,7 @@ describe('ContentQualitySidebarItem', () => {
 
     const link = screen.getByRole('link', { name: /Content quality/i });
     expect(link).toBeInTheDocument();
-    expect(link).toHaveAttribute('href', '/self-service/content-quality');
+    expect(link).toHaveAttribute('href', '/self-service/repositories/quality');
   });
 
   it('renders sidebar item when permission framework enabled and allowed', async () => {
@@ -678,7 +678,7 @@ describe('ContentQualitySidebarItem', () => {
 
     const link = screen.getByRole('link', { name: /Content quality/i });
     expect(link).toBeInTheDocument();
-    expect(link).toHaveAttribute('href', '/self-service/content-quality');
+    expect(link).toHaveAttribute('href', '/self-service/repositories/quality');
   });
 
   it('calls usePermission with git repositories view permission', async () => {

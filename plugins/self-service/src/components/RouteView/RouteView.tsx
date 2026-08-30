@@ -30,7 +30,6 @@ import { CollectionsCatalogPage } from '../CollectionsCatalog';
 import { CollectionDetailsPage } from '../CollectionsCatalog/CollectionDetailsPage';
 import { GitRepositoriesPage } from '../GitRepositories';
 import { RepositoryDetailsPage } from '../GitRepositories/RepositoryDetailsPage';
-import { ContentQualityPage } from '../ContentQuality';
 import {
   NotificationProvider,
   NotificationStack,
@@ -180,11 +179,7 @@ const RouteViewContent = () => {
         </Route>
         <Route
           path="content-quality"
-          element={
-            <RequirePermission permission={gitRepositoriesViewPermission}>
-              <ContentQualityPage />
-            </RequirePermission>
-          }
+          element={<Navigate to="../repositories/quality" replace />}
         />
         {/* Default redirects */}
         <Route

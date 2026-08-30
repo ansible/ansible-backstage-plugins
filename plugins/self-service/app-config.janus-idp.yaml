@@ -8,6 +8,13 @@ dynamicPlugins:
         - importName: AapAuthApi
         - importName: EEBuildApis
         - importName: defaultGitRepositoriesExtensionsApiFactory
+      appIcons:
+        - name: contentIcon
+          importName: ContentIcon
+        - name: gitHubIcon
+          importName: GitHubIcon
+        - name: contentQualityIcon
+          importName: ContentQualityIcon
       signInPage:
         importName: SignInPage
       providerSettings:
@@ -32,11 +39,32 @@ dynamicPlugins:
           path: /self-service
         - importName: EEPage
           path: /self-service/ee
+        - importName: GitRepositoriesPage
+          path: /self-service/repositories
+        - importName: GitRepositoriesPage
+          path: /self-service/repositories/catalog
+          menuItem:
+            text: Git Repositories
+        - importName: GitRepositoriesPage
+          path: /self-service/repositories/quality
+          menuItem:
+            text: Content quality
       menuItems:
+        content:
+          title: Content
+          icon: contentIcon
+          priority: 70
+        self-service.repositories.catalog:
+          parent: content
+          priority: 10
+        self-service.repositories.quality:
+          parent: content
+          priority: 20
         execution-environments:
           title: Execution Environments
           icon: extension
           to: /self-service/ee
+          priority: 40
       mountPoints:
         - mountPoint: application/listener
           importName: AppThemeFixer

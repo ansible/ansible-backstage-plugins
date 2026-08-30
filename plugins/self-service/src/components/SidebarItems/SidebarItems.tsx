@@ -116,7 +116,6 @@ export const HistorySidebarItem = () => {
     />
   );
 };
-
 export const ContentQualitySidebarItem = () => {
   const rootLink = useRouteRef(rootRouteRef);
 
@@ -124,7 +123,7 @@ export const ContentQualitySidebarItem = () => {
     <PermissionGatedSidebarItem
       permission={gitRepositoriesViewPermission}
       icon={AssessmentIcon}
-      to={`${rootLink()}/content-quality`}
+      to={`${rootLink()}/repositories/quality`}
       text="Content quality"
     />
   );
@@ -162,7 +161,7 @@ export const ContentSidebarGroup = () => {
         />
         <SidebarSubmenuItem
           title="Content quality"
-          to={`${rootLink()}/content-quality`}
+          to={`${rootLink()}/repositories/quality`}
           icon={AssessmentIcon}
         />
       </SidebarSubmenu>
