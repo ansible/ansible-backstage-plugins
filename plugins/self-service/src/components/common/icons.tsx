@@ -1,10 +1,10 @@
 import SvgIcon from '@material-ui/core/SvgIcon';
-import FolderOpenIcon from '@material-ui/icons/FolderOpen';
+import CodeIcon from '@material-ui/icons/Code';
 import AssessmentIcon from '@material-ui/icons/Assessment';
 import GitHubIconMui from '@material-ui/icons/GitHub';
 
 export const ContentIcon = (props: React.ComponentProps<typeof SvgIcon>) => (
-  <FolderOpenIcon {...props} />
+  <CodeIcon {...props} />
 );
 
 export const ContentQualityIcon = (

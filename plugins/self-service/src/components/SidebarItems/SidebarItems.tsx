@@ -1,18 +1,15 @@
 import type { BasicPermission } from '@backstage/plugin-permission-common';
 import { usePermission } from '@backstage/plugin-permission-react';
 import { configApiRef, useApi, useRouteRef } from '@backstage/core-plugin-api';
-import {
-  SidebarItem,
-  SidebarSubmenu,
-  SidebarSubmenuItem,
-} from '@backstage/core-components';
+import { SidebarItem } from '@backstage/core-components';
 import BuildIcon from '@material-ui/icons/Build';
 import HomeIcon from '@material-ui/icons/Home';
 import ExtensionIcon from '@material-ui/icons/Extension';
 import GitHubIcon from '@material-ui/icons/GitHub';
 import HistoryIcon from '@material-ui/icons/History';
-import FolderIcon from '@material-ui/icons/Folder';
 import AssessmentIcon from '@material-ui/icons/Assessment';
+
+import { ContentExpandableSidebarGroup } from './ContentExpandableSidebarGroup';
 import {
   executionEnvironmentsViewPermission,
   collectionsViewPermission,
@@ -131,7 +128,6 @@ export const ContentQualitySidebarItem = () => {
 
 export const ContentSidebarGroup = () => {
   const config = useApi(configApiRef);
-  const rootLink = useRouteRef(rootRouteRef);
   const isApmeEnabled = config.getOptionalBoolean('ansible.apme.enabled');
 
   const { loading: gitRepoLoading, allowed: gitRepoAllowed } = usePermission({
@@ -151,20 +147,5 @@ export const ContentSidebarGroup = () => {
     return <GitRepositoriesSidebarItem />;
   }
 
-  return (
-    <SidebarItem icon={FolderIcon} text="Content">
-      <SidebarSubmenu title="Content">
-        <SidebarSubmenuItem
-          title="Git Repositories"
-          to={`${rootLink()}/repositories/catalog`}
-          icon={GitHubIcon}
-        />
-        <SidebarSubmenuItem
-          title="Content quality"
-          to={`${rootLink()}/repositories/quality`}
-          icon={AssessmentIcon}
-        />
-      </SidebarSubmenu>
-    </SidebarItem>
-  );
+  return <ContentExpandableSidebarGroup />;
 };

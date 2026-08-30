@@ -17,6 +17,11 @@ jest.mock('@backstage/core-plugin-api', () => ({
   useRouteRef: () => () => '/self-service',
 }));
 
+jest.mock('@backstage/core-components', () => ({
+  ...jest.requireActual('@backstage/core-components'),
+  useSidebarOpenState: () => ({ isOpen: true }),
+}));
+
 jest.mock('../../routes', () => ({
   rootRouteRef: { id: 'root-route-ref' },
 }));
@@ -736,7 +741,7 @@ describe('ContentSidebarGroup', () => {
     expect(link).toBeInTheDocument();
   });
 
-  it('renders Content submenu with Git Repositories and Content quality when APME is enabled', async () => {
+  it('renders Content expandable group with Git Repositories and Content quality when APME is enabled', async () => {
     mockUsePermission.mockReturnValue({ loading: false, allowed: true });
 
     await renderInTestApp(
@@ -748,6 +753,12 @@ describe('ContentSidebarGroup', () => {
     );
 
     expect(screen.getByRole('button', { name: 'Content' })).toBeInTheDocument();
+    expect(
+      screen.getByRole('link', { name: /Git Repositories/i }),
+    ).toHaveAttribute('href', '/self-service/repositories/catalog');
+    expect(
+      screen.getByRole('link', { name: /Content quality/i }),
+    ).toHaveAttribute('href', '/self-service/repositories/quality');
   });
 
   it('returns null when permission framework enabled and not allowed', async () => {
