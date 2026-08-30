@@ -1,4 +1,4 @@
-import { screen } from '@testing-library/react';
+import { fireEvent, screen } from '@testing-library/react';
 import { renderInTestApp, TestApiProvider } from '@backstage/test-utils';
 import { configApiRef } from '@backstage/core-plugin-api';
 import {
@@ -752,7 +752,17 @@ describe('ContentSidebarGroup', () => {
       </TestApiProvider>,
     );
 
-    expect(screen.getByRole('button', { name: 'Content' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Content' })).toHaveAttribute(
+      'aria-expanded',
+      'false',
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: 'Content' }));
+
+    expect(screen.getByRole('button', { name: 'Content' })).toHaveAttribute(
+      'aria-expanded',
+      'true',
+    );
     expect(
       screen.getByRole('link', { name: /Git Repositories/i }),
     ).toHaveAttribute('href', '/self-service/repositories/catalog');

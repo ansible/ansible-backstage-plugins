@@ -112,20 +112,14 @@ const useStyles = makeStyles(
       },
     },
     childActive: {
-      background:
-        theme.palette.navigation.navItem?.selectedBackground ??
-        theme.palette.background.paper,
+      background: theme.palette.background.paper,
       color: theme.palette.text.primary,
       '&:hover': {
-        background:
-          theme.palette.navigation.navItem?.selectedBackground ??
-          theme.palette.background.paper,
+        background: theme.palette.background.paper,
         color: theme.palette.text.primary,
       },
     },
     childLabel: {
-      fontSize: theme.typography.body1.fontSize,
-      fontWeight: theme.typography.fontWeightRegular,
       whiteSpace: 'nowrap',
       overflow: 'hidden',
       textOverflow: 'ellipsis',
@@ -162,16 +156,10 @@ export const ContentExpandableSidebarGroup = () => {
     [rootLink],
   );
 
-  const isChildRouteActive = children.some(child =>
-    isPathActive(location.pathname, child.path),
-  );
-
-  const [expanded, setExpanded] = useState(true);
-
-  const isExpanded = expanded || isChildRouteActive;
+  const [expanded, setExpanded] = useState(false);
 
   const handleToggle = useCallback(() => {
-    setExpanded(current => !current);
+    setExpanded(prev => !prev);
   }, []);
 
   return (
@@ -179,7 +167,7 @@ export const ContentExpandableSidebarGroup = () => {
       <Button
         type="button"
         role="button"
-        aria-expanded={isExpanded}
+        aria-expanded={expanded}
         aria-label="Content"
         className={clsx(
           classes.parentButton,
@@ -203,7 +191,7 @@ export const ContentExpandableSidebarGroup = () => {
               Content
             </Typography>
             <Box className={classes.chevron} aria-hidden>
-              {isExpanded ? (
+              {expanded ? (
                 <ExpandLessIcon fontSize="small" />
               ) : (
                 <ExpandMoreIcon fontSize="small" />
@@ -213,7 +201,7 @@ export const ContentExpandableSidebarGroup = () => {
         )}
       </Button>
       {isOpen && (
-        <Collapse in={isExpanded} className={classes.childList}>
+        <Collapse in={expanded} className={classes.childList}>
           {children.map(child => {
             const isActive = isPathActive(location.pathname, child.path);
 
