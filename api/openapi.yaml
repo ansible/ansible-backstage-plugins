@@ -1230,7 +1230,7 @@ paths:
 
         endpoint.
 
-        **Permissions**: Requires `ansible.git-repositories.delete`.
+        **Permissions**: Requires `ansible.git-repositories.view`.
       tags:
         - Git Content
       security:

@@ -12,7 +12,7 @@ import { configApiRef, useApi } from '@backstage/core-plugin-api';
 import { usePermission } from '@backstage/plugin-permission-react';
 import type { GitRepositoryDetailHeaderMenuContext } from '@ansible/backstage-rhaap-common/gitRepositoriesExtensions';
 import { normalizeRepoUrlFromEntity } from '@ansible/backstage-rhaap-common/catalogEntity';
-import { gitRepositoriesDeletePermission } from '@ansible/backstage-rhaap-common/permissions';
+import { gitRepositoriesViewPermission } from '@ansible/backstage-rhaap-common/permissions';
 import { useApmeEnabled } from '../../hooks/useApmeEnabled';
 import { useNavigateToRepositoryQualityTab } from '../../hooks/useNavigateToRepositoryQualityTab';
 import { isManuallyRegisteredRepository } from '../../hooks/useDeregisterRepository';
@@ -43,7 +43,7 @@ export const ApmeRepositoryHeaderActions = ({
     config.getOptionalBoolean('permission.enabled');
   const { loading: deletePermissionLoading, allowed: canDeleteGitRepo } =
     usePermission({
-      permission: gitRepositoriesDeletePermission,
+      permission: gitRepositoriesViewPermission,
     });
 
   const repoUrl = context.repoUrl ?? normalizeRepoUrlFromEntity(context.entity);
