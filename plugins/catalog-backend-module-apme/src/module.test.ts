@@ -4,6 +4,9 @@ import { registerApmeCatalogSyncTasks } from './apmeCatalogSyncScheduler';
 import { registerPortalGalaxyServersSync } from './portalGalaxyServersSync';
 import { ApmeLearnedDepsEntityProvider } from './providers/ApmeLearnedDepsEntityProvider';
 import { isApmeEnabled, getApmeConfig } from '@ansible/backstage-apme-common';
+import fs from 'fs/promises';
+import os from 'os';
+import path from 'path';
 
 jest.mock('@backstage/backend-plugin-api', () => ({
   coreServices: {
@@ -166,5 +169,36 @@ describe('catalogModuleApme', () => {
     expect(mockRegisterGalaxySync).toHaveBeenCalledTimes(1);
     expect(catalogProcessing.addEntityProvider).toHaveBeenCalledTimes(1);
     expect(mockLearnedDepsProvider).toHaveBeenCalledTimes(1);
+  });
+
+  it('resolveEnableAi defaults to false when portal settings unset', async () => {
+    const settingsPath = path.join(
+      os.tmpdir(),
+      `apme-portal-settings-${Date.now()}-${Math.random()}.json`,
+    );
+    mockGetApmeConfig.mockReturnValue({
+      portalSettingsPath: settingsPath,
+      targetAnsibleCoreVersion: '2.18',
+    } as any);
+
+    const init = getInit();
+    await init({
+      logger: { info: jest.fn() },
+      rootConfig: {},
+      apmeService: {},
+      httpRouter: { use: jest.fn() },
+      httpAuth: {},
+      scheduler: {},
+      discovery: {},
+      auth: {},
+      catalogProcessing: { addEntityProvider: jest.fn() },
+      permissionsRegistry: { addResourceType: jest.fn() },
+      permissions: {},
+    });
+
+    const { resolveEnableAi } = mockRegisterCatalogSync.mock.calls[0][0];
+    await expect(resolveEnableAi!()).resolves.toBe(false);
+
+    await fs.rm(settingsPath, { force: true });
   });
 });

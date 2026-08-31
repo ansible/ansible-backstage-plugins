@@ -442,6 +442,19 @@ describe('catalog-backend-module-apme router', () => {
     expect(response.body.enableAi).toBe(true);
   });
 
+  it('GET /apme/settings coerces invalid persisted enableAi to false', async () => {
+    await fs.writeFile(
+      settingsPath,
+      JSON.stringify({ global: { enableAi: 'false' } }),
+    );
+    portalSettingsStore.clearCache();
+
+    const response = await request(app).get('/apme/settings');
+
+    expect(response.status).toBe(200);
+    expect(response.body.enableAi).toBe(false);
+  });
+
   it('lists galaxy servers via GET /apme/settings/galaxy-servers', async () => {
     const servers = [
       {
