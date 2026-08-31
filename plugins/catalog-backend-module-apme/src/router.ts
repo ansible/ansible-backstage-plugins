@@ -155,7 +155,7 @@ export async function createRouter(options: RouterOptions): Promise<Router> {
       configTargetAnsibleCoreVersion: configSnapshot.targetAnsibleCoreVersion,
     });
     return {
-      enableAi: store.global?.enableAi ?? configSnapshot.enableAi,
+      enableAi: store.global?.enableAi ?? false,
       publishViaGateway: configSnapshot.publishViaGateway,
       targetAnsibleCoreVersion: resolved.effective,
       defaultAiModelId: store.global?.defaultAiModelId,

@@ -15,10 +15,7 @@ export interface ApmePortalSettingsData {
     targetAnsibleCoreVersion?: string;
     /** Abbenay chat model id (provider/model) for remediate + escalate-ai. */
     defaultAiModelId?: string;
-    /**
-     * Portal override for AI-assisted remediation.
-     * When set, wins over app-config `ansible.apme.enableAi`.
-     */
+    /** Portal AI gate; persisted in Quality settings. */
     enableAi?: boolean;
     /** Override for `ansible.apme.baseUrl` (APME Gateway). */
     gatewayBaseUrl?: string;

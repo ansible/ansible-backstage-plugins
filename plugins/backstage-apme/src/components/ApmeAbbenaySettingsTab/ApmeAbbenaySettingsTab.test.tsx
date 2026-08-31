@@ -30,8 +30,6 @@ describe('ApmeAbbenaySettingsTab', () => {
     localStorage.clear();
     mockApmeApi.getPortalSettings.mockResolvedValue({
       enableAi: true,
-      enableAiSource: 'config',
-      configEnableAi: true,
       publishViaGateway: true,
       defaultAiModelId: undefined,
     });
@@ -54,8 +52,6 @@ describe('ApmeAbbenaySettingsTab', () => {
     ]);
     mockApmeApi.updatePortalSettings.mockResolvedValue({
       enableAi: false,
-      enableAiSource: 'store',
-      configEnableAi: true,
       publishViaGateway: true,
       defaultAiModelId: 'model-a',
     });

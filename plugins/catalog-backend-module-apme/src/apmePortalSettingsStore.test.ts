@@ -54,6 +54,28 @@ describe('ApmePortalSettingsStore', () => {
     });
   });
 
+  it('coerces invalid persisted enableAi to false on read', async () => {
+    await fs.writeFile(
+      settingsPath,
+      JSON.stringify({ global: { enableAi: 'false' } }),
+    );
+    const store = new ApmePortalSettingsStore(settingsPath);
+    await expect(store.read()).resolves.toEqual({
+      global: { enableAi: false },
+    });
+  });
+
+  it('retains boolean enableAi on read', async () => {
+    await fs.writeFile(
+      settingsPath,
+      JSON.stringify({ global: { enableAi: true } }),
+    );
+    const store = new ApmePortalSettingsStore(settingsPath);
+    await expect(store.read()).resolves.toEqual({
+      global: { enableAi: true },
+    });
+  });
+
   it('round-trips a Gateway URL override', async () => {
     const store = new ApmePortalSettingsStore(settingsPath);
     await store.updateGlobalSettings({
