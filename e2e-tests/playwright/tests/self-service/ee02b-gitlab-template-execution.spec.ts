@@ -2,6 +2,12 @@ import { test, expect } from '../../fixtures/auth-context';
 import { Page } from '@playwright/test';
 import { handleGitLabLoginOnPage } from '../../utils/auth';
 
+// Skip entire suite if GitLab credentials aren't configured
+test.skip(
+  !process.env.GL_USER_ID || !process.env.GL_USER_PASS,
+  'GL_USER_ID and GL_USER_PASS required for GitLab EE tests',
+);
+
 async function handleGitLabOAuthDialog(
   page: Page,
 ): Promise<'redirected' | 'failed' | false> {

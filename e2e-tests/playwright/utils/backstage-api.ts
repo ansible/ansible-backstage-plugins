@@ -1,4 +1,5 @@
 import { Page } from '@playwright/test';
+import { loginAAP } from './auth';
 
 /**
  * Captures the Backstage identity token from the auth refresh response.
@@ -7,6 +8,17 @@ import { Page } from '@playwright/test';
  * requires Bearer auth, not just session cookies.
  */
 export async function getBackstageToken(page: Page): Promise<string> {
+  // Ensure we're on an authenticated page first
+  // (session might be stale if previous tests navigated away)
+  const currentUrl = page.url();
+  if (
+    !currentUrl.includes('/self-service') &&
+    !currentUrl.includes('/catalog')
+  ) {
+    await page.goto('/self-service/catalog', { waitUntil: 'domcontentloaded' });
+    await page.waitForTimeout(1000); // Wait for session to establish
+  }
+
   // Approach 1: Use page.evaluate to call the auth refresh endpoint
   // from within the browser context (which has the session cookies).
   const authProvider = process.env.BACKSTAGE_AUTH_PROVIDER ?? 'rhaap';
@@ -17,7 +29,10 @@ export async function getBackstageToken(page: Page): Promise<string> {
       try {
         const res = await fetch(
           `/api/auth/${provider}/refresh?scope=read%20write&env=${env}`,
-          { credentials: 'include' },
+          {
+            credentials: 'include',
+            headers: { 'X-Requested-With': 'XMLHttpRequest' },
+          },
         );
         if (!res.ok) return null;
         const data = await res.json();
@@ -31,28 +46,71 @@ export async function getBackstageToken(page: Page): Promise<string> {
 
   if (token) return token;
 
-  // Approach 2: Intercept the browser's auth refresh during page load
-  const responsePromise = page.waitForResponse(
-    res =>
-      res.url().includes(`/api/auth/${authProvider}/refresh`) &&
-      res.status() === 200,
-    { timeout: 15000 },
-  );
+  // Approach 2: Force a page navigation to trigger auth refresh
+  // This catches the refresh response during the page load
+  let interceptedToken: string | null = null;
 
-  // Navigate to force a fresh page load that triggers auth refresh
-  await page.goto('/catalog', { waitUntil: 'domcontentloaded' });
+  const responseListener = async (res: any) => {
+    if (
+      res.url().includes(`/api/auth/${authProvider}/refresh`) &&
+      res.status() === 200
+    ) {
+      try {
+        const data = await res.json();
+        interceptedToken = data?.backstageIdentity?.token ?? null;
+      } catch {
+        // ignore parse errors
+      }
+    }
+  };
+
+  page.on('response', responseListener);
 
   try {
-    const refreshRes = await responsePromise;
-    const data = await refreshRes.json();
-    const interceptedToken = data?.backstageIdentity?.token;
+    // Navigate to force a fresh page load that triggers auth refresh
+    await page.goto('/self-service/catalog', {
+      waitUntil: 'domcontentloaded',
+      timeout: 20000,
+    });
+    await page.waitForTimeout(2000); // Wait for any background auth refresh
+
     if (interceptedToken) return interceptedToken;
-  } catch {
-    // timeout or parse error
+
+    // Last resort: re-authenticate if session is completely stale
+    console.log(
+      '[getBackstageToken] No token after navigation, attempting re-auth...',
+    );
+    await loginAAP(page);
+    await page.waitForTimeout(2000);
+
+    // Try one more time after re-auth
+    const finalToken = await page.evaluate(
+      async ({ provider, env }) => {
+        try {
+          const res = await fetch(
+            `/api/auth/${provider}/refresh?scope=read%20write&env=${env}`,
+            {
+              credentials: 'include',
+              headers: { 'X-Requested-With': 'XMLHttpRequest' },
+            },
+          );
+          if (!res.ok) return null;
+          const data = await res.json();
+          return data?.backstageIdentity?.token ?? null;
+        } catch {
+          return null;
+        }
+      },
+      { provider: authProvider, env: authEnv },
+    );
+
+    if (finalToken) return finalToken;
+  } finally {
+    page.off('response', responseListener);
   }
 
   throw new Error(
-    'Could not obtain Backstage identity token. Is the session authenticated?',
+    'Could not obtain Backstage identity token even after re-authentication',
   );
 }
 
