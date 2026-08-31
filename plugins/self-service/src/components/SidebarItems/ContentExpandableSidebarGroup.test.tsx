@@ -20,7 +20,7 @@ jest.mock('../../routes', () => ({
 jest.mock('react-router-dom', () => ({
   ...jest.requireActual('react-router-dom'),
   useLocation: () => ({
-    pathname: '/self-service/content-quality',
+    pathname: '/self-service/repositories/quality',
     search: '',
     hash: '',
     state: null,

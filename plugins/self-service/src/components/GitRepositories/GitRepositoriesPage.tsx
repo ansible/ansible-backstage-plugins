@@ -44,6 +44,10 @@ import { RepositoriesTable } from './RepositoriesTable';
 import { RepositoriesCIActivityTab } from './RepositoriesCIActivityTab';
 import { RepositoryDetailsPage } from './RepositoryDetailsPage';
 import { gitReposCache } from './gitReposCache';
+import {
+  CONTENT_QUALITY_DESCRIPTION,
+  CONTENT_QUALITY_TOOLTIP,
+} from './constants';
 
 const useStyles = makeStyles(theme => ({
   tabsSection: {
@@ -347,6 +351,15 @@ export const GitRepositoriesPage = () => {
 
   const activeTab = visibleTabs[selectedTab];
 
+  const isContentQualityTab = activeTab?.id === 'quality';
+  const pageHeader = isContentQualityTab
+    ? {
+        title: 'Quality',
+        tooltip: CONTENT_QUALITY_TOOLTIP,
+        description: CONTENT_QUALITY_DESCRIPTION,
+      }
+    : undefined;
+
   let content;
   if (activeTab?.kind === 'catalog') {
     content = (
@@ -389,6 +402,9 @@ export const GitRepositoriesPage = () => {
           syncInProgress={isSyncInProgress}
           syncProgress={syncProgress}
           extensionHeaderActions={extensionHeaderActions}
+          title={pageHeader?.title}
+          tooltip={pageHeader?.tooltip}
+          description={pageHeader?.description}
         />
         {tabs
           .filter(

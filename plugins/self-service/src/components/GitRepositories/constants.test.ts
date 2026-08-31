@@ -1,6 +1,7 @@
 import {
   REPO_TOOLTIP,
   REPO_DESCRIPTION,
+  CONTENT_QUALITY_TOOLTIP,
   COLUMN_SOURCE_TOOLTIP,
   COLUMN_LAST_ACTIVITY_TOOLTIP,
   COLUMN_CONTAINS_TOOLTIP,
@@ -18,6 +19,12 @@ describe('GitRepositories constants', () => {
     expect(REPO_DESCRIPTION).toBeDefined();
     expect(typeof REPO_DESCRIPTION).toBe('string');
     expect(REPO_DESCRIPTION.length).toBeGreaterThan(0);
+  });
+
+  it('exports CONTENT_QUALITY_TOOLTIP', () => {
+    expect(CONTENT_QUALITY_TOOLTIP).toBeDefined();
+    expect(typeof CONTENT_QUALITY_TOOLTIP).toBe('string');
+    expect(CONTENT_QUALITY_TOOLTIP).toContain('APME');
   });
 
   it('exports COLUMN_SOURCE_TOOLTIP', () => {

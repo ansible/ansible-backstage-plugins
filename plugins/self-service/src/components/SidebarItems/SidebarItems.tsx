@@ -120,8 +120,8 @@ export const ContentQualitySidebarItem = () => {
     <PermissionGatedSidebarItem
       permission={gitRepositoriesViewPermission}
       icon={AssessmentIcon}
-      to={`${rootLink()}/content-quality`}
-      text="Content quality"
+      to={`${rootLink()}/repositories/quality`}
+      text="Content Quality"
     />
   );
 };

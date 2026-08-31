@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   Link,
   sidebarConfig,
@@ -20,6 +20,8 @@ import { rootRouteRef } from '../../routes';
 type ContentChildItem = {
   title: string;
   path: string;
+  /** Override path matching — child is "active" when current URL matches any of these prefixes. */
+  activePrefixes?: string[];
 };
 
 const useStyles = makeStyles(
@@ -149,6 +151,7 @@ const isPathActive = (currentPath: string, targetPath: string) => {
 
 export const ContentExpandableSidebarGroup = () => {
   const classes = useStyles();
+  const rootRef = useRef<HTMLDivElement>(null);
   const rootLink = useRouteRef(rootRouteRef);
   const location = useLocation();
   const { isOpen } = useSidebarOpenState();
@@ -160,8 +163,8 @@ export const ContentExpandableSidebarGroup = () => {
         path: `${rootLink()}/repositories/catalog`,
       },
       {
-        title: 'Content quality',
-        path: `${rootLink()}/content-quality`,
+        title: 'Content Quality',
+        path: `${rootLink()}/repositories/quality`,
       },
     ],
     [rootLink],
@@ -177,12 +180,21 @@ export const ContentExpandableSidebarGroup = () => {
     }
   }, [location.pathname, children]);
 
-  const handleToggle = useCallback(() => {
-    setExpanded(prev => !prev);
+  const scrollIntoView = useCallback(() => {
+    requestAnimationFrame(() => {
+      rootRef.current?.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+    });
   }, []);
 
+  const handleToggle = useCallback(() => {
+    setExpanded(prev => {
+      if (!prev) scrollIntoView();
+      return !prev;
+    });
+  }, [scrollIntoView]);
+
   return (
-    <Box className={classes.root} data-testid="content-expandable-sidebar-group">
+    <div ref={rootRef} className={classes.root} data-testid="content-expandable-sidebar-group">
       <Button
         type="button"
         role="button"
@@ -235,6 +247,6 @@ export const ContentExpandableSidebarGroup = () => {
           })}
         </Collapse>
       )}
-    </Box>
+    </div>
   );
 };

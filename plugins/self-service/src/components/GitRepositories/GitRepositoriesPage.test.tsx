@@ -165,6 +165,22 @@ class ExtensionsApiWithGatedTab extends DefaultGitRepositoriesExtensionsApi {
   }
 }
 
+class ExtensionsApiWithQualityTab extends DefaultGitRepositoriesExtensionsApi {
+  getPageTabs() {
+    return [
+      {
+        id: 'quality',
+        label: 'Quality',
+        path: 'quality',
+        order: 10,
+        render: () => (
+          <div data-testid="content-quality-tab">Content Quality Tab</div>
+        ),
+      },
+    ];
+  }
+}
+
 describe('GitRepositoriesPage', () => {
   beforeEach(() => {
     jest.clearAllMocks();
@@ -331,6 +347,34 @@ describe('GitRepositoriesPage', () => {
     );
 
     expect(screen.getByText('Git Repositories')).toBeInTheDocument();
+  });
+
+  it('renders Quality header when the quality tab is active', async () => {
+    await renderInTestApp(
+      <TestApiProvider
+        apis={[
+          [discoveryApiRef, mockDiscoveryApi],
+          [fetchApiRef, mockFetchApi],
+          [gitRepositoriesExtensionsApiRef, new ExtensionsApiWithQualityTab()],
+        ]}
+      >
+        <ThemeProvider theme={theme}>
+          <GitRepositoriesPage />
+        </ThemeProvider>
+      </TestApiProvider>,
+      { routeEntries: ['/self-service/repositories/quality'] },
+    );
+
+    expect(screen.getByRole('heading', { name: 'Quality' })).toBeInTheDocument();
+    expect(
+      screen.getByText(/Monitor content quality violations and rule compliance/),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByTitle(
+        /Estate-wide content quality violations detected by APME scanning/,
+      ),
+    ).toBeInTheDocument();
+    expect(screen.queryByText('Git Repositories')).not.toBeInTheDocument();
   });
 
   it('renders RepositoriesTable by default', async () => {

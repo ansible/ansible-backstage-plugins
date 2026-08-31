@@ -118,4 +118,25 @@ describe('RepositoriesPageHeaderSection', () => {
     expect(syncButton).toBeDisabled();
     expect(screen.getByTitle('Sync in progress')).toBeInTheDocument();
   });
+
+  it('renders Quality header copy when overridden', () => {
+    renderWithTheme(
+      <RepositoriesPageHeaderSection
+        onSyncClick={mockOnSyncClick}
+        title="Quality"
+        tooltip="Estate-wide content quality violations detected by APME scanning"
+        description="Monitor content quality violations and rule compliance"
+      />,
+    );
+
+    expect(screen.getByText('Quality')).toBeInTheDocument();
+    expect(
+      screen.getByText(/Monitor content quality violations and rule compliance/),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByTitle(
+        /Estate-wide content quality violations detected by APME scanning/,
+      ),
+    ).toBeInTheDocument();
+  });
 });
