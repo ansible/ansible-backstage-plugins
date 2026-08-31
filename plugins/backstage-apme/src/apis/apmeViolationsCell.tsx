@@ -18,7 +18,6 @@ import {
   inlineTextColorForSeverity,
   projectNeedsSeverityEnrichment,
   projectWorstSeverity,
-  worstSeverityCountSuffix,
 } from '@ansible/backstage-apme-common/severity';
 import { projectHasActiveOperation } from '@ansible/backstage-apme-common/operationStatus';
 import { apmeApiRef } from '../api';
@@ -225,8 +224,6 @@ export function ApmeViolationsCell({ entity }: { entity: Entity }) {
     );
   }
 
-  const worst = projectWorstSeverity(project);
-
   return (
     <Typography
       variant="body2"
@@ -237,7 +234,6 @@ export function ApmeViolationsCell({ entity }: { entity: Entity }) {
       )}
     >
       {project.total_violations}
-      {worstSeverityCountSuffix(worst)}
     </Typography>
   );
 }

@@ -59,15 +59,16 @@ describe('ApmeQualityTabLabel', () => {
     expect(screen.queryByText(/CRITICAL|HIGH|MEDIUM/)).not.toBeInTheDocument();
   });
 
-  it('shows worst severity suffix when breakdown is present', async () => {
+  it('shows violation count colored by worst severity (no suffix)', async () => {
     renderLabel({
       total_violations: 5,
       severity_breakdown: { critical: 2, high: 3 },
     });
-    expect(await screen.findByText(/5 \(2 CRITICAL\)/)).toBeInTheDocument();
+    expect(await screen.findByText('5')).toBeInTheDocument();
+    expect(screen.queryByText(/CRITICAL|HIGH|MEDIUM/)).not.toBeInTheDocument();
   });
 
-  it('omits severity suffix when breakdown is missing', async () => {
+  it('shows plain count when breakdown is missing', async () => {
     renderLabel({
       total_violations: 4,
       severity_breakdown: {},

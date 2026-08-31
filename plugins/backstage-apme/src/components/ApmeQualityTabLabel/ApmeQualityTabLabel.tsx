@@ -12,7 +12,6 @@ import type { Project } from '@ansible/backstage-apme-common/types';
 import {
   inlineTextColorForSeverity,
   projectWorstSeverity,
-  worstSeverityCountSuffix,
 } from '@ansible/backstage-apme-common/severity';
 import { projectHasActiveOperation } from '@ansible/backstage-apme-common/operationStatus';
 import type { GitRepositoryDetailTabContext } from '@ansible/backstage-rhaap-common/gitRepositoriesExtensions';
@@ -78,7 +77,6 @@ export function ApmeQualityTabLabel({
       <span>Quality</span>
       <span style={{ color, fontWeight: 600 }}>
         {project.total_violations}
-        {worstSeverityCountSuffix(worst)}
       </span>
     </span>
   );
