@@ -22,7 +22,8 @@ import {
 import CheckCircleIcon from '@material-ui/icons/CheckCircle';
 import ChevronRightIcon from '@material-ui/icons/ChevronRight';
 import KeyboardArrowDownIcon from '@material-ui/icons/KeyboardArrowDown';
-import { Progress } from '@backstage/core-components';
+import { LinkButton, Progress } from '@backstage/core-components';
+import AddIcon from '@material-ui/icons/Add';
 import { RequirePermission } from '@backstage/plugin-permission-react';
 import { ansibleSettingsViewPermission } from '@ansible/backstage-rhaap-common/permissions';
 import {
@@ -37,6 +38,7 @@ import {
 import { useApmeColorTokens } from '../../hooks/useApmeColorTokens';
 import { useApmeEnabled, useApmeAiEnabled } from '../../hooks/useApmeEnabled';
 import { PreviewLabelRow } from '../PreviewChip';
+import { APME_REGISTER_GIT_REPOSITORY_TEMPLATE_PATH } from '../ApmeAddRepositoryHeaderAction/ApmeAddRepositoryHeaderAction';
 import { useFleetQualityData } from './useFleetQualityData';
 
 const STATUS_ERROR = '#C9190B';
@@ -306,29 +308,33 @@ export const FleetQualityTab = ({
         </RequirePermission>
       </Box>
 
-      <Box className={classes.summaryBar}>
-        <Typography
-          style={{ fontSize: 20, fontWeight: 700, color: STATUS_ERROR }}
-        >
-          {hasFilter ? filteredViolationCount : violationTotal}
-        </Typography>
-        <Typography
-          style={{ fontSize: 13, color: theme.palette.text.secondary }}
-        >
-          {hasFilter
-            ? `of ${violationTotal} violations · ${sortedGroups.length} rule${sortedGroups.length !== 1 ? 's' : ''} · ${reposWithIssues} repositories`
-            : `violations · ${allRules.length} rules · ${reposWithIssues} repositories`}
-          {reposClean > 0 && !hasFilter && (
-            <span style={{ marginLeft: 6 }}>
-              ·{' '}
-              <span style={{ color: STATUS_SUCCESS, fontWeight: 500 }}>
-                {reposClean} clean
+      {totalRepos > 0 && (
+        <Box className={classes.summaryBar}>
+          <Typography
+            style={{ fontSize: 20, fontWeight: 700, color: STATUS_ERROR }}
+          >
+            {hasFilter ? filteredViolationCount : violationTotal}
+          </Typography>
+          <Typography
+            style={{ fontSize: 13, color: theme.palette.text.secondary }}
+          >
+            {hasFilter
+              ? `of ${violationTotal} violations · ${sortedGroups.length} rule${sortedGroups.length !== 1 ? 's' : ''} · ${reposWithIssues} repositories`
+              : `violations · ${allRules.length} rules · ${reposWithIssues} repositories`}
+            {reposClean > 0 && !hasFilter && (
+              <span style={{ marginLeft: 6 }}>
+                ·{' '}
+                <span style={{ color: STATUS_SUCCESS, fontWeight: 500 }}>
+                  {reposClean} clean
+                </span>
               </span>
-            </span>
-          )}
-        </Typography>
-      </Box>
+            )}
+          </Typography>
+        </Box>
+      )}
 
+      {totalRepos > 0 && (
+      <>
       <Box className={classes.sevBar}>
         {sevOrder.map(sev => {
           const count = severityCounts[sev];
@@ -657,6 +663,8 @@ export const FleetQualityTab = ({
           </table>
         </Box>
       </Card>
+      </>
+      )}
 
       {sortedGroups.length === 0 && (
         <Box style={{ textAlign: 'center', padding: '48px 24px' }}>
@@ -666,6 +674,36 @@ export const FleetQualityTab = ({
             >
               No violations match the current filters.
             </Typography>
+          ) : totalRepos === 0 ? (
+            <>
+              <Typography
+                variant="h6"
+                style={{ fontWeight: 600, marginBottom: 8 }}
+              >
+                No Git Repositories Found
+              </Typography>
+              <Typography
+                style={{
+                  fontSize: 14,
+                  color: theme.palette.text.secondary,
+                  marginBottom: 16,
+                  maxWidth: 480,
+                  marginLeft: 'auto',
+                  marginRight: 'auto',
+                }}
+              >
+                No git repositories were retrieved from the configured sources.
+                Sync or add manually to discover latest contents.
+              </Typography>
+              <LinkButton
+                variant="contained"
+                color="primary"
+                to={APME_REGISTER_GIT_REPOSITORY_TEMPLATE_PATH}
+                startIcon={<AddIcon />}
+              >
+                Add repository
+              </LinkButton>
+            </>
           ) : (
             <>
               <CheckCircleIcon

@@ -144,6 +144,48 @@ describe('FleetQualityTab', () => {
     expect(screen.queryByText('Quality settings →')).not.toBeInTheDocument();
   });
 
+  it('shows empty state with "Add repository" button when no repos exist', async () => {
+    const emptyApmeApi = {
+      ...mockApmeApi,
+      getProjects: async () => [],
+    };
+
+    render(
+      <MemoryRouter>
+        <TestApiProvider
+          apis={[
+            [
+              configApiRef,
+              new ConfigReader({ ansible: { apme: { enabled: true } } }),
+            ],
+            [apmeApiRef, emptyApmeApi],
+            [catalogApiRef, { getEntities: async () => ({ items: [] }) }],
+          ]}
+        >
+          <ThemeProvider theme={theme}>
+            <FleetQualityTab repositoryDetailPath={repositoryDetailPath} />
+          </ThemeProvider>
+        </TestApiProvider>
+      </MemoryRouter>,
+    );
+
+    expect(
+      await screen.findByText(
+        'No Git Repositories Found',
+        {},
+        { timeout: 5000 },
+      ),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(/No git repositories were retrieved/),
+    ).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Add repository/i }))
+      .toBeInTheDocument();
+    expect(
+      screen.queryByText('All repositories are clean'),
+    ).not.toBeInTheDocument();
+  });
+
   it('shows disabled message when APME is not enabled', async () => {
     render(
       <MemoryRouter>
