@@ -196,7 +196,6 @@ ansible:
     enabled: false
     baseUrl: http://localhost:8080
     checkSSL: false
-    enableAi: false
     publishViaGateway: true
   devSpaces:
     baseUrl: https://devspaces.apps.ansible-rhdh.testing.ansible.com/

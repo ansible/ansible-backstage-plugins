@@ -211,7 +211,7 @@ const ApmeQualitySettingsTabContent = () => {
                 setSavedMessage(undefined);
               }}
               disabled={saving}
-              helperText="Overrides app-config ansible.apme.baseUrl. Clear and save to use app-config. Example: http://host.containers.internal:8080"
+              helperText="APME Gateway base URL for scans and remediation. Example: http://host.containers.internal:8080"
               inputProps={{ 'aria-label': 'APME Gateway URL' }}
             />
 
@@ -246,9 +246,7 @@ const ApmeQualitySettingsTabContent = () => {
                 />
                 <Typography variant="body2" className={classes.meta}>
                   When enabled, Quality scans and remediations may use configured
-                  AI providers. App-config{' '}
-                  <code>ansible.apme.enableAi</code> is the default until you
-                  save a choice here.
+                  AI providers. Saved in portal Quality settings.
                 </Typography>
 
                 <Box className={classes.actions}>
