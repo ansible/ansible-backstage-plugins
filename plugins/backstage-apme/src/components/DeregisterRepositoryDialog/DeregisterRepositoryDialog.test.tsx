@@ -132,4 +132,68 @@ describe('DeregisterRepositoryDialog', () => {
       screen.queryByText('Deregister repository?'),
     ).not.toBeInTheDocument();
   });
+
+  it('does not call onClose when loading', async () => {
+    const onClose = jest.fn();
+    let resolveFetch: (value: unknown) => void;
+    mockFetchApi.fetch.mockReturnValueOnce(
+      new Promise(resolve => {
+        resolveFetch = resolve;
+      }),
+    );
+
+    await renderDialog({ onClose });
+    fireEvent.click(screen.getByRole('button', { name: /^deregister$/i }));
+
+    await waitFor(() => {
+      expect(screen.getByText('Deregistering...')).toBeInTheDocument();
+    });
+
+    fireEvent.click(screen.getByRole('button', { name: /cancel/i }));
+    expect(onClose).not.toHaveBeenCalled();
+
+    resolveFetch!({
+      ok: true,
+      json: () => Promise.resolve({ success: true }),
+    });
+  });
+
+  it('displays error for non-JSON error responses', async () => {
+    mockFetchApi.fetch.mockResolvedValueOnce({
+      ok: false,
+      text: () => Promise.resolve('Plain text error'),
+      statusText: 'Internal Server Error',
+    });
+
+    await renderDialog();
+    fireEvent.click(screen.getByRole('button', { name: /^deregister$/i }));
+
+    await waitFor(() => {
+      expect(screen.getByText('Plain text error')).toBeInTheDocument();
+    });
+  });
+
+  it('falls back to displayName from spec.repository_name', async () => {
+    const entityWithSpecName: Entity = {
+      ...mockEntity,
+      metadata: { ...mockEntity.metadata, title: undefined },
+      spec: { type: 'git-repository', repository_name: 'My Custom Repo' },
+    };
+    await renderDialog({ entity: entityWithSpecName });
+    expect(screen.getByText(/My Custom Repo/)).toBeInTheDocument();
+  });
+
+  it('falls back to metadata.name when no title or repository_name', async () => {
+    const entityNoTitle: Entity = {
+      ...mockEntity,
+      metadata: {
+        ...mockEntity.metadata,
+        title: undefined,
+      },
+    };
+    await renderDialog({ entity: entityNoTitle });
+    expect(
+      screen.getByText(/test-org-test-repo-github-manual/),
+    ).toBeInTheDocument();
+  });
 });

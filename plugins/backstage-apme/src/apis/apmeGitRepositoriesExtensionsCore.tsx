@@ -62,6 +62,7 @@ export type ApmeGitRepositoriesComponents = {
   ApmeRepositoryHeaderActions: ComponentType<{
     context: GitRepositoryDetailHeaderMenuContext;
     onCloseMenu: () => void;
+    showDeregister?: boolean;
   }>;
   ApmeDeregisterRepositoryOverlay: ComponentType<{
     context: GitRepositoryDetailTabContext;
@@ -208,6 +209,11 @@ export function createApmeGitRepositoriesExtensionsApi(
       ];
     }
 
+    /**
+     * Catalog row kebab reuses ApmeRepositoryHeaderActions for "Run quality scan"
+     * but explicitly hides Deregister (showDeregister={false}) because the
+     * deregister overlay is only mounted on RepositoryDetailsPage (ADR-010).
+     */
     getCatalogRowMenuItems() {
       return [
         {
@@ -221,6 +227,7 @@ export function createApmeGitRepositoriesExtensionsApi(
                 onCloseMenu: ctx.onCloseMenu,
               }}
               onCloseMenu={ctx.onCloseMenu}
+              showDeregister={false}
             />
           ),
         },

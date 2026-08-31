@@ -7,7 +7,7 @@
  */
 
 import { useCallback, useSyncExternalStore } from 'react';
-import { useLocation, useNavigate } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import type { GitRepositoryDetailTabContext } from '@ansible/backstage-rhaap-common/gitRepositoriesExtensions';
 import { DeregisterRepositoryDialog } from '../DeregisterRepositoryDialog';
 import { deregisterRepositoryDialogStore } from './deregisterRepositoryDialogStore';
@@ -16,13 +16,17 @@ export interface ApmeDeregisterRepositoryOverlayProps {
   context: GitRepositoryDetailTabContext;
 }
 
+/**
+ * ADR-010 overlay: subscribes to the dialog store and renders
+ * DeregisterRepositoryDialog when the current entity matches.
+ * Must be mounted on the repository detail page (via getDetailOverlays).
+ */
 export const ApmeDeregisterRepositoryOverlay = ({
   context,
 }: ApmeDeregisterRepositoryOverlayProps) => {
   const navigate = useNavigate();
-  const location = useLocation();
 
-  useSyncExternalStore(
+  const storeState = useSyncExternalStore(
     deregisterRepositoryDialogStore.subscribe,
     deregisterRepositoryDialogStore.getState,
     deregisterRepositoryDialogStore.getState,
@@ -35,11 +39,12 @@ export const ApmeDeregisterRepositoryOverlay = ({
   }, []);
 
   const handleConfirm = useCallback(() => {
+    const { redirectPath } = storeState;
     deregisterRepositoryDialogStore.close();
-    const currentPath = location.pathname;
-    const repositoriesBase = currentPath.replace(/\/[^/]+$/, '');
-    navigate(`${repositoriesBase}/catalog`);
-  }, [location.pathname, navigate]);
+    if (redirectPath) {
+      navigate(redirectPath);
+    }
+  }, [storeState, navigate]);
 
   return (
     <DeregisterRepositoryDialog

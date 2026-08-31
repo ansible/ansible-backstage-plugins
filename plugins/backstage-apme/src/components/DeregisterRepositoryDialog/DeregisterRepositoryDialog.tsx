@@ -36,6 +36,10 @@ export interface DeregisterRepositoryDialogProps {
   onConfirm: () => void;
 }
 
+/**
+ * Confirmation dialog for deregistering a manually-registered Git repository.
+ * Shows loading spinner during the API call and renders an error alert on failure.
+ */
 export const DeregisterRepositoryDialog = ({
   open,
   entity,

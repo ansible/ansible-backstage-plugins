@@ -21,12 +21,18 @@ import { deregisterRepositoryDialogStore } from '../ApmeDeregisterRepositoryOver
 export interface ApmeRepositoryHeaderActionsProps {
   context: GitRepositoryDetailHeaderMenuContext;
   onCloseMenu: () => void;
+  /**
+   * When false, hides the Deregister menu item. Used in catalog row kebab
+   * context where the deregister overlay is not mounted (ADR-010).
+   */
+  showDeregister?: boolean;
 }
 
 /** Menu items for repo detail / list Actions — Run quality scan + Deregister for manual repos. */
 export const ApmeRepositoryHeaderActions = ({
   context,
   onCloseMenu,
+  showDeregister = true,
 }: ApmeRepositoryHeaderActionsProps) => {
   const enabled = useApmeEnabled();
   const config = useApi(configApiRef);
@@ -44,6 +50,7 @@ export const ApmeRepositoryHeaderActions = ({
   const repoUrl = context.repoUrl ?? normalizeRepoUrlFromEntity(context.entity);
   const isManualRepo = isManuallyRegisteredRepository(context.entity);
   const canDeregister =
+    showDeregister &&
     isManualRepo &&
     (!isPermissionFrameworkEnabled ||
       (!deletePermissionLoading && canDeleteGitRepo));
@@ -57,13 +64,14 @@ export const ApmeRepositoryHeaderActions = ({
     (event: React.MouseEvent) => {
       event.stopPropagation();
       onCloseMenu();
-      // Open after the Actions menu backdrop finishes closing; otherwise MUI
-      // treats that backdrop click as a Dialog dismiss and the confirm flashes away.
+
+      const redirectPath = context.repositoriesCatalogPath ?? '/repositories/catalog';
+
       window.setTimeout(() => {
-        deregisterRepositoryDialogStore.open(context.entity);
+        deregisterRepositoryDialogStore.open(context.entity, redirectPath);
       }, 150);
     },
-    [context.entity, onCloseMenu],
+    [context.entity, context.repositoriesCatalogPath, onCloseMenu],
   );
 
   if (!enabled || !repoUrl) {

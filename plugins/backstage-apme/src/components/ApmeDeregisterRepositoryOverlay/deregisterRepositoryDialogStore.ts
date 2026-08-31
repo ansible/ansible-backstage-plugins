@@ -3,9 +3,14 @@ import { Entity, stringifyEntityRef } from '@backstage/catalog-model';
 type DeregisterDialogState = {
   open: boolean;
   entity: Entity | null;
+  redirectPath: string | null;
 };
 
-let state: DeregisterDialogState = { open: false, entity: null };
+let state: DeregisterDialogState = {
+  open: false,
+  entity: null,
+  redirectPath: null,
+};
 const listeners = new Set<() => void>();
 
 function emit(): void {
@@ -24,13 +29,13 @@ export const deregisterRepositoryDialogStore = {
     };
   },
 
-  open(entity: Entity): void {
-    state = { open: true, entity };
+  open(entity: Entity, redirectPath: string): void {
+    state = { open: true, entity, redirectPath };
     emit();
   },
 
   close(): void {
-    state = { open: false, entity: null };
+    state = { open: false, entity: null, redirectPath: null };
     emit();
   },
 

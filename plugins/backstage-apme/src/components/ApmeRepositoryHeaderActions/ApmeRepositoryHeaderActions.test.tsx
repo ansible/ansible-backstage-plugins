@@ -24,7 +24,6 @@ const mockUsePermission = jest.fn().mockReturnValue({
 jest.mock('react-router-dom', () => ({
   ...jest.requireActual('react-router-dom'),
   useNavigate: () => mockNavigate,
-  useLocation: () => ({ pathname: '/self-service/repositories/test-repo' }),
 }));
 
 jest.mock('@backstage/plugin-permission-react', () => ({
@@ -75,6 +74,7 @@ const renderComponent = async (entity: Entity = baseEntity) => {
     entity,
     repoUrl: 'https://github.com/org/repo',
     onCloseMenu,
+    repositoriesCatalogPath: '/self-service/repositories/catalog',
   };
 
   return renderInTestApp(
@@ -138,6 +138,33 @@ describe('ApmeRepositoryHeaderActions', () => {
     mockConfigApi.getOptionalBoolean.mockReturnValue(false);
     const { container } = await renderComponent();
     expect(container).toBeEmptyDOMElement();
+  });
+
+  it('hides Deregister when showDeregister is false (catalog row context)', async () => {
+    const onCloseMenu = jest.fn();
+    const context = {
+      entity: manualEntity,
+      repoUrl: 'https://github.com/org/repo',
+      onCloseMenu,
+    };
+
+    await renderInTestApp(
+      <TestApiProvider
+        apis={[
+          [configApiRef, mockConfigApi],
+          [discoveryApiRef, mockDiscoveryApi],
+          [fetchApiRef, mockFetchApi],
+        ]}
+      >
+        <ApmeRepositoryHeaderActions
+          context={context}
+          onCloseMenu={onCloseMenu}
+          showDeregister={false}
+        />
+      </TestApiProvider>,
+    );
+    expect(screen.getByText('Run quality scan')).toBeInTheDocument();
+    expect(screen.queryByText('Deregister')).not.toBeInTheDocument();
   });
 
   it('returns null when repoUrl is not available', async () => {

@@ -485,6 +485,7 @@ const RepositoryDetailsPageInner = () => {
                     {item.render({
                       ...detailTabContext,
                       onCloseMenu: () => setActionsAnchor(null),
+                      repositoriesCatalogPath: `${rootLink()}/repositories/catalog`,
                     })}
                   </Suspense>
                 ))}

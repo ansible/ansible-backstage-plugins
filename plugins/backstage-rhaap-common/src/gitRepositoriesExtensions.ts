@@ -56,6 +56,8 @@ export type GitRepositoryDetailTabContext = {
 export type GitRepositoryDetailHeaderMenuContext =
   GitRepositoryDetailTabContext & {
     onCloseMenu: () => void;
+    /** Resolved catalog path (e.g. from rootLink()). Avoids pathname heuristics in guests. */
+    repositoriesCatalogPath?: string;
   };
 
 export type GitRepositoryDetailHeaderMenuItemDefinition = {
