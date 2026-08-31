@@ -161,7 +161,7 @@ export const ContentExpandableSidebarGroup = () => {
       },
       {
         title: 'Content quality',
-        path: `${rootLink()}/repositories/quality`,
+        path: `${rootLink()}/content-quality`,
       },
     ],
     [rootLink],
