@@ -46,13 +46,6 @@ export interface Config {
        */
       mockMode?: boolean;
       /**
-       * Enable AI-assisted remediation tier in scans and UI labels.
-       * Defaults to false when omitted (ADR-011).
-       * @default false
-       * @visibility frontend
-       */
-      enableAi?: boolean;
-      /**
        * When true, PR creation is proxied to the APME gateway SCM submit path (ADR-050).
        * @default true
        * @visibility frontend

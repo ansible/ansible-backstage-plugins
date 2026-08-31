@@ -8,6 +8,17 @@ import type { ApmePortalSettingsData } from '@ansible/backstage-apme-common';
 
 const DEFAULT_RELATIVE_PATH = path.join('.data', 'apme-portal-settings.json');
 
+/** Retain only boolean enableAi; coerce invalid persisted values to false. */
+function coercePortalEnableAi(value: unknown): boolean | undefined {
+  if (value === undefined) {
+    return undefined;
+  }
+  if (typeof value === 'boolean') {
+    return value;
+  }
+  return false;
+}
+
 export class ApmePortalSettingsStore {
   private readonly filePath: string;
   private cache: ApmePortalSettingsData | null = null;
@@ -153,9 +164,18 @@ export class ApmePortalSettingsStore {
     this.cache = null;
   }
 
+  /** Sanitize persisted portal settings before cache or disk write. */
   private normalize(data: ApmePortalSettingsData): ApmePortalSettingsData {
+    let global: ApmePortalSettingsData['global'];
+    if (data.global) {
+      global = { ...data.global };
+      if ('enableAi' in global) {
+        global.enableAi = coercePortalEnableAi(global.enableAi);
+      }
+    }
+
     return {
-      global: data.global ? { ...data.global } : undefined,
+      global,
       projects: data.projects ? { ...data.projects } : undefined,
       activities: data.activities ? { ...data.activities } : undefined,
     };

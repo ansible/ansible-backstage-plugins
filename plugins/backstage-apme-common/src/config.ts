@@ -39,7 +39,6 @@ export function getApmeConfig(config: Config): ApmeConfig {
       enabled: false,
       baseUrl: 'http://localhost:8080',
       checkSSL: false,
-      enableAi: false,
       publishViaGateway: false,
       submitTimeoutMs: DEFAULT_APME_SUBMIT_TIMEOUT_MS,
       targetAnsibleCoreVersion: DEFAULT_APME_TARGET_ANSIBLE_CORE_VERSION,
@@ -51,7 +50,6 @@ export function getApmeConfig(config: Config): ApmeConfig {
     enabled: apmeConfig.getOptionalBoolean('enabled') ?? false,
     baseUrl: apmeConfig.getString('baseUrl').replace(/\/+$/, ''),
     checkSSL: apmeConfig.getOptionalBoolean('checkSSL') ?? true,
-    enableAi: apmeConfig.getOptionalBoolean('enableAi') ?? false,
     publishViaGateway:
       apmeConfig.getOptionalBoolean('publishViaGateway') ?? true,
     submitTimeoutMs: resolveSubmitTimeoutMs(
@@ -67,11 +65,6 @@ export function getApmeConfig(config: Config): ApmeConfig {
 /** When true, PR/branch publish is delegated to the APME gateway SCM path. */
 export function isApmePublishViaGateway(config: Config): boolean {
   return getApmeConfig(config).publishViaGateway;
-}
-
-/** Returns whether AI remediation tier is enabled. Default false when omitted. */
-export function isApmeAiEnabled(config: Config): boolean {
-  return getApmeConfig(config).enableAi;
 }
 
 /** Returns true when the APME plugin is enabled via configuration. */

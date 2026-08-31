@@ -128,9 +128,10 @@ export const catalogModuleApme = createBackendModule({
           });
         };
 
+        /** Portal Quality settings AI gate; false when unset or invalid. */
         const resolveEnableAi = async () => {
           const store = await portalSettingsStore.read();
-          return store.global?.enableAi ?? configSnapshot.enableAi;
+          return store.global?.enableAi ?? false;
         };
 
         const router = await createRouter({
