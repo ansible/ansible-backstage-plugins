@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   Link,
   sidebarConfig,
@@ -167,7 +167,15 @@ export const ContentExpandableSidebarGroup = () => {
     [rootLink],
   );
 
-  const [expanded, setExpanded] = useState(false);
+  const [expanded, setExpanded] = useState(() =>
+    children.some(child => isPathActive(location.pathname, child.path)),
+  );
+
+  useEffect(() => {
+    if (children.some(child => isPathActive(location.pathname, child.path))) {
+      setExpanded(true);
+    }
+  }, [location.pathname, children]);
 
   const handleToggle = useCallback(() => {
     setExpanded(prev => !prev);

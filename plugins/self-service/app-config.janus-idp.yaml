@@ -41,25 +41,15 @@ dynamicPlugins:
           path: /self-service/ee
         - importName: GitRepositoriesPage
           path: /self-service/repositories
+        - importName: ContentQualityPage
+          path: /self-service/content-quality
         - importName: GitRepositoriesPage
           path: /self-service/repositories/catalog
           menuItem:
-            text: Git Repositories
-        - importName: GitRepositoriesPage
-          path: /self-service/repositories/quality
-          menuItem:
-            text: Content quality
+            importName: ContentSidebarGroup
       menuItems:
-        content:
-          title: Content
-          icon: contentIcon
-          priority: 70
         self-service.repositories.catalog:
-          parent: content
-          priority: 10
-        self-service.repositories.quality:
-          parent: content
-          priority: 20
+          priority: 30
         execution-environments:
           title: Execution Environments
           icon: extension
