@@ -9,7 +9,6 @@ import Box from '@material-ui/core/Box';
 import Button from '@material-ui/core/Button';
 import Collapse from '@material-ui/core/Collapse';
 import { makeStyles } from '@material-ui/core/styles';
-import Typography from '@material-ui/core/Typography';
 import CodeIcon from '@material-ui/icons/Code';
 import ExpandLessIcon from '@material-ui/icons/ExpandLess';
 import ExpandMoreIcon from '@material-ui/icons/ExpandMore';
@@ -50,6 +49,7 @@ const useStyles = makeStyles(
     },
     parentOpen: {
       width: sidebarConfig.drawerWidthOpen,
+      paddingLeft: theme.spacing(1),
     },
     parentClosed: {
       width: sidebarConfig.drawerWidthClosed,
@@ -81,10 +81,10 @@ const useStyles = makeStyles(
       fontWeight: 'bold',
       whiteSpace: 'nowrap',
       lineHeight: 'auto',
-      flex: '1 1 auto',
+      flex: '3 1 auto',
+      width: '110px',
       overflow: 'hidden',
       textOverflow: 'ellipsis',
-      textAlign: 'left',
     },
     chevron: {
       display: 'flex',
@@ -94,12 +94,19 @@ const useStyles = makeStyles(
     },
     childList: {
       width: '100%',
+      '& .MuiCollapse-wrapper': {
+        width: '100%',
+      },
+      '& .MuiCollapse-wrapperInner': {
+        width: '100%',
+      },
     },
     childLink: {
-      display: 'flex',
-      alignItems: 'center',
+      display: 'block',
       height: 40,
       width: '100%',
+      minWidth: 0,
+      lineHeight: '40px',
       paddingLeft: sidebarConfig.iconContainerWidth,
       paddingRight: theme.spacing(2),
       boxSizing: 'border-box',
@@ -113,16 +120,20 @@ const useStyles = makeStyles(
     },
     childActive: {
       background: theme.palette.background.paper,
-      color: theme.palette.text.primary,
+      color: theme.palette.navigation.selectedColor,
       '&:hover': {
         background: theme.palette.background.paper,
-        color: theme.palette.text.primary,
+        color: theme.palette.navigation.selectedColor,
       },
     },
     childLabel: {
+      display: 'inline-block',
+      fontSize: theme.typography.body2.fontSize,
+      fontWeight: 400,
       whiteSpace: 'nowrap',
       overflow: 'hidden',
       textOverflow: 'ellipsis',
+      verticalAlign: 'middle',
     },
   }),
   { name: 'ContentExpandableSidebarGroup' },
@@ -183,13 +194,7 @@ export const ContentExpandableSidebarGroup = () => {
         </Box>
         {isOpen && (
           <>
-            <Typography
-              variant="subtitle2"
-              component="span"
-              className={classes.parentLabel}
-            >
-              Content
-            </Typography>
+            <span className={classes.parentLabel}>Content</span>
             <Box className={classes.chevron} aria-hidden>
               {expanded ? (
                 <ExpandLessIcon fontSize="small" />
@@ -216,13 +221,7 @@ export const ContentExpandableSidebarGroup = () => {
                 )}
                 aria-current={isActive ? 'page' : undefined}
               >
-                <Typography
-                  variant="body1"
-                  component="span"
-                  className={classes.childLabel}
-                >
-                  {child.title}
-                </Typography>
+                <span className={classes.childLabel}>{child.title}</span>
               </Link>
             );
           })}
