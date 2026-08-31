@@ -149,6 +149,25 @@ const isPathActive = (currentPath: string, targetPath: string) => {
   return currentPath.startsWith(`${targetPath}/`);
 };
 
+const isChildActive = (
+  currentPath: string,
+  child: ContentChildItem,
+  allChildren: ContentChildItem[],
+) => {
+  const exactMatch = allChildren.find(
+    c => !c.activePrefixes && isPathActive(currentPath, c.path),
+  );
+  if (exactMatch) {
+    return child === exactMatch;
+  }
+  if (child.activePrefixes) {
+    return child.activePrefixes.some(prefix =>
+      isPathActive(currentPath, prefix),
+    );
+  }
+  return isPathActive(currentPath, child.path);
+};
+
 export const ContentExpandableSidebarGroup = () => {
   const classes = useStyles();
   const rootRef = useRef<HTMLDivElement>(null);
@@ -161,6 +180,7 @@ export const ContentExpandableSidebarGroup = () => {
       {
         title: 'Git Repositories',
         path: `${rootLink()}/repositories/catalog`,
+        activePrefixes: [`${rootLink()}/repositories`],
       },
       {
         title: 'Content Quality',
@@ -171,11 +191,15 @@ export const ContentExpandableSidebarGroup = () => {
   );
 
   const [expanded, setExpanded] = useState(() =>
-    children.some(child => isPathActive(location.pathname, child.path)),
+    children.some(child => isChildActive(location.pathname, child, children)),
   );
 
   useEffect(() => {
-    if (children.some(child => isPathActive(location.pathname, child.path))) {
+    if (
+      children.some(child =>
+        isChildActive(location.pathname, child, children),
+      )
+    ) {
       setExpanded(true);
     }
   }, [location.pathname, children]);
@@ -228,7 +252,7 @@ export const ContentExpandableSidebarGroup = () => {
       {isOpen && (
         <Collapse in={expanded} className={classes.childList}>
           {children.map(child => {
-            const isActive = isPathActive(location.pathname, child.path);
+            const isActive = isChildActive(location.pathname, child, children);
 
             return (
               <Link

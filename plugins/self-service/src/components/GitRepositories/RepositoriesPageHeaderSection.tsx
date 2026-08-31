@@ -1,11 +1,6 @@
 import { PageHeaderSection } from '../common';
 import type { SyncProgressEntry } from '../common';
-import {
-  REPO_TOOLTIP,
-  REPO_DESCRIPTION,
-  CONTENT_QUALITY_TOOLTIP,
-  CONTENT_QUALITY_DESCRIPTION,
-} from './constants';
+import { REPO_TOOLTIP, REPO_DESCRIPTION } from './constants';
 
 interface RepositoriesPageHeaderSectionProps {
   onSyncClick: () => void;
