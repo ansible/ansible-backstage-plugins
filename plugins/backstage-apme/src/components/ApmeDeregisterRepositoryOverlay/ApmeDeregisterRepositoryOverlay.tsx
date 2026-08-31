@@ -13,13 +13,18 @@ import { DeregisterRepositoryDialog } from '../DeregisterRepositoryDialog';
 import { deregisterRepositoryDialogStore } from './deregisterRepositoryDialogStore';
 
 export interface ApmeDeregisterRepositoryOverlayProps {
-  context: GitRepositoryDetailTabContext;
+  /**
+   * When provided (repository detail page), the dialog only opens when the
+   * store entity matches this context entity. When omitted (catalog list),
+   * the dialog opens for any entity in the store.
+   */
+  context?: GitRepositoryDetailTabContext;
 }
 
 /**
  * ADR-010 overlay: subscribes to the dialog store and renders
- * DeregisterRepositoryDialog when the current entity matches.
- * Must be mounted on the repository detail page (via getDetailOverlays).
+ * DeregisterRepositoryDialog when open.
+ * Mounted via getDetailOverlays (detail page) or getCatalogOverlays (catalog list).
  */
 export const ApmeDeregisterRepositoryOverlay = ({
   context,
@@ -32,7 +37,10 @@ export const ApmeDeregisterRepositoryOverlay = ({
     deregisterRepositoryDialogStore.getState,
   );
 
-  const open = deregisterRepositoryDialogStore.isOpenForEntity(context.entity);
+  const open = context
+    ? deregisterRepositoryDialogStore.isOpenForEntity(context.entity)
+    : storeState.open;
+  const entity = open ? storeState.entity : null;
 
   const handleClose = useCallback(() => {
     deregisterRepositoryDialogStore.close();
@@ -46,10 +54,14 @@ export const ApmeDeregisterRepositoryOverlay = ({
     }
   }, [storeState, navigate]);
 
+  if (!entity) {
+    return null;
+  }
+
   return (
     <DeregisterRepositoryDialog
       open={open}
-      entity={context.entity}
+      entity={entity}
       onClose={handleClose}
       onConfirm={handleConfirm}
     />

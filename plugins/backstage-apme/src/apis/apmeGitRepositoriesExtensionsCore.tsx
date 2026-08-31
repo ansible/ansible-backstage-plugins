@@ -65,7 +65,7 @@ export type ApmeGitRepositoriesComponents = {
     showDeregister?: boolean;
   }>;
   ApmeDeregisterRepositoryOverlay: ComponentType<{
-    context: GitRepositoryDetailTabContext;
+    context?: GitRepositoryDetailTabContext;
   }>;
   ApmeViolationsCell: ComponentType<{ entity: Entity }>;
 };
@@ -211,8 +211,7 @@ export function createApmeGitRepositoriesExtensionsApi(
 
     /**
      * Catalog row kebab reuses ApmeRepositoryHeaderActions for "Run quality scan"
-     * but explicitly hides Deregister (showDeregister={false}) because the
-     * deregister overlay is only mounted on RepositoryDetailsPage (ADR-010).
+     * and Deregister (manual repos with delete permission).
      */
     getCatalogRowMenuItems() {
       return [
@@ -225,11 +224,21 @@ export function createApmeGitRepositoriesExtensionsApi(
                 entity: ctx.entity,
                 repoUrl: normalizeRepoUrlFromEntity(ctx.entity),
                 onCloseMenu: ctx.onCloseMenu,
+                repositoriesCatalogPath: ctx.repositoriesCatalogPath,
               }}
               onCloseMenu={ctx.onCloseMenu}
-              showDeregister={false}
             />
           ),
+        },
+      ];
+    }
+
+    getCatalogOverlays() {
+      return [
+        {
+          id: 'apme-deregister-repository',
+          order: 10,
+          render: () => <ApmeDeregisterRepositoryOverlay />,
         },
       ];
     }

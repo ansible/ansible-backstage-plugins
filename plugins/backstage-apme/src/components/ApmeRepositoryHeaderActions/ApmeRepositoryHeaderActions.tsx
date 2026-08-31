@@ -22,8 +22,7 @@ export interface ApmeRepositoryHeaderActionsProps {
   context: GitRepositoryDetailHeaderMenuContext;
   onCloseMenu: () => void;
   /**
-   * When false, hides the Deregister menu item. Used in catalog row kebab
-   * context where the deregister overlay is not mounted (ADR-010).
+   * When false, hides the Deregister menu item (e.g. for custom extension wiring).
    */
   showDeregister?: boolean;
 }

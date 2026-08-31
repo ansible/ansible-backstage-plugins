@@ -142,6 +142,34 @@ describe('ApmeDeregisterRepositoryOverlay', () => {
     expect(deregisterRepositoryDialogStore.getState().open).toBe(false);
   });
 
+  it('opens dialog without context entity (catalog overlay)', async () => {
+    await renderInTestApp(
+      <TestApiProvider
+        apis={[
+          [discoveryApiRef, mockDiscoveryApi],
+          [fetchApiRef, mockFetchApi],
+          [
+            gitRepositoriesCatalogApiRef,
+            { invalidateCatalogCache: jest.fn() },
+          ],
+        ]}
+      >
+        <ApmeDeregisterRepositoryOverlay />
+      </TestApiProvider>,
+    );
+
+    act(() => {
+      deregisterRepositoryDialogStore.open(
+        mockEntity,
+        '/self-service/repositories/catalog',
+      );
+    });
+
+    await waitFor(() => {
+      expect(screen.getByText('Deregister repository?')).toBeInTheDocument();
+    });
+  });
+
   it('navigates to redirectPath and closes store on confirm', async () => {
     mockFetchApi.fetch.mockResolvedValueOnce({
       ok: true,
