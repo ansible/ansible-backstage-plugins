@@ -27,7 +27,7 @@ import { searchPage } from './components/search/SearchPage';
 import { Root } from './components/Root';
 import { GlobalHeader } from './components/GlobalHeader';
 import { getThemes } from '@red-hat-developer-hub/backstage-plugin-theme';
-import { AppThemeFixer } from '@ansible/plugin-backstage-self-service';
+import CssBaseline from '@material-ui/core/CssBaseline';
 
 import {
   AlertDisplay,
@@ -148,7 +148,7 @@ const routes = (
 
 export default app.createRoot(
   <>
-    <AppThemeFixer />
+    <CssBaseline />
     <AlertDisplay />
     <OAuthRequestDialog />
     <AppRouter>
