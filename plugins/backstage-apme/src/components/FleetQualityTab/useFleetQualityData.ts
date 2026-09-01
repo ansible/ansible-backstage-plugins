@@ -16,6 +16,7 @@ import {
 } from '@ansible/backstage-apme-common/severity';
 import { projectLookupKey } from '@ansible/backstage-rhaap-common/catalogEntity';
 import { apmeApiRef } from '../../api';
+import { isApmeConnectionError } from '../../utils/apmeConnectionError';
 import { fetchAllProjectViolations } from '../../utils/fetchAllProjectViolations';
 
 export type FleetRepoRow = {
@@ -39,6 +40,8 @@ export type FleetQualityData = {
   groups: RuleAggregate[];
   reposWithIssues: number;
   totalRepos: number;
+  hasAnyScan: boolean;
+  gatewayUnavailable: boolean;
   violationTotal: number;
   severityCounts: Record<SeverityLevel, number>;
 };
@@ -57,10 +60,22 @@ function entityProjectLookupKey(entity: Entity): string | undefined {
   return projectLookupKey(repoUrl, branch);
 }
 
+/** Fleet Quality is scoped to catalog git-repository entities, not orphan APME projects. */
+function projectsLinkedToCatalog(
+  projects: Project[],
+  entityByProjectKey: Map<string, string>,
+): Project[] {
+  return projects.filter(project =>
+    entityByProjectKey.has(projectLookupKey(project.repo_url, project.branch)),
+  );
+}
+
 const emptyData = (): FleetQualityData => ({
   groups: [],
   reposWithIssues: 0,
   totalRepos: 0,
+  hasAnyScan: false,
+  gatewayUnavailable: false,
   violationTotal: 0,
   severityCounts: {} as Record<SeverityLevel, number>,
 });
@@ -74,16 +89,26 @@ export function useFleetQualityData(enabled: boolean) {
       return emptyData();
     }
 
-    const [projects, catalogResponse] = await Promise.all([
-      apmeApi.getProjects(),
-      catalogApi.getEntities({
-        filter: [{ kind: 'Component', 'spec.type': 'git-repository' }],
-      }),
-    ]);
+    const catalogResponse = await catalogApi.getEntities({
+      filter: [{ kind: 'Component', 'spec.type': 'git-repository' }],
+    });
 
     const entities = Array.isArray(catalogResponse)
       ? catalogResponse
       : (catalogResponse.items ?? []);
+
+    let projects: Project[] = [];
+    let gatewayUnavailable = false;
+    try {
+      projects = await apmeApi.getProjects();
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      if (isApmeConnectionError(message)) {
+        gatewayUnavailable = true;
+      } else {
+        throw err;
+      }
+    }
 
     const entityByProjectKey = new Map<string, string>();
     for (const entity of entities) {
@@ -93,19 +118,27 @@ export function useFleetQualityData(enabled: boolean) {
       }
     }
 
-    const totalRepos = Math.max(entities.length, projects.length);
-    const scanned = projects.filter(p => (p.total_violations ?? 0) > 0);
-    // Fan-out per scanned repo; prefer a fleet-summary API when fleets grow large.
-    const violationsByProject = await Promise.all(
-      scanned.map(async project => ({
-        project,
-        violations: await fetchAllProjectViolations(
-          apmeApi,
-          project.id,
-          project.total_violations,
-        ),
-      })),
+    const catalogProjects = projectsLinkedToCatalog(projects, entityByProjectKey);
+    const totalRepos = entities.length;
+    const hasAnyScan = catalogProjects.some(
+      p => (p.scan_count ?? 0) > 0 || Boolean(p.last_scanned_at),
     );
+    const scanned = gatewayUnavailable
+      ? []
+      : catalogProjects.filter(p => (p.total_violations ?? 0) > 0);
+    // Fan-out per scanned repo; prefer a fleet-summary API when fleets grow large.
+    const violationsByProject = gatewayUnavailable
+      ? []
+      : await Promise.all(
+          scanned.map(async project => ({
+            project,
+            violations: await fetchAllProjectViolations(
+              apmeApi,
+              project.id,
+              project.total_violations,
+            ),
+          })),
+        );
 
     const ruleMap = new Map<string, RuleAggregate>();
     const severityCounts = SEVERITY_ORDER.reduce(
@@ -172,6 +205,8 @@ export function useFleetQualityData(enabled: boolean) {
       groups,
       reposWithIssues,
       totalRepos,
+      hasAnyScan,
+      gatewayUnavailable,
       violationTotal,
       severityCounts,
     };
