@@ -34,4 +34,25 @@ describe('scrollExpandedSidebarGroupIntoView', () => {
   it('no-ops when element is missing', () => {
     expect(() => scrollExpandedSidebarGroupIntoView(null)).not.toThrow();
   });
+
+  it('no-ops when scrollIntoView is unavailable', () => {
+    const element = {} as HTMLElement;
+
+    expect(() => scrollExpandedSidebarGroupIntoView(element)).not.toThrow();
+  });
+
+  it('cancels pending delayed scroll callback on cleanup', () => {
+    jest.restoreAllMocks();
+    jest.spyOn(window, 'requestAnimationFrame').mockImplementation(() => 1);
+
+    const scrollIntoView = jest.fn();
+    const element = { scrollIntoView } as unknown as HTMLElement;
+
+    const cleanup = scrollExpandedSidebarGroupIntoView(element);
+    cleanup();
+
+    jest.advanceTimersByTime(350);
+
+    expect(scrollIntoView).not.toHaveBeenCalled();
+  });
 });

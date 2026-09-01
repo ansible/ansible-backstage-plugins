@@ -184,9 +184,9 @@ export const isChildActive = (
 /** Scroll expanded group so child links are visible inside the sidebar scroller. */
 export function scrollExpandedSidebarGroupIntoView(
   element: HTMLElement | null,
-): void {
-  if (!element) {
-    return;
+): () => void {
+  if (!element || typeof element.scrollIntoView !== 'function') {
+    return () => {};
   }
 
   const scroll = () => {
@@ -197,14 +197,20 @@ export function scrollExpandedSidebarGroupIntoView(
     });
   };
 
-  requestAnimationFrame(scroll);
+  const frameId = requestAnimationFrame(scroll);
   // MUI Collapse needs a beat before children affect layout height.
-  window.setTimeout(scroll, 350);
+  const timeoutId = window.setTimeout(scroll, 350);
+
+  return () => {
+    cancelAnimationFrame(frameId);
+    window.clearTimeout(timeoutId);
+  };
 }
 
 export const ContentExpandableSidebarGroup = () => {
   const classes = useStyles();
   const rootRef = useRef<HTMLDivElement>(null);
+  const scrollCleanupRef = useRef<(() => void) | null>(null);
   const rootLink = useRouteRef(rootRouteRef);
   const location = useLocation();
   const { isOpen } = useSidebarOpenState();
@@ -242,8 +248,18 @@ export const ContentExpandableSidebarGroup = () => {
     }
   }, [location.pathname, location.search, children]);
 
+  useEffect(
+    () => () => {
+      scrollCleanupRef.current?.();
+    },
+    [],
+  );
+
   const scrollExpandedIntoView = useCallback(() => {
-    scrollExpandedSidebarGroupIntoView(rootRef.current);
+    scrollCleanupRef.current?.();
+    scrollCleanupRef.current = scrollExpandedSidebarGroupIntoView(
+      rootRef.current,
+    );
   }, []);
 
   const handleToggle = useCallback(() => {

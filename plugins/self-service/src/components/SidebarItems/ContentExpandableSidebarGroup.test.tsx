@@ -75,6 +75,14 @@ describe('ContentExpandableSidebarGroup', () => {
   });
 
   it('scrolls expanded child items into view when Content is opened', async () => {
+    mockUseLocation.mockReturnValue({
+      pathname: '/self-service/catalog',
+      search: '',
+      hash: '',
+      state: null,
+      key: 'default',
+    });
+
     const scrollIntoView = jest.fn();
     const originalScrollIntoView = HTMLElement.prototype.scrollIntoView;
     HTMLElement.prototype.scrollIntoView = scrollIntoView;
