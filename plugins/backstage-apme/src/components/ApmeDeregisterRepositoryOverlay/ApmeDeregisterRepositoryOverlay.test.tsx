@@ -84,7 +84,7 @@ describe('ApmeDeregisterRepositoryOverlay', () => {
   it('renders dialog closed when store has no open entity', async () => {
     await renderOverlay();
     expect(
-      screen.queryByText('Deregister repository?'),
+      screen.queryByText('Remove repository?'),
     ).not.toBeInTheDocument();
   });
 
@@ -99,7 +99,7 @@ describe('ApmeDeregisterRepositoryOverlay', () => {
     });
 
     await waitFor(() => {
-      expect(screen.getByText('Deregister repository?')).toBeInTheDocument();
+      expect(screen.getByText('Remove repository?')).toBeInTheDocument();
     });
   });
 
@@ -114,7 +114,7 @@ describe('ApmeDeregisterRepositoryOverlay', () => {
     });
 
     expect(
-      screen.queryByText('Deregister repository?'),
+      screen.queryByText('Remove repository?'),
     ).not.toBeInTheDocument();
   });
 
@@ -129,14 +129,14 @@ describe('ApmeDeregisterRepositoryOverlay', () => {
     });
 
     await waitFor(() => {
-      expect(screen.getByText('Deregister repository?')).toBeInTheDocument();
+      expect(screen.getByText('Remove repository?')).toBeInTheDocument();
     });
 
     fireEvent.click(screen.getByRole('button', { name: /cancel/i }));
 
     await waitFor(() => {
       expect(
-        screen.queryByText('Deregister repository?'),
+        screen.queryByText('Remove repository?'),
       ).not.toBeInTheDocument();
     });
     expect(deregisterRepositoryDialogStore.getState().open).toBe(false);
@@ -166,7 +166,7 @@ describe('ApmeDeregisterRepositoryOverlay', () => {
     });
 
     await waitFor(() => {
-      expect(screen.getByText('Deregister repository?')).toBeInTheDocument();
+      expect(screen.getByText('Remove repository?')).toBeInTheDocument();
     });
   });
 
@@ -186,10 +186,10 @@ describe('ApmeDeregisterRepositoryOverlay', () => {
     });
 
     await waitFor(() => {
-      expect(screen.getByText('Deregister repository?')).toBeInTheDocument();
+      expect(screen.getByText('Remove repository?')).toBeInTheDocument();
     });
 
-    fireEvent.click(screen.getByRole('button', { name: /^deregister$/i }));
+    fireEvent.click(screen.getByRole('button', { name: /^remove$/i }));
 
     await waitFor(() => {
       expect(mockNavigate).toHaveBeenCalledWith(
@@ -212,10 +212,10 @@ describe('ApmeDeregisterRepositoryOverlay', () => {
     });
 
     await waitFor(() => {
-      expect(screen.getByText('Deregister repository?')).toBeInTheDocument();
+      expect(screen.getByText('Remove repository?')).toBeInTheDocument();
     });
 
-    fireEvent.click(screen.getByRole('button', { name: /^deregister$/i }));
+    fireEvent.click(screen.getByRole('button', { name: /^remove$/i }));
 
     await waitFor(() => {
       expect(deregisterRepositoryDialogStore.getState().open).toBe(false);

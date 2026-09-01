@@ -72,7 +72,7 @@ describe('DeregisterRepositoryDialog', () => {
 
   it('renders dialog with entity name', async () => {
     await renderDialog();
-    expect(screen.getByText('Deregister repository?')).toBeInTheDocument();
+    expect(screen.getByText('Remove repository?')).toBeInTheDocument();
     expect(screen.getByText(/Test Repository/)).toBeInTheDocument();
   });
 
@@ -91,7 +91,7 @@ describe('DeregisterRepositoryDialog', () => {
     });
 
     await renderDialog({ onConfirm });
-    fireEvent.click(screen.getByRole('button', { name: /^deregister$/i }));
+    fireEvent.click(screen.getByRole('button', { name: /^remove$/i }));
 
     await waitFor(() => {
       expect(mockFetchApi.fetch).toHaveBeenCalledWith(
@@ -118,7 +118,7 @@ describe('DeregisterRepositoryDialog', () => {
     });
 
     await renderDialog();
-    fireEvent.click(screen.getByRole('button', { name: /^deregister$/i }));
+    fireEvent.click(screen.getByRole('button', { name: /^remove$/i }));
 
     await waitFor(() => {
       expect(screen.getByText(/something went wrong/i)).toBeInTheDocument();
@@ -129,7 +129,7 @@ describe('DeregisterRepositoryDialog', () => {
   it('does not render when open is false', async () => {
     await renderDialog({ open: false });
     expect(
-      screen.queryByText('Deregister repository?'),
+      screen.queryByText('Remove repository?'),
     ).not.toBeInTheDocument();
   });
 
@@ -143,10 +143,10 @@ describe('DeregisterRepositoryDialog', () => {
     );
 
     await renderDialog({ onClose });
-    fireEvent.click(screen.getByRole('button', { name: /^deregister$/i }));
+    fireEvent.click(screen.getByRole('button', { name: /^remove$/i }));
 
     await waitFor(() => {
-      expect(screen.getByText('Deregistering...')).toBeInTheDocument();
+      expect(screen.getByText('Removing...')).toBeInTheDocument();
     });
 
     fireEvent.click(screen.getByRole('button', { name: /cancel/i }));
@@ -166,7 +166,7 @@ describe('DeregisterRepositoryDialog', () => {
     });
 
     await renderDialog();
-    fireEvent.click(screen.getByRole('button', { name: /^deregister$/i }));
+    fireEvent.click(screen.getByRole('button', { name: /^remove$/i }));
 
     await waitFor(() => {
       expect(screen.getByText('Plain text error')).toBeInTheDocument();

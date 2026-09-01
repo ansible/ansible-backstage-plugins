@@ -107,30 +107,30 @@ describe('ApmeRepositoryHeaderActions', () => {
     expect(screen.getByText('Run quality scan')).toBeInTheDocument();
   });
 
-  it('does not render Deregister for non-manual repos', async () => {
+  it('does not render Remove for non-manual repos', async () => {
     await renderComponent(baseEntity);
-    expect(screen.queryByText('Deregister')).not.toBeInTheDocument();
+    expect(screen.queryByText('Remove')).not.toBeInTheDocument();
   });
 
-  it('renders Deregister for manually-registered repos', async () => {
+  it('renders Remove for manually-registered repos', async () => {
     await renderComponent(manualEntity);
-    expect(screen.getByText('Deregister')).toBeInTheDocument();
+    expect(screen.getByText('Remove')).toBeInTheDocument();
   });
 
-  it('does not render Deregister when delete permission is denied', async () => {
+  it('does not render Remove when delete permission is denied', async () => {
     mockUsePermission.mockReturnValue({
       loading: false,
       allowed: false,
     });
     await renderComponent(manualEntity);
-    expect(screen.queryByText('Deregister')).not.toBeInTheDocument();
+    expect(screen.queryByText('Remove')).not.toBeInTheDocument();
   });
 
-  it('opens deregister dialog when Deregister is clicked', async () => {
+  it('opens deregister dialog when Remove is clicked', async () => {
     await renderComponent(manualEntity);
-    fireEvent.click(screen.getByText('Deregister'));
+    fireEvent.click(screen.getByText('Remove'));
     await waitFor(() => {
-      expect(screen.getByText('Deregister repository?')).toBeInTheDocument();
+      expect(screen.getByText('Remove repository?')).toBeInTheDocument();
     });
   });
 
@@ -140,7 +140,7 @@ describe('ApmeRepositoryHeaderActions', () => {
     expect(container).toBeEmptyDOMElement();
   });
 
-  it('hides Deregister when showDeregister is false (catalog row context)', async () => {
+  it('hides Remove when showDeregister is false (catalog row context)', async () => {
     const onCloseMenu = jest.fn();
     const context = {
       entity: manualEntity,
@@ -164,7 +164,7 @@ describe('ApmeRepositoryHeaderActions', () => {
       </TestApiProvider>,
     );
     expect(screen.getByText('Run quality scan')).toBeInTheDocument();
-    expect(screen.queryByText('Deregister')).not.toBeInTheDocument();
+    expect(screen.queryByText('Remove')).not.toBeInTheDocument();
   });
 
   it('returns null when repoUrl is not available', async () => {

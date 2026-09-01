@@ -85,12 +85,12 @@ export const DeregisterRepositoryDialog = ({
       aria-describedby="deregister-dialog-description"
     >
       <DialogTitle id="deregister-dialog-title">
-        Deregister repository?
+        Remove repository?
       </DialogTitle>
       <DialogContent>
         <DialogContentText id="deregister-dialog-description">
-          Are you sure you want to deregister <strong>{displayName}</strong>{' '}
-          from the catalog?
+          Are you sure you want to remove <strong>{displayName}</strong> from the
+          catalog?
         </DialogContentText>
         <DialogContentText style={{ marginTop: 16 }}>
           This will remove the repository registration from the portal. The
@@ -114,7 +114,7 @@ export const DeregisterRepositoryDialog = ({
           disabled={loading}
           startIcon={loading ? <CircularProgress size={16} /> : undefined}
         >
-          {loading ? 'Deregistering...' : 'Deregister'}
+          {loading ? 'Removing...' : 'Remove'}
         </Button>
       </DialogActions>
     </Dialog>

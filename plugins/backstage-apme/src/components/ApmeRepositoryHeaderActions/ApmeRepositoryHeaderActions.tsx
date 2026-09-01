@@ -86,7 +86,7 @@ export const ApmeRepositoryHeaderActions = ({
       {canDeregister && (
         <MenuItem onClick={handleDeregisterClick}>
           <DeleteOutlineIcon fontSize="small" style={{ marginRight: 8 }} />
-          Deregister
+          Remove
         </MenuItem>
       )}
     </>
