@@ -124,7 +124,7 @@ describe('authModuleRHAAPProvider', () => {
     const setCookieHeaders = startResponse.headers['set-cookie'];
     const cookieHeader = Array.isArray(setCookieHeaders)
       ? setCookieHeaders.join(';')
-      : setCookieHeaders ?? '';
+      : (setCookieHeaders ?? '');
     const nonceFromCookie = cookieHeader.match(/rhaap-nonce=([^;]+)/)?.[1];
     expect(nonceFromCookie).toBeDefined();
 

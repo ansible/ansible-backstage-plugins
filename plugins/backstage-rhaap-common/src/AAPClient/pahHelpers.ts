@@ -90,7 +90,9 @@ export async function fetchCollectionDetails(
         if (Array.isArray(detailData?.authors)) {
           authors = detailData.authors
             .map((a: unknown) =>
-              typeof a === 'string' ? a : (a as { name?: string })?.name ?? '',
+              typeof a === 'string'
+                ? a
+                : ((a as { name?: string })?.name ?? ''),
             )
             .filter(Boolean);
         }
@@ -159,7 +161,7 @@ export async function processCollectionItem(
   const tags: string[] | null = Array.isArray(cv.tags)
     ? (cv.tags as unknown[])
         .map((t: unknown) =>
-          typeof t === 'string' ? t : (t as { name?: string })?.name ?? '',
+          typeof t === 'string' ? t : ((t as { name?: string })?.name ?? ''),
         )
         .filter(Boolean)
     : null;
