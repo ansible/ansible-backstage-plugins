@@ -7,6 +7,7 @@ import {
   PassportProfile,
 } from '@backstage/plugin-auth-node';
 import { IAAPService } from '@ansible/backstage-rhaap-common';
+import { AuthenticationError } from '@backstage/errors';
 
 const PKCE_COOKIE_NAME = 'rhaap-pkce';
 const PKCE_COOKIE_MAX_AGE_MS = 10 * 60 * 1000;
@@ -130,6 +131,24 @@ export const aapAuthAuthenticator = (aapService: IAAPService) =>
       input,
       { host, clientId, clientSecret, callbackURL, checkSSL },
     ) {
+      const oauthError = input.req.query.error as string | undefined;
+      const oauthErrorDescription = input.req.query.error_description as
+        | string
+        | undefined;
+
+      if (oauthError) {
+        const errorMessage = oauthErrorDescription
+          ? `AAP OAuth error (${oauthError}): ${oauthErrorDescription}`
+          : `AAP OAuth error: ${oauthError}`;
+        throw new AuthenticationError(errorMessage);
+      }
+
+      if (!input.req.query.code) {
+        throw new AuthenticationError(
+          'OAuth callback is missing both authorization code and error parameters.',
+        );
+      }
+
       const codeVerifier = readAndClearPkceCookie(input.req, callbackURL);
       if (!codeVerifier) {
         throw new Error(
