@@ -191,7 +191,7 @@ describe('authenticator', () => {
       host: DEFAULT_HOST,
       clientId: CLIENT_ID,
       clientSecret: CLIENT_SECRET,
-      callbackURL: 'http://localhost',
+      callbackURL: 'http://localhost/api/auth/rhaap/handler/frame',
       checkSSL: CHECK_SSL,
     } as any;
 
