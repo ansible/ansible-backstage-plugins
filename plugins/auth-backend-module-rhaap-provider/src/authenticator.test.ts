@@ -404,7 +404,8 @@ describe('authenticator', () => {
             clientSecret: CLIENT_SECRET,
             host: DEFAULT_HOST,
             checkSSL: CHECK_SSL,
-            callbackUrl: 'https://production.example.com/auth',
+            callbackUrl:
+              'https://production.example.com/auth/rhaap/handler/frame',
           },
         }),
       });
@@ -426,7 +427,43 @@ describe('authenticator', () => {
           httpOnly: true,
           secure: true,
           sameSite: 'lax',
-          path: '/api/auth/rhaap/handler',
+          path: '/auth/rhaap/handler',
+        }),
+      );
+    });
+
+    it('should derive cookie path from callbackURL with path prefix', async () => {
+      const mockCookie = jest.fn();
+      const aapAuthAuthenticator = createAuthenticator(mockAAPService as any);
+      const ctx = aapAuthAuthenticator.initialize({
+        callbackUrl: '',
+        config: mockServices.rootConfig({
+          data: {
+            clientId: CLIENT_ID,
+            clientSecret: CLIENT_SECRET,
+            host: DEFAULT_HOST,
+            checkSSL: CHECK_SSL,
+            callbackUrl:
+              'http://localhost/custom/prefix/api/auth/rhaap/handler/frame',
+          },
+        }),
+      });
+
+      await aapAuthAuthenticator.start(
+        // @ts-ignore
+        {
+          state: 'test-state',
+          scope: '',
+          req: { res: { cookie: mockCookie } } as any,
+        },
+        ctx,
+      );
+
+      expect(mockCookie).toHaveBeenCalledWith(
+        'rhaap-pkce',
+        expect.any(String),
+        expect.objectContaining({
+          path: '/custom/prefix/api/auth/rhaap/handler',
         }),
       );
     });
