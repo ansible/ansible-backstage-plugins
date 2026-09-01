@@ -62,6 +62,10 @@ export type ApmeGitRepositoriesComponents = {
   ApmeRepositoryHeaderActions: ComponentType<{
     context: GitRepositoryDetailHeaderMenuContext;
     onCloseMenu: () => void;
+    showDeregister?: boolean;
+  }>;
+  ApmeDeregisterRepositoryOverlay: ComponentType<{
+    context?: GitRepositoryDetailTabContext;
   }>;
   ApmeViolationsCell: ComponentType<{ entity: Entity }>;
 };
@@ -76,6 +80,7 @@ export function createApmeGitRepositoriesExtensionsApi(
     DependenciesTab,
     ApmeRepositoryOverviewCard,
     ApmeRepositoryHeaderActions,
+    ApmeDeregisterRepositoryOverlay,
     ApmeViolationsCell,
   } = components;
 
@@ -192,6 +197,22 @@ export function createApmeGitRepositoriesExtensionsApi(
       ];
     }
 
+    getDetailOverlays() {
+      return [
+        {
+          id: 'apme-deregister-repository',
+          order: 10,
+          render: (ctx: GitRepositoryDetailTabContext) => (
+            <ApmeDeregisterRepositoryOverlay context={ctx} />
+          ),
+        },
+      ];
+    }
+
+    /**
+     * Catalog row kebab reuses ApmeRepositoryHeaderActions for "Run quality scan"
+     * and Deregister (manual repos with delete permission).
+     */
     getCatalogRowMenuItems() {
       return [
         {
@@ -203,10 +224,21 @@ export function createApmeGitRepositoriesExtensionsApi(
                 entity: ctx.entity,
                 repoUrl: normalizeRepoUrlFromEntity(ctx.entity),
                 onCloseMenu: ctx.onCloseMenu,
+                repositoriesCatalogPath: ctx.repositoriesCatalogPath,
               }}
               onCloseMenu={ctx.onCloseMenu}
             />
           ),
+        },
+      ];
+    }
+
+    getCatalogOverlays() {
+      return [
+        {
+          id: 'apme-deregister-repository',
+          order: 10,
+          render: () => <ApmeDeregisterRepositoryOverlay />,
         },
       ];
     }

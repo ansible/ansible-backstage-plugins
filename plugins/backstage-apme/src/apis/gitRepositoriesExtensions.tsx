@@ -11,6 +11,7 @@ import { DependenciesTab } from '../components/DependenciesTab/DependenciesTab';
 import { FleetQualityTab } from '../components/FleetQualityTab';
 import { ApmeRepositoryOverviewCard } from '../components/ApmeRepositoryOverviewCard/ApmeRepositoryOverviewCard';
 import { ApmeRepositoryHeaderActions } from '../components/ApmeRepositoryHeaderActions/ApmeRepositoryHeaderActions';
+import { ApmeDeregisterRepositoryOverlay } from '../components/ApmeDeregisterRepositoryOverlay';
 import { ApmeViolationsCell } from './apmeViolationsCell';
 import {
   createApmeGitRepositoriesExtensionsApi,
@@ -26,6 +27,7 @@ const ApmeGitRepositoriesExtensionsApi = createApmeGitRepositoriesExtensionsApi(
     DependenciesTab: withSuspense(DependenciesTab),
     ApmeRepositoryOverviewCard: withSuspense(ApmeRepositoryOverviewCard),
     ApmeRepositoryHeaderActions: withSuspense(ApmeRepositoryHeaderActions),
+    ApmeDeregisterRepositoryOverlay: withSuspense(ApmeDeregisterRepositoryOverlay),
     ApmeViolationsCell,
   },
 );

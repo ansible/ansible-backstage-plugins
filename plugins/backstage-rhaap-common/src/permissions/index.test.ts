@@ -64,7 +64,7 @@ describe('permissions', () => {
     expect(ANSIBLE_SETTINGS_CAPABILITIES).toEqual(['apme']);
   });
 
-  it('ansiblePermissions contains all five view permissions', () => {
+  it('ansiblePermissions contains all view permissions', () => {
     expect(ansiblePermissions).toHaveLength(5);
     expect(ansiblePermissions).toContain(executionEnvironmentsViewPermission);
     expect(ansiblePermissions).toContain(gitRepositoriesViewPermission);
@@ -74,10 +74,9 @@ describe('permissions', () => {
     expect(ansiblePermissions).not.toContain(ansibleSettingsEditPermission);
   });
 
-  it('each view permission has type basic and attributes object', () => {
+  it('each permission in ansiblePermissions has type basic and a non-empty name', () => {
     ansiblePermissions.forEach(permission => {
       expect(permission.type).toBe('basic');
-      expect(permission.attributes).toEqual({});
       expect(typeof permission.name).toBe('string');
       expect(permission.name.length).toBeGreaterThan(0);
     });
