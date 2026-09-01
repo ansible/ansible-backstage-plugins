@@ -4,6 +4,12 @@ export const REPO_TOOLTIP =
 export const REPO_DESCRIPTION =
   'Browse Git repositories from your connected Ansible content sources. Sync to discover repositories that contain Ansible collections.';
 
+export const CONTENT_QUALITY_TOOLTIP =
+  'Estate-wide content quality violations detected by APME scanning across your synced Git repositories. Shows rule violations grouped by severity, category, and affected repositories.';
+
+export const CONTENT_QUALITY_DESCRIPTION =
+  'Monitor content quality violations and rule compliance across your Ansible Git repositories. Review severity, affected repos, and remediation guidance.';
+
 export const COLUMN_SOURCE_TOOLTIP =
   'The SCM provider and link to the repository (e.g. GitHub, GitLab).';
 

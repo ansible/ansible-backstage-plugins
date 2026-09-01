@@ -1,4 +1,17 @@
 import SvgIcon from '@material-ui/core/SvgIcon';
+import CodeIcon from '@material-ui/icons/Code';
+import AssessmentIcon from '@material-ui/icons/Assessment';
+import GitHubIconMui from '@material-ui/icons/GitHub';
+
+export const ContentIcon = (props: React.ComponentProps<typeof SvgIcon>) => (
+  <CodeIcon {...props} />
+);
+
+export const ContentQualityIcon = (
+  props: React.ComponentProps<typeof SvgIcon>,
+) => <AssessmentIcon {...props} />;
+
+export { GitHubIconMui as GitHubIcon };
 
 export const GitLabIcon = (props: React.ComponentProps<typeof SvgIcon>) => (
   <SvgIcon {...props} viewBox="0 0 24 24">

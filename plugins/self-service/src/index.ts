@@ -1,4 +1,5 @@
 export * from './plugin';
+export { ContentIcon, ContentQualityIcon, GitHubIcon } from './components/common/icons';
 
 export { SignInPage } from './components/SignInPage';
 export { LandingPage } from './components/LandingPage';

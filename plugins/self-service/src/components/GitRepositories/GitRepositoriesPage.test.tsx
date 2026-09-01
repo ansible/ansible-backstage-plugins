@@ -165,6 +165,22 @@ class ExtensionsApiWithGatedTab extends DefaultGitRepositoriesExtensionsApi {
   }
 }
 
+class ExtensionsApiWithQualityTab extends DefaultGitRepositoriesExtensionsApi {
+  getPageTabs() {
+    return [
+      {
+        id: 'quality',
+        label: 'Quality',
+        path: 'quality',
+        order: 10,
+        render: () => (
+          <div data-testid="content-quality-tab">Content Quality Tab</div>
+        ),
+      },
+    ];
+  }
+}
+
 describe('GitRepositoriesPage', () => {
   beforeEach(() => {
     jest.clearAllMocks();
@@ -331,6 +347,31 @@ describe('GitRepositoriesPage', () => {
     );
 
     expect(screen.getByText('Git Repositories')).toBeInTheDocument();
+  });
+
+  it('keeps Git Repositories header when the quality tab is active', async () => {
+    await renderInTestApp(
+      <TestApiProvider
+        apis={[
+          [discoveryApiRef, mockDiscoveryApi],
+          [fetchApiRef, mockFetchApi],
+          [gitRepositoriesExtensionsApiRef, new ExtensionsApiWithQualityTab()],
+        ]}
+      >
+        <ThemeProvider theme={theme}>
+          <GitRepositoriesPage />
+        </ThemeProvider>
+      </TestApiProvider>,
+      { routeEntries: ['/self-service/repositories/quality'] },
+    );
+
+    expect(
+      screen.getByRole('heading', { name: 'Git Repositories' }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(/Browse Git repositories from your connected Ansible content sources/),
+    ).toBeInTheDocument();
+    expect(screen.queryByRole('heading', { name: 'Quality' })).not.toBeInTheDocument();
   });
 
   it('renders RepositoriesTable by default', async () => {

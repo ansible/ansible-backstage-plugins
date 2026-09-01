@@ -26,12 +26,12 @@ import {
 } from '@backstage/core-components';
 import HistoryIcon from '@material-ui/icons/History';
 import MenuIcon from '@material-ui/icons/Menu';
-import CodeIcon from '@material-ui/icons/Code';
 import SearchIcon from '@material-ui/icons/Search';
 import { MyGroupsSidebarItem } from '@backstage/plugin-org';
 import GroupIcon from '@material-ui/icons/People';
 import { AnsibleLogo } from '@ansible/plugin-backstage-rhaap';
 import { Administration } from '@backstage-community/plugin-rbac';
+import { ContentSidebarGroup } from '@ansible/plugin-backstage-self-service';
 
 const useSidebarLogoStyles = makeStyles({
   root: {
@@ -109,11 +109,7 @@ export const Root = ({ children }: PropsWithChildren<{}>) => (
             to="/self-service/collections"
             text="Collections"
           />
-          <SidebarItem
-            icon={CodeIcon}
-            to="/self-service/repositories/catalog"
-            text="Git Repositories"
-          />
+          <ContentSidebarGroup />
         </SidebarScrollWrapper>
       </SidebarGroup>
       <SidebarSpace />

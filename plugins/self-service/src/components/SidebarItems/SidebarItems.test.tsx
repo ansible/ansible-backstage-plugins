@@ -1,4 +1,4 @@
-import { screen } from '@testing-library/react';
+import { fireEvent, screen } from '@testing-library/react';
 import { renderInTestApp, TestApiProvider } from '@backstage/test-utils';
 import { configApiRef } from '@backstage/core-plugin-api';
 import {
@@ -15,6 +15,11 @@ import {
 jest.mock('@backstage/core-plugin-api', () => ({
   ...jest.requireActual('@backstage/core-plugin-api'),
   useRouteRef: () => () => '/self-service',
+}));
+
+jest.mock('@backstage/core-components', () => ({
+  ...jest.requireActual('@backstage/core-components'),
+  useSidebarOpenState: () => ({ isOpen: true }),
 }));
 
 jest.mock('../../routes', () => ({
@@ -664,7 +669,10 @@ describe('ContentQualitySidebarItem', () => {
 
     const link = screen.getByRole('link', { name: /Content quality/i });
     expect(link).toBeInTheDocument();
-    expect(link).toHaveAttribute('href', '/self-service/content-quality');
+    expect(link).toHaveAttribute(
+      'href',
+      '/self-service/repositories/quality?contentNav=content-quality',
+    );
   });
 
   it('renders sidebar item when permission framework enabled and allowed', async () => {
@@ -678,7 +686,10 @@ describe('ContentQualitySidebarItem', () => {
 
     const link = screen.getByRole('link', { name: /Content quality/i });
     expect(link).toBeInTheDocument();
-    expect(link).toHaveAttribute('href', '/self-service/content-quality');
+    expect(link).toHaveAttribute(
+      'href',
+      '/self-service/repositories/quality?contentNav=content-quality',
+    );
   });
 
   it('calls usePermission with git repositories view permission', async () => {
@@ -736,7 +747,7 @@ describe('ContentSidebarGroup', () => {
     expect(link).toBeInTheDocument();
   });
 
-  it('renders Content submenu with Git Repositories and Content quality when APME is enabled', async () => {
+  it('renders Content expandable group with Git Repositories and Content quality when APME is enabled', async () => {
     mockUsePermission.mockReturnValue({ loading: false, allowed: true });
 
     await renderInTestApp(
@@ -747,7 +758,26 @@ describe('ContentSidebarGroup', () => {
       </TestApiProvider>,
     );
 
-    expect(screen.getByRole('button', { name: 'Content' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Content' })).toHaveAttribute(
+      'aria-expanded',
+      'false',
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: 'Content' }));
+
+    expect(screen.getByRole('button', { name: 'Content' })).toHaveAttribute(
+      'aria-expanded',
+      'true',
+    );
+    expect(
+      screen.getByRole('link', { name: /Git Repositories/i }),
+    ).toHaveAttribute('href', '/self-service/repositories/catalog');
+    expect(
+      screen.getByRole('link', { name: /Content quality/i }),
+    ).toHaveAttribute(
+      'href',
+      '/self-service/repositories/quality?contentNav=content-quality',
+    );
   });
 
   it('returns null when permission framework enabled and not allowed', async () => {

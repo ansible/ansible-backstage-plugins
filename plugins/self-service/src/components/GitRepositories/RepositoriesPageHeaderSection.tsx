@@ -10,6 +10,10 @@ interface RepositoriesPageHeaderSectionProps {
   syncProgress?: SyncProgressEntry[];
   /** ADR-010: optional actions from gitRepositoriesExtensionsApiRef (e.g. APME Add repository). */
   extensionHeaderActions?: React.ReactNode;
+  /** When set, overrides the default Git Repositories page header copy. */
+  title?: string;
+  tooltip?: string;
+  description?: string;
 }
 
 export const RepositoriesPageHeaderSection = ({
@@ -19,11 +23,14 @@ export const RepositoriesPageHeaderSection = ({
   syncInProgress = false,
   syncProgress,
   extensionHeaderActions,
+  title = 'Git Repositories',
+  tooltip = REPO_TOOLTIP,
+  description = REPO_DESCRIPTION,
 }: RepositoriesPageHeaderSectionProps) => (
   <PageHeaderSection
-    title="Git Repositories"
-    tooltip={REPO_TOOLTIP}
-    description={REPO_DESCRIPTION}
+    title={title}
+    tooltip={tooltip}
+    description={description}
     onSyncClick={onSyncClick}
     syncDisabled={syncDisabled}
     syncDisabledReason={syncDisabledReason}
