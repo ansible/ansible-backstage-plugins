@@ -206,7 +206,7 @@ describe('authenticator', () => {
             clientSecret: CLIENT_SECRET,
             host: DEFAULT_HOST,
             checkSSL: CHECK_SSL,
-            callbackUrl: 'http://localhost',
+            callbackUrl: 'http://localhost/api/auth/rhaap/handler/frame',
           },
         }),
       });
@@ -284,7 +284,7 @@ describe('authenticator', () => {
             clientSecret: CLIENT_SECRET,
             host: DEFAULT_HOST,
             checkSSL: CHECK_SSL,
-            callbackUrl: 'http://localhost',
+            callbackUrl: 'http://localhost/api/auth/rhaap/handler/frame',
           },
         }),
       });
