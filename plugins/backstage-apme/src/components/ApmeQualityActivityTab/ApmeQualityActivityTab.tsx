@@ -82,6 +82,7 @@ function displayType(scanType: string): string {
   return scanType;
 }
 
+
 function timeAgo(iso: string): string {
   const ms = Date.now() - new Date(iso).getTime();
   if (Number.isNaN(ms) || ms < 0) return iso;
@@ -273,7 +274,7 @@ function ActivityDetailView({
       >
         <FlexItem>
           <div style={{ fontSize: 18, fontWeight: 600 }}>
-            {displayType(detail.scan_type)} via {detail.source}
+            {displayType(detail.scan_type)}
           </div>
           <div style={{ opacity: 0.7, marginTop: 4 }}>
             {new Date(detail.created_at).toLocaleString()} ·{' '}

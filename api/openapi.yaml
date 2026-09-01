@@ -1218,6 +1218,79 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
+    delete:
+      operationId: deregisterGitRepository
+      summary: Deregister a manually registered Git repository from the catalog
+      description: >
+        Removes a Git repository entity from the catalog when it was registered manually
+
+        via the portal UI or scaffolder (`ansible.io/registration-method: manual`).
+
+        Catalog-imported or crawler-discovered repositories cannot be removed through this
+
+        endpoint.
+
+        **Permissions**: Requires `ansible.git-repositories.view`.
+      tags:
+        - Git Content
+      security:
+        - JWT: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                entityRef:
+                  type: string
+                  description: Backstage entity reference for the Git repository
+                entity:
+                  type: object
+                  description: Backstage catalog entity representing the Git repository
+              additionalProperties: false
+      responses:
+        '200':
+          description: Git repository deregistered successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - success
+                  - entityRef
+                properties:
+                  success:
+                    type: boolean
+                    enum:
+                      - true
+                  entityRef:
+                    type: string
+                additionalProperties: false
+        '400':
+          description: Missing entityRef/entity, or repository is not manually registered
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Forbidden - insufficient permissions
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Entity not found for the given entityRef
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal error deregistering the Git repository
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
   /apme/health:
     get:
       operationId: getApmeHealth

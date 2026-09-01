@@ -35,21 +35,21 @@ export function normalizeGatewayBaseUrl(
     parsed = new URL(trimmed);
   } catch {
     throw new InvalidGatewayBaseUrlError(
-      'Gateway URL must be a valid http(s) URL',
+      'APME service URL must be a valid http(s) URL',
     );
   }
 
   if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') {
-    throw new InvalidGatewayBaseUrlError('Gateway URL must use http or https');
+    throw new InvalidGatewayBaseUrlError('APME service URL must use http or https');
   }
   if (parsed.username || parsed.password) {
     throw new InvalidGatewayBaseUrlError(
-      'Gateway URL must not include credentials',
+      'APME service URL must not include credentials',
     );
   }
   if (parsed.search || parsed.hash) {
     throw new InvalidGatewayBaseUrlError(
-      'Gateway URL must not include a query string or fragment',
+      'APME service URL must not include a query string or fragment',
     );
   }
 

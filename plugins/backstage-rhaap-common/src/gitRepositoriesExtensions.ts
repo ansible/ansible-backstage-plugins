@@ -56,6 +56,8 @@ export type GitRepositoryDetailTabContext = {
 export type GitRepositoryDetailHeaderMenuContext =
   GitRepositoryDetailTabContext & {
     onCloseMenu: () => void;
+    /** Resolved catalog path (e.g. from rootLink()). Avoids pathname heuristics in guests. */
+    repositoriesCatalogPath?: string;
   };
 
 export type GitRepositoryDetailHeaderMenuItemDefinition = {
@@ -98,6 +100,8 @@ export type GitRepositoryCatalogRowSlotDefinition = {
 export type GitRepositoryCatalogRowMenuContext = {
   entity: Entity;
   onCloseMenu: () => void;
+  /** Resolved catalog path (e.g. from rootLink()). Used for post-deregister redirect. */
+  repositoriesCatalogPath?: string;
 };
 
 export type GitRepositoryCatalogRowMenuItemDefinition = {
@@ -125,6 +129,16 @@ export type GitRepositoryDetailOverlayDefinition = {
   render: (context: GitRepositoryDetailTabContext) => ReactNode;
 };
 
+/**
+ * Persistent overlay on the Git Repositories catalog list (outside the kebab Menu).
+ * Use for dialogs that must survive menu close (e.g. deregister confirmation).
+ */
+export type GitRepositoryCatalogOverlayDefinition = {
+  id: string;
+  order: number;
+  render: () => ReactNode;
+};
+
 export interface GitRepositoriesExtensionsApi {
   getPageTabs(): GitRepositoriesPageTabDefinition[];
   getPageHeaderActions(): GitRepositoriesPageHeaderActionDefinition[];
@@ -132,6 +146,7 @@ export interface GitRepositoriesExtensionsApi {
   getDetailOverviewSlots(): GitRepositoryDetailOverviewSlotDefinition[];
   getDetailHeaderMenuItems(): GitRepositoryDetailHeaderMenuItemDefinition[];
   getDetailOverlays(): GitRepositoryDetailOverlayDefinition[];
+  getCatalogOverlays(): GitRepositoryCatalogOverlayDefinition[];
   getCollectionsTabContent(
     context: GitRepositoryDetailTabContext,
   ): ReactNode | null;
@@ -168,6 +183,10 @@ export class DefaultGitRepositoriesExtensionsApi implements GitRepositoriesExten
   }
 
   getDetailOverlays(): GitRepositoryDetailOverlayDefinition[] {
+    return [];
+  }
+
+  getCatalogOverlays(): GitRepositoryCatalogOverlayDefinition[] {
     return [];
   }
 

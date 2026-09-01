@@ -16,6 +16,7 @@ import {
   ApmeFleetQualityTabComponent,
   ApmeRepositoryOverviewCard,
   ApmeRepositoryHeaderActions,
+  ApmeDeregisterRepositoryOverlay,
 } from '@ansible/plugin-backstage-apme';
 
 const ApmeGitRepositoriesExtensionsApi = createApmeGitRepositoriesExtensionsApi(
@@ -28,6 +29,7 @@ const ApmeGitRepositoriesExtensionsApi = createApmeGitRepositoriesExtensionsApi(
     DependenciesTab: withSuspense(ApmeDependenciesTabComponent),
     ApmeRepositoryOverviewCard: withSuspense(ApmeRepositoryOverviewCard),
     ApmeRepositoryHeaderActions: withSuspense(ApmeRepositoryHeaderActions),
+    ApmeDeregisterRepositoryOverlay: withSuspense(ApmeDeregisterRepositoryOverlay),
     ApmeViolationsCell,
   },
 );

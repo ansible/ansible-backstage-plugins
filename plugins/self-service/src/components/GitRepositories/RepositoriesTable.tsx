@@ -144,6 +144,13 @@ const RepositoriesTableInner = ({
     [extensionsApi],
   );
 
+  const catalogOverlays = useMemo(
+    () => extensionsApi.getCatalogOverlays().sort((a, b) => a.order - b.order),
+    [extensionsApi],
+  );
+
+  const repositoriesCatalogPath = `${rootLink()}/repositories/catalog`;
+
   const { lastActivityMap, loading: lastActivityLoading } =
     useLatestCIActivity(paginatedEntities);
 
@@ -570,11 +577,17 @@ const RepositoriesTableInner = ({
                 {item.render({
                   entity: selectedEntity,
                   onCloseMenu: handleKebabClose,
+                  repositoriesCatalogPath,
                 })}
               </Suspense>
             ))
           : null}
       </Menu>
+      {catalogOverlays.map(overlay => (
+        <Suspense key={overlay.id} fallback={null}>
+          {overlay.render()}
+        </Suspense>
+      ))}
     </div>
   );
 };

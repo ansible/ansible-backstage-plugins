@@ -40,7 +40,7 @@ describe('isApmeConnectionError', () => {
 });
 
 describe('formatApmeUserFacingError', () => {
-  it('maps connection failures to the gateway unavailable message', () => {
+  it('maps connection failures to the service unavailable message', () => {
     const raw =
       'APME API error: 400 - {\n  "error": {\n    "name": "InputError",\n    "message": "Failed to connect to APME: fetch failed",\n    "stack": "InputError: Failed to connect to APME: fetch failed\\n    at ApmeClient.executeRequest"\n  }\n}';
     expect(formatApmeUserFacingError(raw)).toBe(
@@ -48,7 +48,7 @@ describe('formatApmeUserFacingError', () => {
     );
   });
 
-  it('maps empty input to the gateway unavailable message', () => {
+  it('maps empty input to the service unavailable message', () => {
     expect(formatApmeUserFacingError('')).toBe(
       APME_GATEWAY_UNAVAILABLE_MESSAGE,
     );
@@ -63,7 +63,7 @@ describe('formatApmeUserFacingError', () => {
         'APME API error: 500 - {"error":{"name":"Error","detail":"opaque gateway payload without message"}}',
       ),
     ).toBe(
-      'Request failed (500). Try again, or check the APME gateway if the problem continues.',
+      'Request failed (500). Try again, or check the modernization service if the problem continues.',
     );
   });
 
@@ -87,7 +87,7 @@ describe('formatApmeUserFacingError', () => {
         'Something exploded\n    at ApmeClient.executeRequest (ApmeClient.ts:149)\n    at async submitRemediation',
       ),
     ).toBe(
-      'Something went wrong preparing fixes. Try again, or check the APME gateway if the problem continues.',
+      'Something went wrong preparing fixes. Try again, or check the modernization service if the problem continues.',
     );
   });
 
@@ -146,7 +146,7 @@ describe('extractExistingPrUrlFromError', () => {
 });
 
 describe('apmeRemediationErrorTitle', () => {
-  it('uses connection title for gateway failures', () => {
+  it('uses connection title for service failures', () => {
     expect(
       apmeRemediationErrorTitle('Failed to connect to APME: fetch failed'),
     ).toBe(APME_REMEDIATE_CONNECTION_TITLE);

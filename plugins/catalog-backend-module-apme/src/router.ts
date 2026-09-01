@@ -806,7 +806,7 @@ export async function createRouter(options: RouterOptions): Promise<Router> {
 
       if (fileOverrides !== undefined) {
         throw new InputError(
-          'file_overrides are not supported; APME Gateway owns SCM commit/push (ADR-056)',
+          'file_overrides are not supported; the APME service owns SCM commit/push (ADR-056)',
         );
       }
 

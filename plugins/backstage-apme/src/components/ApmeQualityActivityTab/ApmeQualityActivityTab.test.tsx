@@ -43,7 +43,7 @@ jest.mock('@apme/ui-workflow', () => ({
 }));
 
 function expectActivityDetailLoaded() {
-  return screen.findByText(/check via portal/i);
+  return screen.findByText(/1 violations/i);
 }
 
 jest.mock('../../hooks/useSyncPatternFlyTheme', () => ({
@@ -170,6 +170,7 @@ describe('ApmeQualityActivityTab', () => {
     ).not.toBeInTheDocument();
     expect(screen.queryByText(/Early access preview/i)).not.toBeInTheDocument();
     expect(screen.queryByText(/^Acknowledge$/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/\bvia\b/i)).not.toBeInTheDocument();
 
     fireEvent.click(
       screen.getByRole('button', { name: /close activity detail/i }),

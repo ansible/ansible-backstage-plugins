@@ -446,7 +446,7 @@ export const ApmeRulesTab = () => {
       {!loading && filtered.length === 0 && (
         <Typography className={classes.empty}>
           {rules.length === 0
-            ? 'No rules in the catalog yet. When the engine registers with the gateway, rules appear here.'
+            ? 'No rules in the catalog yet. When the engine registers with APME, rules appear here.'
             : 'No rules match the current filters.'}
         </Typography>
       )}

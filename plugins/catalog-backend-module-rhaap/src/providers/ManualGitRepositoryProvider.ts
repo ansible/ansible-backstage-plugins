@@ -3,6 +3,7 @@ import {
   EntityProviderConnection,
 } from '@backstage/plugin-catalog-node';
 import { LoggerService } from '@backstage/backend-plugin-api';
+import { Entity } from '@backstage/catalog-model';
 
 /**
  * A lightweight {@link EntityProvider} for Git repositories registered
@@ -11,7 +12,7 @@ import { LoggerService } from '@backstage/backend-plugin-api';
  * crawlers.
  *
  * Unlike `AnsibleGitContentsProvider`, this provider never performs a
- * `'full'` reconciliation. It only ever applies `'delta'` additions, so
+ * `'full'` reconciliation. It only ever applies `'delta'` mutations, so
  * manually-registered entities persist across restarts and are never wiped
  * out by an unrelated provider's scheduled sync cycle.
  */
@@ -30,7 +31,7 @@ export class ManualGitRepositoryProvider implements EntityProvider {
     this.connection = connection;
   }
 
-  async registerRepository(entity: any): Promise<void> {
+  async registerRepository(entity: Entity): Promise<void> {
     if (!this.connection) {
       throw new Error('ManualGitRepositoryProvider is not connected yet');
     }
@@ -60,6 +61,44 @@ export class ManualGitRepositoryProvider implements EntityProvider {
         },
       ],
       removed: [],
+    });
+  }
+
+  /**
+   * Removes a manually-registered Git repository from the catalog.
+   * Uses delta removal so the entity is removed without affecting
+   * other entities managed by this provider.
+   */
+  async deregisterRepository(entity: Entity): Promise<void> {
+    if (!this.connection) {
+      throw new Error('ManualGitRepositoryProvider is not connected yet');
+    }
+
+    if (!entity?.metadata?.name) {
+      throw new Error(
+        'Name [metadata.name] is required for Git repository deregistration',
+      );
+    }
+
+    if (!entity?.spec?.type || entity.spec.type !== 'git-repository') {
+      throw new Error(
+        'Type [spec.type] must be "git-repository" for Git repository deregistration',
+      );
+    }
+
+    this.logger.info(
+      `Deregistering manually-added Git repository entity ${entity.metadata.name}`,
+    );
+
+    await this.connection.applyMutation({
+      type: 'delta',
+      added: [],
+      removed: [
+        {
+          entity,
+          locationKey: this.getProviderName(),
+        },
+      ],
     });
   }
 }

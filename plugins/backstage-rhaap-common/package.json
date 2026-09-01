@@ -18,6 +18,7 @@
     "./permissions": "./src/permissions/index.ts",
     "./permissionRules": "./src/permissions/rules.ts",
     "./gitRepositoriesExtensions": "./src/gitRepositoriesExtensions.ts",
+    "./gitRepositoriesCatalog": "./src/gitRepositoriesCatalog.ts",
     "./devSpaces": "./src/devSpaces.ts",
     "./catalogEntity": "./src/catalogEntity.ts",
     "./package.json": "./package.json"
@@ -35,6 +36,9 @@
       ],
       "gitRepositoriesExtensions": [
         "src/gitRepositoriesExtensions.ts"
+      ],
+      "gitRepositoriesCatalog": [
+        "src/gitRepositoriesCatalog.ts"
       ],
       "devSpaces": [
         "src/devSpaces.ts"

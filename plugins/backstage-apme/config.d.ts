@@ -33,7 +33,7 @@ export interface Config {
        */
       enabled?: boolean;
       /**
-       * APME Gateway base URL (e.g. http://localhost:8080).
+       * APME service base URL (e.g. http://localhost:8080).
        * Quality settings can override this at runtime (portal settings store).
        * @visibility frontend
        */
@@ -41,12 +41,12 @@ export interface Config {
       /** @visibility frontend */
       checkSSL?: boolean;
       /**
-       * Use mock data instead of real APME gateway.
+       * Use mock data instead of the real APME service.
        * @visibility frontend
        */
       mockMode?: boolean;
       /**
-       * When true, PR creation is proxied to the APME gateway SCM submit path (ADR-050).
+       * When true, PR creation is proxied to the APME service SCM submit path (ADR-050).
        * @default true
        * @visibility frontend
        */
