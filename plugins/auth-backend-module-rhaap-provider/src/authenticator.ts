@@ -131,6 +131,23 @@ export const aapAuthAuthenticator = (aapService: IAAPService) =>
       input,
       { host, clientId, clientSecret, callbackURL, checkSSL },
     ) {
+      const oauthError = input.req.query.error as string | undefined;
+      const oauthErrorDescription = input.req.query.error_description as
+        string | undefined;
+
+      if (oauthError) {
+        const errorMessage = oauthErrorDescription
+          ? `AAP OAuth error (${oauthError}): ${oauthErrorDescription}`
+          : `AAP OAuth error: ${oauthError}`;
+        throw new AuthenticationError(errorMessage);
+      }
+
+      if (!input.req.query.code) {
+        throw new AuthenticationError(
+          'OAuth callback is missing both authorization code and error parameters.',
+        );
+      }
+
       const codeVerifier = readAndClearPkceCookie(input.req, callbackURL);
       if (!codeVerifier) {
         throw new Error(
@@ -167,21 +184,9 @@ export const aapAuthAuthenticator = (aapService: IAAPService) =>
         refreshToken: input.refreshToken,
       });
 
-      // Validate AAP session: if the user has been logged out of AAP
-      // (token revoked, user deactivated), fetchProfile will fail with
-      // a 401 from /api/gateway/v1/me/ — triggering Portal logout.
-      let fullProfile;
-      try {
-        fullProfile = await aapService.fetchProfile(result.session.accessToken);
-      } catch (error) {
-        if (error instanceof AuthenticationError) {
-          throw new AuthenticationError(
-            'AAP session is no longer valid. The user may have been logged out ' +
-              'of AAP or the token was revoked. Portal session will be terminated.',
-          );
-        }
-        throw error;
-      }
+      const fullProfile = await aapService.fetchProfile(
+        result.session.accessToken,
+      );
       return { ...result, fullProfile };
     },
 
