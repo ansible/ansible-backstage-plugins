@@ -106,7 +106,9 @@ export class GitlabClient extends BaseScmClient {
     signal?: AbortSignal,
   ): Promise<{ ok: boolean; status: number; data: unknown }> {
     const perPage = Math.min(options.perPage ?? 15, 100);
-    const endpoint = `/projects/${encodeURIComponent(projectPath)}/pipelines?per_page=${perPage}&order_by=updated_at&sort=desc`;
+    const endpoint = `/projects/${encodeURIComponent(
+      projectPath,
+    )}/pipelines?per_page=${perPage}&order_by=updated_at&sort=desc`;
     const url = `${this.apiUrl}${endpoint}`;
     const opts = { ...this.getFetchOptions(), signal };
     const response = this.checkSSL
@@ -366,11 +368,13 @@ export class GitlabClient extends BaseScmClient {
         }
 
         allEntries.push(
-          ...data.map((item): DirectoryEntry => ({
-            name: item.name,
-            path: item.path,
-            type: item.type === 'tree' ? 'dir' : 'file',
-          })),
+          ...data.map(
+            (item): DirectoryEntry => ({
+              name: item.name,
+              path: item.path,
+              type: item.type === 'tree' ? 'dir' : 'file',
+            }),
+          ),
         );
 
         if (data.length < perPage) {

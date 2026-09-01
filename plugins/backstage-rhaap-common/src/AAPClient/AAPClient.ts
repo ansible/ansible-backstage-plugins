@@ -46,45 +46,46 @@ import {
   extractNextUrl,
 } from './pahHelpers';
 
-export interface IAAPService extends Pick<
-  AAPClient,
-  | 'executePostRequest'
-  | 'executeGetRequest'
-  | 'executeDeleteRequest'
-  | 'getProject'
-  | 'deleteProject'
-  | 'deleteProjectIfExists'
-  | 'createProject'
-  | 'deleteExecutionEnvironmentExists'
-  | 'createExecutionEnvironment'
-  | 'deleteExecutionEnvironment'
-  | 'deleteJobTemplate'
-  | 'deleteJobTemplateIfExists'
-  | 'createJobTemplate'
-  | 'fetchEvents'
-  | 'fetchResult'
-  | 'launchJobTemplate'
-  | 'launchJobTemplateNoWait'
-  | 'getJobStatus'
-  | 'cancelJob'
-  | 'cleanUp'
-  | 'checkControllerAvailability'
-  | 'getResourceData'
-  | 'getJobTemplatesByName'
-  | 'setLogger'
-  | 'rhAAPAuthenticate'
-  | 'rhAAPRevokeToken'
-  | 'fetchProfile'
-  | 'getOrganizations'
-  | 'listSystemUsers'
-  | 'getTeamsByUserId'
-  | 'getUserRoleAssignments'
-  | 'syncJobTemplates'
-  | 'getOrgsByUserId'
-  | 'getUserInfoById'
-  | 'isValidPAHRepository'
-  | 'syncCollectionsByRepositories'
-> {}
+export interface IAAPService
+  extends Pick<
+    AAPClient,
+    | 'executePostRequest'
+    | 'executeGetRequest'
+    | 'executeDeleteRequest'
+    | 'getProject'
+    | 'deleteProject'
+    | 'deleteProjectIfExists'
+    | 'createProject'
+    | 'deleteExecutionEnvironmentExists'
+    | 'createExecutionEnvironment'
+    | 'deleteExecutionEnvironment'
+    | 'deleteJobTemplate'
+    | 'deleteJobTemplateIfExists'
+    | 'createJobTemplate'
+    | 'fetchEvents'
+    | 'fetchResult'
+    | 'launchJobTemplate'
+    | 'launchJobTemplateNoWait'
+    | 'getJobStatus'
+    | 'cancelJob'
+    | 'cleanUp'
+    | 'checkControllerAvailability'
+    | 'getResourceData'
+    | 'getJobTemplatesByName'
+    | 'setLogger'
+    | 'rhAAPAuthenticate'
+    | 'rhAAPRevokeToken'
+    | 'fetchProfile'
+    | 'getOrganizations'
+    | 'listSystemUsers'
+    | 'getTeamsByUserId'
+    | 'getUserRoleAssignments'
+    | 'syncJobTemplates'
+    | 'getOrgsByUserId'
+    | 'getUserInfoById'
+    | 'isValidPAHRepository'
+    | 'syncCollectionsByRepositories'
+  > {}
 
 export class AAPClient implements IAAPService {
   static readonly pluginLogName = 'backstage-rhaap-common';
@@ -404,7 +405,9 @@ export class AAPClient implements IAAPService {
       throw new Error(`Failed to create project`);
     }
     this.logger.info(`The project is ready.`);
-    projectData.url = `${this.getBaseUrl()}/execution/projects/${projectData.id}/details`;
+    projectData.url = `${this.getBaseUrl()}/execution/projects/${
+      projectData.id
+    }/details`;
     return projectData;
   }
 
@@ -462,7 +465,9 @@ export class AAPClient implements IAAPService {
       `End creating execution environment ${payload.environmentName}.`,
     );
     const eeData = (await response.json()) as ExecutionEnvironment;
-    eeData.url = `${this.getBaseUrl()}/execution/infrastructure/execution-environments/${eeData.id}/details`;
+    eeData.url = `${this.getBaseUrl()}/execution/infrastructure/execution-environments/${
+      eeData.id
+    }/details`;
     return eeData;
   }
 
@@ -569,7 +574,9 @@ export class AAPClient implements IAAPService {
     const response = await this.executePostRequest(endPoint, token, data);
     const jobTemplate = (await response.json()) as JobTemplate;
     this.logger.info(`End creating job template ${payload.templateName}.`);
-    jobTemplate.url = `${this.getBaseUrl()}/execution/templates/job-template/${jobTemplate.id}/details`;
+    jobTemplate.url = `${this.getBaseUrl()}/execution/templates/job-template/${
+      jobTemplate.id
+    }/details`;
     return jobTemplate;
   }
 
@@ -968,7 +975,9 @@ export class AAPClient implements IAAPService {
       response = await this.executePostRequest(endPoint, undefined, data, true);
     } catch (error) {
       throw new AuthenticationError(
-        `AAP token exchange failed: ${error instanceof Error ? error.message : 'Unknown error'}`,
+        `AAP token exchange failed: ${
+          error instanceof Error ? error.message : 'Unknown error'
+        }`,
       );
     }
 
@@ -1090,7 +1099,9 @@ export class AAPClient implements IAAPService {
       id: userData.id ? userData.id.toString() : '',
       username: userData.username,
       email: userData.email,
-      displayName: `${userData?.first_name ? userData.first_name : ''} ${userData?.last_name ? userData.last_name : ''}`,
+      displayName: `${userData?.first_name ? userData.first_name : ''} ${
+        userData?.last_name ? userData.last_name : ''
+      }`,
     } as PassportProfile;
   }
 
@@ -1441,14 +1452,18 @@ export class AAPClient implements IAAPService {
       return jobTemplatesData;
     } catch (err) {
       this.logger.error(
-        `Error retrieving job templates from ${endPoint}. ${JSON.stringify(err)}`,
+        `Error retrieving job templates from ${endPoint}. ${JSON.stringify(
+          err,
+        )}`,
       );
       throw new Error(`Error retrieving job templates from ${endPoint}.`);
     }
   }
 
   public async isValidPAHRepository(repositoryName: string): Promise<boolean> {
-    const endPoint = `api/galaxy/pulp/api/v3/repositories?name=${encodeURIComponent(repositoryName)}`;
+    const endPoint = `api/galaxy/pulp/api/v3/repositories?name=${encodeURIComponent(
+      repositoryName,
+    )}`;
     const token = this.ansibleConfig.rhaap?.token ?? null;
     const response = await this.executeGetRequest(endPoint, token);
     const data = await response.json();
@@ -1493,8 +1508,9 @@ export class AAPClient implements IAAPService {
     const { validRepos, urlSearchParams } = validationResult;
     urlSearchParams.set('limit', sanitizedLimit.toString());
 
-    let nextUrl: string | null =
-      `/api/galaxy/v3/plugin/ansible/search/collection-versions/?${urlSearchParams.toString()}`;
+    let nextUrl:
+      | string
+      | null = `/api/galaxy/v3/plugin/ansible/search/collection-versions/?${urlSearchParams.toString()}`;
 
     while (nextUrl) {
       if (signal?.aborted) {
