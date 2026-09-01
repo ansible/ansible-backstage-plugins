@@ -23,19 +23,6 @@ jest.mock('@backstage/core-components', () => {
   };
 });
 
-const mockUsePermission = jest.fn().mockReturnValue({
-  loading: false,
-  allowed: true,
-});
-jest.mock('@backstage/plugin-permission-react', () => ({
-  usePermission: (...args: any[]) => mockUsePermission(...args),
-  RequirePermission: ({ children, errorPage }: any) => {
-    const { loading, allowed } = mockUsePermission();
-    if (loading) return null;
-    return allowed ? children : (errorPage ?? null);
-  },
-}));
-
 const theme = createTheme();
 
 function catalogEntity(name: string, repoUrl: string): Entity {
@@ -58,10 +45,6 @@ describe('FleetQualityTab', () => {
     const base = `/self-service/repositories/${entityName}?tab=quality-activity`;
     return ruleId ? `${base}&rule=${encodeURIComponent(ruleId)}` : base;
   };
-
-  beforeEach(() => {
-    mockUsePermission.mockReturnValue({ loading: false, allowed: true });
-  });
 
   const renderTab = () =>
     render(
@@ -127,23 +110,6 @@ describe('FleetQualityTab', () => {
     );
   });
 
-  it('shows the Quality settings link when the user has settings view permission', async () => {
-    renderTab();
-
-    expect(
-      await screen.findByText('Quality settings →', {}, { timeout: 5000 }),
-    ).toBeInTheDocument();
-  });
-
-  it('hides the Quality settings link when the user lacks settings view permission', async () => {
-    mockUsePermission.mockReturnValue({ loading: false, allowed: false });
-
-    renderTab();
-
-    await screen.findByText('Fleet quality', {}, { timeout: 5000 });
-    expect(screen.queryByText('Quality settings →')).not.toBeInTheDocument();
-  });
-
   it('shows no-scans empty state when repos exist but none have been scanned', async () => {
     const unscannedApmeApi = {
       ...mockApmeApi,
@@ -203,7 +169,6 @@ describe('FleetQualityTab', () => {
       ),
     ).toBeInTheDocument();
     expect(screen.queryByText('Fleet quality')).not.toBeInTheDocument();
-    expect(screen.queryByText('Quality settings →')).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: /Start scan/i }))
       .not.toBeInTheDocument();
     expect(
@@ -300,7 +265,6 @@ describe('FleetQualityTab', () => {
       screen.queryByText('All repositories are clean'),
     ).not.toBeInTheDocument();
     expect(screen.queryByText('Fleet quality')).not.toBeInTheDocument();
-    expect(screen.queryByText('Quality settings →')).not.toBeInTheDocument();
   });
 
   it('shows empty state when catalog has no repos but APME still has projects', async () => {

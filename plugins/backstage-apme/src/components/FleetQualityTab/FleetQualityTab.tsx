@@ -6,7 +6,6 @@
  */
 
 import { useMemo, useState, type MouseEvent } from 'react';
-import { Link as RouterLink } from 'react-router-dom';
 import {
   Box,
   Card,
@@ -24,8 +23,6 @@ import ChevronRightIcon from '@material-ui/icons/ChevronRight';
 import KeyboardArrowDownIcon from '@material-ui/icons/KeyboardArrowDown';
 import { LinkButton, Progress } from '@backstage/core-components';
 import AddIcon from '@material-ui/icons/Add';
-import { RequirePermission } from '@backstage/plugin-permission-react';
-import { ansibleSettingsViewPermission } from '@ansible/backstage-rhaap-common/permissions';
 import {
   SEVERITY_ORDER,
   normalizeSeverity,
@@ -359,19 +356,6 @@ export const FleetQualityTab = ({
       {showFleetContent && (
         <Box className={classes.titleRow}>
           <Typography variant="h6">Fleet quality</Typography>
-          <RequirePermission
-            permission={ansibleSettingsViewPermission}
-            resourceRef="apme"
-            errorPage={<></>}
-          >
-            <Link
-              component={RouterLink}
-              to="/self-service/repositories/quality-settings"
-              style={{ fontSize: 13 }}
-            >
-              Quality settings →
-            </Link>
-          </RequirePermission>
         </Box>
       )}
 
