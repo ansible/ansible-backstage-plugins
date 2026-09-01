@@ -19,6 +19,7 @@ import {
 } from '@ansible/backstage-rhaap-common/permissions';
 
 import { rootRouteRef } from '../../routes';
+import { contentQualitySidebarPath } from './contentNav';
 
 interface PermissionGatedSidebarItemProps {
   permission: BasicPermission;
@@ -120,7 +121,7 @@ export const ContentQualitySidebarItem = () => {
     <PermissionGatedSidebarItem
       permission={gitRepositoriesViewPermission}
       icon={AssessmentIcon}
-      to={`${rootLink()}/repositories/quality`}
+      to={contentQualitySidebarPath(rootLink())}
       text="Content Quality"
     />
   );

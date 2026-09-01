@@ -349,7 +349,7 @@ describe('GitRepositoriesPage', () => {
     expect(screen.getByText('Git Repositories')).toBeInTheDocument();
   });
 
-  it('renders Quality header when the quality tab is active', async () => {
+  it('keeps Git Repositories header when the quality tab is active', async () => {
     await renderInTestApp(
       <TestApiProvider
         apis={[
@@ -365,16 +365,13 @@ describe('GitRepositoriesPage', () => {
       { routeEntries: ['/self-service/repositories/quality'] },
     );
 
-    expect(screen.getByRole('heading', { name: 'Quality' })).toBeInTheDocument();
     expect(
-      screen.getByText(/Monitor content quality violations and rule compliance/),
+      screen.getByRole('heading', { name: 'Git Repositories' }),
     ).toBeInTheDocument();
     expect(
-      screen.getByTitle(
-        /Estate-wide content quality violations detected by APME scanning/,
-      ),
+      screen.getByText(/Browse Git repositories from your connected Ansible content sources/),
     ).toBeInTheDocument();
-    expect(screen.queryByText('Git Repositories')).not.toBeInTheDocument();
+    expect(screen.queryByRole('heading', { name: 'Quality' })).not.toBeInTheDocument();
   });
 
   it('renders RepositoriesTable by default', async () => {

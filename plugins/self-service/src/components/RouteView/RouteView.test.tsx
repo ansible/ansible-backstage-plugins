@@ -2,9 +2,11 @@ import { render, screen } from '@testing-library/react';
 import { MemoryRouter, useLocation } from 'react-router-dom';
 import { RouteView } from './RouteView';
 
-const LocationPathname = () => {
-  const { pathname } = useLocation();
-  return <div data-testid="location-pathname">{pathname}</div>;
+const LocationDisplay = () => {
+  const { pathname, search } = useLocation();
+  return (
+    <div data-testid="location-pathname">{`${pathname}${search}`}</div>
+  );
 };
 
 // Mock page components
@@ -240,6 +242,11 @@ describe('RouteView', () => {
         permissionName: 'repos.view',
       },
       {
+        path: '/repositories/quality',
+        childTestId: 'git-repositories',
+        permissionName: 'repos.view',
+      },
+      {
         path: '/repositories/my-repo',
         childTestId: 'repository-details',
         permissionName: 'repos.view',
@@ -293,10 +300,24 @@ describe('RouteView', () => {
     });
   });
 
+  it('redirects legacy /content-quality to /repositories/quality with content nav', () => {
+    render(
+      <MemoryRouter initialEntries={['/content-quality']}>
+        <LocationDisplay />
+        <RouteView />
+      </MemoryRouter>,
+    );
+
+    expect(screen.getByTestId('location-pathname')).toHaveTextContent(
+      '/repositories/quality?contentNav=content-quality',
+    );
+    expect(screen.getByTestId('git-repositories')).toBeInTheDocument();
+  });
+
   it('redirects legacy /repositories/rules to /repositories/quality-settings', () => {
     render(
       <MemoryRouter initialEntries={['/repositories/rules']}>
-        <LocationPathname />
+        <LocationDisplay />
         <RouteView />
       </MemoryRouter>,
     );

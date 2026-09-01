@@ -16,11 +16,17 @@ import clsx from 'clsx';
 import { useLocation } from 'react-router-dom';
 
 import { rootRouteRef } from '../../routes';
+import {
+  contentQualitySidebarPath,
+  isContentQualitySidebarNav,
+  repositoriesQualityPath,
+} from './contentNav';
 
 type ContentChildItem = {
+  id: string;
   title: string;
   path: string;
-  /** Override path matching — child is "active" when current URL matches any of these prefixes. */
+  /** Child is active when current URL matches any of these prefixes. */
   activePrefixes?: string[];
 };
 
@@ -141,7 +147,7 @@ const useStyles = makeStyles(
   { name: 'ContentExpandableSidebarGroup' },
 );
 
-const isPathActive = (currentPath: string, targetPath: string) => {
+export const isPathActive = (currentPath: string, targetPath: string) => {
   if (currentPath === targetPath) {
     return true;
   }
@@ -149,22 +155,29 @@ const isPathActive = (currentPath: string, targetPath: string) => {
   return currentPath.startsWith(`${targetPath}/`);
 };
 
-const isChildActive = (
+export const isChildActive = (
   currentPath: string,
+  currentSearch: string,
   child: ContentChildItem,
   allChildren: ContentChildItem[],
 ) => {
-  const exactMatch = allChildren.find(
-    c => !c.activePrefixes && isPathActive(currentPath, c.path),
+  const qualityPath = allChildren.find(c => c.id === 'content-quality')?.path;
+  if (
+    qualityPath &&
+    isPathActive(currentPath, qualityPath) &&
+    isContentQualitySidebarNav(currentSearch)
+  ) {
+    return child.id === 'content-quality';
+  }
+
+  // Git Repositories owns repository routes unless Content Quality nav is explicit.
+  const prefixMatch = allChildren.find(c =>
+    c.activePrefixes?.some(prefix => isPathActive(currentPath, prefix)),
   );
-  if (exactMatch) {
-    return child === exactMatch;
+  if (prefixMatch) {
+    return child === prefixMatch;
   }
-  if (child.activePrefixes) {
-    return child.activePrefixes.some(prefix =>
-      isPathActive(currentPath, prefix),
-    );
-  }
+
   return isPathActive(currentPath, child.path);
 };
 
@@ -178,31 +191,35 @@ export const ContentExpandableSidebarGroup = () => {
   const children: ContentChildItem[] = useMemo(
     () => [
       {
+        id: 'git-repositories',
         title: 'Git Repositories',
         path: `${rootLink()}/repositories/catalog`,
         activePrefixes: [`${rootLink()}/repositories`],
       },
       {
+        id: 'content-quality',
         title: 'Content Quality',
-        path: `${rootLink()}/repositories/quality`,
+        path: repositoriesQualityPath(rootLink()),
       },
     ],
     [rootLink],
   );
 
   const [expanded, setExpanded] = useState(() =>
-    children.some(child => isChildActive(location.pathname, child, children)),
+    children.some(child =>
+      isChildActive(location.pathname, location.search, child, children),
+    ),
   );
 
   useEffect(() => {
     if (
       children.some(child =>
-        isChildActive(location.pathname, child, children),
+        isChildActive(location.pathname, location.search, child, children),
       )
     ) {
       setExpanded(true);
     }
-  }, [location.pathname, children]);
+  }, [location.pathname, location.search, children]);
 
   const scrollIntoView = useCallback(() => {
     requestAnimationFrame(() => {
@@ -252,12 +269,22 @@ export const ContentExpandableSidebarGroup = () => {
       {isOpen && (
         <Collapse in={expanded} className={classes.childList}>
           {children.map(child => {
-            const isActive = isChildActive(location.pathname, child, children);
+            const isActive = isChildActive(
+              location.pathname,
+              location.search,
+              child,
+              children,
+            );
+
+            const linkTarget =
+              child.id === 'content-quality'
+                ? contentQualitySidebarPath(rootLink())
+                : child.path;
 
             return (
               <Link
-                key={child.path}
-                to={child.path}
+                key={child.id}
+                to={linkTarget}
                 underline="none"
                 className={clsx(
                   classes.childLink,

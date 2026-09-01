@@ -5,7 +5,11 @@
 import { screen } from '@testing-library/react';
 import { renderInTestApp } from '@backstage/test-utils';
 
-import { ContentQualityPage, ContentQualityRoutesPage } from './ContentQualityPage';
+import {
+  ContentQualityPage,
+  ContentQualityRedirect,
+  ContentQualityRoutesPage,
+} from './ContentQualityPage';
 
 jest.mock('@backstage/plugin-permission-react', () => ({
   RequirePermission: ({ children }: { children: React.ReactNode }) => (
@@ -22,59 +26,34 @@ jest.mock('../../routes', () => ({
   rootRouteRef: { id: 'root-route-ref' },
 }));
 
-const mockUseGitRepositoriesExtensions = jest.fn();
-
-jest.mock('../GitRepositories/useGitRepositoriesExtensions', () => ({
-  useGitRepositoriesExtensions: (...args: unknown[]) =>
-    mockUseGitRepositoriesExtensions(...args),
-}));
-
 describe('ContentQualityPage', () => {
-  beforeEach(() => {
-    mockUseGitRepositoriesExtensions.mockReturnValue({
-      getPageTabs: () => [],
-    });
-  });
-
-  it('renders standalone page with header and fallback content', async () => {
-    await renderInTestApp(<ContentQualityPage />);
-
-    expect(screen.getByText('Content quality')).toBeInTheDocument();
-    expect(
-      screen.getByText('Estate-Wide Content Quality'),
-    ).toBeInTheDocument();
-  });
-
-  it('renders with permission gate via ContentQualityRoutesPage', async () => {
-    await renderInTestApp(<ContentQualityRoutesPage />);
-
-    expect(screen.getByText('Content quality')).toBeInTheDocument();
-  });
-
-  it('renders quality tab content when APME extension provides it', async () => {
-    const mockRender = jest.fn(() => (
-      <div data-testid="quality-tab-content">Fleet quality data</div>
-    ));
-
-    mockUseGitRepositoriesExtensions.mockReturnValue({
-      getPageTabs: () => [
-        {
-          id: 'quality',
-          label: 'Quality',
-          path: 'quality',
-          order: 1,
-          render: mockRender,
-        },
-      ],
+  it('redirects to Git Repositories with the Quality tab selected', async () => {
+    await renderInTestApp(<ContentQualityRedirect />, {
+      routeEntries: ['/self-service/content-quality'],
     });
 
-    await renderInTestApp(<ContentQualityPage />);
+    expect(screen.getByTestId('location-display')).toHaveTextContent(
+      '/self-service/repositories/quality?contentNav=content-quality',
+    );
+  });
 
-    expect(screen.getByTestId('quality-tab-content')).toBeInTheDocument();
-    expect(mockRender).toHaveBeenCalledWith(
-      expect.objectContaining({
-        repositoryDetailPath: expect.any(Function),
-      }),
+  it('redirects via ContentQualityPage export', async () => {
+    await renderInTestApp(<ContentQualityPage />, {
+      routeEntries: ['/self-service/content-quality'],
+    });
+
+    expect(screen.getByTestId('location-display')).toHaveTextContent(
+      '/self-service/repositories/quality?contentNav=content-quality',
+    );
+  });
+
+  it('redirects with permission gate via ContentQualityRoutesPage', async () => {
+    await renderInTestApp(<ContentQualityRoutesPage />, {
+      routeEntries: ['/self-service/content-quality'],
+    });
+
+    expect(screen.getByTestId('location-display')).toHaveTextContent(
+      '/self-service/repositories/quality?contentNav=content-quality',
     );
   });
 });
