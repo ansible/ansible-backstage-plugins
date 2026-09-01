@@ -38,7 +38,10 @@ import {
 import { useApmeColorTokens } from '../../hooks/useApmeColorTokens';
 import { useApmeEnabled, useApmeAiEnabled } from '../../hooks/useApmeEnabled';
 import { PreviewLabelRow } from '../PreviewChip';
+import { ApmeUnavailable } from '../ApmeUnavailable';
+import { APME_GATEWAY_UNAVAILABLE_MESSAGE } from '../../utils/apmeConnectionError';
 import { APME_REGISTER_GIT_REPOSITORY_TEMPLATE_PATH } from '../ApmeAddRepositoryHeaderAction/ApmeAddRepositoryHeaderAction';
+import { FleetQualityNoScansEmptyState } from './FleetQualityNoScansEmptyState';
 import { useFleetQualityData } from './useFleetQualityData';
 
 const STATUS_ERROR = '#C9190B';
@@ -265,7 +268,8 @@ export const FleetQualityTab = ({
   const reposWithIssues = value?.reposWithIssues ?? 0;
   const totalRepos = value?.totalRepos ?? 0;
   const hasAnyScan = value?.hasAnyScan ?? false;
-  const showFleetContent = totalRepos > 0 && hasAnyScan;
+  const gatewayUnavailable = value?.gatewayUnavailable ?? false;
+  const showFleetContent = totalRepos > 0 && hasAnyScan && !gatewayUnavailable;
   const reposClean = Math.max(0, totalRepos - reposWithIssues);
   const severityCounts = value?.severityCounts ?? {
     critical: 0,
@@ -277,6 +281,8 @@ export const FleetQualityTab = ({
   };
   const allRules = value?.groups ?? [];
   const hasFilter = severityFilters.size > 0 || categoryFilters.size > 0;
+  const showNoScansEmptyState =
+    totalRepos > 0 && !hasAnyScan && !gatewayUnavailable && !hasFilter;
   const filteredViolationCount = sortedGroups.reduce(
     (s, r) => s + r.totalCount,
     0,
@@ -328,30 +334,6 @@ export const FleetQualityTab = ({
           >
             Add repository
           </LinkButton>
-        </>
-      );
-    }
-
-    if (totalRepos > 0 && !hasAnyScan) {
-      return (
-        <>
-          <Typography
-            variant="h6"
-            style={{ fontWeight: 600, marginBottom: 8 }}
-          >
-            No scans yet
-          </Typography>
-          <Typography
-            style={{
-              fontSize: 14,
-              color: theme.palette.text.secondary,
-              maxWidth: 480,
-              marginLeft: 'auto',
-              marginRight: 'auto',
-            }}
-          >
-            Start a scan to check your Git repositories for quality issues.
-          </Typography>
         </>
       );
     }
@@ -751,7 +733,15 @@ export const FleetQualityTab = ({
       </>
       )}
 
-      {sortedGroups.length === 0 && (
+      {gatewayUnavailable && totalRepos > 0 && (
+        <ApmeUnavailable message={APME_GATEWAY_UNAVAILABLE_MESSAGE} />
+      )}
+
+      {showNoScansEmptyState && <FleetQualityNoScansEmptyState />}
+
+      {sortedGroups.length === 0 &&
+        !showNoScansEmptyState &&
+        !(gatewayUnavailable && totalRepos > 0) && (
         <Box style={{ textAlign: 'center', padding: '48px 24px' }}>
           {renderEmptyState()}
         </Box>

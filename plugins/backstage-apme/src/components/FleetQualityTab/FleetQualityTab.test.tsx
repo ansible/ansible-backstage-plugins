@@ -211,6 +211,54 @@ describe('FleetQualityTab', () => {
     ).not.toBeInTheDocument();
   });
 
+  it('shows APME unavailable when gateway is down but catalog has repositories', async () => {
+    const gatewayDownApmeApi = {
+      ...mockApmeApi,
+      getProjects: async () => {
+        throw new Error('Failed to connect to APME: fetch failed');
+      },
+    };
+
+    render(
+      <MemoryRouter>
+        <TestApiProvider
+          apis={[
+            [
+              configApiRef,
+              new ConfigReader({ ansible: { apme: { enabled: true } } }),
+            ],
+            [apmeApiRef, gatewayDownApmeApi],
+            [
+              catalogApiRef,
+              {
+                getEntities: async () => ({
+                  items: [
+                    catalogEntity(
+                      'amazon-aws-acme-scm-github-com',
+                      'https://github.com/acme-scm/amazon.aws',
+                    ),
+                  ],
+                }),
+              },
+            ],
+          ]}
+        >
+          <ThemeProvider theme={theme}>
+            <FleetQualityTab repositoryDetailPath={repositoryDetailPath} />
+          </ThemeProvider>
+        </TestApiProvider>
+      </MemoryRouter>,
+    );
+
+    expect(
+      await screen.findByText('APME unavailable', {}, { timeout: 5000 }),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByText('No Git Repositories Found'),
+    ).not.toBeInTheDocument();
+    expect(screen.queryByText('No scans yet')).not.toBeInTheDocument();
+  });
+
   it('shows empty state with "Add repository" button when no repos exist', async () => {
     const emptyApmeApi = {
       ...mockApmeApi,
@@ -253,6 +301,37 @@ describe('FleetQualityTab', () => {
     ).not.toBeInTheDocument();
     expect(screen.queryByText('Fleet quality')).not.toBeInTheDocument();
     expect(screen.queryByText('Quality settings →')).not.toBeInTheDocument();
+  });
+
+  it('shows empty state when catalog has no repos but APME still has projects', async () => {
+    render(
+      <MemoryRouter>
+        <TestApiProvider
+          apis={[
+            [
+              configApiRef,
+              new ConfigReader({ ansible: { apme: { enabled: true } } }),
+            ],
+            [apmeApiRef, mockApmeApi],
+            [catalogApiRef, { getEntities: async () => ({ items: [] }) }],
+          ]}
+        >
+          <ThemeProvider theme={theme}>
+            <FleetQualityTab repositoryDetailPath={repositoryDetailPath} />
+          </ThemeProvider>
+        </TestApiProvider>
+      </MemoryRouter>,
+    );
+
+    expect(
+      await screen.findByText(
+        'No Git Repositories Found',
+        {},
+        { timeout: 5000 },
+      ),
+    ).toBeInTheDocument();
+    expect(screen.queryByText('Fleet quality')).not.toBeInTheDocument();
+    expect(screen.queryByText(/violations ·/i)).not.toBeInTheDocument();
   });
 
   it('shows disabled message when APME is not enabled', async () => {
