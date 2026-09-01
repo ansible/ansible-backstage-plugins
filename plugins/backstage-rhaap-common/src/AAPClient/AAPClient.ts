@@ -46,46 +46,45 @@ import {
   extractNextUrl,
 } from './pahHelpers';
 
-export interface IAAPService
-  extends Pick<
-    AAPClient,
-    | 'executePostRequest'
-    | 'executeGetRequest'
-    | 'executeDeleteRequest'
-    | 'getProject'
-    | 'deleteProject'
-    | 'deleteProjectIfExists'
-    | 'createProject'
-    | 'deleteExecutionEnvironmentExists'
-    | 'createExecutionEnvironment'
-    | 'deleteExecutionEnvironment'
-    | 'deleteJobTemplate'
-    | 'deleteJobTemplateIfExists'
-    | 'createJobTemplate'
-    | 'fetchEvents'
-    | 'fetchResult'
-    | 'launchJobTemplate'
-    | 'launchJobTemplateNoWait'
-    | 'getJobStatus'
-    | 'cancelJob'
-    | 'cleanUp'
-    | 'checkControllerAvailability'
-    | 'getResourceData'
-    | 'getJobTemplatesByName'
-    | 'setLogger'
-    | 'rhAAPAuthenticate'
-    | 'rhAAPRevokeToken'
-    | 'fetchProfile'
-    | 'getOrganizations'
-    | 'listSystemUsers'
-    | 'getTeamsByUserId'
-    | 'getUserRoleAssignments'
-    | 'syncJobTemplates'
-    | 'getOrgsByUserId'
-    | 'getUserInfoById'
-    | 'isValidPAHRepository'
-    | 'syncCollectionsByRepositories'
-  > {}
+export interface IAAPService extends Pick<
+  AAPClient,
+  | 'executePostRequest'
+  | 'executeGetRequest'
+  | 'executeDeleteRequest'
+  | 'getProject'
+  | 'deleteProject'
+  | 'deleteProjectIfExists'
+  | 'createProject'
+  | 'deleteExecutionEnvironmentExists'
+  | 'createExecutionEnvironment'
+  | 'deleteExecutionEnvironment'
+  | 'deleteJobTemplate'
+  | 'deleteJobTemplateIfExists'
+  | 'createJobTemplate'
+  | 'fetchEvents'
+  | 'fetchResult'
+  | 'launchJobTemplate'
+  | 'launchJobTemplateNoWait'
+  | 'getJobStatus'
+  | 'cancelJob'
+  | 'cleanUp'
+  | 'checkControllerAvailability'
+  | 'getResourceData'
+  | 'getJobTemplatesByName'
+  | 'setLogger'
+  | 'rhAAPAuthenticate'
+  | 'rhAAPRevokeToken'
+  | 'fetchProfile'
+  | 'getOrganizations'
+  | 'listSystemUsers'
+  | 'getTeamsByUserId'
+  | 'getUserRoleAssignments'
+  | 'syncJobTemplates'
+  | 'getOrgsByUserId'
+  | 'getUserInfoById'
+  | 'isValidPAHRepository'
+  | 'syncCollectionsByRepositories'
+> {}
 
 export class AAPClient implements IAAPService {
   static readonly pluginLogName = 'backstage-rhaap-common';
@@ -1508,9 +1507,8 @@ export class AAPClient implements IAAPService {
     const { validRepos, urlSearchParams } = validationResult;
     urlSearchParams.set('limit', sanitizedLimit.toString());
 
-    let nextUrl:
-      | string
-      | null = `/api/galaxy/v3/plugin/ansible/search/collection-versions/?${urlSearchParams.toString()}`;
+    let nextUrl: string | null =
+      `/api/galaxy/v3/plugin/ansible/search/collection-versions/?${urlSearchParams.toString()}`;
 
     while (nextUrl) {
       if (signal?.aborted) {

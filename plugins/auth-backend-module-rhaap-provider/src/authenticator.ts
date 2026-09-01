@@ -132,8 +132,7 @@ export const aapAuthAuthenticator = (aapService: IAAPService) =>
     ) {
       const oauthError = input.req.query.error as string | undefined;
       const oauthErrorDescription = input.req.query.error_description as
-        | string
-        | undefined;
+        string | undefined;
 
       if (oauthError) {
         const errorMessage = oauthErrorDescription
