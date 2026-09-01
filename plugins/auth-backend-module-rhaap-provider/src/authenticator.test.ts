@@ -1,4 +1,5 @@
 import { mockServices } from '@backstage/backend-test-utils';
+import { AuthenticationError } from '@backstage/errors';
 import { aapAuthAuthenticator as createAuthenticator } from './authenticator';
 import {
   CHECK_SSL,
