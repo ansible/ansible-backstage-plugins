@@ -229,6 +229,7 @@ describe('authenticator', () => {
           secure: false,
           sameSite: 'lax',
           path: '/api/auth/rhaap/handler',
+          maxAge: 10 * 60 * 1000,
         }),
       );
       const verifier = mockCookie.mock.calls[0][1];
