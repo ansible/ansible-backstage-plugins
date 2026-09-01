@@ -208,7 +208,7 @@ export const ApmeAiProviderDialog = ({
   const selectedEngineInfo = engines.find(e => e.id === engine);
 
   let apiKeyHelper =
-    "Stored in Abbenay's file secret store (secrets.json on the config volume). Gateway proxies the key and does not keep it.";
+    "Stored in Abbenay's file secret store (secrets.json on the config volume). The APME service proxies the key and does not keep it.";
   if (isEdit) {
     apiKeyHelper = `Leave blank to keep the existing key. ${apiKeyHelper}`;
   } else if (needsKey) {

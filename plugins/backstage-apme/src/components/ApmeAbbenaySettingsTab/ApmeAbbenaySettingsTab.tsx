@@ -56,7 +56,7 @@ function connectionLabel(
         : '';
     return `Abbenay reachable — no inference models listed${configured}`;
   }
-  return 'Disconnected — check Abbenay configuration on the Gateway';
+  return 'Disconnected — check Abbenay configuration on the APME service';
 }
 
 const ApmeAbbenaySettingsTabContent = () => {

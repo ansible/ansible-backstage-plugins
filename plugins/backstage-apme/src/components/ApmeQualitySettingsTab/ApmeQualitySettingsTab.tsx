@@ -2,7 +2,7 @@
  * Copyright Red Hat
  *
  * Thin Quality settings for Git Repositories (US-004 / AAP-88783):
- * global ansible-core target, APME Gateway URL, and AI gate via portal
+ * global ansible-core target, APME service URL, and AI gate via portal
  * settings store. Galaxy servers are bootstrapped from PAH catalog sync.
  */
 
@@ -156,7 +156,7 @@ const ApmeQualitySettingsTabContent = () => {
           <CardContent>
             <Typography variant="body2" className={classes.hint}>
               Sets the global ansible-core target used when a repository has no
-              per-project override, and the APME Gateway URL used for scans and
+              per-project override, and the APME service URL used for scans and
               remediation. Prefills the Quality tab scan form and applies to
               background catalog-sync scans. Changes persist in the Portal
               settings store.
@@ -203,7 +203,7 @@ const ApmeQualitySettingsTabContent = () => {
               className={classes.urlField}
               variant="outlined"
               size="small"
-              label="APME Gateway URL"
+              label="APME service URL"
               value={gatewayBaseUrl}
               onChange={event => {
                 setGatewayBaseUrl(event.target.value);
@@ -211,8 +211,8 @@ const ApmeQualitySettingsTabContent = () => {
                 setSavedMessage(undefined);
               }}
               disabled={saving}
-              helperText="APME Gateway base URL for scans and remediation. Example: http://host.containers.internal:8080"
-              inputProps={{ 'aria-label': 'APME Gateway URL' }}
+              helperText="APME service base URL for scans and remediation. Example: http://host.containers.internal:8080"
+              inputProps={{ 'aria-label': 'APME service URL' }}
             />
 
             <RequirePermission

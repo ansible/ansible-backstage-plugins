@@ -67,7 +67,7 @@ describe('ApmeQualitySettingsTab', () => {
     expect(screen.getByLabelText(/target ansible-core/i)).toHaveTextContent(
       'ansible-core 2.16',
     );
-    expect(screen.getByLabelText('APME Gateway URL')).toHaveValue(
+    expect(screen.getByLabelText('APME service URL')).toHaveValue(
       'http://localhost:8080',
     );
     expect(
@@ -75,7 +75,7 @@ describe('ApmeQualitySettingsTab', () => {
     ).toBeChecked();
   });
 
-  it('saves ansible-core target, gateway URL, and enableAi via updatePortalSettings', async () => {
+  it('saves ansible-core target, service URL, and enableAi via updatePortalSettings', async () => {
     renderTab();
     await screen.findByText('Quality settings');
 
@@ -125,11 +125,11 @@ describe('ApmeQualitySettingsTab', () => {
     });
   });
 
-  it('saves a Gateway URL via updatePortalSettings', async () => {
+  it('saves an APME service URL via updatePortalSettings', async () => {
     renderTab();
     await screen.findByText('Quality settings');
 
-    const urlField = screen.getByLabelText('APME Gateway URL');
+    const urlField = screen.getByLabelText('APME service URL');
     fireEvent.change(urlField, {
       target: { value: 'http://host.containers.internal:8080' },
     });

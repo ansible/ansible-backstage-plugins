@@ -598,7 +598,7 @@ export class ApmeApiClient implements ApmeApi {
       createPr: true,
     });
     if (!result.pr_url) {
-      throw new Error('Gateway submit completed without a PR URL');
+      throw new Error('Submit completed without a PR URL');
     }
     return {
       pr_url: result.pr_url,
