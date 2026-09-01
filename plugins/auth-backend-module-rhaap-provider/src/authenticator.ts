@@ -9,9 +9,8 @@ import {
 import { IAAPService } from '@ansible/backstage-rhaap-common';
 import { AuthenticationError } from '@backstage/errors';
 
-const PKCE_TTL_MS = 10 * 60 * 1000;
-const PKCE_MAX_ENTRIES = 10_000;
-const pkceStore = new Map<string, { verifier: string; createdAt: number }>();
+const PKCE_COOKIE_NAME = 'rhaap-pkce';
+const PKCE_COOKIE_MAX_AGE_MS = 10 * 60 * 1000;
 
 function generatePKCE(): { verifier: string; challenge: string } {
   const verifier = randomBytes(32).toString('base64url');
@@ -19,17 +18,45 @@ function generatePKCE(): { verifier: string; challenge: string } {
   return { verifier, challenge };
 }
 
-function cleanExpiredPKCE(): void {
-  const now = Date.now();
-  for (const [key, entry] of pkceStore) {
-    if (now - entry.createdAt > PKCE_TTL_MS) {
-      pkceStore.delete(key);
-    }
+function getPkceCookieOptions(callbackURL: string) {
+  const { protocol, pathname } = new URL(callbackURL);
+  const path = pathname.endsWith('/frame') ? pathname.slice(0, -6) : pathname;
+  return {
+    httpOnly: true,
+    secure: protocol === 'https:',
+    sameSite: 'lax' as const,
+    path,
+  };
+}
+
+function setPkceCookie(
+  req: { res?: { cookie?: Function } },
+  verifier: string,
+  callbackURL: string,
+): void {
+  const res = req.res;
+  if (!res?.cookie) {
+    throw new Error(
+      'Unable to access response object for PKCE cookie. ' +
+        'This may indicate an incompatible Express version.',
+    );
   }
-  while (pkceStore.size > PKCE_MAX_ENTRIES) {
-    const oldest = pkceStore.keys().next().value;
-    if (oldest) pkceStore.delete(oldest);
+  res.cookie(PKCE_COOKIE_NAME, verifier, {
+    ...getPkceCookieOptions(callbackURL),
+    maxAge: PKCE_COOKIE_MAX_AGE_MS,
+  });
+}
+
+function readAndClearPkceCookie(
+  req: { cookies?: Record<string, string>; res?: { clearCookie?: Function } },
+  callbackURL: string,
+): string | undefined {
+  const verifier = req.cookies?.[PKCE_COOKIE_NAME];
+  const res = req.res;
+  if (res?.clearCookie) {
+    res.clearCookie(PKCE_COOKIE_NAME, getPkceCookieOptions(callbackURL));
   }
+  return verifier;
 }
 
 /** @public */
@@ -87,13 +114,9 @@ export const aapAuthAuthenticator = (aapService: IAAPService) =>
       );
       return { helper, host, clientId, clientSecret, callbackURL, checkSSL };
     },
-    async start(input, { helper }) {
+    async start(input, { helper, callbackURL }) {
       const { verifier, challenge } = generatePKCE();
-      cleanExpiredPKCE();
-      pkceStore.set(input.state, {
-        verifier,
-        createdAt: Date.now(),
-      });
+      setPkceCookie(input.req, verifier, callbackURL);
 
       const start = await helper.start(input, {
         accessType: 'offline',
@@ -108,20 +131,11 @@ export const aapAuthAuthenticator = (aapService: IAAPService) =>
       input,
       { host, clientId, clientSecret, callbackURL, checkSSL },
     ) {
-      const state = input.req.query.state as string | undefined;
-      if (!state) {
-        throw new Error('OAuth state parameter missing from callback request.');
-      }
-      const pkceEntry = pkceStore.get(state);
-      pkceStore.delete(state);
-      if (!pkceEntry) {
+      const codeVerifier = readAndClearPkceCookie(input.req, callbackURL);
+      if (!codeVerifier) {
         throw new Error(
-          'PKCE verifier not found for OAuth state. The login session may have expired, the server may have restarted, or the callback was routed to a different replica. Please try logging in again.',
-        );
-      }
-      if (Date.now() - pkceEntry.createdAt >= PKCE_TTL_MS) {
-        throw new Error(
-          'PKCE verifier has expired. Please try logging in again.',
+          'PKCE verifier cookie not found. The login session may have expired ' +
+            'or cookies may be blocked by the browser. Please try logging in again.',
         );
       }
 
@@ -132,7 +146,7 @@ export const aapAuthAuthenticator = (aapService: IAAPService) =>
         clientSecret: clientSecret,
         callbackURL: callbackURL,
         code: input.req.query.code as string,
-        codeVerifier: pkceEntry.verifier,
+        codeVerifier,
       });
       const fullProfile = await aapService.fetchProfile(
         result.session.accessToken,
