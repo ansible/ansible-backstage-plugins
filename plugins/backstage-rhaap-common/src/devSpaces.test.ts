@@ -15,6 +15,7 @@
  */
 
 import {
+  buildDevSpacesRemediationUrl,
   buildDevSpacesUrlFromRepoUrl,
   generateDevSpacesUrl,
   parseScmRepoUrl,
@@ -62,6 +63,33 @@ describe('devSpaces', () => {
       ),
     ).toBe(
       'https://devspaces.example.com#https://github.com/acme-scm/network-firewall/tree/apme/remediate-abc',
+    );
+  });
+
+  it('buildDevSpacesRemediationUrl prefers branch over pull request', () => {
+    expect(
+      buildDevSpacesRemediationUrl(
+        'https://devspaces.example.com',
+        'https://github.com/acme/ansible-apme',
+        {
+          branch: 'apme/remediate-abc',
+          prUrl: 'https://github.com/acme/ansible-apme/pull/12',
+        },
+      ),
+    ).toBe(
+      'https://devspaces.example.com#https://github.com/acme/ansible-apme/tree/apme/remediate-abc',
+    );
+  });
+
+  it('buildDevSpacesRemediationUrl uses pull request URL when branch is absent', () => {
+    expect(
+      buildDevSpacesRemediationUrl(
+        'https://devspaces.example.com',
+        'https://github.com/acme/ansible-apme',
+        { prUrl: 'https://github.com/acme/ansible-apme/pull/12' },
+      ),
+    ).toBe(
+      'https://devspaces.example.com/#https://github.com/acme/ansible-apme/pull/12',
     );
   });
 });

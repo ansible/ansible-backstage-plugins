@@ -78,6 +78,36 @@ export function buildDevSpacesUrlFromRepoUrl(
   );
 }
 
+export type BuildDevSpacesRemediationUrlOptions = {
+  branch?: string | null;
+  prUrl?: string | null;
+};
+
+/**
+ * Dev Spaces factory URL for a remediation branch or pull request.
+ * Prefers an explicit branch; otherwise uses the PR/MR URL directly.
+ */
+export function buildDevSpacesRemediationUrl(
+  devSpacesBaseUrl: string,
+  repoUrl: string,
+  options: BuildDevSpacesRemediationUrlOptions = {},
+): string | null {
+  const branch = options.branch?.trim();
+  if (branch) {
+    return buildDevSpacesUrlFromRepoUrl(devSpacesBaseUrl, repoUrl, branch);
+  }
+
+  const prUrl = options.prUrl?.trim();
+  if (prUrl) {
+    const base = devSpacesBaseUrl.endsWith('/')
+      ? devSpacesBaseUrl
+      : `${devSpacesBaseUrl}/`;
+    return `${base}#${prUrl}`;
+  }
+
+  return null;
+}
+
 export function getDevspacesUrlFromAnsibleConfig(
   config: Config,
   sourceControl: string,

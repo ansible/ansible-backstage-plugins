@@ -47,7 +47,11 @@ jest.mock('../ApmeUnavailable', () => ({
 }));
 
 jest.mock('../EditInDevSpacesButton', () => ({
-  PostPushDevSpacesBanner: () => null,
+  EditInDevSpacesButton: () => null,
+}));
+
+jest.mock('../PortalWorkflowPanel', () => ({
+  PortalProjectWorkflowPanel: () => <div data-testid="workflow-panel" />,
 }));
 
 jest.mock('../PreviewChip', () => ({
@@ -84,7 +88,6 @@ jest.mock('@apme/ui-workflow', () => ({
       </button>
     </div>
   ),
-  ProjectWorkflowPanel: () => <div data-testid="workflow-panel" />,
   useProjectWorkflow: (...args: unknown[]) => mockUseProjectWorkflow(...args),
 }));
 
