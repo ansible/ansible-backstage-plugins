@@ -285,6 +285,63 @@ export const FleetQualityTab = ({
     return sortAsc ? ' ↑' : ' ↓';
   };
 
+  const renderEmptyState = () => {
+    if (hasFilter) {
+      return (
+        <Typography
+          style={{ fontSize: 14, color: theme.palette.text.secondary }}
+        >
+          No violations match the current filters.
+        </Typography>
+      );
+    }
+
+    if (totalRepos === 0) {
+      return (
+        <>
+          <Typography
+            variant="h6"
+            style={{ fontWeight: 600, marginBottom: 8 }}
+          >
+            No Git Repositories Found
+          </Typography>
+          <Typography
+            style={{
+              fontSize: 14,
+              color: theme.palette.text.secondary,
+              marginBottom: 16,
+              maxWidth: 480,
+              marginLeft: 'auto',
+              marginRight: 'auto',
+            }}
+          >
+            No git repositories were retrieved from the configured sources. Sync
+            or add manually to discover latest contents.
+          </Typography>
+          <LinkButton
+            variant="contained"
+            color="primary"
+            to={APME_REGISTER_GIT_REPOSITORY_TEMPLATE_PATH}
+            startIcon={<AddIcon />}
+          >
+            Add repository
+          </LinkButton>
+        </>
+      );
+    }
+
+    return (
+      <>
+        <CheckCircleIcon
+          style={{ fontSize: 40, color: STATUS_SUCCESS, marginBottom: 8 }}
+        />
+        <Typography style={{ fontSize: 16, fontWeight: 500 }}>
+          All repositories are clean
+        </Typography>
+      </>
+    );
+  };
+
   return (
     <Box>
       <Box marginBottom={1}>
@@ -670,52 +727,7 @@ export const FleetQualityTab = ({
 
       {sortedGroups.length === 0 && (
         <Box style={{ textAlign: 'center', padding: '48px 24px' }}>
-          {hasFilter ? (
-            <Typography
-              style={{ fontSize: 14, color: theme.palette.text.secondary }}
-            >
-              No violations match the current filters.
-            </Typography>
-          ) : totalRepos === 0 ? (
-            <>
-              <Typography
-                variant="h6"
-                style={{ fontWeight: 600, marginBottom: 8 }}
-              >
-                No Git Repositories Found
-              </Typography>
-              <Typography
-                style={{
-                  fontSize: 14,
-                  color: theme.palette.text.secondary,
-                  marginBottom: 16,
-                  maxWidth: 480,
-                  marginLeft: 'auto',
-                  marginRight: 'auto',
-                }}
-              >
-                No git repositories were retrieved from the configured sources.
-                Sync or add manually to discover latest contents.
-              </Typography>
-              <LinkButton
-                variant="contained"
-                color="primary"
-                to={APME_REGISTER_GIT_REPOSITORY_TEMPLATE_PATH}
-                startIcon={<AddIcon />}
-              >
-                Add repository
-              </LinkButton>
-            </>
-          ) : (
-            <>
-              <CheckCircleIcon
-                style={{ fontSize: 40, color: STATUS_SUCCESS, marginBottom: 8 }}
-              />
-              <Typography style={{ fontSize: 16, fontWeight: 500 }}>
-                All repositories are clean
-              </Typography>
-            </>
-          )}
+          {renderEmptyState()}
         </Box>
       )}
 
