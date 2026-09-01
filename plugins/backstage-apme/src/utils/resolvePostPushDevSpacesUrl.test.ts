@@ -44,7 +44,7 @@ describe('resolvePostPushDevSpacesUrl', () => {
         pushedBranchName: 'apme/remediate-abc',
       }),
     ).toBe(
-      'https://devspaces.example.com#https://github.com/acme/ansible-apme/tree/apme/remediate-abc',
+      'https://devspaces.example.com/#https://github.com/acme/ansible-apme/tree/apme/remediate-abc',
     );
   });
 
@@ -67,7 +67,7 @@ describe('resolvePostPushDevSpacesUrl', () => {
         prUrl: 'https://github.com/acme/ansible-apme/pull/12',
       }),
     ).toBe(
-      'https://devspaces.example.com#https://github.com/acme/ansible-apme/tree/apme/remediate-xyz',
+      'https://devspaces.example.com/#https://github.com/acme/ansible-apme/tree/apme/remediate-xyz',
     );
   });
 });

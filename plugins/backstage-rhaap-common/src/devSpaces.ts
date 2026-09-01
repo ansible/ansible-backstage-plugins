@@ -22,6 +22,17 @@ export type ScmRepoParts = {
   repoName: string;
 };
 
+/** Always emit `{base}/#target` regardless of whether base ends with `/`. */
+export function joinDevSpacesFactoryUrl(
+  devSpacesBaseUrl: string,
+  hashTarget: string,
+): string {
+  const base = devSpacesBaseUrl.endsWith('/')
+    ? devSpacesBaseUrl
+    : `${devSpacesBaseUrl}/`;
+  return `${base}#${hashTarget}`;
+}
+
 /** OpenShift Dev Spaces factory URL (shared with scaffolder ansible action). */
 export function generateDevSpacesUrl(
   devSpacesBaseUrl: string,
@@ -33,7 +44,7 @@ export function generateDevSpacesUrl(
   const repoPath = branch
     ? `https://${sourceControl}/${repoOwner}/${repoName}/tree/${branch}`
     : `https://${sourceControl}/${repoOwner}/${repoName}`;
-  return `${devSpacesBaseUrl}#${repoPath}`;
+  return joinDevSpacesFactoryUrl(devSpacesBaseUrl, repoPath);
 }
 
 export function parseScmRepoUrl(repoUrl: string): ScmRepoParts | null {
@@ -99,10 +110,7 @@ export function buildDevSpacesRemediationUrl(
 
   const prUrl = options.prUrl?.trim();
   if (prUrl) {
-    const base = devSpacesBaseUrl.endsWith('/')
-      ? devSpacesBaseUrl
-      : `${devSpacesBaseUrl}/`;
-    return `${base}#${prUrl}`;
+    return joinDevSpacesFactoryUrl(devSpacesBaseUrl, prUrl);
   }
 
   return null;

@@ -44,13 +44,28 @@ export interface PortalProjectWorkflowPanelProps {
   hostShipActions?: ReactNode;
 }
 
+const PR_LINK_SELECTOR =
+  'a[href*="/pull/"], a[href*="/merge_requests/"]';
+
 /**
- * Portal wrapper around {@link OperationPanel} that injects host actions
- * (e.g. Open in Dev Spaces) next to View pull request links.
+ * Locate the View pull request control rendered by `@apme/ui-workflow`.
+ * Prefer stable PR/MR hrefs; fall back to English button copy.
  *
- * ponytail: DOM sibling injection until `@apme/ui-workflow` exposes
- * `hostShipActions` on OperationPanel / CommitChangesPanel.
+ * ponytail: replace with ui-workflow `hostShipActions` when upstream adds it.
  */
+export function findPullRequestControl(root: HTMLElement): HTMLElement | null {
+  const prAnchor = root.querySelector<HTMLElement>(PR_LINK_SELECTOR);
+  if (prAnchor) {
+    return prAnchor;
+  }
+
+  return (
+    Array.from(
+      root.querySelectorAll<HTMLElement>('.pf-v6-c-button, a, button'),
+    ).find(el => /view pull request/i.test(el.textContent ?? '')) ?? null
+  );
+}
+
 export function PortalProjectWorkflowPanel({
   workflow,
   enableAi,
@@ -72,6 +87,8 @@ export function PortalProjectWorkflowPanel({
   const [draftError, setDraftError] = useState<string | null>(null);
   const draftGenRef = useRef(0);
   const panelRef = useRef<HTMLDivElement>(null);
+  const injectedSlotRef = useRef<HTMLElement | null>(null);
+  const locateFrameRef = useRef(0);
   const [actionHost, setActionHost] = useState<HTMLElement | null>(null);
   const operationId = opState?.operation_id;
   const opStatus = opState?.status;
@@ -84,36 +101,56 @@ export function PortalProjectWorkflowPanel({
   useLayoutEffect(() => {
     const root = panelRef.current;
     if (!root || !hostShipActions) {
+      injectedSlotRef.current?.remove();
+      injectedSlotRef.current = null;
       setActionHost(null);
       return undefined;
     }
 
     const locateActionHost = () => {
-      const prControl = Array.from(
-        root.querySelectorAll<HTMLElement>('a, button'),
-      ).find(el => /view pull request/i.test(el.textContent ?? ''));
+      const prControl = findPullRequestControl(root);
       if (!prControl?.parentElement) {
+        injectedSlotRef.current?.remove();
+        injectedSlotRef.current = null;
         setActionHost(null);
         return;
       }
 
-      let slot = prControl.parentElement.querySelector<HTMLElement>(
-        '[data-apme-host-ship-actions]',
-      );
+      let slot = injectedSlotRef.current;
+      if (!slot || !slot.isConnected) {
+        slot = prControl.parentElement.querySelector<HTMLElement>(
+          '[data-apme-host-ship-actions]',
+        );
+      }
       if (!slot) {
         slot = document.createElement('span');
         slot.dataset.apmeHostShipActions = 'true';
         slot.style.display = 'inline-flex';
         prControl.insertAdjacentElement('beforebegin', slot);
       }
+      injectedSlotRef.current = slot;
       setActionHost(slot);
     };
 
-    locateActionHost();
-    const observer = new MutationObserver(locateActionHost);
-    observer.observe(root, { childList: true, subtree: true });
+    const scheduleLocateActionHost = () => {
+      cancelAnimationFrame(locateFrameRef.current);
+      locateFrameRef.current = requestAnimationFrame(locateActionHost);
+    };
+
+    scheduleLocateActionHost();
+    const observer = new MutationObserver(scheduleLocateActionHost);
+    observer.observe(root, {
+      childList: true,
+      subtree: true,
+      attributes: true,
+      characterData: true,
+    });
+
     return () => {
+      cancelAnimationFrame(locateFrameRef.current);
       observer.disconnect();
+      injectedSlotRef.current?.remove();
+      injectedSlotRef.current = null;
       setActionHost(null);
     };
   }, [hostShipActions, operationId, opStatus, opState?.pr_url]);

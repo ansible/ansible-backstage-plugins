@@ -29,6 +29,9 @@ export type ResolvePostPushDevSpacesUrlOptions = {
 /**
  * Build the Dev Spaces factory URL for the post-push Quality-tab CTA.
  * Returns null when config/repo are missing or push/PR has not happened yet.
+ *
+ * Intentionally omits `projectBranch`: Dev Spaces must target the remediation
+ * branch or PR, never the catalog project's default branch.
  */
 export function resolvePostPushDevSpacesUrl(
   options: ResolvePostPushDevSpacesUrlOptions,
