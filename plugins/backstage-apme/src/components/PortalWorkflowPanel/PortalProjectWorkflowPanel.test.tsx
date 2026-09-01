@@ -4,6 +4,7 @@
 
 import '@testing-library/jest-dom';
 import { render, screen, waitFor } from '@testing-library/react';
+import type { ProjectWorkflowController } from '@apme/ui-workflow';
 import {
   findPullRequestControl,
   PortalProjectWorkflowPanel,
@@ -16,6 +17,33 @@ jest.mock('@apme/ui-workflow', () => ({
     </div>
   ),
 }));
+
+function workflowStub(
+  overrides: Partial<ProjectWorkflowController>,
+): ProjectWorkflowController {
+  return {
+    attachOp: false,
+    setAttachOp: jest.fn(),
+    opState: null,
+    isRunning: false,
+    operationActive: false,
+    sessionTabVisible: false,
+    refreshOp: jest.fn(),
+    clearOp: jest.fn(),
+    startScan: jest.fn(),
+    beginRemediate: jest.fn(),
+    escalateAi: jest.fn(),
+    approve: jest.fn(),
+    cancel: jest.fn(),
+    createPR: jest.fn(),
+    patchProposals: jest.fn(),
+    dismiss: jest.fn(),
+    resumeSession: jest.fn(),
+    startOver: jest.fn(),
+    findResumableScanId: jest.fn(),
+    ...overrides,
+  };
+}
 
 describe('findPullRequestControl', () => {
   it('prefers a pull request href over button copy', () => {
@@ -42,17 +70,10 @@ describe('PortalProjectWorkflowPanel', () => {
   it('renders the starting spinner when the workflow session is not active', () => {
     render(
       <PortalProjectWorkflowPanel
-        workflow={{
+        workflow={workflowStub({
           operationActive: false,
           opState: null,
-          approve: jest.fn(),
-          beginRemediate: jest.fn(),
-          escalateAi: jest.fn(),
-          patchProposals: jest.fn(),
-          cancel: jest.fn(),
-          createPR: jest.fn(),
-          dismiss: jest.fn(),
-        }}
+        })}
         enableAi={false}
         feedbackEnabled={false}
       />,
@@ -64,7 +85,7 @@ describe('PortalProjectWorkflowPanel', () => {
   it('renders OperationPanel when the workflow session is active', () => {
     render(
       <PortalProjectWorkflowPanel
-        workflow={{
+        workflow={workflowStub({
           operationActive: true,
           opState: {
             operation_id: 'op-1',
@@ -75,14 +96,7 @@ describe('PortalProjectWorkflowPanel', () => {
             started_at: '2026-01-01T00:00:00Z',
             progress: [],
           },
-          approve: jest.fn(),
-          beginRemediate: jest.fn(),
-          escalateAi: jest.fn(),
-          patchProposals: jest.fn(),
-          cancel: jest.fn(),
-          createPR: jest.fn(),
-          dismiss: jest.fn(),
-        }}
+        })}
         enableAi={false}
         feedbackEnabled={false}
       />,
@@ -94,7 +108,7 @@ describe('PortalProjectWorkflowPanel', () => {
   it('removes the injected host-action slot on unmount', async () => {
     const { unmount } = render(
       <PortalProjectWorkflowPanel
-        workflow={{
+        workflow={workflowStub({
           operationActive: true,
           opState: {
             operation_id: 'op-1',
@@ -106,14 +120,7 @@ describe('PortalProjectWorkflowPanel', () => {
             progress: [],
             pr_url: 'https://github.com/acme/repo/pull/12',
           },
-          approve: jest.fn(),
-          beginRemediate: jest.fn(),
-          escalateAi: jest.fn(),
-          patchProposals: jest.fn(),
-          cancel: jest.fn(),
-          createPR: jest.fn(),
-          dismiss: jest.fn(),
-        }}
+        })}
         enableAi={false}
         feedbackEnabled={false}
         hostShipActions={<button type="button">Open in Dev Spaces</button>}
