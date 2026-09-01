@@ -203,7 +203,6 @@ export function PortalProjectWorkflowPanel({
             if (gen !== draftGenRef.current) {
               return;
             }
-            console.error('Failed to patch proposals:', err);
             setDraftError(
               err instanceof Error ? err.message : 'Draft update failed.',
             );
