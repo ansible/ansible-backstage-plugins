@@ -1,4 +1,4 @@
-import { screen } from '@testing-library/react';
+import { fireEvent, screen } from '@testing-library/react';
 import { renderInTestApp } from '@backstage/test-utils';
 
 import { ContentExpandableSidebarGroup } from './ContentExpandableSidebarGroup';
@@ -72,5 +72,39 @@ describe('ContentExpandableSidebarGroup', () => {
       'href',
       '/self-service/repositories/quality?contentNav=content-quality',
     );
+  });
+
+  it('scrolls expanded child items into view when Content is opened', async () => {
+    const scrollIntoView = jest.fn();
+    const originalScrollIntoView = HTMLElement.prototype.scrollIntoView;
+    HTMLElement.prototype.scrollIntoView = scrollIntoView;
+    jest.useFakeTimers();
+    jest.spyOn(window, 'requestAnimationFrame').mockImplementation(cb => {
+      cb(0);
+      return 0;
+    });
+
+    try {
+      await renderInTestApp(<ContentExpandableSidebarGroup />);
+
+      fireEvent.click(screen.getByRole('button', { name: 'Content' }));
+
+      expect(screen.getByRole('button', { name: 'Content' })).toHaveAttribute(
+        'aria-expanded',
+        'true',
+      );
+      expect(scrollIntoView).toHaveBeenCalledWith({
+        block: 'end',
+        inline: 'nearest',
+        behavior: 'smooth',
+      });
+
+      jest.advanceTimersByTime(350);
+      expect(scrollIntoView).toHaveBeenCalledTimes(2);
+    } finally {
+      jest.restoreAllMocks();
+      HTMLElement.prototype.scrollIntoView = originalScrollIntoView;
+      jest.useRealTimers();
+    }
   });
 });
