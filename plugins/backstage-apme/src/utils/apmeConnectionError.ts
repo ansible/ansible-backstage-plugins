@@ -28,7 +28,7 @@ export function isApmeConnectionError(message: string): boolean {
 }
 
 export const APME_GATEWAY_UNAVAILABLE_MESSAGE =
-  'Ansible content modernization is temporarily unavailable. Check that the APME gateway is running, then try again.';
+  'Ansible content modernization is temporarily unavailable. Check that the modernization service is running, then try again.';
 
 export const APME_REMEDIATE_CONNECTION_TITLE = 'Cannot reach modernization service';
 
@@ -119,7 +119,7 @@ export function formatApmeUserFacingError(raw: string): string {
       if (formatted !== rest && !formatted.startsWith('Request failed')) {
         return formatted;
       }
-      return `Request failed (${status}). Try again, or check the APME gateway if the problem continues.`;
+      return `Request failed (${status}). Try again, or check the modernization service if the problem continues.`;
     }
     return `Request failed (${status}): ${rest}`;
   }
@@ -136,7 +136,7 @@ export function formatApmeUserFacingError(raw: string): string {
   }
 
   if (raw.length > 280 || raw.includes('\n    at ')) {
-    return 'Something went wrong preparing fixes. Try again, or check the APME gateway if the problem continues.';
+    return 'Something went wrong preparing fixes. Try again, or check the modernization service if the problem continues.';
   }
   return raw;
 }

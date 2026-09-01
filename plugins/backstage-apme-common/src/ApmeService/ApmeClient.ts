@@ -597,7 +597,7 @@ export class ApmeClient {
     }
     const result = await this.submitRemediation(projectId, body);
     if (!result.pr_url) {
-      throw new InputError('Gateway submit completed without a PR URL');
+      throw new InputError('Submit completed without a PR URL');
     }
     return {
       pr_url: result.pr_url,

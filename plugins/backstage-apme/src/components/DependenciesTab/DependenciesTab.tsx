@@ -249,7 +249,7 @@ export const DependenciesTab = ({ context }: DependenciesTabProps) => {
           {' · '}
           {lastScanned}
         </Typography>
-        <Tooltip title="Dependencies are detected from the latest gateway scan of this repository.">
+        <Tooltip title="Dependencies are detected from the latest quality scan of this repository.">
           <HelpOutlineIcon
             style={{ fontSize: 14, opacity: 0.5, cursor: 'help' }}
           />
