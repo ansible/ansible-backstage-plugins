@@ -22,7 +22,8 @@ import {
 import CheckCircleIcon from '@material-ui/icons/CheckCircle';
 import ChevronRightIcon from '@material-ui/icons/ChevronRight';
 import KeyboardArrowDownIcon from '@material-ui/icons/KeyboardArrowDown';
-import { Progress } from '@backstage/core-components';
+import { LinkButton, Progress } from '@backstage/core-components';
+import AddIcon from '@material-ui/icons/Add';
 import { RequirePermission } from '@backstage/plugin-permission-react';
 import { ansibleSettingsViewPermission } from '@ansible/backstage-rhaap-common/permissions';
 import {
@@ -37,6 +38,10 @@ import {
 import { useApmeColorTokens } from '../../hooks/useApmeColorTokens';
 import { useApmeEnabled, useApmeAiEnabled } from '../../hooks/useApmeEnabled';
 import { PreviewLabelRow } from '../PreviewChip';
+import { ApmeUnavailable } from '../ApmeUnavailable';
+import { APME_GATEWAY_UNAVAILABLE_MESSAGE } from '../../utils/apmeConnectionError';
+import { APME_REGISTER_GIT_REPOSITORY_TEMPLATE_PATH } from '../ApmeAddRepositoryHeaderAction/ApmeAddRepositoryHeaderAction';
+import { FleetQualityNoScansEmptyState } from './FleetQualityNoScansEmptyState';
 import { useFleetQualityData } from './useFleetQualityData';
 
 const STATUS_ERROR = '#C9190B';
@@ -262,6 +267,9 @@ export const FleetQualityTab = ({
   const violationTotal = value?.violationTotal ?? 0;
   const reposWithIssues = value?.reposWithIssues ?? 0;
   const totalRepos = value?.totalRepos ?? 0;
+  const hasAnyScan = value?.hasAnyScan ?? false;
+  const gatewayUnavailable = value?.gatewayUnavailable ?? false;
+  const showFleetContent = totalRepos > 0 && hasAnyScan && !gatewayUnavailable;
   const reposClean = Math.max(0, totalRepos - reposWithIssues);
   const severityCounts = value?.severityCounts ?? {
     critical: 0,
@@ -273,6 +281,8 @@ export const FleetQualityTab = ({
   };
   const allRules = value?.groups ?? [];
   const hasFilter = severityFilters.size > 0 || categoryFilters.size > 0;
+  const showNoScansEmptyState =
+    totalRepos > 0 && !hasAnyScan && !gatewayUnavailable && !hasFilter;
   const filteredViolationCount = sortedGroups.reduce(
     (s, r) => s + r.totalCount,
     0,
@@ -283,52 +293,115 @@ export const FleetQualityTab = ({
     return sortAsc ? ' ↑' : ' ↓';
   };
 
+  const renderEmptyState = () => {
+    if (hasFilter) {
+      return (
+        <Typography
+          style={{ fontSize: 14, color: theme.palette.text.secondary }}
+        >
+          No violations match the current filters.
+        </Typography>
+      );
+    }
+
+    if (totalRepos === 0) {
+      return (
+        <>
+          <Typography
+            variant="h6"
+            style={{ fontWeight: 600, marginBottom: 8 }}
+          >
+            No Git Repositories Found
+          </Typography>
+          <Typography
+            style={{
+              fontSize: 14,
+              color: theme.palette.text.secondary,
+              marginBottom: 16,
+              maxWidth: 480,
+              marginLeft: 'auto',
+              marginRight: 'auto',
+            }}
+          >
+            No git repositories were retrieved from the configured sources. Sync
+            or add manually to discover latest contents.
+          </Typography>
+          <LinkButton
+            variant="contained"
+            color="primary"
+            to={APME_REGISTER_GIT_REPOSITORY_TEMPLATE_PATH}
+            startIcon={<AddIcon />}
+          >
+            Add repository
+          </LinkButton>
+        </>
+      );
+    }
+
+    return (
+      <>
+        <CheckCircleIcon
+          style={{ fontSize: 40, color: STATUS_SUCCESS, marginBottom: 8 }}
+        />
+        <Typography style={{ fontSize: 16, fontWeight: 500 }}>
+          All repositories are clean
+        </Typography>
+      </>
+    );
+  };
+
   return (
     <Box>
       <Box marginBottom={1}>
         <PreviewLabelRow />
       </Box>
 
-      <Box className={classes.titleRow}>
-        <Typography variant="h6">Fleet quality</Typography>
-        <RequirePermission
-          permission={ansibleSettingsViewPermission}
-          resourceRef="apme"
-          errorPage={<></>}
-        >
-          <Link
-            component={RouterLink}
-            to="/self-service/repositories/quality-settings"
-            style={{ fontSize: 13 }}
+      {showFleetContent && (
+        <Box className={classes.titleRow}>
+          <Typography variant="h6">Fleet quality</Typography>
+          <RequirePermission
+            permission={ansibleSettingsViewPermission}
+            resourceRef="apme"
+            errorPage={<></>}
           >
-            Quality settings →
-          </Link>
-        </RequirePermission>
-      </Box>
+            <Link
+              component={RouterLink}
+              to="/self-service/repositories/quality-settings"
+              style={{ fontSize: 13 }}
+            >
+              Quality settings →
+            </Link>
+          </RequirePermission>
+        </Box>
+      )}
 
-      <Box className={classes.summaryBar}>
-        <Typography
-          style={{ fontSize: 20, fontWeight: 700, color: STATUS_ERROR }}
-        >
-          {hasFilter ? filteredViolationCount : violationTotal}
-        </Typography>
-        <Typography
-          style={{ fontSize: 13, color: theme.palette.text.secondary }}
-        >
-          {hasFilter
-            ? `of ${violationTotal} violations · ${sortedGroups.length} rule${sortedGroups.length !== 1 ? 's' : ''} · ${reposWithIssues} repositories`
-            : `violations · ${allRules.length} rules · ${reposWithIssues} repositories`}
-          {reposClean > 0 && !hasFilter && (
-            <span style={{ marginLeft: 6 }}>
-              ·{' '}
-              <span style={{ color: STATUS_SUCCESS, fontWeight: 500 }}>
-                {reposClean} clean
+      {showFleetContent && (
+        <Box className={classes.summaryBar}>
+          <Typography
+            style={{ fontSize: 20, fontWeight: 700, color: STATUS_ERROR }}
+          >
+            {hasFilter ? filteredViolationCount : violationTotal}
+          </Typography>
+          <Typography
+            style={{ fontSize: 13, color: theme.palette.text.secondary }}
+          >
+            {hasFilter
+              ? `of ${violationTotal} violations · ${sortedGroups.length} rule${sortedGroups.length !== 1 ? 's' : ''} · ${reposWithIssues} repositories`
+              : `violations · ${allRules.length} rules · ${reposWithIssues} repositories`}
+            {reposClean > 0 && !hasFilter && (
+              <span style={{ marginLeft: 6 }}>
+                ·{' '}
+                <span style={{ color: STATUS_SUCCESS, fontWeight: 500 }}>
+                  {reposClean} clean
+                </span>
               </span>
-            </span>
-          )}
-        </Typography>
-      </Box>
+            )}
+          </Typography>
+        </Box>
+      )}
 
+      {showFleetContent && (
+      <>
       <Box className={classes.sevBar}>
         {sevOrder.map(sev => {
           const count = severityCounts[sev];
@@ -657,25 +730,20 @@ export const FleetQualityTab = ({
           </table>
         </Box>
       </Card>
+      </>
+      )}
 
-      {sortedGroups.length === 0 && (
+      {gatewayUnavailable && totalRepos > 0 && (
+        <ApmeUnavailable message={APME_GATEWAY_UNAVAILABLE_MESSAGE} />
+      )}
+
+      {showNoScansEmptyState && <FleetQualityNoScansEmptyState />}
+
+      {sortedGroups.length === 0 &&
+        !showNoScansEmptyState &&
+        !(gatewayUnavailable && totalRepos > 0) && (
         <Box style={{ textAlign: 'center', padding: '48px 24px' }}>
-          {hasFilter ? (
-            <Typography
-              style={{ fontSize: 14, color: theme.palette.text.secondary }}
-            >
-              No violations match the current filters.
-            </Typography>
-          ) : (
-            <>
-              <CheckCircleIcon
-                style={{ fontSize: 40, color: STATUS_SUCCESS, marginBottom: 8 }}
-              />
-              <Typography style={{ fontSize: 16, fontWeight: 500 }}>
-                All repositories are clean
-              </Typography>
-            </>
-          )}
+          {renderEmptyState()}
         </Box>
       )}
 
