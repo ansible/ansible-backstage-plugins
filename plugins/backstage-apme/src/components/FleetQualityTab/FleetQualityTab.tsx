@@ -264,6 +264,8 @@ export const FleetQualityTab = ({
   const violationTotal = value?.violationTotal ?? 0;
   const reposWithIssues = value?.reposWithIssues ?? 0;
   const totalRepos = value?.totalRepos ?? 0;
+  const hasAnyScan = value?.hasAnyScan ?? false;
+  const showFleetContent = totalRepos > 0 && hasAnyScan;
   const reposClean = Math.max(0, totalRepos - reposWithIssues);
   const severityCounts = value?.severityCounts ?? {
     critical: 0,
@@ -330,6 +332,30 @@ export const FleetQualityTab = ({
       );
     }
 
+    if (totalRepos > 0 && !hasAnyScan) {
+      return (
+        <>
+          <Typography
+            variant="h6"
+            style={{ fontWeight: 600, marginBottom: 8 }}
+          >
+            No scans yet
+          </Typography>
+          <Typography
+            style={{
+              fontSize: 14,
+              color: theme.palette.text.secondary,
+              maxWidth: 480,
+              marginLeft: 'auto',
+              marginRight: 'auto',
+            }}
+          >
+            Start a scan to check your Git repositories for quality issues.
+          </Typography>
+        </>
+      );
+    }
+
     return (
       <>
         <CheckCircleIcon
@@ -348,7 +374,7 @@ export const FleetQualityTab = ({
         <PreviewLabelRow />
       </Box>
 
-      {totalRepos > 0 && (
+      {showFleetContent && (
         <Box className={classes.titleRow}>
           <Typography variant="h6">Fleet quality</Typography>
           <RequirePermission
@@ -367,7 +393,7 @@ export const FleetQualityTab = ({
         </Box>
       )}
 
-      {totalRepos > 0 && (
+      {showFleetContent && (
         <Box className={classes.summaryBar}>
           <Typography
             style={{ fontSize: 20, fontWeight: 700, color: STATUS_ERROR }}
@@ -392,7 +418,7 @@ export const FleetQualityTab = ({
         </Box>
       )}
 
-      {totalRepos > 0 && (
+      {showFleetContent && (
       <>
       <Box className={classes.sevBar}>
         {sevOrder.map(sev => {

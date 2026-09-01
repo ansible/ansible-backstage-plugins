@@ -144,6 +144,73 @@ describe('FleetQualityTab', () => {
     expect(screen.queryByText('Quality settings →')).not.toBeInTheDocument();
   });
 
+  it('shows no-scans empty state when repos exist but none have been scanned', async () => {
+    const unscannedApmeApi = {
+      ...mockApmeApi,
+      getProjects: async () => [
+        {
+          id: 'proj-new',
+          name: 'my-repo',
+          repo_url: 'https://github.com/acme-scm/amazon.aws',
+          branch: 'main',
+          created_at: new Date().toISOString(),
+          health_score: 0,
+          total_violations: 0,
+          scan_count: 0,
+          has_scm_token: false,
+          has_new_commits: false,
+        },
+      ],
+    };
+
+    render(
+      <MemoryRouter>
+        <TestApiProvider
+          apis={[
+            [
+              configApiRef,
+              new ConfigReader({ ansible: { apme: { enabled: true } } }),
+            ],
+            [apmeApiRef, unscannedApmeApi],
+            [
+              catalogApiRef,
+              {
+                getEntities: async () => ({
+                  items: [
+                    catalogEntity(
+                      'amazon-aws-acme-scm-github-com',
+                      'https://github.com/acme-scm/amazon.aws',
+                    ),
+                  ],
+                }),
+              },
+            ],
+          ]}
+        >
+          <ThemeProvider theme={theme}>
+            <FleetQualityTab repositoryDetailPath={repositoryDetailPath} />
+          </ThemeProvider>
+        </TestApiProvider>
+      </MemoryRouter>,
+    );
+
+    expect(
+      await screen.findByText('No scans yet', {}, { timeout: 5000 }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        /Start a scan to check your Git repositories for quality issues/i,
+      ),
+    ).toBeInTheDocument();
+    expect(screen.queryByText('Fleet quality')).not.toBeInTheDocument();
+    expect(screen.queryByText('Quality settings →')).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /Start scan/i }))
+      .not.toBeInTheDocument();
+    expect(
+      screen.queryByText('All repositories are clean'),
+    ).not.toBeInTheDocument();
+  });
+
   it('shows empty state with "Add repository" button when no repos exist', async () => {
     const emptyApmeApi = {
       ...mockApmeApi,

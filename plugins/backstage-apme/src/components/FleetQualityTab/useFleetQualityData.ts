@@ -39,6 +39,7 @@ export type FleetQualityData = {
   groups: RuleAggregate[];
   reposWithIssues: number;
   totalRepos: number;
+  hasAnyScan: boolean;
   violationTotal: number;
   severityCounts: Record<SeverityLevel, number>;
 };
@@ -61,6 +62,7 @@ const emptyData = (): FleetQualityData => ({
   groups: [],
   reposWithIssues: 0,
   totalRepos: 0,
+  hasAnyScan: false,
   violationTotal: 0,
   severityCounts: {} as Record<SeverityLevel, number>,
 });
@@ -94,6 +96,9 @@ export function useFleetQualityData(enabled: boolean) {
     }
 
     const totalRepos = Math.max(entities.length, projects.length);
+    const hasAnyScan = projects.some(
+      p => (p.scan_count ?? 0) > 0 || Boolean(p.last_scanned_at),
+    );
     const scanned = projects.filter(p => (p.total_violations ?? 0) > 0);
     // Fan-out per scanned repo; prefer a fleet-summary API when fleets grow large.
     const violationsByProject = await Promise.all(
@@ -172,6 +177,7 @@ export function useFleetQualityData(enabled: boolean) {
       groups,
       reposWithIssues,
       totalRepos,
+      hasAnyScan,
       violationTotal,
       severityCounts,
     };
