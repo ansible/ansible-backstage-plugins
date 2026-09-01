@@ -47,7 +47,9 @@ export async function validateAndFilterRepositories(
       urlSearchParams.append('repository_name', repo);
     } catch (error) {
       context.logger.error(
-        `[${context.pluginLogName}]: Error validating PAH repository '${repo}': ${String(error)}`,
+        `[${
+          context.pluginLogName
+        }]: Error validating PAH repository '${repo}': ${String(error)}`,
       );
       continue;
     }
@@ -61,7 +63,9 @@ export async function validateAndFilterRepositories(
   }
 
   context.logger.info(
-    `[${context.pluginLogName}]: Fetching collections from ${validRepositories.length} valid repositories: ${validRepositories.join(', ')}`,
+    `[${context.pluginLogName}]: Fetching collections from ${
+      validRepositories.length
+    } valid repositories: ${validRepositories.join(', ')}`,
   );
 
   return { validRepos: validRepositories, urlSearchParams };
@@ -86,9 +90,7 @@ export async function fetchCollectionDetails(
         if (Array.isArray(detailData?.authors)) {
           authors = detailData.authors
             .map((a: unknown) =>
-              typeof a === 'string'
-                ? a
-                : ((a as { name?: string })?.name ?? ''),
+              typeof a === 'string' ? a : (a as { name?: string })?.name ?? '',
             )
             .filter(Boolean);
         }
@@ -96,7 +98,11 @@ export async function fetchCollectionDetails(
     }
   } catch (error) {
     context.logger.warn(
-      `[${context.pluginLogName}]: Failed to fetch collection details from ${pulpHref}: ${String(error)}`,
+      `[${
+        context.pluginLogName
+      }]: Failed to fetch collection details from ${pulpHref}: ${String(
+        error,
+      )}`,
     );
   }
 
@@ -153,7 +159,7 @@ export async function processCollectionItem(
   const tags: string[] | null = Array.isArray(cv.tags)
     ? (cv.tags as unknown[])
         .map((t: unknown) =>
-          typeof t === 'string' ? t : ((t as { name?: string })?.name ?? ''),
+          typeof t === 'string' ? t : (t as { name?: string })?.name ?? '',
         )
         .filter(Boolean)
     : null;
