@@ -128,6 +128,15 @@ describe('authModuleRHAAPProvider', () => {
     const nonceFromCookie = cookieHeader.match(/rhaap-nonce=([^;]+)/)?.[1];
     expect(nonceFromCookie).toBeDefined();
 
+    const pkceCookie = Array.isArray(setCookieHeaders)
+      ? setCookieHeaders.find((c: string) => c.startsWith('rhaap-pkce='))
+      : undefined;
+    expect(pkceCookie).toBeDefined();
+    expect(pkceCookie).toContain('HttpOnly');
+    expect(pkceCookie).toContain('SameSite=Lax');
+    expect(pkceCookie).toContain('Path=/api/auth/rhaap/handler');
+    expect(pkceCookie).toContain('Max-Age=600');
+
     const startUrl = new URL(startResponse.get('location') ?? '');
     expect(startUrl.origin).toBe('https://rhaap.test');
     expect(startUrl.pathname).toBe('/o/authorize/');
@@ -137,6 +146,8 @@ describe('authModuleRHAAPProvider', () => {
       redirect_uri: `${appUrl}/api/auth/rhaap/handler/frame`,
       state: expect.any(String),
       approval_prompt: 'auto',
+      code_challenge: expect.any(String),
+      code_challenge_method: 'S256',
     });
     expect(decodeOAuthState(startUrl.searchParams.get('state')!)).toEqual({
       env: 'development',
@@ -158,6 +169,11 @@ describe('authModuleRHAAPProvider', () => {
     );
     expect(handlerResponse.text).toContain(
       encodeURIComponent(`"accessToken":"accessToken"`),
+    );
+    expect(mockAnsibleService.rhAAPAuthenticate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        codeVerifier: expect.any(String),
+      }),
     );
   });
 });
