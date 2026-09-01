@@ -291,22 +291,24 @@ export const FleetQualityTab = ({
         <PreviewLabelRow />
       </Box>
 
-      <Box className={classes.titleRow}>
-        <Typography variant="h6">Fleet quality</Typography>
-        <RequirePermission
-          permission={ansibleSettingsViewPermission}
-          resourceRef="apme"
-          errorPage={<></>}
-        >
-          <Link
-            component={RouterLink}
-            to="/self-service/repositories/quality-settings"
-            style={{ fontSize: 13 }}
+      {totalRepos > 0 && (
+        <Box className={classes.titleRow}>
+          <Typography variant="h6">Fleet quality</Typography>
+          <RequirePermission
+            permission={ansibleSettingsViewPermission}
+            resourceRef="apme"
+            errorPage={<></>}
           >
-            Quality settings →
-          </Link>
-        </RequirePermission>
-      </Box>
+            <Link
+              component={RouterLink}
+              to="/self-service/repositories/quality-settings"
+              style={{ fontSize: 13 }}
+            >
+              Quality settings →
+            </Link>
+          </RequirePermission>
+        </Box>
+      )}
 
       {totalRepos > 0 && (
         <Box className={classes.summaryBar}>

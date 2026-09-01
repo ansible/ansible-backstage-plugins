@@ -184,6 +184,8 @@ describe('FleetQualityTab', () => {
     expect(
       screen.queryByText('All repositories are clean'),
     ).not.toBeInTheDocument();
+    expect(screen.queryByText('Fleet quality')).not.toBeInTheDocument();
+    expect(screen.queryByText('Quality settings →')).not.toBeInTheDocument();
   });
 
   it('shows disabled message when APME is not enabled', async () => {
