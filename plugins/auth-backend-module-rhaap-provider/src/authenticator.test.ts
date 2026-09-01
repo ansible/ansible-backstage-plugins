@@ -393,6 +393,116 @@ describe('authenticator', () => {
         ),
       ).rejects.toThrow('Unable to access response object for PKCE cookie');
     });
+
+    it('should set secure flag when callback URL uses https', async () => {
+      const mockCookie = jest.fn();
+      const aapAuthAuthenticator = createAuthenticator(mockAAPService as any);
+      const ctx = aapAuthAuthenticator.initialize({
+        callbackUrl: '',
+        config: mockServices.rootConfig({
+          data: {
+            clientId: CLIENT_ID,
+            clientSecret: CLIENT_SECRET,
+            host: DEFAULT_HOST,
+            checkSSL: CHECK_SSL,
+            callbackUrl: 'https://production.example.com/auth',
+          },
+        }),
+      });
+
+      await aapAuthAuthenticator.start(
+        // @ts-ignore
+        {
+          state: 'test-state',
+          scope: '',
+          req: { res: { cookie: mockCookie } } as any,
+        },
+        ctx,
+      );
+
+      expect(mockCookie).toHaveBeenCalledWith(
+        'rhaap-pkce',
+        expect.any(String),
+        expect.objectContaining({
+          httpOnly: true,
+          secure: true,
+          sameSite: 'lax',
+          path: '/api/auth/rhaap/handler',
+        }),
+      );
+    });
+
+    it('should authenticate when clearCookie is not available (best-effort cleanup)', async () => {
+      const testVerifier = 'dBjftJeZ4CVP-mB92K27uhbUJU1p1r_wW1gFWFOEjXk';
+      const aapAuthAuthenticator = createAuthenticator(mockAAPService as any);
+      aapAuthAuthenticator.initialize({
+        callbackUrl: '',
+        config: mockServices.rootConfig({
+          data: {
+            clientId: CLIENT_ID,
+            clientSecret: CLIENT_SECRET,
+            host: DEFAULT_HOST,
+            checkSSL: CHECK_SSL,
+            callbackUrl: 'http://localhost',
+          },
+        }),
+      });
+
+      const result = await aapAuthAuthenticator.authenticate(
+        // @ts-ignore
+        {
+          req: {
+            cookies: { 'rhaap-pkce': testVerifier },
+            query: { state: 'valid-state', code: 'auth-code' },
+            res: {},
+          } as any,
+        },
+        authContext,
+      );
+
+      expect(mockAAPService.rhAAPAuthenticate).toHaveBeenCalledWith(
+        expect.objectContaining({
+          code: 'auth-code',
+          codeVerifier: testVerifier,
+        }),
+      );
+      expect(result.fullProfile).toBeDefined();
+    });
+
+    it('should generate valid PKCE challenge in authorization URL', async () => {
+      const aapAuthAuthenticator = createAuthenticator(mockAAPService as any);
+      const ctx = aapAuthAuthenticator.initialize({
+        callbackUrl: '',
+        config: mockServices.rootConfig({
+          data: {
+            clientId: CLIENT_ID,
+            clientSecret: CLIENT_SECRET,
+            host: DEFAULT_HOST,
+            checkSSL: CHECK_SSL,
+            callbackUrl: 'http://localhost',
+          },
+        }),
+      });
+
+      const result = await aapAuthAuthenticator.start(
+        // @ts-ignore
+        {
+          state: 'test-state',
+          scope: '',
+          req: { res: { cookie: jest.fn() } } as any,
+        },
+        ctx,
+      );
+
+      expect(result.url).toContain('code_challenge=');
+      expect(result.url).toContain('code_challenge_method=S256');
+      expect(result.url).toContain('approval_prompt=auto');
+      const challengeMatch = result.url.match(
+        /code_challenge=([A-Za-z0-9_-]+)/,
+      );
+      expect(challengeMatch).toBeTruthy();
+      expect(challengeMatch![1]).toHaveLength(43);
+    });
   });
 
   describe('logout sync', () => {
