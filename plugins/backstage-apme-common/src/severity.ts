@@ -537,16 +537,6 @@ export function projectWorstSeverity(project: {
   return getWorstViolationLevel(counts);
 }
 
-/** Suffix for catalog/tab counts, e.g. `` (3 HIGH)``. */
-export function worstSeverityCountSuffix(
-  worst: { level: SeverityLevel; count: number } | null,
-): string {
-  if (!worst || worst.count <= 0) {
-    return '';
-  }
-  return ` (${worst.count} ${SEVERITY_STYLES[worst.level].label.toUpperCase()})`;
-}
-
 /**
  * List API summaries omit severity_breakdown; detail/lookup include it.
  * Returns true when we should fetch project detail to colorize correctly.

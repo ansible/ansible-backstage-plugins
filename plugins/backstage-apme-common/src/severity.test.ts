@@ -32,7 +32,6 @@ import {
   normalizeSeverityBreakdown,
   projectNeedsSeverityEnrichment,
   projectWorstSeverity,
-  worstSeverityCountSuffix,
   proposalNeedsManualApproval,
   fixMethodLabel,
   SEVERITY_ORDER,
@@ -212,13 +211,6 @@ describe('severity presentation helpers', () => {
         severity_breakdown: {},
       }),
     ).toBeNull();
-  });
-
-  it('worstSeverityCountSuffix omits label when worst is unknown', () => {
-    expect(worstSeverityCountSuffix(null)).toBe('');
-    expect(worstSeverityCountSuffix({ level: 'high', count: 2 })).toBe(
-      ' (2 HIGH)',
-    );
   });
 
   it('hasNonZeroSeverityCounts detects populated buckets', () => {

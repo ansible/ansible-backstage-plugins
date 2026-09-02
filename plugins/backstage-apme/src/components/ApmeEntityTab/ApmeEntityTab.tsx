@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState, type ComponentProps, type FC } from 'react';
 import { configApiRef, useApi } from '@backstage/core-plugin-api';
 import { Progress, ResponseErrorPanel } from '@backstage/core-components';
 import { Button, Card, CardBody, Flex, FlexItem } from '@patternfly/react-core';
@@ -33,6 +33,13 @@ import { useApmeWorkflowAiModel } from '../../hooks/useApmeWorkflowAiModel';
 import { useResolveApmeProject } from '../../hooks/useResolveApmeProject';
 import { useSyncPatternFlyTheme } from '../../hooks/useSyncPatternFlyTheme';
 import { resolveDefaultAnsibleVersionForScan } from '../../utils/resolveDefaultAnsibleVersionForScan';
+
+/** Until @apme/ui-workflow types include showCollections (ansible/apme#622). */
+type PortalCheckOptionsFormProps = ComponentProps<typeof CheckOptionsForm> & {
+  showCollections?: boolean;
+};
+const PortalCheckOptionsForm =
+  CheckOptionsForm as FC<PortalCheckOptionsFormProps>;
 import { resolvePostPushDevSpacesUrl } from '../../utils/resolvePostPushDevSpacesUrl';
 import { ApmeUnavailable } from '../ApmeUnavailable';
 import { PostPushDevSpacesBanner } from '../EditInDevSpacesButton';
@@ -218,7 +225,7 @@ function WorkflowBody({ projectId }: { projectId: string }) {
             </FlexItem>
           </Flex>
           <FlexItem>
-            <CheckOptionsForm
+            <PortalCheckOptionsForm
               ansibleVersion={ansibleVersion}
               onAnsibleVersionChange={setAnsibleVersion}
               collections={collections}
@@ -229,6 +236,7 @@ function WorkflowBody({ projectId }: { projectId: string }) {
               }}
               autoApplyTier1={autoApplyTier1}
               onAutoApplyTier1Change={setAutoApplyTier1}
+              showCollections={false}
               showAiOptions={portalAiEnabled}
               idPrefix="portal-quality"
             />
