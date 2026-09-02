@@ -416,6 +416,41 @@ describe('AAPClient', () => {
           }),
         ).rejects.toThrow('Error 1 Error 2');
       });
+      it('should handle error response with plain object values', async () => {
+        const mockResponse = {
+          ok: false,
+          status: 400,
+          statusText: 'Bad Request',
+          json: jest.fn().mockResolvedValue({
+            error: 'invalid_grant',
+            error_description: 'The authorization code has expired.',
+          }),
+        };
+        mockFetch.mockResolvedValue(mockResponse);
+
+        await expect(
+          client.executePostRequest('test/endpoint', 'test-token', {
+            data: 'test',
+          }),
+        ).rejects.toThrow('invalid_grant The authorization code has expired.');
+      });
+
+      it('should handle non-JSON error response', async () => {
+        const mockResponse = {
+          ok: false,
+          status: 500,
+          statusText: 'Internal Server Error',
+          json: jest.fn().mockRejectedValue(new Error('Not JSON')),
+        };
+        mockFetch.mockResolvedValue(mockResponse);
+
+        await expect(
+          client.executePostRequest('test/endpoint', 'test-token', {
+            data: 'test',
+          }),
+        ).rejects.toThrow('Failed to post data');
+      });
+
       it('should execute a POST request with auth param and no token', async () => {
         const mockResponse = {
           ok: true,
@@ -3501,15 +3536,20 @@ describe('AAPClient', () => {
             clientSecret: 'test-client-secret',
             callbackURL: 'https://callback.example.com',
           }),
-        ).rejects.toThrow('You have to provide code or refreshToken');
+        ).rejects.toThrow(
+          'Neither authorization code nor refresh token was provided.',
+        );
       });
 
-      it('should handle authentication failure', async () => {
+      it('should propagate OAuth error with description from token endpoint', async () => {
         const mockResponse = {
           ok: false,
-          status: 401,
-          statusText: 'Unauthorized',
-          json: jest.fn().mockResolvedValue({ error: 'invalid_grant' }),
+          status: 400,
+          statusText: 'Bad Request',
+          json: jest.fn().mockResolvedValue({
+            error: 'invalid_grant',
+            error_description: 'The authorization code has expired.',
+          }),
         };
         mockFetch.mockResolvedValue(mockResponse);
 
@@ -3520,9 +3560,78 @@ describe('AAPClient', () => {
             clientId: 'test-client-id',
             clientSecret: 'test-client-secret',
             callbackURL: 'https://callback.example.com',
-            code: 'invalid-code',
+            code: 'expired-code',
           }),
-        ).rejects.toThrow('invalid_grant');
+        ).rejects.toThrow(
+          'AAP token exchange failed: invalid_grant The authorization code has expired.',
+        );
+      });
+
+      it('should propagate OAuth error code when description is missing', async () => {
+        const mockResponse = {
+          ok: false,
+          status: 400,
+          statusText: 'Bad Request',
+          json: jest.fn().mockResolvedValue({
+            error: 'unsupported_grant_type',
+          }),
+        };
+        mockFetch.mockResolvedValue(mockResponse);
+
+        await expect(
+          client.rhAAPAuthenticate({
+            host: 'https://test.example.com',
+            checkSSL: true,
+            clientId: 'test-client-id',
+            clientSecret: 'test-client-secret',
+            callbackURL: 'https://callback.example.com',
+            code: 'test-code',
+          }),
+        ).rejects.toThrow('AAP token exchange failed: unsupported_grant_type');
+      });
+
+      it('should handle non-JSON error response from token endpoint', async () => {
+        const mockResponse = {
+          ok: false,
+          status: 500,
+          statusText: 'Internal Server Error',
+          json: jest.fn().mockRejectedValue(new Error('Not JSON')),
+        };
+        mockFetch.mockResolvedValue(mockResponse);
+
+        await expect(
+          client.rhAAPAuthenticate({
+            host: 'https://test.example.com',
+            checkSSL: true,
+            clientId: 'test-client-id',
+            clientSecret: 'test-client-secret',
+            callbackURL: 'https://callback.example.com',
+            code: 'test-code',
+          }),
+        ).rejects.toThrow('AAP token exchange failed: Failed to post data');
+      });
+
+      it('should throw AuthenticationError for token exchange failures', async () => {
+        const mockResponse = {
+          ok: false,
+          status: 401,
+          statusText: 'Unauthorized',
+          json: jest.fn().mockResolvedValue({
+            error: 'invalid_client',
+          }),
+        };
+        mockFetch.mockResolvedValue(mockResponse);
+
+        await expect(
+          client.rhAAPAuthenticate({
+            host: 'https://test.example.com',
+            checkSSL: true,
+            clientId: 'test-client-id',
+            clientSecret: 'wrong-secret',
+            callbackURL: 'https://callback.example.com',
+            code: 'test-code',
+          }),
+        ).rejects.toThrow(AuthenticationError);
       });
     });
 
