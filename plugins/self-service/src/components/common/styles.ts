@@ -188,6 +188,7 @@ export const useProgressTooltipStyles = makeStyles(theme => ({
     maxWidth: 'none',
     padding: 0,
     backgroundColor: theme.palette.background.paper,
+    color: theme.palette.text.primary,
     borderRadius: 12,
     boxShadow: '0 4px 24px rgba(0,0,0,0.55)',
     border: `1px solid ${
