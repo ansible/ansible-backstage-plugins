@@ -81,7 +81,7 @@
     "postcss": "^8.5.19",
     "vm2": "^3.11.4",
     "browserslist": "^4.28.7",
-    "nanoid": "^3.3.12",
+    "nanoid": "^5.1.6",
     "@xmldom/xmldom": "^0.9.10",
     "shell-quote": "^1.8.4",
     "ws": "^8.21.0",
