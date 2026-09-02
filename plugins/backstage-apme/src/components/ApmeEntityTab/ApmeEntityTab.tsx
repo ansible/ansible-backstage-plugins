@@ -229,7 +229,6 @@ function WorkflowBody({ projectId }: { projectId: string }) {
               }}
               autoApplyTier1={autoApplyTier1}
               onAutoApplyTier1Change={setAutoApplyTier1}
-              showCollections={false}
               showAiOptions={portalAiEnabled}
               idPrefix="portal-quality"
             />

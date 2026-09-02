@@ -8,6 +8,7 @@ import '@testing-library/jest-dom';
 import { render, screen } from '@testing-library/react';
 import { ThemeProvider, createTheme } from '@material-ui/core';
 import { ApmeQualityTabLabel } from './ApmeQualityTabLabel';
+import { SEVERITY_STYLES } from '@ansible/backstage-apme-common/severity';
 import type { Entity } from '@backstage/catalog-model';
 
 const mockGetProjectByRepoUrl = jest.fn();
@@ -59,21 +60,74 @@ describe('ApmeQualityTabLabel', () => {
     expect(screen.queryByText(/CRITICAL|HIGH|MEDIUM/)).not.toBeInTheDocument();
   });
 
-  it('shows violation count colored by worst severity (no suffix)', async () => {
+  it('renders a severity pill badge colored by worst severity', async () => {
     renderLabel({
       total_violations: 5,
       severity_breakdown: { critical: 2, high: 3 },
     });
-    expect(await screen.findByText('5')).toBeInTheDocument();
-    expect(screen.queryByText(/CRITICAL|HIGH|MEDIUM/)).not.toBeInTheDocument();
+    const badge = await screen.findByText('5');
+    expect(badge).toBeInTheDocument();
+    expect(badge).toHaveStyle({
+      backgroundColor: SEVERITY_STYLES.critical.background,
+      color: SEVERITY_STYLES.critical.text,
+    });
   });
 
-  it('shows plain count when breakdown is missing', async () => {
+  it('renders high-severity pill when high is worst', async () => {
+    renderLabel({
+      total_violations: 7,
+      severity_breakdown: { high: 4, low: 3 },
+    });
+    const badge = await screen.findByText('7');
+    expect(badge).toHaveStyle({
+      backgroundColor: SEVERITY_STYLES.high.background,
+    });
+  });
+
+  it('renders medium-severity pill when medium is worst', async () => {
+    renderLabel({
+      total_violations: 3,
+      severity_breakdown: { medium: 3 },
+    });
+    const badge = await screen.findByText('3');
+    expect(badge).toHaveStyle({
+      backgroundColor: SEVERITY_STYLES.medium.background,
+    });
+  });
+
+  it('renders default/neutral for low-only violations (no colored pill)', async () => {
+    renderLabel({
+      total_violations: 2,
+      severity_breakdown: { low: 2 },
+    });
+    const count = await screen.findByText('2');
+    expect(count).toBeInTheDocument();
+    expect(count).not.toHaveStyle({
+      backgroundColor: SEVERITY_STYLES.low.background,
+    });
+  });
+
+  it('renders default/neutral for info-only violations (no colored pill)', async () => {
+    renderLabel({
+      total_violations: 1,
+      severity_breakdown: { info: 1 },
+    });
+    const count = await screen.findByText('1');
+    expect(count).toBeInTheDocument();
+    expect(count).not.toHaveStyle({
+      backgroundColor: SEVERITY_STYLES.info.background,
+    });
+  });
+
+  it('shows plain count without pill when breakdown is missing', async () => {
     renderLabel({
       total_violations: 4,
       severity_breakdown: {},
     });
-    expect(await screen.findByText('4')).toBeInTheDocument();
-    expect(screen.queryByText(/CRITICAL|HIGH|MEDIUM/)).not.toBeInTheDocument();
+    const count = await screen.findByText('4');
+    expect(count).toBeInTheDocument();
+    expect(count).not.toHaveStyle({
+      backgroundColor: SEVERITY_STYLES.critical.background,
+    });
   });
 });

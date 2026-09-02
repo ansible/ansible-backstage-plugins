@@ -21,6 +21,7 @@ import {
 } from '@ansible/backstage-apme-common/severity';
 import { projectHasActiveOperation } from '@ansible/backstage-apme-common/operationStatus';
 import { apmeApiRef } from '../api';
+import { useApmeColorTokens } from '../hooks/useApmeColorTokens';
 
 let projectsFetchPromise: Promise<Map<string, Project>> | null = null;
 
@@ -102,6 +103,7 @@ function violationCountStyle(
 export function ApmeViolationsCell({ entity }: { entity: Entity }) {
   const theme = useTheme();
   const mode = theme.palette.type === 'dark' ? 'dark' : 'light';
+  const colorTokens = useApmeColorTokens();
   const mutedStatusStyle = {
     fontWeight: 500,
     color: theme.palette.text.primary,
@@ -218,7 +220,13 @@ export function ApmeViolationsCell({ entity }: { entity: Entity }) {
 
   if (project.total_violations === 0) {
     return (
-      <Typography variant="body2" style={{ color: '#4caf50', fontWeight: 500 }}>
+      <Typography
+        variant="body2"
+        style={{
+          color: colorTokens.dependencyViolation.okCheckColor,
+          fontWeight: 500,
+        }}
+      >
         ✓ No violations
       </Typography>
     );

@@ -10,14 +10,26 @@ import { useApi } from '@backstage/core-plugin-api';
 import { defaultBranchFromEntity } from '@ansible/backstage-rhaap-common/catalogEntity';
 import type { Project } from '@ansible/backstage-apme-common/types';
 import {
-  inlineTextColorForSeverity,
+  chipStyleForSeverity,
   projectWorstSeverity,
+  type SeverityLevel,
 } from '@ansible/backstage-apme-common/severity';
 import { projectHasActiveOperation } from '@ansible/backstage-apme-common/operationStatus';
 import type { GitRepositoryDetailTabContext } from '@ansible/backstage-rhaap-common/gitRepositoriesExtensions';
 import { apmeApiRef } from '../../api';
 
-/** Quality detail tab label — count tinted by worst open severity. */
+/**
+ * Severity levels that warrant a colored pill on the tab label.
+ * Low and informational render in default/neutral style per AC.
+ */
+const HIGHLIGHTED_LEVELS: ReadonlySet<SeverityLevel> = new Set<SeverityLevel>([
+  'critical',
+  'error',
+  'high',
+  'medium',
+]);
+
+/** Quality detail tab label — severity-colored pill badge reflecting worst open severity. */
 export function ApmeQualityTabLabel({
   context,
 }: {
@@ -26,7 +38,6 @@ export function ApmeQualityTabLabel({
   const theme = useTheme();
   const apmeApi = useApi(apmeApiRef);
   const [project, setProject] = useState<Project | null>(null);
-  const mode = theme.palette.type === 'dark' ? 'dark' : 'light';
 
   useEffect(() => {
     if (!context.repoUrl) {
@@ -68,14 +79,41 @@ export function ApmeQualityTabLabel({
   }
 
   const worst = projectWorstSeverity(project);
-  const color = worst
-    ? inlineTextColorForSeverity(worst.level, mode)
-    : theme.palette.text.secondary;
+
+  const showPill = worst !== null && HIGHLIGHTED_LEVELS.has(worst.level);
+
+  if (!showPill) {
+    return (
+      <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+        <span>Quality</span>
+        <span
+          style={{
+            color: theme.palette.text.secondary,
+            fontWeight: 600,
+          }}
+        >
+          {project.total_violations}
+        </span>
+      </span>
+    );
+  }
+
+  const pillStyle = chipStyleForSeverity(worst.level);
 
   return (
-    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
       <span>Quality</span>
-      <span style={{ color, fontWeight: 600 }}>
+      <span
+        style={{
+          ...pillStyle,
+          display: 'inline-block',
+          padding: '1px 7px',
+          borderRadius: 10,
+          fontSize: 11,
+          fontWeight: 600,
+          lineHeight: '16px',
+        }}
+      >
         {project.total_violations}
       </span>
     </span>

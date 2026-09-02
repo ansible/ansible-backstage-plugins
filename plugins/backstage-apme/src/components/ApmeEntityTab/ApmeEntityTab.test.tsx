@@ -59,7 +59,6 @@ jest.mock('@apme/ui-workflow', () => ({
     <>{children}</>
   ),
   CheckOptionsForm: (props: {
-    showCollections?: boolean;
     showAiOptions?: boolean;
     enableAi: boolean;
     autoApplyTier1?: boolean;
@@ -67,7 +66,6 @@ jest.mock('@apme/ui-workflow', () => ({
     onEnableAiChange: (checked: boolean) => void;
   }) => (
     <div data-testid="check-options">
-      <span data-testid="show-collections">{String(props.showCollections ?? true)}</span>
       <span data-testid="show-ai-options">{String(!!props.showAiOptions)}</span>
       <span data-testid="form-enable-ai">{String(props.enableAi)}</span>
       <span data-testid="form-auto-apply">
@@ -142,12 +140,6 @@ describe('ApmeEntityTab', () => {
       autoApplyTier1: boolean;
     };
   }
-
-  it('hides the collections input from the portal form (AAP-89526)', async () => {
-    renderTab();
-    expect(await screen.findByText('demo-repo')).toBeInTheDocument();
-    expect(screen.getByTestId('show-collections')).toHaveTextContent('false');
-  });
 
   it('hides AI options and forces checkOptions AI flags false when portal AI is disabled', async () => {
     mockUseApmeAiEnabled.mockReturnValue(false);

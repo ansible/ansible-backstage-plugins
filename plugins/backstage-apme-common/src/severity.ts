@@ -44,6 +44,40 @@ export interface FixTypeStyle {
   tooltip: string;
 }
 
+/**
+ * Centralized severity-to-color mapping (ADR-043).
+ *
+ * This is the **single source of truth** for violation severity colors across
+ * the portal. Every component that renders severity indicators — pills, badges,
+ * inline counts, bar charts — must reference these styles or the theme-aware
+ * {@link SEVERITY_COLOR_TOKENS} below. Do NOT hardcode hex color values in
+ * components; use the helpers listed below instead.
+ *
+ * ### Severity color convention
+ *
+ * | Level    | Color   | Background | Tab / badge behavior              |
+ * |----------|---------|------------|-----------------------------------|
+ * | critical | Red     | `#a30000`  | Colored pill — highest urgency    |
+ * | error    | Red     | `#c9190b`  | Colored pill                      |
+ * | high     | Orange  | `#f56a00`  | Colored pill                      |
+ * | medium   | Yellow  | `#c58c00`  | Colored pill                      |
+ * | low      | Blue    | `#2b9af3`  | Default/neutral in tab labels     |
+ * | info     | Gray    | `#6a6e73`  | Default/neutral in tab labels     |
+ *
+ * Tab-level indicators (e.g. `ApmeQualityTabLabel`) render a colored pill
+ * only for critical / error / high / medium. Low and informational violations
+ * display the count in the default (non-highlighted) text style.
+ *
+ * Detailed views (fleet table, violation modal, rules tab) still use the
+ * full palette including low and info colors for pills and bar segments.
+ *
+ * ### How to adopt in a new component
+ *
+ * - **Pill / chip backgrounds:** `chipStyleForSeverity(level)`
+ * - **Inline text coloring:** `inlineTextColorForSeverity(level, mode)`
+ * - **Full theme-aware tokens:** `useApmeColorTokens().severity[level]`
+ * - **Worst severity from a project:** `projectWorstSeverity(project)`
+ */
 export const SEVERITY_STYLES: Record<SeverityLevel, SeverityStyle> = {
   critical: {
     background: '#a30000',
@@ -142,6 +176,19 @@ export interface PreviewSurfaceTokens {
   outlinedBorder: string;
 }
 
+/**
+ * Theme-aware severity color tokens (light / dark).
+ *
+ * Each severity level provides four token slots:
+ * - `pillBackground` / `pillText` — for chip and badge backgrounds
+ * - `inlineText` — for colored counts and links in body text
+ * - `barFill` — for stacked severity bars and progress indicators
+ *
+ * Access via `getSeverityColorTokens(mode)` or the React hook
+ * `useApmeColorTokens().severity`.
+ *
+ * @see SEVERITY_STYLES for the theme-agnostic (static) palette.
+ */
 const SEVERITY_COLOR_TOKENS: Record<
   ThemeMode,
   Record<SeverityLevel, SeverityColorTokens>
