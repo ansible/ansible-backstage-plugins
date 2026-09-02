@@ -7,6 +7,7 @@ import {
   PassportProfile,
 } from '@backstage/plugin-auth-node';
 import { IAAPService } from '@ansible/backstage-rhaap-common';
+import { AuthenticationError } from '@backstage/errors';
 
 const PKCE_COOKIE_NAME = 'rhaap-pkce';
 const PKCE_COOKIE_MAX_AGE_MS = 10 * 60 * 1000;
