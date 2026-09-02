@@ -641,6 +641,30 @@ describe('catalog-backend-module-apme router', () => {
     expect(mockApmeService.submitRemediation).not.toHaveBeenCalled();
   });
 
+  it('enriches project list rows with severity_breakdown from detail', async () => {
+    mockApmeService.getProjects.mockResolvedValueOnce([
+      {
+        id: 'proj-1',
+        name: 'demo',
+        repo_url: 'https://github.com/acme/demo',
+        branch: 'main',
+        total_violations: 5,
+      },
+    ]);
+    mockApmeService.getProject.mockResolvedValueOnce({
+      id: 'proj-1',
+      severity_breakdown: { critical: 5 },
+    });
+
+    const response = await request(app).get('/apme/projects');
+
+    expect(response.status).toBe(200);
+    expect(mockApmeService.getProject).toHaveBeenCalledWith('proj-1');
+    expect(response.body.items[0].severity_breakdown).toEqual({
+      critical: 5,
+    });
+  });
+
   it('rejects createProject when the branch does not exist', async () => {
     (global.fetch as jest.Mock)
       .mockReset()

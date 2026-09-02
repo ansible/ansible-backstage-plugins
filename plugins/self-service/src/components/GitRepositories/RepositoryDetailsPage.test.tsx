@@ -12,6 +12,7 @@ import { SCM_INTEGRATION_AUTH_FAILED_CODE } from '@ansible/backstage-rhaap-commo
 import {
   DefaultGitRepositoriesExtensionsApi,
   gitRepositoriesExtensionsApiRef,
+  type GitRepositoriesExtensionsApi,
 } from '@ansible/backstage-rhaap-common/gitRepositoriesExtensions';
 import { RepositoryDetailsPage } from './RepositoryDetailsPage';
 
@@ -668,6 +669,48 @@ describe('RepositoryDetailsPage', () => {
     await waitFor(() => {
       expect(screen.getByTestId('collections-list')).toBeInTheDocument();
     });
+  });
+
+  it('renders extension tab renderLabel when provided', async () => {
+    class ExtensionsWithCustomLabel
+      extends DefaultGitRepositoriesExtensionsApi
+      implements GitRepositoriesExtensionsApi
+    {
+      getDetailTabs() {
+        return [
+          {
+            id: 'quality',
+            label: 'Quality',
+            order: 10,
+            render: () => <div data-testid="quality-tab-panel">Quality</div>,
+            renderLabel: () => (
+              <span data-testid="custom-quality-tab-label">Quality 5</span>
+            ),
+          },
+        ];
+      }
+    }
+
+    await renderInTestApp(
+      <TestApiProvider
+        apis={[
+          [catalogApiRef, mockCatalogApi],
+          [discoveryApiRef, mockDiscoveryApi],
+          [fetchApiRef, mockFetchApi],
+          [identityApiRef, mockIdentityApi],
+          [gitRepositoriesExtensionsApiRef, new ExtensionsWithCustomLabel()],
+        ]}
+      >
+        <ThemeProvider theme={theme}>
+          <RepositoryDetailsPage />
+        </ThemeProvider>
+      </TestApiProvider>,
+    );
+
+    await waitFor(() => {
+      expect(screen.getByTestId('custom-quality-tab-label')).toBeInTheDocument();
+    });
+    expect(screen.getByText('Quality 5')).toBeInTheDocument();
   });
 
   it('handles invalid source URL gracefully', async () => {

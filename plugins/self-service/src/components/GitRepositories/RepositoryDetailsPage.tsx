@@ -83,6 +83,7 @@ type ResolvedDetailTab =
       order: number;
       kind: 'extension';
       render: GitRepositoryDetailTabDefinition['render'];
+      renderLabel?: GitRepositoryDetailTabDefinition['renderLabel'];
     };
 
 type ReadmeStateSetters = {
@@ -240,6 +241,7 @@ const RepositoryDetailsPageInner = () => {
       order: tab.order,
       kind: 'extension' as const,
       render: tab.render,
+      renderLabel: tab.renderLabel,
     }));
     return [...CORE_DETAIL_TABS, ...extensionTabs].sort(
       (a, b) => a.order - b.order,
@@ -508,7 +510,17 @@ const RepositoryDetailsPageInner = () => {
         className={classes.detailsTabs}
       >
         {detailTabs.map(detailTab => (
-          <Tab key={detailTab.id} label={detailTab.label} disableRipple />
+          <Tab
+            key={detailTab.id}
+            label={
+              detailTab.kind === 'extension' &&
+              detailTab.renderLabel &&
+              detailTabContext
+                ? detailTab.renderLabel(detailTabContext)
+                : detailTab.label
+            }
+            disableRipple
+          />
         ))}
       </Tabs>
 
