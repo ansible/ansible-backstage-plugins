@@ -82,8 +82,10 @@ jest.mock('@backstage/plugin-scaffolder-react', () => ({
 jest.mock('../GitRepositories/gitReposCache', () => ({
   gitReposCache: {
     invalidateFetchedData: jest.fn(),
+    markStale: jest.fn(),
     getState: jest.fn(),
   },
+  markGitReposRegistrationRefreshPending: jest.fn(),
 }));
 
 // Mock the TaskSteps component
@@ -3369,12 +3371,17 @@ describe('RunTask', () => {
   describe('Cache invalidation', () => {
     const getGitReposCacheMock = () =>
       require('../GitRepositories/gitReposCache').gitReposCache;
+    const getMarkPendingRefreshMock = () =>
+      require('../GitRepositories/gitReposCache')
+        .markGitReposRegistrationRefreshPending;
 
     beforeEach(() => {
+      getGitReposCacheMock().markStale.mockClear();
       getGitReposCacheMock().invalidateFetchedData.mockClear();
+      getMarkPendingRefreshMock().mockClear();
     });
 
-    it('should invalidate git repos cache when git-repository template completes successfully', async () => {
+    it('should mark git repos cache stale when git-repository template completes successfully', async () => {
       const useTaskEventStreamMock =
         require('@backstage/plugin-scaffolder-react').useTaskEventStream;
 
@@ -3407,15 +3414,18 @@ describe('RunTask', () => {
       await render(<RunTask />);
 
       await waitFor(() => {
-        expect(
-          getGitReposCacheMock().invalidateFetchedData,
-        ).toHaveBeenCalled();
+        expect(getGitReposCacheMock().markStale).toHaveBeenCalled();
+        expect(getMarkPendingRefreshMock()).toHaveBeenCalled();
       });
+
+      expect(
+        getGitReposCacheMock().invalidateFetchedData,
+      ).not.toHaveBeenCalled();
 
       useTaskEventStreamMock.mockImplementation(originalImplementation);
     }, 15000);
 
-    it('should invalidate git repos cache when template has git-repository tag', async () => {
+    it('should mark git repos cache stale when template has git-repository tag', async () => {
       const useTaskEventStreamMock =
         require('@backstage/plugin-scaffolder-react').useTaskEventStream;
 
@@ -3448,15 +3458,133 @@ describe('RunTask', () => {
       await render(<RunTask />);
 
       await waitFor(() => {
-        expect(
-          getGitReposCacheMock().invalidateFetchedData,
-        ).toHaveBeenCalled();
+        expect(getGitReposCacheMock().markStale).toHaveBeenCalled();
+        expect(getMarkPendingRefreshMock()).toHaveBeenCalled();
+      });
+
+      expect(
+        getGitReposCacheMock().invalidateFetchedData,
+      ).not.toHaveBeenCalled();
+
+      useTaskEventStreamMock.mockImplementation(originalImplementation);
+    }, 15000);
+
+    it('should mark git repos cache stale when catalog template entity has git-repository tag', async () => {
+      const useTaskEventStreamMock =
+        require('@backstage/plugin-scaffolder-react').useTaskEventStream;
+
+      const originalImplementation =
+        useTaskEventStreamMock.getMockImplementation();
+
+      mockCatalogApi.getEntityByRef.mockResolvedValueOnce({
+        metadata: {
+          name: 'apme-register-git-repository',
+          tags: ['git-repository', 'apme'],
+        },
+        spec: { type: 'service' },
+      });
+
+      useTaskEventStreamMock.mockImplementation(() => ({
+        task: {
+          spec: {
+            templateInfo: {
+              entityRef: 'template:default/apme-register-git-repository',
+              entity: {
+                metadata: {
+                  title: 'Register repo',
+                },
+              },
+            },
+            steps: [{ id: 'register-direct', name: 'Register in catalog' }],
+          },
+        },
+        completed: true,
+        loading: false,
+        error: undefined,
+        output: { links: [] },
+        steps: { 'register-direct': { status: 'completed' } },
+        stepLogs: {},
+      }));
+
+      await render(<RunTask />);
+
+      await waitFor(() => {
+        expect(getGitReposCacheMock().markStale).toHaveBeenCalled();
+        expect(getMarkPendingRefreshMock()).toHaveBeenCalled();
       });
 
       useTaskEventStreamMock.mockImplementation(originalImplementation);
     }, 15000);
 
-    it('should NOT invalidate git repos cache when template is not git-repository', async () => {
+    it('should record git repo refresh pending from entityRef before template lookup resolves', async () => {
+      let resolveEntity: (value: unknown) => void = () => {};
+      const entityPromise = new Promise<unknown>(resolve => {
+        resolveEntity = resolve;
+      });
+      mockCatalogApi.getEntityByRef.mockReturnValue(entityPromise);
+
+      const useTaskEventStreamMock =
+        require('@backstage/plugin-scaffolder-react').useTaskEventStream;
+
+      const originalImplementation =
+        useTaskEventStreamMock.getMockImplementation();
+
+      useTaskEventStreamMock.mockImplementation(() => ({
+        task: {
+          spec: {
+            templateInfo: {
+              entityRef: 'template:default/apme-register-git-repository',
+              entity: {
+                metadata: {
+                  title: 'Register repo',
+                },
+              },
+            },
+            steps: [{ id: 'register-direct', name: 'Register in catalog' }],
+          },
+        },
+        completed: true,
+        loading: false,
+        error: undefined,
+        output: {
+          links: [
+            {
+              title: 'Go to Git Repositories',
+              url: '/self-service/repositories/catalog?refresh=true',
+            },
+          ],
+        },
+        steps: { 'register-direct': { status: 'completed' } },
+        stepLogs: {},
+      }));
+
+      await render(<RunTask />);
+
+      expect(getMarkPendingRefreshMock()).toHaveBeenCalled();
+      expect(getGitReposCacheMock().markStale).toHaveBeenCalled();
+      expect(
+        getGitReposCacheMock().invalidateFetchedData,
+      ).not.toHaveBeenCalled();
+      expect(mockCatalogApi.getEntityByRef).toHaveBeenCalledWith(
+        'template:default/apme-register-git-repository',
+      );
+
+      await act(async () => {
+        resolveEntity({
+          metadata: {
+            name: 'apme-register-git-repository',
+            tags: ['git-repository', 'apme'],
+          },
+        });
+        await entityPromise;
+      });
+
+      expect(getMarkPendingRefreshMock()).toHaveBeenCalledTimes(1);
+
+      useTaskEventStreamMock.mockImplementation(originalImplementation);
+    }, 15000);
+
+    it('should NOT mark git repos cache stale when template is not git-repository', async () => {
       const useTaskEventStreamMock =
         require('@backstage/plugin-scaffolder-react').useTaskEventStream;
 
@@ -3492,6 +3620,7 @@ describe('RunTask', () => {
         expect(screen.getByText('EE Template')).toBeInTheDocument();
       });
 
+      expect(getGitReposCacheMock().markStale).not.toHaveBeenCalled();
       expect(
         getGitReposCacheMock().invalidateFetchedData,
       ).not.toHaveBeenCalled();
@@ -3499,7 +3628,7 @@ describe('RunTask', () => {
       useTaskEventStreamMock.mockImplementation(originalImplementation);
     }, 15000);
 
-    it('should NOT invalidate cache when task fails', async () => {
+    it('should NOT mark cache stale when task fails', async () => {
       const useTaskEventStreamMock =
         require('@backstage/plugin-scaffolder-react').useTaskEventStream;
 
@@ -3535,6 +3664,7 @@ describe('RunTask', () => {
         expect(screen.getByText('Register repo')).toBeInTheDocument();
       });
 
+      expect(getGitReposCacheMock().markStale).not.toHaveBeenCalled();
       expect(
         getGitReposCacheMock().invalidateFetchedData,
       ).not.toHaveBeenCalled();
