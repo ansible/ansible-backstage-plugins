@@ -5,6 +5,7 @@
  */
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { useApi } from '@backstage/core-plugin-api';
 import { Progress, ResponseErrorPanel } from '@backstage/core-components';
 import {
@@ -47,6 +48,7 @@ import {
   useApmeOutlinedTableStyles,
 } from '../ApmeOutlinedTable';
 import { PreviewLabelRow } from '../PreviewChip';
+import { normalizeRuleId } from '../../utils/violationAnalytics';
 
 const SEVERITY_SELECT_OPTIONS: { value: number; label: string }[] = [
   { value: 1, label: 'Info' },
@@ -186,6 +188,8 @@ export const ApmeRulesTab = () => {
   const tableClasses = useApmeOutlinedTableStyles();
   const theme = useTheme();
   const apmeApi = useApi(apmeApiRef);
+  const [searchParams, setSearchParams] = useSearchParams();
+  const deepLinkRuleId = searchParams.get('rule');
 
   const [rules, setRules] = useState<Rule[]>([]);
   const [loading, setLoading] = useState(true);
@@ -226,6 +230,23 @@ export const ApmeRulesTab = () => {
   useEffect(() => {
     void loadRules();
   }, [loadRules]);
+
+  useEffect(() => {
+    if (!deepLinkRuleId || rules.length === 0) {
+      return;
+    }
+    const normalized = normalizeRuleId(deepLinkRuleId);
+    const match = rules.find(
+      rule => normalizeRuleId(rule.id) === normalized,
+    );
+    if (!match) {
+      return;
+    }
+    setSelectedRule(match);
+    const next = new URLSearchParams(searchParams);
+    next.delete('rule');
+    setSearchParams(next, { replace: true });
+  }, [deepLinkRuleId, rules, searchParams, setSearchParams]);
 
   const categoryOptions = useMemo(() => {
     const s = new Set(rules.map(r => r.category).filter(Boolean));

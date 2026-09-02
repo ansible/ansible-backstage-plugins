@@ -4,6 +4,7 @@
 
 import '@testing-library/jest-dom';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { MemoryRouter } from 'react-router-dom';
 import { ThemeProvider, createTheme } from '@material-ui/core/styles';
 import { TestApiProvider } from '@backstage/test-utils';
 import {
@@ -60,23 +61,25 @@ describe('ApmeRulesTab', () => {
     deleteRuleConfig.mockResolvedValue(undefined);
   });
 
-  function renderTab() {
+  function renderTab(initialEntry = '/') {
     return render(
-      <TestApiProvider
-        apis={[
-          [apmeApiRef, { getRules, updateRuleConfig, deleteRuleConfig }],
-          [
-            configApiRef,
-            new ConfigReader({ ansible: { apme: { enabled: true } } }),
-          ],
-          [discoveryApiRef, { getBaseUrl: async () => 'http://localhost' }],
-          [fetchApiRef, { fetch: jest.fn() }],
-        ]}
-      >
-        <ThemeProvider theme={createTheme()}>
-          <ApmeRulesTab />
-        </ThemeProvider>
-      </TestApiProvider>,
+      <MemoryRouter initialEntries={[initialEntry]}>
+        <TestApiProvider
+          apis={[
+            [apmeApiRef, { getRules, updateRuleConfig, deleteRuleConfig }],
+            [
+              configApiRef,
+              new ConfigReader({ ansible: { apme: { enabled: true } } }),
+            ],
+            [discoveryApiRef, { getBaseUrl: async () => 'http://localhost' }],
+            [fetchApiRef, { fetch: jest.fn() }],
+          ]}
+        >
+          <ThemeProvider theme={createTheme()}>
+            <ApmeRulesTab />
+          </ThemeProvider>
+        </TestApiProvider>
+      </MemoryRouter>,
     );
   }
 
@@ -141,5 +144,23 @@ describe('ApmeRulesTab', () => {
       expect(deleteRuleConfig).toHaveBeenCalledWith('D001');
     });
     expect(getRules).toHaveBeenCalledTimes(2);
+  });
+
+  it('opens the rule detail dialog from ?rule= deep link', async () => {
+    renderTab('/?rule=M001');
+    expect(await screen.findByText(/Rule: M001/i)).toBeInTheDocument();
+  });
+
+  it('opens the rule detail dialog when catalog ids use the native: prefix', async () => {
+    getRules.mockResolvedValueOnce([
+      {
+        ...MOCK_RULES[0],
+        id: 'native:L001',
+        name: 'yaml-syntax',
+        description: 'YAML syntax check',
+      },
+    ]);
+    renderTab('/?rule=L001');
+    expect(await screen.findByText(/Rule: native:L001/i)).toBeInTheDocument();
   });
 });

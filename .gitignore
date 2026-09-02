@@ -41,6 +41,7 @@ e2e-tests/.yarn/*
 dist
 dist-types
 dist-scalprum
+.mf/
 plugins/*/dist-dynamic/*
 storybook-static
 *.tsbuildinfo
