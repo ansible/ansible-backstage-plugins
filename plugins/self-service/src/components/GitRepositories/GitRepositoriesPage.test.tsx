@@ -373,8 +373,7 @@ describe('GitRepositoriesPage', () => {
     await renderInTestApp(
       <TestApiProvider
         apis={[
-          [discoveryApiRef, mockDiscoveryApi],
-          [fetchApiRef, mockFetchApi],
+          ...basePageApis,
           [gitRepositoriesExtensionsApiRef, new ExtensionsApiWithQualityTab()],
         ]}
       >
