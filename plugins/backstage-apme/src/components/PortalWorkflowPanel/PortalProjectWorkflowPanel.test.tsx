@@ -26,6 +26,7 @@ function workflowStub(
     setAttachOp: jest.fn(),
     opState: null,
     isRunning: false,
+    isCancelling: false,
     operationActive: false,
     sessionTabVisible: false,
     refreshOp: jest.fn(),
