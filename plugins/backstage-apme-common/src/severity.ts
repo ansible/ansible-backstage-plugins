@@ -61,11 +61,11 @@ export interface FixTypeStyle {
  * | error    | Red     | `#c9190b`  | Colored pill                      |
  * | high     | Orange  | `#f56a00`  | Colored pill                      |
  * | medium   | Yellow  | `#c58c00`  | Colored pill                      |
- * | low      | Blue    | `#2b9af3`  | Default/neutral in tab labels     |
- * | info     | Gray    | `#6a6e73`  | Default/neutral in tab labels     |
+ * | low      | Blue    | `#2b9af3`  | Default/neutral where pill omitted |
+ * | info     | Gray    | `#6a6e73`  | Default/neutral where pill omitted |
  *
- * Tab-level indicators (e.g. `ApmeQualityTabLabel`) render a colored pill
- * only for critical / error / high / medium. Low and informational violations
+ * Summary chips (e.g. catalog status chip) use colored pills for
+ * critical / error / high / medium. Low and informational violations
  * display the count in the default (non-highlighted) text style.
  *
  * Detailed views (fleet table, violation modal, rules tab) still use the

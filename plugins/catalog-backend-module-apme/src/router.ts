@@ -37,6 +37,7 @@ import {
   InvalidGatewayBaseUrlError,
   normalizeGatewayBaseUrl,
   enrichProjectsWithSeverityBreakdown,
+  projectNeedsSeverityEnrichment,
 } from '@ansible/backstage-apme-common';
 import { ApmePortalSettingsStore } from './apmePortalSettingsStore';
 import { validateRepoBranch } from './branchLookup';
@@ -526,6 +527,12 @@ export async function createRouter(options: RouterOptions): Promise<Router> {
     await ensureUser(req);
     logger.debug('APME projects list requested');
     const projects = await apmeService.getProjects();
+    const enrichmentCount = projects.filter(projectNeedsSeverityEnrichment).length;
+    if (enrichmentCount > 0) {
+      logger.info(
+        `Enriching severity breakdown for ${enrichmentCount} of ${projects.length} APME projects`,
+      );
+    }
     const items = await enrichProjectsWithSeverityBreakdown(projects, projectId =>
       apmeService.getProject(projectId),
     );

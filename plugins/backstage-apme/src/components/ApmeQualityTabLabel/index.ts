@@ -1,1 +1,0 @@
-export { ApmeQualityTabLabel } from './ApmeQualityTabLabel';

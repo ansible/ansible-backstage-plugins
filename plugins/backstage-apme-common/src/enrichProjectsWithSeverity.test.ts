@@ -25,6 +25,13 @@ function project(
 }
 
 describe('enrichProjectsWithSeverityBreakdown', () => {
+  it('returns an empty list without calling fetchDetail', async () => {
+    const fetchDetail = jest.fn();
+    const result = await enrichProjectsWithSeverityBreakdown([], fetchDetail);
+    expect(result).toEqual([]);
+    expect(fetchDetail).not.toHaveBeenCalled();
+  });
+
   it('fetches detail only for projects missing severity breakdown', async () => {
     const fetchDetail = jest.fn(
       async (
@@ -54,6 +61,15 @@ describe('enrichProjectsWithSeverityBreakdown', () => {
     expect(result[2].severity_breakdown).toEqual({ high: 2 });
   });
 
+  it('returns original row when detail has no severity_breakdown', async () => {
+    const row = project({ id: 'p1', total_violations: 2 });
+    const result = await enrichProjectsWithSeverityBreakdown(
+      [row],
+      async () => ({}),
+    );
+    expect(result[0]).toBe(row);
+  });
+
   it('returns original row when detail fetch fails', async () => {
     const row = project({ id: 'p1', total_violations: 1 });
     const result = await enrichProjectsWithSeverityBreakdown(
@@ -63,5 +79,29 @@ describe('enrichProjectsWithSeverityBreakdown', () => {
       },
     );
     expect(result[0]).toBe(row);
+  });
+
+  it('limits parallel detail fetches to the configured concurrency', async () => {
+    let inflight = 0;
+    let maxInflight = 0;
+    const rows = Array.from({ length: 6 }, (_, index) =>
+      project({ id: `p${index}`, total_violations: index + 1 }),
+    );
+
+    const result = await enrichProjectsWithSeverityBreakdown(
+      rows,
+      async () => {
+        inflight += 1;
+        maxInflight = Math.max(maxInflight, inflight);
+        await new Promise(resolve => setTimeout(resolve, 20));
+        inflight -= 1;
+        return { severity_breakdown: { high: 1 } };
+      },
+      { concurrency: 2 },
+    );
+
+    expect(result).toHaveLength(6);
+    expect(maxInflight).toBeLessThanOrEqual(2);
+    expect(maxInflight).toBeGreaterThan(1);
   });
 });
