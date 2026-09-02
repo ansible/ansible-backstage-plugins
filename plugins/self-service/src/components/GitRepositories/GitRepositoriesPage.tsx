@@ -14,6 +14,7 @@ import {
   Routes,
   useLocation,
   useNavigate,
+  useSearchParams,
 } from 'react-router-dom';
 import {
   RequirePermission,
@@ -22,6 +23,7 @@ import {
 import type { Permission } from '@backstage/plugin-permission-common';
 import { gitRepositoriesViewPermission } from '@ansible/backstage-rhaap-common/permissions';
 import type { GitRepositoriesPageTabDefinition } from '@ansible/backstage-rhaap-common/gitRepositoriesExtensions';
+import { catalogApiRef } from '@backstage/plugin-catalog-react';
 import { useGitRepositoriesExtensions } from './useGitRepositoriesExtensions';
 import {
   discoveryApiRef,
@@ -43,7 +45,12 @@ import { RepositoriesPageHeaderSection } from './RepositoriesPageHeaderSection';
 import { RepositoriesTable } from './RepositoriesTable';
 import { RepositoriesCIActivityTab } from './RepositoriesCIActivityTab';
 import { RepositoryDetailsPage } from './RepositoryDetailsPage';
-import { gitReposCache } from './gitReposCache';
+import {
+  consumeGitReposPriorTotal,
+  consumeGitReposRegistrationRefreshPending,
+  gitReposCache,
+  refreshGitReposAfterRegistration,
+} from './gitReposCache';
 
 const useStyles = makeStyles(theme => ({
   tabsSection: {
@@ -175,8 +182,10 @@ export const GitRepositoriesPage = () => {
   const classes = useStyles();
   const location = useLocation();
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
   const discoveryApi = useApi(discoveryApiRef);
   const fetchApi = useApi(fetchApiRef);
+  const catalogApi = useApi(catalogApiRef);
   const extensionsApi = useGitRepositoriesExtensions();
   const rootLink = useRouteRef(rootRouteRef);
   const { isSyncInProgress, syncProgress, startTracking } =
@@ -346,6 +355,31 @@ export const GitRepositoriesPage = () => {
   );
 
   const activeTab = visibleTabs[selectedTab];
+
+  // Refetch after registration (?refresh=true or pending flag), with retry until
+  // catalog count exceeds pre-registration baseline. Normal sidebar visits skip this.
+  useEffect(() => {
+    if (activeTab?.kind !== 'catalog') {
+      return;
+    }
+
+    const refreshFromQuery = searchParams.get('refresh') === 'true';
+    const refreshFromRegistration =
+      consumeGitReposRegistrationRefreshPending();
+
+    if (!refreshFromQuery && !refreshFromRegistration) {
+      return;
+    }
+
+    if (refreshFromQuery) {
+      const nextParams = new URLSearchParams(searchParams);
+      nextParams.delete('refresh');
+      setSearchParams(nextParams, { replace: true });
+    }
+
+    const priorTotal = consumeGitReposPriorTotal();
+    void refreshGitReposAfterRegistration(catalogApi, priorTotal);
+  }, [activeTab, searchParams, setSearchParams, catalogApi]);
 
   let content;
   if (activeTab?.kind === 'catalog') {

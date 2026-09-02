@@ -3,6 +3,7 @@ import { Route, Routes, useLocation } from 'react-router-dom';
 import { renderInTestApp, TestApiProvider } from '@backstage/test-utils';
 import { ThemeProvider, createTheme } from '@material-ui/core/styles';
 import { discoveryApiRef, fetchApiRef } from '@backstage/core-plugin-api';
+import { catalogApiRef } from '@backstage/plugin-catalog-react';
 import {
   DefaultGitRepositoriesExtensionsApi,
   gitRepositoriesExtensionsApiRef,
@@ -11,10 +12,24 @@ import {
   GitRepositoriesPage,
   GitRepositoriesRoutesPage,
 } from './GitRepositoriesPage';
+import {
+  consumeGitReposRegistrationRefreshPending,
+  markGitReposRegistrationRefreshPending,
+  refreshGitReposAfterRegistration,
+  resetGitReposRegistrationRefreshPending,
+} from './gitReposCache';
+
+jest.mock('./gitReposCache', () => {
+  const actual = jest.requireActual('./gitReposCache');
+  return {
+    ...actual,
+    refreshGitReposAfterRegistration: jest.fn(() => Promise.resolve()),
+  };
+});
 
 const LocationPathname = () => {
-  const { pathname } = useLocation();
-  return <div data-testid="location-pathname">{pathname}</div>;
+  const { pathname, search } = useLocation();
+  return <div data-testid="location-pathname">{`${pathname}${search}`}</div>;
 };
 
 const mockUsePermission = jest.fn().mockReturnValue({ allowed: true });
@@ -140,6 +155,16 @@ const mockFetchApi = {
   }),
 };
 
+const mockCatalogApi = {
+  queryEntities: jest.fn().mockResolvedValue({ items: [], totalItems: 0 }),
+};
+
+const basePageApis = [
+  [discoveryApiRef, mockDiscoveryApi],
+  [fetchApiRef, mockFetchApi],
+  [catalogApiRef, mockCatalogApi],
+] as const;
+
 const theme = createTheme();
 
 const gatedPermission = {
@@ -184,6 +209,8 @@ class ExtensionsApiWithQualityTab extends DefaultGitRepositoriesExtensionsApi {
 describe('GitRepositoriesPage', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    resetGitReposRegistrationRefreshPending();
+    jest.mocked(refreshGitReposAfterRegistration).mockResolvedValue(undefined);
     mockUseSyncStatusPolling.mockReturnValue({
       isSyncInProgress: false,
       startTracking: mockStartTracking,
@@ -195,8 +222,7 @@ describe('GitRepositoriesPage', () => {
     await renderInTestApp(
       <TestApiProvider
         apis={[
-          [discoveryApiRef, mockDiscoveryApi],
-          [fetchApiRef, mockFetchApi],
+          ...basePageApis,
         ]}
       >
         <ThemeProvider theme={theme}>
@@ -215,8 +241,7 @@ describe('GitRepositoriesPage', () => {
     await renderInTestApp(
       <TestApiProvider
         apis={[
-          [discoveryApiRef, mockDiscoveryApi],
-          [fetchApiRef, mockFetchApi],
+          ...basePageApis,
           [gitRepositoriesExtensionsApiRef, new ExtensionsApiWithGatedTab()],
         ]}
       >
@@ -236,8 +261,7 @@ describe('GitRepositoriesPage', () => {
     await renderInTestApp(
       <TestApiProvider
         apis={[
-          [discoveryApiRef, mockDiscoveryApi],
-          [fetchApiRef, mockFetchApi],
+          ...basePageApis,
           [gitRepositoriesExtensionsApiRef, new ExtensionsApiWithGatedTab()],
         ]}
       >
@@ -257,8 +281,7 @@ describe('GitRepositoriesPage', () => {
     await renderInTestApp(
       <TestApiProvider
         apis={[
-          [discoveryApiRef, mockDiscoveryApi],
-          [fetchApiRef, mockFetchApi],
+          ...basePageApis,
           [gitRepositoriesExtensionsApiRef, new ExtensionsApiWithGatedTab()],
         ]}
       >
@@ -281,8 +304,7 @@ describe('GitRepositoriesPage', () => {
     await renderInTestApp(
       <TestApiProvider
         apis={[
-          [discoveryApiRef, mockDiscoveryApi],
-          [fetchApiRef, mockFetchApi],
+          ...basePageApis,
           [gitRepositoriesExtensionsApiRef, new ExtensionsApiWithGatedTab()],
         ]}
       >
@@ -302,8 +324,7 @@ describe('GitRepositoriesPage', () => {
     await renderInTestApp(
       <TestApiProvider
         apis={[
-          [discoveryApiRef, mockDiscoveryApi],
-          [fetchApiRef, mockFetchApi],
+          ...basePageApis,
           [
             gitRepositoriesExtensionsApiRef,
             new DefaultGitRepositoriesExtensionsApi(),
@@ -332,8 +353,7 @@ describe('GitRepositoriesPage', () => {
     await renderInTestApp(
       <TestApiProvider
         apis={[
-          [discoveryApiRef, mockDiscoveryApi],
-          [fetchApiRef, mockFetchApi],
+          ...basePageApis,
           [
             gitRepositoriesExtensionsApiRef,
             new DefaultGitRepositoriesExtensionsApi(),
@@ -353,8 +373,7 @@ describe('GitRepositoriesPage', () => {
     await renderInTestApp(
       <TestApiProvider
         apis={[
-          [discoveryApiRef, mockDiscoveryApi],
-          [fetchApiRef, mockFetchApi],
+          ...basePageApis,
           [gitRepositoriesExtensionsApiRef, new ExtensionsApiWithQualityTab()],
         ]}
       >
@@ -378,8 +397,7 @@ describe('GitRepositoriesPage', () => {
     await renderInTestApp(
       <TestApiProvider
         apis={[
-          [discoveryApiRef, mockDiscoveryApi],
-          [fetchApiRef, mockFetchApi],
+          ...basePageApis,
           [
             gitRepositoriesExtensionsApiRef,
             new DefaultGitRepositoriesExtensionsApi(),
@@ -399,8 +417,7 @@ describe('GitRepositoriesPage', () => {
     await renderInTestApp(
       <TestApiProvider
         apis={[
-          [discoveryApiRef, mockDiscoveryApi],
-          [fetchApiRef, mockFetchApi],
+          ...basePageApis,
           [
             gitRepositoriesExtensionsApiRef,
             new DefaultGitRepositoriesExtensionsApi(),
@@ -422,8 +439,7 @@ describe('GitRepositoriesPage', () => {
     await renderInTestApp(
       <TestApiProvider
         apis={[
-          [discoveryApiRef, mockDiscoveryApi],
-          [fetchApiRef, mockFetchApi],
+          ...basePageApis,
           [
             gitRepositoriesExtensionsApiRef,
             new DefaultGitRepositoriesExtensionsApi(),
@@ -446,8 +462,7 @@ describe('GitRepositoriesPage', () => {
     await renderInTestApp(
       <TestApiProvider
         apis={[
-          [discoveryApiRef, mockDiscoveryApi],
-          [fetchApiRef, mockFetchApi],
+          ...basePageApis,
           [
             gitRepositoriesExtensionsApiRef,
             new DefaultGitRepositoriesExtensionsApi(),
@@ -475,8 +490,7 @@ describe('GitRepositoriesPage', () => {
     await renderInTestApp(
       <TestApiProvider
         apis={[
-          [discoveryApiRef, mockDiscoveryApi],
-          [fetchApiRef, mockFetchApi],
+          ...basePageApis,
           [
             gitRepositoriesExtensionsApiRef,
             new DefaultGitRepositoriesExtensionsApi(),
@@ -504,8 +518,7 @@ describe('GitRepositoriesPage', () => {
     await renderInTestApp(
       <TestApiProvider
         apis={[
-          [discoveryApiRef, mockDiscoveryApi],
-          [fetchApiRef, mockFetchApi],
+          ...basePageApis,
           [
             gitRepositoriesExtensionsApiRef,
             new DefaultGitRepositoriesExtensionsApi(),
@@ -543,8 +556,7 @@ describe('GitRepositoriesPage', () => {
     await renderInTestApp(
       <TestApiProvider
         apis={[
-          [discoveryApiRef, mockDiscoveryApi],
-          [fetchApiRef, mockFetchApi],
+          ...basePageApis,
           [
             gitRepositoriesExtensionsApiRef,
             new DefaultGitRepositoriesExtensionsApi(),
@@ -566,8 +578,7 @@ describe('GitRepositoriesPage', () => {
     await renderInTestApp(
       <TestApiProvider
         apis={[
-          [discoveryApiRef, mockDiscoveryApi],
-          [fetchApiRef, mockFetchApi],
+          ...basePageApis,
           [
             gitRepositoriesExtensionsApiRef,
             new DefaultGitRepositoriesExtensionsApi(),
@@ -593,8 +604,7 @@ describe('GitRepositoriesPage', () => {
     await renderInTestApp(
       <TestApiProvider
         apis={[
-          [discoveryApiRef, mockDiscoveryApi],
-          [fetchApiRef, mockFetchApi],
+          ...basePageApis,
           [
             gitRepositoriesExtensionsApiRef,
             new DefaultGitRepositoriesExtensionsApi(),
@@ -617,8 +627,7 @@ describe('GitRepositoriesPage', () => {
     await renderInTestApp(
       <TestApiProvider
         apis={[
-          [discoveryApiRef, mockDiscoveryApi],
-          [fetchApiRef, mockFetchApi],
+          ...basePageApis,
           [
             gitRepositoriesExtensionsApiRef,
             new DefaultGitRepositoriesExtensionsApi(),
@@ -646,8 +655,7 @@ describe('GitRepositoriesPage', () => {
     await renderInTestApp(
       <TestApiProvider
         apis={[
-          [discoveryApiRef, mockDiscoveryApi],
-          [fetchApiRef, mockFetchApi],
+          ...basePageApis,
           [
             gitRepositoriesExtensionsApiRef,
             new DefaultGitRepositoriesExtensionsApi(),
@@ -677,8 +685,7 @@ describe('GitRepositoriesPage', () => {
     const { unmount } = await renderInTestApp(
       <TestApiProvider
         apis={[
-          [discoveryApiRef, mockDiscoveryApi],
-          [fetchApiRef, mockFetchApi],
+          ...basePageApis,
           [
             gitRepositoriesExtensionsApiRef,
             new DefaultGitRepositoriesExtensionsApi(),
@@ -707,8 +714,7 @@ describe('GitRepositoriesPage', () => {
     await renderInTestApp(
       <TestApiProvider
         apis={[
-          [discoveryApiRef, mockDiscoveryApi],
-          [fetchApiRef, mockFetchApi],
+          ...basePageApis,
           [
             gitRepositoriesExtensionsApiRef,
             new DefaultGitRepositoriesExtensionsApi(),
@@ -732,8 +738,7 @@ describe('GitRepositoriesPage', () => {
     await renderInTestApp(
       <TestApiProvider
         apis={[
-          [discoveryApiRef, mockDiscoveryApi],
-          [fetchApiRef, mockFetchApi],
+          ...basePageApis,
           [
             gitRepositoriesExtensionsApiRef,
             new DefaultGitRepositoriesExtensionsApi(),
@@ -751,5 +756,131 @@ describe('GitRepositoriesPage', () => {
     fireEvent.click(ciActivityTab);
 
     expect(screen.getByTestId('ci-activity-tab')).toBeInTheDocument();
+  });
+
+  it('refreshes catalog when navigating with refresh=true parameter', async () => {
+    sessionStorage.setItem('gitRepos.priorTotal', '5');
+
+    await renderInTestApp(
+      <TestApiProvider
+        apis={[
+          ...basePageApis,
+          [
+            gitRepositoriesExtensionsApiRef,
+            new DefaultGitRepositoriesExtensionsApi(),
+          ],
+        ]}
+      >
+        <ThemeProvider theme={theme}>
+          <Routes>
+            <Route
+              path="/repositories/*"
+              element={
+                <>
+                  <LocationPathname />
+                  <GitRepositoriesPage />
+                </>
+              }
+            />
+          </Routes>
+        </ThemeProvider>
+      </TestApiProvider>,
+      {
+        routeEntries: ['/repositories/catalog?refresh=true'],
+      },
+    );
+
+    await waitFor(() => {
+      expect(refreshGitReposAfterRegistration).toHaveBeenCalledWith(
+        mockCatalogApi,
+        5,
+      );
+    });
+
+    await waitFor(() => {
+      const locationEl = screen.getByTestId('location-pathname');
+      expect(locationEl.textContent).toBe('/repositories/catalog');
+    });
+  });
+
+  it('refreshes catalog when switching to catalog tab after registration pending flag', async () => {
+    markGitReposRegistrationRefreshPending();
+
+    await renderInTestApp(
+      <TestApiProvider
+        apis={[
+          ...basePageApis,
+          [
+            gitRepositoriesExtensionsApiRef,
+            new DefaultGitRepositoriesExtensionsApi(),
+          ],
+        ]}
+      >
+        <ThemeProvider theme={theme}>
+          <GitRepositoriesPage />
+        </ThemeProvider>
+      </TestApiProvider>,
+      { routeEntries: ['/repositories/ci-activity'] },
+    );
+
+    expect(screen.getByTestId('ci-activity-tab')).toBeInTheDocument();
+    expect(refreshGitReposAfterRegistration).not.toHaveBeenCalled();
+
+    fireEvent.click(screen.getByText('Catalog'));
+
+    await waitFor(() => {
+      expect(refreshGitReposAfterRegistration).toHaveBeenCalled();
+    });
+    expect(consumeGitReposRegistrationRefreshPending()).toBe(false);
+  });
+
+  it('does not refresh catalog on normal navigation without refresh parameter', async () => {
+    await renderInTestApp(
+      <TestApiProvider
+        apis={[
+          ...basePageApis,
+          [
+            gitRepositoriesExtensionsApiRef,
+            new DefaultGitRepositoriesExtensionsApi(),
+          ],
+        ]}
+      >
+        <ThemeProvider theme={theme}>
+          <GitRepositoriesPage />
+        </ThemeProvider>
+      </TestApiProvider>,
+      { routeEntries: ['/repositories/catalog'] },
+    );
+
+    await waitFor(() => {
+      expect(screen.getByTestId('repositories-table')).toBeInTheDocument();
+    });
+
+    expect(refreshGitReposAfterRegistration).not.toHaveBeenCalled();
+  });
+
+  it('does not refresh catalog when refresh parameter is not "true"', async () => {
+    await renderInTestApp(
+      <TestApiProvider
+        apis={[
+          ...basePageApis,
+          [
+            gitRepositoriesExtensionsApiRef,
+            new DefaultGitRepositoriesExtensionsApi(),
+          ],
+        ]}
+      >
+        <ThemeProvider theme={theme}>
+          <GitRepositoriesPage />
+        </ThemeProvider>
+      </TestApiProvider>,
+      { routeEntries: ['/repositories/catalog?refresh=false'] },
+    );
+
+    await waitFor(() => {
+      expect(screen.getByTestId('repositories-table')).toBeInTheDocument();
+    });
+
+    expect(refreshGitReposAfterRegistration).not.toHaveBeenCalled();
   });
 });

@@ -1,4 +1,11 @@
-import { useCallback, useMemo, useState, useEffect } from 'react';
+import {
+  useCallback,
+  useMemo,
+  useState,
+  useEffect,
+  useLayoutEffect,
+  useRef,
+} from 'react';
 import {
   Page,
   Header,
@@ -20,7 +27,10 @@ import {
   taskCreatePermission,
   taskReadPermission,
 } from '@backstage/plugin-scaffolder-common/alpha';
-import { gitReposCache } from '../GitRepositories/gitReposCache';
+import {
+  gitReposCache,
+  markGitReposRegistrationRefreshPending,
+} from '../GitRepositories/gitReposCache';
 import {
   Button,
   CircularProgress,
@@ -37,6 +47,29 @@ import {
   resolveEeFileNameFromParameters,
   resolvePublishToScmFromParameters,
 } from './runTaskParameters';
+
+function isGitRepositoryRegistrationTemplate(
+  templateEntity: { metadata?: { name?: string; tags?: string[] } } | null,
+  templateMetadata?: { name?: string; tags?: string[] },
+  templateEntityRef?: string,
+): boolean {
+  const tags = templateEntity?.metadata?.tags ?? templateMetadata?.tags;
+  const name = templateEntity?.metadata?.name ?? templateMetadata?.name;
+  if (tags?.includes('git-repository') === true) {
+    return true;
+  }
+  if (name === 'apme-register-git-repository') {
+    return true;
+  }
+  if (templateEntityRef) {
+    const normalizedRef = templateEntityRef.toLowerCase();
+    return (
+      normalizedRef.endsWith('/apme-register-git-repository') ||
+      normalizedRef.endsWith(':apme-register-git-repository')
+    );
+  }
+  return false;
+}
 
 const headerStyles = makeStyles(theme => ({
   header_title_color: {
@@ -97,9 +130,8 @@ export const RunTask = () => {
   const [expandedTextIndex, setExpandedTextIndex] = useState<number | null>(
     null,
   );
-  const [templateEntity, setTemplateEntity] = useState<{
-    spec?: { type?: string };
-  } | null>(null);
+  const [templateEntity, setTemplateEntity] = useState<Entity | null>(null);
+  const gitRepoRefreshRecordedRef = useRef(false);
   const navigate = useNavigate();
   const rootLink = useRouteRef(rootRouteRef);
   const templateRouteRef = useRouteRef(selectedTemplateRouteRef);
@@ -388,23 +420,34 @@ export const RunTask = () => {
     };
   }, [matchingEntity, completed, effectiveTask, allSteps, catalogApi]);
 
-  // Invalidate git repos cache when repo-registration template completes successfully
-  useEffect(() => {
+  // Mark git repos cache stale when repo-registration template completes successfully.
+  // Save pre-registration count + pending flag first; catalog page retries startLoading
+  // until catalog total exceeds that baseline (handles indexing delay).
+  // useLayoutEffect + entityRef fallback: record before success-link navigation can
+  // unmount RunTask while getEntityByRef is still pending.
+  useLayoutEffect(() => {
     if (!completed || taskStatus !== 'completed' || !effectiveTask) {
       return;
     }
-
-    const templateTags =
-      effectiveTask?.spec?.templateInfo?.entity?.metadata?.tags;
-    const isGitRepoTemplate =
-      templateTags?.includes('git-repository') ||
-      effectiveTask?.spec?.templateInfo?.entity?.metadata?.name ===
-        'apme-register-git-repository';
-
-    if (isGitRepoTemplate) {
-      gitReposCache.invalidateFetchedData();
+    if (gitRepoRefreshRecordedRef.current) {
+      return;
     }
-  }, [completed, taskStatus, effectiveTask]);
+
+    const templateMetadata =
+      effectiveTask?.spec?.templateInfo?.entity?.metadata;
+    const templateEntityRef = effectiveTask?.spec?.templateInfo?.entityRef;
+    if (
+      isGitRepositoryRegistrationTemplate(
+        templateEntity,
+        templateMetadata,
+        templateEntityRef,
+      )
+    ) {
+      gitRepoRefreshRecordedRef.current = true;
+      markGitReposRegistrationRefreshPending();
+      gitReposCache.markStale();
+    }
+  }, [completed, taskStatus, effectiveTask, templateEntity]);
 
   const getMatchingEntity = useCallback(async (): Promise<Entity | null> => {
     let entity = matchingEntity;

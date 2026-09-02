@@ -106,7 +106,7 @@ spec:
         url: ${{ steps['publish-pr'].output.remoteUrl }}
       - title: Go to Git Repositories
         icon: catalog
-        url: /self-service/repositories/catalog
+        url: /self-service/repositories/catalog?refresh=true
       - title: Open repository
         icon: catalog
         url: /self-service/repositories/${{ steps['register-direct'].output.entityName or (parameters.repoUrl | parseRepoUrl).repo }}
