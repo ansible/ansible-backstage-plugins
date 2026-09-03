@@ -181,14 +181,18 @@ describe('ApmeQualitySettingsTab', () => {
 
   it('renders early-access preview and feedback link at the top', async () => {
     renderTab();
-    expect(await screen.findByText('Quality settings')).toBeInTheDocument();
-    expect(screen.getByTestId('preview-chip')).toHaveTextContent(
-      'Early access preview',
-    );
+    const qualitySettings = await screen.findByText('Quality settings');
+    const previewChip = screen.getByTestId('preview-chip');
+    expect(qualitySettings).toBeInTheDocument();
+    expect(previewChip).toHaveTextContent('Early access preview');
     const feedbackLink = screen.getByRole('link', {
       name: /Share your feedback/i,
     });
     expect(feedbackLink).toHaveAttribute('href', DEFAULT_APME_FEEDBACK_FORM_URL);
     expect(feedbackLink).toHaveAttribute('target', '_blank');
+    expect(
+      previewChip.compareDocumentPosition(qualitySettings) &
+        Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
   });
 });
