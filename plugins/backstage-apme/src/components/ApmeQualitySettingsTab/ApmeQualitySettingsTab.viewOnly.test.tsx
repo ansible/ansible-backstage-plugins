@@ -5,6 +5,7 @@
 import '@testing-library/jest-dom';
 import { render, screen } from '@testing-library/react';
 import { TestApiProvider } from '@backstage/test-utils';
+import { configApiRef } from '@backstage/core-plugin-api';
 import { apmeApiRef } from '../../api';
 import { ApmeQualitySettingsTab } from './ApmeQualitySettingsTab';
 
@@ -30,6 +31,12 @@ describe('ApmeQualitySettingsTab (view-only)', () => {
       targetAnsibleCoreVersion: '2.16',
     });
 
+    const configApi = {
+      getOptionalString: () => undefined,
+      getOptionalBoolean: (key: string) =>
+        key === 'ansible.apme.enabled' ? true : undefined,
+    };
+
     render(
       <TestApiProvider
         apis={[
@@ -46,6 +53,7 @@ describe('ApmeQualitySettingsTab (view-only)', () => {
               }),
             },
           ],
+          [configApiRef, configApi],
         ]}
       >
         <ApmeQualitySettingsTab />
