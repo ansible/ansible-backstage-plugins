@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-import { buildDevSpacesUrlFromRepoUrl } from '@ansible/backstage-rhaap-common/devSpaces';
+import { buildDevSpacesRemediationUrl } from '@ansible/backstage-rhaap-common/devSpaces';
 
 export type ResolvePostPushDevSpacesUrlOptions = {
   sessionVisible: boolean;
@@ -22,8 +22,6 @@ export type ResolvePostPushDevSpacesUrlOptions = {
   repoUrl?: string | null;
   /** Branch returned by the last successful createPR/push. */
   pushedBranchName?: string | null;
-  /** Default project branch — used only when a PR exists but push branch is unknown. */
-  projectBranch?: string | null;
   prUrl?: string | null;
   operationStatus?: string | null;
 };
@@ -31,6 +29,9 @@ export type ResolvePostPushDevSpacesUrlOptions = {
 /**
  * Build the Dev Spaces factory URL for the post-push Quality-tab CTA.
  * Returns null when config/repo are missing or push/PR has not happened yet.
+ *
+ * Intentionally omits `projectBranch`: Dev Spaces must target the remediation
+ * branch or PR, never the catalog project's default branch.
  */
 export function resolvePostPushDevSpacesUrl(
   options: ResolvePostPushDevSpacesUrlOptions,
@@ -40,7 +41,6 @@ export function resolvePostPushDevSpacesUrl(
     devSpacesBaseUrl,
     repoUrl,
     pushedBranchName,
-    projectBranch,
     prUrl,
     operationStatus,
   } = options;
@@ -56,13 +56,8 @@ export function resolvePostPushDevSpacesUrl(
     return null;
   }
 
-  const branch =
-    pushedBranchName ||
-    (prUrl || operationStatus === 'pr_submitted' ? projectBranch : undefined);
-
-  return buildDevSpacesUrlFromRepoUrl(
-    devSpacesBaseUrl,
-    repoUrl,
-    branch || undefined,
-  );
+  return buildDevSpacesRemediationUrl(devSpacesBaseUrl, repoUrl, {
+    branch: pushedBranchName,
+    prUrl: pushedBranchName ? undefined : prUrl,
+  });
 }

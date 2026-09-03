@@ -22,7 +22,6 @@ import '@patternfly/react-core/dist/styles/base.css';
 import {
   ApmeApiProvider,
   CheckOptionsForm,
-  ProjectWorkflowPanel,
   useProjectWorkflow,
   type ProjectWorkflowController,
 } from '@apme/ui-workflow';
@@ -42,7 +41,8 @@ const PortalCheckOptionsForm =
   CheckOptionsForm as FC<PortalCheckOptionsFormProps>;
 import { resolvePostPushDevSpacesUrl } from '../../utils/resolvePostPushDevSpacesUrl';
 import { ApmeUnavailable } from '../ApmeUnavailable';
-import { PostPushDevSpacesBanner } from '../EditInDevSpacesButton';
+import { EditInDevSpacesButton } from '../EditInDevSpacesButton';
+import { PortalProjectWorkflowPanel } from '../PortalWorkflowPanel';
 import { PreviewLabelRow } from '../PreviewChip';
 
 export interface ApmeEntityTabProps {
@@ -165,24 +165,22 @@ function WorkflowBody({ projectId }: { projectId: string }) {
     devSpacesBaseUrl: configApi.getOptionalString('ansible.devSpaces.baseUrl'),
     repoUrl: project?.repo_url,
     pushedBranchName,
-    projectBranch: project?.branch,
     prUrl: workflow.opState?.pr_url,
     operationStatus: workflow.opState?.status,
   });
 
+  const hostShipActions = devSpacesUrl ? (
+    <EditInDevSpacesButton url={devSpacesUrl} />
+  ) : undefined;
+
   if (sessionTabVisible) {
     return (
-      <>
-        <PostPushDevSpacesBanner
-          url={devSpacesUrl}
-          branchName={pushedBranchName ?? undefined}
-        />
-        <ProjectWorkflowPanel
-          workflow={workflowForPanel}
-          enableAi={portalAiEnabled && enableAi}
-          feedbackEnabled={false}
-        />
-      </>
+      <PortalProjectWorkflowPanel
+        workflow={workflowForPanel}
+        enableAi={portalAiEnabled && enableAi}
+        feedbackEnabled={false}
+        hostShipActions={hostShipActions}
+      />
     );
   }
 

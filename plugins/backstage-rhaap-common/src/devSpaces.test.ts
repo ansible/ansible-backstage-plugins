@@ -15,12 +15,23 @@
  */
 
 import {
+  buildDevSpacesRemediationUrl,
   buildDevSpacesUrlFromRepoUrl,
   generateDevSpacesUrl,
+  joinDevSpacesFactoryUrl,
   parseScmRepoUrl,
 } from './devSpaces';
 
 describe('devSpaces', () => {
+  it('joinDevSpacesFactoryUrl always inserts a slash before the hash', () => {
+    expect(
+      joinDevSpacesFactoryUrl(
+        'https://devspaces.example.com',
+        'https://github.com/acme/repo',
+      ),
+    ).toBe('https://devspaces.example.com/#https://github.com/acme/repo');
+  });
+
   it('generateDevSpacesUrl matches scaffolder pattern', () => {
     expect(
       generateDevSpacesUrl(
@@ -49,7 +60,7 @@ describe('devSpaces', () => {
         'url:https://github.com/acme-scm/network-firewall.git',
       ),
     ).toBe(
-      'https://devspaces.example.com#https://github.com/acme-scm/network-firewall',
+      'https://devspaces.example.com/#https://github.com/acme-scm/network-firewall',
     );
   });
 
@@ -61,7 +72,34 @@ describe('devSpaces', () => {
         'apme/remediate-abc',
       ),
     ).toBe(
-      'https://devspaces.example.com#https://github.com/acme-scm/network-firewall/tree/apme/remediate-abc',
+      'https://devspaces.example.com/#https://github.com/acme-scm/network-firewall/tree/apme/remediate-abc',
+    );
+  });
+
+  it('buildDevSpacesRemediationUrl prefers branch over pull request', () => {
+    expect(
+      buildDevSpacesRemediationUrl(
+        'https://devspaces.example.com',
+        'https://github.com/acme/ansible-apme',
+        {
+          branch: 'apme/remediate-abc',
+          prUrl: 'https://github.com/acme/ansible-apme/pull/12',
+        },
+      ),
+    ).toBe(
+      'https://devspaces.example.com/#https://github.com/acme/ansible-apme/tree/apme/remediate-abc',
+    );
+  });
+
+  it('buildDevSpacesRemediationUrl uses pull request URL when branch is absent', () => {
+    expect(
+      buildDevSpacesRemediationUrl(
+        'https://devspaces.example.com',
+        'https://github.com/acme/ansible-apme',
+        { prUrl: 'https://github.com/acme/ansible-apme/pull/12' },
+      ),
+    ).toBe(
+      'https://devspaces.example.com/#https://github.com/acme/ansible-apme/pull/12',
     );
   });
 });

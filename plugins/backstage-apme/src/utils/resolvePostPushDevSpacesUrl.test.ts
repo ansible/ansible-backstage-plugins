@@ -44,32 +44,30 @@ describe('resolvePostPushDevSpacesUrl', () => {
         pushedBranchName: 'apme/remediate-abc',
       }),
     ).toBe(
-      'https://devspaces.example.com#https://github.com/acme/ansible-apme/tree/apme/remediate-abc',
+      'https://devspaces.example.com/#https://github.com/acme/ansible-apme/tree/apme/remediate-abc',
     );
   });
 
-  it('falls back to project branch when only pr_url is known', () => {
+  it('uses the pull request URL when only pr_url is known', () => {
     expect(
       resolvePostPushDevSpacesUrl({
         ...base,
         prUrl: 'https://github.com/acme/ansible-apme/pull/12',
-        projectBranch: 'main',
       }),
     ).toBe(
-      'https://devspaces.example.com#https://github.com/acme/ansible-apme/tree/main',
+      'https://devspaces.example.com/#https://github.com/acme/ansible-apme/pull/12',
     );
   });
 
-  it('prefers pushed branch over project branch', () => {
+  it('prefers pushed branch over pull request URL', () => {
     expect(
       resolvePostPushDevSpacesUrl({
         ...base,
         pushedBranchName: 'apme/remediate-xyz',
         prUrl: 'https://github.com/acme/ansible-apme/pull/12',
-        projectBranch: 'main',
       }),
     ).toBe(
-      'https://devspaces.example.com#https://github.com/acme/ansible-apme/tree/apme/remediate-xyz',
+      'https://devspaces.example.com/#https://github.com/acme/ansible-apme/tree/apme/remediate-xyz',
     );
   });
 });

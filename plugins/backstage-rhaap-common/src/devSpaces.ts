@@ -22,6 +22,17 @@ export type ScmRepoParts = {
   repoName: string;
 };
 
+/** Always emit `{base}/#target` regardless of whether base ends with `/`. */
+export function joinDevSpacesFactoryUrl(
+  devSpacesBaseUrl: string,
+  hashTarget: string,
+): string {
+  const base = devSpacesBaseUrl.endsWith('/')
+    ? devSpacesBaseUrl
+    : `${devSpacesBaseUrl}/`;
+  return `${base}#${hashTarget}`;
+}
+
 /** OpenShift Dev Spaces factory URL (shared with scaffolder ansible action). */
 export function generateDevSpacesUrl(
   devSpacesBaseUrl: string,
@@ -33,7 +44,7 @@ export function generateDevSpacesUrl(
   const repoPath = branch
     ? `https://${sourceControl}/${repoOwner}/${repoName}/tree/${branch}`
     : `https://${sourceControl}/${repoOwner}/${repoName}`;
-  return `${devSpacesBaseUrl}#${repoPath}`;
+  return joinDevSpacesFactoryUrl(devSpacesBaseUrl, repoPath);
 }
 
 export function parseScmRepoUrl(repoUrl: string): ScmRepoParts | null {
@@ -76,6 +87,33 @@ export function buildDevSpacesUrlFromRepoUrl(
     parts.repoName,
     branch,
   );
+}
+
+export type BuildDevSpacesRemediationUrlOptions = {
+  branch?: string | null;
+  prUrl?: string | null;
+};
+
+/**
+ * Dev Spaces factory URL for a remediation branch or pull request.
+ * Prefers an explicit branch; otherwise uses the PR/MR URL directly.
+ */
+export function buildDevSpacesRemediationUrl(
+  devSpacesBaseUrl: string,
+  repoUrl: string,
+  options: BuildDevSpacesRemediationUrlOptions = {},
+): string | null {
+  const branch = options.branch?.trim();
+  if (branch) {
+    return buildDevSpacesUrlFromRepoUrl(devSpacesBaseUrl, repoUrl, branch);
+  }
+
+  const prUrl = options.prUrl?.trim();
+  if (prUrl) {
+    return joinDevSpacesFactoryUrl(devSpacesBaseUrl, prUrl);
+  }
+
+  return null;
 }
 
 export function getDevspacesUrlFromAnsibleConfig(
