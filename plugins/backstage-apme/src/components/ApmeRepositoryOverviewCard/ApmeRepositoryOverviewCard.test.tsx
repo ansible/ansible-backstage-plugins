@@ -192,9 +192,24 @@ describe('ApmeRepositoryOverviewCard', () => {
   it('does not navigate when a category help icon is clicked', () => {
     renderCard();
 
-    const helpIcon = screen.getByText('Lint').parentElement?.querySelector('svg');
-    expect(helpIcon).toBeTruthy();
-    fireEvent.click(helpIcon!);
+    fireEvent.click(
+      screen.getByRole('button', {
+        name: /code quality issues — naming conventions, fqcn usage, jinja spacing, and changed_when/i,
+      }),
+    );
+
+    expect(screen.getByTestId('search-params')).toHaveTextContent('tab=overview');
+  });
+
+  it('does not navigate when a category help icon is activated via keyboard', () => {
+    renderCard();
+
+    const helpButton = screen.getByRole('button', {
+      name: /code quality issues — naming conventions, fqcn usage, jinja spacing, and changed_when/i,
+    });
+    helpButton.focus();
+    fireEvent.keyDown(helpButton, { key: 'Enter', code: 'Enter' });
+    fireEvent.keyDown(helpButton, { key: ' ', code: 'Space' });
 
     expect(screen.getByTestId('search-params')).toHaveTextContent('tab=overview');
   });

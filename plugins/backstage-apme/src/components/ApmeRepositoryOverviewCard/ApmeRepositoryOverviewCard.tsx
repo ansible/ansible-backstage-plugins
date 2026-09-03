@@ -383,6 +383,7 @@ export const ApmeRepositoryOverviewCard = ({
                     size="small"
                     className={classes.categoryHelp}
                     onClick={stopCardNavigation}
+                    onKeyDown={stopCardNavigation}
                     aria-label={tip}
                   >
                     <HelpOutlineIcon
