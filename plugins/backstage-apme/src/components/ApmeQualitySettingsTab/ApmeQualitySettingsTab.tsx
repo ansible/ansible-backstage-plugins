@@ -70,6 +70,25 @@ const useStyles = makeStyles(theme => ({
     color: theme.palette.error.main,
     marginBottom: theme.spacing(2),
   },
+  settingsColumn: {
+    display: 'flex',
+    alignItems: 'stretch',
+  },
+  settingsCard: {
+    flex: 1,
+    width: '100%',
+    display: 'flex',
+    flexDirection: 'column',
+  },
+  settingsCardContent: {
+    flex: 1,
+    display: 'flex',
+    flexDirection: 'column',
+  },
+  settingsFooter: {
+    marginTop: 'auto',
+    paddingTop: theme.spacing(2),
+  },
 }));
 
 const ApmeQualitySettingsTabContent = () => {
@@ -149,14 +168,21 @@ const ApmeQualitySettingsTabContent = () => {
   return (
     <>
       <PreviewNotice />
-      <Grid container spacing={3} alignItems="flex-start">
-      <Grid item xs={12} md={canEdit ? 6 : 12}>
-        <Card>
+      <Grid container spacing={3} alignItems="stretch">
+      <Grid
+        item
+        xs={12}
+        md={canEdit ? 6 : 12}
+        className={canEdit ? classes.settingsColumn : undefined}
+      >
+        <Card className={canEdit ? classes.settingsCard : undefined}>
           <CardHeader
             title="Quality settings"
             subheader="Defaults for Quality scans across registered repositories"
           />
-          <CardContent>
+          <CardContent
+            className={canEdit ? classes.settingsCardContent : undefined}
+          >
             <Typography variant="body2" className={classes.hint}>
               Sets the global ansible-core target used when a repository has no
               per-project override, and the APME service URL used for scans and
@@ -218,64 +244,66 @@ const ApmeQualitySettingsTabContent = () => {
               inputProps={{ 'aria-label': 'APME service URL' }}
             />
 
-            <RequirePermission
-              permission={ansibleSettingsEditPermission}
-              resourceRef="apme"
-              errorPage={
-                <Typography variant="body2" className={classes.meta}>
-                  AI-assisted remediation:{' '}
-                  {enableAi ? 'enabled' : 'disabled'} (read-only)
-                </Typography>
-              }
-            >
-              <>
-                <FormControlLabel
-                  control={
-                    <Switch
-                      color="primary"
-                      checked={enableAi}
-                      onChange={(_e, checked) => {
-                        setEnableAi(checked);
-                        setDirty(true);
-                        setSavedMessage(undefined);
-                      }}
-                      disabled={saving}
-                      inputProps={{
-                        'aria-label': 'AI-assisted remediation',
-                      }}
-                    />
-                  }
-                  label="AI-assisted remediation"
-                />
-                <Typography variant="body2" className={classes.meta}>
-                  When enabled, Quality scans and remediations may use configured
-                  AI providers. Saved in portal Quality settings.
-                </Typography>
+            <Box className={canEdit ? classes.settingsFooter : undefined}>
+              <RequirePermission
+                permission={ansibleSettingsEditPermission}
+                resourceRef="apme"
+                errorPage={
+                  <Typography variant="body2" className={classes.meta}>
+                    AI-assisted remediation:{' '}
+                    {enableAi ? 'enabled' : 'disabled'} (read-only)
+                  </Typography>
+                }
+              >
+                <>
+                  <FormControlLabel
+                    control={
+                      <Switch
+                        color="primary"
+                        checked={enableAi}
+                        onChange={(_e, checked) => {
+                          setEnableAi(checked);
+                          setDirty(true);
+                          setSavedMessage(undefined);
+                        }}
+                        disabled={saving}
+                        inputProps={{
+                          'aria-label': 'AI-assisted remediation',
+                        }}
+                      />
+                    }
+                    label="AI-assisted remediation"
+                  />
+                  <Typography variant="body2" className={classes.meta}>
+                    When enabled, Quality scans and remediations may use
+                    configured AI providers. Saved in portal Quality settings.
+                  </Typography>
 
-                <Box className={classes.actions}>
-                  <Button
-                    color="primary"
-                    variant="contained"
-                    onClick={() => void onSave()}
-                    disabled={saving || !dirty}
-                  >
-                    {saving ? 'Saving…' : 'Save'}
-                  </Button>
-                  {savedMessage && (
-                    <Typography variant="body2" color="primary">
-                      {savedMessage}
-                    </Typography>
-                  )}
-                </Box>
-              </>
-            </RequirePermission>
+                  <Box className={classes.actions}>
+                    <Button
+                      color="primary"
+                      variant="contained"
+                      onClick={() => void onSave()}
+                      disabled={saving || !dirty}
+                    >
+                      {saving ? 'Saving…' : 'Save'}
+                    </Button>
+                    {savedMessage && (
+                      <Typography variant="body2" color="primary">
+                        {savedMessage}
+                      </Typography>
+                    )}
+                  </Box>
+                </>
+              </RequirePermission>
+            </Box>
           </CardContent>
         </Card>
       </Grid>
 
       {canEdit && (
-        <Grid item xs={12} md={6}>
-          <ApmeAiProvidersSection />
+        <Grid item xs={12} md={6} className={classes.settingsColumn}>
+          <ApmeAiProvidersSection fillHeight />
         </Grid>
       )}
       </Grid>
