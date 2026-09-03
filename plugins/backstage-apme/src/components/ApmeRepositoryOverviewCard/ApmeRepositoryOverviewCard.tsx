@@ -12,6 +12,7 @@ import {
   Card,
   CardContent,
   CircularProgress,
+  IconButton,
   Tooltip,
   Typography,
   makeStyles,
@@ -378,10 +379,11 @@ export const ApmeRepositoryOverviewCard = ({
               >
                 {label}
                 <Tooltip title={tip} arrow enterDelay={200}>
-                  <span
+                  <IconButton
+                    size="small"
                     className={classes.categoryHelp}
                     onClick={stopCardNavigation}
-                    onKeyDown={stopCardNavigation}
+                    aria-label={tip}
                   >
                     <HelpOutlineIcon
                       style={{
@@ -389,7 +391,7 @@ export const ApmeRepositoryOverviewCard = ({
                         color: theme.palette.text.disabled,
                       }}
                     />
-                  </span>
+                  </IconButton>
                 </Tooltip>
                 <span
                   style={{
