@@ -218,7 +218,7 @@ installs the **packed** `dist/` tarball.
 ### Portal pin and dynamic export
 
 ```json
-"@apme/ui-workflow": "https://github.com/ansible/apme/releases/download/v2026.9.1/apme-ui-workflow-2026.9.1.tgz"
+"@apme/ui-workflow": "https://github.com/ansible/apme/releases/download/v2026.9.2/apme-ui-workflow-2026.9.2.tgz"
 ```
 
 `export-dynamic` embeds the package into the RHDH dynamic plugin bundle:
