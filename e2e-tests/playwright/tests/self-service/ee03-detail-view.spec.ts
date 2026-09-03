@@ -122,18 +122,30 @@ test.describe('Execution Environment Catalog and Detail View Tests', () => {
     page,
   }) => {
     await expect(page.locator('main')).toBeVisible({ timeout: 15000 });
-    const row = page.locator('table tbody tr').first();
-    if ((await row.count()) === 0) {
+    // Let background catalog fetches settle before interacting to avoid DOM detach on re-render
+    await page.waitForLoadState('networkidle', { timeout: 10000 }).catch(() => {});
+    if ((await page.locator('table tbody tr').count()) === 0) {
       return;
     }
-    const editBtn = row.locator('button').filter({ hasText: /edit/i }).first();
-    if ((await editBtn.count()) > 0) {
-      await editBtn.click({ force: true });
-      await page.waitForTimeout(1500);
-      if (page.url().includes('/edit')) {
-        await page.goBack();
-        await page.waitForTimeout(1000);
-      }
+    const editBtnLocator = page
+      .locator('table tbody tr')
+      .first()
+      .locator('button[aria-label="Edit"]');
+    if ((await editBtnLocator.count()) === 0) {
+      return;
+    }
+    // Re-query the full locator chain on each retry so stale references don't block the click
+    await expect(async () => {
+      await page
+        .locator('table tbody tr')
+        .first()
+        .locator('button[aria-label="Edit"]')
+        .click({ force: true });
+    }).toPass({ timeout: 30000, intervals: [500] });
+    await page.waitForTimeout(1500);
+    if (page.url().includes('/edit')) {
+      await page.goBack();
+      await page.waitForTimeout(1000);
     }
   });
 
