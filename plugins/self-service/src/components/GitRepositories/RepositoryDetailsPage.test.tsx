@@ -1,4 +1,5 @@
 import { screen, fireEvent, waitFor } from '@testing-library/react';
+import { Route, Routes, useLocation } from 'react-router-dom';
 import { renderInTestApp, TestApiProvider } from '@backstage/test-utils';
 import { ThemeProvider, createTheme } from '@material-ui/core/styles';
 import {
@@ -47,6 +48,11 @@ jest.mock('@ansible/backstage-rhaap-common/permissions', () => ({
 }));
 
 const theme = createTheme();
+
+const LocationProbe = () => {
+  const { pathname, search } = useLocation();
+  return <div data-testid="location">{`${pathname}${search}`}</div>;
+};
 
 const mockCatalogApi = {
   getEntities: jest.fn(),
@@ -669,6 +675,55 @@ describe('RepositoryDetailsPage', () => {
     await waitFor(() => {
       expect(screen.getByTestId('collections-list')).toBeInTheDocument();
     });
+  });
+
+  it('clears quality-activity params when switching back to Overview', async () => {
+    await renderInTestApp(
+      <TestApiProvider
+        apis={[
+          [catalogApiRef, mockCatalogApi],
+          [discoveryApiRef, mockDiscoveryApi],
+          [fetchApiRef, mockFetchApi],
+          [identityApiRef, mockIdentityApi],
+          [
+            gitRepositoriesExtensionsApiRef,
+            new DefaultGitRepositoriesExtensionsApi(),
+          ],
+        ]}
+      >
+        <ThemeProvider theme={theme}>
+          <Routes>
+            <Route
+              path="/repositories/:repositoryName"
+              element={
+                <>
+                  <LocationProbe />
+                  <RepositoryDetailsPage />
+                </>
+              }
+            />
+          </Routes>
+        </ThemeProvider>
+      </TestApiProvider>,
+      {
+        routeEntries: [
+          '/repositories/test-repo?tab=quality-activity&activity=scan-416',
+        ],
+      },
+    );
+
+    await waitFor(() => {
+      expect(screen.getByText('Overview')).toBeInTheDocument();
+    });
+
+    fireEvent.click(screen.getByText('Overview'));
+
+    await waitFor(() => {
+      expect(screen.getByTestId('location')).toHaveTextContent(
+        '/repositories/test-repo',
+      );
+    });
+    expect(screen.getByText('README')).toBeInTheDocument();
   });
 
   it('renders extension tab renderLabel when provided', async () => {
