@@ -290,6 +290,106 @@ describe('ApmeAiProvidersSection', () => {
     ).toBeInTheDocument();
   });
 
+  it('shows no models configured when provider has an empty model list', async () => {
+    getAiProviders.mockResolvedValue([
+      { id: 'empty-provider', engine: 'openai', models: [] },
+    ]);
+    renderSection();
+    expect(await screen.findByText('No models configured')).toBeInTheDocument();
+  });
+
+  it('shows all model names when provider has exactly three models', async () => {
+    getAiProviders.mockResolvedValue([
+      {
+        id: 'triple-provider',
+        engine: 'ollama',
+        models: ['model-a', 'model-b', 'model-c'],
+      },
+    ]);
+    renderSection();
+    expect(
+      await screen.findByText('3 models: model-a, model-b, model-c'),
+    ).toBeInTheDocument();
+    expect(screen.queryByText(/\+/)).not.toBeInTheDocument();
+  });
+
+  it('exposes full model list via title tooltip when summary is truncated', async () => {
+    getAiProviders.mockResolvedValue([
+      {
+        id: 'local-ollama',
+        engine: 'ollama',
+        models: ['m1', 'm2', 'm3', 'm4', 'm5'],
+      },
+    ]);
+    renderSection();
+    const summary = await screen.findByText('5 models: m1, m2, m3 +2 more');
+    expect(summary).toHaveAttribute('title', 'm1, m2, m3, m4, m5');
+  });
+
+  it('truncates ConfigMap system provider model summaries', async () => {
+    getAiProviders.mockResolvedValue([]);
+    getAiConfig.mockResolvedValue({
+      config: {
+        providers: {
+          'cm-ollama': {
+            engine: 'ollama',
+            models: {
+              m1: {},
+              m2: {},
+              m3: {},
+              m4: {},
+            },
+          },
+        },
+      },
+    });
+    renderSection();
+
+    expect(await screen.findByText('System providers')).toBeInTheDocument();
+    expect(
+      screen.getByText('4 models: m1, m2, m3 +1 more'),
+    ).toBeInTheDocument();
+  });
+
+  it('applies fillHeight layout classes when fillHeight is true', async () => {
+    getAiProviders.mockResolvedValue([
+      { id: 'only-provider', engine: 'ollama', models: ['llama3.2:1b'] },
+    ]);
+    getAiModels.mockResolvedValue([
+      { id: 'llama3.2:1b', provider: 'ollama', name: 'llama3.2:1b' },
+    ]);
+    const { container } = renderSection({ fillHeight: true });
+    await screen.findByText('only-provider');
+
+    const card = container.querySelector('.MuiCard-root');
+    const cardContent = container.querySelector('.MuiCardContent-root');
+    expect(card?.className).toEqual(expect.stringMatching(/fillHeightCard/));
+    expect(cardContent?.className).toEqual(
+      expect.stringMatching(/fillHeightContent/),
+    );
+
+    const modelsHeading = screen.getByText('Available models');
+    const modelsSection = modelsHeading.parentElement;
+    expect(modelsSection?.className).toEqual(
+      expect.stringMatching(/modelsSectionAtBottom/),
+    );
+  });
+
+  it('does not apply fillHeight layout classes when fillHeight is false', async () => {
+    getAiProviders.mockResolvedValue([
+      { id: 'only-provider', engine: 'ollama', models: ['llama3.2:1b'] },
+    ]);
+    const { container } = renderSection();
+    await screen.findByText('only-provider');
+
+    const card = container.querySelector('.MuiCard-root');
+    const cardContent = container.querySelector('.MuiCardContent-root');
+    expect(card?.className).not.toEqual(expect.stringMatching(/fillHeightCard/));
+    expect(cardContent?.className).not.toEqual(
+      expect.stringMatching(/fillHeightContent/),
+    );
+  });
+
   it('shows only two providers with view-all button when more than two exist', async () => {
     getAiProviders.mockResolvedValue([
       { id: 'provider-1', engine: 'ollama', models: ['model-a'] },
@@ -332,6 +432,52 @@ describe('ApmeAiProvidersSection', () => {
     await waitFor(() => {
       expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
     });
+  });
+
+  it('opens edit dialog from view-all providers modal', async () => {
+    getAiProviders.mockResolvedValue([
+      { id: 'provider-1', engine: 'ollama', models: ['model-a'] },
+      { id: 'provider-2', engine: 'ollama', models: ['model-b'] },
+      { id: 'provider-3', engine: 'ollama', models: ['model-c'] },
+    ]);
+    renderSection();
+
+    fireEvent.click(
+      await screen.findByRole('button', { name: /view all 3 ai providers/i }),
+    );
+    fireEvent.click(
+      screen.getByRole('button', { name: /edit provider provider-3/i }),
+    );
+
+    await waitFor(() => {
+      expect(screen.queryByRole('heading', { name: 'AI providers' })).not
+        .toBeInTheDocument();
+    });
+    expect(
+      screen.getByText('Edit provider: provider-3'),
+    ).toBeInTheDocument();
+  });
+
+  it('opens remove confirm from view-all providers modal', async () => {
+    getAiProviders.mockResolvedValue([
+      { id: 'provider-1', engine: 'ollama', models: ['model-a'] },
+      { id: 'provider-2', engine: 'ollama', models: ['model-b'] },
+      { id: 'provider-3', engine: 'ollama', models: ['model-c'] },
+    ]);
+    renderSection();
+
+    fireEvent.click(
+      await screen.findByRole('button', { name: /view all 3 ai providers/i }),
+    );
+    fireEvent.click(
+      screen.getByRole('button', { name: /remove provider provider-2/i }),
+    );
+
+    expect(
+      await screen.findByRole('heading', { name: /remove provider/i }),
+    ).toBeInTheDocument();
+    const dialog = screen.getByRole('dialog');
+    expect(dialog).toHaveTextContent('Remove provider provider-2?');
   });
 
   it('opens add dialog on "Add provider" click', async () => {
