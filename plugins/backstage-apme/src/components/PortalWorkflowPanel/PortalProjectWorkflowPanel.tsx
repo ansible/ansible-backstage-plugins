@@ -76,6 +76,7 @@ export function PortalProjectWorkflowPanel({
   const {
     operationActive,
     opState,
+    isCancelling,
     approve,
     beginRemediate,
     escalateAi,
@@ -154,6 +155,25 @@ export function PortalProjectWorkflowPanel({
       setActionHost(null);
     };
   }, [hostShipActions, operationId, opStatus, opState?.pr_url]);
+
+  // Cancel clears the op snapshot before dismiss — show stopping, not starting.
+  if (isCancelling) {
+    return (
+      <Card>
+        <CardBody style={{ textAlign: 'center', padding: '48px 24px' }}>
+          <Spinner size="lg" />
+          <div style={{ marginTop: 12, fontSize: 16 }}>Stopping session…</div>
+          <Button
+            variant="link"
+            onClick={dismiss}
+            style={{ marginTop: 16 }}
+          >
+            Dismiss
+          </Button>
+        </CardBody>
+      </Card>
+    );
+  }
 
   if (!operationActive || !opState) {
     return (

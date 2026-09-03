@@ -68,6 +68,23 @@ describe('findPullRequestControl', () => {
 });
 
 describe('PortalProjectWorkflowPanel', () => {
+  it('renders the stopping spinner while cancel is in progress', () => {
+    render(
+      <PortalProjectWorkflowPanel
+        workflow={workflowStub({
+          isCancelling: true,
+          operationActive: true,
+          opState: null,
+        })}
+        enableAi={false}
+        feedbackEnabled={false}
+      />,
+    );
+
+    expect(screen.getByText('Stopping session…')).toBeInTheDocument();
+    expect(screen.queryByTestId('operation-panel')).not.toBeInTheDocument();
+  });
+
   it('renders the starting spinner when the workflow session is not active', () => {
     render(
       <PortalProjectWorkflowPanel
